@@ -30,27 +30,24 @@ Your 5160+Inboard system has 8 ISA cards. Current emulation status:
 **Your Hardware Config** (confirmed from hardware deep-dive):
 - **I/O Address**: 0x340 (SW1 bit 2 On)
 - **ROM Address**: 0xCA000 (16KB)
-- **IRQ**: DISABLED (All IRQ jumpers JP3 open - no IRQ 3/5/7)
+- **IRQ**: **NONE - ALL JUMPERS OPEN** (JP3: IRQ 3/5/7 all not jumped - polling mode only)
 - **Wait States**: Zero wait state ENABLED (JP2 jumped)
-- **Operation Mode**: Polling only (no interrupts)
+- **Operation Mode**: Polling only (driver polls status register, no interrupt signals)
 
 **86Box Status**:
 - Device exists: `scsi_t130b_device` in `src/scsi/scsi_ncr53c400.c`
 - ROM available: `roms/scsi/trantor_t130b_bios_v2.14.bin` ✓ (copied to repo)
-- **Work needed**: Verify/implement `irq = -1` (Disabled) and `zero_wait` flag support
+- **Work needed**: Verify polling mode (no IRQ) and `zero_wait` flag support
 
 **Integration Steps**:
-1. Check `scsi_ncr53c400.c` for `irq = -1` handling (maps to no IRQ)
+1. Check `scsi_ncr53c400.c` for polling-mode support (no IRQ - driver polls status register)
 2. Verify `zero_wait` flag exists and scales timing correctly
 3. Add to machine table:
    ```c
-   .scsicard = {
-       .dev = &scsi_t130b_device,
-       .irq = -1,
-       .zero_wait = 1
-   }
+   .scsicard = &scsi_t130b_device  // Polling mode, no IRQ
+   // Optional: zero_wait flag if available
    ```
-4. Test: DOS boot should detect SCSI, no IRQ conflict, faster transfers with zero_wait
+4. Test: DOS boot should detect SCSI via polling, faster transfers with zero_wait enabled
 
 **Reference**: `INBOARD_86BOX_PORT_PLAN.md` §3707-3722 (real root-cause debugging)
 
