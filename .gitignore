@@ -1,0 +1,9 @@
+build/
+*.o
+*.exe
+test-images/*.img
+test-images/*.bin
+!test-images/README.md
+vcpkg_installed/
+.vscode/
+.idea/
