@@ -764,3 +764,17 @@ const device_t inboard386_xt_device = {
     .force_redraw  = NULL,
     .config        = inboard386_xt_config
 };
+
+const device_t inboard386_at_device = {
+    .name          = "Intel Inboard 386/PC (AT)",
+    .internal_name = "inboard386_at",
+    .flags         = DEVICE_ISA,
+    .local         = 1,
+    .init          = inboard386_init,
+    .close         = inboard386_close,
+    .reset         = inboard386_reset,
+    .available     = NULL,
+    .speed_changed = inboard386_speed_changed,
+    .force_redraw  = NULL,
+    .config        = NULL
+};
