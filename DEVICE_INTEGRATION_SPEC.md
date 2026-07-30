@@ -55,13 +55,13 @@ Your 5160+Inboard system has 8 ISA cards. Current emulation status:
 
 ### 2. HIGH: 3Com Etherlink III (3C509B) Network Card
 
-**Your Hardware Config** (confirmed from hardware deep-dive):
-- **Type**: 3C509B-C (software-configurable Ethernet card)
-- **I/O Base**: 0x300 (standard 3C509 default)
-- **ID Port**: 0x110 (per 3C509 protocol)
-- **IRQ**: 3 (JP... setting unknown, verify on real card)
-- **MAC Address**: 00:20:AF:6F:10:5E (real hardware MAC from 2026-07-30 trace)
-- **ROM**: Hosts Sergey floppy drive custom ROM
+**Your Hardware Config** (real hardware confirmed 2026-07-30, IMG_0669/0670):
+- **Type**: 3C509B-C (software-configurable Ethernet card, Twisted Pair 10BaseT)
+- **I/O Base**: 0x320 (decimal 800) - MEASURED ON REAL HARDWARE
+- **ID Port**: 0x110 (decimal 272)
+- **IRQ**: 3 (real hardware confirmed)
+- **MAC Address**: 00:20:AF:6F:10:5E (real hardware measured)
+- **ROM**: Hosts Sergey floppy drive custom ROM (secondary function)
 
 **86Box Status**:
 - No native 3C509B implementation (Copilot noted this)
@@ -85,7 +85,7 @@ Your 5160+Inboard system has 8 ISA cards. Current emulation status:
 3. **Machine table integration**:
    ```c
    .net_device = &nic_3c509b_device,
-   // Configuration: I/O 0x300, IRQ 3, MAC 00:20:AF:6F:10:5E
+   // Configuration: I/O 0x320, IRQ 3, ID Port 0x110, MAC 00:20:AF:6F:10:5E
    ```
 
 4. **Test**: Boot DOS with 3C509B driver, verify network access
