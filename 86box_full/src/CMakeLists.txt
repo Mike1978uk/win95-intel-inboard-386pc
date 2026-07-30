@@ -177,15 +177,19 @@ if(APPLE)
     endif()
 endif()
 
-find_package(Freetype REQUIRED)
-include_directories(${FREETYPE_INCLUDE_DIRS})
-if(FREETYPE_INCLUDE_DIR_ft2build)
-    include_directories(${FREETYPE_INCLUDE_DIR_ft2build})
-endif()
-if(APPLE)
-    # Freetype is dynamically loaded by the emulator, however, we link it
-    # on macOS so it gets copied to the bundle by the installation process
-    target_link_libraries(86Box Freetype::Freetype)
+find_package(Freetype)
+if(FREETYPE_FOUND)
+    include_directories(${FREETYPE_INCLUDE_DIRS})
+    if(FREETYPE_INCLUDE_DIR_ft2build)
+        include_directories(${FREETYPE_INCLUDE_DIR_ft2build})
+    endif()
+    if(APPLE)
+        # Freetype is dynamically loaded by the emulator, however, we link it
+        # on macOS so it gets copied to the bundle by the installation process
+        target_link_libraries(86Box Freetype::Freetype)
+    endif()
+else()
+    message(WARNING "Freetype not found - building without font rendering support")
 endif()
 
 find_package(PNG REQUIRED)
