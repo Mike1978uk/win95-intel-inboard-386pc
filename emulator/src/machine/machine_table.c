@@ -454,9 +454,9 @@ const machine_t machines[] = {
         .device                   = &ibmxt_inboard386_device,
         .kbd_device               = &keyboard_pc_xt_device,
         .fdc_device               = NULL,
-        .vid_device               = NULL,
-        .snd_device               = NULL,
-        .net_device               = NULL,
+        .vid_device               = &mach8_isa_device,      /* ATI Mach8 video (8-bit ISA, CGA mode) */
+        .snd_device               = &sb_pro2_device,        /* Sound Blaster Pro 2 (I/O 0x220, IRQ 5, DMA 1) */
+        .net_device               = &nic_3c509b_device,     /* 3Com 3C509B NIC (I/O 0x320, IRQ 3) */
         .aliases                  = { "" }
     },
     {
