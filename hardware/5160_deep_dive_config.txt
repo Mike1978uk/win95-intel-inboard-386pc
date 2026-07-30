@@ -1,0 +1,112 @@
+5160 deep dive config
+
+5160 board jumpers
+SW1
+1 Off normal setting
+2 Off FPU supported
+3 Off
+4 Off
+Enabled motherboard ram Enable banks 0/1/2/3
+5 On
+6 On
+Cards with a Bios expansion Rom eg VGA
+7 Off
+8 On
+Two floppy drives
+
+Slot1
+Ati Ultra Mach 8
+Jumper settings JU1 top two pins of three jumped (8bit mode)
+JU3 all pins open 2x3 pins
+
+Slot 2
+Sound Blaster Pro 2 CT1600
+Jumpers
+JP11 DMA/CTL of 3 pins pins 2-3 jumped
+JP4 2 JY_EN pins jumped assume joystick enable
+JP13,JP14 2 pins each JP13 jumped 22x assume 220 address
+JP21,JP20,JP19,JP18 (IRQ 2,5,7,10) 2pins each JP20 (IRQ 5) Jumped
+JP5-7 (DRQ 0,1,3) 2 pins each JP6 DRQ1 jumped
+JP15,JP16,JP17 (DACK0,1,3) JP16 DACK1 jumped
+JP1 PC SPK unused 2 pin header
+SPK EN 2 pin jumped
+JP2 8 pins Audio pwd? Pins 2-3 jumped
+CD in connected to Nakamichi drive output
+Mic connected external
+Speakers connected externally
+
+Slot 3
+3com Etherlink III
+3c509b-C
+No jumpers, configured by software
+Hosting Rom for Sergey Floppy drive
+Rom copied desktop\xt_project\sergey_fdd_rom\sergey_fdd.bin
+
+Slot 4
+T130b
+Led 4pin jumped unused
+Switch block SW1
+1 Off
+2 On
+= I/O Address 340H
+3 Off
+4 Off
+5 On
+= Rom address CA000H
+6 Off
+7 Off
+8 Off
+Unused
+
+JP2 0WS (zero wait state) 2 pins jumped zero wait state enabled
+
+JP3
+IRQ 3
+IRQ 5
+IRQ 7
+All not jumped 2 pins each so running without IRQ
+
+Slot 5
+Intel inboard 386/pc 1mb + 4mb community piggy back board.
+CPU interposer I-O Data PK-A486BL 386 486 Blue Lightning Processor Upgrade CPU BL3 60MHz 486DLC including FPU
+Crystal oscillator changed to 40Mhz from 32mhz
+
+Slot 6
+ISA Floppy Disk and Serial Controller Sergey Kisalev 2012
+SW1
+1 Off
+2 On IRQ 4 (com1)
+3-7 Off
+8 On com1 0x3f8
+
+SW2
+1-2 On enable Rom, eeprom write on
+3-4 On
+5 Off
+6-7 On
+11011 =0xC8000 Rom address
+8 Off unused
+
+Rom is hosting the SmartWatch+ by dJos at above address
+
+Slot 7
+New card fitted - no switch to the jumpers
+Intel 21 TK9901 isa high speed ECP/EPP parallel port
+IEEE 1284 supports speeds up to 2mb/ps
+Labels on silk screen are TK-A0IE12
+
+Jumpers, 3 position pins 1-3
+JP6 378h 2-3 jumped
+JP5 DMA 3, 2-3 jumped
+JP4 IRQ7 2-3 jumped
+JP3 DMA 3, 2-3 jumped
+JP2 ECP/EPP 2-3 jumped
+JP1 ECP/EPP 2-3 jumped
+
+Slot 8
+Xtide universal bios
+XT-CF lotech v20 Rom written
+Jumpers
+JP1 Rom enable 2 pins jumped
+JP2 Rom address 2pins open D800h
+JP3 slot 8 enable 2 pins jumped
