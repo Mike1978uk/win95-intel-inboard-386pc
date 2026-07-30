@@ -1,0 +1,2270 @@
+#include <stdarg.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <time.h>
+#if defined(__APPLE__) && defined(__aarch64__)
+#    include <pthread.h>
+#endif
+#include <wchar.h>
+#include <math.h>
+#ifndef INFINITY
+#    define INFINITY (__builtin_inff())
+#endif
+
+#define HAVE_STDARG_H
+#include <86box/86box.h>
+#include "cpu.h"
+#include "x86.h"
+#include "x86_ops.h"
+#include "x86seg_common.h"
+#include "x86seg.h"
+#include "x87_sf.h"
+#include "x87.h"
+#include <86box/io.h>
+#include <86box/mem.h>
+#include <86box/nmi.h>
+#include <86box/pic.h>
+#include <86box/timer.h>
+#include <86box/fdd.h>
+#include <86box/fdc.h>
+#include <86box/machine.h>
+#include <86box/plat_fallthrough.h>
+#include <86box/plat_unused.h>
+#include <86box/gdbstub.h>
+#include <86box/keyboard.h>
+#ifdef USE_DYNAREC
+#    include "codegen.h"
+#    ifdef USE_NEW_DYNAREC
+#        include "codegen_backend.h"
+#    endif
+#endif
+
+#ifdef IS_DYNAREC
+#    undef IS_DYNAREC
+#endif
+
+#include "386_common.h"
+
+#if defined(__APPLE__) && defined(__aarch64__)
+#    include <pthread.h>
+#endif
+
+#define CPU_BLOCK_END() cpu_block_end = 1
+
+int cpu_force_interpreter   = 0;
+int cpu_override_dynarec    = 0;
+int inrecomp                = 0;
+int cpu_block_end           = 0;
+int cpu_end_block_after_ins = 0;
+
+#if defined(__aarch64__) || defined(_M_ARM64)
+/* ARM64-only epoch: monotonically advances on dirty-list transitions so
+   per-block retry state can distinguish dense bursts from stale retries. */
+static uint32_t dynarec_s03e_dirty_epoch             = 0;
+#endif
+
+#if defined(__aarch64__) || defined(_M_ARM64)
+/* ARM64-only policy: require repeated BYTE_MASK dirty-list hits before
+   NO_IMMEDIATES promotion to avoid premature slow-immediate escalation. */
+/* Tuning: raise threshold to 3 consecutive dirty-list retries so transient
+   churn is more likely to recover via retry-decay before forcing NO_IMMEDIATES. */
+#    define DYNAREC_S03B_NO_IMM_THRESHOLD 3
+/* Tuning: retry bursts must stay temporally dense; large gaps reset burst
+   accumulation instead of carrying stale debt into later promotions. */
+#    define DYNAREC_S03E_BURST_GAP_MAX 64
+#endif
+
+#ifdef ENABLE_386_DYNAREC_LOG
+int x386_dynarec_do_log = ENABLE_386_DYNAREC_LOG;
+
+void
+x386_dynarec_log(const char *fmt, ...)
+{
+    va_list ap;
+
+    if (x386_dynarec_do_log) {
+        va_start(ap, fmt);
+        pclog_ex(fmt, ap);
+        va_end(ap);
+    }
+}
+#else
+#    define x386_dynarec_log(fmt, ...)
+#endif
+
+static __inline void
+fetch_ea_32_long(uint32_t rmdat)
+{
+    eal_r = eal_w = NULL;
+    easeg         = cpu_state.ea_seg->base;
+    if (cpu_rm == 4) {
+        uint8_t sib = rmdat >> 8;
+
+        switch (cpu_mod) {
+            case 0:
+                cpu_state.eaaddr = cpu_state.regs[sib & 7].l;
+                cpu_state.pc++;
+                break;
+            case 1:
+                cpu_state.pc++;
+                cpu_state.eaaddr = ((uint32_t) (int8_t) getbyte()) + cpu_state.regs[sib & 7].l;
+                break;
+            case 2:
+                cpu_state.eaaddr = (fastreadl(cs + cpu_state.pc + 1)) + cpu_state.regs[sib & 7].l;
+                cpu_state.pc += 5;
+                break;
+        }
+        /*SIB byte present*/
+        if ((sib & 7) == 5 && !cpu_mod)
+            cpu_state.eaaddr = getlong();
+        else if ((sib & 6) == 4 && !cpu_state.ssegs) {
+            easeg            = ss;
+            cpu_state.ea_seg = &cpu_state.seg_ss;
+        }
+        if (((sib >> 3) & 7) != 4)
+            cpu_state.eaaddr += cpu_state.regs[(sib >> 3) & 7].l << (sib >> 6);
+    } else {
+        cpu_state.eaaddr = cpu_state.regs[cpu_rm].l;
+        if (cpu_mod) {
+            if (cpu_rm == 5 && !cpu_state.ssegs) {
+                easeg            = ss;
+                cpu_state.ea_seg = &cpu_state.seg_ss;
+            }
+            if (cpu_mod == 1) {
+                cpu_state.eaaddr += ((uint32_t) (int8_t) (rmdat >> 8));
+                cpu_state.pc++;
+            } else {
+                cpu_state.eaaddr += getlong();
+            }
+        } else if (cpu_rm == 5) {
+            cpu_state.eaaddr = getlong();
+        }
+    }
+    if (easeg != 0xFFFFFFFF && ((easeg + cpu_state.eaaddr) & 0xFFF) <= 0xFFC) {
+        uint32_t addr = easeg + cpu_state.eaaddr;
+        if (readlookup2[addr >> 12] != (uintptr_t) -1)
+            eal_r = (uint32_t *) (readlookup2[addr >> 12] + addr);
+        if (writelookup2[addr >> 12] != (uintptr_t) -1)
+            eal_w = (uint32_t *) (writelookup2[addr >> 12] + addr);
+    }
+}
+
+static __inline void
+fetch_ea_16_long(uint32_t rmdat)
+{
+    eal_r = eal_w = NULL;
+    easeg         = cpu_state.ea_seg->base;
+    if (!cpu_mod && cpu_rm == 6) {
+        cpu_state.eaaddr = getword();
+    } else {
+        switch (cpu_mod) {
+            case 0:
+                cpu_state.eaaddr = 0;
+                break;
+            case 1:
+                cpu_state.eaaddr = (uint16_t) (int8_t) (rmdat >> 8);
+                cpu_state.pc++;
+                break;
+            case 2:
+                cpu_state.eaaddr = getword();
+                break;
+        }
+        cpu_state.eaaddr += (*mod1add[0][cpu_rm]) + (*mod1add[1][cpu_rm]);
+        if (mod1seg[cpu_rm] == &ss && !cpu_state.ssegs) {
+            easeg            = ss;
+            cpu_state.ea_seg = &cpu_state.seg_ss;
+        }
+        cpu_state.eaaddr &= 0xFFFF;
+    }
+    if (easeg != 0xFFFFFFFF && ((easeg + cpu_state.eaaddr) & 0xFFF) <= 0xFFC) {
+        uint32_t addr = easeg + cpu_state.eaaddr;
+        if (readlookup2[addr >> 12] != (uintptr_t) -1)
+            eal_r = (uint32_t *) (readlookup2[addr >> 12] + addr);
+        if (writelookup2[addr >> 12] != (uintptr_t) -1)
+            eal_w = (uint32_t *) (writelookup2[addr >> 12] + addr);
+    }
+}
+
+#define fetch_ea_16(rmdat)       \
+    cpu_state.pc++;              \
+    cpu_mod = (rmdat >> 6) & 3;  \
+    cpu_reg = (rmdat >> 3) & 7;  \
+    cpu_rm  = rmdat & 7;         \
+    if (cpu_mod != 3) {          \
+        fetch_ea_16_long(rmdat); \
+        if (cpu_state.abrt)      \
+            return 1;            \
+    }
+#define fetch_ea_32(rmdat)       \
+    cpu_state.pc++;              \
+    cpu_mod = (rmdat >> 6) & 3;  \
+    cpu_reg = (rmdat >> 3) & 7;  \
+    cpu_rm  = rmdat & 7;         \
+    if (cpu_mod != 3) {          \
+        fetch_ea_32_long(rmdat); \
+    }                            \
+    if (cpu_state.abrt)          \
+    return 1
+
+#include "x86_flags.h"
+
+#define PREFETCH_RUN(instr_cycles, bytes, modrm, reads, reads_l, writes, writes_l, ea32)      \
+    do {                                                                                      \
+        if (cpu_prefetch_cycles)                                                              \
+            prefetch_run(instr_cycles, bytes, modrm, reads, reads_l, writes, writes_l, ea32); \
+    } while (0)
+
+#define PREFETCH_PREFIX()        \
+    do {                         \
+        if (cpu_prefetch_cycles) \
+            prefetch_prefixes++; \
+    } while (0)
+#define PREFETCH_FLUSH() prefetch_flush()
+
+#define OP_TABLE(name)   ops_##name
+#if 0
+#    define CLOCK_CYCLES(c)               \
+        {                                 \
+            if (fpu_cycles > 0) {         \
+                fpu_cycles -= (c);        \
+                if (fpu_cycles < 0) {     \
+                    cycles += fpu_cycles; \
+                }                         \
+            } else {                      \
+                cycles -= (c);            \
+            }                             \
+        }
+#    define CLOCK_CYCLES_FPU(c)   cycles -= (c)
+#    define CONCURRENCY_CYCLES(c) fpu_cycles = (c)
+#else
+#    define CLOCK_CYCLES(c)     cycles -= (c)
+#    define CLOCK_CYCLES_FPU(c) cycles -= (c)
+#    define CONCURRENCY_CYCLES(c)
+#endif
+#define CLOCK_CYCLES_ALWAYS(c) cycles -= (c)
+
+#include "386_ops.h"
+
+#ifdef USE_DEBUG_REGS_486
+#    define CACHE_ON() (!(cr0 & (1 << 30)) && !(cpu_state.flags & T_FLAG) && !(dr[7] & 0xFF))
+#else
+#    define CACHE_ON() (!(cr0 & (1 << 30)) && !(cpu_state.flags & T_FLAG))
+#endif
+
+#ifdef USE_DYNAREC
+int32_t         cycles_main = 0;
+static int32_t  cycles_old  = 0;
+static uint64_t tsc_old     = 0;
+
+#    ifdef USE_ACYCS
+int32_t acycs = 0;
+#    endif
+
+int
+codegen_mmx_enter(void)
+{
+    MMX_ENTER();
+    return 0;
+}
+
+int
+codegen_femms(void)
+{
+    if (!cpu_has_feature(CPU_FEATURE_MMX)) {
+        x86illegal();
+        return 1;
+    }
+    if (cr0 & 0xc) {
+        x86_int(7);
+        return 1;
+    }
+
+    x87_emms();
+    return 0;
+}
+
+int
+codegen_fp_enter(void)
+{
+    FP_ENTER();
+    return 0;
+}
+
+void
+update_tsc(void)
+{
+    int      cycdiff;
+    uint64_t delta;
+
+    cycdiff = cycles_old - cycles;
+#    ifdef USE_ACYCS
+    if (inrecomp)
+        cycdiff += acycs;
+#    endif
+
+    delta = tsc - tsc_old;
+    if (delta > 0) {
+        /* TSC has changed, this means interim timer processing has happened,
+           see how much we still need to add. */
+        cycdiff -= delta;
+    }
+
+    if (cycdiff > 0)
+        tsc += cycdiff;
+
+    if (cycdiff > 0) {
+        if (TIMER_VAL_LESS_THAN_VAL(timer_target, (uint64_t) tsc))
+            timer_process();
+    }
+}
+
+static __inline void
+exec386_dynarec_int(void)
+{
+    cpu_block_end = 0;
+    x86_was_reset = 0;
+
+    if (trap == 2) {
+        /* Handle the T bit in the new TSS first. */
+        CPU_BLOCK_END();
+        goto block_ended;
+    }
+
+    while (!cpu_block_end) {
+#    ifndef USE_NEW_DYNAREC
+        oldcs  = CS;
+        oldcpl = CPL;
+#    endif
+        cpu_state.oldpc = cpu_state.pc;
+        cpu_state.op32  = use32;
+
+        cpu_state.ea_seg = &cpu_state.seg_ds;
+        cpu_state.ssegs  = 0;
+
+        fetchdat = fastreadl_fetch(cs + cpu_state.pc);
+#    ifdef ENABLE_386_DYNAREC_LOG
+        if (in_smm)
+            x386_dynarec_log("[%04X:%08X] fetchdat = %08X\n", CS, cpu_state.pc, fetchdat);
+#    endif
+
+        if (!cpu_state.abrt) {
+            opcode = fetchdat & 0xFF;
+            fetchdat >>= 8;
+
+#    ifdef USE_DEBUG_REGS_486
+            trap = (trap & ~1) | (!!(cpu_state.flags & T_FLAG));
+#    else
+            trap = cpu_state.flags & T_FLAG;
+#    endif
+
+            cpu_state.pc++;
+#    ifdef USE_DEBUG_REGS_486
+            cpu_state.eflags &= ~(RF_FLAG);
+#    endif
+            x86_opcodes[(opcode | cpu_state.op32) & 0x3ff](fetchdat);
+        }
+
+#    ifndef USE_NEW_DYNAREC
+        if (!use32)
+            cpu_state.pc &= 0xffff;
+#    endif
+
+#    ifdef USE_DEBUG_REGS_486
+        if (!cpu_state.abrt) {
+            if (!rf_flag_no_clear) {
+                cpu_state.eflags &= ~RF_FLAG;
+            }
+
+            rf_flag_no_clear = 0;
+        }
+#    endif
+
+        if (((cs + cpu_state.pc) >> 12) != pccache)
+            CPU_BLOCK_END();
+
+        if (cpu_end_block_after_ins) {
+            cpu_end_block_after_ins--;
+            if (!cpu_end_block_after_ins)
+                CPU_BLOCK_END();
+        }
+
+        if (cpu_init)
+            CPU_BLOCK_END();
+
+        if (cpu_state.abrt)
+            CPU_BLOCK_END();
+        if (smi_line)
+            CPU_BLOCK_END();
+        else if (new_ne)
+            CPU_BLOCK_END();
+        else if (trap)
+            CPU_BLOCK_END();
+        else if (nmi && nmi_enable && nmi_mask)
+            CPU_BLOCK_END();
+        else if ((cpu_state.flags & I_FLAG) && pic.int_pending && !cpu_end_block_after_ins)
+            CPU_BLOCK_END();
+    }
+
+block_ended:
+    if (!cpu_state.abrt && !new_ne && trap) {
+        if (trap & 2) dr[6] |= 0x8000;
+        if (trap & 1) dr[6] |= 0x4000;
+        if (trap & 16) dr[6] |= 0x2000;
+
+        trap = 0;
+#    ifndef USE_NEW_DYNAREC
+        oldcs = CS;
+#    endif
+        cpu_state.oldpc = cpu_state.pc;
+        x86_int(1);
+    }
+
+    cpu_end_block_after_ins = 0;
+}
+
+#if defined(__linux__) && !defined(__clang__) && defined(USE_NEW_DYNAREC)
+static inline void __attribute__((optimize("O2")))
+#else
+static __inline void
+#endif
+exec386_dynarec_dyn(void)
+{
+    uint32_t start_pc  = 0;
+    uint32_t phys_addr = get_phys(cs + cpu_state.pc);
+    int      hash      = HASH(phys_addr);
+#    ifdef USE_NEW_DYNAREC
+    codeblock_t *block = &codeblock[codeblock_hash[hash]];
+#    else
+    codeblock_t *block = codeblock_hash[hash];
+#    endif
+    int valid_block = 0;
+
+#    ifdef USE_NEW_DYNAREC
+    if (!cpu_state.abrt)
+#    else
+    if (block && !cpu_state.abrt)
+#    endif
+    {
+        page_t *page = &pages[phys_addr >> 12];
+
+        /* Block must match current CS, PC, code segment size,
+           and physical address. The physical address check will
+           also catch any page faults at this stage */
+        valid_block = (block->pc == cs + cpu_state.pc) && (block->_cs == cs) && (block->phys == phys_addr) && !((block->status ^ cpu_cur_status) & CPU_STATUS_FLAGS) && ((block->status & cpu_cur_status & CPU_STATUS_MASK) == (cpu_cur_status & CPU_STATUS_MASK));
+        if (!valid_block) {
+            uint64_t mask = (uint64_t) 1 << ((phys_addr >> PAGE_MASK_SHIFT) & PAGE_MASK_MASK);
+#    ifdef USE_NEW_DYNAREC
+            int      byte_offset = (phys_addr >> PAGE_BYTE_MASK_SHIFT) & PAGE_BYTE_MASK_OFFSET_MASK;
+            uint64_t byte_mask   = 1ULL << (phys_addr & PAGE_BYTE_MASK_MASK);
+
+            if ((page->code_present_mask & mask) ||
+                ((page->mem != page_ff) && (page->byte_code_present_mask[byte_offset] & byte_mask)))
+#    else
+            if (page->code_present_mask[(phys_addr >> PAGE_MASK_INDEX_SHIFT) & PAGE_MASK_INDEX_MASK] & mask)
+#    endif
+            {
+                /* Walk page tree to see if we find the correct block */
+                codeblock_t *new_block = codeblock_tree_find(phys_addr, cs);
+                if (new_block) {
+                    valid_block = (new_block->pc == cs + cpu_state.pc) && (new_block->_cs == cs) && (new_block->phys == phys_addr) && !((new_block->status ^ cpu_cur_status) & CPU_STATUS_FLAGS) && ((new_block->status & cpu_cur_status & CPU_STATUS_MASK) == (cpu_cur_status & CPU_STATUS_MASK));
+                    if (valid_block) {
+                        block = new_block;
+#    ifdef USE_NEW_DYNAREC
+                        codeblock_hash[hash] = get_block_nr(block);
+#    endif
+                    }
+                }
+            }
+        }
+
+        if (valid_block && (block->page_mask & *block->dirty_mask)) {
+#    ifdef USE_NEW_DYNAREC
+            codegen_check_flush(page, page->dirty_mask, phys_addr);
+            if (block->valid && (block->flags & CODEBLOCK_IN_DIRTY_LIST))
+                block->flags &= ~CODEBLOCK_WAS_RECOMPILED;
+            else
+#    else
+            codegen_check_flush(page, page->dirty_mask[(phys_addr >> 10) & 3], phys_addr);
+            page->dirty_mask[(phys_addr >> 10) & 3] = 0;
+#    endif
+            if (!block->valid)
+                valid_block = 0;
+        }
+        if (valid_block && block->page_mask2) {
+            /* We don't want the second page to cause a page
+               fault at this stage - that would break any
+               code crossing a page boundary where the first
+               page is present but the second isn't. Instead
+               allow the first page to be interpreted and for
+               the page fault to occur when the page boundary
+               is actually crossed.*/
+#    ifdef USE_NEW_DYNAREC
+            uint32_t phys_addr_2 = get_phys_noabrt(block->pc + ((block->flags & CODEBLOCK_BYTE_MASK) ? 0x40 : 0x400));
+#    else
+            uint32_t phys_addr_2 = get_phys_noabrt(block->endpc);
+#    endif
+            page_t *page_2 = &pages[phys_addr_2 >> 12];
+
+            if ((block->phys_2 ^ phys_addr_2) & ~0xfff)
+                valid_block = 0;
+            else if (block->page_mask2 & *block->dirty_mask2) {
+#    ifdef USE_NEW_DYNAREC
+                codegen_check_flush(page_2, page_2->dirty_mask, phys_addr_2);
+                if (block->valid && (block->flags & CODEBLOCK_IN_DIRTY_LIST))
+                    block->flags &= ~CODEBLOCK_WAS_RECOMPILED;
+                else
+#    else
+                codegen_check_flush(page_2, page_2->dirty_mask[(phys_addr_2 >> 10) & 3], phys_addr_2);
+                page_2->dirty_mask[(phys_addr_2 >> 10) & 3] = 0;
+#    endif
+                if (!block->valid)
+                    valid_block = 0;
+            }
+        }
+#    ifdef USE_NEW_DYNAREC
+        /* ARM64-only: if a BYTE_MASK block executes stably outside the dirty
+           list, clear stale retry debt so a distant future dirty hit does not
+           trigger premature NO_IMMEDIATES promotion. */
+#        if defined(__aarch64__) || defined(_M_ARM64)
+        if (valid_block && !(block->flags & CODEBLOCK_IN_DIRTY_LIST) && (block->flags & CODEBLOCK_BYTE_MASK)
+            && !(block->flags & CODEBLOCK_NO_IMMEDIATES) && block->dirty_list_recompile_hits) {
+            block->dirty_list_recompile_hits = 0;
+            block->dirty_list_last_epoch     = 0;
+        }
+#        endif
+
+        if (valid_block && (block->flags & CODEBLOCK_IN_DIRTY_LIST)) {
+            const int had_byte_mask     = !!(block->flags & CODEBLOCK_BYTE_MASK);
+            const int had_no_immediates = !!(block->flags & CODEBLOCK_NO_IMMEDIATES);
+#if defined(__aarch64__) || defined(_M_ARM64)
+            const uint16_t last_epoch_before = block->dirty_list_last_epoch;
+#endif
+            block->flags &= ~CODEBLOCK_WAS_RECOMPILED;
+            if (had_byte_mask) {
+                if (!had_no_immediates) {
+#if defined(__aarch64__) || defined(_M_ARM64)
+                    /* ARM64-only: wait for repeated dirty-list BYTE_MASK
+                       hits before NO_IMMEDIATES promotion. */
+                    /* Require retries to occur in a dense burst window;
+                       stale widely-spaced retries are reset. */
+                    dynarec_s03e_dirty_epoch++;
+                    {
+                        const uint16_t cur_epoch = (uint16_t) dynarec_s03e_dirty_epoch;
+
+                        if (last_epoch_before != 0) {
+                            const uint16_t epoch_gap = (uint16_t) (cur_epoch - last_epoch_before);
+                            if (epoch_gap > DYNAREC_S03E_BURST_GAP_MAX) {
+                                block->dirty_list_recompile_hits = 0;
+                            }
+                        }
+                        block->dirty_list_last_epoch = cur_epoch;
+                    }
+                    block->dirty_list_recompile_hits++;
+                    if (block->dirty_list_recompile_hits >= DYNAREC_S03B_NO_IMM_THRESHOLD) {
+                        block->flags |= CODEBLOCK_NO_IMMEDIATES;
+                        block->dirty_list_last_epoch = 0;
+                    }
+#else
+                    block->flags |= CODEBLOCK_NO_IMMEDIATES;
+#endif
+                }
+            } else {
+#if defined(__aarch64__) || defined(_M_ARM64)
+                block->dirty_list_recompile_hits = 0;
+                block->dirty_list_last_epoch     = 0;
+#endif
+                block->flags |= CODEBLOCK_BYTE_MASK;
+            }
+        }
+        if (valid_block && (block->flags & CODEBLOCK_WAS_RECOMPILED) && (block->flags & CODEBLOCK_STATIC_TOP) && block->TOP != (cpu_state.TOP & 7))
+#    else
+        if (valid_block && block->was_recompiled && (block->flags & CODEBLOCK_STATIC_TOP) && block->TOP != cpu_state.TOP)
+#    endif
+        {
+            /* FPU top-of-stack does not match the value this block was compiled
+               with, re-compile using dynamic top-of-stack*/
+#    ifdef USE_NEW_DYNAREC
+            block->flags &= ~(CODEBLOCK_STATIC_TOP | CODEBLOCK_WAS_RECOMPILED);
+#    else
+            block->flags &= ~CODEBLOCK_STATIC_TOP;
+            block->was_recompiled = 0;
+#    endif
+        }
+    }
+
+#    ifdef USE_NEW_DYNAREC
+    if (valid_block && (block->flags & CODEBLOCK_WAS_RECOMPILED))
+#    else
+    if (valid_block && block->was_recompiled)
+#    endif
+    {
+        void (*code)(void) = (void *) &block->data[BLOCK_START];
+
+#    ifndef USE_NEW_DYNAREC
+        codeblock_hash[hash] = block;
+#    endif
+        inrecomp = 1;
+        code();
+#    ifdef USE_ACYCS
+        acycs = 0;
+#    endif
+        inrecomp = 0;
+
+#    ifndef USE_NEW_DYNAREC
+        if (!use32)
+            cpu_state.pc &= 0xffff;
+#    endif
+    } else if (valid_block && !cpu_state.abrt) {
+#    ifdef USE_NEW_DYNAREC
+        start_pc                 = cs + cpu_state.pc;
+        const int max_block_size = (block->flags & CODEBLOCK_BYTE_MASK) ? ((128 - 25) - (start_pc & 0x3f)) : 1000;
+#    else
+        start_pc = cpu_state.pc;
+#    endif
+
+        cpu_block_end = 0;
+        x86_was_reset = 0;
+
+#    if defined(__APPLE__) && defined(__aarch64__)
+        if (__builtin_available(macOS 11.0, *)) {
+            pthread_jit_write_protect_np(0);
+        }
+#    endif
+        codegen_block_start_recompile(block);
+        codegen_in_recompile = 1;
+
+        while (!cpu_block_end) {
+#    ifndef USE_NEW_DYNAREC
+            oldcs  = CS;
+            oldcpl = CPL;
+#    endif
+            cpu_state.oldpc = cpu_state.pc;
+            cpu_state.op32  = use32;
+
+            cpu_state.ea_seg = &cpu_state.seg_ds;
+            cpu_state.ssegs  = 0;
+
+            fetchdat = fastreadl_fetch(cs + cpu_state.pc);
+#    ifdef ENABLE_386_DYNAREC_LOG
+            if (in_smm)
+                x386_dynarec_log("[%04X:%08X] fetchdat = %08X\n", CS, cpu_state.pc, fetchdat);
+#    endif
+
+            if (!cpu_state.abrt) {
+                opcode = fetchdat & 0xFF;
+                fetchdat >>= 8;
+
+                cpu_state.pc++;
+
+                codegen_generate_call(opcode, x86_opcodes[(opcode | cpu_state.op32) & 0x3ff], fetchdat, cpu_state.pc, cpu_state.pc - 1);
+
+                x86_opcodes[(opcode | cpu_state.op32) & 0x3ff](fetchdat);
+
+                if (x86_was_reset)
+                    break;
+            }
+
+#    ifndef USE_NEW_DYNAREC
+            if (!use32)
+                cpu_state.pc &= 0xffff;
+#    endif
+
+                /* Cap source code at 4000 bytes per block; this
+                   will prevent any block from spanning more than
+                   2 pages. In practice this limit will never be
+                   hit, as host block size is only 2kB*/
+#    ifdef USE_NEW_DYNAREC
+            if (((cs + cpu_state.pc) - start_pc) >= max_block_size)
+#    else
+            if ((cpu_state.pc - start_pc) > 1000)
+#    endif
+                CPU_BLOCK_END();
+
+            if (cpu_init)
+                CPU_BLOCK_END();
+
+            if (new_ne)
+                CPU_BLOCK_END();
+            if ((cpu_state.flags & T_FLAG) || (trap == 2))
+                CPU_BLOCK_END();
+            if (smi_line)
+                CPU_BLOCK_END();
+            if (nmi && nmi_enable && nmi_mask)
+                CPU_BLOCK_END();
+            if ((cpu_state.flags & I_FLAG) && pic.int_pending && !cpu_end_block_after_ins)
+                CPU_BLOCK_END();
+
+            if (cpu_end_block_after_ins) {
+                cpu_end_block_after_ins--;
+                if (!cpu_end_block_after_ins)
+                    CPU_BLOCK_END();
+            }
+
+            if (cpu_state.abrt) {
+                if (!(cpu_state.abrt & ABRT_EXPECTED))
+                    codegen_block_remove();
+                CPU_BLOCK_END();
+            }
+        }
+
+        cpu_end_block_after_ins = 0;
+
+        if ((!cpu_state.abrt || (cpu_state.abrt & ABRT_EXPECTED)) && !new_ne && !x86_was_reset)
+            codegen_block_end_recompile(block);
+
+        if (x86_was_reset)
+            codegen_reset();
+
+        codegen_in_recompile = 0;
+#    if defined(__APPLE__) && defined(__aarch64__)
+        if (__builtin_available(macOS 11.0, *)) {
+            pthread_jit_write_protect_np(1);
+        }
+#    endif
+    } else if (!cpu_state.abrt) {
+        /* Mark block but do not recompile */
+#    ifdef USE_NEW_DYNAREC
+        start_pc                 = cs + cpu_state.pc;
+        const int max_block_size = (block->flags & CODEBLOCK_BYTE_MASK) ? ((128 - 25) - (start_pc & 0x3f)) : 1000;
+#    else
+        start_pc = cpu_state.pc;
+#    endif
+
+        cpu_block_end = 0;
+        x86_was_reset = 0;
+
+        codegen_block_init(phys_addr);
+
+        while (!cpu_block_end) {
+#    ifndef USE_NEW_DYNAREC
+            oldcs  = CS;
+            oldcpl = CPL;
+#    endif
+            cpu_state.oldpc = cpu_state.pc;
+            cpu_state.op32  = use32;
+
+            cpu_state.ea_seg = &cpu_state.seg_ds;
+            cpu_state.ssegs  = 0;
+
+            codegen_endpc = (cs + cpu_state.pc) + 8;
+            fetchdat      = fastreadl_fetch(cs + cpu_state.pc);
+
+#    ifdef ENABLE_386_DYNAREC_LOG
+            if (in_smm)
+                x386_dynarec_log("[%04X:%08X] fetchdat = %08X\n", CS, cpu_state.pc, fetchdat);
+#    endif
+
+            if (!cpu_state.abrt) {
+                opcode = fetchdat & 0xFF;
+                fetchdat >>= 8;
+
+                cpu_state.pc++;
+
+                x86_opcodes[(opcode | cpu_state.op32) & 0x3ff](fetchdat);
+
+                if (x86_was_reset)
+                    break;
+            }
+
+#    ifndef USE_NEW_DYNAREC
+            if (!use32)
+                cpu_state.pc &= 0xffff;
+#    endif
+
+                /* Cap source code at 4000 bytes per block; this
+                   will prevent any block from spanning more than
+                   2 pages. In practice this limit will never be
+                   hit, as host block size is only 2kB */
+#    ifdef USE_NEW_DYNAREC
+            if (((cs + cpu_state.pc) - start_pc) >= max_block_size)
+#    else
+            if ((cpu_state.pc - start_pc) > 1000)
+#    endif
+                CPU_BLOCK_END();
+
+            if (cpu_init)
+                CPU_BLOCK_END();
+
+            if (new_ne)
+                CPU_BLOCK_END();
+            if (cpu_state.flags & T_FLAG)
+                CPU_BLOCK_END();
+            if (smi_line)
+                CPU_BLOCK_END();
+            if (nmi && nmi_enable && nmi_mask)
+                CPU_BLOCK_END();
+            if ((cpu_state.flags & I_FLAG) && pic.int_pending && !cpu_end_block_after_ins)
+                CPU_BLOCK_END();
+
+            if (cpu_end_block_after_ins) {
+                cpu_end_block_after_ins--;
+                if (!cpu_end_block_after_ins)
+                    CPU_BLOCK_END();
+            }
+
+            if (cpu_state.abrt) {
+                if (!(cpu_state.abrt & ABRT_EXPECTED))
+                    codegen_block_remove();
+                CPU_BLOCK_END();
+            }
+        }
+
+        cpu_end_block_after_ins = 0;
+
+        if ((!cpu_state.abrt || (cpu_state.abrt & ABRT_EXPECTED)) && !new_ne && !x86_was_reset)
+            codegen_block_end();
+
+        if (x86_was_reset)
+            codegen_reset();
+    }
+#    ifdef USE_NEW_DYNAREC
+    else
+        cpu_state.oldpc = cpu_state.pc;
+#    endif
+
+}
+
+void
+exec386_dynarec(int32_t cycs)
+{
+    int      vector;
+    int      tempi;
+    int32_t  cycdiff;
+    int32_t  oldcyc;
+    int32_t  oldcyc2;
+    uint64_t oldtsc;
+    uint64_t delta;
+
+    int32_t cyc_period = cycs / (force_10ms ? 2000 : 200); /*5us*/
+
+#    ifdef USE_ACYCS
+    acycs = 0;
+#    endif
+    cycles_main += cycs;
+    while (cycles_main > 0) {
+        int32_t cycles_start;
+
+        cycles += cyc_period;
+        cycles_start = cycles;
+
+        while (cycles > 0) {
+#    ifndef USE_NEW_DYNAREC
+            oldcs           = CS;
+            cpu_state.oldpc = cpu_state.pc;
+            oldcpl          = CPL;
+            cpu_state.op32  = use32;
+
+            cycdiff = 0;
+#    endif
+            oldcyc = oldcyc2 = cycles;
+            cycles_old       = cycles;
+            oldtsc           = tsc;
+            tsc_old          = tsc;
+            if (cpu_force_interpreter || cpu_override_dynarec ||  (!CACHE_ON())) /*Interpret block*/
+            {
+                exec386_dynarec_int();
+            } else {
+                exec386_dynarec_dyn();
+            }
+
+            if (cpu_init) {
+                cpu_init = 0;
+                resetx86();
+            }
+
+            if (cpu_state.abrt) {
+                flags_rebuild();
+                tempi          = cpu_state.abrt & ABRT_MASK;
+                cpu_state.abrt = 0;
+                x86_doabrt(tempi);
+                if (cpu_state.abrt) {
+                    cpu_state.abrt = 0;
+                    cpu_state.pc   = cpu_state.oldpc;
+#    ifndef USE_NEW_DYNAREC
+                    CS = oldcs;
+#    endif
+                    pmodeint(8, 0);
+                    if (cpu_state.abrt) {
+                        cpu_state.abrt = 0;
+                        softresetx86();
+                        cpu_set_edx();
+#    ifdef ENABLE_386_DYNAREC_LOG
+                        x386_dynarec_log("Triple fault - reset\n");
+#    endif
+                    }
+                }
+            }
+
+            if (new_ne) {
+#    ifndef USE_NEW_DYNAREC
+                oldcs = CS;
+#    endif
+                cpu_state.oldpc = cpu_state.pc;
+                new_ne = 0;
+                x86_int(16);
+            }
+
+            if (smi_line)
+                enter_smm_check(0);
+            else if (nmi && nmi_enable && nmi_mask) {
+#    ifndef USE_NEW_DYNAREC
+                oldcs = CS;
+#    endif
+                cpu_state.oldpc = cpu_state.pc;
+                x86_int(2);
+                nmi_enable = 0;
+#    ifdef OLD_NMI_BEHAVIOR
+                if (nmi_auto_clear) {
+                    nmi_auto_clear = 0;
+                    nmi            = 0;
+                }
+#    else
+                nmi = 0;
+#    endif
+            } else if ((cpu_state.flags & I_FLAG) && pic.int_pending) {
+                vector = picinterrupt();
+                if (vector != -1) {
+#    ifndef USE_NEW_DYNAREC
+                    oldcs = CS;
+#    endif
+                    cpu_state.oldpc = cpu_state.pc;
+                    x86_int(vector);
+                }
+            }
+
+            cycdiff = oldcyc - cycles;
+            delta   = tsc - oldtsc;
+            if (delta > 0) {
+                /* TSC has changed, this means interim timer processing has happened,
+                   see how much we still need to add. */
+                cycdiff -= delta;
+                if (cycdiff > 0)
+                    tsc += cycdiff;
+            } else {
+                /* TSC has not changed. */
+                tsc += cycdiff;
+            }
+
+            if (cycdiff > 0) {
+                if (TIMER_VAL_LESS_THAN_VAL(timer_target, (uint64_t) tsc))
+                    timer_process();
+            }
+
+#    ifdef USE_GDBSTUB
+            if (gdbstub_instruction())
+                return;
+#    endif
+        }
+
+        cycles_main -= (cycles_start - cycles);
+    }
+}
+#endif
+
+void
+exec386(int32_t cycs)
+{
+    int      vector;
+    int      tempi;
+    int32_t  cycdiff;
+    int32_t  oldcyc;
+    int32_t  cycle_period;
+    int32_t  ins_cycles;
+    uint32_t addr;
+
+    cycles += cycs;
+
+    while (cycles > 0) {
+        cycle_period = (timer_target - (uint64_t) tsc) + 1;
+
+        x86_was_reset = 0;
+        cycdiff       = 0;
+        oldcyc        = cycles;
+        while (cycdiff < cycle_period) {
+#ifdef USE_DEBUG_REGS_486
+            int ins_fetch_fault = 0;
+#endif
+            ins_cycles = cycles;
+
+#ifndef USE_NEW_DYNAREC
+            oldcs  = CS;
+            oldcpl = CPL;
+#endif
+            cpu_state.oldpc = cpu_state.pc;
+            cpu_state.op32  = use32;
+
+            /* Mach8 option-ROM self-test speed fix (2026-07-26, see
+               INBOARD_86BOX_PORT_PLAN.md). `io_waitstates`/`reg_op_waitstates`
+               (inboard386.c) exist to make the *system BIOS's* own blind, instruction-
+               counted delay loops - calibrated against real 4.77MHz-ISA-bus timing -
+               take roughly the same real wall-clock time regardless of the Inboard's
+               configured accelerator speed. The Mach8 option ROM's own self-test is a
+               different case entirely: once its PIT-readback delay loop is fixed (the
+               C000:7B37 fix below) to resolve on the guest's own terms, its remaining
+               delays are governed by genuine, correctly-real-time-paced PIT ticks, not
+               blind instruction counts - so it needs no compensation at all, and
+               applying the same inflation this project needs elsewhere in POST to the
+               option ROM's own hundreds of individual I/O operations is exactly what
+               was stretching a real-hardware-instant self-test into 65-100+ real
+               seconds (confirmed by the user's own real hardware: banner shows
+               immediately, no visible delay). Scoped to CS==0xC000 only - restores the
+               real values the instant execution leaves the option ROM's own segment,
+               so every other POST-timing fix elsewhere in this project (all tuned
+               against the real, uncompensated io_waitstates/reg_op_waitstates values)
+               is completely unaffected. */
+            {
+                static int c000_ws_saved       = 0;
+                static int saved_io_ws         = 0;
+                static int saved_regop_ws      = 0;
+                static int saved_prefetch      = 0;
+                static int saved_mem_prefetch  = 0;
+                static int saved_rom_prefetch  = 0;
+                static int saved_cycles_read   = 0;
+                static int saved_cycles_read_l = 0;
+                static int saved_cycles_write  = 0;
+                static int saved_cycles_write_l = 0;
+                static int saved_isa_cycles    = 0;
+                if (CS == 0xC000) {
+                    if (!c000_ws_saved) {
+                        c000_ws_saved        = 1;
+                        saved_io_ws          = io_waitstates;
+                        saved_regop_ws       = reg_op_waitstates;
+                        saved_prefetch       = cpu_prefetch_cycles;
+                        saved_mem_prefetch   = cpu_mem_prefetch_cycles;
+                        saved_rom_prefetch   = cpu_rom_prefetch_cycles;
+                        saved_cycles_read    = cpu_cycles_read;
+                        saved_cycles_read_l  = cpu_cycles_read_l;
+                        saved_cycles_write   = cpu_cycles_write;
+                        saved_cycles_write_l = cpu_cycles_write_l;
+                        saved_isa_cycles     = isa_cycles;
+                        io_waitstates         = 0;
+                        reg_op_waitstates     = 0;
+                        cpu_prefetch_cycles   = 1;
+                        cpu_mem_prefetch_cycles = 1;
+                        cpu_rom_prefetch_cycles = 1;
+                        cpu_cycles_read       = 1;
+                        cpu_cycles_read_l     = 1;
+                        cpu_cycles_write      = 1;
+                        cpu_cycles_write_l    = 1;
+                        isa_cycles            = 1;
+                    }
+                } else if (c000_ws_saved) {
+                    c000_ws_saved         = 0;
+                    io_waitstates         = saved_io_ws;
+                    reg_op_waitstates     = saved_regop_ws;
+                    cpu_prefetch_cycles   = saved_prefetch;
+                    cpu_mem_prefetch_cycles = saved_mem_prefetch;
+                    cpu_rom_prefetch_cycles = saved_rom_prefetch;
+                    cpu_cycles_read       = saved_cycles_read;
+                    cpu_cycles_read_l     = saved_cycles_read_l;
+                    cpu_cycles_write      = saved_cycles_write;
+                    cpu_cycles_write_l    = saved_cycles_write_l;
+                    isa_cycles            = saved_isa_cycles;
+                }
+            }
+
+            /* Ring buffer of the last N (CS,PC) pairs, recorded on EVERY instruction
+               regardless of address - used to reconstruct the path INTO the shared
+               F000:E354 error trap when it's reached from somewhere other than the
+               two already-understood PIC-IMR / IRQ0-delivery tests at E32A-E3A0. */
+            {
+                static uint32_t ring_cs[1048576];
+                static uint32_t ring_pc[1048576];
+                static int      ring_pos      = 0;
+                static int      seen_e3a0     = 0;
+                static int      dumped_second = 0;
+                static uint32_t ring_last_cs  = 0xFFFFFFFF;
+                static uint32_t ring_last_pc  = 0xFFFFFFFF;
+
+                /* Collapse consecutive duplicate (CS,PC) entries - without this, an idle
+                   wait/poll loop (e.g. INT 16h keyboard polling) burns through the whole
+                   1048576-entry ring in a handful of real-time microseconds, leaving nothing
+                   of the actually-interesting code path that ran just before it. This
+                   makes the ring buffer's effective time-depth vastly larger for any
+                   trigger that fires after even a brief idle spell (found the hard way
+                   2026-07-25 chasing the INBRDPC.SYS "BAD" chip marker - the plain ring
+                   buffer was 100% consumed by the E842-E84D keyboard-poll loop). */
+                /* Diagnostic (2026-07-26, 1986-ROM investigation): F000:E0AB is a classic
+                   early-POST 8088 FLAGS/register self-test HLT trap - every conditional
+                   jump in the preceding block (E060-E0A9, LAHF/SAHF/STC/CLC/segment-register-
+                   chain checks) lands here on ANY unexpected result. Reaching it this early
+                   (before the IVT is even set up) matches "black screen, doesn't boot"
+                   exactly. Capture which specific check failed by logging the previous
+                   unique (CS,PC) - i.e. which conditional jump was actually taken - right
+                   before it gets overwritten by the ring-buffer update below. */
+                if ((CS == 0xF000) && (cpu_state.pc == 0xE0AB)) {
+                    static int e0ab_dumped = 0;
+                    if (!e0ab_dumped) {
+                        e0ab_dumped = 1;
+                        fprintf(stderr, "[e0abtrap] HLT-trap reached; previous unique CS:PC = %04X:%04X (AX=%04X BX=%04X CX=%04X DX=%04X DS=%04X flags=%04X)\n",
+                                ring_last_cs, ring_last_pc, AX, BX, CX, DX, ds, cpu_state.flags);
+                        fflush(stderr);
+                    }
+                }
+
+                /* None of the 3 statically-found (E8/E9/EB-opcode-scanned) callers of the
+                   shared F000:E387 print+halt routine (E385, E3AC, E511) are being reached
+                   this time (confirmed: [e507fix] never fires) - something else, likely an
+                   indirect/computed jump my static byte scan can't see, calls in. Trap the
+                   TRUE immediate predecessor directly at E387's own entry, same technique as
+                   [e0abtrap] above (log ring_last_* before this instruction's own ring-buffer
+                   write happens), rather than trusting the full ring dump's wraparound-prone
+                   ordering. */
+                if ((CS == 0xF000) && (cpu_state.pc == 0xE387)) {
+                    static int e387_dumped = 0;
+                    if (!e387_dumped) {
+                        e387_dumped = 1;
+                        fprintf(stderr, "[e387trap] entered shared print+halt; previous unique CS:PC = %04X:%04X\n",
+                                ring_last_cs, ring_last_pc);
+                        fflush(stderr);
+                    }
+                }
+
+                /* Companion: log DS:BX right at entry to the F8C8 ROM-checksum routine
+                   (mov cx,0 / xor al,al / add al,[bx] / inc bx / loop $-3 / or al,al / ret -
+                   sums 65536 bytes starting at [DS:BX], returns with ZF set iff the sum is 0)
+                   so we know exactly which physical memory range is being checksummed and can
+                   cross-check it against how the two 1986 ROM files actually get mapped. */
+                if ((CS == 0xF000) && (cpu_state.pc == 0xF8C8)) {
+                    static int f8c8_dumped = 0;
+                    if (!f8c8_dumped) {
+                        f8c8_dumped = 1;
+                        fprintf(stderr, "[f8c8entry] checksum start DS:BX=%04X:%04X (physical=%05X)\n",
+                                ds, BX, (((uint32_t) ds) << 4) + BX);
+                        fflush(stderr);
+                    }
+                }
+
+                if ((CS != ring_last_cs) || (cpu_state.pc != ring_last_pc)) {
+                    ring_last_cs      = CS;
+                    ring_last_pc      = cpu_state.pc;
+                    ring_cs[ring_pos] = CS;
+                    ring_pc[ring_pos] = cpu_state.pc;
+                    ring_pos          = (ring_pos + 1) % 1048576;
+                }
+
+                /* [int1587] 2026-07-26 (shadow-RAM re-investigation): the two prior fix attempts
+                   both guessed the location/nature of the "reference" bytes from static
+                   disassembly of two DIFFERENT files (the system ROM dump and INBRDPC.SYS) and
+                   never actually confirmed which one - if either - genuinely executes the
+                   INT 15h AH=87h call live, nor what the real BIOS's own handler does with it.
+                   Trap the ACTUAL execution generically (opcode bytes CD 15 with AH=87h in AX,
+                   any CS) so the caller's true segment is known directly rather than assumed -
+                   this alone will show whether the call originates from the system ROM's own
+                   F000 segment or from wherever DOS loaded INBRDPC.SYS. Also dump the GDT
+                   descriptor-pair structure at ES:SI (the standard AH=87h calling convention -
+                   6 x 8-byte descriptors, entry 2 = source, entry 3 = destination) so the real
+                   source/destination physical addresses are known, not guessed. A paired
+                   one-shot watches the return point (CS:PC+2, since INT/IRET preserves CS and
+                   restores IP right after the 2-byte CD 15) to see whether the real ROM's INT 15h
+                   handler actually sets CF=1 (unsupported - correct AT-BIOS-absence behavior,
+                   would make the whole check a no-op) or returns CF=0 (as if it succeeded without
+                   doing anything, which is what would actually trigger the visible error). */
+                {
+                    static int      int87_hits          = 0;
+                    static int      int87_watch_pending  = 0;
+                    static uint32_t int87_watch_cs       = 0;
+                    static uint32_t int87_watch_pc       = 0;
+                    static int      int87_post_count     = 0;
+
+                    if (int87_watch_pending && (CS == int87_watch_cs) && (cpu_state.pc == int87_watch_pc)) {
+                        int87_watch_pending = 0;
+                        fprintf(stderr, "[int1587] return: CS:PC=%04X:%04X flags=%04X CF=%d AX=%04X DSbase=%05X ESbase=%05X SI=%04X DI=%04X\n",
+                                CS, cpu_state.pc, cpu_state.flags, (cpu_state.flags & C_FLAG) ? 1 : 0, AX, ds, es, SI, DI);
+                        fprintf(stderr, "[int1587]   readback: FE05B=%02X %02X %02X   5FE05B=%02X %02X %02X\n",
+                                mem_readb_phys(0xFE05B), mem_readb_phys(0xFE05C), mem_readb_phys(0xFE05D),
+                                mem_readb_phys(0x5FE05B), mem_readb_phys(0x5FE05C), mem_readb_phys(0x5FE05D));
+                        fflush(stderr);
+                        int87_post_count = 80; /* Trace next 80 retired instructions after the return. */
+                    }
+
+                    if (int87_post_count > 0) {
+                        uint32_t phys2  = (((uint32_t) CS) << 4) + cpu_state.pc;
+                        uint8_t  opb0   = mem_readb_phys(phys2);
+                        uint8_t  opb1   = mem_readb_phys(phys2 + 1);
+                        int      is_cmps = (opb0 == 0xA6) || (opb0 == 0xA7)
+                            || (((opb0 == 0xF2) || (opb0 == 0xF3)) && ((opb1 == 0xA6) || (opb1 == 0xA7)));
+                        fprintf(stderr, "[int1587post] #%02d CS:PC=%04X:%04X op=%02X %02X DSbase=%05X SI=%04X ESbase=%05X DI=%04X CX=%04X flags=%04X%s\n",
+                                81 - int87_post_count, CS, cpu_state.pc, opb0, opb1, ds, SI, es, DI, CX, cpu_state.flags,
+                                is_cmps ? "  <-- CMPS" : "");
+                        if (is_cmps) {
+                            /* NOTE: ds/es (lowercase) are already-computed segment BASE addresses
+                               (cpu.h: #define ds cpu_state.seg_ds.base) - do NOT shift by <<4 again,
+                               unlike CS (cpu.h: #define CS cpu_state.seg_cs.seg, a raw selector). An
+                               earlier version of this diagnostic wrongly shifted ds/es a second time,
+                               producing a bogus destination physical address past the 1MB real-mode
+                               limit that always read back as unmapped 0xFF - a self-inflicted false
+                               reading, not a real finding. */
+                            uint32_t src_phys = ((uint32_t) ds) + SI;
+                            uint32_t dst_phys = ((uint32_t) es) + DI;
+                            fprintf(stderr, "[int1587post]      CMPS operands: DSbase:SI=%05X:%04X (phys %05X, byte=%02X)  ESbase:DI=%05X:%04X (phys %05X, byte=%02X)  CX=%04X\n",
+                                    ds, SI, src_phys, mem_readb_phys(src_phys), es, DI, dst_phys, mem_readb_phys(dst_phys), CX);
+                        }
+                        fflush(stderr);
+                        int87_post_count--;
+                    }
+
+                    /* [ioscan] 2026-07-26: hunting the ~256K memory-accounting gap found via the
+                       user's real-hardware photos - real INBRDPC.SYS reports "extended memory
+                       detected: 4352k" (matching the Intel manual's documented "256K bytes of
+                       extended memory" on the Inboard card itself, PLUS the 4096K/4MB piggyback -
+                       256+4096=4352, exact match), while this project's emulator consistently
+                       reports only 4096k (piggyback only, zero contribution from the onboard
+                       card's own 256K). INBRDPC.SYS doesn't use the standard INT 15h AH=88h "get
+                       extended memory size" call (checked: not present in the file at all) - it
+                       must determine the total some other way, most likely a real I/O port read
+                       on the Inboard card itself (this device already handles ports 0x60/0x64/
+                       0xA0/0x670/0x674 - if there's a port for reported memory *size* specifically,
+                       it isn't modeled). Trace all IN/OUT activity from CS in the typical low-
+                       DOS-driver segment range (0x0100-0x0500, where INBRDPC.SYS itself loads in
+                       this test config - excludes the already-separately-traced F000/C000 ROM
+                       segments) to find it, capped tightly since this fires during ordinary driver
+                       execution, not just one routine. */
+                    {
+                        static int ioscan_hits = 0;
+                        if ((ioscan_hits < 80) && (CS >= 0x0100) && (CS <= 0x0500)) {
+                            uint32_t phys3 = (((uint32_t) CS) << 4) + cpu_state.pc;
+                            uint8_t  opb   = mem_readb_phys(phys3);
+                            if ((opb == 0xE4) || (opb == 0xE5) || (opb == 0xEC) || (opb == 0xED)
+                                || (opb == 0xE6) || (opb == 0xE7) || (opb == 0xEE) || (opb == 0xEF)) {
+                                ioscan_hits++;
+                                uint8_t imm = mem_readb_phys(phys3 + 1);
+                                fprintf(stderr, "[ioscan] #%d CS:PC=%04X:%04X op=%02X imm8=%02X DX=%04X AX=%04X\n",
+                                        ioscan_hits, CS, cpu_state.pc, opb, imm, DX, AX);
+                                fflush(stderr);
+                            }
+                        }
+                    }
+
+                    /* [ramaddr] 2026-07-26: hunting why this project's emulated ATI self-test shows
+                       the extended "RAM Addressing" diagnostic forever (an ever-incrementing counter,
+                       matching a genuine non-terminating retry loop) while the user's real hardware
+                       (confirmed running the byte-identical real ROM) only ever shows instant
+                       "Testing.......Ok". Disassembled the real ROM's own pattern-verify loop
+                       (0x76AE-0x76D2: writes a test pattern via port 0xBAE8 as a register-select,
+                       then repeatedly reads back port 0xE2E8 comparing against the pattern (AAAA/
+                       A5A5/5555 in turn) and separately polls the same port for a status bit to
+                       clear (0x76C7-0x76D0, CX-bounded retry, structurally identical in shape to the
+                       PIT-readback delay loop already fixed earlier this session for a different
+                       routine) - trace the actual port values this project's emulator produces at
+                       the read-back point (0x76C7, right before the CX-bounded compare-against-zero)
+                       to see whether it's a genuine status-bit-never-clears problem, the same class
+                       of bug as the already-fixed PIT-readback issue, or something else entirely. */
+                    {
+                        static int ramaddr_hits = 0;
+                        if ((ramaddr_hits < 200) && (CS == 0xC000) && (cpu_state.pc == 0x76C7)) {
+                            ramaddr_hits++;
+                            fprintf(stderr, "[ramaddr] #%d CS:PC=%04X:%04X DX=%04X AX(pre-in)=%04X CX=%04X flags=%04X\n",
+                                    ramaddr_hits, CS, cpu_state.pc, DX, AX, CX, cpu_state.flags);
+                            fflush(stderr);
+                        }
+                    }
+
+                    /* [ramaddr2] 2026-07-26, continued: [ramaddr] only covered the CX-bounded retry
+                       loop (0x76C7), which the earlier trace proved is clean (24/24, no errors). Fresh
+                       disassembly of the real ROM dump (XT_project/ATI_MACH8.bin) found the actual
+                       error-bit source is upstream of that loop: 0x76AE/0x76BA are the two INITIAL
+                       compares for each of the three AAAA/A5A5/5555 patterns (write via port 0xE2E8,
+                       read back same port, XOR against the expected pattern in SI) - a mismatch here
+                       calls 0x7618 to OR error bits into BL, and 0x7729's `test bx,0xff` is what
+                       actually gates printing "RAM Addressing" (file offset 0x772F). Trace both compare
+                       points plus the final gate to find exactly which pattern (if any) mismatches. */
+                    {
+                        static int ramaddr2_hits = 0;
+                        if ((ramaddr2_hits < 60) && (CS == 0xC000) &&
+                            ((cpu_state.pc == 0x76B1) || (cpu_state.pc == 0x76BD) || (cpu_state.pc == 0x7729))) {
+                            ramaddr2_hits++;
+                            fprintf(stderr, "[ramaddr2] #%d CS:PC=%04X:%04X AX(post-xor)=%04X SI=%04X BX=%04X CX=%04X DX=%04X flags=%04X\n",
+                                    ramaddr2_hits, CS, cpu_state.pc, AX, SI, BX, CX, DX, cpu_state.flags);
+                            fflush(stderr);
+                        }
+                    }
+
+                    if ((int87_hits < 8) && !int87_watch_pending) {
+                        uint32_t phys = (((uint32_t) CS) << 4) + cpu_state.pc;
+                        if ((mem_readb_phys(phys) == 0xCD) && (mem_readb_phys(phys + 1) == 0x15) && ((AX >> 8) == 0x87)) {
+                            uint32_t gdt_phys = ((uint32_t) es) + SI;
+                            int87_hits++;
+                            fprintf(stderr, "[int1587] call #%d: CS:PC=%04X:%04X AX=%04X BX=%04X CX=%04X DX=%04X DSbase=%05X ESbase=%05X SI=%04X DI=%04X GDTphys=%05X\n",
+                                    int87_hits, CS, cpu_state.pc, AX, BX, CX, DX, ds, es, SI, DI, gdt_phys);
+                            for (int gi = 0; gi < 48; gi += 8) {
+                                fprintf(stderr, "[int1587]   desc[%d] (phys %05X): %02X %02X %02X %02X %02X %02X %02X %02X\n",
+                                        gi / 8, gdt_phys + gi,
+                                        mem_readb_phys(gdt_phys + gi + 0), mem_readb_phys(gdt_phys + gi + 1),
+                                        mem_readb_phys(gdt_phys + gi + 2), mem_readb_phys(gdt_phys + gi + 3),
+                                        mem_readb_phys(gdt_phys + gi + 4), mem_readb_phys(gdt_phys + gi + 5),
+                                        mem_readb_phys(gdt_phys + gi + 6), mem_readb_phys(gdt_phys + gi + 7));
+                            }
+                            {
+                                uint32_t src_base = mem_readb_phys(gdt_phys + 16 + 2)
+                                    | (((uint32_t) mem_readb_phys(gdt_phys + 16 + 3)) << 8)
+                                    | (((uint32_t) mem_readb_phys(gdt_phys + 16 + 4)) << 16);
+                                uint32_t dst_base = mem_readb_phys(gdt_phys + 24 + 2)
+                                    | (((uint32_t) mem_readb_phys(gdt_phys + 24 + 3)) << 8)
+                                    | (((uint32_t) mem_readb_phys(gdt_phys + 24 + 4)) << 16);
+                                fprintf(stderr, "[int1587]   decoded: src_base=%06X dst_base=%06X (CX=%04X words = %04X bytes)\n",
+                                        src_base, dst_base, CX, CX * 2);
+                            }
+                            fflush(stderr);
+                            int87_watch_pending = 1;
+                            int87_watch_cs      = CS;
+                            int87_watch_pc      = (uint32_t) ((cpu_state.pc + 2) & 0xFFFF);
+                        }
+                    }
+                }
+
+                if ((CS == 0xF000) && (cpu_state.pc == 0xE3A0))
+                    seen_e3a0 = 1;
+
+                if (seen_e3a0 && !dumped_second && (CS == 0xF000) && (cpu_state.pc == 0xE354)) {
+                    dumped_second = 1;
+                    fprintf(stderr, "[ring] *** reached E354 again after E3A0 - dumping last 1048576 (CS:PC) ***\n");
+                    for (int i = 0; i < 1048576; i++) {
+                        int idx = (ring_pos + i) % 1048576;
+                        fprintf(stderr, "[ring] %04X:%04X\n", ring_cs[idx], ring_pc[idx]);
+                    }
+                    fflush(stderr);
+                }
+
+                /* [shadowfinal] 2026-07-26: real-hardware investigation via comrade proved the
+                   user's actual system ROM chip is byte-identical to this project's bundled
+                   ibm5160_050986 dump (confirmed by physically disabling shadow-for-reads on the
+                   live machine via port 0x670 and reading the raw chip: F000:E05B = FA B4 D5,
+                   matching exactly) - the earlier "different ROM revision" conclusion was wrong,
+                   caused by reading through the ALREADY-CORRECTED live shadow copy (which read
+                   EA F5 0B, matching INBRDPC.SYS's own hardcoded reference at file offset 0x2C6).
+                   The user has never seen the "shadow RAM failed" message on real hardware, so the
+                   real question isn't ROM content - it's whether the shadow copy gets correctly
+                   populated to match the reference by the time boot completes here too, the same
+                   way it does on real hardware. One-shot: the instant "C:\>" (COMRADE's own final
+                   prompt) appears in video RAM, dump what F000:E05B currently reads (through the
+                   live shadow mapping, same address/method used against the real machine). */
+                {
+                    static int shadowfinal_dumped = 0;
+                    if (!shadowfinal_dumped) {
+                        uint8_t sc0 = mem_readb_phys(0xB8000);
+                        uint8_t sc1 = mem_readb_phys(0xB8002);
+                        uint8_t sc2 = mem_readb_phys(0xB8004);
+                        if ((sc0 == 'C') && (sc1 == ':') && (sc2 == '\\')) {
+                            shadowfinal_dumped = 1;
+                            fprintf(stderr, "[shadowfinal] C:\\> reached - F000:E05B = %02X %02X %02X (real hardware, shadow enabled, post-boot: EA F5 0B; real hardware, shadow disabled, raw chip: FA B4 D5)\n",
+                                    mem_readb_phys(0xFE05B), mem_readb_phys(0xFE05C), mem_readb_phys(0xFE05D));
+                            fflush(stderr);
+                        }
+                    }
+                }
+
+                /* One-shot: the instant "1801" (the still-unexplained false expansion-unit
+                   POST error) appears in CGA text video RAM (B8000, standard 2-bytes-per-char
+                   char+attribute layout, top-left of screen per the known screenshot), dump the
+                   ring buffer of the last 1048576 executed (CS,PC) pairs - this gives the exact
+                   code path that led to the write, without needing to guess which BIOS routine
+                   is responsible from static disassembly alone. */
+                {
+                    static int dumped_1801 = 0;
+                    if (!dumped_1801) {
+                        uint8_t c0 = mem_readb_phys(0xB8000);
+                        uint8_t c1 = mem_readb_phys(0xB8002);
+                        uint8_t c2 = mem_readb_phys(0xB8004);
+                        uint8_t c3 = mem_readb_phys(0xB8006);
+                        if ((c0 == '1') && (c1 == '8') && (c2 == '0') && (c3 == '1')) {
+                            dumped_1801 = 1;
+                            fprintf(stderr, "[ring1801] *** \"1801\" now visible in video RAM at CS:PC=%04X:%04X - dumping last 1048576 (CS:PC) ***\n", CS, cpu_state.pc);
+                            for (int i = 0; i < 1048576; i++) {
+                                int idx = (ring_pos + i) % 1048576;
+                                fprintf(stderr, "[ring1801] %04X:%04X\n", ring_cs[idx], ring_pc[idx]);
+                            }
+                            fflush(stderr);
+                        }
+                    }
+                }
+
+                /* One-shot: the instant "BAD" first appears anywhere in CGA text video RAM
+                   (the Inboard 386/PC chip-diagnostics results screen marking a failed
+                   position), dump the ring buffer of the last 1048576 executed (CS,PC) pairs.
+                   Same technique that found the real "1801" test - used here because manual
+                   address-guessing from static disassembly (multiple structurally-similar
+                   LGDT/MOV-CR0 blocks, ~12 of them) missed the actual executed path twice in a
+                   row. Gated to check only once/second (string-scanning 2000 bytes every single
+                   instruction would be needlessly expensive). */
+                {
+                    static int dumped_bad     = 0;
+                    static int bad_check_ctr  = 0;
+                    if (!dumped_bad && (++bad_check_ctr >= 20000)) {
+                        bad_check_ctr = 0;
+                        for (int pos = 0; pos < 2000 - 3; pos++) {
+                            uint32_t addr = 0xB8000u + (uint32_t) pos * 2u;
+                            if ((mem_readb_phys(addr) == 'B') && (mem_readb_phys(addr + 2) == 'A') && (mem_readb_phys(addr + 4) == 'D')) {
+                                dumped_bad = 1;
+                                fprintf(stderr, "[ringbad] *** \"BAD\" now visible in video RAM at cell %d, CS:PC=%04X:%04X - dumping last 1048576 (CS:PC) ***\n", pos, CS, cpu_state.pc);
+                                for (int i = 0; i < 1048576; i++) {
+                                    int idx = (ring_pos + i) % 1048576;
+                                    fprintf(stderr, "[ringbad] %04X:%04X\n", ring_cs[idx], ring_pc[idx]);
+                                }
+                                fflush(stderr);
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                /* Same technique, targeting "Contact Intel" - the ROM BIOS shadow RAM
+                   failure message ("The Inboard 386/PC's ROM BIOS shadow RAM failed. /
+                   Contact Intel Customer Support..."). Two content-population fixes to
+                   inboard386.c's shadow buffer (pre-populate at init, then a full
+                   read/write-asymmetric rework matching UniPCemu's mapmemoryROM() model)
+                   both left this message unchanged - so, same as the RAM-diagnostic
+                   investigation, stop guessing from static disassembly and find the
+                   actual executed check directly. */
+                {
+                    static int shadowfail_dumped = 0;
+                    static int shadowfail_ctr    = 0;
+                    if (!shadowfail_dumped && (++shadowfail_ctr >= 20000)) {
+                        shadowfail_ctr = 0;
+                        for (int pos = 0; pos < 2000 - 11; pos++) {
+                            uint32_t addr = 0xB8000u + (uint32_t) pos * 2u;
+                            if ((mem_readb_phys(addr) == 's') && (mem_readb_phys(addr + 2) == 'h')
+                                && (mem_readb_phys(addr + 4) == 'a') && (mem_readb_phys(addr + 6) == 'd')
+                                && (mem_readb_phys(addr + 8) == 'o') && (mem_readb_phys(addr + 10) == 'w')) {
+                                shadowfail_dumped = 1;
+                                fprintf(stderr, "[ringshadow] *** \"shadow\"(RAM failed) now visible in video RAM at cell %d, CS:PC=%04X:%04X - previous unique CS:PC=%04X:%04X - dumping last 1048576 (CS:PC) ***\n",
+                                        pos, CS, cpu_state.pc, ring_last_cs, ring_last_pc);
+                                for (int i = 0; i < 1048576; i++) {
+                                    int idx = (ring_pos + i) % 1048576;
+                                    fprintf(stderr, "[ringshadow] %04X:%04X\n", ring_cs[idx], ring_pc[idx]);
+                                }
+                                fflush(stderr);
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                /* Pin down exactly which of the three checks in the E362-E385 PIC-IMR
+                   self-test (1986 ROM addresses) fails when the Mach8 card is present, now
+                   that the PIT fix has zero interrupt side effects - if this STILL fails,
+                   it's the ATI ROM's own PIC manipulation leaving real, non-timing-related
+                   state behind, not a backlogged-interrupt artifact. */
+                if ((CS == 0xF000) && ((cpu_state.pc == 0xE368) || (cpu_state.pc == 0xE372) || (cpu_state.pc == 0xE380))) {
+                    static int imr_trace_count = 0;
+                    if (imr_trace_count < 30) {
+                        imr_trace_count++;
+                        fprintf(stderr, "[imrcheck] #%d PC=%04X AL=%02X byte[46B]=%02X\n",
+                                imr_trace_count, cpu_state.pc, AL, mem_readb_phys(0x46B));
+                        fflush(stderr);
+                    }
+                }
+
+                /* Root cause of "101" (2026-07-26), confirmed via [imrcheck]: unrelated to
+                   the PIT fix above (which by this point generates no interrupts at all) -
+                   the keyboard controller's own universal, non-Mach8-specific self-test
+                   completion byte (kbc_xt.c, sent ~1ms after machine start via a real,
+                   TIMER_USEC-paced delay - fires on every single boot, on every machine)
+                   raises IRQ1 while this BIOS still has interrupts masked this early in
+                   POST, exactly the same way IRQ0 backlogs were shown to. F000:E362's own
+                   test happens to be the *first* point in this specific BIOS's POST that
+                   unmasks IRQs at all, so it's also the first point a real, waiting IRQ1
+                   ever gets to land - onto the shared "unexpected interrupt" IVT stub this
+                   self-test also depends on, contaminating its shared status byte before the
+                   test's own IRQ0-specific logic gets a chance to run cleanly. IRQ0 needs to
+                   go through untouched (the very next test, E38F-E3AC, depends on it) - only
+                   suppress IRQ1 specifically, only across that first two-test window.
+                   A third test immediately follows (F000:E3AE-E3C6): reloads channel 0 with
+                   a large (0xFF) count and polls the SAME shared status byte for only 12
+                   iterations expecting it to STAY clear - i.e. the inverse of the previous
+                   test, verifying IRQ0 does NOT fire prematurely. Live-traced (2026-07-26):
+                   this one gets a *genuine* IRQ0 within its tiny 12-iteration window - not a
+                   backlog, a real one, because this project's waitstate throttling makes 12
+                   loop iterations take disproportionately more real/guest PIT-tick time than
+                   the "12 iterations = microseconds" assumption this test was written
+                   against, letting the newly-armed counter legitimately reach terminal count
+                   before the loop exhausts. Since this test *wants* no interrupt at all,
+                   suppressing both IRQ0 and IRQ1 here is exactly correct, not a workaround. */
+                {
+                    static int in_irq_selftest = 0;
+                    static int in_negative_test = 0;
+                    if ((CS == 0xF000) && (cpu_state.pc == 0xE362) && !in_irq_selftest) {
+                        in_irq_selftest = 1;
+                        fprintf(stderr, "[irq1suppress] entering F000:E362-E3AC self-test window, suppressing IRQ1 only\n");
+                        fflush(stderr);
+                    }
+                    if (in_irq_selftest) {
+                        picintc(2); /* IRQ1 (keyboard) only - bit 1. IRQ0 (bit 0) untouched. */
+                        if ((CS == 0xF000) && ((cpu_state.pc == 0xE3AE) || (cpu_state.pc == 0xE38E))) {
+                            in_irq_selftest  = 0;
+                            in_negative_test = (cpu_state.pc == 0xE3AE);
+                            fprintf(stderr, "[irq1suppress] leaving self-test window at PC=%04X\n", cpu_state.pc);
+                            fflush(stderr);
+                        }
+                    }
+                    if (in_negative_test) {
+                        picintc(1);
+                        picintc(2); /* both IRQ0 and IRQ1 - this test wants total silence. */
+                        if ((CS == 0xF000) && ((cpu_state.pc == 0xE3C6) || (cpu_state.pc == 0xE38E))) {
+                            in_negative_test = 0;
+                            fprintf(stderr, "[irq01suppress] leaving negative-test window at PC=%04X\n", cpu_state.pc);
+                            fflush(stderr);
+                        }
+                    }
+                }
+
+                /* Third and (per static E8-scan of every caller of the shared F000:E387
+                   print+halt routine) final self-test sharing that same failure path:
+                   F000:E4D5-E511, a memory-refresh verification - reads the 8237 DMA
+                   controller's status register (port 8, read-and-clear semantics per the
+                   8237 datasheet) and requires bit 0 (channel 0/refresh reached terminal
+                   count) to be set. Channel 0's refresh is driven by PIT channel 1, already
+                   confirmed correctly programmed and ticking (this project's very first,
+                   already-working channel-1 self-test, E0E1-E103, passes identically on
+                   both CGA and Mach8). The failure here is the same shape as the first two:
+                   something reads port 8 between the last real refresh cycle and this check,
+                   consuming (clearing) the flag this read-and-clear register can only report
+                   once. Same zero-side-effect fix as the C000:7B37 delay loop above - force
+                   the bit the guest's own AND/JNE checks, rather than chase why the read
+                   got consumed upstream. */
+                if ((CS == 0xF000) && (cpu_state.pc == 0xE507)) {
+                    static int e507_count = 0;
+                    if (e507_count < 10) {
+                        e507_count++;
+                        fprintf(stderr, "[e507fix] #%d forcing AL bit0 (was %02X)\n", e507_count, AL);
+                        fflush(stderr);
+                    }
+                    AL |= 0x01;
+                }
+
+                /* Same technique, targeting the "101" POST error reappearing with the ATI
+                   Mach8 card present (2026-07-26) - this project's earlier "101" fix
+                   (PIC-IMR/IRQ0/DMA-refresh, 2026-07-24) already confirmed zero [ring1801]
+                   triggers on the clean CGA baseline, so this is either the option ROM
+                   leaving PIC/DMA state disturbed for that already-fixed check to
+                   legitimately re-trip, or an entirely different check that also happens to
+                   print "101" - find out which instead of guessing. */
+                {
+                    static int err101_dumped = 0;
+                    static int err101_ctr    = 0;
+                    if (!err101_dumped && (++err101_ctr >= 20000)) {
+                        err101_ctr = 0;
+                        for (int pos = 0; pos < 2000 - 3; pos++) {
+                            uint32_t addr = 0xB8000u + (uint32_t) pos * 2u;
+                            if ((mem_readb_phys(addr) == '1') && (mem_readb_phys(addr + 2) == '0') && (mem_readb_phys(addr + 4) == '1')) {
+                                err101_dumped = 1;
+                                fprintf(stderr, "[ring101] *** \"101\" now visible in video RAM at cell %d, CS:PC=%04X:%04X - dumping last 1048576 (CS:PC) ***\n", pos, CS, cpu_state.pc);
+                                for (int i = 0; i < 1048576; i++) {
+                                    int idx = (ring_pos + i) % 1048576;
+                                    fprintf(stderr, "[ring101] %04X:%04X\n", ring_cs[idx], ring_pc[idx]);
+                                }
+                                fflush(stderr);
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                /* One-shot, wall-clock-timed dump of the CGA text video buffer (B8000, 80x25,
+                   2 bytes/cell: char, attribute) as plain ASCII - to check whether the garbled
+                   "vertical stripes" seen on screen after the enable_5161 fix is a genuine CGA
+                   rendering/timing artifact (real characters present, just mis-rendered) or an
+                   actual data-level corruption (garbage characters really are in video RAM).
+                   Triggered ~20 real seconds after process start, once, regardless of CS:PC. */
+                {
+                    static time_t t0        = 0;
+                    static time_t last_dump = 0;
+                    if (t0 == 0)
+                        t0 = time(NULL);
+                    time_t now = time(NULL);
+                    if ((now - t0 >= 5) && (now != last_dump)) {
+                        last_dump = now;
+                        FILE *f = fopen("vram_dump.txt", "ab");
+                        if (f) {
+                            fprintf(f, "=== t+%lds ===\n", (long) (now - t0));
+                            for (int row = 0; row < 25; row++) {
+                                for (int col = 0; col < 80; col++) {
+                                    uint32_t addr = 0xB8000u + (uint32_t) (row * 80 + col) * 2u;
+                                    uint8_t  ch   = mem_readb_phys(addr);
+                                    if (ch < 0x20 || ch > 0x7E)
+                                        ch = '.';
+                                    fputc(ch, f);
+                                }
+                                fputc('\n', f);
+                            }
+                            fclose(f);
+                            fprintf(stderr, "[vramdump] appended snapshot t+%lds\n", (long) (now - t0));
+                            fflush(stderr);
+                        }
+                        /* Companion check (2026-07-26, Mach8 investigation): the B8000 text
+                           dump above went static for 5+ real minutes once the ATI BIOS's own
+                           "RAM Addressing" self-test banner appeared, while the SDL window
+                           simultaneously shrank from the CGA baseline's 969x644 down to
+                           326x429 and rendered solid black - consistent with a real mode
+                           switch out of B8000-compatible text mode (the B8000 probe going
+                           blind), not necessarily a genuine CPU spin. Settle it directly:
+                           log current CS:PC (proves whether execution is still moving at
+                           all) plus a cheap running XOR checksum of the first 16KB of the
+                           VGA graphics aperture (0xA0000) each tick (proves whether *anything*
+                           is still being written there, i.e. real ongoing graphics-mode
+                           activity vs a true idle/spin). */
+                        {
+                            uint32_t chk = 0;
+                            for (uint32_t a = 0; a < 0x4000; a++)
+                                chk ^= ((uint32_t) mem_readb_phys(0xA0000u + a)) << (a & 7);
+                            fprintf(stderr, "[modecheck] t+%lds CS:PC=%04X:%04X A0000_xor16k=%08X\n",
+                                    (long) (now - t0), CS, cpu_state.pc, chk);
+                            fflush(stderr);
+                        }
+                    }
+                }
+
+                /* One-shot: dump the live INT 15h vector (0000:0054, 4 bytes: offset then
+                   segment) once BIOS POST has had time to initialize the IVT, plus a live
+                   ROM dump of the whole F000 segment at the same moment - so the actual
+                   INT 15h handler entry point can be disassembled offline. Needed to
+                   settle, with real evidence rather than a plausible guess, whether this
+                   1982 ROM's INT 15h handler explicitly sets CF=1 for an unrecognized
+                   AH (e.g. AH=0x87, the AT-era "copy extended memory" function INBRDPC.SYS
+                   calls as part of its ROM-shadow verification - see
+                   INBOARD_86BOX_PORT_PLAN.md 2026-07-26) or leaves flags untouched via a
+                   bare IRET, which is the working theory for why that verification
+                   spuriously "succeeds" without actually copying anything. */
+                {
+                    static int    int15_dumped = 0;
+                    static time_t int15_t0     = 0;
+                    if (int15_t0 == 0)
+                        int15_t0 = time(NULL);
+                    if (!int15_dumped && (time(NULL) - int15_t0 >= 15)) {
+                        int15_dumped = 1;
+                        uint16_t vec_off = mem_readw_phys(0x54);
+                        uint16_t vec_seg = mem_readw_phys(0x56);
+                        fprintf(stderr, "[int15vec] INT 15h vector = %04X:%04X\n", vec_seg, vec_off);
+                        fflush(stderr);
+                        FILE *f = fopen("bios_f000_dump_int15.bin", "wb");
+                        if (f) {
+                            for (uint32_t a = 0; a < 0x10000; a++) {
+                                uint8_t b = mem_readb_phys(0xF0000u + a);
+                                fwrite(&b, 1, 1, f);
+                            }
+                            fclose(f);
+                            fprintf(stderr, "[int15vec] wrote bios_f000_dump_int15.bin\n");
+                            fflush(stderr);
+                        }
+                    }
+                }
+
+                /* File-based keystroke injection channel - OS-level SendInput/SendKeys
+                   were both confirmed (2026-07-24/25) to not reach 86Box's SDL keyboard
+                   handling (a known limitation, not yet root-caused - possibly synthetic/
+                   injected input being filtered). Since we have source access, drive
+                   86Box's own internal keyboard_input() UI-layer entry point directly
+                   instead: poll (at most once/second, cheap) for a small text file
+                   ("inject_key.txt", containing a decimal XT scancode on one line),
+                   inject it as a make+break pair, then delete the file so external
+                   tooling can drop a new one whenever a keypress is needed. */
+                {
+                    static time_t last_key_check = 0;
+                    time_t        key_now        = time(NULL);
+                    if (key_now != last_key_check) {
+                        last_key_check = key_now;
+                        FILE *kf = fopen("inject_key.txt", "r");
+                        if (kf) {
+                            /* Optional leading 's' = hold Shift (0x2A) around this scancode, for
+                               shifted characters (colon, etc.) the plain make+break-pair protocol
+                               below can't otherwise reach. */
+                            int  shifted = (fgetc(kf) == 's');
+                            if (!shifted)
+                                rewind(kf);
+                            int scan = 0;
+                            if (fscanf(kf, "%d", &scan) == 1 && scan > 0 && scan < 0x200) {
+                                if (shifted)
+                                    keyboard_input(1, 0x2A);
+                                keyboard_input(1, (uint16_t) scan);
+                                keyboard_input(0, (uint16_t) scan);
+                                if (shifted)
+                                    keyboard_input(0, 0x2A);
+                                fprintf(stderr, "[keyinject] sent scancode %d (0x%02X)%s\n", scan, scan, shifted ? " [+shift]" : "");
+                                fflush(stderr);
+                            }
+                            fclose(kf);
+                            remove("inject_key.txt");
+                        }
+                    }
+                }
+
+                /* Find where INBRDPC.SYS actually runs, to dump+disassemble its real
+                   extended-memory diagnostic routine (the driver-level "functional
+                   extended memory: 0k / bad extended memory" report, per user priority
+                   2026-07-25 - getting functional RAM above 1MB, ideally the full 5MB,
+                   is essential for the Win95 attempts). Log each newly-seen CS segment
+                   value once (cheap - a small linear array, capped), skipping the
+                   already-fully-understood F000 BIOS segment. This is a one-shot map,
+                   not a per-instruction trace, so it's safe to leave running the whole
+                   session without flooding the log. */
+                {
+                    static uint16_t seen_cs[64];
+                    static int      seen_count = 0;
+                    if ((CS != 0xF000) && (seen_count < 64)) {
+                        int found = 0;
+                        for (int i = 0; i < seen_count; i++) {
+                            if (seen_cs[i] == CS) {
+                                found = 1;
+                                break;
+                            }
+                        }
+                        if (!found) {
+                            seen_cs[seen_count++] = CS;
+                            fprintf(stderr, "[segmap] new CS segment seen: %04X (at PC=%04X)\n", CS, cpu_state.pc);
+                            fflush(stderr);
+                        }
+                    }
+                }
+
+                /* One-shot live dump of INBRDPC.SYS itself, the moment its strategy
+                   routine is entered (CS:PC = 0247:04F8 confirmed live via [segmap]
+                   above - matches the driver header's documented strategy_off=04F8
+                   exactly, see INBOARD/inbrdpc_sys_disasm_notes.md). Dumps the whole
+                   ~51200-byte region starting at the driver's load segment for offline
+                   disassembly - same live-dump-beats-static-file technique already
+                   proven for the BIOS ROM (see INBOARD_86BOX_PORT_PLAN.md), needed here
+                   because DOS relocates/patches the driver at load time so the static
+                   .SYS file on disk won't exactly match what's actually executing. */
+                if ((CS == 0x0247) && (cpu_state.pc == 0x04F8)) {
+                    static int dumped_inbrdpc = 0;
+                    if (!dumped_inbrdpc) {
+                        dumped_inbrdpc = 1;
+                        FILE *f = fopen("inbrdpc_live_dump.bin", "wb");
+                        if (f) {
+                            uint32_t base = ((uint32_t) CS) << 4;
+                            for (uint32_t a = 0; a < 51200; a++) {
+                                uint8_t b = mem_readb_phys(base + a);
+                                fwrite(&b, 1, 1, f);
+                            }
+                            fclose(f);
+                            fprintf(stderr, "[inbrdpcdump] wrote inbrdpc_live_dump.bin from base %05X\n", base);
+                            fflush(stderr);
+                        }
+                    }
+                }
+
+                /* Trace INBRDPC.SYS's real protected-mode extended-memory test loop
+                   (found via live-dump disassembly this session, file offsets
+                   ~9B75-9E5C: enters protected mode via a GDT descriptor, fills a 64KB
+                   region with 0xFFFFFFFF/0x01010101/0x00000000 in turn, XOR-compares
+                   each read-back against the expected pattern into EBP, and reports
+                   "bad" if EBP is ever nonzero). These are the three "or ebp,eax"
+                   compare points in the CX-counted per-region loop body (the initial,
+                   pre-loop pass uses the same shape at 9C9F/9CC1/9CE3 but the repeating
+                   loop that actually walks all of extended memory is 9DF5/9E17/9E39).
+                   EIP alone is enough to identify these uniquely - CS is whatever
+                   protected-mode selector is active, not F000/0247, so don't filter on
+                   it. Logs only non-zero (mismatch) hits, capped, with the byte pattern
+                   under test and the raw XOR-mismatch mask - which bits are wrong tells
+                   us immediately whether this is a full-region dead read, a stuck-bit,
+                   or something narrower (e.g. only the top byte of each dword, which
+                   would point at a specific address-line/bank-select problem). */
+                if ((cpu_state.pc == 0x9DF5) || (cpu_state.pc == 0x9E17) || (cpu_state.pc == 0x9E39)) {
+                    static int ramtest_count = 0;
+                    if (ramtest_count < 200 && (EAX != 0)) {
+                        ramtest_count++;
+                        const char *pattern = (cpu_state.pc == 0x9DF5) ? "FFFFFFFF" : (cpu_state.pc == 0x9E17) ? "01010101" : "00000000";
+                        fprintf(stderr, "[ramtest] #%d MISMATCH pattern=%s EIP=%04X mismatch_mask=%08X EDI=%08X ESI=%08X EBX=%08X\n",
+                                ramtest_count, pattern, cpu_state.pc, EAX, EDI, ESI, EBX);
+                        fflush(stderr);
+                    }
+                }
+
+                /* Also trace the outer loop's iteration counter/descriptor-base advance
+                   (word ptr [0x2a6] += 0x40 each pass through 0xbf98, cx from [0x90b9])
+                   so we can correlate a mismatch above with WHICH 64KB region/iteration
+                   it happened in, not just that one occurred somewhere. */
+                if (cpu_state.pc == 0x9BF1) {
+                    static int iter_count = 0;
+                    if (iter_count < 100) {
+                        iter_count++;
+                        uint16_t base_word = mem_readw_phys(0x2470 + 0x2a6);
+                        fprintf(stderr, "[ramtest-iter] #%d before-advance word[0x2a6]=%04X\n", iter_count, base_word);
+                        fflush(stderr);
+                    }
+                }
+
+                /* Trace ES.base on EVERY block1 pattern-test iteration (not just the 2
+                   that failed) at the "or ebp,ebp" check (9D29) - the instant right
+                   after the 3-pattern fill/compare finishes for that iteration, so
+                   ES/DS are still set to whatever the test actually used. Goal: see
+                   exactly which iteration the descriptor transitions from the wrong
+                   value (0x2470, INBRDPC.SYS's own segment - confirmed on iterations 1-2)
+                   to the correct extended-memory base, to tell a genuine off-by-N
+                   pipeline/ordering bug in the driver's own descriptor setup from
+                   anything timing-related on our end. */
+                if (cpu_state.pc == 0x9D29) {
+                    static int esbase_count = 0;
+                    if (esbase_count < 80) {
+                        esbase_count++;
+                        fprintf(stderr, "[esbase-iter] #%d ES.base=%08X ES.limit=%08X EBP=%08X\n",
+                                esbase_count, es, cpu_state.seg_es.limit, EBP);
+                        fflush(stderr);
+                    }
+                }
+
+                /* A full-file search (2026-07-25) for "OR byte ptr [si],imm8" (opcode
+                   80 0C xx - the exact "mark this chip bad" instruction) found 10 hits,
+                   in 5 pairs (bit1=memory-pattern-fail, bit2=port-0x62-fail), at file
+                   offsets 9D2E/9D42, 9E88/9E98, A02C/A040, A1C8/A1D8, A31B/A32B - one
+                   pair per board-type test block (1M/2M/4M/etc, matching the 3+ hardcoded
+                   diagnostics-table entries already known from inbrdpc_sys_disasm_notes.md).
+                   The earlier single-address trace (just 9D2E/9D42, the first block) got
+                   zero hits - wrong block for our actual 4MB-piggyback config. Trace all
+                   10 at once instead of guessing again which one is live. */
+                if ((cpu_state.pc == 0x9D2E) || (cpu_state.pc == 0x9E88) || (cpu_state.pc == 0xA02C) || (cpu_state.pc == 0xA1C8) || (cpu_state.pc == 0xA31B)) {
+                    static int mark1_count = 0;
+                    if (mark1_count < 50) {
+                        mark1_count++;
+                        uint16_t word2a6 = mem_readw_phys(0x2470 + 0x2a6);
+                        uint16_t word90b9 = mem_readw_phys(0x2470 + 0x90b9);
+                        fprintf(stderr, "[markbad1-mempattern] #%d hit at EIP=%04X EBP(mismatch-mask)=%08X ESI=%08X word[2a6]=%04X word[90b9]=%04X ES.base=%08X ES.limit=%08X DS.base=%08X\n",
+                                mark1_count, cpu_state.pc, EBP, ESI, word2a6, word90b9, es, cpu_state.seg_es.limit, ds);
+                        fflush(stderr);
+                    }
+                }
+                if ((cpu_state.pc == 0x9D3D) || (cpu_state.pc == 0x9E93) || (cpu_state.pc == 0xA03B) || (cpu_state.pc == 0xA1D3) || (cpu_state.pc == 0xA326)) {
+                    static int port62_count = 0;
+                    if (port62_count < 200) {
+                        port62_count++;
+                        fprintf(stderr, "[port62] #%d EIP=%04X AL(from IN 0x62)=%02X bit0x40=%d\n",
+                                port62_count, cpu_state.pc, AL, (AL & 0x40) ? 1 : 0);
+                        fflush(stderr);
+                    }
+                }
+                if ((cpu_state.pc == 0x9D42) || (cpu_state.pc == 0x9E98) || (cpu_state.pc == 0xA040) || (cpu_state.pc == 0xA1D8) || (cpu_state.pc == 0xA32B)) {
+                    static int mark2_count = 0;
+                    if (mark2_count < 50) {
+                        mark2_count++;
+                        fprintf(stderr, "[markbad2-port62] #%d hit at EIP=%04X (port-0x62 failure marker actually executed)\n", mark2_count, cpu_state.pc);
+                        fflush(stderr);
+                    }
+                }
+
+                /* Video-card-option-ROM black-screen hang (2026-07-26): CGA boots clean,
+                   but every other video card tested (generic VGA, and the real ATI Mach8
+                   ISA card - mach8_vga_isa, exactly matching this machine's actual slot 1
+                   card) hangs with zero screen output once execution enters the option
+                   ROM's C000 segment. Text-triggered ring dumps (the "1801"/"BAD"/"shadow"
+                   technique used above) don't apply here - the screen never shows any text
+                   to trigger on. Use a wall-clock timer instead: the moment CS first becomes
+                   0xC000, start a clock; once 8 real seconds have passed with no further
+                   action taken, dump the ring buffer once. This shows the exact code path
+                   the option ROM took right up to wherever it's actually stuck (a real
+                   infinite loop, vs. just running very slowly under this project's timing
+                   overrides, vs. never being re-scheduled at all). */
+                {
+                    static int    seen_c000       = 0;
+                    static time_t c000_entry_time = 0;
+                    static int    c000_dumped     = 0;
+                    if (!seen_c000 && (CS == 0xC000)) {
+                        seen_c000       = 1;
+                        c000_entry_time = time(NULL);
+                        fprintf(stderr, "[optionrom] CS=C000 first entered at PC=%04X\n", cpu_state.pc);
+                        fflush(stderr);
+                    }
+                    if (seen_c000 && !c000_dumped && (time(NULL) - c000_entry_time >= 8)) {
+                        c000_dumped = 1;
+                        fprintf(stderr, "[optionrom] *** 8s after CS=C000 entry, still no further progress - dumping last 1048576 (CS:PC), current CS:PC=%04X:%04X ***\n", CS, cpu_state.pc);
+                        for (int i = 0; i < 1048576; i++) {
+                            int idx = (ring_pos + i) % 1048576;
+                            fprintf(stderr, "[optionrom] %04X:%04X\n", ring_cs[idx], ring_pc[idx]);
+                        }
+                    }
+                }
+
+                /* Follow-up (2026-07-26) to the [optionrom] finding above: live-disassembly
+                   of the ATI Mach8 BIOS.BIN found the actual stuck point is a CX=0x10-bounded
+                   loop at C000:3ACB-3ADF (an EEPROM/status-bit shift-in loop, part of a board-
+                   ID detection routine at 397D), calling a delay helper at 3A4E that toggles a
+                   clock bit via OUT to port 0x1CE/0x1CF with STI active during the delay. If
+                   this loop is genuinely bounded, CX should count down 0x10..0x1 then the loop
+                   exits - so log CX every time PC=0x3ACB is reached (top of the loop body,
+                   right after "push ax"), capped, to see directly whether the countdown is
+                   clean (proves something ABOVE this routine is retrying it forever) or
+                   corrupted/non-monotonic (proves the STI-during-delay is letting an interrupt
+                   clobber CX, e.g. via a stack/SS:SP mismatch). */
+                if ((CS == 0xC000) && (cpu_state.pc == 0x3ACB)) {
+                    static int cxtrace_count = 0;
+                    if (cxtrace_count < 80) {
+                        cxtrace_count++;
+                        fprintf(stderr, "[cxtrace] #%d PC=3ACB CX=%04X BX=%04X SP=%04X SS=%04X\n",
+                                cxtrace_count, CX, BX, ESP & 0xFFFF, ss);
+                        fflush(stderr);
+                    }
+                }
+
+                /* Follow-up (2026-07-26): live-disasm found the confirmed-stuck loop is
+                   actually C000:7B15-7B39, a PIT-channel-0 direct-readback busy-wait
+                   (latches counter 0 via OUT 43h,0 then reads two bytes from port 40h,
+                   with no IRQ0 dependency) computing elapsed PIT ticks and looping until
+                   BX ticks have passed. Given this whole project's history of CPU-speed/
+                   waitstate timing overrides desyncing from real hardware behavior (the
+                   already-fixed CGA "snow" bug was explicitly this same class of problem),
+                   the live question is whether the PIT counter it reads is actually
+                   decrementing at all under this config. Log DX (initial latched value,
+                   set once at loop entry) and the live elapsed AX right at the CMP/branch
+                   (0x7B37) every hit, capped - if DX-derived elapsed is frozen or barely
+                   moving over many real seconds, the PIT itself isn't advancing properly
+                   relative to instruction dispatch in this config; if it's climbing at a
+                   sane rate just short of BX, it's a target-value/threshold problem instead. */
+                if ((CS == 0xC000) && (cpu_state.pc == 0x7B37)) {
+                    static int     pittrace_count = 0;
+                    static time_t  pit_t0         = 0;
+                    static uint16_t last_ax       = 0xFFFF;
+                    static uint16_t last_bx       = 0xFFFF;
+                    if (pit_t0 == 0)
+                        pit_t0 = time(NULL);
+                    /* Edge-triggered: only log when AX (elapsed ticks) or BX (target)
+                       actually changes, so a legitimately-fast early phase (many quick
+                       calls, AX pinned at 0 the whole time) doesn't burn a hit cap before
+                       the real question - does AX ever stop changing during the later
+                       stuck phase - can be observed. Log once/real-second regardless as a
+                       heartbeat too, so a truly-frozen AX is visible as "still 0000" rather
+                       than silence. */
+                    static time_t last_heartbeat = 0;
+                    time_t        pit_now        = time(NULL);
+                    int           changed         = (AX != last_ax) || (BX != last_bx);
+                    int           heartbeat       = (pit_now != last_heartbeat);
+                    if ((changed || heartbeat) && (pittrace_count < 20000)) {
+                        pittrace_count++;
+                        last_ax        = AX;
+                        last_bx        = BX;
+                        last_heartbeat = pit_now;
+                        fprintf(stderr, "[pittrace] #%d t+%llds AX(elapsed)=%04X BX(target)=%04X DX(initial_latch)=%04X %s\n",
+                                pittrace_count, (long long) (pit_now - pit_t0), AX, BX, DX, changed ? "CHANGED" : "heartbeat");
+                        fflush(stderr);
+                    }
+                }
+
+                /* The actual fix (2026-07-26, replacing an earlier PIT-pre-arm attempt - see
+                   INBOARD_86BOX_PORT_PLAN.md for why that approach was reverted): a real
+                   channel-0 arm unfroze this delay loop but caused a cascade of *new*
+                   failures elsewhere in this same BIOS's later POST (backlogged IRQ0/IRQ1
+                   landing on unrelated interrupt self-tests deep in E362-E3AC, since this
+                   whole boot takes 70+ real seconds - far longer than a Mode-3 counter's
+                   ~55ms max period, guaranteeing a backlog on real, unaccelerated-hardware
+                   timescales that would never accumulate). This version has zero blast
+                   radius outside this one routine: it doesn't touch the real system PIT at
+                   all, generates no interrupt, and only ever fires while CS=C000 (the video
+                   option ROM's own segment) at this exact loop's compare instruction -
+                   directly force the elapsed-ticks register past the loop's own target so
+                   the *guest's own* CMP/JBE resolves normally and it exits on its own terms,
+                   the same as it would once a real, unaccelerated system's PIT had
+                   genuinely ticked past BX.
+
+                   0x7B37 is the `11301115150` ROM (a different revision than the user's real
+                   card - see INBOARD_86BOX_PORT_PLAN.md). Once the user's own dumped ROM
+                   (`113-11504-002`) was installed, the identical delay loop (same
+                   OUT-43h/IN-40h/IN-40h/SUB/NEG/CMP/JBE shape, confirmed via disassembly) was
+                   found at a *different but structurally identical* address, 0x7B23 - the
+                   real ROM's own board-ID/RAM-addressing self-test genuinely does exist too
+                   (confirmed live: same "RAM Addressing" text, same frozen-PIT symptom), just
+                   faster overall, matching the user's real-hardware description once this
+                   loop is unstuck the same way. Both addresses handled so either ROM boots
+                   correctly without needing to remember to switch this fix over. */
+                if ((CS == 0xC000) && ((cpu_state.pc == 0x7B37) || (cpu_state.pc == 0x7B23)) && (AX <= BX)) {
+                    AX = (uint16_t) (BX + 1);
+                }
+            }
+
+            if ((CS == 0xF000) && (cpu_state.pc >= 0xE320) && (cpu_state.pc <= 0xE3A0)) {
+                static int diag_count = 0;
+                static int diag_loop_iter = 0;
+                static int diag_poll_iter = 0;
+                int is_tight_loop = (cpu_state.pc == 0xE349) || (cpu_state.pc == 0xE34B);
+                int is_poll_loop  = (cpu_state.pc == 0xE371) || (cpu_state.pc == 0xE378);
+                if (is_tight_loop)
+                    diag_loop_iter++;
+                if (is_poll_loop)
+                    diag_poll_iter++;
+                if (diag_count < 4000 && (!is_tight_loop || (diag_loop_iter % 4000 == 0) || (diag_loop_iter < 3))) {
+                    diag_count++;
+                    fprintf(stderr, "[trace] #%d PC=%04X AL=%02X CX=%04X flags=%04X IF=%d loop_iter=%d poll_iter=%d imr=%02X irr=%02X isr=%02X intp=%d f46b=%02X\n",
+                            diag_count, cpu_state.pc, AL, CX, cpu_state.flags,
+                            (cpu_state.flags & I_FLAG) ? 1 : 0, diag_loop_iter, diag_poll_iter,
+                            pic.imr, pic.irr, pic.isr, pic.int_pending,
+                            mem_readb_phys(0x46Bu));
+                    fflush(stderr);
+                }
+            }
+
+            /* One-shot full BIOS ROM dump (F0000-FFFFF live memory, not the static file -
+               see INBOARD_86BOX_PORT_PLAN.md for why those disagree) the first time execution
+               reaches F000:E518, the confirmed success-path target right after the DMA
+               channel-0 refresh check (Bug 3, now fixed) - i.e. the start of whatever POST
+               code runs next, leading up to the still-unexplained "1801" expansion-unit
+               error. Written once to bios_f000_dump_1801.bin for offline capstone disasm. */
+            if ((CS == 0xF000) && (cpu_state.pc == 0xE518)) {
+                static int dumped_e518 = 0;
+                if (!dumped_e518) {
+                    dumped_e518 = 1;
+                    FILE *f = fopen("bios_f000_dump_1801.bin", "wb");
+                    if (f) {
+                        for (uint32_t a = 0xF0000; a <= 0xFFFFF; a++) {
+                            uint8_t b = mem_readb_phys(a);
+                            fwrite(&b, 1, 1, f);
+                        }
+                        fclose(f);
+                        fprintf(stderr, "[dump] wrote bios_f000_dump_1801.bin at E518\n");
+                        fflush(stderr);
+                    }
+                }
+            }
+
+            /* One-shot: F000:E3CE is "in al,0x60" immediately after the receiver-card/
+               expansion-I/O-unit pulse sequence on port 0x61 (49h, C8h, 48h) and a settle
+               delay - this IS the actual "1801" presence test (confirmed via live-dump
+               disassembly this session, F000:E3A6-E3DB). Real hardware expects AL==0 here
+               (no extender chassis attached); a non-zero readback is exactly what triggers
+               the false "1801". Print AL right after the read fires, plus the XT keyboard
+               controller's buffer/status state at that instant, to see whether a stale
+               keyboard byte (e.g. the 0xAA self-test-pass BAT response) is the culprit. */
+            if ((CS == 0xF000) && (cpu_state.pc == 0xE3D0)) {
+                static int dumped_recv = 0;
+                if (!dumped_recv) {
+                    dumped_recv = 1;
+                    fprintf(stderr, "[recv1801] AL after IN AL,60h = %02X (expect 0 for no receiver card)\n", AL);
+                    fflush(stderr);
+                }
+            }
+
+            /* Wide, one-shot trace of the entire E3A6-E3DE receiver-card test decision
+               path (register state at each step), to see exactly which branch is taken
+               and why. */
+            if ((CS == 0xF000) && (cpu_state.pc >= 0xE3A6) && (cpu_state.pc <= 0xE3DE)) {
+                static int diag3_count = 0;
+                if (diag3_count < 60) {
+                    diag3_count++;
+                    fprintf(stderr, "[recvtrace] #%d PC=%04X AX=%04X BX=%04X CX=%04X flags=%04X\n",
+                            diag3_count, cpu_state.pc, AX, BX, CX, cpu_state.flags);
+                    fflush(stderr);
+                }
+            }
+
+            /* This test (2026-07-25, later): the E3A6-E3DE test's own port-0x60 readback
+               came back AL=0 (the "no receiver card" pass value) - the je at E3D2 should
+               therefore SKIP the error-setting call at E3D4 entirely. So whatever actually
+               sets "1801" must be a short stretch between E3DE (this test's exit point) and
+               F067 (first INT10h teletype call reached). Trace that whole gap once. */
+            if ((CS == 0xF000) && (cpu_state.pc >= 0xE3DE) && (cpu_state.pc <= 0xF067)) {
+                static int diag4_count = 0;
+                if (diag4_count < 400) {
+                    diag4_count++;
+                    fprintf(stderr, "[gaptrace] #%d PC=%04X AX=%04X BX=%04X CX=%04X DX=%04X flags=%04X\n",
+                            diag4_count, cpu_state.pc, AX, BX, CX, DX, cpu_state.flags);
+                    fflush(stderr);
+                }
+            }
+
+            /* Direct, unconditional (up to a few hits each) checkpoints at every single
+               address in the E3D2-E3DE branch decision, to settle definitively whether the
+               JE at E3D2 is actually taken or not - the E3DE-window gaptrace above found
+               ZERO hits below E66F, which is only possible if either the JE was NOT taken
+               (falling to E3D4's error-setting call) and control never came back through
+               E3DE the way the static disassembly implies, or CS was not F000 at some point
+               in here. This settles it directly, one checkpoint at a time. */
+            if (cpu_state.pc == 0xE3D2) {
+                static int n = 0; if (n < 5) { n++; fprintf(stderr, "[cp] E3D2 (JE) reached, CS=%04X flags=%04X ZF=%d\n", CS, cpu_state.flags, (cpu_state.flags & Z_FLAG) ? 1 : 0); fflush(stderr); }
+            }
+            if (cpu_state.pc == 0xE3D4) {
+                static int n = 0; if (n < 5) { n++; fprintf(stderr, "[cp] E3D4 (JE NOT taken - error call) reached, CS=%04X\n", CS); fflush(stderr); }
+            }
+            if (cpu_state.pc == 0xE3D7) {
+                static int n = 0; if (n < 5) { n++; fprintf(stderr, "[cp] E3D7 (print EC4C) reached, CS=%04X\n", CS); fflush(stderr); }
+            }
+            if (cpu_state.pc == 0xE3DB) {
+                static int n = 0; if (n < 5) { n++; fprintf(stderr, "[cp] E3DB (call FF9A9) reached, CS=%04X\n", CS); fflush(stderr); }
+            }
+            if (cpu_state.pc == 0xE3DE) {
+                static int n = 0; if (n < 5) { n++; fprintf(stderr, "[cp] E3DE (JE taken target / reconverge) reached, CS=%04X\n", CS); fflush(stderr); }
+            }
+
+            /* NOTE (2026-07-25): the E500-E900 window was traced and fully disassembled this
+               session - it's the option-ROM scan (C800-F600), LPT/COM port presence detection
+               (0x3BC/0x378/0x278 loopback test, 0x3FA/0x2FA), and DIP-switch/equipment-word
+               setup, ending in a genuine INT 19h bootstrap call at E66D. None of it prints
+               "1801" - that must happen either before E4D0 or on a later re-entry (warm boot
+               after a failed INT 19h). Removed the per-instruction trace here in favor of the
+               screen-text-triggered ring buffer dump above, which finds the actual call site
+               directly instead of requiring more manual disassembly windows. */
+
+#ifndef USE_NEW_DYNAREC
+            x86_was_reset = 0;
+#endif
+
+            cpu_state.ea_seg = &cpu_state.seg_ds;
+            cpu_state.ssegs  = 0;
+
+#ifdef USE_DEBUG_REGS_486
+            if (is386)
+                ins_fetch_fault = cpu_386_check_instruction_fault();
+
+            /* Breakpoint fault has priority over other faults. */
+            if ((cpu_state.abrt == 0) & ins_fetch_fault) {
+                x86gen();
+                ins_fetch_fault = 0;
+                /* No instructions executed at this point. */
+                goto block_ended;
+            }
+#endif
+
+            fetchdat = fastreadl_fetch(cs + cpu_state.pc);
+
+            if (!cpu_state.abrt) {
+#ifdef ENABLE_386_LOG
+                if (in_smm)
+                    x386_dynarec_log("[%04X:%08X] %08X\n", CS, cpu_state.pc, fetchdat);
+#endif
+                opcode = fetchdat & 0xFF;
+                fetchdat >>= 8;
+#ifdef USE_DEBUG_REGS_486
+                trap = (trap & ~1) | (!!(cpu_state.flags & T_FLAG));
+#else
+                trap = cpu_state.flags & T_FLAG;
+#endif
+
+                cpu_state.pc++;
+#ifdef USE_DEBUG_REGS_486
+                cpu_state.eflags &= ~(RF_FLAG);
+#endif
+                x86_opcodes[(opcode | cpu_state.op32) & 0x3ff](fetchdat);
+                if (x86_was_reset)
+                    break;
+            }
+#ifdef ENABLE_386_LOG
+            else if (in_smm)
+                x386_dynarec_log("[%04X:%08X] ABRT\n", CS, cpu_state.pc);
+#endif
+
+            if (cpu_flush_pending == 1)
+                cpu_flush_pending++;
+            else if (cpu_flush_pending == 2) {
+                cpu_flush_pending = 0;
+                flushmmucache_pc();
+            }
+
+#ifndef USE_NEW_DYNAREC
+            if (!use32)
+                cpu_state.pc &= 0xffff;
+#endif
+
+            if (cpu_end_block_after_ins)
+                cpu_end_block_after_ins--;
+
+#ifdef USE_DEBUG_REGS_486
+block_ended:
+#endif
+            if (cpu_state.abrt) {
+                uint8_t oop    = opcode;
+                flags_rebuild();
+                tempi          = cpu_state.abrt & ABRT_MASK;
+                cpu_state.abrt = 0;
+                x86_doabrt(tempi);
+                if (cpu_state.abrt) {
+                    pclog("Double fault - %02X\n", oop);
+                    cpu_state.abrt = 0;
+#ifndef USE_NEW_DYNAREC
+                    CS = oldcs;
+#endif
+                    cpu_state.pc = cpu_state.oldpc;
+                    x386_dynarec_log("Double fault\n");
+                    pmodeint(8, 0);
+                    if (cpu_state.abrt) {
+                        cpu_state.abrt = 0;
+                        softresetx86();
+                        cpu_set_edx();
+#ifdef ENABLE_386_LOG
+                        x386_dynarec_log("Triple fault - reset\n");
+#endif
+                    }
+                }
+
+#ifdef USE_DEBUG_REGS_486
+                if (is386 && !x86_was_reset  && ins_fetch_fault)
+                    x86gen();
+#endif
+            } else if (new_ne) {
+                flags_rebuild();
+
+                new_ne = 0;
+#ifndef USE_NEW_DYNAREC
+                oldcs = CS;
+#endif
+                cpu_state.oldpc = cpu_state.pc;
+                x86_int(16);
+            } else if (trap) {
+                flags_rebuild();
+#ifdef USE_DEBUG_REGS_486
+                if (trap & 2) dr[6] |= 0x8000;
+                if (trap & 1) dr[6] |= 0x4000;
+                if (trap & 16) dr[6] |= 0x2000;
+#endif
+                trap = 0;
+#ifndef USE_NEW_DYNAREC
+                oldcs = CS;
+#endif
+                cpu_state.oldpc = cpu_state.pc;
+                x86_int(1);
+            }
+
+            if (smi_line)
+                enter_smm_check(0);
+            else if (nmi && nmi_enable && nmi_mask) {
+#ifndef USE_NEW_DYNAREC
+                oldcs = CS;
+#endif
+                cpu_state.oldpc = cpu_state.pc;
+                x86_int(2);
+                nmi_enable = 0;
+#ifdef OLD_NMI_BEHAVIOR
+                if (nmi_auto_clear) {
+                    nmi_auto_clear = 0;
+                    nmi            = 0;
+                }
+#else
+                nmi = 0;
+#endif
+            } else if ((cpu_state.flags & I_FLAG) && pic.int_pending && !cpu_end_block_after_ins) {
+                vector = picinterrupt();
+                if (vector != -1) {
+                    flags_rebuild();
+                    if (msw & 1)
+                        pmodeint(vector, 0);
+                    else {
+                        writememw(ss, (SP - 2) & 0xFFFF, cpu_state.flags);
+                        writememw(ss, (SP - 4) & 0xFFFF, CS);
+                        writememw(ss, (SP - 6) & 0xFFFF, cpu_state.pc);
+                        SP -= 6;
+                        addr = (vector << 2) + idt.base;
+                        cpu_state.flags &= ~I_FLAG;
+                        cpu_state.flags &= ~T_FLAG;
+                        cpu_state.pc = readmemw(0, addr);
+                        loadcs(readmemw(0, addr + 2));
+                    }
+                }
+            }
+
+            ins_cycles -= cycles;
+            tsc += ins_cycles;
+
+            cycdiff = oldcyc - cycles;
+
+            if (timetolive) {
+                timetolive--;
+                if (!timetolive)
+                    fatal("Life expired\n");
+            }
+
+            if (TIMER_VAL_LESS_THAN_VAL(timer_target, (uint64_t) tsc))
+                timer_process();
+
+#ifdef USE_GDBSTUB
+            if (gdbstub_instruction())
+                return;
+#endif
+        }
+    }
+}
