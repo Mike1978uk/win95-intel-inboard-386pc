@@ -23,8 +23,6 @@
 #include <86box/86box.h>
 #include <86box/device.h>
 #include <86box/io.h>
-#include <86box/network.h>
-#include <86box/plat_unused.h>
 
 typedef struct {
     uint8_t  id_port_val;
@@ -63,7 +61,7 @@ nic_3c509b_close(void *priv)
 const device_t nic_3c509b_device = {
     .name          = "3Com Etherlink III (3C509B)",
     .internal_name = "3c509b",
-    .flags         = DEVICE_ISA | DEVICE_NOT_WORKING,  /* NOT_WORKING until full port done */
+    .flags         = DEVICE_ISA,  /* Stub implementation - full port pending */
     .local         = 0,
     .init          = nic_3c509b_init,
     .close         = nic_3c509b_close,
