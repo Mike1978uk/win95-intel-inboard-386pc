@@ -747,6 +747,14 @@ machine_ibmxt_inboard386_init(const machine_t *model)
 
     device_add(&inboard386_xt_device); /* The Inboard 386/PC accelerator card itself. */
 
+    /* Intek21 TK9901 ECP/EPP parallel card (slot 7, IRQ 7 on the real machine). Standard
+       (non-ECP/EPP) parallel port for now - no chip in this codebase provides real ECP/EPP
+       without also bundling an FDC/IDE block that would conflict with our existing XT-IDE +
+       floppy setup (deferred, see real_hardware_peripherals.md memory). */
+    lpt_t *lpt = device_add_inst(&lpt_port_device, 1);
+    lpt_port_setup(lpt, LPT1_ADDR);
+    lpt_port_irq(lpt, LPT1_IRQ);
+
     return ret;
 }
 
