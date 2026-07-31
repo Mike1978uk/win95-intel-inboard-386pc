@@ -798,6 +798,13 @@ dma_write(uint16_t addr, uint8_t val, void *priv)
     int channel;
     uint8_t bit;
 
+    {
+        extern int sbprov2_hang_trace_armed;
+        if (sbprov2_hang_trace_armed)
+            fprintf(stderr, "[hangtrace] dma_write addr=%04X val=%02X xt8237_active=%d CS:PC=%04X:%08X\n",
+                    addr, val, dma_xt8237_active(), CS, cpu_state.pc);
+    }
+
     if (!dma_xt8237_active()) {
         dma_write_legacy(addr, val, priv);
         return;
@@ -2135,8 +2142,22 @@ dma_channel_read(int channel)
     if (dma_stat_adv_pend & (1 << channel))
         (void) dma_channel_advance(channel);
 
-    if (!dma_xt8237_can_service(channel))
+    if (!dma_xt8237_can_service(channel)) {
+        extern int sbprov2_hang_trace_armed;
+        if (sbprov2_hang_trace_armed && (channel == 1)) {
+            fprintf(stderr, "[hangtrace] dma_channel_read(1) NODATA dma_e=%02X dma_m=%02X mode=%02X cmd0=%02X CS:PC=%04X:%08X\n",
+                    dma_e, dma_m, dma[1].mode, dma_command[0], CS, cpu_state.pc);
+            fflush(stderr);
+        }
         return DMA_NODATA;
+    }
+    {
+        extern int sbprov2_hang_trace_armed;
+        if (sbprov2_hang_trace_armed && (channel == 1)) {
+            fprintf(stderr, "[hangtrace] dma_channel_read(1) SERVICED CS:PC=%04X:%08X\n", CS, cpu_state.pc);
+            fflush(stderr);
+        }
+    }
 
     type = dma[channel].mode & 0x0c;
     if ((type != 0x08) && (type != 0x00))

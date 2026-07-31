@@ -1980,6 +1980,13 @@ sb_write(uint16_t addr, uint8_t val, void *priv)
 
     sb_dsp_log("[%04X:%08X] DSP: [W] %04X = %02X\n", CS, cpu_state.pc, addr, val);
 
+    {
+        extern int sbprov2_hang_trace_armed;
+        if (sbprov2_hang_trace_armed)
+            fprintf(stderr, "[hangtrace] sb_write addr=%04X val=%02X CS:PC=%04X:%08X\n",
+                    addr, val, CS, cpu_state.pc);
+    }
+
     switch (addr & 0xF) {
         case 6: /* Reset */
             sb_do_reset(dsp, val);

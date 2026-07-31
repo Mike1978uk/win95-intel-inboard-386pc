@@ -33,6 +33,13 @@
 #include <86box/timer.h>
 #include <86box/pit.h>
 #include <86box/device.h>
+
+/* 2026-07-31: set the instant the fatal sbprov2-hang IMR transition (imr 00 -> AC on
+   the master PIC) fires, so dma.c/snd_sb_dsp.c can switch their own capped trace hooks
+   to uncapped logging from that point on - the generic hooks are otherwise long since
+   exhausted by ordinary boot-time PIT/keyboard polling before the interesting window
+   ever starts. Remove once root-caused. */
+int sbprov2_hang_trace_armed = 0;
 #include <86box/apm.h>
 #include <86box/nvr.h>
 #include <86box/acpi.h>
@@ -549,8 +556,14 @@ pic_write(uint16_t addr, uint8_t val, void *priv)
                     static int hits = 0;
                     if (dev->is_master && ((dev->imr ^ val) & 0x20) && (hits < 50)) {
                         hits++;
-                        fprintf(stderr, "[picimr5] imr %02X -> %02X (irq5 %s)\n",
-                                dev->imr, val, (val & 0x20) ? "masked" : "unmasked");
+                        fprintf(stderr, "[picimr5] CS:PC=%04X:%08X imr %02X -> %02X (irq5 %s)\n",
+                                CS, cpu_state.pc, dev->imr, val, (val & 0x20) ? "masked" : "unmasked");
+                        fflush(stderr);
+                    }
+                    if (dev->is_master && (dev->imr == 0x00) && (val == 0xac) && !sbprov2_hang_trace_armed) {
+                        sbprov2_hang_trace_armed = 1;
+                        fprintf(stderr, "[hangtrace] armed at CS:PC=%04X:%08X\n", CS, cpu_state.pc);
+                        fflush(stderr);
                     }
                 }
                 dev->imr = val;

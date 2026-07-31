@@ -156,6 +156,37 @@ searching for a committed copy, none is checked in (it's throwaway tooling, not 
 Combine with Technique 2's `vram_dump.txt` polling to read command output back without needing
 to look at the actual window.
 
+## Technique 10: check for pre-existing gated trace hooks before writing new ones
+
+Before adding a new Technique-1-style CS:PC/register hook for a bug that's been investigated
+before, grep the relevant source file for the bug's old name first (e.g. `grep -rn "sb.*hang\|sbprov2-hang"` in `.c` files, not just this memory dir). The 2026-07-27 port-plan
+investigation into the SB Pro digitized-sound hang left exactly the hooks needed to root-cause
+it — `[picimr5]` in `pic.c` (logs every PIC1 IMR write that flips the IRQ5 mask bit, capped at
+50 hits) and `[dspC]`/`[dspE]` in `snd_sb_dsp.c` (logs write-buffer-status and IRQ-ack port
+reads, capped at 80 hits each) — each with a `"Remove once root-caused"` comment, still present
+because the bug was never actually root-caused before. **2026-07-31 reproduction session**:
+these hooks, read together with the ring-buffer-adjacent `[sbcmd]` DSP-command log, gave the
+exact trigger instant for free with zero new instrumentation - see `recovery_plan_2026_07_31.md`
+punch-list item 6 for the full sequence (`0x40` Set Time Constant issued twice, IRQ5 masked
+immediately after, then total silence). Writing a fresh hook from scratch would have reproduced
+work that was already done and just never followed up on.
+
+## Technique 11: trigger-armed uncapped tracing when generic hooks are exhausted before the interesting window
+
+Fixed-hit-cap hooks (Technique 1/10 style) get silently exhausted by ordinary boot-time noise
+(PIT reprogramming, keyboard polling, PIC IMR churn) long before execution ever reaches the
+actual bug — checking a capped hook's hit count against real elapsed time (or line number) is
+the tell. Don't just raise the cap globally (it explodes log volume with irrelevant boot noise).
+Instead add one small global flag (e.g. `int foo_trace_armed = 0;`) set by whichever earlier
+event marks "we're now in the interesting window" (found via Technique 1), and gate new,
+*uncapped* logging in every function you want visibility into on that flag. 2026-07-31 SB Pro
+session: the generic `[iotrace]`/`[dspC]`/`[dspE]` hooks were all capped-out during ordinary boot
+long before the fatal `imr 00->AC` IRQ5 mask; a flag armed by that exact PIC transition, checked
+in `dma.c`'s `dma_write`/`dma_channel_read` and `snd_sb_dsp.c`'s `sb_write`, gave clean, complete,
+uncapped visibility into the post-mask window with zero boot-noise pollution — proving in one
+capture that zero further DMA-controller or DSP-port I/O happens at all after the mask (ruling
+out a DMA-arbitration bug and pointing instead at a VMM-level scheduling/wait primitive).
+
 ## Live hardware bridge (COMrade / COMR95)
 
 For cross-checking emulator behavior against the real 5160, `COMRADE`/`COMR95` (Windows

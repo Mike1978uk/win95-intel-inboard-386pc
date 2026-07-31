@@ -13,6 +13,9 @@ vcpkg_installed/
 # (see memory/recovery_plan_2026_07_31.md) - keep 86box.cfg tracked, not the image.
 vm_win311/*.img
 vm_win311/*.log
+vm_win311/*.bin
+vm_win311/vram_dump.txt
 vm_win311/nvr/
 vm_win311/printer/
 vm_win311/screenshots/
+vm_win311/roms/
