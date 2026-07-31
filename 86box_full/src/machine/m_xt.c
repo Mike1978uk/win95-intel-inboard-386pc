@@ -698,11 +698,15 @@ machine_ibmxt_inboard386_init(const machine_t *model)
         (void) bios_load_aux_linear(fn, 0x000f0000, 32768, 0);
     }
 
-    /* Load Sergey floppy controller ROM with SmartWatch+ RTC at 0xC8000.
-       Path must carry the "roms/" prefix - rom_fopen() only searches the
-       -R roms tree for filenames prefixed this way; anything else is
-       treated as a literal CWD/absolute path and silently fails to load. */
-    (void) bios_load_aux_linear("roms/network/Sergey_FDD.bin", 0xc8000, 8192, 0);
+    /* Sergey floppy controller ROM with SmartWatch+ RTC (0xC8000) is
+       intentionally NOT loaded yet. The dump's own init code gets invoked
+       by BIOS's option-ROM scan and hangs POST solid (CS:PC parked at
+       F000:E0AB, opHLT DEAD-END loop) waiting on the SmartWatch+/DS1315
+       phantom-read protocol, which isn't emulated - confirmed by isolating
+       this single load as the regression source 2026-07-31. Re-enable only
+       once that RTC device exists (deferred, not needed for the Win95
+       goal - see memory). Path would be "roms/network/Sergey_FDD.bin"
+       (needs the "roms/" prefix for rom_fopen() to find it via -R). */
 
     device_context_restore();
 
