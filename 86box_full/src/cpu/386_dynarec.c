@@ -59,6 +59,9 @@ int inrecomp                = 0;
 int cpu_block_end           = 0;
 int cpu_end_block_after_ins = 0;
 
+/* [vmmhang] armed from pic.c's IMR-00->AC hook, see the trace site below in exec386(). */
+int vmmhang_post_count = 0;
+
 #if defined(__aarch64__) || defined(_M_ARM64)
 /* ARM64-only epoch: monotonically advances on dirty-list transitions so
    per-block retry state can distinguish dense bursts from stale retries. */
@@ -1134,6 +1137,43 @@ exec386(int32_t cycs)
                         fprintf(stderr, "[f8c8entry] checksum start DS:BX=%04X:%04X (physical=%05X)\n",
                                 ds, BX, (((uint32_t) ds) << 4) + BX);
                         fflush(stderr);
+                    }
+                }
+
+                /* [vmmhang] 2026-07-31 SB Pro digitized-sound hang, VMM-level half: real-hardware
+                   comparison via COMrade already pinned the fault to a Windows VxD context that
+                   permanently stops being scheduled right after the master-PIC IMR write that
+                   masks IRQ5 (`00 -> AC`) - a flat ring-0 selector (0028), so this is protected-
+                   mode VMM32 code, not BIOS/real-mode. Technique 11 (dma.c/pic.c/snd_sb_dsp.c)
+                   already proved zero further DMA/DSP-port I/O happens anywhere after that
+                   trigger, ruling out a hardware-register bug - the answer has to be visible in
+                   the pure CS:PC execution path from here, not in device state.
+                   Armed from `pic.c` (`vmmhang_post_count`), the exact same call site as the
+                   existing `sbprov2_hang_trace_armed` flag - NOT by re-matching the CS:PC value
+                   `picimr5` logs (0028:80051271): that value is captured from inside the OUT
+                   instruction's own handler, after `cpu_state.pc` has already advanced past the
+                   opcode byte, so it's a post-fetch snapshot, not a value guaranteed to reappear
+                   at this loop's pre-fetch top-of-loop check (confirmed empirically 2026-07-31:
+                   an exact-CS:PC-match version of this hook never fired even though `picimr5`
+                   logged the address every time). Arming from the device write itself sidesteps
+                   that ambiguity entirely. Traces the next 500 DISTINCT (CS,PC) values reached
+                   from there (same consecutive-dedup approach as the ring buffer just below,
+                   since a genuine wait/spin primitive would otherwise flood the log with one
+                   repeating address and hide whatever ran on the way in). A short, non-growing
+                   set of unique addresses in the post-trace confirms a real spin/wait loop at the
+                   emulator level (not a true CPU halt); a long, non-repeating trace before it
+                   settles shows the actual code path taken first. */
+                {
+                    static uint32_t vmmhang_last_cs     = 0xFFFFFFFF;
+                    static uint32_t vmmhang_last_pc     = 0xFFFFFFFF;
+
+                    if (vmmhang_post_count > 0
+                        && ((CS != vmmhang_last_cs) || (cpu_state.pc != vmmhang_last_pc))) {
+                        vmmhang_last_cs = CS;
+                        vmmhang_last_pc = cpu_state.pc;
+                        vmmhang_post_count--;
+                        fprintf(stderr, "[vmmhangpost] #%03d CS:PC=%04X:%08X EAX=%08X ECX=%08X ESP=%08X EBP=%08X flags=%08X\n",
+                                500 - vmmhang_post_count, CS, cpu_state.pc, EAX, ECX, ESP, EBP, cpu_state.flags);
                     }
                 }
 

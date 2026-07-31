@@ -561,7 +561,9 @@ pic_write(uint16_t addr, uint8_t val, void *priv)
                         fflush(stderr);
                     }
                     if (dev->is_master && (dev->imr == 0x00) && (val == 0xac) && !sbprov2_hang_trace_armed) {
+                        extern int vmmhang_post_count;
                         sbprov2_hang_trace_armed = 1;
+                        vmmhang_post_count       = 500;
                         fprintf(stderr, "[hangtrace] armed at CS:PC=%04X:%08X\n", CS, cpu_state.pc);
                         fflush(stderr);
                     }

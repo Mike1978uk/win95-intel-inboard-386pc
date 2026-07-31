@@ -187,9 +187,39 @@ uncapped visibility into the post-mask window with zero boot-noise pollution —
 capture that zero further DMA-controller or DSP-port I/O happens at all after the mask (ruling
 out a DMA-arbitration bug and pointing instead at a VMM-level scheduling/wait primitive).
 
-## Live hardware bridge (COMrade / COMR95)
+## Technique 12: CS:PC-triggered execution trace for protected-mode/VMM hangs, same pattern one layer up
 
-For cross-checking emulator behavior against the real 5160, `COMRADE`/`COMR95` (Windows
+When Technique 11's device-level tracing proves a hang *isn't* a hardware-register bug (e.g. zero
+further DMA/DSP I/O after the trigger point), the next layer up is the CPU's own instruction
+stream, not another device. Add the same trigger-armed hook (Technique 1/11 style) directly in
+`cpu/386_dynarec.c`'s `exec386()` per-instruction loop (next to the existing `F000:E0AB`/`F8C8`-
+style one-shot hooks, right before the ring-buffer update) — arm on the specific CS:PC the fault
+was already pinned to (a flat/protected-mode selector like `0028` means VMM32/VxD ring-0 code, not
+BIOS real-mode), then trace the next N *distinct* (CS,PC) values with the same consecutive-dedup
+approach the ring buffer uses (a raw uncapped per-instruction log floods on any spin/wait loop). A
+short, non-growing set of unique addresses in the post-trace confirms a genuine spin/wait at the
+emulator level; a long, non-repeating trace shows the real code path taken first. **2026-07-31 SB
+Pro session**: added as `[vmmhang]`/`[vmmhangpost]` targeting `0028:80051271` (the VxD context that
+stops being scheduled, pinned via real-hardware comparison — see `recovery_plan_2026_07_31.md`
+item 6). Register macros for a 32-bit dump: `EAX`/`EBX`/`ECX`/`EDX`/`ESI`/`EDI`/`ESP`/`EBP` in
+`cpu/cpu.h` (`cpu_state.regs[n].l`) — note `CS` is the raw selector (`cpu_state.seg_cs.seg`), not a
+real-mode-style base; don't `<<4` it for protected-mode addresses, use `cpu_state.seg_cs.base` if a
+linear/physical address is ever needed instead of just the selector:offset pair.
+
+## Driving the VM without any live guest agent (Technique 9 + Technique 2)
+
+For keyboard input and output readback, the project has its own host-native channel — no COMrade,
+no serial bridge, nothing guest-side to keep alive across VM restarts: Technique 9's
+`inject_key.txt` polling (wired into `keyboard_input()` in `386_dynarec.c`) for input, Technique
+2's `vram_dump.txt` for text-mode output readback. Prefer this over any live-agent bridge for
+*internal* emulator debugging (reproducing a hang, driving DOS/Windows menus, reading a screen) —
+it has no external dependencies (HHD, named pipes, a TSR that has to survive every VM relaunch) and
+nothing to reconnect when the VM is killed and restarted, which happens constantly during this kind
+of investigation.
+
+## Live hardware bridge (COMrade / COMR95) — real hardware only, not the VM
+
+For cross-checking emulator behavior against the **real 5160**, `COMRADE`/`COMR95` (Windows
 95-compatible build, `COMR95 /com1 /baud 115200`) is the live bridge — HELLO/status, text screen,
 desktop thumbnails/screenshot, file read/write, directory listing, CRC hashing, keyboard input.
 See `memory/comrade_bridge.md` for current capability details. Use it to settle "does real
@@ -197,3 +227,13 @@ hardware show this too" questions directly instead of guessing from a photo or a
 this was flagged as the fastest way to resolve the "ROM BIOS shadow RAM failed" system-BIOS
 mismatch (`mem_dump` of physical `0xF0000-0xFFFFF` on real hardware) but wasn't available in the
 session that hit it. Check whether it's connected before assuming it isn't.
+
+**Do not use this bridge (or the `comrade86box` MCP variant) to introspect the *VM* itself —
+decided against 2026-07-31 after a long session chasing it.** The architecture is fundamentally
+mismatched for that: the MCP server's process lifecycle is tied to the Claude Code session, while
+the VM gets killed and relaunched constantly during debugging, and nothing in the chain (86Box's
+named-pipe server, HHD's COM-port-to-pipe client bridge, the python MCP client holding the COM
+handle open) reconnects when one side restarts — whichever side started first just holds a dead
+handle. It also duplicates capability the project already has natively and more reliably
+(Technique 9/2 above, plus Technique 1/10/11/12's source-level tracing) for anything that's about
+the emulator's own internal state. `comrade`/COMrade proper stays real-hardware-only.
