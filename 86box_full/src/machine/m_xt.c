@@ -698,8 +698,11 @@ machine_ibmxt_inboard386_init(const machine_t *model)
         (void) bios_load_aux_linear(fn, 0x000f0000, 32768, 0);
     }
 
-    /* Load Sergey floppy controller ROM with SmartWatch+ RTC at 0xC8000 */
-    (void) bios_load_aux_linear("Sergey_FDD.bin", 0xc8000, 8192, 0);
+    /* Load Sergey floppy controller ROM with SmartWatch+ RTC at 0xC8000.
+       Path must carry the "roms/" prefix - rom_fopen() only searches the
+       -R roms tree for filenames prefixed this way; anything else is
+       treated as a literal CWD/absolute path and silently fails to load. */
+    (void) bios_load_aux_linear("roms/network/Sergey_FDD.bin", 0xc8000, 8192, 0);
 
     device_context_restore();
 
