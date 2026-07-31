@@ -38,11 +38,9 @@ enum {
     RDISK_TYPE_GENERIC = 0,
     RDISK_TYPE_ZIP_100,
     RDISK_TYPE_ZIP_250,
-#if 0
     RDISK_TYPE_ZIP_750,
     RDISK_TYPE_SUPERDISK_120,
     RDISK_TYPE_SUPERDISK_240,
-#endif
 };
 
 typedef struct rdisk_type_t {
@@ -50,15 +48,13 @@ typedef struct rdisk_type_t {
     uint16_t bytes_per_sector;
 } rdisk_type_t;
 
-#define KNOWN_RDISK_TYPES 2
+#define KNOWN_RDISK_TYPES 5
 static const rdisk_type_t rdisk_types[KNOWN_RDISK_TYPES] = {
     { ZIP_SECTORS,           512 },
     { ZIP_250_SECTORS,       512 },
-#if 0
     { ZIP_750_SECTORS,       512 },
     { SUPERDISK_SECTORS,     512 },
     { SUPERDISK_240_SECTORS, 512 },
-#endif
 };
 
 typedef struct rdisk_drive_type_t {
@@ -68,16 +64,14 @@ typedef struct rdisk_drive_type_t {
     int8_t      supported_media[KNOWN_RDISK_TYPES];
 } rdisk_drive_type_t;
 
-#define KNOWN_RDISK_DRIVE_TYPES 3
+#define KNOWN_RDISK_DRIVE_TYPES 6
 static const rdisk_drive_type_t rdisk_drive_types[KNOWN_RDISK_DRIVE_TYPES] = {
-    { "86BOX",    "REMOVABLE DISK",             "5.00", { 1, 1 /*, 0, 0, 0*/ }},
-    { "IOMEGA",   "ZIP 100",                    "E.08", { 1, 0 /*, 0, 0, 0*/ }},
-    { "IOMEGA",   "ZIP 250",                    "42.S", { 1, 1 /*, 1, 0, 0*/ }},
-#if 0
+    { "86BOX",    "REMOVABLE DISK",             "5.00", { 1, 1, 0, 0, 0 }},
+    { "IOMEGA",   "ZIP 100",                    "E.08", { 1, 0, 0, 0, 0 }},
+    { "IOMEGA",   "ZIP 250",                    "42.S", { 1, 1, 1, 0, 0 }},
     { "IOMEGA",   "ZIP 750",                    "42.S", { 1, 1, 1, 0, 0 }}, /* Guess */
-    { "IMATION",  "SUPERDISK 120 ATAPI",        "04"    { 0, 0, 0, 1, 0 }},
-    { "IMATION",  "SUPERDISK  240       ATAPI", "04"    { 0, 0, 0, 1, 1 }},
-#endif
+    { "IMATION",  "SUPERDISK 120 ATAPI",        "04",   { 0, 0, 0, 1, 0 }},
+    { "IMATION",  "SUPERDISK  240       ATAPI", "04",   { 0, 0, 0, 1, 1 }},
 };
 
 enum {
