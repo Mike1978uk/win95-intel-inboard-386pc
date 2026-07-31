@@ -116,6 +116,46 @@ for cylinder count) gave the real geometry and fixed it immediately. When in dou
 config's exact field order, grep `config.c`'s `sscanf`/`ini_section_get_string` call for that key
 rather than trusting an example from a different context.
 
+## Addendum to Technique 4: numbered-instance sections auto-migrate from bare names
+
+Multi-instance devices (a card that could have more than one, e.g. `scsicard_1`) get a section
+name of `"%s #%i"` (`dev->name` + instance number) once instance > 0 — confirmed in
+`device.c`'s `device_set_context()`. This looked like it might repeat the `enable_5161` trap
+(writing `[Trantor T130B]` when the real section is `[Trantor T130B #1]`), but it's actually
+safe: `device_set_context()` (`device.c` ~line 277-283) auto-renames a bare non-numbered section
+to the numbered one on load if the numbered one doesn't exist yet, and 86Box's own config-save
+persists the renamed result — confirmed 2026-08-01 by writing a bare `[Trantor T130B]` section by
+hand, booting, and finding the values correctly present (not defaulted) under
+`[Trantor T130B #1]` after 86Box rewrote the file. Still always grep for `.name` and check
+whether the owning device is single- or multi-instance before assuming a bare name is wrong, but
+don't panic if 86Box "corrects" your section header on the next save — that's this migration
+path working as intended, not silent data loss.
+
+## Technique 9: real keystroke injection into the running VM via `inject_key.txt`
+
+OS-level `SendKeys`/`SendInput` do not reach 86Box's SDL/Qt keyboard handling (confirmed
+repeatedly in the port plan, 2026-07-24/25 — a known limitation, not root-caused, possibly
+synthetic input being filtered). This project has its own file-based channel instead, wired
+directly into `keyboard_input()` in `386_dynarec.c` (~line 1654, present and compiled in as of
+2026-07-31): once per second it polls for a file named `inject_key.txt` in the **process's own
+current working directory** (not the `-P` profile dir, not the exe's own dir unless that's also
+the CWD at launch — whatever directory 86Box.exe was actually launched from), reads a decimal XT
+Set-1 scancode (optionally prefixed with a bare `s` to hold Shift around it, for `:` and other
+shifted characters the plain make/break protocol can't reach otherwise), injects a make+break
+pair, logs `[keyinject] sent scancode N (0xXX)` to stderr, and deletes the file so the next
+keystroke can be dropped. Confirmed working live 2026-08-01: single test character appeared at
+a `C:\>` prompt in `vram_dump.txt` within ~1s of writing the file.
+
+**Practical driver script**: write the scancode, wait for the file to disappear (consumption),
+then write the next one — don't burst multiple files, only one is read per poll. A small
+char→scancode table covering lowercase a-z/0-9/space/`.`/`/`/`\`/`-`/`,`/shifted `:` is enough
+for typical DOS command-line testing (FORMAT, COPY, DIR, CD, etc.) A working version of this
+driver lives in scratch form each session — rebuild it from this description rather than
+searching for a committed copy, none is checked in (it's throwaway tooling, not project code).
+
+Combine with Technique 2's `vram_dump.txt` polling to read command output back without needing
+to look at the actual window.
+
 ## Live hardware bridge (COMrade / COMR95)
 
 For cross-checking emulator behavior against the real 5160, `COMRADE`/`COMR95` (Windows
