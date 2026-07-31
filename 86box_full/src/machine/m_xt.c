@@ -699,13 +699,18 @@ machine_ibmxt_inboard386_init(const machine_t *model)
     }
 
     /* Sergey floppy controller ROM with SmartWatch+ RTC (0xC8000) is
-       intentionally NOT loaded yet. The dump's own init code gets invoked
-       by BIOS's option-ROM scan and hangs POST solid (CS:PC parked at
-       F000:E0AB, opHLT DEAD-END loop) waiting on the SmartWatch+/DS1315
-       phantom-read protocol, which isn't emulated - confirmed by isolating
-       this single load as the regression source 2026-07-31. Re-enable only
-       once that RTC device exists (deferred, not needed for the Win95
-       goal - see memory). Path would be "roms/network/Sergey_FDD.bin"
+       intentionally NOT loaded. Loading it reproduces a POST hang: the
+       BIOS's own F0000-FFFFF checksum self-test (F000:F8C8, "jmp 0xf8c8"
+       at E0D2) starts failing (JNE at E0D5 taken -> HLT trap at E0AB) only
+       when this ROM is present, even though it lives at C8000, entirely
+       outside the checksummed F0000-FFFFF range - live-traced 2026-08-01,
+       see recovery_plan_2026_07_31.md Phase 4 item 3 / real_hardware_
+       peripherals.md for the full disassembly and open questions. Not a
+       boot-ROM-scan-order issue (tested with T130B's own ROM present too,
+       identical trap) and not an RTC dependency (corrected theory, see
+       memory - real hardware: ROM and RTC only share a socket). True cause
+       still unresolved; deferred as a nice-to-have, not a project blocker,
+       per user 2026-08-01. Path would be "roms/network/Sergey_FDD.bin"
        (needs the "roms/" prefix for rom_fopen() to find it via -R). */
 
     device_context_restore();
