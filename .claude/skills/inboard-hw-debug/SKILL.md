@@ -308,6 +308,51 @@ delete and recreate rather than overwrite in place — worked cleanly where dire
 briefly wrote directly to a OneDrive source-of-truth file, hit the FREE_CLUSTER error partway
 through, had to restore from a pre-emptive backup) — never operate on the only copy of anything.
 
+## Technique 16: dump live guest memory through the real page-table translation, not a physical-address guess
+
+When a CS:PC address needs identifying and static disassembly of the "obvious" source file
+(BIOS ROM, a driver's own disk file) doesn't explain it, dump the actual guest memory the CPU is
+executing from and disassemble *that* instead of guessing. Use `readmemb(base, offset)` (defined
+in `cpu/386_common.h`, already visible from `cpu/386_dynarec.c`), not `mem_readb_phys()`, whenever
+paging might be active (`CR0.PG`, bit 31) - `readmemb()` goes through the real page-table lookup
+(`readlookup2`), so it reflects what the CPU genuinely sees; `mem_readb_phys()` reads a raw
+physical address and will silently return the wrong bytes if the linear-to-physical mapping isn't
+what you assumed (e.g. inside a V86 box that isn't identity-mapped the way you expect). For a V86
+or real-mode segment, the linear base is simply `segment << 4` (no descriptor table involved) - so
+`readmemb(((uint32_t)segment) << 4, offset)` walking `offset` from 0 to 0xFFFF and writing each
+byte to a file (same pattern the existing `[vramdump]` hook already uses for `0xB8000`) gives a
+clean 64KB dump to `objdump -D -b binary -m i8086` offline. **Once dumped, extract readable ASCII
+strings first** (`re.findall(rb'[\x20-\x7e]{5,}', data)` in Python) before disassembling anything -
+recognizable strings (error messages, filenames, component names) very often identify what's
+actually at an address far faster and more reliably than trying to disassemble blind, especially
+in low DOS memory where multiple unrelated resident drivers get loaded contiguously and an address
+that looks like "one component" from its segment number alone can actually span several.
+
+**2026-08-01 case**: a CS:PC trigger address in segment `0048` turned out, once dumped and
+string-extracted, to span `INBRDPC.SYS`, `HIMEM.SYS`, `EMM386.EXE`, `IFSHLP`, and `WININIT.INI`
+error/component strings all in one contiguous block - simply the normal `CONFIG.SYS` driver load
+order in low memory, not evidence of one specific "owner" component. The `WININIT` string in
+particular reframed the whole investigation: Windows' file-commit/setup-finalization mechanism
+processes a *list* of pending operations, which is a fundamentally different failure shape ("long
+but finite, might just need more real time at this interpreted CPU's effective speed") than "stuck
+forever" - a distinction that would have been easy to miss from CS:PC address ranges alone.
+
+**Caveat on exact trigger addresses from exception dispatch**: `ring_last_cs`/`ring_last_pc` (the
+Technique 1 "previous unique CS:PC" ring-buffer state) is proven reliable for normal
+`call`-based control flow ([e0abtrap]), but a CPU *exception* (e.g. `INT 06h` Invalid Opcode,
+raised by the processor itself mid-fetch, not by a deliberate `call`/`int` the ring buffer's
+per-instruction check necessarily saw first) may not route through the exact same point in the
+per-instruction loop - treat an exception-triggered "caller" address as approximate, not exact,
+until cross-checked (e.g. does the reported offset actually decode as plausible code, or does it
+land inside a data/string region as happened here).
+
+**Caveat on `cpu_use_dynarec`**: every debug hook this project's investigations rely on
+([modecheck], [vramdump], [e0abtrap], [vmmhang], [int6entry], etc.) lives inside `exec386()`,
+`cpu/386_dynarec.c`'s *interpreter* loop. Compiled dynarec blocks don't run through that function,
+so switching `cpu_use_dynarec` to `1` for a speed boost would very likely make all of them go
+silent. Fine for a plain "does this ever finish" endurance test where no tracing is needed: not
+fine for any session actively relying on this project's hook infrastructure.
+
 ## Driving the VM without any live guest agent (Technique 9 + Technique 2)
 
 For keyboard input and output readback, the project has its own host-native channel — no COMrade,

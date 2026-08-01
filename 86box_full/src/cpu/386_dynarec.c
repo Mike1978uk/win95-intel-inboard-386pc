@@ -1177,6 +1177,65 @@ exec386(int32_t cycs)
                     }
                 }
 
+                /* [int6entry] 2026-08-01: identifies the actual caller of INBRDPC.SYS's INT 06h
+                   request 0x050F handler (disassembly-confirmed entry point 020B:0603 - see
+                   memory/win95_emulator_repro_2026_08_01.md for the full disassembly). INT 06h
+                   is normally the CPU's own Invalid-Opcode exception, not a software API - so
+                   dispatch here isn't a `call` instruction our own ring buffer would show as a
+                   normal caller; the ring buffer's "previous unique CS:PC"
+                   (ring_last_cs/ring_last_pc, read BEFORE this instruction updates it, same
+                   ordering [e0abtrap] already relies on) is the literal instruction that
+                   triggered the interrupt - either a genuine `INT 6` opcode or whatever
+                   invalid/reserved opcode the CPU faulted on. Also dumps CR0 and the full 32-bit
+                   EFLAGS (cpu_state.flags is only the low 16 bits - the VM flag, bit 17, lives in
+                   cpu_state.eflags's bit 1) to settle whether this is plain real mode or a V86
+                   context set up by a protected-mode VxD. Gated on elapsed real time (same
+                   pattern as the retired [seg0048trap] hook) so it catches the actual stall
+                   instance, not any earlier, unrelated use of this same handler entry point
+                   during ordinary boot. One-shot; remove once the caller is identified. */
+                {
+                    static int    int6entry_fired = 0;
+                    static time_t int6entry_t0    = 0;
+
+                    if (int6entry_t0 == 0)
+                        int6entry_t0 = time(NULL);
+
+                    if (!int6entry_fired && CS == 0x020B && cpu_state.pc == 0x0603
+                        && (time(NULL) - int6entry_t0) >= 150) {
+                        int6entry_fired = 1;
+                        fprintf(stderr,
+                                "[int6entry] t+%lds triggered by CS:PC=%04X:%04X -> handler 020B:0603 "
+                                "| CR0=%08X EFLAGS=%04X%04X (VM=%s) | AX=%04X BX=%04X CX=%04X DX=%04X SP=%04X BP=%04X\n",
+                                (long) (time(NULL) - int6entry_t0), ring_last_cs, ring_last_pc,
+                                cr0, cpu_state.eflags, cpu_state.flags,
+                                (cpu_state.eflags & 0x0002) ? "SET (V86 mode)" : "clear (real/protected, not V86)",
+                                AX, BX, CX, DX, SP, BP);
+
+                        /* Dump the full 64KB of the caller's segment (ring_last_cs, confirmed
+                           0x0048 - the component that deliberately triggers this INT 06h/0x050F
+                           protocol) via readmemb() rather than a raw physical-address guess,
+                           since CR0.PG=1 here (paging active) - readmemb() goes through the
+                           actual page-table translation (readlookup2), so this reflects what the
+                           V86 CPU genuinely sees, not whatever happens to sit at a naively
+                           computed physical address. V86-mode segment base = selector*16 (plain
+                           real-mode-style addressing, no descriptor table involved even under
+                           paging). Written to vm_win311/seg0048_dump.bin for offline disassembly
+                           - not into the stderr log, 64KB is too large for that. */
+                        {
+                            uint32_t caller_base = ((uint32_t) ring_last_cs) << 4;
+                            FILE    *df          = fopen("seg0048_dump.bin", "wb");
+                            if (df) {
+                                for (uint32_t off = 0; off < 0x10000; off++) {
+                                    uint8_t b = readmemb(caller_base, off);
+                                    fputc(b, df);
+                                }
+                                fclose(df);
+                                fprintf(stderr, "[int6entry] dumped 64KB of segment %04X to seg0048_dump.bin\n", ring_last_cs);
+                            }
+                        }
+                    }
+                }
+
                 if ((CS != ring_last_cs) || (cpu_state.pc != ring_last_pc)) {
                     ring_last_cs      = CS;
                     ring_last_pc      = cpu_state.pc;
