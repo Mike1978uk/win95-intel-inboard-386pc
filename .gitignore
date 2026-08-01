@@ -12,6 +12,7 @@ vcpkg_installed/
 # Golden copies live at Desktop\Claude_stuff\86box_inboard_test\vm_win311\
 # (see memory/recovery_plan_2026_07_31.md) - keep 86box.cfg tracked, not the image.
 vm_win311/*.img
+vm_win311/**/*.img
 vm_win311/*.log
 vm_win311/*.bin
 vm_win311/vram_dump.txt

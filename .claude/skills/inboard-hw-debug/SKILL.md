@@ -206,6 +206,108 @@ item 6). Register macros for a 32-bit dump: `EAX`/`EBX`/`ECX`/`EDX`/`ESI`/`EDI`/
 real-mode-style base; don't `<<4` it for protected-mode addresses, use `cpu_state.seg_cs.base` if a
 linear/physical address is ever needed instead of just the selector:offset pair.
 
+## Technique 13: offline segment-confinement analysis from an existing per-second modecheck log — no rebuild needed
+
+When a boot looks stuck but you already have a `[modecheck]` heartbeat log running (Technique 3),
+check for genuine forward progress *before* writing any new instrumentation: `grep -o
+"CS:PC=[0-9A-F]*:" run.log | sed 's/CS:PC=//' | uniq` lists distinct CS segments in order of first
+appearance — real boot progress moves through many segments (BIOS → IO.SYS → MSDOS.SYS →
+COMMAND.COM → ...); if the segment value stops changing and stays fixed for minutes while the
+`[vramdump]` screen text also stops changing, that's your hang window, found for free from data you
+already collected. Then check *within* that segment for a repeating cycle vs. genuine (if slow)
+work: `grep -o "CS:PC=SEGVAL:[0-9A-F]*" run.log | sed 's/.*://' | sort | uniq -c | sort -rn | head`
+— if most offsets appear only once each and span a wide range, it's not a 2-3 instruction spin
+loop (rules out the simplest hang class immediately, no new hooks needed). A near-100%-unique,
+wide-ranging offset spread that *still* never leaves the segment for minutes is a strong signature
+of a genuine non-terminating loop in whatever routine owns that segment (e.g. a relocation/retry
+loop that keeps advancing through fresh table/buffer addresses without ever reaching a terminating
+condition) — worth a live Technique 1/12-style trace centered on that segment next, but this
+offline pass already tells you where to point it without burning a rebuild cycle first.
+
+**2026-08-01 case**: booting a real-hardware-lineage Windows 95 image (see the CF-card note under
+"real hardware bridge" below) reached `Starting Windows 95...` normally, then CS:PC became confined
+to segment `650B` (highly plausibly the real-mode VMM32 monolithic-builder, based on file layout —
+`vmm32/` folder + a pre-combined `VMM32_combined.VXD` both present on the source card) for 300+
+continuous seconds — 389 of 390 one-per-second samples were unique offsets spanning the segment's
+full range, never returning to any BIOS/DOS segment, while the text-mode *and* graphics-plane VRAM
+both stayed completely blank (matches the real 5160's own described "blank flashing cursor" symptom
+— a hardware-drawn text cursor blink leaves the underlying character cell itself blank, so a raw
+VRAM dump of a real flashing-cursor hang and a "nothing ever got drawn" hang look identical this
+way) and the PIT channel-0 timer kept ticking throughout (not a total system freeze, same shape as
+the earlier SB Pro VMM hang investigation's "one context permanently stops, everything else still
+runs" finding). This is a real, reproducible emulator-side hang at the same boot stage the user
+independently described from prior real-hardware/local testing ("Windows 95 has completed updating
+files, continuing to load Windows 95... hangs at a flashing cursor") — strong first-time evidence
+the emulator does reproduce the real machine's core blocker. Not yet root-caused to a specific
+instruction; next step is a live Technique 1/12 trace scoped to segment `650B` specifically (arm
+on first entry to that segment, log next N *distinct* offsets with full register dump) to find
+whether it's a genuine infinite loop in the VMM32 combiner or something slower but still finite that
+just needs more real time than tested so far.
+
+## Technique 14: identify a mystery CF-card/disk-image by physically matching against the source device, not by filename
+
+When several same-named-family disk image backups exist (e.g. `*_golden*.img`, `*_ready_for_real_hw*.img`,
+multiple `*_combined_patched*.img`) and it's unclear which one matches current real-hardware state,
+check whether the actual physical source media is still mounted before trusting any filename/date
+heuristic. `Get-Partition -DriveLetter X | Get-Disk` (PowerShell) reports the real physical disk's
+`FriendlyName`/`Size`/`BusType` — matching that exact byte size against candidate `.img` files'
+`ls -la` sizes is a hard, unambiguous filter (multiple checkpoint images from the same card will
+share its exact physical byte count, e.g. `1968390144` bytes for this project's Trantor/FNK CF
+reader+card combo — a value that recurs across `Golden_win95_vm_installed.img`,
+`5160_combined_patched_real_hw_test.img`, `Prestaged_pre_vmm.img`, etc., confirming they're all
+snapshots of the same physical card, not independent images). **Don't try to raw-`dd` the physical
+device itself from an unprivileged shell** — opening `\\.\PhysicalDriveN` for even read-only access
+needs admin and will fail cleanly (safe to attempt once, not worth escalating for). Use an existing
+`.img` snapshot from the same lineage instead, and reconcile specific changed files (a newer
+`CONFIG.SYS`, a `INBRDPC3.SYS` replacing `INBRDPC.SYS`, etc.) by direct comparison against the live
+mounted card rather than assuming any one backup is fully current.
+
+**Known quirk of this specific CF card**: its MBR partition table and FAT16 BPB both describe a
+larger partition (~2,045,772,288 bytes / 3,995,649 sectors) than the card's actual addressable
+physical capacity (1,968,390,144 bytes, per `Get-Disk`) — consistently, across every image ever
+captured from it. This is **not corruption** (verified: MBR and BPB agree with each other, just not
+with the physical device) — it's an inherent property of this reader/card combination. **Implication
+for `86box.cfg`**: don't trust the image's own baked-in MBR/BPB geometry for `hdd_01_parameters`
+(Technique 8's normal approach) when working with this specific card's images — it will describe a
+disk larger than the actual file, which can misbehave. Instead compute geometry from the *actual
+file's byte size* via 86Box's own `hdd_image_calc_chs()` algorithm (`disk/hdd_image.c` ~line 150,
+size argument in MB, `spt`/`heads`/`cyl` derived per the documented VHD-spec formula) — this
+guarantees the computed disk size stays at or under the real file size, so 86Box never tries to
+read past EOF. For the 1,968,390,144-byte family: `hdd_01_parameters = 63, 16, 3813, 0, ide`.
+
+## Technique 15: when forcing a Win95 VMM32 recombine, preserve the existing `VMM32.VXD`, don't delete it
+
+To make Windows 95 pick up new/patched override VxDs from `WINDOWS\SYSTEM\VMM32\`, it's tempting to
+delete the existing `WINDOWS\SYSTEM\VMM32.VXD` (the combined blob) so Windows is forced to rebuild
+from scratch. **This is wrong and produces a new, misleading failure mode.** A genuinely
+pre-combine Windows 95 image (e.g. this project's `Prestaged_pre_vmm.img`) still has a `VMM32.VXD`
+present — a small, generic, CD-shipped placeholder (~411KB vs. ~690KB for a real full combine,
+FAT-timestamped to the OS build date rather than any local session) — and Windows expects to read
+and *update* this file in place, not find it missing. Deleting it outright causes Windows to
+explicitly report `Windows could not combine VxDs into a monolithic file before starting` and stop
+at a "Press any key to continue" prompt — a real, on-screen diagnostic, but a different bug than
+the one being investigated, and confusing if you don't already know to expect it. **Fix**: only
+replace the individual override VxD files inside `VMM32\` (delete-then-recreate each one — see the
+pyfatfs note below), and leave the top-level `VMM32.VXD` alone. Windows' own hardware-detection
+logic decides when to actually recombine; forcing that decision by deleting its input isn't
+necessary and isn't how the real reimage-and-boot workflow this project mirrors ever does it.
+
+**2026-08-01 case**: exactly this mistake, caught by the user, cost one full boot-and-diagnose
+cycle. The corrected retry (same 3 patched VxDs, `VMM32.VXD` left in place) combined cleanly
+(`Please wait while Setup updates your configuration files...` → `Completed updating files,
+continuing to load Windows...`, no error) and reached a stall the user confirmed live matches
+where the real 5160 permanently gets stuck — the strongest reproduction of the project's core
+Win95 blocker so far. See `memory/win95_emulator_repro_2026_08_01.md` for the full trace.
+
+**Related pyfatfs note**: in-place overwrite of an *existing* file entry can fail with
+`PyFATException: FREE_CLUSTER mark found in FAT cluster chain` if that specific file's on-disk
+cluster chain is unusual (seen on a VxD that turned out to be an unidentified third-party variant,
+not a clean stock/patched copy). Workaround: `fs.remove(path)` then `fs.writebytes(path, data)` —
+delete and recreate rather than overwrite in place — worked cleanly where direct overwrite didn't.
+**Always copy the target image before any pyfatfs write** (this mistake was caught mid-session:
+briefly wrote directly to a OneDrive source-of-truth file, hit the FREE_CLUSTER error partway
+through, had to restore from a pre-emptive backup) — never operate on the only copy of anything.
+
 ## Driving the VM without any live guest agent (Technique 9 + Technique 2)
 
 For keyboard input and output readback, the project has its own host-native channel — no COMrade,
