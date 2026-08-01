@@ -1075,6 +1075,17 @@ exec386(int32_t cycs)
             {
                 static uint32_t ring_cs[1048576];
                 static uint32_t ring_pc[1048576];
+                /* [ringbytes] 2026-08-01: real-time single-step capture - the actual opcode
+                   bytes fetched AT THE MOMENT each ring entry is recorded, not a later
+                   post-hoc memory dump. Needed because a post-hoc dump of segment 0048 showed
+                   what looked like data/zero-fill where the ring buffer's own CS:PC history
+                   proved real execution had just happened - strongly suggesting that memory
+                   region gets overwritten (reused as a scratch/data buffer) shortly after
+                   being executed as code, making any dump taken even slightly later unreliable
+                   for this specific investigation. This captures the true, tamper-proof
+                   ground truth via readmemb() (correct through paging) at the exact live
+                   instant, immune to whatever happens to that memory afterward. */
+                static uint8_t  ring_op[1048576][16];
                 static int      ring_pos      = 0;
                 static int      seen_e3a0     = 0;
                 static int      dumped_second = 0;
@@ -1204,12 +1215,57 @@ exec386(int32_t cycs)
                         && (time(NULL) - int6entry_t0) >= 150) {
                         int6entry_fired = 1;
                         fprintf(stderr,
-                                "[int6entry] t+%lds triggered by CS:PC=%04X:%04X -> handler 020B:0603 "
+                                "[int6entry] t+%lds triggered by CS:PC=%04X:%04X -> handler 020B:%04X "
                                 "| CR0=%08X EFLAGS=%04X%04X (VM=%s) | AX=%04X BX=%04X CX=%04X DX=%04X SP=%04X BP=%04X\n",
-                                (long) (time(NULL) - int6entry_t0), ring_last_cs, ring_last_pc,
+                                (long) (time(NULL) - int6entry_t0), ring_last_cs, ring_last_pc, cpu_state.pc,
                                 cr0, cpu_state.eflags, cpu_state.flags,
                                 (cpu_state.eflags & 0x0002) ? "SET (V86 mode)" : "clear (real/protected, not V86)",
                                 AX, BX, CX, DX, SP, BP);
+
+                        /* [ringhistory] 2026-08-01: x86_int6_trap (386_common.c, hooking
+                           x86_int() directly) shows x86_int(6) is called only ~30 times total,
+                           ALL in the first second of boot - never again during the later
+                           "stall" - yet CS:PC repeatedly reaches 020B:0603 at t+180s+ anyway, so
+                           it must be via ordinary control flow (jump/call), not a fresh
+                           interrupt. ring_last_cs/ring_last_pc gives only the single immediately-
+                           preceding address; dump the last 40 entries of the existing ring
+                           buffer (already tracks up to 1048576 recent unique CS:PC pairs, see
+                           ~line 1076) to see the actual call chain, not just one data point. */
+                        fprintf(stderr, "[ringhistory] last 20 unique CS:PC before entering 020B:0603 (most recent first), "
+                                        "with 16 live-captured opcode bytes each (real-time, not a post-hoc dump):\n");
+                        for (int rh = 1; rh <= 20; rh++) {
+                            int ridx = (ring_pos - rh + 1048576) % 1048576;
+                            fprintf(stderr, "  [%2d] %04X:%04X  bytes=", rh, ring_cs[ridx], ring_pc[ridx]);
+                            for (int rb = 0; rb < 16; rb++)
+                                fprintf(stderr, "%02X ", ring_op[ridx][rb]);
+                            fprintf(stderr, "\n");
+                        }
+
+                        /* [stackpeek] 2026-08-01: x86illegal_trap (386_common.c) never fires for
+                           this trigger, and there's no CD 06 (explicit INT 6) byte pattern near
+                           the ring-buffer-reported caller address either - so dispatch here is
+                           NOT going through either the CPU's fault path or a deliberate `int 6`
+                           software interrupt. That leaves a plain CALL treating this address as
+                           an ordinary subroutine - which would mean an IRET-based return (3
+                           words: IP,CS,FLAGS) is fundamentally the wrong mechanism (should be a
+                           plain RETF, 2 words: IP,CS) and would desync the stack by one word.
+                           Settle this empirically: dump SS:SP and the next 6 words on the stack.
+                           A genuine INT/exception frame's 3rd word (the FLAGS slot) always has
+                           bit 1 set (0x0002, architecturally always-1) and plausible IOPL/other
+                           bits for V86 mode (~0x2xxxx range folded into the low word); a
+                           CALL-frame's "3rd word" is just whatever the caller had on its stack
+                           before the call - essentially arbitrary, very unlikely to coincidentally
+                           satisfy the same bit-1-always-set pattern. */
+                        {
+                            uint32_t stack_base = ((uint32_t) SS) << 4;
+                            fprintf(stderr, "[stackpeek] SS:SP=%04X:%04X stack words: ", SS, SP);
+                            for (int w = 0; w < 6; w++) {
+                                uint16_t lo = readmemb(stack_base, SP + w * 2);
+                                uint16_t hi = readmemb(stack_base, SP + w * 2 + 1);
+                                fprintf(stderr, "%04X ", (uint16_t) (lo | (hi << 8)));
+                            }
+                            fprintf(stderr, "\n");
+                        }
 
                         /* Dump the full 64KB of the caller's segment (ring_last_cs, confirmed
                            0x0048 - the component that deliberately triggers this INT 06h/0x050F
@@ -1241,6 +1297,11 @@ exec386(int32_t cycs)
                     ring_last_pc      = cpu_state.pc;
                     ring_cs[ring_pos] = CS;
                     ring_pc[ring_pos] = cpu_state.pc;
+                    {
+                        uint32_t ring_base = ((uint32_t) CS) << 4;
+                        for (int rb = 0; rb < 16; rb++)
+                            ring_op[ring_pos][rb] = readmemb(ring_base, cpu_state.pc + rb);
+                    }
                     ring_pos          = (ring_pos + 1) % 1048576;
                 }
 
@@ -1708,8 +1769,8 @@ exec386(int32_t cycs)
                             uint32_t chk = 0;
                             for (uint32_t a = 0; a < 0x4000; a++)
                                 chk ^= ((uint32_t) mem_readb_phys(0xA0000u + a)) << (a & 7);
-                            fprintf(stderr, "[modecheck] t+%lds CS:PC=%04X:%04X A0000_xor16k=%08X\n",
-                                    (long) (now - t0), CS, cpu_state.pc, chk);
+                            fprintf(stderr, "[modecheck] t+%lds CS:PC=%04X:%04X A0000_xor16k=%08X ring_last=%04X:%04X oldpc=%04X\n",
+                                    (long) (now - t0), CS, cpu_state.pc, chk, ring_last_cs, ring_last_pc, cpu_state.oldpc);
                             fflush(stderr);
                         }
                     }

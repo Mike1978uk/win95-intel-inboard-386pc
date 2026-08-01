@@ -22,6 +22,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <time.h>
 #include <wchar.h>
 #define HAVE_STDARG_H
 #include <86box/86box.h>
@@ -1548,6 +1549,26 @@ pmodeint(int num, int soft)
         x86gpf("pmodeint(): V86 banned int", 0);
         return;
     }
+
+    /* [pmodeint_trap] 2026-08-01: true choke point for ALL protected-mode interrupt/exception
+       dispatch, both from x86_int() and from direct hardware-IRQ delivery in exec386() (which
+       bypasses x86_int() entirely). See win95_emulator_repro_2026_08_01.md "BREAKTHROUGH" section.
+       Time-gated (not hit-count-only) to avoid the early-boot-burst false-negative bug found
+       earlier with the x86_int6_trap hook. */
+    {
+        static int    pmodeint_hits = 0;
+        static time_t pmodeint_t0   = 0;
+        if (pmodeint_t0 == 0)
+            pmodeint_t0 = time(NULL);
+        if ((pmodeint_hits < 300) && ((time(NULL) - pmodeint_t0) >= 140)) {
+            pmodeint_hits++;
+            fprintf(stderr,
+                    "[pmodeint_trap] #%d t+%lds num=%d soft=%d CS:PC=%04X:%04X CR0=%08X EFLAGS=%08X VM=%s\n",
+                    pmodeint_hits, (long) (time(NULL) - pmodeint_t0), num, soft, CS, cpu_state.pc,
+                    cr0, cpu_state.eflags, (cpu_state.eflags & VM_FLAG) ? "SET" : "clear");
+        }
+    }
+
     addr = (num << 3);
     if ((addr + 7) > idt.limit) {
         if (num == 0x08) {

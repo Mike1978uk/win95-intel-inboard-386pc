@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <wchar.h>
 #include <math.h>
+#include <time.h>
 #ifndef INFINITY
 #    define INFINITY (__builtin_inff())
 #endif
@@ -1604,6 +1605,38 @@ x86_int(int num)
 {
     uint32_t addr;
 
+    /* [x86_int6_trap] 2026-08-01: catch-all for the Win95 boot-stall INT 6 - both x86illegal()
+       and NOTRM were individually instrumented and neither fired even though the handler at
+       020B:0603 is demonstrably reached, so hook the single common choke point instead: every
+       call to x86_int() itself, regardless of caller. cpu_state.oldpc is not yet touched by
+       this function at the point of this check (it's set 2 lines below), so it still holds
+       whatever the per-instruction dispatch loop set it to before calling into whatever
+       triggered this - the authoritative "instruction that led here" value either way.
+       CORRECTION (same day): the first version of this hook was uncapped-by-time but capped
+       at 30 total hits - and a real, very early (t+0s) burst of 30 calls (1 unrelated BIOS
+       POST one + 29 identical ones from inside this project's own appended fix code) used up
+       the ENTIRE cap before boot even reached the interesting window, making "x86_int(6) is
+       never called again after t+0s" a false conclusion caused by the cap itself, not real
+       evidence - a genuine bug in this hook's own design, not a finding about the guest.
+       Fixed: skip the early burst entirely (gate on real elapsed time >=100s) and use a
+       larger cap so the actually-relevant window (the ~150-190s stall) gets full coverage.
+       Remove once the true caller and instruction are identified. */
+    if (num == 6) {
+        static int    x86int6_hits = 0;
+        static time_t x86int6_t0   = 0;
+        if (x86int6_t0 == 0)
+            x86int6_t0 = time(NULL);
+        if ((x86int6_hits < 200) && ((time(NULL) - x86int6_t0) >= 100)) {
+            x86int6_hits++;
+            uint32_t x86int6_base = ((uint32_t) CS) << 4;
+            fprintf(stderr, "[x86_int6_trap] #%d t+%lds x86_int(6) called, CS:oldpc=%04X:%04X bytes=",
+                    x86int6_hits, (long) (time(NULL) - x86int6_t0), CS, cpu_state.oldpc);
+            for (int x86int6_i = 0; x86int6_i < 8; x86int6_i++)
+                fprintf(stderr, "%02X ", readmemb(x86int6_base, cpu_state.oldpc + x86int6_i));
+            fprintf(stderr, "\n");
+        }
+    }
+
     flags_rebuild();
     cpu_state.pc = cpu_state.oldpc;
 
@@ -1754,6 +1787,38 @@ x86_int_sw_rm(int num)
 void
 x86illegal(void)
 {
+    /* [x86illegal_trap] 2026-08-01: pin down the EXACT faulting instruction (address + raw
+       bytes) for the Win95 INT 06h/0x050F stall, using the CPU's own authoritative fault
+       address rather than the ring buffer's "previous unique CS:PC" heuristic (already known
+       to be imprecise for exception dispatch - see memory/win95_emulator_repro_2026_08_01.md).
+       cpu_state.oldpc is set at the start of every instruction fetch throughout
+       386_dynarec.c's exec386() and is what x86_int() itself resets cpu_state.pc to before
+       actually raising the interrupt (386_common.c ~line 1608) - i.e. it IS the CPU's own
+       notion of "where the faulting instruction started," authoritative by construction, not
+       inferred. Deliberately not gated on any specific CS (the ring-buffer-derived "0048" may
+       itself be wrong) - only on elapsed real time, and capped (not one-shot) so multiple
+       occurrences of the retry loop can be compared directly. Dumps 16 raw bytes via
+       readmemb() (correct through the real page-table translation, not a physical-address
+       guess - Technique 16) so the actual instruction and its true length can be determined
+       by disassembling this exact captured byte sequence, not guessed from a file offset.
+       Remove once the fault is identified and the return-IP-advance fix is complete. */
+    {
+        static int    x86illegal_hits = 0;
+        static time_t x86illegal_t0   = 0;
+
+        if (x86illegal_t0 == 0)
+            x86illegal_t0 = time(NULL);
+
+        if ((x86illegal_hits < 10) && ((time(NULL) - x86illegal_t0) >= 150)) {
+            x86illegal_hits++;
+            uint32_t base = ((uint32_t) CS) << 4;
+            fprintf(stderr, "[x86illegal_trap] #%d t+%lds FAULT at CS:PC=%04X:%04X bytes=",
+                    x86illegal_hits, (long) (time(NULL) - x86illegal_t0), CS, cpu_state.oldpc);
+            for (int i = 0; i < 16; i++)
+                fprintf(stderr, "%02X ", readmemb(base, cpu_state.oldpc + i));
+            fprintf(stderr, "\n");
+        }
+    }
     x86_int(6);
 }
 

@@ -21,6 +21,8 @@
 
 #include <stddef.h>
 #include <inttypes.h>
+#include <stdio.h>
+#include <time.h>
 
 #ifdef OPS_286_386
 #    define readmemb_n(s, a, b)     readmembl_no_mmut_2386((s) + (a), b)
@@ -303,8 +305,37 @@ int checkio(uint32_t port, int mask);
         break;                                                                   \
     }
 
-#define NOTRM                                         \
-    if (!(msw & 1) || (cpu_state.eflags & VM_FLAG)) { \
+#define NOTRM                                                                                     \
+    if (!(msw & 1) || (cpu_state.eflags & VM_FLAG)) {                                              \
+        /* [notrm_trap] 2026-08-01: NOTRM (not this file's own name for it - the macro's own      \
+           name, "NOT [allowed in] Real Mode/V86") is the actual mechanism behind the Win95        \
+           INT 06h/0x050F boot stall - confirmed via a stack peek showing a genuine 3-word         \
+           interrupt frame (SP+4 matched the live EFLAGS value exactly), ruling out both an        \
+           unrecognized-opcode fault (x86illegal(), which never fired) and a deliberate `int 6`    \
+           opcode (no CD 06 bytes near the reported trigger). NOTRM gates ARPL/LAR/LSL/SLDT/       \
+           STR/LLDT/LTR/VERR/VERW - all legal 386 opcodes that are simply forbidden while           \
+           running in a V86 box, which is exactly this boot stage's context (VMM32's own           \
+           System VM). cpu_state.pc has already advanced past the opcode's leading byte(s) by      \
+           this point in each gated handler (NOTRM fires before fetch_ea in all of them) - use     \
+           cpu_state.oldpc instead, the same authoritative "instruction start" value x86_int()     \
+           itself resets pc to. Gated on real elapsed time only (not a specific CS), capped at     \
+           10 hits so the retry loop's repeated occurrences can be compared directly. Remove       \
+           once the exact instruction and its correct handling are confirmed. */                    \
+        {                                                                                           \
+            static int    notrm_hits = 0;                                                           \
+            static time_t notrm_t0   = 0;                                                            \
+            if (notrm_t0 == 0)                                                                       \
+                notrm_t0 = time(NULL);                                                                \
+            if ((notrm_hits < 10) && ((time(NULL) - notrm_t0) >= 150)) {                              \
+                notrm_hits++;                                                                          \
+                uint32_t notrm_base = ((uint32_t) CS) << 4;                                            \
+                fprintf(stderr, "[notrm_trap] #%d t+%lds NOTRM fault at CS:PC=%04X:%04X bytes=",       \
+                        notrm_hits, (long) (time(NULL) - notrm_t0), CS, cpu_state.oldpc);              \
+                for (int notrm_i = 0; notrm_i < 8; notrm_i++)                                          \
+                    fprintf(stderr, "%02X ", readmemb(notrm_base, cpu_state.oldpc + notrm_i));         \
+                fprintf(stderr, "\n");                                                                 \
+            }                                                                                          \
+        }                                                                                              \
         x86_int(6);                                   \
         return 1;                                     \
     }

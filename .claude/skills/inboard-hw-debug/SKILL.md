@@ -364,6 +364,76 @@ it has no external dependencies (HHD, named pipes, a TSR that has to survive eve
 nothing to reconnect when the VM is killed and restarted, which happens constantly during this kind
 of investigation.
 
+## Technique 17: an exception's dispatch function being confirmed silent doesn't rule out that vector - check for alternate dispatch paths into the same lower-level function
+
+If a hook on the "obvious" raise function (e.g. `x86_int()` in `386_common.c`) is properly
+time-gated (Technique 11 style, no cap-exhaustion false negative) and still shows zero calls for a
+vector you know is firing (confirmed some other way - e.g. a handler's own entry address being
+reached repeatedly), don't conclude "it's not really that vector." Check for *alternate callers*
+into the same lower-level dispatch function first. **2026-08-01 case**: hardware IRQ delivery in
+`exec386()` (`386_dynarec.c`, the interpreter loop actually active when `cpu_use_dynarec=0`) calls
+`pmodeint()` (`x86seg.c`) **directly**, bypassing `x86_int()` entirely - `x86_int()` is only one of
+at least two callers into `pmodeint()`, which is the true single choke point for all
+protected-mode interrupt/exception dispatch regardless of origin. Hook the lowest common function,
+not the first plausible-looking one. (This same session also independently re-confirmed the
+opposite lesson still applies too: after fixing an *unrelated* bug, the *original* "obvious"
+hook - `x86_int()` - started firing again where it hadn't before, because the fix changed what
+code ran at the trigger address. Don't assume a prior "never called" finding stays true forever;
+re-verify after any code change that touches the relevant address.)
+
+## Technique 18: a 4-line vector-formula check in the emulator's own PIC source can rule out (or in) a whole theory in minutes
+
+Before building a live trace to test a "wrong hardware IRQ vector" theory, check whether the
+emulator's PIC vectoring formula makes the theory even *possible* from the source alone.
+`pic_irq_ack_read()` (`pic.c`) computes `vector = IRQ_line + (ICW2 & 0xf8)` - since `IRQ_line` is
+0-7 and `ICW2 & 0xf8` is always a multiple of 8, a specific target vector often has only one or two
+possible `(base, IRQ_line)` decompositions, decidable by inspection. **2026-08-01 case**: this
+correctly predicted vector 6 requires `ICW2 base=0` + `IRQ6` - a real, checkable claim, not a
+hand-wave - which then got *disproven* by direct tracing (see Technique 19), saving a great deal
+of time that would otherwise have gone into building a fix for the wrong theory first.
+
+## Technique 19: gate hides-the-real-window bugs can recur one layer above where you just fixed one - always double check by removing the gate first, not tightening it further
+
+Technique 11's lesson (fixed-cap hooks get exhausted by boot noise before the interesting window)
+has a mirror-image failure mode: a *time*-gated hook can equally hide the one write/call that
+actually matters, if it happens to land before the gate opens. **2026-08-01 case**: a
+`[picICW]`/`[picICW1]` trace gated `>=60s` (chosen to skip "ordinary BIOS POST noise") showed zero
+PIC vector-base writes for the rest of a 300+s run - seemingly confirming a "PIC never
+reprogrammed, stuck wrong" theory. Removing the gate entirely (not adjusting it - removing it)
+revealed the *one* write that mattered happened at **t+0s**, correctly setting the standard value,
+and was never touched again - completely reversing the conclusion. **Rule of thumb**: when a
+gated hook shows *zero* hits and that itself is the interesting result (not just "nothing relevant
+happened yet"), always re-run once with the gate fully removed (small hit-cap only) before trusting
+the negative - a "confirmed" absence that's actually a gate artifact is worse than an honest "don't
+know yet", because it looks authoritative.
+
+## Technique 20: real-mode DOS device driver (.SYS) append-and-detour needs the declared resident size grown too, unlike 32-bit VxD patches
+
+This project's established append-and-detour technique (relocate/extend code past a file's
+original end, detour via a short/near jump) works differently depending on what kind of file is
+being patched. For **32-bit protected-mode VxDs** loaded by Windows 95's VMM32 (e.g. this
+project's `VPICD_INBOARD.VXD`/`VDMAD_INBOARD.VXD`/`VKD_INBOARD.VXD` patches), appending past the
+original end is safe as-is - VMM32's loader has no equivalent shrink step. For a **real-mode DOS
+character-device driver** (`.SYS`, loaded via `CONFIG.SYS`), it is *not* automatically safe: DOS
+frees everything past whatever "end of resident code" address the driver's own `INIT` routine
+reports back via the standard request-header fields (`ES:[BX+0xE]`=offset, `ES:[BX+0x10]`=segment)
+once `INIT` returns. **2026-08-01 case**: `INBRDPC.SYS`'s `INIT` declared a resident size of only
+`0xEA0` bytes via `LEA AX,[0xEA0]` (found by disassembling the `INIT` handler with
+`objdump -m i8086`, the same instrumentation-free static-analysis approach useful once a function's
+rough location is already known from other tracing) - appended code at file offset `0xc695` (far
+past that boundary) was being silently discarded from memory after `INIT` completed, with no error
+at patch-build or patch-deploy time; the failure only showed up later, as a *second*,
+seemingly-unrelated fault when something eventually jumped into the reclaimed memory and executed
+whatever had since overwritten it. **Fix pattern**: find the `LEA`/immediate-load instruction that
+sets the resident-size value in the request-header-fill code (search near the driver's documented
+`INIT` entry point), grow the immediate to cover the new appended-code end address (with a small
+margin), and if there's a conditional alternate-size computation gated on a runtime flag you don't
+want to depend on, force the unconditional path (e.g. flip a `JNE`/`JE` to `JMP` - same operand
+byte, same target, now unconditional) rather than trying to also patch the alternate branch's
+logic. **Always check this before appending to any real-mode `.SYS` driver in this project again**
+- it would have saved a full round of "the mechanical fix works but doesn't resolve anything" this
+session had it been checked first.
+
 ## Live hardware bridge (COMrade / COMR95) — real hardware only, not the VM
 
 For cross-checking emulator behavior against the **real 5160**, `COMRADE`/`COMR95` (Windows

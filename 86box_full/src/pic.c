@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <wchar.h>
 
 #define HAVE_STDARG_H
@@ -534,6 +535,25 @@ pic_write(uint16_t addr, uint8_t val, void *priv)
     if (addr & 0x0001) {
         switch (dev->state) {
             case STATE_ICW2:
+                /* [picICW] 2026-08-01: locates the code that programs the master PIC's vector
+                   base. Root-caused: IRQ6 (floppy) delivering on CPU vector 6 (Invalid Opcode,
+                   hooked by INBRDPC.SYS as a covert API) requires icw2&0xf8==0 - see
+                   win95_emulator_repro_2026_08_01.md "ROOT CAUSE FOUND". Time-gated to skip
+                   ordinary BIOS POST PIC init noise and catch only the later
+                   V86-box/VMM32-relevant reprogramming. */
+                {
+                    static int    picICW_hits = 0;
+                    static time_t picICW_t0   = 0;
+                    if (picICW_t0 == 0)
+                        picICW_t0 = time(NULL);
+                    if (picICW_hits < 100) {
+                        picICW_hits++;
+                        fprintf(stderr,
+                                "[picICW] #%d t+%lds ICW2 write: %s CS:PC=%04X:%08X val=%02X (vector_base=%02X)\n",
+                                picICW_hits, (long) (time(NULL) - picICW_t0),
+                                dev->is_master ? "MASTER" : "SLAVE", CS, cpu_state.pc, val, val & 0xf8);
+                    }
+                }
                 dev->icw2 = val;
                 if (pic_cascade_mode(dev))
                     dev->state = STATE_ICW3;
@@ -591,6 +611,22 @@ pic_write(uint16_t addr, uint8_t val, void *priv)
             /* Treat any write with any of the bits 7 to 5 set as invalid if PCI. */
             if (pic_pci && (val & 0xe0))
                 return;
+
+            /* [picICW] see STATE_ICW2 case below for context - this is the ICW1 reset that
+               zeroes icw2, marking the start of a fresh ICW sequence. */
+            {
+                static int    picICW1_hits = 0;
+                static time_t picICW1_t0   = 0;
+                if (picICW1_t0 == 0)
+                    picICW1_t0 = time(NULL);
+                if (picICW1_hits < 100) {
+                    picICW1_hits++;
+                    fprintf(stderr,
+                            "[picICW1] #%d t+%lds ICW1 write (resets icw2 to 0): %s CS:PC=%04X:%08X val=%02X\n",
+                            picICW1_hits, (long) (time(NULL) - picICW1_t0),
+                            dev->is_master ? "MASTER" : "SLAVE", CS, cpu_state.pc, val);
+                }
+            }
 
             dev->icw1 = val;
             dev->icw2 = dev->icw3 = 0x00;
