@@ -410,6 +410,27 @@ inb(uint16_t port)
         }
     }
 
+    /* [a20trace] 2026-08-02: user hypothesis - the CONFIG.SYS-stage stall (see
+       memory/win95_emulator_repro_2026_08_02.md) might involve Windows 95's own
+       protected/V86-mode A20 handling using a command sequence this Inboard XT board
+       doesn't recognize (unlike HIMEM.SYS's real-mode A20 auto-detect, which is already
+       carefully matched to this hardware's port 0x60/0x64 behavior - see
+       inboard386_write_60/inboard386_read_64 above). Trace all IN/OUT on ports 0x60
+       (Inboard's own A20 gate, 0xDD/0xDF), 0x64 (hardwired 0x00 read), and 0x92 (PS/2-style
+       "fast A20", not implemented on this XT-era board at all - if anything reads/writes it,
+       that's itself informative) to see whether any A20-related I/O happens during the stall,
+       not just during early CONFIG.SYS loading. Uncapped-ish (2000) since a comparison
+       against known-legitimate early HIMEM.SYS activity is part of the point. */
+    {
+        static int a20_hits = 0;
+        if ((a20_hits < 2000) && ((port == 0x60) || (port == 0x64) || (port == 0x92))) {
+            a20_hits++;
+            fprintf(stderr, "[a20trace] #%d IN  port=%04X ret=%02X CS:PC=%04X:%08X\n",
+                    a20_hits, port, ret, CS, cpu_state.pc);
+            fflush(stderr);
+        }
+    }
+
     return ret;
 }
 
@@ -477,6 +498,17 @@ outb(uint16_t port, uint8_t val)
             hits++;
             fprintf(stderr, "[iotrace] #%d OUT port=%04X val=%02X CS:PC=%04X:%08X\n",
                     hits, port, val, CS, cpu_state.pc);
+            fflush(stderr);
+        }
+    }
+
+    /* [a20trace] OUT side - see matching comment in inb() above. */
+    {
+        static int a20_hits = 0;
+        if ((a20_hits < 2000) && ((port == 0x60) || (port == 0x64) || (port == 0x92))) {
+            a20_hits++;
+            fprintf(stderr, "[a20trace] #%d OUT port=%04X val=%02X CS:PC=%04X:%08X\n",
+                    a20_hits, port, val, CS, cpu_state.pc);
             fflush(stderr);
         }
     }

@@ -1292,6 +1292,48 @@ exec386(int32_t cycs)
                     }
                 }
 
+                /* [himemcaller] 2026-08-02: [segidtrace2] identified segment 0E77 as HIMEM.SYS
+                   (Windows XMS Driver 3.95 strings, "ERROR: Unable to control A20 line!" etc).
+                   [a20trace] showed continuous, repeated OUT 60,DF/DD + OUT 64,FF/D1 A20 toggling
+                   through this segment for the whole session, not just at CONFIG.SYS load time -
+                   HIMEM.SYS is the resident, shared XMS A20-control point every other component
+                   (VMM/VKD included) is expected to call via its driver entry point rather than
+                   touching hardware ports directly, so the real question isn't "is HIMEM's port
+                   I/O correct" (already verified for this hardware, see inboard386.c's own comment
+                   on the port-0x64-hardwired-0x00 trick) but "what keeps calling HIMEM's
+                   enable/disable-A20 entry point back-to-back, forever." Catch this the same
+                   reliable way Technique 1 already established for genuine CALL/JMP-based control
+                   flow (not exception dispatch, so no [e0abtrap]-style caveat applies here): log
+                   ring_last_cs/ring_last_pc (the previous unique CS:PC, read BEFORE this
+                   instruction updates it) the moment CS transitions INTO 0x0E77 from anything else -
+                   that's the literal calling address, whether it's real-mode code, a V86-reflected
+                   protected-mode call, or something else entirely. */
+                {
+                    static int himem_hits = 0;
+                    if ((himem_hits < 300) && (CS == 0x0E77) && (ring_last_cs != 0x0E77)) {
+                        himem_hits++;
+                        fprintf(stderr, "[himemcaller] #%d caller=%04X:%04X -> HIMEM 0E77:%04X AX=%04X BX=%04X\n",
+                                himem_hits, ring_last_cs, ring_last_pc, cpu_state.pc, AX, BX);
+                        fflush(stderr);
+                    }
+                }
+
+                /* [seg0f86caller] 2026-08-02, Technique 22: [himemcaller] found 0F86:0B31 repeatedly
+                   relaying an INT 2Fh AX=0x1213 request into HIMEM's chain, but disassembly showed
+                   0x0B31 is just 0F86's own "not mine, chain onward" tail (its real interest is
+                   AH=0x16, the Windows Init/Exit Broadcast) - 0F86 is a pass-through link, not the
+                   true caller. Trace one hop further back the same reliable way: log the caller the
+                   moment CS transitions INTO 0x0F86 from anything else. */
+                {
+                    static int seg0f86_hits = 0;
+                    if ((seg0f86_hits < 300) && (CS == 0x0F86) && (ring_last_cs != 0x0F86)) {
+                        seg0f86_hits++;
+                        fprintf(stderr, "[seg0f86caller] #%d caller=%04X:%04X -> 0F86:%04X AX=%04X BX=%04X\n",
+                                seg0f86_hits, ring_last_cs, ring_last_pc, cpu_state.pc, AX, BX);
+                        fflush(stderr);
+                    }
+                }
+
                 if ((CS != ring_last_cs) || (cpu_state.pc != ring_last_pc)) {
                     ring_last_cs      = CS;
                     ring_last_pc      = cpu_state.pc;
@@ -1303,6 +1345,232 @@ exec386(int32_t cycs)
                             ring_op[ring_pos][rb] = readmemb(ring_base, cpu_state.pc + rb);
                     }
                     ring_pos          = (ring_pos + 1) % 1048576;
+                }
+
+                /* [seg0048trace2] 2026-08-02: the NEW CONFIG.SYS-stage stall that survived the
+                   resident-size fix (see memory/win95_emulator_repro_2026_08_01.md, "NEXT SESSION
+                   STARTS HERE" #1) - CS:PC confined to segment 0048 (offsets ~0x258-0x630, plus
+                   occasional C000/F000 visits, matching the ATI option-ROM/BIOS V86 reflection
+                   pattern already characterized) starting ~t+110s, screen frozen at "Setting time
+                   and date / Starting Comrade". Unlike the fixed INT 06h/0x050F bug, [int6entry]/
+                   [x86_int6_trap] both stay at 0 hits here - this does NOT go through INBRDPC.SYS's
+                   covert INT 06h API at all, so it's a different mechanism, not a recurrence.
+                   Trigger-armed (Technique 11/12 style): arm once real elapsed time hits 100s
+                   (comfortably inside the stall window, confirmed live this session), then log the
+                   next 400 DISTINCT (CS,PC) transitions with CS==0x0048, each with a full register
+                   dump and the first 8 live opcode bytes - enough to see whether this is a genuine
+                   bounded loop (few unique addresses, revisited) or slow-but-forward-moving work
+                   (many unique addresses), and whether any INT/OUT/IN instructions appear.
+
+                   Revised 2026-08-02, same session: the first cut (arm at 100s, any CS==0x0048
+                   offset, 400-hit cap) exhausted its whole cap in ~3 real seconds on ordinary
+                   CONFIG.SYS driver-loading code at offsets 0x1279+ - legitimate boot noise
+                   reached before the actual stuck loop (confirmed by prior runs to live in the
+                   narrower 0x258-0x680 range starting closer to t+110-120s), exactly the
+                   cap-exhausted-before-the-interesting-window failure Technique 11 warns about.
+                   Fix: restrict to the known offset band and raise the cap so it survives well
+                   into the stall proper. */
+                {
+                    static time_t seg48_t0      = 0;
+                    static int    seg48_armed   = 0;
+                    static int    seg48_hits    = 0;
+                    if (seg48_t0 == 0)
+                        seg48_t0 = time(NULL);
+                    if (!seg48_armed && (time(NULL) - seg48_t0) >= 100)
+                        seg48_armed = 1;
+                    if (seg48_armed && (seg48_hits < 4000) && (CS == 0x0048)
+                        && (cpu_state.pc >= 0x0250) && (cpu_state.pc <= 0x0680)) {
+                        seg48_hits++;
+                        uint32_t base = ((uint32_t) CS) << 4;
+                        fprintf(stderr,
+                                "[seg0048trace2] #%d t+%llds PC=%04X AX=%04X BX=%04X CX=%04X DX=%04X "
+                                "SI=%04X DI=%04X SP=%04X BP=%04X DS=%04X ES=%04X flags=%04X bytes=",
+                                seg48_hits, (long long) (time(NULL) - seg48_t0), cpu_state.pc,
+                                AX, BX, CX, DX, SI, DI, SP, BP, ds, es, cpu_state.flags);
+                        for (int rb = 0; rb < 8; rb++)
+                            fprintf(stderr, "%02X ", readmemb(base, cpu_state.pc + rb));
+                        fprintf(stderr, "\n");
+                        fflush(stderr);
+                    }
+                }
+
+                /* [segidtrace2] 2026-08-02: after [seg0048trace2] confirmed the new CONFIG.SYS-
+                   stage stall (segment 0048 does NOT go through INBRDPC.SYS's INT 06h API this
+                   time), the modecheck heartbeat showed CS:PC cycling among a growing-then-
+                   plateauing set of segments (F000/C000/D000/857D/024D/8DD2/020B/1BD3/0E77/FF33/
+                   1832/8D66/191F/0048/1128 - stable for 90+s after t+204s, matching Technique 13's
+                   "genuine bounded loop" signature). 191F and 1128 are new, never seen in
+                   yesterday's stuck run - identify them the same way Technique 16 identified
+                   segment 0048 (dump 64KB via readmemb, which goes through real page-table
+                   translation, then extract ASCII strings offline) rather than guessing from the
+                   segment number alone. One-shot per segment, first entry only. */
+                {
+                    static int dumped_191f = 0;
+                    static int dumped_1128 = 0;
+                    if (!dumped_191f && (CS == 0x191F)) {
+                        dumped_191f = 1;
+                        FILE *df = fopen("seg191F_dump.bin", "wb");
+                        if (df) {
+                            uint32_t base = ((uint32_t) CS) << 4;
+                            for (uint32_t off = 0; off < 0x10000; off++)
+                                fputc(readmemb(base, off), df);
+                            fclose(df);
+                            fprintf(stderr, "[segidtrace2] dumped 64KB of segment 191F to seg191F_dump.bin at PC=%04X\n", cpu_state.pc);
+                            fflush(stderr);
+                        }
+                    }
+                    if (!dumped_1128 && (CS == 0x1128)) {
+                        dumped_1128 = 1;
+                        FILE *df = fopen("seg1128_dump.bin", "wb");
+                        if (df) {
+                            uint32_t base = ((uint32_t) CS) << 4;
+                            for (uint32_t off = 0; off < 0x10000; off++)
+                                fputc(readmemb(base, off), df);
+                            fclose(df);
+                            fprintf(stderr, "[segidtrace2] dumped 64KB of segment 1128 to seg1128_dump.bin at PC=%04X\n", cpu_state.pc);
+                            fflush(stderr);
+                        }
+                    }
+                    /* 2026-08-02: [himemcaller] found segment 0F86 (offset 0x0B31) repeatedly
+                       firing an INT 2Fh AX=0x1213 request that HIMEM.SYS's multiplex handler
+                       (AH=0x43 check) doesn't even recognize as its own - identify what 0F86
+                       actually is, since it - not HIMEM - is the component doing the repeating. */
+                    static int dumped_0f86 = 0;
+                    if (!dumped_0f86 && (CS == 0x0F86)) {
+                        dumped_0f86 = 1;
+                        FILE *df = fopen("seg0F86_dump.bin", "wb");
+                        if (df) {
+                            uint32_t base = ((uint32_t) CS) << 4;
+                            for (uint32_t off = 0; off < 0x10000; off++)
+                                fputc(readmemb(base, off), df);
+                            fclose(df);
+                            fprintf(stderr, "[segidtrace2] dumped 64KB of segment 0F86 to seg0F86_dump.bin at PC=%04X\n", cpu_state.pc);
+                            fflush(stderr);
+                        }
+                    }
+                    /* 2026-08-02: segment 0E77 is where [a20trace] caught the live, real-mode
+                       OUT 60,DF/DD + OUT 64,FF/D1 toggle loop - identify it the same way, since
+                       it's real-mode/V86 code (a plain segment:offset CS value), not VKD_INBOARD.VXD
+                       (which is protected-mode, flat-selector, and cannot execute with CS=0E77). */
+                    static int dumped_0e77 = 0;
+                    if (!dumped_0e77 && (CS == 0x0E77)) {
+                        dumped_0e77 = 1;
+                        FILE *df = fopen("seg0E77_dump.bin", "wb");
+                        if (df) {
+                            uint32_t base = ((uint32_t) CS) << 4;
+                            for (uint32_t off = 0; off < 0x10000; off++)
+                                fputc(readmemb(base, off), df);
+                            fclose(df);
+                            fprintf(stderr, "[segidtrace2] dumped 64KB of segment 0E77 to seg0E77_dump.bin at PC=%04X\n", cpu_state.pc);
+                            fflush(stderr);
+                        }
+                    }
+                }
+
+                /* [seg191Ftrace] 2026-08-02: [segidtrace2] identified segment 191F as containing
+                   the live SYSTEM.INI [386Enh] text (device=*vxdname lines) - this is Windows 95's
+                   own startup code reading its VxD device list. Revised same session: a read-only
+                   pyfatfs check of VMM32.VXD's file size (688,825 bytes, matching the known
+                   real-combine size) confirmed the combine already happened before this session
+                   ever started - this is genuine POST-combine startup code, not combine prep.
+                   CS:PC cycles between 0048 and 191F (plus BIOS/option-ROM
+                   segments) with no new segments for 90+s - trace the actual code path inside 191F
+                   itself (not range-restricted yet, since the interesting offset band here isn't
+                   known the way 0048's was) to see whether it's walking forward through the
+                   device= list or stuck re-reading the same one or two lines. Gated later (110s)
+                   than [seg0048trace2] since this segment is reached slightly later in the cycle;
+                   high cap since the working offset range is unknown. */
+                {
+                    static time_t seg191f_t0    = 0;
+                    static int    seg191f_armed = 0;
+                    static int    seg191f_hits  = 0;
+                    if (seg191f_t0 == 0)
+                        seg191f_t0 = time(NULL);
+                    if (!seg191f_armed && (time(NULL) - seg191f_t0) >= 110)
+                        seg191f_armed = 1;
+                    if (seg191f_armed && (seg191f_hits < 500) && (CS == 0x191F)) {
+                        seg191f_hits++;
+                        uint32_t base = ((uint32_t) CS) << 4;
+                        fprintf(stderr,
+                                "[seg191Ftrace] #%d t+%llds PC=%04X AX=%04X BX=%04X CX=%04X DX=%04X "
+                                "SI=%04X DI=%04X SP=%04X BP=%04X DS=%04X ES=%04X flags=%04X bytes=",
+                                seg191f_hits, (long long) (time(NULL) - seg191f_t0), cpu_state.pc,
+                                AX, BX, CX, DX, SI, DI, SP, BP, ds, es, cpu_state.flags);
+                        for (int rb = 0; rb < 8; rb++)
+                            fprintf(stderr, "%02X ", readmemb(base, cpu_state.pc + rb));
+                        fprintf(stderr, "\n");
+                        fflush(stderr);
+                    }
+                }
+
+                /* [seg191Fseek] 2026-08-02: [seg191Ftrace] plus static disassembly found three live
+                   INT 21h call sites inside segment 191F's hot loop: 0x1d4b (AH=08h, read keyboard
+                   char without echo), 0x2e93/0x2ea6 (AH=42h LSEEK then AH=3Fh read-file, a
+                   seek-then-read pair with a 32-bit file position in ECX:EDX), and 0x2f17 (a second
+                   AH=42h LSEEK, followed by path/filename-parsing code). The seek+read pair is the
+                   most likely candidate for "loading/decompressing a file piece by piece" (the
+                   SHLD-based bitstream decoder at 0x4300+ probably unpacks whatever this reads) -
+                   log the actual seek offset and requested byte count each time these fire, gated
+                   the same 110s as [seg191Ftrace], to see directly whether the file position
+                   genuinely advances each pass (real, if slow, progress) or resets to the same
+                   value every time (a genuine restart-from-scratch retry bug). AH=08h logged too,
+                   in case it's blocking on a keypress the user can't see (V86/graphics-mode
+                   blindness) rather than a real spin. */
+                {
+                    static time_t seek_t0    = 0;
+                    static int    seek_armed = 0;
+                    static int    seek_hits  = 0;
+                    if (seek_t0 == 0)
+                        seek_t0 = time(NULL);
+                    if (!seek_armed && (time(NULL) - seek_t0) >= 110)
+                        seek_armed = 1;
+                    if (seek_armed && (seek_hits < 900) && (CS == 0x191F)) {
+                        if (cpu_state.pc == 0x2e93) {
+                            seek_hits++;
+                            fprintf(stderr, "[seg191Fseek] #%d t+%llds LSEEK@2e93 handle(BX)=%04X ECX:EDX=%08X:%08X AL(mode)=%02X\n",
+                                    seek_hits, (long long) (time(NULL) - seek_t0), BX, ECX, EDX, AL);
+                            fflush(stderr);
+                        } else if (cpu_state.pc == 0x2ea6) {
+                            seek_hits++;
+                            fprintf(stderr, "[seg191Fseek] #%d t+%llds READ@2ea6 handle(BX)=%04X CX(bytes)=%04X DS:DX=%04X:%04X\n",
+                                    seek_hits, (long long) (time(NULL) - seek_t0), BX, CX, ds, DX);
+                            fflush(stderr);
+                        } else if (cpu_state.pc == 0x2f17) {
+                            seek_hits++;
+                            fprintf(stderr, "[seg191Fseek] #%d t+%llds LSEEK@2f17 handle(BX)=%04X ECX:EDX=%08X:%08X AL(mode)=%02X\n",
+                                    seek_hits, (long long) (time(NULL) - seek_t0), BX, ECX, EDX, AL);
+                            fflush(stderr);
+                        } else if (cpu_state.pc == 0x1d4b) {
+                            seek_hits++;
+                            fprintf(stderr, "[seg191Fseek] #%d t+%llds KBDWAIT@1d4b AH=08h (blocking read, no echo)\n",
+                                    seek_hits, (long long) (time(NULL) - seek_t0));
+                            fflush(stderr);
+                        }
+                    }
+                }
+
+                /* [seg191Freadcaller] 2026-08-02: exhaustive static scan (both 16-bit and 32-bit
+                   relative CALL encodings, plus a brute-force per-byte-alignment capstone sweep)
+                   found NO direct call anywhere in segment 191F targeting the seek+read helper at
+                   0x2e82 - it must be reached via an indirect/computed call (a function-pointer
+                   table, common in compiled C). Read the actual return address directly off the
+                   stack instead of guessing further (Technique 1's "live evidence over static
+                   guessing" principle) - for a near call, the 16-bit return offset sits at SS:SP
+                   the instant execution reaches the call target, before anything is pushed/popped.
+                   Also dump the next 3 stack words in case it's actually a far call (offset+segment)
+                   instead. */
+                {
+                    static int rc_hits = 0;
+                    if ((rc_hits < 100) && (CS == 0x191F) && (cpu_state.pc == 0x2e82)) {
+                        rc_hits++;
+                        uint32_t ssbase = ((uint32_t) ss) << 4;
+                        uint16_t w0 = readmemb(ssbase, SP) | (readmemb(ssbase, SP + 1) << 8);
+                        uint16_t w1 = readmemb(ssbase, SP + 2) | (readmemb(ssbase, SP + 3) << 8);
+                        uint16_t w2 = readmemb(ssbase, SP + 4) | (readmemb(ssbase, SP + 5) << 8);
+                        fprintf(stderr, "[seg191Freadcaller] #%d SS:SP=%04X:%04X stack[0..2]=%04X %04X %04X AX=%04X BX=%04X CX=%04X DX=%04X\n",
+                                rc_hits, ss, SP, w0, w1, w2, AX, BX, CX, DX);
+                        fflush(stderr);
+                    }
                 }
 
                 /* [int1587] 2026-07-26 (shadow-RAM re-investigation): the two prior fix attempts
@@ -2003,39 +2271,24 @@ exec386(int32_t cycs)
                     }
                 }
 
-                /* Video-card-option-ROM black-screen hang (2026-07-26): CGA boots clean,
-                   but every other video card tested (generic VGA, and the real ATI Mach8
-                   ISA card - mach8_vga_isa, exactly matching this machine's actual slot 1
-                   card) hangs with zero screen output once execution enters the option
-                   ROM's C000 segment. Text-triggered ring dumps (the "1801"/"BAD"/"shadow"
-                   technique used above) don't apply here - the screen never shows any text
-                   to trigger on. Use a wall-clock timer instead: the moment CS first becomes
-                   0xC000, start a clock; once 8 real seconds have passed with no further
-                   action taken, dump the ring buffer once. This shows the exact code path
-                   the option ROM took right up to wherever it's actually stuck (a real
-                   infinite loop, vs. just running very slowly under this project's timing
-                   overrides, vs. never being re-scheduled at all). */
-                {
-                    static int    seen_c000       = 0;
-                    static time_t c000_entry_time = 0;
-                    static int    c000_dumped     = 0;
-                    if (!seen_c000 && (CS == 0xC000)) {
-                        seen_c000       = 1;
-                        c000_entry_time = time(NULL);
-                        fprintf(stderr, "[optionrom] CS=C000 first entered at PC=%04X\n", cpu_state.pc);
-                        fflush(stderr);
-                    }
-                    if (seen_c000 && !c000_dumped && (time(NULL) - c000_entry_time >= 8)) {
-                        c000_dumped = 1;
-                        fprintf(stderr, "[optionrom] *** 8s after CS=C000 entry, still no further progress - dumping last 1048576 (CS:PC), current CS:PC=%04X:%04X ***\n", CS, cpu_state.pc);
-                        for (int i = 0; i < 1048576; i++) {
-                            int idx = (ring_pos + i) % 1048576;
-                            fprintf(stderr, "[optionrom] %04X:%04X\n", ring_cs[idx], ring_pc[idx]);
-                        }
-                    }
-                }
+                /* [optionrom] one-shot 1,048,576-line ring-buffer dump (2026-07-26 Mach8
+                   black-screen investigation) removed 2026-08-02: it fired unconditionally
+                   8 real seconds after CS first became 0xC000 regardless of whether the CPU
+                   was actually stuck (not gated on lack of progress, despite the comment),
+                   so it fired on every normal boot through the Mach8 option ROM - not just a
+                   hang. Writing >1M individual fprintf lines blocked exec386()'s interpreter
+                   loop for a long, disk-speed-dependent stretch of real wall-clock time,
+                   which looked exactly like a fresh boot hang (frozen window, no further POST
+                   progress, modecheck heartbeat going silent) on 2026-08-02 - confirmed via
+                   direct correlation: [modecheck] ticked normally every second through t+11s,
+                   then went silent at the exact moment this dump's line count matched a
+                   still-in-progress write. The bug this hook was diagnosing (the C000:7B37/
+                   7B23 PIT-readback delay loop) was root-caused and fixed by the AX=BX+1
+                   force below in the same session - this hook has had zero diagnostic value
+                   since, and was actively harmful once left in. See Technique 21 in
+                   inboard-hw-debug skill.
 
-                /* Follow-up (2026-07-26) to the [optionrom] finding above: live-disassembly
+                   Follow-up (2026-07-26) to the [optionrom] finding above: live-disassembly
                    of the ATI Mach8 BIOS.BIN found the actual stuck point is a CX=0x10-bounded
                    loop at C000:3ACB-3ADF (an EEPROM/status-bit shift-in loop, part of a board-
                    ID detection routine at 397D), calling a delay helper at 3A4E that toggles a

@@ -434,6 +434,124 @@ logic. **Always check this before appending to any real-mode `.SYS` driver in th
 - it would have saved a full round of "the mechanical fix works but doesn't resolve anything" this
 session had it been checked first.
 
+## Technique 21: a resolved bug's own diagnostic hook can start causing the next bug's symptoms - audit "one-shot" hooks for whether they're actually gated on the failure, not just elapsed time
+
+A hook built to catch a specific historical bug can keep firing on every future boot if its
+trigger condition isn't actually "this specific failure is happening" but something weaker that's
+merely correlated with it (e.g. "N seconds after reaching segment X" instead of "N seconds after
+reaching segment X **with no further progress**"). Once the original bug is fixed, a hook like
+this doesn't go quietly inert - it keeps firing on the code path that's now perfectly normal, and
+if its payload is expensive (a large dump, many syscalls), it can itself become a new, confusing
+symptom: it blocks the interpreter loop for real, disk-speed-dependent wall-clock time, which looks
+exactly like a fresh hang (frozen window, silent heartbeat, no visible POST progress) to anyone
+watching the actual screen - a false "regression" report with a completely different, no-longer-
+relevant root cause.
+
+**2026-08-02 case**: the `[optionrom]` hook (Technique 13's originating investigation, 2026-07-26)
+fired unconditionally 8 real seconds after CS first became `0xC000` and dumped 1,048,576 ring-buffer
+lines in one burst - its comment claimed this was gated on "no further progress," but the code never
+actually checked for that, so it fired on every single boot through the Mach8 option ROM, hang or
+not. This had presumably been quietly eating real time in every run since 2026-07-26, but on
+2026-08-02 it was mistaken live for a genuine new boot failure ("no Mach8 BIOS banner, black
+screen, doesn't clear") - checked config/ROMs/disk image first (all correct, per Technique 4/8's
+"verify before guessing" spirit) before the real cause was found by directly correlating the
+`[modecheck]` heartbeat going silent against this hook's dump progress in the same log file at the
+same moment. **Fix pattern**: once a hook's target bug is confirmed fixed (check for the actual
+fix code nearby, e.g. an `AX = BX + 1`-style force resolving the original loop), remove the hook
+entirely rather than leaving it "just in case" - a diagnostic hook with no remaining diagnostic
+value and a real per-boot cost is a liability, not a harmless leftover. Before concluding a fresh
+"it doesn't boot anymore," grep for large/expensive fprintf loops or one-shot dumps gated near the
+same CS:PC/segment the boot is currently stuck at - a still-in-progress multi-million-line write
+(check the log file's growth and whether its last line is torn/incomplete) is a distinguishable,
+checkable signature, not a guess.
+
+## Technique 22: a repeatedly-called shared entry point can be an innocent pass-through link in a hook chain - verify the segment is a protected-mode/real-mode match before assuming causality, and be ready to trace one more hop back
+
+When a live trace (Technique 1/12 CS-transition-into-segment style) finds something calling a
+shared, well-known entry point (a driver's resident API, an interrupt multiplex handler) over and
+over with unchanging parameters, don't stop at "found the caller" - verify two things before
+committing to a fix location:
+1. **Does the calling/called segment's addressing mode actually match what you think it is?** A
+   plain `segment:offset` CS value seen in a live trace is inherently real-mode/V86-mode code - a
+   protected-mode component (a VxD, a flat 32-bit selector) *cannot* be the code executing there,
+   no matter how plausible the theory connecting them seemed from static analysis alone. **2026-08-02
+   case**: a live `OUT 0x60,0xDD/0xDF` A20-toggle loop was initially attributed to Windows 95's
+   `VKD.VXD` (a protected-mode VxD) based on a strong, well-sourced hypothesis (Al Williams'
+   primary-source A20 code, a project research doc explicitly indicting stock VKD's readback logic)
+   - but the loop's actual `CS` value (`0E77`) was a real-mode segment, which `VKD.VXD` structurally
+   cannot produce. Dumping and identifying the segment (Technique 16) found it was `HIMEM.SYS`
+   instead - a completely different, correctly-behaving component.
+2. **A shared entry point being called doesn't mean the caller wanted *that* entry point
+   specifically** - many resident TSRs/drivers install hooks on the same shared interrupt (`INT
+   2Fh`'s multiplex interface is the classic example: dozens of drivers can each claim a different
+   `AH` "multiplex ID" on the same vector, chaining to the next hook for anything not theirs).
+   Tracing "who calls segment X" with the CS-transition technique will faithfully report the
+   *immediately preceding* link in that chain, which may itself just be relaying a request meant for
+   someone else entirely. **2026-08-02 case**: traced a tight 300-hit identical retry loop
+   (`AX=0x1213`) to a caller in segment `0F86`; disassembly showed `0F86`'s own code at that address
+   is the tail of *its* `INT 2Fh AH=0x16` ("Windows Init/Exit Broadcast") hook, chaining onward via a
+   stored vector to `HIMEM.SYS`'s `INT 2Fh` handler (`AH=0x43`) because neither wanted `AH=0x12`.
+   Both `0F86` and `HIMEM` were innocent pass-through links, not the real source or destination.
+   **When this happens, apply the exact same CS-transition-into-segment trick one hop further back**
+   (trace who calls into the first "caller" you found) rather than assuming the first hit is the
+   end of the chain - shared multiplex/dispatch points often need walking multiple links deep before
+   reaching a component that actually initiated or resolves the request.
+
+## Technique 23: repeated forced VM kills poison the next boot's own recovery logic - detect and auto-clear it, and beware stale content in ever-growing log/dump files
+
+Iterating on a boot-hang investigation necessarily means killing the VM mid-boot, over and over, to
+apply new instrumentation. This has a real side effect on Windows 95 specifically: it sets the OS's
+own "did not finish loading on the previous attempt" dirty flag, so **every subsequent boot shows
+the Startup Menu** (Normal/Logged/Safe Mode/etc.) with a real-time countdown (as short as ~13s) that
+defaults to **Safe Mode** once it expires - and Safe Mode is independently known-broken on this
+project's hardware (unloads `INBRDPC.SYS`, losing the waitstate/memory-mapping setup). **Reacting to
+a chat notification and manually pressing a key is not fast enough to reliably beat this timer** -
+confirmed by losing two consecutive test runs to Safe Mode this way before switching to an automated
+fix: a tight (~2s) polling loop watching for the menu's own on-screen text, then writing the `1`
+key's scancode to `inject_key.txt` (Technique 9) the moment it's detected, with no dependency on
+notification round-trip latency.
+
+**A related trap when building that detector**: `vram_dump.txt` (Technique 2) is a single file that
+keeps growing across every relaunch this session, never truncated - a naive `grep "target text"
+vram_dump.txt` matches *any* occurrence in the file's entire history, including stale content from a
+previous, already-killed run. This produced a real false positive (the startup-menu detector fired
+at t+18s, absurdly early, because the text was leftover from the prior run). **Always restrict the
+check to the latest snapshot** (`tail -n <lines-per-snapshot> vram_dump.txt | grep ...`) before
+trusting a text-based detection against any file that accumulates across runs rather than being
+truncated at process start.
+
+## Technique 24: when a guest-OS component's expected behavior is documented but its actual failure mode isn't, run the same guest on a stock reference machine profile with the same instrumentation, and diff the traces
+
+Technique 6 (A/B against a stock, non-Inboard machine) is normally used to *rule out* an
+Inboard-specific explanation for a bug. It has a second, more targeted use: when a guest OS
+component (a driver, a VxD, a protocol handshake) is suspected of expecting hardware behavior this
+project's XT+Inboard target doesn't provide, but static analysis/documentation only tells you *that*
+a mismatch might exist, not the *exact* sequence of calls/responses involved - run the identical
+guest OS build on a stock reference machine profile 86Box already ships (a plain AT/386, not the
+Inboard XT), with the *same* live trace instrumentation already built for the XT investigation left
+active. Most instrumentation keyed to the guest OS's own internal file structure (a specific driver's
+disassembled offsets, a documented interrupt/multiplex protocol) will fire identically on either
+machine, since it's tied to the Windows/DOS build, not the hardware - only genuinely
+hardware-dependent behavior (e.g. a real 8042 correctly answering a keyboard-controller command
+sequence) will differ. The resulting two traces turn "guess what's missing on the XT+Inboard side"
+into a direct diff against a real, successful reference execution - much more tractable than
+continuing to reason from documentation or partial static analysis alone.
+
+**Setup caveat**: don't reuse a disk image whose `CONFIG.SYS`/`SYSTEM.INI` were prepared for the
+Inboard-specific target (loads `INBRDPC.SYS`, Inboard-patched VxDs, etc.) - those lines don't belong
+on the reference hardware and will produce unrelated noise, defeating the comparison. Use a genuinely
+vanilla install of the same guest OS build for the reference run, or a copy of the working image
+with the Inboard-specific `CONFIG.SYS`/`SYSTEM.INI` lines stripped out first.
+
+**2026-08-02 case (planned, not yet executed)**: after tracing a Windows 95 boot stall through
+`HIMEM.SYS`, `IFSHLP.SYS`, and an `INT 2Fh` multiplex-hook chain without finding a definitive root
+cause, and independently observing a BIOS keyboard-buffer-full beep suggesting something isn't
+draining keyboard input via `INT 16h`, the natural next step identified was: boot the same Windows
+95 build on a stock AT/386 86Box profile with the same `[a20trace]`/`[himemcaller]`-style
+instrumentation active, and diff which `INT 2Fh`/keyboard-controller calls a genuinely successful AT
+boot makes (and gets correctly answered) against what the XT+Inboard boot does - directly filling
+the gap between "what Windows 95 expects" and "what this hardware actually provides."
+
 ## Live hardware bridge (COMrade / COMR95) — real hardware only, not the VM
 
 For cross-checking emulator behavior against the **real 5160**, `COMRADE`/`COMR95` (Windows
