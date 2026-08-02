@@ -1543,6 +1543,30 @@ pmodeint(int num, int soft)
     uint32_t     *segdat232 = (uint32_t *) segdat2;
     uint32_t     *segdat332 = (uint32_t *) segdat3;
     const x86seg *dt;
+    /* [seg650Bvector] 2026-08-02: capture the true caller CS:PC before anything in this
+       function can modify it, so the later 0x650B check can report who actually dispatched
+       into it (and via which interrupt vector) - see seg650Bcaller's ambiguous 0000:0038
+       ring-buffer snapshot in xt_650B_smoking_gun_zeroed_memory_2026_08_02.md. */
+    uint16_t entry_cs = CS;
+    uint32_t entry_pc = cpu_state.pc;
+
+    /* [pmodeint_seg0048] 2026-08-02: [nulljump]/[nulljumpvector] proved the CS:IP=0000:0000
+       jump seen right before the segment-650B stall does NOT go through this function's
+       interrupt/trap-gate branch (the seg650Bvector/nulljumpvector checks never fired) - test
+       whether pmodeint() is entered from segment 0048 (the predecessor address) AT ALL, under
+       any vector/branch (including the task-gate case below), before concluding it's a genuine
+       instruction-level far transfer instead. Unconditional, no time gate - the interesting
+       window is very early (~t+60s), well before [pmodeint_trap]'s own t+140s gate opens. */
+    {
+        static int pmodeint_seg0048_hits = 0;
+        if ((pmodeint_seg0048_hits < 20) && (CS == 0x0048)) {
+            pmodeint_seg0048_hits++;
+            fprintf(stderr, "[pmodeint_seg0048] #%d num=%d(0x%02X) soft=%d CS:PC=%04X:%04X VM=%s\n",
+                    pmodeint_seg0048_hits, num, num, soft, CS, cpu_state.pc,
+                    (cpu_state.eflags & VM_FLAG) ? "SET" : "clear");
+            fflush(stderr);
+        }
+    }
 
     if ((cpu_state.eflags & VM_FLAG) && (IOPL != 3) && soft) {
         x86seg_log("V86 banned int\n");
@@ -1803,6 +1827,42 @@ pmodeint(int num, int soft)
                 cpu_state.pc = segdat[0] | (segdat[3] << 16);
             else
                 cpu_state.pc = segdat[0];
+            /* [seg650Bvector] 2026-08-02: one-shot - fires the moment an interrupt/trap gate
+               dispatches into segment 650B, reporting the real interrupt vector (num) and the
+               true caller (entry_cs:entry_pc, captured at function entry before any
+               modification), unlike the ambiguous ring-buffer snapshot in
+               [seg650Bcaller] (386_dynarec.c) which caught CS=0000:0038 - approximate per
+               Technique 17's exception-dispatch caveat. */
+            {
+                static int seg650b_vec_hits = 0;
+                if ((seg650b_vec_hits < 10) && (CS == 0x650B)) {
+                    seg650b_vec_hits++;
+                    fprintf(stderr,
+                            "[seg650Bvector] #%d num=%d(0x%02X) soft=%d caller=%04X:%08X -> 650B:%04X "
+                            "VM=%s CPL=%d\n",
+                            seg650b_vec_hits, num, num, soft, entry_cs, entry_pc, cpu_state.pc,
+                            (cpu_state.eflags & VM_FLAG) ? "SET" : "clear", CPL);
+                    fflush(stderr);
+                }
+            }
+            /* [nulljumpvector] 2026-08-02: [nulljump] (386_dynarec.c) proved the CPU lands at
+               CS:IP=0000:0000 while EFLAGS.VM=SET (V86 mode) with paging active - the classic
+               shape of a V86-reflected interrupt/exception being dispatched via a protected-mode
+               IDT gate whose target selector resolves to the NULL selector. Test that directly:
+               fire whenever this interrupt-gate dispatch resolves CS to 0x0000, reporting num
+               (the actual interrupt vector) and the real V86 caller (entry_cs:entry_pc). */
+            {
+                static int nulljump_vec_hits = 0;
+                if ((nulljump_vec_hits < 10) && (CS == 0x0000)) {
+                    nulljump_vec_hits++;
+                    fprintf(stderr,
+                            "[nulljumpvector] #%d num=%d(0x%02X) soft=%d caller=%04X:%08X -> 0000:%04X "
+                            "VM=%s CPL=%d\n",
+                            nulljump_vec_hits, num, num, soft, entry_cs, entry_pc, cpu_state.pc,
+                            (cpu_state.eflags & VM_FLAG) ? "SET" : "clear", CPL);
+                    fflush(stderr);
+                }
+            }
             set_use32(segdat2[3] & 0x40);
 
             cpl_override = 1;
@@ -1887,6 +1947,30 @@ pmodeiret(int is32)
         }
         if (cpu_state.abrt)
             return;
+
+        /* [v86iret] 2026-08-02: pmodeint_seg0048 proved pmodeint() is never entered from
+           segment 0048 - the CS:IP=0000:0000 transition right before the segment-650B stall
+           must instead be this branch: a plain V86-mode IRET(D), which pops CS:IP straight off
+           the SS:SP stack with NO descriptor validation (real-mode-style reload). If the popped
+           values are literally zero, this is genuinely a bad/uninitialized return frame on the
+           stack, not a deliberate jump. Log exactly what gets popped, unconditionally, low cap. */
+        {
+            static int v86iret_hits = 0;
+            if ((v86iret_hits < 20) && (seg == 0x0000)) {
+                v86iret_hits++;
+                uint32_t stack_base = ((uint32_t) SS) << 4;
+                fprintf(stderr,
+                        "[v86iret] #%d is32=%d popped newpc=%08X seg=%04X flags=%08X from SS:SP=%04X:%04X oldSP=%08X "
+                        "CX=%04X BX=%04X stack[oldSP-8..+16]=",
+                        v86iret_hits, is32, newpc, seg, tempflags, SS, SP, oldsp, CX, BX);
+                for (int wi = -8; wi < 16; wi += 2) {
+                    uint16_t w = readmemw(stack_base, (uint16_t) (oldsp + wi));
+                    fprintf(stderr, "%04X ", w);
+                }
+                fprintf(stderr, "\n");
+                fflush(stderr);
+            }
+        }
 
         cpu_state.pc                = newpc;
         cpu_state.seg_cs.base       = seg << 4;

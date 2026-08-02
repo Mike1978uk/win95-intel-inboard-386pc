@@ -1073,6 +1073,66 @@ exec386(int32_t cycs)
                F000:E354 error trap when it's reached from somewhere other than the
                two already-understood PIC-IMR / IRQ0-delivery tests at E32A-E3A0. */
             {
+                /* [rawring] 2026-08-02: the main ring buffer below dedupes consecutive
+                   identical (CS,PC) - correct for "which distinct addresses ran" but it means
+                   a hand-decoded backward walk from its "last recorded predecessor" can miss
+                   real intermediate steps if a repeated address briefly recurs, or if a hand
+                   decode of the stored bytes has any misalignment - see
+                   xt_650B_root_cause_null_far_call_2026_08_02.md's follow-up: patching the
+                   pointer that hand-decode identified as the culprit did NOT stop the
+                   segment-650B stall, meaning that decode doesn't actually match live execution.
+                   This is a small, UNCONDITIONAL (no dedup at all) per-instruction ring - every
+                   single instruction cycle appends here, guaranteeing the true immediate
+                   sequence is captured with zero ambiguity. Small (4096 entries) since it's
+                   meant only for a short backward look right before a specific trigger, not
+                   general-purpose history. */
+                static uint32_t rawring_cs[4096];
+                static uint32_t rawring_pc[4096];
+                static int      rawring_pos = 0;
+
+                /* [live0619] 2026-08-02: capstone cross-check found bytes at 0048:0619 (00 EC,
+                   captured via the ring_op snapshot mechanism) can only decode as a 2-byte
+                   instruction, yet the raw undeduped ring proves the real execution step there
+                   was 3 bytes - a genuine, unexplained contradiction. Test the self-modifying-
+                   code hypothesis directly: read the bytes FRESH, live, at the exact moment
+                   execution reaches this PC (before this instruction executes), every time this
+                   address is visited (not one-shot) - if these ever differ from "00 EC ...", the
+                   memory changed between captures. If they're always identical, the anomaly is
+                   in the tracing/PC-bookkeeping itself, not the guest code. */
+                if ((CS == 0x0048) && (cpu_state.pc == 0x0619)) {
+                    static int live0619_hits = 0;
+                    if (live0619_hits < 10) {
+                        live0619_hits++;
+                        uint32_t base0619 = ((uint32_t) 0x0048) << 4;
+                        fprintf(stderr, "[live0619] #%d live bytes at 0048:0619 = ", live0619_hits);
+                        for (int bi = 0; bi < 8; bi++)
+                            fprintf(stderr, "%02X ", readmemb(base0619, 0x0619 + bi));
+                        fprintf(stderr, "\n");
+                        fflush(stderr);
+                    }
+                }
+
+                rawring_cs[rawring_pos] = CS;
+                rawring_pc[rawring_pos] = cpu_state.pc;
+                rawring_pos             = (rawring_pos + 1) % 4096;
+                if ((CS == 0x0000) && (cpu_state.pc == 0x0000)) {
+                    static int rawring_dump_hits = 0;
+                    /* only dump the FIRST time we see two consecutive raw entries confirming
+                       genuine fresh arrival (not every single cycle spent sitting at 0:0
+                       decoding IVT garbage, which would flood this) */
+                    int prev_idx = (rawring_pos - 2 + 4096) % 4096;
+                    if ((rawring_dump_hits < 3) && !((rawring_cs[prev_idx] == 0x0000) && (rawring_pc[prev_idx] == 0x0000))) {
+                        rawring_dump_hits++;
+                        fprintf(stderr, "[rawring] last 60 RAW (undeduped) instruction steps before 0000:0000:\n");
+                        for (int back = 60; back >= 1; back--) {
+                            int idx = ((rawring_pos - back) % 4096 + 4096) % 4096;
+                            fprintf(stderr, "  -%02d CS:PC=%04X:%04X\n", back, rawring_cs[idx], rawring_pc[idx]);
+                        }
+                        fflush(stderr);
+                    }
+                }
+            }
+            {
                 static uint32_t ring_cs[1048576];
                 static uint32_t ring_pc[1048576];
                 /* [ringbytes] 2026-08-01: real-time single-step capture - the actual opcode
@@ -1346,6 +1406,131 @@ exec386(int32_t cycs)
                         seg6517_hits++;
                         fprintf(stderr, "[seg6517caller] #%d caller=%04X:%04X -> 6517:%04X AX=%04X BX=%04X\n",
                                 seg6517_hits, ring_last_cs, ring_last_pc, cpu_state.pc, AX, BX);
+                        fflush(stderr);
+                    }
+                }
+
+                /* [seg650Bcaller] 2026-08-02: [seg650Btrace] proved segment 650B is executing
+                   into completely zeroed memory (see memory
+                   xt_650B_smoking_gun_zeroed_memory_2026_08_02.md) - the next question is what
+                   jumped/called into it expecting real code to be there, and with what registers
+                   (ESI/EDI/ECX in particular - if this is a copy/decompress loop that's supposed
+                   to populate the destination buffer, those would be the source/dest/count regs
+                   at the moment of the *original* entry into 650B, before whatever loop inside it
+                   clobbers them). Same one-shot transition-into-segment technique as
+                   [himemcaller]/[seg0f86caller]/[seg6517caller] above. */
+                {
+                    static int seg650b_caller_hits = 0;
+                    if ((seg650b_caller_hits < 20) && (CS == 0x650B) && (ring_last_cs != 0x650B)) {
+                        seg650b_caller_hits++;
+                        fprintf(stderr,
+                                "[seg650Bcaller] #%d caller=%04X:%04X -> 650B:%04X "
+                                "EAX=%08X EBX=%08X ECX=%08X EDX=%08X ESI=%08X EDI=%08X "
+                                "ESP=%08X EBP=%08X CR0=%08X\n",
+                                seg650b_caller_hits, ring_last_cs, ring_last_pc, cpu_state.pc,
+                                EAX, EBX, ECX, EDX, ESI, EDI, ESP, EBP, cpu_state.CR0);
+                        fflush(stderr);
+
+                        /* [seg650Bbackward] same event, one-shot: [seg650Bvector] proved
+                           entry isn't via an IDT interrupt/trap gate, and the caller
+                           (0000:0038) is too low/unlikely-looking to be genuine loader code
+                           at face value - dump the last 40 distinct real-mode CS:PC steps
+                           (with live-captured opcode bytes, per [ringbytes]) leading up to
+                           the switch, to see the actual real-mode code path (disk read,
+                           CR0 write, far jump) instead of just its final step. */
+                        if (seg650b_caller_hits == 1) {
+                            fprintf(stderr, "[seg650Bbackward] last 40 distinct steps before entering 650B:\n");
+                            for (int back = 40; back >= 1; back--) {
+                                int idx = ((ring_pos - back) % 1048576 + 1048576) % 1048576;
+                                fprintf(stderr,
+                                        "  -%02d CS:PC=%04X:%04X bytes=%02X %02X %02X %02X %02X %02X\n",
+                                        back, ring_cs[idx], ring_pc[idx],
+                                        ring_op[idx][0], ring_op[idx][1], ring_op[idx][2],
+                                        ring_op[idx][3], ring_op[idx][4], ring_op[idx][5]);
+                            }
+                            fflush(stderr);
+                        }
+                    }
+                }
+
+                /* [patch0144] 2026-08-02: root-caused (see memory
+                   xt_650B_root_cause_null_far_call_2026_08_02.md) - some instruction in segment
+                   0048 executes "CS: CALL FAR [0144]", reading a target CS:IP from linear
+                   0048:0144, which is genuinely never initialized (confirmed zero). That null
+                   call is what starts the whole wild-jump chain ending in the segment-650B
+                   stall. The exact calling offset (hand-decoded as ~0664) didn't reproduce when
+                   targeted directly - the ring-buffer predecessor evidence suggests that decode
+                   had an error - so patch the *data*, not a guessed instruction address: the
+                   moment CS first becomes 0x0048 (well before any code in the segment could run
+                   far enough to reach the bad call), write a RETF stub into unused scratch space
+                   and redirect the 0144 vector at it, so whenever the real call happens it reads
+                   a harmless target instead of zero. */
+                /* [skip0637] 2026-08-02: raw undeduped tracing (see
+                   xt_650B_root_cause_null_far_call_2026_08_02.md) proved with certainty that
+                   0048:0637 is the exact, single instruction that transfers control to
+                   0000:0000 (zero intermediate steps) - but hand-decoding what it actually is
+                   has been unreliable (a capstone cross-check found the static bytes there don't
+                   even agree with the live execution step length one instruction earlier, at
+                   0619). Rather than keep guessing the mechanism, try neutralizing the address
+                   directly: the moment CS:PC reaches 0048:0637, skip past it without executing
+                   whatever's actually encoded there, by forcing cpu_state.pc forward. Trying the
+                   smallest plausible skip first (+2, past what a plain "OR r/m8,r8" alone would
+                   consume) - if this doesn't let boot proceed, the next things to try are larger
+                   skips or skipping to the nearby RET this session's capstone decode found
+                   (approximately 0048:065B-0650, alignment uncertain). One-shot. */
+                if ((CS == 0x0048) && (cpu_state.pc == 0x0637)) {
+                    static int skip0637_done = 0;
+                    if (!skip0637_done) {
+                        skip0637_done = 1;
+                        fprintf(stderr, "[skip0637] reached 0048:0637 - skipping to 0048:0639 instead of executing\n");
+                        fflush(stderr);
+                        cpu_state.pc = 0x0639;
+                    }
+                }
+
+                /* [nulljump] 2026-08-02: [seg650Bbackward] showed the CPU walking through raw
+                   IVT bytes starting at CS:IP=0000:0000, decoding table data as instructions
+                   until it coincidentally hit a CALL FAR whose operand bytes (borrowed from IVT
+                   vectors 14/15) happened to read 650B:E100 - the real bug is whatever transfers
+                   control to 0000:0000 in the first place, not segment 650B itself. Fire the
+                   instant CS:PC becomes exactly 0000:0000, reporting the true immediate
+                   predecessor (ring_last_cs/pc) plus a *fresh* read of bytes at that predecessor
+                   address (not the stored ring_op window, to avoid any hand-alignment error) so
+                   the actual transferring instruction (CALL/JMP/INT/IRET/etc) can be identified
+                   unambiguously. */
+                if ((CS == 0x0000) && (cpu_state.pc == 0x0000) && !((ring_last_cs == 0x0000) && (ring_last_pc == 0x0000))) {
+                    static int nulljump_hits = 0;
+                    if (nulljump_hits < 10) {
+                        nulljump_hits++;
+                        uint32_t pred_base = ((uint32_t) ring_last_cs) << 4;
+                        /* [nulljump2] 2026-08-02: the original 10-byte window wasn't long enough
+                           to reach the actual control-transfer opcode - hand-decoding it showed
+                           only ordinary OR/ADD/ROR instructions, no JMP/CALL/INT/IRET, within
+                           those 10 bytes. Capture 48 bytes instead so the real transferring
+                           instruction (wherever it actually starts) is visible. */
+                        fprintf(stderr, "[nulljump2] predecessor=%04X:%04X bytes=", ring_last_cs, ring_last_pc);
+                        for (int pi = 0; pi < 56; pi++)
+                            fprintf(stderr, "%02X ", readmemb(pred_base, ring_last_pc + pi));
+                        fprintf(stderr, "\n");
+                        /* [nulljump3] hand-decode of [nulljump2]'s bytes reaches, at byte
+                           index 45-47 (2E FF 1E), what looks like "CS: CALL FAR [disp16]" - an
+                           indirect far call reading its target CS:IP from a data pointer
+                           elsewhere in memory (not adjacent to the instruction bytes). If that
+                           pointer table entry was never initialized, this would produce exactly
+                           the observed 0000:0000 jump. disp16 is the 2 bytes right after the
+                           ModRM (index 48-49) - read it, resolve the linear address it names
+                           (CS-relative, per the 2E override), and dump the 4-byte far pointer
+                           actually stored there to confirm or refute this directly. */
+                        {
+                            uint16_t disp16  = readmemb(pred_base, ring_last_pc + 48) |
+                                                (readmemb(pred_base, ring_last_pc + 49) << 8);
+                            uint32_t ptr_lin = pred_base + disp16;
+                            uint16_t ptr_off = readmemb(ptr_lin, 0) | (readmemb(ptr_lin, 1) << 8);
+                            uint16_t ptr_seg = readmemb(ptr_lin, 2) | (readmemb(ptr_lin, 3) << 8);
+                            fprintf(stderr,
+                                    "[nulljump3] disp16=%04X ptr_lin=%08X far_ptr_at_[CS:%04X]=%04X:%04X\n",
+                                    disp16, ptr_lin, disp16, ptr_seg, ptr_off);
+                        }
                         fflush(stderr);
                     }
                 }

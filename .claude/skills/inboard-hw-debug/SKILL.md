@@ -578,6 +578,40 @@ instrumentation active, and diff which `INT 2Fh`/keyboard-controller calls a gen
 boot makes (and gets correctly answered) against what the XT+Inboard boot does - directly filling
 the gap between "what Windows 95 expects" and "what this hardware actually provides."
 
+**2026-08-02 case (executed, decisive)**: for the segment-650B wild-jump investigation (see
+`memory/xt_650B_root_cause_null_far_call_2026_08_02.md`), after a specific patch failed to fix the
+crash and the exact triggering mechanism remained unclear, ran the **same compiled debug build**
+(not just the same guest OS - the identical binary with all trace hooks already compiled in)
+against the AT success recipe's own profile (`vm_win95_at_gap/86box.cfg`, same
+`Golden_win95_stage1_copy.img`-lineage disk image). Key design choice: the detector hook
+(`[nulljump]`) was written to fire on the *generic symptom* (`CS:PC==0000:0000`, wherever that
+happens) rather than a hardcoded address specific to the XT investigation - this mattered, because
+if the AT run's boot-logo code lives at a different segment (plausible, given a different
+CONFIG.SYS-driven low-memory layout), an address-specific hook would silently never fire and give
+a false "AT doesn't have this bug" result for the wrong reason (never even reaching the check),
+indistinguishable from a true negative. A generic symptom-based hook doesn't have this blind spot.
+Result: zero hits across an entire run through to a confirmed working desktop - a clean, direct,
+decisive negative that conclusively reframed the bug as Inboard/XT-specific rather than a general
+Windows 95 boot-logo or emulator-interpreter issue. **Housekeeping**: the AT profile directory
+lacked its own `roms/` folder (only the XT profile directory had one) - symlinked rather than
+copied (`ln -s ../vm_win311/roms vm_win95_at_gap/roms`) to avoid duplicating a 106MB tree.
+
+## Addendum to Technique 29: a live-fresh-read hook can rule out self-modifying code cheaply, separate from the underlying PC-bookkeeping question
+
+When a static byte capture (a one-shot dump taken after the fact) seems to contradict live
+execution behavior (Technique 29's core scenario), don't assume self-modifying code is the
+explanation just because it's a plausible sounding one for old real-mode boot code - test it
+directly and cheaply: add a hook that reads the bytes **fresh, live, every single time** the
+CPU's PC reaches the address in question (not one-shot), and compare across visits. Identical
+bytes across many visits rules out self-modification cleanly, narrowing the remaining
+possibilities to the tracing/interpreter's own PC-advancement bookkeeping - a completely
+different, and for this project novel, class of question (see Technique 29's case for the
+specific unresolved discrepancy: a real disassembler proves the static bytes at `0048:0619` can
+only ever decode as a 2-byte instruction, yet the live raw-ring trace proves the real execution
+step there was 3 bytes - confirmed NOT self-modifying, 10 identical live reads across one boot,
+still unexplained as of this session's end). A cheap, one-hook test is worth running before
+spending more time reasoning about which explanation is more plausible.
+
 ## Technique 25: tally counts at a shared choke point instead of logging every hit, when you need "what's being called and how often" rather than "the exact sequence"
 
 Technique 11's trigger-armed uncapped logging solves "show me every distinct address visited"
@@ -680,6 +714,115 @@ its output, the same way a live trace hook's first "hit" needs sanity-checking (
 script that "succeeds" by doing nothing is far more dangerous than one that errors loudly, because
 its output looks identical to a real fix at every layer above it (file exists, right name, right
 size in the lucky cases) until someone directly diffs the bytes.
+
+## Technique 29: when a ring-buffer "predecessor" address looks nonsensical, widen the byte capture and hand-decode carefully before concluding it's just an approximation artifact - it can be a symptom of a wild jump, one hop further upstream
+
+Technique 17 warns that an exception-triggered "caller" from the ring-buffer predecessor
+technique can be approximate. It's tempting to stop there whenever a predecessor address looks
+too low/implausible to be real code ("it's just an artifact of the dispatch mechanism"). Before
+accepting that explanation, systematically rule out every dispatch mechanism first (a short,
+cheap list: hook the interrupt/trap-gate CS-assignment point for the specific destination
+selector; hook the same function's *entry* unconditionally for the specific source segment,
+since a zero-hit result there is a strong, direct negative per Technique 19's "always test the
+gate-removed case" spirit; hook the V86-mode IRET branch filtered on the specific bad value).
+If all of those come back clean/negative, the nonsensical address is very likely a genuine
+*symptom* worth explaining on its own terms, not noise - it can be the CPU's actual, if
+accidental, decode position after a real (but different) wild jump happened even further
+upstream.
+
+**Capture more bytes than seems necessary, and hand-decode opcode-by-opcode, tracking exact
+instruction length at every step** - a short window (10 bytes) can end mid-instruction-stream
+without ever reaching the actual control-transfer opcode, producing a false "this looks like
+ordinary ALU code, not a jump" read that stalls the investigation. Widening to 50+ bytes and
+decoding forward strictly (never skip/guess an instruction boundary) is cheap compared to
+another live-hook rebuild cycle. Once a plausible transferring instruction is found (e.g. an
+indirect `CALL FAR [mem]`/`JMP FAR [mem]`), resolve its actual operand (the displacement,
+the memory location it reads from) and read that location's *live* contents directly with one
+more hook - don't stop at "this instruction shape could explain it," confirm the specific data.
+
+**2026-08-02 case**: `[seg650Bcaller]`'s ring-buffer predecessor for the segment-650B stall
+reported `caller=0000:0038` - implausibly low, "looks like an artifact." Ruling out `pmodeint()`
+interrupt/trap-gate dispatch (both for the `650B` destination and the `0000:0000` intermediate
+step), `pmodeint()` entry from the source segment at all (zero hits, a clean negative), and
+`pmodeiret()`'s V86-IRET branch (filtered on the destination segment, zero hits) left only a
+direct instruction-level far transfer. A first 10-byte capture from the true predecessor address
+decoded as ordinary `OR`/`ADD`/`ROR` opcodes with no visible jump - widening to 56 bytes and
+decoding through an intervening `RET` (a real subroutine return, not the actual bug) found the
+real culprit: `CS: CALL FAR [0144]` (`2E FF 1E 44 01`), an indirect far call. Resolving `0144`'s
+linear address and reading it directly confirmed a genuinely uninitialized (all-zero) far
+pointer - the true root cause, three full hops upstream of where the ring buffer's raw
+predecessor value first pointed, and the reason `0000:0038` looked nonsensical in the first
+place: it wasn't a caller at all, it was the CPU already several steps into decoding raw IVT
+table bytes as an accidental instruction stream after the *real* wild jump had already happened.
+Full writeup: `memory/xt_650B_root_cause_null_far_call_2026_08_02.md`.
+
+**2026-08-02 correction, same session, added after live-testing the fix**: patching the
+`0048:0144` pointer (redirecting it to a safe `RETF` stub, confirmed via a live read that the
+patch genuinely took effect and persisted) produced **the identical crash** - proving the
+hand-decoded `CS: CALL FAR [0144]` instruction, despite reading a genuinely-zero pointer, was
+**not actually the live-executed trigger**. This is the sharpest possible restatement of this
+technique's core warning: a plausible-looking hand-decoded instruction that reads confirmed-bad
+data is still only a hypothesis until the fix is tested end-to-end - reading confirmatory data
+is not the same as confirming causality. **Always test the fix, not just the diagnosis, before
+updating memory to say "root cause found."**
+
+The follow-up investigation added two tools worth reusing directly: (1) a small **always-append,
+never-deduplicated** per-instruction ring buffer (separate from the main dedup-on-change ring
+buffer already described above) - the main ring buffer is correct for "which distinct addresses
+ran" but a backward hand-decode from its last recorded predecessor can still desync if the
+hand-decode itself has an error, since the main ring never proves your decoded instruction
+*lengths* were right, only that the addresses it happened to record were real. An undeduped ring
+directly gives ground-truth instruction boundaries (the delta between consecutive raw entries
+*is* the real length of whatever executed there) with zero decoding involved. (2) Feed the
+reconstructed byte stream to a **real disassembler** (`capstone`, `CS_MODE_16` for real/V86-mode
+16-bit code) instead of continuing to hand-decode - and cross-check its output against the raw
+ring's ground-truth boundaries opcode-by-opcode, not just at the end. This combination caught a
+second, deeper anomaly by itself: capstone's linear decode from a confirmed-correct starting
+point (`0617`) desyncs from the raw ring's own ground truth almost immediately (`0619` onward) -
+the bytes there (`00 EC`) can only ever decode as a 2-byte `ADD AH,CH` under standard x86 rules,
+yet the raw trace proves the real execution step was 3 bytes. That contradiction remains
+unresolved as of this session's end (candidate causes: self-modifying code, an interrupt-boundary
+PC-advancement artifact, or a bug in the hook's own `cpu_state.pc` read timing) - a good example
+of a case where the disciplined tooling (raw ring + real disassembler) surfaced a genuine anomaly
+that pure hand-analysis had been silently overwriting with a plausible-but-wrong story.
+
+## Technique 30: when the exact mechanism resists identification, a blind "neutralize this address" patch can unblock progress without ever finding it
+
+Techniques 29's mechanism-hunt for the segment-650B wild jump hit a genuine wall: a real
+disassembler contradicted the live execution step length at a nearby address, and no amount of
+further hand-analysis or live-fresh-byte-reading resolved it. **Don't let an unresolved mechanism
+question block trying the fix anyway**, once you have one fact nailed down with certainty (here:
+raw undeduped tracing proved `0048:0637` is the *exact*, single, zero-intermediate-steps
+instruction that transfers control to the bad destination, even though *what it decodes to*
+remained unclear). A one-shot hook that fires the moment `CS:PC` reaches that exact address and
+forcibly sets `cpu_state.pc` past it (skip execution entirely, don't try to emulate what "should"
+happen) is cheap to try and immediately falsifiable - either the downstream symptom stops
+recurring (strong evidence the address really was the trigger, regardless of why) or it doesn't
+(back to the mechanism hunt, but you've lost almost nothing).
+
+**2026-08-02 case**: `[skip0637]` (`386_dynarec.c`) - `if (CS==0x0048 && cpu_state.pc==0x0637) { cpu_state.pc = 0x0639; }`,
+one-shot - completely eliminated the segment-650B stall that had resisted a specific, verified-but-
+insufficient data patch (`[patch0144]`, Technique 29) earlier the same session. The CPU proceeded
+into genuinely new territory (segment `020B`, confirmed INBRDPC.SYS's own resident code) that this
+project had never reached on the real XT+Inboard profile with genuinely-patched VxDs, all without
+ever resolving what the `0637` instruction actually was. **This doesn't mean the mechanism question
+stops mattering** - a blind skip is a debugging tool to find out whether an address is truly load-
+bearing for the bug, and to make forward progress while the real question stays open, not
+necessarily a deployable end-state fix (skipping unknown guest code has obvious correctness risk
+for real use) - but for an emulator-side investigation trying to find out "how far past this point
+does the system actually work," it's a legitimate, high-value experiment to run before continuing
+to sink time into full mechanism identification.
+
+**Compounding finding, same session**: once past the `0637` block, combining this skip with an
+*already proven, previously undeployed-on-this-profile* fix (`inbrdpc_fixed_v2.bin` from
+`memory/win95_emulator_repro_2026_08_01.md` - an INT06h fault-loop + resident-size fix for
+INBRDPC.SYS, confirmed effective back on 2026-08-01 but never tested with genuinely-patched VxDs
+until now) pushed boot further still, through HIMEM/EMM386 territory, before hitting a new stall.
+**Lesson**: when a session finds a new way past an old blocker, always check whether previously-
+built-but-shelved fixes for *later* blockers are still sitting unused and worth re-deploying on
+the newly-reachable configuration - this project has accumulated several such fixes
+(`inbrdpc_fixed_v2.bin`, the VxD patches, etc.) across sessions that only pay off once whatever
+was blocking progress *before* them is separately resolved.
 
 ## Live hardware bridge (COMrade / COMR95) — real hardware only, not the VM
 
