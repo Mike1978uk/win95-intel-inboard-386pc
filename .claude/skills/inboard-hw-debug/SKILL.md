@@ -346,6 +346,20 @@ per-instruction loop - treat an exception-triggered "caller" address as approxim
 until cross-checked (e.g. does the reported offset actually decode as plausible code, or does it
 land inside a data/string region as happened here).
 
+**Caveat on `objdump`'s linear disassembly desyncing across embedded data**: a ROM/driver dump
+almost always mixes real code with embedded data (option-ROM tables, error strings, DDBs) that
+`objdump -D -b binary` cannot tell apart from code - it disassembles every byte linearly from
+whatever start address you give it, so one misinterpreted data blob upstream of the address you
+actually care about can desync every subsequent instruction boundary, silently producing plausible-
+looking but wrong decodes from that point on. **2026-08-02 case**: disassembling a known-correct
+call site (`F000:AC00`, confirmed live via `x86_int_sw`'s own `CS:oldpc`) showed a garbage 4-byte
+instruction spanning what should have been a clean 2-byte `int 0x10` - `objdump` had desynced
+somewhere earlier in the 64KB dump and never resynchronized. **Fix**: when you already know the
+exact byte offset that matters (from a live trace, not a guess), read the raw bytes directly
+(`open(path,'rb').read()[offset-N:offset+M]` in Python, or equivalent) and hand-decode or spot-
+check against the opcode table yourself, rather than trusting a linear `objdump` pass through a
+file you know contains non-code bytes upstream of your target.
+
 **Caveat on `cpu_use_dynarec`**: every debug hook this project's investigations rely on
 ([modecheck], [vramdump], [e0abtrap], [vmmhang], [int6entry], etc.) lives inside `exec386()`,
 `cpu/386_dynarec.c`'s *interpreter* loop. Compiled dynarec blocks don't run through that function,
@@ -520,6 +534,18 @@ check to the latest snapshot** (`tail -n <lines-per-snapshot> vram_dump.txt | gr
 trusting a text-based detection against any file that accumulates across runs rather than being
 truncated at process start.
 
+**2026-08-02 addendum: the auto-clear script itself had a real bug for two full runs before being
+caught** - it wrote the digit's scancode (`1` = Normal mode) to `inject_key.txt` but never followed
+up with **Enter**, so it correctly typed `1` into the `Enter a choice:` prompt and then sat there
+re-typing the same unsubmitted digit every polling cycle forever, never advancing. The VM was
+found live-stuck at this exact menu for 60+ real seconds (screen showing `Enter a choice: 1` with
+no progress) before the missing Enter was noticed. **A one-shot keystroke automation script needs
+the same scrutiny as any other new code - test that the target screen actually changes state after
+firing, don't just confirm the trigger condition was detected.** Fixed by sending scancode 2 (`1`)
+then, after a short delay, scancode 28 (Enter), with a `handled` state flag so it fires once per
+menu appearance (re-arms only once the menu text is confirmed gone from the latest snapshot)
+rather than spamming keystrokes at a screen that already moved on.
+
 ## Technique 24: when a guest-OS component's expected behavior is documented but its actual failure mode isn't, run the same guest on a stock reference machine profile with the same instrumentation, and diff the traces
 
 Technique 6 (A/B against a stock, non-Inboard machine) is normally used to *rule out* an
@@ -551,6 +577,81 @@ draining keyboard input via `INT 16h`, the natural next step identified was: boo
 instrumentation active, and diff which `INT 2Fh`/keyboard-controller calls a genuinely successful AT
 boot makes (and gets correctly answered) against what the XT+Inboard boot does - directly filling
 the gap between "what Windows 95 expects" and "what this hardware actually provides."
+
+## Technique 25: tally counts at a shared choke point instead of logging every hit, when you need "what's being called and how often" rather than "the exact sequence"
+
+Technique 11's trigger-armed uncapped logging solves "show me every distinct address visited"
+but is the wrong shape for a different, equally common question: "which services (interrupts,
+ports, function codes) does the guest request during this window, and roughly how often" -
+answering that with one `fprintf` per call either explodes log volume at a hot choke point (any
+polling loop calls the same `INT`/port dozens of times a second) or needs a cap that gets
+exhausted by boot noise (Technique 11's original problem) long before the interesting window.
+Instead, keep a small in-memory table (a short linear-scan array of `(key, count)` pairs is fine
+- these hot paths are already running through a slow interpreter, so a scan of a few dozen
+entries is noise next to that) keyed on whatever identifies "the same kind of call" (e.g.
+`(int_num << 8) | AH` for software interrupts), increment it on every hit with zero I/O, and only
+`fprintf` the whole table on a coarse timer (every 5-10 real seconds, gated well past the boot-
+noise period the same way Technique 11's arming flag is). This gives a live, low-volume, at-a-
+glance answer to "what does the guest actually keep asking for" without needing to know the
+interesting address/window in advance - useful as a first-pass survey before reaching for
+Technique 1/12's address-specific tracing.
+
+**2026-08-02 case**: added `[intcalltally]`, gated to start dumping at t+100s (past ordinary
+POST/CONFIG.SYS noise) and every 10s thereafter - a direct, low-cost way to see INT 15h/16h/21h
+call volumes during the CONFIG.SYS-stage stall, motivated by the still-unexplored "BIOS keyboard-
+buffer-full beep" lead (a strong hint nothing is calling `INT 16h` to drain input). First placed at
+`x86_int()` (see Technique 26 below for why that was wrong and had to be moved to `x86_int_sw()`).
+Paired with `[kbdbuf]`, a per-second read of the BIOS Data Area's own keyboard-buffer head/tail
+pointers (`0000:041A`/`0000:041C`) added to the existing `[modecheck]` per-second block - real-mode
+low memory is always identity-mapped, so `mem_readb_phys()` is the right tool here (same as the
+existing `B8000` VRAM dump), not `readmemb()` (Technique 16's page-table-aware reader is for
+segments that might be paged, which BIOS Data Area addresses never are). Result at the actual
+stall this session: `head`/`tail` sat equal (buffer empty) throughout, so the buffer-full theory
+didn't hold for *this* particular stall instance - the beep from the prior session was a real,
+but apparently not-always-present, symptom.
+
+## Technique 26: two functions can both plausibly be "the INT dispatch choke point" - verify which one the specific instruction you care about actually reaches, by checking a real hit first
+
+Technique 17 established that hardware-IRQ delivery and CPU-raised exceptions share a single choke
+point (`pmodeint()`) regardless of caller. It's tempting to assume the *same* function is also the
+choke point for the software `INT n` instruction - but this codebase actually has two separate
+top-level functions, `x86_int(num)` (CPU-raised exceptions only: divide error, BOUND, GP, double
+fault, etc - grep its callers, all are exception sites) and `x86_int_sw(num)` (the real `INT n`
+opcode's own handler, in `x86_ops_int.h`) - both eventually call into `pmodeint()`, but a hook
+placed in `x86_int()` will **never** see a guest's `INT 21h`/`INT 16h`/`INT 2Fh` calls, only
+CPU exceptions. **2026-08-02 case**: `[intcalltally]` was first added to `x86_int()` (a plausible-
+looking choke point - Technique 17's own writeup already documents it as receiving both real-mode
+and V86 dispatch) and immediately "worked": it started producing a suspiciously clean, steady,
+exactly-once-per-second tally entry (`INT05h/AH4Fh`). That regularity was itself the tell that
+something was wrong - real guest interrupt traffic is bursty, not metronomic - and cross-checking
+`num=5`'s callers found it's the `BOUND` range-check exception, not a real interrupt, confirming
+the hook was on the wrong function entirely. **Lesson**: before trusting a new hook's first "hit,"
+check whether the specific call/value it reports is even *possible* to originate from where you
+placed it (grep the hooked function's own other callers/call sites) - a hook on the wrong-but-
+adjacent function can still produce plausible-looking, non-empty output and pass a superficial
+sanity check.
+
+## Technique 27: a steadily-growing counter can be a red herring if its growth rate matches a known, universal periodic event (the ~18.2Hz PC timer tick) rather than being unique to the bug under investigation
+
+A hit-count that climbs smoothly and linearly for the entire observation window looks exactly like
+"the one thing still happening in an otherwise-frozen stall" - but before treating it as the bug's
+own active loop, check its growth rate against the standard PC timer tick (IRQ0, ~18.2 ticks/
+second, the classic `1193182/65536` PIT-divisor rate every DOS/BIOS system runs at from power-on).
+If the observed rate is in that neighborhood, the counted call is very likely part of ordinary,
+universal BIOS timer-tick housekeeping (cursor blink state, a `INT 1Ch` user-hook tail, etc) that
+fires at that rate on *every* boot, hang or not - not a symptom specific to the stall. **2026-08-02
+case**: `[int10Fcaller]`'s per-call-site tally found a single site, `F000:AC00` (disassembled via a
+direct Python byte-read at the dump file's own offset, not `objdump`'s linear scan, which desyncs
+across the ROM's embedded data blobs and silently produces wrong instruction boundaries - see the
+caveat this added to Technique 16's own live-dump approach), growing at a measured ~19/s across a
+230-second window (188 hits at t+20s -> 4551 at t+250s) - close enough to 18.2Hz, once wall-clock
+sampling noise is accounted for, to identify it as the BIOS's own periodic `mov ah,0Fh` / `int 10h`
+video-state check, not a bug-specific spin. **Still a useful negative result**, though: with this
+one explained away, literally nothing else in the same tally advanced during the stall - meaning
+the actual stuck loop makes zero application-level software-interrupt calls of any kind, reinforcing
+(at a deeper level than the existing CS:PC-segment evidence) that this is a pure CPU-level spin with
+no OS-service dependency, consistent with the SHLD-based bitstream-decoder theory from earlier this
+session (`memory/win95_emulator_repro_2026_08_02.md`).
 
 ## Live hardware bridge (COMrade / COMR95) — real hardware only, not the VM
 

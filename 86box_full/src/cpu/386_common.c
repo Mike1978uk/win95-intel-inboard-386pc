@@ -1687,6 +1687,129 @@ x86_int_sw(int num)
 {
     uint32_t addr;
 
+    /* [intcalltally] 2026-08-02: step 2 of the CONFIG.SYS-stage stall investigation
+       (memory/win95_emulator_repro_2026_08_02.md, "plan for next session") - moved here
+       (2026-08-02, same session) after discovering x86_int() only handles CPU-raised
+       exceptions (BOUND/divide/GP/etc, see its own callers) and is NOT on the path for the
+       actual INT n instruction - x86_ops_int.h's opcode handler calls x86_int_sw() instead,
+       which is the true choke point for every software interrupt. Confirmed live: hooking
+       x86_int() first produced a suspicious, exactly-1-Hz "INT05h/AH4Fh" tally that was
+       actually a periodic BOUND-exception artifact, not real guest INT traffic - a good
+       reminder that a plausible-looking hit count needs its call site double-checked before
+       trusting it. Tally hit counts per (INT num, AH) pair (Technique 25) - cheap, no I/O per
+       hit - and dump the whole tally every 10 real seconds once armed past ordinary boot
+       noise. Directly answers "what CPU-level services is the guest actually requesting
+       during the stall" (INT 15h/16h/21h volumes in particular, given the live keyboard-
+       buffer-full beep finding suggests nothing is calling INT 16h to drain input). */
+    {
+        static time_t ict_t0        = 0;
+        static time_t ict_last_dump = 0;
+        static struct {
+            uint16_t key; /* (num << 8) | AH */
+            uint32_t count;
+        } ict_table[64];
+        static int ict_entries = 0;
+        if (ict_t0 == 0)
+            ict_t0 = time(NULL);
+
+        uint16_t key   = (uint16_t) ((num << 8) | AH);
+        int      found = 0;
+        for (int i = 0; i < ict_entries; i++) {
+            if (ict_table[i].key == key) {
+                ict_table[i].count++;
+                found = 1;
+                break;
+            }
+        }
+        if (!found && (ict_entries < 64)) {
+            ict_table[ict_entries].key   = key;
+            ict_table[ict_entries].count = 1;
+            ict_entries++;
+        }
+
+        time_t ict_now = time(NULL);
+        if ((ict_now - ict_t0 >= 100) && (ict_now != ict_last_dump) && (((long) (ict_now - ict_t0)) % 10 == 0)) {
+            ict_last_dump = ict_now;
+            fprintf(stderr, "[intcalltally] t+%lds (%d distinct num/AH pairs):",
+                    (long) (ict_now - ict_t0), ict_entries);
+            for (int i = 0; i < ict_entries; i++)
+                fprintf(stderr, " INT%02Xh/AH%02Xh=%u",
+                        ict_table[i].key >> 8, ict_table[i].key & 0xFF, ict_table[i].count);
+            fprintf(stderr, "\n");
+            fflush(stderr);
+        }
+    }
+
+    /* [int10Fcaller] 2026-08-02: [intcalltally] showed that once the stall's own instrumentation
+       started dumping (t+100s onward), every single tallied (num,AH) pair stayed frozen except
+       INT10h/AH0Fh (get current video state: AL=mode, AH=columns, BH=active page), which kept
+       climbing at a steady ~20/s (1168 @ t0 -> 2494 @ t+150s, i.e. the ~50s window gained
+       ~1326 hits => ~26/s) - a real, ongoing, currently-executing loop, not leftover history
+       like the INT16h/AH01h count. This is a much more specific and immediately-actionable
+       target than the keyboard-buffer theory: find the exact call site. */
+    if ((num == 0x10) && (AH == 0x0F)) {
+        static uint32_t site10F[16];
+        static uint32_t count10F[16];
+        static int      seen10F_count = 0;
+        static time_t   t10F_t0       = 0;
+        static time_t   t10F_last     = 0;
+        uint32_t        site          = (((uint32_t) CS) << 16) | cpu_state.oldpc;
+        int             found10F      = 0;
+        if (t10F_t0 == 0)
+            t10F_t0 = time(NULL);
+        for (int i = 0; i < seen10F_count; i++) {
+            if (site10F[i] == site) {
+                count10F[i]++;
+                found10F = 1;
+                break;
+            }
+        }
+        if (!found10F && (seen10F_count < 16)) {
+            site10F[seen10F_count]  = site;
+            count10F[seen10F_count] = 1;
+            seen10F_count++;
+            fprintf(stderr, "[int10Fcaller] new INT10h/AH0Fh call site #%d: CS:oldpc=%04X:%04X AX=%04X BX=%04X CX=%04X DX=%04X\n",
+                    seen10F_count, CS, cpu_state.oldpc, AX, BX, CX, DX);
+            fflush(stderr);
+        }
+        time_t t10F_now = time(NULL);
+        if ((t10F_now != t10F_last) && (((long) (t10F_now - t10F_t0)) % 10 == 0)) {
+            t10F_last = t10F_now;
+            fprintf(stderr, "[int10Fcaller] tally t+%lds:", (long) (t10F_now - t10F_t0));
+            for (int i = 0; i < seen10F_count; i++)
+                fprintf(stderr, " %04X:%04X=%u", site10F[i] >> 16, site10F[i] & 0xFFFF, count10F[i]);
+            fprintf(stderr, "\n");
+            fflush(stderr);
+        }
+    }
+
+    /* [int16caller] 2026-08-02: [intcalltally] found INT16h/AH01h (peek keyboard buffer, don't
+       remove) fired ~496/s during the stall, with NO INT16h/AH00h or AH10h (actual read-and-
+       remove) anywhere in the same 100s window - direct confirmation of the beep-observation
+       theory (something polls "is a key ready?" but nothing ever consumes one, so the buffer
+       fills and stays full). Find exactly which code is doing the polling: log each distinct
+       CS:oldpc call site the first few times it's seen (small dedup table, no time gate needed
+       since this specific call is rare enough before the stall that early hits are informative
+       too, not noise to skip). */
+    if ((num == 0x16) && (AH == 0x01)) {
+        static uint32_t seen[16];
+        static int      seen_count = 0;
+        uint32_t        site       = (((uint32_t) CS) << 16) | cpu_state.oldpc;
+        int             found      = 0;
+        for (int i = 0; i < seen_count; i++) {
+            if (seen[i] == site) {
+                found = 1;
+                break;
+            }
+        }
+        if (!found && (seen_count < 16)) {
+            seen[seen_count++] = site;
+            fprintf(stderr, "[int16caller] new INT16h/AH01h call site #%d: CS:oldpc=%04X:%04X AX=%04X BX=%04X CX=%04X DX=%04X\n",
+                    seen_count, CS, cpu_state.oldpc, AX, BX, CX, DX);
+            fflush(stderr);
+        }
+    }
+
     flags_rebuild();
     cycles -= timing_int;
 

@@ -2041,6 +2041,36 @@ exec386(int32_t cycs)
                                     (long) (now - t0), CS, cpu_state.pc, chk, ring_last_cs, ring_last_pc, cpu_state.oldpc);
                             fflush(stderr);
                         }
+                        /* [kbdbuf] 2026-08-02: end-of-session finding - typing directly into the
+                           VM while it's in the stuck state produced a BIOS "keyboard buffer full"
+                           beep (classic behavior when the 16-entry ring buffer at 0040:001E-003D
+                           overflows because nothing drains it via INT 16h). Read the BIOS Data
+                           Area's own head/tail pointers each second alongside [modecheck] - if
+                           they're genuinely stuck at a fixed, full-buffer relationship
+                           (tail+2==head, mod 0x1E offset range, per the standard IBM BDA layout)
+                           for the whole stall window, that directly confirms "input piles up,
+                           nothing calls INT 16h to read it" as opposed to a one-off/transient
+                           beep. 0040:001A=buffer head (next char to read), 0040:001C=buffer tail
+                           (next free slot) - real-mode BIOS data area, always identity-mapped
+                           low memory, so mem_readb_phys is the right tool here (same as the
+                           B8000 dump above), not readmemb. */
+                        {
+                            uint8_t head_lo = mem_readb_phys(0x41A);
+                            uint8_t head_hi = mem_readb_phys(0x41B);
+                            uint8_t tail_lo = mem_readb_phys(0x41C);
+                            uint8_t tail_hi = mem_readb_phys(0x41D);
+                            uint8_t start_lo = mem_readb_phys(0x480);
+                            uint8_t start_hi = mem_readb_phys(0x481);
+                            uint8_t end_lo   = mem_readb_phys(0x482);
+                            uint8_t end_hi   = mem_readb_phys(0x483);
+                            uint16_t head = head_lo | (head_hi << 8);
+                            uint16_t tail = tail_lo | (tail_hi << 8);
+                            uint16_t bufstart = start_lo | (start_hi << 8);
+                            uint16_t bufend   = end_lo | (end_hi << 8);
+                            fprintf(stderr, "[kbdbuf] t+%lds head(041A)=%04X tail(041C)=%04X bufstart(0480)=%04X bufend(0482)=%04X\n",
+                                    (long) (now - t0), head, tail, bufstart, bufend);
+                            fflush(stderr);
+                        }
                     }
                 }
 
