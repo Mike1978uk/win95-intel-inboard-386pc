@@ -2125,6 +2125,48 @@ exec386(int32_t cycs)
                     }
                 }
 
+                /* [seg650Btrace] 2026-08-02: live Technique 12 trace of segment 650B, the
+                   confirmed real-hardware-matching "flashing cursor" stall (see memory
+                   xt_650B_real_stall_confirmed_2026_08_02.md). Arms the first time CS becomes
+                   0x650B, then logs every *distinct* CS:PC visited (Technique 1/12's
+                   consecutive-dedup approach) with a full register dump, capped to avoid
+                   flooding on a genuine tight spin. Remove once root-caused. */
+                {
+                    static int      seg650b_armed      = 0;
+                    static uint32_t seg650b_last_logged = 0xFFFFFFFFu;
+                    static int      seg650b_hits        = 0;
+                    if (!seg650b_armed && CS == 0x650B)
+                        seg650b_armed = 1;
+                    if (seg650b_armed && CS == 0x650B && seg650b_hits < 2000) {
+                        uint32_t here = ((uint32_t) CS << 16) | cpu_state.pc;
+                        if (here != seg650b_last_logged) {
+                            seg650b_last_logged = here;
+                            /* CR0.PG is set (confirmed live) - CS is a protected-mode selector,
+                               not a real-mode segment, so the linear address needs the resolved
+                               descriptor base (cpu_state.seg_cs.base), not CS<<4 - and the actual
+                               bytes must go through readmemb (page-table-aware), not
+                               mem_readb_phys, per Technique 16's own caveat. */
+                            uint32_t linaddr = cpu_state.seg_cs.base + cpu_state.pc;
+                            uint8_t  b0 = readmemb(linaddr, 0);
+                            uint8_t  b1 = readmemb(linaddr, 1);
+                            uint8_t  b2 = readmemb(linaddr, 2);
+                            uint8_t  b3 = readmemb(linaddr, 3);
+                            FILE *f = fopen("seg650b_trace.txt", "a");
+                            if (f) {
+                                fprintf(f,
+                                        "[seg650Btrace] #%d CS:PC=%04X:%04X lin=%08X bytes=%02X %02X %02X %02X "
+                                        "EAX=%08X EBX=%08X ECX=%08X EDX=%08X ESI=%08X EDI=%08X "
+                                        "ESP=%08X EBP=%08X CR0=%08X\n",
+                                        seg650b_hits, CS, cpu_state.pc, linaddr, b0, b1, b2, b3,
+                                        EAX, EBX, ECX, EDX, ESI, EDI, ESP, EBP,
+                                        cpu_state.CR0);
+                                fclose(f);
+                            }
+                            seg650b_hits++;
+                        }
+                    }
+                }
+
                 /* One-shot: dump the live INT 15h vector (0000:0054, 4 bytes: offset then
                    segment) once BIOS POST has had time to initialize the IVT, plus a live
                    ROM dump of the whole F000 segment at the same moment - so the actual
