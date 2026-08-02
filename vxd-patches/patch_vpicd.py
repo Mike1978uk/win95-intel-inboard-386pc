@@ -57,6 +57,21 @@ print(f"Patched: {patched}  Skipped (unverified): {len(skipped)}")
 if skipped:
     print("SKIPPED (left untouched):", skipped)
 
+# 2026-08-02: this script used to write OUT unconditionally, even with patched == 0 - which
+# happened silently for this project's actual Windows 95 retail (4.00.950) stock VPICD.VXD
+# (different build than whatever stock this patch was originally validated against), producing
+# a "patched" file that was actually byte-identical to stock. Confirmed the hard way: this
+# repo's VPICD_INBOARD.VXD sat unnoticed as an unpatched copy through multiple investigation
+# sessions. Refuse to write a no-op "patch" - if this fires, the raw-opcode search assumptions
+# in this script need re-deriving for whatever stock file was just fed to it (check for
+# DX-indirect IN/OUT forms, a different compiled layout, etc.) before trusting its output again.
+if patched == 0:
+    print("\nREFUSING TO WRITE OUTPUT: found 0 real I/O sites to patch. This almost certainly "
+          "means this stock VPICD.VXD's compiled code doesn't match this script's raw-opcode "
+          "search assumptions (see WIN95_PLAN.md search for build-mismatch precedent) - fix the "
+          "search logic for this specific build before re-running, don't trust a silent no-op.")
+    raise SystemExit(1)
+
 open(OUT, "wb").write(data)
 print(f"Wrote {OUT}, {len(data)} bytes")
 

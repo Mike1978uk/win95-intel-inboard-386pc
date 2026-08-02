@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <time.h>
 #include <86box/86box.h>
 #include "cpu.h"
 #include <86box/device.h>
@@ -482,6 +483,29 @@ inboard386_read_64(UNUSED(uint16_t port), void *priv)
     return 0x00;
 }
 
+/* [a0a1trace] 2026-08-02: testing the "VPICD probes a phantom slave PIC at
+   0xA0/0xA1, gets floating-bus 0xFF instead of a real IMR readback" theory.
+   Remove once root-caused. Uncapped, gated to skip the first 90s of ordinary
+   BIOS/CONFIG.SYS boot noise (Technique 11). */
+static FILE *a0a1trace_fp   = NULL;
+static int   a0a1trace_seen = 0;
+
+static void
+a0a1trace_log(const char *what, uint8_t val)
+{
+    if (a0a1trace_seen > 20000)
+        return;
+    if (!a0a1trace_fp)
+        a0a1trace_fp = fopen("a0a1trace.txt", "a");
+    if (a0a1trace_fp) {
+        fprintf(a0a1trace_fp, "[a0a1trace] t=%.1f %s val=%02X CS:PC=%04X:%08X\n",
+                (double) clock() / CLOCKS_PER_SEC, what, val,
+                cpu_state.seg_cs.seg, cpu_state.pc);
+        fflush(a0a1trace_fp);
+    }
+    a0a1trace_seen++;
+}
+
 /* Port 0xA0 - XT-only (an AT has a PIC at this address instead). */
 static void
 inboard386_write_a0(UNUSED(uint16_t port), uint8_t val, void *priv)
@@ -491,8 +515,31 @@ inboard386_write_a0(UNUSED(uint16_t port), uint8_t val, void *priv)
     if (!dev->is_xt)
         return;
 
+    if ((double) clock() / CLOCKS_PER_SEC > 90.0)
+        a0a1trace_log("WR_A0", val);
+
     dev->port_a0 = val;
     inboard386_apply_waitstates(dev);
+}
+
+/* Port 0xA1 - fully unclaimed on this machine (no pic2_init(), no other
+   device registers it), so reads float to 86Box's generic 0xFF and writes
+   vanish. Spy-only: log every touch, then behave exactly as if unclaimed
+   (return 0xFF on read, do nothing on write) so this hook can't itself
+   change boot behavior. */
+static uint8_t
+inboard386_read_a1(UNUSED(uint16_t port), UNUSED(void *priv))
+{
+    if ((double) clock() / CLOCKS_PER_SEC > 90.0)
+        a0a1trace_log("RD_A1", 0xFF);
+    return 0xFF;
+}
+
+static void
+inboard386_write_a1(UNUSED(uint16_t port), uint8_t val, UNUSED(void *priv))
+{
+    if ((double) clock() / CLOCKS_PER_SEC > 90.0)
+        a0a1trace_log("WR_A1", val);
 }
 
 /* Port 0x670 - both XT and AT variants use this for the speed/cache
@@ -673,6 +720,7 @@ inboard386_init(const device_t *info)
     if (dev->is_xt) {
         io_sethandler(0x0060, 1, NULL, NULL, NULL, inboard386_write_60, NULL, NULL, dev);
         io_sethandler(0x00a0, 1, NULL, NULL, NULL, inboard386_write_a0, NULL, NULL, dev);
+        io_sethandler(0x00a1, 1, inboard386_read_a1, NULL, NULL, inboard386_write_a1, NULL, NULL, dev);
         io_sethandler(0x0064, 1, inboard386_read_64, NULL, NULL, NULL, NULL, NULL, dev);
     } else {
         io_sethandler(0x0674, 1, NULL, NULL, NULL, inboard386_write_674, NULL, NULL, dev);

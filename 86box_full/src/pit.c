@@ -329,13 +329,16 @@ pit_write(uint16_t addr, uint8_t val, void *priv)
     pit_t *dev = (pit_t *)priv;
     const unsigned port = addr & 3u;
     if (port == 3u) {
-        /* Diagnostic (2026-07-26, Inboard/Mach8 vs CGA-baseline divergence chase): CGA
-           baseline reaches a channel-0 Mode-3 (value=0x36) control write that Mach8 never
-           does, stopping instead after ~11 channel-1 latch reads (vs CGA's ~24) - log
-           CS:PC for every control-word write on both configs to find exactly where/whether
-           execution paths diverge (e.g. a call into C000 interrupting this exact routine). */
-        fprintf(stderr, "[pitctrlpc] CS:PC=%04X:%04X val=%02X\n", CS, cpu_state.pc, val);
-        fflush(stderr);
+        /* Diagnostic (2026-07-26, Inboard/Mach8 vs CGA-baseline divergence chase, long since
+           resolved) - capped hard (2026-08-02) after this uncapped, fflush()-per-call hook was
+           found choking emulation speed (and audio) on an unrelated AT machine profile: a
+           legitimate PIT-latch delay loop can call this thousands of times, and every hit paid
+           for a synchronous disk flush. Remove entirely once confirmed nothing still needs it. */
+        static int pitctrlpc_hits = 0;
+        if (pitctrlpc_hits < 500) {
+            fprintf(stderr, "[pitctrlpc] CS:PC=%04X:%04X val=%02X\n", CS, cpu_state.pc, val);
+            pitctrlpc_hits++;
+        }
         dev->ctrl = val;
         pitx_control_write(&dev->exact, val);
         pit_exact_sync_all(dev);

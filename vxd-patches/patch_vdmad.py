@@ -51,6 +51,18 @@ for off, kind, port in candidates:
     print(f"  patched offset {off}: {kind} port 0x{port:02X}")
 
 print(f"Patched: {patched}")
+
+# 2026-08-02: same silent-no-op bug as patch_vpicd.py had - this script wrote OUT unconditionally
+# even with patched == 0, which happened for real against this project's actual Windows 95 retail
+# (4.00.950) stock VDMAD.VXD and went unnoticed for multiple sessions (VDMAD_INBOARD.VXD sat
+# byte-identical to stock the whole time). Refuse to write a no-op "patch" - re-derive the
+# raw-opcode search assumptions for whatever stock file triggers this before trusting it again.
+if patched == 0:
+    print("\nREFUSING TO WRITE OUTPUT: found 0 real I/O sites to patch. This almost certainly "
+          "means this stock VDMAD.VXD's compiled code doesn't match this script's raw-opcode "
+          "search assumptions - fix the search logic for this specific build before re-running.")
+    raise SystemExit(1)
+
 open(OUT, "wb").write(data)
 print(f"Wrote {OUT}, {len(data)} bytes (original was {len(open(SRC,'rb').read())})")
 
