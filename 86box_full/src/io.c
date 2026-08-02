@@ -431,6 +431,29 @@ inb(uint16_t port)
         }
     }
 
+    /* [pic2rtctrace] 2026-08-02: user hypothesis - this machine (ibmxt_inboard386, m_xt.c)
+       genuinely has no second/slave 8259 PIC (pic2_init() is only called from m_at_common.c,
+       m_ps1.c, m_ps2_isa.c, m_ps2_mca.c, and m_xt_xi8088.c - confirmed by grep, never from
+       m_xt.c), so IRQ8-15 don't exist on this hardware at all, and IRQ8 specifically is the
+       AT's RTC periodic-interrupt line. If Windows 95's VMM32/IOS/VFAT init (the exact stage
+       this stall is inside) probes the CMOS RTC (ports 0x70/0x71) or the slave PIC (0xA0/0xA1)
+       as part of deciding whether "32-bit disk access"/a fast timer source is available, and
+       gets stuck waiting for a handshake this genuinely-absent hardware can never provide
+       (rather than gracefully falling back), that would be a real, structural gap - not a
+       config bug, an actual missing-feature gap needing a fix (or a documented hardware
+       limitation) - exactly the same shape as the A20 readback discovery above. Uncapped-ish
+       (2000 each way) so the whole boot timeline, not just the stall window, is visible for
+       comparison. */
+    {
+        static int pic2rtc_hits = 0;
+        if ((pic2rtc_hits < 2000) && ((port == 0xA0) || (port == 0xA1) || (port == 0x70) || (port == 0x71))) {
+            pic2rtc_hits++;
+            fprintf(stderr, "[pic2rtctrace] #%d IN  port=%04X ret=%02X CS:PC=%04X:%08X\n",
+                    pic2rtc_hits, port, ret, CS, cpu_state.pc);
+            fflush(stderr);
+        }
+    }
+
     return ret;
 }
 
@@ -509,6 +532,18 @@ outb(uint16_t port, uint8_t val)
             a20_hits++;
             fprintf(stderr, "[a20trace] #%d OUT port=%04X val=%02X CS:PC=%04X:%08X\n",
                     a20_hits, port, val, CS, cpu_state.pc);
+            fflush(stderr);
+        }
+    }
+
+    /* [pic2rtctrace] OUT side - see matching comment in inb() above (slave-PIC/CMOS-RTC
+       missing-IRQ8 hypothesis). */
+    {
+        static int pic2rtc_hits = 0;
+        if ((pic2rtc_hits < 2000) && ((port == 0xA0) || (port == 0xA1) || (port == 0x70) || (port == 0x71))) {
+            pic2rtc_hits++;
+            fprintf(stderr, "[pic2rtctrace] #%d OUT port=%04X val=%02X CS:PC=%04X:%08X\n",
+                    pic2rtc_hits, port, val, CS, cpu_state.pc);
             fflush(stderr);
         }
     }
