@@ -653,6 +653,34 @@ the actual stuck loop makes zero application-level software-interrupt calls of a
 no OS-service dependency, consistent with the SHLD-based bitstream-decoder theory from earlier this
 session (`memory/win95_emulator_repro_2026_08_02.md`).
 
+## Technique 28: a binary "patch" script must assert it actually found and changed something, or a build-mismatch can silently produce an unpatched file with a misleading name
+
+When a patch script searches a binary for a specific raw byte pattern (an opcode, an immediate
+operand) and rewrites matching sites, it must refuse to write output if it found zero matches -
+otherwise a stock/reference file from a different build than the one the search pattern was
+originally derived against will silently produce a "patched" output file that is actually
+byte-identical (or near-identical) to plain unpatched stock, with no error, no warning, and a
+filename that confidently claims otherwise. This is exactly the kind of silent-failure trap
+Technique 7 warns about for memory-file claims, but it applies just as sharply to tooling output.
+
+**2026-08-02 case**: `vxd-patches/patch_vpicd.py` and `patch_vdmad.py` both had this bug -
+`open(OUT, "wb").write(data)` ran unconditionally, with no check on the `patched` counter first.
+Confirmed by re-running both scripts fresh against this project's own actual disk image's real
+stock `VPICD.VXD`/`VDMAD.VXD` (extracted directly from
+`image_backups/Prestaged_pre_vmm.ORIGINAL_2026-08-01.img`, not assumed): both reported "Found 0 raw
+candidates" and then wrote an output file anyway. Direct comparison proved `vxd-patches/
+VPICD_INBOARD.VXD` and `VDMAD_INBOARD.VXD` - deployed and relied on across every prior XT
+investigation session - were genuinely unpatched stock the entire time (VDMAD: exact md5 match to
+stock; VPICD: identical except a 16-byte internal project-watermark region). `patch_vkd.py` was
+unaffected because it already had an unconditional `assert actual == ORIGINAL_BYTES` before
+touching anything - the fix applied to the other two scripts (both now `raise SystemExit(1)` on
+`patched == 0`) brings them to the same safety standard. **Lesson for any future patch/codegen
+script in this project**: always assert a nonzero, expected-shape result before trusting or writing
+its output, the same way a live trace hook's first "hit" needs sanity-checking (Technique 26) - a
+script that "succeeds" by doing nothing is far more dangerous than one that errors loudly, because
+its output looks identical to a real fix at every layer above it (file exists, right name, right
+size in the lucky cases) until someone directly diffs the bytes.
+
 ## Live hardware bridge (COMrade / COMR95) — real hardware only, not the VM
 
 For cross-checking emulator behavior against the **real 5160**, `COMRADE`/`COMR95` (Windows
