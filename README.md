@@ -11,6 +11,11 @@ account: every bug found, every fix applied, full credits and sources, and a rep
 
 📷 **[Screenshots / photos](screenshots/)** — real-hardware and emulator captures.
 
+💾 **Disk images** — the final working image and the pre-monolith (patches-applied,
+pre-Setup-combine) image are available as
+[GitHub Release assets](https://github.com/Mike1978uk/win95-intel-inboard-386pc/releases/tag/win95-desktop-v1)
+and on [archive.org](https://archive.org/details/win95-intel-inboard-386pc).
+
 ## What this is
 
 The Intel Inboard 386/PC is a 1987 accelerator daughtercard that replaces an IBM PC/XT's 8088 with a

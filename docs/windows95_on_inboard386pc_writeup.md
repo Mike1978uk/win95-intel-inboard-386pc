@@ -274,23 +274,27 @@ outcome.
 ## Reproducing this
 
 The individual patches, patch scripts, and the custom `VKD.VXD` source are all in this repository
-(`vxd-patches/`, `custom_vkd/`). We'd recommend sharing the patches and build scripts rather than a
-full pre-patched Windows 95 disk image — it's more reproducible for anyone starting from their own
-legally-obtained OSR1 media, avoids any question about redistributing Microsoft's own files, and
-makes clear exactly what changed and why (this document).
+(`vxd-patches/`, `custom_vkd/`) if you want to apply them to your own legally-obtained OSR1 media —
+that's the most reproducible path, and makes clear exactly what changed and why (this document).
+
+For convenience, two ready-made disk images are also available — the final working image, and the
+pre-monolith image with every patch applied but Setup's own `VMM32.VXD` combine step not yet run —
+as [GitHub Release assets](https://github.com/Mike1978uk/win95-intel-inboard-386pc/releases/tag/win95-desktop-v1)
+and on [archive.org](https://archive.org/details/win95-intel-inboard-386pc).
 
 **Files needed, and where they go**, all applied to a *pre-monolith* Windows 95 OSR1 install (i.e.
 before Setup's own `VMM32.VXD` combine step has run):
 
-| File | Destination |
-|---|---|
-| Patched `INBRDPC.SYS` | `C:\INBRDPC.SYS` (replaces the driver loaded from `CONFIG.SYS`) |
-| Patched `VPICD.VXD` | `C:\WINDOWS\SYSTEM\VMM32\VPICD.VXD` (pre-combine staging) |
-| Patched `VDMAD.VXD` | `C:\WINDOWS\SYSTEM\VMM32\VDMAD.VXD` (pre-combine staging) |
-| Custom-built `VKD.VXD` | `C:\WINDOWS\SYSTEM\VMM32\VKD.VXD` (pre-combine staging; kept under the stock filename so `SYSTEM.INI`'s `keyboard=*vkd` picks it up with no `.INI` edit) |
-| Patched `KEYBOARD.DRV` | `C:\WINDOWS\SYSTEM\KEYBOARD.DRV` (not part of the combine — a direct file replace, works even on an already-installed system) |
-| `IVT68FIX.COM` | `C:\IVT68FIX.COM`, called from the last line of `AUTOEXEC.BAT` |
-| `SYSTEM.INI` edit | `[boot]` section: `display.drv=vga.drv` (not the `[boot.description]` copy) |
+| # | Component | Destination on the target install | Source in this repo |
+|---|---|---|---|
+| 1 | `INBRDPC.SYS` self-test-skip | `C:\INBRDPC.SYS` (replaces the driver loaded from `CONFIG.SYS`) | `vxd-patches/osr1/INBRDPC_selftest_skip.SYS`, built by `vxd-patches/patch_inbrdpc_selftest_skip.py` |
+| 2 | `VPICD.VXD` patch | `C:\WINDOWS\SYSTEM\VMM32\VPICD.VXD` (pre-combine staging) | `vxd-patches/osr1/VPICD_INBOARD.VXD`, built by `vxd-patches/patch_vpicd.py` |
+| 3 | `VDMAD.VXD` patch | `C:\WINDOWS\SYSTEM\VMM32\VDMAD.VXD` (pre-combine staging) | `vxd-patches/osr1/VDMAD_INBOARD.VXD`, built by `vxd-patches/patch_vdmad.py` |
+| 4 | Custom `VKD.VXD` — built from Win95 DDK source, not a binary patch. Both keyboard fixes (port-64h discard removed, port-61h XT ack added) | `C:\WINDOWS\SYSTEM\VMM32\VKD.VXD` (pre-combine staging; kept under the stock filename so `SYSTEM.INI`'s `keyboard=*vkd` picks it up with no `.INI` edit) | `custom_vkd/src/*.ASM`, built by `custom_vkd/build.ps1` (real MASM 6.11c + VC++2.0 `LINK.EXE`); known-good output archived at `custom_vkd/build/VKD_CUSTOM_INT09FIX_v2.VXD` |
+| 5 | `KEYBOARD.DRV` patch | `C:\WINDOWS\SYSTEM\KEYBOARD.DRV` (not part of the combine — a direct file replace, works even on an already-installed system) | `vxd-patches/osr1/KEYBOARD_INBOARD.DRV`, built by `vxd-patches/patch_keyboarddrv_kbdready.py` |
+| 6 | Real display driver fix | `C:\WINDOWS\SYSTEM.INI`, `[boot]` section: `display.drv=vga.drv` (not the `[boot.description]` copy, which is cosmetic only) | edited directly, no script |
+| 7 | INT 68h vector fix, real-hardware translation of the emulator's `[patchint68]` hook | `C:\IVT68FIX.COM`, called from the very last line of `C:\AUTOEXEC.BAT` | `ivt68fix/IVT68FIX.ASM`, assembled with NASM (`nasm -f bin IVT68FIX.ASM -o IVT68FIX.COM`); byte-verified to match the binary actually tested on real hardware |
+| 8 | COMR95 for live introspection while testing | `C:\WINDOWS\COMR95.EXE`, auto-launched via `C:\WINDOWS\WIN.INI`'s `[windows] run=` line | prebuilt binary from Ahmad Byagowi's [Open-Source-PC110](https://github.com/ahmadexp/Open-Source-PC110) fork of Kevin Moonlight's [COMrade](https://github.com/yyzkevin/COMrade) — not built in this repo |
 
 ## Acknowledgments
 
