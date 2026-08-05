@@ -11,6 +11,11 @@ account: every bug found, every fix applied, full credits and sources, and a rep
 
 📷 **[Screenshots / photos](screenshots/)** — real-hardware and emulator captures.
 
+🖥️ **[Download the emulator + try it now](https://github.com/Mike1978uk/win95-intel-inboard-386pc/releases/download/win95-desktop-v1/86Box-Inboard-emulator-win64.zip)**
+— no real hardware needed. A ready-to-run Windows build of this project's 86Box fork with the
+Inboard 386/PC hardware model, ROMs, and a working config already set up. Grab a
+[disk image](#try-it-yourself) too and you're running Windows 95 on the Inboard in minutes.
+
 ## Try it yourself
 
 Two ready-made disk images are available — the final working image (post-reboot, reaches a full
