@@ -57,9 +57,11 @@ This stands on the work of several people and projects — see the
 [full credits section](docs/windows95_on_inboard386pc_writeup.md#sources-and-prior-art) in the
 writeup for complete detail:
 
+- **SuperFury / UniPCemu** — this project's entire Inboard 386/PC hardware model
+  (`86box_full/src/device/inboard386.c`) is a direct port of UniPCemu's `hardware/inboard.c` — the
+  foundation the rest of this work is built on
 - **Al Williams** (Dr. Dobb's Journal, Hackaday) — real 1990s hands-on Inboard development experience
 - **Michal Necasek** (OS/2 Museum) — architectural confirmation and historical leads
-- **UniPCemu** (SuperFury) — independent cross-validation from another emulator's Inboard model
 - **FastDoom** (viti95) — real-hardware-validated XT keyboard ISR reference
 - **Microsoft's Windows 95 DDK** — the genuine period source and toolchain that made the real fix possible
 - **Kevin Moonlight** — original author of [COMrade](https://github.com/yyzkevin/COMrade)
