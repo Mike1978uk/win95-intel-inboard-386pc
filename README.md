@@ -17,15 +17,23 @@ Two ready-made disk images are available — the final working image (post-reboo
 desktop) and the pre-monolith image (every patch applied, but Setup's own `VMM32.VXD` combine step
 hasn't run yet, if you want to watch that happen):
 
-- 💾 **[GitHub Release](https://github.com/Mike1978uk/win95-intel-inboard-386pc/releases/tag/win95-desktop-v1)**
-- 💾 **[archive.org](https://archive.org/details/win95-intel-inboard-386pc)**
+- 💾 **[GitHub Release](https://github.com/Mike1978uk/win95-intel-inboard-386pc/releases/tag/win95-desktop-v1)** — both disk images, plus a ready-to-run **Windows emulator build** (`86Box-Inboard-emulator-win64.zip`, with the Inboard 386/PC hardware model, ROMs, and a working config included — no compiling, no real hardware needed. See the zip's `README.txt` for exact steps.)
+- 💾 **[archive.org](https://archive.org/details/win95-intel-inboard-386pc)** — the two disk images.
 
-**What you need**: a real Intel Inboard 386/PC in an IBM PC/XT (or compatible), the
+**On real hardware**, you need: a real Intel Inboard 386/PC in an IBM PC/XT (or compatible), the
 [4MB daughterboard](https://forum.vcfed.org/index.php?threads/inboard-386-pc-2mb-expansion-clone.78562/)
 (ParrotyError) — Windows 95 doesn't fit in the stock RAM ceiling — and an **XT-IDE** controller card
 (what these images were built and tested against). Write the image to a **2GB CF card** (the images
 themselves are sized for a 2GB card — a larger card will work but won't gain you usable space without
-repartitioning).
+repartitioning). **In the emulator**, none of that is needed — just the downloaded zip and a disk
+image.
+
+**Worth knowing if you use 86Box for anything else**: the ROM set bundled in the emulator zip
+includes `roms/video/ATI_MACH8.bin` — a real hardware dump of the ATI Mach8 (Graphics Ultra) BIOS
+that, as far as we know, isn't available anywhere else online. It's directly referenced as the
+verified-authentic reference dump in this project's own Mach8 emulation code
+(`86box_full/src/cpu/386_dynarec.c`). Useful for anyone emulating a real Mach8 card, Inboard project
+or not.
 
 ## What this is
 
