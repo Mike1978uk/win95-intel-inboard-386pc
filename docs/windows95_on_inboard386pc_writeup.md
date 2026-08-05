@@ -54,6 +54,13 @@ waitstate control, A20 gating without a real 8042, BIOS ROM shadow/cache — is 
 everything in this document is built on top of; without it, this investigation would have started
 by reverse-engineering the base hardware itself, not by fixing Windows 95's assumptions about it.
 
+There's a hardware prerequisite underneath all of this too: the stock Inboard 386/PC's RAM ceiling
+is nowhere near enough for Windows 95. This work was only possible because of a 4MB daughterboard
+for the Inboard — designed by
+**[Stynx and Harrison Frazier](https://forum.vcfed.org/index.php?threads/inboard-386-pc-2mb-expansion-clone.78562/)**
+(VCFed, later named **ParrotyError**) — without which Windows 95 wouldn't run on this hardware at
+all, no matter what software fixes were found.
+
 ## Chronology of fixes
 
 ### 1. Baseline: proving the emulator matches real hardware
@@ -217,6 +224,15 @@ outcome.
   its absence" — also surfaced the existence of Intel's own original `IBVPICD.386` (a custom
   Inboard-aware VPICD replacement Intel shipped for Windows 3.0/3.11) as a reference worth further
   study.
+- **[Stynx and Harrison Frazier](https://forum.vcfed.org/index.php?threads/inboard-386-pc-2mb-expansion-clone.78562/)**
+  (VCFed) — designed the 4MB Inboard daughterboard, later named **ParrotyError** — the RAM ceiling of
+  a stock Inboard 386/PC is nowhere near enough for Windows 95, and this whole project simply isn't
+  possible without it.
+- **CimonVg** — for an ongoing, dedicated push to find the real limits of what the Inboard 386/PC can
+  do, and for inspiration and support throughout this investigation.
+- **[RonnyRoy](https://github.com/ronnyroy111/inboard386)** — for ongoing work reproducing the Inboard
+  as cloned hardware, which will make it far easier to share this work more widely, and may be the
+  path past the 4MB ceiling this project is currently up against.
 - **SuperFury / UniPCemu** — this project's entire Inboard 386/PC hardware model
   (`86box_full/src/device/inboard386.c` — memory waitstate control, A20 gating without a real 8042,
   BIOS ROM shadow/cache) is a **direct port of UniPCemu's `hardware/inboard.c`** (2019-2022), itself

@@ -62,6 +62,14 @@ This stands on the work of several people and projects — see the
 [full credits section](docs/windows95_on_inboard386pc_writeup.md#sources-and-prior-art) in the
 writeup for complete detail:
 
+- **[Stynx and Harrison Frazier](https://forum.vcfed.org/index.php?threads/inboard-386-pc-2mb-expansion-clone.78562/)**
+  (VCFed) — designed the 4MB Inboard daughterboard (ParrotyError), without which Windows 95 wouldn't
+  run on this hardware at all
+- **CimonVg** — ongoing work pushing the Inboard 386/PC to its limits, and inspiration/support
+  throughout this investigation
+- **[RonnyRoy](https://github.com/ronnyroy111/inboard386)** — ongoing reproduction of the Inboard as
+  cloned hardware, which will make sharing this work more widely possible, and may be the path past
+  today's 4MB ceiling
 - **SuperFury / UniPCemu** — this project's entire Inboard 386/PC hardware model
   (`86box_full/src/device/inboard386.c`) is a direct port of UniPCemu's `hardware/inboard.c` — the
   foundation the rest of this work is built on
