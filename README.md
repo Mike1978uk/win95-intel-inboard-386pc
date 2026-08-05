@@ -11,10 +11,21 @@ account: every bug found, every fix applied, full credits and sources, and a rep
 
 📷 **[Screenshots / photos](screenshots/)** — real-hardware and emulator captures.
 
-💾 **Disk images** — the final working image and the pre-monolith (patches-applied,
-pre-Setup-combine) image are available as
-[GitHub Release assets](https://github.com/Mike1978uk/win95-intel-inboard-386pc/releases/tag/win95-desktop-v1)
-and on [archive.org](https://archive.org/details/win95-intel-inboard-386pc).
+## Try it yourself
+
+Two ready-made disk images are available — the final working image (post-reboot, reaches a full
+desktop) and the pre-monolith image (every patch applied, but Setup's own `VMM32.VXD` combine step
+hasn't run yet, if you want to watch that happen):
+
+- 💾 **[GitHub Release](https://github.com/Mike1978uk/win95-intel-inboard-386pc/releases/tag/win95-desktop-v1)**
+- 💾 **[archive.org](https://archive.org/details/win95-intel-inboard-386pc)**
+
+**What you need**: a real Intel Inboard 386/PC in an IBM PC/XT (or compatible), the
+[4MB daughterboard](https://forum.vcfed.org/index.php?threads/inboard-386-pc-2mb-expansion-clone.78562/)
+(ParrotyError) — Windows 95 doesn't fit in the stock RAM ceiling — and an **XT-IDE** controller card
+(what these images were built and tested against). Write the image to a **2GB CF card** (the images
+themselves are sized for a 2GB card — a larger card will work but won't gain you usable space without
+repartitioning).
 
 ## What this is
 
