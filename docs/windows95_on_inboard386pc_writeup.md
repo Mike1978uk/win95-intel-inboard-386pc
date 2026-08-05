@@ -231,7 +231,7 @@ outcome.
   tool that runs on the real target machine and lets a host query live hardware state directly. Used
   throughout for real-vs-emulator comparison (e.g. confirming port 0x64 reads back `0x00` on the real
   5160, not just in emulation).
-- **Ahmad's Open-Source-PC110 project** (`github.com/ahmadexp/Open-Source-PC110`) — forked COMrade and
+- **Ahmad Byagowi's Open-Source-PC110 project** (`github.com/ahmadexp/Open-Source-PC110`) — forked COMrade and
   added `COMR95.EXE`, the Windows 95 Win32 port, which is what's deployed for live introspection on
   the real machine going forward.
 - **86Box** — the base open-source PC emulator this project's Inboard 386/PC hardware model and all

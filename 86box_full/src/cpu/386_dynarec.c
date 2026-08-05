@@ -1418,22 +1418,6 @@ exec386(int32_t cycs)
                     }
                 }
 
-                /* [seg6517caller] 2026-08-02: segment 6517 only ever appears once IRQ8SYN.COM
-                   is loaded and its synthesized `int 70h` starts firing (see tools/irq8syn/) -
-                   log the literal calling CS:PC the moment execution first transitions into it,
-                   to confirm directly whether it's reached via the int70h path (a real Windows
-                   95 component that installed a genuine INT 70h handler, expecting an RTC-style
-                   tick) or some other route entirely. */
-                {
-                    static int seg6517_hits = 0;
-                    if ((seg6517_hits < 20) && (CS == 0x6517) && (ring_last_cs != 0x6517)) {
-                        seg6517_hits++;
-                        fprintf(stderr, "[seg6517caller] #%d caller=%04X:%04X -> 6517:%04X AX=%04X BX=%04X\n",
-                                seg6517_hits, ring_last_cs, ring_last_pc, cpu_state.pc, AX, BX);
-                        fflush(stderr);
-                    }
-                }
-
                 /* [seg650Bcaller] 2026-08-02: [seg650Btrace] proved segment 650B is executing
                    into completely zeroed memory (see memory
                    xt_650B_smoking_gun_zeroed_memory_2026_08_02.md) - the next question is what
@@ -1889,23 +1873,6 @@ exec386(int32_t cycs)
                                 fputc(readmemb(base, off), df);
                             fclose(df);
                             fprintf(stderr, "[segidtrace2] dumped 64KB of segment 0E77 to seg0E77_dump.bin at PC=%04X\n", cpu_state.pc);
-                            fflush(stderr);
-                        }
-                    }
-                    /* 2026-08-02: segment 6517 reached only after enabling IRQ8SYN.COM (the
-                       software INT 70h synthesizer, see tools/irq8syn/) - never seen in any
-                       run without it, in either the with- or without-REVTO486.SYS variant.
-                       Identify it the same way. */
-                    static int dumped_6517 = 0;
-                    if (!dumped_6517 && (CS == 0x6517)) {
-                        dumped_6517 = 1;
-                        FILE *df = fopen("seg6517_dump.bin", "wb");
-                        if (df) {
-                            uint32_t base = ((uint32_t) CS) << 4;
-                            for (uint32_t off = 0; off < 0x10000; off++)
-                                fputc(readmemb(base, off), df);
-                            fclose(df);
-                            fprintf(stderr, "[segidtrace2] dumped 64KB of segment 6517 to seg6517_dump.bin at PC=%04X\n", cpu_state.pc);
                             fflush(stderr);
                         }
                     }
@@ -2535,24 +2502,6 @@ exec386(int32_t cycs)
                                         (cpu_state.flags & I_FLAG) ? 1 : 0);
                                 fflush(stderr);
                             }
-                        }
-                        /* [vec70trace] 2026-08-02: seg6517_dump.bin proved segment 6517 is 100%
-                           zeroed memory (65535/65536 zero bytes) - executing zeros is a
-                           degenerate "ADD [BX+SI],AL" sled, not real code, so whatever jumps
-                           there is landing on a bad/uninitialized vector, not a legitimate
-                           Windows 95 RTC handler. IRQ8SYN.COM (the safety-fixed 310-byte build,
-                           tools/irq8syn/) is supposed to install its own harmless IRET stub at
-                           INT 70h precisely because nothing else can be trusted to have set it
-                           up safely on this no-second-PIC hardware - log the live IVT entry for
-                           vector 0x70 (physical 0x1C0-0x1C3: offset then segment) every second to
-                           see directly whether that stub actually took hold, and whether anything
-                           overwrites it afterward. */
-                        {
-                            uint16_t v70_off = mem_readb_phys(0x1C0) | (mem_readb_phys(0x1C1) << 8);
-                            uint16_t v70_seg = mem_readb_phys(0x1C2) | (mem_readb_phys(0x1C3) << 8);
-                            fprintf(stderr, "[vec70trace] t+%lds INT70h vector = %04X:%04X\n",
-                                    (long) (now - t0), v70_seg, v70_off);
-                            fflush(stderr);
                         }
                     }
                 }

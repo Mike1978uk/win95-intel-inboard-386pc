@@ -63,7 +63,7 @@ writeup for complete detail:
 - **FastDoom** (viti95) — real-hardware-validated XT keyboard ISR reference
 - **Microsoft's Windows 95 DDK** — the genuine period source and toolchain that made the real fix possible
 - **Kevin Moonlight** — original author of [COMrade](https://github.com/yyzkevin/COMrade)
-- **Ahmad** ([Open-Source-PC110](https://github.com/ahmadexp/Open-Source-PC110)) — ported COMrade to
+- **Ahmad Byagowi** ([Open-Source-PC110](https://github.com/ahmadexp/Open-Source-PC110)) — ported COMrade to
   Windows 95 (`COMR95.EXE`), used for live real-hardware introspection
 - **[86Box](https://github.com/86Box/86Box)** — the base emulator this project is built on
 
