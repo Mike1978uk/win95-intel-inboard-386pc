@@ -824,6 +824,44 @@ the newly-reachable configuration - this project has accumulated several such fi
 (`inbrdpc_fixed_v2.bin`, the VxD patches, etc.) across sessions that only pay off once whatever
 was blocking progress *before* them is separately resolved.
 
+## Technique 31: a near CALL/JMP through a computed pointer can be the last *visible* step before a wild far-jump - the actual transfer is hiding in already-visited code the dedup ring buffer won't show
+
+When backward-tracing a wild jump (Technique 1/29 style) lands on a **near** CALL/JMP (opcode
+shape confirms it - e.g. `FF /2` = `CALL r/m16`, same segment only) as the "immediate predecessor"
+of a segment change, don't conclude the trace is wrong or the mechanism is exotic. The main ring
+buffer only records *distinct* (CS,PC) pairs - it silently skips any instruction whose address was
+already logged earlier in the same run. A near call's target is very often code that ran earlier
+in boot (a subroutine, a shared handler) and is therefore invisible to a "predecessor" query even
+though it executed again, for real, in between the near call and the eventual far transfer. The
+apparent contradiction ("this near call can't explain a CS change") is the tell that real
+execution happened in a gap the ring buffer can't see, not a decoding error.
+
+**Fix**: don't try to hand-wave past the near call - capture the operand register values (the
+base/index registers the indirect addressing mode actually uses, e.g. `BX`+`SI` for a `[BX+SI+
+disp8]` near call) so the exact target address is known, then arm a **raw, undeduped** per-
+instruction trace (the same tool Technique 29's addendum built for the 650B bug's `0619`
+discrepancy) starting the moment that near call is taken, running forward with no dedup until `CS`
+actually changes - this shows every instruction in the gap with zero blind spots, including
+repeated visits to old code, and will contain the real `CALL FAR`/`JMP FAR`/bad `RETF` responsible.
+
+**2026-08-03 case**: EMM386 halted with "error #04 in an application at memory address 0128:009B"
+on the XT+Inboard profile (post-[skip0637]+`inbrdpc_fixed_v2.bin`, a new stall past the
+segment-650B fix). A [seg650Bbackward]-style 40-step backward dump found the predecessor of
+`0128:0017` (first entry into the faulting segment) was `0048:00A8`, decoding unambiguously as
+`CALL WORD PTR [BX+SI-0x0A]` - a near call that structurally cannot change `CS`. Segment `0128`
+itself, once dumped and string-extracted (Technique 16), turned out to be a live FAT
+directory-entry buffer (a `BOOTLOG.TXT` entry visible in the bytes) - pure data, not code - and the
+whole `0128:0017-009B` span the CPU "executed" through it was later confirmed (via a wider
+40-step-back dump) to be garbage-decoded data bytes the entire way, the same "wild jump into blank/
+data memory" shape as the segment-650B null-far-call bug
+(`memory/xt_650B_root_cause_null_far_call_2026_08_02.md`). Segment `0048` itself was already
+established (that same prior investigation) to be `IO.SYS`'s own low-memory boot-time code, not a
+loadable driver - meaning this is very likely a second, still-not-fully-explained symptom of the
+same unresolved `IO.SYS`/XT-hardware-detection mystery that produced `0637`, not an INBRDPC.SYS or
+EMM386 bug specifically. Not yet resolved as of this session's end: the exact instruction inside
+the near call's target that performs the actual far transfer - next step is capturing `BX`/`SI` at
+`0048:00A8` and running the raw-trace forward from there, per this technique.
+
 ## Live hardware bridge (COMrade / COMR95) — real hardware only, not the VM
 
 For cross-checking emulator behavior against the **real 5160**, `COMRADE`/`COMR95` (Windows
@@ -844,3 +882,160 @@ handle open) reconnects when one side restarts — whichever side started first 
 handle. It also duplicates capability the project already has natively and more reliably
 (Technique 9/2 above, plus Technique 1/10/11/12's source-level tracing) for anything that's about
 the emulator's own internal state. `comrade`/COMrade proper stays real-hardware-only.
+
+## Technique 32: when you need a calling convention/data-structure format for a NEW patch, live-capture it from a reliable profile running the identical code, don't guess from the problematic profile's own uncertain disassembly
+
+When building a patch that needs to correctly speak an existing protocol (a BIOS service's
+calling convention, a driver's internal data layout) and the code implementing/using that protocol
+is byte-identical across a working profile and the problematic one (e.g. `HIMEM.SYS` on AT vs XT
+Inboard), don't try to reverse-engineer the format from the problematic profile's own disassembly
+if that profile is also the one with unresolved non-determinism or unreliable static analysis —
+add a generic capture hook (keyed on the *symptom*, e.g. `INT 15h` with a specific `AH`, not a
+hardcoded address) and run it on the *reliable* profile instead, where you already know execution
+will complete cleanly. The resulting live-captured data (register values, memory structures) is
+then directly reusable when building the new patch for the problematic profile, since the code
+generating it is the same binary either way.
+
+**2026-08-03 case**: needed the exact 48-byte GDT descriptor-table format `HIMEM.SYS` builds for
+`INT 15h AH=87h` to write a new extended-memory probe in `INBRDPC.SYS`. A first attempt tried to
+find a reusable "build a descriptor" helper by disassembling `INBRDPC.SYS` itself around a
+plausible-looking `call` target — the target address didn't even exist in the file (a disassembly
+desync, the same class of mistake Technique 29 already warns about). Instead, added `[int1587gdt]`
+to `x86_int_sw()` (`386_common.c`, generic on `num==0x15 && (AH==0x87||AH==0x88)`, not tied to any
+address) and ran it on the AT profile — which boots reliably — capturing the exact live descriptor
+bytes `HIMEM.SYS` builds there. This is standard, real-world-proven Microsoft code, not a guess;
+the same hook fired identically on the XT profile immediately afterward, confirming the exact same
+calling pattern reproduces there too (same binary, same behavior) — the AT capture wasn't just
+analogous, it was ground truth for both profiles at once.
+
+## Technique 33: a new hook installed at a driver's INIT very first instruction can trip the driver's own residency/duplicate-load self-check — install after any early self-check logic runs, not before it
+
+DOS TSRs/device drivers commonly self-check "am I already loaded" near the very start of their own
+`INIT` routine, often by inspecting whether some interrupt vector they care about already points
+into their own code segment. If a new patch installs an interrupt hook by detouring `INIT`'s first
+instruction, that hook's install runs *before* the driver's own self-check — which can then see its
+own hook already installed and incorrectly conclude a second copy of itself is loading, even on a
+genuinely single, fresh load. The fix is mechanical once suspected: move the detour to a *later*
+same-length-replaceable instruction in `INIT`, positioned after whatever early self-check logic the
+driver does (a `call`/`self-test-table loop` a little further in is usually a safe, easy landing
+spot), and re-test — no need to fully prove the self-check's exact mechanism first (same spirit as
+Technique 30's "blind fix, verify by testing" approach).
+
+**2026-08-03 case**: `INBRDPC.SYS`'s own new `INT 15h` hook, first installed via a detour at
+`INIT`'s literal first instruction (`0xA701`), caused it to immediately show its own genuine,
+pre-existing stock error — *"There's more than one DEVICE=iNBRDPC.SYS command in the CONFIG.SYS
+file"* — on a verified single-line, freshly-cloned, non-dirty `CONFIG.SYS`/image. Moving the same
+hook-install call to a same-length-replaceable instruction at `0xA731` (after the driver's own
+16-entry self-test-table loop) eliminated the false error completely, with the hook's actual
+functionality unaffected. The mechanism (does `INBRDPC.SYS`'s duplicate check specifically inspect
+`INT 15h`'s vector?) was never fully proven, only strongly suspected and successfully worked around
+— consistent with Technique 30, a working fix doesn't require a fully proven mechanism first.
+
+## Technique 34: a stack-pointer delta of exactly +2 with BP unchanged, right before a "wild jump," means it's a plain RET into a missing-code gap, not a corrupted pointer — the fix target is different
+
+When backward-tracing a CS-segment change that looks like a wild jump (Technique 1/29/31 style),
+check the stack pointer's own delta across the transfer before assuming a bad table/pointer is
+involved. If `SP` increases by exactly 2 and `BP` is unchanged, that's the unmistakable signature
+of a plain, ordinary `RET` (near call/return) — the transfer target is not a corrupted jump table
+entry or a bad computed address at all, it's a completely legitimate *return address* from some
+earlier, correctly-functioning `CALL` elsewhere in the code. This reframes where the bug actually
+is: not "what wrote a bad pointer here," but "why is the code that's supposed to exist at this
+known-legitimate return address missing/zeroed" — a different, narrower question, and the next
+step is finding what calls into the routine that returns here (to learn what's upstream) and what
+should occupy the return address itself (to learn what's missing), not chasing a pointer-table
+theory that doesn't apply.
+
+**2026-08-03 case**: a live raw register trace (`[seg1278trace]`/`[seg1278raw]`, armed a few
+instructions before the observed transfer, avoiding the ambiguous static-disassembly trap Technique
+29 already warns about) showed `SP` going from `0FE2` to `0FE4` and `BP` staying at `0FE4` across
+the `0048:1278` → `0048:00B6` transfer — confirming a plain `RET`, not a wild jump. This reframed a
+second, previously-mysterious wild-jump-into-segment-0128 crash as "IO.SYS's own low-memory
+workspace has ANOTHER location where expected resident code is missing on this hardware," the same
+underlying disease as the already-known `0048:00A8` bug, not a new or different bug class.
+
+## Technique 35: when patching binary VxDs/DRVs stalls out on ambiguous disassembly, read the real DDK source instead of guessing at more offsets
+
+This project spent many sessions finding and patching individual `IN AL,64h`-style byte patterns in
+stock `VKD.VXD`/`KEYBOARD.DRV` — each one a real, necessary fix, but each also just one instance of
+a whole *class* of AT-only assumption scattered across a file with no map of where the rest might
+be. The actual breakthrough came from abandoning further binary-patch guessing and building the
+target VxD **from Microsoft's own period DDK sample source** instead (`Windows95_ddk\KEYB\SAMPLES\
+VKD\`), reading the real procedure (`VKD_Int_09`) in readable assembly, and fixing the logic
+directly. This is strictly more reliable than pattern-scanning a stripped binary once DDK source
+exists for the target file, and works for the *whole* function's logic in one look, not just the
+one byte sequence you happened to search for.
+
+**Toolchain, confirmed to run natively on modern Windows 11, no DOSBox needed**: genuine 32-bit PE
+MASM 6.11c (`Windows95_ddk\MASM611C\ML.EXE`) via WOW64, linked with the bundled VC++ 2.0-era
+`Windows95_ddk\MSVC20\LINK.EXE` (modern `link.exe` dropped the `/VXD` flag this needs). `$env:INCLUDE`
+must include **both** `INC32` (most VMM headers) and `INC16` (`PIF.INC`/`CMACROS.INC` only live
+here) — the sample `MAKEFILE`'s `INC16`-only path fails. Working build script: `custom_vkd/build.ps1`.
+
+**Escalation rule of thumb**: if a second or third binary patch attempt at the same general class of
+bug (same file, same kind of port/API assumption) is needed, that's the signal to stop guessing at
+more offsets and check whether DDK source exists for the file first.
+
+## Technique 36: prove a bug is real and hardware-specific (not a red herring) by cloning the *unpatched* base onto a known-good reference profile, never an already-patched image
+
+When a fix doesn't fully resolve a symptom and you're not sure whether the remaining gap is a real,
+narrower bug or a fundamentally wrong theory, get a clean differential comparison: clone the exact
+same disk state onto a machine profile known to have correct, standard hardware for the subsystem in
+question (e.g. `deskpro386`, a real dual-8042/dual-PIC AT, as the reference for anything XT+Inboard
+is suspected of getting wrong), and confirm the same UI/behavior works normally there.
+
+**Critical gotcha, caught by the user mid-session**: clone from the **truly unpatched** base image,
+never from an image that's already had XT/Inboard-specific patches applied. An XT-patched image's
+fixes (e.g. "always report port 64h ready") assume no real 8042 exists — deploying them onto a real-
+8042 AT profile is testing something that was never a fair comparison to begin with, and any result
+is uninterpretable. Re-clone from source and remove only the hardware-specific driver (e.g.
+`INBRDPC.SYS`) that doesn't apply to the reference machine.
+
+## Technique 37: an emulator-side self-heal/timeout workaround can silently mask an incomplete fix — check whether it's modeling real hardware behavior (must be ported to real HW) or emulator-only forgiveness (won't exist on real silicon) before declaring victory
+
+`kbc_xt.c`'s `[blockedtimeout]` (a bounded auto-clear of a stuck keyboard-latch flag) let a real
+keystroke-delivery bug look fully fixed in emulator testing, because the timeout quietly compensated
+for a missing acknowledgment the guest software should have performed itself. The distinction that
+matters: is the workaround modeling something a **real chip** would also eventually recover from
+(then it's fine, it's accurate emulation), or is it emulator-only leniency for a genuinely broken
+guest-side assumption (then real hardware will hit the original bug in full, with no recovery)? Here
+it was the latter — real XT keyboard hardware, per FastDoom's real-hardware-validated ISR, requires
+an explicit port-0x61-bit-7 acknowledgment per keystroke or it never presents the next one, with no
+timeout escape at all. Caught by directly comparing the emulator's own self-heal condition against
+independently-sourced real-hardware reference code (FastDoom), not by testing on real hardware and
+finding out the hard way. **Before trusting an emulator-confirmed guest-software fix as ready for
+real hardware, explicitly ask what happens if every emulator-side leniency/self-heal this session
+relied on is removed.**
+
+## Technique 38: an uninitialized-memory-poke fix proven only inside the emulator's CPU core needs a *timing-equivalent* real-mode translation, not just a byte-identical one
+
+A fix implemented as a live physical-memory write inside the emulator's dynarec (`[patchint68]`,
+pre-filling an uninitialized interrupt vector) has no real-hardware form by default — there's no
+"CPU hook" to deploy to real silicon. The translation has to be a real, running program on the
+target, and **timing matters as much as the bytes do**: the same write, tried at boot start, was
+already proven to get clobbered by ordinary BIOS POST/DOS low-memory init before the vector was ever
+used — only firing it right before the specific code path that needs it (empirically, "the moment
+segment 0EAF starts running") survived. The real-hardware translation (`IVT68FIX.COM`, a 26-byte
+hand-assembled `.COM`) is called from the **very last line of `AUTOEXEC.BAT`**, as late as possible
+before Windows auto-launches — the closest real DOS boot gets to matching the only timing already
+proven to work, not an arbitrary convenient place to put it.
+
+## Technique 39: once real hardware is available and behaving consistently with the emulator, prefer it for verification over another emulator rebuild/boot cycle — it's free in token budget, an emulator cycle isn't
+
+Once an emulator-confirmed fix chain has real-hardware deployment ready, and token budget is tight,
+the highest-value move is often to skip a "let's verify once more in the emulator first" cycle and
+deploy straight to real hardware instead. A full rebuild-clone-boot-monitor cycle in the emulator
+costs real assistant budget; a real-hardware boot costs the user's time, not tokens, and gives
+strictly stronger evidence (COMrade/COMR95 can query live state) than another simulated pass. This
+is specifically the right call when: the remaining unknown is a genuine timing/environment question
+(not a logic bug you can reason about from source), and a wrong guess on real hardware is cheaply
+recoverable (a card image, not a one-way action).
+
+## Technique 40: a black-screen/stall late in first-time Setup completion may just need a reboot — don't assume a fresh, deeper bug before trying the cheapest recovery step
+
+Real-hardware Setup hit a black screen at the same "About to show Help files" point the emulator had
+previously hit (before the display-driver fix). Rather than immediately assuming a new, undiagnosed
+bug, a plain reboot was tried first — and it went straight through to a fully working desktop. Not
+yet root-caused *why* the reboot helped (worth investigating if it recurs), but the practical lesson
+for this specific class of "everything traces correctly, then the boot just doesn't visibly proceed"
+symptom late in first-boot Setup completion: try the cheap, reversible recovery step (reboot) before
+spending investigation budget on a fresh live-tracing session.

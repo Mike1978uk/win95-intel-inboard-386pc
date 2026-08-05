@@ -25,6 +25,7 @@
 #include <stdarg.h>
 #define HAVE_STDARG_H
 #include <wchar.h>
+#include <time.h>
 #include <86box/86box.h>
 #include <86box/device.h>
 #include "cpu.h"
@@ -75,6 +76,7 @@ enum {
 typedef struct xtkbd_t {
     int want_irq;
     int blocked;
+    int blocked_ticks;
     int tandy;
 
     uint8_t pa;
@@ -152,17 +154,93 @@ kbd_poll(void *priv)
 
     timer_advance_u64(&kbd->send_delay_timer, 1000 * TIMER_USEC);
 
-    if (!(kbd->pb & 0x40) && (kbd->type != KBD_TYPE_TANDY))
+    /* [kbdpolldisable] 2026-08-04: OSR1 protected-mode-keyboard-input investigation - a real
+       key sat in key_queue[] (confirmed reachable via keyboard_input()/key_process(), the
+       override_capture fix from earlier this session) but produced zero port 60h/64h traffic
+       once Windows 95 was in protected mode showing a real GUI dialog, unlike identical
+       injections during real-mode DOS which worked every time. This function - the ONLY place
+       that ever dequeues key_queue[] or raises IRQ1 - returns immediately, forever, whenever
+       port 61h bit 6 (0x40, the XT keyboard clock/enable line) is clear. If Windows' own
+       protected-mode keyboard takeover writes a different bit pattern to port 61h than
+       real-mode BIOS does (very plausible if it assumes AT-style hardware), every subsequently
+       queued key would sit undelivered exactly like this. Log every time this early-return
+       actually fires, rate-limited, to test this directly with real evidence. */
+    if (!(kbd->pb & 0x40) && (kbd->type != KBD_TYPE_TANDY)) {
+        static int      kbdpolldisable_hits = 0;
+        static time_t   kbdpolldisable_t0   = 0;
+        static time_t   kbdpolldisable_last = 0;
+        if (kbdpolldisable_t0 == 0)
+            kbdpolldisable_t0 = time(NULL);
+        time_t kbdpolldisable_now = time(NULL);
+        if ((kbdpolldisable_now != kbdpolldisable_last) && (kbdpolldisable_hits < 3000)) {
+            kbdpolldisable_last = kbdpolldisable_now;
+            kbdpolldisable_hits++;
+            fprintf(stderr, "[kbdpolldisable] t+%llds poll() early-return: pb(port61)=%02X "
+                            "(bit6/0x40 clear) queue_pending=%d\n",
+                    (long long) (kbdpolldisable_now - kbdpolldisable_t0), kbd->pb,
+                    (key_queue_start != key_queue_end));
+            fflush(stderr);
+        }
         return;
+    }
 
     if (kbd->want_irq) {
         kbd->want_irq = 0;
         kbd->pa       = kbd->key_waiting;
         kbd->blocked  = 1;
+        /* [kbdirqraise] 2026-08-04: OSR1 protected-mode-keyboard investigation - confirm IRQ1
+           actually gets raised (picint call reached) for a queued key, since [kbdpolldisable]
+           ruled out the early-return path but zero port 60h traffic still followed an
+           injection during the protected-mode GUI dialog. */
+        {
+            static int kbdirqraise_hits = 0;
+            if (kbdirqraise_hits < 500) {
+                kbdirqraise_hits++;
+                fprintf(stderr, "[kbdirqraise] #%d picint(2) about to fire, key_waiting=%02X pic.imr=%02X\n",
+                        kbdirqraise_hits, kbd->pa, pic.imr);
+                fflush(stderr);
+            }
+        }
         picint(2);
 #ifdef ENABLE_KEYBOARD_XT_LOG
         kbd_log("XTkbd: kbd_poll(): keyboard_xt : take IRQ\n");
 #endif
+    }
+
+    /* [blockedtimeout] 2026-08-04: OSR1 protected-mode-keyboard fix, per FastDoom's real-world-
+       validated I_KeyboardISR_XT (github.com/viti95/FastDoom, FASTDOOM/i_ibm.c) as reference -
+       that ISR does THREE things per key: read port 60h, then explicitly toggle port 61h bit 7
+       (0x80) to "clear the strobe"/acknowledge the XT keyboard hardware, THEN EOI the PIC. This
+       driver's kbd_write() (port 0x61 case, below) only clears `blocked` on exactly that
+       acknowledgment - real-mode BIOS/DOS ISRs (and FastDoom) always do it, so `blocked` clears
+       quickly and this was never visible before. Windows 95's protected-mode keyboard handling
+       may never perform this specific XT-only acknowledgment (plausible if written assuming AT
+       hardware, where this quirk doesn't exist) - if so, `blocked` would stay set forever after
+       the very first key, silently dropping every later one regardless of how correctly
+       key_queue[]/IRQ1 delivery otherwise works (both already independently confirmed correct
+       this session). Bounded self-heal, matching this project's existing philosophy (IBKBD.DRV's
+       own bounded-retry-then-give-up pattern, already mirrored in the VKD.VXD/KEYBOARD.DRV
+       port-64h fixes applied earlier this session): if nothing acknowledges within ~50ms
+       (`kbd_poll` advances ~1ms of emulated time per call), auto-clear `blocked` anyway, exactly
+       as if the guest had performed the ack itself. Real, correctly-acking software (BIOS, DOS,
+       FastDoom) will never notice - it always clears `blocked` well within this window on its
+       own. */
+    if (kbd->blocked) {
+        kbd->blocked_ticks++;
+        if (kbd->blocked_ticks > 50) {
+            static int blockedtimeout_hits = 0;
+            if (blockedtimeout_hits < 200) {
+                blockedtimeout_hits++;
+                fprintf(stderr, "[blockedtimeout] #%d auto-clearing blocked after %d ticks "
+                                "with no port-61h-bit7 ack (pb=%02X)\n",
+                        blockedtimeout_hits, kbd->blocked_ticks, kbd->pb);
+                fflush(stderr);
+            }
+            kbd->blocked       = 0;
+            kbd->blocked_ticks = 0;
+        }
+    } else {
+        kbd->blocked_ticks = 0;
     }
 
     if ((key_queue_start != key_queue_end) && !kbd->blocked) {
@@ -214,6 +292,17 @@ kbd_adddata_xt_common(uint16_t val)
     key_queue[key_queue_end] = val;
     kbd_log("XTkbd: %02X added to key queue at %i\n",
             val, key_queue_end);
+    /* [kbdqueuetrace] 2026-08-04: OSR1 protected-mode-keyboard investigation companion to
+       [kbdirqraise]/[kbdpolldisable] - confirm the byte actually lands in key_queue[]. */
+    {
+        static int kbdqueuetrace_hits = 0;
+        if (kbdqueuetrace_hits < 500) {
+            kbdqueuetrace_hits++;
+            fprintf(stderr, "[kbdqueuetrace] #%d queued val=%02X at slot %d\n",
+                    kbdqueuetrace_hits, val, key_queue_end);
+            fflush(stderr);
+        }
+    }
     key_queue_end = (key_queue_end + 1) & 0x0f;
 }
 

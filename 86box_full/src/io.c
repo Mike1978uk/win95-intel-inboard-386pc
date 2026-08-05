@@ -431,6 +431,23 @@ inb(uint16_t port)
         }
     }
 
+    /* [kbdporttrace2] 2026-08-04: OSR1 protected-mode-keyboard investigation - [a20trace] above
+       caps at 2000 hits and that cap was already exhausted by ~t+61s (legitimate INBRDPC.SYS
+       driver-load-time A20 dance), making it silently blind to everything after - including
+       whatever happens once Windows reaches protected mode and a real GUI dialog. This is a
+       FRESH, separately-counted, much higher-capped trace for the exact same ports (60/64) so
+       late-boot port I/O (or its absence) can be seen with real evidence instead of a false
+       "silence" from an already-saturated counter. */
+    {
+        static int kbdport2_hits = 0;
+        if ((kbdport2_hits < 20000) && ((port == 0x60) || (port == 0x64))) {
+            kbdport2_hits++;
+            fprintf(stderr, "[kbdporttrace2] #%d IN  port=%04X ret=%02X CS:PC=%04X:%08X\n",
+                    kbdport2_hits, port, ret, CS, cpu_state.pc);
+            fflush(stderr);
+        }
+    }
+
     /* [pic2rtctrace] 2026-08-02: user hypothesis - this machine (ibmxt_inboard386, m_xt.c)
        genuinely has no second/slave 8259 PIC (pic2_init() is only called from m_at_common.c,
        m_ps1.c, m_ps2_isa.c, m_ps2_mca.c, and m_xt_xi8088.c - confirmed by grep, never from
@@ -450,6 +467,23 @@ inb(uint16_t port)
             pic2rtc_hits++;
             fprintf(stderr, "[pic2rtctrace] #%d IN  port=%04X ret=%02X CS:PC=%04X:%08X\n",
                     pic2rtc_hits, port, ret, CS, cpu_state.pc);
+            fflush(stderr);
+        }
+    }
+
+    /* [seg0206porttrace] 2026-08-04: OSR1 XT+Inboard boot with genuinely-patched OSR1
+       VPICD/VDMAD/VKD stalls in segment 0206 (INBRDPC.SYS resident code, same region as OSR2's
+       020B loop), alternating with F000 BIOS calls but with no software-interrupt activity after
+       ~t+150s per [intcalltally]. Trace every port this segment touches directly (no port-range
+       filter - unlike the [iotrace]/[a20trace]/[pic2rtctrace] hooks above, we don't know the port
+       yet) to find what it's actually polling, same technique that found port 0x670 in the OSR2
+       020B case. Remove once root-caused. */
+    {
+        static int seg0206_hits = 0;
+        if ((seg0206_hits < 500) && (CS == 0x0206)) {
+            seg0206_hits++;
+            fprintf(stderr, "[seg0206porttrace] #%d IN  port=%04X ret=%02X CS:PC=%04X:%08X\n",
+                    seg0206_hits, port, ret, CS, cpu_state.pc);
             fflush(stderr);
         }
     }
@@ -536,6 +570,41 @@ outb(uint16_t port, uint8_t val)
         }
     }
 
+    /* [kbdporttrace2] OUT side - see matching comment in inb() above. */
+    {
+        static int kbdport2_hits = 0;
+        if ((kbdport2_hits < 20000) && ((port == 0x60) || (port == 0x64))) {
+            kbdport2_hits++;
+            fprintf(stderr, "[kbdporttrace2] #%d OUT port=%04X val=%02X CS:PC=%04X:%08X\n",
+                    kbdport2_hits, port, val, CS, cpu_state.pc);
+            fflush(stderr);
+        }
+    }
+
+    /* [p61acktrace] 2026-08-04: OSR1 protected-mode-keyboard investigation - reference code
+       (FastDoom's I_KeyboardISR_XT, a real-world-validated working XT/Inboard keyboard ISR) does
+       THREE things per keystroke, not just "read port 60h": read port 60h, then toggle port 61h
+       bit 7 (0x80) - read pb, OR in 0x80, write back, then write the original value back - to
+       "clear the strobe"/acknowledge the XT keyboard hardware, THEN send the PIC EOI. This
+       project's own kbc_xt.c (kbd_write(), port 0x61 case) requires exactly this: `if (val &
+       0x80) { kbd->pa=0; kbd->blocked=0; picintc(2); }` - blocked only clears on a port 61h write
+       with bit 7 SET. If Windows' protected-mode keyboard handling never performs this specific
+       XT-only acknowledgment (plausible if it's written assuming AT hardware, where this quirk
+       doesn't exist), `blocked` could get stuck at 1 forever after the first key, silently
+       dropping every subsequent one regardless of the VKD.VXD/KEYBOARD.DRV port-64h fixes already
+       applied and confirmed active. Uncapped-ish, high cap, so the actual dialog-freeze window is
+       fully visible (the old [iotrace]'s port 0x61 coverage caps at 400 hits, exhausted in the
+       first second of boot). */
+    {
+        static int p61_hits = 0;
+        if (p61_hits < 20000) {
+            p61_hits++;
+            fprintf(stderr, "[p61acktrace] #%d OUT port=0061 val=%02X (bit7/0x80 %s) CS:PC=%04X:%08X\n",
+                    p61_hits, val, (val & 0x80) ? "SET-ack" : "clear", CS, cpu_state.pc);
+            fflush(stderr);
+        }
+    }
+
     /* [pic2rtctrace] OUT side - see matching comment in inb() above (slave-PIC/CMOS-RTC
        missing-IRQ8 hypothesis). */
     {
@@ -544,6 +613,17 @@ outb(uint16_t port, uint8_t val)
             pic2rtc_hits++;
             fprintf(stderr, "[pic2rtctrace] #%d OUT port=%04X val=%02X CS:PC=%04X:%08X\n",
                     pic2rtc_hits, port, val, CS, cpu_state.pc);
+            fflush(stderr);
+        }
+    }
+
+    /* [seg0206porttrace] OUT side - see matching comment in inb() above. */
+    {
+        static int seg0206_hits = 0;
+        if ((seg0206_hits < 500) && (CS == 0x0206)) {
+            seg0206_hits++;
+            fprintf(stderr, "[seg0206porttrace] #%d OUT port=%04X val=%02X CS:PC=%04X:%08X\n",
+                    seg0206_hits, port, val, CS, cpu_state.pc);
             fflush(stderr);
         }
     }

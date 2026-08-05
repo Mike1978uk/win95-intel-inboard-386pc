@@ -1264,6 +1264,30 @@ exec386(int32_t cycs)
                    pattern as the retired [seg0048trap] hook) so it catches the actual stall
                    instance, not any earlier, unrelated use of this same handler entry point
                    during ordinary boot. One-shot; remove once the caller is identified. */
+                /* [ah87caller] 2026-08-04: INBRDPC.SYS's own AH=87h Extended-Memory-Block-Move
+                   handler entry point (CS:PC=0206:044E, confirmed via full recursive-descent
+                   disassembly - this is the very first instruction, before the handler's own
+                   "pushf", so the stack still holds exactly the CPU-pushed INT-return frame:
+                   [SP+0]=caller IP, [SP+2]=caller CS, [SP+4]=caller FLAGS). The handler redoes a
+                   full 32KB self-test on every single call (its own completion flag at [0x2B7] is
+                   never set anywhere in the file), and this segment has been observed cycling for
+                   many minutes during the OSR1 XT+Inboard patched-VxD boot test - capture who's
+                   actually calling it repeatedly (HIMEM.SYS? EMM386? something else?) rather than
+                   guessing. Capped, not one-shot, to see if the caller is consistent. */
+                {
+                    static int ah87caller_hits = 0;
+                    if ((ah87caller_hits < 30) && (CS == 0x0206) && (cpu_state.pc == 0x044e)) {
+                        ah87caller_hits++;
+                        uint32_t stack_base   = ((uint32_t) SS) << 4;
+                        uint16_t caller_ip    = readmemb(stack_base, SP + 0) | (readmemb(stack_base, SP + 1) << 8);
+                        uint16_t caller_cs    = readmemb(stack_base, SP + 2) | (readmemb(stack_base, SP + 3) << 8);
+                        fprintf(stderr,
+                                "[ah87caller] #%d called from CS:IP=%04X:%04X (AX=%04X BX=%04X CX=%04X DX=%04X)\n",
+                                ah87caller_hits, caller_cs, caller_ip, AX, BX, CX, DX);
+                        fflush(stderr);
+                    }
+                }
+
                 {
                     static int    int6entry_fired = 0;
                     static time_t int6entry_t0    = 0;
@@ -1453,6 +1477,127 @@ exec386(int32_t cycs)
                     }
                 }
 
+                /* [segdump0EAF]/[segdumpFF03] 2026-08-04: OSR1 segment-650B/INT-68h investigation -
+                   [seg650Bbackward] identified FF03 as the segment that CALLs into 0EAF, and 0EAF
+                   as the segment whose code (at 0EAF:3067) executes the fateful `INT 68h` with an
+                   uninitialized vector. Neither is a segment this project has identified before.
+                   Dump both live (64KB each, physical/real-mode-flat, first time CS reaches them)
+                   so they can be string-searched/disassembled offline to find out what component
+                   owns this code and what's actually supposed to set up INT 68h's vector first. */
+                {
+                    static int dumped_0eaf = 0;
+                    if (!dumped_0eaf && (CS == 0x0EAF)) {
+                        dumped_0eaf = 1;
+                        FILE *f = fopen("seg_0EAF_dump.bin", "wb");
+                        if (f) {
+                            uint32_t base = 0x0EAF0u;
+                            for (uint32_t a = 0; a < 0x10000; a++) {
+                                uint8_t b = mem_readb_phys(base + a);
+                                fwrite(&b, 1, 1, f);
+                            }
+                            fclose(f);
+                            fprintf(stderr, "[segdump0EAF] wrote seg_0EAF_dump.bin (base=%05X) at CS:PC=0EAF:%04X\n",
+                                    base, cpu_state.pc);
+                            fflush(stderr);
+                        }
+                    }
+                    static int dumped_ff03 = 0;
+                    if (!dumped_ff03 && (CS == 0xFF03)) {
+                        dumped_ff03 = 1;
+                        FILE *f = fopen("seg_FF03_dump.bin", "wb");
+                        if (f) {
+                            uint32_t base = 0x0FF030u;
+                            for (uint32_t a = 0; a < 0x10000; a++) {
+                                uint8_t b = mem_readb_phys(base + a);
+                                fwrite(&b, 1, 1, f);
+                            }
+                            fclose(f);
+                            fprintf(stderr, "[segdumpFF03] wrote seg_FF03_dump.bin (base=%06X) at CS:PC=FF03:%04X\n",
+                                    base, cpu_state.pc);
+                            fflush(stderr);
+                        }
+                    }
+                }
+
+                /* [segdump0325] 2026-08-04: Al Williams a20() correspondence investigation - live-
+                   traced a real-mode loop at 0325:0471 executing OUT 64h,D1 / OUT 60h,val / OUT
+                   64h,FF - a byte-for-byte match to Al Williams's own 1990 Dr. Dobb's Journal
+                   errata code's generic-AT (non-Inboard) `a20()` fallback branch (see
+                   docs/al_williams_inboard_a20_correspondence_2023.md). Identify which real file
+                   this segment actually is (leading suspect: HIMEM.SYS, loaded via CONFIG.SYS
+                   right after INBRDPC.SYS) via the same live-dump-then-string-search technique
+                   already proven this session. One-shot, fires on first CS==0x0325 - real mode,
+                   happens early in boot (no need to wait for the later GUI dialog). */
+                {
+                    static int dumped_0325 = 0;
+                    if (!dumped_0325 && (CS == 0x0325)) {
+                        dumped_0325 = 1;
+                        FILE *f = fopen("seg_0325_dump.bin", "wb");
+                        if (f) {
+                            uint32_t base = 0x03250u;
+                            for (uint32_t a = 0; a < 0x10000; a++) {
+                                uint8_t b = mem_readb_phys(base + a);
+                                fwrite(&b, 1, 1, f);
+                            }
+                            fclose(f);
+                            fprintf(stderr, "[segdump0325] wrote seg_0325_dump.bin (base=%05X) at CS:PC=0325:%04X\n",
+                                    base, cpu_state.pc);
+                            fflush(stderr);
+                        }
+                    }
+                }
+
+                /* [patchint68] 2026-08-04: OSR1 segment-650B/INT-68h investigation - identified
+                   segment 0EAF (via live seg_0EAF_dump.bin/seg_FF03_dump.bin string search) as
+                   VMM32's own real-mode VxD-loader startup code (strings: "Loading Vxd = ",
+                   "LoadSuccess = ", "LoadFailed  = ", the exact static VxD names this project
+                   patches, "VMM32\*.VXD", SYSTEM.INI [386enh] device= lines). The already-captured
+                   [seg650Bbackward] ring-buffer bytes decode cleanly as: 0EAF:3062 `MOV DI,0x1091`;
+                   0EAF:3065 `MOV AH,0x4F`; 0EAF:3067 `INT 68h` - a private multiplex-style call
+                   (AH=function selector, same shape as INT 2Fh) whose vector (IVT offset
+                   0x68*4=0x1A0) is never initialized by anything in this boot before it's called,
+                   so the CPU faithfully walks off into the raw IVT table as "code" until it
+                   coincidentally hits a real CALL FAR (INT 0Eh's own vector bytes) into segment
+                   650B - real, legitimate code, but reached with completely bogus calling context,
+                   hence the erratic in-650B jumping. Rather than fully reverse the AH=4Fh protocol
+                   (no source, no public documentation found), test the empirical mitigation the
+                   OSR2 investigation already recommended for this exact bug SHAPE (see [patch0144]
+                   below, planned but never implemented for the 0048 case): pre-initialize the
+                   vector to a harmless one-byte IRET stub *before* anything can reach the call, so
+                   INT 68h AH=4Fh becomes a no-op that returns immediately instead of a wild jump.
+                   Stub lives at IVT slot 0xF0's own 4-byte vector-table entry (physical 0x3C0) -
+                   INT 0F0h is unused this early in a real-mode DOS/Windows 95 boot on non-AT
+                   hardware, so borrowing its 1 byte of table space as scratch code is safe; only
+                   the byte at 0x3C0 is touched, vector 0xF0 itself is left as whatever it already
+                   was (nothing here calls INT 0F0h).
+
+                   2026-08-04 retry: firing this at the very first instruction of boot (before
+                   POST) did NOT work - confirmed via a full rerun that the exact same
+                   `caller=0000:0038 -> 650B:4500` chain still happened, meaning something between
+                   boot and t+~140s (almost certainly ordinary BIOS POST and/or DOS kernel low-
+                   memory init, which routinely clears/rewrites large chunks of the IVT) clobbered
+                   the early write before INT 68h ever got a chance to use it. Move the trigger to
+                   fire the moment CS first becomes 0x0EAF instead (same reliable, empirically-
+                   confirmed-every-run trigger point [segdump0EAF] above already uses) - by then
+                   POST and DOS init are long finished, and the `INT 68h` call is only a few
+                   hundred instructions away (0EAF:1E14's CALL, a few thousand cycles later), far
+                   too close for anything else to plausibly rewrite this specific vector again
+                   first. One-shot per CS==0x0EAF entry. */
+                {
+                    static int patchint68_done = 0;
+                    if (!patchint68_done && (CS == 0x0EAF)) {
+                        patchint68_done = 1;
+                        mem_writeb_phys(0x3C0, 0xCF); /* IRET, borrowed from INT F0h's vector slot */
+                        mem_writeb_phys(0x1A0, 0xC0); /* INT 68h vector offset lo  = 0x03C0 */
+                        mem_writeb_phys(0x1A1, 0x03); /* INT 68h vector offset hi */
+                        mem_writeb_phys(0x1A2, 0x00); /* INT 68h vector segment lo = 0x0000 */
+                        mem_writeb_phys(0x1A3, 0x00); /* INT 68h vector segment hi */
+                        fprintf(stderr, "[patchint68] wrote IRET stub at 0000:03C0 and pointed "
+                                        "INT 68h's vector (0000:01A0) at it\n");
+                        fflush(stderr);
+                    }
+                }
+
                 /* [patch0144] 2026-08-02: root-caused (see memory
                    xt_650B_root_cause_null_far_call_2026_08_02.md) - some instruction in segment
                    0048 executes "CS: CALL FAR [0144]", reading a target CS:IP from linear
@@ -1478,7 +1623,9 @@ exec386(int32_t cycs)
                    consume) - if this doesn't let boot proceed, the next things to try are larger
                    skips or skipping to the nearby RET this session's capstone decode found
                    (approximately 0048:065B-0650, alignment uncertain). One-shot. */
-                if ((CS == 0x0048) && (cpu_state.pc == 0x0637)) {
+                if (0 && (CS == 0x0048) && (cpu_state.pc == 0x0637)) {
+                    /* gated off 2026-08-04: OSR2-content-specific fixed address, must not fire
+                       against OSR1 content during the unmodified-boot fidelity check. */
                     static int skip0637_done = 0;
                     if (!skip0637_done) {
                         skip0637_done = 1;
@@ -1498,6 +1645,57 @@ exec386(int32_t cycs)
                    address (not the stored ring_op window, to avoid any hand-alignment error) so
                    the actual transferring instruction (CALL/JMP/INT/IRET/etc) can be identified
                    unambiguously. */
+                /* [vkdlivedump] 2026-08-04: OSR1 protected-mode-keyboard-fix investigation -
+                   [kbdporttrace2] proved Windows' VKD.VXD polls port 64h's status byte at live
+                   linear addresses 0xC0382EDB (poll loop) and issues AT 8042 commands from
+                   0xC0383034/0xC004BE48 - but VKD.VXD's LE object table has all-zero relocation
+                   base addresses (VMM assigns real linear bases dynamically at load time, not
+                   baked into the file), so those addresses can't be mapped to file offsets via
+                   header math alone. Dump real bytes AT these live addresses instead (paging-
+                   aware via readmemb, correct for protected mode unlike mem_readb_phys) so they
+                   can be byte-matched directly against VKD_INBOARD_v2.VXD to find the real file
+                   offset - sidesteps the whole LE-relocation problem with ground truth. One-shot
+                   each, 64 bytes captured (enough to be a unique match, short enough to read by
+                   hand once found). */
+                {
+                    static int vkddump_a_done = 0, vkddump_b_done = 0, vkddump_c_done = 0;
+                    if (!vkddump_a_done && (CS == 0x0028) && (cpu_state.pc == 0xC0382EDB)) {
+                        vkddump_a_done = 1;
+                        /* [vkdpatchverify] 2026-08-04: verify the IN AL,64h -> MOV AL,1 patch
+                           (patch_vkd_kbdready.py, file offset 0x3e11) actually survived the
+                           VMM32.VXD combine step - capture starting 4 bytes EARLIER than before
+                           so the 2 bytes immediately preceding TEST AL,1 (the actual patched
+                           instruction) are visible this time. */
+                        fprintf(stderr, "[vkdpatchverify] bytes at 0xC0382ED7 (expect B0 01 if "
+                                        "patched, E4 64 if not, right before A8 01 E1 FA C3)=");
+                        for (int bi = 0; bi < 12; bi++)
+                            fprintf(stderr, "%02X ", readmemb(0, 0xC0382ED7 + bi));
+                        fprintf(stderr, "\n");
+                        fflush(stderr);
+                        fprintf(stderr, "[vkdlivedump] A (poll loop, 0xC0382EDB) bytes=");
+                        for (int bi = 0; bi < 64; bi++)
+                            fprintf(stderr, "%02X ", readmemb(0, 0xC0382EDB + bi));
+                        fprintf(stderr, "\n");
+                        fflush(stderr);
+                    }
+                    if (!vkddump_b_done && (CS == 0x0028) && (cpu_state.pc == 0xC0383034)) {
+                        vkddump_b_done = 1;
+                        fprintf(stderr, "[vkdlivedump] B (0xAD/0xAE site 1, 0xC0383034) bytes=");
+                        for (int bi = 0; bi < 64; bi++)
+                            fprintf(stderr, "%02X ", readmemb(0, 0xC0383034 + bi));
+                        fprintf(stderr, "\n");
+                        fflush(stderr);
+                    }
+                    if (!vkddump_c_done && (CS == 0x0028) && (cpu_state.pc == 0xC004BE48)) {
+                        vkddump_c_done = 1;
+                        fprintf(stderr, "[vkdlivedump] C (0xAD/0xAE site 2, 0xC004BE48) bytes=");
+                        for (int bi = 0; bi < 64; bi++)
+                            fprintf(stderr, "%02X ", readmemb(0, 0xC004BE48 + bi));
+                        fprintf(stderr, "\n");
+                        fflush(stderr);
+                    }
+                }
+
                 if ((CS == 0x0000) && (cpu_state.pc == 0x0000) && !((ring_last_cs == 0x0000) && (ring_last_pc == 0x0000))) {
                     static int nulljump_hits = 0;
                     if (nulljump_hits < 10) {
@@ -1546,6 +1744,34 @@ exec386(int32_t cycs)
                             ring_op[ring_pos][rb] = readmemb(ring_base, cpu_state.pc + rb);
                     }
                     ring_pos          = (ring_pos + 1) % 1048576;
+                }
+
+                /* [ringdump0206] 2026-08-04: exhaustive static search (every direct call/jmp/
+                   short-jmp/near-cond-jmp/short-cond-jmp form) found ZERO instructions anywhere
+                   in INBRDPC.SYS targeting file offset 0xAE1 (runtime 0206:06DE, the self-test-
+                   and-report wrapper entry) - it must be reached via an indirect jump/call whose
+                   target only exists at runtime. Dump the last 300 unique ring-buffer entries
+                   once CS==0x0206 has been running a while, to see the exact real instruction
+                   that transfers control there - ground truth, not reconstruction. One-shot. */
+                {
+                    static int    ringdump_fired = 0;
+                    static time_t ringdump_t0    = 0;
+                    if (ringdump_t0 == 0)
+                        ringdump_t0 = time(NULL);
+                    if (!ringdump_fired && (CS == 0x0206) && ((time(NULL) - ringdump_t0) >= 90)) {
+                        ringdump_fired = 1;
+                        fprintf(stderr, "[ringdump0206] dumping last 300 unique ring entries "
+                                        "(oldest first):\n");
+                        int start = (ring_pos - 300 + 1048576 * 2) % 1048576;
+                        for (int i = 0; i < 300; i++) {
+                            int idx = (start + i) % 1048576;
+                            fprintf(stderr, "  [%3d] %04X:%04X  bytes=%02X %02X %02X %02X %02X %02X\n",
+                                    i, ring_cs[idx], ring_pc[idx],
+                                    ring_op[idx][0], ring_op[idx][1], ring_op[idx][2],
+                                    ring_op[idx][3], ring_op[idx][4], ring_op[idx][5]);
+                        }
+                        fflush(stderr);
+                    }
                 }
 
                 /* [seg0048trace2] 2026-08-02: the NEW CONFIG.SYS-stage stall that survived the
@@ -2289,6 +2515,27 @@ exec386(int32_t cycs)
                                     (long) (now - t0), head, tail, bufstart, bufend);
                             fflush(stderr);
                         }
+                        /* [irq1state] 2026-08-04: OSR1 Startup-Menu-freeze investigation - kbdbuf
+                           above stays permanently EMPTY (head==tail==bufstart) through this whole
+                           stall, and zero port 0x60/61/64 I/O of any kind occurs after the driver-
+                           load-time A20 burst ends (~t+61s) - meaning no scancode, real OR injected
+                           via inject_key.txt, is reaching the BIOS buffer at all. Leading theory:
+                           IRQ1 is masked at the PIC (or IF=0 globally) at this point, so the 8042's
+                           IRQ1 line never reaches the CPU to run the int09 ISR that would fill the
+                           buffer. Log IMR/IRR/ISR/int_pending + the CPU's own IF flag once/second
+                           starting at t+100s (comfortably before the freeze begins) to test this
+                           directly - ground truth over more guessing. Capped so a fast/normal boot
+                           doesn't get flooded. */
+                        if ((now - t0) >= 100) {
+                            static int irq1state_hits = 0;
+                            if (irq1state_hits < 2000) {
+                                irq1state_hits++;
+                                fprintf(stderr, "[irq1state] t+%lds imr=%02X irr=%02X isr=%02X intp=%d IF=%d\n",
+                                        (long) (now - t0), pic.imr, pic.irr, pic.isr, pic.int_pending,
+                                        (cpu_state.flags & I_FLAG) ? 1 : 0);
+                                fflush(stderr);
+                            }
+                        }
                         /* [vec70trace] 2026-08-02: seg6517_dump.bin proved segment 6517 is 100%
                            zeroed memory (65535/65536 zero bytes) - executing zeros is a
                            degenerate "ADD [BX+SI],AL" sled, not real code, so whatever jumps
@@ -2397,6 +2644,28 @@ exec386(int32_t cycs)
                    inject it as a make+break pair, then delete the file so external
                    tooling can drop a new one whenever a keypress is needed. */
                 {
+                    /* [injectfix] 2026-08-04: root-caused why inject_key.txt keystrokes were
+                       logged as "sent" but never reached the guest (confirmed via the OSR1
+                       Startup-Menu-freeze investigation - zero port 60/61/64 I/O and a
+                       permanently empty BIOS keyboard buffer followed every injection).
+                       keyboard_input() in keyboard.c only calls the real key_process() (the
+                       thing that actually drives the emulated 8042/scancode hardware) when
+                       `override_capture || mouse_capture || !kbd_req_capture || (fullscreen
+                       stuff)` - i.e. only once the VM window has "captured" keyboard focus.
+                       Headless/scripted runs (no window click-to-capture ever happens) fail
+                       this gate silently: recv_key_ui[] gets updated but key_process() never
+                       runs. keyboard_toggle_override() (keyboard.c:142) flips the same static
+                       override_capture flag the interactive "force capture" hotkey uses - call
+                       it once, here, so file-based injection works the same headless as it does
+                       interactively. */
+                    static int override_capture_done = 0;
+                    if (!override_capture_done) {
+                        override_capture_done = 1;
+                        keyboard_toggle_override();
+                        fprintf(stderr, "[injectfix] called keyboard_toggle_override() once to "
+                                        "bypass the capture-focus gate for headless key injection\n");
+                        fflush(stderr);
+                    }
                     static time_t last_key_check = 0;
                     time_t        key_now        = time(NULL);
                     if (key_now != last_key_check) {

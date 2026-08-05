@@ -203,6 +203,21 @@ key_process(uint16_t scan, int down)
     const scancode *codes = scan_table;
     int             c;
 
+    /* [keyproctrace] 2026-08-04: OSR1 protected-mode-keyboard investigation - narrow down
+       exactly where an injected key stops mattering. Logs every call, unconditionally but
+       cheaply (fprintf only, no I/O side effects), capped to avoid flooding a long session. */
+    {
+        static int keyproctrace_hits = 0;
+        if (keyproctrace_hits < 500) {
+            keyproctrace_hits++;
+            fprintf(stderr, "[keyproctrace] #%d key_process(scan=%03X, down=%d) codes=%p "
+                            "keyboard_scan=%d keyboard_send=%p\n",
+                    keyproctrace_hits, scan, down, (void *) codes, keyboard_scan,
+                    (void *) keyboard_send);
+            fflush(stderr);
+        }
+    }
+
     if (!codes)
         return;
 
@@ -381,6 +396,24 @@ keyboard_input(int down, uint16_t scan)
 
     /* kbc_at_log("Received scan code: %03X (%s)\n", scan & 0x1ff, down ? "down" : "up"); */
     recv_key_ui[scan & 0x1ff] = down;
+
+    /* [gatetrace] 2026-08-04: OSR1 protected-mode-keyboard investigation - confirm the capture
+       gate itself (fixed earlier this session via keyboard_toggle_override()) is still passing
+       once Windows is in protected mode, not silently reverted by something else. */
+    {
+        static int gatetrace_hits = 0;
+        if (gatetrace_hits < 500) {
+            gatetrace_hits++;
+            fprintf(stderr, "[gatetrace] #%d override_capture=%d mouse_capture=%d "
+                            "kbd_req_capture=%d video_fullscreen=%d fullscreen_ui_visible=%d "
+                            "-> gate=%d\n",
+                    gatetrace_hits, override_capture, mouse_capture, kbd_req_capture,
+                    video_fullscreen, fullscreen_ui_visible,
+                    (override_capture || mouse_capture || !kbd_req_capture ||
+                     (video_fullscreen && !fullscreen_ui_visible)));
+            fflush(stderr);
+        }
+    }
 
     if (override_capture || mouse_capture || !kbd_req_capture || (video_fullscreen && !fullscreen_ui_visible)) {
         recv_key[scan & 0x1ff] = down;

@@ -20,3 +20,8 @@ vm_win311/nvr/
 vm_win311/printer/
 vm_win311/screenshots/
 vm_win311/roms/
+
+# Windows 95 disk images: tens of GB, and contain copyrighted Microsoft/Intel media -
+# never versioned. Patches/build scripts/source live in vxd-patches/, custom_vkd/, ivt68fix/.
+vm_win95_osr1/
+vm_win95_at_gap/

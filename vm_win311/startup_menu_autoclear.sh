@@ -11,13 +11,27 @@
 # then Enter (scancode 28), with a state flag so it only fires once per menu appearance
 # (re-arms once the menu text is confirmed gone from the latest snapshot) instead of
 # spamming keystrokes at a screen that already moved on.
+#
+# 2026-08-03 fix: the 2s poll interval was too slow to detect the menu with enough margin
+# before its countdown auto-selects Safe Mode (confirmed live, even on a freshly re-cloned
+# image - the dirty flag turns out to be baked into the golden checkpoint itself, so this
+# menu always appears). Tightened menu-detection polling to 0.3s. Critically, the digit->Enter
+# gap must NOT be shortened below the emulator's own injection granularity - 386_dynarec.c's
+# inject_key.txt reader polls "at most once per real second" (time(NULL) granularity), so
+# writing "28" before the emulator has had a chance to consume "1" would silently clobber the
+# first keystroke, losing it entirely. Wait for actual consumption (the file's own deletion,
+# per the skill's documented driver pattern) instead of a fixed sleep, capped so a stuck/never-
+# consumed key doesn't hang this script forever.
 cd "$(dirname "$0")"
 handled=0
-for i in $(seq 1 600); do
+for i in $(seq 1 4000); do
     if tail -n 26 vram_dump.txt 2>/dev/null | grep -q "Enter a choice"; then
         if [ "$handled" -eq 0 ]; then
             echo "1" > inject_key.txt
-            sleep 1.5
+            for w in $(seq 1 20); do
+                [ -f inject_key.txt ] || break
+                sleep 0.1
+            done
             echo "28" > inject_key.txt
             echo "[autoclear] fired at iter $i (sent 1 + Enter)"
             handled=1
@@ -25,5 +39,5 @@ for i in $(seq 1 600); do
     else
         handled=0
     fi
-    sleep 2
+    sleep 0.3
 done
