@@ -64,10 +64,21 @@ at the center of the fix.
 - See the [writeup](docs/windows95_on_inboard386pc_writeup.md#still-open) for full detail and the
   current plan.
 
+## Upstream
+
+The Inboard 386/PC hardware model has been submitted to the official 86Box project:
+**[86Box/86Box#7626](https://github.com/86Box/86Box/pull/7626)**. It's a minimal subset of
+`86box_full/` (just the device model and the small number of core-file timing/PIC/DMA fixes it
+needs) — see [`upstream-submission/`](upstream-submission/) for a standalone copy of exactly what
+was submitted. The emulator build linked above is still built from `86box_full/`, not from that
+PR — this repo's own fork is the fully-featured one to actually use.
+
 ## Repository structure
 
 - **`86box_full/`** — the 86Box emulator fork, with the Inboard 386/PC hardware model
   (`src/device/inboard386.c`) and the debug/tracing hooks used throughout this investigation
+- **`upstream-submission/`** — a standalone copy of the minimal subset submitted to the official
+  86Box project ([86Box/86Box#7626](https://github.com/86Box/86Box/pull/7626))
 - **`custom_vkd/`** — full assembly source for the custom-built `VKD.VXD` (Microsoft's own DDK
   sample, modified), plus the build script for the real period MASM/LINK toolchain
 - **`ivt68fix/`** — source + binary for the real-mode INT68h vector fix deployed on real hardware

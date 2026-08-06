@@ -1,0 +1,485 @@
+diff --git a/src/cpu/cpu.c b/src/cpu/cpu.c
+index a9df46c..01e00f0 100644
+--- a/src/cpu/cpu.c
++++ b/src/cpu/cpu.c
+@@ -175,6 +175,23 @@ int cpu_prefetch_width;
+ int cpu_mem_prefetch_cycles;
+ int cpu_rom_prefetch_cycles;
+ int cpu_waitstates;
++int io_waitstates; /* Extra cycles added to IN/OUT instruction timing (x86_ops_io.h) -
++                       cpu_waitstates only ever throttles memory bus cycles; this covers
++                       I/O port cycles, which real ISA-bus hardware paces at a fixed bus
++                       clock independent of an accelerator CPU's own speed. Set by
++                       devices like inboard386.c that need to compensate for a fast CPU
++                       core executing I/O-bound timing loops (BIOS self-tests etc.)
++                       written assuming genuine 8088-class per-instruction throughput. */
++int reg_op_waitstates; /* Extra cycles added to pure register/branch instruction timing
++                           (currently just LOOP, x86_ops_jump.h) - covers the case where a
++                           period BIOS/driver delay or self-test loop is built entirely from
++                           register-only instructions (no memory or I/O access at all), so
++                           neither cpu_waitstates nor io_waitstates apply. A 386+-class core
++                           executes these natively far faster per cycle than an 8088 even at
++                           a matched clock, so a pure LOOP-based delay calibrated for genuine
++                           8088 timing finishes far too quickly on an accelerated CPU unless
++                           this is compensated too. Set by inboard386.c the same way as
++                           io_waitstates. */
+ int cpu_cache_int_enabled;
+ int cpu_cache_ext_enabled;
+ int cpu_flush_pending;
+diff --git a/src/cpu/cpu.h b/src/cpu/cpu.h
+index 2e74f35..d6d4a41 100644
+--- a/src/cpu/cpu.h
++++ b/src/cpu/cpu.h
+@@ -641,6 +641,8 @@ extern int cpu_prefetch_width;
+ extern int cpu_mem_prefetch_cycles;
+ extern int cpu_rom_prefetch_cycles;
+ extern int cpu_waitstates;
++extern int io_waitstates;
++extern int reg_op_waitstates;
+ extern int cpu_flush_pending;
+ extern int cpu_old_paging;
+ extern int cpu_cache_int_enabled;
+diff --git a/src/cpu/x86_ops_io.h b/src/cpu/x86_ops_io.h
+index 36bf05c..7bce865 100644
+--- a/src/cpu/x86_ops_io.h
++++ b/src/cpu/x86_ops_io.h
+@@ -4,7 +4,7 @@ opIN_AL_imm(uint32_t fetchdat)
+     uint16_t port = (uint16_t) getbytef();
+     check_io_perm(port, 1);
+     AL = inb(port);
+-    CLOCK_CYCLES(12);
++    CLOCK_CYCLES(12 + io_waitstates);
+     PREFETCH_RUN(12, 2, -1, 1, 0, 0, 0, 0);
+     if (nmi && nmi_enable && nmi_mask)
+         return 1;
+@@ -16,7 +16,7 @@ opIN_AX_imm(uint32_t fetchdat)
+     uint16_t port = (uint16_t) getbytef();
+     check_io_perm(port, 2);
+     AX = inw(port);
+-    CLOCK_CYCLES(12);
++    CLOCK_CYCLES(12 + io_waitstates);
+     PREFETCH_RUN(12, 2, -1, 1, 0, 0, 0, 0);
+     if (nmi && nmi_enable && nmi_mask)
+         return 1;
+@@ -28,7 +28,7 @@ opIN_EAX_imm(uint32_t fetchdat)
+     uint16_t port = (uint16_t) getbytef();
+     check_io_perm(port, 4);
+     EAX = inl(port);
+-    CLOCK_CYCLES(12);
++    CLOCK_CYCLES(12 + io_waitstates);
+     PREFETCH_RUN(12, 2, -1, 0, 1, 0, 0, 0);
+     if (nmi && nmi_enable && nmi_mask)
+         return 1;
+@@ -41,7 +41,7 @@ opOUT_AL_imm(uint32_t fetchdat)
+     uint16_t port = (uint16_t) getbytef();
+     check_io_perm(port, 1);
+     outb(port, AL);
+-    CLOCK_CYCLES(10);
++    CLOCK_CYCLES(10 + io_waitstates);
+     PREFETCH_RUN(10, 2, -1, 0, 0, 1, 0, 0);
+     if (port == 0x64)
+         return x86_was_reset;
+@@ -55,7 +55,7 @@ opOUT_AX_imm(uint32_t fetchdat)
+     uint16_t port = (uint16_t) getbytef();
+     check_io_perm(port, 2);
+     outw(port, AX);
+-    CLOCK_CYCLES(10);
++    CLOCK_CYCLES(10 + io_waitstates);
+     PREFETCH_RUN(10, 2, -1, 0, 0, 1, 0, 0);
+     if (nmi && nmi_enable && nmi_mask)
+         return 1;
+@@ -67,7 +67,7 @@ opOUT_EAX_imm(uint32_t fetchdat)
+     uint16_t port = (uint16_t) getbytef();
+     check_io_perm(port, 4);
+     outl(port, EAX);
+-    CLOCK_CYCLES(10);
++    CLOCK_CYCLES(10 + io_waitstates);
+     PREFETCH_RUN(10, 2, -1, 0, 0, 0, 1, 0);
+     if (nmi && nmi_enable && nmi_mask)
+         return 1;
+@@ -79,7 +79,7 @@ opIN_AL_DX(UNUSED(uint32_t fetchdat))
+ {
+     check_io_perm(DX, 1);
+     AL = inb(DX);
+-    CLOCK_CYCLES(12);
++    CLOCK_CYCLES(12 + io_waitstates);
+     PREFETCH_RUN(12, 1, -1, 1, 0, 0, 0, 0);
+     if (nmi && nmi_enable && nmi_mask)
+         return 1;
+@@ -90,7 +90,7 @@ opIN_AX_DX(UNUSED(uint32_t fetchdat))
+ {
+     check_io_perm(DX, 2);
+     AX = inw(DX);
+-    CLOCK_CYCLES(12);
++    CLOCK_CYCLES(12 + io_waitstates);
+     PREFETCH_RUN(12, 1, -1, 1, 0, 0, 0, 0);
+     if (nmi && nmi_enable && nmi_mask)
+         return 1;
+@@ -101,7 +101,7 @@ opIN_EAX_DX(UNUSED(uint32_t fetchdat))
+ {
+     check_io_perm(DX, 4);
+     EAX = inl(DX);
+-    CLOCK_CYCLES(12);
++    CLOCK_CYCLES(12 + io_waitstates);
+     PREFETCH_RUN(12, 1, -1, 0, 1, 0, 0, 0);
+     if (nmi && nmi_enable && nmi_mask)
+         return 1;
+@@ -113,7 +113,7 @@ opOUT_AL_DX(UNUSED(uint32_t fetchdat))
+ {
+     check_io_perm(DX, 1);
+     outb(DX, AL);
+-    CLOCK_CYCLES(11);
++    CLOCK_CYCLES(11 + io_waitstates);
+     PREFETCH_RUN(11, 1, -1, 0, 0, 1, 0, 0);
+     if (nmi && nmi_enable && nmi_mask)
+         return 1;
+@@ -124,7 +124,7 @@ opOUT_AX_DX(UNUSED(uint32_t fetchdat))
+ {
+     check_io_perm(DX, 2);
+     outw(DX, AX);
+-    CLOCK_CYCLES(11);
++    CLOCK_CYCLES(11 + io_waitstates);
+     PREFETCH_RUN(11, 1, -1, 0, 0, 1, 0, 0);
+     if (nmi && nmi_enable && nmi_mask)
+         return 1;
+@@ -135,6 +135,7 @@ opOUT_EAX_DX(UNUSED(uint32_t fetchdat))
+ {
+     check_io_perm(DX, 4);
+     outl(DX, EAX);
++    CLOCK_CYCLES(11 + io_waitstates);
+     PREFETCH_RUN(11, 1, -1, 0, 0, 0, 1, 0);
+     if (nmi && nmi_enable && nmi_mask)
+         return 1;
+diff --git a/src/cpu/x86_ops_jump.h b/src/cpu/x86_ops_jump.h
+index fc99fc5..d5a91d9 100644
+--- a/src/cpu/x86_ops_jump.h
++++ b/src/cpu/x86_ops_jump.h
+@@ -163,7 +163,7 @@ opLOOP_w(uint32_t fetchdat)
+ {
+     int8_t offset = (int8_t) getbytef();
+     CX--;
+-    CLOCK_CYCLES((is486) ? 7 : 11);
++    CLOCK_CYCLES(((is486) ? 7 : 11) + reg_op_waitstates);
+     PREFETCH_RUN(11, 2, -1, 0, 0, 0, 0, 0);
+     if (CX) {
+         cpu_state.pc += offset;
+@@ -180,7 +180,7 @@ opLOOP_l(uint32_t fetchdat)
+ {
+     int8_t offset = (int8_t) getbytef();
+     ECX--;
+-    CLOCK_CYCLES((is486) ? 7 : 11);
++    CLOCK_CYCLES(((is486) ? 7 : 11) + reg_op_waitstates);
+     PREFETCH_RUN(11, 2, -1, 0, 0, 0, 0, 0);
+     if (ECX) {
+         cpu_state.pc += offset;
+diff --git a/src/device/CMakeLists.txt b/src/device/CMakeLists.txt
+index 96a0db9..33c28ca 100644
+--- a/src/device/CMakeLists.txt
++++ b/src/device/CMakeLists.txt
+@@ -34,6 +34,7 @@ add_library(dev OBJECT
+     i2c.c
+     i2c_gpio.c
+     ibm_5161.c
++    inboard386.c
+     isamem.c
+     isarom.c
+     isartc.c
+diff --git a/src/dma.c b/src/dma.c
+index 326db8c..0a6d2b4 100644
+--- a/src/dma.c
++++ b/src/dma.c
+@@ -95,10 +95,26 @@ static void dma_xt_refresh_reconcile(void);
+ 
+ static int dma_xt8237_mem_to_mem(void);
+ 
++/* Persistent override for machines where the usual is286-driven AT/XT DMA
++   detection is wrong: a genuine single-8237 XT board paired with a 286-or-
++   higher accelerator CPU (e.g. the Intel Inboard 386/PC on a stock 5150/
++   5160). Set once via dma_set_force_xt() by the owning device at init time;
++   every other machine's behavior is completely unchanged (dma_xt8237_active()
++   still always returns 0, as before, when this is left at its default). */
++static int dma_force_xt = 0;
++
++void
++dma_set_force_xt(int enable)
++{
++    dma_force_xt = enable;
++}
++
+ static int
+ dma_xt8237_active(void)
+ {
+-    return 0 /*!dma_at && !dma_advanced && !dma_ps2.is_ps2*/;
++    if (dma_force_xt)
++        return !dma_advanced && !dma_ps2.is_ps2;
++    return 0;
+ }
+ 
+ static uint8_t
+diff --git a/src/include/86box/dma.h b/src/include/86box/dma.h
+index 7336e49..e157651 100644
+--- a/src/include/86box/dma.h
++++ b/src/include/86box/dma.h
+@@ -112,6 +112,7 @@ void dma_set_params(uint8_t advanced, uint32_t mask);
+ void dma_set_mask(uint32_t mask);
+ 
+ void dma_set_at(uint8_t at);
++void dma_set_force_xt(int enable);
+ 
+ void dma_ext_mode_init(void);
+ void dma_high_page_init(void);
+diff --git a/src/include/86box/machine.h b/src/include/86box/machine.h
+index 1ff0d1c..0c513de 100644
+--- a/src/include/86box/machine.h
++++ b/src/include/86box/machine.h
+@@ -1554,6 +1554,10 @@ extern int             machine_ibmpc82_init(const machine_t *);
+ extern const device_t  ibmxt_device;
+ #endif
+ extern int             machine_ibmxt_init(const machine_t *);
++#ifdef EMU_DEVICE_H
++extern const device_t  ibmxt_inboard386_device;
++#endif
++extern int             machine_ibmxt_inboard386_init(const machine_t *);
+ extern int             machine_xt_ibm3270pc_init(const machine_t *);
+ #ifdef EMU_DEVICE_H
+ extern const device_t  ibmxt86_device;
+diff --git a/src/include/86box/pic.h b/src/include/86box/pic.h
+index b5a7182..7f17a19 100644
+--- a/src/include/86box/pic.h
++++ b/src/include/86box/pic.h
+@@ -71,6 +71,7 @@ extern void    pic_elcr_write(uint16_t port, uint8_t val, void *priv);
+ extern uint8_t pic_elcr_read(uint16_t port, void *priv);
+ 
+ extern void pic_set_shadow(int sh);
++extern void pic_set_force_xt_imr_timing(int enable);
+ extern int  pic_get_pci_flag(void);
+ extern void pic_set_pci_flag(int pci);
+ extern void pic_set_pci(void);
+diff --git a/src/machine/m_xt.c b/src/machine/m_xt.c
+index 540ad40..8a212ff 100644
+--- a/src/machine/m_xt.c
++++ b/src/machine/m_xt.c
+@@ -37,6 +37,7 @@
+ #include <86box/serial.h>
+ #include <86box/sio.h>
+ #include <86box/ibm_5161.h>
++#include <86box/inboard386.h>
+ #include <86box/io.h>
+ #include <86box/isartc.h>
+ #include <86box/keyboard.h>
+@@ -619,6 +620,93 @@ machine_ibmxt_init(const machine_t *model)
+     return ret;
+ }
+ 
++/* IBM XT (1982) with an Intel Inboard 386/PC accelerator card fitted in place of the stock
++   8088 - same real BIOS ROM chips, same base XT platform, plus the Inboard's own wait-state/
++   A20/ROM-shadow hardware. */
++const device_t ibmxt_inboard386_device = {
++    .name          = "IBM XT (1982) w/ Intel Inboard 386/PC",
++    .internal_name = "ibmxt_inboard386",
++    .flags         = 0,
++    .local         = 0,
++    .init          = NULL,
++    .close         = NULL,
++    .reset         = NULL,
++    .available     = NULL,
++    .speed_changed = NULL,
++    .force_redraw  = NULL,
++    .config        = ibmxt_config /* Same real ROM chips - reuse the exact same BIOS selection. */
++};
++
++int
++machine_ibmxt_inboard386_init(const machine_t *model)
++{
++    int         ret = 0;
++    uint8_t     enable_5161;
++    uint8_t     enable_basic;
++    const char *fn;
++    const char *bios_sel;
++    uint16_t    offset = 0;
++    uint32_t    local  = 0;
++
++    /* No ROMs available. */
++    if (!device_available(model->device))
++        return ret;
++
++    device_context(model->device);
++    enable_5161  = machine_get_config_int("enable_5161");
++    enable_basic = machine_get_config_int("enable_basic");
++    bios_sel     = device_get_config_bios("bios");
++    fn           = device_get_bios_file(model->device, bios_sel, 0);
++    local        = device_get_bios_local(model->device, bios_sel);
++
++    if (local == 0) // Offset for stock roms
++        offset = 0x6000;
++    ret = bios_load_linear(fn, 0x000fe000, 65536, offset);
++
++    if (enable_basic && ret) {
++        if (local == 0) { // needed for stock roms
++            fn = device_get_bios_file(model->device, bios_sel, 0);
++            (void) bios_load_aux_linear(fn, 0x000f8000, 24576, 0);
++        }
++        fn = device_get_bios_file(model->device, bios_sel, 1);
++        /* On the real machine, the BASIC is repeated. */
++        (void) bios_load_aux_linear(fn, 0x000f0000, 8192, 0);
++        (void) bios_load_aux_linear(fn, 0x000f2000, 8192, 0);
++        (void) bios_load_aux_linear(fn, 0x000f4000, 8192, 0);
++        (void) bios_load_aux_linear(fn, 0x000f6000, 8192, 0);
++    }
++
++    /* The later (1986-dated) ROM revisions use two equal-sized 32KB chips that are BOTH
++       genuine, required system BIOS content - unlike the earlier 1982 ROM set above, where
++       the second file (5000027, 8KB) really is optional Cassette BASIC, correctly gated
++       behind enable_basic like every other ibmxt-family machine. Those 1986 ROMs' own POST
++       does a full 64KB checksum-to-zero self-test over F0000-FFFFF, and hangs if the second
++       chip is never loaded (bios_load_linear above only ever fills the *tail* of the buffer
++       per its own "prepare 64k rom, load N-byte bios at the end" semantics). Load files[1]
++       unconditionally, as real BIOS content rather than repeated BASIC, only for these two
++       entries. */
++    if (ret && ((strcmp(bios_sel, "ibm5160_050986") == 0) || (strcmp(bios_sel, "ibm5160_011086") == 0))) {
++        fn = device_get_bios_file(model->device, bios_sel, 1);
++        (void) bios_load_aux_linear(fn, 0x000f0000, 32768, 0);
++    }
++
++    device_context_restore();
++
++    if (bios_only || !ret)
++        return ret;
++
++    device_add(&kbc_xt_device);
++
++    machine_xt_common_init(model, 0);
++
++    if (enable_5161)
++        device_add(&ibm_5161_device);
++
++    device_add(&inboard386_xt_device); /* The Inboard 386/PC accelerator card itself. */
++
++    return ret;
++}
++
+ /*
+  * IBM 3270 PC (model 5271).
+  *
+diff --git a/src/machine/machine_table.c b/src/machine/machine_table.c
+index db557e4..cfea9a0 100644
+--- a/src/machine/machine_table.c
++++ b/src/machine/machine_table.c
+@@ -385,6 +385,69 @@ const machine_t machines[] = {
+         .net_device               = NULL,
+         .aliases                  = { "" }
+     },
++    /* IBM XT (1982) with an Intel Inboard 386/PC accelerator card fitted in place of the
++       stock 8088 - same real BIOS ROM chips, same base XT platform, plus the Inboard's own
++       wait-state/A20/ROM-shadow hardware (inboard386.c). No real 8042 keyboard controller or
++       second/slave 8259 PIC exists on this hardware - it's a genuine XT platform underneath,
++       just with a 386-class CPU bolted on via a daughtercard. */
++    {
++        .name              = "[386SX] IBM XT (1982) w/ Intel Inboard 386/PC",
++        .internal_name     = "ibmxt_inboard386",
++        .type              = MACHINE_TYPE_386SX,
++        .chipset           = MACHINE_CHIPSET_DISCRETE,
++        .init              = machine_ibmxt_inboard386_init,
++        .p1_handler        = NULL,
++        .gpio_handler      = NULL,
++        .available_flag    = MACHINE_AVAILABLE,
++        .gpio_acpi_handler = NULL,
++        .cpu               = {
++            /* The Inboard's own CPU socket accepts any 386SX-pinout-compatible upgrade chip
++               of the era (PGA132 and pin-compatible packages), not one specific part - OR
++               together every compatible family so a user with a different chip on their card
++               (stock 386SX, Cyrix 486DLC/486SLC, IBM 386SLC/486SLC, etc.) can select their own
++               from the normal CPU dropdown instead of being locked to one. */
++            .package     = CPU_PKG_386SX | CPU_PKG_386DX | CPU_PKG_386SLC_IBM | CPU_PKG_486SLC
++                          | CPU_PKG_486SLC_IBM | CPU_PKG_486BL | CPU_PKG_486DLC,
++            .block       = CPU_BLOCK_NONE,
++            .min_bus     = 0,
++            .max_bus     = 0,
++            .min_voltage = 0,
++            .max_voltage = 0,
++            .min_multi   = 0,
++            .max_multi   = 0
++        },
++        .bus_flags = MACHINE_PC,
++        .flags     = MACHINE_FLAGS_NONE,
++        .ram       = {
++            /* The real card ships exactly three discrete configurations, not a continuous
++               range: 1MB base alone, 1MB+2MB piggyback (3MB), or 1MB+4MB piggyback (5MB) -
++               the piggyback board is either the 2MB or the 4MB part, never both at once.
++               step=2048 with min=1024/max=5120 lands exactly on {1024, 3072, 5120}, the three
++               real options, without needing a separate discrete-value list. */
++            .min  = 1024,
++            .max  = 5120,
++            .step = 2048
++        },
++        .nvrmask                  = 0,
++        .jumpered_ecp_dma         = 0,
++        .default_jumpered_ecp_dma = -1,
++        .kbc_device               = &kbc_xt_device,
++        .kbc_params               = 0x00000000,
++        .nvr_device               = NULL,
++        .nvr_params               = 0x00000000,
++        .sio_device               = NULL,
++        .sio_params               = 0x00000000,
++        .kbc_p1                   = 0xff,
++        .gpio                     = 0xffffffff,
++        .gpio_acpi                = 0xffffffff,
++        .device                   = &ibmxt_inboard386_device,
++        .kbd_device               = &keyboard_pc_xt_device,
++        .fdc_device               = NULL,
++        .vid_device               = NULL,
++        .snd_device               = NULL,
++        .net_device               = NULL, /* no working driver yet for the real card's 3Com 3C509B NIC */
++        .aliases                  = { "" }
++    },
+     /* The IBM 3270 PC is an XT planar carrying the 3270 display adapter and
+        keyboard controller cards.  The adapter provides its own video BIOS, so
+        the planar video switches must read as neither MDA nor CGA -- the card
+diff --git a/src/pic.c b/src/pic.c
+index 5afbc10..a0f32d6 100644
+--- a/src/pic.c
++++ b/src/pic.c
+@@ -53,6 +53,11 @@ static pc_timer_t pic_timer;
+ static int shadow = 0;
+ static int elcr_enabled = 0;
+ static int tmr_inited = 0;
++/* Persistent override for machines pairing a 286-or-higher accelerator CPU with a genuine
++   single-PIC XT board (e.g. the Intel Inboard 386/PC on a stock 5150/5160), where is286-driven
++   IMR-write timing would otherwise silently never schedule a pending-IRQ check at all. Set once
++   via pic_set_force_xt_imr_timing() by the owning device at init time. */
++static int force_xt_imr_timing = 0;
+ static int pic_pci = 0;
+ static int kbd_latch = 0;
+ static int mouse_latch = 0;
+@@ -289,6 +294,12 @@ pic_set_shadow(int sh)
+     shadow = sh;
+ }
+ 
++void
++pic_set_force_xt_imr_timing(int enable)
++{
++    force_xt_imr_timing = enable;
++}
++
+ int
+ pic_get_pci_flag(void)
+ {
+@@ -540,8 +551,17 @@ pic_write(uint16_t addr, uint8_t val, void *priv)
+                 break;
+             case STATE_NONE:
+                 dev->imr = val;
+-                if (is286 || dev->zenith)
++                if ((is286 && !force_xt_imr_timing) || dev->zenith)
+                     update_pending();
++                else if (force_xt_imr_timing)
++                    /* Deliberately small but non-zero, unlike the stock formula below (which
++                       evaluates to exactly 0.0 and so hits timer_on_auto()'s "else timer_stop()"
++                       branch - i.e. it never actually schedules anything). This only affects a
++                       forced-XT-PIC-timing scenario opted into via pic_set_force_xt_imr_timing()
++                       (e.g. a 286-or-higher accelerator CPU on a genuine single-PIC XT board,
++                       like the Intel Inboard 386/PC) - every other machine's existing behavior
++                       via the branch below is left completely unchanged. */
++                    timer_on_auto(&pic_timer, 1.0);
+                 else
+                     timer_on_auto(&pic_timer, .0 * ((10000000.0 * (double) xt_cpu_multi) / (double) cpu_s->rspeed));
+                 break;

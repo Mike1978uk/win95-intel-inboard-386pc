@@ -48,11 +48,13 @@ one at a time, the places where Windows silently assumed AT hardware that isn't 
 
 None of this would have been possible starting from zero. The Inboard 386/PC hardware model in this
 project's 86Box fork (`86box_full/src/device/inboard386.c`) is a direct **port of SuperFury's
-`hardware/inboard.c` from UniPCemu** (2019-2022) — itself built from disassembly of `INBRDPC.SYS`
-and primary-source correspondence with Al Williams. That existing, working reference model — memory
-waitstate control, A20 gating without a real 8042, BIOS ROM shadow/cache — is the actual foundation
-everything in this document is built on top of; without it, this investigation would have started
-by reverse-engineering the base hardware itself, not by fixing Windows 95's assumptions about it.
+`hardware/inboard.c` from UniPCemu** (2019-2022) — itself built from disassembly of `INBRDPC.SYS`.
+That existing, working reference model — memory waitstate control, A20 gating without a real 8042,
+BIOS ROM shadow/cache — is the actual foundation everything in this document is built on top of;
+without it, this investigation would have started by reverse-engineering the base hardware itself,
+not by fixing Windows 95's assumptions about it. Separately, this project's own direct correspondence
+with Al Williams (see the Acknowledgments below) independently cross-validated the exact A20 port
+constants UniPCemu already used, well after UniPCemu's own code was written.
 
 There's a hardware prerequisite underneath all of this too: the stock Inboard 386/PC's RAM ceiling
 is nowhere near enough for Windows 95. This work was only possible because of a 4MB daughterboard
@@ -236,12 +238,11 @@ outcome.
 - **SuperFury / UniPCemu** — this project's entire Inboard 386/PC hardware model
   (`86box_full/src/device/inboard386.c` — memory waitstate control, A20 gating without a real 8042,
   BIOS ROM shadow/cache) is a **direct port of UniPCemu's `hardware/inboard.c`** (2019-2022), itself
-  built from disassembly of `INBRDPC.SYS` and correspondence with Al Williams. This is the
-  foundational piece the whole rest of this investigation stands on, not a secondary reference — see
-  the introduction above. UniPCemu's documented behavior around this port also independently
-  cross-validated several later findings (A20 via port 0x60 hijack, port 0xA0 as a dual-purpose
-  Inboard-control/slave-PIC address depending on machine class, and a named single-PIC/VPICD failure
-  mode on Windows 95).
+  built from disassembly of `INBRDPC.SYS`. This is the foundational piece the whole rest of this
+  investigation stands on, not a secondary reference — see the introduction above. UniPCemu's
+  documented behavior around this port also independently cross-validated several later findings
+  (A20 via port 0x60 hijack, port 0xA0 as a dual-purpose Inboard-control/slave-PIC address depending
+  on machine class, and a named single-PIC/VPICD failure mode on Windows 95).
 - **FastDoom** (viti95, `github.com/viti95/FastDoom`) — a real-hardware-validated DOS Doom source
   port with confirmed-working Inboard/XT keyboard support. Its `I_KeyboardISR_XT` routine — read
   port 0x60, then explicitly strobe port 0x61 bit 7 to acknowledge the XT keyboard latch, then EOI
