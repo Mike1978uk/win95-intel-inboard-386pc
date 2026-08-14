@@ -60,7 +60,7 @@ at the center of the fix.
 - 32-bit applications (confirmed with the bundled FreeCell)
 - Floppy drives A: and B:
 - SCSI Devices working by adding relevant entries to config.sys / autoexec.bat devices loading fine in ms dos mode in Windows tested CD drive, MO Drive, Zip 100 drive
-- Network working using stock Windows 95 3com 3c509b driver from Windows. Hand configured IP, gateway and subnet and navigated to frogfind.con 
+- Network working using stock Windows 95 3com 3c509b driver from Windows. Hand configured IP, gateway and subnet and navigated to frogfind.com
 
 ## Still open
 
