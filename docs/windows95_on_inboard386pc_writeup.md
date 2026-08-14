@@ -17,19 +17,17 @@ keyboard and mouse — has not been documented as working before.
 - Mouse input works.
 - 32-bit Windows applications run (confirmed with the bundled FreeCell).
 - Floppy drives A: and B: are detected.
+- Network confirmed working using the stock Windows 95, 3com 3c509b driver
+- SCSI devices tested working using DOS drivers in autoexec.bat / config.sys ahead of Wondows booting and Windows inherits them fine. tested CDrom, MO and Zip 100.
 
 ## Still open
 
-- SCSI and other attached peripherals not yet detected — need drivers identified/adapted.
 - No sound.
-- No network.
 - The one fix that hasn't been proven on real hardware in isolation (`IVT68FIX.COM`, see below)
   worked in combination with everything else, but a reboot was needed to get past a black-screen
   stall while Windows was finishing Start Menu/Help setup — the exact cause of that stall, and
   whether it's related to `IVT68FIX.COM`'s timing, is not yet confirmed.
-- COMR95 (the Windows 95 half of the COMrade real-hardware bridge, see credits) is built and
-  deployed but its correct Win32 command-line syntax hasn't been nailed down yet — it errored on
-  first boot. Reaching out to the tool's author is the planned next step.
+- COMR95 - will be using Comrade in Windows to help debug further some open issues. 
 
 ## Why this is hard
 
