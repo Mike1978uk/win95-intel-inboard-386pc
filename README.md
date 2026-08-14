@@ -6,6 +6,9 @@ been able to establish, this specific combination hasn't been documented as work
 
 ![status](https://img.shields.io/badge/status-working%20desktop-brightgreen)
 
+📼 **See the Video**
+https://youtu.be/KxuKTNQyBKE?is=OkK0_sxReKwSKeK6
+
 📖 **[Read the full writeup](docs/windows95_on_inboard386pc_writeup.md)** — the complete technical
 account: every bug found, every fix applied, full credits and sources, and a reproduction guide.
 
@@ -56,11 +59,12 @@ at the center of the fix.
 - Mouse input
 - 32-bit applications (confirmed with the bundled FreeCell)
 - Floppy drives A: and B:
+- SCSI Devices working by adding relevant entries to config.sys / autoexec.bat devices loading fine in ms dos mode in Windows tested CD drive, MO Drive, Zip 100 drive
+- Network working using stock Windows 95 3com 3c509b driver from Windows. Hand configured IP, gateway and subnet and navigated to frogfind.con 
 
 ## Still open
 
-- SCSI and other attached peripherals not yet detected
-- No sound, no network yet
+- No sound
 - See the [writeup](docs/windows95_on_inboard386pc_writeup.md#still-open) for full detail and the
   current plan.
 
@@ -125,5 +129,4 @@ lists exactly which files to patch and where to place them on a pre-monolith ins
 
 ## Contributing
 
-Issues and PRs welcome, especially on the open items above (SCSI/sound/network drivers) — see the
-writeup for the current state of each.
+Issues and PRs welcome, especially on the open items above (SCSI/sound/network drivers) — see the writeup for the current state of each.
