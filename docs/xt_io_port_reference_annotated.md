@@ -1,11 +1,14 @@
 # XT I/O port reference — curated extract, annotated for this project
 
 Source: **"XT, AT and PS/2 I/O port addresses"**, compiled by **Wim Osterholt**
-(`wim@djo.wtm.tudelft.nl`), last changed 11/6/94. Full copy:
-`C:\Users\lycet\OneDrive\Desktop\XT_project\inboard_files\win95_attempts_files\XT, AT and PS2 IO port addresses.txt`
-(3,480 lines). Credits in the original also name Chuck Proctor, Richard W. Watson, Frank van
-Gilluwe's *The Undocumented PC*, Dave Williams' DOSREF v3.0, and FractInt v18.0's `FR8514A.ASM` for
-the 8514/A ports.
+(`wim@djo.wtm.tudelft.nl`), last changed 11/6/94.
+
+- **Online:** <https://wiki.preterhuman.net/XT,_AT_and_PS/2_I/O_port_addresses>
+- **Local copy:** `C:\Users\lycet\OneDrive\Desktop\XT_project\inboard_files\win95_attempts_files\XT, AT and PS2 IO port addresses.txt` (3,480 lines)
+
+Credits in the original also name Chuck Proctor, Richard W. Watson, Frank van Gilluwe's *The
+Undocumented PC*, Dave Williams' DOSREF v3.0, and FractInt v18.0's `FR8514A.ASM` for the 8514/A
+ports.
 
 The original carries its own warning, which applies here too:
 

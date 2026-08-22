@@ -75,8 +75,12 @@ ardent-tool reference below before being relied on.
 
 ### Reference material for the above
 - <https://www.ardent-tool.com/video/ATI_8514_Ultra.html> — detailed Mach8 / 8514 Ultra docs
-- `C:\Users\lycet\OneDrive\Desktop\XT_project\inboard_files\win95_attempts_files\XT, AT and PS2 IO port addresses.txt`
-  — Mach8 ROM addresses, plus I/O and ROM addresses used by Windows 95
+- **Wim Osterholt's "XT, AT and PS/2 I/O port addresses"** (1994) — Mach8 / 8514-A register
+  ranges, plus the `(XT)` / `(XT only)` markings that distinguish this machine from an AT.
+  Online: <https://wiki.preterhuman.net/XT,_AT_and_PS/2_I/O_port_addresses>
+  Local copy: `C:\Users\lycet\OneDrive\Desktop\XT_project\inboard_files\win95_attempts_files\XT, AT and PS2 IO port addresses.txt`
+  **Curated and annotated for this project in
+  [`xt_io_port_reference_annotated.md`](xt_io_port_reference_annotated.md).**
 
 ---
 
