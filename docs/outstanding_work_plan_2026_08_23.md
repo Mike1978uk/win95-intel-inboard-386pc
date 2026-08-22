@@ -15,6 +15,62 @@ but no primary source. They are recorded as **hypotheses to test**, not facts. E
 
 ---
 
+## Findings from inspecting the real CF card (mounted at `D:`, 2026-08-23)
+
+The card is the live real-hardware disk — `MS-DOS_6`, FAT, 2 GB, ~1.59 GB free, with `INBRDPC.SYS`,
+`REVTO486.SYS`, `IVT68FIX.COM`, `SBPRO\`, and the Win95 install. Three things it changed about the
+plan below:
+
+### A. `COMR95.EXE` is now deployed — Phase 1a is done
+Copied to `D:\COMR95.EXE` and MD5-verified (`1de004db…`). `COMRADE.EXE` (DOS) was already at the
+root.
+
+⚠️ **Version mismatch to resolve:** the card's `COMRADE.EXE` (`dfb2cab4…`, dated 2 Jul) is **not**
+the same binary as the local `dist\COMRADE.EXE` (`f1bee5ea…`). `COMR95.EXE` came from the newer
+tree. If the two ends of the protocol disagree, that will look like a COMrade bug rather than a
+version skew. Decide whether to refresh the card's DOS binary from the same tree — **not** done
+unprompted, since it means overwriting a known-working file on real hardware.
+
+### B. Phase 0 has a real-hardware counterpart that must change with it
+`D:\IVT68FIX.COM` (26 bytes, run from `AUTOEXEC.BAT`) is the real-hardware equivalent of the
+emulator's `[patchint68]` fix, and it uses **the identical `0x3C0` stub approach**:
+
+```
+33 C0              xor ax, ax
+8E C0              mov es, ax
+26 C6 06 C0 03 CF  mov byte [es:03C0], 0CFh     ; IRET stub
+26 C7 06 A0 01 C0 03   mov word [es:01A0], 03C0h
+26 C7 06 A2 01 00 00   mov word [es:01A2], 0000h
+CD 20              int 20h
+```
+
+So adopting `F000:FF53` in the emulator **also means rebuilding `ivt68fix/IVT68FIX.ASM`** and
+redeploying to the card, or emulator and hardware diverge — which is exactly what the project's
+real-hardware-equivalence convention exists to prevent. The new version is *simpler*: no stub write
+at all, just `mov word [es:01A0], 0FF53h` / `mov word [es:01A2], 0F000h`.
+
+### C. Phase 2b is more concrete — and probably blocked
+`CONFIG.SYS` currently has the driver **commented out** and, critically, **no EMM386 at all** —
+only `HIMEM.SYS`:
+
+```
+DEVICE=c:\INBRDPC.SYS NODIAGS NOPAUSE
+DEVICE=C:\WINDOWS\HIMEM.SYS
+DOS=HIGH,UMB
+...
+REM DEVICE=C:\revto486.sys /BL /CN /CCM /2
+```
+
+There is therefore **no V86 provider on this machine**, which is precisely the precondition the
+vogons clue says `revto486.sys` requires. That makes the test concrete — but it runs straight into
+[[xt-emm386-halt-0128-wildjump-2026-08-03]]: **EMM386 is itself an unresolved blocker here**, halting
+with `error #04 in an application at memory address 0128:009B`, a wild jump into a FAT
+directory-entry buffer entered from IO.SYS's own low-memory boot code. So Phase 2b likely cannot be
+tested until either that bug is resolved or a different V86 provider is found. Budget for it
+accordingly, and do not treat 2b as the "quick one".
+
+---
+
 ## Phase 0 — while PR #7749 is still in review (time-sensitive)
 
 ### 0a. Adopt Michal Necasek's `F000:FF53` suggestion — VERIFIED, do this first
@@ -73,9 +129,14 @@ custom `VKD.VXD` work found.
 
 ## Phase 1 — infrastructure that unblocks the rest
 
-### 1a. Get COMrade onto the CF card — do before any real-hardware debugging
+### 1a. Get COMrade onto the CF card — ✅ DONE 2026-08-23
 
-Both binaries are **already present locally**, no need to fetch from GitHub:
+`COMR95.EXE` copied to `D:\` and verified; `COMRADE.EXE` was already there (see finding A above for
+the outstanding version-skew question). Remaining optional step: `AUTOEXEC.BAT` has
+`REM c:\Comrade.exe` commented out, so autostart is off — leave it manual unless a boot-time bridge
+turns out to be useful.
+
+Both binaries are also **present locally**, if the card ever needs re-imaging:
 
 ```
 C:\Users\lycet\RiderProjects\Open-Source-PC110\Software\COMrade\dist\COMRADE.EXE   (DOS)
