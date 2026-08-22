@@ -71,6 +71,67 @@ accordingly, and do not treat 2b as the "quick one".
 
 ---
 
+## Findings from the COMrade sources and the XT port list (2026-08-23, late)
+
+### D. COMrade: the version question resolved, and a real gap found
+Three trees exist, and they are **not** interchangeable:
+
+| Tree | What it is | `COMRADE.EXE` | `COMR95.EXE` |
+|---|---|---|---|
+| `COMrade_Latest` | clone of **Kevin's** `yyzkevin/COMrade` — **this is the host bridge the MCP servers actually run** | `dfb2cab4` | — |
+| `COMrade-yyzkevin` | fresh clone of Kevin's upstream (new, 2026-08-23) | `dfb2cab4` | — |
+| `Open-Source-PC110/Software/COMrade` | **Ahmad's** fork — adds the Win95 agent | `f1bee5ea` (57 KB) | `1de004db` (21 KB) |
+
+**My earlier "version skew" warning pointed the wrong way.** The card's `COMRADE.EXE` is byte-identical
+to Kevin's, which is the host we run — so **the DOS side is correctly matched and should be left
+alone.** Do *not* copy Ahmad's `COMRADE.EXE` onto the card; that would break the match.
+
+`COMrade_Latest` is **0 commits behind** Kevin's upstream (6 local-only commits ahead), so nothing to
+pull there.
+
+**The real gap:** Ahmad's fork is a protocol **superset**, and the host bridge we run does not
+implement the additions. Ahmad adds:
+- `0x30 WIN_SCREENSHOT` / `0xB0 WIN_SCREENSHOT_DATA` — the Win95 desktop thumbnail
+- `0x11–0x15` `BUS_STIM`, `IDX`, `IO_RMW`, `PIC`, `SAFE` (+ `0x91–0x95` replies) — repeated/composed
+  bus cycles for logic-analyzer-style work, behind a compiled-in **write-guard** deny-list of ports
+  where a stray write can hang or power off the box
+
+Confirmed by grep: `WIN_SCREENSHOT` exists in Ahmad's `comrade/protocol.py` and `connection.py`, and
+is **absent from the host bridge we run**.
+
+**So the `COMR95.EXE` now on the card will connect and do the base ops — but `desktop_screenshot`
+will not work**, which was the main reason Phase 1 came before Phase 3. **Action: point the MCP
+`comrade` server at Ahmad's tree** (`Open-Source-PC110/Software/COMrade`) rather than
+`COMrade_Latest`. Being a superset it should still speak to Kevin's DOS agent for base ops. Not
+changed unprompted — it edits `~/.claude.json` and affects live tooling.
+
+The `BUS_STIM` / `IO_RMW` / `PIC` ops are independently interesting for this project — they are
+exactly the "what does real hardware actually do at this port" primitives that skill Technique 6
+wants, with a safety guard already built in.
+
+### E. Wim Osterholt's XT/AT/PS-2 port list is genuinely useful — curated in a new doc
+See **[`xt_io_port_reference_annotated.md`](xt_io_port_reference_annotated.md)**. Its value is not
+the port numbers but the **`(XT)` / `(XT only)` markings**, since most of our Win95 problems are the
+OS assuming AT hardware this machine lacks. Highlights:
+
+- **⚠️ NEW LEAD — port `0x00A0` is the NMI mask register on an XT** (it is PIC 2 only on an AT). Our
+  Inboard device *also* claims `0xA0` (`port_a0` in `inboard386.c`). Two consumers of one port on
+  real hardware; worth an I/O trace to see whether BIOS NMI-mask writes and the Inboard shadow
+  interfere. Not investigated yet.
+- **SB Pro is on DMA 1 → page register `0x83`** (the channel→port mapping is not in numeric order).
+  And the list's `0080-008F` section documents the **AT** `74612` width — the XT's 4-bit page latch
+  is the actual constraint, which is exactly the basis for the `DMABufferIn1MB=Yes` test in 2a.
+- **8514/A registers are sparse across four ranges** (`02E8`, `06E8`, `0AE8`, `0EE8`). `02E8` read =
+  display status, the natural first emulator-vs-hardware comparison for the Mach8 self-test question
+  in 2c.
+- **`0060`–`0063` are PPI, and port `0x64` does not exist here** — primary-source confirmation of the
+  whole `VKD.VXD` story, and a signpost that issue #2 (`#` vs `\`) is a layout problem, not a
+  controller one.
+- **⚠️ `0340-0357` is the primary XT RTC range** — and our Trantor T130B is configured at `0x340`.
+  Not causing a problem today, but a latent conflict if any RTC driver is added.
+
+---
+
 ## Phase 0 — while PR #7749 is still in review (time-sensitive)
 
 ### 0a. Adopt Michal Necasek's `F000:FF53` suggestion — VERIFIED, do this first
