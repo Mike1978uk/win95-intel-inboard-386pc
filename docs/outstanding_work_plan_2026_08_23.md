@@ -17,6 +17,17 @@ but no primary source. They are recorded as **hypotheses to test**, not facts. E
 
 ## ▶ EXECUTION ORDER — start here
 
+> **Companion doc:** [`issue_tiered_action_plan.md`](issue_tiered_action_plan.md) maps the same work
+> **by GitHub issue** — current status, next concrete action, and what each unblocks. This file is
+> ordered by *execution sequence*; that one by *issue*. Read both before starting.
+>
+> Two corrections it records that supersede assumptions here: **#5's** earlier byte-patch fix was
+> already made *and still failed on real hardware*, so the DMA-buffer lead is genuinely the live
+> one; and **#8's** actual request from @TC1995 is to implement the Mach8 **RAM banks** in
+> `vid_ati_mach8.c` — a different defect from the PIT delay-loop hack we currently ship, and a
+> second upstream PR if pursued. Per the user, #8 is a **low-priority nice-to-have** likely to fall
+> out of #4.
+
 Each step names its **first concrete action** and **what result would falsify it**, so no step turns
 into open-ended poking. Confidence is stated honestly: three of these are verified facts, the rest
 are leads of varying strength.
