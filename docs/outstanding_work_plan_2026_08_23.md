@@ -335,8 +335,8 @@ turns out to be useful.
 Both binaries are also **present locally**, if the card ever needs re-imaging:
 
 ```
-C:\Users\lycet\RiderProjects\Open-Source-PC110\Software\COMrade\dist\COMRADE.EXE   (DOS)
-C:\Users\lycet\RiderProjects\Open-Source-PC110\Software\COMrade\dist\COMR95.EXE    (Windows 95)
+%USERPROFILE%\RiderProjects\Open-Source-PC110\Software\COMrade\dist\COMRADE.EXE   (DOS)
+%USERPROFILE%\RiderProjects\Open-Source-PC110\Software\COMrade\dist\COMR95.EXE    (Windows 95)
 ```
 
 Put **both** at the root of `C:` on the CF card for easy invocation. On Win95:
@@ -432,7 +432,7 @@ architecture claims)*:
 
 **Reference material to mine first:**
 - <https://www.ardent-tool.com/video/ATI_8514_Ultra.html> — detailed Mach8 documentation
-- `C:\Users\lycet\OneDrive\Desktop\XT_project\inboard_files\win95_attempts_files\XT, AT and PS2 IO port addresses.txt`
+- `%USERPROFILE%\OneDrive\Desktop\XT_project\inboard_files\win95_attempts_files\XT, AT and PS2 IO port addresses.txt`
   — has Mach8 ROM addresses plus the I/O and ROM addresses Windows 95 uses
 
 Note the architecture description in the source ("28800 VGA core + 38800 coprocessor") should be

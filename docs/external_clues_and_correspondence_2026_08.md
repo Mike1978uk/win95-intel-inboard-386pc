@@ -78,7 +78,7 @@ ardent-tool reference below before being relied on.
 - **Wim Osterholt's "XT, AT and PS/2 I/O port addresses"** (1994) — Mach8 / 8514-A register
   ranges, plus the `(XT)` / `(XT only)` markings that distinguish this machine from an AT.
   Online: <https://wiki.preterhuman.net/XT,_AT_and_PS/2_I/O_port_addresses>
-  Local copy: `C:\Users\lycet\OneDrive\Desktop\XT_project\inboard_files\win95_attempts_files\XT, AT and PS2 IO port addresses.txt`
+  Local copy: `%USERPROFILE%\OneDrive\Desktop\XT_project\inboard_files\win95_attempts_files\XT, AT and PS2 IO port addresses.txt`
   **Curated and annotated for this project in
   [`xt_io_port_reference_annotated.md`](xt_io_port_reference_annotated.md).**
 
@@ -120,7 +120,7 @@ On the CT1600 specifically:
 >   while AT handles them differently)?
 
 **Outcome: the `vmad.vxd` patch built on this theory FAILED on real hardware.** Evidence photo:
-`C:\Users\lycet\OneDrive\Desktop\XT_project\photos\image0 (1).jpeg`
+`%USERPROFILE%\OneDrive\Desktop\XT_project\photos\image0 (1).jpeg`
 
 ### The better lead — @andrew-hoffman **[PRIMARY]**
 
@@ -192,8 +192,8 @@ pointed at `RiderProjects\COMrade_Latest`, **an old path for this project**, whi
 
 **Already available locally — no fetch needed:**
 ```
-C:\Users\lycet\RiderProjects\Open-Source-PC110\Software\COMrade\dist\COMRADE.EXE   (DOS)
-C:\Users\lycet\RiderProjects\Open-Source-PC110\Software\COMrade\dist\COMR95.EXE    (Windows 95)
+%USERPROFILE%\RiderProjects\Open-Source-PC110\Software\COMrade\dist\COMRADE.EXE   (DOS)
+%USERPROFILE%\RiderProjects\Open-Source-PC110\Software\COMrade\dist\COMR95.EXE    (Windows 95)
 ```
 
 Both should sit at the root of `C:` on the CF card for easy location. See plan item 1a.
