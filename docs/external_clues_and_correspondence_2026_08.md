@@ -183,6 +183,12 @@ ordering should be confirmed to matter first. See plan item 2b.
 > The build script is `build-win95.sh`; it prefers Open Watcom and has a CRT-free MinGW fallback.
 
 Upstream: <https://github.com/ahmadexp/Open-Source-PC110/tree/main/Software/COMrade>
+Original project: <https://github.com/yyzkevin/COMrade> (Kevin Moonlight)
+
+**Three trees exist and are not interchangeable** — see the plan's finding D. Ahmad's fork is a
+strict protocol superset of Kevin's (all 44 opcodes identical, +13 added). The MCP servers were
+pointed at `RiderProjects\COMrade_Latest`, **an old path for this project**, which is why
+`desktop_screenshot` would not have worked with the newly deployed `COMR95.EXE`.
 
 **Already available locally — no fetch needed:**
 ```

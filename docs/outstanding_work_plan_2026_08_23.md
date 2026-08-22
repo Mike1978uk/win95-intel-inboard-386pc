@@ -15,6 +15,130 @@ but no primary source. They are recorded as **hypotheses to test**, not facts. E
 
 ---
 
+## ▶ EXECUTION ORDER — start here
+
+Each step names its **first concrete action** and **what result would falsify it**, so no step turns
+into open-ended poking. Confidence is stated honestly: three of these are verified facts, the rest
+are leads of varying strength.
+
+### Confidence key
+- 🟢 **Verified** — checked at byte/code level this session, will work
+- 🟡 **Strong lead** — specific mechanism, cheap decisive test, outcome genuinely unknown
+- 🟠 **Hypothesis** — plausible, unverified source, test in cost order
+- 🔴 **Blocked** — precondition fails; needs its blocker cleared first
+
+---
+
+### 1. 🟢 Move the MCP servers off the legacy `COMrade_Latest` path
+**Why first:** costs minutes, needs a session restart anyway, unblocks step 6 — and both MCP servers
+are currently pointed at **`RiderProjects\COMrade_Latest`, which is an old path for this project**.
+That is a tidy-up owed regardless of the capability argument.
+
+**Action:** in `~/.claude.json`, point `comrade` (COM2, real hardware) and `comrade86box` (COM3,
+emulator) at the current tree — **`RiderProjects\Open-Source-PC110\Software\COMrade`** — and
+collapse the **two duplicate `comrade` entries** into one (a global/project scope overlap: one uses
+the `COMrade_Latest` venv python, the other `python3` + `PYTHONPATH`).
+
+**Verified safe:** Ahmad's protocol is a strict superset of Kevin's — all 44 opcodes present at
+identical values, +13 added; no MCP tool removed, +10 added. **No DOS capability is lost.**
+
+**Two things NOT to delete:**
+- **`COMrade_Latest` must stay on disk.** It also holds
+  `XT_5160_rework_claude\INBOARD_86BOX_PORT_PLAN.md`, the 4,227-line source-of-truth port plan.
+  Only the *MCP paths* move; the directory itself is still referenced.
+- The card's `COMRADE.EXE` — it is byte-identical to Kevin's upstream and works. Leave it.
+
+**Also tidy:** `RiderProjects\COMrade-yyzkevin` was cloned this session purely to compare trees. It
+is identical to `COMrade_Latest`'s upstream and can be removed once the comparison is no longer
+wanted.
+
+**Falsified if:** a base DOS op (`mem_read`, `io_in`) errors after the switch. Revert is one edit.
+
+### 2. 🟢 Adopt Michal Necasek's `F000:FF53`, in the emulator *and* on real hardware
+**Why now:** PR #7749 is in review; better to land it there than as a later follow-up.
+**Verified:** byte at `F000:FF53` is `CF` (IRET) in *both* 1986 ROMs (offset `0x7F53`, U18/F800).
+**Action, both halves — they must stay in step:**
+1. `386_dynarec.c` → point `0000:01A0` at `F000:FF53` (`53 FF 00 F0`), delete the `0x3C0` stub write
+2. `ivt68fix/IVT68FIX.ASM` → same change, rebuild, redeploy to `D:\IVT68FIX.COM`
+Rebuild, one boot-to-desktop each, push to #7749.
+**Falsified if:** Win95 no longer reaches the desktop — then the `0x3C0` stub was doing something
+beyond providing an IRET, which would itself be worth knowing.
+
+### 3. 🟢 Reply to Michal Necasek — step 2 is not done without this
+Byte evidence, what the fix looked like before and why his is better, PR link. Plus his actual
+question about whether the Inboard could ever have held enough RAM for Win9x. Use his full name.
+
+### 4. 🟡 Sound Blaster Pro / `vmad` BSOD — issue #5
+**The strongest lead of the whole list**, and the one most likely to convert into a fix.
+**Mechanism:** XT DMA page register is 4 bits → 20-bit reach → the DMA buffer **must** be under
+1 MB. Confirmed adjacent detail: SB Pro is on **DMA 1**, so its page register is **`0x83`** (the
+channel→port mapping is not numeric). The port list's `0080-008F` section documents the **AT**
+`74612` width — do not read 8 bits into it for this machine.
+**Action, in this order — do not skip to the code:**
+1. `SYSTEM.INI` `[386Enh]` → `DMABufferIn1MB=Yes`, `DMABufferSize=32`. Reboot. *(Zero code. Same
+   edit is the real-hardware equivalent.)*
+2. If unchanged: force a Win3.1-era 8-bit `.drv` via `[drivers]`, bypassing the protected-mode VxD
+   audio stack. Lower fidelity, but "sound at all" is the milestone.
+3. Only then redo the `vmad.vxd` disassembly — **from scratch**, not patching the failed one.
+**Falsified if:** step 1 changes nothing *and* the BSOD stack shows no DMA-address involvement.
+
+### 5. 🟡 NEW — trace port `0x00A0` in the emulator
+**Why:** on an XT, `0xA0` is the **NMI mask register**; it is PIC 2 only on an AT. Our
+`inboard386.c` *also* claims `0xA0` (`port_a0`). Two consumers of one port on the real machine.
+**Action:** I/O-dispatch hook (skill Technique 47) logging every `0xA0` access through POST — who
+writes what, when, and whether the Inboard shadow swallows a BIOS NMI-mask write or vice versa.
+**Falsified if:** the BIOS never touches `0xA0`, or the accesses are cleanly interleaved.
+**Emulator-side and cheap** — can run alongside the real-hardware steps.
+
+### 6. 🟠 GUI-stage issues — #3, #4, #6, #7
+**Gated on step 1**, which is what makes `desktop_screenshot` work. Until then these can only be
+debugged by photographing the screen.
+Once live: triage each, comment the lead on the issue, and **close the dead ends outright** — #7
+(setup hangs before Help files, reboot works around it) is the likely close-as-documented candidate.
+
+### 7. 🟠 Mach8 boot RAM test — issue #8
+Currently **worked around, not root-caused** (`AX = BX+1` at `C000:7B16/7B23/7B37`, shipped in #7749
+and labelled as such).
+**Test in cost order:** declared VRAM size mismatch → EEPROM/`SETMACH.EXE` "video test on boot"
+toggle not persisting → emulator's uninitialised-VRAM fill pattern.
+**Concrete first probe:** `02E8` read = **8514/A display status**. Compare emulator vs real hardware
+via COMrade's DOS port I/O (Technique 6). Note the 8514/A registers are sparse across four ranges:
+`02E8`, `06E8`, `0AE8`, `0EE8`.
+**Hex-patching the option ROM is LAST RESORT** — it diverges emulator from hardware, against the
+project's fidelity goal.
+
+### 8. 🔴 Revto486 — issue #9 (blocked, do not treat as quick)
+The vogons clue says the driver needs the CPU already in 386 protected mode with DOS in V86.
+`CONFIG.SYS` has it commented out and **no EMM386 at all** — so there is no V86 provider, which fits
+the clue exactly. **But** adding EMM386 walks straight into the unresolved `0128:009B` halt
+([[xt-emm386-halt-0128-wildjump-2026-08-03]]).
+**So the real first task is that EMM386 bug, not the driver.** Either clear it or find another V86
+provider. Budget accordingly.
+
+### 9. Cleanup
+Issue **#2** (`#` in place of `\`): the port list says where *not* to look — `0060-0063` are PPI and
+port `0x64` does not exist here, so this is a **layout/scancode** problem, not a controller one.
+`AUTOEXEC.BAT` already runs `keyb uk`. Start there.
+
+---
+
+## Honest assessment of what the new input actually buys
+
+**Likely to produce real fixes:** #5 (sound) — genuinely new mechanism with a free test. The
+`F000:FF53` change is a certain improvement, though it fixes nothing that was broken.
+
+**Newly *investigable* rather than fixed:** #3, #4, #6, #7 — COMR95 turns "photograph the screen"
+into live introspection, but does not itself diagnose anything.
+
+**New lead that did not exist before:** the `0x00A0` NMI-mask collision. Could be nothing; could
+explain emulator-vs-hardware divergence.
+
+**Not moved:** #9 is now understood to be *harder* than it looked, not easier. #8 has three
+hypotheses but no verified mechanism. Being clear about that is the point of the confidence key —
+the plan should not read as if everything is about to fall over.
+
+---
+
 ## Findings from inspecting the real CF card (mounted at `D:`, 2026-08-23)
 
 The card is the live real-hardware disk — `MS-DOS_6`, FAT, 2 GB, ~1.59 GB free, with `INBRDPC.SYS`,
