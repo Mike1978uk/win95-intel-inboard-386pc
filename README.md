@@ -70,12 +70,28 @@ at the center of the fix.
 
 ## Upstream
 
-The Inboard 386/PC hardware model has been submitted to the official 86Box project:
-**[86Box/86Box#7626](https://github.com/86Box/86Box/pull/7626)**. It's a minimal subset of
-`86box_full/` (just the device model and the small number of core-file timing/PIC/DMA fixes it
-needs) — see [`upstream-submission/`](upstream-submission/) for a standalone copy of exactly what
-was submitted. The emulator build linked above is still built from `86box_full/`, not from that
-PR — this repo's own fork is the fully-featured one to actually use.
+**The Intel Inboard 386/PC is now part of 86Box.** The hardware model was merged as
+**[86Box/86Box#7626](https://github.com/86Box/86Box/pull/7626)**, and a follow-up fixing three real
+defects in it is open as **[86Box/86Box#7749](https://github.com/86Box/86Box/pull/7749)**.
+
+What #7749 fixes, for anyone who tried the merged machine and found it broken:
+
+| | |
+|---|---|
+| **POST 101** | The machine shared `ibmxt_config`, whose default is a 1982-dated 5160 ROM. `INBRDPC.SYS` — the card's own required driver — genuinely cannot work with that revision; it checks a signature at `F000:E05B` the 1982 ROMs do not carry. Worse, it failed *silently*: the 1986 entries existed only in this repo's tree, so a `bios =` line naming one was not a valid option elsewhere, was ignored without warning, and fell back to the bad default. The machine now has its own BIOS list containing only the two compatible 1986 revisions. |
+| **386-class CPUs ran no fixes at all** | `cpu_set()` routes 386DX/386SX to `exec386_2386()`, and every Inboard POST fix-up lived only in `exec386()`. A plain 386DX — the CPU this card was actually sold with — hung in the Mach8 option ROM before the memory count. Now shared between both interpreter loops, gated on the card being present. |
+| **Double-throttled memory timing** | `cpu_waitstates` is dead on 486BL but live on 386DX, stacking on top of the Inboard's own bus-speed scaling. |
+
+This also resolves [86Box/86Box#7638](https://github.com/86Box/86Box/issues/7638), where the Inboard
+software reported all memory as "BAD" — same 1982-ROM cause.
+
+Full write-up of the submission, including the testing matrix and known limitations, is in
+[`docs/PR_description_inboard_post101_fix.md`](docs/PR_description_inboard_post101_fix.md).
+
+The submitted subset is a minimal slice of `86box_full/` (the device model plus the core-file
+timing/PIC/DMA fixes it needs) — see [`upstream-submission/`](upstream-submission/) for a standalone
+copy of what went up originally. The emulator build linked above is built from `86box_full/`, which
+carries the same fixes plus this project's debug tooling.
 
 ## Repository structure
 
