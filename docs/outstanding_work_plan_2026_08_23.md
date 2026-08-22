@@ -19,7 +19,7 @@ but no primary source. They are recorded as **hypotheses to test**, not facts. E
 
 ### 0a. Adopt Michal Necasek's `F000:FF53` suggestion — VERIFIED, do this first
 
-Necasek (2026-08-09) asked: *"if you need an IRET instruction for an interrupt vector to point to,
+Michal Necasek (2026-08-09) asked: *"if you need an IRET instruction for an interrupt vector to point to,
 why not use the one at F000:FF53?"*
 
 **Checked, and he is right.** Byte at `F000:FF53` is `CF` (IRET) in **both** supported ROMs:
@@ -30,7 +30,7 @@ why not use the one at F000:FF53?"*
 | 10JAN86 | `BIOS_5160_10JAN86_U18_…_F800.BIN` | `cf 1e e8 ba fa …` |
 
 Our current `[patchint68]` fix writes an IRET stub to physical `0x3C0` — **borrowing INT F0h's own
-4-byte vector-table slot as scratch code space** — then points INT 68h at it. Necasek's version is
+4-byte vector-table slot as scratch code space** — then points INT 68h at it. Michal Necasek's version is
 strictly better on every axis:
 
 - no injection of executable bytes into guest memory at all, just a vector write
@@ -39,14 +39,14 @@ strictly better on every axis:
 - 4 bytes written instead of 5
 
 **Action:** change the vector to `0000:01A0 = F000:FF53` (`53 FF 00 F0`), drop the `0x3C0` write,
-update the comment to credit Necasek, rebuild, re-verify one Win95 boot, push to #7749. Do it while
+update the comment to credit Michal Necasek, rebuild, re-verify one Win95 boot, push to #7749. Do it while
 the PR is under review rather than as a later follow-up.
 
 **Caveat to check during the rebuild:** the fix currently fires when `CS` first becomes `0x0EAF`.
 That timing logic is unchanged — only the vector target changes — so a single boot-to-desktop run is
 sufficient re-validation.
 
-### 0b. Reply to Necasek — treat as a deliverable of 0a, not an optional courtesy
+### 0b. Reply to Michal Necasek — treat as a deliverable of 0a, not an optional courtesy
 
 He gave us a correct, checkable improvement to a fix that was already public in a PR. Closing the
 loop with the actual outcome is the whole point of the exchange, so **0a is not done until 0b is
