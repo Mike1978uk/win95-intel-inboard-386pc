@@ -14,6 +14,103 @@ Source: distilled from `INBOARD_86BOX_PORT_PLAN.md` (2026-07-24 → 2026-07-29 i
 the 2026-07-31 repo-recovery session. See `memory/recovery_plan_2026_07_31.md` for the incident
 this was extracted from.
 
+## Complete Windows 95 boot fix inventory (XT + Inboard 386/PC), consolidated 2026-08-22
+
+This is THE canonical list of everything required to get Windows 95 (OSR1) booting to a working
+desktop on the `ibmxt_inboard386` machine profile in 86Box. It exists because this exact list was
+scattered across ~15 dated memory files, which cost real time to re-derive when porting fixes into
+a fresh upstream clone for a PR. **Read this before re-diagnosing a Win95 boot hang from scratch —
+check whether the symptom matches something already solved here first.** Update this table itself
+(don't just add another dated memory file) whenever a new required fix is found — this list should
+always be the current source of truth, not an archive.
+
+Two categories matter, because they interact with a fresh clone/PR differently:
+- **Emulator/code fixes** — live in 86Box's own C source (`386_dynarec.c` etc.). These must be
+  manually re-applied to any fresh clone of upstream 86Box; they will NOT be present just because
+  you have the right disk image.
+- **Disk-image fixes** — patches baked into the Windows 95 `.img` file itself (VxD/DRV binary
+  patches, a flipped byte in `INBRDPC.SYS`). These travel WITH the disk image regardless of which
+  86Box build boots it — if two builds share the same `.img` file, both already have these; they
+  are never a source of difference between builds and never need "porting" into emulator code.
+
+### Emulator/code fixes (must exist in `386_dynarec.c` unless noted)
+1. **Base PIC-IMR/DMA-refresh timing fix** — `dma_force_xt`/`pic_set_force_xt_imr_timing` wiring
+   in `device/inboard386.c`'s init. Already part of upstream 86Box mainline since PR #7626 merged —
+   a fresh clone has this for free, nothing to port.
+2. **`E362-E3AC` IRQ1-suppression self-test fix**, with the 2026-08-22 correction: exit on
+   `E3AE`/`E38E`/**`E3AD`** (not just the first two), and `in_negative_test` set ONLY on `E3AE`. See
+   the "RESOLVED, 2026-08-22" section below for the full story — this is the fix that closed `301`.
+3. **`E507` DMA-refresh status-flag force** (`AL |= 0x01` at `F000:E507`).
+4. **Mach8 PIT-readback delay-loop fix** — force the elapsed-ticks register past target at
+   `C000:0x7B37`/`0x7B23`/`0x7B16` (three known ROM-revision addresses; add a new one here if a
+   fourth ROM revision is ever encountered, following the same live-CS:PC-trace method).
+5. **Mach8 option-ROM waitstate exemption** (dated 2026-07-26 — easy to miss, it's NOT near the fix
+   above in the file's history even though both are Mach8-related): zero out
+   `io_waitstates`/`reg_op_waitstates`/`cpu_prefetch_cycles`/`cpu_mem_prefetch_cycles`/
+   `cpu_rom_prefetch_cycles`/`cpu_cycles_read(_l)`/`cpu_cycles_write(_l)`/`isa_cycles` for the
+   duration of `CS==0xC000` execution, restoring the real values the instant CS leaves 0xC000.
+   Without this, the Mach8 option ROM's self-test stretches from real-hardware-instant into
+   65-100+ real seconds, because this project's system-BIOS waitstate inflation gets wrongly
+   applied to the option ROM's own hundreds of I/O operations too.
+6. **Segment-650B / `INT 68h` wild-jump fix** (`patchint68`, dated 2026-08-04): the first time
+   `CS==0x0EAF`, write an `IRET` stub at physical `0x3C0` and point the `INT 68h` IVT vector
+   (`0x1A0`) at it. Without this, VMM32's real-mode VxD loader's uninitialized `INT 68h` call walks
+   off into the raw IVT as code and eventually wild-jumps into segment `650B` with bogus calling
+   context. **This one is easy to forget when porting** — it belongs to a completely different
+   investigation (Win95 keyboard/boot, not the 101/301 POST-error family), so it's not in the same
+   part of the file as the other fixes and won't turn up if you only grep for "301" or "101".
+7. **`kbc_xt.c` `blockedtimeout` self-heal** — bounded auto-clear of `kbd->blocked` (~50 poll ticks)
+   if nothing ever acknowledges the XT keyboard strobe via port 0x61 bit 7. Needed because some
+   guest keyboard handlers (written assuming AT-style hardware) never perform this XT-only
+   acknowledgment.
+8. **`cpu_table.c` 83.5 MHz CPU speed table entry** (`486BL3`/`83.5`) and **`m_xt.c` LPT device**
+   addition — both omitted from PR #7626's file list, straightforward to re-port (small, self-
+   contained diffs).
+9. **`snow_enabled = 0`** in the video device's config section — NOT a code fix, a config
+   recommendation, only relevant for plain-CGA setups (Mach8/VGA setups don't need it). 86Box's CGA
+   snow simulation is accurate on its own; it just desyncs with this project's timing overrides.
+
+### Disk-image fixes (already baked into any `osr1_XT_customvkd_test.img`-family file — never port these into emulator code)
+1. **`INBRDPC.SYS` self-test-skip patch** (`vxd-patches/osr1/INBRDPC_selftest_skip.SYS`, file offset
+   `0x6BA` flipped `3C00`→`FFFF`) — without this, boot stalls at "Please wait while Setup updates
+   your configuration files..." in a redundant loop in the `0206:06xx` self-test wrapper. WITH it,
+   that same region is visited only briefly (~1 real second, a single legitimate ~2000-iteration
+   A20-toggle burst) and boot proceeds to the Startup Menu / GUI.
+2. **Custom `VKD.VXD`** built from Microsoft's 1995 Windows 95 DDK sample source — removes
+   `VKD_Int_09`'s check of port 0x64's AT-only "data available" bit before reading port 0x60 (the
+   Inboard has no real 8042, so that bit never sets, silently discarding every keystroke otherwise).
+3. **`KEYBOARD.DRV`** patch (file offset `0xf14`) — an independent, separate port-0x64 check inside
+   Windows' own keyboard driver, needed alongside the VKD fix (Windows 3.11 needed both `IBKBD.DRV`
+   and `IBVKD.386` for the same underlying reason — same pattern here).
+4. **Headless keystroke-injection capture gate** — not a boot requirement per se, but needed for
+   *unattended/scripted* testing specifically: see Technique 9 (`inject_key.txt`) for how to send
+   real keystrokes into a running VM without a physical keyboard.
+
+### Known OPEN issue — do not confuse this with "the boot recipe isn't fully known"
+There is a genuinely unresolved, separate problem, first found 2026-08-22 (this project's OWN fork
+`local` vs. a fresh upstream clone, NOT anything to do with Windows 95 specifically): the two builds
+execute a different number of raw CPU instructions through an early BIOS timing-calibration loop on
+byte-identical ROM, traced to a register (`AX`) already differing only ~30 instructions after CPU
+reset, for a reason never found. This is NOT part of the boot recipe above — every item in that list
+is fully solved and, as of 2026-08-22, confirmed present in both `local` and a from-scratch upstream
+clone. This open issue is a CPU-core-timing mystery that can make ANY sufficiently timing-sensitive
+self-test loop (not just the ones already fixed above) take a different number of iterations between
+the two builds — up to and including looking like a hang when it's actually just taking far longer
+than expected. Concrete, never-executed next step: dump `pit_const` (the actual cycle-to-tick
+conversion value, `dev->pit_const` in `pit.c`) for both PIT counters, at the same early instruction
+index, in both builds — if it differs despite identical `cpu_busspeed`/waitstate inputs, that pins
+the mechanism.
+
+### For a future OSR2 attempt
+The disk-image fixes above (self-test-skip, VKD.VXD, KEYBOARD.DRV) were derived specifically against
+OSR1's files/offsets — OSR2 will very likely need its own equivalent patches at different file
+offsets (OSR2 uses a different `VKD.VXD`/`KEYBOARD.DRV` build), even though the underlying root
+causes (missing port-0x64 "data available" bit, uninitialized `INT 68h` vector, INBRDPC.SYS self-
+test redundancy) should be identical in kind. The emulator/code fixes above are OS-version-
+independent and should apply unchanged. Technique 35 (read the real DDK source rather than guessing
+at binary offsets) is the proven path for re-deriving the VKD/KEYBOARD.DRV patches against OSR2's
+actual files.
+
 ## Core principle: live evidence over static disassembly or guessing
 
 Every fix in the port plan that stuck was found by tracing what the emulator actually did at
@@ -1039,3 +1136,697 @@ yet root-caused *why* the reboot helped (worth investigating if it recurs), but 
 for this specific class of "everything traces correctly, then the boot just doesn't visibly proceed"
 symptom late in first-boot Setup completion: try the cheap, reversible recovery step (reboot) before
 spending investigation budget on a fresh live-tracing session.
+
+## Technique 41: when a PR/submission strips "debug hooks" by excluding whole files, it can silently drop real fixes tangled inside them — diff every file with this project's fingerprints, not just the files the submission's own file list says it touched
+
+A submission built by hand-selecting which files to include (because the rest "looked like debug
+scaffolding") is a different, riskier operation than stripping debug lines from files that *are*
+included. A file full of `fprintf`/trace blocks can also contain a handful of genuinely necessary
+behavioral fixes woven in between them - excluding the whole file because it reads as debug-heavy
+silently drops those too, with no error, no warning, and a merged PR that looks complete.
+
+**2026-08-21/22 case**: `86Box/86Box#7626` (this project's own Inboard 386/PC submission) was
+scoped by an earlier session to "the device model and the small number of core-file timing/PIC/DMA
+fixes it depends on," explicitly excluding "debug/tracing hooks" - see `upstream-submission/
+README.md`'s own description. This wholesale exclusion silently dropped three files containing real,
+load-bearing fixes that happened to also carry heavy trace instrumentation: `cpu/386_dynarec.c` (the
+101 self-test's two follow-up fixes - IRQ1 suppression across a specific BIOS self-test window, and
+forcing a DMA-refresh status bit the guest's own read-and-clear check would otherwise miss - plus a
+whole family of Mach8/ATI option-ROM PIT-readback delay-loop fixes), `cpu/cpu_table.c` (the
+hand-calibrated 83.5MHz Blue Lightning speed grade, with its own tuned `mem_read_cycles`/
+`atclk_div`, interpolated between the stock 75/100 entries - omitting it makes 86Box silently snap
+any request for 83.5MHz to the untuned 100MHz entry instead), and `device/kbc_xt.c` (a bounded
+self-heal for a stuck XT keyboard-latch flag). **Diagnostic method that found all three**: `grep -rl
+"2026-07-2[0-9]\|2026-08-0[0-9]"` across the whole local source tree for this project's own
+dated-comment convention, cross-referenced against `gh pr diff <PR#> --name-only` - any file with
+project fingerprints that *isn't* in the PR's file list is a candidate for exactly this failure
+mode, regardless of how debug-heavy it looks.
+
+**Practical fix pattern once found**: extract just the non-`fprintf`/non-`static ... _hits`-counter
+lines (a `grep "^[<>]" diff_output | grep -v "fprintf\|fflush\|static.*_hits\|..."` filter works
+well for a first pass), verify each surviving hunk actually mutates guest-visible state (register
+writes, `picintc()`/`device_add()` calls, table entries) rather than just observing it, and port
+only those hunks - not the whole file - into a clean patch.
+
+## Technique 42: don't assume upstream drift explains a regression just because a shared subsystem has a large diff — check whether the specific mechanism you depend on is still wired correctly before writing off the whole subsystem as "moved on without us"
+
+A large diff in a shared core file (hundreds+ lines) looks alarming and invites a "upstream rewrote
+this, our fixes don't apply to the new reality" conclusion. Before accepting that, check the *exact*
+call chain your own fix depends on, function by function, in the current upstream version - a large
+diff is very often dominated by an alternate code path gated behind a build flag (dead weight, not
+active), or general unrelated improvement work, with the actual integration point your fix needs
+either untouched or (better still) already accounted for by an upstream maintainer.
+
+**2026-08-21 case**: `src/pit.c` showed a 1189-line diff against this project's fork - an entire
+`#ifdef NEW_PIT` alternate PIT implementation (`ctr_set_out`/`ctr_decrease_count`/`ctr_tick`, a
+different counter model) that doesn't exist in the older fork at all. This looked like a serious
+architectural divergence worth treating as a probable root cause for a boot failure under
+investigation. Checking the actual commit history (`gh api repos/86Box/86Box/commits -f
+path=src/pit.c`) instead of just the diff size found the real story: upstream introduced that
+overhaul on 2026-07-18, found it broke too much, and reverted it back close to the old behavior on
+2026-08-04 - and on 2026-08-06, the exact day this project's PR merged, a maintainer commit titled
+"Make the PIT use the correct DMA refresh function depending on the DMA type in use and fix a
+warning in the InBoard 386 code" applied a compatibility fix to *both* PIT code paths, keyed
+directly off this project's own `dma_xt8237_active()` (which the same commit changed from `static`
+to exported specifically so `pit.c` could call it). The large diff was mostly inert alternate-path
+code plus general unrelated work; the one thing that mattered for this project was not only intact,
+it had been proactively kept compatible by upstream. **Lesson**: `gh api .../commits -f
+path=<file>` (commit history, not just a diff) is cheap and can turn "this looks scary" into either
+a confirmed real regression or a confirmed non-issue in a couple of minutes - check it before
+spending a debugging session on a subsystem-level theory.
+
+## Technique 43: when testing two builds against the same disk image, give each its own config file - config auto-normalization can silently corrupt the *other* build's settings
+
+86Box rewrites `.cfg` files on every load, filling in normalized/default values including, for a
+machine's own `device_config_t` section, a header matching the *currently loaded binary's* exact
+device `.name` string (Technique 4). If two builds with different internal device names (e.g. after
+an upstream rename) are run alternately against the same physical config file, each run's
+auto-rewrite can silently break the *other* build's next run - a device-specific key like
+`enable_5161` that was correctly set stops resolving the moment the section header no longer matches
+whichever binary is about to read it, and 86Box falls back to that key's compiled-in default with no
+error. This reproduces a previously-fixed bug (see the `enable_5161`/section-name case under
+Technique 4) for a completely different, self-inflicted reason - not a code regression at all, just
+shared test-harness state.
+
+**2026-08-21/22 case**: alternating a local build (`ibmxt_inboard386_device.name = "IBM XT (1982) w/
+Intel Inboard 386/PC"`, pre-rename) and a fresh upstream clone (renamed by a maintainer to `"IBM XT
+(Inboard 386/PC)"`) against one shared `86box.cfg` produced a confusing, seemingly-random pair of
+POST errors (`1801` then `301`) on *both* builds at different points, including the previously
+"confirmed working" local build - purely because whichever build ran last had rewritten the section
+header to its own name, silently defaulting `enable_5161` back to enabled (`1`) for the other one on
+its next run. **Fix**: maintain one config file per build/binary under test (a cheap `cp` + `sed` on
+the section header line), never share one file across builds with different internal device names -
+and if a "working" build suddenly shows a previously-fixed symptom, check whether something *else*
+touched the same config file since its last known-good run before assuming a real regression.
+
+## Technique 44: static ROM-file disassembly can desync from live execution in ways that look like a completely different, coherent-but-wrong routine - not just garbage bytes - re-verify with a live dump before trusting a "this address is X" conclusion built on the static file
+
+Technique 16 already warns that static disassembly can desync across embedded data and produce
+plausible-but-wrong decodes. It's tempting to assume this only produces obviously-broken output
+(garbage opcodes, decode errors) that's easy to catch. It can instead produce a *different, entirely
+self-consistent, plausible-looking* routine at the same address - passing every sanity check a static
+read alone could apply, and only contradicted by direct comparison against live CS:PC behavior (e.g.
+a live trace showing the address participating in a real multi-address loop, when the static decode
+at that address shows straight-line/padding code that couldn't produce a loop at all).
+
+**2026-08-22 case**: two addresses found via live `[modecheck]` heartbeat tracing (`F000:E69F`,
+`F000:E842`, both part of a live-observed keyboard-wait/RAM-test investigation) decoded, from the
+*static* ROM file at the address math's own file offset, as pure `int3` (`0xCC`) padding - unused
+filler, not real code. But the live CS:PC trace showed genuine branching behavior at exactly those
+addresses (`E842`→`E843`→`E845`→`E849`→`E84D`→ back to `E842`, not a monotonic int3-by-int3 crawl),
+which is structurally impossible if the live bytes really were padding. A live one-shot dump
+(`mem_readb_phys()` loop around the target address, written to a file, same pattern as the existing
+`vram_dump.txt`/Technique 16 tooling) at the *exact* moment `CS:PC` reached each address, disassembled
+with capstone, revealed the real live content - a completely different, coherent, correct BIOS
+routine (the standard `INT 16h`-style keyboard-buffer poll at `E842`; a `AAAA`/`5555`-pattern RAM
+verify loop at `E69F`) that the static file's bytes at the same nominal offset never matched at all.
+**Root cause not yet determined** (why the static U18 file and the live-mapped content disagree this
+severely at this address - candidates: wrong file-offset math for this specific BIOS revision's
+chip-select boundary, a shadow-copy/relocation this project's own `bios_load_aux_linear` two-chip
+handling does that the naive offset math doesn't account for, or the "two 32KB chip" split boundary
+being different than assumed). **Lesson**: any time a live CS:PC address's *static* disassembly is
+used to justify a conclusion (a branch is "the error path," a loop's shape, anything beyond "there is
+some byte here"), re-verify with an address-triggered live dump before trusting it, even when the
+static decode looks perfectly plausible on its own - "plausible" is not the same as "correct" here,
+and this file/BIOS combination has now demonstrated it can fail silently in both directions.
+
+## Open investigation, checkpoint 2026-08-22: PR #7626's submission gap, "301" POST message, and the real ROM-offset mismatch
+
+**Status**: not resolved this session. Real, validated progress made (see Techniques 41-44 above),
+but the specific trigger for a `301` POST message (appearing on a fresh 86Box/86Box upstream clone
+plus the three files from Technique 41, using this project's own real hardware configuration -
+Mach8, Trantor T130B, `pristine.img`, `cpu_speed=83500000` - but confirmed **absent** on this
+project's own full local build under an identically-matched config) was not found.
+
+**What's confirmed so far**:
+- The three-file gap (Technique 41) is real and independently worth submitting upstream regardless
+  of `301` - it demonstrably fixes the original PIC-IMR/DMA-refresh POST-101 region (confirmed via
+  live CS:PC tracing showing clean progression through the exact addresses that region's fixes
+  target) and a genuine, previously-unknown third Mach8 PIT-delay-loop ROM-revision address
+  (`0x7B16`, alongside the already-known `0x7B37`/`0x7B23`) - found and fixed live this session,
+  confirmed to unblock what had been a genuine, non-progressing freeze (`[modecheck]` showed
+  `CS:PC` completely unchanged for 28+ real seconds before the fix, cycling normally after).
+- `301` is **not** the standard "keyboard hardware self-test failed" code taken at face value - the
+  address it leads to (`F000:E842`) is a completely generic, shared "wait for any keystroke" BIOS
+  routine (`INT 16h`-style buffer poll), not something specific to a keyboard fault. Something
+  upstream of it decided to print an error and call this shared routine; that decision point is not
+  yet found.
+- Every XT-keyboard-specific source file (`kbc_xt.c`, `keyboard.c`, `keyboard_xt.c`) is confirmed,
+  via full diff against the fresh clone, functionally identical (Technique 41's `blockedtimeout`
+  aside) - so this is not a missing keyboard-emulation fix in the same shape as the other three.
+- The `enable_5161`/config-section bug (Technique 43) is a real, independently-confirmed recurrence
+  of an already-fixed historical bug, fully explains a *different* symptom (`1801`) that was
+  initially conflated with `301`, and is fully resolved by using correctly-matched per-build config
+  files - not the remaining `301` question.
+- Static disassembly at the two live-traced addresses (`E69F`, `E842`) does not match live content
+  at all (Technique 44) - any further static-file-based reasoning about this specific BIOS ROM
+  should be treated as unreliable until the offset mismatch itself is understood.
+
+**Next step, not yet taken**: the actual decision point that leads to printing `301` and jumping to
+the shared wait-for-key routine has not been located. The live-dump-and-disassemble technique
+(Technique 44) works and should be repeated backward from `E842`'s known live entry point (a
+[seg650Bcaller]/Technique 29-style backward trace, live-dumping the *actual* predecessor rather than
+trusting the static file) rather than continuing to guess forward from static-file addresses that
+have already been shown unreliable for this ROM.
+
+**Later same session - important correction and a new technique (45) below**: confirmed
+`enable_5161=0` genuinely resolves correctly and the device is genuinely not added (direct
+`fprintf` inside `machine_ibmxt_inboard386_init()` itself, not inference from config content) -
+Technique 43's fix is real and holds. A first attempt at pinpointing `301`'s exact trigger via a
+literal-text-in-VRAM scan (mirroring the historical `1801` technique) landed on `F000:E418` - the
+5161 test's own entry point - but this was a false positive caused by the scan's own throttle
+(checking video RAM only every 500 real instructions is far too coarse a resolution for a
+backward-trace window of only ~200 raw ring-buffer entries; by the time the coarse scan noticed
+"301" was already on screen, live execution had moved 0-500 instructions further on, so the ring
+buffer's tail no longer reached back to the real trigger at all). Tightened to every-instruction,
+then throttled to every-20-instructions as a compromise - and hit Technique 45 below before getting
+a clean capture.
+
+## Technique 45: an added detection/trace hook can itself be heavy enough to change which bug reproduces - don't trust a trace captured under instrumentation load until reproduced with a light one too
+
+A live trace hook that's cheap in isolation (Technique 1/29's guidance) can still become expensive
+enough, once several are stacked together in the same per-instruction hot path (a raw undeduped
+ring-buffer append, a multi-hundred-cell VRAM literal-text scan, a modecheck heartbeat, prior
+fix code all sharing the same loop), to measurably slow real-time-to-emulated-time throughput on an
+interpreted CPU core. Since several of this project's own fixes (Technique 41's PIC-IMR/DMA-refresh
+timing fix chain in particular) are themselves calibrated against real-time-vs-instruction-count
+ratios, sufficiently heavy added instrumentation can push that ratio back into the failure regime
+the fix was built to correct - resurfacing the *original* bug the instrumentation was added to
+investigate a *different, downstream* symptom of, not because the fix is wrong, but because the act
+of observing it closely enough disturbed the exact timing condition it depends on.
+
+**2026-08-22 case**: after tightening a VRAM-literal-scan hook (added to backward-trace `301`) from
+a 500-instruction throttle to every-instruction (to fix Technique 44's coarse-resolution false
+positive), the *same* build, same config, produced a plain `101` on the next run instead of `301`
+or a clean boot - the original PIC-IMR/DMA-refresh self-test failure this session's Technique 41 fix
+was built to resolve, reappearing intermittently under heavier-than-normal per-instruction overhead.
+**Lesson**: when stacking multiple live-trace hooks for a deep investigation, periodically verify
+the target machine still exhibits its *expected* baseline behavior (with lighter/throttled
+instrumentation, or none) before trusting a trace captured under the heaviest instrumentation load -
+if the symptom itself changes between instrumentation levels, the heavier instrumentation is now
+part of the experiment, not a neutral observer of it, and any conclusion drawn purely from that run
+needs re-verification under lighter load before it's trusted.
+
+## Technique 46: hook the single shared choke point for a whole category of runtime behavior (not the guest CS:PC) to compare two builds' *emulator-side* behavior directly, when guest-code tracing has stopped narrowing things down
+
+When exhaustive source-file diffing between a working and a non-working build comes back clean
+(every relevant `.c`/`.h` file, every config value, every ROM checksum identical) and guest-side
+CS:PC tracing (Technique 1/29/44) keeps landing on plausible-but-inconclusive addresses, step back
+one level: hook the single shared *emulator-side* function that some whole category of runtime
+behavior funnels through (e.g. `device_add_common()` in `device.c`, the one function every
+`device_add*()` variant calls internally) and log its arguments across a full startup, for both
+builds, to the same file format - then a plain `diff` of the two logs is a direct, unambiguous
+answer to "does this build take a different code path here at all," with none of the interpretation
+burden that guest-instruction tracing carries (Technique 44's static-vs-live gotcha doesn't apply -
+this is host C code, not guest ROM bytes).
+
+**2026-08-22 case**: after config, ROMs, and every plausibly-relevant source file were confirmed
+identical between a working local build and a non-working upstream-clone-plus-fixes build, and two
+rounds of guest CS:PC backward-tracing (Technique 44) failed to pin down `301`'s trigger, a single
+`fprintf` added to `device_add_common()`'s entry (logs `dev->name` + `inst`) on both builds,
+diffed directly, showed **zero differences** - identical 19-device list, identical order, identical
+instance numbers. This is a strong, cheap, unambiguous negative: no device is being silently
+skipped, added out of order, or added with different parameters between the two builds. Combined
+with the exhaustive file-diff work, this shifts the most likely remaining explanation away from "a
+missing code path" entirely and toward Technique 45's timing-margin hypothesis (identical code,
+different real-time performance characteristics due to accumulated debug-hook overhead in one
+build and not the other) - not confirmed by direct measurement yet, but now the best-supported
+remaining explanation after ruling out every discrete code-path difference this technique and
+Technique 41-44 could check.
+
+**General lesson**: this "hook the shared host-side choke point, diff the log" pattern generalizes
+well beyond device init - the same approach would work for I/O port registration order
+(`io_sethandler`), timer registration (`timer_add`), or any other startup-time API with a single
+funnel function, whenever the open question is "do these two builds do the same *host-side* setup
+work," as distinct from "do they execute the same *guest* code" (which needs Technique 1/29/44's
+CS:PC-based tools instead).
+
+## Checkpoint, end of 2026-08-22 session: `301` is deterministic and has a strong, specific, dated lead - `vid_ati_mach8.c`'s independent upstream evolution
+
+**Confirmed 100% reproducible**: three consecutive clean runs (light instrumentation, `86box_clone.cfg`,
+real hardware config) all produced `301` at effectively the same point in boot. This is a
+deterministic bug at this instrumentation level, not a race condition - a much more tractable
+target for a focused session than an intermittent one would have been.
+
+**Exhaustively ruled out** (all confirmed identical or fixed, see Techniques 41-46 above): every
+config value, every ROM checksum (system BIOS, Mach8 ROM - both `roms/video/mach8/BIOS.BIN` and
+`roms/video/ATI_MACH8.bin` match the real `113-11504-002` dump), the single shared disk image file
+(not a copy), `machine.c`, `machine_xt_common_init`, the full device-init call order/names/instances
+(Technique 46 - zero diff across 19 devices), and every XT-keyboard-specific file (`kbc_xt.c`,
+`keyboard.c`, `keyboard_xt.c`). `inboard386.c`, `dma.c`, `pic.c`, `cpu.c`, `cpu.h`,
+`x86_ops_io.h`/`x86_ops_jump.h` all functionally identical. `hdc_xtide.c` byte-identical.
+
+**Best lead, not yet pursued**: `src/video/vid_ati_mach8.c` was never touched by this project (no
+project fingerprints, not in PR #7626's file list) but has had substantial, *targeted* upstream
+development since this project's fork point - not generic churn. Most notable:
+`e19b15a7` (2026-08-17, five days before this session): "Actually enable the 8514/A/XGA side when
+prompted to when going to port 0x3c3 of the VGA" - a change to exactly when/how the card's
+accelerator side activates, in the same subsystem this session's `0x7B16` PIT-delay-loop fix (self-
+test entry, self-test exit into 8514/A mode) directly interacts with. Also relevant: `5f77486b`
+(2026-04-24, "Large overhaul in the mode switches of the Mach8/32") and `fc7a7bcd` (2026-05-24,
+"9001st fix for mode switches"). **Next step for a future session**: pull `e19b15a7`'s actual diff
+(`gh api -H "Accept: application/vnd.github.v3.diff" repos/86Box/86Box/commits/e19b15a7`) and check
+whether it changes behavior around the exact `0x7B16`-family self-test window, using the same
+backward-CS:PC-trace (Technique 44) and device-choke-point (Technique 46) tools already proven this
+session - this is a concrete, bounded starting point, not a fresh open-ended search.
+
+**Timing-margin hypothesis (Technique 45) status**: still plausible but now secondary to the
+`vid_ati_mach8.c` lead above, since that lead is a specific, dated, targeted code change in the
+directly-relevant subsystem, while the timing-margin theory remains unconfirmed by direct
+measurement. Worth keeping in mind but not the first thing to chase next.
+
+**BREAKTHROUGH, same session, after the checkpoint above**: `301` is confirmed to have nothing to
+do with Mach8/8514A at all - reproduced identically with plain CGA (`gfxcard = cga`, everything
+else in the config unchanged), ruling out the `vid_ati_mach8.c` lead above entirely. This actually
+simplified the trace enormously (no Mach8 option-ROM code interleaved).
+
+**Root string/call-chain found, via the technique this session kept re-deriving (hook the actual
+print subroutine, not the symptom-in-VRAM)**: the BIOS's generic "print CS:SI until 0x0A" routine
+lives at `F9CA-F9D7` (loops: read `cs:[si]`, `inc si`, `push ax`, `call 0xF99C` (the true character-
+output primitive), `pop ax`, `cmp al,0xA`, loop until linefeed). Hooking this routine's *entry*
+(not the delayed VRAM-scan symptom, which kept landing on unrelated later code - Technique 44's
+lesson) with a small always-append raw ring buffer gave a clean, exact backward trace to the true
+first entry: `E3B7 -> E3D7 -> E3DA -> E3DB -> F9A9 -> F9CA`, with `SI=0xEC4C` pointing at a literal
+`" 301\r"` string embedded in the ROM at that exact offset (confirmed live, not from the static
+file - matches character-by-character with the actual `f99c_hits` print log: ' ','3','0','1',CR).
+
+**This is the exact same E3A6-E3DE self-test region already investigated in this project's own
+history** (the port-0x61 pulse / port-0x60 readback "keyboard click-type test", previously
+concluded to be a false lead for `1801` because that investigation's specific run showed the JE at
+`E3D2` being taken, i.e. passing). This session's run reaches the print via `E3D7`/`E3DB` instead -
+consistent with the *other*, previously-undiagnosed branch of the same test actually firing this
+time. **Not yet fully closed**: the exact register/state difference that makes this branch trigger
+now (vs. passing historically) hasn't been isolated - next step is a register dump right at `E3D2`
+(the actual `JE` decision point) on this exact config, comparable against the historical live-traced
+"AL=0, JE taken" result, to see what differs. Given the extensive Technique 41-46 elimination work
+already done (config/ROMs/every plausible file confirmed identical), the remaining candidate is
+almost certainly *upstream state* at the exact moment this check runs - e.g. residual keyboard
+controller/PPI state left over from something earlier in POST behaving subtly differently - not a
+missing fix in a file this session hasn't already checked.
+
+**Immediate next step for a future session**: hook `CS:PC==0xF000:0xE3D2` (the `JE` itself) and log
+`AL`/flags there directly, on this exact `86box_clone_cga.cfg` config, then compare against what a
+clean run of the local working build shows at the same address (same technique, same config,
+already-proven infrastructure - `rawring`-style small ring buffer + one address-triggered dump, no
+new methodology needed, just point it at `0xE3D2` instead of `0xF9CA`).
+
+## RESOLVED, 2026-08-22 (later the same day): `301` was a genuine bug in this project's OWN ported
+## fix, not a missing upstream fix or CPU-emulation mystery - full root cause below
+
+Everything above this point in the `301` investigation (the `E3D2`/`E080`/`CX`-residual-value
+chase, the timing-ratio hypotheses, the exhaustive file-by-file diffing) was real, valid
+elimination work, but it was chasing the wrong layer. The actual bug was much simpler and was
+found by going back to first principles: **is the ported self-test fix's own exit-condition
+address list actually complete for this exact ROM path?**
+
+**Root cause**: the `E362-E3AC` IRQ1-suppression fix (`in_irq_selftest`) only treated landing on
+`F000:E3AE` or `F000:E38E` as "self-test passed, stop suppressing IRQ1". A raw, non-deduped,
+per-instruction trace (Technique 49 below) showed this exact run's real passing path lands on
+`F000:E3AD` instead - one byte adjacent, almost certainly a data-dependent micro-branch a few
+instructions earlier resolving to a slightly different but equally-valid "passed" address. Since
+`0xE3AD` was never in the check, `in_irq_selftest` (and its `picintc(2)` IRQ1 suppression) **never
+cleared for the rest of execution** - silently breaking keyboard/IRQ1 delivery from that point on,
+eventually surfacing as the `301` keyboard-error POST code much later in boot. A second, identical-
+class bug was immediately hiding behind the first: once `E3AD` was accepted, the follow-on
+`in_negative_test` phase was being wrongly entered too (original logic: enter it whenever exiting
+via anything other than `E38E`) - live trace showed `E3AD`'s own continuation never touches the
+negative-test's own exit address (`E3C6`) at all before calling into an unrelated subroutine, so
+`E3AD` needed to be treated like `E38E` (no negative phase), not like `E3AE`.
+
+**The fix** (in `386_dynarec.c`'s `E362-E3AC` self-test block):
+```c
+if ((CS == 0xF000) && ((cpu_state.pc == 0xE3AE) || (cpu_state.pc == 0xE38E)
+                        || (cpu_state.pc == 0xE3AD))) {
+    in_irq_selftest  = 0;
+    in_negative_test = (cpu_state.pc == 0xE3AE);   /* NOT "!= 0xE38E" */
+}
+```
+
+**Confirmed working live**: clone build (fresh upstream + all ported fixes + this correction) no
+longer shows `301`. Execution proceeds from what had been a permanent stall (previously capped at
+~21M instructions, stuck forever) out to 68M+ instructions, reaching realistic late-boot device
+ports (COM2, keyboard controller command port 0x64, DMA page register) never touched before, and a
+POST-completion beep was heard. A separate, pre-existing, already-documented CGA text-rendering
+glitch (garbled/interleaved on-screen text, data confirmed fine underneath) remains and is
+unrelated to this fix.
+
+**Why this class of bug is worth remembering**: when re-deriving/porting an address-gated self-test
+fix from a working reference build, the reference build's own behavior can silently blind you to
+alternate-but-equally-valid landing addresses your reference never happened to take. The original
+author's local build always lands on `E3AE` (confirmed via its own log), so the fix was written to
+check only that - never anticipating an adjacent address on a differently-built binary. **Don't
+assume an address-gated fix's exit-condition list is complete just because it was "confirmed
+working" on one specific build/config** - verify it against a live raw trace on every build/config
+combination you actually intend to ship for, especially after a big upstream rebase.
+
+## Technique 47: "the Holmes method" - resolve which exact device source files are touched during
+## boot by hooking the I/O dispatch layer, not by guessing from a whole-tree diff
+
+When a whole-tree diff between two builds turns up dozens of differing files and it's unclear which
+ones are even reachable during the boot phase in question, don't keep guessing address-by-address -
+directly instrument the shared I/O dispatch choke point (`io.c`'s `inb()`/`outb()`, all byte/word/
+dword call sites) to log every distinct device-handler **function pointer** the first time it's
+invoked. Since the running process's load address is ASLR-relocated and won't match what `nm`/
+`addr2line` know from the static `.exe`, also log the *runtime* address of the logging function
+itself once - `nm <exe> | grep <that function>` gives its file-static address, and
+`runtime - static = slide`; subtract that slide from every other logged address before calling
+`addr2line -f -C -e <exe> <adjusted-address>`, which resolves straight to `function_name
+file.c:line`. This needs only the debug symbols already present in a normal `-g` build - no
+coverage/profiling rebuild required - and gives a precise, unguessed map from "this port got
+touched" to "this exact source file is involved."
+
+**Caveat proven this session**: comparing the resulting touch-lists by *wall-clock time* is
+misleading if the two builds carry different amounts of per-instruction debug overhead (one much
+heavier than the other runs slower in real seconds for the same amount of guest progress) - a
+"only touched in build X" conclusion from a fixed real-time window can be pure timing skew, not a
+real behavioral difference (confirmed by re-testing with a much longer window and watching the
+"only in X" file eventually appear in the other build too). Always tag entries with an instruction-
+count index (Technique 48) instead of wall-clock time before trusting a "file only touched in one
+build" conclusion.
+
+## Technique 48: a global, unconditional per-instruction counter makes cross-build comparisons
+## immune to relative execution-speed differences
+
+Add one `uint64_t` global (e.g. `holmes_instr_count`), incremented once per guest instruction at a
+single fixed point in the interpreter's hot loop, declared in the same file as the interpreter and
+`extern`'d wherever else needs it (e.g. `io.c` for Technique 47's touch log). Tag every diagnostic
+log line with its current value instead of (or alongside) wall-clock time. Two builds with wildly
+different real-time execution speed (due to different accumulated debug-hook overhead, different
+optimization levels, whatever) can then be compared at genuinely equal amounts of guest progress -
+this is what actually made Technique 47's file-touch comparison trustworthy, and what let this
+session directly measure where two builds' instruction counts diverge (and by how much) at any
+given milestone, independent of how many real seconds each build took to get there.
+
+## Technique 49: a RAW (non-deduped), index-aligned per-instruction trace starting from a *known-
+## identical* entry point finds the exact first divergent instruction - dedup'd traces can't
+
+The existing dedup-on-change ring-buffer/forward-trace techniques (Technique 1/29 and this
+session's `[forwardtrace]`) are excellent for surveying a large instruction range cheaply, but they
+throw away exactly the information needed to find a single divergent instruction: consecutive
+repeats of the same address collapse to one entry, so two builds' dedup'd traces can drift out of
+alignment the moment ANY loop runs a different number of iterations, making a line-by-line diff
+meaningless past that point. When two builds are confirmed to have byte-identical register/flags
+state at some fixed entry address (verified separately first), instead log every single instruction
+UN-deduped, indexed by a simple incrementing counter (not `holmes_instr_count`, a fresh per-capture
+one), for a fixed bounded window (a few thousand is usually enough) starting at that entry point, in
+both builds, and diff the two logs directly by index. The first index where `CS:PC` (or any register
+you're tracking) differs is the exact, unambiguous first divergent instruction - no guessing, no
+address-offset math. This is what found both the `E3AD`-vs-`E3AE` landing-address mismatch (Technique
+above) and the `F9CA`-vs-`F40F` wrong-print-routine-address false assumption earlier the same
+session. A repeated single address in this raw trace (e.g. `E37C` or `FA31` appearing hundreds of
+times in a row) is the unmistakable signature of a `REP`- or `LOOP`-based instruction whose `PC`
+doesn't advance until its internal counter reaches zero - don't mistake it for a hang without
+checking whether it eventually terminates within your capture window.
+
+## Technique 50: forcing register/CX values at a fix's own entry point to "known-working" values is
+## a fast, cheap way to falsify (not just support) a "wrong input state" hypothesis
+
+Before spending more time hunting for *why* a register differs between builds, just force it (and
+anything else suspected) to the known-good value at the exact address in question, address-gated,
+same pattern as this project's other self-test fixes, and rerun. If the downstream outcome doesn't
+change AT ALL (same instruction count reached at the next milestone, same failure mode), that's
+strong, cheap, direct evidence the forced register(s) were never actually causally relevant to the
+downstream divergence - redirecting effort away from a plausible-looking but wrong lead much faster
+than continued static reasoning would. This session forced `AX` at `F000:E080` and separately forced
+`AX`/`CX`/`SI` at `F000:E362` to match the known-working build exactly; neither changed the outcome
+at all, which correctly redirected the investigation away from "wrong register content" and toward
+"wrong exit-condition address" (Technique 49's finding) - the actual root cause.
+
+
+## ⚠️ CRITICAL, 2026-08-22: the IBM XT 1982 BIOS ROM is INCOMPATIBLE with the Inboard 386/PC —
+## and the wrong ROM can be selected SILENTLY. Check this FIRST on any Inboard boot failure.
+
+**This one root cause burned an entire multi-hour session** in which a fresh upstream clone build
+"mysteriously" ran POST faster than this project's own working build, then hung booting Windows 95,
+while every timing/config/device audit came back byte-identical. It was not a timing bug at all.
+
+### The incompatibility (must be documented for 86Box users)
+`INBRDPC.SYS` v1.1 (02/17/89) — the Inboard's own required DOS driver — hardcodes a 3-byte reference
+signature at a fixed BIOS offset (`F000:E05B`) as part of its ROM-shadow self-verification. **The
+1982-dated 5160 ROMs do not contain that signature at that offset.** This is a genuine ROM-revision
+mismatch, not an emulation bug (originally documented in `INBOARD_86BOX_PORT_PLAN.md`, 2026-07-26).
+Real Inboard installations from the 1989 driver era used a later ROM revision.
+
+**Therefore: the `ibmxt_inboard386` machine MUST be run with a 1986 ROM revision**
+(`ibm5160_050986` = "1501512 (05/09/86)", or `ibm5160_011086` = "5000026 (01/10/86)").
+With a 1982 ROM (`ibm5160_1501512_5000027` etc.) the machine will POST at visibly the wrong speed,
+produce spurious POST errors (`301` among them), and **cannot boot Windows 95** — it hangs at the
+splash screen with the CPU still executing. Every timing fix in this project is calibrated against
+the 1986 ROM's POST code; the 1982 ROM's POST is *different code doing a different memory test*,
+which is why its RAM count visibly races compared to a correct run.
+
+### The silent-failure mechanism — this is what made it so hard to see
+The 1986 ROM entries are **not part of stock upstream 86Box's `ibmxt_config` BIOS list**; this
+project *added* them (see the dated comment block in `m_xt.c`). The `ibmxt_inboard386_device`'s
+`.config` field points at `ibmxt_config`, which it *shares with the plain `ibmxt` machine*.
+So on any tree where those two entries are missing:
+- `bios = ibm5160_050986` in the `.cfg` is **not a valid option**, so it is **silently ignored**
+- selection falls back to `.default_string = "ibm5160_1501512_5000027"` → **the 1982 ROM**
+- there is **no warning, no log line, and no visible error** — the machine boots and looks plausible
+
+This is this file's own **Technique 4** ("config value silently ignored") in its most expensive form
+to date, and the fix is to ensure the 1986 entries exist in whatever BIOS list the Inboard machine's
+`.config` actually points to.
+
+### How to check this in under a minute, before investigating anything else
+Two independent checks, either of which catches it immediately:
+1. **Window title.** 86Box puts the machine's own `.name` string in the title bar. A build whose
+   device definition differs will say something different — e.g. `IBM XT (Inboard 386/PC)` vs
+   `IBM XT (1982) w/ Intel Inboard 386/PC`, and `[386DX]` vs `[386SX]`. **A differing title bar
+   between two builds you believe are equivalent is a red flag that the machine/device definition
+   itself differs, and therefore its BIOS list may differ too.** This was visible in every single
+   screenshot for an entire session and was never questioned.
+2. **Live ROM-content check (decisive, no guessing).** Read the actual bytes the CPU is executing
+   and compare against the raw ROM file. The 1986 and 1982 ROMs diverge at a convenient, early,
+   already-known spot — physical `0xFE07E` (i.e. `CS:PC = F000:E07E`; note the address math is
+   `CS*16+PC`, NOT `0xF0000+PC`):
+   - **1986 ROM (correct):** `D2 EC 72 29 D0 E4 70 25` (`SHR AH,CL` …)
+   - **1982 ROM (wrong):**  `B1 05 D2 EC 72 29 D0 E4` (an extra `MOV CL,05h` first)
+   Verify ground truth straight from the file with
+   `xxd -s 0x607E -l 8 roms/machines/ibmxt86/BIOS_5160_09MAY86_U18_*_F800.BIN`
+   (file offset `0x607E` = `0xFE07E - 0xF8000`, since U18 loads at `0xF8000`).
+
+**Do NOT conclude "same ROMs" from matching file hashes.** Both builds had byte-identical ROM *files*
+on disk (verified MD5) — that says nothing about **which one the machine actually selected and
+loaded**. Verify the loaded content, not the available files.
+
+### Knock-on consequence for the PR — re-examine the "E3AD" self-test fix
+The `301` investigation that produced the `E3AD` addition to the `E362-E3AC` IRQ1-suppression fix
+was carried out **on a clone build that was unknowingly running the 1982 ROM**. The observation that
+"this run's passing path lands on `F000:E3AD` instead of `E3AE`" was almost certainly an artifact of
+executing *a different ROM revision's code*, not a real alternate landing point in the 1986 ROM.
+With the correct 1986 ROM the build reaches the Windows 95 desktop. **Before submitting: re-verify
+whether the `E3AD` branch is reached at all on the 1986 ROM.** It is additive and harmless if it
+never fires, but shipping it without checking would add misleading dead code to the PR — and the
+`301` symptom it was written to fix was itself a consequence of the wrong ROM.
+
+### The fix that shipped: give the Inboard machine its OWN BIOS list
+Rather than adding the 1986 entries to the shared `ibmxt_config` (which would also change the plain
+`ibmxt` machine's options - out of scope for an Inboard PR), `ibmxt_inboard386_device` now points at
+a dedicated `ibmxt_inboard386_config[]` containing **only** the two compatible 1986 revisions
+(`ibm5160_050986` as default, plus `ibm5160_011086`), along with the same `enable_5161`/`enable_basic`
+options. **This makes the incompatible 1982 ROMs unselectable by construction** - the silent-fallback
+failure mode becomes impossible rather than merely documented. Verified: clone build boots to a full
+Windows 95 desktop with this change, reproducibly.
+
+**For the 86Box submission**: call this incompatibility out explicitly in the PR description, so
+maintainers understand why this machine does not share `ibmxt_config` - it is a hardware-fidelity
+constraint (INBRDPC.SYS's own ROM-signature check), not an arbitrary restriction.
+
+## Companion finding, same session: "the clone runs too fast" was actually "local runs too slow"
+
+A large amount of session time went into chasing an apparent wall-clock timing discrepancy - the
+clone build's POST/RAM-count visibly racing compared to this project's own long-standing build. Part
+of it was genuinely the wrong ROM (above; the 1982 ROM's memory test is different code). But the
+*residual* difference after the ROM fix has a much more mundane cause, and it is the **opposite** of
+how it presents:
+
+Measured directly (`awk` the body of `exec386()` in each tree, count debug I/O sites):
+- **local's `exec386()`: ~2310 lines, ~148 `fprintf`/`fopen`/ring-buffer-write sites**
+- **clone's `exec386()`: ~470 lines, ~12 sites** (nearly all temporary session diagnostics)
+
+`exec386()` is the emulator's innermost per-instruction loop, so ~148 instrumentation points there is
+enormous overhead. Consequences to remember:
+- **86Box's title-bar percentage is the ground truth for this.** It reports how well the host is
+  keeping up with the *configured* emulated speed. A build showing 100% is running the machine at its
+  configured rate; a build dipping to 1%/20%/94% is failing to keep up and therefore running the
+  guest **slower than it should in wall-clock terms**. Local routinely dips; clone holds 100%.
+- Therefore **clone is the timing-accurate build and local is the artificially slow one.** Do not
+  treat the heavily-instrumented local build as a wall-clock speed reference - it never was one.
+  Both builds were verified to have byte-identical `cpu_busspeed` (27833333.333), `cpu_waitstates`
+  (31), `cpu_multi` (3), `cpu_dmulti` (3.000), `is386`, and `cpu_16bitbus` at runtime.
+- If the *configured* speed itself is felt to be wrong versus real hardware (e.g. the RAM count still
+  looking too quick on a clean 100% run), that is a **calibration question about `cpu_speed`/
+  waitstate values that affects BOTH builds equally** - it is not a difference between them, and
+  chasing it as a build-vs-build divergence will waste time. Measure it against real hardware with a
+  stopwatch on a clean build only.
+
+**Also cosmetic, don't mistake it for an emulation difference**: the two builds render at different
+window sizes (local 640x400 video area with menu+tool bars and a `<vmpath> - 86Box 7.0` title; clone
+426x266 with no chrome and a `86Box vX - N% - [CPU] <machine>` title). That is 86Box UI mode/scale/DPI
+handling, not video emulation - the guest's actual video mode is identical.
+
+## Technique 51: never gate a CPU-core fix on an exact exit ADDRESS — always add a range-based
+## safety net, because the exact address varies with POST timing
+
+This project has now been bitten by the same failure shape **four separate times** (`E3D2`, `F9CA`,
+`E3AD`, and the generic-VGA keyboard error below). The pattern:
+
+An address-gated fix in `exec386()` **arms** a state flag at a known entry address, then **disarms**
+it on a small set of enumerated exit addresses. The exit addresses are reached via a *data-dependent
+micro-branch*, so **which one is taken varies with POST timing** — and POST timing varies with
+things that have nothing to do with the fix, e.g. **whether a large video option ROM ran first**.
+Concretely: the `F000:E362-E3AC` IRQ1-suppression fix boots clean with `gfxcard=mach8_vga_isa` (big
+option ROM, lots of POST time burned before the keyboard test) but produces a **keyboard POST error
+requiring F1** with `gfxcard=vga` (no comparable option ROM, so the keyboard controller's own
+~1ms-after-start self-test IRQ1 lands at a different point relative to the test window). The exit
+address taken differs, doesn't match the enumerated set, **the gate never disarms, and `picintc(2)`
+fires on every instruction for the rest of the session** — silently killing the keyboard.
+
+**A stuck gate is far worse than an early disarm**: an early disarm merely risks re-exposing the
+original (intermittent, POST-only) bug; a stuck gate breaks a whole subsystem for the entire run and
+presents as a completely unrelated symptom much later. So always bound it:
+
+```c
+/* Safety net - disarm if execution leaves the self-test's own address range by ANY path we
+   didn't enumerate. Can only ever shorten suppression, never extend it. */
+if ((in_irq_selftest || in_negative_test) &&
+    ((CS != 0xF000) || (cpu_state.pc < 0xE362) || (cpu_state.pc > 0xE3C6))) {
+    in_irq_selftest  = 0;
+    in_negative_test = 0;
+}
+```
+
+**Generalised rule for any future address-gated fix in this project**: enumerate the known exits for
+precision, but *always* pair them with "or execution left the region at all" as a backstop. Write
+the backstop at the same time as the fix, not after a mystery bug surfaces.
+
+**Corollary for testing**: a fix validated on only ONE video card is not validated. Video card
+choice changes POST timing enough to change which micro-branch a BIOS self-test takes. Always
+re-test address-gated POST fixes across at least one card WITH a big option ROM (Mach8) and one
+WITHOUT (generic `vga`).
+
+## Forward notes for a future OSR2 attempt
+- **Emulator/code fixes are OS-version-independent** — the whole "Complete Windows 95 boot fix
+  inventory" section above applies unchanged to OSR2. Start from that list, don't re-derive it.
+- **The BIOS constraint is absolute and OS-independent**: 1986 ROM only (`ibm5160_050986` /
+  `ibm5160_011086`). The 1982 ROM incompatibility is an `INBRDPC.SYS` property, not a Windows one,
+  so it will bite OSR2 identically. This is now enforced in code (dedicated BIOS list).
+- **Disk-image fixes will need re-deriving for OSR2's own binaries**: the self-test-skip byte in
+  `INBRDPC.SYS` should be identical (same driver), but `VKD.VXD` and `KEYBOARD.DRV` are different
+  builds in OSR2, so their patch offsets will differ. Use Technique 35 (read the real DDK source
+  rather than guessing at binary offsets) and Technique 28 (assert the patch actually changed
+  something — `Patched: N` with N>0).
+- **Don't repeat the OSR2 track's old mistake**: the archived 2026-07-31→08-03 OSR2 work chased a
+  wild-jump chain (`650B` → `0128`/EMM386 → `0048:00A8` → `0048:1278`) that was never resolved. The
+  `INT 68h`/`patchint68` fix found later on OSR1 addresses the `650B` link in that same chain — try
+  that fix FIRST on OSR2 before re-opening that investigation.
+
+## Technique 52: a CPU-core fix placed in only ONE of 86Box's two interpreters silently does
+## nothing for half the CPU families — check `cpu_set()`'s dispatch before assuming it applies
+
+86Box has **two** interpreter loops and `cpu_set()` (`cpu.c` ~line 1885) picks between them:
+
+```c
+if ((cpu_s->cpu_type == CPU_IBM486SLC) || (cpu_s->cpu_type == CPU_IBM486BL) ||
+    cpu_iscyrix || (cpu_s->cpu_type > CPU_486DLC) || cpu_override_interpreter) {
+    cpu_exec = exec386;        /* src/cpu/386_dynarec.c */
+} else
+    cpu_exec = exec386_2386;   /* src/cpu/386.c:225     */
+```
+
+Every Inboard POST fix originally lived only in `exec386()`. Consequence: selecting a plain
+**386DX/386SX — the CPU this accelerator card was actually sold to pair with —** routed execution to
+`exec386_2386()`, where **none of the fixes existed**, so POST hung in the Mach8 option ROM's PIT
+delay loop *before even reaching the RAM count*. It presented as "beep, then black screen", which
+looks like a video or speed problem and is neither: the fix code simply never executed.
+
+**Diagnostic tell**: a failure that appears/disappears purely on CPU *family* (not speed) and shows
+up *earlier* in POST than any of your fix addresses. Check the dispatch before anything else.
+
+**Do NOT try to fix it with `cpu_override_interpreter = 1` in the config** — tested, does not work
+(the flag is consulted at `cpu_set()` time, before/independently of that config path).
+
+**The correct fix (implemented, validated to a Win95 desktop on `i386dx`/25):** extract the whole
+fix block into ONE shared function and call it from BOTH loops.
+- `void inboard_post_fixups(void)` — defined in `src/cpu/386_dynarec.c` immediately before
+  `exec386()`, prototype in `src/cpu/cpu.h` next to the `exec386_2386` declaration.
+- Called from `exec386()` and from `exec386_2386()` (`src/cpu/386.c`), in both cases immediately
+  after `cpu_state.ssegs = 0;` — the identical anchor point in each loop.
+- Contents: C000 wait-state exemption, Mach8 PIT delay-loop fix (`0x7B37/0x7B23/0x7B16`),
+  `E362-E3AC` IRQ1 self-test + range safety net, `E507` DMA-refresh force, `patchint68`.
+
+## Technique 53: don't set `cpu_waitstates` if you already override the variables it feeds
+`cpu_update_waitstates()` only honours `cpu_waitstates` for
+`cpu_type >= CPU_286 && cpu_type <= CPU_386DX`. `inboard386_apply_waitstates()` used to set it — dead
+on 486BL/486DLC, but **live on 386DX/386SX**, where it stacked on top of
+`inboard386_apply_mem_timing()`'s own bus-speed-scaled override of the very same variables
+(`cpu_cycles_read/write/prefetch`), compounding with `io_waitstates`/`reg_op_waitstates`/
+`cpu_rom_prefetch_cycles`. Net effect: the 386-class parts ran an order of magnitude too slow.
+Fixed by zeroing `cpu_waitstates` there so exactly one memory-timing mechanism is ever in play.
+General rule: if you override the consumed variables directly, do not also drive the upstream knob
+that writes them — especially when that knob is CPU-type-gated.
+
+## Technique 54: a per-instruction hook is machine-wide by default — gate it on the device being
+## present, or "this is address-gated so it's inert elsewhere" quietly stops being true
+
+Found while preparing the upstream PR (2026-08-22), *after* the fix set below was already validated.
+
+Extracting the Inboard POST fix-ups into `inboard_post_fixups()` and calling it from both
+interpreter loops (Technique 52) made it run for **every 386/486 machine in 86Box**, not just the
+Inboard. The function's own comment claimed it was inert elsewhere because "every branch is gated on
+a specific CS:PC". That was **half true, and the wrong half was the dangerous one**:
+
+| Gate style | Example | Inert on other machines? |
+|---|---|---|
+| Address-gated (`CS==0xF000 && pc==0xE507`) | DMA refresh flag | Effectively yes — a specific BIOS's own byte offset |
+| **Segment-scoped** (`CS==0xC000`) | Mach8 option-ROM waitstate zeroing | **No** — 0xC000 is *the* option-ROM segment on every PC |
+| **Segment-scoped** (`CS==0x0EAF`) | VMM32 `INT 68h` vector patch | **No** — an ordinary segment value any guest can load, and it *writes guest memory* at 0x1A0/0x3C0 |
+
+So an unrelated machine executing its own option ROM would silently get `io_waitstates`,
+`isa_cycles` and `cpu_cycles_*` zeroed, and any guest that happened to load `CS=0x0EAF` would get
+four IVT bytes rewritten underneath it.
+
+**The rule:** when you move a machine-specific fix into shared CPU-core code, add an explicit
+presence flag — here `int inboard386_present`, set in `inboard386_init()`, cleared in
+`inboard386_close()` — and gate the *call site* on it, not just the body (keeps it to one
+well-predicted branch in the hottest loop in the emulator).
+
+**How to audit your own hook in one pass:** list each condition and ask *"could a machine that has
+never heard of this project satisfy this?"* Anything scoped to a segment, a port number, or a
+register value alone is a yes. Only a specific address *within a specific ROM you also pin* is a no —
+and even then, the presence gate costs one branch and removes the argument entirely.
+
+**Reviewer-facing corollary:** this is exactly the question a maintainer asks first about a diff that
+touches `exec386()`. Answering it in the PR body before it is asked is cheaper than answering it
+after.
+
+## ✅ FINAL VALIDATED FIX SET (2026-08-22) — 5 files, all needed
+1. `machine/m_xt.c` — dedicated `ibmxt_inboard386_config[]`, 1986 ROMs only, default
+   `ibm5160_050986`. **Fixes the reported POST 101.**
+2. `device/inboard386.c` — `cpu_waitstates = 0` (Technique 53).
+3. `cpu/386_dynarec.c` — fix block extracted into `inboard_post_fixups()`; `E3AD` exit + range
+   safety net (Technique 51).
+4. `cpu/cpu.h` — prototype for the shared helper.
+5. `cpu/386.c` — call the helper from `exec386_2386()` (Technique 52).
+6. **`device/inboard386.c` + `cpu/cpu.h` + both call sites — `inboard386_present` gate (Technique
+   54).** Added last, after validation; keeps the shared helper from touching every other machine.
+Plus already-ported: `cpu/cpu_table.c` (83.5 MHz entry), `device/kbc_xt.c` (blockedtimeout), and the
+standard parallel port in `machine_ibmxt_inboard386_init()`.
+
+**Validated to a Windows 95 desktop**: 09MAY86+Mach8; 10JAN86+Mach8; **default BIOS (no `bios=`
+line — the PR reporter's exact scenario)**; **`i386dx`/25 MHz+Mach8**. Generic `vga` boots but stops
+for F1. Untested: `am386dx`, `ibm486bl2`, `ibm486slc3`, ET4000/ATI28800/Trident.
+
+**Re-validated after the Technique 54 gate was added**: rebuilt and booted to a Windows 95 desktop,
+title bar steady at `100%` — the gate is a no-op on the Inboard machine itself (flag is always 1
+there), so the earlier validation carries over.
+
+## 📤 SUBMITTED UPSTREAM, 2026-08-22 — 86Box/86Box PR #7749
+Branch `inboard386-fix-post101` on `Mike1978uk/86Box`, one commit, 7 files. PR body kept in
+`docs/PR_description_inboard_post101_fix.md` (edit that file, then `gh pr edit 7749 --body-file`).
+PR #7626 (the original submission) is **merged**, so this is a follow-up against `master`, not an
+update to it. The reporter's two items — POST 101 and the duplicate `(1988) i386SX` entry — are
+answered in a closing comment on #7626; the duplicate was already fixed in-tree by someone else.
+
+**Still open from earlier**: upstream issue #7638 (RAM configuration) has had no reply yet.

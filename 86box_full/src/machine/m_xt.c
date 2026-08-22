@@ -623,11 +623,89 @@ machine_ibmxt_init(const machine_t *model)
     return ret;
 }
 
-/* IBM XT (1982) with an Intel Inboard 386/PC accelerator card fitted in
+/* IBM XT with an Intel Inboard 386/PC accelerator card fitted in
    place of the stock 8088 - same real BIOS ROM chips, same base XT
    platform, plus the Inboard's own wait-state/A20/ROM-shadow hardware. */
+/* The Inboard 386/PC deliberately gets its OWN BIOS list rather than sharing ibmxt_config,
+   because the 1982-dated 5160 ROMs are genuinely INCOMPATIBLE with this card and must not be
+   selectable here:
+
+   INBRDPC.SYS v1.1 (02/17/89) - the Inboard's own required DOS driver - hardcodes a 3-byte
+   reference signature at a fixed BIOS offset (F000:E05B) as part of its ROM-shadow self-
+   verification, and the 1982 ROMs do not contain that signature at that offset. This is a real
+   ROM-revision mismatch, not an emulation shortcoming: real Inboard installations from the 1989
+   driver era used a later ROM revision. Booting this machine on a 1982 ROM produces spurious POST
+   errors (301 among them), a visibly wrong-speed memory count (the 1982 ROM's memory test is
+   different code entirely), and cannot boot Windows 95 - it hangs at the splash screen.
+
+   Sharing ibmxt_config previously made that failure mode *silent and very hard to diagnose*: on a
+   tree without this project's local additions the 1986 ROM entries are not in the shared list at
+   all, so a `bios = ibm5160_050986` line in a config file was not a valid option, was ignored
+   without any warning, and selection fell back to the 1982 default. That is the POST 101 reported
+   against upstream PR #7626. Listing only the compatible revisions here makes the incompatible
+   ones unselectable by construction. Upstream: 86Box/86Box PR #7749. */
+static const device_config_t ibmxt_inboard386_config[] = {
+  // clang-format off
+    {
+        .name           = "bios",
+        .description    = "BIOS",
+        .type           = CONFIG_BIOS,
+        .default_string = "ibm5160_050986",
+        .default_int    = 0,
+        .file_filter    = "",
+        .spinner        = { 0 },
+        .bios           = {
+            {
+                .name          = "1501512 (05/09/86)",
+                .internal_name = "ibm5160_050986",
+                .bios_type     = BIOS_NORMAL,
+                .files_no      = 2,
+                .local         = 0,
+                .size          = 65536,
+                .files         = { "roms/machines/ibmxt86/BIOS_5160_09MAY86_U18_59X7268_62X0890_27256_F800.BIN",
+                                   "roms/machines/ibmxt86/BIOS_5160_09MAY86_U19_62X0819_68X4370_27256_F000.BIN", "" }
+            },
+            {
+                .name          = "5000026 (01/10/86)",
+                .internal_name = "ibm5160_011086",
+                .bios_type     = BIOS_NORMAL,
+                .files_no      = 2,
+                .local         = 0,
+                .size          = 65536,
+                .files         = { "roms/machines/ibmxt86/BIOS_5160_10JAN86_U18_62X0851_27256_F800.BIN",
+                                   "roms/machines/ibmxt86/BIOS_5160_10JAN86_U19_62X0854_27256_F000.BIN", "" }
+            },
+            { .files_no = 0 }
+        }
+    },
+    {
+        .name           = "enable_5161",
+        .description    = "IBM 5161 Expansion Unit",
+        .type           = CONFIG_BINARY,
+        .default_string = NULL,
+        .default_int    = 1,
+        .file_filter    = NULL,
+        .spinner        = { 0 },
+        .selection      = { { 0 } },
+        .bios           = { { 0 } }
+    },
+    {
+        .name           = "enable_basic",
+        .description    = "IBM Cassette Basic",
+        .type           = CONFIG_BINARY,
+        .default_string = NULL,
+        .default_int    = 1,
+        .file_filter    = NULL,
+        .spinner        = { 0 },
+        .selection      = { { 0 } },
+        .bios           = { { 0 } }
+    },
+    { .name = "", .description = "", .type = CONFIG_END }
+  // clang-format on
+};
+
 const device_t ibmxt_inboard386_device = {
-    .name          = "IBM XT (1982) w/ Intel Inboard 386/PC",
+    .name          = "IBM XT (Inboard 386/PC)",
     .internal_name = "ibmxt_inboard386",
     .flags         = 0,
     .local         = 0,
@@ -637,7 +715,7 @@ const device_t ibmxt_inboard386_device = {
     .available     = NULL,
     .speed_changed = NULL,
     .force_redraw  = NULL,
-    .config        = ibmxt_config /* Same real ROM chips - reuse the exact same BIOS selection. */
+    .config        = ibmxt_inboard386_config /* 1986 ROM revisions only - see comment above. */
 };
 
 int
@@ -661,7 +739,16 @@ machine_ibmxt_inboard386_init(const machine_t *model)
     bios_sel     = device_get_config_bios("bios");
     fn           = device_get_bios_file(model->device, bios_sel, 0);
     local        = device_get_bios_local(model->device, bios_sel);
-    fprintf(stderr, "[m_xt] machine_ibmxt_inboard386_init: enable_5161=%d\n", enable_5161);
+    /* Always state which BIOS revision actually got selected. The 1982 ROMs are incompatible
+       with INBRDPC.SYS (see ibmxt_inboard386_config above) and are no longer selectable here, but
+       the failure mode that cost a whole session was a *silently* ignored `bios =` line falling
+       back to a default - so make the resolved choice impossible to miss rather than inferring it
+       from POST behaviour. Anything other than ibm5160_050986/ibm5160_011086 is a bug. */
+    fprintf(stderr, "[m_xt] machine_ibmxt_inboard386_init: bios=%s enable_5161=%d\n",
+            bios_sel ? bios_sel : "(null)", enable_5161);
+    if (!bios_sel || ((strcmp(bios_sel, "ibm5160_050986") != 0) && (strcmp(bios_sel, "ibm5160_011086") != 0)))
+        fprintf(stderr, "[m_xt] WARNING: unexpected BIOS selection for the Inboard 386/PC - the "
+                        "1982 ROMs cannot work with INBRDPC.SYS\n");
     fflush(stderr);
 
     if (local == 0) // Offset for stock roms
