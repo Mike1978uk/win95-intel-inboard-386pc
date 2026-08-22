@@ -157,6 +157,19 @@ documented-workaround** rather than leaving it open indefinitely.
 
 ---
 
+## Closing the loop with contributors
+
+Several items above came from named people rather than from our own investigation —
+Michal Necasek, @andrew-hoffman, @TC1995, @QuantumByteRider, @Fenix770, @OBattler. Who gave what,
+whether it paid off, and **whether they have been told**, is tracked in
+[`contributor_input_ledger.md`](contributor_input_ledger.md).
+
+Reporting outcomes back is treated as a deliverable, not a courtesy — including **honest negative
+results**, which keep the exchange open where silence closes it. Currently owed: Michal Necasek
+(the verified `F000:FF53` result, and his unanswered RAM question), @andrew-hoffman (after the
+`DMABufferIn1MB` test, either way), and @TC1995 (that the RAM-banks request is understood as a
+separate defect from what we currently ship, and is not yet done).
+
 ## COMrade is a ground-truth source, not just a screenshot tool
 
 Worth stating plainly, because it changes how several issues above should be worked: COMrade's
