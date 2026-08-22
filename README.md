@@ -130,6 +130,14 @@ writeup for complete detail:
   foundation the rest of this work is built on
 - **Al Williams** (Dr. Dobb's Journal, Hackaday) — real 1990s hands-on Inboard development experience
 - **Michal Necasek** (OS/2 Museum) — architectural confirmation and historical leads
+- **Wim Osterholt** — compiler of
+  **[XT, AT and PS/2 I/O port addresses](https://wiki.preterhuman.net/XT,_AT_and_PS/2_I/O_port_addresses)**
+  (1994), an unusually useful reference here because it marks entries `(XT)` / `(XT only)` rather
+  than assuming an AT — which is exactly the distinction most of this project's Windows 95 problems
+  turn on. Curated and annotated against this project's open issues in
+  [`docs/xt_io_port_reference_annotated.md`](docs/xt_io_port_reference_annotated.md). The original
+  in turn credits Chuck Proctor, Richard W. Watson, Frank van Gilluwe's *The Undocumented PC*, Dave
+  Williams' DOSREF, and FractInt's `FR8514A.ASM` for the 8514/A ports
 - **FastDoom** (viti95) — real-hardware-validated XT keyboard ISR reference
 - **Microsoft's Windows 95 DDK** — the genuine period source and toolchain that made the real fix possible
 - **Kevin Moonlight** — original author of [COMrade](https://github.com/yyzkevin/COMrade)
