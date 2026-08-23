@@ -138,6 +138,24 @@ Once live: triage each, comment the lead on the issue, and **close the dead ends
 (setup hangs before Help files, reboot works around it) is the likely close-as-documented candidate.
 
 ### 7. 🟠 Mach8 boot RAM test — issue #8
+
+> ### 📏 MEASURED 2026-08-23 — the `02E8` probe was run. Emulator and real card disagree.
+> Real 5160 over COMrade (DOS mode, 8514/A idle in VGA text mode), three consecutive reads:
+> `02E8` → **`0x05`** (stable), `06E8` → `0x01`, `22E8` → `0x01`.
+>
+> `02E8` read is 8514/A **DISP_STAT**: bit 0 = SENSE, bit 1 = VBLANK, bit 2 = HORTOG. Real hardware
+> has **SENSE and HORTOG set**. 86Box's handler (`vid_8514a.c`, `ibm8514_accel_in`) starts `temp` at
+> 0 and can only ever set bit 1, so **it returns `0x00` or `0x02` and nothing else**.
+> `vid_ati_mach8.c` routes `0x2e8` through the same function, so the Mach8 path inherits it.
+> Posted to issue #4.
+>
+> **Not a root cause.** Nothing yet shows the driver reads DISP_STAT or depends on those bits.
+> Caveats: the card was idle (not in 8514/A graphics mode), and a stable `0x05` across serial-speed
+> reads says nothing about whether HORTOG toggles in use.
+>
+> **Most tractable follow-up:** SENSE (bit 0) reflects the attached monitor's ID via the sense lines.
+> Implementing it requires choosing a monitor ID to report — exactly what @TC1995's EEPROM angle and
+> the `C-INFO.EXE` run would tell us. **Port I/O is DOS-only**, so any repeat needs a DOS boot.
 Currently **worked around, not root-caused** (`AX = BX+1` at `C000:7B16/7B23/7B37`, shipped in #7749
 and labelled as such).
 **Test in cost order:** declared VRAM size mismatch → EEPROM/`SETMACH.EXE` "video test on boot"
