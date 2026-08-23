@@ -210,7 +210,43 @@ Once live: triage each, comment the lead on the issue, and **close the dead ends
 
 ### 7. 🟠 Mach8 boot RAM test — issue #8
 
-> ### ❌ HYPOTHESIS FALSIFIED 2026-08-23 — **it is NOT the EEPROM. Tested and disproved.**
+> ### ✅ ACTUAL DIAGNOSIS 2026-08-23 — **the emulated Mach8 fails the ROM's RAM-addressing test.**
+> **@TC1995 was right all along**, and both of my alternative theories were wrong.
+>
+> ```
+> REAL 5160          ATI Graphics ULTRA, BIOS P/N 113-11504-002
+>                    Testing........Ok
+>                    384 KB OK
+>
+> 86Box (UPSTREAM)   ATI Graphics ULTRA, BIOS P/N 113-11504-002
+>                    Testing........
+>                      14207 7B6A 0007 RAM Addressing
+>                    [ASCII-art card graphic]
+>                    112 KB OK
+> ```
+>
+> Identical ROM revision, identical banner, diverging at exactly one word: **`Ok`** vs a diagnostic.
+>
+> **Reproduced on a CLEAN UPSTREAM BUILD** (`657748f2a`, no local patches, no `AX = BX+1` hack) — so
+> this is an **86Box upstream defect**, not anything this fork introduced. Report it there.
+>
+> **"RAM Addressing" is an aliasing test**: write a distinct value per address, read back, check that
+> writing one address did not disturb another. Failing it means the emulated VRAM **aliases**.
+> `7B6A` is the ROM offset detecting it; `0007` is likely the failing bit/address-line mask. Prime
+> suspect: `svga->read_bank`/`write_bank` = `bank << 16` from regs `0xB2`/`0xAE` in
+> `vid_ati_mach8.c`.
+>
+> **This reframes our own hack.** `AX = BX+1` at `C000:7B16/7B23/7B37` exists because the self-test
+> takes 65-170 s; on real hardware it is instant. **The hack has been hiding this bug, not fixing
+> it.** Fix the addressing and it should be deletable.
+>
+> **Success criterion:** emulator prints `Testing........Ok`, no ASCII grid, hack removed.
+> **Next step:** trace what the ROM writes/reads across the VRAM banks around `C000:7B6A` and find
+> the first aliased address.
+>
+> ---
+>
+> ### ❌ Superseded theory 1 — the EEPROM (tested, disproved)
 > The theory below was **tested and is wrong**. `INSTALL.EXE` was run inside the emulator (M8UTL
 > copied into the disk image), "Set Power Up Configuration" was completed and saved, and
 > `mach8.nvr` went from 128 zero bytes to a genuinely configured EEPROM written by the card's own
