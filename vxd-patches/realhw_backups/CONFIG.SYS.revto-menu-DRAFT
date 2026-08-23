@@ -1,0 +1,86 @@
+REM ============================================================================
+REM  DRAFT - NOT DEPLOYED. Prepared 2026-08-23 for issue #9 (Revto486).
+REM
+REM  Purpose: add ONE extra boot option that loads a V86 provider + revto486.sys,
+REM  while leaving the normal Windows 95 boot byte-for-byte as it is today.
+REM  MSDOS.SYS already has BootMulti=1, so the menu will appear.
+REM
+REM  Nothing changes unless the REVTO entry is chosen at the menu.
+REM
+REM  *** TWO THINGS TO SETTLE BEFORE DEPLOYING - see notes at the bottom ***
+REM ============================================================================
+
+[menu]
+menuitem=NORMAL, Windows 95 - normal boot (default)
+menuitem=REVTO,  DOS test - V86 provider + Revto486
+menudefault=NORMAL,5
+
+REM ---------------------------------------------------------------------------
+REM  [common] - identical to the current working CONFIG.SYS, unchanged.
+REM ---------------------------------------------------------------------------
+[common]
+DEVICE=c:\INBRDPC.SYS NODIAGS NOPAUSE
+
+DEVICE=C:\WINDOWS\SETVER.EXE
+DEVICE=C:\WINDOWS\HIMEM.SYS
+DOS=HIGH,UMB
+device=C:\WINDOWS\COMMAND\display.sys con=(ega,,1)
+Country=044,850,C:\WINDOWS\COMMAND\country.sys
+
+DEVICEHIGH=C:\TSCSI\MA13B.SYS /Ip2
+REM Use tscsi.sys and flip sw1 6 to off hdd mode then run tformat /l /s512 to format mac MO Disks
+DeviceHIGH=C:\TSCSI\TSLCDR.SYS /d:TSLCD
+DEVICEHIGH=C:\FJMO\MODISK2.SYS
+DEVICEHIGH=C:\NBACK_SE\NASPIBUF.SYS /S5000
+
+DEVICEHIGH=C:\SD120PPD\SD120PPD.SYS /port:378 /IRQ:7 /de /db /ni /sf /dpc /dp /fp
+DEVICEHIGH=C:\SD120PPD\ASPIHDRM.SYS
+
+LASTDRIVE=M
+BUFFERS=15,0
+BREAK=ON
+Stacks=0,0
+FILES=40
+
+REM ---------------------------------------------------------------------------
+REM  [NORMAL] - deliberately empty. Boots exactly as today.
+REM ---------------------------------------------------------------------------
+[NORMAL]
+
+REM ---------------------------------------------------------------------------
+REM  [REVTO] - the test path only.
+REM ---------------------------------------------------------------------------
+[REVTO]
+REM  <<< TODO 1: the V86 provider line goes here. >>>
+REM  386MAX is NOT currently on the CF card (checked - C:\386MAX is empty), so
+REM  it has to be copied over first. That is a binary transfer and was outside
+REM  the unattended permission, so it was not done.
+REM
+REM  DEVICE=C:\386MAX\386MAX.SYS
+REM
+REM  <<< TODO 2: HIMEM conflict. >>>
+REM  [common] above already loads HIMEM.SYS, and 386MAX provides XMS itself.
+REM  Loading both is wrong. Mike knows 386MAX far better than I do, so rather
+REM  than guess: either move HIMEM.SYS out of [common] into [NORMAL] only, or
+REM  use whatever coexistence switch 386MAX expects. Decide before deploying.
+
+DEVICE=C:\revto486.sys /BL /CN /CCM /2
+
+REM ============================================================================
+REM  WHY IT IS WORTH TESTING AT ALL
+REM
+REM  The Vogons clue for #9 is that the Evergreen/Kingston driver only works if
+REM  the CPU is ALREADY in protected mode with DOS running under a V86 provider
+REM  BEFORE the driver loads. That is a CONFIG.SYS-time, DOS-level condition -
+REM  Windows is not involved, so this test never needs 386MAX to work under
+REM  Win95 (which is unproven: no GEMMIS strings were found in its source, and
+REM  Mike only ever ran it in DOS).
+REM
+REM  The current CONFIG.SYS has NO EMM386 at all - only HIMEM - which is the
+REM  correct arrangement for Windows 95, since VMM32 provides V86 itself. That
+REM  is exactly why this goes in a separate menu entry instead of the default:
+REM  the working Windows config must not be disturbed to run a DOS experiment.
+REM
+REM  Pass = revto486.sys loads without halting. Check at the DOS prompt first,
+REM  before touching the Win95 question at all.
+REM ============================================================================
