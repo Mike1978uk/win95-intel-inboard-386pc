@@ -15,6 +15,43 @@ but no primary source. They are recorded as **hypotheses to test**, not facts. E
 
 ---
 
+## 🚦 ON RETURN — do these in this order (written 2026-08-23, end of unattended stretch)
+
+Everything below is **staged and waiting on a human**. Nothing here needs re-derivation.
+
+### 1. Reboot the 5160 into Windows — this runs the #5 test
+`MSDOS.SYS` has `BootGUI=1`, so a plain reboot goes to Windows and:
+- **`DMABufferIn1MB=True` + `DMABufferSize=64` arm automatically** (already written to
+  `C:\WINDOWS\SYSTEM.INI`, CRC-verified)
+- **COMR95 autostarts** (added `run=C:\COMR95.EXE` to `WIN.INI` `[windows]`), so the bridge comes
+  back without you starting it by hand
+
+Then: **install / enable the Sound Blaster Pro and see whether the VDMAD BSOD still happens.**
+That is the single highest-value open question on the project.
+- Revert either change with one `file_write` — backups are in `vxd-patches/realhw_backups/`
+  (`SYSTEM.INI.backup-20260823`, `WIN.INI.backup-20260823`)
+- Report the result to @andrew-hoffman either way; he was told this test was coming
+
+### 2. If you have the M8UTL disk to hand, run `C-INFO.EXE` at a DOS prompt
+Unblocks **both #4 and #7**. It is not on the CF (checked), so it needs the utility disk. This is
+the one action that most cheaply advances the Mach8 pair, and it has been the named blocker for
+weeks.
+
+### 3. Decide on the DMA fidelity fix upstream
+`dma_page_is_xt()` is committed locally and verified, but **not pushed upstream** - that needs your
+call. It is a candidate third PR (after #7626 merged and #7749 open).
+
+### 4. Optional, zero-risk: the #9 386MAX test
+Do **not** add 386MAX or EMM386 to the default `CONFIG.SYS` - the current no-memory-manager setup is
+the correct one for Win95, and changing it risks a working system. Instead add a `[menu]`
+multi-config block with one extra entry that loads 386MAX + `revto486.sys`; `MSDOS.SYS` already has
+`BootMulti=1`, so nothing changes unless that entry is chosen. **386MAX is not on the CF** - it
+would need copying over, which is a binary transfer and was outside the unattended permission.
+Note the user only ever ran 386MAX in DOS, and no GEMMIS strings were found in its source, so
+**386MAX-under-Win95 is unproven** - #9 only needs it at DOS level anyway.
+
+---
+
 ## ▶ EXECUTION ORDER — start here
 
 > **Companion doc:** [`issue_tiered_action_plan.md`](issue_tiered_action_plan.md) maps the same work

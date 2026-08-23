@@ -1,0 +1,1524 @@
+[OptionalComponents]
+"Accessories"=1
+"Communications"=1
+"Disk Tools"=1
+"Multimedia"=1
+"Screen Savers"=1
+"Disk compression tools"=1
+"Paint"=1
+"HyperTerminal"=1
+"Defrag"=1
+"Calculator"=1
+"Backup"=1
+"Phone Dialer"=1
+"Flying Windows"=1
+"Desktop Wallpaper"=1
+"Additional Screen Savers"=1
+"Games"=1
+"System Resource Meter"=1
+"Microsoft Fax"=0
+"Microsoft Fax Services"=0
+"Microsoft Fax Viewer"=0
+"Accessibility Options"=0
+"The Microsoft Network"=0
+"Audio Compression"=1
+"Video Compression"=1
+"Sound Recorder"=1
+"Volume Control"=1
+"Media Player"=1
+"Microsoft Exchange"=0
+"Microsoft Mail Services"=0
+"Briefcase"=1
+"Document Templates"=1
+"WordPad"=1
+"Dial-Up Networking"=1
+"Direct Cable Connection"=1
+"Mouse Pointers"=1
+"Windows 95 Tour"=1
+"Online User's Guide"=1
+"System Monitor"=1
+"Net Watcher"=1
+"Character Map"=1
+"Quick View"=1
+"Sample Sounds"=1
+"Musica Sound Scheme"=1
+"Jungle Sound Scheme"=1
+"Robotz Sound Scheme"=1
+"Utopia Sound Scheme"=1
+"CD Player"=1
+
+[System]
+"Display"="ATI Graphics Ultra (mach8)"
+"Keyboard"="PC/AT Enhanced Keyboard (101/102-Key)"
+"SelectedKeyboard"="KEYBOARD_00000809"
+"MultiLanguage"="ENGLISH"
+"Machine"="MS_CHICAGO"
+"Monitor"="(Unknown Monitor)"
+"Mouse"="Standard PS/2 Port Mouse"
+"Power"="No_APM"
+"Locale"="L0809"
+"UI_Choice"="Win95UI"
+
+[NameAndOrg]
+Name=Mike
+Org=
+
+[Destination]
+1=C:\WIN95\
+2=C:\WININST0.400
+3=C:\UNINSTAL.000
+4=C:\UNINSTAL.000
+5=C:\WININST0.400
+10=C:\WINDOWS
+11=C:\WINDOWS\SYSTEM
+12=C:\WINDOWS\SYSTEM\IOSUBSYS
+13=C:\WINDOWS\COMMAND
+17=C:\WINDOWS\INF
+18=C:\WINDOWS\HELP
+19=C:\WINDOWS
+20=C:\WINDOWS\FONTS
+21=C:\WINDOWS\SYSTEM\VIEWERS
+22=C:\WINDOWS\SYSTEM\VMM32
+23=C:\WINDOWS\SYSTEM\COLOR
+24=C:\
+25=C:\WINDOWS
+26=C:\WINDOWS
+27=C:\
+28=C:\WINDOWS
+30=C:\
+31=C:\
+32=C:\WINBOOT
+33=
+34=C:\DOS
+36=C:\WINDOWS
+
+[]
+
+Drive=:A:, Host=::, Flags=:0xf:
+Drive=:B:, Host=::, Flags=:0xf:
+Drive=:C:, Host=::, Flags=:0xd:
+vfs.boot=:C:, vfs.boothost=::
+FSLog: BIOS Heads=:64:, BootPart Heads=:64:
+batch settings:
+"C&ustom "=1
+[Setup]
+InstallType=1
+Customise=0
+Express=0
+ChangeDir=1
+Network=1
+OptionalComponents=1
+System=1
+MBR=1
+Reboot=1
+CCP=1
+EBD=1
+CleanBoot=0
+Win31FileSystem=-8531
+CopyFiles=1
+Verify=-8531
+UPI=1
+VRC=1
+External=1
+AutoRetry=0
+PenWinWarning=1
+CHKDSK=0
+UNINSTALL=1
+DevicePath=0
+InstallDir=C:\WINDOWS,1,0
+
+[Network]
+DisplayWorkstationSetup=0
+WorkstationSetup=0
+HDBOOT=0
+RPLSETUP=0
+SaveSuBoot=0
+
+
+[Started]
+version=262144,950
+OldLogFile
+SourcePath=C:\WININST0.400
+CmdLine=/T:C:\WININST0.400 /SrcDir=C:\WIN95 /IZ /IS /IQ /IT  /U:xxxxxxxxxxxxxxxxx
+WinVer=Mini
+ExePath=C:\WININST0.400
+FilePath=C:\WIN95\
+RunVer=3.1
+Init:Setup initialization sucessful.
+Started=Passed
+
+[Dummy]
+
+[Dialogs]
+SUMB:Windows 95 Setup:Setup has determined that Hardware Detection failed to complete properly. You can continue with Setup until detection completes successfully.  The problem encountered during detection will be skipped when Setup runs detection again.:OK
+Init:Main INF=C:\WININST0.400\SETUPPP.INF.
+TmpDirPad:Drive:C:, size:11173888
+BootDrvPad:Drive:C:, size:1500000
+dsRegSetPads:SysDatPath:C:\WINDOWS, size:1500000
+dsRegSetPads:UserDatPath:C:\WINDOWS, size:300000
+dsRegSetPads:System.new pad:500000
+dsRegSetPads:User.new pad:100000
+dsRegSetPads:Regtmp pad:500000
+SwapFile(HMR): ExtMem=:18948096: and TotalSwapReqdFromINF=:13631488:
+ValidateHostSpace:OK
+CL:Windows 95 CD-ROM PRECOPY1.CAB
+CL:Windows 95 CD-ROM PRECOPY2.CAB
+CL:Windows 95 CD-ROM win95_02.cab
+CL:Windows 95 CD-ROM win95_03.cab
+CL:Windows 95 CD-ROM win95_04.cab
+CL:Windows 95 CD-ROM win95_05.cab
+CL:Windows 95 CD-ROM win95_06.cab
+CL:Windows 95 CD-ROM win95_07.cab
+CL:Windows 95 CD-ROM win95_08.cab
+CL:Windows 95 CD-ROM win95_09.cab
+CL:Windows 95 CD-ROM win95_10.cab
+CL:Windows 95 CD-ROM win95_11.cab
+CL:Windows 95 CD-ROM win95_12.cab
+CL:Windows 95 CD-ROM win95_13.cab
+CL:Windows 95 CD-ROM win95_14.cab
+CL:Windows 95 CD-ROM win95_15.cab
+CL:Windows 95 CD-ROM win95_16.cab
+CL:Windows 95 CD-ROM win95_17.cab
+CL:Windows 95 CD-ROM win95_18.cab
+Init:Registry init OK.
+INF:IPCacheOff(1)
+loading 'C:\WININST0.400\suexpand.dll' returned d670ebe
+CL:DEC PATHWORKS Windows driver disk 
+CL:PC-NFS Windows driver disk 
+VcpClose:About to close
+VcpClose:About to End
+VcpClose:About to Terminate
+INF:IPCacheOff(0)
+dsSetPads:Path:C:\WINDOWS, size:6000000
+DS(CheckDiskSpace):D=C:, Bpc=32768, F=1988001792, TF=1988001792, R=63615202, A=1999175680, RP=21573888, AP=11173888, OF=0, SS=0
+Detection Started
+
+[Detection]
+Detection=Passed
+Detection Passed
+loading 'C:\WININST0.400\suexpand.dll' returned d670ebe
+VcpClose:About to close
+VcpClose:About to End
+VcpClose:About to Terminate
+loading 'C:\WININST0.400\suexpand.dll' returned d670ebe
+VcpClose:About to close
+VcpClose:About to End
+VcpClose:About to Terminate
+loading 'C:\WININST0.400\suexpand.dll' returned d670ebe
+VcpClose:About to close
+VcpClose:About to End
+VcpClose:About to Terminate
+Display_InitDevice:Checking display driver. No PNP registry found.
+Mouse_InitDevice:Checking mouse driver. No PNP registry found.
+Loc:Loc:L0809:
+SUMB:Setup:Setup could not identify one or more devices on your computer. On the next screen(s), choose the correct model. If you don't know which model you have, use the one that Setup selected for you.:OK
+Dialogs=Passed
+
+[Dummy]
+Providers begin (PreQueueProviders)
+CallDll(C:\WININST0.400\netdi.dll,SBSTREECOPYNWBOOTDISK), hlib=4814, ret=0
+Providers End (PreQueueProviders)
+loading 'C:\WININST0.400\suexpand.dll' returned d670ebe
+
+[FileQueue]
+SrcLdid:(30)win.bat
+SrcLdid:(11)skyeagle.cpl
+SrcLdid:(25)reg.dat
+Winver (0000) specific Section:, reRet=109.
+Calling Netdi to install
+Netdi return: 0
+NSUI:System Enum\Root\*PNP0000\0000, 0 0 0 0
+NSUI:System Enum\Root\*PNP0200\0000, 0 0 0 0
+NSUI:System Enum\Root\*PNP0B00\0000, 0 0 0 0
+NSUI:System Enum\Root\*PNP0100\0000, 0 0 0 0
+NSUI:System Enum\Root\*PNP0800\0000, 0 0 0 0
+NSUI:System Enum\Root\*PNP0C04\0000, 0 0 0 0
+NSUI:System Enum\Root\*PNP0C01\0000, 0 0 0 0
+NSUI:System Enum\Root\*PNP0A00\0000, 0 0 0 0
+ED:Ns: NetClient:Enum\Network\VREDIR\0000
+ED:Ns: NetTrans:Enum\Network\NWLINK\0000
+ED:Ns: Net:Enum\Root\Net\0000
+ED:ID: Display:Enum\Root\*PNP090B\0000
+SrcLdid:(10)mach.grp
+SrcLdid:(10)mxxpanel.grp
+SrcLdid:(10)m32panel.grp
+SrcLdid:(10)machxx.grp
+SrcLdid:(10)mach8.grp
+SrcLdid:(10)atiutil.grp
+SrcLdid:(10)atidesk.grp
+SrcLdid:(10)dellvid.grp
+ED:ID: Mouse:Enum\Root\*PNP0F0E\0000
+ED:NSs: System:Enum\Root\*PNP0A00\0000
+ED:ID: Keyboard:Enum\Root\*PNP030B\0000
+ED:NSs: System:Enum\Root\*PNP0C01\0000
+ED:NSs: System:Enum\Root\*PNP0C04\0000
+ED:NSs: System:Enum\Root\*PNP0800\0000
+ED:NSs: System:Enum\Root\*PNP0100\0000
+ED:NSs: System:Enum\Root\*PNP0B00\0000
+ED:NSs: System:Enum\Root\*PNP0200\0000
+ED:NSs: System:Enum\Root\*PNP0000\0000
+ED:Ncd: Monitor:Enum\Monitor\Default_Monitor\0001
+SCfg:Keyboard:PC/AT Enhanced Keyboard (101/102-Key) 0
+SCfg:Monitor:(Unknown Monitor) 0
+Display_InstallDevice: DOS SETUP 640, 480, 4, 96
+SrcLdid:(10)mach.grp
+SrcLdid:(10)mxxpanel.grp
+SrcLdid:(10)m32panel.grp
+SrcLdid:(10)machxx.grp
+SrcLdid:(10)mach8.grp
+SrcLdid:(10)atiutil.grp
+SrcLdid:(10)atidesk.grp
+SrcLdid:(10)dellvid.grp
+Display_InstallDevice: Upgrading VGA mode to default (256 color) mode. ret:32771
+SCfg:Display:Standard Display Adapter (VGA) 0
+SCfg:Mouse:Standard PS/2 Port Mouse 0
+SCfg:Power:No Advanced Power Management (APM) 0
+SCfg:UI_Choice:Windows 95 0
+SCfg:MultiLanguage:English/Western European language support 0
+SCfg:Locale:English (British) 0
+SCfg:Machine:Standard PC 0
+SCfg:SelectedKeyboard:British 0
+INF:IPCacheOff(1)
+INF:IPCacheOff(0)
+Providers begin (BeforeProvider)
+PS:WS
+PS:BS
+CallDll(C:\WININST0.400\msprint.dll,SETUPENTRY), hlib=5606, ret=0
+Providers End (BeforeProvider)
+FileQueue=Passed
+
+[Dummy]
+SrcLdid:(34)CHKSTATE.SYS
+SrcLdid:(34)MEMMAKER.EXE
+SrcLdid:(34)MEMMAKER.INF
+SrcLdid:(34)MEMMAKER.HLP
+SrcLdid:(34)SIZER.EXE
+
+[FileCopy]
+VcpClose:About to close
+VcpClose:Delete 1415
+VcpClose:Rename 11
+VcpClose:Copy 1030
+CAB-No volume name for LDID 2, local copy - path C:\WININST0.400
+adapter.inf=17,,7915,20032
+appletpp.inf=17,,7915,20032
+applets.inf=17,,7915,20032
+awfax.inf=17,,7915,20032
+awupd.inf=17,,7915,20032
+bkupagnt.inf=17,,7915,20032
+cemmf.inf=17,,7915,20032
+cheyenne.inf=17,,7915,20032
+command.com=30,command.new,7915,20032
+decpsmw4.inf=17,,7915,20032
+diskdrv.inf=17,,7915,20032
+dlcndi.dll=11,,33,92
+drvspace.bin=13,,7915,20032
+drvspace.sys=13,,7915,20032
+dskmaint.dll=11,,33,124
+enable.inf=17,,7915,20032
+extract.exe=13,,33,73
+fonts.inf=17,,7915,20032
+HPNETPRN.INF=17,,7915,20032
+inetmail.inf=17,,8095,20032
+infrared.inf=17,,8095,20032
+joystick.inf=17,,7915,20032
+keyboard.inf=17,,7915,20032
+kommctrl.dll=11,,33,88
+layout.inf=17,,8237,39645
+license.txt=18,,7915,20032
+locale.inf=17,,7915,20032
+lzexpand.dll=11,,33,92
+machine.inf=17,,7915,20032
+mf.inf=17,,7915,20032
+mfosi.inf=17,,7915,20032
+midi.inf=17,,7915,20032
+mini.cab=11,,33,73
+mmopt.inf=17,,7915,20032
+modems.inf=17,,7915,20032
+monitor.inf=17,,7915,20032
+monitor2.inf=17,,7915,20032
+monitor3.inf=17,,7915,20032
+monitor4.inf=17,,7915,20032
+mos.inf=17,,8095,20032
+motown.inf=17,,7915,20032
+mscdrom.inf=17,,7915,20032
+msdet.inf=17,,7915,20032
+msdisp.inf=17,,7915,20032
+msdos.inf=17,,7915,20032
+msfdc.inf=17,,7915,20032
+mshdc.inf=17,,8095,20032
+msmail.inf=17,,7915,20032
+msmouse.inf=17,,7915,20032
+msports.inf=17,,8095,20032
+msprint.dll=11,,33,93
+msprint.inf=17,,7915,20032
+msprint2.dll=11,,7915,20032
+msprint2.inf=17,,7915,20032
+mstcp.dll=11,,33,97
+mtd.inf=17,,7915,20032
+multilng.inf=17,,7915,20032
+ndscli.inf=17,,8095,20032
+ndsnp.hlp=18,,8095,20032
+net.inf=17,,8095,20032
+net3com.inf=17,,7915,20032
+netamd.inf=17,,7915,20032
+netapi.dll=11,,33,99
+netauxt.inf=17,,7915,20032
+netbw.inf=17,,7915,20032
+netcable.inf=17,,7915,20032
+netcd.inf=17,,7915,20032
+netcem.inf=17,,7915,20032
+netcli.inf=17,,7915,20032
+netcli3.inf=17,,7915,20032
+netcpq.inf=17,,7915,20032
+netdca.inf=17,,7915,20032
+netdec.inf=17,,7915,20032
+netdef.inf=17,,7915,20032
+netdet.ini=25,,7915,20032
+netdi.dll=11,,33,104
+netdlc.inf=17,,7915,20032
+netdlc32.inf=17,,8095,20032
+netee16.inf=17,,7915,20032
+netevx.inf=17,,7915,20032
+netflex.inf=17,,7915,20032
+netftp.inf=17,,7915,20032
+netgen.inf=17,,7915,20032
+nethp.inf=17,,7915,20032
+netibm.inf=17,,7915,20032
+netibmcc.inf=17,,7915,20032
+netmadge.inf=17,,7915,20032
+netncr.inf=17,,7915,20032
+netnice.inf=17,,7915,20032
+netnovel.inf=17,,7915,20032
+netoli.inf=17,,7915,20032
+netos.dll=11,,33,104
+netosi.inf=17,,7915,20032
+netpci.inf=17,,7915,20032
+netppp.inf=17,,7915,20032
+netprot.inf=17,,7915,20032
+netracal.inf=17,,7915,20032
+netservr.inf=17,,7915,20032
+netsilc.inf=17,,7915,20032
+netsmc.inf=17,,7915,20032
+netsmc32.inf=17,,7915,20032
+netsmctr.inf=17,,7915,20032
+netsnip.inf=17,,7915,20032
+netsock.inf=17,,7915,20032
+nettcc.inf=17,,7915,20032
+nettdkp.inf=17,,7915,20032
+nettrans.inf=17,,7915,20032
+nettulip.inf=17,,7915,20032
+netub.inf=17,,7915,20032
+netxir.inf=17,,7915,20032
+netznote.inf=17,,7915,20032
+nodriver.inf=17,,7915,20032
+nwnds.dll=11,,33,105
+ohare.inf=17,,8095,20032
+pcmcia.inf=17,,7915,20032
+prtupd.inf=17,,7915,20032
+readme.txt=25,,33,70
+rna.inf=17,,8095,20032
+rnasetup.dll=11,,33,105
+scandisk.exe=13,,33,75
+scsi.inf=17,,7915,20032
+setupc.inf=17,,8095,20032
+setuppp.inf=17,setup.inf,8095,20032
+setupx.dll=11,,33,112
+shell.inf=17,,7915,20032
+shell3.inf=17,,7915,20032
+smartdrv.exe=10,,33,74
+sysdetmg.dll=11,,33,119
+tapi.inf=17,,7915,20032
+unknown.inf=17,,7915,20032
+vidcap.inf=17,,7915,20032
+wave.inf=17,,7915,20032
+winboot.sys=30,winboot.new,7915,20032
+wordpad.inf=17,,7915,20032
+[Windows 95 CD-ROM]
+format.com=13,,8095,38464
+DCE:C:\WIN95\\WIN95_02.CAB=43
+DCE:remaining=0
+sys.com=13,,7915,20032
+fdisk.exe=13,,7915,20032
+attrib.exe=13,,7915,20032
+edit.com=13,,7915,20032
+regedit.exe=25,,7915,20032
+scandisk.ini=13,,7915,20032
+debug.exe=13,,7915,20032
+chkdsk.exe=13,,7915,20032
+hypertrm.cnt=18,,7915,20032
+MSPAINT.CNT=18,,7915,20032
+packager.cnt=18,,7915,20032
+hticons.dll=32809,,7915,20032
+hypertrm.dll=32809,,7915,20032
+mfc30.dll=11,,7915,20032
+mfcd30.dll=11,,7915,20032
+mfcn30.dll=11,,7915,20032
+mfco30.dll=11,,7915,20032
+mspcx32.dll=32808,,7915,20032
+msvcrt20.dll=11,,7915,20032
+calc.exe=25,,7915,20032
+hypertrm.exe=32809,,7915,20032
+mspaint.exe=32808,,7915,20032
+notepad.exe=25,,7915,20032
+packager.exe=25,,7915,20032
+pbrush.exe=25,,7915,20032
+sysedit.exe=11,,7915,20032
+write.exe=25,,7915,20032
+pcximp32.flt=32808,,7915,20032
+hypertrm.hlp=18,,7915,20032
+MSPAINT.HLP=18,,7915,20032
+packager.hlp=18,,7915,20032
+at&tma~1.ht=32810,at&t.ht,7915,20032
+compus~1.ht=32810,cis.ht,7915,20032
+mcimai~1.ht=32810,mci.ht,7915,20032
+write32.wpc=32815,,7915,20032
+rsrc16.dll=11,,7915,20032
+rsrc32.dll=11,,7915,20032
+rsrcmtr.exe=25,,7915,20032
+DIALER.CNT=18,,7915,20032
+dialer.exe=25,,7915,20032
+dialer.hlp=18,,7915,20032
+3dblocks.bmp=25,,7915,20032
+clouds.bmp=25,,7915,20032
+[Windows 95 CD-ROM]
+DCE:C:\WIN95\\WIN95_03.CAB=130
+DCE:remaining=0
+forest.bmp=25,,7915,20032
+gator.bmp=25,,7915,20032
+mesh.bmp=25,,7915,20032
+sand.bmp=25,,7915,20032
+weave2.bmp=25,,7915,20032
+WORDPAD.CNT=18,,7915,20032
+mfcans32.dll=11,,7915,20032
+wordpad.exe=32815,,7915,20032
+WORDPAD.HLP=18,,7915,20032
+mswd6_32.wpc=32815,,7915,20032
+win.cnf=10,win.com,7915,20032
+iosclass.dll=11,,7915,20032
+pifmgr.dll=11,,7915,20032
+winaspi.dll=11,,7915,20032
+wnaspi32.dll=11,,7915,20032
+bigmem.drv=12,,7915,20032
+mmsound.drv=11,,7915,20032
+sort.exe=13,,7915,20032
+ios.ini=10,,7915,20032
+winoa386.new=11,winoa386.mod,7915,20032
+aspi2hlp.sys=26,,7915,20032
+himem.sys=26,,7915,20032
+apix.vxd=12,,7915,20032
+biosxlat.vxd=22,,7915,20032
+cdfs.vxd=12,,7915,20032
+cdtsd.vxd=12,,7915,20032
+cdvsd.vxd=12,,8095,20032
+disktsd.vxd=12,,7915,20032
+diskvsd.vxd=12,,7915,20032
+dosmgr.vxd=22,,7915,20032
+dosnet.vxd=22,,7915,20032
+dynapage.vxd=22,,7915,20032
+ebios.vxd=22,,7915,20032
+ifsmgr.vxd=22,,8095,20032
+int13.vxd=22,,7915,20032
+ios.vxd=22,,7915,20032
+pageswap.vxd=22,,7915,20032
+parity.vxd=22,,7915,20032
+qemmfix.vxd=22,,7915,20032
+reboot.vxd=22,,7915,20032
+v86mmgr.vxd=22,,7915,20032
+vcache.vxd=22,,7915,20032
+vcdfsd.vxd=22,,7915,20032
+vdef.vxd=22,,7915,20032
+vdmad.vxd=22,,7915,20032
+vfat.vxd=22,,7915,20032
+vfbackup.vxd=22,,7915,20032
+vfd.vxd=11,,7915,20032
+vkd.vxd=22,,7915,20032
+vmcpd.vxd=22,,7915,20032
+vmpoll.vxd=22,,7915,20032
+voltrack.vxd=12,,8095,20032
+vpicd.vxd=22,,7915,20032
+vsd.vxd=22,,7915,20032
+vtd.vxd=22,,7915,20032
+vtdapi.vxd=22,,7915,20032
+vxdldr.vxd=22,,7915,20032
+XLAT850.BIN=11,,7915,20032
+VGA850.FON=32807,,7915,20032
+vmm32.vxd=11,,7915,20032
+ntdll.dll=11,,7915,20032
+bamboo.bmp=25,,7915,20032
+bubbles.bmp=25,,7915,20032
+circles.bmp=25,,7915,20032
+egypt.bmp=25,,7915,20032
+halftone.bmp=25,,7915,20032
+hounds.bmp=25,,7915,20032
+pstripe.bmp=25,,7915,20032
+pyramid2.bmp=25,,7915,20032
+redtile.bmp=25,,7915,20032
+rivets2.bmp=25,,7915,20032
+thatch2.bmp=25,,7915,20032
+crtdll.dll=11,,7915,20032
+pkpd.dll=11,,7915,20032
+pkpd32.dll=11,,7915,20032
+license.hlp=18,,7915,20032
+desktop.ini=20,,7915,20032
+dosprmpt.pif=25,,7915,20032
+CMD640X.SYS=26,,7915,20032
+CMD640X2.SYS=26,,7915,20032
+config.txt=25,,7915,20032
+display.txt=25,,7915,20032
+exchange.txt=25,,7915,20032
+faq.txt=25,,7915,20032
+general.txt=25,,7915,20032
+hardware.txt=25,,7915,20032
+INTERNET.TXT=25,,8095,20032
+mouse.txt=25,,7915,20032
+msdosdrv.txt=25,,7915,20032
+msn.txt=25,,7915,20032
+network.txt=25,,7915,20032
+printers.txt=25,,7915,20032
+programs.txt=25,,7915,20032
+support.txt=25,,7915,20032
+tips.txt=25,,7915,20032
+necatapi.vxd=12,,7915,20032
+umdm16.dll=11,,8095,20032
+umdm32.dll=11,,8095,20032
+comm.drv=11,,7915,20032
+unimdm.tsp=11,,8095,20032
+combuff.vxd=22,,7915,20032
+lpt.vxd=11,,7915,20032
+serenum.vxd=11,,7915,20032
+serial.vxd=11,,7915,20032
+unimodem.vxd=11,,8095,20032
+vcd.vxd=22,,7915,20032
+vcomm.vxd=22,,7915,20032
+vpd.vxd=22,,7915,20032
+desk.cpl=11,,7915,20032
+INTL.CPL=11,,7915,20032
+main.cpl=11,,7915,20032
+maincp16.dll=11,,7915,20032
+sysdm.cpl=11,,7915,20032
+timedate.cpl=11,,8095,20032
+deskcp16.dll=11,,7915,20032
+ddeml.dll=11,,7915,20032
+dibeng.dll=11,,7915,20032
+mf3216.dll=11,,7915,20032
+systhunk.dll=11,,7915,20032
+toolhelp.dll=11,,7915,20032
+vdmdbg.dll=11,,7915,20032
+win32s16.dll=11,,7915,20032
+win87em.dll=11,,7915,20032
+system.drv=11,,7915,20032
+conagent.exe=11,,7915,20032
+gdi.exe=11,,7915,20032
+krnl386.exe=11,,7915,20032
+mkcompat.exe=11,,7915,20032
+redir32.exe=11,,7915,20032
+user.exe=11,,7915,20032
+[Windows 95 CD-ROM]
+DCE:C:\WIN95\\WIN95_04.CAB=31
+DCE:remaining=0
+redirect.mod=11,,7915,20032
+arial.ttf=20,,7915,20032
+arialbd.ttf=20,,7915,20032
+arialbi.ttf=20,,7915,20032
+ariali.ttf=20,,7915,20032
+cour.ttf=20,,7915,20032
+courbd.ttf=20,,7915,20032
+courbi.ttf=20,,7915,20032
+couri.ttf=20,,7915,20032
+times.ttf=20,,7915,20032
+timesbd.ttf=20,,7915,20032
+timesbi.ttf=20,,7915,20032
+timesi.ttf=20,,7915,20032
+wingding.ttf=20,,7915,20032
+vcond.vxd=22,,7915,20032
+vwin32.vxd=22,,7915,20032
+riched32.dll=11,,7915,20032
+DEFRAG.EXE=25,,7915,20032
+backup.cfg=32812,,7915,20032
+backup.cnt=18,,7915,20032
+chiadi.dll=11,,7915,20032
+chikdi.dll=11,,7915,20032
+backup.exe=32812,,7915,20032
+backup.hlp=18,,7915,20032
+qic117.vxd=11,,7915,20032
+vgafull.3gr=11,,7915,20032
+atim8.drv=11,,7915,20032
+framebuf.drv=11,,7915,20032
+vga.drv=11,,7915,20032
+ati.vxd=11,,7915,20032
+vdd.vxd=22,,7915,20032
+[Windows 95 CD-ROM]
+DCE:C:\WIN95\\WIN95_05.CAB=69
+DCE:remaining=0
+vflatd.vxd=22,,7915,20032
+mscdex.exe=13,,7915,20032
+aic78xx.mpd=12,,7915,20032
+amsint.mpd=12,,7915,20032
+ncrc710.mpd=12,,7915,20032
+ncrc810.mpd=12,,7915,20032
+esdi_506.pdr=12,,8095,20032
+hsflop.pdr=12,,7915,20032
+rmm.pdr=12,,7915,20032
+scsiport.pdr=12,,7915,20032
+atapchng.vxd=12,,8095,20032
+scsi1hlp.vxd=12,,8095,20032
+torisan3.vxd=12,,8095,20032
+awadpr32.exe=11,,7915,20032
+awfxex32.exe=11,,8095,20032
+850.dat=11,charset.dat,7915,20032
+synceng.dll=11,,7915,20032
+syncui.dll=11,,7915,20032
+vshare.vxd=22,,7915,20032
+8514fix.fon=20,,7915,20032
+8514oem.fon=20,,7915,20032
+8514sys.fon=20,,7915,20032
+APP850.FON=32807,,7915,20032
+coure.fon=20,,7915,20032
+courf.fon=20,,7915,20032
+modern.fon=20,,7915,20032
+serife.fon=20,,7915,20032
+seriff.fon=20,,7915,20032
+smalle.fon=20,,7915,20032
+smallf.fon=20,,7915,20032
+sserife.fon=20,,7915,20032
+sseriff.fon=20,,7915,20032
+symbole.fon=20,,7915,20032
+symbolf.fon=20,,7915,20032
+vgafix.fon=20,,7915,20032
+vgaoem.fon=20,,7915,20032
+vgasys.fon=20,,7915,20032
+marlett.ttf=20,,7915,20032
+symbol.ttf=20,,7915,20032
+freecell.cnt=18,,7915,20032
+mshearts.cnt=18,,7915,20032
+sol.cnt=18,,7915,20032
+winmine.cnt=18,,7915,20032
+cards.dll=11,,7915,20032
+freecell.exe=25,,7915,20032
+mshearts.exe=25,,7915,20032
+sol.exe=25,,7915,20032
+winmine.exe=25,,7915,20032
+freecell.hlp=18,,7915,20032
+mshearts.hlp=18,,7915,20032
+sol.hlp=18,,7915,20032
+winmine.hlp=18,,7915,20032
+audiocdc.hlp=18,,7915,20032
+ftsrch.dll=11,,7915,20032
+stem0409.dll=11,,7915,20032
+whlp16t.dll=11,,7915,20032
+whlp32t.dll=11,,7915,20032
+calc.cnt=18,,7915,20032
+drvspace.cnt=18,,7915,20032
+mouse.cnt=18,,7915,20032
+notepad.cnt=18,,7915,20032
+windows.cnt=18,,7915,20032
+winhlp32.cnt=18,,7915,20032
+winhelp.exe=25,,7915,20032
+winhlp32.exe=25,,7915,20032
+apps.hlp=18,,7915,20032
+calc.hlp=18,,7915,20032
+common.hlp=18,,7915,20032
+drvspace.hlp=18,,7915,20032
+[Windows 95 CD-ROM]
+DCE:C:\WIN95\\WIN95_06.CAB=37
+DCE:remaining=0
+edit.hlp=13,,7915,20032
+MFCUIX.HLP=18,,7915,20032
+mouse.hlp=18,,7915,20032
+NETWORK.HLP=18,,7915,20032
+notepad.hlp=18,,7915,20032
+SERVER.HLP=18,,7915,20032
+windows.hlp=18,,7915,20032
+winhlp32.hlp=18,,7915,20032
+winnews.txt=25,,7915,20032
+regedit.cnt=18,,7915,20032
+31users.hlp=18,,7915,20032
+regedit.hlp=18,,7915,20032
+icm32.dll=11,,7915,20032
+icmui.dll=11,,7915,20032
+hpsjtw.icm=23,,7915,20032
+mnB22G15.ICM=23,,7915,20032
+mnB22G18.ICM=23,,7915,20032
+mnB22G21.ICM=23,,7915,20032
+mnEBUG15.ICM=23,,7915,20032
+mnEBUG18.ICM=23,,7915,20032
+mnEBUG21.ICM=23,,7915,20032
+mnP22G15.ICM=23,,7915,20032
+mnP22G18.ICM=23,,7915,20032
+mnP22G21.ICM=23,,7915,20032
+imm32.dll=11,,7915,20032
+infrared.cnt=18,,8095,20032
+w_ir.cnt=18,,8095,20032
+infrared.dll=11,,8095,20032
+infrared.hlp=18,,8095,20032
+MSNINT.HLP=18,,8095,20032
+indicdll.dll=11,,7915,20032
+KEYBOARD.DRV=11,,7915,20032
+internat.exe=11,,7915,20032
+KBDUK.kbd=11,,7915,20032
+kbdus.kbd=11,,7915,20032
+apps.inf=17,,7915,20032
+mapi32.dll=11,,8095,20032
+[Windows 95 CD-ROM]
+DCE:C:\WIN95\\WIN95_07.CAB=25
+DCE:remaining=0
+mlshext.dll=32797,,7915,20032
+vlb32.dll=11,,7915,20032
+mlset32.exe=32797,,7915,20032
+800950.DAT=32789,,7915,20032
+CCAPI.DLL=11,,8095,20032
+CCEI.DLL=32789,,7915,20032
+CCPSH.DLL=32789,,7915,20032
+DUNZIPNT.DLL=11,,7915,20032
+FTMAPI.DLL=11,,7915,20032
+MCM.DLL=11,,8095,20032
+MOSCC.DLL=11,,7915,20032
+MOSCL.DLL=11,,7915,20032
+MOSCOMP.DLL=32789,,7915,20032
+MOSCUDLL.DLL=11,,7915,20032
+MOSMISC.DLL=11,,7915,20032
+MPCCL.DLL=32789,,8095,20032
+PRODINV.DLL=11,,7915,20032
+SVCPROP.DLL=11,,7915,20032
+TREENVCL.DLL=11,,7915,20032
+CCDIALER.EXE=32789,,7915,20032
+GUIDE.EXE=32789,,8095,20032
+MOSCP.EXE=32789,,7915,20032
+MSNEXCH.EXE=11,,7915,20032
+REGWIZ.EXE=11,,7915,20032
+SIGNUP.EXE=32789,,8095,20032
+[Windows 95 CD-ROM]
+DCE:C:\WIN95\\WIN95_08.CAB=103
+DCE:remaining=0
+MSN.HLP=18,,7915,20032
+MSNPSS.HLP=18,,8095,20032
+PHONE.PBK=32789,,8095,20032
+STATE.PBK=32789,,7915,20032
+MSNVER.TXT=32789,,8095,20032
+systray.exe=11,,7915,20032
+splitter.vxd=11,,7915,20032
+vgateway.vxd=11,,7915,20032
+modem.cpl=11,,7915,20032
+modemui.dll=11,,8095,20032
+mdmati.inf=17,,7915,20032
+mdmatt.inf=17,,7915,20032
+mdmaus.inf=17,,7915,20032
+mdmboca.inf=17,,7915,20032
+mdmcommu.inf=17,,7915,20032
+mdmcpi.inf=17,,7915,20032
+mdmcpq.inf=17,,8095,20032
+mdmdsi.inf=17,,8095,20032
+mdmexp.inf=17,,7915,20032
+mdmgatew.inf=17,,7915,20032
+mdmgen.inf=17,,7915,20032
+mdmgvc.inf=17,,7915,20032
+mdmhayes.inf=17,,7915,20032
+mdminfot.inf=17,,7915,20032
+mdmintel.inf=17,,7915,20032
+mdmintpc.inf=17,,7915,20032
+mdmmcom.inf=17,,7915,20032
+mdmmetri.inf=17,,7915,20032
+mdmmhrtz.inf=17,,7915,20032
+mdmmoto.inf=17,,7915,20032
+mdmmts.inf=17,,7915,20032
+mdmnokia.inf=17,,7915,20032
+mdmnova.inf=17,,7915,20032
+mdmosi.inf=17,,7915,20032
+mdmpace.inf=17,,7915,20032
+mdmpnb.inf=17,,7915,20032
+mdmpp.inf=17,,7915,20032
+mdmracal.inf=17,,7915,20032
+mdmrock.inf=17,,8095,20032
+mdmrock2.inf=17,,8095,20032
+mdmsier.inf=17,,7915,20032
+mdmsonix.inf=17,,7915,20032
+mdmspec.inf=17,,7915,20032
+mdmsupra.inf=17,,7915,20032
+mdmtdk.inf=17,,7915,20032
+mdmtelbt.inf=17,,7915,20032
+mdmti.inf=17,,7915,20032
+mdmtosh.inf=17,,7915,20032
+mdmusrcr.inf=17,,7915,20032
+mdmusrsp.inf=17,,7915,20032
+mdmusrwp.inf=17,,7915,20032
+mdmzoom.inf=17,,7915,20032
+mdmzyp.inf=17,,7915,20032
+mdmzyxel.inf=17,,7915,20032
+imaadp32.acm=11,,7915,20032
+msadp32.acm=11,,7915,20032
+msg711.acm=11,,7915,20032
+msgsm32.acm=11,,7915,20032
+tssoft32.acm=11,,7915,20032
+midimap.cfg=11,,7915,20032
+mplayer.cnt=18,,7915,20032
+sndvol32.cnt=18,,7915,20032
+soundrec.cnt=18,,7915,20032
+joy.cpl=11,,7915,20032
+mmsys.cpl=11,,7915,20032
+avicap.dll=11,,7915,20032
+avicap32.dll=11,,7915,20032
+avifil32.dll=11,,7915,20032
+avifile.dll=11,,7915,20032
+dciman.dll=11,,7915,20032
+dciman32.dll=11,,7915,20032
+dispdib.dll=11,,7915,20032
+iccvid.dll=11,,7915,20032
+ir32_32.dll=11,,7915,20032
+mciole.dll=11,,7915,20032
+mmci.dll=11,,7915,20032
+mmsystem.dll=11,,7915,20032
+msacm.dll=11,,7915,20032
+msacm32.dll=11,,7915,20032
+msmixmgr.dll=11,,7915,20032
+msrle32.dll=11,,7915,20032
+msvfw32.dll=11,,7915,20032
+msvidc32.dll=11,,7915,20032
+msvideo.dll=11,,7915,20032
+tsd32.dll=11,,7915,20032
+winmm.dll=11,,7915,20032
+mciavi.drv=11,,7915,20032
+mcicda.drv=11,,7915,20032
+mciseq.drv=11,,7915,20032
+mciwave.drv=11,,7915,20032
+midimap.drv=11,,7915,20032
+msacm.drv=11,,7915,20032
+mplayer.exe=25,,7915,20032
+sndrec32.exe=25,,7915,20032
+sndvol32.exe=25,,7915,20032
+mmdrv.hlp=18,,7915,20032
+mplayer.hlp=18,,7915,20032
+sndvol32.hlp=18,,7915,20032
+soundrec.hlp=18,,7915,20032
+general.idf=32793,,7915,20032
+mmtask.tsk=11,,7915,20032
+mmdevldr.vxd=11,,7915,20032
+mssound.wav=32794,,7915,20032
+[Windows 95 CD-ROM]
+DCE:C:\WIN95\\WIN95_09.CAB=69
+DCE:remaining=0
+mouse.drv=11,,7915,20032
+msmouse.vxd=11,,7915,20032
+vmd.vxd=22,,7915,20032
+vmouse.vxd=22,,7915,20032
+doskey.com=13,,7915,20032
+keyb.com=13,,7915,20032
+mode.com=13,,7915,20032
+more.com=13,,7915,20032
+choice.com=13,,7915,20032
+diskcopy.com=13,,7915,20032
+deltree.exe=13,,7915,20032
+DRVSPACE.EXE=25,,7915,20032
+emm386.exe=10,,7915,20032
+fc.exe=13,,7915,20032
+find.exe=13,,7915,20032
+label.exe=13,,7915,20032
+mem.exe=13,,7915,20032
+move.exe=13,,7915,20032
+nlsfunc.exe=13,,7915,20032
+SCANDSKW.EXE=25,,7915,20032
+setver.exe=26,setver.win,7915,20032
+share.exe=13,,7915,20032
+start.exe=13,,7915,20032
+subst.exe=13,,7915,20032
+xcopy.exe=13,,7915,20032
+xcopy32.exe=13,,7915,20032
+DRVSPACE.INF=25,,7915,20032
+ansi.sys=13,,7915,20032
+country.sys=13,,7915,20032
+dblbuff.sys=26,,7915,20032
+display.sys=13,,7915,20032
+keyboard.sys=13,,7915,20032
+keybrd2.sys=13,,7915,20032
+ramdrive.sys=10,,7915,20032
+drvspacx.vxd=12,,7915,20032
+mrci2.vxd=22,,7915,20032
+cp_1252.nls=11,,7915,20032
+cp_437.nls=11,,7915,20032
+cp_850.nls=11,,7915,20032
+locale.nls=11,,7915,20032
+unicode.nls=11,,7915,20032
+IEXPLORE.CNT=18,,8095,20032
+INETCPL.CPL=11,,8095,20032
+INET16.DLL=11,,8095,20032
+INETCFG.DLL=11,,8095,20032
+RA.DLL=32798,,8095,20032
+SECBASIC.DLL=32798,,8095,20032
+URL.DLL=11,,8095,20032
+DIALMON.EXE=11,,8095,20032
+IEXPLORE.EXE=32798,,8095,20032
+INETWIZ.EXE=32798,,8095,20032
+RAPLAYER.EXE=32798,,8095,20032
+RATASK.EXE=32798,,8095,20032
+IEXPLORE.HLP=18,,8095,20032
+INTERWIZ.HLP=18,,8095,20032
+RAPLAYER.HLP=18,,8095,20032
+COMIC.TTF=20,,8095,20032
+INET.TXT=32798,INTERNET.TXT,7915,20032
+COOL.URL=32800,,8095,20032
+GETISDN.URL=32799,,8095,20032
+MSFT.URL=32799,,8095,20032
+MSN.URL=32799,,8095,20032
+PSS.URL=32799,,8095,20032
+compobj.dll=11,,7915,20032
+ole2.dll=11,,7915,20032
+ole2conv.dll=11,,7915,20032
+ole2disp.dll=11,,7915,20032
+ole2nls.dll=11,,7915,20032
+ole32.dll=11,,8095,20032
+[Windows 95 CD-ROM]
+DCE:C:\WIN95\\WIN95_10.CAB=29
+DCE:remaining=0
+oleaut32.dll=11,,7915,20032
+storage.dll=11,,7915,20032
+typelib.dll=11,,7915,20032
+stdole.tlb=11,,7915,20032
+stdole32.tlb=11,,7915,20032
+olecli.dll=11,,7915,20032
+olecli32.dll=11,,7915,20032
+olesvr.dll=11,,7915,20032
+olesvr32.dll=11,,7915,20032
+mfcuia32.dll=11,,7915,20032
+mfcuiw32.dll=11,,7915,20032
+OLECNV32.DLL=11,,7915,20032
+oledlg.dll=11,,7915,20032
+OLETHK32.DLL=11,,7915,20032
+mspcic.dll=11,,7915,20032
+msgsrv32.exe=11,,7915,20032
+isapnp.vxd=11,,7915,20032
+sage.dll=11,,8095,20032
+sysclass.dll=11,,7915,20032
+configmg.vxd=22,,7915,20032
+eisa.vxd=11,,7915,20032
+lptenum.vxd=11,,7915,20032
+pci.vxd=11,,7915,20032
+addreg.exe=11,,7915,20032
+spoolss.dll=11,,7915,20032
+winspl16.drv=11,,7915,20032
+winspool.drv=11,,7915,20032
+spool32.exe=11,,7915,20032
+spooler.vxd=22,,7915,20032
+[Windows 95 CD-ROM]
+DCE:C:\WIN95\\WIN95_11.CAB=63
+DCE:remaining=0
+rasapi16.dll=11,,7915,20032
+rasapi32.dll=11,,7915,20032
+rnanp.dll=11,,7915,20032
+rnathunk.dll=11,,7915,20032
+rnaui.dll=11,,7915,20032
+smmscrpt.dll=11,,8095,20032
+directcc.exe=25,,7915,20032
+lights.exe=11,,7915,20032
+rnaapp.exe=11,,7915,20032
+cis.scp=32816,,8095,20032
+pppmenu.scp=32816,,8095,20032
+logger.vxd=11,,7915,20032
+paralink.vxd=11,,7915,20032
+pppmac.vxd=11,,7915,20032
+spap.vxd=11,,7915,20032
+BILLADD.DLL=32789,,8095,20032
+SUUTIL.DLL=32789,,8095,20032
+ENGCT.EXE=32789,,8095,20032
+setup.bmp=25,,7915,20032
+setup4.dll=11,,7915,20032
+version.dll=11,,7915,20032
+runonce.exe=11,,7915,20032
+wininit.exe=10,,7915,20032
+winver.exe=25,,7915,20032
+clip.inf=17,,7915,20032
+ver.new=11,ver.dll,7915,20032
+sulogo.sys=30,,7915,20032
+appstart.ani=32802,,7915,20032
+hourglas.ani=32802,,7915,20032
+progman.cnt=18,,7915,20032
+winfile.cnt=18,,7915,20032
+APPWIZ.CPL=11,,7915,20032
+comctl32.dll=11,,7915,20032
+comdlg32.dll=11,,8095,20032
+diskcopy.dll=11,,7915,20032
+docprop.dll=11,,7915,20032
+fontext.dll=11,,7915,20032
+linkinfo.dll=11,,7915,20032
+moricons.dll=25,,7915,20032
+panmap.dll=11,,7915,20032
+shell32.dll=11,,8095,20032
+shscrap.dll=11,,7915,20032
+winword.doc=32801,,7915,20032
+winword2.doc=32813,,7915,20032
+control.exe=25,,7915,20032
+Explorer.exe=25,,7915,20032
+fontreg.exe=11,,7915,20032
+fontview.exe=25,,7915,20032
+grpconv.exe=25,,7915,20032
+progman.exe=25,,7915,20032
+rundll.exe=25,,7915,20032
+rundll32.exe=25,,7915,20032
+taskman.exe=25,,7915,20032
+welcome.exe=25,,7915,20032
+winfile.exe=25,,7915,20032
+progman.hlp=18,,7915,20032
+winfile.hlp=18,,7915,20032
+control.inf=11,,7915,20032
+commdlg.new=11,commdlg.dll,7915,20032
+shell.new=11,shell.dll,7915,20032
+powerpnt.ppt=32813,,7915,20032
+amipro.sam=32813,,7915,20032
+bezier.scr=11,,7915,20032
+[Windows 95 CD-ROM]
+DCE:C:\WIN95\\WIN95_12.CAB=69
+DCE:remaining=0
+scrnsave.scr=11,,7915,20032
+ssflywin.scr=11,,7915,20032
+ssmarque.scr=11,,7915,20032
+ssmyst.scr=11,,7915,20032
+ssstars.scr=11,,7915,20032
+presenta.shw=32813,,7915,20032
+shell.vxd=22,,7915,20032
+quattro.wb2=32813,,7915,20032
+lotus.wk4=32813,,7915,20032
+wordpfct.wpd=32813,,7915,20032
+wordpfct.wpg=32813,,7915,20032
+excel.xls=32813,,7915,20032
+excel4.xls=32813,,7915,20032
+telephon.cpl=11,telephon.cp$,7915,20032
+tapi.dll=11,,7915,20032
+tapi32.dll=11,,7915,20032
+tapiaddr.dll=11,,7915,20032
+tapiexe.exe=11,,7915,20032
+tapiini.exe=11,,7915,20032
+telephon.hlp=18,,7915,20032
+umdmxfrm.dll=11,,8095,20032
+vmodctl.dll=11,,8095,20032
+serwvdrv.drv=11,,8095,20032
+tamaudio.drv=11,,8095,20032
+wavewrap.drv=11,,8095,20032
+vvexe32.exe=11,,8095,20032
+mdmrock3.inf=17,,8095,20032
+serwave.inf=17,,8095,20032
+tamwrap.inf=17,,8095,20032
+mdmrock4.inf=17,,8095,20032
+serwave.vxd=11,,8095,20032
+advapi32.dll=11,,7915,20032
+gdi32.dll=11,,7915,20032
+kernel32.dll=11,,7915,20032
+lz32.dll=11,,7915,20032
+user32.dll=11,,7915,20032
+wow32.dll=11,,7915,20032
+logos.sys=25,,7915,20032
+logow.sys=25,,7915,20032
+WINPOPUP.CNT=18,,7915,20032
+netcpl.cpl=11,,7915,20032
+password.cpl=11,,7915,20032
+choosusr.dll=11,,7915,20032
+mpr.dll=11,,7915,20032
+mprserv.dll=11,,7915,20032
+msab32.dll=11,,7915,20032
+msnet32.dll=11,,7915,20032
+msnp32.dll=11,,7915,20032
+mspp32.dll=11,,7915,20032
+mspwl32.dll=11,,8095,20032
+msshrui.dll=11,,7915,20032
+nddeapi.dll=25,,7915,20032
+nddenb.dll=25,,7915,20032
+netapi32.dll=11,,7915,20032
+netbios.dll=11,,7915,20032
+pmspl.dll=11,,7915,20032
+rpcltc1.dll=11,,7915,20032
+rpcltc6.dll=11,,7915,20032
+rpclts6.dll=11,,7915,20032
+rpcns4.dll=11,,7915,20032
+rpcrt4.dll=11,,7915,20032
+secur32.dll=11,,7915,20032
+svrapi.dll=11,,7915,20032
+winnet16.dll=11,,7915,20032
+winsock.dll=25,,7915,20032
+wsock32.dll=11,,8095,20032
+lmscript.exe=11,,7915,20032
+mprexe.exe=11,,7915,20032
+netdde.exe=25,,7915,20032
+[Windows 95 CD-ROM]
+DCE:C:\WIN95\\WIN95_13.CAB=85
+DCE:remaining=0
+rpcss.exe=11,,7915,20032
+WINPOPUP.EXE=10,,7915,20032
+wsasrv.exe=11,,7915,20032
+WINPOPUP.HLP=18,,7915,20032
+winpopup.inf=17,,7915,20032
+lmscript.pif=11,,7915,20032
+ifshlp.sys=26,,7915,20032
+filesec.vxd=11,,7915,20032
+mssp.vxd=11,,7915,20032
+ndis.vxd=11,,7915,20032
+ndis2sup.vxd=11,,7915,20032
+nwlink.vxd=11,,7915,20032
+nwserver.vxd=11,,8095,20032
+perf.vxd=22,,7915,20032
+vnetbios.vxd=11,,7915,20032
+vnetsup.vxd=11,,7915,20032
+vredir.vxd=11,,8095,20032
+vserver.vxd=11,,8095,20032
+wsipx.vxd=11,,7915,20032
+wsock.vxd=11,,8095,20032
+vtdi.386=11,,8095,20032
+net.exe=25,,8095,20032
+net.msg=25,,7915,20032
+neth.msg=25,,7915,20032
+unicode.bin=11,,7915,20032
+ega.cpi=13,,7915,20032
+scripter.exe=32816,,8095,20032
+scripter.hlp=18,,8095,20032
+slip.scp=32816,,8095,20032
+slipmenu.scp=32816,,8095,20032
+netwatch.cnt=18,,7915,20032
+charmap.exe=25,,7915,20032
+arrow_m.cur=32817,,7915,20032
+beam_1.cur=32817,,7915,20032
+beam_l.cur=32817,,7915,20032
+beam_m.cur=32817,,7915,20032
+busy_1.cur=32817,,7915,20032
+busy_l.cur=32817,,7915,20032
+busy_m.cur=32817,,7915,20032
+cross_1.cur=32817,,7915,20032
+cross_l.cur=32817,,7915,20032
+cross_m.cur=32817,,7915,20032
+help_1.cur=32817,,7915,20032
+help_l.cur=32817,,7915,20032
+help_m.cur=32817,,7915,20032
+move_1.cur=32817,,7915,20032
+move_l.cur=32817,,7915,20032
+move_m.cur=32817,,7915,20032
+no_1.cur=32817,,7915,20032
+no_l.cur=32817,,7915,20032
+no_m.cur=32817,,7915,20032
+pen_1.cur=32817,,7915,20032
+pen_l.cur=32817,,7915,20032
+pen_m.cur=32817,,7915,20032
+size1_1.cur=32817,,7915,20032
+size1_l.cur=32817,,7915,20032
+size1_m.cur=32817,,7915,20032
+size2_1.cur=32817,,7915,20032
+size2_l.cur=32817,,7915,20032
+size2_m.cur=32817,,7915,20032
+size3_1.cur=32817,,7915,20032
+size3_l.cur=32817,,7915,20032
+size3_m.cur=32817,,7915,20032
+size4_1.cur=32817,,7915,20032
+size4_l.cur=32817,,7915,20032
+size4_m.cur=32817,,7915,20032
+up_1.cur=32817,,7915,20032
+up_l.cur=32817,,7915,20032
+up_m.cur=32817,,7915,20032
+wait_1.cur=32817,,7915,20032
+wait_l.cur=32817,,7915,20032
+wait_m.cur=32817,,7915,20032
+debmp.dll=21,,7915,20032
+dehex.dll=21,,7915,20032
+demet.dll=21,,7915,20032
+dess.dll=21,,7915,20032
+dewp.dll=21,,7915,20032
+msviewut.dll=21,,7915,20032
+sccview.dll=21,,7915,20032
+vsami.dll=21,,7915,20032
+vsasc8.dll=21,,7915,20032
+vsbmp.dll=21,,7915,20032
+vsdrw.dll=21,,7915,20032
+vsexe2.dll=21,,7915,20032
+vsflw.dll=21,,7915,20032
+[Windows 95 CD-ROM]
+DCE:C:\WIN95\\WIN95_14.CAB=37
+DCE:remaining=0
+vsmp.dll=21,,7915,20032
+vsmsw.dll=21,,7915,20032
+vspp.dll=21,,7915,20032
+vsrtf.dll=21,,7915,20032
+vsw6.dll=21,,7915,20032
+vswk4.dll=21,,7915,20032
+vswks.dll=21,,7915,20032
+vswmf.dll=21,,7915,20032
+vsword.dll=21,,7915,20032
+vswork.dll=21,,7915,20032
+vswp5.dll=21,,7915,20032
+vswp6.dll=21,,7915,20032
+vswpf.dll=21,,7915,20032
+vsxl5.dll=21,,7915,20032
+quikview.exe=21,,7915,20032
+sysmon.cnt=18,,7915,20032
+netwatch.hlp=18,,7915,20032
+sysmon.hlp=18,,7915,20032
+mullang.inf=17,,7915,20032
+cdplayer.cnt=18,,7915,20032
+mcipionr.drv=11,,7915,20032
+mcivisca.drv=11,,7915,20032
+cdplayer.exe=25,,7915,20032
+cdplayer.hlp=18,,7915,20032
+canyon.mid=32818,,7915,20032
+passport.mid=32818,,7915,20032
+BACHSB~1.RMI=32818,,7915,20032
+BEETHO~2.RMI=32818,,7915,20032
+CLAIRE~1.RMI=32818,,7915,20032
+DANCEO~2.RMI=32818,,7915,20032
+FURELI~1.RMI=32818,,7915,20032
+HALLOF~2.RMI=32818,,7915,20032
+MOZART~2.RMI=32818,,7915,20032
+chimes.wav=32818,,7915,20032
+chord.wav=32818,,7915,20032
+ding.wav=32818,,7915,20032
+jungle~1.wav=32820,,7915,20032
+[Windows 95 CD-ROM]
+DCE:C:\WIN95\\WIN95_15.CAB=16
+DCE:remaining=0
+jungle~2.wav=32820,,7915,20032
+jungle~3.wav=32820,,7915,20032
+jungle~4.wav=32820,,7915,20032
+jungleas.wav=32820,,7915,20032
+junglecl.wav=32820,,7915,20032
+junglecr.wav=32820,,7915,20032
+junglede.wav=32820,,7915,20032
+jungleer.wav=32820,,7915,20032
+jungleex.wav=32820,,7915,20032
+junglema.wav=32820,,7915,20032
+jungleme.wav=32820,,7915,20032
+junglemi.wav=32820,,7915,20032
+jungleop.wav=32820,,7915,20032
+junglequ.wav=32820,,7915,20032
+junglere.wav=32820,,7915,20032
+junglewi.wav=32820,,7915,20032
+[Windows 95 CD-ROM]
+DCE:C:\WIN95\\WIN95_16.CAB=53
+DCE:remaining=0
+musica~1.wav=32819,,7915,20032
+musica~2.wav=32819,,7915,20032
+musica~3.wav=32819,,7915,20032
+musica~4.wav=32819,,7915,20032
+musicaas.wav=32819,,7915,20032
+musicacl.wav=32819,,7915,20032
+musicacr.wav=32819,,7915,20032
+musicade.wav=32819,,7915,20032
+musicaer.wav=32819,,7915,20032
+musicaex.wav=32819,,7915,20032
+musicama.wav=32819,,7915,20032
+musicame.wav=32819,,7915,20032
+musicami.wav=32819,,7915,20032
+musicaop.wav=32819,,7915,20032
+musicaqu.wav=32819,,7915,20032
+musicare.wav=32819,,7915,20032
+musicawi.wav=32819,,7915,20032
+robotz~1.wav=32821,,7915,20032
+robotz~2.wav=32821,,7915,20032
+robotz~3.wav=32821,,7915,20032
+robotz~4.wav=32821,,7915,20032
+robotzas.wav=32821,,7915,20032
+robotzcl.wav=32821,,7915,20032
+robotzcr.wav=32821,,7915,20032
+robotzde.wav=32821,,7915,20032
+robotzer.wav=32821,,7915,20032
+robotzex.wav=32821,,7915,20032
+robotzma.wav=32821,,7915,20032
+robotzme.wav=32821,,7915,20032
+robotzmi.wav=32821,,7915,20032
+robotzop.wav=32821,,7915,20032
+robotzqu.wav=32821,,7915,20032
+robotzre.wav=32821,,7915,20032
+robotzwi.wav=32821,,7915,20032
+tada.wav=32818,,7915,20032
+utopia~1.wav=32822,,7915,20032
+utopia~2.wav=32822,,7915,20032
+utopia~3.wav=32822,,7915,20032
+utopia~4.wav=32822,,7915,20032
+utopiaas.wav=32822,,7915,20032
+utopiacl.wav=32822,,7915,20032
+utopiacr.wav=32822,,7915,20032
+utopiade.wav=32822,,7915,20032
+utopiaer.wav=32822,,7915,20032
+utopiaex.wav=32822,,7915,20032
+utopiama.wav=32822,,7915,20032
+utopiame.wav=32822,,7915,20032
+utopiami.wav=32822,,7915,20032
+utopiaop.wav=32822,,7915,20032
+utopiaqu.wav=32822,,7915,20032
+utopiare.wav=32822,,7915,20032
+utopiawi.wav=32822,,7915,20032
+CLOSEWIN.AVI=18,,7915,20032
+[Windows 95 CD-ROM]
+DCE:C:\WIN95\\WIN95_17.CAB=20
+DCE:remaining=0
+DRAGDROP.AVI=18,,7915,20032
+EXPLORER.AVI=18,,7915,20032
+FIND.AVI=18,,7915,20032
+MOVEWIN.AVI=18,,7915,20032
+PASTE.AVI=18,,7915,20032
+SCROLL.AVI=18,,7915,20032
+SIZEWIN.AVI=18,,7915,20032
+TASKSWCH.AVI=18,,7915,20032
+WHATSON.AVI=18,,7915,20032
+w_over.cnt=18,,7915,20032
+overview.hlp=18,,7915,20032
+expostrt.exe=25,,7915,20032
+expo.hlp=18,,7915,20032
+arrow_1.cur=32817,,7915,20032
+arrow_l.cur=32817,,7915,20032
+w_tour.cnt=18,,7915,20032
+tourani.dll=11,,7915,20032
+TOURSTR.DLL=11,,7915,20032
+TOURUTIL.DLL=11,,7915,20032
+VBRUN300.DLL=11,,7915,20032
+[Windows 95 CD-ROM]
+DCE:C:\WIN95\\WIN95_18.CAB=11
+DCE:remaining=0
+TOUR.EXE=25,,7915,20032
+THREED.VBX=11,,7915,20032
+vsqpw2.dll=21,,7915,20032
+filexfer.cnt=18,,8095,20032
+fte.dll=11,,8095,20032
+filexfer.exe=10,,8095,20032
+filexfer.hlp=18,,8095,20032
+mdmvv.inf=17,,7915,20032
+wsvv.vxd=11,,8095,20032
+netwatch.exe=25,,7915,20032
+sysmon.exe=25,,7915,20032
+LDID is ffff failed CtlGetLdd 
+CAB-No volume name for LDID ffff, local copy - path Absolute
+CHKSTATE.SYS=25,,7359,12992
+MEMMAKER.EXE=25,,7359,12992
+MEMMAKER.HLP=25,,7359,12992
+MEMMAKER.INF=25,,7359,12992
+SIZER.EXE=25,,7359,12992
+VcpClose:About to End
+VcpClose:About to Terminate
+FileCopy=Passed
+
+[Dummy]
+
+[Restart]
+loading 'C:\WININST0.400\suexpand.dll' returned d670ebe
+SrcLdid:(34)DRVSPACE.EXE
+SrcLdid:(34)DBLSPACE.EXE
+SrcLdid:(34)DEFRAG.EXE
+SrcLdid:(34)SCANDISK.EXE
+SrcLdid:(30)SYSTEM.NEW
+SrcLdid:(30)COMMAND.NEW
+SrcLdid:(30)COMMAND.NEW
+SrcLdid:(30)COMMAND.NEW
+SrcLdid:(30)COMMAND.NEW
+SrcLdid:(30)WINBOOT.NEW
+SrcLdid:(30)WINBOOT.NEW
+SrcLdid:(26)SETVER.WIN
+SrcLdid:(30)SULOGO.SYS
+SrcLdid:(30)USER.NEW
+Ver:C:\DRVSPACE.BIN=:0:0: Ver:C:\WININST0.400\DRVSPACE.BIN=:262144:256:
+SrcLdid:(2)DRVSPACE.BIN
+Ver:C:\DBLSPACE.BIN=:0:0: Ver:C:\WININST0.400\DRVSPACE.BIN=:262144:256:
+SrcLdid:(2)DRVSPACE.BIN
+cf:C:\DOS\DRVSPACE.BIN:
+Ver:C:\DOS\DRVSPACE.BIN=:0:0: Ver:C:\WININST0.400\DRVSPACE.BIN=:262144:256:
+SrcLdid:(2)DRVSPACE.BIN
+Ver:C:\DOS\DBLSPACE.BIN=:0:0: Ver:C:\WININST0.400\DRVSPACE.BIN=:262144:256:
+SrcLdid:(2)DRVSPACE.BIN
+cf:C:\DOS\DRVSPACE.SYS:
+Ver:C:\DOS\DRVSPACE.SYS=:0:0: Ver:C:\WININST0.400\DRVSPACE.SYS=:262144:256:
+SrcLdid:(2)DRVSPACE.SYS
+Ver:C:\DOS\DBLSPACE.SYS=:0:0: Ver:C:\WININST0.400\DRVSPACE.SYS=:262144:256:
+SrcLdid:(2)DRVSPACE.SYS
+VcpClose:About to close
+VcpClose:Delete 101
+VcpClose:Rename 4
+VcpClose:Copy 18
+CAB-No volume name for LDID 2, local copy - path C:\WININST0.400
+DBLSPACE.BAT=34,,7915,20032
+DEFRAG.BAT=34,,7915,20032
+DRVSPACE.BAT=34,,7915,20032
+drvspace.bin=34,DBLSPACE.BIN,7915,20032
+drvspace.bin=34,,7915,20032
+drvspace.bin=31,DBLSPACE.BIN,7915,20032
+Resolve Conflict:C:\drvspace.bin ConflictType: 240
+drvspace.bin=31,,7915,20032
+drvspace.sys=34,dblspace.sys,7915,20032
+drvspace.sys=34,,7915,20032
+drvspace.sys=13,dblspace.sys,7915,20032
+SCANDISK.BAT=34,,7915,20032
+LDID is ffff failed CtlGetLdd 
+CAB-No volume name for LDID ffff, local copy - path Absolute
+COMMAND.NEW=30,command.com,7915,20032
+COMMAND.NEW=26,command.com,7915,20032
+SULOGO.SYS=31,LOGO.SYS,7915,20032
+SYSTEM.NEW=28,SYSTEM.DAT,33,2185
+USER.NEW=10,user.dat,33,2184
+WINBOOT.NEW=30,IO.SYS,7915,20032
+SETVER.WIN=26,SETVER.EXE,33,2182
+VcpClose:About to End
+VcpClose:About to Terminate
+RootFilesRenamed=OK
+TPS_Flush() Informational log: Setup didn't rename old file :C:\WINDOWS\system.ini: to :C:\WINDOWS\system.---:
+TPS_Flush() Informational log: Setup didn't rename old file :C:\WINDOWS\win.ini: to :C:\WINDOWS\win.---:
+TPS_Flush() Informational log: Setup didn't rename old file :C:\WINDOWS\wininit.ini: to :C:\WINDOWS\wininit.---:
+TPS_Flush() Informational log: Setup didn't rename old file :C:\WINDOWS\setup.ini: to :C:\WINDOWS\setup.---:
+TPS_Flush() Informational log: Setup didn't rename old file :C:\WINDOWS\exchng32.ini: to :C:\WINDOWS\exchng32.---:
+TPS_Flush() Informational log: Setup didn't rename old file :C:\WINDOWS\control.ini: to :C:\WINDOWS\control.---:
+TPS_Flush() Informational log: Setup didn't rename old file :C:\WINDOWS\qtw.ini: to :C:\WINDOWS\qtw.---:
+TPS_Flush() Informational log: Setup didn't rename old file :C:\WINDOWS\system.cb: to :C:\WINDOWS\system.---:
+TPS_Flush() Informational log: Setup didn't rename old file :C:\WINDOWS\msoffice.ini: to :C:\WINDOWS\msoffice.---:
+TPS_Flush() Informational log: Setup didn't rename old file :C:\WINDOWS\protocol.ini: to :C:\WINDOWS\protocol.---:
+TPS_Flush() Informational log: Setup didn't rename old file :C:\WINDOWS\powerpnt.ini: to :C:\WINDOWS\powerpnt.---:
+Providers begin (AfterProvider)
+CallDll(C:\WININST0.400\netdi.dll,NDICLEANUPB4REBOOT), hlib=5950, ret=0
+CallDll(C:\WININST0.400\setupx.dll,SURPLSETUP), hlib=3430, ret=0
+Providers End (AfterProvider)
+Restart=Passed
+
+[Dummy]
+
+[First Process Tree]
+[Build Driver Index File]
+Start
+End
+
+[Device not there]
+Reg SubKey:Enum\ROOT\*PNP0F0E\0000
+Description:Standard PS/2 Port Mouse
+COMPLETE
+
+[Was not verified]
+Reg SubKey:Enum\ROOT\*PNP090B\0000
+Description:ATI Graphics Ultra (mach8)
+COMPLETE
+
+[No valid log config]
+Reg SubKey:Enum\ROOT\DISPLAY\0000
+Description:ATI Graphics Ultra (mach8)
+COMPLETE
+
+[Not configured]
+Reg SubKey:Enum\ISAPNP\READDATAPORT\0
+VcpClose:About to close
+VcpClose:About to End
+VcpClose:About to Terminate
+COMPLETE
+
+DMSetupDevnode:End FirstProcessTree
+DMSetupDevnode:dwRestartFlags at end of FirstProcessTree:0x0
+
+[DMFirstTimeSetup]
+Sending DIF_FIRSTTIMESETUP to class:Unknown
+Sending DIF_FIRSTTIMESETUP to class:SCSIAdapter
+Sending DIF_FIRSTTIMESETUP to class:PCMCIA
+Sending DIF_FIRSTTIMESETUP to class:nodriver
+Sending DIF_FIRSTTIMESETUP to class:Net
+Sending DIF_FIRSTTIMESETUP to class:MTD
+Sending DIF_FIRSTTIMESETUP to class:Ports
+Sending DIF_FIRSTTIMESETUP to class:Mouse
+Sending DIF_FIRSTTIMESETUP to class:hdc
+Sending DIF_FIRSTTIMESETUP to class:fdc
+Sending DIF_FIRSTTIMESETUP to class:Display
+Sending DIF_FIRSTTIMESETUP to class:CDROM
+Sending DIF_FIRSTTIMESETUP to class:Monitor
+Sending DIF_FIRSTTIMESETUP to class:Modem
+Sending DIF_FIRSTTIMESETUP to class:MultiFunction
+Sending DIF_FIRSTTIMESETUP to class:System
+Sending DIF_FIRSTTIMESETUP to class:Keyboard
+Sending DIF_FIRSTTIMESETUP to class:MEDIA
+Sending DIF_FIRSTTIMESETUP to class:Infrared
+Sending DIF_FIRSTTIMESETUP to class:DiskDrive
+Sending DIF_FIRSTTIMESETUP to class:Printer
+Sending DIF_FIRSTTIMESETUP to class:Adapter
+COMPLETE
+
