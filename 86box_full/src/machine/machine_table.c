@@ -385,7 +385,7 @@ const machine_t machines[] = {
         .aliases                  = { "" }
     },
     {
-        .name              = "[386SX] IBM XT (1986) w/ Intel Inboard 386/PC",
+        .name              = "[386DX] IBM XT (Inboard 386/PC)",
         .internal_name     = "ibmxt_inboard386",
         .type              = MACHINE_TYPE_386SX,
         .chipset           = MACHINE_CHIPSET_DISCRETE,

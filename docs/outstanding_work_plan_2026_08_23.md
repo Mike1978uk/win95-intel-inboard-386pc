@@ -149,6 +149,38 @@ via COMrade's DOS port I/O (Technique 6). Note the 8514/A registers are sparse a
 project's fidelity goal.
 
 ### 8. 🔴 Revto486 — issue #9 (blocked, do not treat as quick)
+
+> ### ⚡ 2026-08-23 — **the blocker may be sidesteppable: use 386MAX instead of EMM386**
+> Step 8 is blocked because the driver needs a V86 provider, the card's `CONFIG.SYS` has no EMM386,
+> and adding EMM386 runs into the unresolved `0128:009B` halt
+> ([[xt-emm386-halt-0128-wildjump-2026-08-03]]). @andrew-hoffman raised the obvious alternative:
+>
+> > If you're having problems with EMM386 then 386MAX may be a usable alternative. It at least
+> > claims to support the InBoard.
+>
+> **It's better than a claim.** Verified in the source (`RiderProjects86MAX`, GPLv3):
+> - `@SYS_INBRDPC` / `@SYS_INBRDAT` system flags (`QMAX_SYS.INC`) — Inboard/PC and Inboard/AT are
+>   first-class detected machine types
+> - an `INBOARD` command-line switch (`QMAX_ARG.ASM` → `SYSCHK_INBOARD`)
+> - dedicated A20 routines `A20ENA_XT` / `A20COM_XT`, commented literally "A20 Enable for Inboard/PC"
+> - Inboard-specific Ctrl-Alt-Del handling in its INT 09 handler (`QMAX_I09.ASM`)
+> - Inboard-specific I/O port paths (`QMAX_IOP.ASM`)
+>
+> **And the user has already run 386MAX successfully on this exact machine** (it's what he used for
+> his Windows 3.11 build, and he has corresponded with its author, Bob Smith of Qualitas). That is
+> first-hand real-hardware evidence, not a vendor claim — which makes this the cheapest available
+> route to a V86 provider without first solving the EMM386 halt.
+>
+> **Revised first action for step 8:** stop treating the EMM386 `0128:009B` halt as the prerequisite.
+> Try 386MAX as the V86 provider in `CONFIG.SYS`, then load `revto486.sys` after it, and confirm at
+> the DOS level before touching the Win95 question.
+> **Falsified if:** 386MAX itself won't load on the current CF configuration, or loads but still
+> leaves the driver without whatever it actually needs.
+>
+> **Bonus, unrelated to #9:** 386MAX's Inboard A20 path writes `0DFh`/`0DDh` to port `60h`
+> (`@8255_A equ 60h`, `@S2O_E20 equ 0DFh`, `@S2O_D20 equ 0DDh`). That is a **third independent
+> source** agreeing with Al Williams' 1990 code and with our `inboard386.c` — see
+> [[reference-al-williams-inboard-correspondence]].
 The vogons clue says the driver needs the CPU already in 386 protected mode with DOS in V86.
 `CONFIG.SYS` has it commented out and **no EMM386 at all** — so there is no V86 provider, which fits
 the clue exactly. **But** adding EMM386 walks straight into the unresolved `0128:009B` halt
