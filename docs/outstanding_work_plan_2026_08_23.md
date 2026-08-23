@@ -210,7 +210,29 @@ Once live: triage each, comment the lead on the issue, and **close the dead ends
 
 ### 7. 🟠 Mach8 boot RAM test — issue #8
 
-> ### 🎯 ROOT CAUSE FOUND 2026-08-23 — **the EEPROM is blank. The self-test shouldn't run at all.**
+> ### ❌ HYPOTHESIS FALSIFIED 2026-08-23 — **it is NOT the EEPROM. Tested and disproved.**
+> The theory below was **tested and is wrong**. `INSTALL.EXE` was run inside the emulator (M8UTL
+> copied into the disk image), "Set Power Up Configuration" was completed and saved, and
+> `mach8.nvr` went from 128 zero bytes to a genuinely configured EEPROM written by the card's own
+> ROM code (18 non-zero bytes, saved as
+> `vxd-patches/realhw_backups/mach8.nvr.configured-by-INSTALL-20260823`).
+> **The ASCII-art card and RAM test still appear.** So a blank EEPROM is not what makes the emulator
+> run the power-up self-test.
+>
+> **The surviving explanation is the user's own:** the real card almost certainly *does* run the
+> test, and it is never seen because a modern monitor has not locked sync by the time it finishes.
+> If so the emulator was correct all along and there is nothing to fix. A phone recording of the
+> real machine's startup would confirm it.
+>
+> **Lesson (Technique 7/58 again):** the EEPROM read *does* happen before the self-test
+> (`C000:2585`/`C000:3A3E` vs `C000:7B16`, traced live) — but ordering is not causation, and the
+> documented power-up settings never included a self-test toggle, which should have been weighted
+> more heavily than the appealing narrative.
+>
+> The `mach8.nvr` artefact is still worth keeping: a properly configured Mach8 EEPROM is useful, it
+> just is not this fix.
+>
+> ### ~~ROOT CAUSE FOUND 2026-08-23 — the EEPROM is blank~~ (superseded by the above)
 > The issue was being read backwards. It is **not** "the self-test reports the wrong result" — it is
 > that **the self-test should not run**. Real hardware never shows the ASCII-art card or the flashing
 > RAM count; the emulator shows both, every boot. (Clarified by the user.)

@@ -30,6 +30,32 @@
 #include <86box/m_amstrad.h>
 #include <86box/pci.h>
 
+/* [io-trace gate] 2026-08-23: every "[tag]" investigation trace in this file sits in inb()/outb(),
+   the hottest functions in the emulator, and each one does an fflush() to disk per hit with caps as
+   high as 20000. Together they were emitting ~45,000 lines (3.5 MB) in a couple of minutes of boot,
+   which is a large part of why this build runs far slower than a clean one - and it was visible to
+   the user as the machine taking minutes to reach video.
+
+   The investigations they belong to are all closed (the OSR1 protected-mode keyboard work shipped
+   as the custom VKD.VXD; the A20 and PIC2/RTC questions are answered). Per skill Technique 21, a
+   hook with no remaining diagnostic value and a real per-boot cost is a liability - but rather than
+   delete them outright they are gated here, so any of them can be brought back instantly without a
+   rebuild:
+
+       set INBOARD_IO_TRACE=1     (Windows)
+       INBOARD_IO_TRACE=1 ./86Box (POSIX)
+
+   Default is OFF, which costs one predictable branch on an already-cached int. */
+static int
+io_dbg_on(void)
+{
+    static int on = -1;
+    if (on < 0)
+        on = (getenv("INBOARD_IO_TRACE") != NULL);
+    return on;
+}
+
+
 #define NPORTS 65536 /* PC/AT supports 64K ports */
 
 typedef struct _io_ {
@@ -423,7 +449,7 @@ inb(uint16_t port)
        against known-legitimate early HIMEM.SYS activity is part of the point. */
     {
         static int a20_hits = 0;
-        if ((a20_hits < 2000) && ((port == 0x60) || (port == 0x64) || (port == 0x92))) {
+        if (io_dbg_on() && (a20_hits < 2000) && ((port == 0x60) || (port == 0x64) || (port == 0x92))) {
             a20_hits++;
             fprintf(stderr, "[a20trace] #%d IN  port=%04X ret=%02X CS:PC=%04X:%08X\n",
                     a20_hits, port, ret, CS, cpu_state.pc);
@@ -440,7 +466,7 @@ inb(uint16_t port)
        "silence" from an already-saturated counter. */
     {
         static int kbdport2_hits = 0;
-        if ((kbdport2_hits < 20000) && ((port == 0x60) || (port == 0x64))) {
+        if (io_dbg_on() && (kbdport2_hits < 20000) && ((port == 0x60) || (port == 0x64))) {
             kbdport2_hits++;
             fprintf(stderr, "[kbdporttrace2] #%d IN  port=%04X ret=%02X CS:PC=%04X:%08X\n",
                     kbdport2_hits, port, ret, CS, cpu_state.pc);
@@ -463,7 +489,7 @@ inb(uint16_t port)
        comparison. */
     {
         static int pic2rtc_hits = 0;
-        if ((pic2rtc_hits < 2000) && ((port == 0xA0) || (port == 0xA1) || (port == 0x70) || (port == 0x71))) {
+        if (io_dbg_on() && (pic2rtc_hits < 2000) && ((port == 0xA0) || (port == 0xA1) || (port == 0x70) || (port == 0x71))) {
             pic2rtc_hits++;
             fprintf(stderr, "[pic2rtctrace] #%d IN  port=%04X ret=%02X CS:PC=%04X:%08X\n",
                     pic2rtc_hits, port, ret, CS, cpu_state.pc);
@@ -480,7 +506,7 @@ inb(uint16_t port)
        020B case. Remove once root-caused. */
     {
         static int seg0206_hits = 0;
-        if ((seg0206_hits < 500) && (CS == 0x0206)) {
+        if (io_dbg_on() && (seg0206_hits < 500) && (CS == 0x0206)) {
             seg0206_hits++;
             fprintf(stderr, "[seg0206porttrace] #%d IN  port=%04X ret=%02X CS:PC=%04X:%08X\n",
                     seg0206_hits, port, ret, CS, cpu_state.pc);
@@ -562,7 +588,7 @@ outb(uint16_t port, uint8_t val)
     /* [a20trace] OUT side - see matching comment in inb() above. */
     {
         static int a20_hits = 0;
-        if ((a20_hits < 2000) && ((port == 0x60) || (port == 0x64) || (port == 0x92))) {
+        if (io_dbg_on() && (a20_hits < 2000) && ((port == 0x60) || (port == 0x64) || (port == 0x92))) {
             a20_hits++;
             fprintf(stderr, "[a20trace] #%d OUT port=%04X val=%02X CS:PC=%04X:%08X\n",
                     a20_hits, port, val, CS, cpu_state.pc);
@@ -573,7 +599,7 @@ outb(uint16_t port, uint8_t val)
     /* [kbdporttrace2] OUT side - see matching comment in inb() above. */
     {
         static int kbdport2_hits = 0;
-        if ((kbdport2_hits < 20000) && ((port == 0x60) || (port == 0x64))) {
+        if (io_dbg_on() && (kbdport2_hits < 20000) && ((port == 0x60) || (port == 0x64))) {
             kbdport2_hits++;
             fprintf(stderr, "[kbdporttrace2] #%d OUT port=%04X val=%02X CS:PC=%04X:%08X\n",
                     kbdport2_hits, port, val, CS, cpu_state.pc);
@@ -597,7 +623,7 @@ outb(uint16_t port, uint8_t val)
        first second of boot). */
     {
         static int p61_hits = 0;
-        if (p61_hits < 20000) {
+        if (io_dbg_on() && p61_hits < 20000) {
             p61_hits++;
             fprintf(stderr, "[p61acktrace] #%d OUT port=0061 val=%02X (bit7/0x80 %s) CS:PC=%04X:%08X\n",
                     p61_hits, val, (val & 0x80) ? "SET-ack" : "clear", CS, cpu_state.pc);
@@ -609,7 +635,7 @@ outb(uint16_t port, uint8_t val)
        missing-IRQ8 hypothesis). */
     {
         static int pic2rtc_hits = 0;
-        if ((pic2rtc_hits < 2000) && ((port == 0xA0) || (port == 0xA1) || (port == 0x70) || (port == 0x71))) {
+        if (io_dbg_on() && (pic2rtc_hits < 2000) && ((port == 0xA0) || (port == 0xA1) || (port == 0x70) || (port == 0x71))) {
             pic2rtc_hits++;
             fprintf(stderr, "[pic2rtctrace] #%d OUT port=%04X val=%02X CS:PC=%04X:%08X\n",
                     pic2rtc_hits, port, val, CS, cpu_state.pc);
@@ -620,7 +646,7 @@ outb(uint16_t port, uint8_t val)
     /* [seg0206porttrace] OUT side - see matching comment in inb() above. */
     {
         static int seg0206_hits = 0;
-        if ((seg0206_hits < 500) && (CS == 0x0206)) {
+        if (io_dbg_on() && (seg0206_hits < 500) && (CS == 0x0206)) {
             seg0206_hits++;
             fprintf(stderr, "[seg0206porttrace] #%d OUT port=%04X val=%02X CS:PC=%04X:%08X\n",
                     seg0206_hits, port, val, CS, cpu_state.pc);
