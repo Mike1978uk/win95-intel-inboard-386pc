@@ -1,0 +1,95 @@
+[boot]
+system.drv=system.drv
+drivers=mmsystem.dll
+user.exe=user.exe
+gdi.exe=gdi.exe
+sound.drv=mmsound.drv
+dibeng.drv=dibeng.dll
+comm.drv=comm.drv
+shell=Explorer.exe
+keyboard.drv=keyboard.drv
+fonts.fon=vgasys.fon
+fixedfon.fon=vgafix.fon
+oemfonts.fon=vga850.fon
+386Grabber=vgafull.3gr
+display.drv=pnpdrvr.drv
+mouse.drv=mouse.drv
+*DisplayFallback=0
+
+[keyboard]
+subtype=
+type=4
+keyboard.dll=
+oemansi.bin=xlat850.bin
+
+[boot.description]
+keyboard.typ=Standard 101/102-Key or Microsoft Natural Keyboard
+aspect=100,96,96
+display.drv=ATI 8514-Ultra (mach8)
+mouse.drv=Standard mouse
+system.drv=Standard PC
+
+[386Enh]
+ebios=*ebios
+device=*vshare
+device=*dynapage
+device=*vcd
+device=*vpd
+device=*int13
+keyboard=*vkd
+display=*vdd
+mouse=*vmouse, msmouse.vxd
+woafont=app850.fon
+
+[power.drv]
+
+[drivers]
+wavemapper=*.drv
+MSACM.imaadpcm=*.acm
+MSACM.msadpcm=*.acm
+
+[iccvid.drv]
+
+[mciseq.drv]
+
+[mci]
+cdaudio=mcicda.drv
+sequencer=mciseq.drv
+waveaudio=mciwave.drv
+avivideo=mciavi.drv
+videodisc=mcipionr.drv
+vcr=mcivisca.drv
+
+[NonWindowsApp]
+
+[vcache]
+
+[MSNP32]
+
+[display]
+
+[drivers32]
+MSACM.imaadpcm=imaadp32.acm
+MSACM.msadpcm=msadp32.acm
+MSACM.msgsm610=msgsm32.acm
+MSACM.msg711=msg711.acm
+MSACM.trspch=tssoft32.acm
+vidc.CVID=iccvid.dll
+VIDC.IV31=ir32_32.dll
+VIDC.IV32=ir32_32.dll
+vidc.MSVC=msvidc32.dll
+VIDC.MRLE=msrle32.dll
+
+[Password Lists]
+MIKE=C:\WINDOWS\MIKE.PWL
+
+[TTFontDimenCache]
+0 12=5 12
+0 13=6 12
+0 14=7 14
+0 15=7 15
+0 16=8 16
+0 18=10 18
+0 20=10 20
+0 22=12 22
+

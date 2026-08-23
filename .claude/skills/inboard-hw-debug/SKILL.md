@@ -52,9 +52,15 @@ Two categories matter, because they interact with a fresh clone/PR differently:
    Without this, the Mach8 option ROM's self-test stretches from real-hardware-instant into
    65-100+ real seconds, because this project's system-BIOS waitstate inflation gets wrongly
    applied to the option ROM's own hundreds of I/O operations too.
-6. **Segment-650B / `INT 68h` wild-jump fix** (`patchint68`, dated 2026-08-04): the first time
-   `CS==0x0EAF`, write an `IRET` stub at physical `0x3C0` and point the `INT 68h` IVT vector
-   (`0x1A0`) at it. Without this, VMM32's real-mode VxD loader's uninitialized `INT 68h` call walks
+6. **Segment-650B / `INT 68h` wild-jump fix** (`patchint68`, dated 2026-08-04; **revised
+   2026-08-23**): the first time `CS==0x0EAF`, point the `INT 68h` IVT vector (`0x1A0`) at the
+   BIOS's own IRET at **`F000:FF53`** (write `53 FF 00 F0`). **No stub is injected.** The original
+   version wrote a `0xCF` byte into INT F0h's own vector slot (physical `0x3C0`) and pointed there;
+   Michal Necasek asked in review of PR #7749 why it didn't just use the BIOS's existing IRET, and
+   he was right. Verified: byte at file offset `0x7F53` of the U18/F800 chip is `0xCF` in **both**
+   1986 revisions (09MAY86 and 10JAN86), the only BIOSes this machine accepts. Strictly better - no
+   injected code, and no assumption that INT F0h is unused this early in boot. **The real-hardware
+   twin `ivt68fix/IVT68FIX.ASM` must be kept in step** (now 20 bytes / 4 writes, was 26 / 5). Without this, VMM32's real-mode VxD loader's uninitialized `INT 68h` call walks
    off into the raw IVT as code and eventually wild-jumps into segment `650B` with bogus calling
    context. **This one is easy to forget when porting** — it belongs to a completely different
    investigation (Win95 keyboard/boot, not the 101/301 POST-error family), so it's not in the same
@@ -970,6 +976,39 @@ this was flagged as the fastest way to resolve the "ROM BIOS shadow RAM failed" 
 mismatch (`mem_dump` of physical `0xF0000-0xFFFFF` on real hardware) but wasn't available in the
 session that hit it. Check whether it's connected before assuming it isn't.
 
+### Addendum 2026-08-23: COMR95 and COMRADE are NOT interchangeable - check which one is running
+
+Confirmed by reading the Win95 agent's own dispatch table (`win95/comr95.c`, `dispatch_frame`):
+
+| Capability | DOS `COMRADE.EXE` | Win95 `COMR95.EXE` |
+|---|---|---|
+| file read/write, dir list, hash | yes | yes |
+| screen text, keystrokes, reboot | yes | yes |
+| **`mem_read` / `mem_write`** | **yes** | **no** - falls through to `ST_BAD_ARGS` |
+| **`io_in` / `io_out`** | **yes** | **no** |
+| `bus_stim` / `idx_*` / `io_rmw` / `pic_snapshot` | yes | no |
+| `desktop_screenshot` | no | yes (but see below) |
+
+**Plan around this: DOS mode is a superset for nearly all diagnostic work.** Any port or memory
+probe - the `02E8` Mach8 check, DMA register reads, PIC state - needs a DOS boot, not the Windows
+session. Everything else in Windows is reachable as files.
+
+**`desktop_screenshot` times out at the default 8s op-timeout, and asking for a smaller thumbnail
+does not help.** `handle_screenshot()` does a `StretchBlt` of the **entire** screen into a 32bpp DIB
+before downscaling, so cost is set by source resolution and the 8-bit ISA bus, not output size.
+Raise `--op-timeout` in the MCP server args if it is needed.
+
+**Reading a register does not mean the register is readable.** `io_in 0x83` (DMA page, channel 1)
+returns `0xFF` on the real 5160 - the page latch is write-only and the bus floats. Any experiment
+built on writing a page register and reading it back to observe 4-bit truncation **cannot work on
+this hardware**. Establish readability before designing a probe around it.
+
+**MCP server paths (as of 2026-08-23):** both `comrade` (COM2, real hardware) and `comrade86box`
+(COM3) now run Ahmad's tree at `Open-Source-PC110\Software\COMrade` under the pythoncore 3.14
+interpreter, which is a strict protocol superset of Kevin's. `MSDOS.SYS` on the card has
+`BootGUI=1`, so **a reboot goes straight to Windows** - and COMrade autostart is commented out in
+`AUTOEXEC.BAT`, so rebooting unattended loses the bridge until someone starts the agent by hand.
+
 **Do not use this bridge (or the `comrade86box` MCP variant) to introspect the *VM* itself —
 decided against 2026-07-31 after a long session chasing it.** The architecture is fundamentally
 mismatched for that: the MCP server's process lifecycle is tied to the Claude Code session, while
@@ -1705,6 +1744,123 @@ the backstop at the same time as the fix, not after a mystery bug surfaces.
 choice changes POST timing enough to change which micro-branch a BIOS self-test takes. Always
 re-test address-gated POST fixes across at least one card WITH a big option ROM (Mach8) and one
 WITHOUT (generic `vga`).
+
+## Technique 55: read the guest OS's OWN detection/setup logs off the real machine before writing any instrumentation
+
+Windows 95 writes a detailed record of what it thought your hardware was, and on this project that
+file has been sitting on the CF card the whole time. `C:\DETLOG.TXT` (hardware detection),
+`C:\SETUPLOG.TXT`, `C:\BOOTLOG.TXT` and their `.PRV`/`.OLD` predecessors are plain text, pulled in
+seconds over COMrade's `file_read` with `dest_path` (bytes bypass the model context, CRC-verified).
+
+**This is a primary source describing the exact machine under investigation** - not a manual, not a
+theory, not an emulator approximation - and it costs nothing. Check it before building a trace hook
+for anything that smells like "why does Windows think X".
+
+**2026-08-23 case - root-caused two open issues in minutes, with no instrumentation at all:**
+- Issue #6 ("PS/2 mouse in Device Manager"): `DETECTPS2MOUSE` returned a positive and registered
+  `*PNP0F0E\0000 = Standard PS/2 Port Mouse` on **IRQ 12**. That device cannot exist here twice
+  over - there is no 8042 (ports `0060-0063` are PPI, `0x64` does not decode), and IRQ 12 lives on
+  an AT's slave PIC, which this machine does not have.
+- Issue #2 (`#` instead of backslash): the same log shows
+  `Detected: *PNP030B\0000 = PC/AT Enhanced Keyboard (101/102-Key)` on a machine with an **83-key XT
+  (Model F)** keyboard.
+
+**The unifying insight, which neither issue revealed on its own:** Windows 95's detection routines
+false-positive AT-class hardware on this XT, in more than one subsystem. Two issues previously
+tracked separately are two symptoms of one condition. Reading the log is what made that visible -
+each issue in isolation looked like its own unrelated bug.
+
+**Corollary:** `DETLOG.TXT`'s resource lists are also worth reading for what they *omit*. The Mach8
+is detected correctly but claims only the VGA ranges (`3b0-3bb`, `3c0-3df`) - none of the sparse
+8514/A accelerator ranges (`02E8`/`06E8`/`0AE8`/`0EE8`). That is a lead for #4, though **not proof**:
+a 16-bit display driver can legitimately program registers that were never enumerated as PnP
+resources, so absence here is not a defect by itself.
+
+**Issue #2's own root cause, for the record** (derived from `keyboard_xt.c` plus the live
+`AUTOEXEC.BAT`): on a UK 102-key layout the backslash lives on scancode `0x56`, the extra key that
+exists only on 102-key European keyboards. 86Box's XT table (`scancode_xt`, used for the default
+`KBD_83_KEY`) has `{ .mk = { 0 }, .brk = { 0 } }, /* 056 */` - it emits **nothing**. Scancode `0x2B`
+(left of Enter) does exist and is `#` under `KEYB UK`, which is correct UK behaviour. So the key is
+not mis-mapped; the key that would produce backslash does not physically exist. `ALT`+`9`+`2` on the
+numpad is the practical workaround. Not a project bug.
+
+## Technique 56: an emulator flag meaning "is this an AT?" derived from CPU type is WRONG for an accelerator card in an XT - grep every consumer of it
+
+86Box derives `dma_at` from `is286`, which is `cpu_type >= CPU_286`. That is a reasonable proxy on
+ordinary hardware and **wrong by construction** for this project's entire premise: a 386-class CPU
+bolted onto a genuine XT board. The CPU is 386; the motherboard's DMA page latches are still the
+XT's 4-bit ones.
+
+Consequence found 2026-08-23 in `src/dma.c`: `dma[addr].page = dma_at ? val : val & 0xf` gave the
+Inboard an **8-bit** page register - 24-bit DMA reach where the real 5160 has 20-bit. A DMA buffer
+above 1 MB therefore *works under emulation and silently truncates on real hardware*. That is
+precisely the shape of bug that lets a fix pass in the emulator and fail on the bench, which had
+already happened once on issue #5's `vmad` byte-patch.
+
+**The fix pattern already existed in this codebase** - `dma_force_xt`, set by `inboard386_init()`
+and never touched by `dma_reset()` (unlike `dma_set_at()`, which loses a race against a reset that
+runs after `device_reset_all()`). It fed only `dma_xt8237_active()`. Added `dma_page_is_xt()`
+(`dma_force_xt || !dma_at`) and routed both the page width and the XT reset mask through it.
+
+**General lesson: when you add a force-flag for one consumer of a wrong global, grep every other
+consumer of that global in the same file before moving on.** `dma_at` had five consumers; only one
+had been corrected, and an uncorrected one was the one that mattered for a real open bug.
+
+Still unreviewed: `_dma_writeb`'s `mem_invalidate_range` and the `refreshread()` call are also
+`dma_at`-gated. Believed benign, but nobody has actually checked.
+
+## Technique 57: verify a fidelity fix actually CHANGES behaviour, then delete the hook that proved it
+
+Technique 28 says a patch script must assert it changed something. The same applies to a conditional
+fix in emulator source, and it is easy to skip because "the boot still works" feels like evidence.
+It is not: if the new condition never fires, the boot works *identically*, so a silent no-op is
+indistinguishable from a working fix.
+
+Cheap procedure: add a capped `fprintf` at the changed line logging **both the inputs and the branch
+taken**, run only as far as the first few hits (POST is usually enough - no need for a full boot),
+confirm, then **remove the hook in the same session**.
+
+2026-08-23, `dma_page_write`: `[xtpage] ch=1 val=00 force_xt=1 dma_at=1 is_xt_path=1` - proving in
+one line that the device really does set the flag, that `dma_at` really is wrongly 1 (confirming the
+diagnosis live rather than from source reading), and that the new XT branch is really taken.
+
+**Then remove it, per Technique 21** - and take that rule seriously, because the same session
+produced a concrete example of the cost. The `[a0a1trace]` hook (added 2026-08-02, uncapped until
+20,000 hits, `fflush` to disk on **every** port-0xA0 access, arming at t+90s) was still live long
+after its question was answerable, and the user independently noticed the emulator had become slower
+to initialise. Its question - "do the Inboard's `port_a0` shadow and the NMI mask conflict?" - was
+resolved the same day (they do not: 86Box chains I/O handlers so both receive every write, and
+`apply_waitstates()` computes from `dev->speed` and never reads `port_a0`). Removed.
+
+## Technique 58: establish provenance BEFORE repeating a claim - the PRIMARY/AI-SOURCED tags only work at intake
+
+This project already tags sources `[PRIMARY]` / `[AI-SOURCED]`. 2026-08-23 showed the tagging is
+worthless if applied retroactively. Finding `DMABufferIn1MB=True` / `DMABufferSize=64` in the user's
+*working* Windows 3.11 `SYSTEM.INI` was reported (by Claude) as "empirical real-hardware
+confirmation" that the Inboard requires the setting - a strong claim that shaped the plan for issue
+#5. The user then pointed out those lines were **Google AI suggestions added as performance tweaks**,
+not part of the original working build, which had merely never broken anything.
+
+What the file actually establishes is much narrower: the setting is **tolerated** on this hardware.
+Not that it is needed, and not that it fixes anything.
+
+**The test to apply before repeating any config value found in a working build: does this file record
+a decision someone made *because it was necessary*, or a change someone made *and kept because
+nothing broke*?** Those look identical on disk. If you cannot answer, ask, or mark it unverified.
+
+The same file *did* contain genuinely primary material, which is the useful contrast: Intel's own
+shipped choices - `keyboard.drv=ibkbd.drv`, `keyboard=ibvkd.386`, and notably `device=*vdmad` (the
+**stock** virtual DMA device, *not* Intel's own `IBVDMAD.386`, even though that file ships in the
+same bundle). That last one is real evidence and it *lowers* the priority of disassembling
+`IBVDMAD.386`, because the configuration that actually works on this hardware does not load it.
+
+**Derive values from evidence instead of inheriting them.** For `DMABufferSize`, 386MAX's own XT
+path (`MARK_XT`) selects `@DMA_DSK` = **64 KB** over its own 16 KB default (`@DMA_DEF`), bounded by
+min 8 / max 128 - and `QMAX_EVM.ASM` gives the reason not to exceed it: a buffer <= 64 KB need only
+sit within a 64 KB boundary, while > 64 KB must land on a 128 KB boundary. So 64 is the largest
+value avoiding the harder alignment rule. Same number the AI suggested, now for a defensible reason.
+`HardDiskDMABuffer` was **dropped** rather than copied across: this machine's disk path is XT-IDE
+(PIO) and a polling T130B, so a hard-disk DMA buffer buys nothing.
 
 ## Forward notes for a future OSR2 attempt
 - **Emulator/code fixes are OS-version-independent** — the whole "Complete Windows 95 boot fix
