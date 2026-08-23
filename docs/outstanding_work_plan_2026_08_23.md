@@ -176,6 +176,28 @@ Once live: triage each, comment the lead on the issue, and **close the dead ends
 
 ### 7. 🟠 Mach8 boot RAM test — issue #8
 
+> ### 🎯 ROOT CAUSE FOUND 2026-08-23 — **the EEPROM is blank. The self-test shouldn't run at all.**
+> The issue was being read backwards. It is **not** "the self-test reports the wrong result" — it is
+> that **the self-test should not run**. Real hardware never shows the ASCII-art card or the flashing
+> RAM count; the emulator shows both, every boot. (Clarified by the user.)
+>
+> `ati_eeprom_load_mach8_vga()` (`vid_ati_eeprom.c`) creates a **128-byte all-zero** EEPROM when no
+> `mach8.nvr` exists. Verified on a fresh VM — the file really is all zeros. So the emulated card
+> boots with **no stored configuration**, while a real card configured through ATI's utility has
+> meaningful EEPROM contents (dosdays: *"these settings were then stored in an EEPROM on the card for
+> instant recall later"*). An unconfigured card runs its power-up self-test; a configured one skips it.
+>
+> **The RAM banks are a red herring** — already implemented (separate `svga->vram` / `dev->vram`).
+> **The fix is data, not code: seed `mach8.nvr` from the real card's EEPROM.**
+>
+> **Bonus:** our `AX = BX+1` hack at `C000:7B16/7B23/7B37` exists to survive a self-test that should
+> never have been running. Seeding the EEPROM correctly may let us **delete the hack entirely** —
+> more faithful, and it removes a known divergence.
+>
+> **Unproven link:** that the option ROM reads the EEPROM to decide whether to self-test is a strong
+> hypothesis fitting all observations, but the ROM has not been traced reading that byte. Dumping the
+> real EEPROM settles it. `C-INFO.EXE` is now on the CF.
+
 > ### 📏 MEASURED 2026-08-23 — the `02E8` probe was run. Emulator and real card disagree.
 > Real 5160 over COMrade (DOS mode, 8514/A idle in VGA text mode), three consecutive reads:
 > `02E8` → **`0x05`** (stable), `06E8` → `0x01`, `22E8` → `0x01`.
