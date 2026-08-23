@@ -169,6 +169,40 @@ writes what, when, and whether the Inboard shadow swallows a BIOS NMI-mask write
 > the conclusion.
 
 ### 6. 🟠 GUI-stage issues — #3, #4, #6, #7
+
+> ### 📌 2026-08-23 — issue #4 reframed: **there is no Windows 95 driver for the mach8**
+> Per the [Ardent Tool mach8 page](https://www.ardent-tool.com/video/ATI_mach8_Drivers.html), the
+> newest ATI driver for this generation is **M8WR30.ZIP — a Windows 3.1/3.11 driver, v3.0, July
+> 1994**, needing 1 MB (the card has it) and offering 640×480 / 800×600 / 1024×768 at 256 colours.
+> **It requires `LOADER.ZIP`** ("Driver Module Loader", required for installation). ATI never shipped
+> a Win95 driver — the card predates it.
+>
+> So the "stock driver" in #4 is **Microsoft's own** bundled support: real-hardware `SYSTEM.INI` has
+> `display.drv=pnpdrvr.drv` with `[boot.description] display.drv=ATI 8514-Ultra (mach8)`. Same
+> pattern as #2/#6 — Microsoft code making AT-class assumptions on an XT.
+>
+> **Untried path: Windows 95 supports 16-bit Windows 3.1 display drivers.** That is supported, not a
+> hack, and ATI's v3.0 is the only driver ever written for this hardware by its maker. Its 800×600
+> mode also matches the EEPROM's existing monitor selection. **Check `LOADER.ZIP` was used** — if a
+> previous attempt omitted it, that alone explains the failure. Fully reversible.
+>
+> ### ⚠️ WITHDRAWN: the EEPROM monitor-mismatch lead
+> C-INFO showed the card *senses* an 8514 (1024×768 interlaced) while the EEPROM has *ALR FlexVIEW2X
+> 56 Hz 800×600* selected. That was posted as a mismatch to fix. **Withdrawn** — the attached display
+> is a **modern monitor**, which no 1992 utility lists and which generally cannot sync interlaced
+> modes. The 800×600 entry is very likely a deliberate, correct choice. **Do not reconfigure the real
+> card's EEPROM.**
+>
+> ### How to write the EEPROM at all (for the #8 test) — EMULATOR ONLY
+> `INSTALL.EXE` (M8UTL), menu entry **"Set Power Up Configuration"**. Its own README:
+> *"INSTALL is NOT meant to function under Windows"* and *"try a clean boot, removing any memory
+> management software... Other TSR programs and device drivers may also interfere with INSTALL's
+> access to your ATI hardware."* This machine loads HIMEM plus several SCSI/ASPI drivers and MSCDEX —
+> **exactly the situation ATI warns about, and the likely reason running it previously broke things.**
+> Do the EEPROM experiment in the emulator, where it is disposable: copy `M8UTL` into the VM image,
+> boot to DOS with a trimmed `CONFIG.SYS`, run INSTALL → Set Power Up Configuration, reboot, and see
+> whether the ASCII-art card and RAM count stop appearing. Writing it via the card's own code also
+> guarantees an authentic `mach8.nvr` byte layout.
 **Gated on step 1**, which is what makes `desktop_screenshot` work. Until then these can only be
 debugged by photographing the screen.
 Once live: triage each, comment the lead on the issue, and **close the dead ends outright** — #7
