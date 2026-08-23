@@ -101,6 +101,36 @@ writes what, when, and whether the Inboard shadow swallows a BIOS NMI-mask write
 **Falsified if:** the BIOS never touches `0xA0`, or the accesses are cleanly interleaved.
 **Emulator-side and cheap** — can run alongside the real-hardware steps.
 
+> ### ✅ RESULT, 2026-08-23 — **falsified. No conflict. Close this step.**
+> Came for free as a by-product of the step 2 boot verification (`a0a1trace.txt`), plus a code read.
+> Three independent reasons the "two consumers fight over `0xA0`" worry does not hold:
+>
+> 1. **Both handlers are registered and both see every write.** 86Box chains I/O handlers, so
+>    `nmi_init()`'s `nmi_write` on `0x00A0`–`0x00AF` (`src/nmi.c`) and `inboard386_write_a0()`
+>    (`src/device/inboard386.c:530`) each receive the byte. Nothing is swallowed by either side.
+>    This also matches real hardware, where the Inboard's decode and the motherboard NMI latch both
+>    sit on the same bus and both latch the write.
+> 2. **The Inboard's copy is inert.** `inboard386_write_a0()` stores into `dev->port_a0`, but
+>    `inboard386_apply_waitstates()` computes its value from `dev->speed` — it never reads
+>    `port_a0`. So an NMI-mask write cannot perturb memory timing.
+> 3. **The live trace shows pure NMI-mask semantics, cleanly paired** — the step's own stated
+>    falsification condition. Only ever `0x80` and `0x00`, matching 386MAX's `NMIENA equ 80h` /
+>    `NMIDIS equ 00h` exactly; never a PIC ICW/OCW pattern:
+>
+> ```
+> [a0a1trace] t=114.3 WR_A0 val=80 CS:PC=F000:0000E694   <- BIOS POST, NMI enable
+> [a0a1trace] t=122.9 RD_A1 val=FF CS:PC=0070:00000923   <- PIC-2 probe, correctly floats to FF
+> [a0a1trace] t=184.6 WR_A0 val=00 CS:PC=0206:0000A62B   <- driver, NMI disable
+> [a0a1trace] t=185.3 WR_A0 val=80 CS:PC=0206:0000A66A   <- ...matching re-enable
+> ```
+>
+> The `RD_A1 = FF` is also correct-by-accident confirmation that there is no second PIC here.
+>
+> **Honest limit:** the trace hook is gated on `clock() > 90.0` s, so writes in the first 90 s of
+> wall-clock are not logged. The `F000:E694` entry proves the BIOS does touch `0xA0`, but an
+> exhaustive early-POST census would need the gate lowered. Nothing seen suggests it would change
+> the conclusion.
+
 ### 6. 🟠 GUI-stage issues — #3, #4, #6, #7
 **Gated on step 1**, which is what makes `desktop_screenshot` work. Until then these can only be
 debugged by photographing the screen.

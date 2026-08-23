@@ -131,6 +131,92 @@ On the CT1600 specifically:
 This fits the symptom better than the secondary-controller theory and has a documented, code-free
 test: `SYSTEM.INI` `[386Enh]` → `DMABufferIn1MB=Yes`. See plan item 2a.
 
+#### Follow-up, 2026-08-23 — sources supplied **[PRIMARY]**
+
+@andrew-hoffman returned with primary sources for both halves of the claim, plus a pointer at a
+period memory manager that had to solve exactly this problem:
+
+> Source for the Inboard DMA controller being limited to first 1mb of ram (or really first 640k):
+> https://www.os2museum.com/wp/386max-and-eisa-dma/
+> You may want to look through the 386MAX source code linked from there. Memory managers sometimes
+> have to virtualize the DMA controller. Also relevant: https://www.os2museum.com/wp/8237a-dma-page-fun/
+> Source for the DMA page registers being only 4 bits on the PC/XT:
+> https://book.martypc.net/support-chips/dma-8237
+
+Note the parenthetical: **"or really first 640k"**. That turns out to be exactly right — see below.
+
+The user adds that 386MAX is what he used for his own Windows 3.11 build on this machine, and that
+he has corresponded with its author, **Bob Smith of Qualitas**.
+
+#### 386MAX source — primary-source confirmation, and it is *stricter* than "1 MB"
+
+Cloned to `%USERPROFILE%\RiderProjects\386MAX` (`sudleyplace/386MAX`, GPLv3, Qualitas 1987–97,
+original DMA code by Bob Smith, January 1987). Three extractions, all from source:
+
+**1. The XT DMA ceiling is 640 KB, not 1 MB.** `386MAX/QMAX_DMA.INC`:
+
+```
+@DMA_PA_XT   equ 000A0000h   ; Maximum physical address for XTs
+@DMA_PA_ATLO equ 000A0000h   ; Maximum low physical address for AT-class systems
+@DMA_PA_ATHI equ 01000000h   ; Maximum high ...
+```
+
+and `386MAX/QMAX_SYS.ASM`, in `MARK_XT` (the "mark as PC/XT present" path):
+
+```
+    mov  DMASIZE,@DMA_DSK      ; Use hard disk transfer buffer size (64 KB)
+    mov  DMA_MAX,@DMA_PA_XT    ; Mark as maximum DMA physical address
+```
+
+`QMAX_EVM.ASM` states the buffer constraints in prose: must be below `DMA_MAX`, physically
+contiguous, **must not lie between 640 KB and 1 MB**, and — if ≤ 64 KB — must not cross a 64 KB
+boundary. `QMAX_DMA.ASM` enforces it per-page: any PTE at or above `DMA_MAX`, non-contiguous, or
+crossing a 64 KB boundary is bounced through a local DMA buffer.
+
+**2. Independent confirmation of the `0x00A0` NMI lead (plan step 5).** The same `MARK_XT` routine:
+
+```
+    mov  NMIPORT,0A0h   ; NMI clear I/O port
+    mov  NMIENA,80h     ; ... enable value
+    mov  NMIDIS,00h     ; ... disable value
+```
+
+This is a *second, independent* primary source — alongside Wim Osterholt's port list — that on an XT
+port `0xA0` is the NMI enable/disable register. Our `inboard386.c` also claims `0xA0` (`port_a0`).
+
+**3. The channel→page-register mapping, confirmed again** (`INC/DMA.INC`): ch0=`87h` *(not PC/XT)*,
+**ch1=`83h`**, ch2=`81h`, ch3=`82h`, ch4=`8Fh`, ch5=`8Bh`, ch6=`89h`, ch7=`8Ah` — the last four
+marked *(not PC/XT)*. SB Pro is DMA 1, so its page register is `83h`, as already documented.
+
+`MARK_XT` also sets an XT-specific A20 routine (`A20COM_XT`) — unexamined, but adjacent to the Al
+Williams `a20()` correspondence if that thread is ever picked up again.
+
+#### ⚠️ Emulator-side consequence found while checking this — `86box_full/src/dma.c`
+
+86Box *does* model the 4-bit XT page latch, at `src/dma.c:1434`:
+
+```c
+dma[addr].page = dma_at ? val : val & 0xf;
+```
+
+but `dma_at` is assigned `is286` in `dma_reset_legacy()` (`src/dma.c:1591`), and
+`is286 = (cpu_s->cpu_type >= CPU_286)` (`src/cpu/cpu.c:553`). **The Inboard is a 386 in an XT
+board**, so `dma_at` is 1 and the emulator hands the guest a full 8-bit page register — 24-bit DMA
+reach where the real 5160 has 20-bit.
+
+The project already has the right mechanism for this class of bug: `dma_set_force_xt()`, called by
+`inboard386.c:777`, a flag `dma_reset()` never clobbers. But it currently only feeds
+`dma_xt8237_active()` (the arbitration/refresh model) — **not** the page-width line above, and not
+`dma_reset()`'s `if (!dma_at) dma_m = (dma_m & 0xf0) | 0x0f` XT reset-mask at `src/dma.c:1671`.
+
+**Why this matters for issue #5:** it is a concrete mechanism for why the earlier `vmad` byte-patch
+**passed in the emulator and failed on real hardware**. Under emulation a DMA buffer above 1 MB
+works; on the real machine the page latch truncates and the transfer lands somewhere else entirely.
+Fixing it makes the emulator *reproduce* the bug — converting #5 from a real-hardware-only defect
+into one debuggable in place. Fidelity fix in its own right, and a candidate third upstream PR.
+
+**Not yet tested** — stated as a code-level reading, not a verified behaviour change.
+
 ---
 
 ## 4. Revto486 — the V86-mode clue **[PRIMARY — vogons forum post]**
