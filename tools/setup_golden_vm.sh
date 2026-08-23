@@ -109,7 +109,7 @@ if [ "$SBPRO" = "--sbpro" ]; then
 cat >> "$VM/86box.cfg" <<'CFG'
 
 [Sound]
-sndcard_1 = sbpro_v2
+sndcard = sbprov2
 
 [Sound Blaster Pro v2 #1]
 base = 220

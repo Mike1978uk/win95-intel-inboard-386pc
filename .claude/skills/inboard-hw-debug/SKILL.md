@@ -1862,177 +1862,69 @@ value avoiding the harder alignment rule. Same number the AI suggested, now for 
 `HardDiskDMABuffer` was **dropped** rather than copied across: this machine's disk path is XT-IDE
 (PIO) and a polling T130B, so a hard-disk DMA buffer buys nothing.
 
-## Technique 59: a POST that stops with no video at all is often a deliberate `HLT`, not a hang - find the byte before theorising
+## Technique 59: before calling a POST stop a *stop*, prove the CPU is not moving - and read the
+## address it is actually at, not one you inferred
 
-A machine that shows *nothing* and makes beeping noises looks like a catastrophic failure. It is
-frequently the BIOS working perfectly: reaching a failed test and executing a deliberate `HLT` with
-interrupts already disabled. That is a *stop*, not a *hang*, and it is far easier to diagnose than a
-loop - because the address is exact and it never moves.
+**This technique was rewritten on 2026-08-23 because its original case study was wrong in every
+particular.** The corrected version is more useful than the original, and the way it was wrong is
+the real lesson.
 
-**Signature to recognise (all four together):**
-- `[modecheck]`-style heartbeat shows **CS:PC completely unchanged** for minutes (Technique 3)
-- **`IF=0`** in the same heartbeat - interrupts disabled, so `HLT` can never be woken
-- `imr`/`irr`/`isr` all `00` with nothing pending - the PIC is idle because nothing can be serviced
-- The PIT keeps ticking (`clocks=` advancing) - the machine is alive, the CPU just is not fetching
+### What was claimed, and what was true
 
-**Then read the single byte at that address.** `F4` is `HLT`. One byte is a far safer static read
-than a disassembly window (Technique 16/44 warn this project's ROM desyncs), and it is decisive.
+The original said: fitting `sbprov2` (0x220 / IRQ 5 / DMA 1) to `ibmxt_inboard386` stopped POST dead
+at `F000:E12B`, the byte there is `F4` = `HLT`, so the BIOS was deliberately halting on a failed
+8237 register test - and a clean upstream build did it too, so it was an upstream defect.
 
-**2026-08-23 case - the Sound Blaster Pro POST halt.** Fitting `sbprov2` (0x220 / IRQ 5 / DMA 1 -
-the real machine's exact settings) to `ibmxt_inboard386` stopped POST dead at `F000:E12B` with a
-black screen and repeated beeps. The byte at `E12B` is `F4` = `HLT`, and the surrounding code is an
-I/O port scan (`mov dx,0` / `out dx,al` / `in al,dx` / `inc dx` / `cmp` / `je` past the `HLT`) -
-**ports 0-0F are the 8237**, so this is the BIOS's DMA controller register test writing values and
-reading them back. The readback does not match with the SB Pro present, so the BIOS halts on purpose.
-The halt is *before* video init, which is why nothing is ever drawn - the black screen is the
-symptom of *where* it stopped, not of a video problem.
+Measured properly the next day, on a matched disk image:
 
-**Do not confuse "no video" with "video broken".** Check where POST stopped first.
-
-### The A/B discipline that made this usable (do this every time)
-Four runs, one variable each, ~100 s apiece:
-
-| Run | Result |
+| Claim | Reality |
 |---|---|
-| fork, no SB Pro | boots through to Windows |
-| fork, SB Pro fitted | HLT at `F000:E12B` |
-| fork, SB Pro + **own recent DMA change reverted** | **still** HLT - clears the change |
-| **clean upstream build**, SB Pro fitted | **also halts** - upstream defect |
-| real hardware, same card, same 0x220/IRQ5/DMA1 | **POSTs fine** |
+| POST stops dead | POST **completes**. Windows ring-0 code first appears at **t+113s** |
+| It is halted at `F000:E12B` | It is cycling `F000:ECAC`-`ED4A`. `E12B` was never observed - it was inferred from a theory and then "confirmed" by reading the ROM at that address |
+| A clean upstream build halts too, so upstream is at fault | **Invalid control.** PR #7626 is merged, so upstream *contains* this machine. A clean upstream build was never a control for our machine code |
+| A recent local `dma.c` change was ruled out | It was ruled out for the right reason but on a false premise, since there was no halt to explain |
 
-The third run matters most and is the one most often skipped: **when you have recently touched the
-subsystem a failure points at, rule yourself out before blaming anything else.** Here `dma.c` had
-been edited hours earlier and the failing test was the DMA controller test - a coincidence that
-would have been very easy to mistake for causation.
+The byte at `F000:E12B` really is `F4`. That is what made the wrong answer so convincing: a
+verifiable fact about an address the machine was never executing.
 
-The fourth run is what turns "our fork is broken" into a **reportable upstream bug**. Keep a clean
-upstream build to hand for exactly this (see the note below on when to prefer it).
+### What `F000:ECAC` actually is - worth knowing for its own sake
 
-**Status:** the SB Pro POST halt is an **open upstream 86Box defect** and it blocks reproducing
-issue #5 (the `vmad` BSOD) in the emulator at all - the card cannot even be fitted. Consistent with
-the long-standing note that the SB Pro hang lives in `dma_xt8237`.
-
-## Prefer a CLEAN UPSTREAM build for anything except active tracing
-
-Both Inboard PRs are merged (#7626 2026-08-06, #7749 2026-08-23), so **upstream master now contains
-every fix this project depends on**. The instrumented fork's only remaining advantage is its debug
-scaffolding - roughly 148 trace sites in `exec386()` alone, which this project's own measurements put
-at **~3.45x slower** than a clean build.
-
-- **Clean build** - daily use, and the **only** valid reference for wall-clock timing against real
-  hardware. Built at `86Box-upstream-work/upstream/build/clean/`.
-- **Instrumented fork** - active investigations only, where `vram_dump` / `inject_key` / new hooks
-  are needed.
-- **Any "is this us or is this 86Box?" question** - run the clean build. It isolates the fork's
-  patches completely, which stepping back through fork commits does not.
-
-**Not yet upstream:** `dma_page_is_xt()` (Technique 56). A clean build lacks the 4-bit DMA page fix.
-
-### io.c traces are now gated - re-enable them when you need them
-Every `[tag]` trace in `io.c` sits in `inb()`/`outb()` and `fflush`es per hit, with caps up to 20000.
-Together they emitted ~45,000 lines (3.5 MB) in two minutes of boot and were a large, user-visible
-part of the slowness. All nine sites are now gated on `io_dbg_on()`, **default OFF**:
-
-    set INBOARD_IO_TRACE=1
-
-Measured effect of gating, identical 120 s boot: **3.5 MB / ~45,000 lines -> 764 KB / 9,413 lines.**
-The gate is why the `E12B` investigation above could re-enable full port tracing instantly with no
-rebuild - which is the argument for gating spent hooks rather than deleting them.
-
-## Forward notes for a future OSR2 attempt
-- **Emulator/code fixes are OS-version-independent** — the whole "Complete Windows 95 boot fix
-  inventory" section above applies unchanged to OSR2. Start from that list, don't re-derive it.
-- **The BIOS constraint is absolute and OS-independent**: 1986 ROM only (`ibm5160_050986` /
-  `ibm5160_011086`). The 1982 ROM incompatibility is an `INBRDPC.SYS` property, not a Windows one,
-  so it will bite OSR2 identically. This is now enforced in code (dedicated BIOS list).
-- **Disk-image fixes will need re-deriving for OSR2's own binaries**: the self-test-skip byte in
-  `INBRDPC.SYS` should be identical (same driver), but `VKD.VXD` and `KEYBOARD.DRV` are different
-  builds in OSR2, so their patch offsets will differ. Use Technique 35 (read the real DDK source
-  rather than guessing at binary offsets) and Technique 28 (assert the patch actually changed
-  something — `Patched: N` with N>0).
-- **Don't repeat the OSR2 track's old mistake**: the archived 2026-07-31→08-03 OSR2 work chased a
-  wild-jump chain (`650B` → `0128`/EMM386 → `0048:00A8` → `0048:1278`) that was never resolved. The
-  `INT 68h`/`patchint68` fix found later on OSR1 addresses the `650B` link in that same chain — try
-  that fix FIRST on OSR2 before re-opening that investigation.
-
-## Technique 52: a CPU-core fix placed in only ONE of 86Box's two interpreters silently does
-## nothing for half the CPU families — check `cpu_set()`'s dispatch before assuming it applies
-
-86Box has **two** interpreter loops and `cpu_set()` (`cpu.c` ~line 1885) picks between them:
-
-```c
-if ((cpu_s->cpu_type == CPU_IBM486SLC) || (cpu_s->cpu_type == CPU_IBM486BL) ||
-    cpu_iscyrix || (cpu_s->cpu_type > CPU_486DLC) || cpu_override_interpreter) {
-    cpu_exec = exec386;        /* src/cpu/386_dynarec.c */
-} else
-    cpu_exec = exec386_2386;   /* src/cpu/386.c:225     */
+```
+ECA8: out 0xc, al      ; clear the DMA byte-pointer flip-flop
+ECAA: pushf / cli
+ECAC: in  al, 0        ; DMA channel 0 CURRENT ADDRESS, low byte
+ECAE: and al, 0feh
+ECB0: cmp ah, al
+ECB2: mov ah, al
+ECB4: in  al, 0        ; read it again
+ECB6: je  ECAC         ; unchanged? spin here.
+ECB8: popf / ECB9: loop ECAA
 ```
 
-Every Inboard POST fix originally lived only in `exec386()`. Consequence: selecting a plain
-**386DX/386SX — the CPU this accelerator card was actually sold to pair with —** routed execution to
-`exec386_2386()`, where **none of the fixes existed**, so POST hung in the Mach8 option ROM's PIT
-delay loop *before even reaching the RAM count*. It presented as "beep, then black screen", which
-looks like a video or speed problem and is neither: the fix code simply never executed.
+On an XT, **DMA channel 0 is the DRAM refresh channel** and its address counter cycles continuously.
+This loop spins until it sees the counter move, i.e. it is the BIOS waiting for refresh to be
+running. Any machine that wedges here has stopped refresh - a genuinely useful thing to recognise.
+It takes ~9 s of wall time on an instrumented build and is passed through normally.
 
-**Diagnostic tell**: a failure that appears/disappears purely on CPU *family* (not speed) and shows
-up *earlier* in POST than any of your fix addresses. Check the dispatch before anything else.
+### The discipline that would have caught it
 
-**Do NOT try to fix it with `cpu_override_interpreter = 1` in the config** — tested, does not work
-(the flag is consulted at `cpu_set()` time, before/independently of that config path).
+1. **A single sample is not a state.** 0% CPU in the 86Box title bar, or one `[modecheck]` line, is
+   an instant. Sample it repeatedly and see whether CS:PC *moves*. A stop means the same address
+   twice, minutes apart - not one reading.
+2. **Never read a byte at an address you inferred.** Read the address the heartbeat actually
+   reported. Confirming a theory's address against the ROM feels like evidence and is not.
+3. **Know what a slow build looks like.** This tree's `exec386()` carries ~148 `fprintf`/`fopen`
+   sites and runs **3.45x fewer guest instructions/sec** than a clean build. A POST that takes ~110 s
+   instead of ~30 s looks exactly like a hang if you only wait 45 s. Both Inboard PRs are merged, so
+   **build clean unless you specifically need a hook.**
+4. **Check that your control is a control.** Once your work is upstream, "clean upstream build" stops
+   being a control for it. The valid control here is a build from *before* the change, or a
+   different machine type in the same build.
 
-**The correct fix (implemented, validated to a Win95 desktop on `i386dx`/25):** extract the whole
-fix block into ONE shared function and call it from BOTH loops.
-- `void inboard_post_fixups(void)` — defined in `src/cpu/386_dynarec.c` immediately before
-  `exec386()`, prototype in `src/cpu/cpu.h` next to the `exec386_2386` declaration.
-- Called from `exec386()` and from `exec386_2386()` (`src/cpu/386.c`), in both cases immediately
-  after `cpu_state.ssegs = 0;` — the identical anchor point in each loop.
-- Contents: C000 wait-state exemption, Mach8 PIT delay-loop fix (`0x7B37/0x7B23/0x7B16`),
-  `E362-E3AC` IRQ1 self-test + range safety net, `E507` DMA-refresh force, `patchint68`.
-
-## Technique 53: don't set `cpu_waitstates` if you already override the variables it feeds
-`cpu_update_waitstates()` only honours `cpu_waitstates` for
-`cpu_type >= CPU_286 && cpu_type <= CPU_386DX`. `inboard386_apply_waitstates()` used to set it — dead
-on 486BL/486DLC, but **live on 386DX/386SX**, where it stacked on top of
-`inboard386_apply_mem_timing()`'s own bus-speed-scaled override of the very same variables
-(`cpu_cycles_read/write/prefetch`), compounding with `io_waitstates`/`reg_op_waitstates`/
-`cpu_rom_prefetch_cycles`. Net effect: the 386-class parts ran an order of magnitude too slow.
-Fixed by zeroing `cpu_waitstates` there so exactly one memory-timing mechanism is ever in play.
-General rule: if you override the consumed variables directly, do not also drive the upstream knob
-that writes them — especially when that knob is CPU-type-gated.
-
-## Technique 54: a per-instruction hook is machine-wide by default — gate it on the device being
-## present, or "this is address-gated so it's inert elsewhere" quietly stops being true
-
-Found while preparing the upstream PR (2026-08-22), *after* the fix set below was already validated.
-
-Extracting the Inboard POST fix-ups into `inboard_post_fixups()` and calling it from both
-interpreter loops (Technique 52) made it run for **every 386/486 machine in 86Box**, not just the
-Inboard. The function's own comment claimed it was inert elsewhere because "every branch is gated on
-a specific CS:PC". That was **half true, and the wrong half was the dangerous one**:
-
-| Gate style | Example | Inert on other machines? |
-|---|---|---|
-| Address-gated (`CS==0xF000 && pc==0xE507`) | DMA refresh flag | Effectively yes — a specific BIOS's own byte offset |
-| **Segment-scoped** (`CS==0xC000`) | Mach8 option-ROM waitstate zeroing | **No** — 0xC000 is *the* option-ROM segment on every PC |
-| **Segment-scoped** (`CS==0x0EAF`) | VMM32 `INT 68h` vector patch | **No** — an ordinary segment value any guest can load, and it *writes guest memory* at 0x1A0/0x3C0 |
-
-So an unrelated machine executing its own option ROM would silently get `io_waitstates`,
-`isa_cycles` and `cpu_cycles_*` zeroed, and any guest that happened to load `CS=0x0EAF` would get
-four IVT bytes rewritten underneath it.
-
-**The rule:** when you move a machine-specific fix into shared CPU-core code, add an explicit
-presence flag — here `int inboard386_present`, set in `inboard386_init()`, cleared in
-`inboard386_close()` — and gate the *call site* on it, not just the body (keeps it to one
-well-predicted branch in the hottest loop in the emulator).
-
-**How to audit your own hook in one pass:** list each condition and ask *"could a machine that has
-never heard of this project satisfy this?"* Anything scoped to a segment, a port number, or a
-register value alone is a yes. Only a specific address *within a specific ROM you also pin* is a no —
-and even then, the presence gate costs one branch and removes the argument entirely.
-
-**Reviewer-facing corollary:** this is exactly the question a maintainer asks first about a diff that
-touches `exec386()`. Answering it in the PR body before it is asked is cheaper than answering it
-after.
+### The A/B discipline is still right - it was just applied to a phantom
+Four runs, one variable each. In particular: **when you have recently touched the subsystem a failure
+points at, rule yourself out before blaming anything else.** That instinct was correct. Just
+establish that the failure exists first.
 
 ## Technique 60: a binary patch is only "verified" against the file's REAL instruction stream —
 ## and on Win9x a VxD replaced after the VMM32 combine never loads at all
@@ -2097,6 +1989,40 @@ confirm the patched artefact is **the one actually loaded**. A negative result f
 deployment is not a negative result — it is no result, and it will send you off chasing theories.
 Consequence here: the `DMABufferIn1MB=Yes` test was **void, not negative**, so the contributor lead
 it was meant to settle stayed untested while everyone believed it had been ruled out.
+
+## Technique 61: "screen black, machine alive" on a Graphics Ultra is a display-PATH switch, not a crash
+
+Issue #7's stall - Windows 95 Setup going black around the "Windows Help" step - has this signature:
+
+- CPU executing **varied** ring-0 addresses (`0028:C0003xxx`, `C0036Exx`, `C0037xxx`)
+- PIT channel 0 in **mode 2** with `clocks=` advancing - Windows' own VTD timer is installed and running
+- `A0000` checksum **frozen** - nothing writing to VGA memory
+- **Ctrl+Alt+Del is handled** (reported on real hardware) - input path, VKD and Windows' handler all alive
+- A plain **reboot clears it**
+- The point of failure **moves between runs on hardware**, but is deterministic in the emulator
+  (two independent twins froze with the identical checksum `00003E8C`)
+
+Ruled out by direct experiment, not inference: **it is not waiting for a mouse.** A twin with
+`mouse_type = msserial` fitted and COM1 free stalls with the identical signature. (The hypothesis was
+attractive because the real machine has a single serial port shared with COMrade, so the mouse is
+usually unplugged - a real shared variable, and still wrong.)
+
+**The mechanism to check instead.** An ATI Graphics Ultra is a mach8 accelerator *and* a VGA core,
+two output paths sharing one monitor. `vid_8514a.c`:
+
+```c
+case 0x4ae8:
+    WRITE8(port, dev->accel.advfunc_cntl, val);
+    dev->on = dev->accel.advfunc_cntl & 0x01;   /* <- who drives the screen */
+```
+
+Port **`0x4AE8`** is Advanced Function Control; bit 0 hands the display to the 8514. Enable it
+without valid 8514 timings and you get every symptom above: black screen, live machine, working
+Ctrl+Alt+Del, and a reboot that fixes it because the card resets to the VGA path. The 8514 registers
+are **sparse across `02E8`/`06E8`/`0AE8`/`0EE8`/`4AE8`** - easy to miss when tracing.
+
+**Not yet proven** - stated as a mechanism that fits every observed symptom, not a verified cause.
+Proving it needs a trace build: `ibm8514_log()` compiles to nothing unless the log is enabled.
 
 ## ✅ FINAL VALIDATED FIX SET (2026-08-22) — 5 files, all needed
 1. `machine/m_xt.c` — dedicated `ibmxt_inboard386_config[]`, 1986 ROMs only, default
