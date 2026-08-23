@@ -15,6 +15,56 @@ but no primary source. They are recorded as **hypotheses to test**, not facts. E
 
 ---
 
+## ⏸️ PARKED — Mach8 "RAM Addressing" self-test (#8). Non-breaking. Resume here.
+
+**Decision (user, 2026-08-23): parked deliberately.** It is cosmetic/fidelity, blocks nothing, and
+the workaround already in place keeps boots usable. Sound (#5) and Win95 video acceleration (#4)
+take priority. Everything needed to resume is below — **do not re-derive it.**
+
+### The diagnosis is complete. Only the fix is outstanding.
+```
+REAL 5160          Testing........Ok
+86Box (UPSTREAM)   Testing........
+                     14207 7B6A 0007 RAM Addressing   + ASCII-art card graphic
+```
+Identical ROM (`113-11504-002`), identical banner, diverging at one word.
+
+### Established facts — all verified, none of them guesses
+1. **Upstream 86Box defect.** Reproduced on a clean build of `657748f2a` with **no** local patches
+   and **no** `AX = BX+1` hack. Nothing this fork introduced.
+2. **"RAM Addressing" is an aliasing test** — write a distinct value per address, read back, verify
+   writing one address did not disturb another. Failing it means the emulated VRAM **aliases**.
+3. **`7B6A`** = the ROM offset that detects the failure. **`0007`** = likely the failing bit or
+   address-line mask.
+4. **Prime suspect:** `svga->read_bank` / `svga->write_bank` computed as `bank << 16` from registers
+   `0xB2` / `0xAE` (`vid_ati_mach8.c`, the `regs[0xbe] & 0x08` read/write-bank-mode branch).
+5. **The RAM banks themselves are correctly allocated** — `svga->vram` 512 KB + `dev->vram` 1 MB,
+   matching what C-INFO reports off the real card. The defect is *addressing*, not allocation.
+
+### Dead ends — do NOT re-open these
+- **Blank EEPROM.** Tested and disproved: `INSTALL.EXE` was run inside the emulator, `mach8.nvr` went
+  from 128 zero bytes to a genuinely configured EEPROM (kept as
+  `vxd-patches/realhw_backups/mach8.nvr.configured-by-INSTALL-20260823`), and the symptom persisted.
+- **Wrong ROM revision.** An older port-plan note blamed a `11301115150` dump. That ROM has since
+  been replaced; both `roms/video/mach8/BIOS.BIN` and `ATI_MACH8.bin` are now `113-11504-002` and the
+  symptom persists.
+- **Monitor sync delay.** The user's photo shows real hardware printing `Testing........Ok` — the
+  test genuinely runs and genuinely passes there.
+
+### Next step when resumed
+Trace what the ROM writes and reads back across the VRAM banks around `C000:7B6A` — find the **first
+address that aliases**. That difference is the bug. Use a raw, undeduped trace (Technique 49) armed
+on entry to the self-test region.
+
+### Success criteria
+- Emulator prints `Testing........Ok`, no `RAM Addressing` line, no ASCII-art grid
+- **The `AX = BX+1` hack at `C000:7B16/7B23/7B37` can be deleted** — it exists only because the
+  self-test takes 65-170 s instead of being instant, i.e. it has been *hiding* this bug
+- Worth an upstream 86Box report either way: the evidence set (real-hardware photo, clean-build
+  reproduction, the ROM's own diagnostic) is unusually complete
+
+---
+
 ## 🚦 ON RETURN — do these in this order (written 2026-08-23, end of unattended stretch)
 
 Everything below is **staged and waiting on a human**. Nothing here needs re-derivation.
