@@ -12,6 +12,30 @@ materially different state than the earlier notes assumed** — see #5 and #8.
 
 ## Tier 1 — actionable now, real chance of a fix
 
+### #5 — Sound Blaster Pro: BSOD FIXED, distortion root-caused  ·  updated 2026-08-24
+
+**Two separate bugs, both now understood.**
+
+**Bug 1 — the BSOD. FIXED and confirmed on real hardware.** This repo's own `patch_vdmad.py`
+corrupted `AND AH,0C0h` at `OBJ1:0x1660` into a wild write. Deployed via a pre-monolith image on
+2026-08-23: Windows reaches the desktop, the SB Pro driver installs, the volume control appears, and
+**there is no BSOD**. Detail below.
+
+**Bug 2 — the distortion. Root cause MEASURED, fix built, not yet deployed.** Sound plays but is
+wrong, identically on real hardware and in the emulator on the same image. The XT's 4-bit DMA page
+latch gives 20-bit reach; `MSSBLST.VXD` allocates its DMA buffer with `maxPhys = 0xFFF` (16 MB), so
+it lands at `0x4E0000` and the page register truncates it to `0x0E0000` — adapter ROM space. The
+card plays ROM contents. @andrew-hoffman predicted exactly this from the hardware on 2026-08-20.
+
+Full writeup, the audit tooling, and the ordered next steps:
+[`xt_dma_20bit_audit_2026_08_24.md`](xt_dma_20bit_audit_2026_08_24.md). **Nothing is deployed yet.**
+
+`DMABufferIn1MB=Yes` was tested and does not fix it — it clamps the size of VDMAD's own bounce
+buffer, which a 32-bit driver never uses. That result is why the earlier "void, not negative" call
+mattered: it kept the lead alive to be retested.
+
+---
+
 ### #5 — Sound Blaster Pro causes `vmad` BSOD
 `A fatal exception 0E has occurred at 0028:C002F330 in VXD VDMAD(01) + 00001660`
 
