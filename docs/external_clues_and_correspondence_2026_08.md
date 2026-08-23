@@ -217,6 +217,45 @@ into one debuggable in place. Fidelity fix in its own right, and a candidate thi
 
 **Not yet tested** — stated as a code-level reading, not a verified behaviour change.
 
+#### The Windows 3.11 `SYSTEM.INI` DMA settings — **[AI-SOURCED]**, and corrected 2026-08-23
+
+The user's working Windows 3.11 build (`Windows_311_working_build\WINDOWS\SYSTEM.INI`, `[386Enh]`)
+carries:
+
+```ini
+HardDiskDMABuffer=64
+DMABufferIn1MB=True
+DMABufferSize=64
+```
+
+**This was initially over-read (by Claude) as empirical proof that the Inboard *requires*
+`DMABufferIn1MB`. It is not.** Per the user, these lines came from **Google AI suggestions** as
+performance tweaks, were **not** part of the original working build, and merely *did not break
+anything*. Tagged `[AI-SOURCED]` accordingly.
+
+**What it does legitimately establish**, which is narrower but still worth having:
+- `DMABufferIn1MB=True` with `DMABufferSize=64` / `HardDiskDMABuffer=64` is **tolerated** on this
+  exact hardware under Windows 3.11 — it does not destabilise the machine.
+- So when testing the same knob under Windows 95 for issue #5, prefer **64** over the previously
+  planned 32: same hardware, known not to cause problems.
+
+**What it does NOT establish:** that the machine needs the setting, or that it fixes anything. The
+substance behind the #5 lead remains @andrew-hoffman's reasoning plus the 4-bit page latch, not
+this file.
+
+**Genuinely notable in the same file, and NOT AI-sourced** — these are Intel's own shipped choices:
+- `keyboard.drv=ibkbd.drv` and `keyboard=ibvkd.386` — Intel shipped an Inboard-specific keyboard
+  driver *and* VxD for Windows 3.x, the period analogue of this project's custom `VKD.VXD` rebuild
+  for Windows 95. Same problem, same two-part shape, solved the same way.
+- `device=*vdmad` — the **stock** virtual DMA device, *not* Intel's own `IBVDMAD.386`, even though
+  that file ships in the same bundle. So the configuration that works here does not load Intel's
+  replacement VDMAD at all. That lowers the priority of the `IBVDMAD` disassembly relative to the
+  `SYSTEM.INI` route, and is worth knowing before spending a session on it.
+
+*Process note (Technique 7): the overstatement above was propagated in conversation before being
+re-derived. The `[PRIMARY]` / `[AI-SOURCED]` tagging exists precisely to catch this, and only works
+if provenance is established before a claim is repeated, not after.*
+
 ---
 
 ## 4. Revto486 — the V86-mode clue **[PRIMARY — vogons forum post]**

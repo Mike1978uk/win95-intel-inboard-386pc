@@ -112,6 +112,20 @@ dma_set_force_xt(int enable)
     dma_force_xt = enable;
 }
 
+/* True when this machine's DMA page registers are the XT's 4-bit latches rather than an
+   AT's 8-bit ones. dma_at alone gets this wrong for a 386-class accelerator fitted to a
+   genuine XT board (Intel Inboard 386/PC on a 5150/5160): dma_at is assigned is286, which
+   is true for the CPU while the page latches on the motherboard are still 4 bits wide.
+   Getting this wrong hands the guest 24-bit DMA reach where the real machine has 20-bit,
+   so a DMA buffer above 1 MB appears to work under emulation and silently truncates on
+   real hardware - which is exactly the class of bug that makes a fix pass here and fail
+   there. */
+static int
+dma_page_is_xt(void)
+{
+    return dma_force_xt || !dma_at;
+}
+
 static int
 dma_xt8237_active(void)
 {
@@ -1431,7 +1445,7 @@ dma_page_write(uint16_t addr, uint8_t val, UNUSED(void *priv))
             dma[addr].ab   = (dma[addr].ab & 0xff01ffff & dma_mask) | (dma[addr].page << 16);
             dma[addr].ac   = (dma[addr].ac & 0xff01ffff & dma_mask) | (dma[addr].page << 16);
         } else {
-            dma[addr].page = dma_at ? val : val & 0xf;
+            dma[addr].page = dma_page_is_xt() ? (val & 0x0f) : val;
             dma[addr].ab   = (dma[addr].ab & 0xff00ffff & dma_mask) | (dma[addr].page << 16);
             dma[addr].ac   = (dma[addr].ac & 0xff00ffff & dma_mask) | (dma[addr].page << 16);
         }
@@ -1669,7 +1683,7 @@ dma_reset(void)
     dma_xt_refresh_queued = false;
     dma_xt_refresh_scheduled = false;
 
-    if (!dma_at)
+    if (dma_page_is_xt())
         dma_m = (dma_m & 0xf0) | 0x0f;
 }
 
