@@ -12,74 +12,70 @@ safe to fully virtualize the "slave" in software: OUT writes become no-ops
 (2-byte E6 xx -> 2-byte NOP NOP), IN reads become a fixed idle-PIC value
 (2-byte E4 xx -> 2-byte MOV AL,0), matching what a real, quiescent slave
 8259 would read back on a normal AT anyway.
+
+2026-08-23: shares vxdstream.py's verifier with patch_vdmad.py, after that
+script's old realign() was found to have corrupted VDMAD_INBOARD.VXD by
+"confirming" an IN/OUT that was really the tail of a 3-byte AND. See
+patch_vdmad.py's header for the full account. All 32 of this script's sites
+re-verified clean against the real instruction stream on 2026-08-23 -- the
+one that first looked corrupt (file 0x616a) was a false alarm from a
+verifier that didn't yet understand the VxD INT 20h + inline-DWORD calling
+convention and desynced on it.
 """
-import capstone
+import sys
+from vxdstream import verify_sites
 
 SRC = "VPICD.VXD"
 OUT = "VPICD_INBOARD.VXD"
 
 data = bytearray(open(SRC, "rb").read())
-md32 = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_32)
 
-def realign(data, target, search_back=40):
-    for start in range(max(0, target - search_back), target + 1):
-        chunk = bytes(data[start:target+16])
-        insns = list(md32.disasm(chunk, start))
-        for insn in insns:
-            if insn.address == target and insn.mnemonic in ("out", "in"):
-                return insn
-    return None
+slave_ports = {0xA0, 0xA1}
 
 candidates = []
 for i in range(len(data) - 1):
-    if data[i] == 0xE4 and data[i+1] in (0xA0, 0xA1):
-        candidates.append((i, "in", data[i+1]))
-    if data[i] == 0xE6 and data[i+1] in (0xA0, 0xA1):
-        candidates.append((i, "out", data[i+1]))
+    if data[i] in (0xE4, 0xE6) and data[i + 1] in slave_ports:
+        candidates.append(i)
 
-print(f"Found {len(candidates)} raw candidates")
+print(f"Found {len(candidates)} raw opcode candidates")
+
+good, bad = verify_sites(SRC, candidates)
+
+for off, reason in bad:
+    print(f"  REFUSED offset 0x{off:x}: {reason}")
 
 patched = 0
-skipped = []
-for off, kind, port in candidates:
-    insn = realign(data, off)
-    if insn is None:
-        skipped.append((off, kind, port))
-        continue
-    assert len(insn.bytes) == 2, f"unexpected instruction length at {off}: {insn.bytes}"
-    if kind == "out":
-        data[off:off+2] = b"\x90\x90"  # NOP NOP
+for off, mn, ops, size in good:
+    if mn == "out":
+        data[off:off + 2] = b"\x90\x90"          # NOP NOP
     else:
-        data[off:off+2] = b"\xB0\x00"  # MOV AL, 0
+        data[off:off + 2] = b"\xB0\x00"          # MOV AL, 0
+    print(f"  patched offset 0x{off:x}: {mn} {ops}")
     patched += 1
 
-print(f"Patched: {patched}  Skipped (unverified): {len(skipped)}")
-if skipped:
-    print("SKIPPED (left untouched):", skipped)
+print(f"Patched: {patched}   Refused: {len(bad)}")
 
 # 2026-08-02: this script used to write OUT unconditionally, even with patched == 0 - which
-# happened silently for this project's actual Windows 95 retail (4.00.950) stock VPICD.VXD
-# (different build than whatever stock this patch was originally validated against), producing
-# a "patched" file that was actually byte-identical to stock. Confirmed the hard way: this
-# repo's VPICD_INBOARD.VXD sat unnoticed as an unpatched copy through multiple investigation
-# sessions. Refuse to write a no-op "patch" - if this fires, the raw-opcode search assumptions
-# in this script need re-deriving for whatever stock file was just fed to it (check for
-# DX-indirect IN/OUT forms, a different compiled layout, etc.) before trusting its output again.
+# happened silently for this project's actual Windows 95 retail (4.00.950) stock VPICD.VXD,
+# producing a "patched" file that was byte-identical to stock and went unnoticed for multiple
+# sessions. Refuse to write a no-op "patch".
 if patched == 0:
-    print("\nREFUSING TO WRITE OUTPUT: found 0 real I/O sites to patch. This almost certainly "
+    print("\nREFUSING TO WRITE OUTPUT: found 0 verified I/O sites to patch. This almost certainly "
           "means this stock VPICD.VXD's compiled code doesn't match this script's raw-opcode "
-          "search assumptions (see WIN95_PLAN.md search for build-mismatch precedent) - fix the "
-          "search logic for this specific build before re-running, don't trust a silent no-op.")
+          "search assumptions - fix the search logic for this specific build before re-running.")
     raise SystemExit(1)
 
 open(OUT, "wb").write(data)
 print(f"Wrote {OUT}, {len(data)} bytes")
 
-# verify: rescan the patched file for any remaining raw opcode matches
-remaining = 0
-for i in range(len(data) - 1):
-    if data[i] == 0xE4 and data[i+1] in (0xA0, 0xA1):
-        remaining += 1
-    if data[i] == 0xE6 and data[i+1] in (0xA0, 0xA1):
-        remaining += 1
-print(f"Remaining raw A0/A1 IN/OUT opcode matches after patch: {remaining}")
+# Re-verify the OUTPUT: every byte we changed must still sit on a boundary of the
+# stock stream, and nothing else may have moved.
+stock = open(SRC, "rb").read()
+changed = [i for i in range(len(stock)) if stock[i] != data[i]]
+starts = sorted({off for off, _, _, _ in good})
+expected = sorted({i for s in starts for i in (s, s + 1)})
+if changed != expected:
+    print(f"\nPOST-CHECK FAILED: changed bytes {[hex(c) for c in changed]} != "
+          f"expected {[hex(e) for e in expected]}")
+    raise SystemExit(1)
+print(f"Post-check OK: exactly {len(changed)} bytes changed, all on verified IN/OUT boundaries")
