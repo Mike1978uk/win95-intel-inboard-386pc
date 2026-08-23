@@ -523,6 +523,39 @@ the honest answer.
 
 ## Not forgotten, lower priority
 
+### 🔍 NEW LEAD (2026-08-23) — Intel's own OEM build of 386MAX is in the source we now have
+
+Bob Smith told this project in **February 2023** how to find the Intel-specific code in 386MAX. At
+the time we had no source. We do now, so the lead is live:
+
+> "In the source code, I created a separate product for each one, by setting a flag of the form
+> @OEMSYS_xxx to distinguish one OEM version from another. FWIW, you can search through the .ASM
+> files and find the many branches taken for each OEM product. The file QMAX_OEM.ALL lists equates
+> for each vendor, from 2 to 22. To track the Intel OEM changes, simply look for their equate
+> @OEMSYS_ILIM."
+
+Confirmed present in `RiderProjects86MAX`:
+- `386MAX/QMAX_OEM.ALL` line 6: `@OEMSYS_ILIM equ 2 ; INTEL Limulator` — Intel is OEM **#2**, the
+  first one, consistent with Bob's account of Intel OEM being the origin of that whole business
+- **119 `@OEMSYS_ILIM` conditional sites** in the main `386MAX/*.ASM` tree (excluding the
+  `BIGMEM.BOB` / `VCPCR3.BOB` variant directories)
+
+**Why it might matter:** this is the source of **Intel's own memory manager** for their 386 boards -
+the "ILM"/LIM-emulator lineage the user's 2023 exchange with Bob was about. Every one of those 119
+sites is a documented statement of *what Intel needed done differently* from the retail product on
+Intel hardware. Given this project keeps running into Inboard-specific memory behaviour, that is a
+potentially rich primary source.
+
+**⚠️ Do not overstate the connection.** `@OEMSYS_ILIM` (Intel OEM build) and `@SYS_INBRDPC`
+(Inboard/PC machine detection) are **two separate mechanisms** in this source, and nothing yet shows
+the Intel OEM build specifically targeted the Inboard. Bob explicitly disclaimed Inboard involvement.
+Establish whether the two intersect before drawing any conclusion.
+
+**Cheapest first step:** diff the `@OEMSYS_ILIM` conditionals into a list of behavioural differences,
+then check whether any of them touch the same subsystems as `@SYS_INBRDPC` (A20, DMA, INT 09, I/O
+ports). Low priority, but genuinely novel material rather than another round of speculation.
+
+
 ### 💡 IDEA (logged 2026-08-23, user-raised, LOW priority) — a BIOS-extension TSR to make older ROMs usable
 
 **Tracked as [issue #10](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/10).**

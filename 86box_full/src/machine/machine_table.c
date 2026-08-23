@@ -387,7 +387,7 @@ const machine_t machines[] = {
     {
         .name              = "[386DX] IBM XT (Inboard 386/PC)",
         .internal_name     = "ibmxt_inboard386",
-        .type              = MACHINE_TYPE_386SX,
+        .type              = MACHINE_TYPE_386DX,
         .chipset           = MACHINE_CHIPSET_DISCRETE,
         .init              = machine_ibmxt_inboard386_init,
         .p1_handler        = NULL,
@@ -395,25 +395,17 @@ const machine_t machines[] = {
         .available_flag    = MACHINE_AVAILABLE,
         .gpio_acpi_handler = NULL,
         .cpu               = {
-            /* The Inboard's own CPU socket accepts any 386SX-pinout-
-               compatible upgrade chip of the era (PGA132 and pin-compatible
-               packages) - not just this project's actual IBM Blue Lightning
-               486BL3. OR together every compatible family so users whose
-               card has a different chip (stock 386SX, Cyrix 486DLC/486SLC,
-               IBM 386SLC/486SLC, etc.) can select their own from the normal
-               86Box CPU dropdown instead of being locked to one chip.
-               2026-07-26: confirmed by reading cpu_table.c directly that
-               CPU_PKG_486SLC and CPU_PKG_486DLC (both originally included
-               here) are dead flags - no CPU family in 86Box's own table
-               actually uses either as its .package value. The real Cyrix
-               Cx486SLC/Cx486SRx2 are filed under CPU_PKG_386SX (already
-               covered), and the real Cyrix Cx486DLC is filed under
-               CPU_PKG_386DX - added below so it's actually selectable.
-               CPU_PKG_486SLC/CPU_PKG_486DLC left in place too (harmless
-               no-ops, costs nothing to keep in case a future 86Box CPU
-               table addition starts using them). */
-            .package     = CPU_PKG_386SX | CPU_PKG_386DX | CPU_PKG_386SLC_IBM | CPU_PKG_486SLC
-                          | CPU_PKG_486SLC_IBM | CPU_PKG_486BL | CPU_PKG_486DLC,
+            /* The Inboard's own CPU socket accepts any 386DX-pinout-compatible upgrade chip
+               of the era (PGA132 and pin-compatible packages), not one specific part - OR
+               together every compatible family so a user with a different chip on their card
+               (stock 386DX, Cyrix 486DLC, IBM 486BL, etc.) can select their own
+               from the normal CPU dropdown instead of being locked to one.
+               2026-08-23: package list and .type synced with upstream f8a10398 ("The Intel
+               Inboard 386/PC is 386DX, not 386SX"), which is correct - the card carries a
+               386DX. The 386SX/SLC entries this list used to carry were wrong, and dropping
+               them costs nothing here: every local test config uses either ibm486bl3
+               (CPU_PKG_486BL) or a different machine entirely. */
+            .package     = CPU_PKG_386DX | CPU_PKG_486BL | CPU_PKG_486DLC,
             .block       = CPU_BLOCK_NONE,
             .min_bus     = 0,
             .max_bus     = 0,

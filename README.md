@@ -130,6 +130,23 @@ writeup for complete detail:
   foundation the rest of this work is built on
 - **Al Williams** (Dr. Dobb's Journal, Hackaday) — real 1990s hands-on Inboard development experience
 - **Michal Necasek** (OS/2 Museum) — architectural confirmation and historical leads
+- **[Bob Smith](https://github.com/sudleyplace)** (Qualitas) — author of **386MAX**, released as
+  open source at **[sudleyplace/386MAX](https://github.com/sudleyplace/386MAX)** (see also
+  [sudleyplace.com](http://www.sudleyplace.com)). He corresponded with this project in February 2023
+  about the early history of 386 memory management. **To be clear about attribution: Bob's own
+  position is that he had no involvement with the Inboard itself** — *"As far as Inboard is
+  concerned, I had nothing to do with it"* — and he described his recollection of that era as hazy.
+  What he did do matters here anyway. The 386MAX source turns out to carry genuine, first-class
+  Inboard support (`@SYS_INBRDPC` / `@SYS_INBRDAT` machine-type flags, an `INBOARD` command-line
+  switch, A20 routines commented *"A20 Enable for Inboard/PC"*, Inboard-specific INT 09 and I/O port
+  handling), and its `MARK_XT` path is the primary-source evidence that the XT DMA ceiling is 640 KB
+  rather than 1 MB. Its Inboard A20 path writes `0DFh`/`0DDh` to port `60h` — independently matching
+  both Al Williams' 1990 code and this project's own emulation. He also pointed us at the Intel OEM
+  build of 386MAX (`@OEMSYS_ILIM`, "INTEL Limulator"), a lead still open. Credit for the DMA
+  direction that led us to the source belongs to **@andrew-hoffman**, who cited it on issue #5
+- **@andrew-hoffman** — the XT DMA page-register lead on issue #5, and the sources behind it
+  (os2museum ×2, the MartyPC book, and the pointer at the 386MAX source) — which produced the 640 KB
+  figure, an emulator DMA fidelity bug, and a possible route past this project's EMM386 blocker
 - **Wim Osterholt** — compiler of
   **[XT, AT and PS/2 I/O port addresses](https://wiki.preterhuman.net/XT,_AT_and_PS/2_I/O_port_addresses)**
   (1994), an unusually useful reference here because it marks entries `(XT)` / `(XT only)` rather
