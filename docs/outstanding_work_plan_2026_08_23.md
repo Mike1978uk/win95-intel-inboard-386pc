@@ -158,7 +158,7 @@ project's fidelity goal.
 > > If you're having problems with EMM386 then 386MAX may be a usable alternative. It at least
 > > claims to support the InBoard.
 >
-> **It's better than a claim.** Verified in the source (`RiderProjects86MAX`, GPLv3):
+> **It's better than a claim.** Verified in the source (`RiderProjects\386MAX`, GPLv3):
 > - `@SYS_INBRDPC` / `@SYS_INBRDAT` system flags (`QMAX_SYS.INC`) — Inboard/PC and Inboard/AT are
 >   first-class detected machine types
 > - an `INBOARD` command-line switch (`QMAX_ARG.ASM` → `SYSCHK_INBOARD`)
@@ -594,7 +594,7 @@ the time we had no source. We do now, so the lead is live:
 > for each vendor, from 2 to 22. To track the Intel OEM changes, simply look for their equate
 > @OEMSYS_ILIM."
 
-Confirmed present in `RiderProjects86MAX`:
+Confirmed present in `RiderProjects\386MAX`:
 - `386MAX/QMAX_OEM.ALL` line 6: `@OEMSYS_ILIM equ 2 ; INTEL Limulator` — Intel is OEM **#2**, the
   first one, consistent with Bob's account of Intel OEM being the origin of that whole business
 - **119 `@OEMSYS_ILIM` conditional sites** in the main `386MAX/*.ASM` tree (excluding the
