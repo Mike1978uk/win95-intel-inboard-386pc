@@ -15,32 +15,56 @@ materially different state than the earlier notes assumed** — see #5 and #8.
 ### #5 — Sound Blaster Pro causes `vmad` BSOD
 `A fatal exception 0E has occurred at 0028:C002F330 in VXD VDMAD(01) + 00001660`
 
-**Status is further along than "unsolved", and further back than "fixed".** The history matters:
+**ROOT-CAUSED 2026-08-23. The crash is this repo's own patch script corrupting an instruction.**
 
-1. Original theory (extra I/O at 330h / MPU-401) — **disproved**. A port-330h trace hook showed
-   *zero hits*; plain SB Pro (`*PNPB002`) never requests it.
-2. Second finding — a **false positive in this project's own `patch_vdmad.py`**: it mistook a
-   harmless 3-byte `AND AH,0xC0` for a real `IN AL,0xC0`, corrupting 2 bytes into a 7-byte
-   instruction dereferencing a garbage address. That explains the BSOD text *exactly* (page fault,
-   that offset, inside VDMAD). Fixed in `VDMAD_INBOARD_FIXED.VXD`, commit `d8adb29`.
-3. **But that fix was then tested on real hardware and still failed.** So the byte corruption was
-   real and worth fixing, yet it was not the whole story — or not the story at all.
+Stock `VDMAD.VXD` has at `OBJ1:0x1660` (file `0x2460`):
 
-**Live lead (2026-08-20, @andrew-hoffman):** the XT DMA page register is only **4 bits** → 20-bit
-reach → the DMA buffer **must** live under 1 MB. Corroborating detail from the port list: SB Pro is
-on **DMA 1**, so its page register is **`0x83`** (the channel→port map is not numeric: ch0=87,
-ch1=83, ch2=81, ch3=82). The `0080-008F` reference section documents the **AT** `74612` width — do
-not read 8 bits into it here.
+```
+80 E4 C0        AND AH, 0C0h
+```
 
-**Next action, in strict order:**
-1. `SYSTEM.INI` `[386Enh]` → `DMABufferIn1MB=Yes`, `DMABufferSize=32`. Reboot. Zero code; the
-   real-hardware equivalent is the identical edit on the CF card.
-2. If unchanged → force a Win3.1-era 8-bit `.drv` via `[drivers]`, bypassing the protected-mode VxD
-   audio stack entirely.
-3. Only then re-disassemble `vmad.vxd` — **from scratch**, not by patching the failed attempt.
+`patch_vdmad.py` scanned for raw `E4 xx` / `E6 xx` opcodes and matched the `E4 C0` *inside* that
+instruction as `IN AL,0C0h`. Its `realign()` helper "confirmed" the match by re-disassembling from
+a start offset chosen until the match held — which confirms nothing, since such a start always
+exists. It wrote `B0 00` over those two bytes, leaving:
 
-**Why this fits:** a page fault inside VDMAD's *virtual DMA buffer handling* is exactly what a
-buffer the controller cannot physically address would produce.
+```
+80 B0 00 A8 20 74 06     XOR byte ptr [EAX+7420A800h], 6
+```
+
+a 7-byte wild write to an unmapped linear address, sitting exactly at `OBJ1:0x1660`. That is the
+faulting instruction the BSOD names, to the byte — which is why the reported offset never moved
+across any attempt.
+
+**Why the earlier "fixed VDMAD failed on real hardware" result proved nothing.** The fixed file was
+only ever staged in the card's `\patched_files\`; it was never placed in `WINDOWS\SYSTEM\VMM32\`.
+`BOOTLOG.TXT` on both cards shows `Loading Vxd = VDMAD` — the bundled-from-`VMM32.VXD` form, not the
+`Loading Device = <path>` form a file-loaded VxD produces. And `VMM32.VXD` is **W4-compressed**, so
+nothing was patched in place there either. The corrupt Aug-4 copy has been the one loading all along.
+
+**Consequences for the other leads:**
+- The `DMABufferIn1MB=Yes` / `DMABufferSize=64` test (2026-08-23) is **void, not negative**. It
+  changed a buffer-placement knob while a wild write crashed the machine regardless.
+  @andrew-hoffman's 4-bit-page-register reasoning is therefore still **untested** — do not report it
+  as disproved.
+- `VPICD_INBOARD.VXD` was audited with the same tooling and is **clean** — all 36 sites sit on true
+  instruction boundaries. (A first pass wrongly flagged file `0x616a`; that verifier did not yet
+  understand the VxD `INT 20h` + inline-DWORD convention and desynced on it.)
+
+**Fixed:** `vxd-patches/vxdstream.py` decodes each executable object's real instruction stream,
+VxD calling convention included, and `verify_sites()` refuses any candidate not on a true 2-byte
+`IN`/`OUT` boundary. Both patch scripts now use it and post-check their own output. Regenerating
+from stock reproduces `VDMAD_INBOARD_FIXED.VXD` and `osr1/VPICD_INBOARD.VXD` byte-for-byte.
+
+**Deployed 2026-08-23** to a fresh pre-monolith OSR1 image via
+`vxd-patches/deploy_premonolith.sh` — the only route that takes, since Setup's own combine step is
+what bakes a staged VxD into `VMM32.VXD`.
+
+**Next action:** boot the rebuilt card, install the SB Pro driver, play a sound.
+- No BSOD → the corruption was the whole story; report to @andrew-hoffman that his lead is
+  untested rather than disproved.
+- BSOD at a *different* offset → a real DMA problem underneath, and his lead is live.
+- BSOD at `+00001660` again → the fix still did not load; check the combine, not the theory.
 
 ---
 
