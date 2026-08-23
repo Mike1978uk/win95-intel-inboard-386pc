@@ -2034,6 +2034,70 @@ and even then, the presence gate costs one branch and removes the argument entir
 touches `exec386()`. Answering it in the PR body before it is asked is cheaper than answering it
 after.
 
+## Technique 60: a binary patch is only "verified" against the file's REAL instruction stream —
+## and on Win9x a VxD replaced after the VMM32 combine never loads at all
+
+Two separate traps, both hit on the same bug (issue #5's Sound Blaster Pro BSOD), both of which made
+a wrong answer look confirmed for weeks.
+
+**(a) Never verify an instruction by re-disassembling from a guessed start.** `patch_vdmad.py`
+scanned for raw `E4 xx` / `E6 xx` opcodes, then "confirmed" each hit with a helper that tried start
+offsets until one decoded an `IN`/`OUT` at the target. Such a start *always* exists — x86 is a
+variable-length encoding, so any byte can be made to look like the head of an instruction. Fed
+
+```
+OBJ1:0x1660   80 E4 C0        AND AH, 0C0h
+```
+
+it matched the `E4 C0` in the middle, overwrote two bytes, and produced
+
+```
+OBJ1:0x1660   80 B0 00 A8 20 74 06     XOR byte ptr [EAX+7420A800h], 6
+```
+
+a wild write to an unmapped address. The BSOD said `VDMAD(01) + 00001660` — the fault offset was a
+byte-exact match to the corruption, and never moved across attempts, which should itself have been
+the clue. **A fault offset that is stable across unrelated "fixes" is pointing at a constant, not a
+race.**
+
+Do it this way instead (`vxd-patches/vxdstream.py`): decode each executable object's stream **once**,
+linearly from the object's own start, and require the candidate to sit on a boundary in it.
+
+**The Win9x wrinkle that breaks naive disassembly:** a VxD service call is `CD 20` followed by an
+**inline 4-byte service ID** — 6 bytes total, not a 2-byte `INT 20h`. Any disassembler that doesn't
+know this desyncs after *every* service call and stays desynced until it happens to resynchronise.
+A first pass at this audit wrongly flagged `VPICD` file `0x616a` as corrupt for exactly that reason;
+the bytes were `CD 20 F3 00 01 00` four bytes earlier. Handle it explicitly, or every verdict in a
+VxD is noise.
+
+**(b) A patched VxD dropped into `WINDOWS\SYSTEM\VMM32\` after Setup's combine step does nothing.**
+Windows 95 Setup combines the staged VxDs into a single `VMM32.VXD`. That combined file has a **`W4`**
+signature at `e_lfanew` — it is *compressed*, so it cannot be byte-patched in place and searching it
+for opcodes finds nothing whether or not the code is in there.
+
+`BOOTLOG.TXT` tells you which copy actually loaded, and it is the only thing that does:
+
+| Log line | Meaning |
+|---|---|
+| `Loading Vxd = VDMAD` | came from the bundled, combined `VMM32.VXD` |
+| `Loading Device = C:\WINDOWS\SYSTEM\VMM32\VDMAD.VXD` | came from the file |
+
+For eighteen days this project believed a fix had been "tested on real hardware and failed". The
+fixed file was sitting in `\patched_files\` on the card, had never been placed anywhere Windows
+looks, and `BOOTLOG` had been saying `Loading Vxd = VDMAD` the whole time. **Before drawing any
+conclusion from a VxD change, prove the new file loaded.** The reliable route is to apply patches to
+a *pre-monolith* image — one where `WINDOWS\SYSTEM\VMM32\` still holds the individual VxDs and
+`VMM32.VXD` is still the stock 411,132-byte copy — and let Setup's own combine bake them in.
+`vxd-patches/deploy_premonolith.sh` does this and refuses to run against a post-combine image.
+
+**The generalisation:** both halves are the same failure — *a step that silently succeeds at doing
+nothing*. The project already had this rule for patch scripts that write a byte-identical output
+(memory: "always confirm `Patched: N` with N>0"). Extend it: confirm the patch is **correct**, and
+confirm the patched artefact is **the one actually loaded**. A negative result from an unverified
+deployment is not a negative result — it is no result, and it will send you off chasing theories.
+Consequence here: the `DMABufferIn1MB=Yes` test was **void, not negative**, so the contributor lead
+it was meant to settle stayed untested while everyone believed it had been ruled out.
+
 ## ✅ FINAL VALIDATED FIX SET (2026-08-22) — 5 files, all needed
 1. `machine/m_xt.c` — dedicated `ibmxt_inboard386_config[]`, 1986 ROMs only, default
    `ibm5160_050986`. **Fixes the reported POST 101.**
