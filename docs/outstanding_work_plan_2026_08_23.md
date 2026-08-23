@@ -523,6 +523,66 @@ the honest answer.
 
 ## Not forgotten, lower priority
 
+### ✅ RESOLVED SAME DAY — **ILIM386.SYS *is* 386MAX.** And Intel shipped a whole Inboard VxD set.
+
+The user pointed at `%USERPROFILE%\OneDrive\Desktop\XT_project\inboard_files`, which holds Intel's
+own Inboard software. Two findings, both from strings in the binaries.
+
+**1. `ILIM386.SYS` (55,706 bytes) is a Qualitas 386MAX OEM build:**
+
+```
+386MAX4;07
+Copyright (C) 1987-9 Qualitas, Inc.
+(C) Copyright 1987-9 Qualitas, Inc.  All rights reserved.
+Intel memory boards only.
+```
+
+So the `@OEMSYS_ILIM equ 2 ; INTEL Limulator` build flag Bob Smith described in 2023 produced
+**this exact shipping binary**. The intersection question raised below is therefore **answered
+yes** — and it means *we now hold the source code to the memory manager Intel shipped with the
+Inboard*. That is no longer a speculative lead.
+
+It also gently corrects the record on attribution: Bob's recollection was that he "had nothing to do
+with" the Inboard, and he did not work on the Inboard hardware or Intel's device drivers — but the
+memory manager in the Inboard's own software bundle is his product, restricted by Intel to "Intel
+memory boards only". Worth telling him; he'd likely be interested, and it is a nicer message than a
+correction.
+
+**⚠️ Operational constraint (user, first-hand): ILIM and Windows cannot be used at the same time.**
+Consistent with what it is — a 1987-89 OEM 386MAX predating Windows-aware memory management. Note
+the *retail* 386MAX line later gained `VXD/386MAX.VXD`; the Inboard's bundled ILIM is the older one.
+Do not assume the two behave alike under Windows.
+
+**2. Intel shipped a complete Windows 3.x Inboard driver set** — and it is directly relevant to #5:
+
+| File | What it is |
+|---|---|
+| `IBVDMAD.386` | **Virtual DMA device** — the subsystem issue #5 crashes in |
+| `IBVKD.386` | Virtual keyboard device — the subsystem the custom `VKD.VXD` work rebuilt |
+| `IBVPICD.386` | Virtual PIC device (already known to this project) |
+| `IBVHD.386` / `IBVFD.386` | Virtual hard disk / floppy |
+| `IBVMD.386` / `IBVMCPD.386` | Virtual mouse / maths coprocessor |
+| `IBKBD.DRV`, `IBMOUSE.DRV`, `IBSYSTEM.DRV` | Windows 3.x drivers |
+
+`IBVDMAD.386` strings include `DMABUFFERSIZE`, `DMABUFFERIN1MB`, `EISADMA`, and
+`"Win386 VDMAD Device  (Version 2.0)"`.
+
+**Read this carefully — it is strong but not proof.** `DMABUFFERIN1MB` also exists in *stock*
+Windows 3.1 VDMAD, so those strings alone do **not** show Intel customised the DMA-buffer logic. The
+real evidence is structural: **Intel shipped an `IB`-prefixed VDMAD at all**, as one of a coherent
+set of Inboard-specific VxDs. They evidently concluded the stock virtual DMA device was not adequate
+on this hardware — which is exactly what issue #5 keeps running into, and exactly what
+@andrew-hoffman's DMA lead predicts.
+
+**Highest-value next action for #5** (ahead of re-disassembling `vmad` from scratch): diff
+`IBVDMAD.386` against a stock Windows 3.x VDMAD to find *what Intel actually changed*. The stock one
+is bundled inside `WIN386.EXE` (Windows 3.x packs its VxDs there), so it needs unpacking first;
+a stock `WIN386.EXE` is available at
+`%USERPROFILE%\OneDrive\Desktop\XT_project\95_3.11\Windows_311\WINDOWS\SYSTEM\WIN386.EXE`.
+Windows 95's VDMAD is a later, different format, so this is a *reference* for intent, not a drop-in.
+
+---
+
 ### 🔍 NEW LEAD (2026-08-23) — Intel's own OEM build of 386MAX is in the source we now have
 
 Bob Smith told this project in **February 2023** how to find the Intel-specific code in 386MAX. At

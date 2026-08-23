@@ -142,7 +142,10 @@ writeup for complete detail:
   handling), and its `MARK_XT` path is the primary-source evidence that the XT DMA ceiling is 640 KB
   rather than 1 MB. Its Inboard A20 path writes `0DFh`/`0DDh` to port `60h` — independently matching
   both Al Williams' 1990 code and this project's own emulation. He also pointed us at the Intel OEM
-  build of 386MAX (`@OEMSYS_ILIM`, "INTEL Limulator"), a lead still open. Credit for the DMA
+  build of 386MAX (`@OEMSYS_ILIM`, "INTEL Limulator") — which turns out to be **`ILIM386.SYS`, the
+  memory manager in the Inboard's own Intel software bundle**, its strings reading
+  `Copyright (C) 1987-9 Qualitas, Inc.` and `Intel memory boards only.` So while Bob did not work on
+  the Inboard, the memory manager Intel shipped with it is his. Credit for the DMA
   direction that led us to the source belongs to **@andrew-hoffman**, who cited it on issue #5
 - **@andrew-hoffman** — the XT DMA page-register lead on issue #5, and the sources behind it
   (os2museum ×2, the MartyPC book, and the pointer at the 386MAX source) — which produced the 640 KB
