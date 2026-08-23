@@ -1,0 +1,77 @@
+Video Technical Information Program Version 1.20
+
+-- VGA Configuration --
+ATI Graphics ULTRA, BIOS P/N 113-11504-002 ( 1992/4/8 )
+With 512K Video Memory installed
+ROM found at C0000h
+
+-- ULTRA Configuration --
+8 bit bus operation
+Bus type is (E)ISA
+1M of VRAM memory on board
+IRQ jumper is not set
+Monitor attached: 8514 (color, 1024x768 interlaced) 
+
+-- Video Power-up Configuration (EEPROM) -- 
+ALR FlexVIEW2X 56Hz 800x600 monitor selected
+VGA Color Mode
+VGA ROM Configuration set to 16 bits
+Coprocessor BUS I/O set to Auto-select
+VGA Bus I/O set to 16 bits
+
+-- System Information --
+DOS Version: 7.00
+System ROM BIOS date: 05/09/86
+Type of Computer: IBM PC XT or Compatible
+
+
+-- Contents of AUTOEXEC.BAT: --
+@ECHO OFF
+PROMPT $p$g
+LH C:\TSCSI\MSCDEX /d:TSLCD /m:10
+PATH C:\WINDOWS;C:\WINDOWS\COMMAND;C:\DOS;C:\TSCSI
+SET TEMP=C:\TEMP
+mode con codepage prepare=((850) C:\WINDOWS\COMMAND\ega.cpi)
+mode con codepage select=850
+keyb uk,,C:\WINDOWS\COMMAND\keyboard.sys
+SET BLASTER=A220 I5 D1 T4
+REM LH C:\SBPRO\SBP-SET /M:15 /VOC:15 /CD:15 /FM:15
+
+echo Setting time and Date
+c:\clock\smwclock s
+echo.
+
+REM IRET patch from Win 95 build
+C:\IVT68FIX.COM
+
+REM echo Starting Comrade
+REM c:\Comrade.exe
+
+
+-- Contents of CONFIG.SYS: --
+DEVICE=c:\INBRDPC.SYS NODIAGS NOPAUSE
+
+DEVICE=C:\WINDOWS\SETVER.EXE
+DEVICE=C:\WINDOWS\HIMEM.SYS
+DOS=HIGH,UMB
+device=C:\WINDOWS\COMMAND\display.sys con=(ega,,1)
+Country=044,850,C:\WINDOWS\COMMAND\country.sys
+
+DEVICEHIGH=C:\TSCSI\MA13B.SYS /Ip2
+REM Use tscsi.sys and flip sw1 6 to off hdd mode then run tformat /l /s512 to format mac MO Disks
+DeviceHIGH=C:\TSCSI\TSLCDR.SYS /d:TSLCD 
+DEVICEHIGH=C:\FJMO\MODISK2.SYS
+DEVICEHIGH=C:\NBACK_SE\NASPIBUF.SYS /S5000
+
+DEVICEHIGH=C:\SD120PPD\SD120PPD.SYS /port:378 /IRQ:7 /de /db /ni /sf /dpc /dp /fp
+DEVICEHIGH=C:\SD120PPD\ASPIHDRM.SYS
+
+REM DEVICE=C:\revto486.sys /BL /CN /CCM /2
+
+LASTDRIVE=M
+BUFFERS=15,0
+BREAK=ON
+Stacks=0,0
+FILES=40
+
+
