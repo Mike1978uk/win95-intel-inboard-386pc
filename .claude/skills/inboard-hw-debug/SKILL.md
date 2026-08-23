@@ -1978,11 +1978,20 @@ for F1. Untested: `am386dx`, `ibm486bl2`, `ibm486slc3`, ET4000/ATI28800/Trident.
 title bar steady at `100%` — the gate is a no-op on the Inboard machine itself (flag is always 1
 there), so the earlier validation carries over.
 
-## 📤 SUBMITTED UPSTREAM, 2026-08-22 — 86Box/86Box PR #7749
+## ✅ MERGED UPSTREAM, 2026-08-23 — 86Box/86Box PR #7749 (was: submitted 2026-08-22)
 Branch `inboard386-fix-post101` on `Mike1978uk/86Box`, one commit, 7 files. PR body kept in
 `docs/PR_description_inboard_post101_fix.md` (edit that file, then `gh pr edit 7749 --body-file`).
 PR #7626 (the original submission) is **merged**, so this is a follow-up against `master`, not an
 update to it. The reporter's two items — POST 101 and the duplicate `(1988) i386SX` entry — are
 answered in a closing comment on #7626; the duplicate was already fixed in-tree by someone else.
+
+**MERGED 2026-08-23T14:43Z**, merge commit `3fedf529de1a`. It carries one extra commit beyond the
+original submission: `d6fbb9e88`, adopting **Michal Necasek's `F000:FF53`** in place of the
+`0x3C0` IRET stub (see boot-fix inventory item 6). **Both Inboard PRs are now upstream** - #7626
+(the machine itself) merged 2026-08-06, #7749 (POST 101 + non-486BL CPUs + F000:FF53) merged
+2026-08-23. Anything further is a NEW PR against master, not an update to either.
+
+**Not yet upstream**: the `dma_page_is_xt()` DMA page-width fidelity fix (Technique 56) is
+local-only and is the obvious candidate for a third PR.
 
 **Still open from earlier**: upstream issue #7638 (RAM configuration) has had no reply yet.
