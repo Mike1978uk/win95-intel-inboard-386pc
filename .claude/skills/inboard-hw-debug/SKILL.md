@@ -2024,6 +2024,61 @@ are **sparse across `02E8`/`06E8`/`0AE8`/`0EE8`/`4AE8`** - easy to miss when tra
 **Not yet proven** - stated as a mechanism that fits every observed symptom, not a verified cause.
 Proving it needs a trace build: `ibm8514_log()` compiles to nothing unless the log is enabled.
 
+## Technique 62: on a 4-bit page latch, audit every driver's `_PageAllocate` - a DMA buffer above
+## 1 MB does not crash, it transfers against the wrong address
+
+**The class of bug.** An Inboard 386/PC in a 5160 keeps the XT's **4-bit DMA page latch**: 20-bit
+reach, 1 MB. Every ISA-era driver assumes **24-bit**, 16 MB. Allocate a DMA buffer above 1 MB and
+there is no fault - the page register drops the high bits and the 8237 runs against a different
+physical address entirely. **Silent wrong data, not a crash**, which is why it survives normal
+testing and looks like something else (for issue #5 it looked like a video-driver problem, because
+the same machine's Windows 3.11 install sounded fine).
+
+**How to see it.** `dma.c` carries a gated trace (`INBOARD_DMA_TRACE=1`, capped, inert otherwise)
+that logs page-register writes and flags truncation:
+
+```
+[dmapage] ch=1 val=4E -> page=0E *** TRUNCATED, buffer is above 1MB ***
+     intended 0x4E0000 = 4.875 MB (top of RAM)   actual 0x0E0000 = 896 KB (adapter ROM)
+```
+
+**Where the address comes from - and where it does NOT.** `DMABufferIn1MB=Yes` will not fix this,
+and measuring that saved a wrong conclusion. In stock `VDMAD.VXD` at `OBJ3:0x162` it clamps
+`[0x2100]`, the **size** of VDMAD's own bounce buffer. VDMAD is not naive - it already switches masks
+on machine class (`cmp byte ptr [0x211a], 2`). A Windows 95 32-bit driver allocates its **own**
+buffer and hands VDMAD the physical address, so nothing bounces. (Windows 3.11 works on the same
+hardware precisely because its 16-bit `.DRV` does go through the bounce buffer.)
+
+**The real lever.** `_PageAllocate` = VMM service **`0x00010053`**, eight dwords pushed right to
+left, caller balances `add esp, 0x20`:
+
+```
+_PageAllocate(nPages, pType, hVM, AlignMask, minPhys, maxPhys, PhysAddrPtr, flags)
+```
+
+`maxPhys` is a maximum **page number**. `0xFFF`/`0x1000` = 16 MB = the ISA assumption. Change it to
+`0xFF` = 1 MB. `push 0xfff` and `push 0xff` are both `68 imm32`, so **one byte moves and no
+instruction boundary shifts** - Technique 60's corruption mode cannot occur here.
+
+**Read `maxPhys` as intent, not just a number:**
+
+| `maxPhys` | Meaning | Action |
+|---|---|---|
+| `~0xFFF`/`0x1000` (16 MB) | driver deliberately declaring an ISA DMA constraint | **patch to `0xFF`** |
+| `0xFFFFF` (4 GB) | "anywhere" - an ordinary allocation that never touches DMA | **leave alone** - forcing it low wastes the only DMA-capable RAM |
+| `<= 0xFF` | already XT-safe | nothing to do |
+
+A blanket patch gets that middle row wrong.
+
+**Tools:** `tools/vxd_dma_audit.py` (read-only, any VxD), `vxd-patches/patch_vxd_dma_maxphys.py`
+(refuses a no-op, post-checks its output), `tools/fatls.py` (pull files out of a raw image when the
+CF is in the machine). **Caveat:** VxDs bundled inside `VMM32.VXD` cannot be audited - it is `W4`
+compressed. Use their pre-monolith staging copies.
+
+**Sweep result on a stock Windows 95 OSR1 install** - note these are *Microsoft's own* drivers, so
+this is not specific to one machine's configuration: `MSSBLST.VXD` (x2), `LPT.VXD`, `QIC117.VXD` all
+declare a 16 MB ceiling; `MMDEVLDR.VXD` declares "anywhere" and must be left alone.
+
 ## ✅ FINAL VALIDATED FIX SET (2026-08-22) — 5 files, all needed
 1. `machine/m_xt.c` — dedicated `ibmxt_inboard386_config[]`, 1986 ROMs only, default
    `ibm5160_050986`. **Fixes the reported POST 101.**

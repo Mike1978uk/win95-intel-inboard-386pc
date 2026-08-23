@@ -17,6 +17,7 @@
  *          Copyright 2017-2020 Fred N. van Kempen.
  */
 #include <stdarg.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -120,6 +121,47 @@ dma_set_force_xt(int enable)
    so a DMA buffer above 1 MB appears to work under emulation and silently truncates on
    real hardware - which is exactly the class of bug that makes a fix pass here and fail
    there. */
+
+/* [dmaaddrtrace] 2026-08-23. Settles one question and then comes out again
+   (Technique 21): is the Sound Blaster Pro's DMA buffer being placed above 1 MB
+   and silently truncated by the XT's 4-bit page latch?
+
+   @andrew-hoffman's reasoning on issue #5: the XT page register is 4 bits, so DMA
+   reach is 20-bit. A buffer above 1 MB does not fault - the page truncates and the
+   8237 fetches from the wrong physical address, so audio PLAYS but is WRONG. That
+   is the distortion now reproducing identically on real hardware and in the
+   emulator on the same disk image.
+
+   Gated on the INBOARD_DMA_TRACE env var so it is inert for every other machine
+   and every ordinary run, and capped so it cannot become a per-transfer disk cost
+   in the innermost path (Technique 11). */
+static FILE *dmaaddr_fp     = NULL;
+static int   dmaaddr_on     = -1;
+static int   dmaaddr_pages  = 0;
+static int   dmaaddr_reads  = 0;
+
+static int
+dmaaddr_enabled(void)
+{
+    if (dmaaddr_on < 0)
+        dmaaddr_on = (getenv("INBOARD_DMA_TRACE") != NULL);
+    return dmaaddr_on;
+}
+
+static void
+dmaaddr_log(const char *fmt, ...)
+{
+    va_list ap;
+    if (!dmaaddr_fp)
+        dmaaddr_fp = fopen("dma_addr_trace.txt", "a");
+    if (!dmaaddr_fp)
+        return;
+    va_start(ap, fmt);
+    vfprintf(dmaaddr_fp, fmt, ap);
+    va_end(ap);
+    fflush(dmaaddr_fp);
+}
+
 static int
 dma_page_is_xt(void)
 {
@@ -1445,6 +1487,13 @@ dma_page_write(uint16_t addr, uint8_t val, UNUSED(void *priv))
             dma[addr].ab   = (dma[addr].ab & 0xff01ffff & dma_mask) | (dma[addr].page << 16);
             dma[addr].ac   = (dma[addr].ac & 0xff01ffff & dma_mask) | (dma[addr].page << 16);
         } else {
+            if (dmaaddr_enabled() && (dmaaddr_pages < 200)) {
+                dmaaddr_log("[dmapage] ch=%d val=%02X -> page=%02X %s  (xt_latch=%d)\n",
+                            addr, val, dma_page_is_xt() ? (val & 0x0f) : val,
+                            (dma_page_is_xt() && (val & 0xf0)) ? "*** TRUNCATED, buffer is above 1MB ***" : "ok",
+                            dma_page_is_xt());
+                dmaaddr_pages++;
+            }
             dma[addr].page = dma_page_is_xt() ? (val & 0x0f) : val;
             dma[addr].ab   = (dma[addr].ab & 0xff00ffff & dma_mask) | (dma[addr].page << 16);
             dma[addr].ac   = (dma[addr].ac & 0xff00ffff & dma_mask) | (dma[addr].page << 16);
@@ -2104,6 +2153,12 @@ dma_channel_read_only(int channel)
     dma_c = &dma[channel];
     dma_xt8237_begin_service(channel);
     dma_xt8237_charge_bus(channel);
+
+    if (dmaaddr_enabled() && (channel == 1) && (dmaaddr_reads < 60)) {
+        dmaaddr_log("[dmaread] ch1 ac=%06X ab=%06X page=%02X cnt=%04X mode=%02X\n",
+                    dma_c->ac, dma_c->ab, dma_c->page, dma_c->cc, dma_c->mode);
+        dmaaddr_reads++;
+    }
 
     if (type == 0x00)
         temp = DMA_VERIFY;

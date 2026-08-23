@@ -1,0 +1,866 @@
+install_dir    19
+source_drive   58
+code           2 39 22 23 24 3 4
+set_ops        25 42 40 31 8 64 1 1 1
+vid_ops        11 1 1
+pwrup_ops      43 44 45 46 46 47 47
+cur_ops        12 13 14 15 15 16 16 17 17 20 28 18 18
+tst_ops        5 6 10 29 30
+drv_ops        33 59 35 56 57 34 54 55 36 1
+mouse          26 26 26
+intlev         7 7 7 7
+rom            41 41
+vmodsel        48 48 48
+emodsel        48 48 48
+vga_cmode      49 49
+ega_cmode      50 50
+forgnd         21 21 21
+monitor        27
+mchoice        51 51 51
+VW_cmode[0]    49 49
+VW_cmode[1]    50 50
+VW_mmode[0]    21 21 21 21
+VW_mmode[1]    21 21 21 21
+egapri         52 52 52
+egasec         53 53
+utils          39
+aipath         32
+crystal        37
+boot_drive     38
+at_compat      9 60 61 1
+res_sup        62 62 62 62 62
+mode_640x480   63 63 63 63
+mode_800x600   63 63 63 63 63 63 63 63
+mode_1024x768  63 63 63 63 63 63 63 63
+mode_1280x1024 63 63
+vga_bus_io     65 65
+
+
+
+1
+Help information is currently not available for this item.
+
+
+2
+This option lets you configure the graphics adapter to power-up
+in a state that best suits your system. You will be able to specify the
+following:
+  
+        þ  Type of monitor to be connected to the adapter
+        þ  Video mode at power-up
+        þ  16-Bit or 8-Bit ROM operations
+        þ  Port address and interrupt vector IRQ for the mouse
+        þ  16-Bit or 8-Bit I/O bus operations
+  
+The adapter power-up sequence will read the above settings from
+the non-volatile EEPROM and configure adapter output/operations
+accordingly.
+      
+Once saved, settings will remain unchanged until altered.
+
+
+3
+With this option you can change the adapter to display a different video
+mode without affecting the Power-up mode setting stored in EEPROM.
+  
+The video mode selected using this option will be lost when the system
+is powered down or when a new mode is selected.
+  
+Press <Enter> to view the video modes supported by your adapter.
+
+
+4
+You can test the functionality of your graphics adapter using 
+this option.
+  
+The following diagnostics are performed to thoroughly test the VGA
+or the 8514/A portion of your graphics adapter. You can also test
+for mouse functions and display pertinent system files and statuses:
+      
+        þ  VGA Monochrome test
+        þ  VGA Color test
+        þ  Mouse test
+        þ  8514/A Diagnostics
+        þ  System Information
+   
+Press <Enter> to access the diagnostics menu.
+
+
+5
+The Monochrome test option will test VGA monochrome attributes
+and monochrome graphics modes.
+    
+The test also displays test patterns.
+   
+You will have a menu listing many different tests.
+Select one that you wish to perform and type the
+letter beside the test description.
+   
+Errors, if any, are reported at the end of each test.
+  
+Press <Enter> to start the tests.
+
+
+6
+The Color test mode option will test the VGA color attributes,
+video memory, and color graphics modes.
+    
+You will have a menu of many different tests.
+Select one that you wish to perform and type the
+letter beside the test description.
+  
+Errors, if any, are reported at the end of each test.
+   
+Press <Enter> to start the tests.
+
+
+7
+The  best values for the IRQ numbers depend upon
+the type of computer into which the adapter is being
+installed,  and  whether the  mouse port is being
+configured at the Primary or Secondary Address.
+    
+These are the recommended values:
+   
+                  PC     AT/MC
+     Primary       5       2
+     Secondary     4       4
+   
+Some software may support other values. Not all 
+software  will operate correctly if the default 
+values are not chosen.
+
+
+8
+This option is designed to optimize the performance of the graphics
+adapter by selecting a suitable Bus I/O mode for your system.
+
+
+9
+Selecting this option will enable automatic mode selection.
+   
+The graphics adapter will check the CPU and set Bus I/O to:
+   
+        þ  8 bits on 80286 processor systems, and
+        þ  16 bits on 80386 or higher processor systems.
+   
+This option may cause some computer systems to lock up.  To correct
+the problem, power down the system, reboot and re-configure
+Bus I/O mode to 8 bits.
+
+
+10
+Your bus mouse will be tested if you select this option.
+   
+You will be able to check for proper mouse movement by moving
+the mouse and watching the cursor on the screen.
+   
+Button operation can also be tested by depressing one or more buttons
+and checking for appropriate response on the screen.
+  
+Press <Enter> to start the Mouse test.
+
+
+11
+This menu shows the user the current video mode which the
+graphics card is presently in.
+   
+You may elect to alter this mode to one of other possible video
+modes that your adapter can support.
+  
+Press <Enter> to change the current video mode.
+
+
+12
+This option selects the VGA mode and is functional only with
+VGA, 8514/A and multisync monitors. 
+  
+Software configured for VGA will run under this mode.
+  
+You have the choice of selecting the Color or Monochrome
+mode of operation for VGA mode.
+    
+Press <Enter> to select color/mono mode.
+
+
+13
+This option selects the EGA mode and is functional on
+all monitors.
+  
+Software configured for EGA will run under this mode.
+  
+You have the choice of selecting the Color or Monochrome
+mode of operation for the EGA mode.
+    
+Press <Enter> to select the color/mono mode.
+
+
+14
+This option selects the CGA mode.
+  
+ATI Technologies Inc. enhances this mode by improving the
+text to 8x14 character matrix and graphics are 75% double
+scanned on all monitors.
+  
+Press <Enter> to select the CGA video mode.
+
+
+15
+Selection of this option will put your Graphics Adapter
+into MDA Text mode.
+   
+If you are using a color monitor, you will have a choice
+of three text colors:
+  
+      White
+      Amber
+      Green
+  
+Press <Enter> to select the MDA 720x350 Text mode.
+
+
+16
+Selection of this option will put your Graphics Adapter
+into Hercules 720x348 graphics mode.
+   
+If you are using a color monitor, you will have a choice
+of three text colors:
+  
+      White
+      Amber
+      Green
+  
+Press <Enter> to select the MDA 720x348 graphics mode.
+
+
+17
+Selection of this option will put your Graphics Adapter
+into a special Hercules 640x400 graphics mode.
+   
+Only a limited number of programs use this resolution. Use this
+mode only if you have a problem with the 720x348 graphics mode.
+   
+If you are using a color monitor, you will have a choice
+of three text colors:
+  
+      White
+      Amber
+      Green
+  
+Press <Enter> to select the MDA 640x400 graphics mode.
+
+
+18
+If your current video mode is either EGA or VGA, then selection
+of this option will put your Graphics Adapter into a 80x43 line
+Text mode or 80x50 mode, respectively.
+   
+By choosing this option you will at best double the number of text
+lines displayed on your monitor. 
+
+Press <Enter> to select this mode.
+
+
+19
+This menu allows the user to specify a directory, from which
+the installations will be made.
+       
+The INSTALL program expects all auxiliary files to be in
+their proper directories as the Distribution diskettes.
+    
+If you are running INSTALL from a Utilities directory, such
+as "C:\COMBUTIL," you will have to enter a path name to the
+source directory, that contains files the INSTALL program
+may require at any time.
+   
+For example, to install AutoCAD drivers from the Distribution
+diskette in drive A, enter 'A:\ACAD' for the source directory.
+NOTE: Entering 'A:\' will also be acceptable.
+
+
+20
+This option sets your Graphics Adapter for a 132x25 text mode.
+132 columns and 25 rows of text can now be displayed.
+  
+This mode is functional with all monitors.
+  
+NOTE: 132 column mode can only be used by software which is 
+      written to support 132 columns on the screen. Check your
+      software users manual or call your dealer to confirm that
+      the application will run in this mode.      
+  
+Press <Enter> to select this mode.
+
+
+21
+Since you have a color monitor, you can now select the color
+for the chosen monochrome mode; you have three options :
+   
+                        þ  White
+                        þ  Green
+                        þ  Amber
+   
+Press <Enter> to select the required color.
+
+
+22
+This option will copy CRYSTAL(R) fonts to your disk to be used by
+a driver that supports grayscale screen fonts.
+Grayscale drivers are supplied for applications such as Windows.
+    
+CRYSTAL Fonts(R) are WYSIWYG high resolution near-300 dpi screen fonts
+What-You-See-Is-What-You-Get. These fonts are designed to match the
+resolution of laser printer outputs, for displaying on the screen.
+    
+Only from ATI Technologies Inc.
+
+
+23
+Supply a complete DOS path to the sub-directory where you
+wish to install (copy) the adapter interface.  Accept the name
+suggested or enter your own drive:\directory name.
+    
+The installation program will then copy files to the indicated
+destination.
+
+
+24
+ATI enhanced drivers enable applications to run in
+high-resolution modes supported by ATI's graphics adapters.
+    
+Press <Enter> to view drivers that are currently available.
+
+
+25
+To select a different "Monitor Type" than as shown, press
+<Enter> to bring up the list.
+    
+To discard any changes, press <Esc>
+  
+Tip: You can proceed to each entry in this menu, revise
+     the settings, then save all of them to EEPROM at the
+     same time.
+
+
+26
+This option is used to configure the mouse port for your computer
+environment. You have the choice of selecting either the Primary
+Address, Secondary Address or Disabled.
+   
+The factory default setting for the mouse port is Disabled. To 
+activate the mouse port, select the Primary Address option.
+Secondary address is used only if there is an address conflict
+at 23Ch - 23Fh (some serial cards may use this address).
+   
+If your system has cards at both port addresses 23Ch - 23Fh and
+238h - 23Bh, the mouse port must then be disabled.
+   
+Upon selecting the mouse port address, you will be prompted to
+define the IRQ (interrupt request) level to be used by the mouse.
+   
+Press <Enter> at the required port address selection.
+
+
+
+27
+Scroll up or down to highlight your monitor.  Press <Enter>
+to accept it.
+    
+If your monitor is not shown on this list, then select the 
+'Custom' option. This option will allow you to customize the
+CRT parameters to your specific monitor. 
+   
+By referring to the documentation supplied with your monitor
+you should then have a good idea of the frequencies which your
+monitor can support, and the interlacing scheme it uses; this 
+information will help you to better select one of the available 
+customization options.
+    
+The highlighted monitor selection will be written to EEPROM
+only if you choose to save it.
+
+
+77
+Scroll up or down to highlight your monitor.  Press <Enter>
+to accept it.
+    
+If your monitor is not shown in this list, refer to the documentation
+supplied with your monitor. Your monitor manufacturer should supply
+technical specifications, pertaining to monitor's characteristics;
+there are three specifications which are of most importance in
+monitor selection:
+  
+        - Interlaced (i.) or Non-Interlaced (n.i.)
+        - Vertical sync frequency (V.frq)
+        - Resolution (Res) 
+   
+Based on these figures, select the monitor from the list which
+is most compatible.
+  
+For example, if you didn't find the exact brand and make of your
+monitor in the list, but you know that your monitor is rated at 60Hz
+Vertical Frequency (V.frq), can display 1024x768 resolution, and is
+Non-Interlaced (n.i.), then you would select the following option:
+  
+                ' Generic n.i. 60Hz 1024x768 '
+    
+The highlighted monitor selection will then be written to EEPROM
+only if you choose to save it.
+
+
+28
+This option sets your Graphics Adapter for a 132x44 text mode.
+132 columns and 44 rows of text can now be displayed.
+  
+This mode is functional with all monitors.
+  
+NOTE: 132 column mode can only be used by software which is
+      written to support 132 columns on the screen. Check your
+      software users manual or call your dealer to confirm that
+      the application will run in this mode.
+  
+Press <Enter> to select this mode.
+
+
+29
+Press <Enter> to start the diagnostics program which will
+test the various components of the 8514/A portion of your adapter
+to ensure proper operations. It will display test patterns and
+pause to let you view the integrity of the displayed image.
+The following is a list of tests performed:
+    
+þ  Adapter memory size
+þ  Adapter ROM
+þ  Adapter registers
+þ  Adapter FIFO
+þ  RAMDAC
+þ  Video RAM
+þ  Adapter subsystems
+þ  Test patterns of applicable video modes
+
+
+30
+Press <Enter> to display the contents of the following:
+   
+þ  VGA and 8514/A characteristics of your adapter
+þ  System information consisting of:
+     DOS version
+     System BIOS date
+     Type of computer
+     Type of monitor attached to the adapter
+þ  Contents of your AUTOEXEC.BAT file
+þ  Contents of your CONFIG.SYS file
+þ  Contents of the EEPROM in your Graphics Adapter
+
+
+31
+This option enables the user to set up a power-up
+configuration for the bus mouse. 
+    
+You will need to select a non-conflicting port Address, as
+well as the Interrupt Level in order to successfully
+configure the mouse.
+   
+Press <Enter> to view the selection options of the port 
+Addresses for the mouse.
+
+
+32
+This entry should contain a complete DOS path to the
+directory where you intend to store the Adapter Interface
+files.  It should have the following format:
+   
+drive:\directory
+    
+Type or edit the DOS path using the keys indicated at the
+bottom of your screen, then press <Enter> to accept.
+   
+The installation program assumes that the source files are to
+be copied there from the default directory. (i.e., the drive
+and directory where you initiated this installation.)
+Normally this would be your floppy diskette drive A:
+
+
+33
+Press <Enter> to install enhanced high resolution display
+drivers to be used for AutoCAD.
+
+
+34
+Press <Enter> to install enhanced high resolution display
+drivers to be used for Microsoft Windows 3.1.
+
+
+35
+Press <Enter> to install high resolution display drivers
+to be used for GEM Desktop.
+
+
+36
+Press <Enter> to install high resolution display drivers
+to be used for Xerox Ventura Publisher.
+
+
+37
+This entry should contain a complete DOS path to the
+directory where you intend to store the grayscale CRYSTAL (R)
+fonts.  It should have the following format:
+    
+drive:\directory
+    
+Accept the name shown on the screen or edit the DOS path
+to a directory of your choice, using keys indicated at the 
+bottom of your screen, then press <Enter>.
+   
+The installation program assumes that the source files are to
+be copied from the drive:\directory where you initiated this
+installation.  Normally this would be your floppy diskette 
+drive A:
+
+
+
+38
+Supply a one character entry for the drive from which your
+system ordinarily boots.
+  
+In many cases it is drive 'C', so press <Enter> to accept
+it, otherwise enter the boot drive.
+    
+The installation program will then reference AUTOEXEC.BAT
+file and modify CONFIG.SYS file in the root directory of
+the boot drive.
+
+
+39
+This entry should contain a complete DOS path to the
+directory where you intend to store the Graphics Adapter
+Utilities.  It should have the following format:
+    
+drive:\directory
+    
+Accept the default path shown on the screen or edit it
+to a directory of your choice, using keys indicated at the
+bottom of your screen; then press <Enter>.
+   
+The installation program assumes that the source files are to
+be copied from the drive:\directory where you initiated this
+installation.  Normally this would be your floppy diskette
+drive A.
+
+
+40
+8 or 16 bit ROM operation can be selected for your Graphics
+Adapter. 
+   
+When the card is installed in an 8 bit slot, 8 bit operation will
+automatically be selected; and when installed in a 16 bit slot,
+the video RAM will always use a 16 bit RAM access, but the ROM 
+(which contains the video BIOS) may be accessed with an 8 or
+16 bit datapath.
+   
+Press <Enter> to select either the 8 or 16 bit ROM datapath.
+
+
+41
+In order to achieve high performance from your Graphics Card, 
+select the 16 bit option for ROM operation.
+   
+The INSTALL program will perform a test for 16 bit operation 
+and display a message if 16 bit operation can not be attained. 
+If your system does not support 16 bit ROM access, this does 
+not indicate a problem with your Graphics Adapter or your 
+system - it simply means that the system manufacturer has 
+chosen not to implement the IBM standard for ROM address timing
+in the interest of higher performance in other areas.
+   
+If this is the case, select the 8 bit option and press <Enter>.
+
+
+42
+This option enables the user to select the Power-up Video mode of
+the Graphics Adapter - i.e. the mode that the adapter will be set
+to after the computer is powered up or reset.
+   
+The video mode setup information will be saved in the on-board 
+EEPROM, thus retaining the user-selected power-up mode even after
+the power is turned off.
+  
+Your Graphics Adapter can be set to wake up in one of the following
+text modes :
+  
+                        þ  VGA 
+                        þ  EGA 
+                        þ  CGA 
+                        þ  MDA 720x350
+                        þ  MDA 640x400 
+
+Press <Enter> to select one of these modes.
+
+
+43
+Selection of this item will start your Graphics Adapter in VGA mode,
+and is operational on all Color and Monochrome monitors.
+   
+You will be given the option of choosing either the COLOR or MONO 
+option; if you have a color monitor, and choose the MONO option, 
+another menu will appear, asking for the choice of foreground color.
+   
+As well, a dual adapter configuration may be selected, if needed.
+   
+NOTE: VGA Color mode is the Factory default for this card.
+  
+Press <Enter> to select the VGA start-up option.
+
+
+44
+Selection of this item will start your Graphics Adapter in EGA mode,
+and is operational on all Color and Monochrome monitors.
+   
+You will be given the option of choosing either the COLOR or MONO
+option; if you have a color monitor, and choose the MONO option,
+another menu will appear, asking for the choice of foreground color.
+   
+As well, a dual adapter configuration may be selected, if needed.
+   
+Press <Enter> to select the EGA start-up option.
+
+
+45
+Selection of this item will start your Graphics Adapter in CGA mode.
+
+     
+Because this mode has the lowest resolution available on this card,
+ATI Technologies Inc. recommends using this mode as a default only 
+if the majority of your software is CGA self-booting software.
+  
+     
+Press <Enter> to select the CGA power-up mode.
+
+
+46
+Selection of this item will start your Graphics Adapter in Hercules
+text mode. 
+  
+ATI Technologies Inc. recommends using this mode as a default only
+if the majority of your software is monochrome. 
+  
+If you are using a color monitor, when you select this option, you
+will be required to choose a color (either white, green or amber).
+   
+Almost all Hercules Graphics programs use this resolution.
+   
+Press <Enter> to proceed with this mode.
+
+
+47
+Selection of this item will start your Graphics Adapter in special
+Hercules text mode. 
+  
+However, only a small number of programs such as PrintMaster or 
+some Oriental word processing programs use this resolution. 
+  
+Do not use this mode unless the 720x350 Hercules mode fails to run
+your Hercules compatible programs.
+   
+Press <Enter> to select the 640x400 mode.
+
+
+48
+You now have the choice of choosing either the COLOR or MONO
+option; if you have a Color monitor, you can :
+   
+        1. select the COLOR option, and then choose one of
+           the available color resolutions, or
+        2. select the MONO option, and then choose one of 3
+           possible foreground colors.
+       
+If you possess a Monochrome monitor, you may select the MONO
+option, resulting in a default color. Otherwise, you may
+select the COLOR option, which will interpret the colors as
+shades of gray.
+   
+Position the cursor at your selection and press <Enter>.
+
+
+49
+This final menu allows the user to select the resolution
+of the VGA Color mode.
+   
+Two options are available:
+   
+    þ  CV80 - VGA Color high resolution 80 column text mode
+    þ   C80 - VGA Color low resolution 80 column text mode
+  
+Position the cursor at your selection and press <Enter>.
+
+
+50
+This final menu allows the user to select the resolution
+of the EGA Color mode.
+   
+Two options are available:
+   
+    þ  CE80 - EGA Color high resolution 80 column text mode
+    þ   C80 - EGA Color low resolution 80 column text mode
+  
+Position the cursor at your selection and press <Enter>.
+
+
+51
+With your Graphics Adapter being the only video card in your
+system, you can choose either the COLOR or MONO option; if you
+have a Color monitor, you can :
+   
+        1. select the COLOR option, and then choose one of
+           the available color resolutions, or
+        2. select the MONO option, and then choose one of 3
+           possible foreground colors.
+       
+If you possess a Monochrome monitor, you may select the MONO 
+option, resulting in a default color. Otherwise, you may 
+select the COLOR option, which will interpret the colors as
+shades of gray.
+   
+If you would like to set your video card for dual adapter 
+configuration, then select the DUAL ADAPTER option.
+   
+Position the cursor at your selection and press <Enter>.
+
+
+52
+You now need to decide which video card you wish to serve
+as the Primary adapter.
+   
+Primary adapter is the start-up video adapter that becomes
+active upon power-up or system reset.
+   
+Having selected your Primary adapter, you will be asked to
+make a choice for your Secondary adapter in the menu that
+follows.
+   
+Select the adapter you wish to be Primary and press <Enter>.
+
+
+53
+For the Secondary adapter you have the choice of selecting
+either the Monochrome Display Adapter (MDA) or the Color
+Graphics Adapter (CGA).
+   
+In the following menu you will be requested to choose the
+power-up video mode for your Primary adapter.
+   
+NOTE: If you have selected MDA as your Secondary adapter,
+      then the Primary adapter can not be configured for 
+      Monochrome operation. Similarly, with CGA selected
+      for the Secondary, the Primary can't be set to work
+      in Color mode.
+    
+Make your choice for the Secondary adapter, and press <Enter>.
+
+
+54 
+Press <Enter> to install high resolution display drivers
+to be used for Microstation 4.0
+
+
+55
+Press <Enter> to install high resolution display drivers
+to be used for Presentation Manager.
+
+
+56
+Press <Enter> to install high resolution display drivers
+to be used for Lotus 1-2-3.
+
+
+57
+Press <Enter> to install high resolution display drivers
+to be used for Lotus Symphony.
+
+
+58
+The INSTALL Program needs to access some files from the
+Installation diskettes. Depending on the format of these
+diskettes, you should make a selection of the floppy drive
+that will be used for installation.
+  
+Select drive A: or drive B: for your floppy drive.
+   
+Otherwise, if you have all your installation software residing
+on a local hard drive or a network, then just type in the 
+letter of your hard\network drive.
+  
+Supply a one character entry for the drive and press <Enter>
+
+
+59
+Press <Enter> to install high resolution display drivers
+to be used for CadKey 4.0
+
+
+60
+This option configures Bus I/O mode to 16 bits.
+  
+This option may cause some computer systems to lock up. To correct
+the problem, power down the system, reboot and re-configure the
+Bus I/O mode to 8 bits.
+
+
+61
+This option configures Bus I/O mode to 8 bits.
+
+
+62
+Select the resolution(s) and\or mode which you wish to set up your
+monitor for. It is recommended that you go through each one of the
+available options and configure for the most stable and flicker-free
+display.
+   
+Following your selection, you will be asked to choose from a list
+of other monitor parameters that will define your monitor's
+specifications.
+  
+The 132 Column Mode does not have a frequency selection menu; as a
+result, upon its selection, you will be asked to carry out the 
+screen adjustment operation.
+
+
+63
+Select the frequency and interlacing scheme that matches your monitor
+specifications as closely as possible.
+  
+Following this selection you will be prompted to make any adjustments
+to the screen, as you see fit.
+  
+Screen size, position, frequency and polarity could all be altered
+to arrive at the best looking display.
+   
+You may find that some frequencies will produce an unstable display;
+If this happens, choose another frequency - preferrably of higher
+value, in order to avoid the flicker.
+  
+If none of the options produce a stable display or you know that your
+monitor does not support the shown resolution, then choose the 'Not
+Supported' option.
+  
+Place the cursor over your selection and press <Enter>
+
+
+64
+This option allows the user to set the I/O Bus width for the
+VGA portion of the Graphics Adapter.
+   
+Press <Enter> to view possible options.
+
+
+65
+In order to achieve high performance from your Graphics Card, 
+select the 16 bit option for VGA Bus I/O operation.
+   
+Place the cursor over your selection and press <Enter>
+
+
+
+-1
+
+
