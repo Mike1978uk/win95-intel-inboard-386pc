@@ -298,17 +298,23 @@ as [GitHub Release assets](https://github.com/Mike1978uk/win95-intel-inboard-386
 and on [archive.org](https://archive.org/details/win95-intel-inboard-386pc).
 
 **Files needed, and where they go**, all applied to a *pre-monolith* Windows 95 OSR1 install (i.e.
-before Setup's own `VMM32.VXD` combine step has run):
+before Setup's own `VMM32.VXD` combine step has run). `vxd-patches/deploy_premonolith.sh <drive>`
+applies the whole set and backs the originals up to `<drive>\PREPATCH\`.
+
+The pre-monolith requirement is not a nicety. A VxD dropped into `WINDOWS\SYSTEM\VMM32\` *after*
+the combine was found (2026-08-23) never to load at all — `BOOTLOG.TXT` kept reporting
+`Loading Vxd = VDMAD`, the bundled form, and the combined `VMM32.VXD` is W4-compressed so it cannot
+be patched in place either. If a patched VxD appears to change nothing, check this first:
 
 | # | Component | Destination on the target install | Source in this repo |
 |---|---|---|---|
 | 1 | `INBRDPC.SYS` self-test-skip | `C:\INBRDPC.SYS` (replaces the driver loaded from `CONFIG.SYS`) | `vxd-patches/osr1/INBRDPC_selftest_skip.SYS`, built by `vxd-patches/patch_inbrdpc_selftest_skip.py` |
 | 2 | `VPICD.VXD` patch | `C:\WINDOWS\SYSTEM\VMM32\VPICD.VXD` (pre-combine staging) | `vxd-patches/osr1/VPICD_INBOARD.VXD`, built by `vxd-patches/patch_vpicd.py` |
-| 3 | `VDMAD.VXD` patch | `C:\WINDOWS\SYSTEM\VMM32\VDMAD.VXD` (pre-combine staging) | `vxd-patches/osr1/VDMAD_INBOARD.VXD`, built by `vxd-patches/patch_vdmad.py` |
+| 3 | `VDMAD.VXD` patch | `C:\WINDOWS\SYSTEM\VMM32\VDMAD.VXD` (pre-combine staging) | `vxd-patches/VDMAD_INBOARD_FIXED.VXD`, built by `vxd-patches/patch_vdmad.py`. **Do not use the older `osr1/VDMAD_INBOARD.VXD`** — it has two bytes written into the middle of the `AND AH,0C0h` at `OBJ1:0x1660`, turning it into a wild write, and that is the cause of the issue #5 Sound Blaster Pro BSOD (`exception 0E ... in VXD VDMAD(01) + 00001660`) |
 | 4 | Custom `VKD.VXD` — built from Win95 DDK source, not a binary patch. Both keyboard fixes (port-64h discard removed, port-61h XT ack added) | `C:\WINDOWS\SYSTEM\VMM32\VKD.VXD` (pre-combine staging; kept under the stock filename so `SYSTEM.INI`'s `keyboard=*vkd` picks it up with no `.INI` edit) | `custom_vkd/src/*.ASM`, built by `custom_vkd/build.ps1` (real MASM 6.11c + VC++2.0 `LINK.EXE`); known-good output archived at `custom_vkd/build/VKD_CUSTOM_INT09FIX_v2.VXD` |
 | 5 | `KEYBOARD.DRV` patch | `C:\WINDOWS\SYSTEM\KEYBOARD.DRV` (not part of the combine — a direct file replace, works even on an already-installed system) | `vxd-patches/osr1/KEYBOARD_INBOARD.DRV`, built by `vxd-patches/patch_keyboarddrv_kbdready.py` |
 | 6 | Real display driver fix | `C:\WINDOWS\SYSTEM.INI`, `[boot]` section: `display.drv=vga.drv` (not the `[boot.description]` copy, which is cosmetic only) | edited directly, no script |
-| 7 | INT 68h vector fix, real-hardware translation of the emulator's `[patchint68]` hook | `C:\IVT68FIX.COM`, called from the very last line of `C:\AUTOEXEC.BAT` | `ivt68fix/IVT68FIX.ASM`, assembled with NASM (`nasm -f bin IVT68FIX.ASM -o IVT68FIX.COM`); byte-verified to match the binary actually tested on real hardware |
+| 7 | INT 68h vector fix, real-hardware translation of the emulator's `[patchint68]` hook | `C:\IVT68FIX.COM`, called from the very last line of `C:\AUTOEXEC.BAT` | `ivt68fix/IVT68FIX.ASM`, assembled with NASM (`nasm -f bin IVT68FIX.ASM -o IVT68FIX.COM`). **20-byte `F000:FF53` build** as of 2026-08-23 — it points the vector straight at the BIOS's own `IRET` (byte `CF` at ROM offset `0x7F53` in both 1986 revisions) instead of injecting a stub at `0000:03C0`. Michal Necasek's suggestion on PR #7749; keeps the card in step with `386_dynarec.c`. The superseded 26-byte version is `IVT68FIX.COM.prev-0x3C0` |
 | 8 | COMR95 for live introspection while testing | `C:\WINDOWS\COMR95.EXE`, auto-launched via `C:\WINDOWS\WIN.INI`'s `[windows] run=` line | prebuilt binary from Ahmad Byagowi's [Open-Source-PC110](https://github.com/ahmadexp/Open-Source-PC110) fork of Kevin Moonlight's [COMrade](https://github.com/yyzkevin/COMrade) — not built in this repo |
 
 ## Acknowledgments
