@@ -491,6 +491,62 @@ the honest answer.
 
 ## Not forgotten, lower priority
 
+### 💡 IDEA (logged 2026-08-23, user-raised, LOW priority) — a BIOS-extension TSR to make older ROMs usable
+
+**Tracked as [issue #10](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/10).**
+
+**The thought:** the POST 101 work established *why* the 1982 ROMs fail. If the reason is understood,
+could a loadable shim supply what the old ROM lacks — the way **2M** (Ciriaco García de Celis, 1995)
+adds 1.44/1.68 MB support to machines whose BIOS never had it? Reference copy on the user's disk:
+`%USERPROFILE%\OneDrive\Desktop\XT_project\Windows_311_working_build\2M30`, which contains
+`2M.COM` / `2MX.COM` (TSR), `2M.SYS` (driver) and — the interesting part — `2M-XBIOS.EXE` /
+`2M-ABIOS.EXE`, i.e. *BIOS-service replacements loaded from disk*. That is exactly the shape of shim
+being proposed. Target would be 5150/5160-class machines with 1982-era ROMs, for Windows 3.11 and
+possibly Windows 95.
+
+**⚠️ These are TWO different questions and must not be conflated:**
+
+**(a) The Inboard-specific one — INBRDPC.SYS vs the 1982 ROM.**
+The short form used in the READMEs ("INBRDPC.SYS checks a signature at `F000:E05B` that the 1982 ROMs
+don't carry") is **true but incomplete**, and the fuller version matters here. Per
+`docs/INBOARD_86BOX_PORT_PLAN.md` (~lines 2340-2380), a later investigation found that
+`INBRDPC.SYS`'s `CS:0x2C6` is **not a compile-time reference constant** — it is a *destination
+buffer*, filled at runtime by an `INT 15h AH=87h` GDT-descriptor block copy whose **source** is built
+dynamically from `word[0xC24]:word[0xC22]`. Two fixed-address patch attempts (one-shot, and
+intercept-every-write) both **failed** for exactly this reason.
+
+Crucially, `F000:E05B` is **not arbitrary** — it is the target of the standard reset vector at
+`FFFF0h` (`EA 5B E0 00 F0` = `JMP F000:E05B`). So the comparison is very likely
+**reset-vector-relative**, not a magic signature.
+
+**Why that's good news for this idea:** a reset-vector-relative check is far more shimmable than a
+literal signature would be. A shim doesn't need to forge a byte pattern IBM never wrote; it needs to
+make the boot-continuation entry point present the expected content. That is a much more tractable
+target.
+
+**Why it's still not free:** the mechanism is only *partially* root-caused. The named next step,
+already written down, is to find the caller of the routine at `INBRDPC.SYS` file offset
+`~0xA59x-0xA5A1` and see what `AX:BX` actually resolve to — and it needs a **live CS:PC-at-entry
+trace**, not another static scan (no static `E8` call reference to it was ever found, so it is
+reached indirectly or by fallthrough). **Do that before designing any shim.**
+
+**(b) The general one — old ROMs and Windows generally.** "Why can't a 5150/1982-5160 BIOS run
+Windows 3.11/95 fully" is a *separate* question with its own causes (missing INT 15h services, the
+system-configuration table, extended-memory calls, etc.) and is **not** answered by the `E05B`
+finding. Anything learned about (a) does not automatically transfer to (b). Scope them separately or
+this turns into an open-ended hunt.
+
+**Cheapest first step if picked up:** enumerate which BIOS services Windows actually demands that a
+1982 ROM lacks, before writing a line of shim code — a shim can only be specified once the gap list
+exists. The 2M utilities are worth disassembling as a *structural* model (how they hook and replace
+BIOS services from a loaded TSR), independently of what they do to floppies.
+
+**Fidelity caveat:** per [[feedback-hardware-fidelity-priority]] and
+[[feedback-real-hardware-reproducibility-2026-08-03]], any such shim must be a **real loadable
+artifact that runs on real hardware**, not an emulator-side hack. That is the whole point of the 2M
+analogy, and it is what makes this idea worth logging rather than dismissing.
+
+
 - **`machine_table.c` naming not synced with upstream.** Upstream renamed the machine to
   `[386DX] IBM XT (Inboard 386/PC)` and trimmed `.cpu.package` in commit `f8a10398`. Deliberately
   not ported into `86box_full/`, because the package trim would invalidate local test configs that
