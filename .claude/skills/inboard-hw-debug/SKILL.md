@@ -1862,6 +1862,83 @@ value avoiding the harder alignment rule. Same number the AI suggested, now for 
 `HardDiskDMABuffer` was **dropped** rather than copied across: this machine's disk path is XT-IDE
 (PIO) and a polling T130B, so a hard-disk DMA buffer buys nothing.
 
+## Technique 59: a POST that stops with no video at all is often a deliberate `HLT`, not a hang - find the byte before theorising
+
+A machine that shows *nothing* and makes beeping noises looks like a catastrophic failure. It is
+frequently the BIOS working perfectly: reaching a failed test and executing a deliberate `HLT` with
+interrupts already disabled. That is a *stop*, not a *hang*, and it is far easier to diagnose than a
+loop - because the address is exact and it never moves.
+
+**Signature to recognise (all four together):**
+- `[modecheck]`-style heartbeat shows **CS:PC completely unchanged** for minutes (Technique 3)
+- **`IF=0`** in the same heartbeat - interrupts disabled, so `HLT` can never be woken
+- `imr`/`irr`/`isr` all `00` with nothing pending - the PIC is idle because nothing can be serviced
+- The PIT keeps ticking (`clocks=` advancing) - the machine is alive, the CPU just is not fetching
+
+**Then read the single byte at that address.** `F4` is `HLT`. One byte is a far safer static read
+than a disassembly window (Technique 16/44 warn this project's ROM desyncs), and it is decisive.
+
+**2026-08-23 case - the Sound Blaster Pro POST halt.** Fitting `sbprov2` (0x220 / IRQ 5 / DMA 1 -
+the real machine's exact settings) to `ibmxt_inboard386` stopped POST dead at `F000:E12B` with a
+black screen and repeated beeps. The byte at `E12B` is `F4` = `HLT`, and the surrounding code is an
+I/O port scan (`mov dx,0` / `out dx,al` / `in al,dx` / `inc dx` / `cmp` / `je` past the `HLT`) -
+**ports 0-0F are the 8237**, so this is the BIOS's DMA controller register test writing values and
+reading them back. The readback does not match with the SB Pro present, so the BIOS halts on purpose.
+The halt is *before* video init, which is why nothing is ever drawn - the black screen is the
+symptom of *where* it stopped, not of a video problem.
+
+**Do not confuse "no video" with "video broken".** Check where POST stopped first.
+
+### The A/B discipline that made this usable (do this every time)
+Four runs, one variable each, ~100 s apiece:
+
+| Run | Result |
+|---|---|
+| fork, no SB Pro | boots through to Windows |
+| fork, SB Pro fitted | HLT at `F000:E12B` |
+| fork, SB Pro + **own recent DMA change reverted** | **still** HLT - clears the change |
+| **clean upstream build**, SB Pro fitted | **also halts** - upstream defect |
+| real hardware, same card, same 0x220/IRQ5/DMA1 | **POSTs fine** |
+
+The third run matters most and is the one most often skipped: **when you have recently touched the
+subsystem a failure points at, rule yourself out before blaming anything else.** Here `dma.c` had
+been edited hours earlier and the failing test was the DMA controller test - a coincidence that
+would have been very easy to mistake for causation.
+
+The fourth run is what turns "our fork is broken" into a **reportable upstream bug**. Keep a clean
+upstream build to hand for exactly this (see the note below on when to prefer it).
+
+**Status:** the SB Pro POST halt is an **open upstream 86Box defect** and it blocks reproducing
+issue #5 (the `vmad` BSOD) in the emulator at all - the card cannot even be fitted. Consistent with
+the long-standing note that the SB Pro hang lives in `dma_xt8237`.
+
+## Prefer a CLEAN UPSTREAM build for anything except active tracing
+
+Both Inboard PRs are merged (#7626 2026-08-06, #7749 2026-08-23), so **upstream master now contains
+every fix this project depends on**. The instrumented fork's only remaining advantage is its debug
+scaffolding - roughly 148 trace sites in `exec386()` alone, which this project's own measurements put
+at **~3.45x slower** than a clean build.
+
+- **Clean build** - daily use, and the **only** valid reference for wall-clock timing against real
+  hardware. Built at `86Box-upstream-work/upstream/build/clean/`.
+- **Instrumented fork** - active investigations only, where `vram_dump` / `inject_key` / new hooks
+  are needed.
+- **Any "is this us or is this 86Box?" question** - run the clean build. It isolates the fork's
+  patches completely, which stepping back through fork commits does not.
+
+**Not yet upstream:** `dma_page_is_xt()` (Technique 56). A clean build lacks the 4-bit DMA page fix.
+
+### io.c traces are now gated - re-enable them when you need them
+Every `[tag]` trace in `io.c` sits in `inb()`/`outb()` and `fflush`es per hit, with caps up to 20000.
+Together they emitted ~45,000 lines (3.5 MB) in two minutes of boot and were a large, user-visible
+part of the slowness. All nine sites are now gated on `io_dbg_on()`, **default OFF**:
+
+    set INBOARD_IO_TRACE=1
+
+Measured effect of gating, identical 120 s boot: **3.5 MB / ~45,000 lines -> 764 KB / 9,413 lines.**
+The gate is why the `E12B` investigation above could re-enable full port tracing instantly with no
+rebuild - which is the argument for gating spent hooks rather than deleting them.
+
 ## Forward notes for a future OSR2 attempt
 - **Emulator/code fixes are OS-version-independent** — the whole "Complete Windows 95 boot fix
   inventory" section above applies unchanged to OSR2. Start from that list, don't re-derive it.
