@@ -21,12 +21,14 @@ Inboard 386/PC hardware model, ROMs, and a working config already set up. Grab a
 
 ## Try it yourself
 
-Two ready-made disk images are available — the final working image (post-reboot, reaches a full
-desktop) and the pre-monolith image (every patch applied, but Setup's own `VMM32.VXD` combine step
-hasn't run yet, if you want to watch that happen):
+- 💾 **[Latest release — `win95-sound-fixed-v2`](https://github.com/Mike1978uk/win95-intel-inboard-386pc/releases/tag/win95-sound-fixed-v2)** — the current pre-monolith image (58 MB compressed) plus the post-install fixes. **Use this one.**
+- 🔧 **[Emulator build](https://github.com/Mike1978uk/win95-intel-inboard-386pc/releases/download/win95-desktop-v1/86Box-Inboard-emulator-win64.zip)** — ready-to-run Windows build of this project's 86Box fork, with the Inboard hardware model, ROMs and a working config. No compiling, no real hardware needed. (Still hosted on the v1 release; see its `README.txt`.)
+- 📦 **[win95-desktop-v1](https://github.com/Mike1978uk/win95-intel-inboard-386pc/releases/tag/win95-desktop-v1)** — kept as an archive. ⚠️ **Its disk images carry the corrupted `VDMAD.VXD` that causes the Sound Blaster Pro BSOD.** If you downloaded images from there, take them from v2 instead.
+- 💾 **[archive.org](https://archive.org/details/win95-intel-inboard-386pc)** — mirrors the older v1 images.
 
-- 💾 **[GitHub Release](https://github.com/Mike1978uk/win95-intel-inboard-386pc/releases/tag/win95-desktop-v1)** — both disk images, plus a ready-to-run **Windows emulator build** (`86Box-Inboard-emulator-win64.zip`, with the Inboard 386/PC hardware model, ROMs, and a working config included — no compiling, no real hardware needed. See the zip's `README.txt` for exact steps.)
-- 💾 **[archive.org](https://archive.org/details/win95-intel-inboard-386pc)** — the two disk images.
+⚠️ **The sound fix is not in any image and cannot be** — a pre-monolith image contains no
+`MSSBLST.VXD` at all; it arrives stock from the CABs when you install the Sound Blaster Pro driver.
+Apply `inboard-post-install-fixes.zip` (or [FIXES.md](FIXES.md)) *after* installing your drivers.
 
 **On real hardware**, you need: a real Intel Inboard 386/PC in an IBM PC/XT (or compatible), the
 [4MB daughterboard](https://forum.vcfed.org/index.php?threads/inboard-386-pc-2mb-expansion-clone.78562/)
@@ -109,8 +111,12 @@ What #7749 fixes, for anyone who tried the merged machine and found it broken:
 | **386-class CPUs ran no fixes at all** | `cpu_set()` routes 386DX/386SX to `exec386_2386()`, and every Inboard POST fix-up lived only in `exec386()`. A plain 386DX — the CPU this card was actually sold with — hung in the Mach8 option ROM before the memory count. Now shared between both interpreter loops, gated on the card being present. |
 | **Double-throttled memory timing** | `cpu_waitstates` is dead on 486BL but live on 386DX, stacking on top of the Inboard's own bus-speed scaling. |
 
-This also resolves [86Box/86Box#7638](https://github.com/86Box/86Box/issues/7638), where the Inboard
-software reported all memory as "BAD" — same 1982-ROM cause.
+This fixes the *original* symptom in [86Box/86Box#7638](https://github.com/86Box/86Box/issues/7638)
+(all memory reported "BAD", 640K available — same 1982-ROM cause). **That issue is not fully
+resolved**: with a *stock* `INBRDPC.SYS` and no `NODIAGS`, the extended-memory diagnostic still
+reports `bad extended memory: 128k`. The RAM is fine and Windows 95 runs on all of it — the
+diagnostic is what is wrong, it is an emulator-side gap, and it is still being investigated. The
+images published here carry `NODIAGS`, so you will not see it.
 
 Full write-up of the submission, including the testing matrix and known limitations, is in
 [`docs/PR_description_inboard_post101_fix.md`](docs/PR_description_inboard_post101_fix.md).
