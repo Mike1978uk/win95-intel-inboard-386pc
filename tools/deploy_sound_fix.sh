@@ -32,13 +32,39 @@ if [ "$MODE" = "--revert" ]; then
     echo "Reverting from $SRC"
 else
     SRC="$REPO/vxd-patches/sound/MSSBLST_INBOARD.VXD"
-    # Back up whatever is there now, once. Never overwrite an existing backup - a second run
-    # after a successful deploy would otherwise save the PATCHED file as the "original".
-    [ -f "$BAK/MSSBLST.VXD" ] || cp -p "$DEST" "$BAK/MSSBLST.VXD"
-    echo "Backed up  $DEST -> $BAK/MSSBLST.VXD"
 fi
 
-echo "  before: $(md5sum < "$DEST" | cut -d' ' -f1)  $(stat -c%s "$DEST") bytes"
+STOCK=cc7e63aacb1f599fcd5b3fa1eb98169c
+PATCHED=dcf32b4a7d8dbcc47e659847742417b6
+NOW=$(md5sum < "$DEST" | cut -d' ' -f1)
+echo "  before: $NOW  $(stat -c%s "$DEST") bytes"
+
+# The patch is two bytes at fixed offsets in ONE known binary. If the card is carrying some
+# other build of MSSBLST.VXD, those offsets mean something else there and copying this file
+# over it would install code that was never audited against it. Refuse rather than guess -
+# a patch script that cannot prove it matched is the failure mode of patch_vdmad.py.
+if [ "$NOW" = "$STOCK" ]; then
+    if [ "$MODE" = "--revert" ]; then echo "Already stock; nothing to do."; exit 0; fi
+elif [ "$NOW" = "$PATCHED" ]; then
+    if [ "$MODE" != "--revert" ]; then echo "Already patched; nothing to do."; exit 0; fi
+else
+     echo "REFUSING: $DEST is md5 $NOW, which is neither the stock binary this patch was"
+     echo "          derived from ($STOCK) nor the patched one."
+     echo "          Audit it first:  python tools/vxd_dma_audit.py \"$DEST\""
+     exit 1
+fi
+
+if [ "$MODE" != "--revert" ]; then
+    # Back up once, and never over an existing backup - a second run after a successful
+    # deploy would otherwise save the PATCHED file as the "original".
+    if [ -f "$BAK/MSSBLST.VXD" ]; then
+        echo "  backup already exists at $BAK/MSSBLST.VXD, left alone"
+    else
+        cp -p "$DEST" "$BAK/MSSBLST.VXD"
+        echo "  backed up -> $BAK/MSSBLST.VXD"
+    fi
+fi
+
 cp "$SRC" "$DEST"
 sync
 echo "  after:  $(md5sum < "$DEST" | cut -d' ' -f1)  $(stat -c%s "$DEST") bytes"
