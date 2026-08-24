@@ -2746,3 +2746,45 @@ silently.
 
 The own-buffer variant is kept as `docs/patches/inboard_split_alias_buffer.patch` so it does not have
 to be re-derived.
+
+
+### Technique 67c: the reset is a PMODE triple fault - and the real bug is the missing 128 KB shift
+
+Root-caused 2026-08-24 by making the reset name itself. There are five distinct paths into
+`softresetx86()` in 86Box and guessing between them is hopeless, so tag them:
+
+| file | site | meaning |
+|---|---|---|
+| `src/cpu/386_common.c` (~1619) | `idt.limit < 35` | real-mode triple fault |
+| `src/cpu/386.c` (~341) | double fault aborts again | **protected-mode triple fault** |
+| `src/cpu/x86seg.c` (~1553) | `pmodeint` vector > IDT limit | pmode triple fault (other path) |
+| `src/cpu/x86_ops_misc.h` (~724) | `hlt_reset_pending` | reset deferred to the next `HLT` |
+| chipset/kbc files | port writes | deliberate guest-requested reset |
+
+With the shared+plain-RAM alias fix applied, the answer is unambiguous and repeatable:
+
+```
+[resetdiag] PMODE triple fault pc=00000C7D
+[resetdiag] softresetx86 pc=00000C7D mask=0
+```
+
+Same `pc` on both captures. Not real-mode, not a deferred HLT reset, not guest-requested.
+
+**What this most likely means.** #7760's write-up says the driver "enables paging and lands CR3
+above the top of installed RAM". That framing is probably wrong. UniPCemu puts the card's reserved
+128 KB at the **bottom** of RAM and adds `0x20000` to every normal RAM access
+(`mmuhandler.c`: `translatedaddr += 0x20000;`). This port never implemented that shift, so **every
+guest physical address is offset from what the driver expects by 128 KB**. The driver's page tables
+then land where we have no RAM, and #7760's all-ones fill makes a bogus page-directory entry read as
+`0xFFFFFFFF` - present bit **set**, frame `0xFFFFF000` - so the walk succeeds into garbage, faults,
+double-faults, and triple-faults.
+
+If that holds, the 128 KB reservation shift is the single proper fix for the whole family: the
+memory diagnostic, the shadow windows, and the CR3 placement all fall out of it. It also means
+#7760's scratch page should arguably fault rather than return all-ones - a page of `0x00` (present
+bit clear) would surface this class of bug instead of hiding it. Worth raising if a maintainer asks.
+
+**Not yet implemented or verified.** Next step is to model the reservation properly rather than
+keep bolting windows on: allocate the 128 KB, shift normal RAM past it, and map the two halves at
+`0x5E0000`/`0x5F0000` and `0xC0000`/`0xF0000` as views onto it - which is what UniPCemu does and
+what this port has been approximating one window at a time.
