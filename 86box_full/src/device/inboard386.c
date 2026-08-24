@@ -50,6 +50,10 @@
    branch-predicted test per instruction and can never alter behaviour. Upstream: PR #7749. */
 int inboard386_present = 0;
 
+/* Physical address the card's own driver writes its ROM-shadow copy to. Fixed in hardware,
+   NOT derived from installed RAM - see the long note at the alias mapping below. */
+#define INBOARD_SHADOW_ALIAS 0x5f0000
+
 typedef struct inboard386_t {
     uint8_t is_xt;             /* XT-style (port 0xA0/0x60) vs AT-style (port 0x674) card */
     uint8_t speed;             /* Raw value written to port 0x670 (bits 4-1 = waitstates/2, bit 0 = cache enable) */
@@ -836,17 +840,29 @@ inboard386_init(const device_t *info)
        BIOS shadow RAM self-test fails, while at 5120 it is touched 40+ times starting at
        exactly 0x5F0000 and the test passes.
 
-       INBOARD_ALIAS_BASE=<hex> overrides the base so the two readings can be told apart on a
-       config where they differ. Al Williams' driver for this card hard-codes the same number -
-       MINBRDPC.ASM: `inbrd_romram equ 5f0h  ; high speed ram to replace the pc's [ROM]`,
-       documented there as a "starting physical bank number", and 0x5F0 * 4 KB = 0x5F0000. */
-    uint32_t alias_base = 0xf0000 + ((uint32_t) mem_size * 1024);
+       Al Williams' driver for this card hard-codes the same number - MINBRDPC.ASM:
+       `inbrd_romram equ 5f0h  ; high speed ram to replace the pc's [ROM]`, documented there as a
+       "starting physical bank number", and 0x5F0 * 4 KB = 0x5F0000.
+
+       Verified with the alias pinned, on a reporter's own disk, at every board size:
+
+         mem_size   1024   2688   3072   4096   5120
+         before      -     fail   fail   fail   pass    <- passed only where the formula coincided
+         after      pass   pass   pass   pass   pass
+
+       This needed the mem.c rammap() fix to be observable at all: with the self-test satisfied the
+       driver gets further than it ever had, enables paging and lands CR3 above the top of RAM,
+       which used to take the emulator down before it could print its verdict.
+
+       INBOARD_ALIAS_BASE=<hex> still overrides the base, for re-testing against a config where a
+       derived address and the constant would differ. */
+    uint32_t alias_base = INBOARD_SHADOW_ALIAS;
     const char *alias_env = getenv("INBOARD_ALIAS_BASE");
     if (alias_env != NULL) {
         alias_base = (uint32_t) strtoul(alias_env, NULL, 0);
         fprintf(stderr, "[inbmem] alias base overridden by INBOARD_ALIAS_BASE: %06X "
-                        "(formula would give %06X for mem_size=%d)\n",
-                (unsigned) alias_base, (unsigned) (0xf0000 + ((uint32_t) mem_size * 1024)), mem_size);
+                        "(default is %06X; mem_size=%d)\n",
+                (unsigned) alias_base, (unsigned) INBOARD_SHADOW_ALIAS, mem_size);
         fflush(stderr);
     }
     mem_mapping_add(&dev->bios_shadow_alias_mapping, alias_base, 0x10000,
