@@ -2788,3 +2788,17 @@ bit clear) would surface this class of bug instead of hiding it. Worth raising i
 keep bolting windows on: allocate the 128 KB, shift normal RAM past it, and map the two halves at
 `0x5E0000`/`0x5F0000` and `0xC0000`/`0xF0000` as views onto it - which is what UniPCemu does and
 what this port has been approximating one window at a time.
+
+### CONFIRMED ON REAL HARDWARE 2026-08-25 - issue #9 CLOSED
+
+CTCHIP34 from AUTOEXEC.BAT replaces revto486.sys/lght486.sys. Booted to Windows, stable, speed
+visibly improved. Applied set: `1000h:0=92` `1000h:1=9C` `1001h:0=FF` `1001h:1=03` `1002h:3=03`.
+Win95 had been at **1:1 clock with LMCR=0000** - half clock, no cache, nothing cacheable.
+
+Retires the vogons "needs protected mode / V86" theory: REVTO486 1.04 dumps `CR0=0000FFF0` (PE
+clear), `CR3=0`, and hooks no INTs or IRQs. It runs in **real mode** - which is exactly why a
+run-and-exit EXE can replace it.
+
+Gotchas that each cost a run: `CD` to the CTCHIP dir first (IBM486.CFG is looked up in the CURRENT
+directory); run from real-mode DOS not a Win95 DOS box (port 22h/23h is V86-trapped); `&` is the
+batch-safe binary prefix.
