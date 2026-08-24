@@ -2401,15 +2401,17 @@ the wrong one.
 | 2688 | `0x390000` | **0** | fails |
 | 3072 | `0x3F0000` | **0** | fails |
 | 4096 | `0x4F0000` | **0** | fails |
-| 5120 | `0x5F0000` | **40**, ROM content from offset 0 | (never printed - see below) |
-| 4096 + `INBOARD_ALIAS_BASE=0x5F0000` | `0x5F0000` | **41** | (never printed) |
+| 5120 | `0x5F0000` | **40**, ROM content from offset 0 | **passes** |
+| 4096 + `INBOARD_ALIAS_BASE=0x5F0000` | `0x5F0000` | **41** | **passes** |
 
 That last row is the whole experiment: it is the only configuration where the two candidate readings
 predict **different** addresses, and the driver goes to `0x5F0000`. Al Williams' driver for this card
 hard-codes the same number - `MINBRDPC.ASM`: `inbrd_romram equ 5f0h ; high speed ram to replace the
 pc's [ROM]`, a "starting physical bank number", and `0x5F0 * 4 KB = 0x5F0000`.
 
-**Do not stop there and call it fixed.** Whenever the alias is actually *used*, 86Box dies:
+**The crash you will hit first - and it is the prerequisite, not a side quest.** Whenever the
+alias is actually *used*, 86Box dies, and it dies **before the driver prints its verdict**, so
+the alias fix looks like it changed nothing:
 
 ```
 exit code 0xC0000005 (ACCESS_VIOLATION)
@@ -2423,11 +2425,39 @@ unchecked. With the self-test satisfied the driver gets **further than it ever h
 and lands `CR3` above the top of installed RAM. **This is also a general 86Box bug worth reporting on
 its own: a guest can kill the emulator by pointing CR3 at unbacked physical memory.**
 
-And the driver's own sizing probe sees the island: at 4096 it reports `extended memory detected:
-2752k` with the alias at `0x5F0000` versus `3072k` without. **A bare 64 KB window above the top of
-RAM is the wrong model** - the card *bank-aliases* that region back into real RAM, which is what the
-existing comment in `inboard386.c` describes and what still needs emulating. Same failure family as
-the `ram_remapped_mapping` attempt that segfaulted on the A20 probe.
+### RESOLVED the same day - both fixed, and one conclusion recorded here was WRONG
+
+Fixed by pinning the alias (`#define INBOARD_SHADOW_ALIAS 0x5f0000` in `inboard386.c`) **after**
+fixing `rammap()` in `mem.c` to substitute a shared all-`0xFF` page when `_mem_exec[]` is NULL.
+Keeping `rammap()` a macro preserves its use as an lvalue, which matters because nine callers do
+`rammap(x) |= ...` for accessed/dirty bits.
+
+| `mem_size` | 1024 | 2688 | 3072 | 4096 | 5120 |
+|---|---|---|---|---|---|
+| before | - | fail | fail | fail | pass |
+| after | pass | pass | pass | pass | pass |
+
+Stock `INBRDPC.SYS` at 3072 now ends `The iNBRDPC.SYS device driver is installed.`
+
+**Retracted:** the claim that a bare 64 KB window is the wrong model because the driver's sizing
+probe "sees the island" (`detected: 2752k` vs `3072k` at 4096). **It does not.** `detected` and
+`functional` are **byte-identical** before and after the fix (`2048k` at 3072 both ways). The `2752k`
+was a mid-count snapshot - which is a trap in its own right:
+
+### Technique 66b: that panel's memory figure is a COUNTER, and it stops pausing once the test passes
+
+`extended memory detected:` **counts up while the driver probes**. While the self-test was failing the
+panel paused, so any screenshot caught a settled value. The moment it passes, the panel is on screen
+for about **four seconds** and boot moves on - so every slow capture samples the counter mid-flight
+and reads like a regression:
+
+- one frame per 10 s -> caught `512k` at 3072
+- a frame frozen by the crash -> caught `2752k` at 4096
+- both were wrong, and each produced a confident wrong conclusion before being re-measured
+
+Spawning a fresh `pwsh` per screenshot costs ~1 s and cannot sample a 4 s window. `tools/shadow_burst.ps1`
+does the `PrintWindow` capture **in-process at 4 fps**. Take the *last* full-panel frame, and confirm it
+has settled by looking for `Press any key to continue:` or the driver's own success line.
 
 ### Two methodology traps this cost real time on, both about inferring from indirect signals
 
