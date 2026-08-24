@@ -2710,14 +2710,28 @@ Measured 2026-08-24, three states, same disk, `mem_size = 3072`, diagnostics ena
 | plain RAM, **shared** `bios_shadow_ram` | `0k` | `2048k` | (not reached) | **NO - guest resets** |
 | plain RAM, **own** buffer | `0k` | **`2048k`** | **FAIL** | yes |
 
-So the two checks are in direct tension, and no buffer arrangement satisfies both:
+> **CORRECTED, same session.** I first wrote this up as an unavoidable trade-off. It is not.
+> A fourth state - **shared `bios_shadow_ram` + plain-RAM reads on the HIGH window only** - passes
+> **both** checks: `bad 0k`, `functional 2048k`, no shadow-failure box, boot continues past the
+> driver into ILIM386. It is an 11-line change (one extra read handler, one mapping argument).
+> **But it resets the guest intermittently** - roughly half of runs, a few seconds after the driver
+> loads, always after the panel has printed. That is a *separate* bug newly exposed by the driver
+> getting further, exactly the pattern that produced #7760. Kept as
+> `docs/patches/inboard_shared_plainram_alias.patch`. **Root-cause the reset, then ship it** - do
+> not treat the tension below as fundamental.
+
+The naive readings of the two checks look like they conflict:
 
 - the **memory diagnostic** needs this window to behave as plain RAM (write a pattern, read it back);
 - the **shadow self-test** needs it to share storage with the low `0xF0000` window;
 - sharing it *and* making it plain RAM lets the diagnostic's test patterns overwrite the shadowed
   BIOS, which the low window then serves as executable code - hence the reset.
 
-**Do not try to solve this with another buffer.** The real gap is that this port collapses two
+**Do not try to solve this with another buffer** - the own-buffer variant breaks the shadow test,
+because the low `0xF0000` view and the high window genuinely must share storage: this file's own
+comment records the mechanism as *"Write RAM, Read=PCI/ROM"* - writes always land in the underlying
+RAM so the driver can copy the ROM in *before* flipping reads over. Share the buffer, and steer only
+the READ. The remaining gap is that this port collapses two
 distinct concepts into one flag: `dev->rom_shadow_enabled = dev->speed & 1;` conflates "cache/shadow
 enable" with "what the low `0xF0000` view serves". UniPCemu keeps them separate - `inboard_mapF0000`
 is tri-state (`0` unmapped / `1` RAM / `2` ROM) and is what decides the low view, independently of

@@ -1,0 +1,30 @@
+diff --git a/src/device/inboard386.c b/src/device/inboard386.c
+index 34468acae..405ad1fed 100644
+--- a/src/device/inboard386.c
++++ b/src/device/inboard386.c
+@@ -484,6 +484,16 @@ inboard386_video_shadow_write(uint32_t addr, uint8_t val, void *priv)
+     dev->video_shadow_ram[addr & 0xffff] = val;
+ }
+ 
++/* HIGH window only: plain RAM read of the SHARED bios_shadow_ram - it must be the same
++   storage as the low 0xF0000 view ("Write RAM, Read=PCI/ROM" above), but unlike that view
++   it is not ROM-steered, so the driver's diagnostic can read back what it wrote. */
++static uint8_t
++inboard386_bios_alias_read(uint32_t addr, void *priv)
++{
++    const inboard386_t *dev = (inboard386_t *) priv;
++    return dev->bios_shadow_ram[addr & 0xffff];
++}
++
+ static uint8_t
+ inboard386_bios_shadow_read(uint32_t addr, void *priv)
+ {
+@@ -765,7 +775,7 @@ inboard386_init(const device_t *info)
+        range silently landed nowhere (read back as 0xFF, 86Box's "no mapping at all" default)
+        regardless of mem_mapping_enable() being re-asserted every reset. */
+     mem_mapping_add(&dev->bios_shadow_alias_mapping, INBOARD_SHADOW_ALIAS, 0x10000,
+-                     inboard386_bios_shadow_read, NULL, NULL,
++                     inboard386_bios_alias_read, NULL, NULL,
+                      inboard386_bios_shadow_write, NULL, NULL,
+                      dev->bios_shadow_ram, 0, dev);
+     mem_mapping_enable(&dev->bios_shadow_alias_mapping);
