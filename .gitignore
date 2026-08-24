@@ -33,3 +33,7 @@ live_*.txt
 seg*_trace.txt
 a0a1trace.txt
 device_add_order.txt
+
+# Python bytecode
+__pycache__/
+*.pyc
