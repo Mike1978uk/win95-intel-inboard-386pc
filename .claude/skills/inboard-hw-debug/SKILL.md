@@ -2562,9 +2562,18 @@ already has `INBOARD_MEM_TRACE` with `[inbmem] ALIAS read/write` logging; use it
 
 ### Practical notes that each cost a run
 
-- **`keybd_event`, not `SendKeys`.** Neither `WScript.Shell.SendKeys` nor `WM_KEYDOWN` reaches
-  86Box's input layer; both fail **silently**, so the guest just sits at a prompt looking hung.
-  `tools/probe_badmem.ps1` does it correctly.
+- **You cannot drive 86Box's keyboard from the host. All three methods fail SILENTLY.**
+  Corrected 2026-08-24 after I claimed `keybd_event` worked - it does not. Tested and failed:
+  `WScript.Shell.SendKeys`, `WM_KEYDOWN`, and `keybd_event` via P/Invoke (with
+  `SetForegroundWindow` first). Each returns success and changes nothing, so the guest sits at a
+  prompt looking exactly like a hang. The fork's `inject_key.txt` hook did not advance an F1 prompt
+  either, and it does not exist at all in an upstream build.
+  **What actually works:**
+  1. **Ask the user to press the key** - the only method confirmed to work here.
+  2. **Engineer the prompt away**: `NOPAUSE` on `INBRDPC.SYS`, and **clear `<vm>/nvr/`** - a stale
+     NVR makes GLaTICK stop at `RTC [...] ERROR. (RESUME = "F1" KEY)` *before* `CONFIG.SYS`, which
+     silently costs you the entire run and looks like the driver never ran.
+  `tools/sendkey86.ps1` exists but should be assumed non-functional until someone proves otherwise.
 - **The "press any key to display the location" page is a CHIP MAP, not addresses** - *"Failed chips
   are highlighted and labeled 'BAD'"*, a physical package layout. It will not give you a failing
   address. Do not spend runs on it.
@@ -2612,8 +2621,29 @@ Recurring dead end when chasing the cache / clock-multiplier work (issue #9). Th
   DOS 6.22 and Win3.11, dies only on the Win95 boot.
 - **HIMEM for BL3**: feipoa - *"Normally I only need to experiment with `/machine:1` or `/machine:3`
   when using a BL3 chip"*, plus `/CPUCLOCK:ON` and `/TESTMEM:off` if it errors. Two people cleared
-  "unable to control A20" with `/machine:13`. The card's A20 is its own port-0x60 `0xDF`/`0xDD`
-  mechanism, so `/MACHINE:` matters more here than on a normal AT.
+  "unable to control A20" with `/machine:13`.
+
+  > ### DO NOT APPLY THE `/MACHINE:` PART ON THIS MACHINE
+  >
+  > It is good advice generally and **wrong here**, and we have already paid for it once.
+  > `INBOARD_86BOX_PORT_PLAN.md:1290`: *"`HIMEM.SYS /MACHINE:12` was tried as a faster workaround
+  > before finding the real cause - had no effect (still failed identically), and was reverted...
+  > **`HIMEM.SYS` should stay switchless in the working config.**"* That entry also retracts an
+  > earlier memory note claiming `/MACHINE:12` means "A20 always on, hardware never touched" -
+  > that characterisation is **wrong**, do not reuse it.
+  >
+  > **Why switchless wins here:** HIMEM's *default* AT-method auto-detect computes the correct
+  > value on the real 5160+Inboard "by a fortunate accident of the flag logic", but only because
+  > port `0x64` reads back `0x00` on this board - measured on real hardware via COMrade's `io_in`.
+  > A `/MACHINE:` override replaces a detect that already happens to work. (The emulator-side
+  > counterpart of the same fact: `kbc_xt.c` claims only `0x60-0x63`, so `0x64` fell through to
+  > 86Box's open-bus `0xFF` instead of the `0x00` the real board shows - that port-`0x64` fix is
+  > the real, verified fix, not a HIMEM switch.)
+  >
+  > `/CPUCLOCK:ON` and `/TESTMEM:off` are unaffected by this and remain fair game.
+  >
+  > **Consequence for issue #9:** prefer `CTCHIP34` from `AUTOEXEC.BAT` (next section) over any
+  > `CONFIG.SYS`/HIMEM change. It sets the same silicon without touching a working A20 path.
 - Load `revto486.sys` / `lght486.sys` **before** HIMEM, and use `DOS=HIGH,UMB` - plain `DOS=UMB`
   causes soft-reset failures and hangs that disappear with `HIGH,UMB`.
 
@@ -2668,3 +2698,37 @@ boot-time memory scan trips over. That is the register-level equivalent of the `
 Pack location on this machine: `C:\Users\lycet\Downloads\CPU_Register_Control_Apps\CTChip34\`
 (`CTCHIP34.EXE`, `IBM486.CFG`, `CTCHIP_English.doc`). Sourced from feipoa's
 `CPU_Register_Control_Apps.rar` attached to the vogons thread above.
+
+
+### Technique 67b: the last 64 KB is a TRADE-OFF, not a missing line of code
+
+Measured 2026-08-24, three states, same disk, `mem_size = 3072`, diagnostics enabled:
+
+| high BIOS window at `0x5F0000` | `bad` | `functional` | shadow self-test | stable |
+|---|---|---|---|---|
+| ROM-steered, shared buffer **(shipped)** | `64k` | `0k` | **pass** | yes |
+| plain RAM, **shared** `bios_shadow_ram` | `0k` | `2048k` | (not reached) | **NO - guest resets** |
+| plain RAM, **own** buffer | `0k` | **`2048k`** | **FAIL** | yes |
+
+So the two checks are in direct tension, and no buffer arrangement satisfies both:
+
+- the **memory diagnostic** needs this window to behave as plain RAM (write a pattern, read it back);
+- the **shadow self-test** needs it to share storage with the low `0xF0000` window;
+- sharing it *and* making it plain RAM lets the diagnostic's test patterns overwrite the shadowed
+  BIOS, which the low window then serves as executable code - hence the reset.
+
+**Do not try to solve this with another buffer.** The real gap is that this port collapses two
+distinct concepts into one flag: `dev->rom_shadow_enabled = dev->speed & 1;` conflates "cache/shadow
+enable" with "what the low `0xF0000` view serves". UniPCemu keeps them separate - `inboard_mapF0000`
+is tri-state (`0` unmapped / `1` RAM / `2` ROM) and is what decides the low view, independently of
+the high windows. Model that, and both checks can pass at once.
+
+**Which state to ship meanwhile:** the shipped one. With Intel's documented `NODIAGS` - the
+configuration this project and both reporters actually run - the memory diagnostic never executes, so
+`bad`/`functional` are moot and only the shadow test is visible. Without `NODIAGS`, the own-buffer
+variant is better for the user (a non-fatal, `NOPAUSE`-suppressible warning beats losing all extended
+memory). Judgement call, not a clear win either way - which is exactly why it should not be shipped
+silently.
+
+The own-buffer variant is kept as `docs/patches/inboard_split_alias_buffer.patch` so it does not have
+to be re-derived.
