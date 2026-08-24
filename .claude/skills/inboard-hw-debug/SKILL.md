@@ -2188,7 +2188,43 @@ This port implements none of it and ignores `0xA0`'s value for memory purposes e
   all 40 later `DD`/`DF` transitions flip `rammask` correctly between `FFFFFFFF` and `FFEFFFFF`.
 - *The high BIOS-shadow alias being hit during the probe* - no. Zero accesses at or above 1 MB.
 
-**FIX ATTEMPTED 2026-08-24 AND IT CRASHES - read before trying the obvious thing.** 86Box already
+**TWO FIXES ATTEMPTED 2026-08-24. NEITHER FIXES THE 128k. Read before trying either again.**
+
+**Result first: the 256 KB accounting gap and the `bad 128k` report are SEPARATE problems.** I
+assumed one caused the other. It does not. Reclaiming the hole changed the diagnostic not at all -
+still `detected 2048k / functional 0k / bad 128k`. The driver's *detection* number never moved
+either, because it comes from the A20-wrap probe, not from what the emulator maps. Whatever the
+preliminary check is comparing, it is not "is there RAM at the top".
+
+**Attempt 1 - `ram_remapped_mapping` (86Box's own 256 KB window at `mem_size*1024`, backed by
+`ram + 0xa0000`). SEGFAULTS** during the A20 probe: with `rammask = FFEFFFFF` an address inside the
+window is pulled below the window's own base while that mapping is still selected, so the callback
+indexes `ram + 0xa0000` negatively. AT chipsets never hit this because their BIOS settles A20 long
+before such a window exists. **Do not put a RAM window at the top of memory on this machine.**
+
+**Attempt 2 - UniPCemu's actual approach, and it is address TRANSLATION, not a window**
+(`mmu/mmuhandler.c`, `MMU_calcmaplocpatch`):
+
+```c
+if ((MoveLowMemoryHigh & 1) && (memloc))
+    address += (LOW_MEMORYHOLE_END - LOW_MEMORYHOLE_START);   /* 0x100000 - 0xA0000 = 384 KB */
+```
+
+Everything above the hole indexes RAM 384 KB lower, so the RAM behind `A0000-FFFFF` is used instead
+of wasted and extended becomes `mem_size - 640K`. In 86Box that is re-pointing `ram_high_mapping` at
+`ram + 0xa0000` and growing it by 384 KB. **Stable, no crash** (no top-of-memory window, so no A20
+interaction) - and it correctly reclaims the memory: `extended now 2432 KB (was 2048 KB)`. It just
+does not touch the diagnostic. Shipped opt-in behind `INBOARD_BACKFILL=1`, default off.
+
+**Where to start next time:** stop theorising about the memory map and hook the driver's own compare.
+The port plan pins the mark-bad site at `INBRDPC.SYS` code offset `9D2E`, and live traces show the
+driver running at `CS:PC = 0020:00009Dxx`, so a Technique 12 CS:PC hook there dumping the operands
+gives the failing address directly instead of another inferred mechanism. That is the one thing
+nobody has actually measured.
+
+---
+
+**Original note, superseded in its conclusions but kept for the mechanism:** 86Box already
 carries the exact mechanism: `mem_init()` creates `ram_remapped_mapping`, a **256 KB** window at
 `mem_size * 1024` backed by `ram + 0xa0000`, then disables it - the standard "relocate the shadow
 hole to the top of memory" feature. Right size, right place, right backing. Enabling it for the

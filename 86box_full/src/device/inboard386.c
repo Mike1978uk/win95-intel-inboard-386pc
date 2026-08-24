@@ -681,16 +681,32 @@ inboard386_reset(void *priv)
        of memory" feature AT chipsets use; the Inboard does it too, so turn it on.
 
        UniPCemu calls this MoveLowMemoryHigh / inboard_remapVideoAndBIOSROMhigh. */
-    /* OPT-IN while it is being evaluated: INBOARD_BACKFILL=1. This changes the memory
-       map of a machine that currently boots Windows 95 reliably, so it does not go on
-       by default until it is proven against real hardware's numbers. Set the variable
-       to A/B the two behaviours from one binary. */
+    /* OPT-IN while it is being evaluated: INBOARD_BACKFILL=1, off by default.
+
+       UniPCemu resolved this by ADDRESS TRANSLATION, not by adding a window at the top
+       of RAM (mmu/mmuhandler.c, MMU_calcmaplocpatch):
+
+           if ((MoveLowMemoryHigh & 1) && (memloc))
+               address += (LOW_MEMORYHOLE_END - LOW_MEMORYHOLE_START);   // 384 KB
+
+       Everything above the 640K-1M hole indexes RAM 384 KB LOWER, so the RAM sitting
+       behind that hole is used rather than wasted: extended memory starts at RAM offset
+       0xA0000 and extended size becomes (mem_size - 640K), not (mem_size - 1024K).
+
+       In 86Box that is simply re-pointing ram_high_mapping at ram + 0xA0000 and growing
+       it by the same 384 KB. Crucially there is NO window at the top of memory, which is
+       what made the first attempt here (enabling ram_remapped_mapping) segfault during
+       INBRDPC.SYS's A20 probe - a masked address fell below that window's base and the
+       remap callback indexed ram + 0xa0000 negatively. */
     if (dev->is_xt && (mem_size > 1024) && (getenv("INBOARD_BACKFILL") != NULL)) {
-        mem_mapping_enable(&ram_remapped_mapping);
-        mem_set_mem_state(mem_size * 1024, 256 * 1024,
-                          MEM_READ_INTERNAL | MEM_WRITE_INTERNAL);
-        fprintf(stderr, "[inbmem] backfill ENABLED: 256 KB at %06X (top of %d KB)\n",
-                (unsigned) (mem_size * 1024), mem_size);
+        const uint32_t hole = 0x100000 - 0xa0000;   /* 384 KB */
+        mem_mapping_set_addr(&ram_high_mapping, 0x100000,
+                             ((uint32_t) mem_size * 1024) - 0xa0000);
+        mem_mapping_set_exec(&ram_high_mapping, ram + 0xa0000);
+        fprintf(stderr, "[inbmem] backfill: extended now %u KB backed from ram+0xA0000 "
+                        "(was %u KB); hole %u KB reclaimed\n",
+                (unsigned) ((((uint32_t) mem_size * 1024) - 0xa0000) / 1024),
+                (unsigned) (mem_size - 1024), (unsigned) (hole / 1024));
         fflush(stderr);
     }
 
