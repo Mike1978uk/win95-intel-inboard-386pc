@@ -192,6 +192,47 @@ Windows 95 install media isn't included here (copyrighted, and large) — you'll
 media. The [writeup's reproduction section](docs/windows95_on_inboard386pc_writeup.md#reproducing-this)
 lists exactly which files to patch and where to place them on a pre-monolith install.
 
+**The sound fix is not one of them, and cannot be.** A pre-monolith image contains no
+`MSSBLST.VXD` at all — it arrives from the `WIN95_xx.CAB` files when you install the Sound Blaster
+Pro driver, stock and unpatched. Apply `dist/post-install-fixes/` **after** installing the driver,
+not to the image.
+
 ## Contributing
 
-Issues and PRs welcome, especially on the open items above (SCSI/sound/network drivers) — see the writeup for the current state of each.
+Issues and PRs welcome. SCSI, sound and networking all work now — the
+[open issues](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues) are the current list,
+and the ones most likely to be tractable are:
+
+| | |
+|---|---|
+| [#4](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/4) / [#8](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/8) | ATI Mach 8 — the stock Windows 95 display driver, and a ROM RAM test on boot |
+| [#7](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/7) | Setup black-screens right before the Help files (reboot works around it) |
+| [#2](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/2) | keyboard maps `#` where `\` is expected |
+| [#11](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/11) | extended memory not recognised on an Inboard 386/PC |
+
+**You do not need an Inboard to help.** Most of this was found in emulation, on an 86Box build that
+is [in this repo](86box_full/) and now [upstream](https://github.com/86Box/86Box/pull/7626).
+
+### Testing a driver for the 20-bit DMA bug
+
+If you run Windows 9x on any XT-class machine and a device produces **corrupt data rather than no
+data** — distorted audio, garbled tape or scanner transfers — it is worth checking for the bug
+described [above](#sound-a-machine-class-bug-in-microsofts-own-drivers). It is not specific to this
+project or to the Inboard: it is Microsoft's own drivers assuming a 24-bit DMA reach on hardware
+that only has 20 bits.
+
+The audit is read-only and takes seconds:
+
+```
+python dist/post-install-fixes/scripts/vxd_dma_audit.py YOURDRIVER.VXD
+```
+
+Open an issue with the output — and the driver, if licensing allows — and it can be checked and
+patched. `.claude/skills/win9x-dma-driver-audit/` is a self-contained writeup of the whole method,
+including which drivers must **not** be patched, if you would rather do it yourself.
+
+### What is most useful
+
+Real-hardware results, positive or negative, on a machine that is not this one. A fix that works
+here and nowhere else is not finished, and several conclusions in this repo have been overturned by
+somebody measuring rather than arguing.
