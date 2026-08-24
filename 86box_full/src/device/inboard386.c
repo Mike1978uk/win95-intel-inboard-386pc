@@ -54,6 +54,23 @@ int inboard386_present = 0;
    NOT derived from installed RAM - see the long note at the alias mapping below. */
 #define INBOARD_SHADOW_ALIAS 0x5f0000
 
+/* Second 64 KB of the card's reserved block, immediately below the BIOS one: the video/EGA
+   ROM shadow window. The Inboard reserves 128 KB total, NOT 64 KB - UniPCemu (the reference
+   implementation this device is ported from) makes this explicit in mmuhandler.c:
+
+     translatedaddr += 0x20000; // Apply reserved memory as well (this is placed at the
+                                // beginning) of 128KB!
+
+   and maps the two halves at 0x5F0000 (BIOS ROM) and 0x5E0000 ("Second 64K of reserved
+   memory (EGA ROM as documented)"). This port only ever implemented the first half, which
+   is why stock INBRDPC.SYS's extended-memory diagnostic reports `bad extended memory: 128k`
+   - see the note at the mapping in inboard386_init() below.
+
+   NOTE this is deliberately NOT the same thing as caching the video ROM at 0xC0000, which is
+   Intel's opt-in EGACACHE feature that this file correctly leaves alone. The card reserves
+   the window regardless of whether anything shadows into it. */
+#define INBOARD_VIDEO_SHADOW_ALIAS 0x5e0000
+
 typedef struct inboard386_t {
     uint8_t is_xt;             /* XT-style (port 0xA0/0x60) vs AT-style (port 0x674) card */
     uint8_t speed;             /* Raw value written to port 0x670 (bits 4-1 = waitstates/2, bit 0 = cache enable) */
@@ -63,10 +80,16 @@ typedef struct inboard386_t {
     uint8_t rom_shadow_enabled;/* BIOS ROM shadowed into fast RAM vs read directly from slow ROM */
 
     mem_mapping_t bios_shadow_mapping;
+    mem_mapping_t video_shadow_alias_mapping; /* Second half of the card's 128 KB reserved
+                                           block, at INBOARD_VIDEO_SHADOW_ALIAS. Plain RAM -
+                                           see the #define above for why it must exist. */
     mem_mapping_t bios_shadow_alias_mapping; /* High alias at (0xF0000 + mem_size*1KB) - see
                                            inboard386_init() for why this exists: real hardware's
                                            shadow-RAM self-patch writes through this alias, not
                                            through 0xF0000 directly. */
+    uint8_t      *video_shadow_ram;    /* Backing for the video/EGA half of the reserved
+                                           block. Behaves as ordinary RAM: unlike the BIOS
+                                           window there is no ROM to steer reads to. */
     uint8_t      *bios_shadow_ram;     /* Writable shadow buffer - ALWAYS receives writes,
                                            regardless of rom_shadow_enabled (matches real
                                            hardware / UniPCemu's mapmemoryROM(): reads are
@@ -477,6 +500,23 @@ inbmem_enabled(void)
    version's fix (pre-populating bios_shadow_ram with a real ROM copy at init) was
    necessary but insufficient - the shadow RAM self-test still failed, because it's not
    simply asking "does a read return ROM content" - see the read/write split below. */
+/* The video/EGA half of the reserved block. Straight RAM in both directions - the driver's
+   memory diagnostic writes a pattern here and reads it back, and with no mapping at all it
+   read 0xFF and the block got marked BAD. */
+static uint8_t
+inboard386_video_shadow_read(uint32_t addr, void *priv)
+{
+    const inboard386_t *dev = (inboard386_t *) priv;
+    return dev->video_shadow_ram[addr & 0xffff];
+}
+
+static void
+inboard386_video_shadow_write(uint32_t addr, uint8_t val, void *priv)
+{
+    inboard386_t *dev = (inboard386_t *) priv;
+    dev->video_shadow_ram[addr & 0xffff] = val;
+}
+
 static uint8_t
 inboard386_bios_shadow_read(uint32_t addr, void *priv)
 {
@@ -659,6 +699,7 @@ inboard386_reset(void *priv)
        instead of relying on another device's incidental side effect. */
     mem_mapping_enable(&dev->bios_shadow_mapping);
     mem_mapping_enable(&dev->bios_shadow_alias_mapping);
+    mem_mapping_enable(&dev->video_shadow_alias_mapping);
 
     /* The card's 1 MB base board gives back the part of the 640K-1M hole it does not
        need for shadowing, as extended memory at the top of RAM. Measured against the
@@ -747,6 +788,7 @@ inboard386_init(const device_t *info)
     inboard386_present = 1;
 
     dev->bios_shadow_ram   = (uint8_t *) calloc(1, 0x10000); /* 64KB - system BIOS shadow window only */
+    dev->video_shadow_ram  = (uint8_t *) calloc(1, 0x10000); /* 64KB - the video/EGA half of the reserved block */
     dev->bios_rom_snapshot = (uint8_t *) calloc(1, 0x10000);
 
     /* 2026-07-26: corrected to cover ONLY the system BIOS window (F0000-FFFFF, 64KB), not the
@@ -871,6 +913,16 @@ inboard386_init(const device_t *info)
                      dev->bios_shadow_ram, 0, dev);
     mem_mapping_enable(&dev->bios_shadow_alias_mapping);
 
+    /* Second half of the card's 128 KB reserved block. Without this, stock INBRDPC.SYS's
+       extended-memory diagnostic reports `bad extended memory: 128k` and - because the driver
+       rejects the whole pool over any bad block - `functional extended memory: 0k`, i.e. the
+       user loses ALL extended memory. Reported on our #11 and upstream 86Box#7638. */
+    mem_mapping_add(&dev->video_shadow_alias_mapping, INBOARD_VIDEO_SHADOW_ALIAS, 0x10000,
+                     inboard386_video_shadow_read, NULL, NULL,
+                     inboard386_video_shadow_write, NULL, NULL,
+                     dev->video_shadow_ram, 0, dev);
+    mem_mapping_enable(&dev->video_shadow_alias_mapping);
+
     if (dev->is_xt) {
         io_sethandler(0x0060, 1, NULL, NULL, NULL, inboard386_write_60, NULL, NULL, dev);
         io_sethandler(0x00a0, 1, NULL, NULL, NULL, inboard386_write_a0, NULL, NULL, dev);
@@ -924,6 +976,7 @@ inboard386_close(void *priv)
 
     inboard386_present = 0;
 
+    free(dev->video_shadow_ram);
     free(dev->bios_shadow_ram);
     free(dev->bios_rom_snapshot);
     free(dev);
