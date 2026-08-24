@@ -13,8 +13,18 @@ public class W {
   public struct R { public int L, T, Rt, B; }
 }
 "@
-$p = Get-Process 86Box -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
-if (-not $p) { Write-Error "no 86Box window found"; exit 1 }
+# Retry: on a guest video-mode change SDL recreates the window, so MainWindowHandle
+# is transiently 0 and a single probe reports "no window" on a perfectly live VM.
+$p = $null
+foreach ($try in 1..10) {
+  $p = Get-Process 86Box -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
+  if ($p) { break }
+  Start-Sleep -Milliseconds 700
+}
+if (-not $p) {
+  $n = (Get-Process 86Box -ErrorAction SilentlyContinue | Measure-Object).Count
+  Write-Error "no 86Box window found (86Box processes alive: $n)"; exit 1
+}
 $h = $p.MainWindowHandle
 [W+R]$r = New-Object W+R
 [void][W]::GetClientRect($h, [ref]$r)

@@ -2385,3 +2385,65 @@ value records are stored as `<name><data>` back to back, so grepping for a value
 (`MouseTypeSerialial0` is `MouseType`=`Serial` plus the head of the next record) - do not read a
 value off a run boundary. The 12 bytes before a name are its header, ending
 `type(2) namelen(2) datalen(2)`, if you need to delimit exactly.
+
+## Technique 66: the high BIOS-shadow alias belongs at a FIXED 0x5F0000 - and proving it needs a
+## config where the formula and the constant DISAGREE
+
+**Established 2026-08-24 on Fenix770's own disk (issue #11 / upstream #7638).**
+
+`inboard386.c` places the alias at `0xF0000 + mem_size*1024`. That formula was fitted to a **single**
+live trace taken at `mem_size = 5120`, where it evaluates to `0x5F0000` - so "derived from installed
+RAM" and "a fixed constant" are **indistinguishable at that one size**. Every later reading inherited
+the wrong one.
+
+| `mem_size` | formula gives | driver writes there | driver's own shadow self-test |
+|---|---|---|---|
+| 2688 | `0x390000` | **0** | fails |
+| 3072 | `0x3F0000` | **0** | fails |
+| 4096 | `0x4F0000` | **0** | fails |
+| 5120 | `0x5F0000` | **40**, ROM content from offset 0 | (never printed - see below) |
+| 4096 + `INBOARD_ALIAS_BASE=0x5F0000` | `0x5F0000` | **41** | (never printed) |
+
+That last row is the whole experiment: it is the only configuration where the two candidate readings
+predict **different** addresses, and the driver goes to `0x5F0000`. Al Williams' driver for this card
+hard-codes the same number - `MINBRDPC.ASM`: `inbrd_romram equ 5f0h ; high speed ram to replace the
+pc's [ROM]`, a "starting physical bank number", and `0x5F0 * 4 KB = 0x5F0000`.
+
+**Do not stop there and call it fixed.** Whenever the alias is actually *used*, 86Box dies:
+
+```
+exit code 0xC0000005 (ACCESS_VIOLATION)
+#0 mmutranslatereal_normal (addr=3963, rw=0)  mem/mem.c:291   temp = temp2 = rammap(addr2);
+#1 mmutranslatereal   #2 readmembl   #3 exec386
+#define rammap(x) ((uint32_t *)(_mem_exec[(x) >> MEM_GRANULARITY_BITS]))[...]
+```
+
+`_mem_exec[]` is NULL for physical pages with no RAM-backed mapping, and `rammap()` dereferences it
+unchecked. With the self-test satisfied the driver gets **further than it ever had**, enables paging,
+and lands `CR3` above the top of installed RAM. **This is also a general 86Box bug worth reporting on
+its own: a guest can kill the emulator by pointing CR3 at unbacked physical memory.**
+
+And the driver's own sizing probe sees the island: at 4096 it reports `extended memory detected:
+2752k` with the alias at `0x5F0000` versus `3072k` without. **A bare 64 KB window above the top of
+RAM is the wrong model** - the card *bank-aliases* that region back into real RAM, which is what the
+existing comment in `inboard386.c` describes and what still needs emulating. Same failure family as
+the `ram_remapped_mapping` attempt that segfaulted on the A20 probe.
+
+### Two methodology traps this cost real time on, both about inferring from indirect signals
+
+1. **A null result from a run that never reached the guest code is not a null result.** The previous
+   session's `vm_alias_1024/3072/5120` recorded "0 alias hits at every size" - and every one of those
+   runs was sitting at the POST `ERROR. (RESUME = "F1" KEY)` prompt, having never booted DOS. Check a
+   screenshot before believing a zero. Drive F1 with the build's own `inject_key.txt` channel
+   (`386_dynarec.c`, `[injectfix]`; XT scancode 59) **on a timer** - the moment POST stops varies with
+   `mem_size`, so a single injection at a guessed time misses.
+2. **Do not diagnose a crash from stderr size, a missing screenshot, or an absent log tag.** All three
+   lied here, in both directions: the failing runs emit a ~1M-line `[ringshadow]` ring dump so
+   *smaller* stderr looked like a crash; `shot.ps1`'s single probe reported "no window" while the VM
+   was alive; and `ringshadow=0` looked like "the test passed" when it actually meant "crashed before
+   the verdict was printed - the panel's `diagnosed`/`functional`/`bad` lines were still blank".
+   Get the exit code (`Start-Process -PassThru` → `$p.ExitCode`) and a `gdb` backtrace.
+
+Harness: `tools/shadow_run.ps1` (one config-controlled run), `tools/shadow_exit.ps1` (exit code +
+live frames), `tools/shadow_gdb.ps1` (backtrace), `tools/vhd2raw.py` (dynamic VHD → raw; there is no
+`qemu-img` on this box, and reporters attach VHDs).
