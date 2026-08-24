@@ -2156,12 +2156,41 @@ port bug. Reported as one on upstream issue [#7638](https://github.com/86Box/86B
 **Check `CONFIG.SYS` before touching `86box.cfg`** - the diagnostic running at all proves `NODIAGS`
 is absent, so there is nothing to bisect in the machine config.
 
-**Still genuinely open, and do not oversell the fix:** the preliminary check reading *every bit*
-wrong smells like reads landing on unmapped memory, which would be a real emulation gap that
-`NODIAGS` merely hides. Real hardware has never been tested *without* `NODIAGS`, so we do not know
-whether that check passes there. Real hardware does show its own 128 KB accounting gap
-(5120 total, 640 + 4352 reported = 4992), which is suggestive but not proof. Settling it costs one
-boot of the real 5160 with `NODIAGS` removed.
+### CORRECTION 2026-08-24: `NODIAGS` is a workaround, and the driver is RIGHT
+
+The section above was written believing the check was simply buggy. It is not. **Real hardware
+passes this diagnostic** - the user runs `NODIAGS` only to speed up boot, on hardware already known
+good. So a failure here is *our* gap, and the driver is correctly reporting missing memory.
+
+Confirmed by reproducing it on this project's own reference image: put stock `INBRDPC.SYS` back
+(ours is `INBRDPC_selftest_skip.SYS`) and drop `NODIAGS`, and we fail identically. **Our images hide
+this two ways at once** - that is why it stayed invisible for so long, and why neither workaround
+should be treated as a convenience that can be dropped.
+
+**Root cause, quantified.** Same `mem_size = 5120` config:
+
+| | conventional | reserved | extended | total |
+|---|---|---|---|---|
+| real 5160 + Inboard | 640K | **128K** | **4352K** | 5120K |
+| this emulator | 640K | **384K** | **4096K** | 5120K |
+
+128K is exactly **two 64 KB shadow windows** - system BIOS at `F0000`, video BIOS at `C0000`. That is
+all the real card reserves. We reserve the whole 384 KB `A0000-FFFFF` hole and return 256 KB less
+extended memory. Independently corroborated by 386MAX: `Available Shared memory` 3840 KB real vs
+3568 KB ours.
+
+**The missing feature:** the card remaps the unused part of its 1 MB base RAM into extended space -
+UniPCemu's `MoveLowMemoryHigh` / `inboard_remapVideoAndBIOSROMhigh`, gated on port `0xA0` bit 7.
+This port implements none of it and ignores `0xA0`'s value for memory purposes entirely.
+
+**Two theories killed by measurement**, recorded so nobody re-runs them (`INBOARD_MEM_TRACE=1`):
+- *A20 desync* - no. The driver's first A20 op is `DF` (enable), so `mem_a20_state` syncs at once and
+  all 40 later `DD`/`DF` transitions flip `rammask` correctly between `FFFFFFFF` and `FFEFFFFF`.
+- *The high BIOS-shadow alias being hit during the probe* - no. Zero accesses at or above 1 MB.
+
+**Do not test this by raising `mem_size`.** `INBRDPC.SYS` validates the board configuration and
+refuses anything that is not 1 MB, 1+2 MB or 1+4 MB - a `3328` config makes it bail before probing,
+giving a silent false negative. The fix has to come from remapping *within* the existing total.
 
 ## ✅ FINAL VALIDATED FIX SET (2026-08-22) — 5 files, all needed
 1. `machine/m_xt.c` — dedicated `ibmxt_inboard386_config[]`, 1986 ROMs only, default

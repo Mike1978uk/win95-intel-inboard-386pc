@@ -12,6 +12,30 @@ materially different state than the earlier notes assumed** — see #5 and #8.
 
 ## Tier 1 — actionable now, real chance of a fix
 
+### Upstream [#7638](https://github.com/86Box/86Box/issues/7638) — 256 KB of extended memory we never map  ·  NEW 2026-08-24
+
+@QuantumByteRider's `bad extended memory: 128k` is **not** a config error and **not** a buggy driver.
+Reproduced on this project's own reference image once the two things hiding it are removed: `NODIAGS`
+in `CONFIG.SYS` **and** the patched `INBRDPC_selftest_skip.SYS`. Real hardware passes this check.
+
+Same `mem_size = 5120`:
+
+| | conventional | reserved | extended |
+|---|---|---|---|
+| real 5160 + Inboard | 640K | **128K** (two 64 KB shadow windows) | **4352K** |
+| this emulator | 640K | **384K** (the whole `A0000-FFFFF` hole) | **4096K** |
+
+The card remaps the unused part of its 1 MB base RAM into extended space — UniPCemu's
+`MoveLowMemoryHigh` / `inboard_remapVideoAndBIOSROMhigh`, gated on port `0xA0` bit 7. We implement
+none of it. This is the same 256 KB gap the port plan logged on 2026-08-05 as "not yet root-caused";
+it now has a mechanism.
+
+Two theories killed by measurement (`INBOARD_MEM_TRACE=1`): A20 desync (no — first op is `DF`, state
+syncs, all 40 toggles correct) and the high BIOS-shadow alias (no — zero hits ≥1 MB). See
+Technique 63. **Fix not yet written.**
+
+---
+
 ### #5 — Sound Blaster Pro: RESOLVED, both bugs, confirmed on real hardware  ·  updated 2026-08-24
 
 **Two separate bugs, both now understood.**
