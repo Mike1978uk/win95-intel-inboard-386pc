@@ -1,4 +1,8 @@
 build/
+# ...but the custom VKD is a deliverable, not a build artefact: deploy_premonolith.sh
+# depends on it, so a clone without it cannot run the deploy.
+!custom_vkd/build/
+!custom_vkd/build/*.VXD
 *.o
 *.exe
 test-images/*.img
