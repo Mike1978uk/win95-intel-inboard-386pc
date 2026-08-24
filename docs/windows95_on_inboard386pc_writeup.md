@@ -22,7 +22,10 @@ keyboard and mouse — has not been documented as working before.
 
 ## Still open
 
-- No sound.
+- ~~No sound.~~ **RESOLVED 2026-08-24, confirmed on real hardware.** Two separate bugs: a BSOD
+  caused by this project's own `patch_vdmad.py` corrupting an instruction, and a distortion caused
+  by `MSSBLST.VXD` allocating its DMA buffer above the XT's 20-bit DMA reach. See
+  `docs/xt_dma_20bit_audit_2026_08_24.md`.
 - The one fix that hasn't been proven on real hardware in isolation (`IVT68FIX.COM`, see below)
   worked in combination with everything else, but a reboot was needed to get past a black-screen
   stall while Windows was finishing Start Menu/Help setup — the exact cause of that stall, and

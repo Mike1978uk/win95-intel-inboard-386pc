@@ -61,12 +61,33 @@ at the center of the fix.
 - Floppy drives A: and B:
 - SCSI Devices working by adding relevant entries to config.sys / autoexec.bat devices loading fine in ms dos mode in Windows tested CD drive, MO Drive, Zip 100 drive
 - Network working using stock Windows 95 3com 3c509b driver from Windows. Hand configured IP, gateway and subnet and navigated to frogfind.com
+- Sound Blaster Pro audio, clean, confirmed on real hardware 2026-08-24 (see below)
 
 ## Still open
 
-- No sound
 - See the [writeup](docs/windows95_on_inboard386pc_writeup.md#still-open) for full detail and the
   current plan.
+
+## Sound: a machine-class bug in Microsoft's own drivers
+
+Worth calling out separately, because it is not specific to this project and will bite anything
+XT-class. The IBM 5160 keeps a **4-bit DMA page latch**, so DMA reach is **20-bit (1 MB)**. Every
+ISA-era Windows driver assumes **24-bit (16 MB)**. A driver that puts its DMA buffer above 1 MB does
+not crash - the page register silently drops the high bits and the 8237 transfers from a completely
+different physical address:
+
+```
+[dmapage] ch=1 val=4E -> page=0E *** TRUNCATED, buffer is above 1MB ***
+```
+
+`MSSBLST.VXD` asked `_PageAllocate` for a buffer anywhere below 16 MB (`maxPhys = 0xFFF`), got
+`0x4E0000`, and the card played whatever was at `0x0E0000` - adapter ROM space. That is why the
+audio was distorted rather than silent or fatal.
+
+The fix is `maxPhys` `0xFFF` -> `0xFF`, two bytes: `vxd-patches/sound/MSSBLST_INBOARD.VXD`, deployed
+with `tools/deploy_sound_fix.sh`. `tools/sweep_image_dma.py` audits a whole install for the same
+mistake. **@andrew-hoffman** called the 4-bit page register from the hardware before any of this was
+measured.
 
 ## Upstream
 

@@ -76,8 +76,12 @@ Everything below is **staged and waiting on a human**. Nothing here needs re-der
 - **COMR95 autostarts** (added `run=C:\COMR95.EXE` to `WIN.INI` `[windows]`), so the bridge comes
   back without you starting it by hand
 
-Then: **install / enable the Sound Blaster Pro and see whether the VDMAD BSOD still happens.**
-That is the single highest-value open question on the project.
+Then: ~~**install / enable the Sound Blaster Pro and see whether the VDMAD BSOD still happens.**
+That is the single highest-value open question on the project.~~
+
+**ANSWERED 2026-08-24: no BSOD, and the audio is clean.** Both bugs are fixed and confirmed on the
+real 5160 — the BSOD by the corrected `VDMAD` patch, the distortion by `MSSBLST.VXD`'s `maxPhys`
+`0xFFF` → `0xFF`. See `docs/xt_dma_20bit_audit_2026_08_24.md`.
 - Revert either change with one `file_write` — backups are in `vxd-patches/realhw_backups/`
   (`SYSTEM.INI.backup-20260823`, `WIN.INI.backup-20260823`)
 - Report the result to @andrew-hoffman either way; he was told this test was coming

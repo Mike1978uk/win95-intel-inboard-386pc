@@ -12,7 +12,7 @@ materially different state than the earlier notes assumed** — see #5 and #8.
 
 ## Tier 1 — actionable now, real chance of a fix
 
-### #5 — Sound Blaster Pro: BSOD FIXED, distortion root-caused  ·  updated 2026-08-24
+### #5 — Sound Blaster Pro: RESOLVED, both bugs, confirmed on real hardware  ·  updated 2026-08-24
 
 **Two separate bugs, both now understood.**
 
@@ -21,14 +21,24 @@ corrupted `AND AH,0C0h` at `OBJ1:0x1660` into a wild write. Deployed via a pre-m
 2026-08-23: Windows reaches the desktop, the SB Pro driver installs, the volume control appears, and
 **there is no BSOD**. Detail below.
 
-**Bug 2 — the distortion. Root cause MEASURED, fix built, not yet deployed.** Sound plays but is
+**Bug 2 — the distortion. FIXED and confirmed on real hardware 2026-08-24.** Sound played but was
 wrong, identically on real hardware and in the emulator on the same image. The XT's 4-bit DMA page
 latch gives 20-bit reach; `MSSBLST.VXD` allocates its DMA buffer with `maxPhys = 0xFFF` (16 MB), so
-it lands at `0x4E0000` and the page register truncates it to `0x0E0000` — adapter ROM space. The
-card plays ROM contents. @andrew-hoffman predicted exactly this from the hardware on 2026-08-20.
+it landed at `0x4E0000` and the page register truncated it to `0x0E0000` — adapter ROM space. The
+card played ROM contents. @andrew-hoffman predicted exactly this from the hardware on 2026-08-20.
 
-Full writeup, the audit tooling, and the ordered next steps:
-[`xt_dma_20bit_audit_2026_08_24.md`](xt_dma_20bit_audit_2026_08_24.md). **Nothing is deployed yet.**
+The fix is `maxPhys` `0xFFF` → `0xFF`, two bytes, one per call site:
+
+```
+before:  [dmapage] ch=1 val=4E -> page=0E  *** TRUNCATED, buffer is above 1MB ***
+after:   [dmapage] ch=1 val=09 -> page=09  ok
+```
+
+Verified in the emulator twin first, then on the 5160. Audio clean on both.
+`vxd-patches/sound/MSSBLST_INBOARD.VXD`, deployed with `tools/deploy_sound_fix.sh`.
+
+Full writeup, the audit tooling, and the whole-install sweep:
+[`xt_dma_20bit_audit_2026_08_24.md`](xt_dma_20bit_audit_2026_08_24.md).
 
 `DMABufferIn1MB=Yes` was tested and does not fix it — it clamps the size of VDMAD's own bounce
 buffer, which a 32-bit driver never uses. That result is why the earlier "void, not negative" call

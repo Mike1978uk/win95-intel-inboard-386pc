@@ -1,8 +1,7 @@
 # The 20-bit DMA problem, and a repeatable audit for it
 
-**Status 2026-08-24: VERIFIED IN THE EMULATOR.** `MSSBLST_INBOARD.VXD` deployed to the
-`vm_golden` twin; the page latch now passes the buffer through untruncated and the user confirms
-the audio is clean by ear. Real-hardware deployment next.
+**Status 2026-08-24: FIXED AND CONFIRMED ON REAL HARDWARE.** Verified first in the `vm_golden`
+twin, then deployed to the CF card and confirmed on the 5160. Audio clean on both.
 
 ```
 before:  [dmapage] ch=1 val=4E -> page=0E  *** TRUNCATED, buffer is above 1MB ***
@@ -100,6 +99,52 @@ Contiguous low memory is scarce, but `MSSBLST`'s first call site already halves 
 on failure (`OBJ4:0x78  shr eax,1`), so a refused allocation shrinks the buffer rather than breaking
 playback.
 
+## The sweep across the whole install (2026-08-24, after the hardware confirmation)
+
+`tools/sweep_image_dma.py <image>` walks a raw disk image, decodes every VxD and reports a verdict
+per file. Run it against a **pre-monolith** image: on a combined install the VxDs inside `VMM32.VXD`
+are invisible, because that file is `W4` compressed.
+
+| File | maxPhys | Where it lives | Verdict |
+|---|---|---|---|
+| `MSSBLST.VXD` x2 | `0xFFF` | `WINDOWS\SYSTEM` | **fixed, confirmed on hardware** |
+| `LPT.VXD` | `0x1000` | `WINDOWS\SYSTEM` | patched, built, not deployed |
+| `QIC117.VXD` | `0xFFF` | `WINDOWS\SYSTEM` | patched, built, not deployed |
+| `SCSIPORT.PDR` x2 | `0x1000`, `0xFEF` | `IOSUBSYS` | only loads with a SCSI miniport |
+| `VFINTD.386` | `0xFFF` | `C:\DOS` | DOS/Win3.x era, not loaded by Win95 here |
+| `IOS.VXD` x2 | `0xFFF` | **inside `VMM32`** | hold — see below |
+| `VFAT.VXD` | `0x1000` | **inside `VMM32`** | hold |
+| `VFBACKUP.VXD` | `0xFFF` | **inside `VMM32`** | hold |
+| `MMDEVLDR.VXD` | `0xFFFFF` | `WINDOWS\SYSTEM` | **leave alone** — "anywhere", not a DMA buffer |
+
+A further ~20 files call `_PageAllocate` with `maxPhys` supplied in a **register** — not statically
+decidable. `VDMAD`, `V86MMGR`, `IFSMGR`, `NDIS`, `HSFLOP` and `DOSMGR` are all in that group. They
+need runtime tracing, not disassembly.
+
+### Why the three inside VMM32 are deliberately not patched
+
+Not caution for its own sake — a measurement. Across a full verified boot, the page register was
+programmed **six times, all channel 1**:
+
+```
+[dmapage] ch=1 val=00 -> page=00 ok
+[dmapage] ch=1 val=09 -> page=09 ok
+[dmapage] ch=1 val=09 -> page=09 ok
+```
+
+Nothing else on this machine does ISA DMA at all. `IOS.VXD` is the I/O Supervisor; patching it costs
+a full pre-monolith rebuild and puts the boot path in the blast radius, to fix something that is not
+happening. Revisit if a trace ever shows a second channel being programmed.
+
+### A refinement not yet made
+
+`maxPhys = 0xFF` is a 1 MB ceiling. Andrew's parenthetical — "or really first 640k" — is the
+stricter and more accurate one, and 386MAX encodes `@DMA_PA_XT = 0x000A0000`. `0xFF` is safe in
+practice because pages `0xA0`–`0xFF` are not RAM, so `_PageAllocate` cannot hand them out, and the
+allocation empirically landed at `0x09`. `0x9F` would be strictly correct. Deliberately not changed:
+the `0xFF` build is verified on real hardware, and re-cutting a proven artefact needs a re-test, not
+a rationale.
+
 ## The audit across every VxD on the machine
 
 `tools/vxd_dma_audit.py` decodes each VxD's real instruction stream (VxD `INT 20h` + inline DWORD
@@ -141,9 +186,12 @@ compressed. Audit them from their pre-monolith staging copies instead.
    `MSSBLST_stock.VXD`.
 2. ~~Play a sound with `INBOARD_DMA_TRACE=1`.~~ **DONE.** `page=09`, no `TRUNCATED`, audio clean.
    Windows 95's own startup sound triggers it — no need to drive the GUI.
-3. If clean, deploy the same file to the CF card and confirm on the 5160. **← here now.**
-4. Then `LPT.VXD` and `QIC117.VXD` for completeness — neither is in use today, but the machine should
-   be correct, not just working.
+3. ~~Deploy the same file to the CF card and confirm on the 5160.~~ **DONE. Clean audio on real
+   hardware.** Deployed with `tools/deploy_sound_fix.sh /d`, which md5-checks the card's existing
+   file and refuses anything it was not derived from.
+4. ~~Then `LPT.VXD` and `QIC117.VXD` for completeness.~~ **Built** —
+   `vxd-patches/dma/LPT_INBOARD.VXD`, `vxd-patches/dma/QIC117_INBOARD.VXD`, both re-audited clean.
+   Not deployed; neither device is in use, so this is correctness, not a fix.
 5. Tell @andrew-hoffman. His 4-bit page register call was right, and the reason it took this long is
    that the first test of it was run against a corrupted VDMAD and recorded as void rather than
    negative — which is the only reason it survived to be retested.

@@ -2075,9 +2075,45 @@ A blanket patch gets that middle row wrong.
 CF is in the machine). **Caveat:** VxDs bundled inside `VMM32.VXD` cannot be audited - it is `W4`
 compressed. Use their pre-monolith staging copies.
 
-**Sweep result on a stock Windows 95 OSR1 install** - note these are *Microsoft's own* drivers, so
-this is not specific to one machine's configuration: `MSSBLST.VXD` (x2), `LPT.VXD`, `QIC117.VXD` all
-declare a 16 MB ceiling; `MMDEVLDR.VXD` declares "anywhere" and must be left alone.
+**CONFIRMED ON REAL HARDWARE 2026-08-24.** Emulator twin first, then the 5160. Clean audio on both:
+
+```
+before:  [dmapage] ch=1 val=4E -> page=0E  *** TRUNCATED, buffer is above 1MB ***
+after:   [dmapage] ch=1 val=09 -> page=09  ok
+```
+
+**Sweep the WHOLE install, and sweep the PRE-MONOLITH image.** `tools/sweep_image_dma.py <image>`
+does the walk. Two lessons from doing it properly on 2026-08-24, both of which a narrower pass had
+missed:
+
+- sweeping the whole volume rather than the drivers you suspect found **`VFINTD.386`** and
+  **`SCSIPORT.PDR`** as well;
+- sweeping the **pre-monolith** image found three more that are *invisible* on a combined install
+  because `VMM32.VXD` is `W4` compressed: **`IOS.VXD`** (the I/O Supervisor), **`VFAT.VXD`**,
+  **`VFBACKUP.VXD`**.
+
+These are *Microsoft's own* drivers, so this is a machine-class bug, not one install's misconfiguration.
+
+**Then do NOT patch everything the sweep lists.** Tier by deployment cost and blast radius, and let
+a measurement decide the expensive tier:
+
+| Tier | Files | Why |
+|---|---|---|
+| patch freely | plain files in `WINDOWS\SYSTEM` (`MSSBLST`, `LPT`, `QIC117`) | dynamically loaded, deploy by file copy, revert by file copy |
+| check relevance first | `IOSUBSYS\SCSIPORT.PDR`, `C:\DOS\VFINTD.386` | only load under conditions this machine may never meet |
+| leave alone unless measured | anything inside `VMM32` (`IOS`, `VFAT`, `VFBACKUP`) | needs a pre-monolith rebuild to deploy, and the boot path is in the blast radius |
+
+On this machine the runtime trace across a full verified boot showed the page register programmed
+**six times, all channel 1** - nothing but the SB Pro does ISA DMA here at all. That is the argument
+for not touching `IOS.VXD`: it fixes something that is not happening, at real risk. Note also that
+~20 files supply `maxPhys` **in a register** (`VDMAD`, `V86MMGR`, `IFSMGR`, `NDIS`, `HSFLOP`,
+`DOSMGR`); those are not statically decidable and need tracing, not disassembly.
+
+**A refinement deliberately not made:** `0xFF` is a 1 MB ceiling, but 386MAX's `MARK_XT` sets
+`@DMA_PA_XT = 0x000A0000` - the true XT ceiling is **640 KB**. `0xFF` is safe in practice because
+pages `0xA0`-`0xFF` are not RAM so `_PageAllocate` cannot return them. `0x9F` is strictly correct.
+It was left at `0xFF` because that build is verified on hardware, and re-cutting a proven artefact
+needs a re-test rather than a rationale.
 
 ## ✅ FINAL VALIDATED FIX SET (2026-08-22) — 5 files, all needed
 1. `machine/m_xt.c` — dedicated `ibmxt_inboard386_config[]`, 1986 ROMs only, default
