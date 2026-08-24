@@ -424,6 +424,42 @@ inboard386_apply_rom_shadow(UNUSED(inboard386_t *dev))
 {
 }
 
+/* [inbmem] 2026-08-24. Settles ONE question and then comes out again (Technique 21):
+   why does stock INBRDPC.SYS's extended-memory diagnostic report `functional 0k /
+   bad 128k` on a machine whose RAM demonstrably works (Windows 95 runs on the full
+   5 MB with NODIAGS)? The port plan established the driver sizes memory with an
+   A20-wrap probe over port 0x60 (0xDF/0xDD) - no INT 15h AH=88h exists in the file -
+   and writes port 0xA0 three times (0x00, 0x80, 0x00) immediately before that loop.
+
+   Two candidate mechanisms, and this trace separates them in one boot:
+
+   (a) A20 state desync. mem_a20_init() leaves mem_a20_state=0 while rammask is
+       UNMASKED, and mem_a20_recalc() only rewrites rammask on a transition. An AT's
+       BIOS resyncs the pair via the 8042 during POST; an XT has no 8042 and never
+       touches A20, so a first-ever DISABLE would hit neither branch and fail to wrap.
+
+   (b) The high BIOS-shadow alias. UniPCemu (the reference implementation) gates a
+       "remap video and BIOS ROM high" on port 0xA0 bit 7 and recomputes an addressable
+       ceiling (MMU.maxsize) on every 0xA0 write. This port does neither: the alias at
+       0xF0000 + mem_size*1024 is enabled once at init and never disabled, so a 64 KB
+       island of RAM-like storage sits above the top of RAM for the whole probe.
+
+   Gated on INBOARD_MEM_TRACE so it is inert for every other machine and every ordinary
+   run, and capped so it cannot become a per-access cost in the memory path
+   (Technique 11). Remove once root-caused. */
+static int inbmem_on    = -1;
+static int inbmem_a20   = 0;
+static int inbmem_a0    = 0;
+static int inbmem_alias = 0;
+
+static int
+inbmem_enabled(void)
+{
+    if (inbmem_on < 0)
+        inbmem_on = (getenv("INBOARD_MEM_TRACE") != NULL);
+    return inbmem_on;
+}
+
 /* Real hardware (confirmed against UniPCemu's inboard.c, the reference implementation
    this whole port is based on - mapmemoryROM()'s own comment literally says "Write RAM,
    Read=PCI/ROM") steers READS based on the shadow-enable bit, but WRITES always land in
@@ -441,6 +477,15 @@ static uint8_t
 inboard386_bios_shadow_read(uint32_t addr, void *priv)
 {
     const inboard386_t *dev = (inboard386_t *) priv;
+    /* [inbmem] Anything at or above 1 MB reaching this callback came through the HIGH
+       alias, not the real F0000 window - i.e. the 64 KB island above the top of RAM.
+       If the driver's memory probe walks into it, that is hypothesis (b) confirmed. */
+    if ((addr >= 0x100000) && inbmem_enabled() && (inbmem_alias < 40)) {
+        inbmem_alias++;
+        fprintf(stderr, "[inbmem] ALIAS read  #%d phys=%06X (shadow off %04X) shadow_enabled=%d\n",
+                inbmem_alias, (unsigned) addr, (unsigned) (addr & 0xffff), dev->rom_shadow_enabled);
+        fflush(stderr);
+    }
     if (dev->rom_shadow_enabled)
         return dev->bios_shadow_ram[addr & 0xffff];
     return dev->bios_rom_snapshot[addr & 0xffff];
@@ -450,6 +495,12 @@ static void
 inboard386_bios_shadow_write(uint32_t addr, uint8_t val, void *priv)
 {
     inboard386_t *dev = (inboard386_t *) priv;
+    if ((addr >= 0x100000) && inbmem_enabled() && (inbmem_alias < 40)) {
+        inbmem_alias++;
+        fprintf(stderr, "[inbmem] ALIAS write #%d phys=%06X val=%02X (shadow off %04X)\n",
+                inbmem_alias, (unsigned) addr, val, (unsigned) (addr & 0xffff));
+        fflush(stderr);
+    }
     dev->bios_shadow_ram[addr & 0xffff] = val;
 }
 
@@ -466,15 +517,25 @@ inboard386_write_60(UNUSED(uint16_t port), uint8_t val, void *priv)
 
     switch (val) {
         case 0xDD: /* Disable A20 */
-            dev->a20_enabled = 0;
-            mem_a20_alt      = 0;
+        case 0xDF: /* Enable A20 */ {
+            const int on = (val == 0xDF);
+            if (inbmem_enabled() && (inbmem_a20 < 40)) {
+                inbmem_a20++;
+                fprintf(stderr, "[inbmem] a20 #%d cmd=%02X -> %s | BEFORE key=%d alt=%d chipset=%d state=%d rammask=%08X\n",
+                        inbmem_a20, val, on ? "ENABLE" : "disable",
+                        mem_a20_key, mem_a20_alt, mem_a20_chipset, mem_a20_state, (unsigned) rammask);
+            }
+            dev->a20_enabled = on;
+            mem_a20_alt      = on;
             mem_a20_recalc();
+            if (inbmem_enabled() && (inbmem_a20 <= 40)) {
+                fprintf(stderr, "[inbmem]         AFTER  key=%d alt=%d chipset=%d state=%d rammask=%08X%s\n",
+                        mem_a20_key, mem_a20_alt, mem_a20_chipset, mem_a20_state, (unsigned) rammask,
+                        (!on && (rammask == 0xffffffffu)) ? "   *** DISABLE DID NOT MASK - wrap is broken ***" : "");
+                fflush(stderr);
+            }
             break;
-        case 0xDF: /* Enable A20 */
-            dev->a20_enabled = 1;
-            mem_a20_alt      = 1;
-            mem_a20_recalc();
-            break;
+        }
         default:
             break; /* Unknown command - ignored, matching stock behavior. */
     }
@@ -510,6 +571,13 @@ inboard386_write_a0(UNUSED(uint16_t port), uint8_t val, void *priv)
 
     if (!dev->is_xt)
         return;
+
+    if (inbmem_enabled() && (inbmem_a0 < 40)) {
+        inbmem_a0++;
+        fprintf(stderr, "[inbmem] portA0 #%d val=%02X (bit7=%d -> UniPCemu would %s the high ROM/video remap; we ignore it)\n",
+                inbmem_a0, val, (val >> 7) & 1, ((val >> 7) & 1) ? "ENABLE" : "disable");
+        fflush(stderr);
+    }
 
     dev->port_a0 = val;
     inboard386_apply_waitstates(dev);
