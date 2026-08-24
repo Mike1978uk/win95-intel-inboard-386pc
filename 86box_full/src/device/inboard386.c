@@ -656,6 +656,44 @@ inboard386_reset(void *priv)
     mem_mapping_enable(&dev->bios_shadow_mapping);
     mem_mapping_enable(&dev->bios_shadow_alias_mapping);
 
+    /* The card's 1 MB base board gives back the part of the 640K-1M hole it does not
+       need for shadowing, as extended memory at the top of RAM. Measured against the
+       real 5160+Inboard at the same mem_size=5120, INBRDPC.SYS's own status box:
+
+                          conventional   reserved   extended
+         real hardware        640K         128K       4352K
+         this port before     640K         384K       4096K
+
+       128K is exactly two 64 KB shadow windows - system BIOS at F0000 and video BIOS
+       at C0000 - and that is all the real card keeps. We were reserving the whole
+       384 KB hole and handing back 256 KB less. Independently corroborated by 386MAX
+       (`Available Shared memory` 3840 KB real vs 3568 KB here).
+
+       That missing 256 KB is why stock INBRDPC.SYS reports `functional extended
+       memory: 0k / bad extended memory: 128k` (upstream issue #7638): its preliminary
+       check probes the region, finds nothing mapped, reads back 0xFF - every bit wrong
+       - and marks two 64 KB blocks bad. Our own images hid it behind NODIAGS and a
+       patched driver; real hardware passes the check.
+
+       86Box already models exactly this: ram_remapped_mapping is a 256 KB window at
+       mem_size*1024 backed by ram + 0xa0000, added by mem_init() and left disabled for
+       chipsets that do not remap. This is the same "relocate the shadow hole to the top
+       of memory" feature AT chipsets use; the Inboard does it too, so turn it on.
+
+       UniPCemu calls this MoveLowMemoryHigh / inboard_remapVideoAndBIOSROMhigh. */
+    /* OPT-IN while it is being evaluated: INBOARD_BACKFILL=1. This changes the memory
+       map of a machine that currently boots Windows 95 reliably, so it does not go on
+       by default until it is proven against real hardware's numbers. Set the variable
+       to A/B the two behaviours from one binary. */
+    if (dev->is_xt && (mem_size > 1024) && (getenv("INBOARD_BACKFILL") != NULL)) {
+        mem_mapping_enable(&ram_remapped_mapping);
+        mem_set_mem_state(mem_size * 1024, 256 * 1024,
+                          MEM_READ_INTERNAL | MEM_WRITE_INTERNAL);
+        fprintf(stderr, "[inbmem] backfill ENABLED: 256 KB at %06X (top of %d KB)\n",
+                (unsigned) (mem_size * 1024), mem_size);
+        fflush(stderr);
+    }
+
     inboard386_apply_rom_shadow(dev);
     inboard386_apply_waitstates(dev);
     inboard386_apply_io_waitstates();

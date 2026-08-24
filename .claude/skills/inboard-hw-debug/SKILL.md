@@ -2188,6 +2188,27 @@ This port implements none of it and ignores `0xA0`'s value for memory purposes e
   all 40 later `DD`/`DF` transitions flip `rammask` correctly between `FFFFFFFF` and `FFEFFFFF`.
 - *The high BIOS-shadow alias being hit during the probe* - no. Zero accesses at or above 1 MB.
 
+**FIX ATTEMPTED 2026-08-24 AND IT CRASHES - read before trying the obvious thing.** 86Box already
+carries the exact mechanism: `mem_init()` creates `ram_remapped_mapping`, a **256 KB** window at
+`mem_size * 1024` backed by `ram + 0xa0000`, then disables it - the standard "relocate the shadow
+hole to the top of memory" feature. Right size, right place, right backing. Enabling it for the
+Inboard (`INBOARD_BACKFILL=1`, opt-in, off by default) **segfaults 86Box during the A20 probe**.
+
+Mechanism of the crash: with A20 masked (`rammask = FFEFFFFF`) an address inside the remapped window
+is pulled *below* the window's own base while that mapping is still selected, so the remap callback
+indexes `ram + 0xa0000` at a negative offset. The AT chipsets that use this mapping never hit it
+because their BIOS manages A20 before any such window exists. **Placing a RAM window exactly at the
+top of memory on a machine that actively toggles A20 needs the masking handled explicitly** - that
+is the real work, and it is not a switch flip.
+
+Corroboration that this is the right area, from SuperFury's own Vogons thread
+(https://www.vogons.org/viewtopic.php?t=52651, 3 pages): UniPCemu hit the *same class* of symptom
+while developing this - "5120K extended memory with 704K assumed bad", later "5504K with 960K bad
+RAM" - explicitly attributed to memory-hole calculation during the diagnostic. The feature is
+`MoveLowMemoryHigh` / `applyMemoryHoles()`, set by `initInboard()` and by port `0x670` writes
+(`case 0x670: MoveLowMemoryHigh = 1;`). **Our `inboard386_write_670` handles speed, ROM shadow,
+wait states and prefetch, but not the memory move at all.**
+
 **Do not test this by raising `mem_size`.** `INBRDPC.SYS` validates the board configuration and
 refuses anything that is not 1 MB, 1+2 MB or 1+4 MB - a `3328` config makes it bail before probing,
 giving a silent false negative. The fix has to come from remapping *within* the existing total.
