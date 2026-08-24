@@ -2115,6 +2115,54 @@ pages `0xA0`-`0xFF` are not RAM so `_PageAllocate` cannot return them. `0x9F` is
 It was left at `0xFF` because that build is verified on hardware, and re-cutting a proven artefact
 needs a re-test rather than a rationale.
 
+## Technique 63: "bad extended memory: 128k" is INBRDPC.SYS's own preliminary check, not your RAM
+
+**Recognise it instantly.** `INBRDPC.SYS` shows a scare screen - *"Some extended memory on the
+Inboard 386/PC or Piggyback board has failed"* - with:
+
+```
+extended memory detected:  2048k     <- correct
+extended memory diagnosed: 2048k     <- it tested all of it
+functional extended memory:   0k     <- does not add up
+bad extended memory:        128k     <- CONSTANT, whatever the RAM size
+```
+
+**The tells that it is not a real memory fault, and not a config problem:**
+
+- the numbers do not reconcile - `diagnosed != functional + bad`. The driver aborts and zeroes the
+  total rather than reporting 128 KB bad and using the rest;
+- `bad` is **exactly 128k regardless of `mem_size`**. A genuine fault scales with the array;
+- it is **independent of BIOS revision, CPU family and RAM size**. Confirmed 2026-08-24 by A/B on a
+  reporter's own disk image: i386dx/16 MHz vs ibm486bl3/83.5 MHz, superega vs mach8 - identical.
+
+**Root cause, already traced** (port plan lines 1302-1307): the only mark-bad hits are **2 hits at
+INBRDPC.SYS code offset `9D2E`**, the very first block/pair, both a *complete* mismatch
+(`EBP=FFFFFFFF`, every bit wrong). Exactly **2 x 64 KB = 128k**. That block runs twice, not in the
+64-iteration per-chip loop - a one-time preliminary sanity check, separate from the real per-board
+test, which passes cleanly on its own.
+
+**The fix is Intel's own, documented in their manual (Table D-2):**
+
+```
+DEVICE=C:\INBRDPC.SYS NODIAGS NOPAUSE
+```
+
+`NODIAGS` turns off the extended memory diagnostics. At 3072K the result is then
+`detected 2048k / functional 2048k / bad 0k`.
+
+**Why this keeps coming back:** every image this project builds already carries `NODIAGS`, so the
+screen is invisible here - but any *user-built* image will show it, and it looks exactly like a
+port bug. Reported as one on upstream issue [#7638](https://github.com/86Box/86Box/issues/7638).
+**Check `CONFIG.SYS` before touching `86box.cfg`** - the diagnostic running at all proves `NODIAGS`
+is absent, so there is nothing to bisect in the machine config.
+
+**Still genuinely open, and do not oversell the fix:** the preliminary check reading *every bit*
+wrong smells like reads landing on unmapped memory, which would be a real emulation gap that
+`NODIAGS` merely hides. Real hardware has never been tested *without* `NODIAGS`, so we do not know
+whether that check passes there. Real hardware does show its own 128 KB accounting gap
+(5120 total, 640 + 4352 reported = 4992), which is suggestive but not proof. Settling it costs one
+boot of the real 5160 with `NODIAGS` removed.
+
 ## ✅ FINAL VALIDATED FIX SET (2026-08-22) — 5 files, all needed
 1. `machine/m_xt.c` — dedicated `ibmxt_inboard386_config[]`, 1986 ROMs only, default
    `ibm5160_050986`. **Fixes the reported POST 101.**
