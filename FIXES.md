@@ -64,7 +64,9 @@ Same class of fix one layer up. Plain file copy to `C:\WINDOWS\SYSTEM\`.
 · [stock original](https://github.com/Mike1978uk/win95-intel-inboard-386pc/raw/master/vxd-patches/osr1/INBRDPC_stock.SYS) `c25b951a0a6093dcfa5138d89159cbf6`
 
 Skips Intel's driver self-test. **This is load-bearing, not a convenience** — with the stock driver
-the emulator fails a check real hardware passes ([86Box#7638](https://github.com/86Box/86Box/issues/7638)).
+the emulator fails a check real hardware passes. **Root-caused 2026-08-24** ([#12](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/12)): 86Box
+places the card's high BIOS-shadow alias at `0xF0000 + mem_size*1024`, but the driver targets a fixed
+`0x5F0000`, so the two agree only at `mem_size = 5120`.
 Copy to `C:\INBRDPC.SYS`.
 
 ### `IVT68FIX.COM` — INT 68h vector
@@ -90,9 +92,29 @@ fixes. Same `maxPhys` change as the sound driver.
 
 ## Not fixed
 
-- **ATI Mach 8** display driver — configures but does not work ([#4](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/4), [#8](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/8)). Use `display.drv=vga.drv`.
-- **`bad extended memory: 128k`** from a stock `INBRDPC.SYS` without `NODIAGS`. The RAM is fine; the diagnostic is not. Emulator-side, under investigation ([86Box#7638](https://github.com/86Box/86Box/issues/7638)). Workaround: `DEVICE=C:\INBRDPC.SYS NODIAGS`.
-- **`ROM BIOS shadow RAM failed`** with a stock driver. Cosmetic — shadowing works; the self-test does not agree.
+- **`bad extended memory: 128k`** from a stock `INBRDPC.SYS` without `NODIAGS`. The RAM is fine; the
+  preliminary check is not — `bad` reads exactly 128k at every RAM size. Workaround:
+  `DEVICE=C:\INBRDPC.SYS NODIAGS`. Tracked at [#11](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/11); upstream 86Box#7638 is closed `NOT_PLANNED`.
+- **`ROM BIOS shadow RAM failed`** with a stock driver. Does not stop the machine being used, and does
+  not cost you memory. **Root-caused, not yet fixed** — the emulator's shadow alias is at the wrong
+  address for every RAM size except 5120 ([#12](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/12)). Correcting the address alone is not
+  enough: it exposes a NULL dereference that crashes 86Box ([#13](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/13)). **Do not switch to
+  `mem_size = 5120` to dodge this** — that is the one path that crashes.
+
+---
+
+## Not a patched file, but needed
+
+- **ATI Mach 8 — working as of 2026-08-24** ([#4](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/4)). Nothing to patch: use Windows 95's
+  **own** driver, *ATI Graphics Ultra (mach8)* (`ATIM8.DRV` + `ATI.VXD`, `MSDISP.INF` section `[ATI8]`),
+  then **set the adapter's configuration manually** in Device Manager (Resources → untick *Use
+  automatic settings*). The driver alone does nothing; the manual configuration is the step that
+  matters. Do **not** install the Windows 3.1x driver (`MACHW3.DRV`) — it was tried first and failed.
+  `display.drv=vga.drv` is **no longer needed**.
+- **Keyboard `\`** — set Windows to the **US** layout. On an 83-key XT keyboard the UK backslash sits on
+  a scancode the hardware cannot send ([#2](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/2)).
+- **Mouse** — driven by `msmouse.vxd` from `SYSTEM.INI`, not by a Device Manager node. An errored or
+  absent mouse entry is expected ([#6](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/6)).
 
 ---
 

@@ -57,7 +57,8 @@ at the center of the fix.
 ## What works
 
 - Full GUI desktop, Start Menu built and populated
-- Keyboard input (system dialogs, text entry, everywhere tested)
+- Keyboard input (system dialogs, text entry, everywhere tested). Set Windows to the **US** layout
+  for a working `\` - an 83-key XT keyboard has no key for the UK one
 - Mouse input
 - 32-bit applications (confirmed with the bundled FreeCell)
 - Floppy drives A: and B:
@@ -121,9 +122,11 @@ The recipe, on real hardware:
 
 You can tell which devices have had step 2 by reading `SYSTEM.DAT`: a manually configured node
 carries a **`ForcedConfig`**, a detection-configured one carries a **`BootConfig`** plus a
-`DetFunc`. On this machine the working Mach8 and COM1 have the former; the one device still not
-working ([#6](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/6), a phantom PS/2
-mouse) has the latter. That test generalises to any non-PnP card on this hardware.
+`DetFunc`. On this machine the working Mach8 and COM1 have the former; the phantom PS/2 mouse
+Windows invented ([#6](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/6)) has the latter. That test generalises to any non-PnP card on
+this hardware — and it tells the two situations apart: the Mach8 was a real device with an
+unconfigured node, so forcing its configuration fixed it, whereas the mouse node was always fiction
+and there was nothing to configure.
 
 ## Upstream
 
@@ -246,11 +249,15 @@ and the ones most likely to be tractable are:
 
 | | |
 |---|---|
+| [#13](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/13) | a guest can crash 86Box outright — NULL deref on a page-table walk. Self-contained, and it blocks #12 |
+| [#12](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/12) | the Inboard's BIOS-shadow alias is at the wrong address for every RAM size except 5120 |
 | [#8](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/8) | ATI Mach 8 — the option ROM's RAM addressing test fails in 86Box but passes on the real card |
-| [#6](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/6) | a phantom PS/2 mouse Windows detected on a machine with no 8042 and no IRQ 12 |
 | [#7](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/7) | Setup black-screens right before the Help files (reboot works around it) |
-| [#2](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/2) | keyboard maps `#` where `\` is expected |
-| [#11](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/11) | extended memory not recognised on an Inboard 386/PC |
+| [#3](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/3) | Browse in Add New Hardware faults (typing the path works) |
+| [#9](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/9) | `revto486.sys` halts under Windows 95, but loads fine under DOS 6.22 and Win 3.11 |
+
+Issues are labelled **`emulator`** or **`real-hardware`** so you can pick by what you have, and
+**`upstream`** marks the ones destined for 86Box itself.
 
 **You do not need an Inboard to help.** Most of this was found in emulation, on an 86Box build that
 is [in this repo](86box_full/) and now [upstream](https://github.com/86Box/86Box/pull/7626).

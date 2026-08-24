@@ -34,7 +34,21 @@ keyboard and mouse — has not been documented as working before.
   worked in combination with everything else, but a reboot was needed to get past a black-screen
   stall while Windows was finishing Start Menu/Help setup — the exact cause of that stall, and
   whether it's related to `IVT68FIX.COM`'s timing, is not yet confirmed.
-- COMR95 - will be using Comrade in Windows to help debug further some open issues. 
+- COMR95 - will be using Comrade in Windows to help debug further some open issues.
+- ~~ATI Mach 8 display driver.~~ **RESOLVED 2026-08-24** ([#4](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/4)) - Windows 95's own
+  `ATIM8.DRV`/`ATI.VXD` at 1024x768x256, once the adapter's configuration is set manually. See
+  section 8. Video, sound and networking now run simultaneously on the real 5160.
+- ~~Keyboard `#` where `\` expected.~~ **RESOLVED 2026-08-24** ([#2](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/2)) - the US layout.
+  The UK backslash lives on a scancode an 83-key XT keyboard cannot send, so this was never fixable
+  as a mapping.
+- ~~Phantom PS/2 mouse in Device Manager.~~ **Works as designed** ([#6](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/6)) - the mouse is
+  driven by `msmouse.vxd` from `SYSTEM.INI`, not by a PnP node, so there is no node to fix.
+- **`ROM BIOS shadow RAM failed` with a stock `INBRDPC.SYS` - root-caused, not fixed.** 86Box places
+  the card's high BIOS-shadow alias at `0xF0000 + mem_size*1024`; the driver targets a fixed
+  `0x5F0000`, so they agree only at `mem_size = 5120` - the size the original trace was taken on
+  ([#12](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/12)). Correcting the address alone is not shippable: it exposes a NULL dereference
+  that crashes the emulator ([#13](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/13)), and the driver's own sizing probe reacts to the bare
+  64 KB window, so the card's real bank-aliasing needs modelling instead.
 
 ## Why this is hard
 
