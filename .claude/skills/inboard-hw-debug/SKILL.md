@@ -2326,3 +2326,62 @@ original submission: `d6fbb9e88`, adopting **Michal Necasek's `F000:FF53`** in p
 local-only and is the obvious candidate for a third PR.
 
 **Still open from earlier**: upstream issue #7638 (RAM configuration) has had no reply yet.
+
+## Technique 65: on this XT, a Win95 device failure is usually an UNCONFIGURED device node, not a
+## wrong driver - read the hive for `ForcedConfig` vs `BootConfig` before touching any driver file
+
+**Established 2026-08-24, on real hardware, and it resolved issue #4 (Mach8) while explaining #6
+(phantom PS/2 mouse) as the same bug one step behind.**
+
+Windows 95 assigns resources to a non-PnP ISA device by *automatic configuration*. On this machine
+that frequently has nothing to work from, so the node is left with no usable resources and whatever
+driver you bind to it fails - looking exactly like a missing or wrong driver. The fix is
+Device Manager -> the device -> Resources -> uncheck **Use automatic settings** -> pick a
+configuration -> reboot. Users call this "set configuration manually".
+
+**It leaves a fingerprint in the registry, so you can tell which devices have had it done.**
+
+| Value on the `Enum\Root\...\0000` node | Means |
+|---|---|
+| **`ForcedConfig`** | a human set the configuration manually - this device has had the fix |
+| **`BootConfig`** | the configuration came from a **detection routine** at setup time |
+| **`DetFunc = *:DETECTxxx`** | which detection routine produced it |
+
+A `BootConfig` with no `ForcedConfig` is the failure state, and **Device Manager greys the resources
+out** in that state - which is what "IRQ 12 isn't changeable" means. It is not a locked setting, it
+is a device Windows believes it detected.
+
+**Working Mach8 config, for reference** (`Services\Class\Display\0000`, verified against a live card
+running video + sound + network simultaneously):
+
+```
+InfPath     msdisp.inf          <- MICROSOFT's bundled driver, section [ATI8]
+InfSection  ATI8
+DriverDesc  ATI Graphics Ultra (mach8)
+DevLoader   *vdd                ->  ATIM8.DRV + ATI.VXD
+Settings\   BitsPerPixel 8  |  Resolution 1024,768
+node:       HardwareID *PNP090B, CompatibleIDs *PNP090A, Mfg ATI Technologies, + ForcedConfig
+```
+
+Two traps this kills:
+
+- **There IS a Windows 95 driver for the mach8.** ATI never wrote one, but Microsoft shipped
+  `ATIM8.DRV`/`ATI.VXD` in the retail box. Do **not** install the Windows 3.1x driver
+  (`MACHW3.DRV`/`.3GR`/`MACHW3V.386`) under Win95 - it was tried first and failed. Leftover MACHW3
+  files in `WINDOWS\SYSTEM` and a stale `[boot.description] display.drv=ATI mach8: ...` line in
+  `SYSTEM.INI` are cosmetic; `[boot] display.drv=pnpdrvr.drv` is normal and the real driver comes
+  from the hive.
+- **Changing a device's driver does not clear its configuration.** Re-driver'ing the phantom PS/2
+  mouse to "Standard Serial Mouse" rewrote `DeviceDesc` and `HardwareID` (`*PNP0F0E` -> `*PNP0F0C`)
+  and left `DetFunc = *:DETECTPS2MOUSE` and the PS/2 `BootConfig` (IRQ 12, I/O 310-311 - neither
+  exists on a 5160) in place. **Remove** the node and reinstall via Add New Hardware **declining
+  autodetect**, or `DETECTPS2MOUSE` re-runs and the phantom returns (Technique 55 / issue #6).
+
+**Reading the hive without booting the guest.** `SYSTEM.DAT` is `CREG`, not NT `regf`, so libregf and
+friends will not open it. A plain printable-run scan is enough for this job and needs no parser -
+value records are stored as `<name><data>` back to back, so grepping for a value name and printing
+~400 bytes of context reads out the whole node. `strings` is absent from this environment; use Python
+`re.finditer(rb'[\x20-\x7e]{5,}', data)`. Beware that adjacent records bleed together in the output
+(`MouseTypeSerialial0` is `MouseType`=`Serial` plus the head of the next record) - do not read a
+value off a run boundary. The 12 bytes before a name are its header, ending
+`type(2) namelen(2) datalen(2)`, if you need to delimit exactly.
