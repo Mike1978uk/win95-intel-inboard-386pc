@@ -1,0 +1,3 @@
+[dmapage] ch=1 val=00 -> page=00 ok  (xt_latch=1)
+[dmapage] ch=1 val=09 -> page=09 ok  (xt_latch=1)
+[dmapage] ch=1 val=09 -> page=09 ok  (xt_latch=1)

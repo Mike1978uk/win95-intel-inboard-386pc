@@ -121,4 +121,7 @@ fi
 
 echo
 echo "Ready. Launch with:"
-echo "  cd $VM && \"$EXE\" --vmpath . --fullscreen 0"
+echo "  cd $VM && \"$EXE\" --vmpath ."
+echo "  (NOT --fullscreen 0: --fullscreen takes no argument in this build, so the 0 is"
+echo "   swallowed as a positional CONFIG FILENAME. 86Box then boots an empty default"
+echo "   config - no hard disk, straight to ROM BASIC - and goes fullscreen. Seen 2026-08-24.)"

@@ -1,7 +1,16 @@
 # The 20-bit DMA problem, and a repeatable audit for it
 
-**Status 2026-08-24: root cause measured, fix built and verified as a file, NOT yet deployed or
-tested on either machine.** Deployment is the first task of the next session.
+**Status 2026-08-24: VERIFIED IN THE EMULATOR.** `MSSBLST_INBOARD.VXD` deployed to the
+`vm_golden` twin; the page latch now passes the buffer through untruncated and the user confirms
+the audio is clean by ear. Real-hardware deployment next.
+
+```
+before:  [dmapage] ch=1 val=4E -> page=0E  *** TRUNCATED, buffer is above 1MB ***
+after:   [dmapage] ch=1 val=09 -> page=09  ok
+```
+
+`0x090000` = 576 KB. It is also 64 KB-aligned, so a 64 KB buffer cannot straddle the 64 KB
+boundary an 8-bit DMA channel is unable to cross. Evidence in `docs/evidence/`.
 
 ## The problem in one sentence
 
@@ -118,18 +127,21 @@ compressed. Audit them from their pre-monolith staging copies instead.
 | `tools/fatls.py` | read-only FAT12/16 lister/extractor for the raw images |
 | `vxd-patches/patch_vxd_dma_maxphys.py` | generic; refuses a no-op; post-checks its own output |
 | `vxd-patches/sound/MSSBLST_stock.VXD` | extracted from the emulator image |
-| `vxd-patches/sound/MSSBLST_INBOARD.VXD` | patched, 2 bytes, re-audited clean |
+| `vxd-patches/sound/MSSBLST_INBOARD.VXD` | patched, 2 bytes, re-audited clean; **verified in the emulator** |
+| `tools/fatput.py` | writes a same-size replacement file into a raw image over its own cluster chain |
+| `tools/shot.ps1` | PrintWindow screenshot of the running 86Box window |
 | `86box_full/src/dma.c` trace | `INBOARD_DMA_TRACE=1`, capped, inert otherwise |
-| Deployment | **none — nothing has been tested yet** |
+| Deployment | emulator: **done and verified**. Real hardware: pending |
 
 ## Next session, in order
 
-1. Deploy `MSSBLST_INBOARD.VXD` to `C:\WINDOWS\SYSTEM\MSSBLST.VXD` **in the emulator first** — it is
-   not a `VMM32` bundled VxD, so no pre-monolith image is needed and it is revertible by copying the
-   stock file back.
-2. Play a sound with `INBOARD_DMA_TRACE=1`. Success is `[dmapage] ch=1` showing a page `≤ 0xFF` with
-   no `TRUNCATED` marker, and clean audio.
-3. If clean, deploy the same file to the CF card and confirm on the 5160.
+1. ~~Deploy `MSSBLST_INBOARD.VXD` in the emulator first.~~ **DONE 2026-08-24.** Written straight
+   into the image with `tools/fatput.py` — same size, so it goes over the file's own cluster chain
+   and the FAT and directory entry are never touched. Reverting is the same command with
+   `MSSBLST_stock.VXD`.
+2. ~~Play a sound with `INBOARD_DMA_TRACE=1`.~~ **DONE.** `page=09`, no `TRUNCATED`, audio clean.
+   Windows 95's own startup sound triggers it — no need to drive the GUI.
+3. If clean, deploy the same file to the CF card and confirm on the 5160. **← here now.**
 4. Then `LPT.VXD` and `QIC117.VXD` for completeness — neither is in use today, but the machine should
    be correct, not just working.
 5. Tell @andrew-hoffman. His 4-bit page register call was right, and the reason it took this long is

@@ -1,0 +1,5 @@
+[dmapage] ch=1 val=00 -> page=00 ok  (xt_latch=1)
+[dmapage] ch=1 val=4E -> page=0E *** TRUNCATED, buffer is above 1MB ***  (xt_latch=1)
+[dmapage] ch=1 val=4E -> page=0E *** TRUNCATED, buffer is above 1MB ***  (xt_latch=1)
+[dmapage] ch=1 val=4E -> page=0E *** TRUNCATED, buffer is above 1MB ***  (xt_latch=1)
+[dmapage] ch=1 val=4E -> page=0E *** TRUNCATED, buffer is above 1MB ***  (xt_latch=1)

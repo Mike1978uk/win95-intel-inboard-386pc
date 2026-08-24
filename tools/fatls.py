@@ -102,4 +102,5 @@ def main():
     for e in fat.listdir(clus):
         print(f"  {'<DIR>' if e['dir'] else e['size']:>9}  {e['name']}")
 
-main()
+if __name__ == '__main__':   # importable: tools/fatput.py reuses Fat
+    main()
