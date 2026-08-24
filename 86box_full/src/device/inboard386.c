@@ -827,7 +827,29 @@ inboard386_init(const device_t *info)
        RAM address never is). Confirmed live: with MEM_MAPPING_INTERNAL here, every write to this
        range silently landed nowhere (read back as 0xFF, 86Box's "no mapping at all" default)
        regardless of mem_mapping_enable() being re-asserted every reset. */
-    mem_mapping_add(&dev->bios_shadow_alias_mapping, 0xf0000 + ((uint32_t) mem_size * 1024), 0x10000,
+    /* 2026-08-24: the (0xF0000 + mem_size*1024) formula above was fitted to a SINGLE live
+       trace, taken on a mem_size=5120 config, where the driver's shadow-copy destination was
+       observed at physical 0x5F0000. That is a one-point fit, and 0xF0000 + 5120*1024 happens
+       to equal 0x5F0000 exactly - so "derived from installed RAM" and "a fixed constant" are
+       indistinguishable at that one size. Measured at mem_size=2688 (a reporter's config,
+       upstream #7638 / issue #11): the alias is touched ZERO times and the driver's own ROM
+       BIOS shadow RAM self-test fails, while at 5120 it is touched 40+ times starting at
+       exactly 0x5F0000 and the test passes.
+
+       INBOARD_ALIAS_BASE=<hex> overrides the base so the two readings can be told apart on a
+       config where they differ. Al Williams' driver for this card hard-codes the same number -
+       MINBRDPC.ASM: `inbrd_romram equ 5f0h  ; high speed ram to replace the pc's [ROM]`,
+       documented there as a "starting physical bank number", and 0x5F0 * 4 KB = 0x5F0000. */
+    uint32_t alias_base = 0xf0000 + ((uint32_t) mem_size * 1024);
+    const char *alias_env = getenv("INBOARD_ALIAS_BASE");
+    if (alias_env != NULL) {
+        alias_base = (uint32_t) strtoul(alias_env, NULL, 0);
+        fprintf(stderr, "[inbmem] alias base overridden by INBOARD_ALIAS_BASE: %06X "
+                        "(formula would give %06X for mem_size=%d)\n",
+                (unsigned) alias_base, (unsigned) (0xf0000 + ((uint32_t) mem_size * 1024)), mem_size);
+        fflush(stderr);
+    }
+    mem_mapping_add(&dev->bios_shadow_alias_mapping, alias_base, 0x10000,
                      inboard386_bios_shadow_read, NULL, NULL,
                      inboard386_bios_shadow_write, NULL, NULL,
                      dev->bios_shadow_ram, 0, dev);
