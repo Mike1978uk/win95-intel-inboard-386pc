@@ -2154,7 +2154,14 @@ attributed it to `F0000+` landing in a memory hole, needing the ROM mirrored at 
 Three explanations, one symptom; do not assume any of them without re-measuring on the config in
 front of you.
 
-## Technique 63: "bad extended memory: 128k" is INBRDPC.SYS's own preliminary check, not your RAM
+## Technique 63: "bad extended memory: 128k" - CONCLUSION CORRECTED 2026-08-24, see Technique 67
+##
+## > **The measurements below are all correct. The conclusion drawn from them was wrong.**
+## > This is NOT "the driver's own preliminary check" and NOT something to work around with
+## > `NODIAGS`. **It is our bug.** The two mark-bad hits at offset `9D2E` with `EBP=FFFFFFFF` are
+## > the driver probing the card's 128 KB reserved block through its two high windows -
+## > `0x5E0000` and `0x5F0000` - and reading `0xFF` because we never mapped them. Read
+## > **Technique 67** instead. Keep this section only for its measurement technique.
 
 **Recognise it instantly.** `INBRDPC.SYS` shows a scare screen - *"Some extended memory on the
 Inboard 386/PC or Piggyback board has failed"* - with:
@@ -2477,3 +2484,187 @@ has settled by looking for `Press any key to continue:` or the driver's own succ
 Harness: `tools/shadow_run.ps1` (one config-controlled run), `tools/shadow_exit.ps1` (exit code +
 live frames), `tools/shadow_gdb.ps1` (backtrace), `tools/vhd2raw.py` (dynamic VHD → raw; there is no
 `qemu-img` on this box, and reporters attach VHDs).
+
+
+---
+
+## Technique 67: the Inboard reserves **128 KB**, not 64 - and UniPCemu's memory model lives in
+## `mmuhandler.c`, NOT in `inboard.c`
+
+**The single most expensive mistake in this port**: treating `UniPCemu/hardware/inboard.c` (257
+lines) as "the reference implementation". It is only the *ports and wait-states* half. The **memory
+map** - where every shadow/alias/reserved-block behaviour actually lives - is in
+`UniPCemu/mmu/mmuhandler.c`. Two sessions burned on `bad extended memory: 128k` would have ended in
+minutes with one grep of that second file.
+
+**Grep the whole UniPCemu tree for the flag, not the device file:**
+
+```bash
+grep -rn "inboard_remapVideoAndBIOSROMhigh\|MoveLowMemoryHigh" "$U" --include=*.c --include=*.h
+```
+
+### What it says
+
+```c
+/* mmuhandler.c ~910 */
+translatedaddr += 0x20000; // Apply reserved memory as well (this is placed at the beginning) of 128KB!
+
+/* mmuhandler.c ~824, ~841 */
+if (((precalcposvirt == 0x5F) && inboard_remapVideoAndBIOSROMhigh) || (precalcposvirt == 0xF)) // BIOS ROM
+if (((precalcposvirt == 0x5E) && inboard_remapVideoAndBIOSROMhigh) || (precalcposvirt == 0xC)) // "Second 64K of reserved memory (EGA ROM as documented)"
+```
+
+The card reserves **128 KB at the bottom of RAM**, normal RAM is shifted up past it, and the block is
+visible through **two** 64 KB windows: `0x5F0000` (BIOS ROM) and `0x5E0000` (video/EGA ROM). The low
+views are `0xF0000` and `0xC0000`. `memoryhole = 0xFF` marks it "manually managed".
+
+**This port only ever implemented `0x5F0000`.** Reads of `0x5E0000` hit no mapping and returned
+`0xFF`. **That is the 128k.** Adding a plain-RAM window at `0x5E0000` takes it `128k -> 64k`,
+measured on a reporter's disk at 3072 with diagnostics enabled. Shipped: fork `f0480f9`, upstream
+PR #7761.
+
+Note this is NOT the same thing as caching the video ROM at `0xC0000` - Intel's opt-in `EGACACHE`,
+which this file correctly leaves alone. The card reserves the window regardless, which is also why
+the panel prints `EGA BIOS: 32-bit RAM` on machines that never enable EGA caching.
+
+### `0xFF` / "every bit wrong" is an UNMAPPED signature, not a memory-fault signature
+
+Technique 63 recorded the mark-bad hits as `EBP=FFFFFFFF`, "a *complete* mismatch, every bit wrong",
+and read that as a driver quirk. All-ones is what 86Box returns for **no mapping at all**. When a
+guest's memory test reports a region bad and the readback is all-ones, **stop looking at the test and
+go find what should be mapped there.** A real failing DRAM array gives you *some* bits wrong, not all
+of them, and not the same byte count at every RAM size.
+
+### Two things our own source comments get wrong - do not trust them
+
+1. `inboard386.c`'s note blames gating on **port 0xA0 bit 7**. In UniPCemu's actual source **that
+   block is commented out**. The live gate is **port 0x670 bit 0** (the cache/shadow-enable bit),
+   inverted: bit clear -> ROMs mapped **high** (the `0x5E`/`0x5F` windows exist); bit set -> mapped
+   **low only**. That is the same bit our port already reads as
+   `dev->rom_shadow_enabled = dev->speed & 1;`, so our high alias is permanently enabled where
+   UniPCemu's is conditional.
+2. UniPCemu also clamps `MMU.maxsize = MIN(MMU.size, 0x500000)` (XT) / `0x300000` (AT) and recomputes
+   it on every `0xA0` / `0x670` / `0x674` write. We never do.
+
+### Recorded dead end - do not re-attempt blind
+
+Making the high BIOS window plain RAM (matching UniPCemu, whose ROM flags apply only to the low
+`0xF0000` view) **does** give `bad: 0k`. It also **resets the guest** a few seconds after the driver
+loads. Reproduced on **two consecutive runs** - resample before blaming the intermittent POST flake
+this machine has at 2688/3072 (issue #14), but do not stop at one clean run either.
+
+**Working hypothesis for why** (untested): the diagnostic's test patterns land in `bios_shadow_ram`
+and destroy the ROM copy this port *pre-populates at init*, after which the low `0xF0000` window
+serves that garbage as executable code. On real hardware the driver tests the block and *then* copies
+the ROM in; our pre-population may be letting it skip the copy. **Measure before coding** - the fork
+already has `INBOARD_MEM_TRACE` with `[inbmem] ALIAS read/write` logging; use it to establish the
+*order* of the driver's test writes vs its shadow copy rather than guessing again.
+
+### Practical notes that each cost a run
+
+- **`keybd_event`, not `SendKeys`.** Neither `WScript.Shell.SendKeys` nor `WM_KEYDOWN` reaches
+  86Box's input layer; both fail **silently**, so the guest just sits at a prompt looking hung.
+  `tools/probe_badmem.ps1` does it correctly.
+- **The "press any key to display the location" page is a CHIP MAP, not addresses** - *"Failed chips
+  are highlighted and labeled 'BAD'"*, a physical package layout. It will not give you a failing
+  address. Do not spend runs on it.
+- **`NODIAGS` blanks two fields.** `conventional memory initialized:` and `extended memory
+  diagnosed:` render **empty** under `NODIAGS`. They are real value fields (`640k` / `2048k`); the
+  flag just skips the pass that fills them. Never read a `NODIAGS` screenshot as evidence that those
+  values are missing.
+- **`functional 0k` with `bad 128k` is not a contradiction** - the driver rejects the **entire** pool
+  over any bad block. A 64 KB gap costs the user *all* extended memory, which is why this matters
+  more than the number suggests.
+- **A pre-#7749 `86box.cfg` boots to a black screen, no POST, no message.** The machine now carries
+  its own BIOS list with only `ibm5160_050986` / `ibm5160_011086`; an older
+  `bios = ibm5160_1501512_5000027` matches nothing. Both upstream reporters' attached VMs hit this.
+  Check `bios =` before diagnosing anything else.
+
+---
+
+## Technique 68: the accelerator's CPU is an **IBM Blue Lightning**, so Cyrix tools do not apply
+
+Recurring dead end when chasing the cache / clock-multiplier work (issue #9). The real machine's
+`revto486.sys /BL /CN /CCM /2` line and our own `cpu_family = ibm486bl3` both say **IBM BL3**.
+
+- **Cyrix `CX486DRX` disk** (`CX486.EXE`, `CXID.EXE`) - **Cx486DRx/SRx only.** `CXID.EXE` returns
+  errorlevel **255** on anything else and Cyrix's own installer aborts on it. Wrong family.
+- **Gortmaker `cyrix.exe`** - DLC/SXL only. Wrong family.
+- **BL3 needs** `revto486.sys` / `lght486.sys` (multiplier `/1` `/2` `/3`) or **`CTCHIP34 IBM486`**
+  for the registers. CTCHIP34 runs from `AUTOEXEC.BAT` and exits (needs `%%` there, `%` at the
+  prompt).
+- The two Cyrix disk versions in circulation are **identical for DOS**: `HD/CX486.EXE` is
+  byte-identical (MD5) between the "3.0" and "3.3" downloads; only `CX486WIN.EXE` differs.
+
+**Reference**: feipoa, *"Register settings for various CPUs"*,
+<https://www.vogons.org/viewtopic.php?t=45756> - all 4 pages read 2026-08-24. Load-bearing points:
+
+- **`-cd` does NOT clock-double a plain DLC.** On SXL2 it enables 2x; on Cyrix/TI **486DLC the same
+  register selects direct-mapped vs two-way L1 instead**. An easy way to think you enabled doubling.
+- **BARB vs FLUSH with a DMA controller**: *"If you are using a DMA-capable SCSI controller ... you
+  may need to use the BARB method ... If using BARB, and your motherboard has enabled FLUSH, disable
+  flush."* An XT planar never drives `FLUSH#`, so the Cyrix disk's shipped default `CC_0=13`
+  (FLUSH on, BARB off) is an enabled cache with **no DMA invalidation** - silent corruption, not
+  errors. Relevant to the T130B.
+- **The Win95-only halt has a documented match** (replies 64-67): cache enabled -> Win95 will not
+  boot, GPF in text mode then shutdown; disabling L1 lets it boot; **`win /d:x` boots it with the
+  cache on**. `/d:x` == `EMMExclude=A000-FFFF` in `SYSTEM.INI`. Same signature as issue #9 - fine in
+  DOS 6.22 and Win3.11, dies only on the Win95 boot.
+- **HIMEM for BL3**: feipoa - *"Normally I only need to experiment with `/machine:1` or `/machine:3`
+  when using a BL3 chip"*, plus `/CPUCLOCK:ON` and `/TESTMEM:off` if it errors. Two people cleared
+  "unable to control A20" with `/machine:13`. The card's A20 is its own port-0x60 `0xDF`/`0xDD`
+  mechanism, so `/MACHINE:` matters more here than on a normal AT.
+- Load `revto486.sys` / `lght486.sys` **before** HIMEM, and use `DOS=HIGH,UMB` - plain `DOS=UMB`
+  causes soft-reset failures and hangs that disappear with `HIGH,UMB`.
+
+### The clock multiplier IS reachable without `revto486.sys` - `CTCHIP34` + `IBM486.CFG`
+
+This is the answer to "how do we get clock doubling back when the resident driver halts under
+Win95". `CTCHIP34`'s own `IBM486.CFG` (`NAME=486DLC3 ; (oder 486SLC2) IBMs Blue Lightning`,
+dated 1993-12-07) documents the register directly:
+
+```
+INDEX=1002:3     ; Clock Control Register Byte 3
+BIT=5            ; EDFS:   External Dynamic Frequency Shift
+BIT=4            ; DFSRDY: Dynamic Frequency Shift Ready
+BIT=3            ; DFSREQ: Dynamic Frequency Shift Request
+BIT=210          ; Clock Mode Selection
+                   000= 1:1 Clock Mode
+                   011= 2:1 Clock Mode
+                   100= 3:1 Clock Mode
+```
+
+So:
+
+```
+CTCHIP34 IBM486 /1002h:3:=%%xxxxx011     REM 2x   (%% in AUTOEXEC.BAT, single % at the prompt)
+CTCHIP34 IBM486 /1002h:3:=%%xxxxx100     REM 3x
+CTCHIP34 IBM486 /1002h:3:=%%xxxxx000     REM back to 1x
+```
+
+**Why this matters for issue #9:** `CTCHIP34` is a real-mode EXE that runs from `AUTOEXEC.BAT` and
+exits. It is not a `CONFIG.SYS` resident driver, so it sidesteps the Win95 load-time halt that both
+`revto486.sys` and `lght486.sys` hit, while still setting the same silicon.
+
+Other BL3 registers worth knowing from the same file:
+
+| Index | Bit | Meaning |
+|---|---|---|
+| `1000h:0` | 7 | `CE` - **Internal Cache enable** |
+| `1000h:0` | 2 | `A20M` - A20 mask. Relevant: this card does A20 its own way (port `0x60`, `0xDF`/`0xDD`) |
+| `1000h:0` | 1 | `CPC` - Cache Parity Checking |
+| `1000h:1` | 7 | `CNPX` - Cachability of NPX operands (feipoa: set **1**, FPU perf) |
+| `1000h:1` | 4 | `XTOUT` - Extended Out instruction (feipoa: set **0**, costs DOOM realtics if 1) |
+| `1001h:0/1` | all | `LMCR` - **1 MB Cacheable** region mask, lo/hi byte |
+| `1001h:2/3` | all | `LMROR` - **1 MB Read-Only** region mask, lo/hi byte |
+| `1001h:4` | all | `CMLR` - 1..16 MB cache memory limit |
+| `1001h:5/6` | all | `ECMLR` - extended (to 4 GB) cache memory limit |
+| `1004h:3` | 4 | `CLP` - Cache Low Power (disable cache when not in use) |
+
+`1001h:0-3` are the adapter-region cacheability bits - i.e. the same `A000-FFFF` range that Win95's
+boot-time memory scan trips over. That is the register-level equivalent of the `EMMExclude=A000-FFFF`
+/ `win /d:x` workaround in Technique 68, and the more precise fix if the workaround proves too broad.
+
+Pack location on this machine: `C:\Users\lycet\Downloads\CPU_Register_Control_Apps\CTChip34\`
+(`CTCHIP34.EXE`, `IBM486.CFG`, `CTCHIP_English.doc`). Sourced from feipoa's
+`CPU_Register_Control_Apps.rar` attached to the vogons thread above.
