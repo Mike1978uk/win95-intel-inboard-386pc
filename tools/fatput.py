@@ -56,6 +56,46 @@ def read_extents(f, ex):
     return bytes(b)
 
 
+def update_dirent_size(img, path, newsize):
+    """Rewrite just the 4-byte size field of one directory entry."""
+    fat = Fat(img)
+    parts = [q for q in path.replace('/', chr(92)).split(chr(92)) if q and not q.endswith(':')]
+    name = parts[-1].upper()
+    parent = fat.resolve(chr(92).join(parts[:-1])) if len(parts) > 1 else None
+    clus = 0 if parent is None else parent['clus']
+
+    def entry_offsets(off, n):
+        return [(off + i * 32) for i in range(n)]
+
+    cands = []
+    if clus == 0:
+        cands = entry_offsets(fat.root_start, fat.rootent)
+    else:
+        c = clus
+        while 2 <= c < 0xFFF8:
+            cands += entry_offsets(fat.coff(c), fat.csize // 32)
+            c = fat.nxt(c)
+    fat.f.seek(0)
+    with open(img, 'r+b') as f:
+        for off in cands:
+            f.seek(off)
+            e = f.read(32)
+            if not e or e[0] == 0x00:
+                break
+            if e[0] == 0xE5 or e[11] == 0x0F:
+                continue
+            nm = e[0:8].decode('cp437').rstrip()
+            ex = e[8:11].decode('cp437').rstrip()
+            full = nm + ("." + ex if ex else "")
+            if full.upper() == name:
+                f.seek(off + 28)
+                f.write(newsize.to_bytes(4, 'little'))
+                f.flush(); os.fsync(f.fileno())
+                print(f"  directory entry size field updated to {newsize}")
+                return
+    raise SystemExit(f"could not find the directory entry for {path} to update its size")
+
+
 def main():
     if len(sys.argv) not in (4, 5):
         raise SystemExit(__doc__)
@@ -66,11 +106,25 @@ def main():
     ent = fat.resolve(path)
     if ent is None or ent['dir']:
         raise SystemExit(f"no such file in image: {path}")
-    if ent['size'] != len(new):
-        raise SystemExit(f"SIZE MISMATCH: {path} is {ent['size']} bytes, {local} is {len(new)}. "
-                         "This tool only replaces same-size files - see its header.")
+    grow = len(new) - ent['size']
+    if grow:
+        # Growth is allowed ONLY when it still fits inside the clusters the file already
+        # owns, so the FAT chain is untouched and only the directory entry's size field
+        # changes. Anything needing a new cluster is refused - allocating is where a
+        # buggy writer corrupts a volume.
+        chain_bytes = len(chain(fat, ent['clus'])) * fat.csize
+        if len(new) > chain_bytes:
+            raise SystemExit(f"REFUSING TO GROW {path} from {ent['size']} to {len(new)} bytes: that "
+                             f"needs a new cluster ({chain_bytes} allocated). This tool never "
+                             "allocates - see its header.")
+        if grow < 0:
+            raise SystemExit(f"REFUSING TO SHRINK {path} ({ent['size']} -> {len(new)}): shrinking "
+                             "would orphan clusters. Not supported.")
+        print(f"{path}: growing {ent['size']} -> {len(new)} bytes inside the "
+              f"{chain_bytes}-byte cluster chain (FAT untouched)")
 
-    ex = extents(fat, ent)
+    ent_for_extents = dict(ent, size=max(ent['size'], len(new)))
+    ex = extents(fat, ent_for_extents)
     with open(img, 'rb') as f:
         old = read_extents(f, ex)
 
@@ -97,6 +151,9 @@ def main():
             pos += n
         f.flush()
         os.fsync(f.fileno())
+
+    if grow:
+        update_dirent_size(img, path, len(new))
 
     back = Fat(img)
     e2 = back.resolve(path)

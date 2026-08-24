@@ -2115,6 +2115,45 @@ pages `0xA0`-`0xFF` are not RAM so `_PageAllocate` cannot return them. `0x9F` is
 It was left at `0xFF` because that build is verified on hardware, and re-cutting a proven artefact
 needs a re-test rather than a rationale.
 
+## Technique 64: `NODIAGS` fixes the memory diagnostic and then exposes the shadow-RAM failure
+
+**Verified 2026-08-24 on the reporter's own image** (upstream #7638), converted from their dynamic
+VHD with `qemu-img convert -f vpc -O raw`, their `CONFIG.SYS` with one flag added:
+
+```
+DEVICE=INBRDPC.SYS NOPAUSE EGACACHE NODIAGS
+```
+
+| | before | after |
+|---|---|---|
+| functional extended memory | 0k | **2048k** |
+| bad extended memory | 128k | **0k** |
+
+So `NODIAGS` genuinely works as a workaround, and the RAM was never the problem. **But it then
+surfaces a second panel** - *"The Inboard 386/PC's ROM BIOS shadow RAM failed"* - so it is not a
+clean answer to give a reporter. Their `INBRDPC.SYS` is byte-identical to our stock
+(`c25b951a0a6093dcfa5138d89159cbf6`); the difference was only ever the missing flag.
+
+**New measurement, and it matters:** with `INBOARD_MEM_TRACE=1` on their config -
+
+- **0** accesses to our high BIOS-shadow alias at or above 1 MB, and
+- **0** `INT 15h AH=87h` calls (`[int1587]`), where the port plan's 2026-07-26 trace found **two**
+  on our own 5120 image.
+
+**Our emulator-side shadow fix is not engaging on their machine at all.** The alias is placed at
+`0xF0000 + mem_size*1024` - `0x3F0000` for their 3072. If the driver derives its alias target from
+its *own* notion of installed RAM rather than the configured `mem_size`, our mapping is simply at the
+wrong address for any configuration that is not the one it was derived on (5120). That is the next
+thing to test, and it is cheap: run the same image at 1024 / 3072 / 5120 and see whether the alias
+is ever hit.
+
+Related but **not the same root cause**: SuperFury hit the identical message in UniPCemu and
+attributed it to `F0000+` landing in a memory hole, needing the ROM mirrored at both `FFFF0000` and
+`F0000` (vogons t=52651). The port plan's own conclusion was different again - a genuine
+`INT 15h AH=87h` emulation gap, with an all-zero GDT descriptor table at the call so no copy happens.
+Three explanations, one symptom; do not assume any of them without re-measuring on the config in
+front of you.
+
 ## Technique 63: "bad extended memory: 128k" is INBRDPC.SYS's own preliminary check, not your RAM
 
 **Recognise it instantly.** `INBRDPC.SYS` shows a scare screen - *"Some extended memory on the
