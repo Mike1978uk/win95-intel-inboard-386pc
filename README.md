@@ -63,6 +63,12 @@ at the center of the fix.
 - Network working using stock Windows 95 3com 3c509b driver from Windows. Hand configured IP, gateway and subnet and navigated to frogfind.com
 - Sound Blaster Pro audio, clean, confirmed on real hardware 2026-08-24 (see below)
 
+## Patched files
+
+**[FIXES.md](FIXES.md) — every patched file on one page, with direct downloads and md5s**, so they
+can be applied to any Windows 95 OSR1 install on this hardware rather than only the images published
+here. Tested status is stated for each one.
+
 ## Still open
 
 - See the [writeup](docs/windows95_on_inboard386pc_writeup.md#still-open) for full detail and the
