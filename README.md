@@ -64,6 +64,10 @@ at the center of the fix.
 - SCSI Devices working by adding relevant entries to config.sys / autoexec.bat devices loading fine in ms dos mode in Windows tested CD drive, MO Drive, Zip 100 drive
 - Network working using stock Windows 95 3com 3c509b driver from Windows. Hand configured IP, gateway and subnet and navigated to frogfind.com
 - Sound Blaster Pro audio, clean, confirmed on real hardware 2026-08-24 (see below)
+- Accelerated video — ATI Mach8 (Graphics Ultra) at 1024x768x256, confirmed on real hardware
+  2026-08-24 (see below)
+
+**Video, sound and networking all work at the same time on the real 5160.**
 
 ## Patched files
 
@@ -97,11 +101,36 @@ with `tools/deploy_sound_fix.sh`. `tools/sweep_image_dma.py` audits a whole inst
 mistake. **@andrew-hoffman** called the 4-bit page register from the hardware before any of this was
 measured.
 
+## Video: the driver was never the problem
+
+The ATI Mach8 spent months looking like a missing-driver problem. It was not. **Windows 95 ships
+its own Mach8 driver** — `ATIM8.DRV` + `ATI.VXD`, `MSDISP.INF` section `[ATI8]`, listed as *ATI
+Graphics Ultra (mach8)*. ATI never wrote a Windows 95 driver for this card, which is what made it
+easy to conclude none existed; Microsoft's was in the box the whole time.
+
+**Selecting it is not enough.** The mach8 is not PnP-enumerable on this bus, so Windows'
+automatic configuration has nothing to work from and leaves the device node with no resources —
+the driver then loads against a device it cannot reach and gets nowhere.
+
+The recipe, on real hardware:
+
+1. Display adapter → driver → **ATI Graphics Ultra (mach8)** (Windows 95's own, from the CABs).
+   Do **not** install the Windows 3.1x driver (`MACHW3.DRV`) — it was tried first and failed.
+2. Device Manager → the adapter → **Resources** → untick *Use automatic settings* → pick a
+   configuration → reboot. Windows accepts it on the way back up.
+
+You can tell which devices have had step 2 by reading `SYSTEM.DAT`: a manually configured node
+carries a **`ForcedConfig`**, a detection-configured one carries a **`BootConfig`** plus a
+`DetFunc`. On this machine the working Mach8 and COM1 have the former; the one device still not
+working ([#6](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/6), a phantom PS/2
+mouse) has the latter. That test generalises to any non-PnP card on this hardware.
+
 ## Upstream
 
 **The Intel Inboard 386/PC is now part of 86Box.** The hardware model was merged as
 **[86Box/86Box#7626](https://github.com/86Box/86Box/pull/7626)**, and a follow-up fixing three real
-defects in it is open as **[86Box/86Box#7749](https://github.com/86Box/86Box/pull/7749)**.
+defects in it has since been **merged** as
+**[86Box/86Box#7749](https://github.com/86Box/86Box/pull/7749)**.
 
 What #7749 fixes, for anyone who tried the merged machine and found it broken:
 
@@ -217,7 +246,8 @@ and the ones most likely to be tractable are:
 
 | | |
 |---|---|
-| [#4](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/4) / [#8](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/8) | ATI Mach 8 — the stock Windows 95 display driver, and a ROM RAM test on boot |
+| [#8](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/8) | ATI Mach 8 — the option ROM's RAM addressing test fails in 86Box but passes on the real card |
+| [#6](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/6) | a phantom PS/2 mouse Windows detected on a machine with no 8042 and no IRQ 12 |
 | [#7](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/7) | Setup black-screens right before the Help files (reboot works around it) |
 | [#2](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/2) | keyboard maps `#` where `\` is expected |
 | [#11](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/11) | extended memory not recognised on an Inboard 386/PC |

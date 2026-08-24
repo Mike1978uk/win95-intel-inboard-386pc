@@ -1,4 +1,4 @@
-# Windows 95 on the Intel Inboard 386/PC: How We Got There
+-# Windows 95 on the Intel Inboard 386/PC: How We Got There
 
 **Status: first confirmed working Windows 95 desktop (keyboard, mouse, and a 32-bit application)
 on a real IBM 5160 fitted with an Intel Inboard 386/PC accelerator card, 2026-08-05.**
@@ -19,6 +19,10 @@ keyboard and mouse — has not been documented as working before.
 - Floppy drives A: and B: are detected.
 - Network confirmed working using the stock Windows 95, 3com 3c509b driver
 - SCSI devices tested working using DOS drivers in autoexec.bat / config.sys ahead of Wondows booting and Windows inherits them fine. tested CDrom, MO and Zip 100.
+- Sound Blaster Pro audio, clean (2026-08-24).
+- Accelerated video: ATI Mach8 (Graphics Ultra) at 1024x768x256 (2026-08-24).
+
+**Video, sound and networking run simultaneously on the real 5160.**
 
 ## Still open
 
@@ -184,11 +188,19 @@ correct on real hardware without depending on any emulator forgiveness.
 After the keyboard fix, boot progressed unattended through Plug-and-Play detection, Control Panel
 setup, and Start Menu building, then went to a black screen. The video memory checksum was frozen
 solid while the CPU kept executing varied code — not a crash, something waiting. Inspecting
-`SYSTEM.INI` directly found the cause: the real ATI Mach8 driver files had already been copied to
-`WINDOWS\SYSTEM\` by the PnP step, but `SYSTEM.INI`'s `[boot]` section still pointed
-`display.drv=pnpdrvr.drv` (Windows 95's temporary placeholder) — the step that should have
-finalized this to the real driver never completed. The working, already-proven `vga.drv` (which
-Setup itself had used successfully the whole way through) was sitting on disk unused.
+`SYSTEM.INI` directly found a way through: the real ATI Mach8 driver files had already been copied
+to `WINDOWS\SYSTEM\` by the PnP step, but `SYSTEM.INI`'s `[boot]` section pointed
+`display.drv=pnpdrvr.drv`. The working, already-proven `vga.drv` (which Setup itself had used
+successfully the whole way through) was sitting on disk unused.
+
+> **Correction, 2026-08-24.** This section originally described `pnpdrvr.drv` as "Windows 95's
+> temporary placeholder" left behind by a finalization step that never completed. **That was wrong.**
+> `display.drv=pnpdrvr.drv` is the *normal* arrangement on Windows 95 — it is a stub that defers to
+> the display driver named in the registry, and it is still what the `[boot]` section says on the
+> machine now running the Mach8 accelerated. Nothing had failed to finalize. What was actually broken
+> was on the registry side, and it took until #4 was solved to see it — see section 8. Naming
+> `vga.drv` in `[boot]` worked because it bypasses the registry path altogether, which is why it was
+> a good unblocking move even though the diagnosis behind it was not right.
 
 **Fix:** point `display.drv` at `vga.drv` in the `[boot]` section. Note this needs to be the
 `[boot]` section's line specifically — `[boot.description]` has a copy of the same key that's purely
@@ -210,6 +222,55 @@ FreeCell all confirmed. Whether that black screen was the same class of bug as t
 display-driver issue, something about `IVT68FIX.COM`'s timing, or something else that a cold restart
 happens to clear, is not yet root-caused — worth investigating further given how easy it is to
 reproduce.
+
+### 8. The Mach8, three months later: an unconfigured device node
+
+Section 6 unblocked Setup by falling back to `vga.drv`. That left the real question open for months:
+the machine had a hardware graphics accelerator and was running an unaccelerated VGA driver.
+
+Two things were believed, and both were wrong.
+
+**"There is no Windows 95 driver for this card."** ATI never wrote one — the newest driver ATI ever
+released for the mach8 is a 1994 Windows 3.1x driver, and the card was obsolete before Windows 95
+shipped. But **Microsoft bundled one**: `ATIM8.DRV` + `ATI.VXD`, `MSDISP.INF` section `[ATI8]`,
+listed in the driver picker as *ATI Graphics Ultra (mach8)*. Both files carry the Windows 95 retail
+build date. It was in the box the whole time.
+
+**"So the 3.1x driver is the only option."** Windows 95 does support 16-bit Windows 3.1 display
+drivers, so installing `MACHW3.DRV` looked like the reasonable route. It was tried first, and it
+failed.
+
+The actual blocker was neither. **The mach8 is not PnP-enumerable on this bus**, so Windows'
+automatic configuration has nothing to work from and leaves the device node with no usable
+resources. Any driver bound to it then loads against a device it cannot reach — which presents
+exactly like a missing or incompatible driver. Setting the adapter's configuration by hand in Device
+Manager (*Resources* → untick *Use automatic settings* → pick a configuration → reboot) is what
+made it work, and it came up at **1024x768x256**.
+
+**This leaves a fingerprint you can read offline.** In `SYSTEM.DAT`, a device node configured by hand
+carries a `ForcedConfig`; one configured by a detection routine carries a `BootConfig` and a
+`DetFunc`. Reading the live card:
+
+| Device | Node carries | Working |
+|---|---|---|
+| ATI Graphics Ultra (mach8) | `ForcedConfig` | yes |
+| Communications Port (COM1) | `ForcedConfig` | yes |
+| Standard Serial Mouse | `BootConfig` + `DetFunc *:DETECTPS2MOUSE` | no |
+
+That third row is issue #6 — the phantom PS/2 mouse Windows detected on a machine with no 8042 and
+no IRQ 12. Changing its driver to *Standard Serial Mouse* rewrote the node's identity (`*PNP0F0E` →
+`*PNP0F0C`) but not its configuration, so it still claims IRQ 12 and I/O 310-311. It is the same bug
+as the Mach8, one step behind, and it is why IRQ 12 shows greyed out: a `BootConfig` is not a
+user-editable setting.
+
+**The general lesson for this machine:** when a device fails here, check whether its node was ever
+configured before suspecting the driver. Windows 95's automatic configuration assumes more than an
+XT provides — the same shape as the phantom PS/2 mouse and the phantom 101-key keyboard, and here it
+was recoverable by hand.
+
+`SYSTEM.DAT` is `CREG` format, not NT `regf`, so ordinary registry tooling will not open it. A
+printable-run scan is enough to read it: value records are stored as `<name><data>` back to back, so
+grepping for a value name and printing the surrounding few hundred bytes reads out the whole node.
 
 ## Sources and prior art
 
