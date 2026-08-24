@@ -1,0 +1,30 @@
+@ECHO OFF
+PROMPT $p$g
+LH C:\TSCSI\MSCDEX /d:TSLCD /m:10
+PATH C:\WINDOWS;C:\WINDOWS\COMMAND;C:\DOS;C:\TSCSI
+SET TEMP=C:\TEMP
+
+REM --- Blue Lightning CPU: 2x clock + L1 cache (issue #9) ---
+REM Replaces revto486.sys/lght486.sys, which halt during the Win95
+REM CONFIG.SYS load. CTCHIP34 is a real-mode EXE that runs and exits.
+REM Sets 1000h:0=92 1000h:1=9C 1001h:0=FF 1001h:1=03 1002h:3=03,
+REM read off this machine running DOS 6.22 / Win 3.11 + revto486.
+REM Undo: C:\CTCHIP\CPUOFF.BAT, or REM the CALL below. A power
+REM cycle also reverts - none of these registers persist.
+CALL C:\CTCHIP\CPUSET.BAT
+
+mode con codepage prepare=((850) C:\WINDOWS\COMMAND\ega.cpi)
+mode con codepage select=850
+keyb uk,,C:\WINDOWS\COMMAND\keyboard.sys
+SET BLASTER=A220 I5 D1 T4
+REM LH C:\SBPRO\SBP-SET /M:15 /VOC:15 /CD:15 /FM:15
+
+echo Setting time and Date
+c:\clock\smwclock s
+echo.
+
+REM IRET patch from Win 95 build
+C:\IVT68FIX.COM
+
+REM echo Starting Comrade
+REM c:\Comrade.exe
