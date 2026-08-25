@@ -79,9 +79,13 @@ Two things it saved us from: trusting `revto486.sys` on hardware it was never va
 guessing at the register set - the values we shipped came from the real machine's own `CTCHIP34`
 screens and were then independently corroborated by `REVTO486`'s own MSR dump.
 
-**Not yet told.** Owed a reply on the thread saying it worked on a 5160 + Inboard 386/PC, which is
-not a configuration that post was written for. Attribution of post `p1392798` to Feipoa is per the
-project owner; the doc that recorded the quote did not capture an author.
+**No reply owed — credit by reference is sufficient.** Project owner's decision, 2026-08-25:
+Feipoa is not an active participant here, and this is a citation of a public write-up rather than
+input given to this project. The credit stands in the README, this ledger and the debug skill; the
+"tell them" rule below applies to people who engaged with us, not to every source we cite.
+
+Attribution of post `p1392798` to Feipoa is per the project owner; the doc that recorded the quote
+did not capture an author.
 
 ---
 
