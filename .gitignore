@@ -44,3 +44,33 @@ __pycache__/
 
 # Stock upstream 86Box clone, built locally for clean-build testing. Disposable, never commit.
 86box_upstream/
+
+# Per-experiment VM directories. Each is a throwaway 86Box working dir (disk image, nvr,
+# per-run stderr/stdout/vram dumps) created to isolate one variable. Local scratch: the
+# config that matters gets recorded in docs/, the image never belongs in git.
+# vm_win311/ is deliberately NOT here - it holds tracked deliverables (the Win 3.11 Inboard
+# drivers IBKBD.DRV / IBVKD.386, and the INT 15h shim source).
+vm_alias_*/
+vm_fdd/
+vm_fenix/
+vm_golden/
+vm_mousetest/
+vm_qbr*/
+vm_shadow/
+vm_test_*/
+vm_win30/
+vm_1986mach8/
+vm_win95_*/
+
+# Per-run capture files left beside the VM dirs by the trace builds.
+stderr_log*.txt
+stdout_log*.txt
+launch_std*.txt
+autoclear_log.txt
+screenshot_*.png
+vram_probe.txt
+inbrdpc_live_dump.bin
+vram_dump*
+nasm.zip
+nasm-*/
+bios_f000_dump_int15.bin
