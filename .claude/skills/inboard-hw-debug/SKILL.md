@@ -3062,17 +3062,10 @@ handling and **no register documentation is needed at all**. Config change only.
   register-level document. Best lead by some distance.
 - *Graphics Programming for the 8514/A*, Richter & Smith, M&T Books 1990.
 
-**[AI-SOURCED — UNVERIFIED, DO NOT IMPLEMENT FROM]** A Google AI answer supplied 2026-08-25 offered
-a shortlist of names. Treat strictly as things to *look up*, never as facts:
+**Observed directly in our own source** (not from any secondary claim): the accelerator path
+already uses `mach->accel.dst_ge_offset` and `mach->accel.dst_pitch` in the `PIX_TRANS` read macros.
+Whatever the correct addressing turns out to be, it runs through those, not through the VGA banks.
 
-| Claim | Status |
-|---|---|
-| `GE_OFFSET_L`/`GE_OFFSET_H`, `GE_PITCH` drive accelerator addressing | **Consistent with our code** — `mach->accel.dst_ge_offset` and `dst_pitch` are already used in the `PIX_TRANS` macros |
-| `MEM_CNTL` at `0xBEE8` index 1 | unverified — check the 82C480 datasheet |
-| `0007` is a plane bit-mask (planes 0,1,2 active) | unverified, plausible — one question to @TC1995 settles it |
-| Engine-busy poll on STATUS, then MIX/`ALU_FG_FN` redirect, then a read-direction `CMD` before `PIX_TRANS` reads | unverified, but the right *shape* for 8514/A |
-| "sliding aperture window, 64 KB/128 KB chunks" | **CONTRADICTS Necasek — treat as wrong.** There is no memory aperture |
-
-That last row is why the tag exists: the answer was fluent, mixed real register names with invented
-mechanism, and cited nothing. **Michal's article is trustworthy; the AI answer is a shortlist of
-things to verify against the datasheet.**
+**Open questions for @TC1995 or the 82C480 datasheet** — unchanged, and still the way to settle it:
+which register selects the accelerator-side bank; how it combines with the address; the self-test
+stage transitions; and what `0007` means in `14207 7B6A 0007`.
