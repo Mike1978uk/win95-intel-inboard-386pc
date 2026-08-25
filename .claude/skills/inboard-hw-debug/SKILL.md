@@ -2984,3 +2984,54 @@ were *allocated* separately (they are; the request said "banks", not "size"), th
 `svga->read_bank`/`write_bank` (still the VGA side). Both were answerable from TC1995's own
 sentence.
 
+## Technique 74: prove a driver LOADS before measuring what it does
+
+**Cost of not doing this: three discarded probe runs and a shipped patch that does nothing.**
+
+Issue #3. `HSFLOP.PDR` was patched (`maxPhys 0x1000 -> 0xFF`), deployed to the CF, and md5-verified
+on the card. The controller was installed (`PNP0700` in `SYSTEM.DAT`). Three attempts to measure
+the DMA page register produced nothing and were each written off as "the probe run was invalid".
+
+The probe was fine. **The driver was never loaded.** One grep would have said so:
+
+```bash
+grep -ic hsflop /d/BOOTLOG.TXT        # 0
+```
+
+### The check, in order
+
+```bash
+grep -i "Dynamic load" BOOTLOG.TXT     # what IOS actually loaded
+ls WINDOWS/SYSTEM/IOSUBSYS/            # what was available to load
+```
+
+Diff the two. Anything present but absent from the log never ran, and **nothing you measure about
+it means anything**.
+
+### The specific signature to look for: a real-mode storage stack
+
+```
+Dynamic load success C:\WINDOWS\system\IOSUBSYSmm.pdr
+INITCOMPLETESUCCESS = RMM
+```
+
+`RMM.PDR` is the **Real Mode Mapper**. If it loads — especially with `ESDI_506.PDR` *not* loading —
+Windows is driving storage through **real-mode BIOS**, not 32-bit drivers. On this machine that is
+true for the hard disk **and** the floppy.
+
+Consequences, all of which were being missed:
+
+- Every `.PDR`/`.MPD` patch in `IOSUBSYS` is inert. Patch the real-mode path instead.
+- A DMA-reach bug still applies, but to the *real-mode* transfer buffer, not the PDR's
+  `_PageAllocate`.
+- The absence of `IOS.LOG` is **not** reassurance. IOS writes it for failures it considers
+  notable; declining to load a driver whose hardware it does not claim is not one.
+
+**@andrew-hoffman predicted this from the symptom alone** before any of it was measured, and named
+the cheaper test: *"If Windows is using real mode access for any disk drives there will be an error
+message in the Performance tab of the System control panel."* That is a GUI check taking seconds.
+Prefer it to reading `BOOTLOG` when the machine is in front of you.
+
+**Generalises to:** any "the fix didn't work" on this project. Before theorising about why a patch
+had no effect, prove the patched code executed. `Patched: N>0` says the file changed; `BOOTLOG`
+says the file *ran*. They are different claims.
