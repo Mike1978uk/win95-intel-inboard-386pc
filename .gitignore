@@ -41,3 +41,6 @@ device_add_order.txt
 # Python bytecode
 __pycache__/
 *.pyc
+
+# Stock upstream 86Box clone, built locally for clean-build testing. Disposable, never commit.
+86box_upstream/

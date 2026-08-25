@@ -60,6 +60,24 @@ been consistently the more reliable of the two on this project.
 
 ---
 
+## Community write-ups relied on
+
+| Contributor | What they gave | Where it landed |
+|---|---|---|
+| **Feipoa** (Vogons) | Extensive write-up on driving 486 upgrade-chip registers directly, and the pointer to the **CTCHIP / KTCHIP34** tool. Source: <https://www.vogons.org/viewtopic.php?p=1392798#p1392798> | **Issue #9, closed.** `CTCHIP34` from `AUTOEXEC.BAT` replaces `revto486.sys` entirely on the real 5160 + Inboard - confirmed booting to Windows, stable, and faster. Win95 had been running 1:1 clock with no cache at all; this recovered both the 2x multiplier and 640 KB of cacheable memory. The same post also carried the V86-mode clue that shaped the earlier Revto486 investigation |
+
+Their account of ditching a vendor driver that "would even crash my machine" and going at the
+registers directly with `KTChip34` is what made the register-level route look viable here at all.
+Two things it saved us from: trusting `revto486.sys` on hardware it was never validated against, and
+guessing at the register set - the values we shipped came from the real machine's own `CTCHIP34`
+screens and were then independently corroborated by `REVTO486`'s own MSR dump.
+
+**Not yet told.** Owed a reply on the thread saying it worked on a 5160 + Inboard 386/PC, which is
+not a configuration that post was written for. Attribution of post `p1392798` to Feipoa is per the
+project owner; the doc that recorded the quote did not capture an author.
+
+---
+
 ## When reporting back, include
 
 What makes a reply worth sending — and worth replying *to*:
