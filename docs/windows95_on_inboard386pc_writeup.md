@@ -1,4 +1,4 @@
--# Windows 95 on the Intel Inboard 386/PC: How We Got There
+# Windows 95 on the Intel Inboard 386/PC: How We Got There
 
 **Status: first confirmed working Windows 95 desktop (keyboard, mouse, and a 32-bit application)
 on a real IBM 5160 fitted with an Intel Inboard 386/PC accelerator card, 2026-08-05.**

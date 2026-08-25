@@ -76,10 +76,11 @@ at the center of the fix.
 can be applied to any Windows 95 OSR1 install on this hardware rather than only the images published
 here. Tested status is stated for each one.
 
-## Still open
+## What worked, and what didn't
 
-- See the [writeup](docs/windows95_on_inboard386pc_writeup.md#still-open) for full detail and the
-  current plan.
+**[docs/what_worked_and_what_didnt.md](docs/what_worked_and_what_didnt.md)** — the flat inventory:
+every fix that shipped, and every dead end, one line each. Read that before re-walking anything.
+The [writeup](docs/windows95_on_inboard386pc_writeup.md) has the full narrative.
 
 ## Sound: a machine-class bug in Microsoft's own drivers
 
@@ -130,33 +131,49 @@ and there was nothing to configure.
 
 ## Upstream
 
-**The Intel Inboard 386/PC is now part of 86Box.** The hardware model was merged as
-**[86Box/86Box#7626](https://github.com/86Box/86Box/pull/7626)**, and a follow-up fixing three real
-defects in it has since been **merged** as
-**[86Box/86Box#7749](https://github.com/86Box/86Box/pull/7749)**.
+**The Intel Inboard 386/PC is part of 86Box.** Four PRs are merged:
 
-What #7749 fixes, for anyone who tried the merged machine and found it broken:
-
-| | |
+| PR | What it fixed |
 |---|---|
-| **POST 101** | The machine shared `ibmxt_config`, whose default is a 1982-dated 5160 ROM. `INBRDPC.SYS` — the card's own required driver — genuinely cannot work with that revision; it checks a signature at `F000:E05B` the 1982 ROMs do not carry. Worse, it failed *silently*: the 1986 entries existed only in this repo's tree, so a `bios =` line naming one was not a valid option elsewhere, was ignored without warning, and fell back to the bad default. The machine now has its own BIOS list containing only the two compatible 1986 revisions. |
-| **386-class CPUs ran no fixes at all** | `cpu_set()` routes 386DX/386SX to `exec386_2386()`, and every Inboard POST fix-up lived only in `exec386()`. A plain 386DX — the CPU this card was actually sold with — hung in the Mach8 option ROM before the memory count. Now shared between both interpreter loops, gated on the card being present. |
-| **Double-throttled memory timing** | `cpu_waitstates` is dead on 486BL but live on 386DX, stacking on top of the Inboard's own bus-speed scaling. |
+| [#7626](https://github.com/86Box/86Box/pull/7626) | The hardware model itself, ported from SuperFury's UniPCemu `hardware/inboard.c` |
+| [#7749](https://github.com/86Box/86Box/pull/7749) | POST 101 (the machine defaulted to an incompatible 1982 ROM); 386DX ran no POST fix-ups at all; double-throttled memory timing |
+| [#7765](https://github.com/86Box/86Box/pull/7765) | `bad extended memory` — the high `0x5F0000` alias must read shadow RAM, not ROM. Now reports **0k** |
+| [#7766](https://github.com/86Box/86Box/pull/7766) | POST 1801 on every boot — the machine must not default to a 5161 expansion unit |
 
-This fixes the *original* symptom in [86Box/86Box#7638](https://github.com/86Box/86Box/issues/7638)
-(all memory reported "BAD", 640K available — same 1982-ROM cause). **That issue is not fully
-resolved**: with a *stock* `INBRDPC.SYS` and no `NODIAGS`, the extended-memory diagnostic still
-reports `bad extended memory: 128k`. The RAM is fine and Windows 95 runs on all of it — the
-diagnostic is what is wrong, it is an emulator-side gap, and it is still being investigated. The
-images published here carry `NODIAGS`, so you will not see it.
+Between them these close [86Box/86Box#7638](https://github.com/86Box/86Box/issues/7638) (all memory
+reported "BAD", 640K available) and this repo's issues #11, #12, #13 and #16.
 
-Full write-up of the submission, including the testing matrix and known limitations, is in
+The POST 101 story is worth knowing if you tried the merged machine early and found it broken: the
+machine shared `ibmxt_config`, whose default is a 1982-dated 5160 ROM. `INBRDPC.SYS` — the card's
+own required driver — cannot work with that revision; it checks a signature at `F000:E05B` the 1982
+ROMs do not carry. It failed *silently*: the 1986 entries existed only in this repo's tree, so a
+`bios =` line naming one was not a valid option elsewhere and was ignored without warning. The
+machine now has its own BIOS list containing only the two compatible 1986 revisions.
+
+### Not yet upstream — the XT 4-bit DMA page latch
+
+One emulator-side fix of general value is still only in this fork. `dma_force_xt` reached 86Box, but
+only as an AT/XT *detection* override; the truncation itself did not:
+
+```c
+/* 86box_full/src/dma.c — in this repo, not upstream */
+static int dma_page_is_xt(void) { return dma_force_xt || !dma_at; }
+...
+dma[addr].page = dma_page_is_xt() ? (val & 0x0f) : val;
+```
+
+Without it a guest gets 24-bit DMA reach on a machine that physically has 20-bit, and the whole
+driver bug class described [below](#testing-a-driver-for-the-20-bit-dma-bug) is invisible in
+emulation. It is not Inboard-specific — it is correct for any PC/XT-class machine.
+**Flagged by @andrew-hoffman** on
+[issue #3](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/3). A PR is owed.
+
+The guest-side patches are Windows files, not emulator code, so they stay hosted here — see
+[FIXES.md](FIXES.md).
+
+Full write-up of the original submission, with the testing matrix and known limitations, is in
 [`docs/PR_description_inboard_post101_fix.md`](docs/PR_description_inboard_post101_fix.md).
-
-The submitted subset is a minimal slice of `86box_full/` (the device model plus the core-file
-timing/PIC/DMA fixes it needs) — see [`upstream-submission/`](upstream-submission/) for a standalone
-copy of what went up originally. The emulator build linked above is built from `86box_full/`, which
-carries the same fixes plus this project's debug tooling.
+[`upstream-submission/`](upstream-submission/) holds a standalone copy of what went up first.
 
 ## Repository structure
 
@@ -178,57 +195,37 @@ carries the same fixes plus this project's debug tooling.
 
 ## Credits
 
-This stands on the work of several people and projects — see the
-[full credits section](docs/windows95_on_inboard386pc_writeup.md#sources-and-prior-art) in the
-writeup for complete detail:
+Full detail in the [writeup's credits section](docs/windows95_on_inboard386pc_writeup.md#sources-and-prior-art)
+and the [contributor ledger](docs/contributor_input_ledger.md).
 
 - **[Stynx and Harrison Frazier](https://forum.vcfed.org/index.php?threads/inboard-386-pc-2mb-expansion-clone.78562/)**
-  (VCFed) — designed the 4MB Inboard daughterboard (ParrotyError), without which Windows 95 wouldn't
-  run on this hardware at all
-- **CimonVg** — ongoing work pushing the Inboard 386/PC to its limits, and inspiration/support
-  throughout this investigation
-- **[RonnyRoy](https://github.com/ronnyroy111/inboard386)** — ongoing reproduction of the Inboard as
-  cloned hardware, which will make sharing this work more widely possible, and may be the path past
-  today's 4MB ceiling
-- **SuperFury / UniPCemu** — this project's entire Inboard 386/PC hardware model
-  (`86box_full/src/device/inboard386.c`) is a direct port of UniPCemu's `hardware/inboard.c` — the
-  foundation the rest of this work is built on
-- **Al Williams** (Dr. Dobb's Journal, Hackaday) — real 1990s hands-on Inboard development experience
-- **Michal Necasek** (OS/2 Museum) — architectural confirmation and historical leads
-- **[Bob Smith](https://github.com/sudleyplace)** (Qualitas) — author of **386MAX**, released as
-  open source at **[sudleyplace/386MAX](https://github.com/sudleyplace/386MAX)** (see also
-  [sudleyplace.com](http://www.sudleyplace.com)). He corresponded with this project in February 2023
-  about the early history of 386 memory management. **To be clear about attribution: Bob's own
-  position is that he had no involvement with the Inboard itself** — *"As far as Inboard is
-  concerned, I had nothing to do with it"* — and he described his recollection of that era as hazy.
-  What he did do matters here anyway. The 386MAX source turns out to carry genuine, first-class
-  Inboard support (`@SYS_INBRDPC` / `@SYS_INBRDAT` machine-type flags, an `INBOARD` command-line
-  switch, A20 routines commented *"A20 Enable for Inboard/PC"*, Inboard-specific INT 09 and I/O port
-  handling), and its `MARK_XT` path is the primary-source evidence that the XT DMA ceiling is 640 KB
-  rather than 1 MB. Its Inboard A20 path writes `0DFh`/`0DDh` to port `60h` — independently matching
-  both Al Williams' 1990 code and this project's own emulation. He also pointed us at the Intel OEM
-  build of 386MAX (`@OEMSYS_ILIM`, "INTEL Limulator") — which turns out to be **`ILIM386.SYS`, the
-  memory manager in the Inboard's own Intel software bundle**, its strings reading
-  `Copyright (C) 1987-9 Qualitas, Inc.` and `Intel memory boards only.` So while Bob did not work on
-  the Inboard, the memory manager Intel shipped with it is his. Credit for the DMA
-  direction that led us to the source belongs to **@andrew-hoffman**, who cited it on issue #5
-- **@andrew-hoffman** — the XT DMA page-register lead on issue #5, and the sources behind it
-  (os2museum ×2, the MartyPC book, and the pointer at the 386MAX source) — which produced the 640 KB
-  figure, an emulator DMA fidelity bug, and a possible route past this project's EMM386 blocker
-- **Wim Osterholt** — compiler of
-  **[XT, AT and PS/2 I/O port addresses](https://wiki.preterhuman.net/XT,_AT_and_PS/2_I/O_port_addresses)**
-  (1994), an unusually useful reference here because it marks entries `(XT)` / `(XT only)` rather
-  than assuming an AT — which is exactly the distinction most of this project's Windows 95 problems
-  turn on. Curated and annotated against this project's open issues in
-  [`docs/xt_io_port_reference_annotated.md`](docs/xt_io_port_reference_annotated.md). The original
-  in turn credits Chuck Proctor, Richard W. Watson, Frank van Gilluwe's *The Undocumented PC*, Dave
-  Williams' DOSREF, and FractInt's `FR8514A.ASM` for the 8514/A ports
-- **FastDoom** (viti95) — real-hardware-validated XT keyboard ISR reference
-- **Microsoft's Windows 95 DDK** — the genuine period source and toolchain that made the real fix possible
-- **Kevin Moonlight** — original author of [COMrade](https://github.com/yyzkevin/COMrade)
-- **Ahmad Byagowi** ([Open-Source-PC110](https://github.com/ahmadexp/Open-Source-PC110)) — ported COMrade to
-  Windows 95 (`COMR95.EXE`), used for live real-hardware introspection
-- **[86Box](https://github.com/86Box/86Box)** — the base emulator this project is built on
+  (VCFed) — the 4MB Inboard daughterboard (ParrotyError). Windows 95 does not fit without it.
+- **SuperFury / UniPCemu** — this project's entire Inboard hardware model is a direct port of
+  UniPCemu's `hardware/inboard.c`. The foundation everything else is built on.
+- **@andrew-hoffman** — the XT 4-bit DMA page-register lead and the sources behind it, which
+  produced the 640 KB figure, an emulator DMA fidelity bug, and the driver-audit method.
+- **[Bob Smith](https://github.com/sudleyplace)** (Qualitas) — author of **386MAX**, whose source
+  carries first-class Inboard support and is the primary-source evidence for the XT DMA ceiling.
+  He states he had no involvement with the Inboard itself: [full detail and quotes](docs/386max_and_the_inboard.md).
+- **Al Williams** (Dr. Dobb's Journal, Hackaday) — real 1990s hands-on Inboard development
+  experience; his 1990 A20 code matches this project's emulation exactly.
+- **Michal Necasek** (OS/2 Museum) — architectural confirmation, historical leads, and a verified
+  `F000:FF53` improvement now upstream.
+- **CimonVg** — ongoing work pushing the Inboard 386/PC to its limits, and support throughout.
+- **[RonnyRoy](https://github.com/ronnyroy111/inboard386)** — reproducing the Inboard as cloned
+  hardware, which may be the path past today's 4MB ceiling.
+- **Feipoa** (Vogons) — the [CTCHIP/KTCHIP34 write-up](https://www.vogons.org/viewtopic.php?t=45756)
+  and the register-level approach behind it, which closed issue #9.
+- **Fenix770** — the VM attachment that root-caused the shadow-RAM alias failure.
+- **Wim Osterholt** — [XT, AT and PS/2 I/O port addresses](https://wiki.preterhuman.net/XT,_AT_and_PS/2_I/O_port_addresses)
+  (1994), which marks entries `(XT only)` — the exact distinction most bugs here turn on.
+  Annotated in [`docs/xt_io_port_reference_annotated.md`](docs/xt_io_port_reference_annotated.md).
+- **FastDoom** (viti95) — real-hardware-validated XT keyboard ISR reference.
+- **Microsoft's Windows 95 DDK** — the genuine period source and toolchain behind the `VKD.VXD` fix.
+- **Kevin Moonlight** — original author of [COMrade](https://github.com/yyzkevin/COMrade); and
+  **Ahmad Byagowi** ([Open-Source-PC110](https://github.com/ahmadexp/Open-Source-PC110)) — ported it
+  to Windows 95 as `COMR95.EXE`, used for live real-hardware introspection.
+- **[86Box](https://github.com/86Box/86Box)** — the base emulator this project is built on.
 
 ## Reproducing this
 
@@ -243,18 +240,18 @@ not to the image.
 
 ## Contributing
 
-Issues and PRs welcome. SCSI, sound and networking all work now — the
-[open issues](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues) are the current list,
-and the ones most likely to be tractable are:
+Issues and PRs welcome. The
+[open issues](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues) are the current list;
+the tractable ones today:
 
 | | |
 |---|---|
-| [#13](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/13) | a guest can crash 86Box outright — NULL deref on a page-table walk. Self-contained, and it blocks #12 |
-| [#12](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/12) | the Inboard's BIOS-shadow alias is at the wrong address for every RAM size except 5120 |
-| [#8](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/8) | ATI Mach 8 — the option ROM's RAM addressing test fails in 86Box but passes on the real card |
+| [#3](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/3) | Have Disk / Browse blocks. Root cause found: **no floppy controller is installed at all**. Now a floppy-DMA problem |
 | [#7](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/7) | Setup black-screens right before the Help files (reboot works around it) |
-| [#3](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/3) | Browse in Add New Hardware faults (typing the path works) |
-| [#9](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/9) | `revto486.sys` halts under Windows 95, but loads fine under DOS 6.22 and Win 3.11 |
+| [#8](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/8) | ATI Mach 8 — the option ROM's RAM addressing test fails in 86Box but passes on the real card |
+| [#10](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/10) | Idea: a loadable BIOS-extension shim so 1982-era 5150/5160 ROMs can run Windows |
+| [#14](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/14) | POST intermittently halts with 101, only at `mem_size` 2688/3072 |
+| [#15](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/15) | Windows 3.0 faults after the splash screen in 386 enhanced mode |
 
 Issues are labelled **`emulator`** or **`real-hardware`** so you can pick by what you have, and
 **`upstream`** marks the ones destined for 86Box itself.
