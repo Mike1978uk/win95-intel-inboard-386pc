@@ -78,6 +78,27 @@ Points `INT 68h` at `F000:FF53` (thanks to Michal Nečasek). **Must be the very 
 
 ---
 
+## ⚠️ Deployed, effect not yet measured
+
+### `HSFLOP.PDR` — floppy DMA reach
+
+**[⬇ HSFLOP_XTDMA.PDR](https://github.com/Mike1978uk/win95-intel-inboard-386pc/raw/master/vxd-patches/floppy/HSFLOP_XTDMA.PDR)** · 18,998 bytes
+· [stock original](https://github.com/Mike1978uk/win95-intel-inboard-386pc/raw/master/vxd-patches/floppy/HSFLOP_stock.PDR)
+
+Same bug as the sound driver, one byte: `maxPhys 0x1000 → 0xFF`
+(`68 00 10 00 00` → `68 FF 00 00 00`, so no instruction boundary moves).
+
+Floppy DMA is **channel 2**. Where sound merely distorted, a floppy read that returns the wrong
+bytes fails its CRC and the driver retries forever — motor on, light on. Written to the CF card;
+no valid before/after probe has run yet, so this is **not** claimed as working.
+
+`HSFLOP.PDR` lives in `IOSUBSYS` and is loaded dynamically by IOS — it is **not** bundled into
+`VMM32.VXD`, so a plain file copy to `C:\WINDOWS\SYSTEM\IOSUBSYS\` is enough.
+
+See [issue #3](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/3).
+
+---
+
 ## ⚠️ Built and audited, NOT tested
 
 Neither device is present on the development machine, so these are correctness rather than proven
