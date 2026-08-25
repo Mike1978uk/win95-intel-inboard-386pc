@@ -683,7 +683,24 @@ static const device_config_t ibmxt_inboard386_config[] = {
         .description    = "IBM 5161 Expansion Unit",
         .type           = CONFIG_BINARY,
         .default_string = NULL,
-        .default_int    = 1,
+        /* Defaults to 0 here, unlike the other ibmxt-family machines. A 5160 with an
+           Inboard 386/PC has no expansion chassis and does not model one.
+
+           With it defaulted on, the 5160 BIOS's expansion-unit probe at F000:E452 writes
+           0x55/0xAA to port 0x210, reads them back successfully, concludes a receiver card
+           is present, then reads the address latches at 0x215/0x216, gets 0x00, and posts
+           `1801` - stopping every cold boot at `ERROR. (RESUME = "F1" KEY)`. (ibm_5161.c
+           answers the presence probe but does not implement the address-latch readback the
+           BIOS then verifies, so an *enabled* 5161 fails POST here. Separate upstream
+           matter; this machine simply should not have one attached.)
+
+           Investigated in July 2026 and wrongly recorded as a ruled-out dead end. That test
+           set `enable_5161 = 0` in the config file - but machine config is read from a
+           section named after the machine DEVICE's .name (machine_get_config_int() ->
+           config_get_int(dev->name, ...)), and the file carried an older name, so the key
+           was silently ignored and the run still had the 5161 attached. Same class of bug
+           as the 1982-ROM default behind POST 101. */
+        .default_int    = 0,
         .file_filter    = NULL,
         .spinner        = { 0 },
         .selection      = { { 0 } },
