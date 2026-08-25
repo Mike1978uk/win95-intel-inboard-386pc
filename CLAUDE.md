@@ -57,6 +57,14 @@ Two rules that apply to all of them:
   including retractions — several numbered techniques carry corrections to their own earlier
   conclusions, and those are the most valuable lines in the file.
 
+**But don't burn tokens on them.** A skill is a once-per-topic load, not a per-step ritual:
+
+- **Once per session per skill.** Already loaded this session? Follow it; don't reload it.
+- **Not for mechanical work.** A one-line edit, a commit, a grep, answering a question from
+  context — just do it. The trigger is *starting a new investigation* or *a real tidy pass*,
+  not touching a file the skill happens to mention.
+- **Not to confirm what you already know.** If the answer is in the conversation, use it.
+
 **Never use `$1` or `$2` in a skill file.** They are substituted with the skill's invocation
 arguments at load time and will silently corrupt the surrounding command.
 
