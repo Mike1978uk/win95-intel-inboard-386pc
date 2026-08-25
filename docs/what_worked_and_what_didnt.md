@@ -19,7 +19,7 @@ Nothing is listed as working unless it has been run.
 | [#7765](https://github.com/86Box/86Box/pull/7765) | `bad extended memory` — the high `0x5F0000` alias must read shadow RAM, not ROM. Now reports **0k** |
 | [#7766](https://github.com/86Box/86Box/pull/7766) | POST 1801 on every boot — the Inboard machine must not default to a 5161 expansion unit |
 
-### Emulator-side, in this fork, **not yet upstream**
+### Emulator-side, in this fork, **submitted upstream**
 
 - **The XT 4-bit DMA page latch.** Upstream *does* truncate (`dma[addr].page = dma_at ? val :
   val & 0xf`), but gates it on `dma_at`, which is `is286`. An Inboard is an XT board with a 386

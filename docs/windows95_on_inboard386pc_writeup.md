@@ -16,7 +16,9 @@ keyboard and mouse — has not been documented as working before.
 - Keyboard input works throughout — system dialogs, text-entry fields, everything tested.
 - Mouse input works.
 - 32-bit Windows applications run (confirmed with the bundled FreeCell).
-- Floppy drives A: and B: are detected.
+- Floppy drives A: and B: are **detected but not working** — the controller is installed and
+  correctly resourced, but reads stall part-way. See
+  [#3](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/3).
 - Network confirmed working using the stock Windows 95, 3com 3c509b driver
 - SCSI devices tested working using DOS drivers in autoexec.bat / config.sys ahead of Wondows booting and Windows inherits them fine. tested CDrom, MO and Zip 100.
 - Sound Blaster Pro audio, clean (2026-08-24).

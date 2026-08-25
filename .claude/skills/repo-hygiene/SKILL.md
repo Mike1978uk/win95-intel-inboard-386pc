@@ -160,11 +160,15 @@ and a subdirectory's rules win. Leave it that way so the tree stays diffable aga
 ```bash
 git check-attr binary text eol -- <a few representative paths>   # rules resolve as intended?
 git add --renormalize .
-git diff --cached --numstat | awk '$1=="-" && $2=="-"'           # MUST be empty
+git diff --cached --numstat | grep -P '^-	-	'                 # MUST be empty
 ```
 
-That last line lists binary blobs the renormalize would rewrite. **If it prints anything,
-stop** — you are about to corrupt a patch file.
+That last line lists binary blobs the renormalize would rewrite (git prints `-` for both
+counts on a binary). **If it prints anything, stop** — you are about to corrupt a patch file.
+
+(It deliberately avoids `awk` positional variables: **`$1`/`$2` in a skill file are substituted
+with this skill's own invocation arguments when it loads**, silently corrupting the command.
+Found the hard way — the line used to read `awk 'everything=="-" && is=="-"'` at load time.)
 
 A directory-wide `binary` macro will also catch READMEs living in that tree. Use `-text`
 instead, so the `*.md` / `*.txt` rules further down the file can still win. That mistake was

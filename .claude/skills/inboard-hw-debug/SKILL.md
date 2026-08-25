@@ -2329,7 +2329,7 @@ original submission: `d6fbb9e88`, adopting **Michal Necasek's `F000:FF53`** in p
 (the machine itself) merged 2026-08-06, #7749 (POST 101 + non-486BL CPUs + F000:FF53) merged
 2026-08-23. Anything further is a NEW PR against master, not an update to either.
 
-**Not yet upstream**: the `dma_page_is_xt()` DMA page-width fidelity fix (Technique 56) is
+**Submitted upstream as [#7771](https://github.com/86Box/86Box/pull/7771)**: the `dma_page_is_xt()` DMA page-width fidelity fix (Technique 56) is
 local-only and is the obvious candidate for a third PR.
 
 **Still open from earlier**: upstream issue #7638 (RAM configuration) has had no reply yet.
