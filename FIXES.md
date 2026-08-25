@@ -78,7 +78,7 @@ Points `INT 68h` at `F000:FF53` (thanks to Michal Nečasek). **Must be the very 
 
 ---
 
-## ⚠️ Deployed, effect not yet measured
+## ⛔ Deployed but not loaded — no effect
 
 ### `HSFLOP.PDR` — floppy DMA reach
 
@@ -89,8 +89,22 @@ Same bug as the sound driver, one byte: `maxPhys 0x1000 → 0xFF`
 (`68 00 10 00 00` → `68 FF 00 00 00`, so no instruction boundary moves).
 
 Floppy DMA is **channel 2**. Where sound merely distorted, a floppy read that returns the wrong
-bytes fails its CRC and the driver retries forever — motor on, light on. Written to the CF card;
-no valid before/after probe has run yet, so this is **not** claimed as working.
+bytes fails its CRC and the driver retries forever — motor on, light on.
+
+> ### ⛔ Deployed, but currently INERT — measured 2026-08-25
+>
+> The patched file **is** on the CF card (md5 verified against the card itself) and the controller
+> **is** installed (`PNP0700` present in `SYSTEM.DAT`). But `BOOTLOG.TXT` contains **zero**
+> `hsflop` entries — **Windows never loads this driver**, so the patch cannot be having any effect.
+>
+> The reason is in the same log: `RMM.PDR`, the **Real Mode Mapper**, loads and initialises
+> successfully, and `ESDI_506.PDR` never loads either. The whole storage stack — hard disk *and*
+> floppy — is running through **real-mode BIOS**, not 32-bit drivers.
+>
+> So the floppy stall is in the real-mode path (Sergey's ROM + DOS via RMM), not here. The
+> 20-bit DMA reach may still be the cause, but it would be biting the real-mode buffer, and
+> that is a different fix. Predicted by @andrew-hoffman on
+> [#3](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/3) before it was measured.
 
 `HSFLOP.PDR` lives in `IOSUBSYS` and is loaded dynamically by IOS — it is **not** bundled into
 `VMM32.VXD`, so a plain file copy to `C:\WINDOWS\SYSTEM\IOSUBSYS\` is enough.

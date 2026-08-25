@@ -53,8 +53,11 @@ Nothing is listed as working unless it has been run.
 
 ### Deployed but NOT confirmed — do not treat as working
 
-- **`HSFLOP.PDR`** — `maxPhys 0x1000 → 0xFF`, the same fix as the sound driver. Written to the CF
-  card; no valid probe run has measured its effect.
+- **`HSFLOP.PDR`** — `maxPhys 0x1000 → 0xFF`, the same fix as the sound driver. On the card and
+  md5-verified, but **`BOOTLOG.TXT` shows Windows never loads it**, so it is inert. `RMM.PDR`
+  (Real Mode Mapper) loads instead and `ESDI_506.PDR` does not: the whole storage stack is
+  **real-mode BIOS**. Three earlier "invalid" probe runs were chasing a driver that was never
+  running.
 - **Floppy drives.** A controller is installed and correctly resourced (I/O `03F2-03F5`, IRQ 06,
   DMA 02), but reads still stall part-way through a directory listing. **A: and B: do not work
   yet** — an earlier version of the README said they did, which was wrong.
