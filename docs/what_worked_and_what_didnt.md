@@ -25,7 +25,8 @@ Nothing is listed as working unless it has been run.
   val & 0xf`), but gates it on `dma_at`, which is `is286`. An Inboard is an XT board with a 386
   on it, so upstream hands it a full 8-bit page register it does not have. The fix is to gate on
   `dma_force_xt || !dma_at` instead — **one line**, plus the `dma_m` mask in `dma_reset()`.
-  **@andrew-hoffman flagged this gap on issue #3.** See [Still to upstream](#still-to-upstream).
+  **@andrew-hoffman flagged this gap on issue #3.** Submitted upstream 2026-08-25 as
+  **[86Box/86Box#7771](https://github.com/86Box/86Box/pull/7771)**.
 - `rammap()` NULL deref on a page-table walk through unbacked physical memory — a guest
   could crash 86Box outright. Fixed in `b4d9770`.
 
@@ -125,11 +126,14 @@ Kept deliberately short. Each line is a dead end somebody else does not need to 
 
 ## Still to upstream
 
-The 4-bit DMA page latch (above) is the one emulator-side fix of general value that is not
-in 86Box. **It is one line** — gate the existing truncation on `dma_force_xt || !dma_at`
-rather than `dma_at` alone. Not Inboard-specific: it is correct for any PC/XT-class machine,
-and without it no emulator can reproduce the driver bug class described in
-[the DMA audit skill](../.claude/skills/win9x-dma-driver-audit/). **Not yet written.**
+The 4-bit DMA page latch is now **submitted** as
+[86Box/86Box#7771](https://github.com/86Box/86Box/pull/7771) (+14 −2, `src/dma.c` only) — gate the
+existing truncation on `dma_force_xt || !dma_at` rather than `dma_at` alone. Not Inboard-specific:
+it is correct for any PC/XT-class machine, and without it no emulator can reproduce the driver bug
+class described in [the DMA audit skill](../.claude/skills/win9x-dma-driver-audit/).
+
+Nothing else emulator-side is outstanding. The guest-side patches are Windows files and stay
+hosted here, in [FIXES.md](../FIXES.md).
 
 The guest-side patches are Windows files and stay hosted here, in
 [FIXES.md](../FIXES.md).

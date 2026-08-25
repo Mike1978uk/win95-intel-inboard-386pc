@@ -153,7 +153,7 @@ ROMs do not carry. It failed *silently*: the 1986 entries existed only in this r
 `bios =` line naming one was not a valid option elsewhere and was ignored without warning. The
 machine now has its own BIOS list containing only the two compatible 1986 revisions.
 
-### Not yet upstream — the XT 4-bit DMA page latch
+### Submitted — the XT 4-bit DMA page latch ([#7771](https://github.com/86Box/86Box/pull/7771))
 
 One emulator-side fix of general value is still only in this fork — and it is **one line**.
 
@@ -181,8 +181,8 @@ Until it lands, upstream gives a guest 24-bit DMA reach on a machine that physic
 and the driver bug class described [below](#testing-a-driver-for-the-20-bit-dma-bug) is invisible
 in emulation. It is not Inboard-specific — it is correct for any PC/XT-class machine.
 **Flagged by @andrew-hoffman** on
-[issue #3](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/3). A PR is owed and
-is not yet written.
+[issue #3](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/3), and now submitted
+upstream as **[86Box/86Box#7771](https://github.com/86Box/86Box/pull/7771)** (+14 −2, one file).
 
 The guest-side patches are Windows files, not emulator code, so they stay hosted here — see
 [FIXES.md](FIXES.md).
@@ -291,10 +291,11 @@ where it actually stands without reading the thread.
 
 ### The most useful thing anyone could pick up
 
-**Port the XT 4-bit DMA page latch to upstream 86Box.** The truncation lives in
-`86box_full/src/dma.c` here and is described [above](#not-yet-upstream--the-xt-4-bit-dma-page-latch).
-It is self-contained, it is not Inboard-specific, and until it lands no emulator can reproduce the
-driver bug class it exposes. We owe this PR and have not written it.
+**[#8](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/8) — the ATI Mach 8
+self-test.** Reproduced on stock upstream 86Box, so it is an 86Box defect, and it is currently
+**blocked on information rather than effort**: the accelerator-side memory banking is undocumented
+in every source we have checked. If you know the Mach8/8514-A register set, that issue needs one
+answer, not a week of work.
 
 ### Open issues
 

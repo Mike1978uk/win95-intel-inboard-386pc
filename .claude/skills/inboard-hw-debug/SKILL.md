@@ -2929,3 +2929,58 @@ A starved extended pool shows up far from the driver:
   nowhere to build page tables)
 
 If a guest memory manager refuses to install, read the INBRDPC panel before suspecting the manager.
+
+## Technique 73: the Mach8 accelerator has no bank concept in 86Box (open)
+
+**Status: hypothesis, blocked on information.** Recorded so it is not re-derived.
+
+Issue #8 — the Graphics Ultra option ROM prints `14207 7B6A 0007  RAM Addressing` in 86Box where
+the real card prints `Testing........Ok`. Reproduced on **stock upstream 86Box**, so it is not
+this fork's doing.
+
+**What is known.** @TC1995 (86Box's Mach8 maintainer) clarified that the self-test exercises the
+**Mach8 accelerator's** memory, not the VGA side: bitblt tests, then a rectangle fill, then a
+PIXTRANS read expecting `0xAAAA` / `0x5555` — an alternating pattern, i.e. an address-line test.
+
+Checking `vid_ati_mach8.c` against that: `mach->bank_r` / `mach->bank_w` are computed from regs
+`0xB2` / `0xAE` and used in **exactly one place in the file** —
+
+```c
+svga->read_bank  = mach->bank_r << 16;
+svga->write_bank = mach->bank_w << 16;
+```
+
+— the **VGA aperture**. The accelerator path addresses `dev->vram` directly
+(`dev->accel.dest + offset & dev->vram_mask`) with **no bank applied**. If the self-test walks
+banks, they would all alias in emulation. That is what "RAM Addressing" detects.
+
+**What is NOT known**, and could not be answered from any source checked:
+
+| Question | Status |
+|---|---|
+| Which register selects the accelerator-side bank | unknown |
+| Bank-relative addressing vs a 64 KB window on `dest` | unknown |
+| The exact self-test sequence between stages | unknown |
+| Meaning of `0007` in the diagnostic | unknown |
+
+**Sources checked, and what they yielded — do not re-check these expecting more:**
+
+- **Wim Osterholt, *XT, AT and PS/2 I/O port addresses*** — documents the 8514/A port block
+  (`02E8`…`E2E8`) but at one line per port. `E2E8` is listed **write-only** ("pixel data
+  transfer"); the read side the ROM uses is undocumented. **The word "bank" does not appear in
+  the file at all.**
+- **dosdays, ATI Graphics Ultra** — confirms the dual-memory architecture ("The VGA controller had
+  its own memory, completely separate from the Mach8 accelerator's memory") and the BIOS part
+  numbers (`113-11504-002`, Aug 1992 — matches our card). **No aperture, banking or self-test
+  detail.**
+- **ardent-tool 8514/A page** — states plainly that *"IBM never published the hardware register
+  information for the 8514/A"*. **Lead not yet followed:**
+  [`8514A_Registers.pdf`](https://www.ardent-tool.com/video/8514A_Registers.pdf), from
+  *Harnessing the 8514/A*, MIPS, January 1990 — the one primary register reference identified.
+
+**The rule this illustrates:** when a maintainer says "not that one, this one", re-read the
+original wording before checking anything. Two wrong turns here — checking whether the memories
+were *allocated* separately (they are; the request said "banks", not "size"), then guessing at
+`svga->read_bank`/`write_bank` (still the VGA side). Both were answerable from TC1995's own
+sentence.
+
