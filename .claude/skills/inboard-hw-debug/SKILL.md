@@ -2802,3 +2802,130 @@ run-and-exit EXE can replace it.
 Gotchas that each cost a run: `CD` to the CTCHIP dir first (IBM486.CFG is looked up in the CURRENT
 directory); run from real-mode DOS not a Win95 DOS box (port 22h/23h is V86-trapped); `&` is the
 batch-safe binary prefix.
+
+---
+
+## Technique 69: a config key in a section 86Box does not read is SILENTLY IGNORED - and machine
+## config lives under the machine DEVICE's `.name`, not the machine-table name
+
+**This has now produced two confidently-wrong conclusions on this project. Check it FIRST whenever
+a config-driven test "rules something out".**
+
+Machine device config is read here (`src/device.c`, `machine_get_config_int`):
+
+```c
+const device_t *dev = machine_get_device(machine);
+...
+return config_get_int((char *) dev->name, str, cfg->default_int);
+```
+
+So the `86box.cfg` section header must match **`ibmxt_inboard386_device.name`** -
+`[IBM XT (Inboard 386/PC)]`. It is **not** the machine-table `.name`
+(`[386DX] IBM XT (Inboard 386/PC)`), and it is not the internal name.
+
+If the header does not match, **every key in that section is ignored and the compiled-in
+`default_int` is used instead** - with no warning, no log line, nothing on screen.
+
+### The two times this has bitten
+
+1. **POST 101 / the 1982 ROM.** `bios = ibm5160_050986` was ignored; the machine used the list
+   default, which was then the 1982 ROM. See the 1982-ROM section.
+2. **POST 1801 / the 5161.** In July 2026 the "phantom 5161" theory was tested by setting
+   `enable_5161 = 0`, got an identical result, and was written into
+   `INBOARD_86BOX_PORT_PLAN.md` as *"fully ruled out [...] Do not re-test this theory in a future
+   session; it's closed."* The key was in a stale section. **The variable was never changed** -
+   every "5161 disabled" run still had the 5161 attached. It was the cause all along
+   (commit `9ace07f`).
+
+### How to check, in one line
+
+Do not trust the config file. Trust the runtime:
+
+```
+grep "\[m_xt\]" stderr.txt
+[m_xt] machine_ibmxt_inboard386_init: bios=ibm5160_050986 enable_5161=1   <-- says 0 in the cfg
+```
+
+That `fprintf` exists precisely because of #1. **Print the value the code actually received.**
+
+### The trap in general form
+
+A config-driven negative result is only as good as proof the config took effect. "I set X=0 and the
+symptom persisted" is worthless without evidence X was read as 0. Prefer changing the **default in
+code** for a test - it cannot be silently ignored.
+
+---
+
+## Technique 70: verify the BINARY, not the source tree, before trusting any measurement
+
+`stat` the exe against `git log` on the file you changed. If the exe predates the commit, every
+number from that run is from a different program.
+
+```bash
+stat -c '%y' 86box_full/build/phase1_mingw/src/86Box.exe
+git log -1 --format='%h %cd' --date=iso -- 86box_full/src/device/inboard386.c
+```
+
+**2026-08-25:** an entire five-memory-size sweep, plus the claim "#7638 fully fixed", came from a
+binary built at 22:50 from `f0480f9` - before the A31 commit `4e28733` at 00:20. The results were
+internally consistent and completely meaningless. Cost: most of a morning.
+
+A ninja/cmake build that says `[2/2] Linking` is *not* proof either - confirm which sources it
+recompiled.
+
+---
+
+## Technique 71: an auto-keypress harness HIDES POST errors - log what you pressed F1 *for*
+
+Every unattended harness here presses F1 on a timer to clear
+`ERROR. (RESUME = "F1" KEY)`. That prompt only appears **because POST reported an error**. For
+weeks the harness cleared `1801` before anyone read it, and it was found only when the human
+watched an un-harnessed boot.
+
+Rules:
+
+- A harness that clears prompts must **log the screen it cleared**, not just clear it.
+- The clean (uninstrumented) build has **no `inject_key.txt` hook** - it does not exist in the
+  source. Host-side keys need `AttachThreadInput` to the current foreground thread *before*
+  `SetForegroundWindow`; the latter alone is refused across processes and the guest never sees the
+  key. See `tools/quiet_run.ps1`.
+- **`INBRDPC.SYS`'s memory diagnostic is abortable by a keystroke.** A harness that keeps tapping
+  reads out a stopped counter - `functional + bad = 128k` at *every* board size - which looks
+  exactly like a memory map and is not one. Send keys only until the BIOS prompt clears, then stop.
+- When picking a frame from a capture run, take the **last** frame showing the panel, never the one
+  with the most ink: the counters tick upward and "most ink" catches a mid-count value that reads
+  like a regression. (See Technique 66b.)
+
+---
+
+## Technique 72: one shared read handler cannot serve two windows with different semantics
+
+`inboard386_bios_shadow_read()` served both the low `F0000-FFFFF` BIOS code-fetch window and the
+high `0x5F0000` bank-alias off a single `rom_shadow_enabled` flag. They need opposite answers:
+
+| window | shadowing off | why |
+|---|---|---|
+| low `F0000-FFFFF` | **ROM** | the CPU fetches BIOS code here |
+| high `0x5F0000` | **shadow RAM** | not a code-fetch window - it is the card's bank-alias, used to *load* the shadow and probed by the diagnostic |
+
+Writes were never gated, only reads - so the diagnostic wrote its pattern through the alias, read
+it straight back, got ROM, and marked the block bad. `INBRDPC.SYS` then rejects the **entire**
+extended pool over one bad block: `functional extended memory: 64k` on a 2048k board.
+
+Fix: branch on `addr >= 0x100000` **before** consulting the flag (commit `4b570de`, upstream
+[#7765](https://github.com/86Box/86Box/pull/7765)).
+
+The earlier attempt made the window plain RAM in **both** directions - which also clears the
+diagnostic, but breaks the code-fetch path and resets the guest. **When one handler serves two
+address ranges, ask what each range is FOR before making them agree.**
+
+### Downstream symptoms worth recognising
+
+A starved extended pool shows up far from the driver:
+
+- `ICACHE /S:256` - *"There is not enough free memory in your system"*
+- `ILIM386`/386MAX - *"Total available = 0 KB [...] Memory manager NOT installed"*
+- Windows 3.0 [Inboard 386] enhanced mode faulting after the splash screen (`WIN386.EXE` has
+  nowhere to build page tables)
+
+If a guest memory manager refuses to install, read the INBRDPC panel before suspecting the manager.
