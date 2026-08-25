@@ -3,11 +3,15 @@ param(
   [Parameter(Mandatory=$true)][int]$MemSize,
   [Parameter(Mandatory=$true)][string]$Label,
   [string]$AliasBase = "",
-  [int]$Wait = 240
+  [int]$Wait = 240,
+  [string]$ExePath = ""    # NOTE: not $Exe - PowerShell vars are case-insensitive,
+                          # so a param named $Exe IS the script's own $exe and gets
+                          # silently overwritten before it can be read.
 )
 $root = "C:\Users\lycet\RiderProjects\86Box-Inboard"
 $vm   = "$root\vm_shadow"
-$exe  = "$root\86box_full\build\phase1_mingw\src\86Box.exe"
+$exe  = if ($ExePath -ne "") { $ExePath } else { "C:\Users\lycet\RiderProjects\86Box-Inboard\86box_full\build\phase1_mingw\src\86Box.exe" }
+$env:PATH = "C:\msys64\mingw64\bin;" + $env:PATH   # a MinGW-built 86Box needs these on PATH or it exits 0xC0000135 (DLL not found)
 Get-Process 86Box -ErrorAction SilentlyContinue | Stop-Process -Force
 Start-Sleep -Seconds 1
 Remove-Item "$vm\inject_key.txt" -ErrorAction SilentlyContinue
