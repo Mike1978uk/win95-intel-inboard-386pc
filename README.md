@@ -248,15 +248,18 @@ and the [contributor ledger](docs/contributor_input_ledger.md).
   (VCFed) — the 4MB Inboard daughterboard (ParrotyError). Windows 95 does not fit without it.
 - **SuperFury / UniPCemu** — this project's entire Inboard hardware model is a direct port of
   UniPCemu's `hardware/inboard.c`. The foundation everything else is built on.
-- **@andrew-hoffman** — the XT 4-bit DMA page-register lead and the sources behind it, which
-  produced the 640 KB figure, an emulator DMA fidelity bug, and the driver-audit method.
+- **[@andrew-hoffman](https://github.com/andrew-hoffman)** — the XT 4-bit DMA page-register lead
+  and the sources behind it, which produced the 640 KB figure, an emulator DMA fidelity bug now
+  upstream as [#7771](https://github.com/86Box/86Box/pull/7771), the driver-audit method, and this
+  repo's writing and line-ending conventions.
 - **[Bob Smith](https://github.com/sudleyplace)** (Qualitas) — author of **386MAX**, whose source
   carries first-class Inboard support and is the primary-source evidence for the XT DMA ceiling.
   He states he had no involvement with the Inboard itself: [full detail and quotes](docs/386max_and_the_inboard.md).
 - **Al Williams** (Dr. Dobb's Journal, Hackaday) — real 1990s hands-on Inboard development
   experience; his 1990 A20 code matches this project's emulation exactly.
-- **Michal Necasek** (OS/2 Museum) — architectural confirmation, historical leads, and a verified
-  `F000:FF53` improvement now upstream.
+  [Correspondence, 2023](docs/al_williams_inboard_a20_correspondence_2023.md).
+- **Michal Necasek** ([OS/2 Museum](https://www.os2museum.com/)) — architectural confirmation,
+  historical leads, and a verified `F000:FF53` improvement now upstream.
 - **CimonVg** — ongoing work pushing the Inboard 386/PC to its limits, and support throughout.
 - **[RonnyRoy](https://github.com/ronnyroy111/inboard386)** — reproducing the Inboard as cloned
   hardware, which may be the path past today's 4MB ceiling.
@@ -266,7 +269,8 @@ and the [contributor ledger](docs/contributor_input_ledger.md).
 - **Wim Osterholt** — [XT, AT and PS/2 I/O port addresses](https://wiki.preterhuman.net/XT,_AT_and_PS/2_I/O_port_addresses)
   (1994), which marks entries `(XT only)` — the exact distinction most bugs here turn on.
   Annotated in [`docs/xt_io_port_reference_annotated.md`](docs/xt_io_port_reference_annotated.md).
-- **FastDoom** (viti95) — real-hardware-validated XT keyboard ISR reference.
+- **[FastDoom](https://github.com/viti95/FastDoom)** (viti95) — real-hardware-validated XT
+  keyboard ISR reference.
 - **Microsoft's Windows 95 DDK** — the genuine period source and toolchain behind the `VKD.VXD` fix.
 - **Kevin Moonlight** — original author of [COMrade](https://github.com/yyzkevin/COMrade); and
   **Ahmad Byagowi** ([Open-Source-PC110](https://github.com/ahmadexp/Open-Source-PC110)) — ported it

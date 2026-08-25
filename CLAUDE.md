@@ -88,3 +88,6 @@ arguments at load time and will silently corrupt the surrounding command.
   question, sent a config. It does **not** extend to every source cited: for a public
   write-up we merely relied on, credit by reference is sufficient and no reply is owed.
   Ask before treating a citation as a contact.
+- **Always cite with the URL.** For a source we relied on, the link is the credit — and it points
+  the next person at something useful. Name plus URL plus one line on what it actually gave us.
+  Record what a source did **not** contain too: that saves the next reader a dead end.
