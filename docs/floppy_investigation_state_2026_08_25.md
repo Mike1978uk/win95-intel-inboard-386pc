@@ -195,3 +195,45 @@ Remaining, in order:
    a correct `maxPhys` because the buffer is low but badly aligned.
 
 (2) and (3) both predict partial success followed by a stall, which is what is actually observed.
+
+## Ready for the next session (end of 2026-08-25)
+
+**Stock upstream build - use this, not `86box_full`:**
+
+```
+86box_upstream/build/src/86Box.exe
+```
+
+Cloned from 86Box master at `b33d0ad` ("Merge pull request #7766 from Mike1978uk/inboard-no-5161" -
+master's tip is our own PR). Both merged fixes verified present in the source: `inboard386.c` carries
+`addr >= 0x100000`, and `enable_5161` has `.default_int = 0`. Configured Ninja / RelWithDebInfo /
+`QT=OFF`, matching the toolchain that works here.
+
+**Fresh CF image, taken AFTER the controller install:**
+
+```
+C:\Users\lycet\OneDrive\Desktop\win95_fdd_partial.img
+```
+
+Use this in preference to `vm_fdd/disk.img`. That one is the *pre-install* image with only
+`SYSTEM.DAT` and the patched `HSFLOP.PDR` transplanted in - if the FDC install touched anything else
+(`USER.DAT`, an INF cache, another `.PDR`), the transplant is subtly inconsistent and any result from
+it is suspect. The fresh image has no such doubt.
+
+**The run:**
+
+1. Copy `win95_fdd_partial.img` into a fresh VM dir as `disk.img`; reuse `vm_fdd/86box.cfg`
+   (mem_size 5120, `fdd_01_type = 35_2hd`, `fdd_01_fn = blank144.img`). A blank floppy is enough -
+   any read attempt programs the DMA page register, which is the whole question.
+2. Point `tools/dma_fdd_probe.ps1` at the **upstream** exe. It now checks the process is alive and
+   stderr exceeds 1 KB before interpreting anything, and self-retries on POST `101`.
+3. Read the result:
+   - `[dmapage] ch=2 ... *** TRUNCATED ***` -> DMA is the cause, and the `maxPhys` patch matters.
+   - `ch=2` clean -> the patch is doing its job or was never needed; move to IRQ 6 in V86, then the
+     64 KB boundary.
+4. **Check the build is actually quiet before believing any of it:**
+   `grep -oE '^\[[a-z0-9_]+\]' stderr.txt | sort | uniq -c` - empty means clean.
+
+While that image is mounted, also worth grabbing a fresh `BOOTLOG.TXT` if the machine has since been
+booted **logged** (F8 -> Logged), to confirm `hsflop.pdr` now loads. The last one seen was
+byte-identical to the pre-install image, so it still showed no floppy driver.
