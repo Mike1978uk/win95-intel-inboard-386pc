@@ -574,6 +574,24 @@ inboard386_bios_shadow_read(uint32_t addr, void *priv)
                 inbmem_alias, (unsigned) addr, (unsigned) (addr & 0xffff), dev->rom_shadow_enabled);
         fflush(stderr);
     }
+    /* Which window the access arrived through decides what it sees - not a global flag.
+       The low F0000-FFFFF window is where the CPU fetches BIOS code, so with shadowing
+       off it must return ROM. The high alias at 0x5F0000 is not a code-fetch window at
+       all: it is the card's bank-alias into the shadow buffer, which is how the driver
+       loads the shadow in the first place and how its memory diagnostic probes the
+       block. On the card that alias reads back the shadow RAM whether or not shadowing
+       is switched on for F0000.
+       Keying both windows off rom_shadow_enabled is what left `bad extended memory: 64k`
+       standing: the diagnostic writes a pattern through the alias (which lands in
+       bios_shadow_ram, see the write handler below - writes were never gated), reads it
+       straight back with shadowing still off, gets ROM, and marks the block bad. The
+       driver then rejects the ENTIRE extended pool over that one block, which is why
+       `functional extended memory` reads 64k on a 2048k board.
+       The previous attempt at this made the window plain RAM in both directions, which
+       broke the BIOS code-fetch path and reset the guest shortly after the driver
+       loaded. Splitting on the address keeps the low window exactly as it was. */
+    if (addr >= 0x100000)
+        return dev->bios_shadow_ram[addr & 0xffff];
     if (dev->rom_shadow_enabled)
         return dev->bios_shadow_ram[addr & 0xffff];
     return dev->bios_rom_snapshot[addr & 0xffff];
