@@ -1,3 +1,21 @@
+"""UNRELIABLE - DO NOT USE WITHOUT FIXING FIRST (2026-08-25).
+
+The images this produces parse correctly with a host-side reader and are rejected by
+MS-DOS 3.30: "First cluster number is invalid, entry truncated" on most files, garbage
+filenames, thousands of lost clusters. Two real bugs were found and fixed while testing
+(partition type 0x06 -> 0x04, and the volume size belongs in total_sectors_16 not
+total_sectors_32) and a third remains unfound.
+
+The trap worth remembering: a host-side parser written from the same assumptions as the
+writer will happily validate a broken image. It agreed the directory tree was perfect
+while DOS could not read it. Validate against the actual consumer, not against your own
+reader.
+
+Left in the tree because the two fixed bugs are worth keeping and the approach is sound;
+the remaining defect is somewhere in cluster/directory placement. If picking this up:
+compare a byte-for-byte dump against an image formatted by DOS itself.
+"""
+
 """Build a bootable-partition-less FAT16 hard-disk image from a host directory tree.
 
 Written because installing Windows 3.0 [Inboard 386] from its fifteen 360K disks means
@@ -120,9 +138,17 @@ def build(out, src, cyls=1024, heads=8, spt=17):
     boot = bytearray(SEC)
     boot[0:3] = b'\xEB\x3C\x90'
     boot[3:11] = b'MSDOS5.0'
+    # The volume size goes in total_sectors_16 (offset 19), NOT total_sectors_32 (offset 32).
+    # total_sectors_32 is a DOS 4.0+ field; MS-DOS 3.30 does not read it, so leaving the
+    # 16-bit field at 0 makes the volume look zero-sectored. DOS still assigns the drive a
+    # letter from the partition table, then computes a garbage cluster count - CHKDSK reports
+    # "Allocation error, size adjusted" on every file and thousands of lost clusters, and
+    # directory traversal fails. Only valid while part_secs < 65536, which a <32 MB FAT16
+    # partition always is.
+    assert part_secs < 65536, "partition too large for a DOS 3.x 16-bit sector count"
     struct.pack_into('<HBHBHHBHHHII', boot, 11,
-                     SEC, spc, reserved, 2, root_ents, 0, 0xF8, fat_secs,
-                     spt, heads, part_start, part_secs)
+                     SEC, spc, reserved, 2, root_ents, part_secs, 0xF8, fat_secs,
+                     spt, heads, part_start, 0)
     boot[36] = 0x80; boot[38] = 0x29
     struct.pack_into('<I', boot, 39, 0x12345678)
     boot[43:54] = b'WIN30SRC   '
@@ -131,7 +157,10 @@ def build(out, src, cyls=1024, heads=8, spt=17):
 
     mbr = bytearray(SEC)
     endc, endh, ends = cyls - 1, heads - 1, spt
-    mbr[446:462] = bytes([0x00, 0x01, 0x01, 0x00, 0x06,
+    # Partition type 0x04 (FAT16, under 32 MB), NOT 0x06 (FAT16B). 0x06 arrived with
+    # DOS 3.31; MS-DOS 3.30 - which is what this machine runs - does not recognise it and
+    # simply never assigns the drive a letter, silently.
+    mbr[446:462] = bytes([0x00, 0x01, 0x01, 0x00, 0x04,
                           endh, ((endc >> 2) & 0xC0) | ends, endc & 0xFF]) \
                    + struct.pack('<II', part_start, part_secs)
     mbr[510:512] = b'\x55\xAA'
