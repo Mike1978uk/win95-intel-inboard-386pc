@@ -100,3 +100,21 @@ derived from CPU type and would hand a 386-in-an-XT a full 8-bit page register, 
 - Test **B:**.
 - Revert to stock `HSFLOP.PDR` (one-line copy, backup is on the card) to find out whether the
   `maxPhys` patch was load-bearing.
+
+## Constraint found while setting the test up
+
+The first probe run reached only `CS:PC=0575:1399` (real mode, still in DOS) at **t+83s**. Two
+reasons, both fixable:
+
+1. **A full Windows 95 GUI boot in 86Box on this machine takes minutes, not seconds.** Budget
+   15-20 minutes of wall clock for the run, unattended.
+2. **This build carries heavy instrumentation that is not the Inboard's.** `stderr` filled with
+   4000 `[trace]`, 2000 `[pitxctrl]`, 800 `[iotrace]`, 500 `[pitctrlpc]`, 400 `[gaptrace]`,
+   200 `[port62]` lines in 83 seconds. That is a large per-instruction cost and it is what makes
+   the guest crawl.
+
+**Do this first next time:** build with the other trace sites off (or find their env gates) so only
+`INBOARD_DMA_TRACE` is live. The `[dmapage]` hook itself is cheap - it only fires on a page-register
+write. Recall the POST-101 lesson (issue #14): a heavily instrumented build runs few enough guest
+instructions per second to change behaviour, so a slow build is not merely inconvenient here, it can
+invent symptoms.
