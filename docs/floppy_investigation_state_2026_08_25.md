@@ -118,3 +118,30 @@ reasons, both fixable:
 write. Recall the POST-101 lesson (issue #14): a heavily instrumented build runs few enough guest
 instructions per second to change behaviour, so a slow build is not merely inconvenient here, it can
 invent symptoms.
+
+## Issue #14 REOPENED (same day it was closed)
+
+A genuine POST `101` reproduced during the floppy DMA probe:
+
+```
+[opHLT] #10 CS=F000 PC=E38F DS=0000 real_addr(DS:46B)=00046B val_there=01 IF=0 int_pending=0
+[ring101] F000:ED4D
+```
+
+I closed #14 claiming the 10-run test used *"a build with the debug I/O sites gone"*. **It did not.**
+Each of those runs emitted ~50 KB of stderr containing 632 `[iotrace]`, 72 `[pitxctrl]`, 72
+`[pitctrlpc]`, 50 `[picimr5]` lines. Both samples - the original 2/6 and my 0/9 - were instrumented,
+so the comparison I drew never existed.
+
+**We do NOT have a stock upstream build locally.** `86box_full` carries debug sites in many files
+beyond `inboard386.c`, some firing with no env gate set by our scripts. For #14, and for any timing
+question, **clone 86Box master fresh** - it now contains all four merged Inboard PRs, so a stock
+build is a fair test of the shipped machine.
+
+**Verification rule:** before trusting a "clean build" result, check the stderr it produced:
+
+```bash
+grep -oE '^\[[a-z0-9_]+\]' stderr.txt | sort | uniq -c
+```
+
+Empty output means clean. Grepping the source of one file does not.
