@@ -40,7 +40,6 @@ Nothing is listed as working unless it has been run.
 - **`VDMAD.VXD`** — neuters the phantom second DMA controller. Fixes the SB Pro BSOD at
   `VDMAD(01)+00001660`.
 - **`MSSBLST.VXD`** — `maxPhys 0xFFF → 0xFF`. Clean Sound Blaster Pro audio.
-- **`HSFLOP.PDR`** — same fix, `maxPhys 0x1000 → 0xFF`. Deployed; effect not yet measured.
 - **`INBRDPC.SYS` self-test skip** and **`NODIAGS`** — both load-bearing, not conveniences.
 - **`ivt68fix`** — real-mode INT 68h vector fix.
 - **ATI Mach8 accelerated video** at 1024x768x256, using **Windows 95's own** `ATIM8.DRV` +
@@ -51,6 +50,14 @@ Nothing is listed as working unless it has been run.
 - **SCSI** — CD, MO and Zip 100 drives via `CONFIG.SYS` / `AUTOEXEC.BAT`.
 
 **Video, sound and networking all run at the same time on the real 5160.**
+
+### Deployed but NOT confirmed — do not treat as working
+
+- **`HSFLOP.PDR`** — `maxPhys 0x1000 → 0xFF`, the same fix as the sound driver. Written to the CF
+  card; no valid probe run has measured its effect.
+- **Floppy drives.** A controller is installed and correctly resourced (I/O `03F2-03F5`, IRQ 06,
+  DMA 02), but reads still stall part-way through a directory listing. **A: and B: do not work
+  yet** — an earlier version of the README said they did, which was wrong.
 
 ### Methods that generalise
 

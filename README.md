@@ -61,7 +61,6 @@ at the center of the fix.
   for a working `\` - an 83-key XT keyboard has no key for the UK one
 - Mouse input
 - 32-bit applications (confirmed with the bundled FreeCell)
-- Floppy drives A: and B:
 - SCSI Devices working by adding relevant entries to config.sys / autoexec.bat devices loading fine in ms dos mode in Windows tested CD drive, MO Drive, Zip 100 drive
 - Network working using stock Windows 95 3com 3c509b driver from Windows. Hand configured IP, gateway and subnet and navigated to frogfind.com
 - Sound Blaster Pro audio, clean, confirmed on real hardware 2026-08-24 (see below)
@@ -69,6 +68,10 @@ at the center of the fix.
   2026-08-24 (see below)
 
 **Video, sound and networking all work at the same time on the real 5160.**
+
+**Floppy drives do not work yet.** A controller is now installed and correctly resourced, but
+reads still stall part-way — see [#3](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/3).
+An earlier version of this page claimed A: and B: worked; that was wrong.
 
 ## Patched files
 
@@ -177,21 +180,51 @@ Full write-up of the original submission, with the testing matrix and known limi
 
 ## Repository structure
 
-- **`86box_full/`** — the 86Box emulator fork, with the Inboard 386/PC hardware model
-  (`src/device/inboard386.c`) and the debug/tracing hooks used throughout this investigation
-- **`upstream-submission/`** — a standalone copy of the minimal subset submitted to the official
-  86Box project ([86Box/86Box#7626](https://github.com/86Box/86Box/pull/7626))
+**The work**
+
+- **`86box_full/`** — the 86Box emulator fork: the Inboard 386/PC hardware model
+  (`src/device/inboard386.c`) plus the debug/tracing hooks used throughout this investigation.
+  Carries upstream 86Box's own `.gitattributes` so it stays diffable against master
+- **`vxd-patches/`** — the Windows 95 binary patches and the scripts that produce them:
+  `VKD.VXD`, `VPICD.VXD`, `VDMAD.VXD`, `KEYBOARD.DRV`, `MSSBLST.VXD`, `HSFLOP.PDR`,
+  `INBRDPC.SYS`, each alongside the stock original it derives from
 - **`custom_vkd/`** — full assembly source for the custom-built `VKD.VXD` (Microsoft's own DDK
-  sample, modified), plus the build script for the real period MASM/LINK toolchain
-- **`ivt68fix/`** — source + binary for the real-mode INT68h vector fix deployed on real hardware
-- **`vxd-patches/`** — binary-patch scripts (and their outputs) for `VPICD.VXD`, `VDMAD.VXD`,
-  `KEYBOARD.DRV`, and `INBRDPC.SYS`
-- **`test_harness/`** — small, source-controlled real-mode test programs used to isolate specific
-  bugs without a full Windows boot each time
-- **`docs/`** — the full writeup, plus historical reference material (Al Williams' 1990s Inboard A20
-  correspondence)
-- **`.claude/skills/inboard-hw-debug/`** — the debugging methodology this investigation converged on,
-  written up as a reusable reference
+  sample, modified), plus the build script for the genuine period MASM/LINK toolchain
+- **`ivt68fix/`** — source + binary for the real-mode INT 68h vector fix deployed on real hardware
+- **`dist/post-install-fixes/`** — what you actually download: the patched files that must be
+  applied *after* driver installation, plus the DMA audit scripts
+- **`tools/`** — deployment and capture scripts (`deploy_sound_fix.sh`, `deploy_premonolith.sh`,
+  image DMA sweeps, VM setup). Bash — pinned to LF in `.gitattributes`
+
+**Evidence and reference**
+
+- **`hardware/`** — real 5160 reverse-engineering: `INBRDPC.SYS` disassembly, PAL/GAL analysis
+- **`test_harness/`** — small real-mode test programs used to isolate a bug without a full
+  Windows boot each time
+- **`roms/`** — system, video and peripheral ROMs, including `video/ATI_MACH8.bin`, a real dump
+  of the ATI Graphics Ultra BIOS not known to be available elsewhere
+- **`analysis/`, `references/`, `screenshots/`** — traces, third-party specs, and real-hardware
+  and emulator captures
+- **`upstream-submission/`** — standalone copy of the minimal subset first submitted to 86Box
+  ([#7626](https://github.com/86Box/86Box/pull/7626))
+
+**Documentation**
+
+- **[`FIXES.md`](FIXES.md)** — every patched file, with downloads, md5s and tested status
+- **[`docs/what_worked_and_what_didnt.md`](docs/what_worked_and_what_didnt.md)** — flat inventory,
+  dead ends included
+- **[`docs/windows95_on_inboard386pc_writeup.md`](docs/windows95_on_inboard386pc_writeup.md)** — the
+  full narrative
+- **[`docs/contributor_input_ledger.md`](docs/contributor_input_ledger.md)** — who contributed what,
+  whether it was verified or disproved, and whether they have been told
+- **`docs/archive/`** — superseded session notes, kept for provenance. Treat as unverified
+
+**Methodology, as reusable skills**
+
+- **`.claude/skills/inboard-hw-debug/`** — the hardware/timing/boot debugging methodology
+- **`.claude/skills/win9x-dma-driver-audit/`** — finding Windows 9x drivers that assume 24-bit
+  DMA reach on 20-bit hardware
+- **`.claude/skills/repo-hygiene/`** — keeping this repository legible to outside contributors
 
 ## Credits
 
@@ -240,17 +273,25 @@ not to the image.
 
 ## Contributing
 
-Issues and PRs welcome. The
-[open issues](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues) are the current list;
-the tractable ones today:
+Issues and PRs welcome. Every open issue carries a **Status** block at the top, so you can see
+where it actually stands without reading the thread.
+
+### The most useful thing anyone could pick up
+
+**Port the XT 4-bit DMA page latch to upstream 86Box.** The truncation lives in
+`86box_full/src/dma.c` here and is described [above](#not-yet-upstream--the-xt-4-bit-dma-page-latch).
+It is self-contained, it is not Inboard-specific, and until it lands no emulator can reproduce the
+driver bug class it exposes. We owe this PR and have not written it.
+
+### Open issues
 
 | | |
 |---|---|
-| [#3](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/3) | Have Disk / Browse blocks. Root cause found: **no floppy controller is installed at all**. Now a floppy-DMA problem |
-| [#7](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/7) | Setup black-screens right before the Help files (reboot works around it) |
-| [#8](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/8) | ATI Mach 8 — the option ROM's RAM addressing test fails in 86Box but passes on the real card |
+| [#3](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/3) | Floppy. Controller now installed and correctly resourced, reads still stall part-way. `HSFLOP.PDR`'s DMA reach is patched but unmeasured |
+| [#7](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/7) | Setup black-screens right before the Help files (reboot works around it). Undiagnosed and unclaimed |
+| [#8](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/8) | ATI Mach 8 — the option ROM's self-test reports `RAM Addressing` in 86Box where the real card reports `Ok`. Reproduced on a stock upstream build, so it is an 86Box defect |
 | [#10](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/10) | Idea: a loadable BIOS-extension shim so 1982-era 5150/5160 ROMs can run Windows |
-| [#14](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/14) | POST intermittently halts with 101, only at `mem_size` 2688/3072 |
+| [#14](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/14) | POST intermittently halts with 101, only at `mem_size` 3072. Needs a quiet build, not `86box_full` |
 | [#15](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/15) | Windows 3.0 faults after the splash screen in 386 enhanced mode |
 
 Issues are labelled **`emulator`** or **`real-hardware`** so you can pick by what you have, and
@@ -258,6 +299,9 @@ Issues are labelled **`emulator`** or **`real-hardware`** so you can pick by wha
 
 **You do not need an Inboard to help.** Most of this was found in emulation, on an 86Box build that
 is [in this repo](86box_full/) and now [upstream](https://github.com/86Box/86Box/pull/7626).
+
+Before opening a PR here, please read [`CLAUDE.md`](CLAUDE.md) — short commit subjects, short
+bodies, reasoning in `docs/` rather than in the history.
 
 ### Testing a driver for the 20-bit DMA bug
 
