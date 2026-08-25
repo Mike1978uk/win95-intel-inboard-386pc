@@ -37,6 +37,20 @@ suggested by @andrew-hoffman on issue #3 — the git history had become hard to 
 - No superlatives, no self-congratulation, no "comprehensive"/"robust"/"seamless".
 - Negative results are worth recording, but in one line — see `docs/what_worked_and_what_didnt.md`.
 
+## Run the `repo-hygiene` skill
+
+This file is loaded every session; the skill is not. **Invoke `repo-hygiene` when any of these
+is true** — do not just follow the rules below from memory and assume the repo is tidy:
+
+- `git status` shows more than a handful of entries
+- Before pointing anyone new at the repo, or after a session that changed public-facing docs
+- After raising or merging a PR, closing an issue, or shipping a patched file
+- The user asks whether things are tidy, current, or up to date
+
+It carries the tidy pass, the publication check ("did this fix actually reach anyone?"), the
+line-ending rules, and the staging traps. The last time this was asserted rather than run, the
+pass found four stale claims and a self-corrupting command in a skill file.
+
 ## Working rules
 
 - **Never `git add -A`.** Stage deliberately. This tree carries large untracked VM
