@@ -145,3 +145,26 @@ grep -oE '^\[[a-z0-9_]+\]' stderr.txt | sort | uniq -c
 ```
 
 Empty output means clean. Grepping the source of one file does not.
+
+## The DMA probe produced a FALSE NEGATIVE - do not trust its first result
+
+Final run of the day reported:
+
+```
+attempt 1 : POST clean, letting it boot (900 s)
+dmapage lines: 0   TRUNCATED: 0
+```
+
+**86Box never ran.** `stderr_dma.txt` was 0 bytes. "POST clean" was the script finding no `ring101`
+in an empty file, and `TRUNCATED: 0` meant nothing was measured - not that nothing was truncated.
+
+Taken at face value that reads as "the maxPhys patch is working". It is not evidence of anything.
+
+Third instance of the same pattern in one day, after the `vxd_dma_audit.py` false negative and the
+"clean build" claim on #14: **a check that reports success because there was nothing there to
+check.** `tools/dma_fdd_probe.ps1` now verifies the process is alive and stderr exceeds 1 KB before
+interpreting the absence of a failure marker.
+
+Known environment issue behind it: 86Box repeatedly failed to relaunch after being killed, exiting
+instantly with a 22-byte stderr - most likely the 2 GB `disk.img` still being locked. Allow several
+seconds between runs, and confirm the process is alive.
