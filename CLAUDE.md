@@ -37,19 +37,28 @@ suggested by @andrew-hoffman on issue #3 — the git history had become hard to 
 - No superlatives, no self-congratulation, no "comprehensive"/"robust"/"seamless".
 - Negative results are worth recording, but in one line — see `docs/what_worked_and_what_didnt.md`.
 
-## Run the `repo-hygiene` skill
+## Use the skills — without being asked
 
-This file is loaded every session; the skill is not. **Invoke `repo-hygiene` when any of these
-is true** — do not just follow the rules below from memory and assume the repo is tidy:
+This file loads every session; the skills do not. **Invoke the matching skill BEFORE deriving an
+approach, not after.** Each one exists because the approach was already worked out the hard way,
+and re-deriving it wastes a session and repeats mistakes that are already written down.
 
-- `git status` shows more than a handful of entries
-- Before pointing anyone new at the repo, or after a session that changed public-facing docs
-- After raising or merging a PR, closing an issue, or shipping a patched file
-- The user asks whether things are tidy, current, or up to date
+| Invoke | When |
+|---|---|
+| **`inboard-hw-debug`** | Any new boot hang, black screen, POST code, device-not-detected, reset, or timing mismatch. Also before proposing *any* new diagnostic approach on this hardware — check the numbered techniques first |
+| **`win9x-dma-driver-audit`** | A device works but its **data is wrong** — distorted audio, garbled transfers, stalling reads. Also before trusting any Windows 9x driver on this machine |
+| **`repo-hygiene`** | `git status` has drifted; before pointing anyone new at the repo; after raising/merging a PR, closing an issue, or shipping a patched file; whenever asked whether things are tidy, current, or up to date |
 
-It carries the tidy pass, the publication check ("did this fix actually reach anyone?"), the
-line-ending rules, and the staging traps. The last time this was asserted rather than run, the
-pass found four stale claims and a self-corrupting command in a skill file.
+Two rules that apply to all of them:
+
+- **Do not assert what the skill would have checked.** The last time tidiness was asserted rather
+  than the pass run, it missed four stale claims and a self-corrupting command in a skill file.
+- **Keep them current.** A technique that resolves *or rules out* a real bug gets written back,
+  including retractions — several numbered techniques carry corrections to their own earlier
+  conclusions, and those are the most valuable lines in the file.
+
+**Never use `$1` or `$2` in a skill file.** They are substituted with the skill's invocation
+arguments at load time and will silently corrupt the surrounding command.
 
 ## Working rules
 
