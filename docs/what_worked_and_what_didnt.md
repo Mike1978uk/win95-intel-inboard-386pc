@@ -14,7 +14,7 @@ Nothing is listed as working unless it has been run.
 
 | PR | What it fixed |
 |---|---|
-| [#7626](https://github.com/86Box/86Box/pull/7626) | The Inboard 386/PC hardware model itself — ported from SuperFury's UniPCemu `hardware/inboard.c` |
+| [#7626](https://github.com/86Box/86Box/pull/7626) | The Inboard 386/PC hardware model itself — ported from SuperFury's [UniPCemu](https://superfury.itch.io/unipcemu) `hardware/inboard.c` |
 | [#7749](https://github.com/86Box/86Box/pull/7749) | POST 101 (machine defaulted to an incompatible 1982 ROM); 386DX ran no POST fix-ups at all; double-throttled memory timing |
 | [#7765](https://github.com/86Box/86Box/pull/7765) | `bad extended memory` — the high `0x5F0000` alias must read shadow RAM, not ROM. Now reports **0k** |
 | [#7766](https://github.com/86Box/86Box/pull/7766) | POST 1801 on every boot — the Inboard machine must not default to a 5161 expansion unit |

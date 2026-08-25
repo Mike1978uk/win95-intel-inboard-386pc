@@ -138,7 +138,7 @@ and there was nothing to configure.
 
 | PR | What it fixed |
 |---|---|
-| [#7626](https://github.com/86Box/86Box/pull/7626) | The hardware model itself, ported from SuperFury's UniPCemu `hardware/inboard.c` |
+| [#7626](https://github.com/86Box/86Box/pull/7626) | The hardware model itself, ported from SuperFury's [UniPCemu](https://superfury.itch.io/unipcemu) `hardware/inboard.c` |
 | [#7749](https://github.com/86Box/86Box/pull/7749) | POST 101 (the machine defaulted to an incompatible 1982 ROM); 386DX ran no POST fix-ups at all; double-throttled memory timing |
 | [#7765](https://github.com/86Box/86Box/pull/7765) | `bad extended memory` — the high `0x5F0000` alias must read shadow RAM, not ROM. Now reports **0k** |
 | [#7766](https://github.com/86Box/86Box/pull/7766) | POST 1801 on every boot — the machine must not default to a 5161 expansion unit |
@@ -246,8 +246,9 @@ and the [contributor ledger](docs/contributor_input_ledger.md).
 
 - **[Stynx and Harrison Frazier](https://forum.vcfed.org/index.php?threads/inboard-386-pc-2mb-expansion-clone.78562/)**
   (VCFed) — the 4MB Inboard daughterboard (ParrotyError). Windows 95 does not fit without it.
-- **SuperFury / UniPCemu** — this project's entire Inboard hardware model is a direct port of
-  UniPCemu's `hardware/inboard.c`. The foundation everything else is built on.
+- **SuperFury / [UniPCemu](https://superfury.itch.io/unipcemu)** — this project's entire Inboard
+  hardware model is a direct port of UniPCemu's `hardware/inboard.c`. The foundation everything
+  else is built on.
 - **[@andrew-hoffman](https://github.com/andrew-hoffman)** — the XT 4-bit DMA page-register lead
   and the sources behind it, which produced the 640 KB figure, an emulator DMA fidelity bug now
   upstream as [#7771](https://github.com/86Box/86Box/pull/7771), the driver-audit method, and this
