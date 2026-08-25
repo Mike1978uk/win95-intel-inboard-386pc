@@ -84,3 +84,7 @@ arguments at load time and will silently corrupt the surrounding command.
 - Never propose disabling `INBRDPC.SYS` as a test variable; it is required, not optional.
 - Closing the loop with a contributor whose input was verified, shipped, or disproved is
   a deliverable, not a nicety. Ledger: `docs/contributor_input_ledger.md`.
+  **This applies to people who engaged with this project** — raised an issue, answered a
+  question, sent a config. It does **not** extend to every source cited: for a public
+  write-up we merely relied on, credit by reference is sufficient and no reply is owed.
+  Ask before treating a citation as a contact.
