@@ -81,7 +81,12 @@ derived from CPU type and would hand a 386-in-an-XT a full 8-bit page register, 
 
 ## If DMA comes back clean, next suspects
 
-1. **The `ForcedConfig` may not include a DMA channel.** The user set resources manually after a
+1. ~~**The `ForcedConfig` may not include a DMA channel.**~~ **RULED OUT 2026-08-25** - Device
+   Manager -> Resources reads `I/O Range 03F2-03F5`, `Interrupt Request 06`, `Direct Memory Access
+   02`. All three present and correct, and the I/O range matches what was decoded from the registry
+   blob. The controller is properly resourced and still stalls.
+   Original note kept below for context only:
+   ~~The `ForcedConfig` may not include a DMA channel.~~ The user set resources manually after a
    conflict. I could read `I/O 0x3F2-0x3F5` out of the blob but **could not honestly decode IRQ/DMA**
    from raw bytes. **Get Device Manager -> Resources tab** and check a DMA channel is listed at all.
    A config with I/O + IRQ but no DMA gives exactly this symptom: seeks, returns first sectors, then
@@ -168,3 +173,25 @@ interpreting the absence of a failure marker.
 Known environment issue behind it: 86Box repeatedly failed to relaunch after being killed, exiting
 instantly with a 22-byte stderr - most likely the 2 GB `disk.img` still being locked. Allow several
 seconds between runs, and confirm the process is alive.
+
+
+## Suspect list after the Resources tab (2026-08-25, end of session)
+
+Device Manager -> Resources: `I/O 03F2-03F5`, `IRQ 06`, `DMA 02`. All correct. So the controller is
+correctly resourced and a correctly-detected 3.5" drive still returns a partial directory listing
+and then stalls.
+
+Remaining, in order:
+
+1. **DMA page truncation** - `HSFLOP.PDR` `maxPhys` was `0x1000` (16 MB) on a 1 MB-reach machine.
+   Patched to `0x9F` and deployed, **effect still unmeasured**. The probe that would settle it has
+   never produced a valid run. This is the one to finish first.
+2. **IRQ 6 delivery in V86.** A transfer that starts and never completes, motor left on, fits a
+   completion interrupt that never arrives. The resource is *assigned* correctly - that is not the
+   same as it being *delivered* through the V86 path. This machine has form: the custom `VKD.VXD`
+   had to be rebuilt from DDK source because `VKD_Int_09` assumed an AT-style 8042.
+3. **The 64 KB DMA boundary.** An 8-bit channel cannot cross a 64 KB physical boundary. "Reads the
+   first part, then stops" is exactly what a buffer straddling one looks like, and it would survive
+   a correct `maxPhys` because the buffer is low but badly aligned.
+
+(2) and (3) both predict partial success followed by a stall, which is what is actually observed.
