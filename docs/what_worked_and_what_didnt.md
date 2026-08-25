@@ -21,12 +21,11 @@ Nothing is listed as working unless it has been run.
 
 ### Emulator-side, in this fork, **not yet upstream**
 
-- **The XT 4-bit DMA page latch.** `dma_force_xt` reached upstream, but only as an AT/XT
-  *detection* override. The truncation itself — `dma_page_is_xt()` and
-  `dma[addr].page = val & 0x0f` in `86box_full/src/dma.c` — did not. Without it a guest
-  gets 24-bit DMA reach on a machine that physically has 20-bit, and the whole class of
-  bug below is invisible in emulation. **@andrew-hoffman flagged this gap on issue #3.**
-  See [Still to upstream](#still-to-upstream).
+- **The XT 4-bit DMA page latch.** Upstream *does* truncate (`dma[addr].page = dma_at ? val :
+  val & 0xf`), but gates it on `dma_at`, which is `is286`. An Inboard is an XT board with a 386
+  on it, so upstream hands it a full 8-bit page register it does not have. The fix is to gate on
+  `dma_force_xt || !dma_at` instead — **one line**, plus the `dma_m` mask in `dma_reset()`.
+  **@andrew-hoffman flagged this gap on issue #3.** See [Still to upstream](#still-to-upstream).
 - `rammap()` NULL deref on a page-table walk through unbacked physical memory — a guest
   could crash 86Box outright. Fixed in `b4d9770`.
 
@@ -127,9 +126,10 @@ Kept deliberately short. Each line is a dead end somebody else does not need to 
 ## Still to upstream
 
 The 4-bit DMA page latch (above) is the one emulator-side fix of general value that is not
-in 86Box. It is not Inboard-specific — it is correct for any PC/XT-class machine, and
-without it no emulator can reproduce the driver bug class described in
-[the DMA audit skill](../.claude/skills/win9x-dma-driver-audit/).
+in 86Box. **It is one line** — gate the existing truncation on `dma_force_xt || !dma_at`
+rather than `dma_at` alone. Not Inboard-specific: it is correct for any PC/XT-class machine,
+and without it no emulator can reproduce the driver bug class described in
+[the DMA audit skill](../.claude/skills/win9x-dma-driver-audit/). **Not yet written.**
 
 The guest-side patches are Windows files and stay hosted here, in
 [FIXES.md](../FIXES.md).

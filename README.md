@@ -155,21 +155,34 @@ machine now has its own BIOS list containing only the two compatible 1986 revisi
 
 ### Not yet upstream — the XT 4-bit DMA page latch
 
-One emulator-side fix of general value is still only in this fork. `dma_force_xt` reached 86Box, but
-only as an AT/XT *detection* override; the truncation itself did not:
+One emulator-side fix of general value is still only in this fork — and it is **one line**.
+
+Upstream 86Box already truncates the page register for a genuine XT, in `dma_page_write()`:
 
 ```c
-/* 86box_full/src/dma.c — in this repo, not upstream */
+dma[addr].page = dma_at ? val : val & 0xf;      /* upstream today */
+```
+
+But `dma_at` is assigned `is286`. An Inboard is an XT board with a 386 on it, so `dma_at` comes
+out true and the machine is handed a full 8-bit page register it does not physically have.
+`dma_force_xt` — which *did* reach upstream — is not consulted here at all. The fix is to gate on
+that instead:
+
+```c
 static int dma_page_is_xt(void) { return dma_force_xt || !dma_at; }
 ...
 dma[addr].page = dma_page_is_xt() ? (val & 0x0f) : val;
 ```
 
-Without it a guest gets 24-bit DMA reach on a machine that physically has 20-bit, and the whole
-driver bug class described [below](#testing-a-driver-for-the-20-bit-dma-bug) is invisible in
-emulation. It is not Inboard-specific — it is correct for any PC/XT-class machine.
+plus the matching `dma_m` mask in `dma_reset()`. Any machine that does not set `dma_force_xt`
+behaves exactly as before.
+
+Until it lands, upstream gives a guest 24-bit DMA reach on a machine that physically has 20-bit,
+and the driver bug class described [below](#testing-a-driver-for-the-20-bit-dma-bug) is invisible
+in emulation. It is not Inboard-specific — it is correct for any PC/XT-class machine.
 **Flagged by @andrew-hoffman** on
-[issue #3](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/3). A PR is owed.
+[issue #3](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/3). A PR is owed and
+is not yet written.
 
 The guest-side patches are Windows files, not emulator code, so they stay hosted here — see
 [FIXES.md](FIXES.md).
