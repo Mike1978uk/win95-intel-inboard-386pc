@@ -1,0 +1,126 @@
+# Line-ending and binary policy.
+#
+# Suggested by @andrew-hoffman on issue #3. Two problems it solves here:
+#
+#   1. This repo's deployment scripts (tools/*.sh, vxd-patches/deploy_premonolith.sh) are
+#      LF only by accident. With core.autocrlf=true and no rules, a fresh clone on Windows
+#      hands you CRLF copies that bash refuses to run. Latent bug for anyone cloning.
+#   2. This project's whole value is byte-exact binary patches. Git currently classifies
+#      them correctly by autodetection alone - which works until a patched VxD happens to
+#      carry no NUL byte early enough to trip the heuristic. Then it gets silently mangled.
+#      The rules below make that impossible rather than unlikely.
+#
+# NOTE: 86box_full/ has its own .gitattributes, shipped by upstream 86Box, and a
+# subdirectory's rules win. The vendored emulator tree is deliberately left under
+# upstream's policy so our tree stays diffable against 86Box master.
+
+# Default: normalise text to LF in the database, native on checkout.
+* text=auto
+
+
+# ---------------------------------------------------------------------------
+# Binaries - never convert, never diff as text
+# ---------------------------------------------------------------------------
+
+# The patched drivers and the stock originals they are derived from. The crown jewels.
+*.VXD  binary
+*.DRV  binary
+*.SYS  binary
+*.PDR  binary
+*.386  binary
+*.COM  binary
+*.EXE  binary
+*.DLL  binary
+*.OVL  binary
+*.CPI  binary
+*.FNT  binary
+
+# Dumps, ROM images and disk images
+*.bin  binary
+*.rom  binary
+*.img  binary
+*.dsk  binary
+*.iso  binary
+*.vhd  binary
+*.cab  binary
+
+# The whole ROM tree - it holds a dozen vendor-specific BIOS extensions
+# (.bio .vbi .bi1 .bi2 .bi3 .awd .ami .rcv .usf .v3 .001 .004 ...) and listing
+# each one is a losing game. Nothing under here is ever text.
+# Use -text rather than the `binary` macro so the *.md / *.txt rules at the
+# bottom of this file can still win for the handful of READMEs living in there.
+roms/**        -text
+test-images/** -text
+
+# Build output and archives
+*.o    binary
+*.obj  binary
+*.a    binary
+*.lib  binary
+*.pdb  binary
+*.zip  binary
+*.gz   binary
+*.7z   binary
+
+# Media
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.bmp  binary
+*.ico  binary
+*.icns binary
+*.pdf  binary
+*.ttf  binary
+*.mp4  binary
+
+
+# ---------------------------------------------------------------------------
+# CRLF - files consumed by DOS, Windows 3.x/9x, or a period toolchain
+# ---------------------------------------------------------------------------
+
+# Run on the real 5160 from AUTOEXEC.BAT / CONFIG.SYS. DOS is unforgiving here.
+*.BAT  text eol=crlf
+*.bat  text eol=crlf
+*.CFG  text eol=crlf
+*.cfg  text eol=crlf
+*.INI  text eol=crlf
+*.ini  text eol=crlf
+*.INF  text eol=crlf
+*.inf  text eol=crlf
+*.REG  text eol=crlf
+*.reg  text eol=crlf
+
+# The 1995 DDK MASM/LINK toolchain - custom_vkd/ and ivt68fix/ are assembled by
+# the genuine period tools, which expect CRLF.
+*.ASM  text eol=crlf
+*.asm  text eol=crlf
+*.INC  text eol=crlf
+*.inc  text eol=crlf
+*.DEF  text eol=crlf
+*.def  text eol=crlf
+*.map  text eol=crlf
+MAKEFILE text eol=crlf
+
+# PowerShell
+*.ps1  text eol=crlf
+
+
+# ---------------------------------------------------------------------------
+# LF - anything executed by bash/MSYS or a modern interpreter
+# ---------------------------------------------------------------------------
+
+*.sh   text eol=lf
+*.py   text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+.gitignore     text eol=lf
+.gitattributes text eol=lf
+
+
+# ---------------------------------------------------------------------------
+# Documentation - LF in the database, native on checkout
+# ---------------------------------------------------------------------------
+
+*.md   text
+*.txt  text
