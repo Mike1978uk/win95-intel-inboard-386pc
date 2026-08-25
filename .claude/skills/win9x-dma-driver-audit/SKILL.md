@@ -173,3 +173,52 @@ Windows 95 OSR1. `MSSBLST.VXD` allocated at `0x4E0000`, the 4-bit latch truncate
 and the card played adapter ROM. Two bytes fixed it, confirmed on real hardware 2026-08-24.
 The 4-bit page register was called correctly from the hardware by **@andrew-hoffman** before any of
 it was measured.
+
+---
+
+## A false negative this audit produced, and the fix (2026-08-25)
+
+`vxd_dma_audit.py` cleared `HSFLOP.PDR` — *"maxPhys is a register, not statically decidable"*,
+*"0 allocation(s) exceed the XT's 20-bit DMA reach"* — on a driver containing a plainly visible
+`push 0x1000`. The driver was hanging every floppy access on a real 5160 + Inboard.
+
+**Cause: the pushes are not contiguous.** The walk-back stopped at the first non-`push`
+instruction, and this compiler put stack-neutral filler in between:
+
+```
+0x3eb4  68 00 10 00 00   push 0x1000    <- maxPhys, 16 MB
+0x3eb9  33 d2            xor edx,edx    <- filler BETWEEN pushes
+0x3ebb  52               push edx
+...
+0x3ec0  50               push eax
+0x3ec1  c1 e0 0c         shl eax,12     <- filler between the LAST push and the call
+0x3ec4  a3 24 00 00 00   mov [0x24],eax
+0x3ec9  cd 20            _PageAllocate
+```
+
+Walking back from the call hit `mov` immediately, collected **zero** arguments, and a missing
+`maxPhys` fell through to the "it's a register" branch. Fixed by skipping stack-neutral
+instructions (`mov`/`xor`/`shl`/`lea`/`test`/...) and stopping only on something that really ends
+the frame (`call`/`jmp`/`ret`/`pop`/`int`).
+
+**The lesson is about diagnostics, not disassembly.** A tool that under-reports is worse than no
+tool: it converts "unknown" into "checked and clean", and the driver stops being a suspect. When an
+audit clears a component that symptoms still point at, **verify the tool against the raw bytes
+before believing it**. Two greps would have caught this:
+
+```bash
+grep -c $'\x68\x00\x10\x00\x00' DRIVER.PDR   # push 0x1000
+grep -c $'\x68\xff\x0f\x00\x00' DRIVER.PDR   # push 0xfff
+```
+
+Note also that **both** encodings mean 16 MB. `0xFFF` is "highest page below 16 MB" and `0x1000` is
+"16 MB"; drivers use both, and matching only one form misses half the field.
+
+### Symptom note: this class can hang, not only corrupt
+
+The main text says the tell is corrupt data rather than failure. That holds when the consumer
+accepts whatever bytes arrive — audio plays them. **A consumer that validates will hang instead**: a
+floppy read whose DMA landed elsewhere fails its CRC, the driver retries, and the retry loop never
+terminates. Motor on, drive light on, hourglass, eject does nothing.
+
+So do not rule this class out because the symptom is a lockup.

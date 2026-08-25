@@ -51,14 +51,28 @@ def audit(path):
         for i, (off, size, mn, ops) in enumerate(stream):
             if mn != "VxDCall" or int(ops, 16) != PAGEALLOCATE:
                 continue
-            # walk back over the eight pushes that set up the call
+            # Walk back over the eight pushes that set up the call.
+            #
+            # The pushes are NOT always contiguous. Compilers interleave instructions that
+            # do not touch the stack - HSFLOP.PDR has `shl eax,12` and `mov [x],eax`
+            # between its last push and the VxDCall, and `xor edx,edx` between two pushes.
+            # Breaking at the first non-push made this function return ZERO arguments, and
+            # a missing maxPhys then reported as "register - not statically decidable".
+            # That is a FALSE NEGATIVE on a plainly visible `push 0x1000`, and it cleared a
+            # driver that was genuinely broken. Skip stack-neutral instructions instead.
+            SKIPPABLE = {"mov", "movzx", "movsx", "xor", "shl", "shr", "sar", "lea", "add",
+                         "sub", "and", "or", "test", "cmp", "inc", "dec", "nop", "cdq", "xchg"}
             pushes = []
             j = i - 1
+            skipped = 0
             while j >= 0 and len(pushes) < 8:
                 poff, psize, pmn, pops = stream[j]
-                if pmn != "push":
-                    break
-                pushes.append((poff, pops, psize))
+                if pmn == "push":
+                    pushes.append((poff, pops, psize))
+                elif pmn in SKIPPABLE and skipped < 12:
+                    skipped += 1          # stack-neutral filler, keep looking
+                else:
+                    break                 # call/jmp/ret/pop/int - stop, the frame ends here
                 j -= 1
             args = {}
             for k, (poff, pops, psize) in enumerate(pushes):
