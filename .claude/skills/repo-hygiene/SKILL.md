@@ -137,6 +137,45 @@ had gone up, but `dma_page_is_xt()` and the `val & 0x0f` truncation had not.
 
 ---
 
+## 3b. Line endings and binaries
+
+`.gitattributes` at the repo root pins this. Two things it protects, both suggested by
+@andrew-hoffman on issue #3:
+
+1. **`*.sh eol=lf`** — the deploy scripts were LF only by accident. With `core.autocrlf=true`
+   and no rules, a fresh Windows clone hands you CRLF copies bash refuses to run.
+2. **Explicit `binary`** for `*.VXD`, `*.DRV`, `*.SYS`, `*.PDR`, `*.386`, `*.COM`, `roms/**`.
+   Autodetection was getting these right, but it works by sniffing for a NUL byte early in
+   the file. A patched VxD that happens not to have one gets silently mangled. This project's
+   whole value is byte-exact patches; do not leave that to a heuristic.
+
+CRLF is forced for anything DOS, Windows 3.x/9x or the 1995 DDK MASM toolchain consumes:
+`*.BAT`, `*.CFG`, `*.INI`, `*.INF`, `*.ASM`, `*.INC`, `*.DEF`, `MAKEFILE`.
+
+**`86box_full/` is deliberately excluded** — it ships upstream 86Box's own `.gitattributes`,
+and a subdirectory's rules win. Leave it that way so the tree stays diffable against master.
+
+### Before changing these rules
+
+```bash
+git check-attr binary text eol -- <a few representative paths>   # rules resolve as intended?
+git add --renormalize .
+git diff --cached --numstat | awk '$1=="-" && $2=="-"'           # MUST be empty
+```
+
+That last line lists binary blobs the renormalize would rewrite. **If it prints anything,
+stop** — you are about to corrupt a patch file.
+
+A directory-wide `binary` macro will also catch READMEs living in that tree. Use `-text`
+instead, so the `*.md` / `*.txt` rules further down the file can still win. That mistake was
+made and caught here by `check-attr`, not by eye.
+
+**On this repo the renormalize was a no-op** — `core.autocrlf=true` had already kept the
+database LF-clean, so there was no mass normalising commit to make. Check before assuming
+you need one.
+
+---
+
 ## 4. Verify after writing
 
 Same rule as the hardware work: **a confirmation that looked good is not a confirmation.**
