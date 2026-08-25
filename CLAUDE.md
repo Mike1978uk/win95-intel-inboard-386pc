@@ -43,11 +43,17 @@ This file loads every session; the skills do not. **Invoke the matching skill BE
 approach, not after.** Each one exists because the approach was already worked out the hard way,
 and re-deriving it wastes a session and repeats mistakes that are already written down.
 
-| Invoke | When |
-|---|---|
-| **`inboard-hw-debug`** | Any new boot hang, black screen, POST code, device-not-detected, reset, or timing mismatch. Also before proposing *any* new diagnostic approach on this hardware — check the numbered techniques first |
-| **`win9x-dma-driver-audit`** | A device works but its **data is wrong** — distorted audio, garbled transfers, stalling reads. Also before trusting any Windows 9x driver on this machine |
-| **`repo-hygiene`** | `git status` has drifted; before pointing anyone new at the repo; after raising/merging a PR, closing an issue, or shipping a patched file; whenever asked whether things are tidy, current, or up to date |
+**Route by what the task is, first.** The domain decides the skill; the symptoms below are
+just the common cases.
+
+| If the work is… | Use | Typical triggers |
+|---|---|---|
+| **Git, GitHub, docs** — commits, PRs, issues, releases, the README, anything public-facing | **`repo-hygiene`** | `git status` has drifted; raising or merging a PR; closing an issue; shipping a patched file; before pointing anyone new at the repo; asked whether things are tidy or current |
+| **The emulator or the real 5160** — a bug, a hang, a device, timing, POST | **`inboard-hw-debug`** | Boot hang, black screen, POST code, device not detected, reset, timing mismatch. Also before proposing *any* new diagnostic approach — check the numbered techniques first |
+| **A driver whose data is wrong** (a sub-case of the above, common enough to be its own skill) | **`win9x-dma-driver-audit`** | Distorted audio, garbled transfers, stalling reads — the device works but the bytes are wrong. Also before trusting any Windows 9x driver on this machine |
+
+If a task spans two domains — fixing an emulator bug *and* then raising the PR for it — use each
+skill at the point its domain starts, not both up front.
 
 Two rules that apply to all of them:
 
