@@ -3011,7 +3011,8 @@ it means anything**.
 ### The specific signature to look for: a real-mode storage stack
 
 ```
-Dynamic load success C:\WINDOWS\system\IOSUBSYSmm.pdr
+Dynamic load success C:\WINDOWS\system\IOSUBSYS
+mm.pdr
 INITCOMPLETESUCCESS = RMM
 ```
 
@@ -3035,3 +3036,43 @@ Prefer it to reading `BOOTLOG` when the machine is in front of you.
 **Generalises to:** any "the fix didn't work" on this project. Before theorising about why a patch
 had no effect, prove the patched code executed. `Patched: N>0` says the file changed; `BOOTLOG`
 says the file *ran*. They are different claims.
+
+### Technique 73, addendum 2026-08-25 — architecture settled, register names still open
+
+**[PRIMARY] Michal Necasek, OS/2 Museum, *The 8514/A Graphics Accelerator*:**
+<https://www.os2museum.com/wp/the-8514a-graphics-accelerator/>
+
+Two facts that change the shape of issue #8:
+
+1. **The 8514/A is not memory-mapped at all.** *"Unlike MDA/CGA/EGA/VGA, the 8514/A was not mapped
+   into the host system's memory space at all and the framebuffer could not be accessed directly."*
+   VRAM is reachable **only** through I/O, via `PIX_TRANS`. So @TC1995's "Mach8 RAM banks" cannot be
+   a VGA-style memory window, and `mach->bank_r`/`bank_w` -> `svga->read_bank`/`write_bank` is
+   definitively the wrong layer. **Do not look for an aperture; there isn't one.**
+2. **Memory is plane-organised, and the engine processes 4 or 8 bits at a time depending on whether
+   512 KB or 1 MB of VRAM is fitted.** 86Box models this (`config1 |= 0x20` at >=1024; `dev->bpp`
+   branches in the `PIX_TRANS` macros).
+
+**FREE UNTRIED EXPERIMENT that follows directly:** run the Mach8 at **512 KB** instead of the 1 MB
+default. If the self-test passes at one size and fails at the other, the defect is the 4/8-bit width
+handling and **no register documentation is needed at all**. Config change only.
+
+**[PRIMARY] Best remaining sources** (Necasek cites them; IBM never published 8514/A register docs):
+- **Chips & Technologies 82C480 datasheet, August 1991** — an 8514/A-compatible chip, so a real
+  register-level document. Best lead by some distance.
+- *Graphics Programming for the 8514/A*, Richter & Smith, M&T Books 1990.
+
+**[AI-SOURCED — UNVERIFIED, DO NOT IMPLEMENT FROM]** A Google AI answer supplied 2026-08-25 offered
+a shortlist of names. Treat strictly as things to *look up*, never as facts:
+
+| Claim | Status |
+|---|---|
+| `GE_OFFSET_L`/`GE_OFFSET_H`, `GE_PITCH` drive accelerator addressing | **Consistent with our code** — `mach->accel.dst_ge_offset` and `dst_pitch` are already used in the `PIX_TRANS` macros |
+| `MEM_CNTL` at `0xBEE8` index 1 | unverified — check the 82C480 datasheet |
+| `0007` is a plane bit-mask (planes 0,1,2 active) | unverified, plausible — one question to @TC1995 settles it |
+| Engine-busy poll on STATUS, then MIX/`ALU_FG_FN` redirect, then a read-direction `CMD` before `PIX_TRANS` reads | unverified, but the right *shape* for 8514/A |
+| "sliding aperture window, 64 KB/128 KB chunks" | **CONTRADICTS Necasek — treat as wrong.** There is no memory aperture |
+
+That last row is why the tag exists: the answer was fluent, mixed real register names with invented
+mechanism, and cited nothing. **Michal's article is trustworthy; the AI answer is a shortlist of
+things to verify against the datasheet.**
