@@ -140,3 +140,22 @@ hosted here, in [FIXES.md](../FIXES.md).
 
 The guest-side patches are Windows files and stay hosted here, in
 [FIXES.md](../FIXES.md).
+
+## Worked: reading `IOS.LOG` before theorising (2026-08-28)
+
+Windows' own I/O Supervisor log named three blockers nobody had suspected, the decisive one being
+`Punting miniports because of unknown ASPI driver SD120PPD` — IOS refusing to load miniport
+drivers **as a class**. `SD120PPD.SYS` is a parallel-port LS-120 driver, unrelated to the disk or
+the SCSI chain.
+
+Commenting it out (plus `ASPIHDRM.SYS`) and adding `inbrdpc.sys` to `IOS.INI`'s `[SafeList]` took
+units running on real-mode drivers from **six to one**. The survivor is the XT-IDE boot disk, which
+`rmm.pdr` still maps and which no 32-bit driver will ever claim.
+
+This did not fix the disk. It made issues #18 and #19 testable at all — before it, any 32-bit
+storage driver would have failed for a reason unrelated to itself. Measurement in
+[#17](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/17).
+
+**Not separated:** two variables changed in one boot. The punt line is unambiguously the ASPI
+removal; the whitelist's own effect is untested. **Caveat:** `MODISK2.SYS` claimed no units that
+boot, so its "Unsafe/Monolithic" flags may only have been dormant for lack of MO media.
