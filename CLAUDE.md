@@ -91,3 +91,21 @@ arguments at load time and will silently corrupt the surrounding command.
 - **Always cite with the URL.** For a source we relied on, the link is the credit — and it points
   the next person at something useful. Name plus URL plus one line on what it actually gave us.
   Record what a source did **not** contain too: that saves the next reader a dead end.
+
+## How to spend a session
+
+Also from @andrew-hoffman, on [issue #3](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/3):
+
+> *"You might need to save tokens by only actively prompting instead of letting Claude Code
+> run in a loop and burn all it wants to and not always on the highest priority action items."*
+
+- **Prompt actively; do not run open-ended.** Do the named thing, report, stop. An unattended
+  loop reliably picks its own priorities, and they are not the owner's.
+- **Cheapest test first, always.** A config change and one boot beats a build. A Control Panel
+  tab beats a trace hook. State the cost of a step before taking it.
+- **Read the machine before theorising.** On 2026-08-25 every theory derived from source was
+  wrong, and all three answers came from the hardware: `BOOTLOG.TXT`, a COMrade memory read, and
+  the System control panel's Performance tab. Andrew's contributions have consistently been
+  *where to look*, not *what to think* — take the steer, then go and measure.
+- **A negative result from an unverified run is not a result.** Prove the patched file loaded
+  (Technique 74) before explaining why the patch did nothing.
