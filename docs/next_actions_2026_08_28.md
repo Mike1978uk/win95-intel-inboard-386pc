@@ -66,12 +66,19 @@ build is the slowest of the three and nobody would choose it, so it is not worth
 If the 386 gain over V20 turns out to be small, that is worth knowing before any effort goes into
 ROM shadowing. Do not infer the gain from the build name.
 
-## 4. POST 101 at 2688/3072 — one sweep
+## 4. POST 101 at 2688/3072 — DONE, hypothesis disproved
 
-**Cost: one sweep run.** [#14](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/14).
-Both sizes that ever produced `101` collapse to **2048 KB** under the settings-dialog bug fixed
-upstream in `9ee5197`, and 2048 is not a valid board size. Run `tools/post101_sweep.ps1` at
-`mem_size = 2048` written straight into the cfg. If `101` returns, that is the cause.
+**Ran 2026-08-28.** `tools/post101_sweep.ps1 -MemSize 2048 -Runs 10` on `tools/86Box_stock.exe`,
+the same binary as the earlier 30-run sweep, so `mem_size` was the only variable.
+**10 runs, zero POST 101**, all ten screenshots byte-identical and all reaching DOS.
+
+Verified rather than assumed: the screen shows 386MAX reporting 1664 KB (640 conventional + 1024
+extended) = 2048 − the 384 KB hole. At 3072 it would read 2688 KB.
+
+Not absolute — at the original 4-in-14 rate, ten clean runs would still occur about 3.5% of the
+time — but "the dialog silently rounded to an invalid 2048" is no longer the leading explanation.
+The shadow-alias hypothesis in the issue's status block stands. Recorded on
+[#14](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/14#issuecomment-5451371026).
 
 ## 5. A 32-bit Win9x port driver for 8-bit XT-IDE — newly plausible
 
