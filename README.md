@@ -328,6 +328,7 @@ answer, not a week of work.
 | [#17](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/17) | Drives run in MS-DOS compatibility mode. Real-mode units are down from six to one after removing a parallel-port ASPI driver; the survivor is the XT-IDE boot disk, which stays real-mode permanently |
 | [#18](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/18) | Floppy reads return garbage once a 32-bit driver loads — `HSFLOP.PDR`'s DMA buffer lands above 1 MB. Patched, not yet measured |
 | [#19](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/19) | Trantor T130B — a Windows 95 32-bit miniport (`T130.MPD`) exists but is untested here |
+| [#20](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/20) | 86Box has no 3C509B device, so emulated networking cannot match the real machine's card. Low priority, emulation fidelity only |
 
 Issues are labelled **`emulator`** or **`real-hardware`** so you can pick by what you have, and
 **`upstream`** marks the ones destined for 86Box itself.
