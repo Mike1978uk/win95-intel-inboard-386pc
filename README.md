@@ -134,14 +134,17 @@ and there was nothing to configure.
 
 ## Upstream
 
-**The Intel Inboard 386/PC is part of 86Box.** Four PRs are merged:
+**The Intel Inboard 386/PC is part of 86Box.** Seven PRs are merged:
 
 | PR | What it fixed |
 |---|---|
 | [#7626](https://github.com/86Box/86Box/pull/7626) | The hardware model itself, ported from SuperFury's [UniPCemu](https://superfury.itch.io/unipcemu) `hardware/inboard.c` |
 | [#7749](https://github.com/86Box/86Box/pull/7749) | POST 101 (the machine defaulted to an incompatible 1982 ROM); 386DX ran no POST fix-ups at all; double-throttled memory timing |
+| [#7760](https://github.com/86Box/86Box/pull/7760) | `rammap()` dereferenced NULL on a page-table walk through unbacked memory — a guest could crash 86Box outright |
+| [#7761](https://github.com/86Box/86Box/pull/7761) | The reserved block is 128 KB at a fixed `0x5E0000`–`0x5FFFFF`, not 64 KB derived from RAM size |
 | [#7765](https://github.com/86Box/86Box/pull/7765) | `bad extended memory` — the high `0x5F0000` alias must read shadow RAM, not ROM. Now reports **0k** |
 | [#7766](https://github.com/86Box/86Box/pull/7766) | POST 1801 on every boot — the machine must not default to a 5161 expansion unit |
+| [#7771](https://github.com/86Box/86Box/pull/7771) | The XT 4-bit DMA page latch — truncation was gated on `dma_at`, so an Inboard got an 8-bit page register it does not physically have |
 
 Between them these close [86Box/86Box#7638](https://github.com/86Box/86Box/issues/7638) (all memory
 reported "BAD", 640K available) and this repo's issues #11, #12, #13 and #16.
@@ -153,20 +156,22 @@ ROMs do not carry. It failed *silently*: the 1986 entries existed only in this r
 `bios =` line naming one was not a valid option elsewhere and was ignored without warning. The
 machine now has its own BIOS list containing only the two compatible 1986 revisions.
 
-### Submitted — the XT 4-bit DMA page latch ([#7771](https://github.com/86Box/86Box/pull/7771))
+### Worth knowing — the XT 4-bit DMA page latch ([#7771](https://github.com/86Box/86Box/pull/7771))
 
-One emulator-side fix of general value is still only in this fork — and it is **one line**.
+Merged 2026-08-25. Described here because it is **not Inboard-specific** — it is correct for any
+PC/XT-class machine, and before it no emulator could reproduce the driver bug class described
+[below](#testing-a-driver-for-the-20-bit-dma-bug).
 
-Upstream 86Box already truncates the page register for a genuine XT, in `dma_page_write()`:
+86Box already truncated the page register for a genuine XT, in `dma_page_write()`:
 
 ```c
-dma[addr].page = dma_at ? val : val & 0xf;      /* upstream today */
+dma[addr].page = dma_at ? val : val & 0xf;      /* before #7771 */
 ```
 
-But `dma_at` is assigned `is286`. An Inboard is an XT board with a 386 on it, so `dma_at` comes
-out true and the machine is handed a full 8-bit page register it does not physically have.
-`dma_force_xt` — which *did* reach upstream — is not consulted here at all. The fix is to gate on
-that instead:
+But `dma_at` is assigned `is286`. An Inboard is an XT board with a 386 on it, so `dma_at` came
+out true and the machine was handed a full 8-bit page register it does not physically have.
+`dma_force_xt` — which had reached upstream earlier — was not consulted here at all. The fix gates
+on that instead:
 
 ```c
 static int dma_page_is_xt(void) { return dma_force_xt || !dma_at; }
@@ -175,14 +180,8 @@ dma[addr].page = dma_page_is_xt() ? (val & 0x0f) : val;
 ```
 
 plus the matching `dma_m` mask in `dma_reset()`. Any machine that does not set `dma_force_xt`
-behaves exactly as before.
-
-Until it lands, upstream gives a guest 24-bit DMA reach on a machine that physically has 20-bit,
-and the driver bug class described [below](#testing-a-driver-for-the-20-bit-dma-bug) is invisible
-in emulation. It is not Inboard-specific — it is correct for any PC/XT-class machine.
-**Flagged by @andrew-hoffman** on
-[issue #3](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/3), and now submitted
-upstream as **[86Box/86Box#7771](https://github.com/86Box/86Box/pull/7771)** (+14 −2, one file).
+behaves exactly as before. **Flagged by @andrew-hoffman** on
+[issue #3](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/3); +14 −2, one file.
 
 The guest-side patches are Windows files, not emulator code, so they stay hosted here — see
 [FIXES.md](FIXES.md).

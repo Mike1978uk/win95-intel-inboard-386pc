@@ -2329,10 +2329,12 @@ original submission: `d6fbb9e88`, adopting **Michal Necasek's `F000:FF53`** in p
 (the machine itself) merged 2026-08-06, #7749 (POST 101 + non-486BL CPUs + F000:FF53) merged
 2026-08-23. Anything further is a NEW PR against master, not an update to either.
 
-**Submitted upstream as [#7771](https://github.com/86Box/86Box/pull/7771)**: the `dma_page_is_xt()` DMA page-width fidelity fix (Technique 56) is
-local-only and is the obvious candidate for a third PR.
+**MERGED 2026-08-25 as [#7771](https://github.com/86Box/86Box/pull/7771)**: the `dma_page_is_xt()`
+DMA page-width fidelity fix (Technique 56). Nothing emulator-side remains local-only.
 
-**Still open from earlier**: upstream issue #7638 (RAM configuration) has had no reply yet.
+**Upstream issues raised from this project, both now closed**: #7638 (RAM configuration, closed
+2026-08-08 by our merged PRs) and #7805 (settings dialog rounded RAM to an invalid size — reported
+by @andrew-hoffman, diagnosed here, fixed by OBattler in `9ee5197` and closed 2026-08-28).
 
 ## Technique 65: on this XT, a Win95 device failure is usually an UNCONFIGURED device node, not a
 ## wrong driver - read the hive for `ForcedConfig` vs `BootConfig` before touching any driver file

@@ -17,18 +17,17 @@ Nothing is listed as working unless it has been run.
 | [#7626](https://github.com/86Box/86Box/pull/7626) | The Inboard 386/PC hardware model itself — ported from SuperFury's [UniPCemu](https://superfury.itch.io/unipcemu) `hardware/inboard.c` |
 | [#7749](https://github.com/86Box/86Box/pull/7749) | POST 101 (machine defaulted to an incompatible 1982 ROM); 386DX ran no POST fix-ups at all; double-throttled memory timing |
 | [#7765](https://github.com/86Box/86Box/pull/7765) | `bad extended memory` — the high `0x5F0000` alias must read shadow RAM, not ROM. Now reports **0k** |
+| [#7760](https://github.com/86Box/86Box/pull/7760) | `rammap()` NULL deref on a page-table walk through unbacked physical memory — a guest could crash 86Box outright |
+| [#7761](https://github.com/86Box/86Box/pull/7761) | The reserved block is 128 KB at a fixed `0x5E0000`–`0x5FFFFF`, not 64 KB derived from RAM size |
 | [#7766](https://github.com/86Box/86Box/pull/7766) | POST 1801 on every boot — the Inboard machine must not default to a 5161 expansion unit |
+| [#7771](https://github.com/86Box/86Box/pull/7771) | The XT 4-bit DMA page latch. 86Box truncated the page register, but gated it on `dma_at` (= `is286`); an Inboard is an XT board with a 386 on it, so it was handed an 8-bit page register it does not have. Gate on `dma_force_xt \|\| !dma_at` instead. **@andrew-hoffman flagged the gap on issue #3** |
 
-### Emulator-side, in this fork, **submitted upstream**
+### Upstream, reported and fixed by 86Box
 
-- **The XT 4-bit DMA page latch.** Upstream *does* truncate (`dma[addr].page = dma_at ? val :
-  val & 0xf`), but gates it on `dma_at`, which is `is286`. An Inboard is an XT board with a 386
-  on it, so upstream hands it a full 8-bit page register it does not have. The fix is to gate on
-  `dma_force_xt || !dma_at` instead — **one line**, plus the `dma_m` mask in `dma_reset()`.
-  **@andrew-hoffman flagged this gap on issue #3.** Submitted upstream 2026-08-25 as
-  **[86Box/86Box#7771](https://github.com/86Box/86Box/pull/7771)**.
-- `rammap()` NULL deref on a page-table walk through unbacked physical memory — a guest
-  could crash 86Box outright. Fixed in `b4d9770`.
+- **[86Box/86Box#7805](https://github.com/86Box/86Box/issues/7805)** — the Machine settings dialog
+  rounded RAM down to an invalid size (`5120 → 4096`, `3072 → 2048`) because it snapped with a
+  bitmask from zero rather than from the machine's minimum. Reported by @andrew-hoffman, diagnosed
+  at source level here, **fixed by OBattler in `9ee5197` and closed 2026-08-28**. We raised no PR.
 
 ### Guest-side, confirmed on real hardware
 
@@ -129,16 +128,10 @@ Kept deliberately short. Each line is a dead end somebody else does not need to 
 
 ## Still to upstream
 
-The 4-bit DMA page latch is now **submitted** as
-[86Box/86Box#7771](https://github.com/86Box/86Box/pull/7771) (+14 −2, `src/dma.c` only) — gate the
-existing truncation on `dma_force_xt || !dma_at` rather than `dma_at` alone. Not Inboard-specific:
-it is correct for any PC/XT-class machine, and without it no emulator can reproduce the driver bug
-class described in [the DMA audit skill](../.claude/skills/win9x-dma-driver-audit/).
+**Nothing.** The 4-bit DMA page latch was the last item and merged 2026-08-25 as
+[86Box/86Box#7771](https://github.com/86Box/86Box/pull/7771).
 
-Nothing else emulator-side is outstanding. The guest-side patches are Windows files and stay
-hosted here, in [FIXES.md](../FIXES.md).
-
-The guest-side patches are Windows files and stay hosted here, in
+The guest-side patches are Windows files, not emulator code, and stay hosted here, in
 [FIXES.md](../FIXES.md).
 
 ## Worked: reading `IOS.LOG` before theorising (2026-08-28)
