@@ -54,14 +54,17 @@ that would.
 
 The BDA question is already settled — `0040:0075` reads `01`, correct — so that is not the blocker.
 
-**Why the risk is low** (owner, 2026-08-28): the primary card runs a **V20** build, the spare an
-**XT (8088)** build — the most conservative one there is. So the spare is already known to boot
-this machine, and even a botched flash of it costs a spare card, not the working install.
+**What the spare actually is** (owner, 2026-08-28): a shelf spare, **not fitted to the machine**,
+with a **rewritable** ROM that currently holds an XT (8088) build. That current build is incidental
+— it gets overwritten. What matters is that it is a card we can flash freely and swap in, so the
+risk of the whole exercise is a spare card, never the working install. It has not been in this
+machine, so it is not yet known-good in it; the first swap proves that as well as the ROM.
 
-It also gives a real measurement rather than an argument. Three builds on one unchanged disk —
-**XT → V20 → 386**, in increasing instruction-set order — is a clean A/B/C. If the 386 build's
-gain over V20 turns out to be small, that is worth knowing before any effort goes into shadowing.
-Time the same operation three times; do not infer it from the build name.
+It also gives a real measurement rather than an argument: **V20 (the card in the machine now) vs
+386 (flashed to the spare)**, same disk, same operation, timed. Two points are enough — the XT
+build is the slowest of the three and nobody would choose it, so it is not worth machine time.
+If the 386 gain over V20 turns out to be small, that is worth knowing before any effort goes into
+ROM shadowing. Do not infer the gain from the build name.
 
 ## 4. POST 101 at 2688/3072 — one sweep
 
