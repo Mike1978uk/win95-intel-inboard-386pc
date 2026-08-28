@@ -146,6 +146,38 @@ on the 8-bit card, "Regular AT" and "386" on `xtide_at_device`. Worth checking w
 can be paired with the 8-bit card in emulation; if it can, item 3 of the next-actions file gets a
 free dry run before anything is flashed.
 
+## What the LS-120 failure taught us about writing this driver
+
+Root-causing #22 produced design constraints for our own driver, not just a fix for someone else's.
+Detail in [`xt_io_aliasing_gotcha.md`](xt_io_aliasing_gotcha.md).
+
+**1. Never use immediate-port I/O to anything outside our own range.** That is precisely what killed
+the keyboard: `out 22h,al` with a hardcoded system address. The structural fix is the one Trantor
+used and Shuttle did not — do every access through the port base supplied by configuration, so the
+driver *cannot* name a system port. Audited: `T130.MPD` does this and is clean; `SD120PPD.MPD` does
+not and has 98 destructive writes.
+
+**2. Poll. Never touch the 8259.** An XT-IDE card is normally jumpered without an interrupt, so the
+driver has no reason to read or write the PIC at all. That removes `PORTISR.ASM` from the DDK
+sample *and* removes any possibility of repeating this bug.
+
+**3. Byte I/O only for the task file — and understand why.** The `66 e7 22` word writes in the
+LS-120 driver split into two byte writes on an 8-bit bus, hitting two registers instead of one.
+**That is the same bus behaviour that makes the XT-IDE high-byte latch necessary in the first
+place.** A 16-bit `in`/`out` on the data register does not do what a 386 programmer expects here;
+that is exactly why offset `+0x8` exists. Use byte accesses and drive the latch explicitly.
+
+**4. Put I/O delays between back-to-back accesses.** Both drivers are full of the `eb 00` idiom
+(`jmp $+2`) between consecutive port operations. On a 4.77 MHz 8-bit bus this is not superstition —
+peripherals need recovery time. Our transfer loop will need the same.
+
+**5. Audit our own binary before deploying it.** `xt_port_audit.py` should be run against our driver
+as part of the build, not just against other people's. Dogfooding it is the cheapest possible check.
+
+**6. Emulation success does not imply hardware success.** 86Box does not model the PIC aliasing, so
+a driver that strays into an aliased port would pass in emulation and fail on the real machine.
+Develop in 86Box for the fast iteration, but treat a real-hardware run as the only proof.
+
 ## Where the real risk is
 
 **The boot disk.** A driver for the drive Windows booted from has to take over from the real-mode
