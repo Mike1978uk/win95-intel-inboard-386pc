@@ -27,6 +27,7 @@
 *.DRV  binary
 *.SYS  binary
 *.PDR  binary
+*.MPD  binary
 *.386  binary
 *.COM  binary
 *.EXE  binary

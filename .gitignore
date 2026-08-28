@@ -74,3 +74,6 @@ vram_dump*
 nasm.zip
 nasm-*/
 bios_f000_dump_int15.bin
+
+# Original vendor driver archives are deliverables, not build output.
+!drivers/**/*.EXE

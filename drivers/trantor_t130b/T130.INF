@@ -1,0 +1,68 @@
+; T130.INF  Installation file for Trantor T130 host miniport driver 
+;*** Created 5/16/95  (Creation Date)
+;
+; T130 Host Adapter 
+;
+
+
+[Version]
+signature="$CHICAGO$"
+Class=SCSIAdapter
+Provider=%TRA%
+LayoutFile=LAYOUT.INF
+
+[Manufacturer]                   
+%TRA%=TRANTOR
+
+
+[TRANTOR]
+%T130%=T_ISA
+
+
+[T_ISA]
+LogConfig=*T130.LogConfig
+CopyFiles=@T130.MPD
+AddReg=IOS, TLOG_REG
+UpdateInis=DoubleBuffer
+
+
+[TLOG_REG]
+HKR,,PortDriver,,T130.MPD
+
+
+[*T130.Det]
+AddReg=ForceMPCopy
+
+
+[*T130.LogConfig]
+ConfigPriority=HARDRECONFIG          
+IOConfig=350-35F(3FF::), 250-25F(3FF::), 340-34f(3ff::), 240-24f(3ff::) 
+IRQConfig=3,5,7
+DMAConfig=0
+
+
+[DestinationDirs]
+DefaultDestDir=12
+
+[SourceDisksFiles]
+;<file>=<disk#>,<cabinet>,<size>
+T130.MPD = 1
+
+[SourceDisksNames]
+;<disk#> = <name>, <Volumelable>, <volume serial number>
+1 =  "T130 Driver Installation Disk",, 
+
+[IOS]
+HKR,,DevLoader,,*IOS
+
+[ForceMPCopy]
+HKR,,NoSetupUI,,1
+
+[DoubleBuffer]
+%31%msdos.sys,Options,,"DoubleBuffer=1"
+
+
+[Strings]
+TRA="Trantor"
+T130="T130 SCSI Miniport Driver"
+SCSIClassName="SCSI controllers"       
