@@ -40,7 +40,11 @@ Attach a SCSI **CD-ROM**, not a disk. Work on a copy.
 
 ## 3. XT-IDE 386 ROM build, and shadowing the option ROM
 
-**Cost: a flash, with a spare card as fallback.** Both are **speed, not mode**.
+**Cost: a flash of the *spare* card, then a card swap.** Both are **speed, not mode**.
+
+**Flash the 386 build onto the spare, not the primary.** The primary's working V20 ROM is then
+never touched, and reverting is putting the old card back — a swap, not a re-flash under pressure
+on a machine that will not boot. There is no reason to risk the working card to test a ROM.
 
 Be clear about what this cannot do: no 32-bit Win9x driver exists for 8-bit XT-IDE, so the boot
 disk stays real-mode whichever ROM is flashed. The 386 build uses instructions the Inboard can
@@ -50,10 +54,9 @@ that would.
 
 The BDA question is already settled — `0040:0075` reads `01`, correct — so that is not the blocker.
 
-**The revert path is solid** (owner, 2026-08-28): the primary card runs a **V20** build, and the
-spare card carries an **XT (8088)** build — the most conservative one there is. Whatever else
-happens, the spare boots this machine. Worst case after a bad flash is *slower than today*, not
-*dead*, which is the right shape of risk for trying the 386 build.
+**Why the risk is low** (owner, 2026-08-28): the primary card runs a **V20** build, the spare an
+**XT (8088)** build — the most conservative one there is. So the spare is already known to boot
+this machine, and even a botched flash of it costs a spare card, not the working install.
 
 It also gives a real measurement rather than an argument. Three builds on one unchanged disk —
 **XT → V20 → 386**, in increasing instruction-set order — is a clean A/B/C. If the 386 build's
