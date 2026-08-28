@@ -45,6 +45,50 @@ wlink format windows vxd dynamic option quiet name vxd/CFU1.VXD file vxd/CFU1.ob
 No period-correct MASM 6.11 environment is required. This project already builds VxDs from 1995 DDK
 source — `VKD.VXD` was rebuilt that way — so the capability is proven here, not merely available.
 
+## Microsoft shipped a sample port driver, and we already have it
+
+Found 2026-08-28 in the Windows 95 DDK already on this machine
+(`OneDrive/Desktop/XT_project/Windows95_ddk`). This is the thing to start from — it is the same
+layer as Nick's driver, but it is Microsoft's own reference, with the headers and libraries:
+
+```
+BLOCK/SAMPLES/PORT/SAMPLE/
+    PORT.ASM        6,519   VxD init, DRP declaration, IOS registration
+    PORTAER.ASM    17,314   the AEP handler - the core of a port driver
+    PORTISR.ASM     5,624   interrupt service routine
+    PORTREQ.ASM     6,655   IOP request handling (the actual reads and writes)
+    PORTDDB.INC / PORTINFO.INC / MAKEFILE
+BLOCK/INC/          MINIPORT.INC, SCSIPORT.INC, MINIPORT.H, SCSIPORT.H
+BLOCK/LIB/          SCSIPORT.LIB
+INC32/              VMM.INC, IOS.INC, DRP.INC, BLOCKDEV.INC, ILB.INC
+MASM611C/           MASM 6.11 - the period-correct assembler
+```
+
+`PORT.ASM` declares the same structure Nick's does, which is a good cross-check that we understand
+it correctly:
+
+```asm
+Drv_Reg_Pkt DRP <EyeCatcher, DRP_MISC_PD, offset32 Port_Async_Request,                  offset32 port_ilb, PortName, PortRev, PortFeature, Port_IF>
+```
+
+**The AEP surface is small.** `Port_Async_Request` dispatches on exactly five function codes:
+
+| AEP | what an XT-IDE driver would do |
+|---|---|
+| `AEP_INITIALIZE` | claim the I/O range, no IRQ |
+| `AEP_DEVICE_INQUIRY` | ATA `IDENTIFY DEVICE` through the 8-bit path; return `AEP_NO_MORE_DEVICES` when the scan ends |
+| `AEP_CONFIG_DCB` | fill in geometry and capacity |
+| `AEP_IOP_TIMEOUT` | recovery |
+| `AEP_BOOT_COMPLETE` | stay resident or unload |
+
+`PORTREQ.ASM` is where read and write requests are serviced, and is the file that would carry the
+8-bit data-path work. **`PORTISR.ASM` is probably not needed at all** — an XT-IDE card is normally
+jumpered without an interrupt, so the driver polls, which removes a whole file and the VPICD
+interaction with it.
+
+That is a genuinely small surface for a first cut: keep the AEP structure verbatim, replace the
+inquiry with an ATA identify, and replace the request path with 8-bit PIO.
+
 ## Why XT-IDE is *easier* than his case
 
 His hardest problems come from **hot-plug and dynamic registration**, and they are documented in
