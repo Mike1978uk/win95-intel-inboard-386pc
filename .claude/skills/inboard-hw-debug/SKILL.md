@@ -3147,3 +3147,35 @@ A DOS driver often has a documented escape the Windows driver lacks. `SD120PPD.S
 help text in its strings: `/ni` "Skip chipset initialization", `/de`, `/db`, `/sf`, `/dp`, `/fp` -
 all in use on this machine. The miniport exposes none of them, no `AdapterSettings`, nothing. Pull
 the strings from the DOS binary: it documents which probes are optional and what safe looks like.
+
+## Technique 76: two diagnostic routes that do not exist on this machine - stop proposing them
+
+Both were proposed on 2026-08-28 and both are dead ends. They look obvious, which is why they keep
+coming back.
+
+**1. Safe Mode is unavailable.** Windows 95 Safe Mode skips `CONFIG.SYS`, so `INBRDPC.SYS` never
+loads and the Inboard card is not initialised. `CLAUDE.md` already says never to treat
+`INBRDPC.SYS` as an optional test variable; **Safe Mode is that rule in disguise.** So the standard
+"boot clean and bisect" move is not available here.
+
+*What works instead:* **F8 -> Step-by-step confirmation.** It walks `CONFIG.SYS` line by line, so
+`INBRDPC.SYS` can be accepted and everything else declined. It only bisects the DOS side, so it is
+useless for a Windows-side fault - but it is the one bisection route that exists.
+
+**2. COMrade and the mouse compete for the serial port.** Running COMrade means the serial mouse is
+disconnected. So under Windows you have **either input or introspection, never both**:
+
+- Keyboard broken + COMrade attached = no way to drive the GUI at all.
+- Keyboard broken + mouse attached = can drive Device Manager, but cannot read a port.
+
+This is why "just launch `COMR95.EXE` with the mouse and read the PIC mask" is not a plan. Any
+Windows-side measurement has to be arranged **before** the fault is triggered, or captured to a file
+that can be read later from DOS.
+
+**Consequence for planning:** on this machine, a Windows-side fault that costs you keyboard input is
+close to undiagnosable in place. Get the evidence written to disk during the failing boot - `IOS.LOG`
+and `BOOTLOG.TXT` survive a reboot and can be read from DOS afterwards - or accept that reverting to
+a known-good image is cheaper than diagnosing. That is a legitimate outcome, not a failure.
+
+**And bisect installs.** The 2026-08-28 keyboard loss was unattributable because DirectX 7.0a,
+WinZip, InfoPro, SIV and the LS-120 driver all went on between working boots. One install, one boot.
