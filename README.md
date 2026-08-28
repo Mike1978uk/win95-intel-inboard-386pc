@@ -340,6 +340,27 @@ is [in this repo](86box_full/) and now [upstream](https://github.com/86Box/86Box
 Before opening a PR here, please read [`CLAUDE.md`](CLAUDE.md) — short commit subjects, short
 bodies, reasoning in `docs/` rather than in the history.
 
+### Before installing any stock driver: audit its port writes
+
+**[The XT I/O aliasing gotcha](docs/xt_io_aliasing_gotcha.md)** — an IBM 5160 decodes I/O
+incompletely, so its devices answer across far wider ranges than their documented addresses.
+Measured on the real machine: ports `0x21`, `0x23`, `0x25`, `0x31` and `0x3F` **all** return the
+8259 interrupt mask. AT-era drivers probe for host chipsets at `0x22`/`0x23`, that probe succeeds
+against nothing, and the follow-up configuration writes reprogram the interrupt controller.
+
+The Windows 95 LS-120 driver does exactly this and silently masks IRQ 1 — **the keyboard stops
+working, with no error anywhere** ([#22](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/22)).
+The DOS build of the same driver has `/ni` "Skip chipset initialization"; the protected-mode
+miniport exposes no equivalent.
+
+```
+python dist/post-install-fixes/scripts/xt_port_audit.py YOURDRIVER.MPD
+```
+
+Symptom to recognise: **one interrupt-driven device dies and the others do not.** Look at the 8259
+mask before the driver stack. Note that 86Box does not model the alias, so this class of bug cannot
+reproduce in emulation.
+
 ### Testing a driver for the 20-bit DMA bug
 
 If you run Windows 9x on any XT-class machine and a device produces **corrupt data rather than no

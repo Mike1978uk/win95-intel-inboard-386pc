@@ -72,8 +72,8 @@ been consistently the more reliable of the two on this project.
 | **Stynx & Harrison Frazier** (VCFed) | Designed the 4 MB Inboard daughterboard, without which Win95 wouldn't run at all |
 | **CimonVg** | Ongoing work pushing the Inboard to its limits; inspiration and support |
 | **RonnyRoy** | Reproducing the Inboard as cloned hardware — possibly the path past the 4 MB ceiling |
-| **Kevin Moonlight** | Original author of COMrade |
-| **Ahmad Byagowi** | Ported COMrade to Windows 95 (`COMR95.EXE`) — the live real-hardware introspection path |
+| **Kevin Moonlight** | Original author of [COMrade](https://github.com/yyzkevin/COMrade) | ⭐ **The validation path for this whole project, and decisively so on 2026-08-28.** The LS-120 keyboard root cause (#22) was found by static analysis but was only a theory until COMrade read ports `0x21`/`0x23`/`0x25`/`0x31`/`0x3F` on the live 5160 and returned `0xAC` for every one - proving the 8259 aliases across `0x20`-`0x3F`. No emulator could have shown it: 86Box does not model the alias. Also gave the negative result that the DMA page registers are write-only, which stopped a destructive test |
+| **Ahmad Byagowi** | Ported COMrade to Windows 95 (`COMR95.EXE`) — the live real-hardware introspection path | ✅ **Load-bearing.** Reading files off the running machine (`IOS.LOG` direct from `C:\WINDOWS`) is how the storage state in #17 was measured without shuttling the CF, and how the LS-120 patch can be deployed in place rather than by reverting an image |
 | **viti95** (FastDoom) | Real-hardware-validated XT keyboard ISR reference |
 | **Microsoft Windows 95 DDK** | The genuine period source and toolchain behind the custom `VKD.VXD` |
 

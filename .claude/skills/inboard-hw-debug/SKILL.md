@@ -3075,46 +3075,75 @@ stage transitions; and what `0007` means in `14207 7B6A 0007`.
 ## Technique 75: a stock driver's chipset probe is a destructive write on an XT - audit
 ## fixed-port I/O before installing anything
 
-**Established 2026-08-28 on real hardware, root-causing issue #22** (LS-120 install killed keyboard
-input). Full analysis: `docs/ls120_keyboard_root_cause.md`.
+**CONFIRMED on real hardware 2026-08-28**, root-causing issue #22 (LS-120 install killed keyboard
+input). Write-ups: `docs/xt_io_aliasing_gotcha.md` (shareable) and
+`docs/ls120_keyboard_root_cause.md` (detail).
 
-**The class of bug.** PC/AT-era drivers routinely probe for host chipsets by writing a known value
-to a configuration port pair - most commonly `0x22`/`0x23` index/data - and reading it back. On a
-machine that has such a chipset this is harmless. **An IBM 5160 decodes I/O incompletely**: the
-8259 is selected across `0x20`-`0x3F` with `A0` choosing the register, so **`0x22` aliases to
-`0x20` (PIC command) and `0x23` aliases to `0x21` (PIC mask)**.
+### The measurement - this is the load-bearing fact
 
-Two things then go wrong at once:
+COMrade (Kevin Moonlight; Win95 port by Ahmad Byagowi), read-only, at the DOS prompt on the 5160.
+**This measurement is only possible because that tool exists** - no emulator models the alias:
 
-1. The read-back **succeeds**, because the alias returns what was just written. The driver concludes
-   a chipset is present that is not, and proceeds to *configure* it.
-2. Those configuration writes land on the interrupt controller. In `SD120PPD.MPD` the sequence at
-   `0x00cc54` writes `0x02` to `0x23` and then ORs `0x04` into it, leaving the **mask at `0x06` -
-   IRQ 1 (keyboard) and IRQ 2 masked - with no restore anywhere.** `push eax`/`pop eax` preserves
-   the register, not the port.
+| port | `0x21` | `0x23` | `0x25` | `0x31` | `0x3F` |
+|---|---|---|---|---|---|
+| value | `0xAC` | `0xAC` | `0xAC` | `0xAC` | `0xAC` |
 
-**Diagnostic signature:** one input device dies and another survives. Keyboard (IRQ 1) gone, serial
-mouse (IRQ 3/4) fine, means look at the 8259 mask before looking at the driver stack.
+**The 8259 answers across the whole `0x20`-`0x3F` block**, `A0` alone selecting command vs data.
+`out 23h,al` *is* `out 21h,al`. The other XT blocks alias the same way (8237, PIT, PPI, DMA page).
+**The DMA page registers are write-only** - reading returns `0xFF`, so that alias cannot be measured
+non-destructively. Do not test it by writing.
 
-**The generalisation, and it is the useful part:** this is the same family as the 20-bit DMA bug -
-*a driver assuming AT-class hardware on a machine with fewer address lines decoded.* Expect it from
-**any** stock driver, not just this one. The DOS version of the same driver had `/ni` ("Skip chipset
-initialization") precisely because someone hit this in 1997; protected-mode miniports often expose
-no such escape.
+### The bug class
 
-**Do this before installing any stock driver on this machine:** scan the binary for fixed-port I/O
-(`E4`/`E5` = `in imm8`, `E6`/`E7` = `out imm8`) and flag every port **outside the device's own I/O
-range**. Ports `0x20`-`0x3F`, `0x40`-`0x5F`, `0x80`-`0x9F` and `0xA0`-`0xBF` are the dangerous ones
-on an XT because of aliasing.
+AT-era drivers probe for host chipsets by writing a known value to a config port pair and reading
+it back. On an XT the alias returns what was written, so **the probe always succeeds**, the driver
+concludes a chipset is present, and its configuration writes reprogram the interrupt controller.
 
-**A raw byte scan is not evidence** - `E4`-`E7` occur constantly inside data and mid-instruction.
-Confirm each hit by reading its context: a genuine port access sits inside a recognisable idiom
-(`cli` / `in` / `push` / `mov al,imm` / `out` / `eb 00` I/O delays / `pop` / `out` / `sti`). The
-first scan here reported 89 sites on port `0x22`; only a handful were real.
+`SD120PPD.MPD` does this three separate ways:
 
-**And check the emulator models the alias before trusting a negative result.** 86Box maps the XT PIC
-as `io_sethandler(0x0020, 0x0002, ...)` - two ports, no alias; only `pic_init_pcjr()` maps eight. So
-this entire bug **cannot reproduce in 86Box**, and a clean emulated run proves nothing about the
-real machine. That is also a fidelity gap worth reporting upstream, in the same family as the XT
-4-bit DMA page latch (#7771) - but measure the alias on real hardware first, because the
-measurement is the whole value of the report.
+- **`0x22`/`0x23`** - config writes leaving the mask at `0x06` (IRQ 1 + IRQ 2 masked), no restore.
+  `push eax`/`pop eax` preserves the *register*, not the *port*.
+- **`0x24`/`0x25`** - a second pair; `mov al,61h / out 24h / in 25h / or al,01h / out 25h` masks
+  **IRQ 0, the timer**. Another site ORs `0x08` (IRQ 3).
+- **`0x94`** - PS/2 system-board setup register, written `0x7F` then `0xFF`; on an XT that is inside
+  the DMA page block.
+
+**Diagnostic signature: one interrupt-driven device dies and the others do not.** Keyboard gone,
+serial mouse fine, no error anywhere. Read the 8259 mask before touching the driver stack.
+
+### Three traps that cost time here
+
+1. **A raw byte scan is not evidence.** `E4`-`E7` occur constantly in data and mid-instruction. The
+   first scan reported 283 candidates; 29 were real. Confirm each by its idiom (`cli`, `mov al,imm8`,
+   `eb 00` I/O delays, `push`/`pop`).
+2. **Do not only look for `E6`.** 19 of the writes were **word-width** `E7` (`66 e7 22` =
+   `out 22h,ax`), which on an 8-bit bus splits into two byte writes and hits *both* registers of the
+   pair. Worse, not lesser.
+3. **86Box cannot reproduce any of this.** `src/pic.c` maps the XT PIC as
+   `io_sethandler(0x0020, 0x0002, ...)` - two ports, no alias; only `pic_init_pcjr()` maps eight. A
+   clean emulated run proves nothing. Inverts this project's usual "test in emulation first" rule,
+   and is itself a fidelity gap worth reporting upstream - but measure on real hardware first.
+
+### The tools
+
+- **`dist/post-install-fixes/scripts/xt_port_audit.py`** - scan any `.MPD`/`.VXD`/`.PDR`/`.SYS` for
+  fixed-port writes landing in the XT device blocks. Confidence-scored. Run it **before** installing
+  anything. Cannot see `DX`-addressed I/O; nothing static can.
+- **`dist/post-install-fixes/scripts/patch_sd120ppd_chipset.py`** - NOPs all 98 offending writes
+  across `0x22`/`0x23`/`0x24`/`0x25`/`0x94`, byte and word forms. Leaves reads (harmless, and
+  detection then finds nothing - what `/ni` does in the DOS build). Leaves `out 21h` alone: those
+  are paired save/restore and already neutral.
+
+### Always round-trip a binary patch before deploying it
+
+`--revert` must reproduce the original md5 **exactly**. Two attempts here did not, and both bugs
+would have been invisible on inspection: the site map recorded the offset but not the original
+opcode (so byte vs word forms were guessed), and then the revert restored the opcode byte while
+leaving the port byte as `0x90`. Record every byte you change, and prove the round-trip.
+
+### And check the DOS driver for switches first
+
+A DOS driver often has a documented escape the Windows driver lacks. `SD120PPD.SYS` carries its own
+help text in its strings: `/ni` "Skip chipset initialization", `/de`, `/db`, `/sf`, `/dp`, `/fp` -
+all in use on this machine. The miniport exposes none of them, no `AdapterSettings`, nothing. Pull
+the strings from the DOS binary: it documents which probes are optional and what safe looks like.
