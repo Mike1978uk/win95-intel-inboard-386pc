@@ -155,3 +155,26 @@ Then dedicate focused session to full 3C509B port.
 - mTCP gives motivation to get it right
 
 **Current status**: Stub in place (DEVICE_NOT_WORKING). Ready for proper port when prioritized.
+Tracked as [issue #20](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/20).
+
+## Sources, with URLs
+
+- **Antony T Curtis**, *QEMU 3C509B PnP ISA NIC emulation* (2004), **MIT licence** —
+  <https://cyberkinetica.homeunix.net/qemu/>. The 1,126-line `hw/3c509b.c` this spec is written
+  against; local copy in `references/3c509b_qemu/`. It also needs his ISA-PnP patch, which the
+  3C509B patch is diffed on top of. He wrote it "so that I could try running other legacy operating
+  systems which had a limited set of supported NICs". The MIT notice must travel with any adaptation.
+- **86Box discussion [#6447](https://github.com/86Box/86Box/discussions/6447)**, *"[Request] 3COM
+  ETHERLINK III ISA (3C509B-C)"*, open since 2025-11-07 and still active in Aug 2026. This is where
+  an upstream implementation would land, and others there have independently gathered the documents:
+  - `3c5x9b_technical_reference.pdf` — 3Com technical reference manual, attached by **creopard**
+  - ROM dumps (`3c509B_roms.zip`), from
+    <https://forum.vcfed.org/index.php?threads/dump-rom-for-network-card-3c509b-tpo.1244293/#post-1413897>
+  - 3Com US patent 5,307,459 —
+    <https://patentimages.storage.googleapis.com/58/f6/19/fb9a77033128bd/US5307459.pdf>
+  - Card reference — <https://theretroweb.com/expansioncards/s/3com-etherlink-iii-3c509b-tpo>
+  - **sskras** raised the same 2004 QEMU code there in March 2026, independently of this project.
+
+**What that discussion does not contain:** any maintainer commitment to implement it, and any
+measured values from a running card. The I/O base, IRQ, ID port and MAC above were read off this
+project's real 5160 and are not recorded anywhere in that thread.
