@@ -3071,3 +3071,50 @@ Whatever the correct addressing turns out to be, it runs through those, not thro
 **Open questions for @TC1995 or the 82C480 datasheet** — unchanged, and still the way to settle it:
 which register selects the accelerator-side bank; how it combines with the address; the self-test
 stage transitions; and what `0007` means in `14207 7B6A 0007`.
+
+## Technique 75: a stock driver's chipset probe is a destructive write on an XT - audit
+## fixed-port I/O before installing anything
+
+**Established 2026-08-28 on real hardware, root-causing issue #22** (LS-120 install killed keyboard
+input). Full analysis: `docs/ls120_keyboard_root_cause.md`.
+
+**The class of bug.** PC/AT-era drivers routinely probe for host chipsets by writing a known value
+to a configuration port pair - most commonly `0x22`/`0x23` index/data - and reading it back. On a
+machine that has such a chipset this is harmless. **An IBM 5160 decodes I/O incompletely**: the
+8259 is selected across `0x20`-`0x3F` with `A0` choosing the register, so **`0x22` aliases to
+`0x20` (PIC command) and `0x23` aliases to `0x21` (PIC mask)**.
+
+Two things then go wrong at once:
+
+1. The read-back **succeeds**, because the alias returns what was just written. The driver concludes
+   a chipset is present that is not, and proceeds to *configure* it.
+2. Those configuration writes land on the interrupt controller. In `SD120PPD.MPD` the sequence at
+   `0x00cc54` writes `0x02` to `0x23` and then ORs `0x04` into it, leaving the **mask at `0x06` -
+   IRQ 1 (keyboard) and IRQ 2 masked - with no restore anywhere.** `push eax`/`pop eax` preserves
+   the register, not the port.
+
+**Diagnostic signature:** one input device dies and another survives. Keyboard (IRQ 1) gone, serial
+mouse (IRQ 3/4) fine, means look at the 8259 mask before looking at the driver stack.
+
+**The generalisation, and it is the useful part:** this is the same family as the 20-bit DMA bug -
+*a driver assuming AT-class hardware on a machine with fewer address lines decoded.* Expect it from
+**any** stock driver, not just this one. The DOS version of the same driver had `/ni` ("Skip chipset
+initialization") precisely because someone hit this in 1997; protected-mode miniports often expose
+no such escape.
+
+**Do this before installing any stock driver on this machine:** scan the binary for fixed-port I/O
+(`E4`/`E5` = `in imm8`, `E6`/`E7` = `out imm8`) and flag every port **outside the device's own I/O
+range**. Ports `0x20`-`0x3F`, `0x40`-`0x5F`, `0x80`-`0x9F` and `0xA0`-`0xBF` are the dangerous ones
+on an XT because of aliasing.
+
+**A raw byte scan is not evidence** - `E4`-`E7` occur constantly inside data and mid-instruction.
+Confirm each hit by reading its context: a genuine port access sits inside a recognisable idiom
+(`cli` / `in` / `push` / `mov al,imm` / `out` / `eb 00` I/O delays / `pop` / `out` / `sti`). The
+first scan here reported 89 sites on port `0x22`; only a handful were real.
+
+**And check the emulator models the alias before trusting a negative result.** 86Box maps the XT PIC
+as `io_sethandler(0x0020, 0x0002, ...)` - two ports, no alias; only `pic_init_pcjr()` maps eight. So
+this entire bug **cannot reproduce in 86Box**, and a clean emulated run proves nothing about the
+real machine. That is also a fidelity gap worth reporting upstream, in the same family as the XT
+4-bit DMA page latch (#7771) - but measure the alias on real hardware first, because the
+measurement is the whole value of the report.
