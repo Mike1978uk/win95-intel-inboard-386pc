@@ -50,6 +50,16 @@ that would.
 
 The BDA question is already settled — `0040:0075` reads `01`, correct — so that is not the blocker.
 
+**The revert path is solid** (owner, 2026-08-28): the primary card runs a **V20** build, and the
+spare card carries an **XT (8088)** build — the most conservative one there is. Whatever else
+happens, the spare boots this machine. Worst case after a bad flash is *slower than today*, not
+*dead*, which is the right shape of risk for trying the 386 build.
+
+It also gives a real measurement rather than an argument. Three builds on one unchanged disk —
+**XT → V20 → 386**, in increasing instruction-set order — is a clean A/B/C. If the 386 build's
+gain over V20 turns out to be small, that is worth knowing before any effort goes into shadowing.
+Time the same operation three times; do not infer it from the build name.
+
 ## 4. POST 101 at 2688/3072 — one sweep
 
 **Cost: one sweep run.** [#14](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/14).

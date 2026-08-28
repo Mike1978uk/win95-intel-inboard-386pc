@@ -76,6 +76,14 @@ There is a spare XT-IDE card. Use it.
 
 1. **Install the spare as a second, non-boot controller** with its own CF card. The boot disk stays
    on real-mode INT 13h, exactly as now.
+
+   The spare carries an **XT (8088)** build, the primary a **V20** build (owner, 2026-08-28). For
+   this purpose the build does not matter — a protected-mode port driver talks to the card's I/O
+   registers directly and never calls the option ROM. What *does* matter is that **two XTIDE option
+   ROMs would both hook `INT 13h`**. Decide that deliberately before fitting the card: either
+   disable the second ROM and let the driver claim a controller the BIOS never enumerated, or
+   configure one ROM to serve both. Two ROMs quietly fighting over `INT 13h` would produce
+   confusing results that look like driver bugs.
 2. **Write the port driver for the secondary controller only.** If it never loads, or faults, the
    machine still boots — nothing is staked on it.
 3. **Prove the stack**: does the unit appear in Device Manager, does the Performance tab stop
