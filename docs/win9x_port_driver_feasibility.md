@@ -104,6 +104,48 @@ engine. It is PIO reads and writes to ATA task-file registers, with the 16-bit d
 across two 8-bit accesses through the card's high-byte latch. **No DMA at all**, which on this
 machine is a positive — the 20-bit DMA reach that broke the sound and floppy drivers cannot apply.
 
+## The XT-IDE register interface, and why development can happen in emulation
+
+**86Box already emulates the XT-IDE card** — `src/disk/hdc_xtide.c`, device `xtide_device`
+("PC/XT XTIDE"). So the driver can be written and debugged entirely in emulation, against a
+machine that already boots Windows 95, with no risk to the real 5160 at any point.
+
+Better: that device **logs every register access with the guest instruction pointer** —
+`[CS:EIP] [R] reg = val`. For bring-up that is close to an ideal debugger; you can see exactly what
+the driver issued and what came back, instruction by instruction.
+
+Register map, read out of `xtide_read()` / `xtide_write()`. Default base `0x300`, a 16-byte I/O
+range; option ROM defaults to `0xD0000`.
+
+| offset | read | write |
+|---|---|---|
+| `+0x0` | data **low** byte — and the hardware latches the high byte into `+0x8` | data **low** byte — commits the 16-bit word using whatever is in `+0x8` |
+| `+0x1`–`+0x7` | ATA task file, 8-bit direct, no latch | same |
+| `+0x8` | the latched **high** byte | sets the high byte for the *next* `+0x0` write |
+| `+0xE` | alternate status | device control |
+
+**The access order differs between read and write, and getting it wrong would cost a day:**
+
+```
+read  a 16-bit word:  inb(base+0x0)   -> low   (this latches the high byte)
+                      inb(base+0x8)   -> high
+write a 16-bit word:  outb(base+0x8, high)    (latch first)
+                      outb(base+0x0, low)     (this commits the word)
+```
+
+So reads are **low then high**; writes are **high then low**. Offsets `0x9`–`0xD` and `0xF` are
+unused.
+
+**Open question for the real card:** the above is 86Box's model. XT-IDE exists in more than one
+hardware revision, and the address-line wiring is not identical across them. Confirm which revision
+the actual card is before trusting this map on hardware — in emulation it is authoritative by
+definition, which is another reason to start there.
+
+**Also useful:** 86Box's XT-IDE offers a BIOS build selector — "Regular XT" and "XT+ (V20/V30/8018x)"
+on the 8-bit card, "Regular AT" and "386" on `xtide_at_device`. Worth checking whether the 386 build
+can be paired with the 8-bit card in emulation; if it can, item 3 of the next-actions file gets a
+free dry run before anything is flashed.
+
 ## Where the real risk is
 
 **The boot disk.** A driver for the drive Windows booted from has to take over from the real-mode
