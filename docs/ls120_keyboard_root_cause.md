@@ -3,8 +3,31 @@
 Issue [#22](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/22). Analysis of
 `SD120PPD.MPD` (79,872 bytes, 1997-05-26), the Shuttle/Imation LS-120 parallel-port miniport.
 
-**Status: mechanism identified at instruction level. One read-only measurement outstanding — the
-`0x22`/`0x23` aliasing — and it is the only remaining assumption.**
+**Status: CONFIRMED on real hardware 2026-08-28. The aliasing was measured; nothing in the chain
+is now assumed.**
+
+## The measurement
+
+COMrade, at the DOS prompt on the real 5160, read-only:
+
+| port | value |
+|---|---|
+| `0x21` — PIC1 data / IMR | `0xAC` |
+| `0x23` | `0xAC` |
+| `0x25` | `0xAC` |
+| `0x31` | `0xAC` |
+| `0x3F` | `0xAC` |
+
+Every odd port across `0x20`–`0x3F` returns the interrupt mask. **The 8259 is aliased across the
+whole range**, so `out 23h, al` *is* `out 21h, al`. The mask at rest under DOS is `0xAC`
+(`10101100`): IRQ 1 clear, i.e. the keyboard enabled, as expected.
+
+The driver writes `0x02` there — `00000010`, **IRQ 1 set, keyboard masked, everything else
+unmasked** — then ORs in `0x04`. That is the observed symptom precisely: keyboard dead, everything
+else untouched.
+
+A small corroboration: COMrade's own port table labels `0x23` "VL82C420 cfg data" — the VLSI
+chipset family is one of the very things this driver probes for by name.
 
 ## The code
 
