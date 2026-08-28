@@ -75,9 +75,10 @@ comment says so.
 
 ## 7. Fenix's extended-memory reports — one control run
 
-**Cost: one boot of a stock IBM XT.** His comment on
-[86Box#7805](https://github.com/86Box/86Box/issues/7805) is about **extended** memory, not
-conventional; our 640 KB figure is untouched by it.
+**Cost: one boot of a stock IBM XT.** **Replied to him 2026-08-28** —
+[comment](https://github.com/86Box/86Box/issues/7805#issuecomment-5451251670); his report had sat
+with zero replies on a closed issue. His comment is about **extended** memory, not conventional;
+our 640 KB figure is untouched by it.
 
 Likely expected XT behaviour: a 5160 has **no CMOS**, and the Inboard machine attaches no NVR —
 correct. ASQ and the HDC utility read extended size from CMOS `0x17`/`0x18`; 86Box returns `0xff`
