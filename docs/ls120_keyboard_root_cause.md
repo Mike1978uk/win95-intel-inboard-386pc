@@ -3,7 +3,8 @@
 Issue [#22](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/22). Analysis of
 `SD120PPD.MPD` (79,872 bytes, 1997-05-26), the Shuttle/Imation LS-120 parallel-port miniport.
 
-**Status: mechanism identified by static analysis, one cheap read-only test outstanding.**
+**Status: mechanism identified at instruction level. One read-only measurement outstanding — the
+`0x22`/`0x23` aliasing — and it is the only remaining assumption.**
 
 ## The code
 
@@ -49,6 +50,46 @@ and mask registers instead.
 
 That is a sufficient explanation for losing keyboard input while the mouse (a COM port, not IRQ 1)
 keeps working.
+
+## The write that is never undone
+
+The probe above **does** restore the mask, so the probe alone is not the fault. The damage is in the
+*configuration* path that runs after the probe returns a false positive. At `0x00cc54`:
+
+```asm
+50              push eax
+b0 21           mov al,21h
+e6 22           out 22h,al        ; chipset index = 0x21
+eb 00 eb 00
+b0 02           mov al,02h
+e6 23           out 23h,al        ; chipset data  = 0x02      <-- never restored
+eb 00 eb 00
+b0 c2           mov al,0C2h
+e6 22           out 22h,al        ; chipset index = 0xC2
+eb 00 eb 00
+e4 23           in  al,23h
+0c 04           or  al,04h
+e6 23           out 23h,al        ; read-modify-write         <-- never restored
+58              pop eax
+c3              ret
+```
+
+`push eax` / `pop eax` preserves the *register*, not the *port*. Nothing writes the old mask back.
+
+Translated through the alias on a 5160:
+
+| intended | actual on a 5160 | effect |
+|---|---|---|
+| `out 22h, 21h` | `out 20h, 21h` | garbage into the 8259 **command** register |
+| `out 23h, 02h` | `out 21h, 02h` | **mask = 0x02 — IRQ 1 masked. Keyboard dead.** |
+| `in 23h` / `or 04h` / `out 23h` | `in 21h` / `or 04h` / `out 21h` | **mask = 0x06 — IRQ 1 and IRQ 2 masked** |
+
+Final state: interrupt mask `0x06`, keyboard and cascade masked, no restore. A serial mouse on
+IRQ 3 or IRQ 4 is untouched — which is exactly what was observed.
+
+Further unrestored read-modify-writes on `0x22` follow at `0x00fc42`, `0x00fc57`, `0x00fc6c`,
+`0x00fc7f` and `0x00fc9a` (`in al,22h` / `or` / `and` / `out 22h,al`), all landing on the 8259
+command register on this machine.
 
 ## Why the DOS driver was fine
 
