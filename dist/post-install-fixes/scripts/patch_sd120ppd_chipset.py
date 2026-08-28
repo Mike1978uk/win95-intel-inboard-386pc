@@ -23,6 +23,25 @@ ORIG_MD5 = "08104ffb559ae4b47b84377daee473bc"   # 79,872 bytes, dated 1997-05-26
 TEXT_LO, TEXT_HI = 0x400, 0x10000               # .text: raw 0x400, size 0xfc00
 
 
+# Ports this driver writes that cannot be a real register on an IBM 5160.
+#   0x22/0x23 - chipset config index/data; the 8259 answers here (MEASURED:
+#               0x21/0x23/0x25/0x31/0x3F all read 0xAC on the real machine).
+#   0x24/0x25 - a SECOND chipset config index/data pair.  The driver does
+#               `mov al,61h / out 24h / in 25h / or al,01h / out 25h`, which on
+#               this machine is: write 0x61 to the PIC COMMAND register, read
+#               the mask, set bit 0, write it back - masking IRQ 0, the TIMER,
+#               with no restore.  A second site ORs 0x08 (IRQ 3).
+#   0x94      - PS/2 system-board setup register; the driver writes 0x7F then
+#               0xFF (this is what /fp and /dp suppress in the DOS build).  A
+#               5160 has no such register and the DMA page block is write-only,
+#               so the alias could not be measured - but the write cannot be
+#               correct either way, so it goes.
+# NOT touched: out 21h.  Every one of those sites is a paired save/restore
+# around the probe (in al,21h / push / out / ... / pop / out), so they are
+# already neutral.  Removing only one half would be worse than leaving both.
+BAD_PORTS = (0x22, 0x23, 0x24, 0x25, 0x94)
+
+
 def sites(data, first, second_set):
     return [i for i in range(TEXT_LO, min(TEXT_HI, len(data)) - 1)
             if data[i] == first and data[i + 1] in second_set]
@@ -47,20 +66,32 @@ def main():
     if args.revert:
         if not args.map:
             sys.exit("--revert needs --map from the original run")
-        offs = [int(x, 16) for x in open(args.map).read().split()]
+        # map entries are "offset:opcode:port" - BOTH original bytes are recorded.
+        # The patch replaces two bytes, so the revert must restore two; recording
+        # them removes any guessing between the byte (E6) and word (E7) forms.
         n = 0
-        for o in offs:
+        for tok in open(args.map).read().split():
+            parts = tok.split(":")
+            o = int(parts[0], 16)
+            op = int(parts[1], 16)
+            port = int(parts[2], 16)
             if data[o] == 0x90 and data[o + 1] == 0x90:
-                data[o] = 0xE6
+                data[o] = op
+                data[o + 1] = port
                 n += 1
         print("Reverted: %d" % n)
         if n == 0:
             sys.exit("Reverted: 0 - nothing changed, refusing to write")
     else:
-        found = sites(data, 0xE6, (0x22, 0x23))
-        reads = sites(data, 0xE4, (0x22, 0x23))
-        print("out 22h/23h sites : %d  (these are removed)" % len(found))
-        print("in  22h/23h sites : %d  (left alone - reads are harmless)" % len(reads))
+        # 0xE6 = out imm8,al (byte)   0xE7 = out imm8,eAX (word, usually with a
+        # 0x66 prefix).  A word write on an 8-bit bus splits into TWO byte writes,
+        # so E7 hits both registers of the pair - it matters more, not less.
+        found = sites(data, 0xE6, BAD_PORTS) + sites(data, 0xE7, BAD_PORTS)
+        found.sort()
+        reads = sites(data, 0xE4, BAD_PORTS) + sites(data, 0xE5, BAD_PORTS)
+        print("out 22/23/24/25/94h sites : %d  (removed)" % len(found))
+        print("in  22/23/24/25/94h sites : %d  (left - reads are harmless)" % len(reads))
+        orig = {o: (data[o], data[o + 1]) for o in found}
         n = 0
         for o in found:
             data[o] = 0x90
@@ -70,7 +101,7 @@ def main():
         if n == 0:
             sys.exit("Patched: 0 - nothing changed, refusing to write")
         with open((args.out or args.target) + ".sites", "w") as f:
-            f.write(" ".join("%x" % o for o in found))
+            f.write(" ".join("%x:%02x:%02x" % (o, orig[o][0], orig[o][1]) for o in found))
         print("site map written to %s.sites (needed for --revert)"
               % (args.out or args.target))
 
