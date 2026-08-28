@@ -149,6 +149,21 @@ and there was nothing to configure.
 Between them these close [86Box/86Box#7638](https://github.com/86Box/86Box/issues/7638) (all memory
 reported "BAD", 640K available) and this repo's issues #11, #12, #13 and #16.
 
+One further upstream bug was reported from here and fixed by 86Box directly, with no PR from us:
+[#7805](https://github.com/86Box/86Box/issues/7805) — the Machine settings dialog snapped RAM to a
+bitmask from zero rather than from the machine's minimum, so opening the dialog and clicking OK
+turned 5120 KB into 4096 and 3072 into 2048. Found by @andrew-hoffman, diagnosed at source level
+here, fixed by OBattler in `9ee5197`.
+
+### Which build to test on
+
+**Test on upstream 86Box master, not on [`86box_full/`](86box_full/).** Every Inboard change is now
+merged, so master carries the whole model — the device, the machine entry, the 1986-only BIOS list
+and the DMA page latch — plus upstream's own fixes as they land. `86box_full/` is a vendored
+snapshot that also carries the investigation's tracing hooks; those hooks cost roughly 3.45× in
+guest instructions per second, which is why [#14](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/14)
+needs a quiet build. Keep it for reproducing the traces, not for measuring behaviour.
+
 The POST 101 story is worth knowing if you tried the merged machine early and found it broken: the
 machine shared `ibmxt_config`, whose default is a 1982-dated 5160 ROM. `INBRDPC.SYS` — the card's
 own required driver — cannot work with that revision; it checks a signature at `F000:E05B` the 1982
@@ -290,8 +305,8 @@ not to the image.
 
 ## Contributing
 
-Issues and PRs welcome. Every open issue carries a **Status** block at the top, so you can see
-where it actually stands without reading the thread.
+Issues and PRs welcome. Most open issues carry a **Status** block at the top, so you can see
+where they actually stand without reading the thread.
 
 ### The most useful thing anyone could pick up
 
@@ -305,12 +320,14 @@ answer, not a week of work.
 
 | | |
 |---|---|
-| [#3](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/3) | Floppy. Controller now installed and correctly resourced, reads still stall part-way. `HSFLOP.PDR`'s DMA reach is patched but unmeasured |
 | [#7](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/7) | Setup black-screens right before the Help files (reboot works around it). Undiagnosed and unclaimed |
 | [#8](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/8) | ATI Mach 8 — the option ROM's self-test reports `RAM Addressing` in 86Box where the real card reports `Ok`. Reproduced on a stock upstream build, so it is an 86Box defect |
 | [#10](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/10) | Idea: a loadable BIOS-extension shim so 1982-era 5150/5160 ROMs can run Windows |
 | [#14](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/14) | POST intermittently halts with 101, only at `mem_size` 3072. Needs a quiet build, not `86box_full` |
 | [#15](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/15) | Windows 3.0 faults after the splash screen in 386 enhanced mode |
+| [#17](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/17) | Drives run in MS-DOS compatibility mode. Real-mode units are down from six to one after removing a parallel-port ASPI driver; the survivor is the XT-IDE boot disk, which stays real-mode permanently |
+| [#18](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/18) | Floppy reads return garbage once a 32-bit driver loads — `HSFLOP.PDR`'s DMA buffer lands above 1 MB. Patched, not yet measured |
+| [#19](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/19) | Trantor T130B — a Windows 95 32-bit miniport (`T130.MPD`) exists but is untested here |
 
 Issues are labelled **`emulator`** or **`real-hardware`** so you can pick by what you have, and
 **`upstream`** marks the ones destined for 86Box itself.
