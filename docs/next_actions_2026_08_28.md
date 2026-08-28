@@ -64,10 +64,14 @@ concrete rather than hopeful. See [`docs/win9x_port_driver_feasibility.md`](win9
 
 ## 6. 3C509B in 86Box
 
-**Cost: none right now.** [#20](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/20).
+**Cost: none — done.** [#20](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/20).
 Upstream discussion [86Box#6447](https://github.com/86Box/86Box/discussions/6447) already wants it
-and has the datasheet, ROM dumps and patent. A comment offering our measured values is drafted and
-awaiting approval; nothing has been posted.
+and has the datasheet, ROM dumps and patent. Our measured values were
+[posted there 2026-08-28](https://github.com/86Box/86Box/discussions/6447#discussioncomment-18187167),
+along with two things that thread lacked: that the card must work with **no PnP BIOS at all** on an
+XT (ID-port contention at `0x110`, not a BIOS PnP service), and that the 2004 QEMU 3C509B patch is
+diffed **on top of** the same author's ISA-PnP patch. We are not writing the device model; the
+comment says so.
 
 ## 7. Fenix's extended-memory reports — one control run
 
