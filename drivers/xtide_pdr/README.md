@@ -220,6 +220,57 @@ The ROM's `wPortCtrl = 0x308` is consistent with *both* designs, so it does not 
 **`XTIDECFG.COM` displays the configured device type outright** — get that before writing code.
 This is the single most important open question for phase 1.
 
+### The ROM configuration, decoded by diff - 2026-08-30
+
+The card's option ROM was dumped over COMrade and diffed against a stock 8 KB XTIDE UB build
+(`IDE_XT.BIN`). Excluding the build-date string, **only three bytes differ**, which locates the
+configuration exactly rather than by guessing at struct offsets:
+
+```
+stock  70..87: e0 ec 04 00 00 00 02 80 00 01 00 00 03 08 03 06 00 1d
+card   70..87: e0 ec 04 00 00 00 01 80 00 01 00 00 03 08 03 0a 00 1d
+                                    ^^ 76                    ^^ 85
+```
+
+Mapped against `RomVars.inc`'s `IDEVARS`, and corroborated by `bIRQ` landing on `0x00` exactly as a
+jumperless-interrupt card requires:
+
+| ROM offset | field | value | note |
+|---|---|---|---|
+| 76 | `bIdeCnt` | **1** (stock 2) | one controller - user-configured |
+| 81-82 | `wBasePort` | **`0x0300`** | identical to stock: the build default, hence no jumper |
+| 83-84 | `wControlBlockPort` | **`0x0308`** | identical to stock |
+| 85 | **`bDevice`** | **`0x0A`** (stock `0x06`) | **the transport** |
+| 86 | `bIRQ` | **`0x00`** | no interrupt - the driver polls |
+
+**Established beyond doubt:** the control block sits at base+8. `RomVars.inc` gives
+`DEVICE_XTIDE_DEFAULT_PORTCTRL = 300h + XTIDE_CONTROL_BLOCK_OFFSET`, and standard ATA uses `0x206`
+(`1F0` -> `3F6`). Offset 8 means this is an **XTIDE-family device, not standard ATA**.
+
+**Not established: what `0x0A` names.** The `DEVICE_*` equates are expressed relative to
+`COUNT_OF_STANDARD_IDE_DEVICES`, and the device list *grew between v2.0.0 and v2.1.0* - the trunk
+enum adds `8BIT_ATA`, `JUKO_D16X`, `ADP50L` and three extra XT-CF sub-modes that v2.0.0 lacks. This
+card is `XTIDE204` (v2.0.0). Two readings both fit, and they **imply different transports**:
+
+| if the v2.0.0 enum is... | `0x0A` = | transport we would have to write |
+|---|---|---|
+| trunk order, `COUNT_OF_STANDARD_IDE_DEVICES` = 2 | `DEVICE_8BIT_XTIDE_REV2` | 16-bit via the high-byte latch, **A0/A3 swapped** |
+| v2.0.0 menu order x2 | Lo-tech XT-CF | 8-bit PIO, no latch |
+
+Do **not** pick one by reasoning. `XTIDECFG.COM` shows the device type by name in one screen (host
+copy under `OneDrive/Desktop/XT_project/HarrisonXT/UTILS/XTIDE/`). That is now a precise question -
+*which entry is selected under Device Type* - rather than an open investigation.
+
+Sources: [`RomVars.inc`](https://www.xtideuniversalbios.org/browser/xtideuniversalbios/trunk/XTIDE_Universal_BIOS/Inc/RomVars.inc),
+[`XTCF.inc`](https://www.xtideuniversalbios.org/browser/xtideuniversalbios/trunk/XTIDE_Universal_BIOS/Inc/Controllers/XTCF.inc),
+[v2.0.0 manual](https://xtideuniversalbios.org/export/504/xtideuniversalbios/wiki/Manual_v2_0_0.wiki).
+
+- ❌ **XT-CF DMA mode is ruled out.** `XTCF.inc` states it is exclusive to XT-CFv3 and transfers on
+  DMA channel 3. This board is v2.0, so nothing we write should involve the 8237 - which also keeps
+  us clear of the 4-bit page-register trap (Technique 62).
+- ❌ **XTIDECFG cannot be read from the host.** It packs its strings; extracting them yields
+  nothing usable. It has to be run on the machine.
+
 ### System state, same session
 
 PIC1 IMR read `0xAC` at a DOS prompt: IRQ 0 timer, 1 keyboard, 4 COM1 (COMrade itself) and
