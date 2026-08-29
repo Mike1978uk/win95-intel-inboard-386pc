@@ -1,0 +1,213 @@
+; SBPRO-XT.INF -- Sound Blaster Pro for the IBM 5160 + Intel Inboard 386/PC
+;
+; A Have Disk package: identical to Windows 95's own WAVE.INF install for the
+; Sound Blaster Pro (*PNPB002), except that the files come from this directory
+; instead of the retail CABs, and MSSBLST.VXD is the patched build.
+;
+; Why: the stock MSSBLST.VXD asks _PageAllocate for a DMA buffer anywhere below
+; 16 MB. This machine's DMA page latch is 4 bits, so anything above 1 MB is
+; silently truncated and the card plays whatever is at the wrong address. The
+; patched build asks for <= 1 MB. See FIXES.md and issue #5.
+;
+; Sections below are lifted VERBATIM from WAVE.INF (OSR1) by following the
+; section references out of [PNPB002_Device] transitively -- not hand-written.
+;
+; Install: Control Panel -> Add New Hardware -> No to autodetect -> Sound, video
+; and game controllers -> Have Disk -> TYPE the path to this directory.
+; Do not use Browse: it defaults to A:, this machine has no floppy controller,
+; and that read never returns (issue #3).
+;
+; Suggested by @andrew-hoffman on issue #5. UNTESTED.
+
+[Version]
+Signature="$CHICAGO$"
+Class=MEDIA
+provider=%MSFT%
+
+[Manufacturer]
+%CLMfgName%=CreativeLabs
+
+[CreativeLabs]
+%*PNPB002.DeviceDesc%=PNPB002_Device, *PNPB002
+
+[SourceDisksNames]
+1="Inboard 386/PC post-install fixes",,
+
+[SourceDisksFiles]
+mssblst.vxd=1
+mssblst.drv=1
+msopl.drv=1
+
+[DestinationDirs]
+DefaultDestDir = 11        ; LDID_SYS
+
+[PNPB002_Device]
+LogConfig=*PNPB002.LC1, *PNPB002.LC2
+DelFiles=SB.DelList
+CopyFiles=SB.CopyList
+AddReg=WAVE.AddReg, MIXER.AddReg, PNPB002.AddReg, SBPro.AddReg
+UpdateInis=SB.UpdateInis
+UpdateIniFields=Drivers.fields
+
+[PNPB002_Device.FactDef]
+ConfigPriority=NORMAL
+IOConfig=220-22F
+IOConfig=388-38B
+IRQConfig=5
+DMAConfig=1
+
+[*PNPB002.LC1]
+ConfigPriority=HARDRECONFIG
+IOConfig=220-22F , 240-24F
+IOConfig=388-38B
+IRQConfig=5 , 7 , 9 , 10
+DMAConfig=0 , 1 , 3
+
+[*PNPB002.LC2]
+ConfigPriority=HARDRECONFIG
+IOConfig=220-22F , 240-24F
+IOConfig=380-38F
+IRQConfig=5 , 7 , 9 , 10
+DMAConfig=0 , 1 , 3
+
+[SB.CopyList]
+mssblst.vxd,,
+mssblst.drv,,
+msopl.drv,,
+
+[SB.DelList]
+msadlib.drv,,,1
+fmsynth.drv,,,1
+sbpmix.cpl,,,1
+sbp2fm.drv,,,1
+sbpfm.drv,,,1
+sbwave.drv,,,1
+mvmixer.drv,,,1
+spmcvsnd.drv,,,1
+sbmcvsnd.drv,,,1
+ss4.drv,,,1
+sc-opl2.drv,,,1
+vss4d.386,,,1
+nullwave.drv,,,1
+mpu401.drv,,,1
+vsbpd.386,,,1
+vsbd.386,,,1
+vadlibd.386,,,1
+sbwave.drv,,,1
+sndblst.drv,,,1
+sndblst2.drv,,,1
+wfm0001a.csp,,,1
+wfm0006.acv,,,1
+wfm0006a.csp,,,1
+wfm0007.acv,,,1
+wfm0007a.csp,,,1
+wfm0011.acv,,,1
+wfm0011a.csp,,,1
+wfm0200.acv,,,1
+wfm0200a.csp,,,1
+wfm0201.acv,,,1
+wfm0201a.csp,,,1
+wfm0202.acv,,,1
+wfm0202a.csp,,,1
+wfm0203.acv,,,1
+wfm0203a.csp,,,1
+
+[SB.UpdateInis]
+system.ini,386Enh,"device=wsssb16.386"
+system.ini,386Enh,"device=wsssbpro.386"
+system.ini,386Enh,"device=vtbd.386"
+system.ini,386Enh,"device=vss4d.386"
+system.ini,386Enh,"device=vsbpd.386"
+system.ini,386Enh,"device=vsbd.386"
+system.ini,386Enh,"device=vadlibd.386"
+system.ini,drivers,"wave*=sbwave.drv",,1
+system.ini,drivers,"wave*=sndblst2.drv",,1
+system.ini,drivers,"wave*=sndblst.drv",,1
+system.ini,drivers,"wave*=sb15snd.drv",,1
+system.ini,drivers,"wave*=sb20snd.drv",,1
+system.ini,drivers,"wave*=sbpsnd.drv",,1
+system.ini,drivers,"wave*=sbmcvsnd.drv",,1
+system.ini,drivers,"wave*=spmcvsnd.drv",,1
+system.ini,drivers,"wave*=sb16snd.drv",,1
+system.ini,drivers,"wave*=wsssb16.drv",,1
+system.ini,drivers,"wave*=wsssbpro.drv",,1
+system.ini,drivers,"wave*=tlwave.drv",,1
+system.ini,drivers,"wave*=ss4.drv",,1
+system.ini,drivers,"midi*=sbpfm.drv",,1
+system.ini,drivers,"midi*=sbp2fm.drv",,1
+system.ini,drivers,"midi*=sndblst2.drv",,1
+system.ini,drivers,"midi*=sndblst.drv",,1
+system.ini,drivers,"midi*=sb15snd.drv",,1
+system.ini,drivers,"midi*=sb20snd.drv",,1
+system.ini,drivers,"midi*=sbpsnd.drv",,1
+system.ini,drivers,"midi*=spmcvsnd.drv",,1
+system.ini,drivers,"midi*=sbmcvsnd.drv",,1
+system.ini,drivers,"midi*=sbfm.drv",,1
+system.ini,drivers,"midi*=sb2fm.drv",,1
+system.ini,drivers,"midi*=sb16fm.drv",,1
+system.ini,drivers,"midi*=sb16snd.drv",,1
+system.ini,drivers,"midi*=sbawe32.drv",,1
+system.ini,drivers,"midi*=wsssb16.drv",,1
+system.ini,drivers,"midi*=wsssbpro.drv",,1
+system.ini,drivers,"midi*=mpu401.drv",,1
+system.ini,drivers,"midi*=msadlib.drv",,1
+system.ini,drivers,"midi*=ss4.drv",,1
+system.ini,drivers,"midi*=sc-opl2.drv",,1
+system.ini,drivers,"aux*=sndblst2.drv",,1
+system.ini,drivers,"aux*=sndblst.drv",,1
+system.ini,drivers,"aux*=sbaux.drv",,1
+system.ini,drivers,"aux*=sbpaux.drv",,1
+system.ini,drivers,"aux*=sb16aux.drv",,1
+system.ini,drivers,"aux*=wsssb16.drv",,1
+system.ini,drivers,"aux*=wsssbpro.drv",,1
+system.ini,drivers,"mixer*=sbpmixer.drv",,1
+system.ini,drivers,"mixer*=wsssb16.drv",,1
+system.ini,drivers,"mixer*=wsssbpro.drv",,1
+system.ini,drivers,"mixer*=mvmixer.drv",,1
+system.ini,drivers,"mixer*=sb16aux.drv",,1
+
+[Drivers.fields]
+system.ini,boot,drivers,msmixmgr.dll
+system.ini,boot,drivers,mmmixer.dll
+
+[WAVE.AddReg]
+HKR,,DevLoader,,mmdevldr.vxd
+HKR,Drivers,MIGRATED,,0
+HKR,Drivers\midi,,,
+HKR,Drivers\wave,,,
+HKR,Drivers\mixer,,,
+HKR,Drivers\aux,,,
+HKLM,%KEY_IOC%\acm,,,
+HKLM,%KEY_IOC%\Rec,,,
+HKLM,%KEY_IOC%\MPlay,,,
+
+;---------------------------------------------------------------;
+
+[MIXER.AddReg]
+HKLM,Software\Microsoft\Windows\CurrentVersion\Run,SystemTray,,"SysTray.Exe"
+HKLM,%KEY_IOC%\Vol,,,
+
+[PNPB002.AddReg]
+HKR,Drivers\wave\mssblst.drv,Description,,%*PNPB002.DeviceDesc%
+HKR,Drivers\midi\msopl.drv,Description,,%V_INTERNAL%
+HKR,Drivers\midi\mssblst.drv,Description,,%*PNPB002.DeviceDesc%
+HKR,Drivers\mixer\mssblst.drv,Description,,%*PNPB002.DeviceDesc%
+HKR,Drivers\aux\mssblst.drv,Description,,%*PNPB002.DeviceDesc%
+HKR,Drivers,SubClasses,,"wave,midi,aux,mixer"
+
+[SBPro.AddReg]
+HKR,,Driver,,mssblst.vxd
+HKR,Drivers\wave\mssblst.drv,Driver,,mssblst.drv
+HKR,Drivers\midi\msopl.drv,Driver,,msopl.drv
+HKR,Drivers\midi\mssblst.drv,Driver,,mssblst.drv
+HKR,Drivers\midi\mssblst.drv,External,1,01,00,00,00
+HKR,Drivers\mixer\mssblst.drv,Driver,,mssblst.drv
+HKR,Drivers\aux\mssblst.drv,Driver,,mssblst.drv
+HKR,Drivers,SubClasses,,"wave,midi,aux,mixer"
+
+[Strings]
+MSFT="Microsoft"
+CLMfgName="Creative Labs"
+*PNPB002.DeviceDesc="Creative Labs Sound Blaster Pro"
+KEY_IOC="SYSTEM\CurrentControlSet\Control\MediaResources\InstallOptionalComponents"
+V_INTERNAL="Internal OPL2/OPL3 FM Synthesis"
