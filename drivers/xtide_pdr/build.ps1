@@ -49,10 +49,38 @@ if ($SrcDir -eq "$DDK\BLOCK\SAMPLES\PORT\SAMPLE") {
     Write-Output "Applied phase0-no-irq (IRQ registration removed)."
 }
 
+# Phase 1: hook our transport into the sample's AEP_INITIALIZE. Every edit asserts
+# it matched, so a moved call site fails the build instead of silently no-opping.
+if (Test-Path "$PSScriptRoot\src\XTIDETR.ASM") {
+    Copy-Item "$PSScriptRoot\src\*.ASM" $OutDir
+    $aer = Get-Content "$OutDir\PORTAER.ASM" -Raw
+
+    # 1. declare it, alongside the sample's own cross-module externs
+    $anchor = "`textrn`tPort_request:near"
+    if ($aer -notmatch [regex]::Escape($anchor)) {
+        Write-Output "FAILED: extern anchor not found in PORTAER.ASM"; exit 1
+    }
+    $aer = $aer.Replace($anchor, "`textrn`tXTIDE_Probe:near`t; XT-IDE transport (phase 1)`r`n$anchor")
+
+    # 2. call it where the sample calls its own (commented out) adapter probe.
+    #    The existing "jc Port_i_failure" two lines below then does the right thing.
+    $probe = ";`tcall`tPort_initialize_adapter"
+    if ($aer -notmatch [regex]::Escape($probe)) {
+        Write-Output "FAILED: adapter-probe call site not found in PORTAER.ASM"; exit 1
+    }
+    $aer = $aer.Replace($probe, "`tcall`tXTIDE_Probe`t`t; IDENTIFY + transport autodetect")
+
+    Set-Content "$OutDir\PORTAER.ASM" -Value $aer -NoNewline
+    $objs_extra = @("xtidetr")
+    Write-Output "Applied phase1 hook (XTIDE_Probe wired into Port_initialize)."
+} else {
+    $objs_extra = @()
+}
+
 # Flags taken verbatim from the sample's own MAKEFILE, with MASTER_MAKE resolved by hand.
 $aflags = @("-coff","-DBLD_COFF","-DDEBUG_TRACE=1","-DIS_32","-nologo","-W3","-Zd","-c","-Cx",
             "-DMASM6","-DINITLOG","-DDEBLEVEL=0")
-$objs = @("port","portaer","portreq","portisr")
+$objs = @("port","portaer","portreq","portisr") + $objs_extra
 
 $failed = $false
 foreach ($f in $objs) {

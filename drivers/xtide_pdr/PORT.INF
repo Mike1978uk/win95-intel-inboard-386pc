@@ -11,14 +11,20 @@
 ;
 ; That proves the whole chain works before a single line of XT-IDE code is written.
 ;
-; DELIBERATELY CLAIMS NO RESOURCES.
-;   No IOConfig  - the CF is currently driven in real mode through the XT-IDE option ROM
-;                  at D800h. A device node claiming those ports could break a working boot
-;                  disk for a probe that does not need them. Phase 1 adds the real range.
-;   No IRQConfig - the card is jumpered without an interrupt and the driver will poll.
-;                  The sample's VPICD registration is removed for the same reason (#22 is
-;                  a recent lesson in what a stray IRQ claim costs on this machine).
-;   No DMAConfig - 8237 channel 0 is DRAM refresh on a 5160. Nothing here does DMA.
+; RESOURCES - phase 1.
+;   IOConfig  300-30F, ConfigPriority=HARDRECONFIG. Measured base, 2026-08-30: the
+;             XTIDE BIOS banner says "master at 300h" and 0x30E reads 50h (DRDY|DSC).
+;             HARDRECONFIG, never HARDWIRED - HARDWIRED is exactly what made the stock
+;             *PNP0600 node claim an unchangeable IRQ 14 on this machine. A wrong
+;             resource you can edit is recoverable; one you cannot is a reinstall.
+;             Exactly ONE IO descriptor: Port_Scan_Inp_Params loops over every
+;             ResType_IO it finds and keeps the LAST one, so a second range would
+;             silently win.
+;   No IRQConfig - the card is jumpered without an interrupt and the driver polls.
+;             The sample's VPICD registration is removed for the same reason (#22 is
+;             a recent lesson in what a stray IRQ claim costs on this machine).
+;   No DMAConfig - 8237 channel 0 is DRAM refresh on a 5160, and XT-CF DMA mode is
+;             XT-CFv3-only anyway. Nothing here touches the 8237.
 ;
 ; CLASS: hdc, not SCSIAdapter. An earlier draft used SCSIAdapter because that is what
 ; T130-XT.INF and the LS-120 INF use, and both are proven to bind on this machine - but
@@ -58,12 +64,21 @@ HKR,,Icon,,-9
 %PORTPROBE%=PORTPROBE_INST,INBOARD_XTIDE_PROBE
 
 [PORTPROBE_INST]
+LogConfig=PORT.LogConfig
 CopyFiles=@PORT.PDR
 AddReg=IOS, PORT_REG
 
+[PORT.LogConfig]
+ConfigPriority=HARDRECONFIG
+IOConfig=300-30F(3FF::)
+
 [PORT_REG]
-HKR,,DriverDesc,,"XT-IDE Port Driver (phase 0 probe)"
+HKR,,DriverDesc,,"XT-IDE Port Driver"
 HKR,,PortDriver,,PORT.PDR
+; Transport override, for a card autodetect gets wrong. 0=auto 1=latch 2=PIO8.
+; NOT YET READ BY THE DRIVER - phase 1 autodetects only. Left commented rather
+; than shipping a value that silently does nothing.
+;HKR,,Transport,1,00
 
 [IOS]
 HKR,,DevLoader,,*IOS
@@ -75,9 +90,9 @@ DefaultDestDir=12
 PORT.PDR = 1
 
 [SourceDisksNames]
-1 = "XT-IDE port driver - phase 0 probe",,
+1 = "XT-IDE port driver",,
 
 [Strings]
 HDCClassName="Hard disk controllers"
 INB="86Box-Inboard project"
-PORTPROBE="XT-IDE port driver (phase 0 probe - loads nothing)"
+PORTPROBE="XT-IDE port driver (phase 1 - IDENTIFY only)"

@@ -10,8 +10,8 @@ Plan, emulator-and-skeleton first, hardware last:
 | phase | goal | status |
 |---|---|---|
 | **0** | prove the toolchain, and that IOS loads what it produces | ✅ **PASSED 2026-08-29** |
-| 1 | give the devnode an `IOConfig`, then a **selectable** transport: IDENTIFY, then sector reads, master only | next |
-| 2 | writes, then master/slave | not started |
+| 1 | `IOConfig` on the devnode, selectable transport, IDENTIFY | **built, awaiting a boot** |
+| 2 | sector reads, then writes, then slave | not started |
 | 3 | the real card, the real CF | not started |
 
 ATAPI CD-ROM is deliberately out of v1 — it is a different device class needing translation above
@@ -314,6 +314,80 @@ confirms IRQ 1 is healthy now the LS-120 miniport is out.
 
 DMA cannot be mapped this way at all — the XT page registers are write-only and float `0xFF`
 (Technique 75). Do not design a probe that reads them back.
+
+## Phase 1 - IDENTIFY, built 2026-08-30
+
+`src/XTIDETR.ASM` is **our** code (the DDK sample is not redistributable; this is not derived from
+it). It builds and links clean into the `.PDR` - `XTIDE_Probe` and friends appear in `PORT.map`
+under the locked code and data segments.
+
+```
+PORT.pdr   7685 bytes   md5 e3f01f8eb9f4a5e0f19e768a86a02e0b
+```
+
+`build.ps1` wires it into the sample's `AEP_INITIALIZE` with two asserted edits - an `extrn` beside
+the sample's own, and `call XTIDE_Probe` where the sample calls its own (commented-out) adapter
+probe, so the existing `jc Port_i_failure` two lines below already does the right thing. Both edits
+fail the build loudly if their anchor moves, rather than silently no-opping (Technique 28).
+
+### What it does
+
+1. Reads `DDB_base_ioa`, which `Port_Scan_Inp_Params` fills from the device node's `IOConfig`.
+2. Waits for BSY to clear on **alternate status** (`base+0Eh`) - status proper would acknowledge an
+   interrupt, and this driver should not assume a polled card just because ours is.
+3. Selects the unit, then **reads Drive/Head back and compares the DEV bit**. That is how
+   `ATASelectDevice` in [`../xtide_cdrom/`](../xtide_cdrom/) distinguishes a present slave from an
+   absent one, and it is the only reliable way. Unused while phase 1 probes the master; correct
+   when phase 2 does not.
+4. Issues `IDENTIFY DEVICE` and reads 512 bytes through the selected transport.
+5. **Validates the answer**, and only returns success if it is sane.
+
+### The transport is autodetected, and it verifies itself
+
+`XTIDE_ValidateId` checks the 40-byte model string at byte 54 is printable ASCII with real text in
+it. Read through the *wrong* transport that comes back mangled - byte-duplicated, in the case of a
+latch read that never fetches the high byte. **That exact bug shipped in one of the two binaries in
+`../xtide_cdrom/`**, which is where the idea came from: the failure mode is loud enough to detect,
+so autodetect is possible.
+
+`XTIDE_Probe` tries `XT_TR_LATCH`, then `XT_TR_PIO8`, and keeps whichever validates. A registry
+override is designed in but **not yet read** - the INF carries it commented out rather than
+shipping a value the driver silently ignores.
+
+This is what makes the open `bDevice = 0x0A` question a cross-check rather than a blocker: the
+driver works out its own transport, and which one it settles on *answers* the question empirically.
+
+### Reading the result
+
+`AEP_INITIALIZE` returns success only if a drive answered and its IDENTIFY data validated. So
+`BOOTLOG.TXT` is the instrument, and one line carries the whole result:
+
+| line | meaning |
+|---|---|
+| `Init Success port.pdr` | **We talked to the CF.** Addressed the card, issued IDENTIFY, got a coherent 512-byte structure with a readable model string |
+| `Init Failure port.pdr` | one of: no I/O resource on the node, drive never went ready, or *both* transports produced garbage |
+
+Phase 2 adds a readback channel so we can see *which* transport won and what the model string says.
+For now it is one bit, and one bit is the right size for the first attempt.
+
+### ⚠️ Before the first phase-1 boot
+
+This issues `IDENTIFY` to **the live boot disk**, while the real-mode BIOS is still driving it.
+`IDENTIFY` does not touch media and the code checks BSY before doing anything, so the drive has to
+be idle before we act - but a race with an in-flight real-mode transfer is not impossible.
+
+**Back up the CF image first.** It is cheap, this project has done it before, and it is the
+difference between a bad boot and a bad week.
+
+### Install
+
+The phase 0 node has no resources, so it must be **removed and re-added**, not updated in place -
+`LogConfig` is applied at install time.
+
+1. Device Manager -> remove the existing *XT-IDE port driver* node
+2. Add New Hardware -> **No, I want to select from a list** -> Hard disk controllers -> Have Disk
+3. Type `C:\PORTPDR` (do not Browse)
+4. Reboot with `F8` -> **Logged**, then `grep -i "port.pdr" /d/BOOTLOG.TXT`
 
 ## The toolchain
 
