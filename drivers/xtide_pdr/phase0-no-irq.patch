@@ -1,0 +1,34 @@
+Phase 0 safety change to the DDK sample — the only modification we make to it.
+
+The sample's AEP_INITIALIZE calls Port_Set_IRQ_Handler, which registers
+[edi].DDB_irq_number with VPICD. That number comes from the device node. Our probe
+devnode declares no IRQ, so the field is zero — and virtualising IRQ 0 means the
+system timer.
+
+This machine has already lost a subsystem once to a driver touching an interrupt it
+had no business touching (issue #22: the LS-120 miniport left IRQ 1 masked and killed
+the keyboard). A probe is not worth that risk.
+
+The line goes rather than being made conditional, because the XT-IDE card is jumpered
+without an interrupt: the real driver polls, PORTISR.ASM is deleted in phase 1, and
+the whole VPICD interaction disappears with it. This is a preview of that, not a
+workaround.
+
+Applied by build.ps1 to a working copy. The DDK sources themselves are not in this
+repository and are not redistributable.
+
+--- PORTAER.ASM	original
++++ PORTAER.ASM	phase 0
+@@ -240,7 +240,10 @@
+ 	;
+ 	; now set the IRQ handler
+ 	;
+
+-	call	Port_set_irq_handler
++; PHASE 0, this project: NOT the DDK original.
++; Registering DDB_irq_number (zero on a devnode with no IRQ) with VPICD would
++; virtualise the system timer. The XT-IDE card polls; see phase0-no-irq.patch.
++;	call	Port_set_irq_handler
+
+ 	;
+ 	; all set.  note that AEP_SUCCESS was preset by calling routine.

@@ -34,6 +34,21 @@ Set-Location $OutDir
 # (DDB, DCB, SCSIPORT, IODEBUG...). INC32 has the rest. All three are required.
 $env:INCLUDE = "$DDK\INC32;$DDK\INC16;$DDK\BLOCK\INC"
 
+# Phase 0 safety change - see phase0-no-irq.patch for why. Registering the devnode's
+# DDB_irq_number (zero, on a devnode declaring no IRQ) with VPICD would virtualise the
+# system timer. Asserts it actually changed something rather than silently no-opping.
+if ($SrcDir -eq "$DDK\BLOCK\SAMPLES\PORT\SAMPLE") {
+    $aer = Get-Content "$OutDir\PORTAER.ASM" -Raw
+    $needle = "`tcall`tPort_set_irq_handler"
+    if ($aer -notmatch [regex]::Escape($needle)) {
+        Write-Output "FAILED: IRQ call site not found in PORTAER.ASM - inspect before building"; exit 1
+    }
+    $aer = $aer.Replace($needle,
+        "; PHASE 0, this project: NOT the DDK original. See phase0-no-irq.patch.`r`n;`tcall`tPort_set_irq_handler")
+    Set-Content "$OutDir\PORTAER.ASM" -Value $aer -NoNewline
+    Write-Output "Applied phase0-no-irq (IRQ registration removed)."
+}
+
 # Flags taken verbatim from the sample's own MAKEFILE, with MASTER_MAKE resolved by hand.
 $aflags = @("-coff","-DBLD_COFF","-DDEBUG_TRACE=1","-DIS_32","-nologo","-W3","-Zd","-c","-Cx",
             "-DMASM6","-DINITLOG","-DDEBLEVEL=0")

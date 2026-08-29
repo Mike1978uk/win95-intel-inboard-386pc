@@ -1,0 +1,62 @@
+; PORT.INF - Phase 0 probe for issue #21, IBM 5160 + Intel Inboard 386/PC.
+;
+; This installs NOTHING USEFUL. Its only job is to create a device node so that IOS has a
+; reason to load PORT.PDR, which is Microsoft's DDK sample port driver built unchanged
+; (bar the IRQ registration - see phase0-no-irq.patch). The sample claims no devices, so
+; the expected outcome is that IOS loads it, calls it, gets nothing, and drops it.
+;
+; The result we are after is one line in a logged boot:
+;
+;     Initing port.pdr
+;
+; That proves the whole chain works before a single line of XT-IDE code is written.
+;
+; DELIBERATELY CLAIMS NO RESOURCES.
+;   No IOConfig  - the CF is currently driven in real mode through the XT-IDE option ROM
+;                  at D800h. A device node claiming those ports could break a working boot
+;                  disk for a probe that does not need them. Phase 1 adds the real range.
+;   No IRQConfig - the card is jumpered without an interrupt and the driver will poll.
+;                  The sample's VPICD registration is removed for the same reason (#22 is
+;                  a recent lesson in what a stray IRQ claim costs on this machine).
+;   No DMAConfig - 8237 channel 0 is DRAM refresh on a 5160. Nothing here does DMA.
+;
+; Class SCSIAdapter and this binding shape are copied from T130-XT.INF, which is the
+; pattern already proven to bind a driver on this exact machine.
+;
+; Install: Add New Hardware -> No, I want to select from a list -> SCSI controllers ->
+;          Have Disk -> type the path, do not Browse (issue #3). DECLINE autodetection.
+; Remove:  Device Manager -> remove the node, and delete WINDOWS\SYSTEM\IOSUBSYS\PORT.PDR.
+
+[Version]
+signature="$CHICAGO$"
+Class=SCSIAdapter
+Provider=%INB%
+
+[Manufacturer]
+%INB%=INBOARD
+
+[INBOARD]
+%PORTPROBE%=PORTPROBE_INST
+
+[PORTPROBE_INST]
+CopyFiles=@PORT.PDR
+AddReg=IOS, PORT_REG
+
+[PORT_REG]
+HKR,,PortDriver,,PORT.PDR
+
+[IOS]
+HKR,,DevLoader,,*IOS
+
+[DestinationDirs]
+DefaultDestDir=12
+
+[SourceDisksFiles]
+PORT.PDR = 1
+
+[SourceDisksNames]
+1 = "XT-IDE port driver - phase 0 probe",,
+
+[Strings]
+INB="86Box-Inboard project"
+PORTPROBE="XT-IDE port driver (phase 0 probe - loads nothing)"

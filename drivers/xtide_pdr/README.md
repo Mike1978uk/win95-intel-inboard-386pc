@@ -20,14 +20,23 @@ the port driver, not just transport. The reference for it is in
 
 ## Phase 0
 
-`build.ps1` assembles Microsoft's DDK sample port driver **unmodified** and links it to a `.PDR`.
-Nothing here is our code yet; the point is to retire the risk that would kill the project outright.
+`build.ps1` assembles Microsoft's DDK sample port driver and links it to a `.PDR`. Nothing here is
+our code yet; the point is to retire the risk that would kill the project outright.
 
 ```
-PORT.pdr   6661 bytes   md5 a2e378b9465467c684cae04eaa02103e
+stock sample          md5 a2e378b9465467c684cae04eaa02103e
++ phase0-no-irq       md5 8868f170898fcc2c73334e34924cb6d8   <- what we deploy
+both 6661 bytes
 ```
 
-Reproducible: running `build.ps1` twice gives the same md5. Verified as a real LE VxD — `MZ` then
+**One line is changed from the DDK original**, and only one: the `Port_Set_IRQ_Handler` call is
+removed. It registers `DDB_irq_number` with VPICD, which on a devnode declaring no IRQ is zero —
+the system timer. Issue #22 is a recent lesson in what a stray IRQ claim costs here. The line goes
+rather than being made conditional because the card polls and `PORTISR.ASM` disappears in phase 1
+anyway. See `phase0-no-irq.patch`; `build.ps1` applies it and fails loudly if the call site moves.
+
+Reproducible: running `build.ps1` twice gives the same md5, and the md5 differs from the stock
+build, so the change demonstrably took (Technique 28). Verified as a real LE VxD — `MZ` then
 `LE` at `e_lfanew`, cpu 2 (386), OS 4 (Windows 386), 6 pages, 6 objects (5 code, 1 data, all
 32-bit), DDB name `PORT`, description `Generic Port Drv`.
 
@@ -50,23 +59,61 @@ Worth knowing before trusting it as a skeleton:
 
 ### The load test
 
-`PORT.PDR` is deployed to `WINDOWS\SYSTEM\IOSUBSYS\` on the CF (md5 verified at the destination,
-not the staging copy — Technique 75). It needs a **logged boot** (`F8` → *Logged*) and then:
+**First attempt was a null result, and an uninformative one.** `PORT.PDR` was dropped into
+`WINDOWS\SYSTEM\IOSUBSYS\` and a logged boot showed no mention of it at all — but that proves
+nothing, because IOS binds port drivers to **device nodes**, not by scanning the directory. With no
+devnode there was never a reason to load it. A gate artifact, not evidence (Technique 19).
+
+The same boot settled the mechanism, because renaming the LS-120 miniport ran the A/B for free:
+
+| driver | devnode? | initialises? |
+|---|---|---|
+| `hsflop.pdr` | yes, the FDC | yes |
+| `sd120ppd.mpd` | yes — until renamed to `.MP_` | yes → **gone** |
+| `scsiport.pdr` | only as that miniport's framework | yes → **gone** |
+| `esdi_506.pdr` | none, no IDE controller node | **never** |
+
+`SCSIPORT` was in one boot's `INITCOMPLETE` list and absent from the next, purely because the
+miniport that needed it went away. Every port driver that loads here has a device node; every one
+that does not, does not.
+
+So the probe needs an INF. `PORT.INF` creates a device node and binds `PORT.PDR` to it, copying the
+binding shape from `T130-XT.INF` — the pattern already proven to work on this machine.
+
+**Install** (staged on the CF at `C:\PORTPDR`):
+
+1. Add New Hardware → **No, I want to select from a list** (decline autodetection — Technique 65)
+2. SCSI controllers → **Have Disk**
+3. **Type** `C:\PORTPDR`, do not Browse (issue #3)
+4. Reboot with `F8` → **Logged**
+
+Then:
 
 ```bash
-grep -i "port.pdr" /d/BOOTLOG.TXT
+grep -i "port" /d/BOOTLOG.TXT
 ```
 
 | result | meaning |
 |---|---|
 | `Initing port.pdr` | **Phase 0 passes.** IOS loaded our binary and called `AEP_INITIALIZE` |
-| `Init Success port.pdr` | it also survived init — more than needed, the sample claims no devices |
-| nothing at all | IOS never attempted it. Check the file is present and the boot was logged |
+| `Init Success port.pdr` | it survived init too — more than needed; the sample claims no devices |
+| still nothing | the devnode is not enough either. Next variable is `LogConfig` resources |
 
-`Initing …` is the signal, not `Dynamic load …`. On this machine's last boot only `hsflop.pdr` and
-`sd120ppd.mpd` reached that phase, so the list is short and a new entry is unmissable.
+`Initing …` is the signal, not `Dynamic load …` — the latter only ever lists `.VXD` files plus
+`rmm.pdr`. Only `hsflop.pdr` reaches the `Initing` phase on this machine now, so a new entry is
+unmissable.
 
-**To back it out:** delete `D:\WINDOWS\SYSTEM\IOSUBSYS\PORT.PDR`. Nothing else was changed.
+**To back it out:** remove the device node in Device Manager, then delete
+`D:\WINDOWS\SYSTEM\IOSUBSYS\PORT.PDR`. `D:\PORTPDR\` can stay; it is inert.
+
+### The card
+
+From the owner's `5160 deep dive config.txt`, slot 8: **Lo-tech XT-CF v2.0**, XTIDE Universal BIOS,
+JP1 ROM enable jumped, JP2 open = ROM at **D800h**, JP3 slot 8 enable jumped.
+
+**No I/O base jumper is listed**, so the base is fixed on this board. Lo-tech's fixed base and
+86Box's default are both `0x300`. That is inference from absence plus the emulator default, not a
+measurement — confirm it with COMrade (`io_in`, from real-mode DOS) before phase 1 relies on it.
 
 ## The toolchain
 
