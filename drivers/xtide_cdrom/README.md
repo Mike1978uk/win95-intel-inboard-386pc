@@ -8,8 +8,13 @@ only known working code that drives this card's 8-bit data latch.
 
 Originally `patacd.asm` — a generic PATA/ATAPI CD-ROM driver for MS-DOS by
 **sava (t.ebisawa) / lpproj**, 2016, [ZLIB licence](https://opensource.org/licenses/Zlib)
-(full notice at the top of `xtidecd.asm`). Someone later added XT-IDE support and posted the
-result to the **86Box Discord**; it was never published anywhere public.
+(full notice at the top of `xtidecd.asm`).
+
+**The XT-IDE port is by [Miran Grča (@OBattler)](https://github.com/OBattler)** — 86Box's
+developer since 2016 — posted to the **86Box Discord** and never published anywhere public.
+Attribution confirmed by @andrew-hoffman on [issue #21](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/21),
+2026-08-29, who notes the two binaries came from **two separate pinned posts**. That is almost
+certainly why they differ (see below) — they are two versions, not a matched pair.
 
 Contributed to this project by **@andrew-hoffman** on
 [issue #21](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/21#issuecomment-3576283472),
@@ -44,8 +49,12 @@ reads as its low byte duplicated; `ATAWriteDataXT` uses `mov [si+1],al` (a store
 
 ## What it gives issue #21
 
-- **The access order, confirmed twice.** Independently agrees with 86Box's emulation and with the
-  register map in #21. Reads are low-then-high, writes are high-then-low.
+- **The access order.** Agrees exactly with 86Box's `hdc_xtide.c` and the register map in #21:
+  reads low-then-high, writes high-then-low.
+  ⚠️ **Not an independent confirmation** — 86Box and this driver's XT-IDE port share an author, so
+  the two cannot disagree about a misunderstanding they hold in common. Corroborate against the
+  [XTIDE Universal BIOS](https://www.xtideuniversalbios.org/) or the card itself before treating
+  the map as settled on real hardware, where card revisions differ anyway.
 - **Master/slave, already solved.** `ata_drivenum` is a 2-bit unit number: bit 0 is the DEV bit
   (shifted to bit 4 of the Drive/Head register), bit 1 selects the channel. `ATASelectDevice`
   writes DEV, then *reads the register back and compares the DEV bit* — that read-back is how you

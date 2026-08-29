@@ -25,7 +25,7 @@ the directory's own `README.md`.
 
 | What | Where | Provenance | What it is for |
 |---|---|---|---|
-| **XT-IDE ATAPI CD-ROM driver** (DOS) | [`drivers/xtide_cdrom/`](../drivers/xtide_cdrom/) | `patacd.asm`, sava (t.ebisawa) / lpproj, 2016, ZLIB. XT-IDE port by an unknown hand, 86Box Discord. Via @andrew-hoffman, issue #21 | The only known working code that drives the XT-IDE 8-bit data latch. Reference for the 32-bit driver (#21). ⚠️ Use `xtidecd(1).sys`; `xtidecd.sys` and the `.asm` are a broken build |
+| **XT-IDE ATAPI CD-ROM driver** (DOS) | [`drivers/xtide_cdrom/`](../drivers/xtide_cdrom/) | `patacd.asm`, sava (t.ebisawa) / lpproj, 2016, ZLIB. **XT-IDE port by [Miran Grča (@OBattler)](https://github.com/OBattler)**, 86Box's developer, posted to the 86Box Discord. Via @andrew-hoffman, issue #21 | The only known working code that drives the XT-IDE 8-bit data latch. Reference for the 32-bit driver (#21). ⚠️ Use `xtidecd(1).sys`; `xtidecd.sys` and the `.asm` are a broken build |
 | **Trantor T130B miniport** | [`drivers/trantor_t130b/`](../drivers/trantor_t130b/) | Adaptec `T130.EXE` self-extractor, [archive.org](https://archive.org/details/T130_EXE) | `T130.MPD` — a vendor 32-bit PIO SCSI miniport. `T130-XT.INF` adds `Polling=1` and this machine's I/O base |
 | **Imation LS-120 miniport** | [`drivers/imation_ls120/`](../drivers/imation_ls120/) | Imation `SD120PPD.MPD` plus five patch attempts | Issue #22. Parked: six patches, six null results. The real-mode driver works and is what the machine runs |
 | **Custom `VKD.VXD`** | [`custom_vkd/`](../custom_vkd/) | Built from the 1995 Win95 DDK source | Fixes `VKD_Int_09`'s AT-only port-0x64 check. First working Win95 keyboard input on real Inboard hardware |
@@ -112,6 +112,8 @@ the directory's own `README.md`.
   the driver polls and the whole VPICD interaction disappears.
 - **[`drivers/xtide_cdrom/`](../drivers/xtide_cdrom/)** — the register-level transport, and
   master/slave via the DEV read-back. See §1.
+  ❌ It does **not** independently confirm 86Box's register map: the emulator and this driver's
+  XT-IDE port are by the same author (@OBattler).
 - **MS KB [Q132061](https://jeffpar.github.io/kbarchive/kb/132/Q132061/)** — behind `fd8xx.mpd`,
   the in-box protected-mode miniport for an 8-bit ISA SCSI card. Proof that Microsoft shipped
   32-bit storage for 8-bit cards.
