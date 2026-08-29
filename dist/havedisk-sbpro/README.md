@@ -9,6 +9,27 @@ repacking the CABs themselves.
 
 **Untested.** Built, internally consistent, never installed on hardware or in emulation.
 
+## This is an alternative, not a replacement
+
+The original route — install the stock driver, then copy the patched `MSSBLST.VXD` over the top —
+**remains supported and stays the default.** It is the one confirmed on real hardware; this package
+is not. Both are listed side by side in
+[`FIXES.md`](https://github.com/Mike1978uk/win95-intel-inboard-386pc/blob/master/FIXES.md).
+
+| | copy over the top | this package |
+|---|---|---|
+| status | **confirmed on real hardware** | **untested** |
+| steps | install driver, then copy one file | one install |
+| failure mode if you get it wrong | forget the copy, silently keep the bug | INF refuses, visibly |
+| works for VMM32-resident VxDs | no | no |
+
+Use this one if you want a single install with nothing to remember afterwards. Use the copy route if
+you want the exact thing this project measured.
+
+Direct downloads for the copy route:
+[patched `MSSBLST.VXD`](https://github.com/Mike1978uk/win95-intel-inboard-386pc/raw/master/vxd-patches/sound/MSSBLST_INBOARD.VXD)
+· [stock original](https://github.com/Mike1978uk/win95-intel-inboard-386pc/raw/master/vxd-patches/sound/MSSBLST_stock.VXD)
+
 ## Why
 
 Stock `MSSBLST.VXD` asks `_PageAllocate` for a DMA buffer anywhere below 16 MB. This machine's

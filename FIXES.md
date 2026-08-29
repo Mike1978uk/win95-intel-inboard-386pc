@@ -23,8 +23,27 @@ page register silently truncates the address, so the card DMAs out of adapter RO
 
 Two bytes: `maxPhys 0xFFF → 0xFF` at both call sites.
 
-**Copy to `C:\WINDOWS\SYSTEM\MSSBLST.VXD` AFTER installing the Sound Blaster Pro driver.** It is not
-in a fresh image — it arrives stock from `WIN95_xx.CAB` when you install the card.
+#### Two ways to install it — pick one
+
+**A. Copy over the top (proven).** Install the Sound Blaster Pro driver normally, then copy the file
+to `C:\WINDOWS\SYSTEM\MSSBLST.VXD`. It is not in a fresh image — it arrives stock from
+`WIN95_xx.CAB` when you install the card, so the copy has to happen *after*.
+
+**This is the route confirmed on real hardware.** It stays the default, and it is the one to use if
+you want the outcome this project actually measured.
+
+**B. [Have Disk package](https://github.com/Mike1978uk/win95-intel-inboard-386pc/tree/master/dist/havedisk-sbpro) (untested).**
+`dist/havedisk-sbpro/` installs the card and the patched driver in one step, with no copy afterwards
+and nothing to forget. Add New Hardware → **No** to autodetect → *Sound, video and game controllers*
+→ Have Disk → **type** the path.
+
+The INF is not hand-written: its sections are lifted verbatim from OSR1's own `WAVE.INF` by
+following the references out of `[PNPB002_Device]` transitively, so the install logic is Microsoft's
+byte for byte and only the file source changes. It is nonetheless **untested** — built and
+internally consistent, never installed. Suggested by @andrew-hoffman on issue #5.
+
+> **Do not use Browse in the Have Disk dialog.** It defaults to `A:\`, this machine has no floppy
+> controller installed, and that read never returns. Type the path. See issue #3.
 
 ### `VDMAD.VXD` — Sound Blaster Pro BSOD
 

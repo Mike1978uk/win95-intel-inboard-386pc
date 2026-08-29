@@ -2,6 +2,13 @@
 
 **Apply these AFTER you have installed a driver, not to the disk image.**
 
+
+> **Alternative for the Sound Blaster Pro fix:** it can also be installed in one step, with no copy
+> afterwards, via the Have Disk package in
+> [`dist/havedisk-sbpro/`](../havedisk-sbpro). That package is **untested**; the copy-over-the-top
+> route described here is the one confirmed on real hardware and remains the default.
+
+
 ## Why this exists separately from the image
 
 The pre-monolith image does not contain `MSSBLST.VXD`. Nothing does, until you install the
