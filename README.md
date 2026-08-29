@@ -79,6 +79,14 @@ An earlier version of this page claimed A: and B: worked; that was wrong.
 can be applied to any Windows 95 OSR1 install on this hardware rather than only the images published
 here. Tested status is stated for each one.
 
+## Sources, and the software they came with
+
+**[docs/resources_and_sources.md](docs/resources_and_sources.md)** — every datasheet, forum
+thread, source tree and driver this project has been given or has found, each with one line on
+what it actually gave us, and a ❌ where it turned out not to contain what was hoped. The software
+that can be redistributed is held in this repository so a clone is enough; where it cannot be,
+the page says where it lives.
+
 ## What worked, and what didn't
 
 **[docs/what_worked_and_what_didnt.md](docs/what_worked_and_what_didnt.md)** — the flat inventory:
