@@ -181,14 +181,53 @@ unmissable.
 **To back it out:** remove the device node in Device Manager, then delete
 `D:\WINDOWS\SYSTEM\IOSUBSYS\PORT.PDR`. `D:\PORTPDR\` can stay; it is inert.
 
-### The card
+### The card — MEASURED 2026-08-30
 
-From the owner's `5160 deep dive config.txt`, slot 8: **Lo-tech XT-CF v2.0**, XTIDE Universal BIOS,
-JP1 ROM enable jumped, JP2 open = ROM at **D800h**, JP3 slot 8 enable jumped.
+Slot 8, from the owner's `5160 deep dive config.txt`: **Lo-tech XT-CF v2.0**, XTIDE Universal BIOS,
+JP1 ROM enable jumped, JP2 open = ROM at **D800h**, JP3 slot 8 enable jumped. No I/O base jumper
+exists on this board.
 
-**No I/O base jumper is listed**, so the base is fixed on this board. Lo-tech's fixed base and
-86Box's default are both `0x300`. That is inference from absence plus the emulator default, not a
-measurement — confirm it with COMrade (`io_in`, from real-mode DOS) before phase 1 relies on it.
+**I/O base is `0x300`**, established two independent ways rather than inferred:
+
+- the XTIDE BIOS boot banner reports `D800h` then **master at 300h**;
+- a COMrade read of `0x30E` returns **`0x50`** — `DRDY|DSC`, the textbook idle status of a present,
+  ready ATA device, at the alternate-status register.
+
+The option ROM at `D800:0000` agrees: signature `XTIDE204`, *-=XTIDE Universal BIOS (XT)=-*,
+v2.0.0 (2013-10-22), and a config block giving base `0x0300` with the **control block at `0x0308`**
+— which places alternate status at `0x308+6 = 0x30E`, exactly the port that answered.
+
+`0x320` and `0x340` are ruled out anyway: the 3C509B and the T130B live there.
+
+#### Unexplained, and it must be resolved before writing transport
+
+```
+0x301-0x305   0x00
+0x306, 0x307  0x09     <- identical at two adjacent registers
+0x30E         0x50     <- a live idle drive
+```
+
+`0x09` is wrong for both drive/head and status, and two adjacent taskfile registers do not return
+the same value. Either XT address aliasing (Technique 75) or this card's taskfile decodes
+differently from plain XT-IDE.
+
+**This matters because XTIDE Universal BIOS supports genuinely different transports** — XT-IDE
+rev1/rev2 (16-bit through the high-byte latch at `+8`) and XT-CF (8-bit PIO). OBattler's driver in
+[`../xtide_cdrom/`](../xtide_cdrom/) implements **the latch**. If this card is XT-CF PIO8, that
+reference does not describe our transport and phase 1 writes something different.
+
+The ROM's `wPortCtrl = 0x308` is consistent with *both* designs, so it does not discriminate.
+**`XTIDECFG.COM` displays the configured device type outright** — get that before writing code.
+This is the single most important open question for phase 1.
+
+### System state, same session
+
+PIC1 IMR read `0xAC` at a DOS prompt: IRQ 0 timer, 1 keyboard, 4 COM1 (COMrade itself) and
+6 floppy unmasked; 2, 3 (3C509B), 5 (SB Pro) and 7 (LPT) masked. A clean DOS picture, and it
+confirms IRQ 1 is healthy now the LS-120 miniport is out.
+
+DMA cannot be mapped this way at all — the XT page registers are write-only and float `0xFF`
+(Technique 75). Do not design a probe that reads them back.
 
 ## The toolchain
 
