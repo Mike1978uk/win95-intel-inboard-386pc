@@ -55,6 +55,10 @@ the directory's own `README.md`.
   — the system board I/O address map. This is what backs the 8259 aliasing across `0x20-0x3F`:
   IBM decoded the PIC on a partial address range, so it answers at sixteen addresses, not two.
   Authoritative, and the reason that claim can go upstream.
+- **[`measured_system_map_2026_08_30.md`](measured_system_map_2026_08_30.md)** — what the real
+  machine actually answers, read with COMrade at a DOS prompt: PIC mask, the 8259 alias, the
+  XT-IDE base, the Mach8 accelerator's `SUBSYS_STAT`, the T130B. Two readings in it are recorded as
+  **unexplained** rather than fitted to a story; that is deliberate.
 - **Wim Osterholt, [XT, AT and PS/2 I/O port addresses](https://wiki.preterhuman.net/XT,_AT_and_PS/2_I/O_port_addresses)** (1994)
   — the `(XT)` / `(XT only)` markings are what distinguish this machine from an AT, port by port.
   Curated for this project in [`xt_io_port_reference_annotated.md`](xt_io_port_reference_annotated.md).
