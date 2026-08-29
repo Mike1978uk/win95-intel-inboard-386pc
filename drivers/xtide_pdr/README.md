@@ -10,7 +10,7 @@ Plan, emulator-and-skeleton first, hardware last:
 | phase | goal | status |
 |---|---|---|
 | **0** | prove the toolchain, and that IOS loads what it produces | ✅ **PASSED 2026-08-29** |
-| 1 | give the devnode an `IOConfig`, then swap in XT-IDE transport: IDENTIFY, then sector reads, master only | next |
+| 1 | give the devnode an `IOConfig`, then a **selectable** transport: IDENTIFY, then sector reads, master only | next |
 | 2 | writes, then master/slave | not started |
 | 3 | the real card, the real CF | not started |
 
@@ -220,6 +220,31 @@ The ROM's `wPortCtrl = 0x308` is consistent with *both* designs, so it does not 
 **`XTIDECFG.COM` displays the configured device type outright** — get that before writing code.
 This is the single most important open question for phase 1.
 
+### Design decision: the transport is configurable, not hardcoded
+
+**Owner's call, 2026-08-30, and it is the right one.** This driver should work on XT-IDE hardware
+generally, not just this card. XTIDE Universal BIOS supports a family of electrically different
+adapters - XTIDE rev 1, rev 2 (A0/A3 swapped), Lo-tech XT-CF in several PIO modes, JR-IDE - and
+picks between them at configuration time. A Win9x driver that hardcodes one of them is a driver for
+one machine.
+
+So the transport is a **parameter**, with two layers:
+
+1. **Autodetect, and self-verify.** `IDENTIFY DEVICE` returns 512 bytes containing ASCII model and
+   serial-number strings at known offsets. Read with the wrong transport those strings come out
+   visibly wrong - byte-duplicated is exactly what the broken build in
+   [`../xtide_cdrom/`](../xtide_cdrom/) produces. So the driver can try a transport and **check its
+   own answer** rather than trusting configuration. Cheap, and it runs once at init.
+2. **A hand override**, for when autodetect is wrong or a card is unusual. Set from the INF as a
+   registry value on the device node, read at `AEP_INITIALIZE`. Precedent for exactly this shape
+   exists on this machine: `HKR,,Polling,,1` in `T130-XT.INF`, and the LS-120 miniport's
+   `AdapterSettings`.
+
+**This is what unblocks phase 1.** The open question below - what `bDevice = 0x0A` names - stops
+being a prerequisite. We implement the transports, let the driver work it out, and keep an override
+for when it cannot. Settling `0x0A` then becomes a useful cross-check on the autodetect rather than
+a gate on writing any code at all.
+
 ### The ROM configuration, decoded by diff - 2026-08-30
 
 The card's option ROM was dumped over COMrade and diffed against a stock 8 KB XTIDE UB build
@@ -260,6 +285,16 @@ card is `XTIDE204` (v2.0.0). Two readings both fit, and they **imply different t
 Do **not** pick one by reasoning. `XTIDECFG.COM` shows the device type by name in one screen (host
 copy under `OneDrive/Desktop/XT_project/HarrisonXT/UTILS/XTIDE/`). That is now a precise question -
 *which entry is selected under Device Type* - rather than an open investigation.
+
+**Calibration attempt, and what it gave.** Every XTIDE203 v2.0.0 XT build to hand -
+`IDE_XT`, `IDE_XTL`, `IDE_XTP`, `IDE_XTPL` - carries `bDevice = 0x06`, base `0x300`, ctrl `0x308`,
+`bIRQ 0x00`. So `0x06` is the XT-build default and this card was deliberately changed to `0x0A`,
+consistent with a Lo-tech-supplied ROM configured for their own board. It does **not** pin the
+enum: those four builds differ by *CPU target* (8088 / V20 / large), not device type, so they are
+one data point rather than four. The v2.0.0-era `RomVars.inc` was not retrievable; trunk is
+v2.1.0 and its device list is longer.
+
+Per the decision above, this no longer blocks anything.
 
 Sources: [`RomVars.inc`](https://www.xtideuniversalbios.org/browser/xtideuniversalbios/trunk/XTIDE_Universal_BIOS/Inc/RomVars.inc),
 [`XTCF.inc`](https://www.xtideuniversalbios.org/browser/xtideuniversalbios/trunk/XTIDE_Universal_BIOS/Inc/Controllers/XTCF.inc),
