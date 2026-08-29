@@ -141,33 +141,65 @@ def report_dx(path):
     """Resolve DX-addressed I/O whose port comes from an immediate.
 
     This tool used to declare all EC-EF I/O unresolvable. That is only true in
-    general: `mov edx, imm32` (BA imm32) followed shortly by an I/O opcode IS
-    statically decidable. On SD120PPD.MPD that pattern hid 13 writes to port
-    0x94 which the immediate-port scan never saw - and that gap survived two
-    rounds of patching before anyone noticed (issue #22).
+    general: `mov edx, imm32` (BA imm32) followed by an I/O opcode IS decidable.
+    On SD120PPD.MPD that pattern hid 13 writes to port 0x94 the immediate-port
+    scan never saw, and the gap survived two rounds of patching (issue #22).
 
     Also applies the XT wrap: the 5160's I/O channel carries only A0-A9, so the
     effective port is `value & 0x3FF`. A driver writing to a PS/2 or ECP
-    register above 0x3FF can land on the system board without ever naming a
-    system port.
+    register above 0x3FF can land on the system board without naming one.
+
+    Decodes forward from each load with capstone, stopping when EDX is
+    reassigned or control flow leaves the straight line. A first version just
+    byte-scanned for the next I/O opcode within a window; on an ALREADY-PATCHED
+    file it walked straight past the NOP and reported an unrelated later byte
+    as a surviving write. Three false positives, and they looked authoritative.
+    Without capstone this falls back to that scan and says so.
     """
     data = open(path, 'rb').read()
     lo, hi = text_range(data)
+    try:
+        from capstone import Cs, CS_ARCH_X86, CS_MODE_32
+        md = Cs(CS_ARCH_X86, CS_MODE_32)
+        exact = True
+    except ImportError:
+        md = None
+        exact = False
+
+    STOP_MN = ('mov', 'xchg', 'pop', 'add', 'sub', 'inc', 'dec',
+               'and', 'or', 'xor', 'lea', 'movzx', 'movsx')
     hits = {}
     for m in re.finditer(b'\xba(....)', data[lo:hi], re.S):
         off = lo + m.start()
         val = int.from_bytes(m.group(1), 'little')
         if val > 0xFFFF:
             continue
-        for b in data[off + 5:off + 45]:
-            if b in (0xEC, 0xED, 0xEE, 0xEF):
-                kind = {0xEC: 'in  al,dx', 0xED: 'in  eax,dx',
-                        0xEE: 'out dx,al', 0xEF: 'out dx,eax'}[b]
-                hits.setdefault((val, val & 0x3FF, kind), []).append(off)
+        key = lambda k: (val, val & 0x3FF, k)
+        if md is None:
+            for b in data[off + 5:off + 45]:
+                if b in (0xEC, 0xED, 0xEE, 0xEF):
+                    k = {0xEC: 'in  al,dx', 0xED: 'in  eax,dx',
+                         0xEE: 'out dx,al', 0xEF: 'out dx,eax'}[b]
+                    hits.setdefault(key(k), []).append(off)
+                    break
+            continue
+        start = off + 5
+        for i in md.disasm(data[start:start + 120], start):
+            mn, ops = i.mnemonic, i.op_str
+            if mn == 'out' and ops.startswith('dx,'):
+                hits.setdefault(key('out dx,al'), []).append(i.address)
+                continue
+            if mn == 'in' and ', dx' in ops:
+                hits.setdefault(key('in  al,dx'), []).append(i.address)
+                continue
+            if mn[:1] == 'j' or mn in ('call', 'ret', 'retf', 'jmp', 'loop', 'int'):
+                break
+            if mn in STOP_MN and re.match(r'\s*(edx|dx|dl|dh)\b', ops):
                 break
 
     print('')
-    print('  DX-addressed I/O with a resolvable immediate port:')
+    print('  DX-addressed I/O with a resolvable immediate port%s:'
+          % ('' if exact else '   [HEURISTIC - capstone not installed]'))
     if not hits:
         print('    none found')
         return 0
