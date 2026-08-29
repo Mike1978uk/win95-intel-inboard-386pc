@@ -3265,3 +3265,64 @@ a known-good image is cheaper than diagnosing. That is a legitimate outcome, not
 
 **And bisect installs.** The 2026-08-28 keyboard loss was unattributable because DirectX 7.0a,
 WinZip, InfoPro, SIV and the LS-120 driver all went on between working boots. One install, one boot.
+## Technique 77: when a bisect proves WHICH component, stop patching and cost the target
+
+**2026-08-29, issue #22. Six binary patches, six nulls, on a convenience feature.** The record is
+worth keeping because every individual step was defensible and the sequence as a whole was not.
+
+### The one test that worked, and why it took all day to reach
+
+The decisive bisect was **renaming the driver out of `IOSUBSYS`**. `SD120PPD.MPD` -> `SD120PPD.MP_`,
+nothing else touched: keyboard returned instantly, drive gone. Device node, registry, `Program
+Files` payload and IOS binding all exonerated in one boot, with a one-character rename and no
+reinstall.
+
+It took all day because the two *obvious* routes were both blocked - Device Manager had no "Original
+Configuration [Current]" checkbox for this device, and *Remove* costs a reinstall. **A file rename
+from the card reader was the third route and nobody thought of it.** When the GUI will not let you
+disable a component, take its file away instead.
+
+### What six patches bought, and what they cost
+
+Eliminated by measurement, which is real value: chipset/PIC config writes; PS/2 DMA arbitration at
+`0x94`; a **Micro Channel double-registration** (`DriverEntry` calls `ScsiPortInitialize` twice, the
+second with `AdapterInterfaceType=3` on a machine with no MCA bus); SCSIPORT **polling**;
+`AdapterSettings` (`HwFindAdapter` hardcodes and probes all three LPT bases, so `PORT=` is a hint,
+not an override); VMM32/VKD replacement; registry changes; IRQ conflicts; and a second VxD that
+ships 27 destructive-write candidates and **never loads**.
+
+The cost was a day on a parallel-port floppy that already worked under DOS. **Both the owner and
+@andrew-hoffman independently asked "why so much focus on this driver" within an hour of each
+other.** They were right. The rule that was missing:
+
+> **Once a bisect tells you WHICH component is at fault, price the component before hunting the
+> mechanism inside it.** "We know exactly where the bug is" is the moment to ask whether the fix is
+> worth having - not a licence to keep going. A confirmed cause on a low-value target is a good
+> place to stop.
+
+### Measure whether a patch changed anything, not just whether it deployed
+
+A logged boot (`F8` -> Logged) gives per-driver init cost straight from `BOOTLOG.TXT` timestamps:
+
+```
+Initing hsflop.pdr    -> Init Success     7 ticks
+Initing sd120ppd.mpd  -> Init Success   895 ticks     (whole Windows load ~1790)
+```
+
+That one driver was **half the Windows load**. The final patch aimed at exactly that, and re-measuring
+gave **896 ticks** - verifiably deployed, and inert. Without the re-measurement it would have been
+filed as "tried it, did not help", implying the theory was tested. It was not; the patch never
+altered the behaviour it targeted. **Diff the measurement across the patch, not just the md5.**
+
+### Cheap eliminations that should come first next time
+
+All of these are minutes, need no patch, and each killed a live theory:
+
+- **Diff the config files against a known-good image.** `CONFIG.SYS`/`AUTOEXEC.BAT`/`SYSTEM.INI`/
+  `WIN.INI` came back identical bar two REM'd lines, collapsing the problem to one variable.
+- **String-diff `SYSTEM.DAT` against the same image.** 70 additions, none keyboard-related - killed
+  every "the installer changed something else" theory at once.
+- **md5 `VMM32.VXD` against the pre-install image.** Killed the best-fitting theory of the day (a
+  recombine replacing our custom `VKD.VXD`) in two minutes.
+- **Read the Device Manager IRQ list.** Free, and it showed IRQ 1 correctly held with no conflict.
+
