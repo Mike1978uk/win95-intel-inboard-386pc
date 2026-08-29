@@ -1,0 +1,82 @@
+; T130-XT.INF  Trantor T130B miniport, adjusted for the IBM 5160 + Inboard 386/PC
+;
+; Derived from Adaptec's T130.INF (same directory, kept unmodified). Three
+; changes, each forced by this machine's hardware:
+;
+;   1. IOConfig     340-34F first. That is the card's jumpered address.
+;   2. IRQConfig    removed, and Polling=1 added. The card is jumpered for no
+;                   interrupt, and 3/5/7 are taken by the 3C509B, the SB Pro
+;                   and the Intek21 parallel card.
+;   3. DMAConfig    removed. On a 5160, 8237 channel 0 is DRAM refresh - the
+;                   BIOS spins at F000:ECAC waiting for its address counter to
+;                   move. T130.MPD is PIO-only (no DMA imports), so it never
+;                   programs the 8237; reserving channel 0 in the device node
+;                   would be a false claim on live refresh hardware.
+;
+; UpdateInis=DoubleBuffer is left in place: it writes DoubleBuffer=1 into
+; MSDOS.SYS globally, which is correct here - the boot disk stays real-mode.
+;
+; Prerequisite: inbrdpc.sys must be in [SafeList] in WINDOWS\IOS.INI, or IOS
+; declines every miniport. See issue #17.
+
+
+[Version]
+signature="$CHICAGO$"
+Class=SCSIAdapter
+Provider=%TRA%
+LayoutFile=LAYOUT.INF
+
+[Manufacturer]
+%TRA%=TRANTOR
+
+
+[TRANTOR]
+%T130%=T_ISA
+
+
+[T_ISA]
+LogConfig=*T130.LogConfig
+CopyFiles=@T130.MPD
+AddReg=IOS, TLOG_REG, Poll
+UpdateInis=DoubleBuffer
+
+
+[TLOG_REG]
+HKR,,PortDriver,,T130.MPD
+
+[Poll]
+HKR,,Polling,,1
+
+
+[*T130.Det]
+AddReg=ForceMPCopy
+
+
+[*T130.LogConfig]
+ConfigPriority=HARDRECONFIG
+IOConfig=340-34F(3FF::), 240-24F(3FF::), 350-35F(3FF::), 250-25F(3FF::)
+
+
+[DestinationDirs]
+DefaultDestDir=12
+
+[SourceDisksFiles]
+T130.MPD = 1
+
+[SourceDisksNames]
+1 =  "T130 Driver Installation Disk",,
+
+[IOS]
+HKR,,DevLoader,,*IOS
+
+[ForceMPCopy]
+HKR,,NoSetupUI,,1
+
+[DoubleBuffer]
+%31%msdos.sys,Options,,"DoubleBuffer=1"
+
+
+[Strings]
+TRA="Trantor"
+T130="T130 SCSI Miniport Driver (XT / Inboard, polled)"
+SCSIClassName="SCSI controllers"
