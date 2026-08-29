@@ -29,8 +29,24 @@ it. `IDENTIFY` does not touch media, and the code waits for BSY to clear before 
 must be idle before anything happens — but a race with an in-flight real-mode transfer is not
 impossible.
 
-**The owner is imaging the CF before this boot** (2026-08-30, from the card reader). That covers
-it. Record where the image landed, alongside the others.
+**The CF was imaged before this boot and the image is verified.**
+
+```
+C:\Users\lycet\OneDrive\Desktop\precfxtide.img
+2,038,063,104 bytes - matches the physical device exactly
+MBR valid, part1 boot=0x80 type=0x06 (FAT16) startLBA=63
+contains the phase-1 driver in BOTH locations (IOSUBSYS + PORTPDR)
+```
+
+That last check is the one that matters: it proves the image is of the **current** state, not a
+stale capture. Restoring it returns the card to "phase 1 staged, ready to install".
+
+WARNING - do not mistake this for damage: the partition table claims **3,995,649 sectors**, ending
+at byte 2,045,804,544, which is *larger than the image file*. That is the documented quirk of this
+reader/card combination (Technique 14), and it is the same sector count the project recorded
+previously. The MBR and BPB agree with each other; they just disagree with the physical device.
+When building an `86box.cfg` around this image, compute geometry from the **file size**, never from
+its own MBR.
 
 This session could not take one itself - raw access to the physical device needs elevation
 (Technique 14). What it did take is a configuration backup at
