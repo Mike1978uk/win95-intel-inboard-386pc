@@ -25,7 +25,8 @@ stock driver.
 
 Usage:  xt_port_audit.py DRIVER.MPD [DRIVER.VXD ...] [-v]
 """
-import argparse, os, sys
+import argparse
+import re, os, sys
 
 # XT device blocks.  base, span-of-alias, name.  On a 5160 each block answers
 # across its whole aliased range, so any port inside these is a live register.
@@ -117,18 +118,87 @@ def scan(path, verbose=False):
         print("\n  No plausible writes to XT system ports.")
     return len(writes)
 
+def text_range(d):
+    """(lo, hi) of the executable text, or the whole file if not a PE."""
+    lo, hi = 0, len(d)
+    if d[:2] == b'MZ':
+        import struct
+        pe = struct.unpack_from('<I', d, 0x3c)[0]
+        if d[pe:pe + 2] == b'PE':
+            nsec = struct.unpack_from('<H', d, pe + 6)[0]
+            optsz = struct.unpack_from('<H', d, pe + 20)[0]
+            off = pe + 24 + optsz
+            for _ in range(nsec):
+                nm = d[off:off + 8].rstrip(b'\x00')
+                _vs, _va, rs, ro = struct.unpack_from('<IIII', d, off + 8)
+                if nm == b'.text':
+                    lo, hi = ro, ro + rs
+                off += 40
+    return lo, hi
+
+
+def report_dx(path):
+    """Resolve DX-addressed I/O whose port comes from an immediate.
+
+    This tool used to declare all EC-EF I/O unresolvable. That is only true in
+    general: `mov edx, imm32` (BA imm32) followed shortly by an I/O opcode IS
+    statically decidable. On SD120PPD.MPD that pattern hid 13 writes to port
+    0x94 which the immediate-port scan never saw - and that gap survived two
+    rounds of patching before anyone noticed (issue #22).
+
+    Also applies the XT wrap: the 5160's I/O channel carries only A0-A9, so the
+    effective port is `value & 0x3FF`. A driver writing to a PS/2 or ECP
+    register above 0x3FF can land on the system board without ever naming a
+    system port.
+    """
+    data = open(path, 'rb').read()
+    lo, hi = text_range(data)
+    hits = {}
+    for m in re.finditer(b'\xba(....)', data[lo:hi], re.S):
+        off = lo + m.start()
+        val = int.from_bytes(m.group(1), 'little')
+        if val > 0xFFFF:
+            continue
+        for b in data[off + 5:off + 45]:
+            if b in (0xEC, 0xED, 0xEE, 0xEF):
+                kind = {0xEC: 'in  al,dx', 0xED: 'in  eax,dx',
+                        0xEE: 'out dx,al', 0xEF: 'out dx,eax'}[b]
+                hits.setdefault((val, val & 0x3FF, kind), []).append(off)
+                break
+
+    print('')
+    print('  DX-addressed I/O with a resolvable immediate port:')
+    if not hits:
+        print('    none found')
+        return 0
+    nw = 0
+    for (val, eff, kind), offs in sorted(hits.items()):
+        note = ''
+        if eff <= 0xFF:
+            note = '   <<== system board: %s' % classify(eff)
+            if kind.startswith('out'):
+                nw += len(offs)
+        wrap = ' (wraps from %#06x)' % val if eff != val else ''
+        print('    port %#06x -> %#05x%s  %-11s x%d%s'
+              % (val, eff, wrap, kind, len(offs), note))
+    if nw:
+        print('')
+        print('    %d DX-addressed WRITE(s) land on the system board.' % nw)
+    return nw
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("files", nargs="+")
     ap.add_argument("-v", "--verbose", action="store_true",
                     help="also list reads and low-confidence candidates")
     a = ap.parse_args()
-    total = sum(scan(f, a.verbose) for f in a.files)
+    total = sum(scan(f, a.verbose) + report_dx(f) for f in a.files)
     print("=" * 74)
     print("TOTAL destructive-write candidates: %d" % total)
     print("\nConfirm every hit by reading its context before believing it, and note")
-    print("that DX-addressed I/O (EC-EF) cannot be resolved statically - this tool")
-    print("only sees immediate-port instructions.")
+    print("DX-addressed I/O is resolved where the port comes from an immediate; it")
+    print("still cannot be resolved when the port is computed at runtime.")
     return 1 if total else 0
 
 if __name__ == "__main__":
