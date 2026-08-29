@@ -3300,6 +3300,33 @@ other.** They were right. The rule that was missing:
 > worth having - not a licence to keep going. A confirmed cause on a low-value target is a good
 > place to stop.
 
+### Amendment: "cost the target" is not "stop at the feature's value"
+
+The rule above is about **making the choice explicitly**, not about always stopping. The project
+owner's own framing, on [#22](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/22#issuecomment-5464167418),
+and it is the better statement of it:
+
+> It's not explicitly about getting the ls120 working. I know it does and DOS real mode driver is
+> sufficient [...] But understanding why it broke, this can lead to better understanding break
+> points, weak areas in the build and things that could bite us with other driver attempts [...]
+> if I can build a none real mode driver later using the compare between the driver and knowing the
+> differences I have potentially the capability to fix it properly.
+
+So a low-value **feature** can still be a high-value **probe**. The LS-120 hunt produced the DX-addressed
+I/O gap in our own audit tool, the CREG checksum rule, two silent deployment traps, the vendor-README
+rule, and the proof that polling is not what kills the keyboard - which is what de-risked `T130.MPD`
+for #19. None of that came from the feature.
+
+**What the rule actually asks for:** say out loud which one you are doing. *"This is a probe, I expect
+no fix, I am buying knowledge"* is a legitimate answer and changes nothing about the work. What is not
+legitimate is drifting into a sixth patch while implicitly believing you are still chasing a fix. The
+failure on 2026-08-29 was not the investigating - it was never naming the switch.
+
+Corollary the owner also makes, and it is right: **real hardware yields data the emulator structurally
+cannot.** This exact bug is invisible in 86Box because `kbc_xt.c` auto-clears the XT keyboard latch
+after ~50 ticks when nothing acknowledges it (see Technique 37) - real XT hardware has no such escape.
+A session that only ran in emulation would have concluded there was no bug at all.
+
 ### Measure whether a patch changed anything, not just whether it deployed
 
 A logged boot (`F8` -> Logged) gives per-driver init cost straight from `BOOTLOG.TXT` timestamps:
