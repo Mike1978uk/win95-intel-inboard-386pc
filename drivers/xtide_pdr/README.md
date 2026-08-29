@@ -77,15 +77,30 @@ The same boot settled the mechanism, because renaming the LS-120 miniport ran th
 miniport that needed it went away. Every port driver that loads here has a device node; every one
 that does not, does not.
 
-So the probe needs an INF. `PORT.INF` creates a device node and binds `PORT.PDR` to it, copying the
-binding shape from `T130-XT.INF` — the pattern already proven to work on this machine.
+So the probe needs an INF. `PORT.INF` creates a device node and binds `PORT.PDR` to it.
+
+**Class is `hdc`, not `SCSIAdapter`.** The first draft used SCSIAdapter because that is what
+`T130-XT.INF` and the LS-120 INF use and both are proven to bind here — but those are `.MPD`
+**miniports**, loaded by `SCSIPORT.PDR`. This is a standalone `.PDR` registering `DRP_MISC_PD`
+directly with IOS, architecturally the same as `ESDI_506.PDR`. Under SCSIAdapter the class
+installer may hand it to SCSIPORT and fail for reasons that say nothing about our binary — a
+second uninformative null. The two registry values are taken verbatim from `MSHDC.INF`'s own
+`[ESDI_AddReg]`, which is how Microsoft binds the driver this one replaces.
+
+**Hardware ID is deliberately not `*PNP0600`.** That is Microsoft's standard IDE controller ID, and
+a node claiming to be one is a node Windows may try to drive the boot disk with. Adding that node
+has already been tried here and produced **impossible resources — IRQ 14, ungreyable** (an AT
+slave-PIC line this machine does not have). Declaring no `LogConfig` at all is why this probe has
+nothing for Windows to assign a wrong value to. If it still greys out at IRQ 14, that is
+Technique 65: uncheck *Use automatic settings* to get a `ForcedConfig`.
 
 **Install** (staged on the CF at `C:\PORTPDR`):
 
 1. Add New Hardware → **No, I want to select from a list** (decline autodetection — Technique 65)
-2. SCSI controllers → **Have Disk**
+2. **Hard disk controllers** → **Have Disk**
 3. **Type** `C:\PORTPDR`, do not Browse (issue #3)
-4. Reboot with `F8` → **Logged**
+4. Pick *"XT-IDE port driver (phase 0 probe - loads nothing)"*
+5. Reboot with `F8` → **Logged**
 
 Then:
 

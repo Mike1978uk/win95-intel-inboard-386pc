@@ -20,29 +20,49 @@
 ;                  a recent lesson in what a stray IRQ claim costs on this machine).
 ;   No DMAConfig - 8237 channel 0 is DRAM refresh on a 5160. Nothing here does DMA.
 ;
-; Class SCSIAdapter and this binding shape are copied from T130-XT.INF, which is the
-; pattern already proven to bind a driver on this exact machine.
+; CLASS: hdc, not SCSIAdapter. An earlier draft used SCSIAdapter because that is what
+; T130-XT.INF and the LS-120 INF use, and both are proven to bind on this machine - but
+; those are .MPD MINIPORTS, loaded by SCSIPORT.PDR. This is a standalone .PDR port driver
+; registering DRP_MISC_PD directly with IOS, architecturally the same as ESDI_506.PDR and
+; HSFLOP.PDR, both of which are hdc/floppy class. Under SCSIAdapter the class installer may
+; hand it to SCSIPORT and fail for reasons that say nothing about our binary.
 ;
-; Install: Add New Hardware -> No, I want to select from a list -> SCSI controllers ->
+; The two registry values below are taken verbatim from MSHDC.INF's own [ESDI_AddReg],
+; which is how Microsoft binds ESDI_506.PDR - the driver this one eventually replaces.
+;
+; HARDWARE ID: deliberately NOT *PNP0600. Microsoft's IDE entries use that, and a node
+; claiming to be a standard IDE controller is one Windows may try to drive the boot disk
+; with. Ours is a private ID nothing else matches.
+;
+; Install: Add New Hardware -> No, I want to select from a list -> Hard disk controllers ->
 ;          Have Disk -> type the path, do not Browse (issue #3). DECLINE autodetection.
 ; Remove:  Device Manager -> remove the node, and delete WINDOWS\SYSTEM\IOSUBSYS\PORT.PDR.
 
 [Version]
 signature="$CHICAGO$"
-Class=SCSIAdapter
+Class=hdc
 Provider=%INB%
+
+; Harmless if the class is already registered, which it will be - MSHDC.INF is present.
+[ClassInstall]
+AddReg=HDC_Class
+
+[HDC_Class]
+HKR,,,,%HDCClassName%
+HKR,,Icon,,-9
 
 [Manufacturer]
 %INB%=INBOARD
 
 [INBOARD]
-%PORTPROBE%=PORTPROBE_INST
+%PORTPROBE%=PORTPROBE_INST,INBOARD_XTIDE_PROBE
 
 [PORTPROBE_INST]
 CopyFiles=@PORT.PDR
 AddReg=IOS, PORT_REG
 
 [PORT_REG]
+HKR,,DriverDesc,,"XT-IDE Port Driver (phase 0 probe)"
 HKR,,PortDriver,,PORT.PDR
 
 [IOS]
@@ -58,5 +78,6 @@ PORT.PDR = 1
 1 = "XT-IDE port driver - phase 0 probe",,
 
 [Strings]
+HDCClassName="Hard disk controllers"
 INB="86Box-Inboard project"
 PORTPROBE="XT-IDE port driver (phase 0 probe - loads nothing)"
