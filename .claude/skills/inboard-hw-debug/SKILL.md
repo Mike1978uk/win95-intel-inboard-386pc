@@ -3317,6 +3317,27 @@ I/O gap in our own audit tool, the CREG checksum rule, two silent deployment tra
 rule, and the proof that polling is not what kills the keyboard - which is what de-risked `T130.MPD`
 for #19. None of that came from the feature.
 
+#### The receipt, 2026-08-30 - one day later, on a different driver
+
+The paragraph above was a claim when it was written. It is now evidenced. Phase 0 of the XT-IDE
+port driver (#21) reached "IOS loads and calls our code on real hardware" in a single session, and
+almost every step that went right came out of the LS-120 diversion:
+
+| from #22 | used in #21, one day later |
+|---|---|
+| Renaming `SD120PPD.MPD` to `.MP_` | The free A/B that proved **IOS binds port drivers to device nodes, not by scanning `IOSUBSYS`**. `SCSIPORT` left the `INITCOMPLETE` list when its miniport did. This killed a null result that would otherwise have looked like "our driver does not load" |
+| IRQ 1 lost to a driver that had no business touching it | Why the DDK sample's `Port_Set_IRQ_Handler` was **removed before the file went near the machine** - on a devnode with no IRQ it registers zero, i.e. the system timer |
+| The LS-120's `OEM0.INF` as a binding pattern | Copying it was **wrong** (SCSIAdapter is for `.MPD` miniports under SCSIPORT) - but having it to compare against `MSHDC.INF` is what got the class right, `hdc`, before install rather than after |
+| `AdapterSettings` on the LS-120 node | One of the two precedents for making the new driver's **transport selectable by registry override** instead of hardcoded |
+| Technique 75, port aliasing | Why the COMrade pass stayed **read-only**, and why re-measuring the `0x21`/`0x23`/`0x25` alias was worth doing |
+| md5 at the destination; CRLF on `.INF`/`.BAT` | Both applied to tonight's deployment. The md5 check is what proved the INF's own `CopyFiles` installed the driver rather than an earlier hand-drop |
+| "Polling is not what kills the keyboard" | De-risked `T130.MPD` (#19) *and* the XT-IDE driver, which must poll - the card is jumpered without an interrupt |
+
+**The lesson to carry forward is not "always keep digging".** It is that the owner named the switch
+out loud - *this is a probe, I am buying knowledge* - and that made a day on a parallel-port floppy
+a deliberate purchase rather than a sunk cost. Name which one you are doing, and a diversion can be
+the cheapest infrastructure you ever build.
+
 **What the rule actually asks for:** say out loud which one you are doing. *"This is a probe, I expect
 no fix, I am buying knowledge"* is a legitimate answer and changes nothing about the work. What is not
 legitimate is drifting into a sixth patch while implicitly believing you are still chasing a fix. The
