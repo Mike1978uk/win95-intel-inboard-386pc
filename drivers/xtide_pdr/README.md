@@ -9,8 +9,8 @@ Plan, emulator-and-skeleton first, hardware last:
 
 | phase | goal | status |
 |---|---|---|
-| **0** | prove the toolchain, and that IOS loads what it produces | **build done**, load test pending |
-| 1 | swap in XT-IDE transport: IDENTIFY, then sector reads, master only | not started |
+| **0** | prove the toolchain, and that IOS loads what it produces | ✅ **PASSED 2026-08-29** |
+| 1 | give the devnode an `IOConfig`, then swap in XT-IDE transport: IDENTIFY, then sector reads, master only | next |
 | 2 | writes, then master/slave | not started |
 | 3 | the real card, the real CF | not started |
 
@@ -86,6 +86,45 @@ directly with IOS, architecturally the same as `ESDI_506.PDR`. Under SCSIAdapter
 installer may hand it to SCSIPORT and fail for reasons that say nothing about our binary — a
 second uninformative null. The two registry values are taken verbatim from `MSHDC.INF`'s own
 `[ESDI_AddReg]`, which is how Microsoft binds the driver this one replaces.
+
+### Result — PASSED, 2026-08-29
+
+```
+[0017A60A] Initing port.pdr
+[0017A60C] Init Failure port.pdr
+```
+
+**That is the pass.** IOS loaded our binary and called `AEP_INITIALIZE`. The whole chain is proven
+before a line of XT-IDE code exists: MASM 6.11c → a `.PDR` IOS accepts → INF → device node →
+IOS binding → our code executing on the real 5160.
+
+`Init Failure` was the predicted outcome — the sample claims no devices. Two ticks, no hang.
+Verified alongside it: the md5 of `IOSUBSYS\PORT.PDR` matches our build exactly (so the INF's
+`CopyFiles` did it, not a hand-drop), `hsflop.pdr` still reaches `Init Success`, and the only
+other failures in the log are the four that were already in the baseline boot.
+
+Not distinguished, and not worth a boot to settle: whether `Init Failure` came from
+`AEP_INITIALIZE` returning failure, or from IOS dropping a driver that claimed no devices. Both
+are expected here.
+
+### What phase 1 needs, exactly
+
+Device Manager shows the node with a **"not configured"** warning. That and the `Init Failure` are
+one fact, not two. `Port_Scan_Inp_Params` calls `_CONFIGMG_Get_First_Log_Conf` with
+`ALLOC_LOG_CONF` and reads precisely two resource types off the devnode:
+
+```
+ResType_IRQ  ->  [edi].DDB_irq_number
+ResType_IO   ->  [edi].DDB_base_ioa      <- IOD_Alloc_Base, the card's base address
+```
+
+With no allocated resources that call fails, so `DDB_base_ioa` is never set and the driver has no
+address to talk to. So phase 1 starts by giving the node an `IOConfig` for the card's real range —
+`ConfigPriority=HARDRECONFIG`, never `HARDWIRED`, and **exactly one** I/O descriptor, because the
+loop overwrites `DDB_base_ioa` on every `ResType_IO` it sees and the last one wins. No `IRQConfig`:
+the card polls.
+
+Leave the probe node installed. Phase 1 reuses it.
 
 ### Why the standard IDE node failed here — and the rule it gives phase 1
 
