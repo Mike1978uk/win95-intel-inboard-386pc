@@ -3088,6 +3088,25 @@ COMrade (Kevin Moonlight; Win95 port by Ahmad Byagowi), read-only, at the DOS pr
 |---|---|---|---|---|---|
 | value | `0xAC` | `0xAC` | `0xAC` | `0xAC` | `0xAC` |
 
+### CONFIRMED BY PRIMARY SOURCES 2026-08-29 - this is documented, not a discovery
+
+The measurement stands, but it did not need to be a measurement. Two sources, both from
+@andrew-hoffman:
+
+- **IBM PC/XT Technical Reference (6280089, MAR86)** - its own I/O Address Map lists *ranges*:
+  8237A `000-01F`, **8259A `020-03F`**, 8253 `040-05F`, 8255 `060-06F`, DMA page `080-09F`.
+  Eight 32-byte blocks covering the `000-0FF` system-board reservation.
+  <https://archive.org/details/IBMPCXTIBM51555160TechnicalReference6280089MAR86>
+- **DubaiXTClone** KiCAD schematics - the I/O decoder's nets are `XA5 XA6 XA7 XA8 XA9` + `~AEN`
+  in, `~DMACS ~INTRCS ~T/CCS ~PPICS ~WRTDMAPGREG ~WRTNMIREG` out. **`XA0`-`XA4` never reach it.**
+  <https://github.com/spencer-uk/DubaiXTClone/>
+
+Consequence for 86Box: `pic.c`'s `io_sethandler(0x0020, 0x0002, ...)` contradicts IBM's published
+map. That makes the upstream fidelity report a documentation citation, not a claim about our board.
+
+Checked and unhelpful for this question: **NuXT** uses the Faraday FE2010A, so the decode is inside
+an ASIC - no discrete decoder to read.
+
 **The 8259 answers across the whole `0x20`-`0x3F` block**, `A0` alone selecting command vs data.
 `out 23h,al` *is* `out 21h,al`. The other XT blocks alias the same way (8237, PIT, PPI, DMA page).
 **The DMA page registers are write-only** - reading returns `0xFF`, so that alias cannot be measured

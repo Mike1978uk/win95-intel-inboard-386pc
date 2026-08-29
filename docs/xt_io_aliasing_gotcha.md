@@ -55,6 +55,65 @@ Two asides worth knowing:
 
 ---
 
+## Why it decodes this way — documented by IBM, and visible in a schematic
+
+The measurement above is not a quirk of one board. It is how IBM designed the machine, and two
+primary sources say so independently. Both were pointed at by **@andrew-hoffman**.
+
+### IBM says so in its own address map
+
+The *IBM PC/XT Technical Reference* (5155/5160, 6280089, MAR86) lists the system board devices as
+owning **ranges**, not addresses:
+
+| Device | Hex Range |
+|---|---|
+| DMA controller, 8237A-5 | `000-01F` |
+| **Interrupt controller, 8259A** | **`020-03F`** |
+| Timer, 8253-5 | `040-05F` |
+| PPI 8255A-5 | `060-06F` |
+| DMA page registers | `080-09F` |
+| NMI mask register | `0AX` |
+
+Thirty-two ports for the 8259, thirty-two for the 8237, thirty-two for the DMA page registers.
+The aliasing is not undocumented behaviour to be discovered by measurement — it is the published
+address map, and it has been in print since 1983. The document also notes that hex `000` to `0FF`
+is reserved for the system board, which is exactly eight 32-byte blocks.
+
+<https://archive.org/details/IBMPCXTIBM51555160TechnicalReference6280089MAR86>
+
+### The mechanism, from a machine-readable schematic
+
+The Technical Reference's schematics are scanned images, so the wiring cannot be read
+programmatically. The **DubaiXTClone** — a modern PC/XT-compatible board with full KiCAD sources —
+can be, and it keeps the original system-board I/O decode. Its decoder sheet carries exactly these
+nets:
+
+```
+inputs   XA5  XA6  XA7  XA8  XA9  ~AEN
+outputs  ~DMACS  ~INTRCS  ~T/CCS  ~PPICS  ~WRTDMAPGREG  ~WRTNMIREG
+```
+
+**`XA0` through `XA4` are not connected to the I/O decoder at all.** Five address lines select one
+of eight 32-byte blocks; the bottom five bits are simply not part of the decision. Each chip then
+decodes only the low address lines it is physically wired to, and the 8259 has exactly one — `A0`.
+Hence `0x20` and `0x22` are the same command port, `0x21` and `0x23` and `0x25` and `0x3F` are the
+same data port.
+
+<https://github.com/spencer-uk/DubaiXTClone/>
+
+### What these sources did not give
+
+Recorded so nobody re-checks them for this:
+
+- **NuXT** (<https://github.com/monotech/NuXT>) is a faithful and well-documented XT recreation, but
+  it uses the Faraday **FE2010A** single-chip XT controller. The decode is inside an ASIC, so there
+  is no discrete decoder to read. Its bundled FE2010A datasheet may still be useful for other
+  questions; it was not for this one.
+- The pin-by-pin mapping of which address line drives which `74LS138` select input was not traced.
+  It does not matter here — the input *set* is the whole claim.
+
+---
+
 ## The worked example
 
 The Imation/Shuttle LS-120 parallel-port driver for Windows 95, `SD120PPD.MPD` (1997). Installing
