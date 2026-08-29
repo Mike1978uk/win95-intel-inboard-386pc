@@ -18,6 +18,11 @@
 ;
 ; Prerequisite: inbrdpc.sys must be in [SafeList] in WINDOWS\IOS.INI, or IOS
 ; declines every miniport. See issue #17.
+;
+; Every change here has a precedent in Adaptec's own T128.INF, the ISA
+; sibling from the same driver family and the same 1995-03-02 build:
+; it sets Polling=1 unconditionally (AddReg=IOS,Poll,T128Reg), leaves
+; DMAConfig commented out, and carries DontLoadIfConflict.
 
 
 [Version]
@@ -68,6 +73,7 @@ T130.MPD = 1
 
 [IOS]
 HKR,,DevLoader,,*IOS
+HKR,,DontLoadIfConflict,,Y
 
 [ForceMPCopy]
 HKR,,NoSetupUI,,1
