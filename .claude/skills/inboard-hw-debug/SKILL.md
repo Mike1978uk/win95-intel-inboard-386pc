@@ -3153,6 +3153,40 @@ serial mouse fine, no error anywhere. Read the 8259 mask before touching the dri
   detection then finds nothing - what `/ni` does in the DOS build). Leaves `out 21h` alone: those
   are paired save/restore and already neutral.
 
+### Deploying to the CF: two traps that both produce a SILENT no-op
+
+**2026-08-29. Between them these voided a real test result** - a "v4 didn't fix it" was reported to
+the owner and written up, when the card still held v3. Check both before believing any negative.
+
+**1. A `.BAT` written from bash is LF, and `COMMAND.COM` cannot parse it.** The symptom is the
+batch printing `OFF` (from `@ECHO OFF`) and then doing nothing. `REGEDIT` tolerates LF, so a `.REG`
+written the same way imports fine - **do not infer one from the other.** The repo's
+`.gitattributes` already forces CRLF for `*.BAT` (Andrew's suggestion, issue #3); writing straight
+to the card bypasses it entirely. Convert explicitly:
+
+```python
+raw = open(p,'rb').read()
+if b'
+' not in raw:
+    open(p,'wb').write(raw.replace(b'
+', b'
+'))
+```
+
+**2. A driver in `IOSUBSYS` is open and locked while Windows is running.** `COPY` over a loaded
+`.MPD`/`.PDR`/`.VXD` fails with a sharing violation, and a batch window closes before anyone reads
+the error. Two routes that work:
+
+- **from the host**, CF in the card reader - the reliable one, and it lets you verify the md5 in
+  the same breath;
+- **from real-mode DOS** - `F8` -> *Command prompt only*. On this machine that is available even
+  when the fault under investigation has killed the keyboard under Windows, because the keyboard
+  works until the miniport loads.
+
+**The rule that catches both:** after any deployment, `md5sum` the file *in its destination* and
+compare against the artefact you meant to ship. Not the staging copy - the destination. This is
+Technique 74 applied to your own tooling, and the tooling is exactly where it is easiest to skip.
+
 ### Always round-trip a binary patch before deploying it
 
 `--revert` must reproduce the original md5 **exactly**. Two attempts here did not, and both bugs
