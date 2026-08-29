@@ -29,12 +29,15 @@ it. `IDENTIFY` does not touch media, and the code waits for BSY to clear before 
 must be idle before anything happens — but a race with an in-flight real-mode transfer is not
 impossible.
 
-A **full image backup could not be taken** — raw access to `\\.\PhysicalDrive` needs elevation
-(Technique 14). What exists instead is a configuration backup at
-`OneDrive/Desktop/XT_project/cf_config_backup_2026_08_30/` — registry hives, `CONFIG.SYS`,
-`AUTOEXEC.BAT`, `SYSTEM.INI`, `IOS.INI`, all of `IOSUBSYS`, and the logs. 1.1 MB. That protects the
-configuration, **not** the filesystem. If a full image matters, take one from an elevated shell
-before step 0.
+**The owner is imaging the CF before this boot** (2026-08-30, from the card reader). That covers
+it. Record where the image landed, alongside the others.
+
+This session could not take one itself - raw access to the physical device needs elevation
+(Technique 14). What it did take is a configuration backup at
+`OneDrive/Desktop/XT_project/cf_config_backup_2026_08_30/` - registry hives, `CONFIG.SYS`,
+`AUTOEXEC.BAT`, `SYSTEM.INI`, `IOS.INI`, all of `IOSUBSYS`, and the logs. 1.1 MB. Handy as a
+quick config restore, but not a substitute for the image: it protects the configuration, not
+the filesystem.
 
 ## What the one line means
 
