@@ -87,6 +87,27 @@ installer may hand it to SCSIPORT and fail for reasons that say nothing about ou
 second uninformative null. The two registry values are taken verbatim from `MSHDC.INF`'s own
 `[ESDI_AddReg]`, which is how Microsoft binds the driver this one replaces.
 
+### Why the standard IDE node failed here — and the rule it gives phase 1
+
+Installing Microsoft's *Standard IDE/ESDI Hard Disk Controller* was tried on this machine and came
+up with IRQ 14, greyed out. `MSHDC.INF` explains it exactly:
+
+```
+[esdilc1]
+ConfigPriority=HARDWIRED          <- why it was ungreyable
+IOConfig=1f0-1f7(3ff::)           <- AT primary IDE, not this card's 0x300
+IOConfig=3f6-3f6(3ff::)
+IRQConfig=14                      <- AT slave PIC; a 5160 has one 8259, IRQs 0-7
+```
+
+Not a Windows fault. `*PNP0600` carries a **HARDWIRED** config describing an AT primary IDE
+channel, and `HARDWIRED` is the priority that makes resources non-negotiable — so the node
+faithfully claimed hardware this machine does not have and would not let anyone change it.
+
+**Rule for phase 1:** when we declare the card's real range, use `ConfigPriority=HARDRECONFIG` as
+`T130-XT.INF` does. Never `HARDWIRED`. A wrong resource you can edit is recoverable; a wrong one
+you cannot is a reinstall.
+
 **Hardware ID is deliberately not `*PNP0600`.** That is Microsoft's standard IDE controller ID, and
 a node claiming to be one is a node Windows may try to drive the boot disk with. Adding that node
 has already been tried here and produced **impossible resources — IRQ 14, ungreyable** (an AT
