@@ -3160,6 +3160,39 @@ would have been invisible on inspection: the site map recorded the offset but no
 opcode (so byte vs word forms were guessed), and then the revert restored the opcode byte while
 leaving the port byte as `0x90`. Record every byte you change, and prove the round-trip.
 
+### Read the vendor's README before disassembling the vendor's binary
+
+**2026-08-29, and it cost two patch rounds.** The Imation package ships a 166-line `README.TXT`.
+It had been on the CF at `D:\SD120PPD\README.TXT` since 2026-08-23 - **six days before anyone
+opened it** - and the installer drops a byte-identical copy into
+`C:\Program Files\Imation\SD120PPD\`. In that time this project disassembled the miniport three
+times, wrote two binary patches, and deployed both to real hardware.
+
+The README documents the supported way to do what the patches were trying to force:
+
+> On machines like the NEC 9800 series, the MPD requires to be explicitly supplied with the parallel
+> port IRQ and port base values. In the Device Manager [...] select the Settings tab, and type the
+> port base and IRQ values as follows: `PORT=0xYYY IRQ=Z`. The 0x prefix is mandatory.
+
+It also documents how to stop the driver loading at all (Device Manager -> Properties -> uncheck
+**Original Configuration [Current]** -> reboot, red X appears) - the exact bisection test that was
+otherwise going to be improvised.
+
+**Two conclusions I had already published were wrong because of this**, both stated as fact:
+`[DriverSettings] Flags=""` dismissed as dead boilerplate, and "the miniport binary contains no
+switch-parsing strings at all". The second came from grepping for `/ni`-style switch text; the real
+format is `PORT=`/`IRQ=`, the strings `'port'` and `'irq'` are right there at `0x010674`/`0x0106b4`,
+and the device node already carried `AdapterSettings = " /W95"` put there by the installer.
+
+**The rule:** a vendor `README.TXT`, `.HLP` or `.DOC` shipped alongside a driver is a **primary
+source about that driver**, in the same category as `BOOTLOG.TXT` under Technique 55. Read it before
+any static analysis. Grepping a binary for the strings you *expect* is not a substitute - it only
+finds the mechanism you already guessed at, and a confident negative from that search is worse than
+no search, because it closes the question.
+
+Corollary that also held here: check whether the package you are about to reverse-engineer is
+**already staged somewhere on the machine** from an earlier session. It was.
+
 ### And check the DOS driver for switches first
 
 A DOS driver often has a documented escape the Windows driver lacks. `SD120PPD.SYS` carries its own
