@@ -739,3 +739,39 @@ reasoning about which layer *should* fail rather than by comparing against somet
 `HSFLOP.PDR` was sitting in the same directory, loading successfully, in every boot log we read.
 When a driver will not load, diff its image against one that does - it is a host-side check that
 costs no machine time.
+
+### Nothing was PRELOAD - the second half of the missing .DEF
+
+The arrival marker settled it: a delay placed on the *first* instruction of `PORT_Device_Init`,
+before `IOS_Register` is touched, still produced zero. The routine is never entered, so no control
+message reaches the driver at all.
+
+Comparing LE object tables against `HSFLOP.PDR` - which loads on this same machine, two lines above
+ours in every boot log - showed why:
+
+| | obj 1 | obj 2 | obj 3 | obj 4 |
+|---|---|---|---|---|
+| ours | `0x2005` | `0x2005` | `0x2005` | `0x2003` |
+| HSFLOP | **`0x2045` PRELOAD** | `0x2015` DISC | `0x2005` | `0x2023` SHARED |
+
+**Not one of our segments was PRELOAD.** A VxD's locked code and data carry the DDB and the control
+procedure, and the loader has to call them the instant the image is mapped. With nothing resident
+there is nothing to dispatch to.
+
+`PORT.DEF` now carries the canonical VxD `SEGMENTS` map as well as `VXD PORT DYNAMIC`. Rebuilt, the
+image reports `0x00038000`, four objects, and the same attribute set as `HSFLOP.PDR` - PRELOAD
+locked, DISCARDABLE init, SHARED data. It also shrank 7696 -> 7328 bytes, because the init segment
+is finally discardable.
+
+```
+phase 1i  5e5bb975d5d10cb90a158f295bbb136a   7328 bytes, PRELOAD locked segment
+```
+
+**Both halves of this were the same root cause:** the DDK sample ships no `.DEF`, and `MASTER.MK`
+has no `.DEF` convention, so building the sample exactly as documented yields an image that is
+neither marked dynamically loadable nor has a preloaded locked segment. Every failure from phase 0
+to phase 1h was that one omission.
+
+**Instrument on the near side of the call you doubt.** Three boots could not distinguish "the
+message never arrived" from "IOS_Register never returned", purely because the delay sat *after* the
+call. Moving it to the routine's first instruction answered it in one.

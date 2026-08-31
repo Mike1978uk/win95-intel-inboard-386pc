@@ -1,13 +1,46 @@
-; PORT.DEF - marks the port driver DYNAMICALLY LOADABLE and exports its DDB.
+; PORT.DEF - module definition for the XT-IDE IOS port driver.
 ;
-; The DDK sample ships no .DEF and its MAKEFILE links with /VXD /NOD only, which
-; produces an LE image with module flags 0x00028000. Every .PDR that IOS
-; actually loads on this machine - HSFLOP.PDR, RMM.PDR - carries 0x00038000.
-; The extra bit is the dynamic-load marker, and IOS loads IOSUBSYS drivers
-; dynamically, so without it the loader refuses the image before dispatching
-; SYS_DYNAMIC_DEVICE_INIT. No control message, no IOS_Register, no probe - just
-; "Init Failure" with none of our code having run. That was true from phase 0.
+; TWO things here, and the driver will not load without either.
+;
+; 1. VXD ... DYNAMIC sets the LE module-type flag marking the image
+;    dynamically loadable (0x00038000 vs 0x00028000). IOS loads IOSUBSYS
+;    drivers dynamically and refuses an image without it.
+;
+; 2. SEGMENTS gives the locked segments PRELOAD. A VxD's locked code and data
+;    hold the DDB and the control procedure, and the loader must be able to
+;    call them the moment the image is mapped. Without a SEGMENTS section LINK
+;    assigns defaults with no PRELOAD on anything, and nothing is resident to
+;    dispatch to - SYS_DYNAMIC_DEVICE_INIT never reaches the driver.
+;
+;    Measured against WINDOWS\SYSTEM\IOSUBSYS\HSFLOP.PDR, which loads on this
+;    machine: its locked object is 0x2045 (PRELOAD), its init object 0x2015
+;    (DISCARDABLE), its data object 0x2023 (SHARED). Ours were all 0x2005.
+;
+; The DDK sample ships no .DEF at all and its MAKEFILE links with /VXD /NOD
+; only, so the sample as documented cannot produce a loadable driver.
+
 VXD PORT DYNAMIC
+
+SEGMENTS
+	_LPTEXT		CLASS 'LCODE'	PRELOAD NONDISCARDABLE
+	_LTEXT		CLASS 'LCODE'	PRELOAD NONDISCARDABLE
+	_LDATA		CLASS 'LCODE'	PRELOAD NONDISCARDABLE
+	_TEXT		CLASS 'LCODE'	PRELOAD NONDISCARDABLE
+	_DATA		CLASS 'LCODE'	PRELOAD NONDISCARDABLE
+	CONST		CLASS 'LCODE'	PRELOAD NONDISCARDABLE
+	_TLS		CLASS 'LCODE'	PRELOAD NONDISCARDABLE
+	_BSS		CLASS 'LCODE'	PRELOAD NONDISCARDABLE
+	_LPDATA		CLASS 'LCODE'	PRELOAD NONDISCARDABLE
+	_ITEXT		CLASS 'ICODE'	DISCARDABLE
+	_IDATA		CLASS 'ICODE'	DISCARDABLE
+	_PTEXT		CLASS 'PCODE'	NONDISCARDABLE
+	_PDATA		CLASS 'PDATA'	NONDISCARDABLE SHARED
+	_STEXT		CLASS 'SCODE'	RESIDENT
+	_SDATA		CLASS 'SCODE'	RESIDENT
+	_MSGTABLE	CLASS 'MCODE'	PRELOAD NONDISCARDABLE IOPL
+	_MSGDATA	CLASS 'MCODE'	PRELOAD NONDISCARDABLE IOPL
+	_16ICODE	CLASS '16ICODE'	PRELOAD DISCARDABLE
+	_RCODE		CLASS 'RCODE'
 
 EXPORTS
 	PORT_DDB	@1
