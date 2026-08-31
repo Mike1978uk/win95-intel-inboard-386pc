@@ -3449,3 +3449,31 @@ The Drive/Head read-back exists to tell an absent slave from one that mirrors th
 the master, in a phase with no readback channel, it could only ever turn a working probe into an
 unexplained `Init Failure`. It is now slave-only. **Before adding a test to code you cannot instrument,
 ask what you will do with a failure you cannot see.**
+
+### Technique 78, addendum 2026-08-31 — two registers that must alias, disagreeing, kills a map
+
+The DOS probe (`drivers/xtide_pdr/tools/XTPROBE.BAS`) died on an unrelated QBASIC bug, but its first
+line had already invalidated the driver:
+
+```
+taskfile sweep +1=0 +2=0 +3=0 +4=0 +5=0 +6=92 +7=92 +8=8F +9=8F +A=1 +B=1 +C=E0 +D=E0 +E=50 +F=50
+```
+
+Under the map the driver was written to, `+07` is **Status** and `+0E` is **Alternate Status**. Those
+are the same register in every ATA device. They read `92h` and `50h`. **One contradiction, and the
+whole map is wrong** - no further measurement needed to know that, whatever the truth turns out to be.
+
+Look for a pair of addresses your map claims must agree, and read both. It is one `in` each, and it
+falsifies an entire assumption rather than one register.
+
+The pairing `(6,7) (8,9) (A,B) (C,D) (E,F)` and the sane values on a two-byte stride - `+0E=50h` is
+`DRDY|DSC`, `+0C=E0h` is `LBA|master`, `+06/+08/+0A` are a plausible boot LBA - say A0 is not decoded.
+**Inference, not yet measurement.** v2 of the probe settles it by writing distinct values to `+02..+05`
+and reading the window back, which residue cannot fake.
+
+### The crash site was the diagnosis
+
+QBASIC raised `Overflow` on `FOR t = 1 TO 60000` - `DEFINT A-Z` had made the counter a 32767-max
+integer. But the loop only ran to exhaustion **because the IDENTIFY opcode had gone to the sector
+number register and been ignored**. A trivial language bug and the real fault surfaced at the same
+line. Read where a crash happened before fixing why.

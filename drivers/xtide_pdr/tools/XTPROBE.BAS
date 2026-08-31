@@ -1,125 +1,158 @@
-' XTPROBE.BAS - XT-IDE IDENTIFY probe, real-mode DOS.
+' XTPROBE.BAS - XT-IDE register-map walk and IDENTIFY probe, real-mode DOS.
 '
 '   Part of https://github.com/Mike1978uk/win95-intel-inboard-386pc (issue #21).
 '
-'   WHY THIS EXISTS.  Phase 1 of the Windows 95 port driver returned
-'   "Init Failure port.pdr" in 2 bootlog ticks - too fast for any of its
-'   400000-iteration status spins to have run.  That leaves two causes that
-'   look identical from outside: either IOS handed the driver a zero I/O base,
-'   or the card answered wrong.  This program removes IOS, CONFIGMG and the
-'   device node from the question by doing the same IDENTIFY from a bare DOS
-'   prompt, where the only variable left is the card.
+'   v2, 2026-08-31.  v1 established two things before it died:
 '
-'   WHAT IT DOES.  Issues IDENTIFY DEVICE (0ECh) to the master at 300h and
-'   reads the answer back twice - once through each candidate transport -
-'   then applies the same model-string test the driver uses.
+'     taskfile sweep +1=0 +2=0 +3=0 +4=0 +5=0 +6=92 +7=92 +8=8F +9=8F
+'                    +A=1 +B=1 +C=E0 +D=E0 +E=50 +F=50
 '
-'   SAFETY.  Reads only.  IDENTIFY DEVICE does not touch media and takes no
-'   parameters.  Nothing here writes to the drive.  Run it from a DOS prompt
-'   with nothing else accessing the disk.
+'   Every pair reads alike, and +07 (Status under the assumed map) disagrees
+'   with +0E (Alternate Status).  Those are the same register in every ATA
+'   device, so the assumed one-byte stride is wrong.  On a two-byte stride the
+'   values are all sane: +0E=50h is DRDY|DSC and +0C=E0h is LBA|master.
+'
+'   v1 then hung waiting for DRQ - because it had written the IDENTIFY opcode
+'   to the sector number register - and QBASIC raised Overflow on the wait
+'   loop, DEFINT A-Z having made the counter a 32767-max integer.  Both are
+'   fixed here: LONG counters, and the stride is MEASURED rather than assumed.
+'
+'   SAFETY.  Writes taskfile registers and issues IDENTIFY DEVICE (0ECh) only.
+'   IDENTIFY takes no parameters and does not touch media.  Nothing here writes
+'   to the disk.  Run from a bare DOS prompt.
 '
 '   RUN:  C:\DOS\QBASIC.EXE /RUN C:\XTPROBE.BAS
-'         (add  > C:\XTPROBE.LOG  is NOT possible from QBASIC - see README;
-'          photograph the screen, or note the three marked lines)
 
 DEFINT A-Z
 DIM buf(511)
-
 BP = &H300
 
 CLS
-PRINT "XT-IDE IDENTIFY probe   base = "; HEX$(BP); "h"
-PRINT "issue #21 - phase 1 returned Init Failure; this says whether the card is at fault"
+PRINT "XT-IDE probe v2   base = "; HEX$(BP); "h    (map walk, then IDENTIFY)"
 PRINT
 
-' Sweep the taskfile.  +00 is deliberately skipped: reading the data register
-' has side effects, and 0306h/0307h reading alike is already on record as odd.
-PRINT "taskfile sweep";
+'---------------------------------------------------------------- part 1
+PRINT "1. read sweep  (+00 skipped, reading data has side effects)"
+PRINT "  ";
 FOR i = 1 TO 15
-    PRINT " +"; HEX$(i); "="; HEX$(INP(BP + i));
+    PRINT "+"; HEX$(i); "="; HEX$(INP(BP + i)); " ";
 NEXT i
 PRINT : PRINT
 
-FOR mode = 1 TO 2
+'---------------------------------------------------------------- part 2
+' Write distinct values into the low taskfile and read the whole window back.
+' Nothing here can issue a command: +07 is only the command register if the
+' stride is one, and we do not write +07.
+PRINT "2. write/readback walk - this decides the stride"
+OUT BP + 2, &H11
+OUT BP + 3, &H22
+OUT BP + 4, &H33
+OUT BP + 5, &H44
+PRINT "  wrote 11h,22h,33h,44h to +02,+03,+04,+05"
+PRINT "  ";
+FOR i = 1 TO 15
+    PRINT "+"; HEX$(i); "="; HEX$(INP(BP + i)); " ";
+NEXT i
+PRINT
 
-    IF mode = 1 THEN PRINT "--- transport 1: 16-bit latch  (low from +00, high from +08) ---"
-    IF mode = 2 THEN PRINT "--- transport 2: 8-bit PIO     (every byte from +00) ---"
+r2 = INP(BP + 2): r3 = INP(BP + 3): r4 = INP(BP + 4): r5 = INP(BP + 5)
+stride = 0
+IF r2 = &H11 AND r3 = &H22 AND r4 = &H33 AND r5 = &H44 THEN stride = 1
+IF r4 = &H44 AND r5 = &H44 AND r2 = r3 THEN stride = 2
 
-    ' 1. drive idle?
+IF stride = 1 THEN PRINT "  => STRIDE 1. Standard taskfile: reg N at base+N."
+IF stride = 2 THEN PRINT "  => STRIDE 2. A0 not decoded: reg N at base+2N."
+IF stride = 0 THEN
+    PRINT "  => INCONCLUSIVE. Neither pattern matched - note the two lines above"
+    PRINT "     and stop here; do not trust anything below."
+    PRINT "     Trying stride 2 anyway, since the read sweep implies it."
+    stride = 2
+END IF
+PRINT
+
+'  register offsets, derived not assumed
+S = stride
+RDATA = 0
+RSECC = 2 * S: RSECN = 3 * S: RCYLL = 4 * S: RCYLH = 5 * S
+RDRVH = 6 * S: RCMD = 7 * S
+PRINT "  data=+"; HEX$(RDATA); "  drive/head=+"; HEX$(RDRVH);
+PRINT "  status/command=+"; HEX$(RCMD)
+PRINT
+
+'---------------------------------------------------------------- part 3
+' Three candidate data transports.  IDENTIFY is repeatable, so each gets a
+' fresh command rather than trying to re-read one buffer three ways.
+FOR tr = 1 TO 3
+
+    IF tr = 1 THEN PRINT "3. transport LATCH+8   low from +00, high from +08"
+    IF tr = 2 THEN PRINT "3. transport PIO8      every byte from +00"
+    IF tr = 3 THEN PRINT "3. transport LATCH+1   low from +00, high from +01"
+
     st = 0
-    FOR t = 1 TO 30000
-        st = INP(BP + &HE)
+    FOR t& = 1 TO 20000
+        st = INP(BP + RCMD)
         IF (st AND &H80) = 0 THEN EXIT FOR
-    NEXT t
+    NEXT t&
     IF (st AND &H80) <> 0 THEN
-        PRINT "  altstat = "; HEX$(st); "  *** BSY never cleared - card not answering ***"
-        GOTO NextMode
+        PRINT "  status = "; HEX$(st); "h  *** BSY never cleared ***"
+        GOTO NextTr
     END IF
-    PRINT "  altstat before select = "; HEX$(st); "h"
 
-    ' 2. select the master, and read the register back.  The driver fails here
-    '    if bit 4 comes back set, so this line is a direct check on that path.
-    OUT BP + 6, &HA0
-    FOR t = 1 TO 30000
-        st = INP(BP + &HE)
+    OUT BP + RDRVH, &HA0
+    FOR t& = 1 TO 20000
+        st = INP(BP + RCMD)
         IF (st AND &H80) = 0 THEN EXIT FOR
-    NEXT t
-    rb = INP(BP + 6)
-    PRINT "  +06 readback after writing A0 = "; HEX$(rb); "h";
-    IF (rb AND &H10) <> 0 THEN
-        PRINT "   <== DEV BIT SET: the driver's readback check fails here"
-    ELSE
-        PRINT "   (DEV clear - driver's check passes)"
-    END IF
+    NEXT t&
+    PRINT "  drive/head readback = "; HEX$(INP(BP + RDRVH)); "h";
+    PRINT "   status = "; HEX$(st); "h"
 
-    ' 3. IDENTIFY DEVICE
-    OUT BP + 2, 0: OUT BP + 3, 0: OUT BP + 4, 0: OUT BP + 5, 0
-    OUT BP + 7, &HEC
+    OUT BP + RSECC, 0: OUT BP + RSECN, 0
+    OUT BP + RCYLL, 0: OUT BP + RCYLH, 0
+    OUT BP + RCMD, &HEC
 
     drq = 0
-    FOR t = 1 TO 60000
-        st = INP(BP + &HE)
+    FOR t& = 1 TO 40000
+        st = INP(BP + RCMD)
         IF (st AND &H80) = 0 THEN
             IF (st AND &H1) <> 0 THEN EXIT FOR
             IF (st AND &H8) <> 0 THEN drq = 1: EXIT FOR
         END IF
-    NEXT t
+    NEXT t&
     PRINT "  status after IDENTIFY = "; HEX$(st); "h";
     IF drq = 0 THEN
         IF (st AND &H1) <> 0 THEN
-            PRINT "   ERR set, error reg = "; HEX$(INP(BP + 1)); "h"
+            PRINT "   ERR, error reg = "; HEX$(INP(BP + S)); "h"
         ELSE
-            PRINT "   no DRQ, no ERR - command ignored"
+            PRINT "   no DRQ, no ERR - command ignored at this offset"
         END IF
-        GOTO NextMode
+        GOTO NextTr
     END IF
-    PRINT "   DRQ set, reading 512 bytes"
+    PRINT "   DRQ set"
 
-    ' 4. read the result through the transport under test
-    IF mode = 1 THEN
+    IF tr = 1 THEN
         FOR i = 0 TO 510 STEP 2
-            buf(i) = INP(BP)
-            buf(i + 1) = INP(BP + 8)
+            buf(i) = INP(BP): buf(i + 1) = INP(BP + 8)
         NEXT i
-    ELSE
+    ELSEIF tr = 2 THEN
         FOR i = 0 TO 511
             buf(i) = INP(BP)
         NEXT i
+    ELSE
+        FOR i = 0 TO 510 STEP 2
+            buf(i) = INP(BP): buf(i + 1) = INP(BP + 1)
+        NEXT i
     END IF
 
-    PRINT "  first 16 bytes:";
+    PRINT "  bytes 0-15:";
     FOR i = 0 TO 15
         PRINT " "; RIGHT$("0" + HEX$(buf(i)), 2);
     NEXT i
     PRINT
-    PRINT "  word0="; HEX$(buf(1) * 256 + buf(0)); "h";
-    PRINT "  cyls="; buf(3) * 256 + buf(2);
-    PRINT "  heads="; buf(7) * 256 + buf(6);
-    PRINT "  spt="; buf(13) * 256 + buf(12)
+    PRINT "  word0="; HEX$(buf(1) * 256& + buf(0)); "h";
+    PRINT "  cyl="; buf(3) * 256& + buf(2);
+    PRINT "  hd="; buf(7) * 256& + buf(6);
+    PRINT "  spt="; buf(13) * 256& + buf(12)
 
-    ' 5. the model string - bytes 54..93, the driver's validation field.
-    '    ATA stores it byte-swapped within each word, so both orders are shown:
-    '    the readable one tells us the transport AND the word order in one go.
     a$ = "": b$ = ""
     FOR i = 54 TO 93
         c = buf(i): IF c < 32 OR c > 126 THEN c = 46
@@ -138,16 +171,12 @@ FOR mode = 1 TO 2
     FOR i = 54 TO 93
         IF buf(i) > 32 AND buf(i) < 127 THEN n = n + 1
     NEXT i
-    PRINT "  printable non-blank chars ="; n;
-    IF n >= 4 THEN
-        PRINT "  <== THIS TRANSPORT VALIDATES"
-    ELSE
-        PRINT "  <== fails the driver's test"
-    END IF
+    PRINT "  printable ="; n;
+    IF n >= 4 THEN PRINT "  <== THIS TRANSPORT VALIDATES" ELSE PRINT "  <== fails"
 
-NextMode:
+NextTr:
     PRINT
-NEXT mode
+NEXT tr
 
-PRINT "Done.  The three lines that matter: the +06 readback, the status after"
-PRINT "IDENTIFY, and which transport (if either) says VALIDATES."
+PRINT "Done. Report: the stride line, the drive/head readback, and which"
+PRINT "transport (if any) says VALIDATES."
