@@ -598,3 +598,71 @@ pre-flight check.
 
 Backups: `roms/xtcf_card/XTCF_D8000_asfound_2026_08_31.bin` (the card as found, 8 KB, md5
 `86ff8885ee13ee48301bc04f31b18e52`) and `IDE_XTP_configured_2026_08_31.bin` (what was flashed).
+
+### Never fail AEP_INITIALIZE - 2026-08-31, from zikolas/cfu1-win9x
+
+The DOS probe proved the card works completely: PIO8 through `0x300`, full 512-byte read,
+`word0 = 044Ah`, geometry `3949/16/63` matching `biosdrvs`, model string **`TRANSCEND`**. So the
+register map, the stride, the transport and the data phase are all correct, and the two `Init
+Failure` results were our own code.
+
+The answer came from **[zikolas/cfu1-win9x](https://github.com/zikolas/cfu1-win9x)** by Nick
+(@zikolas), MIT - a working Win9x IOS port driver. Two things it does that the DDK sample does not:
+
+**1. Resources do not arrive at initialisation time.** It registers a CONFIGMG handler when the
+devnode appears and fetches resources when CONFIGMG calls back at `CONFIG_START`:
+
+```asm
+VxDCall _CONFIGMG_Register_Device_Driver, <ebx, <OFFSET32 CFU1_ConfigHandler>, ...>
+ch_start:
+    VxDCall _CONFIGMG_Get_Alloc_Log_Conf, <<OFFSET32 cmconfig>, ebx, CM_GET_ALLOC_LOG_CONF_ALLOC>
+    mov ax, word ptr [cmconfig.wIOPortBase]
+    mov [iobase], ax
+```
+
+The DDK sample instead queries CONFIGMG *during* `AEP_INITIALIZE` via
+`_CONFIGMG_Get_First_Log_Conf(ALLOC_LOG_CONF)`. If nothing is allocated yet at that instant it
+returns nothing and `DDB_base_ioa` stays zero.
+
+**2. It never fails `AEP_INITIALIZE`** - its own comment is the whole lesson:
+`mov word ptr [ebx+2], 0 ; AEP_SUCCESS (stay resident either way)`.
+
+**Failing initialisation makes IOS drop the driver permanently**, so the CONFIGMG callback that
+would have supplied the resources never arrives. Device Manager's **code 10 is IOS reporting that we
+hung up on it**, not an independent fault. Claiming a device belongs to `AEP_DEVICE_INQUIRY`, where
+"nothing here" is `AEP_NO_MORE_DEVICES` (2) - still not a failure.
+
+His documented sequence: `AEP_INITIALIZE` -> `AEP_DEVICE_INQUIRY` -> `AEP_CONFIG_DCB`;
+funcs INIT=0 BOOT_COMPLETE=2 CONFIG_DCB=3 UNCONFIG_DCB=4 DEVICE_INQUIRY=6;
+results SUCCESS=0 FAIL=-1 NO_MORE=2.
+
+**And a phase-3 gift.** He found that `DISKTSD` never configures a *dynamically* registered port
+driver's DCB - the TSD layering pass only runs during boot-time configuration - so he had to write
+his own TSD. We load at boot from `IOSUBSYS`, so that pass runs for us and the drive letter comes
+free. His hardest problem is one we do not have.
+
+### The boot log as a readback channel
+
+`XTIDE_Probe` now always returns success and encodes *why* it ended as a deliberate delay, because
+`BOOTLOG.TXT` timestamps every driver's init and that is the only channel out of IOS initialisation:
+
+| delay | `XTIDE_FailCode` | meaning |
+|---|---|---|
+| none | 0 | probe succeeded, model string validated |
+| ~1 s | 1 | no I/O resource reached the DDB - the CONFIGMG handler is then the fix |
+| ~2 s | 2 | BSY never cleared |
+| ~3 s | 3 | drive rejected IDENTIFY, ERR set |
+| ~4 s | 4 | DRQ never asserted |
+| ~5 s | 5 | data read, model string failed validation |
+| ~6 s | 6 | slave did not answer with its DEV bit |
+
+Roughly 33 ms per tick on this machine, so the buckets are far apart. Calibrate from the observed
+delta rather than trusting the constant.
+
+**The validator was also wrong.** `printable >= 4` anywhere in the 40-byte field let obvious garbage
+through - a latch read of cylinder-low scored 10 and was accepted. It now requires an unbroken *run*
+of printable non-blank characters, which noise rarely produces.
+
+```
+phase 1d  e64320eeec74bea54c75367af291512a   deployed 2026-08-31, both locations
+```

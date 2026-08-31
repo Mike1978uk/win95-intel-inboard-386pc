@@ -99,6 +99,7 @@ XT_SPIN		equ	400000		; status poll limit; no timer at init
 ID_MODEL_OFF	equ	54		; 40-byte model string, word 27..46
 ID_MODEL_LEN	equ	40
 ID_MIN_TEXT	equ	4		; minimum non-blank printable chars
+ID_MIN_RUN	equ	4		; and they must include one unbroken run
 
 ;============================================================================
 VxD_LOCKED_DATA_SEG
@@ -146,6 +147,18 @@ XTIDE_pDrvHd		dd	0
 XTIDE_pStatus		dd	0
 XTIDE_pAltStatus	dd	0
 XTIDE_pHiLatch		dd	0
+
+;  Why the probe ended, reported through the boot log as a deliberate delay.
+;  0 = success, and see XTIDE_Probe for the rest. There is no readback channel
+;  at IOS init time, but BOOTLOG.TXT timestamps every driver's init, so the
+;  time spent in here IS a channel - roughly 33 ms per tick on this machine.
+public XTIDE_FailCode
+XTIDE_FailCode		dd	0
+
+;  Status byte at the moment WaitDrq gave up, so ERR and a plain timeout can
+;  be told apart afterwards.
+public XTIDE_LastStatus
+XTIDE_LastStatus	dd	0
 
 ;  Set once a unit IDENTIFY validates. Phase 2 turns this into an array.
 public XTIDE_MasterPresent
@@ -260,6 +273,8 @@ xwd_again:
 	dec	ecx
 	jnz	xwd_loop
 xwd_fail:
+	movzx	eax, al
+	mov	XTIDE_LastStatus, eax	; so ERR and timeout are distinguishable
 	stc
 	ret
 xwd_ok:
@@ -338,10 +353,14 @@ BeginProc XTIDE_ValidateId
 	push	esi
 	push	ecx
 	push	edx
+	push	ebx
+	push	edi
 
 	add	esi, ID_MODEL_OFF
 	mov	ecx, ID_MODEL_LEN
 	xor	edx, edx		; printable, non-blank count
+	xor	ebx, ebx		; longest unbroken run
+	xor	edi, edi		; current run
 xvi_loop:
 	mov	al, [esi]
 	cmp	al, 20h
@@ -350,16 +369,31 @@ xvi_loop:
 	ja	xvi_bad
 	je	xvi_next
 	cmp	al, 20h
-	je	xvi_next
+	je	xvi_blank
 	inc	edx
+	inc	edi			; extend the current run
+	cmp	edi, ebx
+	jbe	xvi_next
+	mov	ebx, edi		; new longest
+	jmp	xvi_next
+xvi_blank:
+	xor	edi, edi		; a blank breaks the run
 xvi_next:
 	inc	esi
 	dec	ecx
 	jnz	xvi_loop
 
+;  A run, not a count. The old test was "at least 4 printable non-blank bytes
+;  anywhere", and garbage clears that easily - a latch read of cylinder-low
+;  scored 10 and was accepted as valid on 2026-08-31. A real model string
+;  starts with an unbroken run of printable characters; noise rarely does.
+	cmp	ebx, ID_MIN_RUN		; longest unbroken run
+	jb	xvi_bad
 	cmp	edx, ID_MIN_TEXT	; all blanks is not a model string
 	jb	xvi_bad
 
+	pop	edi
+	pop	ebx
 	pop	edx
 	pop	ecx
 	pop	esi
@@ -367,6 +401,8 @@ xvi_next:
 	ret
 
 xvi_bad:
+	pop	edi
+	pop	ebx
 	pop	edx
 	pop	ecx
 	pop	esi
@@ -394,14 +430,14 @@ EndProc XTIDE_ValidateId
 BeginProc XTIDE_TryIdentify
 
 	call	XTIDE_WaitNotBusy	; drive idle before we touch anything?
-	jc	xti_fail
+	jc	xti_notidle
 
 	mov	edx, XTIDE_pDrvHd	; select the unit under test
 	mov	eax, XTIDE_TryUnit
 	out	dx, al
 
 	call	XTIDE_WaitNotBusy	; honour the select
-	jc	xti_fail
+	jc	xti_notidle
 
 ;  A present slave answers with its own DEV bit; an absent one leaves the bus
 ;  floating or mirrors the master. Reading Drive/Head back and comparing is how
@@ -419,7 +455,12 @@ BeginProc XTIDE_TryIdentify
 	mov	ah, byte ptr XTIDE_TryUnit
 	xor	al, ah
 	test	al, 10h			; DEV bit as selected?
-	jnz	xti_fail
+	jnz	xti_nodev
+	jmp	xti_selected
+xti_nodev:
+	mov	XTIDE_FailCode, 6	; slave did not answer with its DEV bit
+	stc
+	ret
 xti_selected:
 
 	xor	al, al			; IDENTIFY takes no parameters, but
@@ -437,19 +478,38 @@ xti_selected:
 	out	dx, al
 
 	call	XTIDE_WaitDrq
-	jc	xti_fail
+	jc	xti_nodrq
 
 	mov	edi, OFFSET32 XTIDE_IdBuf
 	call	XTIDE_ReadData
 
 	mov	esi, OFFSET32 XTIDE_IdBuf
 	call	XTIDE_ValidateId
-	jc	xti_fail
+	jc	xti_badid
 
+	mov	XTIDE_FailCode, 0
 	clc
 	ret
 
-xti_fail:
+xti_notidle:
+	mov	XTIDE_FailCode, 2	; BSY never cleared
+	stc
+	ret
+
+xti_nodrq:
+	mov	eax, XTIDE_LastStatus	; ERR set, or just no DRQ?
+	test	al, ST_ERR
+	jz	xti_nodrq_timeout
+	mov	XTIDE_FailCode, 3	; drive rejected IDENTIFY
+	stc
+	ret
+xti_nodrq_timeout:
+	mov	XTIDE_FailCode, 4	; DRQ never asserted
+	stc
+	ret
+
+xti_badid:
+	mov	XTIDE_FailCode, 5	; data read, model string not sane
 	stc
 	ret
 
@@ -464,6 +524,32 @@ EndProc XTIDE_TryIdentify
 ;   Uses: EAX, ECX, EDX  (EBX, ESI, EDI preserved - Port_initialize still
 ;         needs EBX as the AEP pointer and EDI as the DDB)
 ;----------------------------------------------------------------------------
+;----------------------------------------------------------------------------
+; XTIDE_Delay - burn roughly EAX seconds.
+;
+;   The only channel out of IOS initialisation is how long we take, because
+;   BOOTLOG.TXT timestamps "Initing" and "Init Success" for every driver.
+;   Precision does not matter; separation does. Calibrate from the observed
+;   tick delta rather than trusting this constant.
+;
+;   Uses: EAX, ECX
+;----------------------------------------------------------------------------
+BeginProc XTIDE_Delay
+
+	or	eax, eax
+	jz	xdl_done
+xdl_outer:
+	mov	ecx, 1450000
+xdl_inner:
+	dec	ecx
+	jnz	xdl_inner
+	dec	eax
+	jnz	xdl_outer
+xdl_done:
+	ret
+
+EndProc XTIDE_Delay
+
 BeginProc XTIDE_Probe
 
 	push	ebx
@@ -472,7 +558,7 @@ BeginProc XTIDE_Probe
 
 	movzx	ebx, word ptr [edi].DDB_base_ioa
 	or	bx, bx
-	jz	xp_fail			; no I/O resource - nothing to talk to
+	jz	xp_nobase
 
 	call	XTIDE_SetPorts
 
@@ -484,7 +570,7 @@ BeginProc XTIDE_Probe
 
 	mov	XTIDE_TryTransport, eax	; explicit override, no detection
 	call	XTIDE_TryIdentify
-	jc	xp_fail
+	jc	xp_exit
 	jmp	xp_ok
 
 xp_auto:
@@ -494,23 +580,36 @@ xp_auto:
 
 	mov	XTIDE_TryTransport, XT_TR_LATCH
 	call	XTIDE_TryIdentify
-	jc	xp_fail
+	jc	xp_exit
 
 xp_ok:
 	mov	eax, XTIDE_TryTransport
 	mov	XTIDE_ActiveTransport, eax
 	mov	XTIDE_MasterPresent, 1
-	pop	edi
-	pop	esi
-	pop	ebx
-	clc
-	ret
+	mov	XTIDE_FailCode, 0
+	jmp	xp_exit
 
-xp_fail:
+xp_nobase:
+	mov	XTIDE_FailCode, 1	; no I/O resource reached the DDB
+
+;  NEVER fail AEP_INITIALIZE.
+;
+;  Failing it makes IOS drop the driver permanently - and on this machine that
+;  is a one-shot: resources may not be assigned until CONFIGMG's CONFIG_START,
+;  which arrives after initialisation. Fail here and that callback never comes.
+;  Device Manager's code 10 is IOS reporting that we hung up on it.
+;
+;  zikolas/cfu1-win9x (Nick, MIT) does the same thing and says why in one line
+;  of comment: "AEP_SUCCESS (stay resident either way)". Claiming a device is
+;  AEP_DEVICE_INQUIRY's job, not this one, and "no device" there is
+;  AEP_NO_MORE_DEVICES - still not a failure.
+xp_exit:
+	mov	eax, XTIDE_FailCode
+	call	XTIDE_Delay		; the boot log is the readback channel
 	pop	edi
 	pop	esi
 	pop	ebx
-	stc
+	clc				; always. See above.
 	ret
 
 EndProc XTIDE_Probe

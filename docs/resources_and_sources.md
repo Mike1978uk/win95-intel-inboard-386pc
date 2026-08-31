@@ -169,3 +169,21 @@ the directory's own `README.md`.
 enough, give it a directory `README.md` with its provenance, and add a row above. If it cannot be
 hosted, say where it lives and why it is not here. If a source turned out not to contain what was
 hoped, add it anyway with a ❌ — that is worth as much as a hit.*
+
+## zikolas/cfu1-win9x - Nick (@zikolas), MIT
+
+<https://github.com/zikolas/cfu1-win9x>
+
+A working Windows 9x IOS port driver for the RATOC REX-CFU1 (USB host CF+ PC Card). Load-bearing for
+issue #21 twice over:
+
+- **`win/vxd/CFU1.ASM`** - never fails `AEP_INITIALIZE` ("stay resident either way"), and fetches
+  resources from CONFIGMG's `CONFIG_START` callback via `_CONFIGMG_Get_Alloc_Log_Conf`, not during
+  initialisation. That is what our phase-1 driver got wrong; see `drivers/xtide_pdr/README.md`.
+- **`PROBE-NOTES.md` / `README.md`** - documents the IOS AEP sequence and function/result numbers,
+  and the finding that `DISKTSD` never configures a dynamically registered port driver's DCB.
+
+What it does **not** contain: anything about 8-bit ATA task-file addressing or the XT-CF register
+stride. It is a PC Card/USB device; the value is the IOS-side contract, not the transport.
+
+Not vendored - it is a live MIT upstream. Clone it beside this repo to read it.
