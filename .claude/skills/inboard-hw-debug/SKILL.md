@@ -3374,3 +3374,78 @@ All of these are minutes, need no patch, and each killed a live theory:
   recombine replacing our custom `VKD.VXD`) in two minutes.
 - **Read the Device Manager IRQ list.** Free, and it showed IRQ 1 correctly held with no conflict.
 
+
+---
+
+## Technique 78: time the failure before explaining it, and re-read every port address after a call
+
+Phase 1 of the XT-IDE port driver (issue #21) returned `Init Failure port.pdr` on the real 5160.
+Three causes were written down in advance, each with its own check. **The bootlog settled it before
+the machine was touched again**, and the answer was none of the three.
+
+### The measurement that did it
+
+```
+[00109829] Initing port.pdr
+[0010982B] Init Failure port.pdr      <- 2 ticks
+```
+
+The driver's status polls are `XT_SPIN = 400000` iterations of `in al,dx`. On a 4.77 MHz 8-bit bus
+that is roughly 0.6 s. The same log calibrates a tick: `sd120ppd.mpd` took 895 ticks and was half the
+Windows load (~1790 ticks total). **One timeout would have cost tens of ticks; the whole failure cost
+two.** No spin loop ran. That eliminates "the drive never went ready" outright, and it also
+eliminates every explanation in which the code reached a transfer.
+
+Cost a loop in ticks before accepting a timeout as the story. It is arithmetic, not machine time.
+
+### The actual bug: EDX survived a call it was documented not to survive
+
+```asm
+	movzx	edx, bx
+	add	edx, XT_DRVHD		; edx = base+6, Drive/Head
+	out	dx, al			; select master
+
+	call	XTIDE_WaitNotBusy	; "Uses: EAX, ECX, EDX"
+	jc	xti_fail
+
+	in	al, dx			; <-- reads base+0Eh. Alternate status.
+	test	al, 10h			; "DEV bit as selected?"
+	jnz	xti_fail
+```
+
+`XTIDE_WaitNotBusy` returns with `EDX = base + XT_ALTSTAT`. The read-back sampled alternate status,
+**measured at `50h` the day before**. `50h XOR A0h = F0h`, bit 4 set, fail - on both transports, in
+microseconds.
+
+What made it survive review is that the wrong port returns a *plausible* value: **DSC in alternate
+status occupies the same bit as DEV in Drive/Head.** A garbage read would have been obvious. A
+neighbouring register that happens to alias the exact bit under test is not.
+
+- A helper's "Uses:" line is a contract you have to honour at every call site, not documentation.
+- Reload the port address after any call, even one that looks like it only reads a status bit.
+- When a bit test fails, print the whole byte before theorising. `50h` names its own port.
+
+### A reference driver proves the part it proves, and no more
+
+`drivers/xtide_cdrom/xtidecd.asm` (OBattler's XT-IDE port, via @andrew-hoffman) gave three things:
+
+| what | verdict |
+|---|---|
+| Port map `dw 320h..327h, 32eh` - alt status at **base+0Eh** | Confirms ours. Use it. |
+| Write order: `+8` (high) before `+0` (low, commits the word) | Confirms ours. Phase 2 depends on it. |
+| `ATARepInswXT` / `ATARepOutswXT` - the transfer loops | **Broken. Do not copy.** |
+
+The read loop does `in al,dx` / `add dx,8` / `mov es:[di+1],al` - it advances DX to the high latch and
+never issues the second `in`, so every high byte is a copy of the low. The write loop has the mirror
+bug (`mov ds:[si+1],al` stores instead of loads). That is the byte-duplication signature, and it is
+why the shipped binary is the broken one.
+
+A source can be authoritative about a register map and wrong about the code around it. Say which half
+you are relying on.
+
+### Corollary: a check whose only outcome is a silent failure costs information
+
+The Drive/Head read-back exists to tell an absent slave from one that mirrors the master. Applied to
+the master, in a phase with no readback channel, it could only ever turn a working probe into an
+unexplained `Init Failure`. It is now slave-only. **Before adding a test to code you cannot instrument,
+ask what you will do with a failure you cannot see.**

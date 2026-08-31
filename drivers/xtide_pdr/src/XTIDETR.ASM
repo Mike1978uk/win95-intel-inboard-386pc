@@ -301,12 +301,29 @@ BeginProc XTIDE_TryIdentify
 ;  A present slave answers with its own DEV bit; an absent one leaves the bus
 ;  floating or mirrors the master. Reading Drive/Head back and comparing is how
 ;  ATASelectDevice in drivers/xtide_cdrom/ tells them apart, and it is the only
-;  reliable way. Unused while phase 1 probes the master, correct when v2 does not.
+;  reliable way to do it.
+;
+;  EDX MUST BE RELOADED FIRST. XTIDE_WaitNotBusy returns with EDX pointing at
+;  the alternate status register, and DSC there occupies the same bit as DEV
+;  here. Reading the wrong port is what made phase 1 fail on 2026-08-31: alt
+;  status was 50h, bit 4 set, so every probe failed in under a millisecond
+;  without ever reaching a transfer. See inboard-hw-debug technique 78.
+;
+;  Slave only. A master that does not read Drive/Head back is not thereby
+;  broken, and the model string is stronger evidence than this check. Phase 1
+;  has no readback channel, so a test whose only outcome is a silent failure
+;  costs information rather than buying it.
+	cmp	XTIDE_TryUnit, DRVHD_MASTER
+	je	xti_selected
+
+	movzx	edx, bx
+	add	edx, XT_DRVHD
 	in	al, dx
 	mov	ah, byte ptr XTIDE_TryUnit
 	xor	al, ah
 	test	al, 10h			; DEV bit as selected?
 	jnz	xti_fail
+xti_selected:
 
 	movzx	edx, bx			; IDENTIFY takes no parameters, but
 	add	edx, XT_SECCNT		; leaving stale ones is asking for it

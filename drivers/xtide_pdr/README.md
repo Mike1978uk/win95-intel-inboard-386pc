@@ -411,3 +411,57 @@ output, so `build/` is ignored. Point `build.ps1 -DDK` at your own copy.
   DEV read-back. Contributed by @andrew-hoffman.
 - **[`docs/win9x_port_driver_feasibility.md`](../../docs/win9x_port_driver_feasibility.md)** — the
   full assessment, and the XT-IDE register map cross-checked against 86Box's `hdc_xtide.c`.
+
+## Phase 1 result - FAILED then FIXED, 2026-08-31
+
+First run on the real 5160, logged boot:
+
+```
+[00109829] Initing port.pdr
+[0010982B] Init Failure port.pdr
+```
+
+Deployed binary verified as the phase-1 build (`e3f01f8e…`) in both locations before interpreting
+anything - Technique 74.
+
+**Two of the three predicted causes were eliminated from the host, with the card in a reader.**
+
+- *No I/O resource*: the node's `ForcedConfig` in `SYSTEM.DAT` decodes to `0300`-`030F`. The
+  `LogConfig` applied; removing and re-adding the node was the right call.
+- *Drive never went ready*: 2 ticks. `XT_SPIN = 400000` costs roughly 0.6 s on this bus, and the
+  same log rates `sd120ppd.mpd` at 895 ticks. No spin loop ran at all.
+
+**The real cause was ours.** `XTIDE_TryIdentify` read the Drive/Head register back through a `DX`
+that `XTIDE_WaitNotBusy` had already repointed at alternate status (`base+0Eh`, measured `50h` the
+day before). DSC sits in the same bit as DEV, so the test failed instantly on both transports.
+Fixed, and the read-back is now slave-only - on the master it could only ever convert a working
+probe into an unexplainable failure. Technique 78.
+
+```
+phase 1  e3f01f8eb9f4a5e0f19e768a86a02e0b   failed
+phase 1a 474b6ba8838ed39818739364f7d6c092   deployed 2026-08-31, both locations
+```
+
+No reinstall needed this time: the device node and its resources are already correct, and IOS loads
+`.PDR` files from `IOSUBSYS` fresh each boot. Replace the file, boot `F8` -> Logged.
+
+### `tools/XTPROBE.BAS` - the same IDENTIFY, from DOS
+
+Staged at `C:\XTPROBE.BAS`. Run `C:\DOS\QBASIC.EXE /RUN C:\XTPROBE.BAS` from a bare DOS prompt.
+Reads only; `IDENTIFY DEVICE` does not touch media.
+
+It removes IOS, CONFIGMG and the device node from the question and answers, in one screen: whether
+the card responds at `0x300`, whether `IDENTIFY` completes, **which transport returns a readable
+model string**, and what `+06` reads back after selecting the master. That last line is a direct
+check on the code path that just broke.
+
+It answers the parked `bDevice = 0x0A` question operationally - which transport works - without
+needing the enum resolved at all.
+
+### `xtide202/` is XUB 2.1.0, not 2.0.2 - do not diff the card against it
+
+The owner's `OneDrive/Desktop/XT_project/Windows_311_working_build/xtide202/` holds
+`ide_xt.bin`, `ide_xtp.bin`, `ide_386.bin`, `ide_386l.bin`, all stamped `XUB210`. Their header
+layout does not match the bytes used for the 2026-08-30 configuration diff, so they are **not**
+substitutable into it - the `ROMVARS` offsets moved between releases, which is the same reason the
+device enum shifted. `xtidecfg.com` there is packed, as recorded above.
