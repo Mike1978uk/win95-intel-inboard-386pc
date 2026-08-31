@@ -1,0 +1,13 @@
+; PORT.DEF - marks the port driver DYNAMICALLY LOADABLE and exports its DDB.
+;
+; The DDK sample ships no .DEF and its MAKEFILE links with /VXD /NOD only, which
+; produces an LE image with module flags 0x00028000. Every .PDR that IOS
+; actually loads on this machine - HSFLOP.PDR, RMM.PDR - carries 0x00038000.
+; The extra bit is the dynamic-load marker, and IOS loads IOSUBSYS drivers
+; dynamically, so without it the loader refuses the image before dispatching
+; SYS_DYNAMIC_DEVICE_INIT. No control message, no IOS_Register, no probe - just
+; "Init Failure" with none of our code having run. That was true from phase 0.
+VXD PORT DYNAMIC
+
+EXPORTS
+	PORT_DDB	@1

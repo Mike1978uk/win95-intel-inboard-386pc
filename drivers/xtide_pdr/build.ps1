@@ -101,6 +101,39 @@ if (Test-Path "$PSScriptRoot\src\XTIDETR.ASM") {
     Set-Content "$OutDir\PORTINFO.INC" -Value $pi -NoNewline
     Write-Output "Applied DRP_FC_DYNALOAD (PORTFeature 00H -> 10000H)."
 
+    # 5. MEASURE DRP_reg_result. IOS_Register's return code is the only thing
+    #    that explains an Init Failure at this layer, and nothing else escapes
+    #    PORT_Device_Init - it runs before any AEP. Report it as a delay the
+    #    boot log timestamps: (result+1)*2 half-second units, clamped.
+    #      result 0 -> 1.0s (~30 ticks)   1 -> 2.0s (~60)   2 -> 3.0s (~90)
+    #      3 -> 4.0s (~120)  4 -> 5.0s (~150) ...
+    $pa = Get-Content "$OutDir\PORT.ASM" -Raw
+    $reg = "        VxDCall`tIOS_Register`t`t;call registration"
+    if ($pa -notmatch [regex]::Escape($reg)) {
+        Write-Output "FAILED: IOS_Register call site not found in PORT.ASM"; exit 1
+    }
+    $diag = $reg + "`r`n" + @"
+	add	esp,04			; DIAGNOSTIC (build.ps1): report the
+	push	OFFSET32 Drv_Reg_Pkt	; registration result as a delay
+	movzx	eax, Drv_Reg_Pkt.DRP_reg_result
+	cmp	eax, 10
+	jbe	prd_ok
+	mov	eax, 10
+prd_ok:
+	inc	eax
+	add	eax, eax
+prd_outer:
+	mov	ecx, 725000
+prd_inner:
+	dec	ecx
+	jnz	prd_inner
+	dec	eax
+	jnz	prd_outer
+"@
+    $pa = $pa.Replace($reg, $diag)
+    Set-Content "$OutDir\PORT.ASM" -Value $pa -NoNewline
+    Write-Output "Applied reg_result diagnostic delay."
+
     $objs_extra = @("xtidetr")
     Write-Output "Applied phase1 hook (XTIDE_Probe wired into Port_initialize)."
 } else {
@@ -119,8 +152,12 @@ foreach ($f in $objs) {
 }
 if ($failed) { Write-Output "Build aborted - assembly errors above."; exit 1 }
 
-# No /DEF: the DDB is declared in PORT.ASM and /VXD sets the segment attributes.
-& $LINK /VXD /NOD /OUT:PORT.pdr /MAP:PORT.map ($objs | ForEach-Object { "$_.obj" })
+# /DEF is REQUIRED: it carries "VXD PORT DYNAMIC", which sets the LE module flag
+# that marks the image dynamically loadable, and exports the DDB. Without it the
+# link produces module flags 0x00028000; every .PDR IOS actually loads carries
+# 0x00038000. See PORT.DEF.
+Copy-Item "$PSScriptRoot\PORT.DEF" $OutDir -Force
+& $LINK /VXD /NOD /DEF:PORT.DEF /OUT:PORT.pdr /MAP:PORT.map ($objs | ForEach-Object { "$_.obj" })
 
 if (Test-Path PORT.pdr) {
     $h = (Get-FileHash PORT.pdr -Algorithm MD5).Hash.ToLower()

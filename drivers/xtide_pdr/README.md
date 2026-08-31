@@ -703,3 +703,39 @@ reached, which pointed above the probe rather than inside it.
 ```
 phase 1g  aafd092c53f660621a99c08bdb0b6ec4   DRP_FC_DYNALOAD declared
 ```
+
+### The image was never dynamically loadable - LE module flags
+
+`PORT_Device_Init` never ran. Proved by instrumenting `PORT.ASM` so that **every** path through it
+delayed, including success, before any AEP - and the boot log still showed a zero delay. So
+`IOS_Register` was never called either, and `DRP_reg_result` was never the question.
+
+The difference is in the LE header, and a working driver on the same machine shows it:
+
+| | module flags | objects | pages |
+|---|---|---|---|
+| ours | `0x00028000` | 6 | 8 |
+| `HSFLOP.PDR` (loads fine) | **`0x00038000`** | 4 | 5 |
+
+One bit: `0x00010000`, the **dynamic-load marker** in the LE module-type field. IOS loads IOSUBSYS
+drivers dynamically, so the loader refuses an image that is not marked dynamically loadable -
+before dispatching `SYS_DYNAMIC_DEVICE_INIT`. No control message, no registration, no probe, just
+`Init Failure` with none of our code having executed.
+
+That bit comes from a module definition file, `VXD PORT DYNAMIC`. The DDK sample ships **no `.DEF`**
+and its `MAKEFILE` links with `/VXD /NOD` only; `MASTER.MK` has no `.DEF` convention either. So
+building the sample exactly as documented produces an image IOS will not load. `PORT.DEF` is now in
+this directory and `build.ps1` links with `/DEF:PORT.DEF`.
+
+**Verified on the host before booting:** the rebuilt image reports `0x00038000`, byte-identical to
+`HSFLOP.PDR`.
+
+```
+phase 1h  84c3fad89ace1089fbeaa1bb06fc04fd   7696 bytes, mod_flags 0x00038000
+```
+
+**Method note.** Six builds were spent above the probe because each failure was diagnosed by
+reasoning about which layer *should* fail rather than by comparing against something known to work.
+`HSFLOP.PDR` was sitting in the same directory, loading successfully, in every boot log we read.
+When a driver will not load, diff its image against one that does - it is a host-side check that
+costs no machine time.
