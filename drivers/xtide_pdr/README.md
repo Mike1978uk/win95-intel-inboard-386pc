@@ -531,7 +531,17 @@ to `base+0Eh`, the Device Control register there, and `0ECh` has bit 2 set: that
 leaves it asserted. Hanging someone else's drive with a probe is not an acceptable default. The
 transport (PIO8 / latch) *is* autodetected, because a wrong transport only misreads a buffer.
 
-### Rule: return the drive to idle before any filesystem access
+### Incident, 2026-08-31 - 38 root directory entries lost, and how
 
-A PIO data phase left half-finished is not a safe state to write the filesystem from. Verify status
-reads `50h` with no transfer pending before anything touches the disk, or do not write at all.
+After several aborted IDENTIFY data phases driven from the host, a file was written to the card over
+COMrade while the drive was still unsettled. The root directory came back with 28 of its 66 entries;
+`IO.SYS`, `CONFIG.SYS`, `AUTOEXEC.BAT`, `COMRADE.EXE` and nine directories were gone. Subdirectory
+trees were intact. Restored from `precfxtide.img` - 66 entries back, verified against the image.
+
+**The rule that came out of it:** a PIO data phase left half-finished is not a safe state to write the
+filesystem from. Verify status reads `50h` with no transfer pending before anything touches the disk,
+or do not write at all. The ROM backup later in the same session followed that rule and was fine.
+
+Recorded rather than quietly fixed, because the failure mode is not obvious: the drive reports itself
+idle and ready (`50h`) while the *host* still believes a transfer is in flight, and DOS keeps serving
+a cached BPB that makes the volume look healthy until a directory read fails.
