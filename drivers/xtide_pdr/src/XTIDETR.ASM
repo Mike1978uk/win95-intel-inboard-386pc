@@ -155,6 +155,13 @@ XTIDE_pHiLatch		dd	0
 public XTIDE_FailCode
 XTIDE_FailCode		dd	0
 
+;  Printable non-blank characters found in the model field by the last
+;  successful validation. Added to the success delay so the boot log reports
+;  not merely "a model string" but HOW LONG it was - and the length is specific
+;  to the drive. TRANSCEND is 9.
+public XTIDE_ModelChars
+XTIDE_ModelChars	dd	0
+
 ;  Status byte at the moment WaitDrq gave up, so ERR and a plain timeout can
 ;  be told apart afterwards.
 public XTIDE_LastStatus
@@ -392,6 +399,8 @@ xvi_next:
 	cmp	edx, ID_MIN_TEXT	; all blanks is not a model string
 	jb	xvi_bad
 
+	mov	XTIDE_ModelChars, edx	; report the length through the delay
+
 	pop	edi
 	pop	ebx
 	pop	edx
@@ -586,9 +595,10 @@ xp_ok:
 	mov	eax, XTIDE_TryTransport
 	mov	XTIDE_ActiveTransport, eax
 	mov	XTIDE_MasterPresent, 1
-	mov	XTIDE_FailCode, 8	; success has its OWN delay, so that a
-					; zero delay can only mean the probe was
-					; never reached at all
+	mov	eax, XTIDE_ModelChars	; success delay = 8 + model length, so
+	add	eax, 8			; the log reports WHICH string was read,
+	mov	XTIDE_FailCode, eax	; not merely that one validated. A zero
+					; delay still means the probe never ran.
 	jmp	xp_exit
 
 xp_nobase:
