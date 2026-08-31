@@ -666,3 +666,40 @@ of printable non-blank characters, which noise rarely produces.
 ```
 phase 1d  e64320eeec74bea54c75367af291512a   deployed 2026-08-31, both locations
 ```
+
+### The real cause of every "Init Failure": we never declared DRP_FC_DYNALOAD
+
+`Init Failure port.pdr` was never our probe. It comes from the VxD's own
+`PORT_Device_Init`, which reports carry-set - "Device not initialized" - if `IOS_Register` hands
+back anything other than `DRP_REMAIN_RESIDENT` or `DRP_MINIMIZE`:
+
+```asm
+	VxDCall	IOS_Register
+	cmp	Drv_Reg_Pkt.DRP_reg_result, DRP_REMAIN_RESIDENT
+	je	Port_Init_Done
+	cmp	Drv_Reg_Pkt.DRP_reg_result, DRP_MINIMIZE
+	je	Port_Init_Done
+	stc
+```
+
+The DDK sample ships `PORTFeature EQU 00H` in `PORTINFO.INC` - no feature flags - while
+dispatching `SYS_DYNAMIC_DEVICE_INIT`, i.e. it *is* dynamically loaded. `DRP_FC_DYNALOAD` is
+`10000H`. Registering as a dynamic port driver without declaring it gets the registration refused,
+and **IOS never dispatches the AER at all**, so `AEP_INITIALIZE` never arrives and no probe runs.
+
+zikolas/cfu1-win9x sets the same flag for the same reason: *"Added a DRP (feature DRP_FC_DYNALOAD
+since we load late via CONFIGMG)"*.
+
+**This retracts the phase 0 result.** Phase 0 was recorded as passing because `Initing port.pdr`
+appeared in the boot log. That line only proves IOS *attempted* the load - it is printed before
+registration is accepted. Every driver from phase 0 to phase 1f failed at the same place, and every
+probe fix in between was correct work on code that was never called.
+
+**The lesson, and it is the same one as technique 78:** `Initing` is not `Init Success`. Pick the
+log line that proves the thing you actually want, not the one that appears when it is attempted.
+The delay-coded readback is what exposed this - a zero delay could only mean the probe was never
+reached, which pointed above the probe rather than inside it.
+
+```
+phase 1g  aafd092c53f660621a99c08bdb0b6ec4   DRP_FC_DYNALOAD declared
+```

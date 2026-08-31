@@ -84,6 +84,23 @@ if (Test-Path "$PSScriptRoot\src\XTIDETR.ASM") {
     }
     $aer = $aer.Replace($inq, "`tjmp`tPort_di_no_more_devices`t; phase 1 claims nothing`r`n`tor`teax, eax")
     Set-Content "$OutDir\PORTAER.ASM" -Value $aer -NoNewline
+    # 4. DECLARE OURSELVES DYNAMICALLY LOADABLE.
+    #    PORTINFO.INC ships PORTFeature EQU 00H, but the sample dispatches
+    #    SYS_DYNAMIC_DEVICE_INIT - it IS dynamically loaded. Registering with no
+    #    DRP_FC_DYNALOAD makes IOS_Register return something that is neither
+    #    DRP_REMAIN_RESIDENT nor DRP_MINIMIZE, so PORT_Device_Init sets carry and
+    #    the VxD reports "Device not initialized" - the Init Failure line in
+    #    BOOTLOG.TXT. IOS never dispatches the AER, so no probe ever runs.
+    #    zikolas/cfu1-win9x sets this flag for the same reason.
+    $pi = Get-Content "$OutDir\PORTINFO.INC" -Raw
+    $feat = "PORTFeature`tEQU`t00H"
+    if ($pi -notmatch [regex]::Escape($feat)) {
+        Write-Output "FAILED: PORTFeature equate not found in PORTINFO.INC"; exit 1
+    }
+    $pi = $pi.Replace($feat, "PORTFeature`tEQU`t10000H`t; DRP_FC_DYNALOAD - see build.ps1")
+    Set-Content "$OutDir\PORTINFO.INC" -Value $pi -NoNewline
+    Write-Output "Applied DRP_FC_DYNALOAD (PORTFeature 00H -> 10000H)."
+
     $objs_extra = @("xtidetr")
     Write-Output "Applied phase1 hook (XTIDE_Probe wired into Port_initialize)."
 } else {
