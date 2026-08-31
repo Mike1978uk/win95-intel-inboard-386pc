@@ -531,54 +531,7 @@ to `base+0Eh`, the Device Control register there, and `0ECh` has bit 2 set: that
 leaves it asserted. Hanging someone else's drive with a probe is not an acceptable default. The
 transport (PIO8 / latch) *is* autodetected, because a wrong transport only misreads a buffer.
 
-### Incident, same session
+### Rule: return the drive to idle before any filesystem access
 
-Writing a file to the card over COMrade while the drive was still unsettled from those aborted PIO
-transfers damaged the root directory - 38 of 66 entries lost, subdirectories intact. Restored from
-`precfxtide.img`. **Do not write to the filesystem while the drive is in a state you have not
-returned to idle.** Verify status is `50h` and no transfer is pending first, or do not write at all.
-
-### The card, identified - 2026-08-31
-
-Owner-supplied, and it settles the hardware question that four sessions of inference could not.
-
-**[TexElec ISA CompactFlash Adapter](https://texelec.com/product/isa-compactflash-adapter/)**, whose
-own page titles it **"Lo-tech ISA XT CF Adapter rev. 3"**. Lo-tech's reference page for it
-([`lo-tech.co.uk/wiki/XT-CF`](https://www.lo-tech.co.uk/wiki/XT-CF)) states the board *"uses the
-XT-IDE Universal BIOS (adapter type 'lo-tech XT-CF')"*, with **base 300h or 320h by DIP switch 3**
-and **ROM window C800h or D000h by DIP switch 2**.
-
-What each source actually establishes - they are not all the same claim:
-
-| route | establishes |
-|---|---|
-| Measurement, this repo | **The hardware.** A0 undecoded, stride 2, 8-bit PIO through the data port, no `+8` latch |
-| Schematic, via @andrew-hoffman | **The family.** D8-D15 are not connected on XT-CF boards |
-| Vendor documentation | **The board.** Lo-tech XT-CF rev 3, adapter type "lo-tech XT-CF" |
-| Trunk `RomVars.inc` | `0x0A` = `DEVICE_8BIT_XTIDE_REV2` **in trunk only** - see below |
-
-**The numeric value is still unresolved, and it no longer matters.** Trunk's enum is not the card's:
-trunk has grown `JUKO_D16X`, `XTIDE_REV2_OLIVETTI`, `PIO16_WITH_BIU_OFFLOAD`, `JRIDE_ISA` and
-`ADP50L` since the revision this ROM was built from, which is more than enough to move `0x0A`.
-
-And it cannot mean XTIDE rev 2 here, by a one-line argument: a rev 2 configuration reads the data
-high byte from a latch at `base+8`, and `base+8` on this card is cylinder low (marker test, `5Ah`
-written and read straight back mid-DRQ). A ROM configured that way would not boot this machine.
-It boots. Therefore the enum shifted.
-
-**`IDEVARS` itself is stable across revisions**, which is what makes the ROM dump worth taking:
-trunk places `wBasePort` at +0, `wControlBlockPort` at +2, `bDevice` at +4, `bIRQ` at +5 - exactly
-the relative spacing the 2026-08-30 diff inferred at ROM offsets 81/83/85/86. Trust the struct
-layout; do not trust an enum value read against the wrong revision.
-
-**Not the XT-CF-lite rev.2.** @andrew-hoffman linked
-[that board's wiki page](https://www.lo-tech.co.uk/wiki/XT-CF-lite_rev.2) and its schematic is what
-confirmed D8-D15, but it is a different card. Its page also says *"the alternate status register is
-at Base+10h"* via A4 - **untested here, and it is a different board**, so treat it as a lead, not a
-fact. It is worth one `io_in` at `0x310`: if it mirrors status (`50h`), the driver should poll
-alternate status rather than status, because reading status acknowledges a pending interrupt and
-alternate status does not. Our sweep stopped at `0x30F` and never looked.
-
-**What the vendor pages do NOT contain**, so nobody repeats the search: no register map, no taskfile
-spacing, no alternate-status location, no numeric device-type value, no statement of whether the CF
-is left in 8-bit mode. The register map in this file is measured, and remains the only one we have.
+A PIO data phase left half-finished is not a safe state to write the filesystem from. Verify status
+reads `50h` with no transfer pending before anything touches the disk, or do not write at all.
