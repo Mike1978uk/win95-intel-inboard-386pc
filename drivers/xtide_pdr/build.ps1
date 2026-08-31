@@ -71,6 +71,19 @@ if (Test-Path "$PSScriptRoot\src\XTIDETR.ASM") {
     $aer = $aer.Replace($probe, "`tcall`tXTIDE_Probe`t`t; IDENTIFY + transport autodetect")
 
     Set-Content "$OutDir\PORTAER.ASM" -Value $aer -NoNewline
+
+    # 3. AEP_DEVICE_INQUIRY: the sample tests an UNINITIALISED eax, because its
+    #    sniff_for_drive call is commented out, and answers AEP_FAILURE on the
+    #    coin flip. IOS then logs "Init Failure" and drops the driver - which is
+    #    what cost us three boots. Phase 1 claims no device at all, so answer
+    #    AEP_NO_MORE_DEVICES deterministically. Its own comment block agrees
+    #    that is the correct code for "nothing here".
+    $inq = "`tor`teax, eax"
+    if ($aer -notmatch [regex]::Escape($inq)) {
+        Write-Output "FAILED: device-inquiry test not found in PORTAER.ASM"; exit 1
+    }
+    $aer = $aer.Replace($inq, "`tjmp`tPort_di_no_more_devices`t; phase 1 claims nothing`r`n`tor`teax, eax")
+    Set-Content "$OutDir\PORTAER.ASM" -Value $aer -NoNewline
     $objs_extra = @("xtidetr")
     Write-Output "Applied phase1 hook (XTIDE_Probe wired into Port_initialize)."
 } else {

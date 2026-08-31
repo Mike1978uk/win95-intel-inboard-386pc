@@ -539,7 +539,7 @@ BeginProc XTIDE_Delay
 	or	eax, eax
 	jz	xdl_done
 xdl_outer:
-	mov	ecx, 1450000
+	mov	ecx, 725000
 xdl_inner:
 	dec	ecx
 	jnz	xdl_inner
@@ -586,7 +586,9 @@ xp_ok:
 	mov	eax, XTIDE_TryTransport
 	mov	XTIDE_ActiveTransport, eax
 	mov	XTIDE_MasterPresent, 1
-	mov	XTIDE_FailCode, 0
+	mov	XTIDE_FailCode, 8	; success has its OWN delay, so that a
+					; zero delay can only mean the probe was
+					; never reached at all
 	jmp	xp_exit
 
 xp_nobase:
