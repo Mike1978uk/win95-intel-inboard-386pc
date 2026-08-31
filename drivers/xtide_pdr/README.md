@@ -545,3 +545,56 @@ or do not write at all. The ROM backup later in the same session followed that r
 Recorded rather than quietly fixed, because the failure mode is not obvious: the drive reports itself
 idle and ready (`50h`) while the *host* still believes a transfer is in flight, and DOS keeps serving
 a cached BPB that makes the volume look healthy until a directory read fails.
+
+### The control block, and the ROM flash - 2026-08-31
+
+**Alternate status is at `31Ch`, and there is a general formula.** The sweep that found it went
+`0x310`-`0x31A` = `FFh` (unimplemented), `0x31C` = `50h` (matching status exactly), `0x31E` = `00h`.
+
+The ROM explains it. `wControlBlockPort = 0308h` is stored **unstrided** - it means "base + 8" in
+register indices, which at stride 2 is `base+10h`. Alternate status is control-block register 6, so:
+
+```
+alt status = base + (8 + 6) * stride = base + 14 * stride
+             stride 2 -> 31Ch   (measured)
+             stride 1 -> base+0Eh  (where a classic XTIDE puts it)
+```
+
+One expression covers both cards. The driver now polls alternate status rather than the status
+register, which is correct ATA practice: reading status acknowledges a pending interrupt and
+alternate status does not.
+
+**This retracts an earlier line in this file** that said there was no reachable alternate status
+because `base+8` answers as cylinder low. The `base+8` observation was right; the conclusion was
+wrong - the control block is a second strided bank, not an offset into the first.
+
+### ROM flashed to r638, and what it taught us
+
+| | before | after |
+|---|---|---|
+| build | `XTIDE204` v2.0.0ß3+ (2013-10-22), **XT** | `XUB212` r638 (2026-06-09), **XT+** |
+| `bDevice` | `0x0A` | `0x0E` - **same device, different enum** |
+| L-CHS reported | 986 / 64 / 63, 3,975,552 sectors | 987 / 64 / 63, 3,979,584 sectors |
+
+**`ide_386.bin` cannot be used on this card.** XTIDECFG refuses the XT-CF device type against it:
+*"There is no support for this device type in the currently loaded BIOS."* The 386 and AT builds
+carry no XT-CF module. **Only the XT-family builds can drive an XT-CF adapter** - which is why the
+card shipped with the XT build. That was never a misconfiguration.
+
+`ide_xtl`/`ide_xtpl` (the "large" builds, 10 kiB) do carry it but will not fit an 8 KB EEPROM.
+`ide_xtp.bin` (6,629 B, XT+) is the only build that is both supported and small enough, and it is
+what the card now runs. Its gain over the plain XT build is `rep insb`, a 186+ instruction the
+8088-targeted build cannot use - and on this machine the ROM is unshadowed 8-bit, so loop
+instruction fetch is the dominant cost.
+
+**Verify the configured image before flashing, not after.** Only two bytes differed from the stock
+download (`wControlBlockPort`), everything else in `ide_xtp.bin` already defaulted correctly for
+this card - but the stock file's checksum is *not* valid until XTIDECFG saves it, which is why the
+docs insist on saving to disk first. A blind flash of a raw download would have failed.
+
+Heads and sectors were unchanged by the flash, so CHS-to-LBA mapping is identical and the partition
+was unaffected. `biosdrvs.com` predicted the new geometry exactly, before the flash - use it as the
+pre-flight check.
+
+Backups: `roms/xtcf_card/XTCF_D8000_asfound_2026_08_31.bin` (the card as found, 8 KB, md5
+`86ff8885ee13ee48301bc04f31b18e52`) and `IDE_XTP_configured_2026_08_31.bin` (what was flashed).

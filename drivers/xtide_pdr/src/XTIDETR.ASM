@@ -57,6 +57,18 @@ XTR_DRVHD	equ	6
 XTR_STATUS	equ	7		; read
 XTR_CMD		equ	7		; write
 
+;  The control block is a SECOND strided bank, and the ROM stores its address
+;  unstrided: wControlBlockPort = 0308h means base+8 in register indices, which
+;  at stride 2 is base+10h. Alternate status is control-block register 6, so it
+;  lands at base + (8+6)*stride = base + 14*stride.
+;
+;  MEASURED 2026-08-31: 0x310-0x31A all read FFh (unimplemented), 0x31C reads
+;  50h, matching the status register exactly. base + 14*2 = 31Ch.
+;  The same formula gives base+0Eh at stride 1, which is where a classic XTIDE
+;  puts it. One expression, both cards.
+XTR_ALTSTATUS	equ	14		; read
+XTR_DEVCTRL	equ	14		; write
+
 ;  The high-byte latch, for cards that have one, is a fixed card-level address
 ;  and is NOT part of the strided taskfile. This card does not have one:
 ;  a marker written to base+8 (5Ah) read straight back mid-DRQ, so base+8 is
@@ -132,6 +144,7 @@ XTIDE_pCylLo		dd	0
 XTIDE_pCylHi		dd	0
 XTIDE_pDrvHd		dd	0
 XTIDE_pStatus		dd	0
+XTIDE_pAltStatus	dd	0
 XTIDE_pHiLatch		dd	0
 
 ;  Set once a unit IDENTIFY validates. Phase 2 turns this into an array.
@@ -179,6 +192,15 @@ BeginProc XTIDE_SetPorts
 	mov	XTIDE_pDrvHd, eax
 	add	eax, ecx
 	mov	XTIDE_pStatus, eax
+
+	add	eax, ecx		; +8  control block base
+	add	eax, ecx		; +9
+	add	eax, ecx		; +10
+	add	eax, ecx		; +11
+	add	eax, ecx		; +12
+	add	eax, ecx		; +13
+	add	eax, ecx		; +14 alternate status
+	mov	XTIDE_pAltStatus, eax
 	ret
 
 EndProc XTIDE_SetPorts
@@ -189,14 +211,18 @@ EndProc XTIDE_SetPorts
 ;   Out:  CF=0 and AL = status, or CF=1 on timeout
 ;   Uses: EAX, ECX, EDX
 ;
-;   The STATUS register, not alternate status. Reading status acknowledges a
-;   pending interrupt, which on a card jumpered without one costs nothing -
-;   and on this card there is no reachable alternate status to use instead.
-;   The control block is not at base+8: that address answers as cylinder low.
+;   ALTERNATE status, at base + 14*stride. Reading the status register proper
+;   acknowledges a pending interrupt; alternate status does not, which is the
+;   correct thing to poll even on a card jumpered without an interrupt.
+;
+;   An earlier version of this file said there was no reachable alternate
+;   status, because base+8 answers as cylinder low. That was right about
+;   base+8 and wrong about the conclusion: the control block is a second
+;   strided bank at base+10h. Measured, 2026-08-31.
 ;----------------------------------------------------------------------------
 BeginProc XTIDE_WaitNotBusy
 
-	mov	edx, XTIDE_pStatus
+	mov	edx, XTIDE_pAltStatus
 	mov	ecx, XT_SPIN
 xwnb_loop:
 	in	al, dx
@@ -220,7 +246,7 @@ EndProc XTIDE_WaitNotBusy
 ;----------------------------------------------------------------------------
 BeginProc XTIDE_WaitDrq
 
-	mov	edx, XTIDE_pStatus
+	mov	edx, XTIDE_pAltStatus
 	mov	ecx, XT_SPIN
 xwd_loop:
 	in	al, dx
