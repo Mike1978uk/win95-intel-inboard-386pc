@@ -465,3 +465,73 @@ The owner's `OneDrive/Desktop/XT_project/Windows_311_working_build/xtide202/` ho
 layout does not match the bytes used for the 2026-08-30 configuration diff, so they are **not**
 substitutable into it - the `ROMVARS` offsets moved between releases, which is the same reason the
 device enum shifted. `xtidecfg.com` there is packed, as recorded above.
+
+## The register map, MEASURED - 2026-08-31
+
+Over COMrade, on the real card, read-only plus taskfile writes. This supersedes every earlier
+offset in this file.
+
+**Read sweep** (`+00` skipped - reading data has side effects):
+
+```
++01=00 +02=00 +03=00 +04=00 +05=00 +06=09 +07=09 +08=5F +09=5F
++0A=01 +0B=01 +0C=E0 +0D=E0 +0E=50 +0F=50
+```
+
+Every pair reads alike. `+07` is Status and `+0E` is Alternate Status under the old map, and those
+are the same register in any ATA device - they must agree. They did not. That one pair falsified the
+map before anything else was tried.
+
+**Write/readback walk**, which residue cannot fake:
+
+| wrote | port | read back | stride 1 predicts | stride 2 predicts |
+|---|---|---|---|---|
+| `11h` | `302` | `00` | `11h` (sector count) | error register ✓ |
+| `22h` | `303` | `00` | `22h` (sector number) | same register ✓ |
+| `33h` | `304` | `44h` | `33h` (cyl low) | sector count, last write wins ✓ |
+| `44h` | `305` | `44h` | `44h` (cyl high) | same register ✓ |
+
+**A0 is not decoded. Register N is at base + 2N.**
+
+```
+300 data        302 err/feat    304 sector count   306 sector number
+308 cyl low     30A cyl high    30C drive/head     30E status/command
+```
+
+- **IDENTIFY works.** `0ECh` to `0x30E` returns status `58h` = DRDY|DSC|DRQ, four times out of four.
+- **First data byte is `4Ah`** from `0x300` - a real IDENTIFY word-0 low byte.
+- **There is no `+8` high-byte latch.** Marker test: `5Ah` written to `0x308` read straight back
+  during DRQ. That is cylinder low. So `bDevice = 0x0A` is an **8-bit PIO XT-CF-class device**, not
+  XTIDE rev 2 - the parked question, answered by measurement rather than by resolving the enum.
+- **There is no reachable alternate status**, so the driver polls the status register.
+
+### What could not be measured from the host
+
+The data phase. Driven one I/O per serial round trip, DRQ died after ~19 accesses every time - the
+first byte correct, the rest zero. `bus_stim` did the same. That is not the card; it is what happens
+when a PIO transfer is left half-finished for milliseconds. **The transfer only exists inside a tight
+loop on the machine**, which is exactly what `XTIDE_ReadData` is.
+
+### Driver, rebuilt on the measured map
+
+```
+phase 1  e3f01f8eb9f4a5e0f19e768a86a02e0b   wrong map, wrong DEV read - failed
+phase 1a 474b6ba8838ed39818739364f7d6c092   DEV read fixed, map still wrong - never deployed
+phase 1b 07c11927c5e9562a977e9ab6d3bf520a   measured map, PIO8 default
+```
+
+Every port address is now computed once into its own variable by `XTIDE_SetPorts`, which removes the
+class of bug that killed phase 1 - a callee can no longer leave a stale port in `EDX` for a caller to
+read through.
+
+**The stride is not autodetected, on purpose.** Probing stride 2 on stride-1 hardware writes `0ECh`
+to `base+0Eh`, the Device Control register there, and `0ECh` has bit 2 set: that asserts SRST and
+leaves it asserted. Hanging someone else's drive with a probe is not an acceptable default. The
+transport (PIO8 / latch) *is* autodetected, because a wrong transport only misreads a buffer.
+
+### Incident, same session
+
+Writing a file to the card over COMrade while the drive was still unsettled from those aborted PIO
+transfers damaged the root directory - 38 of 66 entries lost, subdirectories intact. Restored from
+`precfxtide.img`. **Do not write to the filesystem while the drive is in a state you have not
+returned to idle.** Verify status is `50h` and no transfer is pending first, or do not write at all.
