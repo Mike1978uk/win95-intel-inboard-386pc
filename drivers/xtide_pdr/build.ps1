@@ -112,6 +112,25 @@ if (Test-Path "$PSScriptRoot\src\XTIDETR.ASM") {
     if ($pa -notmatch [regex]::Escape($reg)) {
         Write-Output "FAILED: IOS_Register call site not found in PORT.ASM"; exit 1
     }
+    # 5a. ARRIVAL MARKER, before IOS_Register. A delay placed only after the
+    #     call cannot distinguish "the control message never arrived" from
+    #     "IOS_Register faulted or never returned" - both give zero delay.
+    #     This one fires the moment PORT_Device_Init is entered.
+    $entry = "BeginProc PORT_Device_Init"
+    if ($pa -notmatch [regex]::Escape($entry)) {
+        Write-Output "FAILED: PORT_Device_Init entry not found"; exit 1
+    }
+    $pa = $pa.Replace($entry, $entry + "`r`n" + @"
+	mov	eax, 2			; ARRIVAL MARKER (build.ps1): ~1s
+pdi_outer:				; proves this routine was entered
+	mov	ecx, 725000
+pdi_inner:
+	dec	ecx
+	jnz	pdi_inner
+	dec	eax
+	jnz	pdi_outer
+"@)
+
     $diag = $reg + "`r`n" + @"
 	add	esp,04			; DIAGNOSTIC (build.ps1): report the
 	push	OFFSET32 Drv_Reg_Pkt	; registration result as a delay
@@ -157,7 +176,7 @@ if ($failed) { Write-Output "Build aborted - assembly errors above."; exit 1 }
 # link produces module flags 0x00028000; every .PDR IOS actually loads carries
 # 0x00038000. See PORT.DEF.
 Copy-Item "$PSScriptRoot\PORT.DEF" $OutDir -Force
-& $LINK /VXD /NOD /DEF:PORT.DEF /OUT:PORT.pdr /MAP:PORT.map ($objs | ForEach-Object { "$_.obj" })
+& $LINK /VXD /NOD /ALIGN:4096 /DEF:PORT.DEF /OUT:PORT.pdr /MAP:PORT.map ($objs | ForEach-Object { "$_.obj" })
 
 if (Test-Path PORT.pdr) {
     $h = (Get-FileHash PORT.pdr -Algorithm MD5).Hash.ToLower()

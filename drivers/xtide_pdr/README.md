@@ -775,3 +775,29 @@ to phase 1h was that one omission.
 **Instrument on the near side of the call you doubt.** Three boots could not distinguish "the
 message never arrived" from "IOS_Register never returned", purely because the delay sat *after* the
 call. Moving it to the routine's first instruction answered it in one.
+
+### LE page size: 512 vs 4096
+
+A full LE header diff against `HSFLOP.PDR` - rather than the handful of fields picked by hand -
+found the last structural difference:
+
+```
+field       OURS    HSFLOP
+pagesize    512     4096      <-- the Windows VxD loader works in 4 KB pages
+numpreload  4       1
+```
+
+`LINK /VXD` alone produced 512-byte LE pages, the OS/2-style layout. `/ALIGN:4096` fixes it, and
+`numpreload` falls into line as a consequence. The file grows to 16544 bytes because it is now
+padded to whole 4 KB pages - which is what every working `.PDR` on the machine looks like.
+
+Full link line: `/VXD /NOD /ALIGN:4096 /DEF:PORT.DEF`.
+
+```
+phase 1j  0681f388eab8173b483074aa00caa11d   16544 bytes, 4 KB pages
+```
+
+**Diff the whole header, not the fields you suspect.** Three of these image-level faults - the
+dynamic flag, PRELOAD, and the page size - were each found by comparing against a driver that
+loads. The first two took a boot each to disprove because only some fields were compared; the last
+took one command once the whole header was diffed.
