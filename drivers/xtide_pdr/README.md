@@ -300,9 +300,11 @@ Sources: [`RomVars.inc`](https://www.xtideuniversalbios.org/browser/xtideunivers
 [`XTCF.inc`](https://www.xtideuniversalbios.org/browser/xtideuniversalbios/trunk/XTIDE_Universal_BIOS/Inc/Controllers/XTCF.inc),
 [v2.0.0 manual](https://xtideuniversalbios.org/export/504/xtideuniversalbios/wiki/Manual_v2_0_0.wiki).
 
-- ❌ **XT-CF DMA mode is ruled out.** `XTCF.inc` states it is exclusive to XT-CFv3 and transfers on
-  DMA channel 3. This board is v2.0, so nothing we write should involve the 8237 - which also keeps
-  us clear of the 4-bit page-register trap (Technique 62).
+- ⚠ **"XT-CF DMA mode is ruled out" - RETRACTED 2026-08-31, see the card identification below.**
+  The reasoning was sound but the premise was wrong: `XTCF.inc` does say DMA is exclusive to
+  XT-CFv3 on channel 3, but this board **is** a rev 3. DMA is therefore available, not excluded.
+  We are still not using it - PIO is measured working and the 8237 on this machine is a minefield
+  (Technique 62's 4-bit page-register trap) - but that is now a choice, not a constraint.
 - ❌ **XTIDECFG cannot be read from the host.** It packs its strings; extracting them yields
   nothing usable. It has to be run on the machine.
 
@@ -535,3 +537,35 @@ Writing a file to the card over COMrade while the drive was still unsettled from
 transfers damaged the root directory - 38 of 66 entries lost, subdirectories intact. Restored from
 `precfxtide.img`. **Do not write to the filesystem while the drive is in a state you have not
 returned to idle.** Verify status is `50h` and no transfer is pending first, or do not write at all.
+
+### The card, identified - 2026-08-31
+
+Owner-supplied, and it settles the hardware question that four sessions of inference could not.
+
+**[TexElec ISA CompactFlash Adapter](https://texelec.com/product/isa-compactflash-adapter/)**, whose
+own page titles it **"Lo-tech ISA XT CF Adapter rev. 3"**. Lo-tech's reference page for it
+([`lo-tech.co.uk/wiki/XT-CF`](https://www.lo-tech.co.uk/wiki/XT-CF)) states the board *"uses the
+XT-IDE Universal BIOS (adapter type 'lo-tech XT-CF')"*, with **base 300h or 320h by DIP switch 3**
+and **ROM window C800h or D000h by DIP switch 2**.
+
+`bDevice = 0x0A` is therefore an **XT-CF** type, confirmed three independent ways:
+
+| route | evidence |
+|---|---|
+| Measurement, this repo | A0 undecoded, stride 2, 8-bit PIO through the data port, no `+8` latch |
+| Schematic, via @andrew-hoffman | D8-D15 are not connected on the XT-CF family |
+| Vendor documentation | adapter type is literally "lo-tech XT-CF" |
+
+The enum value never had to be resolved. Three routes to the same answer beat one lookup.
+
+**Not the XT-CF-lite rev.2.** @andrew-hoffman linked
+[that board's wiki page](https://www.lo-tech.co.uk/wiki/XT-CF-lite_rev.2) and its schematic is what
+confirmed D8-D15, but it is a different card. Its page also says *"the alternate status register is
+at Base+10h"* via A4 - **untested here, and it is a different board**, so treat it as a lead, not a
+fact. It is worth one `io_in` at `0x310`: if it mirrors status (`50h`), the driver should poll
+alternate status rather than status, because reading status acknowledges a pending interrupt and
+alternate status does not. Our sweep stopped at `0x30F` and never looked.
+
+**What the vendor pages do NOT contain**, so nobody repeats the search: no register map, no taskfile
+spacing, no alternate-status location, no numeric device-type value, no statement of whether the CF
+is left in 8-bit mode. The register map in this file is measured, and remains the only one we have.
