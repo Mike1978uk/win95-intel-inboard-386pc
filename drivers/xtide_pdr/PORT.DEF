@@ -1,6 +1,6 @@
 ; PORT.DEF - module definition for the XT-IDE IOS port driver.
 ;
-; TWO things here, and the driver will not load without either.
+; THREE things here, and the driver will not load without any of them.
 ;
 ; 1. VXD ... DYNAMIC sets the LE module-type flag marking the image
 ;    dynamically loadable (0x00038000 vs 0x00028000). IOS loads IOSUBSYS
@@ -20,6 +20,13 @@
 ; only, so the sample as documented cannot produce a loadable driver.
 
 VXD PORT DYNAMIC
+
+; 3. DESCRIPTION occupies ordinal 0 of the non-resident name table. Without it
+;    LINK spends the first export on that slot, so PORT_DDB is published at
+;    ordinal 0 and the module has no ordinal-1 name at all. HSFLOP.PDR and
+;    zikolas' CFU1.VXD - built by different toolchains, both loading - each
+;    publish <NAME>_DDB at ordinal 1.
+DESCRIPTION 'XT-IDE Port Driver (Version 1.0)'
 
 SEGMENTS
 	_LPTEXT		CLASS 'LCODE'	PRELOAD NONDISCARDABLE
