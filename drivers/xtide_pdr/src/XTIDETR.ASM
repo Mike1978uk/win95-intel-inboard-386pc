@@ -232,6 +232,29 @@ XTIDE_ReqCount		dd	0
 public XTIDE_ReqBuf
 XTIDE_ReqBuf			dd	0
 
+;  Scatter/gather walk.
+;
+;  `IOR_buffer_ptr` points to a data buffer ONLY while IORF_SCATTER_GATHER is
+;  clear. With it set the DDK says outright that it "points to a list of linear
+;  (logical) scatter-gather descriptors" - `BlockDev_Scatter_Gather` in
+;  BLOCKDEV.INC, two dwords per entry, SECTOR COUNT first and the buffer
+;  pointer SECOND.
+;
+;  Reading that field blind is what put ring-0 heap on the disk on 2026-09-01:
+;  VFAT's mount-time reads are single-buffer, so the read path looked correct,
+;  and its first write was scatter/gather, so we transmitted the descriptor
+;  list itself into the root directory. A round trip cannot catch this either -
+;  both halves would move the same wrong bytes.
+;
+;  The list is terminated by a null pointer or a zero count, and separately
+;  bounded by IOR_xfer_count; honour both, and clamp the last segment to
+;  whatever the bound has left. Same shape as zikolas/cfu1-win9x's rr_sg/rw_sg,
+;  which is a shipping driver that has actually executed this path.
+XTIDE_SgCur			dd	0	; -> current descriptor
+XTIDE_SgLeft			dd	0	; sectors the IOR still accounts for
+XTIDE_ReqIsWrite		dd	0	; direction, so the transfer loop does
+					; not have to hold the IOP in EBX
+
 ;  The four taskfile values, filled by either addressing mode and written out
 ;  by one common block, so LBA and CHS cannot diverge in how they program the
 ;  drive - only in how they compute these.
@@ -308,7 +331,29 @@ XTIDE_MkSchedRc		dd	0FFFFFFFFh	; -1 = never even tried to queue;
 					; 0 = _SHELL_CallAtAppyTime refused
 XTIDE_MkOurUnit		dd	0	; addressing only - not part of the report
 XTIDE_MkStride		dd	0	; what XTIDE_DetectStride settled on, 0 = never ran
-			db	280 dup (0)	; pads XTIDE_Marker to exactly 512 bytes
+
+;  First WRITE the request path ever saw, captured verbatim. The write on
+;  2026-09-01 reached LBA 126 and put ring-0 heap there instead of the
+;  directory sector, so every field read through the assumption "this pointer
+;  is a flat data buffer" is worthless (technique 82). Dump the bytes and the
+;  flags and let them say what the pointer is.
+XTIDE_MkWrFlags		dd	0	; IOR_flags - IORF_SCATTER_GATHER lives here
+XTIDE_MkWrBuf		dd	0	; IOR_buffer_ptr as read
+XTIDE_MkWrSgd		dd	0	; IOR_sgd_lin_phys
+XTIDE_MkWrNsgd		dd	0	; IOR_num_sgds
+XTIDE_MkWrLba		dd	0
+XTIDE_MkWrCnt		dd	0
+XTIDE_MkWrEsi		dd	0	; ESI as XTIDE_WriteSectors actually used it
+XTIDE_MkWrData		db	32 dup (0)	; first 32 bytes at IOR_buffer_ptr
+
+;  How many requests arrived with IORF_SCATTER_GATHER set, by direction. A
+;  snapshot of the FIRST write cannot answer "does this ever happen", which is
+;  the question that decides whether the descriptor walk is load-bearing or
+;  dead code - a counter reports whether anything happened, a captured value
+;  only reports the last thing that did (technique 83).
+XTIDE_MkSgRd		dd	0
+XTIDE_MkSgWr		dd	0
+			db	208 dup (0)	; pads XTIDE_Marker to exactly 512 bytes
 
 ;  Working storage - deliberately AFTER the marker sector, not inside it.
 XTIDE_OurLgn		dd	0	; load group number, for the logical calldown
@@ -990,6 +1035,19 @@ BeginProc XTIDE_WriteSectors
 
 	mov	ecx, XTIDE_ReqCount
 	mov	esi, XTIDE_ReqBuf
+ifdef XT_REQ_MARKER
+;  What the transport ACTUALLY transmitted from, recorded here rather than at
+;  the call site, so a clobber between the two shows up as a mismatch instead
+;  of being invisible. MkWrBuf is set by XTIDE_MarkWrite on the first data
+;  write and is still zero for the marker's own writes, so this gate picks the
+;  first REAL write and nothing else.
+	cmp	XTIDE_MkWrBuf, 0
+	je	xwr_noesi
+	cmp	XTIDE_MkWrEsi, 0
+	jne	xwr_noesi
+	mov	XTIDE_MkWrEsi, esi
+xwr_noesi:
+endif
 xwr_sector:
 	push	ecx
 	call	XTIDE_WaitDrq		; drive asking for the next sector
@@ -1913,6 +1971,59 @@ xmr_skip:
 EndProc XTIDE_MarkRequest
 
 ;----------------------------------------------------------------------------
+; XTIDE_MarkWrite - snapshot the first WRITE the request path ever receives.
+;
+;   In:   EBX -> IOP, XTIDE_ReqBuf already loaded from IOR_buffer_ptr
+;   Uses: EAX, ECX, EDX  (EBX, ESI, EDI preserved - the caller still needs all
+;         three, and a helper eating them is the bug class technique 78 exists
+;         for)
+;
+;   Deliberately raw. The write that motivated this put ring-0 heap on the
+;   disk, which means the pointer is not what the code assumed it was - so
+;   copy the bytes and the flags out and interpret them on the host, rather
+;   than reading further fields through the same broken assumption.
+;----------------------------------------------------------------------------
+BeginProc XTIDE_MarkWrite
+
+	push	ebx
+	push	esi
+	push	edi
+
+	mov	eax, [ebx].IOP_ior.IOR_flags
+	mov	XTIDE_MkWrFlags, eax
+	mov	eax, [ebx].IOP_ior.IOR_sgd_lin_phys
+	mov	XTIDE_MkWrSgd, eax
+	movzx	eax, byte ptr [ebx].IOP_ior.IOR_num_sgds
+	mov	XTIDE_MkWrNsgd, eax
+	mov	eax, dword ptr [ebx].IOP_ior.IOR_start_addr
+	mov	XTIDE_MkWrLba, eax
+	mov	eax, [ebx].IOP_ior.IOR_xfer_count
+	mov	XTIDE_MkWrCnt, eax
+
+	mov	eax, XTIDE_ReqBuf
+	mov	esi, eax
+	mov	edi, OFFSET32 XTIDE_MkWrData
+	mov	ecx, 32
+xmw_copy:
+	mov	dl, [esi]
+	mov	[edi], dl
+	inc	esi
+	inc	edi
+	dec	ecx
+	jnz	xmw_copy
+
+;  LAST, so the "first write only" test in XTIDE_StartRequest stays false
+;  until every other field above it is filled in.
+	mov	XTIDE_MkWrBuf, eax
+
+	pop	edi
+	pop	esi
+	pop	ebx
+	ret
+
+EndProc XTIDE_MarkWrite
+
+;----------------------------------------------------------------------------
 ; XTIDE_ConfigDcb - PUBLIC. Describe the device in the DCB the IOS will keep.
 ;
 ;   In:   ESI -> DCB
@@ -2030,57 +2141,88 @@ xsr_io:
 	mov	eax, dword ptr [ebx].IOP_ior.IOR_start_addr
 	mov	XTIDE_ReqLba, eax
 	mov	eax, [ebx].IOP_ior.IOR_xfer_count
-	mov	XTIDE_ReqCount, eax
-	mov	eax, [ebx].IOP_ior.IOR_buffer_ptr
-	mov	XTIDE_ReqBuf, eax
+	mov	XTIDE_SgLeft, eax
+	mov	XTIDE_ReqIsWrite, 0
+	movzx	eax, [ebx].IOP_ior.IOR_func
+	cmp	ax, IOR_WRITE
+	jne	xsr_dirset
+	mov	XTIDE_ReqIsWrite, 1
+xsr_dirset:
 
-;  Bounds check against the drive's own capacity, before touching hardware.
+ifdef XT_REQ_MARKER
+	cmp	XTIDE_ReqIsWrite, 0
+	je	xsr_nowrsnap
+	cmp	XTIDE_MkWrBuf, 0	; the FIRST write only
+	jne	xsr_nowrsnap
+	mov	eax, [ebx].IOP_ior.IOR_buffer_ptr
+	mov	XTIDE_ReqBuf, eax	; raw, whatever it turns out to point at
+	call	XTIDE_MarkWrite
+xsr_nowrsnap:
+endif
+
+;  Bounds check the whole request against the drive's own capacity, before
+;  touching hardware. Done on the IOR's own count, so it holds for the
+;  scatter/gather path too - the segments only partition that same count.
 	mov	eax, XTIDE_TotalSec
 	or	eax, eax
-	jz	xsr_chunk			; CHS-only drive, no total to check against
+	jz	xsr_dispatch		; CHS-only drive, no total to check against
 	mov	ecx, XTIDE_ReqLba
-	add	ecx, XTIDE_ReqCount
+	add	ecx, XTIDE_SgLeft
 	jc	xsr_badsector
 	cmp	ecx, eax
 	ja	xsr_badsector
 
-;  Chunk the request. The sector-count register is one byte and 0 means 256,
-;  so no single command can carry an arbitrary IOS request.
-xsr_chunk:
-	mov	ecx, XTIDE_ReqCount
+xsr_dispatch:
+	test	dword ptr [ebx].IOP_ior.IOR_flags, IORF_SCATTER_GATHER
+	jz	xsr_plain
+ifdef XT_REQ_MARKER
+	cmp	XTIDE_ReqIsWrite, 0
+	je	xsr_sgrd
+	inc	XTIDE_MkSgWr
+	jmp	xsr_sg
+xsr_sgrd:
+	inc	XTIDE_MkSgRd
+endif
+	jmp	xsr_sg
+xsr_plain:
+
+;  Plain case: one linear buffer for the whole transfer.
+	mov	eax, [ebx].IOP_ior.IOR_buffer_ptr
+	mov	XTIDE_ReqBuf, eax
+	mov	eax, XTIDE_SgLeft
+	mov	XTIDE_ReqCount, eax
+	call	XTIDE_XferRun
+	jc	xsr_ioerror
+	jmp	xsr_ok
+
+;  Scatter/gather: IOR_buffer_ptr is a list of {sector count, linear buffer}.
+xsr_sg:
+	mov	eax, [ebx].IOP_ior.IOR_buffer_ptr
+	mov	XTIDE_SgCur, eax
+xsr_sgloop:
+	cmp	XTIDE_SgLeft, 0
+	je	xsr_ok			; the IOR's own count is satisfied
+	mov	edx, XTIDE_SgCur
+	mov	eax, [edx+4]		; buffer pointer is the SECOND dword
+	or	eax, eax
+	jz	xsr_ok			; null terminates the list
+	mov	XTIDE_ReqBuf, eax
+	mov	ecx, [edx]		; sector count is the first
 	or	ecx, ecx
 	jz	xsr_ok
-	cmp	ecx, XT_MAX_CHUNK
-	jbe	xsr_have
-	mov	ecx, XT_MAX_CHUNK
-xsr_have:
-	push	ecx			; this chunk's sector count
-	mov	eax, XTIDE_ReqCount
-	sub	eax, ecx
-	push	eax			; sectors still to do after it
+	cmp	ecx, XTIDE_SgLeft
+	jbe	xsr_sghave
+	mov	ecx, XTIDE_SgLeft	; clamp the last segment to the bound
+xsr_sghave:
 	mov	XTIDE_ReqCount, ecx
-
-	movzx	eax, [ebx].IOP_ior.IOR_func
-	cmp	ax, IOR_WRITE
-	je	xsr_write
-	call	XTIDE_ReadSectors
-	jmp	xsr_done_chunk
-xsr_write:
-	call	XTIDE_WriteSectors
-xsr_done_chunk:
-	pop	eax			; remaining
-	pop	ecx			; this chunk
+	push	ecx
+	call	XTIDE_XferRun
+	pop	ecx
 	jc	xsr_ioerror
-
-	mov	XTIDE_ReqCount, eax
-	or	eax, eax
-	jz	xsr_ok
-
-;  Advance by the chunk actually transferred: LBA by sectors, buffer by bytes.
-	add	XTIDE_ReqLba, ecx
-	shl	ecx, 9
-	add	XTIDE_ReqBuf, ecx
-	jmp	xsr_chunk
+	add	XTIDE_ReqLba, ecx	; XferRun does not advance past its last
+	sub	XTIDE_SgLeft, ecx	; chunk, so step the run on from here
+	add	XTIDE_SgCur, 8
+	jmp	xsr_sgloop
 
 xsr_ok:
 	mov	word ptr [ebx].IOP_ior.IOR_status, IORS_SUCCESS
@@ -2109,6 +2251,70 @@ xsr_complete:
 	ret
 
 EndProc XTIDE_StartRequest
+
+;----------------------------------------------------------------------------
+; XTIDE_XferRun - move XTIDE_ReqCount sectors between XTIDE_ReqLba and
+;                 XTIDE_ReqBuf, in chunks one taskfile command can carry.
+;
+;   In:   XTIDE_ReqLba / ReqCount / ReqBuf / ReqIsWrite
+;   Out:  CF=0 on success. ReqCount is zero; ReqLba and ReqBuf are advanced
+;         past every chunk EXCEPT the last, so a caller stepping through a
+;         scatter/gather list must add the segment on itself.
+;   Uses: EAX, ECX, EDX, ESI, EDI  (EBX preserved - the caller still needs the
+;         IOP, and a helper eating a register its caller relies on is the bug
+;         this file already paid for once, technique 78)
+;
+;   The direction comes from a variable rather than the IOP so this routine
+;   does not have to hold EBX across the transfer loops.
+;----------------------------------------------------------------------------
+BeginProc XTIDE_XferRun
+
+	push	ebx
+xfr_chunk:
+	mov	ecx, XTIDE_ReqCount
+	or	ecx, ecx
+	jz	xfr_ok
+	cmp	ecx, XT_MAX_CHUNK
+	jbe	xfr_have
+	mov	ecx, XT_MAX_CHUNK
+xfr_have:
+	push	ecx			; this chunk's sector count
+	mov	eax, XTIDE_ReqCount
+	sub	eax, ecx
+	push	eax			; sectors still to do after it
+	mov	XTIDE_ReqCount, ecx
+
+	cmp	XTIDE_ReqIsWrite, 0
+	jne	xfr_write
+	call	XTIDE_ReadSectors
+	jmp	xfr_done_chunk
+xfr_write:
+	call	XTIDE_WriteSectors
+xfr_done_chunk:
+	pop	eax			; remaining
+	pop	ecx			; this chunk
+	jc	xfr_fail
+
+	mov	XTIDE_ReqCount, eax
+	or	eax, eax
+	jz	xfr_ok
+
+;  Advance by the chunk actually transferred: LBA by sectors, buffer by bytes.
+	add	XTIDE_ReqLba, ecx
+	shl	ecx, 9
+	add	XTIDE_ReqBuf, ecx
+	jmp	xfr_chunk
+
+xfr_ok:
+	pop	ebx
+	clc
+	ret
+xfr_fail:
+	pop	ebx
+	stc
+	ret
+
+EndProc XTIDE_XferRun
 
 ;----------------------------------------------------------------------------
 ; XTIDE_Probe - PUBLIC. Called from Port_initialize once the device node

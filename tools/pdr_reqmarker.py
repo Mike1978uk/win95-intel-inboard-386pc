@@ -17,6 +17,13 @@ VOLSTEP = {0: 'XTIDE_VolCreate NEVER RAN', 1: 'no ILB', 2: 'already published',
            3: 'no physical DCB', 4: 'MBR read failed', 5: 'no 55AA signature',
            6: 'no partition 1', 7: 'ISP_CREATE_DCB failed', 8: 'logical calldown failed',
            9: 'ISP_ASSOCIATE_DCB failed', 10: 'VOLUME PUBLISHED'}
+#  IOR_flags bits worth naming, from the DDK's INC32/IOR.INC. SCATTER_GATHER is
+#  the one that decides whether IOR_buffer_ptr is a data buffer at all.
+IORF = [(1, 'SCATTER_GATHER'), (2, 'DONT_CACHE'), (3, 'BYPASS_VOLTRK'),
+        (5, 'SWAPPER_IO'), (6, 'DOUBLE_BUFFER'), (8, 'SYNC_COMMAND'),
+        (9, 'CHAR_COMMAND'), (11, 'BYPASS_QUEUE'), (19, 'LOGICAL_START_SECTOR'),
+        (20, 'PARTITION_BIAS_ADDED'), (21, 'DATA_IN'), (22, 'DATA_OUT'),
+        (25, 'DIRECT_IO'), (26, 'PHYS_SGDS')]
 STAGE = {0: 'entry only', 2: 'passed the function check', 3: 'the DCB is ours', 5: 'enqueued', 6: 'about to dequeue', 7: 'about to drive the hardware', 9: 'refusing the request'}
 
 
@@ -40,7 +47,30 @@ def main():
         (vcreate, vcd, vassoc, vdrive, pstart, plen,
          vstep) = struct.unpack('<7I', blk[192:220])
         schedrc = struct.unpack('<I', blk[224:228])[0]
+        stride = struct.unpack('<I', blk[232:236])[0]
+        (wflags, wbuf, wsgd, wnsgd, wlba, wcnt,
+         wesi) = struct.unpack('<7I', blk[236:264])
+        wdata = blk[264:296]
+        sgrd, sgwr = struct.unpack('<2I', blk[296:304])
         print('%s  LBA %d' % (os.path.basename(path), LBA))
+        print('    register stride        %s' % (
+              'XTIDE_Probe never reached it' if stride == 0 else stride))
+        print('    scatter/gather requests %d read, %d write%s'
+              % (sgrd, sgwr, '' if sgrd or sgwr else '   <- the walk is dead code on this run'))
+        print('    -- first WRITE the request path saw --')
+        if wbuf == 0:
+            print('      none arrived')
+        else:
+            print('      IOR_flags           %08X  %s'
+                  % (wflags, ' '.join(n for b, n in IORF if wflags & (1 << b))
+                     or '(none of the ones we name)'))
+            print('      IOR_buffer_ptr      %08X' % wbuf)
+            print('      IOR_sgd_lin_phys    %08X   IOR_num_sgds %d' % (wsgd, wnsgd))
+            print('      LBA %d, %d sectors' % (wlba, wcnt))
+            print('      ESI at WriteSectors %08X%s'
+                  % (wesi, '' if wesi == wbuf else '   <- CLOBBERED between the two'))
+            print('      32 bytes there      %s' % wdata[:16].hex(' '))
+            print('                          %s' % wdata[16:].hex(' '))
         print('    DCB geometry written   %d cyl / %d head / %d spt, %d sectors'
               % (cyls, heads, spt, total))
         print('    DCB_device_flags       %08X' % devflags)
