@@ -67,3 +67,28 @@ Nothing here is speculative — each item is something observed or deliberately 
   destroys the registers its own header promises to preserve, a calldown spliced into every
   DCB the OS broadcasts, and an `EnterProc` that emits no stack frame outside a DEBUG build.
   All three are fixed here; anyone starting from the same sample will meet them.
+
+## The boot-order question, and the exact test that settles it
+
+Owner's read, 2026-09-02, and it is worth proving rather than assuming: **the position of a
+real-mode driver in `CONFIG.SYS` may matter as much as its presence.** IOS scans what exists when
+it runs, so which units are claimed - and by whom - depends on load order.
+
+Right now we cannot tell the two apart. We REM'd the whole SCSI/ASPI chain, so "MODISK2 absent"
+and "MODISK2 loaded late" have never been separated.
+
+**The single-variable test:** restore `MODISK2.SYS` exactly as it was, but move it to the **end**
+of `CONFIG.SYS`, after every other `DEVICEHIGH` line. Nothing else changes.
+
+| result | meaning |
+|---|---|
+| IOS still flags it `Unsafe`/`Monolithic` | it is **presence**. Order is a red herring and the chain has to go, or move to the 32-bit T130 miniport |
+| flag gone, `Init Success` holds | it is **order**, and that is a far better answer - the devices can stay, and we ship a supported ordering |
+
+The second outcome is the one worth hoping for, because it turns a caveat into an instruction.
+Either way it belongs in whatever ships: **anyone running this on a machine with a real-mode ASPI
+or MO/Zip stack will hit the same wall**, and `IOS.LOG` is how they will recognise it - look for
+`Unsafe driver` and how many units are `going through real mode drivers`.
+
+That diagnosis generalises even where `MODISK2` specifically does not, so it is the caveat to lead
+with, not a footnote.
