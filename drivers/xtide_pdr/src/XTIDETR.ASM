@@ -33,6 +33,7 @@
 	include	ior.inc
 	include	iop.inc
 	include	ilb.inc		; the IOS linkage block, for ILB_Service_rtn
+	include	shell.inc		; _SHELL_CallAtAppyTime
 	include	isp.inc		; ISP_CREATE_DCB / _INSERT_CALLDOWN / _ASSOCIATE_DCB
 	.list
 
@@ -298,8 +299,9 @@ XTIDE_MkVolDrive	dd	0	; drive number it was associated with, 3 = D:
 XTIDE_MkPartStart	dd	0
 XTIDE_MkPartLen		dd	0
 XTIDE_MkVolStep		dd	0	; 0 = XTIDE_VolCreate never ran; 10 = volume up
+XTIDE_VolBusy		dd	0	; one queue attempt in flight is enough
 XTIDE_MkOurUnit		dd	0	; addressing only - not part of the report
-			db	292 dup (0)	; pads XTIDE_Marker to exactly 512 bytes
+			db	288 dup (0)	; pads XTIDE_Marker to exactly 512 bytes
 
 ;  Working storage - deliberately AFTER the marker sector, not inside it.
 XTIDE_OurLgn		dd	0	; load group number, for the logical calldown
@@ -1513,6 +1515,46 @@ BeginProc XTIDE_NoteLgn
 	ret
 
 EndProc XTIDE_NoteLgn
+
+;----------------------------------------------------------------------------
+; XTIDE_VolUp / XTIDE_SchedVol - publish the volume AT APPY TIME.
+;
+;   The ISP volume services are appy-time only. Called from an AEP handler
+;   they succeed - drive D: really is created, every ISP_result 0 - and then
+;   kill the boot, because AEP_CONFIG_DCB runs inside IOS_Register.
+;   CAAFL_RING0 lets the callback run before the GUI is up, which is the only
+;   reason this works during boot at all.
+;
+;   Mechanism copied from zikolas/cfu1-win9x sched_volup (MIT).
+;----------------------------------------------------------------------------
+BeginProc XTIDE_VolUp
+
+	call	XTIDE_VolCreate
+	mov	XTIDE_VolBusy, 0
+	ret
+
+EndProc XTIDE_VolUp
+
+BeginProc XTIDE_SchedVol
+
+	cmp	XTIDE_VolBusy, 0
+	jne	xsv_done
+	mov	XTIDE_VolBusy, 1
+
+	push	0		; ulTimeout
+	push	1		; CAAFL_RING0
+	push	0		; dwRefData
+	push	OFFSET32 XTIDE_VolUp
+	VxDCall	_SHELL_CallAtAppyTime
+	add	esp, 16
+	or	eax, eax
+	jnz	xsv_done
+	mov	XTIDE_VolBusy, 0	; could not queue
+
+xsv_done:
+	ret
+
+EndProc XTIDE_SchedVol
 
 ;----------------------------------------------------------------------------
 ; XTIDE_NoteDdb - PUBLIC. Remember our own DDB. In: EAX = AEP_ddb.

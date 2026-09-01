@@ -28,7 +28,17 @@ inside `SYS_DYNAMIC_DEVICE_INIT`. `ISP_ASSOCIATE_DCB` notifies IFSMGR and broadc
 `DBT_DEVICEARRIVAL`; doing that before registration has returned kills the boot — `BOOTLOG.TXT`
 stops at `Initing port.pdr`, 11,826 bytes, the same signature as the old protection error.
 
-**So it is gated.** `build.ps1 -PublishVolume` turns it on; the default build boots to a desktop.
+**Deferral implemented and it fixed the crash.** `XTIDE_SchedVol` queues `XTIDE_VolUp` via
+`_SHELL_CallAtAppyTime` + `CAAFL_RING0`, armed from `AEP_CONFIG_DCB`. With it the boot is healthy
+again - 18,676 byte log, full desktop - where the inline call died at 11,826.
+
+**But the callback never fired inside the 150 s harness window:** `got as far as 0 = never ran`.
+Two candidates, and one marker field splits them: record the EAX returned by
+`_SHELL_CallAtAppyTime` (0 = could not queue). If it queued, the run window is simply too short -
+raise `-Seconds`, or check whether appy time is reached at all before the shell is up. Do that
+first; it is one field and one run.
+
+Still gated behind `build.ps1 -PublishVolume`; the default build boots to a desktop.
 
 **Next step, and it is a copy job.** Use Nick's mechanism - proven in a shipping driver, and his
 comment gives the rule we were breaking:

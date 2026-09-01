@@ -49,7 +49,7 @@ def main():
                    + TAB + 'extrn' + TAB + 'XTIDE_NoteDdb:near' + TAB
                    + '; remember our own DDB (phase 2d)' + NL
                    + TAB + 'extrn' + TAB + 'XTIDE_NoteLgn:near' + NL
-                   + TAB + 'extrn' + TAB + 'XTIDE_VolCreate:near' + TAB
+                   + TAB + 'extrn' + TAB + 'XTIDE_SchedVol:near' + TAB
                    + '; be our own TSD (phase 3)' + NL,
          0),
 
@@ -256,7 +256,7 @@ def main():
         # skip it: a DCB we declined never gets a volume built on it.
         ('publish the volume once the calldown is in',
          r'(\nvcd_ret:)',
-         lambda m: NL + TAB + 'call' + TAB + 'XTIDE_VolCreate' + TAB
+         lambda m: NL + TAB + 'call' + TAB + 'XTIDE_SchedVol' + TAB
                    + '; be our own TSD - nobody else will' + NL + m.group(1),
          0),
         ])
