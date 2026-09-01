@@ -1,5 +1,69 @@
 # Next session — 2026-09-01
 
+## RESOLVED 2026-09-01 - the driver loads
+
+```
+[000AC32B] Initing port.pdr
+[000AC408] Init Success port.pdr        221 ticks
+```
+
+Proven in 86Box, not on the 5160. Test bed `vm_xtide_pdr/` (Compaq Deskpro 386, 86Box's own
+`xtide` controller at 0x300, Win95 booting off it), rebuilt from
+`vm_win95_at_gap/win95_AT_working.img`. `tools/pdr_loadtest.ps1` does deploy -> logged boot ->
+verdict in one command; the baseline image `xtide_base.img` already has the device node
+installed and the logged boot armed, so no GUI step is needed again.
+
+221 ticks is ~29 delay units. A failure is code 1-6, i.e. 5-10 units including the fixed
+arrival and `reg_result` markers; success is `8 + model length`, ~25. So the probe's IDENTIFY
+validated as well. The exact model length is not pinned - that would need one more run.
+
+### The four image-level defects, and the two install-level ones
+
+| # | fault | fix |
+|---|---|---|
+| 1 | `mod_flags 0x00028000` - not dynamically loadable | `VXD PORT DYNAMIC` |
+| 2 | no segment had `PRELOAD` | canonical `SEGMENTS` map |
+| 3 | `pagesize 512` (OS/2 layout) | `/ALIGN:4096` |
+| 4 | **`PORT_DDB` exported at ordinal 0** | `DESCRIPTION` in `PORT.DEF` |
+| 5 | **INF had no `ClassGUID`** | copied from `MSHDC.INF` |
+| 6 | **`PORT.INF` was LF-only in this working tree** | rewritten CRLF |
+
+4 was found by dumping the LE structures (`tools/ledump.py`) and comparing against two
+independently-built images that load: Microsoft's `HSFLOP.PDR` and zikolas' `CFU1.VXD`. Both
+publish `<NAME>_DDB` at ordinal 1.
+
+5 was found by diffing our INF against `MSHDC.INF` in the same install. That should have been
+the first move, not the third - see the process note at the bottom.
+
+6 matters for the card: the copy deployed to the CF came from this working tree, so
+`C:\PORTPDR\PORT.INF` there is probably LF-only too. The committed blob was always fine.
+
+### Two more things learned about the harness
+
+- **`WIN /B` is a Windows 3.x switch.** Win95's `WIN.COM` treats `/B` as a program to run and
+  puts up *"Cannot find the file '/B'"*. Use `MSDOS.SYS` `BootMenu=1` + `BootMenuDefault=2`
+  (entry 2 is *Logged*) + `BootMenuDelay=1` for a hands-off logged boot.
+- **A killed VM leaves the volume dirty**, so the next boot runs real-mode ScanDisk and never
+  reaches Windows. `AutoScan=0` plus `tools/fatclean.py` per iteration.
+
+### Next
+
+1. Phase 2 - sector reads through the validated transport.
+2. Add an XT-CF rev 3 model to the 86Box fork (`reg = (port & 0x1F) >> 1`, alt status at
+   `base+1Ch`, no latch) so the owner's exact card is reproducible, and so autodetect can be
+   tested against two genuinely different XT-IDE variants. Upstreamable on its own.
+3. Only then the real machine.
+
+### Process note
+
+The handover below listed *"Compare against something known to work, early"* as failure #5 of
+2026-08-31. This session repeated it: two speculative causes were proposed for the Have Disk
+rejection (line endings, then the install path) before anyone diffed against `MSHDC.INF`,
+which was sitting in the same install the whole time. The line-ending fault was real but was
+not the cause.
+
+---
+
 ## The one rule for this session
 
 **Do not test driver loading on the real 5160.** Whether a `.PDR` loads is a Windows VxD-loader
