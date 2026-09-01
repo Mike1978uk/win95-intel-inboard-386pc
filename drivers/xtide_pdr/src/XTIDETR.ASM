@@ -32,6 +32,8 @@
 	include	dcb.inc
 	include	ior.inc
 	include	iop.inc
+	include	ilb.inc		; the IOS linkage block, for ILB_Service_rtn
+	include	isp.inc		; ISP_CREATE_DCB / _INSERT_CALLDOWN / _ASSOCIATE_DCB
 	.list
 
 ;============================================================================
@@ -192,6 +194,8 @@ public XTIDE_SlavePresent
 XTIDE_SlavePresent	dd	0
 
 ;  IDENTIFY landing area. 512 bytes, one device - phase 2 grows this.
+extrn	port_ilb:dword		; IOS linkage block, defined in PORT.ASM
+
 public XTIDE_IdBuf
 XTIDE_IdBuf		db	512 dup (0)
 
@@ -271,8 +275,36 @@ XTIDE_MkCdDdb		dd	0	; DDB on the calldown entry IOS reached us through
 XTIDE_OurDdb		dd	0	; our own DDB, from AEP_ddb at config time
 XTIDE_MkIop		dd	0	; EBX as Port_request received it
 XTIDE_MkRaw		dd	8 dup (0)	; first 32 bytes at that address, verbatim
+
+;  The first eight requests, as (function, LBA) pairs. A raw surface with no
+;  partition table draws exactly one read and then silence; mounting a real
+;  volume draws the partition sector, the boot sector, both FATs and the root
+;  directory, at addresses the host can predict. The difference between those
+;  two shapes is the difference between a driver that answered once and a
+;  driver that is carrying a filesystem.
+XTIDE_MkRing		dd	16 dup (0)
+
+;  What XTIDE_ConfigDcb actually put in the DCB. Every theory about why the
+;  volume will not mount assumes these are sane, and not one run has checked.
+XTIDE_MkCyls		dd	0
+XTIDE_MkHeads		dd	0
+XTIDE_MkSpt		dd	0
+XTIDE_MkTotal		dd	0
+XTIDE_MkDevFlags	dd	0
+XTIDE_MkVolCreate	dd	0	; ISP_result of ISP_CREATE_DCB
+XTIDE_MkVolCd		dd	0	; ISP_result of the logical calldown insert
+XTIDE_MkVolAssoc	dd	0	; ISP_result of ISP_ASSOCIATE_DCB
+XTIDE_MkVolDrive	dd	0	; drive number it was associated with, 3 = D:
+XTIDE_MkPartStart	dd	0
+XTIDE_MkPartLen		dd	0
+XTIDE_MkVolStep		dd	0	; 0 = XTIDE_VolCreate never ran; 10 = volume up
 XTIDE_MkOurUnit		dd	0	; addressing only - not part of the report
-			db	400 dup (0)
+			db	292 dup (0)	; pads XTIDE_Marker to exactly 512 bytes
+
+;  Working storage - deliberately AFTER the marker sector, not inside it.
+XTIDE_OurLgn		dd	0	; load group number, for the logical calldown
+XTIDE_LogDcb		dd	0	; the logical volume DCB, once created
+XTIDE_MbrBuf		db	512 dup (0)
 public XTIDE_RbBuf
 XTIDE_RbBuf			db	512 dup (0)
 
@@ -331,6 +363,8 @@ VxD_LOCKED_DATA_ENDS
 
 ;============================================================================
 VxD_LOCKED_CODE_SEG
+
+	extrn	Port_request:near	; our own calldown entry, in PORTREQ.ASM
 
 ;----------------------------------------------------------------------------
 ; XTIDE_SetPorts - derive every port address from the base and the stride.
@@ -1294,6 +1328,193 @@ endif
 EndProc XTIDE_NoteIsp
 
 ;----------------------------------------------------------------------------
+; XTIDE_VolCreate - PUBLIC. Be our own TSD: publish the volume ourselves.
+;
+;   In:   nothing; uses the physical DCB and DDB recorded during registration
+;   Out:  EAX = 0 a drive letter was assigned, 1 otherwise
+;
+;   Windows' own disk TSD never engages a DYNAMICALLY registered port driver's
+;   DCB. We are dynamically registered by necessity - without DRP_FC_DYNALOAD
+;   the image does not load at all - so IOS runs our AEP_CONFIG_DCB and nobody
+;   else's, and no layer above us ever parses a partition table. Measured
+;   2026-09-01 on a freshly formatted FAT16 volume: exactly three requests,
+;   LBA 0 then LBA 63 twice, and then silence. The transport was never at
+;   fault; there was simply nothing above it.
+;
+;   So do the TSD's job: read the MBR, create a logical DCB for partition 1,
+;   give it its own calldown entry, and associate it with a drive letter.
+;
+;   The recipe, the ordering and the reason are Nick's (@zikolas), from
+;   cfu1-win9x's vol_create - MIT licensed. Notably his warning that the
+;   logical DCB must have its OWN calldown node: ISP_DCB_DESTROY frees a DCB's
+;   nodes, so a shared chain leaves the physical DCB pointing at freed memory.
+;----------------------------------------------------------------------------
+BeginProc XTIDE_VolCreate
+
+	push	ebx
+	push	esi
+	push	edi
+
+	mov	XTIDE_MkVolStep, 1
+	cmp	port_ilb, 0
+	je	xvc_fail
+	mov	XTIDE_MkVolStep, 2
+	cmp	XTIDE_LogDcb, 0
+	jne	xvc_fail		; already published
+
+	mov	esi, XTIDE_MkOurUnit
+	mov	esi, XTIDE_InsertedDcb[esi*4]
+	or	esi, esi
+	jz	xvc_fail		; no physical DCB of ours
+
+;  1) the partition table
+	mov	eax, XTIDE_MkOurUnit
+	call	XTIDE_SelectUnit
+	mov	XTIDE_ReqLba, 0
+	mov	XTIDE_ReqCount, 1
+	mov	XTIDE_ReqBuf, OFFSET32 XTIDE_MbrBuf
+	mov	XTIDE_MkVolStep, 4
+	call	XTIDE_ReadSectors
+	jc	xvc_fail
+	mov	XTIDE_MkVolStep, 5
+	cmp	word ptr XTIDE_MbrBuf+510, 0AA55h
+	jne	xvc_fail
+
+	mov	eax, dword ptr XTIDE_MbrBuf+1BEh+8
+	or	eax, eax
+	jz	xvc_fail
+	mov	XTIDE_MkVolStep, 6
+	mov	XTIDE_MkPartStart, eax
+	mov	eax, dword ptr XTIDE_MbrBuf+1BEh+12
+	or	eax, eax
+	jz	xvc_fail
+	mov	XTIDE_MkVolStep, 7
+	mov	XTIDE_MkPartLen, eax
+
+;  2) a logical DCB
+	sub	esp, size ISP_dcb_create
+	mov	edi, esp
+	mov	[edi].ISP_func, ISP_CREATE_DCB
+	mov	[edi].ISP_result, 0
+	mov	[edi].ISP_dcb_size, size DCB
+	mov	[edi].ISP_dcb_ptr, 0
+	push	edi
+	call	[port_ilb.ILB_Service_rtn]
+	add	esp, 4
+	movzx	eax, [edi].ISP_result
+	mov	XTIDE_MkVolCreate, eax
+	mov	ebx, [edi].ISP_dcb_ptr
+	add	esp, size ISP_dcb_create
+	or	eax, eax
+	jnz	xvc_fail
+	or	ebx, ebx
+	jz	xvc_fail
+	mov	XTIDE_MkVolStep, 8
+	mov	XTIDE_LogDcb, ebx
+
+;  3) describe it, and link it to the physical DCB both ways
+	mov	[ebx].DCB_physical_dcb, esi
+	mov	[esi].DCB_next_logical_dcb, ebx
+
+	sub	esp, size ISP_calldown_insert
+	mov	edi, esp
+	mov	[edi].ISP_func, ISP_INSERT_CALLDOWN
+	mov	[edi].ISP_result, 0
+	mov	[edi].ISP_i_cd_dcb, ebx
+	mov	[edi].ISP_i_cd_req, OFFSET32 Port_Request
+	mov	eax, XTIDE_OurDdb
+	mov	[edi].ISP_i_cd_ddb, eax
+	mov	[edi].ISP_i_cd_expan_len, 0
+	mov	[edi].ISP_i_cd_flags, DCB_dmd_small_memory
+	mov	eax, XTIDE_OurLgn
+	mov	[edi].ISP_i_cd_lgn, al
+	push	edi
+	call	[port_ilb.ILB_Service_rtn]
+	add	esp, 4
+	movzx	eax, [edi].ISP_result
+	mov	XTIDE_MkVolCd, eax
+	add	esp, size ISP_calldown_insert
+	or	eax, eax
+	jnz	xvc_fail
+
+	mov	[ebx].DCB_dmd_flags, DCB_dmd_small_memory
+	mov	[ebx].DCB_device_flags, DCB_DEV_LOGICAL or DCB_DEV_WRITEABLE
+	mov	eax, XTIDE_MkPartStart
+	mov	[ebx].DCB_Partition_Start, eax
+	mov	byte ptr [ebx].DCB_apparent_blk_shift, 9
+	mov	[ebx].DCB_sig, 'CB'
+	mov	byte ptr [ebx].DCB_device_type, DCB_type_disk
+	mov	[ebx].DCB_max_xfer_len, 1000h	; 4 KB - keep the PIO bursts short
+	mov	eax, XTIDE_MkPartLen
+	mov	[ebx].DCB_actual_sector_cnt, eax
+	mov	dword ptr [ebx].DCB_actual_sector_cnt+4, 0
+	mov	[ebx].DCB_actual_blk_size, 512
+	mov	eax, XTIDE_Heads
+	mov	[ebx].DCB_actual_head_cnt, eax
+	mov	eax, XTIDE_Spt
+	mov	[ebx].DCB_actual_spt, eax
+	mov	eax, XTIDE_Heads
+	imul	eax, XTIDE_Spt
+	mov	ecx, eax
+	mov	eax, XTIDE_MkPartLen
+	xor	edx, edx
+	div	ecx
+	mov	[ebx].DCB_actual_cyl_cnt, eax
+
+;  4) a drive letter. 0=A, so 3=D - the first one a single-partition boot
+;     disk leaves free. Walk up if it is taken.
+	mov	XTIDE_MkVolStep, 9
+	mov	XTIDE_MkVolDrive, 3
+xvc_assoc:
+	sub	esp, size ISP_dcb_associate
+	mov	edi, esp
+	mov	[edi].ISP_func, ISP_ASSOCIATE_DCB
+	mov	[edi].ISP_result, 0
+	mov	[edi].ISP_d_a_dcb, ebx
+	mov	eax, XTIDE_MkVolDrive
+	mov	[edi].ISP_d_a_drive, al
+	mov	[edi].ISP_d_a_flags, 0
+	push	edi
+	call	[port_ilb.ILB_Service_rtn]
+	add	esp, 4
+	movzx	eax, [edi].ISP_result
+	add	esp, size ISP_dcb_associate
+	mov	XTIDE_MkVolAssoc, eax
+	or	eax, eax
+	jz	xvc_ok
+	inc	XTIDE_MkVolDrive
+	cmp	XTIDE_MkVolDrive, 10
+	jb	xvc_assoc
+	jmp	xvc_fail
+
+xvc_ok:
+	mov	XTIDE_MkVolStep, 10
+	xor	eax, eax
+	pop	edi
+	pop	esi
+	pop	ebx
+	ret
+
+xvc_fail:
+	mov	eax, 1
+	pop	edi
+	pop	esi
+	pop	ebx
+	ret
+
+EndProc XTIDE_VolCreate
+
+;----------------------------------------------------------------------------
+; XTIDE_NoteLgn - PUBLIC. Remember the load group number. In: EAX.
+;----------------------------------------------------------------------------
+BeginProc XTIDE_NoteLgn
+
+	mov	XTIDE_OurLgn, eax
+	ret
+
+EndProc XTIDE_NoteLgn
+
+;----------------------------------------------------------------------------
 ; XTIDE_NoteDdb - PUBLIC. Remember our own DDB. In: EAX = AEP_ddb.
 ;----------------------------------------------------------------------------
 BeginProc XTIDE_NoteDdb
@@ -1534,17 +1755,32 @@ BeginProc XTIDE_MarkRequest
 	push	edi
 
 	inc	XTIDE_MkCount
-	mov	eax, XTIDE_MkCount
-	cmp	eax, 1
-	je	xmr_write
-	test	eax, 63
-	jnz	xmr_skip
 
-xmr_write:
 	movzx	eax, [ebx].IOP_ior.IOR_func
 	mov	XTIDE_MkFunc, eax
 	mov	eax, dword ptr [ebx].IOP_ior.IOR_start_addr
 	mov	XTIDE_MkLba, eax
+
+;  Keep the FIRST eight, not the last eight. The mount sequence is at the
+;  start; whatever a running system does afterwards is noise by comparison.
+	mov	eax, XTIDE_MkCount
+	cmp	eax, 8
+	ja	xmr_nostore
+	dec	eax
+	shl	eax, 3
+	mov	ecx, XTIDE_MkFunc
+	mov	XTIDE_MkRing[eax], ecx
+	mov	ecx, XTIDE_MkLba
+	mov	XTIDE_MkRing[eax+4], ecx
+
+xmr_nostore:
+	mov	eax, XTIDE_MkCount
+	cmp	eax, 8
+	jbe	xmr_write
+	test	eax, 7
+	jnz	xmr_skip
+
+xmr_write:
 	mov	eax, [ebx].IOP_ior.IOR_xfer_count
 	mov	XTIDE_MkXfer, eax
 	movzx	eax, byte ptr [esi].DCB_unit_on_ctl
@@ -1612,6 +1848,19 @@ xcd_havetotal:
 	mov	[esi].DCB_actual_cyl_cnt, eax
 	mov	eax, XTIDE_Spt
 	mov	[esi].DCB_actual_spt, eax
+
+ifdef XT_REQ_MARKER
+	mov	eax, XTIDE_Cyls
+	mov	XTIDE_MkCyls, eax
+	mov	eax, XTIDE_Heads
+	mov	XTIDE_MkHeads, eax
+	mov	eax, XTIDE_Spt
+	mov	XTIDE_MkSpt, eax
+	mov	eax, [esi].DCB_actual_sector_cnt
+	mov	XTIDE_MkTotal, eax
+	mov	eax, [esi].DCB_device_flags
+	mov	XTIDE_MkDevFlags, eax
+endif
 
 xcd_done:
 	pop	ebx

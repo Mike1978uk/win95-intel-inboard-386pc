@@ -3746,3 +3746,47 @@ read from it means anything**. One dump, one glance, question closed.
 **When a structure's fields disagree with each other, stop reading fields and dump the bytes.** A
 field read through a wrong base is not a wrong value, it is not a value at all - and a plausible
 wrong value is far more expensive than an obviously wrong one, because it survives review.
+
+## Technique 83: a dynamically registered IOS driver gets its own config pass and NOTHING else
+
+2026-09-01, and it explains three separate dead ends at once. A Win9x port driver that must set
+`DRP_FC_DYNALOAD` to load at all is registered *dynamically*, and IOS then runs **only that
+driver's** `AEP_CONFIG_DCB`. Consequences, all measured:
+
+- **Windows' own disk TSD never engages the DCB.** So nothing parses the partition table into a
+  logical volume and no drive letter is ever assigned. Symptom: a freshly formatted FAT16 volume
+  draws exactly three requests - LBA 0, then the partition's boot sector twice - and then silence.
+  That looks exactly like "the driver returned bad data" and is not.
+- **`AEP_BOOT_COMPLETE` never arrives.** A routine hung off it never runs. Instrument the *entry*
+  of any handler before concluding anything about what it did.
+- The fix is to **be your own TSD**: read the MBR in ring 0, `ISP_CREATE_DCB` a logical DCB, give
+  it its **own** calldown node, fill `DCB_Partition_Start` and the actual geometry, then
+  `ISP_ASSOCIATE_DCB` a drive number. zikolas/cfu1-win9x's `vol_create` is a working MIT-licensed
+  implementation and its comments state the reason outright.
+- **Do not share the physical DCB's calldown node with the logical one** (cfu1's warning):
+  `ISP_DCB_DESTROY` frees a DCB's nodes, so a shared chain leaves the physical DCB pointing at
+  freed memory.
+- **And it cannot be done inline.** `ISP_ASSOCIATE_DCB` notifies IFSMGR and broadcasts device
+  arrival; called from `AEP_CONFIG_DCB` - i.e. inside `IOS_Register`, inside
+  `SYS_DYNAMIC_DEVICE_INIT` - it publishes the volume successfully and then kills the boot. It has
+  to be deferred until registration has returned.
+
+### The instrumentation rule this cost a run to learn
+
+**Never let a status field's "not set" value collide with its success value.** Every ISP result in
+the marker defaulted to 0, and 0 is also "the call succeeded" - so a run in which the routine never
+executed was indistinguishable from one in which it executed perfectly. Both printed zeroes. A
+separate `step` field whose 0 means *"this routine never ran"*, stamped at every bail-out, answered
+in one boot what the result fields could not answer at all.
+
+Corollary, and it generalises past this project: **a counter is worth more than a result code.**
+Result codes report the last thing that happened; counters report whether anything happened.
+
+### A raw surface is not a test fixture
+
+Two runs were spent reading meaning into "Windows issued one request and stopped". The scratch disk
+had no partition table, so one read and a stop was the **correct** behaviour and proved nothing
+either way. `tools/mkfatimg.py` now builds a real partitioned FAT16 volume host-side, and the
+project's own `fatls.py` verifies it before the run. **Build the fixture the OS expects before
+concluding anything from how the OS treats it** - and keep the diagnostic marker outside the
+partition, or a filesystem write will destroy the only channel the driver has.

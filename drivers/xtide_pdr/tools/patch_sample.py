@@ -47,8 +47,19 @@ def main():
                    + TAB + 'extrn' + TAB + 'XTIDE_ConfigDcb:near' + TAB
                    + '; describe the device (phase 2d)' + NL
                    + TAB + 'extrn' + TAB + 'XTIDE_NoteDdb:near' + TAB
-                   + '; remember our own DDB (phase 2d)' + NL,
+                   + '; remember our own DDB (phase 2d)' + NL
+                   + TAB + 'extrn' + TAB + 'XTIDE_NoteLgn:near' + NL
+                   + TAB + 'extrn' + TAB + 'XTIDE_VolCreate:near' + TAB
+                   + '; be our own TSD (phase 3)' + NL,
          0),
+
+        # The load group number the logical DCB's calldown entry will need.
+        ('stash the load group number',
+         r'(' + WS + r'*mov' + WS + r'+\[edi\]\.ISP_i_cd_lgn,' + WS + r'*al[^\n]*\n)',
+         lambda m: m.group(1) + TAB + 'movzx' + TAB + 'eax, byte ptr [ebx.AEP_lgn]' + NL
+                   + TAB + 'call' + TAB + 'XTIDE_NoteLgn' + NL,
+         0),
+
 
         # Our DDB is how a request is later identified as ours - see
         # XTIDE_WantIop. AEP_ddb carries it on every AEP.
@@ -232,6 +243,25 @@ def main():
          0),
     ])
 
+    if '--publishvolume' in sys.argv:
+        total += edit(aer, [
+        # Publish the volume the moment our calldown is in, NOT at
+        # AEP_BOOT_COMPLETE. Measured 2026-09-01: boot-complete never arrives.
+        # A dynamically registered driver gets its own AEP_CONFIG_DCB and
+        # nothing else - which is the same reason no disk TSD ever engages our
+        # DCB. Everything the volume needs (physical DCB, DDB, ILB, load group,
+        # a working read path) exists by the time the insert returns, so there
+        # was never a reason to wait.
+        # Placed BEFORE vcd_ret, so the guard's own "jz/jnz vcd_ret" bail-outs
+        # skip it: a DCB we declined never gets a volume built on it.
+        ('publish the volume once the calldown is in',
+         r'(\nvcd_ret:)',
+         lambda m: NL + TAB + 'call' + TAB + 'XTIDE_VolCreate' + TAB
+                   + '; be our own TSD - nobody else will' + NL + m.group(1),
+         0),
+        ])
+        print('VOLUME: publishing wired into AEP_CONFIG_DCB')
+
     if '--reqmarker' in sys.argv:
         total += edit(req, [
             ('MarkEntry extern',
@@ -246,43 +276,6 @@ def main():
         ])
         print('DIAGNOSTIC: calldown-entry marker wired')
 
-        # A stage flush at every milestone in Port_request. The last stage that
-        # reaches the disk brackets the fault between it and the next one.
-        def stage(n):
-            return (TAB + 'mov' + TAB + 'eax, ' + str(n) + NL
-                    + TAB + 'call' + TAB + 'XTIDE_MarkStage' + NL)
-
-        total += edit(req, [
-            ('MarkStage extern',
-             r'(' + WS + r'*extrn' + WS + r'+XTIDE_MarkEntry:near' + WS + r'*\r?\n)',
-             lambda m: m.group(1) + TAB + 'extrn' + TAB + 'XTIDE_MarkStage:near' + NL,
-             0),
-            ('stage 2 - past the function check',
-             r'(' + WS + r'*ja' + WS + r'+port_r_not_io' + WS + r'*\r?\n)',
-             lambda m: m.group(1) + stage(2),
-             0),
-            ('stage 3 - the DCB is ours',
-             r'(' + WS + r'*jnz' + WS + r'+Port_r_not_io' + WS + r'*\r?\n)',
-             lambda m: m.group(1) + stage(3),
-             0),
-            ('stage 5 - enqueued',
-             r'(' + WS + r'*add' + WS + r'+esp,' + WS + r'*4\+4' + WS + r'*\r?\n)',
-             lambda m: m.group(1) + stage(5),
-             0),
-            ('stage 6 - about to dequeue',
-             r'(\nPort_Start_Request:' + WS + r'*\r?\n)',
-             lambda m: m.group(1) + stage(6),
-             0),
-            ('stage 7 - about to drive the hardware',
-             r'(' + WS + r'*call' + WS + r'+XTIDE_StartRequest[^\n]*\n)',
-             lambda m: stage(7) + m.group(1),
-             0),
-            ('stage 9 - refusing',
-             r'(\nPort_r_not_io:' + WS + r'*\r?\n)',
-             lambda m: m.group(1) + stage(9),
-             0),
-        ])
-        print('DIAGNOSTIC: Port_request stage ladder wired')
 
         # Report Port_cfg_device itself. Three outcomes in one run: no marker at
         # all = AEP_CONFIG_DCB never reached us; cfg>0 want=0 = it did and we
@@ -308,9 +301,11 @@ def main():
         print('DIAGNOSTIC: config-path marker wired')
 
     print('Patched: %d' % total)
-    want = 19 if nocalldown else 18
+    want = 20 if nocalldown else 19
+    if '--publishvolume' in sys.argv:
+        want += 1
     if '--reqmarker' in sys.argv:
-        want += 12
+        want += 5
     assert total == want, 'expected %d edits, got %d' % (want, total)
 
 
