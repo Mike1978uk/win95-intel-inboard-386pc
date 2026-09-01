@@ -263,6 +263,14 @@ XTIDE_UnitSpt		dd	2 dup (0)
 XTIDE_UnitTotal		dd	2 dup (0)
 XTIDE_UnitLbaOk		dd	2 dup (0)
 
+;  The DCB IOS handed us for each unit we claimed at inquiry time.
+;  AEP_CONFIG_DCB is broadcast for DCBs that are not ours, and the same DCB
+;  can come round again on a re-broadcast; splicing our request routine into
+;  either is a wild calldown. Consumed on the first successful insert, so a
+;  second one is refused. zikolas/cfu1-win9x guards the same way, for the
+;  same reason - the DDK sample guards neither.
+XTIDE_ClaimedDcb	dd	2 dup (0)
+
 ;  Which units this driver is willing to claim, one bit each. The default
 ;  claims both; the emulator loop builds with 2 so the first request-path run
 ;  is aimed at a scratch slave and not at the boot disk.
@@ -1104,6 +1112,36 @@ xsu_master:
 EndProc XTIDE_SelectUnit
 
 ;----------------------------------------------------------------------------
+; XTIDE_WantDcb - PUBLIC. Should we insert our request routine into this DCB's
+;                 calldown list?
+;
+;   In:   ESI -> DCB
+;   Out:  EAX = 0 yes (and the claim is consumed), 1 no
+;   Uses: EAX, ECX
+;----------------------------------------------------------------------------
+BeginProc XTIDE_WantDcb
+
+	or	esi, esi		; a null DCB would match an empty slot
+	jz	xwd_no
+	xor	ecx, ecx
+xwd_scan:
+	cmp	XTIDE_ClaimedDcb[ecx*4], esi
+	je	xwd_yes
+	inc	ecx
+	cmp	ecx, 2
+	jb	xwd_scan
+xwd_no:
+	mov	eax, 1
+	ret
+
+xwd_yes:
+	mov	XTIDE_ClaimedDcb[ecx*4], 0	; once only
+	xor	eax, eax
+	ret
+
+EndProc XTIDE_WantDcb
+
+;----------------------------------------------------------------------------
 ; XTIDE_Inquiry - PUBLIC. Does a device exist at this unit, and if so describe
 ;                 it in the DCB.
 ;
@@ -1140,6 +1178,8 @@ xin_shifted:
 	shl	ecx, 2
 	cmp	XTIDE_UnitPresent[ecx], 0
 	je	xin_absent
+
+	mov	XTIDE_ClaimedDcb[ecx], esi	; remember it for Port_cfg_device
 
 	call	XTIDE_SelectUnit		; geometry for THIS unit
 
