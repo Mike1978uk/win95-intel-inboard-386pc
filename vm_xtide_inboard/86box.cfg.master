@@ -1,0 +1,59 @@
+﻿[General]
+host_cpu = Unknown
+update_icons = 0
+
+[Machine]
+cpu_family = ibm486bl3
+cpu_multi = 3
+cpu_speed = 83500000
+cpu_use_dynarec = 0
+machine = ibmxt_inboard386
+mem_size = 5120
+
+[IBM XT (Inboard 386/PC)]
+bios = ibm5160_050986
+enable_5161 = 0
+
+[Video]
+gfxcard = mach8_vga_isa
+
+[ATI Mach8 (ATI Graphics Ultra) (ISA) #1]
+bus_width = 8
+
+[Input devices]
+keyboard_type = internal
+mouse_type = none
+
+[Storage controllers]
+hdc_1 = xtide
+scsicard_1 = t130b
+
+[Hard disks]
+hdd_01_fn = prextide.img
+hdd_01_ide_channel = 0:0
+hdd_01_parameters = 63, 16, 3949, 0, ide
+hdd_01_speed = ramdisk
+
+[Trantor T130B #1]
+bios_addr = 0
+base = 340
+irq = 00
+zero_wait = 1
+
+[Floppy and CD-ROM drives]
+fdd_01_type = 35_2hd
+fdd_02_type = none
+
+[Named Pipe (COM) #1]
+path = \.\pipe\comrade86box_com1
+mode = 1
+reconnect = 1
+
+[Sound]
+sndcard = sbprov2
+
+[Sound Blaster Pro v2 #1]
+base = 220
+irq = 5
+dma = 1
+gameport = 0

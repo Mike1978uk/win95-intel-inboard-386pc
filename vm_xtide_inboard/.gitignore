@@ -1,0 +1,9 @@
+roms
+prextide.img
+86box.cfg
+nvr/
+*.png
+stdout_*.txt
+stderr_*.txt
+bootlog_*.txt
+pdr_under_test.pdr
