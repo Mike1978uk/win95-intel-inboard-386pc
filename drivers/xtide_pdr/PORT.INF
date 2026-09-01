@@ -47,6 +47,10 @@
 [Version]
 signature="$CHICAGO$"
 Class=hdc
+; Taken verbatim from MSHDC.INF in the same install - the stock hdc INF that
+; Have Disk accepts. Without it Setup answers "The specified location does not
+; contain information about your hardware" and never lists the model.
+ClassGUID={4d36e96a-e325-11ce-bfc1-08002be10318}
 Provider=%INB%
 
 ; Harmless if the class is already registered, which it will be - MSHDC.INF is present.
