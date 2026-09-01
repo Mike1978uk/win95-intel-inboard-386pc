@@ -16,7 +16,14 @@ param(
     [string]$VmPath  = "C:\Users\lycet\RiderProjects\86Box-Inboard\vm_xtide_pdr",
     [string]$Image   = "xtide_test.img",
     [string]$ExePath = "C:\Users\lycet\RiderProjects\86Box-Inboard\86box_upstream\build\src\86Box.exe",
-    [int]$Seconds    = 150,
+    # How long to let the guest run. This is NOT slack - it is the measurement
+    # window, and things that decide the result happen late in it: the volume is
+    # published from an appy-time callback, and anything in the StartUp group
+    # runs after that. 150 s hid a working volume on 2026-09-01; 260 s published
+    # it on one run and not the next, with builds that differed only by a
+    # counter. Treat a short window as a source of false negatives, and see
+    # technique 84.
+    [int]$Seconds    = 400,
     # Restore the image from xtide_base.img before deploying. The baseline has
     # the device node installed and the logged boot armed, so a run that
     # corrupts the volume costs one copy, not a reinstall. Use it for anything
