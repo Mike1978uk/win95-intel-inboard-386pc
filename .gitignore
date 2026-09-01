@@ -77,3 +77,8 @@ bios_f000_dump_int15.bin
 
 # Original vendor driver archives are deliverables, not build output.
 !drivers/**/*.EXE
+
+# Driver-load test bed for the XT-IDE .PDR (issue #21). Two 2 GB images plus
+# per-run boot logs and screenshots; the config that matters is in
+# docs/, not here.
+vm_xtide_pdr/
