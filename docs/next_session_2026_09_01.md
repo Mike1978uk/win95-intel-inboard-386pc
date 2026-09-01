@@ -32,8 +32,15 @@ validated as well. The exact model length is not pinned - that would need one mo
 independently-built images that load: Microsoft's `HSFLOP.PDR` and zikolas' `CFU1.VXD`. Both
 publish `<NAME>_DDB` at ordinal 1.
 
-5 was found by diffing our INF against `MSHDC.INF` in the same install. That should have been
-the first move, not the third - see the process note at the bottom.
+5 was found by diffing our INF against `MSHDC.INF` in the same install. **It was not the cause.**
+The copy on the CF card - `D:\PORTPDR\PORT.INF`, md5 `c4cf035a0eda8eaea34612af093de339` - is CRLF
+and has *no* `ClassGUID`, and it installed on the 5160. `ClassGUID` and the install path were
+changed in the same step, and the card is the control that separates them: the real fix was the
+**path**. Win95's Have Disk rejects a drive root; it wants a directory. `ClassGUID` is kept because
+it matches `MSHDC.INF`, not because it fixed anything.
+
+6 was also not the cause, for the same reason - the card's copy was already CRLF. It is still a
+genuine defect in this working tree, and it is what made the *emulator* copy fail.
 
 6 matters for the card: the copy deployed to the CF came from this working tree, so
 `C:\PORTPDR\PORT.INF` there is probably LF-only too. The committed blob was always fine.
@@ -46,9 +53,32 @@ the first move, not the third - see the process note at the bottom.
 - **A killed VM leaves the volume dirty**, so the next boot runs real-mode ScanDisk and never
   reaches Windows. `AutoScan=0` plus `tools/fatclean.py` per iteration.
 
+## Phase 2a - sector reads work, 2026-09-01
+
+`XTIDE_ReadSectors` (LBA28, with a real CHS fallback for pre-LBA drives) reads LBA 0 during the
+probe and checks for the MBR signature. Safest possible target: read-only, one sector, on a drive
+`XTIDE_TryIdentify` has just established is idle.
+
+| run | probe delay code | ticks |
+|---|---|---|
+| phase 1, IDENTIFY only | `8 + model chars` = 16 units | 221 |
+| phase 2a, + LBA 0 read | `24 + partition-type nibble` | **360** |
+
++139 ticks, about 14 units. Every failure code - 7 not ready, 8 no DRQ, 9 bad geometry, 10 no
+`55AA` - is *smaller* than 16, so a failure would have made this run SHORTER. It got longer, and
+only the success path exceeds 16. The read happened.
+
+The exact nibble is not pinned: 139 ticks fits `24+6` (partition type `06`, matching a host-side
+read of the image) but also `+5` and `+7`, because `DRP_reg_result` is not independently known.
+Widen the encoding spacing before relying on the value itself.
+
 ### Next
 
-1. Phase 2 - sector reads through the validated transport.
+1. Phase 2b - DCB and the IOS request path, so Windows actually routes I/O through it. This means
+   **claiming the device**, which is normal (`ESDI_506.PDR` takes the boot disk off the real-mode
+   mapper exactly this way) but wants a scratch slave disk in the test bed first, and writes
+   implemented, not a read-only volume.
+   `tools/pdr_loadtest.ps1 -Restore` rolls the image back from `xtide_base.img` before a run.
 2. Add an XT-CF rev 3 model to the 86Box fork (`reg = (port & 0x1F) >> 1`, alt status at
    `base+1Ch`, no latch) so the owner's exact card is reproducible, and so autodetect can be
    tested against two genuinely different XT-IDE variants. Upstreamable on its own.

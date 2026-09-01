@@ -17,6 +17,11 @@ param(
     [string]$Image   = "xtide_test.img",
     [string]$ExePath = "C:\Users\lycet\RiderProjects\86Box-Inboard\86box_upstream\build\src\86Box.exe",
     [int]$Seconds    = 150,
+    # Restore the image from xtide_base.img before deploying. The baseline has
+    # the device node installed and the logged boot armed, so a run that
+    # corrupts the volume costs one copy, not a reinstall. Use it for anything
+    # that writes.
+    [switch]$Restore,
     [string]$Tag     = "run"
 )
 
@@ -29,6 +34,13 @@ foreach ($t in @($Pdr, $img, $ExePath)) {
 }
 Get-Process 86Box -EA SilentlyContinue | Stop-Process -Force
 Start-Sleep 1
+
+$base = Join-Path $VmPath "xtide_base.img"
+if ($Restore) {
+    if (-not (Test-Path $base)) { Write-Output "MISSING baseline: $base"; exit 1 }
+    Copy-Item $base $img -Force
+    Write-Output "restored $Image from xtide_base.img"
+}
 
 $md5 = (Get-FileHash $Pdr -Algorithm MD5).Hash.ToLower()
 Write-Output "PDR: $Pdr  $((Get-Item $Pdr).Length) bytes  md5 $md5"
