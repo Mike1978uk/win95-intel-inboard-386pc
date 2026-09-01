@@ -31,6 +31,58 @@ writes per boot** — the walk is load-bearing, not defensive.
 The old binary is not merely wrong. Rebuilt byte-identical and re-run, it killed the boot at
 `Initing port.pdr` instead of corrupting the volume. Same input, different damage.
 
+## 2026-09-01, late: the hardware wall was found, and it was not the driver
+
+**Not one instruction of this driver had ever executed on the 5160.** Nine boots on record, every
+one `Initing port.pdr` -> `Init Failure port.pdr` in 1-4 log units. That was read for weeks as a
+driver fault and debugged as one - the EDX bug, the transport, the register map. None of it ever
+ran.
+
+Two measurements settled it, neither expensive:
+
+- **Scale the delay channel and see if the answer moves.** The probe reports its result by burning
+  time, so a 10x larger loop constant must show up in any time base. 1x gave 4 units; 10x gave 3.
+  The delay never ran, so `PORT_Device_Init` never ran. (This also corrects a tick calibration I had
+  taken from the emulator: the hardware log's counter is far finer. The ratio test is immune to
+  that, which is why it was the right test.)
+- **Run the same binary on the same disk image on an Inboard profile in 86Box** (`vm_xtide_inboard`,
+  built this session). `Init Success`, 317 units - our code runs. So it is not the machine model,
+  the BIOS, the memory size, the disk image or `CONFIG.SYS`.
+
+`IOS.LOG` named the difference. Hardware: **six** units on real-mode drivers, and
+
+```
+Unsafe driver     MODISK2  controlling unit 03
+Monolithic driver MODISK2  controlling unit 03
+```
+
+Emulator, same install: **one** real-mode unit, nothing flagged - the MO/Zip devices are not there,
+so `MODISK2` controls nothing.
+
+**Confirmed by removing it.** With `MODISK2` REM'd out, IOS stopped refusing and went ahead - and
+the boot log ends *inside* our load:
+
+```
+[0016D423] Init Success hsflop.pdr
+[0016D425] Initing port.pdr          <- end of file
+```
+
+Ctrl+Alt+Del was dead, which is expected: VxD init runs with interrupts masked, and that build
+carried the 10x delay, so the machine was almost certainly sitting in our own diagnostic loop
+rather than crashed. **The readback channel was made so loud it is indistinguishable from a hang** -
+worth remembering before scaling one again.
+
+So `MODISK2.SYS` was the wall, and the real-mode SCSI/ASPI chain behind it is the same wall's
+foundation. Removing that chain is also the direction of travel for issue #3 and #19, not a
+workaround: those devices are meant to be served by the 32-bit T130 miniport.
+
+### Two of my own conclusions this corrects
+- "Phase 0 passed - IOS loads and calls our .PDR" read `Initing port.pdr` as *IOS called our code*.
+  It means IOS **tried**. Technique 74 says prove a driver loads before measuring it; this is the
+  same rule one level deeper - prove it **runs**.
+- Removing a block driver renumbers every drive letter behind it, so "REM one line" was never the
+  single clean variable I claimed. Powering the chain down does the same job without the shift.
+
 ## Left to do, in cost order
 
 ### 1. A hardware probe run — safe, and the only thing that can test stride 2  (1 boot)
