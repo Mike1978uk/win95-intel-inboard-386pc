@@ -3565,3 +3565,45 @@ QBASIC raised `Overflow` on `FOR t = 1 TO 60000` - `DEFINT A-Z` had made the cou
 integer. But the loop only ran to exhaustion **because the IDENTIFY opcode had gone to the sector
 number register and been ignored**. A trivial language bug and the real fault surfaced at the same
 line. Read where a crash happened before fixing why.
+
+## Technique 81: when a DDK sample misbehaves, diff it against a driver that WORKS before
+## theorising about the packet you are handing the OS
+
+2026-09-01. Phase 2c of the XT-IDE port driver (#21) threw a Windows protection error the moment
+it claimed a unit. A handover listed five suspects inside the ISP calldown-insert packet, ranked,
+with the "most likely single cause and the cheapest to fix" first. **All five were wrong, and the
+top one was wrong on a checkable fact** - it claimed the sample filled "only five fields" of
+`ISP_calldown_insert` and left the rest as stack garbage. It fills all seven.
+
+The whole space was closed by reading `zikolas/cfu1-win9x`'s `ios_config_dcb` - a **working**
+Win9x IOS port driver doing the same `ISP_INSERT_CALLDOWN` - and comparing member by member.
+Every value matched. That took minutes and would have cost five emulator runs to establish by
+bisection.
+
+The two real bugs were both visible in the same diff, as things the reference does and the sample
+does not:
+
+1. **The sample's request routine destroys the callee-saved registers its own header promises to
+   preserve.** `Port_request`: *"Destroys: C call compatible, can only destroy eax, ecx, edx"* -
+   and it clobbers EBX, ESI and EDI. `CFU1_IosReq` pushes and pops all of them. Harmless in a
+   skeleton that is never called; a protection error the first time the OS calls it.
+2. **It splices itself into every DCB the OS broadcasts**, with a header claiming it *"examines a
+   DCB to determine if we want to work with this device"* and no examination anywhere in the body.
+   The reference keeps a table of the DCBs it claimed and refuses a second insert on one, with a
+   comment saying re-broadcasts loop back.
+
+**The rules:**
+
+- **A vendor sample is a skeleton, not a driver.** Its unexercised paths have never run, so its
+  bugs are exactly the ones that surface the moment you make it do real work. Treat every comment
+  in it as a specification the code may not meet - both bugs here are the header comment and the
+  body disagreeing, in plain sight.
+- **A working third-party implementation outranks the vendor sample and the vendor docs as
+  evidence**, because it has been executed. Find one before designing an experiment.
+- **A ranked suspect list from a previous session is a hypothesis, not a finding** (Technique 7).
+  Check the cheapest falsifiable claim in it first - here, "only five fields are set" was
+  refutable by counting `mov` instructions.
+- **Read what a bisect actually isolates.** `-NoIo` was recorded as exonerating "the transport and
+  the request path". It stubbed only the transport; the handler still walked the IOP and unwound
+  the callback stack - which is where bug 1 lives. A bisect switch's scope belongs in the same
+  note as its result.
