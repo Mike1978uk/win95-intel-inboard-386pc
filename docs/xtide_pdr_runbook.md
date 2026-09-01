@@ -90,7 +90,7 @@ every surprise came from.
 ## Step 5 — the real card  (5160, first hardware run)
 
 ```bash
-pwsh -File build.ps1 -Stride 2 -ClaimMask 3          # NO -ReqMarker
+pwsh -File build.ps1 -Stride 2 -ClaimMask 1          # NO -ReqMarker
 ```
 
 - **`-ReqMarker` must be off.** The marker writes a sector to the claimed unit, and on the 5160
