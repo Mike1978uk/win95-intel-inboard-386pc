@@ -170,6 +170,34 @@ counts on a binary). **If it prints anything, stop** — you are about to corrup
 with this skill's own invocation arguments when it loads**, silently corrupting the command.
 Found the hard way — the line used to read `awk 'everything=="-" && is=="-"'` at load time.)
 
+### The policy being right does not mean the file on disk is right
+
+`eol=crlf` is applied **on checkout**. A file created in the working tree and committed from
+there never gets that checkout, so it keeps whatever endings it was written with — while
+`git check-attr` and a fresh clone both look perfect.
+
+`drivers/xtide_pdr/PORT.INF` sat LF-only in this working tree for days under a correct
+`*.INF text eol=crlf` rule. Windows 95 parses INF files line by line: it read the whole file
+as one line and refused the install with *"does not contain information about your hardware"*.
+Nothing in git was wrong, and nothing in git would have told you.
+
+Before deploying any text file to a DOS or Win9x guest, look at the bytes, not the rules:
+
+```bash
+python -c "d=open('FILE','rb').read(); print(d.count(b'
+'), d.count(b'
+')-d.count(b'
+'))"
+```
+
+Zero CRLF and a non-zero second number means the guest will reject it.
+
+### Never write `.gitattributes` with a truncating redirect
+
+`cat > .gitattributes` destroyed 127 lines of pinned binary and line-ending policy here, to
+add four lines that were **already in the file**. Read it first; append or edit in place. The
+rules above exist precisely because losing them corrupts patch files silently.
+
 A directory-wide `binary` macro will also catch READMEs living in that tree. Use `-text`
 instead, so the `*.md` / `*.txt` rules further down the file can still win. That mistake was
 made and caught here by `check-attr`, not by eye.
