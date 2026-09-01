@@ -3607,3 +3607,73 @@ does not:
   the request path". It stubbed only the transport; the handler still walked the IOP and unwound
   the callback stack - which is where bug 1 lives. A bisect switch's scope belongs in the same
   note as its result.
+
+### Technique 81, CORRECTION 2026-09-01 - the fix above was never exercised
+
+**The claim "the protection error is fixed" was wrong, and the way it was wrong is the lesson.**
+
+Both bugs in Technique 81 are real. But the clean boot that "confirmed" them came from a build in
+which a *second* bug - introduced in the same commit - stopped the code path running at all. The
+new `XTIDE_WantDcb` guard identified "our" DCB by comparing the pointer against the one seen at
+`AEP_DEVICE_INQUIRY`. `NEW95DOC/STORAGE.DOC` says the IOS "creates a real DCB and fills it with
+information supplied by the driver" once config completes - so the config-time DCB is a different
+object at a different address, and the guard declined our own device every time.
+
+The calldown was therefore never inserted. That build was, functionally, the `-NoCalldown` bisect
+which was **already known** to boot clean. `Init Success` plus a desktop proved nothing new, and
+was reported as a fix.
+
+With the guard corrected to test `DCB_unit_on_ctl` instead of the pointer, the insert succeeds
+(`ISP_result 0`) and the Windows protection error returns.
+
+**The rule: a green result is only evidence if the thing you changed actually ran.** Technique 74
+says prove a driver LOADS before measuring what it does; this is the same rule one level down -
+**prove the specific code path executed before crediting a fix with the outcome.** The tell was
+available and ignored: the passing run's tick count (523) was *identical* to the `-NoCalldown`
+run's. Two builds that are supposed to differ, agreeing to the tick, is a warning, not a
+reassurance.
+
+**Corollary on guard clauses.** A guard added to make code safer is itself a new failure mode, and
+its failures are silent by construction - it does nothing, quietly, which is indistinguishable
+from having nothing to do. Any guard that can reject work needs a counter for how often it
+rejected, wired at the same time as the guard. Here that was five minutes of work and it is what
+eventually produced `cfg=1 claimed=0` and named the bug in one line.
+
+### The measurement channel that settled it - build this FIRST, not third
+
+A driver with no debug output can still report to the host: **have it write a marker sector to a
+scratch disk, and read it from outside the guest** (technique 79's discipline, used for
+instrumentation rather than verification). `-ReqMarker` in `drivers/xtide_pdr/build.ps1`, read back
+by `tools/pdr_reqmarker.py`. One 512-byte sector on the claimed unit carries a counter per stage:
+
+```
+AEP_CONFIG_DCB calls   1     <- IOS offered us a DCB
+...claimed by us       1     <- our guard accepted it
+ISP_result of insert   0     <- IOS accepted the calldown
+Port_request entries   0     <- the calldown was never called
+XTIDE_StartRequest     0     <- ...so nothing reached the transport
+```
+
+Five stages, one boot. The first attempt instrumented only the last stage, got a null, and cost
+two further runs to find out the null was three stages upstream. **Counters at every stage of the
+path cost the same single run as a counter at the end of it.** Write the whole ladder first.
+
+Two mechanics worth copying:
+
+- **Address the marker at the unit YOU claimed, never at the unit named in the DCB you are
+  inspecting.** A DCB you are about to decline belongs to someone else, and its `DCB_unit_on_ctl`
+  will aim the write at their disk - which on this machine is the boot volume.
+- **Clear the marker sector from the host before every run, and check every image afterwards, not
+  just the one you aimed at.** Nothing in the harness resets a scratch disk, so a stale marker
+  reads exactly like a fresh success (technique 23's stale-log trap, in a new place).
+
+### Geometry belongs in AEP_CONFIG_DCB - and that is a separate change from the one above
+
+`STORAGE.DOC`: the driver processes `AEP_CONFIG_DCB` "by setting the various members of the DCB
+structure to values specifying geometry information, such as cylinder count and sector count".
+Inquiry sets `DCB_product_id`, `DCB_vendor_id`, `DCB_rev_level` and nothing else. Written at
+inquiry, geometry describes a DCB the IOS then replaces, so the disk TSD sees a zero-length device
+and declines it - zikolas/cfu1-win9x carries a comment saying exactly that, from having hit it.
+Moved to `XTIDE_ConfigDcb`. **It was not the blocker**, and was shipped in the same run as the
+guard fix, so it has no independent evidence behind it yet - recorded as documented-correct, not
+as measured.
