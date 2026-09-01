@@ -22,6 +22,12 @@ param(
     # corrupts the volume costs one copy, not a reinstall. Use it for anything
     # that writes.
     [switch]$Restore,
+    # How long to keep tapping F1 at the BIOS's configuration complaint. A hard
+    # kill can leave the NVR inconsistent, and the next boot then stops at
+    # "162-System Options Not Set" - which produces no BOOTLOG.TXT at all and
+    # reads exactly like a driver that killed the boot. 30 s was not enough
+    # margin; POST length varies with the Mach8 option ROM. Technique 71.
+    [int]$F1Seconds  = 90,
     [string]$Tag     = "run"
 )
 
@@ -87,7 +93,7 @@ public class PT {
 }
 "@
 $deadline = (Get-Date).AddSeconds($Seconds)
-$f1until  = (Get-Date).AddSeconds(30)
+$f1until  = (Get-Date).AddSeconds($F1Seconds)
 while ((Get-Date) -lt $deadline -and -not $p.HasExited) {
     if ((Get-Date) -lt $f1until) {
         $p.Refresh()
@@ -95,14 +101,26 @@ while ((Get-Date) -lt $deadline -and -not $p.HasExited) {
     }
     Start-Sleep 3
 }
+$shot = Join-Path $VmPath "screen_$Tag.png"
 if (-not $p.HasExited) {
-    & pwsh -File "$repo\tools\shot.ps1" (Join-Path $VmPath "screen_$Tag.png") 2>&1 | Out-Null
+    & pwsh -File "$repo\tools\shot.ps1" $shot 2>&1 | Out-Null
     $p | Stop-Process -Force
 }
 Start-Sleep 2
 
 python "$repo\tools\fatls.py" $img --get "C:\BOOTLOG.TXT" $out
-if (-not (Test-Path $out)) { Write-Output "NO BOOTLOG - the guest did not get far enough"; exit 1 }
+if (-not (Test-Path $out)) {
+    # No log is not a result about the driver. It is far more often POST: the
+    # BIOS stopping for its configuration complaint, or a stale NVR, neither of
+    # which ever starts Windows. LOOK AT THE SCREEN before drawing any
+    # conclusion from this - a harness that clears prompts must show what it
+    # was clearing (technique 71), and this one now says where to look.
+    Write-Output "NO BOOTLOG - Windows never wrote one."
+    Write-Output "  This is usually POST, not the driver. Read $shot before"
+    Write-Output "  concluding anything: '162-System Options Not Set' or an F1"
+    Write-Output "  prompt means the run is VOID, not negative."
+    exit 1
+}
 
 Write-Output ""
 Write-Output "---- IOSUBSYS / port.pdr lines ----"
