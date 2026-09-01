@@ -131,3 +131,35 @@ alter what the card reports, as seen the day before. So re-detect at every boot 
 it in the registry. That is what the driver already does, and it should stay that way.
 
 ATAPI/CD is out of scope: the XT-CF is 8-bit only (D8–D15 unconnected).
+
+## Scope of what is proven, and what C: would take
+
+**Proven:** emulator, stride 1, 8-bit PIO, as a **secondary** volume. Windows mounted it and
+assigned D:.
+
+**Not yet exercised: a WRITE through the request path.** All eight requests Windows issued were
+READs. The write path is proven only by the driver's own probe-time self-test (phase 2b, verified
+host-side against the right LBA on the right image) - VFAT has never written through it. Do that
+before trusting it with anything: put a file on D: from a DOS box and check the bytes from the
+host.
+
+### The boot drive is a different problem, not a bigger version of this one
+
+Mounting D: means *creating* a volume nobody owns. Owning C: means *taking it away from something
+that already has it* - the XT-IDE option ROM's real-mode INT 13h, surfaced by the Real Mode Mapper
+(`RMM.PDR`, which Technique 74 already identified as what actually drives this machine's storage).
+The DCB for the boot disk already exists when we load, created from the real-mode BIOS drive; we
+would have to claim *that* DCB rather than build our own, and IOS would have to retire the mapper
+for it. That handoff is the one part of the stack this session has not touched at all.
+
+Consequences to plan around:
+- it is the actual goal of issue #3 - "MS-DOS compatibility mode" ends when the boot volume is
+  32-bit, not when a second drive is;
+- a mistake corrupts the volume the machine boots from, so it stays in the emulator on a **clone**
+  of the boot image until it works, and the scratch-slave discipline stays in force;
+- `XTIDE_WantIop` currently refuses any DCB we did not claim, and `ClaimMask` is 2 (slave) for
+  testing. Both would have to change deliberately, not by accident.
+
+Do not estimate this from how quickly D: came together. The transport, calldown, request path and
+volume layer are all now known-good; the handoff is unmeasured, and unmeasured is where every
+surprise this session came from.
