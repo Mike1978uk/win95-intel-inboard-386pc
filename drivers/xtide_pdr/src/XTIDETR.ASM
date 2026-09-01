@@ -113,6 +113,16 @@ XT_TR_LATCH	equ	2		; 16-bit: low at data, high at base+8
 
 XT_SPIN		equ	400000		; status poll limit; no timer at init
 
+;  Inner-loop count for one unit of the boot-log delay channel. Calibrated on
+;  86Box's Deskpro bed, where one unit is about 11.6 log ticks. The 5160 is
+;  several times faster, so the same constant compresses every fail code into
+;  a handful of ticks and the channel stops being readable - which is how a
+;  hardware run on 2026-09-01 produced a 4-tick failure that could not be
+;  decoded. Scale it with -TimeBase for a hardware diagnostic build.
+ifndef XT_TIMEBASE
+XT_TIMEBASE	equ	725000
+endif
+
 ;  IDENTIFY DEVICE result layout (ATA-1 onwards)
 ID_MODEL_OFF	equ	54		; 40-byte model string, word 27..46
 ID_MODEL_LEN	equ	40
@@ -2340,7 +2350,7 @@ BeginProc XTIDE_Delay
 	or	eax, eax
 	jz	xdl_done
 xdl_outer:
-	mov	ecx, 725000
+	mov	ecx, XT_TIMEBASE
 xdl_inner:
 	dec	ecx
 	jnz	xdl_inner

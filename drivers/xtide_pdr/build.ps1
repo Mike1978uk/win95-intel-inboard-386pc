@@ -49,7 +49,13 @@ param(
     # DEV-bit read-back on a register map that may never have executed. ALWAYS
     # use this for a hardware run that is not deliberately testing the write
     # path (technique 79).
-    [switch]$NoWriteTest
+    [switch]$NoWriteTest,
+    # Inner-loop count for one unit of the boot-log delay channel - the only
+    # readback a driver has at IOS init time. 725000 is about 11.6 log ticks on
+    # 86Box's Deskpro bed and only a fraction of that on the real 5160, where it
+    # squeezed every outcome into 4 ticks. Raise it for a hardware run so the
+    # codes are tens of ticks apart and the failure names itself.
+    [int]$TimeBase = 725000
 )
 
 $ML   = "$DDK\MASM611C\ML.EXE"
@@ -158,7 +164,7 @@ if (Test-Path "$PSScriptRoot\src\XTIDETR.ASM") {
     $pa = $pa.Replace($entry, $entry + "`r`n" + @"
 	mov	eax, 2			; ARRIVAL MARKER (build.ps1): ~1s
 pdi_outer:				; proves this routine was entered
-	mov	ecx, 725000
+	mov	ecx, $TimeBase
 pdi_inner:
 	dec	ecx
 	jnz	pdi_inner
@@ -177,7 +183,7 @@ prd_ok:
 	inc	eax
 	add	eax, eax
 prd_outer:
-	mov	ecx, 725000
+	mov	ecx, $TimeBase
 prd_inner:
 	dec	ecx
 	jnz	prd_inner
@@ -204,14 +210,14 @@ prd_inner:
 }
 
 # Flags taken verbatim from the sample's own MAKEFILE, with MASTER_MAKE resolved by hand.
-$aflags = @("-coff","-DBLD_COFF","-DDEBUG_TRACE=1","-DIS_32","-nologo","-W3","-Zd","-c","-Cx",
+$aflags = @("-DXT_TIMEBASE=$TimeBase","-coff","-DBLD_COFF","-DDEBUG_TRACE=1","-DIS_32","-nologo","-W3","-Zd","-c","-Cx",
             "-DMASM6","-DINITLOG","-DDEBLEVEL=0","-DXT_STRIDE=$Stride","-DXT_CLAIM_MASK=$ClaimMask")
 if ($NoDcb) { $aflags += "-DXT_NO_DCB=1"; Write-Output "BISECT: DCB fill disabled" }
 if ($NoIo)  { $aflags += "-DXT_NO_IO=1";  Write-Output "BISECT: request handler is a stub" }
 if ($ReqMarker) { $aflags += "-DXT_REQ_MARKER=1"; Write-Output "DIAGNOSTIC: on-disk request marker enabled" }
 if ($NoWriteTest) { $aflags += "-DXT_NO_WRITETEST=1"; Write-Output "SAFETY: slave probe and write self-test disabled" }
 $strideName = if ($Stride -eq 0) { "0 (autodetect)" } else { "$Stride (pinned)" }
-Write-Output "Register stride: $strideName   claim mask: $ClaimMask"
+Write-Output "Register stride: $strideName   claim mask: $ClaimMask   time base: $TimeBase"
 $objs = @("port","portaer","portreq","portisr") + $objs_extra
 
 $failed = $false
