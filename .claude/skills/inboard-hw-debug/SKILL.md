@@ -3914,3 +3914,109 @@ third-party driver (`zikolas/cfu1-win9x`, `rr_sg`/`rw_sg`, whose comment says *"
 SECOND"*). Technique 80's "read the thing that already exists" and technique 81's "a working
 implementation outranks the vendor sample" both applied, and both were reached only after guessing
 first.
+
+## Technique 86: `Initing foo.pdr` means IOS TRIED - and a real-mode driver elsewhere in
+## `CONFIG.SYS` can be why it then refused
+
+2026-09-01/02. This is the one that unblocked the XT-IDE port driver (#21) after it had looked
+like a driver bug for weeks, and every part of it is cheap.
+
+### `Initing` is not `ran`
+
+`BOOTLOG.TXT` prints `Initing <name>` **before** IOS dispatches anything. A previous session read
+that line as *"IOS loads and calls our .PDR"* and recorded phase 0 as passed. Nine hardware boots
+then went `Initing port.pdr` -> `Init Failure port.pdr` in 1-4 log units, and eleven boots were
+spent debugging driver logic - a register clobber, a transport, a register map - inside code that
+**had never executed a single instruction on that machine.**
+
+Technique 74 says prove a driver LOADS before measuring what it does. This is the same rule one
+level deeper: **prove the driver's own code RAN.**
+
+### How to prove it, with no readback channel and an unknown clock
+
+Scale your instrumentation and see whether the answer moves. The probe reported its result by
+burning `N x TIMEBASE` loop iterations, so a **tenfold** increase in `TIMEBASE` must show up in any
+time base whatsoever:
+
+| build | boot log gap |
+|---|---|
+| 1x | 4 units |
+| 10x | 3 units |
+
+It did not move, so the loop never ran. **A ratio test is immune to a clock you have not
+calibrated** - which mattered, because the calibration I had taken from the emulator was wrong for
+this machine by a large factor and I quoted it confidently before checking. Prefer a ratio to an
+absolute whenever the unit is not yours.
+
+The same trick decodes a value later: build a **calibration binary** that skips the work entirely
+and reports a *known* code, run it, and compare gaps directly. Known-30 gave 506 units; the real
+probe gave 506 units; the card's own partition type independently predicted 30. Three agreeing
+lines, no arithmetic, no estimate of what a log unit is.
+
+### `IOS.LOG` names the blocker, and the emulator gives you the control
+
+`C:\WINDOWS\IOS.LOG` is written by IOS itself and is a primary source (technique 55). Hardware:
+
+```
+Unsafe driver     MODISK2  controlling unit 03
+Monolithic driver MODISK2  controlling unit 03
+Unit number 00..05 going through real mode drivers.        <- all six
+```
+
+The **same Windows install, in the emulator**: one real-mode unit, nothing flagged - because the
+MO/Zip devices are not attached, so `MODISK2` controls nothing. REM that one line and IOS stops
+refusing: `Init Failure` becomes the boot log ending *inside* our load, and after the whole
+real-mode SCSI/ASPI chain came out, `Init Success` and 6 real-mode units -> **1**.
+
+**An unrelated real-mode block driver can stop IOS initialising a port driver that has nothing to
+do with it.** Read `IOS.LOG` before suspecting your own code. Note `hsflop.pdr` succeeded in the
+same log throughout, so this is not IOS blanket-refusing - which is exactly why it was invisible.
+
+### Build the emulator bed from the REAL disk on the REAL machine profile
+
+The `.PDR` test bed was a Deskpro 386, on the reasoning that "whether a VxD loads is
+machine-independent". That is false, and it cost the whole investigation its control. Copying the
+card's own image into an `ibmxt_inboard386` profile (`vm_xtide_inboard/`, `86box.cfg` cloned from
+`vm_golden`) takes ten minutes and splits every subsequent question in half: same binary, same
+image, same `CONFIG.SYS` - if it works there and not on the bench, the difference is the hardware
+or its resident drivers, and `IOS.LOG` will usually say which.
+
+That bed is also where anything touching the boot volume gets developed, because a mistake costs a
+file copy. It is the clone the runbook had been demanding since before it existed.
+
+### Four setup traps met while building it, all of which look like driver results
+
+- **86Box rewrites `86box.cfg` on every load, including after a failed one.** A run that died on a
+  missing ROM was normalised down to a plain `ibmxt`, 8088, 256K - and *written back*. The next run
+  booted a stock XT trying to start Windows 95 and showed a black screen. Keep an
+  `86box.cfg.master`, restore it every run, and **assert the machine name before booting**
+  (technique 43, in its most expensive form yet).
+- **A new VM directory needs its own `roms/`.** `vm_golden/roms` is a symlink to the repo tree;
+  a fresh directory without one fails with ROM errors and then poisons its own config as above.
+- **The guest stops for prompts nobody is there to answer** - POST's `162-System Options Not Set`,
+  the Windows 95 Startup Menu after repeated forced kills, and `TSLCD ... Press [return]` when no
+  CD answers. Each produces *no* `BOOTLOG.TXT`, which reads exactly like a driver that killed the
+  boot. Tap the key, and make the harness print "read the screenshot, this run is VOID".
+- **The harness window is part of the experiment.** The volume is published from an appy-time
+  callback near the end of the boot, so two builds differing only by a diagnostic counter published
+  it and did not. Technique 84 said this at 150 s; it was still true at 260 s.
+
+### A readback channel can be loud enough to look like a crash
+
+The 10x delay build, once it finally got past IOS, sat burning its loop with interrupts masked -
+Ctrl+Alt+Del dead, screen frozen, indistinguishable from a lockup, and reported as a hang. VxD
+initialisation runs with interrupts off; a long delay there **is** a hang as far as anyone watching
+can tell. Keep the diagnostic delay short enough to survive being watched, and say in the
+instructions how long a healthy pause looks.
+
+### And on a single-disk machine, remove the capability rather than trusting the guard
+
+The probe's write self-test targets LBA 100 of whichever unit answered, gated only on a DEV-bit
+read-back. On the 5160 that unit is the boot CF, and the gate had never executed on a stride-2 map.
+`-NoWriteTest` skips the slave probe entirely, confirmed unreachable in the **listing** (`EB 48`
+jumping the call) rather than asserted. Likewise `-ReadOnly` refuses every `IOR_WRITE` at the
+request handler's door before any addressing is computed.
+
+That pair is what made a claiming run on somebody's only disk a reasonable thing to attempt: a
+wrong read costs a reboot, a wrong write costs the volume, and technique 79 already established
+that a round trip cannot see a wrong address.

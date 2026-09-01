@@ -83,6 +83,19 @@ workaround: those devices are meant to be served by the 32-bit T130 miniport.
 - Removing a block driver renumbers every drive letter behind it, so "REM one line" was never the
   single clean variable I claimed. Powering the chain down does the same job without the shift.
 
+## 2026-09-02: it works on the real machine, and it is not releasable
+
+Windows 95 on the 5160 reads **and writes** the XT-CF through this driver. `Init Success`, a
+volume published, `C:\XTWRITE.TXT` written from Windows and byte-correct when read from a host,
+5,059 files still walking. Rehearsed first on a disposable clone of the same card: 3320 requests,
+103 scattered writes, and only the one sector we aimed at changed.
+
+**Ten things to clean up before anyone else runs this**, blocking ones first, in
+`docs/xtide_pdr_cleanup_before_release.md`. The three that matter tonight: shutdown hangs and we
+handle no teardown at all; we publish a second volume over the same partition while RMM still owns
+C:, which is a corruption risk by construction; and the probe's write self-test is on by default,
+aimed at LBA 100 of whichever unit answered.
+
 ## Left to do, in cost order
 
 ### 1. A hardware probe run — safe, and the only thing that can test stride 2  (1 boot)
