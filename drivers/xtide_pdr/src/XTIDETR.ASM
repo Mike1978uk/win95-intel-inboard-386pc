@@ -1235,6 +1235,11 @@ BeginProc XTIDE_StartRequest
 	push	esi
 	push	edi
 
+ifdef XT_NO_IO
+	jmp	xsr_ioerror	; BISECT: complete every request as an error,
+				; touching neither hardware nor geometry. Splits
+				; a bad ISP packet from a bad request path.
+endif
 	movzx	eax, byte ptr [esi].DCB_unit_on_ctl
 	mov	XTIDE_ReqUnit, eax
 	call	XTIDE_SelectUnit

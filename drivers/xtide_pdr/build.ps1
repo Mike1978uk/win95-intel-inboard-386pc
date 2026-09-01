@@ -29,7 +29,8 @@ param(
     # "our DCB writes are wrong" from "the fault is downstream of inquiry"
     # in one run, which is cheaper than another guess (Technique 80).
     [switch]$NoDcb,
-    [switch]$NoCalldown
+    [switch]$NoCalldown,
+    [switch]$NoIo
 )
 
 $ML   = "$DDK\MASM611C\ML.EXE"
@@ -186,6 +187,7 @@ prd_inner:
 $aflags = @("-coff","-DBLD_COFF","-DDEBUG_TRACE=1","-DIS_32","-nologo","-W3","-Zd","-c","-Cx",
             "-DMASM6","-DINITLOG","-DDEBLEVEL=0","-DXT_STRIDE=$Stride","-DXT_CLAIM_MASK=$ClaimMask")
 if ($NoDcb) { $aflags += "-DXT_NO_DCB=1"; Write-Output "BISECT: DCB fill disabled" }
+if ($NoIo)  { $aflags += "-DXT_NO_IO=1";  Write-Output "BISECT: request handler is a stub" }
 Write-Output "Register stride: $Stride   claim mask: $ClaimMask"
 $objs = @("port","portaer","portreq","portisr") + $objs_extra
 

@@ -125,7 +125,42 @@ That log position matters: `IOS_Register` runs the whole AEP sequence - `AEP_INI
 Requests come later. So the fault is in inquiry or config, **not** in the request path or the
 transport.
 
-### Bisect state - two switches exist, use them
+### LOCALISED 2026-09-01: the fault is Port_cfg_device's ISP calldown insert
+
+| build | result | binary verified |
+|---|---|---|
+| `-ClaimMask 0` | boots, `Init Success` | yes |
+| `-ClaimMask 2` | protection error | yes |
+| `-ClaimMask 2 -NoDcb` (claim, no DCB writes) | protection error | yes |
+| `-ClaimMask 2 -NoCalldown` (claim, no calldown insert) | **boots, `Init Success`, 523 ticks** | md5 `10dd4f0a` |
+| `-ClaimMask 2 -NoIo` (calldown, stub request handler) | protection error | md5 `493a07ee` |
+
+`-NoDcb` exonerates every DCB write. `-NoIo` exonerates the transport and the request path - the
+handler touches no hardware and still faults. `-NoCalldown` is the only variant that survives.
+
+**So the bug is inside `Port_cfg_device`'s ~20 lines of ISP calldown insert, or in how IOS reacts
+to the packet it builds.** Nothing downstream of it has ever executed.
+
+### Where to look first, next session, before any run
+
+Read `BLOCK/INC/ISP.INC`'s calldown-insert structure and compare field by field against what
+`Port_cfg_device` fills. Known suspects, in order:
+
+1. **`ISP_i_cd_dcb`** - the sample gives it the DCB from `AEP_d_c_dcb`. Check whether IOS wants the
+   *physical* DCB here.
+2. **`Port_Request` vs `Port_request`** - the sample writes `OFFSET32 Port_Request` (capital R) while
+   the proc is `Port_request`. It links, so MASM folded the case, but confirm the address is the
+   request entry and not something else.
+3. **`ISP_i_cd_expan_len`** - written as a word (`mov [edi].ISP_i_cd_expan_len, ax`) from a zeroed
+   EAX. Confirm the field is a word.
+4. **`DCB_dmd_small_memory`** in `ISP_i_cd_flags` - we are PIO and need no such demand. Try 0.
+5. Whether the packet must be zeroed first - it is built on raw stack memory
+   (`sub esp, size ISP_calldown_insert`) with only five fields set. Every other field is stack
+   garbage. **This is the most likely single cause and the cheapest to fix.**
+
+Item 5 is a one-line fix (zero the packet before filling it) and would be the first thing to try.
+
+### Bisect state - four switches exist, use them
 
 | build | result |
 |---|---|

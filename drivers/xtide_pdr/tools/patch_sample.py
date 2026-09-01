@@ -121,7 +121,8 @@ def main():
     ])
 
     print('Patched: %d' % total)
-    assert total == 8, 'expected 7 edits'
+    want = 9 if nocalldown else 8
+    assert total == want, 'expected %d edits, got %d' % (want, total)
 
 
 main()
