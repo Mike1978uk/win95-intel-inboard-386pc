@@ -19,7 +19,17 @@ param(
     # 1 = a classic XTIDE, which is also what 86Box's hdc_xtide.c emulates, so the
     # emulator load/probe loop must build with -Stride 1. Getting this wrong writes
     # the IDENTIFY opcode to DEVICE CONTROL and leaves SRST asserted on the drive.
-    [int]$Stride = 2
+    [int]$Stride = 2,
+    # Which units the driver is willing to claim, one bit each:
+    #   1 = master, 2 = slave, 3 = both.
+    # The emulator loop builds with 2 so the first request-path run is aimed at
+    # a scratch slave disk rather than the boot volume.
+    [int]$ClaimMask = 3,
+    # Bisect switch: claim the unit but write nothing into the DCB. Splits
+    # "our DCB writes are wrong" from "the fault is downstream of inquiry"
+    # in one run, which is cheaper than another guess (Technique 80).
+    [switch]$NoDcb,
+    [switch]$NoCalldown
 )
 
 $ML   = "$DDK\MASM611C\ML.EXE"
@@ -158,6 +168,14 @@ prd_inner:
     Set-Content "$OutDir\PORT.ASM" -Value $pa -NoNewline
     Write-Output "Applied reg_result diagnostic delay."
 
+    # Phase 2c: claim a unit and service its requests. These two edits need
+    # regexes over the sample's mixed tabs and spaces, so they live in Python;
+    # it asserts every anchor and fails the build rather than no-op quietly.
+    $psArgs = @("$PSScriptRoot/tools/patch_sample.py", $OutDir)
+    if ($NoCalldown) { $psArgs += "--nocalldown" }
+    python $psArgs
+    if ($LASTEXITCODE -ne 0) { Write-Output "FAILED: patch_sample.py"; exit 1 }
+
     $objs_extra = @("xtidetr")
     Write-Output "Applied phase1 hook (XTIDE_Probe wired into Port_initialize)."
 } else {
@@ -166,8 +184,9 @@ prd_inner:
 
 # Flags taken verbatim from the sample's own MAKEFILE, with MASTER_MAKE resolved by hand.
 $aflags = @("-coff","-DBLD_COFF","-DDEBUG_TRACE=1","-DIS_32","-nologo","-W3","-Zd","-c","-Cx",
-            "-DMASM6","-DINITLOG","-DDEBLEVEL=0","-DXT_STRIDE=$Stride")
-Write-Output "Register stride: $Stride"
+            "-DMASM6","-DINITLOG","-DDEBLEVEL=0","-DXT_STRIDE=$Stride","-DXT_CLAIM_MASK=$ClaimMask")
+if ($NoDcb) { $aflags += "-DXT_NO_DCB=1"; Write-Output "BISECT: DCB fill disabled" }
+Write-Output "Register stride: $Stride   claim mask: $ClaimMask"
 $objs = @("port","portaer","portreq","portisr") + $objs_extra
 
 $failed = $false

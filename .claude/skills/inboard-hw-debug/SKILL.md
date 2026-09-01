@@ -3450,6 +3450,94 @@ the master, in a phase with no readback channel, it could only ever turn a worki
 unexplained `Init Failure`. It is now slave-only. **Before adding a test to code you cannot instrument,
 ask what you will do with a failure you cannot see.**
 
+## Technique 80: after TWO failed fix-and-run cycles, stop fixing and start bisecting
+
+2026-09-01, phase 2c of the XT-IDE port driver. A Windows protection error the moment the driver
+claimed a device. It took **six emulator runs**, of which one was a bisect and five were guesses.
+The one bisect - build the same driver claiming nothing - answered the question the five guesses
+were groping at, in a single run.
+
+Each run here costs six minutes and a boot. A guess tests one hypothesis out of an unknown number.
+A bisect halves the space whatever the answer is. **The moment a second fix-and-run fails, the
+next run must be a bisect, not a third fix.** Write the switch that makes bisecting cheap - here it
+was `build.ps1 -ClaimMask`, one integer - *before* you need it.
+
+### The four things that were guessed at, and what each actually needed
+
+| guess | what would have settled it, first time |
+|---|---|
+| INF rejected: line endings, then the install path | diffing against `MSHDC.INF` in the same install |
+| protection error: stack args, sample's `mov esi,edi` | a claim-nothing bisect |
+| DCB fields to fill at inquiry | `NEW95DOC/STORAGE.DOC`, which documents it in one paragraph |
+| offsets of `DCB_apparent_*` | reading `dcb.inc` - they are in a **different structure** |
+
+Three of those four are "read the thing that already exists". The DDK ships design guides
+(`DOCS/DESGUIDE/`, `NEW95DOC/`) and a second sample (`BLOCK/SAMPLES/MINIPORT`) that went unopened
+for a whole session. This is Technique 75's vendor-README rule again, one level up: **the DDK's own
+documentation is a primary source about the DDK's own sample.**
+
+### Two structures with a shared prefix will silently accept each other's offsets
+
+`dcb.inc` defines `DCB_COMMON`, `DCB_BLOCKDEV` and `DCB`. `DCB_apparent_sector_cnt` belongs to
+`DCB_BLOCKDEV` - the Int13h/BlockDev view - and `DCB_actual_sector_cnt` to `DCB`. MASM resolves
+`[esi].DCB_apparent_sector_cnt` against whichever structure declared that name, applies it to
+whatever `ESI` holds, and assembles cleanly. The write lands on `DCB_bus_type` / `DCB_scsi_*` /
+`DCB_inquiry_flags` and the machine dies later, somewhere else.
+
+`DCB_apparent_blk_shift` is safe only by luck: it is in `DCB_COMMON`, which is the first field of
+`DCB`, so its offset happens to be right.
+
+**Before writing any field of a DDK structure through a pointer, confirm which STRUC declares that
+field.** `grep -n "STRUC|ENDS|<field>" the .inc` is one command and it is not optional.
+
+### And do not hand-write stack-offset arithmetic
+
+The same session wrote `push ebx / push edi / push eax` then read the pushed value back as
+`[esp+8]` - which is the saved `EBX`. It then used it as an array index and copied from the
+resulting wild pointer. That code existed *specifically* to avoid a register-clobber bug class
+(technique 78), and introduced a worse one.
+
+If a value is still live in a register, use the register. If it is not, spill it to a **named
+module variable**, not to the stack. This file already holds every port address in its own
+variable for exactly this reason; the rule applies to arguments too.
+
+## Technique 79: a write/read-back self-test verifies the TRANSPORT, not the ADDRESS - check the
+## disk from outside, for the exact pattern at the exact block on the exact device
+
+Phase 2b of the XT-IDE port driver (#21) wrote a known pattern to LBA 100, read it back, compared
+512 bytes, and reported success. The pattern had gone to **the boot disk**, not the scratch disk it
+was aimed at.
+
+`XTIDE_ProgramTaskfile` built Drive/Head from `DRVHD_LBA` (`0E0h`), which has the DEV bit **clear**.
+`XTIDE_TryIdentify` had selected the slave; the taskfile programmer silently re-selected the
+master. Both halves of the round trip went to the same wrong drive, so the comparison passed.
+
+**A round trip cannot detect a wrong address, because the error is applied twice and cancels.** It
+also cannot detect a wrong *device*, a wrong *partition offset*, or an off-by-N in a block
+translation. What it does prove is the data path: bit order, latch order, transfer length.
+
+The check that works costs one command and needs no guest cooperation:
+
+```bash
+python -c "
+exp = <the pattern>
+for name in ('scratch.img','boot.img'):
+    d = open(name,'rb').read()
+    i = d.find(exp)
+    print(name, ('LBA %d' % (i//512)) if i>=0 else 'not present')"
+```
+
+Two images, not one - *absence* from the disk you did not mean to touch is half the result.
+
+**Corollary for any self-test in this project**: state what the test cannot see, in the comment,
+next to the test. The write self-test's own comment correctly claimed it would catch a high/low
+latch swap - and it does, because the read path is separate code making a different mistake. It
+said nothing about addressing, which is where the bug was.
+
+**And keep the rollback.** `tools/pdr_loadtest.ps1 -Restore` copies the image back from
+`xtide_base.img` before every run, so a driver that writes to the wrong disk costs one file copy
+rather than a Windows reinstall. Build that before the first run that writes, not after.
+
 ### Technique 78, addendum 2026-08-31 — two registers that must alias, disagreeing, kills a map
 
 The DOS probe (`drivers/xtide_pdr/tools/XTPROBE.BAS`) died on an unrelated QBASIC bug, but its first

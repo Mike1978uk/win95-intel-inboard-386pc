@@ -112,9 +112,57 @@ That single check also proves the latch write ordering is right: a high/low swap
 
 `-Restore` earned its keep - the damaged run cost one file copy.
 
+## Phase 2c - NOT WORKING. Windows protection error the moment a unit is claimed
+
+Read this before touching it again, and start from the bisect table, not from a theory.
+
+`ClaimMask 0` (claim nothing) boots to a desktop and logs `Init Success port.pdr`. Any build that
+claims a unit dies with a **Windows protection error**, and `BOOTLOG.TXT` stops at
+`Initing port.pdr` with no verdict.
+
+That log position matters: `IOS_Register` runs the whole AEP sequence - `AEP_INITIALIZE`,
+`AEP_DEVICE_INQUIRY` per unit, `AEP_CONFIG_DCB` - synchronously inside `SYS_DYNAMIC_DEVICE_INIT`.
+Requests come later. So the fault is in inquiry or config, **not** in the request path or the
+transport.
+
+### Bisect state - two switches exist, use them
+
+| build | result |
+|---|---|
+| `-ClaimMask 0` | boots, `Init Success` |
+| `-ClaimMask 2` | protection error |
+| `-ClaimMask 2 -NoDcb` (claim, write nothing to the DCB) | **still** protection error |
+| `-ClaimMask 2 -NoCalldown` (claim, skip the ISP calldown insert) | **NOT YET RUN - do this first** |
+
+`-NoDcb` exonerates every DCB write. The remaining suspects are `Port_cfg_device`'s ISP calldown
+insert and whatever `AEP_CONFIG_DCB` does around it. `-NoCalldown` splits those in one run.
+
+### Real bugs found and fixed on the way - keep these regardless
+
+- **`DCB_apparent_*` are in `DCB_BLOCKDEV`, a different STRUC from `DCB`.** Writing them through a
+  DCB pointer assembles cleanly and lands on `DCB_bus_type` / `DCB_scsi_*` / `DCB_inquiry_flags`.
+  Only `DCB_apparent_blk_shift` is safe, and only because `DCB_COMMON` is the first field of `DCB`.
+- **Inquiry identifies, it does not describe.** `NEW95DOC/STORAGE.DOC`: the driver sets
+  `DCB_product_id`, `DCB_vendor_id`, `DCB_rev_level` and returns `AEP_SUCCESS`; an absent unit
+  returns **`AEP_NO_INQ_DATA`** (1), not the sample's `AEP_FAILURE` (-1).
+- **The DDK sample clobbers its own DCB pointer**: `Port_cfg_device` loads ESI from
+  `AEP_d_c_dcb` and then executes `mov esi,edi` before handing it to `ISP_insert_calldown`.
+  Patched out. Harmless while nothing is claimed, which is why it shipped.
+- **A wild pointer of my own**: `push ebx / push edi / push eax` then reading the unit index back
+  as `[esp+8]`, which is the saved EBX. Fixed by using the register that still held it.
+
+### The other route, and it is not a consolation prize
+
+Everything failing here is IOS plumbing that a `.MPD` miniport does not have to write - `SCSIPORT.PDR`
+owns the DCB, the queue and the calldown insert. Two miniports already survive into Windows on this
+machine (`T130.MPD`, and the LS-120's). The DDK ships `BLOCK/SAMPLES/MINIPORT`, unopened so far.
+Cost is SCSI CDB translation; the proven transport would not change at all.
+
 ### Next
 
-1. Phase 2c - DCB and the IOS request path, so Windows actually routes I/O through it. This means
+1. Run `-ClaimMask 2 -NoCalldown`. One run, splits the remaining space.
+2. Read `BLOCK/SAMPLES/MINIPORT` and `NEW95DOC/STORAGE.DOC` on `AEP_CONFIG_DCB` **before** the
+   next fix, not after it., so Windows actually routes I/O through it. This means
    **claiming the device**, which is normal (`ESDI_506.PDR` takes the boot disk off the real-mode
    mapper exactly this way) but wants a scratch slave disk in the test bed first, and writes
    implemented, not a read-only volume.
