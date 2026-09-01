@@ -9,14 +9,50 @@ file is just the steps. Do them in order — each one de-risks the next.
 - Rebuild the fixture before every run: `python tools/mkfatimg.py vm_xtide_pdr/scratch.img`.
   It also clears the marker, so a stale one cannot be read as a result.
 - Read the marker after every run: `python tools/pdr_reqmarker.py vm_xtide_pdr/scratch.img`.
+- **Read the filesystem too, not just the marker.** The marker says a WRITE reached the
+  transport. Only `fatls.py` and the raw sectors say the right bytes reached the right block.
+  On 2026-09-01 the first of those was true while the second was not.
 - **A null result is only a result if the code was verified present.** `grep` the built
   `build/PORTREQ.ASM` / `PORTAER.ASM`, or take a listing (`ML ... -Fl<file>.lst`), before
-  believing that something did not happen. Three claims today were wrong for want of this.
-- `-Seconds 260`. The default 150 hid a working result for one run.
+  believing that something did not happen. Three claims on 2026-09-01 were wrong for want
+  of this.
+- **No BOOTLOG.TXT is not a result about the driver.** Read `screen_<tag>.png` first: a POST
+  prompt (`162-System Options Not Set`) means the run is void. The harness now says so.
+- **The window is the measurement.** Default `-Seconds 400`. The volume is published from an
+  appy-time callback and StartUp items run after that; 150 s hid a working volume once, and
+  260 s published it on one run and not the next.
+- **Do not run builds or other 86Box work on the host during a run.** Two of the differences
+  chased on 2026-09-01 were how far the guest got inside a fixed wall-clock window.
 
 ---
 
-## Step 1 — prove a WRITE goes through the request path  (1 run)
+## Step 1 — prove a WRITE goes through the request path  ✅ DONE 2026-09-01, and it found a bug
+
+**Result: the write path was writing the wrong bytes, and the read path could never have shown
+it.** `IOR_buffer_ptr` is a data buffer only while `IORF_SCATTER_GATHER` is clear; with it set the
+DDK says it points at a list of `BlockDev_Scatter_Gather` descriptors, count first and pointer
+second. VFAT's mount-time reads are single-buffer and its writes are scattered, so the read path
+looked correct and proved nothing about the write path - and a write/read-back self-test cannot
+catch it either, because both halves move the same wrong bytes.
+
+Symptom: `WRITE lba=126` reached the transport and put ring-0 heap in the root directory. The
+bytes on the disk began `01 00 00 00 00 E4 69 C1` - `BD_SG_Count = 1`, `BD_SG_Buffer_Ptr =
+C169E400`. A descriptor, byte for byte.
+
+Fixed by walking the list (null-terminated, separately bounded by `IOR_xfer_count`, last segment
+clamped), the same shape as `zikolas/cfu1-win9x`'s `rr_sg`/`rw_sg`. Confirmed on two runs:
+
+```
+scatter/gather requests 0 read, 3 write     <- the walk is load-bearing, not dead code
+D:\WROTE.TXT  21 bytes  "HELLO-FROM-STARTUP"
+LBA 64  f8 ff ff 7f ff ff ff ff             <- FAT intact
+LBA 126 "XTIDE VOL" / HELLO.TXT / WROTE.TXT <- root directory intact
+```
+
+The old binary is not merely wrong, it is unsafe: rebuilt byte-identical and re-run, it killed the
+boot at `Initing port.pdr` instead of corrupting the volume. Same input, different damage.
+
+### The original step, kept because it is the procedure to repeat
 
 The only thing Windows has ever asked this driver to do is read. The write path is proven by the
 driver's own self-test, not by VFAT.
@@ -48,25 +84,36 @@ the write path is broken until the driver's own counters show a WRITE arriving.
 
 ---
 
-## Step 2 — make volume publishing the default  (no run)
+## Step 2 — make volume publishing the default  ✅ DONE 2026-09-01, no run needed
 
-Once step 1 passes, `-PublishVolume` has earned its way in. Move the `publish the volume once the
-calldown is in` edit in `tools/patch_sample.py` out of the `--publishvolume` block into the main
-`aer` list, drop the switch from `build.ps1`, and adjust the `want` count. Rebuild and re-run
-step 1 once to confirm nothing moved.
+`--publishvolume` is gone from `patch_sample.py` and `-PublishVolume` from `build.ps1`; the edit is
+unconditional and `want` went 19 → 20.
+
+**Verified by md5, which is stronger than a re-run**: `build.ps1 -Stride 0 -ClaimMask 2 -ReqMarker`
+now produces `eabc6517b7517e47a9a73026f6aa81c6` — byte-identical to the `-PublishVolume` build that
+produced the clean run above. A refactor that cannot change the artefact cannot change the result.
+Use this trick wherever a change is meant to be a no-op.
 
 ---
 
-## Step 3 — stride autodetect  (1 run, and it is what makes the driver general)
+## Step 3 — stride autodetect  ✅ WRITTEN 2026-09-01, `-Stride 0`
 
-Currently one binary per card variant. The method is already measured (Technique 78 addendum):
-**Status (`base+07`) and Alternate Status (`base+0E`) are the same register on any correct map.**
-On the wrong stride they disagree — measured `92h` vs `50h` on the real card.
+`XTIDE_DetectStride` tries stride 1 then stride 2, reading Status (`base+07*S`) and Alternate
+Status (`base+14*S`) and keeping the candidate where they agree — one register on any correct map,
+measured `92h` against `50h` on the wrong one. All-ones and all-zeroes are rejected so two
+floating reads cannot pass.
 
-In `XTIDE_Probe`, before IDENTIFY: set stride 1, read both, compare; if they differ set stride 2
-and compare again; keep whichever agrees; fail if neither does. Record the chosen stride in the
-marker. Verify in the emulator (which is stride 1) that it still picks 1 — that is the whole test
-available here.
+**It writes nothing, which is the whole safety argument.** The old objection to autodetection was
+real and still stands for a probe that *writes*: stride 2 on stride-1 hardware puts `0ECh` into
+DEVICE CONTROL and leaves SRST asserted. Two `in` instructions cannot do that. Stride 1 is tried
+first so stride-1 hardware never gets read outside its own decode.
+
+The chosen stride is reported in the marker. `-Stride 1` / `-Stride 2` still pin it and skip
+detection entirely; `build.ps1` still defaults to a pinned 2.
+
+The emulator can only ever confirm it picks 1. **The first hardware run should still pin
+`-Stride 2`** — autodetect is one more thing that has never run on the card, and a failure needs
+to be attributable.
 
 ---
 

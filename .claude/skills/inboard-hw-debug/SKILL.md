@@ -3855,3 +3855,62 @@ literal backslash and failed an anchor assertion at build time.
 
 Use the Edit/Write tools for anything containing backslashes, or `chr(92)`/`chr(10)` concatenation
 if a script must generate it. Reserve heredocs for plain text.
+
+## Technique 85: a pointer field can mean two different things depending on a flag - and the
+## READ path can be the one that never sees the second meaning
+
+2026-09-02, issue #21, and it is the first bug in this driver that reached the disk.
+
+The Win95 IOS `IOR_buffer_ptr` is a data buffer **only while `IORF_SCATTER_GATHER` is clear**. The
+DDK says so outright, in `NEW95DOC/STORAGE.DOC`'s own field table:
+
+> *"IOR_buffer_ptr - Points to either a linear buffer space, unless IORF_SCATTER_GATHER is set, in
+> which case it points to a list of linear (logical) scatter-gather descriptors."*
+
+`BlockDev_Scatter_Gather` (`INC32/BLOCKDEV.INC`) is two dwords, **sector count first and buffer
+pointer second** - the reverse of the order most people guess.
+
+Our port driver read the field blind. VFAT then wrote through it and we transmitted the descriptor
+list into the volume's root directory. The bytes on the disk were their own diagnosis:
+
+```
+LBA 126:  01 00 00 00  00 e4 69 c1  ...    BD_SG_Count = 1, BD_SG_Buffer_Ptr = C169E400
+```
+
+**Why it survived every earlier test, and this is the transferable part:** VFAT's mount-time reads
+are single-buffer and its writes are scattered. So
+
+- the read path exercised only the *first* meaning of the field and worked perfectly - it mounted a
+  filesystem, enumerated a directory and read a file;
+- the write path met the *second* meaning on its first real request;
+- and technique 79's round-trip self-test could not catch it either, because a write/read-back
+  applies the same misreading twice and cancels.
+
+**The rule: when a structure field's meaning is switched by a flag, a path that never sets the flag
+is not evidence about a path that does.** Enumerate the flags that change the meaning of anything
+you dereference, and count how often each arrives - `scatter/gather requests 0 read, 3 write` is
+one line of output and it is what turned this from a theory into a measurement.
+
+### Corollaries this cost a run each
+
+- **A counter beats a captured value for "does this ever happen".** The first snapshot caught the
+  first write, which was single-buffer, and read as "scatter/gather never occurs". The scattered
+  ones came later. Technique 83 already says this; it keeps being true.
+- **Check the filesystem, not only the instrumentation.** The marker correctly reported a WRITE
+  reaching the transport. The volume was destroyed. Both were true.
+- **A green run of a non-deterministic bed is weak.** The corrupting binary, rebuilt byte-identical
+  (`md5` compared, technique 70) and re-run on the same fixture, killed the boot at `Initing
+  port.pdr` rather than corrupting anything - same input, different damage. Neither run alone
+  characterises it. Repeat before concluding.
+- **A wall-clock harness window is part of the experiment.** Two runs that differed only by a
+  diagnostic counter published the volume and did not, because the volume is published from an
+  appy-time callback near the end of the window. Technique 84 said this about 150 s; it was still
+  true at 260 s. Raise it, and do not run builds on the host during a run.
+
+### And the DDK's own docs outrank reasoning about the DDK's own sample
+
+The whole answer was in `STORAGE.DOC` and `BLOCKDEV.INC`, and independently in a working
+third-party driver (`zikolas/cfu1-win9x`, `rr_sg`/`rw_sg`, whose comment says *"logical SGD: ptr is
+SECOND"*). Technique 80's "read the thing that already exists" and technique 81's "a working
+implementation outranks the vendor sample" both applied, and both were reached only after guessing
+first.
