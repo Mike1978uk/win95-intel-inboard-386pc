@@ -1,0 +1,24 @@
+DEVICE=c:\INBRDPC.SYS NODIAGS NOPAUSE
+REM DEVICE=C:\revto486.sys /BL /CN /CCM /2
+REM DEVICE=C:\LGHT486.sys /2
+
+DEVICE=C:\WINDOWS\SETVER.EXE
+DEVICE=C:\WINDOWS\HIMEM.SYS
+DOS=HIGH,UMB
+device=C:\WINDOWS\COMMAND\display.sys con=(ega,,1)
+Country=044,850,C:\WINDOWS\COMMAND\country.sys
+
+REM DEVICEHIGH=C:\TSCSI\MA13B.SYS /Ip2  REM 2026-09-01: SCSI chain out, see docs/xtide_pdr_checklist.md
+REM Use tscsi.sys and flip sw1 6 to off hdd mode then run tformat /l /s512 to format mac MO Disks
+REM DeviceHIGH=C:\TSCSI\TSLCDR.SYS /d:TSLCD  REM 2026-09-01: SCSI chain out, see docs/xtide_pdr_checklist.md 
+REM DEVICEHIGH=C:\FJMO\MODISK2.SYS  REM 2026-09-01: SCSI chain out, see docs/xtide_pdr_checklist.md
+REM DEVICEHIGH=C:\NBACK_SE\NASPIBUF.SYS /S5000  REM 2026-09-01: SCSI chain out, see docs/xtide_pdr_checklist.md
+
+DEVICEHIGH=C:\SD120PPD\SD120PPD.SYS /port:378 /IRQ:7 /de /db /ni /sf /dpc /dp /fp
+DEVICEHIGH=C:\SD120PPD\ASPIHDRM.SYS
+
+LASTDRIVE=M
+BUFFERS=15,0
+BREAK=ON
+Stacks=0,0
+FILES=40
