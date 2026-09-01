@@ -64,7 +64,12 @@ param(
     # Refuse every write at the request handler's door. For claiming a volume on
     # a single-disk machine, where the only disk is the boot volume: a wrong read
     # costs a reboot, a wrong write costs the disk.
-    [switch]$ReadOnly
+    [switch]$ReadOnly,
+    # Where the request marker writes. The default sits past the end of the
+    # scratch volume; on a real install it would land inside the filesystem, so
+    # a claiming test on a boot image needs it in the MBR gap (LBA 1-62) where
+    # nothing lives. Only ever used on a DISPOSABLE copy.
+    [int]$MarkerLba = 16000
 )
 
 $ML   = "$DDK\MASM611C\ML.EXE"
@@ -227,6 +232,7 @@ if ($ReqMarker) { $aflags += "-DXT_REQ_MARKER=1"; Write-Output "DIAGNOSTIC: on-d
 if ($NoWriteTest) { $aflags += "-DXT_NO_WRITETEST=1"; Write-Output "SAFETY: slave probe and write self-test disabled" }
 if ($ProbeSkip -gt 0) { $aflags += "-DXT_PROBE_SKIP=$ProbeSkip"; Write-Output "CALIBRATION: probe skipped, reporting fail code $ProbeSkip" }
 if ($ReadOnly) { $aflags += "-DXT_READ_ONLY=1"; Write-Output "SAFETY: every write refused with IORS_WRITE_PROTECT" }
+if ($MarkerLba -ne 16000) { $aflags += "-DXT_MARK_LBA=$MarkerLba"; Write-Output "MARKER LBA: $MarkerLba" }
 $strideName = if ($Stride -eq 0) { "0 (autodetect)" } else { "$Stride (pinned)" }
 Write-Output "Register stride: $strideName   claim mask: $ClaimMask   time base: $TimeBase"
 $objs = @("port","portaer","portreq","portisr") + $objs_extra

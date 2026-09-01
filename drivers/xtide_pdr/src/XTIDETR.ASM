@@ -1927,7 +1927,10 @@ EndProc XTIDE_MarkEntry
 ;   LBA 16000 is past the end of anything on the 8 MB scratch slave (16128
 ;   sectors) that a filesystem would use, and the scratch disk is disposable.
 ;----------------------------------------------------------------------------
-XTIDE_MARK_LBA	equ	16000
+ifndef XT_MARK_LBA
+XT_MARK_LBA	equ	16000
+endif
+XTIDE_MARK_LBA	equ	XT_MARK_LBA
 
 BeginProc XTIDE_MarkRequest
 
@@ -2163,6 +2166,23 @@ endif
 	jne	xsr_badsector
 
 	mov	eax, dword ptr [ebx].IOP_ior.IOR_start_addr
+
+;  A request on a volume WE published can arrive partition-relative. IOS says so
+;  with IORF_LOGICAL_START_SECTOR, and expects the driver to add the partition
+;  start itself; IORF_PARTITION_BIAS_ADDED means it has already been applied and
+;  must not be added twice. zikolas/cfu1-win9x does exactly this.
+;
+;  Every request measured on the emulator's SECOND disk arrived absolute, so this
+;  path never mattered there - but that volume was one nobody else owned. On a
+;  boot volume taken over from the Real Mode Mapper the flag is live, and being
+;  wrong about it puts every write 63 sectors from where it belongs, inside a
+;  filesystem, every single time.
+	test	dword ptr [ebx].IOP_ior.IOR_flags, IORF_LOGICAL_START_SECTOR
+	jz	xsr_absolute
+	test	dword ptr [ebx].IOP_ior.IOR_flags, IORF_PARTITION_BIAS_ADDED
+	jnz	xsr_absolute
+	add	eax, XTIDE_MkPartStart	; 0 until the volume is published = no bias
+xsr_absolute:
 	mov	XTIDE_ReqLba, eax
 	mov	eax, [ebx].IOP_ior.IOR_xfer_count
 	mov	XTIDE_SgLeft, eax

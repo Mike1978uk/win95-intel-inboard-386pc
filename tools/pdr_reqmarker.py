@@ -10,7 +10,7 @@ an unchanged count.
 """
 import os, sys, struct
 
-LBA = 16000
+LBA = int(__import__('os').environ.get('PDR_MARKER_LBA', 16000))
 SIG = b'XTIDEREQ'
 FUNC = {0: 'READ', 1: 'WRITE', 2: 'VERIFY'}
 VOLSTEP = {0: 'XTIDE_VolCreate NEVER RAN', 1: 'no ILB', 2: 'already published',
