@@ -35,6 +35,13 @@ param(
     # reads exactly like a driver that killed the boot. 30 s was not enough
     # margin; POST length varies with the Mach8 option ROM. Technique 71.
     [int]$F1Seconds  = 90,
+    # And keep tapping ENTER for a while after that. Repeated forced kills set
+    # Windows' own "did not finish loading last time" flag, so a later boot
+    # stops at the Startup Menu and waits - forever, since nothing here answers
+    # it, and the run then reports no BOOTLOG as though the driver had killed
+    # the boot. The menu already highlights "2. Logged" because that is how
+    # these runs boot, so a bare Enter picks the right item. Technique 23.
+    [int]$EnterSeconds = 150,
     [string]$Tag     = "run"
 )
 
@@ -101,10 +108,15 @@ public class PT {
 "@
 $deadline = (Get-Date).AddSeconds($Seconds)
 $f1until  = (Get-Date).AddSeconds($F1Seconds)
+$enteruntil = (Get-Date).AddSeconds($EnterSeconds)
 while ((Get-Date) -lt $deadline -and -not $p.HasExited) {
     if ((Get-Date) -lt $f1until) {
         $p.Refresh()
         if ($p.MainWindowHandle -ne 0) { [PT]::Tap($p.MainWindowHandle, 0x70, 0x3B) }
+    }
+    elseif ((Get-Date) -lt $enteruntil) {
+        $p.Refresh()
+        if ($p.MainWindowHandle -ne 0) { [PT]::Tap($p.MainWindowHandle, 0x0D, 0x1C) }
     }
     Start-Sleep 3
 }
@@ -123,9 +135,10 @@ if (-not (Test-Path $out)) {
     # conclusion from this - a harness that clears prompts must show what it
     # was clearing (technique 71), and this one now says where to look.
     Write-Output "NO BOOTLOG - Windows never wrote one."
-    Write-Output "  This is usually POST, not the driver. Read $shot before"
-    Write-Output "  concluding anything: '162-System Options Not Set' or an F1"
-    Write-Output "  prompt means the run is VOID, not negative."
+    Write-Output "  This is usually POST or the Startup Menu, not the driver."
+    Write-Output "  Read $shot before concluding anything:"
+    Write-Output "  '162-System Options Not Set', an F1 prompt, or 'Enter a choice:'"
+    Write-Output "  all mean the run is VOID, not negative."
     exit 1
 }
 
