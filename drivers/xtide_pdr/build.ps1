@@ -30,7 +30,12 @@ param(
     # in one run, which is cheaper than another guess (Technique 80).
     [switch]$NoDcb,
     [switch]$NoCalldown,
-    [switch]$NoIo
+    [switch]$NoIo,
+    # Prove an IOS request actually reached XTIDE_StartRequest. Writes a marker
+    # sector to the claimed unit at LBA 16000 on the first request and every
+    # 64th after; tools/pdr_reqmarker.py reads it back out of the image.
+    # Diagnostic only - never in a shipped driver.
+    [switch]$ReqMarker
 )
 
 $ML   = "$DDK\MASM611C\ML.EXE"
@@ -174,6 +179,7 @@ prd_inner:
     # it asserts every anchor and fails the build rather than no-op quietly.
     $psArgs = @("$PSScriptRoot/tools/patch_sample.py", $OutDir)
     if ($NoCalldown) { $psArgs += "--nocalldown" }
+    if ($ReqMarker)  { $psArgs += "--reqmarker" }
     python $psArgs
     if ($LASTEXITCODE -ne 0) { Write-Output "FAILED: patch_sample.py"; exit 1 }
 
@@ -188,6 +194,7 @@ $aflags = @("-coff","-DBLD_COFF","-DDEBUG_TRACE=1","-DIS_32","-nologo","-W3","-Z
             "-DMASM6","-DINITLOG","-DDEBLEVEL=0","-DXT_STRIDE=$Stride","-DXT_CLAIM_MASK=$ClaimMask")
 if ($NoDcb) { $aflags += "-DXT_NO_DCB=1"; Write-Output "BISECT: DCB fill disabled" }
 if ($NoIo)  { $aflags += "-DXT_NO_IO=1";  Write-Output "BISECT: request handler is a stub" }
+if ($ReqMarker) { $aflags += "-DXT_REQ_MARKER=1"; Write-Output "DIAGNOSTIC: on-disk request marker enabled" }
 Write-Output "Register stride: $Stride   claim mask: $ClaimMask"
 $objs = @("port","portaer","portreq","portisr") + $objs_extra
 

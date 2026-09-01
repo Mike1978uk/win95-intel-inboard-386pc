@@ -43,7 +43,9 @@ def main():
          lambda m: m.group(1) + TAB + 'extrn' + TAB + 'XTIDE_Inquiry:near' + TAB
                    + '; device inquiry (phase 2c)' + NL
                    + TAB + 'extrn' + TAB + 'XTIDE_WantDcb:near' + TAB
-                   + '; calldown guard (phase 2d)' + NL,
+                   + '; calldown guard (phase 2d)' + NL
+                   + TAB + 'extrn' + TAB + 'XTIDE_ConfigDcb:near' + TAB
+                   + '; describe the device (phase 2d)' + NL,
          0),
 
         # AEP_CONFIG_DCB is broadcast for DCBs this driver never claimed, and the
@@ -62,7 +64,8 @@ def main():
           TAB + 'or' + TAB + 'eax, eax' + NL +
           TAB + 'jnz' + TAB + 'vcd_ret' + NL +
           NL +
-          TAB + 'inc' + TAB + '[port_device_count]' + TAB + '; show one more device' + NL),
+          TAB + 'inc' + TAB + '[port_device_count]' + TAB + '; show one more device' + NL +
+          TAB + 'call' + TAB + 'XTIDE_ConfigDcb' + TAB + '; geometry belongs HERE, not at inquiry' + NL),
          0),
 
         # ISP_result is an output field, but the packet is raw stack memory and
@@ -190,8 +193,47 @@ def main():
          0),
     ])
 
+    if '--reqmarker' in sys.argv:
+        total += edit(req, [
+            ('MarkEntry extern',
+             r'(' + WS + r'*extrn' + WS + r'+XTIDE_StartRequest:near' + WS + r'*\r?\n)',
+             lambda m: m.group(1) + TAB + 'extrn' + TAB + 'XTIDE_MarkEntry:near' + NL,
+             0),
+            ('MarkEntry call',
+             r'(' + WS + r'*mov' + WS + r'+ebx,' + WS + r'*IOP_Ptr[^\n]*\n)',
+             lambda m: m.group(1) + TAB + 'call' + TAB + 'XTIDE_MarkEntry' + TAB
+                       + '; DIAGNOSTIC: IOS called our calldown' + NL,
+             0),
+        ])
+        print('DIAGNOSTIC: calldown-entry marker wired')
+
+        # Report Port_cfg_device itself. Three outcomes in one run: no marker at
+        # all = AEP_CONFIG_DCB never reached us; cfg>0 want=0 = it did and we
+        # declined every DCB; want>0 isp!=0 = IOS refused the calldown insert;
+        # want>0 isp=0 = the insert took and the silence is above us.
+        total += edit(aer, [
+            ('MarkConfig extern',
+             r'(' + WS + r'*extrn' + WS + r'+XTIDE_ConfigDcb:near[^\n]*\n)',
+             lambda m: m.group(1) + TAB + 'extrn' + TAB + 'XTIDE_MarkConfig:near' + NL
+                       + TAB + 'extrn' + TAB + 'XTIDE_NoteIsp:near' + NL,
+             0),
+            ('capture ISP_result',
+             r'(' + WS + r'*call' + WS + r'+\[Port_ilb\.ILB_Service_rtn\][^\n]*\n)',
+             lambda m: m.group(1) + TAB + 'movzx' + TAB + 'eax, word ptr [esp+6]' + TAB
+                       + '; ISP_result' + NL
+                       + TAB + 'call' + TAB + 'XTIDE_NoteIsp' + NL,
+             0),
+            ('report on the way out',
+             r'(\nvcd_ret:' + WS + r'*\r?\n)',
+             lambda m: m.group(1) + NL + TAB + 'call' + TAB + 'XTIDE_MarkConfig' + NL,
+             0),
+        ])
+        print('DIAGNOSTIC: config-path marker wired')
+
     print('Patched: %d' % total)
     want = 16 if nocalldown else 15
+    if '--reqmarker' in sys.argv:
+        want += 5
     assert total == want, 'expected %d edits, got %d' % (want, total)
 
 

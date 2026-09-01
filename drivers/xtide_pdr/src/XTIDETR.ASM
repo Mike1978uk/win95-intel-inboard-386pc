@@ -245,6 +245,25 @@ XTIDE_Cmd			dd	0
 ;  mismatch rather than inferred from a checksum.
 public XTIDE_WrBuf
 XTIDE_WrBuf			db	512 dup (0)
+
+;  Request-path marker. Opt-in, -DXT_REQ_MARKER, and NOT in a shipped driver.
+;  The delay channel in PORT_Device_Init can only report registration, so it
+;  cannot answer "did an IOS request ever reach XTIDE_StartRequest". This sector
+;  can: the host reads it back out of the image afterwards. Technique 79 - the
+;  proof of an address has to come from outside the guest.
+public XTIDE_Marker
+XTIDE_Marker		db	'XTIDEREQ'
+XTIDE_MkCount		dd	0
+XTIDE_MkEntry		dd	0
+XTIDE_MkFunc		dd	0
+XTIDE_MkLba		dd	0
+XTIDE_MkXfer		dd	0
+XTIDE_MkUnit		dd	0
+XTIDE_MkCfg		dd	0	; AEP_CONFIG_DCB calls seen
+XTIDE_MkWant		dd	0	; ...of which we claimed
+XTIDE_MkIsp		dd	0	; ISP_result of the last calldown insert
+XTIDE_MkOurUnit		dd	0	; addressing only - not part of the report
+			db	464 dup (0)
 public XTIDE_RbBuf
 XTIDE_RbBuf			db	512 dup (0)
 
@@ -263,13 +282,23 @@ XTIDE_UnitSpt		dd	2 dup (0)
 XTIDE_UnitTotal		dd	2 dup (0)
 XTIDE_UnitLbaOk		dd	2 dup (0)
 
-;  The DCB IOS handed us for each unit we claimed at inquiry time.
-;  AEP_CONFIG_DCB is broadcast for DCBs that are not ours, and the same DCB
-;  can come round again on a re-broadcast; splicing our request routine into
-;  either is a wild calldown. Consumed on the first successful insert, so a
-;  second one is refused. zikolas/cfu1-win9x guards the same way, for the
-;  same reason - the DDK sample guards neither.
+;  Non-zero for each unit inquiry actually claimed - the mask and the presence
+;  test have both already been applied by then, so this is the one flag that
+;  says "we said yes to this unit".
+;
+;  It holds the inquiry-time DCB pointer, but ONLY as a flag. Do not compare it
+;  against the DCB that arrives with AEP_CONFIG_DCB: STORAGE.DOC says the IOS
+;  "creates a real DCB and fills it with information supplied by the driver",
+;  so the two are different objects. Measured 2026-09-01 - a pointer-identity
+;  guard reported cfg=1 claimed=0 and declined our own device, and no request
+;  was ever issued.
 XTIDE_ClaimedDcb	dd	2 dup (0)
+
+;  The DCB we inserted a calldown on, per unit. AEP_CONFIG_DCB is broadcast for
+;  DCBs that are not ours and the same DCB can come round again on a
+;  re-broadcast; inserting twice is a wild calldown. zikolas/cfu1-win9x guards
+;  the same way and says why - the DDK sample guards neither.
+XTIDE_InsertedDcb	dd	2 dup (0)
 
 ;  Which units this driver is willing to claim, one bit each. The default
 ;  claims both; the emulator loop builds with 2 so the first request-path run
@@ -1121,22 +1150,30 @@ EndProc XTIDE_SelectUnit
 ;----------------------------------------------------------------------------
 BeginProc XTIDE_WantDcb
 
-	or	esi, esi		; a null DCB would match an empty slot
+ifdef XT_REQ_MARKER
+	inc	XTIDE_MkCfg
+endif
+	or	esi, esi
 	jz	xwd_no
-	xor	ecx, ecx
-xwd_scan:
-	cmp	XTIDE_ClaimedDcb[ecx*4], esi
-	je	xwd_yes
-	inc	ecx
-	cmp	ecx, 2
-	jb	xwd_scan
-xwd_no:
-	mov	eax, 1
+
+;  Ours is decided by the UNIT, not by the DCB's address - see XTIDE_ClaimedDcb.
+	movzx	eax, byte ptr [esi].DCB_unit_on_ctl
+	cmp	eax, 1
+	ja	xwd_no
+	mov	ecx, eax
+	shl	ecx, 2
+
+	cmp	XTIDE_ClaimedDcb[ecx], 0	; did inquiry claim this unit?
+	je	xwd_no
+	cmp	XTIDE_InsertedDcb[ecx], 0	; already in this unit's calldown?
+	jne	xwd_no
+
+	mov	XTIDE_InsertedDcb[ecx], esi
+	xor	eax, eax
 	ret
 
-xwd_yes:
-	mov	XTIDE_ClaimedDcb[ecx*4], 0	; once only
-	xor	eax, eax
+xwd_no:
+	mov	eax, 1
 	ret
 
 EndProc XTIDE_WantDcb
@@ -1180,6 +1217,7 @@ xin_shifted:
 	je	xin_absent
 
 	mov	XTIDE_ClaimedDcb[ecx], esi	; remember it for Port_cfg_device
+	mov	XTIDE_MkOurUnit, eax	; and which unit to write the marker to
 
 	call	XTIDE_SelectUnit		; geometry for THIS unit
 
@@ -1208,39 +1246,14 @@ endif
 	mov	edx, OFFSET32 XTIDE_RevText
 	call	XTIDE_CopyStr
 
-;  Describe the device. Block size is 512 everywhere here - the CF is in
-;  512-byte mode and ATA has no other sector size for a disk.
-	mov	byte ptr [esi].DCB_device_type, DCB_type_disk
-	mov	byte ptr [esi].DCB_bus_type, DCB_BUS_ESDI
-;  ONLY the fields that live in DCB or in DCB_COMMON. DCB_apparent_sector_cnt
-;  and friends belong to DCB_BLOCKDEV - a SEPARATE structure, the BlockDev
-;  Int13h view - so writing them through a DCB pointer lands on DCB_bus_type,
-;  DCB_scsi_* and DCB_inquiry_flags instead. That is a Windows protection
-;  error, and it assembles perfectly. DCB_apparent_blk_shift is fine: it is in
-;  DCB_COMMON, which IS the first field of DCB.
-	mov	byte ptr [esi].DCB_apparent_blk_shift, 9
-	or	[esi].DCB_device_flags, DCB_DEV_PHYSICAL
-	mov	[esi].DCB_actual_blk_size, 512
-	mov	[esi].DCB_max_xfer_len, 65536	; one chunk, 128 sectors
-
-;  Capacity. A CHS-only drive reports no LBA total, so derive one - IOS wants a
-;  sector count whatever the drive can address.
-	mov	eax, XTIDE_TotalSec
-	or	eax, eax
-	jnz	xin_havetotal
-	mov	eax, XTIDE_Cyls
-	imul	eax, XTIDE_Heads
-	imul	eax, XTIDE_Spt
-xin_havetotal:
-	mov	[esi].DCB_actual_sector_cnt, eax
-	mov	dword ptr [esi].DCB_actual_sector_cnt+4, 0
-
-	mov	eax, XTIDE_Heads
-	mov	[esi].DCB_actual_head_cnt, eax
-	mov	eax, XTIDE_Cyls
-	mov	[esi].DCB_actual_cyl_cnt, eax
-	mov	eax, XTIDE_Spt
-	mov	[esi].DCB_actual_spt, eax
+;  Geometry does NOT go here. STORAGE.DOC: the driver sets DCB_product_id,
+;  DCB_vendor_id and DCB_rev_level at inquiry, and "processes the
+;  AEP_CONFIG_DCB function by setting the various members of the DCB structure
+;  to values specifying geometry information, such as cylinder count and
+;  sector count", after which "the IOS creates a real DCB and fills it with
+;  information supplied by the driver". Written here it describes a DCB that
+;  is not the one IOS keeps - so the disk TSD sees a zero-length device,
+;  declines it, and no request is ever issued. See XTIDE_ConfigDcb.
 
 xin_present:
 	xor	eax, eax			; present
@@ -1257,6 +1270,211 @@ xin_absent:
 	ret
 
 EndProc XTIDE_Inquiry
+
+;----------------------------------------------------------------------------
+; XTIDE_NoteIsp - PUBLIC. Stash the ISP_result Port_cfg_device read back off
+;                 the stack. In: EAX.
+;----------------------------------------------------------------------------
+BeginProc XTIDE_NoteIsp
+
+ifdef XT_REQ_MARKER
+	mov	XTIDE_MkIsp, eax
+endif
+	ret
+
+EndProc XTIDE_NoteIsp
+
+;----------------------------------------------------------------------------
+; XTIDE_MarkConfig - PUBLIC. Report what happened in Port_cfg_device.
+;
+;   In:   ESI -> the DCB this AEP_CONFIG_DCB was about (may be 0)
+;
+;   Addresses the marker at OUR claimed unit, never at the unit named in the
+;   DCB - a DCB we declined belongs to somebody else and its unit number would
+;   aim this write at the boot disk (technique 79).
+;   Compiles to a bare RET without XT_REQ_MARKER.
+;----------------------------------------------------------------------------
+BeginProc XTIDE_MarkConfig
+
+ifdef XT_REQ_MARKER
+	push	ebx
+	push	esi
+	push	edi
+
+	or	esi, esi
+	jz	xmc_addr
+	movzx	eax, byte ptr [esi].DCB_unit_on_ctl
+	mov	XTIDE_MkUnit, eax
+
+xmc_addr:
+	mov	eax, XTIDE_MkOurUnit
+	call	XTIDE_SelectUnit
+
+	mov	XTIDE_ReqLba, XTIDE_MARK_LBA
+	mov	XTIDE_ReqCount, 1
+	mov	XTIDE_ReqBuf, OFFSET32 XTIDE_Marker
+	call	XTIDE_WriteSectors
+
+	pop	edi
+	pop	esi
+	pop	ebx
+endif
+	ret
+
+EndProc XTIDE_MarkConfig
+
+;----------------------------------------------------------------------------
+; XTIDE_MarkEntry - PUBLIC. Record that IOS called our calldown routine at all.
+;
+;   In:   EBX -> IOP
+;
+;   Same sector as XTIDE_MarkRequest, a different counter. Port_request runs
+;   before XTIDE_StartRequest, so reading both counters afterwards says which
+;   of the two the request got as far as - one run, not two.
+;   Compiles to a bare RET without XT_REQ_MARKER.
+;----------------------------------------------------------------------------
+BeginProc XTIDE_MarkEntry
+
+ifdef XT_REQ_MARKER
+	push	ebx
+	push	esi
+	push	edi
+
+	inc	XTIDE_MkEntry
+	mov	eax, XTIDE_MkEntry
+	cmp	eax, 1
+	je	xme_write
+	test	eax, 63
+	jnz	xme_skip
+
+xme_write:
+	mov	esi, [ebx].IOP_physical_dcb
+	or	esi, esi
+	jz	xme_skip
+	movzx	eax, byte ptr [esi].DCB_unit_on_ctl
+	cmp	eax, 1
+	ja	xme_skip
+	mov	XTIDE_MkUnit, eax
+	call	XTIDE_SelectUnit
+
+	mov	XTIDE_ReqLba, XTIDE_MARK_LBA
+	mov	XTIDE_ReqCount, 1
+	mov	XTIDE_ReqBuf, OFFSET32 XTIDE_Marker
+	call	XTIDE_WriteSectors
+
+xme_skip:
+	pop	edi
+	pop	esi
+	pop	ebx
+endif
+	ret
+
+EndProc XTIDE_MarkEntry
+
+;----------------------------------------------------------------------------
+; XTIDE_MarkRequest - record that a real IOS request arrived, on the disk.
+;
+;   In:   EBX -> IOP, ESI -> DCB, unit already selected by the caller
+;   Uses: nothing the caller needs
+;
+;   Written on the first request and every 64th after it, so the on-disk copy
+;   also reports roughly how many arrived without a write per request.
+;   LBA 16000 is past the end of anything on the 8 MB scratch slave (16128
+;   sectors) that a filesystem would use, and the scratch disk is disposable.
+;----------------------------------------------------------------------------
+XTIDE_MARK_LBA	equ	16000
+
+BeginProc XTIDE_MarkRequest
+
+	push	ebx
+	push	esi
+	push	edi
+
+	inc	XTIDE_MkCount
+	mov	eax, XTIDE_MkCount
+	cmp	eax, 1
+	je	xmr_write
+	test	eax, 63
+	jnz	xmr_skip
+
+xmr_write:
+	movzx	eax, [ebx].IOP_ior.IOR_func
+	mov	XTIDE_MkFunc, eax
+	mov	eax, dword ptr [ebx].IOP_ior.IOR_start_addr
+	mov	XTIDE_MkLba, eax
+	mov	eax, [ebx].IOP_ior.IOR_xfer_count
+	mov	XTIDE_MkXfer, eax
+	movzx	eax, byte ptr [esi].DCB_unit_on_ctl
+	mov	XTIDE_MkUnit, eax
+
+	mov	XTIDE_ReqLba, XTIDE_MARK_LBA
+	mov	XTIDE_ReqCount, 1
+	mov	XTIDE_ReqBuf, OFFSET32 XTIDE_Marker
+	call	XTIDE_WriteSectors
+
+xmr_skip:
+	pop	edi
+	pop	esi
+	pop	ebx
+	ret
+
+EndProc XTIDE_MarkRequest
+
+;----------------------------------------------------------------------------
+; XTIDE_ConfigDcb - PUBLIC. Describe the device in the DCB the IOS will keep.
+;
+;   In:   ESI -> DCB
+;   Out:  ESI preserved
+;   Uses: EAX, ECX, EDX
+;
+;   Called from Port_cfg_device on AEP_CONFIG_DCB, which is where STORAGE.DOC
+;   puts geometry. The unit comes from the DCB itself rather than from
+;   anything remembered at inquiry time, so a DCB arriving out of order still
+;   gets its own drive's numbers.
+;----------------------------------------------------------------------------
+BeginProc XTIDE_ConfigDcb
+
+	push	ebx
+ifdef XT_REQ_MARKER
+	inc	XTIDE_MkWant
+endif
+	movzx	eax, byte ptr [esi].DCB_unit_on_ctl
+	cmp	eax, 1
+	ja	xcd_done
+	call	XTIDE_SelectUnit	; geometry for THIS unit
+
+	mov	byte ptr [esi].DCB_device_type, DCB_type_disk
+	mov	byte ptr [esi].DCB_bus_type, DCB_BUS_ESDI
+	mov	byte ptr [esi].DCB_apparent_blk_shift, 9
+	or	[esi].DCB_device_flags, DCB_DEV_PHYSICAL or DCB_DEV_WRITEABLE
+	mov	[esi].DCB_actual_blk_size, 512
+	mov	[esi].DCB_max_xfer_len, 65536	; one chunk, 128 sectors
+
+;  A CHS-only drive reports no LBA total, so derive one - IOS wants a sector
+;  count whatever the drive can address. Leave it zero and the TSD declines
+;  the device.
+	mov	eax, XTIDE_TotalSec
+	or	eax, eax
+	jnz	xcd_havetotal
+	mov	eax, XTIDE_Cyls
+	imul	eax, XTIDE_Heads
+	imul	eax, XTIDE_Spt
+xcd_havetotal:
+	mov	[esi].DCB_actual_sector_cnt, eax
+	mov	dword ptr [esi].DCB_actual_sector_cnt+4, 0
+
+	mov	eax, XTIDE_Heads
+	mov	[esi].DCB_actual_head_cnt, eax
+	mov	eax, XTIDE_Cyls
+	mov	[esi].DCB_actual_cyl_cnt, eax
+	mov	eax, XTIDE_Spt
+	mov	[esi].DCB_actual_spt, eax
+
+xcd_done:
+	pop	ebx
+	ret
+
+EndProc XTIDE_ConfigDcb
 
 ;----------------------------------------------------------------------------
 ; XTIDE_StartRequest - PUBLIC. Service one IOP to completion, synchronously.
@@ -1283,6 +1501,10 @@ endif
 	movzx	eax, byte ptr [esi].DCB_unit_on_ctl
 	mov	XTIDE_ReqUnit, eax
 	call	XTIDE_SelectUnit
+
+ifdef XT_REQ_MARKER
+	call	XTIDE_MarkRequest	; leave proof on the disk
+endif
 
 	movzx	eax, [ebx].IOP_ior.IOR_func
 	cmp	ax, IOR_VERIFY
