@@ -300,8 +300,10 @@ XTIDE_MkPartStart	dd	0
 XTIDE_MkPartLen		dd	0
 XTIDE_MkVolStep		dd	0	; 0 = XTIDE_VolCreate never ran; 10 = volume up
 XTIDE_VolBusy		dd	0	; one queue attempt in flight is enough
+XTIDE_MkSchedRc		dd	0FFFFFFFFh	; -1 = never even tried to queue;
+					; 0 = _SHELL_CallAtAppyTime refused
 XTIDE_MkOurUnit		dd	0	; addressing only - not part of the report
-			db	288 dup (0)	; pads XTIDE_Marker to exactly 512 bytes
+			db	284 dup (0)	; pads XTIDE_Marker to exactly 512 bytes
 
 ;  Working storage - deliberately AFTER the marker sector, not inside it.
 XTIDE_OurLgn		dd	0	; load group number, for the logical calldown
@@ -1547,6 +1549,7 @@ BeginProc XTIDE_SchedVol
 	push	OFFSET32 XTIDE_VolUp
 	VxDCall	_SHELL_CallAtAppyTime
 	add	esp, 16
+	mov	XTIDE_MkSchedRc, eax
 	or	eax, eax
 	jnz	xsv_done
 	mov	XTIDE_VolBusy, 0	; could not queue

@@ -28,7 +28,7 @@ def main():
         with open(path, 'rb') as f:
             f.seek(LBA * 512)
             blk = f.read(512)
-        if len(blk) < 220 or blk[:8] != SIG:
+        if len(blk) < 228 or blk[:8] != SIG:
             print('%-16s LBA %d: no marker' % (os.path.basename(path), LBA))
             continue
         (start, entry, func, lba, xfer, unit, cfg, want, isp,
@@ -39,12 +39,14 @@ def main():
         cyls, heads, spt, total, devflags = struct.unpack('<5I', blk[172:192])
         (vcreate, vcd, vassoc, vdrive, pstart, plen,
          vstep) = struct.unpack('<7I', blk[192:220])
+        schedrc = struct.unpack('<I', blk[224:228])[0]
         print('%s  LBA %d' % (os.path.basename(path), LBA))
         print('    DCB geometry written   %d cyl / %d head / %d spt, %d sectors'
               % (cyls, heads, spt, total))
         print('    DCB_device_flags       %08X' % devflags)
         print('    AEP_CONFIG_DCB calls   %d' % cfg)
         print('    -- volume publishing (we are our own TSD) --')
+        print('      queue call returned %s' % ('never attempted' if schedrc == 0xFFFFFFFF else ('REFUSED' if schedrc == 0 else 'queued (%08X)' % schedrc)))
         print('      got as far as       %d  %s' % (vstep, VOLSTEP.get(vstep, '?')))
         print('      partition           start %d, %d sectors' % (pstart, plen))
         print('      ISP_CREATE_DCB      %d' % vcreate)

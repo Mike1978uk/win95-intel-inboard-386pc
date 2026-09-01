@@ -21,22 +21,31 @@ ISP_ASSOCIATE_DCB   0  drive D:
 Windows read the MBR through our driver, used bytes from it to find the partition at LBA 63,
 and we then built a logical DCB and got it a drive letter. Every ISP call returned 0.
 
-## The one thing left, and it is a timing problem, not a logic one
+## The last blocker, and it was a CONTEXT problem - now solved
 
 `XTIDE_VolCreate` runs inline in `AEP_CONFIG_DCB`, which runs inside `IOS_Register`, which runs
 inside `SYS_DYNAMIC_DEVICE_INIT`. `ISP_ASSOCIATE_DCB` notifies IFSMGR and broadcasts
 `DBT_DEVICEARRIVAL`; doing that before registration has returned kills the boot — `BOOTLOG.TXT`
 stops at `Initing port.pdr`, 11,826 bytes, the same signature as the old protection error.
 
-**Deferral implemented and it fixed the crash.** `XTIDE_SchedVol` queues `XTIDE_VolUp` via
-`_SHELL_CallAtAppyTime` + `CAAFL_RING0`, armed from `AEP_CONFIG_DCB`. With it the boot is healthy
-again - 18,676 byte log, full desktop - where the inline call died at 11,826.
+**DONE - the volume mounts.** `XTIDE_SchedVol` queues `XTIDE_VolUp` via
+`_SHELL_CallAtAppyTime` + `CAAFL_RING0`, armed from `AEP_CONFIG_DCB`. Confirmed with a 260 s
+window (150 s was simply too short - the queue call had always succeeded):
 
-**But the callback never fired inside the 150 s harness window:** `got as far as 0 = never ran`.
-Two candidates, and one marker field splits them: record the EAX returned by
-`_SHELL_CallAtAppyTime` (0 = could not queue). If it queued, the run window is simply too short -
-raise `-Seconds`, or check whether appy time is reached at all before the shell is up. Do that
-first; it is one field and one run.
+```
+queue call returned  queued (C0FCE384)
+got as far as        10  VOLUME PUBLISHED      ISP_ASSOCIATE_DCB 0, drive D:
+XTIDE_StartRequest   8
+  1 READ LBA 0     partition table
+  2-4,6 READ LBA 63  boot sector
+  5 READ LBA 126   ROOT DIRECTORY
+  7 READ LBA 70    FAT
+  8 READ LBA 78    FAT
+```
+
+LBA 126, 70 and 78 are the exact addresses `mkfatimg.py` wrote and are not guessable: that is
+VFAT mounting and enumerating a real filesystem through this driver. Boot log 18,676 bytes, full
+desktop, and the drive is visible in Device Manager on screen.
 
 Still gated behind `build.ps1 -PublishVolume`; the default build boots to a desktop.
 
