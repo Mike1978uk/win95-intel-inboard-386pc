@@ -36,10 +36,12 @@ The old binary is not merely wrong. Rebuilt byte-identical and re-run, it killed
 ### 1. A hardware probe run — safe, and the only thing that can test stride 2  (1 boot)
 
 **Build is already made:** `dist/xtide_pdr/PORT_probe_stride2.pdr`, md5
-`4c6eb331a0c1527144d04f4a1d7b614f`, from `build.ps1 -Stride 2 -ClaimMask 0`.
+`0174a19fe1ce88e1733ef38ff6173211`, from `build.ps1 -Stride 2 -ClaimMask 0 -NoWriteTest`.
 
 - claims **nothing**, so no DCB, no calldown, no volume, and no request path;
-- **no `-ReqMarker`**, so nothing is written to the CF at any point;
+- **no `-ReqMarker`** and **`-NoWriteTest`**, so nothing is written to the CF at any point. The
+  second one matters: the probe's write self-test targets LBA 100 of whichever unit answered, and
+  its only guard is a DEV-bit read-back on a map that has never executed;
 - `XTIDE_Probe` still runs — IDENTIFY, transport autodetect, and one read of LBA 0.
 
 86Box emulates a stride-1 XTIDE, so **stride 2 has never executed anywhere**. This run tests it,
