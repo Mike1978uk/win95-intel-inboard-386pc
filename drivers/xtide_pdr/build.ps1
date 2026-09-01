@@ -14,7 +14,12 @@ param(
     [string]$DDK = "C:\Users\lycet\OneDrive\Desktop\XT_project\Windows95_ddk",
     [string]$OutDir = "$PSScriptRoot\build",
     # Phase 0 = stock sample. Point this at .\src once we start modifying it.
-    [string]$SrcDir = ""
+    [string]$SrcDir = "",
+    # Register stride. 2 = this project's Lo-tech XT-CF rev 3 (A0 undecoded, MEASURED).
+    # 1 = a classic XTIDE, which is also what 86Box's hdc_xtide.c emulates, so the
+    # emulator load/probe loop must build with -Stride 1. Getting this wrong writes
+    # the IDENTIFY opcode to DEVICE CONTROL and leaves SRST asserted on the drive.
+    [int]$Stride = 2
 )
 
 $ML   = "$DDK\MASM611C\ML.EXE"
@@ -161,7 +166,8 @@ prd_inner:
 
 # Flags taken verbatim from the sample's own MAKEFILE, with MASTER_MAKE resolved by hand.
 $aflags = @("-coff","-DBLD_COFF","-DDEBUG_TRACE=1","-DIS_32","-nologo","-W3","-Zd","-c","-Cx",
-            "-DMASM6","-DINITLOG","-DDEBLEVEL=0")
+            "-DMASM6","-DINITLOG","-DDEBLEVEL=0","-DXT_STRIDE=$Stride")
+Write-Output "Register stride: $Stride"
 $objs = @("port","portaer","portreq","portisr") + $objs_extra
 
 $failed = $false

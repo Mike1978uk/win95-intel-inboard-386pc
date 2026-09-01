@@ -112,8 +112,11 @@ VxD_LOCKED_DATA_SEG
 ;  0ECh has bit 2 set, so that asserts SRST and leaves it asserted - a hung
 ;  drive, on somebody else machine, from a probe. Probing the other way round
 ;  is harmless. Set it, do not guess it.
+ifndef XT_STRIDE
+XT_STRIDE	equ	2		; -DXT_STRIDE=1 for a classic XTIDE (86Box's model)
+endif
 public XTIDE_Stride
-XTIDE_Stride		dd	2
+XTIDE_Stride		dd	XT_STRIDE
 
 ;  Transport override. Zero = autodetect.
 public XTIDE_Transport
