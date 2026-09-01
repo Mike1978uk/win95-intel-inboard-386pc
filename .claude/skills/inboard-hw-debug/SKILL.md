@@ -3790,3 +3790,19 @@ either way. `tools/mkfatimg.py` now builds a real partitioned FAT16 volume host-
 project's own `fatls.py` verifies it before the run. **Build the fixture the OS expects before
 concluding anything from how the OS treats it** - and keep the diagnostic marker outside the
 partition, or a filesystem write will destroy the only channel the driver has.
+
+### Technique 83, addendum: the ISP volume services are APPY-TIME ONLY
+
+The reason publishing inline kills the boot is not that it is early - it is that it is the wrong
+execution context. From zikolas/cfu1-win9x's `sched_volup`: *"the ISP volume services are
+appy-time only; the supervisor tick is not."* `ISP_CREATE_DCB` / `ISP_ASSOCIATE_DCB` therefore
+cannot be called from an AEP handler, an interrupt, or a timer tick.
+
+The mechanism, which works in a shipping driver, is `_SHELL_CallAtAppyTime` with **`CAAFL_RING0`**
+(flags = 1) so it still runs before the GUI is up during boot, guarded by a busy flag so only one
+request is queued, and retried if queueing fails.
+
+**The general rule: when a service kills the system rather than returning an error, ask what
+context it requires before assuming the call itself is wrong.** Ours succeeded - every ISP result
+was 0 and the drive letter was assigned - and *then* the machine died. A call that works and then
+kills you is a context problem, not a parameter problem.

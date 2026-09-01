@@ -30,10 +30,30 @@ stops at `Initing port.pdr`, 11,826 bytes, the same signature as the old protect
 
 **So it is gated.** `build.ps1 -PublishVolume` turns it on; the default build boots to a desktop.
 
-**Next step: defer it.** Schedule the call so it fires after `IOS_Register` unwinds — a VMM
-`Set_Global_Time_Out` / `Schedule_Global_Event` armed from `AEP_CONFIG_DCB`. zikolas/cfu1-win9x
-solves exactly this and ships `win/ASYNC-ENGINE.md` describing it; it drives `vol_create` from a
-deferred control call for the same reason. Read that before writing anything.
+**Next step, and it is a copy job.** Use Nick's mechanism - proven in a shipping driver, and his
+comment gives the rule we were breaking:
+
+> *"queue the volume work at appy time (**the ISP volume services are appy-time only**; the
+> supervisor tick is not). CAAFL_RING0 lets it run before the GUI is fully up during boot."*
+
+So it is not merely "too early", it is the wrong context entirely: **the ISP volume services may
+only be called at appy time.** `cfu1-win9x`'s `sched_volup` (CFU1.ASM ~2294):
+
+```asm
+        push    0                       ; ulTimeout
+        push    1                       ; flags = CAAFL_RING0
+        push    0                       ; dwRefData
+        push    OFFSET32 CFU1_VolUp     ; the callback that calls vol_create
+        VxDCall _SHELL_CallAtAppyTime
+        add     esp, 16
+```
+
+plus a `vol_busy` flag so only one queue attempt is in flight, and a retry if the queue fails.
+Arm it from `AEP_CONFIG_DCB` instead of calling `XTIDE_VolCreate` directly; `XTIDE_VolCreate`
+itself needs no changes.
+
+(`win/ASYNC-ENGINE.md` is about his interrupt-driven *transfer* engine, not this - do not confuse
+the two.)
 
 `AEP_BOOT_COMPLETE` is **not** an option: measured this session, it never arrives. A dynamically
 registered driver gets its own `AEP_CONFIG_DCB` and nothing else — which is the same reason
