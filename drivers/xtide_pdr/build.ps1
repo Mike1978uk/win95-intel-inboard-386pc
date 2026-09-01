@@ -55,7 +55,16 @@ param(
     # 86Box's Deskpro bed and only a fraction of that on the real 5160, where it
     # squeezed every outcome into 4 ticks. Raise it for a hardware run so the
     # codes are tens of ticks apart and the failure names itself.
-    [int]$TimeBase = 725000
+    [int]$TimeBase = 725000,
+    # Calibration build: skip the probe entirely and report this fail code.
+    # Run one of these alongside a real run and compare the boot-log gaps - a
+    # known number of delay units against an unknown one, same overhead either
+    # side, no estimate of the log unit's size required.
+    [int]$ProbeSkip = 0,
+    # Refuse every write at the request handler's door. For claiming a volume on
+    # a single-disk machine, where the only disk is the boot volume: a wrong read
+    # costs a reboot, a wrong write costs the disk.
+    [switch]$ReadOnly
 )
 
 $ML   = "$DDK\MASM611C\ML.EXE"
@@ -216,6 +225,8 @@ if ($NoDcb) { $aflags += "-DXT_NO_DCB=1"; Write-Output "BISECT: DCB fill disable
 if ($NoIo)  { $aflags += "-DXT_NO_IO=1";  Write-Output "BISECT: request handler is a stub" }
 if ($ReqMarker) { $aflags += "-DXT_REQ_MARKER=1"; Write-Output "DIAGNOSTIC: on-disk request marker enabled" }
 if ($NoWriteTest) { $aflags += "-DXT_NO_WRITETEST=1"; Write-Output "SAFETY: slave probe and write self-test disabled" }
+if ($ProbeSkip -gt 0) { $aflags += "-DXT_PROBE_SKIP=$ProbeSkip"; Write-Output "CALIBRATION: probe skipped, reporting fail code $ProbeSkip" }
+if ($ReadOnly) { $aflags += "-DXT_READ_ONLY=1"; Write-Output "SAFETY: every write refused with IORS_WRITE_PROTECT" }
 $strideName = if ($Stride -eq 0) { "0 (autodetect)" } else { "$Stride (pinned)" }
 Write-Output "Register stride: $strideName   claim mask: $ClaimMask   time base: $TimeBase"
 $objs = @("port","portaer","portreq","portisr") + $objs_extra

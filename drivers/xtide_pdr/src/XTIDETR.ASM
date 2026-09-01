@@ -2143,6 +2143,20 @@ endif
 	jmp	xsr_complete
 
 xsr_io:
+ifdef XT_READ_ONLY
+;  READ-ONLY BUILD. Refuse every write at the door, before any addressing is
+;  computed, so no code path exists that can put a byte on the disk. This is
+;  for claiming a volume on a machine whose only disk is the one it boots from:
+;  reads can be wrong and cost nothing but a reboot, writes can be wrong and
+;  cost the volume. Removing the capability beats trusting the addressing
+;  (technique 79 - the round trip cannot see a wrong address).
+	movzx	eax, [ebx].IOP_ior.IOR_func
+	cmp	ax, IOR_WRITE
+	jne	xsr_notwrite
+	mov	word ptr [ebx].IOP_ior.IOR_status, IORS_WRITE_PROTECT
+	jmp	xsr_complete
+xsr_notwrite:
+endif
 ;  A 64-bit start address with anything in the high dword is past LBA28 and
 ;  past this card, so refuse it rather than truncate it into a wild write.
 	cmp	dword ptr [ebx].IOP_ior.IOR_start_addr+4, 0
@@ -2366,6 +2380,17 @@ BeginProc XTIDE_Probe
 	push	ebx
 	push	esi
 	push	edi
+
+ifdef XT_PROBE_SKIP
+;  CALIBRATION BUILD. Do no probing at all - just report a KNOWN fail code, so
+;  the boot log's gap for a known number of delay units can be compared against
+;  a real run's gap directly. That comparison needs no algebra and no estimate
+;  of how long a log unit is on this machine, which is the thing that has now
+;  been guessed wrong twice. Everything before and after the probe is identical
+;  between the two builds, so the overhead cancels.
+	mov	XTIDE_FailCode, XT_PROBE_SKIP
+	jmp	xp_exit
+endif
 
 	movzx	ebx, word ptr [edi].DDB_base_ioa
 	or	bx, bx
