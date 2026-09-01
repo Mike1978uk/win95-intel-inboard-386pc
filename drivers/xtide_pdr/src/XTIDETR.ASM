@@ -262,8 +262,17 @@ XTIDE_MkUnit		dd	0
 XTIDE_MkCfg		dd	0	; AEP_CONFIG_DCB calls seen
 XTIDE_MkWant		dd	0	; ...of which we claimed
 XTIDE_MkIsp		dd	0	; ISP_result of the last calldown insert
+XTIDE_MkIopDcb		dd	0	; raw IOP_physical_dcb of the last request
+XTIDE_MkOurDcb		dd	0	; the DCB we actually inserted a calldown on
+XTIDE_MkRefused		dd	0	; requests refused as not ours
+XTIDE_MkStage		dd	0	; how far Port_request got - see XTIDE_MarkStage
+XTIDE_MkOrigDcb		dd	0	; IOP_original_dcb - the logical view
+XTIDE_MkCdDdb		dd	0	; DDB on the calldown entry IOS reached us through
+XTIDE_OurDdb		dd	0	; our own DDB, from AEP_ddb at config time
+XTIDE_MkIop		dd	0	; EBX as Port_request received it
+XTIDE_MkRaw		dd	8 dup (0)	; first 32 bytes at that address, verbatim
 XTIDE_MkOurUnit		dd	0	; addressing only - not part of the report
-			db	464 dup (0)
+			db	400 dup (0)
 public XTIDE_RbBuf
 XTIDE_RbBuf			db	512 dup (0)
 
@@ -1285,6 +1294,110 @@ endif
 EndProc XTIDE_NoteIsp
 
 ;----------------------------------------------------------------------------
+; XTIDE_NoteDdb - PUBLIC. Remember our own DDB. In: EAX = AEP_ddb.
+;----------------------------------------------------------------------------
+BeginProc XTIDE_NoteDdb
+
+	mov	XTIDE_OurDdb, eax
+	ret
+
+EndProc XTIDE_NoteDdb
+
+;----------------------------------------------------------------------------
+; XTIDE_MarkStage - PUBLIC. Flush the marker with a progress number.
+;
+;   In:   EAX = stage
+;   Uses: EAX, ECX, EDX
+;
+;   A disk write is the only channel out of this driver, so anything that
+;   happens after the last write is invisible - which is how "requests refused
+;   0" came to be reported by a sector written before the refusal was decided.
+;   The fix is not a better-placed single write, it is a write at EVERY
+;   milestone: whatever the last stage on disk is, the fault is in the code
+;   between it and the next one.
+;
+;   Stages: 2 passed the function check   3 the DCB is ours
+;           5 enqueued                    6 about to dequeue
+;           7 about to drive the hardware  9 refusing the request
+;----------------------------------------------------------------------------
+BeginProc XTIDE_MarkStage
+
+ifdef XT_REQ_MARKER
+	push	ebx
+	push	esi
+	push	edi
+
+	mov	XTIDE_MkStage, eax
+	mov	eax, XTIDE_MkOurUnit
+	call	XTIDE_SelectUnit
+
+	mov	XTIDE_ReqLba, XTIDE_MARK_LBA
+	mov	XTIDE_ReqCount, 1
+	mov	XTIDE_ReqBuf, OFFSET32 XTIDE_Marker
+	call	XTIDE_WriteSectors
+
+	pop	edi
+	pop	esi
+	pop	ebx
+endif
+	ret
+
+EndProc XTIDE_MarkStage
+
+;----------------------------------------------------------------------------
+; XTIDE_WantIop - PUBLIC. Is this request for a device we actually claimed?
+;
+;   In:   EBX -> the IOP
+;   Out:  EAX = 0 service it, 1 refuse it; ESI preserved
+;   Uses: EAX
+;
+;   Ownership is the DDB on the calldown entry IOS reached us through, not the
+;   DCB pointer. Measured 2026-09-01: the request carried a DCB we never
+;   inserted on, but an IOP has TWO DCBs - IOP_physical_dcb and
+;   IOP_original_dcb, the physical and logical views of one device - so
+;   comparing against the one we happened to store proves nothing. The
+;   calldown entry is unambiguous: IOS only routes an IOP down a calldown
+;   entry it built for us, so its DCB_cd_ddb is our DDB exactly when the
+;   request is ours.
+;
+;   Measured 2026-09-01: with the calldown inserted on exactly one DCB, a
+;   request arrived carrying a DIFFERENT DCB - unit 0, the boot disk. Never
+;   drive the hardware for a DCB we did not insert on, whatever the reason
+;   turns out to be. Refusing costs a failed request; obeying costs the
+;   volume.
+;----------------------------------------------------------------------------
+BeginProc XTIDE_WantIop
+
+	push	esi
+	mov	esi, [ebx].IOP_calldown_ptr
+	or	esi, esi
+	jz	xwi_no
+	mov	esi, [esi].DCB_cd_ddb
+
+ifdef XT_REQ_MARKER
+	mov	XTIDE_MkCdDdb, esi
+	mov	eax, [ebx].IOP_original_dcb
+	mov	XTIDE_MkOrigDcb, eax
+endif
+
+	cmp	esi, XTIDE_OurDdb
+	jne	xwi_no
+
+	pop	esi
+	xor	eax, eax
+	ret
+
+xwi_no:
+ifdef XT_REQ_MARKER
+	inc	XTIDE_MkRefused
+endif
+	pop	esi
+	mov	eax, 1
+	ret
+
+EndProc XTIDE_WantIop
+
+;----------------------------------------------------------------------------
 ; XTIDE_MarkConfig - PUBLIC. Report what happened in Port_cfg_device.
 ;
 ;   In:   ESI -> the DCB this AEP_CONFIG_DCB was about (may be 0)
@@ -1341,6 +1454,22 @@ ifdef XT_REQ_MARKER
 	push	edi
 
 	inc	XTIDE_MkEntry
+
+;  Copy the first 32 bytes of whatever we were handed, before interpreting any
+;  of it. Every field read so far has been read THROUGH the assumption that
+;  this is an IOP; if that assumption is wrong every one of them is fiction.
+;  Raw bytes are the only reading that does not beg the question.
+	mov	XTIDE_MkIop, ebx
+	mov	esi, ebx
+	mov	edi, OFFSET32 XTIDE_MkRaw
+	mov	ecx, 8
+xme_copy:
+	mov	eax, [esi]
+	mov	[edi], eax
+	add	esi, 4
+	add	edi, 4
+	dec	ecx
+	jnz	xme_copy
 	mov	eax, XTIDE_MkEntry
 	cmp	eax, 1
 	je	xme_write
@@ -1348,13 +1477,27 @@ ifdef XT_REQ_MARKER
 	jnz	xme_skip
 
 xme_write:
+;  Record the request's DCB and the one we inserted on, so the two can be
+;  compared from the host. Both are data - neither may steer the write.
 	mov	esi, [ebx].IOP_physical_dcb
+	mov	XTIDE_MkIopDcb, esi
+	mov	eax, XTIDE_MkOurUnit
+	mov	eax, XTIDE_InsertedDcb[eax*4]
+	mov	XTIDE_MkOurDcb, eax
+
 	or	esi, esi
-	jz	xme_skip
+	jz	xme_addr
 	movzx	eax, byte ptr [esi].DCB_unit_on_ctl
 	cmp	eax, 1
-	ja	xme_skip
+	ja	xme_addr
 	mov	XTIDE_MkUnit, eax
+
+;  ADDRESS AT OUR OWN UNIT, ALWAYS. Selecting the unit named in the request's
+;  DCB is how this diagnostic wrote to the boot disk on 2026-09-01 - the DCB
+;  belonged to somebody else and its unit number aimed the write at their
+;  drive. Same rule as XTIDE_MarkConfig; it was not applied here.
+xme_addr:
+	mov	eax, XTIDE_MkOurUnit
 	call	XTIDE_SelectUnit
 
 	mov	XTIDE_ReqLba, XTIDE_MARK_LBA

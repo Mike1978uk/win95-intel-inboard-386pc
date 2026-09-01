@@ -45,7 +45,16 @@ def main():
                    + TAB + 'extrn' + TAB + 'XTIDE_WantDcb:near' + TAB
                    + '; calldown guard (phase 2d)' + NL
                    + TAB + 'extrn' + TAB + 'XTIDE_ConfigDcb:near' + TAB
-                   + '; describe the device (phase 2d)' + NL,
+                   + '; describe the device (phase 2d)' + NL
+                   + TAB + 'extrn' + TAB + 'XTIDE_NoteDdb:near' + TAB
+                   + '; remember our own DDB (phase 2d)' + NL,
+         0),
+
+        # Our DDB is how a request is later identified as ours - see
+        # XTIDE_WantIop. AEP_ddb carries it on every AEP.
+        ('stash our DDB',
+         r'(' + WS + r'*mov' + WS + r'+eax,\[ebx\.AEP_ddb\][^\n]*\n)',
+         lambda m: m.group(1) + TAB + 'call' + TAB + 'XTIDE_NoteDdb' + NL,
          0),
 
         # AEP_CONFIG_DCB is broadcast for DCBs this driver never claimed, and the
@@ -121,7 +130,21 @@ def main():
     total += edit(req, [
         ('XTIDE_StartRequest extern',
          r'(VXD_LOCKED_CODE_SEG\s*\n)',
-         lambda m: m.group(1) + NL + TAB + 'extrn' + TAB + 'XTIDE_StartRequest:near' + NL,
+         lambda m: m.group(1) + NL + TAB + 'extrn' + TAB + 'XTIDE_StartRequest:near' + NL
+                   + TAB + 'extrn' + TAB + 'XTIDE_WantIop:near' + NL,
+         0),
+
+        # Never drive the hardware for a DCB we did not insert a calldown on.
+        # Measured 2026-09-01: one insert, on one DCB, and a request still
+        # arrived carrying a different DCB - unit 0, the boot disk. Refusing
+        # costs a failed request; obeying costs the volume. Port_r_not_io
+        # completes it through the normal callback unwind.
+        ('refuse a foreign DCB',
+         r'(' + WS + r'*mov' + WS + r'+esi,' + WS + r'*\[ebx\.IOP_physical_dcb\][^\n]*\n)',
+         lambda m: m.group(1) + TAB + 'call' + TAB + 'XTIDE_WantIop' + TAB
+                   + '; ours, or somebody else\'s?' + NL
+                   + TAB + 'or' + TAB + 'eax, eax' + NL
+                   + TAB + 'jnz' + TAB + 'Port_r_not_io' + NL,
          0),
 
         ('start-hardware hook',
@@ -152,6 +175,22 @@ def main():
          lambda m: m.group(1) + TAB + 'push' + TAB + 'ebx' + NL
                    + TAB + 'push' + TAB + 'esi' + NL
                    + TAB + 'push' + TAB + 'edi' + NL,
+         0),
+
+        # THE ARGUMENT IS NOT WHERE THE SAMPLE THINKS IT IS.
+        # ArgVar/EnterProc resolve IOP_Ptr to [ebp+8], but VMM.INC's EnterProc
+        # only emits "push ebp / mov ebp,esp" when ??_pf_ArgsUsed is ALREADY
+        # set - and that flag is set by referencing the ArgVar, which happens on
+        # the next line. Outside a DEBUG build the frame is never built, so the
+        # sample reads its argument through whatever EBP the caller left in the
+        # register. Confirmed from the listing: the proc's first three bytes are
+        # our own pushes, and there is no prologue.
+        # Read it off the stack instead. Entry layout at this point:
+        #   [esp]=edi [esp+4]=esi [esp+8]=ebx [esp+12]=return [esp+16]=the IOP.
+        ('argument is ESP-relative - there is no frame',
+         r'(' + WS + r'*)mov' + WS + r'+ebx,' + WS + r'+IOP_Ptr[^\n]*\n',
+         lambda m: TAB + 'mov' + TAB + 'ebx, [esp+16]' + TAB
+                   + '; the IOP. NOT IOP_Ptr - see patch_sample.py' + NL,
          0),
 
         ('busy exit takes the restoring path',
@@ -200,12 +239,50 @@ def main():
              lambda m: m.group(1) + TAB + 'extrn' + TAB + 'XTIDE_MarkEntry:near' + NL,
              0),
             ('MarkEntry call',
-             r'(' + WS + r'*mov' + WS + r'+ebx,' + WS + r'*IOP_Ptr[^\n]*\n)',
+             r'(' + WS + r'*mov' + WS + r'+ebx,' + WS + r'*\[esp\+16\][^\n]*\n)',
              lambda m: m.group(1) + TAB + 'call' + TAB + 'XTIDE_MarkEntry' + TAB
                        + '; DIAGNOSTIC: IOS called our calldown' + NL,
              0),
         ])
         print('DIAGNOSTIC: calldown-entry marker wired')
+
+        # A stage flush at every milestone in Port_request. The last stage that
+        # reaches the disk brackets the fault between it and the next one.
+        def stage(n):
+            return (TAB + 'mov' + TAB + 'eax, ' + str(n) + NL
+                    + TAB + 'call' + TAB + 'XTIDE_MarkStage' + NL)
+
+        total += edit(req, [
+            ('MarkStage extern',
+             r'(' + WS + r'*extrn' + WS + r'+XTIDE_MarkEntry:near' + WS + r'*\r?\n)',
+             lambda m: m.group(1) + TAB + 'extrn' + TAB + 'XTIDE_MarkStage:near' + NL,
+             0),
+            ('stage 2 - past the function check',
+             r'(' + WS + r'*ja' + WS + r'+port_r_not_io' + WS + r'*\r?\n)',
+             lambda m: m.group(1) + stage(2),
+             0),
+            ('stage 3 - the DCB is ours',
+             r'(' + WS + r'*jnz' + WS + r'+Port_r_not_io' + WS + r'*\r?\n)',
+             lambda m: m.group(1) + stage(3),
+             0),
+            ('stage 5 - enqueued',
+             r'(' + WS + r'*add' + WS + r'+esp,' + WS + r'*4\+4' + WS + r'*\r?\n)',
+             lambda m: m.group(1) + stage(5),
+             0),
+            ('stage 6 - about to dequeue',
+             r'(\nPort_Start_Request:' + WS + r'*\r?\n)',
+             lambda m: m.group(1) + stage(6),
+             0),
+            ('stage 7 - about to drive the hardware',
+             r'(' + WS + r'*call' + WS + r'+XTIDE_StartRequest[^\n]*\n)',
+             lambda m: stage(7) + m.group(1),
+             0),
+            ('stage 9 - refusing',
+             r'(\nPort_r_not_io:' + WS + r'*\r?\n)',
+             lambda m: m.group(1) + stage(9),
+             0),
+        ])
+        print('DIAGNOSTIC: Port_request stage ladder wired')
 
         # Report Port_cfg_device itself. Three outcomes in one run: no marker at
         # all = AEP_CONFIG_DCB never reached us; cfg>0 want=0 = it did and we
@@ -231,9 +308,9 @@ def main():
         print('DIAGNOSTIC: config-path marker wired')
 
     print('Patched: %d' % total)
-    want = 16 if nocalldown else 15
+    want = 19 if nocalldown else 18
     if '--reqmarker' in sys.argv:
-        want += 5
+        want += 12
     assert total == want, 'expected %d edits, got %d' % (want, total)
 
 
