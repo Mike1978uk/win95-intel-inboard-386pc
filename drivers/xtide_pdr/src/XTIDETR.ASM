@@ -123,16 +123,20 @@ ID_MIN_RUN	equ	4		; and they must include one unbroken run
 VxD_LOCKED_DATA_SEG
 
 ;  Register stride. 1 = standard taskfile, 2 = A0 undecoded (this card).
+;  0 = autodetect, and see XTIDE_DetectStride for why that is now safe.
 ;
-;  DELIBERATELY NOT AUTODETECTED, and this is a safety decision rather than a
-;  shortcut. Probing stride 2 on stride-1 hardware writes the IDENTIFY opcode
-;  to base+0Eh, which on a stride-1 XTIDE is the DEVICE CONTROL register.
-;  0ECh has bit 2 set, so that asserts SRST and leaves it asserted - a hung
-;  drive, on somebody else machine, from a probe. Probing the other way round
-;  is harmless. Set it, do not guess it.
+;  The earlier note here said autodetection was out of the question, and the
+;  reason it gave was correct: probing stride 2 by WRITING on stride-1
+;  hardware puts the IDENTIFY opcode into base+0Eh, which is DEVICE CONTROL
+;  there. 0ECh has bit 2 set, so that asserts SRST and leaves it asserted - a
+;  hung drive, on somebody else's machine, caused by a probe.
+;
+;  XTIDE_DetectStride writes nothing. It reads two ports that must hold the
+;  same register on a correct map and compares them, so the objection does not
+;  apply to it. An explicit -DXT_STRIDE=1 or 2 still skips detection entirely.
 ifndef XT_STRIDE
 XT_STRIDE	equ	2		; -DXT_STRIDE=1 for a classic XTIDE (86Box's model)
-endif
+endif					; -DXT_STRIDE=0 to autodetect
 public XTIDE_Stride
 XTIDE_Stride		dd	XT_STRIDE
 
@@ -303,7 +307,8 @@ XTIDE_VolBusy		dd	0	; one queue attempt in flight is enough
 XTIDE_MkSchedRc		dd	0FFFFFFFFh	; -1 = never even tried to queue;
 					; 0 = _SHELL_CallAtAppyTime refused
 XTIDE_MkOurUnit		dd	0	; addressing only - not part of the report
-			db	284 dup (0)	; pads XTIDE_Marker to exactly 512 bytes
+XTIDE_MkStride		dd	0	; what XTIDE_DetectStride settled on, 0 = never ran
+			db	280 dup (0)	; pads XTIDE_Marker to exactly 512 bytes
 
 ;  Working storage - deliberately AFTER the marker sector, not inside it.
 XTIDE_OurLgn		dd	0	; load group number, for the logical calldown
@@ -369,6 +374,69 @@ VxD_LOCKED_DATA_ENDS
 VxD_LOCKED_CODE_SEG
 
 	extrn	Port_request:near	; our own calldown entry, in PORTREQ.ASM
+
+;----------------------------------------------------------------------------
+; XTIDE_DetectStride - settle the register stride by reading, never writing.
+;
+;   In:   BX = base I/O address
+;   Out:  CF=0 and XTIDE_Stride set to 1 or 2; CF=1 if neither map holds up
+;   Uses: EAX, ECX, EDX
+;
+;   Status (base+07*stride) and Alternate Status (base+14*stride) are the SAME
+;   register on any correct ATA map. So read both under a candidate stride and
+;   compare: they agree on the right one and, measured on the real card, do not
+;   on the wrong one - 92h against 50h (technique 78 addendum). Two IN
+;   instructions per candidate, no writes, so a wrong guess cannot leave a
+;   drive reset or a latch loaded.
+;
+;   Stride 1 is tried first deliberately. On stride-1 hardware it succeeds
+;   before anything reads base+1Ch, which is outside the card's decode; on
+;   stride-2 hardware both of its addresses are inside the decode anyway. So
+;   no candidate ever reads off the end of a card that a later candidate would
+;   have matched.
+;
+;   All-ones and all-zeroes are rejected: an undecoded port floats to 0FFh on
+;   this bus and two floating reads agree with each other, which would let a
+;   card that is not there pass. IDENTIFY is still the real proof; this only
+;   has to pick which map to attempt it on.
+;----------------------------------------------------------------------------
+BeginProc XTIDE_DetectStride
+
+	mov	XTIDE_Stride, 1
+	call	xds_try
+	jnc	xds_ok
+	mov	XTIDE_Stride, 2
+	call	xds_try
+	jnc	xds_ok
+	stc
+	ret
+xds_ok:
+	mov	eax, XTIDE_Stride
+	mov	XTIDE_MkStride, eax
+	clc
+	ret
+
+;  Candidate test. XTIDE_SetPorts uses BX, which the caller still holds.
+xds_try:
+	call	XTIDE_SetPorts
+	mov	edx, XTIDE_pStatus
+	in	al, dx
+	mov	ah, al
+	mov	edx, XTIDE_pAltStatus
+	in	al, dx
+	cmp	al, ah
+	jne	xds_no
+	cmp	al, 0FFh
+	je	xds_no
+	or	al, al
+	jz	xds_no
+	clc
+	ret
+xds_no:
+	stc
+	ret
+
+EndProc XTIDE_DetectStride
 
 ;----------------------------------------------------------------------------
 ; XTIDE_SetPorts - derive every port address from the base and the stride.
@@ -2087,6 +2155,15 @@ BeginProc XTIDE_Probe
 	or	bx, bx
 	jz	xp_nobase
 
+	cmp	XTIDE_Stride, 0		; 0 = -DXT_STRIDE=0, autodetect
+	jne	xp_stridefixed
+	call	XTIDE_DetectStride
+	jc	xp_nostride
+	jmp	xp_ports
+xp_stridefixed:
+	mov	eax, XTIDE_Stride	; report the pinned value too, so the
+	mov	XTIDE_MkStride, eax	; marker always names the map in use
+xp_ports:
 	call	XTIDE_SetPorts
 
 	mov	XTIDE_TryUnit, DRVHD_MASTER
@@ -2175,6 +2252,10 @@ xp_noslave:
 
 xp_nosig:
 	mov	XTIDE_FailCode, 10	; 512 bytes read, no 55AA at the end of them
+	jmp	xp_exit
+
+xp_nostride:
+	mov	XTIDE_FailCode, 11	; neither stride made Status and AltStatus agree
 	jmp	xp_exit
 
 xp_nobase:

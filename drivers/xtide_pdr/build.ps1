@@ -19,6 +19,13 @@ param(
     # 1 = a classic XTIDE, which is also what 86Box's hdc_xtide.c emulates, so the
     # emulator load/probe loop must build with -Stride 1. Getting this wrong writes
     # the IDENTIFY opcode to DEVICE CONTROL and leaves SRST asserted on the drive.
+    #
+    # 0 = autodetect: read Status and Alternate Status under each candidate and keep
+    # the stride where they agree, since they are one register on a correct map. It
+    # writes nothing, so it cannot cause the SRST accident above. One binary then
+    # covers both card families - but a pinned value is still the safer first run on
+    # unfamiliar hardware, so this defaults to a pinned 2.
+    [ValidateSet(0, 1, 2)]
     [int]$Stride = 2,
     # Which units the driver is willing to claim, one bit each:
     #   1 = master, 2 = slave, 3 = both.
@@ -200,7 +207,8 @@ $aflags = @("-coff","-DBLD_COFF","-DDEBUG_TRACE=1","-DIS_32","-nologo","-W3","-Z
 if ($NoDcb) { $aflags += "-DXT_NO_DCB=1"; Write-Output "BISECT: DCB fill disabled" }
 if ($NoIo)  { $aflags += "-DXT_NO_IO=1";  Write-Output "BISECT: request handler is a stub" }
 if ($ReqMarker) { $aflags += "-DXT_REQ_MARKER=1"; Write-Output "DIAGNOSTIC: on-disk request marker enabled" }
-Write-Output "Register stride: $Stride   claim mask: $ClaimMask"
+$strideName = if ($Stride -eq 0) { "0 (autodetect)" } else { "$Stride (pinned)" }
+Write-Output "Register stride: $strideName   claim mask: $ClaimMask"
 $objs = @("port","portaer","portreq","portisr") + $objs_extra
 
 $failed = $false
