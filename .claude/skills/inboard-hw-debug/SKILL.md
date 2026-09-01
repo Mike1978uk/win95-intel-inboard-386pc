@@ -3806,3 +3806,52 @@ request is queued, and retried if queueing fails.
 context it requires before assuming the call itself is wrong.** Ours succeeded - every ISP result
 was 0 and the drive letter was assigned - and *then* the machine died. A call that works and then
 kills you is a context problem, not a parameter problem.
+
+## Technique 84: residual findings, 2026-09-01 — test design, and one self-inflicted tax
+
+### This machine is single-disk, and that is settled
+
+A second drive would have to be another CF, and CF is the worst case for it: CF-to-IDE adapters
+are commonly **master-only** in True IDE mode, and two CF cards on one channel are unreliable even
+on ordinary hardware. Master/slave is a jumper on the device, not the cable (cable-select needs a
+CSEL-wired cable *and* both devices set to CS, which 8-bit XT-IDE cabling generally is not), and
+XTIDECFG would need reconfiguring on top. So a slave could cost power, mounting, cabling and a ROM
+reflash and still not enumerate.
+
+**The safety net is a host-side image, and for CF it is strictly better than a second drive**: the
+card comes out, goes in the reader, and the exact tested state is captured and restorable. Design
+tests around imaging, not around a scratch device.
+
+Consequence for the port driver: the first hardware run targets the **boot** volume, because
+there is no secondary-disk halfway house on this machine. That raises the stakes and is why the
+boot path must be proven in emulation first.
+
+### What emulation can and cannot prove here — split the risk deliberately
+
+- **86Box proves the IOS-side logic**: registration, calldown, request path, volume publishing,
+  the real-mode-mapper handoff. Every bug on 2026-09-01 lived here, and they present as protection
+  errors four layers from their cause - the hard kind.
+- **86Box cannot prove the transport on the real card.** Its `xtide` is **stride 1**, so a stride-2
+  build has never executed at all; it does not model the card's high-byte latch, XT bus timing, or
+  the `0x20-0x3F` port aliasing (Technique 75).
+
+So expect hardware to surface transport faults, not logic faults - and that is the right way
+round, because transport faults are legible: wrong bytes, a timeout, a status that will not clear.
+
+### A timeout tuned to a failure hides a slower success
+
+`pdr_loadtest.ps1` defaulted to 150 s, chosen when every run died early. The appy-time volume
+callback fires later than that, so a **fully working** build reported
+`XTIDE_VolCreate NEVER RAN`. Raising it to 260 s produced a mounted volume with no code change at
+all. **When a harness timeout was set during a failing phase, re-examine it before trusting the
+first null of a new phase.**
+
+### Do not write regex-bearing Python inside a bash heredoc
+
+Backslash escapes (`\n`, `\[`, `\r?\n`) get mangled between the heredoc and the interpreter, and
+the result is a file that either fails to parse or - worse - silently contains a regex that cannot
+match. This happened **five times** on 2026-09-01, and one instance produced a `\[` that matched a
+literal backslash and failed an anchor assertion at build time.
+
+Use the Edit/Write tools for anything containing backslashes, or `chr(92)`/`chr(10)` concatenation
+if a script must generate it. Reserve heredocs for plain text.
