@@ -82,5 +82,6 @@ Success here is MS-DOS compatibility mode gone, which is issue #3.
   branch. Pin `-Stride 2` on hardware until a pinned run has worked; then `-Stride 0` is a separate,
   attributable experiment.
 - **ATAPI/CD is permanently out of scope** — the XT-CF has D8–D15 unconnected.
-- **The 5160's `IOSUBSYS\PORT.PDR` is stale** (16,544 bytes, 2026-09-01 00:32) and is the build that
-  logged `Init Failure` in four ticks. Replace it before reading anything into a hardware log.
+- **The probe build is already on the card**, deployed 2026-09-01 and md5-checked at the
+  destination. The 16,544-byte build that logged `Init Failure` in four ticks is backed up off-card
+  as `PORT_oncard_before.pdr` (md5 `0681f388eab8173b483074aa00caa11d`) if a revert is ever wanted.
