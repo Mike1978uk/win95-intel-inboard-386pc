@@ -112,6 +112,59 @@ That single check also proves the latch write ordering is right: a high/low swap
 
 `-Restore` earned its keep - the damaged run cost one file copy.
 
+## Phase 2d - RESOLVED 2026-09-01. Two register/scope bugs, not the ISP packet
+
+`-Stride 1 -ClaimMask 2`, `pdr_loadtest.ps1 -Restore`, md5 `ba2e563c`:
+
+```
+[000E994B] Initing port.pdr
+[000E9B56] Init Success port.pdr        523 ticks
+```
+
+and the log runs on to `InitDone = TSRQuery` - a full boot to the desktop with a unit claimed
+and the calldown inserted. The protection error is gone.
+
+### All five suspects from the previous handover were wrong
+
+Settled by reading, not by running: the packet fill was compared field by field against
+`zikolas/cfu1-win9x`'s `ios_config_dcb`, which is a **working** Win9x port driver doing the same
+`ISP_INSERT_CALLDOWN`. Every value matches ours - `ISP_i_cd_dcb` = the linear DCB from `AEP+12`,
+`ISP_i_cd_req` = `OFFSET32`, `ISP_i_cd_ddb` = `AEP+4`, `ISP_i_cd_expan_len` = word 0,
+`ISP_i_cd_flags` = `10h` small_memory, `ISP_i_cd_lgn` = `AEP+8`.
+
+Suspect 5 - "only five fields set, the rest is stack garbage" - was **factually wrong**. The
+sample fills all seven members of `ISP_calldown_insert`; only `ISP_result`, an output, is left.
+It is zeroed now anyway because cfu1 does, but it was never the fault. **Reading the reference
+driver cost minutes and would have saved five runs.**
+
+### The two real bugs
+
+1. **`Port_request` destroys EBX, ESI and EDI.** Its own DDK header says *"can only destroy eax,
+   ecx, edx"*. IOS calls it as the calldown entry and gets three trashed callee-saved registers
+   back. `CFU1_IosReq` saves `ebp/ebx/esi/edi`; the sample saves none - invisible until the
+   sample is actually called, which is exactly what claiming a unit does.
+   `Port_Start_Request` became a called subroutine so `PORTISR`'s own `call` into it stays
+   balanced.
+2. **`Port_cfg_device` inserts on every DCB IOS broadcasts.** `AEP_CONFIG_DCB` goes out for DCBs
+   we never claimed, and the same DCB comes round again on a re-broadcast - cfu1 guards against
+   the second explicitly and says so in a comment. The sample's own header claims it *"examines a
+   DCB to determine if we want to work with this device"* and examines nothing. `XTIDE_WantDcb`
+   now answers it from a table of the DCBs recorded at inquiry, consumed on first insert.
+
+Which of the two was load-bearing is not pinned; both shipped together. `-NoIo` never exonerated
+the request path, only the transport - the stub still walks the IOP and the callback stack.
+
+### Next
+
+Reads and writes are proven (phase 2a/2b). The driver is now in the chain and the machine boots.
+What has **not** been shown is that an IOS request ever reached `XTIDE_StartRequest` - the delay
+encoding only reports registration. Next run should prove a real I/O, then move geometry out of
+inquiry into `Port_cfg_device` per `STORAGE.DOC`, then the 5160.
+
+---
+
+## Phase 2c - the protection error, as it stood before the fix above
+
 ## Phase 2c - NOT WORKING. Windows protection error the moment a unit is claimed
 
 Read this before touching it again, and start from the bisect table, not from a theory.

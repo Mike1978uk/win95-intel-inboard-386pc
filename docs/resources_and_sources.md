@@ -122,6 +122,19 @@ the directory's own `README.md`.
   the in-box protected-mode miniport for an 8-bit ISA SCSI card. Proof that Microsoft shipped
   32-bit storage for 8-bit cards.
   ❌ Windows 95 does **not** ship a T128/T130 miniport; that is why `T130.MPD` had to be found.
+- **[VCFed, "XTIDE and Windows 95 issues"](https://forum.vcfed.org/index.php?threads/xtide-and-windows-95-issues.52115/)**
+  (3 pages, read 2026-09-01) and **[VOGONS t=80163](https://www.vogons.org/viewtopic.php?t=80163&start=20)**.
+  Sent by the project owner after a search for prior attempts. Useful for `0040:0075` — post #10
+  quotes the BIOS Boot Specification's controller rules, which is the same BDA count this project
+  already verified.
+  ❌ **Neither contains a 32-bit XT-IDE driver, and the "CMOS 0x12 dummy drive" trick does not
+  apply here.** That trick makes Windows' *own* `ESDI_506.PDR` take over a real AT IDE controller
+  at `0x1F0` that the system BIOS had been told to hide; the XT-IDE ROM only supplies the
+  translated geometry. A 5160 has no CMOS, no `0x1F0` controller, and an 8-bit card on a 2-byte
+  register stride at `0x300` that `ESDI_506.PDR` could not drive if it were enabled. The VOGONS
+  thread is Windows 3.1 FastDisk (`WDCTRL`/MicroHouse/Ontrack), a different subsystem entirely.
+  ⚠ The covering summary was **[AI-SOURCED]** (Google AI Overview text, citation markers intact);
+  the CMOS claim is real but its applicability here is not — Technique 58.
 - **[BetaArchive: slipstreaming patched files into a Win95 install](https://www.betaarchive.com/forum/viewtopic.php?t=29398)**
   — the harder of the two routes; rewriting an INF to reference patched copies is easier.
 - Full assessment: [`win9x_port_driver_feasibility.md`](win9x_port_driver_feasibility.md).
