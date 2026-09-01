@@ -2428,6 +2428,15 @@ xp_ok:
 ;  slave's values replace the master's from here on. That is fine while this is
 ;  a self-test and nothing addresses the master afterwards; per-unit geometry
 ;  arrives with the DCB work, which needs it anyway.
+ifdef XT_NO_WRITETEST
+;  -NoWriteTest: do not go looking for a slave, and therefore never run the
+;  write self-test. It writes 512 bytes to LBA 100 of whichever unit answered,
+;  and on a machine with one disk that unit is the boot volume. The DEV-bit
+;  guard below is the only thing standing between "no slave fitted" and a write
+;  to the boot disk - and on a register map that has never executed, that guard
+;  has never executed either. Do not spend a card on trusting it (technique 79).
+	jmp	xp_noslave
+endif
 	mov	XTIDE_TryUnit, DRVHD_SLAVE
 	call	XTIDE_TryIdentify
 	jc	xp_noslave

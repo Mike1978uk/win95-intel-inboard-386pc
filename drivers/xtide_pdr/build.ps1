@@ -42,7 +42,14 @@ param(
     # sector to the claimed unit at LBA 16000 on the first request and every
     # 64th after; tools/pdr_reqmarker.py reads it back out of the image.
     # Diagnostic only - never in a shipped driver.
-    [switch]$ReqMarker
+    [switch]$ReqMarker,
+    # Skip the slave probe, and with it the phase-2b write self-test. That test
+    # writes a sector to LBA 100 of whichever unit answered; on a single-disk
+    # machine that is the boot volume, and the only thing preventing it is a
+    # DEV-bit read-back on a register map that may never have executed. ALWAYS
+    # use this for a hardware run that is not deliberately testing the write
+    # path (technique 79).
+    [switch]$NoWriteTest
 )
 
 $ML   = "$DDK\MASM611C\ML.EXE"
@@ -202,6 +209,7 @@ $aflags = @("-coff","-DBLD_COFF","-DDEBUG_TRACE=1","-DIS_32","-nologo","-W3","-Z
 if ($NoDcb) { $aflags += "-DXT_NO_DCB=1"; Write-Output "BISECT: DCB fill disabled" }
 if ($NoIo)  { $aflags += "-DXT_NO_IO=1";  Write-Output "BISECT: request handler is a stub" }
 if ($ReqMarker) { $aflags += "-DXT_REQ_MARKER=1"; Write-Output "DIAGNOSTIC: on-disk request marker enabled" }
+if ($NoWriteTest) { $aflags += "-DXT_NO_WRITETEST=1"; Write-Output "SAFETY: slave probe and write self-test disabled" }
 $strideName = if ($Stride -eq 0) { "0 (autodetect)" } else { "$Stride (pinned)" }
 Write-Output "Register stride: $strideName   claim mask: $ClaimMask"
 $objs = @("port","portaer","portreq","portisr") + $objs_extra
