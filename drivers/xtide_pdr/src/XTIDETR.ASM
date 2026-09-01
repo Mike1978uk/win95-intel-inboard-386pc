@@ -77,6 +77,7 @@ XT_HILATCH	equ	8
 
 ATA_IDENTIFY	equ	0ECh
 ATA_READ	equ	020h		; READ SECTOR(S), the 28-bit PIO command
+ATA_WRITE	equ	030h		; WRITE SECTOR(S)
 
 ;  IDENTIFY DEVICE word offsets, in bytes. Word N is at 2N.
 ID_CYLS		equ	2		; word 1  - logical cylinders
@@ -231,6 +232,17 @@ public XTIDE_SecBuf
 XTIDE_SecBuf			db	512 dup (0)
 public XTIDE_PartType
 XTIDE_PartType		dd	0		; MBR partition 1 type byte, read back through the log
+
+;  Command byte for XTIDE_ProgramTaskfile, so read and write share one
+;  addressing path and differ only in what they do after the command lands.
+XTIDE_Cmd			dd	0
+
+;  Write/read-back self-test buffers. 2 x 512 so a mismatch can be seen as a
+;  mismatch rather than inferred from a checksum.
+public XTIDE_WrBuf
+XTIDE_WrBuf			db	512 dup (0)
+public XTIDE_RbBuf
+XTIDE_RbBuf			db	512 dup (0)
 
 VxD_LOCKED_DATA_ENDS
 
@@ -616,17 +628,22 @@ xcg_nolba:
 EndProc XTIDE_CaptureGeometry
 
 ;----------------------------------------------------------------------------
-; XTIDE_ReadSectors - read XTIDE_ReqCount sectors from XTIDE_ReqLba into
-;                     XTIDE_ReqBuf, through whichever transport autodetect
-;                     settled on.
+; XTIDE_ProgramTaskfile - select the unit, program the address, issue the
+;                         command in XTIDE_Cmd.
 ;
-;   Out:  CF=0 on success; on failure CF=1 and XTIDE_FailCode set to 7, 8 or 9
-;   Uses: EAX, ECX, EDX, EDI
+;   In:   XTIDE_ReqLba, XTIDE_ReqCount, XTIDE_Cmd
+;   Out:  CF=0 command issued; CF=1 and XTIDE_FailCode set to 7 or 9
+;   Uses: EAX, ECX, EDX
+;
+;   Read and write call this same routine. The addressing arithmetic is the
+;   easiest thing in a disk driver to get subtly different between the two
+;   paths, and the difference shows up as data written to the wrong sector -
+;   silent, and only visible much later.
 ;
 ;   Polled throughout. The card here is jumpered without an interrupt, and a
 ;   driver that assumes otherwise is a driver for one machine.
 ;----------------------------------------------------------------------------
-BeginProc XTIDE_ReadSectors
+BeginProc XTIDE_ProgramTaskfile
 
 	call	XTIDE_WaitNotBusy	; drive idle before we program anything
 	jc	xrs_notready
@@ -651,7 +668,11 @@ BeginProc XTIDE_ReadSectors
 	shr	eax, 24
 	and	eax, 0Fh
 	or	eax, DRVHD_LBA
-	mov	XTIDE_oDrvHd, eax
+	mov	ecx, XTIDE_TryUnit	; DRVHD_LBA has DEV clear, so without this
+	and	ecx, 010h		; every transfer addressed the master however
+	or	eax, ecx			; the unit was selected. Caught by checking the
+	mov	XTIDE_oDrvHd, eax	; DISK, not the round trip - both halves of a
+				; round trip go to the same wrong drive.
 	jmp	xrs_program
 
 ;  CHS: cyl = lba / (heads*spt), then head = rem / spt and sector = rem MOD spt
@@ -677,7 +698,7 @@ xrs_chs:
 	xor	edx, edx
 	div	XTIDE_Spt		; eax = head, edx = sector - 1
 	and	eax, 0Fh
-	or	eax, DRVHD_MASTER
+	or	eax, XTIDE_TryUnit	; carries the CHS base AND the DEV bit
 	mov	XTIDE_oDrvHd, eax
 	inc	edx
 	mov	XTIDE_oSecNum, edx
@@ -703,35 +724,18 @@ xrs_program:
 	out	dx, al
 
 	mov	edx, XTIDE_pStatus	; status on read, command on write
-	mov	al, ATA_READ
+	mov	eax, XTIDE_Cmd
 	out	dx, al
 
-;  Read the transport autodetect settled on, not whatever the last probe
+;  Use the transport autodetect settled on, not whatever the last probe
 ;  attempt happened to leave in XTIDE_TryTransport.
 	mov	eax, XTIDE_ActiveTransport
 	mov	XTIDE_TryTransport, eax
-
-	mov	ecx, XTIDE_ReqCount
-	mov	edi, XTIDE_ReqBuf
-xrs_sector:
-	push	ecx
-	call	XTIDE_WaitDrq		; one DRQ per sector, not one per command
-	jc	xrs_nodrq
-	call	XTIDE_ReadData		; advances EDI by 512
-	pop	ecx
-	dec	ecx
-	jnz	xrs_sector
 	clc
 	ret
 
-xrs_nodrq:
-	pop	ecx
-	mov	XTIDE_FailCode, 8	; read gave no DRQ, or set ERR
-	stc
-	ret
-
 xrs_notready:
-	mov	XTIDE_FailCode, 7	; BSY never cleared around the read
+	mov	XTIDE_FailCode, 7	; BSY never cleared around the transfer
 	stc
 	ret
 
@@ -740,7 +744,219 @@ xrs_geom:
 	stc
 	ret
 
+EndProc XTIDE_ProgramTaskfile
+
+;----------------------------------------------------------------------------
+; XTIDE_ReadSectors - read XTIDE_ReqCount sectors from XTIDE_ReqLba into
+;                     XTIDE_ReqBuf.
+;
+;   Out:  CF=0 on success; CF=1 with XTIDE_FailCode 7, 8 or 9
+;   Uses: EAX, ECX, EDX, EDI
+;----------------------------------------------------------------------------
+BeginProc XTIDE_ReadSectors
+
+	mov	XTIDE_Cmd, ATA_READ
+	call	XTIDE_ProgramTaskfile
+	jc	xrd_fail
+
+	mov	ecx, XTIDE_ReqCount
+	mov	edi, XTIDE_ReqBuf
+xrd_sector:
+	push	ecx
+	call	XTIDE_WaitDrq		; one DRQ per sector, not one per command
+	jc	xrd_nodrq
+	call	XTIDE_ReadData		; advances EDI by 512
+	pop	ecx
+	dec	ecx
+	jnz	xrd_sector
+	clc
+	ret
+
+xrd_nodrq:
+	pop	ecx
+	mov	XTIDE_FailCode, 8	; read gave no DRQ, or set ERR
+xrd_fail:
+	stc
+	ret
+
 EndProc XTIDE_ReadSectors
+
+;----------------------------------------------------------------------------
+; XTIDE_WriteSectors - write XTIDE_ReqCount sectors from XTIDE_ReqBuf to
+;                      XTIDE_ReqLba.
+;
+;   Out:  CF=0 on success; CF=1 with XTIDE_FailCode 7, 9, 12 or 13
+;   Uses: EAX, ECX, EDX, ESI
+;
+;   The drive asserts DRQ to ASK for each sector, so the wait is the same shape
+;   as a read - but the completion check is not. A write is not finished when
+;   the last byte has gone out; the drive is still committing it. Poll BSY down
+;   and test ERR afterwards, or a failed write looks exactly like a good one.
+;----------------------------------------------------------------------------
+BeginProc XTIDE_WriteSectors
+
+	mov	XTIDE_Cmd, ATA_WRITE
+	call	XTIDE_ProgramTaskfile
+	jc	xwr_fail
+
+	mov	ecx, XTIDE_ReqCount
+	mov	esi, XTIDE_ReqBuf
+xwr_sector:
+	push	ecx
+	call	XTIDE_WaitDrq		; drive asking for the next sector
+	jc	xwr_nodrq
+	call	XTIDE_WriteData		; advances ESI by 512
+	pop	ecx
+	dec	ecx
+	jnz	xwr_sector
+
+	call	XTIDE_WaitNotBusy	; the drive is still committing the last sector
+	jc	xwr_notready
+	test	al, ST_ERR
+	jnz	xwr_err
+	clc
+	ret
+
+xwr_nodrq:
+	pop	ecx
+	mov	XTIDE_FailCode, 13	; drive never asked for the data
+	stc
+	ret
+
+xwr_notready:
+	mov	XTIDE_FailCode, 12	; BSY never cleared after the last sector
+	stc
+	ret
+
+xwr_err:
+	movzx	eax, al
+	mov	XTIDE_LastStatus, eax
+	mov	XTIDE_FailCode, 14	; drive reported ERR on completion
+	stc
+	ret
+
+xwr_fail:
+	stc
+	ret
+
+EndProc XTIDE_WriteSectors
+
+;----------------------------------------------------------------------------
+; XTIDE_WriteData - push 512 bytes at the data register.
+;
+;   In:   ESI -> source buffer, XTIDE_TryTransport selects how
+;   Uses: EAX, ECX, EDX, ESI
+;
+;   LATCH ORDER IS THE OPPOSITE OF A READ. On a read the data port is read
+;   first and that latches the high byte; on a write the high byte is staged in
+;   the latch first and the data-port write commits the word. Get it backwards
+;   and every byte pair is stored swapped.
+;
+;   A write/read-back self-test DOES catch that, because the read path is
+;   separate code that is not making the same mistake - which is exactly why
+;   the test pattern below gives each word two different bytes.
+;   Confirmed against OBattler's XT-IDE port in drivers/xtide_cdrom/, whose
+;   register map and write ordering are sound even though its transfer loops
+;   are not.
+;----------------------------------------------------------------------------
+BeginProc XTIDE_WriteData
+
+	cmp	XTIDE_TryTransport, XT_TR_LATCH
+	je	xwd8_latch
+
+	mov	edx, XTIDE_pData
+	mov	ecx, 512			; bytes
+xwd8_pio8_loop:
+	mov	al, [esi]
+	out	dx, al
+	inc	esi
+	dec	ecx
+	jnz	xwd8_pio8_loop
+	ret
+
+xwd8_latch:
+	mov	ecx, 256			; words
+xwd8_latch_loop:
+	mov	al, [esi+1]		; high byte STAGES in the latch
+	mov	edx, XTIDE_pHiLatch
+	out	dx, al
+	mov	al, [esi]		; low byte COMMITS the word
+	mov	edx, XTIDE_pData
+	out	dx, al
+	add	esi, 2
+	dec	ecx
+	jnz	xwd8_latch_loop
+	ret
+
+EndProc XTIDE_WriteData
+
+
+;----------------------------------------------------------------------------
+; XTIDE_WriteReadBack - write one sector of a known pattern and read it back.
+;
+;   Out:  CF=0 if the sector came back identical
+;         CF=1 with XTIDE_FailCode 7, 9, 12, 13, 14 (transfer) or 15 (mismatch)
+;   Uses: EAX, ECX, EDX, ESI, EDI
+;
+;   The pattern gives every 16-bit word two DIFFERENT bytes - n and its
+;   complement - so a high/low swap in the latch path shows up as a mismatch
+;   rather than passing. All-zeroes or a constant fill would prove nothing:
+;   blank media returns those too.
+;
+;   LBA 100 is arbitrary but deliberately clear of sector 0 and of anything a
+;   partition table or boot sector lives in, so a run against the wrong disk
+;   damages nothing structural.
+;----------------------------------------------------------------------------
+XTIDE_TEST_LBA	equ	100
+
+BeginProc XTIDE_WriteReadBack
+
+	mov	edi, OFFSET32 XTIDE_WrBuf
+	mov	ecx, 256			; words
+	xor	eax, eax
+xwrb_fill:
+	mov	[edi], al			; low byte counts up
+	not	al
+	mov	[edi+1], al		; high byte is its complement
+	not	al
+	inc	al
+	add	edi, 2
+	dec	ecx
+	jnz	xwrb_fill
+
+	mov	XTIDE_ReqLba, XTIDE_TEST_LBA
+	mov	XTIDE_ReqCount, 1
+	mov	XTIDE_ReqBuf, OFFSET32 XTIDE_WrBuf
+	call	XTIDE_WriteSectors
+	jc	xwrb_out			; code already set by the write path
+
+	mov	XTIDE_ReqLba, XTIDE_TEST_LBA
+	mov	XTIDE_ReqCount, 1
+	mov	XTIDE_ReqBuf, OFFSET32 XTIDE_RbBuf
+	call	XTIDE_ReadSectors
+	jc	xwrb_out
+
+	mov	esi, OFFSET32 XTIDE_WrBuf
+	mov	edi, OFFSET32 XTIDE_RbBuf
+	mov	ecx, 512
+xwrb_cmp:
+	mov	al, [esi]
+	cmp	al, [edi]
+	jne	xwrb_mismatch
+	inc	esi
+	inc	edi
+	dec	ecx
+	jnz	xwrb_cmp
+	clc
+	ret
+
+xwrb_mismatch:
+	mov	XTIDE_FailCode, 15	; round trip returned different bytes
+xwrb_out:
+	stc
+	ret
+
+EndProc XTIDE_WriteReadBack
 
 ;----------------------------------------------------------------------------
 ; XTIDE_Probe - PUBLIC. Called from Port_initialize once the device node
@@ -831,11 +1047,39 @@ xp_ok:
 	cmp	word ptr XTIDE_SecBuf+510, 0AA55h
 	jne	xp_nosig
 
-;  Report the partition type through the delay, so the log says WHICH sector
-;  was read rather than merely that 512 bytes arrived. Codes 1-9 are failures,
-;  so success starts clear of them.
+;  Remember which sector was read, so the delay can report WHICH one rather
+;  than merely that 512 bytes arrived.
 	movzx	eax, byte ptr XTIDE_SecBuf+01BEh+4
 	mov	XTIDE_PartType, eax
+
+;  PHASE 2b - the write path, on a SLAVE if one is fitted, never on the master.
+;  The master is the boot disk both here and on the 5160.
+;
+;  NOTE: XTIDE_CaptureGeometry overwrites one global set of geometry, so the
+;  slave's values replace the master's from here on. That is fine while this is
+;  a self-test and nothing addresses the master afterwards; per-unit geometry
+;  arrives with the DCB work, which needs it anyway.
+	mov	XTIDE_TryUnit, DRVHD_SLAVE
+	call	XTIDE_TryIdentify
+	jc	xp_noslave
+
+	mov	XTIDE_SlavePresent, 1
+	mov	esi, OFFSET32 XTIDE_IdBuf
+	call	XTIDE_CaptureGeometry
+	call	XTIDE_WriteReadBack
+	jc	xp_exit			; 7, 9, 12, 13, 14 or 15 already set
+
+	mov	eax, XTIDE_PartType	; read AND write verified
+	and	eax, 0Fh
+	add	eax, 40
+	mov	XTIDE_FailCode, eax
+	jmp	xp_exit
+
+;  No slave is not a failure - the real card has one drive. Report the phase 2a
+;  result: the read verified, there was nothing safe to write to.
+xp_noslave:
+	mov	XTIDE_TryUnit, DRVHD_MASTER
+	mov	eax, XTIDE_PartType
 	and	eax, 0Fh
 	add	eax, 24
 	mov	XTIDE_FailCode, eax

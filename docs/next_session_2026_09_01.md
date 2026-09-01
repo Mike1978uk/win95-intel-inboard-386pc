@@ -72,9 +72,49 @@ The exact nibble is not pinned: 139 ticks fits `24+6` (partition type `06`, matc
 read of the image) but also `+5` and `+7`, because `DRP_reg_result` is not independently known.
 Widen the encoding spacing before relying on the value itself.
 
+## Phase 2b - writes work, and a real bug the round trip could not see
+
+`XTIDE_WriteSectors` plus `XTIDE_WriteData`, sharing one `XTIDE_ProgramTaskfile` with the read
+path so the two cannot diverge in how they address the drive. A scratch 8 MB slave disk was added
+to the test bed (`scratch.img`, 0:1) so the write self-test never touches the boot volume.
+
+Probe delay, three runs, one straight line:
+
+| run | code | ticks |
+|---|---|---|
+| phase 1, IDENTIFY | `8 + model` = 16 | 221 |
+| phase 2a, + read LBA 0 | `24 + nibble` = 30 | 360 |
+| phase 2b, + write/read-back | `40 + nibble` = 46 | 520 |
+
+16 units between 2a and 2b for 160 ticks gives **exactly 10.0 ticks per unit**, which then pins the
+other two: nibble 6 (partition type `06`) and model 8 characters (`86B_HD00`, 86Box's own IDENTIFY
+string). The encoding is no longer ambiguous.
+
+### The bug, and why the driver's own report did not show it
+
+The first 2b run reported success. The pattern was written to **`xtide_test.img` LBA 100 - the
+master, the boot disk** - not to the slave.
+
+`XTIDE_ProgramTaskfile` built Drive/Head from `DRVHD_LBA` (`0E0h`), which has the DEV bit clear.
+`XTIDE_TryIdentify` had selected the slave; the taskfile programmer silently re-selected the
+master. Both halves of the round trip went to the same wrong drive, so they matched.
+
+**A write/read-back test verifies the transport, not the address.** Check the disk, from the host,
+for the exact pattern at the exact LBA on the exact image. After the fix:
+
+```
+scratch.img     pattern at LBA 100      <- the slave, as instructed
+xtide_test.img  pattern NOT present     <- boot disk untouched
+```
+
+That single check also proves the latch write ordering is right: a high/low swap would have stored
+`ff00...` instead of `00ff...`, and the read path is separate code that would not have hidden it.
+
+`-Restore` earned its keep - the damaged run cost one file copy.
+
 ### Next
 
-1. Phase 2b - DCB and the IOS request path, so Windows actually routes I/O through it. This means
+1. Phase 2c - DCB and the IOS request path, so Windows actually routes I/O through it. This means
    **claiming the device**, which is normal (`ESDI_506.PDR` takes the boot disk off the real-mode
    mapper exactly this way) but wants a scratch slave disk in the test bed first, and writes
    implemented, not a read-only volume.
