@@ -3677,3 +3677,72 @@ and declines it - zikolas/cfu1-win9x carries a comment saying exactly that, from
 Moved to `XTIDE_ConfigDcb`. **It was not the blocker**, and was shipped in the same run as the
 guard fix, so it has no independent evidence behind it yet - recorded as documented-correct, not
 as measured.
+
+## Technique 82: a macro-built stack frame can be silently omitted - check the LISTING, because
+## the source looks correct either way
+
+The Windows protection error that cost 2026-09-01 was this, in Microsoft's own DDK port-driver
+sample:
+
+```asm
+BeginProc	Port_request
+ArgVar	IOP_ptr
+	EnterProc
+        mov     ebx, IOP_Ptr         ; point to the iop.
+```
+
+That is textbook, and it is broken. `VMM.INC`'s `EnterProc` only emits `push ebp / mov ebp,esp`
+when `??_pf_ArgsUsed` is **already** set - and that flag is set by *referencing* an ArgVar, which
+happens on the next line, after the macro has expanded. Outside a `DEBUG` build the prologue is
+therefore never emitted, and `IOP_Ptr` resolves to `[ebp+8]` against **whatever EBP the caller left
+in the register**.
+
+The listing says it in one line:
+
+```
+Port_request proc near
+        EnterProc                        <- no bytes emitted
+00000003  8B 5D 08    mov ebx, IOP_Ptr   <- mov ebx,[ebp+8]
+```
+
+Offset 3, and the only three bytes before it were this project's own `push ebx/esi/edi`. **A
+prologue that is not there occupies no bytes, so its absence is invisible in the source and obvious
+in the listing.** `ML -Fl<file>` costs one command and no machine time.
+
+Downstream, the garbage pointer read as an IOP gave `IOP_callback_ptr = 0`, and the sample's
+completion path does `sub eax, size IOP_CallBack_Entry` then `call dword ptr [eax]` - a call
+through `[0FFFFFFF8h]`. That is the protection error, four layers from its cause.
+
+**Rules:**
+
+- **Read the listing for any routine an external caller enters.** Not the source. Prologue and
+  epilogue are macro-generated in this codebase and both can vanish on a build-flag condition you
+  did not know existed.
+- **Prefer an explicit `[esp+N]` load over a macro ArgVar** in a routine called by the OS. It cannot
+  be silently rewritten by a macro's internal state, and the offset is checkable by counting pushes.
+- **The same sample uses `BeginProc ..., esp` for the routine that IS called** (`Port_Async_Request`)
+  and the EBP form for the one that never was. Where a sample uses two conventions for the same job,
+  the one on the exercised path is the one that works.
+- **Near-null does not fault in Win95 ring 0.** Linear page 0 is the V86 low-memory mapping, so
+  `mov edi,[edi.DCB_cd_ddb]` through a NULL pointer quietly returns BDA bytes instead of trapping.
+  Do not expect a null dereference to announce itself; the fault surfaces later, somewhere else.
+
+### The instrumentation lesson underneath it - dump raw bytes before interpreting them
+
+Four runs were spent reading fields *through* the assumption that the pointer was an IOP:
+`IOP_physical_dcb` said one thing, `IOP_calldown_ptr` said zero, `DCB_unit_on_ctl` said 0. Every one
+of those was fiction, and each looked plausible enough to build a theory on. What ended it was
+copying the first 32 bytes verbatim and printing them:
+
+```
++00 IOP_physical      59504C52      <- 1.5 GB "physical address" on a 16 MB machine
++10 IOP_calldown_ptr  00000000
++14 IOP_callback_ptr  00000000
+```
+
+`+00` cannot be a physical address on this machine, so the structure is not an IOP, so **no field
+read from it means anything**. One dump, one glance, question closed.
+
+**When a structure's fields disagree with each other, stop reading fields and dump the bytes.** A
+field read through a wrong base is not a wrong value, it is not a value at all - and a plausible
+wrong value is far more expensive than an obviously wrong one, because it survives review.
