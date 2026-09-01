@@ -42,11 +42,7 @@ param(
     # sector to the claimed unit at LBA 16000 on the first request and every
     # 64th after; tools/pdr_reqmarker.py reads it back out of the image.
     # Diagnostic only - never in a shipped driver.
-    [switch]$ReqMarker,
-    # Be our own TSD and publish the volume. WORKS - drive D: is created and
-    # ISP_ASSOCIATE_DCB returns 0 - but done inline in AEP_CONFIG_DCB it kills
-    # the boot, because that runs inside IOS_Register. Needs deferring.
-    [switch]$PublishVolume
+    [switch]$ReqMarker
 )
 
 $ML   = "$DDK\MASM611C\ML.EXE"
@@ -191,7 +187,6 @@ prd_inner:
     $psArgs = @("$PSScriptRoot/tools/patch_sample.py", $OutDir)
     if ($NoCalldown) { $psArgs += "--nocalldown" }
     if ($ReqMarker)  { $psArgs += "--reqmarker" }
-    if ($PublishVolume) { $psArgs += "--publishvolume" }
     python $psArgs
     if ($LASTEXITCODE -ne 0) { Write-Output "FAILED: patch_sample.py"; exit 1 }
 

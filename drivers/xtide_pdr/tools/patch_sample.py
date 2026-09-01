@@ -243,10 +243,12 @@ def main():
          0),
     ])
 
-    if '--publishvolume' in sys.argv:
-        total += edit(aer, [
-        # Publish the volume the moment our calldown is in, NOT at
-        # AEP_BOOT_COMPLETE. Measured 2026-09-01: boot-complete never arrives.
+    # Publishing the volume is no longer optional. Without it the driver claims
+    # a device and services requests that nobody ever issues, because a
+    # dynamically registered port driver gets no disk TSD (technique 83) - so
+    # the switch only ever selected between "works" and "does nothing visible".
+    total += edit(aer, [
+        # NOT at AEP_BOOT_COMPLETE - measured 2026-09-01, it never arrives.
         # A dynamically registered driver gets its own AEP_CONFIG_DCB and
         # nothing else - which is the same reason no disk TSD ever engages our
         # DCB. Everything the volume needs (physical DCB, DDB, ILB, load group,
@@ -259,8 +261,7 @@ def main():
          lambda m: NL + TAB + 'call' + TAB + 'XTIDE_SchedVol' + TAB
                    + '; be our own TSD - nobody else will' + NL + m.group(1),
          0),
-        ])
-        print('VOLUME: publishing wired into AEP_CONFIG_DCB')
+    ])
 
     if '--reqmarker' in sys.argv:
         total += edit(req, [
@@ -301,9 +302,7 @@ def main():
         print('DIAGNOSTIC: config-path marker wired')
 
     print('Patched: %d' % total)
-    want = 20 if nocalldown else 19
-    if '--publishvolume' in sys.argv:
-        want += 1
+    want = 21 if nocalldown else 20
     if '--reqmarker' in sys.argv:
         want += 5
     assert total == want, 'expected %d edits, got %d' % (want, total)
