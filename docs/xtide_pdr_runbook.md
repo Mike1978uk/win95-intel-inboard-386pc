@@ -70,26 +70,13 @@ available here.
 
 ---
 
-## Step 4 — the real card  (5160, first hardware run)
+## Step 4 — the boot drive, in emulation  (design first, do not improvise)
 
-```bash
-pwsh -File build.ps1 -Stride 2 -ClaimMask 3          # NO -ReqMarker
-```
+**This now comes before any hardware run.** There is no second drive in the 5160, so a secondary
+volume cannot be tested there at all - the boot disk is the only target, and it is not the thing to
+learn on. Prove it in the emulator on a clone first.
 
-- **`-ReqMarker` must be off.** The marker writes a sector to the claimed unit, and on the 5160
-  that unit is your CF.
-- `-ClaimMask 3` only once you are willing to claim the master. Start at `2` if a slave is fitted.
-- Deploy per Technique 75: copy from the host with the card in the reader, `md5sum` **at the
-  destination**, and CRLF anything text.
-- Read `BOOTLOG.TXT` afterwards for `Init Success port.pdr`.
-- Expect the option ROM to still own INT 13h; a drive letter for a **secondary** disk is the win
-  here, not C:.
-
----
-
-## Step 5 — the boot drive  (design first, do not improvise)
-
-Not a bigger version of step 4. Owning C: means taking the disk from the Real Mode Mapper
+It is not a bigger version of step 3. Owning C: means taking the disk from the Real Mode Mapper
 (`RMM.PDR`) rather than creating a volume: the boot DCB already exists when we load, so the driver
 must claim **that** DCB and IOS must retire the mapper for it. `XTIDE_WantIop` currently refuses
 any DCB we did not claim and `ClaimMask` is 2 — both would have to change deliberately.
@@ -97,6 +84,24 @@ any DCB we did not claim and `ClaimMask` is 2 — both would have to change deli
 Work it in the emulator, on a **clone** of the boot image, and write the design down before the
 first run. This is the part of the stack nothing this session touched, and unmeasured is where
 every surprise came from.
+
+---
+
+## Step 5 — the real card  (5160, first hardware run)
+
+```bash
+pwsh -File build.ps1 -Stride 2 -ClaimMask 3          # NO -ReqMarker
+```
+
+- **`-ReqMarker` must be off.** The marker writes a sector to the claimed unit, and on the 5160
+  that unit is your CF.
+- `-ClaimMask 1` (master): there is no second drive in the 5160, so the boot CF is the only
+  target. This is why step 4 has to come first.
+- Deploy per Technique 75: copy from the host with the card in the reader, `md5sum` **at the
+  destination**, and CRLF anything text.
+- Read `BOOTLOG.TXT` afterwards for `Init Success port.pdr`.
+- Success here is the boot volume in 32-bit mode - i.e. MS-DOS compatibility mode gone, which is
+  issue #3. There is no secondary-disk halfway house available on this machine.
 
 ---
 
