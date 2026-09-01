@@ -283,7 +283,7 @@ and the [contributor ledger](docs/contributor_input_ledger.md).
   [Correspondence, 2023](docs/al_williams_inboard_a20_correspondence_2023.md).
 - **Michal Necasek** ([OS/2 Museum](https://www.os2museum.com/)) — architectural confirmation,
   historical leads, and a verified `F000:FF53` improvement now upstream.
-- **[cimonvg](https://forum.vcfed.org/index.php?members/cimonvg.8268/)** - ongoing work pushing the Inboard 386/PC to its limits, and support throughout.
+- **[cimonvg](https://forum.vcfed.org/index.php?members/cimonvg.8268/)** - From vcfed ongoing work pushing the Inboard 386/PC to its limits, and support throughout.
 - **[RonnyRoy](https://github.com/ronnyroy111/inboard386)** — reproducing the Inboard as cloned
   hardware, which may be the path past today's 4MB ceiling.
 - **Feipoa** (Vogons) — the [CTCHIP/KTCHIP34 write-up](https://www.vogons.org/viewtopic.php?t=45756)
