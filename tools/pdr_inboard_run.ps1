@@ -86,6 +86,10 @@ if (Test-Path (Join-Path $env:TEMP "pdr_under_test.pdr")) {
     Write-Output "driver in the image: md5 $m"
 }
 python "$repo\tools\fatcp.py" $img --rm "C:\BOOTLOG.TXT" 2>&1 | Out-Null
+# And the shutdown log. A stale one left by a previous run reads exactly like a
+# fresh success - this harness reported one run's stages as another's before the
+# line below existed. Technique 23, in our own tooling.
+python "$repo\tools\fatcp.py" $img --rm "C:\SHUTLOG.TXT" 2>&1 | Out-Null
 python "$repo\tools\fatclean.py" $img
 
 $p = Start-Process $ExePath -ArgumentList @("-P", $VmPath) -WorkingDirectory $VmPath -PassThru `
@@ -132,12 +136,19 @@ public class PT2 {
   // Ctrl+Esc opens the Start menu without a mouse. Held as a real chord -
   // the guest reads make/break codes, so Ctrl must still be down when Esc
   // arrives or Win95 just eats an Escape.
-  public static void CtrlEsc(IntPtr h) {
+  // Alt+F4 on the desktop opens "Shut Down Windows" directly. Preferred over
+  // Ctrl+Esc -> U: it needs no taskbar, no Start menu, and no DOS box.
+  //
+  // The batch-in-StartUp approach that this replaces cannot work by
+  // construction - Windows 95 will not shut down while an MS-DOS box is open,
+  // so a batch that triggers the shutdown is the thing blocking it, and
+  // START/EXIT did not get out of the way either (the box hung instead).
+  public static void AltF4(IntPtr h) {
     if (GetForegroundWindow() != h) { skipped++; return; }
-    keybd_event(0x11, 0x1D, 0, IntPtr.Zero); System.Threading.Thread.Sleep(80);
-    keybd_event(0x1B, 0x01, 0, IntPtr.Zero); System.Threading.Thread.Sleep(80);
-    keybd_event(0x1B, 0x01, 2, IntPtr.Zero); System.Threading.Thread.Sleep(80);
-    keybd_event(0x11, 0x1D, 2, IntPtr.Zero);
+    keybd_event(0x12, 0x38, 0, IntPtr.Zero); System.Threading.Thread.Sleep(80);
+    keybd_event(0x73, 0x3E, 0, IntPtr.Zero); System.Threading.Thread.Sleep(80);
+    keybd_event(0x73, 0x3E, 2, IntPtr.Zero); System.Threading.Thread.Sleep(80);
+    keybd_event(0x12, 0x38, 2, IntPtr.Zero);
   }
 }
 "@
@@ -172,13 +183,14 @@ if ($Shutdown -and -not $p.HasExited) {
     if ($InGuest) {
         Write-Output "in-guest trigger: SHUT.BAT drives it, no keys sent from here"
     }
-    elseif ($p.MainWindowHandle -ne 0) {
-        Write-Output "driving shutdown: Ctrl+Esc, U, Enter"
-        [PT2]::CtrlEsc($p.MainWindowHandle);         Start-Sleep 4
-        & pwsh -File "$repo\tools\shot.ps1" (Join-Path $VmPath "screen_${Tag}_startmenu.png") 2>&1 | Out-Null
-        [PT2]::Tap($p.MainWindowHandle, 0x55, 0x16); Start-Sleep 4   # U = Shut Down...
-        & pwsh -File "$repo\tools\shot.ps1" (Join-Path $VmPath "screen_${Tag}_dialog.png") 2>&1 | Out-Null
-        [PT2]::Tap($p.MainWindowHandle, 0x0D, 0x1C); Start-Sleep 2   # Enter = OK
+    else {
+        # NO CHORD IS SENT FROM THE HOST. Alt+F4 and Ctrl+Esc are host-reserved:
+        # they never reach the guest. Alt+F4 closes 86Box itself, and Ctrl+Esc
+        # opens the HOST's Start menu - which is why the first shutdown attempt
+        # of the evening "did nothing" in the guest. Plain keys (Enter, letters)
+        # forward fine when the VM has focus; system chords do not.
+        Write-Output "SHUT DOWN THE GUEST BY HAND: Start -> Shut Down -> OK."
+        Write-Output "  Waiting $ShutdownSeconds s, then reading the teardown log."
     }
     $end = (Get-Date).AddSeconds($ShutdownSeconds)
     while ((Get-Date) -lt $end -and -not $p.HasExited) { Start-Sleep 5 }

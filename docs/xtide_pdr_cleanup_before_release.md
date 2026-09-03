@@ -11,8 +11,29 @@ but not yet tested. Everything else is unchanged.
 
 ## Blocking — would damage or annoy a stranger's system
 
-1. **Shutdown hangs.** ⏳ *fix written 2026-09-03, untested.* Observed on the 5160 on the
-   claiming run: Windows would not complete a shutdown and the machine had to be powered off.
+1. **Shutdown hangs.** ⏳ *fix written 2026-09-03; REPRODUCED IN THE EMULATOR, fix under test.*
+   Observed on the 5160 on the claiming run: Windows would not complete a shutdown and the
+   machine had to be powered off.
+
+   **Reproduced on the Inboard bed, 2026-09-03**, with the unfixed driver
+   (`1f0d8c30bd3c59c4298e60850c6c3eba`) and a shutdown driven by hand: the guest stalls on
+   *"Please wait while your computer shuts down"* and never reaches *"It's now safe to turn off
+   your computer"* - the owner confirms that is the exact real-hardware signature. **So this no
+   longer needs machine time to iterate on.**
+
+   `BOOTLOG.TXT` locates it (`docs/evidence_shutdown_control_bootlog_2026-09-03.txt`). Every
+   stage Windows logs pairs cleanly, and the log simply stops:
+
+   ```
+   Terminate = User      Query Drivers / Unload Network / Reset Display   all paired
+   Terminate = KERNEL    RIT / Win32                                      all paired
+   EndTerminate = KERNEL                          <- last line in the file
+   ```
+
+   The phase after `KERNEL` is the ring-0 VxD teardown - `System_Exit` and
+   `Sys_Critical_Exit` - which is exactly where IOS broadcasts `AEP_SYSTEM_SHUTDOWN` and
+   `AEP_SYSTEM_CRIT_SHUTDOWN`, and exactly where the AER below answers `AEP_FAILURE`.
+   Corroboration, not proof; the fixed-driver run is the proof.
 
    Cause found by reading the DDK rather than the machine. `Port_Async_Request` dispatches five
    AEP function codes and answers **`AEP_FAILURE` to every other one** (`PORTAER.ASM`, the line
