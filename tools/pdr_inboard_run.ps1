@@ -79,11 +79,18 @@ if ($mach -ne "ibmxt_inboard386") { Write-Output "WRONG MACHINE - this bed exist
 
 # Say which driver is actually in the image. A run whose binary nobody recorded
 # is a run nobody can cite (technique 70).
-python "$repo\tools\fatls.py" $img --get "C:\WINDOWS\SYSTEM\IOSUBSYS\PORT.PDR" `
-    (Join-Path $env:TEMP "pdr_under_test.pdr") | Out-Null
-if (Test-Path (Join-Path $env:TEMP "pdr_under_test.pdr")) {
-    $m = (Get-FileHash (Join-Path $env:TEMP "pdr_under_test.pdr") -Algorithm MD5).Hash.ToLower()
+# Delete the extraction target FIRST. Without this, a run whose driver is absent
+# (renamed out for a bisect) still finds the PREVIOUS run's copy and reports its
+# md5 - so the log claims a driver was under test when none was. Technique 23
+# again, and the third instance of it in this harness alone.
+$uut = Join-Path $env:TEMP "pdr_under_test.pdr"
+Remove-Item $uut -EA SilentlyContinue
+python "$repo\tools\fatls.py" $img --get "C:\WINDOWS\SYSTEM\IOSUBSYS\PORT.PDR" $uut | Out-Null
+if (Test-Path $uut) {
+    $m = (Get-FileHash $uut -Algorithm MD5).Hash.ToLower()
     Write-Output "driver in the image: md5 $m"
+} else {
+    Write-Output "driver in the image: NONE - PORT.PDR is not in IOSUBSYS (bisect build)"
 }
 python "$repo\tools\fatcp.py" $img --rm "C:\BOOTLOG.TXT" 2>&1 | Out-Null
 # And the shutdown log. A stale one left by a previous run reads exactly like a

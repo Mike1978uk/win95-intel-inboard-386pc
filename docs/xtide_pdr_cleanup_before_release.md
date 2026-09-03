@@ -32,8 +32,31 @@ but not yet tested. Everything else is unchanged.
 
    The phase after `KERNEL` is the ring-0 VxD teardown - `System_Exit` and
    `Sys_Critical_Exit` - which is exactly where IOS broadcasts `AEP_SYSTEM_SHUTDOWN` and
-   `AEP_SYSTEM_CRIT_SHUTDOWN`, and exactly where the AER below answers `AEP_FAILURE`.
-   Corroboration, not proof; the fixed-driver run is the proof.
+   `AEP_SYSTEM_CRIT_SHUTDOWN`.
+
+   ### TWO FIXES TRIED, BOTH NEGATIVE. Read before proposing either again.
+
+   | build | change | result |
+   |---|---|---|
+   | `81810be1` | AER default `AEP_FAILURE` -> `AEP_SUCCESS`; `AEP_UNCONFIG_DCB` drops held DCB pointers | **hangs, identical** |
+   | `70298a8f` | + `AEP_SYSTEM_SHUTDOWN` -> `XTIDE_VolDown`: `ISP_DESTROY_DCB` on the logical DCB, then unlink `DCB_next_logical_dcb` | **hangs, identical** |
+
+   Both loaded (`Init Success port.pdr` in each log) and both stop at the same line, so these
+   are real negatives, not unverified deployments. **Both changes are still correct on their own
+   terms** and stay in: answering `AEP_FAILURE` to a notification is wrong per the DDK, and
+   leaving a destroyed DCB linked into the physical chain is wrong per `cfu1-win9x`, whose
+   `CFU1_VolDown` is working code doing exactly this. They just are not the cause.
+
+   **The elimination that should have come first**, and did not: rename `PORT.PDR` out of
+   `IOSUBSYS` and shut down. If it still hangs, the driver was never involved and every theory
+   above is about the wrong component. That is technique 77's decisive move - the one-character
+   rename that cracked #22 - and it was set up twice this session and spent on neither.
+
+   **Next suspect if the driver is innocent:** `SD120PPD.SYS` / `ASPIHDRM.SYS`, the parallel-port
+   LS-120 real-mode pair. Present on the bed **and** on the 5160, the last remaining real-mode
+   unit (item 10), and already known from #22 to write to hardware it does not own. A real-mode
+   ASPI driver is a plausible way to wedge the protected-to-real-mode transition at `System_Exit`.
+   One-line REM to test - `tools/rem_config_line.py`.
 
    Cause found by reading the DDK rather than the machine. `Port_Async_Request` dispatches five
    AEP function codes and answers **`AEP_FAILURE` to every other one** (`PORTAER.ASM`, the line
