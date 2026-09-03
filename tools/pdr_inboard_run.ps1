@@ -25,7 +25,29 @@ param(
     [int]$Seconds    = 900,
     # How long to keep tapping Enter through the DOS phase.
     [int]$EnterSeconds = 300,
-    [string]$Tag     = "inboard"
+    [string]$Tag     = "inboard",
+    # Drive a real Windows shutdown at the end of the boot window, then wait.
+    # This is the ONLY way to exercise the shutdown AEP broadcasts - IOS sends
+    # AEP_PEND_UNCONFIG_DCB / AEP_UNCONFIG_DCB / AEP_SYSTEM_SHUTDOWN /
+    # AEP_SYSTEM_CRIT_SHUTDOWN at System_Exit and nowhere else.
+    #
+    # The readback is BOOTLOG.TXT's own Terminate=/EndTerminate= pairs, which
+    # Windows appends as it tears each stage down. A stage that starts and
+    # never ends NAMES the hang, which a screenshot of a frozen desktop does
+    # not. It reaches the disk because C: is still the Real Mode Mapper's.
+    [switch]$Shutdown,
+    [int]$ShutdownSeconds = 240,
+    # The shutdown is triggered from INSIDE the guest, by SHUT.BAT in the
+    # StartUp folder, so the harness sends no keys at all.
+    #
+    # Why: host-side injection into 86Box could never be shown to reach the
+    # guest, and the boot completing was never evidence that it did - the last
+    # prompt in CONFIG.SYS (TSLCD) has been REM'd out since 2026-09-01, so
+    # nothing in the DOS phase has needed a keystroke for days. A harness that
+    # "clears prompts" which no longer exist proves only that it ran
+    # (technique 71). In-guest is unattended, repeatable, and never takes focus
+    # from whoever is using the host.
+    [switch]$InGuest
 )
 
 $repo = "C:\Users\lycet\RiderProjects\86Box-Inboard"
@@ -86,18 +108,48 @@ public class PT2 {
   [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int c);
   [DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte sc, uint f, IntPtr x);
   [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
-  public static void Tap(IntPtr h, byte vk, byte sc) {
+  public static int skipped = 0;
+  // Grab focus ONCE, at launch, when the VM has it anyway. Never again.
+  public static void Focus(IntPtr h) {
     uint me = GetCurrentThreadId();
     uint other = GetWindowThreadProcessId(GetForegroundWindow(), IntPtr.Zero);
     AttachThreadInput(me, other, true);
     ShowWindow(h, 9); BringWindowToTop(h); SetForegroundWindow(h);
     AttachThreadInput(me, other, false);
-    System.Threading.Thread.Sleep(120);
+    System.Threading.Thread.Sleep(150);
+  }
+  // keybd_event is GLOBAL input injection - it goes wherever focus is. So the
+  // only safe key send is one made while the VM already HAS focus. The old
+  // version grabbed focus back every 5 s for the whole DOS phase, which makes
+  // the host unusable for whoever is sitting at it. If the user takes focus,
+  // they have taken over; stop touching it and count what we skipped, so a run
+  // that missed its prompts is recognisable as VOID rather than as a result.
+  public static void Tap(IntPtr h, byte vk, byte sc) {
+    if (GetForegroundWindow() != h) { skipped++; return; }
     keybd_event(vk, sc, 0, IntPtr.Zero); System.Threading.Thread.Sleep(60);
     keybd_event(vk, sc, 2, IntPtr.Zero);
   }
+  // Ctrl+Esc opens the Start menu without a mouse. Held as a real chord -
+  // the guest reads make/break codes, so Ctrl must still be down when Esc
+  // arrives or Win95 just eats an Escape.
+  public static void CtrlEsc(IntPtr h) {
+    if (GetForegroundWindow() != h) { skipped++; return; }
+    keybd_event(0x11, 0x1D, 0, IntPtr.Zero); System.Threading.Thread.Sleep(80);
+    keybd_event(0x1B, 0x01, 0, IntPtr.Zero); System.Threading.Thread.Sleep(80);
+    keybd_event(0x1B, 0x01, 2, IntPtr.Zero); System.Threading.Thread.Sleep(80);
+    keybd_event(0x11, 0x1D, 2, IntPtr.Zero);
+  }
 }
 "@
+# One focus grab, here, while the freshly launched VM has it anyway. After
+# this the harness never takes focus again - see PT2::Tap.
+Start-Sleep 3
+$p.Refresh()
+if ($p.MainWindowHandle -ne 0) { [PT2]::Focus($p.MainWindowHandle) }
+Write-Output "focus given to the VM once; the host is yours from here."
+Write-Output "  (if you click away during the DOS phase, keys stop being sent -"
+Write-Output "   the run then reports how many it skipped and is VOID, not a result)"
+
 $deadline = (Get-Date).AddSeconds($Seconds)
 $enteruntil = (Get-Date).AddSeconds($EnterSeconds)
 while ((Get-Date) -lt $deadline -and -not $p.HasExited) {
@@ -107,12 +159,55 @@ while ((Get-Date) -lt $deadline -and -not $p.HasExited) {
     }
     Start-Sleep 5
 }
+if ([PT2]::skipped -gt 0) { Write-Output "NOTE: $([PT2]::skipped) keystrokes skipped - VM did not have focus." }
+
+# Drive Start -> Shut Down -> OK with the keyboard only, then let Windows run
+# the teardown to whatever end it reaches. Screenshots either side, because a
+# frozen desktop and a finished shutdown look identical in a bootlog that was
+# never flushed - and because if Ctrl+Esc never opened the menu, the whole run
+# is VOID rather than a result about shutdown (technique 86's prompt trap).
+if ($Shutdown -and -not $p.HasExited) {
+    & pwsh -File "$repo\tools\shot.ps1" (Join-Path $VmPath "screen_${Tag}_desktop.png") 2>&1 | Out-Null
+    $p.Refresh()
+    if ($InGuest) {
+        Write-Output "in-guest trigger: SHUT.BAT drives it, no keys sent from here"
+    }
+    elseif ($p.MainWindowHandle -ne 0) {
+        Write-Output "driving shutdown: Ctrl+Esc, U, Enter"
+        [PT2]::CtrlEsc($p.MainWindowHandle);         Start-Sleep 4
+        & pwsh -File "$repo\tools\shot.ps1" (Join-Path $VmPath "screen_${Tag}_startmenu.png") 2>&1 | Out-Null
+        [PT2]::Tap($p.MainWindowHandle, 0x55, 0x16); Start-Sleep 4   # U = Shut Down...
+        & pwsh -File "$repo\tools\shot.ps1" (Join-Path $VmPath "screen_${Tag}_dialog.png") 2>&1 | Out-Null
+        [PT2]::Tap($p.MainWindowHandle, 0x0D, 0x1C); Start-Sleep 2   # Enter = OK
+    }
+    $end = (Get-Date).AddSeconds($ShutdownSeconds)
+    while ((Get-Date) -lt $end -and -not $p.HasExited) { Start-Sleep 5 }
+    & pwsh -File "$repo\tools\shot.ps1" (Join-Path $VmPath "screen_${Tag}_after.png") 2>&1 | Out-Null
+}
 
 if (-not $p.HasExited) {
     & pwsh -File "$repo\tools\shot.ps1" $shot 2>&1 | Out-Null
     $p | Stop-Process -Force
 }
 Start-Sleep 2
+
+# SHUT.BAT's own stage ladder. Written before Windows starts tearing down, so
+# it survives even a shutdown that never completes - and it separates "the
+# trigger never fired" from "the trigger fired and Windows hung", which the
+# bootlog alone cannot do.
+$slog = Join-Path $VmPath "shutlog_$Tag.txt"
+Remove-Item $slog -EA SilentlyContinue
+python "$repo\tools\fatls.py" $img --get "C:\SHUTLOG.TXT" $slog 2>&1 | Out-Null
+if (Test-Path $slog) {
+    Write-Output ""
+    Write-Output "---- SHUT.BAT stages ----"
+    Get-Content $slog | ForEach-Object { $_ }
+} elseif ($InGuest) {
+    Write-Output ""
+    Write-Output "---- SHUT.BAT stages ----"
+    Write-Output "NO SHUTLOG - the batch never ran. Check it is in the StartUp folder"
+    Write-Output "  and that Explorer got far enough to launch it. Run is VOID."
+}
 
 python "$repo\tools\fatls.py" $img --get "C:\BOOTLOG.TXT" $out
 if (-not (Test-Path $out)) {
@@ -127,3 +222,27 @@ Write-Output ""
 Write-Output "---- port.pdr ----"
 Select-String -Path $out -Pattern "port\.pdr|hsflop|Init Success|Init Failure|LoadFailed" |
     ForEach-Object { $_.Line }
+
+# Pair up Terminate=/EndTerminate= and report the ones that never ended. On a
+# clean shutdown every stage pairs. On a hang the LAST unpaired stage is where
+# Windows stopped, which is the whole reason for driving the shutdown at all.
+if ($Shutdown) {
+    Write-Output ""
+    Write-Output "---- shutdown ----"
+    $started = @(); $ended = @()
+    foreach ($l in (Get-Content $out)) {
+        if ($l -match 'EndTerminate\s*=\s*(.+)$')  { $ended   += $Matches[1].Trim(); continue }
+        if ($l -match 'Terminate\s*=\s*(.+)$')     { $started += $Matches[1].Trim() }
+    }
+    if ($started.Count -eq 0) {
+        Write-Output "NO Terminate LINES - Windows never began a shutdown."
+        Write-Output "  This run says NOTHING about the shutdown path. Check"
+        Write-Output "  screen_${Tag}_startmenu.png: if the Start menu is not open,"
+        Write-Output "  the keystrokes never landed and the run is VOID."
+    } else {
+        Write-Output "stages started: $($started.Count)   ended: $($ended.Count)"
+        $open = $started | Where-Object { $_ -notin $ended }
+        if ($open.Count -eq 0) { Write-Output "CLEAN - every stage paired." }
+        else { Write-Output "HUNG IN: $($open -join ', ')" }
+    }
+}

@@ -22,7 +22,7 @@ bus_width = 8
 
 [Input devices]
 keyboard_type = internal
-mouse_type = none
+mouse_type = msserial
 
 [Storage controllers]
 hdc_1 = xtide
@@ -43,11 +43,6 @@ zero_wait = 1
 [Floppy and CD-ROM drives]
 fdd_01_type = 35_2hd
 fdd_02_type = none
-
-[Named Pipe (COM) #1]
-path = \.\pipe\comrade86box_com1
-mode = 1
-reconnect = 1
 
 [Sound]
 sndcard = sbprov2
