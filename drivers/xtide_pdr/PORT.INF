@@ -12,14 +12,15 @@
 ; That proves the whole chain works before a single line of XT-IDE code is written.
 ;
 ; RESOURCES - phase 1.
-;   IOConfig  300-30F, ConfigPriority=HARDRECONFIG. Measured base, 2026-08-30: the
+;   IOConfig  300-31F, ConfigPriority=HARDRECONFIG. Measured base, 2026-08-30: the
 ;             XTIDE BIOS banner says "master at 300h" and 0x30E reads 50h (DRDY|DSC).
 ;             HARDRECONFIG, never HARDWIRED - HARDWIRED is exactly what made the stock
 ;             *PNP0600 node claim an unchangeable IRQ 14 on this machine. A wrong
 ;             resource you can edit is recoverable; one you cannot is a reinstall.
 ;             Exactly ONE IO descriptor: Port_Scan_Inp_Params loops over every
 ;             ResType_IO it finds and keeps the LAST one, so a second range would
-;             silently win.
+;             silently win. The range is 32 ports, not 16: on the stride-2 Lo-tech
+;             XT-CF the alternate status register sits at base+14*2 = 0x31C.
 ;   No IRQConfig - the card is jumpered without an interrupt and the driver polls.
 ;             The sample's VPICD registration is removed for the same reason (#22 is
 ;             a recent lesson in what a stray IRQ claim costs on this machine).
@@ -74,7 +75,7 @@ AddReg=IOS, PORT_REG
 
 [PORT.LogConfig]
 ConfigPriority=HARDRECONFIG
-IOConfig=300-30F(3FF::)
+IOConfig=300-31F(3FF::)
 
 [PORT_REG]
 HKR,,DriverDesc,,"XT-IDE Port Driver"
@@ -99,4 +100,4 @@ PORT.PDR = 1
 [Strings]
 HDCClassName="Hard disk controllers"
 INB="86Box-Inboard project"
-PORTPROBE="XT-IDE port driver (phase 1 - IDENTIFY only)"
+PORTPROBE="Lo-tech XT-CF / XT-IDE 8-bit disk controller"
