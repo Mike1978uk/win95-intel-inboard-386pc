@@ -88,6 +88,52 @@ but not yet tested. Everything else is unchanged.
    the bottom of the chain, so it cannot pass a request down - but failing one it should have
    completed, or completing one through a bad pointer, both fit.
 
+   ### CAUSE FOUND, 2026-09-03: we block inside the request instead of returning
+
+   From **Microsoft's I/O Supervisor Guide for Windows 9x/Me**, given by @andrew-hoffman on #21
+   the same evening. This project did not have the document; the DDK's own `STORAGE.DOC` says
+   nothing about it.
+
+   > "Normally at this step, the port driver is going to have to wait for hardware to respond.
+   > **If the hardware polling method is used** (instead of waking up when an interrupt arrives),
+   > the driver then calls **`Set_Global_Time_Out` or `Set_Async_Time_Out`** so that the driver's
+   > timeout (polling handler) routine gets called back later, for example in 10 milliseconds.
+   > **Immediately after this `Set_Global_Time_Out` call, simply return (WITHOUT doing a JMP to
+   > the `IOP_callback_ptr` routine). This releases the system from your driver, so the system
+   > can run normally for a while.**"
+
+   The required shape for a polling port driver:
+
+   | step | | ours |
+   |---|---|---|
+   | 1 | start the I/O | yes |
+   | 2 | `Set_Global_Time_Out` ~10 ms | **no** |
+   | 3 | **return without completing** | **no - we block** |
+   | 4 | poll from the timeout handler, re-arm if not done | **no** |
+   | 5 | when done, **CALL** (not JMP) `IOP_callback_ptr` | yes |
+   | 6 | `ILB_dequeue_iop`, start any queued IOP | **no** |
+
+   **The XT-CF is jumpered with no interrupt, so we are a polling driver by construction** - this
+   contract is ours, not an optional optimisation. Instead we spin inline inside `Port_request`
+   (`XT_SPIN` = 400000 `in al,dx`) holding the whole system until the drive answers, then
+   complete. On the 5160 that is roughly 0.6 s per wait on a 4.77 MHz bus, with nothing else able
+   to run.
+
+   **It fits every measurement**: it lives in the transport body (`-NoIo` shuts down clean), it
+   needs the calldown (nothing else routes a request to us), and it survives normal operation -
+   where the drive does answer - while wedging at `System_Exit`, where the scheduling and
+   time-out context a blocking driver depends on is being torn down.
+
+   **Not yet proven.** It is a documented requirement we demonstrably do not meet, in exactly the
+   code the bisection isolated, which is much stronger than the two theories before it - but the
+   fix has to shut down cleanly before this section says "fixed". The two negatives above are the
+   reason for saying so.
+
+   **Doing it properly is a restructure, not a patch:** the request routine returns early, state
+   moves out of the globals the transport currently reuses, and a timeout handler drives the
+   state machine. `zikolas/cfu1-win9x` polls too (`sup_stop`, `[irqhandle]` = 0 "hook gone
+   (teardown): stay polled") and is the working reference for how.
+
    **Next run, already built:** `-NoVolume -NoIo` - same as the hanging build but the request
    handler completes everything as an error without touching hardware. Still hangs = the
    completion path. Clean = our transport blocks.
