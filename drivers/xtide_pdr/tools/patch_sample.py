@@ -50,7 +50,9 @@ def main():
                    + '; remember our own DDB (phase 2d)' + NL
                    + TAB + 'extrn' + TAB + 'XTIDE_NoteLgn:near' + NL
                    + TAB + 'extrn' + TAB + 'XTIDE_SchedVol:near' + TAB
-                   + '; be our own TSD (phase 3)' + NL,
+                   + '; be our own TSD (phase 3)' + NL
+                   + TAB + 'extrn' + TAB + 'XTIDE_ForgetDcb:near' + TAB
+                   + '; AEP_UNCONFIG_DCB teardown' + NL,
          0),
 
         # The load group number the logical DCB's calldown entry will need.
@@ -123,6 +125,45 @@ def main():
         ('no-device result code',
          r'(Port_di_no_device:' + NL + WS + r'*mov' + WS + r'+\[ebx\]\.AEP_result,' + WS + r'*)AEP_FAILURE',
          lambda m: m.group(1) + 'AEP_NO_INQ_DATA',
+         0),
+    ])
+
+    # ---- shutdown and teardown -------------------------------------------
+    # The sample dispatches five AEP function codes and answers AEP_FAILURE to
+    # every other one. IOS broadcasts at least four it has never heard of, all
+    # of them at System_Exit:
+    #
+    #   AEP_SYSTEM_SHUTDOWN 14   AEP_SYSTEM_CRIT_SHUTDOWN 1
+    #   AEP_UNCONFIG_DCB     4   AEP_PEND_UNCONFIG_DCB   21
+    #
+    # ...plus AEP_ASSOCIATE_DCB 12, which OUR OWN ISP_ASSOCIATE_DCB causes IOS
+    # to issue. These are notifications; "I refuse" is not an answer to one.
+    #
+    # The default becomes SUCCESS rather than enumerating every code IOS might
+    # broadcast. Technique 51, in a new place: an exit condition gated on a
+    # hand-written list of values fails silently and badly the first time
+    # reality produces one the list does not have, and this project has now
+    # paid for that four times over.
+    total += edit(aer, [
+        ('unconfig handler + benign default',
+         WS + r'*mov' + WS + r'*\[ebx\.AEP_result\],AEP_FAILURE;' + WS
+         + r'*set result code to indicate error\.' + WS + r'*\r?\n',
+         lambda m: (
+             TAB + 'cmp' + TAB + 'si, AEP_UNCONFIG_DCB' + TAB
+             + '  ; a DCB we may hold a pointer to?' + NL +
+             TAB + 'jne' + TAB + 'pa_note_only' + NL +
+             TAB + 'mov' + TAB + 'esi, [ebx].AEP_d_u_dcb' + NL +
+             TAB + 'call' + TAB + 'XTIDE_ForgetDcb' + TAB + '; drop it before IOS frees it' + NL +
+             TAB + 'LeaveProc' + NL +
+             TAB + 'Return' + NL +
+             NL +
+             'pa_note_only:' + NL +
+             ';  Everything else is a NOTIFICATION - shutdown, mount, VRP create,' + NL +
+             ';  associate. AEP_SUCCESS is already preset at the top of this' + NL +
+             ';  routine and is the right answer to all of them. The sample' + NL +
+             ';  overwrote it with AEP_FAILURE, which is how a driver reports its' + NL +
+             ';  own error, and it did so for every code it did not dispatch -' + NL +
+             ';  including all four that Windows sends on the way down.' + NL),
          0),
     ])
 
@@ -302,7 +343,7 @@ def main():
         print('DIAGNOSTIC: config-path marker wired')
 
     print('Patched: %d' % total)
-    want = 21 if nocalldown else 20
+    want = 22 if nocalldown else 21
     if '--reqmarker' in sys.argv:
         want += 5
     assert total == want, 'expected %d edits, got %d' % (want, total)

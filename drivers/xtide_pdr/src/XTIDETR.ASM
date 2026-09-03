@@ -1386,6 +1386,51 @@ xwd_no:
 
 EndProc XTIDE_WantDcb
 
+;----------------------------------------------------------------------------
+; XTIDE_ForgetDcb - PUBLIC. A DCB we may have claimed is being destroyed.
+;
+;   In:   ESI -> the DCB from AEP_d_u_dcb, may be 0
+;   Destroys: EAX, ECX
+;
+;   STORAGE.DOC describes AEP_UNCONFIG_DCB's contract as exactly this: "a layer
+;   typically just makes a note of the fact that the DCB is going away". The
+;   DDK sample makes no note of anything - it does not handle the message, and
+;   its AER answers AEP_FAILURE to every code it does not recognise.
+;
+;   Clearing InsertedDcb also lets IOS re-offer the same unit later and have
+;   XTIDE_WantDcb accept it. That is correct: the guard exists to stop a DOUBLE
+;   insert on a live DCB, not to make the claim permanent for the session.
+;----------------------------------------------------------------------------
+BeginProc XTIDE_ForgetDcb
+
+	or	esi, esi
+	jz	xfd_done
+
+;  The published volume. Drop the pointer and release the appy-time latch, so
+;  a later remount can queue again instead of finding a stale "in flight".
+	cmp	esi, XTIDE_LogDcb
+	jne	xfd_phys
+	mov	XTIDE_LogDcb, 0
+	mov	XTIDE_VolBusy, 0
+
+;  Both physical units. Compared by POINTER here, unlike XTIDE_WantDcb which
+;  matches on the unit number - the question is not "is this our device" but
+;  "is this the exact object we stored", and only the object is being freed.
+xfd_phys:
+	xor	ecx, ecx
+xfd_scan:
+	cmp	XTIDE_InsertedDcb[ecx], esi
+	jne	xfd_next
+	mov	XTIDE_InsertedDcb[ecx], 0
+xfd_next:
+	add	ecx, 4
+	cmp	ecx, 8
+	jb	xfd_scan
+
+xfd_done:
+	ret
+
+EndProc XTIDE_ForgetDcb
 
 
 ;----------------------------------------------------------------------------
