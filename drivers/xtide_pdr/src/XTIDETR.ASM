@@ -35,6 +35,19 @@
 	include	ilb.inc		; the IOS linkage block, for ILB_Service_rtn
 	include	shell.inc		; _SHELL_CallAtAppyTime
 	include	isp.inc		; ISP_CREATE_DCB / _INSERT_CALLDOWN / _ASSOCIATE_DCB
+
+;  Store to a diagnostic field. Expands to NOTHING without XT_REQ_MARKER,
+;  so a release build carries neither the store nor the field behind it.
+;  Used instead of nineteen inline ifdef/endif pairs, one of which would
+;  certainly have been wrong.
+ifdef XT_REQ_MARKER
+MARK	macro	fld, val
+	mov	fld, val
+	endm
+else
+MARK	macro	fld, val
+	endm
+endif
 	.list
 
 ;============================================================================
@@ -293,6 +306,7 @@ XTIDE_WrBuf			db	512 dup (0)
 ;  cannot answer "did an IOS request ever reach XTIDE_StartRequest". This sector
 ;  can: the host reads it back out of the image afterwards. Technique 79 - the
 ;  proof of an address has to come from outside the guest.
+ifdef XT_REQ_MARKER
 public XTIDE_Marker
 XTIDE_Marker		db	'XTIDEREQ'
 XTIDE_MkCount		dd	0
@@ -310,7 +324,7 @@ XTIDE_MkRefused		dd	0	; requests refused as not ours
 XTIDE_MkStage		dd	0	; how far Port_request got - see XTIDE_MarkStage
 XTIDE_MkOrigDcb		dd	0	; IOP_original_dcb - the logical view
 XTIDE_MkCdDdb		dd	0	; DDB on the calldown entry IOS reached us through
-XTIDE_OurDdb		dd	0	; our own DDB, from AEP_ddb at config time
+XTIDE_MkOurDdb	dd	0	; report copy of the working XTIDE_OurDdb
 XTIDE_MkIop		dd	0	; EBX as Port_request received it
 XTIDE_MkRaw		dd	8 dup (0)	; first 32 bytes at that address, verbatim
 
@@ -336,10 +350,10 @@ XTIDE_MkVolDrive	dd	0	; drive number it was associated with, 3 = D:
 XTIDE_MkPartStart	dd	0
 XTIDE_MkPartLen		dd	0
 XTIDE_MkVolStep		dd	0	; 0 = XTIDE_VolCreate never ran; 10 = volume up
-XTIDE_VolBusy		dd	0	; one queue attempt in flight is enough
+			dd	0	; placeholder: XTIDE_VolBusy is working storage now
 XTIDE_MkSchedRc		dd	0FFFFFFFFh	; -1 = never even tried to queue;
 					; 0 = _SHELL_CallAtAppyTime refused
-XTIDE_MkOurUnit		dd	0	; addressing only - not part of the report
+			dd	0	; placeholder: XTIDE_OurUnit is working storage now
 XTIDE_MkStride		dd	0	; what XTIDE_DetectStride settled on, 0 = never ran
 
 ;  First WRITE the request path ever saw, captured verbatim. The write on
@@ -364,7 +378,18 @@ XTIDE_MkWrData		db	32 dup (0)	; first 32 bytes at IOR_buffer_ptr
 XTIDE_MkSgRd		dd	0
 XTIDE_MkSgWr		dd	0
 			db	208 dup (0)	; pads XTIDE_Marker to exactly 512 bytes
+endif		; XT_REQ_MARKER: no symbol and no payload in a shipped build
 
+
+;  State the DRIVER needs, as distinct from the report. These used to live
+;  inside the marker sector, which meant a build with no diagnostic could
+;  not assemble at all - the diagnostic was load-bearing by accident.
+XTIDE_OurDdb		dd	0	; our own DDB, from AEP_ddb at config time
+XTIDE_OurUnit		dd	0	; the unit we claimed - addressing, never reported
+XTIDE_PartStart		dd	0	; partition LBA. Read on EVERY request for the bias
+XTIDE_PartLen		dd	0
+XTIDE_VolDrive		dd	0	; drive-letter walk: 3=D, incremented until one is free
+XTIDE_VolBusy		dd	0	; one appy-time queue attempt in flight is enough
 ;  Working storage - deliberately AFTER the marker sector, not inside it.
 XTIDE_OurLgn		dd	0	; load group number, for the logical calldown
 XTIDE_LogDcb		dd	0	; the logical volume DCB, once created
@@ -467,7 +492,7 @@ BeginProc XTIDE_DetectStride
 	ret
 xds_ok:
 	mov	eax, XTIDE_Stride
-	mov	XTIDE_MkStride, eax
+	MARK	XTIDE_MkStride, eax
 	clc
 	ret
 
@@ -1055,7 +1080,7 @@ ifdef XT_REQ_MARKER
 	je	xwr_noesi
 	cmp	XTIDE_MkWrEsi, 0
 	jne	xwr_noesi
-	mov	XTIDE_MkWrEsi, esi
+	MARK	XTIDE_MkWrEsi, esi
 xwr_noesi:
 endif
 xwr_sector:
@@ -1361,6 +1386,8 @@ xwd_no:
 
 EndProc XTIDE_WantDcb
 
+
+
 ;----------------------------------------------------------------------------
 ; XTIDE_Inquiry - PUBLIC. Does a device exist at this unit, and if so describe
 ;                 it in the DCB.
@@ -1400,7 +1427,7 @@ xin_shifted:
 	je	xin_absent
 
 	mov	XTIDE_ClaimedDcb[ecx], esi	; remember it for Port_cfg_device
-	mov	XTIDE_MkOurUnit, eax	; and which unit to write the marker to
+	mov	XTIDE_OurUnit, eax	; and which unit to write the marker to
 
 	call	XTIDE_SelectUnit		; geometry for THIS unit
 
@@ -1461,7 +1488,7 @@ EndProc XTIDE_Inquiry
 BeginProc XTIDE_NoteIsp
 
 ifdef XT_REQ_MARKER
-	mov	XTIDE_MkIsp, eax
+	MARK	XTIDE_MkIsp, eax
 endif
 	ret
 
@@ -1495,41 +1522,41 @@ BeginProc XTIDE_VolCreate
 	push	esi
 	push	edi
 
-	mov	XTIDE_MkVolStep, 1
+	MARK	XTIDE_MkVolStep, 1
 	cmp	port_ilb, 0
 	je	xvc_fail
-	mov	XTIDE_MkVolStep, 2
+	MARK	XTIDE_MkVolStep, 2
 	cmp	XTIDE_LogDcb, 0
 	jne	xvc_fail		; already published
 
-	mov	esi, XTIDE_MkOurUnit
+	mov	esi, XTIDE_OurUnit
 	mov	esi, XTIDE_InsertedDcb[esi*4]
 	or	esi, esi
 	jz	xvc_fail		; no physical DCB of ours
 
 ;  1) the partition table
-	mov	eax, XTIDE_MkOurUnit
+	mov	eax, XTIDE_OurUnit
 	call	XTIDE_SelectUnit
 	mov	XTIDE_ReqLba, 0
 	mov	XTIDE_ReqCount, 1
 	mov	XTIDE_ReqBuf, OFFSET32 XTIDE_MbrBuf
-	mov	XTIDE_MkVolStep, 4
+	MARK	XTIDE_MkVolStep, 4
 	call	XTIDE_ReadSectors
 	jc	xvc_fail
-	mov	XTIDE_MkVolStep, 5
+	MARK	XTIDE_MkVolStep, 5
 	cmp	word ptr XTIDE_MbrBuf+510, 0AA55h
 	jne	xvc_fail
 
 	mov	eax, dword ptr XTIDE_MbrBuf+1BEh+8
 	or	eax, eax
 	jz	xvc_fail
-	mov	XTIDE_MkVolStep, 6
-	mov	XTIDE_MkPartStart, eax
+	MARK	XTIDE_MkVolStep, 6
+	mov	XTIDE_PartStart, eax
 	mov	eax, dword ptr XTIDE_MbrBuf+1BEh+12
 	or	eax, eax
 	jz	xvc_fail
-	mov	XTIDE_MkVolStep, 7
-	mov	XTIDE_MkPartLen, eax
+	MARK	XTIDE_MkVolStep, 7
+	mov	XTIDE_PartLen, eax
 
 ;  2) a logical DCB
 	sub	esp, size ISP_dcb_create
@@ -1542,14 +1569,14 @@ BeginProc XTIDE_VolCreate
 	call	[port_ilb.ILB_Service_rtn]
 	add	esp, 4
 	movzx	eax, [edi].ISP_result
-	mov	XTIDE_MkVolCreate, eax
+	MARK	XTIDE_MkVolCreate, eax
 	mov	ebx, [edi].ISP_dcb_ptr
 	add	esp, size ISP_dcb_create
 	or	eax, eax
 	jnz	xvc_fail
 	or	ebx, ebx
 	jz	xvc_fail
-	mov	XTIDE_MkVolStep, 8
+	MARK	XTIDE_MkVolStep, 8
 	mov	XTIDE_LogDcb, ebx
 
 ;  3) describe it, and link it to the physical DCB both ways
@@ -1572,20 +1599,20 @@ BeginProc XTIDE_VolCreate
 	call	[port_ilb.ILB_Service_rtn]
 	add	esp, 4
 	movzx	eax, [edi].ISP_result
-	mov	XTIDE_MkVolCd, eax
+	MARK	XTIDE_MkVolCd, eax
 	add	esp, size ISP_calldown_insert
 	or	eax, eax
 	jnz	xvc_fail
 
 	mov	[ebx].DCB_dmd_flags, DCB_dmd_small_memory
 	mov	[ebx].DCB_device_flags, DCB_DEV_LOGICAL or DCB_DEV_WRITEABLE
-	mov	eax, XTIDE_MkPartStart
+	mov	eax, XTIDE_PartStart
 	mov	[ebx].DCB_Partition_Start, eax
 	mov	byte ptr [ebx].DCB_apparent_blk_shift, 9
 	mov	[ebx].DCB_sig, 'CB'
 	mov	byte ptr [ebx].DCB_device_type, DCB_type_disk
 	mov	[ebx].DCB_max_xfer_len, 1000h	; 4 KB - keep the PIO bursts short
-	mov	eax, XTIDE_MkPartLen
+	mov	eax, XTIDE_PartLen
 	mov	[ebx].DCB_actual_sector_cnt, eax
 	mov	dword ptr [ebx].DCB_actual_sector_cnt+4, 0
 	mov	[ebx].DCB_actual_blk_size, 512
@@ -1596,22 +1623,22 @@ BeginProc XTIDE_VolCreate
 	mov	eax, XTIDE_Heads
 	imul	eax, XTIDE_Spt
 	mov	ecx, eax
-	mov	eax, XTIDE_MkPartLen
+	mov	eax, XTIDE_PartLen
 	xor	edx, edx
 	div	ecx
 	mov	[ebx].DCB_actual_cyl_cnt, eax
 
 ;  4) a drive letter. 0=A, so 3=D - the first one a single-partition boot
 ;     disk leaves free. Walk up if it is taken.
-	mov	XTIDE_MkVolStep, 9
-	mov	XTIDE_MkVolDrive, 3
+	MARK	XTIDE_MkVolStep, 9
+	mov	XTIDE_VolDrive, 3
 xvc_assoc:
 	sub	esp, size ISP_dcb_associate
 	mov	edi, esp
 	mov	[edi].ISP_func, ISP_ASSOCIATE_DCB
 	mov	[edi].ISP_result, 0
 	mov	[edi].ISP_d_a_dcb, ebx
-	mov	eax, XTIDE_MkVolDrive
+	mov	eax, XTIDE_VolDrive
 	mov	[edi].ISP_d_a_drive, al
 	mov	[edi].ISP_d_a_flags, 0
 	push	edi
@@ -1619,16 +1646,16 @@ xvc_assoc:
 	add	esp, 4
 	movzx	eax, [edi].ISP_result
 	add	esp, size ISP_dcb_associate
-	mov	XTIDE_MkVolAssoc, eax
+	MARK	XTIDE_MkVolAssoc, eax
 	or	eax, eax
 	jz	xvc_ok
-	inc	XTIDE_MkVolDrive
-	cmp	XTIDE_MkVolDrive, 10
+	inc	XTIDE_VolDrive
+	cmp	XTIDE_VolDrive, 10
 	jb	xvc_assoc
 	jmp	xvc_fail
 
 xvc_ok:
-	mov	XTIDE_MkVolStep, 10
+	MARK	XTIDE_MkVolStep, 10
 	xor	eax, eax
 	pop	edi
 	pop	esi
@@ -1685,7 +1712,7 @@ BeginProc XTIDE_SchedVol
 	push	OFFSET32 XTIDE_VolUp
 	VxDCall	_SHELL_CallAtAppyTime
 	add	esp, 16
-	mov	XTIDE_MkSchedRc, eax
+	MARK	XTIDE_MkSchedRc, eax
 	or	eax, eax
 	jnz	xsv_done
 	mov	XTIDE_VolBusy, 0	; could not queue
@@ -1729,8 +1756,8 @@ ifdef XT_REQ_MARKER
 	push	esi
 	push	edi
 
-	mov	XTIDE_MkStage, eax
-	mov	eax, XTIDE_MkOurUnit
+	MARK	XTIDE_MkStage, eax
+	mov	eax, XTIDE_OurUnit
 	call	XTIDE_SelectUnit
 
 	mov	XTIDE_ReqLba, XTIDE_MARK_LBA
@@ -1777,9 +1804,9 @@ BeginProc XTIDE_WantIop
 	mov	esi, [esi].DCB_cd_ddb
 
 ifdef XT_REQ_MARKER
-	mov	XTIDE_MkCdDdb, esi
+	MARK	XTIDE_MkCdDdb, esi
 	mov	eax, [ebx].IOP_original_dcb
-	mov	XTIDE_MkOrigDcb, eax
+	MARK	XTIDE_MkOrigDcb, eax
 endif
 
 	cmp	esi, XTIDE_OurDdb
@@ -1819,10 +1846,10 @@ ifdef XT_REQ_MARKER
 	or	esi, esi
 	jz	xmc_addr
 	movzx	eax, byte ptr [esi].DCB_unit_on_ctl
-	mov	XTIDE_MkUnit, eax
+	MARK	XTIDE_MkUnit, eax
 
 xmc_addr:
-	mov	eax, XTIDE_MkOurUnit
+	mov	eax, XTIDE_OurUnit
 	call	XTIDE_SelectUnit
 
 	mov	XTIDE_ReqLba, XTIDE_MARK_LBA
@@ -1861,7 +1888,7 @@ ifdef XT_REQ_MARKER
 ;  of it. Every field read so far has been read THROUGH the assumption that
 ;  this is an IOP; if that assumption is wrong every one of them is fiction.
 ;  Raw bytes are the only reading that does not beg the question.
-	mov	XTIDE_MkIop, ebx
+	MARK	XTIDE_MkIop, ebx
 	mov	esi, ebx
 	mov	edi, OFFSET32 XTIDE_MkRaw
 	mov	ecx, 8
@@ -1882,24 +1909,24 @@ xme_write:
 ;  Record the request's DCB and the one we inserted on, so the two can be
 ;  compared from the host. Both are data - neither may steer the write.
 	mov	esi, [ebx].IOP_physical_dcb
-	mov	XTIDE_MkIopDcb, esi
-	mov	eax, XTIDE_MkOurUnit
+	MARK	XTIDE_MkIopDcb, esi
+	mov	eax, XTIDE_OurUnit
 	mov	eax, XTIDE_InsertedDcb[eax*4]
-	mov	XTIDE_MkOurDcb, eax
+	MARK	XTIDE_MkOurDcb, eax
 
 	or	esi, esi
 	jz	xme_addr
 	movzx	eax, byte ptr [esi].DCB_unit_on_ctl
 	cmp	eax, 1
 	ja	xme_addr
-	mov	XTIDE_MkUnit, eax
+	MARK	XTIDE_MkUnit, eax
 
 ;  ADDRESS AT OUR OWN UNIT, ALWAYS. Selecting the unit named in the request's
 ;  DCB is how this diagnostic wrote to the boot disk on 2026-09-01 - the DCB
 ;  belonged to somebody else and its unit number aimed the write at their
 ;  drive. Same rule as XTIDE_MarkConfig; it was not applied here.
 xme_addr:
-	mov	eax, XTIDE_MkOurUnit
+	mov	eax, XTIDE_OurUnit
 	call	XTIDE_SelectUnit
 
 	mov	XTIDE_ReqLba, XTIDE_MARK_LBA
@@ -1933,6 +1960,7 @@ endif
 XTIDE_MARK_LBA	equ	XT_MARK_LBA
 
 BeginProc XTIDE_MarkRequest
+ifdef XT_REQ_MARKER
 
 	push	ebx
 	push	esi
@@ -1941,9 +1969,9 @@ BeginProc XTIDE_MarkRequest
 	inc	XTIDE_MkCount
 
 	movzx	eax, [ebx].IOP_ior.IOR_func
-	mov	XTIDE_MkFunc, eax
+	MARK	XTIDE_MkFunc, eax
 	mov	eax, dword ptr [ebx].IOP_ior.IOR_start_addr
-	mov	XTIDE_MkLba, eax
+	MARK	XTIDE_MkLba, eax
 
 ;  Keep the FIRST eight, not the last eight. The mount sequence is at the
 ;  start; whatever a running system does afterwards is noise by comparison.
@@ -1966,9 +1994,9 @@ xmr_nostore:
 
 xmr_write:
 	mov	eax, [ebx].IOP_ior.IOR_xfer_count
-	mov	XTIDE_MkXfer, eax
+	MARK	XTIDE_MkXfer, eax
 	movzx	eax, byte ptr [esi].DCB_unit_on_ctl
-	mov	XTIDE_MkUnit, eax
+	MARK	XTIDE_MkUnit, eax
 
 	mov	XTIDE_ReqLba, XTIDE_MARK_LBA
 	mov	XTIDE_ReqCount, 1
@@ -1979,6 +2007,7 @@ xmr_skip:
 	pop	edi
 	pop	esi
 	pop	ebx
+endif
 	ret
 
 EndProc XTIDE_MarkRequest
@@ -1997,21 +2026,22 @@ EndProc XTIDE_MarkRequest
 ;   than reading further fields through the same broken assumption.
 ;----------------------------------------------------------------------------
 BeginProc XTIDE_MarkWrite
+ifdef XT_REQ_MARKER
 
 	push	ebx
 	push	esi
 	push	edi
 
 	mov	eax, [ebx].IOP_ior.IOR_flags
-	mov	XTIDE_MkWrFlags, eax
+	MARK	XTIDE_MkWrFlags, eax
 	mov	eax, [ebx].IOP_ior.IOR_sgd_lin_phys
-	mov	XTIDE_MkWrSgd, eax
+	MARK	XTIDE_MkWrSgd, eax
 	movzx	eax, byte ptr [ebx].IOP_ior.IOR_num_sgds
-	mov	XTIDE_MkWrNsgd, eax
+	MARK	XTIDE_MkWrNsgd, eax
 	mov	eax, dword ptr [ebx].IOP_ior.IOR_start_addr
-	mov	XTIDE_MkWrLba, eax
+	MARK	XTIDE_MkWrLba, eax
 	mov	eax, [ebx].IOP_ior.IOR_xfer_count
-	mov	XTIDE_MkWrCnt, eax
+	MARK	XTIDE_MkWrCnt, eax
 
 	mov	eax, XTIDE_ReqBuf
 	mov	esi, eax
@@ -2027,11 +2057,12 @@ xmw_copy:
 
 ;  LAST, so the "first write only" test in XTIDE_StartRequest stays false
 ;  until every other field above it is filled in.
-	mov	XTIDE_MkWrBuf, eax
+	MARK	XTIDE_MkWrBuf, eax
 
 	pop	edi
 	pop	esi
 	pop	ebx
+endif
 	ret
 
 EndProc XTIDE_MarkWrite
@@ -2088,15 +2119,15 @@ xcd_havetotal:
 
 ifdef XT_REQ_MARKER
 	mov	eax, XTIDE_Cyls
-	mov	XTIDE_MkCyls, eax
+	MARK	XTIDE_MkCyls, eax
 	mov	eax, XTIDE_Heads
-	mov	XTIDE_MkHeads, eax
+	MARK	XTIDE_MkHeads, eax
 	mov	eax, XTIDE_Spt
-	mov	XTIDE_MkSpt, eax
+	MARK	XTIDE_MkSpt, eax
 	mov	eax, [esi].DCB_actual_sector_cnt
-	mov	XTIDE_MkTotal, eax
+	MARK	XTIDE_MkTotal, eax
 	mov	eax, [esi].DCB_device_flags
-	mov	XTIDE_MkDevFlags, eax
+	MARK	XTIDE_MkDevFlags, eax
 endif
 
 xcd_done:
@@ -2181,7 +2212,7 @@ endif
 	jz	xsr_absolute
 	test	dword ptr [ebx].IOP_ior.IOR_flags, IORF_PARTITION_BIAS_ADDED
 	jnz	xsr_absolute
-	add	eax, XTIDE_MkPartStart	; 0 until the volume is published = no bias
+	add	eax, XTIDE_PartStart	; 0 until the volume is published = no bias
 xsr_absolute:
 	mov	XTIDE_ReqLba, eax
 	mov	eax, [ebx].IOP_ior.IOR_xfer_count
@@ -2423,7 +2454,7 @@ endif
 	jmp	xp_ports
 xp_stridefixed:
 	mov	eax, XTIDE_Stride	; report the pinned value too, so the
-	mov	XTIDE_MkStride, eax	; marker always names the map in use
+	MARK	XTIDE_MkStride, eax	; marker always names the map in use
 xp_ports:
 	call	XTIDE_SetPorts
 
@@ -2484,7 +2515,7 @@ xp_ok:
 ;  a self-test and nothing addresses the master afterwards; per-unit geometry
 ;  arrives with the DCB work, which needs it anyway.
 ifdef XT_NO_WRITETEST
-;  -NoWriteTest: do not go looking for a slave, and therefore never run the
+;  DEFAULT (no -WriteTest): do not go looking for a slave, and therefore never run the
 ;  write self-test. It writes 512 bytes to LBA 100 of whichever unit answered,
 ;  and on a machine with one disk that unit is the boot volume. The DEV-bit
 ;  guard below is the only thing standing between "no slave fitted" and a write

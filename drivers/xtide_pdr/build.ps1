@@ -43,13 +43,16 @@ param(
     # 64th after; tools/pdr_reqmarker.py reads it back out of the image.
     # Diagnostic only - never in a shipped driver.
     [switch]$ReqMarker,
-    # Skip the slave probe, and with it the phase-2b write self-test. That test
+    # Run the slave probe, and with it the phase-2b write self-test. That test
     # writes a sector to LBA 100 of whichever unit answered; on a single-disk
     # machine that is the boot volume, and the only thing preventing it is a
-    # DEV-bit read-back on a register map that may never have executed. ALWAYS
-    # use this for a hardware run that is not deliberately testing the write
-    # path (technique 79).
-    [switch]$NoWriteTest,
+    # DEV-bit read-back on a register map that may never have executed.
+    #
+    # So it is OFF unless asked for, and only ever belongs on a scratch slave.
+    # This used to be -NoWriteTest, i.e. a disk-destroying test one forgotten
+    # flag away from every build. Defaults decide what happens when someone is
+    # tired; make the safe thing the one you get for free (technique 79).
+    [switch]$WriteTest,
     # Inner-loop count for one unit of the boot-log delay channel - the only
     # readback a driver has at IOS init time. 725000 is about 11.6 log ticks on
     # 86Box's Deskpro bed and only a fraction of that on the real 5160, where it
@@ -69,8 +72,24 @@ param(
     # scratch volume; on a real install it would land inside the filesystem, so
     # a claiming test on a boot image needs it in the MBR gap (LBA 1-62) where
     # nothing lives. Only ever used on a DISPOSABLE copy.
-    [int]$MarkerLba = 16000
+    [int]$MarkerLba = 16000,
+    # Build what actually ships. Strips the boot-log delay channel (an arrival
+    # marker plus a reg_result report, together up to ~12 s of spinning with
+    # interrupts off inside PORT_Device_Init - indistinguishable from a lockup
+    # to anyone watching, technique 86) and REFUSES to build if any diagnostic
+    # or bisect switch is also set. "No path and no payload" has to be one flag
+    # somebody can check, not five they have to remember.
+    [switch]$Release
 )
+
+if ($Release) {
+    $bad = @()
+    foreach ($n in 'ReqMarker','WriteTest','NoDcb','NoIo','NoCalldown') {
+        if ((Get-Variable $n -ValueOnly)) { $bad += "-$n" }
+    }
+    if ($ProbeSkip -gt 0) { $bad += "-ProbeSkip" }
+    if ($bad.Count) { Write-Output "FAILED: -Release with $($bad -join ', ')"; exit 1 }
+}
 
 $ML   = "$DDK\MASM611C\ML.EXE"
 $LINK = "$DDK\MSVC20\LINK.EXE"
@@ -175,6 +194,12 @@ if (Test-Path "$PSScriptRoot\src\XTIDETR.ASM") {
     if ($pa -notmatch [regex]::Escape($entry)) {
         Write-Output "FAILED: PORT_Device_Init entry not found"; exit 1
     }
+    if ($Release) {
+        # Anchors above are still asserted, so a moved call site fails the build
+        # on a release build too - it just does not get the delay injected.
+        Set-Content "$OutDir\PORT.ASM" -Value $pa -NoNewline
+        Write-Output "RELEASE: boot-log delay channel omitted."
+    } else {
     $pa = $pa.Replace($entry, $entry + "`r`n" + @"
 	mov	eax, 2			; ARRIVAL MARKER (build.ps1): ~1s
 pdi_outer:				; proves this routine was entered
@@ -207,6 +232,7 @@ prd_inner:
     $pa = $pa.Replace($reg, $diag)
     Set-Content "$OutDir\PORT.ASM" -Value $pa -NoNewline
     Write-Output "Applied reg_result diagnostic delay."
+    }
 
     # Phase 2c: claim a unit and service its requests. These two edits need
     # regexes over the sample's mixed tabs and spaces, so they live in Python;
@@ -229,7 +255,8 @@ $aflags = @("-DXT_TIMEBASE=$TimeBase","-coff","-DBLD_COFF","-DDEBUG_TRACE=1","-D
 if ($NoDcb) { $aflags += "-DXT_NO_DCB=1"; Write-Output "BISECT: DCB fill disabled" }
 if ($NoIo)  { $aflags += "-DXT_NO_IO=1";  Write-Output "BISECT: request handler is a stub" }
 if ($ReqMarker) { $aflags += "-DXT_REQ_MARKER=1"; Write-Output "DIAGNOSTIC: on-disk request marker enabled" }
-if ($NoWriteTest) { $aflags += "-DXT_NO_WRITETEST=1"; Write-Output "SAFETY: slave probe and write self-test disabled" }
+if ($WriteTest) { Write-Output "DANGER: write self-test ENABLED - writes LBA 100 of whichever unit answers. Scratch slave only." }
+else            { $aflags += "-DXT_NO_WRITETEST=1" }
 if ($ProbeSkip -gt 0) { $aflags += "-DXT_PROBE_SKIP=$ProbeSkip"; Write-Output "CALIBRATION: probe skipped, reporting fail code $ProbeSkip" }
 if ($ReadOnly) { $aflags += "-DXT_READ_ONLY=1"; Write-Output "SAFETY: every write refused with IORS_WRITE_PROTECT" }
 if ($MarkerLba -ne 16000) { $aflags += "-DXT_MARK_LBA=$MarkerLba"; Write-Output "MARKER LBA: $MarkerLba" }
