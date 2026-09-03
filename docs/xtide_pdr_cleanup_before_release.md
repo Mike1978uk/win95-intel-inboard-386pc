@@ -73,7 +73,13 @@ but not yet tested. Everything else is unchanged.
    - Windows sends I/O down our calldown during teardown, and something about how we answer
      it does not return.
 
-   **The candidate, not yet tested:** `Port_r_not_io`, the DDK sample's path for a request our
+   **KILLED by the fifth build.** `-NoVolume -NoIo` - identical to the hanging build except
+   that the request handler completes everything as an error without touching hardware -
+   shuts down **clean**. So the completion path is innocent and the hang is inside the
+   transport body. That also retires the candidate below, which was about to be
+   implemented:
+
+   ~~`Port_r_not_io`, the DDK sample's path for a request our
    `XTIDE_WantIop` guard declines. It fails the request and completes it through
 
    ```asm
@@ -134,9 +140,13 @@ but not yet tested. Everything else is unchanged.
    state machine. `zikolas/cfu1-win9x` polls too (`sup_stop`, `[irqhandle]` = 0 "hook gone
    (teardown): stay polled") and is the working reference for how.
 
-   **Next run, already built:** `-NoVolume -NoIo` - same as the hanging build but the request
-   handler completes everything as an error without touching hardware. Still hangs = the
-   completion path. Clean = our transport blocks.
+   **A bisect that was itself void, worth recording.** `-ReadOnly` was tried as "is it a write?"
+   and the guest never reached a desktop - it refuses every write, including ones Windows needs
+   to boot. It is a safety flag for a hardware run, not a bisect: a switch that breaks normal
+   operation cannot isolate a shutdown-only behaviour. The follow-up `-ReqMarker` run was void
+   too - `XTIDE_MarkRequest` writes its sector through the same `XTIDE_ReqLba`/`ReqCount`/`ReqBuf`
+   globals the in-flight request is using, so the instrumentation clobbers what it measures and
+   the boot hangs on the splash screen (technique 45).
 
    ### TWO FIXES TRIED, BOTH NEGATIVE. Read before proposing either again.
 
