@@ -7,3 +7,4 @@ stdout_*.txt
 stderr_*.txt
 bootlog_*.txt
 pdr_under_test.pdr
+shutlog_*.txt
