@@ -6,13 +6,37 @@ what would hurt someone else's machine first.
 
 Nothing here is speculative — each item is something observed or deliberately left undone.
 
+**Status, 2026-09-03.** Items 3, 4, 5, 6 and 11 are done and build-verified. Item 1 is written
+but not yet tested. Everything else is unchanged.
+
 ## Blocking — would damage or annoy a stranger's system
 
-1. **Shutdown hangs.** Observed on the 5160 on the claiming run: Windows would not complete a
-   shutdown and the machine had to be powered off. We handle no teardown at all — no volume
-   unmount, nothing on `AEP_UNCONFIG_DCB` or system shutdown. A boot volume that cannot be
-   cleanly unmounted is worse than one that cannot be taken over, so this gates everything
-   after it.
+1. **Shutdown hangs.** ⏳ *fix written 2026-09-03, untested.* Observed on the 5160 on the
+   claiming run: Windows would not complete a shutdown and the machine had to be powered off.
+
+   Cause found by reading the DDK rather than the machine. `Port_Async_Request` dispatches five
+   AEP function codes and answers **`AEP_FAILURE` to every other one** (`PORTAER.ASM`, the line
+   commented "set result code to indicate error"). IOS broadcasts at least four it has never
+   heard of, all at `System_Exit`:
+
+   | code | | code | |
+   |---|---|---|---|
+   | 1 | `AEP_SYSTEM_CRIT_SHUTDOWN` | 14 | `AEP_SYSTEM_SHUTDOWN` |
+   | 4 | `AEP_UNCONFIG_DCB` | 21 | `AEP_PEND_UNCONFIG_DCB` |
+
+   — plus `AEP_ASSOCIATE_DCB` (12), which **our own** `ISP_ASSOCIATE_DCB` makes IOS issue. These
+   are notifications. "I refuse" is not an answer to one.
+
+   Fix: the default becomes `AEP_SUCCESS` (already preset at the top of the routine), and
+   `AEP_UNCONFIG_DCB` calls a new `XTIDE_ForgetDcb`, which drops the two pointers we hold into
+   IOS-owned DCBs — the per-unit calldown record and `XTIDE_LogDcb` — before `ISP_DCB_DESTROY`
+   frees them. `STORAGE.DOC` describes the message's contract as exactly that: "a layer typically
+   just makes a note of the fact that the DCB is going away."
+
+   The default is `SUCCESS` rather than an enumerated list of codes on purpose. Technique 51 in a
+   new place: an exit condition gated on a hand-written list of values fails silently and badly
+   the first time reality produces one the list does not have, and this project has paid for that
+   four times already.
 
 2. **Two volumes over one partition.** We publish our own logical volume from the boot disk
    while the Real Mode Mapper still owns C:, so the same filesystem is mounted twice with two
@@ -20,29 +44,43 @@ Nothing here is speculative — each item is something observed or deliberately 
    corruption risk by construction and must not ship. The fix is the C: takeover - claim the
    DCB that already exists rather than creating a second one - not a warning in a README.
 
-3. **`-NoWriteTest` is not the default.** The probe's write self-test writes a sector to LBA
-   100 of whichever unit answered. On a single-disk machine that is the boot volume, and its
-   only guard is a DEV-bit read-back. It must be off by default and opt-in for a scratch
-   slave, not the other way round.
+   @andrew-hoffman's warning of 2026-08-31 is load-bearing for this and should be answered
+   before the work starts, not after: *"Once the driver loads successfully, the INT 13h BIOS
+   will be disconnected and log files cannot be written to that device anymore. You have the
+   controls of the airplane and no way to land it."*
 
-4. **The request marker must be impossible in a shipped build.** `-ReqMarker` writes a sector
-   to the claimed unit. It is already opt-in and verified absent from hardware builds by
-   listing, but the data block is still linked in unconditionally. Make the whole thing
-   conditional, so there is no path and no payload.
+3. ~~**`-NoWriteTest` is not the default.**~~ ✅ **Done 2026-09-03.** Inverted to `-WriteTest`,
+   opt-in. A test that writes LBA 100 of whichever unit answers is no longer one forgotten flag
+   away from every build. Defaults decide what happens when someone is tired.
+
+4. ~~**The request marker must be impossible in a shipped build.**~~ ✅ **Done 2026-09-03.**
+   Payload and code are both behind `XT_REQ_MARKER`; the release build's `.map` contains zero
+   marker symbols.
+
+   **What guarding it found is worth more than the guard.** It would not assemble, because
+   **six variables the driver genuinely needs to run were living inside the 512-byte diagnostic
+   buffer** — `XTIDE_OurDdb`, `XTIDE_VolBusy`, `XTIDE_OurUnit`, `XTIDE_PartStart`,
+   `XTIDE_PartLen`, and `XTIDE_MkVolDrive`, the last being the drive-letter walk's *loop
+   variable*. A release build could not have existed. Report and state are now separate;
+   `tools/pdr_reqmarker.py` reads by fixed byte offset, so every slot that moved out left a
+   placeholder behind.
+
+   A `MARK` macro replaces the diagnostic stores, so a release build carries neither the store
+   nor the field behind it — nineteen inline `ifdef`/`endif` pairs would have had one wrong.
 
 ## Correctness — known-wrong, not yet harmful
 
-5. **The device node reserves `0300-030F`, sixteen ports.** Stride 2 puts alternate status at
-   `0x31C`, outside the declared range. Win9x resource lists are bookkeeping rather than
-   enforcement so it works, but `PORT.INF` should declare `0300-031F`.
+5. ~~**The device node reserves `0300-030F`, sixteen ports.**~~ ✅ **Done 2026-09-03.**
+   `PORT.INF` declares `0300-031F`. Stride 2 puts alternate status at `0x31C`.
 
-6. **`DriverDesc` still says "phase 1 - IDENTIFY only".** It services 3000+ requests a boot.
-   The string is what a user sees in Device Manager.
+6. ~~**`DriverDesc` still says "phase 1 - IDENTIFY only".**~~ ✅ **Done 2026-09-03.** The device
+   is now named `Lo-tech XT-CF / XT-IDE 8-bit disk controller`.
 
 7. **`IORF_LOGICAL_START_SECTOR` handling is written but has never executed.** Every request
    measured, on both beds and on hardware, arrived absolute (`IOR_flags 0x401`). The bias code
    is there because a volume taken over from RMM may not be absolute - but it is unexercised,
    and unexercised code is where every expensive bug this project has had came from.
+   **The C: takeover (item 2) is what exercises it.** The two are one piece of work.
 
 8. **Stride autodetect has only ever chosen 1.** 86Box's XT-IDE is stride 1, so the branch that
    picks 2 has never run. Hardware builds pin `-Stride 2` and should keep doing so until
@@ -57,16 +95,60 @@ Nothing here is speculative — each item is something observed or deliberately 
    is conditional on hardware being switched off.
 
 10. **One real-mode unit remains**, `SD120PPD`/`ASPIHDRM` - the parallel-port LS-120. Worth
-    removing next to see whether IOS goes fully clean, and it is a one-line REM.
+    removing next to see whether IOS goes fully clean, and it is a one-line REM. Confirmed
+    still present in the bed's `CONFIG.SYS` on 2026-09-03.
+
+11. ~~**The boot-log delay channel ships in every build.**~~ ✅ **Done 2026-09-03.** Added after
+    the list was first written. `PORT_Device_Init` carried an arrival marker plus a
+    `DRP_reg_result` report — together up to ~12 s of spinning **with interrupts off**, which
+    technique 86 already records as indistinguishable from a lockup to anyone watching. Measured
+    at 134 boot-log ticks on the Inboard bed.
+
+    `build.ps1 -Release` strips it, strips the marker, and **refuses to build** if any
+    diagnostic or bisect switch is also set. "No path and no payload" is now one flag somebody
+    can check rather than five they have to remember.
 
 ## Not defects, but state the reader needs
 
 - **ATAPI/CD is permanently out of scope.** The Lo-tech XT-CF has D8-D15 unconnected.
 - **Everything is 8-bit PIO.** A 16-bit XT-IDE variant needs a data-path change, not a switch.
-- **The DDK sample this is built on ships three bugs of its own** - a request routine that
+- **The DDK sample this is built on ships four bugs of its own** - a request routine that
   destroys the registers its own header promises to preserve, a calldown spliced into every
-  DCB the OS broadcasts, and an `EnterProc` that emits no stack frame outside a DEBUG build.
-  All three are fixed here; anyone starting from the same sample will meet them.
+  DCB the OS broadcasts, an `EnterProc` that emits no stack frame outside a DEBUG build, and
+  an AER that answers `AEP_FAILURE` to every message it does not recognise (item 1).
+  All four are fixed here; anyone starting from the same sample will meet them.
+
+## Testing the shutdown at all — the harness had to change first
+
+The teardown AEPs are broadcast at `System_Exit` and nowhere else, so testing item 1 needs a
+real shutdown driven unattended.
+
+**Host-side keystroke injection into 86Box could not be shown to reach the guest.** A
+`Ctrl+Esc`/`U`/`Enter` sequence left the screen byte-identical across all three frames. Worse,
+the harness's own evidence that keys *ever* landed turns out to be nothing: it taps Enter through
+the DOS phase to clear `TSLCD`'s "Press [return]", and **that line has been REM'd out of
+`CONFIG.SYS` since 2026-09-01**. Nothing in the DOS phase has needed a keystroke for days, so a
+completed boot never evidenced delivery. Technique 71, in this project's own harness.
+
+So the shutdown is triggered **from inside the guest**: `SHUT.BAT` in the StartUp folder settles
+for 45 s via `CHOICE`, then runs `RUNDLL32.EXE user.exe,ExitWindows`. It is unattended,
+repeatable, and takes no focus from whoever is using the host.
+
+Two readback channels, both surviving a hang:
+
+| channel | answers |
+|---|---|
+| `C:\SHUTLOG.TXT` — one line per batch stage | did the trigger fire at all |
+| `BOOTLOG.TXT` `Terminate=`/`EndTerminate=` pairs | which teardown stage Windows stopped in |
+
+A stage that starts and never ends **names the hang**. A screenshot of a frozen desktop does not.
+`tools/pdr_inboard_run.ps1 -Shutdown -InGuest` runs it and prints both.
+
+**The harness no longer steals focus.** It grabs it once, at launch, when the VM has it anyway;
+after that a key is sent only if the VM *still* has focus, and skipped keys are counted and
+reported so a run that missed its prompts is recognisable as VOID rather than as a result. The
+previous version grabbed focus every 5 s for 300 s, which makes the host unusable for whoever is
+sitting at it.
 
 ## The boot-order question, and the exact test that settles it
 
@@ -92,3 +174,23 @@ or MO/Zip stack will hit the same wall**, and `IOS.LOG` is how they will recogni
 
 That diagnosis generalises even where `MODISK2` specifically does not, so it is the caveat to lead
 with, not a footnote.
+
+## Knock-on: `HSFLOP.PDR` now loads, so issue #18 is live again
+
+Technique 74 recorded on 2026-08-25 that `HSFLOP.PDR` never loads on this machine, which is why
+the floppy `maxPhys 0x1000 -> 0xFF` patch was inert and issue #3 was reframed.
+
+**That is no longer true.** Every boot of the Inboard bed since the real-mode storage chain came
+out ends:
+
+```
+Initing hsflop.pdr
+Init Success hsflop.pdr
+...
+INITCOMPLETE = HSFLOP
+INITCOMPLETESUCCESS = HSFLOP
+```
+
+So the floppy is on the 32-bit path, the DMA-reach patch is no longer dead code, and **issue #18
+is testable for the first time**. Clearing the real-mode chain for the port driver's sake fixed
+the precondition for a different issue entirely.

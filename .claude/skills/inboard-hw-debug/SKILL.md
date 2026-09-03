@@ -4020,3 +4020,88 @@ request handler's door before any addressing is computed.
 That pair is what made a claiming run on somebody's only disk a reasonable thing to attempt: a
 wrong read costs a reboot, a wrong write costs the volume, and technique 79 already established
 that a round trip cannot see a wrong address.
+
+
+## Technique 87: a modal dialog at shell start makes every shell-dependent test
+## impossible - and it presents as "the harness cannot send keystrokes"
+
+2026-09-03. Cost two full emulator runs, and the second one produced a confident
+wrong conclusion that was about to be written down as a finding.
+
+### What happened
+
+The `vm_xtide_inboard` bed had `mouse_type = none`. Windows 95 answers that with a
+**modal** dialog at shell start - *"Windows did not detect a mouse attached to the
+computer"*, one OK button. Explorer does not finish starting behind it, so:
+
+- there is no taskbar, so `Ctrl+Esc` opens no Start menu;
+- **nothing in the StartUp folder ever runs**;
+- anything else that waits on the shell being up waits forever.
+
+Every test on that bed that depended on the shell was silently impossible, and had
+been for as long as the bed existed.
+
+### The two tells, and both were on screen the whole time
+
+1. **Desktop icons with NO TASKBAR.** That combination is not "still drawing" - it
+   is Explorer blocked. Look for it before theorising about input.
+2. Three screenshots taken ten seconds apart that are **byte-identical in size**.
+   A live Windows desktop is not static to the byte.
+
+### The wrong conclusion it nearly produced
+
+A `Ctrl+Esc`/`U`/`Enter` sequence changed nothing, so the session concluded that
+host-side keystroke injection does not reach 86Box - which is close enough to this
+file's own long-standing warning about `SendKeys`/`WM_KEYDOWN`/`keybd_event` to
+look confirmed.
+
+It was wrong, and the disproof was already in hand: an EARLIER run of the same bed
+had reached a desktop with icons. That run tapped Enter every 5 s for 300 s. Enter
+is OK on that dialog. **The harness had been dismissing the blocker as a side
+effect, and nobody knew.** Two runs differing only in whether Enter was tapped -
+one past the dialog, one stuck on it - is a clean natural experiment proving the
+keys DO land.
+
+### The harness lesson underneath it, which is the transferable one
+
+That Enter tap was added to clear `TSLCD`'s *"Driver aborting... Press [return]"*.
+**`TSLCD` had been REM'd out of `CONFIG.SYS` since 2026-09-01.** So the tap's
+documented job no longer existed, and its real job had silently become "dismiss the
+mouse dialog" - load-bearing work nobody had written down, in a harness everyone
+believed was a neutral observer.
+
+Technique 71 says a harness that clears prompts must log the screen it cleared.
+Extend it: **a prompt-clearing harness must be re-justified whenever the thing it
+clears changes.** A tap that clears nothing is not harmless - it is an undocumented
+dependency waiting to be removed, and when it is removed the failure lands
+somewhere else entirely.
+
+### What to do instead
+
+**Configure the prompt out of existence; do not clear it with keystrokes.**
+`mouse_type = msserial` removes this one at the source, and makes the bed MORE
+faithful rather than less - the real 5160 has a serial mouse. Same family as this
+file's existing advice to use `NOPAUSE` and to clear a stale `nvr/` rather than
+racing an F1 prompt.
+
+Then drive whatever the test needs **from inside the guest**, where no focus is
+involved at all: a batch in the StartUp folder, with a `CHOICE /T` settle and a
+stage ladder written to a file on C:. `SHUT.BAT` +
+`tools/pdr_inboard_run.ps1 -Shutdown -InGuest` is the worked example -
+`C:\SHUTLOG.TXT` says whether the trigger fired, and `BOOTLOG.TXT`'s
+`Terminate=`/`EndTerminate=` pairs name the stage a shutdown died in.
+
+### And do not take focus on a machine somebody is using
+
+The harness grabbed focus every 5 s for 300 s so its taps would land. That makes
+the host unusable for whoever is sitting at it, and the owner said so. The fix is
+to grab focus **once**, at launch, when the VM has it anyway, and afterwards send a
+key only if the VM **still** has it - counting and reporting the skips, so a run
+that missed its prompts is recognisable as VOID rather than as a result.
+
+### Bonus, cheap and real: TaskStop kills the emulator with the harness
+
+86Box is started with `Start-Process` without `-Wait`, which reads as detached and
+is not: stopping the background harness task killed the VM with it and threw away a
+13-minute boot. If you want the guest to outlive the script, do not rely on
+`Start-Process` alone.
