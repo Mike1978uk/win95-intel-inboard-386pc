@@ -30,9 +30,26 @@ but not yet tested. Everything else is unchanged.
    EndTerminate = KERNEL                          <- last line in the file
    ```
 
-   The phase after `KERNEL` is the ring-0 VxD teardown - `System_Exit` and
-   `Sys_Critical_Exit` - which is exactly where IOS broadcasts `AEP_SYSTEM_SHUTDOWN` and
-   `AEP_SYSTEM_CRIT_SHUTDOWN`.
+   > **RETRACTED, same session.** This was written up as "the hang is located in the phase after
+   > `KERNEL`, which is where `AEP_SYSTEM_SHUTDOWN` is broadcast". **That inference is wrong.**
+   > A run that shuts down CLEANLY produces a byte-for-byte identical teardown ladder, ending at
+   > the same `EndTerminate = KERNEL`. `BOOTLOG.TXT` simply stops logging there either way, so it
+   > never distinguished the two and located nothing.
+   >
+   > **The general trap:** before reading meaning into where a log ENDS, check where it ends on a
+   > SUCCESSFUL run. An end-of-file is only evidence if success looks different. Two theories were
+   > built on this one and both cost a build.
+
+   ### CONFIRMED OURS, by elimination
+
+   `PORT.PDR` renamed to `PORT.PD_` in `IOSUBSYS`, nothing else changed: **Windows shuts down
+   cleanly.** Put back: hangs. So the driver causes it, and the fault is in what we leave behind
+   rather than anywhere else in this image. One-character rename, one boot - and it should have
+   been the FIRST thing run, not the fifth (technique 77).
+
+   **Also killed:** "we never remove our calldown from the physical DCB". There is no ISP
+   function to remove one - `isp.inc` has only `ISP_INSERT_CALLDOWN` (5) - and `cfu1-win9x`
+   never removes one either. Leaving it inserted is normal.
 
    ### TWO FIXES TRIED, BOTH NEGATIVE. Read before proposing either again.
 
