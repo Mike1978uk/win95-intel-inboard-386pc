@@ -1432,6 +1432,58 @@ xfd_done:
 
 EndProc XTIDE_ForgetDcb
 
+;----------------------------------------------------------------------------
+; XTIDE_VolDown - PUBLIC. Take our published logical volume back down.
+;
+;   Called from AEP_SYSTEM_SHUTDOWN. Destroys: EAX, EBX, ECX, EDI
+;
+;   Deliberately FORCED - no ISP_QUERY_REMOVE_DCB veto first. cfu1-win9x offers
+;   both, and the veto is right for a user-initiated eject: it lets IFSMGR
+;   refuse while files are open. At system shutdown there is nothing useful to
+;   do with a refusal, and honouring one would leave exactly the state this
+;   routine exists to clear.
+;----------------------------------------------------------------------------
+BeginProc XTIDE_VolDown
+
+	mov	eax, XTIDE_LogDcb
+	or	eax, eax
+	jz	xvd_done
+
+	sub	esp, size ISP_DCB_DESTROY
+	mov	edi, esp
+	mov	[edi].ISP_func, ISP_DESTROY_DCB
+	mov	[edi].ISP_result, 0
+	mov	[edi].ISP_dcb_d_dcb, eax
+	push	edi
+	call	[port_ilb.ILB_Service_rtn]
+	add	esp, 4
+	add	esp, size ISP_DCB_DESTROY
+
+;  EAX still holds the DCB IOS has now freed. Unlink it from whichever
+;  physical DCB points at it, or the chain is left dangling. Matched by
+;  POINTER, not by unit: the question is which chain holds this exact object.
+	xor	ecx, ecx
+xvd_scan:
+	mov	ebx, XTIDE_InsertedDcb[ecx]
+	or	ebx, ebx
+	jz	xvd_next
+	cmp	[ebx].DCB_next_logical_dcb, eax
+	jne	xvd_next
+	mov	[ebx].DCB_next_logical_dcb, 0
+xvd_next:
+	add	ecx, 4
+	cmp	ecx, 8
+	jb	xvd_scan
+
+	mov	XTIDE_LogDcb, 0
+
+xvd_done:
+	mov	XTIDE_VolBusy, 0
+	ret
+
+EndProc XTIDE_VolDown
+
+
 
 ;----------------------------------------------------------------------------
 ; XTIDE_Inquiry - PUBLIC. Does a device exist at this unit, and if so describe

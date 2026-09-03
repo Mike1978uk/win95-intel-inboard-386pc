@@ -52,7 +52,9 @@ def main():
                    + TAB + 'extrn' + TAB + 'XTIDE_SchedVol:near' + TAB
                    + '; be our own TSD (phase 3)' + NL
                    + TAB + 'extrn' + TAB + 'XTIDE_ForgetDcb:near' + TAB
-                   + '; AEP_UNCONFIG_DCB teardown' + NL,
+                   + '; AEP_UNCONFIG_DCB teardown' + NL
+                   + TAB + 'extrn' + TAB + 'XTIDE_VolDown:near' + TAB
+                   + '; AEP_SYSTEM_SHUTDOWN teardown' + NL,
          0),
 
         # The load group number the logical DCB's calldown entry will need.
@@ -151,9 +153,22 @@ def main():
          lambda m: (
              TAB + 'cmp' + TAB + 'si, AEP_UNCONFIG_DCB' + TAB
              + '  ; a DCB we may hold a pointer to?' + NL +
-             TAB + 'jne' + TAB + 'pa_note_only' + NL +
+             TAB + 'jne' + TAB + 'pa_not_unconfig' + NL +
              TAB + 'mov' + TAB + 'esi, [ebx].AEP_d_u_dcb' + NL +
              TAB + 'call' + TAB + 'XTIDE_ForgetDcb' + TAB + '; drop it before IOS frees it' + NL +
+             TAB + 'LeaveProc' + NL +
+             TAB + 'Return' + NL +
+             NL +
+             'pa_not_unconfig:' + NL +
+             ';  THE TEARDOWN WE NEVER JOINED. Windows runs a shutdown that' + NL +
+             ';  mirrors its boot and broadcasts it; we registered for the boot' + NL +
+             ';  half (SYS_DYNAMIC_DEVICE_INIT, AEP_INITIALIZE, AEP_CONFIG_DCB)' + NL +
+             ';  and answered nothing on the way down. We publish a logical DCB' + NL +
+             ';  and link it into the physical DCB chain; nothing ever removed' + NL +
+             ';  it, and IFSMGR walks that chain at System_Exit.' + NL +
+             TAB + 'cmp' + TAB + 'si, AEP_SYSTEM_SHUTDOWN' + NL +
+             TAB + 'jne' + TAB + 'pa_note_only' + NL +
+             TAB + 'call' + TAB + 'XTIDE_VolDown' + TAB + '; destroy and UNLINK our volume' + NL +
              TAB + 'LeaveProc' + NL +
              TAB + 'Return' + NL +
              NL +
