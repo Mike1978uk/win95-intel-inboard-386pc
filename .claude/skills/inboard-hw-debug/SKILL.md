@@ -4105,3 +4105,94 @@ that missed its prompts is recognisable as VOID rather than as a result.
 is not: stopping the background harness task killed the VM with it and threw away a
 13-minute boot. If you want the guest to outlive the script, do not rely on
 `Start-Process` alone.
+
+
+## Technique 88: bisect by REMOVING the component before you theorise about it -
+## and a polling Win9x port driver must not block
+
+2026-09-03. The Win95 shutdown hang on the XT-IDE port driver (#21). The answer was found, but
+the route to it wasted most of an evening, and the waste is the reusable part.
+
+### The rule, first
+
+**When a symptom might belong to your component, take the component away before you write
+anything.** `PORT.PDR` renamed to `PORT.PD_` in `IOSUBSYS`, nothing else changed: Windows shut
+down cleanly. Put it back: hangs. One character, one boot, and it converts "probably ours" into
+"ours" with no code written.
+
+That test was *set up twice and spent on neither* while two fixes were written and shipped on
+theories. Both fixes were correct on their own terms and neither was the cause. Technique 77
+already says a rename is the decisive move; this is the second time it has been the cheapest
+thing available and the last thing tried.
+
+**Then keep bisecting with switches, one variable per build.** Five builds settled it:
+
+| build | claims unit | fills DCB | inserts calldown | publishes volume | shutdown |
+|---|---|---|---|---|---|
+| absent | - | - | - | - | clean |
+| claim mask 0 | no | no | no | no | clean |
+| no calldown | yes | yes | **no** | no | clean |
+| no volume | yes | yes | **yes** | no | **HANGS** |
+| no volume + stubbed request handler | yes | yes | yes | no | clean |
+
+Four halvings, no guesswork in the chain. The claim, every DCB field, the published volume and
+the whole completion path came out innocent; the transport body did not.
+
+### Two bisects that were themselves void - both avoidable
+
+- **A bisect switch must not break normal operation.** `-ReadOnly` (refuse every write at the
+  request handler's door) was tried as "is it a write?". The guest never reached a desktop -
+  Windows needs to write to boot. A switch that stops the system working cannot isolate a
+  behaviour that only happens at shutdown. `-ReadOnly` is a *safety* flag for a hardware run;
+  it is not a bisect.
+- **Instrumentation must not share state with the thing it measures.** The on-disk request
+  marker writes its sector through the same `XTIDE_ReqLba` / `ReqCount` / `ReqBuf` globals the
+  in-flight request is using, so it clobbers the request and the boot hangs on the splash
+  screen. Technique 45 in its purest form: the observer became the experiment. Give a diagnostic
+  its own state, or it is not a diagnostic.
+
+### And do not read meaning into where a log ENDS
+
+`BOOTLOG.TXT` stops after `EndTerminate = KERNEL`. That was written up as "the hang is located
+in the phase after KERNEL, which is where `AEP_SYSTEM_SHUTDOWN` is broadcast", and two theories
+were built on it. **A run that shuts down cleanly logs the identical ladder** - the file just
+ends there either way. **Before an end-of-file is evidence, check where the file ends on a
+SUCCESSFUL run.**
+
+### The actual cause, and a contract this project did not know about
+
+From **Microsoft's I/O Supervisor Guide for Windows 9x/Me** (@andrew-hoffman, #21; archive.org,
+originally a Microsoft download - it is NOT in the Win95 DDK, and the DDK's own `STORAGE.DOC`
+says nothing about any of it):
+
+> "If the hardware polling method is used (instead of waking up when an interrupt arrives), the
+> driver then calls **Set_Global_Time_Out or Set_Async_Time_Out** so that the driver's timeout
+> (polling handler) routine gets called back later, for example in 10 milliseconds. **Immediately
+> after this Set_Global_Time_Out call, simply return (WITHOUT doing a JMP to the IOP_callback_ptr
+> routine). This releases the system from your driver, so the system can run normally for a
+> while.**"
+
+The required shape:
+
+1. start the I/O;
+2. `Set_Global_Time_Out` ~10 ms;
+3. **return without completing**;
+4. poll from the timeout handler, re-arming while the device is busy;
+5. when done, **CALL** (not JMP) `IOP_callback_ptr`;
+6. `ILB_dequeue_iop` and start any queued IOP, else return.
+
+**A card jumpered without an interrupt makes this contract yours, not optional.** The XT-CF has
+no IRQ, so the driver polls - and it was spinning inline inside `Port_request`, 400000 `in al,dx`
+holding the whole system, roughly 0.6 s per wait on a 4.77 MHz bus. It survives normal operation
+because the drive answers; it wedges at `System_Exit`, where the scheduling and time-out context
+a blocking driver leans on is being torn down.
+
+**The transferable point:** "it works in normal use" says nothing about whether the structure is
+right. A blocking driver looks fine until the system needs to run something else while it waits.
+
+### Where to look when the DDK is silent
+
+The Win95 DDK is not the only vendor documentation for this layer, and for IOS it is not the
+useful one. The **I/O Supervisor Guide** covers request flow, the calldown chain, polling, the
+IOS data area and the `.IDUMP` / `.IDCB` / `.ILDCB` debugger commands. Read a binary `.DOC` with
+a printable-run scan - the same trick used on `SYSTEM.DAT` (technique 65) - no parser needed.
