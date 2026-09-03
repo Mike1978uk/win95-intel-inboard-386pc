@@ -33,6 +33,8 @@ def main():
     # driver claims a unit but never joins the request chain. Splits
     # "Port_cfg_device is the fault" from everything downstream, in one run.
     nocalldown = '--nocalldown' in sys.argv
+    # See the --novolume block below.
+    novolume = '--novolume' in sys.argv
     total = 0
 
     # ---- PORTAER.ASM ------------------------------------------------------
@@ -312,10 +314,18 @@ def main():
         # was never a reason to wait.
         # Placed BEFORE vcd_ret, so the guard's own "jz/jnz vcd_ret" bail-outs
         # skip it: a DCB we declined never gets a volume built on it.
+        # --novolume is a BISECT, not a feature: insert the calldown but never
+        # publish a volume. Splits "the request path hangs shutdown" from "the
+        # published volume does". Emits a comment rather than skipping the edit
+        # so the anchor still matches exactly once and the edit count is
+        # unchanged - a bisect switch that changes the assertion arithmetic is
+        # one more thing to get wrong mid-investigation.
         ('publish the volume once the calldown is in',
          r'(\nvcd_ret:)',
-         lambda m: NL + TAB + 'call' + TAB + 'XTIDE_SchedVol' + TAB
-                   + '; be our own TSD - nobody else will' + NL + m.group(1),
+         lambda m: (NL + TAB + '; BISECT: volume publish skipped (--novolume)' + NL
+                    if novolume else
+                    NL + TAB + 'call' + TAB + 'XTIDE_SchedVol' + TAB
+                    + '; be our own TSD - nobody else will' + NL) + m.group(1),
          0),
     ])
 

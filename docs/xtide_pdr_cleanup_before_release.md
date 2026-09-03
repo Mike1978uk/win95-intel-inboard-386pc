@@ -51,6 +51,47 @@ but not yet tested. Everything else is unchanged.
    function to remove one - `isp.inc` has only `ISP_INSERT_CALLDOWN` (5) - and `cfu1-win9x`
    never removes one either. Leaving it inserted is normal.
 
+   ### LOCALISED, by bisection - it is the CALLDOWN
+
+   Four builds, one variable each, manual shutdown, `-InGuest`/`WIN.INI run=` for the
+   unattended ones:
+
+   | build | claims unit | fills DCB | inserts calldown | publishes volume | shutdown |
+   |---|---|---|---|---|---|
+   | `PORT.PD_` (absent) | - | - | - | - | **clean** |
+   | `-ClaimMask 0` | no | no | no | no | **clean** |
+   | `-NoCalldown` | yes | yes | **no** | no | **clean** |
+   | `-NoVolume` | yes | yes | **yes** | no | **HANGS** |
+   | full build | yes | yes | yes | yes | **HANGS** |
+
+   The only difference between the last clean row and the first hanging row is
+   **`ISP_INSERT_CALLDOWN`**. So:
+
+   - the claim, the inquiry and every DCB field we fill are **innocent**;
+   - the published volume is **innocent** - which also means blocker 1 and blocker 2 are
+     genuinely separate bugs, not one bug seen twice;
+   - Windows sends I/O down our calldown during teardown, and something about how we answer
+     it does not return.
+
+   **The candidate, not yet tested:** `Port_r_not_io`, the DDK sample's path for a request our
+   `XTIDE_WantIop` guard declines. It fails the request and completes it through
+
+   ```asm
+   mov eax, [ebx].IOP_callback_ptr
+   sub eax, size IOP_CallBack_Entry
+   call dword ptr [eax]
+   ```
+
+   which is the construct technique 82 already caught once: with a null or malformed
+   `IOP_callback_ptr` it calls through a bogus address. And `XTIDE_WantIop` declines whenever
+   `IOP_calldown_ptr` is **zero**, which a teardown-time quiesce plausibly is. A port driver is
+   the bottom of the chain, so it cannot pass a request down - but failing one it should have
+   completed, or completing one through a bad pointer, both fit.
+
+   **Next run, already built:** `-NoVolume -NoIo` - same as the hanging build but the request
+   handler completes everything as an error without touching hardware. Still hangs = the
+   completion path. Clean = our transport blocks.
+
    ### TWO FIXES TRIED, BOTH NEGATIVE. Read before proposing either again.
 
    | build | change | result |

@@ -37,6 +37,9 @@ param(
     # in one run, which is cheaper than another guess (Technique 80).
     [switch]$NoDcb,
     [switch]$NoCalldown,
+    # Bisect: insert the calldown but never publish a volume. Splits "the
+    # request path hangs shutdown" from "the published volume does".
+    [switch]$NoVolume,
     [switch]$NoIo,
     # Prove an IOS request actually reached XTIDE_StartRequest. Writes a marker
     # sector to the claimed unit at LBA 16000 on the first request and every
@@ -84,7 +87,7 @@ param(
 
 if ($Release) {
     $bad = @()
-    foreach ($n in 'ReqMarker','WriteTest','NoDcb','NoIo','NoCalldown') {
+    foreach ($n in 'ReqMarker','WriteTest','NoDcb','NoIo','NoCalldown','NoVolume') {
         if ((Get-Variable $n -ValueOnly)) { $bad += "-$n" }
     }
     if ($ProbeSkip -gt 0) { $bad += "-ProbeSkip" }
@@ -239,6 +242,7 @@ prd_inner:
     # it asserts every anchor and fails the build rather than no-op quietly.
     $psArgs = @("$PSScriptRoot/tools/patch_sample.py", $OutDir)
     if ($NoCalldown) { $psArgs += "--nocalldown" }
+    if ($NoVolume)   { $psArgs += "--novolume"; Write-Output "BISECT: volume publish skipped" }
     if ($ReqMarker)  { $psArgs += "--reqmarker" }
     python $psArgs
     if ($LASTEXITCODE -ne 0) { Write-Output "FAILED: patch_sample.py"; exit 1 }
