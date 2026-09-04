@@ -194,3 +194,20 @@ faithful bed. `AEP_DCB_LOCK` and `AEP_PEND_UNCONFIG_DCB` are the next two if tha
 
 Note the sample's `pa_note_only` comment claims answering `AEP_SUCCESS` "is the right answer to all
 of them". That is true for notifications and **false for `AEP_UNINITIALIZE`**, which is a command.
+
+### ❌ Tested and negative: handling `AEP_UNINITIALIZE` does not fix it
+
+Built `4c124470` (`16ce19b`): on `AEP_UNINITIALIZE` call `ISP_DEALLOC_DDB` on the DDB created at
+init and clear our reference, instead of answering `AEP_SUCCESS` blind. **Still hangs**, same VMM
+cycle, same AEP sequence. So holding the DDB was not the cause. The handler is correct on its own
+terms and has been kept.
+
+**Next two, in order:** `AEP_DCB_LOCK` (16) and `AEP_PEND_UNCONFIG_DCB` (21) — the remaining
+shutdown codes we answer `AEP_SUCCESS` blind. `PEND_UNCONFIG` is a *query*, so answering it wrongly
+is the more interesting of the two.
+
+Also still unexplained and worth a look before more guessing: at startup we receive
+`PEND_UNCONFIG(21)` and `UNCONFIG(4)` **twice**, and our `AEP_UNCONFIG_DCB` handler calls
+`XTIDE_ForgetDcb`, which clears the `XTIDE_InsertedDcb` slot. If the DCB is later reconfigured we
+never re-record it, so `XTIDE_VolDown`'s unlink scan at shutdown may be looking at an empty table.
+That is a state-tracking bug regardless of whether it causes the hang.
