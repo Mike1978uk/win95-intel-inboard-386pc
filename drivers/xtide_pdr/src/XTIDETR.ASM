@@ -2571,7 +2571,33 @@ endif
 ;  Declared in STRUC DCB (BLOCK\INC\DCB.INC line 94), the same structure as
 ;  DCB_bus_type and DCB_max_xfer_len above, so ESI is the right base here
 ;  (technique 80 - check which STRUC declares a field before writing it).
+;  MEASURED HARM, 2026-09-05 - default OFF, build with -DXT_SG=1 to enable.
+;
+;  Declaring 17 is what the documentation says, and it made this transport
+;  WORSE. Matched 60 MB windows of protected-mode traffic, same bed, same
+;  image, only this byte different:
+;
+;                       max_sg=0        max_sg=17
+;    [R] 0300 data        1,149,041        975,008
+;    [W] 0005/6/7 cmds          603          1,104
+;    bytes per command          1,906            883
+;
+;  1.8x the commands for the same data - IOS starts handing us scatter/gather
+;  lists and we appear to issue one taskfile command per descriptor instead of
+;  one per request, so every request becomes a burst of short seeks and polls.
+;  The emulator's title bar went from usable to 2-14% of configured speed.
+;
+;  Keep the flag, not a deletion: the field genuinely should be set once the
+;  request path coalesces descriptors into one command (technique 85 - the SG
+;  walk exists but has never been the fast path). Turning it on before then
+;  buys a slower driver for a correctness property nothing yet uses.
+;
+;  Three sources agreeing on what a field MEANS is not evidence about what it
+;  does to THIS transport. It was shipped as "cheap and certain" and measured
+;  afterwards, which is the wrong order.
+ifdef XT_SG
 	mov	byte ptr [esi].DCB_max_sg_elements, 17
+endif
 
 ;  A CHS-only drive reports no LBA total, so derive one - IOS wants a sector
 ;  count whatever the drive can address. Leave it zero and the TSD declines
