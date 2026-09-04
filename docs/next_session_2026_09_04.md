@@ -113,6 +113,40 @@ done and build-verified. Remaining: 2 (C: takeover), 7 (`IORF_LOGICAL_START_SECT
 - **@zikolas** — already credited; his driver was load-bearing again this session (`CFU1_VolDown`).
 - Ledger: `docs/contributor_input_ledger.md`, current.
 
+## Update 2026-09-04: the contract is now measured, and the fix is smaller than described
+
+The cause above was read out of a document. It has since been **confirmed from the binaries**,
+with no machine time. Every Microsoft IOS port driver on the CF arms a timeout; ours arms
+nothing at all:
+
+| driver | timeout / event services |
+|---|---|
+| `ESDI_506.PDR` | `Set_Global_Time_Out` x1, `Set_Async_Time_Out` x2 |
+| `SCSIPORT.PDR` | `Set_Global_Time_Out` x1, `Cancel_Time_Out` x3, `Set_Async_Time_Out` x1, `Schedule_Global_Event` x3 |
+| `HSFLOP.PDR` | `Set_Global_Time_Out` x5, `Cancel_Time_Out` x1, `Create_Semaphore` x2, `Wait_Semaphore` x4, `Signal_Semaphore_No_Switch` x1 |
+| **our `PORT.PDR`** | **nothing** |
+
+Reproduce with `python3 tools/pdr_vxd_services.py --only time_out,semaphore roms/xtcf_card/*_reference.PDR drivers/xtide_pdr/build/PORT.pdr`.
+References copied to `roms/xtcf_card/{ESDI_506,SCSIPORT}_reference.PDR` (`HSFLOP` was already
+there). Technique 88 carries the method.
+
+**This changes the plan.** The handoff said the fix was a restructure into a state machine driven
+from a timeout handler. `HSFLOP.PDR` shows a cheaper legal shape, and it is the right model for
+us because floppy is the only one of the three that must survive a device that may not answer:
+
+- `0x1853`/`0x1865` `Create_Semaphore` at init;
+- `0x2D95` `Set_Global_Time_Out` then `0x2DBE` `Wait_Semaphore`, 43 bytes apart;
+- one `Signal_Semaphore_No_Switch` — the timeout handler frees the waiter.
+
+So **blocking is permitted, provided something asynchronous can break the block**. Try that
+before the restructure: keep the inline wait, but wait on a semaphore with an armed
+`Set_Global_Time_Out` instead of spinning on `in al,dx`. `0x2DE0` (`Set_Global_Time_Out`, then
+`pop esi; jmp [edi+0Ch]`) shows the full return-without-completing form if the cheap shape fails.
+
+⚠ Those offsets come from a byte scan, **not a disassembler**. Confirm before building on them.
+And `ESDI_506.PDR` is the weaker reference despite being the obvious one — IDE has IRQ 14, so it
+completes from an interrupt, not from a timeout handler.
+
 ## Still unread
 
 - The **retrocomputing.SE answer** on how IOS matches drivers to BIOS disks — bears on blocker 2,

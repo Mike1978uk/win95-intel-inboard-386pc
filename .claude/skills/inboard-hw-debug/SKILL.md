@@ -4196,3 +4196,57 @@ The Win95 DDK is not the only vendor documentation for this layer, and for IOS i
 useful one. The **I/O Supervisor Guide** covers request flow, the calldown chain, polling, the
 IOS data area and the `.IDUMP` / `.IDCB` / `.ILDCB` debugger commands. Read a binary `.DOC` with
 a printable-run scan - the same trick used on `SYSTEM.DAT` (technique 65) - no parser needed.
+
+### Confirming it from the binaries: diff the VxD service calls against Microsoft's own drivers
+
+2026-09-04. The contract above was read out of a document. It can also be **measured**, in
+minutes, off the CF card - and measurement is what turns "we appear not to meet a requirement"
+into a fact.
+
+Every `INT 20h` VxD service call in a `.PDR` is `CD 20` followed by `dw service, dw device_id`.
+Scan for it, keep `device_id == 0001` (VMM), and resolve the ordinals by counting `VMM_Service`
+declarations in the DDK's own `INC32/VMM.INC` in order from zero. Anchor the count on
+`Get_VMM_Version` = 000 and `Get_Cur_VM_Handle` = 001 before trusting any other number.
+
+Against the three Microsoft port drivers in `D:\WINDOWS\SYSTEM\IOSUBSYS`:
+
+| driver | timeout / event services used |
+|---|---|
+| `ESDI_506.PDR` | `Set_Global_Time_Out` x1, `Set_Async_Time_Out` x2 |
+| `SCSIPORT.PDR` | `Set_Global_Time_Out` x1, `Cancel_Time_Out` x3, `Set_Async_Time_Out` x1, `Schedule_Global_Event` x3 |
+| `HSFLOP.PDR` | `Set_Global_Time_Out` **x5**, `Cancel_Time_Out` x1, `Schedule_Global_Event` x3, `Create_Semaphore` x2, `Wait_Semaphore` x4, `Signal_Semaphore_No_Switch` x1 |
+| **our `PORT.PDR`** | **none - zero VMM service calls of any kind** |
+
+Copies kept as `roms/xtcf_card/{ESDI_506,SCSIPORT,HSFLOP}_reference.PDR`; the scan is
+`tools/pdr_vxd_services.py`, which self-checks its ordinal table against the two anchors and
+refuses to run if they do not hold. None of the three are compressed - the service calls scan in
+plaintext, so RLoew's IO8 decompressor is not needed here.
+
+**`HSFLOP` is the better model than `ESDI_506`, because it shows blocking done legally:**
+
+- `0x1853` / `0x1865` - two `Create_Semaphore` at init.
+- `0x2D95` `Set_Global_Time_Out` ... `0x2DBE` `Wait_Semaphore`, 43 bytes apart, and exactly one
+  `Signal_Semaphore_No_Switch` elsewhere in the file. **That closes the loop:** arm a timeout,
+  block on a semaphore, and let the timeout handler signal it. A port driver *may* block, as long
+  as something asynchronous can free it. That is a far smaller change than the full state-machine
+  restructure, and it is the first thing to try.
+- `0x2DE0` `Set_Global_Time_Out` immediately followed by `5E FF 67 0C` (`pop esi; jmp [edi+0Ch]`):
+  arm, then tail-jump out. The "return without completing" shape, in situ.
+- `ESDI_506` at `0x1B56` is the same idiom (`Set_Global_Time_Out`, then `jmp` back).
+
+Those byte reads are from a scan, **not from a disassembler** - confirm them before building on
+them. `ESDI_506` is also the weaker reference for our case: IDE has IRQ 14, so it completes from
+an interrupt, and only the floppy driver has to survive a device that may simply not answer.
+
+**The reusable move:** when a spec says your driver must do X, grep the vendor's own drivers for
+X before designing anything. If they all call it and you call nothing, you have your answer
+without a boot.
+
+### Left-field reading has to be triaged, not followed
+
+The same day, a batch of ten links was collected on XTIDE/Win9x. Nine were the wrong problem -
+capacity patching (`137GB`, LBA48, the RLoew bundle), a jumpers-and-cables forum thread, general
+protected-to-real-mode material. **But they named `ESDI_506.PDR`, and that pointer produced the
+table above.** Scattering wide is cheap and occasionally lands; reading all ten in full is not.
+Triage by *what problem is this about*, follow the one that names a file you can open, and say
+plainly which ones were dead ends - see `docs/resources_and_sources.md`.
