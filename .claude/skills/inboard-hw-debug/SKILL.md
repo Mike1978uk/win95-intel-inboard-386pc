@@ -4350,7 +4350,21 @@ Eliminated before concluding it, in this order, each one cheap:
 So the hang was real - it reproduced three times out of three - and it is now **unattributable
 and unbisectable**. A day went into diagnosing it, and the diagnosis cannot be checked.
 
-**The real machine was never running it.** The CF holds `0fe2431a` (2026-09-01,
+**CORRECTED, same day, by the project owner:** the shutdown hang **was** also observed on the
+real 5160, with the CF's own `0fe2431a` - and that binary IS tracked
+(`dist/xtide_pdr/PORT_claim_master_stride2_rw.pdr`). So the hang is NOT merely an artefact of
+the unreproducible `70298a8f`, and the retraction above must not be read as "there is no bug".
+
+What the retraction does still establish: the diagnosis in technique 88 was derived from a
+binary that cannot be rebuilt, so it is unverified; and three binaries built from committed
+source shut down cleanly in the emulator, which `0fe2431a` has never been tested against there.
+
+**That is the repair, and it costs one emulator run:** deploy `0fe2431a` - tracked, reproducible,
+and known to hang on hardware - into the emulator bed. If it hangs there, the control that was
+missing all along exists, and the bisect becomes possible for the first time. Do that before any
+further theorising.
+
+**The real machine was never running `70298a8f`.** The CF holds `0fe2431a` (2026-09-01,
 `dist/xtide_pdr/PORT_claim_master_stride2_rw.pdr`), which is tracked and reproducible.
 
 ### Technique 89: an artefact under test must be traceable to a commit, or its results are not evidence

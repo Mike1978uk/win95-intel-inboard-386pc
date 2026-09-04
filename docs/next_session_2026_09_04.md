@@ -20,7 +20,15 @@
 >   and `70298a8f` is 20,619 bytes = the release size; bisect builds are 20,675);
 > - `3b85848` + `-Release` gives the right size but `4e2dd46c`, not `70298a8f`.
 >
-> **The real 5160 was never running it.** The CF at `D:` holds `0fe2431a` — 2026-09-01,
+> **CORRECTED by the owner, 11:50:** the hang **was** seen on the real 5160 too, with the CF's
+> own `0fe2431a` — which IS tracked. So there is a real bug; what is retracted is the *diagnosis*,
+> not the symptom. The CF has not been written to today (verified: zero files modified), so a
+> hardware boot right now would only repeat a test that already hung.
+>
+> **Next step, one emulator run:** deploy `0fe2431a` into the bed. It is reproducible and known
+> to hang on hardware. If it hangs in the emulator, we finally have a control to bisect against.
+>
+> **The real 5160 was never running `70298a8f`.** The CF at `D:` holds `0fe2431a` — 2026-09-01,
 > `dist/xtide_pdr/PORT_claim_master_stride2_rw.pdr`, tracked and reproducible. Nothing lost
 > there, and its shutdown has never been tested. That is the test worth doing.
 >
