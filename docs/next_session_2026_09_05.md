@@ -316,3 +316,84 @@ Note this sits oddly with the fact that our driver makes **zero VMM service call
 table) - so whatever put us on that list, we did not call VMM to do it directly. IOS may have done
 it on our behalf at `ISP_INSERT_CALLDOWN`, which would finally explain the original bisect: *no
 calldown -> clean, calldown inserted -> hangs*, the one signal that has survived every test today.
+
+---
+
+## CORRECTION 2026-09-04, later — `C1032D1C` is NOT inside our driver
+
+Commit `8fe1609` says the queued node is *"inside our driver's own address range"*. That was
+inferred from "our code runs at `C1031xxx`" and never from a computed base. It is wrong.
+
+### The load base, established three independent ways
+
+The binary in `vm_xtcf_faithful/prextide.img` is `c5b5b7f0`, which is exactly the build
+`drivers/xtide_pdr/build/PORT.map` describes — so the map is the right one for this run.
+
+| evidence | map offset | address |
+|---|---|---|
+| `XTIDE_WaitNotBusy` `in al,dx` | obj1+0xDD5 | `C1031B16` |
+| `XTIDE_WaitDrq` `in al,dx` | obj1+0xDEC | `C1031B2D` |
+| `XTIDE_ReadData`, 8-bit path | obj1+0xE1C | `C1031B5D` |
+| `XTIDE_WriteData` `out dx,al` | obj1+0x11A0 | `C1031EE1` |
+| heartbeat's 16 live bytes at `C103274A` | matches the file at obj1+0x1A0A byte for byte | |
+| same heartbeat: `ESI`=`C1030E14`, `EDI`=`C1031268` | = `XTIDE_IdBuf` (0xD4), `XTIDE_PartType` (0x528) | |
+
+**Object 1 loads at linear `C1030D40`.** (The XT-IDE log prints `pc` *after* the one-byte
+`in`/`out`; the heartbeat prints it at the instruction start. That one-byte difference is why
+the two families of anchor disagree by 1, and reconciling them is what pins the base exactly.)
+
+### Where the node actually sits
+
+```
+C1032D1C - C1030D40 = 0x1FDC
+object 1 vsize      = 0x1B88   ends C10328C8
+whole module packed = 0x1E21   ends C1032B61
+```
+
+**0x454 past the end of object 1, 0x1BB past the end of the module.** Not `port_ilb`, not
+`PORT_DDB`, not any symbol in the `.map`.
+
+And `C1030C54` — 18 of the same 107 writes — is `base - 0xEC`, i.e. just *before* our image.
+Nodes on both sides of our module, with the rest at `C0FD*`, `C0FF*` and `C159F068`: that is the
+signature of **heap blocks**, one allocated just before our module and one just after, not of our
+own statics. Consistent with something allocated on our behalf while we were being loaded — which
+is the `ISP_INSERT_CALLDOWN` suspicion above — but that is inference, not measurement.
+
+### Free result: it is a wedge, not slow progress
+
+Technique 88 carries an open question — *"nobody has recorded how long the machine was left"* —
+with a correction warning that our spins are bounded, so minutes of timeouts would look identical
+to a hang. The session that produced `faithful.log` was left running and answers it by accident:
+
+| | |
+|---|---|
+| last write to the list | byte 440,158,692 |
+| file size | 446,313,242 |
+| after the last write | **6.15 MB of heartbeat and nothing else**, ~1 hour of wall clock |
+
+Zero device I/O, zero list activity, one hour. That is a wedge.
+
+### And the second cluster is a list WALK, not a spin
+
+The live instruction bytes at the freeze:
+
+```
+C000323C:  8D 50 04     lea  edx,[eax+4]
+           8B 42 FC     mov  eax,[edx-4]      ; node = node->next
+           85 C0        test eax,eax
+           74 09        jz   ...
+           85 48 08     test [eax+8],ecx      ; ecx = 80000082
+C000324B:  8B D0        mov  edx,eax
+C000324D:  EB F0        jmp  -10h             ; back into the walk
+```
+
+`EAX` cycles `C0FCEB50 -> C0FCF120 -> C10CD860 -> C0FCF288 -> C0FCF120 ...` — it revisits nodes,
+so the walk does not terminate. `EDI` is pinned at `C159F068` throughout, the most-written value
+on the watched list (32 of 107), and `EBX` at `C15200E8`, the object named on 2026-09-04.
+
+### What has no control yet
+
+`run_control_clean.log` and `run_ctrl_calltrace.log` armed the watch on `C000E9F0-C000E9F7`, not
+on this list. **So nothing yet shows what a clean shutdown does to `C0010810`** — whether it
+drains, and who pops it. That is the comparative to run next if the instrumented run does not
+name the popper on its own.
