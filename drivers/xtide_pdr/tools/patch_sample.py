@@ -34,7 +34,13 @@ def main():
     # "Port_cfg_device is the fault" from everything downstream, in one run.
     nocalldown = '--nocalldown' in sys.argv
     # See the --novolume block below.
-    novolume = '--novolume' in sys.argv
+    # The own-TSD work is OFF unless -DXT_TSD=1 / --tsd. No Microsoft port
+    # driver creates, associates or destroys a DCB (verified by disassembly
+    # 2026-09-04), DiskTSD assigns C: on its own, and publishing produced a
+    # duplicate D:. --novolume is kept as a no-op alias so old invocations
+    # do not silently mean something different.
+    tsd = '--tsd' in sys.argv
+    novolume = not tsd
     total = 0
 
     # ---- PORTAER.ASM ------------------------------------------------------
@@ -51,14 +57,14 @@ def main():
                    + TAB + 'extrn' + TAB + 'XTIDE_NoteDdb:near' + TAB
                    + '; remember our own DDB (phase 2d)' + NL
                    + TAB + 'extrn' + TAB + 'XTIDE_NoteLgn:near' + NL
-                   + TAB + 'extrn' + TAB + 'XTIDE_SchedVol:near' + TAB
-                   + '; be our own TSD (phase 3)' + NL
+                   + ((TAB + 'extrn' + TAB + 'XTIDE_SchedVol:near' + TAB
+                       + '; be our own TSD (phase 3)' + NL) if tsd else '')
                    + TAB + 'extrn' + TAB + 'XTIDE_ForgetDcb:near' + TAB
                    + '; AEP_UNCONFIG_DCB teardown' + NL
                    + TAB + 'extrn' + TAB + 'XTIDE_PendUnconfig:near' + TAB
                    + '; AEP_PEND_UNCONFIG_DCB means STOP ALL I/O' + NL
-                   + TAB + 'extrn' + TAB + 'XTIDE_VolDown:near' + TAB
-                   + '; AEP_SYSTEM_SHUTDOWN teardown' + NL
+                   + ((TAB + 'extrn' + TAB + 'XTIDE_VolDown:near' + TAB
+                       + '; AEP_SYSTEM_SHUTDOWN teardown' + NL) if tsd else '')
                    + TAB + 'extrn' + TAB + 'XTIDE_Uninit:near' + TAB
                    + '; AEP_UNINITIALIZE is a command, not a notice' + NL
                    + TAB + 'extrn' + TAB + 'XTIDE_DbgAep:near' + TAB
@@ -203,7 +209,8 @@ def main():
              TAB + 'cmp' + TAB + 'si, AEP_SYSTEM_SHUTDOWN' + NL +
              TAB + 'jne' + TAB + 'pa_note_only' + NL +
              TAB + 'call' + TAB + 'XTIDE_ShutdownArm' + TAB + '; gate: stop waiting 0.6 s per dead request' + NL +
-             TAB + 'call' + TAB + 'XTIDE_VolDown' + TAB + '; destroy and UNLINK our volume' + NL +
+             ((TAB + 'call' + TAB + 'XTIDE_VolDown' + TAB
+               + '; destroy and UNLINK our volume' + NL) if tsd else '') +
              TAB + 'LeaveProc' + NL +
              TAB + 'Return' + NL +
              NL +

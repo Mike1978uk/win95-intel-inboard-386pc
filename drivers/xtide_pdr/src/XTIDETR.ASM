@@ -1665,6 +1665,17 @@ BeginProc XTIDE_ShutdownArm
 EndProc XTIDE_ShutdownArm
 
 ;----------------------------------------------------------------------------
+;  ---- OWN-TSD BLOCK, ASSEMBLED ONLY WITH -DXT_TSD=1 ----------------------
+;  No Microsoft port driver creates, associates or destroys a DCB - verified
+;  by disassembly against ESDI_506, HSFLOP and SCSIPORT (2026-09-04). That is
+;  TSD work, and DiskTSD assigns C: on its own on the faithful bed, so the
+;  premise this was built on (technique 83) is false. It also produced a
+;  duplicate D: from one CF card.
+;
+;  Guarded rather than deleted so it is not RUN and not LINKED - "it is not
+;  reached" was an assumption, and this makes it a fact the ISP audit can
+;  check (tools/vxd_isp_audit.py: no CREATE_DCB/ASSOCIATE_DCB/DESTROY_DCB).
+ifdef XT_TSD
 ; XTIDE_VolDown - PUBLIC. Take our published logical volume back down.
 ;
 ;   Called from AEP_SYSTEM_SHUTDOWN. Destroys: EAX, EBX, ECX, EDI
@@ -1714,6 +1725,7 @@ xvd_done:
 	ret
 
 EndProc XTIDE_VolDown
+endif ; XT_TSD
 
 
 
@@ -1822,28 +1834,25 @@ endif
 	ret
 
 EndProc XTIDE_NoteIsp
-
+;  ---- OWN-TSD BLOCK, ASSEMBLED ONLY WITH -DXT_TSD=1 ----------------------
+;  No Microsoft port driver creates, associates or destroys a DCB - verified
+;  by disassembly against ESDI_506, HSFLOP and SCSIPORT (2026-09-04). That is
+;  TSD work, and DiskTSD assigns C: on its own on the faithful bed, so the
+;  premise this was built on (technique 83) is false. It also produced a
+;  duplicate D: from one CF card.
+;
+;  Guarded rather than deleted so it is not RUN and not LINKED - "it is not
+;  reached" was an assumption, and this makes it a fact the ISP audit can
+;  check (tools/vxd_isp_audit.py: no CREATE_DCB/ASSOCIATE_DCB/DESTROY_DCB).
 ;----------------------------------------------------------------------------
-; XTIDE_VolCreate - PUBLIC. Be our own TSD: publish the volume ourselves.
-;
-;   In:   nothing; uses the physical DCB and DDB recorded during registration
-;   Out:  EAX = 0 a drive letter was assigned, 1 otherwise
-;
-;   Windows' own disk TSD never engages a DYNAMICALLY registered port driver's
-;   DCB. We are dynamically registered by necessity - without DRP_FC_DYNALOAD
-;   the image does not load at all - so IOS runs our AEP_CONFIG_DCB and nobody
-;   else's, and no layer above us ever parses a partition table. Measured
-;   2026-09-01 on a freshly formatted FAT16 volume: exactly three requests,
-;   LBA 0 then LBA 63 twice, and then silence. The transport was never at
-;   fault; there was simply nothing above it.
-;
-;   So do the TSD's job: read the MBR, create a logical DCB for partition 1,
-;   give it its own calldown entry, and associate it with a drive letter.
-;
-;   The recipe, the ordering and the reason are Nick's (@zikolas), from
-;   cfu1-win9x's vol_create - MIT licensed. Notably his warning that the
-;   logical DCB must have its OWN calldown node: ISP_DCB_DESTROY frees a DCB's
-;   nodes, so a shared chain leaves the physical DCB pointing at freed memory.
+BeginProc XTIDE_NoteLgn
+
+	mov	XTIDE_OurLgn, eax
+	ret
+
+EndProc XTIDE_NoteLgn
+
+ifdef XT_TSD
 ;----------------------------------------------------------------------------
 BeginProc XTIDE_VolCreate
 
@@ -2002,13 +2011,29 @@ EndProc XTIDE_VolCreate
 
 ;----------------------------------------------------------------------------
 ; XTIDE_NoteLgn - PUBLIC. Remember the load group number. In: EAX.
+
+
 ;----------------------------------------------------------------------------
-BeginProc XTIDE_NoteLgn
-
-	mov	XTIDE_OurLgn, eax
-	ret
-
-EndProc XTIDE_NoteLgn
+; XTIDE_VolCreate - PUBLIC. Be our own TSD: publish the volume ourselves.
+;
+;   In:   nothing; uses the physical DCB and DDB recorded during registration
+;   Out:  EAX = 0 a drive letter was assigned, 1 otherwise
+;
+;   Windows' own disk TSD never engages a DYNAMICALLY registered port driver's
+;   DCB. We are dynamically registered by necessity - without DRP_FC_DYNALOAD
+;   the image does not load at all - so IOS runs our AEP_CONFIG_DCB and nobody
+;   else's, and no layer above us ever parses a partition table. Measured
+;   2026-09-01 on a freshly formatted FAT16 volume: exactly three requests,
+;   LBA 0 then LBA 63 twice, and then silence. The transport was never at
+;   fault; there was simply nothing above it.
+;
+;   So do the TSD's job: read the MBR, create a logical DCB for partition 1,
+;   give it its own calldown entry, and associate it with a drive letter.
+;
+;   The recipe, the ordering and the reason are Nick's (@zikolas), from
+;   cfu1-win9x's vol_create - MIT licensed. Notably his warning that the
+;   logical DCB must have its OWN calldown node: ISP_DCB_DESTROY frees a DCB's
+;   nodes, so a shared chain leaves the physical DCB pointing at freed memory.
 
 ;----------------------------------------------------------------------------
 ; XTIDE_VolUp / XTIDE_SchedVol - publish the volume AT APPY TIME.
@@ -2050,6 +2075,7 @@ xsv_done:
 	ret
 
 EndProc XTIDE_SchedVol
+endif ; XT_TSD
 
 ;----------------------------------------------------------------------------
 ; XTIDE_NoteDdb - PUBLIC. Remember our own DDB. In: EAX = AEP_ddb.

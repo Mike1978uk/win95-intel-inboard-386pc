@@ -45,7 +45,14 @@ param(
     [switch]$NoCalldown,
     # Bisect: insert the calldown but never publish a volume. Splits "the
     # request path hangs shutdown" from "the published volume does".
+    # DEPRECATED no-op: the own-TSD work is now off unless -Tsd is given.
     [switch]$NoVolume,
+    # Opt IN to the own-TSD work: create a logical DCB, associate a drive letter
+    # and publish a volume from an appy-time callback. OFF by default since
+    # 2026-09-04 - no Microsoft port driver does any of it (verified against
+    # ESDI_506/HSFLOP/SCSIPORT by disassembly), DiskTSD assigns C: unaided, and
+    # publishing produced a duplicate D: from one CF card.
+    [switch]$Tsd,
     [switch]$NoIo,
     # Prove an IOS request actually reached XTIDE_StartRequest. Writes a marker
     # sector to the claimed unit at LBA 16000 on the first request and every
@@ -248,7 +255,8 @@ prd_inner:
     # it asserts every anchor and fails the build rather than no-op quietly.
     $psArgs = @("$PSScriptRoot/tools/patch_sample.py", $OutDir)
     if ($NoCalldown) { $psArgs += "--nocalldown" }
-    if ($NoVolume)   { $psArgs += "--novolume"; Write-Output "BISECT: volume publish skipped" }
+    if ($Tsd)        { $psArgs += "--tsd";      Write-Output "own-TSD work ENABLED (non-default)" }
+    else             { Write-Output "own-TSD work stripped: no CREATE_DCB / ASSOCIATE_DCB / DESTROY_DCB" }
     if ($ReqMarker)  { $psArgs += "--reqmarker" }
     python $psArgs
     if ($LASTEXITCODE -ne 0) { Write-Output "FAILED: patch_sample.py"; exit 1 }
@@ -262,6 +270,7 @@ prd_inner:
 # Flags taken verbatim from the sample's own MAKEFILE, with MASTER_MAKE resolved by hand.
 $aflags = @("-DXT_TIMEBASE=$TimeBase","-coff","-DBLD_COFF","-DDEBUG_TRACE=1","-DIS_32","-nologo","-W3","-Zd","-c","-Cx",
             "-DMASM6","-DINITLOG","-DDEBLEVEL=0","-DXT_STRIDE=$Stride","-DXT_CLAIM_MASK=$ClaimMask")
+if ($Tsd) { $aflags += "-DXT_TSD=1" }
 if ($NoDcb) { $aflags += "-DXT_NO_DCB=1"; Write-Output "BISECT: DCB fill disabled" }
 if ($NoIo)  { $aflags += "-DXT_NO_IO=1";  Write-Output "BISECT: request handler is a stub" }
 if ($ReqMarker) { $aflags += "-DXT_REQ_MARKER=1"; Write-Output "DIAGNOSTIC: on-disk request marker enabled" }
