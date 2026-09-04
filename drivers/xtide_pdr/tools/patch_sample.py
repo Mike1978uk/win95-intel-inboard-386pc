@@ -164,12 +164,13 @@ def main():
              TAB + 'call' + TAB + 'XTIDE_DbgAep' + TAB + '; TELL US WHAT WE ACTUALLY RECEIVE' + NL +
              TAB + 'cmp' + TAB + 'si, AEP_UNCONFIG_DCB' + TAB
              + '  ; a DCB we may hold a pointer to?' + NL +
-             TAB + 'jne' + TAB + 'pa_not_unconfig' + NL +
+             TAB + 'jne' + TAB + 'pa_check_pend' + NL +
              TAB + 'mov' + TAB + 'esi, [ebx].AEP_d_u_dcb' + NL +
              TAB + 'call' + TAB + 'XTIDE_ForgetDcb' + TAB + '; drop it before IOS frees it' + NL +
              TAB + 'LeaveProc' + NL +
              TAB + 'Return' + NL +
              NL +
+             'pa_check_pend:' + NL +
              ';  AEP_PEND_UNCONFIG_DCB is a COMMAND, and it is the FIRST thing' + NL +
              ';  IOS sends when a DCB is being destroyed. STORAGE.DOC: "layer' + NL +
              ';  drivers are expected to stop and prevent all further input and' + NL +
@@ -178,6 +179,12 @@ def main():
              ';  holding it never exited, and VMM span waiting for the System VM' + NL +
              ';  thread list to empty. Measured 2026-09-04: 4 VRPs created, 3' + NL +
              ';  destroyed, and the orphan is drive 2 - our own claimed disk.' + NL +
+             ';' + NL +
+             ';  It must also be ANSWERED. Falling through to pa_note_only gave' + NL +
+             ';  code 21 AEP_FAILURE - refusing permission to unconfigure - and' + NL +
+             ';  IOS then abandoned the teardown of our DCB: A: completed' + NL +
+             ';  21/16/19/4, ours stopped dead after 21. AEP_SUCCESS is preset' + NL +
+             ';  at the top of this routine, so returning here answers yes.' + NL +
              TAB + 'cmp' + TAB + 'si, AEP_PEND_UNCONFIG_DCB' + NL +
              TAB + 'jne' + TAB + 'pa_not_pend_unconfig' + NL +
              TAB + 'mov' + TAB + 'esi, [ebx].AEP_d_u_p_dcb' + NL +
