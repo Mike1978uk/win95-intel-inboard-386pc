@@ -137,6 +137,27 @@ the directory's own `README.md`.
   the CMOS claim is real but its applicability here is not — Technique 58.
 - **[BetaArchive: slipstreaming patched files into a Win95 install](https://www.betaarchive.com/forum/viewtopic.php?t=29398)**
   — the harder of the two routes; rewriting an INF to reference patched copies is easier.
+- **Microsoft's own IOS port drivers, from the machine itself** — `ESDI_506.PDR`, `SCSIPORT.PDR`
+  and `HSFLOP.PDR` in `D:\WINDOWS\SYSTEM\IOSUBSYS`, copied to
+  [`roms/xtcf_card/`](../roms/xtcf_card/) as `*_reference.PDR`. The best available documentation
+  of the polling contract, because they implement it. All three call `Set_Global_Time_Out`; our
+  `PORT.PDR` calls no VMM service at all. `HSFLOP` is the closest model — it is the only one that
+  must survive a device that may not answer. Scan them with
+  [`tools/pdr_vxd_services.py`](../tools/pdr_vxd_services.py); see technique 88.
+  ❌ `ESDI_506.PDR` is the *weaker* reference despite being the obvious one: IDE has IRQ 14, so it
+  completes from an interrupt rather than from a timeout handler.
+- **Rudolph R. Loew's Win9x patches** —
+  [rloewelectronics.com](https://rloewelectronics.com/) (certificate expired),
+  [Phil's Computer Lab](https://www.philscomputerlab.com/rudolph-r-loew-patches.html),
+  [bundle mirror](https://retrosystemsrevival.blogspot.com/2020/06/rloew-9598me-patches-bundle.html).
+  Thirty-odd binary patches including several to `ESDI_506.PDR`, plus an "IO8 Decompresser".
+  ❌ **Nothing here documents port-driver structure.** The patches are capacity/RAM limit fixes
+  shipped as binaries; the bundle carries no disassembler and no structural notes. The
+  decompressor is not needed for this work — the stock `.PDR` files are not compressed.
+- **[MSFN, "137GB limit - ESDI_506.PDR and other limits"](https://msfn.org/board/topic/46752-137gb-limit-esdi_506pdr-and-other-limits/)**
+  ❌ Read 2026-09-04. Spec-level LBA48 discussion only; the author states he worked from the
+  ATA/ATAPI-7 specification, **not** from the binary. No entry points, no request flow, no
+  timeout handling. Save the next reader the click.
 - Full assessment: [`win9x_port_driver_feasibility.md`](win9x_port_driver_feasibility.md).
 
 ## 7. Emulator and upstream
