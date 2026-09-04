@@ -36,6 +36,11 @@ param(
     # "our DCB writes are wrong" from "the fault is downstream of inquiry"
     # in one run, which is cheaper than another guess (Technique 80).
     [switch]$NoDcb,
+    # Bisect: strip the four completion-ladder counters. They are four
+    # inc dword [mem] in the request path and NOTHING else - but on 2026-09-04
+    # their presence alone was the difference between a hung shutdown and a
+    # clean one (technique 45). This switch is how that gets re-measured.
+    [switch]$NoDbgCount,
     [switch]$NoCalldown,
     # Bisect: insert the calldown but never publish a volume. Splits "the
     # request path hangs shutdown" from "the published volume does".
@@ -259,6 +264,7 @@ $aflags = @("-DXT_TIMEBASE=$TimeBase","-coff","-DBLD_COFF","-DDEBUG_TRACE=1","-D
 if ($NoDcb) { $aflags += "-DXT_NO_DCB=1"; Write-Output "BISECT: DCB fill disabled" }
 if ($NoIo)  { $aflags += "-DXT_NO_IO=1";  Write-Output "BISECT: request handler is a stub" }
 if ($ReqMarker) { $aflags += "-DXT_REQ_MARKER=1"; Write-Output "DIAGNOSTIC: on-disk request marker enabled" }
+if ($NoDbgCount) { $aflags += "-DXT_NO_DBGCOUNT=1"; Write-Output "BISECT: completion-ladder counters removed" }
 if ($WriteTest) { Write-Output "DANGER: write self-test ENABLED - writes LBA 100 of whichever unit answers. Scratch slave only." }
 else            { $aflags += "-DXT_NO_WRITETEST=1" }
 if ($ProbeSkip -gt 0) { $aflags += "-DXT_PROBE_SKIP=$ProbeSkip"; Write-Output "CALIBRATION: probe skipped, reporting fail code $ProbeSkip" }

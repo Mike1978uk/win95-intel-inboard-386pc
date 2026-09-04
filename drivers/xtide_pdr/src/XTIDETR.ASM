@@ -287,6 +287,15 @@ XTIDE_SgLeft			dd	0	; sectors the IOR still accounts for
 ;  while Windows is running, SpinLimit is XT_SPIN and behaviour is unchanged.
 ;  A successful wait restores the full limit, so even after the clamp arms, a
 ;  drive that comes back gets its patience back.
+;  Completion ladder. OWN STATE - shares nothing with the transport, which is
+;  what voided the on-disk request marker as a diagnostic (technique 88).
+;  Reported through the emulator debug port at 0E0h, so measuring the disk
+;  path costs no disk access.
+XTIDE_DbgOffered		dd	0	; IOPs XTIDE_WantIop was asked about
+XTIDE_DbgAccepted		dd	0	; ...of which we claimed
+XTIDE_DbgStarted		dd	0	; XTIDE_StartRequest entries
+XTIDE_DbgDone			dd	0	; IOPs handed back through IOP_callback_ptr
+
 XTIDE_ShutDown			dd	0	; set only by XTIDE_ShutdownArm
 XTIDE_SpinLimit			dd	XT_SPIN	; live poll limit, read by both wait loops
 
@@ -594,21 +603,16 @@ EndProc XTIDE_SetPorts
 BeginProc XTIDE_WaitNotBusy
 
 	mov	edx, XTIDE_pAltStatus
-	mov	ecx, XTIDE_SpinLimit
+	mov	ecx, XT_SPIN
 xwnb_loop:
 	in	al, dx
 	test	al, ST_BSY
 	jz	xwnb_ok
 	dec	ecx
 	jnz	xwnb_loop
-	cmp	XTIDE_ShutDown, 0	; expired. shutting down, so the drive
-	jz	xwnb_fail		; has gone - do not spend 0.6 s again
-	mov	XTIDE_SpinLimit, XT_SPIN_SHUT
-xwnb_fail:
 	stc
 	ret
 xwnb_ok:
-	mov	XTIDE_SpinLimit, XT_SPIN	; it answered - full patience back
 	clc
 	ret
 
@@ -623,7 +627,7 @@ EndProc XTIDE_WaitNotBusy
 BeginProc XTIDE_WaitDrq
 
 	mov	edx, XTIDE_pAltStatus
-	mov	ecx, XTIDE_SpinLimit
+	mov	ecx, XT_SPIN
 xwd_loop:
 	in	al, dx
 	test	al, ST_BSY
@@ -635,16 +639,12 @@ xwd_loop:
 xwd_again:
 	dec	ecx
 	jnz	xwd_loop
-	cmp	XTIDE_ShutDown, 0	; timeout, not ERR - same reasoning
-	jz	xwd_fail
-	mov	XTIDE_SpinLimit, XT_SPIN_SHUT
 xwd_fail:
 	movzx	eax, al
 	mov	XTIDE_LastStatus, eax	; so ERR and timeout are distinguishable
 	stc
 	ret
 xwd_ok:
-	mov	XTIDE_SpinLimit, XT_SPIN	; it answered - full patience back
 	clc
 	ret
 
@@ -1471,9 +1471,49 @@ EndProc XTIDE_ForgetDcb
 ;   the clamp take effect, and any later success lifts it again.
 ;----------------------------------------------------------------------------
 	public XTIDE_ShutdownArm
+XTIDE_DbgEmit:
+;  EAX = tag, EDX = value. Writes tag to 0E0h then the dword LSB-first to 0E1h.
+;  Destroys nothing the callers need; EAX/ECX/EDX only.
+	push	ecx
+	push	edx
+	push	eax
+	mov	dx, 0e0h
+	out	dx, al
+	pop	eax
+	pop	edx
+	mov	ecx, 4
+xde_loop:
+	push	edx
+	mov	al, dl
+	mov	dx, 0e1h
+	out	dx, al
+	pop	edx
+	shr	edx, 8
+	dec	ecx
+	jnz	xde_loop
+	pop	ecx
+	ret
+
 BeginProc XTIDE_ShutdownArm
 
 	mov	XTIDE_ShutDown, 1
+
+;  Report the completion ladder at exactly the moment the hang begins. If
+;  ACCEPTED does not equal DONE, an IOP went into this driver and never came
+;  back out - which is what IFSMGR would be waiting on.
+	mov	al, 01h
+	mov	edx, XTIDE_DbgOffered
+	call	XTIDE_DbgEmit
+	mov	al, 02h
+	mov	edx, XTIDE_DbgAccepted
+	call	XTIDE_DbgEmit
+	mov	al, 03h
+	mov	edx, XTIDE_DbgStarted
+	call	XTIDE_DbgEmit
+	mov	al, 04h
+	mov	edx, XTIDE_DbgDone
+	call	XTIDE_DbgEmit
+
 	ret
 
 EndProc XTIDE_ShutdownArm
@@ -1940,6 +1980,9 @@ EndProc XTIDE_MarkStage
 ;----------------------------------------------------------------------------
 BeginProc XTIDE_WantIop
 
+ifndef XT_NO_DBGCOUNT
+	inc	XTIDE_DbgOffered
+endif
 	push	esi
 	mov	esi, [ebx].IOP_calldown_ptr
 	or	esi, esi
@@ -1955,6 +1998,9 @@ endif
 	cmp	esi, XTIDE_OurDdb
 	jne	xwi_no
 
+ifndef XT_NO_DBGCOUNT
+	inc	XTIDE_DbgAccepted
+endif
 	pop	esi
 	xor	eax, eax
 	ret
@@ -2292,6 +2338,10 @@ EndProc XTIDE_ConfigDcb
 ;----------------------------------------------------------------------------
 BeginProc XTIDE_StartRequest
 
+ifndef XT_NO_DBGCOUNT
+	inc	XTIDE_DbgStarted
+endif
+
 	push	ebx
 	push	esi
 	push	edi
@@ -2462,6 +2512,10 @@ xsr_complete:
 	push	ebx
 	call	dword ptr [eax]
 	add	esp, 4
+ifndef XT_NO_DBGCOUNT
+	inc	XTIDE_DbgDone		; AFTER the callback returns, so a callback
+				; that never returns is visible as a gap
+endif
 
 	pop	edi
 	pop	esi
