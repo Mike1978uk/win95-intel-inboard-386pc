@@ -23,10 +23,11 @@ param(
     # 0 = autodetect: read Status and Alternate Status under each candidate and keep
     # the stride where they agree, since they are one register on a correct map. It
     # writes nothing, so it cannot cause the SRST accident above. One binary then
-    # covers both card families - but a pinned value is still the safer first run on
-    # unfamiliar hardware, so this defaults to a pinned 2.
+    # covers both card families - a classic XTIDE and this project's XT-CF - which
+    # is what a shipped driver has to do, so this now DEFAULTS to autodetect.
+    # Pin it explicitly when a run needs one map held still as the variable.
     [ValidateSet(0, 1, 2)]
-    [int]$Stride = 2,
+    [int]$Stride = 0,
     # Which units the driver is willing to claim, one bit each:
     #   1 = master, 2 = slave, 3 = both.
     # The emulator loop builds with 2 so the first request-path run is aimed at

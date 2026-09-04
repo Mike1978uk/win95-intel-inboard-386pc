@@ -164,9 +164,13 @@ VxD_LOCKED_DATA_SEG
 ;  XTIDE_DetectStride writes nothing. It reads two ports that must hold the
 ;  same register on a correct map and compares them, so the objection does not
 ;  apply to it. An explicit -DXT_STRIDE=1 or 2 still skips detection entirely.
+;  Default is AUTODETECT. A shipped driver has to work on both card families,
+;  not just the one it was developed against, and the probe is read-only so it
+;  costs nothing to try. -DXT_STRIDE=1 or 2 pins it when a test needs one map
+;  held still.
 ifndef XT_STRIDE
-XT_STRIDE	equ	2		; -DXT_STRIDE=1 for a classic XTIDE (86Box's model)
-endif					; -DXT_STRIDE=0 to autodetect
+XT_STRIDE	equ	0		; 0 = autodetect, 1 = classic XTIDE, 2 = XT-CF
+endif
 public XTIDE_Stride
 XTIDE_Stride		dd	XT_STRIDE
 
