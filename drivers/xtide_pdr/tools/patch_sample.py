@@ -248,6 +248,32 @@ def main():
         ])
         print('BISECT: calldown insert skipped')
 
+    # ---- PORT.ASM : declare what layer we actually are ---------------------
+    #
+    # DRP_LGN is the declaration. IOS orders the calldown chain - and its
+    # teardown - by load group. The sample ships DRP_MISC_PD and calls itself
+    # 'Generic Port Drv'; read off the binaries on this machine's own card:
+    #
+    #   ESDI_506.PDR   DRP_ESDI_PD    (bit 16h)   'ESDI port driver'
+    #   SCSIPORT.PDR   DRP_NT_PD      (bit 15h)   'SCSIPORT'
+    #   HSFLOP.PDR     DRP_NEC_FLOPPY (bit 1Bh)   'NEC Floppy NEC'
+    #   ours           DRP_MISC_PD    (bit 13h)   <- the odd one out
+    #
+    # We are an ATA port driver and ESDI_506 is Win95's own IDE/ESDI port
+    # driver, so ESDI_PD is the honest group. DRP_bus_type is already
+    # DRP_BT_ESDI and matches ESDI_506 exactly; only the layer differed.
+    prt = os.path.join(out, 'PORT.ASM')
+    total += edit(prt, [
+        # Anchor on the DRP initialiser itself. The file mentions DRP_MISC_PD
+        # in a comment first, and edit() replaces one occurrence - a bare
+        # pattern silently rewrites the comment and leaves the declaration.
+        ('load group',
+         r'(DRP\s*<\s*EyeCatcher\s*,\s*)DRP_MISC_PD',
+         lambda m: m.group(1) + 'DRP_ESDI_PD',
+         0),
+    ])
+    print('load group: DRP_MISC_PD -> DRP_ESDI_PD')
+
     # ---- PORTREQ.ASM : service the request instead of dropping it ----------
     req = os.path.join(out, 'PORTREQ.ASM')
     total += edit(req, [
@@ -422,7 +448,7 @@ def main():
         print('DIAGNOSTIC: config-path marker wired')
 
     print('Patched: %d' % total)
-    want = 22 if nocalldown else 21
+    want = 23 if nocalldown else 22	# +1: the DRP load group in PORT.ASM
     if '--reqmarker' in sys.argv:
         want += 5
     assert total == want, 'expected %d edits, got %d' % (want, total)
