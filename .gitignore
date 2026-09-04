@@ -82,3 +82,6 @@ bios_f000_dump_int15.bin
 # per-run boot logs and screenshots; the config that matters is in
 # docs/, not here.
 vm_xtide_pdr/
+
+# Per-experiment 86Box bed: 2 GB image plus multi-hundred-MB run logs.
+vm_xtcf_faithful/

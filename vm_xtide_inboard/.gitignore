@@ -8,3 +8,7 @@ stderr_*.txt
 bootlog_*.txt
 pdr_under_test.pdr
 shutlog_*.txt
+# Per-run captures: 86Box logs and the byte/line marks the analysis scripts drop.
+# Throwaway by design - the config and findings that mattered live in docs/.
+*.log
+.mark*

@@ -4987,7 +4987,7 @@ Its handler starts at file `3617h` (`AEPHDR` is 12 bytes, so `AEP_d_c_dcb` is `[
 ```
 
 Offsets resolved from `BLOCK/INC/DCB.INC`. **Careful with that file**: `DCB` embeds
-`DCB_COMMON DB SIZE DCB_COMMON DUP (?)`, so a naive offset計 walk is short by `4Fh` for every
+`DCB_COMMON DB SIZE DCB_COMMON DUP (?)`, so a naive offset walk is short by `4Fh` for every
 field after it - `DCB_COMMON` is `50h` bytes, not one.
 
 | field | ESDI_506 | ours |
