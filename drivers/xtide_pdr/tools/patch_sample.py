@@ -56,7 +56,9 @@ def main():
                    + TAB + 'extrn' + TAB + 'XTIDE_ForgetDcb:near' + TAB
                    + '; AEP_UNCONFIG_DCB teardown' + NL
                    + TAB + 'extrn' + TAB + 'XTIDE_VolDown:near' + TAB
-                   + '; AEP_SYSTEM_SHUTDOWN teardown' + NL,
+                   + '; AEP_SYSTEM_SHUTDOWN teardown' + NL
+                   + TAB + 'extrn' + TAB + 'XTIDE_ShutdownArm:near' + TAB
+                   + '; AEP_SYSTEM_SHUTDOWN fast-fail gate' + NL,
          0),
 
         # The load group number the logical DCB's calldown entry will need.
@@ -170,6 +172,7 @@ def main():
              ';  it, and IFSMGR walks that chain at System_Exit.' + NL +
              TAB + 'cmp' + TAB + 'si, AEP_SYSTEM_SHUTDOWN' + NL +
              TAB + 'jne' + TAB + 'pa_note_only' + NL +
+             TAB + 'call' + TAB + 'XTIDE_ShutdownArm' + TAB + '; gate: stop waiting 0.6 s per dead request' + NL +
              TAB + 'call' + TAB + 'XTIDE_VolDown' + TAB + '; destroy and UNLINK our volume' + NL +
              TAB + 'LeaveProc' + NL +
              TAB + 'Return' + NL +

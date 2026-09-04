@@ -126,6 +126,13 @@ XT_TR_LATCH	equ	2		; 16-bit: low at data, high at base+8
 
 XT_SPIN		equ	400000		; status poll limit; no timer at init
 
+;  Shutdown fast-fail limit. See docs/next_session_2026_09_04.md. A wait that
+;  expires at the FULL limit while shutting down means the drive has stopped
+;  answering, so every later wait uses this instead of costing another 0.6 s.
+;  A CF card can legitimately stall for hundreds of ms on an internal erase,
+;  which is why this is gated on shutdown and never armed while Windows runs.
+XT_SPIN_SHUT	equ	4000		; ~6 ms, once the drive has gone quiet
+
 ;  Inner-loop count for one unit of the boot-log delay channel. Calibrated on
 ;  86Box's Deskpro bed, where one unit is about 11.6 log ticks. The 5160 is
 ;  several times faster, so the same constant compresses every fail code into
@@ -275,6 +282,14 @@ XTIDE_ReqBuf			dd	0
 ;  which is a shipping driver that has actually executed this path.
 XTIDE_SgCur			dd	0	; -> current descriptor
 XTIDE_SgLeft			dd	0	; sectors the IOR still accounts for
+;  Poll-limit state. XTIDE_ShutDown is armed at exactly one call site, the
+;  AEP_SYSTEM_SHUTDOWN branch of Port_Async_Request, and never cleared - so
+;  while Windows is running, SpinLimit is XT_SPIN and behaviour is unchanged.
+;  A successful wait restores the full limit, so even after the clamp arms, a
+;  drive that comes back gets its patience back.
+XTIDE_ShutDown			dd	0	; set only by XTIDE_ShutdownArm
+XTIDE_SpinLimit			dd	XT_SPIN	; live poll limit, read by both wait loops
+
 XTIDE_ReqIsWrite		dd	0	; direction, so the transfer loop does
 					; not have to hold the IOP in EBX
 
@@ -579,16 +594,21 @@ EndProc XTIDE_SetPorts
 BeginProc XTIDE_WaitNotBusy
 
 	mov	edx, XTIDE_pAltStatus
-	mov	ecx, XT_SPIN
+	mov	ecx, XTIDE_SpinLimit
 xwnb_loop:
 	in	al, dx
 	test	al, ST_BSY
 	jz	xwnb_ok
 	dec	ecx
 	jnz	xwnb_loop
+	cmp	XTIDE_ShutDown, 0	; expired. shutting down, so the drive
+	jz	xwnb_fail		; has gone - do not spend 0.6 s again
+	mov	XTIDE_SpinLimit, XT_SPIN_SHUT
+xwnb_fail:
 	stc
 	ret
 xwnb_ok:
+	mov	XTIDE_SpinLimit, XT_SPIN	; it answered - full patience back
 	clc
 	ret
 
@@ -603,7 +623,7 @@ EndProc XTIDE_WaitNotBusy
 BeginProc XTIDE_WaitDrq
 
 	mov	edx, XTIDE_pAltStatus
-	mov	ecx, XT_SPIN
+	mov	ecx, XTIDE_SpinLimit
 xwd_loop:
 	in	al, dx
 	test	al, ST_BSY
@@ -615,12 +635,16 @@ xwd_loop:
 xwd_again:
 	dec	ecx
 	jnz	xwd_loop
+	cmp	XTIDE_ShutDown, 0	; timeout, not ERR - same reasoning
+	jz	xwd_fail
+	mov	XTIDE_SpinLimit, XT_SPIN_SHUT
 xwd_fail:
 	movzx	eax, al
 	mov	XTIDE_LastStatus, eax	; so ERR and timeout are distinguishable
 	stc
 	ret
 xwd_ok:
+	mov	XTIDE_SpinLimit, XT_SPIN	; it answered - full patience back
 	clc
 	ret
 
@@ -1431,6 +1455,28 @@ xfd_done:
 	ret
 
 EndProc XTIDE_ForgetDcb
+
+;----------------------------------------------------------------------------
+; XTIDE_ShutdownArm - PUBLIC. Arm the shutdown fast-fail. Destroys: nothing
+;
+;   Called from the AEP_SYSTEM_SHUTDOWN branch of Port_Async_Request and from
+;   nowhere else - that single call site IS the gate. Until it runs, both wait
+;   loops use the full XT_SPIN and the driver behaves exactly as before, which
+;   is what a live Windows session needs: a CF card doing an internal erase can
+;   be legitimately busy for hundreds of ms, and failing that write would be
+;   worse than waiting for it.
+;
+;   It does NOT shorten the first wait. The flush still gets the full limit;
+;   only after one full-length expiry - the drive has stopped answering - does
+;   the clamp take effect, and any later success lifts it again.
+;----------------------------------------------------------------------------
+	public XTIDE_ShutdownArm
+BeginProc XTIDE_ShutdownArm
+
+	mov	XTIDE_ShutDown, 1
+	ret
+
+EndProc XTIDE_ShutdownArm
 
 ;----------------------------------------------------------------------------
 ; XTIDE_VolDown - PUBLIC. Take our published logical volume back down.
