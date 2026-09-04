@@ -4394,3 +4394,72 @@ The ledger is seeded with every binary this project knows about, including `7029
 **Corollary for a long debugging session:** commit at each verified iteration, which `CLAUDE.md`
 already asks for. The reason is not tidiness. It is that a bisect needs a control, and a control
 you cannot rebuild is not one.
+
+## Technique 90: if a bug will not reproduce in the emulator, check the emulator models the CARD
+
+2026-09-04, and it repairs the whole shutdown investigation. **REPRODUCED - read this before
+acting on the retraction above.**
+
+### The symptom that wasted the morning
+
+The XT-IDE port driver's shutdown hang would not reproduce in 86Box. Four shutdowns, three
+binaries built from committed source, all clean; the same binary hung 3/3 on the real 5160. The
+natural readings were all wrong: a phantom binary, non-determinism, instrumentation timing.
+
+**The real answer: 86Box was not modelling the card.** `hdc_xtide.c` decoded `port & 0xf` -
+stride 1 - and did a 16-bit `ide_readw` per data access. The real Lo-tech XT-CF rev 3 does not
+decode A0 (registers at `base+2N`, 32 ports) and its BIOS sends `SET FEATURES 01h` to put the CF
+into **8-bit PIO**, where the data register is byte-wide with no high latch.
+
+So in the emulator our driver silently fell back to the stride-1 path, could not properly claim
+the disk, `RMM.PDR` stayed and served it, and **the defect never triggered because our driver was
+never really doing the job.** On hardware it is the disk, so it does.
+
+### The tell was in `BOOTLOG.TXT`, and it is free
+
+| | emulator, stride-1 card | real 5160 |
+|---|---|---|
+| `INITCOMPLETE = RMM` | present | **absent** - RMM loads then unloads, having claimed nothing |
+| `INITCOMPLETE = PORT` | - | **present** |
+| `IOS.LOG` | present, names a real-mode unit | **file does not exist** |
+
+**A driver that `Dynamic load success`es and then never reaches `INITCOMPLETE` found nothing to
+claim.** Diff the `INITCOMPLETE` list between bed and hardware before trusting any bed - it is one
+grep of a file both machines already write, and it would have shown the divergence on day one.
+
+### What the fix was
+
+`hdc_xtide.c`: a `Register stride` option (default 1, so every existing config is unchanged) with
+`reg = (port >> shift) & 0xf` and a 32-port range; 8-bit PIO tracked from `SET FEATURES 01h/81h`
+with the data register alternating low/high halves; and a BIOS entry for the XT+ r638 image read
+back off the card. `Mike1978uk/86Box` branch `xtcf-lotech-stride2`.
+
+Verify it took effect rather than assuming (technique 69) - the device now logs
+`XTIDE: base 0300 stride 2 bios xtcf_lotech`, and the access log shows our driver reading
+alternate status at **`031C`** (`base + 14*2`) where it previously used `0307`.
+
+### The reproduction, and why it is the control everything else needed
+
+With the faithful bed the hang appears immediately, on the binary that is actually on the CF
+(`0fe2431a`, tracked as `dist/xtide_pdr/PORT_claim_master_stride2_rw.pdr`):
+
+| | 2026-09-04 morning, `70298a8f`, stride-1 bed | faithful bed, `0fe2431a` |
+|---|---|---|
+| clusters | `C00031xx`-`C00032xx`, `C0008Exx`-`C00090xx` | identical distribution |
+| `C0003178` / `C0003257` / `C0008E27` | present | **all three present** |
+| shape | ring-0 VMM spin, driver idle, guest alive | same |
+
+The duplicate volume reproduces too - `C:` and `D:` from one CF, on both machines.
+
+**So the bug is real, consistent, and now bisectable at emulator cost.** Technique 89's retraction
+stands on the *diagnosis* only: the polling-contract explanation was derived from a binary that
+cannot be rebuilt, and is now testable for the first time.
+
+### The transferable rule
+
+**"It does not reproduce in the emulator" is a claim about the emulator, not about the bug.**
+Before concluding a fault is hardware-specific, list what the emulator does *not* model about the
+part in question - register decode, transfer width, timing - and check whether the code under test
+takes the same path in both. Here it did not, and nothing measured in that bed was evidence about
+the hardware. Technique 84 already said 86Box could not prove the transport on this card; what was
+missed is that this also makes it unable to reproduce anything *downstream* of the transport.
