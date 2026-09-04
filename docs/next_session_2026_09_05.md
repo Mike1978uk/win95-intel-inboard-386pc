@@ -229,3 +229,36 @@ definitely not ours. One build, one boot, and it splits the two theories above.
 Worth correlating against `HSFLOP.PDR` / `ESDI_506.PDR`, which shut down cleanly on this machine:
 which of these codes do they dispatch, and do their VRP counts balance? Copies are in
 `roms/xtcf_card/`.
+
+### ⭐ THE CORRELATION — CFU1 answers `AEP_FAILURE` where we answer `AEP_SUCCESS`
+
+`zikolas/cfu1-win9x`, `win/vxd/CFU1.ASM` ~line 3029 - a **working** Win9x IOS port driver that
+shuts down cleanly. Its entire AEP dispatch:
+
+```
+0  AEP_INITIALIZE      handled
+6  AEP_DEVICE_INQUIRY  handled
+2  AEP_BOOT_COMPLETE   AEP_SUCCESS
+3  AEP_CONFIG_DCB      handled
+16..19  DCB_LOCK / MOUNT_NOTIFY / CREATE_VRP / DESTROY_VRP  -> AEP_SUCCESS as a block
+everything else  ->  mov word ptr [ebx+2], 0FFFFh    ; AEP_FAILURE
+```
+
+**So a driver that shuts down cleanly returns `AEP_FAILURE` for `UNCONFIG_DCB`(4),
+`SYSTEM_SHUTDOWN`(14), `UNINITIALIZE`(15) and `PEND_UNCONFIG_DCB`(21).** It does not implement
+them; it tells IOS so, and IOS handles it.
+
+We do the opposite. On 2026-09-03 the sample's default was changed from `AEP_FAILURE` to
+`AEP_SUCCESS` on the reasoning quoted in `PORTAER.ASM` - *"AEP_SUCCESS ... is the right answer to
+all of them"*. **CFU1 says the sample was right and that change was wrong.** We are acknowledging
+four teardown commands we do not implement.
+
+**Do this first, it is one build:** restore `AEP_FAILURE` as the default for undispatched codes,
+and acknowledge only `16..19` as CFU1 does. Note this also means *removing* our `UNCONFIG_DCB` and
+`SYSTEM_SHUTDOWN` handlers from the dispatch, or at least making them answer FAILURE - which is a
+bigger behavioural change than it looks, so bisect it: default-FAILURE first, keeping our two
+handlers, then FAILURE for those two as well.
+
+CFU1 also keeps an `aep_counts[32]` census array - independent validation of the method used here.
+It does **not** remove its calldown at shutdown either, which weakens (does not kill) the
+never-removed-calldown theory above.
