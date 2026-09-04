@@ -471,8 +471,19 @@ XTIDE_InsertedDcb	dd	2 dup (0)
 ;  blocked inside that service. Our own ladder is balanced (D85 offered,
 ;  accepted, started, done) so the outstanding I/O is not ours. The volume
 ;  tracking layer keeps its own accounting in the DCB, and nobody has read it.
-XTIDE_SeenDcbMax	equ	8
+;  16, not 8: the first table filled during startup and missed the logical DCB
+;  in the FINAL AEP_DCB_LOCK - the one object most worth reading, because that
+;  is the AEP the teardown stops on. A capture that runs out of slots before
+;  the interesting event is not a measurement.
+;
+;  Record the AEP that named each object alongside it. hdr+12 is a DCB for some
+;  functions and a VRP for others (AEP_vrp_create_destroy, AEP_mnt_notify), and
+;  reading DCB fields out of a VRP produces numbers that look like counters and
+;  are not. Store the func and let the decoder say which is which, rather than
+;  guessing a struct layout per variant (technique 82).
+XTIDE_SeenDcbMax	equ	16
 XTIDE_SeenDcb		dd	XTIDE_SeenDcbMax dup (0)
+XTIDE_SeenFunc		dd	XTIDE_SeenDcbMax dup (0)
 XTIDE_SeenDcbN		dd	0
 
 ;  Which units this driver is willing to claim, one bit each. The default
@@ -1652,6 +1663,8 @@ xda_dup:
 
 xda_add:
 	mov	XTIDE_SeenDcb[ecx*4], edx
+	movzx	eax, si			; the AEP that named it
+	mov	XTIDE_SeenFunc[ecx*4], eax
 	inc	XTIDE_SeenDcbN
 
 xda_nosave:
@@ -1728,6 +1741,10 @@ xsa_dcb:
 	cmp	edi, XTIDE_SeenDcbN
 	jae	xsa_dcbdone
 	mov	esi, XTIDE_SeenDcb[edi*4]
+
+	mov	al, 26h
+	mov	edx, XTIDE_SeenFunc[edi*4]
+	call	XTIDE_DbgEmit		; which AEP named it - DCB or VRP
 
 	mov	al, 20h
 	mov	edx, esi

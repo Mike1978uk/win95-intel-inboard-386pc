@@ -34,6 +34,7 @@ TAGS = {
     0x23: "DCB_vrp_ptr (18h)",
     0x24: "our InsertedDcb[0]",
     0x25: "our InsertedDcb[1]",
+    0x26: "AEP that named the next object",
 }
 
 AEP = {
@@ -97,25 +98,39 @@ def main():
 
     # --- the per-DCB dump -----------------------------------------------
     print("\n=== DCB counters, read mid-teardown ===")
-    dcbs, cur = [], None
+    dcbs, cur, pending_func = [], None, None
     for tag, val in rec:
-        if tag == 0x20:
-            cur = {"dcb": val}
+        if tag == 0x26:
+            pending_func = val
+        elif tag == 0x20:
+            cur = {"dcb": val, "func": pending_func}
             dcbs.append(cur)
         elif cur is not None and tag in (0x21, 0x22, 0x23):
             cur[tag] = val
     if not dcbs:
         print("  NOT EMITTED - the shutdown dump never ran.")
     else:
-        print("  %-10s %-7s %-4s %-8s %-6s %-10s %s" % (
-            "DCB", "freeze", "sg", "io_pend", "lock", "dev_flags", "vrp_ptr"))
+        # INC32/AEP.H: +12 is a DCB for 3/4/6/21 (physical), 16 (logical) and
+        # 18 (physical); it is a VRP for 12/19 and 17. Reading DCB counters out
+        # of a VRP gives numbers that look like counters and are not.
+        KIND = {3: "phys DCB", 4: "phys DCB", 6: "phys DCB", 21: "phys DCB",
+                18: "phys DCB", 16: "LOGICAL DCB", 12: "VRP", 19: "VRP",
+                17: "VRP"}
+        print("  %-10s %-12s %-7s %-4s %-8s %-6s %-10s %s" % (
+            "OBJECT", "named by", "freeze", "sg", "io_pend", "lock",
+            "dev_flags", "vrp_ptr"))
         for d in dcbs:
             w = d.get(0x21)
             if w is None:
                 print("  %08X   <fields not emitted>" % d["dcb"])
                 continue
-            print("  %08X   %-7d %-4d %-8d %-6d %08X   %08X" % (
-                d["dcb"],
+            k = KIND.get(d.get("func"), "?")
+            if k == "VRP":
+                print("  %08X   %-12s <not a DCB - counters meaningless>" % (
+                    d["dcb"], "%s(%s)" % (AEP.get(d.get("func"), "?"), k)))
+                continue
+            print("  %08X   %-12s %-7d %-4d %-8d %-6d %08X   %08X" % (
+                d["dcb"], k,
                 w & 0xFF, (w >> 8) & 0xFF, (w >> 16) & 0xFF, (w >> 24) & 0xFF,
                 d.get(0x22, 0), d.get(0x23, 0)))
         print("\n  io_pend is DCB_io_pend_count (78h), the VOLUME TRACKING layer's")
