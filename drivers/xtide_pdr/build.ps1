@@ -290,7 +290,38 @@ Copy-Item "$PSScriptRoot\PORT.DEF" $OutDir -Force
 
 if (Test-Path PORT.pdr) {
     $h = (Get-FileHash PORT.pdr -Algorithm MD5).Hash.ToLower()
-    Write-Output "SUCCESS: $OutDir\PORT.pdr  $((Get-Item PORT.pdr).Length) bytes  md5 $h"
+    # PROVENANCE. On 2026-09-04 a whole session was spent chasing a shutdown hang
+    # in a binary (md5 70298a8f) that could not be rebuilt from any commit - it had
+    # been produced from an uncommitted working tree on 2026-09-03, deployed straight
+    # into the emulator image, and the source state was then lost. The hang was real
+    # and is now unattributable and unbisectable.
+    #
+    # So: stamp every build with the commit it came from, say loudly when the tree is
+    # dirty, and append an md5 -> provenance line to a tracked ledger. Any binary
+    # found later on a card or in an image can then be identified by its md5 alone.
+    $sz  = (Get-Item PORT.pdr).Length
+    $cm  = (& git -C $PSScriptRoot rev-parse --short HEAD 2>$null)
+    $dty = (& git -C $PSScriptRoot status --porcelain -- $PSScriptRoot 2>$null)
+    $state = if ($dty) { "DIRTY" } else { "clean" }
+
+    Write-Output "SUCCESS: $OutDir\PORT.pdr  $sz bytes  md5 $h"
+    Write-Output "         commit $cm  tree $state  flags: $($aflags -join ' ')"
+    if ($dty) {
+        Write-Output ""
+        Write-Output "  *** WORKING TREE IS DIRTY - this binary is NOT reproducible from a commit."
+        Write-Output "  *** Commit before deploying it anywhere you will later draw a conclusion from."
+        Write-Output "  *** (2026-09-04: skipping this cost a session. See technique 70.)"
+        $dty -split "`n" | ForEach-Object { if ($_) { Write-Output "      $_" } }
+        Write-Output ""
+    }
+
+    $ledger = Join-Path $PSScriptRoot "build_ledger.tsv"
+    if (-not (Test-Path $ledger)) {
+        "utc`tmd5`tbytes`tcommit`ttree`tflags" | Set-Content $ledger -Encoding utf8
+    }
+    $line = "{0}`t{1}`t{2}`t{3}`t{4}`t{5}" -f `
+        (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ"), $h, $sz, $cm, $state, ($aflags -join ' ')
+    Add-Content $ledger $line -Encoding utf8
 } else {
     Write-Output "FAILED: link did not produce PORT.pdr"; exit 1
 }

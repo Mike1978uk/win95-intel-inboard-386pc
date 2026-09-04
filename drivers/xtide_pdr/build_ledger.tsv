@@ -1,0 +1,10 @@
+utc	md5	bytes	commit	tree	flags
+2026-09-01T22:35:00Z	0fe2431af4f98990c810ebbcf76b0424	20675	unknown	unknown	dist/xtide_pdr/PORT_claim_master_stride2_rw.pdr - THE BINARY ON THE REAL CF
+2026-09-03T~19:00Z	70298a8fe0f4b1173075fe727ce66de4	20619	UNREPRODUCIBLE	DIRTY	release build left on the emulator bed; hung at shutdown 3/3 on 2026-09-04; NOT rebuildable from any commit - source state lost
+2026-09-04T09:30:00Z	e539df766b2a4afb1957fce130002596	20675	507fd60	clean	shutdown fast-fail clamp; never armed, never tested end to end
+2026-09-04T10:30:00Z	71a2620c9b79cf20daac4ff59ecfd123	20675	be4ae02~	DIRTY	clamp + completion counters; shutdown CLEAN 2/2
+2026-09-04T10:40:00Z	a0032294cc3408f9cf99dc0d3b22d115	20675	be4ae02	clean	counters only, clamp reverted; shutdown CLEAN 1/1
+2026-09-04T10:45:00Z	996f25b76e5107809c1284da0cb46ff1	20675	be4ae02	clean	-NoDbgCount: neither clamp nor counters; shutdown CLEAN 1/1
+2026-09-04T11:15:00Z	4e2dd46cfe9235e41813f1233b860510	20619	3b85848	clean	-Release rebuild of the 2026-09-03 tree; same SIZE as 70298a8f, different content - proves that binary was not from a commit
+2026-09-04T10:43:43Z	a0032294cc3408f9cf99dc0d3b22d115	20675	be4ae02	DIRTY	-DXT_TIMEBASE=725000 -coff -DBLD_COFF -DDEBUG_TRACE=1 -DIS_32 -nologo -W3 -Zd -c -Cx -DMASM6 -DINITLOG -DDEBLEVEL=0 -DXT_STRIDE=2 -DXT_CLAIM_MASK=3 -DXT_NO_WRITETEST=1
+2026-09-04T10:43:51Z	a0032294cc3408f9cf99dc0d3b22d115	20675	be4ae02	DIRTY	-DXT_TIMEBASE=725000 -coff -DBLD_COFF -DDEBUG_TRACE=1 -DIS_32 -nologo -W3 -Zd -c -Cx -DMASM6 -DINITLOG -DDEBLEVEL=0 -DXT_STRIDE=2 -DXT_CLAIM_MASK=3 -DXT_NO_WRITETEST=1
