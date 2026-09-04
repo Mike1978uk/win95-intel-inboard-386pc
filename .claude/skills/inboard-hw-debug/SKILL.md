@@ -5065,9 +5065,15 @@ the whole time. I opened it once, grepped four tokens, got no hits, and wrote it
 
 - A **keyword miss is not a document review.** Extract the text, print how much came out, and grep
   for the *concepts* before concluding anything.
-- **Andrew has not been wrong yet.** The IOS punt, the `.INF` class, the vendor README, the
-  RAM-granularity bug, the published XT I/O map, and now this. When he names a document, read it
-  before writing code.
+- **When @andrew-hoffman names a document, read it before writing code.** The IOS punt, the `.INF`
+  class, the vendor README, the RAM-granularity bug, the published XT I/O map, and now this - a
+  strong enough hit rate that a pointer from him is worth an hour of reading on sight.
+  **Corrected at his own request, 2026-09-05:** an earlier version of this line said he "has not
+  been wrong yet". He asked for that removed - *"I've been wrong lots of times, and I did waste
+  some of your time not realizing about the difference between the 8 bit XT-CF and the full XT IDE
+  interface."* The rule was never about him being infallible, and stating it that way makes it
+  easier to follow a steer without checking it. **Read the source he names; then verify it against
+  the machine like any other source.**
 - The project already had this rule for vendor READMEs (technique 75, which cost two patch rounds
   on the LS-120). **It applies to every source, not just READMEs.** Add it at intake, with a note
   saying whether it was read and what it contained - including "nothing relevant", which is a
