@@ -4795,3 +4795,104 @@ terminate. **Next measurement: dump the full TCB at `C159F068` and walk the list
    in a comment *before* the `DRP <...>` initialiser - so the patcher reported success having
    rewritten prose. The md5 was unchanged and that is what caught it. **Anchor a patch on the
    syntax it must change, and diff the md5.**
+
+---
+
+## ⭐ Mining Microsoft's own port drivers, 2026-09-04 late — what a clean driver has that we don't
+
+The owner's call, and the right one: *"we have something for a regular IDE disk and other drivers
+that can be used as almost a template - all the answers of what we need has to be in them."*
+`ESDI_506.PDR` does **exactly our job** and tears down cleanly on this machine seconds before we
+fail to. No boots were spent on any of what follows.
+
+Tooling now in the repo, because a scratchpad does not survive:
+`tools/vxd_disasm.py` (handles `CD 20` + inline 4-byte service id, which desyncs every naive
+disassembler), `tools/vxd_drp.py`, `tools/vxd_aep_audit.py`, `tools/vxd_isp_audit.py`.
+Requires `capstone` (5.0.7 present).
+
+### ESDI_506's entire AER — disassembled, not inferred
+
+```asm
+0611  mov  word ptr [ebx+2], 0        ; preset AEP_SUCCESS
+0617  mov  ax, word ptr [ebx]         ; AEP_func
+061A  cmp ax,2  je BOOT_COMPLETE      0624  cmp ax,0   je INITIALIZE
+062E  cmp ax,0Fh je UNINITIALIZE      0638  cmp ax,6   je DEVICE_INQUIRY
+0642  cmp ax,3  je CONFIG_DCB         064C  cmp ax,5   je IOP_TIMEOUT
+0656  mov  word ptr [ebx+2], 0FFFFh   ; AEP_FAILURE to everything else
+065C  ret
+```
+
+**Six codes. `AEP_FAILURE` for the rest — including `AEP_PEND_UNCONFIG_DCB` (21) and
+`AEP_DCB_LOCK` (16).** `HSFLOP` dispatches six too, and also ignores 21. We dispatch fifteen.
+
+**This retires the whole "we answer the teardown wrongly" family.** Windows' own IDE port driver
+refuses exactly the codes tonight's fixes were written to answer, and shuts down cleanly. Four
+builds went into that theory and every one changed the teardown by not a single AEP - which is
+consistent, and now explained.
+
+### The verified ISP service comparison
+
+Counts below are **disassembly-verified**, not scanned - see the trap below.
+
+| ISP service | ours | ESDI_506 | HSFLOP | SCSIPORT |
+|---|---|---|---|---|
+| `CREATE_DDB` | 1 | 1 | 1 | – |
+| `INSERT_CALLDOWN` | 2 | 1 (+1 conditional, same packet reused) | 1 | – |
+| **`CREATE_DCB`** | **1** | – | – | – |
+| **`ASSOCIATE_DCB`** | **1** | – | – | – |
+| **`DESTROY_DCB`** | **1** | – | – | – |
+| `DEALLOC_DDB` | 2 | 1 | – | – |
+| `CREATE_IOP` / `ALLOC_MEM` / `DEALLOC_MEM` | – | 2 / 1 / 1 | – | 1 / 1 / 3 |
+| `GET_DCB` | – | – | 2 | – |
+| `DEVICE_REMOVED` / `DEVICE_ARRIVED` | – | – | 1 / 1 | – |
+
+**No Microsoft port driver creates, associates or destroys a DCB.** That is TSD work. We are the
+only one doing it - the "be our own TSD" edifice from technique 83, whose premise (a dynamically
+registered driver gets no TSD engagement) is already known to be false on the faithful bed, since
+DiskTSD assigns `C:` on its own.
+
+**Caveat that stops this being the hang:** in the `-NoVolume` configuration none of that code
+executes, and it still wedges. Our *executed* ISP set there is `CREATE_DDB` + one
+`INSERT_CALLDOWN` + `DEALLOC_DDB` - near-identical to ESDI_506's.
+
+### The calldown packet, field by field
+
+`ISP_insert_calldown` is `hdr(4), dcb, req, ddb, expan_len(w), flags(dd), lgn(b)`.
+
+| field | ESDI_506 | ours |
+|---|---|---|
+| dcb / req / ddb / lgn | set, `lgn` from `AEP_lgn` | same |
+| **expan_len** | **`24h`** - 36 bytes of per-IOP scratch | **`0`** |
+| **flags** | `0`, or `DCB_dmd_phys_sgd` (`800h`) on a capability test | `DCB_dmd_small_memory` (`10h`), unconditional |
+
+Both packets are well-formed, so an earlier worry that the sample left fields as stack garbage was
+unfounded. `ISP_i_cd_flags` legitimately takes `DCB_dmd_*` values - `STORAGE.DOC`: *"a layer driver
+that satisfies a specific demand stipulated in the DCB dmd flags must turn off the demand bit"*.
+
+**The one difference that is at least coherent with a known contract gap:** per-IOP scratch is what
+a driver needs to carry state across a **deferred** completion. ESDI_506 asks for 36 bytes; we ask
+for none, because we complete inline. That is self-consistent with our design and different in kind
+from how every Microsoft port driver is built - see technique 88's polling contract. **Not a proven
+cause. Recorded as a design difference.**
+
+### ⚠ The trap that produced a false lead, and the constraint that kills it
+
+A byte scan for `mov word ptr [reg+disp], imm16` reported `ISP_DISASSOCIATE_DCB` in both working
+drivers and none in ours - a beautiful "start four, close three" story that was **completely
+wrong**. Disassembling the site:
+
+```asm
+0000075F  mov word ptr [edi + 0x68], 0xf     ; a DCB field store. Not an ISP packet.
+```
+
+`0Fh` is `ISP_DISASSOCIATE_DCB` *and* an ordinary field value. Worse, the "verify it by checking an
+indirect CALL follows" heuristic **also passed it**, because an unrelated call happened to be 44
+bytes later.
+
+**`ISP_func` is at offset 0 of the packet, so only a ZERO-displacement store can be one.** With
+that constraint the false positive disappears and the table above is stable. `tools/vxd_isp_audit.py`
+enforces it.
+
+Generalise: technique 75 already says a raw byte scan is not evidence and each hit must be confirmed
+by its idiom. **Add: confirm it against the STRUCTURE's own layout.** A field's offset is a hard
+constraint that a plausibility heuristic is not.
