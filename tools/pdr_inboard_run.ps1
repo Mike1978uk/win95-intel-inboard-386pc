@@ -47,7 +47,9 @@ param(
     # "clears prompts" which no longer exist proves only that it ran
     # (technique 71). In-guest is unattended, repeatable, and never takes focus
     # from whoever is using the host.
-    [switch]$InGuest
+    [switch]$InGuest,
+    # Driver to copy into IOSUBSYS AFTER the image is restored from master.
+    [string]$Deploy = ""
 )
 
 $repo = "C:\Users\lycet\RiderProjects\86Box-Inboard"
@@ -108,6 +110,16 @@ if ($mach -ne "ibmxt_inboard386") { Write-Output "WRONG MACHINE - this bed exist
 # (renamed out for a bisect) still finds the PREVIOUS run's copy and reports its
 # md5 - so the log claims a driver was under test when none was. Technique 23
 # again, and the third instance of it in this harness alone.
+# Deploy AFTER the restore, or the restore wipes what you deployed. The md5 is
+# then read back out of the image below, so what is reported is what will boot,
+# never what was staged (technique 75 - verify at the destination).
+if ($Deploy -ne "") {
+    if (-not (Test-Path $Deploy)) { Write-Output "MISSING driver to deploy: $Deploy"; exit 1 }
+    Write-Output "Deploying $([IO.Path]::GetFileName($Deploy)) -> IOSUBSYS\PORT.PDR"
+    python "$repo\tools\fatcp.py" $img "WINDOWS/SYSTEM/IOSUBSYS/PORT.PDR" $Deploy --yes
+    if ($LASTEXITCODE -ne 0) { Write-Output "DEPLOY FAILED"; exit 1 }
+}
+
 $uut = Join-Path $env:TEMP "pdr_under_test.pdr"
 Remove-Item $uut -EA SilentlyContinue
 python "$repo\tools\fatls.py" $img --get "C:\WINDOWS\SYSTEM\IOSUBSYS\PORT.PDR" $uut | Out-Null
