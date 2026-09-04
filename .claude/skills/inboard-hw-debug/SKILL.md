@@ -4326,3 +4326,57 @@ log has the lines you expect before spending a reproduction on it - here, `grep 
 12-second boot answers it.
 
 Both edits are marked `DIAGNOSTIC, not for upstream` in `86box_upstream`, which is its own repo.
+
+### RETRACTED 2026-09-04: the hang was in a binary nobody can rebuild
+
+**Everything in technique 88 above about the polling contract is diagnosis of a defect in an
+artefact that does not exist any more.** Read this before acting on any of it.
+
+Four shutdowns on 2026-09-04, three binaries built from committed source, all **clean**:
+`71a2620c` (clamp + counters), `a0032294` (counters only), `996f25b7` (neither). The binary
+that hung - md5 `70298a8f`, 3/3 that morning - **cannot be rebuilt from any commit.** It came
+from an uncommitted working tree on 2026-09-03, went straight into the emulator image, and that
+source state is gone.
+
+Eliminated before concluding it, in this order, each one cheap:
+
+| candidate | test | result |
+|---|---|---|
+| non-deterministic toolchain | build the same source twice | same md5 - deterministic |
+| line endings (`.gitattributes` normalises `.ASM` to CRLF) | build the same source as LF and as CRLF | **byte-identical** - not it |
+| it was a bisect build | `-Release` refuses `-NoVolume`/`-NoCalldown`/`-NoDcb`/`-NoIo`; release is 20,619 bytes, bisect builds 20,675; `70298a8f` is 20,619 | not a bisect build |
+| it matches the committed tree | `3b85848` + `-Release` | right SIZE, wrong content (`4e2dd46c`) |
+
+So the hang was real - it reproduced three times out of three - and it is now **unattributable
+and unbisectable**. A day went into diagnosing it, and the diagnosis cannot be checked.
+
+**The real machine was never running it.** The CF holds `0fe2431a` (2026-09-01,
+`dist/xtide_pdr/PORT_claim_master_stride2_rw.pdr`), which is tracked and reproducible.
+
+### Technique 89: an artefact under test must be traceable to a commit, or its results are not evidence
+
+Technique 70 says verify the BINARY, not the source tree - `stat` the exe against `git log`.
+That is necessary and it is not sufficient. The binary here was newer than every commit and
+still corresponded to none of them, because the tree it was built from was dirty and the changes
+were never committed. A timestamp check passes cleanly in that case.
+
+**The rule: before you deploy a binary anywhere you will later draw a conclusion from, make it
+rebuildable.** Commit first, or record the exact source state. The emulator-image loop is where
+this slips, because deploying to an image feels like a test rather than a release - the md5 gets
+checked against the *staging copy* (technique 75's rule, correctly applied) and never against a
+commit.
+
+Enforced rather than remembered, since remembering it did not work:
+
+- `build.ps1` prints `commit <hash>  tree clean|DIRTY` next to the md5 on every build, and
+  prints a loud block naming the dirty files when the tree is not clean;
+- every build appends `utc, md5, bytes, commit, tree, flags` to `drivers/xtide_pdr/build_ledger.tsv`,
+  which is tracked. **Any binary found later on a card or in an image can then be identified by
+  its md5 alone** - which is precisely the question that could not be answered here.
+
+The ledger is seeded with every binary this project knows about, including `70298a8f` marked
+`UNREPRODUCIBLE`, so the next person who finds it does not repeat the archaeology.
+
+**Corollary for a long debugging session:** commit at each verified iteration, which `CLAUDE.md`
+already asks for. The reason is not tidiness. It is that a bisect needs a control, and a control
+you cannot rebuild is not one.

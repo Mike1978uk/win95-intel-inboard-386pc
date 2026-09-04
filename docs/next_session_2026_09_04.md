@@ -1,5 +1,37 @@
 # Next session — 2026-09-04
 
+> # ⚠ RETRACTED 2026-09-04, 11:40 — DO NOT ACT ON THIS DOCUMENT
+>
+> **The shutdown hang does not reproduce with any driver built from committed source.**
+> Four shutdowns, three binaries, all clean: `71a2620c` (clamp + counters), `a0032294`
+> (counters only) and `996f25b7` (neither). The binary that hung — md5 `70298a8f`, 3/3 —
+> **cannot be rebuilt from any commit.** It was produced from an uncommitted working tree
+> on 2026-09-03, deployed straight into the emulator image, and that source state is lost.
+>
+> So the hang was real, and it is now **unattributable and unbisectable**. Everything below
+> about `Set_Global_Time_Out`, the polling contract, and the restructure is diagnosis of a
+> defect in an artefact nobody can reproduce. **Do not spend a session restructuring the
+> driver on the strength of it.**
+>
+> Checked and eliminated before concluding this:
+> - the toolchain is deterministic (same source twice → same md5);
+> - it was not a line-ending artefact (LF and CRLF builds are byte-identical);
+> - it was not a bisect build (`-Release` refuses `-NoVolume`/`-NoCalldown`/`-NoDcb`/`-NoIo`,
+>   and `70298a8f` is 20,619 bytes = the release size; bisect builds are 20,675);
+> - `3b85848` + `-Release` gives the right size but `4e2dd46c`, not `70298a8f`.
+>
+> **The real 5160 was never running it.** The CF at `D:` holds `0fe2431a` — 2026-09-01,
+> `dist/xtide_pdr/PORT_claim_master_stride2_rw.pdr`, tracked and reproducible. Nothing lost
+> there, and its shutdown has never been tested. That is the test worth doing.
+>
+> Provenance is now enforced: `build.ps1` stamps the commit, shouts on a dirty tree, and
+> appends md5 → commit/flags to `drivers/xtide_pdr/build_ledger.tsv`.
+>
+> What still stands from below: the measurements. The transport is exonerated (3,582 status
+> polls against 400000 for one timeout; the last command transferred all 8 sectors), the
+> freeze was a VMM-level wedge, and **`AEP_SYSTEM_SHUTDOWN` never reaches our handler** — so
+> `XTIDE_VolDown` has never run. That last one is a real, standing bug worth its own look.
+
 Written at the end of 2026-09-03. Everything below is committed and pushed; nothing depends on
 that session still being alive.
 
