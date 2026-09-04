@@ -459,6 +459,22 @@ XTIDE_ClaimedDcb	dd	2 dup (0)
 ;  the same way and says why - the DDK sample guards neither.
 XTIDE_InsertedDcb	dd	2 dup (0)
 
+;  Every distinct object an AEP has named at hdr+12, ours or not, in arrival
+;  order. NOT a driver structure - a pure observation table for the shutdown
+;  dump below, so it may safely hold DCBs we never claimed.
+;
+;  Why: the newer STORAGE.DOC says ISP_DCB_DESTROY "broadcasts an
+;  AEP_PEND_UNCONFIG_DCB [...] Execution BLOCKS until all pending I/O to the
+;  device is complete", and only then notifies IFSMGR, sends AEP_UNCONFIG_DCB
+;  and frees the VRPs. Our teardown runs 21-16-19-4 on one DCB and then
+;  21-16-<nothing> on a second, so IOS is not abandoning the teardown - it is
+;  blocked inside that service. Our own ladder is balanced (D85 offered,
+;  accepted, started, done) so the outstanding I/O is not ours. The volume
+;  tracking layer keeps its own accounting in the DCB, and nobody has read it.
+XTIDE_SeenDcbMax	equ	8
+XTIDE_SeenDcb		dd	XTIDE_SeenDcbMax dup (0)
+XTIDE_SeenDcbN		dd	0
+
 ;  Which units this driver is willing to claim, one bit each. The default
 ;  claims both; the emulator loop builds with 2 so the first request-path run
 ;  is aimed at a scratch slave and not at the boot disk.
@@ -1611,6 +1627,34 @@ BeginProc XTIDE_DbgAep
 	mov	al, 12h
 	call	XTIDE_DbgEmit
 
+;  Remember the object, so XTIDE_ShutdownArm can read its counters later. Only
+;  ring-0 heap pointers: an AEP variant whose hdr+12 is a flag or a drive
+;  number would otherwise put a small integer in the table and the dump would
+;  dereference it. Filtering here beats faulting at System_Exit.
+	mov	edx, [ebx+12]
+	cmp	edx, 0C0000000h
+	jb	xda_nosave
+	test	edx, 3			; a DCB is dword-aligned
+	jnz	xda_nosave
+
+	mov	ecx, XTIDE_SeenDcbN
+	cmp	ecx, XTIDE_SeenDcbMax
+	jae	xda_nosave
+
+	xor	eax, eax
+xda_dup:
+	cmp	eax, ecx
+	jae	xda_add
+	cmp	XTIDE_SeenDcb[eax*4], edx
+	je	xda_nosave		; already have it
+	inc	eax
+	jmp	xda_dup
+
+xda_add:
+	mov	XTIDE_SeenDcb[ecx*4], edx
+	inc	XTIDE_SeenDcbN
+
+xda_nosave:
 	popad
 	ret
 
@@ -1659,6 +1703,63 @@ BeginProc XTIDE_ShutdownArm
 	mov	al, 04h
 	mov	edx, XTIDE_DbgDone
 	call	XTIDE_DbgEmit
+
+;  ---- the volume-tracking layer's own accounting, per DCB -----------------
+;
+;  AEP_SYSTEM_SHUTDOWN arrives AFTER the second DCB has had 21 and 16 and
+;  stalled, so this reads the counters mid-destroy - the exact moment
+;  ISP_DCB_DESTROY is documented to be blocking in.
+;
+;  Offsets confirmed against BLOCK\INC\DCB.INC, not guessed and not taken from
+;  the Guide's .IDCB dump alone (technique 80): DCB_queue_freeze 76h,
+;  DCB_max_sg_elements 77h, DCB_io_pend_count 78h and DCB_lock_count 79h are
+;  four consecutive bytes in STRUC DCB, so one dword read carries all four -
+;  tag 21h reads, LSB first, freeze / sg / pend / lock. DCB_vrp_ptr 18h and
+;  DCB_device_flags 20h are in DCB_COMMON, which is the first field of DCB, so
+;  the same base applies.
+;
+;  Reading a DCB that has already been freed gives garbage rather than a
+;  fault - ring-0 heap stays mapped - and the pointer in tag 20h says which is
+;  which, so no attempt is made to filter them.
+	push	esi
+	push	edi
+	xor	edi, edi
+xsa_dcb:
+	cmp	edi, XTIDE_SeenDcbN
+	jae	xsa_dcbdone
+	mov	esi, XTIDE_SeenDcb[edi*4]
+
+	mov	al, 20h
+	mov	edx, esi
+	call	XTIDE_DbgEmit		; which object
+
+	mov	al, 21h
+	mov	edx, [esi+76h]
+	call	XTIDE_DbgEmit		; freeze | sg | io_pend | lock
+
+	mov	al, 22h
+	mov	edx, [esi+20h]
+	call	XTIDE_DbgEmit		; DCB_device_flags
+
+	mov	al, 23h
+	mov	edx, [esi+18h]
+	call	XTIDE_DbgEmit		; DCB_vrp_ptr - 0 once the VRP is freed
+
+	inc	edi
+	jmp	xsa_dcb
+
+xsa_dcbdone:
+;  And our own, named separately so it is identifiable even if it never
+;  appeared in an AEP this run.
+	mov	al, 24h
+	mov	edx, XTIDE_InsertedDcb[0]
+	call	XTIDE_DbgEmit
+	mov	al, 25h
+	mov	edx, XTIDE_InsertedDcb[4]
+	call	XTIDE_DbgEmit
+
+	pop	edi
+	pop	esi
 
 	ret
 
