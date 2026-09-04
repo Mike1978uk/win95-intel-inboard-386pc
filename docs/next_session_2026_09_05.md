@@ -1,4 +1,110 @@
-# Next session — 2026-09-05
+# ⭐ THE GOLDEN PATH — start here, in this order
+
+Written at the close of 2026-09-04 after twelve emulator boots. **The shutdown hang is not fixed**,
+but for the first time there is a route rather than a list of guesses. Follow it in order; each step
+is cheaper than the one after it, and steps 0 and 1 cost no machine time at all.
+
+## 🛑 THE RULE THIS SESSION PAID FOR — read every source you are given
+
+**When someone hands us a source, read it and decide whether it is useful. Each one, at intake.**
+
+@andrew-hoffman posted the *I/O Supervisor Guide* on 2026-09-03. It was downloaded to
+`C:\IOSGuide\IOS_Guide.doc` the same day. On 2026-09-04 twelve emulator boots and most of a
+session went into reverse-engineering, from binaries, the polling contract and the serialisation
+shape **that document states in plain English and supplies as assembly source.** It was on disk
+the whole time. I opened it once, grepped four tokens, got no hits, and wrote it off.
+
+- A **keyword miss is not a document review.** Extract the text, print how much came out, and grep
+  for the *concepts* before concluding anything.
+- **Andrew has not been wrong yet.** The IOS punt, the `.INF` class, the vendor README, the
+  RAM-granularity bug, the published XT I/O map, and now this. When he names a document, read it
+  before writing code.
+- The project already had this rule for vendor READMEs (technique 75, which cost two patch rounds
+  on the LS-120). **It applies to every source, not just READMEs.** Add it at intake, with a note
+  saying whether it was read and what it contained - including "nothing relevant", which is a
+  result worth recording.
+
+---
+
+### Step 0 — read the Guide. FREE, and it has the code we need.
+
+`C:\IOSGuide\IOS_Guide.doc` (Microsoft's *I/O Supervisor Guide*, from @andrew-hoffman, issue #21 —
+NOT in the Win95 DDK). Extract with a printable-run scan in **latin1**, not UTF-16:
+
+```python
+import re; d=open('C:/IOSGuide/IOS_Guide.doc','rb').read()
+s=re.sub(r'\s+',' ',b' '.join(re.findall(rb'[\x20-\x7e]{4,}',d)).decode('latin1'))
+```
+
+194,000 characters come out. Two places to read:
+
+| char offset | what is there |
+|---|---|
+| **~56,500** | the polling procedure step by step, quoting **ESDI_506's own source** for `ILB_enqueue_iop` |
+| **~59,900** | **full assembly source of `IOS_serialize` and `IOS_serialize_callback`** |
+
+I dismissed this file earlier on four keyword misses. Do not repeat that: a keyword miss is not a
+document review.
+
+### Step 1 — `DCB_max_sg_elements`. One byte, one build, one boot.
+
+`ESDI_506` sets it to `11h` (17) at `AEP_CONFIG_DCB`; **we never write it, so it stays 0** — while
+scatter/gather requests demonstrably reach us (technique 85, the bug that wrote a descriptor list
+into the root directory). Set it in `XTIDE_ConfigDcb` beside the `DCB_max_xfer_len` write that is
+already there. Cheapest real change available.
+
+### Step 2 — the one missing step in the polling contract.
+
+**Do not restructure anything.** `PORTREQ.ASM` already enqueues with `ILB_enqueue_iop`, takes
+`DDB_BF_ACTIVE_BIT` with `bts`/`jc`, returns without completing when busy, and drains with
+`ILB_dequeue_iop` — the same shape `ESDI_506` uses. The gap is only *inside the wait*:
+`XTIDE_WaitNotBusy` / `XTIDE_WaitDrq` busy-spin `XT_SPIN` = 400,000 `in al,dx` **while holding the
+queue's lock**, where the Guide requires `Set_Global_Time_Out` then a return, with the polling
+handler completing later and calling `ILB_dequeue_iop`.
+
+`Port_iop_timeout` (`AEP_IOP_TIMEOUT`) is an empty stub answering `AEP_SUCCESS` — the natural home
+for that handler. Use the Guide's `IOS_serialize` source; do not invent the shape.
+
+**Bisect it.** First build proves IOS tolerates ONE deferred completion. Only restructure if it does.
+
+### Do NOT re-derive these — six theories, all dead
+
+| | how it died |
+|---|---|
+| VMM waits on thread list `C001080C` | walked at the wedge: **empty** |
+| VMM waits on list `C0010C98` | walked at the wedge: **empty** |
+| circular chain at `TCB+6Ch` | walked: terminates at NULL after one node |
+| the published volume / appy-time event | `-NoVolume`: still wedges |
+| the own-TSD work | **stripped from the image**, verified absent: still wedges |
+| "we answer the teardown AEPs wrongly" | `ESDI_506` answers `AEP_FAILURE` to 21 and 16 and shuts down cleanly |
+
+### The bed, and how to reproduce in ~15 minutes
+
+`vm_xtcf_faithful/` — the real card's own image on `ibmxt_inboard386`, with 86Box modelling the
+Lo-tech XT-CF (stride-2 decode, 8-bit PIO, the card's ROM). Restore `86box.cfg` from
+`86box.cfg.master` every run, clear `C:\BOOTLOG.TXT`, deploy with `tools/fatcp.py` and **verify the
+md5 at the destination**. Then boot, wait for the desktop, and shut down **by hand** — Start → Shut
+Down → OK. Host chords never reach the guest.
+
+### What a fixed run looks like
+
+| signal | hangs | fixed |
+|---|---|---|
+| teardown of our DCB | `21 · 16 · <stop>` | `21 · 16 · 19 · 4` |
+| `DESTROY_VRP` for `C0FD65C8` (drive 2 = `C:`) | absent | present |
+| VRP create/destroy | 2 / 1 | 2 / 2 |
+| 86Box | spins at `C0003xxx`/`C0008Exx`, `EDI` pinned to a THCB | reaches "safe to turn off" |
+
+### Two rules this session paid for
+
+- **Check the built artefact, never the source you wrote.** Two runs were wasted on changes that
+  never reached the binary — an unreachable dispatch block, and a regex that rewrote a comment.
+- **Dump bytes before naming a structure.** Every wrong turn came from proposing a data structure;
+  the results that stuck (`THCB` signature, both lists empty) came from dumping memory.
+
+---
+
+# Next session â 2026-09-05
 
 **Supersedes `next_session_2026_09_04.md`, which is retracted at the top of its own file.**
 
@@ -18,8 +124,8 @@ C000318D:  75 ED               jne -19        ; loop while they differ; EAX neve
 
 | | EAX | EBX | outcome |
 |---|---|---|---|
-| clean (driver absent) | `C0FCE28C` — a VMM pointer | `C15200E8` | falls through; shutdown completes |
-| hung (driver present) | **`00000000`** | `C15200E8` — **the same object** | spins forever |
+| clean (driver absent) | `C0FCE28C` â a VMM pointer | `C15200E8` | falls through; shutdown completes |
+| hung (driver present) | **`00000000`** | `C15200E8` â **the same object** | spins forever |
 
 `[C000E9F4]` is never written in **either** run, so the global is not the variable. The clean run
 exits because EAX already matches. **With our driver loaded, VMM enters this wait holding a null
@@ -39,19 +145,19 @@ C0002657..C0002665 -> C0002795 -> C000352E..C0003559
 -> C0003190..C0003268 -> C0001359 C0001360 -> C000329A..C00032B4
 ```
 
-Trace backwards from `C0001300`–`C0001354` and find what returns zero. It will be an object VMM
+Trace backwards from `C0001300`â`C0001354` and find what returns zero. It will be an object VMM
 asks for at `System_Exit` that our calldown insert changes.
 
-## The bed — this is the enabling piece, do not lose it
+## The bed â this is the enabling piece, do not lose it
 
 `vm_xtcf_faithful/` is the **first emulator bed that matches the real card**, and the hang only
 reproduces there. It has your CF's own driver (`0fe2431a`) restored and ready.
 
 86Box needed two fixes to model the card, both on `Mike1978uk/86Box` branch `xtcf-lotech-stride2`:
 
-- **stride-2 decode** — the Lo-tech XT-CF rev 3 does not decode A0, so registers sit at `base+2N`
+- **stride-2 decode** â the Lo-tech XT-CF rev 3 does not decode A0, so registers sit at `base+2N`
   over 32 ports. New `Register stride` option, default 1, so every existing config is unchanged.
-- **8-bit PIO** — the card's BIOS sends `SET FEATURES 01h` and the data register becomes byte-wide
+- **8-bit PIO** â the card's BIOS sends `SET FEATURES 01h` and the data register becomes byte-wide
   with no high latch. 86Box was reading 16 bits per access and dropping every second byte.
 - plus a BIOS entry for the XT+ r638 image read back off the card
   (`roms/hdd/xtide/ide_xtcf_lotech.bin`).
@@ -65,7 +171,7 @@ PR: the CS:EIP heartbeat and caller trace in `386_dynarec.c`, the `0E0h` debug p
 `inboard386.c`, the linear write watchpoint in `mem.c`, and the `ENABLE_XTIDE_LOG` define.
 One genuine upstream fix is mixed in and should be kept: `xtide_init` never called `log_open`.
 
-## Eliminated by measurement — do not re-run these
+## Eliminated by measurement â do not re-run these
 
 | candidate | how it died |
 |---|---|
@@ -74,40 +180,40 @@ One genuine upstream fix is mixed in and should be kept: `xtide_init` never call
 | claiming master+slave | `-ClaimMask 1` still hangs |
 | the polling contract / `Set_Global_Time_Out` | the wait is ordinary VMM code a clean shutdown walks straight through |
 | a timeout storm | 3,582 status polls where one expiry needs 400000 |
-| the fast-fail clamp built 09-04 morning | never armed — `AEP_SYSTEM_SHUTDOWN` does not reach our handler |
+| the fast-fail clamp built 09-04 morning | never armed â `AEP_SYSTEM_SHUTDOWN` does not reach our handler |
 
 ## Two standing bugs found on the way, neither chased
 
-1. **`AEP_SYSTEM_SHUTDOWN` never reaches `Port_Async_Request`** — proven by zero output from the
+1. **`AEP_SYSTEM_SHUTDOWN` never reaches `Port_Async_Request`** â proven by zero output from the
    `0E0h` counters. So `XTIDE_VolDown` has never run. `AEP_UNCONFIG_DCB` is tested first and
    returns early; that is the likely explanation and it is untested.
 2. **The duplicate `D:` is solvable.** With `-NoVolume` the machine shows only `C:`, and Windows'
    own `DiskTSD` assigns it (your bootlog shows `INITCOMPLETE = DiskTSD`). The driver does not need
    to be its own TSD. That closes the single-disk goal independently of the hang.
 
-## Provenance — the reason 2026-09-04 cost a day
+## Provenance â the reason 2026-09-04 cost a day
 
 A shutdown hang was chased for a day in a binary (`70298a8f`) that could not be rebuilt from any
 commit: built from an uncommitted tree on 09-03, deployed straight into the emulator image, source
-lost. `build.ps1` now prints the commit, shouts on a dirty tree, and appends md5 → provenance to
+lost. `build.ps1` now prints the commit, shouts on a dirty tree, and appends md5 â provenance to
 `drivers/xtide_pdr/build_ledger.tsv`. **Commit before deploying anything you will draw a
 conclusion from.** Technique 89.
 
 ---
 
-## Update, later on 2026-09-04 — two corrections and the current lead
+## Update, later on 2026-09-04 â two corrections and the current lead
 
-### ⚠ The "null handle" conclusion above is WRONG
+### â  The "null handle" conclusion above is WRONG
 
 Dumping the live bytes killed it. `C000318D`'s `jne -19` targets `C000317C`, which is
-`dec eax / pop esi / ret` — **a failure return, not a loop head** — and at the wedge the compare is
+`dec eax / pop esi / ret` â **a failure return, not a loop head** â and at the wedge the compare is
 *equal*, so the branch is not even taken. `C0003184` is a short leaf **called ~2,000,000 times**,
 not a spin; every heartbeat landed there because it is hot. `EAX = 0` was that routine's own
 `xor eax,eax` two instructions earlier. See technique 90d.
 
 ### What is actually cycling
 
-A raw 256-entry ring, with both hot VMM regions excluded, gives the real loop — ~150 distinct
+A raw 256-entry ring, with both hot VMM regions excluded, gives the real loop â ~150 distinct
 instructions across six routines, repeating:
 
 ```
@@ -117,7 +223,7 @@ C002D754 -> C002D48C -> C00039BC..C0003A81 -> C002D768 -> C002D796 -> C002BEC2 -
 ```
 
 `C002xxxx` is a VxD loaded after VMM; `C0001xxx`/`C0003xxx` are VMM services it calls. So a VxD is
-**polling** and never getting the answer it needs. It does real work each pass — this is not a
+**polling** and never getting the answer it needs. It does real work each pass â this is not a
 spinlock.
 
 ### The lead worth following, and why
@@ -145,12 +251,12 @@ capture shows both halves, so no extra run is needed to compare them.
 ### Dead end, recorded so nobody repeats it
 
 Comparing our DRP against `HSFLOP`/`ESDI_506`/`SCSIPORT` by searching for the driver name in the
-binary finds the **LE resident-name table**, not the DRP — and all four are byte-identical there.
+binary finds the **LE resident-name table**, not the DRP â and all four are byte-identical there.
 The feature code lives in the data segment; a different approach is needed.
 
 ---
 
-## THE LEAD, 2026-09-04 end of session — AEP census on the faithful bed
+## THE LEAD, 2026-09-04 end of session â AEP census on the faithful bed
 
 Two corrections first, both caused by the stride-1 bed:
 
@@ -172,7 +278,7 @@ Shutdown: `PEND_UNCONFIG(21) DCB_LOCK(16) DESTROY_VRP(19) UNCONFIG(4)` **twice**
 
 `Port_Async_Request` dispatches only `AEP_INITIALIZE`, `AEP_DEVICE_INQUIRY`, `AEP_CONFIG_DCB`,
 `AEP_IOP_TIMEOUT`, `AEP_BOOT_COMPLETE`, `AEP_UNCONFIG_DCB` and `AEP_SYSTEM_SHUTDOWN`. Everything
-else falls to `pa_note_only` and is answered **`AEP_SUCCESS`** — "done" — having done nothing.
+else falls to `pa_note_only` and is answered **`AEP_SUCCESS`** â "done" â having done nothing.
 
 At shutdown that means we answer these blind:
 
@@ -180,7 +286,7 @@ At shutdown that means we answer these blind:
 |---|---|---|
 | **15** | **`AEP_UNINITIALIZE`** | counterpart of `AEP_INITIALIZE`. We create a DDB at init with `ISP_CREATE_DDB` and **nothing ever destroys it**. We claim to have released everything while still holding the DDB and the calldown. **Prime suspect.** |
 | 16 | `AEP_DCB_LOCK` | unhandled |
-| 21 | `AEP_PEND_UNCONFIG_DCB` | a *query* — "may I unconfigure this?" — answered yes, blind |
+| 21 | `AEP_PEND_UNCONFIG_DCB` | a *query* â "may I unconfigure this?" â answered yes, blind |
 
 A driver that reports it has uninitialised and has not is exactly what would leave a VxD polling
 forever for all drivers to release. That matches the observed cycle: a VxD at `C002xxxx` calling
@@ -195,14 +301,14 @@ faithful bed. `AEP_DCB_LOCK` and `AEP_PEND_UNCONFIG_DCB` are the next two if tha
 Note the sample's `pa_note_only` comment claims answering `AEP_SUCCESS` "is the right answer to all
 of them". That is true for notifications and **false for `AEP_UNINITIALIZE`**, which is a command.
 
-### ❌ Tested and negative: handling `AEP_UNINITIALIZE` does not fix it
+### â Tested and negative: handling `AEP_UNINITIALIZE` does not fix it
 
 Built `4c124470` (`16ce19b`): on `AEP_UNINITIALIZE` call `ISP_DEALLOC_DDB` on the DDB created at
 init and clear our reference, instead of answering `AEP_SUCCESS` blind. **Still hangs**, same VMM
 cycle, same AEP sequence. So holding the DDB was not the cause. The handler is correct on its own
 terms and has been kept.
 
-**Next two, in order:** `AEP_DCB_LOCK` (16) and `AEP_PEND_UNCONFIG_DCB` (21) — the remaining
+**Next two, in order:** `AEP_DCB_LOCK` (16) and `AEP_PEND_UNCONFIG_DCB` (21) â the remaining
 shutdown codes we answer `AEP_SUCCESS` blind. `PEND_UNCONFIG` is a *query*, so answering it wrongly
 is the more interesting of the two.
 
@@ -212,7 +318,7 @@ Also still unexplained and worth a look before more guessing: at startup we rece
 never re-record it, so `XTIDE_VolDown`'s unlink scan at shutdown may be looking at an empty table.
 That is a state-tracking bug regardless of whether it causes the hang.
 
-### The census asymmetry — 4 `CREATE_VRP`, 3 `DESTROY_VRP`
+### The census asymmetry â 4 `CREATE_VRP`, 3 `DESTROY_VRP`
 
 Counting the whole session: `CREATE_VRP(18)` x4 (all at startup), `DESTROY_VRP(19)` x1 at startup
 and x2 at shutdown. **One volume record is created and never destroyed.** That is the only genuine
@@ -230,7 +336,7 @@ Worth correlating against `HSFLOP.PDR` / `ESDI_506.PDR`, which shut down cleanly
 which of these codes do they dispatch, and do their VRP counts balance? Copies are in
 `roms/xtcf_card/`.
 
-### ⭐ THE CORRELATION — CFU1 answers `AEP_FAILURE` where we answer `AEP_SUCCESS`
+### â­ THE CORRELATION â CFU1 answers `AEP_FAILURE` where we answer `AEP_SUCCESS`
 
 `zikolas/cfu1-win9x`, `win/vxd/CFU1.ASM` ~line 3029 - a **working** Win9x IOS port driver that
 shuts down cleanly. Its entire AEP dispatch:
@@ -265,11 +371,11 @@ never-removed-calldown theory above.
 
 ---
 
-## ⭐⭐ THE CLOSING FINDING, end of 2026-09-04 — VMM waits for a list we are still on
+## â­â­ THE CLOSING FINDING, end of 2026-09-04 â VMM waits for a list we are still on
 
 ### First, one more negative
 
-`c5b5b7f0` / commit `4ba1995` — answering `AEP_FAILURE` for undispatched codes and acknowledging
+`c5b5b7f0` / commit `4ba1995` â answering `AEP_FAILURE` for undispatched codes and acknowledging
 only `16..19`, exactly as CFU1 does. **Still hangs.** So the AEP default is not the cause. The CFU1
 comparison was still the right method; this particular difference just was not it. Boot was
 unaffected (C: and D: both present), so failing `ASSOCIATE_DCB` at startup is harmless.
@@ -319,7 +425,7 @@ calldown -> clean, calldown inserted -> hangs*, the one signal that has survived
 
 ---
 
-## CORRECTION 2026-09-04, later — `C1032D1C` is NOT inside our driver
+## CORRECTION 2026-09-04, later â `C1032D1C` is NOT inside our driver
 
 Commit `8fe1609` says the queued node is *"inside our driver's own address range"*. That was
 inferred from "our code runs at `C1031xxx`" and never from a computed base. It is wrong.
@@ -327,7 +433,7 @@ inferred from "our code runs at `C1031xxx`" and never from a computed base. It i
 ### The load base, established three independent ways
 
 The binary in `vm_xtcf_faithful/prextide.img` is `c5b5b7f0`, which is exactly the build
-`drivers/xtide_pdr/build/PORT.map` describes — so the map is the right one for this run.
+`drivers/xtide_pdr/build/PORT.map` describes â so the map is the right one for this run.
 
 | evidence | map offset | address |
 |---|---|---|
@@ -353,15 +459,15 @@ whole module packed = 0x1E21   ends C1032B61
 **0x454 past the end of object 1, 0x1BB past the end of the module.** Not `port_ilb`, not
 `PORT_DDB`, not any symbol in the `.map`.
 
-And `C1030C54` — 18 of the same 107 writes — is `base - 0xEC`, i.e. just *before* our image.
+And `C1030C54` â 18 of the same 107 writes â is `base - 0xEC`, i.e. just *before* our image.
 Nodes on both sides of our module, with the rest at `C0FD*`, `C0FF*` and `C159F068`: that is the
 signature of **heap blocks**, one allocated just before our module and one just after, not of our
-own statics. Consistent with something allocated on our behalf while we were being loaded — which
-is the `ISP_INSERT_CALLDOWN` suspicion above — but that is inference, not measurement.
+own statics. Consistent with something allocated on our behalf while we were being loaded â which
+is the `ISP_INSERT_CALLDOWN` suspicion above â but that is inference, not measurement.
 
 ### Free result: it is a wedge, not slow progress
 
-Technique 88 carries an open question — *"nobody has recorded how long the machine was left"* —
+Technique 88 carries an open question â *"nobody has recorded how long the machine was left"* â
 with a correction warning that our spins are bounded, so minutes of timeouts would look identical
 to a hang. The session that produced `faithful.log` was left running and answers it by accident:
 
@@ -387,26 +493,26 @@ C000324B:  8B D0        mov  edx,eax
 C000324D:  EB F0        jmp  -10h             ; back into the walk
 ```
 
-`EAX` cycles `C0FCEB50 -> C0FCF120 -> C10CD860 -> C0FCF288 -> C0FCF120 ...` — it revisits nodes,
+`EAX` cycles `C0FCEB50 -> C0FCF120 -> C10CD860 -> C0FCF288 -> C0FCF120 ...` â it revisits nodes,
 so the walk does not terminate. `EDI` is pinned at `C159F068` throughout, the most-written value
 on the watched list (32 of 107), and `EBX` at `C15200E8`, the object named on 2026-09-04.
 
 ### What has no control yet
 
 `run_control_clean.log` and `run_ctrl_calltrace.log` armed the watch on `C000E9F0-C000E9F7`, not
-on this list. **So nothing yet shows what a clean shutdown does to `C0010810`** — whether it
+on this list. **So nothing yet shows what a clean shutdown does to `C0010810`** â whether it
 drains, and who pops it. That is the comparative to run next if the instrumented run does not
 name the popper on its own.
 
 ---
 
-# SESSION CLOSE 2026-09-04 evening — read this before anything above it
+# SESSION CLOSE 2026-09-04 evening â read this before anything above it
 
 Eleven emulator boots, each with a real shutdown driven by hand at the desktop. **The hang is not
 fixed.** What follows is what is now known, what was falsified, and the one measurement left
 running when the session ended.
 
-## Retracted this session — do not act on these
+## Retracted this session â do not act on these
 
 | claim | where it came from | why it is dead |
 |---|---|---|
@@ -417,25 +523,25 @@ running when the session ended.
 
 ## Established, and worth not re-deriving
 
-- **Every queued node carries `THCB` at +0Ch** — they are VMM Thread Control Blocks, and `+14h` is
+- **Every queued node carries `THCB` at +0Ch** â they are VMM Thread Control Blocks, and `+14h` is
   the System VM handle `C15200E8` on all of them (the value pinned in `EBX` through every wedge).
 - **The orphan is named.** `CREATE_VRP` for VRP `C0FD65C8`, **drive 2 = `C:`**, issued right after
-  `AEP_ASSOCIATE_DCB` on our DCB `C0FD6490`, and never destroyed. `A:` (`C0FD2C6C` → `C0FD2C38`) is
+  `AEP_ASSOCIATE_DCB` on our DCB `C0FD6490`, and never destroyed. `A:` (`C0FD2C6C` â `C0FD2C38`) is
   created and destroyed on the same machine seconds apart. **Destroys report the VRP 0x34 below the
-  create's pointer — pair them on that offset.**
-- **IOS abandons our teardown after `AEP_DCB_LOCK`.** `A:` runs `21·16·19·4` all on one DCB. Ours
+  create's pointer â pair them on that offset.**
+- **IOS abandons our teardown after `AEP_DCB_LOCK`.** `A:` runs `21Â·16Â·19Â·4` all on one DCB. Ours
   runs `21` on `C0FD6490`, then `16` on a *different* object, then nothing. `SYSTEM_SHUTDOWN`
   follows and the machine wedges. Identical across all four driver fixes.
 - **Windows is genuinely 32-bit on this disk.** After Windows starts: **5,039,676 XT-IDE accesses,
   every one from selector `0028`; zero from `D000`.** All real-mode INT 13h traffic is DOS boot.
   `RMM.PDR` loads and never reaches `INITCOMPLETE`; `PORT` does.
-- **No I/O reaches us after the teardown starts** — zero accesses between the first teardown AEP and
+- **No I/O reaches us after the teardown starts** â zero accesses between the first teardown AEP and
   the wedge. IFSMGR never even attempts the unmount, which is why driver-side I/O fixes cannot help.
 - **Thread `C159F068` has inconsistent links**: its `+4`/`+8` both point at sentinel `C0010C98`
   while that sentinel points at itself. A thread that believes it is on a list the list does not
   contain. First anomaly found in a VMM structure rather than in our answers.
 
-## The four driver fixes made tonight — all correct, none causal, all kept
+## The four driver fixes made tonight â all correct, none causal, all kept
 
 Each is a DDK contract we were breaking. Each changed the teardown by **not one AEP**.
 
@@ -445,7 +551,7 @@ Each is a DDK contract we were breaking. Each changed the teardown by **not one 
 2. **Everything but READ/WRITE/VERIFY returned `IORS_INVALID_COMMAND`**, `IOR_FLUSH_DRIVE`
    included. Flush, media-check, lock/unlock, cancel, clear/abort/restart queue, spin up/down and
    DOS reset are honest no-ops on an XT-CF, so they are answered. (`de58591`)
-3. **Quiesce on code 21**, gating data movement only — quiescing the housekeeping commands would
+3. **Quiesce on code 21**, gating data movement only â quiescing the housekeeping commands would
    refuse the very flush that lets a volume go. (`19f9668`)
 4. **Load group was the sample's `DRP_MISC_PD`, `'Generic Port Drv'`.** Read off the card's own
    binaries: `ESDI_506` = `ESDI_PD`, `SCSIPORT` = `NT_PD`, `HSFLOP` = `NEC_FLOPPY`. Ours was the
@@ -456,15 +562,15 @@ Each is a DDK contract we were breaking. Each changed the teardown by **not one 
 - **Stride autodetect is now the default** (`405f5e4`). One binary covers a classic XTIDE at
   `base+N` and the XT-CF at `base+2N`. The probe reads Status and Alternate Status under each
   candidate and keeps the map where they agree; it writes nothing, so it cannot repeat the SRST
-  accident a write-probe would cause. **⚠ It has NEVER executed on hardware** — the ledger has one
+  accident a write-probe would cause. **â  It has NEVER executed on hardware** â the ledger has one
   `XT_STRIDE=0` build ever, `e8edf217`, built today and never deployed. Every 5160 binary is pinned
   stride 2. Its first boot is a test.
 - **Upstream PR [#7858](https://github.com/86Box/86Box/pull/7858)** raised: XT-IDE logging was inert
   on the plain card because only `jride_init()` opened a log handle. Four lines. README updated.
-- The XT-CF stride-2 / 8-bit PIO model **stays local** by decision — revisit upstreaming once the
+- The XT-CF stride-2 / 8-bit PIO model **stays local** by decision â revisit upstreaming once the
   driver lands, when it can be submitted as "validated by a working 32-bit port driver".
 
-## ❌ The fifth theory, raised and killed in the same run — kept only as a worked example
+## â The fifth theory, raised and killed in the same run â kept only as a worked example
 
 **This was wrong. Read the subsection after it.** The reasoning below looked airtight: it came from
 the loop's own instructions rather than from a guess at a structure, which is exactly what the
@@ -482,11 +588,11 @@ C000324D:  EB F0        jmp  back
 ```
 
 `C159F068`'s `+6Ch` is `C10CD89C`. `EAX` was observed revisiting `C0FCF51C`, `C0FCF0F8`,
-`C0FCEB50`, `C0FCF120`, `C10CD860` — **so the chain is circular and a NULL-terminated walk over it
+`C0FCEB50`, `C0FCF120`, `C10CD860` â **so the chain is circular and a NULL-terminated walk over it
 can never end.** A `CHAINWALK` hook was left in `386_dynarec.c` that follows `[tcb+6Ch]` with
 repeat detection and prints where the cycle closes.
 
-## ⭐ START HERE — the chain terminates, so that theory is dead too
+## â­ START HERE â the chain terminates, so that theory is dead too
 
 ```
 CHAINWALK head [tcb+6Ch] = C10CD89C
@@ -520,7 +626,7 @@ dumping bytes.** Dump first.
 
 ---
 
-## ⭐ Mining Microsoft's own port drivers, 2026-09-04 late — what a clean driver has that we don't
+## â­ Mining Microsoft's own port drivers, 2026-09-04 late â what a clean driver has that we don't
 
 The owner's call, and the right one: *"we have something for a regular IDE disk and other drivers
 that can be used as almost a template - all the answers of what we need has to be in them."*
@@ -532,7 +638,7 @@ Tooling now in the repo, because a scratchpad does not survive:
 disassembler), `tools/vxd_drp.py`, `tools/vxd_aep_audit.py`, `tools/vxd_isp_audit.py`.
 Requires `capstone` (5.0.7 present).
 
-### ESDI_506's entire AER — disassembled, not inferred
+### ESDI_506's entire AER â disassembled, not inferred
 
 ```asm
 0611  mov  word ptr [ebx+2], 0        ; preset AEP_SUCCESS
@@ -544,7 +650,7 @@ Requires `capstone` (5.0.7 present).
 065C  ret
 ```
 
-**Six codes. `AEP_FAILURE` for the rest — including `AEP_PEND_UNCONFIG_DCB` (21) and
+**Six codes. `AEP_FAILURE` for the rest â including `AEP_PEND_UNCONFIG_DCB` (21) and
 `AEP_DCB_LOCK` (16).** `HSFLOP` dispatches six too, and also ignores 21. We dispatch fifteen.
 
 **This retires the whole "we answer the teardown wrongly" family.** Windows' own IDE port driver
@@ -558,15 +664,15 @@ Counts below are **disassembly-verified**, not scanned - see the trap below.
 
 | ISP service | ours | ESDI_506 | HSFLOP | SCSIPORT |
 |---|---|---|---|---|
-| `CREATE_DDB` | 1 | 1 | 1 | – |
-| `INSERT_CALLDOWN` | 2 | 1 (+1 conditional, same packet reused) | 1 | – |
-| **`CREATE_DCB`** | **1** | – | – | – |
-| **`ASSOCIATE_DCB`** | **1** | – | – | – |
-| **`DESTROY_DCB`** | **1** | – | – | – |
-| `DEALLOC_DDB` | 2 | 1 | – | – |
-| `CREATE_IOP` / `ALLOC_MEM` / `DEALLOC_MEM` | – | 2 / 1 / 1 | – | 1 / 1 / 3 |
-| `GET_DCB` | – | – | 2 | – |
-| `DEVICE_REMOVED` / `DEVICE_ARRIVED` | – | – | 1 / 1 | – |
+| `CREATE_DDB` | 1 | 1 | 1 | â |
+| `INSERT_CALLDOWN` | 2 | 1 (+1 conditional, same packet reused) | 1 | â |
+| **`CREATE_DCB`** | **1** | â | â | â |
+| **`ASSOCIATE_DCB`** | **1** | â | â | â |
+| **`DESTROY_DCB`** | **1** | â | â | â |
+| `DEALLOC_DDB` | 2 | 1 | â | â |
+| `CREATE_IOP` / `ALLOC_MEM` / `DEALLOC_MEM` | â | 2 / 1 / 1 | â | 1 / 1 / 3 |
+| `GET_DCB` | â | â | 2 | â |
+| `DEVICE_REMOVED` / `DEVICE_ARRIVED` | â | â | 1 / 1 | â |
 
 **No Microsoft port driver creates, associates or destroys a DCB.** That is TSD work. We are the
 only one doing it - the "be our own TSD" edifice from technique 83, whose premise (a dynamically
@@ -597,7 +703,7 @@ for none, because we complete inline. That is self-consistent with our design an
 from how every Microsoft port driver is built - see technique 88's polling contract. **Not a proven
 cause. Recorded as a design difference.**
 
-### ⚠ The trap that produced a false lead, and the constraint that kills it
+### â  The trap that produced a false lead, and the constraint that kills it
 
 A byte scan for `mov word ptr [reg+disp], imm16` reported `ISP_DISASSOCIATE_DCB` in both working
 drivers and none in ours - a beautiful "start four, close three" story that was **completely
@@ -621,7 +727,7 @@ constraint that a plausibility heuristic is not.
 
 ---
 
-## ⭐⭐ THE GAP, 2026-09-04 — ESDI_506 returns without completing. We never do.
+## â­â­ THE GAP, 2026-09-04 â ESDI_506 returns without completing. We never do.
 
 Read out of `ESDI_506.PDR`'s own request routine (the calldown target named in its
 `ISP_insert_calldown` packet, `+8 = 284h`, i.e. object 1 + 284h = file 884h). No boots.
@@ -695,7 +801,7 @@ survive a device which may simply not answer, and technique 88 already records i
 handler signal it. **A port driver MAY block, as long as something asynchronous can free it** -
 and that is a far smaller change than a full state machine.
 
-### The DCB declaration gap — ESDI_506's CONFIG_DCB vs ours
+### The DCB declaration gap â ESDI_506's CONFIG_DCB vs ours
 
 Its handler starts at file `3617h` (`AEPHDR` is 12 bytes, so `AEP_d_c_dcb` is `[ebx+0Ch]`):
 
@@ -726,7 +832,7 @@ VFAT's mount-time reads are single-buffer; its writes are scattered.
 Not claimed as the shutdown cause. It is a verified declaration gap of exactly the class worth
 hunting, it is one byte to fix, and it is testable in one build.
 
-### ⚠ CORRECTION, and the lead is BETTER for it — read Andrew's IOS Guide, it has the code
+### â  CORRECTION, and the lead is BETTER for it â read Andrew's IOS Guide, it has the code
 
 **I dismissed `C:\IOSGuide\IOS_Guide.doc` earlier this session as "a dead end for these codes".
 That was wrong** - based on four exact tokens (`DCB_LOCK`, `CREATE_VRP`, `DESTROY_VRP`,

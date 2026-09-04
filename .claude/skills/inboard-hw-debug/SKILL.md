@@ -5052,3 +5052,26 @@ shape for it. `Port_iop_timeout` (`AEP_IOP_TIMEOUT`) is also still an empty stub
 **Method note worth keeping:** a keyword miss is not a document review. Extract the text, measure
 how much came out, and grep for the *concepts* (`polling`, `calldown`, `semaphore`) before
 concluding a primary source has nothing. This one had the answer for a day and a half.
+
+## 🛑 THE RULE THIS SESSION PAID FOR — read every source you are given
+
+**When someone hands us a source, read it and decide whether it is useful. Each one, at intake.**
+
+@andrew-hoffman posted the *I/O Supervisor Guide* on 2026-09-03. It was downloaded to
+`C:\IOSGuide\IOS_Guide.doc` the same day. On 2026-09-04 twelve emulator boots and most of a
+session went into reverse-engineering, from binaries, the polling contract and the serialisation
+shape **that document states in plain English and supplies as assembly source.** It was on disk
+the whole time. I opened it once, grepped four tokens, got no hits, and wrote it off.
+
+- A **keyword miss is not a document review.** Extract the text, print how much came out, and grep
+  for the *concepts* before concluding anything.
+- **Andrew has not been wrong yet.** The IOS punt, the `.INF` class, the vendor README, the
+  RAM-granularity bug, the published XT I/O map, and now this. When he names a document, read it
+  before writing code.
+- The project already had this rule for vendor READMEs (technique 75, which cost two patch rounds
+  on the LS-120). **It applies to every source, not just READMEs.** Add it at intake, with a note
+  saying whether it was read and what it contained - including "nothing relevant", which is a
+  result worth recording.
+
+---
+
