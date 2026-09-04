@@ -4517,6 +4517,11 @@ Both hooks are `DIAGNOSTIC, not for upstream` in `Mike1978uk/86Box`: the watchpo
 (armed from `inboard386_init`, `INBOARD_MEMWATCH=0` disables) and the CS:EIP heartbeat in
 `386_dynarec.c`.
 
+### ⚠ 90c IS WRONG - CORRECTED BELOW, read 90d instead
+
+The section that follows concluded "VMM enters the wait holding a null handle". It was built on
+misreading a backward `jne` as a loop head. Kept only as a worked example of the mistake.
+
 ### Technique 90c: closed to one register - a NULL handle enters the wait
 
 2026-09-04. The caller trace (a raw 96-entry ring dumped on reaching `C00032B4`) shows the whole
@@ -4557,3 +4562,41 @@ calldown insert changes about an object VMM asks for at `System_Exit`.
 run on the **working** case, is what made this legible - it showed the loop is normal, which no
 amount of staring at the failing case could establish. When a spin looks pathological, capture the
 same addresses on a run that succeeds before concluding anything about them.
+
+### Technique 90d: a backward `jne` is not a loop until you read its TARGET
+
+2026-09-04, correcting 90c. Dumping the live bytes around the "spin" showed it is not one:
+
+```
+C000317C:  48 5E C3            dec eax / pop esi / ret        <- FAILURE RETURN
+C000317F:  33 C0 56 33 F6      xor eax,eax / push esi / xor esi,esi
+C0003184:  8B 6B 08            mov ebp,[ebx+8]
+C0003187:  39 05 F4 E9 00 C0   cmp [C000E9F4], eax
+C000318D:  75 ED               jne -19   ->  C000317C
+```
+
+`C000318F - 19 = C000317C`, which is `dec eax / pop esi / ret`. **The branch returns; it does not
+loop.** And at the wedge `[C000E9F4] = 0` with `EAX = 0`, so the branch is not even taken - the
+routine falls through and returns normally.
+
+`C0003184` is a short leaf being **called ~2,000,000 times** by an outer loop. Every heartbeat
+landed there because it is hot, not because it is stuck. Live globals at the wedge:
+`C000E9F0 = 2`, `C000E9F2 = 1`, `C000E9F4 = 0`.
+
+The real retry loop is in the callers, from the approach ring:
+`C002BED7 -> C002EA48 -> C002CA56 -> C0001430..C0001444`.
+
+**The rules, and this cost three reproduction runs:**
+
+- **Compute a relative branch's target and read what is there before calling anything a loop.**
+  A backward `jne` into a `ret` is a failure exit. Technique 44 already warns that a plausible
+  reading of code you have not dumped can be self-consistent and wrong; this is that, on four
+  bytes.
+- **Registers sampled inside a hot leaf describe the leaf, not the bug.** `EAX = 0` was real and
+  meant nothing - it is that routine's own `xor eax,eax` two instructions earlier.
+- **A heartbeat concentrating in one address range means "hot", not "stuck".** To tell them apart,
+  exclude that range from a raw ring (technique 49) and see what is still there. Doing so here
+  produced the caller chain in one run - and note the first attempt failed because the counter was
+  reset on leaving the range, so it never accumulated: the wedge cycles through *two* regions.
+- **Dump the code at the address, from the running guest.** Everything above came from 80 bytes
+  read live at the moment it wedged. Reading them earlier would have skipped 90b and 90c entirely.
