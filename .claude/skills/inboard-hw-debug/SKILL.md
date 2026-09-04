@@ -4896,3 +4896,79 @@ enforces it.
 Generalise: technique 75 already says a raw byte scan is not evidence and each hit must be confirmed
 by its idiom. **Add: confirm it against the STRUCTURE's own layout.** A field's offset is a hard
 constraint that a plausibility heuristic is not.
+
+---
+
+## ⭐⭐ THE GAP, 2026-09-04 — ESDI_506 returns without completing. We never do.
+
+Read out of `ESDI_506.PDR`'s own request routine (the calldown target named in its
+`ISP_insert_calldown` packet, `+8 = 284h`, i.e. object 1 + 284h = file 884h). No boots.
+
+```asm
+0884  mov  ebx,[esp+4]              ; the IOP
+0888  mov  edi,[ebx+10h]            ; IOP -> DCB
+088B  mov  edi,[edi+8]              ; -> the controller object
+0891  cli
+...                                 ; link this IOP into the controller's queue
+08DD  bts  dword ptr [edi+2Eh], 9   ; TEST-AND-SET a busy bit
+08E2  jb   98Ah                     ; already owned? -> branch away
+08E8  xor  ebx,ebx
+08EA  xchg dword ptr [edi+6Ah],ebx  ; atomically take the queue head
+
+098A  sti
+098B  ret                           ; <-- RETURNS WITHOUT COMPLETING
+```
+
+**A working Win9x port driver serialises the controller with a lock bit, queues the request, and
+returns without touching `IOP_callback_ptr`.** The owner of the lock completes it later.
+
+`XTIDE_StartRequest` has exactly one exit. Every path - success, invalid command, quiesced,
+bad sector, I/O error - falls through to `xsr_complete`, which calls `IOP_callback_ptr` inline
+before returning. **We have no queue, no lock, and no deferred path whatsoever.**
+
+This is the I/O Supervisor Guide's contract, quoted in technique 88: *"Immediately after this
+Set_Global_Time_Out call, simply return (WITHOUT doing a JMP to the IOP_callback_ptr routine).
+This releases the system from your driver, so the system can run normally for a while."*
+
+### Why this is different from the retracted version of the same idea
+
+Technique 88 reached the polling contract from a binary that could not be rebuilt, and that
+diagnosis was correctly retracted - the evidence was void, not the contract. It is back now for a
+different reason: **it is what remains** after eliminating, by measurement or by construction:
+
+- both VMM list-waits (`C001080C`, `C0010C98` - walked, both empty at the wedge)
+- the per-thread chain at `TCB+6Ch` (walked, terminates at NULL after one node)
+- the published volume and the appy-time event (`-NoVolume`, still wedges)
+- **the entire own-TSD path** (stripped from the image, verified absent, still wedges)
+- every AEP answer (ESDI_506 answers `AEP_FAILURE` to 21 and 16 and shuts down cleanly)
+- the load group, the IOR command set, the DDB retention
+
+Our ISP profile now matches ESDI_506's exactly: `CREATE_DDB`, `INSERT_CALLDOWN`, `DEALLOC_DDB`.
+The remaining measured differences are all facets of one thing:
+
+| | ESDI_506 | ours |
+|---|---|---|
+| VMM service calls | **48**, incl. `Set_Global_Time_Out` / `Set_Async_Time_Out` | **0** |
+| calldown `expan_len` | `24h` - 36 bytes of per-IOP scratch | `0` |
+| completion | queue + lock bit, return without completing | inline, always |
+
+Per-IOP scratch is what a driver needs to carry state across a deferred completion. We request
+none because we never defer. All three are the same design decision seen from three angles.
+
+### It is still NOT proven, and here is what would prove it
+
+A driver that holds the system inline works perfectly while the drive answers - which is why
+3527/3527 IOPs complete and the desktop is fine. `System_Exit` is precisely where the scheduling
+context an inline driver leans on is torn down. That fits, and "fits" has been wrong six times.
+
+**Bisect it, do not build it.** The full restructure is large. The cheap first step is to prove
+IOS tolerates a deferred completion at all: on ONE request, arm `Set_Global_Time_Out` and return
+without completing, then complete from the timeout handler. If that boots, the model is viable and
+the restructure is worth doing. If it hangs the boot, we have learned that for one build.
+
+`HSFLOP.PDR` is the better template than `ESDI_506` for this machine: it is the driver that must
+survive a device which may simply not answer, and technique 88 already records its idiom -
+`Set_Global_Time_Out` at `2D95h` then `Wait_Semaphore` 43 bytes later at `2DBEh`, with a single
+`Signal_Semaphore_No_Switch` elsewhere. Arm a timeout, block on a semaphore, let the timeout
+handler signal it. **A port driver MAY block, as long as something asynchronous can free it** -
+and that is a far smaller change than a full state machine.
