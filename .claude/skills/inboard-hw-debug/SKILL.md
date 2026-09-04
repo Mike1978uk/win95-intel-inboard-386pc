@@ -4700,3 +4700,98 @@ restoring the `AEP_FAILURE` default, the fast-fail clamp — and all three were 
 it was one hook that dumped raw bytes (the THCB signature) and one build that removed a feature
 rather than adding a fix. **When a symptom has resisted three fixes, the next change must remove
 something or print something, not fix something.**
+
+### Technique 91a: match hex CASE-INSENSITIVELY, or a zero result will look like a finding
+
+2026-09-04, three times in one evening. A log you did not format yourself mixes cases, and a
+mismatched grep returns **nothing** - which is indistinguishable from "this never happened".
+
+```bash
+grep -abo "DBGPORT tag=10 val=0000000e" run.log   # 0 hits: the log writes 0000000E
+b=$(... | cut -d: -f1)                            # b is empty
+tail -c $((tot-b)) run.log > slice.txt            # silently the WRONG slice
+```
+
+That slice appeared to show the card's option ROM at `D000`, real-mode segments and our own
+driver all executing during the shutdown wedge - a spectacular finding, and pure contamination
+from the DOS boot phase. Re-run with the right case: 73 samples after `SYSTEM_SHUTDOWN`, **all**
+selector `0028`, nothing else.
+
+**Rules:**
+- `grep -i` for any hex or symbol you did not print yourself in this session, or normalise both
+  sides (`tr a-f A-F`). Cheaper than being wrong.
+- **A shell variable built from a grep must be checked before it is used in arithmetic.**
+  `$((tot-b))` with `b` empty does not fail loudly; it produces a slice you will then interpret.
+  `[ -n "$b" ] || { echo "MARKER NOT FOUND"; exit 1; }`.
+- Same family as technique 19 (a gated hook showing zero) and technique 28 (a patch script that
+  "succeeds" by doing nothing): **whenever a zero result is itself the interesting answer, prove
+  the query could ever have matched.**
+
+### ⚠ Technique 91 CORRECTED, same evening: the thread list is EMPTY at the wedge
+
+Technique 91 above establishes that the queued nodes are `THCB`s - Thread Control Blocks - and
+that stands, it came from a signature dump. **The conclusion drawn from it does not.** Commit
+`8fe1609` ("VMM waits for a list our driver is still on") is retracted.
+
+Walking the list at the wedge, from inside the emulator:
+
+```
+THREADWALK sentinel C001080C  +0=51494157 +4=C001080C +8=C001080C
+THREADWALK end: 0 nodes, last=C001080C (sentinel=C001080C)
+```
+
+`[C0010810] == C001080C`, so the `cmp/jne` at `C0008F8A` **passes**. VMM is not waiting for the
+System VM thread list to drain; that list is already empty. The 107 writes were ordinary thread
+churn during the session, and the last value written was simply the last thread to be linked -
+not a leftover, and never ours.
+
+**The lesson is technique 90d's, one level up.** There, a backward `jne` was called a loop without
+computing its target. Here, a list-empty test was called a wait without ever reading the list.
+**Both times the fix was to dump the actual state instead of reasoning about what the instruction
+implied - and both times the dump took one hook and one run.**
+
+### The real loop, and the next target
+
+The non-terminating walk is the OTHER cluster, and it hangs off a thread:
+
+```asm
+C0003221:  8B 47 6C     mov  eax,[edi+6Ch]    ; EDI = C159F068, a THCB
+C000323C:  8D 50 04     lea  edx,[eax+4]
+           8B 42 FC     mov  eax,[edx-4]      ; eax = eax->next
+           85 C0        test eax,eax
+           85 48 08     test [eax+8],ecx      ; ecx = 80000082
+C000324D:  EB F0        jmp  back
+```
+
+`EAX` revisits `C0FCF51C`, `C0FCF0F8`, `C0FCEB50`, `C0FCF120`, `C10CD860`, so the walk does not
+terminate. **Next measurement: dump the full TCB at `C159F068` and walk the list at `+6Ch`.**
+
+### Still standing after eight boots, and worth not re-deriving
+
+- The orphan is named: VRP `C0FD65C8`, **drive 2 = `C:`**, created after `AEP_ASSOCIATE_DCB` on our
+  DCB `C0FD6490` and never destroyed. `A:` (`C0FD2C6C` -> `C0FD2C38`) is created and destroyed on
+  the same machine in the same second. Destroys report the VRP **0x34 below** the create's pointer;
+  pair on that offset.
+- IOS abandons our teardown after `AEP_DCB_LOCK`: `A:` runs `21·16·19·4` on one DCB, ours runs
+  `21` on `C0FD6490` then `16` on a *different* object and stops.
+- Windows is genuinely 32-bit on this disk: after Windows starts, **5,039,676 XT-IDE accesses, every
+  one from selector `0028`, zero from `D000`**. The real-mode INT 13h traffic is all DOS boot.
+- **Four DDK contract fixes made tonight are correct and changed the teardown by not one AEP** -
+  answering `AEP_PEND_UNCONFIG_DCB` (21) instead of `AEP_FAILURE`; answering `IOR_FLUSH_DRIVE` and
+  the other honest no-ops instead of `IORS_INVALID_COMMAND`; quiescing data movement on code 21;
+  and declaring `DRP_ESDI_PD` instead of the sample's `DRP_MISC_PD`. Keep them all; none is the bug.
+- Our load group was the sample's `'Generic Port Drv'`. Read the DRP straight out of the binaries:
+  `ESDI_506` = `ESDI_PD`, `SCSIPORT` = `NT_PD`, `HSFLOP` = `NEC_FLOPPY`, ours was `MISC_PD`. The
+  `DRP` struct is `eyecatcher[8], LGN dd, aer dd, ilb dd, name[16]` - scan for a single-bit LGN
+  followed by a printable name.
+
+### Two ways a change failed to reach the artefact tonight - check the BUILT thing, always
+
+1. **Unreachable dispatch.** A new `cmp si,AEP_PEND_UNCONFIG_DCB` block was inserted *after* the
+   `jne pa_not_unconfig` whose label sat below it, so nothing ever reached it. It assembled, it
+   linked, and its "negative result" was not a test. Read the generated `.ASM`/listing for the
+   label order, not the source you wrote.
+2. **A regex that hit a comment.** `edit()` uses `count=1`, and `PORT.ASM` mentions `DRP_MISC_PD`
+   in a comment *before* the `DRP <...>` initialiser - so the patcher reported success having
+   rewritten prose. The md5 was unchanged and that is what caught it. **Anchor a patch on the
+   syntax it must change, and diff the md5.**
