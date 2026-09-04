@@ -4463,3 +4463,56 @@ part in question - register decode, transfer width, timing - and check whether t
 takes the same path in both. Here it did not, and nothing measured in that bed was evidence about
 the hardware. Technique 84 already said 86Box could not prove the transport on this card; what was
 missed is that this also makes it unable to reproduce anything *downstream* of the transport.
+
+### Technique 90b: the cause - our driver stops a VMM routine running at all
+
+2026-09-04, on the faithful bed, and it is the first result on this bug that names a **cause**
+rather than a location.
+
+The freeze spins on two VMM globals, visible in the heartbeat's instruction bytes:
+
+```
+C0003184:  8B 6B 08              mov ebp,[ebx+8]
+           39 05 F4 E9 00 C0     cmp [C000E9F4], eax
+           75 ED                 jne  -19            <- ~19-byte spin, EAX never reloaded
+C0008FA4:  66 83 3D F0 E9 00 C0 00   cmp word [C000E9F0], 0
+```
+
+A linear-write watchpoint on `C000E9F0-C000E9F7`, run twice on the same bed with one variable -
+`PORT.PDR` present, then removed (technique 88's rename):
+
+| | driver removed | driver present |
+|---|---|---|
+| shutdown | **clean** | **hangs** |
+| writes to the range | **213** (141 during shutdown) | **zero, ever** |
+
+```
+79x [0028:C00032B4] w2 C000E9F0 = 0      35x = 1      6x = 2      2x = 4
+76x [0028:C00032E1] w2 C000E9F2 = 0
+ 1x [0028:C0002F6F] w2 C000E9F0 = 0Ah
+```
+
+**The writers sit inside the cluster that spins** (`C00031xx`-`C00032xx`), so one VMM component
+both advances this state and polls it; the values look like a state enum. With our driver loaded
+that component **never executes at all** - not "runs and stalls", zero writes - and the shutdown
+then waits forever for a transition nothing is alive to make.
+
+**So the fault is not inside our transport.** It is whatever our driver's presence does to stop
+VMM reaching `C00032B4`. That kills the polling-contract diagnosis on evidence, and it makes the
+next question specific: what calls `C00032B4` on a clean shutdown, and why is that path not taken
+when our calldown is inserted?
+
+### Two mechanics worth reusing
+
+- **Hook every width AND the pre-translated variants.** The first watchpoint covered only
+  `writemembl` / `writememll` and reported zero - which read like a finding and was a hole: every
+  one of these writes is **word** width. `mem.c` has six linear write entry points
+  (`writemem{b,w,l}l` and their `_no_mmut` twins) and a watch is worthless until all six are
+  hooked. A zero from a partial hook is technique 19's gate artefact in a new place.
+- **A watchpoint needs a control run, and the control is the component removed.** "Nothing writes
+  it" means nothing until you know what a *working* run does. The same bed with `PORT.PDR` deleted
+  gave 213 writes and a clean shutdown, and that contrast is the entire result.
+
+Both hooks are `DIAGNOSTIC, not for upstream` in `Mike1978uk/86Box`: the watchpoint in `mem.c`
+(armed from `inboard386_init`, `INBOARD_MEMWATCH=0` disables) and the CS:EIP heartbeat in
+`386_dynarec.c`.
