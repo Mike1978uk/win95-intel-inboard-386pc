@@ -85,3 +85,6 @@ vm_xtide_pdr/
 
 # Per-experiment 86Box bed: 2 GB image plus multi-hundred-MB run logs.
 vm_xtcf_faithful/
+
+# T130B SCSI-stack control bed: two masters plus working copies, ~4 GB.
+vm_t130b/

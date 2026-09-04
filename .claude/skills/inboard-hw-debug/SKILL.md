@@ -5208,3 +5208,90 @@ until the request path coalesces descriptors.
 **Three sources agreeing on what a field MEANS is not evidence about what it DOES to this
 transport.** It also shipped in the same binary as an unrelated diagnostic change, so even a clean
 run would have attributed nothing. One variable per build, which this file already says.
+
+---
+
+## Technique 94: substitute a KNOWN-GOOD component as a control, before rewriting your own
+
+2026-09-05, and it settled the XT-IDE port driver's shutdown wedge (#21) in one evening after
+four sessions of narrowing.
+
+Technique 88 says bisect by **removing** your component. That answers "is it ours?". It does not
+answer the question you actually need before committing to a rewrite: **"does the thing I am
+about to rewrite it as even work on this machine?"** For that, put someone else's working
+implementation of the same job in the same place and watch it.
+
+`T130.MPD` — Adaptec's Trantor T130B SCSI miniport, 10 KB, polling with no IRQ — installed on
+the same Windows image the wedge reproduces on, with our `PORT.PDR` removed from `IOSUBSYS` and
+its device node removed in Device Manager:
+
+| arm | device held | shutdown |
+|---|---|---|
+| CD-ROM only | D: | clean |
+| CD-ROM **+ FAT16 disk, read and written** | D: + E: | clean |
+
+So the wedge is not a property of this machine's Win95 storage teardown, and the SCSIPORT stack
+— DiskTSD, VFAT, IFSMGR, the volume lock, the cache flush — is sound here. That justified the
+miniport port on measurement instead of argument. Full costing: `docs/scsi_miniport_costing.md`.
+
+**Two arms, not one.** The CD-ROM arm proves the driver loads and claims; it does **not** exercise
+DiskTSD/VFAT/IFSMGR, which is where our wedge lives. A control that does not reach the failing
+layer is not a control. Escalate to the device class that matches the bug.
+
+**Verify the control from OUTSIDE the guest.** The owner wrote a file; it was read back out of
+`scsi_test.img` on the host, proving the write reached the medium and the shutdown flushed the
+cache. Technique 79's discipline, used on someone else's driver.
+
+**And do not read a clean shutdown out of the boot log alone.** Technique 88 already records that
+`EndTerminate = KERNEL` is the last line whether the shutdown completed or hung. The evidence is
+the safe-to-turn-off screen; the log corroborates. What the log *does* settle unambiguously is
+whether every stage that started also closed - count `Terminate` against `EndTerminate` and name
+any unpaired stage.
+
+### The prerequisite everyone skips: prove the driver RAN, not that it INSTALLED
+
+The first shutdown of the evening was clean and meant nothing. The driver had been installed but
+the machine had not been rebooted, so it had never loaded - the run was the already-known empty
+baseline. `BOOTLOG.TXT` said so, and said it in the most misleading way available: it was **stale**,
+still naming `port.pdr` from a boot two images ago (technique 23). Delete the log before the run,
+then require `Initing <driver>` / `Init Success <driver>` in the new one. Technique 81, one level
+down: a green result is only evidence if the thing you changed actually ran.
+
+### A bed whose config names an image that does not exist boots to ROM BASIC
+
+Copying a bed's config and renaming its image left `hdd_01_fn` pointing at the old name. 86Box
+**created a blank 2 GB image** at that name - no MBR signature - and the machine fell through to
+ROM BASIC. Nothing errored: the file existed, the machine name was right, every harness check
+passed. `pdr_inboard_run.ps1` verifies the image file exists but never that the **config points
+at it**; that is technique 69's silently-ignored-config in a new place. Assert
+`hdd_01_fn` resolves to a real file with an MBR before booting, and delete blank images 86Box
+invents - they look like real beds afterwards.
+
+### Structural facts about miniports, checked against binaries
+
+- **A `.MPD` is a PE file, not an LE VxD** - i386, subsystem NATIVE. None of the `.DEF` /
+  LE-page / dynamic-load-flag / `W4`-combine problems that cost sessions on the `.PDR` apply.
+- **Buildable with the toolchain already in use**: `ML.EXE /coff` + the DDK `LINK.EXE`
+  `/SUBSYSTEM:NATIVE` against `BLOCK/LIB/SCSIPORT.LIB`. The DDK ships `SRB.INC` / `SCSIPORT.INC` /
+  `MINIPORT.INC` for exactly this. There is no `CL.EXE` in the DDK and none is needed.
+- **SCSIPORT owns the polling contract**: `ScsiPortNotification(RequestTimerCall, …)`, and
+  `PollingSupportNeeded` is a literal registry value inside `SCSIPORT.PDR`. The contract technique
+  88 found us violating is the OS's job in this model.
+- **`AdapterSettings` gives a miniport a GUI Settings tab**, passed to `HwFindAdapter` as
+  `ArgumentString` - confirmed present on the installed T130B. Base address, stride and transport
+  mode become user-settable without hand-edited registry keys.
+
+### ⚠ The DDK ships debug builds WITH SYMBOLS of the whole storage stack - `Windows95_ddk/DEBUG/`
+
+`IOS.VXD` + `IOS.SYM` (named entry points at real offsets), `SCSIPORT.PDR` debug (83 KB vs 23 KB
+retail) + `SCSIPORT.SYM`, `DISKTSD`, `DISKVSD`, `CDTSD`, `CDVSD`, `VMM.VXD` + `VMM.SYM`, plus
+`WDEB386.EXE` and `DEBUGCMD.TMP` - which provides `.pthcb` (dump a thread control block), `.psem`,
+`.pmtx` and `.ps` (ring-0 stack with labels).
+
+Technique 91 spent a session identifying TCBs by dumping bytes for a `"THCB"` signature. `.pthcb`
+prints them. Technique 92's struct-variant disaster is what a symbol file exists to prevent.
+
+**It has been on disk since 2026-08-23.** This is the "read every source you are given" rule again,
+and this time the source was the DDK we build with daily. **Untested:** the binaries are dated
+1996-06-06 (OSR2 era) against an OSR1 build-950 guest, and the `950/951/952/953` per-build
+subdirectories are empty. Check version compatibility on the bed, never on the 5160.
