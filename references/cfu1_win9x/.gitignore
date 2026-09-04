@@ -1,0 +1,27 @@
+# Microsoft 98 DDK includes (fetched + patched by win/get-ddk.sh)
+win/ddkinc/
+win/ddk-tmp/
+
+# reference material (datasheets, third-party sources) - not redistributable
+ref/
+
+# build artifacts
+*.obj
+*.map
+*.err
+*.bak
+
+# macOS noise
+.DS_Store
+win/diag/CFUDIAG.EXE
+win/vxd/CFU1.VXD
+win/diag/CFUMOUSE.EXE
+win/diag/CFUKBD.EXE
+win/diag/CFUDISK.EXE
+win/diag/WREBOOT.EXE
+win/diag/CFUIOS.EXE
+win/diag/CFUMT.EXE
+win/diag/CFUDRV.EXE
+win/diag/CPEEK.EXE
+*.o
+win/vxd/CFU1.lst

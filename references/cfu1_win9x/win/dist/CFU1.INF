@@ -1,0 +1,45 @@
+; CFU1.INF - RATOC REX-CFU1 "USB HOST CF+ Card" (SL811HS USB 1.1 host)
+; Windows 95/98 PnP install: copies CFU1.VXD to SYSTEM and registers it
+; as the device's DevLoader.  On card insertion CONFIGMG loads the VxD,
+; which registers a config handler, receives the Windows-assigned I/O
+; base + IRQ, and applies the card's COR-at-0xFC quirk (the CIS declares
+; the config register at attribute 0xF8; the real one is at 0xFC).
+;
+; Hardware ID verified on real hardware (CFUDIAG /IDS):
+;   PCMCIA\RATOC-USB_HOST_CF+_CARD-57DD
+
+[Version]
+Signature="$CHICAGO$"
+Class=Unknown
+Provider=%Prov%
+
+[SourceDisksNames]
+1=%DiskName%,,0
+
+[SourceDisksFiles]
+CFU1.VXD=1
+
+[DestinationDirs]
+CFU1.Copy=11    ; windows\system
+
+[Manufacturer]
+%Mfg%=RATOC
+
+[RATOC]
+%CFU1.DeviceDesc%=CFU1.Install, PCMCIA\RATOC-USB_HOST_CF+_CARD-57DD
+
+[CFU1.Install]
+CopyFiles=CFU1.Copy
+AddReg=CFU1.AddReg
+
+[CFU1.Copy]
+CFU1.VXD
+
+[CFU1.AddReg]
+HKR,,DevLoader,,CFU1.vxd
+
+[Strings]
+Prov="zikolas"
+Mfg="RATOC Systems, Inc."
+DiskName="CFU1 driver files"
+CFU1.DeviceDesc="RATOC REX-CFU1 USB Host CF+ Card (SL811HS)"
