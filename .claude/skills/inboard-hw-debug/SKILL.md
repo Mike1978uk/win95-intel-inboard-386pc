@@ -4263,3 +4263,66 @@ protected-to-real-mode material. **But they named `ESDI_506.PDR`, and that point
 table above.** Scattering wide is cheap and occasionally lands; reading all ten in full is not.
 Triage by *what problem is this about*, follow the one that names a file you can open, and say
 plainly which ones were dead ends - see `docs/resources_and_sources.md`.
+
+### The freeze is NOT in the transport - measured 2026-09-04, and it cost three re-derivations
+
+**Read Techniques 3, 12 and 13 before instrumenting a hang. This session re-derived all three.**
+Technique 3 already prescribes a CS:PC heartbeat to tell a freeze from slow progress; Technique 12
+already gives the hook site (`exec386()`), the register macros and the `cpu_use_dynarec = 0`
+caveat; Technique 13 already gives the offline distinct-address analysis. A session that built all
+of it from scratch instead spent two rebuild-and-reproduce cycles arriving where the file already
+was. **The skill is only cheap if it is loaded before the approach is chosen, not after.**
+
+What the measurement found, on `vm_xtide_inboard` with the hang reproduced:
+
+| question | answer |
+|---|---|
+| is our driver spinning? | **no** - 3,582 alternate-status reads across the whole shutdown, against `XT_SPIN` = 400000 for a single expiry |
+| did it stall mid-transfer? | **no** - the last command (`READ SECTORS`, 8 sectors, LBA `0x0EC9A8`) drew exactly 2048 word-reads, its full length |
+| was it doing real work? | **yes** - 262 commands, 1376 sectors read, 153 written, all after the shutdown began |
+| is the guest alive? | **yes** - 86Box at 107-117% of a core, sustained |
+| where is it? | **VMM**, ring 0, PM: `C0003178`-`C0003257` and `C0008E27`-`C0009077`. Never enters IOS or our driver |
+
+So the timeout-storm reading in the correction above is **also wrong**, and the fast-fail clamp
+built the same morning is inert for this bug - the clamp arms on an expiring wait, and none expire.
+
+### Technique 88b: a device log's SILENCE is ambiguous - add a heartbeat, then diff it against a HEALTHY sample from the same run
+
+Two additions to Technique 3 that made the above decidable rather than suggestive.
+
+**1. `pclog` folds identical consecutive lines into `*** N repeats ***`.** So a per-instruction or
+per-timeslice `CS:EIP` sample is cheap even in a tight spin - one line and an exact count - and the
+fold itself is a signal. Sample from `exec386()` (`386_dynarec.c`), and dump the 16 bytes at
+`cs + cpu_state.pc` via `readmembl()` so paging is honoured, saving and restoring `cpu_state.abrt`
+around the reads. Verified correct by checking a known site: the sample at `F000:ECB6` returns
+`74 F4` = `je ECAC`, matching the DMA-refresh loop disassembled in Technique 59.
+
+**2. Take the control from the SAME run, before the failure.** Mark the log's byte offset while the
+machine is healthy, then compare the distinct-EIP sets either side of the mark:
+
+| | desktop idle | the freeze |
+|---|---|---|
+| distinct EIPs | 24 | 72 |
+| spread | broad - our driver, several VxDs, `C0FCE1`, `C0380B`, `C03615` | 70 of 72 inside two VMM ranges |
+| **addresses in common** | — | **1** |
+
+A wedge and a healthy idle both look like "the same few addresses cycling", which is all Technique
+13 asks for. **The discriminator is the overlap with a known-good sample, not the shape of the
+freeze alone.** One address in common is a wedge; a large overlap would have meant Windows was
+simply idle and waiting, and the whole investigation would have been aimed at the wrong layer.
+
+Costs nothing: the same logfile, one `wc -c` at a known-good moment. Do it on every hang.
+
+### Enabling a device log can be a silent no-op - `ENABLE_XTIDE_LOG` alone logs nothing
+
+`hdc_xtide.c` gates its five `xtide_log()` sites on `ENABLE_XTIDE_LOG`, but calls
+`log_open()` **only in `jride_init`**. The plain XT-IDE card's init never opens one, so with the
+define set the driver emits a single `WARNING: Logging called with a NULL log pointer` and no
+access lines at all. One `log_open("XTIDE")` in `xtide_init` fixes it.
+
+Technique 28's rule for patch scripts applies to emulator diagnostics too: **an instrumentation
+switch that appears to work and produces nothing is worse than one that fails loudly.** Check the
+log has the lines you expect before spending a reproduction on it - here, `grep -c '\[R\]'` on a
+12-second boot answers it.
+
+Both edits are marked `DIAGNOSTIC, not for upstream` in `86box_upstream`, which is its own repo.
