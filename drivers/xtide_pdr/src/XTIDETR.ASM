@@ -1457,6 +1457,45 @@ xfd_done:
 EndProc XTIDE_ForgetDcb
 
 ;----------------------------------------------------------------------------
+; XTIDE_Uninit - PUBLIC. Actually release what AEP_INITIALIZE acquired.
+;
+;   AEP_UNINITIALIZE is a COMMAND, not a notification. The DDK sample answers it
+;   AEP_SUCCESS from its catch-all and does nothing, so the driver reports it has
+;   released everything while still holding the DDB created by ISP_CREATE_DDB at
+;   init - measured 2026-09-04: IOS sends 15 (UNINITIALIZE) then 14 (SHUTDOWN),
+;   and Windows then never finishes shutting down.
+;
+;   The dealloc sequence is the sample's own, from Port_initialize's failure path.
+;   Destroys: nothing (pushad/popad).
+;----------------------------------------------------------------------------
+	public XTIDE_Uninit
+BeginProc XTIDE_Uninit
+
+	pushad
+	mov	edi, XTIDE_OurDdb
+	or	edi, edi
+	jz	xui_done
+
+	sub	esp, size ISP_ddb_dealloc
+	mov	eax, esp
+	mov	[eax].ISP_ddb_d_ddb, edi
+	mov	ecx, [port_ilb].ILB_dvt
+	mov	[eax].ISP_ddb_d_dvt, ecx
+	mov	[eax].ISP_func, ISP_DEALLOC_DDB
+	mov	[eax].ISP_result, 0
+	push	eax
+	call	[port_ilb.ILB_Service_rtn]
+	add	esp, size ISP_ddb_dealloc + 4
+
+	mov	XTIDE_OurDdb, 0
+
+xui_done:
+	popad
+	ret
+
+EndProc XTIDE_Uninit
+
+;----------------------------------------------------------------------------
 ; XTIDE_ShutdownArm - PUBLIC. Arm the shutdown fast-fail. Destroys: nothing
 ;
 ;   Called from the AEP_SYSTEM_SHUTDOWN branch of Port_Async_Request and from

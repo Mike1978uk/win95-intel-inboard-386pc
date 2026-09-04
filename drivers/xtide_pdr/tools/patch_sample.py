@@ -57,6 +57,8 @@ def main():
                    + '; AEP_UNCONFIG_DCB teardown' + NL
                    + TAB + 'extrn' + TAB + 'XTIDE_VolDown:near' + TAB
                    + '; AEP_SYSTEM_SHUTDOWN teardown' + NL
+                   + TAB + 'extrn' + TAB + 'XTIDE_Uninit:near' + TAB
+                   + '; AEP_UNINITIALIZE is a command, not a notice' + NL
                    + TAB + 'extrn' + TAB + 'XTIDE_DbgAep:near' + TAB
                    + '; report every AEP as it arrives' + NL
                    + TAB + 'extrn' + TAB + 'XTIDE_ShutdownArm:near' + TAB
@@ -177,6 +179,15 @@ def main():
              TAB + 'jne' + TAB + 'pa_note_only' + NL +
              TAB + 'call' + TAB + 'XTIDE_ShutdownArm' + TAB + '; gate: stop waiting 0.6 s per dead request' + NL +
              TAB + 'call' + TAB + 'XTIDE_VolDown' + TAB + '; destroy and UNLINK our volume' + NL +
+             TAB + 'LeaveProc' + NL +
+             TAB + 'Return' + NL +
+             NL +
+             'pa_not_shutdown:' + NL +
+             ';  AEP_UNINITIALIZE (15) is a COMMAND. The sample answers it' + NL +
+             ';  AEP_SUCCESS from the catch-all below and releases nothing.' + NL +
+             TAB + 'cmp' + TAB + 'si, AEP_UNINITIALIZE' + NL +
+             TAB + 'jne' + TAB + 'pa_note_only' + NL +
+             TAB + 'call' + TAB + 'XTIDE_Uninit' + TAB + '; really release the DDB' + NL +
              TAB + 'LeaveProc' + NL +
              TAB + 'Return' + NL +
              NL +
