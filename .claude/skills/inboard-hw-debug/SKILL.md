@@ -5003,3 +5003,52 @@ VFAT's mount-time reads are single-buffer; its writes are scattered.
 
 Not claimed as the shutdown cause. It is a verified declaration gap of exactly the class worth
 hunting, it is one byte to fix, and it is testable in one build.
+
+### ⚠ CORRECTION, and the lead is BETTER for it — read Andrew's IOS Guide, it has the code
+
+**I dismissed `C:\IOSGuide\IOS_Guide.doc` earlier this session as "a dead end for these codes".
+That was wrong** - based on four exact tokens (`DCB_LOCK`, `CREATE_VRP`, `DESTROY_VRP`,
+`PEND_UNCONFIG`) not appearing. A plain printable-run scan in latin1 extracts **194,000
+characters**, including 488 mentions of `DCB`, 21 of `calldown`, 12 of `semaphore` and 8 of
+`IOP_callback_ptr`. It contains what we spent the evening reverse-engineering from binaries.
+
+What is actually in it:
+
+1. **The polling procedure, step by step**, naming `ILB_enqueue_iop` / `ILB_dequeue_iop`, and
+   quoting **ESDI_506's own source**: `cli` / `push esi` / `push ebx` /
+   `call [esdi_ilb].ILB_enqueue_iop`. That matches the `bts`/queue/`ret` shape disassembled out of
+   `ESDI_506.PDR` at `08DDh`/`098Ah`, so document and binary agree.
+2. **Full assembly source of `IOS_serialize` and `IOS_serialize_callback`** - a working
+   serialisation implementation, including the callback-stack insertion
+   (`mov [edx.IOP_cb_address], offset32 IOS_serialize_callback` /
+   `add [eax.IOP_callback_ptr], size IOP_callBack_entry`).
+3. A semaphore worker-thread variant, described as a *"reportedly successful implementation of an
+   IOS port driver"*: `CreateSemaphore` / `VWIN32_CreateRing0Thread` / `Wait_Semaphore` / dequeue /
+   callback, with the IO handler doing enqueue-signal-return.
+
+**And a correction to the gap itself.** I wrote that we "complete inline, always - no queue, no
+lock, no deferred path". False. `PORTREQ.ASM` in our own build already does:
+
+```asm
+call XTIDE_WantIop                 ; ours?
+call [port_ilb].ILB_enqueue_iop    ; queue it
+bts  [edi].DDB_port_flags, DDB_BF_ACTIVE_BIT
+jc   Port_rq_ret                   ; already active -> return, no completion
+call Port_Start_Request            ; else drain the queue
+...
+call [Port_ilb].ILB_dequeue_iop
+```
+
+**The queue, the lock and the return-without-completing are all present, from the sample.** They
+are the same shape ESDI_506 uses. What is missing is only the step *inside the wait*: the Guide
+requires `Set_Global_Time_Out` and a return, with the polling handler finishing later. We instead
+busy-wait `XT_SPIN` = 400,000 `in al,dx` **while holding `DDB_BF_ACTIVE_BIT`**, so the queue's lock
+is held across the whole wait and the system is not released.
+
+That is a far smaller change than the restructure feared in technique 88, and the Guide gives the
+shape for it. `Port_iop_timeout` (`AEP_IOP_TIMEOUT`) is also still an empty stub that answers
+`AEP_SUCCESS` having done nothing - it is the natural home for the polling handler.
+
+**Method note worth keeping:** a keyword miss is not a document review. Extract the text, measure
+how much came out, and grep for the *concepts* (`polling`, `calldown`, `semaphore`) before
+concluding a primary source has nothing. This one had the answer for a day and a half.
