@@ -2458,6 +2458,20 @@ endif
 	mov	[esi].DCB_actual_blk_size, 512
 	mov	[esi].DCB_max_xfer_len, 65536	; one chunk, 128 sectors
 
+;  Scatter/gather elements. We were leaving this 0 while IOS handed us
+;  scatter/gather lists anyway - technique 85, the bug that wrote a descriptor
+;  list into the root directory. 17 is the documented maximum and what every
+;  reference agrees on:
+;    - the I/O Supervisor Guide, "the maximum number of SGDs is 17", and its
+;      field table: "Set initially by port, but may be MORE RESTRICTIVELY
+;      updated by other layers";
+;    - three live .IDCB dumps in the same Guide: max_sg_elements@77 11;
+;    - ESDI_506.PDR's own AEP_CONFIG_DCB: mov byte ptr [ecx+77h], 11h.
+;  Declared in STRUC DCB (BLOCK\INC\DCB.INC line 94), the same structure as
+;  DCB_bus_type and DCB_max_xfer_len above, so ESI is the right base here
+;  (technique 80 - check which STRUC declares a field before writing it).
+	mov	byte ptr [esi].DCB_max_sg_elements, 17
+
 ;  A CHS-only drive reports no LBA total, so derive one - IOS wants a sector
 ;  count whatever the drive can address. Leave it zero and the TSD declines
 ;  the device.
