@@ -4516,3 +4516,44 @@ when our calldown is inserted?
 Both hooks are `DIAGNOSTIC, not for upstream` in `Mike1978uk/86Box`: the watchpoint in `mem.c`
 (armed from `inboard386_init`, `INBOARD_MEMWATCH=0` disables) and the CS:EIP heartbeat in
 `386_dynarec.c`.
+
+### Technique 90c: closed to one register - a NULL handle enters the wait
+
+2026-09-04. The caller trace (a raw 96-entry ring dumped on reaching `C00032B4`) shows the whole
+path on a **clean** shutdown:
+
+```
+C0002657..C0002665 -> C0002795 -> C000352E..C0003559
+-> C0001300..C0001354                                   (dispatcher; C0001300 is the return addr)
+-> C000317F C0003181 C0003182 C0003184 C0003187 C000318D C000318F   <- THE LOOP THAT HANGS
+-> C0003190..C0003268 -> C0001359 C0001360 -> C000329A..C00032B4    (the state write)
+```
+
+**The loop that hangs is ordinary code that a healthy shutdown passes straight through**, and only
+then reaches the state write. So it is not an exotic deadlock primitive - it is a wait whose exit
+condition our driver prevents.
+
+```
+C0003184:  8B 6B 08            mov ebp,[ebx+8]
+           39 05 F4 E9 00 C0   cmp [C000E9F4], eax
+C000318D:  75 ED               jne -19        ; loop while they differ; EAX never reloaded
+```
+
+| | EAX | EBX | outcome |
+|---|---|---|---|
+| clean | `C0FCE28C` (a VMM pointer) | `C15200E8` | falls through; `C00032B4` runs; shutdown completes |
+| hung | **`00000000`** | `C15200E8` - **the same object** | spins forever |
+
+`[C000E9F4]` is **never written in either run**, so the global is not the variable - the clean run
+exits because EAX already matches. **With our driver loaded, VMM enters this wait with a null
+handle where a valid pointer belongs.** "The VMM routine never runs" (technique 90b) is the
+consequence; this is the cause.
+
+Next: EAX is set before `C000317F`, so it comes from the dispatcher at `C0001300`-`C0001354` or is
+passed in. Trace backwards from there to find what returns 0, and the answer will be something our
+calldown insert changes about an object VMM asks for at `System_Exit`.
+
+**Method note worth keeping:** a raw undeduped ring (technique 49) dumped at a *target* address,
+run on the **working** case, is what made this legible - it showed the loop is normal, which no
+amount of staring at the failing case could establish. When a spin looks pathological, capture the
+same addresses on a run that succeeds before concluding anything about them.
