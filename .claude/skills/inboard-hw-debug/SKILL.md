@@ -5081,3 +5081,130 @@ the whole time. I opened it once, grepped four tokens, got no hits, and wrote it
 
 ---
 
+
+---
+
+## Technique 92: read the STRUCT VARIANT before reading a field by offset
+
+2026-09-05. Four runs on the faithful bed chasing the XT-IDE port driver's shutdown wedge. The
+location narrowed; the cause did not. What generalises is how the numbers misled.
+
+### Our driver holds nothing - measured twice, and it retires a theory
+
+| | run 3 | run 4 |
+|---|---|---|
+| Offered / Accepted / Started / Done | `3267` x4 | `3359` x4 |
+| our DCB freeze / io_pend / lock | `0 / 0 / 0` | `0 / 0 / 0` |
+
+Balanced both runs. **Nothing of ours is outstanding when the teardown stalls**, which kills the
+polling-contract diagnosis *as the cause* (technique 88's "THE GAP") on measurement rather than
+argument. The contract violation is real and worth fixing for responsiveness - @zikolas's
+`ASYNC-ENGINE.md` records that his synchronous polled engine works, freezes the UI, and tears down
+cleanly - but it is not what wedges the shutdown.
+
+### The teardown always stops in the same place
+
+```
+21 PEND_UNCONFIG C104D9FC -> 16 DCB_LOCK C104D9FC -> 19 DESTROY_VRP -> 4 UNCONFIG   completes
+21 PEND_UNCONFIG C104E1A0 (ours, quiesce matched) -> 16 DCB_LOCK C104D8F4 -> stops
+14 SYSTEM_SHUTDOWN -> wedge
+```
+
+The one field that IS valid on a logical DCB says why that matters: at the wedge `C104D8F4`'s
+`DCB_vrp_ptr` still holds `C104CCEC` - the same VRP announced at `AEP_MOUNT_NOTIFY`. **The volume
+was never unmounted.** IFSMGR takes the exclusive lock and does not complete.
+
+### Dead on data, not on opinion
+
+`AEP_d_l_drives` (hdr+16, the bitmap IFSMGR reads back from `AEP_DCB_LOCK`) is `00000000` on the DCB
+that tears down cleanly AND on ours. Not the discriminator. Settled in one run, because the driver
+already emitted hdr+16 for every AEP.
+
+### The trap: an offset is only valid for the struct VARIANT it belongs to
+
+`DCB_queue_freeze` / `max_sg_elements` / `io_pend_count` / `lock_count` are four consecutive bytes at
+`76h`-`79h`. Confirmed three ways - `BLOCK\INC\DCB.INC`, `ESDI_506.PDR`'s own
+`mov byte ptr [ecx+77h],11h`, and three live `.IDCB` dumps in the I/O Supervisor Guide. All correct,
+and all about the **DCB physical data extension**, which the Guide's dump labels by name.
+
+A **logical** DCB has no physical extension. Reading those offsets off one gave
+`freeze=4, sg=193, lock=253` - numbers that look like counters, are not, and are plausible enough to
+theorise on. A physical DCB that was not ours read `io_pend=244` in both runs while `freeze` moved
+`1 -> 9`: a value identical across runs while its neighbour changes is a tell that you are not
+reading what you think.
+
+**The rule: establish which struct VARIANT an object is before reading any field by offset.**
+`INC32\AEP.H` gives it free - `AEP_assoc_dcb` +12 is a **physical** DCB, `AEP_lock_dcb` +12 is a
+**logical** DCB, `AEP_vrp_create_destroy` +12 is a **VRP**, and `AEP_sys_shutdown` has no field after
+the header at all, so `[ebx+12]` there reads off the end. Record which AEP named an object and let
+the decoder label it. Technique 91 said identify by signature, not address; this is the same lesson
+one level in - identify by *declaration*, not by offset arithmetic.
+
+### Size the capture for the interesting event, not the first one
+
+The first table had 8 slots, filled during startup, and missed `C104D8F4` - the one object the
+teardown stops on. A capture that runs out of room before the event is not a measurement.
+
+---
+
+## Technique 93: a diagnostic can throttle the emulator into looking correct
+
+2026-09-05. `hdc_xtide.c` logged one formatted line, with CS:EIP, per **PIO byte**. The Lo-tech
+XT-CF's data register is 8-bit, so one 512-byte sector is 512 lines before any status polling:
+**11,096,197 lines and 438 MB per boot-and-shutdown**, with 86Box reporting **2-14%** of configured
+speed. Gating it behind `XTIDE_TRACE` (default off; the device prints which mode it is in) took the
+same bed to a steady **100%**.
+
+- **The title-bar percentage is the ground truth, and it was there the whole time.** This file has
+  said so since the "clone runs too fast" write-up. Nobody looked, because the runs "worked".
+- **Removing a brake exposes what it hid.** With the trace off the owner immediately saw the BIOS RAM
+  count now runs *faster than the real 5160*. That is a genuine `cpu_speed`/waitstate calibration gap
+  the logging had been masking. It is not new, it is newly visible - do not put the brake back.
+- **Technique 21 again**: that hook's question (does our driver reach the card, at what stride) was
+  answered on 2026-09-04. It taxed every boot afterwards.
+
+### Every run gets a fresh image, restored from a master that is never booted
+
+Two runs were abandoned by force-killing 86Box while Windows was running and writing. The next boot
+**froze on the Windows splash**, IO.SYS looping at `0070:0465` into the BIOS at `F000:ACxx`, in real
+mode - i.e. before our driver loads, so the driver could not be the cause. There was no backup of
+that bed's image, and **ScanDisk is not a recovery route: it misbehaves under emulation here.** An
+image damaged by a kill is gone.
+
+Technique 23 warned that repeated forced kills poison the next boot. What it did not say:
+**the recovery has to exist BEFORE you need it.** `tools/pdr_inboard_run.ps1` now restores
+`<image>_master.img` over the working image every run, refuses to start without it, and takes
+`-Deploy` so the driver goes in *after* the restore instead of being wiped by it.
+
+Not tidiness: a harness you cannot safely abandon pressures you into keeping a bad run alive - which
+is exactly what happened, at 2% speed, for forty minutes.
+
+### Build gotcha, because it costs a full cycle every time
+
+`cmake --build` on `86box_upstream` exits **1 with no diagnostic at all** unless
+`/c/msys64/mingw64/bin` is on `PATH`. The same command by hand compiles cleanly, so it looks like a
+locked file or a stale object.
+
+```bash
+PATH=/c/msys64/mingw64/bin:$PATH cmake --build build -j 8
+```
+
+### A documentation-backed "cheap, certain" change still needs measuring
+
+`DCB_max_sg_elements = 17` is what the Guide states, what `ESDI_506` writes, and what three live
+`.IDCB` dumps show. Shipped as certain. Measured after, on matched 60 MB windows of protected-mode
+traffic - same bed, same image, that byte the only difference:
+
+| | max_sg=0 | max_sg=17 |
+|---|---|---|
+| `[R] 0300` data bytes | 1,149,041 | 975,008 |
+| `[W] 0005/6/7` taskfile commands | 603 | **1,104** |
+| bytes per command | 1,906 | **883** |
+
+**1.8x the commands for the same data** - IOS hands us scatter/gather lists and the transport issues
+one taskfile command per descriptor instead of one per request. Now behind `-DXT_SG=1`, default off,
+until the request path coalesces descriptors.
+
+**Three sources agreeing on what a field MEANS is not evidence about what it DOES to this
+transport.** It also shipped in the same binary as an unrelated diagnostic change, so even a clean
+run would have attributed nothing. One variable per build, which this file already says.
