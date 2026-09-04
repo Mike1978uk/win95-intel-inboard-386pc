@@ -1,3 +1,8 @@
+> **SUPERSEDED 2026-09-05 (later the same day) by `next_session_2026_09_06.md`.** The wedge is
+> now known to be our own `.PDR` code, proven by running Adaptec's `T130.MPD` as a control, and
+> the project has pivoted to a SCSI miniport. The VMM register-trace lead below is no longer
+> being followed. See `scsi_miniport_costing.md`.
+
 # ⭐ THE GOLDEN PATH — start here, in this order
 
 Written at the close of 2026-09-04 after twelve emulator boots. **The shutdown hang is not fixed**,
