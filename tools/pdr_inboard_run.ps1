@@ -70,6 +70,31 @@ $master = Join-Path $VmPath "86box.cfg.master"
 if (-not (Test-Path $master)) { Write-Output "MISSING master config: $master"; exit 1 }
 Copy-Item $master (Join-Path $VmPath "86box.cfg") -Force
 
+# EVERY RUN GETS A FRESH IMAGE. Not an option, not a switch - the default.
+#
+# 2026-09-05: two runs were abandoned by force-killing 86Box while Windows 95
+# was running and writing. The next boot froze on the Windows splash with
+# IO.SYS looping at 0070:0465 into the BIOS at F000:ACxx, and there was no
+# backup of this bed's image to go back to. ScanDisk is not a way out - it
+# misbehaves under emulation on this machine - so an image damaged by a kill
+# is simply gone. Technique 23 already warned that repeated forced kills
+# poison the next boot; what it did not say is that the recovery has to exist
+# BEFORE you need it.
+#
+# The master is never booted. It is copied in here, the run dirties the copy,
+# and the copy is disposable. That also makes killing a run free, which is the
+# whole point - a harness you cannot safely abandon is a harness that pressures
+# you into keeping bad runs alive.
+$imgMaster = [IO.Path]::ChangeExtension($img, $null).TrimEnd('.') + "_master.img"
+if (-not (Test-Path $imgMaster)) {
+    Write-Output "MISSING master image: $imgMaster"
+    Write-Output "  Create it ONCE from a known-good image and never boot it:"
+    Write-Output "    Copy-Item <clean>.img $imgMaster"
+    exit 1
+}
+Write-Output "Restoring $([IO.Path]::GetFileName($img)) from master (fresh image every run)"
+Copy-Item $imgMaster $img -Force
+
 # And say out loud what machine is about to boot, so a silent downgrade cannot
 # be mistaken for a driver result.
 $mach = (Select-String -Path $master -Pattern '^machine = (.+)$').Matches[0].Groups[1].Value
