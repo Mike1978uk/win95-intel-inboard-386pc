@@ -694,3 +694,34 @@ survive a device which may simply not answer, and technique 88 already records i
 `Signal_Semaphore_No_Switch` elsewhere. Arm a timeout, block on a semaphore, let the timeout
 handler signal it. **A port driver MAY block, as long as something asynchronous can free it** -
 and that is a far smaller change than a full state machine.
+
+### The DCB declaration gap — ESDI_506's CONFIG_DCB vs ours
+
+Its handler starts at file `3617h` (`AEPHDR` is 12 bytes, so `AEP_d_c_dcb` is `[ebx+0Ch]`):
+
+```asm
+361A  mov  ecx,[ebx+0Ch]                   ; the DCB
+3620  cmp  byte ptr [ecx+0BAh], 1          ; DCB_unit_on_ctl - master or slave
+362C  mov  [edx], ecx                      ; link the DCB into the DDB
+362E  or   dword ptr [ecx+20h], 0C0000000h ; DCB_device_flags, top two bits
+3635  mov  dword ptr [ecx+50h], 0FFFFFFFFh ; DCB_max_xfer_len   = unlimited
+3649  mov  byte ptr [ecx+77h], 11h         ; DCB_max_sg_elements = 17
+```
+
+Offsets resolved from `BLOCK/INC/DCB.INC`. **Careful with that file**: `DCB` embeds
+`DCB_COMMON DB SIZE DCB_COMMON DUP (?)`, so a naive offset計 walk is short by `4Fh` for every
+field after it - `DCB_COMMON` is `50h` bytes, not one.
+
+| field | ESDI_506 | ours |
+|---|---|---|
+| `DCB_device_flags` | `or C0000000h` | set (`PHYSICAL`/`WRITEABLE`) |
+| `DCB_max_xfer_len` | `FFFFFFFFh` | set |
+| **`DCB_max_sg_elements`** | **`11h` (17)** | **never written - stays 0** |
+
+**We declare support for zero scatter/gather elements and are handed scatter/gather lists anyway.**
+Technique 85 is the record of that: `IORF_SCATTER_GATHER` requests do arrive, and misreading them is
+what wrote a descriptor list into the volume's root directory. The read path never sees them because
+VFAT's mount-time reads are single-buffer; its writes are scattered.
+
+Not claimed as the shutdown cause. It is a verified declaration gap of exactly the class worth
+hunting, it is one byte to fix, and it is testable in one build.
