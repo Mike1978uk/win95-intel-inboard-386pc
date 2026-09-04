@@ -92,3 +92,58 @@ commit: built from an uncommitted tree on 09-03, deployed straight into the emul
 lost. `build.ps1` now prints the commit, shouts on a dirty tree, and appends md5 → provenance to
 `drivers/xtide_pdr/build_ledger.tsv`. **Commit before deploying anything you will draw a
 conclusion from.** Technique 89.
+
+---
+
+## Update, later on 2026-09-04 — two corrections and the current lead
+
+### ⚠ The "null handle" conclusion above is WRONG
+
+Dumping the live bytes killed it. `C000318D`'s `jne -19` targets `C000317C`, which is
+`dec eax / pop esi / ret` — **a failure return, not a loop head** — and at the wedge the compare is
+*equal*, so the branch is not even taken. `C0003184` is a short leaf **called ~2,000,000 times**,
+not a spin; every heartbeat landed there because it is hot. `EAX = 0` was that routine's own
+`xor eax,eax` two instructions earlier. See technique 90d.
+
+### What is actually cycling
+
+A raw 256-entry ring, with both hot VMM regions excluded, gives the real loop — ~150 distinct
+instructions across six routines, repeating:
+
+```
+C002D754 -> C002D48C -> C00039BC..C0003A81 -> C002D768 -> C002D796 -> C002BEC2 -> C002BED7
+-> C002EA48 -> C002CA56 -> C0001430 -> C0001100 -> C00012C0 -> C0001370 -> C0001410..C000142A
+-> C002BEF4 -> C002BEB6 -> C002D744 -> C002C8BC..C002C8E0 -> C002D74D -> C002D752 -> (repeat)
+```
+
+`C002xxxx` is a VxD loaded after VMM; `C0001xxx`/`C0003xxx` are VMM services it calls. So a VxD is
+**polling** and never getting the answer it needs. It does real work each pass — this is not a
+spinlock.
+
+### The lead worth following, and why
+
+**`AEP_SYSTEM_SHUTDOWN` never reaches `Port_Async_Request`** (proven: zero output from the `0E0h`
+counters). If IOS broadcasts a shutdown event and waits for every registered driver to acknowledge,
+and ours never receives it, IOS polls forever. That fits every observation and is testable
+**driver-side** rather than by reverse-engineering Microsoft's code.
+
+`XTIDE_DbgAep` now reports **every AEP the instant it arrives**, with ordering, through the debug
+port (tag `10h`). Built as `d5297c78`. Read it with:
+
+```
+grep -a 'DBGPORT tag=10' <log> | awk '{print $3}' | uniq -c
+```
+
+- AEPs at shutdown but not `14` -> we mishandle one we do get; the list names it.
+- **Nothing** at shutdown -> IOS is not reaching us; the target becomes how we registered
+  (`DRP_FC_DYNALOAD`, technique 83).
+- `14` does arrive -> this morning's zero-counter result was wrong and needs explaining first.
+
+The owner's framing is worth keeping: **startup should be the mirror of shutdown**, and the same
+capture shows both halves, so no extra run is needed to compare them.
+
+### Dead end, recorded so nobody repeats it
+
+Comparing our DRP against `HSFLOP`/`ESDI_506`/`SCSIPORT` by searching for the driver name in the
+binary finds the **LE resident-name table**, not the DRP — and all four are byte-identical there.
+The feature code lives in the data segment; a different approach is needed.

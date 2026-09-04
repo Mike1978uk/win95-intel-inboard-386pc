@@ -1471,6 +1471,31 @@ EndProc XTIDE_ForgetDcb
 ;   the clamp take effect, and any later success lifts it again.
 ;----------------------------------------------------------------------------
 	public XTIDE_ShutdownArm
+; XTIDE_DbgAep - PUBLIC. Report one AEP function code the instant it arrives.
+;
+;   In:  SI = AEP_Func.  Destroys: nothing (pushad/popad).
+;
+;   Emitted through the emulator debug port rather than the on-disk marker
+;   because the question is which AEPs we get AT SHUTDOWN, when writing to the
+;   disk is exactly what we must not do. Tag 10h.
+;
+;   The counters at AEP_SYSTEM_SHUTDOWN reported nothing on 2026-09-04, which
+;   only proves code 14 never arrived - it says nothing about what DID. This
+;   answers that, with ordering.
+;----------------------------------------------------------------------------
+	public XTIDE_DbgAep
+BeginProc XTIDE_DbgAep
+
+	pushad
+	movzx	edx, si
+	mov	al, 10h
+	call	XTIDE_DbgEmit
+	popad
+	ret
+
+EndProc XTIDE_DbgAep
+
+;----------------------------------------------------------------------------
 XTIDE_DbgEmit:
 ;  EAX = tag, EDX = value. Writes tag to 0E0h then the dword LSB-first to 0E1h.
 ;  Destroys nothing the callers need; EAX/ECX/EDX only.

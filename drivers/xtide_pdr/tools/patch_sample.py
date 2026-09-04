@@ -57,6 +57,8 @@ def main():
                    + '; AEP_UNCONFIG_DCB teardown' + NL
                    + TAB + 'extrn' + TAB + 'XTIDE_VolDown:near' + TAB
                    + '; AEP_SYSTEM_SHUTDOWN teardown' + NL
+                   + TAB + 'extrn' + TAB + 'XTIDE_DbgAep:near' + TAB
+                   + '; report every AEP as it arrives' + NL
                    + TAB + 'extrn' + TAB + 'XTIDE_ShutdownArm:near' + TAB
                    + '; AEP_SYSTEM_SHUTDOWN fast-fail gate' + NL,
          0),
@@ -155,6 +157,7 @@ def main():
          WS + r'*mov' + WS + r'*\[ebx\.AEP_result\],AEP_FAILURE;' + WS
          + r'*set result code to indicate error\.' + WS + r'*\r?\n',
          lambda m: (
+             TAB + 'call' + TAB + 'XTIDE_DbgAep' + TAB + '; TELL US WHAT WE ACTUALLY RECEIVE' + NL +
              TAB + 'cmp' + TAB + 'si, AEP_UNCONFIG_DCB' + TAB
              + '  ; a DCB we may hold a pointer to?' + NL +
              TAB + 'jne' + TAB + 'pa_not_unconfig' + NL +
