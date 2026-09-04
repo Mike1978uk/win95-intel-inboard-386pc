@@ -192,6 +192,18 @@ def main():
              TAB + 'Return' + NL +
              NL +
              'pa_note_only:' + NL +
+             ';  MATCH zikolas/cfu1-win9x, a port driver that shuts down' + NL +
+             ';  cleanly: acknowledge 16..19 (DCB_LOCK / MOUNT_NOTIFY /' + NL +
+             ';  CREATE_VRP / DESTROY_VRP) and answer AEP_FAILURE to every' + NL +
+             ';  other code we do not implement. Answering AEP_SUCCESS to a' + NL +
+             ';  command we did not carry out is a claim, not a courtesy.' + NL +
+             TAB + 'cmp' + TAB + 'si, 16' + NL +
+             TAB + 'jb' + TAB + 'pa_unimpl' + NL +
+             TAB + 'cmp' + TAB + 'si, 19' + NL +
+             TAB + 'jbe' + TAB + 'pa_ack' + NL +
+             'pa_unimpl:' + NL +
+             TAB + 'mov' + TAB + '[ebx.AEP_result], AEP_FAILURE' + NL +
+             'pa_ack:' + NL +
              ';  Everything else is a NOTIFICATION - shutdown, mount, VRP create,' + NL +
              ';  associate. AEP_SUCCESS is already preset at the top of this' + NL +
              ';  routine and is the right answer to all of them. The sample' + NL +
