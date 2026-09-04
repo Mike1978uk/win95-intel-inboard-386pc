@@ -55,6 +55,8 @@ def main():
                    + '; be our own TSD (phase 3)' + NL
                    + TAB + 'extrn' + TAB + 'XTIDE_ForgetDcb:near' + TAB
                    + '; AEP_UNCONFIG_DCB teardown' + NL
+                   + TAB + 'extrn' + TAB + 'XTIDE_PendUnconfig:near' + TAB
+                   + '; AEP_PEND_UNCONFIG_DCB means STOP ALL I/O' + NL
                    + TAB + 'extrn' + TAB + 'XTIDE_VolDown:near' + TAB
                    + '; AEP_SYSTEM_SHUTDOWN teardown' + NL
                    + TAB + 'extrn' + TAB + 'XTIDE_Uninit:near' + TAB
@@ -168,6 +170,22 @@ def main():
              TAB + 'LeaveProc' + NL +
              TAB + 'Return' + NL +
              NL +
+             ';  AEP_PEND_UNCONFIG_DCB is a COMMAND, and it is the FIRST thing' + NL +
+             ';  IOS sends when a DCB is being destroyed. STORAGE.DOC: "layer' + NL +
+             ';  drivers are expected to stop and prevent all further input and' + NL +
+             ';  output to the device". We answered SUCCESS and kept serving,' + NL +
+             ';  so C: never quiesced, its VRP was never destroyed, the thread' + NL +
+             ';  holding it never exited, and VMM span waiting for the System VM' + NL +
+             ';  thread list to empty. Measured 2026-09-04: 4 VRPs created, 3' + NL +
+             ';  destroyed, and the orphan is drive 2 - our own claimed disk.' + NL +
+             TAB + 'cmp' + TAB + 'si, AEP_PEND_UNCONFIG_DCB' + NL +
+             TAB + 'jne' + TAB + 'pa_not_pend_unconfig' + NL +
+             TAB + 'mov' + TAB + 'esi, [ebx].AEP_d_u_p_dcb' + NL +
+             TAB + 'call' + TAB + 'XTIDE_PendUnconfig' + TAB + '; quiesce, if it is ours' + NL +
+             TAB + 'LeaveProc' + NL +
+             TAB + 'Return' + NL +
+             NL +
+             'pa_not_pend_unconfig:' + NL +
              'pa_not_unconfig:' + NL +
              ';  THE TEARDOWN WE NEVER JOINED. Windows runs a shutdown that' + NL +
              ';  mirrors its boot and broadcasts it; we registered for the boot' + NL +

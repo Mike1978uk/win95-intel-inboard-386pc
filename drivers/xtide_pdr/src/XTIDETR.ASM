@@ -417,6 +417,7 @@ XTIDE_VolBusy		dd	0	; one appy-time queue attempt in flight is enough
 ;  Working storage - deliberately AFTER the marker sector, not inside it.
 XTIDE_OurLgn		dd	0	; load group number, for the logical calldown
 XTIDE_LogDcb		dd	0	; the logical volume DCB, once created
+XTIDE_Quiesced		dd	0	; AEP_PEND_UNCONFIG_DCB seen for a DCB of ours
 XTIDE_MbrBuf		db	512 dup (0)
 public XTIDE_RbBuf
 XTIDE_RbBuf			db	512 dup (0)
@@ -1425,6 +1426,51 @@ EndProc XTIDE_WantDcb
 ;   XTIDE_WantDcb accept it. That is correct: the guard exists to stop a DOUBLE
 ;   insert on a live DCB, not to make the claim permanent for the session.
 ;----------------------------------------------------------------------------
+;----------------------------------------------------------------------------
+; XTIDE_PendUnconfig - PUBLIC. AEP_PEND_UNCONFIG_DCB is a COMMAND, not a query.
+;
+;   In:  ESI = AEP_d_u_p_dcb.  Destroys: ECX.
+;
+;   STORAGE.DOC: "First AEP function sent to a driver when a DCB is being
+;   destroyed. Upon receiving this function call, layer drivers are expected to
+;   stop and prevent all further input and output to the device."
+;
+;   We answered AEP_SUCCESS and kept serving requests. Measured consequence
+;   (2026-09-04, faithful bed): the VRP for drive 2 - C:, our own claimed disk -
+;   is created at startup and never destroyed, so the volume never dismounts,
+;   the thread holding it never exits, and VMM spins at C0008F8A waiting for
+;   the System VM thread list to empty. Four VRPs created, three destroyed.
+;
+;   Matched by POINTER against the DCBs we actually claimed, never by a counter:
+;   code 21 also arrives TWICE AT STARTUP for DCBs that are not ours, and a
+;   global latch set there would refuse the boot's own I/O.
+;----------------------------------------------------------------------------
+	public XTIDE_PendUnconfig
+BeginProc XTIDE_PendUnconfig
+
+	or	esi, esi
+	jz	xpu_done
+
+	cmp	esi, XTIDE_LogDcb
+	je	xpu_quiesce
+
+	xor	ecx, ecx
+xpu_scan:
+	cmp	XTIDE_InsertedDcb[ecx], esi
+	je	xpu_quiesce
+	add	ecx, 4
+	cmp	ecx, 8
+	jb	xpu_scan
+	jmp	xpu_done
+
+xpu_quiesce:
+	mov	XTIDE_Quiesced, 1
+
+xpu_done:
+	ret
+
+EndProc XTIDE_PendUnconfig
+
 BeginProc XTIDE_ForgetDcb
 
 	or	esi, esi
@@ -2428,6 +2474,10 @@ ifdef XT_NO_IO
 				; touching neither hardware nor geometry. Splits
 				; a bad ISP packet from a bad request path.
 endif
+;  Quiesced by AEP_PEND_UNCONFIG_DCB. Complete without touching the device -
+;  the IOP still goes back up the callback stack, so nothing is left dangling.
+	cmp	XTIDE_Quiesced, 0
+	jne	xsr_ioerror
 	movzx	eax, byte ptr [esi].DCB_unit_on_ctl
 	mov	XTIDE_ReqUnit, eax
 	call	XTIDE_SelectUnit
