@@ -397,3 +397,123 @@ on the watched list (32 of 107), and `EBX` at `C15200E8`, the object named on 20
 on this list. **So nothing yet shows what a clean shutdown does to `C0010810`** — whether it
 drains, and who pops it. That is the comparative to run next if the instrumented run does not
 name the popper on its own.
+
+---
+
+# SESSION CLOSE 2026-09-04 evening — read this before anything above it
+
+Eleven emulator boots, each with a real shutdown driven by hand at the desktop. **The hang is not
+fixed.** What follows is what is now known, what was falsified, and the one measurement left
+running when the session ended.
+
+## Retracted this session — do not act on these
+
+| claim | where it came from | why it is dead |
+|---|---|---|
+| `C1032D1C` is an object inside our driver | commit `8fe1609` | our object 1 loads at `C1030D40`; that address is `base+0x1FDC`, past object 1's `0x1B88` and past the whole packed module. It is a heap neighbour |
+| VMM waits for thread list `C001080C` to drain | commit `8fe1609` | walked it at the wedge: **0 nodes, `next==prev==sentinel`**. The `cmp/jne` at `C0008F8A` passes |
+| VMM waits for list `C0010C98` | this session | walked it at the wedge: **also empty**. `C0008F40`'s `jz` exit is available |
+| the published volume / appy-time event is the cause | this session | `-NoVolume` (`2f7c8f4e`) removes the publish, the logical DCB, the drive-letter association and the only `_SHELL_CallAtAppyTime` call. **Still wedges, identically** |
+
+## Established, and worth not re-deriving
+
+- **Every queued node carries `THCB` at +0Ch** — they are VMM Thread Control Blocks, and `+14h` is
+  the System VM handle `C15200E8` on all of them (the value pinned in `EBX` through every wedge).
+- **The orphan is named.** `CREATE_VRP` for VRP `C0FD65C8`, **drive 2 = `C:`**, issued right after
+  `AEP_ASSOCIATE_DCB` on our DCB `C0FD6490`, and never destroyed. `A:` (`C0FD2C6C` → `C0FD2C38`) is
+  created and destroyed on the same machine seconds apart. **Destroys report the VRP 0x34 below the
+  create's pointer — pair them on that offset.**
+- **IOS abandons our teardown after `AEP_DCB_LOCK`.** `A:` runs `21·16·19·4` all on one DCB. Ours
+  runs `21` on `C0FD6490`, then `16` on a *different* object, then nothing. `SYSTEM_SHUTDOWN`
+  follows and the machine wedges. Identical across all four driver fixes.
+- **Windows is genuinely 32-bit on this disk.** After Windows starts: **5,039,676 XT-IDE accesses,
+  every one from selector `0028`; zero from `D000`.** All real-mode INT 13h traffic is DOS boot.
+  `RMM.PDR` loads and never reaches `INITCOMPLETE`; `PORT` does.
+- **No I/O reaches us after the teardown starts** — zero accesses between the first teardown AEP and
+  the wedge. IFSMGR never even attempts the unmount, which is why driver-side I/O fixes cannot help.
+- **Thread `C159F068` has inconsistent links**: its `+4`/`+8` both point at sentinel `C0010C98`
+  while that sentinel points at itself. A thread that believes it is on a list the list does not
+  contain. First anomaly found in a VMM structure rather than in our answers.
+
+## The four driver fixes made tonight — all correct, none causal, all kept
+
+Each is a DDK contract we were breaking. Each changed the teardown by **not one AEP**.
+
+1. **`AEP_PEND_UNCONFIG_DCB` (21) was answered `AEP_FAILURE`** by the catch-all. `STORAGE.DOC`: it
+   is the *first* AEP sent when a DCB is destroyed and layers "are expected to stop and prevent all
+   further input and output". Now dispatched and answered. (`eabb9be`)
+2. **Everything but READ/WRITE/VERIFY returned `IORS_INVALID_COMMAND`**, `IOR_FLUSH_DRIVE`
+   included. Flush, media-check, lock/unlock, cancel, clear/abort/restart queue, spin up/down and
+   DOS reset are honest no-ops on an XT-CF, so they are answered. (`de58591`)
+3. **Quiesce on code 21**, gating data movement only — quiescing the housekeeping commands would
+   refuse the very flush that lets a volume go. (`19f9668`)
+4. **Load group was the sample's `DRP_MISC_PD`, `'Generic Port Drv'`.** Read off the card's own
+   binaries: `ESDI_506` = `ESDI_PD`, `SCSIPORT` = `NT_PD`, `HSFLOP` = `NEC_FLOPPY`. Ours was the
+   only one in a non-disk band; our `DRP_BT_ESDI` bus type already matched `ESDI_506`. (`c5632a6`)
+
+## Also done
+
+- **Stride autodetect is now the default** (`405f5e4`). One binary covers a classic XTIDE at
+  `base+N` and the XT-CF at `base+2N`. The probe reads Status and Alternate Status under each
+  candidate and keeps the map where they agree; it writes nothing, so it cannot repeat the SRST
+  accident a write-probe would cause. **⚠ It has NEVER executed on hardware** — the ledger has one
+  `XT_STRIDE=0` build ever, `e8edf217`, built today and never deployed. Every 5160 binary is pinned
+  stride 2. Its first boot is a test.
+- **Upstream PR [#7858](https://github.com/86Box/86Box/pull/7858)** raised: XT-IDE logging was inert
+  on the plain card because only `jride_init()` opened a log handle. Four lines. README updated.
+- The XT-CF stride-2 / 8-bit PIO model **stays local** by decision — revisit upstreaming once the
+  driver lands, when it can be submitted as "validated by a working 32-bit port driver".
+
+## ❌ The fifth theory, raised and killed in the same run — kept only as a worked example
+
+**This was wrong. Read the subsection after it.** The reasoning below looked airtight: it came from
+the loop's own instructions rather than from a guess at a structure, which is exactly what the
+earlier failures lacked. It was still wrong, because it assumed the code that appears most in a
+heartbeat is the code that is stuck.
+
+```asm
+C0003221:  8B 47 6C     mov  eax,[edi+6Ch]    ; EDI = C159F068, a THCB
+C000323C:  8D 50 04     lea  edx,[eax+4]
+           8B 42 FC     mov  eax,[edx-4]      ; next at +0
+           85 C0        test eax,eax
+           74 09        jz   <exit>           ; exits ONLY on NULL
+           85 48 08     test [eax+8],ecx      ; ecx = 80000082
+C000324D:  EB F0        jmp  back
+```
+
+`C159F068`'s `+6Ch` is `C10CD89C`. `EAX` was observed revisiting `C0FCF51C`, `C0FCF0F8`,
+`C0FCEB50`, `C0FCF120`, `C10CD860` — **so the chain is circular and a NULL-terminated walk over it
+can never end.** A `CHAINWALK` hook was left in `386_dynarec.c` that follows `[tcb+6Ch]` with
+repeat detection and prints where the cycle closes.
+
+## ⭐ START HERE — the chain terminates, so that theory is dead too
+
+```
+CHAINWALK head [tcb+6Ch] = C10CD89C
+CHAINWALK #00 C10CD89C next=00000000 +8=00000001
+CHAINWALK terminated cleanly at NULL after 1 nodes
+```
+
+One node, `next = NULL`. The walk ends immediately, so `C0003xxx` is **not** the non-terminating
+loop. **This is technique 90d's warning, repeated:** a heartbeat concentrating in one address range
+means that code is HOT, not STUCK. `C0003221`-`C000324D` is a short leaf called over and over by an
+outer loop; the outer loop is what spins.
+
+**Start here next session, and do not propose a fifth structure first.** 90d already prescribes the
+method and names the approach chain from the ring buffer:
+
+```
+C002BED7 -> C002EA48 -> C002CA56 -> C0001430..C0001444
+```
+
+1. Arm a raw undeduped ring (technique 49) that **excludes** `C0003100-C0003300` and
+   `C0008E00-C0009100`, so it holds what runs BETWEEN visits to the hot leaf rather than the leaf
+   itself. The first attempt at this failed because the counter was reset on leaving the range and
+   never accumulated - the wedge cycles through *two* regions, so gate on "outside both".
+2. That gives the outer loop's own addresses. Dump the code there live (technique 44) before
+   reading anything into them.
+3. Only then ask what it is iterating.
+
+**Four theories were falsified tonight and every one came from naming a data structure that ought
+to matter. The two results that stuck - the `THCB` signature and the empty lists - both came from
+dumping bytes.** Dump first.
