@@ -147,3 +147,50 @@ capture shows both halves, so no extra run is needed to compare them.
 Comparing our DRP against `HSFLOP`/`ESDI_506`/`SCSIPORT` by searching for the driver name in the
 binary finds the **LE resident-name table**, not the DRP — and all four are byte-identical there.
 The feature code lives in the data segment; a different approach is needed.
+
+---
+
+## THE LEAD, 2026-09-04 end of session — AEP census on the faithful bed
+
+Two corrections first, both caused by the stride-1 bed:
+
+- **`AEP_SYSTEM_SHUTDOWN` DOES reach us.** Our handler runs; `XTIDE_ShutdownArm` and
+  `XTIDE_VolDown` both execute. The earlier "never arrives" was measured on the stride-1 bed where
+  the driver never properly claimed the disk, so IOS never sent it the teardown.
+- **The completion ladder is perfect:** offered 3527 / accepted 3527 / started 3527 / done 3527.
+  Every IOP completed. Nothing is waiting on us for I/O.
+
+### What IOS actually sends us
+
+Startup: `PEND_UNCONFIG(21) UNCONFIG(4) ASSOCIATE_DCB(12) CREATE_VRP(18) MOUNT_NOTIFY(17)
+PEND_UNCONFIG(21) UNCONFIG(4) CREATE_VRP(18) x2 DESTROY_VRP(19) CREATE_VRP(18) MOUNT_NOTIFY(17)`
+
+Shutdown: `PEND_UNCONFIG(21) DCB_LOCK(16) DESTROY_VRP(19) UNCONFIG(4)` **twice**, then
+`UNINITIALIZE(15)`, then `SYSTEM_SHUTDOWN(14)`.
+
+### The bug
+
+`Port_Async_Request` dispatches only `AEP_INITIALIZE`, `AEP_DEVICE_INQUIRY`, `AEP_CONFIG_DCB`,
+`AEP_IOP_TIMEOUT`, `AEP_BOOT_COMPLETE`, `AEP_UNCONFIG_DCB` and `AEP_SYSTEM_SHUTDOWN`. Everything
+else falls to `pa_note_only` and is answered **`AEP_SUCCESS`** — "done" — having done nothing.
+
+At shutdown that means we answer these blind:
+
+| code | AEP | why it matters |
+|---|---|---|
+| **15** | **`AEP_UNINITIALIZE`** | counterpart of `AEP_INITIALIZE`. We create a DDB at init with `ISP_CREATE_DDB` and **nothing ever destroys it**. We claim to have released everything while still holding the DDB and the calldown. **Prime suspect.** |
+| 16 | `AEP_DCB_LOCK` | unhandled |
+| 21 | `AEP_PEND_UNCONFIG_DCB` | a *query* — "may I unconfigure this?" — answered yes, blind |
+
+A driver that reports it has uninitialised and has not is exactly what would leave a VxD polling
+forever for all drivers to release. That matches the observed cycle: a VxD at `C002xxxx` calling
+VMM in a loop, our driver idle, all our I/O finished.
+
+### Do this first
+
+Handle `AEP_UNINITIALIZE`: destroy the DDB (`ISP_DEALLOC_DDB`, the sample already does this on the
+init-failure path in `Port_initialize`), drop the calldown, clear our own state. Then re-run the
+faithful bed. `AEP_DCB_LOCK` and `AEP_PEND_UNCONFIG_DCB` are the next two if that is not enough.
+
+Note the sample's `pa_note_only` comment claims answering `AEP_SUCCESS` "is the right answer to all
+of them". That is true for notifications and **false for `AEP_UNINITIALIZE`**, which is a command.
