@@ -262,3 +262,57 @@ handlers, then FAILURE for those two as well.
 CFU1 also keeps an `aep_counts[32]` census array - independent validation of the method used here.
 It does **not** remove its calldown at shutdown either, which weakens (does not kill) the
 never-removed-calldown theory above.
+
+---
+
+## ⭐⭐ THE CLOSING FINDING, end of 2026-09-04 — VMM waits for a list we are still on
+
+### First, one more negative
+
+`c5b5b7f0` / commit `4ba1995` — answering `AEP_FAILURE` for undispatched codes and acknowledging
+only `16..19`, exactly as CFU1 does. **Still hangs.** So the AEP default is not the cause. The CFU1
+comparison was still the right method; this particular difference just was not it. Boot was
+unaffected (C: and D: both present), so failing `ASSOCIATE_DCB` at startup is harmless.
+
+### The real loop, and this one IS a loop
+
+```
+C0008F8A:  81 3D 10 08 01 C0  0C 08 01 C0   cmp dword [C0010810], C001080C
+           0F 85 43 FF FF FF                jne -0BDh   -> C0008ED3, backwards, verified
+```
+
+Comparing a list head against the **sentinel address of the list itself** - the standard
+`while (head != &list)` idiom. **VMM is waiting for a queue to drain.**
+
+### Who puts things on it, and what is left
+
+A linear write watchpoint on `C0010808-C001081F`:
+
+| | |
+|---|---|
+| writers | **exactly one**: `[0028:C000921F]`, dword, always to `C0010810` |
+| writes during the run | 107 |
+| **writes during shutdown** | **zero** |
+| last value pushed | **`C1032D1C`** |
+
+`C103xxxx` is **our driver's own address range** (our code executes at `C1031B30`, `C1031EBE`,
+`C1031AED`...). So VMM is holding a pointer to an object inside our driver on a list it later spins
+waiting to see empty, and **nothing removes it at teardown**.
+
+That is consistent with every measurement of the day: all our I/O completes (ladder exact at
+3527/3527/3527/3527), the driver goes idle, our AEP handlers all run, and a VxD polls forever.
+
+### Do this first next session
+
+1. **Identify what lives at `C1032D1C`** in the loaded driver. Our load base is derivable from a
+   known code address (e.g. a heartbeat sample inside `XTIDE_ReadData`) minus its file offset; then
+   `C1032D1C - base` gives the offset into our image, which the `.map` and listing will name.
+2. **Find what registered it.** One writer (`C000921F`) means one VMM service; a caller trace armed
+   on `C000921F` (the ring tooling already exists) names it in one run.
+3. Then the fix is to deregister it - at `AEP_UNINITIALIZE` or `AEP_SYSTEM_SHUTDOWN`, both of which
+   we now demonstrably receive and handle.
+
+Note this sits oddly with the fact that our driver makes **zero VMM service calls** (technique 88's
+table) - so whatever put us on that list, we did not call VMM to do it directly. IOS may have done
+it on our behalf at `ISP_INSERT_CALLDOWN`, which would finally explain the original bisect: *no
+calldown -> clean, calldown inserted -> hangs*, the one signal that has survived every test today.
