@@ -4600,3 +4600,103 @@ The real retry loop is in the callers, from the approach ring:
   reset on leaving the range, so it never accumulated: the wedge cycles through *two* regions.
 - **Dump the code at the address, from the running guest.** Everything above came from 80 bytes
   read live at the moment it wedged. Reading them earlier would have skipped 90b and 90c entirely.
+
+## Technique 91: identify a list node by its SIGNATURE before deciding whose it is — and
+## compute your own load base before calling an address yours
+
+2026-09-04. The XT-IDE port driver's shutdown wedge was recorded in commit `8fe1609` as *"VMM
+waits for a list our driver is still on"*, with the queued node `C1032D1C` described as *"inside
+our driver's own address range"*. Both halves were wrong, and each was wrong in a way this file
+already warns about.
+
+### The node was never ours — dump the object, do not infer from the address
+
+Extending the linear write watchpoint to dump 32 bytes at every pointer it saw queued gave the
+answer in one boot:
+
+```
++00  00510801
++04  C001080C   <- back to the list sentinel
++08  C0FD0F4C   <- prev
++0C  54 48 43 42  =  "THCB"
++14  C15200E8   <- the same value on EVERY node: the System VM handle
+```
+
+**`THCB` is the Windows 95 VMM Thread Control Block signature.** All 211 queued nodes carried it.
+`C001080C` is not a driver queue at all — it is the **VMM thread list**, and `C0008F8A`'s
+`cmp [C0010810], C001080C / jne` is VMM waiting for every thread in the System VM to exit before
+shutdown can finish. `C15200E8`, the constant in `EBX` through every wedge heartbeat, is that VM.
+
+A struct signature at a fixed offset settles ownership in one line where an address never can.
+**Dump 32 bytes of any object you are about to attribute to something.** It costs one `readmembl`
+loop in a hook you already have.
+
+### The address looked like ours because heap blocks neighbour the image that was loading
+
+Our object 1 loads at `C1030D40`. The queued node was `base+0x1FDC` in one run and `base-0xEC` in
+the next — TCBs allocated either side of our module, because they were created around the time our
+driver loaded. **Proximity in a heap is not ownership.**
+
+### How to compute the load base of a Win9x VxD from a live log, exactly
+
+Three independent families of anchor, and they must be reconciled because they disagree by one:
+
+| anchor | what it gives |
+|---|---|
+| an I/O site: find the `in al,dx` / `out dx,al` byte inside a routine in the FILE, add the routine's `.map` offset | 86Box logs `pc` **after** the one-byte instruction, so this family reads base+1 |
+| a heartbeat's 16 instruction bytes at some `CS:EIP` | matched against the file, this gives the offset **exactly** — `pc` is at the instruction start |
+| register values in that same heartbeat | `ESI`/`EDI` holding your own buffers resolve straight to `.map` symbols |
+
+Reconciling the off-by-one is what pins it. Object 1 offset O sits at file offset `datapages + O`
+(`datapages` from the LE header, 0x1000 here) — `tools/ledump.py` prints it.
+
+**Then check the offset against the object's own `vsize`.** Ours was `0x1B88`, the whole module
+packed `0x1E21`; `0x1FDC` is past both. An offset outside every object is the tell that the address
+is not in your image at all, before you go looking for a symbol that cannot exist.
+
+### The service scan that said "zero VMM service calls" was true and misleading
+
+Technique 88's table scanned `CD 20` records and kept `device_id == 0001`. Our driver makes no VMM
+calls — and does make seven others, including the one that mattered:
+
+```
+0017:000E   _SHELL_CallAtAppyTime      <- one call site, publishes our volume
+0010:0007   IOS
+0003:xxxx x4,  0033:xxxx x2
+```
+
+**Filter a service scan by device only to answer a question about that device.** To answer "what
+does this driver talk to", print every device ID and resolve afterwards.
+
+### Negative, measured on the faithful bed: the published volume is not the cause
+
+`-NoVolume` (commit `ebb9a9b`, md5 `2f7c8f4e`) removes the `call XTIDE_SchedVol` at the end of
+`Port_cfg_device`, so no appy-time event is queued, no logical DCB is created and no drive letter
+is associated. **It still wedges**, identically — same VMM addresses, same pinned `EDI`, thread
+list still non-empty. So the logical DCB, the drive-letter association and the un-cancelled
+appy-time event are all exonerated. (The same row in Technique 88's old bisect table said this on
+the stride-1 bed and happened to be right for the wrong reason.)
+
+### What survived: the VRP imbalance is exactly 1, in BOTH configurations
+
+The AEP census, decoded from the driver's own debug-port stream (`DBGPORT tag=10`):
+
+| | startup | shutdown | `CREATE_VRP` | `DESTROY_VRP` |
+|---|---|---|---|---|
+| with volume | `21 4 12 18 17 · 21 4 18 18 19 18 17` | `21 16 19 4 · 21 16 19 4 · 15 14` | **4** | **3** |
+| no volume | `21 4 12 18 17 · 21 4 18` | `21 16 19 4 · 21 16 · 14` | **2** | **1** |
+
+Removing the volume removed two creates *and* two destroys and left the same single orphan. And in
+the no-volume run the second teardown pass **stops after `AEP_DCB_LOCK`** — IOS pend-unconfigures a
+DCB, locks it, and never sends `DESTROY_VRP` or `UNCONFIG_DCB` for it.
+
+One volume record live, one thread that cannot exit, VMM spinning on the thread list. **Start four,
+close three — the project owner's own framing, and the only asymmetry left standing.**
+
+### Method note that made the difference: bisect by REMOVING, but measure the census either way
+
+Three fixes were shipped on strong theories in this investigation — handling `AEP_UNINITIALIZE`,
+restoring the `AEP_FAILURE` default, the fast-fail clamp — and all three were negative. What moved
+it was one hook that dumped raw bytes (the THCB signature) and one build that removed a feature
+rather than adding a fix. **When a symptom has resisted three fixes, the next change must remove
+something or print something, not fix something.**
