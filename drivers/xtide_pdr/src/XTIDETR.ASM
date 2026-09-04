@@ -1402,6 +1402,16 @@ endif
 	jne	xwd_no
 
 	mov	XTIDE_InsertedDcb[ecx], esi
+;  Name the DCB we claim. AEP_CONFIG_DCB is dispatched before the AEP reporter,
+;  so the census has never carried our own DCB pointer - which left "did the
+;  teardown ever reach a DCB of ours" unanswerable on 2026-09-04.
+	push	eax
+	push	edx
+	mov	edx, esi
+	mov	al, 14h
+	call	XTIDE_DbgEmit
+	pop	edx
+	pop	eax
 	xor	eax, eax
 	ret
 
@@ -1465,6 +1475,15 @@ xpu_scan:
 
 xpu_quiesce:
 	mov	XTIDE_Quiesced, 1
+;  Say so. A guard that can decline work fails silently by construction, and
+;  the run that added this one could not tell whether it had ever matched.
+	push	eax
+	push	edx
+	mov	edx, esi
+	mov	al, 15h
+	call	XTIDE_DbgEmit
+	pop	edx
+	pop	eax
 
 xpu_done:
 	ret
@@ -2474,10 +2493,6 @@ ifdef XT_NO_IO
 				; touching neither hardware nor geometry. Splits
 				; a bad ISP packet from a bad request path.
 endif
-;  Quiesced by AEP_PEND_UNCONFIG_DCB. Complete without touching the device -
-;  the IOP still goes back up the callback stack, so nothing is left dangling.
-	cmp	XTIDE_Quiesced, 0
-	jne	xsr_ioerror
 	movzx	eax, byte ptr [esi].DCB_unit_on_ctl
 	mov	XTIDE_ReqUnit, eax
 	call	XTIDE_SelectUnit
@@ -2490,11 +2505,65 @@ endif
 	cmp	ax, IOR_VERIFY
 	je	xsr_ok		; verify does not have to move data
 	cmp	ax, IOR_READ
-	je	xsr_io
+	je	xsr_data
 	cmp	ax, IOR_WRITE
-	je	xsr_io
+	je	xsr_data
+
+;  Anything else. Report the code before deciding what to do with it, so the
+;  log names the command even if the table below turns out to be incomplete.
+	push	eax
+	mov	edx, eax
+	mov	al, 16h
+	call	XTIDE_DbgEmit
+	pop	eax
+
+;  Commands that are honestly no-ops ON THIS DEVICE - not a blind SUCCESS. An
+;  XT-CF has no write cache we manage (every IOR_WRITE reaches the card before
+;  we complete the IOP), no queue (we complete synchronously, so there is never
+;  anything to cancel or restart), no motor, and non-removable media.
+;
+;  Answering IORS_INVALID_COMMAND to all of these is why C: never dismounted:
+;  VFAT issues a flush to finish an unmount, we rejected it, the FSD never
+;  completed, so IFSMGR never sent AEP_DESTROY_VRP, the volume stayed mounted,
+;  its thread never exited and VMM span forever on the System VM thread list.
+;  Measured 2026-09-04 - 4 VRPs created, 3 destroyed, orphan = drive 2 = C:.
+	cmp	ax, IOR_FLUSH_DRIVE
+	je	xsr_ok
+	cmp	ax, IOR_FLUSH_DRIVE_AND_DISCARD
+	je	xsr_ok
+	cmp	ax, IOR_MEDIA_CHECK
+	je	xsr_ok
+	cmp	ax, IOR_MEDIA_CHECK_RESET
+	je	xsr_ok
+	cmp	ax, IOR_LOCK_MEDIA
+	je	xsr_ok
+	cmp	ax, IOR_UNLOCK_MEDIA
+	je	xsr_ok
+	cmp	ax, IOR_CANCEL
+	je	xsr_ok
+	cmp	ax, IOR_CLEAR_QUEUE
+	je	xsr_ok
+	cmp	ax, IOR_ABORT_QUEUE
+	je	xsr_ok
+	cmp	ax, IOR_RESTART_QUEUE
+	je	xsr_ok
+	cmp	ax, IOR_SPIN_UP
+	je	xsr_ok
+	cmp	ax, IOR_SPIN_DOWN
+	je	xsr_ok
+	cmp	ax, IOR_DOS_RESET
+	je	xsr_ok
+
+;  Genuinely not implemented - FORMAT, SCSI pass-through, IOCTL and friends.
 	mov	word ptr [ebx].IOP_ior.IOR_status, IORS_INVALID_COMMAND
 	jmp	xsr_complete
+
+;  Data movement, and the ONLY thing AEP_PEND_UNCONFIG_DCB's "stop and prevent
+;  all further input and output" is allowed to block. Quiescing the housekeeping
+;  commands above would refuse the very flush that lets the volume go.
+xsr_data:
+	cmp	XTIDE_Quiesced, 0
+	jne	xsr_ioerror
 
 xsr_io:
 ifdef XT_READ_ONLY
