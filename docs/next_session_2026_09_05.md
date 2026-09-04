@@ -211,3 +211,21 @@ Also still unexplained and worth a look before more guessing: at startup we rece
 `XTIDE_ForgetDcb`, which clears the `XTIDE_InsertedDcb` slot. If the DCB is later reconfigured we
 never re-record it, so `XTIDE_VolDown`'s unlink scan at shutdown may be looking at an empty table.
 That is a state-tracking bug regardless of whether it causes the hang.
+
+### The census asymmetry — 4 `CREATE_VRP`, 3 `DESTROY_VRP`
+
+Counting the whole session: `CREATE_VRP(18)` x4 (all at startup), `DESTROY_VRP(19)` x1 at startup
+and x2 at shutdown. **One volume record is created and never destroyed.** That is the only genuine
+imbalance in the census, and "a VxD polling until every volume is gone" fits the captured cycle.
+
+The duplication is separately explainable: `PEND_UNCONFIG`/`DCB_LOCK`/`DESTROY_VRP`/`UNCONFIG` all
+arrive **twice** at shutdown, and `PEND_UNCONFIG`/`UNCONFIG`/`MOUNT_NOTIFY` twice at startup -
+consistent with **two DCBs**, the physical one and the logical volume we publish.
+
+**Never yet run: `-NoVolume` WITH the AEP reporter.** `83c3bca1` predates `XTIDE_DbgAep`. If the
+duplication collapses to one pass, the pairs are confirmed per-DCB and any leftover VRP is
+definitely not ours. One build, one boot, and it splits the two theories above.
+
+Worth correlating against `HSFLOP.PDR` / `ESDI_506.PDR`, which shut down cleanly on this machine:
+which of these codes do they dispatch, and do their VRP counts balance? Copies are in
+`roms/xtcf_card/`.
