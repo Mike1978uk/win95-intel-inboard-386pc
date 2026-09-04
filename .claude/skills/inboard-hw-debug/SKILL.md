@@ -4187,6 +4187,19 @@ holding the whole system, roughly 0.6 s per wait on a 4.77 MHz bus. It survives 
 because the drive answers; it wedges at `System_Exit`, where the scheduling and time-out context
 a blocking driver leans on is being torn down.
 
+⚠ **Correction, 2026-09-04: those spins are BOUNDED.** `XT_SPIN = 400000` with `dec ecx / jnz`,
+in both `XTIDE_WaitNotBusy` and `XTIDE_WaitDrq`; each returns `CF=1` on expiry, and the driver
+does not retry. So the driver **cannot** spin forever, and "hang" was assumed, not measured.
+0.6 s per wait, several waits per sector, many sectors in a shutdown cache flush is *minutes* -
+which is indistinguishable from a hang to anyone who did not wait. **Before designing a fix for
+a hang, establish that it is one:** watch 86Box's XT-IDE access log during the freeze. Accesses
+still arriving means a timeout storm, not a wedge, and the two want different fixes. Nobody has
+recorded how long the machine was left.
+
+Note also `Port_iop_timeout` (`AEP_IOP_TIMEOUT`) is an **empty stub** that returns the preset
+`AEP_SUCCESS` - telling IOS we own the timed-out IOP and have handled it, having done nothing.
+A second missed contract, independent of the polling one.
+
 **The transferable point:** "it works in normal use" says nothing about whether the structure is
 right. A blocking driver looks fine until the system needs to run something else while it waits.
 

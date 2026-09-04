@@ -147,6 +147,80 @@ before the restructure: keep the inline wait, but wait on a semaphore with an ar
 And `ESDI_506.PDR` is the weaker reference despite being the obvious one — IDE has IRQ 14, so it
 completes from an interrupt, not from a timeout handler.
 
+## Update 2026-09-04, second pass: is it even a hang?
+
+Reading the transport turned up something the handoff had assumed away.
+
+**The poll loops are already bounded.** `XT_SPIN = 400000` with `dec ecx / jnz`, in both
+`XTIDE_WaitNotBusy` (`XTIDETR.ASM:582`) and `XTIDE_WaitDrq` (`:606`); each returns `CF=1` on
+expiry, and the driver does not retry — one shot per IOP, then `IORS_DEVICE_ERROR`. **The driver
+cannot spin forever.** At roughly 0.6 s per expired wait, several waits per sector and a whole
+cache flush queued at shutdown, "hangs" and "takes eleven minutes" look identical from a chair.
+Nobody has recorded how long the machine was left.
+
+`XT_SPIN` is also explicitly uncalibrated — *"status poll limit; no timer at init"*. Its sibling
+`XT_TIMEBASE` carries a written account of this exact bug biting once already: a constant
+calibrated on 86Box's Deskpro that was meaningless on the 5160.
+
+### Do this first — it is free and decisive
+
+**Watch 86Box's XT-IDE access log during the freeze.** The emulator logs every access with the
+guest EIP, and the hang reproduces in the emulator, so this costs no 5160 boots and no build:
+
+| what the log shows during the freeze | what it means | fix |
+|---|---|---|
+| accesses still arriving, from the `WaitNotBusy` / `WaitDrq` EIPs | timeout storm, not a wedge | shorten the shutdown timeout; the contract fix then stops it freezing the UI |
+| accesses arriving, request completing, another starting | it finishes eventually — leave it running and time it | as above |
+| nothing at all | genuinely wedged, and **not** in the spin | the contract fix, and re-open where |
+
+### Then: enforce a shutdown timeout — the safe version of "just stop"
+
+`XTIDE_VolDown` already runs on `AEP_SYSTEM_SHUTDOWN`. Have it set a flag, and have both wait
+loops load a much smaller count when the flag is set (`XT_SPIN_SHUT`, ~4000 = ~6 ms) instead of
+400000. Six lines in each loop.
+
+**This cannot lose data, and that is the point.** When the drive answers, a wait completes in
+microseconds and never reaches either limit; the short count only bites where the long one would
+also have failed, 100x slower. It changes *how long we wait before failing*, not *whether we
+fail* — unlike completing requests with fake success, which would silently drop the final cache
+flush and corrupt the CF.
+
+If shutdown then completes: the freeze was the spin, and we have both the diagnosis and a
+stopgap. If it still freezes: either requests arrive before the shutdown AEP, or the freeze is
+not in the spin — and that is worth knowing before writing the semaphore restructure.
+
+⚠ Run it in the emulator on a **copy** of the image. Do not put a first-cut shutdown path on the
+CF; and note that powering off a genuinely hung shutdown is itself destructive on the real
+machine — Win95 freezes before it has flushed and said "safe to turn off".
+
+### Already answered, do not re-run
+
+"Can we just not do I/O at shutdown?" — the bisect above already ran the stronger form: **stubbed
+request handler, shutdown clean**. Not doing I/O is known to fix it. A shutdown-only stub would
+add exactly one fact — whether requests arrive *after* `AEP_SYSTEM_SHUTDOWN` — and the timeout
+experiment above yields that fact without risking a write.
+
+### `Port_iop_timeout` is an empty stub
+
+`PORTAER.ASM` dispatches `AEP_IOP_TIMEOUT` to a routine that returns the preset `AEP_SUCCESS`.
+That tells IOS we own the timed-out IOP and have dealt with it, having done nothing. A second
+missed contract, independent of the polling one. It only matters once we stop blocking — while
+we block, IOS cannot run its timeout either.
+
+### What real mode still has to teach
+
+The XT-IDE Universal BIOS polls too, and shuts down fine — because in real mode nothing else
+needs the CPU. Two things follow:
+
+- **It is evidence the transport is right and the fault is structural**, consistent with the
+  bisect. The same register and latch sequence works from DOS, verified: IDENTIFY returns
+  `TRANSCEND`.
+- **XUB times against the BIOS tick at `0040:006C`, not a naked loop count.** That is the
+  calibration `XT_SPIN` does not have, and XUB's source states real numbers for how long an
+  XT-CF may legitimately stay busy. Worth reading for that alone.
+- It is also a **control**: if the drive genuinely stops answering at shutdown, a real-mode
+  access at the same moment would see it too.
+
 ## Still unread
 
 - The **retrocomputing.SE answer** on how IOS matches drivers to BIOS disks — bears on blocker 2,
