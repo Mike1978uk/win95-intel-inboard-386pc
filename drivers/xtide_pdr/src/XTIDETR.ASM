@@ -1529,6 +1529,19 @@ BeginProc XTIDE_DbgAep
 	movzx	edx, si
 	mov	al, 10h
 	call	XTIDE_DbgEmit
+
+;  The function code alone says four VRPs were created and three destroyed. It
+;  cannot say WHICH one survived. Every DCB- and VRP-flavoured AEP carries its
+;  object at hdr+12 and, for the VRP pair, the drive at hdr+16 - AEPHDR is 12
+;  bytes, so these two dwords name the orphan without a per-variant layout
+;  table (technique 82: dump the words, do not interpret through a guess).
+	mov	edx, [ebx+12]
+	mov	al, 11h
+	call	XTIDE_DbgEmit
+	mov	edx, [ebx+16]
+	mov	al, 12h
+	call	XTIDE_DbgEmit
+
 	popad
 	ret
 
