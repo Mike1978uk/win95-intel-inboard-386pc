@@ -33,6 +33,12 @@ param(
     # the real fix; this tests a base without a reinstall.
     [int] $Base = 0,
 
+    # Take an I/O mapping from SCSIPORT at init. OFF by default: we took one and
+    # never returned it (T130.MPD imports ScsiPortFreeDeviceBase; we did not),
+    # and the first shutdown where the claim actually succeeded hung in VMM.
+    # Do not re-enable without a matching free at teardown.
+    [switch] $ClaimRange,
+
     [string] $DdkRoot = 'C:\Users\lycet\OneDrive\Desktop\XT_project\Windows95_ddk'
 )
 
@@ -59,6 +65,7 @@ if ($Stride -ne 0)  { $defs += "-DXT_STRIDE=$Stride" }
 if ($RealModeInit)  { $defs += '-DXT_REAL_MODE_INIT' }
 if (-not $WriteTest) { $defs += '-DXT_NO_WRITETEST' }
 if ($Base -ne 0)    { $defs += ("-DXT_FORCE_BASE=0{0:X}h" -f $Base) }
+if ($ClaimRange)    { $defs += '-DXT_CLAIM_RANGE' }
 
 # -coff is what makes ML emit objects the PE linker can use at all.
 $aflags = @('-coff', '-DBLD_COFF', '-DIS_32', '-DMASM6', '-nologo', '-W2', '-Zd', '-c', '-Cx') + $defs

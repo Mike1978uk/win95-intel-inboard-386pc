@@ -284,14 +284,28 @@ xfa_havebase:
 	mov	ebx, DeviceExtension
 	mov	[ebx].DEVEXT.dxBase, eax
 
+ifdef XT_CLAIM_RANGE
 ;  Claim the range through SCSIPORT rather than just using the number.
 ;
-;  The transport moves every byte with raw IN and OUT, so strictly we only need
-;  the port number - and on x86 ISA this call returns the port number back,
-;  identity-mapped. It is here because the working driver on this machine does
-;  it: T130.MPD imports ScsiPortGetDeviceBase and ScsiPortValidateRange, and a
-;  shipping implementation outranks the sample (technique 81). Costs one call
-;  at init and makes the claim explicit to SCSIPORT.
+;  OFF BY DEFAULT, and that default was bought with a hung shutdown.
+;
+;  It was added because the working driver does it - T130.MPD imports
+;  ScsiPortGetDeviceBase, and a shipping implementation outranks the sample
+;  (technique 81). But T130 imports **ScsiPortFreeDeviceBase** as well, and we
+;  did not: we took a mapping at init and never gave it back.
+;
+;  That asymmetry stayed invisible for one run because of an unrelated bug. The
+;  node had been mis-assigned 0320-033F while the driver was pinned to 0300, so
+;  this call asked for a range the node did not own, SCSIPORT refused it, and
+;  the fallback below ran - holding nothing. Fixing the INF gave the node 0300,
+;  the claim then SUCCEEDED, and the very next shutdown hung in VMM.
+;
+;  So the clean shutdown we measured was partly an accident of the resource bug,
+;  and correcting that bug is what exposed this one. Re-enable only together
+;  with a matching ScsiPortFreeDeviceBase at teardown.
+;
+;  The transport moves every byte with raw IN and OUT and needs no mapping: on
+;  x86 ISA this call hands back the port number it was given.
 	push	TRUE			; InIoSpace
 	push	XT_PORT_COUNT		; NumberOfBytes
 	push	0			; IoAddress.HighPart
@@ -302,11 +316,10 @@ xfa_havebase:
 	call	ScsiPortGetDeviceBase
 	or	eax, eax
 	jnz	xfa_mapped
-;  A refusal is not fatal on this bus - fall back to the raw port number, which
-;  is what the mapping would have been.
 	mov	ebx, DeviceExtension
 	mov	eax, [ebx].DEVEXT.dxBase
 xfa_mapped:
+endif
 	mov	XTIDE_BasePort, ax
 
 ;  Probe. This is the transport's own entry point, unchanged from the port
