@@ -91,3 +91,6 @@ vm_t130b/
 
 #  The SCSI miniport bed (issue #21). 2 GB images plus a master copy.
 vm_xtide_mpd/
+
+#  Clean-install bed for the miniport INF (issue #21).
+vm_xtide_mpd2/
