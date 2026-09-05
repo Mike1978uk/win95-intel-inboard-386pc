@@ -132,6 +132,49 @@ See [issue #3](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/3)
 
 ---
 
+## 🟡 Working in emulation, not yet on the 5160
+
+### `XTIDEMP.MPD` — 32-bit disk access for the XT-CF / XT-IDE
+
+**[⬇ XTIDEMP.MPD](https://github.com/Mike1978uk/win95-intel-inboard-386pc/raw/master/dist/xtide_mpd/XTIDEMP.MPD)** · 10,752 bytes · code hash `1bf4378e`
+· **[⬇ XTIDEMP.INF](https://github.com/Mike1978uk/win95-intel-inboard-386pc/raw/master/dist/xtide_mpd/XTIDEMP.INF)**
+
+Not a patch — a driver. A Windows 95 SCSI miniport that presents the 8-bit Lo-tech XT-CF as a
+SCSI disk, so Windows drives it in protected mode instead of falling back to real-mode BIOS.
+Source in [`drivers/xtide_mpd/`](drivers/xtide_mpd/).
+
+> ### 🟡 Proven on an emulator bed that models the real card — 2026-09-05
+>
+> ```
+> Init Success xtidemp.mpd
+> INITCOMPLETESUCCESS = SCSIPORT / DiskTSD / VFAT / IFSMGR
+> RMM.PDR   loads, and never reaches INITCOMPLETE
+> shutdown  7 stages started, 7 closed
+> ```
+>
+> `RMM.PDR` loading and then never initialising is the boot-disk takeover: the Real Mode Mapper
+> found nothing to claim because the miniport already owned the disk. `C:` was navigable and
+> Windows shut down normally.
+>
+> **Not tested on the 5160.** The bed models the card's stride-2 register map, 8-bit PIO and its
+> own option ROM, which is why it reproduces faults the stock emulator cannot — but it is not
+> the machine. The write path is also barely exercised: booting and browsing is mostly reads.
+
+This replaces the IOS port driver in `drivers/xtide_pdr/`, which reached the same disk and then
+wedged Windows at shutdown for four sessions. The miniport deletes that layer rather than
+debugging it: SCSIPORT owns the polling contract, the DCB lifecycle and scatter/gather, and every
+bug in that investigation lived in one of the three. Reasoning and the control that justified it:
+[`docs/scsi_miniport_costing.md`](docs/scsi_miniport_costing.md).
+
+**Install:** Add New Hardware → decline autodetect → SCSI controllers → Have Disk. `inbrdpc.sys`
+must be in `[SafeList]` in `WINDOWS\IOS.INI` first, or IOS declines every miniport
+([#17](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/17)). Remove any older
+XT-IDE `PORT.PDR` node first — it claims the same I/O range.
+
+See [issue #21](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/21).
+
+---
+
 ## ⚠️ Built and audited, NOT tested
 
 Neither device is present on the development machine, so these are correctness rather than proven
