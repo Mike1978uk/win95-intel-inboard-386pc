@@ -1,156 +1,93 @@
-# Next session — 2026-09-06
+# Next session — after 2026-09-05
 
-**Read `docs/scsi_miniport_costing.md` first.** This file is the plan; that one is the evidence.
+**Read `drivers/xtide_mpd/README.md` first.** This file is the plan; that one is the driver.
 
-## What changed on 2026-09-05
+## Where it got to
 
-The XT-IDE `.PDR` shutdown wedge is **our code**, not the machine. Measured, not argued:
-Adaptec's `T130.MPD` — a polling, no-IRQ SCSI miniport — holds a written FAT16 volume through a
-clean Windows 95 teardown on the same image the wedge reproduces on. SCSIPORT is itself an IOS
-port driver, so IOS's teardown path, the DCB lifecycle, the volume lock and the cache flush are
-all sound here.
-
-**Decision: stop debugging the `.PDR` and write a SCSI miniport instead.** It discards ~1,500
-lines of IOS glue — where every bug in this investigation has lived — and keeps ~1,120 lines of
-transport unchanged.
-
-Retired: the polling-contract diagnosis (technique 88's "THE GAP") as the *cause*. It is a real
-contract violation worth fixing for responsiveness; it is not what wedges the shutdown.
-
-## CD-ROM on this machine — asked and answered, 2026-09-05
-
-**Not through the XT-CF.** Settled from a photograph of the board, not from documents: silkscreen
-`XTIDE Universal BIOS / Adapter Type XT-CF`, logic is two `CD74HCT688` comparators, an
-`SN74HCT139` and a buffer, **no high-byte latch**. XT-CF transfers through the CF card's own
-8-bit PIO mode; ATAPI has no 8-bit data mode. Also closes `bDevice = 0x0A`, open since
-2026-08-31. Full account, including the five weeks the same conclusion rested on an untestable
-inference and the vendor copy that briefly reopened it, in `docs/xtide_pdr_5160_differences.md`
-§4 and technique 95.
-
-**Do not spend machine time on the latch.** The board answers it.
-
-Two routes remain, both natively 8-bit, neither touching the XT-CF:
-
-1. **Mitsumi — free, and it belongs in the bed before any driver is written.** 86Box already
-   emulates an 8-bit ISA Mitsumi CD-ROM controller (`src/cdrom/cdrom_mitsumi.c`, behind CMake
-   option `CDROM_MITSUMI` — one rebuild), and Windows 95 shipped a Mitsumi driver. That tests the
-   entire CD path on the Inboard — CDFS, class driver, claim, teardown — with none of our code in
-   it. Technique 94 again, and it costs a build.
-2. **The SB Pro's own Panasonic/MKE header — hardware-only.** `snd_sb.c` documents an SB Pro
-   CD-ROM interface at `base+10h..13h`; that interface is natively 8-bit and the card is already
-   in the 5160. 86Box comments the decode but does not implement it, so it cannot be bedded.
-   **Open question for the owner: does the physical SB Pro carry that header?** Protocol
-   reference if it does: PicoGUS's MKE emulation,
-   <https://github.com/polpo/picogus/wiki/CD%E2%80%90ROM-Emulation> — device-side, so a source for
-   the command set, not a layer to reuse.
-
-**If a CD path opens, reorder the miniport work.** A read-only device is the better first target
-than the CF disk: it exercises claim → SRB dispatch → polling → completion → clean unload with no
-write, no flush and no dirty-volume teardown — the exact code the `.PDR` wedged in. It takes the
-riskiest path out of the first build instead of carrying it in.
-
-Origin: the owner's question of 2026-09-05 about reusing Kevin Moonlight's MKE work from PicoGUS.
-The mechanism as proposed does not port — it is device-side, and no command set makes 8 wires
-carry 16 bits — but it is what produced both the board check and route 2.
-
-## Do these first — neither costs machine time
-
-1. **Read `T130.MPD`.** 7,598 bytes of `.text`, a working polling no-IRQ ISA miniport, with
-   `tools/vxd_disasm.py`. It is the closest exemplar to what we are about to write.
-2. **Settle boot-disk takeover.** The XT-CF is the boot disk, served by real-mode `RMM.PDR`, so
-   a miniport must take it over. `PORT_CONFIGURATION_INFORMATION.RealModeInitialized` looks like
-   the mechanism — *"indicates the real-mode driver has initialized the card; always initialized
-   by ScsiPort"* — with `ESDI_506.PDR` as the worked example. **Read how it is consumed before
-   spending a Windows install on testing it.** This is the one genuinely open question.
-
-## BUILT, 2026-09-05 — `drivers/xtide_mpd/`
-
-The port is done and it assembles, links and passes a static verification against the working
-driver. **It has not been run.**
+The SCSI miniport is written, builds, installs and **works on the faithful emulator bed**:
 
 ```
-XTIDEMP.MPD   10,752 bytes   md5 9b09f9d6   commit 9410986   tree clean
+Init Success xtidemp.mpd
+INITCOMPLETESUCCESS = SCSIPORT / DiskTSD / VFAT / IFSMGR
+RMM.PDR   loads, and never reaches INITCOMPLETE   <- boot-disk takeover
+shutdown  7 stages started, 7 closed
+5.9 MB copied through it, verified byte-for-byte from the host
 ```
 
-What it is: `src/XTIDEMP.ASM` is new — `DriverEntry`, `HwFindAdapter`, `HwInitialize`,
-`HwResetBus` and the SRB dispatch, about 600 lines. `src/XTIDETR.ASM` is the transport carried
-across by mechanical transform with **three** edits, each marked `MPD:` in the source. The 1,504
-lines of IOS glue in between were dropped wholesale, which is the point of the exercise.
+`RealModeInitialized` turned out not to be needed — the one field flagged as the open question in
+the costing was a non-issue.
 
-Verified without spending a boot:
+The port discarded 1,504 lines of IOS glue and kept the transport unchanged. Every bug the `.PDR`
+investigation chased lived in the discarded half.
 
-| check | result |
-|---|---|
-| PE shape against `T130.MPD` | i386 PE32, subsystem NATIVE, base `0x10000`, imports from `SCSIPORT.SYS` — identical |
-| entry point | `_DriverEntry@8`, and the prologue zeroes `0x4C` = `sizeof(HW_INITIALIZATION_DATA)` |
-| calling convention | stdcall. `SRB.INC` says `PROTO C`; that is an H2INC artefact. `T130.MPD` has exactly one `ret 18h` — the six-argument `HwFindAdapter`, cleaned by the callee |
-| SRB field offsets in the emitted dispatch | `Function +2`, `TargetId +6`, `Lun +7`, `Cdb +0x30` — all match `SRB.INC` |
+## The one thing to settle before the 5160
 
-Two decisions worth knowing before reading the source:
+**A manually forced device node correlates with a hung Windows shutdown.** Three runs of three, on
+two different builds — including the exact binary that shuts down cleanly when the node is
+auto-assigned. Removing the driver is clean. So on that bed it is our code, and the trigger is
+something about the node rather than anything in the driver's own logic.
 
-- **`MapBuffers = TRUE`.** SCSIPORT hands us one flat mapped buffer and does the scatter/gather
-  decomposition itself. Walking that list by hand is what wrote ring-0 heap into a volume's root
-  directory on 2026-09-01 (technique 85); that entire bug class is now somebody else's.
-- **`HwInterrupt` is NULL and `BusInterruptLevel` is 0.** Declaring a handler with a zero level
-  asks SCSIPORT to connect IRQ 0, the system timer — the exact mistake that killed the keyboard
-  in issue #22 (technique 75).
+But two variables moved together in every single run and have never been separated:
 
-**Still to do: install it and boot.** `drivers/xtide_mpd/README.md` has the steps. The install is
-manual (Add New Hardware → Have Disk → `C:\XTIDEMP`) because the INF carries no PnP hardware ID,
-the same as the T130B.
+| node | assigned how | teardown |
+|---|---|---|
+| `0320` — wrong address | auto | clean |
+| `0300` — correct address | **forced** | hung, 3 of 3 |
+| **`0300`** | **auto** | **never tested — run this** |
+| `0320` | forced | never tested |
 
-### What to check first, in order
+**Run the third row.** Install from an INF offering only `300-31F` so CONFIGMG has nowhere else to
+put it, and *decline to force anything* if a conflict is offered. That decides whether the wedge
+comes from forcing or from the address, and it is one install plus one shutdown.
 
-1. `Initing xtidemp.mpd` / `Init Success xtidemp.mpd` in `BOOTLOG.TXT`. **Delete the log before
-   the run** — a stale one names a driver from two images ago and reads exactly like a result
-   (technique 94 cost a run to this).
-2. Whether `C:` is taken over from `RMM.PDR`. This is the one genuinely open question and it was
-   never settled from `ESDI_506.PDR`: `T130.MPD` only ever proved a *secondary* disk.
-   `RealModeInitialized` is left FALSE because that is what every sample uses; if the driver
-   loads and the volume is not taken over, rebuild with `-RealModeInit` and try again. One build.
-3. A real shutdown. That is the whole reason for the port, and the `.PDR`'s failure is the
-   baseline to beat.
+It matters on hardware because `0320` and `0340` are the **3C509B** and the **T130B** on the real
+5160, so the node cannot land where it lands on the bed. `0300` is the likely assignment there —
+i.e. the untested cell, on the machine you care about.
 
-## The bed
+### And it may be the `.PDR` bug as well
+
+`PORT.INF` carried the same single-range `IOConfig=300-31F`, which produces the same conflict
+callout and very likely the same manual force. The wedge addresses match — `C0003187`, `C000318D`,
+`C000323C`, `C000324D`, `C0003257`, `C0008FA4`, `C0009073/7` — across both investigations. Four
+sessions of bisecting IOS glue held the node constant throughout, so nothing in them could have
+seen it. If the third row hangs, the `.PDR` deserves re-reading before it is called dead.
+
+## Then, in order
+
+1. **Async completion.** `XtStartIo` completes inline, so a heavy teardown blocks the machine for
+   minutes. Long enough that the owner would switch the machine off — a failed shutdown, not a slow
+   one (technique 98). `ScsiPortNotification(RequestTimerCall, …)` is the mechanism and it is half
+   the reason a miniport was worth writing.
+2. **The 5160**, with the CF imaged first: remove `PORT.PDR` and its `hdc` node, confirm
+   `inbrdpc.sys` is in `[SafeList]` in `IOS.INI`, keep the real-mode SCSI/ASPI chain out of
+   `CONFIG.SYS`, and check the Settings tab before rebooting.
+3. **Stride 1.** Never executed. It needs its own bed — a stride-1 card *and* a stock XTIDE option
+   ROM, because `xtcf_lotech` drives stride 2 and the option ROM could not boot the disk otherwise.
+   Does not affect this machine; does affect anyone else's card.
+4. **Dead data.** `XTIDE_SgCur` / `XTIDE_SgLeft` and the marker fields survived the transform and
+   are now unreferenced — SCSIPORT does scatter/gather. Deliberately left alone so as not to change
+   a binary mid-investigation.
+
+## Beds
 
 ```
-vm_t130b/86box.cfg.master       T130B 0x340 no IRQ; SCSI disk ID 0; SCSI CD-ROM ID 3
-vm_t130b/t130b_master.img       Win95, T130.MPD installed, PORT.PDR absent, NIC removed
-vm_t130b/scsi_test_master.img   partitioned FAT16 (tools/mkfatimg.py)
+vm_xtide_mpd2/xtidemp2_master.img         pre-install, genuinely clean (no node, no driver)
+vm_xtide_mpd2/xtidemp2_clean_install.img  the working install: auto-assigned 0320, nothing forced
+vm_xtide_mpd/xtidemp_WORKING_master.img   the earlier bed; node 0320, driver pinned — historic
 ```
 
-Masters are never booted; copy over the working image each run. Gitignored — ~4 GB.
-
-**Run both arms in this bed**, not across beds. The NIC was removed here, so a comparison against
-`vm_xtcf_faithful` carries two variables. To put our driver back head-to-head, `PORT.INF` must be
-reinstalled via Have Disk — the device node was deleted, and IOS binds port drivers to device
-nodes, not by scanning `IOSUBSYS` (technique 77).
+`xtidemp2_clean_install.img` is the one to clone. It reaches a desktop and shuts down cleanly.
 
 ## Traps paid for on 2026-09-05
 
-- **A bed whose config names a missing image boots to ROM BASIC.** 86Box silently *creates* a
-  blank image at that name. Every harness check passed. Assert `hdd_01_fn` resolves to a file
-  with an MBR signature before booting.
-- **Install ≠ loaded.** The first clean shutdown meant nothing: the driver was installed but the
-  machine had not been rebooted. `BOOTLOG.TXT` was stale and still named `port.pdr` from two
-  images ago. Delete the log before a run; require `Initing` / `Init Success` in the new one.
-- **`EndTerminate = KERNEL` is the last line on a hung shutdown too.** Count `Terminate` against
-  `EndTerminate` and name unpaired stages; the safe-to-turn-off screen is the real evidence.
-
-## Parked, worth an hour when convenient
-
-`Windows95_ddk/DEBUG/` ships **debug builds with symbols** of `IOS.VXD`, `SCSIPORT.PDR`,
-`DISKTSD`, `DISKVSD` and `VMM.VXD`, plus `WDEB386.EXE` and `DEBUGCMD` (`.pthcb`, `.psem`, `.pmtx`,
-labelled ring-0 stack). Technique 91 spent a session doing `.pthcb`'s job by hand.
-
-**Check version compatibility on the bed first, never on the 5160:** the binaries are dated
-1996-06-06 (OSR2 era), the guest is OSR1 build 950, and the `950/951/952/953` per-build
-subdirectories are empty.
-
-## Owed
-
-- **#19 on real hardware.** `T130.MPD` with the real card and the real SCSI chain. Package is
-  staged at `C:\T130` on the CF. Pick the INF entry named *(XT / Inboard, polled)*, accept
-  `0340-034F`. If it misbehaves, `IOS.LOG` names the blocker — the MO/Zip/CD chain caused the
-  IOS punt before (technique 86).
-- Andrew has been told (#21 comment, 2026-09-05) and asked for his real-hardware T130B notes.
+- **Do not narrow an INF's `LogConfig` to one range.** It removes the user's ability to reconfigure
+  entirely — Device Manager reports *"resources cannot be modified"* — and here it forced a
+  conflict callout that led to the hangs. Technique 97.
+- **Do not byte-edit `SYSTEM.DAT`.** CREG validates more than length; a same-length edit produced
+  *"Not enough memory to load the registry"* and an unbootable machine. Technique 99.
+- **Extract `BOOTLOG.TXT` before restoring an image.** Two hung runs were restored before the log
+  was pulled, destroying the ownership evidence that would have settled the question hours earlier.
+- **`EndTerminate = KERNEL` appears on a hung shutdown too.** A wedged machine logged 7 stages
+  started and 7 closed. The log corroborates; the safe-to-turn-off screen is the evidence.
+- **The XT-IDE access trace costs ~440 MB and drops the machine to 2–14% of speed.** Armed once for
+  a question that was already answered. Leave `XTIDE_TRACE` unset.
