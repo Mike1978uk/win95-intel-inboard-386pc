@@ -111,7 +111,7 @@ foreach ($cand in @('python', 'py', 'python3')) {
 }
 $code = 'UNKNOWN'
 if ($py) {
-    $codeOut = ((& $py (Join-Path $here '..\..	ools\pe_codehash.py') $mpd) -join '').Trim()
+    $codeOut = ((& $py (Join-Path $here '..\..\tools\pe_codehash.py') $mpd) -join '').Trim()
     if ($codeOut -match '^code\s+(\S+)') { $code = $Matches[1] }
 }
 if ($code -eq 'UNKNOWN') { Write-Host '  (code hash unavailable - no usable python found)' -ForegroundColor Yellow }
