@@ -88,3 +88,6 @@ vm_xtcf_faithful/
 
 # T130B SCSI-stack control bed: two masters plus working copies, ~4 GB.
 vm_t130b/
+
+#  The SCSI miniport bed (issue #21). 2 GB images plus a master copy.
+vm_xtide_mpd/

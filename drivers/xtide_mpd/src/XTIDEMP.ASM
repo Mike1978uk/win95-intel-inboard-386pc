@@ -489,6 +489,17 @@ xsi_execute:
 	je	xsi_noselect
 xsi_target_ok:
 
+;  Select the ATA unit this target maps to BEFORE anything reads geometry.
+;
+;  XTIDE_SelectUnit swaps the working geometry globals to the chosen unit, so
+;  every later read of XTIDE_TotalSec / Cyls / Heads / Spt - the transfer's
+;  bounds check and READ CAPACITY both - has to happen after it. Doing it just
+;  before XTIDE_XferRun instead left both of those reading whichever unit was
+;  selected last. Invisible on this machine, which has one disk; wrong the
+;  moment a slave is fitted, and silently so.
+	movzx	eax, [ebx].SCSI_REQUEST_BLOCK.TargetId
+	call	XTIDE_SelectUnit
+
 	movzx	eax, byte ptr [ebx].SCSI_REQUEST_BLOCK.Cdb
 
 	cmp	al, SCSIOP_READ
@@ -610,10 +621,6 @@ xsi_nobound:
 	or	eax, eax
 	jz	xsi_badreq
 	mov	XTIDE_ReqBuf, eax
-
-;  Select the ATA unit this target maps to. Target 0 is the master.
-	movzx	eax, [ebx].SCSI_REQUEST_BLOCK.TargetId
-	call	XTIDE_SelectUnit
 
 	call	XTIDE_XferRun
 	jc	xsi_ioerror
