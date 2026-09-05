@@ -52,6 +52,12 @@ AddReg=IOS, XTIDE_REG, Poll
 [XTIDE_REG]
 HKR,,PortDriver,,XTIDEMP.MPD
 
+; The I/O base, as set in the XTIDE Universal BIOS. Editable in Device
+; Manager -> the controller -> Settings, and handed to HwFindAdapter as
+; ArgumentString. Change it here if your card is jumpered elsewhere; the
+; driver talks to this port and does not attempt to reconfigure the node.
+HKR,,AdapterSettings,,"PORT=0x300"
+
 ; Polling, not an interrupt. The XT-CF has no IRQ jumper at all, so this is a
 ; property of the hardware and not a tuning choice. SCSIPORT owns the polling
 ; contract in this model, which is the single largest reason this driver is a
@@ -64,22 +70,21 @@ HKR,,Polling,,1
 AddReg=ForceMPCopy
 
 
-; ONE range, no alternatives, and that is deliberate.
+; Several ranges, and the driver does not care which one is assigned.
 ;
-; The first version of this file offered 300-31F, 320-33F, 340-35F, 360-37F the
-; way the T130's INF offers four bases. CONFIGMG took the SECOND one: the node
-; came up on 0320-033F, HwFindAdapter read that out of AccessRanges, the probe
-; looked for a card that is not there and returned not-found in a single boot-log
-; tick. Measured from the assigned ForcedConfig blob in SYSTEM.DAT, 2026-09-05.
+; REVERTED 2026-09-05. This file briefly offered one range, on the theory that
+; CONFIGMG assigning 0320-033F was a bug. It was not - the driver was reaching
+; the card perfectly well and Windows shut down cleanly. Narrowing it to one
+; range produced a resource-conflict callout on install, which led to a
+; manually forced configuration, and every shutdown after that wedged. The
+; "fix" was the regression.
 ;
-; The T130's alternatives are legitimate because that card's base is jumperable
-; across all four. The XT-CF's base is set in the XTIDE Universal BIOS and this
-; one is at 300; offering ranges the card cannot answer on is not flexibility,
-; it is an invitation to assign the wrong one. If a card is ever configured
-; elsewhere, change this line to match it rather than listing possibilities.
+; The base is now supplied by the owner on the Settings tab (see
+; AdapterSettings below), so what the node happens to be assigned no longer
+; has to match the card. That removes the reason to narrow this at all.
 [*XTIDEMP.LogConfig]
 ConfigPriority=HARDRECONFIG
-IOConfig=300-31F(3FF::)
+IOConfig=300-31F(3FF::), 320-33F(3FF::), 340-35F(3FF::), 360-37F(3FF::)
 
 
 [DestinationDirs]

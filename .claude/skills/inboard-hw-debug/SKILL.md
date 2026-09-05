@@ -5449,3 +5449,145 @@ What the port deleted, and why each mattered:
 **Not yet proven:** the write path under real load (booting and browsing is mostly reads); a
 clean install from the fixed INF, since this build has the base pinned; and the real 5160.
 
+### CORRECTION, same evening: that was measured in a configuration that cannot ship
+
+Both clean shutdowns above ran with the device node assigned **`0320-033F`** while the driver was
+**pinned** to `0300` and ignored it. The node's claim was wrong, the driver had a build-time crutch,
+and neither is a state any user would install. "It works end to end" was reported on that basis and
+was too strong. The write-path result stands - the bytes were verified host-side and that is
+independent of all of this. The clean teardowns were not the whole story. What followed is
+technique 97.
+
+
+
+## Technique 97: do not "fix" a configuration that is working - and count the variables you change
+
+2026-09-05, the evening the XT-CF miniport was first made to work, then broken by the person who
+had just made it work.
+
+### The regression
+
+CONFIGMG assigned the miniport's device node `0320-033F` - the **second** of four ranges the INF
+offered - while the card is at `0300`. The driver was pinned to `0300`, found the card, claimed the
+boot disk and shut Windows down cleanly, twice, including after 5.9 MB of verified writes.
+
+I read the `0320` assignment as a defect and narrowed the INF to a single range so the node would
+land on `0300`. **Nothing was broken.** That change produced a resource-conflict callout on the next
+install, the owner resolved it by forcing the configuration by hand, and every shutdown from that
+point wedged VMM - five times, across two builds, including the exact binary that had shut down
+cleanly an hour earlier.
+
+Six hypotheses died before the cause was found, every one of them about driver code:
+
+| hypothesis | killed by |
+|---|---|
+| unbalanced `ScsiPortGetDeviceBase` - we imported Get, `T130.MPD` imports Free as well | removed the call, still hung |
+| dual ownership with `RMM` | boot log: `RMM` never reaches `INITCOMPLETE`, we own `C:` alone, exactly as on the clean bed |
+| a regression in the newer build | the **proven** binary hangs on the same bed |
+| the file the owner moved | hung with nothing touched at all |
+| the bed, or the image | control re-run: the same binary is clean on the original bed |
+| the node's I/O range | confounded, see below |
+
+**The rule.** A configuration that is working is a measurement, not a draft. Before changing it,
+say what you predict will improve and how you will know. "That value looks wrong" is not a defect
+report, and here the value that looked wrong was carrying a working system.
+
+### The confound, and it is still open
+
+Every clean run had the node **auto-assigned** to `0320`. Every hung run had it **manually forced**
+to `0300`. Those two moved together in every single run, so the evidence cannot separate them:
+
+| node | assigned how | teardown |
+|---|---|---|
+| `0320` - wrong address | auto | clean |
+| `0300` - correct address | **forced** | hung, 3 of 3 |
+| `0300` | auto | **never tested - the cell that decides it** |
+| `0320` | forced | never tested |
+
+The test meant to settle it changed *both* at once - a new INF **and** a fresh auto-assignment -
+which is the same mistake one level up. **When you finally design the decisive experiment, count
+the variables in it.**
+
+### Why this is probably the `.PDR` bug as well
+
+`PORT.INF`, the IOS port driver's own INF, carried the same single-range `IOConfig=300-31F`. On this
+machine that produces the same conflict callout and therefore very likely the same manual force.
+And the wedge addresses match: `C0003187`, `C000318D`, `C000323C`, `C000324D`, `C0003257`,
+`C0008FA4`, `C0009073/7` appear in both the `.PDR` investigation (techniques 90b/90d) and in the
+miniport hangs. Four sessions of bisecting IOS glue held the device node constant throughout, so no
+run in any of them could have seen it. **Probably one bug, not two.**
+
+### The resolution, and it came from the owner
+
+Not a probe and not a pinned build - **ask**. The XT-CF's base is set in the XTIDE Universal BIOS,
+so whoever installs the driver already knows it. `AdapterSettings` puts a Settings tab in Device
+Manager and hands the string to `HwFindAdapter` as `ArgumentString`; the driver parses `PORT=0x300`,
+drives that port, and **never touches the node's resources**. Imation's own miniport documents this
+convention for this exact problem (technique 75), and it had been sitting in the costing document
+since the port was designed.
+
+That decouples the two things that were fighting: the node can be auto-assigned to anything and the
+driver still finds the card. It also restores the multi-range LogConfig, and with it the owner's
+ability to reconfigure at all - a single-range LogConfig makes Device Manager report **"resources
+cannot be modified"**, because with one possible configuration there is nothing to choose between.
+Narrowing an INF takes technique 65's manual fix out of the user's hands.
+
+Result on a clean install with nothing forced: node auto-assigned `0320`, `Init Success`, `RMM`
+stands down, `C:` served 32-bit, 7 teardown stages started and closed. The first clean shutdown in
+a configuration that could actually ship.
+
+### It is not finished
+
+The node lands on `0320`, which is empty on the bed and is the **3C509B** on the real 5160. The
+correct address for the node is still `0300`, and `0300` is still the only address ever seen to
+wedge. The escape hatch - change it in Device Manager - *is* forcing, which is the thing under
+suspicion. Run the untested cell before hardware.
+
+
+## Technique 98: a result the user would not tolerate is a failure, whatever the CPU is doing
+
+2026-09-05, and it is the owner's rule, not mine.
+
+I spent an evening distinguishing "wedged" from "slow" - distinct EIP counts, cluster membership,
+whether new addresses were still appearing - and used "it is still executing" to ask for more
+patience. The owner ended it:
+
+> *"you're letting things run longer than a user has patience for - if it sat like that on real
+> hardware then a user would switch it off"*
+
+That is the correct standard and it is not the one I was applying. A shutdown that takes long enough
+for the owner to reach for the power switch **is a failed shutdown**. Whether the CPU is retiring
+instructions is a debugging detail, not an acceptance criterion.
+
+It has a direct engineering consequence. `XtStartIo` completes every transfer **inline**, so a
+registry rewrite at teardown blocks the machine for its whole duration - minutes, on an 8-bit PIO
+path at 386 speed. That was written into the source as an acceptable trade with async deferred to
+"the next build". It is not a performance footnote; it is the difference between a driver somebody
+keeps and one they uninstall. SCSIPORT provides the mechanism - `ScsiPortNotification` with
+`RequestTimerCall` - and it is half the reason the miniport was worth doing.
+
+**Practically:** state a time budget before the run, measure against it, and call the run failed if
+it exceeds it, rather than interpreting heartbeats live while somebody waits at the machine.
+
+
+## Technique 99: SYSTEM.DAT cannot be byte-edited - CREG validates more than length
+
+2026-09-05. Technique 77's summary lists "the CREG checksum rule" among the things the LS-120
+diversion produced. **The rule itself was never written down**, only referenced. So when a device
+node's I/O range needed changing and Device Manager refused, editing the hive by hand looked
+reasonable: five four-byte range records, identical length, no structural change.
+
+Windows 95 answered *"Not enough memory to load the registry"* - its message for a damaged
+`SYSTEM.DAT` - and would not boot. The length was preserved and the edit was still rejected, so
+CREG checksums or indexes those records. The exact mechanism is not established here, and this is
+not an invitation to find out on a live card.
+
+**Do not edit `SYSTEM.DAT` in place.** To change a device node's resources, either reinstall from an
+INF offering the range you want, or change it in Device Manager. Both are slower; neither destroys
+the hive.
+
+Recoverable here only because an image snapshot was taken immediately before the edit. Take it.
+
+**Meta-rule: a dangling reference to a rule is itself a warning.** The skill said a CREG rule
+existed and did not say what it was. That is the moment to stop, not to proceed carefully. Now
+written down, at the cost of one corrupted registry.

@@ -61,7 +61,11 @@ declines every miniport on this machine (issue #17).
 2. Control Panel → Add New Hardware → **No**, do not autodetect → SCSI controllers → Have Disk.
 3. Type the path by hand. **`A:\` will hang the dialog** — this machine has no floppy
    controller installed at all (issue #3). On the emulator bed the files are at `C:\XTIDEMP`.
-4. Pick *Lo-tech XT-CF / XT-IDE 8-bit disk controller (polled)*. Reboot.
+4. Pick *Lo-tech XT-CF / XT-IDE 8-bit disk controller (polled)*.
+5. **Do not force the configuration** if a conflict is offered - let Windows assign it.
+   See Open questions; a forced node correlates with a hung shutdown.
+6. Check Device Manager -> the controller -> **Settings** reads `PORT=0x300`, or whatever
+   base your card is set to in the XTIDE Universal BIOS. Then reboot.
 
 Verify it **ran**, not that it installed — the two are different and the difference has cost
 this project runs (technique 94):
@@ -75,23 +79,46 @@ exactly like a result.
 
 ## Open questions
 
-**Boot-disk takeover.** The XT-CF is the boot disk, served by real-mode `RMM.PDR` until Windows
-takes over. `T130.MPD` was only ever proven on a *secondary* disk, so this is untested either
-way. `PORT_CONFIGURATION_INFORMATION.RealModeInitialized` is the documented mechanism and is
-left **FALSE**, because FALSE is what `PC2X` and every sample use and is therefore the only
-value with evidence behind it. If the driver loads and the volume is not taken over, rebuild
-with `-RealModeInit` — that is the first thing to try and it is one build.
+**Boot-disk takeover — answered.** It works, with `RealModeInitialized` left FALSE. `RMM.PDR`
+loads and never reaches `INITCOMPLETE`, which is the real-mode mapper finding nothing to claim
+because the miniport already owns the disk. The `-RealModeInit` switch stays available and has
+never been needed.
+
+**The forced-configuration hang — open, and the one to settle before hardware.** A manually
+forced device node correlates with a hung Windows shutdown, 3 runs of 3, on two builds, at the
+same VMM addresses the old `.PDR` wedged at. Auto-assignment is clean. But forced-versus-auto
+and `0300`-versus-`0320` moved together in every run, so they are not separated: the untested
+cell is a node **auto-assigned** to `0300`. Technique 97 has the full table. This matters on the
+5160 because `0320` and `0340` are the 3C509B and the T130B there, so the node will land
+somewhere else — quite possibly `0300`.
 
 **Two miniports at once.** `T130.MPD` is installed on the bed image. SCSIPORT is built for
 multiple adapters, each bound to its own device node, but it has not been checked here.
 
-**Synchronous completion.** `XtStartIo` runs the transfer inline and completes before
-returning. zikolas/cfu1-win9x records what that costs — the UI freezes during a transfer — and
-what it buys: it tears down cleanly, which is the entire point of this port. Making it
-asynchronous from SCSIPORT's own `RequestTimerCall` is the obvious next step and deliberately
-is not in the first build, because that would be two variables at once.
+**Synchronous completion — now a defect, not a trade.** `XtStartIo` runs the transfer inline
+and completes before returning, so a heavy teardown blocks the machine for its whole duration.
+Measured on 2026-09-05 at long enough that the owner would have switched the machine off, which
+is a failed shutdown regardless of what the CPU is doing (technique 98). Moving to
+`ScsiPortNotification(RequestTimerCall, ...)` is the next real piece of work.
 
 ## Status
 
-Builds; structurally verified against `T130.MPD` (PE32, subsystem NATIVE, same image base,
-stdcall callbacks confirmed by `ret 18h` on the six-argument entry point). **Not yet run.**
+Works on an emulator bed that faithfully models the card: clean install, no forced configuration,
+`Init Success`, boot-disk takeover (`RMM.PDR` stands down), clean Windows shutdown, and 5.9 MB
+written through it verified byte-for-byte from the host. **Not tested on the real 5160.**
+
+The I/O base is supplied by the owner on the Settings tab (`PORT=0x300`) rather than probed, and
+the driver never touches the device node's resources.
+
+**Open, and it matters before hardware:** a manually **forced** device node correlates with a hung
+Windows shutdown - 3 runs of 3, on two different builds, at the same VMM addresses the old `.PDR`
+wedged at. Auto-assignment is clean. Forced-versus-auto and `0300`-versus-`0320` have never been
+separated, because they changed together in every run; the untested cell is a node auto-assigned
+to `0300`. See technique 97. Until that is settled, let Windows assign the resources.
+
+**Also open:** completion is synchronous, so a heavy teardown blocks the machine for its whole
+duration. Long enough that a user would reach for the power switch, which by technique 98 is a
+failure rather than a slow success. Moving to `ScsiPortNotification(RequestTimerCall, ...)` is the
+next real piece of work.
+
+**Untested:** stride 1 - it needs its own bed, a stride-1 card *and* a stock XTIDE option ROM.

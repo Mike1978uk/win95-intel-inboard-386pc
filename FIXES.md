@@ -143,7 +143,7 @@ Not a patch — a driver. A Windows 95 SCSI miniport that presents the 8-bit Lo-
 SCSI disk, so Windows drives it in protected mode instead of falling back to real-mode BIOS.
 Source in [`drivers/xtide_mpd/`](drivers/xtide_mpd/).
 
-> ### 🟡 Proven on an emulator bed that models the real card — 2026-09-05
+> ### 🟡 Works on an emulator bed that models the real card - 2026-09-05
 >
 > ```
 > Init Success xtidemp.mpd
@@ -154,11 +154,23 @@ Source in [`drivers/xtide_mpd/`](drivers/xtide_mpd/).
 >
 > `RMM.PDR` loading and then never initialising is the boot-disk takeover: the Real Mode Mapper
 > found nothing to claim because the miniport already owned the disk. `C:` was navigable and
-> Windows shut down normally.
+> Windows shut down normally. Separately, 5.9 MB copied through the driver was verified
+> byte-for-byte from the host.
+>
+> **The I/O base comes from you, not from a probe.** Device Manager -> the controller ->
+> Settings -> `PORT=0x300`. The XT-CF's base is set in the XTIDE Universal BIOS, so whoever
+> installs this already knows it; the driver drives that port and never touches the device
+> node's assigned resources.
+>
+> **Do not force the device node's configuration.** A manually forced node correlates with a
+> hung Windows shutdown, 3 runs out of 3, on both builds. Auto-assignment is clean. That is a
+> correlation and not yet a mechanism - see technique 97 - but until it is understood, let
+> Windows assign the resources and set the port on the Settings tab instead.
 >
 > **Not tested on the 5160.** The bed models the card's stride-2 register map, 8-bit PIO and its
-> own option ROM, which is why it reproduces faults the stock emulator cannot — but it is not
-> the machine. The write path is also barely exercised: booting and browsing is mostly reads.
+> own option ROM, which is why it reproduces faults the stock emulator cannot - but it is not the
+> machine. Note that the node is likely to be auto-assigned differently there: `0320` and `0340`
+> are taken by the 3C509B and the T130B.
 
 This replaces the IOS port driver in `drivers/xtide_pdr/`, which reached the same disk and then
 wedged Windows at shutdown for four sessions. The miniport deletes that layer rather than
