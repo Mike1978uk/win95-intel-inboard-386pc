@@ -56,8 +56,31 @@ selection, so the card variant cannot cause a *detection* failure; only the driv
 `IOConfig` offers `350-35F, 250-25F, 340-34F, 240-24F`; this card is at **0x340**, which is on the
 list.
 
-## Not yet run
+## Status
 
-Nothing here has been installed or tested, on hardware or in emulation. The test plan is in
-issue #19 — apply the `IOS.INI` whitelist first, attach a SCSI **CD-ROM** rather than a disk, and
-work on a copy of the image.
+**Works in emulation.** Installed on the faithful bed on 2026-09-05 as the *control* that
+justified rewriting the XT-IDE driver as a miniport — it held a written FAT16 volume through a
+clean Windows teardown on the same image our own `.PDR` wedged on, and the guest's write was
+read back host-side, so it reached the medium and the shutdown flushed the cache:
+
+```
+[000001BB] Initing t130.mpd
+[00000219] Init Success t130.mpd
+INITCOMPLETESUCCESS = DiskTSD / SCSIPORT / VFAT / IFSMGR
+shutdown stages started 7, closed 7   UNCLOSED: none
+```
+
+Both arms passed: CD-ROM only, and CD-ROM plus a written FAT16 disk. See technique 94 and
+[`docs/scsi_miniport_costing.md`](../../docs/scsi_miniport_costing.md).
+
+**Not yet run on the real 5160 or the real SCSI chain.** Staged to the CF on 2026-09-06 at
+`C:\T130XT\` (`T130.MPD` + `T130XT.INF` + install notes) ready for that. Prerequisites already
+verified on the card: `inbrdpc.sys` is in `[SafeList]` in `WINDOWS\IOS.INI`, and the real-mode
+SCSI/ASPI chain (`MA13B`, `TSLCDR`, `MODISK2`, `NASPIBUF`) is REM'd out of `CONFIG.SYS`.
+
+Do the **CD-ROM** arm first. It proves the driver loads and claims the bus but does not exercise
+DiskTSD/VFAT/IFSMGR, which is where the port driver's shutdown bug lived — escalate to a disk
+only once that arm is clean.
+
+`T130-XT.INF` in this directory is the deployed INF; it is staged on the card under the 8.3 name
+`T130XT.INF` so that only one INF is visible to Have Disk.
