@@ -63,21 +63,53 @@ carry 16 bits — but it is what produced both the board check and route 2.
    by ScsiPort"* — with `ESDI_506.PDR` as the worked example. **Read how it is consumed before
    spending a Windows install on testing it.** This is the one genuinely open question.
 
-## Then build
+## BUILT, 2026-09-05 — `drivers/xtide_mpd/`
 
-Skeleton from `BLOCK/SAMPLES/MINIPORT/PC2X/PC2X.C` (the DDK's own, an 8-bit ISA SCSI adapter).
-Transport carried over from `drivers/xtide_pdr/src/XTIDETR.ASM` — `DetectStride` through
-`WriteReadBack`, plus `XferRun`, `Delay`, `Probe`.
+The port is done and it assembles, links and passes a static verification against the working
+driver. **It has not been run.**
 
-**New code owed:** an SRB dispatch translating `READ(10)`, `WRITE(10)`, `INQUIRY`,
-`READ CAPACITY`, `TEST UNIT READY`, `MODE SENSE` into ATA taskfile operations. 400–600 lines.
-`ESDI_506.PDR` already contains both halves — it handles ATAPI, which is SCSI CDBs over ATA — so
-it is the reference. `SD120PPD.MPD` is the same translation in a miniport, which is why #21 and
-#22 are one problem twice.
+```
+XTIDEMP.MPD   10,752 bytes   md5 9b09f9d6   commit 9410986   tree clean
+```
 
-Build with `ML.EXE /coff` + the DDK `LINK.EXE /SUBSYSTEM:NATIVE` against `BLOCK/LIB/SCSIPORT.LIB`.
-A `.MPD` is a **PE** file, not an LE VxD — none of the `.DEF`/LE-page/dynamic-load problems apply.
-No C compiler is needed or available (the DDK ships `LINK` but no `CL`).
+What it is: `src/XTIDEMP.ASM` is new — `DriverEntry`, `HwFindAdapter`, `HwInitialize`,
+`HwResetBus` and the SRB dispatch, about 600 lines. `src/XTIDETR.ASM` is the transport carried
+across by mechanical transform with **three** edits, each marked `MPD:` in the source. The 1,504
+lines of IOS glue in between were dropped wholesale, which is the point of the exercise.
+
+Verified without spending a boot:
+
+| check | result |
+|---|---|
+| PE shape against `T130.MPD` | i386 PE32, subsystem NATIVE, base `0x10000`, imports from `SCSIPORT.SYS` — identical |
+| entry point | `_DriverEntry@8`, and the prologue zeroes `0x4C` = `sizeof(HW_INITIALIZATION_DATA)` |
+| calling convention | stdcall. `SRB.INC` says `PROTO C`; that is an H2INC artefact. `T130.MPD` has exactly one `ret 18h` — the six-argument `HwFindAdapter`, cleaned by the callee |
+| SRB field offsets in the emitted dispatch | `Function +2`, `TargetId +6`, `Lun +7`, `Cdb +0x30` — all match `SRB.INC` |
+
+Two decisions worth knowing before reading the source:
+
+- **`MapBuffers = TRUE`.** SCSIPORT hands us one flat mapped buffer and does the scatter/gather
+  decomposition itself. Walking that list by hand is what wrote ring-0 heap into a volume's root
+  directory on 2026-09-01 (technique 85); that entire bug class is now somebody else's.
+- **`HwInterrupt` is NULL and `BusInterruptLevel` is 0.** Declaring a handler with a zero level
+  asks SCSIPORT to connect IRQ 0, the system timer — the exact mistake that killed the keyboard
+  in issue #22 (technique 75).
+
+**Still to do: install it and boot.** `drivers/xtide_mpd/README.md` has the steps. The install is
+manual (Add New Hardware → Have Disk → `C:\XTIDEMP`) because the INF carries no PnP hardware ID,
+the same as the T130B.
+
+### What to check first, in order
+
+1. `Initing xtidemp.mpd` / `Init Success xtidemp.mpd` in `BOOTLOG.TXT`. **Delete the log before
+   the run** — a stale one names a driver from two images ago and reads exactly like a result
+   (technique 94 cost a run to this).
+2. Whether `C:` is taken over from `RMM.PDR`. This is the one genuinely open question and it was
+   never settled from `ESDI_506.PDR`: `T130.MPD` only ever proved a *secondary* disk.
+   `RealModeInitialized` is left FALSE because that is what every sample uses; if the driver
+   loads and the volume is not taken over, rebuild with `-RealModeInit` and try again. One build.
+3. A real shutdown. That is the whole reason for the port, and the `.PDR`'s failure is the
+   baseline to beat.
 
 ## The bed
 
