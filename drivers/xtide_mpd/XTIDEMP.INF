@@ -64,9 +64,22 @@ HKR,,Polling,,1
 AddReg=ForceMPCopy
 
 
+; ONE range, no alternatives, and that is deliberate.
+;
+; The first version of this file offered 300-31F, 320-33F, 340-35F, 360-37F the
+; way the T130's INF offers four bases. CONFIGMG took the SECOND one: the node
+; came up on 0320-033F, HwFindAdapter read that out of AccessRanges, the probe
+; looked for a card that is not there and returned not-found in a single boot-log
+; tick. Measured from the assigned ForcedConfig blob in SYSTEM.DAT, 2026-09-05.
+;
+; The T130's alternatives are legitimate because that card's base is jumperable
+; across all four. The XT-CF's base is set in the XTIDE Universal BIOS and this
+; one is at 300; offering ranges the card cannot answer on is not flexibility,
+; it is an invitation to assign the wrong one. If a card is ever configured
+; elsewhere, change this line to match it rather than listing possibilities.
 [*XTIDEMP.LogConfig]
 ConfigPriority=HARDRECONFIG
-IOConfig=300-31F(3FF::), 320-33F(3FF::), 340-35F(3FF::), 360-37F(3FF::)
+IOConfig=300-31F(3FF::)
 
 
 [DestinationDirs]

@@ -255,6 +255,18 @@ XtFindAdapter PROC STDCALL DeviceExtension:DWORD, Context:DWORD,
 ;  AccessRanges. Reading the node rather than hardcoding is what lets the
 ;  Settings tab move the card without a rebuild - the port driver learned that
 ;  from the LS-120's AdapterSettings (technique 77).
+ifdef XT_FORCE_BASE
+;  -Base pins the I/O base and ignores what the device node was assigned.
+;
+;  Not a convenience. On 2026-09-05 CONFIGMG assigned this node 0320-033F - the
+;  second alternative the INF offered - and the probe correctly found no card
+;  there. The INF now offers one range, which is the real fix; this switch
+;  tests a base without a reinstall, and gives a way out if a node is ever
+;  mis-assigned again on a machine nobody can reach.
+	mov	eax, XT_FORCE_BASE
+	jmp	xfa_havebase
+endif
+
 	mov	edi, [esi].PORT_CONFIGURATION_INFORMATION.AccessRanges
 	or	edi, edi
 	jz	xfa_default

@@ -26,6 +26,13 @@ param(
     # on a single-disk machine the unit that answers is the boot volume.
     [switch] $WriteTest,
 
+    # Pin the I/O base and ignore whatever the device node was assigned.
+    # CONFIGMG allocates from the INF's LogConfig before the driver ever runs,
+    # so a mis-assigned node cannot be corrected from inside the driver at
+    # install time - on 2026-09-05 it handed this node 0320-033F. The INF is
+    # the real fix; this tests a base without a reinstall.
+    [int] $Base = 0,
+
     [string] $DdkRoot = 'C:\Users\lycet\OneDrive\Desktop\XT_project\Windows95_ddk'
 )
 
@@ -51,6 +58,7 @@ $defs = @()
 if ($Stride -ne 0)  { $defs += "-DXT_STRIDE=$Stride" }
 if ($RealModeInit)  { $defs += '-DXT_REAL_MODE_INIT' }
 if (-not $WriteTest) { $defs += '-DXT_NO_WRITETEST' }
+if ($Base -ne 0)    { $defs += ("-DXT_FORCE_BASE=0{0:X}h" -f $Base) }
 
 # -coff is what makes ML emit objects the PE linker can use at all.
 $aflags = @('-coff', '-DBLD_COFF', '-DIS_32', '-DMASM6', '-nologo', '-W2', '-Zd', '-c', '-Cx') + $defs
