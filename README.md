@@ -76,8 +76,10 @@ at the center of the fix.
 **Video, sound and networking all work at the same time on the real 5160.**
 
 **Floppy drives do not work yet.** A controller is now installed and correctly resourced, but
-reads still stall part-way — see [#3](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/3).
-An earlier version of this page claimed A: and B: worked; that was wrong.
+reads still stall part-way — see [#18](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/18).
+An earlier version of this page claimed A: and B: worked; that was wrong. (The original report,
+[#3](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/3), is closed — it was the
+Have Disk browse fault, which turned out to be the missing controller.)
 
 ## Patched files
 
@@ -148,7 +150,8 @@ and there was nothing to configure.
 
 ## Upstream
 
-**The Intel Inboard 386/PC is part of 86Box.** Seven PRs are merged, and one is open:
+**The Intel Inboard 386/PC is part of 86Box.** All eight PRs raised from this project are merged;
+nothing is outstanding upstream:
 
 | PR | What it fixed |
 |---|---|
@@ -159,7 +162,7 @@ and there was nothing to configure.
 | [#7765](https://github.com/86Box/86Box/pull/7765) | `bad extended memory` — the high `0x5F0000` alias must read shadow RAM, not ROM. Now reports **0k** |
 | [#7766](https://github.com/86Box/86Box/pull/7766) | POST 1801 on every boot — the machine must not default to a 5161 expansion unit |
 | [#7771](https://github.com/86Box/86Box/pull/7771) | The XT 4-bit DMA page latch — truncation was gated on `dma_at`, so an Inboard got an 8-bit page register it does not physically have |
-| [#7858](https://github.com/86Box/86Box/pull/7858) **(open)** | XT-IDE logging was inert on the plain card — only `jride_init()` opened a log handle, so `xtide_log()` wrote to NULL |
+| [#7858](https://github.com/86Box/86Box/pull/7858) | XT-IDE logging was inert on the plain card — only `jride_init()` opened a log handle, so `xtide_log()` wrote to NULL |
 
 Between them these close [86Box/86Box#7638](https://github.com/86Box/86Box/issues/7638) (all memory
 reported "BAD", 640K available) and this repo's issues #11, #12, #13 and #16.
@@ -338,13 +341,13 @@ answer, not a week of work.
 | [#7](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/7) | Setup black-screens right before the Help files (reboot works around it). Undiagnosed and unclaimed |
 | [#8](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/8) | ATI Mach 8 — the option ROM's self-test reports `RAM Addressing` in 86Box where the real card reports `Ok`. Reproduced on a stock upstream build, so it is an 86Box defect |
 | [#10](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/10) | Idea: a loadable BIOS-extension shim so 1982-era 5150/5160 ROMs can run Windows |
-| [#14](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/14) | POST intermittently halts with 101, only at `mem_size` 3072. Needs a quiet build, not `86box_full` |
+| [#14](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/14) | POST intermittently halts with 101, at `mem_size` 2688 and 3072. Needs a quiet build, not `86box_full` |
 | [#15](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/15) | Windows 3.0 faults after the splash screen in 386 enhanced mode |
 | [#17](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/17) | Drives run in MS-DOS compatibility mode. **The boot disk is fixed** — `XTIDEMP.MPD` ([#21](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/21)) takes it into protected mode on real hardware. What remains is the SCSI peripherals and the floppy, still served by real-mode drivers |
 | [#18](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/18) | Floppy reads return garbage once a 32-bit driver loads — `HSFLOP.PDR`'s DMA buffer lands above 1 MB. Patched, not yet measured |
 | [#19](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/19) | Trantor T130B — `T130.MPD` **works in emulation**: it claims a SCSI disk and CD-ROM, holds a written FAT16 volume through a clean teardown. Untested on the real SCSI chain |
 | [#20](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/20) | 86Box has no 3C509B device, so emulated networking cannot match the real machine's card. Low priority, emulation fidelity only |
-| [#21](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/21) | A 32-bit Win9x driver for 8-bit XT-IDE — **written and working in emulation** as a SCSI miniport ([`drivers/xtide_mpd/`](drivers/xtide_mpd/)): it takes the boot disk out of MS-DOS compatibility mode and shuts down cleanly. Untested on real hardware, and one open question first — a manually *forced* device node correlates with a hung shutdown. Applies to every XT-class machine, not just this one |
+| [#22](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/22) | LS-120 Windows 95 driver kills keyboard input — the miniport's chipset probe writes to the 8259 through the XT's I/O aliasing. Root-caused; parked, because the real-mode driver works |
 
 Issues are labelled **`emulator`** or **`real-hardware`** so you can pick by what you have, and
 **`upstream`** marks the ones destined for 86Box itself.
