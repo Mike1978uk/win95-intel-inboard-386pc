@@ -97,6 +97,79 @@ Points `INT 68h` at `F000:FF53` (thanks to Michal Nečasek). **Must be the very 
 
 ---
 
+### `XTIDEMP.MPD` — 32-bit disk access for the XT-CF / XT-IDE
+
+**[⬇ XTIDEMP.MPD](https://github.com/Mike1978uk/win95-intel-inboard-386pc/raw/master/dist/xtide_mpd/XTIDEMP.MPD)** · 10,752 bytes · md5 `561fb45b598ef5985e5a803016321f76`
+· **[⬇ XTIDEMP.INF](https://github.com/Mike1978uk/win95-intel-inboard-386pc/raw/master/dist/xtide_mpd/XTIDEMP.INF)**
+
+Not a patch — a driver. A Windows 95 SCSI miniport that presents an 8-bit XT-CF / XT-IDE card as
+a SCSI disk, so Windows drives the boot disk in protected mode instead of falling back to
+real-mode BIOS. Source in [`drivers/xtide_mpd/`](drivers/xtide_mpd/).
+
+> ### ✅ Confirmed on the real 5160 — 2026-09-06
+>
+> Read back from the card itself, not reported from the screen:
+>
+> ```
+> [001612B7] Initing xtidemp.mpd
+> [001612CE] Init Success xtidemp.mpd
+> [0016136F] INITCOMPLETESUCCESS = DiskTSD
+> [00161372] INITCOMPLETESUCCESS = SCSIPORT
+>            rmm.pdr  Dynamic load success ... never reaches INITCOMPLETE
+> shutdown   7 stages started, 7 closed, none unpaired
+> WINDOWS\IOS.LOG   does not exist
+> ```
+>
+> `RMM.PDR` loading and then standing down is the boot-disk takeover — the Real Mode Mapper
+> found nothing left to claim. `C:` is served guest → IFSMGR → VFAT → DiskTSD → SCSIPORT →
+> `XTIDEMP.MPD` → XT-CF. Windows reached the desktop, `C:` was navigable, and the machine shut
+> down to "It's now safe to turn off your computer" with no errors in Device Manager.
+>
+> `BOOTLOG.TXT` itself is a write that reached the medium through this driver and was read back
+> host-side afterwards. The binary above is byte-identical to the one that ran.
+>
+> **The I/O base comes from you, not from a probe.** Device Manager → the controller →
+> Settings → `PORT=0x300`. The card's base is set in the XTIDE Universal BIOS, so whoever
+> installs this already knows it; the driver drives that port and never reads the device node's
+> assigned resources. On the tested machine the node held a *forced* `0300-031F` and the driver
+> was indifferent to it.
+>
+> **Install order matters.** Remove any older XT-IDE `PORT.PDR` node, then **reboot**, then Add
+> New Hardware. Installing without that reboot had CONFIGMG skip `0300` — which is free, and
+> measured free — and assign `0340` instead, then report a conflict when `0300` was set by hand.
+> Nothing owns `0300` on this machine, so that conflict appears to have been a claim not yet
+> released by the node just removed. Recommended sequence, not a proven mechanism.
+>
+> **Still unmeasured:** sustained write load (this was a boot, a look at `C:`, and a shutdown),
+> and responsiveness under a heavy teardown flush — `XtStartIo` still completes every transfer
+> inline.
+
+This replaces the IOS port driver in `drivers/xtide_pdr/`, which reached the same disk and then
+wedged Windows at shutdown for four sessions. The miniport deletes that layer rather than
+debugging it: SCSIPORT owns the polling contract, the DCB lifecycle and scatter/gather, and every
+bug in that investigation lived in one of the three. Reasoning and the control that justified it:
+[`docs/scsi_miniport_costing.md`](docs/scsi_miniport_costing.md).
+
+**Install:** Add New Hardware → decline autodetect → SCSI controllers → Have Disk. `inbrdpc.sys`
+must be in `[SafeList]` in `WINDOWS\IOS.INI` first, or IOS declines every miniport
+([#17](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/17)).
+
+### Does this work on cards other than mine?
+
+It should, and that is untested. The driver autodetects the register stride and the transfer
+mode, so a stock XT-IDE at stride 1 is a supported configuration in the code — but **stride 1 has
+never been executed**, on hardware or in emulation, because this machine's card is a Lo-tech XT-CF
+rev 3 at stride 2 with 8-bit PIO. What is confirmed is one card, one base, one machine.
+
+If you have an XT-IDE or XT-CF card on a Windows 95 machine, this is the test the project cannot
+run itself — please report the result on
+[#21](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/21), working or not. It does
+not need an Inboard; the only Inboard-specific prerequisite is the `IOS.INI` `[SafeList]` line,
+which does not apply to a machine without `INBRDPC.SYS`.
+
+See [issue #21](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/21).
+
+---
 ## ⛔ Deployed but not loaded — no effect
 
 ### `HSFLOP.PDR` — floppy DMA reach
@@ -129,61 +202,6 @@ bytes fails its CRC and the driver retries forever — motor on, light on.
 `VMM32.VXD`, so a plain file copy to `C:\WINDOWS\SYSTEM\IOSUBSYS\` is enough.
 
 See [issue #3](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/3).
-
----
-
-## 🟡 Working in emulation, not yet on the 5160
-
-### `XTIDEMP.MPD` — 32-bit disk access for the XT-CF / XT-IDE
-
-**[⬇ XTIDEMP.MPD](https://github.com/Mike1978uk/win95-intel-inboard-386pc/raw/master/dist/xtide_mpd/XTIDEMP.MPD)** · 10,752 bytes · code hash `1bf4378e`
-· **[⬇ XTIDEMP.INF](https://github.com/Mike1978uk/win95-intel-inboard-386pc/raw/master/dist/xtide_mpd/XTIDEMP.INF)**
-
-Not a patch — a driver. A Windows 95 SCSI miniport that presents the 8-bit Lo-tech XT-CF as a
-SCSI disk, so Windows drives it in protected mode instead of falling back to real-mode BIOS.
-Source in [`drivers/xtide_mpd/`](drivers/xtide_mpd/).
-
-> ### 🟡 Works on an emulator bed that models the real card - 2026-09-05
->
-> ```
-> Init Success xtidemp.mpd
-> INITCOMPLETESUCCESS = SCSIPORT / DiskTSD / VFAT / IFSMGR
-> RMM.PDR   loads, and never reaches INITCOMPLETE
-> shutdown  7 stages started, 7 closed
-> ```
->
-> `RMM.PDR` loading and then never initialising is the boot-disk takeover: the Real Mode Mapper
-> found nothing to claim because the miniport already owned the disk. `C:` was navigable and
-> Windows shut down normally. Separately, 5.9 MB copied through the driver was verified
-> byte-for-byte from the host.
->
-> **The I/O base comes from you, not from a probe.** Device Manager -> the controller ->
-> Settings -> `PORT=0x300`. The XT-CF's base is set in the XTIDE Universal BIOS, so whoever
-> installs this already knows it; the driver drives that port and never touches the device
-> node's assigned resources.
->
-> **Do not force the device node's configuration.** A manually forced node correlates with a
-> hung Windows shutdown, 3 runs out of 3, on both builds. Auto-assignment is clean. That is a
-> correlation and not yet a mechanism - see technique 97 - but until it is understood, let
-> Windows assign the resources and set the port on the Settings tab instead.
->
-> **Not tested on the 5160.** The bed models the card's stride-2 register map, 8-bit PIO and its
-> own option ROM, which is why it reproduces faults the stock emulator cannot - but it is not the
-> machine. Note that the node is likely to be auto-assigned differently there: `0320` and `0340`
-> are taken by the 3C509B and the T130B.
-
-This replaces the IOS port driver in `drivers/xtide_pdr/`, which reached the same disk and then
-wedged Windows at shutdown for four sessions. The miniport deletes that layer rather than
-debugging it: SCSIPORT owns the polling contract, the DCB lifecycle and scatter/gather, and every
-bug in that investigation lived in one of the three. Reasoning and the control that justified it:
-[`docs/scsi_miniport_costing.md`](docs/scsi_miniport_costing.md).
-
-**Install:** Add New Hardware → decline autodetect → SCSI controllers → Have Disk. `inbrdpc.sys`
-must be in `[SafeList]` in `WINDOWS\IOS.INI` first, or IOS declines every miniport
-([#17](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/17)). Remove any older
-XT-IDE `PORT.PDR` node first — it claims the same I/O range.
-
-See [issue #21](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/21).
 
 ---
 

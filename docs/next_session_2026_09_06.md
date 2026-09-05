@@ -1,93 +1,101 @@
-# Next session — after 2026-09-05
+# Next session — after 2026-09-06
 
-**Read `drivers/xtide_mpd/README.md` first.** This file is the plan; that one is the driver.
+**Issue #21 is closed.** The XT-CF SCSI miniport works on the real 5160. This file supersedes the
+plan that was here; the driver's own page is `drivers/xtide_mpd/README.md`.
 
-## Where it got to
+## What passed, and what the evidence is
 
-The SCSI miniport is written, builds, installs and **works on the faithful emulator bed**:
+`XTIDEMP.MPD` md5 `561fb45b598ef5985e5a803016321f76` — published byte-identical as
+`dist/xtide_mpd/XTIDEMP.MPD`, so the artefact that ran is the artefact anyone can download.
 
-```
-Init Success xtidemp.mpd
-INITCOMPLETESUCCESS = SCSIPORT / DiskTSD / VFAT / IFSMGR
-RMM.PDR   loads, and never reaches INITCOMPLETE   <- boot-disk takeover
-shutdown  7 stages started, 7 closed
-5.9 MB copied through it, verified byte-for-byte from the host
-```
-
-`RealModeInitialized` turned out not to be needed — the one field flagged as the open question in
-the costing was a non-issue.
-
-The port discarded 1,504 lines of IOS glue and kept the transport unchanged. Every bug the `.PDR`
-investigation chased lived in the discarded half.
-
-## The one thing to settle before the 5160
-
-**A manually forced device node correlates with a hung Windows shutdown.** Three runs of three, on
-two different builds — including the exact binary that shuts down cleanly when the node is
-auto-assigned. Removing the driver is clean. So on that bed it is our code, and the trigger is
-something about the node rather than anything in the driver's own logic.
-
-But two variables moved together in every single run and have never been separated:
-
-| node | assigned how | teardown |
-|---|---|---|
-| `0320` — wrong address | auto | clean |
-| `0300` — correct address | **forced** | hung, 3 of 3 |
-| **`0300`** | **auto** | **never tested — run this** |
-| `0320` | forced | never tested |
-
-**Run the third row.** Install from an INF offering only `300-31F` so CONFIGMG has nowhere else to
-put it, and *decline to force anything* if a conflict is offered. That decides whether the wedge
-comes from forcing or from the address, and it is one install plus one shutdown.
-
-It matters on hardware because `0320` and `0340` are the **3C509B** and the **T130B** on the real
-5160, so the node cannot land where it lands on the bed. `0300` is the likely assignment there —
-i.e. the untested cell, on the machine you care about.
-
-### And it may be the `.PDR` bug as well
-
-`PORT.INF` carried the same single-range `IOConfig=300-31F`, which produces the same conflict
-callout and very likely the same manual force. The wedge addresses match — `C0003187`, `C000318D`,
-`C000323C`, `C000324D`, `C0003257`, `C0008FA4`, `C0009073/7` — across both investigations. Four
-sessions of bisecting IOS glue held the node constant throughout, so nothing in them could have
-seen it. If the third row hangs, the `.PDR` deserves re-reading before it is called dead.
-
-## Then, in order
-
-1. **Async completion.** `XtStartIo` completes inline, so a heavy teardown blocks the machine for
-   minutes. Long enough that the owner would switch the machine off — a failed shutdown, not a slow
-   one (technique 98). `ScsiPortNotification(RequestTimerCall, …)` is the mechanism and it is half
-   the reason a miniport was worth writing.
-2. **The 5160**, with the CF imaged first: remove `PORT.PDR` and its `hdc` node, confirm
-   `inbrdpc.sys` is in `[SafeList]` in `IOS.INI`, keep the real-mode SCSI/ASPI chain out of
-   `CONFIG.SYS`, and check the Settings tab before rebooting.
-3. **Stride 1.** Never executed. It needs its own bed — a stride-1 card *and* a stock XTIDE option
-   ROM, because `xtcf_lotech` drives stride 2 and the option ROM could not boot the disk otherwise.
-   Does not affect this machine; does affect anyone else's card.
-4. **Dead data.** `XTIDE_SgCur` / `XTIDE_SgLeft` and the marker fields survived the transform and
-   are now unreferenced — SCSIPORT does scatter/gather. Deliberately left alone so as not to change
-   a binary mid-investigation.
-
-## Beds
+Read off the CF afterwards, not reported from the screen:
 
 ```
-vm_xtide_mpd2/xtidemp2_master.img         pre-install, genuinely clean (no node, no driver)
-vm_xtide_mpd2/xtidemp2_clean_install.img  the working install: auto-assigned 0320, nothing forced
-vm_xtide_mpd/xtidemp_WORKING_master.img   the earlier bed; node 0320, driver pinned — historic
+[001612B7] Initing xtidemp.mpd
+[001612CE] Init Success xtidemp.mpd
+[0016136F] INITCOMPLETESUCCESS = DiskTSD
+[00161372] INITCOMPLETESUCCESS = SCSIPORT
+           rmm.pdr  Dynamic load success ... never reaches INITCOMPLETE
+shutdown   7 stages started, 7 closed, none unpaired
+WINDOWS\IOS.LOG   absent
 ```
 
-`xtidemp2_clean_install.img` is the one to clone. It reaches a desktop and shuts down cleanly.
+`RMM.PDR` standing down is the boot-disk takeover. `C:` is served guest → IFSMGR → VFAT →
+DiskTSD → SCSIPORT → `XTIDEMP.MPD` → XT-CF. Desktop reached, no errors in Device Manager, clean
+shutdown to the safe-to-turn-off screen. `BOOTLOG.TXT` is itself a write that reached the medium
+through the driver.
 
-## Traps paid for on 2026-09-05
+Four sessions of the `.PDR` wedging Windows at shutdown, closed by replacing the layer rather
+than debugging it (technique 94).
 
-- **Do not narrow an INF's `LogConfig` to one range.** It removes the user's ability to reconfigure
-  entirely — Device Manager reports *"resources cannot be modified"* — and here it forced a
-  conflict callout that led to the hangs. Technique 97.
-- **Do not byte-edit `SYSTEM.DAT`.** CREG validates more than length; a same-length edit produced
-  *"Not enough memory to load the registry"* and an unbootable machine. Technique 99.
-- **Extract `BOOTLOG.TXT` before restoring an image.** Two hung runs were restored before the log
-  was pulled, destroying the ownership evidence that would have settled the question hours earlier.
-- **`EndTerminate = KERNEL` appears on a hung shutdown too.** A wedged machine logged 7 stages
-  started and 7 closed. The log corroborates; the safe-to-turn-off screen is the evidence.
-- **The XT-IDE access trace costs ~440 MB and drops the machine to 2–14% of speed.** Armed once for
-  a question that was already answered. Leave `XTIDE_TRACE` unset.
+## The forced-node question: moot, not answered
+
+The previous handoff asked for the auto-assigned-`0300` cell to be run. It never was, and it no
+longer decides anything for this driver.
+
+The installed node holds a **forced** `ForcedConfig 0300-031F` — the exact cell that hung 3/3 on
+the bed — and the shutdown was clean. But this build takes its base from `AdapterSettings`
+(`PORT=0x300`) and never reads the node's resources, so what CONFIGMG assigned stopped mattering.
+
+**Do not record this as "forcing is safe".** It is "the driver no longer cares", which is a
+different and better property.
+
+Two facts worth keeping:
+
+- **Nothing owns `0300` on the real 5160.** Checked in Device Manager's resource list by the
+  owner, and corroborated in the hive: exactly one node claims `0300-031F` and it is ours. No
+  stale `hdc` node survives; the two `PORT.PDR` strings left in `SYSTEM.DAT` are filename
+  entries in Setup's inventory, not a device node.
+- **The conflict reported at install was probably phantom.** Installing without rebooting after
+  removing the old node had CONFIGMG skip the free `0300` and assign `0340`, then object when
+  `0300` was set by hand. A claim not yet released by the just-removed node fits. Unproven —
+  the hive is post-reboot state and cannot show what CONFIGMG believed at the time.
+
+So the supported install order is: **remove the old node → reboot → Add New Hardware.** Stated as
+a recommendation, not a mechanism.
+
+## Next: T130B on the real hardware (#19)
+
+Already staged on the CF at `C:\T130XT\` — `T130.MPD` (Adaptec's, unmodified, md5
+`9cc532791b9e911bfba89afbc920c4c7`), `T130XT.INF` and install notes. All md5-verified at the
+destination and CRLF-clean.
+
+Prerequisites verified on the card on 2026-09-06, nothing to do:
+
+- `inbrdpc.sys` is in `[SafeList]` in `WINDOWS\IOS.INI` (line 290)
+- the real-mode SCSI/ASPI chain is REM'd out of `CONFIG.SYS` — `MA13B`, `TSLCDR`, `MODISK2`,
+  `NASPIBUF`
+
+**Image the CF first.** Then: Add New Hardware → decline autodetect → SCSI controllers → Have
+Disk → `C:\T130XT` → reboot.
+
+**Do the CD-ROM arm before attaching a disk.** It proves the driver loads and claims the bus, but
+does not exercise DiskTSD/VFAT/IFSMGR — which is precisely where the port driver's shutdown bug
+lived. A control that does not reach the failing layer is not a control (technique 94).
+
+Afterwards, from DOS or with the card in a reader: `BOOTLOG.TXT` for `Init Success t130.mpd` and
+paired `Terminate`/`EndTerminate`; `IOS.LOG` should not exist.
+
+Watch for one collision: `XTIDEMP.INF` offers `340-35F` among its four ranges. Our node is forced
+to `0300-031F` so it is fine today, but a from-scratch reinstall could take `0340` from the T130B.
+
+## Then: the rest of the real-mode chain (#17)
+
+The goal the owner named — retire every real-mode storage driver on the machine. The boot disk is
+done. Remaining: the SCSI peripherals (CD, MO, Zip 100), which T130B addresses, and the floppy
+(#18). #22's LS-120 comes back into scope after that, and its root cause is already known — the
+miniport's chipset probe writes to the 8259 through the XT's I/O aliasing (technique 75).
+
+## Still unmeasured on the XT-CF driver
+
+- **Sustained write load.** The hardware run was a boot, a look at `C:`, and a shutdown.
+- **Responsiveness under a heavy teardown flush.** `XtStartIo` still completes every transfer
+  inline, so a large flush blocks the machine for its duration.
+  `ScsiPortNotification(RequestTimerCall, …)` is the mechanism and it is half the reason a
+  miniport was worth writing. Technique 98: a shutdown long enough that the owner reaches for the
+  power switch is a failed shutdown, not a slow one.
+- **Stride 1** — a stock XT-IDE card. Supported in the code, never executed by anyone, on any
+  machine. This is the thing an outside contributor could settle that the project cannot.
+- **Build provenance.** The ledger records this binary's tree as `DIRTY` at commit `6869455`, so
+  it is not provably rebuildable (technique 89). Not re-derived, by the owner's call, because the
+  artefact itself is tracked and published.

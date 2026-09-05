@@ -62,6 +62,12 @@ at the center of the fix.
 - Mouse input
 - 32-bit applications (confirmed with the bundled FreeCell)
 - SCSI Devices working by adding relevant entries to config.sys / autoexec.bat devices loading fine in ms dos mode in Windows tested CD drive, MO Drive, Zip 100 drive
+- **32-bit protected-mode disk access on the boot disk**, confirmed on real hardware 2026-09-06.
+  This project's own Windows 95 SCSI miniport, [`XTIDEMP.MPD`](FIXES.md), drives the 8-bit
+  XT-CF / XT-IDE card directly: `RMM.PDR` stands down, `C:` is served by SCSIPORT and DiskTSD,
+  and the machine shuts down cleanly. **This is not Inboard-specific** — it should apply to any
+  XT-class Windows 95 machine with an XT-IDE card, and a report either way would be welcome
+  ([#21](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/21))
 - Network working using stock Windows 95 3com 3c509b driver from Windows. Hand configured IP, gateway and subnet and navigated to frogfind.com
 - Sound Blaster Pro audio, clean, confirmed on real hardware 2026-08-24 (see below)
 - Accelerated video — ATI Mach8 (Graphics Ultra) at 1024x768x256, confirmed on real hardware
@@ -334,7 +340,7 @@ answer, not a week of work.
 | [#10](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/10) | Idea: a loadable BIOS-extension shim so 1982-era 5150/5160 ROMs can run Windows |
 | [#14](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/14) | POST intermittently halts with 101, only at `mem_size` 3072. Needs a quiet build, not `86box_full` |
 | [#15](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/15) | Windows 3.0 faults after the splash screen in 386 enhanced mode |
-| [#17](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/17) | Drives run in MS-DOS compatibility mode. Real-mode units are down from six to one after removing a parallel-port ASPI driver; the survivor is the XT-IDE boot disk, which stays real-mode permanently |
+| [#17](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/17) | Drives run in MS-DOS compatibility mode. **The boot disk is fixed** — `XTIDEMP.MPD` ([#21](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/21)) takes it into protected mode on real hardware. What remains is the SCSI peripherals and the floppy, still served by real-mode drivers |
 | [#18](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/18) | Floppy reads return garbage once a 32-bit driver loads — `HSFLOP.PDR`'s DMA buffer lands above 1 MB. Patched, not yet measured |
 | [#19](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/19) | Trantor T130B — `T130.MPD` **works in emulation**: it claims a SCSI disk and CD-ROM, holds a written FAT16 volume through a clean teardown. Untested on the real SCSI chain |
 | [#20](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/20) | 86Box has no 3C509B device, so emulated networking cannot match the real machine's card. Low priority, emulation fidelity only |

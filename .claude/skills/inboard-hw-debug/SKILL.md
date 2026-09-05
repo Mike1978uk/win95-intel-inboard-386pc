@@ -5591,3 +5591,84 @@ Recoverable here only because an image snapshot was taken immediately before the
 **Meta-rule: a dangling reference to a rule is itself a warning.** The skill said a CREG rule
 existed and did not say what it was. That is the moment to stop, not to proceed carefully. Now
 written down, at the cost of one corrupted registry.
+
+---
+
+## ✅ #21 CONFIRMED ON THE REAL 5160, 2026-09-06 — and technique 97's open question is MOOT
+
+The XT-CF SCSI miniport claims the boot disk, serves it in protected mode, and releases it
+cleanly at shutdown, on the real machine. Evidence read off the CF afterwards rather than
+reported from the screen:
+
+```
+[001612B7] Initing xtidemp.mpd      [001612CE] Init Success xtidemp.mpd
+INITCOMPLETESUCCESS = DiskTSD / SCSIPORT
+rmm.pdr   Dynamic load success ... never reaches INITCOMPLETE   <- boot-disk takeover
+shutdown  7 stages started, 7 closed, none unpaired
+IOS.LOG   absent
+```
+
+`XTIDEMP.MPD` md5 `561fb45b598ef5985e5a803016321f76`, byte-identical to the published
+`dist/xtide_mpd/XTIDEMP.MPD`.
+
+### The open question did not get answered — it stopped applying
+
+The previous handoff demanded the untested auto-assigned-`0300` cell. It was never run. The
+installed node holds a **forced** `ForcedConfig 0300-031F` — the exact cell that hung 3/3 on the
+bed, on two builds — and the teardown was clean.
+
+That is not "forcing is safe". This build takes its base from `AdapterSettings` (`PORT=0x300`)
+and **never reads the node's assigned resources**, so the variable the bed hangs correlated with
+was removed from the driver's inputs entirely.
+
+**The transferable rule: prefer removing a variable from your code's inputs over deciding which
+value of it is correct.** Four sessions went into which resource assignment the node should hold.
+The fix was to stop consulting it. A bisect tells you which input matters; it does not oblige you
+to keep depending on that input.
+
+### A conflict callout can be a claim not yet released — reboot between remove and install
+
+Installing without rebooting after removing the old `PORT.PDR` node had CONFIGMG skip `0300` and
+assign `0340`, then object when `0300` was set by hand. Measured afterwards, from two directions:
+
+- the owner's Device Manager resource list showed **nothing** owning `0300`;
+- the hive shows exactly **one** node claiming `0300-031F`, ours, with no surviving `hdc` node.
+  The two `PORT.PDR` strings left in `SYSTEM.DAT` are filename entries in Setup's own inventory,
+  not a device node with resources.
+
+So the conflict was very likely phantom. **Unproven, and say so** — the hive is post-reboot state
+and cannot show what CONFIGMG believed at install time. Recommended order: remove the old node →
+**reboot** → Add New Hardware. It also removes the manual-force step from the supported path,
+which is worth having whether or not the mechanism is ever confirmed.
+
+### Verify a hardware pass off the medium, not off the report
+
+The owner reported a clean run. Everything above was then confirmed independently with the CF in
+a reader: the boot log, the `INITCOMPLETE` list, the absent `IOS.LOG`, the paired teardown
+stages, the node's own `ForcedConfig` and `AdapterSettings` bytes, and the driver's md5 in its
+installed location. That took minutes and turned a report into evidence.
+
+It also caught what a report never would: `BOOTLOG.TXT`'s own timestamp is proof of a write that
+reached the medium through the driver under test.
+
+**And `EndTerminate = KERNEL` still appears on a hung shutdown** (technique 88). The
+safe-to-turn-off screen is the evidence; the paired-stage count corroborates.
+
+### A published artefact must be byte-identical to the one that ran
+
+`dist/xtide_mpd/XTIDEMP.MPD`, the working-tree build output, and the copy in the guest's
+`IOSUBSYS` all hash the same. Check this at the moment you write up a pass — it is the difference
+between publishing a fix and publishing a file with the same name.
+
+**Caveat carried forward:** the build ledger records this binary's tree as `DIRTY` at commit
+`6869455`, so it is not provably rebuildable from a commit (technique 89). The owner declined the
+rebuild check, reasonably, because the artefact itself is tracked and published — but the ledger
+entry is the reason that is a defensible call rather than a lucky one.
+
+### Stale-claim sweep found by the same pass
+
+`drivers/trantor_t130b/README.md` still said "Nothing here has been installed or tested, on
+hardware or in emulation" — written before technique 94 used `T130.MPD` as the control that
+justified this entire port. A document that was true when written goes stale silently. The
+repo-hygiene tidy pass is what catches it; run it when a result lands, not only when `git status`
+drifts.

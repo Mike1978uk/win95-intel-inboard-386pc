@@ -4,6 +4,45 @@ Issue [#21](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/21).
 Replaces `drivers/xtide_pdr/` — the IOS port driver that reached the same disk and then
 wedged Windows at shutdown.
 
+## ✅ Confirmed on the real 5160 — 2026-09-06
+
+`XTIDEMP.MPD` md5 `561fb45b598ef5985e5a803016321f76`, published byte-identical as
+`dist/xtide_mpd/XTIDEMP.MPD`. Evidence read off the CF card afterwards, not reported from
+the screen:
+
+```
+[001612B7] Initing xtidemp.mpd
+[001612CE] Init Success xtidemp.mpd
+[0016136F] INITCOMPLETESUCCESS = DiskTSD
+[00161372] INITCOMPLETESUCCESS = SCSIPORT
+           rmm.pdr  Dynamic load success ... never reaches INITCOMPLETE
+shutdown   7 stages started, 7 closed, none unpaired
+WINDOWS\IOS.LOG   absent
+```
+
+Desktop reached, `C:` navigable, no errors in Device Manager, clean shutdown to the
+safe-to-turn-off screen. `BOOTLOG.TXT` is itself a write that reached the medium through this
+driver and was read back host-side.
+
+**The forced-node question in the previous handoff is moot, not answered.** The installed node
+held a *forced* `ForcedConfig 0300-031F` and the shutdown was clean — but this build takes its
+base from `AdapterSettings` (`PORT=0x300`) and never reads the node's resources, so what
+CONFIGMG assigned stopped mattering. Do not read this as "forcing is safe" in general.
+
+**Install order.** Remove the old `PORT.PDR` node, **reboot**, then Add New Hardware. Without
+that reboot CONFIGMG skipped `0300` — which is free, and measured free — assigned `0340`, and
+then reported a conflict when `0300` was set by hand. Recommended sequence, mechanism unproven.
+
+**Build provenance caveat.** The ledger records this binary's build tree as `DIRTY` at commit
+`6869455`, so it is not provably rebuildable from a commit (technique 89). It was not
+re-derived, by the owner's call, because the artefact itself is tracked and published.
+
+### Not measured
+
+- sustained write load — this was a boot, a look at `C:`, and a shutdown
+- responsiveness under a heavy teardown flush; `XtStartIo` still completes inline (technique 98)
+- **stride 1**, i.e. a stock XT-IDE card, on any machine — supported in code, never executed
+
 ## Why a miniport
 
 Not an argument, a control. Adaptec's `T130.MPD` — polling, no IRQ — holds a written FAT16
