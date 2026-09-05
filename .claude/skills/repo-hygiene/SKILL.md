@@ -192,6 +192,24 @@ python -c "d=open('FILE','rb').read(); print(d.count(b'
 
 Zero CRLF and a non-zero second number means the guest will reject it.
 
+#### Bound on that claim, measured 2026-09-05
+
+An **LF-only `XTIDEMP.INF` installed successfully** on Windows 95 - Add New Hardware read it,
+created the device node, and copied the driver. So "Windows 95 reads an LF INF as one line" is
+not universal; whatever defeated `PORT.INF` had a narrower cause, or depends on the path the
+file arrives by. Do not use that story to explain away a failed install without checking the
+bytes for yourself.
+
+**CRLF is still the right answer** - `.gitattributes` mandates it, DOS tooling needs it, and the
+cost of being wrong is a mystery install failure. But the rule to carry forward is the general
+one, not the specific claim: *check the bytes on the artefact you are about to deploy.*
+
+And note what git will and will not tell you here. With `core.autocrlf=true` the object database
+stays LF, so converting a working-tree file to CRLF produces **no diff and nothing to commit** -
+`git add` reports "no changes added". That is correct behaviour and it means a `git status` of
+zero says nothing at all about the bytes you are about to copy onto a card. Deploy from a file
+you have just inspected, not from one git says is clean.
+
 ### Never write `.gitattributes` with a truncating redirect
 
 `cat > .gitattributes` destroyed 127 lines of pinned binary and line-ending policy here, to
