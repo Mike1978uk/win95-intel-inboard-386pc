@@ -148,6 +148,10 @@ XT_MODESENSE_LEN equ	$ - XtModeSense
 ;  Read capacity (10) reply, big-endian: last LBA then block length.
 XtCapacity	db	8 dup (0)
 
+;  The tag we look for in the Settings-tab string. Lower case, because the
+;  compare lowercases the input; '=' is unchanged by that OR.
+XtPortTag	db	'port='
+
 	.CODE
 
 ;============================================================================
@@ -266,6 +270,23 @@ ifdef XT_FORCE_BASE
 	mov	eax, XT_FORCE_BASE
 	jmp	xfa_havebase
 endif
+
+;  1. What the owner typed on the Settings tab, and it wins.
+;
+;  The XT-CF's base is set in the XTIDE Universal BIOS, so whoever installs
+;  this already knows it. Asking is more reliable than any probe and it costs
+;  nothing - and it is what Imation's own miniport does on machines where the
+;  address cannot be worked out (technique 75).
+;
+;  Note what this deliberately does NOT do: it does not touch the device
+;  node's resources or force a configuration. CONFIGMG can assign whatever it
+;  likes; we simply talk to the port we were told about. Forcing a
+;  configuration by hand is what produced the teardown hangs of 2026-09-05.
+	mov	esi, ArgumentString
+	call	XtParseBase		; eats ESI
+	mov	esi, ConfigInfo
+	or	eax, eax
+	jnz	xfa_havebase
 
 	mov	edi, [esi].PORT_CONFIGURATION_INFORMATION.AccessRanges
 	or	edi, edi
@@ -430,6 +451,103 @@ xfp_store:
 	ret
 
 XtFillProductId ENDP
+
+;============================================================================
+; XtParseBase - read the I/O base the user typed on the Settings tab.
+;
+;   In:   ESI -> ASCIIZ ArgumentString, or NULL
+;   Out:  EAX = base address, or 0 if the string does not carry one
+;   Uses: EAX, ECX, EDX, ESI  (EBX, EDI preserved)
+;
+;   Format `PORT=0x300`, matching the convention Imation's own miniport README
+;   documents for exactly this problem (technique 75) - a machine where the
+;   driver cannot work the address out for itself and the owner simply knows
+;   it. The XT-CF's base is set in the XTIDE Universal BIOS, so the person
+;   installing this has already chosen it and can just say so.
+;
+;   Case-insensitive, `0x` optional, up to four hex digits. Anything
+;   unparseable returns 0 and the caller falls through to the device node -
+;   a typo must not be able to point the driver at nothing and wedge a boot.
+;============================================================================
+XtParseBase PROC
+
+	push	ebx
+	push	edi
+	xor	eax, eax
+	or	esi, esi
+	jz	xpb_out
+
+xpb_next:
+	cmp	byte ptr [esi], 0
+	je	xpb_out
+;  Match "port=" at ESI, lowercasing the input as we go. '=' already has bit 5
+;  set, so the same OR leaves it alone.
+	mov	edi, esi
+	mov	edx, OFFSET XtPortTag
+	mov	ecx, 5
+xpb_cmp:
+	mov	bl, [edi]
+	or	bl, 20h
+	cmp	bl, [edx]
+	jne	xpb_advance
+	inc	edi
+	inc	edx
+	dec	ecx
+	jnz	xpb_cmp
+	jmp	xpb_num
+xpb_advance:
+	inc	esi
+	jmp	xpb_next
+
+xpb_num:
+	mov	esi, edi
+;  Optional 0x / 0X prefix.
+	cmp	byte ptr [esi], '0'
+	jne	xpb_hex
+	mov	bl, [esi+1]
+	or	bl, 20h
+	cmp	bl, 'x'
+	jne	xpb_hex
+	add	esi, 2
+
+xpb_hex:
+	xor	eax, eax
+	xor	ecx, ecx			; digits accepted
+xpb_digit:
+	mov	bl, [esi]
+	cmp	bl, '0'
+	jb	xpb_end
+	cmp	bl, '9'
+	ja	xpb_alpha
+	sub	bl, '0'
+	jmp	xpb_acc
+xpb_alpha:
+	or	bl, 20h
+	cmp	bl, 'a'
+	jb	xpb_end
+	cmp	bl, 'f'
+	ja	xpb_end
+	sub	bl, 'a' - 10
+xpb_acc:
+	shl	eax, 4
+	movzx	edx, bl
+	or	eax, edx
+	inc	esi
+	inc	ecx
+	cmp	ecx, 4
+	jb	xpb_digit
+
+xpb_end:
+	or	ecx, ecx
+	jnz	xpb_out
+	xor	eax, eax			; "PORT=" with nothing after it
+
+xpb_out:
+	pop	edi
+	pop	ebx
+	ret
+
+XtParseBase ENDP
 
 ;============================================================================
 ; XtInitialize - called after FindAdapter succeeded.
