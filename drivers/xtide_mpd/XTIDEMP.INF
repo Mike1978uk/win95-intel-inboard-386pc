@@ -1,0 +1,92 @@
+; XTIDEMP.INF  Lo-tech XT-CF / XT-IDE SCSI miniport, IBM 5160 + Inboard 386/PC
+;
+; https://github.com/Mike1978uk/win95-intel-inboard-386pc  (issue #21)
+;
+; Derived from T130-XT.INF in drivers/trantor_t130b/, which is the INF proven
+; to install and load a polled, no-IRQ miniport on this exact machine. Keeping
+; the structure identical is deliberate: the parts that differ below are the
+; only parts that should need thinking about.
+;
+; Differences from T130-XT.INF, and why:
+;
+;   1. IOConfig     300-31F. The card's own silkscreen says "IO: 300-31Fh" -
+;                   32 ports, because the Lo-tech XT-CF does not decode A0 and
+;                   its 16 registers sit at base+2N. Alternatives are the other
+;                   bases XTIDE Universal BIOS offers.
+;   2. PortDriver   XTIDEMP.MPD.
+;   3. No IRQConfig, no DMAConfig. Same reasons as the T130: the card is
+;                   jumpered without an interrupt so the driver polls, and on a
+;                   5160 the free DMA channels are not free - channel 0 is DRAM
+;                   refresh, which the BIOS watches at F000:ECAC. This driver
+;                   is PIO only and never touches the 8237.
+;
+; PREREQUISITE, and it is not optional: inbrdpc.sys must appear in [SafeList]
+; in WINDOWS\IOS.INI, or IOS declines every miniport on this machine. Issue #17.
+;
+; BEFORE INSTALLING: remove the old XT-IDE port-driver node if one is present.
+; PORT.PDR installs under class hdc and claims the same I/O range; two nodes
+; claiming 300-31F will conflict and the second one loses. Remove it in Device
+; Manager and delete PORT.PDR from WINDOWS\SYSTEM\IOSUBSYS.
+
+
+[Version]
+signature="$CHICAGO$"
+Class=SCSIAdapter
+Provider=%MFG%
+LayoutFile=LAYOUT.INF
+
+[Manufacturer]
+%MFG%=XTIDE
+
+
+[XTIDE]
+%XTCF%=XTCF_ISA
+
+
+[XTCF_ISA]
+LogConfig=*XTIDEMP.LogConfig
+CopyFiles=@XTIDEMP.MPD
+AddReg=IOS, XTIDE_REG, Poll
+
+
+[XTIDE_REG]
+HKR,,PortDriver,,XTIDEMP.MPD
+
+; Polling, not an interrupt. The XT-CF has no IRQ jumper at all, so this is a
+; property of the hardware and not a tuning choice. SCSIPORT owns the polling
+; contract in this model, which is the single largest reason this driver is a
+; miniport and not an IOS port driver - see docs/scsi_miniport_costing.md.
+[Poll]
+HKR,,Polling,,1
+
+
+[*XTIDEMP.Det]
+AddReg=ForceMPCopy
+
+
+[*XTIDEMP.LogConfig]
+ConfigPriority=HARDRECONFIG
+IOConfig=300-31F(3FF::), 320-33F(3FF::), 340-35F(3FF::), 360-37F(3FF::)
+
+
+[DestinationDirs]
+DefaultDestDir=12
+
+[SourceDisksFiles]
+XTIDEMP.MPD = 1
+
+[SourceDisksNames]
+1 = "XT-IDE Miniport Installation Disk",,
+
+[IOS]
+HKR,,DevLoader,,*IOS
+HKR,,DontLoadIfConflict,,Y
+
+[ForceMPCopy]
+HKR,,NoSetupUI,,1
+
+
+[Strings]
+MFG="win95-intel-inboard-386pc"
+XTCF="Lo-tech XT-CF / XT-IDE 8-bit disk controller (polled)"
+SCSIClassName="SCSI controllers"
