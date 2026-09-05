@@ -146,7 +146,10 @@ Success here is MS-DOS compatibility mode gone, which is issue #3.
 - **The stride autodetect has only ever picked 1.** The emulator cannot exercise the stride-2
   branch. Pin `-Stride 2` on hardware until a pinned run has worked; then `-Stride 0` is a separate,
   attributable experiment.
-- **ATAPI/CD is permanently out of scope** — the XT-CF has D8–D15 unconnected.
+- **ATAPI/CD is out of scope on this card** — no high-byte latch on the board, silkscreen reads
+  `Adapter Type XT-CF`. Confirmed from the board 2026-09-05;
+  `docs/xtide_pdr_5160_differences.md` §4 records why the earlier wording was right for the wrong
+  reason.
 - **The probe build is already on the card**, deployed 2026-09-01 and md5-checked at the
   destination. The 16,544-byte build that logged `Init Failure` in four ticks is backed up off-card
   as `PORT_oncard_before.pdr` (md5 `0681f388eab8173b483074aa00caa11d`) if a revert is ever wanted.

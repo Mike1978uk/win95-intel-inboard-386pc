@@ -5295,3 +5295,54 @@ prints them. Technique 92's struct-variant disaster is what a symbol file exists
 and this time the source was the DDK we build with daily. **Untested:** the binaries are dated
 1996-06-06 (OSR2 era) against an OSR1 build-950 guest, and the `950/951/952/953` per-build
 subdirectories are empty. Check version compatibility on the bed, never on the 5160.
+
+
+## Technique 95: an autodetect that stops at the first success is not evidence about the branches it never ran
+
+`XTIDE_TryTransport` tries PIO8, then LATCH, and keeps whichever validates first. On 2026-08-31 it
+validated PIO8 against the real card, and the session wrote down **"the real card answered 8-bit
+PIO with no latch."** The first half is measured. The second half is not: the device on the cable
+is a CF card, and a CF card accepts `Set Features 01h` 8-bit PIO whether or not the board carries
+a high-byte latch. The LATCH branch was never reached, so nothing was learned about it. Our own
+transport says so in a comment - *"the CF is in 8-bit mode (the XTIDE BIOS puts it there)"* - and
+nobody read it as the confound it was.
+
+The inference then hardened. "D8-D15 unconnected" went into **four** documents, three of them
+saying *permanently*, and closed ATAPI/CD as a subject for five weeks. It also stranded a question
+already open in the same tree: `bDevice = 0x0A` names *either* XTIDE rev 2 (latched) *or* Lo-tech
+XT-CF, and the note raising it said "Phase 1's autodetect may answer it first." It could not, by
+construction.
+
+**The rule.** A first-match probe reports which branch succeeded. It reports nothing about whether
+the others would have. To learn the hardware's capability rather than the probe's outcome, force
+each branch and record every result. One run per branch, paid once.
+
+**Two smells that this has happened:**
+
+- A property of the **test article** has been written down as a property of the **board**. Here a
+  CF card's 8-bit mode became the card's data-bus width.
+- A conclusion is stated as permanent, in a document, with no measurement that could have come out
+  the other way. Ask what result would have falsified it. If there is none, it is an inference.
+
+### How it actually ended, and the second lesson
+
+The conclusion was **correct**. On 2026-09-05 the owner photographed the card: silkscreen
+`XTIDE Universal BIOS / Adapter Type XT-CF`, `IO: 300-31Fh`, and the whole logic complement is two
+`CD74HCT688` comparators, an `SN74HCT139` and a buffer. No 74x373/573/574. No latch. ATAPI is out
+on this card, `bDevice = 0x0A` is XT-CF, and the stride-2 decode is corroborated by the port range
+on the silkscreen.
+
+So the technique above did not overturn a wrong answer - it found a right answer being held for a
+reason that could not support it. That is still worth the write-up, because the same defect will
+one day sit under a wrong one. But the sharper lesson is the cost: **five weeks, and then most of
+an evening arguing from documents, ended by one photograph.** Nobody had looked at the board.
+CLAUDE.md already says read the machine before theorising; a photo of a card is the cheapest read
+there is, and it should come before any argument about what the card does.
+
+Third lesson, the one that produced the wrong turn. The reopening rested on the vendor's copy for
+this exact card (TexElec, <https://texelec.com/product/isa-compactflash-adapter/>): *"cut the data
+in half and send it one byte at a time to the bus instead of two"* and *"will also work with ATA-2
+compliant hard drives"*. Both true, and both about **the device on the cable**, not the board -
+the CF card splits the data in its own 8-bit mode, and the hard-disk claim holds only for drives
+implementing that optional mode. **Marketing copy describes a system, not a component.** It is not
+a schematic and must not be weighed against one.

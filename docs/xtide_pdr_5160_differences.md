@@ -79,7 +79,35 @@ Measured from DOS on 2026-08-31: full IDENTIFY through `0x300`, 8-bit PIO, **no 
 — but note the emulator exercises the *other* branch, so the branch that will run on hardware is
 the less-tested one.
 
-ATAPI/CD is out of scope permanently: the XT-CF has D8–D15 unconnected.
+**ATAPI/CD is out of scope on this card, and as of 2026-09-05 that is measured, not inferred.**
+
+Settled from a photograph of the board. The silkscreen reads `XTIDE Universal BIOS / Adapter Type
+XT-CF` and `IO: 300-31Fh` — 32 ports, which is the stride-2 decode, independently corroborated.
+The logic is two `CD74HCT688` comparators, an `SN74HCT139` and a buffer. **There is no 74x373 /
+74x573 / 74x574 on the card: no high-byte latch.** XT-CF is the XTIDE Universal BIOS device type
+that transfers through the CF card's *own* `Set Features 01h` 8-bit PIO mode, so the data path is
+8 bits by design. ATAPI has no 8-bit data mode, so it cannot work through this card. The board
+photo also closes `bDevice = 0x0A`, open since 2026-08-31: it is XT-CF, not XTIDE rev 2.
+
+**The same conclusion had been held for five weeks on much weaker grounds, and that is worth
+recording.** `XTIDE_TryTransport` tries PIO8 first and keeps the first branch that validates. The
+device on the cable is a CF card, which accepts 8-bit PIO on a latched card and an unlatched one
+alike, so the run of 2026-08-31 could not have distinguished them — it reported which branch
+succeeded, not what the board can do. "D8–D15 unconnected" was written into four documents, three
+saying *permanently*, on the strength of a test that could not have come out the other way.
+
+It was briefly reopened on 2026-09-05 by the vendor's description of this exact card (TexElec,
+<https://texelec.com/product/isa-compactflash-adapter/>): *"This card will cut the data in half
+and send it one byte at a time to the bus instead of two like a native IDE controller"*, plus
+*"will also work with ATA-2 compliant hard drives"*. Read as board behaviour that describes a
+latch. It is not: the **CF card** does the splitting, in its own 8-bit mode, and the hard-disk
+claim holds only for drives that implement that optional mode. Marketing copy about the device on
+the cable, mistaken for a statement about the card. One photograph ended it — see technique 95.
+
+The 40-pin header is **not** the constraint. The owner already runs an IDE cable from it to a
+separate IDE-to-CF adapter, so a drive can be attached with no modification. The bus width is the
+constraint, and no command set makes 8 wires carry 16 bits. CD-ROM on this machine has to come
+from an interface that is natively 8-bit — see `docs/next_session_2026_09_06.md`.
 
 ### 5. No interrupt, and a 4.77 MHz bus
 

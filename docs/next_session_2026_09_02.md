@@ -130,7 +130,9 @@ it would be safe to detect once per install — *except* that an XT-IDE Universa
 alter what the card reports, as seen the day before. So re-detect at every boot rather than caching
 it in the registry. That is what the driver already does, and it should stay that way.
 
-ATAPI/CD is out of scope: the XT-CF is 8-bit only (D8–D15 unconnected).
+ATAPI/CD is out of scope on this card: no high-byte latch on the board, and the silkscreen reads
+`Adapter Type XT-CF`. Confirmed from the board 2026-09-05, after five weeks resting on an
+autodetect that could not have shown otherwise — `docs/xtide_pdr_5160_differences.md` §4.
 
 ## Scope of what is proven, and what C: would take
 

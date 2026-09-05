@@ -17,6 +17,42 @@ transport unchanged.
 Retired: the polling-contract diagnosis (technique 88's "THE GAP") as the *cause*. It is a real
 contract violation worth fixing for responsiveness; it is not what wedges the shutdown.
 
+## CD-ROM on this machine — asked and answered, 2026-09-05
+
+**Not through the XT-CF.** Settled from a photograph of the board, not from documents: silkscreen
+`XTIDE Universal BIOS / Adapter Type XT-CF`, logic is two `CD74HCT688` comparators, an
+`SN74HCT139` and a buffer, **no high-byte latch**. XT-CF transfers through the CF card's own
+8-bit PIO mode; ATAPI has no 8-bit data mode. Also closes `bDevice = 0x0A`, open since
+2026-08-31. Full account, including the five weeks the same conclusion rested on an untestable
+inference and the vendor copy that briefly reopened it, in `docs/xtide_pdr_5160_differences.md`
+§4 and technique 95.
+
+**Do not spend machine time on the latch.** The board answers it.
+
+Two routes remain, both natively 8-bit, neither touching the XT-CF:
+
+1. **Mitsumi — free, and it belongs in the bed before any driver is written.** 86Box already
+   emulates an 8-bit ISA Mitsumi CD-ROM controller (`src/cdrom/cdrom_mitsumi.c`, behind CMake
+   option `CDROM_MITSUMI` — one rebuild), and Windows 95 shipped a Mitsumi driver. That tests the
+   entire CD path on the Inboard — CDFS, class driver, claim, teardown — with none of our code in
+   it. Technique 94 again, and it costs a build.
+2. **The SB Pro's own Panasonic/MKE header — hardware-only.** `snd_sb.c` documents an SB Pro
+   CD-ROM interface at `base+10h..13h`; that interface is natively 8-bit and the card is already
+   in the 5160. 86Box comments the decode but does not implement it, so it cannot be bedded.
+   **Open question for the owner: does the physical SB Pro carry that header?** Protocol
+   reference if it does: PicoGUS's MKE emulation,
+   <https://github.com/polpo/picogus/wiki/CD%E2%80%90ROM-Emulation> — device-side, so a source for
+   the command set, not a layer to reuse.
+
+**If a CD path opens, reorder the miniport work.** A read-only device is the better first target
+than the CF disk: it exercises claim → SRB dispatch → polling → completion → clean unload with no
+write, no flush and no dirty-volume teardown — the exact code the `.PDR` wedged in. It takes the
+riskiest path out of the first build instead of carrying it in.
+
+Origin: the owner's question of 2026-09-05 about reusing Kevin Moonlight's MKE work from PicoGUS.
+The mechanism as proposed does not port — it is device-side, and no command set makes 8 wires
+carry 16 bits — but it is what produced both the board check and route 2.
+
 ## Do these first — neither costs machine time
 
 1. **Read `T130.MPD`.** 7,598 bytes of `.text`, a working polling no-IRQ ISA miniport, with

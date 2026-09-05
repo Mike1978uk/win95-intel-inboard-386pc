@@ -268,7 +268,10 @@ but not yet tested. Everything else is unchanged.
 
 ## Not defects, but state the reader needs
 
-- **ATAPI/CD is permanently out of scope.** The Lo-tech XT-CF has D8-D15 unconnected.
+- **ATAPI/CD is out of scope on this card**, confirmed from the board 2026-09-05: silkscreen
+  `Adapter Type XT-CF`, and the only logic is two CD74HCT688 comparators, an SN74HCT139 and a
+  buffer - no high-byte latch. `docs/xtide_pdr_5160_differences.md` §4 records why the earlier
+  wording was right for the wrong reason.
 - **Everything is 8-bit PIO.** A 16-bit XT-IDE variant needs a data-path change, not a switch.
 - **The DDK sample this is built on ships four bugs of its own** - a request routine that
   destroys the registers its own header promises to preserve, a calldown spliced into every
