@@ -336,9 +336,9 @@ answer, not a week of work.
 | [#15](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/15) | Windows 3.0 faults after the splash screen in 386 enhanced mode |
 | [#17](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/17) | Drives run in MS-DOS compatibility mode. Real-mode units are down from six to one after removing a parallel-port ASPI driver; the survivor is the XT-IDE boot disk, which stays real-mode permanently |
 | [#18](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/18) | Floppy reads return garbage once a 32-bit driver loads — `HSFLOP.PDR`'s DMA buffer lands above 1 MB. Patched, not yet measured |
-| [#19](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/19) | Trantor T130B — a Windows 95 32-bit miniport (`T130.MPD`) exists but is untested here |
+| [#19](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/19) | Trantor T130B — `T130.MPD` **works in emulation**: it claims a SCSI disk and CD-ROM, holds a written FAT16 volume through a clean teardown. Untested on the real SCSI chain |
 | [#20](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/20) | 86Box has no 3C509B device, so emulated networking cannot match the real machine's card. Low priority, emulation fidelity only |
-| [#21](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/21) | Write a 32-bit Win9x port driver for 8-bit XT-IDE — would take the boot disk out of MS-DOS compatibility mode, and applies to every XT-class machine, not just this one |
+| [#21](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/21) | A 32-bit Win9x driver for 8-bit XT-IDE — **written and working in emulation** as a SCSI miniport ([`drivers/xtide_mpd/`](drivers/xtide_mpd/)): it takes the boot disk out of MS-DOS compatibility mode and shuts down cleanly. Untested on real hardware, and one open question first — a manually *forced* device node correlates with a hung shutdown. Applies to every XT-class machine, not just this one |
 
 Issues are labelled **`emulator`** or **`real-hardware`** so you can pick by what you have, and
 **`upstream`** marks the ones destined for 86Box itself.
