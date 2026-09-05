@@ -96,12 +96,31 @@ if ($LASTEXITCODE -ne 0) { throw "LINK failed (exit $LASTEXITCODE)" }
 # ---- provenance -----------------------------------------------------------
 $md5   = (Get-FileHash -Algorithm MD5 $mpd).Hash.ToLower().Substring(0, 8)
 $bytes = (Get-Item $mpd).Length
+
+# A PE's md5 is NOT a stable identity: LINK stamps the build time into the COFF
+# header, the debug directory and the trailing debug data, so two builds of one
+# source differ (measured 2026-09-05: nine bytes, all timestamps). The code hash
+# neutralises exactly those and is what identifies the binary. Record both -
+# the file md5 is what you can compute on a card without tooling.
+# `python3` on this box resolves to the Windows Store stub, which silently does
+# nothing; `python` is the real interpreter. Resolve it rather than assume.
+$py = $null
+foreach ($cand in @('python', 'py', 'python3')) {
+    $c = Get-Command $cand -ErrorAction SilentlyContinue
+    if ($c -and $c.Source -notmatch 'WindowsApps') { $py = $c.Source; break }
+}
+$code = 'UNKNOWN'
+if ($py) {
+    $codeOut = ((& $py (Join-Path $here '..\..	ools\pe_codehash.py') $mpd) -join '').Trim()
+    if ($codeOut -match '^code\s+(\S+)') { $code = $Matches[1] }
+}
+if ($code -eq 'UNKNOWN') { Write-Host '  (code hash unavailable - no usable python found)' -ForegroundColor Yellow }
 $commit = (& git -C $here rev-parse --short HEAD 2>$null)
 $dirty  = (& git -C $here status --porcelain 2>$null)
 $tree   = if ($dirty) { 'DIRTY' } else { 'clean' }
 
 Write-Host ''
-Write-Host "XTIDEMP.MPD  md5 $md5  $bytes bytes  commit $commit  tree $tree" -ForegroundColor Green
+Write-Host "XTIDEMP.MPD  code $code  md5 $md5  $bytes bytes  commit $commit  tree $tree" -ForegroundColor Green
 if ($tree -eq 'DIRTY') {
     Write-Host ''
     Write-Host '  *** TREE IS DIRTY - this binary cannot be rebuilt from a commit. ***' -ForegroundColor Yellow
@@ -112,8 +131,8 @@ if ($tree -eq 'DIRTY') {
 
 $ledger = Join-Path $here 'build_ledger.tsv'
 if (-not (Test-Path $ledger)) {
-    "utc`tmd5`tbytes`tcommit`ttree`tflags" | Out-File -FilePath $ledger -Encoding ascii
+    "utc`tcode`tmd5`tbytes`tcommit`ttree`tflags" | Out-File -FilePath $ledger -Encoding ascii
 }
 $flags = if ($defs) { $defs -join ' ' } else { '(none)' }
-"{0}`t{1}`t{2}`t{3}`t{4}`t{5}" -f (Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ'), $md5, $bytes, $commit, $tree, $flags |
+"{0}`t{1}`t{2}`t{3}`t{4}`t{5}`t{6}" -f (Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ'), $code, $md5, $bytes, $commit, $tree, $flags |
     Out-File -FilePath $ledger -Encoding ascii -Append

@@ -5346,3 +5346,106 @@ compliant hard drives"*. Both true, and both about **the device on the cable**, 
 the CF card splits the data in its own 8-bit mode, and the hard-disk claim holds only for drives
 implementing that optional mode. **Marketing copy describes a system, not a component.** It is not
 a schematic and must not be weighed against one.
+
+
+## Technique 96: the INF's LogConfig decides where the driver LOOKS - and CONFIGMG need not take the first entry
+
+2026-09-05. The XT-CF SCSI miniport (#21) loaded, was called, and reported `Init Failure` in
+**one boot-log tick**. The driver was correct throughout. The INF was not.
+
+```
+[*XTIDEMP.LogConfig]
+IOConfig=300-31F(3FF::), 320-33F(3FF::), 340-35F(3FF::), 360-37F(3FF::)
+```
+
+Copied in shape from `T130-XT.INF`, which offers four bases. **CONFIGMG took the second one.**
+`HwFindAdapter` read `0320-033F` out of `PORT_CONFIGURATION_INFORMATION.AccessRanges`, probed
+there, found no card, and returned `SP_RETURN_NOT_FOUND` - which is a handful of `IN`
+instructions and therefore one tick. Technique 78's arithmetic named the shape of the failure
+before the cause was known: a timeout costs tens of ticks, so nothing had waited on anything.
+
+**Resource assignment happens BEFORE the driver runs.** CONFIGMG allocates from the INF at
+install time; the miniport is not loaded and is not consulted. So no amount of autodetection
+inside the driver can correct a mis-assigned node at install time - which is the whole reason
+technique 65 exists, where the fix is a human setting the configuration by hand.
+
+**The alternatives are only legitimate if the CARD can answer on all of them.** The T130B's
+four bases are jumper-selectable, so its INF is right to list them. The XT-CF's base is set in
+the XTIDE Universal BIOS. Listing ranges the card cannot answer on is not flexibility; it is an
+invitation to be assigned one of them.
+
+### Read the ASSIGNED resource out of the hive - free, and it beats guessing
+
+The owner said "I think it assigned to 0320 on install". That is checkable without a boot.
+`SYSTEM.DAT` is `CREG` (technique 65), and a printable-run scan finds the node; the binary blob
+that follows the `ForcedConfig` value name carries the range as little-endian word pairs:
+
+```
+our node   ForcedConfig ... 20 03 3f 03 ...   = 0x0320-0x033F   <- assigned
+           LogConfig    ... 00 03 1f 03 ...   = 0x0300-0x031F   <- offered, not taken
+floppy     ForcedConfig ... f2 03 f5 03 ...   = 0x03F2-0x03F5   <- sanity check, correct
+```
+
+**Always decode a known-good node in the same pass.** The floppy's `3F2-3F5` is what proves the
+decode is right; without it, four bytes that happen to look like a range are just four bytes.
+
+### The fixes, and which one is the fix
+
+- **The INF offers one range.** That is the real fix.
+- **A `-Base` build switch** pins the base and ignores the node. That is a *test* instrument -
+  it proved the driver in one file swap, with no reinstall and no Device Manager (which was
+  crashing on the failed node anyway) - and a way out if a node is ever mis-assigned on a
+  machine nobody can reach. Verified in the emitted code, not assumed: `mov eax, 0x300` followed
+  by a jump past the AccessRanges read. Technique 91's unreachable-dispatch trap is one `ifdef`
+  away at all times.
+- **A base scan in `HwFindAdapter` is the proper end state** and is not done yet. The DDK's own
+  `PC2X` sample does exactly this in `PC2xDetermineInstalled`, and our `XTIDE_DetectStride` is
+  already the right shape for it: reads only, never writes, and rejects all-ones and all-zeroes,
+  which is what an absent card returns. Deliberately deferred - at the time of the fix there was
+  one confirmed cause and no proof the driver worked at all, so the first build changed one thing.
+
+**Symptom to recognise:** a driver that IOS loads and calls, that fails in one or two ticks, with
+a device node that looks perfectly healthy in the registry. Check what the node was ASSIGNED
+before reading a line of driver source.
+
+
+
+## ✅ #21 RESOLVED, 2026-09-05: the XT-CF miniport claims the boot disk and shuts down cleanly
+
+Four sessions of the `.PDR` wedging Windows at shutdown, closed by replacing the layer rather
+than debugging it. Technique 94 justified the port with a control; this is the outcome.
+
+```
+XTIDEMP.MPD  10,752 bytes  md5 d916a551  (built -Base 0x300)
+Init Success xtidemp.mpd
+INITCOMPLETESUCCESS = SCSIPORT / DiskTSD / VFAT / IFSMGR
+RMM.PDR   Dynamic load success ... and NEVER reaches INITCOMPLETE
+shutdown  7 stages started, 7 closed, unclosed: none
+IOS.LOG   does not exist
+```
+
+**RMM loading and then never reaching `INITCOMPLETE` is the boot-disk takeover**, and it is
+technique 90's own discriminator read in the good direction for the first time: the real-mode
+mapper found nothing to claim because the miniport already owned the disk. `C:` is served
+guest -> IFSMGR -> VFAT -> DiskTSD -> SCSIPORT -> our miniport -> XT-CF.
+
+Confirmed by the owner at the machine: desktop, `C:` navigable, both SCSI drivers present with
+no exclamation mark, and a normal shutdown to "It's now safe to turn off your computer". That
+last is the primary evidence - `EndTerminate = KERNEL` is the last line on a hung shutdown too
+(technique 88), so the log corroborates and does not prove.
+
+**`RealModeInitialized` is FALSE.** The one genuinely open field in the costing turned out not
+to be needed at all.
+
+What the port deleted, and why each mattered:
+
+| | `.PDR` | `.MPD` |
+|---|---|---|
+| polling contract | ours, and violated (technique 88) | SCSIPORT's, via `Polling=1` |
+| DCB lifecycle, volume publishing | ~1,500 lines of ours | SCSIPORT + DiskTSD |
+| scatter/gather | ours - misread the list and wrote a descriptor list into a root directory (technique 85) | SCSIPORT's, via `MapBuffers = TRUE` |
+| file format | LE VxD, `.DEF`, LE page size, `W4` combine | plain PE - none of it applies |
+
+**Not yet proven:** the write path under real load (booting and browsing is mostly reads); a
+clean install from the fixed INF, since this build has the base pinned; and the real 5160.
+
