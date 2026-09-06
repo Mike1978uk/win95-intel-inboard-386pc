@@ -61,7 +61,14 @@ at the center of the fix.
   for a working `\` - an 83-key XT keyboard has no key for the UK one
 - Mouse input
 - 32-bit applications (confirmed with the bundled FreeCell)
-- SCSI Devices working by adding relevant entries to config.sys / autoexec.bat devices loading fine in ms dos mode in Windows tested CD drive, MO Drive, Zip 100 drive
+- **32-bit protected-mode access to the whole SCSI chain**, confirmed on real hardware 2026-09-06.
+  Adaptec's own [`T130.MPD`](drivers/trantor_t130b/) — never shipped in the Windows 95 box, published
+  separately — drives the Trantor T130B with no IRQ, polled. The Fujitsu MO, Nakamichi CD changer,
+  Iomega Zip 100, Yamaha CD-RW, HP DAT and UMAX scanner all enumerate; `RMM.PDR` stands down and the
+  real-mode chain (`MA13B.SYS` and friends) is out of `CONFIG.SYS` entirely
+  ([#19](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/19)). The tape and scanner
+  sit as `Unknown` nodes on purpose: Windows 95 has no class driver for either, and both are reached
+  over ASPI by their own applications
 - **32-bit protected-mode disk access on the boot disk**, confirmed on real hardware 2026-09-06.
   This project's own Windows 95 SCSI miniport, [`XTIDEMP.MPD`](FIXES.md), drives the 8-bit
   XT-CF / XT-IDE card directly: `RMM.PDR` stands down, `C:` is served by SCSIPORT and DiskTSD,
@@ -75,8 +82,17 @@ at the center of the fix.
 
 **Video, sound and networking all work at the same time on the real 5160.**
 
-**Floppy drives do not work yet.** A controller is now installed and correctly resourced, but
-reads still stall part-way — see [#18](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/18).
+**Floppy drives do not work yet**, but they are no longer stuck. The patched
+[`HSFLOP_XTDMA.PDR`](FIXES.md) now genuinely loads and initialises on the real machine
+(`Init Success`, `INITCOMPLETE`, measured 2026-09-06) — for over a month it was deployed but never
+loaded, so nothing measured about it meant anything. @andrew-hoffman reports it working in 86Box and
+faster than real mode, with A: and B: leaving compatibility mode, but hit a fatal exception and a
+corrupted disk after changing media a few times; that analysed as a stale cache page flushed to the
+wrong disk — a media-change detection failure, not the DMA-reach bug the patch fixes. **Set floppies
+read-only until that is resolved.** Separately, both drives enumerate as generic
+`GENERIC NEC FLOPPY DISK` nodes with no drive letters and the wrong geometry for the real TEAC
+FD-505 — a 5160 has no CMOS for Windows to read drive types from. See
+[#18](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/18).
 An earlier version of this page claimed A: and B: worked; that was wrong. (The original report,
 [#3](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/3), is closed — it was the
 Have Disk browse fault, which turned out to be the missing controller.)
@@ -343,9 +359,8 @@ answer, not a week of work.
 | [#10](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/10) | Idea: a loadable BIOS-extension shim so 1982-era 5150/5160 ROMs can run Windows |
 | [#14](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/14) | POST intermittently halts with 101, at `mem_size` 2688 and 3072. Needs a quiet build, not `86box_full` |
 | [#15](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/15) | Windows 3.0 faults after the splash screen in 386 enhanced mode |
-| [#17](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/17) | Drives run in MS-DOS compatibility mode. **The boot disk is fixed** — `XTIDEMP.MPD` ([#21](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/21)) takes it into protected mode on real hardware. What remains is the SCSI peripherals and the floppy, still served by real-mode drivers |
-| [#18](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/18) | Floppy reads return garbage once a 32-bit driver loads — `HSFLOP.PDR`'s DMA buffer lands above 1 MB. Patched, not yet measured |
-| [#19](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/19) | Trantor T130B — `T130.MPD` **works in emulation**: it claims a SCSI disk and CD-ROM, holds a written FAT16 volume through a clean teardown. Untested on the real SCSI chain |
+| [#17](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/17) | Drives run in MS-DOS compatibility mode. **The boot disk and the whole SCSI chain are fixed** on real hardware — `XTIDEMP.MPD` ([#21](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/21)) and Adaptec's `T130.MPD` ([#19](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/19)). **Only the floppy is left** |
+| [#18](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/18) | Floppy. The DMA-reach patch is real and `HSFLOP_XTDMA.PDR` now loads on hardware, but a media change can flush a stale cache page to the wrong disk and corrupt it. Keep floppies read-only. Reproducible in 86Box, so anyone can work on it |
 | [#20](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/20) | 86Box has no 3C509B device, so emulated networking cannot match the real machine's card. Low priority, emulation fidelity only |
 | [#22](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/22) | LS-120 Windows 95 driver kills keyboard input — the miniport's chipset probe writes to the 8259 through the XT's I/O aliasing. Root-caused; parked, because the real-mode driver works |
 

@@ -94,3 +94,4 @@ vm_xtide_mpd/
 
 #  Clean-install bed for the miniport INF (issue #21).
 vm_xtide_mpd2/
+image_backups/*.img

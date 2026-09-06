@@ -170,7 +170,7 @@ which does not apply to a machine without `INBRDPC.SYS`.
 See [issue #21](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/21).
 
 ---
-## ⛔ Deployed but not loaded — no effect
+## ⚠️ Loads on real hardware, not yet proven correct
 
 ### `HSFLOP.PDR` — floppy DMA reach
 
@@ -183,25 +183,38 @@ Same bug as the sound driver, one byte: `maxPhys 0x1000 → 0xFF`
 Floppy DMA is **channel 2**. Where sound merely distorted, a floppy read that returns the wrong
 bytes fails its CRC and the driver retries forever — motor on, light on.
 
-> ### ⛔ Deployed, but currently INERT — measured 2026-08-25
+> ### ✅ It loads now — measured on the real 5160, 2026-09-06
 >
-> The patched file **is** on the CF card (md5 verified against the card itself) and the controller
-> **is** installed (`PNP0700` present in `SYSTEM.DAT`). But `BOOTLOG.TXT` contains **zero**
-> `hsflop` entries — **Windows never loads this driver**, so the patch cannot be having any effect.
+> ```
+> [000C260D] Initing hsflop.pdr
+> [000C2614] Init Success hsflop.pdr
+> [000C2740] INITCOMPLETESUCCESS = HSFLOP
+> ```
 >
-> The reason is in the same log: `RMM.PDR`, the **Real Mode Mapper**, loads and initialises
-> successfully, and `ESDI_506.PDR` never loads either. The whole storage stack — hard disk *and*
-> floppy — is running through **real-mode BIOS**, not 32-bit drivers.
+> md5 `8e695d00c20c6e43084d91d8ed111c52` on the card — the patched build, not stock. So for the
+> first time a result here means something.
 >
-> So the floppy stall is in the real-mode path (Sergey's ROM + DOS via RMM), not here. The
-> 20-bit DMA reach may still be the cause, but it would be biting the real-mode buffer, and
-> that is a different fix. Predicted by @andrew-hoffman on
-> [#3](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/3) before it was measured.
+> **Supersedes the 2026-08-25 status**, which said this file was deployed but INERT: `BOOTLOG.TXT`
+> then contained zero `hsflop` entries, because the whole storage stack was running through the
+> real-mode mapper. That was true when written and is no longer. Clearing the IOS punt (#17) and
+> installing the controller is what changed it.
+>
+> ### ⚠️ Loading is not the same as correct — keep floppies read-only
+>
+> @andrew-hoffman has run this driver in 86Box: the floppy works, it is faster than real mode, and
+> A: and B: leave compatibility mode. After changing disks a few times he hit
+> `Fatal Exception 0E` and a corrupted floppy image. That image analysed as **a stale cache page
+> flushed to the wrong disk** — a media-change detection failure, not the DMA-reach bug this patch
+> fixes. Read-only prevents the flush, which is why his workaround holds.
+>
+> Read/write correctness on the real 5160 is **not yet tested** since the driver started loading.
+> Tracked as [#18](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/18).
 
 `HSFLOP.PDR` lives in `IOSUBSYS` and is loaded dynamically by IOS — it is **not** bundled into
 `VMM32.VXD`, so a plain file copy to `C:\WINDOWS\SYSTEM\IOSUBSYS\` is enough.
 
-See [issue #3](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/3).
+See [issue #18](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/18) (#3 is closed —
+it was split).
 
 ---
 
@@ -232,6 +245,17 @@ fixes. Same `maxPhys` change as the sound driver.
 
 ## Not a patched file, but needed
 
+- **SCSI chain — working as of 2026-09-06** ([#19](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/19)).
+  Nothing to patch: use Adaptec's own **`T130.MPD`**, the 32-bit protected-mode Trantor miniport
+  Microsoft never put in the Windows 95 box. It was published separately and is held here at
+  [`drivers/trantor_t130b/`](drivers/trantor_t130b/) unmodified, md5
+  `9cc532791b9e911bfba89afbc920c4c7`, with its archive.org provenance. Install via **Have Disk**
+  with [`T130-XT.INF`](drivers/trantor_t130b/T130-XT.INF), which differs from Adaptec's stock INF in
+  three ways this machine needs: **no `IRQConfig`** (the card is jumpered without an interrupt),
+  `Polling=1`, and `DMAConfig` dropped — DMA channel 0 is DRAM refresh on a 5160, and while the
+  driver is PIO-only and never programs the 8237, Adaptec themselves comment that line out in the
+  sibling `T128.INF`. `DontLoadIfConflict` comes from the same sibling. Raised by
+  @andrew-hoffman.
 - **ATI Mach 8 — working as of 2026-08-24** ([#4](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/4)). Nothing to patch: use Windows 95's
   **own** driver, *ATI Graphics Ultra (mach8)* (`ATIM8.DRV` + `ATI.VXD`, `MSDISP.INF` section `[ATI8]`),
   then **set the adapter's configuration manually** in Device Manager (Resources → untick *Use

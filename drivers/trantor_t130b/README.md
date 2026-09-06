@@ -73,14 +73,38 @@ shutdown stages started 7, closed 7   UNCLOSED: none
 Both arms passed: CD-ROM only, and CD-ROM plus a written FAT16 disk. See technique 94 and
 [`docs/scsi_miniport_costing.md`](../../docs/scsi_miniport_costing.md).
 
-**Not yet run on the real 5160 or the real SCSI chain.** Staged to the CF on 2026-09-06 at
-`C:\T130XT\` (`T130.MPD` + `T130XT.INF` + install notes) ready for that. Prerequisites already
-verified on the card: `inbrdpc.sys` is in `[SafeList]` in `WINDOWS\IOS.INI`, and the real-mode
-SCSI/ASPI chain (`MA13B`, `TSLCDR`, `MODISK2`, `NASPIBUF`) is REM'd out of `CONFIG.SYS`.
+## ✅ Confirmed on the real 5160, 2026-09-06 — #19 closed
 
-Do the **CD-ROM** arm first. It proves the driver loads and claims the bus but does not exercise
-DiskTSD/VFAT/IFSMGR, which is where the port driver's shutdown bug lived — escalate to a disk
-only once that arm is clean.
+Installed from `C:\T130XT\`. The real SCSI chain runs in protected mode:
+
+```
+[000C262E] Initing t130.mpd
+[000C267F] Init Success t130.mpd
+INITCOMPLETESUCCESS = IOS / SCSIPORT / DiskTSD / CDTSD / VFAT / CDFS / IFSMGR
+rmm.pdr   Dynamic load success ... and never reaches INITCOMPLETE
+shutdown  7 stages started, 7 closed, none unpaired
+IOS.LOG   does not exist
+```
+
+All six targets enumerate — Fujitsu MO (ID 0), Nakamichi changer (ID 2), Zip 100 (ID 3), Yamaha
+CD-RW, HP C1537A DAT (ID 4) and UMAX Astra 610S (ID 6). The MO, Zip and both CD devices bind to a
+class driver; the tape and scanner stay `Unknown`, which is correct — Windows 95 ships no class
+driver for either and both are reached over ASPI by their own applications.
+
+Coexists with `XTIDEMP.MPD`: the XT-CF serves `C:`, the T130B serves the chain, both under
+`SCSIPORT`. Boot log kept at
+[`docs/bootlogs/BOOTLOG_2026-09-06_t130b_hardware_pass.TXT`](../../docs/bootlogs/BOOTLOG_2026-09-06_t130b_hardware_pass.TXT).
+
+**Not tested:** reads and writes to actual MO, Zip, CD or CD-RW *media* under Windows. The devices
+enumerate and bind; that is not the same as verified transfers.
+
+Prerequisites that were verified on the card beforehand, and still matter for anyone repeating
+this: `inbrdpc.sys` in `[SafeList]` in `WINDOWS\IOS.INI`, and the real-mode SCSI/ASPI chain
+(`MA13B`, `TSLCDR`, `MODISK2`, `NASPIBUF`) REM'd out of `CONFIG.SYS`.
+
+If you are repeating it on another machine, do the **CD-ROM** arm first — it proves the driver
+loads and claims the bus without exercising DiskTSD/VFAT/IFSMGR, which is where a port driver's
+teardown bugs live.
 
 `T130-XT.INF` in this directory is the deployed INF; it is staged on the card under the 8.3 name
 `T130XT.INF` so that only one INF is visible to Have Disk.
