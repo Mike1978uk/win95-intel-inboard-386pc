@@ -337,6 +337,18 @@ lists exactly which files to patch and where to place them on a pre-monolith ins
 Pro driver, stock and unpatched. Apply `dist/post-install-fixes/` **after** installing the driver,
 not to the image.
 
+## Licence
+
+**[MIT](LICENSE)** for this project's own work — the XT-IDE Windows 95 miniport
+(`XTIDEMP.MPD`), the patch scripts, the tools, the INFs and the documentation. Use it, port it,
+build on it; keep the copyright notice.
+
+The repository also carries third-party material so results stay reproducible, and **each of those
+keeps its own licence**: 86Box is GPL-2.0 (and this project's changes to it are too), Adaptec's
+`T130.MPD` is Adaptec's, ROM dumps belong to their owners, and the patched Microsoft VxDs are
+Microsoft's — the *patches* are ours, the binaries are not. [`LICENSE`](LICENSE) sets out the split
+in full, and each driver directory's README carries the specific provenance and md5s.
+
 ## Contributing
 
 Issues and PRs welcome. Most open issues carry a **Status** block at the top, so you can see

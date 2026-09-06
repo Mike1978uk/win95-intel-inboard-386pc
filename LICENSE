@@ -1,0 +1,113 @@
+MIT License
+
+Copyright (c) 2026 Mike Lycett
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+================================================================================
+SCOPE — what this licence covers, and what it does not
+================================================================================
+
+This repository is a mixture of original work and third-party material kept here
+so that results are reproducible. The MIT grant above applies ONLY to this
+project's own work. Everything listed under "Third-party material" below retains
+its own licence and copyright, and nothing here grants any right over it.
+
+--------------------------------------------------------------------------------
+Covered by the MIT licence above
+--------------------------------------------------------------------------------
+
+  drivers/xtide_mpd/src/     XTIDEMP.ASM and XTIDETR.ASM - this project's
+                             Windows 95 SCSI miniport for the Lo-tech XT-CF and
+                             XT-IDE cards, and the built XTIDEMP.MPD binary in
+                             drivers/xtide_mpd/build/ and dist/xtide_mpd/.
+                             Original work, written in MASM. See the note on
+                             the Windows 95 DDK below.
+  drivers/xtide_pdr/src/     the retired IOS port driver, same terms.
+  drivers/*/  *.INF          the INF files written by this project
+                             (XTIDEMP.INF, T130-XT.INF, PORT.INF).
+  tools/                     the analysis, build and harness scripts.
+  vxd-patches/*.py           the patch scripts. See the note on patched
+                             Microsoft binaries below.
+  ivt68fix/                  IVT68FIX.ASM and the assembled .COM.
+  custom_vkd/                the build scripts and this project's changes.
+  docs/                      the write-ups, plans and measurements.
+  hardware/                  the reverse-engineering notes.
+  86box_full/, 86box_upstream/
+                             this project's own modifications to 86Box are
+                             offered under 86Box's GPL-2.0, not under MIT -
+                             they are derivative of it. See below.
+
+--------------------------------------------------------------------------------
+Third-party material — each keeps its own licence
+--------------------------------------------------------------------------------
+
+  86box_full/, 86box_upstream/
+        86Box, GPL-2.0. See 86box_full/COPYING. This project's changes to 86Box
+        are likewise GPL-2.0. Several are merged upstream (86Box PRs #7626,
+        #7749, #7761, #7765, #7771).
+
+  drivers/trantor_t130b/T130.MPD, T130.INF, T130.EXE
+        Adaptec / Trantor. Redistributed unmodified as a freely downloadable
+        driver. Copyright remains with Adaptec.
+
+  drivers/imation_ls120/
+        Imation / Shuttle Technology SD120PPD. Copyright remains with Imation.
+
+  drivers/xtide_cdrom/
+        OBattler's XT-IDE CD-ROM driver. See that directory's own notes.
+
+  references/cfu1_win9x/
+        zikolas/cfu1-win9x, MIT. See references/cfu1_win9x/LICENSE.
+
+  references/3c509b_qemu/, references/ds1315_rtc/
+        third-party reference sources; see each directory's own terms.
+
+  roms/
+        BIOS images, option ROMs and card ROM dumps. Copyright remains with
+        their respective owners (IBM, ATI, Adaptec, and others). Included for
+        hardware-fidelity research and reproduction of the results here.
+
+  Patched Microsoft binaries
+        Files such as VDMAD.VXD, VPICD.VXD, VKD.VXD, KEYBOARD.DRV, HSFLOP.PDR,
+        MSSBLST.VXD and INBRDPC.SYS are Microsoft's (INBRDPC.SYS is Intel's),
+        modified here. The MODIFICATIONS, the patch scripts that produce them
+        and the analysis describing them are this project's work under MIT; the
+        underlying binaries are NOT, and are not licensed by this repository.
+        They are included so the fixes can be reproduced and verified.
+
+  Windows 95 DDK
+        XTIDEMP.MPD is assembled against Microsoft's 1995 Windows 95 DDK headers
+        (SRB.INC, SCSIPORT.INC, MINIPORT.INC) and links SCSIPORT.LIB, as any
+        driver built with that DDK does. The DDK itself is not redistributed
+        here. The driver source contains no DDK sample code: the sample-derived
+        IOS glue belonged to the retired port driver and was removed in the
+        rewrite to a miniport.
+
+  Windows 95 itself
+        Not included. You need your own OSR1 media.
+
+--------------------------------------------------------------------------------
+If in doubt
+--------------------------------------------------------------------------------
+
+Each driver directory carries a README stating provenance, md5s and, where
+applicable, where the file was downloaded from. Those READMEs are the specific
+record; this file is the summary. If something here is redistributed in a way
+you believe it should not be, please open an issue and it will be removed.
