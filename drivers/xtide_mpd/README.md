@@ -123,7 +123,7 @@ loads and never reaches `INITCOMPLETE`, which is the real-mode mapper finding no
 because the miniport already owns the disk. The `-RealModeInit` switch stays available and has
 never been needed.
 
-**The forced-configuration hang — open, and the one to settle before hardware.** A manually
+**The forced-configuration hang — still open; the hardware run made it moot, not answered.** A manually
 forced device node correlates with a hung Windows shutdown, 3 runs of 3, on two builds, at the
 same VMM addresses the old `.PDR` wedged at. Auto-assignment is clean. But forced-versus-auto
 and `0300`-versus-`0320` moved together in every run, so they are not separated: the untested
@@ -142,22 +142,14 @@ is a failed shutdown regardless of what the CPU is doing (technique 98). Moving 
 
 ## Status
 
-Works on an emulator bed that faithfully models the card: clean install, no forced configuration,
-`Init Success`, boot-disk takeover (`RMM.PDR` stands down), clean Windows shutdown, and 5.9 MB
-written through it verified byte-for-byte from the host. **Not tested on the real 5160.**
+**Confirmed on the real 5160, 2026-09-06** — see the top of this file for the evidence. Before
+that it was confirmed on an emulator bed that faithfully models the card, including 5.9 MB written
+through it and verified byte-for-byte from the host.
 
 The I/O base is supplied by the owner on the Settings tab (`PORT=0x300`) rather than probed, and
 the driver never touches the device node's resources.
 
-**Open, and it matters before hardware:** a manually **forced** device node correlates with a hung
-Windows shutdown - 3 runs of 3, on two different builds, at the same VMM addresses the old `.PDR`
-wedged at. Auto-assignment is clean. Forced-versus-auto and `0300`-versus-`0320` have never been
-separated, because they changed together in every run; the untested cell is a node auto-assigned
-to `0300`. See technique 97. Until that is settled, let Windows assign the resources.
-
-**Also open:** completion is synchronous, so a heavy teardown blocks the machine for its whole
-duration. Long enough that a user would reach for the power switch, which by technique 98 is a
-failure rather than a slow success. Moving to `ScsiPortNotification(RequestTimerCall, ...)` is the
-next real piece of work.
-
-**Untested:** stride 1 - it needs its own bed, a stride-1 card *and* a stock XTIDE option ROM.
+Still open, and both are listed above with their evidence: the forced-configuration shutdown hang
+(moot on the hardware run, not answered), synchronous completion under a heavy teardown, and
+**stride 1**, which needs a stride-1 card and a stock XTIDE option ROM that this project does not
+have. Submission drafts asking for that testing: [`docs/xtide_submission_drafts.md`](../../docs/xtide_submission_drafts.md).
