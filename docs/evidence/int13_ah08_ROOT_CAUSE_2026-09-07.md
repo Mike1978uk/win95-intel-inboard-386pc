@@ -315,3 +315,88 @@ Neither difference changes the answer.
 - **The XTIDE / Trantor question is live again.** One of those ROMs answers `AH=08h` rather than
   forwarding to `INT 40h` as AMI's reference documents. Identifying which is worth doing properly
   before anyone raises it with the XTIDE maintainers.
+
+## ⭐ PREFERRED FIX: move Sergey's ROM to C8000 - two switches, no software
+
+### The mechanism, now fully pinned
+
+Neither fixed-disk ROM originates the wrong answer:
+
+- **Trantor TSROM 2.14** has **no `AH=08h` handler at all** - no `cmp ah,08`, no `int 40h`, no
+  `EFA0` immediate. Its `cmp ah` sites are SCSI/ASPI function codes.
+- **XTIDE** intercepts `AH=08h` for foreign drives but its floppy path *chains* and returns
+  whatever comes back. Had it answered from its own copy of the table (ROM `0x166d`), `ES` would
+  read `D800`; it reads `F000`.
+
+So the **1986 system BIOS answers**, from its own diskette parameter table at `F000:EFA0`,
+reporting the best it knows: 720K. (The earlier "no `cmp ah,08` in U18" proved nothing - the XT
+BIOS dispatches `INT 13h` through a jump table, not a compare chain.)
+
+It is an **ordering conflict**:
+
+```
+system BIOS      INT 13h = F000:EC59
+Trantor  CA000   saves INT 13h (= system BIOS), takes INT 13h
+Sergey   D0000   INT 13h is no longer EC59, so it settles for INT 40h
+XTIDE    D8000   saves INT 13h (= Trantor), takes INT 13h
+
+floppy AH=08h:   XTIDE -> saved(Trantor) -> saved(system BIOS) -> 720K
+                 Sergey sits on INT 40h and nothing routes there
+```
+
+Sergey hooks `INT 40h` expecting the fixed-disk BIOS to revector floppies there, as AMI's
+reference documents. Trantor and XTIDE instead chain to their *saved `INT 13h`* - also common,
+and correct only if nothing hooks `INT 40h` afterwards. Sergey does, and loses.
+
+### The fix: scan Sergey FIRST
+
+```
+Sergey   C8000   INT 13h is still EC59 -> its own rule fires, it takes INT 13h
+Trantor  CA000   saves INT 13h (= Sergey), takes INT 13h
+XTIDE    D8000   saves INT 13h (= Trantor)
+
+floppy AH=08h:   XTIDE -> Trantor -> Sergey -> CORRECT
+hard disk:       handled by XTIDE/Trantor, never reaches Sergey
+```
+
+**This retires an earlier warning in this document.** A previous section said do NOT move the card
+earlier, because Sergey's handler errors `DL>=0x80`. That reasoning was wrong: with Sergey scanned
+first, the fixed-disk ROMs install **in front of it** and service hard disks themselves, so Sergey
+never sees `DL>=0x80`.
+
+### It is two switches, and the address is available
+
+Silkscreen, `SW2.3-SW2.7 ROM Address Selection`, `1 = ON, 0 = OFF`:
+
+| | SW2.3 | SW2.4 | SW2.5 | SW2.6 | SW2.7 |
+|---|---|---|---|---|---|
+| `0xD0000` (current) | ON | **OFF** | **ON** | ON | ON |
+| `0xC8000` (target) | ON | **ON** | **OFF** | ON | ON |
+
+`SW2.1 Enable ROM` stays ON. Measured option-ROM map:
+
+| range | occupant |
+|---|---|
+| `C0000-C7FFF` | Mach8 video BIOS - header `55 AA 40` = 32 KB |
+| **`C8000-C9FFF`** | **free, reads all `FF`** |
+| `CA000-CB7FF` | Trantor, 6 KB |
+| `D0000-D1FFF` | Sergey, 8 KB, current |
+| `D8000-D9FFF` | XTIDE, 8 KB |
+
+`C8000` is the **only** slot below Trantor - `C2000`/`C4000`/`C6000` all fall inside the Mach8
+ROM - and Sergey's 8 KB ends exactly where Trantor begins.
+
+### Why this beats FD08FIX
+
+Fixes it in the ROM chain for **every OS**, with no resident code, no `[SafeList]` entry, no
+`AUTOEXEC.BAT` line, and nothing for IOS to object to. `FD08FIX` becomes the fallback for anyone
+whose floppy ROM address is not selectable.
+
+⚠ **One recorded caution.** This project's own 86Box config carries a note that Sergey's ROM at
+`0xC8000` **hangs POST**, which is why it is not loaded there in emulation. Whether that is an
+emulator artefact or a real constraint is unknown - on this hardware `C8000` measures free. It is
+a switch change and trivially reversible, so it is worth trying, but expect the possibility and
+know the way back is two switches.
+
+⚠ Unverified: that nothing calls `INT 13h` between the `C8000` and `CA000` ROM scans, which would
+reach Sergey before Trantor is in front of it. Unlikely in a contiguous scan, stated for honesty.
