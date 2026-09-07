@@ -217,9 +217,28 @@ Owner's suggestion, and the right one.
 
 | file | segment | bytes | CRC-32 | identity |
 |---|---|---|---|---|
-| `TRANTOR.BIN` | `CA000` | 6144 | - | Trantor TSROM SCSI BIOS 2.14 - **first capture, no prior copy existed** |
+| `TRANTOR.BIN` | `CA000` | 6144 | `f64b78ef` | Trantor TSROM SCSI BIOS 2.14 |
 | `XTIDEROM.BIN` | `D8000` | 8192 | `3ee14993` | **XTIDE r638 (XT+)** - matches `IDE_XTP_configured_2026_08_31.bin` |
 | `SERGEY.BIN` | `D0000` | 8192 | `5fa1d3c7` | Multi-Floppy BIOS 2.2 - matches `roms/network/Sergey_FDD.bin` |
+
+**CORRECTION.** An earlier version of this section, and two statements in the session that
+produced it, called the Trantor dump the first capture of that ROM and said no copy existed.
+**That was wrong** - `roms/scsi/trantor_t130b_bios_v2.14.bin` was already in the tree. Nothing
+new was captured. What the exercise actually produced is **verification**, which is worth
+having but is a different claim, and the check that would have caught it was one `ls` of
+`roms/scsi/`.
+
+**All three captures are byte-identical to images the repo already held**, so none were added:
+
+| live chip | archived image | result |
+|---|---|---|
+| `CA000` Trantor, 6144 B | `roms/scsi/trantor_t130b_bios_v2.14.bin` | identical over the declared 6144 B; the archive is the same ROM padded with `0xFF` to a full 8K EPROM |
+| `D8000` XT-IDE | `roms/xtcf_card/IDE_XTP_configured_2026_08_31.bin` | identical, CRC `3ee14993` |
+| `D0000` Sergey | `roms/network/Sergey_FDD.bin` | identical, CRC `5fa1d3c7` |
+
+So every ROM this project reasons about is now confirmed against the silicon actually fitted,
+and the CRCs computed on the DOS box match those computed on the host after collection - the
+card-reader path is clean end to end.
 
 Two facts this settles:
 
