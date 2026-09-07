@@ -56,6 +56,59 @@ This is a multi-session build, not a weekend. It also cannot be developed in emu
 
 ⚠ **Licence, to settle before phase 1 and not after.** The obvious protocol reference is Linux's `drivers/block/paride/epat.c` — **GPL-2.0**, against this repo's MIT. Hardware register facts are not copyrightable; a port of that code would be a derivative work. The clean route is disassembling the vendor binary we own for interoperability, which is what this project does routinely, and not reading `epat.c` while writing ours.
 
+## Phase 1 reconnaissance, 2026-09-07 — and the decision it surfaced
+
+Established from `SD120PPD.SYS` (56,198 bytes, held in scratch; not yet tracked):
+
+- It is a **plain DOS character driver named `SCSIMGR$`** — i.e. it presents as an ASPI manager,
+  not as a block device. Header: attr `0xC000`, strategy `0x2074`, interrupt `0x2082`.
+- Its transfer-mode table names **ten modes**: `NIBBLE Fast`, `NIBBLE Normal`, `NIBBLE Slow`,
+  `NIBBLE Slow(-)`, `EPP Fast`, `EPP Normal`, `EPP BIOS(F)`, `EPP BIOS(N)`, `ECP Read`, `ECP Write`.
+  So the bridge negotiates across nibble, EPP and ECP with several timing variants each.
+- A raw opcode scan finds ~2,277 DX-addressed port instructions. **That is an upper bound, not a
+  count** — the densest region (`0x3917`-`0x4c44`) overlaps the mode-name strings, so it is mixing
+  code and data.
+
+**Attempting to locate the mode dispatch table by pointer failed, and the failure is informative.**
+Scanning for 16-bit words equal to a mode-string offset gives scattered hits with no contiguous
+table. In 56 KB any particular 2-byte value is expected roughly once by chance, so those hits are
+consistent with noise. Recording it as a dead end rather than reading a table into it — techniques
+29 and 91a, both of which this project has already paid for.
+
+### Why this is harder than the XT-IDE driver, and by a lot
+
+`XTIDEMP.MPD` was tractable because **ATA is a documented standard**: the only unknown was the
+register map, and that was recoverable by measurement in one COMrade session. Here the *protocol
+itself* is proprietary and undocumented — a bit-banged state machine over three LPT registers with
+timing dependencies and ten negotiated modes, to be recovered from 56 KB of unsymbolised 16-bit
+real-mode code with interleaved data. That is the least forgiving class of target there is, and
+this repo's own history says static analysis of binaries here produces confident wrong answers more
+often than right ones.
+
+### The fastest correct route is a LICENSING decision, not a technical one
+
+Linux's `drivers/block/paride/epat.c` is a complete, working, maintained implementation of **this
+exact bridge**, with `pf.c` covering ATAPI floppies — i.e. the LS-120 — on top of it. It is
+**GPL-2.0**.
+
+That gives two routes, and the choice is the owner's:
+
+| | route | cost | licence outcome |
+|---|---|---|---|
+| **A** | Licence **this driver** GPL-2.0 and port from `paride` | days | `drivers/imation_ls120_mpd/` GPL-2.0; rest of repo stays MIT |
+| **B** | Reverse-engineer `SD120PPD.SYS`, touch no GPL source | multi-session, high risk | everything stays MIT |
+
+Route A is legitimate and normal — a repository can carry files under different licences, and this
+one already has a third-party scope note in `LICENSE`. It turns "recover an undocumented protocol"
+into "port a known-good implementation onto the SCSIPORT model", which is ordinary work.
+
+Route B keeps the repo uniformly MIT and is what this project would do by reflex, but it is the
+expensive one and it may simply not converge.
+
+**Phase 0 is unaffected either way** — it contains no protocol at all and is licence-clean under
+either route. Test it first regardless: if a polling parallel-port miniport disturbs the keyboard
+on this machine, neither route matters.
+
 ## Build
 
 ```
