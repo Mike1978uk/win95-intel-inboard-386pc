@@ -361,3 +361,51 @@ Five things this establishes, all measured:
 
 ⚠ The TSR is resident until the next reboot and hooks `INT 13h`. Reboot before re-running any
 floppy `INT 13h` probe, or it will be measuring a different chain.
+
+### SETTLED statically: the vendor driver uses BYTE mode, not ECP or EPP
+
+Found without media, by locating writes to the ECR (base+`0x402`) in `SD120PPD.SYS`:
+
+```asm
+2c58  mov dx,[0BFA] / add dx,402h      ; -> ECR
+      in al,dx / jmp $+2 / and al,34h / out dx,al
+
+2f3a  cmp byte ptr [0BD7], 0Ch         ; port-type gate
+2f46  mov dx,[0BFA] / add dx,402h
+      mov al,34h / out dx,al           ; ECR <- 0x34
+```
+
+`0x34` is mode **`001` = PS/2 bidirectional byte mode**, `dmaEn` clear. That matches the `0x35`
+measured live (bit 0 is read-only FIFO-empty). **No site selects ECP FIFO (`011`) or EPP (`100`).**
+
+So the banner's "ECP Read / ECP Write" is Shuttle's naming for its own protocol, not the hardware
+mode. The retraction two sections up was the right call, and this is the evidence that closes it -
+from the binary, not from a register sampled at idle.
+
+**`[0x0BD7]` is a port-type code and `0x0C` means ECP-capable** - it gates the ECR programming.
+An earlier note guessed it might echo the control register's idle `0x0C`; that was wrong.
+
+### The opportunity this creates
+
+Byte mode handshakes **every byte** through the control and status lines. EPP performs a register
+read or write in **one bus cycle**, with the handshake done in hardware. The Shuttle EPAT family
+supports EPP, and this card is EPP-capable (measured: the ECR answers, `0x77E` floats).
+
+**So our driver can plausibly beat the vendor's, not merely match it** - the owner bought the
+TK9901 for exactly this and the shipping driver does not use it. That makes EPP a deliberate
+design target for phase 1 rather than a nice-to-have.
+
+⚠ Two honest limits. Only two ECR sites were found, via one addressing idiom (`add dx, 402h`);
+a site computing the address differently would have been missed. And **EPP support by this
+particular EPAT-RM bridge is inferred from the family, not measured** - the drive must be asked.
+Prove both before building on them.
+
+### Methodology note - a zero that was an artifact
+
+The byte scan that found these sites first reported **0 hits** for the same pattern, because it
+was wrapped in `re.escape()`: the pattern was a raw bytes literal, so `` was four literal
+characters, and escaping it searched for that text instead of the byte. Passing the pattern
+straight to `re.finditer` let the regex engine decode it and both sites appeared.
+
+Technique 91a, in a new place: **when a zero result is itself the interesting answer, prove the
+query could ever have matched.** Here it would have hidden the finding entirely.
