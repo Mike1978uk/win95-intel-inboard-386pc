@@ -467,3 +467,59 @@ unresponsive (see below), so relocating *it* was impossible - but the requiremen
 over free regions and can hide a ROM that is physically present. An earlier conclusion in this
 session - "Trantor's ROM is disabled" - came from exactly that mistake. Scan on a configuration
 with no UMB provider, or corroborate against POST banners.
+
+## Option ROM ordering on this machine - the rule, and the trade-off
+
+**The rule.** Sergey's Multi-Floppy BIOS claims `INT 13h` only when `INT 13h` is still the stock
+`F000:EC59`. Option ROMs are scanned in ascending address order, so the requirement is simply:
+
+> **No fixed-disk option ROM may be scanned before the floppy BIOS.**
+
+Everything about #25 follows from that one sentence.
+
+### Measured behaviour of the Trantor ROM address switches
+
+| setting | Trantor ROM | floppy `AH=08h` | SCSI ROM |
+|---|---|---|---|
+| `CA000` (`SW3 OFF, SW4 OFF, SW5 ON`) | initialises | **broken** - 720K both drives | works, boots |
+| **`DA000`** (`SW3 OFF, SW4 ON, SW5 ON`) | **does not initialise** | **FIXED** | absent - drivers still work |
+| `DE000` (`SW3 ON, SW4 OFF, SW5 OFF`) | **UNTRIED** | would be fixed | unknown |
+
+Confirmed both ways by the owner: moving SW4 back restored the SCSI ROM, moving it forward
+restored the floppy fix. `DA000` reads all-zeros rather than `FF`, so the card decodes the address
+but does not present a valid ROM image there.
+
+**`DE000` is the untried option that could give both** - it is above `D0000` so it preserves the
+floppy fix, and it is a different decode from the one that misbehaves. One boot to find out; the
+SCSI banner and Sergey's `installed on INT 13` banner both report at POST, so no measurement is
+needed to judge it.
+
+### Losing the SCSI option ROM costs almost nothing here
+
+The machine boots from the XT-CF, and both `MA13B.SYS` (DOS) and `T130.MPD` (Windows 95) drive the
+Trantor through its I/O ports without the option ROM. Devices enumerate and work either way. What
+is lost is only ROM-based SCSI *boot*, plus the ROM's address space is freed.
+
+### The tidiest long-term fix, if the floppy card is ever replaced
+
+Sergey's own ROM-address switches on this card **do not respond** - SW2.4 and SW2.5 were changed
+with no effect on the decoded address, and the owner reports a capacitor failure on that card
+after which another card needed reconfiguring to coexist. If the card is ever repaired, replaced
+or rebuilt, put **Sergey below `CA000`** (`C8000` is free - the Mach8 occupies `C0000-C7FFF`) and
+leave Trantor at `CA000` untouched. That satisfies the ordering rule with no trade-off at all.
+
+### Verified end state, 2026-09-07 23:35
+
+| | |
+|---|---|
+| `C0000-C7FFF` | Mach8 |
+| `C8000` | free |
+| `CA000` | free - Trantor moved out |
+| `D0000` | Sergey, **owns `INT 13h`** |
+| `D8000` | XTIDE, boots the CF |
+| `INT 13h AH=08h` | A: type 4 / 1.44 MB, B: type 2 / 1.2 MB, from `ES=D000` |
+| SmartWatch DS1315 | working - the earlier scare was a lost date/time, reset with `SMWCLOCK C` |
+
+⚠ Not yet verified: the Windows 95 end-to-end result - both floppies showing correct capacities in
+Explorer, and `BOOTLOG.TXT` still reporting `Init Success xtidemp.mpd` with `rmm.pdr` never
+reaching `INITCOMPLETE`. Everything above is register-level.
