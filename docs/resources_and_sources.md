@@ -192,10 +192,21 @@ the directory's own `README.md`.
 - **[Michal Necasek / OS/2 Museum](https://www.os2museum.com/)** — architectural confirmation
   throughout, including the verified `F000:FF53` improvement. **[PRIMARY]**
 - **[AMIBIOS 98 Technical Reference](https://bitsavers.org/pdf/americanMegatrends/MAN-BIOS98-TR_AMBIOS_98_Technical_Reference_19980501.pdf)**
-  (bitsavers; search `FFF53`) — given by Michal Necasek 2026-09-07. Documents the `IRET` at
-  `F000:FF53` as an architectural fixture: IBM treated it as a compatibility requirement from the
-  PC/XT onwards and properly functioning clones carry it too. Upgrades `IVT68FIX`'s target from
-  "verified in the two 1986 ROMs" to a documented guarantee. **[PRIMARY]**
+  (bitsavers; also on the trailing-edge mirror) — named by Michal Necasek 2026-09-07 for the
+  `FFF53` question, then found independently by the project owner the same day. It has paid off
+  **three** times, so it is worth opening for any BIOS-convention question here. **[PRIMARY]**
+    - p.22 BIOS entry-point map: `FFF53h IRET Instruction for Dummy Interrupt Handler`, which is
+      Michal's point — `IVT68FIX`'s target is an architectural fixture, not a quirk of our two
+      1986 ROMs. Same table gives `INT 11h` at `FF84D`, `INT 15h` at `FF859`, `INT 08h` at
+      `FFEA5`, and `FFEF3h Initial Interrupt Vector offsets loaded by POST`.
+    - p.138 **INT 40h Revector for Floppy Functions**: when a hard disk is present the floppy
+      service resides at `INT 40h`, and **all** BIOS floppy functions are revectored there. This
+      is the primary source behind #25 — it makes forwarding `AH=08h` to `INT 40h` the
+      *documented* behaviour rather than a workaround.
+    - p.144 **INT 13h Function 08h (floppy)** drive-type table: `01h` 360K, `02h` 1.2M 5.25",
+      `03h` 720K 3.5", `04h` 1.44M 3.5", `05h`/`06h` 2.88M. Confirms our decode of Sergey's ROM.
+      ⚠ Its output table names **BH** for the drive type while its own description text says
+      **BL**; our measurements and Sergey's ROM both use **BL**. Trust the measurement.
 
 ## 8. Everything else
 

@@ -65,6 +65,41 @@ falls through to `0x1169: mov ah,1 / stc` (error), and `AH=08h` with `DL>=0x80` 
 also error. It is only safe on a diskette-only vector. Making it win `INT 13h` would break every
 hard disk on the machine — including the XT-CF that #21 just got serving `C:` in protected mode.
 
+## The convention is documented — this is a deviation, not a grey area
+
+[AMIBIOS 98 Technical Reference](https://bitsavers.org/pdf/americanMegatrends/MAN-BIOS98-TR_AMBIOS_98_Technical_Reference_19980501.pdf), p.138, *INT 40h Revector for Floppy Functions*:
+when the machine has a hard disk the floppy service routine resides at `INT 40h`, and **all**
+BIOS floppy functions are revectored there and executed.
+
+So `AH=08h` for `DL < 0x80` is **supposed** to reach `INT 40h`. Sergey's ROM holds up its half
+of that contract; whatever owns `INT 13h` does not. The fix below restores documented behaviour
+rather than inventing a workaround.
+
+The same document (p.144) gives the floppy `Function 08h` drive-type table — `01h` 360K,
+`02h` 1.2M 5.25", `03h` 720K 3.5", `04h` 1.44M 3.5", `05h`/`06h` 2.88M — independently
+confirming the decode of Sergey's ROM branches and the values measured on both vectors.
+⚠ Its output table names `BH` for the type while its own description text says `BL`. Every
+implementation here uses `BL`, and so do our measurements (`BX=0004`, `BH=00`).
+
+Source found independently by the project owner, 2026-09-07; the same document Michal Necasek
+had named that morning for `FFF53`.
+
+## Ruled out: there is no XTIDE setting for this
+
+Neither XT-IDE ROM — 2.0.4 as found at `D8000`, nor the configured r638 XT+ image — contains a
+single `floppy` or `diskette` string. There is nothing in `XTIDECFG` to switch off; the
+interception is unconditional in the code. Clean negative, recorded so it is not re-checked.
+
+## Corroboration from behaviour, not just disassembly
+
+XTIDE intercepts exactly `AH=00h` and `AH=08h` for drives it does not own and chains the rest.
+That predicts a split which the machine shows: `AH=02h` reads reach Sergey (**DOS reads 1.44 MB
+disks**, which a 1986 XT BIOS physically cannot do), while `AH=08h` returns the stock 720K.
+Same vector, same boot, two functions, opposite outcomes.
+
+⚠ Not distinguished: whether XTIDE's own chain-out misses `INT 40h`, or the Trantor SCSI BIOS
+(also hooks `INT 13h`; no dump held) is the one answering. **The fix is identical either way.**
+
 ## The fix that follows
 
 Hook `INT 13h`; when `AH=08h` **and** `DL < 0x80`, reissue as `INT 40h` and return that result;
