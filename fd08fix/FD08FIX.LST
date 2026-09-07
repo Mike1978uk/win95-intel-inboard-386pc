@@ -1,0 +1,98 @@
+     1                                  ; FD08FIX.COM - route INT 13h AH=08h for floppies to INT 40h
+     2                                  ;
+     3                                  ; WHY THIS EXISTS  (issue #25, root-caused 2026-09-07)
+     4                                  ;
+     5                                  ; On this machine INT 13h AH=08h (Get Drive Parameters) answers "type 3,
+     6                                  ; 720K, 80 cyl / 9 sect" for BOTH floppy drives. The drives are a 1.44 MB
+     7                                  ; 3.5" (A:) and a 1.2 MB 5.25" (B:).
+     8                                  ;
+     9                                  ; The machine already knows the right answer. Measured on the real 5160,
+    10                                  ; same call, same boot, both vectors:
+    11                                  ;
+    12                                  ;     INT 13h  A: BL=03 CX=4F09      B: BL=03 CX=4F09     <- wrong, both
+    13                                  ;     INT 40h  A: BL=04 CX=4F12      B: BL=02 CX=4F0F     <- CORRECT
+    14                                  ;
+    15                                  ; INT 40h is Sergey Kiselev's Multi-Floppy BIOS at D000:10D6, and its
+    16                                  ; EEPROM is configured correctly. It sits on INT 40h rather than INT 13h
+    17                                  ; because its own install rule takes INT 13h only when INT 13h is still
+    18                                  ; the stock IBM diskette handler at F000:EC59, and a fixed-disk option ROM
+    19                                  ; had already claimed it.
+    20                                  ;
+    21                                  ; That is the documented arrangement, not a fault. AMIBIOS 98 Technical
+    22                                  ; Reference, p.138, "INT 40h Revector for Floppy Functions": when a hard
+    23                                  ; disk is present the floppy service resides at INT 40h and ALL BIOS
+    24                                  ; floppy functions are revectored there. Something in the INT 13h chain
+    25                                  ; answers AH=08h itself instead of forwarding, and this restores the
+    26                                  ; forwarding for that one function.
+    27                                  ;
+    28                                  ; It forwards to measured-correct data. It does not synthesise geometry.
+    29                                  ;
+    30                                  ; SCOPE - deliberately one function
+    31                                  ;   AH=08h and DL<80h  -> reissued on INT 40h, its result returned
+    32                                  ;   everything else    -> chained untouched, including all hard disk I/O
+    33                                  ;
+    34                                  ; Reads and writes are NOT touched. They already work: DOS reads 1.44 MB
+    35                                  ; disks, which a 1986 XT BIOS cannot do, so AH=02h/03h demonstrably reach
+    36                                  ; Sergey's ROM already.
+    37                                  ;
+    38                                  ; DEPLOY
+    39                                  ;   Last line of AUTOEXEC.BAT, after IVT68FIX.COM. Technique 38: that
+    40                                  ;   timing is load-bearing for IVT68FIX and this is the same class of fix.
+    41                                  ;
+    42                                  ; WARNING - IOS SAFELIST
+    43                                  ;   A resident INT 13h hook makes the Windows 95 I/O Supervisor refuse
+    44                                  ;   every miniport unless it is listed. See docs/ios_safelist_howto.md.
+    45                                  ;   XTIDEMP.MPD (#21) is in the blast radius. On the first boot after
+    46                                  ;   deploying, confirm in BOOTLOG.TXT:
+    47                                  ;       Init Success xtidemp.mpd
+    48                                  ;       rmm.pdr loads and NEVER reaches INITCOMPLETE
+    49                                  ;   If RMM reaches INITCOMPLETE, IOS has punted and C: is back on the
+    50                                  ;   real-mode mapper - remove this and fix the SafeList entry first.
+    51                                  
+    52                                          org     100h
+    53                                  
+    54                                  ; ---------------------------------------------------------------- resident
+    55                                  start:
+    56                                  handler:
+    57 00000000 80FC08                          cmp     ah, 08h                 ; Get Drive Parameters?
+    58 00000003 750A                            jne     chain
+    59 00000005 F6C280                          test    dl, 80h                 ; floppy? (ZF set => bit clear => floppy)
+    60 00000008 7505                            jnz     chain                   ; hard disk - not ours
+    61 0000000A CD40                            int     40h                     ; reissue on the diskette vector.
+    62                                                                          ; INT pushed our FLAGS; the handler
+    63                                                                          ; sets CF in that stacked copy and
+    64                                                                          ; IRETs, so our CF is correct here.
+    65 0000000C CA0200                          retf    2                       ; discard the caller's stacked FLAGS
+    66                                                                          ; so it sees ours
+    67                                  chain:
+    68 0000000F 2EFF2E[1400]                    jmp     far [cs:old13]
+    69                                  
+    70 00000014 0000                    old13:  dw      0                       ; offset of the previous INT 13h
+    71 00000016 0000                            dw      0                       ; segment
+    72                                  
+    73                                  resident_end:
+    74                                  
+    75                                  ; --------------------------------------------------------------- installer
+    76                                  install:
+    77 00000018 B81335                          mov     ax, 3513h               ; DOS get interrupt vector, INT 13h
+    78 0000001B CD21                            int     21h                     ; -> ES:BX
+    79 0000001D 891E[1400]                      mov     [old13], bx
+    80 00000021 8C06[1600]                      mov     [old13+2], es
+    81                                  
+    82 00000025 B81325                          mov     ax, 2513h               ; DOS set interrupt vector, INT 13h
+    83 00000028 BA[0000]                        mov     dx, handler
+    84 0000002B CD21                            int     21h
+    85                                  
+    86 0000002D B409                            mov     ah, 09h                 ; announce - proving it loaded is
+    87 0000002F BA[3C00]                        mov     dx, msg                 ; cheaper than wondering later
+    88 00000032 CD21                            int     21h
+    89                                  
+    90 00000034 BA1200                          mov     dx, (resident_end - $$ + 100h + 15) / 16  ; paragraphs incl. PSP
+    91 00000037 B80031                          mov     ax, 3100h               ; terminate and stay resident
+    92 0000003A CD21                            int     21h
+    93                                  
+    94 0000003C 464430384649583A20-     msg:    db      'FD08FIX: INT 13h AH=08h floppy -> INT 40h', 0Dh, 0Ah, '$'
+    94 00000045 494E54203133682041-
+    94 0000004E 483D30386820666C6F-
+    94 00000057 707079202D3E20494E-
+    94 00000060 54203430680D0A24   
