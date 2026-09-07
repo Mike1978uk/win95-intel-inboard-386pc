@@ -63,10 +63,17 @@ Three separate problems, do not conflate them:
    the real 5160** — for over a month it was deployed but never loaded, so nothing measured about
    it meant anything (technique 74). FIXES.md was still filing it as inert until today.
 2. **Media-change / stale cache.** The live bug. Data loss. Keep floppies read-only meanwhile.
-3. **Geometry and drive letters.** Two nodes, `ROOT&FDC&000000` and `ROOT&FDC&000010`, both generic
-   `GENERIC NEC FLOPPY DISK`, neither matching the real TEAC FD-505 (1.44MB 3.5" as A:, 1.2MB
-   5.25" as B:), neither holding a drive letter. Root cause is structural: **a 5160 has no CMOS**
-   for Windows to read drive types from. Probably wants its own issue rather than living in #18.
+3. ~~**Geometry and drive letters.**~~ **CORRECTED 2026-09-07 — the drive-letter half was wrong.**
+   Read off the 2026-09-06 CF image, both nodes hold correct letters:
+   `ROOT&FDC&000000` → `CurrentDriveLetterAssignment A`, `ROOT&FDC&000010` → `B`. And
+   `GENERIC NEC FLOPPY DISK` is what Windows 95 calls *every* floppy under the DiskDrive class —
+   not a detection failure. The no-CMOS reasoning was a theory built on a misreading, and it never
+   had a measurement behind it.
+   What genuinely remains: **neither drive has been read or written on the real machine since
+   `HSFLOP.PDR` started loading**, and B: has never been tested at all. The 2026-08-25 A: stall is
+   **void** — it predates the IOS punt clearing, so the patched driver was deployed but not loading
+   (technique 74), and that stall was the real-mode path. Now
+   [#25](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/25).
 
 **Asset from the XT-IDE work that applies directly here** (the owner asked about this and it is
 worth not re-deriving): during the miniport investigation we mined Microsoft's own port drivers and
