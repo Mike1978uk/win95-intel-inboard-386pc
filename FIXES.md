@@ -254,6 +254,16 @@ fixes. Same `maxPhys` change as the sound driver.
 
 ## Not a patched file, but needed
 
+- **`IOS.INI` `[SafeList]` — the manual edit every 32-bit storage driver here depends on.**
+  Windows 95's I/O Supervisor refuses to hand a disk to a 32-bit driver when something it does not
+  recognise has hooked `INT 13h`. On this machine that is `INBRDPC.SYS`, which is **required, not
+  optional**. Add `inbrdpc.sys` on its own line under `[SafeList]` in `C:\WINDOWS\IOS.INI` and
+  reboot. **No installer does this and no patch here applies it for you.** Pass condition is that
+  `WINDOWS\IOS.LOG` does not exist — it is written only when IOS has a complaint. Full write-up,
+  including what that `INT 13h` hook actually does (it adjusts the Inboard's wait states around the
+  call and is not in the data path) and the class-wide ASPI variant:
+  [`docs/ios_safelist_howto.md`](docs/ios_safelist_howto.md). Found by @andrew-hoffman
+  ([#17](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/17)).
 - **SCSI chain — working as of 2026-09-06** ([#19](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/19)).
   Nothing to patch: use Adaptec's own **`T130.MPD`**, the 32-bit protected-mode Trantor miniport
   Microsoft never put in the Windows 95 box. It was published separately and is held here at
