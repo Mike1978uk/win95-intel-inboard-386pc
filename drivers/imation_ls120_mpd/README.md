@@ -301,3 +301,58 @@ posture `XTIDEMP.MPD` already takes for the XT-CF, and for the same reason.
 ⚠ Unverified: that the EPAT bridge on this drive negotiates EPP at all. Some Shuttle bridges are
 SPP/nibble only. The DOS driver's `/de` and `/db` switches (documented in its own strings) look
 like mode selectors and are the cheapest place to find out.
+
+### Live vendor-driver run, 2026-09-07 - the control that made the probe readable
+
+Ran the **TSR** build at a DOS prompt over COMrade (`SD120PPD.EXE`, the switch set from
+`CONFIG.SD1`) - no `CONFIG.SYS` edit, no reboot. `STLTSR.BAT` shows the supported pair is
+`SD120PPD.EXE` then `ASPIHDRM.EXE`.
+
+```
+SD120PPD.EXE /port:378 /IRQ:7 /de /db /ni /sf /dpc /dp /fp
+
+ASPI Manager For Dos Ver 5.32b   Copyright Shuttle Technology.
+    Read  Mode : ECP Read
+    Write Mode : ECP Write
+    HA #0: SHUTTLE EPATRM, PortBase:378, IRQ:7
+        Device #0: MATSHITALS-120 COSM   04
+Driver Loaded Successfully.
+```
+
+**Bridge identity: SHUTTLE EPATRM. Drive: Matsushita LS-120, firmware COSM 04.**
+
+### Port state, idle vs connected
+
+| | idle, no driver | driver loaded, drive enumerated |
+|---|---|---|
+| `0x378` data | `0xAA` (POST pattern) | - |
+| `0x379` status | `0x00` | **`0x00`** |
+| `0x37A` control | `0x0C` | **`0x14`** |
+| `0x77A` ECR | `0x15` - mode `000` SPP | **`0x35` - mode `001` PS/2 bidirectional** |
+| `0x21` PIC IMR | `0xAC` | **`0xAC`** |
+
+Five things this establishes, all measured:
+
+1. **`status = 0x00` is NORMAL here, not a symptom.** It reads `0x00` while the drive is
+   successfully enumerated. An earlier probe read `0x00` and it was over-interpreted as "something
+   is holding the lines low"; the working control retires that. **A value with no known-good
+   comparison is not evidence** - technique 88b, in a new place.
+2. **`control = 0x14` is exactly where the disassembled sequence ends** (`0x25d4`:
+   `mov al,4 / or al,10h`). The static reading of the transport was right; the earlier hand-run
+   of it failed only because it was the tail of a branch, without the connect logic that precedes
+   it. That logic is what still needs finding - look at the `0x2da5` cluster and the callers of
+   `0x25a0`.
+3. **The driver reprograms the ECR** - `000` -> `001`, so our driver must too. Note the banner
+   says "ECP Read/Write" while the register says PS/2 bidirectional byte mode; **trust the
+   register, not the label.**
+4. **`dmaEn` stays 0.** The vendor driver moves data by PIO. So targeting PIO is not giving up
+   throughput - it is what the shipping driver does, and it sidesteps the 4-bit page latch
+   (technique 62) for free.
+5. ⭐ **`/ni` works, and the chipset init is unnecessary.** The drive enumerated with the chipset
+   probes skipped, and the PIC mask came back **`0xAC` - byte-identical to baseline**, so IRQ 1
+   was never touched and the keyboard survived. The destructive writes that cost a whole session
+   on #22 are not merely avoidable, they are **not needed for the device to work.** That is the
+   premise our miniport rests on, now proven instead of assumed.
+
+⚠ The TSR is resident until the next reboot and hooks `INT 13h`. Reboot before re-running any
+floppy `INT 13h` probe, or it will be measuring a different chain.
