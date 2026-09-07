@@ -521,3 +521,84 @@ SD120PPD.EXE /port:378 /IRQ:7 /db /ni /dpc /dp /fp
 
 ⚠ Do this on a **fresh NOS disk**, not the recovered one - the corruption result above makes any
 throughput or integrity number on the current medium uninterpretable.
+
+## Live capture, 2026-09-08 00:0x - the specification target, settled
+
+Vendor TSR run with **`/de` and `/sf` REMOVED** (i.e. EPP check and fast-mode detection both
+allowed), keeping `/ni`:
+
+```
+SD120PPD.EXE /port:378 /IRQ:7 /db /ni /dpc /dp /fp
+
+ASPI Manager For Dos Ver 5.32b   Copyright Shuttle Technology.
+    Read  Mode : ECP Read
+    Write Mode : ECP Write
+    HA #0: SHUTTLE EPATRM, PortBase:378, IRQ:7
+        Device #0: MATSHITALS-120 COSM   04
+Driver Loaded Successfully.
+```
+
+### ⚠ CORRECTION: `/de` and `/sf` were NOT suppressing EPP
+
+An earlier section concluded the deployed command line was ruling EPP out and that removing those
+switches would likely select it. **Measured: it does not.** With EPP checking and fast-mode
+detection both enabled, the driver *still* chooses **ECP** for read and write.
+
+So ECP is the driver's free choice on this hardware, not an artefact of our switches. That is the
+mode to implement, and it is now settled by measurement rather than inference.
+
+| measurement | value |
+|---|---|
+| resident segment (`MEM /D`) | `02D1B`, 24,224 bytes |
+| ECR `0x77A`, driver loaded | `0x35` - mode `001`, **`dmaEn` = 0** |
+| PIC IMR `0x21`, driver loaded | **`0xAC`** - identical to the pre-load baseline |
+
+### Keyboard safety: confirmed, three times
+
+| when | IMR |
+|---|---|
+| before loading anything | `0xAC` |
+| after loading with `/ni` (first test) | `0xAC` |
+| after loading with `/ni`, `/de` and `/sf` removed | `0xAC` |
+
+Bit 1 is the keyboard mask and it is **clear in every case**. The #22 damage came from the
+chipset-probe writes to `0x22`/`0x23`/`0x24`/`0x25`/`0x94`, which alias onto the PIC on an XT
+(technique 75). `/ni` skips them and the drive still enumerates and works - so those writes are
+**unnecessary, not merely avoidable**. Our driver will not contain that code at all, which is a
+stronger guarantee than skipping it at runtime.
+
+## How small can our driver be?
+
+Substantially smaller, and for a concrete reason: **the vendor driver is large because it detects;
+we can hardcode.**
+
+Imation's `.MPD` is 79,872 bytes and the DOS `.SYS` 56,198. Between them they carry:
+
+| what they carry | do we need it? |
+|---|---|
+| 10+ transfer modes - nibble x4, unidir x2, PS/2 x2, Toshiba, EPP x4, ECP | **no** - one read + one write method, both ECP |
+| host chipset detection and initialisation | **no** - `/ni` proven unnecessary, and it is what broke the keyboard |
+| PS/2 DMA arbitration handling (`/dp`, `/fp`) | **no** - and DMA must stay off anyway (technique 62) |
+| EPP BIOS variants, 386sl / VLSI chipset forcing | **no** |
+| mode auto-detection machinery and the dispatch tables | **no** - the mode is known |
+| configuration / diagnostic layer | **no** |
+
+What we actually need: the phase-0 skeleton (already **5,120 bytes**), the ECP read/write register
+primitives, the EPAT connect sequence, and the ATAPI packet layer.
+
+**Realistic target: 8-12 KB**, against 79,872 - roughly an order of magnitude. Every known
+constant is fixed on this machine: port `0x378`, IRQ 7, bridge EPAT-RM, mode ECP, no chipset init.
+
+## Offline work possible with the 5160 powered down
+
+Everything needed is local and md5-matched to the card:
+
+1. In the read-method table at `0x4E9D` and the write table at `0x4F15`, find the entries whose
+   name pointers are **`ECP Read` (`0x3cba`)** and **`ECP Write` (`0x491e`)**. Only 10 entries of
+   each were dumped; there are more.
+2. Disassemble those two handlers - that is the transport, and only those two matter now.
+3. Find the **connect sequence** that precedes `0x25c1` (the `0x2da5` cluster, callers of `0x25a0`).
+4. Write the protocol specification, then implement fresh.
+
+Still needing hardware, later: the connect sequence verified against the bridge, and the
+**corruption re-test on a fresh NOS disk** - unresolved and uninterpretable on the recovered disk.
