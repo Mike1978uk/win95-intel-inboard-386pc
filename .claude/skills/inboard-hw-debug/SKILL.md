@@ -5721,3 +5721,44 @@ When a driver parameterises a hardware difference with a single number, ask what
 *standing in for*. If the underlying difference is an address-line change, a number is the wrong
 shape for it and a lookup table is the right one. That question is cheap to ask at design time and
 expensive to discover from a stranger's corrupted disk.
+
+### Technique 100, addendum 2026-09-07 — the stride-1 path passed, and the bed already existed
+
+Same day the gap was found. `XTIDEMP.MPD`, the **shipped binary unmodified**, autodetected stride 1
+on a bed set to `stride = 1` / `bios = xt_plus`, claimed the boot disk, and shut down cleanly.
+Full evidence on issue #24 and in `docs/xtide_register_maps.md`; log at
+`docs/bootlogs/BOOTLOG_2026-09-07_stride1_emulation.TXT`.
+
+```
+XTIDE: base 0300  stride 1  bios xt_plus      <- bed verified at runtime, not from the cfg
+[00000228] Init Success xtidemp.mpd
+rmm.pdr  Dynamic load success ... never reaches INITCOMPLETE
+C:\HELLO.TXT  5 bytes  'hello'                <- read off the image, host-side
+7 teardown stages started, 7 closed, none unpaired      IOS.LOG absent
+```
+
+**The lesson is where the test came from.** The submission asked strangers with other cards to run
+this path. The bed to run it on was already in the tree: 86Box's own `hdc_xtide.c` models `reg 0x8`
+as the high-byte latch and `reg 0xe` as alternate status, which at stride 1 **is** the Compatibility
+map — so the emulator had been able to test it the whole time, and the stride option added for the
+XT-CF work (technique 90) made it a one-line config change.
+
+So the general form of technique 90 cuts both ways. That technique says *"it does not reproduce in
+the emulator" is a claim about the emulator*. The mirror: **before declaring a code path untestable
+without hardware, enumerate what your emulator already models.** Here the answer was "all of it
+except bus timing", and the cost was one config file and one boot.
+
+It also cleared the **16-bit high-byte-latch transport** in the same run — the other never-executed
+path — because at stride 1 the card only goes byte-wide when the BIOS sends `SET FEATURES 01h`.
+Two unproven paths, one boot, no hardware.
+
+**Technique 70 caught a stale binary on the way in**, and by one minute: the built `86Box.exe` was
+timestamped 20:18 and the "default the XT-IDE access trace off" commit was 20:19:36. Running that
+exe would have re-enabled the 438 MB/boot trace (technique 93) and dropped the bed to 2-14% speed
+while looking, from the source tree, entirely correct. `stat` the exe against `git log` even when
+the tree is clean and the build is "obviously" current.
+
+**And what it does not prove, stated in the public post as well as here:** a faithful *register map*
+is not a faithful *card*. No XT bus timing, no real option ROM, no partial address decode. The ask
+for a physical Compatibility-mode card stands — what changed is that a stranger's disk is no longer
+the first thing that code will ever touch.

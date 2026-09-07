@@ -1,5 +1,24 @@
 # XTIDE Universal BIOS — submission drafts
 
+> ## ⚠ SENT — and amended 2026-09-07
+>
+> Both forum posts are live and **have been edited** with an `UPDATE 2026-09-07` block, because the
+> stride-1 claim in them went out of date within a day:
+>
+> - [XTIDE Universal BIOS #766](https://forum.vcfed.org/index.php?threads/xtide-universal-bios.18240/post-1516890)
+> - [XTIDE and Windows 95 issues #46](https://forum.vcfed.org/index.php?threads/xtide-and-windows-95-issues.52115/post-1516891)
+>
+> The email to Tomi Tilli and Krille **was sent before the correction** and says the stride-1 path
+> has never executed. That is now wrong in the driver's favour — see
+> [#24](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/24). **A short follow-up is
+> owed**, and it strengthens the ask rather than weakening it: the path is tested, the latch
+> transport is tested, and what remains is a physical card and the unimplemented Hi-Speed map.
+>
+> The owner added a disclosure line to both posts — *"Please note this post is written by Claude
+> Code as i have been developing with it!"* — and opened with "Historically Windows 95\9x has no
+> 32-bit driver...". Mirror both in any further post.
+
+
 Rewritten 2026-09-07. The 2026-09-06 drafts described the untested path as "stride 1, i.e. a stock
 XT-IDE card". That was wrong in a way worth correcting before anything went out — see
 [`xtide_register_maps.md`](xtide_register_maps.md). There are **three** maps, our driver expresses
