@@ -5931,3 +5931,56 @@ The same single read that answered the question also gave `INT 11h = F000:F84D` 
 byte for byte - free corroboration that the stock BIOS entries are where the documentation says
 - and `INT 41h = 0000:0000`, a null hard-disk parameter-table pointer nobody had looked at.
 Neither cost an extra round trip.
+
+## Technique 103: an interrupt handler that does not IRET must restore IF itself - and never
+## install an untested INT 13h hook from AUTOEXEC.BAT
+
+2026-09-07. `FD08FIX.COM` v1 - 104 bytes, forwarding `INT 13h AH=08h` for floppies to `INT 40h`
+(#25) - was assembled, disassembled instruction by instruction against its source, verified
+byte-identical out of git, md5-checked at its destination on the card, and it **hung the machine
+at boot**.
+
+### The bug
+
+The `AH=08h` path ended with `retf 2`. An `INT` clears IF; **`IRET` is what restores it**, from
+the FLAGS word the `INT` pushed. `retf 2` *discards* that word, so the handler returned with
+**interrupts still disabled**. The first `AH=08h` during boot killed the timer and keyboard.
+
+`retf 2` is a genuine interrupt-handler idiom, which is exactly why it survived review - it is
+only correct when the handler restores IF some other way. The fix is to leave the stacked FLAGS
+in place, patch just the bit you mean to change, and `IRET`:
+
+```asm
+        push    bp
+        mov     bp, sp          ; [bp+0]=BP [bp+2]=IP [bp+4]=CS [bp+6]=FLAGS
+        jc      .setcf
+        and     word [bp+6], 0FFFEh
+        jmp     short .done
+.setcf: or      word [bp+6], 1
+.done:  pop     bp
+        iret
+```
+
+**Rule: if a handler returns by anything other than `IRET`, say out loud what restores IF.**
+If the answer is "nothing", that is the bug.
+
+### The deployment lesson, which is the bigger one
+
+Every verification above was of **the binary against its design**. None of them could catch a
+design error, and none of them was a test. The artefact was correct and the idea was wrong.
+
+**Never install an untested `INT 13h` hook from `AUTOEXEC.BAT` on this machine.** The failure mode
+is an unbootable machine recoverable only by pulling the CF and editing it in a reader.
+
+The equivalent test costs one reboot:
+
+1. leave `AUTOEXEC.BAT` alone - the next boot is then clean **by construction**;
+2. boot normally, start COMrade;
+3. run the `.COM` **by hand from the prompt** and test it there;
+4. wire it into `AUTOEXEC.BAT` only after it has survived that.
+
+An `IOS.INI` `[SafeList]` entry can go in early - it is inert unless the driver actually loads.
+
+This generalises past `.COM` files: **when a change can make the machine unbootable, find the
+variant of the same test that cannot.** Technique 94 says substitute a known-good component as a
+control; this is its mirror - stage the unknown component somewhere a failure is cheap.
