@@ -120,3 +120,42 @@ early - it is inert unless the driver actually loads.
 
 **Current state: `C:\FD08FIX.COM` on the card is v2. `AUTOEXEC.BAT` is clean and does NOT call
 it. The `IOS.INI` `[SafeList]` entry is in place and harmless.**
+
+## CORRECTION: the boot hang was NOT the `retf 2` bug
+
+The section above diagnoses the v1 boot hang as `retf 2` leaving IF clear, and states it as
+settled. **That was wrong**, and it was asserted without ever being measured.
+
+v2 (with the IRET fix) was run by hand from the prompt on 2026-09-07 and **wedged the shell
+immediately, printing nothing**. COMrade stayed responsive at 25 ms RTT, so interrupts were fine -
+which by itself disproves the IF theory.
+
+### The real defect: no entry-point jump
+
+**A `.COM` begins executing at `0100h`.** v1 and v2 both put the resident *handler* there, so DOS
+ran the interrupt handler as the program's entry point. `AH` was not `08h`, so it took the chain
+path - `jmp far [cs:old13]` - while `old13` still held the file's zero bytes. A far jump to
+`0000:0000`, executing the interrupt vector table as code.
+
+The machine died **before the handler was ever installed**, which is why no banner appeared and
+why the `retf 2` flaw could not have been reached. Fixed in v3 (md5 `fedab2c2cfade59beba1d2880f736c41`) with a
+`jmp install` as the first instruction; the handler now sits at `0102h` and the installer points
+the vector there.
+
+The `retf 2` -> `IRET` change is still correct and stays in - it was a real latent bug that would
+have surfaced on the first `AH=08h` once the driver actually loaded. It simply was not this one.
+
+### What this cost, and the rule it earns
+
+Two hangs, both from a defect that **disassembling the binary could not catch**, because the
+binary was a faithful rendering of a wrong layout. Every verification run was of the code, and
+none of them asked *what does DOS do with this file when it loads it*.
+
+**For any new `.COM`, check the first instruction at `0100h` before anything else.** If it is not
+a jump to the setup code, nothing after it matters. That check takes one line of disassembly and
+would have caught this before it ever reached the machine.
+
+And the diagnosis rule, which this project already has as technique 81 and which I broke:
+**a fix credited without the failure being reproduced is a guess.** The IF explanation fitted the
+symptom, so it was written up as the cause. Reproducing it once would have shown the banner never
+printed, and that single observation rules out every theory downstream of "the handler ran".

@@ -1,3 +1,4 @@
 utc	code	md5	bytes	commit	tree	toolchain
 2026-09-07T18:36Z	fd08fix-v1	3fa1523d291df089a419655ccfae583a	104	5139448	DIRTY	NASM 2.16.03 -f bin
 2026-09-07T19:45Z	fd08fix-v2-iret	bfbc1b7986b95234ebe5c9d3106a1457	118	fe81b7a	DIRTY	NASM 2.16.03 -f bin
+2026-09-07T21:20Z	fd08fix-v3-entryjmp	fedab2c2cfade59beba1d2880f736c41	120	f307239	DIRTY	NASM 2.16.03 -f bin

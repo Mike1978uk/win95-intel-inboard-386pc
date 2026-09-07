@@ -52,7 +52,22 @@
         org     100h
 
 ; ---------------------------------------------------------------- resident
+;
+; A .COM begins executing at 0100h. The FIRST thing here must therefore be a
+; jump to the installer, NOT the handler.
+;
+; Getting this wrong is what hung the machine on 2026-09-07: the handler sat
+; at 0100h, so DOS ran it as the program entry point. AH was not 08h, it took
+; the chain path, and `jmp far [cs:old13]` went through old13 while it still
+; held the file's zero bytes - a far jump to 0000:0000, executing the IVT as
+; code. The machine was dead before the handler was ever installed.
+;
+; The jump costs 3 bytes and lives inside the resident block, which is
+; harmless - it is simply never executed again after install.
+;
 start:
+        jmp     install
+
 handler:
         cmp     ah, 08h                 ; Get Drive Parameters?
         jne     chain
