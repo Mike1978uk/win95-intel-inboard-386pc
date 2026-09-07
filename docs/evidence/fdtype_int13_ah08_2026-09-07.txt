@@ -1,0 +1,20 @@
+INT 13h AH=08h (Get Drive Parameters) on the real IBM 5160 + Inboard 386/PC
+Read over COMrade from real-mode DOS, 2026-09-07.  tools/fdtype/
+
+Drive 0 (A:)  and  Drive 1 (B:)  returned IDENTICAL values:
+
+  AX=0000  BX=0003  CX=4F09  DX=0102  ES=F000  DI=EFA0   flags: NC (success)
+
+Decode:
+  AH = 00    success
+  BL = 03    DRIVE TYPE 3 = 720K 3.5"          <-- wrong for BOTH drives
+  CH = 4Fh   max cylinder 79   -> 80 cylinders
+  CL = 09    max sector 9      -> 9 sectors/track
+  DH = 01    max head 1        -> 2 heads
+  DL = 02    two floppy drives
+  ES:DI      F000:EFA0 - diskette parameter table
+
+  80 x 2 x 9 x 512 = 737,280 bytes = 720K.
+
+The machine actually has a TEAC FD-505: 1.44 MB 3.5" as A:, 1.2 MB 5.25" as B:.
+So the BIOS reports the wrong geometry for A: and the wrong drive ENTIRELY for B:.
