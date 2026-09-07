@@ -52,6 +52,11 @@ Nothing is listed as working unless it has been run.
 
 ### Deployed but NOT confirmed — do not treat as working
 
+- **The XT-IDE IOS port driver (`PORT.PDR`)** — reached the disk and served it, then wedged
+  Windows at shutdown in a VMM spin our own driver was not in. Four sessions. Replaced by a
+  SCSI miniport (`XTIDEMP.MPD`, #21 closed on hardware), which deletes the layer instead of
+  debugging it. Retired to [`archive/xtide_pdr_retired/`](archive/xtide_pdr_retired/); it paid
+  for Techniques 78-91 on the way out.
 - **`HSFLOP.PDR`** — `maxPhys 0x1000 → 0xFF`, the same fix as the sound driver. On the card and
   md5-verified, but **`BOOTLOG.TXT` shows Windows never loads it**, so it is inert. `RMM.PDR`
   (Real Mode Mapper) loads instead and `ESDI_506.PDR` does not: the whole storage stack is

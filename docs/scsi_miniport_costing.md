@@ -78,7 +78,8 @@ relying on it; `SCSIPORT_GF_EMUL_SG` is likely the flag that was meant.
 
 ## What ports across
 
-Measured from `drivers/xtide_pdr/src/XTIDETR.ASM`'s own procedure map.
+Measured from the port driver's own `XTIDETR.ASM` procedure map, now
+`docs/archive/xtide_pdr_retired/source/src/XTIDETR.ASM`.
 
 | | lines | fate |
 |---|---|---|

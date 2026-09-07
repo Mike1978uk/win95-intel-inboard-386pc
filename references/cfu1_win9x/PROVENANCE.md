@@ -4,7 +4,8 @@ Nick / @zikolas, **<https://github.com/zikolas/cfu1-win9x>**, MIT (see `LICENSE`
 Vendored at upstream `ff4ce33f2ddeb2d27f11e9fbe3ef81ce0436aba2`, 2026-09-05. `.git` removed.
 
 **Why it is here.** It is a *working* Windows 9x IOS port driver — the same interface as
-`drivers/xtide_pdr`, built with a free modern toolchain. Diffing against it has twice found bugs in
+`drivers/xtide_mpd` (and the retired `docs/archive/xtide_pdr_retired/`), built with a free
+modern toolchain. Diffing against it has twice found bugs in
 ours that reading Microsoft's DDK sample never would (technique 81): the sample's request routine
 destroying callee-saved registers, and its unguarded calldown insert on every broadcast DCB. Having
 it local means grep instead of recall — we had been quoting it from memory.

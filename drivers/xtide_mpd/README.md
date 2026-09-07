@@ -1,7 +1,7 @@
 # XTIDEMP.MPD — a Windows 95 SCSI miniport for the Lo-tech XT-CF / XT-IDE
 
 Issue [#21](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/21).
-Replaces `drivers/xtide_pdr/` — the IOS port driver that reached the same disk and then
+Replaces `docs/archive/xtide_pdr_retired/source/` — the IOS port driver that reached the same disk and then
 wedged Windows at shutdown.
 
 ## ✅ Confirmed on the real 5160 — 2026-09-06

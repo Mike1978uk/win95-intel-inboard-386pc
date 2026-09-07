@@ -3540,7 +3540,7 @@ rather than a Windows reinstall. Build that before the first run that writes, no
 
 ### Technique 78, addendum 2026-08-31 — two registers that must alias, disagreeing, kills a map
 
-The DOS probe (`drivers/xtide_pdr/tools/XTPROBE.BAS`) died on an unrelated QBASIC bug, but its first
+The DOS probe (`docs/archive/xtide_pdr_retired/source/tools/XTPROBE.BAS`) died on an unrelated QBASIC bug, but its first
 line had already invalidated the driver:
 
 ```
@@ -3643,7 +3643,7 @@ eventually produced `cfg=1 claimed=0` and named the bug in one line.
 
 A driver with no debug output can still report to the host: **have it write a marker sector to a
 scratch disk, and read it from outside the guest** (technique 79's discipline, used for
-instrumentation rather than verification). `-ReqMarker` in `drivers/xtide_pdr/build.ps1`, read back
+instrumentation rather than verification). `-ReqMarker` in `docs/archive/xtide_pdr_retired/source/build.ps1`, read back
 by `tools/pdr_reqmarker.py`. One 512-byte sector on the claimed unit carries a counter per stage:
 
 ```
@@ -4352,7 +4352,7 @@ and unbisectable**. A day went into diagnosing it, and the diagnosis cannot be c
 
 **CORRECTED, same day, by the project owner:** the shutdown hang **was** also observed on the
 real 5160, with the CF's own `0fe2431a` - and that binary IS tracked
-(`dist/xtide_pdr/PORT_claim_master_stride2_rw.pdr`). So the hang is NOT merely an artefact of
+(`docs/archive/xtide_pdr_retired/binaries/PORT_claim_master_stride2_rw.pdr`). So the hang is NOT merely an artefact of
 the unreproducible `70298a8f`, and the retraction above must not be read as "there is no bug".
 
 What the retraction does still establish: the diagnosis in technique 88 was derived from a
@@ -4365,7 +4365,7 @@ missing all along exists, and the bisect becomes possible for the first time. Do
 further theorising.
 
 **The real machine was never running `70298a8f`.** The CF holds `0fe2431a` (2026-09-01,
-`dist/xtide_pdr/PORT_claim_master_stride2_rw.pdr`), which is tracked and reproducible.
+`docs/archive/xtide_pdr_retired/binaries/PORT_claim_master_stride2_rw.pdr`), which is tracked and reproducible.
 
 ### Technique 89: an artefact under test must be traceable to a commit, or its results are not evidence
 
@@ -4384,7 +4384,7 @@ Enforced rather than remembered, since remembering it did not work:
 
 - `build.ps1` prints `commit <hash>  tree clean|DIRTY` next to the md5 on every build, and
   prints a loud block naming the dirty files when the tree is not clean;
-- every build appends `utc, md5, bytes, commit, tree, flags` to `drivers/xtide_pdr/build_ledger.tsv`,
+- every build appends `utc, md5, bytes, commit, tree, flags` to `docs/archive/xtide_pdr_retired/source/build_ledger.tsv`,
   which is tracked. **Any binary found later on a card or in an image can then be identified by
   its md5 alone** - which is precisely the question that could not be answered here.
 
@@ -4441,7 +4441,7 @@ alternate status at **`031C`** (`base + 14*2`) where it previously used `0307`.
 ### The reproduction, and why it is the control everything else needed
 
 With the faithful bed the hang appears immediately, on the binary that is actually on the CF
-(`0fe2431a`, tracked as `dist/xtide_pdr/PORT_claim_master_stride2_rw.pdr`):
+(`0fe2431a`, tracked as `docs/archive/xtide_pdr_retired/binaries/PORT_claim_master_stride2_rw.pdr`):
 
 | | 2026-09-04 morning, `70298a8f`, stride-1 bed | faithful bed, `0fe2431a` |
 |---|---|---|

@@ -144,7 +144,8 @@ real-mode BIOS. Source in [`drivers/xtide_mpd/`](drivers/xtide_mpd/).
 > and responsiveness under a heavy teardown flush — `XtStartIo` still completes every transfer
 > inline.
 
-This replaces the IOS port driver in `drivers/xtide_pdr/`, which reached the same disk and then
+This replaces the IOS port driver **retired to**
+[`docs/archive/xtide_pdr_retired/`](docs/archive/xtide_pdr_retired/), which reached the same disk and then
 wedged Windows at shutdown for four sessions. The miniport deletes that layer rather than
 debugging it: SCSIPORT owns the polling contract, the DCB lifecycle and scatter/gather, and every
 bug in that investigation lived in one of the three. Reasoning and the control that justified it:

@@ -176,7 +176,8 @@ Found the hard way — the line used to read `awk 'everything=="-" && is=="-"'` 
 there never gets that checkout, so it keeps whatever endings it was written with — while
 `git check-attr` and a fresh clone both look perfect.
 
-`drivers/xtide_pdr/PORT.INF` sat LF-only in this working tree for days under a correct
+`PORT.INF` in the XT-IDE port driver (retired to `docs/archive/xtide_pdr_retired/`) sat
+LF-only in this working tree for days under a correct
 `*.INF text eol=crlf` rule. Windows 95 parses INF files line by line: it read the whole file
 as one line and refused the install with *"does not contain information about your hardware"*.
 Nothing in git was wrong, and nothing in git would have told you.

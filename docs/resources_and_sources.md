@@ -242,7 +242,8 @@ issue #21 twice over:
 
 - **`win/vxd/CFU1.ASM`** - never fails `AEP_INITIALIZE` ("stay resident either way"), and fetches
   resources from CONFIGMG's `CONFIG_START` callback via `_CONFIGMG_Get_Alloc_Log_Conf`, not during
-  initialisation. That is what our phase-1 driver got wrong; see `drivers/xtide_pdr/README.md`.
+  initialisation. That is what our phase-1 driver got wrong; see `docs/archive/xtide_pdr_retired/source/README.md` (that line is **retired** - superseded by
+  the miniport, `drivers/xtide_mpd/`).
 - **`PROBE-NOTES.md` / `README.md`** - documents the IOS AEP sequence and function/result numbers,
   and the finding that `DISKTSD` never configures a dynamically registered port driver's DCB.
 

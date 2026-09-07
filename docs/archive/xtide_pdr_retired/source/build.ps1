@@ -1,3 +1,11 @@
+# ============================================================================
+# RETIRED 2026-09-05. This driver wedged Windows at shutdown and was replaced
+# by drivers/xtide_mpd/ (the SCSI miniport), which is confirmed on hardware.
+# Kept only as cited evidence - see ../README.md. Do not build or install it.
+# ============================================================================
+Write-Error 'RETIRED: superseded by drivers/xtide_mpd. See ../README.md.'
+exit 1
+
 # Build the Windows 95 IOS port driver for the 8-bit XT-IDE card (issue #21).
 #
 # Phase 0 builds Microsoft's DDK sample UNCHANGED, to prove the toolchain and that IOS will

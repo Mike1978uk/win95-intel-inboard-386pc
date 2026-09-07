@@ -100,7 +100,7 @@ aimed at LBA 100 of whichever unit answered.
 
 ### 1. A hardware probe run — safe, and the only thing that can test stride 2  (1 boot)
 
-**Build is already made:** `dist/xtide_pdr/PORT_probe_stride2.pdr`, md5
+**Build is already made:** `docs/archive/xtide_pdr_retired/binaries/PORT_probe_stride2.pdr`, md5
 `0174a19fe1ce88e1733ef38ff6173211`, from `build.ps1 -Stride 2 -ClaimMask 0 -NoWriteTest`.
 
 - claims **nothing**, so no DCB, no calldown, no volume, and no request path;
