@@ -1,0 +1,8 @@
+a 100
+mov ah,8
+mov dl,1
+int 40
+
+g =100 106
+r
+q
