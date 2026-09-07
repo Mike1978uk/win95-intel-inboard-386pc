@@ -52,6 +52,27 @@ So the likely picture, stated as a hypothesis: **the ROM handles the actual I/O 
 else to pick the drive type. The owner is also right that the FD-505 is a 1.44 + 1.2 combo; the
 BIOS being wrong about it does not make the hardware wrong.
 
+### Two more reads taken before power-down, so next session need not boot for them
+
+**1. `DETLOG.TXT` does NOT answer it — clean negative, do not re-read it.**
+Pulled over the bridge, 14,097 bytes, CRC-verified (`docs/evidence/DETLOG_2026-09-07.TXT`). It is a
+real log with 22 `Detected:` lines (PIC, DMA, CMOS, timer, …) and **zero** mentions of floppy, FDC,
+`PNP0700` or diskette. Windows' PnP detection never enumerated the floppy controller at all — which
+is consistent with it having been installed by hand through Add New Hardware. So the drive type did
+not come from PnP detection, and `DETLOG` cannot say where it did.
+
+**2. The `INT 13h` vector is hooked by a low-memory TSR: `0575:0122`.**
+Not `F000` (system BIOS) and not a `C800`-`DE00` option-ROM window — segment `0575` is low DOS
+memory, where `CONFIG.SYS` drivers load. That is consistent with **`INBRDPC.SYS`**, which is already
+known to hook `INT 13h` to adjust the Inboard's wait states via port `0x670` around the call and then
+chain onward (it is not in the data path — see issue #17).
+
+So the chain is `INT 13h` → `INBRDPC.SYS` → … → whoever actually answers `AH=08h`. **That still does
+not identify the answerer**, and it is the remaining question. Next step is to walk the chain from
+`0575:0122` and see where it chains to — if it lands in `F000`, the 1986 system BIOS is answering
+and Sergey's ROM does not implement `AH=08h`; if it lands in a `C800`-`DE00` window, the ROM is
+answering and is reporting 720K.
+
 Raw capture `docs/evidence/fdtype_int13_ah08_2026-09-07.txt`, probe `tools/fdtype/`.
 
 ### 2. LS-120: phase 0 PASSES — the miniport shape is safe here (#22)

@@ -1,0 +1,429 @@
+[System Detection: 01/01/80 - 00:10:48]
+Parameters "", InfParams "", Flags=01004233
+SDMVer=0400.950, WinVer=0616030a, Build=00.00.0, WinFlags=00000419
+LogCrash: crash log not found or invalid
+DetectClass: skip class NET
+DetectClass: skip class MEDIA
+DetectClass: skip class ADAPTER
+UserOverride: ADAPTER=1
+UserOverride: NET=1
+UserOverride: MEDIA=1
+Devices verified: 0
+Checking for: Manual Devices
+Checking for: Programmable Interrupt Controller
+QueryIOMem: Caller=DETECTPIC, rcQuery=0
+	IO=20-21,a0-a1
+Detected: *PNP0000\0000 = [1] Programmable interrupt controller
+	IO=20-21,a0-a1
+	IRQ=2
+Checking for: Direct Memory Access Controller
+QueryIOMem: Caller=DETECTDMA, rcQuery=0
+	IO=0-f,81-83,87-87,89-8b,8f-8f,c0-df
+Detected: *PNP0200\0000 = [2] Direct memory access controller
+	IO=0-f,81-83,87-87,89-8b,8f-8f,c0-df
+	DMA=4
+Checking for: System CMOS/Real Time Clock
+QueryIOMem: Caller=DETECTCMOS, rcQuery=0
+	IO=70-71
+Detected: *PNP0B00\0000 = [3] System CMOS/real time clock
+	IO=70-71
+	IRQ=8
+Checking for: System Timer
+QueryIOMem: Caller=DETECTTIMER, rcQuery=0
+	IO=40-43
+Detected: *PNP0100\0000 = [4] System timer
+	IO=40-43
+	IRQ=0
+Checking for: System Speaker
+QueryIOMem: Caller=DETECTSPEAKER, rcQuery=0
+	IO=61-61
+Detected: *PNP0800\0000 = [5] System speaker
+	IO=61-61
+Checking for: Numeric Data Processor
+QueryIOMem: Caller=DETECTNDP, rcQuery=0
+	IO=f0-ff
+Detected: *PNP0C04\0000 = [6] Numeric data processor
+	IO=f0-ff
+	IRQ=13
+Checking for: Logitech SoundMan
+Checking for: System Board
+Detected: *PNP0C01\0000 = [7] System board
+Checking for: Motherboard Resources
+Checking for: Keyboard
+QueryIOMem: Caller=DETECTKBD, rcQuery=0
+	IO=60-60,64-64
+GetKbdType: Keyboard ID=0
+Detected: *PNP030B\0000 = [8] PC/AT Enhanced Keyboard (101/102-Key)
+	IO=60-60,64-64
+	IRQ=1
+Checking for: Network Cards using Artisoft LANtastic
+Checking for: Network Cards using Novell ODI Driver
+Checking for: Network Cards using Novell IPX.COM
+Checking for: Network Cards using Microsoft Windows
+Checking for: Network Cards using Microsoft Windows For Workgroups
+Checking for: Network Cards using Microsoft LanMan
+Checking for: Network Cards using NDIS Based Network
+Checking for: Intel 596 compatible Network Adapter
+Checking for: HP Omnibook 600 series
+Checking for: System Bus
+CheckInt86xCrash: int 1a,AX=b101,rc=0
+Detected: *PNP0A00\0000 = [9] ISA Plug and Play bus
+Checking for: Advanced Power Management Support
+Checking for: Dockable Portable
+Checking for: PS/2 Style Mouse
+QueryIRQDMA: Caller=DETECTPS2MOUSE, rcQuery=0
+	IRQ=12
+QueryIOMem: Caller=DETECTPS2MOUSE, rcQuery=0
+	IO=310-311
+Detected: *PNP0F0E\0000 = [10] Standard PS/2 Port Mouse
+	IRQ=12
+Checking for: ATI Ultra Pro Turbo (Mach 64) Display Adapter
+QueryIOMem: Caller=DETECTMACH64, rcQuery=0
+	Mem=ffff0-f07ff
+QueryIOMem: Caller=DETECTMACH64, rcQuery=0
+	Mem=ffff0-10ffef
+QueryIOMem: Caller=DETECTMACH64, rcQuery=0
+	IO=3b0-3bb,3c0-3df
+Checking for: ATI Ultra Pro/Plus (Mach 32) Display Adapter
+QueryIOMem: Caller=DETECTMACH32, rcQuery=0
+	IO=3b0-3bb,3c0-3df
+Checking for: ATI Ultra (Mach 8) Display Adapter
+QueryIOMem: Caller=DETECTMACH8, rcQuery=0
+	IO=3b0-3bb,3c0-3df
+Detected: *PNP090B\0000 = [11] ATI Graphics Ultra (mach8)
+	IO=3b0-3bb,3c0-3df
+	Mem=a0000-affff,b8000-bffff,ffff0-10ffef
+Checking for: Ungermann Bass NIUPC Network Adapter
+NCD: detecting net card *pnp811c
+QueryIOMem: Caller=DETECTUBNIUPC, rcQuery=0
+	IO=380-38f
+NCDInit: Found AdLib: avoiding ports 0x380-38f
+QueryIOMem: Caller=DETECTUBNIUPC, rcQuery=0
+	IO=220-22f
+QueryIOMem: Caller=DETECTUBNIUPC, rcQuery=0
+	IO=200-20f
+QueryIOMem: Caller=DETECTUBNIUPC, rcQuery=0
+	IO=210-21f
+QueryIOMem: Caller=DETECTUBNIUPC, rcQuery=0
+	IO=230-23f
+QueryIOMem: Caller=DETECTUBNIUPC, rcQuery=0
+	IO=240-24f
+QueryIOMem: Caller=DETECTUBNIUPC, rcQuery=0
+	IO=250-25f
+QueryIOMem: Caller=DETECTUBNIUPC, rcQuery=0
+	IO=260-26f
+QueryIOMem: Caller=DETECTUBNIUPC, rcQuery=0
+	IO=270-27f
+Checking for: Ungermann Bass PCNIU Network Adapter
+NCD: detecting net card *pnp8119
+Checking for: Ungermann Bass PCNIUEX128 Network Adapter
+NCD: detecting net card *pnp811a
+Checking for: Ungermann Bass PCNIUEX512 Network Adapter
+NCD: detecting net card *pnp811b
+Checking for: Ungermann Bass NIUPCTR Network Adapter
+NCD: detecting net card *pnp811f
+Checking for: Ungermann Bass PCNIC Network Adapter
+NCD: detecting net card *pnp811e
+Checking for: Ungermann Bass NIUPCEOTP Network Adapter
+NCD: detecting net card *pnp8120
+Checking for: DEC DEPCA Network Adapter
+NCD: detecting net card *pnp80e7
+QueryIOMem: Caller=DETECTDECDEPCA, rcQuery=0
+	IO=300-30f
+QueryIOMem: Caller=DETECTDECDEPCA, rcQuery=0
+	IO=200-20f
+Checking for: DEC DEPCAJR Network Adapter
+NCD: detecting net card *pnp80e8
+QueryIOMem: Caller=DETECTDECDEPCAJR, rcQuery=0
+	IO=300-30f
+QueryIOMem: Caller=DETECTDECDEPCAJR, rcQuery=0
+	IO=200-20f
+Checking for: DEC (DE200) EtherWorks Turbo Network Adapter
+NCD: detecting net card *pnp80e9
+QueryIOMem: Caller=DETECTDECTURBO, rcQuery=0
+	IO=300-30f
+QueryIOMem: Caller=DETECTDECTURBO, rcQuery=0
+	IO=200-20f
+Checking for: DEC DEPCAJR/TP Network Adapter
+NCD: detecting net card *pnp80ea
+QueryIOMem: Caller=DETECTDECDEPCAJRTP, rcQuery=0
+	IO=300-30f
+QueryIOMem: Caller=DETECTDECDEPCAJRTP, rcQuery=0
+	IO=200-20f
+Checking for: DEC (DE200) EtherWorks Turbo/TP Network Adapter
+NCD: detecting net card *pnp80eb
+QueryIOMem: Caller=DETECTDECTURBOTP, rcQuery=0
+	IO=300-30f
+QueryIOMem: Caller=DETECTDECTURBOTP, rcQuery=0
+	IO=200-20f
+Checking for: DEC (DE202) EtherWorks Turbo/TP_BNC Network Adapter
+NCD: detecting net card *pnp80ec
+QueryIOMem: Caller=DETECTDECDE202, rcQuery=0
+	IO=300-30f
+QueryIOMem: Caller=DETECTDECDE202, rcQuery=0
+	IO=200-20f
+Checking for: DEC (DE102) EtherWorks LC/TP_BNC Network Adapter
+NCD: detecting net card *pnp80ed
+QueryIOMem: Caller=DETECTDECDE102, rcQuery=0
+	IO=300-30f
+QueryIOMem: Caller=DETECTDECDE102, rcQuery=0
+	IO=200-20f
+Checking for: DEC EE102 Network Adapter
+NCD: detecting net card *pnp80ee
+QueryIOMem: Caller=DETECTDECEE102, rcQuery=0
+	IO=300-30f
+QueryIOMem: Caller=DETECTDECEE102, rcQuery=0
+	IO=200-20f
+Checking for: Zenith Data Systems Z-Note Network Adapter
+NCD: detecting net card *pnp8209
+Checking for: IBM Token Ring Network Adapter
+NCD: detecting net card *pnp8327
+QueryIOMem: Caller=DETECTIBMTOKENRING, rcQuery=0
+	IO=a20-a23
+QueryIOMem: Caller=DETECTIBMTOKENRING, rcQuery=0
+	IO=a24-a27
+Checking for: Thomas Conrad TC4043 Network Adapter
+NCD: detecting net card *pnp8281
+Checking for: SMC Network Adapter
+QueryIOMem: Caller=DETECTSMC, rcQuery=0
+	IO=200-21f
+QueryIOMem: Caller=DETECTSMC, rcQuery=0
+	IO=220-23f
+QueryIOMem: Caller=DETECTSMC, rcQuery=0
+	IO=240-25f
+QueryIOMem: Caller=DETECTSMC, rcQuery=0
+	IO=260-27f
+QueryIOMem: Caller=DETECTSMC, rcQuery=0
+	IO=280-29f
+QueryIOMem: Caller=DETECTSMC, rcQuery=0
+	IO=2a0-2bf
+QueryIOMem: Caller=DETECTSMC, rcQuery=0
+	IO=2c0-2df
+QueryIOMem: Caller=DETECTSMC, rcQuery=0
+	IO=2e0-2ff
+QueryIOMem: Caller=DETECTSMC, rcQuery=0
+	IO=300-31f
+QueryIOMem: Caller=DETECTSMC, rcQuery=0
+	IO=320-33f
+QueryIOMem: Caller=DETECTSMC, rcQuery=0
+	IO=340-35f
+QueryIOMem: Caller=DETECTSMC, rcQuery=0
+	IO=360-37f
+QueryIOMem: Caller=DETECTSMC, rcQuery=0
+	IO=380-39f
+NetIO: 380-39f overlapped with internal avoid map
+QueryIOMem: Caller=DETECTSMC, rcQuery=4
+	IO=3a0-3bf
+QueryIOMem: Caller=DETECTSMC, rcQuery=2
+	IO=3c0-3df
+QueryIOMem: Caller=DETECTSMC, rcQuery=0
+	IO=3e0-3ff
+Checking for: RadiSys EXM-10 Network Adapter
+NCD: detecting net card *pnp821d
+QueryIOMem: Caller=DETECTRADISYS, rcQuery=0
+	IO=280-29f
+QueryIOMem: Caller=DETECTRADISYS, rcQuery=0
+	IO=300-31f
+QueryIOMem: Caller=DETECTRADISYS, rcQuery=0
+	IO=200-21f
+QueryIOMem: Caller=DETECTRADISYS, rcQuery=0
+	IO=220-23f
+QueryIOMem: Caller=DETECTRADISYS, rcQuery=0
+	IO=240-25f
+QueryIOMem: Caller=DETECTRADISYS, rcQuery=0
+	IO=260-27f
+QueryIOMem: Caller=DETECTRADISYS, rcQuery=0
+	IO=2a0-2bf
+QueryIOMem: Caller=DETECTRADISYS, rcQuery=0
+	IO=2c0-2df
+QueryIOMem: Caller=DETECTRADISYS, rcQuery=0
+	IO=340-35f
+QueryIOMem: Caller=DETECTRADISYS, rcQuery=0
+	IO=380-39f
+NetIO: 380-39f overlapped with internal avoid map
+QueryIOMem: Caller=DETECTRADISYS, rcQuery=0
+	IO=2e0-2ff
+QueryIOMem: Caller=DETECTRADISYS, rcQuery=0
+	IO=320-33f
+QueryIOMem: Caller=DETECTRADISYS, rcQuery=0
+	IO=360-37f
+QueryIOMem: Caller=DETECTRADISYS, rcQuery=4
+	IO=3a0-3bf
+QueryIOMem: Caller=DETECTRADISYS, rcQuery=2
+	IO=3c0-3df
+QueryIOMem: Caller=DETECTRADISYS, rcQuery=0
+	IO=3e0-3ff
+Checking for: HP PC LAN 16TP Plus Network Adapter
+NCD: detecting net card *pnp8158
+QueryIOMem: Caller=DETECTHPTWISTPLUS, rcQuery=0
+	IO=300-31f
+QueryIOMem: Caller=DETECTHPTWISTPLUS, rcQuery=0
+	IO=340-35f
+QueryIOMem: Caller=DETECTHPTWISTPLUS, rcQuery=0
+	IO=2c0-2df
+QueryIOMem: Caller=DETECTHPTWISTPLUS, rcQuery=0
+	IO=2a0-2bf
+QueryIOMem: Caller=DETECTHPTWISTPLUS, rcQuery=0
+	IO=280-29f
+QueryIOMem: Caller=DETECTHPTWISTPLUS, rcQuery=0
+	IO=240-25f
+QueryIOMem: Caller=DETECTHPTWISTPLUS, rcQuery=0
+	IO=220-23f
+QueryIOMem: Caller=DETECTHPTWISTPLUS, rcQuery=0
+	IO=1c0-1df
+QueryIOMem: Caller=DETECTHPTWISTPLUS, rcQuery=0
+	IO=1a0-1bf
+QueryIOMem: Caller=DETECTHPTWISTPLUS, rcQuery=0
+	IO=180-19f
+QueryIOMem: Caller=DETECTHPTWISTPLUS, rcQuery=0
+	IO=140-15f
+QueryIOMem: Caller=DETECTHPTWISTPLUS, rcQuery=0
+	IO=120-13f
+QueryIOMem: Caller=DETECTHPTWISTPLUS, rcQuery=4
+	IO=3a0-3bf
+QueryIOMem: Caller=DETECTHPTWISTPLUS, rcQuery=0
+	IO=380-39f
+NetIO: 380-39f overlapped with internal avoid map
+QueryIOMem: Caller=DETECTHPTWISTPLUS, rcQuery=0
+	IO=360-37f
+QueryIOMem: Caller=DETECTHPTWISTPLUS, rcQuery=0
+	IO=320-33f
+QueryIOMem: Caller=DETECTHPTWISTPLUS, rcQuery=0
+	IO=2e0-2ff
+QueryIOMem: Caller=DETECTHPTWISTPLUS, rcQuery=0
+	IO=260-27f
+QueryIOMem: Caller=DETECTHPTWISTPLUS, rcQuery=0
+	IO=200-21f
+QueryIOMem: Caller=DETECTHPTWISTPLUS, rcQuery=0
+	IO=1e0-1ff
+QueryIOMem: Caller=DETECTHPTWISTPLUS, rcQuery=0
+	IO=160-17f
+QueryIOMem: Caller=DETECTHPTWISTPLUS, rcQuery=0
+	IO=100-11f
+Checking for: HP PC LAN 16TL Plus Network Adapter
+NCD: detecting net card *pnp8159
+QueryIOMem: Caller=DETECTHPTLANPLUS, rcQuery=0
+	IO=300-31f
+QueryIOMem: Caller=DETECTHPTLANPLUS, rcQuery=0
+	IO=340-35f
+QueryIOMem: Caller=DETECTHPTLANPLUS, rcQuery=0
+	IO=2c0-2df
+QueryIOMem: Caller=DETECTHPTLANPLUS, rcQuery=0
+	IO=2a0-2bf
+QueryIOMem: Caller=DETECTHPTLANPLUS, rcQuery=0
+	IO=280-29f
+QueryIOMem: Caller=DETECTHPTLANPLUS, rcQuery=0
+	IO=240-25f
+QueryIOMem: Caller=DETECTHPTLANPLUS, rcQuery=0
+	IO=220-23f
+QueryIOMem: Caller=DETECTHPTLANPLUS, rcQuery=0
+	IO=1c0-1df
+QueryIOMem: Caller=DETECTHPTLANPLUS, rcQuery=0
+	IO=1a0-1bf
+QueryIOMem: Caller=DETECTHPTLANPLUS, rcQuery=0
+	IO=180-19f
+QueryIOMem: Caller=DETECTHPTLANPLUS, rcQuery=0
+	IO=140-15f
+QueryIOMem: Caller=DETECTHPTLANPLUS, rcQuery=0
+	IO=120-13f
+QueryIOMem: Caller=DETECTHPTLANPLUS, rcQuery=4
+	IO=3a0-3bf
+QueryIOMem: Caller=DETECTHPTLANPLUS, rcQuery=0
+	IO=380-39f
+NetIO: 380-39f overlapped with internal avoid map
+QueryIOMem: Caller=DETECTHPTLANPLUS, rcQuery=0
+	IO=360-37f
+QueryIOMem: Caller=DETECTHPTLANPLUS, rcQuery=0
+	IO=320-33f
+QueryIOMem: Caller=DETECTHPTLANPLUS, rcQuery=0
+	IO=2e0-2ff
+QueryIOMem: Caller=DETECTHPTLANPLUS, rcQuery=0
+	IO=260-27f
+QueryIOMem: Caller=DETECTHPTLANPLUS, rcQuery=0
+	IO=200-21f
+QueryIOMem: Caller=DETECTHPTLANPLUS, rcQuery=0
+	IO=1e0-1ff
+QueryIOMem: Caller=DETECTHPTLANPLUS, rcQuery=0
+	IO=160-17f
+QueryIOMem: Caller=DETECTHPTLANPLUS, rcQuery=0
+	IO=100-11f
+Checking for: Thomas Conrad TC4045 Network Adapter
+NCD: detecting net card *pnp8101
+Checking for: Novell/Anthem NE1000 Network Adapter
+NCD: detecting net card *pnp80d3
+QueryIOMem: Caller=DETECTNE1000, rcQuery=0
+	IO=300-31f
+
+[System Detection: 01/01/80 - 00:12:59]
+Parameters "", InfParams "", Flags=01006233
+SDMVer=0400.950, WinVer=0616030a, Build=00.00.0, WinFlags=00000419
+LogCrash: new crash *:DETECTNE1000
+	IO=300-31f
+OpenRecover: Register crash *:DETECTNE1000
+DetectClass: skip class NET
+DetectClass: skip class MEDIA
+DetectClass: skip class ADAPTER
+Checking for: Programmable Interrupt Controller
+QueryIOMem: Caller=DETECTPIC, rcQuery=0
+	IO=20-21,a0-a1
+Detected: *PNP0000\0000 = [1] Programmable interrupt controller
+	IO=20-21,a0-a1
+	IRQ=2
+Checking for: Direct Memory Access Controller
+QueryIOMem: Caller=DETECTDMA, rcQuery=0
+	IO=0-f,81-83,87-87,89-8b,8f-8f,c0-df
+Detected: *PNP0200\0000 = [2] Direct memory access controller
+	IO=0-f,81-83,87-87,89-8b,8f-8f,c0-df
+	DMA=4
+Checking for: System CMOS/Real Time Clock
+QueryIOMem: Caller=DETECTCMOS, rcQuery=0
+	IO=70-71
+Detected: *PNP0B00\0000 = [3] System CMOS/real time clock
+	IO=70-71
+	IRQ=8
+Checking for: System Timer
+QueryIOMem: Caller=DETECTTIMER, rcQuery=0
+	IO=40-43
+Detected: *PNP0100\0000 = [4] System timer
+	IO=40-43
+	IRQ=0
+Checking for: System Speaker
+QueryIOMem: Caller=DETECTSPEAKER, rcQuery=0
+	IO=61-61
+Detected: *PNP0800\0000 = [5] System speaker
+	IO=61-61
+Checking for: Numeric Data Processor
+QueryIOMem: Caller=DETECTNDP, rcQuery=0
+	IO=f0-ff
+Detected: *PNP0C04\0000 = [6] Numeric data processor
+	IO=f0-ff
+	IRQ=13
+Checking for: System Board
+Detected: *PNP0C01\0000 = [7] System board
+Checking for: Keyboard
+QueryIOMem: Caller=DETECTKBD, rcQuery=0
+	IO=60-60,64-64
+GetKbdType: Keyboard ID=0
+Detected: *PNP030B\0000 = [8] PC/AT Enhanced Keyboard (101/102-Key)
+	IO=60-60,64-64
+	IRQ=1
+Checking for: System Bus
+CheckInt86xCrash: int 1a,AX=b101,rc=0
+Detected: *PNP0A00\0000 = [9] ISA Plug and Play bus
+Checking for: PS/2 Style Mouse
+QueryIRQDMA: Caller=DETECTPS2MOUSE, rcQuery=0
+	IRQ=12
+QueryIOMem: Caller=DETECTPS2MOUSE, rcQuery=0
+	IO=310-311
+Detected: *PNP0F0E\0000 = [10] Standard PS/2 Port Mouse
+	IRQ=12
+Checking for: ATI Ultra (Mach 8) Display Adapter
+QueryIOMem: Caller=DETECTMACH8, rcQuery=0
+	Mem=ffff0-f07ff
+QueryIOMem: Caller=DETECTMACH8, rcQuery=0
+	Mem=ffff0-10ffef
+VerifyHWReg: failed verification of *PNP090B\0000
+Devices verified: 10
+Devices detected: 0
+LogDangerRes: discard crash func. *:DETECTNE1000
+	IO=300-31f
