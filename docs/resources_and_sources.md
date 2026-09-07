@@ -208,6 +208,14 @@ the directory's own `README.md`.
       ⚠ Its output table names **BH** for the drive type while its own description text says
       **BL**; our measurements and Sergey's ROM both use **BL**. Trust the measurement.
 
+- **[minuszerodegrees ROM archive](https://minuszerodegrees.net/rom/rom.htm)** - IBM and
+  third-party ROM images. Likely provenance of the Sergey Multi-Floppy BIOS **v2.7** image the
+  owner holds. Same site as the XT-IDE register map that produced technique 100.
+- **Sergey Kiselev, Multi-Floppy BIOS** - **v2.2** is the chip fitted (owner's programmer dump
+  `AT28C64B.bin` is byte-identical to `roms/network/Sergey_FDD.bin`). **v2.7** exists and is
+  **not** an answer to #25 - identical `INT 13h`/`INT 40h` install rule, verified by
+  disassembly.
+
 ## 8. Everything else
 
 - **Fabien Sanglard, [`agent.md`](https://fabiensanglard.net/agent.md/index.html)** — the writing

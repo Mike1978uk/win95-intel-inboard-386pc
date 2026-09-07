@@ -117,3 +117,94 @@ is confirmed working on hardware. Verify with `BOOTLOG.TXT` (`Init Success xtide
 ⚠ Still unproven: that Windows takes the drive type from `AH=08h`. It fits every symptom, but
 the inference has not been measured. And **#18 (wrong data) remains the real blocker** — correct
 geometry will not fix a corrupt transfer.
+
+---
+
+## The live chain walk, 2026-09-07 (COMrade, real-mode DOS, 35 ms RTT)
+
+Vectors read live, confirming the DEBUG probe exactly:
+
+| vector | value | owner |
+|---|---|---|
+| `INT 13h` | `0575:0122` | a resident |
+| `INT 1Eh` | `0000:0522` | relocated DPT in low RAM |
+| `INT 40h` | `D000:10D6` | **Sergey's Multi-Floppy BIOS** |
+| `INT 11h` | `F000:F84D` | stock BIOS - matches AMI's `FF84D` entry-point map |
+| `INT 12h` | `F000:F841` | stock BIOS |
+| `INT 41h` | `0000:0000` | hard-disk parameter table pointer is **null** |
+
+### Hop 1 - `0575:0122`
+
+```asm
+0122  sti
+0123  test dl, 80h          ; hard disk?
+0126  jz   0132             ; NO (floppy) -> chain immediately
+0128  cmp  ah, 02  / je 0137    ; read
+012D  cmp  ah, 03  / je 0137    ; write
+0132  jmp  far cs:[006C]    ; -> 0206:0B78
+0137  ...handle...
+```
+
+### Hop 2 - `0206:0B78`, INBRDPC's wait-state wrapper
+
+```asm
+0B78  cli / pushf / push ax
+      mov ax, cs:[02B1]     ; hard-disk waitstate value
+      cmp dl, 80h / jae +4
+      mov ax, cs:[02AF]     ; ...else the floppy one
+      mov dx, 0670h / out dx, al
+      call far cs:[004B]    ; -> 0070:03EE   (the ORIGINAL handler)
+      mov dx, 0670h / out dx, al      ; restore
+      retf 2
+```
+
+### Hop 3 - `0070:03EE` (IO.SYS resident area; `INT 16h` also lives at `0070`)
+
+```asm
+03EE  call +0x95
+03F1  jmp  far cs:[0148]    ; -> FFFF:2585 - the HMA (CONFIG.SYS has DOS=HIGH,UMB)
+```
+
+`C800:0000` reads all `FF` - **no option ROM there**, so the Trantor SCSI ROM is elsewhere.
+Its segment is still unmapped; `D000` is Sergey and `D800` is XTIDE.
+
+### What this establishes
+
+**`INBRDPC.SYS` is completely transparent for floppy calls.** Both of its hooks chain every
+one of them: the first bails out to the chain the moment `DL` says floppy, and the second
+*wraps* rather than answers - it sets wait states, calls the original handler, restores, and
+returns, with **no `AH` filtering at all**. The one resident everybody would suspect is clean,
+and that is now measured rather than assumed.
+
+The chain then leaves DOS into the HMA, so whatever answers `AH=08h` sits **below DOS in the
+ROM layer** - consistent with the stock BIOS answering and `INT 40h` never being consulted.
+
+⚠ Still not distinguished: which ROM. The fix does not depend on it.
+
+## Ruled out: Sergey's ROM v2.7 does NOT fix this
+
+The owner holds a **v2.7** image (`Multi-Floppy BIOS, Version 2.7, Copyright 2010-2025`,
+`GR2764@DIP28.BIN`, md5 `b727f971cca52cbe7cbabb80ece4c42e`) alongside the **v2.2** actually
+fitted. Swapping it in is the obvious thing to try. It would not help - the install rule is
+byte-for-byte identical:
+
+```asm
+  v2.2 @ 0x105 / v2.7 @ 0x0EB
+  cmp word ptr [0x4c], 0xec59   ; still only takes INT 13h if it is the
+  jne  -> INT 40h               ; stock IBM diskette handler
+  cmp word ptr [0x4e], 0xf000
+  jne  -> INT 40h
+```
+
+v2.7 adds a configurable **IPL type** (Floppy BIOS / System BIOS) and an IPL retry prompt.
+Neither touches `AH=08h`. Clean negative, recorded so the ROM swap is not spent on a boot.
+
+**The fitted chip is confirmed as our analysis target**: the owner's programmer dump
+`AT28C64B.bin` is md5 `df93d1d546c9c3dc7722754545b3997b` - **byte-identical to
+`roms/network/Sergey_FDD.bin`**. The static analysis above was of the real silicon.
+
+⚠ **The Trantor ROM at `CA000` is still uncaptured.** It was read live over COMrade (6144 bytes,
+`55 AA 0C`, entry `CA00:0083`, *"IBM Compatible SCSI BIOS / TSROM: SCSI BIOS, Version 2.14 /
+Copyright (C) 1989-92, Trantor Systems, Ltd."*) but the transfer out was truncated to 5433 bytes
+and the partial dump was discarded rather than analysed. Re-read it in chunks if the mechanism
+question is ever worth closing.

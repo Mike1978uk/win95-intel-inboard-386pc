@@ -5875,3 +5875,59 @@ wide one.
 pointer being handed back. It reads `0000:0522`. The prediction cost nothing because it was
 written down before the run and checked against it - which is the only reason it is visible as
 an error rather than quietly absorbed into the story.
+
+## Technique 102: walk an interrupt chain live over COMrade - two reads per hop, and read
+## whether a hook ANSWERS or WRAPS before suspecting it
+
+2026-09-07, #25. The chain walk that four earlier sessions treated as expensive is **two
+`mem_dump` calls per hop** on the DOS COMrade build, and the whole thing took minutes.
+
+### The mechanical recipe
+
+1. `mem_dump 0000:0040 208` - one read gives `INT 10h`-`INT 1Fh` **and** `INT 40h`-`INT 43h`.
+   Decode each dword little-endian as `offset, segment`.
+2. `mem_dump <seg>:<off> 96` at the handler. Disassemble.
+3. The chain-out is almost always `jmp far cs:[xxxx]` (`2E FF 2E lo hi`) or
+   `call far cs:[xxxx]` (`2E FF 1E lo hi`). **The operand is a DATA offset in the same
+   segment, not the target.** Read that offset to get the next hop:
+   `mem_dump <seg>:<xxxx & ~0xF> 32` and index in.
+4. Repeat.
+
+Reading the whole handler is what makes step 3 safe - decoding only the first few bytes gets
+you the filter and not the exit.
+
+### The distinction that mattered
+
+A hook can **answer** or it can **wrap**, and they look identical from the vector table:
+
+```asm
+; WRAP - transparent, cannot be the culprit
+mov dx, 0670h / out dx, al      ; do something
+call far cs:[004B]              ; call the ORIGINAL
+mov dx, 0670h / out dx, al      ; undo it
+retf 2
+
+; ANSWER - a suspect
+cmp ah, 8
+je  our_own_handler
+```
+
+`INBRDPC.SYS` is the wrap form, with **no `AH` filtering at all** - so it is transparent for
+every floppy function. That exonerated, by measurement, the one resident this project would
+always suspect first, and it cost one read. **Before theorising about a hook, read whether it
+has any branch on the function code. If it does not, it is not your bug.**
+
+### Two decoding notes worth keeping
+
+- **`test dl,80h` / `jz`** jumps when the drive is a **floppy** (`ZF=1` means the bit is
+  clear). Getting that inverted flips which branch you think is the chain-out.
+- **`FFFF:xxxx` targets are the HMA**, not a wrap to low memory - `DOS=HIGH` puts the kernel
+  there. A chain that ends `jmp far FFFF:2585` has gone into DOS, not off the rails.
+
+### And read the whole vector table while you are there
+
+The same single read that answered the question also gave `INT 11h = F000:F84D` and
+`INT 12h = F000:F841`, which match the AMI 98 Technical Reference's published entry-point map
+byte for byte - free corroboration that the stock BIOS entries are where the documentation says
+- and `INT 41h = 0000:0000`, a null hard-disk parameter-table pointer nobody had looked at.
+Neither cost an extra round trip.
