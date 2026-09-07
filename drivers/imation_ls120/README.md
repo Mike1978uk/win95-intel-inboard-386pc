@@ -97,6 +97,60 @@ To get a real answer, on a clean image:
 **One install, one boot, every time.** That is the whole difference between a result and a
 confound.
 
+## 2026-09-07: the configuration surface is exhausted too (desk analysis, no machine time)
+
+The vendor README documents `PORT=`/`IRQ=` only. The binary's `AdapterSettings` parser
+(`0x138c1`-`0x139c3`, one helper at `0x132c0`) actually knows **nine** keywords: `BLK`, `DMA`,
+`ECP`, `MSN`, `NATN`, `NDPC`, `port`, `size`, `irq`.
+
+**Four of them are dead strings.** Counting every absolute reference across `.text`:
+
+| global | refs | verdict |
+|---|---|---|
+| `MSN` `[0x204a8]` | 1 | parser write only - never read |
+| `NATN` `[0x204ac]` | 1 | parser write only - never read |
+| `NDPC` `[0x204b0]` | 1 | parser write only - never read |
+| `BLK` `[0x20494]` | 3 | all inside the parser - never read outside it |
+| `ECP` `[0x204bc]` | 6 | real readers at `0x12ad3`, `0x13239`, `0x1401e`, `0x14a1a` |
+| `DMA` `[0x204c4]` | 3 | real reader at `0x1404c` |
+
+Parsed, stored, never consumed - vestigial from the shared Shuttle codebase. The live knobs are
+`port`, `irq`, `size`, `ECP`, `DMA` only.
+
+**And none gates the destructive writes.** Those sit at `VA 0x18DA6`-`0x1A175`, `0x1C54B`-`0x1CF7B`
+and `0x1F9CA`-`0x1FCE9`; every live `ECP`/`DMA` reader is in `0x12AD3`-`0x14A1A`, nowhere near them.
+**There is no `AdapterSettings` equivalent of the DOS `/ni` (Skip chipset initialization).**
+
+The scan is self-checking: it finds four cross-function readers of `ECP`, so it detects readers
+outside the defining function. It would miss a runtime-computed reference.
+
+So the "persuade the vendor binary to behave" family is exhausted from both ends - its code paths
+(six patches, six nulls) and its configuration surface. What remains is writing our own `.MPD`,
+for which `XTIDEMP.MPD` is now a shipped template.
+
+⚠ **Licence, to settle before any code:** the obvious protocol reference is Linux's
+`drivers/block/paride/epat.c`, **GPL-2.0**. This repo is MIT. Register facts are not copyrightable;
+a port of that code would be a derivative work.
+
+## The DOS driver's full switch list, for reference
+
+Pulled from `SD120PPD.SYS`'s own help text - several were not previously recorded:
+
+```
+/dm  disable read multiple mode        /de   Disable Epp check
+/dpc Disable SHUTTLE-PCMCIA-P support  /ded  Disable Epp Dword Xfers
+/rx  x = 0..11 (read timing)           /db   Disables Eppbios check
+/wy  y = 0..4  (write timing)          /dp   Skip PS/2 Dma Arbitration disable
+/di  Operate in polled mode            /fp   Disable PS/2 Dma Arbitration
+/fe  force 386sl EPP initialization    /ni   Skip chipset initialization
+/fev force VLSI chipset EPP init       /sf   Skips fast mode detection
+/ix  force int in x (7 or 5)           /pd   Enables power down operation
+/IRQ:x  force irq x (1 to 15)          /P:xxx force portbase
+```
+
+`/fe` and `/fev` name **why** those ports are written: 386SL and VLSI chipset EPP setup. On an XT
+they land on the 8259 instead.
+
 ## Before installing any other stock driver here
 
 ```
