@@ -400,3 +400,70 @@ know the way back is two switches.
 
 ⚠ Unverified: that nothing calls `INT 13h` between the `C8000` and `CA000` ROM scans, which would
 reach Sergey before Trantor is in front of it. Unlikely in a contiguous scan, stated for honesty.
+
+## ✅ FIXED 2026-09-07 - one switch on the Trantor card, measured on DOS 6.22
+
+**Move the Trantor T130B option ROM from `CA000` to `DA000`.** Its silkscreen: `SW3 OFF,
+SW4 ON, SW5 ON`. One switch changed from the original `CA000` setting.
+
+### Measured, before and after, same machine
+
+| call | before | after |
+|---|---|---|
+| `INT 13h` A: | `BX=0003 CX=4F09 ES:DI=F000:EFA0` | **`BX=0004 CX=4F12 ES:DI=D000:13E3`** |
+| `INT 13h` B: | `BX=0003 CX=4F09 ES:DI=F000:EFA0` | **`BX=0002 CX=4F0F ES:DI=D000:13C9`** |
+| `INT 40h` A: | `BX=0004 CX=4F12` | `BX=0004 CX=4F12` |
+| `INT 40h` B: | `BX=0002 CX=4F0F` | `BX=0002 CX=4F0F` |
+
+`INT 13h` and `INT 40h` now agree, both answering from **`ES=D000`** - Sergey's ROM - with `DI`
+pointing at its own `13E3` / `13C9` tables. A: reports **type 4, 1.44 MB**; B: reports **type 2,
+1.2 MB**. Correct.
+
+### Why it works
+
+Sergey's ROM takes `INT 13h` only when `INT 13h` is still the stock `F000:EC59` - its own source
+comment says *"this means that no hard drive BIOS was installed"*. Option ROMs are scanned in
+ascending address order, so the fix is simply to ensure **no fixed-disk ROM is scanned before it**:
+
+```
+before:  Trantor CA000 -> Sergey D0000 -> XTIDE D8000
+         Trantor claims INT 13h first, so Sergey settles for INT 40h,
+         and nothing in the INT 13h chain routes to INT 40h.
+
+after:   Sergey D0000 -> XTIDE D8000 -> Trantor DA000
+         Sergey sees the stock vector, TAKES INT 13h.
+         The fixed-disk ROMs stack in front of it and chain back down.
+```
+
+**The fix was on a different card entirely.** Sergey's own ROM-address switches proved
+unresponsive (see below), so relocating *it* was impossible - but the requirement was only about
+*relative order*, and moving the one ROM that sat below it achieved the same thing.
+
+### Consequences
+
+- **`fd08fix/` is now unnecessary**, not merely a fallback. Keep it: it is correct, documented,
+  and still the answer for anyone whose ROM addresses cannot be reordered.
+- Fixed at the ROM layer, so **every OS benefits** - no resident code, no `IOS.INI` `[SafeList]`
+  entry, nothing for the I/O Supervisor to object to.
+- `XTIDE` at `D8000` (8 KB, `D8000-D9FFF`) and Trantor at `DA000` (6 KB, `DA000-DB7FF`) are
+  adjacent, not overlapping.
+
+### Open, and deliberately not concluded
+
+- **Sergey's card ROM-address switches did not respond.** SW2.4 and SW2.5 were changed with no
+  effect on the decoded address. The owner reports a capacitor failure on that card previously,
+  after which another card needed reconfiguring to coexist - independent evidence consistent with
+  a damaged address decode. Untested: SW2.6 / SW2.7. **It no longer matters for #25**, and is
+  recorded only so it is not rediscovered.
+- **Whether Trantor's ROM is actually present at `DA000`.** A scan run under DOS 6.22 found no ROM
+  signature there, and no SCSI banner appeared - but **that scan is unreliable**: 386MAX maps UMB
+  into free upper memory and can mask a ROM entirely. Re-scan on the Win95 card, which has no
+  386MAX. SCSI devices still enumerate either way, because `MA13B.SYS` and `T130.MPD` both drive
+  the card through its I/O ports and never needed the option ROM.
+
+### Method note
+
+⚠ **Do not read the option-ROM map on a machine running a memory manager.** 386MAX will map RAM
+over free regions and can hide a ROM that is physically present. An earlier conclusion in this
+session - "Trantor's ROM is disabled" - came from exactly that mistake. Scan on a configuration
+with no UMB provider, or corroborate against POST banners.
