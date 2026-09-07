@@ -1,6 +1,21 @@
 # FD08FIX.COM — route `INT 13h AH=08h` for floppies to `INT 40h`
 
-**Status: BUILT AND VERIFIED, NEVER EXECUTED.** Not on hardware, not in emulation. Do not put
+**Status: SUPERSEDED 2026-09-07 - #25 was fixed in hardware instead. NEVER EXECUTED.**
+
+The real fix turned out to be **one DIP switch**: moving the Trantor T130B option ROM from
+`CA000` to `DA000`, so Sergey's floppy BIOS is scanned before any fixed-disk ROM and claims
+`INT 13h` under its own documented install rule. Verified end to end on DOS 6.22 and Windows
+95 - both drives report correct geometry and read real media. See
+[`../docs/evidence/int13_ah08_ROOT_CAUSE_2026-09-07.md`](../docs/evidence/int13_ah08_ROOT_CAUSE_2026-09-07.md).
+
+This driver was removed from the machine (binary deleted, `IOS.INI` `[SafeList]` entry taken
+out) because carrying an unused resident `INT 13h` hook is exactly what misleads a later
+debugging session. **It is kept here as the documented alternative** for anyone whose option
+ROM addresses cannot be reordered - the code is correct and the reasoning behind it stands.
+
+Original status below.
+
+**BUILT AND VERIFIED, NEVER EXECUTED.** Not on hardware, not in emulation. Do not put
 this in `FIXES.md` or `dist/` until it has actually run.
 
 Fixes issue **#25** — `INT 13h AH=08h` reports drive type 3 (720K, 80 cyl / 9 sect) for *both*
