@@ -238,3 +238,31 @@ padding for a slow bus. **Two globals carry the configuration** - `[0x0BFA]` the
 ⚠ `0x378` is LPT1 and is **not** aliased by the XT system-board decoder (that covers `000-0FF`),
 so probing it does not risk the PIC. But write nothing to `0x22`-`0x25` or `0x94` - that is the
 exact bug that cost the keyboard (technique 75).
+
+### Live baseline, 2026-09-07 - drive attached and powered, NO driver loaded
+
+Read over COMrade (DOS build) at a real-mode prompt. BDA `0040:0008` gives **LPT1 = `0x378`**
+(authoritative - not assumed), and the equipment word `0x526F` confirms one printer port and two
+floppy drives.
+
+| port | register | value | reading |
+|---|---|---|---|
+| `0x378` | data latch | `0xAA` | POST's own detection pattern, still latched |
+| `0x379` | status | **`0x00`** | every line low: BUSY asserted, ERROR asserted, not SELECTed |
+| `0x37A` | control | `0x0C` | `INIT#` and `SELECT IN` high - standard idle |
+
+**`0x379 = 0x00` is the informative one.** An undriven ISA port floats high on this bus, so
+all-lows means something is actively holding the lines - consistent with an EPAT bridge that is
+powered but never initialised. It is also the "before" state any write experiment is measured
+against.
+
+Note the driver compares its bridge-mode global against `0x0C` (`cmp byte ptr [0x0bd7], 0x0c`)
+and the control register idles at `0x0C`. Suggestive, **not** established - `0x0C` is a common
+value and the global may be a port type rather than a register image. Do not build on it.
+
+**Next, and it needs a decision:** the first write. The driver's own opening move is
+`in al,dx / and al,0x1f / or al,0x10 / out dx,al` on the control register - i.e. set bit 4 while
+preserving the low bits. Bit 4 is **IRQ enable**, and LPT1 here is IRQ 7 with no handler
+installed, so that specific write risks spurious interrupts. A safer first experiment is the
+data-register path at `0x25c1`, which touches no interrupt line. Recoverable either way by a
+power cycle, but say which before running it.

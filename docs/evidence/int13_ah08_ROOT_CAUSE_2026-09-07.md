@@ -208,3 +208,38 @@ Neither touches `AH=08h`. Clean negative, recorded so the ROM swap is not spent 
 Copyright (C) 1989-92, Trantor Systems, Ltd."*) but the transfer out was truncated to 5433 bytes
 and the partial dump was discarded rather than analysed. Re-read it in chunks if the mechanism
 question is ever worth closing.
+
+## Option ROMs captured off the machine, 2026-09-07
+
+Written to files by the guest itself (DEBUG script via COMrade) and collected from the CF in a
+reader - **not transferred over the serial link**, which had already truncated one attempt.
+Owner's suggestion, and the right one.
+
+| file | segment | bytes | CRC-32 | identity |
+|---|---|---|---|---|
+| `TRANTOR.BIN` | `CA000` | 6144 | - | Trantor TSROM SCSI BIOS 2.14 - **first capture, no prior copy existed** |
+| `XTIDEROM.BIN` | `D8000` | 8192 | `3ee14993` | **XTIDE r638 (XT+)** - matches `IDE_XTP_configured_2026_08_31.bin` |
+| `SERGEY.BIN` | `D0000` | 8192 | `5fa1d3c7` | Multi-Floppy BIOS 2.2 - matches `roms/network/Sergey_FDD.bin` |
+
+Two facts this settles:
+
+- **The fitted XT-IDE image is r638, not the 2.0.4 "as found".** That had been treated as
+  ambiguous. The `AH=08h` interception is byte-identical in both, so the diagnosis is unaffected -
+  but any future claim about the card's BIOS must name r638.
+- **Sergey's ROM is confirmed three ways** - repo copy, the owner's programmer dump
+  (`AT28C64B.bin`), and the live chip - all the same CRC. The static analysis was of exactly what
+  is running.
+
+Option ROM map, measured: `C8000` empty (`FF`), `CA000` Trantor, `D0000` Sergey, `D8000` XT-IDE.
+Scan order therefore Trantor -> Sergey -> XT-IDE, which is why Sergey found `INT 13h` already
+taken and correctly fell back to `INT 40h`.
+
+### Two COMrade mechanics worth remembering
+
+- **Do not issue COMrade calls in parallel.** It is one serial link; four concurrent `file_write`
+  calls produced three successes and one 8 s timeout.
+- **A `.BAT` or DEBUG script written over the bridge must be CRLF.** An LF-only batch prints
+  `OFF` (from `@ECHO OFF`) and does nothing - the exact symptom the repo-hygiene skill records.
+  Write them base64-encoded so the bytes are exact.
+- Overwriting one particular existing file timed out repeatedly while writing new names
+  succeeded; if a `file_write` hangs, write to a fresh filename rather than retrying.
