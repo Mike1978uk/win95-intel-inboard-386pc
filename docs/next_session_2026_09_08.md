@@ -73,25 +73,36 @@ card at `C:\FDTYPE\`, runs from real-mode DOS, writes `FDTYPE.TXT`).
   ROM window. Consistent with `INBRDPC.SYS`, which is known to hook `INT 13h` to adjust wait states
   via port `0x670` and then chain (it is *not* in the data path — #17).
 
-### FIRST ACTION: walk the INT 13h chain
+### FIRST ACTION — SUPERSEDED 2026-09-07: the chain walk is not needed
 
-The one remaining question is **who actually answers `AH=08h`**, and it decides where the fix goes.
+Answered statically off the ROM dumps already in the repo. Full working:
+[`evidence/int13_ah08_who_answers_2026-09-07.md`](evidence/int13_ah08_who_answers_2026-09-07.md).
 
-- [ ] Walk the chain from `0575:0122` and find where it hands off.
-      - lands in **`F000`** → the 1986 system BIOS answers, and Sergey's ROM does not implement
-        `AH=08h`. The fix is Windows-side or a shim.
-      - lands in **`C800`-`DE00`** → Sergey's ROM answers and is reporting 720K. The fix may be ROM
-        configuration.
+It lands in **neither** box this briefing predicted. Settled:
 
-⚠ **Do NOT conclude Sergey's ROM is broken.** There is good evidence it works: **DOS read a 1.44 MB
-disk successfully**, and a stock 1986 XT BIOS cannot do 1.44 MB at all — it knows 360K. So the
-ROM's data path is fine. `AH=08h` is a separate service it may simply not implement, letting it
-fall through. The FD-505 really is a 1.44 + 1.2 combo; the BIOS being wrong does not make the
-hardware wrong. (The owner asked this directly and was right to.)
+- **The 1986 system BIOS does not implement `AH=08h`** — no `cmp ah,08` in either U18 chip
+  (`F800`, where the diskette BIOS lives), and the call returned success. Not it.
+- **Sergey's ROM is doubly exonerated.** It *does* implement `AH=08h` (dispatch `0x1119` ->
+  handler `0x98f`), and its per-drive config table at `0x1f81` reads **type 4 (1.44 MB)** for
+  A: and **type 2 (1.2 MB)** for B: — the correct drives. Answering from that table it would
+  not say 720K. Its type-3 branch does produce `CX=0x4F09`, but returns `ES:DI = <ROM>:13D6`.
+- **XTIDE Universal BIOS intercepts `AH=08h` for drives it does NOT own** — proven in the dump
+  taken off the real card, and identical in the r638 XT+ image. `AH=00h` and `AH=08h` go to
+  XTIDE's own function table; everything else chains onward. Its floppy path calls the previous
+  handler and then rewrites the drive count. It also carries a **byte-identical copy of the
+  `F000:EFA0` 9-sector table** at ROM `0x166d`.
+- **No DOS floppy driver is loaded at all** — `CONFIG.SYS` on the CF is clean.
 
-⚠ It is still **inference**, not measurement, that Windows takes the drive type from `AH=08h`. It
-fits every symptom, but this project has repeatedly paid for fixing on a theory — techniques 29,
-63, 81 and 88 are all retractions of exactly that.
+⚠ Still a hypothesis, not a finding: `ES:DI = F000:EFA0` fits neither candidate cleanly.
+And this is static analysis, which this project has been burned by (techniques 29, 44, 63, 81).
+
+**Do these two read-only inspections before anything else. Both are at the machine, minutes.**
+
+- [ ] **`xtidecfg.com`** — already on the CF at `D:\xtide\`. Read XTIDE's floppy settings.
+- [ ] **F2 at boot** into Sergey's Multi-Floppy BIOS utility, then `p` to print the live EEPROM
+      configuration. The image in the repo is correct; the EEPROM on the card may not be.
+
+Whichever one reports 720K owns the bug, and the fix is a configuration change in that utility.
 
 ### THEN the fix, cheapest first (full costing in #25's comments)
 

@@ -5762,3 +5762,71 @@ the tree is clean and the build is "obviously" current.
 is not a faithful *card*. No XT bus timing, no real option ROM, no partial address decode. The ask
 for a physical Compatibility-mode card stands — what changed is that a stranger's disk is no longer
 the first thing that code will ever touch.
+
+## Technique 101: before walking an interrupt chain on the machine, ask which of the ROMs you
+## already have would answer it - option ROMs intercept services that are "not theirs"
+
+2026-09-07, issue #25. The handover's FIRST ACTION was to walk the `INT 13h` chain from
+`0575:0122` on the real 5160 to find who answers `AH=08h` with 720K for both floppies. That
+needs a boot and live memory reads. **It was answerable from files already in the repo**, in
+one session, with no machine time at all.
+
+The move: every ROM in the chain is a file here, and `cmp ah,<fn>` is one grep.
+
+| ROM | `cmp ah,08` present? |
+|---|---|
+| 1986 system BIOS, U18 (`F800`, where the diskette BIOS lives) | **no** - and the call returned success, so not it |
+| Sergey Multi-Floppy BIOS 2.2 | **yes**, dispatch `0x1119` -> handler `0x98f` |
+| XTIDE Universal BIOS 2.0.4, dumped off the card at `D8000` | **yes**, at `0x1460` |
+
+That is three candidates reduced to two in about a minute, and it named a candidate the
+handover had not considered at all.
+
+### The finding worth carrying: an option ROM answers services for drives it does not own
+
+XTIDE Universal BIOS, both revisions on this card, identical logic:
+
+```asm
+1436  jb   0x145c        ; this drive is NOT ours
+...
+145c  test ah, ah
+145e  je   0x1438        ; AH=00h -> OUR OWN function table
+1460  cmp  ah, 8
+1463  je   0x1438        ; AH=08h -> OUR OWN function table
+1465  ...                ; everything else chains to the previous handler
+```
+
+A hard-disk BIOS intercepting `AH=00h`/`AH=08h` for **floppy** drives is not a bug - it is how
+it corrects the drive count in `DL`. But it means "whose drive is it" does not tell you "whose
+handler answers", and a chain walk that stops at the first ROM claiming the vector will get the
+wrong answer. **Enumerate every ROM's dispatch, not just the one that owns the device.**
+
+### Two corroborations that cost nothing and are worth copying
+
+- **Match the returned register values against the ROM's own literal.** Sergey's type-3 branch
+  is `mov cx, 0x4f09` - the exact `CX` measured. A hardcoded immediate in a ROM is a fingerprint;
+  grep for the measured value before theorising about who produced it.
+- **Diff a returned pointer's target against every ROM you hold.** `ES:DI = F000:EFA0` is an
+  11-byte diskette parameter table, and XTIDE carries a **byte-identical copy** at its own
+  `0x166d`. Identical data in two ROMs says they are in the same business; it does not by itself
+  say which one answered.
+
+### And read the ROM's own configuration table before assuming it is misconfigured
+
+Sergey's per-drive config sits at `0x1f81`, 4 bytes per drive (type, FDC, unit). In the image
+here it reads type 4 (1.44 MB) for A: and type 2 (1.2 MB) for B: - **correct**. So the ROM is
+not merely innocent of the mechanism, it is innocent of the configuration too, which is what the
+owner had asked to be checked rather than assumed. Caveat stated in the write-up: the live
+EEPROM can differ from a ROM image, so this narrows the field, it does not close it.
+
+### What this does NOT do
+
+It does not replace the measurement. The skill's core principle stands - static disassembly has
+produced confident wrong answers here repeatedly (techniques 29, 44, 63, 81), and one loose end
+survives (`ES:DI` fits neither candidate cleanly). What the static pass bought is that the next
+thing to do at the machine is **two read-only utility screens** - `XTIDECFG` (already on the CF)
+and Sergey's own F2 configurator - instead of a live chain walk followed by routes 1-3.
+
+**The general rule: when the next step is "measure it on the machine", first list what you can
+already read - ROM dumps, config files, the driver binaries - and ask which of them the answer
+must pass through.** Machine time is the owner's evening; a grep is not.
