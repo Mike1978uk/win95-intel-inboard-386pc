@@ -66,6 +66,19 @@ the directory's own `README.md`.
   — full KiCAD schematics for XT recreations, suggested by @andrew-hoffman. Both leads paid off.
   ❌ Neither is an *IBM* board, so decoding differences must be checked against the IBM tech ref
   above before being treated as original behaviour.
+- **XT-IDE / XT-CF card variations**, suggested by @andrew-hoffman 2026-09-06:
+  [card variations](https://minuszerodegrees.net/xtide/variations/XT-IDE%20and%20XT-CF%20variations.htm),
+  [XT-IDE Rev 3 general](https://minuszerodegrees.net/xtide/rev_3/XT-IDE%20Rev%203%20-%20general.htm),
+  and the one that matters:
+  **[XT-IDE register map](https://minuszerodegrees.net/xtide/XT-IDE%20-%20Register%20map.jpg)**.
+  ❌ The two HTML pages carry **no register-level detail at all** — no stride, no bus width, no
+  latch. Do not send anyone to them for that; the JPG is the whole answer. It gives two maps:
+  *Compatibility* (XT-IDE Rev 1, and Rev 2/3/4 switched into it) and *Hi-Speed* (modified Rev 1,
+  and the default on Rev 2/3/4). See [`xtide_register_maps.md`](xtide_register_maps.md) for what
+  they mean for our driver — the Hi-Speed map is **not** a stride and we do not implement it.
+- **[Bluelavasystems/XT-IDE-CF-MINI](https://github.com/Bluelavasystems/XT-IDE-CF-MINI)** — design
+  files for the card @andrew-hoffman has, and therefore the card most likely to produce the first
+  independent test result.
 - **[Dallas DS1315 datasheet](https://www.analog.com/media/en/technical-documentation/data-sheets/DS1315.pdf)**
   — phantom clock, for the RTC on the XT-IDE card.
 - **[skiselev/isa-fdc](https://github.com/skiselev/isa-fdc)** — Sergey Kiselev's floppy controller.

@@ -156,10 +156,19 @@ must be in `[SafeList]` in `WINDOWS\IOS.INI` first, or IOS declines every minipo
 
 ### Does this work on cards other than mine?
 
-It should, and that is untested. The driver autodetects the register stride and the transfer
-mode, so a stock XT-IDE at stride 1 is a supported configuration in the code — but **stride 1 has
-never been executed**, on hardware or in emulation, because this machine's card is a Lo-tech XT-CF
-rev 3 at stride 2 with 8-bit PIO. What is confirmed is one card, one base, one machine.
+Partly, and less than this section claimed before 2026-09-07. There are **three** XT-IDE register
+maps, not two, and this driver expresses two of them
+([`docs/xtide_register_maps.md`](docs/xtide_register_maps.md)):
+
+- ✅ **Lo-tech XT-CF**, A0 undecoded, register N at `base + 2N`. This is the card here, measured,
+  and the only configuration ever confirmed — one card, one base, one machine.
+- ⚠️ **Compatibility map** — XT-IDE Rev 1, or a Rev 2/3/4 switched into it with XUB device type
+  `XTIDE rev1`. This is the driver's stride 1. In the shipped binary, **never executed by anyone**.
+- ❌ **Hi-Speed map** — the *default* on XT-IDE Rev 2/3/4. **Not supported.** It comes from swapping
+  the A3 and A0 address lines, which permutes the registers instead of scaling them, and
+  `base + index * stride` cannot express a permutation. Expected to be declined by the read-only
+  stride probe rather than misdriven, since that probe compares Status against Alternate Status and
+  writes nothing — but that has never been observed on such a card.
 
 If you have an XT-IDE or XT-CF card on a Windows 95 machine, this is the test the project cannot
 run itself — please report the result on

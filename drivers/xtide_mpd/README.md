@@ -41,7 +41,12 @@ re-derived, by the owner's call, because the artefact itself is tracked and publ
 
 - sustained write load — this was a boot, a look at `C:`, and a shutdown
 - responsiveness under a heavy teardown flush; `XtStartIo` still completes inline (technique 98)
-- **stride 1**, i.e. a stock XT-IDE card, on any machine — supported in code, never executed
+- **stride 1** — the *Compatibility* map: XT-IDE Rev 1, or a Rev 2/3/4 switched into it. Supported
+  in code, never executed on any machine.
+- the **Hi-Speed** map (the default on XT-IDE Rev 2/3/4) is **not supported at all** — it is an
+  A3/A0 address-line swap, a permutation rather than a stride, and `base + index * stride` cannot
+  express it. Expected to be declined by the read-only probe rather than misdriven, but unobserved.
+  See [`docs/xtide_register_maps.md`](../../docs/xtide_register_maps.md).
 
 ## Why a miniport
 
@@ -151,5 +156,5 @@ the driver never touches the device node's resources.
 
 Still open, and both are listed above with their evidence: the forced-configuration shutdown hang
 (moot on the hardware run, not answered), synchronous completion under a heavy teardown, and
-**stride 1**, which needs a stride-1 card and a stock XTIDE option ROM that this project does not
-have. Submission drafts asking for that testing: [`docs/xtide_submission_drafts.md`](../../docs/xtide_submission_drafts.md).
+**stride 1**, which needs a card presenting the *Compatibility* register map — a Rev 1, or a
+Rev 2/3/4 switched into it with XUB device type `XTIDE rev1`. Neither exists here. Submission drafts asking for that testing: [`docs/xtide_submission_drafts.md`](../../docs/xtide_submission_drafts.md).

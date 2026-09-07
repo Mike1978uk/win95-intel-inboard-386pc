@@ -5672,3 +5672,52 @@ hardware or in emulation" — written before technique 94 used `T130.MPD` as the
 justified this entire port. A document that was true when written goes stale silently. The
 repo-hygiene tidy pass is what catches it; run it when a result lands, not only when `git status`
 drifts.
+
+## Technique 100
+
+**A "stride" is an assumption about how a card decodes, not a property of cards in general. Check
+whether the real map is a scaling or a permutation before shipping a driver that only scales.**
+
+Established 2026-09-07, from the
+[minuszerodegrees XT-IDE register map](https://minuszerodegrees.net/xtide/XT-IDE%20-%20Register%20map.jpg)
+that @andrew-hoffman linked on issue #21. Full table and consequences:
+`docs/xtide_register_maps.md`.
+
+`XTIDEMP.MPD` computes every port as `base + index * XTIDE_Stride`, stride 1 or 2. That was derived
+from this card and measured on it — A0 is not decoded on a Lo-tech XT-CF, so register N is at
+`base + 2N` (technique 78). Correct here, and it shipped.
+
+What it missed is that **the XT-IDE family has a third map, and it is the default on Rev 2/3/4**.
+'Hi-Speed' mode swaps the **A3 and A0 address lines**, which sends register index `b2 b1 b0` to
+offset `8·b0 + 4·b2 + 2·b1`. Even-indexed registers do not move; odd-indexed ones scatter. Data-low
+and status land where our stride-2 map puts them and *nothing else does*. No multiplier produces
+that arrangement — it is a permutation, and a `stride` variable cannot express one.
+
+Three lessons, in order of how much they cost:
+
+1. **Measuring one card tells you that card.** The write/readback that established stride 2 was
+   good work and is still right. It licensed a generalisation it never supported: that other cards
+   in the family differ from this one *by a scale factor*. They differ by a wiring change.
+2. **"Supported in code, never executed" was an overclaim** and it had been in the README and the
+   submission drafts for a day. The stride-1 path really is the Compatibility map, so that part
+   held — but the drafts told people the binary covered "a stock XT-IDE card", and on a stock Rev
+   2/3/4 in its default mode it covers nothing. Caught before anything was sent.
+3. **The read-only probe is what makes this survivable.** `XTIDE_DetectStride` compares Status and
+   Alternate Status and writes nothing, so on a map it cannot drive it declines the card instead of
+   issuing commands into the wrong registers. The earlier decision not to probe by writing
+   (recorded in `XTIDETR.ASM`, because `0ECh` into a device-control register asserts `SRST`) is
+   what turns an unsupported card into a no-op rather than someone else's hung drive.
+
+**Residual risk, named rather than assumed away:** the stride-2 candidate reads Alternate Status at
+`base+1Ch`. On a card decoding narrowly, that aliases back inside the window — and this project
+measured the 5160's own 8259 answering across `0x20-0x3F`, so partial decode is a demonstrated
+behaviour on this bus, not a hypothetical. If it aliased onto something that happened to equal
+Status, the probe would pass on a map we would then drive wrongly. No card here to test it on;
+it is one of the questions in the submission.
+
+### The general form
+
+When a driver parameterises a hardware difference with a single number, ask what the number is
+*standing in for*. If the underlying difference is an address-line change, a number is the wrong
+shape for it and a lookup table is the right one. That question is cheap to ask at design time and
+expensive to discover from a stranger's corrupted disk.
