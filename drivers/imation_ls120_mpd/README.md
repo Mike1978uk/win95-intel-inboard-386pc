@@ -409,3 +409,54 @@ straight to `re.finditer` let the regex engine decode it and both sites appeared
 
 Technique 91a, in a new place: **when a zero result is itself the interesting answer, prove the
 query could ever have matched.** Here it would have hidden the finding entirely.
+
+## ⚠ Data corruption measured on the LS-120 path, 2026-09-07 - NOT yet attributed
+
+Found while trying to measure throughput. The throughput number was never obtained; this is more
+important. Media present, vendor DOS stack loaded (`SD120PPD.EXE /ni` + `ASPIHDRM.EXE`), drive
+enumerated at `D:`, 125,597,696 bytes free (confirms LS-120 media).
+
+Same 488,222-byte source copied twice, CRC-32 taken on the machine itself:
+
+| what | CRC-32 | note |
+|---|---|---|
+| source `C:\WINDOWS\INF\DRVIDX.BIN` | `d9cbbad4` | **re-read identical** - the CF path is stable |
+| `D:\SPEED.TMP` (write 1) | `87b5fc06` | wrong; **stable across two reads** |
+| `D:\SPEED2.TMP` (write 2, same source) | `2b60d217` | wrong, and **a different wrong value** |
+
+Every copy reported `1 file(s) copied`. Correct length, no error, wrong bytes - the #18 signature.
+
+### What the three readings actually establish
+
+- **Not a flaky read.** `SPEED.TMP` hashed twice gave the same value, so the read path returns
+  what is on the disk consistently.
+- **Not the source.** `C:` re-read byte-identical, so both copies were fed the same bytes. That
+  also incidentally re-confirms `XTIDEMP.MPD` (#21) as stable under a 488 KB read.
+- **Not a systematic transport bug.** A byte-order or block-boundary defect corrupts the *same*
+  way every time. Two different wrong values means it is **non-deterministic**.
+
+Non-deterministic corruption points at **marginal media or marginal signalling** (the cable, the
+connector, or the bridge), not at a logic error.
+
+### Do not conclude the transport is broken
+
+**The disk in the drive is known-bad**: the owner reports this medium is flaky and had been
+recovered previously. That is the leading explanation and it was volunteered before the test, not
+after the result. Unused NOS disks exist.
+
+**The controlled experiment, and it must be run before any of this is attributed:** repeat the
+identical copy-and-CRC on a fresh NOS disk.
+
+- Clean CRCs on a good disk -> the medium was the whole story; the transport is fine and the
+  throughput measurement can proceed.
+- Corruption on a good disk too -> it is the link or the bridge, and that is a blocker for the
+  miniport, because our driver would inherit it.
+
+### The harness is reusable, and #18 wants it
+
+`COPY` + `file_hash` on both ends, with the source re-hashed as a control, is a complete
+corruption test needing no host transfer and no special tooling. **This is directly applicable to
+#18** (the floppy corruption blocker), which is the same failure shape on a different transport.
+Note the ordering that made it trustworthy: hash the source, hash the copy, re-hash the copy,
+write a second copy to *different sectors*, then re-hash the source again. Each step kills one
+explanation.
