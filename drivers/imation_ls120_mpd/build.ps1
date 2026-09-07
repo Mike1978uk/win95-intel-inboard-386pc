@@ -22,6 +22,15 @@ param(
     # base without a reinstall (the lesson of 2026-09-05, technique 96).
     [int] $Base = 0,
 
+    # 0 = the phase-0 skeleton that is staged for the keyboard test: no
+    #     transport, reports no devices, ONE port instruction in the binary.
+    # 2 = link the transport (LS120TR.ASM) and the SRB->ATAPI dispatch. The
+    #     EPAT layer inside it is STUBBED and returns failure, so a phase-2
+    #     build finds no drive either - it exists so the layers either side of
+    #     the stubs can be written and reviewed before the licence question
+    #     (README.md) is settled.
+    [ValidateSet(0, 2)] [int] $Phase = 0,
+
     [string] $DdkRoot = 'C:\Users\lycet\OneDrive\Desktop\XT_project\Windows95_ddk'
 )
 
@@ -44,13 +53,15 @@ foreach ($p in @($ml, $link, $lib, $inc)) {
 $env:INCLUDE = "$inc;$(Join-Path $DdkRoot 'INC32')"
 
 $defs = @()
-if ($Base -ne 0) { $defs += ("-DLS_FORCE_BASE=0{0:X}h" -f $Base) }
+if ($Base -ne 0)  { $defs += ("-DLS_FORCE_BASE=0{0:X}h" -f $Base) }
+if ($Phase -eq 2) { $defs += '-DLS_PHASE2' }
 
 # -coff is what makes ML emit objects the PE linker can use at all.
 $aflags = @('-coff', '-DBLD_COFF', '-DIS_32', '-DMASM6', '-nologo', '-W2', '-Zd', '-c', '-Cx') + $defs
 
 $objs = @()
-foreach ($name in @('LS120MP')) {
+$sources = if ($Phase -eq 2) { @('LS120TR', 'LS120MP') } else { @('LS120MP') }
+foreach ($name in $sources) {
     $obj = Join-Path $out "$name.obj"
     Write-Host "ML  $name.ASM" -ForegroundColor Cyan
     & $ml @aflags "-Fo$obj" (Join-Path $src "$name.ASM")

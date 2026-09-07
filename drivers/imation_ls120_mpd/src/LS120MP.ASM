@@ -41,6 +41,19 @@
 	INCLUDE	miniport.inc
 	INCLUDE	srb.inc
 
+ifdef LS_PHASE2
+;----------------------------------------------------------------------------
+;  The transport (LS120TR.ASM). Only linked in a -Phase 2 build; the phase-0
+;  skeleton neither references nor contains any of it.
+;----------------------------------------------------------------------------
+EXTERNDEF	LS_PacketCommand	: NEAR
+EXTERNDEF	LS_Connect		: NEAR
+EXTERNDEF	LS_Disconnect		: NEAR
+EXTERNDEF	LS_BasePort		: WORD
+EXTERNDEF	LS_LastStatus		: DWORD
+LS_CDB_MAX	equ	12
+endif
+
 ;----------------------------------------------------------------------------
 ;  SCSIPORT services, decorated exactly as BLOCK/LIB/SCSIPORT.LIB exports them.
 ;  ScsiPortNotification is varargs and therefore cdecl.
@@ -91,6 +104,12 @@ DEVEXT	ENDS
 ;  The tag looked for in the Settings-tab string. Lower case: the compare
 ;  lowercases the input, and '=' already has bit 5 set so the OR leaves it be.
 LsPortTag	db	'port='
+
+ifdef LS_PHASE2
+;  The twelve-byte ATAPI packet handed to the device. SCSIPORT serialises
+;  requests for a single adapter, so one static buffer is safe.
+LsPacket	db	12 dup (0)
+endif
 
 	.CODE
 
@@ -227,6 +246,11 @@ lfa_havebase:
 	mov	ebx, DeviceExtension
 	mov	[ebx].DEVEXT.dxBase, eax
 	mov	[ebx].DEVEXT.dxSrbCount, 0
+
+ifdef LS_PHASE2
+;  The transport addresses the port directly, so it needs the same base.
+	mov	LS_BasePort, ax
+endif
 
 ;  The one and only hardware access in phase 0: read the status register.
 ;  Recorded for later diagnosis; nothing is decided on it, because a phase-0
@@ -408,9 +432,75 @@ LsStartIo PROC STDCALL DeviceExtension:DWORD, Srb:DWORD
 	cmp	eax, SRB_FUNCTION_EXECUTE_SCSI
 	jne	lsi_badfunc
 
-;  Nothing is attached yet, as far as this build is concerned.
+ifndef LS_PHASE2
+;  PHASE 0: nothing is attached, as far as this build is concerned.
 	mov	al, SRB_STATUS_SELECTION_TIMEOUT
 	jmp	lsi_complete
+else
+;----------------------------------------------------------------------------
+;  PHASE 2: SRB -> ATAPI, and it is very nearly a pass-through.
+;
+;  An ATAPI command packet IS a SCSI CDB. SCSIPORT hands us a CDB in the SRB
+;  and, for a command of twelve bytes or fewer, it goes on the wire unchanged
+;  - zero-padded if the class driver sent a 6- or 10-byte form. So this layer
+;  does no command translation at all, which is the whole reason an ATAPI
+;  device is worth presenting as SCSI.
+;
+;  *** UNTESTED. The transport beneath this is stubbed. ***
+;----------------------------------------------------------------------------
+	cmp	[ebx].SCSI_REQUEST_BLOCK.Lun, 0
+	jne	lsi_noselect
+	cmp	[ebx].SCSI_REQUEST_BLOCK.TargetId, 0
+	jne	lsi_noselect
+
+;  Copy the CDB into a zero-filled twelve-byte packet.
+	lea	edi, LsPacket
+	mov	ecx, LS_CDB_MAX
+	xor	eax, eax
+	cld
+	rep	stosb
+
+	movzx	ecx, [ebx].SCSI_REQUEST_BLOCK.CdbLength
+	cmp	ecx, LS_CDB_MAX
+	ja	lsi_badreq
+	or	ecx, ecx
+	jz	lsi_badreq
+	lea	esi, [ebx].SCSI_REQUEST_BLOCK.Cdb
+	lea	edi, LsPacket
+	rep	movsb
+
+;  Direction, from the SRB flags. UNSPECIFIED is both bits set and is treated
+;  as data-in, which is the safe reading for an inquiry-shaped command.
+	xor	edx, edx
+	mov	eax, [ebx].SCSI_REQUEST_BLOCK.SrbFlags
+	test	eax, SRB_FLAGS_DATA_OUT
+	jz	lsi_dirin
+	test	eax, SRB_FLAGS_DATA_IN
+	jnz	lsi_dirin
+	mov	edx, 1
+lsi_dirin:
+
+	lea	esi, LsPacket
+	mov	edi, [ebx].SCSI_REQUEST_BLOCK.DataBuffer
+	mov	ecx, [ebx].SCSI_REQUEST_BLOCK.DataTransferLength
+	call	LS_PacketCommand
+	jc	lsi_ioerror
+
+	mov	al, SRB_STATUS_SUCCESS
+	jmp	lsi_complete
+endif
+
+ifdef LS_PHASE2
+lsi_ioerror:
+	mov	al, SRB_STATUS_ERROR
+	jmp	lsi_complete
+lsi_badreq:
+	mov	al, SRB_STATUS_INVALID_REQUEST
+	jmp	lsi_complete
+lsi_noselect:
+	mov	al, SRB_STATUS_SELECTION_TIMEOUT
+	jmp	lsi_complete
+endif
 
 lsi_badfunc:
 	mov	al, SRB_STATUS_BAD_FUNCTION

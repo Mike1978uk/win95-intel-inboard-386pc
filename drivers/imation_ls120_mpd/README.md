@@ -109,6 +109,56 @@ expensive one and it may simply not converge.
 either route. Test it first regardless: if a polling parallel-port miniport disturbs the keyboard
 on this machine, neither route matters.
 
+## Phases 1 and 2 are pre-staged, 2026-09-07
+
+Written while phase 0 waits for a boot. **Built and linking, and entirely untested — no part of it
+has executed on any machine.** Build with `-Phase 2`; the default build is unchanged.
+
+The driver is now three layers, and only the middle one is blocked:
+
+| layer | what | status |
+|---|---|---|
+| 1 | parallel port registers (IEEE 1284) | **written** — `LS_ReadStatus`, `LS_WriteData`, … |
+| 2 | EPAT bridge register access | **STUBBED** — proprietary, blocked on the licence decision |
+| 3 | ATAPI packet commands over layer 2 | **written** — `LS_PacketCommand`, `LS_WaitDrq`, … |
+| — | SRB → ATAPI dispatch in the miniport | **written** |
+
+The stubs return failure rather than success on purpose: a stub that claimed to work would let the
+ATAPI layer spin against nothing and present as a hardware fault.
+
+**Why layers 1 and 3 could be written now.** ATAPI is a documented standard, and the useful fact is
+that **an ATAPI command packet *is* a 12-byte SCSI CDB** — so SCSIPORT hands us a CDB in the SRB
+and it goes on the wire unchanged, zero-padded if the class driver sent a 6- or 10-byte form. There
+is no command translation to write at all. That is the whole reason presenting an ATAPI device as
+SCSI is worth doing.
+
+**It also narrows the licence exposure.** If route A is taken, only layer 2 — perhaps eight
+functions in `LS120TR.ASM` — is derived from `paride`. Layers 1 and 3 and the miniport are
+independent work and can stay MIT.
+
+### Verified, not asserted
+
+```
+phase 0 (default)  code 7bfc5476  5120 bytes   1 port instruction   <- unchanged, still what is staged
+phase 2            code a30227bc  5632 bytes   6 port instructions
+xt_port_audit      0 destructive-write candidates in BOTH builds
+```
+
+Phase 0's code hash is **identical** before and after this work, so the conditional assembly is
+genuinely inert and the binary on the card is unaffected. That is the check, rather than trusting
+`ifdef`.
+
+All six port instructions in the phase-2 build are DX-addressed through the LPT base taken from
+`PORT=`. There is no immediate-port I/O anywhere in either build, so neither can reach an XT system
+port by construction.
+
+### A MASM note worth keeping
+
+Exported transport routines must be `public NAME` + a plain `NAME:` label, **not** `PROC`/`ENDP`.
+Under `.MODEL FLAT, STDCALL` a `PROC` gets C-style decoration and the caller's `EXTERNDEF NAME
+: NEAR` then fails to resolve (`unresolved external symbol "_LS_PacketCommand"`). `XTIDETR.ASM`
+uses the label form throughout for exactly this reason.
+
 ## Build
 
 ```
