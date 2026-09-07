@@ -262,3 +262,56 @@ taken and correctly fell back to `INT 40h`.
   Write them base64-encoded so the bytes are exact.
 - Overwriting one particular existing file timed out repeatedly while writing new names
   succeeded; if a `file_write` hangs, write to a fresh filename rather than retrying.
+
+## ⭐ DOS 6.22 CONTROL, 2026-09-07 - the bug predates Windows 95 entirely
+
+**Same machine, same ROMs, same option-ROM scan order. Only the CF and the OS differ.** That is
+what makes this a clean control rather than a comparison.
+
+| call | DOS 6.22 | Windows 95 | verdict |
+|---|---|---|---|
+| `INT 13h` A: | `BL=03 CX=4F09 ES:DI=F000:EFA0` | identical | **wrong** |
+| `INT 13h` B: | `BL=03 CX=4F09 ES:DI=F000:EFA0` | identical | **wrong** |
+| `INT 40h` A: | `BL=04 CX=4F12 ES:DI=D000:13E3` | identical | correct |
+| `INT 40h` B: | `BL=02 CX=4F0F ES:DI=D000:13C9` | identical | correct |
+
+`VER` confirms genuine **MS-DOS 6.22**, not DOS 7.
+
+### What it settles
+
+**Windows 95 is not the outlier.** The wrong `AH=08h` answer is present under plain DOS 6.22, so
+it comes from the ROM-level `INT 13h` chain and not from anything Windows installs. An earlier
+draft of this session conceded that Win95's `IO.SYS` was the likely culprit, on the strength of
+`0070` appearing in the chain walk. **That concession was wrong** and this measurement retires it.
+
+### And it reconciles the owner's recollection, which was also correct
+
+The owner recalled the floppies working fully under DOS 6.22 and Windows 3.11. They did - and
+`AH=08h` was wrong the whole time. **Nothing before Windows 95 ever asked.**
+
+DOS and Win 3.11 drive floppies through the real-mode data path, which works: reads and writes
+chain onward to `INT 40h` and reach Sergey's ROM. That is why 1.44 MB disks have always read
+correctly. `AH=08h` is a *query*, and Windows 95's hardware detection is the first thing on this
+machine to ask it and believe the answer.
+
+So the defect has always been present and simply had no consumer. That is also why it is not a
+known issue in the wider community, and why Sergey shipping this BIOS is entirely reasonable.
+
+### Incidental: the INT 40h front-end differs, the answer does not
+
+| vector | DOS 6.22 | Windows 95 |
+|---|---|---|
+| `INT 13h` | `0247:0B78` (INBRDPC's wrapper, same `0B78` offset, lower load address) | `0575:0122` then `0206:0B78` |
+| `INT 1Eh` | `0000:0522` | `0000:0522` |
+| `INT 40h` | `0392:0846` - a RAM driver front-ends it | `D000:10D6` - Sergey's ROM directly |
+
+Under 6.22 something at `0392` hooks `INT 40h`, but `ES=D000` in its reply proves it still chains
+through to Sergey. Windows 95 also adds a hop at `0575` in front of INBRDPC that 6.22 lacks.
+Neither difference changes the answer.
+
+### Consequences
+
+- `FD08FIX`'s design stands, and is **XT-general** - it has no Inboard dependency at all.
+- **The XTIDE / Trantor question is live again.** One of those ROMs answers `AH=08h` rather than
+  forwarding to `INT 40h` as AMI's reference documents. Identifying which is worth doing properly
+  before anyone raises it with the XTIDE maintainers.
