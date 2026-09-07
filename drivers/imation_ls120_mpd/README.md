@@ -266,3 +266,38 @@ preserving the low bits. Bit 4 is **IRQ enable**, and LPT1 here is IRQ 7 with no
 installed, so that specific write risks spurious interrupts. A safer first experiment is the
 data-register path at `0x25c1`, which touches no interrupt line. Recoverable either way by a
 power cycle, but say which before running it.
+
+### The parallel port is an Intek TK9901, and it is ECP/EPP capable - measured
+
+Owner's hardware note, confirmed on the machine: **TK9901 multi-I/O card, `0x378`, IRQ 7,
+DMA 3**, configured for ECP/EPP.
+
+| port | reads | meaning |
+|---|---|---|
+| `0x77A` (base+0x402, ECP ECR) | **`0x15`** | mode `000` = **SPP compatibility**; `dmaEn`=0; FIFO empty |
+| `0x77E` (control read) | `0xFF` | floating - nothing there |
+
+The control read is what makes the first line evidence: an absent register floats high on this
+bus, so a structured `0x15` at `0x77A` means **the ECP hardware is really present and
+answering**. The port powers up in SPP and software selects EPP/ECP by writing the ECR mode bits.
+
+### Two consequences for the driver, and they pull in opposite directions
+
+**1. EPP is reachable, and it is worth having.** The DOS driver's `0x25c1` path bit-bangs SPP
+with eight-fold repeated writes as timing padding - correct, and slow. EPP does a register
+access in one bus cycle instead of a hand-rolled handshake. If the EPAT bridge negotiates EPP,
+that is roughly an order of magnitude on transfer rate.
+
+**2. Do NOT enable ECP DMA. This machine cannot do it safely.** ECP's fast path is DMA, and
+`dmaEn` is currently 0 - leave it there. The Inboard in a 5160 keeps the XT's **4-bit DMA page
+latch**: 20-bit reach, 1 MB. A buffer above that does not fault, it transfers against a
+truncated address - silent wrong data. That is technique 62, and this project has already paid
+for it once on the Sound Blaster Pro, where `MSSBLST.VXD` allocated at `0x4E0000` and the latch
+turned it into `0x0E0000`, playing adapter ROM as audio.
+
+So the target is **EPP register access with PIO transfers** - fast handshake, no DMA. Same
+posture `XTIDEMP.MPD` already takes for the XT-CF, and for the same reason.
+
+⚠ Unverified: that the EPAT bridge on this drive negotiates EPP at all. Some Shuttle bridges are
+SPP/nibble only. The DOS driver's `/de` and `/db` switches (documented in its own strings) look
+like mode selectors and are the cheapest place to find out.
