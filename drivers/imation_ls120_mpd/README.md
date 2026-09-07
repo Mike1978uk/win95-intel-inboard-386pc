@@ -460,3 +460,64 @@ corruption test needing no host transfer and no special tooling. **This is direc
 Note the ordering that made it trustworthy: hash the source, hash the copy, re-hash the copy,
 write a second copy to *different sectors*, then re-hash the source again. Each step kills one
 explanation.
+
+## ⚠ CORRECTION + the actionable find: EPP is disabled by a switch, not by the hardware
+
+The section above concluded "no site selects ECP FIFO or EPP", from finding exactly two ECR
+writes via one addressing idiom (`add dx, 402h`). **That conclusion was wrong**, and the caveat
+attached to it - "a site computing the address differently would have been missed" - is exactly
+what happened. Recorded rather than quietly edited.
+
+`SD120PPD.SYS` carries a full table of transfer methods, dispatched through two globals:
+
+```asm
+244b  READ  reg:  bx = [0BD9] * 8 ; al = reg (from dl) ; dx = [0BFA] LPT base
+                  call word ptr cs:[bx + 4E9Dh]      <- read-method table
+2472  WRITE reg:  bx = [0BDB] * 8 ; ah = value ; al = reg ; dx = [0BFA]
+                  call word ptr cs:[bx + 4F15h]      <- write-method table
+```
+
+`[0BD9]` and `[0BDB]` are the **read and write method selectors** - what the banner reports as
+"Read Mode / Write Mode". The named methods in the binary:
+
+| read | write |
+|---|---|
+| UNIDIR Fast, UNIDIR Slow | WRITE Fast, WRITE Fast(+), WRITE Slow, WRITE Slow(-) |
+| NIBBLE Fast / Normal / Slow / Slow(-) | **ECP Write** |
+| TOSHIBA Fast, PS/2 Fast, PS/2 Normal | **EPP Normal**, **EPP BIOS(N)** |
+| **EPP BIOS(F)**, **EPP Fast**, **EPP Normal**, **EPP BIOS(N)**, **ECP Read** | |
+
+### The switches, and why this machine is not using EPP
+
+From the driver's own help strings:
+
+```
+/de  - Disable Epp check              /ded - Disable Epp Dword Xfers
+/fe  - force 386sl EPP initialization /fev - force VLSI chipset EPP initialization
+/sf  - Skips fast mode detection      /dp,/fp - PS/2 DMA arbitration handling
+```
+
+**The deployed switch set is `/de /db /ni /sf /dpc /dp /fp`** - it contains **`/de`, which
+disables the EPP check**, and **`/sf`, which skips fast-mode detection**. The driver was told not
+to try EPP and not to probe for fast modes. It still reached ECP.
+
+So EPP is not being ruled out by the bridge or the card. **It is being ruled out by our own
+command line**, and those switches were presumably added defensively during the #22 keyboard
+investigation.
+
+### Cheap experiment, no code, directly on the throughput question
+
+Re-run the TSR with `/de` and `/sf` **removed**, keeping `/ni` (which is proven necessary and
+sufficient for keyboard safety), and read the banner:
+
+```
+SD120PPD.EXE /port:378 /IRQ:7 /db /ni /dpc /dp /fp
+```
+
+- Banner reports an **EPP** mode -> EPP works on this bridge, and it is the target for our
+  miniport. Measure throughput against the ECP baseline.
+- Banner still reports ECP, or detection misbehaves -> `/de` was masking a real incompatibility,
+  which is worth knowing before designing around EPP.
+
+⚠ Do this on a **fresh NOS disk**, not the recovered one - the corruption result above makes any
+throughput or integrity number on the current medium uninterpretable.
