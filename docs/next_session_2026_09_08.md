@@ -37,6 +37,21 @@ the ROM is misconfigured.** A stock XT BIOS predates `AH=08h` for floppies, so a
 plausible from either. Next: is the ROM hooked into `INT 13h`, does it implement `AH=08h`, and does
 it carry a drive-type setting?
 
+**And there is good evidence Sergey's ROM IS working**, so do not read the above as "the ROM is not
+taking". Two arguments:
+
+1. **DOS read a 1.44 MB disk in A: successfully** - 22 entries, verified over the bridge. A stock
+   1986 IBM XT BIOS cannot do 1.44 MB at all; it knows 360K. So *something* is providing HD floppy
+   read/write, and that is the ROM. The ROM's data path works.
+2. `AH=08h` is a **different service** from read/write, and one a stock XT BIOS predates entirely.
+   A ROM can drive the disks correctly and still not implement `AH=08h`, letting it fall through to
+   a system-BIOS default table - which `ES:DI = F000:EFA0` is consistent with, though not proof.
+
+So the likely picture, stated as a hypothesis: **the ROM handles the actual I/O correctly, and
+`AH=08h` returns a stock 720K answer that nobody owns** - while Windows uses `AH=08h` and nothing
+else to pick the drive type. The owner is also right that the FD-505 is a 1.44 + 1.2 combo; the
+BIOS being wrong about it does not make the hardware wrong.
+
 Raw capture `docs/evidence/fdtype_int13_ah08_2026-09-07.txt`, probe `tools/fdtype/`.
 
 ### 2. LS-120: phase 0 PASSES — the miniport shape is safe here (#22)
