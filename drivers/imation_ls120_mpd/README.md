@@ -168,3 +168,73 @@ pwsh -File drivers/imation_ls120_mpd/build.ps1
 MASM 6.11c + the DDK's VC++ 2.0-era `LINK.EXE` against `SCSIPORT.LIB` — XTIDEMP's toolchain unchanged. Every build prints its commit and appends to `build_ledger.tsv`; a binary that cannot be traced to a commit is not evidence (technique 89).
 
 `-Base 0x378` pins the port and ignores the device node, for testing a base without a reinstall.
+
+## Phase 1 decision and target, 2026-09-07
+
+**Licence: stay MIT. Reverse-engineer, do not port from `paride`.** Owner's decision. So the
+protocol has to come from our own observation of hardware and of software the owner owns and
+was shipped with the drive - not from GPL source.
+
+### The target is the DOS driver, not the Win95 miniport
+
+`SD120PPD.MPD` (Win95) does its device I/O through **SCSIPORT library calls** - its import table
+carries only `ScsiPortRead/WritePortBufferUchar/Ulong`, no raw `in`/`out` on the data path, and
+it calls them through jump thunks. A byte scan finds nothing and a linear disassembly desyncs.
+It is the wrong end of the telescope.
+
+`SD120PPD.SYS` (DOS, 56,198 bytes, 1997-04-28, md5 `cbb42e8eb7847869e274e45f258cf718`) does raw
+port I/O with nothing in between:
+
+| | Win95 `.MPD` | DOS `.SYS` |
+|---|---|---|
+| validated `in`/`out` | 3 (none on the data path) | **2,242** |
+| I/O route | SCSIPORT thunks | raw, `DX`-addressed |
+| documented switches | none | `/ni /de /db /sf /dp /fp` |
+
+The owner's call, and it is the right one: the `.SYS` is small, it is the thing whose switches
+are known to work in real mode, and its transport is visible.
+
+⚠ Header first: offset 0 is the **DOS device driver header** (`next=FFFFFFFF attr=C000
+strategy=2074 interrupt=2082`), so a linear disassembly from zero desyncs immediately. Validate
+raw opcode candidates by disassembling a window that *ends* on each one - 2,630 raw candidates
+reduce to 2,242 real (technique 75's rule, applied properly).
+
+### I/O cluster map
+
+| ops | range | character |
+|---|---|---|
+| 880 | `0x3917`-`0x4e48` | mixed; contains the `out 22h/23h` chipset probes that kill the keyboard (technique 75) |
+| **337** | **`0x25b9`-`0x2ce0`** | **pure `DX`-addressed - the EPAT transport** |
+| 281 | `0xb0c2`-`0xbb2c` | mixed, touches `21h`/`2fh` |
+| **97** | **`0x2da5`-`0x2f4c`** | **pure `DX`-addressed** |
+
+### Confirmed shape of the transport
+
+```asm
+mov dx, word ptr [0x0bfa]     ; LPT base port  <- global
+cmp byte ptr [0x0bd7], 0x0c   ; bridge mode     <- global
+add dx, 2                     ; -> control register (base+2)
+in  al, dx / and al, 0x1f / or al, 0x10 / out dx, al
+; else:
+mov al, 1 / out dx, al / out dx, al        ; data register (base+0)
+add dx, 2 / mov al, 0x11 / out dx, al x8   ; control, 8x repeat = bus-speed padding
+mov al, 0x14 / out dx, al x8
+```
+
+Standard parallel-port bit-banging: `base+0` data, `base+2` control, repeated writes as timing
+padding for a slow bus. **Two globals carry the configuration** - `[0x0BFA]` the LPT base and
+`[0x0BD7]` the bridge mode.
+
+### Next, in order
+
+1. Map the register-access primitives around `0x25b9` and `0x2da5` into a **written
+   specification** - what sequence selects a register, reads it, writes it.
+2. **Confirm it against the hardware, not the binary.** The drive is connected to the parallel
+   port and powered with no driver loaded, and COMrade's DOS build has `io_in`/`io_out`. A live
+   probe is original measurement, which is both better evidence and cleaner provenance than any
+   disassembly.
+3. Implement fresh from the specification. Never transcribe.
+
+⚠ `0x378` is LPT1 and is **not** aliased by the XT system-board decoder (that covers `000-0FF`),
+so probing it does not risk the PIC. But write nothing to `0x22`-`0x25` or `0x94` - that is the
+exact bug that cost the keyboard (technique 75).
