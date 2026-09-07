@@ -89,6 +89,25 @@ for.
 
 ---
 
+## What has and has not executed the stride-1 path
+
+Worth stating precisely, because the short version ("stride 1 was tested in the emulator") is
+half true and misled this project's own drafts on 2026-09-07.
+
+- **86Box's stock `hdc_xtide.c` decodes `port & 0xf`** — a stride-1, consecutive-register map. So
+  the emulator does model a Compatibility-shaped card, and it is the *default* there.
+- **The retired `.PDR` ran against that bed for weeks.** Its stride-1 code path genuinely executed.
+  But it never correctly claimed the disk on it: the driver fell back to stride 1, `RMM.PDR` stayed
+  and served the volume, and the shutdown defect never triggered *because the driver was not really
+  doing the job* (technique 88). Code executing is not the map being driven.
+- **`XTIDEMP.MPD` has never run at stride 1 at all.** The miniport was written after the
+  `xtcf-lotech-stride2` bed existed and was developed and confirmed against stride 2 only. There is
+  no stride-1 run in `drivers/xtide_mpd/evidence/`.
+
+So the accurate claim is: **the shipped miniport's stride-1 path has never executed.** The cheap
+next test is not a stranger's hardware — it is the stock 86Box `xtide` device, which is sitting
+there modelling that map already.
+
 ## Consequence for the ask
 
 The valuable request is no longer "does anyone still own a 2009 Rev 1 card". **Any XT-IDE Rev 2, 3

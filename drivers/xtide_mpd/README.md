@@ -42,7 +42,10 @@ re-derived, by the owner's call, because the artefact itself is tracked and publ
 - sustained write load — this was a boot, a look at `C:`, and a shutdown
 - responsiveness under a heavy teardown flush; `XtStartIo` still completes inline (technique 98)
 - **stride 1** — the *Compatibility* map: XT-IDE Rev 1, or a Rev 2/3/4 switched into it. Supported
-  in code, never executed on any machine.
+  in code; **this miniport has never executed that path**, in emulation or on hardware. (The
+  retired `.PDR` did run against 86Box's stock stride-1 `xtide` device, but never properly claimed
+  the disk there. Code running is not the map being driven.) Stock 86Box models this map, so it is
+  testable in the VM without a card.
 - the **Hi-Speed** map (the default on XT-IDE Rev 2/3/4) is **not supported at all** — it is an
   A3/A0 address-line swap, a permutation rather than a stride, and `base + index * stride` cannot
   express it. Expected to be declined by the read-only probe rather than misdriven, but unobserved.

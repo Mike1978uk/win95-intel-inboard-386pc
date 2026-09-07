@@ -163,7 +163,9 @@ maps, not two, and this driver expresses two of them
 - ✅ **Lo-tech XT-CF**, A0 undecoded, register N at `base + 2N`. This is the card here, measured,
   and the only configuration ever confirmed — one card, one base, one machine.
 - ⚠️ **Compatibility map** — XT-IDE Rev 1, or a Rev 2/3/4 switched into it with XUB device type
-  `XTIDE rev1`. This is the driver's stride 1. In the shipped binary, **never executed by anyone**.
+  `XTIDE rev1`. This is the driver's stride 1. In the shipped binary, and **that path has never
+  executed** — in emulation or on hardware. Stock 86Box's `xtide` device does model this map, so it
+  is testable in the VM without a card.
 - ❌ **Hi-Speed map** — the *default* on XT-IDE Rev 2/3/4. **Not supported.** It comes from swapping
   the A3 and A0 address lines, which permutes the registers instead of scaling them, and
   `base + index * stride` cannot express a permutation. Expected to be declined by the read-only

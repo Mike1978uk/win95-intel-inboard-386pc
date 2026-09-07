@@ -81,8 +81,10 @@ driver cannot express it at all.
 So, plainly:
 
 - **Compatibility mode** — Rev 1, and Rev 2/3/4 switched into it, XUB device type `XTIDE rev1` — is
-  my stride 1, with the high data byte at `base+8`. It is in the shipped binary and **has never been
-  executed by anyone**.
+  my stride 1, with the high data byte at `base+8`. It is in the shipped binary and **that path has
+  never executed**. (An earlier driver of mine did run against 86Box's stock XT-IDE device, which
+  is stride 1, but it never properly claimed the disk there, so nothing was proven. This miniport
+  has never run at stride 1 in any form.)
 - **Hi-Speed mode is not implemented.** If you run my driver on a Hi-Speed card I expect it to
   *decline* the card rather than misdrive it. I settle the map by reading Status and Alternate
   Status — the same register on any correct ATA map — and comparing them. Nothing is written, so a
@@ -209,7 +211,9 @@ sector count `302`, LBA mid `304`, drive/head `306`, error/features `308`, LBA l
 not a stride, so my driver cannot express it — which means:
 
 - Compatibility mode (Rev 1, or Rev 2/3/4 switched into it, device type `XTIDE rev1`) is my stride
-  1, with the high data byte at `base+8`. Shipped, never executed by anyone.
+  1, with the high data byte at `base+8`. Shipped, and that path has never executed — an earlier
+  driver of mine ran against 86Box's stock stride-1 XT-IDE device but never properly claimed the
+  disk there, so it proved nothing.
 - Hi-Speed is **not implemented**, and I would rather say so than have someone find out on their own
   disk.
 
