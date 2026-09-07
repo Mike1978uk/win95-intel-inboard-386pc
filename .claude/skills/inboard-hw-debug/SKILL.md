@@ -5830,3 +5830,48 @@ and Sergey's own F2 configurator - instead of a live chain walk followed by rout
 **The general rule: when the next step is "measure it on the machine", first list what you can
 already read - ROM dumps, config files, the driver binaries - and ask which of them the answer
 must pass through.** Machine time is the owner's evening; a grep is not.
+
+### Technique 101, addendum 2026-09-07 - read the SAME call on both vectors before tracing either
+
+The static pass above narrowed #25 to "who owns INT 13h". The measurement that finished it was
+not a chain walk. It was issuing the identical `AH=08h` on **INT 13h and INT 40h**, both drives,
+in one boot, with a six-line DEBUG script:
+
+| vector | A: | B: |
+|---|---|---|
+| INT 13h | `BL=03` 720K `CX=4F09` `ES:DI=F000:EFA0` | identical |
+| INT 40h | `BL=04` **1.44M** `CX=4F12` | `BL=02` **1.2M** `CX=4F0F` |
+
+**The correct answer was already on the machine, one vector away.** No trace, no disassembly of
+the chain, no patch - two DEBUG scripts and one boot.
+
+When an interrupt service returns wrong data and the service has a documented *alternate* vector
+(the diskette handler's INT 40h, a relocated handler, a driver's private entry), **call both
+before tracing either.** A disagreement names the layer instantly and a match rules the whole
+question out just as cheaply.
+
+**It also validated the static pass exactly.** The predicted ROM literals - type 4 at `0x9f3`
+(`lea di,[0x13e3] / mov cx,0x4f12`) and type 2 at `0x9e8` (`lea di,[0x13c9]`) - came back
+byte-for-byte as `DI=13E3 CX=4F12` and `DI=13C9 CX=4F0F`, from `ES=D000`, the ROM's own segment.
+A hardcoded immediate in a ROM really is a fingerprint (technique 101 above), and here it
+identified the answering ROM with no ambiguity at all.
+
+### And check that the tempting fix cannot break something already working
+
+The obvious fix was to move the floppy card earlier in the option-ROM scan order, so its own
+install rule (`cmp word ptr [0x4c], 0xec59` / `cmp word ptr [0x4e], 0xf000` - take INT 13h only
+if it is still the stock IBM diskette handler) would fire. **Reading the handler's entry killed
+it:** `0x10d6` never chains `DL >= 0x80`; `DL>7` falls through to `mov ah,1 / stc`. On INT 13h it
+would fail every hard-disk call on the machine - including the XT-CF that #21 had just got
+serving `C:` in protected mode.
+
+Two minutes of disassembly against a fix that would have taken a working system down. **Before
+promoting a handler onto a busier vector, read what it does with the requests it was never
+written to receive.** A handler that is correct on a narrow vector is not thereby safe on a
+wide one.
+
+**One prediction on record was wrong, and worth keeping.** I predicted `INT 1Eh` would read
+`F000:EFA0`, which would have explained the returned `ES:DI` as the standard parameter-table
+pointer being handed back. It reads `0000:0522`. The prediction cost nothing because it was
+written down before the run and checked against it - which is the only reason it is visible as
+an error rather than quietly absorbed into the story.

@@ -73,36 +73,46 @@ card at `C:\FDTYPE\`, runs from real-mode DOS, writes `FDTYPE.TXT`).
   ROM window. Consistent with `INBRDPC.SYS`, which is known to hook `INT 13h` to adjust wait states
   via port `0x670` and then chain (it is *not* in the data path — #17).
 
-### FIRST ACTION — SUPERSEDED 2026-09-07: the chain walk is not needed
+### FIRST ACTION — DONE. Root cause found and measured 2026-09-07.
 
-Answered statically off the ROM dumps already in the repo. Full working:
-[`evidence/int13_ah08_who_answers_2026-09-07.md`](evidence/int13_ah08_who_answers_2026-09-07.md).
+[`evidence/int13_ah08_ROOT_CAUSE_2026-09-07.md`](evidence/int13_ah08_ROOT_CAUSE_2026-09-07.md)
 
-It lands in **neither** box this briefing predicted. Settled:
+**The machine already knows the right answer. It is on `INT 40h`, and Windows asks `INT 13h`.**
+Same call, same boot, both vectors:
 
-- **The 1986 system BIOS does not implement `AH=08h`** — no `cmp ah,08` in either U18 chip
-  (`F800`, where the diskette BIOS lives), and the call returned success. Not it.
-- **Sergey's ROM is doubly exonerated.** It *does* implement `AH=08h` (dispatch `0x1119` ->
-  handler `0x98f`), and its per-drive config table at `0x1f81` reads **type 4 (1.44 MB)** for
-  A: and **type 2 (1.2 MB)** for B: — the correct drives. Answering from that table it would
-  not say 720K. Its type-3 branch does produce `CX=0x4F09`, but returns `ES:DI = <ROM>:13D6`.
-- **XTIDE Universal BIOS intercepts `AH=08h` for drives it does NOT own** — proven in the dump
-  taken off the real card, and identical in the r638 XT+ image. `AH=00h` and `AH=08h` go to
-  XTIDE's own function table; everything else chains onward. Its floppy path calls the previous
-  handler and then rewrites the drive count. It also carries a **byte-identical copy of the
-  `F000:EFA0` 9-sector table** at ROM `0x166d`.
-- **No DOS floppy driver is loaded at all** — `CONFIG.SYS` on the CF is clean.
+| vector | A: | B: |
+|---|---|---|
+| **INT 13h** (what Windows asks) | `BL=03` 720K, `CX=4F09` | `BL=03` 720K, `CX=4F09` |
+| **INT 40h** (Sergey's ROM at `D000`) | `BL=04` **1.44M**, `CX=4F12` (18 sect) | `BL=02` **1.2M**, `CX=4F0F` (15 sect) |
 
-⚠ Still a hypothesis, not a finding: `ES:DI = F000:EFA0` fits neither candidate cleanly.
-And this is static analysis, which this project has been burned by (techniques 29, 44, 63, 81).
+Sergey's ROM is conclusively exonerated — right implementation, right EEPROM config, right
+answers. It sits on `INT 40h` because its own install rule (`0x00ff`) takes `INT 13h` only if
+`INT 13h` is still the stock `F000:EC59`, and a fixed-disk ROM had already claimed it. The 720K
+reply is the stock 1986 IBM answer, `F000:EFA0` being the system BIOS's own parameter table.
 
-**Do these two read-only inspections before anything else. Both are at the machine, minutes.**
+**Do NOT fix this by moving the card earlier in the ROM scan order.** Sergey's handler never
+chains hard-disk calls — `DL>7` falls to `mov ah,1 / stc`. Winning `INT 13h` would break every
+hard disk, including the XT-CF that #21 just got serving `C:`.
 
-- [ ] **`xtidecfg.com`** — already on the CF at `D:\xtide\`. Read XTIDE's floppy settings.
-- [ ] **F2 at boot** into Sergey's Multi-Floppy BIOS utility, then `p` to print the live EEPROM
-      configuration. The image in the repo is correct; the EEPROM on the card may not be.
+### THE FIX: forward AH=08h to INT 40h
 
-Whichever one reports 720K owns the bug, and the fix is a configuration change in that utility.
+Hook `INT 13h`; when `AH=08h` **and** `DL < 0x80`, reissue as `INT 40h` and return that;
+chain everything else. ~30-40 bytes, same shape as `IVT68FIX.COM`, from the **last** line of
+`AUTOEXEC.BAT` (technique 38 — that timing is load-bearing).
+
+It forwards to **measured-correct** data instead of synthesising geometry. That is what makes it
+different from route 2 below, which is now superseded.
+
+- [ ] Build it, deploy, confirm `AH=08h` on `INT 13h` now returns `BL=04` / `BL=02`.
+- [ ] ⚠ **`[SafeList]` first.** A resident `INT 13h` hook makes IOS refuse every miniport —
+      `ios_safelist_howto.md`. `XTIDEMP.MPD` (#21) is in the blast radius. Check `BOOTLOG.TXT`
+      for `Init Success xtidemp.mpd` and `RMM` not reaching `INITCOMPLETE` on the first boot.
+- [ ] ⚠ Still unproven that Windows takes the drive type from `AH=08h` at all.
+
+Probes live on the card at `C:\FDTYPE\`: `FDVEC.BAT` (vector owners), `FDCHAIN.BAT`
+(`AH=08h` on both vectors). Both re-runnable.
+
+### Superseded routes, kept only so they are not re-proposed
 
 ### THEN the fix, cheapest first (full costing in #25's comments)
 
