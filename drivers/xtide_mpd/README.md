@@ -42,7 +42,9 @@ re-derived, by the owner's call, because the artefact itself is tracked and publ
 - sustained write load — this was a boot, a look at `C:`, and a shutdown
 - responsiveness under a heavy teardown flush; `XtStartIo` still completes inline (technique 98)
 - **stride 1** — the *Compatibility* map: XT-IDE Rev 1, or a Rev 2/3/4 switched into it. Supported
-  in code; **this miniport has never executed that path**, in emulation or on hardware. (The
+  in code, and **passed in emulation 2026-09-07** (#24): `Init Success`, `RMM` stands down,
+  host-verified write, 7/7 teardown stages paired. Never run on a physical card. Previously this
+  said the path had never executed at all. (The
   retired `.PDR` did run against 86Box's stock stride-1 `xtide` device, but never properly claimed
   the disk there. Code running is not the map being driven.) Stock 86Box models this map, so it is
   testable in the VM without a card.

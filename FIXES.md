@@ -163,8 +163,11 @@ maps, not two, and this driver expresses two of them
 - ✅ **Lo-tech XT-CF**, A0 undecoded, register N at `base + 2N`. This is the card here, measured,
   and the only configuration ever confirmed — one card, one base, one machine.
 - ⚠️ **Compatibility map** — XT-IDE Rev 1, or a Rev 2/3/4 switched into it with XUB device type
-  `XTIDE rev1`. This is the driver's stride 1. In the shipped binary, and **that path has never
-  executed** — in emulation or on hardware. Stock 86Box's `xtide` device does model this map, so it
+  `XTIDE rev1`. This is the driver's stride 1. **Confirmed in emulation 2026-09-07**
+  ([#24](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/24)) on a faithful
+  register-map model, with a host-verified write and a clean 7/7 teardown — but **never run on a
+  physical card**, which is the outstanding ask. Previously this said the path had never
+  executed — in emulation or on hardware. Stock 86Box's `xtide` device does model this map, so it
   is testable in the VM without a card.
 - ❌ **Hi-Speed map** — the *default* on XT-IDE Rev 2/3/4. **Not supported.** It comes from swapping
   the A3 and A0 address lines, which permutes the registers instead of scaling them, and

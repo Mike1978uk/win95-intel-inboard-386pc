@@ -100,13 +100,55 @@ half true and misled this project's own drafts on 2026-09-07.
   But it never correctly claimed the disk on it: the driver fell back to stride 1, `RMM.PDR` stayed
   and served the volume, and the shutdown defect never triggered *because the driver was not really
   doing the job* (technique 88). Code executing is not the map being driven.
-- **`XTIDEMP.MPD` has never run at stride 1 at all.** The miniport was written after the
-  `xtcf-lotech-stride2` bed existed and was developed and confirmed against stride 2 only. There is
-  no stride-1 run in `drivers/xtide_mpd/evidence/`.
+- ~~**`XTIDEMP.MPD` has never run at stride 1 at all.**~~ **Superseded 2026-09-07 — it has now.**
+  The miniport was developed and confirmed against stride 2 only, and that stayed true until the
+  test below.
 
-So the accurate claim is: **the shipped miniport's stride-1 path has never executed.** The cheap
-next test is not a stranger's hardware — it is the stock 86Box `xtide` device, which is sitting
-there modelling that map already.
+## ✅ Stride 1 executed and passed in emulation, 2026-09-07 (issue #24)
+
+The shipped binary — md5 `561fb45b598ef5985e5a803016321f76`, byte-identical to
+`dist/xtide_mpd/XTIDEMP.MPD`, taking its base from `AdapterSettings PORT=0x300` — **autodetected
+stride 1 and claimed the boot disk.** Bed `vm_xtide_stride1`, emulator reporting
+`XTIDE: base 0300 stride 1 bios xt_plus` at init (verified at runtime, technique 69).
+
+```
+[00000226] Initing xtidemp.mpd        [00000228] Init Success xtidemp.mpd
+rmm.pdr  Dynamic load success ... and NEVER reaches INITCOMPLETE   <- boot-disk takeover
+INITCOMPLETESUCCESS = SCSIPORT / DiskTSD / DiskVSD / VFAT / IFSMGR / IOS
+ESDI_506 absent     IOS.LOG absent     7 teardown stages started, 7 closed, none unpaired
+```
+
+Write verified **host-side, off the image**: `C:\HELLO.TXT`, 5 bytes, `hello` — so the write path
+and the shutdown cache flush both work on this map (technique 79's discipline). Log kept at
+`docs/bootlogs/BOOTLOG_2026-09-07_stride1_emulation.TXT`.
+
+**It also exercised the 16-bit high-byte latch transport**, the other never-run path. At stride 1
+`hdc_xtide.c` models `reg 0x8` as the high-byte latch and only goes byte-wide when the BIOS sends
+`SET FEATURES 01h`, so the driver's latch path is what ran.
+
+### Reproducing the bed
+
+The bed is a throwaway 86Box working dir and is not tracked (repo-hygiene §3). It is three
+changes to a copy of `vm_xtide_mpd2`'s config:
+
+```
+[PC/XT XTIDE]
+bios   = xt_plus      # was xtcf_lotech - that ROM drives stride 2 and cannot boot this bed
+base   = 300
+stride = 1            # was 2
+```
+
+Image: a copy of `vm_xtide_mpd2/xtidemp2.img`, which holds the shipped `XTIDEMP.MPD` installed
+with `AdapterSettings PORT=0x300` and the node auto-assigned. Delete `BOOTLOG.TXT` from it first
+(`python tools/fatcp.py <img> --rm BOOTLOG.TXT --yes`) - a stale one names a driver from two
+images ago and reads exactly like a result (technique 23/94). `MSDOS.SYS` already has
+`BootMenuDefault=2`, so the boot is logged without anyone pressing a key, and
+`mouse_type = msserial` keeps the modal mouse dialog off the shell (technique 87).
+
+**What this does not prove.** It is a faithful model of the *register map*, not of a real card: no
+XT bus timing, no real option ROM, no partial address decode. The ask for a physical
+Compatibility-mode card stands — but the path is no longer unexecuted, and a stranger's disk is no
+longer the first thing it will ever touch.
 
 ## Consequence for the ask
 
