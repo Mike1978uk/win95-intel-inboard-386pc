@@ -70,3 +70,53 @@ It fits every symptom and it has not been proven.
 
 `build_ledger.tsv` records md5, size, commit and toolchain, so a binary found later can be
 identified — technique 89.
+
+## v1 HUNG THE MACHINE AT BOOT, 2026-09-07 - cause, fix, and the deployment lesson
+
+`FD08FIX.COM` v1 (md5 `3fa1523d...`) was put in `AUTOEXEC.BAT` and the machine **hung during
+boot**. `AUTOEXEC.BAT` was restored from its backup and the machine boots normally again.
+
+### The bug: `retf 2` returns with interrupts disabled
+
+An `INT` clears IF. **`IRET` is what restores it**, from the FLAGS the `INT` pushed. v1 ended the
+`AH=08h` path with `retf 2`, which *discards* that stacked FLAGS word - so the handler returned
+with **IF still clear**. The first `AH=08h` during boot therefore killed the timer and the
+keyboard, and everything stopped.
+
+`retf 2` is a real idiom for interrupt handlers, which is why it looked right, but it is only safe
+when the handler explicitly restores IF. It does not do so for free.
+
+### The fix (v2, md5 `bfbc1b79...`)
+
+Return via `IRET`, patching only CF into the caller's stacked FLAGS so IF and everything else
+survive untouched:
+
+```asm
+        int     40h
+        push    bp
+        mov     bp, sp          ; [bp+6] = the caller's stacked FLAGS
+        jc      .setcf
+        and     word [bp+6], 0FFFEh
+        jmp     short .done
+.setcf: or      word [bp+6], 1
+.done:  pop     bp
+        iret
+```
+
+Registers are untouched between `int 40h` and the return, so `AH`/`CX`/`DX`/`ES:DI` reach the
+caller as the diskette handler left them.
+
+### The deployment lesson, which matters more than the bug
+
+**Do not install an untested `INT 13h` hook from `AUTOEXEC.BAT`.** The failure mode is an
+unbootable machine that needs the card pulled and put in a reader to recover.
+
+The equivalent test costs a single reboot: leave `AUTOEXEC.BAT` alone, boot normally, start
+COMrade, and **run the `.COM` by hand from the prompt**. A hang then costs a power cycle and
+nothing else, because the next boot is clean by construction.
+
+Only wire it into `AUTOEXEC.BAT` once it has survived that. The `[SafeList]` entry can be added
+early - it is inert unless the driver actually loads.
+
+**Current state: `C:\FD08FIX.COM` on the card is v2. `AUTOEXEC.BAT` is clean and does NOT call
+it. The `IOS.INI` `[SafeList]` entry is in place and harmless.**

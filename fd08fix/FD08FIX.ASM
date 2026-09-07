@@ -59,11 +59,27 @@ handler:
         test    dl, 80h                 ; floppy? (ZF set => bit clear => floppy)
         jnz     chain                   ; hard disk - not ours
         int     40h                     ; reissue on the diskette vector.
-                                        ; INT pushed our FLAGS; the handler
-                                        ; sets CF in that stacked copy and
-                                        ; IRETs, so our CF is correct here.
-        retf    2                       ; discard the caller's stacked FLAGS
-                                        ; so it sees ours
+                                        ; returns with AH/CX/DX/CF set.
+;
+; Return via IRET, patching only CF into the caller's stacked FLAGS.
+;
+; NOT `retf 2`. That was the first version and it HUNG THE MACHINE AT BOOT
+; on 2026-09-07. An INT clears IF, and IRET is what restores it from the
+; stacked FLAGS. `retf 2` discards those flags, so we would return with
+; interrupts still disabled - no timer, no keyboard - the moment anything
+; asked AH=08h during boot. Registers are untouched here, so AH/CX/DX/ES:DI
+; from INT 40h reach the caller as they are.
+;
+        push    bp
+        mov     bp, sp                  ; [bp+0]=BP [bp+2]=IP [bp+4]=CS [bp+6]=FLAGS
+        jc      .setcf
+        and     word [bp+6], 0FFFEh     ; CF clear -> success
+        jmp     short .done
+.setcf:
+        or      word [bp+6], 1          ; CF set -> error
+.done:
+        pop     bp
+        iret
 chain:
         jmp     far [cs:old13]
 
