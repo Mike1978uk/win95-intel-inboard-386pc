@@ -76,6 +76,15 @@ been consistently the more reliable of the two on this project.
 
 ---
 
+## Owed a reply — VOGONS
+
+| who | what | why it matters | told? |
+|---|---|---|---|
+| **disruptor** | 2026-09-01, [VOGONS t=112093](https://www.vogons.org/viewtopic.php?t=112093): asked about the **Seagate ST01 SCSI controller** | ⚠ **Not yet answered.** Reported by the owner; the exact wording has NOT been read back from the thread and must be before replying. Technically close to home: the ST01/ST02 is an **8-bit ISA SCSI card**, the same class as the T130B and the XT-CF, so this project's shipped miniport template (`drivers/xtide_mpd/`), toolchain and INF pattern apply directly. A useful answer is probably "here is how, and here is the template", not "here is a driver" | ❌ **owed** |
+| **red-ray** | same thread, 2026-08-06: asked for `SIV32L.exe` output; owner replied 2026-08-27 that it needs runtime libraries absent on OSR1, and would revisit **after the drives are out of real mode** | That condition is now largely met — boot disk and SCSI chain are 32-bit. Ray has since asked the owner to test another SIV build | ❌ **owed a follow-up**, gated on the owner's time |
+
+**Also raised by the owner:** rather than writing drivers to order, publish a **guide** — how to build a Win9x SCSI miniport for odd/8-bit hardware, using this project's own experience (`XTIDEMP.MPD` shipped and hardware-confirmed, `T130.MPD`'s INF adapted, `LS120MP.MPD` phase 0). Parked; lower priority than #22/#25.
+
 ## Foundational — credited, no open loop
 
 | Contributor | Contribution |
