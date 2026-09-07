@@ -28,6 +28,16 @@ plan can be rewritten without losing the inputs.
 the 09MAY86 and 10JAN86 ROMs (file offset `0x7F53` in the U18/F800 chip). See plan item 0a. His
 RAM question is still unanswered — see plan item 0b.
 
+**Follow-up — same thread, Mon 7 Sep 2026, 13:52.** Michal on why `F000:FF53` is safe to rely on:
+it is part of the PC architecture, documented by IBM and others, and IBM treated it as a
+compatibility requirement at least from the PC/XT. Source he gave:
+[AMIBIOS 98 Technical Reference](https://bitsavers.org/pdf/americanMegatrends/MAN-BIOS98-TR_AMBIOS_98_Technical_Reference_19980501.pdf) (search `FFF53`).
+So the fix rests on an architectural guarantee, not on two ROM images that happen to agree.
+
+He also asked whether Intel shipped 386MAX with the Inboard. Answered the same day: yes —
+`ILIM386.SYS` in the Inboard's own Intel bundle is a Qualitas OEM build. See
+[`386max_and_the_inboard.md`](386max_and_the_inboard.md). His RAM question was answered 2026-08-23.
+
 ---
 
 ## 2. ATI Mach8 boot memory test — emulator vs real hardware **[AI-SOURCED]**

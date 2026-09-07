@@ -191,6 +191,11 @@ the directory's own `README.md`.
   settings dialog snapped RAM to a wrong value. Fixed upstream by OBattler; may also explain #14.
 - **[Michal Necasek / OS/2 Museum](https://www.os2museum.com/)** — architectural confirmation
   throughout, including the verified `F000:FF53` improvement. **[PRIMARY]**
+- **[AMIBIOS 98 Technical Reference](https://bitsavers.org/pdf/americanMegatrends/MAN-BIOS98-TR_AMBIOS_98_Technical_Reference_19980501.pdf)**
+  (bitsavers; search `FFF53`) — given by Michal Necasek 2026-09-07. Documents the `IRET` at
+  `F000:FF53` as an architectural fixture: IBM treated it as a compatibility requirement from the
+  PC/XT onwards and properly functioning clones carry it too. Upgrades `IVT68FIX`'s target from
+  "verified in the two 1986 ROMs" to a documented guarantee. **[PRIMARY]**
 
 ## 8. Everything else
 
