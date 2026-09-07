@@ -523,3 +523,53 @@ leave Trantor at `CA000` untouched. That satisfies the ordering rule with no tra
 ⚠ Not yet verified: the Windows 95 end-to-end result - both floppies showing correct capacities in
 Explorer, and `BOOTLOG.TXT` still reporting `Init Success xtidemp.mpd` with `rmm.pdr` never
 reaching `INITCOMPLETE`. Everything above is register-level.
+
+## ✅ #25 CLOSED - verified end to end on Windows 95, 2026-09-07
+
+Owner at the machine, after the Trantor ROM move:
+
+> both A and B reported correctly, correct geometry, and both drives fully read a disk, no crashes
+
+That is the actual goal, not a register value. Windows now reports **A: 1.44 MB** and
+**B: 1.2 MB**, and both drives read real media.
+
+### The whole fix, in one line
+
+**Move the Trantor T130B option ROM from `CA000` to `DA000` - one DIP switch.**
+
+No software. No resident hook. No `IOS.INI` change. Nothing patched.
+
+### What it cost to find, and what was wrong along the way
+
+The root cause is a single sentence - *no fixed-disk option ROM may be scanned before the floppy
+BIOS* - and everything else followed from it. Getting there took a full session, and several
+intermediate conclusions were stated with more confidence than the evidence supported:
+
+| claim | outcome |
+|---|---|
+| "the ROM layer answers `AH=08h`" | **right**, but asserted before the chain walk reached a ROM |
+| "do NOT move the card earlier, Sergey errors `DL>=0x80`" | **wrong** - the fixed-disk ROMs install in front and never let it see one |
+| "`retf 2` left IF clear and hung the boot" | **wrong** - the real defect was no entry-point jump at `0100h` |
+| "Trantor stashes the old vector at `0000:0118`" | **wrong** - the branch was misread; it reads zero |
+| "SW2.4/SW2.5 are transposed" | **wrong** - predicted a move, produced none |
+| "Trantor's ROM is disabled" | **wrong** - scan was run under 386MAX, which masks ROMs |
+| "the bridge wedged because SMWCLOCK left IF clear" | **wrong** - the serial cable was unplugged |
+
+The root cause and the fix held. The intermediate reasoning repeatedly did not, and the pattern is
+consistent: **a plausible mechanism was treated as an established one without a measurement that
+could have falsified it.** Technique 81 exists in this project for exactly that, and it was
+broken repeatedly here.
+
+**The move that solved it came from the owner** - relocate a *different* card, after the session
+had spent hours trying to relocate the one whose switches do not respond.
+
+### Follow-up, none of it blocking
+
+- **Retire `FD08FIX` from the card**: remove the `IOS.INI` `[SafeList]` entry and delete
+  `C:\FD08FIX.COM`. It is no longer needed, and an unused `INT 13h` hook entry in the SafeList is
+  exactly the sort of thing that misleads a future debugging session. The source stays in the repo
+  as the documented alternative for anyone who cannot reorder their ROMs.
+- **`BOOTLOG.TXT` check** still outstanding: confirm `Init Success xtidemp.mpd` with `rmm.pdr`
+  never reaching `INITCOMPLETE`. The machine boots Windows from the CF, so the stack is evidently
+  fine; this only distinguishes 32-bit from a real-mode fallback.
+- **`DE000`** remains untried and could restore the SCSI option ROM while keeping the fix.
