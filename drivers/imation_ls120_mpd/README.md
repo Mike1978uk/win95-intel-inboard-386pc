@@ -342,9 +342,14 @@ Five things this establishes, all measured:
    of it failed only because it was the tail of a branch, without the connect logic that precedes
    it. That logic is what still needs finding - look at the `0x2da5` cluster and the callers of
    `0x25a0`.
-3. **The driver reprograms the ECR** - `000` -> `001`, so our driver must too. Note the banner
-   says "ECP Read/Write" while the register says PS/2 bidirectional byte mode; **trust the
-   register, not the label.**
+3. **The driver reprograms the ECR** - `000` -> `001`, so our driver must too.
+   ⚠ **Do not read that as "it is not really using ECP".** The ECR was sampled **at idle,
+   with no transfer in flight**, which cannot distinguish Shuttle naming its bidirectional
+   protocol "ECP" from the driver selecting ECP FIFO (mode `011`) **for the duration of a
+   transfer** and idling back to `001` - which is how a well-behaved driver would do it. An
+   earlier draft of this file concluded the label was wrong; the measurement did not earn that.
+   **To settle it:** sample the ECR *during* a bulk transfer, or simply time one - throughput is
+   the thing that actually matters and it separates the two immediately.
 4. **`dmaEn` stays 0.** The vendor driver moves data by PIO. So targeting PIO is not giving up
    throughput - it is what the shipping driver does, and it sidesteps the 4-bit page latch
    (technique 62) for free.
