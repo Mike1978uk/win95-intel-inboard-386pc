@@ -1,218 +1,256 @@
 # LS-120 parallel-port transport — specification from `SD120PPD.SYS`
 
-Offline reverse-engineering of the vendor DOS driver, **confirmed against the live machine**, for a
-clean-room MIT reimplementation as a Windows 95 `.MPD` (issue [#22]). No code is transcribed from
-the vendor binary — register facts and protocol sequences only.
+Clean-room specification for an MIT reimplementation as a Windows 95 `.MPD` (issue [#22]).
+Derived from the vendor DOS driver plus live measurement on the real 5160. No vendor code is
+transcribed — register facts and protocol sequences only.
 
 Source: `SD120PPD.SYS.orig`, 56,198 bytes, md5 `cbb42e8eb7847869e274e45f258cf718`, April 1997.
 A DOS `.SYS` is a raw binary image, so **file offset == CS offset** throughout.
-
 Tools in `tools/`: `dump_mode_tables.py`, `sysdis.py`, `xref.py`.
 
-**Status: the transport is fully specified and self-contained.** The connect sequence and the
-ATAPI layer are not yet done.
+Evidence is tagged **[MEASURED]** (read off the running machine), **[VERIFIED]** (replayed on the
+hardware and behaved as predicted) or **[DERIVED]** (disassembly only, not yet exercised).
 
 ---
 
-## 0. Live measurement, 2026-09-08 — this is the ground truth
-
-Real 5160, DOS boot, `CONFIG.SD1` config, LS-120 attached with media, read over COMrade.
+## 0. Live state, 2026-09-08 — real 5160, DOS, LS-120 attached with media
 
 Driver located by walking MEM's block accounting and **verified against its own device header**
-(`SCSIMGR$`, attribute `C000`, strategy `2074`, interrupt `2082`) at segment **`0575`**:
+(`SCSIMGR$`, attribute `C000`, strategy `2074`, interrupt `2082`) at segment **`0575`**. It is an
+ASPI manager; `ASPIHDRM.SYS` layers the disk on top and presents the drive as `D:`.
+
+`DIR D:` reports **125,958,144 bytes free**, so the whole vendor stack works on this machine —
+that is our control. **[MEASURED]**
 
 ```
-[0BC1] EPP-BIOS probe disabled = 01        <- /db took effect
-[0BC9] LPT unit                = 00        <- LPT1
-[0BCB] READ  mode name ptr     = 3CBA      -> 'ECP Read'
-[0BCF] WRITE mode name ptr     = 491E      -> 'ECP Write'
-[0BD7] port type               = 0C        <- ECP-capable
-[0BD9] READ  selector          = 000D      <- 13
-[0BDB] WRITE selector          = 0006      <- 6
-[0BE1] PEP entry offset        = 0000      }  the EPP-BIOS far vector is NULL
-[0BE3] PEP entry segment       = 0000      }
+[0BC1] EPP-BIOS probe disabled = 01      /db took effect
+[0BC9] LPT unit                = 00      LPT1
+[0BCB] READ  mode name ptr     = 3CBA -> 'ECP Read'
+[0BCF] WRITE mode name ptr     = 491E -> 'ECP Write'
+[0BD7] port type               = 0C      ECP-capable
+[0BD9] READ  selector          = 000D    13
+[0BDB] WRITE selector          = 0006    6
+[0BE1]/[0BE3] PEP far entry    = 0000:0000   null, and unneeded
 [0BFA] LPT base                = 0378
 [0BFC] IRQ                     = 07
+[0C02] last connect mode       = 30 -> E0 after real drive traffic
 ```
 
-**This corrected a wrong static conclusion.** A first pass inferred selector 12 for `ECP Read` and
-8 for `ECP Write`, from a model in which each table entry's second word is the handler's length and
-the mode-name string follows the handler. That model reproduces 13 of 15 read and 9 of 9 write
-names, which is why it looked right — but it is a **coincidence of contiguous code layout**, not
-how the driver selects or names a mode. The live selectors are 13 and 6.
+**Two static conclusions were overturned by this.** A first pass inferred selectors 12 and 8 from a
+model where each table entry's second word is the handler length and the mode name follows the
+handler. That reproduces 13 of 15 read and 9 of 9 write names — but it is a coincidence of
+contiguous code layout, not how modes are selected. The live selectors are **13 and 6**.
 
-Selector 12's handler really is the `lcall`-based one described in §5, and it really would be
-unusable with `/db`. It simply is not the one in use. The apparent contradiction was an artefact of
-my own model, not a property of the machine.
-
-## 1. The two dispatchers
-
-Re-derived from code, and now confirmed by the live selectors resolving through them:
+## 1. Dispatchers **[VERIFIED]**
 
 ```asm
-244B  READ  reg:  push dx/bx, pushf, pushf, cli
-                  bx = [0BD9] << 3          ; read-method selector * 8
-                  al = dl                   ; register number
-                  dx = [0BFA]               ; LPT base
+244B  READ  reg:  pushf, pushf, cli
+                  bx = [0BD9] << 3 ; al = dl ; dx = [0BFA]
                   call word ptr cs:[bx + 4E9Dh]
-                  ; restore; STI only if the caller's IF was set (test bh,2)
-
-2472  WRITE reg:  same prologue
-                  bx = [0BDB] << 3
-                  ah = al                   ; value
-                  al = dl                   ; register number  (xchg dl,al)
-                  dx = [0BFA]
+                  ; STI only if the caller's IF was set (test bh,2)
+2472  WRITE reg:  bx = [0BDB] << 3 ; ah = al (value) ; al = dl (reg) ; dx = [0BFA]
                   call word ptr cs:[bx + 4F15h]
 ```
 
-`handler = word[table + selector*8]`. That formula is definitive — it is what the CPU executes.
-The other three words of each entry are not uniform and are not needed.
+`handler = word[table + selector*8]` — this is what the CPU executes, and the live selectors resolve
+through it correctly. The other three words per entry are not uniform and are not needed.
 
-Both are interrupt-safe: `cli` across the port sequence, IF restored from the caller's own flags.
-**Any reimplementation must do the same** — these sequences cannot tolerate an interrupt mid-handshake.
-
-Live selectors resolve as:
+Both run under `cli` and restore IF from the caller's own flags. **A reimplementation must do the
+same** — these sequences cannot tolerate an interrupt mid-handshake.
 
 | | selector | handler |
 |---|---|---|
-| READ | 13 | `word[4E9D + 13*8 = 4F05]` = **`0x3CCE`** |
-| WRITE | 6 | `word[4F15 + 6*8 = 4F45]` = **`0x4932`** |
+| READ | 13 | `word[4F05]` = **`0x3CCE`** |
+| WRITE | 6 | `word[4F45]` = **`0x4932`** |
 
 ## 2. Port map
 
-LPT base `0x378`, so:
-
-| address | register |
+| address (base `0x378`) | register |
 |---|---|
-| `base + 0` = `0x378` | SPP data — carries the **register number** (address phase) |
-| `base + 2` = `0x37A` | SPP control — `nInit`, and bit 5 = **direction** (1 = reverse/input) |
-| `base + 0x400` = `0x778` | **ECP data FIFO** — carries the **value** (data phase) |
-| `base + 0x402` = `0x77A` | **ECR**, extended control. Bit 0 = FIFO empty. Mode in bits 7-5 |
+| `base+0` = `0x378` | SPP data — the **register number** (address phase) |
+| `base+1` = `0x379` | SPP status — nibble returns, and the connect checkpoints |
+| `base+2` = `0x37A` | SPP control — `nINIT`, bit 5 = **direction** (1 = reverse/input) |
+| `base+0x400` = `0x778` | **ECP data FIFO** — the value (data phase) |
+| `base+0x402` = `0x77A` | **ECR**. Bit 0 = FIFO empty. `0x74` = ECP mode, `0x34`/`0x14` quiescent |
 
-ECR values the driver uses: `0x74` = ECP mode, `0x34` and `0x14` = quiescent/other modes.
-The earlier standalone measurement that ECR at `0x77A` answers `0x35` is consistent with this.
+Read cold, `ECR` returns `0x35` — quiescent with FIFO empty, matching the handlers' teardown. **[MEASURED]**
 
-## 3. `ECP Write` — read register value out, complete
+## 3. Connect — unlock handshake **[VERIFIED ON HARDWARE]**
 
-Handler `0x4932`, ends `0x498A` (89 bytes). Entry: `AL` = register number, `AH` = value.
+**This is required. Register access does not work without it.**
 
-```
-ECR      = 0x14
-control  = 0x04
-ECR      = 0x74                  ; ECP mode
-wait ECR bit0 == 1 (FIFO empty), cx = 0xFFFF     ; timeout -> tidy up and return
-data     = register number       ; base+0, address phase
-wait ECR bit0 == 1               ; timeout -> tidy up and return
-FIFO     = value                 ; base+0x400, data phase
-wait ECR bit0 == 1
-ECR      = 0x34                  ; quiescent
-ret
-```
+There are two variants. The **detect** form (`0x2DBB`) carries verification checkpoints and restores
+the control port afterwards; the **operational** form (`0x26D9` → `0x2710`) omits the checkpoints and
+takes a mode byte. Both begin the same way.
 
-## 4. `ECP Read` — complete, and it reverses the channel
-
-Handler `0x3CCE`, ends `0x3D58` (139 bytes). Entry: `AL` = register number. Returns the byte in `AL`.
+Replayed byte-for-byte on the real machine, all three checkpoints returned exactly the predicted
+values — twice, reproducibly:
 
 ```
-control  = 0x04
-ECR      = 0x74                  ; ECP mode
-wait ECR bit0 == 1, cx = 0xFFFF  ; timeout -> AH = 0xFF, ECR = 0x34, return
-data     = register number       ; base+0, address phase
-wait ECR bit0 == 1               ; timeout -> AH = 0xFF, ECR = 0x34, return
-ECR      = 0x34
-control  = 0x20                  ; direction bit SET: reverse the channel to input
-ECR      = 0x74                  ; ECP mode again
-wait ECR bit0 == 0, cx = 0x8000  ; loopne - wait for data AVAILABLE, not empty
-                                 ; timeout -> AH = 0xFF, ECR = 0x34, return
-al       = in FIFO               ; base+0x400, the data byte
-control  = (control & 0x10) | 0x04   ; direction cleared, IRQ-enable preserved
-ECR      = 0x34                  ; quiescent
-ret                              ; byte in AL
+control(0x37A) = 0x04
+data(0x378):  22 22  AA AA  55 55  00 00  FF FF     (each written twice = I/O delay)
+  status(0x379) & 0xF0 must == 0xB0     measured B8  -> B0  PASS
+data: 87 87
+  status & 0xF0 must == 0x50            measured 58  -> 50  PASS
+data: 78 78
+  status & 0xB0 must == 0xB0            measured F0  -> B0  PASS
 ```
 
-Three details worth carrying into the reimplementation:
+The detect form then writes `08 08 FF FF`, restores control, and returns `AX=0` / `AX=FFFF`.
 
-- **The two waits are opposite senses.** Forward phases spin on FIFO-*empty* (`loope`); the reverse
-  phase spins on FIFO-*not*-empty (`loopne`). Getting that backwards deadlocks or reads garbage.
-- **The reverse timeout is `0x8000`, the forward ones `0xFFFF`.** Deliberate, not a typo.
-- **Every failure path still restores `ECR = 0x34` and returns `AH = 0xFF`.** The port is never
-  left in ECP mode or reversed. Preserve that; the failure paths matter more than the happy path
-  on a machine where an abandoned reverse channel would wedge the port.
+## 4. Connect — the mode byte **[MEASURED]**
 
-## 5. Selectors 12 and 8 — the EPP-BIOS variants, NOT in use
-
-Recorded so nobody re-derives them. Read selector 12 (`0x3CAF`, 11 bytes) is:
+The operational connect (`0x26D9`) stores `AL` at `[0C02]` and, after the magic bytes and `87`/`78`,
+**writes that mode byte to the data port**, then sets control `= 0x04`:
 
 ```asm
-mov dl,[0BC9] · mov ah,0Bh · lcall [0BE1] · ret
+2752  pop ax / push ax
+2754  out dx,al  x2          ; the caller's mode byte
+2759  add dx,2 ; al=04 ; out x2
+2767  and al,0F8h ; cmp al,10h  -> read two bytes via 0x2957 into [0BBE]
+277F  and al,0F8h ; cmp al,08h  -> a different path
 ```
 
-`[0BE1]`/`[0BE3]` is a far pointer this driver does **not** contain the target of. Verified: BSS
-default is zero, and an exhaustive search of every store form finds exactly one writer, `0xC068`,
-reached only after an `INT 17h` handshake (`AH=2`, `BX='PP'`, `CH='E'`, expecting `'PEP'` back and
-the entry in `DX:BX`). `[0BC1] == 1` skips that probe entirely, which is what `/db` does.
+**`[0C02]` was `0x30` at rest and became `0xE0` after real drive traffic**, so the operational mode
+for data work is **`0xE0`** — matching the call site at `0x2C1C` (`mov al,0E0h ; or al,[0BCA]`, and
+`[0BCA]=00`).
 
-Live, `[0BE1] = 0000:0000`. So every mode routed through it — `EPP BIOS(N)`, `EPP BIOS(F)`,
-read selector 12, write selector 8, and the block-transfer routine at `0x4C83` — is unavailable in
-our configuration, and the driver correctly avoids all of them.
+Modes observed across all call sites: `00 08 10 30 40 48 50 E0`. Thunks that set them:
 
-**We do not need any of it.** Selectors 13 and 6 are self-contained.
+| thunk | mode | callers |
+|---|---|---|
+| `0x3549` | `AL \| 0x08` | 1D71 1E13 1E5F |
+| `0x3552` | `AL \| 0x50` | 1D66 1E7C |
+| `0x355A` | `0x48` | 1D50 1E7F |
+| `0x3562` | `0x40` | 1D5B 1E5C |
 
-## 6. Switch bitmask → flag byte, `0xAAA1`
+Callers sit in a dispatch at `0x1D4D..0x1D78`, each doing `mov al,[si+4]` → call thunk →
+`mov byte [si+3],1`. So there is a request structure at `SI` with the mode at `+4` and a
+"connected" flag at `+3`. **[DERIVED]**
 
-The parser builds a mask in `AX`; this routine fans it out. `[0BC1]` measured as 1 with `/db`
-present, consistent with bit 0 being `/db`.
+### What was measured, and the gap that remains
 
-| AX bit | flag byte |
-|---|---|
-| 0 | `[0BC1]` — gates the EPP-BIOS `INT 17h` probe |
-| 2 | `[0BC3]` |
-| 3 | `[0BF9]` |
-| 4 | `[0D87]` |
-| 5 | `[0C5D]` |
-| 7 | `[0BE0]` |
-| 9 | `[0BC2]` |
+Replaying unlock **without** a mode byte and then reading registers returns `FF` via ECP (with the
+reverse-direction wait timing out) and `00` via nibble, across registers 0-7. **[MEASURED]** So the
+unlock alone is confirmed necessary but not sufficient.
 
-All seven are zeroed first, so an unset bit means the feature stays enabled.
+**The mode-`0xE0` replay was built but never executed** — COMrade's out-of-band file I/O wedged after
+the floppy and LS-120 work, and keystroke injection was far too slow to type the stub. `tools/`
+carries the generated scripts (`e0.dbg`, `modesweep.dbg` sweeping all eight modes) ready to run.
+**This is the one step between here and a working transport.**
 
-## 7. Driver state variables
+## 5. The transports
 
-All BSS — zero in the file image, filled during `INIT`. Live values in §0.
+### `ECP Write` — handler `0x4932`, 89 bytes **[DERIVED]**
+Entry `AL` = register number, `AH` = value.
+```
+ECR = 0x14 ; control = 0x04 ; ECR = 0x74
+wait ECR bit0 == 1 (FIFO empty), cx = 0xFFFF
+data(0x378) = register number
+wait ECR bit0 == 1
+FIFO(0x778) = value
+wait ECR bit0 == 1
+ECR = 0x34
+```
 
-| address | meaning |
-|---|---|
-| `[0BC1]` | EPP-BIOS probe disabled |
-| `[0BC9]` | LPT unit number, 0-based |
-| `[0BCB]` / `[0BCF]` | READ / WRITE mode-name string pointers (what the driver prints) |
-| `[0BD7]` | port type — `0x0C` = ECP-capable |
-| `[0BD9]` / `[0BDB]` | READ / WRITE method selectors |
-| `[0BE1]` / `[0BE3]` | EPP-BIOS far entry, offset / segment |
-| `[0BFA]` | LPT I/O base |
-| `[0BFC]` | IRQ |
+### `ECP Read` — handler `0x3CCE`, 139 bytes **[DERIVED]**
+Entry `AL` = register number; returns the byte in `AL`.
+```
+control = 0x04 ; ECR = 0x74
+wait ECR bit0 == 1, cx = 0xFFFF        ; fail -> AH=0xFF, ECR=0x34, return
+data = register number
+wait ECR bit0 == 1                     ; fail -> as above
+ECR = 0x34
+control = 0x20                         ; reverse the channel to input
+ECR = 0x74
+wait ECR bit0 == 0, cx = 0x8000        ; loopne - wait for data AVAILABLE
+al = in FIFO(0x778)
+control = (control & 0x10) | 0x04      ; forward again, IRQ-enable preserved
+ECR = 0x34
+```
 
-The driver reports its choice at load as `    Read  Mode : ` and `    Write Mode : `, and prints
-`Specified mode failed. Loading with detected modes.` if a forced mode did not take — so the
-printed mode is always the one in force.
+Three details that will bite if missed:
+- **The waits are opposite senses.** Forward spins on FIFO-*empty*; the reverse phase on
+  FIFO-*not*-empty. Backwards deadlocks or reads garbage.
+- **Reverse timeout is `0x8000`, forward `0xFFFF`.** Deliberate.
+- **Every failure path restores `ECR = 0x34` and un-reverses the port.** On this machine an
+  abandoned reverse channel wedges the port, so the failure paths matter more than the happy path.
 
-## 8. Still to do
+## 6. SPP / nibble — the portable fallback **[DERIVED]**
 
-- **The connect sequence** before `0x25C1` — the `0x2DA5` cluster and the callers of `0x25A0`.
-  This is the remaining unknown, and the live link is the way to settle it.
-- ATAPI packet issue and data phase. The block-transfer path at `0x4C83` uses the EPP-BIOS vector
-  and is therefore *not* our model; find the ECP block path instead.
-- Size estimate **unchanged at 8-12 KB** — the transport is 89 + 139 bytes of port I/O plus the
-  two dispatchers, and none of it needs the external module.
+Answering "not everyone has an ECP card": the universal modes are small and use **only** the three
+standard SPP ports. No ECP hardware, so they work on a plain XT parallel port.
 
-## 9. Known hardware target
+### `NIBBLE Normal` — read selector 0, `0x3A1B`, 38 bytes
+```
+data = reg | 0x00
+control = 0x01 ; control = 0x03 (x2)
+first  = status & 0xF0            ; low nibble, in bits 7-4
+control = 0x04 (x2)
+second = status & 0xF0            ; high nibble
+result = (second & 0xF0) | (first >> 4)
+```
+
+### `WRITE Normal` — write selector 0, `0x4847`, 24 bytes
+```
+data = reg | 0x60 ; control = 0x01 (x2) ; data = value ; control = 0x04
+```
+
+Note the tags: writes carry `| 0x60`, reads the bare register number. Full table in §7.
+
+**Recommendation:** implement ECP as the fast path and NIBBLE/WRITE Normal as the portable one, and
+select between them with an `AdapterSettings` string (`MODE=ECP` / `MODE=NIBBLE`) exactly as
+`XTIDEMP.MPD` takes `PORT=0x300` — no detection code, which is most of what makes the vendor driver
+79,872 bytes. Ship only what can be tested: ECP is testable here, nibble needs a plain SPP port.
+
+## 7. Mode tables — decoded in full **[DERIVED]**
+
+READ table `0x4E9D`, 15 entries × 8 bytes; WRITE table `0x4F15`, 9 real entries.
+
+| sel | READ handler | mode | | sel | WRITE handler | mode |
+|---|---|---|---|---|---|---|
+| 0 | `3A1B` | NIBBLE Normal | | 0 | `4847` | WRITE Normal |
+| 1 | `3A55` | NIBBLE Slow | | 1 | `4873` | WRITE Fast(+) |
+| 2 | `3A90` | NIBBLE Slow(-) | | 2 | `48CD` | WRITE Slow(-) |
+| 3 | `3915` | UNIDIR Normal | | 3,4 | `499F` | EPP BIOS(N) |
+| 4 | `3952` | UNIDIR Slow | | 5 | `4A17` | unnamed, bridge fn `0Ch` |
+| 5 | `3990` | UNIDIR two wait | | **6** | **`4932`** | **ECP Write (in use)** |
+| 6 | `3B17` | TOSHIBA Normal | | 7 | `48A0` | WRITE Slow |
+| 7 | `3B52` | PS/2 Fast | | 8 | `48FD` | ECP Write via EPP-BIOS |
+| 8 | `3B93` | PS/2 Normal | | | | |
+| 9,10,11 | `3BC5`/`3C26` | EPP BIOS(F)/(N) | | | | |
+| 12 | `3CAF` | ECP Read via EPP-BIOS | | | | |
+| **13** | **`3CCE`** | **ECP Read (in use)** | | | | |
+| 14 | `3AD0` | TOSHIBA Fast | | | | |
+
+## 8. Selectors 12 and 8 — EPP-BIOS variants, NOT in use **[MEASURED]**
+
+Read selector 12 (`0x3CAF`) is `mov dl,[0BC9] ; mov ah,0Bh ; lcall [0BE1]` — a far call into a
+module this driver does not contain. `[0BE1]` is written at exactly one site (`0xC068`), only after
+an `INT 17h` handshake (`AH=2`, `BX='PP'`, `CH='E'`, expecting `'PEP'` back), which `/db` skips.
+Live, `[0BE1] = 0000:0000`. We need none of it.
+
+## 9. Still to do
+
+1. **Run the mode-`0xE0` replay** (`tools/e0.dbg`, or `modesweep.dbg` for all eight modes). One
+   DEBUG run settles whether the transport is complete. Needs COMrade file I/O working — a reboot
+   of the box restores it.
+2. Disconnect/teardown sequence — not yet located.
+3. ATAPI packet issue and data phase. The block-transfer path at `0x4C83` uses the EPP-BIOS vector
+   and is **not** our model; find the ECP block path.
+4. Size estimate unchanged at **8-12 KB**: transport is 89 + 139 bytes, connect ~60, plus dispatch.
+
+## 10. Hardware target
 
 Bridge SHUTTLE EPATRM · drive Matsushita LS-120 COSM 04 · port `0x378` · IRQ 7 · `dmaEn = 0`
-(technique 62 — DMA must stay off on this machine) · **no chipset init at all** (the `/ni` finding:
-those writes alias onto the 8259 and killed the keyboard in #22, and the drive works without them).
+(technique 62 — DMA stays off on this machine) · **no chipset init** (`/ni`: those writes alias onto
+the 8259 and killed the keyboard in #22, and the drive works without them).
 
 ## Licence
 
-Stay MIT. Register maps, port sequences and protocol facts are not copyrightable; the vendor's code
-is. Nothing here is transcribed, and the implementation must be written fresh from this
-specification. Linux's `drivers/block/paride/epat.c` is GPL-2.0 and **must not** be used as a source.
+MIT, reverse-engineered. Register maps, port sequences and protocol facts are not copyrightable;
+the vendor's code is. Nothing here is transcribed. Linux's `drivers/block/paride/epat.c` is GPL-2.0
+— usable as an independent cross-check on protocol facts, but **its code must not be copied into
+this repo** without relicensing that part deliberately.
 
 [#22]: https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/22
