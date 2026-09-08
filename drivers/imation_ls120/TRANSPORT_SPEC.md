@@ -303,6 +303,38 @@ Ship nibble first.
 **Nibble is also the portable answer**: it uses only the three standard SPP ports, so it works on a
 plain XT parallel port with no ECP hardware at all.
 
+## 4f. ECP IS shippable — it belongs to the DATA phase, not register access
+
+Per-register ECP reads time out because a register read has no data phase: the reverse FIFO never
+fills. That is not a defect and it does not cost throughput. The speed lives in the block path:
+
+```asm
+4458  sub dx,2 ; in al,dx ; and al,1Fh ; or al,20h ; out dx,al   ; control bit 5 = reverse
+4461  add dx,2                                                   ; dx = base+0x400 = 0x778
+4465  rep insb es:[di], dx        ; 512 bytes out of the ECP FIFO, hardware handshake
+```
+
+`rep outsb` at `0x4BD3` / `0x4C55` / `0x4E12` is the write equivalent.
+
+**Architecture to build:** NIBBLE for the task file (a few bytes per command, and portable to any
+SPP port), **ECP `rep insb`/`rep outsb` for sector data**. That is where every byte actually moves,
+so it delivers the ECP card's benefit without needing per-register ECP to work at all.
+
+A slower fallback exists at `0x479E` — `in ECR / test al,1 / insb` byte-at-a-time — and a variant at
+`0x47B2` waits on **ECR bit 2** (`test al,4`, serviceIntr) rather than bit 0. Useful if the `rep`
+form misbehaves.
+
+### ⚠ Do NOT copy the vendor's DMA-assisted block path — it writes 0x22/0x23
+
+```asm
+4444  mov ax,8000h ; out 23h,al ; out 22h,al ; out 22h,ax ; in al,22h ; or al,1 ; out 22h,al
+```
+
+On this XT, ports `0x22`/`0x23` **alias onto the 8259** (technique 75) — this is the mechanism that
+killed the keyboard in issue #22, and it lives in the *block transfer* path, not merely in chipset
+init. Our driver must use the PIO `rep insb` form only, and `dmaEn` stays 0 (technique 62: the XT's
+20-bit DMA reach silently truncates any buffer above 1 MB).
+
 ## 5. The transports
 
 ### `ECP Write` — handler `0x4932`, 89 bytes **[DERIVED]**
