@@ -139,6 +139,49 @@ the floppy and LS-120 work, and keystroke injection was far too slow to type the
 carries the generated scripts (`e0.dbg`, `modesweep.dbg` sweeping all eight modes) ready to run.
 **This is the one step between here and a working transport.**
 
+
+## 4b. ⭐ THE ATA TASK FILE IS BEHIND AN INDEX/DATA PAIR — `0x0E` / `0x0F`
+
+**This is why every register probe returned zero.** The ATA registers are not bridge registers.
+Bridge registers `0x0E` and `0x0F` form an index/data window, and the task file sits behind it:
+
+```asm
+3874  mov dx,0Eh ; mov al,6      ; call 2472   ; INDEX = ATA register 6
+387C  mov dl,0Fh ; <value>       ; call 2472   ; DATA  = value
+3883  mov dx,0Eh ; mov al,7      ; call 2472   ; INDEX = ATA register 7
+388B  mov dl,0Fh ; <value & 3>   ; call 2472   ; DATA
+38A0  mov dl,0Eh ; mov al,4 ... mov dl,0Fh ...              ; regs 4 and 5 likewise
+```
+
+So **read ATA register N** = write bridge `0x0E` = N, then read bridge `0x0F`.
+**Write ATA register N** = write bridge `0x0E` = N, then write bridge `0x0F` = value.
+
+Every probe run on 2026-09-08 read bridge registers `0x00`-`0x1F` directly. Bridge registers 0-7
+are empty address space, which is exactly the all-zero / all-`FF` result observed in every mode,
+with and without the strobe latch. The connect was correct throughout; the addressing was not.
+
+Bridge registers the driver itself uses: `0x09`, `0x0C + [0BE8]`, `0x0D`, `0x0E`, `0x0F`, `0x12`.
+
+### `[0C00]` is a connect-enable gate
+
+`0x26D9` begins `cmp byte [0C00],1 / jne exit` — connect is a **no-op** when the flag is clear.
+The routine at `0x98D3` clears `[0C00]` before its register accesses and restores it after, i.e.
+the driver connects once and suppresses nested connects while it works. Live value is `01`.
+
+### Register-access connect mode is `0x08`, not `0xE0`
+
+`0x98A7` and `0x996E` both do `mov al,8 ; call 26D9` and are immediately followed by clusters of
+`0x244B`/`0x2472` calls. `0xE0` is the **bulk-data** mode (it is what `[0C02]` holds after a `DIR`),
+and a single-register read is not valid in it — which is why the driver's own read routine *blocked*
+rather than failing fast after a mode-`0xE0` connect. The connect code has a dedicated branch for
+`0x08` at `0x277F`.
+
+### Not yet validated on hardware
+
+`tools/indexed.dbg` is built and ready: connect at mode `0x08`, then index/data reads of ATA
+registers 7, 4, 5, 6 plus bridge registers `09/0C/0D/12`. A plausible ATA status (`0x50` = DRDY|DSC)
+or the ATAPI signature (`0x14`/`0xEB` in LBA mid/high) confirms the whole chain.
+
 ## 5. The transports
 
 ### `ECP Write` — handler `0x4932`, 89 bytes **[DERIVED]**

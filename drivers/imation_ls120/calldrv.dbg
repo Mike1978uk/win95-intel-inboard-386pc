@@ -1,0 +1,14 @@
+e 500 BB 2D
+rsp
+0500
+rdx
+0007
+rds
+0575
+rcs
+0575
+rip
+244b
+g 0575:2DBB
+r
+q

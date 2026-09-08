@@ -1,0 +1,15 @@
+e 500 BB 2D
+rsp
+0500
+rax
+0040
+rds
+0575
+rcs
+0575
+rip
+26D9
+g 0575:2DBB
+d BD8 BDC
+d C02 C03
+q
