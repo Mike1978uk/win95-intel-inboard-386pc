@@ -219,6 +219,39 @@ Connect modes `00 08 10 30 40 48 50 E0`; with and without the strobe latch; brid
 `0x00`-`0x1F` direct; ATA registers via the `0x0E`/`0x0F` index/data pair; nibble and ECP transports.
 All returned uniform `00` (nibble) or `FF` with an expired reverse wait (ECP).
 
+## 4d. Replay is exhausted — the instrument needs to change
+
+Further hardware runs, all with the connect checkpoints passing (`B8 58 F0`, reproducible in every
+variant) and **all** returning `FF` with an expired reverse-direction wait:
+
+| variant tried | result |
+|---|---|
+| connect + bridge config restored from the driver's own cache (`[0D34]`-`[0D37]`) | `FF` |
+| ATA regs via the `0x0E`/`0x0F` index/data pair after that config | `FF` |
+| no connect at all, immediately after a successful `DIR D:` | `FF` |
+| `ECR` forced to SPP mode `0x14` before the magic bytes | `FF` |
+
+**Controls that make those results trustworthy:**
+- `DIR D:` still works after every probe — 125,958,144 bytes free. The probing does **not**
+  destabilise the bridge, and the driver re-establishes what it needs each operation.
+- The driver leaves the port quiescent (`control=0x14`, `ECR=0x35`, i.e. PS/2 mode, FIFO empty),
+  so it disconnects after each operation and a connect is genuinely mandatory.
+- The ECP read replay was diffed instruction-by-instruction against handler `0x3CCE`: identical.
+
+Every element is individually verified and the composite still does not work, so the missing state
+is somewhere in the driver's boot-time initialisation that has not been found by reading. **Blind
+replay is the wrong instrument for the remainder.**
+
+### Proposed next instrument: log the driver's real port sequence in 86Box
+
+Add a minimal Shuttle EPAT bridge stub to the 86Box fork - enough to answer the magic-byte
+checkpoints with `B0`/`50`/`B0` - then run `SD120PPD.SYS` in the emulator and log every access to
+`0x378`-`0x37A` and `0x778`/`0x77A`. That yields the complete, exact connect-and-configure sequence
+with no ambiguity, entirely offline, and no further hardware time.
+
+It also removes a standing limitation: there is currently **no way to test an LS-120 driver in
+emulation at all**, so every iteration costs real hardware. A bridge stub fixes that permanently.
+
 ## 5. The transports
 
 ### `ECP Write` — handler `0x4932`, 89 bytes **[DERIVED]**
