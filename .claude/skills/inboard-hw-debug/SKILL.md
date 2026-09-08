@@ -5984,3 +5984,121 @@ An `IOS.INI` `[SafeList]` entry can go in early - it is inert unless the driver 
 This generalises past `.COM` files: **when a change can make the machine unbootable, find the
 variant of the same test that cannot.** Technique 94 says substitute a known-good component as a
 control; this is its mirror - stage the unknown component somewhere a failure is cheap.
+
+---
+
+## Technique 104: "it DOES reproduce in the emulator" is also a claim about the emulator
+
+Technique 90 says *"it does not reproduce in the emulator" is a claim about the emulator, not about
+the bug*. The mirror is equally true and was never written down: **a bug that reproduces in 86Box
+and does NOT reproduce on hardware with every variable pinned may be an emulation artefact.**
+
+The project owner made this point on 2026-09-08 about issue #18. `README.md` offers *"Reproducible in
+86Box, so anyone can work on it"* as evidence the bug is real and workable. But #18 was reported on a
+**contributor's** hardware, not the owner's, and does not reproduce on the owner's machine. Three
+distinct loci then exist and need different evidence:
+
+1. the contributor's hardware (a genuine fault in their drive/controller/media),
+2. **86Box** (an emulation artefact),
+3. the guest software (a real bug needing particular conditions).
+
+**Say whose hardware an investigation is about, in the issue and in every write-up.** A session that
+tests the wrong machine produces a real measurement of an irrelevant thing - and "works on my
+machine" is never a close for somebody else's bug report.
+
+**Corollary that cost a wrong claim the same day:** before calling a run a re-test, check it
+exercises the **documented trigger**. #18's recorded mechanism is *"a media change can flush a stale
+cache page to the wrong disk"*. The harness run on 2026-09-08 copied twice to one disk with **no
+media change**, so it tested steady-state write integrity - real, useful, and not #18. It was
+reported as a #18 re-test before the README was re-read.
+
+## Technique 105: a harness timeout is not a result - check the screen before concluding anything
+
+COMrade's `run_command` polls for console output and gives up after 8 s. On this machine that
+expires constantly on commands that **complete perfectly** - `DEBUG < script` typically runs 2-3 s
+after the timeout is reported. Several conclusions on 2026-09-08 were nearly drawn from "the command
+failed" when the command had succeeded and printed its answer.
+
+- **`run_command` timing out says nothing about the command.** Always `screen_read` afterwards.
+- Redirecting a command's output to a file guarantees the timeout, because there is nothing on the
+  console to poll. Let it print, and read the console.
+- **A `DEBUG` input line longer than ~128 characters overflows its buffer**, rings the BEL and takes
+  a truncated command - which then `g`-executes whatever partial bytes landed. Split `e` commands to
+  16 bytes per line (~53 chars). One over-long line cost a wedged box and a reboot.
+- Keystroke injection stalls mid-command under load (observed repeatedly, ~11 chars in 8 s). If the
+  screen shows a partial command line, finish it with `keys_send` rather than re-issuing.
+- File I/O and console I/O fail **independently**: out-of-band `file_read`/`file_write` returned
+  `DOS stayed busy` for long stretches while `run_command` worked fine, and vice versa. Test the
+  other channel before concluding the link is down. `dos_status` pinging is not proof either - it
+  answered at 28 ms RTT while the foreground was wedged in DEBUG.
+
+## Technique 106: read the WHOLE flow before replaying any of it - and look for a register OFFSET MAP
+
+2026-09-08, issue #22. An entire day of hardware probing was spent reading parallel-port bridge
+registers **0x00-0x1F** directly, in every transfer mode, with and without various latches, all
+returning uniform `00` or `FF`. The connect handshake was verified correct on the first attempt and
+re-verified a dozen times.
+
+**The registers were never there.** The Shuttle EPAT bridge addresses register spaces through an
+offset map: internal bridge registers at `0x00`, IDE control at `0x10`, **the IDE task file at
+`0x18`**. ATA status is `0x18 + 7 = 0x1F`, not `7`. One read at the right offset returned `0x50`
+(DRDY|DSC) and `0xA0` (drive/head) immediately.
+
+The tell was available from the start and ignored: **the driver's own code never touches registers
+0-7.** Every register access in the binary uses `0x09`, `0x0C`, `0x0D`, `0x0E`, `0x0F`, `0x12` or
+higher. A five-minute call-graph pass over the whole file would have shown that before any hardware
+was touched.
+
+- **Build the call graph and read the complete operation flow before replaying fragments.**
+  Disassembling the connect, then the handlers, then the mode tables *separately* produced a correct
+  understanding of each and a wrong composite.
+- **When a protocol has register "numbers", ask whether they are offsets into a map.** Any bridge or
+  adapter presenting more than one register space almost certainly has one.
+- **A driver's cached register shadows are readable state.** `SD120PPD.SYS` keeps the bridge's
+  configuration bytes at `[0D34]`-`[0D37]` and writes them back; reading those out of live memory
+  removes any need to perform read-modify-write against registers you cannot yet read.
+
+## Technique 107: use every source you already hold, at intake - not after the hardware fails
+
+Technique 75 says read the vendor README before disassembling the vendor binary. The 2026-09-08
+session proved the rule generalises, and that this project keeps breaking it.
+
+Sources held **for the entire session** and not used: the vendor's **Windows miniport**
+(`SD120PPD.MPD`, a second independent implementation of the same protocol) and Linux's **`epat.c`**.
+The owner explicitly authorised consulting `epat.c` twice and reminded a third time; it was deferred
+each time over a licence concern the owner had already settled. When finally fetched it answered the
+blocking question - the `cont_map` offset table - **in a single request**, and independently
+corroborated the connect sequence byte-for-byte (`22 AA 55 00 FF 87 78` + mode, control toggled
+`4 -> 5 -> 4`), which had cost hours to derive from the binary.
+
+- **Licence caution is about copying code, not about reading it.** Register maps, port sequences and
+  protocol facts are not copyrightable. Read the GPL implementation, write your own code. Refusing to
+  *read* it buys nothing and costs the answer.
+- **When the owner authorises a source, use it in that turn.** Deferring an authorised source is a
+  decision to work with less information than you were given.
+- **Two independent sources agreeing on a protocol is the strongest evidence available** short of a
+  bus trace, and it is usually one fetch.
+- **Inventory every artefact you hold before the first experiment.** For #22 that inventory was:
+  DOS driver, Windows miniport, Linux driver, live hardware. Two of the four went unopened while the
+  other two were used to guess.
+
+## Technique 108: the speed path and the control path are different code
+
+Per-register ECP reads on the EPAT bridge time out permanently: a register read has no data phase, so
+the reverse FIFO never fills. That was briefly written up as "ECP is unavailable, ship nibble" -
+which the owner correctly rejected, since an ECP-capable card exists precisely for throughput.
+
+Both facts are true, because they are different paths. Registers move a handful of bytes per command
+and nibble handles them; **sector data moves through `rep insb` / `rep outsb` on the ECP FIFO**
+(`0x4465`, `0x4BD3` in `SD120PPD.SYS`) after setting the control direction bit, with the ECP hardware
+performing the handshake. That is where every byte actually travels.
+
+**When a fast transport appears not to work, check whether you are testing it on the control path.**
+The right architecture here is nibble task file + ECP block transfer - which also leaves a portable
+SPP-only fallback in the same binary for machines with no ECP hardware.
+
+WARNING - **audit the fast path for fixed-port writes before adopting it.** The vendor's DMA-assisted
+block variant opens `out 23h,al` / `out 22h,al` - ports that **alias onto the 8259 on this XT**
+(technique 75). That is the issue #22 keyboard-killer, and it lives in the *block transfer* path, not
+merely in the chipset init that `/ni` skips. Patching init writes alone would still be bitten on the
+first transfer.
