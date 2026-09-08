@@ -95,6 +95,13 @@ the port — but keep it available, it is the control that made 2026-09-08 work.
   86Box. Michal Necasek's finding is that the engine processes 4 or 8 bits depending on VRAM size,
   which 86Box models. If the self-test passes at one size and fails at the other, that is the defect
   — config change, no hardware, no register documentation needed.
+- ⭐ **#15 is a FREE RE-TEST and may already be fixed.** *"Windows 3.0 [Inboard 386] faults after the
+  splash screen in 386 enhanced mode"*, open since 2026-08-25, no response. **Technique 72 records
+  that exact symptom as a downstream effect of the starved extended-memory pool** — `WIN386.EXE` has
+  nowhere to build page tables. That root cause was fixed afterwards (the `addr >= 0x100000` branch in
+  the shadow-alias read handler, commit `4b570de`, upstream PR #7765). Nobody has re-tested #15 since.
+  Boot Win 3.0 enhanced mode on a current build: if it now starts, close it and say why. Costs one
+  boot, no hardware.
 - **`fd08fix`** — keep. Already marked superseded, and still the answer for anyone who cannot move
   their ROM address.
 - **Michal Necasek** is owed a reply on the 8514/A article (contributor ledger).
