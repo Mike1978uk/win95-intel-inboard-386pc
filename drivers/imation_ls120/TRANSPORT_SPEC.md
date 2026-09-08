@@ -252,6 +252,57 @@ with no ambiguity, entirely offline, and no further hardware time.
 It also removes a standing limitation: there is currently **no way to test an LS-120 driver in
 emulation at all**, so every iteration costs real hardware. A bridge stub fixes that permanently.
 
+## ⭐⭐ 4e. SOLVED 2026-09-08 — working register reads on real hardware
+
+```
+ATA status    (0x18+7) = 0x50   DRDY | DSC      <- a ready drive
+ATA LBA mid   (0x18+4) = 0x00
+ATA LBA high  (0x18+5) = 0x02
+ATA drv/head  (0x18+6) = 0xA0   canonical master select
+IDE control   (0x10+7) = 0x08
+```
+
+**The working recipe, verified on the real 5160:**
+
+1. **CONNECT** = `CPP(0xE0)`: write `22 AA 55 00 FF 87 78 E0` to the data port (each byte twice,
+   with an I/O delay between groups), then pulse control **`0x04` -> `0x05` -> `0x04`**.
+2. **Address a register** by `cont_map` offset, not a bare number:
+
+   | space | offset |
+   |---|---|
+   | internal bridge registers | `0x00` |
+   | IDE control | `0x10` |
+   | **IDE task file** | **`0x18`** |
+
+   So ATA status = `0x18 + 7` = `0x1F`.
+3. **READ** with the NIBBLE handler (`0x3A1B`): write the register number to the data port,
+   control `0x01`, then `0x03` twice, read status (low nibble in bits 7-4), control `0x04` twice,
+   read status again (high nibble), combine as `(second & 0xF0) | (first >> 4)`.
+4. **DISCONNECT** = `CPP(0x30)`, restoring the saved control/data values.
+
+### What was wrong all day
+
+Every probe used bare register numbers 0-7, which is the **internal bridge** space, not the task
+file. The connect was correct from the first hardware run; the addressing never was. `0xE0` is the
+*connect* command and `0x30` the *disconnect* - not transfer modes, which is why `[0C02]` read `0x30`
+at rest (disconnected) and `0xE0` after a `DIR` (connected).
+
+### Independently corroborated
+
+Linux's `epat.c` describes the identical CPP sequence - `22 AA 55 00 FF 87 78` + mode with control
+toggled `4 -> 5 -> 4` - and the same `cont_map` offsets (`0x00` internal, `0x10` IDE control,
+`0x18` IDE registers). Two unrelated sources agree, and the hardware confirms both. Used as a
+cross-check only; no code taken.
+
+### Still open
+
+**ECP reads return `FF` with the reverse-direction wait expiring**, under every connect mode and
+configuration tried. Nibble works, so this does not block a driver - it is a speed optimisation.
+Ship nibble first.
+
+**Nibble is also the portable answer**: it uses only the three standard SPP ports, so it works on a
+plain XT parallel port with no ECP hardware at all.
+
 ## 5. The transports
 
 ### `ECP Write` — handler `0x4932`, 89 bytes **[DERIVED]**
