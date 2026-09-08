@@ -182,6 +182,43 @@ rather than failing fast after a mode-`0xE0` connect. The connect code has a ded
 registers 7, 4, 5, 6 plus bridge registers `09/0C/0D/12`. A plausible ATA status (`0x50` = DRDY|DSC)
 or the ATAPI signature (`0x14`/`0xEB` in LBA mid/high) confirms the whole chain.
 
+## 4c. Session close 2026-09-08 — the remaining gap is bridge CONFIGURATION
+
+The ECP read replay was diffed instruction-by-instruction against handler `0x3CCE` and is
+**byte-for-byte faithful**. It still never receives data: the reverse-direction wait expires on
+every attempt, in every connect mode, at every register, via both ECP and nibble. The vendor's own
+handler works, so the difference is **state established before the transfer**, not the transfer code.
+
+Located, not yet decoded — `0x25EB` configures the bridge immediately after connecting:
+
+```asm
+25EB  push bx / push dx / mov bx,ax          ; BX = a flags word from the caller
+25EF  test bx,2 / jz 260C
+25F5  mov dx,12h ; call 244B                 ; read bridge reg 0x12
+      or al,8 ; cmp [0C17],1 ; or al,80h     ; set bit 3, conditionally bit 7
+      mov dx,12h ; call 2472                 ; write it back
+260C  mov dx,0Dh ; call 244B                 ; read bridge reg 0x0D
+      and al,0FCh
+      test bx,1Bh / jz -> or al,1
+      test bx,4   / jz -> or al,2            ; low two bits select the transfer mode
+      ... call 2472
+```
+
+So the full bring-up is **connect → configure bridge regs `0x12` and `0x0D` → then transfer**.
+Registers `0x0D` bits 0-1 select the transfer mode; `0x12` bit 3 (and bit 7, gated on `[0C17]`)
+enable something further. The `BX` flags word that drives the choice comes from the caller and has
+not been traced.
+
+**Next step, offline:** decode `0x25EB`'s caller to get the `BX` flags, derive the exact values
+written to `0x0D`/`0x12` for the ECP configuration on this machine, then add those two writes to
+the connect replay. Bridge writes are believed to work already (only reads were ever verified as
+failing), so this is testable in one run.
+
+### Ruled out on hardware this session
+Connect modes `00 08 10 30 40 48 50 E0`; with and without the strobe latch; bridge registers
+`0x00`-`0x1F` direct; ATA registers via the `0x0E`/`0x0F` index/data pair; nibble and ECP transports.
+All returned uniform `00` (nibble) or `FF` with an expired reverse wait (ECP).
+
 ## 5. The transports
 
 ### `ECP Write` — handler `0x4932`, 89 bytes **[DERIVED]**
