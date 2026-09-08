@@ -80,13 +80,21 @@ the port — but keep it available, it is the control that made 2026-09-08 work.
 
 ## 6. Also open
 
-- **#18 CLOSED 2026-09-08** — commented and closed. Floppies tested working, read-only caution withdrawn, Add New Hardware browse clean. Note for the record: it was the owner's issue about a contributor's hardware. The 2026-09-08 harness ran on the owner's
-  machine and did **not** change media, so it did not exercise the documented trigger. It is not a
-  #18 re-test. See technique 104 before writing anything about it.
-- **#8 Mach8 — real-hardware registers now captured** (`docs/mach8_real_hardware_registers_2026_09_08.md`): `SUBSYS_STAT 0x42E8 = 0x00AB`, `DISP_STAT 0x02E8 = 0x0001`, `GP_STAT 0x9AE8 = 0x0000`, read-only with the accelerator idle. **Next step is a diff, not more capture** — read the same three ports in 86Box under the same conditions; any divergence is a reportable gap for @TC1995, who maintains `vid_ati_mach8.c`. Never touch `0x4AE8` (technique 61).
-- **#8 cheapest untried experiment.** Cheapest test is the **512 KB** experiment in 86Box (config change, no
-  hardware). Only then consider read-only `io_in` register capture on the real card; never touch
-  `0x4AE8` (technique 61).
-- **`fd08fix`** — owner asked whether to retire it. Recommendation: keep, it is already marked
-  superseded and remains the answer for anyone who cannot move their ROM address.
-- **Michal Necasek** is still owed a reply on the 8514/A article (contributor ledger).
+- **#18 CLOSED 2026-09-08** — commented and closed. Floppy DMA reach fixed; corruption does not
+  reproduce here (121 KB written twice to different sectors, three binary compares clean, both
+  drives normal). Floppies are **no longer read-only** and the Add New Hardware browse symptom is
+  clean. For the record: it was the owner's issue about a contributor's hardware, and the harness
+  did not change media, so it never exercised the documented trigger — see technique 104.
+- **#8 Mach8 — real-hardware registers captured** (`docs/mach8_real_hardware_registers_2026_09_08.md`):
+  `SUBSYS_STAT 0x42E8 = 0x00AB`, `DISP_STAT 0x02E8 = 0x0001`, `GP_STAT 0x9AE8 = 0x0000`, read-only
+  with the accelerator idle. **Next step is a diff, not more capture** — read the same three ports in
+  86Box under the same conditions; any divergence is a reportable gap for @TC1995, who maintains
+  `vid_ati_mach8.c` (a file this project has never touched). Never write `0x4AE8` — it hands the
+  display to the 8514 and blanks the screen (technique 61).
+- **#8 cheapest untried experiment, still untried:** run the Mach8 at **512 KB** instead of 1 MB in
+  86Box. Michal Necasek's finding is that the engine processes 4 or 8 bits depending on VRAM size,
+  which 86Box models. If the self-test passes at one size and fails at the other, that is the defect
+  — config change, no hardware, no register documentation needed.
+- **`fd08fix`** — keep. Already marked superseded, and still the answer for anyone who cannot move
+  their ROM address.
+- **Michal Necasek** is owed a reply on the 8514/A article (contributor ledger).
