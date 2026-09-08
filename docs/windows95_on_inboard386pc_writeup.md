@@ -36,6 +36,14 @@ keyboard and mouse — has not been documented as working before.
   worked in combination with everything else, but a reboot was needed to get past a black-screen
   stall while Windows was finishing Start Menu/Help setup — the exact cause of that stall, and
   whether it's related to `IVT68FIX.COM`'s timing, is not yet confirmed.
+  **2026-09-08 — deliberately NOT tested by removal, and the fix stays.** Removing it and booting
+  is an asymmetric test: a hang proves it is load-bearing, but a clean boot only proves that boot
+  never reached the `INT 68h` call, which is not the same claim. The call belongs to VMM32's
+  real-mode VxD loader, so any later software install can reach it again. Two supporting facts, in
+  case the question returns: the vector really is uninitialised (the traced wild jump went to
+  `0000:0000`), and the constant `FF53` appears nowhere as data or an immediate in either 1986 ROM
+  pair — so POST never points a vector at the BIOS `IRET` and nothing else sets it. Cost of keeping
+  it is 20 bytes and one `AUTOEXEC.BAT` line.
 - COMR95 - will be using Comrade in Windows to help debug further some open issues.
 - ~~ATI Mach 8 display driver.~~ **RESOLVED 2026-08-24** ([#4](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/4)) - Windows 95's own
   `ATIM8.DRV`/`ATI.VXD` at 1024x768x256, once the adapter's configuration is set manually. See
