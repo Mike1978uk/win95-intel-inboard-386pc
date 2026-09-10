@@ -6,7 +6,8 @@ wedged Windows at shutdown.
 
 ## ✅ Confirmed on the real 5160 — 2026-09-06
 
-`XTIDEMP.MPD` md5 `561fb45b598ef5985e5a803016321f76`, published byte-identical as
+`XTIDEMP.MPD` md5 `db88f64d9a0500d13690032445ad4e31` (2026-09-10, word-wide transfers on
+stride-2 cards; supersedes `561fb45b598ef5985e5a803016321f76`), published byte-identical as
 `dist/xtide_mpd/XTIDEMP.MPD`. Evidence read off the CF card afterwards, not reported from
 the screen:
 

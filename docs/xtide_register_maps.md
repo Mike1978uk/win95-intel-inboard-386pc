@@ -106,7 +106,8 @@ half true and misled this project's own drafts on 2026-09-07.
 
 ## ✅ Stride 1 executed and passed in emulation, 2026-09-07 (issue #24)
 
-The shipped binary — md5 `561fb45b598ef5985e5a803016321f76`, byte-identical to
+The shipped binary — md5 `db88f64d9a0500d13690032445ad4e31` (was `561fb45b...` before the
+2026-09-10 word-transfer revision) — byte-identical to
 `dist/xtide_mpd/XTIDEMP.MPD`, taking its base from `AdapterSettings PORT=0x300` — **autodetected
 stride 1 and claimed the boot disk.** Bed `vm_xtide_stride1`, emulator reporting
 `XTIDE: base 0300 stride 1 bios xt_plus` at init (verified at runtime, technique 69).

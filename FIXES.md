@@ -99,8 +99,49 @@ Points `INT 68h` at `F000:FF53` (thanks to Michal Nečasek). **Must be the very 
 
 ### `XTIDEMP.MPD` — 32-bit disk access for the XT-CF / XT-IDE
 
-**[⬇ XTIDEMP.MPD](https://github.com/Mike1978uk/win95-intel-inboard-386pc/raw/master/dist/xtide_mpd/XTIDEMP.MPD)** · 10,752 bytes · md5 `561fb45b598ef5985e5a803016321f76`
+**[⬇ XTIDEMP.MPD](https://github.com/Mike1978uk/win95-intel-inboard-386pc/raw/master/dist/xtide_mpd/XTIDEMP.MPD)** · 10,752 bytes · md5 `db88f64d9a0500d13690032445ad4e31`
 · **[⬇ XTIDEMP.INF](https://github.com/Mike1978uk/win95-intel-inboard-386pc/raw/master/dist/xtide_mpd/XTIDEMP.INF)**
+
+> ### 2026-09-10 revision - word-wide transfers on stride-2 cards
+>
+> Supersedes md5 `561fb45b598ef5985e5a803016321f76`. Same driver, three transport changes,
+> all measured on the real 5160 rather than estimated:
+>
+> **1. Word-wide sector transfers, on stride-2 cards only.** A card that does not decode A0
+> answers the data register at both `base+0` and `base+1`, so one `rep insw` / `rep outsw`
+> pulls two sequential bytes per access instead of one. Measured off this machine's own data
+> port, 512 bytes each way:
+>
+> | | byte-wide | word-wide | |
+> |---|---|---|---|
+> | read | 5.87 us/byte | **3.82 us/byte** | 35% faster |
+> | write | 5.70 us/byte | **3.81 us/byte** | 33% faster |
+>
+> The reason it works is that about **3.9 us of the 5.77 us per access is bus
+> synchronisation**, paid once per access regardless of width - so a wider access amortises
+> it. That is the same effect XT-IDE **Hi-Speed** mode was designed to give, achieved here
+> **without Hi-Speed's hardware** - no A3/A0 swap, no high-byte latch, no Rev 2 card.
+>
+> **Gated on stride 2, and it must be.** On a stride-1 (Compatibility) card `base+1` is the
+> **Error register**, and a word access there would corrupt every second byte. The driver
+> autodetects and falls back to byte-wide, which is regression-tested.
+>
+> **2. `rep insb`/`rep outsb`** in place of a five-instruction-per-byte loop (~2.5%).
+>
+> **3. Paced status polling.** Every poll is a full bus cycle that transfers nothing; a
+> register-only delay between polls runs from L1 and costs no bus cycle at all. This frees
+> bus bandwidth and CPU - it is **not** a throughput gain and is not claimed as one.
+>
+> **Tested:** both register maps in 86Box - stride 2 and stride 1 - each claiming the boot
+> disk and copying **5,891,104 bytes across 129 files byte-perfect**, verified host-side
+> against the image rather than by the driver checking its own work. Then on the real 5160:
+> `Init Success`, `rmm.pdr` stands down, Windows to desktop, applications run, clean shutdown
+> with all 7 teardown stages paired.
+>
+> **Not claimed:** a perceptible end-to-end speed-up. The gain is on the data phase, and
+> ordinary Windows work is dominated by *command* overhead (4.17 ms each, measured) rather
+> than transfer. Expect it to matter most on large sequential I/O. A boot-time comparison was
+> attempted and is too noisy to support any claim in either direction.
 
 Not a patch — a driver. A Windows 95 SCSI miniport that presents an 8-bit XT-CF / XT-IDE card as
 a SCSI disk, so Windows drives the boot disk in protected mode instead of falling back to
