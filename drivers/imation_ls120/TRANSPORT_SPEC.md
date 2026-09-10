@@ -659,3 +659,74 @@ left it that way.
   instead of forcing `0x04`.
 - No mid-frame `w2(6); w2(4)`. After the command byte: `w2(4); w2(4)`, then a strobe built from
   the live control value - `(cur & 0x10) | 5` then `& 0xFE` - then `w0(0xff)` twice.
+
+---
+
+## 5. SOLVED - the cold bring-up is an ATA soft reset (2026-09-10)
+
+Cold, `SD120PPD.SYS` REM'd out, on the real 5160:
+
+```
+0200:  00 01 01 01 14 EB E0
+       status=00  error=01  count=01  lbalow=01  cyllow=14  cylhigh=EB  devhead=E0
+```
+
+**`14 EB` is the ATAPI signature.** `error=01` is "device 0 passed diagnostics". `status=00` is
+correct and not a failure: an ATAPI device holds DRDY clear until it receives its first packet
+command, so `0x00` here is the specified post-reset state, not a dead bus. This is the drive
+answering, with no vendor driver anywhere in memory.
+
+### What was missing
+
+An **ATA soft reset**. Not a bridge operation at all:
+
+```
+    LS_RegWrite(cont 1, reg 6) = 0x04     ; offset 0x16 - device control, SRST asserted
+    LS_RegWrite(cont 1, reg 6) = 0x00     ; SRST released
+    poll status until BSY (0x80) clears
+```
+
+Immediately after releasing SRST the status register reads `0x80` (BSY) - the first non-zero byte
+this bridge has ever returned cold. Before the reset every task-file register read `0x00`, which
+is exactly what an ATA device held in reset looks like.
+
+### Why five correct-looking hypotheses all failed
+
+`epat.c` does not contain this, and cannot: it is the **parallel-port bridge** driver. The ATA
+soft reset lives one layer up, in `pcd.c` / `pf.c`:
+
+```c
+    pi_write_regr(pi, 1, 6, 4);   /* SRST */
+    udelay(50);
+    pi_write_regr(pi, 1, 6, 0);
+    mdelay(1000);
+```
+
+We ported the bridge layer faithfully and never ported the layer above it. Every hypothesis in
+4g, 4h and 4i was a variation on the bridge connect - the right answer was in a file we had not
+read, because we had decided the bridge was the problem.
+
+This also explains the warm-reboot persistence recorded in 4g: once the drive is out of reset it
+stays out until power is removed, so any test after the vendor driver had ever run was
+contaminated. Technique 110.
+
+### The bring-up, in full
+
+1. `ECR (base+0x402) &= 0x34`
+2. control kick `04 0C 0E 0E 0E 04 04` (only needed if the checkpointed probe fails)
+3. `CPP(0x30) CPP(0x40) CPP(0x50) CPP(0x00)`
+4. `CPP(0xE0 | unit)` - unit 0 on this drive
+5. **`WR(0x16, 0x04)` then `WR(0x16, 0x00)`, then poll BSY** <- the actual fix
+6. task file at offset `0x18` is now live
+
+Steps 1-3 are transcribed from `SD120PPD.SYS` (section 4i) and are retained, but note they are
+**not** what unblocked this - step 5 is. Whether 1-3 are needed at all on this hardware is not
+yet established; the first driver build should keep them and a later test can remove them.
+
+### Method lesson, worth more than the fix
+
+Five hardware hypotheses across two sessions, all drawn from one source, all wrong, because the
+source could not contain the answer. The owner said it plainly: *"in one of the 3 pieces of code
+it tells you how to do it"* - and the piece that told us was the one layer nobody had opened.
+When several well-formed hypotheses from one source all fail, the next move is a different
+source, not a sixth hypothesis.
