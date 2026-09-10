@@ -132,6 +132,20 @@ project belongs upstream. Diff against the stock clone rather than trusting memo
 diff 86box_upstream/src/<file>.c 86box_full/src/<file>.c
 ```
 
+⚠ **Corrected 2026-09-10: `86box_upstream/` in this tree is NOT a pristine clone.** It carries our
+own diagnostic commits on top (`c8d05f2`, `e56c90d`, `bc617db`, `3d26999` — trace toggles, a write
+watchpoint, the XT-CF stride-2 work) and is several upstream releases behind, so the diff above
+reports hundreds of unrelated files and proves nothing. It is gitignored, so this is local-only
+state and nobody cloning the repo sees it. Before trusting that diff again, check the tree is clean:
+
+```bash
+git -C 86box_upstream fetch origin
+git -C 86box_upstream log --oneline origin/master..HEAD    # MUST be empty
+```
+
+If that prints anything, clone `https://github.com/86Box/86Box.git` fresh to a scratch directory
+and diff against that instead.
+
 That is how the XT 4-bit DMA page latch was found to be missing from 86Box — `dma_force_xt`
 had gone up, but `dma_page_is_xt()` and the `val & 0x0f` truncation had not.
 

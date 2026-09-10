@@ -68,7 +68,8 @@ at the center of the fix.
   real-mode chain (`MA13B.SYS` and friends) is out of `CONFIG.SYS` entirely
   ([#19](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/19)). The tape and scanner
   sit as `Unknown` nodes on purpose: Windows 95 has no class driver for either, and both are reached
-  over ASPI by their own applications
+  over ASPI by their own applications. Both were **exercised from within Windows on the real 5160**
+  (2026-09-10), with nothing real-mode or DOS-side driving them
 - **32-bit protected-mode disk access on the boot disk**, confirmed on real hardware 2026-09-06.
   This project's own Windows 95 SCSI miniport, [`XTIDEMP.MPD`](FIXES.md), drives the 8-bit
   XT-CF / XT-IDE card directly: `RMM.PDR` stands down, `C:` is served by SCSIPORT and DiskTSD,
@@ -88,8 +89,11 @@ at the center of the fix.
 loaded, so nothing measured about it meant anything. @andrew-hoffman reports it working in 86Box and
 faster than real mode, with A: and B: leaving compatibility mode, but hit a fatal exception and a
 corrupted disk after changing media a few times; that analysed as a stale cache page flushed to the
-wrong disk — a media-change detection failure, not the DMA-reach bug the patch fixes. **Set floppies
-read-only until that is resolved.** Separately, both drives enumerate as generic
+wrong disk — a media-change detection failure, not the DMA-reach bug the patch fixes. That path has
+**not** been re-tested here: read/write was measured on the real 5160 on 2026-09-09 (121 KB written
+twice to different sectors, three binary compares clean, both drives normal), but that harness never
+changed media. **The earlier "set floppies read-only" caution is withdrawn.** Separately, both drives
+enumerate as generic
 `GENERIC NEC FLOPPY DISK` nodes with no drive letters and the wrong geometry for the real TEAC
 FD-505 — a 5160 has no CMOS for Windows to read drive types from. See
 [#18](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/18).
@@ -371,8 +375,11 @@ answer, not a week of work.
 | [#10](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/10) | Idea: a loadable BIOS-extension shim so 1982-era 5150/5160 ROMs can run Windows |
 | [#14](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/14) | POST intermittently halts with 101, at `mem_size` 2688 and 3072. Needs a quiet build, not `86box_full` |
 | [#15](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/15) | Windows 3.0 faults after the splash screen in 386 enhanced mode |
+| [#18](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/18) | Floppy corruption after a media change. DMA reach is fixed (`maxPhys 0x1000 -> 0xFF`, shipped as `HSFLOP_XTDMA.PDR`) and read/write measured clean here on 2026-09-09, but that harness never changed media, which is this issue's actual trigger. **Reopened 2026-09-10** to reproduce in 86Box on the reporter's configuration |
 | [#20](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/20) | 86Box has no 3C509B device, so emulated networking cannot match the real machine's card. Low priority, emulation fidelity only |
-| [#22](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/22) | LS-120 Windows 95 driver kills keyboard input — the miniport's chipset probe writes to the 8259 through the XT's I/O aliasing. Root-caused; parked, because the real-mode driver works |
+| [#22](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/22) | LS-120 Windows 95 driver kills keyboard input — the vendor miniport's chipset probe writes to the 8259 through the XT's I/O aliasing, from the service path, so no setting can disable it. Parallel-port transport solved and proven on hardware; a replacement miniport is in progress |
+| [#23](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/23) | `XTIDEMP.MPD` cannot drive the XT-IDE Hi-Speed register map — an A3/A0 swap is a permutation, and the driver computes `base + index * stride`. Blocked on hardware to test against, and on 86Box having no Hi-Speed model |
+| [#26](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/26) | Replies owed on VOGONS — disruptor's ST01 question and red-ray's SIV test |
 
 Issues are labelled **`emulator`** or **`real-hardware`** so you can pick by what you have, and
 **`upstream`** marks the ones destined for 86Box itself.

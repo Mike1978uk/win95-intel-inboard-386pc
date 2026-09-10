@@ -214,16 +214,19 @@ bytes fails its CRC and the driver retries forever — motor on, light on.
 > real-mode mapper. That was true when written and is no longer. Clearing the IOS punt (#17) and
 > installing the controller is what changed it.
 >
-> ### ⚠️ Loading is not the same as correct — keep floppies read-only
+> ### ⚠️ Correct on a fixed disk; the media-change path is still open
 >
-> @andrew-hoffman has run this driver in 86Box: the floppy works, it is faster than real mode, and
-> A: and B: leave compatibility mode. After changing disks a few times he hit
-> `Fatal Exception 0E` and a corrupted floppy image. That image analysed as **a stale cache page
-> flushed to the wrong disk** — a media-change detection failure, not the DMA-reach bug this patch
-> fixes. Read-only prevents the flush, which is why his workaround holds.
+> Read/write was measured on the real 5160 on 2026-09-09: 121 KB written twice to different sectors,
+> three binary compares clean, both drives normal. **The earlier "keep floppies read-only" caution is
+> withdrawn.**
 >
-> Read/write correctness on the real 5160 is **not yet tested** since the driver started loading.
-> Tracked as [#18](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/18).
+> That harness never changed media, and a media change is the open fault. @andrew-hoffman has run
+> this driver in 86Box — the floppy works and is faster than real mode, with A: and B: leaving
+> compatibility mode — but after changing disks a few times he hit `Fatal Exception 0E` and a
+> corrupted image, which analysed as **a stale cache page flushed to the wrong disk**: a
+> media-change detection failure, not the DMA-reach bug this patch fixes.
+>
+> Tracked as [#18](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/18), reopened 2026-09-10.
 
 `HSFLOP.PDR` lives in `IOSUBSYS` and is loaded dynamically by IOS — it is **not** bundled into
 `VMM32.VXD`, so a plain file copy to `C:\WINDOWS\SYSTEM\IOSUBSYS\` is enough.
