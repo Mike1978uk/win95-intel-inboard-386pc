@@ -39,6 +39,15 @@ param(
     # Do not re-enable without a matching free at teardown.
     [switch] $ClaimRange,
 
+    # Pace the status polls instead of spinning flat out. Every poll is a full
+    # ~1 us bus cycle that transfers nothing; the Inboard's cache is enabled,
+    # so a register-only delay between polls costs no bus cycle at all.
+    [switch] $PollBackoff,
+
+    # rep insb / rep outsb for the 512-byte data phase instead of a five
+    # instruction per byte loop. Removes core cycles, not bus cycles.
+    [switch] $FastXfer,
+
     [string] $DdkRoot = 'C:\Users\lycet\OneDrive\Desktop\XT_project\Windows95_ddk'
 )
 
@@ -66,6 +75,8 @@ if ($RealModeInit)  { $defs += '-DXT_REAL_MODE_INIT' }
 if (-not $WriteTest) { $defs += '-DXT_NO_WRITETEST' }
 if ($Base -ne 0)    { $defs += ("-DXT_FORCE_BASE=0{0:X}h" -f $Base) }
 if ($ClaimRange)    { $defs += '-DXT_CLAIM_RANGE' }
+if ($PollBackoff)   { $defs += '-DXT_POLL_BACKOFF' }
+if ($FastXfer)      { $defs += '-DXT_FAST_XFER' }
 
 # -coff is what makes ML emit objects the PE linker can use at all.
 $aflags = @('-coff', '-DBLD_COFF', '-DIS_32', '-DMASM6', '-nologo', '-W2', '-Zd', '-c', '-Cx') + $defs

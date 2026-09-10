@@ -122,6 +122,20 @@ XT_TR_LATCH	equ	2		; 16-bit: low at data, high at base+8
 
 XT_SPIN		equ	400000		; status poll limit; no timer at init
 
+;  Poll pacing (XT_POLL_BACKOFF). Every status poll is a full ~1 us bus cycle
+;  on a 4.77 MHz XT bus that transfers nothing, so polling flat out spends the
+;  entire bus asking "ready yet?". With the Inboard's cache enabled - measured
+;  2026-09-10, the value INBRDPC restores to port 0670h is 1Fh, bit 0 set - a
+;  register-only delay runs from L1 and costs NO bus cycle at all, so pacing
+;  the polls is very nearly free.
+;
+;  Check BEFORE pacing, so a drive that is already ready pays nothing. The
+;  fast window covers the streaming case, where DRQ is up by the time we look;
+;  only a genuine wait reaches the paced loop.
+XT_POLL_FAST	equ	32		; polls with no delay, then back off
+XT_POLL_DELAY	equ	256		; cached dec/jnz iterations between paced polls
+XT_SPIN_SLOW	equ	100000		; paced polls - about XT_SPIN's wall clock
+
 ;  Inner-loop count for one unit of the boot-log delay channel. Calibrated on
 ;  86Box's Deskpro bed, where one unit is about 11.6 log ticks. The 5160 is
 ;  several times faster, so the same constant compresses every fail code into
@@ -620,6 +634,29 @@ XTIDE_SetPorts:
 XTIDE_WaitNotBusy:
 
 	mov	edx, XTIDE_pAltStatus
+ifdef XT_POLL_BACKOFF
+	mov	ecx, XT_POLL_FAST
+xwnb_fast:
+	in	al, dx
+	test	al, ST_BSY
+	jz	xwnb_ok
+	dec	ecx
+	jnz	xwnb_fast
+
+	mov	ecx, XT_SPIN_SLOW
+xwnb_loop:
+	in	al, dx
+	test	al, ST_BSY
+	jz	xwnb_ok
+	push	ecx
+	mov	ecx, XT_POLL_DELAY
+xwnb_pace:
+	dec	ecx			; register-only: L1, no bus cycle
+	jnz	xwnb_pace
+	pop	ecx
+	dec	ecx
+	jnz	xwnb_loop
+else
 	mov	ecx, XT_SPIN
 xwnb_loop:
 	in	al, dx
@@ -627,6 +664,7 @@ xwnb_loop:
 	jz	xwnb_ok
 	dec	ecx
 	jnz	xwnb_loop
+endif
 	stc
 	ret
 xwnb_ok:
@@ -644,6 +682,39 @@ xwnb_ok:
 XTIDE_WaitDrq:
 
 	mov	edx, XTIDE_pAltStatus
+ifdef XT_POLL_BACKOFF
+	mov	ecx, XT_POLL_FAST
+xwd_fast:
+	in	al, dx
+	test	al, ST_BSY
+	jnz	xwd_fnext		; still busy, status bits not valid yet
+	test	al, ST_ERR
+	jnz	xwd_fail
+	test	al, ST_DRQ
+	jnz	xwd_ok
+xwd_fnext:
+	dec	ecx
+	jnz	xwd_fast
+
+	mov	ecx, XT_SPIN_SLOW
+xwd_loop:
+	in	al, dx
+	test	al, ST_BSY
+	jnz	xwd_again
+	test	al, ST_ERR
+	jnz	xwd_fail
+	test	al, ST_DRQ
+	jnz	xwd_ok
+xwd_again:
+	push	ecx
+	mov	ecx, XT_POLL_DELAY
+xwd_pace:
+	dec	ecx			; register-only: L1, no bus cycle
+	jnz	xwd_pace
+	pop	ecx
+	dec	ecx
+	jnz	xwd_loop
+else
 	mov	ecx, XT_SPIN
 xwd_loop:
 	in	al, dx
@@ -656,6 +727,7 @@ xwd_loop:
 xwd_again:
 	dec	ecx
 	jnz	xwd_loop
+endif
 xwd_fail:
 	movzx	eax, al
 	mov	XTIDE_LastStatus, eax	; so ERR and timeout are distinguishable
@@ -696,12 +768,26 @@ XTIDE_ReadData:
 
 	mov	edx, XTIDE_pData
 	mov	ecx, 512		; bytes
+ifdef XT_FAST_XFER
+;  One instruction per byte instead of five. The bus cycle still dominates, so
+;  this is not a large win on its own - it removes the ~13 core cycles of loop
+;  overhead per byte, not the transfer. insb writes through ES:EDI and this
+;  driver addresses its buffers off DS, so point ES at DS for the duration
+;  rather than assuming SCSIPORT left them equal.
+	push	es
+	mov	ax, ds
+	mov	es, ax
+	cld
+	rep	insb			; advances EDI by 512
+	pop	es
+else
 xrd_pio8_loop:
 	in	al, dx
 	mov	[edi], al
 	inc	edi
 	dec	ecx
 	jnz	xrd_pio8_loop
+endif
 	ret
 
 xrd_latch:
@@ -1189,12 +1275,17 @@ XTIDE_WriteData:
 
 	mov	edx, XTIDE_pData
 	mov	ecx, 512			; bytes
+ifdef XT_FAST_XFER
+	cld
+	rep	outsb			; DS:ESI, advances ESI by 512
+else
 xwd8_pio8_loop:
 	mov	al, [esi]
 	out	dx, al
 	inc	esi
 	dec	ecx
 	jnz	xwd8_pio8_loop
+endif
 	ret
 
 xwd8_latch:
