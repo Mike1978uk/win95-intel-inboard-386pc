@@ -252,7 +252,34 @@ with no ambiguity, entirely offline, and no further hardware time.
 It also removes a standing limitation: there is currently **no way to test an LS-120 driver in
 emulation at all**, so every iteration costs real hardware. A bridge stub fixes that permanently.
 
-## ⭐⭐ 4e. SOLVED 2026-09-08 — working register reads on real hardware
+## ⭐⭐ 4e. Register reads work on real hardware — 2026-09-08
+
+> ### ⚠ CORRECTED 2026-09-10: this is verified WITH THE VENDOR DOS DRIVER RESIDENT
+>
+> The recipe below is right, and an independent reimplementation of it returns `0x50` on the
+> real machine. But it is **not solved standalone**. Same DEBUG script, same machine, minutes
+> apart, one variable:
+>
+> | `SD120PPD.SYS` in `CONFIG.SYS` | ATA status at `0x18+7` |
+> |---|---|
+> | REM'd out | **`0x00`** |
+> | loaded | **`0x50`** |
+>
+> The CPP connect is **not** the missing piece - its checkpoints return `B8 58 F0` in both
+> cases, so the handshake succeeds with or without the vendor driver. What changes is state the
+> vendor driver establishes **at boot**, which our connect does not reproduce. That is exactly
+> the gap section 4c identified and section 4e then declared solved.
+>
+> **Why it was missed:** every 2026-09-08 run kept the vendor driver loaded, using `DIR D:` as
+> the control that the hardware was healthy. The control was silently a **dependency**. A
+> control you never remove is indistinguishable from a prerequisite.
+>
+> **Consequence for the driver:** `LS120MP.MPD` implements this recipe faithfully and will
+> still find nothing on a machine that has not loaded the vendor DOS driver. The next work is
+> section 4c's bridge configuration - `0x25EB` writing bridge registers `0x12` and `0x0D` - or
+> whatever else the vendor does at init. **Do not install the miniport expecting it to work
+> until that is found.**
+
 
 ```
 ATA status    (0x18+7) = 0x50   DRDY | DSC      <- a ready drive
