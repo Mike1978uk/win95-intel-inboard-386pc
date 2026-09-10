@@ -6360,3 +6360,37 @@ sweeping conclusion from it ("width cannot matter"), and stated a number (~2%) I
 The owner pushed for the measurement anyway. **A model built on one measurement predicts the thing
 you measured, and nothing else.** Measure the lever you are about to reject.
 
+### Technique 109f: test a WRITE transport with zero risk - ATA WRITE BUFFER / READ BUFFER
+
+An unverified write path is the hardest thing to test on a single-disk machine: there is nowhere
+safe to write, and technique 79 warns that a same-path round trip cannot detect the fault anyway.
+**ATA has a way out that costs nothing.**
+
+`WRITE BUFFER` (`0E8h`) and `READ BUFFER` (`0E4h`) move 512 bytes in and out of the drive's
+**internal sector buffer** and **never touch the media**. So:
+
+1. Fill a host buffer with an **incrementing** pattern - a byte-order fault then reads `01 00 03 02`
+   and is unmissable.
+2. `WRITE BUFFER`, wait DRQ, send it with the transport under test (`rep outsw`).
+3. `READ BUFFER`, wait DRQ, read it back with a **known-good, different** path (`rep insb`).
+4. Compare, and check the status byte after each step for `ERR`.
+
+Different code on each leg is what makes it valid - the error cannot cancel the way it does in a
+same-path round trip. Verified `rep outsw` on 2026-09-10 this way: `00 01 02 ... 1F` exactly,
+status `58 50 58`, no `ERR` anywhere, `SI` and `DI` both advanced exactly 200h.
+
+**It times the write path too**, since the data phase crosses the bus identically to a real write:
+
+| | 512 bytes | ticks | per byte |
+|---|---|---|---|
+| `rep outsb` | byte | 3,482 | 5.70 us |
+| `rep outsw` | word | 2,328 | **3.81 us** |
+
+**33% faster, and within 0.3% of the read side** - the write data phase costs exactly what the read
+one does. What it does NOT measure is the media commit after the last sector, which on a CF is flash
+program time and is why a real write gains less overall than a read.
+
+**Reusable well beyond this card.** SCSI has the same pair (`WRITE BUFFER 3Bh` / `READ BUFFER 3Ch`),
+so a Trantor transport rewrite can be validated the same way, on a chain with no scratch device and
+nothing at stake. Reach for this before asking anyone for a sector they are willing to lose.
+
