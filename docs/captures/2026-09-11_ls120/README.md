@@ -37,3 +37,30 @@ What survives: both conventional-memory regions completed in under one tick whil
 known-bus regions took many. That is directionally strong - conventional memory looks local
 to the Inboard, not across the bus - but it needs a clean measurement before E1 is closed.
 Prefer PIT channel 0 latch reads over the BIOS tick for the re-run.
+
+## The scripts themselves
+
+`INQ3.SCR`, `INQ4.SCR` and `RAMTIME.SCR` are the exact DEBUG scripts that produced the `.OUT`
+files above. Kept so nothing has to be re-derived: send one to the box and run
+
+```
+DEBUG < C:\INQ4.SCR > C:\INQ4.OUT
+```
+
+`INQ4.SCR` is the one to build on - it is the full ATAPI packet command with per-stage bail-outs
+and a step counter, and it photographs the phase registers after the CDB.
+
+Generators: `drivers/imation_ls120/tools/gen_inquiry_probe.py` (INQ3 shape) and
+`gen_phase_probe.py` (INQ4 shape).
+
+### Two DEBUG-script rules these cost us
+
+1. **Conditional jumps are +/-127 bytes.** A `jnz` to a target ~300 bytes away is rejected by
+   DEBUG, which then assembles the NEXT script line at the same address - silently shifting
+   everything after it into garbage. This hard-wedged the machine twice, needing the power
+   switch. Structure as `jz <a few bytes ahead>` + near `jmp <anywhere>`, with every target in
+   its own `a <addr>` block so DEBUG computes the offsets.
+2. **A bounded loop still needs an explicit jump on the timeout path.** Falling out of the
+   bottom of an `a` block runs into unassembled memory. Always end with `jmp <exit>`.
+
+Technique 109b/109c, plus these two, are why these scripts are shaped the way they are.

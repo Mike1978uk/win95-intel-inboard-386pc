@@ -1,0 +1,42 @@
+a 0100
+mov ax,2000
+call 0300
+mov [0600],ax
+mov ax,B800
+call 0300
+mov [0602],ax
+mov ax,F000
+call 0300
+mov [0604],ax
+mov ax,4000
+call 0300
+mov [0606],ax
+int 3
+
+a 0300
+push ds
+push bp
+mov ds,ax
+xor ax,ax
+mov es,ax
+cld
+mov ax,es:[046C]
+mov bp,ax
+mov di,0010
+jmp 0320
+
+a 0320
+xor si,si
+mov cx,8000
+rep lodsw
+dec di
+jnz 0320
+mov ax,es:[046C]
+sub ax,bp
+pop bp
+pop ds
+ret
+
+g=100
+d 600 607
+q

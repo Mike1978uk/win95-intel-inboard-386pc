@@ -1,0 +1,278 @@
+a 0100
+cli
+mov byte ptr [0602],00
+mov dx,077A
+in al,dx
+and al,34
+out dx,al
+call 08D0
+mov ah,30
+call 0800
+mov ah,40
+call 0800
+mov ah,50
+call 0800
+mov ah,00
+call 0800
+mov ah,E0
+call 0810
+mov ax,0416
+call 08F0
+mov ax,0016
+call 08F0
+call 0920
+jmp 0180
+
+a 0180
+cmp byte ptr [0604],00
+jz 0190
+jmp 0500
+
+a 0190
+mov byte ptr [0602],01
+mov ax,A01E
+call 08F0
+mov ax,241C
+call 08F0
+mov ax,001D
+call 08F0
+mov ax,0019
+call 08F0
+mov ax,A01F
+call 08F0
+call 0960
+jmp 0220
+
+a 0220
+cmp byte ptr [0604],00
+jz 0230
+jmp 0500
+
+a 0230
+mov byte ptr [0602],02
+mov ax,1218
+call 08F0
+mov ax,0018
+call 08F0
+mov ax,0018
+call 08F0
+mov ax,0018
+call 08F0
+mov ax,2418
+call 08F0
+mov ax,0018
+call 08F0
+mov ax,0018
+call 08F0
+mov ax,0018
+call 08F0
+mov ax,0018
+call 08F0
+mov ax,0018
+call 08F0
+mov ax,0018
+call 08F0
+mov ax,0018
+call 08F0
+call 0960
+jmp 0300
+
+a 0300
+cmp byte ptr [0604],00
+jz 0310
+jmp 0500
+
+a 0310
+mov byte ptr [0602],03
+call 09A0
+mov byte ptr [0602],04
+jmp 0500
+
+a 0500
+mov al,1F
+call 08A0
+mov [0600],al
+mov al,19
+call 08A0
+mov [0601],al
+mov ah,40
+call 0800
+mov ah,30
+call 0800
+sti
+int 3
+
+a 0800
+mov dx,037A
+mov al,04
+out dx,al
+jmp 0820
+
+a 0810
+mov dx,037A
+in al,dx
+and al,0F
+out dx,al
+jmp 0820
+
+a 0820
+mov dx,0378
+mov al,22
+out dx,al
+out dx,al
+mov al,AA
+out dx,al
+out dx,al
+mov al,55
+out dx,al
+out dx,al
+mov al,00
+out dx,al
+out dx,al
+mov al,FF
+out dx,al
+out dx,al
+mov al,87
+out dx,al
+out dx,al
+mov al,78
+out dx,al
+out dx,al
+mov al,ah
+out dx,al
+out dx,al
+mov dx,037A
+mov al,04
+out dx,al
+out dx,al
+in al,dx
+and al,10
+or al,05
+out dx,al
+out dx,al
+and al,FE
+out dx,al
+out dx,al
+mov dx,0378
+mov al,FF
+out dx,al
+out dx,al
+ret
+
+a 08A0
+mov dx,0378
+out dx,al
+mov dx,037A
+mov al,01
+out dx,al
+mov al,03
+out dx,al
+mov dx,0379
+in al,dx
+and al,F0
+shr al,1
+shr al,1
+shr al,1
+shr al,1
+mov bl,al
+mov dx,037A
+mov al,04
+out dx,al
+mov dx,0379
+in al,dx
+and al,F0
+or al,bl
+ret
+
+a 08D0
+mov dx,037A
+mov al,04
+out dx,al
+mov al,0C
+out dx,al
+mov al,0E
+out dx,al
+out dx,al
+out dx,al
+mov al,04
+out dx,al
+out dx,al
+ret
+
+a 08F0
+mov bl,ah
+or al,60
+mov dx,0378
+out dx,al
+mov dx,037A
+mov al,01
+out dx,al
+mov dx,0378
+mov al,bl
+out dx,al
+mov dx,037A
+mov al,04
+out dx,al
+ret
+
+a 0920
+push cx
+mov cx,8000
+mov byte ptr [0604],00
+jmp 0930
+
+a 0930
+mov al,1F
+call 08A0
+mov [0605],al
+test al,80
+jz 0950
+dec cx
+jnz 0930
+mov byte ptr [0604],01
+jmp 0950
+
+a 0950
+pop cx
+ret
+
+a 0960
+push cx
+mov cx,4000
+mov byte ptr [0604],00
+jmp 0970
+
+a 0970
+mov al,1F
+call 08A0
+mov [0605],al
+and al,88
+cmp al,08
+jz 0990
+dec cx
+jnz 0970
+mov byte ptr [0604],01
+jmp 0990
+
+a 0990
+pop cx
+ret
+
+a 09A0
+mov si,0700
+mov cx,0024
+jmp 09B0
+
+a 09B0
+mov al,18
+call 08A0
+mov [si],al
+inc si
+dec cx
+jnz 09B0
+ret
+
+g=100
+d 600 605
+d 700 723
+q
