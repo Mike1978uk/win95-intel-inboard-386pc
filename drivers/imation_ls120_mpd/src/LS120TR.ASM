@@ -452,23 +452,11 @@ LS_BringUp:
 	cmp	al, 07Eh
 	ja	lbu_fail
 
-;  6. Spin it up, then ask whether it is ready. The result of these two is
-;     deliberately NOT allowed to fail init - an empty drive is entitled to
-;     refuse both - but the motor starting is an audible, tool-free proof that
-;     the command path reaches the mechanism, which is exactly the signal that
-;     was missing on the last boot.
-	lea	esi, LS_StartCdb
-	xor	edi, edi
-	xor	ecx, ecx
-	xor	edx, edx
-	call	LS_PacketCommand
-
-	lea	esi, LS_TurCdb
-	xor	edi, edi
-	xor	ecx, ecx
-	xor	edx, edx
-	call	LS_PacketCommand
-
+;  The motor work that used to be here has MOVED to the first SRB (LS_SpinUp).
+;  Spinning a drive up inside HwInitialize can block for many seconds - the
+;  owner could hear it land just before the desktop appeared - and HwInitialize
+;  is not the place for that. XTIDEMP.MPD, which enumerates correctly on this
+;  machine, returns from init almost immediately.
 	clc
 	ret
 lbu_fail:
@@ -797,6 +785,35 @@ lwd_ok:
 ;   it declare no interrupt handler at all. See DriverEntry in LS120MP.ASM for
 ;   why that matters on this machine.
 ;----------------------------------------------------------------------------
+;----------------------------------------------------------------------------
+; LS_SpinUp - START STOP UNIT with the start bit, then TEST UNIT READY.
+;
+;   Out:  always CF=0 - an empty drive is entitled to refuse both
+;   Uses: EAX, ECX, EDX, ESI, EDI
+;
+;   Called once, on the first SRB. That is correct behaviour for removable
+;   media in its own right, and it doubles as the only evidence channel this
+;   machine offers for "is HwStartIo being called at all": the motor is
+;   audible, binary, and reported by the hardware rather than by the code
+;   under test. Nothing else in init touches the motor now, so any spin-up
+;   noise means SRBs are arriving.
+;----------------------------------------------------------------------------
+public LS_SpinUp
+LS_SpinUp:
+	lea	esi, LS_StartCdb
+	xor	edi, edi
+	xor	ecx, ecx
+	xor	edx, edx
+	call	LS_PacketCommand
+
+	lea	esi, LS_TurCdb
+	xor	edi, edi
+	xor	ecx, ecx
+	xor	edx, edx
+	call	LS_PacketCommand
+	clc
+	ret
+
 public LS_PacketCommand
 LS_PacketCommand:
 

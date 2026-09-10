@@ -49,6 +49,7 @@ ifdef LS_PHASE2
 EXTERNDEF	LS_PacketCommand	: NEAR
 EXTERNDEF	LS_Connect		: NEAR
 EXTERNDEF	LS_BringUp		: NEAR
+EXTERNDEF	LS_SpinUp		: NEAR
 EXTERNDEF	LS_Disconnect		: NEAR
 EXTERNDEF	LS_BasePort		: WORD
 EXTERNDEF	LS_LastStatus		: DWORD
@@ -86,7 +87,9 @@ endif
 
 ;  One adapter, one target. Phase 0 answers nothing, so this only bounds how
 ;  many times SCSIPORT asks.
-LS_MAX_TARGETS		equ	1
+LS_MAX_TARGETS		equ	2	; XTIDEMP.MPD uses 2 and enumerates correctly
+					; on this machine; 1 was the only config value
+					; that differed from it.
 LS_MAX_XFER		equ	65536
 
 ;----------------------------------------------------------------------------
@@ -447,6 +450,19 @@ LsStartIo PROC STDCALL DeviceExtension:DWORD, Srb:DWORD
 ;  dispatch path really ran rather than inferring it.
 	mov	esi, DeviceExtension
 	inc	[esi].DEVEXT.dxSrbCount
+
+ifdef LS_PHASE2
+;  First SRB ever: spin the media up. Correct for removable media - the drive
+;  is left stopped after init - and it is the one audible signal that says
+;  HwStartIo is being reached at all. Init no longer touches the motor, so a
+;  spin-up during boot means SCSIPORT is talking to us.
+	cmp	[esi].DEVEXT.dxSrbCount, 1
+	jne	lsi_spun
+	push	ebx
+	call	LS_SpinUp
+	pop	ebx
+lsi_spun:
+endif
 
 	movzx	eax, [ebx].SCSI_REQUEST_BLOCK.Function
 	cmp	eax, SRB_FUNCTION_EXECUTE_SCSI
