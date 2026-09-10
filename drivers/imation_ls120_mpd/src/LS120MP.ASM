@@ -113,6 +113,34 @@ ifdef LS_PHASE2
 ;  The twelve-byte ATAPI packet handed to the device. SCSIPORT serialises
 ;  requests for a single adapter, so one static buffer is safe.
 LsPacket	db	12 dup (0)
+
+ifdef LS_FAKE_DEVICE
+;----------------------------------------------------------------------------
+;  FAKE DEVICE - for the 86Box bed only, never for hardware.
+;
+;  86Box models no EPAT bridge, so a real build fails LS_BringUp there and
+;  never reaches enumeration. That does not matter for the question this bed
+;  exists to answer, which is entirely SCSIPORT-side: given a device that
+;  definitely answers, does Windows enumerate it and give it a letter?
+;
+;  If it does, our PORT_CONFIGURATION_INFORMATION and SRB handling are right
+;  and the remaining fault is on the hardware side. If it does not, the fault
+;  is here, and it can be chased offline instead of one boot at a time.
+;
+;  Values are the real drive's, copied from SYSTEM.DAT on the owner's machine.
+;----------------------------------------------------------------------------
+LsFakeInq	db	000h		; peripheral device type: direct access
+		db	080h		; RMB - removable
+		db	002h, 002h	; SCSI-2, response format 2
+		db	01Fh		; additional length
+		db	0, 0, 0
+		db	'MATSHITA'
+		db	'LS-120 COSM   04'
+		db	'0270'
+LsFakeCap	db	0, 3, 96h, 0FFh	; last LBA, big-endian
+		db	0, 0, 2, 0	; 512-byte blocks
+endif
+
 endif
 
 	.CODE
@@ -409,10 +437,16 @@ ifdef LS_PHASE2
 ;  task-file register reads 00h and the hardware is indistinguishable from an
 ;  absent bridge. That cost two sessions; TRANSPORT_SPEC.md section 5.
 ;  LS_BringUp releases the port itself - it is shared with the printer.
+ifdef LS_FAKE_DEVICE
+;  No bridge in 86Box; the bed is testing Windows, not hardware.
+	mov	eax, TRUE
+	ret
+else
 	call	LS_BringUp
 	jc	lsi_nobridge
 	mov	eax, TRUE
 	ret
+endif
 lsi_nobridge:
 ;  Say so honestly. Returning TRUE here would leave SCSIPORT scanning a bus
 ;  that cannot answer, which looks like a drive fault rather than a missing
@@ -465,12 +499,14 @@ ifdef LS_PHASE2
 ;  is left stopped after init - and it is the one audible signal that says
 ;  HwStartIo is being reached at all. Init no longer touches the motor, so a
 ;  spin-up during boot means SCSIPORT is talking to us.
+ifndef LS_FAKE_DEVICE
 	cmp	[esi].DEVEXT.dxSrbCount, 1
 	jne	lsi_spun
 	push	ebx
 	call	LS_SpinUp
 	pop	ebx
 lsi_spun:
+endif
 endif
 
 	movzx	eax, [ebx].SCSI_REQUEST_BLOCK.Function
@@ -497,6 +533,38 @@ else
 	jne	lsi_noselect
 	cmp	[ebx].SCSI_REQUEST_BLOCK.TargetId, 0
 	jne	lsi_noselect
+
+ifdef LS_FAKE_DEVICE
+;  Answer from canned data; touch no hardware at all.
+	movzx	eax, byte ptr [ebx].SCSI_REQUEST_BLOCK.Cdb
+	cmp	eax, 012h		; INQUIRY
+	je	lsi_fake_inq
+	cmp	eax, 025h		; READ CAPACITY
+	je	lsi_fake_cap
+	cmp	eax, 000h		; TEST UNIT READY
+	je	lsi_fake_ok
+	mov	al, SRB_STATUS_SUCCESS
+	jmp	lsi_complete
+lsi_fake_inq:
+	lea	esi, LsFakeInq
+	mov	ecx, 36
+	jmp	lsi_fake_copy
+lsi_fake_cap:
+	lea	esi, LsFakeCap
+	mov	ecx, 8
+lsi_fake_copy:
+	mov	eax, [ebx].SCSI_REQUEST_BLOCK.DataTransferLength
+	cmp	ecx, eax
+	jbe	lsi_fake_len
+	mov	ecx, eax
+lsi_fake_len:
+	mov	edi, [ebx].SCSI_REQUEST_BLOCK.DataBuffer
+	cld
+	rep	movsb
+lsi_fake_ok:
+	mov	al, SRB_STATUS_SUCCESS
+	jmp	lsi_complete
+endif
 
 ;  Copy the CDB into a zero-filled twelve-byte packet.
 	lea	edi, LsPacket

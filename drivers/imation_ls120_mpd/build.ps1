@@ -31,6 +31,13 @@ param(
     #     (README.md) is settled.
     [ValidateSet(0, 2)] [int] $Phase = 0,
 
+    # Build for the 86Box bed: no hardware access, canned INQUIRY / READ
+    # CAPACITY. 86Box models no EPAT bridge, so a real build cannot reach
+    # enumeration there. This isolates the SCSIPORT side, which is where the
+    # 2026-09-10 "loads, talks to the drive, but no drive letter" problem is.
+    # NEVER deploy a -FakeDevice build to real hardware.
+    [switch] $FakeDevice,
+
     [string] $DdkRoot = 'C:\Users\lycet\OneDrive\Desktop\XT_project\Windows95_ddk'
 )
 
@@ -55,6 +62,7 @@ $env:INCLUDE = "$inc;$(Join-Path $DdkRoot 'INC32')"
 $defs = @()
 if ($Base -ne 0)  { $defs += ("-DLS_FORCE_BASE=0{0:X}h" -f $Base) }
 if ($Phase -eq 2) { $defs += '-DLS_PHASE2' }
+if ($FakeDevice)  { $defs += '-DLS_FAKE_DEVICE' }
 
 # -coff is what makes ML emit objects the PE linker can use at all.
 $aflags = @('-coff', '-DBLD_COFF', '-DIS_32', '-DMASM6', '-nologo', '-W2', '-Zd', '-c', '-Cx') + $defs
