@@ -48,6 +48,7 @@ ifdef LS_PHASE2
 ;----------------------------------------------------------------------------
 EXTERNDEF	LS_PacketCommand	: NEAR
 EXTERNDEF	LS_Connect		: NEAR
+EXTERNDEF	LS_BringUp		: NEAR
 EXTERNDEF	LS_Disconnect		: NEAR
 EXTERNDEF	LS_BasePort		: WORD
 EXTERNDEF	LS_LastStatus		: DWORD
@@ -390,14 +391,14 @@ LsParseBase ENDP
 LsInitialize PROC STDCALL DeviceExtension:DWORD
 
 ifdef LS_PHASE2
-;  Prove the bridge is really there, once, at init - rather than letting the
-;  first SRB discover it. LS_Connect reads ATA status and rejects 00h and
-;  FFh, which are exactly what an unconnected or absent bridge returns and
-;  what every probe saw all day on 2026-09-08 while the connect itself was
-;  correct. Release it again immediately; the port is shared.
-	call	LS_Connect
+;  Bring the drive up, once, at init - rather than letting the first SRB
+;  discover a dead bus. The drive powers up held in ATA reset, so this is not
+;  optional and not a probe: without the SRST pulse inside LS_BringUp every
+;  task-file register reads 00h and the hardware is indistinguishable from an
+;  absent bridge. That cost two sessions; TRANSPORT_SPEC.md section 5.
+;  LS_BringUp releases the port itself - it is shared with the printer.
+	call	LS_BringUp
 	jc	lsi_nobridge
-	call	LS_Disconnect
 	mov	eax, TRUE
 	ret
 lsi_nobridge:

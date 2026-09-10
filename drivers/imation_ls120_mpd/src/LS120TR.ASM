@@ -89,6 +89,27 @@ CONT_TASKFILE		equ	018h		; IDE task file - ATA status is 018h+7
 ;  WRITE Normal tags the register number; NIBBLE read sends it bare.
 NIB_WRITE_TAG		equ	060h
 
+;  Device control lives in the IDE CONTROL space, not the task file: cont 1,
+;  register 6 -> offset 016h. Pulsing SRST here is what brings a cold drive up
+;  (TRANSPORT_SPEC.md section 5). Before the pulse EVERY task-file register
+;  reads 00h, which looks exactly like an absent bridge and is not.
+ATA_REG_DEVCTL		equ	6
+ATA_DEVCTL_SRST		equ	004h
+ATA_ST_BSY		equ	080h
+
+;  ATAPI signature, left in the cylinder registers after a reset. This, not the
+;  status register, is the proof a drive is there: an ATAPI device holds DRDY
+;  clear until its first packet command, so status legitimately reads 00h.
+ATAPI_SIG_LO		equ	014h
+ATAPI_SIG_HI		equ	0EBh
+
+;  Vendor bring-up constants, transcribed from SD120PPD.SYS 0x2C42 (section 4i).
+CPP_PRE1		equ	030h
+CPP_PRE2		equ	040h
+CPP_PRE3		equ	050h
+CPP_PRE4		equ	000h
+ECR_KEEP_MASK		equ	034h
+
 ;============================================================================
 ;  LAYER 3 - ATAPI, once layer 2 can reach its registers.
 ;
@@ -246,22 +267,144 @@ LS_Connect:
 	mov	al, CPP_CONNECT
 	call	LS_CppFrame
 	mov	LS_Connected, 1
-;  Prove the bridge answered rather than assuming it did. A disconnected or
-;  absent bridge reads uniform 00 or FF - both were seen all day on 2026-09-08
-;  while the connect itself was correct - so those two values are the tell.
+;  Prove the drive answered rather than assuming it did - but test the ATAPI
+;  SIGNATURE, not the status register. Status 00h is the correct post-reset
+;  state for an ATAPI device (DRDY stays clear until the first packet command),
+;  so the old "00h means absent" check rejected a working drive. FFh in the
+;  cylinder registers still means nobody is driving the bus.
+	mov	al, ATA_REG_BCLO
+	call	LS_RegRead
+	jc	lcon_fail
+	cmp	al, ATAPI_SIG_LO
+	jne	lcon_fail
+	mov	al, ATA_REG_BCHI
+	call	LS_RegRead
+	jc	lcon_fail
+	cmp	al, ATAPI_SIG_HI
+	jne	lcon_fail
 	mov	al, ATA_REG_STATUS
 	call	LS_RegRead
 	jc	lcon_fail
-	cmp	al, 0FFh
-	je	lcon_fail
-	or	al, al
-	jz	lcon_fail
 	movzx	eax, al
 	mov	LS_LastStatus, eax
 	clc
 	ret
 lcon_fail:
 	mov	LS_Connected, 0
+	stc
+	ret
+
+;----------------------------------------------------------------------------
+; LS_AtaSoftReset - take the drive out of reset.
+;
+;   Out:  CF=0 if BSY cleared, CF=1 on timeout
+;   Uses: EAX, ECX, EDX
+;
+;   THIS IS THE COLD BRING-UP. The drive powers up held in ATA reset; until
+;   SRST is pulsed every task-file register reads 00h and the bridge looks
+;   dead. Five hypotheses drawn from epat.c failed against this, because
+;   epat.c is the parallel-port BRIDGE driver and cannot contain it - in Linux
+;   the reset lives one layer up, in pcd.c. TRANSPORT_SPEC.md section 5.
+;
+;   Must be called with the bridge connected.
+;----------------------------------------------------------------------------
+public LS_AtaSoftReset
+LS_AtaSoftReset:
+	push	ebx
+	mov	ch, CONT_IDECTL
+	mov	ax, (ATA_DEVCTL_SRST SHL 8) OR ATA_REG_DEVCTL
+	call	LS_RegWriteCont		; SRST asserted
+	mov	ch, CONT_IDECTL
+	mov	ax, (0 SHL 8) OR ATA_REG_DEVCTL
+	call	LS_RegWriteCont		; SRST released - status reads 80h here
+;  Poll BSY down. A nibble read is ~8 port accesses at ~3.9 us of Inboard-to-
+;  XT-bus sync each, so this loop is self-timing at roughly 30 us an iteration
+;  - no calibrated delay to get wrong, and none to go stale on other hardware.
+	mov	ecx, 0FFFFh
+lsrst_wait:
+	push	ecx
+	mov	al, ATA_REG_STATUS
+	call	LS_RegRead
+	pop	ecx
+	jc	lsrst_next
+	test	al, ATA_ST_BSY
+	jz	lsrst_done
+lsrst_next:
+	dec	ecx
+	jnz	lsrst_wait
+	pop	ebx
+	stc
+	ret
+lsrst_done:
+	pop	ebx
+	clc
+	ret
+
+;----------------------------------------------------------------------------
+; LS_BringUp - the vendor's cold port-open, then the reset that matters.
+;
+;   Out:  CF=0 if the drive answered with the ATAPI signature
+;   Uses: EAX, ECX, EDX
+;
+;   Steps 1-3 are transcribed from SD120PPD.SYS 0x2C42 (section 4i). They are
+;   retained because the vendor does them and they are harmless, NOT because
+;   they were shown to be necessary - on this hardware the soft reset alone
+;   was what unblocked it. A later test can remove them.
+;----------------------------------------------------------------------------
+public LS_BringUp
+LS_BringUp:
+;  1. Mask the ECP control register rather than storing a value into it. An
+;     earlier probe wrote 34h outright, which is a different operation.
+	movzx	edx, LS_BasePort
+	add	edx, LPT_ECP_ECR
+	in	al, dx
+	and	al, ECR_KEEP_MASK
+	out	dx, al
+;  2. The control-port kick. 0Eh asserts AUTOFEED alongside SELECT IN and
+;     nINIT; nothing before 2026-09-10 had ever written 0Ch or 0Eh here.
+	movzx	edx, LS_BasePort
+	add	edx, LPT_CONTROL
+	mov	al, LPT_CT_NINIT
+	out	dx, al
+	mov	al, LPT_CT_NINIT OR LPT_CT_SELIN
+	out	dx, al
+	mov	al, LPT_CT_NINIT OR LPT_CT_SELIN OR LPT_CT_AUTOFD
+	out	dx, al
+	out	dx, al
+	out	dx, al
+	mov	al, LPT_CT_NINIT
+	out	dx, al
+	out	dx, al
+;  3. The CPP preamble.
+	mov	al, CPP_PRE1
+	call	LS_CppFrame
+	mov	al, CPP_PRE2
+	call	LS_CppFrame
+	mov	al, CPP_PRE3
+	call	LS_CppFrame
+	mov	al, CPP_PRE4
+	call	LS_CppFrame
+;  4. Connect, reset, and only then believe anything the task file says.
+	mov	al, CPP_CONNECT
+	call	LS_CppFrame
+	mov	LS_Connected, 1
+	call	LS_AtaSoftReset
+	jc	lbu_fail
+	mov	al, ATA_REG_BCLO
+	call	LS_RegRead
+	jc	lbu_fail
+	cmp	al, ATAPI_SIG_LO
+	jne	lbu_fail
+	mov	al, ATA_REG_BCHI
+	call	LS_RegRead
+	jc	lbu_fail
+	cmp	al, ATAPI_SIG_HI
+	jne	lbu_fail
+	call	LS_Disconnect
+	clc
+	ret
+lbu_fail:
+	call	LS_Disconnect
 	stc
 	ret
 
@@ -395,11 +538,20 @@ public LS_RegWrite
 LS_RegWrite:
 ;  WRITE Normal. Note the asymmetry with the read above - a write TAGS the
 ;  register number with 60h, a read sends it bare.
+	mov	ch, CONT_TASKFILE
+	jmp	short LS_RegWriteCont
+
+;  Same write, into a caller-chosen container. Device control is the only
+;  register outside the task file the driver touches, but it is the one that
+;  matters - see LS_AtaSoftReset.
+;   In:   AL = register index, AH = value, CH = CONT_* container offset
+public LS_RegWriteCont
+LS_RegWriteCont:
 	push	ebx
 	pushfd
 	cli
 	mov	bl, ah			; the value
-	add	al, CONT_TASKFILE
+	add	al, ch
 	or	al, NIB_WRITE_TAG
 	movzx	edx, LS_BasePort
 	out	dx, al
