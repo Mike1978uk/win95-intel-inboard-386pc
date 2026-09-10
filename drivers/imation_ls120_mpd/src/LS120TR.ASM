@@ -662,6 +662,12 @@ lpc_done:
 	test	al, ATA_ST_ERR
 	jnz	lpc_fail
 
+;  Release the port. The vendor driver leaves it quiescent between
+;  operations - measured 2026-09-08, control 14h and ECR 35h at rest - so
+;  a connect is mandatory per operation, not once at init. Holding the
+;  bridge open would also keep the parallel port from anyone else. The
+;  frame is about 16 port writes, trivial against a whole command.
+	call	LS_Disconnect
 	add	esp, 16
 	pop	edi
 	pop	esi
@@ -671,6 +677,9 @@ lpc_done:
 	ret
 
 lpc_fail:
+;  Release it on the error path too, or the next command inherits a
+;  half-open bridge and fails for a reason that has nothing to do with it.
+	call	LS_Disconnect
 	add	esp, 16
 	pop	edi
 	pop	esi

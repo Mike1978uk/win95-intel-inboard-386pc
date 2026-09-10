@@ -389,8 +389,27 @@ LsParseBase ENDP
 ;============================================================================
 LsInitialize PROC STDCALL DeviceExtension:DWORD
 
+ifdef LS_PHASE2
+;  Prove the bridge is really there, once, at init - rather than letting the
+;  first SRB discover it. LS_Connect reads ATA status and rejects 00h and
+;  FFh, which are exactly what an unconnected or absent bridge returns and
+;  what every probe saw all day on 2026-09-08 while the connect itself was
+;  correct. Release it again immediately; the port is shared.
+	call	LS_Connect
+	jc	lsi_nobridge
+	call	LS_Disconnect
 	mov	eax, TRUE
 	ret
+lsi_nobridge:
+;  Say so honestly. Returning TRUE here would leave SCSIPORT scanning a bus
+;  that cannot answer, which looks like a drive fault rather than a missing
+;  bridge.
+	mov	eax, FALSE
+	ret
+else
+	mov	eax, TRUE
+	ret
+endif
 
 LsInitialize ENDP
 
