@@ -539,3 +539,62 @@ enough to answer the CPP checkpoints, then run `SD120PPD.SYS` under it and log e
 `0x378`-`0x37A` and `0x778`/`0x77A`. That yields the exact bring-up with no guessing, offline, and
 permanently removes the fact that an LS-120 driver cannot currently be tested in emulation at all.
 
+
+---
+
+## 4h. `cont_map` resolved, and the branch never tried (2026-09-10)
+
+### `cont` numbering, settled
+
+The ambiguity flagged in 4g is closed. From `reference_gpl/epat.c`:
+
+```c
+static int cont_map[3] = { 0x18, 0x10, 0 };
+#define WR(r,v)  epat_write_regr(pi,2,r,v)     /* cont 2 -> offset 0x00 */
+#define WRi(r,v) epat_write_regr(pi,0,r,v)     /* cont 0 -> offset 0x18, the ATA task file */
+```
+
+`cont 2` is offset `0x00`. Our register addressing **was** correct, so the fourth negative in 4g
+(the `WR(8,0x10) WR(0xc,0x14) WR(0xa,0x38) WR(0x12,0x10)` sequence) is trustworthy after all -
+it did write to the internal register space it was meant to, and the bridge still read `0x00`.
+
+The read idiom also matches ours exactly: `w0(r); w2(1); w2(3); a=r1(); w2(4); b=r1(); j44(a,b)`.
+
+### `epat_connect` has two branches, and we have only ever run one
+
+```c
+static int epatc8;                 /* CONFIG_PARIDE_EPATC8 - Shuttle EP1284 support */
+...
+	CPP(0);
+	if (epatc8) {
+		CPP(0x40); CPP(0xe0);
+		w0(0); w2(1); w2(4);
+		WR(0x8,0x12); WR(0xc,0x14); WR(0x12,0x10);
+		WR(0xe,0xf);  WR(0xf,4);
+		WR(0xe,0xd);  WR(0xf,0);
+	}
+	CPP(0xe0);
+	w0(0); w2(1); w2(4);
+	...
+	if (!epatc8) {
+		WR(8,0x10); WR(0xc,0x14); WR(0xa,0x38); WR(0x12,0x10);
+	}
+```
+
+`epatc8` is a **build-time** option, not autodetected - a kernel built without it can never bring
+up an EP1284-class bridge, and vice versa. Every hardware test so far has been the `!epatc8` path.
+
+Two things in the `epatc8` branch have never been sent to this bridge:
+
+- **`CPP(0x40)`** - an extra CPP frame with a mode byte we have never used.
+- a different register set: `0x8 = 0x12` (not `0x10`), no `0xa`, and the `0xe`/`0xf` pairs
+  `(0x0f,0x04)` then `(0x0d,0x00)`.
+
+Our bridge is a **SHUTTLE EPATRM**. Whether that is EP1284-class is unknown, but this is the one
+branch of the one authoritative implementation that has not been tried, and it is cheap.
+
+The probe is committed as `drivers/imation_ls120/tools/gen_epatc8_probe.py`; it emits a
+base64 DEBUG script (CRLF - technique 109c) built with DEBUG's own assembler (technique 109b, so
+no hand-computed `rel16`). Run it cold with `SD120PPD.SYS` REM'd out and read `[0200]`:
+`0x50` means this is the missing initialisation and `LS_Connect` gains the sequence; `0x00` means
+the branch is not it either and the 86Box EPAT stub (4d) becomes the only sane instrument left.
