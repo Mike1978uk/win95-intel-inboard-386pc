@@ -730,3 +730,65 @@ source could not contain the answer. The owner said it plainly: *"in one of the 
 it tells you how to do it"* - and the piece that told us was the one layer nobody had opened.
 When several well-formed hypotheses from one source all fail, the next move is a different
 source, not a sixth hypothesis.
+
+---
+
+## 6. The data path was never the same code as the register path (2026-09-11)
+
+### What the drive told us
+
+A full ATAPI INQUIRY, run from DOS with the vendor driver REM'd out
+(`tools/gen_inquiry_probe.py`, capture in `docs/captures/2026-09-11_ls120/`):
+
+```
+interrupt reason = 03     status = 50     error = 00
+byte count       = 0024   <- the drive prepared exactly 36 bytes
+data read back   = 36 x 00
+```
+
+The drive accepted the PACKET command, raised DRQ, took all twelve CDB bytes, set the byte
+count to what was asked, and completed without error. **It had the reply ready.** We could not
+collect it.
+
+That single register - byte count - is what split "the device refused" from "we cannot read
+it", after two sessions of hypotheses that assumed the former.
+
+### Why
+
+`LS_BlockRead` was a loop of single-register reads. The bridge has **two different protocols**:
+
+- **Single register:** address it, clock two nibbles, combine.
+- **Block:** enter block mode ONCE (`w0(7); w2(1); w2(3); w0(0FFh)`), then stream, alternating
+  a **phase bit** on the control port each byte, announcing the last byte with `w0(0FDh)`,
+  and leaving with `w0(0); w2(4)`.
+
+A register loop cannot express that handshake and **fails silently, returning zeros**. This is
+exactly why the task file read correctly all evening - status `50h`, error `00h`, byte count
+`24h` are all real values - while the data register produced nothing. Both were called "the
+nibble read"; only one of them was.
+
+Both routines are now transcribed from `epat.c` mode 0. The write side drops from four port
+accesses per byte to two, halving bus occupancy on that path as a side effect of being correct.
+
+### REGRESSION - the current build hangs the boot
+
+`LS120MP.MPD` code `7d389ebc` md5 `762fe8ac` **hangs Windows inside `LsInitialize`**.
+`BOOTLOG.TXT` ends at `Initing ls120mp.mpd` with no `Init Success`, the drive spins up and goes
+quiet, and Ctrl-Alt-Del is dead - so interrupts are off. The card was left running phase 0
+(`LS120MP.PH0`, md5 `61fcab5d`), which boots.
+
+The hanging binary is kept on the card as `LS120HANG.MPD` for diagnosis.
+
+Every loop in the new routines is bounded by ECX and every wait is bounded, so a plain infinite
+loop does not explain four minutes. **Unexamined**, in order of suspicion:
+
+1. `LS_BlockRead` holds `cli` for the whole transfer. Correct for 36 bytes; for a 512-byte
+   sector it is thousands of port accesses with interrupts off, and the class driver will issue
+   those the moment enumeration succeeds. The `cli` should cover only what needs atomicity.
+2. Entering block mode (`w0(7)`) and failing to leave it cleanly on an error path may strand
+   the bridge, since `LS_PacketCommand`'s failure exits do not run the `w0(0); w2(4)` teardown.
+3. Whether the phase bit or the last-byte announcement is wrong in a way that stalls the
+   bridge rather than returning garbage.
+
+The drive spinning up is itself new information: nothing in init touches the motor any more, so
+something above us was already issuing commands - i.e. enumeration may have started working.
