@@ -6252,3 +6252,60 @@ stream is **4% of a transfer** and the bus is 96%. The lever is not how fast the
 **how few times the bus is touched**, which is a code question about command count and poll count,
 not about cycles per instruction.
 
+### Technique 109c: the 5.55 us is the MACHINE, not the card - measured on two cards at once
+
+Timed 1000 reads of an XT-CF register (`031Ch`) and a Trantor T130B register (`0344h`) **in the same
+DEBUG run**, so there is no drift between them, with the T130B's **zero-wait-state jumper ENABLED**:
+
+| port | card | ticks | per read | value read |
+|---|---|---|---|---|
+| `0344h` | T130B, 5380 bus status | **6880** | 5.766 us | `80h` |
+| `031Ch` | XT-CF, alternate status | **6880** | 5.766 us | `50h` |
+
+**Identical tick counts.** The XT-CF figure also reproduces the standalone run (6878 ticks), so the
+method is good to 0.03% across separate runs. Both values are real reads, not floating bus - `50h`
+is `DRDY|DSC`, the correct idle ATA status - so neither number is an undecoded-port artefact.
+
+**Conclusions:**
+
+- **Per-cycle I/O cost is set by the machine** - the Inboard synchronising a fast CPU down to the
+  4.77 MHz bus - and is the same for every 8-bit ISA card. **No card-side choice changes it.**
+- **Moving the boot disk to SCSI would be slower, not faster.** Same cycle cost, same 8-bit width,
+  plus SCSI's arbitrate/select/message/command/status phases before a byte moves - and a command
+  already costs 4.17 ms (technique 109b). Note also there is no SCSI hard disk on this chain.
+- **`T130.MPD` imports `ScsiPortRead/WritePortBufferUshort`** - it transfers 16 bits at a time. That
+  is a real win on an AT and **nothing on this machine**: the XT's 62-pin bus has no `IOCS16`, so a
+  16-bit I/O access is split into two 8-bit cycles. Same cost per byte.
+- **Idle SCSI devices cost nothing.** Contention needs two devices transferring at once.
+
+⚠ **What this does NOT say:** it does not say `/0WS` is inert. The owner has observed the jumper
+making the difference between the SCSI tape working and failing under Windows 3.11 - a real,
+first-hand result, and a tape is throughput-sensitive enough to be a fair test. What is measured
+here is narrower: **`/0WS` does not shorten 8-bit I/O reads to a 5380 control register.** It may
+affect writes, DMA, or signal timing margin rather than PIO read cycle length. Do not cite this as
+"the jumper does nothing".
+
+### Technique 109d: IDENTIFY word 47 killed READ MULTIPLE before a line was written
+
+The obvious next lever after paced polling was `READ MULTIPLE` (`0C4h`) - one DRQ per block instead
+of per sector, predicted at ~24%. Issuing `IDENTIFY DEVICE` by hand and draining all 512 bytes
+(confirm `DI` advanced by exactly 200h, or the drive is left with DRQ asserted) settled it:
+
+```
+word 47 = 8001h   -> max sectors per block = 1
+word 59 = 0101h   -> setting valid, current block = 1
+```
+
+The card is a **Transcend CF**, firmware `20100323`, 3949/16/63, LBA capacity `3CBD30h`, PIO mode 2.
+**One sector per block means READ MULTIPLE is byte-for-byte identical to plain READ SECTORS.** The
+lever does not exist on this hardware, and the capture cost two minutes against several hundred
+lines of assembly.
+
+**It also reframes the poll count.** Technique 109b measured ~142 poll cycles per sector. If the
+drive can only ever produce one sector per DRQ, that wait is the **drive's own think time**, not
+avoidable polling. Paced polling therefore takes those cycles off the *bus* - freeing bandwidth and
+CPU - but **does not make the disk faster**. Do not claim it as a throughput gain.
+
+**The rule:** before building a lever, capture the one value that says whether it exists. A
+capability bit is cheaper than an implementation, every time.
+
