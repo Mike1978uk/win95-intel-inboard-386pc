@@ -442,17 +442,30 @@ ifdef LS_FAKE_DEVICE
 	mov	eax, TRUE
 	ret
 else
+;  Run the bring-up for its SIDE EFFECT - the ATA soft reset, without which
+;  the drive stays deaf - but do NOT let its verdict veto the adapter.
+;
+;  BOOTLOG's "Init Success ls120mp.mpd" is IOS reporting that the DRIVER
+;  LOADED. It says nothing about what HwInitialize returned, so a FALSE here
+;  is invisible and looks exactly like the symptom we have: no SRBs, no
+;  device, no diagnostics. The stub build differs from this one in only two
+;  places, and one of them is that its init cannot fail.
+;
+;  Imation's own SD120PPD.MPD settles it. Its HwInitialize (0x3277) is four
+;  short calls and then:
+;
+;      xor ecx, ecx
+;      mov al, 1          <- TRUE, unconditionally
+;      ret 4
+;
+;  No validation, no failure path, and nothing that blocks. Refusing to
+;  initialise because a probe did not like what it saw is the wrong pattern
+;  anyway: finding devices is SCSIPORT's job, and a miniport that vetoes
+;  itself removes the only channel that could report why.
 	call	LS_BringUp
-	jc	lsi_nobridge
 	mov	eax, TRUE
 	ret
 endif
-lsi_nobridge:
-;  Say so honestly. Returning TRUE here would leave SCSIPORT scanning a bus
-;  that cannot answer, which looks like a drive fault rather than a missing
-;  bridge.
-	mov	eax, FALSE
-	ret
 else
 	mov	eax, TRUE
 	ret
