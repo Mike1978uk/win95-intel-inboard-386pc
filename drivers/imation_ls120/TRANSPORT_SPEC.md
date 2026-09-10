@@ -598,3 +598,64 @@ base64 DEBUG script (CRLF - technique 109c) built with DEBUG's own assembler (te
 no hand-computed `rel16`). Run it cold with `SD120PPD.SYS` REM'd out and read `[0200]`:
 `0x50` means this is the missing initialisation and `LS_Connect` gains the sequence; `0x00` means
 the branch is not it either and the 86Box EPAT stub (4d) becomes the only sane instrument left.
+
+---
+
+## 4i. The cold bring-up, read out of `SD120PPD.SYS` (2026-09-10)
+
+The `epatc8` probe of 4h also returned `0x00`. Five hypotheses, five cold negatives - guessing
+from `epat.c` is finished. The answer was in the vendor DOS driver, which was always going to be
+the authority: it is the thing that demonstrably brings this bridge up.
+
+**Method note.** The productive step was a whole-file sweep, not another routine walk -
+`tools/io_sweep.py` (linear sweep with resync, tracks the last immediate into DX/AL) plus a search
+for the CPP magic emitted as `mov al,imm` rather than as a table. That located four CPP emitters
+in seconds: `0x2728`, `0x2831`, `0x2DDD`, `0x2E52`.
+
+### The routines
+
+| Address | What it is |
+|---|---|
+| `0x26D9` | `CPP(cmd)`, cmd in AL. Gated on `[0xc00] == 1`. |
+| `0x2800` | the same, 8x-repeated writes, used when `[0xc15] == 1` |
+| `0x2DBB` | a **checkpointed** CPP probe - fixed cmd `0x08`, verifies status after each magic byte |
+| `0x2E4D` | 8x-repeated twin of `0x2DBB` |
+| `0x2C42` | **open the port** - the cold bring-up |
+| `0x2C0E` | connect: `CPP(0xE0 \| [0xbca])` then `call 0x24d1` |
+| `0x2C23` | disconnect: `[0xc13]=0; CPP(0x40); CPP(0x30)` |
+
+### `0x2C42` - what we were missing
+
+```
+ECR (base+0x402):  in al,dx ; and al,0x34 ; out dx,al     ; MASK the current ECR, not set 0x34
+call 0x2DBB                                               ; checkpointed probe
+if it failed:
+    control (base+2):  04, 0C, 0E, 0E, 0E, 04, 04         ; <-- the kick.  NEVER TRIED.
+    call 0x2DBB again
+if it failed:  [0xc15]=1 (8x slow mode), retry, up to 0x32 attempts
+[0xc12] = control & 0x1F                                  ; saved for disconnect
+CPP(0x30) ; CPP(0x40) ; CPP(0x50) ; CPP(0x00)             ; preamble - NEVER TRIED
+for unit in 0..7:  CPP(0x10|unit), read 2 nibbles, until [0xbbe] == 0xFFAA
+[0xbca] = unit
+```
+
+Three things here that no test so far has done:
+
+1. **The control kick `04 0C 0E 0E 0E 04 04`.** `0x0E` asserts AUTOFEED alongside SELECT_IN and
+   nINIT. Every probe to date has only ever written `0x04` and `0x05` to the control port. This is
+   applied *only when the first probe fails* - i.e. exactly the cold case.
+2. **`ECR &= 0x34`** - a read-modify-write. Section 4g tested `ECR = 0x34` as a literal store,
+   which is a different operation and is not what the driver does.
+3. **The `CPP(0x30) CPP(0x40) CPP(0x50) CPP(0x00)` preamble**, and connect is
+   `CPP(0xE0 | unit)`, not bare `CPP(0xE0)`.
+
+`epat.c` has none of this, which is why five branches of it all failed: Linux's `paride` assumes
+the bridge is already awake, because on the machines it was written for the BIOS or a prior driver
+left it that way.
+
+### CPP frame differences from `epat.c`, for the record
+
+- For cmds `0xE0`, `0x20`, `0xD0` the vendor **preserves** the control port (`saved & 0x0F`)
+  instead of forcing `0x04`.
+- No mid-frame `w2(6); w2(4)`. After the command byte: `w2(4); w2(4)`, then a strobe built from
+  the live control value - `(cur & 0x10) | 5` then `& 0xFE` - then `w0(0xff)` twice.
