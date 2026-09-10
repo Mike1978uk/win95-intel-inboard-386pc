@@ -102,3 +102,6 @@ image_backups/*.img
 
 # GPL reference sources - read for facts, never copied, never committed.
 reference_gpl/
+
+# throwaway probe scripts staged for the DOS box
+scratch/
