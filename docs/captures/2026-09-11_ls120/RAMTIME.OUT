@@ -1,0 +1,49 @@
+-a 0100
+13E7:0100 mov ax,2000
+13E7:0103 call 0300
+13E7:0106 mov [0600],ax
+13E7:0109 mov ax,B800
+13E7:010C call 0300
+13E7:010F mov [0602],ax
+13E7:0112 mov ax,F000
+13E7:0115 call 0300
+13E7:0118 mov [0604],ax
+13E7:011B mov ax,4000
+13E7:011E call 0300
+13E7:0121 mov [0606],ax
+13E7:0124 int 3
+13E7:0125 
+-a 0300
+13E7:0300 push ds
+13E7:0301 push bp
+13E7:0302 mov ds,ax
+13E7:0304 xor ax,ax
+13E7:0306 mov es,ax
+13E7:0308 cld
+13E7:0309 mov ax,es:[046C]
+                   ^ Error
+13E7:0309 mov bp,ax
+13E7:030B mov di,0010
+13E7:030E jmp 0320
+13E7:0310 
+-a 0320
+13E7:0320 xor si,si
+13E7:0322 mov cx,8000
+13E7:0325 rep lodsw
+13E7:0327 dec di
+13E7:0328 jnz 0320
+13E7:032A mov ax,es:[046C]
+                   ^ Error
+13E7:032A sub ax,bp
+13E7:032C pop bp
+13E7:032D pop ds
+13E7:032E ret
+13E7:032F 
+-g=100
+
+AX=0000  BX=0000  CX=0000  DX=0000  SP=FFEE  BP=0000  SI=0000  DI=0000  
+DS=13E7  ES=0000  SS=13E7  CS=13E7  IP=0124   NV UP EI PL ZR NA PE NC 
+13E7:0124 CC            INT	3                                  
+-d 600 607
+13E7:0600  00 00 FF FF FB 12 00 00                           ........
+-q

@@ -1,0 +1,286 @@
+-a 0100
+13E7:0100 cli
+13E7:0101 mov byte ptr [0602],00
+13E7:0106 mov dx,077A
+13E7:0109 in al,dx
+13E7:010A and al,34
+13E7:010C out dx,al
+13E7:010D call 08D0
+13E7:0110 mov ah,30
+13E7:0112 call 0800
+13E7:0115 mov ah,40
+13E7:0117 call 0800
+13E7:011A mov ah,50
+13E7:011C call 0800
+13E7:011F mov ah,00
+13E7:0121 call 0800
+13E7:0124 mov ah,E0
+13E7:0126 call 0810
+13E7:0129 mov ax,0416
+13E7:012C call 08F0
+13E7:012F mov ax,0016
+13E7:0132 call 08F0
+13E7:0135 call 0920
+13E7:0138 jmp 0180
+13E7:013A 
+-a 0180
+13E7:0180 cmp byte ptr [0604],00
+13E7:0185 jz 0190
+13E7:0187 jmp 0500
+13E7:018A 
+-a 0190
+13E7:0190 mov byte ptr [0602],01
+13E7:0195 mov ax,A01E
+13E7:0198 call 08F0
+13E7:019B mov ax,241C
+13E7:019E call 08F0
+13E7:01A1 mov ax,001D
+13E7:01A4 call 08F0
+13E7:01A7 mov ax,0019
+13E7:01AA call 08F0
+13E7:01AD mov ax,A01F
+13E7:01B0 call 08F0
+13E7:01B3 call 0960
+13E7:01B6 jmp 0220
+13E7:01B8 
+-a 0220
+13E7:0220 cmp byte ptr [0604],00
+13E7:0225 jz 0230
+13E7:0227 jmp 0500
+13E7:022A 
+-a 0230
+13E7:0230 mov byte ptr [0602],02
+13E7:0235 mov ax,1218
+13E7:0238 call 08F0
+13E7:023B mov ax,0018
+13E7:023E call 08F0
+13E7:0241 mov ax,0018
+13E7:0244 call 08F0
+13E7:0247 mov ax,0018
+13E7:024A call 08F0
+13E7:024D mov ax,2418
+13E7:0250 call 08F0
+13E7:0253 mov ax,0018
+13E7:0256 call 08F0
+13E7:0259 mov ax,0018
+13E7:025C call 08F0
+13E7:025F mov ax,0018
+13E7:0262 call 08F0
+13E7:0265 mov ax,0018
+13E7:0268 call 08F0
+13E7:026B mov ax,0018
+13E7:026E call 08F0
+13E7:0271 mov ax,0018
+13E7:0274 call 08F0
+13E7:0277 mov ax,0018
+13E7:027A call 08F0
+13E7:027D call 0960
+13E7:0280 jmp 0300
+13E7:0282 
+-a 0300
+13E7:0300 cmp byte ptr [0604],00
+13E7:0305 jz 0310
+13E7:0307 jmp 0500
+13E7:030A 
+-a 0310
+13E7:0310 mov byte ptr [0602],03
+13E7:0315 call 09A0
+13E7:0318 mov byte ptr [0602],04
+13E7:031D jmp 0500
+13E7:0320 
+-a 0500
+13E7:0500 mov al,1F
+13E7:0502 call 08A0
+13E7:0505 mov [0600],al
+13E7:0508 mov al,19
+13E7:050A call 08A0
+13E7:050D mov [0601],al
+13E7:0510 mov ah,40
+13E7:0512 call 0800
+13E7:0515 mov ah,30
+13E7:0517 call 0800
+13E7:051A sti
+13E7:051B int 3
+13E7:051C 
+-a 0800
+13E7:0800 mov dx,037A
+13E7:0803 mov al,04
+13E7:0805 out dx,al
+13E7:0806 jmp 0820
+13E7:0808 
+-a 0810
+13E7:0810 mov dx,037A
+13E7:0813 in al,dx
+13E7:0814 and al,0F
+13E7:0816 out dx,al
+13E7:0817 jmp 0820
+13E7:0819 
+-a 0820
+13E7:0820 mov dx,0378
+13E7:0823 mov al,22
+13E7:0825 out dx,al
+13E7:0826 out dx,al
+13E7:0827 mov al,AA
+13E7:0829 out dx,al
+13E7:082A out dx,al
+13E7:082B mov al,55
+13E7:082D out dx,al
+13E7:082E out dx,al
+13E7:082F mov al,00
+13E7:0831 out dx,al
+13E7:0832 out dx,al
+13E7:0833 mov al,FF
+13E7:0835 out dx,al
+13E7:0836 out dx,al
+13E7:0837 mov al,87
+13E7:0839 out dx,al
+13E7:083A out dx,al
+13E7:083B mov al,78
+13E7:083D out dx,al
+13E7:083E out dx,al
+13E7:083F mov al,ah
+13E7:0841 out dx,al
+13E7:0842 out dx,al
+13E7:0843 mov dx,037A
+13E7:0846 mov al,04
+13E7:0848 out dx,al
+13E7:0849 out dx,al
+13E7:084A in al,dx
+13E7:084B and al,10
+13E7:084D or al,05
+13E7:084F out dx,al
+13E7:0850 out dx,al
+13E7:0851 and al,FE
+13E7:0853 out dx,al
+13E7:0854 out dx,al
+13E7:0855 mov dx,0378
+13E7:0858 mov al,FF
+13E7:085A out dx,al
+13E7:085B out dx,al
+13E7:085C ret
+13E7:085D 
+-a 08A0
+13E7:08A0 mov dx,0378
+13E7:08A3 out dx,al
+13E7:08A4 mov dx,037A
+13E7:08A7 mov al,01
+13E7:08A9 out dx,al
+13E7:08AA mov al,03
+13E7:08AC out dx,al
+13E7:08AD mov dx,0379
+13E7:08B0 in al,dx
+13E7:08B1 and al,F0
+13E7:08B3 shr al,1
+13E7:08B5 shr al,1
+13E7:08B7 shr al,1
+13E7:08B9 shr al,1
+13E7:08BB mov bl,al
+13E7:08BD mov dx,037A
+13E7:08C0 mov al,04
+13E7:08C2 out dx,al
+13E7:08C3 mov dx,0379
+13E7:08C6 in al,dx
+13E7:08C7 and al,F0
+13E7:08C9 or al,bl
+13E7:08CB ret
+13E7:08CC 
+-a 08D0
+13E7:08D0 mov dx,037A
+13E7:08D3 mov al,04
+13E7:08D5 out dx,al
+13E7:08D6 mov al,0C
+13E7:08D8 out dx,al
+13E7:08D9 mov al,0E
+13E7:08DB out dx,al
+13E7:08DC out dx,al
+13E7:08DD out dx,al
+13E7:08DE mov al,04
+13E7:08E0 out dx,al
+13E7:08E1 out dx,al
+13E7:08E2 ret
+13E7:08E3 
+-a 08F0
+13E7:08F0 mov bl,ah
+13E7:08F2 or al,60
+13E7:08F4 mov dx,0378
+13E7:08F7 out dx,al
+13E7:08F8 mov dx,037A
+13E7:08FB mov al,01
+13E7:08FD out dx,al
+13E7:08FE mov dx,0378
+13E7:0901 mov al,bl
+13E7:0903 out dx,al
+13E7:0904 mov dx,037A
+13E7:0907 mov al,04
+13E7:0909 out dx,al
+13E7:090A ret
+13E7:090B 
+-a 0920
+13E7:0920 push cx
+13E7:0921 mov cx,8000
+13E7:0924 mov byte ptr [0604],00
+13E7:0929 jmp 0930
+13E7:092B 
+-a 0930
+13E7:0930 mov al,1F
+13E7:0932 call 08A0
+13E7:0935 mov [0605],al
+13E7:0938 test al,80
+13E7:093A jz 0950
+13E7:093C dec cx
+13E7:093D jnz 0930
+13E7:093F mov byte ptr [0604],01
+13E7:0944 jmp 0950
+13E7:0946 
+-a 0950
+13E7:0950 pop cx
+13E7:0951 ret
+13E7:0952 
+-a 0960
+13E7:0960 push cx
+13E7:0961 mov cx,4000
+13E7:0964 mov byte ptr [0604],00
+13E7:0969 jmp 0970
+13E7:096B 
+-a 0970
+13E7:0970 mov al,1F
+13E7:0972 call 08A0
+13E7:0975 mov [0605],al
+13E7:0978 and al,88
+13E7:097A cmp al,08
+13E7:097C jz 0990
+13E7:097E dec cx
+13E7:097F jnz 0970
+13E7:0981 mov byte ptr [0604],01
+13E7:0986 jmp 0990
+13E7:0988 
+-a 0990
+13E7:0990 pop cx
+13E7:0991 ret
+13E7:0992 
+-a 09A0
+13E7:09A0 mov si,0700
+13E7:09A3 mov cx,0024
+13E7:09A6 jmp 09B0
+13E7:09A8 
+-a 09B0
+13E7:09B0 mov al,18
+13E7:09B2 call 08A0
+13E7:09B5 mov [si],al
+13E7:09B7 inc si
+13E7:09B8 dec cx
+13E7:09B9 jnz 09B0
+13E7:09BB ret
+13E7:09BC 
+-g=100
+
+AX=30FF  BX=0000  CX=0000  DX=0378  SP=FFEE  BP=0000  SI=0000  DI=0000  
+DS=13E7  ES=13E7  SS=13E7  CS=13E7  IP=051B   NV UP EI PL NZ NA PO NC 
+13E7:051B CC            INT	3                                  
+-d 600 605
+13E7:0600  50 00 02 02 01 50                                 P....P
+-d 700 723
+13E7:0700  18 18 18 18 00 70 18 18-0E 18 18 70 00 76 DC 00   .....p.....p.v..
+13E7:0710  00 00 00 00 00 00 10 38-6C C6 C6 FE 00 7C C6 C0   .......8l....|..
+13E7:0720  C0 C6 7C 0C                                       ..|.
+-q
