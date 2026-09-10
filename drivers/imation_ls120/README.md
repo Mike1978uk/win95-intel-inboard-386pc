@@ -132,6 +132,47 @@ for which `XTIDEMP.MPD` is now a shipped template.
 `drivers/block/paride/epat.c`, **GPL-2.0**. This repo is MIT. Register facts are not copyrightable;
 a port of that code would be a derivative work.
 
+## 2026-09-10: the miniport is open
+
+`tools/pedis.py` disassembles it (`python tools/pedis.py all > SD120PPD.asm`; also `imports`, `io`,
+`str`, `dis <rva> [n]`). The `.asm` is not tracked - it is a derived work of a vendor binary and
+regenerates in one command.
+
+It is a plain i386 PE, ImageBase `0x10000`, `.text` at RVA `0x400`. **Addresses in the earlier
+section above are VAs; subtract `0x10000` for the RVA** the tool prints.
+
+`DriverEntry` (RVA `0x3793`) builds one `HW_INITIALIZATION_DATA` and calls `ScsiPortInitialize`
+twice, with `AdapterInterfaceType` 1 then 3:
+
+| field | RVA |
+|---|---|
+| `HwFindAdapter` | `0x3854` |
+| `HwInitialize` | `0x3277` |
+| `HwStartIo` | `0x29ac` |
+| `HwInterrupt` | `0x2892` |
+| `HwResetBus` | `0x2914` |
+| `HwDmaStarted` | `0x48ac` |
+| `HwAdapterState` | `0x384f` (stub, `mov al,1 / ret 0Ch`) |
+| `NumberOfAccessRanges` | 1 |
+
+It imports thirteen SCSIPORT entry points and nothing else - `GetDeviceBase`, `FreeDeviceBase`,
+`Initialize`, `Notification`, `CompleteRequest`, `GetLogicalUnit`, `LogError`, `StallExecution`,
+`ConvertUlongToPhysicalAddress`, and the four `Read/WritePortBuffer Uchar/Ulong`. That list is the
+whole SCSIPORT surface our own `.MPD` needs; the `Ulong` buffer pair is the ECP FIFO path.
+
+`HwFindAdapter` scans `0x378`, `0x3BC`, `0x278` in that order when no `port` is given.
+
+**The chipset writes live in exactly two functions**, `0x81a8` and `0xc839`, and `0x81a8` is reached
+from `HwResetBus` (`0x2914`) as well as from `0x3183` and `0x1fdc`. So they are on the normal
+service path, not an init-only path - which confirms from a second direction why no `AdapterSettings`
+key can stand in for `/ni`, and why the blanket NOP patch is the only configuration-free answer.
+
+One correction to the table above: `ECP=0` does have a second effect the reference count missed. At
+`0x401c`-`0x4063` a zero `ECP` key clears the ECP flag, which then skips storing the DMA channel into
+the device extension (`[esi+0x20]`) and sets `[esi+0x51]=1` instead. So `ECP=0` does suppress the
+DMA *transfer* path, even though it does not suppress the chipset probe. `DMA=0` on its own is
+useless - the parser coerces a zero `DMA` key to `3`.
+
 ## The DOS driver's full switch list, for reference
 
 Pulled from `SD120PPD.SYS`'s own help text - several were not previously recorded:
