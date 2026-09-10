@@ -477,3 +477,65 @@ the vendor's code is. Nothing here is transcribed. Linux's `drivers/block/paride
 this repo** without relicensing that part deliberately.
 
 [#22]: https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/22
+
+---
+
+## 4g. 2026-09-10 - the dependency is real and COLD-CONFIRMED, and four fixes did not find it
+
+An independent MIT reimplementation (`LS120MP.MPD`) emits the section 4e recipe and was replayed
+byte-for-byte on the real 5160. Results, each on a **fully powered-down** machine:
+
+| condition | ATA status at `0x18+7` |
+|---|---|
+| cold, `SD120PPD.SYS` REM'd out | **`0x00`** |
+| after a boot where the vendor driver loaded, then warm-rebooted with it REM'd | `0x50` |
+| vendor driver loaded | `0x50` |
+
+**The connect itself is NOT the problem** - its checkpoints return `B8 58 F0` in every condition,
+cold or warm. Something the vendor establishes **at boot** is missing, and it **survives a warm
+reboot**, which is why earlier sessions read as "solved": every 09-08 run had the vendor driver
+loaded as a control, and Ctrl+Alt+Del never cleared it. See technique 110.
+
+### Tried on hardware and eliminated
+
+| hypothesis | source | result |
+|---|---|---|
+| `ECR = 0x34` before connect | `SD120PPD.MPD` `0x6db4`, gated on port type `0x0C` | still `0x00` |
+| magic bytes written **8x** not 2x | `SD120PPD.SYS` `0x2800`, the init-time connect | still `0x00` |
+| `CPP(0)` before `CPP(0xE0)`, plus the trailing `w0(0xff)` | `epat.c` `CPP` macro | still `0x00` |
+| the above **plus** `WR(8,0x10) WR(0xc,0x14) WR(0xa,0x38) WR(0x12,0x10)` | `epat.c` `epat_connect` | still `0x00` |
+
+⚠ **The last one is not a trustworthy negative.** `WR(r,v)` is `epat_write_regr(pi,**2**,r,v)` -
+**cont = 2**. If `cont_map` is `{0, 0x10, 0x18}` then `WR(8,·)` addresses `0x18+8`, not `0x08`.
+That test assumed the internal space and may have written to entirely the wrong registers.
+**Resolve `cont_map` before re-running it.**
+
+### What is confirmed good
+
+- The CPP frame, the `cont_map` offsets and the nibble read are all correct - the same code returns
+  `0x50` the moment the bridge has been initialised.
+- `LS120MP.MPD` is 5,632 bytes with **zero** destructive-write candidates (`xt_port_audit.py`), so
+  the issue #22 keyboard-killer is absent by construction rather than by patching.
+
+### Sources held and NOT yet read - read these before more hardware guessing
+
+1. **`SD120PPD.SYS` `0x11dd3`** - the detect routine that gates the whole of `0xcea0` (which is
+   `INIT` -> `0x81e9` -> `0xcea0`). Never disassembled. This is the boot-time path the evidence
+   points at, and it is the most likely place the answer lives.
+2. **`epcfw2k.sys`** - a Windows 2000 driver for a **Shuttle EPAT CF reader**, i.e. a THIRD
+   independent implementation of this connect, on the same bridge family. Plain PE, readable with
+   `tools/pedis.py`. On the owner's USB drive under `cf_driver/Windows 2000 Driver/`.
+3. **The Win95/98 EPAT CF driver** in the same package, inside `DATA.Z` (InstallShield) - needs
+   unpacking first.
+4. `reference_gpl/epat.c` is now pinned locally at v6.1 (gitignored; paride was removed from
+   mainline and the URL 404s). MIT/GPL boundary rules are in `reference_gpl/README.md`.
+
+### The method lesson
+
+Four hypotheses, four cold-boot cycles, no convergence. **Per-hypothesis hardware testing is the
+wrong instrument for the remainder** - each run costs a full power-cycle and tests one guess.
+Section 4d already proposed the right one and it still stands: **an EPAT bridge stub in 86Box**,
+enough to answer the CPP checkpoints, then run `SD120PPD.SYS` under it and log every access to
+`0x378`-`0x37A` and `0x778`/`0x77A`. That yields the exact bring-up with no guessing, offline, and
+permanently removes the fact that an LS-120 driver cannot currently be tested in emulation at all.
+
