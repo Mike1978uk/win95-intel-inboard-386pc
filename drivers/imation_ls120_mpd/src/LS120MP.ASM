@@ -269,7 +269,11 @@ endif
 ;  machine.
 	mov	[esi].PORT_CONFIGURATION_INFORMATION.NumberOfBuses, 1
 	mov	[esi].PORT_CONFIGURATION_INFORMATION.MaximumTransferLength, LS_MAX_XFER
-	mov	[esi].PORT_CONFIGURATION_INFORMATION.NumberOfPhysicalBreaks, 0
+;  Imation's own SD120PPD.MPD sets this to 1, not 0. Read out of its
+;  HwFindAdapter at 0x3c9f - see TRANSPORT_SPEC.md. It is the only miniport
+;  known to present THIS drive to Win95 SCSIPORT successfully, so where it
+;  disagrees with us about how to describe the adapter, it wins.
+	mov	[esi].PORT_CONFIGURATION_INFORMATION.NumberOfPhysicalBreaks, 1
 	mov	[esi].PORT_CONFIGURATION_INFORMATION.MaximumNumberOfTargets, LS_MAX_TARGETS
 	mov	[esi].PORT_CONFIGURATION_INFORMATION.AlignmentMask, 0
 	mov	[esi].PORT_CONFIGURATION_INFORMATION.InitiatorBusId, 7
@@ -290,7 +294,12 @@ endif
 	mov	[esi].PORT_CONFIGURATION_INFORMATION.AutoRequestSense, FALSE
 	mov	[esi].PORT_CONFIGURATION_INFORMATION.MultipleRequestPerLu, FALSE
 	mov	[esi].PORT_CONFIGURATION_INFORMATION.RealModeInitialized, FALSE
-	mov	[esi].PORT_CONFIGURATION_INFORMATION.BufferAccessScsiPortControlled, FALSE
+;  TRUE, following SD120PPD.MPD (its ConfigInfo+58h). This asks SCSIPORT to
+;  hand us a mapped, locked data buffer rather than leaving us to reach the
+;  caller's. XTIDEMP.MPD gets away with FALSE because it is a directly
+;  addressable disk; this transport copies every byte itself, through a
+;  parallel-port bridge, which is the case the flag exists for.
+	mov	[esi].PORT_CONFIGURATION_INFORMATION.BufferAccessScsiPortControlled, TRUE
 
 	pop	edi
 	pop	esi
