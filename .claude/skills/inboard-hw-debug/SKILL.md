@@ -976,6 +976,35 @@ this was flagged as the fastest way to resolve the "ROM BIOS shadow RAM failed" 
 mismatch (`mem_dump` of physical `0xF0000-0xFFFFF` on real hardware) but wasn't available in the
 session that hit it. Check whether it's connected before assuming it isn't.
 
+### 🛑 READ BEFORE `file_write`: everything you send is LF, and DOS cannot read LF
+
+**`file_write`'s `data` parameter does not translate line endings.** A file composed here arrives
+on the card with bare `0A` line endings, and every DOS text consumer needs `0D 0A`:
+
+| target | what LF does |
+|---|---|
+| `.BAT` | `COMMAND.COM` prints `OFF` (from `@ECHO OFF`) and then silently does nothing |
+| `DEBUG` script | the whole file reads as **one line**; DEBUG truncates at its ~128-byte buffer, rings the BEL continuously, then executes whatever partial command landed and interprets the rest as commands |
+| `.INF` | may install fine, may be rejected as *"does not contain information about your hardware"* - see the repo-hygiene skill for the measured bound on this |
+
+**The rule: send anything destined for a DOS tool as `encoding='base64'` with explicit `0D 0A`.**
+
+**The free check:** a CRLF file is exactly 1 byte per line larger than the LF one. `file_write`
+returns `bytes_written` - compare it. Ours went **304 -> 313 for 9 lines**, which is the whole
+verification, and it costs nothing.
+
+⚠ **And do not build that string in a bash heredoc.** Both times this was written up, the escape
+sequences were mangled between the heredoc and Python and a literal line break landed in the file -
+once in the DEBUG script, once in this skill's own text describing the bug. **Technique 84 already
+says this: use the Edit/Write tools for anything containing backslashes.** Or sidestep escapes
+entirely and write the byte values as hex, the way this section does.
+
+Symptom to recognise from across the room: **the machine's speaker beeping continuously.** That is
+DEBUG's BEL on buffer overflow, it is benign in itself, and nothing has been written to disk - but
+the console will be unusable. `dos_status` is the honest health check (ours answered at 39 ms RTT
+throughout, proving the machine was never wedged), file I/O keeps working so the corrected script
+can be staged before the console recovers, and a reboot is the cheap clean fix.
+
 ### Addendum 2026-08-23: COMR95 and COMRADE are NOT interchangeable - check which one is running
 
 Confirmed by reading the Win95 agent's own dispatch table (`win95/comr95.c`, `dispatch_frame`):
@@ -6027,10 +6056,10 @@ failed" when the command had succeeded and printed its answer.
   reset), executes whatever partial command landed, and carries on interpreting the remaining bytes
   as commands. The tell is arithmetic: our script's first two lines were 53 characters each, and it
   stopped mid-way through the third at exactly 132. **Always send DEBUG scripts as
-  `encoding='base64'` with explicit `
-`** - a CRLF file is 1 byte per line larger, which is a
-  free check that the translation happened. This is technique 75's `.BAT` trap in a second place,
-  and the general rule stands: check the bytes on the artefact you are about to deploy.
+  `encoding='base64'` with explicit `0D 0A` line endings** - a CRLF file is exactly 1 byte per line
+  larger than the LF one, which is a free check that the translation happened (ours went 304 -> 313
+  for 9 lines). This is technique 75's `.BAT` trap in a second place, and the general rule stands:
+  check the bytes on the artefact you are about to deploy.
 - **Recovering a DEBUG wedged this way:** `{Ctrl+C}` breaks the current command but stdin is still
   the file, so it keeps consuming. `dos_status` is the honest health check - it answered at 39 ms
   RTT throughout, proving the machine was never wedged even while the console looked dead. File I/O
