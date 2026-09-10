@@ -165,6 +165,15 @@ LS_BasePort		dw	0378h		; set by the miniport from PORT=
 LS_InqCdb		db	012h, 0, 0, 0, 24h, 0, 0, 0, 0, 0, 0, 0
 LS_InqBuf		db	36 dup (0)
 
+;  START STOP UNIT with the start bit. The vendor's Windows driver audibly
+;  spins the drive during boot and we did not, which is what put us onto this:
+;  an INQUIRY is answered by a spun-down drive, so it proves far less than it
+;  looks like it does.
+LS_StartCdb		db	01Bh, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0
+
+;  TEST UNIT READY - "is there media and are you ready to talk about it".
+LS_TurCdb		db	000h, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+
 	PUBLIC	LS_Mode
 LS_Mode			dd	0		; negotiated transfer mode, 0 = none
 
@@ -410,23 +419,57 @@ LS_BringUp:
 ;     is what the first hardware boot cost: transport perfect, Init Success,
 ;     no drive, and nothing to read. LS_PacketCommand releases the port on
 ;     both of its exits, so this does not disconnect afterwards.
+;  POISON THE BUFFER FIRST. The previous version checked only that the device
+;  type in byte 0 was not 1Fh - but an INQUIRY that silently did nothing leaves
+;  the buffer at 00h, and 00h is a legitimate device type, so the test passed
+;  on a completely dead path and reported Init Success. A self-test that cannot
+;  fail is worse than none: it spends a boot and tells you nothing.
+	lea	edi, LS_InqBuf
+	mov	ecx, 36
+	mov	al, 0AAh
+	cld
+	rep	stosb
+
 	lea	esi, LS_InqCdb
 	lea	edi, LS_InqBuf
 	mov	ecx, 36
 	xor	edx, edx		; data in
 	call	LS_PacketCommand
-	jc	lbu_inqfail
-;  Peripheral device type lives in the low 5 bits of byte 0. An LS-120 answers
-;  00h (direct access) or 07h (optical memory); either is a real device. 7Fh is
-;  "no device here" and FFh is nobody driving the bus.
-	mov	al, LS_InqBuf
-	and	al, 01Fh
-	cmp	al, 01Fh
+	jc	lbu_fail
+
+;  Byte 4 is Additional Length. 0AAh means nothing was written at all; a real
+;  device reports at least 4 and usually 1Fh.
+	mov	al, LS_InqBuf+4
+	cmp	al, 0AAh
 	je	lbu_fail
+	cmp	al, 4
+	jb	lbu_fail
+;  Byte 8 starts the vendor ID, which is space-padded ASCII on any real drive.
+;  Nothing else in the reply is as cheap to check or as hard to fake.
+	mov	al, LS_InqBuf+8
+	cmp	al, 020h
+	jb	lbu_fail
+	cmp	al, 07Eh
+	ja	lbu_fail
+
+;  6. Spin it up, then ask whether it is ready. The result of these two is
+;     deliberately NOT allowed to fail init - an empty drive is entitled to
+;     refuse both - but the motor starting is an audible, tool-free proof that
+;     the command path reaches the mechanism, which is exactly the signal that
+;     was missing on the last boot.
+	lea	esi, LS_StartCdb
+	xor	edi, edi
+	xor	ecx, ecx
+	xor	edx, edx
+	call	LS_PacketCommand
+
+	lea	esi, LS_TurCdb
+	xor	edi, edi
+	xor	ecx, ecx
+	xor	edx, edx
+	call	LS_PacketCommand
+
 	clc
-	ret
-lbu_inqfail:
-	stc
 	ret
 lbu_fail:
 	call	LS_Disconnect
