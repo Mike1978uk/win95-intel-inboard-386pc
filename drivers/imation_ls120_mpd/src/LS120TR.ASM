@@ -652,62 +652,136 @@ lrw_common:
 ;   STUBS.
 ;----------------------------------------------------------------------------
 public LS_BlockRead
-LS_BlockRead:
-;  Nibble, one byte at a time out of the ATA data register. CORRECT and SLOW:
-;  five port accesses per byte, and 2026-09-10 measured a port access on this
-;  machine at 5.77 us, so a 512-byte sector costs roughly 15 ms.
+;----------------------------------------------------------------------------
+;  NIBBLE block read, mode 0, transcribed from epat.c's epat_read_block.
 ;
-;  The ECP block path is the fix and it is NOT wired up: rep insb out of the
-;  FIFO at base+400h after setting control bit 5 for reverse. That is DERIVED
-;  from the vendor binary and has never been executed, so it is not shipped.
-;  Ship what can be tested; make it fast once it is proven.
+;  This is NOT a loop of register reads, which is what it used to be and why
+;  every task-file register read correctly while the data register returned
+;  zeros for good. The bridge is put into block mode ONCE and then streamed,
+;  with an alternating PHASE bit driven on the control port. Nothing in a
+;  per-register read expresses that handshake.
+;
+;  Proven on hardware 2026-09-11: the drive set byte count to 36 for an
+;  INQUIRY - it had the data ready - and the old routine still read 36 zeros.
+;
+;   In:   EDI = buffer, ECX = byte count
+;----------------------------------------------------------------------------
+LS_BlockRead:
 	or	ecx, ecx
 	jz	lbr_done
+	push	ebx
+	pushfd
+	cli
+	movzx	edx, LS_BasePort
+	mov	al, 7
+	out	dx, al			; w0(7) - enter block read
+	add	edx, LPT_CONTROL
+	mov	al, 1
+	out	dx, al			; w2(1)
+	mov	al, 3
+	out	dx, al			; w2(3)
+	movzx	edx, LS_BasePort
+	mov	al, 0FFh
+	out	dx, al			; w0(0FFh)
+	xor	bh, bh			; BH = phase
 lbr_loop:
-	push	ecx
-	mov	al, ATA_REG_DATA
-	call	LS_RegRead
-	pop	ecx
-	jc	lbr_fail
+	cmp	ecx, 1
+	jne	lbr_notlast
+	movzx	edx, LS_BasePort
+	mov	al, 0FDh
+	out	dx, al			; w0(0FDh) announces the LAST byte
+lbr_notlast:
+	movzx	edx, LS_BasePort
+	add	edx, LPT_CONTROL
+	mov	al, 6
+	add	al, bh
+	out	dx, al			; w2(6+ph)
+	movzx	edx, LS_BasePort
+	add	edx, LPT_STATUS
+	in	al, dx			; a = r1()
+	mov	ah, al
+;  Bit 3 set means the bridge gave us both nibbles in one go - take the
+;  shortcut rather than clocking a second cycle that will not come.
+	test	al, 8
+	jnz	lbr_join
+	movzx	edx, LS_BasePort
+	add	edx, LPT_CONTROL
+	mov	al, 4
+	add	al, bh
+	out	dx, al			; w2(4+ph)
+	movzx	edx, LS_BasePort
+	add	edx, LPT_STATUS
+	in	al, dx			; b = r1()
+lbr_join:
+;  j44(a,b): low nibble from the top of a, high nibble from the top of b.
+	and	al, 0F0h
+	shr	ah, 4
+	or	al, ah
 	mov	[edi], al
 	inc	edi
+	xor	bh, 1
 	dec	ecx
 	jnz	lbr_loop
+	movzx	edx, LS_BasePort
+	xor	al, al
+	out	dx, al			; w0(0)
+	add	edx, LPT_CONTROL
+	mov	al, 4
+	out	dx, al			; w2(4) - leave block mode
+	popfd
+	pop	ebx
 lbr_done:
 	clc
 	ret
-lbr_fail:
-	stc
-	ret
 
 public LS_BlockWrite
+;----------------------------------------------------------------------------
+;  NIBBLE block write, from epat_write_block. Same shape: enter block mode
+;  once, then a byte and a phase-alternating strobe each iteration.
+;
+;  Two port accesses per byte instead of the old four, which halves bus
+;  occupancy on the write path as a side effect of being correct.
+;
+;   In:   ESI = buffer, ECX = byte count
+;----------------------------------------------------------------------------
 LS_BlockWrite:
-;  Nibble twin of LS_BlockRead. Same cost, same reason, same fix pending.
 	or	ecx, ecx
 	jz	lbw_done
+	push	ebx
+	pushfd
+	cli
+	movzx	edx, LS_BasePort
+	mov	al, 067h
+	out	dx, al			; w0(067h) - enter block write
+	add	edx, LPT_CONTROL
+	mov	al, 1
+	out	dx, al			; w2(1)
+	mov	al, 5
+	out	dx, al			; w2(5)
+	xor	bh, bh
 lbw_loop:
-	push	ecx
-	mov	ah, [esi]
-	mov	al, ATA_REG_DATA
-	call	LS_RegWrite
-	pop	ecx
-	jc	lbw_fail
+	mov	al, [esi]
 	inc	esi
+	movzx	edx, LS_BasePort
+	out	dx, al			; w0(buf[k])
+	add	edx, LPT_CONTROL
+	mov	al, 4
+	add	al, bh
+	out	dx, al			; w2(4+ph)
+	xor	bh, 1
 	dec	ecx
 	jnz	lbw_loop
+	movzx	edx, LS_BasePort
+	add	edx, LPT_CONTROL
+	mov	al, 7
+	out	dx, al			; w2(7)
+	mov	al, 4
+	out	dx, al			; w2(4)
+	popfd
+	pop	ebx
 lbw_done:
 	clc
 	ret
-lbw_fail:
-	stc
-	ret
-
-;============================================================================
-;  LAYER 3 - ATAPI over layer 2. Complete, and calls only the layer-2 API.
-;
-;  This is written against the stubs above, so it assembles and is reviewable
-;  now, and needs no change when layer 2 lands.
-;============================================================================
 
 ;----------------------------------------------------------------------------
 ; LS_WaitNotBusy - spin until BSY clears, bounded.
