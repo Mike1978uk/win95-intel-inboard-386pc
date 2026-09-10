@@ -6194,10 +6194,16 @@ Two things that make this trustworthy, and both are cheap to repeat:
 - **A 512-byte sector costs 2.84 ms**, so 8-bit PIO on this machine caps at about **180 KB/s**. No
   software change beats that ceiling; only fewer bus cycles help.
 - **A transfer is 96% bus, 4% our loop.** So `rep insb` is worth at most ~4%, not the 10-15%
-  claimed when it was written. Instruction-level optimisation of the transfer loop is close to
-  pointless here - **the only lever that matters is reducing the NUMBER of bus cycles**, which
-  means fewer commands (scatter/gather coalescing) and fewer status polls (READ/WRITE MULTIPLE,
-  paced polling).
+  claimed when it was written. **The only lever that matters is reducing the NUMBER of bus
+  TRANSACTIONS** - fewer commands (scatter/gather coalescing), fewer status polls, and see the
+  correction below, fewer and wider data accesses.
+  > **CORRECTED 2026-09-10, same day - see technique 109e.** This bullet originally continued
+  > "instruction-level optimisation of the transfer loop is close to pointless here". **That was
+  > wrong, and it nearly cost a 35% win.** The 96/4 split is real but it measures *loop overhead*,
+  > and I read it as "access width cannot matter". It can: about **3.9 us of the 5.77 us is fixed
+  > per-ACCESS synchronisation**, so a word access pays it once for two bytes. Changing width is
+  > not instruction tuning - it halves the transaction count, which is exactly what this rule
+  > asks for. I did not see that, quoted the owner ~2%, and was talked into measuring it anyway.
 - **`XT_SPIN = 400000` was never 0.6 s, it was 2.2 s.** Technique 88's arithmetic used the wrong
   constant throughout. Its conclusions survive - they were all of the form "no spin loop ran", and
   a longer spin makes that firmer - but any *new* reasoning from that section must use 5.55 us.
@@ -6308,4 +6314,49 @@ CPU - but **does not make the disk faster**. Do not claim it as a throughput gai
 
 **The rule:** before building a lever, capture the one value that says whether it exists. A
 capability bit is cheaper than an implementation, every time.
+
+### Technique 109e: the per-access cost is mostly SYNCHRONISATION - wider accesses amortise it
+
+The 5.77 us of technique 109 is not one indivisible bus cycle. Timed 512 bytes off `031Ch` two ways
+in one DEBUG run, same port, same byte count:
+
+| loop | ticks | elapsed | per byte |
+|---|---|---|---|
+| `rep insb` (512 x byte) | 3,588 (one wrap) | 3,007 us | 5.87 us |
+| `rep insw` (256 x word) | 2,334 | 1,956 us | **3.82 us** |
+
+**35% faster for identical bytes.** Two equations, two unknowns:
+
+```
+sync + 1 byte-cycle  = 5.77 us
+sync + 2 byte-cycles = 7.64 us      (= 1956/256)
+  -> byte cycle ~= 1.87 us,  fixed per-access sync ~= 3.90 us
+```
+
+**Two thirds of the per-access cost is the Inboard synchronising to the 4.77 MHz bus, and a wider
+access pays it ONCE.** That reframes the whole cost model: it is not "bytes cost 5.77 us", it is
+"accesses cost 3.9 us plus 1.87 us per byte in them".
+
+**Why it is safe on this card, and only this map.** Stride 2 means A0 is not decoded, so `base+1`
+IS the data register - a word access lands two cycles on it and yields two sequential FIFO bytes,
+low first. Proven byte-correct, not assumed: drained `IDENTIFY` with `rep insw` and diffed against
+the `rep insb` capture from an hour earlier. **Identical**, model string and word 47 intact.
+
+- **NEVER on stride 1** - `base+1` is the Error register there, and every second byte would be
+  garbage. Gate on `XTIDE_Stride`, and regression-test the stride-1 bed (#24) too.
+- **32-bit stays dead** - `base+2`/`base+3` are Error, because stride 2 still decodes A1. The
+  arithmetic would favour it (~2.85 us/byte); the register map forbids it.
+- Note this is the same effect XT-IDE **Hi-Speed** mode was designed to exploit - adjacent data
+  ports so one instruction fetches a word. Our card gets it free by not decoding A0. Different
+  mechanism, same opcode. And it means Hi-Speed was never a *bus* win on an XT, only a
+  transaction-count win.
+- **Writes are NOT verified.** `rep outsw` is the same trick by symmetry and has never been tested;
+  a wrong write destroys a volume (issue #18's territory), so it sits behind `XT_WORD_WRITE`,
+  default off. Clearing it needs technique 79's discipline: write a pattern, read the sector back
+  from OUTSIDE the guest, because a round trip inside applies the error twice and cancels.
+
+**The lesson, and it is the expensive one:** I derived a model from one good measurement, drew a
+sweeping conclusion from it ("width cannot matter"), and stated a number (~2%) I had not measured.
+The owner pushed for the measurement anyway. **A model built on one measurement predicts the thing
+you measured, and nothing else.** Measure the lever you are about to reject.
 

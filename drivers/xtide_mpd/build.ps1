@@ -48,6 +48,11 @@ param(
     # instruction per byte loop. Removes core cycles, not bus cycles.
     [switch] $FastXfer,
 
+    # Word-wide WRITES on stride 2. The read side is measured (35% faster);
+    # this is inferred by symmetry and untested. A wrong write destroys a
+    # volume - verify off the image before enabling. Default OFF.
+    [switch] $WordWrite,
+
     [string] $DdkRoot = 'C:\Users\lycet\OneDrive\Desktop\XT_project\Windows95_ddk'
 )
 
@@ -77,6 +82,7 @@ if ($Base -ne 0)    { $defs += ("-DXT_FORCE_BASE=0{0:X}h" -f $Base) }
 if ($ClaimRange)    { $defs += '-DXT_CLAIM_RANGE' }
 if ($PollBackoff)   { $defs += '-DXT_POLL_BACKOFF' }
 if ($FastXfer)      { $defs += '-DXT_FAST_XFER' }
+if ($WordWrite)     { $defs += '-DXT_WORD_WRITE' }
 
 # -coff is what makes ML emit objects the PE linker can use at all.
 $aflags = @('-coff', '-DBLD_COFF', '-DIS_32', '-DMASM6', '-nologo', '-W2', '-Zd', '-c', '-Cx') + $defs

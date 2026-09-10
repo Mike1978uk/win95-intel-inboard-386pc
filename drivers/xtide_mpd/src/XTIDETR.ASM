@@ -787,6 +787,29 @@ ifdef XT_FAST_XFER
 	mov	ax, ds
 	mov	es, ax
 	cld
+	cmp	XTIDE_Stride, 2
+	jne	xrd_bytewise
+;  WORD-WIDE, stride 2 only. A0 is not decoded on this map, so base+1 IS
+;  the data register - a word access lands two bus cycles on it and yields
+;  two sequential bytes out of the sector FIFO, low byte first, which is
+;  the order the buffer wants.
+;
+;  MEASURED on the real 5160, 2026-09-10, 512 bytes off this very port:
+;      rep insb   3588 PIT ticks   3007 us   5.87 us/byte
+;      rep insw   2334 PIT ticks   1956 us   3.82 us/byte   <- 35% faster
+;  Roughly 3.9 us of the 5.77 us per-access cost is the Inboard
+;  synchronising to the 4.77 MHz bus, and a word access pays that ONCE for
+;  two bytes. Verified byte-correct by draining IDENTIFY both ways and
+;  diffing - identical, model string and word 47 intact.
+;
+;  NEVER on stride 1: base+1 is the Error register there, and this would
+;  corrupt every second byte. 32-bit is out for the same reason - base+2
+;  and base+3 are Error, because stride 2 still decodes A1.
+	shr	ecx, 1			; 256 words
+	rep	insw
+	pop	es
+	ret
+xrd_bytewise:
 	rep	insb			; advances EDI by 512
 	pop	es
 else
@@ -1286,6 +1309,20 @@ XTIDE_WriteData:
 	mov	ecx, 512			; bytes
 ifdef XT_FAST_XFER
 	cld
+ifdef XT_WORD_WRITE
+;  WARNING - UNVERIFIED. The read side above is measured; this is the same
+;  trick inferred by symmetry and has NEVER been tested. A wrong write
+;  destroys a volume, so it is behind its own flag and default OFF. To
+;  clear it: write a known pattern to a scratch LBA, then read that sector
+;  back from OUTSIDE the guest off the image (technique 79 - a round trip
+;  inside the guest applies the same error twice and cancels).
+	cmp	XTIDE_Stride, 2
+	jne	xwd8_bytewise
+	shr	ecx, 1			; 256 words
+	rep	outsw
+	ret
+xwd8_bytewise:
+endif
 	rep	outsb			; DS:ESI, advances ESI by 512
 else
 xwd8_pio8_loop:
