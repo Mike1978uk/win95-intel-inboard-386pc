@@ -51,14 +51,22 @@ that was wrong.
 
 ## Open experiments
 
-### E1. Where does conventional memory actually live?  **UNTESTED, highest value**
+### E1. Where does conventional memory actually live?  **ATTEMPTED 2026-09-11, RE-RUN NEEDED**
 
 If the Inboard backfills the low 640 KB from card RAM, memory access is local and there is
 nothing to win. If the 5160's own DRAM still serves it, **every access to a low buffer
 crosses the bus** - an invisible tax on every driver, made worse because the 20-bit DMA
 reach forces DMA buffers low.
 
-Test: time a tight read loop against low memory vs extended memory. One run, no build.
+Test: time a tight read loop against conventional memory vs two references that are
+definitely across the bus - video RAM (`B800`) and system ROM (`F000`). Both are below 1 MB,
+so no protected mode is needed. Script: `docs/captures/2026-09-11_ls120/RAMTIME.SCR`.
+
+**First attempt's numbers are not trustworthy** - `FFFF` and `12FB` BIOS ticks are impossible
+for a run that took seconds. What survives is directional: both conventional regions completed
+in under one tick while both bus references took many, which points at conventional memory
+being local to the Inboard and would close E1 as "no action". Re-run with PIT channel 0 latch
+reads instead of the BIOS tick before believing it.
 
 If they differ, the action is *not* "stop using motherboard RAM" - DOS and Windows need
 conventional memory and the decoding is fixed in hardware. It is **move everything that
@@ -100,3 +108,20 @@ ATAPI. That is E3.
 - **XT-IDE paced polling** (`XT_POLL_BACKOFF`): spin ~32 times, then a cache-resident delay
   costing zero bus cycles. Arguably worth more than the width win, and invisible in a
   benchmark of that driver alone.
+
+## Housekeeping: the skill file is getting long
+
+`.claude/skills/inboard-hw-debug/SKILL.md` now carries 111 numbered techniques plus the Win95
+boot inventory. It loads on demand, not every session, so length costs less than it looks - but
+it is past the point where a reader can find things.
+
+Proposed split, **not yet done**, and to be done without losing detail:
+
+| Stays in `SKILL.md` | Moves out |
+|---|---|
+| The routing table and core principle | The full Win95 boot fix inventory -> `docs/win95_boot_fix_inventory.md` |
+| Techniques that apply to *any* new investigation | Device-specific technique bodies -> the relevant `drivers/*/`*`_SPEC.md`, with a one-line pointer left behind |
+| Retractions and corrections - the most valuable lines in the file | Superseded elimination logs -> `docs/archive/` |
+
+Rule for the split: **a technique that resolved or ruled out a real bug keeps its evidence.**
+Compress prose, never the measurement, the address, or the retraction.
