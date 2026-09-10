@@ -6394,3 +6394,43 @@ program time and is why a real write gains less overall than a read.
 so a Trantor transport rewrite can be validated the same way, on a chain with no scratch device and
 nothing at stake. Reach for this before asking anyone for a sector they are willing to lose.
 
+---
+
+## Technique 110: a control you never remove is indistinguishable from a prerequisite
+
+2026-09-08 solved the LS-120 transport and wrote it up as SOLVED. 2026-09-10 reimplemented that
+recipe independently, ran the exact byte sequence the new driver emits, and got **`0x00`**. The
+same script, on the same machine, minutes later, returned **`0x50`** - the correct ATA status.
+
+The only difference: `SD120PPD.SYS`, the **vendor DOS driver**, loaded in `CONFIG.SYS`.
+
+Every run on 2026-09-08 kept it loaded, using `DIR D:` as the control that the hardware was
+healthy. That was good practice and it is what made the work possible. But **the control was
+never removed**, so nothing distinguished "the drive is alive" from "the vendor driver has
+initialised the bridge and our sequence rides on that". The transport was solved *with a
+dependency inside the control*.
+
+**The tell was available and read the wrong way round.** Section 4c had already found the vendor
+configuring bridge registers `0x12` and `0x0D` right after connecting, and recorded the flags word
+as untraced. Section 4e then declared the transport solved without that step, because the reads
+worked - which they did, on a bridge the vendor had already configured.
+
+### The rule
+
+**Before calling a mechanism solved, remove the control and run it again.** If the result changes,
+the control was a prerequisite and the mechanism is not solved - it is *hosted*.
+
+Corollaries that generalise past this project:
+
+- A control that is present in **every** run has never been tested as a variable. Vary it once.
+- "It works on the real machine" needs the machine's **software** state stated as precisely as its
+  hardware. `DIR D:` proving the drive is alive says nothing about who woke it up.
+- A reimplementation is the cheapest way to find this class of error, because it strips the
+  original's incidental state. Ours passed the connect checkpoints (`B8 58 F0`) in **both**
+  conditions, which is what proved the gap is boot-time bridge state and not the handshake -
+  a bisect the original work could not perform on itself.
+
+**Cost of finding it this way:** one DEBUG script and two runs. **Cost of not finding it:** an INF
+install, a device node, a Windows boot, and a driver that reports no device for a reason that has
+nothing to do with its own code.
+
