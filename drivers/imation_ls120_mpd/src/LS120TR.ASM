@@ -156,6 +156,15 @@ LS_SPIN_DRQ		equ	400000
 	PUBLIC	LS_BasePort
 LS_BasePort		dw	0378h		; set by the miniport from PORT=
 
+;  A real INQUIRY, issued once by LS_BringUp so that BOOTLOG.TXT reports on the
+;  whole packet path and not merely on the transport. BOOTLOG's Init
+;  Success/Init Failure line is the only diagnostic channel readable from a
+;  miniport on this machine (technique 74), so it is worth spending one command
+;  to make it mean something. 12 bytes, zero-padded: ATAPI takes a SCSI CDB
+;  unchanged.
+LS_InqCdb		db	012h, 0, 0, 0, 24h, 0, 0, 0, 0, 0, 0, 0
+LS_InqBuf		db	36 dup (0)
+
 	PUBLIC	LS_Mode
 LS_Mode			dd	0		; negotiated transfer mode, 0 = none
 
@@ -264,34 +273,23 @@ LS_ReadControl:
 ;----------------------------------------------------------------------------
 public LS_Connect
 LS_Connect:
+;  Connect and nothing else. This deliberately does NOT probe.
+;
+;  It used to validate by reading the ATAPI signature out of BCLO/BCHI, which
+;  is wrong in a way that only shows up on the SECOND command: those two ARE
+;  the byte-count registers, so they hold 14/EB only until something issues a
+;  packet - after which every connect read a byte count, failed, and returned
+;  SRB_STATUS_ERROR. Enumeration died one INQUIRY in and no drive letter
+;  appeared, with the transport working perfectly underneath.
+;
+;  The signature test belongs where it is now: once, in LS_BringUp, straight
+;  after the reset that produces it. Probing per connect also costs two nibble
+;  reads - about 16 port accesses at ~3.9 us of bus sync each - on every
+;  single SRB, to learn nothing that init did not already establish.
 	mov	al, CPP_CONNECT
 	call	LS_CppFrame
 	mov	LS_Connected, 1
-;  Prove the drive answered rather than assuming it did - but test the ATAPI
-;  SIGNATURE, not the status register. Status 00h is the correct post-reset
-;  state for an ATAPI device (DRDY stays clear until the first packet command),
-;  so the old "00h means absent" check rejected a working drive. FFh in the
-;  cylinder registers still means nobody is driving the bus.
-	mov	al, ATA_REG_BCLO
-	call	LS_RegRead
-	jc	lcon_fail
-	cmp	al, ATAPI_SIG_LO
-	jne	lcon_fail
-	mov	al, ATA_REG_BCHI
-	call	LS_RegRead
-	jc	lcon_fail
-	cmp	al, ATAPI_SIG_HI
-	jne	lcon_fail
-	mov	al, ATA_REG_STATUS
-	call	LS_RegRead
-	jc	lcon_fail
-	movzx	eax, al
-	mov	LS_LastStatus, eax
 	clc
-	ret
-lcon_fail:
-	mov	LS_Connected, 0
-	stc
 	ret
 
 ;----------------------------------------------------------------------------
@@ -406,8 +404,29 @@ LS_BringUp:
 	jc	lbu_fail
 	cmp	al, ATAPI_SIG_HI
 	jne	lbu_fail
-	call	LS_Disconnect
+
+;  5. One INQUIRY, so a failure anywhere in the ATAPI path shows up as Init
+;     Failure in BOOTLOG rather than as a silently missing drive letter. That
+;     is what the first hardware boot cost: transport perfect, Init Success,
+;     no drive, and nothing to read. LS_PacketCommand releases the port on
+;     both of its exits, so this does not disconnect afterwards.
+	lea	esi, LS_InqCdb
+	lea	edi, LS_InqBuf
+	mov	ecx, 36
+	xor	edx, edx		; data in
+	call	LS_PacketCommand
+	jc	lbu_inqfail
+;  Peripheral device type lives in the low 5 bits of byte 0. An LS-120 answers
+;  00h (direct access) or 07h (optical memory); either is a real device. 7Fh is
+;  "no device here" and FFh is nobody driving the bus.
+	mov	al, LS_InqBuf
+	and	al, 01Fh
+	cmp	al, 01Fh
+	je	lbu_fail
 	clc
+	ret
+lbu_inqfail:
+	stc
 	ret
 lbu_fail:
 	call	LS_Disconnect
