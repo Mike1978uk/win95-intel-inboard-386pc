@@ -22,4 +22,9 @@ REM  flush is a flush and not a race with the copy.
 ECHO stage=settle >> C:\SHUTLOG.TXT
 CHOICE /T:Y,25 /C:YN > NUL
 ECHO stage=shutdown >> C:\SHUTLOG.TXT
+REM  DO NOT 'fix' this to SHELL32.DLL,SHExitWindowsEx - tried 2026-09-10
+REM  and it is a NO-OP on OSR1: the batch reached stage=shutdown and the
+REM  machine just sat there. USER.EXE,ExitWindows is the Win95 way. It
+REM  prints a RUNDLL32 complaint on the way out, which is cosmetic - the
+REM  shutdown itself completes and the teardown stages pair 7/7.
 RUNDLL32.EXE USER.EXE,ExitWindows
