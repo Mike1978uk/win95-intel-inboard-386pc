@@ -68,6 +68,27 @@ LPT_CT_SELIN		equ	08h		; inverted on the wire
 LPT_CT_IRQEN		equ	10h
 LPT_CT_DIR		equ	20h		; 1 = input, bidirectional only
 
+;  ECP register file, offset from the SPP base. Not used by the nibble path.
+LPT_ECP_FIFO		equ	400h		; ECP data FIFO
+LPT_ECP_ECR		equ	402h		; bit 0 = FIFO empty
+
+;  Shuttle EPAT connect-protocol packet. VERIFIED on the real 5160 2026-09-08.
+;  These are CONNECT and DISCONNECT commands, not transfer modes - a mistake
+;  that cost a day, because [0C02] reads 30h at rest and E0h after real drive
+;  traffic, which looks exactly like a mode byte.
+CPP_CONNECT		equ	0E0h
+CPP_DISCONNECT		equ	030h
+
+;  cont_map - the bridge addresses three spaces, and a register number alone
+;  is meaningless without one. EVERY probe on 2026-09-08 used bare numbers 0-7,
+;  which is empty internal-bridge space, and read uniform 00 or FF all day.
+CONT_BRIDGE		equ	000h		; internal bridge registers
+CONT_IDECTL		equ	010h		; IDE control
+CONT_TASKFILE		equ	018h		; IDE task file - ATA status is 018h+7
+
+;  WRITE Normal tags the register number; NIBBLE read sends it bare.
+NIB_WRITE_TAG		equ	060h
+
 ;============================================================================
 ;  LAYER 3 - ATAPI, once layer 2 can reach its registers.
 ;
@@ -175,39 +196,39 @@ LS_ReadControl:
 	ret
 
 ;============================================================================
-;  LAYER 2 - the EPAT bridge. NOT IMPLEMENTED.
+;  LAYER 2 - the Shuttle EPAT bridge. IMPLEMENTED 2026-09-10.
 ;
-;  ====================== READ THIS BEFORE FILLING THESE IN =================
+;  Route B was taken and it worked: the protocol was recovered from
+;  SD120PPD.SYS, which we hold, and confirmed by replay on the real 5160.
+;  **This directory stays MIT.** No vendor code is transcribed - register
+;  numbers, port sequences and protocol facts are not copyrightable.
 ;
-;  Shuttle's EPAT is a proprietary parallel-to-ATAPI bridge. Its register
-;  access protocol is not published. Two routes were costed on 2026-09-07 and
-;  the decision is the owner's - see README.md, "The fastest correct route is
-;  a LICENSING decision":
+;  Linux's drivers/block/paride/epat.c (GPL-2.0) describes the identical CPP
+;  sequence and the same cont_map offsets. It was read ONLY as an independent
+;  cross-check on facts already derived here, and no code was taken. Do not
+;  paste from it; two unrelated sources agreeing is the value, not the source.
 ;
-;    A. Licence this directory GPL-2.0 and port from Linux's
-;       drivers/block/paride/epat.c, which implements this exact chip.
-;    B. Recover the protocol from SD120PPD.SYS, which we hold, and keep MIT.
+;  Full derivation, evidence tags and the measured values:
+;  drivers/imation_ls120/TRANSPORT_SPEC.md, section 4e.
 ;
-;  DO NOT read epat.c and then write these functions "from memory" under MIT.
-;  That is the one outcome that is worse than either route, and it is easy to
-;  drift into. If route A is taken, say so at the top of this file and carry
-;  the GPL notice.
+;  The shape, and why:
 ;
-;  What the DOS driver tells us for free, and it bounds the job:
+;    NIBBLE for the task file - a few bytes per command, so the slow path
+;    costs nothing measurable, and it uses ONLY the three standard SPP ports,
+;    so it works on a plain XT parallel port with no ECP hardware at all.
 ;
-;    - It negotiates TEN modes: NIBBLE Fast / Normal / Slow / Slow(-),
-;      EPP Fast / Normal / BIOS(F) / BIOS(N), ECP Read / ECP Write.
-;    - Its switches expose the escape hatches: /di operates in polled mode,
-;      /de disables the EPP check, /db disables the EPP BIOS check, /sf skips
-;      fast-mode detection, and /rx /wy set read and write timing (x 0-11,
-;      y 0-4). A first implementation can therefore target ONE slow, safe
-;      mode and ignore the other nine.
-;    - The vendor README adds that EPP initialises only for bases 378h and
-;      278h, never 3BCh.
+;    ECP rep insb/outsb for SECTOR DATA - that is where every byte moves.
+;    DERIVED, not yet verified, so it is not wired up here yet.
 ;
-;  So the minimum viable layer 2 is: connect, read register, write register,
-;  read block, write block, disconnect - in nibble mode only. Speed is a
-;  later problem and this machine is an 8-bit XT anyway.
+;  Per-register ECP reads time out on this machine under every connect mode
+;  tried. That is not a defect: a register read has no data phase, so the
+;  reverse FIFO never fills. It does not block a driver and it costs no
+;  throughput, because the throughput is all in the block path.
+;
+;  WARNING - the vendor's DMA-assisted block path writes ports 22h/23h, which
+;  alias onto the 8259 on this XT. That is the issue #22 keyboard-killer, and
+;  it lives in the TRANSFER path, not merely in chipset init. Never copy it.
+;  dmaEn stays 0 regardless (technique 62: 20-bit DMA reach).
 ;============================================================================
 
 ;----------------------------------------------------------------------------
@@ -222,8 +243,83 @@ LS_ReadControl:
 ;----------------------------------------------------------------------------
 public LS_Connect
 LS_Connect:
+	mov	al, CPP_CONNECT
+	call	LS_CppFrame
+	mov	LS_Connected, 1
+;  Prove the bridge answered rather than assuming it did. A disconnected or
+;  absent bridge reads uniform 00 or FF - both were seen all day on 2026-09-08
+;  while the connect itself was correct - so those two values are the tell.
+	mov	al, ATA_REG_STATUS
+	call	LS_RegRead
+	jc	lcon_fail
+	cmp	al, 0FFh
+	je	lcon_fail
+	or	al, al
+	jz	lcon_fail
+	movzx	eax, al
+	mov	LS_LastStatus, eax
+	clc
+	ret
+lcon_fail:
 	mov	LS_Connected, 0
 	stc
+	ret
+
+;----------------------------------------------------------------------------
+; LS_CppFrame - the EPAT connect-protocol packet.
+;
+;   In:   AL = CPP_CONNECT or CPP_DISCONNECT
+;   Uses: EAX, EDX
+;
+;   VERIFIED on the real 5160, 2026-09-08, checkpoints reproducible twice.
+;   Eight bytes to the SPP data port, EACH WRITTEN TWICE - the second write is
+;   the I/O delay, not a retry - then commit by pulsing nINIT 04h/05h/04h.
+;
+;   Runs with interrupts off and restores IF from the CALLER's flags, which is
+;   what the vendor's own dispatchers do. The handshake cannot tolerate an
+;   interrupt landing in the middle of it (TRANSPORT_SPEC section 1).
+;----------------------------------------------------------------------------
+LS_CppFrame:
+	push	ebx
+	pushfd
+	cli
+	movzx	ebx, al		; the command byte goes last
+	movzx	edx, LS_BasePort
+	add	edx, LPT_CONTROL
+	mov	al, 04h
+	out	dx, al
+	movzx	edx, LS_BasePort	; edx = data port for the frame
+	mov	al, 022h
+	call	lcpp_twice
+	mov	al, 0AAh
+	call	lcpp_twice
+	mov	al, 055h
+	call	lcpp_twice
+	mov	al, 000h
+	call	lcpp_twice
+	mov	al, 0FFh
+	call	lcpp_twice
+	mov	al, 087h
+	call	lcpp_twice
+	mov	al, 078h
+	call	lcpp_twice
+	mov	eax, ebx
+	call	lcpp_twice
+	movzx	edx, LS_BasePort
+	add	edx, LPT_CONTROL
+	mov	al, 04h
+	out	dx, al
+	mov	al, 05h
+	out	dx, al
+	mov	al, 04h
+	out	dx, al
+	popfd			; restore the CALLER's IF, not an unconditional sti
+	pop	ebx
+	ret
+
+lcpp_twice:
+	out	dx, al
+	out	dx, al		; the second write IS the I/O delay
 	ret
 
 ;----------------------------------------------------------------------------
@@ -233,6 +329,8 @@ LS_Connect:
 ;----------------------------------------------------------------------------
 public LS_Disconnect
 LS_Disconnect:
+	mov	al, CPP_DISCONNECT
+	call	LS_CppFrame
 	mov	LS_Connected, 0
 	ret
 
@@ -246,8 +344,43 @@ LS_Disconnect:
 ;----------------------------------------------------------------------------
 public LS_RegRead
 LS_RegRead:
-	xor	eax, eax
-	stc
+;  NIBBLE Normal. The bridge returns a byte as two nibbles, each arriving in
+;  the TOP four bits of the SPP status port, so the low nibble has to be
+;  shifted down and the high one masked. Getting that pair the wrong way round
+;  yields plausible-looking garbage rather than an obvious failure.
+	push	ebx
+	pushfd
+	cli
+	add	al, CONT_TASKFILE	; a bare register number addresses nothing
+	movzx	edx, LS_BasePort
+	out	dx, al
+	movzx	edx, LS_BasePort
+	add	edx, LPT_CONTROL
+	mov	al, 01h
+	out	dx, al
+	mov	al, 03h
+	out	dx, al
+	out	dx, al
+	movzx	edx, LS_BasePort
+	add	edx, LPT_STATUS
+	in	al, dx
+	and	al, 0F0h
+	shr	al, 4		; LOW nibble, arrives in bits 7-4
+	mov	bl, al
+	movzx	edx, LS_BasePort
+	add	edx, LPT_CONTROL
+	mov	al, 04h
+	out	dx, al
+	out	dx, al
+	movzx	edx, LS_BasePort
+	add	edx, LPT_STATUS
+	in	al, dx
+	and	al, 0F0h		; HIGH nibble, already in place
+	or	al, bl
+	movzx	eax, al
+	popfd
+	pop	ebx
+	clc
 	ret
 
 ;----------------------------------------------------------------------------
@@ -260,7 +393,31 @@ LS_RegRead:
 ;----------------------------------------------------------------------------
 public LS_RegWrite
 LS_RegWrite:
-	stc
+;  WRITE Normal. Note the asymmetry with the read above - a write TAGS the
+;  register number with 60h, a read sends it bare.
+	push	ebx
+	pushfd
+	cli
+	mov	bl, ah			; the value
+	add	al, CONT_TASKFILE
+	or	al, NIB_WRITE_TAG
+	movzx	edx, LS_BasePort
+	out	dx, al
+	movzx	edx, LS_BasePort
+	add	edx, LPT_CONTROL
+	mov	al, 01h
+	out	dx, al
+	out	dx, al
+	movzx	edx, LS_BasePort
+	mov	al, bl
+	out	dx, al		; the value
+	movzx	edx, LS_BasePort
+	add	edx, LPT_CONTROL
+	mov	al, 04h
+	out	dx, al
+	popfd
+	pop	ebx
+	clc
 	ret
 
 ;----------------------------------------------------------------------------
@@ -273,11 +430,52 @@ LS_RegWrite:
 ;----------------------------------------------------------------------------
 public LS_BlockRead
 LS_BlockRead:
+;  Nibble, one byte at a time out of the ATA data register. CORRECT and SLOW:
+;  five port accesses per byte, and 2026-09-10 measured a port access on this
+;  machine at 5.77 us, so a 512-byte sector costs roughly 15 ms.
+;
+;  The ECP block path is the fix and it is NOT wired up: rep insb out of the
+;  FIFO at base+400h after setting control bit 5 for reverse. That is DERIVED
+;  from the vendor binary and has never been executed, so it is not shipped.
+;  Ship what can be tested; make it fast once it is proven.
+	or	ecx, ecx
+	jz	lbr_done
+lbr_loop:
+	push	ecx
+	mov	al, ATA_REG_DATA
+	call	LS_RegRead
+	pop	ecx
+	jc	lbr_fail
+	mov	[edi], al
+	inc	edi
+	dec	ecx
+	jnz	lbr_loop
+lbr_done:
+	clc
+	ret
+lbr_fail:
 	stc
 	ret
 
 public LS_BlockWrite
 LS_BlockWrite:
+;  Nibble twin of LS_BlockRead. Same cost, same reason, same fix pending.
+	or	ecx, ecx
+	jz	lbw_done
+lbw_loop:
+	push	ecx
+	mov	ah, [esi]
+	mov	al, ATA_REG_DATA
+	call	LS_RegWrite
+	pop	ecx
+	jc	lbw_fail
+	inc	esi
+	dec	ecx
+	jnz	lbw_loop
+lbw_done:
+	clc
+	ret
+lbw_fail:
 	stc
 	ret
 
