@@ -157,3 +157,18 @@ storage driver would have failed for a reason unrelated to itself. Measurement i
 **Not separated:** two variables changed in one boot. The punt line is unambiguously the ASPI
 removal; the whitelist's own effect is untested. **Caveat:** `MODISK2.SYS` claimed no units that
 boot, so its "Unsafe/Monolithic" flags may only have been dormant for lack of MO media.
+
+## The XT-IDE shutdown fast-fail clamp was never implemented — removed 2026-09-10
+
+`XT_SPIN_SHUT`, `XTIDE_ShutDown` and `XTIDE_SpinLimit` were declared, and a paragraph of comment
+described `XTIDE_ShutdownArm` arming the clamp from `AEP_SYSTEM_SHUTDOWN`. **No such routine ever
+existed, and both wait loops used the `XT_SPIN` immediate rather than `SpinLimit`.** Nothing read
+or wrote any of it.
+
+Technique 88's correction already recorded the clamp as "inert for this bug". It was inert for
+every bug. Removed rather than resurrected — the wedge it was written for turned out to be the
+device-node conflict (technique 97), not a drive that stopped answering.
+
+**The tell, for next time:** a declaration whose comment says another routine writes it, where that
+routine's name appears *only* in comments. One `grep` on the name settles it.
+

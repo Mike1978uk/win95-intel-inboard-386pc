@@ -122,13 +122,6 @@ XT_TR_LATCH	equ	2		; 16-bit: low at data, high at base+8
 
 XT_SPIN		equ	400000		; status poll limit; no timer at init
 
-;  Shutdown fast-fail limit. See docs/next_session_2026_09_04.md. A wait that
-;  expires at the FULL limit while shutting down means the drive has stopped
-;  answering, so every later wait uses this instead of costing another 0.6 s.
-;  A CF card can legitimately stall for hundreds of ms on an internal erase,
-;  which is why this is gated on shutdown and never armed while Windows runs.
-XT_SPIN_SHUT	equ	4000		; ~6 ms, once the drive has gone quiet
-
 ;  Inner-loop count for one unit of the boot-log delay channel. Calibrated on
 ;  86Box's Deskpro bed, where one unit is about 11.6 log ticks. The 5160 is
 ;  several times faster, so the same constant compresses every fail code into
@@ -281,11 +274,6 @@ XTIDE_ReqBuf			dd	0
 ;  which is a shipping driver that has actually executed this path.
 XTIDE_SgCur			dd	0	; -> current descriptor
 XTIDE_SgLeft			dd	0	; sectors the IOR still accounts for
-;  Poll-limit state. XTIDE_ShutDown is armed at exactly one call site, the
-;  AEP_SYSTEM_SHUTDOWN branch of Port_Async_Request, and never cleared - so
-;  while Windows is running, SpinLimit is XT_SPIN and behaviour is unchanged.
-;  A successful wait restores the full limit, so even after the clamp arms, a
-;  drive that comes back gets its patience back.
 ;  Completion ladder. OWN STATE - shares nothing with the transport, which is
 ;  what voided the on-disk request marker as a diagnostic (technique 88).
 ;  Reported through the emulator debug port at 0E0h, so measuring the disk
@@ -294,9 +282,6 @@ XTIDE_DbgOffered		dd	0	; IOPs XTIDE_WantIop was asked about
 XTIDE_DbgAccepted		dd	0	; ...of which we claimed
 XTIDE_DbgStarted		dd	0	; XTIDE_StartRequest entries
 XTIDE_DbgDone			dd	0	; IOPs handed back through IOP_callback_ptr
-
-XTIDE_ShutDown			dd	0	; set only by XTIDE_ShutdownArm
-XTIDE_SpinLimit			dd	XT_SPIN	; live poll limit, read by both wait loops
 
 public XTIDE_ReqIsWrite
 XTIDE_ReqIsWrite		dd	0	; direction, so the transfer loop does
