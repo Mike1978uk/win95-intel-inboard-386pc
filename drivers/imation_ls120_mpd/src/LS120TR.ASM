@@ -148,8 +148,15 @@ ATAPI_PACKET_LEN	equ	12
 ;  failure rather than hanging, because a driver that can spin forever wedges
 ;  a shutdown, and that cost this project four sessions on the port driver
 ;  (technique 88).
-LS_SPIN_BSY		equ	400000
-LS_SPIN_DRQ		equ	400000
+;  Bounded in real time, not in arbitrary iterations. One poll is a nibble
+;  read: ~8 port accesses at ~3.9 us of Inboard-to-XT-bus sync each, so an
+;  iteration costs roughly 31 us. 400000 of them was 12 SECONDS, long enough
+;  for SCSIPORT to time the SRB out and abandon the device - which is exactly
+;  how the first working transport still failed to produce a drive letter.
+;  130000 ~= 4 s, 65000 ~= 2 s. Commands that legitimately take longer than
+;  that (a spin-up) are the class driver's to wait for, with its own timeout.
+LS_SPIN_BSY		equ	130000
+LS_SPIN_DRQ		equ	65000
 
 	.DATA
 

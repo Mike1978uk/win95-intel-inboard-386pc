@@ -499,14 +499,16 @@ ifdef LS_PHASE2
 ;  is left stopped after init - and it is the one audible signal that says
 ;  HwStartIo is being reached at all. Init no longer touches the motor, so a
 ;  spin-up during boot means SCSIPORT is talking to us.
-ifndef LS_FAKE_DEVICE
-	cmp	[esi].DEVEXT.dxSrbCount, 1
-	jne	lsi_spun
-	push	ebx
-	call	LS_SpinUp
-	pop	ebx
-lsi_spun:
-endif
+;  NO unsolicited spin-up here. It used to fire on the first SRB, and that is
+;  what stopped the drive ever being enumerated: START STOP UNIT waits for the
+;  motor, an LS-120 takes seconds to come up, and SCSIPORT times an SRB out
+;  long before that - so the very INQUIRY that would have created the device
+;  was aborted. The stub build, which answers instantly, enumerates fine on
+;  the same machine; that pair is what identified this.
+;
+;  Spinning up is the class driver's business anyway. It issues its own START
+;  STOP UNIT with a timeout suited to it. A miniport's job here is to answer
+;  quickly and let the layer above decide how long it is willing to wait.
 endif
 
 	movzx	eax, [ebx].SCSI_REQUEST_BLOCK.Function
