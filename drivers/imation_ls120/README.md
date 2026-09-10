@@ -72,6 +72,21 @@ Three independent routes, in increasing order of effort:
 3. Device Manager → SCSI controllers → the Imation/Shuttle entry → Remove → reboot. **Works with the
    mouse alone**, which matters if the keyboard is the thing that broke.
 
+## ✅ 2026-09-10: the single-variable test WAS run, and the driver IS the cause
+
+**Reported by the owner, and it supersedes the "not attributable" verdict below.** Repeated on a
+**clean image**, without DirectX 7.0a / WinZip / InfoPro / SIV: the keyboard worked **before** the
+LS-120 driver was installed and did **not** work after. One install, one boot, one variable.
+
+The confound is resolved and the attribution is settled: **installing this driver is what kills
+keyboard input.** The section below is kept for its method, which is still right; its conclusion
+("not attributable") is withdrawn.
+
+What this does **not** settle is the mechanism. The chipset-probe theory is still the best fit and
+still unproven - six binary patches produced six nulls, including one that NOPed all 98 chipset
+writes. That is why the replacement miniport does not need the mechanism answered first: a driver
+that never writes those ports is safe *by construction*.
+
 ## What happened on the first attempt, and how to test it properly
 
 Deployed 2026-08-28 and verified in place. **The drive continued to work** — so removing the chipset
