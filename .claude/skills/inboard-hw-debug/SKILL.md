@@ -6211,3 +6211,44 @@ source comments, in this skill and in three sessions of reasoning, and it was wr
 direction that made every polling decision look cheaper than it was. Measuring it took two DEBUG
 scripts and about ten minutes on hardware that was already switched on.
 
+### Technique 109b: two timed reads separate per-sector cost from per-command cost
+
+Same day, same method, one step up: time `INT 13h AH=02h` reading **4 sectors** and then **8
+sectors**, and fit a line. Two points split the two costs that a single measurement conflates.
+
+| read | ticks | elapsed | per sector |
+|---|---|---|---|
+| 4 sectors | 22,320 | 18.71 ms | 4.68 ms |
+| 8 sectors | 39,678 (one wrap) | 33.25 ms | 4.16 ms |
+
+**slope = 3.635 ms per sector - intercept = 4.17 ms per command.**
+
+- Pure data is 512 x 5.55 us = **2.84 ms**, so the extra **0.79 ms per sector is status polling** -
+  about **142 poll cycles per sector**, 22% of every sector spent asking "ready yet?".
+- **A command costs 4.17 ms, more than moving a whole sector.** Taskfile programming is only ~8
+  register writes (~44 us), so almost all of it is the initial wait and command latency. Technique
+  93 measured that `max_sg=17` produces **1.8x the commands for the same data** - at 4.17 ms each,
+  that is the single most expensive mistake available.
+- Achieved **123 KB/s** against a **180 KB/s** pure-data ceiling, so **32% is overhead we can
+  attack**, all of it polls and command count.
+
+**Disambiguating the wrap without a second run:** the 8-sector read wrapped the counter once, and
+one wrap is indistinguishable from two - except that two wraps force a **negative intercept**, which
+is unphysical. A two-point fit is self-checking that way; a single measurement is not.
+
+**And keep the inter-run gap as a free sanity check.** The counter reading at the end of run A and
+the start of run B differed by 24 ticks here (20-22 in the earlier pair), which is exactly the few
+stores between them. A large gap means something interrupted the run and the numbers are junk.
+
+⚠ **This is the XTIDE BIOS's INT 13h path, not our miniport.** It establishes the hardware's cost
+structure and the available headroom. Our driver's shape (one `WaitDrq` per sector) suggests it
+behaves similarly, but confirming *our* numbers needs counters inside the driver.
+
+### What this settles about optimising the driver at all
+
+Our drivers are already hand-written assembly with no compiler, runtime or library beneath them, so
+"could it be faster in machine code" has no room left in it. The measurement says the instruction
+stream is **4% of a transfer** and the bus is 96%. The lever is not how fast the loop runs - it is
+**how few times the bus is touched**, which is a code question about command count and poll count,
+not about cycles per instruction.
+
