@@ -6434,3 +6434,47 @@ Corollaries that generalise past this project:
 install, a device node, a Windows boot, and a driver that reports no device for a reason that has
 nothing to do with its own code.
 
+
+## Technique 111: a working register read does NOT mean the data path works
+
+**2026-09-11, LS-120.** Task-file register reads through the EPAT bridge returned correct,
+sensible values all evening - ATA status `50h`, error `00h`, byte count `24h` - while the ATA
+**data** register returned 36 zeros. Both went through "the nibble read", so the working half
+was cited for weeks as proof the transport was sound. It was not.
+
+A bridge like this has **two different access paths**:
+
+| | How it works |
+|---|---|
+| Single register | address the register, clock two nibbles, combine |
+| **Block / data** | enter block mode **once**, then stream with an alternating **phase bit** on the control port, and announce the last byte |
+
+`epat.c` mode 0, which is the authority:
+
+```c
+w0(7); w2(1); w2(3); w0(0xff);          /* enter block mode ONCE */
+ph = 0;
+for (k = 0; k < count; k++) {
+        if (k == count-1) w0(0xfd);      /* announce the last byte */
+        w2(6+ph); a = r1();
+        if (a & 8) b = a;                /* both nibbles in one cycle */
+        else { w2(4+ph); b = r1(); }
+        buf[k] = j44(a,b);
+        ph = 1 - ph;                     /* PHASE ALTERNATION */
+}
+w0(0); w2(4);
+```
+
+A loop of single-register reads cannot express any of that, and **fails silently by returning
+zeros** rather than erroring.
+
+**The rule.** Registers and bulk data are separate protocols on the same wire. Verifying one
+says nothing about the other. Prove the data path with real payload - an INQUIRY reply you can
+read as ASCII - before claiming a transport works.
+
+**How it was finally caught, and the cheap move to repeat:** photograph the device's own
+*phase* registers after a command - interrupt reason, byte count, status, error. The byte count
+read `24h`: the drive had 36 bytes ready and had said so. That single value split "the drive
+refused" from "we cannot collect it", which two sessions of guessing had not.
+
+See also technique 110 and the LS-120 entry in `drivers/imation_ls120/TRANSPORT_SPEC.md`.
