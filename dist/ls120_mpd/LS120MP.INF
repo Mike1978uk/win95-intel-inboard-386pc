@@ -1,0 +1,115 @@
+; LS120MP.INF  Parallel-port LS-120 (Shuttle EPAT) miniport, IBM 5160 + Inboard
+;
+; https://github.com/Mike1978uk/win95-intel-inboard-386pc  (issue #22)
+;
+; *** FIRST BUILD WITH A WORKING TRANSPORT. Never yet run under Windows. ***
+;
+; It registers with SCSIPORT, takes its parallel-port base from the Settings
+; tab, brings the drive up (see below) and serves it as an ATAPI removable.
+;
+; The bring-up is the part that took two sessions to find: the drive powers up
+; HELD IN ATA RESET, so until SRST is pulsed on device control every task-file
+; register reads 00h and the hardware is indistinguishable from an absent
+; bridge. That reset is not in epat.c - it lives one layer up, in Linux's
+; pcd.c. Proven cold on the real 5160 on 2026-09-10 with Imation's
+; SD120PPD.SYS REM'd out: the task file returns the ATAPI signature 14 EB.
+; Full account: drivers/imation_ls120/TRANSPORT_SPEC.md section 5.
+;
+; What is NOT yet proven: any of it under Windows. The keyboard question below
+; is still open, and the block data path is a nibble byte-loop - correct, and
+; slow. Treat a first install as a test, not a deployment.
+;
+; Derived from XTIDEMP.INF, which is the INF proven to install and load a
+; polled, no-IRQ miniport on this exact machine. Differences, and why:
+;
+;   1. IOConfig     378-37F and the other two standard LPT bases. Eight ports,
+;                   because an EPP-capable port decodes base+0..base+7 and a
+;                   later phase will need them. Phase 0 reads only base+1.
+;   2. PortDriver   LS120MP.MPD.
+;   3. No IRQConfig, no DMAConfig. The DOS build offers both IRQ 7 and polled
+;                   mode (`/di`); we poll, and declare no interrupt handler at
+;                   all, so SCSIPORT is never asked to connect one.
+;
+; PREREQUISITE, not optional: inbrdpc.sys must appear in [SafeList] in
+; WINDOWS\IOS.INI or IOS declines every miniport on this machine. Issue #17,
+; and docs/ios_safelist_howto.md.
+;
+; BEFORE INSTALLING: if Imation's own SD120PPD.MPD is installed, remove its
+; node in Device Manager first. Two miniports claiming the same LPT base will
+; conflict, and leaving Imation's loaded would confound the entire test - it is
+; the thing under suspicion.
+
+
+[Version]
+signature="$CHICAGO$"
+Class=SCSIAdapter
+Provider=%MFG%
+LayoutFile=LAYOUT.INF
+
+[Manufacturer]
+%MFG%=LS120
+
+
+[LS120]
+%LS120PP%=LS120_ISA
+
+
+[LS120_ISA]
+LogConfig=*LS120MP.LogConfig
+CopyFiles=@LS120MP.MPD
+AddReg=IOS, LS120_REG, Poll
+
+
+[LS120_REG]
+HKR,,PortDriver,,LS120MP.MPD
+
+; Which parallel port the drive is on. Editable in Device Manager -> the
+; controller -> Settings, and handed to HwFindAdapter as ArgumentString. This
+; is the convention Imation's own README documents for machines where the
+; driver cannot work the address out for itself - and on this machine the
+; owner already knows it, because CONFIG.SYS passes /port:378 to the DOS
+; driver. Asking beats probing, and probing is what we are avoiding.
+HKR,,AdapterSettings,,"PORT=0x378"
+
+; Polling, not an interrupt. See the note in DriverEntry: a NULL interrupt
+; handler with a zero level says "we poll" without asking SCSIPORT to connect
+; anything.
+[Poll]
+HKR,,Polling,,1
+
+
+[*LS120MP.Det]
+AddReg=ForceMPCopy
+
+
+; The three standard LPT bases. Several ranges on purpose: the driver takes
+; its base from AdapterSettings and does not care what the node is assigned,
+; and narrowing an INF to one range is what produced a resource-conflict
+; callout, a manually forced configuration and a run of wedged shutdowns on
+; 2026-09-05 (technique 97). Do not narrow this.
+[*LS120MP.LogConfig]
+ConfigPriority=HARDRECONFIG
+IOConfig=378-37F(3FF::), 278-27F(3FF::), 3BC-3BF(3FF::)
+
+
+[DestinationDirs]
+DefaultDestDir=12
+
+[SourceDisksFiles]
+LS120MP.MPD = 1
+
+[SourceDisksNames]
+1 = "LS-120 Miniport Installation Disk",,
+
+[IOS]
+HKR,,DevLoader,,*IOS
+HKR,,DontLoadIfConflict,,Y
+
+[ForceMPCopy]
+HKR,,NoSetupUI,,1
+
+
+[Strings]
+MFG="win95-intel-inboard-386pc"
+LS120PP="Parallel-port LS-120 (Shuttle EPAT, polled)"
+SCSIClassName="SCSI controllers"
