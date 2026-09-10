@@ -6478,3 +6478,32 @@ read `24h`: the drive had 36 bytes ready and had said so. That single value spli
 refused" from "we cannot collect it", which two sessions of guessing had not.
 
 See also technique 110 and the LS-120 entry in `drivers/imation_ls120/TRANSPORT_SPEC.md`.
+
+### 111a. Never write "correct" in a comment about code that has not run
+
+The LS-120 block read carried the comment *"Nibble, one byte at a time out of the ATA data
+register. CORRECT and SLOW."* It had never been executed. That word was then believed - by me,
+repeatedly - and every later conclusion inherited it. Hours went into hypotheses that all
+assumed the data path worked because a comment said so.
+
+**Rule.** A comment may say what code is INTENDED to do. It may not assert that it works.
+If a routine has never run against real hardware, the comment says so, in those words:
+`UNVERIFIED - never executed`. `LS_CppFrame` did carry that discipline ("VERIFIED on the real
+5160 2026-09-08") and it was worth having; the block routines did not.
+
+### 111b. The bar for "this transport works"
+
+Do not claim a transport works until **all** of these have happened, on hardware:
+
+1. A register read returns a value that could not be a coincidence (a device signature, not `00`
+   or `FF`).
+2. A register WRITE has an observable effect (the ATA soft reset producing `80h` BSY).
+3. **A block read returns real payload you can recognise by eye** - an INQUIRY reply with ASCII
+   vendor and product strings in it. Not a length, not a status: bytes you can read.
+4. A block write is accepted (the device acts on a command it could only have parsed correctly).
+
+Items 1, 2 and 4 were all satisfied for the LS-120 days before item 3 was even attempted, and
+1/2/4 were cited as proof the transport was sound. **Item 3 is the one that matters**, because
+registers and bulk data are different protocols on the same wire (technique 111).
+
+The probe for item 3 costs one DEBUG script and one DOS boot. Run it FIRST, not last.
