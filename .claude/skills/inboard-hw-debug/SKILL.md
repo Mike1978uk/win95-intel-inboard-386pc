@@ -3420,7 +3420,11 @@ the machine was touched again**, and the answer was none of the three.
 ```
 
 The driver's status polls are `XT_SPIN = 400000` iterations of `in al,dx`. On a 4.77 MHz 8-bit bus
-that is roughly 0.6 s. The same log calibrates a tick: `sd120ppd.mpd` took 895 ticks and was half the
+that is roughly 0.6 s. **⚠ MEASURED 2026-09-10 and that figure is wrong - it is 2.2 s.** See
+technique 109: one 8-bit I/O cycle on this machine costs **5.55 us**, not the ~1 us assumed here
+and everywhere else in this file. The conclusion below is unaffected, and in fact strengthened -
+a single timeout costs even more than claimed, so "the whole failure cost two ticks" rules out a
+spin loop by an even wider margin. The same log calibrates a tick: `sd120ppd.mpd` took 895 ticks and was half the
 Windows load (~1790 ticks total). **One timeout would have cost tens of ticks; the whole failure cost
 two.** No spin loop ran. That eliminates "the drive never went ready" outright, and it also
 eliminates every explanation in which the code reached a transfer.
@@ -6147,3 +6151,63 @@ block variant opens `out 23h,al` / `out 22h,al` - ports that **alias onto the 82
 (technique 75). That is the issue #22 keyboard-killer, and it lives in the *block transfer* path, not
 merely in the chipset init that `/ni` skips. Patching init writes alone would still be bitten on the
 first transfer.
+
+---
+
+## Technique 109: MEASURED - one 8-bit I/O cycle on this machine costs 5.55 us, not 1 us
+
+Every performance argument in this file before 2026-09-10 assumed an 8-bit ISA I/O cycle costs
+about 1 us on the 4.77 MHz bus. **It is 5.55 us.** Measured on the real 5160, twice, agreeing to
+0.4%.
+
+### The method - reusable, read-only, no hardware risk
+
+Time N reads of the XT-CF's **alternate status** register against PIT channel 0, then time an
+**identical loop with `nop` in place of the `in`** and subtract. Everything is read-only: latching
+the PIT (`out 43h, 0`) is the standard non-destructive read-back, and alternate status is
+side-effect-free by design - which is exactly why the driver polls it rather than status proper.
+`cli` around the pair so no timer ISR lands mid-run.
+
+| loop | N | ticks | per iteration |
+|---|---|---|---|
+| `in al, 031Ch` | 8000 | 54,876 | 5.75 us |
+| `nop` control | 8000 | 1,928 | 0.20 us |
+| `in al, 031Ch` | 1000 | 6,878 | 5.77 us |
+| `nop` control | 1000 | 258 | 0.22 us |
+
+**Pure I/O cost = 5.55 us.** One PIT tick is 0.8381 us.
+
+Two things that make this trustworthy, and both are cheap to repeat:
+
+- **The nop control is not optional.** Without it you measure loop overhead plus bus, and on this
+  machine that is a 4% error you would never notice - but it is also the only way to learn that the
+  loop overhead is 4%, which is the whole finding.
+- **Run it twice at different N so the counter cannot have wrapped.** The 8000 run wrapped the
+  16-bit counter exactly once, and one wrap is indistinguishable from two - 5.75 us or 12.6 us. The
+  1000 run cannot wrap and settled it. **A counter that reads higher at the end than the start has
+  wrapped; you cannot tell how many times from the counter alone.**
+- Free consistency check: loop A's end and loop B's start are 20-22 ticks apart in both runs, which
+  is exactly the few stores between them. If that gap is large, something interrupted the run.
+
+### What it changes
+
+- **A 512-byte sector costs 2.84 ms**, so 8-bit PIO on this machine caps at about **180 KB/s**. No
+  software change beats that ceiling; only fewer bus cycles help.
+- **A transfer is 96% bus, 4% our loop.** So `rep insb` is worth at most ~4%, not the 10-15%
+  claimed when it was written. Instruction-level optimisation of the transfer loop is close to
+  pointless here - **the only lever that matters is reducing the NUMBER of bus cycles**, which
+  means fewer commands (scatter/gather coalescing) and fewer status polls (READ/WRITE MULTIPLE,
+  paced polling).
+- **`XT_SPIN = 400000` was never 0.6 s, it was 2.2 s.** Technique 88's arithmetic used the wrong
+  constant throughout. Its conclusions survive - they were all of the form "no spin loop ran", and
+  a longer spin makes that firmer - but any *new* reasoning from that section must use 5.55 us.
+- The paced-poll constants added the same day were sized against the 1 us figure and were **5x
+  out**: `XT_SPIN_SLOW` gave a 5.65 s timeout rather than the intended ~1 s. Corrected to 20000.
+
+### The general rule
+
+**A timing constant nobody has measured is a guess with a number on it.** This one was carried in
+source comments, in this skill and in three sessions of reasoning, and it was wrong by 5.5x in the
+direction that made every polling decision look cheaper than it was. Measuring it took two DEBUG
+scripts and about ten minutes on hardware that was already switched on.
+

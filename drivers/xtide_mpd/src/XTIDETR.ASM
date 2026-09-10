@@ -122,19 +122,28 @@ XT_TR_LATCH	equ	2		; 16-bit: low at data, high at base+8
 
 XT_SPIN		equ	400000		; status poll limit; no timer at init
 
-;  Poll pacing (XT_POLL_BACKOFF). Every status poll is a full ~1 us bus cycle
-;  on a 4.77 MHz XT bus that transfers nothing, so polling flat out spends the
-;  entire bus asking "ready yet?". With the Inboard's cache enabled - measured
-;  2026-09-10, the value INBRDPC restores to port 0670h is 1Fh, bit 0 set - a
-;  register-only delay runs from L1 and costs NO bus cycle at all, so pacing
-;  the polls is very nearly free.
+;  Poll pacing (XT_POLL_BACKOFF). MEASURED on the real 5160, 2026-09-10, by
+;  timing 1000 and 8000 reads of this very port against PIT channel 0 (both
+;  runs agree to 0.4%):
+;
+;      one 8-bit I/O cycle        5.55 us   <- NOT the ~1 us assumed before
+;      a register-only loop pass  0.22 us
+;
+;  So a status poll costs 5.55 us of bus that transfers nothing, and one 512
+;  byte sector costs 2.84 ms - a hard ceiling of about 180 KB/s for 8-bit PIO
+;  on this machine, which no software change can beat. What CAN be reduced is
+;  the NUMBER of cycles, and 96% of a transfer is bus, 4% is our loop.
+;
+;  With the Inboard's cache enabled - also measured that day, the value
+;  INBRDPC restores to port 0670h is 1Fh, bit 0 set - a register-only delay
+;  runs from L1 and costs NO bus cycle at all, so pacing the polls is free.
 ;
 ;  Check BEFORE pacing, so a drive that is already ready pays nothing. The
 ;  fast window covers the streaming case, where DRQ is up by the time we look;
 ;  only a genuine wait reaches the paced loop.
-XT_POLL_FAST	equ	32		; polls with no delay, then back off
-XT_POLL_DELAY	equ	256		; cached dec/jnz iterations between paced polls
-XT_SPIN_SLOW	equ	100000		; paced polls - about XT_SPIN's wall clock
+XT_POLL_FAST	equ	32	; 32 x 5.55us = 178 us flat out, then back off
+XT_POLL_DELAY	equ	256	; 256 x 0.22us = ~51 us, so ~10x less poll traffic
+XT_SPIN_SLOW	equ	20000	; x 56.5us = ~1.1 s, near the old real timeout
 
 ;  Inner-loop count for one unit of the boot-log delay channel. Calibrated on
 ;  86Box's Deskpro bed, where one unit is about 11.6 log ticks. The 5160 is
