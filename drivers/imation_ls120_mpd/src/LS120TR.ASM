@@ -360,6 +360,12 @@ LS_BringUp:
 	in	al, dx
 	and	al, ECR_KEEP_MASK
 	out	dx, al
+;  base+402h is 077Ah, and on a 5160 that is worth checking rather than
+;  assuming: 077Ah and 037Ah differ only in A10, which is exactly how 022h
+;  lands on the 8259 (technique 75). MEASURED 2026-09-10 on the real machine -
+;  writing 0Bh to 077Ah left 037Ah reading 04h, so this port does NOT alias
+;  onto the control register. 077Ah reads 09h, a live ECR: SPP mode, FIFO
+;  empty. The access is safe and the register is real.
 ;  2. The control-port kick. 0Eh asserts AUTOFEED alongside SELECT IN and
 ;     nINIT; nothing before 2026-09-10 had ever written 0Ch or 0Eh here.
 	movzx	edx, LS_BasePort
@@ -538,8 +544,9 @@ public LS_RegWrite
 LS_RegWrite:
 ;  WRITE Normal. Note the asymmetry with the read above - a write TAGS the
 ;  register number with 60h, a read sends it bare.
+	push	ecx
 	mov	ch, CONT_TASKFILE
-	jmp	short LS_RegWriteCont
+	jmp	short lrw_common
 
 ;  Same write, into a caller-chosen container. Device control is the only
 ;  register outside the task file the driver touches, but it is the one that
@@ -547,6 +554,12 @@ LS_RegWrite:
 ;   In:   AL = register index, AH = value, CH = CONT_* container offset
 public LS_RegWriteCont
 LS_RegWriteCont:
+	push	ecx
+lrw_common:
+;  ECX is saved rather than merely documented as clobbered. The packet builder
+;  passes the byte count in CX and reads CL then CH one call apart; it happens
+;  to reload ECX in between, but a register write that silently eats half the
+;  caller's count is the kind of thing that is found later and expensively.
 	push	ebx
 	pushfd
 	cli
@@ -569,6 +582,7 @@ LS_RegWriteCont:
 	out	dx, al
 	popfd
 	pop	ebx
+	pop	ecx
 	clc
 	ret
 
