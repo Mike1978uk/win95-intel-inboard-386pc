@@ -27,6 +27,38 @@ So the metric is **bus cycles occupied to do the job**, not any one driver's thr
 Those rank differently. Ranking by throughput is what made me dismiss sound and floppy;
 that was wrong.
 
+## The standing principle
+
+**No gain is too small to take.** This is not a hunt for one big win; it is cumulative relief
+of a shared resource. A driver that stops polling noisily gives its cycles to every other card
+on the bus, and those additions compound across the whole stack. A change worth 1% in isolation
+is worth taking if it costs nothing to keep.
+
+Corollary: never rank a target out on "it doesn't move much data". That reasoning wrongly
+dismissed sound and floppy - both poll hard, and polling is pure contention. Rank on **bus
+cycles occupied**, and if in doubt, measure rather than reason.
+
+## Scope: the whole stack, not just storage
+
+Everything the owner's machine runs is in scope. "Ours" means **hardware we run**, not source
+we wrote - `KEYBOARD.DRV` and `VKD.VXD` are already modified vendor binaries, and this software
+is long-abandoned; enthusiast preservation is the only remaining interest in it.
+
+### The VxD layer - a target class in its own right
+
+The owner's point, and it is a good one: the VxD stack is the heart of Windows itself, we have
+already modified parts of it, and every VxD sits on a hot path.
+
+| Already ours | What to look at |
+|---|---|
+| `VKD.VXD` (custom-built from DDK source) | Its INT 09 path runs on every keystroke |
+| `KEYBOARD.DRV` (patched at `0xf14`) | Same path, ring 3 |
+| `HSFLOP.PDR` (patched `maxPhys`) | **Polls hard during a seek** - the most tractable pacing target we already patch |
+| `INBRDPC.SYS` | Only slows floppies (measured). Do not disable it - required, not optional |
+
+The DDK ships **debug builds and symbols** of IOS, SCSIPORT, DISKTSD and VMM, plus `WDEB386`,
+and they are **still unopened**. That is the cheapest way into this layer and nobody has looked.
+
 ## Two questions for every driver we touch
 
 1. **Does it poll?** Pace it: spin flat out briefly, then a register-only, cache-resident
@@ -50,6 +82,10 @@ that was wrong.
 `VKD.VXD` are already modified vendor binaries; abandonware is fair game.
 
 ## Open experiments
+
+**E1 is the one that must not be dropped.** It is cheap, it is unresolved, and if it goes the
+wrong way it is the largest single lever in this document - a tax paid by every driver in the
+stack on every buffer access.
 
 ### E1. Where does conventional memory actually live?  **ATTEMPTED 2026-09-11, RE-RUN NEEDED**
 
