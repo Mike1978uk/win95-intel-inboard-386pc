@@ -6020,6 +6020,22 @@ after the timeout is reported. Several conclusions on 2026-09-08 were nearly dra
 failed" when the command had succeeded and printed its answer.
 
 - **`run_command` timing out says nothing about the command.** Always `screen_read` afterwards.
+- ⚠ **A DEBUG script written with `file_write` is LF-only, and DEBUG cannot read it.** Added
+  2026-09-10 after doing exactly this. `file_write`'s `data` parameter does not translate line
+  endings, so the whole script arrives as **one line**; DEBUG then truncates at its ~128-character
+  buffer, rings the BEL continuously (the owner hears the speaker and reasonably asks whether to
+  reset), executes whatever partial command landed, and carries on interpreting the remaining bytes
+  as commands. The tell is arithmetic: our script's first two lines were 53 characters each, and it
+  stopped mid-way through the third at exactly 132. **Always send DEBUG scripts as
+  `encoding='base64'` with explicit `
+`** - a CRLF file is 1 byte per line larger, which is a
+  free check that the translation happened. This is technique 75's `.BAT` trap in a second place,
+  and the general rule stands: check the bytes on the artefact you are about to deploy.
+- **Recovering a DEBUG wedged this way:** `{Ctrl+C}` breaks the current command but stdin is still
+  the file, so it keeps consuming. `dos_status` is the honest health check - it answered at 39 ms
+  RTT throughout, proving the machine was never wedged even while the console looked dead. File I/O
+  kept working the whole time too, so the corrected script can be staged before the console
+  recovers.
 - Redirecting a command's output to a file guarantees the timeout, because there is nothing on the
   console to poll. Let it print, and read the console.
 - **A `DEBUG` input line longer than ~128 characters overflows its buffer**, rings the BEL and takes
