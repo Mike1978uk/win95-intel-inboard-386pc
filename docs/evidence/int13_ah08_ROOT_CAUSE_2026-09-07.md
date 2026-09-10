@@ -147,6 +147,30 @@ Vectors read live, confirming the DEBUG probe exactly:
 
 ### Hop 2 - `0206:0B78`, INBRDPC's wait-state wrapper
 
+> ⚠ **Corrected 2026-09-10. The listing below is incomplete and its conclusion is wrong for hard
+> disks.** Re-read live over COMrade at the same address. The bytes match, but a conditional skip
+> sits between the load and the `out`, and the original pass missed it:
+>
+> ```asm
+> 0B88  cmp  al, cs:[02AC]      ; the "normal" value
+> 0B8D  jbe  0B9E               ; NOT slower than normal? skip the write ENTIRELY
+> 0B8F  not al / and al,1Eh / or al, cs:[02BF]
+> 0B98  push dx / mov dx,0670h / out dx,al / pop dx
+> ```
+>
+> Measured live: `[02AC]=00` (normal) - `[02AF]=10` (floppy) - `[02B1]=00` (hard disk) -
+> `[02BF]=01` (cache-enable bit). Decoding through the card's own `waitstates = 30 - (v & 1Eh)`:
+>
+> | path | written | wait states | cache |
+> |---|---|---|---|
+> | normal / restore | `1F` | **0** | on |
+> | floppy `INT 13h` | `0F` | 16 | on |
+> | hard disk `INT 13h` | **nothing** - `[02B1]=0` is not above `[02AC]=0`, so the `jbe` always takes | unchanged | unchanged |
+>
+> **The wrapper does not touch wait states for hard disks at all.** The machine's steady state is
+> already **0 wait states with the cache enabled**, so there is no headroom to reclaim. "It sets
+> wait states, calls the original handler, restores" is true only for floppies.
+
 ```asm
 0B78  cli / pushf / push ax
       mov ax, cs:[02B1]     ; hard-disk waitstate value
