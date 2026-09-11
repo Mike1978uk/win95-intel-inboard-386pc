@@ -130,6 +130,7 @@ def packet(cdb, buf, ln, slot, out=False):
         "mov byte ptr [%04X],%02X" % (MARK, (slot & 0xF0) | 4),
         "call %04X" % (BW if out else BR),
         "mov byte ptr [%04X],%02X" % (MARK, (slot & 0xF0) | 5),
+        "call %04X" % WBSY,                             # pf's "data done"
         "mov al,1F", "call %04X" % NIB, "mov [%04X],al" % (slot + 2),
         "mov al,19", "call %04X" % NIB, "mov [%04X],al" % (slot + 3),
     ]
@@ -177,7 +178,10 @@ def build():
     m = mark(0x01) + m[:5] + mark(0x02) + m[5:] + mark(0x03)
     m += mark(0x10) + packet(CDBS + 0x00, BUF_INQ, 36, 0x0600)
     m += mark(0x20) + packet(CDBS + 0x20, BUF_SENSE, 18, 0x0610)
+    m += mark(0x28) + packet(CDBS + 0xA0, BUF_SENSE, 0, 0x0618)
     m += mark(0x30) + packet(CDBS + 0x40, BUF_SECTOR, 512, 0x0620)
+    m += mark(0x40) + packet(CDBS + 0x40, BUF_SECTOR, 512, 0x0630)
+    m += mark(0x50) + packet(CDBS + 0x40, BUF_SECTOR, 512, 0x0640)
     if WRITE_TEST:
         m += packet(CDBS + 0x60, BUF_PATTERN, 512, 0x0630, out=True)
         m += packet(CDBS + 0x80, BUF_BACK, 512, 0x0640)
@@ -225,12 +229,12 @@ def build():
     l = (blk(0x100, m)
          + blk(CPP4, cpp4) + blk(CPPP, cppp) + blk(FRAME, fr)
          + blk(NIB, nib) + blk(KICK, kick) + blk(WR, wr)
-         + blk(WBSY, ["push cx", "mov cx,4000", "jmp %04X" % WBSYL])
+         + blk(WBSY, ["push cx", "mov cx,FFFF", "jmp %04X" % WBSYL])
          + blk(WBSYL, ["mov al,1F", "call %04X" % NIB, "and al,88",
                        "jz %04X" % WBSYE, "dec cx", "jnz %04X" % WBSYL,
                        "jmp %04X" % WBSYE])
          + blk(WBSYE, ["pop cx", "ret"])
-         + blk(WDRQ, ["push cx", "mov cx,4000", "jmp %04X" % WDRQL])
+         + blk(WDRQ, ["push cx", "mov cx,FFFF", "jmp %04X" % WDRQL])
          + blk(WDRQL, ["mov al,1F", "call %04X" % NIB, "and al,89",
                        "cmp al,08", "jz %04X" % WDRQE,
                        "and al,01", "jnz %04X" % WDRQE,
@@ -255,6 +259,7 @@ def build():
         "28 00 00 00 00 00 00 00 01 00 00 00",   # READ(10) LBA 0, 1 block
         "3B 02 00 00 00 00 00 02 00 00 00 00",   # WRITE BUFFER, mode 2, 512
         "3C 02 00 00 00 00 00 02 00 00 00 00",   # READ BUFFER,  mode 2, 512
+        "1B 00 00 00 01 00 00 00 00 00 00 00",   # START STOP UNIT, start=1
     ]
     for i, c in enumerate(cdbs):
         l += ["e %04X %s" % (CDBS + i * 0x20, c), ""]
