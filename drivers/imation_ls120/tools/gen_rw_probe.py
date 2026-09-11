@@ -68,7 +68,16 @@ def blk(a, i):
     return ["a %04X" % a] + i + [""]
 
 
+MARK = 0x0580             # one byte: how far the probe got
+
+
+def mark(n):
+    return ["mov byte ptr [%04X],%02X" % (MARK, n)]
+
+
 def isize(ins):
+    if ins.replace(" ", "").startswith("movbyteptr["):
+        return 5
     """Encoded length of the instruction forms this probe emits.
 
     Used only by the layout check. Unknown forms return 4, which is an upper
@@ -101,22 +110,26 @@ def packet(cdb, buf, ln, slot, out=False):
         "mov ax,%02X1D" % (ln >> 8), "call %04X" % WR,
         "mov ax,0019", "call %04X" % WR,                # features = 0
         "mov ax,A01F", "call %04X" % WR,                # ATA A0, PACKET
+        "mov byte ptr [%04X],%02X" % (MARK, (slot & 0xF0) | 1),
         "call %04X" % WDRQ,                             # DRQ: wants the CDB
         # pf_command: read_reg(2) must be 1 or it is a command phase error
         "mov al,1A", "call %04X" % NIB, "and al,03",
         "mov [%04X],al" % (slot + 4),
         "mov si,%04X" % cdb, "mov cx,000C", "call %04X" % BW,
+        "mov byte ptr [%04X],%02X" % (MARK, (slot & 0xF0) | 2),
         "call %04X" % DLY,                              # pf_atapi's mdelay(1)
         "call %04X" % WDRQ,
+        "mov byte ptr [%04X],%02X" % (MARK, (slot & 0xF0) | 3),
         "mov al,1F", "call %04X" % NIB, "mov [%04X],al" % slot,
         "mov al,1A", "call %04X" % NIB, "mov [%04X],al" % (slot + 1),
         # n = ((bclo + 256*bchi) + 3) & 0xfffc - what the DEVICE offers
-        "mov al,1C", "call %04X" % NIB, "mov bl,al",
-        "mov al,1D", "call %04X" % NIB, "mov bh,al",
-        "mov cx,bx", "add cx,0003", "and cx,FFFC",
-        "mov [%04X],cx" % (slot + 6),
+        "mov al,1C", "call %04X" % NIB, "mov [%04X],al" % (slot + 6),
+        "mov al,1D", "call %04X" % NIB, "mov [%04X],al" % (slot + 7),
+        "mov cx,[%04X]" % (slot + 6), "add cx,0003", "and cx,FFFC",
         "mov si,%04X" % buf,
+        "mov byte ptr [%04X],%02X" % (MARK, (slot & 0xF0) | 4),
         "call %04X" % (BW if out else BR),
+        "mov byte ptr [%04X],%02X" % (MARK, (slot & 0xF0) | 5),
         "mov al,1F", "call %04X" % NIB, "mov [%04X],al" % (slot + 2),
         "mov al,19", "call %04X" % NIB, "mov [%04X],al" % (slot + 3),
     ]
@@ -126,7 +139,7 @@ def build():
     cpp4 = ["mov dx,%04X" % C, "mov al,04", "out dx,al", "jmp %04X" % FRAME]
     cppp = ["mov dx,%04X" % C, "in al,dx", "and al,0F", "out dx,al",
             "jmp %04X" % FRAME]
-    fr = ["cli", "mov dx,%04X" % B]
+    fr = ["mov dx,%04X" % B]
     for b in ["22", "AA", "55", "00", "FF", "87", "78"]:
         fr += ["mov al,%s" % b, "out dx,al", "out dx,al"]
     fr += ["mov al,ah", "out dx,al", "out dx,al",
@@ -134,7 +147,7 @@ def build():
            "in al,dx", "and al,10", "or al,05", "out dx,al", "out dx,al",
            "and al,FE", "out dx,al", "out dx,al",
            "mov dx,%04X" % B, "mov al,FF", "out dx,al", "out dx,al",
-           "sti", "ret"]
+           "ret"]
     nib = ["mov dx,%04X" % B, "out dx,al",
            "mov dx,%04X" % C, "mov al,01", "out dx,al", "mov al,03", "out dx,al",
            "mov dx,%04X" % S, "in al,dx", "and al,F0",
@@ -161,9 +174,10 @@ def build():
          "mov ax,0416", "call %04X" % WR, "mov ax,0016", "call %04X" % WR,
          "call %04X" % WBSY,
          "call %04X" % PAT]                             # build the pattern
-    m += packet(CDBS + 0x00, BUF_INQ, 36, 0x0600)
-    m += packet(CDBS + 0x20, BUF_SENSE, 18, 0x0610)
-    m += packet(CDBS + 0x40, BUF_SECTOR, 512, 0x0620)
+    m = mark(0x01) + m[:5] + mark(0x02) + m[5:] + mark(0x03)
+    m += mark(0x10) + packet(CDBS + 0x00, BUF_INQ, 36, 0x0600)
+    m += mark(0x20) + packet(CDBS + 0x20, BUF_SENSE, 18, 0x0610)
+    m += mark(0x30) + packet(CDBS + 0x40, BUF_SECTOR, 512, 0x0620)
     if WRITE_TEST:
         m += packet(CDBS + 0x60, BUF_PATTERN, 512, 0x0630, out=True)
         m += packet(CDBS + 0x80, BUF_BACK, 512, 0x0640)
@@ -176,7 +190,7 @@ def build():
     setup = ["jcxz %04X" % BRE,
              "cmp cx,%04X" % XFER_MAX, "jbe %04X" % BR2,
              "mov cx,%04X" % XFER_MAX, "jmp %04X" % BR2]
-    setup2 = ["cli",
+    setup2 = [
              "mov dx,%04X" % B, "mov al,07", "out dx,al",
              "mov dx,%04X" % C, "mov al,01", "out dx,al",
              "mov al,03", "out dx,al",
@@ -192,13 +206,13 @@ def build():
             "or al,ah", "mov [si],al", "inc si",
             "xor bh,01", "dec cx", "jnz %04X" % BRH, "jmp %04X" % BRE]
     leave = ["mov dx,%04X" % B, "xor al,al", "out dx,al",
-             "mov dx,%04X" % C, "mov al,04", "out dx,al", "sti", "ret"]
+             "mov dx,%04X" % C, "mov al,04", "out dx,al", "ret"]
     lastb = ["mov dx,%04X" % B, "mov al,FD", "out dx,al", "jmp %04X" % BRB]
 
     bw = ["jcxz %04X" % BWE,
           "cmp cx,%04X" % XFER_MAX, "jbe %04X" % BWC,
           "mov cx,%04X" % XFER_MAX, "jmp %04X" % BWC]
-    bwc = ["cli",
+    bwc = [
           "mov dx,%04X" % B, "mov al,67", "out dx,al",
           "mov dx,%04X" % C, "mov al,01", "out dx,al",
           "mov al,05", "out dx,al", "xor bh,bh", "jmp %04X" % BWL]
@@ -206,7 +220,7 @@ def build():
            "mov dx,%04X" % C, "mov al,04", "add al,bh", "out dx,al",
            "xor bh,01", "dec cx", "jnz %04X" % BWL, "jmp %04X" % BWE]
     bwe = ["mov dx,%04X" % C, "mov al,07", "out dx,al",
-           "mov al,04", "out dx,al", "sti", "ret"]
+           "mov al,04", "out dx,al", "ret"]
 
     l = (blk(0x100, m)
          + blk(CPP4, cpp4) + blk(CPPP, cppp) + blk(FRAME, fr)
@@ -261,6 +275,7 @@ def build():
                 "next block starts at %04X" % (addr, count, need, limit))
 
     l += ["g=100",
+          "d %04X %04X" % (MARK, MARK),
           "d 600 647",
           "d %04X %04X" % (BUF_INQ, BUF_INQ + 0x23),
           "d %04X %04X" % (BUF_SENSE, BUF_SENSE + 0x11),
