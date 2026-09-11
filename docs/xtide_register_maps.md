@@ -195,3 +195,43 @@ The stored image is now known-stale and is cited by this document and by #23/#24
 it with a live 8 KB read of `D8000-D9FFF` next time the machine is up, and keep the old one
 under its dated name rather than overwriting - the two versions are evidence of a change
 that nothing else recorded.
+
+## The XT+ reflash: what it bought, and what is still on the table
+
+The card was reflashed 2026-09-04 to **XUB 2.1.2 (XT+)**, `roms/hdd/xtide/ide_xtcf_lotech.bin`.
+`INS`/`OUTS` are **186+ instructions**, so the pure-XT build cannot use them - and does not:
+
+| build | `rep insb` | `rep insw` | `rep outsb` | `rep outsw` |
+|---|---|---|---|---|
+| `ide_xt.bin` - pure XT | **0** | **0** | **0** | **0** |
+| `ide_xtcf_lotech.bin` - XT+, flashed | 1 | 1 | 1 | 1 |
+
+The flashed image carries **both** transfer routines:
+
+```
+1066  C1 E1 09   shl cx,9      ; sectors -> bytes
+1069  F3 6C      rep insb      ; 8-BIT read
+106C  86 CD      xchg cl,ch    ; sectors -> words
+106E  F3 6D      rep insw      ; 16-BIT read
+10DF  C1 E1 09 / F3 6E         ; 8-bit write
+110B  86 CD    / F3 6F         ; 16-bit write
+```
+
+Which one runs is chosen by the configured **device type**.
+
+### Exploited / not exploited
+
+| path | status |
+|---|---|
+| Our miniport, protected mode | ✅ `rep insw`/`outsw` on stride 2 - 35% / 33%, shipped |
+| **The BIOS real-mode INT 13h path** | ❓ **Unknown.** XT-CF PIO8 is defined as an 8-bit data port, so XUB would take `rep insb`. On THIS card that halves throughput for nothing - A0 is not decoded, so `base+1` mirrors the data register and word reads work. That is our discovery; XUB has no reason to know it |
+| 386 instructions | ❌ Not used. The Inboard is a 386/486BL and `ide_386.bin` exists as a build target; XT+ stops at 186 |
+
+**The check:** read the device type in `XTIDECFG`. If it is XT-CF PIO8, every DOS and
+boot-time transfer is moving bytes where words would do, and the same trick that gave the
+miniport 35% is available to the BIOS.
+
+**If confirmed, it is a contribution to XTIDE Universal BIOS, not a local patch** - the
+maintainers already have an open thread from this project about the register maps
+(`docs/xtide_submission_drafts.md`). Patching and reflashing the card locally risks the
+boot device; upstreaming it does not.
