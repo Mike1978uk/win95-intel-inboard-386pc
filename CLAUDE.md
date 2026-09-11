@@ -2,10 +2,21 @@
 
 Windows 95 on a real IBM 5160 fitted with an Intel Inboard 386/PC. This repository holds:
 
-1. **`86box_full/`** — 86Box fork with the Inboard 386/PC hardware model (`src/device/inboard386.c`)
-2. **`hardware/`** — real 5160 reverse-engineering (INBRDPC.SYS, PAL/GAL analysis)
-3. **`vxd-patches/`, `custom_vkd/`, `ivt68fix/`** — the Windows 95 guest-side fixes
-4. **`docs/`** — the writeup, plans, and correspondence
+1. **`drivers/`** — the Windows 95 storage drivers written here, which are now the main
+   deliverable: `xtide_mpd` (shipped), `trantor_t130b` (shipped), `imation_ls120` +
+   `imation_ls120_mpd` (LS-120, in progress), `xtide_cdrom`
+2. **`86box_full/`** — 86Box fork with the Inboard 386/PC hardware model (`src/device/inboard386.c`)
+3. **`hardware/`** — real 5160 reverse-engineering (INBRDPC.SYS, PAL/GAL analysis)
+4. **`vxd-patches/`, `custom_vkd/`, `ivt68fix/`, `fd08fix/`, `mach8_w31_display/`** — the
+   guest-side fixes, Windows 95 and Windows 3.x
+5. **`dist/`** — the published artefacts, byte-identical to what was tested
+6. **`docs/`** — the writeup, plans, handoffs and correspondence
+7. **`roms/`, `references/`, `test_harness/`, `tools/`** — ROMs, third-party specs, real-mode
+   test programs, deployment and capture scripts
+
+`86box_upstream/` is a working clone, gitignored. It is **not** pristine — it carries this
+project's own diagnostic commits and feature branches (currently `lpt-epat-bridge`), so never
+diff against it to decide what is upstream.
 
 See `README.md` for the quick start and `docs/what_worked_and_what_didnt.md` for the fix inventory.
 

@@ -252,6 +252,19 @@ Full write-up of the original submission, with the testing matrix and known limi
 
 **The work**
 
+- **`drivers/`** — the Windows 95 storage drivers written for this machine, and the
+  reverse-engineering behind them. This is where most current work happens:
+  - **`xtide_mpd/`** — `XTIDEMP.MPD`, the 32-bit protected-mode XT-IDE driver. Shipped;
+    serves `C:` on real hardware ([#21](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/21))
+  - **`trantor_t130b/`** — Adaptec's `T130.MPD`, with the `Polling=1` registry entry and the
+    notes needed to make it work without an IRQ ([#19](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/19))
+  - **`imation_ls120/`** — the LS-120 reverse-engineering: full disassemblies of the vendor's
+    Win95 miniport and DOS driver, `TRANSPORT_SPEC.md` (the parallel-port wire protocol,
+    derived and proven on hardware), and `tools/pedis.py`, a PE disassembler that works on any
+    period driver
+  - **`imation_ls120_mpd/`** — the replacement miniport being built from that spec, with
+    `IMPLEMENTATION.md` as its single build specification ([#22](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/22))
+  - **`xtide_cdrom/`** — notes on reaching an ATAPI CD-ROM through XT-IDE
 - **`86box_full/`** — the 86Box emulator fork: the Inboard 386/PC hardware model
   (`src/device/inboard386.c`) plus the debug/tracing hooks used throughout this investigation.
   Carries upstream 86Box's own `.gitattributes` so it stays diffable against master
@@ -261,6 +274,10 @@ Full write-up of the original submission, with the testing matrix and known limi
 - **`custom_vkd/`** — full assembly source for the custom-built `VKD.VXD` (Microsoft's own DDK
   sample, modified), plus the build script for the genuine period MASM/LINK toolchain
 - **`ivt68fix/`** — source + binary for the real-mode INT 68h vector fix deployed on real hardware
+- **`fd08fix/`** — `FD08FIX.COM`, the real-mode INT 13h AH=08h floppy-geometry fix, with source
+- **`vm_win311/`, `mach8_w31_display/`** — the Windows 3.11 side: `IBKBD.DRV`, `IBVKD.386`, the
+  INT 15h shim source, and the Mach8 Windows 3.x display driver
+- **`vm_xtide_inboard/`** — the reference 86Box config the XT-IDE driver work is tested against
 - **`dist/post-install-fixes/`** — what you actually download: the patched files that must be
   applied *after* driver installation, plus the DMA audit scripts
 - **`tools/`** — deployment and capture scripts (`deploy_sound_fix.sh`, `deploy_premonolith.sh`,
@@ -273,8 +290,8 @@ Full write-up of the original submission, with the testing matrix and known limi
   Windows boot each time
 - **`roms/`** — system, video and peripheral ROMs, including `video/ATI_MACH8.bin`, a real dump
   of the ATI Graphics Ultra BIOS not known to be available elsewhere
-- **`analysis/`, `references/`, `screenshots/`** — traces, third-party specs, and real-hardware
-  and emulator captures
+- **`references/`, `screenshots/`** — third-party specs, and real-hardware and emulator captures
+- **`docs/captures/`** — raw per-session capture sets, kept where a later claim depends on them
 - **`upstream-submission/`** — standalone copy of the minimal subset first submitted to 86Box
   ([#7626](https://github.com/86Box/86Box/pull/7626))
 
@@ -291,10 +308,20 @@ Full write-up of the original submission, with the testing matrix and known limi
 
 **Methodology, as reusable skills**
 
-- **`.claude/skills/inboard-hw-debug/`** — the hardware/timing/boot debugging methodology
+Everything learned the hard way is written back into three skill files, so it is not re-derived.
+They are plain Markdown and readable without the tooling.
+
+- **`.claude/skills/inboard-hw-debug/`** — the hardware/timing/boot debugging methodology.
+  **113 numbered techniques**, each one written after it resolved *or ruled out* a real bug
+  here. Several carry retractions of their own earlier conclusions, which are the most useful
+  lines in the file
 - **`.claude/skills/win9x-dma-driver-audit/`** — finding Windows 9x drivers that assume 24-bit
   DMA reach on 20-bit hardware
 - **`.claude/skills/repo-hygiene/`** — keeping this repository legible to outside contributors
+
+The Windows 95 boot fix inventory that used to live inside the first of these is now
+[`docs/win95_boot_fix_inventory.md`](docs/win95_boot_fix_inventory.md) — the canonical list of
+everything required to boot Windows 95 on this machine, emulator-side and disk-image-side.
 
 ## Credits
 
@@ -366,17 +393,31 @@ where they actually stand without reading the thread.
 ### The most useful thing anyone could pick up
 
 **[#8](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/8) — the ATI Mach 8
-self-test.** Reproduced on stock upstream 86Box, so it is an 86Box defect, and it is currently
-**blocked on information rather than effort**: the accelerator-side memory banking is undocumented
-in every source we have checked. If you know the Mach8/8514-A register set, that issue needs one
-answer, not a week of work.
+self-test.** The option ROM reports `RAM Addressing` in 86Box where the real card reports `Ok`.
+Reproduced on stock upstream 86Box, so it is an 86Box defect.
+
+It is no longer blocked on information. On 2026-09-08 the real card's registers were read
+directly over COMrade —
+[`docs/mach8_real_hardware_registers_2026_09_08.md`](docs/mach8_real_hardware_registers_2026_09_08.md)
+— giving `SUBSYS_STAT = 0x00AB`, `DISP_STAT = 0x0001`, `GP_STAT = 0x0000` on the physical
+Graphics Ultra. That also retired the framing this section used to carry: per Michal Necasek,
+the 8514/A is **not memory-mapped at all**, so there is no "accelerator-side memory banking" to
+document — VRAM is reachable only through I/O via `PIX_TRANS`.
+
+**Two concrete jobs, neither needing an Inboard:**
+
+1. Read those same three ports in 86Box under the same conditions and diff. A divergence is a
+   reportable emulation gap for whoever maintains `vid_ati_mach8.c`.
+2. Run the Mach8 at **512 KB** instead of 1 MB. The engine processes 4 or 8 bits depending on
+   VRAM size and 86Box models that; if the self-test passes at one size and fails at the other,
+   the defect is width handling and no register documentation is needed at all. A config change.
 
 ### Open issues
 
 | | |
 |---|---|
 | [#7](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/7) | Setup black-screens right before the Help files (reboot works around it). Undiagnosed and unclaimed |
-| [#8](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/8) | ATI Mach 8 — the option ROM's self-test reports `RAM Addressing` in 86Box where the real card reports `Ok`. Reproduced on a stock upstream build, so it is an 86Box defect |
+| [#8](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/8) | ATI Mach 8 — the option ROM's self-test reports `RAM Addressing` in 86Box where the real card reports `Ok`. Reproduced on a stock upstream build, so it is an 86Box defect. Real-card register values now captured over COMrade; next step is the 86Box-side diff, or a 512 KB VRAM run |
 | [#10](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/10) | Idea: a loadable BIOS-extension shim so 1982-era 5150/5160 ROMs can run Windows |
 | [#14](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/14) | POST intermittently halts with 101, at `mem_size` 2688 and 3072. Needs a quiet build, not `86box_full` |
 | [#15](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/15) | Windows 3.0 faults after the splash screen in 386 enhanced mode |
