@@ -17,12 +17,12 @@ the bridge. It is technique 111b item 3 and it needs no Windows.
 
 Run from real-mode DOS with the vendor driver REM'd out of CONFIG.SYS:
 
-    DEBUG < C:\\INQ2.SCR > C:\\INQ2.OUT
+    DEBUG < C:\\INQ5.SCR > C:\\INQ5.OUT
 
-[0200] = final ATA status   [0201] = error register
-[0300..0323] = the 36-byte INQUIRY reply.
+[0600] = final ATA status   [0601] = error register
+[0700..0723] = the 36-byte INQUIRY reply.
 
-PASS looks like "MATSHITA" in ASCII at 0308 and "LS-120" at 0310.
+PASS looks like "MATSHITA" in ASCII at 0708 and "LS-120" at 0710.
 36 zeros means the block read is still wrong.
 All-FF means the bridge never connected - check the CPP checkpoints first.
 
@@ -80,8 +80,8 @@ def build():
     for v in ["12", "00", "00", "00", "24", "00", "00", "00", "00", "00", "00", "00"]:
         m += ["mov ax,%s18" % v, "call 03F0"]
     m += ["call 0460", "call 0500",
-          "mov al,1F", "call 03A0", "mov [0200],al",
-          "mov al,19", "call 03A0", "mov [0201],al",
+          "mov al,1F", "call 03A0", "mov [0600],al",
+          "mov al,19", "call 03A0", "mov [0601],al",
           "mov ah,40", "call 0300", "mov ah,30", "call 0300", "sti", "int 3"]
 
     # --- THE CHANGED ROUTINE: streaming block read, epat.c mode 0 ---
@@ -89,7 +89,7 @@ def build():
     # Every block ends in an explicit jmp or ret so no block relies on
     # falling through into the next one's address (DEBUG leaves the gap
     # between blocks as whatever was already in memory).
-    setup = ["mov si,0300", "mov cx,0024",
+    setup = ["mov si,0700", "mov cx,0024",
              "mov dx,%04X" % B, "mov al,07", "out dx,al",      # w0(7)
              "mov dx,%04X" % C, "mov al,01", "out dx,al",      # w2(1)
              "mov al,03", "out dx,al",                          # w2(3)
@@ -125,7 +125,7 @@ def build():
          + blk(0x580, join) + blk(0x5A0, leave) + blk(0x5C0, last))
     # Unassemble the block read too, so the capture proves what actually ran
     # rather than what the generator meant to emit.
-    l += ["u 500 5CF", "g=100", "d 200 201", "d 300 323", "q"]
+    l += ["u 500 5CF", "g=100", "d 600 601", "d 700 723", "q"]
     return CRLF.join(l) + CRLF
 
 
