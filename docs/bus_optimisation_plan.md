@@ -344,3 +344,41 @@ generalises to any 386-class XT accelerator; the magnitude is Inboard-specific a
 peripheral's limit without asking what the transaction costs on the other side of the
 connector. Rank by bus cycles occupied, take every gain that costs nothing to keep, and
 when a hardware ceiling is reached, turn round.
+
+## AGREED NEXT WORK, 2026-09-11 — after the LS-120, in this order
+
+Owner's decision. Both are host-side, both work on the present hardware, neither needs a
+different card.
+
+### 1. Request merging — 1.2x to 1.5x, measured not modelled
+
+On the traffic technique 93 recorded (603 commands, 1,149,041 bytes) the shipped driver
+spends **2,515 ms of command setup against 4,389 ms of data - 36% overhead**:
+
+| | commands | bytes/cmd | overhead | gain |
+|---|---|---|---|---|
+| as shipped | 603 | 1,906 | 36% | - |
+| merge x2 | 301 | 3,817 | 22% | **1.22x** |
+| merge x4 | 150 | 7,660 | 12% | **1.38x** |
+| 64 KB commands | 35 | 32,830 | 3% | **1.52x** |
+
+Multiplies with the 35% word-transfer win rather than overlapping it: one attacks bytes per
+transaction, the other transactions per request.
+
+⚠ **`XT_SG` defaults to 0 because of this and we never fixed the cause.** With scatter/
+gather on we measured **1,104 commands for 975 KB** against 603 for 1,149 KB - one taskfile
+command **per descriptor**. Turning SG off stopped the bleeding; coalescing the descriptors
+is the actual fix, and it is the same work as merging.
+
+Needs async completion -> a queue -> merge. **That is the same restructure the LS-120 needs**
+(`ScsiPortNotification` + `RequestTimerCall`), so doing the LS-120 first builds the
+machinery rather than delaying this.
+
+### 2. The free 4% — transfer-loop overhead
+
+Technique 109 measured a transfer as **96% bus, 4% our loop**. Removing the loop overhead is
+4% that costs nothing and compounds with everything above. Includes `rep movsd` for buffer
+copies in Inboard-local RAM (0.135 us/byte): **`XTIDEMP.ASM` currently has ZERO string
+operations and 9 byte-move lines; `XTIDETR.ASM` has 4 against 20.**
+
+Do not defer this because it is small - that is the anti-pattern at the top of this file.
