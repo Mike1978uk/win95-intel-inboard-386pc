@@ -295,3 +295,52 @@ the gain before any hardware is sourced.
 lives behind - the `0x5E0000`/`0x5F0000` machinery, techniques 66/67/72. And ours: the
 measured 0.454 us/byte is **video RAM**, which has CRTC contention; system ROM measured
 0.270. A JR-IDE window may land anywhere between, so treat 4.2x as the conservative end.
+
+## The blind spot: we optimised the CARD and stopped at ITS limit
+
+The owner's correction, 2026-09-11, and it reframes the whole track:
+
+> *"we stopped at the card side the hardware limit of the xtide but left a hole at what it's
+> plugged into - we should absolutely do all of these things"*
+
+Every XT-IDE gain so far attacked the **peripheral**: word transfers, paced polling, the
+register map. Then we hit the card's decode limit (A1 decoded, so no `insd`) and treated
+that as the end of the road. **It is the end of one road.** The transaction crosses a bus
+into a machine, and everything on the far side of the connector was left untouched.
+
+⚠ And I compounded it by writing *"a faster inner loop buys ~4% at best"* - ranking a
+target out on size, which is the exact anti-pattern recorded at the top of this document
+and the one that wrongly dismissed sound and floppy. **4% that costs nothing is 4%**, and
+it compounds with every other change rather than competing with it.
+
+### Both sides of the connector
+
+| side | lever | worth | state |
+|---|---|---|---|
+| **card** | word transfers (`rep insw`/`outsw`) | 35% / 33% | ✅ shipped |
+| **card** | paced polling | frees bus, invisible in a single-driver benchmark | ✅ shipped |
+| **card** | `rep insd` | +34% | ❌ blocked - A1 decoded, `base+2` is Error |
+| **card** | a wider-decode or memory-mapped card | up to 8x | needs different hardware (E4/E4a) |
+| **host** | **request merging** | **1.88x** on sequential - a 1-sector command is 53% overhead | ❌ not started (E3) |
+| **host** | transfer-loop overhead | **4%**, free, compounds | ❌ not started |
+| **host** | `rep movsd` for buffer copies in local RAM | small, free | ❌ `XTIDEMP.ASM` has **zero** string ops and 9 byte-move lines |
+| **host** | compression (32-bit DriveSpace) | trades ~480 spare CPU cycles per bus byte | parked - risk, not architecture |
+| **host** | read-ahead into Inboard RAM | moves bus work off the critical path | not costed |
+| **host** | the VxD layer above the miniport | unmeasured | DDK debug builds + symbols still unopened |
+
+### Why the host side pays unusually well HERE
+
+The 3.90 us fixed cost per I/O access is the Inboard **synchronising a fast CPU down to a
+4.77 MHz bus**. A stock 8088 never pays it - there the CPU *is* the bus. So this machine has
+an unusually **high** cost per transaction and an unusually **low** cost per computation
+(0.135 us/byte to local RAM, and a cached instruction costs no bus at all).
+
+That asymmetry is the whole opportunity: **spend CPU to avoid transactions.** It
+generalises to any 386-class XT accelerator; the magnitude is Inboard-specific and measured.
+
+### Standing rule
+
+**Do all of them.** Do not rank a lever out because it is small, and do not stop at a
+peripheral's limit without asking what the transaction costs on the other side of the
+connector. Rank by bus cycles occupied, take every gain that costs nothing to keep, and
+when a hardware ceiling is reached, turn round.
