@@ -862,3 +862,57 @@ transport was never actually implicated. Keep probe and driver on the same code 
 delta that produced data. The connect-tail writes `WR(8,0x10) WR(0xc,0x14) WR(0xa,0x38)
 WR(0x12,0x10)` may well be unnecessary - INQ6 added them alone and still read zeros. Do not
 record them as required without testing them out.
+
+### 2026-09-11, later: the command phase is correct, and the drive was WORKING
+
+After transliterating `pf_command`/`pf_completion` from `reference_gpl/pf_extract.c`,
+`RD4.OUT` shows the interrupt-reason register reading **`01`** before every CDB - the
+command phase check pf.c makes and we never did. INQUIRY returns
+`MATSHITA LS-120 COSM   04 / 0270`, and REQUEST SENSE returns real sense data:
+
+```
+70 00 06 00 00 00 00 0A 00 00 00 00 29 00
+      ^^ sense key 6                  ^^ ASC 29h, power on / reset occurred
+```
+
+That is our own SRST being reported back, and it is benign.
+
+**`RD5.OUT` is the one that matters.** Three consecutive READ(10)s, and they are a
+progression rather than a repeat:
+
+| attempt | status | error | reading |
+|---|---|---|---|
+| 1 | `51` | `64` | UNIT ATTENTION - refused |
+| 2 | `D0` | **`00`** | **BSY, error register CLEAN** |
+| 3 | `C1` | `04` | BSY, then aborted |
+
+The first read consumes the unit-attention condition. After that the drive stops
+refusing and starts being **busy** - it is spinning the media up. **We were timing out
+on a drive that was working.**
+
+`pf.c` sizes this properly: `PF_SPIN = (1000000 * PF_TMO)/(HZ * PF_SPIN_DEL)`, i.e.
+**8 seconds**. Our `LS_SPIN_BSY` allows ~1 s and the probe allowed 0.73 s.
+
+**Two consequences for the driver, neither yet shipped:**
+
+1. **Clear UNIT ATTENTION during bring-up.** `LS_BringUp` pulses SRST, which raises it
+   every boot, so the class driver's very first command is guaranteed to be refused.
+   Issue REQUEST SENSE (or TEST UNIT READY) after the reset until it clears.
+2. **Allow seconds, not one second, for media access** - but *not* by blocking inside
+   `HwStartIo`, which is technique 98's "a user would switch it off". This is what makes
+   the deferred-completion work (`ScsiPortNotification` with `RequestTimerCall`, as in
+   the DDK's `PC2X.C`) a correctness requirement rather than a nicety.
+
+### Probe discipline, paid for with three hard resets
+
+- **No `cli` in a probe.** A runaway inside one never reaches its `sti`, so interrupts
+  stay off: Ctrl-Alt-Del dies, COMrade's ISR stops, and the machine cannot be asked
+  where it died. With interrupts live the agent survives and `mem_read` still answers.
+- **Clamp any length that came from the device.** It is untrusted input; a stray high
+  byte turns a 512-byte read into 65,000 and it runs over the probe's own code.
+- **Check the block layout before emitting.** DEBUG leaves the gaps between `a` blocks
+  as it found them, so a block that overruns its successor corrupts it silently.
+  `gen_rw_probe.py` now sizes every instruction and refuses to emit an overlap.
+- **Put progress markers at an ABSOLUTE address**, not one relative to DEBUG's segment -
+  that segment varies between runs (13E7, 33A3 both seen), so `mem_read` cannot find
+  them. `0040:00F0`, the BIOS intra-application area, is 16 free bytes.
