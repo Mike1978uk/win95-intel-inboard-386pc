@@ -274,7 +274,6 @@ Full write-up of the original submission, with the testing matrix and known limi
 - **`custom_vkd/`** — full assembly source for the custom-built `VKD.VXD` (Microsoft's own DDK
   sample, modified), plus the build script for the genuine period MASM/LINK toolchain
 - **`ivt68fix/`** — source + binary for the real-mode INT 68h vector fix deployed on real hardware
-- **`fd08fix/`** — `FD08FIX.COM`, the real-mode INT 13h AH=08h floppy-geometry fix, with source
 - **`vm_win311/`, `mach8_w31_display/`** — the Windows 3.11 side: `IBKBD.DRV`, `IBVKD.386`, the
   INT 15h shim source, and the Mach8 Windows 3.x display driver
 - **`vm_xtide_inboard/`** — the reference 86Box config the XT-IDE driver work is tested against

@@ -7,7 +7,7 @@ Windows 95 on a real IBM 5160 fitted with an Intel Inboard 386/PC. This reposito
    `imation_ls120_mpd` (LS-120, in progress), `xtide_cdrom`
 2. **`86box_full/`** — 86Box fork with the Inboard 386/PC hardware model (`src/device/inboard386.c`)
 3. **`hardware/`** — real 5160 reverse-engineering (INBRDPC.SYS, PAL/GAL analysis)
-4. **`vxd-patches/`, `custom_vkd/`, `ivt68fix/`, `fd08fix/`, `mach8_w31_display/`** — the
+4. **`vxd-patches/`, `custom_vkd/`, `ivt68fix/`, `mach8_w31_display/`** — the
    guest-side fixes, Windows 95 and Windows 3.x
 5. **`dist/`** — the published artefacts, byte-identical to what was tested
 6. **`docs/`** — the writeup, plans, handoffs and correspondence
