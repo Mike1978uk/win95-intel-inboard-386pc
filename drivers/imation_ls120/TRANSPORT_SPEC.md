@@ -916,3 +916,43 @@ on a drive that was working.**
 - **Put progress markers at an ABSOLUTE address**, not one relative to DEBUG's segment -
   that segment varies between runs (13E7, 33A3 both seen), so `mem_read` cannot find
   them. `0040:00F0`, the BIOS intra-application area, is 16 free bytes.
+
+### 2026-09-11 final: a CHECK CONDITION is cleared by READING THE SENSE
+
+The mechanism behind "the media is not formatted", and it explains the stuck eject too.
+
+**A contingent allegiance condition persists until REQUEST SENSE is issued.** It is NOT
+cleared by the next command. `RD8.OUT` shows two consecutive READ(10)s returning
+`51`/`64` byte for byte - identical, because nothing in between consumed the condition.
+Retrying without a sense read returns the same error for ever.
+
+**The drive queues more than one.** `RD9.OUT` peeled them one per REQUEST SENSE:
+
+| | sense key | ASC | |
+|---|---|---|---|
+| SENSE #1 | 6 | `28` | NOT READY TO READY TRANSITION, medium may have changed |
+| SENSE #2 | 6 | `29` | POWER ON / RESET - raised by our own SRST |
+
+**Why it was invisible.** `LS_BringUp` pulses SRST - which raises `29h` on every single
+boot - and then issues an INQUIRY. **INQUIRY is exempt from a pending unit attention**
+(so is REQUEST SENSE; that is the point of them). So the INQUIRY succeeds, `Init Success`
+goes into `BOOTLOG.TXT`, the drive enumerates in Explorer and Device Manager - and the
+class driver's very first READ is refused. The dismount that releases PREVENT MEDIUM
+REMOVAL then errors too, which is a drive that will not eject until its power is cut.
+One cause, both symptoms, and nothing in the boot log to suggest it.
+
+**Fix shipped:** `LS_DrainSense` issues REQUEST SENSE up to five times after the reset
+(`pf.c`'s `PF_MAX_RETRIES`), stopping when the sense key reads zero.
+`md5 a3329570`, commit `6bee2a8`.
+
+### STILL OPEN, and expected to bite next
+
+Once the unit attentions are drained, reads come back **BSY with a CLEAN error
+register** (`RD5.OUT` read #2: status `D0`, error `00`) - the drive spinning the media
+up, doing exactly what it was asked. `LS_SPIN_BSY` allows ~1 s; **`pf.c` allows 8**
+(`PF_SPIN = (1000000 * PF_TMO)/(HZ * PF_SPIN_DEL)`).
+
+Raising the constant alone is wrong: an 8-second wait inside `HwStartIo` is technique
+98's "a user would switch it off". This is what makes deferred completion
+(`ScsiPortNotification` with `RequestTimerCall`, as in the DDK's `PC2X.C`) a correctness
+requirement rather than a responsiveness nicety.
