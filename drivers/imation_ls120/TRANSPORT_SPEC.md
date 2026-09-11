@@ -819,3 +819,46 @@ block path and not by the register path.
 Next probe is an A/B on those two registers, one script run twice: read `0x12` and
 `0x0D` with `SD120PPD.SYS` loaded, then with it REM'd out. The difference is what we
 are failing to set. Capture: `docs/captures/2026-09-11_ls120/INQ5.OUT`.
+
+### SOLVED 2026-09-11: the CDB must go via BLOCK WRITE, not register writes
+
+```
+0700  00 80 00 01 7B 00 00 00-4D 41 54 53 48 49 54 41   ....{...MATSHITA
+0710  4C 53 2D 31 32 30 20 43-4F 53 4D 20 20 20 30 34   LS-120 COSM   04
+0720  30 32 37 30                                       0270
+```
+
+A complete ATAPI INQUIRY reply: device type 0, RMB set, response format 1, additional
+length 0x7B, and vendor/product/revision strings that match the drive on the bench.
+That is technique 111b item 3 - readable payload - satisfied for the first time.
+Capture: `docs/captures/2026-09-11_ls120/INQ9.OUT`.
+
+**The root cause was never the block read.** Every probe up to INQ8 wrote the twelve-byte
+command packet as **twelve single-register writes** to the data register. The bridge needs
+the block path for that, exactly as it does for reads. The drive received a malformed
+packet, completed it with **no data and no error**, and we spent two sessions reading the
+empty result as a broken block read.
+
+The phase registers say it plainly. INQ7 vs INQ9, same probe, one change:
+
+| | INQ7 (register CDB) | INQ9 (block CDB) |
+|---|---|---|
+| status after packet-phase DRQ wait | `08` - drive wants the packet | `08` |
+| status after data-phase DRQ wait | **`50`** - DRQ clear, wait expired | **`08`** - DRQ set |
+| interrupt reason | **`03`** - command complete | **`02`** - data to host |
+| byte count | `24 00` | `24 00` |
+| error register | `00` | `00` |
+
+**A command that completes with no error and no data is not a transport failure - it is the
+device telling you it was asked for nothing.** The error register being clean throughout was
+the clue, and it was visible from INQ4 onward.
+
+**`LS_PacketCommand` already does this correctly** - it calls `LS_BlockWrite` for the packet.
+So the probes were testing a path the driver never takes, which is why the driver's own
+transport was never actually implicated. Keep probe and driver on the same code path.
+
+**What is NOT established.** INQ9 carries three changes stacked up: the streaming block read
+(INQ5), epat's connect tail (INQ6), and the block CDB write (INQ9). Only the last was the
+delta that produced data. The connect-tail writes `WR(8,0x10) WR(0xc,0x14) WR(0xa,0x38)
+WR(0x12,0x10)` may well be unnecessary - INQ6 added them alone and still read zeros. Do not
+record them as required without testing them out.

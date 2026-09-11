@@ -1,0 +1,526 @@
+-a 0100
+33A3:0100 mov dx,077A
+33A3:0103 in al,dx
+33A3:0104 and al,34
+33A3:0106 out dx,al
+33A3:0107 call 03D0
+33A3:010A mov ah,30
+33A3:010C call 0300
+33A3:010F mov ah,40
+33A3:0111 call 0300
+33A3:0114 mov ah,50
+33A3:0116 call 0300
+33A3:0119 mov ah,00
+33A3:011B call 0300
+33A3:011E mov ah,E0
+33A3:0120 call 0310
+33A3:0123 mov dx,0378
+33A3:0126 xor al,al
+33A3:0128 out dx,al
+33A3:0129 mov dx,037A
+33A3:012C mov al,01
+33A3:012E out dx,al
+33A3:012F mov al,04
+33A3:0131 out dx,al
+33A3:0132 mov ax,1008
+33A3:0135 call 03F0
+33A3:0138 mov ax,140C
+33A3:013B call 03F0
+33A3:013E mov ax,380A
+33A3:0141 call 03F0
+33A3:0144 mov ax,1012
+33A3:0147 call 03F0
+33A3:014A mov ax,0416
+33A3:014D call 03F0
+33A3:0150 mov ax,0016
+33A3:0153 call 03F0
+33A3:0156 call 0420
+33A3:0159 mov al,1F
+33A3:015B call 03A0
+33A3:015E mov [0602],al
+33A3:0161 mov ax,A01E
+33A3:0164 call 03F0
+33A3:0167 mov ax,241C
+33A3:016A call 03F0
+33A3:016D mov ax,001D
+33A3:0170 call 03F0
+33A3:0173 mov ax,0019
+33A3:0176 call 03F0
+33A3:0179 mov ax,A01F
+33A3:017C call 03F0
+33A3:017F call 0460
+33A3:0182 mov al,1F
+33A3:0184 call 03A0
+33A3:0187 mov [0603],al
+33A3:018A call 0900
+33A3:018D call 0460
+33A3:0190 mov al,1F
+33A3:0192 call 03A0
+33A3:0195 mov [0604],al
+33A3:0198 mov al,1A
+33A3:019A call 03A0
+33A3:019D mov [0605],al
+33A3:01A0 mov al,1C
+33A3:01A2 call 03A0
+33A3:01A5 mov [0606],al
+33A3:01A8 mov al,1D
+33A3:01AA call 03A0
+33A3:01AD mov [0607],al
+33A3:01B0 call 0500
+33A3:01B3 mov al,1F
+33A3:01B5 call 03A0
+33A3:01B8 mov [0600],al
+33A3:01BB mov al,19
+33A3:01BD call 03A0
+33A3:01C0 mov [0601],al
+33A3:01C3 mov ah,40
+33A3:01C5 call 0300
+33A3:01C8 mov ah,30
+33A3:01CA call 0300
+33A3:01CD int 3
+33A3:01CE 
+-a 0300
+33A3:0300 mov dx,037A
+33A3:0303 mov al,04
+33A3:0305 out dx,al
+33A3:0306 jmp 0320
+33A3:0308 
+-a 0310
+33A3:0310 mov dx,037A
+33A3:0313 in al,dx
+33A3:0314 and al,0F
+33A3:0316 out dx,al
+33A3:0317 jmp 0320
+33A3:0319 
+-a 0320
+33A3:0320 cli
+33A3:0321 mov dx,0378
+33A3:0324 mov al,22
+33A3:0326 out dx,al
+33A3:0327 out dx,al
+33A3:0328 mov al,AA
+33A3:032A out dx,al
+33A3:032B out dx,al
+33A3:032C mov al,55
+33A3:032E out dx,al
+33A3:032F out dx,al
+33A3:0330 mov al,00
+33A3:0332 out dx,al
+33A3:0333 out dx,al
+33A3:0334 mov al,FF
+33A3:0336 out dx,al
+33A3:0337 out dx,al
+33A3:0338 mov al,87
+33A3:033A out dx,al
+33A3:033B out dx,al
+33A3:033C mov al,78
+33A3:033E out dx,al
+33A3:033F out dx,al
+33A3:0340 mov al,ah
+33A3:0342 out dx,al
+33A3:0343 out dx,al
+33A3:0344 mov dx,037A
+33A3:0347 mov al,04
+33A3:0349 out dx,al
+33A3:034A out dx,al
+33A3:034B in al,dx
+33A3:034C and al,10
+33A3:034E or al,05
+33A3:0350 out dx,al
+33A3:0351 out dx,al
+33A3:0352 and al,FE
+33A3:0354 out dx,al
+33A3:0355 out dx,al
+33A3:0356 mov dx,0378
+33A3:0359 mov al,FF
+33A3:035B out dx,al
+33A3:035C out dx,al
+33A3:035D sti
+33A3:035E ret
+33A3:035F 
+-a 03A0
+33A3:03A0 mov dx,0378
+33A3:03A3 out dx,al
+33A3:03A4 mov dx,037A
+33A3:03A7 mov al,01
+33A3:03A9 out dx,al
+33A3:03AA mov al,03
+33A3:03AC out dx,al
+33A3:03AD mov dx,0379
+33A3:03B0 in al,dx
+33A3:03B1 and al,F0
+33A3:03B3 shr al,1
+33A3:03B5 shr al,1
+33A3:03B7 shr al,1
+33A3:03B9 shr al,1
+33A3:03BB mov bl,al
+33A3:03BD mov dx,037A
+33A3:03C0 mov al,04
+33A3:03C2 out dx,al
+33A3:03C3 mov dx,0379
+33A3:03C6 in al,dx
+33A3:03C7 and al,F0
+33A3:03C9 or al,bl
+33A3:03CB ret
+33A3:03CC 
+-a 03D0
+33A3:03D0 mov dx,037A
+33A3:03D3 mov al,04
+33A3:03D5 out dx,al
+33A3:03D6 mov al,0C
+33A3:03D8 out dx,al
+33A3:03D9 mov al,0E
+33A3:03DB out dx,al
+33A3:03DC out dx,al
+33A3:03DD out dx,al
+33A3:03DE mov al,04
+33A3:03E0 out dx,al
+33A3:03E1 out dx,al
+33A3:03E2 ret
+33A3:03E3 
+-a 03F0
+33A3:03F0 mov bl,ah
+33A3:03F2 or al,60
+33A3:03F4 mov dx,0378
+33A3:03F7 out dx,al
+33A3:03F8 mov dx,037A
+33A3:03FB mov al,01
+33A3:03FD out dx,al
+33A3:03FE mov dx,0378
+33A3:0401 mov al,bl
+33A3:0403 out dx,al
+33A3:0404 mov dx,037A
+33A3:0407 mov al,04
+33A3:0409 out dx,al
+33A3:040A ret
+33A3:040B 
+-a 0420
+33A3:0420 push cx
+33A3:0421 mov cx,4000
+33A3:0424 jmp 0430
+33A3:0426 
+-a 0430
+33A3:0430 mov al,1F
+33A3:0432 call 03A0
+33A3:0435 test al,80
+33A3:0437 jz 0450
+33A3:0439 dec cx
+33A3:043A jnz 0430
+33A3:043C jmp 0450
+33A3:043E 
+-a 0450
+33A3:0450 pop cx
+33A3:0451 ret
+33A3:0452 
+-a 0460
+33A3:0460 push cx
+33A3:0461 mov cx,4000
+33A3:0464 jmp 0470
+33A3:0466 
+-a 0470
+33A3:0470 mov al,1F
+33A3:0472 call 03A0
+33A3:0475 and al,88
+33A3:0477 cmp al,08
+33A3:0479 jz 0490
+33A3:047B dec cx
+33A3:047C jnz 0470
+33A3:047E jmp 0490
+33A3:0480 
+-a 0490
+33A3:0490 pop cx
+33A3:0491 ret
+33A3:0492 
+-e 0800 12 00 00 00 24 00 00 00 00 00 00 00
+-
+-a 0900
+33A3:0900 cli
+33A3:0901 mov si,0800
+33A3:0904 mov cx,000C
+33A3:0907 mov dx,0378
+33A3:090A mov al,67
+33A3:090C out dx,al
+33A3:090D mov dx,037A
+33A3:0910 mov al,01
+33A3:0912 out dx,al
+33A3:0913 mov al,05
+33A3:0915 out dx,al
+33A3:0916 xor bh,bh
+33A3:0918 jmp 0930
+33A3:091A 
+-a 0930
+33A3:0930 mov al,[si]
+33A3:0932 inc si
+33A3:0933 mov dx,0378
+33A3:0936 out dx,al
+33A3:0937 mov dx,037A
+33A3:093A mov al,04
+33A3:093C add al,bh
+33A3:093E out dx,al
+33A3:093F xor bh,01
+33A3:0942 dec cx
+33A3:0943 jnz 0930
+33A3:0945 jmp 0950
+33A3:0947 
+-a 0950
+33A3:0950 mov dx,037A
+33A3:0953 mov al,07
+33A3:0955 out dx,al
+33A3:0956 mov al,04
+33A3:0958 out dx,al
+33A3:0959 sti
+33A3:095A ret
+33A3:095B 
+-a 0500
+33A3:0500 cli
+33A3:0501 mov si,0700
+33A3:0504 mov cx,0024
+33A3:0507 mov dx,0378
+33A3:050A mov al,07
+33A3:050C out dx,al
+33A3:050D mov dx,037A
+33A3:0510 mov al,01
+33A3:0512 out dx,al
+33A3:0513 mov al,03
+33A3:0515 out dx,al
+33A3:0516 mov dx,0378
+33A3:0519 mov al,FF
+33A3:051B out dx,al
+33A3:051C xor bh,bh
+33A3:051E jmp 0530
+33A3:0520 
+-a 0530
+33A3:0530 cmp cx,0001
+33A3:0533 jnz 0550
+33A3:0535 jmp 05C0
+33A3:0538 
+-a 0550
+33A3:0550 mov dx,037A
+33A3:0553 mov al,06
+33A3:0555 add al,bh
+33A3:0557 out dx,al
+33A3:0558 mov dx,0379
+33A3:055B in al,dx
+33A3:055C mov ah,al
+33A3:055E test al,08
+33A3:0560 jnz 0580
+33A3:0562 mov dx,037A
+33A3:0565 mov al,04
+33A3:0567 add al,bh
+33A3:0569 out dx,al
+33A3:056A mov dx,0379
+33A3:056D in al,dx
+33A3:056E jmp 0580
+33A3:0570 
+-a 0580
+33A3:0580 and al,F0
+33A3:0582 shr ah,1
+33A3:0584 shr ah,1
+33A3:0586 shr ah,1
+33A3:0588 shr ah,1
+33A3:058A or al,ah
+33A3:058C mov [si],al
+33A3:058E inc si
+33A3:058F xor bh,01
+33A3:0592 dec cx
+33A3:0593 jnz 0530
+33A3:0595 jmp 05A0
+33A3:0597 
+-a 05A0
+33A3:05A0 mov dx,0378
+33A3:05A3 xor al,al
+33A3:05A5 out dx,al
+33A3:05A6 mov dx,037A
+33A3:05A9 mov al,04
+33A3:05AB out dx,al
+33A3:05AC sti
+33A3:05AD ret
+33A3:05AE 
+-a 05C0
+33A3:05C0 mov dx,0378
+33A3:05C3 mov al,FD
+33A3:05C5 out dx,al
+33A3:05C6 jmp 0550
+33A3:05C8 
+-u 500 5CF
+33A3:0500 FA            CLI	                                   
+33A3:0501 BE0007        MOV	SI,0700                            
+33A3:0504 B92400        MOV	CX,0024                            
+33A3:0507 BA7803        MOV	DX,0378                            
+33A3:050A B007          MOV	AL,07                              
+33A3:050C EE            OUT	DX,AL                              
+33A3:050D BA7A03        MOV	DX,037A                            
+33A3:0510 B001          MOV	AL,01                              
+33A3:0512 EE            OUT	DX,AL                              
+33A3:0513 B003          MOV	AL,03                              
+33A3:0515 EE            OUT	DX,AL                              
+33A3:0516 BA7803        MOV	DX,0378                            
+33A3:0519 B0FF          MOV	AL,FF                              
+33A3:051B EE            OUT	DX,AL                              
+33A3:051C 30FF          XOR	BH,BH                              
+33A3:051E EB10          JMP	0530                               
+33A3:0520 7374          JNB	0596                               
+33A3:0522 63            DB	63                                 
+33A3:0523 702E          JO	0553                               
+33A3:0525 64            DB	64                                 
+33A3:0526 6C            DB	6C                                 
+33A3:0527 6C            DB	6C                                 
+33A3:0528 6D            DB	6D                                 
+33A3:0529 7374          JNB	059F                               
+33A3:052B 63            DB	63                                 
+33A3:052C 702E          JO	055C                               
+33A3:052E 64            DB	64                                 
+33A3:052F 6C            DB	6C                                 
+33A3:0530 83F901        CMP	CX,+01                             
+33A3:0533 751B          JNZ	0550                               
+33A3:0535 E98800        JMP	05C0                               
+33A3:0538 000A          ADD	[BP+SI],CL                         
+33A3:053A 000A          ADD	[BP+SI],CL                         
+33A3:053C 00494E        ADD	[BX+DI+4E],CL                      
+33A3:053F 45            INC	BP                                 
+33A3:0540 54            PUSH	SP                                 
+33A3:0541 31362E44      XOR	[442E],SI                          
+33A3:0545 4C            DEC	SP                                 
+33A3:0546 4C            DEC	SP                                 
+33A3:0547 49            DEC	CX                                 
+33A3:0548 4E            DEC	SI                                 
+33A3:0549 45            INC	BP                                 
+33A3:054A 54            PUSH	SP                                 
+33A3:054B 31362E44      XOR	[442E],SI                          
+33A3:054F 4C            DEC	SP                                 
+33A3:0550 BA7A03        MOV	DX,037A                            
+33A3:0553 B006          MOV	AL,06                              
+33A3:0555 00F8          ADD	AL,BH                              
+33A3:0557 EE            OUT	DX,AL                              
+33A3:0558 BA7903        MOV	DX,0379                            
+33A3:055B EC            IN	AL,DX                              
+33A3:055C 88C4          MOV	AH,AL                              
+33A3:055E A808          TEST	AL,08                              
+33A3:0560 751E          JNZ	0580                               
+33A3:0562 BA7A03        MOV	DX,037A                            
+33A3:0565 B004          MOV	AL,04                              
+33A3:0567 00F8          ADD	AL,BH                              
+33A3:0569 EE            OUT	DX,AL                              
+33A3:056A BA7903        MOV	DX,0379                            
+33A3:056D EC            IN	AL,DX                              
+33A3:056E EB10          JMP	0580                               
+33A3:0570 36            SS:	                                   
+33A3:0571 2E            CS:	                                   
+33A3:0572 44            INC	SP                                 
+33A3:0573 6C            DB	6C                                 
+33A3:0574 6C            DB	6C                                 
+33A3:0575 0100          ADD	[BX+SI],AX                         
+33A3:0577 0000          ADD	[BX+SI],AL                         
+33A3:0579 0000          ADD	[BX+SI],AL                         
+33A3:057B 0000          ADD	[BX+SI],AL                         
+33A3:057D 0900          OR	[BX+SI],AX                         
+33A3:057F 0924          OR	[SI],SP                            
+33A3:0581 F0            LOCK	                                   
+33A3:0582 D0EC          SHR	AH,1                               
+33A3:0584 D0EC          SHR	AH,1                               
+33A3:0586 D0EC          SHR	AH,1                               
+33A3:0588 D0EC          SHR	AH,1                               
+33A3:058A 08E0          OR	AL,AH                              
+33A3:058C 8804          MOV	[SI],AL                            
+33A3:058E 46            INC	SI                                 
+33A3:058F 80F701        XOR	BH,01                              
+33A3:0592 49            DEC	CX                                 
+33A3:0593 759B          JNZ	0530                               
+33A3:0595 EB09          JMP	05A0                               
+33A3:0597 0000          ADD	[BX+SI],AL                         
+33A3:0599 0000          ADD	[BX+SI],AL                         
+33A3:059B 0C00          OR	AL,00                              
+33A3:059D 0C00          OR	AL,00                              
+33A3:059F 4D            DEC	BP                                 
+33A3:05A0 BA7803        MOV	DX,0378                            
+33A3:05A3 30C0          XOR	AL,AL                              
+33A3:05A5 EE            OUT	DX,AL                              
+33A3:05A6 BA7A03        MOV	DX,037A                            
+33A3:05A9 B004          MOV	AL,04                              
+33A3:05AB EE            OUT	DX,AL                              
+33A3:05AC FB            STI	                                   
+33A3:05AD C3            RET	                                   
+33A3:05AE 4E            DEC	SI                                 
+33A3:05AF 43            INC	BX                                 
+33A3:05B0 50            PUSH	AX                                 
+33A3:05B1 31362E44      XOR	[442E],SI                          
+33A3:05B5 4C            DEC	SP                                 
+33A3:05B6 4C            DEC	SP                                 
+33A3:05B7 0100          ADD	[BX+SI],AX                         
+33A3:05B9 0000          ADD	[BX+SI],AL                         
+33A3:05BB 0000          ADD	[BX+SI],AL                         
+33A3:05BD 0000          ADD	[BX+SI],AL                         
+33A3:05BF 0CBA          OR	AL,BA                              
+33A3:05C1 7803          JS	05C6                               
+33A3:05C3 B0FD          MOV	AL,FD                              
+33A3:05C5 EE            OUT	DX,AL                              
+33A3:05C6 EB88          JMP	0550                               
+33A3:05C8 6E            DB	6E                                 
+33A3:05C9 61            DB	61                                 
+33A3:05CA 742E          JZ	05FA                               
+33A3:05CC 65            DB	65                                 
+33A3:05CD 7865          JS	0634                               
+33A3:05CF 69            DB	69                                 
+-u 900 95F
+33A3:0900 FA            CLI	                                   
+33A3:0901 BE0008        MOV	SI,0800                            
+33A3:0904 B90C00        MOV	CX,000C                            
+33A3:0907 BA7803        MOV	DX,0378                            
+33A3:090A B067          MOV	AL,67                              
+33A3:090C EE            OUT	DX,AL                              
+33A3:090D BA7A03        MOV	DX,037A                            
+33A3:0910 B001          MOV	AL,01                              
+33A3:0912 EE            OUT	DX,AL                              
+33A3:0913 B005          MOV	AL,05                              
+33A3:0915 EE            OUT	DX,AL                              
+33A3:0916 30FF          XOR	BH,BH                              
+33A3:0918 EB16          JMP	0930                               
+33A3:091A 0000          ADD	[BX+SI],AL                         
+33A3:091C 0000          ADD	[BX+SI],AL                         
+33A3:091E 0000          ADD	[BX+SI],AL                         
+33A3:0920 0000          ADD	[BX+SI],AL                         
+33A3:0922 0000          ADD	[BX+SI],AL                         
+33A3:0924 0000          ADD	[BX+SI],AL                         
+33A3:0926 0000          ADD	[BX+SI],AL                         
+33A3:0928 0000          ADD	[BX+SI],AL                         
+33A3:092A 0000          ADD	[BX+SI],AL                         
+33A3:092C 0000          ADD	[BX+SI],AL                         
+33A3:092E 0000          ADD	[BX+SI],AL                         
+33A3:0930 8A04          MOV	AL,[SI]                            
+33A3:0932 46            INC	SI                                 
+33A3:0933 BA7803        MOV	DX,0378                            
+33A3:0936 EE            OUT	DX,AL                              
+33A3:0937 BA7A03        MOV	DX,037A                            
+33A3:093A B004          MOV	AL,04                              
+33A3:093C 00F8          ADD	AL,BH                              
+33A3:093E EE            OUT	DX,AL                              
+33A3:093F 80F701        XOR	BH,01                              
+33A3:0942 49            DEC	CX                                 
+33A3:0943 75EB          JNZ	0930                               
+33A3:0945 EB09          JMP	0950                               
+33A3:0947 0000          ADD	[BX+SI],AL                         
+33A3:0949 0000          ADD	[BX+SI],AL                         
+33A3:094B 0000          ADD	[BX+SI],AL                         
+33A3:094D 0000          ADD	[BX+SI],AL                         
+33A3:094F 00BA7A03      ADD	[BP+SI+037A],BH                    
+33A3:0953 B007          MOV	AL,07                              
+33A3:0955 EE            OUT	DX,AL                              
+33A3:0956 B004          MOV	AL,04                              
+33A3:0958 EE            OUT	DX,AL                              
+33A3:0959 FB            STI	                                   
+33A3:095A C3            RET	                                   
+33A3:095B 0000          ADD	[BX+SI],AL                         
+33A3:095D 0000          ADD	[BX+SI],AL                         
+33A3:095F 0000          ADD	[BX+SI],AL                         
+-g=100
+
+AX=30FF  BX=0000  CX=0000  DX=0378  SP=FFEE  BP=0000  SI=0724  DI=0000  
+DS=33A3  ES=33A3  SS=33A3  CS=33A3  IP=01CD   NV UP EI PL NZ NA PO NC 
+33A3:01CD CC            INT	3                                  
+-d 600 607
+33A3:0600  80 00 00 08 08 02 24 00                           ......$.
+-d 700 723
+33A3:0700  00 80 00 01 7B 00 00 00-4D 41 54 53 48 49 54 41   ....{...MATSHITA
+33A3:0710  4C 53 2D 31 32 30 20 43-4F 53 4D 20 20 20 30 34   LS-120 COSM   04
+33A3:0720  30 32 37 30                                       0270
+-q
