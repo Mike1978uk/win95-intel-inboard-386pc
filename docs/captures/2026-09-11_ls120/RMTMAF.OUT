@@ -1,0 +1,100 @@
+-a 0100
+13E7:0100 mov ax,1000
+13E7:0103 call 0300
+13E7:0106 mov [0600],ax
+13E7:0109 mov ax,1000
+13E7:010C call 0300
+13E7:010F mov [0602],ax
+13E7:0112 mov ax,8000
+13E7:0115 call 0300
+13E7:0118 mov [0604],ax
+13E7:011B mov ax,8000
+13E7:011E call 0300
+13E7:0121 mov [0606],ax
+13E7:0124 mov ax,B800
+13E7:0127 call 0300
+13E7:012A mov [0608],ax
+13E7:012D mov ax,F000
+13E7:0130 call 0300
+13E7:0133 mov [060A],ax
+13E7:0136 int 3
+13E7:0137 
+-a 0300
+13E7:0300 push ds
+13E7:0301 push bp
+13E7:0302 push cx
+13E7:0303 push si
+13E7:0304 push bx
+13E7:0305 mov ds,ax
+13E7:0307 cli
+13E7:0308 mov al,00
+13E7:030A out 43,al
+13E7:030C in al,40
+13E7:030E mov bl,al
+13E7:0310 in al,40
+13E7:0312 mov bh,al
+13E7:0314 mov bp,bx
+13E7:0316 xor si,si
+13E7:0318 mov cx,4000
+13E7:031B cld
+13E7:031C rep lodsw
+13E7:031E mov al,00
+13E7:0320 out 43,al
+13E7:0322 in al,40
+13E7:0324 mov bl,al
+13E7:0326 in al,40
+13E7:0328 mov bh,al
+13E7:032A sti
+13E7:032B mov ax,bp
+13E7:032D sub ax,bx
+13E7:032F pop bx
+13E7:0330 pop si
+13E7:0331 pop cx
+13E7:0332 pop bp
+13E7:0333 pop ds
+13E7:0334 ret
+13E7:0335 
+-u 300 335
+13E7:0300 1E            PUSH	DS                                 
+13E7:0301 55            PUSH	BP                                 
+13E7:0302 51            PUSH	CX                                 
+13E7:0303 56            PUSH	SI                                 
+13E7:0304 53            PUSH	BX                                 
+13E7:0305 8ED8          MOV	DS,AX                              
+13E7:0307 FA            CLI	                                   
+13E7:0308 B000          MOV	AL,00                              
+13E7:030A E643          OUT	43,AL                              
+13E7:030C E440          IN	AL,40                              
+13E7:030E 88C3          MOV	BL,AL                              
+13E7:0310 E440          IN	AL,40                              
+13E7:0312 88C7          MOV	BH,AL                              
+13E7:0314 89DD          MOV	BP,BX                              
+13E7:0316 31F6          XOR	SI,SI                              
+13E7:0318 B90040        MOV	CX,4000                            
+13E7:031B FC            CLD	                                   
+13E7:031C F3            REPZ	                                   
+13E7:031D AD            LODSW	                                   
+13E7:031E B000          MOV	AL,00                              
+13E7:0320 E643          OUT	43,AL                              
+13E7:0322 E440          IN	AL,40                              
+13E7:0324 88C3          MOV	BL,AL                              
+13E7:0326 E440          IN	AL,40                              
+13E7:0328 88C7          MOV	BH,AL                              
+13E7:032A FB            STI	                                   
+13E7:032B 89E8          MOV	AX,BP                              
+13E7:032D 29D8          SUB	AX,BX                              
+13E7:032F 5B            POP	BX                                 
+13E7:0330 5E            POP	SI                                 
+13E7:0331 59            POP	CX                                 
+13E7:0332 5D            POP	BP                                 
+13E7:0333 1F            POP	DS                                 
+13E7:0334 C3            RET	                                   
+13E7:0335 6C            DB	6C                                 
+-g=100
+
+AX=2938  BX=0000  CX=0000  DX=0000  SP=FFEE  BP=0000  SI=0000  DI=0000  
+DS=13E7  ES=13E7  SS=13E7  CS=13E7  IP=0136   NV UP EI PL NZ NA PO NC 
+13E7:0136 CC            INT	3                                  
+-d 600 60B
+13E7:0600  A4 14 A8 14 AA 14 AA 14-4C 45 38 29               ........LE8)
+-q
