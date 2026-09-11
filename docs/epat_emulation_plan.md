@@ -255,3 +255,56 @@ it is. What was added:
 Builds clean. **Not yet wired**: `lpt_epat.c` still answers register reads out of its stub
 `regs[0x20]` array. Replacing that with the drive's real `tf` is the next edit, and it is the
 step that turns the bridge from a protocol mock into something that can answer an INQUIRY.
+
+### Step 3 proven in the emulator, 2026-09-11
+
+Not a clean build — an actual run. Minimal VM: stock `ibmxt`, `lpt1_device = lpt_epat`,
+and under **`[Other removable devices]`** (not `[Removable disks]` — technique 4, the wrong
+section name is silently ignored):
+
+```ini
+rdisk_01_parameters = 0, lpt
+rdisk_01_lpt_port   = 0
+rdisk_01_image_path = rd.img
+```
+
+With `ENABLE_RDISK_LOG` temporarily on, the log says:
+
+```
+Removable Disk 1: Bus type 6, bus mode 1
+Removable Disk 1: Media insert
+Removable Disk 1: LPT RDISK drive 0 attached to LPT port 0
+```
+
+Bus type 6 is `RDISK_BUS_LPT`, bus mode 1 is PIO, and the attach line is the new code path.
+**The host-side chain is complete: config → rdisk → the per-port map the bridge reads.**
+
+Three things that cost time here, so they do not again:
+
+1. **The config section is `Other removable devices`.** `[Removable disks]` parses without
+   complaint and creates nothing.
+2. **`-V` is `--vmname`, not verbose.** It swallows the next argument, and 86Box then does
+   nothing at all with no error.
+3. **The image must be a size the drive type supports**, or the log says *"File is incorrect
+   size for a RDISK image"* and no media appears. The generic type takes ZIP-100 geometry —
+   `96 * 2048 * 512` = 100,663,296 bytes.
+
+`ENABLE_RDISK_LOG` was reverted; it is upstream's own debug toggle and must not be committed on.
+
+### What is NOT proven
+
+The packet phase engine has never executed. Nothing has driven a register yet, so no CDB has
+been assembled and no INQUIRY has come back. That needs a guest: boot DOS in this VM and run
+the existing LS-120 probe against LPT1. **That is the next rung, and it is the one that
+validates the work.**
+
+### Two gaps found on the way, neither blocking
+
+- **The SuperDisk drive types are `#if 0`'d out of `rdisk.h`** — and the disabled source does
+  not compile: `{ "IMATION", "SUPERDISK 120 ATAPI", "04"    { 0, 0, 0, 1, 0 }}` is missing the
+  comma after the revision, and the `supported_media` rows carry five entries against a
+  `KNOWN_RDISK_TYPES` of 4. So the drive this whole exercise is about cannot currently be
+  selected. Fixing it means adding the three media types and widening every existing row.
+  Not needed to validate the bridge — the generic type has the same ATAPI shape.
+- **`CDROM_BUS_LPT = 6` is declared and equally unimplemented.** The same bridge could serve a
+  parallel-port CD-ROM later, which is exactly the `pcd.c` case in Linux paride.

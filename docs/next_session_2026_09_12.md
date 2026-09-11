@@ -88,6 +88,16 @@ Branch **`lpt-epat-bridge`** on `Mike1978uk/86Box`, in the local `86box_upstream
 | `a07249a` | register access: direct addressing, nibble read, SRST |
 | `ba8b406` | **`RDISK_BUS_LPT` now creates a drive** — see `docs/epat_emulation_plan.md` |
 
+**Proven in the emulator 2026-09-11** (not just built): a minimal VM creates the drive on
+LPT1 and loads media - `Bus type 6, bus mode 1` / `Media insert` / `LPT RDISK drive 0 attached
+to LPT port 0`. The config section is **`[Other removable devices]`**, the bus keyword is
+`lpt`, and the port is `rdisk_NN_lpt_port`. Details and the three traps in
+`docs/epat_emulation_plan.md`.
+
+**Not proven: the packet phase engine has never executed.** Nothing has driven a register, so
+no CDB has been assembled and no INQUIRY returned. **The next rung is a guest** - boot DOS in
+that VM and run the existing LS-120 probe against LPT1.
+
 **Next edit, precisely:** `src/device/lpt_epat.c` answers register reads out of a stub
 `regs[0x20]` array (`epat_read_status()`, and the write path at the `dev->regs[dev->reg_addr]`
 assignment). Replace that with the real drive: call `rdisk_get_lpt_device(port)` at attach,
