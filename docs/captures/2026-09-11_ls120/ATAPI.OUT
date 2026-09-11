@@ -1,0 +1,384 @@
+-a 0100
+33A3:0100 mov dx,077A
+33A3:0103 in al,dx
+33A3:0104 and al,34
+33A3:0106 out dx,al
+33A3:0107 call 03D0
+33A3:010A mov ah,30
+33A3:010C call 0300
+33A3:010F mov ah,40
+33A3:0111 call 0300
+33A3:0114 mov ah,50
+33A3:0116 call 0300
+33A3:0119 mov ah,00
+33A3:011B call 0300
+33A3:011E mov ah,E0
+33A3:0120 call 0310
+33A3:0123 mov dx,0378
+33A3:0126 xor al,al
+33A3:0128 out dx,al
+33A3:0129 mov dx,037A
+33A3:012C mov al,01
+33A3:012E out dx,al
+33A3:012F mov al,04
+33A3:0131 out dx,al
+33A3:0132 mov ax,1008
+33A3:0135 call 03F0
+33A3:0138 mov ax,140C
+33A3:013B call 03F0
+33A3:013E mov ax,380A
+33A3:0141 call 03F0
+33A3:0144 mov ax,1012
+33A3:0147 call 03F0
+33A3:014A mov ax,0416
+33A3:014D call 03F0
+33A3:0150 mov ax,0016
+33A3:0153 call 03F0
+33A3:0156 call 0420
+33A3:0159 mov ax,A01E
+33A3:015C call 03F0
+33A3:015F call 0420
+33A3:0162 mov ax,121C
+33A3:0165 call 03F0
+33A3:0168 mov ax,001D
+33A3:016B call 03F0
+33A3:016E mov ax,0019
+33A3:0171 call 03F0
+33A3:0174 mov ax,A01F
+33A3:0177 call 03F0
+33A3:017A call 0460
+33A3:017D mov si,0800
+33A3:0180 mov cx,000C
+33A3:0183 call 0900
+33A3:0186 call 0460
+33A3:0189 mov al,1F
+33A3:018B call 03A0
+33A3:018E mov [0600],al
+33A3:0191 mov al,1A
+33A3:0193 call 03A0
+33A3:0196 mov [0601],al
+33A3:0199 mov si,0A00
+33A3:019C mov cx,0012
+33A3:019F call 0500
+33A3:01A2 mov al,1F
+33A3:01A4 call 03A0
+33A3:01A7 mov [0602],al
+33A3:01AA mov al,19
+33A3:01AC call 03A0
+33A3:01AF mov [0603],al
+33A3:01B2 mov ax,A01E
+33A3:01B5 call 03F0
+33A3:01B8 call 0420
+33A3:01BB mov ax,001C
+33A3:01BE call 03F0
+33A3:01C1 mov ax,021D
+33A3:01C4 call 03F0
+33A3:01C7 mov ax,0019
+33A3:01CA call 03F0
+33A3:01CD mov ax,A01F
+33A3:01D0 call 03F0
+33A3:01D3 call 0460
+33A3:01D6 mov si,0820
+33A3:01D9 mov cx,000C
+33A3:01DC call 0900
+33A3:01DF call 0460
+33A3:01E2 mov al,1F
+33A3:01E4 call 03A0
+33A3:01E7 mov [0610],al
+33A3:01EA mov al,1A
+33A3:01EC call 03A0
+33A3:01EF mov [0611],al
+33A3:01F2 mov si,1000
+33A3:01F5 mov cx,0200
+33A3:01F8 call 0500
+33A3:01FB mov al,1F
+33A3:01FD call 03A0
+33A3:0200 mov [0612],al
+33A3:0203 mov al,19
+33A3:0205 call 03A0
+33A3:0208 mov [0613],al
+33A3:020B mov ah,40
+33A3:020D call 0300
+33A3:0210 mov ah,30
+33A3:0212 call 0300
+33A3:0215 int 3
+33A3:0216 
+-a 0300
+33A3:0300 mov dx,037A
+33A3:0303 mov al,04
+33A3:0305 out dx,al
+33A3:0306 jmp 0320
+33A3:0308 
+-a 0310
+33A3:0310 mov dx,037A
+33A3:0313 in al,dx
+33A3:0314 and al,0F
+33A3:0316 out dx,al
+33A3:0317 jmp 0320
+33A3:0319 
+-a 0320
+33A3:0320 cli
+33A3:0321 mov dx,0378
+33A3:0324 mov al,22
+33A3:0326 out dx,al
+33A3:0327 out dx,al
+33A3:0328 mov al,AA
+33A3:032A out dx,al
+33A3:032B out dx,al
+33A3:032C mov al,55
+33A3:032E out dx,al
+33A3:032F out dx,al
+33A3:0330 mov al,00
+33A3:0332 out dx,al
+33A3:0333 out dx,al
+33A3:0334 mov al,FF
+33A3:0336 out dx,al
+33A3:0337 out dx,al
+33A3:0338 mov al,87
+33A3:033A out dx,al
+33A3:033B out dx,al
+33A3:033C mov al,78
+33A3:033E out dx,al
+33A3:033F out dx,al
+33A3:0340 mov al,ah
+33A3:0342 out dx,al
+33A3:0343 out dx,al
+33A3:0344 mov dx,037A
+33A3:0347 mov al,04
+33A3:0349 out dx,al
+33A3:034A out dx,al
+33A3:034B in al,dx
+33A3:034C and al,10
+33A3:034E or al,05
+33A3:0350 out dx,al
+33A3:0351 out dx,al
+33A3:0352 and al,FE
+33A3:0354 out dx,al
+33A3:0355 out dx,al
+33A3:0356 mov dx,0378
+33A3:0359 mov al,FF
+33A3:035B out dx,al
+33A3:035C out dx,al
+33A3:035D sti
+33A3:035E ret
+33A3:035F 
+-a 03A0
+33A3:03A0 mov dx,0378
+33A3:03A3 out dx,al
+33A3:03A4 mov dx,037A
+33A3:03A7 mov al,01
+33A3:03A9 out dx,al
+33A3:03AA mov al,03
+33A3:03AC out dx,al
+33A3:03AD mov dx,0379
+33A3:03B0 in al,dx
+33A3:03B1 and al,F0
+33A3:03B3 shr al,1
+33A3:03B5 shr al,1
+33A3:03B7 shr al,1
+33A3:03B9 shr al,1
+33A3:03BB mov bl,al
+33A3:03BD mov dx,037A
+33A3:03C0 mov al,04
+33A3:03C2 out dx,al
+33A3:03C3 mov dx,0379
+33A3:03C6 in al,dx
+33A3:03C7 and al,F0
+33A3:03C9 or al,bl
+33A3:03CB ret
+33A3:03CC 
+-a 03D0
+33A3:03D0 mov dx,037A
+33A3:03D3 mov al,04
+33A3:03D5 out dx,al
+33A3:03D6 mov al,0C
+33A3:03D8 out dx,al
+33A3:03D9 mov al,0E
+33A3:03DB out dx,al
+33A3:03DC out dx,al
+33A3:03DD out dx,al
+33A3:03DE mov al,04
+33A3:03E0 out dx,al
+33A3:03E1 out dx,al
+33A3:03E2 ret
+33A3:03E3 
+-a 03F0
+33A3:03F0 mov bl,ah
+33A3:03F2 or al,60
+33A3:03F4 mov dx,0378
+33A3:03F7 out dx,al
+33A3:03F8 mov dx,037A
+33A3:03FB mov al,01
+33A3:03FD out dx,al
+33A3:03FE mov dx,0378
+33A3:0401 mov al,bl
+33A3:0403 out dx,al
+33A3:0404 mov dx,037A
+33A3:0407 mov al,04
+33A3:0409 out dx,al
+33A3:040A ret
+33A3:040B 
+-a 0420
+33A3:0420 push cx
+33A3:0421 mov cx,4000
+33A3:0424 jmp 0430
+33A3:0426 
+-a 0430
+33A3:0430 mov al,1F
+33A3:0432 call 03A0
+33A3:0435 test al,80
+33A3:0437 jz 0450
+33A3:0439 dec cx
+33A3:043A jnz 0430
+33A3:043C jmp 0450
+33A3:043E 
+-a 0450
+33A3:0450 pop cx
+33A3:0451 ret
+33A3:0452 
+-a 0460
+33A3:0460 push cx
+33A3:0461 mov cx,4000
+33A3:0464 jmp 0470
+33A3:0466 
+-a 0470
+33A3:0470 mov al,1F
+33A3:0472 call 03A0
+33A3:0475 and al,88
+33A3:0477 cmp al,08
+33A3:0479 jz 0490
+33A3:047B dec cx
+33A3:047C jnz 0470
+33A3:047E jmp 0490
+33A3:0480 
+-a 0490
+33A3:0490 pop cx
+33A3:0491 ret
+33A3:0492 
+-a 0500
+33A3:0500 cli
+33A3:0501 mov dx,0378
+33A3:0504 mov al,07
+33A3:0506 out dx,al
+33A3:0507 mov dx,037A
+33A3:050A mov al,01
+33A3:050C out dx,al
+33A3:050D mov al,03
+33A3:050F out dx,al
+33A3:0510 mov dx,0378
+33A3:0513 mov al,FF
+33A3:0515 out dx,al
+33A3:0516 xor bh,bh
+33A3:0518 jmp 0530
+33A3:051A 
+-a 0530
+33A3:0530 cmp cx,0001
+33A3:0533 jnz 0550
+33A3:0535 jmp 05C0
+33A3:0538 
+-a 0550
+33A3:0550 mov dx,037A
+33A3:0553 mov al,06
+33A3:0555 add al,bh
+33A3:0557 out dx,al
+33A3:0558 mov dx,0379
+33A3:055B in al,dx
+33A3:055C mov ah,al
+33A3:055E test al,08
+33A3:0560 jnz 0580
+33A3:0562 mov dx,037A
+33A3:0565 mov al,04
+33A3:0567 add al,bh
+33A3:0569 out dx,al
+33A3:056A mov dx,0379
+33A3:056D in al,dx
+33A3:056E jmp 0580
+33A3:0570 
+-a 0580
+33A3:0580 and al,F0
+33A3:0582 shr ah,1
+33A3:0584 shr ah,1
+33A3:0586 shr ah,1
+33A3:0588 shr ah,1
+33A3:058A or al,ah
+33A3:058C mov [si],al
+33A3:058E inc si
+33A3:058F xor bh,01
+33A3:0592 dec cx
+33A3:0593 jnz 0530
+33A3:0595 jmp 05A0
+33A3:0597 
+-a 05A0
+33A3:05A0 mov dx,0378
+33A3:05A3 xor al,al
+33A3:05A5 out dx,al
+33A3:05A6 mov dx,037A
+33A3:05A9 mov al,04
+33A3:05AB out dx,al
+33A3:05AC sti
+33A3:05AD ret
+33A3:05AE 
+-a 05C0
+33A3:05C0 mov dx,0378
+33A3:05C3 mov al,FD
+33A3:05C5 out dx,al
+33A3:05C6 jmp 0550
+33A3:05C8 
+-a 0900
+33A3:0900 cli
+33A3:0901 mov dx,0378
+33A3:0904 mov al,67
+33A3:0906 out dx,al
+33A3:0907 mov dx,037A
+33A3:090A mov al,01
+33A3:090C out dx,al
+33A3:090D mov al,05
+33A3:090F out dx,al
+33A3:0910 xor bh,bh
+33A3:0912 jmp 0930
+33A3:0914 
+-a 0930
+33A3:0930 mov al,[si]
+33A3:0932 inc si
+33A3:0933 mov dx,0378
+33A3:0936 out dx,al
+33A3:0937 mov dx,037A
+33A3:093A mov al,04
+33A3:093C add al,bh
+33A3:093E out dx,al
+33A3:093F xor bh,01
+33A3:0942 dec cx
+33A3:0943 jnz 0930
+33A3:0945 jmp 0950
+33A3:0947 
+-a 0950
+33A3:0950 mov dx,037A
+33A3:0953 mov al,07
+33A3:0955 out dx,al
+33A3:0956 mov al,04
+33A3:0958 out dx,al
+33A3:0959 sti
+33A3:095A ret
+33A3:095B 
+-e 0800 03 00 00 00 12 00 00 00 00 00 00 00
+-
+-e 0820 28 00 00 00 00 00 00 00 01 00 00 00
+-
+-g=100
+
+AX=30FF  BX=0004  CX=0000  DX=0378  SP=FFEE  BP=0000  SI=1200  DI=0000  
+DS=33A3  ES=33A3  SS=33A3  CS=33A3  IP=0215   NV UP EI PL NZ NA PO NC 
+33A3:0215 CC            INT	3                                  
+-d 600 613
+33A3:0600  08 02 80 00 00 00 00 09-00 09 00 43 41 52 44 53   ...........CARDS
+33A3:0610  51 03 51 64                                       Q.Qd
+-d 0A00 0A11
+33A3:0A00  70 00 0B 00 00 00 00 0A-00 00 00 00 4A 00 00 00   p...........J...
+33A3:0A10  00 00                                             ..
+-d 1000 102F
+33A3:1000  00 00 00 00 00 00 00 00-00 00 00 00 00 00 00 00   ................
+33A3:1010  00 00 00 00 00 00 00 00-00 00 00 00 00 00 00 00   ................
+33A3:1020  00 00 00 00 00 00 00 00-00 00 00 00 00 00 00 00   ................
+-d 11F0 11FF
+33A3:11F0  00 00 00 00 00 00 00 00-00 00 00 00 00 00 00 00   ................
+-q

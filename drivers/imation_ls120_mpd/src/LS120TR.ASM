@@ -688,6 +688,8 @@ LS_BlockRead:
 	or	ecx, ecx
 	jz	lbr_done
 	push	ebx
+	pushfd
+	cli
 	movzx	edx, LS_BasePort
 	mov	al, 7
 	out	dx, al			; w0(7) - enter block read
@@ -744,6 +746,7 @@ lbr_join:
 	add	edx, LPT_CONTROL
 	mov	al, 4
 	out	dx, al			; w2(4) - leave block mode
+	popfd
 	pop	ebx
 lbr_done:
 	clc
@@ -757,12 +760,19 @@ public LS_BlockWrite
 ;  Two port accesses per byte instead of the old four, which halves bus
 ;  occupancy on the write path as a side effect of being correct.
 ;
+;  Interrupts OFF for the duration, and that is not optional: with them live
+;  the drive returns sense key 0Bh / ASC 4Ah, COMMAND PHASE ERROR. A 512-byte
+;  sector is ~11 ms of port accesses, which is a long time to hold IF clear -
+;  chunking the transfer is the way to shorten it, not running unmasked.
+;
 ;   In:   ESI = buffer, ECX = byte count
 ;----------------------------------------------------------------------------
 LS_BlockWrite:
 	or	ecx, ecx
 	jz	lbw_done
 	push	ebx
+	pushfd
+	cli
 	movzx	edx, LS_BasePort
 	mov	al, 067h
 	out	dx, al			; w0(067h) - enter block write
@@ -790,6 +800,7 @@ lbw_loop:
 	out	dx, al			; w2(7)
 	mov	al, 4
 	out	dx, al			; w2(4)
+	popfd
 	pop	ebx
 lbw_done:
 	clc
