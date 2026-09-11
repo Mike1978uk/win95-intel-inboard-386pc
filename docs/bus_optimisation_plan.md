@@ -195,3 +195,65 @@ Proposed split, **not yet done**, and to be done without losing detail:
 
 Rule for the split: **a technique that resolved or ruled out a real bug keeps its evidence.**
 Compress prose, never the measurement, the address, or the retraction.
+
+## E4. Memory-mapped storage beats I/O-mapped by 4.2x - @andrew-hoffman, CONFIRMED
+
+His suggestion, on [#23](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/23),
+2026-09-10:
+
+> *"If memory accesses have fewer wait-states than IO port accesses (and it seems they do,
+> because drawing to the screen isn't as horribly slow in your video as would be expected
+> from throttling it to 180 kb/s max), try Disk-On-Chip storage or creating a CF card
+> adapter that's memory-mapped instead of IO mapped."*
+
+**He is right, and the margin is large.** Measured on the real 5160 the same day, 32 KB
+linear sweeps timed on PIT channel 0 (`RMTMAF.OUT`, `docs/captures/2026-09-11_ls120/`):
+
+| path | us/byte |
+|---|---|
+| conventional RAM, local to the Inboard | **0.135** |
+| system ROM `F000`, across the bus | **0.270** |
+| video RAM `B800`, across the bus | **0.454** |
+| 8-bit I/O port, byte at a time | 5.770 |
+| 8-bit I/O port, `rep insw` (the shipped XT-IDE path) | 1.910 |
+
+**Memory-mapped across the bus is 4.2x faster per byte than our best I/O path, and 12.7x
+faster than byte-wide I/O.** The fixed per-access synchronisation that dominates I/O
+(~3.90 us, technique 109e) does not apply to a memory cycle at all.
+
+That reframes the ceiling. Technique 109 put 8-bit PIO at ~180 KB/s and concluded no
+software change beats it. True - but a memory-mapped adapter is not a software change, and
+the same bus does ~2.2 MB/s to video RAM.
+
+**His caveat is real and must be designed for:** the Inboard shadows memory, and shadowing
+the window a memory-mapped card lives behind would break it. That is exactly the
+`0x5E0000`/`0x5F0000` machinery in `inboard386.c` (techniques 66, 67, 72), so we already
+know where to look.
+
+**Status: idea confirmed, not actioned.** It needs hardware that does not exist here yet -
+a DiskOnChip, or a memory-mapped CF adapter. Recorded so the number is not re-derived.
+
+### Also from the same comment, and it CORRECTS one of our own notes
+
+> *"Using the 32 bit miniport for storage is improving performance by getting rid of real
+> mode thunks and allowing more of the OS to be paged out [...] not increasing the raw bus
+> throughput. You only get that second benefit once **every** storage driver is 32-bit
+> which is why the LS-120 work is worthwhile."*
+
+That is the case for finishing #22 stated more precisely than we had it.
+
+> *"DriveSpace has a 32 bit driver on Windows 95, which is higher in the storage stack than
+> the miniports and transparent to them."*
+
+**This contradicts why we parked compression.** Our note said DriveSpace was parked because
+its real-mode INT 13h hooker is exactly what #17/#19/#21 fought to remove. On Windows 95
+there is a 32-bit DriveSpace driver above the miniports, so that objection does not hold
+for the Windows path. His own caution stands: ~150 KB of code, extra CPU, and
+**significant** extra corruption risk. Reference he gave:
+<http://www.faqs.org/faqs/windows/win95/faq/part11/>
+
+> *"Still makes sense to support REP INSW/OUTSW transfers on every type of card that it
+> will work on for some easy free performance improvement."*
+
+Shipped for XT-IDE (35% read / 33% write). Not yet applied to the Trantor T130B, which
+already imports `ScsiPortRead/WritePortBufferUshort` - see the ranked table above.
