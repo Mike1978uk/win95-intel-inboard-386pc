@@ -151,3 +151,46 @@ What makes a reply worth sending — and worth replying *to*:
 
 **Owed:** a reply telling him the memory-vs-I/O hypothesis measured 4.2x and that the
 DriveSpace note corrected a parked decision. Both are results he produced.
+
+## @andrew-hoffman — consolidated OPEN items, swept 2026-09-11
+
+Everything of his across #3, #18, #22, #23. Most is shipped (`.gitattributes` CRLF, the
+`CLAUDE.md` writing rules, the 20-bit DMA fix upstreamed, the `IOS.INI` whitelist,
+`HSFLOP-XT`). These three are not, and are the ones to work through.
+
+### 1. `rep insw`/`outsw` on the Trantor T130B — ACTIONABLE NOW, no hardware needed
+
+> *"Still makes sense to support REP INSW/OUTSW transfers on every type of card that it
+> will work on for some easy free performance improvement."*  (#23)
+
+Shipped for XT-IDE: **35% read / 33% write**. **Not** applied to the T130B, which already
+imports `ScsiPortRead/WritePortBufferUshort` - so the miniport it ships with can already
+do it and we have not checked whether it does. First step is
+`python tools/pedis.py drivers/trantor_t130b/T130.MPD io` (technique 112), which prints
+every port access with its width, and answers it from the binary.
+
+⚠ On this bus a 16-bit I/O access splits into two 8-bit cycles (technique 109c), so the
+win is **transaction count**, not width - the same reason "Mike's Hi-Speed mode" worked.
+
+### 2. Issue #18 reproduction recipe — ACTIONABLE, and we have never run it
+
+> *"The corruption and crash was on emulation, with the driver patched for DMA limit, when
+> changing disks."* / *"I was using the Monster Floppy controller in 86box which includes
+> the ROM for 1.4mb support."*  (#18, 2026-09-09)
+
+That is a complete bed: **86Box + Monster Floppy controller + the DMA-patched driver +
+a media change**. Our 2026-09-08 harness wrote twice to one disk and **never changed
+media**, so it was not a re-test of the recorded trigger (technique 104). Building this
+bed is the next step on #18 and needs no real hardware.
+
+### 3. LS-120 throughput ceiling — a costing input we should hold ourselves to
+
+> *"the LS120 is not very fast storage anyway limited to 300 kb/s at best"*  (#22)
+
+Worth pinning against section 9 of `drivers/imation_ls120/TRANSPORT_SPEC.md`: the vendor
+ships a 12x5 mode matrix and we implemented selector 0 of each. If his 300 KB/s is the
+drive's own ceiling then the faster modes buy bus occupancy rather than throughput - which
+is still the point of this track, but it changes how the result should be described.
+
+**Owed on all three**, plus the two results from #23 already logged above (the 4.2x
+memory-vs-I/O measurement, and the DriveSpace note correcting a parked decision).
