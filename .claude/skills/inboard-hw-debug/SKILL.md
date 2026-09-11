@@ -6507,3 +6507,66 @@ Items 1, 2 and 4 were all satisfied for the LS-120 days before item 3 was even a
 registers and bulk data are different protocols on the same wire (technique 111).
 
 The probe for item 3 costs one DEBUG script and one DOS boot. Run it FIRST, not last.
+
+## Technique 112: when a WORKING binary exists, disassemble it IN FULL, FIRST
+
+**This is a starting point, not a last resort.** 2026-09-11 cost a full day, four hard
+resets of the owner's machine, and several shipped builds with the wrong architecture,
+because the vendor's own working driver was read in fragments - a function here, a string
+search there - instead of dumped whole on day one.
+
+The full dump of `SD120PPD.MPD` took **five commands and about ten minutes**:
+
+```bash
+python tools/pedis.py <file> sections          # FIRST - proves coverage
+python tools/pedis.py <file> imports
+python tools/pedis.py <file> all > out.asm
+python tools/pedis.py <file> dis <rva> <n>     # then read the interesting parts
+python tools/pedis.py <file> io                # every in/out with its port
+```
+
+It answered, unambiguously and with no hardware, questions that a day of
+build-deploy-boot-observe had not:
+
+| question | answer, from the dump |
+|---|---|
+| What does `HwInitialize` do? | **No device I/O.** 20 instructions, `mov al,1`, `ret 4` |
+| Does it complete inline or defer? | **Defers** - a self-re-arming 1 ms timer callback |
+| Which SRB functions does it answer? | Four. We answered one |
+| What does it use for delays? | `ScsiPortStallExecution` for short ones; the timer for long |
+
+Every timeout we tuned that day was a constant inside a **shape the OS does not expect**,
+so each "allow more time" fix made the stall worse. No amount of iterating would have
+found that; one disassembly did.
+
+### The rules
+
+1. **Dump the whole image before writing a line of your own.** If someone shipped a
+   working driver for the hardware, its architecture is the specification.
+2. **Prove the dump is complete.** Print the section table and check the sweep spans every
+   section marked executable, end to end. A linear sweep stops at the first undecodable
+   byte, so a partial dump looks exactly like a complete one.
+3. **RVA is not the linked address.** `ImageBase + RVA` is what a pushed callback
+   immediate contains. On `SD120PPD.MPD` (ImageBase `0x10000`) `push 0x148bb` means rva
+   `0x48bb`; read as an RVA it appears to lie outside every section, and the real
+   structure stays invisible.
+4. **Identify import thunks before reading call sites.** `jmp dword ptr [<idata slot>]` is
+   an import. Resolving `0x281a` to `ScsiPortNotification` turned an anonymous call into
+   the whole polling contract.
+5. **A self-referential push is a callback re-arm.** A routine that pushes its own linked
+   address is registering itself for the next tick. That single instruction identified the
+   command engine.
+
+### It applies to the optimisation track too
+
+The same pass is how to cost a driver before touching it - `T130.MPD`, `HSFLOP.PDR`,
+`ESDI_506.PDR`, `SCSIPORT.PDR` are all on the card. `tools/pedis.py` takes the file as its
+first argument for exactly this reason; it is not LS-120 tooling.
+`io` gives every port access with its address, which is the bus-occupancy question asked
+directly of the binary rather than inferred from a trace.
+
+⚠ `pedis.py` is **PE only** (`.MPD`, and PE `.PDR`s). LE VxDs need the `CD 20` + inline
+4-byte service id handling from `tools/vxd_disasm.py` (technique 60), and 16-bit DOS
+`.SYS` drivers need `sysdis.py` started at the **strategy/interrupt offsets from the
+device header** (bytes 6-9), not at offset 0 - the header is data and capstone stops dead
+on it.
