@@ -6570,3 +6570,25 @@ directly of the binary rather than inferred from a trace.
 `.SYS` drivers need `sysdis.py` started at the **strategy/interrupt offsets from the
 device header** (bytes 6-9), not at offset 0 - the header is data and capstone stops dead
 on it.
+
+### Technique 112a: 8.3 means EIGHT dot THREE, and DOS truncates in SILENCE
+
+Twice in one session (2026-09-11):
+
+- `RAMTIME2B.OUT` - a **nine**-character stem. DOS truncated it to `RAMTIME2.OUT` and
+  **overwrote the previous capture**, destroying the baseline half of an A/B measurement.
+  It looked like the owner had mistyped; they had not, the name was impossible.
+- `CONFIG.B4SF` - a **four**-character extension. Created fine from Windows over the card
+  reader, mangled from DOS.
+
+There is no error either way. The write succeeds, against a different name than the one
+you asked for.
+
+**Before writing any filename to the guest, count: stem <= 8, extension <= 3.** It costs
+nothing and both failures above were silent and destructive. Watch especially for a name
+built by appending a suffix - `RAMTIME2` + `B` and `CONFIG` + `.B4SF` were both generated
+that way, and both overflowed.
+
+**And never let a capture name collide with the one before it.** Name the two halves of an
+A/B up front (`RMTMB4.OUT` / `RMTMAF.OUT`, both legal) rather than adding a letter to the
+first.
