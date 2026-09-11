@@ -13,6 +13,49 @@ hardware and behaved as predicted) or **[DERIVED]** (disassembly only, not yet e
 
 ---
 
+
+---
+
+# ⛔ READ THIS INDEX BEFORE ADDING ANYTHING
+
+This file is 1100+ lines and has been appended to across many sessions. **Twice on
+2026-09-11 work was done to re-derive things already written here**, once costing the owner
+a physical boot. Section numbers are duplicated because of the same habit. **Read the index,
+then the sections it names, before running an experiment or writing a line of driver code.**
+
+## Already established — do NOT re-derive
+
+| fact | where |
+|---|---|
+| The card is **ECP-capable** (`port type = 0C`) and the vendor negotiates **`ECP Read` / `ECP Write`** on this machine | §0, §4f |
+| **ECP belongs to the DATA phase, not register access.** Per-register ECP reads time out by design - a register read has no data phase. `rep insb`/`rep outsb` on the FIFO is where every byte moves | **§4f** |
+| ⚠ Do **NOT** adopt the vendor's DMA block path - it writes `0x22`/`0x23`, which alias onto the 8259 on this XT. That is the #22 keyboard-killer, and it is in the **transfer** path, not the chipset init `/ni` skips | §4f, technique 75 |
+| Port map, connect/unlock handshake | §2, §3 (verified on hardware) |
+| ATA task file is behind an **index/data pair** `0x0E`/`0x0F`; `cont_map` = `{0x18, 0x10, 0}`; task file at offset **0x18** | §4b, §4h |
+| **Cold bring-up is an ATA soft reset** - pulse SRST at container offset `0x16` | §5 (SOLVED 2026-09-10) |
+| Mode tables decoded in full - a **12 read x 5 write** matrix. We implement **selector 0 of each**, the slowest rung | §7, §9 |
+| Register access and bulk data are **different protocols on the same wire**. A register loop is not a block read and fails silently with zeros | §6 (2026-09-11), technique 111 |
+| **The CDB must go via BLOCK WRITE**, not twelve register writes. This was the cause of the 36-zero INQUIRY | §6 correction |
+| The vendor's miniport: `HwInitialize` does **no device I/O**; `HwStartIo` returns without completing; polling is a **self-re-arming 1 ms timer** via `ScsiPortNotification(RequestTimerCall)` | **§8** |
+| A **CHECK CONDITION is cleared by READING THE SENSE**, not by the next command. Several unit attentions queue after a reset, and **INQUIRY is exempt from them** - which is why bring-up looked healthy while every read was refused | §6 (2026-09-11 final) |
+
+## Still open
+
+1. **Restructure to the vendor's architecture** (§8) - this is the blocker, not a tuning issue.
+2. **Then ECP for the data path** (§4f). A working nibble driver is still several times
+   slower than the vendor's.
+3. Spin-up timeout: reads that clear the unit attention come back **BSY with a clean error
+   register**. `pf.c` allows 8 s; we allow ~1.
+4. We answer only `SRB_FUNCTION_EXECUTE_SCSI`; the vendor answers four.
+
+## Sources held LOCALLY - do not fetch these
+
+`reference_gpl/epat.c` and `pf_extract.c` (Linux paride), `SD120PPD_MPD.asm` and
+`SD120PPD_SYS.asm` (full disassembly of both vendor drivers), `DISASSEMBLY.md`,
+the Win95 DDK at `OneDrive/Desktop/XT_project/Windows95_ddk` including `PC2X.C`.
+
+---
+
 ## 0. Live state, 2026-09-08 — real 5160, DOS, LS-120 attached with media
 
 Driver located by walking MEM's block accounting and **verified against its own device header**
@@ -1075,7 +1118,12 @@ Module versions in the image: `ATAPI LS-120 module V5.23b` (23 Apr 1997),
 `EPATRM Device Module 5.32b` (28 Apr 1997), and the bridge's own
 `S H U T T L E   E P A T` banner.
 
-## 10. MEASURED 2026-09-11: the vendor negotiates **ECP**, we implement **nibble**
+## 10. 2026-09-11: ECP re-confirmed on hardware - but this was ALREADY KNOWN
+
+⚠ **This section re-derived what §0 and §4f already recorded**, and cost the owner a boot to
+do it. `port type = 0C` (ECP-capable) and the `ECP Read`/`ECP Write` mode-name pointers were
+read out of the vendor driver's own memory on 2026-09-08. Kept only because it confirms the
+earlier reading **live, with fast-mode detection enabled**, which the original did not.
 
 The vendor DOS driver was loaded with `/sf` removed (fast-mode detection ON) and read under
 F8 step-by-step confirmation on the real 5160. It reported:
