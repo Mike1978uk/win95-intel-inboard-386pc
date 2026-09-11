@@ -153,10 +153,16 @@ ATAPI_PACKET_LEN	equ	12
 ;  iteration costs roughly 31 us. 400000 of them was 12 SECONDS, long enough
 ;  for SCSIPORT to time the SRB out and abandon the device - which is exactly
 ;  how the first working transport still failed to produce a drive letter.
-;  130000 ~= 4 s, 65000 ~= 2 s. Commands that legitimately take longer than
-;  that (a spin-up) are the class driver's to wait for, with its own timeout.
-LS_SPIN_BSY		equ	130000
-LS_SPIN_DRQ		equ	65000
+;  MEASURED 2026-09-10 (technique 109): one 8-bit I/O access on this machine
+;  costs 5.55 us, not the ~3.9 us assumed above, so a nibble read is 44.4 us
+;  and these were 5.8 s and 2.9 s, not 4 s and 2 s. Several of those during
+;  SCSIPORT's bus scan is the boot hang.
+;  Re-derived: 1 s / 44.4 us = 22522, and half that. Anything legitimately
+;  slower (a spin-up) belongs to the class driver and its own timeout. The
+;  DDK's PC2X sample bounds its waits in TIME, calling ScsiPortStallExecution(1)
+;  per turn so the count IS microseconds - the right shape, worth adopting.
+LS_SPIN_BSY		equ	22000		; ~1.0 s
+LS_SPIN_DRQ		equ	11000		; ~0.5 s
 
 	.DATA
 
@@ -670,8 +676,6 @@ LS_BlockRead:
 	or	ecx, ecx
 	jz	lbr_done
 	push	ebx
-	pushfd
-	cli
 	movzx	edx, LS_BasePort
 	mov	al, 7
 	out	dx, al			; w0(7) - enter block read
@@ -728,7 +732,6 @@ lbr_join:
 	add	edx, LPT_CONTROL
 	mov	al, 4
 	out	dx, al			; w2(4) - leave block mode
-	popfd
 	pop	ebx
 lbr_done:
 	clc
@@ -748,8 +751,6 @@ LS_BlockWrite:
 	or	ecx, ecx
 	jz	lbw_done
 	push	ebx
-	pushfd
-	cli
 	movzx	edx, LS_BasePort
 	mov	al, 067h
 	out	dx, al			; w0(067h) - enter block write
@@ -777,7 +778,6 @@ lbw_loop:
 	out	dx, al			; w2(7)
 	mov	al, 4
 	out	dx, al			; w2(4)
-	popfd
 	pop	ebx
 lbw_done:
 	clc
