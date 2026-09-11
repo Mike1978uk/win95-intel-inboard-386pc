@@ -6592,3 +6592,57 @@ that way, and both overflowed.
 **And never let a capture name collide with the one before it.** Name the two halves of an
 A/B up front (`RMTMB4.OUT` / `RMTMAF.OUT`, both legal) rather than adding a letter to the
 first.
+
+## Technique 113: establish CURRENT STATE before proposing anything
+
+2026-09-11. Three separate times in one session, work was done on questions that were
+already answered, and the owner had to say so:
+
+> *"you seem out of date or are reading out of date memories or notes"*
+> *"we need you to be in the room with me on progress or it's like regressing days work"*
+> *"especially important for the ls120 work we have to know what is done and not or you
+> repeat and burn tokens doing so"*
+
+**Stale state does not read as a small error. It reads as regression** - settled questions
+reopened, and the owner spending their time correcting a machine that already worked.
+
+### The three failures, and what each one actually was
+
+| what happened | the mistake |
+|---|---|
+| `DRIVPARM` proposed for the floppy geometry problem | Read issue #25's **comment thread**, which ends before the fix. The issue's own state said **CLOSED** at the top of the same output |
+| ECP capability "discovered" on hardware, costing a boot | `TRANSPORT_SPEC.md` §0 and §4f already recorded `port type = 0C` and the `ECP Read`/`ECP Write` pointers. The file had grown to 1,100 lines and was being **appended to without being read** |
+| `epat.c` fetched from the web | It was in `reference_gpl/` |
+
+### The check, before proposing or measuring anything
+
+```bash
+gh issue list --state open        # what is ACTUALLY open - not the comment thread
+ls -t docs/next_session_*.md | head -1   # what the last session established
+```
+
+Then the component's own spec **index** - not the section you are about to append to.
+
+**An issue's state line answers "is this still a problem" in one word.** A comment thread
+answers "what did someone think in September", which is a different question and is often
+out of date by its own final comment.
+
+### And keep the repo's handoff trail current, not just memory
+
+The trail here stopped at `next_session_2026_09_09.md` while two days of work existed only
+in the assistant's memory files. Anyone cloning the repo - including a future session
+without that memory - reads state two days stale. **Write the handoff doc into `docs/` as
+work lands, not at some tidy-up later.**
+
+### Specifically for a long-lived component spec
+
+Give it a **⛔ READ THIS INDEX** block at the top: what is established (with section
+pointers), what is still open, and which sources are held locally and must not be fetched.
+`drivers/imation_ls120/TRANSPORT_SPEC.md` now has one, after duplicate section numbers
+(two each of 5, 6, 8, 9, 10) made the append-without-reading habit visible in the file
+itself.
+
+For the LS-120 specifically, `drivers/imation_ls120_mpd/IMPLEMENTATION.md` is the single
+build specification - architecture, command sequence, error handling, timing, transports,
+and a known-wrong list. **Read it before writing driver code or running anything on
+hardware.**
