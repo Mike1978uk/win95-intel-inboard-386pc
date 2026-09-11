@@ -83,23 +83,28 @@ at the center of the fix.
 
 **Video, sound and networking all work at the same time on the real 5160.**
 
-**Floppy drives do not work yet**, but they are no longer stuck. The patched
-[`HSFLOP_XTDMA.PDR`](FIXES.md) now genuinely loads and initialises on the real machine
-(`Init Success`, `INITCOMPLETE`, measured 2026-09-06) — for over a month it was deployed but never
-loaded, so nothing measured about it meant anything. @andrew-hoffman reports it working in 86Box and
-faster than real mode, with A: and B: leaving compatibility mode, but hit a fatal exception and a
-corrupted disk after changing media a few times; that analysed as a stale cache page flushed to the
-wrong disk — a media-change detection failure, not the DMA-reach bug the patch fixes. That path has
-**not** been re-tested here: read/write was measured on the real 5160 on 2026-09-09 (121 KB written
-twice to different sectors, three binary compares clean, both drives normal), but that harness never
-changed media. **The earlier "set floppies read-only" caution is withdrawn.** Separately, both drives
-enumerate as generic
-`GENERIC NEC FLOPPY DISK` nodes with no drive letters and the wrong geometry for the real TEAC
-FD-505 — a 5160 has no CMOS for Windows to read drive types from. See
-[#18](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/18).
-An earlier version of this page claimed A: and B: worked; that was wrong. (The original report,
-[#3](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/3), is closed — it was the
-Have Disk browse fault, which turned out to be the missing controller.)
+**Floppy drives work.** The patched [`HSFLOP_XTDMA.PDR`](FIXES.md) loads and initialises on
+the real machine (`Init Success`, `INITCOMPLETE`, measured 2026-09-06) — for over a month it was
+deployed but never loaded, so nothing measured about it before then meant anything. Read and write
+were measured on the real 5160 on 2026-09-09: 121 KB written twice to different sectors, three
+binary compares clean, both drives normal.
+
+**Geometry and drive letters are correct** (fixed 2026-09-07,
+[#25](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/25)). `INT 13h AH=08h` used to
+report 720K for both drives because the Trantor's option ROM at `CA000` was scanned first and claimed
+`INT 13h`, so Sergey's Multi-Floppy BIOS — which takes the vector only while it is still the stock
+`F000:EC59` — settled for `INT 40h` and the 1986 system BIOS answered from its own 720K table. The
+fix was hardware: Trantor's ROM moved to `DA000`. Verified on DOS 6.22 and Windows 95, both drives
+reading real media.
+
+**One open caveat.** @andrew-hoffman hit a fatal exception and a corrupted disk after changing media
+a few times, in 86Box, on his configuration — analysed as a stale cache page flushed to the wrong
+disk, a media-change detection failure rather than the DMA-reach bug the patch fixes. **That path has
+not been reproduced here**, and the 2026-09-09 harness above never changed media, so it was never a
+test of it. See [#18](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/18).
+
+([#3](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/3), the original report, is
+closed — it was the Have Disk browse fault, which turned out to be the missing controller.)
 
 ## Patched files
 
@@ -377,7 +382,7 @@ answer, not a week of work.
 | [#15](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/15) | Windows 3.0 faults after the splash screen in 386 enhanced mode |
 | [#18](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/18) | Floppy corruption after a media change. DMA reach is fixed (`maxPhys 0x1000 -> 0xFF`, shipped as `HSFLOP_XTDMA.PDR`) and read/write measured clean here on 2026-09-09, but that harness never changed media, which is this issue's actual trigger. **Reopened 2026-09-10** to reproduce in 86Box on the reporter's configuration |
 | [#20](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/20) | 86Box has no 3C509B device, so emulated networking cannot match the real machine's card. Low priority, emulation fidelity only |
-| [#22](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/22) | LS-120 Windows 95 driver kills keyboard input — the vendor miniport's chipset probe writes to the 8259 through the XT's I/O aliasing, from the service path, so no setting can disable it. Parallel-port transport solved and proven on hardware; a replacement miniport is in progress |
+| [#22](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/22) | LS-120 Windows 95 driver kills keyboard input — the vendor miniport's chipset probe writes to the 8259 through the XT's I/O aliasing, from the service path, so no setting can disable it. Parallel-port transport **solved and proven on hardware** — a DOS probe reads a full ATAPI INQUIRY off the drive. A replacement miniport is in progress, and an **EPAT bridge model for 86Box** is being built so the whole driver, media access included, can be tested in emulation (`docs/epat_emulation_plan.md`) |
 | [#23](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/23) | `XTIDEMP.MPD` cannot drive the XT-IDE Hi-Speed register map — an A3/A0 swap is a permutation, and the driver computes `base + index * stride`. Blocked on hardware to test against, and on 86Box having no Hi-Speed model |
 | [#26](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/26) | Replies owed on VOGONS — disruptor's ST01 question and red-ray's SIV test |
 
