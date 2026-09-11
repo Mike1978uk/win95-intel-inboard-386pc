@@ -792,3 +792,30 @@ loop does not explain four minutes. **Unexamined**, in order of suspicion:
 
 The drive spinning up is itself new information: nothing in init touches the motor any more, so
 something above us was already issuing commands - i.e. enumeration may have started working.
+
+### CORRECTION 2026-09-11: the streaming block read is NOT the fix
+
+`INQ5.SCR` runs the epat.c mode-0 streaming algorithm from DOS - block mode entered
+once, phase bit alternating, last byte announced, clean teardown - with the vendor
+driver REM'd out. The capture unassembles the routine first, so what ran is on the
+record: every block assembled as intended, `SI` finished at `0724`, so all 36
+iterations executed.
+
+```
+[0600] status 50   error 00
+[0700..0723] 36 x 00
+```
+
+**Still zeros.** So section 6's diagnosis is half right and its conclusion is wrong:
+the old register loop was certainly not a block read, but replacing it with a correct
+one does not produce data either. Something before the data phase is missing.
+
+Prime suspect, and it is technique 110 again: **the bridge's transfer mode is never
+configured.** Section 4c records the vendor writing bridge registers `0x12` and `0x0D`
+straight after connect, with the flags word untraced. Plain nibble register reads work
+without that - status `50h` proves it - so whatever those writes set is needed by the
+block path and not by the register path.
+
+Next probe is an A/B on those two registers, one script run twice: read `0x12` and
+`0x0D` with `SD120PPD.SYS` loaded, then with it REM'd out. The difference is what we
+are failing to set. Capture: `docs/captures/2026-09-11_ls120/INQ5.OUT`.
