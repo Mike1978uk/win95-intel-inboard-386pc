@@ -31,7 +31,8 @@ then the sections it names, before running an experiment or writing a line of dr
 | **ECP belongs to the DATA phase, not register access.** Per-register ECP reads time out by design - a register read has no data phase. `rep insb`/`rep outsb` on the FIFO is where every byte moves | **§4f** |
 | ⚠ Do **NOT** adopt the vendor's DMA block path - it writes `0x22`/`0x23`, which alias onto the 8259 on this XT. That is the #22 keyboard-killer, and it is in the **transfer** path, not the chipset init `/ni` skips | §4f, technique 75 |
 | Port map, connect/unlock handshake | §2, §3 (verified on hardware) |
-| ATA task file is behind an **index/data pair** `0x0E`/`0x0F`; `cont_map` = `{0x18, 0x10, 0}`; task file at offset **0x18** | §4b, §4h |
+| **Register addressing is DIRECT**: write `regr + cont_map[cont]` to the data port, then strobe and read two nibbles. `cont_map = {0x18, 0x10, 0}`, so ATA status is `0x18+7 = 0x1F`. This is what the working INQUIRY probe uses | **§4h** |
+| ⚠ §4b's **index/data pair `0x0E`/`0x0F` is SUPERSEDED** - an earlier hypothesis, never validated, and it disagrees with the model that works. Do not implement it | §4b, closed by §4h |
 | **Cold bring-up is an ATA soft reset** - pulse SRST at container offset `0x16` | §5 (SOLVED 2026-09-10) |
 | Mode tables decoded in full - a **12 read x 5 write** matrix. We implement **selector 0 of each**, the slowest rung | §7, §9 |
 | Register access and bulk data are **different protocols on the same wire**. A register loop is not a block read and fails silently with zeros | §6 (2026-09-11), technique 111 |
@@ -183,7 +184,20 @@ carries the generated scripts (`e0.dbg`, `modesweep.dbg` sweeping all eight mode
 **This is the one step between here and a working transport.**
 
 
-## 4b. ⭐ THE ATA TASK FILE IS BEHIND AN INDEX/DATA PAIR — `0x0E` / `0x0F`
+## 4b. ⛔ SUPERSEDED — the index/data pair was a hypothesis, never validated
+
+⚠ **Do not implement what follows.** §4h settled register addressing as **direct**:
+`w0(regr + cont_map[cont])`, with `cont_map = {0x18, 0x10, 0}`, so ATA status is `0x18+7 =
+0x1F`. That is the addressing the working INQUIRY probe uses and the only one proven to
+return real data. This section's own closing line already said "Not yet validated on
+hardware" and it never was.
+
+Kept for the disassembly evidence and because the reasoning about why direct probes of
+bridge registers `0x00`-`0x1F` returned zero is still sound.
+
+### Original text follows
+
+## 4b (original). THE ATA TASK FILE IS BEHIND AN INDEX/DATA PAIR — `0x0E` / `0x0F`
 
 **This is why every register probe returned zero.** The ATA registers are not bridge registers.
 Bridge registers `0x0E` and `0x0F` form an index/data window, and the task file sits behind it:
