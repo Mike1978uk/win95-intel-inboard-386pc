@@ -56,11 +56,20 @@ def packet(cdb, buf, ln, slot):
         "mov ax,0019", "call 03F0",                    # features = 0, PIO
         "mov ax,A01F", "call 03F0",                    # ATA command A0, PACKET
         "call 0460",                                   # DRQ: drive wants the CDB
+        # pf_command: interrupt reason must read 1 (C/D set, I/O clear) or
+        # this is a command phase error - sense 0Bh / ASC 4Ah.
+        "mov al,1A", "call 03A0", "and al,03", "mov [%04X],al" % (slot + 4),
         "mov si,%04X" % cdb, "mov cx,000C", "call 0900",
+        "call 0970",                                   # pf_atapi's mdelay(1)
         "call 0460",                                   # DRQ: data phase
         "mov al,1F", "call 03A0", "mov [%04X],al" % slot,
         "mov al,1A", "call 03A0", "mov [%04X],al" % (slot + 1),
-        "mov si,%04X" % buf, "mov cx,%04X" % ln, "call 0500",
+        # n = ((bclo + 256*bchi) + 3) & 0xfffc - the count the DEVICE offers.
+        "mov al,1C", "call 03A0", "mov bl,al",
+        "mov al,1D", "call 03A0", "mov bh,al",
+        "mov cx,bx", "add cx,0003", "and cx,FFFC",
+        "mov [%04X],cx" % (slot + 6),
+        "mov si,%04X" % buf, "call 0500",
         "mov al,1F", "call 03A0", "mov [%04X],al" % (slot + 2),
         "mov al,19", "call 03A0", "mov [%04X],al" % (slot + 3),
     ]
@@ -154,9 +163,13 @@ def build():
          + blk(0x500, setup) + blk(0x530, head) + blk(0x550, body)
          + blk(0x580, join) + blk(0x5A0, leave) + blk(0x5C0, last)
          + blk(0x900, bw) + blk(0x930, bwl) + blk(0x950, bwe)
+         + blk(0x970, ["push cx", "push dx", "mov cx,00B4", "mov dx,0080",
+                       "jmp 0980"])
+         + blk(0x980, ["in al,dx", "dec cx", "jnz 0980", "jmp 0990"])
+         + blk(0x990, ["pop dx", "pop cx", "ret"])
          + ["e %04X 03 00 00 00 12 00 00 00 00 00 00 00" % CDB_SENSE, "",
             "e %04X 28 00 00 00 00 00 00 00 01 00 00 00" % CDB_READ, ""])
-    l += ["g=100", "d 600 613", "d 0A00 0A11",
+    l += ["g=100", "d 600 61F", "d 0A00 0A11",
           "d 1000 102F", "d 11F0 11FF", "q"]
     return CRLF.join(l) + CRLF
 
