@@ -207,6 +207,7 @@ LS_Connected		dd	0		; layer 2 currently owns the port
 
 	PUBLIC	LS_LastStatus
 LS_LastStatus		dd	0		; last ATA status byte read
+LS_XferN		dd	0		; byte count the DEVICE offered this phase
 
 	.CODE
 
@@ -946,6 +947,78 @@ lrq_none:
 	stc
 	ret
 
+;----------------------------------------------------------------------------
+; LS_PfWait - Linux pf.c's pf_wait, transliterated.
+;
+;   In:   BL = "go" mask   - spin while ANY of these bits are SET
+;         BH = "stop" mask - spin while ALL of these are CLEAR (0 = ignore)
+;   Out:  AL = last status, CF=1 on timeout OR on ERR-within-stop
+;   Uses: EAX, ECX, EDX
+;
+;   pf.c treats ERR appearing inside the stop mask as a FAILURE, not as a
+;   reason to stop happily. Our own waits never did that, so an error left
+;   the caller believing the phase had completed.
+;----------------------------------------------------------------------------
+public LS_PfWait
+LS_PfWait:
+	push	ecx
+	push	edx
+	mov	ecx, LS_SPIN_BSY
+lpw_loop:
+	mov	al, ATA_REG_STATUS
+	call	LS_RegRead
+	mov	LS_LastStatus, eax
+	mov	dl, al
+	and	dl, bl			; any "go" bit still set?
+	jnz	lpw_next
+	or	bh, bh
+	jz	lpw_ok			; no stop mask - clear is enough
+	mov	dl, al
+	and	dl, bh
+	jnz	lpw_ok			; a "stop" bit has appeared
+lpw_next:
+	dec	ecx
+	jnz	lpw_loop
+	pop	edx
+	pop	ecx
+	stc
+	ret
+lpw_ok:
+	mov	dl, al
+	and	dl, bh
+	and	dl, ATA_ST_ERR
+	jnz	lpw_err
+	pop	edx
+	pop	ecx
+	clc
+	ret
+lpw_err:
+	pop	edx
+	pop	ecx
+	stc
+	ret
+
+;----------------------------------------------------------------------------
+; LS_Delay1ms - pf_atapi's mdelay(1), which sits between handing over the
+; command packet and reading the reply. We had no delay there at all.
+;
+;   1 ms at the measured 5.55 us per 8-bit I/O access is ~180 accesses.
+;   Port 80h is inside the XT's write-only DMA page block, so a READ returns
+;   floating bus and disturbs nothing (technique 75).
+;----------------------------------------------------------------------------
+LS_Delay1ms:
+	push	ecx
+	push	edx
+	mov	ecx, 180
+	mov	edx, 80h
+lda_loop:
+	in	al, dx
+	dec	ecx
+	jnz	lda_loop
+	pop	edx
+	pop	ecx
+	ret
+
 public LS_PacketCommand
 LS_PacketCommand:
 
@@ -972,7 +1045,12 @@ lpc_have:
 	call	LS_RegWrite
 	jc	lpc_fail
 
-	call	LS_WaitNotBusy
+;  pf_wait(STAT_BUSY | STAT_DRQ, 0) - "before command". Both must be CLEAR.
+;  We used to check BSY only, so a stale DRQ from a previous command that was
+;  not drained went straight into the next one.
+	mov	bl, ATA_ST_BSY OR ATA_ST_DRQ
+	xor	bh, bh
+	call	LS_PfWait
 	jc	lpc_fail
 
 ;  2. Byte count = how much data we are prepared to move in one go. The device
@@ -999,24 +1077,79 @@ lpc_have:
 	call	LS_RegWrite
 	jc	lpc_fail
 
-;  4. The device asks for the packet by raising DRQ.
-	call	LS_WaitDrq
+;  4. pf_wait(STAT_BUSY, STAT_DRQ) - the device asks for the packet.
+	mov	bl, ATA_ST_BSY
+	mov	bh, ATA_ST_DRQ
+	call	LS_PfWait
 	jc	lpc_fail
+
+;  pf_command: if (read_reg(pf, 2) != 1) -> "command phase error".
+;  Interrupt reason must read exactly 1 - C/D set, I/O clear - meaning the
+;  device wants a command packet. Handing 12 bytes to a device that is in
+;  some other phase is what earns sense key 0Bh / ASC 4Ah, which is exactly
+;  what this drive reported on 2026-09-11.
+	mov	al, ATA_REG_ICR
+	call	LS_RegRead
+	jc	lpc_fail
+	and	al, 03h
+	cmp	al, 1
+	jne	lpc_fail
 
 	mov	esi, [ebp-16]
 	mov	ecx, ATAPI_PACKET_LEN
 	call	LS_BlockWrite
 	jc	lpc_fail
 
-;  5. Data phase, if there is one.
-	mov	ecx, [ebp-24]
-	or	ecx, ecx
-	jz	lpc_done
+;  pf_atapi does mdelay(1) here, between the packet and the reply.
+	call	LS_Delay1ms
 
-	call	LS_WaitDrq
+;  5. pf_completion.
+;     pf_wait(STAT_BUSY, STAT_DRQ | STAT_READY | STAT_ERR) - "completion".
+	mov	bl, ATA_ST_BSY
+	mov	bh, ATA_ST_DRQ OR ATA_ST_DRDY OR ATA_ST_ERR
+	call	LS_PfWait
 	jc	lpc_fail
 
-	mov	ecx, [ebp-24]
+;     if ((read_reg(2) & 2) && (read_reg(7) & STAT_DRQ))
+;     Move data ONLY when the device says it is in a data-in phase and is
+;     actually asking. We used to transfer unconditionally, which is how a
+;     command that returned nothing still had bytes clocked out of the bridge.
+	mov	al, ATA_REG_ICR
+	call	LS_RegRead
+	jc	lpc_fail
+	test	al, 02h
+	jz	lpc_done
+	mov	eax, LS_LastStatus
+	test	al, ATA_ST_DRQ
+	jz	lpc_done
+
+;     n = ((read_reg(4) + 256 * read_reg(5)) + 3) & 0xfffc
+;     The count the DEVICE is offering this phase, rounded up to a multiple
+;     of 4 - not the length we asked for. Reading more than it offers leaves
+;     the bridge mid-stream and the NEXT command dies in its command phase,
+;     which is the sense key 0Bh / ASC 4Ah this drive reported.
+	mov	al, ATA_REG_BCLO
+	call	LS_RegRead
+	jc	lpc_fail
+	mov	LS_XferN, eax
+	mov	al, ATA_REG_BCHI
+	call	LS_RegRead
+	jc	lpc_fail
+	shl	eax, 8
+	add	LS_XferN, eax
+	mov	ecx, LS_XferN
+	add	ecx, 3
+	and	ecx, 0FFFCh
+	jz	lpc_done
+
+;     Never overrun the caller's buffer, whatever the device claims.
+	mov	eax, [ebp-24]
+	cmp	ecx, eax
+	jbe	lpc_n_ok
+	mov	ecx, eax
+lpc_n_ok:
+	or	ecx, ecx
+	jz	lpc_done
 	cmp	dword ptr [ebp-28], 0
 	jne	lpc_out
 
@@ -1030,9 +1163,11 @@ lpc_out:
 	call	LS_BlockWrite
 	jc	lpc_fail
 
-;  6. Completion.
+;  6. pf_wait(STAT_BUSY, STAT_READY | STAT_ERR) - "data done".
 lpc_done:
-	call	LS_WaitNotBusy
+	mov	bl, ATA_ST_BSY
+	mov	bh, ATA_ST_DRDY OR ATA_ST_ERR
+	call	LS_PfWait
 	jc	lpc_fail
 
 	mov	eax, LS_LastStatus
