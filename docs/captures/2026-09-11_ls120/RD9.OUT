@@ -1,0 +1,609 @@
+-a 0100
+33A3:0100 mov byte ptr [0580],01
+33A3:0105 mov dx,077A
+33A3:0108 in al,dx
+33A3:0109 and al,34
+33A3:010B out dx,al
+33A3:010C call 18D0
+33A3:010F mov byte ptr [0580],02
+33A3:0114 mov ah,30
+33A3:0116 call 1800
+33A3:0119 mov ah,40
+33A3:011B call 1800
+33A3:011E mov ah,50
+33A3:0120 call 1800
+33A3:0123 mov ah,00
+33A3:0125 call 1800
+33A3:0128 mov ah,E0
+33A3:012A call 1810
+33A3:012D mov dx,0378
+33A3:0130 xor al,al
+33A3:0132 out dx,al
+33A3:0133 mov dx,037A
+33A3:0136 mov al,01
+33A3:0138 out dx,al
+33A3:0139 mov al,04
+33A3:013B out dx,al
+33A3:013C mov ax,1008
+33A3:013F call 18F0
+33A3:0142 mov ax,140C
+33A3:0145 call 18F0
+33A3:0148 mov ax,380A
+33A3:014B call 18F0
+33A3:014E mov ax,1012
+33A3:0151 call 18F0
+33A3:0154 mov ax,0416
+33A3:0157 call 18F0
+33A3:015A mov ax,0016
+33A3:015D call 18F0
+33A3:0160 call 1920
+33A3:0163 call 1BB0
+33A3:0166 mov byte ptr [0580],03
+33A3:016B mov byte ptr [0580],20
+33A3:0170 mov ax,A01E
+33A3:0173 call 18F0
+33A3:0176 call 1920
+33A3:0179 mov ax,121C
+33A3:017C call 18F0
+33A3:017F mov ax,001D
+33A3:0182 call 18F0
+33A3:0185 mov ax,0019
+33A3:0188 call 18F0
+33A3:018B mov ax,A01F
+33A3:018E call 18F0
+33A3:0191 mov byte ptr [0580],11
+33A3:0196 call 1960
+33A3:0199 mov al,1A
+33A3:019B call 18A0
+33A3:019E and al,03
+33A3:01A0 mov [0614],al
+33A3:01A3 mov si,1C20
+33A3:01A6 mov cx,000C
+33A3:01A9 call 1B00
+33A3:01AC mov byte ptr [0580],12
+33A3:01B1 call 1B80
+33A3:01B4 call 19A0
+33A3:01B7 mov byte ptr [0580],13
+33A3:01BC mov al,1F
+33A3:01BE call 18A0
+33A3:01C1 mov [0610],al
+33A3:01C4 mov al,1A
+33A3:01C6 call 18A0
+33A3:01C9 mov [0611],al
+33A3:01CC mov al,1C
+33A3:01CE call 18A0
+33A3:01D1 mov [0616],al
+33A3:01D4 mov al,1D
+33A3:01D6 call 18A0
+33A3:01D9 mov [0617],al
+33A3:01DC mov cx,[0616]
+33A3:01E0 add cx,0003
+33A3:01E3 and cx,FFFC
+33A3:01E7 mov si,2040
+33A3:01EA mov byte ptr [0580],14
+33A3:01EF call 1A00
+33A3:01F2 mov byte ptr [0580],15
+33A3:01F7 call 1920
+33A3:01FA mov al,1F
+33A3:01FC call 18A0
+33A3:01FF mov [0612],al
+33A3:0202 mov al,19
+33A3:0204 call 18A0
+33A3:0207 mov [0613],al
+33A3:020A mov byte ptr [0580],30
+33A3:020F mov ax,A01E
+33A3:0212 call 18F0
+33A3:0215 call 1920
+33A3:0218 mov ax,001C
+33A3:021B call 18F0
+33A3:021E mov ax,021D
+33A3:0221 call 18F0
+33A3:0224 mov ax,0019
+33A3:0227 call 18F0
+33A3:022A mov ax,A01F
+33A3:022D call 18F0
+33A3:0230 mov byte ptr [0580],21
+33A3:0235 call 1960
+33A3:0238 mov al,1A
+33A3:023A call 18A0
+33A3:023D and al,03
+33A3:023F mov [0624],al
+33A3:0242 mov si,1C40
+33A3:0245 mov cx,000C
+33A3:0248 call 1B00
+33A3:024B mov byte ptr [0580],22
+33A3:0250 call 1B80
+33A3:0253 call 19A0
+33A3:0256 mov byte ptr [0580],23
+33A3:025B mov al,1F
+33A3:025D call 18A0
+33A3:0260 mov [0620],al
+33A3:0263 mov al,1A
+33A3:0265 call 18A0
+33A3:0268 mov [0621],al
+33A3:026B mov al,1C
+33A3:026D call 18A0
+33A3:0270 mov [0626],al
+33A3:0273 mov al,1D
+33A3:0275 call 18A0
+33A3:0278 mov [0627],al
+33A3:027B mov cx,[0626]
+33A3:027F add cx,0003
+33A3:0282 and cx,FFFC
+33A3:0286 mov si,2200
+33A3:0289 mov byte ptr [0580],24
+33A3:028E call 1A00
+33A3:0291 mov byte ptr [0580],25
+33A3:0296 call 1920
+33A3:0299 mov al,1F
+33A3:029B call 18A0
+33A3:029E mov [0622],al
+33A3:02A1 mov al,19
+33A3:02A3 call 18A0
+33A3:02A6 mov [0623],al
+33A3:02A9 mov byte ptr [0580],38
+33A3:02AE mov ax,A01E
+33A3:02B1 call 18F0
+33A3:02B4 call 1920
+33A3:02B7 mov ax,121C
+33A3:02BA call 18F0
+33A3:02BD mov ax,001D
+33A3:02C0 call 18F0
+33A3:02C3 mov ax,0019
+33A3:02C6 call 18F0
+33A3:02C9 mov ax,A01F
+33A3:02CC call 18F0
+33A3:02CF mov byte ptr [0580],11
+33A3:02D4 call 1960
+33A3:02D7 mov al,1A
+33A3:02D9 call 18A0
+33A3:02DC and al,03
+33A3:02DE mov [061C],al
+33A3:02E1 mov si,1C20
+33A3:02E4 mov cx,000C
+33A3:02E7 call 1B00
+33A3:02EA mov byte ptr [0580],12
+33A3:02EF call 1B80
+33A3:02F2 call 19A0
+33A3:02F5 mov byte ptr [0580],13
+33A3:02FA mov al,1F
+33A3:02FC call 18A0
+33A3:02FF mov [0618],al
+33A3:0302 mov al,1A
+33A3:0304 call 18A0
+33A3:0307 mov [0619],al
+33A3:030A mov al,1C
+33A3:030C call 18A0
+33A3:030F mov [061E],al
+33A3:0312 mov al,1D
+33A3:0314 call 18A0
+33A3:0317 mov [061F],al
+33A3:031A mov cx,[061E]
+33A3:031E add cx,0003
+33A3:0321 and cx,FFFC
+33A3:0325 mov si,2060
+33A3:0328 mov byte ptr [0580],14
+33A3:032D call 1A00
+33A3:0330 mov byte ptr [0580],15
+33A3:0335 call 1920
+33A3:0338 mov al,1F
+33A3:033A call 18A0
+33A3:033D mov [061A],al
+33A3:0340 mov al,19
+33A3:0342 call 18A0
+33A3:0345 mov [061B],al
+33A3:0348 mov byte ptr [0580],40
+33A3:034D mov ax,A01E
+33A3:0350 call 18F0
+33A3:0353 call 1920
+33A3:0356 mov ax,001C
+33A3:0359 call 18F0
+33A3:035C mov ax,021D
+33A3:035F call 18F0
+33A3:0362 mov ax,0019
+33A3:0365 call 18F0
+33A3:0368 mov ax,A01F
+33A3:036B call 18F0
+33A3:036E mov byte ptr [0580],31
+33A3:0373 call 1960
+33A3:0376 mov al,1A
+33A3:0378 call 18A0
+33A3:037B and al,03
+33A3:037D mov [0634],al
+33A3:0380 mov si,1C40
+33A3:0383 mov cx,000C
+33A3:0386 call 1B00
+33A3:0389 mov byte ptr [0580],32
+33A3:038E call 1B80
+33A3:0391 call 19A0
+33A3:0394 mov byte ptr [0580],33
+33A3:0399 mov al,1F
+33A3:039B call 18A0
+33A3:039E mov [0630],al
+33A3:03A1 mov al,1A
+33A3:03A3 call 18A0
+33A3:03A6 mov [0631],al
+33A3:03A9 mov al,1C
+33A3:03AB call 18A0
+33A3:03AE mov [0636],al
+33A3:03B1 mov al,1D
+33A3:03B3 call 18A0
+33A3:03B6 mov [0637],al
+33A3:03B9 mov cx,[0636]
+33A3:03BD add cx,0003
+33A3:03C0 and cx,FFFC
+33A3:03C4 mov si,2800
+33A3:03C7 mov byte ptr [0580],34
+33A3:03CC call 1A00
+33A3:03CF mov byte ptr [0580],35
+33A3:03D4 call 1920
+33A3:03D7 mov al,1F
+33A3:03D9 call 18A0
+33A3:03DC mov [0632],al
+33A3:03DF mov al,19
+33A3:03E1 call 18A0
+33A3:03E4 mov [0633],al
+33A3:03E7 mov ah,40
+33A3:03E9 call 1800
+33A3:03EC mov ah,30
+33A3:03EE call 1800
+33A3:03F1 int 3
+33A3:03F2 
+-a 1800
+33A3:1800 mov dx,037A
+33A3:1803 mov al,04
+33A3:1805 out dx,al
+33A3:1806 jmp 1820
+33A3:1808 
+-a 1810
+33A3:1810 mov dx,037A
+33A3:1813 in al,dx
+33A3:1814 and al,0F
+33A3:1816 out dx,al
+33A3:1817 jmp 1820
+33A3:1819 
+-a 1820
+33A3:1820 mov dx,0378
+33A3:1823 mov al,22
+33A3:1825 out dx,al
+33A3:1826 out dx,al
+33A3:1827 mov al,AA
+33A3:1829 out dx,al
+33A3:182A out dx,al
+33A3:182B mov al,55
+33A3:182D out dx,al
+33A3:182E out dx,al
+33A3:182F mov al,00
+33A3:1831 out dx,al
+33A3:1832 out dx,al
+33A3:1833 mov al,FF
+33A3:1835 out dx,al
+33A3:1836 out dx,al
+33A3:1837 mov al,87
+33A3:1839 out dx,al
+33A3:183A out dx,al
+33A3:183B mov al,78
+33A3:183D out dx,al
+33A3:183E out dx,al
+33A3:183F mov al,ah
+33A3:1841 out dx,al
+33A3:1842 out dx,al
+33A3:1843 mov dx,037A
+33A3:1846 mov al,04
+33A3:1848 out dx,al
+33A3:1849 out dx,al
+33A3:184A in al,dx
+33A3:184B and al,10
+33A3:184D or al,05
+33A3:184F out dx,al
+33A3:1850 out dx,al
+33A3:1851 and al,FE
+33A3:1853 out dx,al
+33A3:1854 out dx,al
+33A3:1855 mov dx,0378
+33A3:1858 mov al,FF
+33A3:185A out dx,al
+33A3:185B out dx,al
+33A3:185C ret
+33A3:185D 
+-a 18A0
+33A3:18A0 mov dx,0378
+33A3:18A3 out dx,al
+33A3:18A4 mov dx,037A
+33A3:18A7 mov al,01
+33A3:18A9 out dx,al
+33A3:18AA mov al,03
+33A3:18AC out dx,al
+33A3:18AD mov dx,0379
+33A3:18B0 in al,dx
+33A3:18B1 and al,F0
+33A3:18B3 shr al,1
+33A3:18B5 shr al,1
+33A3:18B7 shr al,1
+33A3:18B9 shr al,1
+33A3:18BB mov bl,al
+33A3:18BD mov dx,037A
+33A3:18C0 mov al,04
+33A3:18C2 out dx,al
+33A3:18C3 mov dx,0379
+33A3:18C6 in al,dx
+33A3:18C7 and al,F0
+33A3:18C9 or al,bl
+33A3:18CB ret
+33A3:18CC 
+-a 18D0
+33A3:18D0 mov dx,037A
+33A3:18D3 mov al,04
+33A3:18D5 out dx,al
+33A3:18D6 mov al,0C
+33A3:18D8 out dx,al
+33A3:18D9 mov al,0E
+33A3:18DB out dx,al
+33A3:18DC out dx,al
+33A3:18DD out dx,al
+33A3:18DE mov al,04
+33A3:18E0 out dx,al
+33A3:18E1 out dx,al
+33A3:18E2 ret
+33A3:18E3 
+-a 18F0
+33A3:18F0 mov bl,ah
+33A3:18F2 or al,60
+33A3:18F4 mov dx,0378
+33A3:18F7 out dx,al
+33A3:18F8 mov dx,037A
+33A3:18FB mov al,01
+33A3:18FD out dx,al
+33A3:18FE mov dx,0378
+33A3:1901 mov al,bl
+33A3:1903 out dx,al
+33A3:1904 mov dx,037A
+33A3:1907 mov al,04
+33A3:1909 out dx,al
+33A3:190A ret
+33A3:190B 
+-a 1920
+33A3:1920 push cx
+33A3:1921 mov cx,FFFF
+33A3:1924 jmp 1930
+33A3:1926 
+-a 1930
+33A3:1930 mov al,1F
+33A3:1932 call 18A0
+33A3:1935 and al,88
+33A3:1937 jz 1950
+33A3:1939 dec cx
+33A3:193A jnz 1930
+33A3:193C jmp 1950
+33A3:193E 
+-a 1950
+33A3:1950 pop cx
+33A3:1951 ret
+33A3:1952 
+-a 1960
+33A3:1960 push cx
+33A3:1961 mov cx,FFFF
+33A3:1964 jmp 1970
+33A3:1966 
+-a 1970
+33A3:1970 mov al,1F
+33A3:1972 call 18A0
+33A3:1975 and al,89
+33A3:1977 cmp al,08
+33A3:1979 jz 1990
+33A3:197B and al,01
+33A3:197D jnz 1990
+33A3:197F dec cx
+33A3:1980 jnz 1970
+33A3:1982 jmp 1990
+33A3:1984 
+-a 1990
+33A3:1990 pop cx
+33A3:1991 ret
+33A3:1992 
+-a 19A0
+33A3:19A0 call 1960
+33A3:19A3 call 1960
+33A3:19A6 call 1960
+33A3:19A9 call 1960
+33A3:19AC call 1960
+33A3:19AF call 1960
+33A3:19B2 ret
+33A3:19B3 
+-a 1A00
+33A3:1A00 jcxz 1AA0
+                   ^ Error
+33A3:1A00 cmp cx,0200
+33A3:1A04 jbe 1A10
+33A3:1A06 mov cx,0200
+33A3:1A09 jmp 1A10
+33A3:1A0B 
+-a 1A10
+33A3:1A10 mov dx,0378
+33A3:1A13 mov al,07
+33A3:1A15 out dx,al
+33A3:1A16 mov dx,037A
+33A3:1A19 mov al,01
+33A3:1A1B out dx,al
+33A3:1A1C mov al,03
+33A3:1A1E out dx,al
+33A3:1A1F mov dx,0378
+33A3:1A22 mov al,FF
+33A3:1A24 out dx,al
+33A3:1A25 xor bh,bh
+33A3:1A27 jmp 1A30
+33A3:1A29 
+-a 1A30
+33A3:1A30 cmp cx,0001
+33A3:1A33 jnz 1A50
+33A3:1A35 jmp 1AC0
+33A3:1A38 
+-a 1A50
+33A3:1A50 mov dx,037A
+33A3:1A53 mov al,06
+33A3:1A55 add al,bh
+33A3:1A57 out dx,al
+33A3:1A58 mov dx,0379
+33A3:1A5B in al,dx
+33A3:1A5C mov ah,al
+33A3:1A5E test al,08
+33A3:1A60 jnz 1A80
+33A3:1A62 mov dx,037A
+33A3:1A65 mov al,04
+33A3:1A67 add al,bh
+33A3:1A69 out dx,al
+33A3:1A6A mov dx,0379
+33A3:1A6D in al,dx
+33A3:1A6E jmp 1A80
+33A3:1A70 
+-a 1A80
+33A3:1A80 and al,F0
+33A3:1A82 shr ah,1
+33A3:1A84 shr ah,1
+33A3:1A86 shr ah,1
+33A3:1A88 shr ah,1
+33A3:1A8A or al,ah
+33A3:1A8C mov [si],al
+33A3:1A8E inc si
+33A3:1A8F xor bh,01
+33A3:1A92 dec cx
+33A3:1A93 jnz 1A30
+33A3:1A95 jmp 1AA0
+33A3:1A97 
+-a 1AA0
+33A3:1AA0 mov dx,0378
+33A3:1AA3 xor al,al
+33A3:1AA5 out dx,al
+33A3:1AA6 mov dx,037A
+33A3:1AA9 mov al,04
+33A3:1AAB out dx,al
+33A3:1AAC ret
+33A3:1AAD 
+-a 1AC0
+33A3:1AC0 mov dx,0378
+33A3:1AC3 mov al,FD
+33A3:1AC5 out dx,al
+33A3:1AC6 jmp 1A50
+33A3:1AC8 
+-a 1B00
+33A3:1B00 jcxz 1B60
+33A3:1B02 cmp cx,0200
+33A3:1B06 jbe 1B20
+33A3:1B08 mov cx,0200
+33A3:1B0B jmp 1B20
+33A3:1B0D 
+-a 1B20
+33A3:1B20 mov dx,0378
+33A3:1B23 mov al,67
+33A3:1B25 out dx,al
+33A3:1B26 mov dx,037A
+33A3:1B29 mov al,01
+33A3:1B2B out dx,al
+33A3:1B2C mov al,05
+33A3:1B2E out dx,al
+33A3:1B2F xor bh,bh
+33A3:1B31 jmp 1B40
+33A3:1B33 
+-a 1B40
+33A3:1B40 mov al,[si]
+33A3:1B42 inc si
+33A3:1B43 mov dx,0378
+33A3:1B46 out dx,al
+33A3:1B47 mov dx,037A
+33A3:1B4A mov al,04
+33A3:1B4C add al,bh
+33A3:1B4E out dx,al
+33A3:1B4F xor bh,01
+33A3:1B52 dec cx
+33A3:1B53 jnz 1B40
+33A3:1B55 jmp 1B60
+33A3:1B57 
+-a 1B60
+33A3:1B60 mov dx,037A
+33A3:1B63 mov al,07
+33A3:1B65 out dx,al
+33A3:1B66 mov al,04
+33A3:1B68 out dx,al
+33A3:1B69 ret
+33A3:1B6A 
+-a 1B80
+33A3:1B80 push cx
+33A3:1B81 push dx
+33A3:1B82 mov cx,00B4
+33A3:1B85 mov dx,0080
+33A3:1B88 jmp 1B90
+33A3:1B8A 
+-a 1B90
+33A3:1B90 in al,dx
+33A3:1B91 dec cx
+33A3:1B92 jnz 1B90
+33A3:1B94 jmp 1BA0
+33A3:1B96 
+-a 1BA0
+33A3:1BA0 pop dx
+33A3:1BA1 pop cx
+33A3:1BA2 ret
+33A3:1BA3 
+-a 1BB0
+33A3:1BB0 mov di,2400
+33A3:1BB3 mov cx,0200
+33A3:1BB6 xor al,al
+33A3:1BB8 jmp 1BD0
+33A3:1BBA 
+-a 1BD0
+33A3:1BD0 mov [di],al
+33A3:1BD2 inc di
+33A3:1BD3 inc al
+33A3:1BD5 dec cx
+33A3:1BD6 jnz 1BD0
+33A3:1BD8 ret
+33A3:1BD9 
+-e 1C00 12 00 00 00 24 00 00 00 00 00 00 00
+-
+-e 1C20 03 00 00 00 12 00 00 00 00 00 00 00
+-
+-e 1C40 28 00 00 00 00 00 00 00 01 00 00 00
+-
+-e 1C60 3B 02 00 00 00 00 00 02 00 00 00 00
+-
+-e 1C80 3C 02 00 00 00 00 00 02 00 00 00 00
+-
+-e 1CA0 1B 00 00 00 01 00 00 00 00 00 00 00
+-
+-g=100
+
+AX=30FF  BX=0004  CX=0000  DX=0378  SP=FFEE  BP=0000  SI=2A00  DI=2600  
+DS=33A3  ES=33A3  SS=33A3  CS=33A3  IP=03F1   NV UP EI PL NZ NA PO NC 
+33A3:03F1 CC            INT	3                                  
+-d 0580 0580
+33A3:0580  35                                                5
+-d 600 647
+33A3:0600  00 00 00 00 00 00 00 09-00 09 00 43 41 52 44 53   ...........CARDS
+33A3:0610  08 02 50 00 01 41 12 00-58 02 50 00 01 01 12 00   ..P..A..X.P.....
+33A3:0620  51 03 51 64 01 0A 00 02-00 64 63 69 6D 61 6E 2E   Q.Qd.....dciman.
+33A3:0630  51 03 51 64 01 69 00 02-6E 2E 64 6C 6C 2F 17 00   Q.Qd.i..n.dll/..
+33A3:0640  00 FF FF FF FF FF FF FF                           ........
+-d 2000 2023
+33A3:2000  A4 31 73 29 01 32 73 29-BD 1E 73 29 38 32 73 29   .1s).2s)..s)82s)
+33A3:2010  65 32 73 29 AE 32 73 29-D9 32 73 29 22 33 73 29   e2s).2s).2s)"3s)
+33A3:2020  6C 33 73 29                                       l3s)
+-d 2040 2051
+33A3:2040  70 00 06 00 00 00 00 0A-00 00 00 00 28 00 00 00   p...........(...
+33A3:2050  00 00                                             ..
+-d 2060 2071
+33A3:2060  70 00 06 00 00 00 00 0A-00 00 00 00 29 00 00 00   p...........)...
+33A3:2070  00 00                                             ..
+-d 2800 281F
+33A3:2800  00 00 00 00 00 00 00 00-00 00 00 00 00 00 00 00   ................
+33A3:2810  00 00 00 00 00 00 00 00-00 00 00 00 00 00 00 00   ................
+-d 29F0 29FF
+33A3:29F0  00 00 00 00 00 00 00 00-00 00 00 00 00 00 00 00   ................
+-d 2200 221F
+33A3:2200  00 00 00 00 00 00 00 00-00 00 00 00 00 00 00 00   ................
+33A3:2210  00 00 00 00 00 00 00 00-00 00 00 00 00 00 00 00   ................
+-d 23F0 23FF
+33A3:23F0  00 00 00 00 00 00 00 00-00 00 00 00 00 00 00 00   ................
+-d 2600 261F
+33A3:2600  63 53 65 72 76 65 72 33-32 01 00 00 00 00 00 00   cServer32.......
+33A3:2610  00 00 00 0B 00 73 68 65-6C 6C 33 32 2E 64 6C 6C   .....shell32.dll
+-q

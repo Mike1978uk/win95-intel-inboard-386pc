@@ -45,7 +45,7 @@ B, S, C, E = 0x378, 0x379, 0x37A, 0x77A
 # helpers, moved clear of the main block
 CPP4, CPPP, FRAME, NIB, KICK, WR = 0x1800, 0x1810, 0x1820, 0x18A0, 0x18D0, 0x18F0
 WBSY, WBSYL, WBSYE = 0x1920, 0x1930, 0x1950
-WDRQ, WDRQL, WDRQE = 0x1960, 0x1970, 0x1990
+WDRQ, WDRQL, WDRQE, WDRQ6 = 0x1960, 0x1970, 0x1990, 0x19A0
 BR, BR2, BRH, BRB, BRJ, BRE, BRL = (
     0x1A00, 0x1A10, 0x1A30, 0x1A50, 0x1A80, 0x1AA0, 0x1AC0)
 XFER_MAX = 0x200          # no buffer in this probe is larger
@@ -62,6 +62,7 @@ PAT, PATL = 0x1BB0, 0x1BD0
 CDBS = 0x1C00   # five 12-byte CDBs, 0x20 apart
 BUF_INQ, BUF_SENSE, BUF_SECTOR, BUF_PATTERN, BUF_BACK = (
     0x2000, 0x2040, 0x2200, 0x2400, 0x2600)
+BUF_SENSE2, BUF_SECTOR2 = 0x2060, 0x2800
 
 
 def blk(a, i):
@@ -118,7 +119,7 @@ def packet(cdb, buf, ln, slot, out=False):
         "mov si,%04X" % cdb, "mov cx,000C", "call %04X" % BW,
         "mov byte ptr [%04X],%02X" % (MARK, (slot & 0xF0) | 2),
         "call %04X" % DLY,                              # pf_atapi's mdelay(1)
-        "call %04X" % WDRQ,
+        "call %04X" % WDRQ6,
         "mov byte ptr [%04X],%02X" % (MARK, (slot & 0xF0) | 3),
         "mov al,1F", "call %04X" % NIB, "mov [%04X],al" % slot,
         "mov al,1A", "call %04X" % NIB, "mov [%04X],al" % (slot + 1),
@@ -176,12 +177,24 @@ def build():
          "call %04X" % WBSY,
          "call %04X" % PAT]                             # build the pattern
     m = mark(0x01) + m[:5] + mark(0x02) + m[5:] + mark(0x03)
-    m += mark(0x10) + packet(CDBS + 0x00, BUF_INQ, 36, 0x0600)
-    m += mark(0x20) + packet(CDBS + 0x20, BUF_SENSE, 18, 0x0610)
-    m += mark(0x28) + packet(CDBS + 0xA0, BUF_SENSE, 0, 0x0618)
-    m += mark(0x30) + packet(CDBS + 0x40, BUF_SECTOR, 512, 0x0620)
-    m += mark(0x40) + packet(CDBS + 0x40, BUF_SECTOR, 512, 0x0630)
-    m += mark(0x50) + packet(CDBS + 0x40, BUF_SECTOR, 512, 0x0640)
+    # REQUEST SENSE consumes the unit-attention condition SRST just raised,
+    # then two reads: the first may still meet a spinning drive, the second
+    # should not. INQUIRY is dropped - it is proven and costs four more waits.
+    # pf_atapi's actual shape: issue the command, and ON ERROR call
+    # pf_req_sense before doing anything else. A CHECK CONDITION is a
+    # contingent allegiance condition - it is cleared by READING THE SENSE,
+    # not by the next command - so repeating a read without a REQUEST SENSE
+    # in between returns the identical error for ever. RD8 showed exactly
+    # that: two reads, both 51/64, byte for byte.
+    # pf.c retries up to PF_MAX_RETRIES (5). Each read that fails on a unit
+    # attention exits its wait immediately - the wait breaks on ERR - so the
+    # extra attempts are nearly free, and only a read that actually starts
+    # moving data spends the long timeout.
+    for i in range(4):
+        m += mark(0x20 + i * 4) + packet(
+            CDBS + 0x20, BUF_SENSE + i * 0x20, 18, 0x0650 + i * 8)
+        m += mark(0x22 + i * 4) + packet(
+            CDBS + 0x40, BUF_SECTOR, 512, 0x0610 + i * 8)
     if WRITE_TEST:
         m += packet(CDBS + 0x60, BUF_PATTERN, 512, 0x0630, out=True)
         m += packet(CDBS + 0x80, BUF_BACK, 512, 0x0640)
@@ -240,6 +253,7 @@ def build():
                        "and al,01", "jnz %04X" % WDRQE,
                        "dec cx", "jnz %04X" % WDRQL, "jmp %04X" % WDRQE])
          + blk(WDRQE, ["pop cx", "ret"])
+         + blk(WDRQ6, ["call %04X" % WDRQ] * 6 + ["ret"])
          + blk(BR, setup) + blk(BR2, setup2) + blk(BRH, head) + blk(BRB, body) + blk(BRJ, join)
          + blk(BRE, leave) + blk(BRL, lastb)
          + blk(BW, bw) + blk(BWC, bwc) + blk(BWL, bwl) + blk(BWE, bwe)
@@ -281,9 +295,12 @@ def build():
 
     l += ["g=100",
           "d %04X %04X" % (MARK, MARK),
-          "d 600 647",
+          "d 600 67F",
           "d %04X %04X" % (BUF_INQ, BUF_INQ + 0x23),
           "d %04X %04X" % (BUF_SENSE, BUF_SENSE + 0x11),
+          "d %04X %04X" % (BUF_SENSE + 0x20, BUF_SENSE + 0x31),
+          "d %04X %04X" % (BUF_SENSE + 0x40, BUF_SENSE + 0x51),
+          "d %04X %04X" % (BUF_SENSE + 0x60, BUF_SENSE + 0x71),
           "d %04X %04X" % (BUF_SECTOR, BUF_SECTOR + 0x1F),
           "d %04X %04X" % (BUF_SECTOR + 0x1F0, BUF_SECTOR + 0x1FF),
           "d %04X %04X" % (BUF_BACK, BUF_BACK + 0x1F),
