@@ -1,0 +1,509 @@
+-a 0100
+0F1B:0100 mov dx,077A
+0F1B:0103 in al,dx
+0F1B:0104 and al,34
+0F1B:0106 out dx,al
+0F1B:0107 call 03D0
+0F1B:010A mov ah,30
+0F1B:010C call 0300
+0F1B:010F mov ah,40
+0F1B:0111 call 0300
+0F1B:0114 mov ah,50
+0F1B:0116 call 0300
+0F1B:0119 mov ah,00
+0F1B:011B call 0300
+0F1B:011E mov ah,E0
+0F1B:0120 call 0310
+0F1B:0123 mov dx,0378
+0F1B:0126 xor al,al
+0F1B:0128 out dx,al
+0F1B:0129 mov dx,037A
+0F1B:012C mov al,01
+0F1B:012E out dx,al
+0F1B:012F mov al,04
+0F1B:0131 out dx,al
+0F1B:0132 mov ax,1008
+0F1B:0135 call 03F0
+0F1B:0138 mov ax,140C
+0F1B:013B call 03F0
+0F1B:013E mov ax,380A
+0F1B:0141 call 03F0
+0F1B:0144 mov ax,1012
+0F1B:0147 call 03F0
+0F1B:014A mov ax,0416
+0F1B:014D call 03F0
+0F1B:0150 mov ax,0016
+0F1B:0153 call 03F0
+0F1B:0156 call 0420
+0F1B:0159 mov al,1F
+0F1B:015B call 03A0
+0F1B:015E mov [0602],al
+0F1B:0161 mov ax,A01E
+0F1B:0164 call 03F0
+0F1B:0167 mov ax,241C
+0F1B:016A call 03F0
+0F1B:016D mov ax,001D
+0F1B:0170 call 03F0
+0F1B:0173 mov ax,0019
+0F1B:0176 call 03F0
+0F1B:0179 mov ax,A01F
+0F1B:017C call 03F0
+0F1B:017F call 0460
+0F1B:0182 mov al,1F
+0F1B:0184 call 03A0
+0F1B:0187 mov [0603],al
+0F1B:018A call 0900
+0F1B:018D call 0460
+0F1B:0190 mov al,1F
+0F1B:0192 call 03A0
+0F1B:0195 mov [0604],al
+0F1B:0198 mov al,1A
+0F1B:019A call 03A0
+0F1B:019D mov [0605],al
+0F1B:01A0 mov al,1C
+0F1B:01A2 call 03A0
+0F1B:01A5 mov [0606],al
+0F1B:01A8 mov al,1D
+0F1B:01AA call 03A0
+0F1B:01AD mov [0607],al
+0F1B:01B0 call 0500
+0F1B:01B3 mov al,1F
+0F1B:01B5 call 03A0
+0F1B:01B8 mov [0600],al
+0F1B:01BB mov al,19
+0F1B:01BD call 03A0
+0F1B:01C0 mov [0601],al
+0F1B:01C3 mov ah,40
+0F1B:01C5 call 0300
+0F1B:01C8 mov ah,30
+0F1B:01CA call 0300
+0F1B:01CD int 3
+0F1B:01CE 
+-a 0300
+0F1B:0300 mov dx,037A
+0F1B:0303 mov al,04
+0F1B:0305 out dx,al
+0F1B:0306 jmp 0320
+0F1B:0308 
+-a 0310
+0F1B:0310 mov dx,037A
+0F1B:0313 in al,dx
+0F1B:0314 and al,0F
+0F1B:0316 out dx,al
+0F1B:0317 jmp 0320
+0F1B:0319 
+-a 0320
+0F1B:0320 cli
+0F1B:0321 mov dx,0378
+0F1B:0324 mov al,22
+0F1B:0326 out dx,al
+0F1B:0327 out dx,al
+0F1B:0328 mov al,AA
+0F1B:032A out dx,al
+0F1B:032B out dx,al
+0F1B:032C mov al,55
+0F1B:032E out dx,al
+0F1B:032F out dx,al
+0F1B:0330 mov al,00
+0F1B:0332 out dx,al
+0F1B:0333 out dx,al
+0F1B:0334 mov al,FF
+0F1B:0336 out dx,al
+0F1B:0337 out dx,al
+0F1B:0338 mov al,87
+0F1B:033A out dx,al
+0F1B:033B out dx,al
+0F1B:033C mov al,78
+0F1B:033E out dx,al
+0F1B:033F out dx,al
+0F1B:0340 mov al,ah
+0F1B:0342 out dx,al
+0F1B:0343 out dx,al
+0F1B:0344 mov dx,037A
+0F1B:0347 mov al,04
+0F1B:0349 out dx,al
+0F1B:034A out dx,al
+0F1B:034B in al,dx
+0F1B:034C and al,10
+0F1B:034E or al,05
+0F1B:0350 out dx,al
+0F1B:0351 out dx,al
+0F1B:0352 and al,FE
+0F1B:0354 out dx,al
+0F1B:0355 out dx,al
+0F1B:0356 mov dx,0378
+0F1B:0359 mov al,FF
+0F1B:035B out dx,al
+0F1B:035C out dx,al
+0F1B:035D sti
+0F1B:035E ret
+0F1B:035F 
+-a 03A0
+0F1B:03A0 mov dx,0378
+0F1B:03A3 out dx,al
+0F1B:03A4 mov dx,037A
+0F1B:03A7 mov al,01
+0F1B:03A9 out dx,al
+0F1B:03AA mov al,03
+0F1B:03AC out dx,al
+0F1B:03AD mov dx,0379
+0F1B:03B0 in al,dx
+0F1B:03B1 and al,F0
+0F1B:03B3 shr al,1
+0F1B:03B5 shr al,1
+0F1B:03B7 shr al,1
+0F1B:03B9 shr al,1
+0F1B:03BB mov bl,al
+0F1B:03BD mov dx,037A
+0F1B:03C0 mov al,04
+0F1B:03C2 out dx,al
+0F1B:03C3 mov dx,0379
+0F1B:03C6 in al,dx
+0F1B:03C7 and al,F0
+0F1B:03C9 or al,bl
+0F1B:03CB ret
+0F1B:03CC 
+-a 03D0
+0F1B:03D0 mov dx,037A
+0F1B:03D3 mov al,04
+0F1B:03D5 out dx,al
+0F1B:03D6 mov al,0C
+0F1B:03D8 out dx,al
+0F1B:03D9 mov al,0E
+0F1B:03DB out dx,al
+0F1B:03DC out dx,al
+0F1B:03DD out dx,al
+0F1B:03DE mov al,04
+0F1B:03E0 out dx,al
+0F1B:03E1 out dx,al
+0F1B:03E2 ret
+0F1B:03E3 
+-a 03F0
+0F1B:03F0 mov bl,ah
+0F1B:03F2 or al,60
+0F1B:03F4 mov dx,0378
+0F1B:03F7 out dx,al
+0F1B:03F8 mov dx,037A
+0F1B:03FB mov al,01
+0F1B:03FD out dx,al
+0F1B:03FE mov dx,0378
+0F1B:0401 mov al,bl
+0F1B:0403 out dx,al
+0F1B:0404 mov dx,037A
+0F1B:0407 mov al,04
+0F1B:0409 out dx,al
+0F1B:040A ret
+0F1B:040B 
+-a 0420
+0F1B:0420 push cx
+0F1B:0421 mov cx,4000
+0F1B:0424 jmp 0430
+0F1B:0426 
+-a 0430
+0F1B:0430 mov al,1F
+0F1B:0432 call 03A0
+0F1B:0435 test al,80
+0F1B:0437 jz 0450
+0F1B:0439 dec cx
+0F1B:043A jnz 0430
+0F1B:043C jmp 0450
+0F1B:043E 
+-a 0450
+0F1B:0450 pop cx
+0F1B:0451 ret
+0F1B:0452 
+-a 0460
+0F1B:0460 push cx
+0F1B:0461 mov cx,4000
+0F1B:0464 jmp 0470
+0F1B:0466 
+-a 0470
+0F1B:0470 mov al,1F
+0F1B:0472 call 03A0
+0F1B:0475 and al,88
+0F1B:0477 cmp al,08
+0F1B:0479 jz 0490
+0F1B:047B dec cx
+0F1B:047C jnz 0470
+0F1B:047E jmp 0490
+0F1B:0480 
+-a 0490
+0F1B:0490 pop cx
+0F1B:0491 ret
+0F1B:0492 
+-e 0800 12 00 00 00 24 00 00 00 00 00 00 00
+-
+-a 0900
+0F1B:0900 cli
+0F1B:0901 mov si,0800
+0F1B:0904 mov cx,000C
+0F1B:0907 mov dx,0378
+0F1B:090A mov al,67
+0F1B:090C out dx,al
+0F1B:090D mov dx,037A
+0F1B:0910 mov al,01
+0F1B:0912 out dx,al
+0F1B:0913 mov al,05
+0F1B:0915 out dx,al
+0F1B:0916 xor bh,bh
+0F1B:0918 jmp 0930
+0F1B:091A 
+-a 0930
+0F1B:0930 mov al,[si]
+0F1B:0932 inc si
+0F1B:0933 mov dx,0378
+0F1B:0936 out dx,al
+0F1B:0937 mov dx,037A
+0F1B:093A mov al,04
+0F1B:093C add al,bh
+0F1B:093E out dx,al
+0F1B:093F xor bh,01
+0F1B:0942 dec cx
+0F1B:0943 jnz 0930
+0F1B:0945 jmp 0950
+0F1B:0947 
+-a 0950
+0F1B:0950 mov dx,037A
+0F1B:0953 mov al,07
+0F1B:0955 out dx,al
+0F1B:0956 mov al,04
+0F1B:0958 out dx,al
+0F1B:0959 sti
+0F1B:095A ret
+0F1B:095B 
+-a 0500
+0F1B:0500 cli
+0F1B:0501 mov si,0700
+0F1B:0504 mov cx,0024
+0F1B:0507 mov dx,0378
+0F1B:050A mov al,07
+0F1B:050C out dx,al
+0F1B:050D mov dx,037A
+0F1B:0510 mov al,01
+0F1B:0512 out dx,al
+0F1B:0513 mov al,03
+0F1B:0515 out dx,al
+0F1B:0516 mov dx,0378
+0F1B:0519 mov al,FF
+0F1B:051B out dx,al
+0F1B:051C xor bh,bh
+0F1B:051E jmp 0530
+0F1B:0520 
+-a 0530
+0F1B:0530 cmp cx,0001
+0F1B:0533 jnz 0550
+0F1B:0535 jmp 05C0
+0F1B:0538 
+-a 0550
+0F1B:0550 mov dx,037A
+0F1B:0553 mov al,06
+0F1B:0555 add al,bh
+0F1B:0557 out dx,al
+0F1B:0558 mov dx,0379
+0F1B:055B in al,dx
+0F1B:055C mov ah,al
+0F1B:055E test al,08
+0F1B:0560 jnz 0580
+0F1B:0562 mov dx,037A
+0F1B:0565 mov al,04
+0F1B:0567 add al,bh
+0F1B:0569 out dx,al
+0F1B:056A mov dx,0379
+0F1B:056D in al,dx
+0F1B:056E jmp 0580
+0F1B:0570 
+-a 0580
+0F1B:0580 and al,F0
+0F1B:0582 shr ah,1
+0F1B:0584 shr ah,1
+0F1B:0586 shr ah,1
+0F1B:0588 shr ah,1
+0F1B:058A or al,ah
+0F1B:058C mov [si],al
+0F1B:058E inc si
+0F1B:058F xor bh,01
+0F1B:0592 dec cx
+0F1B:0593 jnz 0530
+0F1B:0595 jmp 05A0
+0F1B:0597 
+-a 05A0
+0F1B:05A0 mov dx,0378
+0F1B:05A3 xor al,al
+0F1B:05A5 out dx,al
+0F1B:05A6 mov dx,037A
+0F1B:05A9 mov al,04
+0F1B:05AB out dx,al
+0F1B:05AC sti
+0F1B:05AD ret
+0F1B:05AE 
+-a 05C0
+0F1B:05C0 mov dx,0378
+0F1B:05C3 mov al,FD
+0F1B:05C5 out dx,al
+0F1B:05C6 jmp 0550
+0F1B:05C8 
+-u 500 5CF
+0F1B:0500 FA            CLI	                                   
+0F1B:0501 BE0007        MOV	SI,0700                            
+0F1B:0504 B92400        MOV	CX,0024                            
+0F1B:0507 BA7803        MOV	DX,0378                            
+0F1B:050A B007          MOV	AL,07                              
+0F1B:050C EE            OUT	DX,AL                              
+0F1B:050D BA7A03        MOV	DX,037A                            
+0F1B:0510 B001          MOV	AL,01                              
+0F1B:0512 EE            OUT	DX,AL                              
+0F1B:0513 B003          MOV	AL,03                              
+0F1B:0515 EE            OUT	DX,AL                              
+0F1B:0516 BA7803        MOV	DX,0378                            
+0F1B:0519 B0FF          MOV	AL,FF                              
+0F1B:051B EE            OUT	DX,AL                              
+0F1B:051C 30FF          XOR	BH,BH                              
+0F1B:051E EB10          JMP	0530                               
+0F1B:0520 1E            PUSH	DS                                 
+0F1B:0521 06            PUSH	ES                                 
+0F1B:0522 1F            POP	DS                                 
+0F1B:0523 07            POP	ES                                 
+0F1B:0524 8BF7          MOV	SI,DI                              
+0F1B:0526 E83903        CALL	0862                               
+0F1B:0529 E84203        CALL	086E                               
+0F1B:052C 06            PUSH	ES                                 
+0F1B:052D 1F            POP	DS                                 
+0F1B:052E BA4583        MOV	DX,8345                            
+0F1B:0531 F9            STC	                                   
+0F1B:0532 01751B        ADD	[DI+1B],SI                         
+0F1B:0535 E98800        JMP	05C0                               
+0F1B:0538 F7C11000      TEST	CX,0010                            
+0F1B:053C 7501          JNZ	053F                               
+0F1B:053E F9            STC	                                   
+0F1B:053F 5E            POP	SI                                 
+0F1B:0540 1F            POP	DS                                 
+0F1B:0541 5F            POP	DI                                 
+0F1B:0542 07            POP	ES                                 
+0F1B:0543 7309          JNB	054E                               
+0F1B:0545 B82E00        MOV	AX,002E                            
+0F1B:0548 A34504        MOV	[0445],AX                          
+0F1B:054B A39404        MOV	[0494],AX                          
+0F1B:054E BA45BA        MOV	DX,BA45                            
+0F1B:0551 7A03          JPE	0556                               
+0F1B:0553 B006          MOV	AL,06                              
+0F1B:0555 00F8          ADD	AL,BH                              
+0F1B:0557 EE            OUT	DX,AL                              
+0F1B:0558 BA7903        MOV	DX,0379                            
+0F1B:055B EC            IN	AL,DX                              
+0F1B:055C 88C4          MOV	AH,AL                              
+0F1B:055E A808          TEST	AL,08                              
+0F1B:0560 751E          JNZ	0580                               
+0F1B:0562 BA7A03        MOV	DX,037A                            
+0F1B:0565 B004          MOV	AL,04                              
+0F1B:0567 00F8          ADD	AL,BH                              
+0F1B:0569 EE            OUT	DX,AL                              
+0F1B:056A BA7903        MOV	DX,0379                            
+0F1B:056D EC            IN	AL,DX                              
+0F1B:056E EB10          JMP	0580                               
+0F1B:0570 3E            DS:	                                   
+0F1B:0571 CD21          INT	21                                 
+0F1B:0573 E80AFB        CALL	0080                               
+0F1B:0576 8B36E304      MOV	SI,[04E3]                          
+0F1B:057A 833E1A04FF    CMP	WORD PTR [041A],-01                
+0F1B:057F 7524          JNZ	05A5                               
+0F1B:0581 F0            LOCK	                                   
+0F1B:0582 D0EC          SHR	AH,1                               
+0F1B:0584 D0EC          SHR	AH,1                               
+0F1B:0586 D0EC          SHR	AH,1                               
+0F1B:0588 D0EC          SHR	AH,1                               
+0F1B:058A 08E0          OR	AL,AH                              
+0F1B:058C 8804          MOV	[SI],AL                            
+0F1B:058E 46            INC	SI                                 
+0F1B:058F 80F701        XOR	BH,01                              
+0F1B:0592 49            DEC	CX                                 
+0F1B:0593 759B          JNZ	0530                               
+0F1B:0595 EB09          JMP	05A0                               
+0F1B:0597 AC            LODSB	                                   
+0F1B:0598 1F            POP	DS                                 
+0F1B:0599 3C7C          CMP	AL,7C                              
+0F1B:059B 7407          JZ	05A4                               
+0F1B:059D 3C7C          CMP	AL,7C                              
+0F1B:059F 74BA          JZ	055B                               
+0F1B:05A1 7803          JS	05A6                               
+0F1B:05A3 30C0          XOR	AL,AL                              
+0F1B:05A5 EE            OUT	DX,AL                              
+0F1B:05A6 BA7A03        MOV	DX,037A                            
+0F1B:05A9 B004          MOV	AL,04                              
+0F1B:05AB EE            OUT	DX,AL                              
+0F1B:05AC FB            STI	                                   
+0F1B:05AD C3            RET	                                   
+0F1B:05AE 03E9          ADD	BP,CX                              
+0F1B:05B0 31FF          XOR	DI,DI                              
+0F1B:05B2 8BD8          MOV	BX,AX                              
+0F1B:05B4 B0FF          MOV	AL,FF                              
+0F1B:05B6 864718        XCHG	AL,[BX+18]                         
+0F1B:05B9 A21800        MOV	[0018],AL                          
+0F1B:05BC 26            ES:	                                   
+0F1B:05BD 8B3E86BA      MOV	DI,[BA86]                          
+0F1B:05C1 7803          JS	05C6                               
+0F1B:05C3 B0FD          MOV	AL,FD                              
+0F1B:05C5 EE            OUT	DX,AL                              
+0F1B:05C6 EB88          JMP	0550                               
+0F1B:05C8 803C0D        CMP	BYTE PTR [SI],0D                   
+0F1B:05CB 1F            POP	DS                                 
+0F1B:05CC 7503          JNZ	05D1                               
+0F1B:05CE E907FF        JMP	04D8                               
+-u 900 95F
+0F1B:0900 FA            CLI	                                   
+0F1B:0901 BE0008        MOV	SI,0800                            
+0F1B:0904 B90C00        MOV	CX,000C                            
+0F1B:0907 BA7803        MOV	DX,0378                            
+0F1B:090A B067          MOV	AL,67                              
+0F1B:090C EE            OUT	DX,AL                              
+0F1B:090D BA7A03        MOV	DX,037A                            
+0F1B:0910 B001          MOV	AL,01                              
+0F1B:0912 EE            OUT	DX,AL                              
+0F1B:0913 B005          MOV	AL,05                              
+0F1B:0915 EE            OUT	DX,AL                              
+0F1B:0916 30FF          XOR	BH,BH                              
+0F1B:0918 EB16          JMP	0930                               
+0F1B:091A DBB9C002      	FSTP	TBYTE PTR [BX+DI+02C0]        
+0F1B:091E 2BCB          SUB	CX,BX                              
+0F1B:0920 BFBAD8        MOV	DI,D8BA                            
+0F1B:0923 03FB          ADD	DI,BX                              
+0F1B:0925 F3            REPZ	                                   
+0F1B:0926 AA            STOSB	                                   
+0F1B:0927 A37CDB        MOV	[DB7C],AX                          
+0F1B:092A 0BDB          OR	BX,BX                              
+0F1B:092C 751D          JNZ	094B                               
+0F1B:092E A37A8A        MOV	[8A7A],AX                          
+0F1B:0931 0446          ADD	AL,46                              
+0F1B:0933 BA7803        MOV	DX,0378                            
+0F1B:0936 EE            OUT	DX,AL                              
+0F1B:0937 BA7A03        MOV	DX,037A                            
+0F1B:093A B004          MOV	AL,04                              
+0F1B:093C 00F8          ADD	AL,BH                              
+0F1B:093E EE            OUT	DX,AL                              
+0F1B:093F 80F701        XOR	BH,01                              
+0F1B:0942 49            DEC	CX                                 
+0F1B:0943 75EB          JNZ	0930                               
+0F1B:0945 EB09          JMP	0950                               
+0F1B:0947 890E80DB      MOV	[DB80],CX                          
+0F1B:094B A28CD0        MOV	[D08C],AL                          
+0F1B:094E 1E            PUSH	DS                                 
+0F1B:094F 8EBA7A03      MOV	DS,[BP+SI+037A]                    
+0F1B:0953 B007          MOV	AL,07                              
+0F1B:0955 EE            OUT	DX,AL                              
+0F1B:0956 B004          MOV	AL,04                              
+0F1B:0958 EE            OUT	DX,AL                              
+0F1B:0959 FB            STI	                                   
+0F1B:095A C3            RET	                                   
+0F1B:095B 8B3E86DB      MOV	DI,[DB86]                          
+0F1B:095F 8B0E50D0      MOV	CX,[D050]                          
+-g=100
+
+AX=30FF  BX=0000  CX=0000  DX=0378  SP=FFEE  BP=0000  SI=0724  DI=0000  
+DS=0F1B  ES=0F1B  SS=0F1B  CS=0F1B  IP=01CD   NV UP EI PL NZ NA PO NC 
+0F1B:01CD CC            INT	3                                  
+-d 600 607
+0F1B:0600  40 00 00 48 48 02 24 00                           @..HH.$.
+-d 700 723
+0F1B:0700  00 80 00 21 1F 00 00 02-38 36 42 6F 78 20 20 20   ...!....86Box   
+0F1B:0710  38 36 42 5F 52 44 30 30-20 20 20 20 20 20 20 20   86B_RD00        
+0F1B:0720  33 2E 35 30                                       3.50
+-q
