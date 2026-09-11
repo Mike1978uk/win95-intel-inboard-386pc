@@ -345,7 +345,19 @@ peripheral's limit without asking what the transaction costs on the other side o
 connector. Rank by bus cycles occupied, take every gain that costs nothing to keep, and
 when a hardware ceiling is reached, turn round.
 
-## AGREED NEXT WORK, 2026-09-11 — after the LS-120, in this order
+## AGREED NEXT WORK — after the LS-120, in this order
+
+**Updated 2026-09-12:** @andrew-hoffman's DMA question (**E5**) is added as item 3. It goes
+after the two measured levers because those have numbers attached and this one does not yet,
+but its measurement is the cheapest on the list — one DOS timing run against the floppy
+controller, which already does DMA on this machine — and if it confirms, it is the largest
+single lever here because it attacks the fixed per-access sync cost rather than the per-byte
+one.
+
+3. **E5 — time a real DMA transfer** and compare against `1.87 us/byte` PIO. Converges with
+   **E4/E4a** if it confirms.
+
+## The original order, 2026-09-11
 
 Owner's decision. Both are host-side, both work on the present hardware, neither needs a
 different card.
@@ -442,6 +454,59 @@ uncosted, and costing it is itself a task.
 | E2 | Shadowing - what is already shadowed | uncosted | ❓ confirm rather than assume |
 | E3 | Wait-state tuning | 0 | ❌ already 0 wait states, cache on. Port `0x670` is write-only |
 | E4 | Memory-mapped storage (JR-IDE/ISA) | **4.2x on the data phase** (0.454 vs 1.910 us/byte) | ❓ needs different hardware, but **86Box models it** - provable before buying |
+| E5 | **ISA DMA instead of PIO** - @andrew-hoffman, 2026-09-11 | potentially **the whole per-access sync cost**, uncosted | ❓ see E5 below - a strong question because it attacks the exact term that dominates us |
+
+## E5. Does DMA pay the same bus penalty as PIO? - @andrew-hoffman, 2026-09-11
+
+His question, verbatim, on [#23](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/23):
+
+> *"does ISA DMA reading from IO ports and writing to memory (or vice versa) cause the same
+> extreme wait state penalty as PIO accesses? If not, it may actually be more useful than PIO
+> on this system. Keeping in mind that the buffer has to be in low memory."*
+
+### Why it is a good question, in one line
+
+**Our dominant cost is CPU-side, and DMA does not involve the CPU.** The measured
+`~3.90 us fixed sync + ~1.87 us/byte` is what it costs the Inboard's 386 to reach down to a
+4.77 MHz ISA bus and back for *each access*. An 8237 transfer never crosses that boundary - the
+controller drives the bus directly at bus speed. So there is a real mechanism by which DMA could
+beat PIO here by much more than it would on an ordinary machine, and it attacks the fixed 3.90 us
+term rather than the 1.87 us/byte one that every width lever so far has chipped at.
+
+### What we already know, before measuring anything
+
+| fact | consequence | source |
+|---|---|---|
+| XT-CF / XT-IDE is **PIO only** - no DRQ/DACK on the card | The boot disk, the device we most want faster, **cannot use DMA at all**. This is a hard stop for the main target | photograph + Lo-tech rev 3 design |
+| DMA page latch is **4 bits** | Buffer must be under 1 MB, and 386MAX's `MARK_XT` says the real XT ceiling is **640 KB** | his own 2026-08-20 finding, measured 2026-08-24 |
+| DMA **channel 0 is DRAM refresh** on an XT | Only channels 1-3 are available, and channel 2 is the floppy | IBM 5160 Tech Ref |
+| `T130.MPD` is **PIO only** | The one card on this machine that *can* bus-master is not being asked to | [[t130-mpd-verified-pio-t130b]] |
+| The LS-120 bridge has a DMA path that writes `0x22`/`0x23` | Those **alias onto the 8259** on this XT - the #22 keyboard-killer, and it is in the *transfer* path, not init | technique 62 / TRANSPORT_SPEC |
+
+So the honest position is: **the mechanism is plausible and the arithmetic is untested, but the
+device that would benefit most cannot do it.** That is worth saying to him plainly rather than
+agreeing enthusiastically.
+
+### The measurement, which is cheap and settles it
+
+We do not need a DMA-capable disk to answer the *physics* question. The floppy controller is on
+channel 2 and already does DMA, and `HSFLOP.PDR` is a binary we already patch:
+
+1. Time a floppy DMA read of one track with the PIT harness (technique 109), and divide by bytes
+   moved. That gives **us/byte for a real DMA transfer on this machine**.
+2. Compare against the `1.87 us/byte` PIO figure and the `0.454 us/byte` memory-mapped figure
+   from E4.
+3. If DMA lands near the ISA bus rate rather than near the PIO rate, his hypothesis is confirmed
+   and the lever becomes "find or build a DMA-capable storage card", which converges with **E4a**.
+
+Cost: one DOS-level timing run, no new hardware, no driver written.
+
+### Why this belongs in the ledger even if it cannot be used today
+
+**Never rank a lever out for being small, and never rule one out for being inconvenient.** E4
+is on the list despite needing a card nobody owns, because 86Box models it and the number can be
+proven before spending money. E5 is the same shape: the measurement is cheap, the answer is
+reusable, and it tells us whether a DMA-capable ISA storage card is worth hunting for at all.
 
 ## The two rules this ledger exists to enforce
 
