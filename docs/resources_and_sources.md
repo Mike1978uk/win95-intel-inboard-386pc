@@ -271,23 +271,25 @@ Lists, or `FILES`/SFT. It is a command list.
 
 **Two entries land on open work here.**
 
-### `DRIVPARM` — a candidate fix for the floppy geometry problem
+### `DRIVPARM` — NOT needed. The floppy geometry problem is already solved
 
 > *"Documented in DOS 4.0 through 6.x; undocumented in DOS 3.2, 3.3, PC DOS 7, and PC DOS
 > 2000."*
 
-A `CONFIG.SYS` directive that **overrides the drive parameters DOS takes from the BIOS**.
+A `CONFIG.SYS` directive that overrides the drive parameters DOS takes from the BIOS.
 
-Issue #25 established (technique 101 addendum) that `INT 13h AH=08h` reports **720K for both
-floppies** while `INT 40h` reports the truth - 1.44M for A: and 1.2M for B:. The wrong answer
-comes from a ROM in the option-ROM chain, and promoting the floppy card's own handler onto
-INT 13h was ruled out because its handler fails every `DL >= 0x80` call, which would break
-the XT-CF.
+⚠ **Recorded here only so nobody reaches for it.** When this reference was first read on
+2026-09-11 it was written up as a candidate fix for the floppy geometry problem. **That
+problem was closed on 2026-09-07** and the note was made by reading issue #25's comment
+thread - which ends before the fix - instead of the issue's own CLOSED state or
+`docs/next_session_2026_09_08.md`.
 
-**`DRIVPARM` sidesteps that entirely** by telling DOS the geometry directly rather than
-fixing who answers INT 13h. **Not tested.** Untested caveats: it configures DOS's view, so
-it will not help anything that calls INT 13h itself, and Windows 95's own floppy driver may
-or may not honour it.
+**The actual fix was hardware:** Sergey's Multi-Floppy BIOS claims `INT 13h` only when the
+vector is still the stock `F000:EC59`. Trantor at `CA000` was scanned first and took it, so
+Sergey settled for `INT 40h` and the 1986 system BIOS answered `AH=08h` from its own 720K
+table. Moving Trantor's ROM to `DA000` (`SW3 OFF, SW4 ON, SW5 ON`) puts Sergey first.
+Verified on DOS 6.22 and Windows 95, both drives reading real media.
+Evidence: `docs/evidence/int13_ah08_ROOT_CAUSE_2026-09-07.md`.
 
 ### `MULTITRACK` — already ON, but a candidate variable for #18
 
