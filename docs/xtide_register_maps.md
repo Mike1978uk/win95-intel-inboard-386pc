@@ -157,3 +157,41 @@ The valuable request is no longer "does anyone still own a 2009 Rev 1 card". **A
 or 4 switched to Compatibility mode presents the stride-1 map**, with XUB set to device type
 `XTIDE rev1`. That is a jumper and a BIOS setting on hardware plenty of people have, and it
 exercises a path in the shipped binary that has never executed.
+
+## ⚠ STALE ROM DUMP — the card was reflashed, found 2026-09-11
+
+`roms/xtcf_card/XTCF_D8000_asfound_2026_08_31.bin` is **XTIDE Universal BIOS 2.0.4**.
+Read live from the running machine over COMrade on 2026-09-11, `D8000` now holds:
+
+```
+XUB212-=XTIDE Universal BIOS (XT+)=-
+r638 (2026-06-09)
+```
+
+**XUB 2.1.2, build r638, the XT+ variant.** The card has been reflashed since the dump.
+
+### What this puts in doubt
+
+`bDevice = 0x0A` — the byte that made "XTIDE rev 2 (latched) or Lo-tech XT-CF" ambiguous
+and was settled by photographing the board (technique 95) — was decoded from the **2.0.4**
+image. The ROMVARS layout is not guaranteed stable across a major version, so that offset
+may not mean the same thing in 2.1.2.
+
+The board photograph still settles the hardware question: no 74x373/573/574, so no
+high-byte latch, so it is an XT-CF. That conclusion does not depend on the ROM. But any
+statement about **what the ROM is configured for** needs re-reading from the live image.
+
+### Do not decode it by eye
+
+The live config block shows four IDEVARS-shaped entries - one near `0x0300` and then the
+standard `0x170/0x370`, `0x1E8/0x3E8`, `0x168/0x368` pairs - but the 2.1.2 struct is not
+held locally and guessing offsets is how the `bDevice` ambiguity arose in the first place.
+**Read it with `XTIDECFG`**, which loads the ROM and displays it, or fetch the XUB 2.1.2
+`ROMVARS.INC` before decoding anything.
+
+### And re-dump the ROM into the repo
+
+The stored image is now known-stale and is cited by this document and by #23/#24. Replace
+it with a live 8 KB read of `D8000-D9FFF` next time the machine is up, and keep the old one
+under its dated name rather than overwriting - the two versions are evidence of a change
+that nothing else recorded.
