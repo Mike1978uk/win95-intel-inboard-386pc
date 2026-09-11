@@ -180,6 +180,7 @@ LS_BasePort		dw	0378h		; set by the miniport from PORT=
 ;  power. Both symptoms, one cause.
 LS_SENSE_LEN		equ	18
 LS_SenseCdb		db	003h, 0, 0, 0, LS_SENSE_LEN, 0, 0, 0, 0, 0, 0, 0
+LS_SenseBuf		db	LS_SENSE_LEN dup (0)
 
 ;  A real INQUIRY, issued once by LS_BringUp so that BOOTLOG.TXT reports on the
 ;  whole packet path and not merely on the transport. BOOTLOG's Init
@@ -462,6 +463,11 @@ LS_BringUp:
 	xor	edx, edx		; data in
 	call	LS_PacketCommand
 	jc	lbu_fail
+
+;  Drain the unit attentions the soft reset just raised, or the class driver's
+;  very first READ is refused and the volume never mounts. INQUIRY above is
+;  exempt from them, so this is invisible until something else is tried.
+	call	LS_DrainSense
 
 ;  Byte 4 is Additional Length. 0AAh means nothing was written at all; a real
 ;  device reports at least 4 and usually 1Fh.
@@ -930,6 +936,44 @@ LS_SpinUp:
 ;   allegiance condition is pending, and answering it is what clears the
 ;   condition. See the LS_SenseCdb comment for the measurement.
 ;----------------------------------------------------------------------------
+;----------------------------------------------------------------------------
+; LS_DrainSense - consume the unit-attention conditions a reset leaves behind.
+;
+;   Out:  always CF=0 - this is best effort
+;   Uses: everything
+;
+;   MEASURED 2026-09-11. After SRST the drive queues MORE THAN ONE condition -
+;   ASC 28h "medium may have changed" and ASC 29h "power on / reset occurred"
+;   were both observed, reported one per REQUEST SENSE - and a contingent
+;   allegiance condition is cleared by READING THE SENSE, not by the next
+;   command. So every command until they are drained returns CHECK CONDITION.
+;
+;   INQUIRY is exempt, which is exactly why bring-up looked healthy: the
+;   INQUIRY below succeeds, Init Success is logged, the drive enumerates - and
+;   then the first READ the class driver issues is refused, which Windows
+;   reports as "media is not formatted".
+;
+;   Five attempts, matching pf.c's PF_MAX_RETRIES.
+;----------------------------------------------------------------------------
+public LS_DrainSense
+LS_DrainSense:
+	push	ebx
+	mov	ebx, 5
+lds_loop:
+	lea	edi, LS_SenseBuf
+	mov	ecx, LS_SENSE_LEN
+	call	LS_RequestSense
+	jc	lds_done
+	mov	al, LS_SenseBuf+2
+	and	al, 0Fh			; sense key
+	jz	lds_done		; nothing pending - done
+	dec	ebx
+	jnz	lds_loop
+lds_done:
+	pop	ebx
+	clc
+	ret
+
 public LS_RequestSense
 LS_RequestSense:
 	cmp	ecx, LS_SENSE_LEN
