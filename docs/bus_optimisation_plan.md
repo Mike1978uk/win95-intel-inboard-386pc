@@ -454,7 +454,10 @@ uncosted, and costing it is itself a task.
 | E2 | Shadowing - what is already shadowed | uncosted | ❓ confirm rather than assume |
 | E3 | Wait-state tuning | 0 | ❌ already 0 wait states, cache on. Port `0x670` is write-only |
 | E4 | Memory-mapped storage (JR-IDE/ISA) | **4.2x on the data phase** (0.454 vs 1.910 us/byte) | ❓ needs different hardware, but **86Box models it** - provable before buying |
-| E5 | **ISA DMA instead of PIO** - @andrew-hoffman, 2026-09-11 | potentially **the whole per-access sync cost**, uncosted | ❓ see E5 below - a strong question because it attacks the exact term that dominates us |
+| E5 | **ISA DMA instead of PIO** - @andrew-hoffman, 2026-09-11 | potentially **the whole per-access sync cost**, uncosted | ❓ closed for the XT-CF (PIO-only card), **reframed** as E5a/b/c below |
+| E5a | DMA overlaps with CPU work *on this machine* - the 386 runs from local RAM and cache while the 8237 holds the bus | uncosted, Inboard-specific | ❓ unverified, but it is why DMA is worth more here than on a stock XT |
+| E5b | **DMA channel 3 appears unused** | an idle system resource | ❓ confirm the inventory: 0 refresh, 1 SB Pro, 2 floppy, 3 free? |
+| E5c | ⚠ **Is the 384 KB E1 moved onto the Inboard still DMA-visible?** | **correctness, not speed** | ❗ open - INBRDPC's own `maint_dmabank` exists because Inboard-held RAM is DMA-invisible. Affects sound and floppy today |
 
 ## E5. Does DMA pay the same bus penalty as PIO? - @andrew-hoffman, 2026-09-11
 
@@ -500,6 +503,84 @@ channel 2 and already does DMA, and `HSFLOP.PDR` is a binary we already patch:
    and the lever becomes "find or build a DMA-capable storage card", which converges with **E4a**.
 
 Cost: one DOS-level timing run, no new hardware, no driver written.
+
+### REFRAMED 2026-09-12 — ask it of the machine, not of the card
+
+The owner's steer, and it is the same move that found the host side of the XT-IDE socket:
+
+> *"perhaps dma is a lever if we flip it on its head, not going after the card itself but the
+> machine it sits within... it might not be a lever explicitly for the question at hand but it
+> might point us to look at how and where DMA is and make sure it is used efficiently and
+> correctly."*
+
+Taken that way the question stops being "can the disk use DMA" — which is closed, it cannot —
+and becomes **three** questions, one of which is a correctness problem rather than a speed one.
+
+#### E5a. The Inboard changes the economics of DMA, and it changes them in our favour
+
+On a **stock XT** DMA is close to free for the device and expensive for the CPU: the 8088 needs
+the bus for instruction fetch as well as data, so while the 8237 holds it the CPU stalls. That is
+why DMA is usually costed as "the same bus, just a different master".
+
+**This machine is not a stock XT.** The 386 has its own local RAM and its own cache, and E1 has
+just moved 384 KB of conventional memory onto the card. So during a DMA burst the Inboard can
+keep executing out of local RAM and cache instead of stalling — the transfer overlaps with real
+work in a way it never could on an 8088.
+
+That is a genuine, Inboard-specific asymmetry and it is **not** what Andrew was asking, but it
+strengthens his case rather than weakening it. ⚠ **Unverified** — it assumes the Inboard does not
+have to arbitrate for the ISA bus on a cache hit. Measure before believing it.
+
+#### E5b. Channel inventory — one channel is apparently idle
+
+| channel | owner | note |
+|---|---|---|
+| 0 | **DRAM refresh** | XT-only use; not available |
+| 1 | **SB Pro** | `dma = 1` in the machine config |
+| 2 | **Floppy** | standard, and `HSFLOP.PDR` is a binary we already patch |
+| 3 | **apparently nothing** | 3C509B is I/O `0x320` / IRQ 3 with no DMA channel configured |
+
+**Channel 3 looks free.** That is an idle system resource on a machine where the bus is the
+bottleneck, and it is worth confirming rather than assuming — if a device could be given it, the
+question "is DMA faster than PIO here" stops being academic.
+
+#### E5c. ⚠ Correctness — after E1, is conventional RAM still DMA-visible?
+
+This is the part that matters more than the speed question, and it was not visible until the
+frame widened.
+
+**E1 moved 384 KB of the 640 KB off the planar and onto the Inboard.** DMA buffers live in
+conventional memory. A bus master never consults the 386 page tables — that is exactly why
+`$386.SYS` carries `maint_dmabank`, tracking the lowest remapped bank on every `vremap`, and why
+its INT 13h hook **stages** any transfer that reaches it. Intel's own 1988 code treats
+Inboard-held memory as DMA-invisible and bounces around it.
+
+So the open question, in one line:
+
+```
+Can the 8237 reach the 384 KB that E1 moved onto the card?
+```
+
+Three possibilities, and we do not know which:
+
+1. The backfill responds to ISA bus cycles like planar RAM → nothing to do, and say so.
+2. It is Inboard-local and page-mapped → **DMA into it silently reads or writes the wrong
+   memory**, and INBRDPC's staging is the only thing standing between that and corruption.
+3. It is reachable but slower → a cost nobody has measured.
+
+Affected today: **sound (channel 1)** and **floppy (channel 2)** — both of which allocate in
+conventional memory, and both of which this project has already had one 20-bit DMA reach bug in.
+
+⚠ This is **not** offered as an explanation for [#18](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/18):
+that predates E1 by days, so E1 cannot be its cause. But it is the same bug class, it is now
+worth excluding, and if #18 ever reproduces *more* readily after E1 this is the first thing to
+check.
+
+**The test is cheap and it reuses a harness that has already caught this exact class once:** the
+page-register trace that caught `MSSBLST.VXD` allocating at `0x4E0000` live. Poison a
+conventional-memory buffer, run one floppy DMA read into it, and check whether the bytes landed.
+A self-test that cannot fail is worse than none — so poison first, and do not accept zeros as
+success (the LS-120 work made that mistake and lost a session to it).
 
 ### Why this belongs in the ledger even if it cannot be used today
 
