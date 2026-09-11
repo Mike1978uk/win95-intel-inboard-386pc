@@ -345,6 +345,97 @@ peripheral's limit without asking what the transaction costs on the other side o
 connector. Rank by bus cycles occupied, take every gain that costs nothing to keep, and
 when a hardware ceiling is reached, turn round.
 
+## ACTIONS OUTSTANDING — the single list to work from
+
+Every open optimisation question, as an **action with a method and a cost**, not a note. Nothing
+here is closed by reasoning alone: each row ends in a measurement or an inspection of a binary.
+
+**Order is by (evidence available) x (cost to get it), not by size.** A big lever with no way to
+measure it ranks below a small one we can settle this week.
+
+| # | Action | Method | Cost | Status |
+|---|---|---|---|---|
+| **A1** | Request merging in `XTIDEMP.MPD` | Raise `MaximumTransferLength`, coalesce adjacent SRBs; re-run the technique 93 traffic capture | driver build + 1 boot | 🎯 **next after LS-120** — 1.2-1.5x, measured not modelled |
+| **A2** | The free 4% — transfer-loop overhead | `rep movsd` in the buffer paths; unroll the per-sector loop | driver build | 🎯 queued behind A1 |
+| **A3** | **E5c — can the 8237 reach the 384 KB E1 moved onto the Inboard?** | Poison a conventional-memory buffer, run one floppy DMA read into it, verify the bytes landed. Page-register trace as the cross-check (the harness that caught `MSSBLST.VXD` at `0x4E0000`) | 1 DOS run | ❗ **correctness, not speed** — do this before A1. Sound and floppy allocate there today |
+| **A4** | **E5 — time a real DMA transfer** | PIT harness (technique 109) around a one-track floppy DMA read; us/byte against PIO `1.87` and memory-mapped `0.454` | 1 DOS run | ❓ answers @andrew-hoffman's actual question with a number |
+| **A5** | **E5b — DMA channel inventory** | Confirm 0 refresh / 1 SB Pro / 2 floppy / **3 free**. Read the 8237 mask + mode registers and the installed device list | minutes, DOS | ❓ an idle channel on a bus-bound machine is worth knowing about |
+| **A6** | **E5a — does DMA overlap with CPU work here?** | Run a CPU-bound loop timed by the PIT, with and without a concurrent floppy DMA transfer. If the loop time is unchanged, the Inboard really does keep running from cache while the 8237 holds the bus | 1 DOS run | ❓ Inboard-specific, and it is *why* DMA is worth more here than on a stock XT |
+| **A7** | **E6 — DRAM refresh tuning** (new, 2026-09-12) | See below. Reprogram PIT channel 1, memory-pattern test, PIT-timed throughput A/B | 1 DOS run, instantly reversible | ❓ **a tax every device pays**, and E1 just changed the premise |
+| **A8** | **D3 — is the Mach8 accelerator actually being used?** (elevated 2026-09-12) | `pedis.py` on the shipped display drivers: count framebuffer writes vs `0x9AE8` command writes | no hardware at all | ❓ **potentially the largest single saving on the machine** — see below |
+| **A9** | E2 — what is already shadowed | Read the shadow config and confirm rather than assume | minutes | ❓ |
+| **A10** | D1 — does `T130.MPD` use string I/O? | `pedis.py T130.MPD io` | minutes, no hardware | ❓ one command, never run |
+| **A11** | E4a — memory-mapped storage (JR-IDE/ISA) | 86Box already models it — prove the 4.2x before buying hardware | emulator run | ❓ |
+
+---
+
+## E6. DRAM refresh — a tax every single device pays  *(new, 2026-09-12)*
+
+**Thinking about the socket rather than the card.** What else is holding the ISA bus, all the
+time, that nobody has costed?
+
+On an IBM 5160, **PIT channel 1 pulses roughly every 15.09 us and triggers DMA channel 0 to run
+a dummy read cycle**, refreshing one DRAM row. That is a bus cycle stolen from everything -
+every PIO access, every DMA transfer, every instruction fetch that reaches the planar. It is
+paid whether or not anything else is happening, and it is the one overhead in this document that
+is **not** attributable to any driver.
+
+### Why E1 changed the premise
+
+`SW1-3/4` are now **ON**: 384 KB of the 640 KB no longer lives on the planar, and the board is
+down to a 256 KB planar bank. The Inboard's own RAM has its own refresh arrangement and is not
+serviced by channel 0.
+
+So there is now **less planar DRAM behind that refresh cycle than the timer was set for**, and
+the timer is a PIT reload value we can write.
+
+### The action
+
+1. Record the current PIT channel 1 reload value (do not assume 18; read it).
+2. Memory-pattern test the planar region: fill, wait, verify. Establish a clean baseline.
+3. Lengthen the reload, re-run the pattern test, and A/B a PIT-timed throughput measurement.
+4. Back out immediately on a single bit error.
+
+**Reversible in one `out` instruction, and it costs one DOS run.** ⚠ Get it wrong and DRAM rows
+decay - this is a *correctness* risk, so the pattern test is not optional and must run long
+enough to matter. Refresh must still cover every row inside the chips' retention spec.
+
+⚠ **Unverified assumption to check first:** that channel 0 refresh services only the planar and
+not the Inboard's backfill. If the Inboard *does* depend on it, this lever is closed and the
+answer is worth having written down.
+
+---
+
+## D3 elevated. The accelerator is a way to get pixels off the bus entirely
+
+Our own ranking says video is *"the most bytes on the bus of anything here - the framebuffer is
+on ISA, so every pixel crosses"*. At a measured `~5.55 us` per 8-bit access, that is the single
+largest consumer on the machine, and it has sat uncosted while we tuned storage.
+
+**The lateral move is the same one as DMA: stop moving the bytes.** The Mach8 is an
+*accelerator*. A bitblt or a rectangle fill issued through the command registers moves pixels
+**inside the card** - they never cross the ISA bus at all. A scroll, a window drag, a fill, a
+blit: all of them are either a few command-register writes or thousands of framebuffer writes,
+depending entirely on whether the display driver bothers.
+
+### The question, and it needs no hardware to answer
+
+**Do the shipped display drivers actually use the accelerator, or do they write pixels?**
+
+`pedis.py` will answer it offline against the binaries already in this repo
+(`mach8_w31_display/MACHW3.DRV` for 3.x, and the Win95 ATI driver on the card): count writes to
+the framebuffer aperture against writes to the accelerator command registers around `0x9AE8`.
+
+- If it is already accelerated, we say so and drop it - and we have costed the biggest consumer
+  on the bus, which is worth doing regardless.
+- If it is writing pixels, the ceiling on this machine is much higher than anything storage can
+  offer, and it becomes the main event.
+
+⚠ Note the interaction with **#8**: TC1995 is currently debugging the Mach8 accelerator path in
+86Box (his ADD MIX / `mix op 0x13` comment). If the emulated accelerator is not faithful yet, a
+result measured in 86Box would be measuring his bug, not our driver. **Measure this against the
+binaries and the real card, not against emulation**, until #8 closes.
+
 ## AGREED NEXT WORK — after the LS-120, in this order
 
 **Updated 2026-09-12:** @andrew-hoffman's DMA question (**E5**) is added as item 3. It goes
