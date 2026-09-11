@@ -6641,3 +6641,61 @@ construction.
 
 Full writeup, retained with the retired driver:
 `docs/archive/fd08fix_superseded/README.md`.
+
+## Technique 115: an answer that is another question is a lead, not a dead end
+
+The owner's framing, 2026-09-12:
+
+> *"a question might not always lead to an answer but maybe another question and that's a lead
+> if ever i see it - of course we answer the actual question and we measure and confirm or deny
+> it but always take a lead on what could it point us towards"*
+
+Two halves, and **both** are obligations. Skipping either one is a different failure:
+
+1. **Answer the question that was asked.** Measure it. Confirm or deny it. A lead does not
+   discharge the original question, and "that turned out to be interesting for another reason"
+   is not an answer to the person who asked.
+2. **Then ask what it points at.** The value of a question is not capped by its own answer.
+
+### The worked example this was written from
+
+@andrew-hoffman asked on #23 whether ISA DMA pays the same wait-state penalty as PIO. The
+literal answer is **no lever**: the XT-CF is a PIO-only card with no DRQ/DACK, so the device we
+most want faster cannot use DMA at all. Filed as closed, that is where it ends.
+
+The owner refused the filing - *"perhaps DMA is a lever if we flip it on its head, not going
+after the card itself but the machine it sits within"* - and the same question, asked of the
+machine, produced three:
+
+| | |
+|---|---|
+| **E5a** | DMA on *this* machine overlaps with CPU work, because the 386 runs from local RAM and cache while the 8237 holds the bus. On a stock XT the 8088 stalls. Inboard-specific, and it strengthens his case |
+| **E5b** | Channel inventory: 0 refresh, 1 SB Pro, 2 floppy - **3 appears unused.** An idle resource on a machine whose bottleneck is the bus |
+| **E5c** | ⚠ **A correctness problem, not a speed one.** E1 had just moved 384 KB of conventional RAM onto the Inboard. A bus master never consults the 386 page tables - which is why `$386.SYS` carries `maint_dmabank` and stages INT 13h transfers around remapped memory. So: can the 8237 still reach it? Sound and floppy allocate there **today** |
+
+E5c is the point. Nobody asked it, it was not visible while the question was scoped to one card,
+and it is the only one of the three where the answer could mean something is **currently wrong**
+rather than merely slow.
+
+### The discipline that keeps this from becoming drift
+
+A lead is not a licence to wander, and this project has already paid for open-ended wandering
+(see "How to spend a session" in `CLAUDE.md`).
+
+- **Write the lead down; do not chase it now.** E5a/b/c went into the ledger with sizes and a
+  measurement each. None was executed that session.
+- **Say plainly which is measured and which is inferred.** E5a is marked unverified. E5b says
+  "confirm the inventory" rather than asserting channel 3 is free.
+- **Do not let a lead inherit unearned confidence from the question that spawned it.** E5c is
+  explicitly *not* offered as the cause of #18 - #18 predates E1, so E1 cannot be its cause. It
+  is recorded as the same bug class, worth excluding, and as the first thing to check if #18
+  ever reproduces more readily after E1.
+- **Rank it and move on.** It entered the agreed order as item 3, behind two levers that already
+  have numbers.
+
+### Related
+
+- Technique 104 and the "both sides of the connector" section of `docs/bus_optimisation_plan.md`
+  - the same move applied to the XT-IDE socket, which is where it first paid.
+- [[feedback-optimise-for-bus-occupancy]] - never rank a lever out for being small. This is the
+  companion rule: never rank a question out for having a boring literal answer.
