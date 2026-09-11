@@ -382,3 +382,71 @@ copies in Inboard-local RAM (0.135 us/byte): **`XTIDEMP.ASM` currently has ZERO 
 operations and 9 byte-move lines; `XTIDETR.ASM` has 4 against 20.**
 
 Do not defer this because it is small - that is the anti-pattern at the top of this file.
+
+---
+
+# THE COMPLETE LEDGER — every percent identified, nothing omitted
+
+Compiled 2026-09-11 at the owner's request: *"I don't want to miss a single percent that we
+can go after."* Every lever found so far, both sides of the connector, with its measured or
+estimated size and honest status. **A lever with no number is not thereby small** - it is
+uncosted, and costing it is itself a task.
+
+## A. XT-IDE / XT-CF — the card side
+
+| # | lever | size | status |
+|---|---|---|---|
+| A1 | `rep insw`/`outsw` on stride 2 | **35% read / 33% write** | ✅ **shipped** |
+| A2 | Paced polling (`XT_POLL_BACKOFF`) | frees bus for every other card; invisible in a single-driver benchmark | ✅ **shipped** |
+| A3 | `rep insd` (32-bit string I/O) | **+34%** (2.85 vs 3.82 us/byte) | ❌ **blocked** - stride 2 still decodes A1, `base+2` is Error |
+| A4 | `READ MULTIPLE` | 0 | ❌ drive reports word 47 = 1, unsupported |
+| A5 | Taskfile widening | 0 | ❌ 11.38 vs 11.54 us - noise |
+
+## B. The Inboard — the host side of the connector
+
+| # | lever | size | status |
+|---|---|---|---|
+| B1 | **Request merging** | **1.22x / 1.38x / 1.52x** at x2 / x4 / 64 KB commands. 36% of disk time is command setup | ❌ **not started - biggest remaining** |
+| B2 | Scatter/gather descriptor coalescing | re-enables `XT_SG`; today it costs **1,104 commands for 975 KB** vs 603 for 1,149 KB | ❌ same work as B1 |
+| B3 | Transfer-loop overhead | **4%**, free, compounds with everything | ❌ not started |
+| B4 | `rep movsd` for buffer copies in local RAM (0.135 us/byte) | small, free | ❌ `XTIDEMP.ASM` has **zero** string ops / 9 byte-move lines; `XTIDETR.ASM` 4 / 20 |
+| B5 | Compression (32-bit DriveSpace) | ~480 spare CPU cycles per bus byte | ⏸ parked on **risk and footprint**, not architecture (Andrew corrected our reason) |
+| B6 | Read-ahead into Inboard RAM | moves bus work off the critical path | ❓ **uncosted** |
+| B7 | The VxD layer | unknown | ❓ **unmeasured.** DDK ships debug builds + symbols for IOS/SCSIPORT/DISKTSD/VMM plus `WDEB386` - still unopened |
+
+## C. The card's own BIOS — the real-mode INT 13h path
+
+| # | lever | size | status |
+|---|---|---|---|
+| C1 | Does XT+ take the `insb` or `insw` routine for XT-CF? | **up to 2x on every DOS and boot-time transfer** | ❓ **unknown - `XTIDECFG` device type answers it.** Both routines are in the flashed ROM |
+| C2 | Custom XUB using 386 instructions on XT-class hardware | uncosted | ❓ ambitious; XUB is open source, 86Box can test a custom ROM safely |
+| C3 | XT+ reflash itself (186 string I/O) | pure-XT build has **zero** string-I/O instructions | ✅ **done 2026-09-04** |
+
+## D. Every other device on the bus
+
+| # | lever | size | status |
+|---|---|---|---|
+| D1 | Trantor T130B - `rep insw`/`outsw` | uncosted | ❓ imports `ScsiPortRead/WritePortBufferUshort`; **nobody has checked if it uses them.** One `pedis.py <file> io` |
+| D2 | T130B - polling (`Polling=1`, no IRQ) | uncosted | ❓ |
+| D3 | Mach8 video | **most bytes on the bus of anything here** - framebuffer is across ISA | ❓ uncosted |
+| D4 | `HSFLOP.PDR` - polls hard during a seek | uncosted | ❓ we already patch this binary, so most tractable |
+| D5 | Sound (SB Pro) - DSP polling | uncosted | ❓ data path is DMA, no per-byte loop to widen |
+| D6 | 3C509B network | uncosted | ❓ 16-bit card; well-written packet drivers already use `rep insw` - check first |
+| D7 | Keyboard | near zero | latency-bound, few accesses per event |
+
+## E. System-level
+
+| # | lever | size | status |
+|---|---|---|---|
+| E1 | Conventional RAM off the planar | **384 KB of 640 KB no longer crosses the bus** | ✅ **done** - SW1-3/4 ON. No read-speed change; the gain is bus footprint |
+| E2 | Shadowing - what is already shadowed | uncosted | ❓ confirm rather than assume |
+| E3 | Wait-state tuning | 0 | ❌ already 0 wait states, cache on. Port `0x670` is write-only |
+| E4 | Memory-mapped storage (JR-IDE/ISA) | **4.2x on the data phase** (0.454 vs 1.910 us/byte) | ❓ needs different hardware, but **86Box models it** - provable before buying |
+
+## The two rules this ledger exists to enforce
+
+1. **Never rank a lever out because it is small.** 4% that costs nothing is 4%, and it
+   compounds. That reasoning wrongly dismissed sound and floppy once already.
+2. **Always work both sides of the connector.** The card's decode ceiling ended the
+   transfer-width work and said nothing about transaction count - which is host-side, and
+   is the larger lever.
