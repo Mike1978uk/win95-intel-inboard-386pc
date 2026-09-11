@@ -49,6 +49,12 @@ WDRQ, WDRQL, WDRQE = 0x1960, 0x1970, 0x1990
 BR, BR2, BRH, BRB, BRJ, BRE, BRL = (
     0x1A00, 0x1A10, 0x1A30, 0x1A50, 0x1A80, 0x1AA0, 0x1AC0)
 XFER_MAX = 0x200          # no buffer in this probe is larger
+
+# Every command is another chance for something unforeseen, and a runaway
+# inside a cli window leaves the box with interrupts off - Ctrl-Alt-Del dead,
+# hard reset only. So the write test is OFF until a read is proven. Set it
+# true once READ(10) returns a valid boot sector.
+WRITE_TEST = False
 BW, BWC, BWL, BWE = 0x1B00, 0x1B20, 0x1B40, 0x1B60
 DLY, DLYL, DLYE = 0x1B80, 0x1B90, 0x1BA0
 PAT, PATL = 0x1BB0, 0x1BD0
@@ -158,8 +164,9 @@ def build():
     m += packet(CDBS + 0x00, BUF_INQ, 36, 0x0600)
     m += packet(CDBS + 0x20, BUF_SENSE, 18, 0x0610)
     m += packet(CDBS + 0x40, BUF_SECTOR, 512, 0x0620)
-    m += packet(CDBS + 0x60, BUF_PATTERN, 512, 0x0630, out=True)
-    m += packet(CDBS + 0x80, BUF_BACK, 512, 0x0640)
+    if WRITE_TEST:
+        m += packet(CDBS + 0x60, BUF_PATTERN, 512, 0x0630, out=True)
+        m += packet(CDBS + 0x80, BUF_BACK, 512, 0x0640)
     m += ["mov ah,40", "call %04X" % CPP4, "mov ah,30", "call %04X" % CPP4,
           "int 3"]
 
