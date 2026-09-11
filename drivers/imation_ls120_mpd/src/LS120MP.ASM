@@ -92,6 +92,9 @@ LS_ATA_ST_ERR		equ	001h	; status bit 0 - device reports CHECK CONDITION
 ;  SCSI.INC is not included here (srb.inc + miniport.inc only), and pulling a
 ;  whole header in for one value is not worth the collision risk.
 LS_SCSISTAT_CHECK	equ	002h	; SCSISTAT_CHECK_CONDITION
+;  Timer interval in microseconds. Imation's miniport uses 1000 (1 ms) and so
+;  does the DDK's PC2X sample; there is no reason to differ.
+LS_TIMER_US		equ	1000
 LS_MAX_TARGETS		equ	2	; XTIDEMP.MPD uses 2 and enumerates correctly
 					; on this machine; 1 was the only config value
 					; that differed from it.
@@ -105,7 +108,10 @@ DEVEXT	STRUCT
 dxBase		DWORD	?		; parallel-port base actually in use
 dxStatus	DWORD	?		; status byte read at FindAdapter
 dxSrbCount	DWORD	?		; SRBs seen - phase 0 evidence
-dxReserved	DWORD	5 DUP (?)
+dxPendSrb	DWORD	?		; SRB awaiting deferred completion, 0 = idle
+dxPendStat	DWORD	?		; the SrbStatus it will be completed with
+dxTicks		DWORD	?		; timer ticks this request has taken
+dxReserved	DWORD	2 DUP (?)
 DEVEXT	ENDS
 
 	.DATA
@@ -479,6 +485,61 @@ endif
 LsInitialize ENDP
 
 ;============================================================================
+; LsTimer - the deferred-completion engine.
+;
+;   Registered per-request by ScsiPortNotification(RequestTimerCall, ...), so
+;   there is nothing to declare in HW_INITIALIZATION_DATA. It re-arms itself
+;   while work is outstanding and completes the SRB only when the device is
+;   actually done.
+;
+;   This is the shape both references use. Imation's own miniport re-arms at
+;   rva 0x48bb by pushing ITS OWN linked address back into
+;   ScsiPortNotification; the DDK's PC2X.C does the same in PC2xTimer. Ours
+;   completed inline instead, which is why every attempt to "allow more time"
+;   made the boot stall worse - the time was being spent somewhere the OS
+;   does not expect a driver to spend any.
+;
+;   STAGE 1: the plumbing only. The request is already decided by the time it
+;   gets here; this proves SCSIPORT accepts a deferred completion at all.
+;   The state machine that does real work in ticks comes next, and belongs
+;   here rather than in LsStartIo.
+;============================================================================
+LsTimer PROC STDCALL DeviceExtension:DWORD
+
+	push	ebx
+	push	esi
+	mov	esi, DeviceExtension
+	mov	ebx, [esi].DEVEXT.dxPendSrb
+	or	ebx, ebx
+	jz	lt_idle			; nothing outstanding - do not re-arm
+
+	inc	[esi].DEVEXT.dxTicks
+
+;  Stage 1 completes on the first tick. When the state machine lands, this is
+;  where it advances, and re-arms instead of completing while still busy.
+	mov	[esi].DEVEXT.dxPendSrb, 0
+	mov	eax, [esi].DEVEXT.dxPendStat
+	mov	[ebx].SCSI_REQUEST_BLOCK.SrbStatus, al
+
+	push	ebx
+	push	DeviceExtension
+	push	RequestComplete
+	call	ScsiPortNotification
+	add	esp, 12
+
+	push	DeviceExtension
+	push	NextRequest
+	call	ScsiPortNotification
+	add	esp, 8
+
+lt_idle:
+	pop	esi
+	pop	ebx
+	ret
+
+LsTimer ENDP
+
+;============================================================================
 ; LsResetBus - nothing to reset. Returning FALSE would tell SCSIPORT the
 ;              adapter is broken; nothing is wrong, so say so.
 ;============================================================================
@@ -669,19 +730,20 @@ lsi_badfunc:
 	mov	al, SRB_STATUS_BAD_FUNCTION
 
 lsi_complete:
-	mov	[ebx].SCSI_REQUEST_BLOCK.SrbStatus, al
-
+;  DEFERRED. Stash the request and arm the timer; do NOT complete here.
 ;  ScsiPortNotification is cdecl and varargs, so we clean the stack.
-	push	ebx
-	push	DeviceExtension
-	push	RequestComplete
-	call	ScsiPortNotification
-	add	esp, 12
+	movzx	eax, al
+	mov	esi, DeviceExtension
+	mov	[esi].DEVEXT.dxPendStat, eax
+	mov	[esi].DEVEXT.dxPendSrb, ebx
+	mov	[esi].DEVEXT.dxTicks, 0
 
+	push	LS_TIMER_US
+	push	OFFSET LsTimer
 	push	DeviceExtension
-	push	NextRequest
+	push	RequestTimerCall
 	call	ScsiPortNotification
-	add	esp, 8
+	add	esp, 16
 
 	pop	edi
 	pop	esi
