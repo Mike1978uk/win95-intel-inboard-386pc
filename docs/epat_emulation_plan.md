@@ -166,3 +166,61 @@ SyQuest, the SuperDisk - is a whole class of period hardware 86Box cannot curren
 The EPAT bridge is one of the commonest, and the same `lpt_device_t` seam takes the others.
 
 Precedent: this project already has **three** 86Box PRs merged (#7626, #7749, #7771).
+
+## Step 3 — the integration contract, established 2026-09-11
+
+**Steps 1 and 2 are done and building** (branch `lpt-epat-bridge` on `Mike1978uk/86Box`):
+the CPP unlock handshake with the hardware's own checkpoints, and register access by direct
+addressing with the nibble read. Releasing SRST presents the ATAPI signature `14 EB`.
+
+Step 3 is wiring the task file to 86Box's real ATAPI device. **The contract, read out of the
+source rather than assumed:**
+
+```c
+/* src/scsi/scsi_device.c */
+scsi_device_command_phase0(scsi_device_t *dev, uint8_t *cdb)
+    -> dev->command(dev->sc, cdb)
+    -> CHECK CONDITION iff (dev->sc->tf->status & ERR_STAT)
+```
+
+So driving a device is three things: a `scsi_device_t` with `sc` and `command` set, a call
+to `scsi_device_command_phase0`, then reading back through `sc`.
+
+**`rdisk_t` already exposes exactly what the bridge needs** (`src/include/86box/rdisk.h`,
+`src/disk/rdisk.c`):
+
+| field | meaning |
+|---|---|
+| `dev->tf` | an **`ide_tf_t`** - the same task file type `ide_t` uses. `status`, `phase`, `request_length` |
+| `dev->tf->request_length = 0xEB14` | the ATAPI signature, set on reset - matches what our bridge already fakes |
+| `dev->packet_status` | `PHASE_NONE` and friends |
+| `dev->unit_attention` | **the very condition that cost 2026-09-11** - modelled already |
+
+That last row matters: the drive model already implements unit attention, so the emulated
+bridge will reproduce the "media is not formatted" failure faithfully rather than papering
+over it.
+
+### The one piece of real integration work
+
+`RDISK_BUS_LPT = 6` needs to actually create a drive. The bus-type tests in `rdisk.c` are
+**ordered comparisons** - `RDISK_BUS_LPT(6) < RDISK_BUS_IDE(7) < RDISK_BUS_ATAPI(8) <
+RDISK_BUS_SCSI(9)` - so lines like `if (bus_type >= RDISK_BUS_ATAPI)` and
+`if (bus_type < RDISK_BUS_SCSI)` already route 6 somewhere; each needs checking rather than
+assuming it lands right.
+
+Two options, and the first is the upstream-correct one:
+
+1. **Support `RDISK_BUS_LPT` in `rdisk.c`** and add an `lpt_rdisk_drives[]` map alongside
+   `atapi_rdisk_drives[]` so the bridge can find the drive assigned to its port. Touches
+   86Box's config plumbing, which is exactly what a real contribution should do.
+2. Have the bridge borrow an ATAPI-configured rdisk by ID. No changes to `rdisk.c`, but it
+   is a hack and conflicts with the drive also being on an IDE channel.
+
+**Take option 1.** The enum exists precisely so someone would.
+
+### Then the validation ladder, unchanged
+
+`INQ9.OUT` - `MATSHITA / LS-120 COSM   04 / 0270` - is the target for step 3. The emulated
+drive will report `IMATION / SUPERDISK 120 ATAPI` instead, so compare the **shape**: device
+type, RMB bit, response format, additional length, and ASCII vendor/product in the right
+byte positions. A byte-identical string is neither expected nor wanted.
