@@ -127,3 +127,42 @@ the whole surface rather than "everything except timing".
 
 If it does not, that is a **calibration** task on a model that already has the right shape -
 technique 5's bisect-against-a-real-measurement - not a reason to go back to the bench.
+
+## The goal is an UPSTREAM contribution, not a local hack
+
+Owner's call, 2026-09-11: *"at the end we could push it to 86 box if it faithfully
+emulates."* That is the right ambition and it is achievable - 86Box has `RDISK_BUS_LPT`
+declared and unimplemented, so this fills a gap its own headers admit to.
+
+**Recording it now because it sets the standard from the first line, not the last.**
+
+### What upstreamable means here
+
+| requirement | state |
+|---|---|
+| 86Box conventions - `device_t`, `lpt_attach_ex`, `log_open`, config selection | ✅ followed from the start; `net_plip.c` was the template |
+| No project-specific hacks, no LS-120-only shortcuts | ✅ it is a **bridge**, and the drive behind it is 86Box's existing `rdisk` |
+| ⚠ **`ENABLE_EPAT_LOG` must default OFF before submission** | ❌ currently `1`. **This is technique 93** - `ENABLE_XTIDE_LOG` left on cost 438 MB per boot and dropped the emulator to 2-14% of speed. Keep it on while developing, gate it before the PR |
+| Attribution for the protocol work | Reverse-engineered from Imation's driver and verified on real hardware; cross-checked against Linux `epat.c`. Register maps and protocol order are not copyrightable - the implementation here is ours |
+| Evidence it is faithful | **This is the strong part** - see below |
+
+### The credibility argument writes itself
+
+Most emulation PRs say "it seems to work". This one can say: *here is the real bridge's
+response to the same byte sequence, captured on the hardware, and here is the model
+reproducing it.* `docs/captures/2026-09-11_ls120/` holds the connect checkpoints
+(`B8` / `58` / `F0`), a full ATAPI INQUIRY returning
+`MATSHITA / LS-120 COSM   04 / 0270`, and status, interrupt-reason and byte-count readings
+at every phase of a command.
+
+**Build each step against its capture** (the order in this document) and the PR arrives with
+a hardware-diffed validation trail rather than an assertion.
+
+### And it is a real gap
+
+`RDISK_BUS_LPT`, `CDROM_BUS_LPT`, `HDD_BUS_LPT`, `MO_BUS_LPT` are all declared in 86Box's
+headers and referenced by **no source file**. Parallel-port storage - Iomega parallel ZIP,
+SyQuest, the SuperDisk - is a whole class of period hardware 86Box cannot currently model.
+The EPAT bridge is one of the commonest, and the same `lpt_device_t` seam takes the others.
+
+Precedent: this project already has **three** 86Box PRs merged (#7626, #7749, #7771).
