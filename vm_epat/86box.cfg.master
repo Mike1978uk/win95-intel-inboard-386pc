@@ -1,0 +1,51 @@
+﻿[General]
+emu_build_dynarec_type = old
+host_cpu = Unknown
+update_icons = 0
+
+[Machine]
+cpu_family = ibm486bl3
+cpu_multi = 3
+cpu_speed = 83500000
+cpu_use_dynarec = 0
+machine = ibmxt_inboard386
+mem_size = 5120
+
+[IBM XT (Inboard 386/PC)]
+bios = ibm5160_050986
+enable_5161 = 0
+
+[Video]
+gfxcard = cga
+
+[Input devices]
+keyboard_type = internal
+mouse_type = none
+tablet_type = none
+
+[Storage controllers]
+hdc_1 = xtide
+
+[PC/XT XTIDE #1]
+bios = xtcf_lotech
+base = 300
+bios_addr = d0000
+stride = 2
+
+[Hard disks]
+hdd_01_fn = dos.img
+hdd_01_ide_channel = 0:0
+hdd_01_parameters = 63, 16, 3949, 0, ide
+hdd_01_speed = ramdisk
+
+[Floppy and CD-ROM drives]
+fdd_01_type = 35_2hd
+fdd_02_type = none
+
+[Ports (COM & LPT)]
+lpt1_device = lpt_epat
+
+[Other removable devices]
+rdisk_01_image_path = rd.img
+rdisk_01_lpt_port = 0
+rdisk_01_parameters = 0, lpt

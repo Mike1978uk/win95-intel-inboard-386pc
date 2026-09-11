@@ -112,3 +112,56 @@ Then read the result back out with `tools/fatls.py <img> --get EINQ.OUT <local>`
   decoder at all.
 - **Writes are untested.** Only INQUIRY has run. `PHASE_DATA_OUT` and `epat_pio_request(out=1)`
   have never executed.
+
+---
+
+## READ(10) — and then the actual bug, reproduced
+
+`RD10.SCR` (`CDB 28 00 00 00 00 00 00 00 01 00 00 00` — READ(10), LBA 0, one block) was run
+unmodified from the same capture set.
+
+**First, the transport.** The media was poisoned with a position-revealing pattern
+(`bytes(range(256)) * 2`) so that zeros could not be mistaken for success — an all-zero image
+would have made a failed read look identical to a clean one. The guest read back:
+
+```
+1000  00 01 02 03 04 05 06 07-08 09 0A 0B 0C 0D 0E 0F
+11F0  F0 F1 F2 F3 F4 F5 F6 F7-F8 F9 FA FB FC FD FE FF
+```
+
+All 512 bytes, in order, through the nibble block-read path. A single dropped or doubled byte
+anywhere in the block would have shifted the pattern visibly.
+
+**Then the bug.** The physical drive fails this same read, and the emulated drive did not —
+because `rdisk_reset()` clears `unit_attention`, so our SRST was wiping the very condition the
+hardware raises. A real ATAPI drive raises a unit attention when it is reset. The bridge now
+does the same, and the two agree:
+
+| | real LS-120 | emulated |
+|---|---|---|
+| error register | `64` | **`64`** |
+| interrupt reason | `03` | **`03`** |
+| byte count | `00 02` | **`00 02`** |
+| status | `51` | `41` (differs only in DSC) |
+| data | all zeros | all zeros — the signature did **not** come through |
+
+Sense key **6, UNIT ATTENTION**. That is the "media is not formatted" failure, now reproducible
+on demand, with the same error register the real drive returns.
+
+`rdisk.c` already implements the whole condition, `ALLOW_UA` included — which is why INQUIRY
+succeeds while READ is refused, exactly as `IMPLEMENTATION.md` §3 describes and exactly as it
+behaved on the bench. **The driver's recovery path can now be developed against this.**
+
+## What this changes for the driver
+
+`IMPLEMENTATION.md` §8 orders the work: restructure to §1, then §3 error handling. Both can now
+be done with a protocol trace in front of you. The one thing that still needs hardware is
+**timing** — the bridge completes immediately and models no drive latency, so the spin-up
+timeout (§4) will never reproduce here.
+
+## Reusable bed
+
+`vm_epat/86box.cfg.master` is the configuration. The guest is any DOS image with
+`C:\WINDOWS\COMMAND\DEBUG.EXE`; the probes are the `.SCR` files in
+`docs/captures/2026-09-11_ls120/`, used **unmodified** so that emulation and hardware exercise
+the same code path.
