@@ -235,3 +235,44 @@ miniport 35% is available to the BIOS.
 maintainers already have an open thread from this project about the register maps
 (`docs/xtide_submission_drafts.md`). Patching and reflashing the card locally risks the
 boot device; upstreaming it does not.
+
+## The XTIDECFG controller list, read off the machine 2026-09-11
+
+Photographed from `XTIDECFG` on the real 5160, XUB 2.1.2 (XT+):
+
+```
+16-bit ISA/VLB/PCI IDE          XT-CF PIO8
+32-bit VLB/PCI IDE              XT-CF PIO8 (BIU offload)
+16-bit ISA IDE in 8-bit mode    XT-CF PIO16 (BIU offload)
+Juko D16-X                      XT-CF DMA (v3 only)
+XTIDE rev 1                     JR-IDE/ISA
+XTIDE rev 2 or modded rev 1     SVC ADP50L
+XTIDE rev 2 (Olivetti M24)      Serial port virtual device
+```
+
+⚠ **This is XUB's capability list, not the card's.** The owner's caution is correct and
+must be carried into any conclusion drawn from it. Three entries matter here:
+
+| entry | why it matters |
+|---|---|
+| **XT-CF PIO8 (BIU offload)** | "BIU offload" means the transfer is done by the CPU's bus interface unit, i.e. **string instructions** - `rep insb`. 186+, which is why the XT+ reflash was needed |
+| **XT-CF PIO16 (BIU offload)** | **word** transfers. This may be XUB already supporting what this project discovered independently - that the Lo-tech card does not decode A0, so `base+1` mirrors the data register and a word access returns two sequential bytes. If so, lever **C1 is a menu selection, not a code change** |
+| **XT-CF DMA (v3 only)** | **the card here IS a Lo-tech rev 3.** Uncosted, and see the caution below |
+| **JR-IDE/ISA** | confirms the memory-mapped option exists in this XUB build (lever E4a) |
+
+### Before changing the device type - two things
+
+**1. Find out what it is set to now.** The menu highlight in the photograph is on the first
+entry, which is very likely just the cursor's initial position rather than the current
+setting. Read the configured value, do not infer it from where the bar happens to sit.
+
+**2. Test in 86Box first, never flash blind.** `hdc_xtide.c` models this card including the
+stride option added for #24, so a device-type change can be exercised in emulation before it
+touches the card. A bad flash costs the boot device; the emulator costs a config line.
+
+### Caution on XT-CF DMA specifically
+
+DMA on this machine is not free money. The 20-bit DMA page reach (technique 62) constrains
+where buffers may live, XT DMA cycles are not obviously faster than PIO on a 4.77 MHz bus,
+and this project already has an open data-corruption issue involving DMA buffers (#18).
+**Cost it before wanting it.**
