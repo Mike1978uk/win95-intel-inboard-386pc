@@ -1,0 +1,88 @@
+# Emulating the EPAT bridge in 86Box — so the LS-120 can be tested in full
+
+Goal, in the owner's words: *"if we could get the media test in emulation also that would be
+epic."* Today every LS-120 iteration costs a boot, often a hard reset, and a trip downstairs.
+This ends that permanently, transport included.
+
+## Why it is tractable — we do not model the drive
+
+**86Box already models the drive.** `src/disk/rdisk.c` carries
+`IMATION / SUPERDISK 120 ATAPI` in its table and implements the whole ATAPI command set on
+top of a generic device layer:
+
+```c
+scsi_device_command_phase0(scsi_device_t *dev, uint8_t *cdb);
+scsi_device_command_phase1(scsi_device_t *dev);
+/* scsi_common_t: packet_status, packet_len, phase, phase_data_out */
+```
+
+The IDE controller is merely one **consumer** of that layer. We write another.
+
+**And 86Box already has a parallel-port device plugin interface.** `include/86box/lpt.h`:
+
+```c
+typedef struct lpt_device_s {
+    void    (*write_data)(uint8_t val, void *priv);      /* w0() */
+    void    (*write_ctrl)(uint8_t val, void *priv);      /* w2() */
+    void    (*strobe)(uint8_t old, uint8_t val, void *priv);
+    uint8_t (*read_status)(void *priv);                  /* r1() - the nibble path */
+    uint8_t (*read_ctrl)(void *priv);                    /* r2() */
+    void    (*epp_write_data)(uint8_t is_addr, uint8_t val, void *priv);
+    void    (*epp_request_read)(uint8_t is_addr, void *priv);
+    void *priv;
+} lpt_device_t;
+```
+
+Attached with `lpt_attach_ex(port, ...)` (`src/device/lpt.c`), the same way printers are.
+There is even a `CHAR_LPT_NIBBLE` flag - 86Box already has the concept.
+
+**So all we write is the bridge**: an EPAT protocol state machine between those port hooks
+and an ATAPI device.
+
+⚠ `RDISK_BUS_LPT = 6` exists in `include/86box/rdisk.h` and is referenced in **no `.c` file at
+all** - likewise `CDROM_BUS_LPT`, `HDD_BUS_LPT`, `MO_BUS_LPT`. It is a declared placeholder.
+Nobody has implemented a parallel-port bridge, so this is new work upstream would not have.
+
+## What the bridge must implement
+
+All of it is already specified and **verified on hardware** in
+`drivers/imation_ls120/TRANSPORT_SPEC.md` - read its index first - with `reference_gpl/epat.c`
+as the cross-check:
+
+| piece | where |
+|---|---|
+| CPP connect / disconnect handshake (`22 AA 55 00 FF 87 78` + mode, commit on nINIT) | §3 |
+| Register addressing: index/data pair `0x0E`/`0x0F`, `cont_map = {0x18, 0x10, 0}` | §4b, §4h |
+| Nibble register read (two nibbles in the top four status bits, `j44`) | §6, §7 |
+| Register write (`0x60`-tagged) | §7 |
+| Block read/write: enter block mode once, alternating **phase bit**, announce last byte | §6 (2026-09-11) |
+| ECP FIFO path at `base+0x400`/`0x402` | §4f |
+| ATA task file behind it, including SRST at container offset `0x16` | §5 |
+
+## Validation — this is the part that makes it safe
+
+**We hold byte-level captures of the real bridge answering the real protocol.**
+`docs/captures/2026-09-11_ls120/` has `INQ9.OUT` returning
+`MATSHITA / LS-120 COSM   04 / 0270`, plus status, interrupt-reason and byte-count readings
+at every phase.
+
+So the emulated bridge is checked by running **our own DOS probes against it** and diffing
+against hardware. If `INQ9` returns the same shape in 86Box, the model is right. That is a
+far stronger test than "it seems to work".
+
+## Order
+
+1. Skeleton `lpt_device_t` that answers the **CPP connect handshake** only. Validate with the
+   connect checkpoints (`B8 58 F0`) already captured.
+2. Register read/write via the index/data pair. Validate: task file returns the ATAPI
+   signature `14 EB` after SRST.
+3. `scsi_device_command_phase0` wiring - a real INQUIRY. Validate against `INQ9.OUT`.
+4. Block read/write with the phase bit. Validate: a sector off a mounted image.
+5. ECP FIFO path.
+
+Each step has a capture to check against before the next begins.
+
+## Then
+
+The LS-120 driver - including **media reads and writes** - is testable without touching the
+5160. And `lpt_epat` becomes something 86Box does not have, so it is contributable.
