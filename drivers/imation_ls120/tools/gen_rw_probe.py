@@ -46,10 +46,12 @@ B, S, C, E = 0x378, 0x379, 0x37A, 0x77A
 CPP4, CPPP, FRAME, NIB, KICK, WR = 0x1800, 0x1810, 0x1820, 0x18A0, 0x18D0, 0x18F0
 WBSY, WBSYL, WBSYE = 0x1920, 0x1930, 0x1950
 WDRQ, WDRQL, WDRQE = 0x1960, 0x1970, 0x1990
-BR, BRH, BRB, BRJ, BRE, BRL = 0x1A00, 0x1A30, 0x1A50, 0x1A80, 0x1AA0, 0x1AC0
-BW, BWL, BWE = 0x1B00, 0x1B30, 0x1B50
-DLY, DLYL, DLYE = 0x1B70, 0x1B80, 0x1B90
-PAT, PATL = 0x1BA0, 0x1BC0
+BR, BR2, BRH, BRB, BRJ, BRE, BRL = (
+    0x1A00, 0x1A10, 0x1A30, 0x1A50, 0x1A80, 0x1AA0, 0x1AC0)
+XFER_MAX = 0x200          # no buffer in this probe is larger
+BW, BWC, BWL, BWE = 0x1B00, 0x1B20, 0x1B40, 0x1B60
+DLY, DLYL, DLYE = 0x1B80, 0x1B90, 0x1BA0
+PAT, PATL = 0x1BB0, 0x1BD0
 
 CDBS = 0x1C00   # five 12-byte CDBs, 0x20 apart
 BUF_INQ, BUF_SENSE, BUF_SECTOR, BUF_PATTERN, BUF_BACK = (
@@ -58,6 +60,30 @@ BUF_INQ, BUF_SENSE, BUF_SECTOR, BUF_PATTERN, BUF_BACK = (
 
 def blk(a, i):
     return ["a %04X" % a] + i + [""]
+
+
+def isize(ins):
+    """Encoded length of the instruction forms this probe emits.
+
+    Used only by the layout check. Unknown forms return 4, which is an upper
+    bound for everything here, so a mistake makes the check stricter rather
+    than letting an overlap through.
+    """
+    t = ins.replace(" ", "")
+    if t in ("ret",): return 1
+    if t in ("cli", "sti"): return 1
+    if t.startswith(("push", "pop")): return 1
+    if t.startswith(("incsi", "incdi", "deccx")): return 1
+    if t in ("outdx,al", "inal,dx"): return 1
+    if t.startswith(("call", "jmp")): return 3
+    if t[:2] in ("jz", "jn", "jb") or t.startswith("jcxz"): return 2
+    if t.startswith(("cmpcx,", "addcx,", "andcx,")): return 4
+    if t.startswith("mov[") and ",cx" in t: return 4
+    if t.startswith("mov["): return 3
+    if t.startswith("xorbh,0"): return 3
+    for r in ("movdx,", "movax,", "movcx,", "movsi,", "movdi,", "movbx,"):
+        if t.startswith(r): return 3
+    return 2
 
 
 def packet(cdb, buf, ln, slot, out=False):
@@ -140,7 +166,10 @@ def build():
     # Block read. SI = destination, CX = count. JCXZ guard: a device that
     # offers nothing gives cx=0, and without this the loop runs 65536 times
     # and walks over the probe's own code. That wedged the box once.
-    setup = ["jcxz %04X" % BRE, "cli",
+    setup = ["jcxz %04X" % BRE,
+             "cmp cx,%04X" % XFER_MAX, "jbe %04X" % BR2,
+             "mov cx,%04X" % XFER_MAX, "jmp %04X" % BR2]
+    setup2 = ["cli",
              "mov dx,%04X" % B, "mov al,07", "out dx,al",
              "mov dx,%04X" % C, "mov al,01", "out dx,al",
              "mov al,03", "out dx,al",
@@ -159,7 +188,10 @@ def build():
              "mov dx,%04X" % C, "mov al,04", "out dx,al", "sti", "ret"]
     lastb = ["mov dx,%04X" % B, "mov al,FD", "out dx,al", "jmp %04X" % BRB]
 
-    bw = ["jcxz %04X" % BWE, "cli",
+    bw = ["jcxz %04X" % BWE,
+          "cmp cx,%04X" % XFER_MAX, "jbe %04X" % BWC,
+          "mov cx,%04X" % XFER_MAX, "jmp %04X" % BWC]
+    bwc = ["cli",
           "mov dx,%04X" % B, "mov al,67", "out dx,al",
           "mov dx,%04X" % C, "mov al,01", "out dx,al",
           "mov al,05", "out dx,al", "xor bh,bh", "jmp %04X" % BWL]
@@ -183,9 +215,9 @@ def build():
                        "and al,01", "jnz %04X" % WDRQE,
                        "dec cx", "jnz %04X" % WDRQL, "jmp %04X" % WDRQE])
          + blk(WDRQE, ["pop cx", "ret"])
-         + blk(BR, setup) + blk(BRH, head) + blk(BRB, body) + blk(BRJ, join)
+         + blk(BR, setup) + blk(BR2, setup2) + blk(BRH, head) + blk(BRB, body) + blk(BRJ, join)
          + blk(BRE, leave) + blk(BRL, lastb)
-         + blk(BW, bw) + blk(BWL, bwl) + blk(BWE, bwe)
+         + blk(BW, bw) + blk(BWC, bwc) + blk(BWL, bwl) + blk(BWE, bwe)
          + blk(DLY, ["push cx", "push dx", "mov cx,00B4", "mov dx,0080",
                      "jmp %04X" % DLYL])
          + blk(DLYL, ["in al,dx", "dec cx", "jnz %04X" % DLYL,
@@ -205,6 +237,21 @@ def build():
     ]
     for i, c in enumerate(cdbs):
         l += ["e %04X %s" % (CDBS + i * 0x20, c), ""]
+
+    # Layout check - refuse to emit a script whose blocks overlap.
+    starts = [(int(x[2:], 16), n) for n, x in enumerate(l) if x.startswith("a ")]
+    for i, (addr, n) in enumerate(starts):
+        count = 0
+        for x in l[n + 1:]:
+            if not x or x.startswith("a ") or x.startswith("e "):
+                break
+            count += 1
+        limit = starts[i + 1][0] if i + 1 < len(starts) else CDBS
+        need = sum(isize(x) for x in l[n + 1:n + 1 + count])
+        if addr + need > limit:
+            raise SystemExit(
+                "block %04X: %d instructions need up to %d bytes, "
+                "next block starts at %04X" % (addr, count, need, limit))
 
     l += ["g=100",
           "d 600 647",
