@@ -1074,3 +1074,44 @@ AUTOEXEC scrolls it away otherwise; stepping pauses on each line so it stays on 
 Module versions in the image: `ATAPI LS-120 module V5.23b` (23 Apr 1997),
 `EPATRM Device Module 5.32b` (28 Apr 1997), and the bridge's own
 `S H U T T L E   E P A T` banner.
+
+## 10. MEASURED 2026-09-11: the vendor negotiates **ECP**, we implement **nibble**
+
+The vendor DOS driver was loaded with `/sf` removed (fast-mode detection ON) and read under
+F8 step-by-step confirmation on the real 5160. It reported:
+
+```
+    Read  Mode : ECP Read
+    Write Mode : ECP Write
+```
+
+**Our driver implements `NIBBLE Normal` (read selector 0) and `WRITE Normal` (write
+selector 0)** - section 7 of this document. Those are the bottom rung of both ladders. On
+this exact machine, cable and bridge the vendor's own detection chose **ECP for both
+directions**, which is the top.
+
+This is not a tuning difference, it is a different transport:
+
+| | accesses per byte | mechanism |
+|---|---|---|
+| NIBBLE Normal | ~4 | address, strobe, read high nibble, strobe, read low nibble, combine |
+| ECP | ~1 | `rep insb`/`rep outsb` on the ECP FIFO at `base+402h`, the **hardware** does the handshake |
+
+Technique 108 already recorded the mechanism - *"sector data moves through `rep insb` /
+`rep outsb` on the ECP FIFO (`0x4465`, `0x4BD3` in `SD120PPD.SYS`) after setting the control
+direction bit"* - and that section already says the control path and the speed path are
+different code. **What is new is that the vendor picks ECP here, in practice, not merely
+that it can.**
+
+⚠ **Consequence for the driver:** getting the current nibble build working is necessary but
+not sufficient. Even when it reads and writes correctly it will be several times slower
+than the vendor's until it speaks ECP. ECP belongs on the roadmap immediately after
+correctness, not as a later optimisation.
+
+⚠ **And the warning from technique 108 still stands:** the vendor's DMA-assisted block path
+writes `0x22`/`0x23`, which alias onto the 8259 on this XT and are the #22 keyboard-killer -
+and those writes are in the **transfer** path, not merely in the chipset init that `/ni`
+skips. Adopt the ECP FIFO path; do **not** adopt the DMA block path.
+
+Bridge banner from the same image, for the record: `S H U T T L E   E P A T`,
+`ATAPI LS-120 module V5.23b` (23 Apr 1997), `EPATRM Device Module 5.32b` (28 Apr 1997).
