@@ -257,3 +257,41 @@ for the Windows path. His own caution stands: ~150 KB of code, extra CPU, and
 
 Shipped for XT-IDE (35% read / 33% write). Not yet applied to the Trantor T130B, which
 already imports `ScsiPortRead/WritePortBufferUshort` - see the ranked table above.
+
+### E4a. The memory-mapped card exists, XUB supports it, and 86Box already models it
+
+Following E4. The XT-CF cannot do this - it decodes I/O `0x300-0x31F` and its only memory
+window is the option ROM socket at `D8000`, with no write path. But **JR-IDE/ISA** is a
+period-correct memory-mapped IDE adapter for the PCjr/XT, XTIDE Universal BIOS drives it,
+and **86Box models it in full** (`src/disk/hdc_xtide.c`):
+
+```c
+#define JRIDE_DATA_WINDOW_OFFSET   0x3a00   // IDE data window
+#define JRIDE_DATA_WINDOW_SIZE     0x0200   // 512 bytes - a whole sector
+#define JRIDE_CS0_OFFSET           0x3c00   // task file, memory-mapped
+#define JRIDE_CS1_OFFSET           0x3c08
+#define JRIDE_SCRATCH_OFFSET       0x3c12
+```
+
+Task file **and** data register in a memory window. A sector transfer becomes a `rep movsw`
+out of memory rather than 512 I/O cycles.
+
+**Predicted from E4's measurements**, per 512-byte sector data phase:
+
+| path | us/byte | per sector |
+|---|---|---|
+| I/O `rep insw` (shipped XT-IDE) | 1.910 | 978 us |
+| memory window, at video-RAM cost | 0.454 | 232 us |
+
+**~4.2x on the data phase, and it costs nothing to test** - `hdc_xtide.c` needs only a
+config change, exactly as the stride-1 bed did for #24 (technique 100's addendum: enumerate
+what the emulator already models before declaring something untestable).
+
+**What it needs from us:** a memory-mapped transport in `XTIDEMP.MPD`. That is a real
+driver project, but it is the one piece of E4 that is software, and the emulator can prove
+the gain before any hardware is sourced.
+
+⚠ Two caveats to design for. Andrew's: **the Inboard must not shadow the window** the card
+lives behind - the `0x5E0000`/`0x5F0000` machinery, techniques 66/67/72. And ours: the
+measured 0.454 us/byte is **video RAM**, which has CRTC contention; system ROM measured
+0.270. A JR-IDE window may land anywhere between, so treat 4.2x as the conservative end.
