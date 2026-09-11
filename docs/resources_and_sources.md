@@ -259,3 +259,51 @@ What it does **not** contain: anything about 8-bit ATA task-file addressing or t
 stride. It is a PC Card/USB device; the value is the IOS-side contract, not the transport.
 
 Not vendored - it is a live MIT upstream. Clone it beside this repo to read it.
+
+## Undocumented DOS commands — MULTITRACK and DRIVPARM (added 2026-09-11)
+
+<https://viric.name/oldcomps/files/DOS-undoc.txt> — supplied by the owner. An **undocumented
+commands** reference for DOS 2.x-7.x, not an internals reference.
+
+**What it does NOT contain**, recorded so nobody re-reads it hoping: nothing on disk BUFFERS
+or HMA placement, `DOS=HIGH`, the Current Directory Structure / `LASTDRIVE`, the List of
+Lists, or `FILES`/SFT. It is a command list.
+
+**Two entries land on open work here.**
+
+### `DRIVPARM` — a candidate fix for the floppy geometry problem
+
+> *"Documented in DOS 4.0 through 6.x; undocumented in DOS 3.2, 3.3, PC DOS 7, and PC DOS
+> 2000."*
+
+A `CONFIG.SYS` directive that **overrides the drive parameters DOS takes from the BIOS**.
+
+Issue #25 established (technique 101 addendum) that `INT 13h AH=08h` reports **720K for both
+floppies** while `INT 40h` reports the truth - 1.44M for A: and 1.2M for B:. The wrong answer
+comes from a ROM in the option-ROM chain, and promoting the floppy card's own handler onto
+INT 13h was ruled out because its handler fails every `DL >= 0x80` call, which would break
+the XT-CF.
+
+**`DRIVPARM` sidesteps that entirely** by telling DOS the geometry directly rather than
+fixing who answers INT 13h. **Not tested.** Untested caveats: it configures DOS's view, so
+it will not help anything that calls INT 13h itself, and Windows 95's own floppy driver may
+or may not honour it.
+
+### `MULTITRACK` — already ON, but a candidate variable for #18
+
+> *"Default: MULTITRACK=ON. Starting with DOS 4.0 [...] reading and writing of more than one
+> track with a single BIOS call has been implemented. But some problems have been observed
+> with hard disk drives of some manufacturers. So the MULTITRACK=OFF option limits disk
+> access to a single track."*
+
+Not present in this machine's `CONFIG.SYS`, so it is at the default **ON**. Nothing to change
+- and worth knowing it is the DOS-side form of the command-merging lever
+(`docs/bus_optimisation_plan.md` B1): fewer, larger BIOS calls.
+
+⚠ **But it changes how reads are issued across track boundaries, which makes it a variable
+worth holding constant - or deliberately toggling - in the #18 floppy-corruption bed.** That
+issue's recorded trigger is a media change flushing a stale cache page to the wrong disk, and
+multi-track requests are exactly the shape of access that spans what a cache page covers.
+
+Also in the file, not relevant here: `AVAILDEV` (removed after DOS 3.0), `SWITCHAR`
+(gone after DOS 3.0, still reachable via INT 21h AH=37h).
