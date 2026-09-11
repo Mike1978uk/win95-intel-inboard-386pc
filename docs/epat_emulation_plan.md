@@ -86,3 +86,44 @@ Each step has a capture to check against before the next begins.
 
 The LS-120 driver - including **media reads and writes** - is testable without touching the
 5160. And `lpt_epat` becomes something 86Box does not have, so it is contributable.
+
+## CORRECTION — I/O timing IS modelled, and the caveat about it was wrong
+
+An earlier version of this plan said emulation "will not reproduce the Inboard's 5.55 us per
+I/O access". **That was asserted from a general belief about emulators, not from reading the
+one this project wrote.** `src/device/inboard386.c` models it explicitly:
+
+```c
+inboard386_apply_io_waitstates(void)
+    if (cpu_busspeed <= 4772728.0) { io_waitstates = 0; return; }
+    ratio = cpu_busspeed / 4772728.0;
+    extra = (int) ((11.0 * ratio) - 11.0 + 0.5);
+```
+
+with a comment reading *"which real ISA-bus hardware paces independently of CPU speed"*, and
+`inboard386_apply_mem_timing()` doing the same for memory cycles with bus-speed-ratio
+scaling. **The mechanism behind the 3.90 us fixed per-access cost is deliberately modelled.**
+
+The owner's challenge was the right one: *"we have emulated the inboard - if it's not good
+for this then why have we had so much success already"*. The record supports him. Every
+"emulation cannot reproduce this" in this project's history turned out to be an **incomplete
+model**, not a limit of emulation:
+
+| claimed limit | what it actually was |
+|---|---|
+| shutdown hang would not reproduce | `hdc_xtide.c` decoded stride 1; the card is stride 2. Fixed the model, reproduced at once (technique 90) |
+| keyboard latch bug masked | `kbc_xt.c`'s self-heal, which real hardware does not have (technique 37) |
+| 8259 aliasing invisible | simply not modelled (technique 75) |
+
+### The open question is a MEASUREMENT, not an argument
+
+Run the technique-109 timing probe in 86Box - the one that measured **5.55 us per 8-bit I/O
+access** on the real 5160, twice, agreeing to 0.4% - and compare. `RMTMB4.OUT` / `RMTMAF.OUT`
+and the memory-vs-I/O figures give several more points to check against.
+
+If the emulated figure lands near 5.55, then the timing class of failure (spin-up waits,
+abandoned commands, SCSIPORT timeouts) reproduces as well, and emulation covers effectively
+the whole surface rather than "everything except timing".
+
+If it does not, that is a **calibration** task on a model that already has the right shape -
+technique 5's bisect-against-a-real-measurement - not a reason to go back to the bench.
