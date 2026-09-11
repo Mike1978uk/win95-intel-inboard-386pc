@@ -956,3 +956,61 @@ Raising the constant alone is wrong: an 8-second wait inside `HwStartIo` is tech
 98's "a user would switch it off". This is what makes deferred completion
 (`ScsiPortNotification` with `RequestTimerCall`, as in the DDK's `PC2X.C`) a correctness
 requirement rather than a responsiveness nicety.
+
+## 8. The vendor's architecture, read out of SD120PPD.MPD (2026-09-11)
+
+Obtained with `tools/pedis.py` in three commands and no hardware. This should have been
+done before the driver was written, not after a day of iterations.
+
+**`HwInitialize` (rva 0x3277) is twenty instructions and issues NO device I/O.**
+
+```
+mov cx,[0x21784]          ; a config word
+mov esi,[esp+8]           ; ConfigInfo
+call 0x2794 / 0x27a1 / 0x2799
+push esi / push 3 / call ScsiPortNotification
+mov [esi+8],ecx / mov [esi+0x10],cl
+mov al,1                  ; TRUE, unconditionally
+ret 4
+```
+
+No reset, no INQUIRY, no sense. Ours does an ECR mask, a control kick, four CPP
+preambles, a connect, an ATA soft reset, register reads, an INQUIRY and a sense drain -
+all inside `HwInitialize`. That is why init cost 133 ticks against the vendor's, and why
+adding the sense drain stalled the boot outright.
+
+**`HwStartIo` (rva 0x29ac) dispatches on the SRB Function and returns without completing.**
+Four functions handled - `0x00` EXECUTE_SCSI, `0x02` IO_CONTROL, `0x10` ABORT_COMMAND,
+`0x12` RESET_BUS - everything else gets `SrbStatus = 6`, INVALID_REQUEST. We handle one.
+
+**It polls on a timer, not by blocking.** `0x281a` is a thunk,
+`jmp dword ptr [0x21878]`, which is the IAT slot for `ScsiPortNotification`. At 0x2854:
+
+```
+push 0x3e8        ; 1000 microseconds
+push 0x148bb      ; the timer callback
+push <DevExt>
+push 6            ; RequestTimerCall
+call ScsiPortNotification
+```
+
+reached after `call 0x2892` (HwInterrupt) returns FALSE - i.e. **poll, and re-arm every
+1 ms until the command finishes.** The same shape as the DDK's `PC2X.C` (`PC2xTimer`).
+**Two independent implementations agree and we match neither.**
+
+### What this means for our driver
+
+Every "allow more time" change made things worse, because the time was being spent inside
+`HwInitialize` and `HwStartIo`, where the OS expects neither. The restructure is not an
+optimisation, it is the architecture:
+
+1. **`LS_BringUp` comes out of `HwInitialize` entirely.** Return TRUE and touch nothing.
+2. **`HwStartIo` starts a command and returns.** No inline completion, no spin loops.
+3. **A timer handler advances a state machine**, re-armed with
+   `ScsiPortNotification(RequestTimerCall, devext, handler, 1000)`, completing the SRB
+   only when the device is actually done. This is where the unit-attention retry and the
+   spin-up wait belong - asynchronously, costing the system nothing.
+4. **Answer ABORT_COMMAND and RESET_BUS**, which is the class driver's recovery path.
+
+`ScsiPortStallExecution` is imported by the vendor too, so short in-command delays are
+legitimate; it is the multi-second ones that must be deferred.
