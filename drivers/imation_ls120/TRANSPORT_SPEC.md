@@ -1014,3 +1014,63 @@ optimisation, it is the architecture:
 
 `ScsiPortStallExecution` is imported by the vendor too, so short in-command delays are
 legitimate; it is the multi-second ones that must be deferred.
+
+## 9. The vendor ships a 12x5 MODE MATRIX and we implemented the slowest rung
+
+From the full string pass over `SD120PPD.SYS` (technique 112). This is not about our bug -
+it is what Shuttle did that we never considered.
+
+**The driver prints the modes it negotiated**, at `0x66FC` and `0x670E`:
+
+```
+    Read  Mode :
+    Write Mode :
+```
+
+So "which transfer mode works on this bridge, on this machine, with this cable" is a
+question the vendor answers out loud at load time. We had been deducing it.
+
+**And the switches expose the whole matrix** (`/rx` read 0-11, `/wy` write 0-4):
+
+| read modes (0x3901+) | write modes (0x4833+) |
+|---|---|
+| UNIDIR Fast / Normal / Slow / two wait | WRITE Fast |
+| **NIBBLE Fast** / **NIBBLE Normal** / Slow / Slow(-) | **WRITE Normal** |
+| TOSHIBA Fast / Normal | WRITE Fast(+) |
+| PS/2 Fast / Normal | WRITE Slow / Slow(-) |
+| EPP BIOS(F) / EPP Fast / EPP Normal / ECP Read | |
+
+Section 7 of this document records our implementation as **read selector 0 = NIBBLE
+Normal** and **write selector 0 = WRITE Normal**. Those are the baseline of each ladder.
+There are faster rungs above both, and an ECP path, that we never knew existed.
+
+**The owner's DOS line had been disabling the negotiation:**
+
+```
+/port:378 /IRQ:7 /de /db /ni /sf /dpc /dp /fp
+                             ^^^ /sf - "Skips fast mode detection"
+```
+
+Staged 2026-09-11 with `/sf` removed (backup `D:\CONFIG.B4SF`), so the next DOS boot
+reports what this hardware can actually do. `/ni` stays - that is what keeps the chipset
+probe off the 8259 (technique 75).
+
+**Read it with F8 -> step-by-step confirmation.** The print happens during CONFIG.SYS and
+AUTOEXEC scrolls it away otherwise; stepping pauses on each line so it stays on screen.
+
+### Other switches worth knowing, from the same pass
+
+| switch | effect |
+|---|---|
+| `/rx` | force read mode, x = 0..11 |
+| `/wy` | force write mode, y = 0..4 |
+| `/sf` | skip fast-mode detection |
+| `/dm` | disable read multiple mode |
+| `/di` | operate in polled mode |
+| `/pd` | enable power down operation |
+| `/ded` | disable EPP dword transfers |
+| `/fe`, `/fev` | force 386SL / VLSI EPP init |
+
+Module versions in the image: `ATAPI LS-120 module V5.23b` (23 Apr 1997),
+`EPATRM Device Module 5.32b` (28 Apr 1997), and the bridge's own
+`S H U T T L E   E P A T` banner.
