@@ -87,28 +87,62 @@ and they are **still unopened**. That is the cheapest way into this layer and no
 wrong way it is the largest single lever in this document - a tax paid by every driver in the
 stack on every buffer access.
 
-### E1. Where does conventional memory actually live?  **ATTEMPTED 2026-09-11, RE-RUN NEEDED**
+### E1. Where does conventional memory actually live?  **CLOSED 2026-09-11**
 
-If the Inboard backfills the low 640 KB from card RAM, memory access is local and there is
-nothing to win. If the 5160's own DRAM still serves it, **every access to a low buffer
-crosses the bus** - an invisible tax on every driver, made worse because the 20-bit DMA
-reach forces DMA buffers low.
+**Answered, and acted on.** Intel's own Inboard manual requires it for a 5160:
 
-Test: time a tight read loop against conventional memory vs two references that are
-definitely across the bus - video RAM (`B800`) and system ROM (`F000`). Both are below 1 MB,
-so no protected mode is needed. Script: `docs/captures/2026-09-11_ls120/RAMTIME.SCR`.
+> "You must disable conventional memory on the system board down to 256K bytes. Use a
+> ballpoint pen to set switches 3 and 4 on the system board to ON."
 
-**First attempt's numbers are not trustworthy** - `FFFF` and `12FB` BIOS ticks are impossible
-for a run that took seconds. What survives is directional: both conventional regions completed
-in under one tick while both bus references took many, which points at conventional memory
-being local to the Inboard and would close E1 as "no action". Re-run with PIT channel 0 latch
-reads instead of the BIOS tick before believing it.
+The machine had been running SW1-3/4 **Off/Off** - all four banks, 640 KB of planar DRAM,
+the Inboard backfilling nothing. Now On/On: 256 KB planar, **384 KB served from the card**.
+POST still counts 640 KB, which is the backfill confirmed.
 
-If they differ, the action is *not* "stop using motherboard RAM" - DOS and Windows need
-conventional memory and the decoding is fixed in hardware. It is **move everything that
-does not have to be low into Inboard RAM**: disk caches, driver buffers, working sets.
-Only DMA buffers are genuinely pinned. An `INBRDPC.SYS` angle is plausible *after* this
-measurement, not before.
+Sources: modem7 and cimonvg in
+<https://forum.vcfed.org/index.php?threads/memory-layout-for-a-intel-inboard-386-pc.1257324/>
+and <https://forum.vcfed.org/index.php?threads/windows-3-1-w-intel-inboard-386-pc-vxd-issue.79730/page-2>.
+Note the 5150 is different and its advice does not transfer - *"The 5150 motherboard's RAM
+sockets are permanently enabled"*; only the 5160 routes those switch signals to bank enables.
+
+**Measured read speed: no change at all.** `RMTMB4.OUT` / `RMTMAF.OUT`, 32 KB linear sweep,
+PIT channel 0, captures in `docs/captures/2026-09-11_ls120/`:
+
+| region | before | after | delta |
+|---|---|---|---|
+| seg `1000` (64K - planar either way) | 5286 | 5284 | -2 |
+| seg `8000` (512K - planar, then Inboard) | **5290** | **5290** | **0** |
+| `B800` video | 16650 | 17740 | +1090 |
+| `F000` ROM | 10552 | 10552 | 0 |
+
+`F000` identical across two separate boots puts the noise floor at +/-2 ticks, so zero is a
+real null. Both conventional regions read 135 ns/byte throughout.
+
+**Why that does not make the change worthless, and why we stopped measuring.** A linear
+sweep is the one pattern a line-fill cache hides - one miss pulls a line, the next reads
+are hits, and the bus cost is amortised away. The test measures CPU-visible latency; this
+track is about **bus occupancy**, which it cannot see. A strided retest was written
+(`gen_ramstride.py`, `RMTMST.SCR` staged on the card) and **deliberately not run**: the
+owner's call, and it is right, because no outcome changes the decision.
+
+The gain is structural, not a latency win: **conventional memory that crosses the bus fell
+from 640 KB to 256 KB.** Every access that used to land between 256 KB and 640 KB now stays
+on the card. That is a 60% reduction in the conventional-memory footprint on the shared bus,
+and by this document's own standing principle it is worth taking whether or not a read loop
+can see it.
+
+**Can we skip the remaining 256 KB entirely? No, and it may not be desirable.**
+The bottom of memory is where the IVT, the BDA, IO.SYS/MSDOS.SYS, every `CONFIG.SYS`
+real-mode driver and COMMAND.COM must live; DOS fills from the bottom up. Windows 95 has no
+knob to exclude a physical low-RAM range (`EMMExclude` covers `A000-FFFF`, not low RAM).
+
+And the inversion worth keeping: **planar DRAM is arguably the right home for DMA buffers.**
+They are read by the DMA controller from the bus side, so a buffer in Inboard RAM makes every
+DMA cycle cross onto the card, competing with the CPU. Kept in the planar 256 KB it does not -
+and the 20-bit DMA reach (technique 62) forces those buffers low anyway. DOS puts them there
+by default. So the current configuration is close to the right split by accident, and
+"as good as it gets" is probably better than neutral.
+
+**Action: switches stay On/On. E1 needs no further measurement.**
 
 ### E2. What is already shadowed?
 
