@@ -161,8 +161,16 @@ ATAPI_PACKET_LEN	equ	12
 ;  slower (a spin-up) belongs to the class driver and its own timeout. The
 ;  DDK's PC2X sample bounds its waits in TIME, calling ScsiPortStallExecution(1)
 ;  per turn so the count IS microseconds - the right shape, worth adopting.
-LS_SPIN_BSY		equ	22000		; ~1.0 s
-LS_SPIN_DRQ		equ	11000		; ~0.5 s
+;  RESIZED 2026-09-11 for the restructure. These no longer have to cover a
+;  spin-up, because LS_ST_READY in the miniport's timer waits for the drive
+;  to stop being busy BEFORE a command is issued, one poll per 1 ms tick.
+;  What is left here is the latency of a command the drive has already
+;  accepted, which is milliseconds. Sizing them for the worst case was what
+;  made a single tick block for a second at a time.
+;
+;  ~44 us per nibble register read, so 2000 = ~90 ms and 1000 = ~45 ms.
+LS_SPIN_BSY		equ	2000		; ~90 ms
+LS_SPIN_DRQ		equ	1000		; ~45 ms
 
 	.DATA
 
@@ -1064,6 +1072,8 @@ lda_loop:
 	ret
 
 public LS_PacketCommand
+public LS_ColdStart
+public LS_ReadyPoll
 LS_PacketCommand:
 
 	push	ebp
@@ -1241,6 +1251,112 @@ lpc_fail:
 	pop	esi
 	pop	ebx
 	pop	ebp
+	stc
+	ret
+
+
+;----------------------------------------------------------------------------
+; LS_ColdStart - open the bridge and take the drive out of reset. Nothing more.
+;
+;   Out:  CF=0 if the drive answered with the ATAPI signature
+;   Uses: EAX, ECX, EDX
+;
+;   This is LS_BringUp with the INQUIRY and the sense drain removed, and it
+;   exists because those two do not belong in a bring-up at all:
+;
+;     - The class driver issues its own INQUIRY. Ours only ever existed to
+;       put something in BOOTLOG.TXT, which was the only diagnostic channel
+;       available before the 86Box bridge existed. It is not any more.
+;     - The sense drain is the unit attention the soft reset itself raises.
+;       Draining it here HIDES it from the class driver, which is entitled
+;       to see it and will retry. Reporting CHECK CONDITION properly is the
+;       correct handling, and that now lives in the state machine.
+;
+;   What is left is only what the hardware genuinely requires: the drive
+;   powers up held in ATA reset and answers nothing until SRST is pulsed.
+;   TRANSPORT_SPEC.md section 5.
+;----------------------------------------------------------------------------
+LS_ColdStart:
+	movzx	edx, LS_BasePort
+	add	edx, LPT_ECP_ECR
+	in	al, dx
+	and	al, ECR_KEEP_MASK
+	out	dx, al
+	movzx	edx, LS_BasePort
+	add	edx, LPT_CONTROL
+	mov	al, LPT_CT_NINIT
+	out	dx, al
+	mov	al, LPT_CT_NINIT OR LPT_CT_SELIN
+	out	dx, al
+	mov	al, LPT_CT_NINIT OR LPT_CT_SELIN OR LPT_CT_AUTOFD
+	out	dx, al
+	out	dx, al
+	out	dx, al
+	mov	al, LPT_CT_NINIT
+	out	dx, al
+	out	dx, al
+	mov	al, CPP_PRE1
+	call	LS_CppFrame
+	mov	al, CPP_PRE2
+	call	LS_CppFrame
+	mov	al, CPP_PRE3
+	call	LS_CppFrame
+	mov	al, CPP_PRE4
+	call	LS_CppFrame
+	mov	al, CPP_CONNECT
+	call	LS_CppFrame
+	mov	LS_Connected, 1
+	call	LS_AtaSoftReset
+	jc	lcs_fail
+	mov	al, ATA_REG_BCLO
+	call	LS_RegRead
+	jc	lcs_fail
+	cmp	al, ATAPI_SIG_LO
+	jne	lcs_fail
+	mov	al, ATA_REG_BCHI
+	call	LS_RegRead
+	jc	lcs_fail
+	cmp	al, ATAPI_SIG_HI
+	jne	lcs_fail
+	call	LS_Disconnect
+	clc
+	ret
+lcs_fail:
+	call	LS_Disconnect
+	stc
+	ret
+
+;----------------------------------------------------------------------------
+; LS_ReadyPoll - is the drive willing to take a command RIGHT NOW?
+;
+;   Out:  CF=0 and ZF=1  drive is idle (BSY and DRQ both clear)
+;         CF=0 and ZF=0  still busy - the caller should try again next tick
+;         CF=1           the bridge did not answer at all
+;   Uses: EAX, ECX, EDX
+;
+;   ONE status read, then the port is released. This is the whole point of
+;   the restructure: a drive that is spinning up is waited for across many
+;   1 ms ticks, costing the system nothing, instead of inside a spin loop
+;   that holds the CPU for a second at a time. pf.c allows 8 seconds here
+;   (PF_SPIN) and so does the caller, as a tick budget.
+;----------------------------------------------------------------------------
+LS_ReadyPoll:
+	cmp	LS_Connected, 0
+	jne	lrp_have
+	call	LS_Connect
+	jc	lrp_fail
+lrp_have:
+	mov	al, ATA_REG_STATUS
+	call	LS_RegRead
+	jc	lrp_fail
+	mov	LS_LastStatus, eax
+	call	LS_Disconnect
+	mov	eax, LS_LastStatus
+	test	al, ATA_ST_BSY OR ATA_ST_DRQ
+	clc
+	ret
+lrp_fail:
+	call	LS_Disconnect
 	stc
 	ret
 

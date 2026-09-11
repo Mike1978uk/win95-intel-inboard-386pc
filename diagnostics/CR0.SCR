@@ -1,0 +1,28 @@
+; CR0.CD / CR0.NW - is the L1 cache actually enabled?
+;
+; Answers red-ray's question on VOGONS directly:
+;   https://www.vogons.org/viewtopic.php?p=1444124#p1444124
+;
+; DEBUG's assembler does not know control-register syntax, so the three
+; instructions are entered as bytes:
+;
+;   0F 20 C0          mov eax, cr0
+;   66 A3 00 06       mov dword ptr [0600], eax
+;   CC                int 3
+;
+; Read the DWORD at 0600 little-endian. In CR0:
+;   bit 30 (CD) = Cache Disable   - 1 means the cache is OFF
+;   bit 29 (NW) = Not Write-through
+;   cache fully enabled is CD=0 and NW=0, ie the top byte has neither
+;   0x40 nor 0x20 set.
+;
+; So in the dump, byte 3 (the fourth byte shown):
+;   .0......b  -> CD clear, cache enabled
+;   .1......b  -> CD set,   cache DISABLED
+
+e 100 0F 20 C0 66 A3 00 06 CC
+e 600 AA AA AA AA
+u 100 108
+g=100
+d 600 603
+q

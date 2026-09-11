@@ -187,6 +187,9 @@ extern void rdisk_reset(scsi_common_t *sc);
 extern int  rdisk_is_empty(const uint8_t id);
 extern void rdisk_load(const rdisk_t *dev, const char *fn, const int skip_insert);
 extern void rdisk_close(void);
+#ifdef SCSI_DEVICE_H
+extern scsi_device_t *rdisk_get_lpt_device(const uint8_t port);
+#endif
 
 #ifdef __cplusplus
 }

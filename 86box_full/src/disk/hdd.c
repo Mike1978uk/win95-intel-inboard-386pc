@@ -60,6 +60,10 @@ hdd_string_to_bus(char *str, int cdrom)
     if (!strcmp(str, "atapi"))
         return HDD_BUS_ATAPI;
 
+    /* Removable disks only: reached through a parallel-port bridge. */
+    if (!strcmp(str, "lpt") && cdrom)
+        return CDROM_BUS_LPT;
+
     if (!strcmp(str, "xta"))
         return HDD_BUS_XTA;
 
@@ -105,6 +109,11 @@ hdd_bus_to_string(int bus, int cdrom)
 
         case HDD_BUS_ATAPI:
             s = "atapi";
+            break;
+
+        case CDROM_BUS_LPT:
+            if (cdrom)
+                s = "lpt";
             break;
 
         case HDD_BUS_SCSI:
