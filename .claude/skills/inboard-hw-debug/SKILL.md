@@ -6599,3 +6599,45 @@ For the LS-120 specifically, `drivers/imation_ls120_mpd/IMPLEMENTATION.md` is th
 build specification - architecture, command sequence, error handling, timing, transports,
 and a known-wrong list. **Read it before writing driver code or running anything on
 hardware.**
+
+## Technique 114: for a new `.COM`, check the first instruction at `0100h` before anything else
+
+2026-09-07, `FD08FIX.COM`. Two boot hangs on the owner's real machine, from a defect that
+**disassembling the binary could not catch** - because the binary was a faithful rendering of a
+wrong layout.
+
+A `.COM` begins executing at `0100h`. v1 and v2 both put the resident *interrupt handler* there,
+so DOS ran the handler as the program's entry point. `AH` was not `08h`, so it took the chain
+path - `jmp far [cs:old13]` - while `old13` still held the file's zero bytes. A far jump to
+`0000:0000`, executing the interrupt vector table as code. The machine died **before the handler
+was ever installed**, which is why no banner ever printed.
+
+```
+If the first instruction at 0100h is not a jump to the setup code, nothing after it matters.
+```
+
+One line of disassembly. It would have caught this before the file ever reached the machine.
+
+### The half of this that is a diagnosis failure, not a coding one
+
+The first hang was written up as settled: `retf 2` discards the stacked FLAGS, so the handler
+returned with IF clear and killed the timer. That explanation **fitted every symptom and was
+never reproduced**. When v2 was finally run by hand it wedged the shell instantly *printing
+nothing*, while COMrade stayed responsive at 25 ms RTT - interrupts were plainly fine, which by
+itself disproves the IF theory, and "the banner never printed" rules out every theory downstream
+of *the handler ran at all*.
+
+That is technique 81 broken in the most ordinary way: **a fix credited without the failure being
+reproduced is a guess.** The `retf 2` bug was real and the `IRET` fix stays in - it simply was
+not this bug, and believing it was cost the second hang.
+
+### And the deployment rule it earns
+
+**Never install an untested `INT 13h` hook from `AUTOEXEC.BAT`.** The failure mode is an
+unbootable machine that needs the card pulled and put in a reader. The equivalent test costs one
+reboot: leave `AUTOEXEC.BAT` alone, boot normally, start COMrade, and run the `.COM` by hand from
+the prompt. A hang then costs a power cycle and nothing else, because the next boot is clean by
+construction.
+
+Full writeup, retained with the retired driver:
+`docs/archive/fd08fix_superseded/README.md`.
