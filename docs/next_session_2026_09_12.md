@@ -94,7 +94,13 @@ to LPT port 0`. The config section is **`[Other removable devices]`**, the bus k
 `lpt`, and the port is `rdisk_NN_lpt_port`. Details and the three traps in
 `docs/epat_emulation_plan.md`.
 
-**Not proven: the packet phase engine has never executed.** Nothing has driven a register, so
+**SUPERSEDED by the evening's result — see `docs/epat_emulation_result_2026_09_11.md`.**
+The packet phase engine now runs: a DOS guest drove the bridge through a full ATAPI INQUIRY
+and a 512-byte READ(10), and the emulator **reproduces the unit-attention failure** with the
+same error register (`64`) the real drive returns. The driver's §1 restructure and §3 error
+handling can now be done without hardware; only timing still needs the bench.
+
+~~Not proven: the packet phase engine has never executed.~~ Nothing has driven a register, so
 no CDB has been assembled and no INQUIRY returned. **The next rung is a guest** - boot DOS in
 that VM and run the existing LS-120 probe against LPT1.
 
@@ -117,3 +123,25 @@ whole build spec, and **§8's order of work is still item 1: restructure to §1*
 `HwInitialize`, `HwStartIo` that returns without completing, state machine in the timer
 handler. The emulation work exists so that restructure can be debugged with visibility instead
 of a boot per iteration.
+
+---
+
+## Added late 2026-09-11 — the emulation bed is WORKING
+
+**Read `docs/epat_emulation_result_2026_09_11.md` first.** Summary:
+
+- A DOS guest in 86Box drives the emulated EPAT bridge. INQUIRY and READ(10) both work, using
+  the **unmodified** hardware probe scripts from `docs/captures/2026-09-11_ls120/`.
+- A 512-byte sector read verifies byte for byte against a poisoned pattern.
+- **The "media is not formatted" bug reproduces**: error register `64`, sense key 6, UNIT
+  ATTENTION — the same value the real drive returns.
+- Config: `vm_epat/86box.cfg.master`. Branch `lpt-epat-bridge`, six commits, all pushed.
+
+**So the next LS-120 work is the driver itself, not the emulator.** `IMPLEMENTATION.md` §8
+item 1 — empty `HwInitialize`, `HwStartIo` that returns, state machine in the timer handler —
+and then §3, which is now testable.
+
+**One thing emulation will never show you: timing.** The bridge completes immediately and
+models no drive latency, so the spin-up timeout (§4) still needs the bench.
+
+Not yet exercised: **writes**. `PHASE_DATA_OUT` and `epat_pio_request(out=1)` have never run.
