@@ -47,6 +47,7 @@ ifdef LS_PHASE2
 ;  skeleton neither references nor contains any of it.
 ;----------------------------------------------------------------------------
 EXTERNDEF	LS_PacketCommand	: NEAR
+EXTERNDEF	LS_RequestSense		: NEAR
 EXTERNDEF	LS_Connect		: NEAR
 EXTERNDEF	LS_BringUp		: NEAR
 EXTERNDEF	LS_SpinUp		: NEAR
@@ -87,6 +88,10 @@ endif
 
 ;  One adapter, one target. Phase 0 answers nothing, so this only bounds how
 ;  many times SCSIPORT asks.
+LS_ATA_ST_ERR		equ	001h	; status bit 0 - device reports CHECK CONDITION
+;  SCSI.INC is not included here (srb.inc + miniport.inc only), and pulling a
+;  whole header in for one value is not worth the collision risk.
+LS_SCSISTAT_CHECK	equ	002h	; SCSISTAT_CHECK_CONDITION
 LS_MAX_TARGETS		equ	2	; XTIDEMP.MPD uses 2 and enumerates correctly
 					; on this machine; 1 was the only config value
 					; that differed from it.
@@ -620,6 +625,36 @@ endif
 
 ifdef LS_PHASE2
 lsi_ioerror:
+;  The command failed. If the device set ERR that is a CHECK CONDITION, and
+;  the class driver cannot act on it without the sense data - most often
+;  UNIT ATTENTION after a media change, which it clears by retrying. Reporting
+;  a bare SRB_STATUS_ERROR with ScsiStatus left at 0 tells it "the command
+;  failed but the device says GOOD", which is incoherent and gets treated as
+;  unreadable media. Measured: error register 64h. See LS_SenseCdb.
+	mov	eax, LS_LastStatus
+	test	al, LS_ATA_ST_ERR
+	jz	lsi_plainerr
+
+	mov	[ebx].SCSI_REQUEST_BLOCK.ScsiStatus, LS_SCSISTAT_CHECK
+
+	mov	eax, [ebx].SCSI_REQUEST_BLOCK.SrbFlags
+	test	eax, SRB_FLAGS_DISABLE_AUTOSENSE
+	jnz	lsi_plainerr
+	mov	edi, [ebx].SCSI_REQUEST_BLOCK.SenseInfoBuffer
+	or	edi, edi
+	jz	lsi_plainerr
+	movzx	ecx, [ebx].SCSI_REQUEST_BLOCK.SenseInfoBufferLength
+	or	ecx, ecx
+	jz	lsi_plainerr
+
+	push	ebx
+	call	LS_RequestSense
+	pop	ebx
+	jc	lsi_plainerr
+	mov	al, SRB_STATUS_ERROR OR SRB_STATUS_AUTOSENSE_VALID
+	jmp	lsi_complete
+
+lsi_plainerr:
 	mov	al, SRB_STATUS_ERROR
 	jmp	lsi_complete
 lsi_badreq:

@@ -1,0 +1,351 @@
+a 0100
+mov dx,077A
+in al,dx
+and al,34
+out dx,al
+call 03D0
+mov ah,30
+call 0300
+mov ah,40
+call 0300
+mov ah,50
+call 0300
+mov ah,00
+call 0300
+mov ah,E0
+call 0310
+mov dx,0378
+xor al,al
+out dx,al
+mov dx,037A
+mov al,01
+out dx,al
+mov al,04
+out dx,al
+mov ax,1008
+call 03F0
+mov ax,140C
+call 03F0
+mov ax,380A
+call 03F0
+mov ax,1012
+call 03F0
+mov ax,0416
+call 03F0
+mov ax,0016
+call 03F0
+call 0420
+mov al,1F
+call 03A0
+mov [0602],al
+mov ax,A01E
+call 03F0
+mov ax,001C
+call 03F0
+mov ax,021D
+call 03F0
+mov ax,0019
+call 03F0
+mov ax,A01F
+call 03F0
+call 0460
+mov al,1F
+call 03A0
+mov [0603],al
+call 0900
+call 0460
+mov al,1F
+call 03A0
+mov [0604],al
+mov al,1A
+call 03A0
+mov [0605],al
+mov al,1C
+call 03A0
+mov [0606],al
+mov al,1D
+call 03A0
+mov [0607],al
+call 0500
+mov al,1F
+call 03A0
+mov [0600],al
+mov al,19
+call 03A0
+mov [0601],al
+mov ah,40
+call 0300
+mov ah,30
+call 0300
+int 3
+
+a 0300
+mov dx,037A
+mov al,04
+out dx,al
+jmp 0320
+
+a 0310
+mov dx,037A
+in al,dx
+and al,0F
+out dx,al
+jmp 0320
+
+a 0320
+cli
+mov dx,0378
+mov al,22
+out dx,al
+out dx,al
+mov al,AA
+out dx,al
+out dx,al
+mov al,55
+out dx,al
+out dx,al
+mov al,00
+out dx,al
+out dx,al
+mov al,FF
+out dx,al
+out dx,al
+mov al,87
+out dx,al
+out dx,al
+mov al,78
+out dx,al
+out dx,al
+mov al,ah
+out dx,al
+out dx,al
+mov dx,037A
+mov al,04
+out dx,al
+out dx,al
+in al,dx
+and al,10
+or al,05
+out dx,al
+out dx,al
+and al,FE
+out dx,al
+out dx,al
+mov dx,0378
+mov al,FF
+out dx,al
+out dx,al
+sti
+ret
+
+a 03A0
+mov dx,0378
+out dx,al
+mov dx,037A
+mov al,01
+out dx,al
+mov al,03
+out dx,al
+mov dx,0379
+in al,dx
+and al,F0
+shr al,1
+shr al,1
+shr al,1
+shr al,1
+mov bl,al
+mov dx,037A
+mov al,04
+out dx,al
+mov dx,0379
+in al,dx
+and al,F0
+or al,bl
+ret
+
+a 03D0
+mov dx,037A
+mov al,04
+out dx,al
+mov al,0C
+out dx,al
+mov al,0E
+out dx,al
+out dx,al
+out dx,al
+mov al,04
+out dx,al
+out dx,al
+ret
+
+a 03F0
+mov bl,ah
+or al,60
+mov dx,0378
+out dx,al
+mov dx,037A
+mov al,01
+out dx,al
+mov dx,0378
+mov al,bl
+out dx,al
+mov dx,037A
+mov al,04
+out dx,al
+ret
+
+a 0420
+push cx
+mov cx,4000
+jmp 0430
+
+a 0430
+mov al,1F
+call 03A0
+test al,80
+jz 0450
+dec cx
+jnz 0430
+jmp 0450
+
+a 0450
+pop cx
+ret
+
+a 0460
+push cx
+mov cx,4000
+jmp 0470
+
+a 0470
+mov al,1F
+call 03A0
+and al,88
+cmp al,08
+jz 0490
+dec cx
+jnz 0470
+jmp 0490
+
+a 0490
+pop cx
+ret
+
+e 0800 28 00 00 00 00 00 00 00 01 00 00 00
+
+a 0900
+cli
+mov si,0800
+mov cx,000C
+mov dx,0378
+mov al,67
+out dx,al
+mov dx,037A
+mov al,01
+out dx,al
+mov al,05
+out dx,al
+xor bh,bh
+jmp 0930
+
+a 0930
+mov al,[si]
+inc si
+mov dx,0378
+out dx,al
+mov dx,037A
+mov al,04
+add al,bh
+out dx,al
+xor bh,01
+dec cx
+jnz 0930
+jmp 0950
+
+a 0950
+mov dx,037A
+mov al,07
+out dx,al
+mov al,04
+out dx,al
+sti
+ret
+
+a 0500
+cli
+mov si,1000
+mov cx,0200
+mov dx,0378
+mov al,07
+out dx,al
+mov dx,037A
+mov al,01
+out dx,al
+mov al,03
+out dx,al
+mov dx,0378
+mov al,FF
+out dx,al
+xor bh,bh
+jmp 0530
+
+a 0530
+cmp cx,0001
+jnz 0550
+jmp 05C0
+
+a 0550
+mov dx,037A
+mov al,06
+add al,bh
+out dx,al
+mov dx,0379
+in al,dx
+mov ah,al
+test al,08
+jnz 0580
+mov dx,037A
+mov al,04
+add al,bh
+out dx,al
+mov dx,0379
+in al,dx
+jmp 0580
+
+a 0580
+and al,F0
+shr ah,1
+shr ah,1
+shr ah,1
+shr ah,1
+or al,ah
+mov [si],al
+inc si
+xor bh,01
+dec cx
+jnz 0530
+jmp 05A0
+
+a 05A0
+mov dx,0378
+xor al,al
+out dx,al
+mov dx,037A
+mov al,04
+out dx,al
+sti
+ret
+
+a 05C0
+mov dx,0378
+mov al,FD
+out dx,al
+jmp 0550
+
+u 500 5CF
+u 900 95F
+g=100
+d 600 607
+d 1000 102F
+d 11F0 11FF
+q

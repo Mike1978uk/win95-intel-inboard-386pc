@@ -169,6 +169,18 @@ LS_SPIN_DRQ		equ	11000		; ~0.5 s
 	PUBLIC	LS_BasePort
 LS_BasePort		dw	0378h		; set by the miniport from PORT=
 
+;  REQUEST SENSE. MEASURED on the real drive 2026-09-11: a READ(10) after a
+;  media change comes back status 51h, error register 64h - sense key 6,
+;  UNIT ATTENTION - and transfers nothing. That is the device REFUSING the
+;  command, not a broken data path. The class driver clears it by reading the
+;  sense data and retrying; a miniport that never reports CHECK CONDITION
+;  leaves it set for ever, so the volume never mounts ("media is not
+;  formatted") and the dismount that would release PREVENT MEDIUM REMOVAL
+;  never runs either - which is a drive that will not eject until you cut its
+;  power. Both symptoms, one cause.
+LS_SENSE_LEN		equ	18
+LS_SenseCdb		db	003h, 0, 0, 0, LS_SENSE_LEN, 0, 0, 0, 0, 0, 0, 0
+
 ;  A real INQUIRY, issued once by LS_BringUp so that BOOTLOG.TXT reports on the
 ;  whole packet path and not merely on the transport. BOOTLOG's Init
 ;  Success/Init Failure line is the only diagnostic channel readable from a
@@ -893,6 +905,34 @@ LS_SpinUp:
 	xor	edx, edx
 	call	LS_PacketCommand
 	clc
+	ret
+
+;----------------------------------------------------------------------------
+; LS_RequestSense - fetch sense data after a device reports CHECK CONDITION.
+;
+;   In:   EDI = buffer, ECX = its length in bytes
+;   Out:  CF=0 if the REQUEST SENSE itself succeeded
+;   Uses: everything
+;
+;   REQUEST SENSE is the one command a device will answer while a contingent
+;   allegiance condition is pending, and answering it is what clears the
+;   condition. See the LS_SenseCdb comment for the measurement.
+;----------------------------------------------------------------------------
+public LS_RequestSense
+LS_RequestSense:
+	cmp	ecx, LS_SENSE_LEN
+	jbe	lrq_len
+	mov	ecx, LS_SENSE_LEN
+lrq_len:
+	or	ecx, ecx
+	jz	lrq_none
+	mov	byte ptr LS_SenseCdb + 4, cl	; allocation length
+	lea	esi, LS_SenseCdb
+	xor	edx, edx			; data in
+	call	LS_PacketCommand
+	ret
+lrq_none:
+	stc
 	ret
 
 public LS_PacketCommand
