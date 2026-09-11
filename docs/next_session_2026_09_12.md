@@ -73,3 +73,37 @@ proves it) and `SD120PPD_SYS.asm`, with `DISASSEMBLY.md` recording what was read
 4. **Four hard resets** from probe bugs: no `cli` in a probe, clamp any device-supplied
    length, validate DEBUG block layout, explicit jump on every timeout path.
 5. **8.3 filenames.** `RAMTIME2B.OUT` truncated and destroyed the baseline half of an A/B.
+
+---
+
+## EPAT bridge in 86Box — where it actually is (added end of 2026-09-11)
+
+Branch **`lpt-epat-bridge`** on `Mike1978uk/86Box`, in the local `86box_upstream/` clone.
+`86box_upstream/` is **not pristine** — it carries this project's diagnostic commits too.
+
+| commit | |
+|---|---|
+| `e6db949` | bridge skeleton — `lpt_device_t` plugin, unlock frame, checkpoints |
+| `7bbe8ff` | protocol logging as a first-class feature |
+| `a07249a` | register access: direct addressing, nibble read, SRST |
+| `ba8b406` | **`RDISK_BUS_LPT` now creates a drive** — see `docs/epat_emulation_plan.md` |
+
+**Next edit, precisely:** `src/device/lpt_epat.c` answers register reads out of a stub
+`regs[0x20]` array (`epat_read_status()`, and the write path at the `dev->regs[dev->reg_addr]`
+assignment). Replace that with the real drive: call `rdisk_get_lpt_device(port)` at attach,
+keep the returned `scsi_device_t *`, and read/write `((rdisk_t *) sd->sc)->tf` instead. The
+CDB, once assembled, goes to `scsi_device_command_phase0(sd, cdb)`; CHECK CONDITION is
+`sd->sc->tf->status & ERR_STAT`.
+
+**Before any upstream PR:** set `ENABLE_EPAT_LOG` to 0 (technique 93). **Do not submit
+upstream without asking first** — and the suggestion to raise an 86Box issue asking whether
+they want a parallel-port bridge at all, before writing a thousand more lines, is still
+unanswered.
+
+## LS-120 driver — unchanged and still the point of all this
+
+Nothing in the driver moved today. `drivers/imation_ls120_mpd/IMPLEMENTATION.md` remains the
+whole build spec, and **§8's order of work is still item 1: restructure to §1** — empty
+`HwInitialize`, `HwStartIo` that returns without completing, state machine in the timer
+handler. The emulation work exists so that restructure can be debugged with visibility instead
+of a boot per iteration.

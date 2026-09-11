@@ -224,3 +224,34 @@ Two options, and the first is the upstream-correct one:
 drive will report `IMATION / SUPERDISK 120 ATAPI` instead, so compare the **shape**: device
 type, RMB bit, response format, additional length, and ASCII vendor/product in the right
 byte positions. A byte-identical string is neither expected nor wanted.
+
+### Step 3, done — the host side (commit `ba8b406`, branch `lpt-epat-bridge`)
+
+The ordered-comparison audit, in full, so it is not repeated. Every `bus_type` test in
+`rdisk.c` that `RDISK_BUS_LPT` reaches:
+
+| line | test | where 6 lands | verdict |
+|---|---|---|---|
+| 363 | `!= RDISK_BUS_SCSI` → `ide_set_callback(ide_drives[ide_channel])` | **taken** | **bug** — an LPT drive has no IDE channel, so this indexes an unrelated drive. Guard added |
+| 380 | `>= RDISK_BUS_ATAPI` → `bus_mode \|= 2` (DMA) | not taken | correct, the bridge is PIO |
+| 382 | `< RDISK_BUS_SCSI` → `bus_mode \|= 1` (PIO) | taken | correct |
+| 385 | `< RDISK_BUS_SCSI` → `tf->phase = 1`, `request_length = 0xEB14` | taken | correct, and free — the ATAPI signature the bridge must present |
+| 625 | `== RDISK_BUS_ATAPI` → `rdisk_bus_speed` | not taken | falls to the default; the bridge paces itself anyway |
+| 650 | `== RDISK_BUS_SCSI` | not taken | correct |
+
+So only one was wrong, and the rest already treat an LPT drive as ATAPI-shaped, which is what
+it is. What was added:
+
+- `lpt_rdisk_devices[PARALLEL_MAX]` — a `scsi_device_t` per parallel port, filled in
+  `rdisk_drive_reset()` with the same entry points the SCSI branch uses
+  (`rdisk_command`, `rdisk_request_sense_for_scsi`, `rdisk_reset`, `rdisk_phase_data_out`,
+  `rdisk_command_stop`).
+- `rdisk_get_lpt_device(port)` — how the bridge finds its drive. Returns `NULL` when no drive
+  is assigned to that port.
+- `RDISK_BUS_LPT` added to the `rdisk_hard_reset()` gate, so the drive is actually created.
+- The LPT port number lives in `rdisk_drive_t`'s `res` union member — the union's own comment
+  says *"Reserved for other ID's"*, so this is the intended slot, not a squat.
+
+Builds clean. **Not yet wired**: `lpt_epat.c` still answers register reads out of its stub
+`regs[0x20]` array. Replacing that with the drive's real `tf` is the next edit, and it is the
+step that turns the bridge from a protocol mock into something that can answer an INQUIRY.
