@@ -91,6 +91,7 @@ endif
 ;  One adapter, one target. Phase 0 answers nothing, so this only bounds how
 ;  many times SCSIPORT asks.
 LS_ATA_ST_ERR		equ	001h	; status bit 0 - device reports CHECK CONDITION
+LS_ATA_ST_BSY		equ	080h	; status bit 7 - the command is still running
 ;  SCSI.INC is not included here (srb.inc + miniport.inc only), and pulling a
 ;  whole header in for one value is not worth the collision risk.
 LS_SCSISTAT_CHECK	equ	002h	; SCSISTAT_CHECK_CONDITION
@@ -119,6 +120,7 @@ LS_ST_READY		equ	2	; poll until the drive is not busy
 LS_ST_ISSUE		equ	3	; hand over the packet
 LS_ST_SENSE		equ	4	; fetch sense after a CHECK CONDITION
 LS_ST_DONE		equ	5	; complete on the next tick
+LS_ST_FINISH		equ	6	; issued, data moved, drive still BSY - wait it out
 
 ;  Tick budgets, in 1 ms timer ticks.
 ;  pf.c allows PF_SPIN = 8 s for a drive to become ready, and an LS-120
@@ -542,6 +544,8 @@ ifdef LS_PHASE2
 	je	lt_issue
 	cmp	eax, LS_ST_SENSE
 	je	lt_sense
+	cmp	eax, LS_ST_FINISH
+	je	lt_finishwait
 ;  LS_ST_DONE, or any state we do not recognise: complete with what we have.
 	jmp	lt_finish
 
@@ -624,7 +628,21 @@ lt_issue_err:
 ;  Measured on the real drive: error register 64h. IMPLEMENTATION.md section 3.
 	mov	eax, LS_LastStatus
 	test	al, LS_ATA_ST_ERR
+	jnz	lt_issue_check
+
+;  No ERR, but the drive is still BSY: the command is simply STILL RUNNING.
+;  Re-issuing it here restarts a command already in flight, which is what made
+;  every media command fail after LS_MAX_RETRY attempts - measured in the bed
+;  2026-09-13, twenty READ CAPACITYs each abandoned after exactly LS_SPIN_BSY
+;  polls. Wait it out in the state machine instead, on pf.c's full PF_SPIN
+;  budget. Only a drive that is NOT busy justifies retrying the command.
+	test	al, LS_ATA_ST_BSY
 	jz	lt_issue_retry
+	mov	[esi].DEVEXT.dxState, LS_ST_FINISH
+	mov	[esi].DEVEXT.dxTicks, 0
+	jmp	lt_rearm
+
+lt_issue_check:
 
 	mov	[ebx].SCSI_REQUEST_BLOCK.ScsiStatus, LS_SCSISTAT_CHECK
 
@@ -655,6 +673,37 @@ lt_issue_retry:
 
 lt_plainerr:
 	mov	al, SRB_STATUS_ERROR
+	jmp	lt_setstat
+
+;----------------------------------------------------------------------------
+;  FINISH - the packet was issued and its data phase completed, but the drive
+;  is still BSY. One status read per tick until it settles.
+;
+;  Budget is LS_TICKS_READY - 8 s, pf.c's PF_SPIN. Three independent sources
+;  agree on seconds here and we were allowing ~60 ms: Linux pf.c computes
+;  PF_SPIN = 160,000 x udelay(50) = 8 s; Imation's own SD120PPD.MPD spins
+;  500,000 x ScsiPortStallExecution(10) = 5 s for BSY and 1,000,000 = 10 s for
+;  BSY-or-DRQ; and this driver's own LS_TICKS_READY already says 8 s.
+;  docs/ls120_constant_sweep_2026_09_13.md.
+;----------------------------------------------------------------------------
+lt_finishwait:
+	call	LS_ReadyPoll
+	jc	lt_fin_dead
+	jz	lt_fin_done
+	mov	eax, [esi].DEVEXT.dxTicks
+	cmp	eax, LS_TICKS_READY
+	jb	lt_rearm
+	mov	al, SRB_STATUS_TIMEOUT
+	jmp	lt_setstat
+lt_fin_dead:
+	mov	al, SRB_STATUS_SELECTION_TIMEOUT
+	jmp	lt_setstat
+lt_fin_done:
+;  Settled. ERR here is a real CHECK CONDITION and takes the sense path.
+	mov	eax, LS_LastStatus
+	test	al, LS_ATA_ST_ERR
+	jnz	lt_issue_check
+	mov	al, SRB_STATUS_SUCCESS
 	jmp	lt_setstat
 
 ;----------------------------------------------------------------------------
