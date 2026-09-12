@@ -486,3 +486,65 @@ writes are discarded, while CTCHIP still cheerfully prints `92 / CE: Internal Ca
 figure in the forwarded analysis is **our own emulator configuration read back at us**, not a
 measurement of the silicon. F1's verdict stands unchanged — the real part's clock has still never
 been measured here — but the number was not invented, it was borrowed from this file.
+
+## ⭐ ROOT CAUSE CANDIDATE — `LS_SPIN_BSY` is ~90 ms and the drive needs 500 ms+
+
+Found by running the bed with media, 2026-09-13. **Evidence, not reasoning.**
+
+The bed issued **five ATAPI commands and every one was INQUIRY** (`12 00 00 00 24 00`). Five is
+exactly `LS_MAX_RETRY`. It never reached a single read.
+
+Status polls counted between each command's data phase and its completion:
+
+| attempt | nibble reads | status polls |
+|---|---|---|
+| 1 | 4116 | **2058** |
+| 2 | 4116 | **2058** |
+| 3 | 4120 | 2060 |
+| 4 | 4118 | 2059 |
+| 5 | 4000 | **2000** |
+
+```
+LS_SPIN_BSY   equ   2000        ; LS120TR.ASM:172 - comment claims "~90 ms"
+```
+
+`LS_WaitNotBusy` (`LS120TR.ASM:825`) spins that many times and gives up. **The constant is hit
+dead on, five times.** The drive was measured on real hardware holding BSY **past 0.5 s**.
+
+### It explains every hardware symptom, including the confusing ones
+
+| symptom | explanation |
+|---|---|
+| hourglass, then nothing, **no error dialog** | five bounded spins time out; there is no device error to report, so no dialog |
+| eject correctly says *"no disk in drive"* | media-presence checks are short register reads that finish well inside 90 ms |
+| `Init Success` in 6 units | init never waits on a slow command |
+
+### The fix is not to raise the constant
+
+8 s of spinning would block the CPU and cost **2,000 nibble register reads per attempt** — by
+`bus_optimisation_plan.md`'s own metric that is the worst possible shape. Last session's
+restructure moved the **spin-up** wait onto the `RequestTimerCall` state machine but left the
+**post-command BSY** wait as a bounded spin inside `LS_PacketCommand`, which runs inline from
+`lt_issue`. Finishing that restructure is the fix: make the post-command BSY wait a timer state,
+the way `LS_ST_READY` already is.
+
+## ⛔ AND A FIDELITY BUG IN OUR OWN BRIDGE — the bed failed EARLIER than hardware
+
+The owner drove the bed to the desktop: **the drive was not in My Computer at all.** On the real
+5160 it *is* visible and gets a letter. So the bed was overstating the fault.
+
+Cause: last session's `busy_ms` applied the drive latency at `PHASE_COMPLETE` for **every**
+command, INQUIRY included. A real LS-120 answers INQUIRY, REQUEST SENSE and MODE SENSE out of
+firmware; only commands that read, write or position the medium pay the spin-up. Delaying
+INQUIRY stalls enumeration, which the real drive does not do.
+
+Fixed in `lpt_epat.c` with `epat_cdb_touches_media()` — the latency now applies only to
+READ/WRITE(6|10), READ CAPACITY, START STOP UNIT, VERIFY and SYNCHRONIZE CACHE.
+
+**Expected after the fix:** the drive enumerates and gets a letter, exactly as on hardware, and
+then hangs on the first read of `HELLO.TXT`. That is the hardware symptom reproduced in
+emulation, which is what the bed is for.
+
+⚠ Lesson for the model: *"hardware goes BSY after a command"* was measured with a probe script
+that issued INQUIRY on a **spun-down** drive. Generalising it to every command was mine, and the
+bed contradicted it within one boot.
