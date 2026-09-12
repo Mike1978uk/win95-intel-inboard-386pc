@@ -548,3 +548,27 @@ emulation, which is what the bed is for.
 ⚠ Lesson for the model: *"hardware goes BSY after a command"* was measured with a probe script
 that issued INQUIRY on a **spun-down** drive. Generalising it to every command was mine, and the
 bed contradicted it within one boot.
+
+## ⛔ THE LS-120 HAS NEVER READ ON HARDWARE — so nothing on 2026-09-12 broke it
+
+Owner, 2026-09-13: *"my hardware has yet to display drive contents"*.
+
+This retires a line of inquiry that ran for several exchanges. Earlier wording — *"the drive was
+visible again but I couldn't access it"* — read as a regression. It is not one. **The drive has
+never displayed contents on the real 5160 at any point.**
+
+Consequences, all of them useful:
+
+| hypothesis | status |
+|---|---|
+| The CMLR cache fix altered LS-120 behaviour | ❌ **dead.** The read did not work before 2026-09-12 either |
+| The driver restructure (deployed 09-11 22:54) broke reads | ❌ dead, same reason |
+| The E1 switch change affected it | ❌ dead, same reason |
+| `LS_SPIN_BSY` is ~90 ms against a drive needing 500 ms+ | ✅ **consistent** — a constant that has been wrong since it was written produces a fault that has never worked, which is exactly what is reported |
+
+**This is the stronger form of the evidence.** A defect that has never worked points at something
+structural in our own code rather than at any of the three changes that landed this week, and the
+spin constant is structural: it has been 2000 since the transport was written.
+
+⚠ Note for the record: I spent several exchanges treating a never-worked fault as a regression,
+on the strength of the word *"again"*. **Ask "did this ever work?" before building a timeline.**
