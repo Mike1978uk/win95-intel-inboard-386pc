@@ -145,3 +145,52 @@ and then §3, which is now testable.
 models no drive latency, so the spin-up timeout (§4) still needs the bench.
 
 Not yet exercised: **writes**. `PHASE_DATA_OUT` and `epat_pio_request(out=1)` have never run.
+
+---
+
+## Optimisation — a PER-COMPONENT AUDIT session is now planned (2026-09-12)
+
+**Not to be started until #22 closes.** The owner's framing, and the reason it deserves a session
+of its own rather than being done piecemeal:
+
+> *"we got a gain on an xtide through driver by doing things better and we only took the xtide
+> half — we have levers to pull on the machine half — now factor that in to each driver and see
+> where we get"*
+
+Everything is in `docs/bus_optimisation_plan.md`:
+
+- **ACTIONS OUTSTANDING** — A1-A16, each with a method and a cost, ordered by what can be settled
+  rather than by size.
+- **THE PER-COMPONENT AUDIT** — six questions to ask of every device, a register of where each
+  one stands, and an order that puts the no-hardware binary work first.
+- **THE THIRD STRATEGY** — widening and merging both accept that the bytes cross the socket;
+  DMA, on-card memory and memory-mapped storage do not, and that strategy is not bounded by the
+  card's decode ceiling.
+
+### Already done, so it is not repeated
+
+**The Mach8 audit (A12) was completed offline on 2026-09-12**, against `ATIM8.DRV` and
+`SYSTEM.DAT` read straight off the card. It is the worked example for the method:
+
+| | |
+|---|---|
+| Accelerator installed and selected? | ✅ `ATIM8.DRV`, 7 registry refs (`VGA.DRV` only 1) |
+| Actually used? | ✅ **651** accelerator register loads, **63** CMD writes to `0x9AE8` |
+| Bulk transfer efficient already? | ✅ **43 `rep outsw`** — the XT-CF lever is already pulled here |
+| VGA aperture used? | ❌ `mov ax,A000h` **once** — confirms VRAM is `PIX_TRANS`-only, so **E4's 4.2x cannot be claimed for video** |
+| VRAM installed | **1 MB** — deduced from the 1024x768x256 mode needing 786 KB. **Settles half of #8 with no hardware** |
+| Off-screen VRAM spare | **~256 KB**, not the ~700 KB first estimated (that assumed 640x480) |
+
+**So "the accelerator is off, turn it on" was wrong, and so was "lazy programming".** ATI's
+driver is good. The remaining video lever is **pixels per operation**, i.e. the display mode —
+640x480x256 is ~2.6x fewer bytes than the current 1024x768x256 *and* frees ~470 KB more
+off-screen VRAM, and the two compound. That is a trade and an owner decision (A12a).
+
+⚠ Before crediting any video gain to transfer width: the Graphics Ultra is a **16-bit ISA card in
+a machine with only 8-bit slots**, so the same decode ceiling that ended the XT-CF width work
+applies.
+
+### Never examined at all
+
+`T130.MPD` (#1 in our own occupancy ranking), the six-target SCSI chain, and the 3C509B. The
+first pass on all three is `pedis.py` against binaries already in the repo — no hardware, no boot.
