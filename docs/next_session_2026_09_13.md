@@ -454,3 +454,35 @@ independently of the writer. Empty original kept at `rd_empty.img.bak`.
 Build check before the run (technique 74): `86Box.exe` 2026-09-12 15:25:03 is newer than
 `src/device/lpt_epat.c` 15:24:39, tree clean, branch `lpt-epat-bridge`, head `92239ba`
 *"Model the drive's busy time after a command"*.
+
+## ⚠ "Are the latest CPU changes on the bed?" — NO, and they cannot be
+
+The owner's question, 2026-09-13. Two separate reasons, either one sufficient.
+
+**1. The bed image predates the fix.** `ls120win_master.img` was cut **2026-09-12 13:22**;
+`CPUSET.BAT` gained the CMLR line at **14:40**. Verified rather than assumed — the string
+`IBM486 /1001h:4` occurs **0** times in `ls120win.img` and **1** time in the CF's `CPUSET.BAT`.
+(A naive grep for `1001h:4` *does* hit the image, but it lands in a documentation file at offset
+`455645109`, not in a batch file. Match the command, not the register name.)
+
+**2. Even if it were copied in, 86Box drops the writes.** Already proven in
+`cpu_cache_cmlr_2026_09_12.md`: under 86Box `cpu_read()` returns `0xFF` for these indices and the
+writes are discarded, while CTCHIP still cheerfully prints `92 / CE: Internal Cache: enabled`.
+**86Box does not model the BL3 cache configuration registers at all.**
+
+### What that means for the work in hand
+
+- **The bed cannot test any cache hypothesis.** Do not try; the answer will be a confident null.
+- It does *not* exonerate the cache for the LS-120 either — "the bed has no cache and works" and
+  "hardware has cache and fails" is exactly the shape a cache problem would take. The bed simply
+  cannot distinguish it.
+- ⭐ **The decisive test is one boot on real hardware**: comment out the single CMLR line in
+  `C:\CTCHIP\CPUSET.BAT`, boot, and try the drive. **One boot answers two open questions** — does
+  boot time change, and does the LS-120 read. Single variable, no build, no deployment.
+
+### And the provenance of "83.5 MHz" is now known
+
+`vm_ls120win/86box.cfg` sets `cpu_speed = 83500000`, `cpu_multi = 3`. So the "actual 83.5 MHz"
+figure in the forwarded analysis is **our own emulator configuration read back at us**, not a
+measurement of the silicon. F1's verdict stands unchanged — the real part's clock has still never
+been measured here — but the number was not invented, it was borrowed from this file.
