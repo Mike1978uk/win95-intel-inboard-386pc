@@ -1177,3 +1177,94 @@ item rather than a speed one.
    somebody else has already reported a measurable effect.
 3. Stop unless the numbers justify going further. C2/C3 are undocumented territory on a CPU with
    no datasheet to hand, and the machine is bus-bound for I/O regardless of what the core does.
+
+---
+
+# EXTERNAL INPUT TRIAGE — LLM optimisation suggestions, 2026-09-12
+
+The owner ran the project past another model and forwarded its output with the right framing:
+*"I don't know how much it got right but always worth considering another point of view."*
+Triaged here so the useful part is kept and the wrong part does not leak into the docs.
+
+**Two items are worth keeping. One kills a proposed session before it starts.**
+
+## Kept
+
+### B1a. The async primitive has a name — `ScsiPortNotification(RequestTimerCall, ...)`
+
+B1 (request merging) has always been blocked behind "needs async completion -> queue depth ->
+merge", stated as a shape rather than an API. The suggestion names the SCSIPORT mechanism:
+return from `XtStartIo` and be re-entered via `HwTimer` instead of completing inline.
+
+That is the same primitive for two separate wins already in this document:
+
+| use | what it buys |
+|---|---|
+| release the CPU during a transfer | the stall the driver README already flags under heavy teardown flush |
+| pace a wait without spinning | A2's `XT_POLL_BACKOFF` idea, but at the SCSIPORT layer rather than inside our loop |
+
+**Status: unverified against the DDK.** The notification type exists in SCSIPORT; whether the
+Win95 IOS build honours it for a `.MPD` is not established, and that check belongs with B7 (the
+DDK debug builds and symbols, still unopened). Recorded so B1 starts from an API name.
+
+### F1. SIV misreports the CPU clock — an open question, not yet a fact
+
+The forwarded analysis asserts SIV reads 65.7 MHz against an actual 83.5 MHz, and explains it as
+a timing loop assuming a 15-cycle `AAM` where this core takes 17.
+
+**Do not record that as a finding.** Three problems:
+
+1. The explanation carries no source and reads as invention.
+2. It conflicts with what we actually read. The pre-fix log said `0.00MHz`, no TSC, no CPUID
+   (`contributor_input_ledger.md`, red-ray row).
+3. **This project has never measured the core clock**, so "83.5 MHz actual" is unsupported here.
+
+What is real: the two SIV walks are the benchmark owed to red-ray, and neither has been read by
+this project side by side. The machine was offline this session. **Read both logs first**; the
+clock question is downstream of that and may dissolve.
+
+## Already covered — no action
+
+| suggestion | where it already lives |
+|---|---|
+| Assembly inlining of the transfer loops | **B3**, costed at 4%, free, compounds |
+| Multi-sector / bi-sector transfers | **A4**, ❌ closed — drive reports word 47 = 1, unsupported |
+| Unrolled / paced polling loops | **A2**, ✅ shipped as `XT_POLL_BACKOFF` |
+| Strip dead AT-fallback from `VKD.VXD` | **D7** — latency-bound, few accesses per event, near zero to win |
+| Sweep every VxD for 20-bit DMA truncation | `tools/sweep_image_dma.py` exists; it is a **correctness** sweep. The suggestion's rationale — that truncation wastes CPU on retries — is wrong. A 20-bit truncation writes to the wrong address silently. There is nothing to retry |
+| Keep data in Inboard RAM to bypass the motherboard | the premise of this entire document (the one fact at the top) |
+
+## Wrong — recorded so it is not re-derived
+
+| claim | what is actually true |
+|---|---|
+| *"You realised the A3/A0 Hi-Speed swap is a pure 8-bit highway and exploited it"* | **Inverted.** The Hi-Speed map is the one `XTIDEMP.MPD` **cannot** drive — a permutation no stride expresses. That is open issue #23. Our card is a Lo-tech rev 3 on the Compatibility-style map at stride 2 (`docs/xtide_register_maps.md`) |
+| *"REP INSB ... saturates the bus"* | We ship `rep insw` — **word**, not byte. Byte-wide I/O measured 5.770 us/byte against 1.910 for the word path (E4 table). `insb` is the slow path we left behind |
+| *"I-O Data PK-A486BL interposer"* | Not this machine's hardware. See the real hardware config; do not cite this |
+| *"`READ MULTIPLE` will reduce interrupt round-trips"* | The XT-CF path is **polled, no IRQ**. There are no interrupt round-trips to reduce, and A4 is closed on the drive's own capability word |
+
+## The one that kills a session — the SIV VxD patch proposal
+
+The proposal: reverse `SIVVXD.vxd`, clamp its `_PageAllocate` calls to `maxPhys = 0xFF`, audit it
+for `0x22`/`0x23` chipset probes, and patch out an architectural check to force-load it.
+
+**There is nothing to patch.** SIV's own debug log states its position plainly:
+
+> *"Use of the SIV Windows 9x VXD V5.88 rejected as it has not been written!"*
+
+SIV is not failing to load a driver. It is declining to use one **that does not exist for
+Windows 9x**. There is no binary on the card, no load failure, and no status code to bypass.
+
+The rest of the proposal is this project's own signature bug pattern-matched onto an unrelated
+symptom. `maxPhys` governs **DMA buffer reach**. A tool that reads CPU registers does no DMA, so
+the 20-bit ceiling cannot be its problem even if the driver existed.
+
+**What would actually be needed** is writing a Win9x VxD for SIV from scratch — a real
+contribution to red-ray's tool, plausibly welcome, and squarely a *"nice to have"*. The owner
+already placed it correctly: **after #22**. It is a tooling contribution, not a bus lever, and it
+is not in the ledger above.
+
+⚠ General lesson, and it is the second time: an outside model given this project's documents will
+**reuse our own findings as explanations for unrelated symptoms** — 20-bit DMA, `0x22`/`0x23`
+aliasing, the Hi-Speed map. Those are the memorable parts of the write-up. Check that the symptom
+actually matches before spending a session on the familiar-looking cause.
