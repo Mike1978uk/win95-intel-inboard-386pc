@@ -229,3 +229,105 @@ in the caller's buffer — the standard ASPI handout. Everything above sits behi
 - error/sense handling and any retry policy — a first search for a decrementing retry counter
   found none, which is itself worth confirming rather than asserting;
 - the EPP/ECP detection that `/de`, `/db`, `/ded`, `/sf` disable.
+
+---
+
+# Third pass — the whole open list
+
+## ⭐ The ECP handlers, and they are SAFE to adopt
+
+Owner: *"we use an ECP card."* These are the routines that matter, and they are readable.
+
+**ECP read**, from `0x3cce`; **ECP write**, from `0x493e`. Both work the same way:
+
+```asm
+mov dx, word ptr [0xbfa]   ; the parallel-port base
+add dx, 2                  ; base+2  = LPT control
+mov al, 4
+out dx, al
+add dx, 0x400              ; base+0x402 = ECR, the ECP Extended Control Register
+mov al, 0x74
+out dx, al                 ; ECR = 0x74 -> ECP FIFO mode
+mov cx, 0xffff
+in  al, dx                 ; poll ECR
+test al, 1                 ; bit 0 = FIFO empty
+loope ...                  ; spin until the FIFO can take/give a byte
+...                        ; move the byte at base+0
+mov al, 0x34
+out dx, al                 ; ECR = 0x34 -> back to byte/PS2 mode
+```
+
+**ECR mode field is bits 7:5** - `0x74` selects ECP, `0x34` selects byte mode, and bit 0 is the
+FIFO-empty flag the loop waits on. The hardware does the handshake; the driver polls one status
+register instead of driving four control transitions per byte.
+
+### The safety answer, measured rather than assumed
+
+```
+ECP READ  : 0 fixed-port accesses  <- entirely base-relative
+ECP WRITE : 0 fixed-port accesses  <- entirely base-relative
+```
+
+**Nothing in either handler touches `0x22`, `0x23`, `0x94` or any other XT system port.** Every
+address is `[0xbfa]` plus 0, 2 or 0x402. So the transfer path is adoptable; technique 108's
+warning was about the vendor's **DMA-assisted** path, which is different code.
+
+### Where the keyboard-killer actually lives
+
+The dangerous writes cluster in **eight regions**, each with the same 4-write/2-read shape:
+`0x3c56`, `0x442a`, `0x4499`, `0x4516`, `0x45b7`, `0x49d3`, `0x4bbc`, `0x4c34`. A worked example:
+
+```asm
+0x3c56  out 0x22, ax
+0x3c58  in  al, 0x22
+0x3c5a  and al, 0x1f
+0x3c5c  or  al, 0x21
+0x3c5e  out 0x22, al        ; read-modify-write a chipset config register
+0x3c65  cmp byte ptr [0xbc0], 3   ; and it is GATED ON CHIPSET TYPE
+```
+
+These sit **adjacent to** the mode handlers - they are the EPP/ECP *detection and chipset setup*
+that `/ni`, `/de`, `/db` and `/fe` disable - but they are separate routines from the transfer
+handlers. That is the boundary, and it is now precise: **copy the handler, never its neighbour.**
+
+## The ASPI surface, mapped
+
+IOCTL read (DOS device command 3) calls `0x5c14`, which returns `DS:SI = CS:0x55cd`. That entry
+validates the host-adapter number, sets `SRB[1] = 0x80` (SS_PENDING), and dispatches:
+
+- **commands 0-6** through a jump table at `cs:0x5651`;
+- **commands > 6** through a vendor-extension table at `0xffd` (6 slots).
+
+| cmd | ASPI function | handler |
+|---|---|---|
+| 0 | `SC_HA_INQUIRY` | `0x5959` |
+| 1 | `SC_GET_DEV_TYPE` | `0x59e9` |
+| 2 | **`SC_EXEC_SCSI_CMD`** | **`0x5a69`** |
+| 3 | `SC_ABORT_SRB` | `0x5885` |
+| 4 | `SC_RESET_DEV` | `0x5946` -> `call 0x1625` |
+| 5 | `SC_SET_HA_PARMS` | `0x594a` |
+| 6 | `SC_GET_DISK_INFO` | `0xc626` |
+
+The EXEC path marshals from SRB offsets `+0x2a/+0x2c` (data pointer), `+0x0a` (data length),
+`+0x17` (CDB length), `+0x03` (target), `+0x0f/+0x11`, `+0x40/+0x42/+0x44`.
+
+## Error reporting, and an honest negative on retries
+
+The driver carries the text for every host-adapter status it can report, which doubles as a
+decode table for anything seen on the wire: `Selection Timeout`, `Data Over/Under Run`,
+`Unexpected Bus Free`, `Bus Phase Sequence Failure`, `Specified LUN Busy`,
+`Reservation conflict`, `Unknown Target Status`, `Sense Bytes :`, plus
+`ERROR: TargetStatus =` / `HostAdapterStatus =` / `Sense Bytes`.
+
+**No retry counter was found.** A search for a constant 3/4/5/6/10 stored to a byte and
+decremented within 60 bytes returned nothing. Stated as a negative rather than a conclusion - it
+is a heuristic, and a retry loop structured differently would not match it. What *is* certain is
+that the driver leans on long timeouts (9.9-59.3 s) rather than short ones with retries, which is
+the opposite of ours: ~60 ms with `LS_MAX_RETRY` 5.
+
+## What remains genuinely unread
+
+- the inner loops of the twelve read and five write mode handlers, individually - located and
+  named, and the ECP pair now read, but the rest not walked instruction by instruction;
+- `SC_EXEC_SCSI_CMD`'s body at `0x5a69` past its SRB marshalling;
+- the EPP/ECP detection logic inside those eight probe regions, as opposed to their port writes.
