@@ -572,3 +572,63 @@ spin constant is structural: it has been 2000 since the transport was written.
 
 ⚠ Note for the record: I spent several exchanges treating a never-worked fault as a regression,
 on the strength of the word *"again"*. **Ask "did this ever work?" before building a timeline.**
+
+## ⭐⭐ THE VENDOR'S OWN NUMBER — it waits 10 SECONDS, we wait 90 ms
+
+Prompted by the owner, 2026-09-13: *"are you using the sources that we disassembled — the sys,
+the vendor windows driver, the linux driver, the ddk examples — are we on top today?"*
+
+**I was not, and he was right to ask.** The whole session to that point ran on our own source and
+the bed. `SD120PPD.MPD` — the vendor driver that **works on this exact hardware** — was sitting
+fully disassembled in `SD120PPD_MPD.asm` (22,503 lines) and unopened. I was about to pick a new
+value for `LS_SPIN_BSY` by judgement, which is how the wrong one got there in the first place.
+
+### The vendor's wait-for-ready loop, `SD120PPD_MPD.asm` rva `0x001d35`
+
+```asm
+0x001d3e  mov  edi, 0xf4240      ; 1,000,000 iterations
+0x001d47  push esi
+0x001d48  call 0x550e            ; read ATA status
+0x001d50  test al, 0x80          ; BSY?
+0x001d52  jne  0x1d58            ;   yes -> stall and retry
+0x001d54  test al, 8             ; DRQ?
+0x001d56  jne  0x1d74            ;   yes -> done
+0x001d58  push 0xa               ; 10
+0x001d5a  call 0x5201            ; ScsiPortStallExecution(10 us)
+0x001d61  dec  edi
+0x001d64  jne  0x1d47
+0x001d66  mov  byte ptr [0x203e4], 2   ; timeout
+```
+
+`0x5201` thunks to the IAT entry for **`ScsiPortStallExecution`** (imports list, `0x01187c`).
+Confirmed by its sibling at `0x520d`, which builds a millisecond delay by calling `0x5201` with
+`0x3e8` = 1000 — so the argument is microseconds.
+
+**1,000,000 x 10 us = 10 seconds.**
+
+### Side by side
+
+| | vendor `SD120PPD.MPD` | Linux `pf.c` | **ours** |
+|---|---|---|---|
+| ready timeout | **10 s** | 8 s (`PF_SPIN`) | **~90 ms** (`LS_SPIN_BSY` 2000) |
+| between polls | **`ScsiPortStallExecution(10)`** | scheduler | **nothing — spins flat out** |
+
+**Two independent working implementations agree on ~10 s. Ours is the outlier by a factor of
+~110.** That is not a tuning difference, it is a wrong constant.
+
+### The pacing is the second finding, and it is ours to have thought of
+
+The vendor stalls 10 us between status reads. We spin. By `bus_optimisation_plan.md`'s own
+metric a status read costs the same ~3.90 us of bus as a byte of real data, so an unpaced poll
+loop is pure contention — the exact anti-pattern that document is built around, in our own code,
+on the hot path. The vendor already does the right thing.
+
+### What this changes about the fix
+
+The earlier plan — *move the post-command BSY wait into the `RequestTimerCall` state machine* —
+is still right and is now better supported: `LS_ST_READY` already polls once per 1 ms tick, which
+is the vendor's shape with an even cheaper pacing. The correction is to route the **post-command**
+wait there too, with a budget of **10 s**, not to raise a spin count.
+
+⚠ Do not simply set `LS_SPIN_BSY = 220000`. Ten seconds of unpaced spinning is 220,000 nibble
+register reads and a blocked CPU — worse than the bug.
