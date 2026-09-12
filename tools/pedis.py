@@ -1,31 +1,32 @@
 #!/usr/bin/env python3
-"""32-bit PE disassembler for SD120PPD.MPD, the vendor's Win95 miniport.
+"""32-bit PE disassembler for ANY flat i386 PE - .MPD, .PDR, .SYS, .EXE, .DLL.
 
-A .MPD is a flat i386 PE. Sections are mapped at ImageBase+VirtualAddress, so
-addresses printed here are RVAs (subtract nothing; the file's ImageBase is
-0x10000 but SCSIPORT relocates, and RVA is what the relocation table speaks).
+Written for SD120PPD.MPD and generalised 2026-09-13, because a tool that reads
+one file is not a tool. Addresses printed are RVAs: sections map at
+ImageBase+VirtualAddress, and RVA is what the relocation table speaks, so it is
+the address that survives the loader moving the image.
 
 Usage:
-    python pedis.py <file> sections            # PROVE the dump covers everything
-    python pedis.py <file> imports
-    python pedis.py <file> io                  # every in/out with its port
-    python pedis.py <file> dis <rva_hex> [count]
-    python pedis.py <file> all  > out.asm
-    python pedis.py <file> str                 # printable strings with RVAs
+    python tools/pedis.py <file> sections          # PROVE the sweep covers it
+    python tools/pedis.py <file> imports
+    python tools/pedis.py <file> io                # every in/out with its port
+    python tools/pedis.py <file> str               # printable strings with RVAs
+    python tools/pedis.py <file> all > out.asm
+    python tools/pedis.py <file> dis <rva_hex> [count]
 
-ALWAYS run `sections` first and check that `all` spans every executable
-section end to end. And remember RVA != linked address: a callback pushed as
-an immediate is ImageBase + RVA.
+Run `sections` FIRST and check the sweep spans every executable section end to
+end. A linear sweep stops at the first undecodable byte, so a partial dump
+looks exactly like a complete one (technique 112).
+
+NOT for LE VxDs - their `CD 20` + inline 4-byte service id desyncs a naive
+disassembler; use tools/vxd_disasm.py. NOT for 16-bit DOS .SYS - start at the
+strategy/interrupt offsets from the device header, and see tools/sysdis.py.
 """
 import os
 import struct
 import sys
 
 from capstone import Cs, CS_ARCH_X86, CS_MODE_32
-
-HERE = os.path.dirname(os.path.abspath(__file__))
-DEFAULT = os.environ.get("PEDIS_FILE", "")
-
 
 class PE:
     def __init__(self, path):
@@ -45,10 +46,11 @@ class PE:
             o = pe + 24 + optsz + i * 40
             name = d[o:o + 8].rstrip(b"\0").decode("latin1")
             vs, va, rs, ra = struct.unpack_from("<IIII", d, o + 8)
-            self.sec.append((name, va, vs, ra, rs))
+            chars = struct.unpack_from("<I", d, o + 36)[0]
+            self.sec.append((name, va, vs, ra, rs, chars))
 
     def off(self, rva):
-        for name, va, vs, ra, rs in self.sec:
+        for name, va, vs, ra, rs, _c in self.sec:
             if va <= rva < va + max(vs, rs):
                 return ra + (rva - va)
         return None
@@ -92,9 +94,43 @@ def imports(p):
         i += 1
 
 
+IMAGE_SCN_CNT_CODE   = 0x00000020
+IMAGE_SCN_MEM_EXECUTE = 0x20000000
+
+
 def code_sections(p):
-    return [(n, va, vs, ra, rs) for n, va, vs, ra, rs in p.sec
-            if n in (".text", "PNP")]
+    """Executable sections, by CHARACTERISTICS rather than by name.
+
+    The original hardcoded ('.text', 'PNP') because that is what the one file
+    it was written for happened to have. Any other driver with an oddly named
+    code section silently disassembled to nothing - which reads exactly like a
+    clean binary.
+    """
+    out = [(n, va, vs, ra, rs) for n, va, vs, ra, rs, c in p.sec
+           if c & (IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE)]
+    if not out:                      # no flags set: fall back, but say so
+        out = [(n, va, vs, ra, rs) for n, va, vs, ra, rs, c in p.sec
+               if n in (".text", "PNP", "CODE")]
+        if out:
+            print("; WARNING: no section flagged executable; fell back to "
+                  "names " + ", ".join(n for n, *_ in out), file=sys.stderr)
+    return out
+
+
+def sections(p):
+    print(f"ImageBase {p.base:#010x}   entry rva {p.entry:#08x}")
+    print(f"{'name':10s} {'rva':>10s} {'vsize':>10s} {'rawoff':>10s} "
+          f"{'rawsize':>10s}  flags")
+    for n, va, vs, ra, rs, c in p.sec:
+        tag = []
+        if c & IMAGE_SCN_CNT_CODE:    tag.append("CODE")
+        if c & IMAGE_SCN_MEM_EXECUTE: tag.append("EXEC")
+        print(f"{n:10s} {va:#10x} {vs:#10x} {ra:#10x} {rs:#10x}  "
+              f"{c:#010x} {' '.join(tag)}")
+    cov = code_sections(p)
+    total = sum(min(vs, rs) for _n, _va, vs, _ra, rs in cov)
+    print(f"\nthe sweep covers {len(cov)} section(s), {total} bytes "
+          f"({total/1024:.1f} KB)")
 
 
 def walk(p):
@@ -147,16 +183,18 @@ def dis(p, start, count):
 
 def main():
     if len(sys.argv) < 2:
-        sys.exit(__doc__)
-    path, args = sys.argv[1], sys.argv[2:]
-    p = PE(path)
-    cmd = args[0] if args else "imports"
-    if cmd == "sections":
-        print("ImageBase %08x" % p.base)
-        for n, va, vs, ra, rs in p.sec:
-            print("%-8s VA %08x vsize %6x  raw %06x size %6x" % (n, va, vs, ra, rs))
+        print(__doc__)
         return
-    if cmd == "imports":
+    path = sys.argv[1]
+    if not os.path.isfile(path):
+        print(f"no such file: {path}\n", file=sys.stderr)
+        print(__doc__)
+        raise SystemExit(2)
+    p = PE(path)
+    cmd = sys.argv[2] if len(sys.argv) > 2 else "sections"
+    if cmd == "sections":
+        sections(p)
+    elif cmd == "imports":
         imports(p)
     elif cmd == "io":
         io(p)
@@ -166,7 +204,7 @@ def main():
         for name, ins in walk(p):
             print(f"{ins.address:#08x}  {ins.mnemonic} {ins.op_str}")
     elif cmd == "dis":
-        dis(p, int(args[1], 16), int(args[2]) if len(args) > 2 else 40)
+        dis(p, int(sys.argv[3], 16), int(sys.argv[4]) if len(sys.argv) > 4 else 40)
     else:
         print(__doc__)
 
