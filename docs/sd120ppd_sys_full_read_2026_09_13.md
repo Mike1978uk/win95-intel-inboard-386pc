@@ -144,3 +144,88 @@ Honest list, so nobody thinks this closes the file:
 - the `0x16ca` 890-second path;
 - error and sense handling, and the retry policy;
 - the EPP/ECP detection that `/de`, `/db`, `/ded` disable.
+
+---
+
+# Second pass — the open list, worked through
+
+## The transfer modes, resolved to names
+
+Each table slot's handler is preceded in the image by its own name string, so the indices the
+`/rx` and `/wy` switches take resolve exactly:
+
+| `/rx` | read mode | | `/wy` | write mode |
+|---|---|---|---|---|
+| **0** | **NIBBLE Fast** | | **0** | WRITE Fast |
+| **1** | **NIBBLE Normal** | | **1** | WRITE Normal |
+| **2** | **NIBBLE Slow** | | **2** | WRITE Slow |
+| 3 | UNIDIR Fast | | 3 | EPP Normal |
+| 4 | UNIDIR Normal | | 4 | EPP Normal (variant) |
+| 5 | UNIDIR Slow | | | |
+| 6 | TOSHIBA Fast | | | |
+| 7 | TOSHIBA Normal | | | |
+| 8 | PS/2 Fast | | | |
+| 9 | PS/2 Normal | | | |
+| 10 | EPP Normal | | | |
+| 11 | EPP Normal (variant) | | | |
+
+Further names in the image that do not appear in the primary tables — so they are reached by the
+detection path rather than by `/rx`: `NIBBLE Slow(-)`, `UNIDIR two wait`, `EPP Fast`,
+`EPP BIOS(F)`, `EPP BIOS(N)`, `WRITE Fast(+)`, `WRITE Slow(-)`, **`ECP Read`**, **`ECP Write`**.
+
+### ⭐ This is a bus-occupancy finding, not just trivia
+
+**Our driver reads in nibble mode — indices 0-2, the slowest family the bridge has.** UNIDIR,
+TOSHIBA, PS/2, EPP and ECP are all present, on this same hardware, as selectable routines. The
+vendor probes for the fastest that works (`/sf` exists to *skip* that detection) and says so when
+it cannot: *"Specified mode failed. Loading with detected modes."*
+
+A nibble read is ~8 port accesses per register byte. At the measured ~3.9 us of Inboard-to-bus
+sync per access (technique 109e) that is the dominant cost of every status poll and every data
+byte we move. **Costing the faster families against nibble is a static exercise on routines we
+now have located.** Added to `bus_optimisation_plan.md` as a lever, not yet costed.
+
+## The command timeout is caller-settable
+
+```asm
+0x16b0  mov cx, 0x32a           ; 810 ticks = 44.5 s, the default
+0x16b3  cmp word ptr [0x951], 0
+0x16b8  je  0x16ca              ;   0 -> use the default
+0x16ba  cmp word ptr [0x951], -1
+0x16c1  mov cx, 0x3f48          ;  -1 -> 16200 ticks = 890 s
+0x16c6  mov cx, word ptr [0x951];else the caller's own value
+```
+
+So **44.5 s default, overridable per command, -1 meaning ~15 minutes** — the ASPI SRB timeout.
+The MPD has the same idea with a 60 s default at `[0x203f0]`. Ours has no per-command timeout at
+all.
+
+## Identity and provenance, from the strings
+
+| | |
+|---|---|
+| `0x6440` | `EPATRM Device Module 5.32b 28th April, 1997` |
+| `0x6406` | `ATAPI LS-120 module V5.23b` / `23rd April, 1997` |
+| `0x0746`, `0xd80a` | `SHUTTLE EPATRM` — matches the bridge on the bench |
+| `0xdab4` | `ASPI Manager For Dos Ver 5.32b`, Shuttle Technology |
+| `0x09c5`-`0x0d3e` | four dated sub-modules, A/B/C/F, 1995-1997 |
+
+## Host-adapter status decode, free
+
+The driver carries the text for every HA status it reports, which is a decode table for anything
+we see on the wire: `Selection Timeout`, `Data Over/Under Run`, `Unexpected Bus Free`,
+`Bus Phase Sequence Failure`, `Specified LUN Busy`, `Reservation conflict`,
+`Unknown Target Status`, plus `Sense Bytes :`.
+
+## The ASPI entry point
+
+DOS device command 3 (IOCTL read) at `0x20c2` calls `0x5c14` and returns `DS:SI` as a far pointer
+in the caller's buffer — the standard ASPI handout. Everything above sits behind that entry.
+
+## Still not read, and now a shorter list
+
+- the ASPI request dispatcher end to end from `0x5c14`;
+- the individual mode handlers' inner loops (located and named, not costed);
+- error/sense handling and any retry policy — a first search for a decrementing retry counter
+  found none, which is itself worth confirming rather than asserting;
+- the EPP/ECP detection that `/de`, `/db`, `/ded`, `/sf` disable.
