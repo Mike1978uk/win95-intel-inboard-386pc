@@ -464,6 +464,32 @@ So the honest version of the GPU analogy:
   across the socket costs **~5.55 us**, that model is worth more here than it was on the 486s
   these cards shipped with.
 
+### This is not a 5 MB machine. It is a 6 MB machine with 1 MB stranded
+
+> *"we said we have a system with 5 MB but actually another whole 1 MB sat idle on a VGA card is
+> madness"*  — owner, 2026-09-12
+
+The Inboard carries **5120 KB**. The Graphics Ultra carries up to **another 1024 KB**. Nobody has
+ever counted the machine that way, and once you do, **a sixth of the RAM in this computer is
+doing nothing** — while the desktop uses perhaps 300 KB of it.
+
+⚠ **But be precise about what that MB is worth, because the obvious idea is the wrong one.**
+
+A RAM disk in video memory is a real old trick and it is **not** the win here. VRAM is reachable
+only across the socket — the banked `A0000` aperture or `PIX_TRANS` — so every byte costs bus
+time, while main memory now sits **on the Inboard** after E1 and costs almost nothing. As general
+storage the stranded megabyte is *slower than the RAM we already have*, and we are not short of
+that.
+
+Its value is specific and it is large: **it is the only place to put bytes where using them again
+costs nothing.** A glyph, a brush, a bitmap, a saved screen region cached off-screen is drawn by
+an on-card blit — the pixels never cross the socket a second time. Every other megabyte in this
+machine is on the CPU's side of the bottleneck. This one is on the far side, which is worthless
+for storage and precisely right for a cache.
+
+So the question is not *"what else could we store there"*. It is **"is the display driver using
+it at all, and if not, what is it re-sending across the bus that it need not?"**
+
 ### The resource nobody has counted
 
 At **1 MB installed** and a 640x480x8 desktop using ~300 KB, roughly **700 KB of VRAM sits
