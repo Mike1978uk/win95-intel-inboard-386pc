@@ -389,6 +389,71 @@ What can STAY there, and what can it do without being told again?
 Three of those rows say **"never examined"**, and two of the three cost nothing but a
 `pedis.py` run against a binary we already hold.
 
+## THE PER-COMPONENT AUDIT — a session of its own, one device at a time
+
+**Owner's decision, 2026-09-12: this is not a "now" question.** It gets its own session, or
+several, driving each piece of hardware in turn. This section is the method and the register, so
+that session starts with a procedure rather than a blank page.
+
+The Mach8 audit on 2026-09-12 is the **worked example** and it took under an hour, entirely
+offline against binaries already on the card. It answered four questions, corrected one of my own
+estimates, retired one open question, and settled half of an unrelated issue (#8) as a
+side-effect. That is the shape to repeat.
+
+### Why one device at a time, and why it pays
+
+We optimised **one half of one device** — the XT-IDE data path — and got 35%. Every device here
+has two halves:
+
+```
+the CARD half   : what the hardware can be made to do   (decode width, engine, buffer, cache)
+the MACHINE half: what the driver actually asks it to do (string I/O, merging, caching, offload)
+```
+
+The XT-IDE win came from the machine half. **We have never run that pass on anything else.**
+
+### The six questions to ask of every device
+
+Ask all six. Record the answer even when it is "no lever" — a negative result written down once
+is cheaper than re-deriving it (this document already has a "ruled out, with reasons" section for
+exactly that).
+
+| | question | how to answer it |
+|---|---|---|
+| **Q1** | Does the driver use **string I/O** for bulk data, or a byte loop? | count `F3 6D/6C/6F/6E` in the binary |
+| **Q2** | How many **transactions** per unit of work — can they be merged? | traffic capture (technique 93), then command-setup vs data time |
+| **Q3** | Does the device have **memory of its own**, and is it used? | datasheet / registry / binary; then a dynamic test |
+| **Q4** | Can the device **act unattended** — DMA, disconnect, a command engine? | binary inspection for the enabling bit, then measure |
+| **Q5** | Is there a **width or decode ceiling** that caps the card half? | the card's bus width vs the slot's; do not credit width gains past it |
+| **Q6** | What does the driver **poll**, and how often? | every polled register costs the same `~5.55 us` as a real byte |
+
+### Register — where each device stands
+
+| device | audited? | what is known | actions |
+|---|---|---|---|
+| **XT-CF / XT-IDE** | ✅ **both halves** | Q1 done → `rep insw`, **35%/33% shipped**. Q5: card decode ceiling reached. Q2 open | A1, A2 |
+| **Mach8 / Graphics Ultra** | ✅ **machine half, offline** | Q1 ✅ already `rep outsw` (43). Q3 ✅ 1 MB installed, ~256 KB spare at the current mode. Q4 ✅ engine used hard (651 loads, 63 CMD). Q5 ⚠ **16-bit card in 8-bit slots** | A12a, A12b |
+| **Trantor T130B** | ❌ **not started** | #1 in our own occupancy ranking and never examined. `pedis.py T130.MPD io` is one command | A10/A14, **A15 disconnect** |
+| **The SCSI chain** (6 targets) | ❌ **not started** | Every target has a cache. Disconnect probably off. Mode page 8 readable in one DOS run | A15, A16 |
+| **3C509B** | ❌ **not started** | On-card packet buffer, size unknown; is it drained in bulk? | A13 |
+| **Floppy / `HSFLOP.PDR`** | 🟡 partial | Q6: polls hard during a seek. We already patch this binary | D4, and it is the instrument for A3/A4 |
+| **SB Pro** | 🟡 partial | Data path is DMA, so no width lever. Hazard is 20-bit reach, already fixed | — |
+| **LS-120 / EPAT** | 🟡 in progress | Transport solved; driver restructured. ⚠ its DMA path aliases onto the 8259 — do not use | #22 first |
+| **Inboard itself** | 🟡 partial | E1 done. E5a (DMA/CPU overlap) and E6 (refresh) are the host-side levers | A6, A7 |
+
+### Order for that session
+
+Cheapest evidence first, and **everything in the first group needs no hardware and no boot**:
+
+1. **Offline binary pass** — `T130.MPD` (A10/A14), the 3C509B packet driver (A13), and the
+   disconnect bit in `T130.MPD` (first half of A15). All `pedis.py` against files already held.
+2. **One DOS run** — SCSI mode page 8 across all six targets (A16), DMA channel inventory (A5).
+3. **Correctness before speed** — A3, can the 8237 reach the 384 KB E1 moved onto the Inboard.
+4. **Then the measured levers** — A1, A2, A12a.
+
+⚠ **Do not start this session until #22 is closed.** The LS-120 is the deliverable; this is the
+track that runs alongside it, and the owner has said so twice.
+
 ## ACTIONS OUTSTANDING — the single list to work from
 
 Every open optimisation question, as an **action with a method and a cost**, not a note. Nothing
