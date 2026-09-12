@@ -1249,7 +1249,7 @@ in the cache doc; it is the open question there, not here.
 |---|---|
 | *"You realised the A3/A0 Hi-Speed swap is a pure 8-bit highway and exploited it"* | **Inverted.** The Hi-Speed map is the one `XTIDEMP.MPD` **cannot** drive — a permutation no stride expresses. That is open issue #23. Our card is a Lo-tech rev 3 on the Compatibility-style map at stride 2 (`docs/xtide_register_maps.md`) |
 | *"REP INSB ... saturates the bus"* | We ship `rep insw` — **word**, not byte. Byte-wide I/O measured 5.770 us/byte against 1.910 for the word path (E4 table). `insb` is the slow path we left behind |
-| *"I-O Data PK-A486BL interposer"* | Not this machine's hardware. See the real hardware config; do not cite this |
+| ~~*"I-O Data PK-A486BL interposer"*~~ | ✅ **CORRECT — my error, retracted 2026-09-12.** It *is* this machine's hardware: the owner identified it on the VOGONS thread the same day (I-O Data PK-A486BL interposer, BL3 60 MHz 486DLC, a PC-98 part), and `INBOARD_86BOX_PORT_PLAN.md:101` already recorded it. I called it invented **without grepping our own docs** — the exact mistake this file warns about two rows down. A forwarded model quoting the owner back at us is not hallucinating |
 | *"`READ MULTIPLE` will reduce interrupt round-trips"* | The XT-CF path is **polled, no IRQ**. There are no interrupt round-trips to reduce, and A4 is closed on the drive's own capability word |
 
 ## The one that kills a session — the SIV VxD patch proposal
