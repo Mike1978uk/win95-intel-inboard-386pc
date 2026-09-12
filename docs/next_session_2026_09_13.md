@@ -405,3 +405,52 @@ run the controlled CMLR-off test, which remains cheap. Do not carry the number f
 `LS_TICKS_READY` (8000) timer callbacks instead of blocking — but it inits at ~100% through the
 boot and its measured init deltas (2 / 419 / 6 units) are three orders of magnitude smaller than
 the 264,342-unit span difference. It is a confound, not the cause.
+
+## THE HARDWARE SYMPTOM, as the owner describes it — this narrows it sharply
+
+> *"nothing it just didn't read the drive"* … *"felt like the egg timer - i did eject the disk
+> and it then complained about the drive not having a disk if i recall"*
+
+Three facts, and together they localise the fault:
+
+| observation | what it rules IN | what it rules OUT |
+|---|---|---|
+| No error dialog, just the hourglass | a **timeout**, not a refusal | a CHECK CONDITION that reached the OS; "media not formatted" |
+| Ejecting produced *"no disk in drive"* | **the register path works** — the driver read the drive's status and reported media state correctly | a dead transport, a wrong port, a bridge that never connects |
+| Init Success in 6 units | the bridge opens and the drive answers | the whole load/enumerate path |
+
+**So the drive is talking. Registers are readable, media presence is correct, and only the
+transfer hangs.** That is the profile of a failure confined to the **data phase**.
+
+### Which fits the transport split exactly
+
+`TRANSPORT_SPEC.md`: **registers are read in nibble mode; the data payload uses ECP `rep insb`.**
+Two different mechanisms over the same cable. Everything reported working above is a register
+read. The one thing reported broken is the only thing that uses the other mechanism.
+
+**Hypothesis for the bench: the ECP data phase does not complete on the real bridge, so the
+driver waits out `LS_TICKS_READY` (8 s) x `LS_MAX_RETRY` (5) and Explorer shows an hourglass for
+~40 s.** The arithmetic matches the described symptom without needing anything else to be wrong.
+
+⚠ **Not yet tested, and cheap to test wrongly.** The emulated bridge implements the data path
+too, so if the bed reads the new pattern media successfully the difference is real and is in the
+ECP handshake, not in our driver's logic. That is the comparison the bed now exists to make.
+
+## Bed status 2026-09-13 — media is loaded and verifiable
+
+`vm_ls120win/rd.img` was **formatted but empty**. A read of an empty volume returns zeros, and so
+does a broken transfer, so it could not have failed. Now populated via `tools/fat16_put.py`:
+
+| file | size | md5 | purpose |
+|---|---|---|---|
+| `HELLO.TXT` | 121 B | `02ccfe793c63` | one cluster, eyeballable in Notepad |
+| `PATTERN.BIN` | 64 KB | `27425bfef648` | 32 clusters, offset-stamped every 16 bytes |
+| `BIG.BIN` | 1 MB | `c2374fcb71c5` | 512 clusters — exercises sustained multi-sector transfer |
+
+Every 16-byte block begins with its own file offset, so a misplaced read **reports where it
+landed** instead of merely comparing unequal. Verified by walking the FAT chain off the image
+independently of the writer. Empty original kept at `rd_empty.img.bak`.
+
+Build check before the run (technique 74): `86Box.exe` 2026-09-12 15:25:03 is newer than
+`src/device/lpt_epat.c` 15:24:39, tree clean, branch `lpt-epat-bridge`, head `92239ba`
+*"Model the drive's busy time after a command"*.
