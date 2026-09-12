@@ -1057,3 +1057,79 @@ reusable, and it tells us whether a DMA-capable ISA storage card is worth huntin
 2. **Always work both sides of the connector.** The card's decode ceiling ended the
    transfer-width work and said nothing about transaction count - which is host-side, and
    is the larger lever.
+
+---
+
+## @andrew-hoffman, 2026-09-12 — three additions, one of which is not an optimisation
+
+Posted on [#23](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/23). Recorded
+here because two of them change existing ledger entries.
+
+### 1. E5b is ANSWERED, and it lands on the LS-120
+
+> *"I think the only storage device you have which could currently use DMA is the ECP Parallel
+> port card which the LS 120 is attached to and it nominally claims DMA channel 3."*
+
+**A5/E5b asked whether channel 3 was free. It is not — the ECP port claims it.** That closes the
+inventory question and turns it into something better: the one storage device on this machine
+that *can* do DMA is the one we are actively writing a driver for.
+
+Our current position is `dmaEn = 0` (technique 62), i.e. we deliberately do not use it. The
+vendor's DMA block path was rejected for a good reason — it writes `0x22`/`0x23`, which alias
+onto the 8259 on this XT, and it does so on the **transfer** path, not merely in chipset init.
+
+So the lever exists but the vendor's implementation of it is unusable here. **Open question:
+can the ECP DMA path be driven without those writes?** That is a driver question, not a config
+one, and it belongs with the LS-120 work rather than in this ledger.
+
+⚠ Do not treat this as a speed lever until the LS-120 works at all in PIO. Gated.
+
+### 2. His DMA-vs-PIO question, sharpened
+
+> *"does using ISA DMA to read from IO ports and write to memory (or vice versa) cause the same
+> extreme wait state penalty as PIO accesses? If not, it may actually be more useful than PIO on
+> this system. Keeping in mind that the buffer has to be in low memory, and programming the DMA
+> controller for a transfer will incur several penalties as well so you would want to do as large
+> of a transfer as possible at once (at least 512 bytes)."*
+
+Already **A4/E5**, and the framing adds two constraints worth writing into the method:
+
+- **the buffer must be in low memory** — which this machine enforces anyway, since the DMA page
+  register is 20-bit (technique 62). Consistent with E5c.
+- **amortise the setup** — programming the 8237 costs several bus accesses, so any measurement
+  must use a transfer of at least 512 bytes or it measures setup, not throughput.
+
+A4's method already uses a one-track floppy read, which satisfies both. No change needed, but the
+512-byte floor is now stated rather than assumed.
+
+### 3. Not an optimisation — a note on method, and it is correct
+
+> *"Seems that Claude keeps having trouble writing ASM probes over COMRade using DEBUG, and it's
+> using Python scripts to produce DEBUG scripts to eventually produce the code. You have a
+> macro-assembler already (MASM) and that can produce 16-bit COM binaries as well."*
+
+**He is right, and it cost time again on 2026-09-12** — a 61 KB serial transfer of `CTCHIP34.EXE`
+exceeded COMrade's 8 s op-timeout and the retry truncated the file to 1 KB.
+
+MASM 6.11c (`Windows95_ddk/MASM611C/ML.EXE`) is already in use for every driver in this repo and
+runs natively on the host. **Build probes as `.COM` files with MASM and ship the binary, rather
+than generating DEBUG scripts.** DEBUG's line-length limit, its CRLF requirement, and its refusal
+to run under DOS 7 are all failure modes that disappear entirely this way.
+
+Cross-references: the DEBUG traps are recorded under technique 105; technique 114 records what a
+hand-built `.COM` gets wrong if its entry point is not checked.
+
+### Also worth acting on, outside this ledger
+
+> *"Might want to include an instruction in claude.md that code comments should document why code
+> does what it does, and not what it *used* to do - that's what the Git history is for."*
+
+A repo-hygiene rule for `CLAUDE.md`, not a bus lever. Owner's call.
+
+### And his caution, which is not a technical point but belongs on the record
+
+He notes the Inboard was designed before integrated chipsets, to buy businesses a couple of years
+on already-depreciated machines, and that no amount of software work transcends that. The owner's
+answer — *"we don't do these things for necessity but because it's there"* — is the project's
+actual position, and this ledger should be read in that light: it is an exploration of what the
+hardware can be made to do, not a claim that it can be made fast.
