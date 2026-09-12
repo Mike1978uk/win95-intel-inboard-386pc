@@ -211,3 +211,58 @@ when the session ended — check `grep "drive busy" vm_ls120win/86box.log` first
 CF is in the 5160. `CPUSET.BAT` patched and verified. `C:\CTCHIP\IBM486X.CFG` added (an extended
 probe config; harmless). COMrade DOS build was on COM1. `INQ9B.OUT`/`RDST2.OUT` are fresh probe
 captures on `C:`.
+
+---
+
+# 2026-09-13 — THE #1 ITEM IS ANSWERED, AND IT RETIRES THIS DOC'S PREMISE
+
+Read off the CF in the host reader; no machine time, no boot.
+
+## `Initing ls120mp.mpd` is there — and so is `Init Success`, in all three logs
+
+| log | timestamp | init took | result |
+|---|---|---|---|
+| `BOOTLOG.TXT` 2026-09-12 17:41 | `00115D79` | **6 units** | ✅ `Init Success` |
+| `BOOTLOG.PRV` 2026-09-12 16:27 | `000F7943` | 419 units | ✅ `Init Success` |
+| `BOOTLOG.OLD` 2026-09-09 14:04 | `000D546F` | 2 units | ✅ `Init Success` |
+
+The only `LoadFailed` lines are `ndis2sup`, `ebios`, `vshare`, `EBIOS` — all stock Win95
+noise, unrelated.
+
+**Provenance of the binary that ran** (technique 74): `/d/WINDOWS/SYSTEM/IOSUBSYS/LS120MP.MPD`
+is md5 `976e4114d215…`, **byte-identical** to `drivers/imation_ls120_mpd/build/LS120MP.MPD`.
+The restructured driver is what executed. Backup `LS120MP.MP0` is the older `61fcab5d…`.
+
+## ⛔ RETRACTION — "Init Failure in 1520 on the 5160" is dead
+
+The 2026-09-12 framing was: *`Init Success` in 6 units in the bed vs `Init Failure` in 1520 on
+the 5160, therefore the bed is faithful and the hardware is the outlier.*
+
+**The hardware does not fail, and its best boot took 6 units — the bed's exact number.** The bed
+and the hardware now agree at init. Anything reasoned from "hardware fails where emulation
+succeeds" must be re-derived, including the motivation for last session's `busy_ms` latency model
+(which is still a fidelity improvement, just not the explanation for an init failure).
+
+⚠ Note the spread: 2, 6 and 419 units across three boots of the same binary. **Init duration is
+not stable**, and 419 vs 6 is 70x. That variability is itself unexplained and is probably the
+more interesting signal now.
+
+## Two open items from memory were already closed in code — check before re-proposing
+
+| item | memory says | `src/LS120MP.ASM` actually says |
+|---|---|---|
+| spin-up timeout | *"we allow ~1s, `pf.c` allows 8"* | `LS_TICKS_READY equ 8000 ; 8 s, pf.c's PF_SPIN` — **already 8 s** |
+| retries | — | `LS_MAX_RETRY equ 5 ; pf.c's PF_MAX_RETRIES` — matches |
+| async completion | proposed this session as a new lever (B1a) | `RequestTimerCall` already used at `LS120MP.ASM:711` and `:852`. **This driver already does it**; `XTIDEMP.MPD` does not |
+
+## Where the failure actually is now
+
+Init succeeds. The owner reports the drive **visible but not accessible** on the last boot. So
+the fault has moved from load/init to the **data path**, which is where `LS_DrainSense` and the
+media/sense handling live.
+
+**Blocked on one fact, and it is the owner's to give:** what *exactly* happened on access —
+the literal error text, and whether the drive had a letter in My Computer or was only present in
+Device Manager. Those point at different causes (sense/media handling vs the known
+`UserDriveLetterAssignment="II"` collision with the Nakamichi on `I:`) and guessing between them
+costs a boot.
