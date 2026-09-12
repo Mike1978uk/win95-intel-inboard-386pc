@@ -1219,9 +1219,18 @@ a timing loop assuming a 15-cycle `AAM` where this core takes 17.
    (`contributor_input_ledger.md`, red-ray row).
 3. **This project has never measured the core clock**, so "83.5 MHz actual" is unsupported here.
 
-What is real: the two SIV walks are the benchmark owed to red-ray, and neither has been read by
-this project side by side. The machine was offline this session. **Read both logs first**; the
-clock question is downstream of that and may dissolve.
+**RESOLVED SAME DAY — both walks now read.** See `cpu_cache_cmlr_2026_09_12.md`. The 65.7 MHz
+figure is real and post-fix; pre-fix SIV could not resolve the CPU at all, calling it
+`Generic 486 DX` with an 8 KB L1. SIV derives clock, cache size and the DX/DX2 distinction from
+the same timing curve, so before the fix all three were guesses.
+
+**The "83.5 MHz actual" remains unsupported and the `AAM` cycle-count explanation stays rejected.**
+This project has never measured the core clock. Until it does, there is no known error to explain.
+
+⚠ And the benchmark surfaced something no summary mentioned: **working sets above the 16 KB L1
+are now ~2.3x slower than before the fix** — the cost of line fills on a cache-hostile access
+pattern. Confined to the Inboard's local RAM, so it costs the ISA bus nothing. Written up in full
+in the cache doc; it is the open question there, not here.
 
 ## Already covered — no action
 

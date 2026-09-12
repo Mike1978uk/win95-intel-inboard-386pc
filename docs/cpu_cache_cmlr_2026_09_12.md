@@ -93,3 +93,92 @@ echo, as evidence.
   DOS/3.11 image; the Win95 side has not had `CPUSET.BAT` edited.
 - No benchmark yet, so the size of the win is unmeasured.
 - `1000h:1` bit 4 (`XTOUT`) is set. feipoa recommends `0`. Separate, minor, untested here.
+
+---
+
+# BENCHMARKED 2026-09-12 — the "Not done" above is now done
+
+Both SIV runs read by this project, not summarised by anyone else. The post-fix run is
+`SIV_MIKE.txt` on the CF (`siv_v5.88_beta_09/`, 2026-09-12 17:36). The pre-fix run was
+recovered from the CF image `win95_postsiv.img` at byte offsets `100684602` and `1469371625` —
+two separate captures, which agree.
+
+## SIV's own identification of the CPU changed
+
+| | before | after |
+|---|---|---|
+| CPU string | `Generic 486 DX` | `Generic 486 DX2 66MHz` |
+| L1 it inferred | **8KB** | **16KB** |
+| clock it inferred | not resolved | 65.7 MHz, FSB 32.9 MHz x2 |
+
+SIV has **no CPUID and no TSC** on this part, so it derives all three from the timing curve.
+Before the fix that curve was flat and it guessed wrong. After, it resolves the BL3's true
+16 KB L1. That is independent corroboration from a tool that knows nothing about CMLR.
+
+## Dhrystone / Whetstone
+
+| run | integer | int time | float | float time | elapsed |
+|---|---|---|---|---|---|
+| D+D,W+W **before** | 2 | 3.79 | 2 | 52.56 | 59.1 |
+| D+D,W+W **after** | **13** | 2.05 | 3 | 31.56 | **36.1** |
+| D+W,W+D **before** | 2 | 3.77 | 1 | 69.92 | 76.2 |
+| D+W,W+D **after** | **15** | 2.49 | 3 | 31.02 | **34.7** |
+
+**Integer 2 -> 13-15.** Floating point 2 -> 3, and float time roughly halves (52.6 -> 31.6 s).
+The smaller FPU gain is expected: Whetstone is bound by the arithmetic unit, not by memory.
+
+## The cache latency walk — red-ray's actual question
+
+Times in ms. His observation was that 16 KB and 24 KB timed the same.
+
+| working set | before | after | |
+|---|---|---|---|
+| 4KB | 1.446 | **0.237** | 6.1x faster |
+| 6KB | 2.513 | **0.237** | 10.6x |
+| 8KB | 2.529 | **0.218** | 11.6x |
+| 12KB | 2.819 | **0.228** | 12.4x |
+| 16KB | 3.010 | **0.325** | 9.3x |
+| 24KB | 3.193 | 7.777 | **2.4x slower** |
+| 32KB | 3.357 | 7.756 | 2.3x slower |
+| 128KB | 3.738 | 8.114 | 2.2x slower |
+| 768KB | (~3.9) | 8.300 | |
+
+**Before: no knee.** 16 KB to 24 KB is 3.010 -> 3.193, a 6% step — which is what red-ray was
+looking at when he said the cache was not working. Everything was uncached, so working set size
+barely mattered.
+
+**After: a 24x cliff at exactly the L1 boundary.** 0.325 -> 7.777 between 16 KB and 24 KB. That
+is the shape a working cache makes, and it appears at the size the hardware actually has.
+
+## ⚠ The finding nobody's summary mentioned: outside the cache, it got SLOWER
+
+Every working set above 16 KB is **~2.3x slower than before the fix.** This is real, it is in
+both tables, and it must not be smoothed over.
+
+**Most likely cause, untested:** the region is now cacheable, so a miss fetches a whole
+**16-byte line** (SIV reports `4-way 16-byte`) instead of just the bytes asked for. A latency
+walk strides deliberately to defeat reuse, so it pays for 16 bytes and uses a fraction of them
+— roughly the 4x that would produce the observed 2.3x after overlap.
+
+**It does not cost the ISA bus anything.** The walk runs in the Inboard's own 5 MB, which is
+local to the card (the one fact at the top of `bus_optimisation_plan.md`). The extra line-fill
+traffic stays on the card's local bus and no other device on the ISA bus pays for it.
+
+**Is the fix still net-positive? Yes, clearly.** Dhrystone nearly halves elapsed time, the owner
+reports the desktop feels more responsive, and real code has the spatial locality that a latency
+walk is built to destroy. But the worst case is now worse than it was, and the honest statement
+is: **cached working sets got ~10x faster, cache-hostile ones got ~2.3x slower.**
+
+**Open, and cheap to settle:** confirm the line-fill explanation before offering it as fact. If
+it holds, it is a general result for this machine — a scattered access pattern over a large
+buffer is now more expensive than it was, which is worth knowing before anyone sizes a driver
+buffer above 16 KB.
+
+## What is still not measured
+
+- **The core clock.** SIV's 65.7 MHz is inferred from timing, not read from the part, and this
+  project has **never** measured the clock independently. Do not repeat any "actual is X MHz"
+  figure without a measurement. See F1 in `bus_optimisation_plan.md`.
+- **Disk throughput.** Expect no change: that is bus-bound at ~3.90 us per I/O access and the
+  CPU cache cannot touch it. Worth one run purely to confirm the expectation.
+- **`XTOUT` (C1)**, still set to 1. Now has a post-CMLR baseline to be measured against.
