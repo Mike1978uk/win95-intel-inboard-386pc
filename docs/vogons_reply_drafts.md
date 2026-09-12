@@ -103,3 +103,61 @@ slower than a Cyrix Cx486DLC at ~33 MHz.
 
 **Still owed to him:** the benchmark figures. The post says so explicitly rather than implying a
 win that has not been measured.
+
+---
+
+## red-ray — follow-up 2: the benchmark, as promised. NOT SENT — owner posts
+
+Closes the "still owed" above. Leads with his own measurement in his own units, and does not hide
+the regression.
+
+> Benchmark figures, as promised — same SIV32L V5.88 Beta-09 build, same machine, only CMLR
+> changed from `00` to `F0`.
+>
+> **The latency walk, which was your actual question:**
+>
+> ```
+>  size     before    after
+>   4KB     1.446     0.237
+>   6KB     2.513     0.237
+>   8KB     2.529     0.218
+>  12KB     2.819     0.228
+>  16KB     3.010     0.325
+>  24KB     3.193     7.777
+>  32KB     3.357     7.756
+> 128KB     3.738     8.114
+> ```
+>
+> Before: 16 KB and 24 KB within 6% of each other — exactly what you spotted. After: a 24x step
+> between them, at precisely the 16 KB the BL3 actually has.
+>
+> **Dhrystone / Whetstone:** integer 2 -> 13 and 2 -> 15 across the two orderings; elapsed 59.1 s
+> -> 36.1 s and 76.2 s -> 34.7 s. Floating point 2 -> 3, with float time roughly halving — smaller,
+> which I take to be Whetstone being bound by the arithmetic unit rather than by memory.
+>
+> **SIV's own identification changed too, which I thought would interest you.** Before the fix it
+> reported `Generic 486 DX`, L1 `8KB`, no clock resolved. After, it reports `Generic 486 DX2 66MHz`,
+> L1 `16KB`, 65.7 MHz on a 32.9 MHz bus x2. With no CPUID and no TSC on this part it is deriving all
+> three from the latency curve, so before the fix it had a flat curve to work from and guessed. The
+> 16 KB is correct for this CPU. Your tool got the hardware right the moment the hardware started
+> behaving.
+>
+> **One result that goes the other way, and you should have it.** Every working set above the L1 is
+> now about 2.3x *slower* than it was uncached — 24 KB went 3.193 -> 7.777. My guess is the line
+> fills: 4-way, 16-byte lines, and a latency walk strides specifically to defeat reuse, so it now
+> pays for a whole line and uses a fraction of it. Uncached, it fetched only what it asked for. I
+> have not proven that, so treat it as a guess. Net it is plainly a win — the desktop is visibly
+> more responsive and Dhrystone nearly halves — but the worst case is worse than it was, and that
+> seems worth saying rather than quoting only the good column.
+>
+> Thanks again. The whole thing turned on you noticing two numbers that should not have matched.
+>
+> Full write-up, both runs:
+> https://github.com/Mike1978uk/win95-intel-inboard-386pc/blob/master/docs/cpu_cache_cmlr_2026_09_12.md
+>
+> *(AI assistance: Claude helps with this project's analysis and writing; all measurements are from
+> the real hardware.)*
+
+**Provenance of the "before" column:** recovered from the CF image `win95_postsiv.img` taken
+2026-09-12 13:19, at byte offsets `100684602` and `1469371625` — two independent captures that
+agree. It is not a remembered number and not anyone's summary.
