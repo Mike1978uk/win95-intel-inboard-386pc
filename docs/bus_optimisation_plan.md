@@ -1277,3 +1277,29 @@ is not in the ledger above.
 **reuse our own findings as explanations for unrelated symptoms** — 20-bit DMA, `0x22`/`0x23`
 aliasing, the Hi-Speed map. Those are the memorable parts of the write-up. Check that the symptom
 actually matches before spending a session on the familiar-looking cause.
+
+## D8. LS-120 data path runs in NIBBLE on an ECP card — established, not built
+
+**This has been established repeatedly** (technique 108, `ls120-transport-solved-2026-09-08`,
+`TRANSPORT_SPEC.md`) and the code still does not do it. Recorded here as a lever with a number
+against it so it stops being re-derived.
+
+| | |
+|---|---|
+| the card | **ECP-capable**, and the bridge is a Shuttle EPATRM |
+| what the vendor offers | 12 read transports, 5 write: NIBBLE, UNIDIR, TOSHIBA, PS/2, EPP, **ECP Read**, **ECP Write** (`sd120ppd_sys_full_read_2026_09_13.md`) |
+| what `LS_BlockRead`/`LS_BlockWrite` do | **`epat.c` mode 0 nibble**, byte at a time: `w0(7) w2(1) w2(3) w0(FF)`, then per byte `w2(6+ph)`, `r1()`, often `w2(4+ph)`, `r1()`, `j44()` |
+| cost | **two status reads and two control writes per BYTE** - 4 port accesses minimum, ~8 with the setup, at ~3.9 us of Inboard-to-bus sync each |
+
+The correct architecture was written down on 2026-09-08 and is unchanged: **nibble for the task
+file, ECP `rep insb`/`rep outsb` for the payload.** Registers are a handful of accesses per
+command and nibble is fine for them; the payload is 512 bytes per sector and is where all the
+time goes.
+
+⚠ The caution from technique 108 still stands and is the reason this is not a simple swap: the
+vendor's **DMA-assisted** block path writes `0x22`/`0x23`, which alias onto the 8259 here. ECP
+FIFO transfer is not that path, but the boundary must be checked in the mode handler before any
+of it is copied - handlers are located and named in the doc above.
+
+**Order of work:** correctness first (the write path only started moving bytes on 2026-09-13 and
+is not yet proven end to end), then this. A fast transport that corrupts is worth nothing.
