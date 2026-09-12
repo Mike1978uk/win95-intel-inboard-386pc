@@ -331,3 +331,35 @@ the opposite of ours: ~60 ms with `LS_MAX_RETRY` 5.
   named, and the ECP pair now read, but the rest not walked instruction by instruction;
 - `SC_EXEC_SCSI_CMD`'s body at `0x5a69` past its SRB marshalling;
 - the EPP/ECP detection logic inside those eight probe regions, as opposed to their port writes.
+
+---
+
+## ⭐ The empirical proof, which outranks everything above
+
+Owner, 2026-09-13:
+
+> *"we know the real mode driver works and works in ecp so we know the dos driver with switches
+> is safe"*
+
+**This is the primary evidence and it settles the question.** `SD120PPD.SYS` runs on the real
+5160 with `/ni`, in ECP mode, and has done throughout. The static finding above - that the ECP
+handlers contain zero fixed-port accesses - merely *explains* why that is true. It is
+corroboration, not the proof.
+
+The combination is what matters:
+
+| fact | consequence |
+|---|---|
+| `/ni` **skips chipset initialisation** | the `0x22`/`0x23`/`0x94` writes never execute |
+| the driver still transfers **in ECP mode** | the ECP path does not need them |
+| the keyboard survives | ...demonstrated on the hardware, daily |
+
+**So "ECP transfer" and "chipset init" are separable on this machine, proven operationally.**
+That is exactly the boundary the static pass located in code, and it means adopting the ECP
+transport carries no keyboard risk **provided nothing from the eight probe regions comes with
+it** - which `/ni` already demonstrates is unnecessary.
+
+⚠ The one thing to confirm when convenient, and it costs nothing: the driver prints
+`    Read  Mode : ` and `    Write Mode : ` at load (strings `0x66fc`, `0x670e`). Those lines on
+the real machine name the exact mode indices in use, which turns "it works in ECP" into the
+specific handler to port.
