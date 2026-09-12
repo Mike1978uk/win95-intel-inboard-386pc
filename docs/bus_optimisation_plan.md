@@ -366,8 +366,102 @@ measure it ranks below a small one we can settle this week.
 | **A9** | E2 — what is already shadowed | Read the shadow config and confirm rather than assume | minutes | ❓ |
 | **A10** | D1 — does `T130.MPD` use string I/O? | `pedis.py T130.MPD io` | minutes, no hardware | ❓ one command, never run |
 | **A11** | E4a — memory-mapped storage (JR-IDE/ISA) | 86Box already models it — prove the 4.2x before buying hardware | emulator run | ❓ |
+| **A12** | **The Mach8 as a coprocessor — off-screen VRAM and on-card blits** (owner's lead, 2026-09-12) | Count the installed VRAM, work out how much is off-screen, and check whether the driver caches there. See below | binary inspection first, then one DOS run | ❓ **the one device here with its own RAM on the far side of the bottleneck** |
 
 ---
+
+## A12. The Mach8 is a coprocessor with its own RAM — the owner's lead, 2026-09-12
+
+> *"we know the mach 8 is special as it has two processors... modern systems offload to GPUs and
+> here we have the grandaddy of them all sat in this machine half the time underutilised - could
+> it have some capability to do things by itself, handle instructions from the CPU, store to RAM
+> and do some of the workload without needing to be told again"*
+
+**Not outlandish. That is close to exactly what it is**, and it is the only device in this
+machine with meaningful RAM on the *far* side of the bus bottleneck.
+
+### The card really is two machines
+
+The ATI Graphics Ultra carries **two independent engines**:
+
+| half | what it is | how the CPU reaches its memory |
+|---|---|---|
+| **VGA side** | ATI 28800 SVGA | memory-mapped aperture at `A0000`, banked 64 KB at a time |
+| **Mach8 side** | an 8514/A-compatible **drawing engine** | **I/O only**, through `PIX_TRANS` — it is not memory-mapped at all |
+
+That second row is Necasek's finding, already recorded in
+`docs/mach8_real_hardware_registers_2026_09_08.md`. Two halves, two memory paths, two costs.
+
+### What it can genuinely do on its own
+
+From 86Box's own implementation of the engine (`vid_ati_mach8.c`), the drawing commands carry
+**both a source and a destination inside VRAM** — `src_pitch`/`dst_pitch`, `src_x`/`dest_x` — and
+a separate `cpu_input` flag:
+
+```
+cpu_input = 1   ->  pixel data comes from the CPU, across the bus, through PIX_TRANS
+cpu_input = 0   ->  source is already in VRAM: the card moves it INTERNALLY
+```
+
+**`cpu_input = 0` is the whole prize.** A screen-to-screen blit, a rectangle fill, a pattern
+fill, a line — the pixels never cross ISA. The CPU writes a handful of command registers and the
+card does the work while the CPU goes elsewhere.
+
+So the honest version of the GPU analogy:
+
+- ❌ It cannot run arbitrary code. No program counter, no branching, no general compute. It is a
+  **fixed-function** drawing engine, not a shader.
+- ✅ But *"upload once, reuse many times out of local memory, driven by short commands"* is
+  precisely the economic model that makes a GPU worth having — and on a machine where every byte
+  across the socket costs **~5.55 us**, that model is worth more here than it was on the 486s
+  these cards shipped with.
+
+### The resource nobody has counted
+
+At **1 MB installed** and a 640x480x8 desktop using ~300 KB, roughly **700 KB of VRAM sits
+idle** — on the far side of the bottleneck, already paid for, doing nothing.
+
+That is what an accelerated Windows driver is supposed to use it for: caching font glyphs,
+brushes and bitmaps off-screen, then blitting them on-card. Every glyph cached is a glyph never
+re-sent across the bus.
+
+⚠ **This makes the 512 KB / 1 MB question matter twice over.** It is already the open experiment
+on [#8](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/8) for TC1995's self-test
+bug — and it also decides how much off-screen memory exists to exploit. One config change now
+answers two separate questions.
+
+### The asymmetry worth measuring — and it ties straight into E4
+
+**E4 measured that memory-mapped access beats I/O-mapped by 4.2x on this machine**
+(0.454 vs 1.910 us/byte). The Mach8's two halves are exactly that comparison, on one card:
+
+- the VGA aperture at `A0000` is **memory-mapped**
+- `PIX_TRANS` is **I/O**
+
+If the display driver pushes bulk pixels through `PIX_TRANS` when it could use the aperture, it
+is paying the 4.2x penalty E4 identified — on the largest byte-mover in the machine. Nobody has
+checked which it does.
+
+### Actions
+
+1. **Read the installed VRAM size** off the real card, and compute the off-screen remainder.
+   Also settles half of the #8 experiment.
+2. **Inspect the shipped drivers offline** (`MACHW3.DRV`, and the Win95 ATI driver on the card).
+   Three counts, no hardware needed: framebuffer-aperture writes, `PIX_TRANS` writes, and
+   accelerator command writes around `0x9AE8`. That tells us whether the accelerator is used at
+   all, whether off-screen caching happens, and which of the two memory paths carries bulk data.
+3. **Only then** consider whether anything of ours should use the card deliberately.
+
+⚠ Same caveat as A8: **measure against the binaries and the real card, not 86Box**, while TC1995
+is still fixing the emulated accelerator path (#8).
+
+### The wider principle this is an instance of
+
+Every device on this bus has been treated as a *destination for bytes*. The Mach8 is the first
+one identified that is also a **place to leave them**. Worth asking of the others before assuming
+they are not: the 3C509B has a packet buffer, the T130B has its own logic. The question is not
+"how fast can we push bytes there" but **"what can stay there, and what can act on it without
+being told again"**.
 
 ## E6. DRAM refresh — a tax every single device pays  *(new, 2026-09-12)*
 
