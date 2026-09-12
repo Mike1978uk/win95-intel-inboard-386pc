@@ -326,3 +326,55 @@ handshake timing is cache-immune by construction.
 
 **Init duration 2 / 419 / 6 is therefore not a CPU-speed story**, and the 70x spread between two
 boots with identical config and identical binary remains the unexplained signal.
+
+## EVIDENCE CLASS — the owner's rule, and it demotes two of my numbers
+
+> *"we also have the timings taken via COMrade so we build that in — real hardware is king on
+> evidential status"*
+
+Correct, and it reorders this whole section. Ranked:
+
+| rank | instrument | what it is | used above |
+|---|---|---|---|
+| 1 | **COMrade + PIT channel 0** | our own code, our own timer, on the silicon. `RAMTIME2.OUT` latches PIT ch 0 either side of a `rep lodsw` | ❌ **not used — and it should have been** |
+| 2 | SIV latency walk | third-party tool, no TSC, no CPUID, inferring from a timing loop | the Dhrystone and walk tables |
+| 3 | **BOOTLOG span** | a side effect of an unrelated log, unknown unit, no control over the workload | **the 30% boot-slowdown claim** |
+
+So the boot-span finding is the **weakest** evidence in this document and should be read as a
+prompt to measure, not as a result. The SIV numbers sit above it, and both sit below a COMrade
+run that has not been done.
+
+## ⛔ BUT THE EXISTING COMrade SCRIPTS CANNOT SEE THIS CHANGE — check before running them
+
+`RAMTIME2` and the parked `RMTMST` probe segments **`1000`, `8000`, `B800`, `F000`** — every one
+of them real-mode, so **all below 1 MB**.
+
+| register | set by `CPUSET.BAT` | covers | changed 2026-09-12? |
+|---|---|---|---|
+| `LMCR` `1001h:0/1` = `03FF` | since **2026-08-24** | low 640 KB | ❌ no |
+| `CMLR` `1001h:4` = `F0` | **2026-09-12 14:40** | **1–16 MB** | ✅ **this is the fix** |
+
+**The regions those scripts time were already cacheable before the fix and still are.** Re-running
+them post-fix measures nothing about CMLR and would produce a confident null. `RMTMST.SCR` is
+staged on the CF (`/d/RMTMST.SCR`, 2026-09-11 10:27) and is tempting precisely because it is ready
+— **it is the wrong instrument for this question.**
+
+### What a COMrade test of the cache fix actually needs
+
+Time a **strided** read of a region **above 1 MB**, which real-mode `DEBUG` cannot address.
+Options, cheapest first:
+
+1. **The CMLR-off boot** (already specified above). No new code. Comments out one line, boots
+   twice, and uses the same BOOTLOG instrument for both arms — which makes its weak evidence
+   class much less of a problem, because the comparison is controlled.
+2. **Unreal mode in a DEBUG script.** The Inboard is a 386: load a 4 GB-limit descriptor, drop
+   back to real mode, keep the segment limit, then stride above 1 MB with the same PIT latch
+   `RAMTIME2` already uses. This is the instrument that would settle it properly, and it reuses
+   the timing harness verbatim — only the addressing changes.
+3. Run the walk under Windows where the memory is already there, which is what SIV did — and we
+   have already seen that answer.
+
+**`gen_ramstride.py`'s own docstring has the right warning for this** and it applies to whichever
+region is chosen: *"Pass 2 much faster than pass 1 means the stride is still smaller than the
+cache line and the result is void."* The BL3 line is **16 bytes**, so the 32-byte stride it
+already uses is correct.
