@@ -1133,3 +1133,47 @@ on already-depreciated machines, and that no amount of software work transcends 
 answer — *"we don't do these things for necessity but because it's there"* — is the project's
 actual position, and this ledger should be read in that light: it is an exploration of what the
 hardware can be made to do, not a claim that it can be made fast.
+
+---
+
+# CPU LEVERS — beyond revto486, 2026-09-12
+
+**Replication is done.** Every BL3 register that exists now matches REVTO486's dump on the
+known-good DOS/3.11 configuration (`docs/cpu_cache_cmlr_2026_09_12.md`). That closes the
+*known-good* question and opens the *optimal* one, which `CTCHIP/README.TXT` explicitly separates:
+
+> *"whether (a) is OPTIMAL is a separate question from whether it is KNOWN-GOOD."*
+
+⚠ **Benchmark the CMLR change first.** Every lever below must be measured against a post-CMLR
+baseline, one at a time, or we will not know which change did what. Registers reset on power
+cycle, so each trial costs a reboot.
+
+| # | lever | now | candidate | evidence | risk |
+|---|---|---|---|---|---|
+| **C1** | `1000h:1` bit 4 **XTOUT** — Extended Out instruction | **1** | **0** | feipoa, the same source we took `CNPX=1` from: set 1 *"costs DOOM realtics"*. revto486 leaves it 1, so this is a genuine tuning deviation, not a replication gap | low — one bit, documented in `IBM486.CFG` |
+| **C2** | `1001h:2/3` **LMROR** — 1 MB read-only mask | `0000` | ? | Marking the ROM/BIOS region read-only-cacheable is what the register is for. revto486 leaves it zero, which may be deliberate | ⚠ medium — a wrong mask makes writable memory read-only |
+| **C3** | `1004h:0` bit 4 **MOVS Split** | `0` | ? | Undocumented effect in `IBM486.CFG` beyond the name. Unknown whether it helps an 8-bit bus | unknown — measure, do not assume |
+| **C4** | `1000h:0` bit 3 **SNP** vs bit 4 **ASNP** | SNP `0`, ASNP `1` | — | feipoa's BARB-vs-FLUSH discussion (technique 68): an XT planar never drives `FLUSH#`, so cache invalidation must come from bus snooping. ASNP is on, which is why `CPUSET.BAT` says *"never CE without ASNP"* | ❗ **correctness, not speed** — see the note below |
+| **C5** | `1004h:3` bit 1 **NA16** — bus pipelining for 16-bit | `0` | — | **Probably inert.** This is an 8-bit bus. Recorded so nobody spends a boot on it | n/a |
+| **C6** | `1004h:3` bit 4 **CLP** — Cache Low Power | `0` | keep `0` | `0` = cache stays on. Already optimal for our purposes | n/a |
+| **C7** | `1000h:1` bit 7 **CNPX** — cacheability of NPX operands | `1` | keep `1` | feipoa recommends 1 for FPU performance. Already set | n/a |
+
+## C4 is the one to think about before celebrating
+
+Extending the cacheable region to 1–16 MB means more memory is now cached than at any point in
+this machine's history. The reason that is **not** a new DMA-coherency exposure is measured, not
+assumed: ISA DMA here has a **20-bit page register** (technique 62), so no DMA buffer can exist
+above 1 MB. Everything the 8237 can reach was already inside the cached low-640 KB region.
+
+But this should be re-checked if anything ever gives the 8237 more reach - and it is the reason
+**E5c** (can the 8237 reach the 384 KB E1 moved onto the Inboard?) stays ranked as a correctness
+item rather than a speed one.
+
+## Suggested order
+
+1. **Benchmark the CMLR change.** Nothing below is interpretable without it, and we owe red-ray
+   the figure.
+2. **C1 (XTOUT)** — one bit, documented, a named source, and it is the only lever here where
+   somebody else has already reported a measurable effect.
+3. Stop unless the numbers justify going further. C2/C3 are undocumented territory on a CPU with
+   no datasheet to hand, and the machine is bus-bound for I/O regardless of what the core does.
