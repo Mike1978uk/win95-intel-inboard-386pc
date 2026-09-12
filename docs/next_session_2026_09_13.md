@@ -378,3 +378,30 @@ Options, cheapest first:
 region is chosen: *"Pass 2 much faster than pass 1 means the stride is still smaller than the
 cache line and the result is void."* The BL3 line is **16 bytes**, so the 32-byte stride it
 already uses is correct.
+
+## ⛔ CORRECTION — the driver DID change, so "only the CPU registers varied" is false
+
+The owner asked directly whether the LS-120 driver changed between those boots. **It did, and I
+should have said so when I first tabled the boot spans.**
+
+| boot | date | driver on disk | CMLR | E1 switches |
+|---|---|---|---|---|
+| `BOOTLOG.OLD` | 09-09 14:04 | **old** `61fcab5d` | ❌ | ❌ |
+| `BOOTLOG.PRV` | 09-12 16:27 | **new** `976e4114` | ✅ | ✅ |
+| `BOOTLOG.TXT` | 09-12 17:41 | **new** `976e4114` | ✅ | ✅ |
+
+`LS120MP.MPD` was deployed **2026-09-11 22:54:32**. So `OLD -> PRV` crosses **three** changes —
+E1's switches, the driver restructure, and CMLR — not the two I listed. Every one of them lands
+in the same gap, and none can be separated from the others by these logs.
+
+**And the owner's own report contradicts the claim anyway:** *"boot didn't feel too bad on last
+boot"*. That is the same class of evidence as "the desktop feels faster", which I accepted
+without argument in the other direction.
+
+**Net: the 30% boot-slowdown finding is withdrawn as a finding.** It survives only as a reason to
+run the controlled CMLR-off test, which remains cheap. Do not carry the number forward.
+
+⚠ The restructured driver does bias boot span slightly by design — it waits through up to
+`LS_TICKS_READY` (8000) timer callbacks instead of blocking — but it inits at ~100% through the
+boot and its measured init deltas (2 / 419 / 6 units) are three orders of magnitude smaller than
+the 264,342-unit span difference. It is a confound, not the cause.
