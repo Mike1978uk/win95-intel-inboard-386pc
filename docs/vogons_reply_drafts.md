@@ -106,7 +106,7 @@ win that has not been measured.
 
 ---
 
-## red-ray — follow-up 2: the benchmark, as promised. NOT SENT — owner posts
+## red-ray — follow-up 2: the benchmark, as promised. ✅ SENT 2026-09-12 by the owner
 
 Closes the "still owed" above. Leads with his own measurement in his own units, and does not hide
 the regression.
