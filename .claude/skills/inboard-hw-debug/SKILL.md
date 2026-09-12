@@ -6699,3 +6699,45 @@ A lead is not a licence to wander, and this project has already paid for open-en
   - the same move applied to the XT-IDE socket, which is where it first paid.
 - [[feedback-optimise-for-bus-occupancy]] - never rank a lever out for being small. This is the
   companion rule: never rank a question out for having a boring literal answer.
+
+
+## Technique 116: when a boot costs an hour, model the device - and drive it with the UNMODIFIED hardware probe
+
+2026-09-11/12. The LS-120 had cost days at roughly one boot per iteration, with the owner a floor
+away from the machine and no visibility into anything. Building an EPAT bridge model for 86Box
+took part of a day and produced, on the first working run: a full ATAPI INQUIRY, a 512-byte
+READ(10) verified byte-for-byte, and **the "media is not formatted" failure reproduced with the
+same error register (`64`, sense key 6, UNIT ATTENTION) the real drive returns.**
+
+Full writeup: `docs/epat_emulation_result_2026_09_11.md`.
+
+### The rule that made it evidence rather than a demo
+
+**Drive the model with the probe that ran on the hardware, byte for byte.** The emulation runs
+`docs/captures/2026-09-11_ls120/INQ9.SCR` and `RD10.SCR` **unmodified**. If the probe is rewritten
+for the bed, the two sides stop exercising the same path and the result proves nothing - this
+project has already lost two sessions to exactly that (the probes wrote the CDB as register
+writes while the driver used a block write, and the difference hid the real bug).
+
+### ⚠ What a model will NOT show you
+
+**Timing.** The bridge completes immediately and models no drive latency, so the spin-up timeout
+- a real, open bug - **cannot** reproduce there. Tune timeouts on the bench, logic in emulation,
+and say which is which.
+
+### Make the bed's failures distinguishable from the device's
+
+Three of the four failures during bring-up were the bed, not the code:
+
+- the config section is `[Other removable devices]`, **not** `[Removable disks]` - the wrong name
+  parses silently and creates nothing (technique 4 again);
+- `-V` is `--vmname`, not verbose - it swallows the next argument and 86Box does nothing;
+- `86box_upstream` **cannot boot Windows 95** - those fixes live in `86box_full`, exactly as the
+  boot inventory warns, and `86box_full` has no heartbeat hook so there is no progress
+  visibility. Pick the build for the layer you are testing.
+
+And the one that cost most: **poison the output and drop stage markers.** `DEBUG` ran, exited,
+and wrote nothing; an empty output file looked exactly like a probe that found nothing. Two
+one-line markers either side proved it had run, which pointed at stderr - MS-DOS 6.22's `DEBUG`
+refuses to run under DOS 7 and says so on a handle DOS cannot redirect. See
+[[feedback-a-self-test-must-be-able-to-fail]].
