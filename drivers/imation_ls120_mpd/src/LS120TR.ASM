@@ -217,6 +217,7 @@ LS_Connected		dd	0		; layer 2 currently owns the port
 	PUBLIC	LS_LastStatus
 LS_LastStatus		dd	0		; last ATA status byte read
 LS_XferN		dd	0		; byte count the DEVICE offered this phase
+LS_Phase		dd	0		; ATAPI interrupt reason, masked to 2 bits
 
 	.CODE
 
@@ -1171,8 +1172,31 @@ lpc_have:
 	mov	al, ATA_REG_ICR
 	call	LS_RegRead
 	jc	lpc_fail
-	test	al, 02h
-	jz	lpc_done
+	and	eax, 03h
+	mov	LS_Phase, eax
+
+;     The two low bits are C/D and I/O, and they name the phase outright:
+;
+;         0  data OUT - the device wants the payload FROM us
+;         1  command  - it wants another CDB, which here means we are lost
+;         2  data IN  - it has the payload FOR us
+;         3  status   - the command is finished and moved no data
+;
+;     This used to be `test al,02h / jz lpc_done`, which required I/O set and
+;     so treated phase 0 exactly like phase 3 - "nothing to do". Every write
+;     therefore sent its CDB, declined to send the data, and waited for a
+;     completion the drive could not give while it held DRQ for 512 bytes
+;     that never arrived. Measured in the bed 2026-09-13: 15 CDB blocks, 9
+;     read blocks, ZERO blocks carrying write data.
+;
+;     Imation's own miniport never had this bug because its phase wait takes
+;     the expected phase as an argument - rva 0x1e27 waits for `0 or 3` on a
+;     write where rva 0x1df6 waits for `2 or 3` on a read.
+	cmp	eax, 3
+	je	lpc_done		; finished, no data phase at all
+	cmp	eax, 1
+	je	lpc_fail		; it wants a command packet - out of step
+
 	mov	eax, LS_LastStatus
 	test	al, ATA_ST_DRQ
 	jz	lpc_done
@@ -1204,13 +1228,21 @@ lpc_have:
 lpc_n_ok:
 	or	ecx, ecx
 	jz	lpc_done
+;     Cross-check the caller's direction against the DEVICE's phase before
+;     moving a byte. They must agree; if they do not, transferring either way
+;     corrupts something, so fail loudly instead.
 	cmp	dword ptr [ebp-28], 0
-	jne	lpc_out
-
+	jne	lpc_want_out
+	cmp	LS_Phase, 2
+	jne	lpc_fail		; we expect to read, the drive is not sending
 	mov	edi, [ebp-20]
 	call	LS_BlockRead
 	jc	lpc_fail
 	jmp	lpc_done
+lpc_want_out:
+	cmp	LS_Phase, 0
+	jne	lpc_fail		; we expect to write, the drive is not asking
+	jmp	lpc_out
 
 lpc_out:
 	mov	esi, [ebp-20]
