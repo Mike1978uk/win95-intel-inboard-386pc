@@ -266,3 +266,63 @@ the literal error text, and whether the drive had a letter in My Computer or was
 Device Manager. Those point at different causes (sense/media handling vs the known
 `UserDriveLetterAssignment="II"` collision with the Nakamichi on `I:`) and guessing between them
 costs a boot.
+
+## ⚠ THE OWNER'S LEAD: did the cache change alter this? — boot got LONGER
+
+His question, mid-session: *"perhaps the cpu caching altered behaviour?"* Worth taking
+seriously, because `CPUSET.BAT` is dated **2026-09-12 14:40**, which splits the three logs.
+
+| log | when | CMLR fix | LS-120 init | **total boot span** |
+|---|---|---|---|---|
+| `BOOTLOG.OLD` | 09-09 14:04 | ❌ off | 2 units | **873,495** |
+| `BOOTLOG.PRV` | 09-12 16:27 | ✅ on | 419 units | **1,014,346** |
+| `BOOTLOG.TXT` | 09-12 17:41 | ✅ on | 6 units | **1,137,837** |
+
+**Boot got ~30% longer after the cache was fixed, and it is monotonic.** If the units are ms
+that is 14.6 -> 16.9 -> 19.0 minutes. The unit is unverified; the *ratios* are what matter.
+
+### This is coherent with the SIV regression, which is why it is worth chasing
+
+`cpu_cache_cmlr_2026_09_12.md` measured working sets **above the 16 KB L1 running ~2.3x slower**
+after the fix, probably line fills. A Windows 95 boot is the archetypal large, scattered,
+low-locality workload — registry, VxD loading, INF parsing. Dhrystone (L1-resident) got 6.5x
+faster; boot may be paying the other side of exactly that trade.
+
+That would also explain the owner's report honestly: **the desktop genuinely feels faster**
+(small hot loops, redraw) **while boot got slower**. Both can be true.
+
+### ⛔ But do NOT conclude it yet — two confounds and a noise floor
+
+1. **E1 lands in the middle.** SW1-3/4 were changed 2026-09-11, moving 384 KB of conventional
+   RAM off the planar onto the Inboard. `BOOTLOG.OLD` predates that; both others follow it. So
+   `OLD -> PRV` crosses **two** changes, not one.
+2. **`PRV -> TXT` is 12% apart with no known change between them.** That is the run-to-run noise
+   floor, and the headline 30% is only ~2.5x it. n=1 pre-fix.
+3. The 09-09 boot also had the conflicting DOS driver still present.
+
+### The cheap single-variable test — one boot, one edit
+
+Comment out **only** the CMLR line in `C:\CTCHIP\CPUSET.BAT`:
+
+```
+REM CTCHIP34.EXE IBM486 /1001h:4=&11110000
+```
+
+Boot, keep the log, restore the line, boot again. Two boots, nothing else touched, and it
+separates the cache from E1 and from noise. **Cheapest test that can answer it** — no build, no
+driver work, and it settles whether the project's own cache fix has a cost nobody costed.
+
+⚠ If it confirms, the fix is **not** simply reverted — Dhrystone nearly halved and the desktop is
+better. It becomes a question of which CMLR mask is right, and C2 (`LMROR`, the 1 MB read-only
+mask) in the CPU-levers table is suddenly relevant rather than exotic.
+
+### What it does NOT explain: the LS-120
+
+Our driver has **no software delay loops** — no `loop`, no `jmp $+2`, no cycle-counted waits.
+Every wait is a 1000 us `RequestTimerCall` tick, so it is wall-clock and CPU-speed immune. And
+on this machine consecutive I/O accesses are already ~3.90 us apart because the **Inboard
+synchronises to the 4.77 MHz bus** — a cost the cache cannot touch. So the EPAT bit-bang
+handshake timing is cache-immune by construction.
+
+**Init duration 2 / 419 / 6 is therefore not a CPU-speed story**, and the 70x spread between two
+boots with identical config and identical binary remains the unexplained signal.
