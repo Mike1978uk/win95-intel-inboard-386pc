@@ -178,3 +178,61 @@ one thing: `LS_ReadyPoll`. That is the same routine `LS_ST_READY` already calls 
 on the real 5160, with the keyboard intact — Phase 0 passed 2026-09-07, and all three boot logs
 of 2026-09-12 show `Init Success` with no keyboard loss. **The change adds no port access of any
 kind**; it moves an existing wait from a spin into the tick loop.
+
+---
+
+# THE WRITE PATH WAS NEVER IMPLEMENTED — found in the bed, 2026-09-13
+
+After the `FINISH` fix, every **read** completes first time: INQUIRY, TEST UNIT READY, REQUEST
+SENSE, PREVENT/ALLOW, READ CAPACITY and five READ(10)s, all `status 40`, all logging
+`data phase ended in COMPLETE`. Windows mounted the volume and read the boot sector and the FAT.
+
+**Then the first WRITE(10) hangs, and the block framing says why.**
+
+| | READ(10) | WRITE(10) |
+|---|---|---|
+| CDB sent | `block write start` … `block write done` | same |
+| data phase | **`block read start` … `block read done`** | **nothing at all** |
+| completion | `data phase ended in COMPLETE`, `status 40` | never — DRQ latched, 6,514 status polls |
+
+Across the whole run: **15 `block write start` (one per command, all CDBs) and 9
+`block read start`. Zero blocks carrying write data.**
+
+## The gate, `LS120TR.ASM:1171`
+
+```asm
+;     if ((read_reg(2) & 2) && (read_reg(7) & STAT_DRQ))
+	mov	al, ATA_REG_ICR
+	call	LS_RegRead
+	test	al, 02h
+	jz	lpc_done
+```
+
+ATAPI interrupt reason bit 1 is **I/O**: set = transfer to host (data **in**), clear = data
+**out**. So a data-out phase takes `jz lpc_done` and skips the transfer entirely — the driver
+sends the CDB, declines to send the payload, and waits for a completion the drive cannot give
+because it is still holding DRQ for 512 bytes that never arrive.
+
+**`lpc_out` and its `LS_BlockWrite` call are therefore unreachable for a real write.** The only
+`LS_BlockWrite` that ever executes is the one that sends the 12-byte CDB.
+
+## Why it looked finished
+
+The comment says it is transliterating `pf_completion`, and it is — faithfully. But Linux's
+`pf_completion` is the **read** path; `pf.c` moves write data elsewhere. We transliterated one
+half of a two-way protocol and the comment's *"Move data ONLY when the device says it is in a
+data-in phase"* reads as a deliberate safety check rather than a missing feature.
+
+This is technique 111 exactly, one layer further in: a register read working says nothing about
+the data path, **and a working data-IN path says nothing about data-OUT**. Every test until today
+was a read.
+
+⚠ It also means memory's *"writes untested"* for this bed was too generous. They were not
+untested — they were **not implemented**, and nothing had ever called the code that would have
+revealed it.
+
+## The fix
+
+Branch on direction instead of requiring data-in: when ICR bit 1 is **clear**, DRQ is set and the
+caller supplied an out buffer, take the byte count and call `LS_BlockWrite` — the mirror of the
+existing read path, which already works.
