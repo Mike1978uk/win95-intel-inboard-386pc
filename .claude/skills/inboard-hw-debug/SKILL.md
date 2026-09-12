@@ -6741,3 +6741,67 @@ and wrote nothing; an empty output file looked exactly like a probe that found n
 one-line markers either side proved it had run, which pointed at stderr - MS-DOS 6.22's `DEBUG`
 refuses to run under DOS 7 and says so on a handle DOS cannot redirect. See
 [[feedback-a-self-test-must-be-able-to-fail]].
+
+## Technique 117: a fresh 86Box bed needs the device NVRAM, and the BUILD is a variable - read the run record, not the handoff
+
+2026-09-12. Eight boots were spent bisecting disk images, the LS-120 driver, the EPAT bridge and
+the ATI display VxD against a `Windows protection error`. **None of them was the cause.** Two
+things about the *bed* were, and both are cheap to get right.
+
+### 1. Copy `nvr/` from a configured bed, or NOTHING boots
+
+A new VM directory starts with no `nvr/`, so 86Box creates blank device NVRAM. On this machine
+that is fatal: `vm_xtide_mpd/nvr/mach8.nvr` is **128 bytes** of Mach8 configuration, and without
+it Windows 95 dies with a `Windows protection error` during display init - **on every image,
+including known-good ones**.
+
+This is technique 65 one level out. There, a Win95 device *node* with no resources kills the
+driver bound to it. Here, a *card* with blank NVRAM kills the VxD that drives it. Same shape,
+different layer, and the symptom names neither.
+
+```bash
+cp vm_xtide_mpd/nvr/mach8.nvr <newbed>/nvr/
+```
+
+### 2. Which BUILD ran the successful boots is a variable - and the handoff can be wrong about it
+
+`docs/next_session_2026_09_13.md` stated *"`86box_upstream` cannot boot Win95 (fixes live in
+`86box_full`)"*. **The opposite is true.** Every successful Win95 run in this project used
+`86box_upstream`, and `86box_full` reproduced the protection error on every image tried.
+
+The evidence was free and already on disk - 86Box writes the emulator path into its own logfile
+header, and `vm_xtide_mpd/stdout_wordxfer_stride2.txt` (a run that worked) says:
+
+```
+# Emulator path: C:/Users/lycet/RiderProjects/86Box-Inboard/86box_upstream/build/src//
+```
+
+**Before adopting a bed, grep the stdout/log of a run that is known to have worked and take the
+exe path from it.** One `head -12` would have replaced eight boots. Technique 70 says verify the
+binary against `git log`; this is the companion - verify *which* binary the working result came
+from, because a project with several trees has several answers.
+
+### The discipline that would have caught both in one run
+
+**Run the known-good image FIRST, in the new bed, before testing anything you care about.** It
+was run fourth. Technique 59 already says "check that your control is a control"; the addition is
+that a *new bed* invalidates every control you think you have, so re-establish one before the
+first real experiment. Until a bed has booted something known-good, every negative result from it
+is void - it is technique 86's `Initing` trap applied to the harness rather than the driver.
+
+### What the exonerations were still worth
+
+Removing a component and seeing the symptom persist is a real result even when the component is
+innocent. By the time the bed was fixed, the LS-120 driver, the EPAT bridge, the ATI VxD, the
+SCSI chain and four disk images were all cleared **by measurement**, so none of them needed
+revisiting. That is the consolation prize for a botched control, and it is not nothing - but it
+cost seven boots to learn what one control run would have told us.
+
+### And BOOTLOG cannot locate this crash - check the file LENGTH across runs
+
+Three failing runs produced `BOOTLOG.TXT` of **byte-identical length (8361)** ending on the same
+line. That is a buffer-flush boundary, not a death point. An early reading of "it died at
+`ati.vxd`, the next line" was unsound and sent a boot after the display driver.
+
+**When a log's last line is the evidence, compare its length across runs.** Identical lengths
+mean you are reading where the buffer stopped, not where the machine did.

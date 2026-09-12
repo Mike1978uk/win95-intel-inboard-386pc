@@ -1,108 +1,129 @@
 # Where everything stands — end of 2026-09-12
 
-Read this, then `drivers/imation_ls120_mpd/IMPLEMENTATION.md`, before touching anything.
+Supersedes the earlier version of this file, whose "ONE THING TO DO FIRST" is now answered.
 
 ---
 
-## THE ONE THING TO DO FIRST
+## CLOSED TODAY
 
-**Boot the machine and read `BOOTLOG.TXT` for a single line: `Initing ls120mp.mpd`.**
+### The LS-120 driver is correct. The failure is timing, on hardware only.
 
-The restructured driver is already on the card. Until that line appears, **nothing about the
-driver's behaviour can be concluded** — and on the last two boots it did not appear at all.
+Same driver (`md5 976e4114`), same image, measured both sides:
 
-| if the log says | it means | next |
+| driver | real 5160 | the bed |
 |---|---|---|
-| `Initing ls120mp.mpd` / `Init Success` | it loaded — the restructure can finally be judged | check Device Manager for the drive, then try media |
-| nothing at all | IOS skipped it again | Device Manager → SCSI controllers: yellow `!` or greyed out? |
+| `xtidemp.mpd` | 23 | 21 |
+| `t130.mpd` | 93 | 73 |
+| **`ls120mp.mpd`** | **1520 — `Init Failure`** | **6 — `Init Success`** |
 
-## The machine, current state
+The other two agree closely, so the bed is faithful and ours is the outlier by 250x. In emulation
+the driver connects, pulses SRST, reads the ATAPI signature `14 EB`, issues PACKET commands and
+moves data — **325 EPAT protocol lines, 11 commands, 11 block writes, 6 block reads** — then
+returns `Init Success` and Windows reaches a desktop.
 
-- **CF is at `D:` on the PC** (was, at end of session — it needs to go back in the 5160).
-- `D:\WINDOWS\SYSTEM\IOSUBSYS\LS120MP.MPD` = **the restructured build, md5 `976e4114`, 7168 bytes**.
-  - Backup: `LS120MP.MP0` (md5 `61fcab5d`, the phase-0 build). Revert is
-    `copy LS120MP.MP0 LS120MP.MPD`.
-  - `LS120MP.NEW` is the same bytes as the deployed `.MPD`; harmless clutter, delete when you like.
-- `CONFIG.SYS` has **`SD120PPD.SYS` and `ASPIHDRM.SYS` both REM'd out** — the vendor DOS driver
-  must stay out, or it owns `0x378` and IOS silently skips our miniport (`DontLoadIfConflict=Y`).
-- `D:\CR0.SCR` staged — a DEBUG script that reads CR0 for red-ray's cache question.
-- SW1-3/4 **ON** (E1). XT-CF runs **XUB 2.1.2 XT+**.
+`docs/epat_emulation_result_2026_09_11.md` predicted exactly this: *"the bridge completes
+immediately by design (it models no drive latency), so emulation will not reproduce that
+timeout."* It does not, and **that non-reproduction is the diagnosis**: the real drive is slow to
+come ready, the state machine spends `LS_TICKS_COLD` (3000) then `LS_TICKS_READY` (8000), the SRB
+fails and init fails with it. 1520 log units is that budget being spent.
 
-## LS-120 (#22) — what happened on 2026-09-12
+**Next on this: the spin-up timing, on the bench.** The bed cannot measure it.
 
-### Done
+Two hypotheses raised and **killed** today, both by static reasoning, recorded so nobody retries:
 
-- **The driver is restructured to `IMPLEMENTATION.md` §1 and it is proven in the binary**, not
-  asserted: `LsInitialize` is **9 instructions with zero port I/O** (returns TRUE — the vendor's
-  is 20 and does the same); `LsStartIo` is 68 instructions with **zero**; all 61 port
-  instructions live in the transport, reached only from the timer.
-- The waits are now **tick counts in a state machine** (`COLDSTART → READY → ISSUE → SENSE →
-  DONE`), one bounded step per 1 ms tick. pf.c's 8 s spin-up budget is 8000 callbacks instead of
-  a blocked CPU; transport spins cut from ~1 s to ~90 ms because the drive is known idle first.
-- `LS_BringUp`'s INQUIRY and sense-drain are **gone from init**. The drain was *hiding* the unit
-  attention the class driver is entitled to see and retry on.
-- **The 86Box EPAT bridge works** — six commits on `lpt-epat-bridge` at `Mike1978uk/86Box`, all
-  pushed. INQUIRY, a byte-verified 512-byte READ(10), and **the "media is not formatted" failure
-  reproduced with the same error register (`64`) the real drive returns**. See
-  `docs/epat_emulation_result_2026_09_11.md`.
-- The bridge is also ported into `86box_full` and builds clean there.
+- `NumberOfPhysicalBreaks = 1` vs `LS_MAX_XFER = 65024` "inconsistent" — **wrong**. The DDK's own
+  parallel-port sample `PC2X.H` defines `MAX_TRANSFER_LENGTH = 64 * 1024` with
+  `NumberOfPhysicalBreaks = 1`. Same pairing.
+- `BufferAccessScsiPortControlled = TRUE` — **not it**. SCSIPORT accepts it; the bed reaches
+  `Init Success` with it set.
 
-### The correction that matters
+### The L1 cache covers nothing Windows uses — measured, with the fix value
 
-I claimed the driver "has never loaded". **Wrong** — `BOOTLOG.OLD` (2026-09-09 14:04) contains
-`Initing ls120mp.mpd` / `Init Success ls120mp.mpd`. It has loaded and succeeded. The two 09-11
-boots that show nothing are the ones where the **DOS driver was live and conflicted**; that is now
-REM'd out. Read *all three* boot logs (`.TXT`, `.PRV`, `.OLD`) before concluding anything.
+Full write-up: `docs/cpu_cache_cmlr_2026_09_12.md`. Read off the CPU over COMrade:
 
-### Not done / not proven
+`1000h:0 = 92` (CE **enabled**), `1001h:0/1 = FF/03` (LMCR = low 640 KB), **`1001h:4` (CMLR) =
+`00`**, ECMLR `00`, `1002h:3 = 03` (2:1 clock live).
 
-- **The restructured driver has never run.** No boot with it yet.
-- **Writes are untested** everywhere — `PHASE_DATA_OUT` and `epat_pio_request(out=1)` have never
-  executed, in emulation or on hardware.
-- The Windows-level test in emulation never completed a boot. Causes, in order: `86box_upstream`
-  cannot boot Win95 (fixes live in `86box_full`); I dropped `IVT68FIX.COM` from AUTOEXEC; and I
-  used CGA, which gave the owner green lines. `86box_full` has **no heartbeat hook**, so there is
-  no progress visibility — fix that before spending more runs on it.
+Cache on; nothing between 1 MB and 16 MB cacheable; Windows lives entirely above 1 MB. **The
+owner's clock double and red-ray's "cache is off" measurements are both correct.**
 
-## Optimisation — a PER-COMPONENT AUDIT session is planned
+Reference value from REVTO486's own dump on the 3.11 machine: **CMLR = `F0`**. One line to add to
+`CPUSET.BAT`, before the cache is switched on:
 
-⛔ **Do not start it until #22 closes.** Owner's instruction, twice.
+```
+CTCHIP34.EXE IBM486 /1001h:4=&11110000
+```
 
-`docs/bus_optimisation_plan.md` now carries **ACTIONS OUTSTANDING (A1–A16)**, **THE
-PER-COMPONENT AUDIT** (six questions per device + a register), and **THE THIRD STRATEGY** (don't
-move the bytes at all — the one not bounded by the card's decode ceiling).
+**NOT YET APPLIED.** Verify with `CPUSHOW.BAT` (`1001h:4` should read `F0`), then benchmark —
+the size of the win is unmeasured. Reversible: registers reset on power cycle.
 
-**The Mach8 audit is already DONE** (offline, 2026-09-12) and both of my expectations were wrong:
-the accelerator is **on and selected** and driven hard (651 register loads, 63 CMD writes), and it
-already uses **43 `rep outsw`** — not lazy programming. Free findings: the card has **1 MB**
-(settles half of #8 with no hardware), off-screen VRAM is **~256 KB not ~700 KB**, and VRAM is
-`PIX_TRANS`-only so **E4's 4.2× cannot be claimed for video**. The remaining video lever is the
-**display mode** (A12a), which is a trade and an owner decision.
+### A working emulation bed exists — `vm_ls120win/`
 
-**Never examined at all:** `T130.MPD` (#1 in our own occupancy ranking), the six-target SCSI
-chain, the 3C509B. First pass on all three is `pedis.py` against binaries already held — no
-hardware, no boot. ⭐ Strongest untested lever: **A15, does the SCSI chain DISCONNECT** — a target
-that releases the bus during a seek costs the system nothing instead of everything.
+```
+86box_upstream/build/src/86Box.exe   (NOT 86box_full - see technique 117)
+vm_ls120win/86box.cfg.master          proven vm_xtide_mpd config + lpt_epat + rdisk type 4
+vm_ls120win/nvr/mach8.nvr             128 bytes, REQUIRED - without it nothing boots
+vm_ls120win/ls120win_clean.img        the working master: network removed, clean shutdown
+vm_ls120win/ls120win_master.img       byte-exact copy of the CF, never booted
+vm_ls120win/rd.img                    120 MB SuperDisk medium (963*256 sectors)
+```
 
-## Replies owed
+Restore `ls120win.img` from `ls120win_clean.img` before every run. Clean shutdown verified —
+7 `Terminate` stages, 7 `EndTerminate`, none unpaired.
 
-| to | where | what |
-|---|---|---|
-| **@TC1995** | [#8](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/8) | His last **two** comments are unanswered. He is not blocked on us — he is debugging his own `mix op 0x13`. **The outstanding work is ours**: the 86Box-side diff of the three captured ports, and the 512K/1MB experiment (now half-answered: the card has 1 MB) |
-| **@andrew-hoffman** | [#23](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/23) | His DMA-vs-PIO question. Recorded as **E5/A4**; answer it with a **number**, and separately mention the three leads it produced (A3 especially — a correctness question, not a speed one) |
-| **red-ray** | VOGONS / [#26](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/26) | Cache: is L1 enabled in CR0? `D:\CR0.SCR` is staged. Also run `C:\CTCHIP\CPUSHOW.BAT` — the batch file itself says the values should read `1000h:0=92 1000h:1=9C 1001h:0=FF 1001h:1=03 1002h:3=03`. ⚠ Lead: CTCHIP reaches those registers through ports **`22h`/`23h`, which alias onto the 8259 on this XT** — if the writes are not landing, the cache is never enabled, which is exactly what he is measuring |
-| **disruptor** | #26 | ST01 question, still owed |
+---
 
-## What cost time on 2026-09-12, so it does not again
+## What cost time today, so it does not again
 
-1. **Reading only the newest `BOOTLOG.TXT`** and concluding the driver had never loaded. The
-   evidence was in `BOOTLOG.OLD`.
-2. **Not checking my own patch output.** A config edit printed `gfxcard = cga` back at me — the
-   replacement had silently failed on line endings — and I carried on. The owner had to point at
-   the green lines.
-3. **Deviating from the known-good VM config** to save boot time (CGA instead of `mach8_vga_isa`).
-4. Dropping `IVT68FIX.COM` from AUTOEXEC — load-bearing for the Win95 boot here.
-5. Using `86box_upstream` for a Windows-level test at all.
+Eight boots went into bisecting disk images, the LS-120 driver, the EPAT bridge and the ATI
+display VxD against a `Windows protection error`. **None was the cause.** Written up as
+technique 117. In short:
 
-New techniques from the day: **114** (a `.COM`'s first instruction), **115** (a question can be a
-lead), **116** (model the device, and drive it with the unmodified hardware probe).
+1. **A fresh bed has no `nvr/`**, so the Mach8 gets blank NVRAM and Win95 dies in display init —
+   on *every* image, including known-good ones. Copy `nvr/mach8.nvr` from a configured bed.
+2. **The wrong emulator build.** The previous handoff said `86box_upstream` cannot boot Win95 and
+   the fixes live in `86box_full`. **The opposite is true**, and the evidence was already on disk:
+   86Box writes its own exe path into its logfile header, and `vm_xtide_mpd/stdout_wordxfer_stride2.txt`
+   from a working run names `86box_upstream`. One `head -12` would have replaced eight boots.
+3. **The control was run fourth, not first.** A new bed invalidates every control you think you
+   have. Until it has booted something known-good, its negatives are void.
+4. **`BOOTLOG.TXT` cannot locate this crash.** Three failing runs produced logs of byte-identical
+   length (8361) ending on the same line — a flush boundary, not a death point. An early reading
+   of "it died at `ati.vxd`" was unsound.
+
+Consolation: by the time the bed was fixed, the LS-120 driver, the EPAT bridge, the ATI VxD, the
+SCSI chain and four disk images were all cleared **by measurement**, so none needs revisiting.
+
+## Corrections to standing claims
+
+- **CTCHIP's writes DO reach the CPU.** The previous handoff suspected they did not, because
+  `22h`/`23h` alias onto the 8259 (technique 75). Every value read back correctly in a separate,
+  write-free invocation. Implication: the BL3 claims those I/O cycles internally rather than
+  driving them onto the bus. **Technique 75 applies to devices probing chipset ports, not to the
+  CPU's own configuration registers.**
+- **CTCHIP's post-write display is not a read-back.** Proven by running the same batch under
+  86Box, where those indices are unimplemented (`cpu_read()` returns `0xFF`, writes dropped) and
+  CTCHIP still prints `92 / CE: Internal Cache: enabled`. Use `CPUSHOW.BAT` — it takes no write
+  argument, so its display is a genuine read.
+- **The cache half of #9 was never finished.** `CPUSET.BAT`'s own comments say so:
+  *"NOT replicated on purpose: 1001h bytes 2/3/4 … read those off CPUSHOW.BAT on the 3.11 machine"*.
+  The issue was closed on the clock result. The capture has now been taken.
+
+## Open / next
+
+1. **Apply CMLR = `F0`** on the Win95 side, verify with `CPUSHOW.BAT`, benchmark. Owner runs it.
+2. **LS-120 spin-up timing on the bench** — the one thing the bed cannot measure. `pf.c` allows
+   8 s; we allow 8000 ticks, and 1520 log units says the budget is being spent and lost.
+3. **Unopened instrument:** the DDK ships `DEBUG/SCSIPORT.PDR` + `SCSIPORT.SYM` — a debug SCSIPORT
+   with symbols. If a driver question needs SCSIPORT's own reasoning, that is the tool, and the
+   bed is where to risk it.
+4. Writes are still untested everywhere — `PHASE_DATA_OUT` and `epat_pio_request(out=1)` have
+   never executed on either side.
+5. Replies still owed: @TC1995 (#8, two comments), @andrew-hoffman (#23), disruptor (#26).
+
+## Machine state
+
+CF was imaged to `~/OneDrive/Desktop/win95_postsiv.img` (2,038,063,104 bytes) and is the basis of
+the bed. The 5160 was last booted to the DOS/3.11 image with COMrade on COM1; `C:\CTCHIP\` was
+created there and holds `IBM486.CFG` only (a partial `CTCHIP34.EXE` push was deleted — a 61 KB
+serial transfer exceeds COMrade's 8 s op-timeout and the retry truncated the file).
