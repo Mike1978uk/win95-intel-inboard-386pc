@@ -380,6 +380,7 @@ What can STAY there, and what can it do without being told again?
 | **SB Pro** | ❌ no buffer | ✅ plays a whole DMA buffer without per-sample attention | already offloaded; the hazard is 20-bit reach, not speed |
 | **3C509B** | ✅ on-card packet buffer | ✅ receives into it without the CPU servicing each byte | ❓ **never examined.** How big, and does the driver drain it in bulk or per-byte? |
 | **Trantor T130B** | ❓ pseudo-DMA design, buffer size unknown | ❓ | ❓ **never examined** - and D1/A10 (does `T130.MPD` use string I/O?) is one `pedis.py` command |
+| **The whole SCSI chain** - Nakamichi CD changer, Yamaha CD-RW, Fujitsu MO, Iomega Zip, HP DAT | ✅ **every one has a cache**; period CD drives carry 128-256 KB | ✅✅ **SCSI is built for this** - a device takes a command, **disconnects from the bus**, does the work, and reconnects when ready | ❓ **A15/A16 - never examined, and this is the most on-point mechanism in the machine** |
 | **Floppy (Sergey / 765)** | ✅ sector buffer | ✅ DMA channel 2 | partly - A3/A4 use it as the measuring instrument |
 | **XT-CF (Lo-tech)** | the CF card has its own sector buffer; the ISA side is a dumb latch | ❌ PIO only, no DRQ/DACK | closed - this is why A4 cannot help the boot disk |
 | **LS-120 / EPAT** | ✅ drive buffer behind the bridge | ⚠ the bridge's DMA path writes `0x22`/`0x23`, which alias onto the 8259 | ❌ **do not use** - that is the #22 keyboard-killer, in the transfer path |
@@ -412,6 +413,8 @@ measure it ranks below a small one we can settle this week.
 | **A12** | **The Mach8 as a coprocessor — off-screen VRAM and on-card blits** (owner's lead, 2026-09-12) | Count the installed VRAM, work out how much is off-screen, and check whether the driver caches there. See below | binary inspection first, then one DOS run | ❓ **the one device here with its own RAM on the far side of the bottleneck** |
 | **A13** | **3C509B — how big is the on-card packet buffer, and is it drained in bulk?** | `pedis.py` the packet driver: `rep insw` against per-byte loops; read the card's buffer size | no hardware | ❓ never examined |
 | **A14** | **T130B — what does the card hold, and does `T130.MPD` use string I/O?** | `pedis.py T130.MPD io` (this is A10), plus the card's pseudo-DMA buffer size | no hardware | ❓ never examined |
+| **A15** | ⭐ **Does the SCSI chain DISCONNECT, or does it hold the bus through every seek?** | Check `T130.MPD`'s identify-message handling and the registry/INF for a disconnect setting; confirm on the wire by timing a seek-heavy read while another device transfers | `pedis.py` first, then 1 boot | ❓ **the single most on-point lever found so far** - see below |
+| **A16** | **SCSI cache mode pages (page 8) across the chain** | `MODE SENSE` page 8 on every target: read-cache enable, write-cache enable, prefetch. Then `MODE SELECT` to turn on what is off | 1 DOS run, no code | ❓ settable per device, and nobody has looked |
 
 ---
 
@@ -507,6 +510,64 @@ one identified that is also a **place to leave them**. Worth asking of the other
 they are not: the 3C509B has a packet buffer, the T130B has its own logic. The question is not
 "how fast can we push bytes there" but **"what can stay there, and what can act on it without
 being told again"**.
+
+## A15/A16. The SCSI chain — the devices that can already work unattended
+
+> *"we have RAM also in the CD drives too, something that can buffer commands"*  — owner, 2026-09-12
+
+Correct, and it is stronger than it first sounds. This machine has **six SCSI targets** hanging
+off the T130B, and SCSI is the one bus here that was *designed* around devices going away and
+coming back.
+
+### A15. Disconnect/reconnect — this is the mechanism, and it is free if it is already on
+
+A SCSI target may accept a command, **release the bus entirely**, perform the seek or the spin-up
+in its own time, and then reconnect when it has data. On a machine where **the bus is the
+bottleneck**, that is not a throughput optimisation - it is the difference between a 100 ms
+Nakamichi seek costing the whole system 100 ms of bus, or costing it nothing.
+
+**And it is commonly turned off.** Disconnection forces a driver to handle reselection, save and
+restore per-target state, and cope with commands completing out of order; plenty of simple
+miniports disable it to avoid exactly that. `T130.MPD` is Adaptec's own binary, PIO-only,
+configured here with **`Polling=1` and no IRQ** — which is precisely the configuration where a
+lazy implementation would refuse to disconnect, because with no interrupt there is nothing to
+catch a reselection.
+
+⚠ So the honest expectation is that it is **probably off**, and if so it may not be switchable
+without a driver change. **Find out before theorising** — `pedis.py` on `T130.MPD` will show
+whether it ever sends an IDENTIFY message with the disconnect-permitted bit set.
+
+### Why it matters more here than anywhere else
+
+Every other lever in this document fights for a share of the bus. Disconnect **hands the bus
+back** for the duration of the slowest thing any device does — a seek, a CD changer swapping
+discs, a tape streaming. The Mach8 blit idea (A12) is the same shape applied to video; this is it
+applied to the six devices that spend most of their time mechanically busy.
+
+### A16. Cache mode pages — adjustable, per device, today
+
+Every one of these targets carries a cache, and SCSI exposes its controls as **mode page 8**:
+
+| field | what it does |
+|---|---|
+| `RCD` | read cache disable - if set, the drive's cache is being wasted |
+| `WCE` | write cache enable - off by default on many period drives |
+| prefetch / read-ahead limits | how much the drive reads speculatively into its own RAM |
+
+`MODE SENSE` page 8 on each target says what is currently set; `MODE SELECT` changes it. **No
+code to write, no driver to patch** — one DOS run with the existing ASPI tooling reads all six.
+
+⚠ **`WCE` is a data-integrity trade, not a free win.** A drive that acknowledges a write before
+it reaches the medium will lose it on a power cut. Read caching and prefetch are the safe half;
+treat write caching as a separate decision and record it as one. This machine already has an open
+data-loss issue ([#18](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/18)) and
+nothing here should make that murkier.
+
+### The same question applies to ATAPI
+
+The LS-120 is ATAPI, which inherits SCSI's mode pages. Once the miniport works, the same
+`MODE SENSE` page 8 question applies to it — and the drive's own buffer is what makes the
+parallel-port transport bearable at all.
 
 ## E6. DRAM refresh — a tax every single device pays  *(new, 2026-09-12)*
 
