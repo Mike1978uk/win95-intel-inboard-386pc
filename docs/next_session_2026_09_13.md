@@ -127,3 +127,87 @@ CF was imaged to `~/OneDrive/Desktop/win95_postsiv.img` (2,038,063,104 bytes) an
 the bed. The 5160 was last booted to the DOS/3.11 image with COMrade on COM1; `C:\CTCHIP\` was
 created there and holds `IBM486.CFG` only (a partial `CTCHIP34.EXE` push was deleted — a 61 KB
 serial transfer exceeds COMrade's 8 s op-timeout and the retry truncated the file).
+
+---
+
+# LATER THE SAME DAY — 2026-09-12, second half
+
+Supersedes parts of the above. Read this section first.
+
+## ✅ THE CACHE IS FIXED AND VERIFIED ON HARDWARE
+
+`CMLR` (`1001h:4`) read **`00`** — cache enabled, but **nothing between 1 MB and 16 MB cacheable**,
+and Windows 95 lives entirely above 1 MB. It was running completely uncached.
+
+Fixed to **`F0`** (REVTO486's value on the known-good 3.11 machine), added to `CPUSET.BAT`
+(backup `CPUSET.BAK`), **verified by read-back**: `1001h:4 = F0`.
+
+⏳ **BENCHMARK NOT TAKEN.** Owed to red-ray, and required before any further CPU tuning or nothing
+is interpretable. Full write-up: `docs/cpu_cache_cmlr_2026_09_12.md`.
+
+**Every BL3 register that exists now matches revto486.** Remaining tuning levers (known-good is not
+optimal) are in `docs/bus_optimisation_plan.md` under **CPU LEVERS**; only **XTOUT** has reported
+evidence behind it.
+
+**Three corrections:** CTCHIP's writes *do* reach the CPU (the 22h/23h aliasing suspicion is
+wrong — technique 75 applies to devices, not the CPU's own registers); CTCHIP's post-write display
+is *not* a read-back (use `CPUSHOW.BAT`); and **there is no further register gap** — `1002h`/
+`1004h` bytes 4/5 are undefined reserved bits, proven by a write test that left them `00`.
+
+## ✅ A WORKING LS-120 BED EXISTS — and the driver is CORRECT
+
+| driver | real 5160 | bed |
+|---|---|---|
+| `xtidemp.mpd` | 23 | 21 |
+| `t130.mpd` | 93 | 73 |
+| **`ls120mp.mpd`** | **1520 — `Init Failure`** | **6 — `Init Success`** |
+
+325 EPAT protocol lines, full ATAPI sequence, Windows to a desktop. **The restructure is sound;
+the hardware failure is drive timing.**
+
+**Measured on hardware:** after a command the real drive returns status **`80` (BSY)** with a clean
+error register, still set after ~0.5 s, settled to `50` by the next command. **The emulated bridge
+returns `40` and never goes BSY.** That is the whole divergence.
+
+### The bed — `vm_ls120win/`
+
+```
+86box_upstream/build/src/86Box.exe     <- NOT 86box_full
+vm_ls120win/nvr/mach8.nvr              <- 128 bytes, REQUIRED or NOTHING boots
+vm_ls120win/ls120win_clean.img         <- working master (network removed, clean shutdown)
+vm_ls120win/ls120win_master.img        <- byte-exact CF copy, never booted
+vm_ls120win/rd.img                     <- 120 MB FAT16 superfloppy
+```
+
+Restore BOTH the image and `86box.cfg` from their masters every run — 86Box normalises
+`rdisk_01_image_path` away into `image_history`, and then no medium is loaded.
+
+⚠ **The earlier claim in this file that `86box_upstream` cannot boot Win95 is WRONG.** Every
+successful Win95 run in this project used it. Eight boots were lost to that plus the missing NVRAM.
+Written up as **technique 117**.
+
+### Emulator change, built but NOT yet confirmed
+
+`lpt_epat.c` gained a **`busy_ms`** option (0 = old instant behaviour, "750 ms (measured)") holding
+BSY after a command via a `pc_timer_t`, following `lpt_ditto.c`. Purpose: make the bed reproduce the
+hardware failure. Bed config carries `busy_ms = 750`. **The run confirming it was still in flight
+when the session ended — check `grep "drive busy" vm_ls120win/86box.log` first.**
+
+## Open, in order
+
+1. **Benchmark the cache change.** Owed to red-ray; gates all CPU tuning.
+2. **Confirm `busy_ms` reproduces `Init Failure` in the bed.** If it does, the LS-120 is fixable
+   entirely in emulation.
+3. **The x10 ratio test** on the driver's tick budgets — scales = real timeout, doesn't move =
+   the timer is not advancing during `ScsiPortInitialize` and the fix is architectural.
+   ⚠ **Two ConfigInfo hypotheses are already dead** (`NumberOfPhysicalBreaks`,
+   `BufferAccessScsiPortControlled`) — do not retry them.
+4. Writes still unproven everywhere.
+5. @andrew-hoffman: the ECP port claims **DMA channel 3**, so the one DMA-capable storage device
+   here is the LS-120. Gated behind PIO working; the vendor's DMA path writes `0x22`/`0x23`.
+
+## Machine state
+
+CF is in the 5160. `CPUSET.BAT` patched and verified. `C:\CTCHIP\IBM486X.CFG` added (an extended
+probe config; harmless). COMrade DOS build was on COM1. `INQ9B.OUT`/`RDST2.OUT` are fresh probe
+captures on `C:`.
