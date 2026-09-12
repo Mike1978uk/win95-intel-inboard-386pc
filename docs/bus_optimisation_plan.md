@@ -410,7 +410,9 @@ measure it ranks below a small one we can settle this week.
 | **A9** | E2 — what is already shadowed | Read the shadow config and confirm rather than assume | minutes | ❓ |
 | **A10** | D1 — does `T130.MPD` use string I/O? | `pedis.py T130.MPD io` | minutes, no hardware | ❓ one command, never run |
 | **A11** | E4a — memory-mapped storage (JR-IDE/ISA) | 86Box already models it — prove the 4.2x before buying hardware | emulator run | ❓ |
-| **A12** | **The Mach8 as a coprocessor — off-screen VRAM and on-card blits** (owner's lead, 2026-09-12) | Count the installed VRAM, work out how much is off-screen, and check whether the driver caches there. See below | binary inspection first, then one DOS run | ❓ **the one device here with its own RAM on the far side of the bottleneck** |
+| **A12** | **The Mach8 as a coprocessor** (owner's lead, 2026-09-12) | — | — | ✅ **MEASURED offline 2026-09-12.** Accelerator installed, selected and used (651 register loads, 63 CMD). `rep outsw` already in use. Card has **1 MB**. See A12 below |
+| **A12a** | **Display mode as a bus lever — 1024x768x256 today** | Benchmark at 1024x768 vs 800x600 vs 640x480 on the real machine | Control Panel + a benchmark run, no code | 🎯 **~2.6x fewer bytes at 640x480, and it frees ~470 KB more off-screen VRAM.** Owner's call - it is a trade |
+| **A12b** | Does the driver cache glyphs/bitmaps in off-screen VRAM? | Dynamic: time a repeated text draw, then repeat after a mode change that halves off-screen memory | 1 boot | ❓ static counts cannot answer it |
 | **A13** | **3C509B — how big is the on-card packet buffer, and is it drained in bulk?** | `pedis.py` the packet driver: `rep insw` against per-byte loops; read the card's buffer size | no hardware | ❓ never examined |
 | **A14** | **T130B — what does the card hold, and does `T130.MPD` use string I/O?** | `pedis.py T130.MPD io` (this is A10), plus the card's pseudo-DMA buffer size | no hardware | ❓ never examined |
 | **A15** | ⭐ **Does the SCSI chain DISCONNECT, or does it hold the bus through every seek?** | Check `T130.MPD`'s identify-message handling and the registry/INF for a disconnect setting; confirm on the wire by timing a seek-heavy read while another device transfers | `pedis.py` first, then 1 boot | ❓ **the single most on-point lever found so far** - see below |
@@ -489,6 +491,83 @@ for storage and precisely right for a cache.
 
 So the question is not *"what else could we store there"*. It is **"is the display driver using
 it at all, and if not, what is it re-sending across the bus that it need not?"**
+
+## A12 — MEASURED 2026-09-12, offline, against the shipped binaries
+
+No hardware, no boot. `ATIM8.DRV` and `SYSTEM.DAT` read straight off the card at `D:`.
+
+### 1. The accelerator is installed, selected, and genuinely used ✅
+
+| evidence | result |
+|---|---|
+| Registry references to `ATIM8.DRV` | **7** (and `ATI.VXD` 3, `VGA.DRV` only 1) |
+| `SYSTEM.INI` | `ATI mach8: 1024x768x256 (Large Font)` |
+| Accelerator register loads in `ATIM8.DRV` | **651** |
+| `0x9AE8` CMD writes | **63** |
+| `0x82E8`/`0x86E8` CUR_Y/CUR_X | 137 / 147 |
+
+**So "turn the accelerator on" is already done.** ATI's accelerated driver is the selected
+display driver and it drives the engine hard. That closes the worry and moves the question on.
+
+### 2. Bulk pixel transfer already uses string I/O ✅
+
+| opcode | count |
+|---|---|
+| `rep outsw` | **43** |
+| `rep outsb` | 2 |
+| `out dx,ax` / `out dx,al` | 1645 / 1811 (command-register setup, as expected) |
+| `mov ax,A000h` — the VGA aperture | **1** |
+
+ATI knew what they were doing: the data path is `rep outsw` to `PIX_TRANS`, not a byte loop. The
+same lever that won 35% on the XT-CF is **already pulled here**.
+
+That last row also confirms Necasek independently from the binary: the Mach8's VRAM really is
+reachable only through `PIX_TRANS`, so **E4's 4.2x memory-vs-I/O advantage cannot be claimed for
+video**. There is no aperture to move to. ⚠ That retires the "which of the two memory paths does
+it use" question I raised above — it uses the only one it has.
+
+### 3. ⚠ CORRECTION — the off-screen memory is ~256 KB, not ~700 KB
+
+I estimated ~700 KB idle by assuming a 640x480 desktop. The machine actually runs
+**1024x768x256**, which is **786,432 bytes of visible framebuffer**.
+
+Two consequences, and the second is a real finding:
+
+- A 512 KB card **cannot** display that mode, so **the card has 1 MB installed**. That settles
+  half of the #8 experiment from the desktop, with no hardware.
+- Only about **256 KB is off-screen**, not 700 KB. The stranded megabyte is mostly *in use* —
+  as framebuffer.
+
+### 4. 🎯 The lever that is actually left: pixels per operation
+
+With the accelerator on and `rep outsw` already in use, the remaining bus cost is **how many
+pixels cross the socket**, and that is set by the display mode:
+
+| mode | framebuffer | relative bytes for a full-screen operation | off-screen VRAM freed |
+|---|---|---|---|
+| **1024x768x256** (current) | 786 KB | **1.00x** | ~256 KB |
+| 800x600x256 | 480 KB | **0.61x** | ~560 KB |
+| 640x480x256 | 300 KB | **0.38x** | ~724 KB |
+
+Dropping to 640x480 is **~2.6x fewer bytes** for anything the CPU has to feed, and it
+simultaneously frees ~470 KB more off-screen VRAM for the driver to cache glyphs and bitmaps in —
+which reduces the traffic *again*. The two gains compound.
+
+⚠ **This is a trade, not a free win**, and it is the owner's call: 1024x768 is the 8514/A's
+native mode and the reason for buying the card. But for **games and benchmarks**, where the
+measure is frames and not desktop area, it is very likely the single largest video lever
+available — and it is a Control Panel change, not a patch.
+
+### 5. What is still worth measuring
+
+- **Does the driver cache in off-screen VRAM?** 63 CMD sites is consistent with blits, but static
+  counts cannot prove a glyph cache. The test is dynamic: time a repeated text draw, then the
+  same draw after a mode change that halves off-screen memory.
+- **The 8-bit slot ceiling.** The Graphics Ultra is a 16-bit ISA card in a machine with **only
+  8-bit slots**. `rep outsw` saves CPU instructions but the bus still moves 8 bits per cycle, so
+  the card's decode ceiling applies here exactly as it did to the XT-CF. Confirm before
+  attributing any gain to width.
+- **Benchmark before and after**, on the real machine. Everything above is static analysis.
 
 ### The resource nobody has counted
 
