@@ -345,6 +345,49 @@ peripheral's limit without asking what the transaction costs on the other side o
 connector. Rank by bus cycles occupied, take every gain that costs nothing to keep, and
 when a hardware ceiling is reached, turn round.
 
+## THE THIRD STRATEGY — don't move the bytes at all
+
+Everything in this document until 2026-09-12 was one of two ideas:
+
+| | strategy | what it attacks | best result so far |
+|---|---|---|---|
+| 1 | **Widen** the transfer | the `~1.87 us/byte` term | `rep insw`/`outsw` - **35% read, 33% write**, shipped |
+| 2 | **Fewer** transactions | the `~3.90 us` fixed sync term | request merging, **1.2-1.5x**, A1, not yet built |
+
+Both accept that the bytes cross the socket and argue about how. The DMA question and the Mach8
+question arrived within a day of each other and both point at a third:
+
+| | strategy | what it attacks | |
+|---|---|---|---|
+| 3 | **Don't move them** | the transfer itself | DMA (A4-A6), on-card blits (A12), memory-mapped storage (A11), refresh (A7) |
+
+**This is the one with the most headroom, because strategies 1 and 2 are bounded by the card's
+decode ceiling and strategy 3 is not.** A byte that never crosses the socket costs nothing, and
+no amount of widening beats that.
+
+### The question to ask of every device on this bus
+
+We have always asked *"how fast can we push bytes to it"*. The other question, never asked
+systematically:
+
+```
+What can STAY there, and what can it do without being told again?
+```
+
+| device | has its own memory? | can it act unattended? | asked yet |
+|---|---|---|---|
+| **Mach8 / Graphics Ultra** | ✅ **512 KB or 1 MB VRAM**, ~700 KB of it likely idle | ✅ a real drawing engine - blits with a VRAM source never touch the bus | **A12** |
+| **SB Pro** | ❌ no buffer | ✅ plays a whole DMA buffer without per-sample attention | already offloaded; the hazard is 20-bit reach, not speed |
+| **3C509B** | ✅ on-card packet buffer | ✅ receives into it without the CPU servicing each byte | ❓ **never examined.** How big, and does the driver drain it in bulk or per-byte? |
+| **Trantor T130B** | ❓ pseudo-DMA design, buffer size unknown | ❓ | ❓ **never examined** - and D1/A10 (does `T130.MPD` use string I/O?) is one `pedis.py` command |
+| **Floppy (Sergey / 765)** | ✅ sector buffer | ✅ DMA channel 2 | partly - A3/A4 use it as the measuring instrument |
+| **XT-CF (Lo-tech)** | the CF card has its own sector buffer; the ISA side is a dumb latch | ❌ PIO only, no DRQ/DACK | closed - this is why A4 cannot help the boot disk |
+| **LS-120 / EPAT** | ✅ drive buffer behind the bridge | ⚠ the bridge's DMA path writes `0x22`/`0x23`, which alias onto the 8259 | ❌ **do not use** - that is the #22 keyboard-killer, in the transfer path |
+| **Inboard itself** | ✅ local RAM + cache | ✅ this is *why* DMA may overlap with CPU work here (A6) | **A6** |
+
+Three of those rows say **"never examined"**, and two of the three cost nothing but a
+`pedis.py` run against a binary we already hold.
+
 ## ACTIONS OUTSTANDING — the single list to work from
 
 Every open optimisation question, as an **action with a method and a cost**, not a note. Nothing
@@ -367,6 +410,8 @@ measure it ranks below a small one we can settle this week.
 | **A10** | D1 — does `T130.MPD` use string I/O? | `pedis.py T130.MPD io` | minutes, no hardware | ❓ one command, never run |
 | **A11** | E4a — memory-mapped storage (JR-IDE/ISA) | 86Box already models it — prove the 4.2x before buying hardware | emulator run | ❓ |
 | **A12** | **The Mach8 as a coprocessor — off-screen VRAM and on-card blits** (owner's lead, 2026-09-12) | Count the installed VRAM, work out how much is off-screen, and check whether the driver caches there. See below | binary inspection first, then one DOS run | ❓ **the one device here with its own RAM on the far side of the bottleneck** |
+| **A13** | **3C509B — how big is the on-card packet buffer, and is it drained in bulk?** | `pedis.py` the packet driver: `rep insw` against per-byte loops; read the card's buffer size | no hardware | ❓ never examined |
+| **A14** | **T130B — what does the card hold, and does `T130.MPD` use string I/O?** | `pedis.py T130.MPD io` (this is A10), plus the card's pseudo-DMA buffer size | no hardware | ❓ never examined |
 
 ---
 
