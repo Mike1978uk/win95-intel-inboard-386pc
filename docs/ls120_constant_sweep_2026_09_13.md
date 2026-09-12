@@ -119,3 +119,62 @@ bounded timeout with no device error to report looks like.
 ⚠ **Not changed, and why:** `LS_Delay1ms` stays at 1 ms — it is `pf_atapi`'s `mdelay(1)` at the
 same point in the same sequence. The vendor's 50 ms is at a different step of its own probe and
 is not the same delay.
+
+---
+
+## The fourth source, and the boundary that must not be crossed
+
+Owner, mid-sweep, and both points were needed:
+
+> *"don't forget the dos has more switches though so it may differ in process if switches are pulled"*
+> *"we don't want to reintroduce the keyboard bug inadvertently"*
+
+### `SD120PPD.SYS` changes PROCESS, not just configuration
+
+The DOS driver's own help strings name switches that select different code paths, not
+parameters:
+
+| switch | what it changes |
+|---|---|
+| **`/dm`** | *"disable read multiple mode"* — so the DOS driver **has** a read-multiple path |
+| **`/di`** | *"Operate in polled mode"* — so it can also run interrupt-driven |
+| **`/rx` 0-11 / `/wy` 0-4** | the 12x5 transfer-mode matrix (`TRANSPORT_SPEC.md` §9) |
+| `/sf` | skip fast-mode detection |
+| `/ni` | skip chipset initialisation — **what this machine runs** |
+
+**Consequence for this sweep:** the constants above come from the **miniport**, which is the
+right reference for a miniport. But the DOS driver is the binary that demonstrably works on this
+machine *today*, and it reaches the drive by a path that may be switch-selected. Its own loop
+counters (`0x8000` x22, `0xFFFF` x5) are in the same seconds-not-milliseconds bracket, which
+corroborates rather than contradicts — but **no timing conclusion here should be extended to the
+DOS path without checking whether a switch gates it.**
+
+### ⛔ Where the keyboard bug lives, and why this change cannot reach it
+
+Issue #22's original cause (technique 75) is the vendor probing for host chipsets by writing
+`0x22`/`0x23`/`0x24`/`0x25`/`0x94` — ports that **alias onto the 8259 on this XT**, leaving the
+interrupt mask with IRQ 1 disabled. Those writes live in the vendor's **chipset initialisation
+and mode detection**, and technique 108 found them in the **DMA block-transfer path** as well.
+
+**So the sweep has a hard boundary: take the vendor's TIMING, never its INITIALISATION.**
+Timing constants are numbers. Init and mode-detection are the code that kills the keyboard.
+
+Verified for the binary built today (`code c30ea1a2`, commit `0515903`):
+
+```
+xt_port_audit.py LS120MP.MPD
+  candidates in XT system ports : 1
+  plausible (confidence >= 3)   : 0
+  of which WRITES               : 0   <-- the dangerous ones
+```
+
+The single candidate is a false positive: `LS120TR.ASM:531  mov al, 022h` is the **first byte of
+the EPAT unlock frame** `22 AA 55 00 FF 87 78`, written to the LPT *data* port. Every port this
+driver can form is `LS_BasePort` (`0x378`) plus an LPT offset — there is no hardcoded port
+anywhere in it.
+
+**And the structural argument is stronger than the audit.** The new `FINISH` state calls exactly
+one thing: `LS_ReadyPoll`. That is the same routine `LS_ST_READY` already calls on every boot,
+on the real 5160, with the keyboard intact — Phase 0 passed 2026-09-07, and all three boot logs
+of 2026-09-12 show `Init Success` with no keyboard loss. **The change adds no port access of any
+kind**; it moves an existing wait from a spin into the tick loop.
