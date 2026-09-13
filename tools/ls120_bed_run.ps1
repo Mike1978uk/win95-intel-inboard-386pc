@@ -22,6 +22,10 @@ param(
     # restored, so the bed can exercise the drive with nobody at the keyboard
     # (technique 87 - drive it from inside the guest, not with host keystrokes).
     [string] $Startup = "",   # e.g. tools/fixtures/LSWRITE.BAT
+    # Arm the CS:EIP heartbeat and the VMM write watch. Both are off by
+    # default because they are expensive; use them to find where a guest that
+    # has stopped talking to the device is actually spinning.
+    [switch] $Heartbeat,
     [string] $VmPath  = "C:\Users\lycet\RiderProjects\86Box-Inboard\vm_ls120win",
     [string] $ExePath = "C:\Users\lycet\RiderProjects\86Box-Inboard\86box_upstream\build\src\86Box.exe"
 )
@@ -79,6 +83,12 @@ Remove-Item $log -EA SilentlyContinue
 # -L is not optional: without it pclog output (the [ECPDIAG] census and the
 # whole EPAT bridge trace) goes to a console nobody is reading and the run
 # produces no evidence at all. One run was lost to this on 2026-09-13.
+if ($Heartbeat) {
+    $env:INBOARD_HEARTBEAT = "1"
+    Write-Output "heartbeat armed"
+} else {
+    Remove-Item Env:INBOARD_HEARTBEAT -EA SilentlyContinue
+}
 $p = Start-Process $ExePath -ArgumentList @("-P", $VmPath, "-L", $log) `
         -WorkingDirectory $VmPath -PassThru
 Write-Output "86Box pid $($p.Id), running $Seconds s..."
