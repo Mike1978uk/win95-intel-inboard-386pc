@@ -748,6 +748,7 @@ CTRL_DIR	equ	020h
 public LS_DetectEcp
 LS_DetectEcp:
 	push	edx
+	push	ebx
 	mov	LS_HasEcp, 0
 	cmp	LS_ModeReq, 1
 	je	lde_done			; MODE=SPP - pinned to nibble, do not probe
@@ -758,16 +759,31 @@ LS_DetectEcp:
 lde_probe:
 	movzx	edx, LS_BasePort
 	add	edx, LPT_ECP_ECR
+	in	al, dx
+	mov	bl, al				; whatever the port was in
 	mov	al, ECR_KEEP_MASK
 	out	dx, al
 	in	al, dx
-	cmp	al, 0FFh
-	je	lde_done			; floating bus - no ECR
+	mov	ah, al
+
+;  ** RESTORE BEFORE DECIDING. ** A probe must not change state. Leaving the
+;  ECR in byte mode (bits 7:5 = 001) makes the port bidirectional, and the
+;  nibble path reads status through it - so a driver that probed and then fell
+;  back to SPP found SPP broken by its own probe. Measured 2026-09-13: boot
+;  stalled with 12,588 nibble reads and not one command issued.
+	mov	al, bl
+	and	al, 01Fh			; mode 000 - plain SPP
+	out	dx, al
+
+	cmp	ah, 0FFh
+	je	lde_done			; floating bus - no ECR here
+	mov	al, ah
 	and	al, 0E0h
 	cmp	al, ECR_KEEP_MASK AND 0E0h
 	jne	lde_done
 	mov	LS_HasEcp, 1
 lde_done:
+	pop	ebx
 	pop	edx
 	ret
 
@@ -798,7 +814,13 @@ LS_EcpLeave:
 	out	dx, al
 	movzx	edx, LS_BasePort
 	add	edx, LPT_ECP_ECR
-	mov	al, ECR_KEEP_MASK
+;  Back to mode 000 - plain SPP - and NOT byte mode. The task file is read
+;  with nibble cycles through the status register, and any ECR mode with bits
+;  7:5 non-zero makes the port bidirectional, which changes what those reads
+;  return. Leaving byte mode set here would break every register access after
+;  the first block transfer.
+	in	al, dx
+	and	al, 01Fh
 	out	dx, al
 	ret
 
