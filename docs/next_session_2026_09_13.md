@@ -729,3 +729,85 @@ owner's edit. Emulator is current with the ECP work, which is inert unless a dri
 `c:\clock\smwclock s` is the last line before `IVT68FIX.COM`, and the owner notes the following
 step never appears to write to the screen. His suggestion - if something is waiting unanswered,
 let it pass faster - is worth testing. Not touched tonight; it predates all of this work.
+
+---
+
+# END OF 2026-09-13 — SPP SHIPS. ECP READS. ECP WRITES CORRUPT THE BOOT SECTOR.
+
+## ⛔ START HERE TOMORROW: ECP WRITES ARE NOT SAFE
+
+The last ECP run left `rd.img`'s boot sector with its OEM field overwritten -
+`!#k{]IHC` instead of `MSWIN4.1` - which is why the drive showed empty. Signature,
+BPB, FAT, root directory and all file data were untouched, and both pattern files
+verified byte-exact afterwards. **Repaired in place; media snapshotted as
+`vm_ls120win/rd_verified_good.img`.**
+
+**Do not run an ECP-pinned build against media you care about.** Something in the ECP
+write path puts bytes at LBA 0. Reads are clean; only writes are implicated.
+
+## What is PROVEN
+
+**SPP end to end, on the owner's own hands.** He opened the drive, listed it, opened
+`HELLO.TXT`, edited it and saved. Verified host-side: 121 -> **168 bytes**, his text
+appended, original intact, and `PATTERN.BIN` / `BIG.BIN` **byte-identical** - the half
+that could have failed. Bed now carries the proven SPP build (`38069bfd`, md5
+`d9512bd4`).
+
+**ECP reads, exactly.** Per-command byte counts from the emulated bridge:
+INQUIRY 36, REQUEST SENSE 14, READ CAPACITY 8, READ(10) 512 each - every one correct.
+READ CAPACITY returns last LBA 246,527 / 512-byte blocks = 126,222,336 bytes, matching
+the medium byte for byte.
+
+## Emulator work, all committed to `mike/lpt-epat-bridge`
+
+| commit | what |
+|---|---|
+| `96a7bc7` | the Inboard XT's LPT is modelled as the ECP card it is - `0x378`, IRQ 7, ECR at `0x77A` |
+| `85a2946` | `lpt_device_t.ecp_read_data` - the ECP FIFO was chardev-only, an emulated device could never supply bytes |
+| `05630e2` | **`lpt_set_ecp()` must precede `lpt_port_setup()`** - the flag only matters at registration, and `port+0x400` is claimed only if it is already set |
+| `20c76af` | spindle model - spin-up once, then ~50x quicker, instead of a flat delay on every command |
+| `8ab2203` | `ecp_write_data` - the FIFO drain fed `write_data()`, whose EPAT path is framed for SPP blocks, so ECP payload was dropped |
+| `8d529e4` | SuperDisk 120/240 types un-`#if 0`'d - the bed had no valid type for a 246,528-sector image |
+
+⚠ **`[ECPDIAG]` tracing is still in `lpt.c`** (three `pclog` points). Remove once ECP is
+settled.
+
+## Driver work, committed
+
+`FINISH` state; the write path (the ICR gate required data-IN, so writes sent a CDB and
+no payload); phase decode for all four ATAPI phases; `MODE=SPP` / `MODE=ECP` in
+`AdapterSettings` plus `-Mode` at build time; ECP transport with SPP fallback; the CDB
+pinned to SPP; a FIFO drain before leaving ECP mode.
+
+## The ECP write, precisely where it stands
+
+```
+CDB 2A ... / data phase out, 512 bytes / block write done
+ireason 00 (data out), byte count 0200 - all correct
+[ECPDIAG] ECR write 74 (mode 3)
+[ECPDIAG] ECR write 15 (mode 0)     <- nothing in between
+```
+
+`rep outsb` is not reaching the FIFO. `lpt.c` `case 0x0400` mode 3 writes only when the
+direction bit is CLEAR, which `LS_EcpEnter` does arrange for a send - so the next step is
+**one diagnostic in `lpt_write_fifo()` / the write-side `case 0x0400`**, not another
+reasoning pass. Tonight proved that twice: the "zero ECR writes" line found the
+registration-order bug in a single boot after three failed arguments.
+
+And the corruption says the bytes are not merely lost - some reach LBA 0. Worth checking
+whether `LS_BlockWriteEcp` leaves `ESI`/`ECX` such that a later SPP write runs with the
+wrong pointer.
+
+## Measured, and it reframes the optimisation case
+
+With the spindle model honest, **status polls per command fell 3,419 -> 1,968** - and
+1,968 is `LS_SPIN_BSY` = 2,000. The drive answers in 15 ms and the driver burns a full
+unpaced 2,000-iteration spin (~60 ms of nibble reads) waiting for it. **We are now slower
+than the device.** Pacing the poll loop is worth more than the transport, exactly as the
+constant sweep predicted.
+
+## Open, untouched
+
+- The pause after `smwclock`. **`IVT68FIX.COM` is exonerated**: 20 bytes, four memory
+  writes and `INT 20h`, no loop and no port access, and it prints nothing by design. The
+  gap is either `smwclock` itself or `WIN.COM` starting. Needs a timestamped capture.
