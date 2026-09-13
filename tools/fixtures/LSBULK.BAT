@@ -1,0 +1,21 @@
+@ECHO OFF
+REM Bed-only bulk write test for the LS-120. Copies a 9 MB file to the medium
+REM so throughput and integrity can both be checked from the host afterwards.
+ECHO ls120 bulk probe > C:\LSPROBE.TXT
+SET LS=
+IF EXIST D:\PATTERN.BIN SET LS=D
+IF EXIST E:\PATTERN.BIN SET LS=E
+IF EXIST F:\PATTERN.BIN SET LS=F
+IF EXIST G:\PATTERN.BIN SET LS=G
+IF EXIST H:\PATTERN.BIN SET LS=H
+IF EXIST I:\PATTERN.BIN SET LS=I
+IF EXIST J:\PATTERN.BIN SET LS=J
+IF EXIST K:\PATTERN.BIN SET LS=K
+IF "%LS%"=="" ECHO no ls120 volume >> C:\LSPROBE.TXT
+IF "%LS%"=="" GOTO END
+ECHO drive %LS% >> C:\LSPROBE.TXT
+ECHO start >> C:\LSPROBE.TXT
+COPY C:\CREATI~1\CREATI~1.ZIP %LS%:\BULK.ZIP >> C:\LSPROBE.TXT
+ECHO end >> C:\LSPROBE.TXT
+DIR %LS%:\ >> C:\LSPROBE.TXT
+:END

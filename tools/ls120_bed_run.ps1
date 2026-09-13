@@ -4,12 +4,15 @@
 #
 # Every run gets a fresh config, a fresh system image and a fresh MEDIUM, in
 # that order, before anything is deployed. The medium matters as much as the
-# system image here: ECP writes were found on 2026-09-13 to put bytes at LBA 0,
-# so a run that reuses yesterday's rd.img is testing damage, not the driver.
+# system image: a driver under test writes to it, so reusing the previous
+# run's rd.img tests whatever that run left behind.
 #
 # 86box.log is where pclog output lands, which is where [ECPDIAG] and the EPAT
 # bridge trace live. It is rotated to 86box.log.<tag> at the end so a run can
-# be cited later (technique 89 - an artefact nobody can name is not evidence).
+# be cited later - an artefact nobody can name is not evidence.
+#
+# A force-killed run loses whatever is still in the guest's write cache, so a
+# file the guest lists is not necessarily on the medium. Verify from the host.
 
 param(
     [Parameter(Mandatory = $true)] [string] $Driver,

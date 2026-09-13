@@ -759,6 +759,13 @@ ECP_CMD_WRITE	equ	0C0h
 ;  one value is enough here and the loop is bounded either way.
 ECP_SPIN	equ	08000h
 
+;  ECP FIFO depth, and the unit a transfer is broken into. The vendor holds
+;  this in a word of its own data area ([0C18h] in SD120PPD.SYS, shipped as
+;  0010h) and divides every block transfer by it: chunks of this size with an
+;  ECR poll between, plus a remainder. The port cannot accept more than a
+;  FIFO's worth between polls, so this is not a tuning knob.
+ECP_FIFO_DEPTH	equ	16
+
 ;  LS_DetectEcp - is there an ECR at base+402h?
 ;
 ;  The standard probe: the ECR's low bits are read-only status, bits 7:5 are
@@ -967,16 +974,38 @@ LS_BlockWriteEcp:
 	call	LS_EcpCmd
 	jc	lbwe_fail
 
+;  ** ONE FIFO-DEPTH CHUNK PER ECR POLL. ** A bare rep outsb of a whole
+;  transfer assumes the port stalls the ISA cycle when the FIFO fills. If it
+;  does not, the overflow is discarded silently and the sector arrives short -
+;  no error anywhere, and the drive sits holding DRQ for bytes that no longer
+;  exist. Wait for ECR bit 0, send at most a FIFO's worth, wait again.
+;
+;  EBX carries the remaining count because LS_EcpWaitEmpty needs ECX for its
+;  own spin budget.
 	pop	ecx
 	push	ecx
 	cld
+	mov	ebx, ecx
+lbwe_chunk:
+	or	ebx, ebx
+	jz	lbwe_tail
+	call	LS_EcpWaitEmpty
+	jc	lbwe_fail
+	mov	ecx, ECP_FIFO_DEPTH
+	cmp	ebx, ecx
+	jae	lbwe_send
+	mov	ecx, ebx			; short final chunk
+lbwe_send:
+	sub	ebx, ecx
 	movzx	edx, LS_BasePort
 	add	edx, LPT_ECP_FIFO
 	rep	outsb
+	jmp	lbwe_chunk
 
 ;  Drain before leaving. Writing the ECR back to a non-FIFO mode RESETS the
 ;  FIFO, so anything still queued is discarded and the drive is left holding
 ;  DRQ for bytes it will never get. The vendor polls ECR bit 0 here too.
+lbwe_tail:
 	call	LS_EcpWaitEmpty
 
 	call	LS_EcpLeave
