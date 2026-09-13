@@ -155,7 +155,12 @@ DEVEXT	ENDS
 
 ;  The tag looked for in the Settings-tab string. Lower case: the compare
 ;  lowercases the input, and '=' already has bit 5 set so the OR leaves it be.
+	extrn	LS_ModeReq:DWORD	; the transport's mode selector
+
 LsPortTag	db	'port='
+LsModeTag	db	'mode='
+LsSppTag	db	'spp'
+LsEcpTag	db	'ecp'
 
 ifdef LS_PHASE2
 ;  The twelve-byte ATAPI packet handed to the device. SCSIPORT serialises
@@ -305,6 +310,11 @@ endif
 ;     person installing it already knows which LPT the drive is on.
 	mov	esi, ArgumentString
 	call	LsParseBase			; eats ESI
+	push	eax
+	mov	esi, ArgumentString
+	call	LsParseMode			; MODE=SPP / MODE=ECP, 0 = auto
+	mov	LS_ModeReq, eax
+	pop	eax
 	mov	esi, ConfigInfo
 	or	eax, eax
 	jnz	lfa_havebase
@@ -472,6 +482,103 @@ lpb_out:
 	ret
 
 LsParseBase ENDP
+
+;============================================================================
+; LsParseMode - read `MODE=SPP` or `MODE=ECP` out of the Settings-tab string.
+;
+;   In:   ESI -> ASCIIZ ArgumentString, or NULL
+;   Out:  EAX = 0 auto-detect (nothing said), 1 = force SPP, 2 = force ECP
+;   Uses: EAX, EBX, ECX, EDX, ESI, EDI
+;
+;   SPP/nibble works on every parallel port and is what the driver falls back
+;   to; ECP is faster and is what the vendor's own driver selects on this
+;   machine. Auto-detection probes for an ECR, but a probe can be wrong in
+;   either direction on hardware nobody here has seen, so BOTH answers are
+;   forceable - a user with a port that lies about its ECR can pin SPP, and a
+;   user whose ECR does not answer the probe can pin ECP.
+;
+;   Same shape as LsParseBase deliberately: case-insensitive, scans for the
+;   tag anywhere in the string, and anything unrecognised returns 0 so a typo
+;   auto-detects rather than selecting something the caller did not ask for.
+;============================================================================
+LsParseMode PROC
+
+	push	ebx
+	push	edi
+	xor	eax, eax
+	or	esi, esi
+	jz	lpm_out
+
+lpm_next:
+	cmp	byte ptr [esi], 0
+	je	lpm_out
+	mov	edi, esi
+	mov	edx, OFFSET LsModeTag
+	mov	ecx, 5
+lpm_cmp:
+	mov	bl, [edi]
+	or	bl, 20h
+	cmp	bl, [edx]
+	jne	lpm_advance
+	inc	edi
+	inc	edx
+	dec	ecx
+	jnz	lpm_cmp
+	jmp	lpm_value
+lpm_advance:
+	inc	esi
+	jmp	lpm_next
+
+;  EDI now points at the value. Three characters, case-insensitive.
+lpm_value:
+	mov	esi, edi
+	mov	edx, OFFSET LsSppTag
+	mov	ecx, 3
+	call	lpm_match
+	jc	lpm_tryecp
+	mov	eax, 1			; SPP
+	jmp	lpm_out
+lpm_tryecp:
+	mov	edx, OFFSET LsEcpTag
+	mov	ecx, 3
+	call	lpm_match
+	jc	lpm_out			; unrecognised - leave EAX 0, auto-detect
+	mov	eax, 2			; ECP
+	jmp	lpm_out
+
+;  lpm_match: ESI vs EDX for ECX chars, case-insensitive. CF=0 on a match.
+lpm_match:
+	push	esi
+	push	edx
+	push	ecx
+lpm_mloop:
+	mov	bl, [esi]
+	or	bl, 20h
+	cmp	bl, [edx]
+	jne	lpm_mno
+	inc	esi
+	inc	edx
+	dec	ecx
+	jnz	lpm_mloop
+	pop	ecx
+	pop	edx
+	pop	esi
+	clc
+	ret
+lpm_mno:
+	pop	ecx
+	pop	edx
+	pop	esi
+	stc
+	ret
+
+lpm_out:
+	pop	edi
+	pop	ebx
+	ret
+
+LsParseMode ENDP
+
 
 ;============================================================================
 ; LsInitialize - returns TRUE, and touches nothing.

@@ -69,6 +69,26 @@ HKR,,PortDriver,,LS120MP.MPD
 ; driver cannot work the address out for itself - and on this machine the
 ; owner already knows it, because CONFIG.SYS passes /port:378 to the DOS
 ; driver. Asking beats probing, and probing is what we are avoiding.
+; MODE= picks the data transport, and is optional.
+;
+;   MODE=SPP   nibble. Works on ANY parallel port. ~4 port accesses per
+;              byte, which on this machine is ~4 x 3.9 us of bus sync.
+;   MODE=ECP   the ECP FIFO at base+400h. ~1 access per byte. Needs a
+;              port with a real ECR at base+402h.
+;   omitted    probe for an ECR and use ECP if one answers, else SPP.
+;
+; Auto-detection is the default and is right on every port seen so far,
+; but a probe can be wrong in either direction on hardware nobody here
+; has tested, so both answers are forceable: pin SPP if a port claims an
+; ECR it does not honour, pin ECP if a working ECR fails the probe.
+; The vendor DOS driver selects ECP Read / ECP Write on this machine
+; (captured live, TRANSPORT_SPEC.md section 0), so ECP is the expected
+; outcome here.
+; SHIPPED DEFAULT IS AUTO-DETECT - MODE= is deliberately absent below.
+; Forcing ECP here would mean a wrong probe result could not fall back,
+; and the ECP path is new. On a card with a real ECR the probe selects
+; ECP by itself, so auto costs nothing on this machine and keeps the
+; safety net everywhere else. Add MODE= by hand if the probe is wrong.
 HKR,,AdapterSettings,,"PORT=0x378"
 
 ; Polling, not an interrupt. See the note in DriverEntry: a NULL interrupt

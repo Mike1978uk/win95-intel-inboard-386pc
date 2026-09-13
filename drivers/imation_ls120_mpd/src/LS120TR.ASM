@@ -219,7 +219,8 @@ LS_LastStatus		dd	0		; last ATA status byte read
 LS_XferN		dd	0		; byte count the DEVICE offered this phase
 LS_Phase		dd	0		; ATAPI interrupt reason, masked to 2 bits
 LS_HasEcp		dd	0		; 1 = an ECR answered at base+402h, use the FIFO
-LS_ForceSpp		dd	0		; MODE=SPP pins the universal nibble path
+	PUBLIC	LS_ModeReq
+LS_ModeReq		dd	0		; 0 = auto-detect, 1 = force SPP, 2 = force ECP
 
 	.CODE
 
@@ -744,8 +745,13 @@ public LS_DetectEcp
 LS_DetectEcp:
 	push	edx
 	mov	LS_HasEcp, 0
-	cmp	LS_ForceSpp, 0
-	jne	lde_done			; MODE=SPP pins the slow path
+	cmp	LS_ModeReq, 1
+	je	lde_done			; MODE=SPP - pinned to nibble, do not probe
+	cmp	LS_ModeReq, 2
+	jne	lde_probe
+	mov	LS_HasEcp, 1			; MODE=ECP - trust the operator over the probe
+	jmp	lde_done
+lde_probe:
 	movzx	edx, LS_BasePort
 	add	edx, LPT_ECP_ECR
 	mov	al, ECR_KEEP_MASK
