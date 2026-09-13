@@ -489,7 +489,7 @@ def build(res_addr):
     e.inp_store(ECR, SLOT["ecp_ecr_mode"])
     e.wait_ecr(True, 0xFFFF, SLOT["w1_flag"], SLOT["w1_ecr"], CNT_W1, "w1")
 
-    e.outp(BASE, CONT_TASKFILE + ATA_REG_STATUS)   # the ECP address cycle
+    e.outp(BASE, CONT_TASKFILE + ATA_REG_BCLO)     # the ECP address cycle
     e.wait_ecr(True, 0xFFFF, SLOT["w2_flag"], SLOT["w2_ecr"], CNT_W2, "w2")
 
     e.cli()

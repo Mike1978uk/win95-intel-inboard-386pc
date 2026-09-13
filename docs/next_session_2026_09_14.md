@@ -44,9 +44,10 @@ write landed.
    negotiation and no bridge-register configuration. Gate every ECP phase on the
    ECR with the vendor's budgets (`FFFFh` forward, `8000h` reverse), and keep the
    `0x2A21` recovery-and-retry.
-2. **Re-read a register with a known non-zero value over ECP** - BCLO/BCHI
-   (`14`/`EB`) - to prove the returned byte is real data and not a coincidence.
-   The one byte read so far was `00`, which nibble also reported.
+2. ~~Re-read a register with a known non-zero value over ECP~~ **DONE** - BCLO
+   over ECP returned `14h`, matching what nibble reports for the same register
+   in the same run. ECP register reads carry real data. Nothing left to prove
+   about the register path.
 3. **Then the block path**, then SPP stays as the fallback.
 4. 86Box's ECP FIFO still answers on demand and models no negotiation, so the bed
    cannot currently falsify any of this. Model it honestly before trusting a bed

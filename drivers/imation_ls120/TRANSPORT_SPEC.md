@@ -511,7 +511,7 @@ Negotiating made the whole sequence work on the owner's 5160, first time:
 | negotiation | not performed | **succeeded**, status `B8` (nAck low) |
 | forward address cycle | FIFO never drained | **drained in one iteration** |
 | reverse wait | expired | **satisfied immediately** |
-| byte returned | `FF` (empty FIFO) | a real byte, agreeing with nibble |
+| byte returned | `FF` (empty FIFO) | **`14h` from BCLO - matches nibble** |
 
 **The negotiation needs `0x24D1` first, or it times out.** That routine is
 `w0(0); w2(1); w2(4)` - idle into SPP - and `epat_connect` does the same before
