@@ -312,8 +312,14 @@ endif
 	call	LsParseBase			; eats ESI
 	push	eax
 	mov	esi, ArgumentString
-	call	LsParseMode			; MODE=SPP / MODE=ECP, 0 = auto
+	call	LsParseMode			; MODE=SPP / MODE=ECP, 0 = "not stated"
+;  Only store a value the string actually carried. An absent MODE= means
+;  "leave the default alone", NOT "force auto" - writing 0 unconditionally
+;  clobbered a build-time pin and made every -Mode build fall back to nibble.
+	or	eax, eax
+	jz	lfa_nomode
 	mov	LS_ModeReq, eax
+lfa_nomode:
 	pop	eax
 	mov	esi, ConfigInfo
 	or	eax, eax
