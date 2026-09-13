@@ -72,7 +72,9 @@ SLOTS = [
     "ecr_restored",  # 20 ECR after teardown
     "br0d_pre",      # 21 bridge register 0Dh as found
     "br0d_post",     # 22 the same after configuring it - proves the write stuck
-    "pad",           # 23
+    "neg_flag",      # 23 IEEE-1284 ECP negotiation: 0 = peripheral answered
+    "neg_stat",      # 24 last status byte seen while waiting for nAck
+    "pad",           # 25
 ]
 SLOT = {n: i for i, n in enumerate(SLOTS)}
 # Two 16-bit counters live after the byte slots: the residue of each wait's
@@ -291,6 +293,45 @@ class Emitter:
         self.outp(CTL, 0x04)
         self.sti()
 
+    def negotiate_ecp(self):
+        """IEEE-1284 negotiation into ECP, SD120PPD.SYS 0x2993.
+
+        Setting the host ECR to ECP mode configures only this side of the
+        cable.  The peripheral stays in compatibility mode until it is asked,
+        and an unnegotiated bridge never acknowledges the forward handshake -
+        so the FIFO fills once and never drains.  10h is the ECP extensibility
+        byte, where epat.c puts 40h to request EPP.
+        """
+        self.cli()
+        self.outp(CTL, 0x0C)
+        self.out_again(0x04)
+        self.out_again(0x0C)
+        self.outp(BASE, 0x10)
+        self.outp(CTL, 0x06)
+        self.out_again(0x06)
+        self.out_again(0x06)
+        # The peripheral answers by pulling nAck low.  Budget 100h, as the
+        # vendor uses - this is a handshake, not a transfer.
+        self.mov_cx(0x100)
+        self.label("neg_lp")
+        self.inp(STAT)
+        self.store_al(SLOT["neg_stat"])
+        self.test_al(0x40)
+        self.jz("neg_ok")
+        self.dec_cx()
+        self.jnz("neg_lp")
+        self.mov_al(1)
+        self.jmp("neg_done")
+        self.label("neg_ok")
+        self.mov_al(0)
+        self.label("neg_done")
+        self.store_al(SLOT["neg_flag"])
+        self.outp(CTL, 0x07)
+        self.out_again(0x07)
+        self.out_again(0x04)
+        self.out_again(0x04)
+        self.sti()
+
     def wait_ecr(self, set_wanted, budget, flag_slot, ecr_slot, cnt_slot, tag):
         """Spin on ECR bit 0 with the vendor's own budgets.  The ECR is stored
         every iteration, so the slot ends up holding the last value seen -
@@ -409,6 +450,9 @@ def build(res_addr):
     e.nibble_read(CONT_TASKFILE + ATA_REG_BCHI)
     e.store_al(SLOT["nib_bchi"])
 
+    # --- negotiate the peripheral into ECP before using it ---
+    e.negotiate_ecp()
+
     # --- the measurement: the vendor's ECP register read, 3CCEh ---
     e.cli()
     e.outp(CTL, 0x04)                      # forward
@@ -434,6 +478,8 @@ def build(res_addr):
     # --- teardown: leave the port as it was found ---
     e.outp(CTL, 0x04)
     e.outp(ECR, 0x34)
+    e.outp(CTL, 0x0C)                      # terminate 1284, back to compatibility
+    e.out_again(0x04)
     e.cpp_frame(0x30)                      # disconnect
     e.load_al(SLOT["ecr_entry"])
     e.mov_dx(ECR)

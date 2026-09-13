@@ -479,6 +479,29 @@ non-empty, so **the bridge is not acknowledging the ECP forward handshake at
 all**.  Nothing about the reverse direction has been tested yet, because the
 sequence never gets there.
 
+### CAUSE FOUND: we never negotiate IEEE-1284 ECP mode
+
+`SD120PPD.SYS` `0x2993`, reached from `0x2A21` and `0x2A46`:
+
+```
+out ctrl(base+2), 0Ch      ; nSelectIn - enter 1284
+out ctrl,         04h
+out ctrl,         0Ch
+out data(base+0), 10h      ; extensibility byte: ECP
+out ctrl,         06h      ; negotiation request
+poll status(base+1) bit 6 (nAck) LOW, budget 100h   ; peripheral answers
+out ctrl,         07h
+out ctrl,         04h      ; complete - the bridge is now in ECP
+```
+
+Writing `74h` to the ECR configures **only the host side**.  The peripheral
+stays in compatibility mode until it is asked, and an unnegotiated bridge never
+acknowledges the ECP forward handshake - so the FIFO takes one byte and never
+drains, which is exactly the failure measured above.  `epat.c` performs the
+same negotiation with `40h` to request EPP; `10h` is its ECP equivalent.
+
+The missing ECR waits were real, but they were a symptom.  This is the cause.
+
 ### What is now known, and what is not
 
 - The card's ECR is a real ECP register: mode bits stick, the empty bit responds
@@ -494,12 +517,8 @@ sequence never gets there.
   `cs:[4F15h + sel*8]`, and the live selectors 13 and 6 resolve to `3CCEh`
   (`ECP Read`) and `4932h` (`ECP Write`).  ECP is not optional for the vendor on
   this machine - it is how everything is addressed.
-- **Open:** what puts the bridge into a state where it acknowledges ECP.  The
-  vendor's port open (`0x2C42`) does only the ECR mask, the control kick and the
-  CPP frames - all of which this probe already does.  No IEEE-1284 negotiation
-  has been found in the vendor binary yet; `epat.c` performs one for EPP
-  (`w0(0x40); w2(6); w2(7); w2(4); w2(0xc); w2(4)`) and supports no ECP mode at
-  all, so it cannot answer this.
+- **ANSWERED** - see the section above.  The negotiation is at `0x2993`, not in
+  the port open (`0x2C42`), which is why reading only the open path missed it.
 
 ## 4f (SUPERSEDED). ECP IS shippable — it belongs to the DATA phase, not register access
 
