@@ -449,6 +449,58 @@ units; an `-Mode auto` build that selects ECP gives `Init Failure` in 1598.
 
 ---
 
+## 4g. ECP MEASURED ON THE HARDWARE, 2026-09-13 - it fails at the FORWARD cycle
+
+First ECP sequence ever executed on the owner's machine.  Every earlier probe
+(2026-09-08, 2026-09-11) was nibble/SPP, so the ECR's behaviour on this card was
+assumed until now.  Instrument: `tools/ecpprobe.py` -> `ECPPROBE.COM`, which
+replays the vendor's own handler at `3CCEh` for ATA status (`18h+7 = 1Fh`).
+Runs in 1.3 s, restores the ECR and control port, and disconnects.
+
+| what | value | reading |
+|---|---|---|
+| ECR as found / restored | `15` / `15` | port left as it was found |
+| CPP checkpoints | `B8 58 F0` | bridge connected, as in 2026-09-08 |
+| nibble BCLO / BCHI | `14` / `EB` | **the drive is present and answering** |
+| ECR after writing `74h` | `75` | mode bits stick: ECP mode is real, FIFO empty |
+| wait 1, FIFO empty | ok, residue `FFFF` | satisfied on the first read |
+| **wait 2, after the address cycle** | **expired, ECR `74`** | **FIFO never drained** |
+| ECR after turnaround | `75` | FIFO empty again |
+| wait 3, data available | expired, ECR `75` | no byte ever arrived |
+| byte read from the FIFO | `FF` | an empty FIFO |
+
+### What this corrects
+
+The plan blamed the hardware failure on our ECP read waiting for nothing.  That
+bug is real, but it is **not sufficient**: this probe performs every wait the
+vendor performs, and still fails.  The failure is one phase earlier than the
+read - writing the register number to `base+0` leaves the FIFO permanently
+non-empty, so **the bridge is not acknowledging the ECP forward handshake at
+all**.  Nothing about the reverse direction has been tested yet, because the
+sequence never gets there.
+
+### What is now known, and what is not
+
+- The card's ECR is a real ECP register: mode bits stick, the empty bit responds
+  to a write.  It is not a stub.
+- SPP/nibble is healthy on the same connection in the same run - the ATAPI
+  signature reads back correctly - so this is not a dead drive or a bad cable.
+- Bridge registers in container `00h` read `00` over nibble, and a
+  read-modify-write of register `0Dh` (the vendor's `0x25EB` configuration,
+  reached with `AX=1` from every call site: `0Dh = (old & FCh) | 1`) does not
+  stick.  So that configuration cannot currently be applied over nibble.
+- The vendor reaches bridge registers **through the same ECP handlers** as the
+  task file: `0x244B`/`0x2472` dispatch through `cs:[4E9Dh + sel*8]` and
+  `cs:[4F15h + sel*8]`, and the live selectors 13 and 6 resolve to `3CCEh`
+  (`ECP Read`) and `4932h` (`ECP Write`).  ECP is not optional for the vendor on
+  this machine - it is how everything is addressed.
+- **Open:** what puts the bridge into a state where it acknowledges ECP.  The
+  vendor's port open (`0x2C42`) does only the ECR mask, the control kick and the
+  CPP frames - all of which this probe already does.  No IEEE-1284 negotiation
+  has been found in the vendor binary yet; `epat.c` performs one for EPP
+  (`w0(0x40); w2(6); w2(7); w2(4); w2(0xc); w2(4)`) and supports no ECP mode at
+  all, so it cannot answer this.
+
 ## 4f (SUPERSEDED). ECP IS shippable — it belongs to the DATA phase, not register access
 
 Per-register ECP reads time out because a register read has no data phase: the reverse FIFO never
