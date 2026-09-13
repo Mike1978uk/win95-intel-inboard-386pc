@@ -195,3 +195,40 @@ is still the point of this track, but it changes how the result should be descri
 
 **Owed on all three**, plus the two results from #23 already logged above (the 4.2x
 memory-vs-I/O measurement, and the DriveSpace note correcting a parked decision).
+
+---
+
+## @andrew-hoffman, issue #22, 2026-09-13 — "IHC" is Windows, not corruption
+
+> *"'IHC' is Win95 writing it's signature to the MBR so it can detect media changes and
+> pair DOS drive letters to 32 bit volumes. that's not a sign of disk corruption."*
+> Source: <https://www.os2museum.com/wp/the-ihc-damage/>
+
+⭐ **Correct, and it closed a warning that was actively misleading.** The previous session
+had found 8 bytes of the LS-120's boot sector rewritten after an ECP run, called it
+corruption, repaired it, and left `⛔ ECP writes corrupt LBA 0 — do not point an ECP build
+at real media` at the top of the handoff and of memory.
+
+It is Volume Tracker's signature — "IHC" is CHICAGO reversed — stamped into the OEM ID
+field on any access. Corroborated here independently before his comment was read: bytes 5-7
+were `49 48 43` in all three runs, always written immediately after a PREVENT MEDIUM
+REMOVAL, the drive's own copy read back clean beforehand, and Windows kept using the volume
+afterwards without complaint.
+
+**What the real defect was**, and it is now fixed: 86Box's ECP FIFO had no back-pressure and
+silently dropped **145 bytes of every 512-byte sector**. That is why the volume read empty —
+the sector was short, not mis-stamped. Rewriting `MSWIN4.1` over the signature was harmless
+and pointless; Windows restamps it on the next access.
+
+**Also his, same comment, and adopted immediately:**
+
+> *"comments should document why code does what it does, not what the code used to do, it
+> leaves a lot of comments about things that don't happen anymore. That's what the Git
+> history is for"*
+
+Now a rule in `CLAUDE.md` under **Code comments**, and applied to the ECP work in the same
+session it was raised. A third point — that the repository could use a summarising cleanup
+once the driver work is done — is agreed and outstanding.
+
+⏳ **Owed**: tell him the warning is retracted, that the FIFO drop was the real fault, and
+that the comment rule is in `CLAUDE.md`.

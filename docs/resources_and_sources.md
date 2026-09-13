@@ -191,6 +191,15 @@ the directory's own `README.md`.
   settings dialog snapped RAM to a wrong value. Fixed upstream by OBattler; may also explain #14.
 - **[Michal Necasek / OS/2 Museum](https://www.os2museum.com/)** — architectural confirmation
   throughout, including the verified `F000:FF53` improvement. **[PRIMARY]**
+    - **[*The IHC Damage*](https://www.os2museum.com/wp/the-ihc-damage/)** — Windows 9x stamps
+      **"IHC"** (CHICAGO reversed) into the boot sector's **OEM ID field** on any access, for
+      Volume Tracker. Named by @andrew-hoffman on #22, 2026-09-13, and it retracted a warning
+      we were carrying: 8 changed bytes at offset 3 of the LS-120's boot sector were read as
+      ECP write corruption. They are Windows' own signature. The real fault was elsewhere —
+      86Box's ECP FIFO dropping 145 bytes of every 512. Read this before calling any 8-byte
+      change at offset 3 of a FAT volume corruption. **[PRIMARY]**
+      ❌ Does not cover the LS-120, ATAPI or parallel-port bridges — it is about the signature
+      only, and its examples are floppies.
 - **[AMIBIOS 98 Technical Reference](https://bitsavers.org/pdf/americanMegatrends/MAN-BIOS98-TR_AMBIOS_98_Technical_Reference_19980501.pdf)**
   (bitsavers; also on the trailing-edge mirror) — named by Michal Necasek 2026-09-07 for the
   `FFF53` question, then found independently by the project owner the same day. It has paid off
