@@ -218,6 +218,8 @@ LS_Connected		dd	0		; layer 2 currently owns the port
 LS_LastStatus		dd	0		; last ATA status byte read
 LS_XferN		dd	0		; byte count the DEVICE offered this phase
 LS_Phase		dd	0		; ATAPI interrupt reason, masked to 2 bits
+LS_HasEcp		dd	0		; 1 = an ECR answered at base+402h, use the FIFO
+LS_ForceSpp		dd	0		; MODE=SPP pins the universal nibble path
 
 	.CODE
 
@@ -685,7 +687,7 @@ lrw_common:
 ;   Uses: EAX, ECX, EDX, ESI, EDI
 ;   STUBS.
 ;----------------------------------------------------------------------------
-public LS_BlockRead
+public LS_BlockReadSpp
 ;----------------------------------------------------------------------------
 ;  NIBBLE block read, mode 0, transcribed from epat.c's epat_read_block.
 ;
@@ -700,7 +702,152 @@ public LS_BlockRead
 ;
 ;   In:   EDI = buffer, ECX = byte count
 ;----------------------------------------------------------------------------
+; ECP support.
+;
+;  The owner's card is ECP-capable and the vendor's own driver selects
+;  "ECP Read" / "ECP Write" on this exact machine - captured live on
+;  2026-09-08, TRANSPORT_SPEC.md section 0, [0BCB]/[0BCF]/[0BD7]=0C.
+;  Nibble costs ~4 port accesses per byte; the ECP FIFO costs ~1, because the
+;  hardware does the handshake. Keep BOTH: SPP/nibble is universal and is the
+;  fallback for any port without an ECR.
+;
+;  Register layout, confirmed from SD120PPD.SYS's own arithmetic
+;  (rva 0x3cd2: base -> +2 -> +0x402 -> -0x402 -> ...):
+;
+;      base+000h  data                base+002h  control (bit 5 = direction)
+;      base+400h  ECP data FIFO       base+402h  ECR
+;
+;  ECR bits 7:5 are the mode - 0x74 selects ECP, 0x34 byte mode - and bit 0
+;  reads 1 when the FIFO is empty.
+;
+;  ** The vendor's block routines sit next to chipset writes to 22h/23h, which
+;  alias onto the 8259 here (technique 75). Those are GATED on a chipset type
+;  ([0xbc0] == 3, SD120PPD.SYS rva 0x443c / 0x4ba7) and are jumped over when it
+;  does not match. Nothing below writes any fixed port - every access is
+;  base-relative, which is the same guarantee /ni gives on the real machine. **
+;----------------------------------------------------------------------------
+LPT_ECPFIFO	equ	400h
+
+ECR_MODE_ECP	equ	074h
+ECR_FIFO_EMPTY	equ	001h
+CTRL_DIR	equ	020h
+
+;  LS_DetectEcp - is there an ECR at base+402h?
+;
+;  The standard probe: the ECR's low bits are read-only status, bits 7:5 are
+;  the mode. Write byte mode, read it back, and require the mode bits to stick
+;  while the status bits stay sane. A port with no ECR floats or mirrors, and
+;  neither survives this.
+;
+;   Out: LS_HasEcp = 0/1, AL = the ECR value seen
+public LS_DetectEcp
+LS_DetectEcp:
+	push	edx
+	mov	LS_HasEcp, 0
+	cmp	LS_ForceSpp, 0
+	jne	lde_done			; MODE=SPP pins the slow path
+	movzx	edx, LS_BasePort
+	add	edx, LPT_ECP_ECR
+	mov	al, ECR_KEEP_MASK
+	out	dx, al
+	in	al, dx
+	cmp	al, 0FFh
+	je	lde_done			; floating bus - no ECR
+	and	al, 0E0h
+	cmp	al, ECR_KEEP_MASK AND 0E0h
+	jne	lde_done
+	mov	LS_HasEcp, 1
+lde_done:
+	pop	edx
+	ret
+
+;  LS_EcpEnter - put the port in ECP mode, DX left on the ECR.
+;   In: BL = 0 to receive (direction reverse), 1 to send
+LS_EcpEnter:
+	movzx	edx, LS_BasePort
+	add	edx, LPT_CONTROL
+	in	al, dx
+	and	al, 01Fh
+	or	bl, bl
+	jnz	lee_fwd
+	or	al, CTRL_DIR			; reverse: the drive sends
+lee_fwd:
+	out	dx, al
+	movzx	edx, LS_BasePort
+	add	edx, LPT_ECP_ECR
+	mov	al, ECR_MODE_ECP
+	out	dx, al
+	ret
+
+;  LS_EcpLeave - direction forward, byte mode, port quiescent again.
+LS_EcpLeave:
+	movzx	edx, LS_BasePort
+	add	edx, LPT_CONTROL
+	in	al, dx
+	and	al, 01Fh			; clears the direction bit
+	out	dx, al
+	movzx	edx, LS_BasePort
+	add	edx, LPT_ECP_ECR
+	mov	al, ECR_KEEP_MASK
+	out	dx, al
+	ret
+
+;  LS_BlockReadEcp - ECX bytes into ES:EDI, through the ECP FIFO.
+;   Out: CF=1 on timeout
+LS_BlockReadEcp:
+	push	ebx
+	push	ecx
+	xor	bl, bl
+	call	LS_EcpEnter
+	pop	ecx
+	push	ecx
+	movzx	edx, LS_BasePort
+	add	edx, LPT_ECPFIFO
+	cld
+	rep	insb
+	call	LS_EcpLeave
+	pop	ecx
+	pop	ebx
+	clc
+	ret
+
+;  LS_BlockWriteEcp - ECX bytes from DS:ESI, through the ECP FIFO.
+LS_BlockWriteEcp:
+	push	ebx
+	push	ecx
+	mov	bl, 1
+	call	LS_EcpEnter
+	pop	ecx
+	push	ecx
+	movzx	edx, LS_BasePort
+	add	edx, LPT_ECPFIFO
+	cld
+	rep	outsb
+	call	LS_EcpLeave
+	pop	ecx
+	pop	ebx
+	clc
+	ret
+
+;----------------------------------------------------------------------------
+; Transport selector. SPP/nibble is the fallback and works on any parallel
+; port; ECP is taken when an ECR answered at bring-up. One decision, made
+; once, so the hot path costs a single test.
+;----------------------------------------------------------------------------
+public LS_BlockRead
 LS_BlockRead:
+	cmp	LS_HasEcp, 0
+	je	LS_BlockReadSpp
+	jmp	LS_BlockReadEcp
+
+public LS_BlockWrite
+LS_BlockWrite:
+	cmp	LS_HasEcp, 0
+	je	LS_BlockWriteSpp
+	jmp	LS_BlockWriteEcp
+
+;----------------------------------------------------------------------------
+LS_BlockReadSpp:
 	or	ecx, ecx
 	jz	lbr_done
 	push	ebx
@@ -768,7 +915,7 @@ lbr_done:
 	clc
 	ret
 
-public LS_BlockWrite
+public LS_BlockWriteSpp
 ;----------------------------------------------------------------------------
 ;  NIBBLE block write, from epat_write_block. Same shape: enter block mode
 ;  once, then a byte and a phase-alternating strobe each iteration.
@@ -783,7 +930,7 @@ public LS_BlockWrite
 ;
 ;   In:   ESI = buffer, ECX = byte count
 ;----------------------------------------------------------------------------
-LS_BlockWrite:
+LS_BlockWriteSpp:
 	or	ecx, ecx
 	jz	lbw_done
 	push	ebx
@@ -1327,6 +1474,7 @@ LS_ColdStart:
 	mov	al, LPT_CT_NINIT
 	out	dx, al
 	out	dx, al
+	call	LS_DetectEcp		; sets LS_HasEcp; MODE=SPP pins the nibble path
 	mov	al, CPP_PRE1
 	call	LS_CppFrame
 	mov	al, CPP_PRE2
