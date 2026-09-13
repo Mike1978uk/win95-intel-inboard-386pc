@@ -160,6 +160,23 @@ which makes it a regression test and makes the upstream model honest rather than
 optimistic. An emulator that cannot reproduce a known hardware failure is a bug
 in its own right.
 
+## DESIGN RULE: calibrate, do not hardcode an XT profile
+
+Tempting to bake this machine's numbers in. Do not - it narrows the driver to
+our own remit and repeats the vendor's mistake in a new place. The vendor's
+answer was a hand-picked switch table (`/rx` 0-11, `/wy` 0-4, `/di`), and it
+fails here because nobody chose a rung for a 386 accelerator in a 1983 chassis.
+
+**Measure at init instead.** Write a known pattern, read it back, and settle on
+the largest chunk that survives on whatever machine the driver loaded on. An XT
+lands somewhere small and paced; a later machine lands on the fast path. One
+binary, no switches, no profile to select - and strictly better than the table
+the vendor shipped.
+
+Two properties worth keeping whatever the bus: **poll rather than trust IRQ 7**,
+and **read back what we wrote** while the transport is unproven. Silent
+truncation is data loss on any machine; it is only rarer elsewhere.
+
 ## Then, the driver work
 
 4. **REM the two `SD120PPD` lines and boot Windows** with `220be39e`. Both
