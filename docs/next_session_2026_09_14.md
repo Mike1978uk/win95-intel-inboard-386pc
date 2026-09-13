@@ -93,6 +93,48 @@ C000323F:  mov eax,[edx-4] / test eax,eax / je / test [eax+8],ecx / mov edx,eax 
 A linked-list walk that does not terminate. **Technique 90d prescribed dumping that list at
 `TCB+6Ch` and nobody has ever done it.** That is the next measurement.
 
+**It is a RACE, not a boundary.** The stall point tracks how fast the driver is:
+
+| build | writes before the stall |
+|---|---|
+| 4096-byte, unchunked | 67 |
+| 4096-byte, chunked | 98 |
+| 4096-byte, chunked + debug-port markers | 364 |
+| **512-byte transfers** | **3,077 (~1.5 MB)** |
+
+Shortening the inline hold buys an order of magnitude and still does not fix it.
+
+**And it is NOT on our side of the boundary.** The driver now reports every `HwStartIo` and
+every completion to the host debug port (0E0h tag, 0E1h value; printed as `DBGPORT`):
+
+```
+startio 3152   finish 3152   OVERLAP 0
+```
+
+Balanced exactly, and SCSIPORT never hands us a second request while one is pending.
+**We complete every request we are given. Windows stops asking.**
+
+### What the vendor declares, read out of SD120PPD.MPD
+
+Offsets from the DDK's own `SRB.INC` (`MaximumTransferLength` +18h, `NumberOfPhysicalBreaks`
++1Ch, `ScatterGather` +49h, `MapBuffers` +51h); values from `HwFindAdapter` at rva 3fe8h:
+
+| field | vendor | ours |
+|---|---|---|
+| `MaximumTransferLength` | **10000h = 65,536** | 4096 |
+| `NumberOfPhysicalBreaks` | 1, **only on its DMA path** | 1, always |
+| `ScatterGather` / `Master` | FALSE / FALSE | same |
+| `MapBuffers` | TRUE (PIO path) | TRUE |
+| `BufferAccessScsiPortControlled` | TRUE | TRUE |
+
+**The vendor moves 64 KB inline and Windows survives it**, so "we hold the system too long" is
+not the explanation, even though shortening helps. `NumberOfPhysicalBreaks` is the one field we
+set unconditionally and the vendor does not.
+
+Its timer is also a general **deferred continuation** rather than a fixed poll: rva 52f2h
+stores a function pointer and a delay (`[21790]`, `[216cc]`) and the callback re-arms itself at
+the TOP of every tick, before doing any work. Ours decides at the bottom whether to re-arm.
+
 Ruled out so far:
 - **not the chunking** — unchunked build stalls at the same 98
 - **not the transport** — SPP stalls too, at the larger transfer size
@@ -100,9 +142,9 @@ Ruled out so far:
 - the last command before the stall completes cleanly (`status 40`, `DISCONNECT`), so the
   driver is idle and the stall is above it
 
-⏳ **Running when this was written:** a control that copies the same 9 MB file **C: to C:**,
-never touching the LS-120. If that stalls too, the LS-120 and its driver are innocent and the
-fault is in the bed, the emulator or Windows.
+✅ **The same 9 MB file copies C: to C: in seconds** — the full 8,996,287 bytes. The machine,
+the source read, the RAM and the swap are all fine, so the fault is specific to this
+destination.
 
 ---
 
@@ -160,10 +202,18 @@ the batch never reaches the next line. Cost one run.
 
 ## The next three things
 
-1. **Dump the VMM list at `TCB+6Ch`** and find why the walk does not terminate. This is the
+1. **The vendor's DOS driver, in the bed, doing the same 9 MB copy.** The owner's idea and the
+   best-shaped experiment left: `SD120PPD.SYS` + `ASPIHDRM.SYS` are on the CF and the switches
+   the real 5160 uses are already in `CONFIG.SYS`, REM'd out. `tools/fixtures/dosctrl/` enables
+   them and does the copy from `AUTOEXEC.BAT` in **real mode, before Windows**;
+   `tools/ls120_bed_run.ps1 -ConfigSys … -Autoexec …` runs it. It is the one implementation of
+   this transport **known to work on his machine**, and it gives data either way — if it copies
+   9 MB cleanly the fault is ours and above the miniport; if it stalls too, the emulated bridge
+   is at fault and our driver is exonerated.
+2. **Dump the VMM list at `TCB+6Ch`** and find why the walk does not terminate. This is the
    `.PDR` wedge, now reproducible on demand for the first time — which it never was.
-2. **Read the ECP path is still unframed for flow control.** `LS_BlockReadEcp` is a bare
+3. **The ECP READ path is still unframed for flow control.** `LS_BlockReadEcp` is a bare
    `rep insb` with no ECR poll; the vendor waits for ECR bit 1 before each chunk. It works in
    the bed only because our model hands bytes over on demand. **Fix before hardware.**
-3. Pace the status poll. With the spindle model honest, polls per command fell 3,419 -> 1,968,
+4. Pace the status poll. With the spindle model honest, polls per command fell 3,419 -> 1,968,
    and 1,968 is `LS_SPIN_BSY`. The drive answers in 15 ms while we burn a full unpaced spin.
