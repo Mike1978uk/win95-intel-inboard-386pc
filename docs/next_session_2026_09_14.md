@@ -28,33 +28,76 @@ is ignored - status sits at `E0`, nAck never asserts.
 Full detail and the before/after table: `drivers/imation_ls120/TRANSPORT_SPEC.md`
 section 4g.
 
-## The instrument
+## Negotiation is now IN THE DRIVER, and deployed
 
-`drivers/imation_ls120/tools/ecpprobe.py` emits `ECPPROBE.COM`, streams to the box
-over COMrade's CRC-verified channel, runs in ~1.3 s, restores the ECR and control
-port and disconnects. No DEBUG script, no keystrokes, no reboot.
+`LS_Neg1284` / `LS_NegotiateEcp` in `LS120TR.ASM`, with the vendor's `0x2A21`
+recovery-and-retry. Called from `LS_BringUp` (a refusal clears `LS_HasEcp`, so
+the driver runs nibble rather than failing) and at the top of both ECP block
+paths, before any pushes, so a refusal falls through to SPP for that block.
+`LS_EcpNegStat` / `LS_EcpNegFail` record the last status byte and a failure
+count - `E0` against `B8` is the whole of the evidence when it goes wrong.
 
-Do **not** drive a bridge handshake with one `io_out` per port access - seven of
-fifty timed out mid-frame on 2026-09-13, and a timeout does not say whether the
-write landed.
+**On the CF now**: `LS120MP.MPD` md5 `220be39e`, 8192 bytes, commit `d21d4a6`.
+Previous binary remains as `LS120MP.B13` (`976e4114`, 09-11).
+
+`LS120TR.ASM` had not assembled since `99ce277` (16:21 on 09-13) - `LS_WaitDrq`
+and `LS_EcpWaitData` both defined `lwd_loop`/`lwd_ok`. Last good build before
+that was 15:47. Fixed in `b48a13a`.
+
+## THE FINDING: the vendor stack does not round-trip data on this machine
+
+Tested on **brand-new NOS media**, with the owner's correct switch line
+(`/de /db /ni /sf /dpc /dp /fp`), our miniport not in the path at all.
+
+| | |
+|---|---|
+| `COPY C:\COMMAND.COM D:\CMDTEST.BIN` | reported success |
+| source CRC32, verified host-side off the CF | `879a379d` |
+| what comes back off `D:` | `72d7d02c` |
+
+Four independent routes return the same wrong bytes: `file_hash` on `D:`, DOS
+`FC /B`, COMrade `file_read`, and `COPY` back to `C:` then hashed locally - the
+last of which removes the LS-120 from the hashing step.
+
+Also measured:
+
+- **Not positional.** A 427 KB file diverged at `0x4400`; `COMMAND.COM` is
+  byte-identical at `0x4400` and breaks elsewhere. The fault moves with the
+  transfer, not with the medium.
+- **Not `/sf`.** The first corruption happened with `/sf` absent; restoring it
+  changed nothing.
+- **Not the recovered media.** New disk, same result. The recovered disk failed
+  *loudly* (`Disk Write Error`); the new one fails *silently*.
+- **Reads are self-consistent** across all four routes. Repeatable is not the
+  same as correct, and every route goes through the vendor driver - so
+  write-vs-read is **still open**. The only independent check is that disk in
+  another machine's LS-120.
+
+**This retires `SD120PPD.SYS` as a trustworthy reference for this hardware.**
+The repo has called it "the one implementation known to work on the owner's
+machine" in several places. It enumerates, reads geometry, lists directories and
+reports successful copies while returning wrong bytes. Diffing our driver
+against it can only reproduce its bug.
 
 ## Next, in order
 
-1. **Put the negotiation into `LS120TR.ASM`.** `LS_BringUp` currently performs no
-   negotiation and no bridge-register configuration. Gate every ECP phase on the
-   ECR with the vendor's budgets (`FFFFh` forward, `8000h` reverse), and keep the
-   `0x2A21` recovery-and-retry.
-2. ~~Re-read a register with a known non-zero value over ECP~~ **DONE** - BCLO
-   over ECP returned `14h`, matching what nibble reports for the same register
-   in the same run. ECP register reads carry real data. Nothing left to prove
-   about the register path.
-3. **Then the block path**, then SPP stays as the fallback.
-4. 86Box's ECP FIFO still answers on demand and models no negotiation, so the bed
-   cannot currently falsify any of this. Model it honestly before trusting a bed
-   pass.
+1. **REM the two `SD120PPD` lines and boot Windows** with `220be39e`. Both
+   09-13 boots logged `Init Failure` at **1598 / 1585** units against `Init
+   Success` in **2** units on 09-09 - a driver spinning and timing out, not
+   declining to start. The vendor driver owning `0x378` is the leading
+   hypothesis and REMing it is the single-variable test.
+2. Read `LS_EcpNegStat` / `LS_EcpNegFail` from that boot.
+3. Format the NOS disk (a full format is a whole-surface write-and-verify) and
+   repeat the copy. The corrupt `WC2P9XUP.EXE` and `CMDTEST.BIN` are evidence
+   until then.
+4. `LS120MP.NEW` and `LS120MP.B13` sit in `IOSUBSYS` and are both `976e4114`.
+   Confirm IOS filters on `.MPD` before trusting a boot, or move them out.
+5. 86Box models no 1284 negotiation, so the bed still cannot falsify any of
+   this. `tools/fixtures/dosctrl/CONFIG.SYS` was missing `/sf` - fixed in
+   `f4daf17`, but every `dos_vendor_*` log predates that fix.
 
 ## Machine state
 
-Vendor DOS driver loaded, drive at `D:`, media read (126 MB, 963 Cyl, 8 Heads,
-32 Sec/Trk). Port restored by the probe. `ECPPROBE.COM`/`.BIN` left on `C:`.
-Both repos clean. **Nothing pushed.**
+DOS prompt, vendor stack loaded, NOS disk in `D:` holding two known-corrupt
+files. `FC3` was aborted mid-run; `C:\FC1.TXT`, `C:\FC2.TXT`, `C:\FC3.TXT` and
+`C:\TEMP\BACK.BIN` are scratch and can go. Repo clean. **Nothing pushed.**
