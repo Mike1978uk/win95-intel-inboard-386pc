@@ -15,6 +15,10 @@ param(
     [Parameter(Mandatory = $true)] [string] $Driver,
     [Parameter(Mandatory = $true)] [string] $Tag,
     [int]    $Seconds = 600,
+    # A batch dropped into the guest's StartUp folder after the image is
+    # restored, so the bed can exercise the drive with nobody at the keyboard
+    # (technique 87 - drive it from inside the guest, not with host keystrokes).
+    [string] $Startup = "",   # e.g. tools/fixtures/LSWRITE.BAT
     [string] $VmPath  = "C:\Users\lycet\RiderProjects\86Box-Inboard\vm_ls120win",
     [string] $ExePath = "C:\Users\lycet\RiderProjects\86Box-Inboard\86box_upstream\build\src\86Box.exe"
 )
@@ -56,6 +60,13 @@ python "$repo\tools\fatls.py" $img --get "C:\WINDOWS\SYSTEM\IOSUBSYS\LS120MP.MPD
 if (-not (Test-Path $uut)) { Write-Output "driver NOT in the image after deploy"; exit 1 }
 Write-Output ("driver in the image: md5 " + (Get-FileHash $uut -Algorithm MD5).Hash.ToLower())
 
+if ($Startup -ne "") {
+    if (-not (Test-Path $Startup)) { Write-Output "MISSING startup batch: $Startup"; exit 1 }
+    $sname = [IO.Path]::GetFileName($Startup)
+    python "$repo\tools\fatcp.py" $img "WINDOWS/STARTM~1/PROGRAMS/STARTUP/$sname" $Startup --yes
+    if ($LASTEXITCODE -ne 0) { Write-Output "STARTUP DEPLOY FAILED"; exit 1 }
+}
+python "$repo\tools\fatcp.py" $img --rm "C:\LSPROBE.TXT" 2>&1 | Out-Null
 python "$repo\tools\fatcp.py" $img --rm "C:\BOOTLOG.TXT" 2>&1 | Out-Null
 python "$repo\tools\fatclean.py" $img | Out-Null
 
@@ -82,4 +93,10 @@ if (Test-Path (Join-Path $VmPath "bootlog_$Tag.txt")) {
     Select-String -Path (Join-Path $VmPath "bootlog_$Tag.txt") -Pattern 'ls120' | ForEach-Object { $_.Line }
 } else {
     Write-Output "NO BOOTLOG.TXT - the run may not have reached Windows. Read the screen."
+}
+
+python "$repo\tools\fatls.py" $img --get "C:\LSPROBE.TXT" (Join-Path $VmPath "lsprobe_$Tag.txt") | Out-Null
+if (Test-Path (Join-Path $VmPath "lsprobe_$Tag.txt")) {
+    Write-Output "--- LSPROBE.TXT ---"
+    Get-Content (Join-Path $VmPath "lsprobe_$Tag.txt")
 }
