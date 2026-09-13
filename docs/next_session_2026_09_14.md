@@ -174,6 +174,36 @@ unverified — which is the same trap as the unframed ECP reads (technique 110).
 those CPP commands is the prerequisite for trusting the bed on the stall, and it makes the
 vendor's own driver available as a live reference inside the bed.
 
+#### The CPP command set, decoded from SD120PPD.SYS's own handler (rva 2767h)
+
+The command byte is masked with `0xF8`, so it is four groups, not a flat list:
+
+| CPP | bridge must |
+|---|---|
+| `00h` | chip init — and **seven data-port writes (1…7) follow**, strobed, which are filler |
+| `08h \| unit` | return **one** byte as two nibbles |
+| `10h \| unit` | return **two** bytes as four nibbles; a populated unit answers **`FFAAh`** |
+| anything else (`30h`, `40h`, `50h`, `E0h`) | a bare strobe, no response |
+
+Nibble convention for these, from rva 2957h — note it is the **opposite order** to the block
+path's `j44`: `byte = (read1 & 0xF0) | (read2 >> 4)`, i.e. **high nibble first**, each in the
+top four bits, clocked by a `w2(5); w2(4)` strobe between them.
+
+**Two model bugs found and fixed doing this**, both committed:
+
+1. The frame's own trailing `w2(4)` was being counted as a nibble clock, eating the first one.
+2. **`CPP(00h)` never committed at all**, because the commit test used `ucmd != 0` to mean "a
+   command is pending" — and this command's byte *is* zero. So the init never ran and its seven
+   filler writes fell through to the register path, where **`7` arms a block read**. Now a
+   separate `ucmd_pending` flag.
+
+⏳ **Still not enough.** With all of the above the vendor driver runs the full
+`CPP(30h) CPP(40h) CPP(50h) CPP(00h)` + unit sweep and finds unit 0 — and **still presents no
+drive letter**. The next thing it wants is almost certainly the `epatc8` configuration writes
+`epat.c` does after `CPP(0x40); CPP(0xe0)` — `WR(8,12h) WR(0Ch,14h) WR(12h,10h) WR(0Eh,0Fh)
+WR(0Fh,4) WR(0Eh,0Dh) WR(0Fh,0)` — plus whatever version register it reads back. Pick it up
+there; the log names every command it sends.
+
 ---
 
 ## Diagnostics: three brakes removed, and one lesson
