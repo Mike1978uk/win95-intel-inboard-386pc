@@ -6805,3 +6805,68 @@ line. That is a buffer-flush boundary, not a death point. An early reading of "i
 
 **When a log's last line is the evidence, compare its length across runs.** Identical lengths
 mean you are reading where the buffer stopped, not where the machine did.
+
+## Technique 118: a PROBE must not change state — and check what it leaves behind
+
+2026-09-13, and it cost two boots and a false "we introduced a delay".
+
+`LS_DetectEcp` tested for an ECP port by writing a mode byte to the ECR at `base+402h`,
+reading it back, and **leaving it there**. On a port with ECP enabled, any ECR mode with
+bits 7:5 set makes that port **bidirectional** - and the nibble transport reads ATA status
+through exactly that path. So the probe silently broke the fallback it was probing for:
+boot stalled with 12,588 status reads and **not one command issued**.
+
+`LS_EcpLeave` had the identical flaw, restoring to byte mode rather than SPP mode, which
+would have broken every register read after the first block transfer.
+
+**The rule: read the old value, probe, put it back — and put it back before deciding**,
+not after, so an early exit cannot skip the restore.
+
+```asm
+	in	al, dx
+	mov	bl, al		; whatever it was
+	mov	al, PROBE
+	out	dx, al
+	in	al, dx
+	mov	ah, al		; the answer
+	mov	al, bl		; RESTORE FIRST
+	out	dx, al
+	;  ...now decide, using AH
+```
+
+**Corollary, and it is the same bug one layer out:** an absent setting must not clobber a
+default. `LsParseMode` returned 0 for "MODE= not stated" and the caller stored it
+unconditionally, zeroing a build-time pin - so every `-Mode ecp` build silently ran the
+fallback. Caught only by **measuring the transport** (nibble-read counts) rather than
+trusting the build flag. Same family as technique 81.
+
+## Technique 119: when a theory has failed twice, LOG IT — the cheapest line beats the third argument
+
+Three separate times on 2026-09-13 a reasoning pass was wrong and one log line was right,
+in a single boot each time. This is the core principle of this file restated where it keeps
+being forgotten: **live evidence over static reasoning**, including reasoning about your own
+code.
+
+| the failing argument | the one line that settled it |
+|---|---|
+| "the ECP handshake must be wrong somewhere" | `[ECPDIAG]` in `lpt.c` case `0x0400` printed **zero ECR writes** - so the window did not exist at all. Registration-order bug, found instantly |
+| "the driver is not sending write data" | per-command byte counts showed `WRITE(10)` supplying **0 bytes** where every read was exact |
+| "the transport must be faster now" | nibble-per-byte was **unchanged** - the win was buried under 3,000 status polls per command |
+
+**Make the diagnostic unconditional and narrow.** `lpt_log()` is gated behind
+`ENABLE_LPT_LOG`, so those calls compile to nothing (technique 28's silent no-op) and
+enabling it unleashes every LPT access (technique 93's firehose). `pclog()` gives one
+unconditional line and nothing else.
+
+**And count per operation, not in total.** "136,784 bytes moved" told me nothing; bytes
+*per command* - INQUIRY 36, SENSE 14, READ CAPACITY 8, READ(10) 512 - proved every read
+exact and isolated the write in one pass.
+
+### Addendum to technique 112: prove the dump's coverage, with an example
+
+`SD120PPD_SYS.asm` had been the project's DOS-driver disassembly for days and covered
+**0x2074-0x4E50 - 21% of the file.** It began at the strategy entry and stopped at the
+first undecodable byte; 44 KB was never read, including the four phase waits and the
+complete timeout table. A full sweep with resync is 26,095 instructions over all 56,198
+bytes. **Print the address range and compare it against the file size before reading a
+line of it** - technique 112's rule 2 with a number attached.
