@@ -855,6 +855,26 @@ LS_BlockWriteEcp:
 	add	edx, LPT_ECPFIFO
 	cld
 	rep	outsb
+
+;  ** Wait for the FIFO to drain before leaving ECP mode. ** Writing the ECR
+;  back to a non-FIFO mode RESETS the FIFO, so anything still queued is thrown
+;  away - the drive then sits holding DRQ for bytes that were discarded, and
+;  the OS reports the failed write as "not enough disk space". The vendor's own
+;  ECP handler polls ECR bit 0 for exactly this reason (SD120PPD.SYS 0x494c:
+;  mov cx,0xffff / in al,dx / test al,1 / loope).
+	push	ecx
+	movzx	edx, LS_BasePort
+	add	edx, LPT_ECP_ECR
+	mov	ecx, 0FFFFh
+lbwe_drain:
+	in	al, dx
+	test	al, ECR_FIFO_EMPTY
+	jnz	lbwe_drained
+	dec	ecx
+	jnz	lbwe_drain
+lbwe_drained:
+	pop	ecx
+
 	call	LS_EcpLeave
 	pop	ecx
 	pop	ebx
