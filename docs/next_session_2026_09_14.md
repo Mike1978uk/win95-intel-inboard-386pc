@@ -44,6 +44,49 @@ Previous binary remains as `LS120MP.B13` (`976e4114`, 09-11).
 and `LS_EcpWaitData` both defined `lwd_loop`/`lwd_ok`. Last good build before
 that was 15:47. Fixed in `b48a13a`.
 
+## CORRECTED, 2026-09-14: it is SILENT TRUNCATION, not corruption
+
+The write stops early and DOS is never told. Everything below this heading was
+written before that was understood - the "corruption" is stale medium content
+read back from beyond the point the write stopped.
+
+Proven on a **freshly formatted** NOS disk, vendor stack, our driver not in the
+path:
+
+| | |
+|---|---|
+| `COPY C:\WINDOWS\COMMAND\FC.EXE D:\FC.EXE` (20,494 bytes) | reported success |
+| bytes 0 - 6,143 on `D:` | **byte-identical to source** |
+| bytes 6,144 - end | **all zeros** - never written |
+
+A formatted disk is zero-filled, so the tail is simply unwritten. On the
+*previous*, used disk the same fault read back as high-entropy garbage because
+the medium still held older data there. One mechanism, two appearances.
+
+This retro-explains everything:
+
+- The 427 KB file "diverged" at `0x4400` because the write **stopped** at 17,408.
+- The owner's small file edits round-tripped clean because they fit under the
+  stop point.
+- It is the same family as the recorded open item *"a 30,720-byte write stalls
+  on BOTH transports - size, not transport"*.
+
+**The stop point VARIES**: 6,144 one run, 17,408 another - both multiples of
+1,024 (two sectors). A timeout or FIFO back-pressure, not a fixed ceiling.
+
+### The drive is probably NOT at fault
+
+- A full `FORMAT` completed clean, no bad sectors - the whole surface written
+  and verified.
+- The bytes that do land are byte-exact.
+
+A degraded optical servo mis-positions or garbles; it does not stop cleanly on a
+sector boundary leaving perfect data behind it. **Do not open or clean the
+drive on this evidence.** The track-boundary hypothesis below is superseded:
+17,408 was where the write stopped, not where a seek went wrong.
+
+The fault is in the **write transfer path** - driver, bridge, FIFO or XT timing.
+
 ## THE FINDING: the vendor stack does not round-trip data on this machine
 
 Tested on **brand-new NOS media**, with the owner's correct switch line
