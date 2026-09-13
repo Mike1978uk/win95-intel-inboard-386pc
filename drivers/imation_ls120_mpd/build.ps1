@@ -40,6 +40,11 @@ param(
     # enumeration there. This isolates the SCSIPORT side, which is where the
     # 2026-09-10 "loads, talks to the drive, but no drive letter" problem is.
     # NEVER deploy a -FakeDevice build to real hardware.
+    # Report each StartIo and each completion to the host debug port, which
+    # the emulator prints as DBGPORT lines. Bed only: it is port I/O on the
+    # hot path and there is no such port on the real machine.
+    [switch] $DbgPort,
+
     [switch] $FakeDevice,
 
     [string] $DdkRoot = 'C:\Users\lycet\OneDrive\Desktop\XT_project\Windows95_ddk'
@@ -69,6 +74,7 @@ if ($Phase -eq 2) { $defs += '-DLS_PHASE2' }
 if ($Mode -eq 'spp') { $defs += '-DLS_FORCE_MODE=1' }
 if ($Mode -eq 'ecp') { $defs += '-DLS_FORCE_MODE=2' }
 if ($FakeDevice)  { $defs += '-DLS_FAKE_DEVICE' }
+if ($DbgPort)     { $defs += '-DLS_DBGPORT' }
 
 # -coff is what makes ML emit objects the PE linker can use at all.
 $aflags = @('-coff', '-DBLD_COFF', '-DIS_32', '-DMASM6', '-nologo', '-W2', '-Zd', '-c', '-Cx') + $defs

@@ -26,6 +26,12 @@ param(
     # default because they are expensive; use them to find where a guest that
     # has stopped talking to the device is actually spinning.
     [switch] $Heartbeat,
+    # Replace the guest's CONFIG.SYS / AUTOEXEC.BAT for this run, to boot the
+    # vendor's real-mode stack instead. It is the one implementation of this
+    # transport known to work on the owner's machine, so it is the reference
+    # to compare against when ours misbehaves.
+    [string] $ConfigSys = "",
+    [string] $Autoexec  = "",
     [string] $VmPath  = "C:\Users\lycet\RiderProjects\86Box-Inboard\vm_ls120win",
     [string] $ExePath = "C:\Users\lycet\RiderProjects\86Box-Inboard\86box_upstream\build\src\86Box.exe"
 )
@@ -73,6 +79,15 @@ if ($Startup -ne "") {
     python "$repo\tools\fatcp.py" $img "WINDOWS/STARTM~1/PROGRAMS/STARTUP/$sname" $Startup --yes
     if ($LASTEXITCODE -ne 0) { Write-Output "STARTUP DEPLOY FAILED"; exit 1 }
 }
+if ($ConfigSys -ne "") {
+    python "$repo\tools\fatcp.py" $img "CONFIG.SYS" $ConfigSys --yes
+    if ($LASTEXITCODE -ne 0) { Write-Output "CONFIG.SYS DEPLOY FAILED"; exit 1 }
+}
+if ($Autoexec -ne "") {
+    python "$repo\tools\fatcp.py" $img "AUTOEXEC.BAT" $Autoexec --yes
+    if ($LASTEXITCODE -ne 0) { Write-Output "AUTOEXEC.BAT DEPLOY FAILED"; exit 1 }
+}
+python "$repo\tools\fatcp.py" $img --rm "C:\DOSPROBE.TXT" 2>&1 | Out-Null
 python "$repo\tools\fatcp.py" $img --rm "C:\LSPROBE.TXT" 2>&1 | Out-Null
 python "$repo\tools\fatcp.py" $img --rm "C:\BOOTLOG.TXT" 2>&1 | Out-Null
 python "$repo\tools\fatclean.py" $img | Out-Null
@@ -108,6 +123,11 @@ if (Test-Path (Join-Path $VmPath "bootlog_$Tag.txt")) {
     Write-Output "NO BOOTLOG.TXT - the run may not have reached Windows. Read the screen."
 }
 
+python "$repo\tools\fatls.py" $img --get "C:\DOSPROBE.TXT" (Join-Path $VmPath "dosprobe_$Tag.txt") | Out-Null
+if (Test-Path (Join-Path $VmPath "dosprobe_$Tag.txt")) {
+    Write-Output "--- DOSPROBE.TXT ---"
+    Get-Content (Join-Path $VmPath "dosprobe_$Tag.txt")
+}
 python "$repo\tools\fatls.py" $img --get "C:\LSPROBE.TXT" (Join-Path $VmPath "lsprobe_$Tag.txt") | Out-Null
 if (Test-Path (Join-Path $VmPath "lsprobe_$Tag.txt")) {
     Write-Output "--- LSPROBE.TXT ---"

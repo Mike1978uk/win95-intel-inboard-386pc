@@ -98,6 +98,33 @@ LS_SCSISTAT_CHECK	equ	002h	; SCSISTAT_CHECK_CONDITION
 ;  Timer interval in microseconds. Imation's miniport uses 1000 (1 ms) and so
 ;  does the DDK's PC2X sample; there is no reason to differ.
 LS_TIMER_US		equ	1000
+
+;  DIAGNOSTIC, bed only. One report to the host: the tag to 0E0h, then the
+;  value LSB-first to 0E1h. The emulator prints it as DBGPORT tag=xx val=...
+;  A driver with no readback channel has no other way to say what it did.
+;  Remove with the -DLS_DBGPORT it is gated on.
+LSDBG	MACRO	tagv, srcreg
+ifdef LS_DBGPORT
+	push	eax
+	push	edx
+	mov	eax, srcreg
+	push	eax
+	mov	dx, 0E0h
+	mov	al, tagv
+	out	dx, al
+	inc	dx
+	pop	eax
+	out	dx, al
+	shr	eax, 8
+	out	dx, al
+	shr	eax, 8
+	out	dx, al
+	shr	eax, 8
+	out	dx, al
+	pop	edx
+	pop	eax
+endif
+	ENDM
 LS_MAX_TARGETS		equ	2	; XTIDEMP.MPD uses 2 and enumerates correctly
 					; on this machine; 1 was the only config value
 					; that differed from it.
@@ -667,6 +694,13 @@ ifdef LS_PHASE2
 	je	lt_sense
 	cmp	eax, LS_ST_FINISH
 	je	lt_finishwait
+;  IDLE means there is no request to complete, and lt_finish would take the
+;  null dxPendSrb as an SRB: it writes SrbStatus through it and hands it to
+;  RequestComplete. A near-null write in ring 0 does NOT fault here - linear
+;  page 0 is the V86 low-memory mapping - so the damage is silent and lands
+;  somewhere else entirely. Return instead, and do not re-arm.
+	cmp	eax, LS_ST_IDLE
+	je	lt_idle
 ;  LS_ST_DONE, or any state we do not recognise: complete with what we have.
 	jmp	lt_finish
 
@@ -856,6 +890,12 @@ lt_finish:
 ;  Complete, and stop. Do NOT re-arm - there is nothing left to do and a timer
 ;  that keeps firing on an idle adapter is a tick the machine cannot spare.
 	mov	ebx, [esi].DEVEXT.dxPendSrb
+;  Belt and braces: no SRB, nothing to complete. Reaching here without one is
+;  a bug upstream, and completing a null SRB corrupts SCSIPORT rather than
+;  reporting anything.
+	or	ebx, ebx
+	jz	lt_idle
+	LSDBG	021h, ebx			; finish: we are completing this one
 	mov	[esi].DEVEXT.dxPendSrb, 0
 	mov	[esi].DEVEXT.dxState, LS_ST_IDLE
 	mov	eax, [esi].DEVEXT.dxPendStat
@@ -920,6 +960,20 @@ LsStartIo PROC STDCALL DeviceExtension:DWORD, Srb:DWORD
 	mov	ebx, Srb
 	mov	esi, DeviceExtension
 	inc	[esi].DEVEXT.dxSrbCount
+	LSDBG	020h, ebx			; StartIo: SCSIPORT gave us a request
+
+;  There is one slot. A second request arriving while one is still pending
+;  would overwrite dxPendSrb and the first would never be completed, which
+;  the OS waits for forever. Report it rather than assume it cannot happen.
+ifdef LS_DBGPORT
+	push	eax
+	mov	eax, [esi].DEVEXT.dxPendSrb
+	or	eax, eax
+	jz	lsi_noclash
+	LSDBG	023h, eax			; OVERLAP: this one is still pending
+lsi_noclash:
+	pop	eax
+endif
 
 	movzx	eax, [ebx].SCSI_REQUEST_BLOCK.Function
 	cmp	eax, SRB_FUNCTION_EXECUTE_SCSI
