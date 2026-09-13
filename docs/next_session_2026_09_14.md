@@ -1,372 +1,59 @@
-# Where everything stands — end of 2026-09-13
+# Next session - 2026-09-14
 
-Supersedes `next_session_2026_09_13.md`. Read this one first.
+## CLOSED: why ECP failed on the hardware
 
----
+**ECP mode was never negotiated.** Writing `74h` to the ECR configures only the
+host side of the cable; the bridge stays in compatibility mode until asked, and
+an unasked bridge never acknowledges the forward handshake - so the FIFO took one
+byte and never drained. The missing ECR waits we chased all week were a symptom.
 
-## ⭐ ECP READS AND WRITES. The owner round-tripped a file edit on it.
-
-He opened the drive in the bed, edited `HELLO.TXT`, saved it and reopened it with his change —
-the same milestone SPP reached the night before, now on ECP. A 92 KB file copied in-guest and
-verified **byte-exact from the host** (`ea923fa0…` both sides).
-
-## ✅ RETRACTED: "ECP writes corrupt LBA 0"
-
-The 8 changed bytes at offset 3 of the boot sector are **Windows 9x's own "IHC" signature** —
-CHICAGO reversed — stamped into the OEM ID field by Volume Tracker on any access. Named by
-@andrew-hoffman on #22; <https://www.os2museum.com/wp/the-ihc-damage/>.
-
-Corroborated independently before his comment was read: bytes 5-7 were `49 48 43` in all three
-runs, always written straight after a PREVENT MEDIUM REMOVAL, the drive's own copy read back
-clean beforehand, and Windows kept using the volume happily afterwards.
-
-**The real fault was the emulator dropping bytes** (below). The volume read empty because the
-sector was 145 bytes short, not because of the OEM field. Rewriting `MSWIN4.1` over the
-signature was harmless and pointless — Windows restamps it.
-
-**General rule, now technique 120e:** a difference that lands exactly on a semantic field
-boundary is somebody writing that field, not a transport dropping bytes.
-
----
-
-## What was wrong, and what fixed it
-
-### 1. 86Box's ECP FIFO had no back-pressure — 145 bytes lost per 512
+The step is `SD120PPD.SYS` `0x2993`, called from `0x2A21`/`0x2A46` - outside the
+port open (`0x2C42`), which is why reading only the open path missed it:
 
 ```
-before:  port=512  fifo=368  full=145  ->dev=367
-after:   port=512  fifo=513  full=0    ->dev=512
+out ctrl, 0Ch / 04h        ; enter 1284
+w0(0); w2(1); w2(4)        ; 0x24D1 - IDLE INTO SPP.  REQUIRED.
+out ctrl, 0Ch
+out data, 10h              ; extensibility byte: ECP
+out ctrl, 06h              ; request
+poll status bit 6 (nAck) LOW, budget 100h
+out ctrl, 07h / 04h        ; complete
 ```
 
-16-byte FIFO drained on a 2.5 MHz timer; a write arriving full was silently discarded. Real
-ECP holds the ISA cycle until there is room. Fixed by delivering one queued byte at the moment
-the stall would have happened.
-
-### 2. The ECP transport never COMMANDED the bridge
-
-`LS_BlockReadEcp`/`LS_BlockWriteEcp` streamed the FIFO with the bridge never told a block was
-coming. It "worked" only because our own model short-circuited — a shortcut that would have
-become an invisible prerequisite on hardware (technique 110).
-
-An EPAT block transfer is framed by one **ECP address cycle** — a write to `base+0` while the
-ECR is in ECP mode — carrying `0x80` read block, `0xC0` write block, `0xA0` last byte of a
-read. `SD120PPD.SYS` rva `0x4736`/`0x4DB9`; Linux `epat.c` sends the same bytes as
-`w3(0x80)`/`w3(0xc0)` with an EPP host. **The bridge model now refuses unframed data.**
-
-Forward is control `0x04`, reverse `0x20` — bit 2 is nInit, which an ECP host drives LOW to
-request the reverse channel. Not one bit apart.
-
-### 3. ECP writes now pace themselves, 16 bytes per ECR poll
-
-A bare `rep outsb` assumes the port stalls the bus when the FIFO fills. The vendor never
-assumes that: it divides every transfer by a word in its own data area (`[0C18h]`, shipped as
-**16** — the FIFO depth), waits for ECR bit 0, and sends one chunk at a time. Ours now does the
-same, and the emulator's `relief=` counter reads **0**, which is the proof the driver no longer
-depends on a stall.
-
-⚠ **This is a hardware-readiness item, not a tidy-up.** If the owner's card does not drive
-`nWait`, the old code would have lost bytes on the bench exactly as it did in the bed.
-
-### 4. Transfer length capped at 4096
-
-A transfer is moved INLINE at one byte per port access, so `MaximumTransferLength` is also a
-length of time the system is held: at 5.55 us per access, 30,720 bytes is ~170 ms on ECP and
-~340 ms on nibble, the latter with IF clear. At 65024 a single `WRITE(10)` started and never
-completed — **identically on the SPP build**, so it was the size and not the transport.
-
----
-
-## ⛔ HARDWARE SAYS THE ECP PATH FAILS - AND OUR RECORDS WERE STALE
-
-Read this before trusting anything else in this file.
-
-**Deployed to the CF on 2026-09-13 and run by the owner.** Two boots, same card:
-
-```
-BOOTLOG.PRV  old build (md5 976e4114, pre-ECP, SPP only)
-             Initing ls120mp.mpd -> Init Success   in  225 log units
-BOOTLOG.TXT  new build (md5 4b077b18, -Mode auto -> selects ECP)
-             Initing ls120mp.mpd -> Init Failure   in 1598 log units
-```
-
-1. **The ECP transport fails on real hardware**, while the bed reports ECP reading, writing and
-   round-tripping a file edit. **So the ECP model is wrong and the bed validated something that
-   is not true.** SPP is the shipping path until ECP is proven on the bench, not in emulation.
-2. **Shipping `-Mode auto` to hardware was a mistake** - the owner's port is ECP-capable, so
-   auto selected a transport that had never run there. Anything sent to the CF must be
-   `-Mode spp` unless ECP is being deliberately tested.
-3. **`Init Success` in 225 units is where hardware actually is**, and this file previously
-   repeated a 2026-09-12 figure of `Init Failure` at 1520 units. That was stale and it
-   mis-aimed a day's work. The CF has been restored to md5 976e4114.
-
-**Method lesson, and it is the expensive one:** the bed was used as the primary instrument for a
-whole day before anyone checked it could run the one implementation known to work on the owner's
-machine. Prove the instrument first. Technique 94 said this and it was not followed.
-
-## ⛔ THE ONE OPEN BLOCKER: a deterministic stall at 383,488 bytes
-
-Copying a 9 MB file to the LS-120 stops after **exactly 98 write commands** (93 x 4096 +
-5 x 512) — the same number on the chunked and unchunked builds, so it is not caused by any of
-today's work. The guest burns 100% CPU with **zero** drive traffic afterwards.
-
-The heartbeat puts it in the **same VMM loop that killed the `.PDR`** and was never root-caused:
-
-```
-C000321C:  cmp word [edi+68],0 / je +8 / mov eax,[edi+6C]   ; EDI = a TCB
-C000323F:  mov eax,[edx-4] / test eax,eax / je / test [eax+8],ecx / mov edx,eax / jmp back
-           ecx = 80001842   eax = C10CD880
-```
-
-A linked-list walk that does not terminate. **Technique 90d prescribed dumping that list at
-`TCB+6Ch` and nobody has ever done it.** That is the next measurement.
-
-**It is a RACE, not a boundary.** The stall point tracks how fast the driver is:
-
-| build | writes before the stall |
-|---|---|
-| 4096-byte, unchunked | 67 |
-| 4096-byte, chunked | 98 |
-| 4096-byte, chunked + debug-port markers | 364 |
-| **512-byte transfers** | **3,077 (~1.5 MB)** |
-
-Shortening the inline hold buys an order of magnitude and still does not fix it.
-
-**And it is NOT on our side of the boundary.** The driver now reports every `HwStartIo` and
-every completion to the host debug port (0E0h tag, 0E1h value; printed as `DBGPORT`):
-
-```
-startio 3152   finish 3152   OVERLAP 0
-```
-
-Balanced exactly, and SCSIPORT never hands us a second request while one is pending.
-**We complete every request we are given. Windows stops asking.**
-
-### What the vendor declares, read out of SD120PPD.MPD
-
-Offsets from the DDK's own `SRB.INC` (`MaximumTransferLength` +18h, `NumberOfPhysicalBreaks`
-+1Ch, `ScatterGather` +49h, `MapBuffers` +51h); values from `HwFindAdapter` at rva 3fe8h:
-
-| field | vendor | ours |
-|---|---|---|
-| `MaximumTransferLength` | **10000h = 65,536** | 4096 |
-| `NumberOfPhysicalBreaks` | 1, **only on its DMA path** | 1, always |
-| `ScatterGather` / `Master` | FALSE / FALSE | same |
-| `MapBuffers` | TRUE (PIO path) | TRUE |
-| `BufferAccessScsiPortControlled` | TRUE | TRUE |
-
-**The vendor moves 64 KB inline and Windows survives it**, so "we hold the system too long" is
-not the explanation, even though shortening helps. `NumberOfPhysicalBreaks` is the one field we
-set unconditionally and the vendor does not.
-
-Its timer is also a general **deferred continuation** rather than a fixed poll: rva 52f2h
-stores a function pointer and a delay (`[21790]`, `[216cc]`) and the callback re-arms itself at
-the TOP of every tick, before doing any work. Ours decides at the bottom whether to re-arm.
-
-### ⭐⭐ IT IS WRITE-SPECIFIC — reads of the same volume are fine
-
-| direction | result |
-|---|---|
-| **read 1 MB off the LS-120 onto C:** | ✅ completes, `1 file(s) copied`, **byte-identical** (`c2374fcb…`), 385 read commands, 402/402 balanced |
-| **write ~700 KB to the LS-120** | ⛔ stalls, ~180 commands |
-
-`tools/fixtures/LSREAD.BAT` is that control. This is the sharpest split available and it was not
-known before: the transport, the bridge, the drive model and the request plumbing all carry a
-megabyte in the read direction without complaint. **Whatever is wrong is on the write path or
-in what Windows does around a write.**
-
-Ruled out so far:
-- **not the chunking** — unchunked build stalls at the same 98
-- **not the transport** — SPP stalls too, at the larger transfer size
-- **not disk space** — 124 MB free, and Windows raises no warning
-- the last command before the stall completes cleanly (`status 40`, `DISCONNECT`), so the
-  driver is idle and the stall is above it
-- **not the SRB status we report** — 263 of 265 completions are `SRB_STATUS_SUCCESS`; the two
-  exceptions are a selection timeout for the absent second target and one
-  `SRB_STATUS_ERROR | AUTOSENSE_VALID` at mount, which is the expected unit attention. The
-  last completion before the stall is a success
-- **not a bus reset** — `HwResetBus` is never called (marker tag 24h, count 0), so SCSIPORT is
-  not timing us out
-- **not the modelled drive latency** — with `busy_ms = 0` and no `drive busy` lines at all it
-  stalls in the same place
-- **not reads** — see above
-
-✅ **The same 9 MB file copies C: to C: in seconds** — the full 8,996,287 bytes. The machine,
-the source read, the RAM and the swap are all fine, so the fault is specific to this
-destination.
-
-### ⭐ The vendor's DOS driver in the bed — and the bridge gap it exposed
-
-The owner's idea, and it produced the most actionable finding of the day. `SD120PPD.SYS` +
-`ASPIHDRM.SYS` loaded with the real machine's own switches
-(`/port:378 /IRQ:7 /de /db /ni /dpc /dp /fp`), and the bridge model answered:
-
-```
-EPAT: unlock frame committed with unknown command 40
-EPAT: unlock frame committed with unknown command 50
-EPAT: unlock frame committed with unknown command 10 11 12 13 14 15 16 17
-EPAT: CONNECT / LPT1 drive attached
-EPAT: W reg 16 = 04 / 00 / device reset: status 50, signature 14 EB
-```
-
-It connects, pulses SRST and reads the ATAPI signature — then **no drive letter appears** and
-the real-mode `COPY` fails with an invalid drive.
-
-**Our bridge implements exactly two CPP commands, `0xE0` connect and `0x30` disconnect.** The
-vendor sends `0x40`, `0x50` and a full `0x10`–`0x17` sweep, which is the **chain unit-select
-scan** `epat.c` carries a FIXME about. `0x40` appears in `epat.c`'s `epatc8` branch; the
-`0x10`–`0x17` sweep is vendor-specific and is in neither of our references.
-
-**Why this matters beyond the DOS driver:** the bed has been treated as faithful, and it is
-not. Anything our Windows driver does that depends on bridge behaviour we never modelled is
-unverified — which is the same trap as the unframed ECP reads (technique 110). Implementing
-those CPP commands is the prerequisite for trusting the bed on the stall, and it makes the
-vendor's own driver available as a live reference inside the bed.
-
-#### The CPP command set, decoded from SD120PPD.SYS's own handler (rva 2767h)
-
-The command byte is masked with `0xF8`, so it is four groups, not a flat list:
-
-| CPP | bridge must |
-|---|---|
-| `00h` | chip init — and **seven data-port writes (1…7) follow**, strobed, which are filler |
-| `08h \| unit` | return **one** byte as two nibbles |
-| `10h \| unit` | return **two** bytes as four nibbles; a populated unit answers **`FFAAh`** |
-| anything else (`30h`, `40h`, `50h`, `E0h`) | a bare strobe, no response |
-
-Nibble convention for these, from rva 2957h — note it is the **opposite order** to the block
-path's `j44`: `byte = (read1 & 0xF0) | (read2 >> 4)`, i.e. **high nibble first**, each in the
-top four bits, clocked by a `w2(5); w2(4)` strobe between them.
-
-**Two model bugs found and fixed doing this**, both committed:
-
-1. The frame's own trailing `w2(4)` was being counted as a nibble clock, eating the first one.
-2. **`CPP(00h)` never committed at all**, because the commit test used `ucmd != 0` to mean "a
-   command is pending" — and this command's byte *is* zero. So the init never ran and its seven
-   filler writes fell through to the register path, where **`7` arms a block read**. Now a
-   separate `ucmd_pending` flag.
-
-#### ⛔ THE BED IS NOT A KNOWN-GOOD YARDSTICK, AND THAT IS THE HEADLINE
-
-The owner's framing, and it is the right one: *"if the vendor driver loads and is reliable
-then we know the emulation of the port and drive is good — it's a known good entity"*, and
-*"if the bridge is not reliable as a test point then why are we diving deeper on it — we need
-the emulation to be reliable to build against; if it's not then I do a hardware test."*
-
-**It is not, yet.** With our miniport removed from `IOSUBSYS` (`-NoDriver`) and only the vendor
-real-mode stack loaded, this is how far it gets in the bed:
-
-| stage | result |
-|---|---|
-| `SD120PPD.SYS` loads, LPT base/IRQ correct | ✅ it drives `0x378` |
-| unlock frame, all three status checkpoints | ✅ `B0` / `50` / `B0` all match |
-| `CPP(30h) CPP(40h) CPP(50h) CPP(00h)` | ✅ |
-| unit scan, unit 0 answers `FFAAh` | ✅ |
-| adapter recorded present (`[0c00h] = 1`) | ✅ |
-| **any bridge register read at all** | ❌ **never happens** |
-| drive letter | ❌ none, so `COPY` fails with an invalid drive |
-
-So detection succeeds and it then stops before touching the drive. Until that is closed, **any
-bed result about the write stall carries a caveat**, because the model has been shaped around
-our own driver's sequence rather than validated against the one that works.
-
-The detection path, for whoever picks this up (`SD120PPD.SYS` rva 2DBBh): unlock preamble with
-the three checkpoints, `ax = FFFFh` on any mismatch and `ax = 0` on success after issuing
-command `08h`; caller at 2C8Bh tries it twice, then falls through to 2CCFh which marks the
-adapter present and runs the unit scan at 2CD9h.
-
-**The next lead, and it is specific.** There are TWO unlock variants, selected by `[0c15h]`:
-
-```asm
-002DD1  cmp byte ptr [0c15h], 1
-002DD6  jne 0x2ddd          ; normal preamble - each byte written TWICE
-002DD8  call 0x2e4d         ; variant   - each byte written EIGHT times
-```
-
-`epat_unlock_feed` folds exactly **one** duplicate (`udup`), because two writes is what was
-captured on hardware. The caller at 2C92h sets `[0c15h] = 1` and retries with the 8x variant,
-which our recogniser cannot match. Teaching it to fold *any* run of identical bytes is the
-obvious fix and costs little - but check it against a capture first, because the fold is also
-what stops a legitimate repeated payload byte being eaten.
-
-Also unresolved: at 2D51h the version-reading entry treats `ax == 0` from 2DBBh as a reason to
-bail (`je 0x2d79`), while the caller at 2C8Bh treats the same value as success. One of those
-readings is wrong and it has not been settled - do that before writing more model code.
-
-⏳ **Still not enough.** With all of the above the vendor driver runs the full
-`CPP(30h) CPP(40h) CPP(50h) CPP(00h)` + unit sweep and finds unit 0 — and **still presents no
-drive letter**. The next thing it wants is almost certainly the `epatc8` configuration writes
-`epat.c` does after `CPP(0x40); CPP(0xe0)` — `WR(8,12h) WR(0Ch,14h) WR(12h,10h) WR(0Eh,0Fh)
-WR(0Fh,4) WR(0Eh,0Dh) WR(0Fh,0)` — plus whatever version register it reads back. Pick it up
-there; the log names every command it sends.
-
----
-
-## Diagnostics: three brakes removed, and one lesson
-
-The bed was being throttled by its own instrumentation, badly enough to look like a hang:
-
-| | was | now |
-|---|---|---|
-| `[ECPDIAG] device supplied` / per-nibble register trace | one line **per byte** | removed |
-| `MEMWATCH` (VMM thread list, `.PDR` era) | **armed by default**, 3 lines + 2 dumps per hit | `INBOARD_MEMWATCH=1` |
-| `HEARTBEAT` (`.PDR` era) | **armed by default**, 16 paged reads per report | `INBOARD_HEARTBEAT=1` |
-
-A folder copy produced **67 MB of log in twenty minutes** and the emulator then advanced about
-1 KB of log per 15 s. The owner reported the UI unresponsive and the copy stalled; he was right
-about the symptom and it had nothing to do with the driver. Written up as technique 120.
-
-`tools/ls120_bed_run.ps1 -Heartbeat` arms them for one run when something has stopped talking.
-
----
-
-## The bed
-
-```
-86box_upstream/build/src/86Box.exe        branch lpt-epat-bridge
-tools/ls120_bed_run.ps1                   fresh cfg + system image + MEDIUM every run
-tools/fixtures/LSWRITE.BAT                copies COMMAND.COM (92 KB) to the medium
-tools/fixtures/LSBULK.BAT                 copies a 9 MB zip to the medium
-tools/fixtures/LSCFONLY.BAT               the same 9 MB copy, C: to C:, never touching the drive
-```
-
-The `-Startup` switch drops a batch into the guest's StartUp folder so the bed drives itself
-with nobody at the keyboard.
-
-⚠ **A force-killed run loses the guest's write cache.** One run's `DIR` listed a 92,870-byte
-file that was not on the medium at all. Verify from the host, after the guest has flushed.
-
-⚠ **Do not put `TIME /T` in a fixture.** It waits for input under Win95's `COMMAND.COM` and
-the batch never reaches the next line. Cost one run.
-
----
-
-## Owed, and process
-
-- ⏳ **@andrew-hoffman** has been replied to on #22 — the IHC retraction, the FIFO fault, and
-  the comment rule. He also asked for a **repository summarising cleanup** once the driver work
-  is done; the owner's framing is that the history should be facts, wins, mistakes and next
-  actions, because noise costs contributor input. **Queued, not done.**
-- **New standing rule:** never push a branch to the 86Box fork without testing it AND the
-  owner's explicit go-ahead. A fork push runs the full CI matrix and mails him the failures.
-  Nothing from 2026-09-13 has been pushed; every commit is local.
-- **New `CLAUDE.md` rule:** comments say *why the code is the way it is*, never what it used to
-  do. Applied to today's ECP code in the same session; there is a backlog of older ones still
-  describing behaviour that no longer exists.
-
-## The next three things
-
-1. **The vendor's DOS driver, in the bed, doing the same 9 MB copy.** The owner's idea and the
-   best-shaped experiment left: `SD120PPD.SYS` + `ASPIHDRM.SYS` are on the CF and the switches
-   the real 5160 uses are already in `CONFIG.SYS`, REM'd out. `tools/fixtures/dosctrl/` enables
-   them and does the copy from `AUTOEXEC.BAT` in **real mode, before Windows**;
-   `tools/ls120_bed_run.ps1 -ConfigSys … -Autoexec …` runs it. It is the one implementation of
-   this transport **known to work on his machine**, and it gives data either way — if it copies
-   9 MB cleanly the fault is ours and above the miniport; if it stalls too, the emulated bridge
-   is at fault and our driver is exonerated.
-2. **Dump the VMM list at `TCB+6Ch`** and find why the walk does not terminate. This is the
-   `.PDR` wedge, now reproducible on demand for the first time — which it never was.
-3. **The ECP READ path is still unframed for flow control.** `LS_BlockReadEcp` is a bare
-   `rep insb` with no ECR poll; the vendor waits for ECR bit 1 before each chunk. It works in
-   the bed only because our model hands bytes over on demand. **Fix before hardware.**
-4. Pace the status poll. With the spindle model honest, polls per command fell 3,419 -> 1,968,
-   and 1,968 is `LS_SPIN_BSY`. The drive answers in 15 ms while we burn a full unpaced spin.
+**Proven on the owner's 5160**: negotiation succeeded (status `B8`), the forward
+address cycle drained in one iteration, the reverse wait was satisfied, and a
+real byte came back agreeing with nibble. Without the idle-into-SPP the request
+is ignored - status sits at `E0`, nAck never asserts.
+
+Full detail and the before/after table: `drivers/imation_ls120/TRANSPORT_SPEC.md`
+section 4g.
+
+## The instrument
+
+`drivers/imation_ls120/tools/ecpprobe.py` emits `ECPPROBE.COM`, streams to the box
+over COMrade's CRC-verified channel, runs in ~1.3 s, restores the ECR and control
+port and disconnects. No DEBUG script, no keystrokes, no reboot.
+
+Do **not** drive a bridge handshake with one `io_out` per port access - seven of
+fifty timed out mid-frame on 2026-09-13, and a timeout does not say whether the
+write landed.
+
+## Next, in order
+
+1. **Put the negotiation into `LS120TR.ASM`.** `LS_BringUp` currently performs no
+   negotiation and no bridge-register configuration. Gate every ECP phase on the
+   ECR with the vendor's budgets (`FFFFh` forward, `8000h` reverse), and keep the
+   `0x2A21` recovery-and-retry.
+2. **Re-read a register with a known non-zero value over ECP** - BCLO/BCHI
+   (`14`/`EB`) - to prove the returned byte is real data and not a coincidence.
+   The one byte read so far was `00`, which nibble also reported.
+3. **Then the block path**, then SPP stays as the fallback.
+4. 86Box's ECP FIFO still answers on demand and models no negotiation, so the bed
+   cannot currently falsify any of this. Model it honestly before trusting a bed
+   pass.
+
+## Machine state
+
+Vendor DOS driver loaded, drive at `D:`, media read (126 MB, 963 Cyl, 8 Heads,
+32 Sec/Trk). Port restored by the probe. `ECPPROBE.COM`/`.BIN` left on `C:`.
+Both repos clean. **Nothing pushed.**
