@@ -135,12 +135,33 @@ Its timer is also a general **deferred continuation** rather than a fixed poll: 
 stores a function pointer and a delay (`[21790]`, `[216cc]`) and the callback re-arms itself at
 the TOP of every tick, before doing any work. Ours decides at the bottom whether to re-arm.
 
+### ⭐⭐ IT IS WRITE-SPECIFIC — reads of the same volume are fine
+
+| direction | result |
+|---|---|
+| **read 1 MB off the LS-120 onto C:** | ✅ completes, `1 file(s) copied`, **byte-identical** (`c2374fcb…`), 385 read commands, 402/402 balanced |
+| **write ~700 KB to the LS-120** | ⛔ stalls, ~180 commands |
+
+`tools/fixtures/LSREAD.BAT` is that control. This is the sharpest split available and it was not
+known before: the transport, the bridge, the drive model and the request plumbing all carry a
+megabyte in the read direction without complaint. **Whatever is wrong is on the write path or
+in what Windows does around a write.**
+
 Ruled out so far:
 - **not the chunking** — unchunked build stalls at the same 98
 - **not the transport** — SPP stalls too, at the larger transfer size
 - **not disk space** — 124 MB free, and Windows raises no warning
 - the last command before the stall completes cleanly (`status 40`, `DISCONNECT`), so the
   driver is idle and the stall is above it
+- **not the SRB status we report** — 263 of 265 completions are `SRB_STATUS_SUCCESS`; the two
+  exceptions are a selection timeout for the absent second target and one
+  `SRB_STATUS_ERROR | AUTOSENSE_VALID` at mount, which is the expected unit attention. The
+  last completion before the stall is a success
+- **not a bus reset** — `HwResetBus` is never called (marker tag 24h, count 0), so SCSIPORT is
+  not timing us out
+- **not the modelled drive latency** — with `busy_ms = 0` and no `drive busy` lines at all it
+  stalls in the same place
+- **not reads** — see above
 
 ✅ **The same 9 MB file copies C: to C: in seconds** — the full 8,996,287 bytes. The machine,
 the source read, the RAM and the swap are all fine, so the fault is specific to this

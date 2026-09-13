@@ -899,6 +899,7 @@ lt_finish:
 	mov	[esi].DEVEXT.dxPendSrb, 0
 	mov	[esi].DEVEXT.dxState, LS_ST_IDLE
 	mov	eax, [esi].DEVEXT.dxPendStat
+	LSDBG	022h, eax			; and this is the status it gets
 	mov	[ebx].SCSI_REQUEST_BLOCK.SrbStatus, al
 
 	push	ebx
@@ -936,6 +937,10 @@ LsTimer ENDP
 ;============================================================================
 LsResetBus PROC STDCALL DeviceExtension:DWORD, PathId:DWORD
 
+	push	esi
+	mov	esi, DeviceExtension
+	LSDBG	024h, [esi].DEVEXT.dxPendSrb	; RESET: and what was in flight
+	pop	esi
 	mov	eax, TRUE
 	ret
 
