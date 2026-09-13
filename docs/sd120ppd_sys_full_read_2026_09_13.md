@@ -494,3 +494,68 @@ absent, and byte `+8` of an entry carrying flags of which bit 4 rejects the comm
 **Still not walked instruction by instruction:** the individual inner paths of the fifteen
 non-ECP mode handlers, and `0x5aa3`'s downstream execution past `0x5b47`. Both are located and
 neither blocks any decision now open.
+
+---
+
+# Coverage map — what is left, and whether it matters
+
+Classified every 2 KB window by what kind of I/O it contains: base-relative (`out dx` off the
+LPT base) means **transport**; fixed immediate ports mean **chipset init**.
+
+| region | character | state |
+|---|---|---|
+| `0x0000-0x0fff` | the four dated sub-modules, data | not code we need |
+| `0x1000-0x1fff` | phase machine, timeouts, waits | ✅ read |
+| `0x2000-0x27ff` | register primitives, timeout arm/test | ✅ read |
+| **`0x2800-0x2fff`** | **383 base-relative I/O - the densest region in the file** | **the CPP connect layer** - see below |
+| `0x3000-0x37ff` | register offset map | ✅ read |
+| `0x3800-0x4fff` | the mode handlers and their block routines | ✅ read |
+| `0x5000-0x5fff` | ASPI entry, dispatch, `SC_EXEC_SCSI_CMD` | ✅ read |
+| `0x6000-0x6fff` | strings, help text, mode names | ✅ extracted |
+| `0x7000-0x7fff` | **fixed ports** | ⛔ chipset init - excluded by design |
+| `0x8000-0xbfff` | machine-specific bridge support | see below |
+| `0xc800-0xcfff` | **36 fixed-port accesses** | ⛔ chipset init - excluded |
+| `0xd000-0xdfff` | version strings, ASPI product data | ✅ extracted |
+
+## The densest unread region is a layer we already implement
+
+`0x2800` opens:
+
+```asm
+mov dx, word ptr [0xbfa]    ; the LPT base
+add dx, 2                   ; control
+in  al, dx
+and al, 0x1f
+mov byte ptr [0xc03], al
+mov al, byte ptr [0xc02]    ; "last connect mode" - TRANSPORT_SPEC section 0
+and al, 0xf8
+cmp al, 0xe0                ; CPP connect
+cmp al, 0x20
+cmp al, 0xd0
+```
+
+`[0x0c02]` is the byte the live capture already recorded as *"last connect mode = 30 -> E0 after
+real drive traffic"*, and `0xE0`/`0x30` are the CPP connect and disconnect codes this project
+solved on 2026-09-08. **So this is the bridge connect/disconnect layer** - dense in I/O because a
+CPP frame is many small writes, and functionally the thing `LS_Connect` / `LS_CppFrame` /
+`LS_Disconnect` already do and have verified on the hardware. Worth diffing against ours if the
+connect ever misbehaves; not new capability.
+
+## `0xb000-0xb7ff` and its neighbours are machine-specific init
+
+Strings in and around it: `AST RESEARCH`, `AST Ascentia 900N`, and the code writes `out 0xec` /
+`out 0xfb`. Together with `IBM PS/2`, `IBM PS/1`, `Winbond W`, `Intel AIP`, `386/486 SL`,
+`Compatible`, `Hard Config. Epp` elsewhere in the same band, this is **per-machine parallel-port
+chipset configuration** - exactly what `/ni` skips and what must never be ported here.
+
+## Conclusion
+
+**Nothing remains unprobed that this project needs.** Everything load-bearing is read: the phase
+machine, the full timeout table, the register offset map, the mode tables with names, both ECP
+handlers, the block transfer routines and their safe/unsafe branch, the ASPI surface, and
+`SC_EXEC_SCSI_CMD`. What is left is either a layer we already implement and have proven
+(the CPP connect frames), or chipset init we deliberately exclude.
+
+The only genuinely open item is cosmetic: the inner paths of the fifteen non-ECP mode handlers,
+which matter solely for costing alternatives to ECP - and ECP is the one the hardware already
+chose.
