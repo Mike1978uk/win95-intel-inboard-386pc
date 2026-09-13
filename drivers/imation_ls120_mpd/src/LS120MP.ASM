@@ -912,7 +912,13 @@ lt_finish:
 	push	NextRequest
 	call	ScsiPortNotification
 	add	esp, 8
-	jmp	lt_idle
+
+;  Leave one tick armed. NextRequest does not promise to hand the next request
+;  back inside this call; if it defers, nothing else will arm the timer and the
+;  adapter sleeps with work queued. The vendor arms its next tick at the TOP of
+;  every callback, before doing any work, for the same reason. Costs one
+;  callback on a genuinely idle adapter, which then finds LS_ST_IDLE and stops.
+	jmp	lt_rearm
 
 lt_rearm:
 ;  Still working. Ask to be called again in a millisecond.
@@ -965,7 +971,14 @@ LsStartIo PROC STDCALL DeviceExtension:DWORD, Srb:DWORD
 	mov	ebx, Srb
 	mov	esi, DeviceExtension
 	inc	[esi].DEVEXT.dxSrbCount
-	LSDBG	020h, ebx			; StartIo: SCSIPORT gave us a request
+;  Log WHAT was asked for, not which SRB it was. The pointer says nothing; the
+;  function and the CDB opcode say whether Windows wanted something we refuse.
+	push	eax
+	movzx	eax, [ebx].SCSI_REQUEST_BLOCK.Function
+	shl	eax, 8
+	mov	al, [ebx].SCSI_REQUEST_BLOCK.Cdb
+	LSDBG	020h, eax			; StartIo: (function << 8) | cdb[0]
+	pop	eax
 
 ;  There is one slot. A second request arriving while one is still pending
 ;  would overwrite dxPendSrb and the first would never be completed, which
