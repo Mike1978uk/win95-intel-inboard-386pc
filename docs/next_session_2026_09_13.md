@@ -808,6 +808,12 @@ constant sweep predicted.
 
 ## Open, untouched
 
-- The pause after `smwclock`. **`IVT68FIX.COM` is exonerated**: 20 bytes, four memory
-  writes and `INT 20h`, no loop and no port access, and it prints nothing by design. The
-  gap is either `smwclock` itself or `WIN.COM` starting. Needs a timestamped capture.
+- ~~The pause after `smwclock`.~~ **CLOSED by the owner, 2026-09-13** - *"then it's likely
+  just win running thats fine and i'll not be concerned we leave iret there"*.
+  `IVT68FIX.COM` is exonerated on evidence: 20 bytes, four memory writes and `INT 20h`,
+  no loop, no port access, prints nothing by design - it cannot take measurable time.
+  That the remainder is Windows starting is a reasonable inference from its position
+  (last line of `AUTOEXEC.BAT`, immediately before `WIN.COM` auto-launches) and is **not
+  measured**; the owner's call is to accept it rather than spend a session on it.
+  ⚠ `IVT68FIX.COM` stays, and its lateness is load-bearing - firing it earlier was
+  already proven not to survive DOS low-memory init. Do not "tidy" it.
