@@ -30,6 +30,10 @@ param(
     #     the stubs can be written and reviewed before the licence question
     #     (README.md) is settled.
     [ValidateSet(0, 2)] [int] $Phase = 0,
+    # Pin the data transport at build time so both can be tested without
+    # editing AdapterSettings in a live registry (technique 99: never
+    # byte-edit SYSTEM.DAT). 'auto' is what ships.
+    [ValidateSet('auto','spp','ecp')] [string] $Mode = 'auto',
 
     # Build for the 86Box bed: no hardware access, canned INQUIRY / READ
     # CAPACITY. 86Box models no EPAT bridge, so a real build cannot reach
@@ -62,6 +66,8 @@ $env:INCLUDE = "$inc;$(Join-Path $DdkRoot 'INC32')"
 $defs = @()
 if ($Base -ne 0)  { $defs += ("-DLS_FORCE_BASE=0{0:X}h" -f $Base) }
 if ($Phase -eq 2) { $defs += '-DLS_PHASE2' }
+if ($Mode -eq 'spp') { $defs += '-DLS_FORCE_MODE=1' }
+if ($Mode -eq 'ecp') { $defs += '-DLS_FORCE_MODE=2' }
 if ($FakeDevice)  { $defs += '-DLS_FAKE_DEVICE' }
 
 # -coff is what makes ML emit objects the PE linker can use at all.

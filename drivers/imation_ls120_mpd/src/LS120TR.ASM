@@ -220,7 +220,11 @@ LS_XferN		dd	0		; byte count the DEVICE offered this phase
 LS_Phase		dd	0		; ATAPI interrupt reason, masked to 2 bits
 LS_HasEcp		dd	0		; 1 = an ECR answered at base+402h, use the FIFO
 	PUBLIC	LS_ModeReq
+ifdef LS_FORCE_MODE
+LS_ModeReq		dd	LS_FORCE_MODE	; PINNED AT BUILD TIME - a test build
+else
 LS_ModeReq		dd	0		; 0 = auto-detect, 1 = force SPP, 2 = force ECP
+endif
 
 	.CODE
 
