@@ -76,6 +76,33 @@ completed — **identically on the SPP build**, so it was the size and not the t
 
 ---
 
+## ⛔ HARDWARE SAYS THE ECP PATH FAILS - AND OUR RECORDS WERE STALE
+
+Read this before trusting anything else in this file.
+
+**Deployed to the CF on 2026-09-13 and run by the owner.** Two boots, same card:
+
+```
+BOOTLOG.PRV  old build (md5 976e4114, pre-ECP, SPP only)
+             Initing ls120mp.mpd -> Init Success   in  225 log units
+BOOTLOG.TXT  new build (md5 4b077b18, -Mode auto -> selects ECP)
+             Initing ls120mp.mpd -> Init Failure   in 1598 log units
+```
+
+1. **The ECP transport fails on real hardware**, while the bed reports ECP reading, writing and
+   round-tripping a file edit. **So the ECP model is wrong and the bed validated something that
+   is not true.** SPP is the shipping path until ECP is proven on the bench, not in emulation.
+2. **Shipping `-Mode auto` to hardware was a mistake** - the owner's port is ECP-capable, so
+   auto selected a transport that had never run there. Anything sent to the CF must be
+   `-Mode spp` unless ECP is being deliberately tested.
+3. **`Init Success` in 225 units is where hardware actually is**, and this file previously
+   repeated a 2026-09-12 figure of `Init Failure` at 1520 units. That was stale and it
+   mis-aimed a day's work. The CF has been restored to md5 976e4114.
+
+**Method lesson, and it is the expensive one:** the bed was used as the primary instrument for a
+whole day before anyone checked it could run the one implementation known to work on the owner's
+machine. Prove the instrument first. Technique 94 said this and it was not followed.
+
 ## ⛔ THE ONE OPEN BLOCKER: a deterministic stall at 383,488 bytes
 
 Copying a 9 MB file to the LS-120 stops after **exactly 98 write commands** (93 x 4096 +
