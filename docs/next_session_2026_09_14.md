@@ -247,6 +247,24 @@ the three checkpoints, `ax = FFFFh` on any mismatch and `ax = 0` on success afte
 command `08h`; caller at 2C8Bh tries it twice, then falls through to 2CCFh which marks the
 adapter present and runs the unit scan at 2CD9h.
 
+**The next lead, and it is specific.** There are TWO unlock variants, selected by `[0c15h]`:
+
+```asm
+002DD1  cmp byte ptr [0c15h], 1
+002DD6  jne 0x2ddd          ; normal preamble - each byte written TWICE
+002DD8  call 0x2e4d         ; variant   - each byte written EIGHT times
+```
+
+`epat_unlock_feed` folds exactly **one** duplicate (`udup`), because two writes is what was
+captured on hardware. The caller at 2C92h sets `[0c15h] = 1` and retries with the 8x variant,
+which our recogniser cannot match. Teaching it to fold *any* run of identical bytes is the
+obvious fix and costs little - but check it against a capture first, because the fold is also
+what stops a legitimate repeated payload byte being eaten.
+
+Also unresolved: at 2D51h the version-reading entry treats `ax == 0` from 2DBBh as a reason to
+bail (`je 0x2d79`), while the caller at 2C8Bh treats the same value as success. One of those
+readings is wrong and it has not been settled - do that before writing more model code.
+
 ⏳ **Still not enough.** With all of the above the vendor driver runs the full
 `CPP(30h) CPP(40h) CPP(50h) CPP(00h)` + unit sweep and finds unit 0 — and **still presents no
 drive letter**. The next thing it wants is almost certainly the `epatc8` configuration writes
