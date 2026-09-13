@@ -28,7 +28,8 @@ then the sections it names, before running an experiment or writing a line of dr
 | fact | where |
 |---|---|
 | The card is **ECP-capable** (`port type = 0C`) and the vendor negotiates **`ECP Read` / `ECP Write`** on this machine | §0, §4f |
-| **ECP belongs to the DATA phase, not register access.** Per-register ECP reads time out by design - a register read has no data phase. `rep insb`/`rep outsb` on the FIFO is where every byte moves | **§4f** |
+| ⛔ **RETRACTED: "ECP belongs to the DATA phase, not register access".** The mode tables show `ECP Read` is READ selector 13 (handler `3CCEh`) and `ECP Write` is WRITE selector 6 (`4932h`) - both take a REGISTER NUMBER. Per-register ECP is the vendor's normal mode, not a thing that times out | **§4f corrected** |
+| **Every ECP phase is gated on the ECR** - empty before an address cycle, NOT-empty before a read, with budgets FFFFh forward and 8000h reverse. Ours waited for nothing, which is why ECP worked in the bed and failed on hardware | **§4f corrected** |
 | ⚠ Do **NOT** adopt the vendor's DMA block path - it writes `0x22`/`0x23`, which alias onto the 8259 on this XT. That is the #22 keyboard-killer, and it is in the **transfer** path, not the chipset init `/ni` skips | §4f, technique 75 |
 | Port map, connect/unlock handshake | §2, §3 (verified on hardware) |
 | **Register addressing is DIRECT**: write `regr + cont_map[cont]` to the data port, then strobe and read two nibbles. `cont_map = {0x18, 0x10, 0}`, so ATA status is `0x18+7 = 0x1F`. This is what the working INQUIRY probe uses | **§4h** |
@@ -387,7 +388,68 @@ Ship nibble first.
 **Nibble is also the portable answer**: it uses only the three standard SPP ports, so it works on a
 plain XT parallel port with no ECP hardware at all.
 
-## 4f. ECP IS shippable — it belongs to the DATA phase, not register access
+## ⛔ 4f is WRONG — corrected 2026-09-13, and it is why ECP failed on hardware
+
+**Read this before 4f below. 4f's headline claim shaped the whole ECP architecture and it is
+not what the vendor does.**
+
+The mode tables settle it. Each handler's name string sits immediately before its code:
+
+| table | selector | handler | name at |
+|---|---|---|---|
+| READ | **13** | `3CCEh` | `3CBAh` = **'ECP Read'** |
+| WRITE | **6** | `4932h` | `491Eh` = **'ECP Write'** |
+
+Those two handlers take **a register number in AL** — they are the REGISTER access path. So the
+mode this machine negotiates, `ECP Read` / `ECP Write`, is **per-register ECP**, which is exactly
+what 4f says cannot work. Per-register ECP does not time out; it is the vendor's normal mode.
+
+4f's quoted block at `4458h`/`4465h` is also mis-annotated as `base+0x400`. It is **EPP**:
+`add dx,3` then `out 80h` is the EPP address register and `rep insb` reads `base+4`, which is
+Linux `epat.c`'s mode 3.
+
+### The real ECP register read, complete, from 3CCEh
+
+```asm
+out ctrl, 04h                 ; forward
+out ECR,  74h                 ; ECP mode
+wait ECR bit0 == 1            ; FIFO EMPTY, budget FFFFh   -> fail, AH = FFh
+out DATA(base+0), regnum      ; the register number, as an ECP ADDRESS cycle
+wait ECR bit0 == 1            ; budget FFFFh               -> fail, AH = FFh
+out ECR,  34h                 ; leave ECP
+out ctrl, 20h                 ; REVERSE
+out ECR,  74h                 ; back into ECP
+wait ECR bit0 == 0            ; DATA AVAILABLE, budget 8000h, loopne -> fail, AH = FFh
+in  al, base+400h             ; the byte
+out ctrl, (ctrl & 10h) | 04h  ; forward again, IRQ-enable preserved
+out ECR,  34h
+```
+
+### Why ours failed on the real machine
+
+**Every phase the vendor performs is gated on the ECR. Ours waits for nothing.**
+`LS_BlockReadEcp` is a bare `rep insb`: it never waits for data to be available, so on hardware
+it reads before the bridge has anything to give. It appears to work in the emulation bed only
+because the bridge model hands a byte over on demand and its FIFO is never legitimately empty —
+the model was built around our driver rather than the protocol. Technique 110, again.
+
+Measured on the owner's 5160, 2026-09-13: the pre-ECP build gives `Init Success` in 225 log
+units; an `-Mode auto` build that selects ECP gives `Init Failure` in 1598.
+
+### What has to change
+
+1. **Driver — gate every ECP read on the ECR**, with the vendor's own budgets (`FFFFh` forward,
+   `8000h` reverse), and adopt the vendor's register handlers so ECP covers registers as well as
+   blocks. ECP is the deliverable; SPP stays as the fallback, which is what the vendor ships.
+2. **Emulator — model the ECP FIFO honestly.** Bytes must go *into* the FIFO so that ECR bit 0
+   (empty), bit 1 (full) and bit 2 (serviceIntr) mean something, instead of `ecp_read_data`
+   answering on demand. This is worth doing for 86Box independently of this driver: it is shared
+   infrastructure for every parallel-port device, and right now it cannot represent a device that
+   is not instantly ready.
+
+---
+
+## 4f (SUPERSEDED). ECP IS shippable — it belongs to the DATA phase, not register access
 
 Per-register ECP reads time out because a register read has no data phase: the reverse FIFO never
 fills. That is not a defect and it does not cost throughput. The speed lives in the block path:
