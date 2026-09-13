@@ -104,7 +104,15 @@ LS_MAX_TARGETS		equ	2	; XTIDEMP.MPD uses 2 and enumerates correctly
 ;  MaximumTransferLength. NOT 65536: the ATAPI byte-count registers are 16
 ;  bits, so a 65536-byte request programmes a byte count of ZERO and the
 ;  drive is told to transfer nothing (IMPLEMENTATION.md section 7).
-LS_MAX_XFER		equ	65024		; 0xFE00 - 127 sectors, and it fits
+;
+;  And not 65024 either. A transfer is moved INLINE, one byte per port access,
+;  so this is also a length of TIME the system is held: at 5.55 us per 8-bit
+;  access, 30,720 bytes is ~170 ms, and the nibble path holds IF clear for all
+;  of it. Windows does not survive that. 4096 is what completes.
+;
+;  Raise it only once a transfer is finished from the timer instead of inline
+;  - the vendor's architecture, TRANSPORT_SPEC.md section 8.
+LS_MAX_XFER		equ	4096		; 8 sectors
 
 ;----------------------------------------------------------------------------
 ;  The request state machine, which runs in LsTimer.

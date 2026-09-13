@@ -702,8 +702,8 @@ public LS_BlockReadSpp
 ;  with an alternating PHASE bit driven on the control port. Nothing in a
 ;  per-register read expresses that handshake.
 ;
-;  Proven on hardware 2026-09-11: the drive set byte count to 36 for an
-;  INQUIRY - it had the data ready - and the old routine still read 36 zeros.
+;  A loop of single-register reads cannot express that handshake, and it does
+;  not fail loudly: it returns zeros while the drive sits holding real data.
 ;
 ;   In:   EDI = buffer, ECX = byte count
 ;----------------------------------------------------------------------------
@@ -788,11 +788,9 @@ lde_probe:
 	in	al, dx
 	mov	ah, al
 
-;  ** RESTORE BEFORE DECIDING. ** A probe must not change state. Leaving the
-;  ECR in byte mode (bits 7:5 = 001) makes the port bidirectional, and the
-;  nibble path reads status through it - so a driver that probed and then fell
-;  back to SPP found SPP broken by its own probe. Measured 2026-09-13: boot
-;  stalled with 12,588 nibble reads and not one command issued.
+;  RESTORE BEFORE DECIDING. Any ECR mode with bits 7:5 set makes the port
+;  bidirectional, and the nibble path reads status through it - so a probe
+;  that leaves byte mode behind breaks the SPP fallback it was probing for.
 	mov	al, bl
 	and	al, 01Fh			; mode 000 - plain SPP
 	out	dx, al
@@ -856,8 +854,7 @@ lew_ok:
 ;  LS_EcpCmd - one ECP ADDRESS cycle carrying an EPAT block command.
 ;
 ;  The bridge is COMMANDED, not merely streamed. Until it has taken one of
-;  these it has nothing selected, and the data cycles that follow move
-;  nothing - which is exactly what the 2026-09-13 ECP write did.
+;  these it has nothing selected, and the data cycles that follow move nothing.
 ;
 ;   In: BL = command byte, port already in ECP mode.
 ;   Out: CF=1 on timeout.  Clobbers EAX, ECX, EDX.
@@ -978,9 +975,8 @@ LS_BlockWriteEcp:
 	rep	outsb
 
 ;  Drain before leaving. Writing the ECR back to a non-FIFO mode RESETS the
-;  FIFO, so anything still queued is thrown away - the drive then sits holding
-;  DRQ for bytes that were discarded and the OS reports "not enough disk
-;  space". The vendor polls ECR bit 0 for the same reason (0x494c).
+;  FIFO, so anything still queued is discarded and the drive is left holding
+;  DRQ for bytes it will never get. The vendor polls ECR bit 0 here too.
 	call	LS_EcpWaitEmpty
 
 	call	LS_EcpLeave
