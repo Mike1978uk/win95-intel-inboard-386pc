@@ -61,9 +61,17 @@ last of which removes the LS-120 from the hashing step.
 
 Also measured:
 
-- **Not positional.** A 427 KB file diverged at `0x4400`; `COMMAND.COM` is
-  byte-identical at `0x4400` and breaks elsewhere. The fault moves with the
-  transfer, not with the medium.
+- **It tracks the MEDIUM, not the file.** A 427 KB file diverged at `0x4400` =
+  17,408 = one full track (32 sec x 512 = 16,384) plus two sectors, on a drive
+  reporting 963 Cyl / 8 Heads / **32 Sec/Trk**. `COMMAND.COM` is byte-identical
+  at that same *file* offset and breaks elsewhere - because the two files start
+  at different places on the disk. **Leading hypothesis: writes that cross a
+  track boundary go wrong; writes inside one track do not.** That matches the
+  owner's experience exactly - a small file edit round-tripped clean, everything
+  past ~16 KB fails. A track crossing is a seek, and LS-120 positioning is an
+  **optical servo**, so a degraded or dirty pickup produces this signature.
+  Test: note the divergence LBA, not the file offset, and check whether it is a
+  multiple of 32 sectors.
 - **Not `/sf`.** The first corruption happened with `/sf` absent; restoring it
   changed nothing.
 - **Not the recovered media.** New disk, same result. The recovered disk failed
@@ -90,9 +98,13 @@ against it can only reproduce its bug.
 3. Format the NOS disk (a full format is a whole-surface write-and-verify) and
    repeat the copy. The corrupt `WC2P9XUP.EXE` and `CMDTEST.BIN` are evidence
    until then.
-4. `LS120MP.NEW` and `LS120MP.B13` sit in `IOSUBSYS` and are both `976e4114`.
+4. **Read the corrupt NOS disk in the owner's OTHER LS-120 machine.** The only
+   independent path available, and it settles write-vs-read: corrupt there too
+   = the 5160 wrote it wrong; clean there = the 5160's read path is the fault.
+   No code, no build.
+5. `LS120MP.NEW` and `LS120MP.B13` sit in `IOSUBSYS` and are both `976e4114`.
    Confirm IOS filters on `.MPD` before trusting a boot, or move them out.
-5. 86Box models no 1284 negotiation, so the bed still cannot falsify any of
+6. 86Box models no 1284 negotiation, so the bed still cannot falsify any of
    this. `tools/fixtures/dosctrl/CONFIG.SYS` was missing `/sf` - fixed in
    `f4daf17`, but every `dos_vendor_*` log predates that fix.
 
