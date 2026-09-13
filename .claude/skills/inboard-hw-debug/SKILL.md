@@ -6870,3 +6870,85 @@ first undecodable byte; 44 KB was never read, including the four phase waits and
 complete timeout table. A full sweep with resync is 26,095 instructions over all 56,198
 bytes. **Print the address range and compare it against the file size before reading a
 line of it** - technique 112's rule 2 with a number attached.
+
+---
+
+## Technique 120: test with a GENUINE workload, and never instrument per byte
+
+Four gotchas from 2026-09-13, all of which produced a wrong reading of the machine before
+they were understood. Together they are one rule: **make the test resemble what somebody
+would actually do, then keep the instrumentation small enough not to change the answer.**
+
+### 120a. A per-byte trace is a stall, not a diagnostic
+
+Technique 93 says a diagnostic can throttle the emulator into looking *correct*. It also
+throttles it into looking **stalled**, which is worse, because the owner is watching a
+progress bar that has stopped.
+
+Two log lines were left in for a bulk file copy - one per byte supplied to an ECP read, one
+per nibble of every register read. A folder copy through Explorer produced:
+
+| lines | source |
+|---|---|
+| 1,140,876 | per-nibble register trace |
+| 164,930 | per-byte ECP read |
+| 150 | the per-second heartbeat |
+
+**67 MB in twenty minutes, and the log then grew at ~1 KB per 15 s** - the log had become
+the slowest thing in the machine. The owner reported the UI unresponsive and the copy
+stalled, and he was right about the symptom and it had nothing to do with the driver.
+
+- **Instrument per COMMAND, never per byte.** Bytes get counted into a census and printed
+  once at the end of the operation (technique 119). One line per `CDB`, per data phase, per
+  completion.
+- **Before any bulk-transfer test, grep your own diagnostics for anything on a per-access
+  path** and take it out. The question each one was added to answer is usually already
+  answered.
+- **Symptom to recognise:** the emulator alive, EPAT/device traffic present but minutes
+  apart, and the logfile growing in kilobytes. Measure the log's growth rate before
+  concluding anything about the guest.
+
+### 120b. The owner's real-use test is the acceptance test
+
+A scripted `COPY C:\COMMAND.COM D:\` verified a 92 KB write byte-exact and proved the
+transfer cap worked. The owner then dragged a **folder** across in Explorer and found the
+throttle above within minutes. His framing, and it is the right one:
+
+> *"my tests are genuine use so it's why i do them"*
+
+A synthetic single-file copy is not the same workload as a directory: different sizes, many
+opens and closes, directory and FAT churn, a progress UI with its own expectations. Build
+the automated test because it runs unattended and verifies from outside the guest - and then
+**hand the bed back for a real one before believing the result**. Related: technique 98.
+
+### 120c. A force-killed run loses the guest's write cache
+
+The guest's own `DIR` listed a 92,870-byte file on the medium. `fatls.py` on the image said
+**not found** - the harness had force-killed 86Box with the data still in Windows' cache.
+
+**Verify from the host, and only after the guest has flushed.** A `DIR` inside the guest is
+not evidence that anything reached the medium, and neither is an application reporting
+success. Same family as technique 79, one layer out.
+
+### 120d. Substitute the other transport before blaming the one you changed
+
+A 30,720-byte `WRITE(10)` started and never completed on the new ECP path. The obvious
+reading was that the new code broke it. Rebuilding the *same driver* with `-Mode spp` - the
+proven transport, otherwise identical - stalled at the identical point.
+
+That is technique 94's "substitute a known-good component" applied to a build switch rather
+than a whole driver, and it cost one boot. The fault was the transfer SIZE: a transfer is
+moved inline at one byte per port access, so 30,720 bytes is ~170 ms with the system held,
+and the nibble path holds IF clear throughout. **When a driver has two selectable paths for
+the same job, running the other one is the cheapest bisect available.**
+
+### 120e. Corollary on "corruption"
+
+An 8-byte change at offset 3 of a FAT boot sector is the **OEM ID field**, and Windows 9x
+writes `"IHC"` there - CHICAGO reversed - as its Volume Tracker signature, on any access.
+Not corruption. <https://www.os2museum.com/wp/the-ihc-damage/>, named by @andrew-hoffman.
+
+The general rule: **a difference that lands exactly on a semantic field boundary is somebody
+writing that field, not a transport dropping bytes.** A transport fault does not respect
+structure. Before calling a diff corruption, check whether it fits a field.
+
