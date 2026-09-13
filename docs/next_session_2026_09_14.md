@@ -218,6 +218,35 @@ top four bits, clocked by a `w2(5); w2(4)` strobe between them.
    filler writes fell through to the register path, where **`7` arms a block read**. Now a
    separate `ucmd_pending` flag.
 
+#### ⛔ THE BED IS NOT A KNOWN-GOOD YARDSTICK, AND THAT IS THE HEADLINE
+
+The owner's framing, and it is the right one: *"if the vendor driver loads and is reliable
+then we know the emulation of the port and drive is good — it's a known good entity"*, and
+*"if the bridge is not reliable as a test point then why are we diving deeper on it — we need
+the emulation to be reliable to build against; if it's not then I do a hardware test."*
+
+**It is not, yet.** With our miniport removed from `IOSUBSYS` (`-NoDriver`) and only the vendor
+real-mode stack loaded, this is how far it gets in the bed:
+
+| stage | result |
+|---|---|
+| `SD120PPD.SYS` loads, LPT base/IRQ correct | ✅ it drives `0x378` |
+| unlock frame, all three status checkpoints | ✅ `B0` / `50` / `B0` all match |
+| `CPP(30h) CPP(40h) CPP(50h) CPP(00h)` | ✅ |
+| unit scan, unit 0 answers `FFAAh` | ✅ |
+| adapter recorded present (`[0c00h] = 1`) | ✅ |
+| **any bridge register read at all** | ❌ **never happens** |
+| drive letter | ❌ none, so `COPY` fails with an invalid drive |
+
+So detection succeeds and it then stops before touching the drive. Until that is closed, **any
+bed result about the write stall carries a caveat**, because the model has been shaped around
+our own driver's sequence rather than validated against the one that works.
+
+The detection path, for whoever picks this up (`SD120PPD.SYS` rva 2DBBh): unlock preamble with
+the three checkpoints, `ax = FFFFh` on any mismatch and `ax = 0` on success after issuing
+command `08h`; caller at 2C8Bh tries it twice, then falls through to 2CCFh which marks the
+adapter present and runs the unit scan at 2CD9h.
+
 ⏳ **Still not enough.** With all of the above the vendor driver runs the full
 `CPP(30h) CPP(40h) CPP(50h) CPP(00h)` + unit sweep and finds unit 0 — and **still presents no
 drive letter**. The next thing it wants is almost certainly the `epatc8` configuration writes

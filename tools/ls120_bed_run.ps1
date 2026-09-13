@@ -26,6 +26,10 @@ param(
     # default because they are expensive; use them to find where a guest that
     # has stopped talking to the device is actually spinning.
     [switch] $Heartbeat,
+    # Take our miniport OUT of IOSUBSYS entirely, so a run exercises
+    # whatever else is installed. Renaming a driver out is the cheapest
+    # bisect there is and it needs no reinstall.
+    [switch] $NoDriver,
     # Replace the guest's CONFIG.SYS / AUTOEXEC.BAT for this run, to boot the
     # vendor's real-mode stack instead. It is the one implementation of this
     # transport known to work on the owner's machine, so it is the reference
@@ -63,15 +67,26 @@ Copy-Item (Join-Path $VmPath "rd_verified_good.img") $rd -Force
 $mach = (Select-String -Path (Join-Path $VmPath "86box.cfg") -Pattern '^machine = (.+)$').Matches[0].Groups[1].Value
 if ($mach -ne "ibmxt_inboard386") { Write-Output "WRONG MACHINE: $mach"; exit 1 }
 
-python "$repo\tools\fatcp.py" $img "WINDOWS/SYSTEM/IOSUBSYS/LS120MP.MPD" $Driver --yes
-if ($LASTEXITCODE -ne 0) { Write-Output "DEPLOY FAILED"; exit 1 }
+if ($NoDriver) {
+    python "$repo\tools\fatcp.py" $img --rm "C:\WINDOWS\SYSTEM\IOSUBSYS\LS120MP.MPD" 2>&1 | Out-Null
+    Write-Output "LS120MP.MPD REMOVED from IOSUBSYS - our driver is not under test"
+} else {
+    python "$repo\tools\fatcp.py" $img "WINDOWS/SYSTEM/IOSUBSYS/LS120MP.MPD" $Driver --yes
+    if ($LASTEXITCODE -ne 0) { Write-Output "DEPLOY FAILED"; exit 1 }
+}
 
 # Verify at the DESTINATION, never the staging copy (technique 75).
 $uut = Join-Path $env:TEMP "ls120_under_test.mpd"
 Remove-Item $uut -EA SilentlyContinue
 python "$repo\tools\fatls.py" $img --get "C:\WINDOWS\SYSTEM\IOSUBSYS\LS120MP.MPD" $uut | Out-Null
-if (-not (Test-Path $uut)) { Write-Output "driver NOT in the image after deploy"; exit 1 }
-Write-Output ("driver in the image: md5 " + (Get-FileHash $uut -Algorithm MD5).Hash.ToLower())
+if (Test-Path $uut) {
+    Write-Output ("driver in the image: md5 " + (Get-FileHash $uut -Algorithm MD5).Hash.ToLower())
+} elseif ($NoDriver) {
+    Write-Output "driver in the image: NONE, as intended"
+} else {
+    Write-Output "driver NOT in the image after deploy"
+    exit 1
+}
 
 if ($Startup -ne "") {
     if (-not (Test-Path $Startup)) { Write-Output "MISSING startup batch: $Startup"; exit 1 }
