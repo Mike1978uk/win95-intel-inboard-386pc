@@ -755,9 +755,13 @@ ECP_CMD_READ	equ	080h
 ECP_CMD_LAST	equ	0A0h
 ECP_CMD_WRITE	equ	0C0h
 
-;  FIFO-empty spin budget. The vendor uses 0FFFFh forward and 08000h reverse;
-;  one value is enough here and the loop is bounded either way.
-ECP_SPIN	equ	08000h
+;  ECR status bits, and the vendor's own spin budgets: 0FFFFh on the forward
+;  phases, 08000h on the reverse one. They differ deliberately - a reverse wait
+;  is waiting on the DEVICE, a forward wait only on the port.
+ECR_FIFO_FULL	equ	002h		; bit 1 - a whole chunk is ready
+ECR_SERVICE	equ	004h		; bit 2 - serviceIntr, one byte ready
+ECP_SPIN	equ	0FFFFh		; forward
+ECP_SPIN_REV	equ	08000h		; reverse
 
 ;  ECP FIFO depth, and the unit a transfer is broken into. The vendor holds
 ;  this in a word of its own data area ([0C18h] in SD120PPD.SYS, shipped as
@@ -838,6 +842,52 @@ LS_EcpDir:
 	add	edx, LPT_ECP_ECR
 	mov	al, ECR_MODE_ECP
 	out	dx, al
+	ret
+
+;  LS_EcpWaitData - spin until the ECR says the reverse FIFO has something.
+;
+;  ** THE READ PATH MUST WAIT. ** A bare rep insb assumes the bridge already
+;  has the data, which it does not: the vendor gates every reverse phase on
+;  the ECR (SD120PPD.SYS 3D22h uses exactly this, budget 8000h). Reading
+;  early returns whatever the port last drove. An emulated bridge that answers
+;  on demand hides this completely, which is why an unwaited read passed in
+;  the bed and failed on the real machine.
+;
+;   Out: CF=1 on timeout.  Clobbers EAX, ECX, EDX.
+LS_EcpWaitData:
+	movzx	edx, LS_BasePort
+	add	edx, LPT_ECP_ECR
+	mov	ecx, ECP_SPIN_REV
+lwd_loop:
+	in	al, dx
+	test	al, ECR_FIFO_EMPTY
+	jz	lwd_ok				; empty clear -> a byte is waiting
+	dec	ecx
+	jnz	lwd_loop
+	stc
+	ret
+lwd_ok:
+	clc
+	ret
+
+;  LS_EcpWaitFull - spin until a whole FIFO's worth is ready to be taken.
+;  The vendor reads a chunk only once the FIFO reports full (47C7h), and falls
+;  back to one byte per serviceIntr for the tail.
+;   Out: CF=1 on timeout.  Clobbers EAX, ECX, EDX.
+LS_EcpWaitFull:
+	movzx	edx, LS_BasePort
+	add	edx, LPT_ECP_ECR
+	mov	ecx, ECP_SPIN_REV
+lwf_loop:
+	in	al, dx
+	test	al, ECR_FIFO_FULL
+	jnz	lwf_ok
+	dec	ecx
+	jnz	lwf_loop
+	stc
+	ret
+lwf_ok:
+	clc
 	ret
 
 ;  LS_EcpWaitEmpty - spin until the ECR reports the FIFO drained.
