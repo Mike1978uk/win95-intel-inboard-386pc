@@ -130,24 +130,55 @@ machine" in several places. It enumerates, reads geometry, lists directories and
 reports successful copies while returning wrong bytes. Diffing our driver
 against it can only reproduce its bug.
 
-## Next, in order
+## Next, in order - ALL THREE ARE CONFIG.SYS EDITS AND A COPY
 
-1. **REM the two `SD120PPD` lines and boot Windows** with `220be39e`. Both
+Characterise the truncation before touching code. Each of these is one word in
+`CONFIG.SYS`, a reboot, one copy, one `file_hash`. Drive it over COMrade.
+
+1. **Add `/di`** - *"operate in polled mode"*. The current line omits it, so the
+   vendor driver uses **IRQ 7**, which on this 8259 is also the spurious-interrupt
+   vector, on a PIC we have measured to alias across `0x20-0x3F`. A missed or
+   spurious interrupt mid-write gives exactly this signature: stops early, stop
+   point varies, nobody is told.
+2. **Add `/w0`** - slowest write timing rung. The Inboard is a fast CPU on a slow
+   8 MHz bus, and any delay loop calibrated against CPU speed comes out too short.
+   The fault is write-only, so `/w0` before `/r0`.
+3. **Copy files of several known sizes** and record where each stops. Stop point
+   tracking BYTES = FIFO/back-pressure; tracking ELAPSED TIME = a timeout. Known
+   points so far: **6,144** and **17,408**, both multiples of 1,024.
+
+`ECP=0` (suppresses the DMA transfer path, which writes `0x22`/`0x23`) is the
+fallback if none of the three moves it.
+
+## Then: profile the machine's limits INTO the emulator
+
+The bed currently completes instantly, never goes BSY and models no negotiation,
+so it **passes every case the hardware fails** and cannot falsify anything. Once
+the stop point is characterised, model it in `lpt_epat.c`: bus pacing, drive busy
+time, whatever actually gates the transfer. The bed then reproduces the bug,
+which makes it a regression test and makes the upstream model honest rather than
+optimistic. An emulator that cannot reproduce a known hardware failure is a bug
+in its own right.
+
+## Then, the driver work
+
+4. **REM the two `SD120PPD` lines and boot Windows** with `220be39e`. Both
    09-13 boots logged `Init Failure` at **1598 / 1585** units against `Init
    Success` in **2** units on 09-09 - a driver spinning and timing out, not
    declining to start. The vendor driver owning `0x378` is the leading
    hypothesis and REMing it is the single-variable test.
-2. Read `LS_EcpNegStat` / `LS_EcpNegFail` from that boot.
-3. Format the NOS disk (a full format is a whole-surface write-and-verify) and
+5. Read `LS_EcpNegStat` / `LS_EcpNegFail` from that boot.
+6. ~~Format the NOS disk~~ DONE - and the fresh disk now holds an `FC.EXE`
+   truncated at 6,144 bytes. **Keep it: it is a minimal reproducer.** Old item: (a full format is a whole-surface write-and-verify) and
    repeat the copy. The corrupt `WC2P9XUP.EXE` and `CMDTEST.BIN` are evidence
    until then.
-4. **Read the corrupt NOS disk in the owner's OTHER LS-120 machine.** The only
+7. **Read the corrupt NOS disk in the owner's OTHER LS-120 machine.** The only
    independent path available, and it settles write-vs-read: corrupt there too
    = the 5160 wrote it wrong; clean there = the 5160's read path is the fault.
    No code, no build.
-5. `LS120MP.NEW` and `LS120MP.B13` sit in `IOSUBSYS` and are both `976e4114`.
+8. `LS120MP.NEW` and `LS120MP.B13` sit in `IOSUBSYS` and are both `976e4114`.
    Confirm IOS filters on `.MPD` before trusting a boot, or move them out.
-6. 86Box models no 1284 negotiation, so the bed still cannot falsify any of
+9. 86Box models no 1284 negotiation, so the bed still cannot falsify any of
    this. `tools/fixtures/dosctrl/CONFIG.SYS` was missing `/sf` - fixed in
    `f4daf17`, but every `dos_vendor_*` log predates that fix.
 
