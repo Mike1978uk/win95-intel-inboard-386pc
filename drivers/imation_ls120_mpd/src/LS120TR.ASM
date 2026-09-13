@@ -1331,7 +1331,14 @@ lpc_have:
 
 	mov	esi, [ebp-16]
 	mov	ecx, ATAPI_PACKET_LEN
-	call	LS_BlockWrite
+;  ** The COMMAND PACKET always goes out in SPP. ** Only the data payload uses
+;  ECP. The bridge's command phase is framed by the SPP block-write sequence
+;  (w0(67) w2(1) w2(5) ... w2(7)); pushing the CDB through the ECP FIFO instead
+;  means the bridge never sees a command at all - measured 2026-09-13, the
+;  drive sat at status 48h (DRDY|DRQ) through 5,733 connect/disconnect cycles
+;  with not one CDB logged. The vendor does the same: its ECP Read/ECP Write
+;  handlers carry data, while the task file and command phase stay nibble.
+	call	LS_BlockWriteSpp
 	jc	lpc_fail
 
 ;  pf_atapi does mdelay(1) here, between the packet and the reply.
