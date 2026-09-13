@@ -219,6 +219,9 @@ LS_LastStatus		dd	0		; last ATA status byte read
 LS_XferN		dd	0		; byte count the DEVICE offered this phase
 LS_Phase		dd	0		; ATAPI interrupt reason, masked to 2 bits
 LS_HasEcp		dd	0		; 1 = an ECR answered at base+402h, use the FIFO
+	PUBLIC	LS_EcpNegStat
+LS_EcpNegStat		dd	0		; last status byte seen waiting for nAck
+LS_EcpNegFail		dd	0		; negotiations that expired, since load
 	PUBLIC	LS_ModeReq
 ifdef LS_FORCE_MODE
 LS_ModeReq		dd	LS_FORCE_MODE	; PINNED AT BUILD TIME - a test build
@@ -456,6 +459,18 @@ LS_BringUp:
 	jc	lbu_fail
 	cmp	al, ATAPI_SIG_HI
 	jne	lbu_fail
+
+;  4a. Prove the peripheral will negotiate into ECP before committing the
+;      transport to it. The ECR probe in LS_DetectEcp only says this HOST has
+;      an ECP port; it says nothing about the far end of the cable, and a
+;      bridge that never answers takes one byte into the FIFO and stops.
+;      A refusal here is not a failure to init - it is nibble, which works.
+	cmp	LS_HasEcp, 0
+	je	lbu_inq
+	call	LS_NegotiateEcp
+	jnc	lbu_inq
+	mov	LS_HasEcp, 0
+lbu_inq:
 
 ;  5. One INQUIRY, so a failure anywhere in the ATAPI path shows up as Init
 ;     Failure in BOOTLOG rather than as a silently missing drive letter. That
@@ -818,6 +833,149 @@ lde_done:
 	pop	edx
 	ret
 
+;  LS_Neg1284 - ask the peripheral into ECP mode. SD120PPD.SYS 0x2993.
+;
+;  ** SETTING THE ECR DOES NOT PUT THE PERIPHERAL INTO ECP. ** The ECR
+;  configures this end of the cable only. Until the bridge has been asked it
+;  stays in compatibility mode and never acknowledges a forward handshake, so
+;  the FIFO takes one byte and never drains. Every missing-ECR-wait theory
+;  chased before 2026-09-13 was a symptom of this.
+;
+;  The idle-into-SPP is not optional. A peripheral part-way through a phase
+;  will not answer a request: without it the status register sits at E0h and
+;  nAck never asserts; with it status reads B8h and the forward cycle drains
+;  in one iteration. 10h is the extensibility byte for ECP - epat.c puts 40h
+;  there to ask for EPP instead.
+;
+;  Repeated writes to the same port are the I/O delay, as in LS_CppFrame. Do
+;  not fold them.
+;
+;   Out: CF=0 if the peripheral answered.  Clobbers EAX, ECX, EDX.
+LS_Neg1284:
+	push	ebx
+	pushfd
+	cli
+	xor	ebx, ebx		; 0 = answered
+
+	movzx	edx, LS_BasePort
+	add	edx, LPT_CONTROL
+	mov	al, 0Ch
+	out	dx, al
+	mov	al, 04h
+	out	dx, al
+
+;  0x24D1 - idle into SPP.  w0(0); w2(1); w2(4).
+	movzx	edx, LS_BasePort
+	xor	al, al
+	out	dx, al
+	out	dx, al
+	movzx	edx, LS_BasePort
+	add	edx, LPT_CONTROL
+	mov	al, 01h
+	out	dx, al
+	out	dx, al
+	mov	al, 04h
+	out	dx, al
+	mov	al, 0Ch
+	out	dx, al
+
+;  The request: the extensibility byte on the data lines, then nAutoFeed.
+	movzx	edx, LS_BasePort
+	mov	al, 10h
+	out	dx, al
+	movzx	edx, LS_BasePort
+	add	edx, LPT_CONTROL
+	mov	al, 06h
+	out	dx, al
+	out	dx, al
+	out	dx, al
+
+;  The peripheral answers by pulling nAck LOW. The vendor's budget is 100h and
+;  that is deliberate - this is a handshake with one device, not a transfer, so
+;  a long spin here only delays the fallback to nibble.
+	movzx	edx, LS_BasePort
+	add	edx, LPT_STATUS
+	mov	ecx, 100h
+ln_wait:
+	in	al, dx
+	test	al, LPT_ST_ACK
+	jz	ln_answered
+	dec	ecx
+	jnz	ln_wait
+	mov	ebx, 1
+ln_answered:
+;  Keep the last status byte either way. On a failure it is the whole of the
+;  evidence, and E0h against B8h is what told us the request was being ignored
+;  rather than refused.
+	movzx	eax, al
+	mov	LS_EcpNegStat, eax
+
+;  Complete the handshake whether or not it was answered. Leaving the request
+;  asserted wedges the next attempt, and the vendor's retry below depends on
+;  this ending cleanly.
+	movzx	edx, LS_BasePort
+	add	edx, LPT_CONTROL
+	mov	al, 07h
+	out	dx, al
+	out	dx, al
+	mov	al, 04h
+	out	dx, al
+	out	dx, al
+
+	popfd
+	cmp	ebx, 0
+	pop	ebx
+	je	ln_ok
+	inc	LS_EcpNegFail
+	stc
+	ret
+ln_ok:
+	clc
+	ret
+
+;  LS_NegotiateEcp - negotiate, and on failure recover and try once more.
+;
+;  SD120PPD.SYS 0x2A21 does not treat a failed negotiation as fatal: it drives
+;  0Ch then 0Eh, waits for nAck to come back HIGH, and asks again. The second
+;  budget is 8000h because this one waits on the DEVICE letting go, not on the
+;  port.
+;
+;   Out: CF=0 if the peripheral answered.  Clobbers EAX, ECX, EDX.
+public LS_NegotiateEcp
+LS_NegotiateEcp:
+	call	LS_Neg1284
+	jnc	lne_ok
+
+	pushfd
+	cli
+	movzx	edx, LS_BasePort
+	add	edx, LPT_CONTROL
+	mov	al, 0Ch
+	out	dx, al
+	mov	al, 0Eh
+	out	dx, al
+	movzx	edx, LS_BasePort
+	add	edx, LPT_STATUS
+	mov	ecx, ECP_SPIN_REV
+lne_rec:
+	in	al, dx
+	test	al, LPT_ST_ACK
+	jnz	lne_recovered
+	dec	ecx
+	jnz	lne_rec
+lne_recovered:
+	movzx	edx, LS_BasePort
+	add	edx, LPT_CONTROL
+	mov	al, 0Ch
+	out	dx, al
+	popfd
+
+	call	LS_Neg1284
+	ret
+lne_ok:
+	clc
+	ret
+
 ;  LS_EcpDir - set the ECP channel direction and (re)enter ECP mode.
 ;
 ;  A direction change is not legal inside an ECP FIFO mode, so the ECR has to
@@ -954,6 +1112,18 @@ LS_EcpLeave:
 ;   In:   EDI = buffer, ECX = byte count.  Out: CF=1 on timeout.
 ;----------------------------------------------------------------------------
 LS_BlockReadEcp:
+;  Negotiate before every ECP episode. The sequence idles the link into SPP
+;  first, so asking a peripheral that is already in ECP is harmless - and a
+;  CPP connect/disconnect cycle happens between commands, which is exactly the
+;  kind of thing that ends a 1284 phase. Negotiating once at init and assuming
+;  it holds would be an assumption nothing here has tested.
+;
+;  A refusal is not an error: fall back to nibble for this block and let the
+;  next one ask again. LS_EcpNegFail is the record if it becomes persistent.
+	push	ecx
+	call	LS_NegotiateEcp
+	pop	ecx
+	jc	LS_BlockReadSpp
 	or	ecx, ecx
 	jz	lbre_none
 	push	ebx
@@ -1013,6 +1183,10 @@ lbre_none:
 ;  what both epat.c and SD120PPD.SYS do.
 ;----------------------------------------------------------------------------
 LS_BlockWriteEcp:
+	push	ecx
+	call	LS_NegotiateEcp
+	pop	ecx
+	jc	LS_BlockWriteSpp
 	or	ecx, ecx
 	jz	lbwe_none
 	push	ebx
