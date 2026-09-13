@@ -74,7 +74,10 @@ SLOTS = [
     "br0d_post",     # 22 the same after configuring it - proves the write stuck
     "neg_flag",      # 23 IEEE-1284 ECP negotiation: 0 = peripheral answered
     "neg_stat",      # 24 last status byte seen while waiting for nAck
-    "pad",           # 25
+    "neg_flag2",     # 25 the vendor's retry after a failed negotiation
+    "neg_stat2",     # 26
+    "rec_stat",      # 27 status while waiting for nAck to go high again
+    "pad",           # 28
 ]
 SLOT = {n: i for i, n in enumerate(SLOTS)}
 # Two 16-bit counters live after the byte slots: the residue of each wait's
@@ -293,7 +296,7 @@ class Emitter:
         self.outp(CTL, 0x04)
         self.sti()
 
-    def negotiate_ecp(self):
+    def negotiate_ecp(self, tag="neg", flag="neg_flag", stat="neg_stat"):
         """IEEE-1284 negotiation into ECP, SD120PPD.SYS 0x2993.
 
         Setting the host ECR to ECP mode configures only this side of the
@@ -305,6 +308,14 @@ class Emitter:
         self.cli()
         self.outp(CTL, 0x0C)
         self.out_again(0x04)
+        # 0x24D1: w0(0); w2(1); w2(4) - idle into SPP.  epat_connect does the
+        # same before requesting a mode; a peripheral mid-transfer will not
+        # answer a negotiation.
+        self.outp(BASE, 0x00)
+        self.out_again(0x00)
+        self.outp(CTL, 0x01)
+        self.out_again(0x01)
+        self.out_again(0x04)
         self.out_again(0x0C)
         self.outp(BASE, 0x10)
         self.outp(CTL, 0x06)
@@ -313,19 +324,19 @@ class Emitter:
         # The peripheral answers by pulling nAck low.  Budget 100h, as the
         # vendor uses - this is a handshake, not a transfer.
         self.mov_cx(0x100)
-        self.label("neg_lp")
+        self.label(tag + "_lp")
         self.inp(STAT)
-        self.store_al(SLOT["neg_stat"])
+        self.store_al(SLOT[stat])
         self.test_al(0x40)
-        self.jz("neg_ok")
+        self.jz(tag + "_ok")
         self.dec_cx()
-        self.jnz("neg_lp")
+        self.jnz(tag + "_lp")
         self.mov_al(1)
-        self.jmp("neg_done")
-        self.label("neg_ok")
+        self.jmp(tag + "_done")
+        self.label(tag + "_ok")
         self.mov_al(0)
-        self.label("neg_done")
-        self.store_al(SLOT["neg_flag"])
+        self.label(tag + "_done")
+        self.store_al(SLOT[flag])
         self.outp(CTL, 0x07)
         self.out_again(0x07)
         self.out_again(0x04)
@@ -452,6 +463,23 @@ def build(res_addr):
 
     # --- negotiate the peripheral into ECP before using it ---
     e.negotiate_ecp()
+    # 0x2A21: a failed negotiation is not fatal to the vendor.  It drives
+    # 0Ch then 0Eh, waits for nAck to return high, and negotiates once more.
+    e.cli()
+    e.outp(CTL, 0x0C)
+    e.out_again(0x0E)
+    e.mov_cx(0x8000)
+    e.label("rec_lp")
+    e.inp(STAT)
+    e.store_al(SLOT["rec_stat"])
+    e.test_al(0x40)
+    e.jnz("rec_done")
+    e.dec_cx()
+    e.jnz("rec_lp")
+    e.label("rec_done")
+    e.outp(CTL, 0x0C)
+    e.sti()
+    e.negotiate_ecp("neg2", "neg_flag2", "neg_stat2")
 
     # --- the measurement: the vendor's ECP register read, 3CCEh ---
     e.cli()

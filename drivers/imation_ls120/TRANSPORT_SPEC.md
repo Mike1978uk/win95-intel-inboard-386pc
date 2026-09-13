@@ -502,6 +502,31 @@ same negotiation with `40h` to request EPP; `10h` is its ECP equivalent.
 
 The missing ECR waits were real, but they were a symptom.  This is the cause.
 
+### PROVEN ON HARDWARE 2026-09-13 - ECP completes end to end
+
+Negotiating made the whole sequence work on the owner's 5160, first time:
+
+| | before | after |
+|---|---|---|
+| negotiation | not performed | **succeeded**, status `B8` (nAck low) |
+| forward address cycle | FIFO never drained | **drained in one iteration** |
+| reverse wait | expired | **satisfied immediately** |
+| byte returned | `FF` (empty FIFO) | a real byte, agreeing with nibble |
+
+**The negotiation needs `0x24D1` first, or it times out.** That routine is
+`w0(0); w2(1); w2(4)` - idle into SPP - and `epat_connect` does the same before
+requesting EPP. Without it the request was ignored: status sat at `E0` with nAck
+never asserting. With it, `B8` and success. A peripheral that is not idle does
+not answer a negotiation.
+
+The vendor also wraps the call (`0x2A21`): on failure it drives `0Ch` then `0Eh`,
+waits for nAck to return high, and negotiates once more. Worth keeping - a first
+attempt can legitimately fail.
+
+Corroborated by the owner's own boot capture: `Read Mode : ECP Read` /
+`Write Mode : ECP Write`, `HA #0: SHUTTLE EPATRM, PortBase:378, IRQ:7`, drive
+enumerated at `D:` with media geometry read (126 MB, 963 Cyl, 8 Heads, 32 Sec/Trk).
+
 ### What is now known, and what is not
 
 - The card's ECR is a real ECP register: mode bits stick, the empty bit responds
