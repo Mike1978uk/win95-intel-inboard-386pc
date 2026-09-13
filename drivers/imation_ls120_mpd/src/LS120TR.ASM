@@ -734,8 +734,30 @@ public LS_BlockReadSpp
 LPT_ECPFIFO	equ	400h
 
 ECR_MODE_ECP	equ	074h
+ECR_MODE_BYTE	equ	034h		; PS/2 byte mode - transient, between phases
 ECR_FIFO_EMPTY	equ	001h
 CTRL_DIR	equ	020h
+
+;  Control values for the two ECP channel directions. Bit 5 is the port's own
+;  direction; bit 2 is nInit, which an ECP host drives LOW to request the
+;  reverse channel - so forward is 004h and reverse is 020h, and they are not
+;  simply the same byte with one bit flipped. SD120PPD.SYS writes exactly
+;  these two values (rva 0x4714 and 0x4759).
+CTRL_FWD	equ	004h
+CTRL_REV	equ	020h
+
+;  EPAT block commands, carried by an ECP ADDRESS cycle - a write to base+0
+;  while the ECR is in ECP mode. The same two bytes Linux's epat.c sends as
+;  w3(080h) / w3(0c0h) on an EPP host; SD120PPD.SYS sends them at rva 0x4736
+;  (read) and 0x4DB9 (write). 0A0h announces the last byte of a read, the fast
+;  path's equivalent of the nibble path's w0(0FDh).
+ECP_CMD_READ	equ	080h
+ECP_CMD_LAST	equ	0A0h
+ECP_CMD_WRITE	equ	0C0h
+
+;  FIFO-empty spin budget. The vendor uses 0FFFFh forward and 08000h reverse;
+;  one value is enough here and the loop is bounded either way.
+ECP_SPIN	equ	08000h
 
 ;  LS_DetectEcp - is there an ECR at base+402h?
 ;
@@ -787,17 +809,25 @@ lde_done:
 	pop	edx
 	ret
 
-;  LS_EcpEnter - put the port in ECP mode, DX left on the ECR.
-;   In: BL = 0 to receive (direction reverse), 1 to send
-LS_EcpEnter:
+;  LS_EcpDir - set the ECP channel direction and (re)enter ECP mode.
+;
+;  A direction change is not legal inside an ECP FIFO mode, so the ECR has to
+;  leave it and come back: byte mode, control, ECP mode. IRQ-enable (bit 4) is
+;  carried across - the vendor preserves it too, and dropping it silently
+;  disarms an interrupt somebody else armed.
+;
+;   In: AL = CTRL_FWD or CTRL_REV.  Clobbers EAX, EDX, BH.
+LS_EcpDir:
+	mov	bh, al
+	movzx	edx, LS_BasePort
+	add	edx, LPT_ECP_ECR
+	mov	al, ECR_MODE_BYTE
+	out	dx, al
 	movzx	edx, LS_BasePort
 	add	edx, LPT_CONTROL
 	in	al, dx
-	and	al, 01Fh
-	or	bl, bl
-	jnz	lee_fwd
-	or	al, CTRL_DIR			; reverse: the drive sends
-lee_fwd:
+	and	al, LPT_CT_IRQEN
+	or	al, bh
 	out	dx, al
 	movzx	edx, LS_BasePort
 	add	edx, LPT_ECP_ECR
@@ -805,79 +835,166 @@ lee_fwd:
 	out	dx, al
 	ret
 
-;  LS_EcpLeave - direction forward, byte mode, port quiescent again.
+;  LS_EcpWaitEmpty - spin until the ECR reports the FIFO drained.
+;   Out: CF=1 on timeout.  Clobbers EAX, ECX, EDX.
+LS_EcpWaitEmpty:
+	movzx	edx, LS_BasePort
+	add	edx, LPT_ECP_ECR
+	mov	ecx, ECP_SPIN
+lew_loop:
+	in	al, dx
+	test	al, ECR_FIFO_EMPTY
+	jnz	lew_ok
+	dec	ecx
+	jnz	lew_loop
+	stc
+	ret
+lew_ok:
+	clc
+	ret
+
+;  LS_EcpCmd - one ECP ADDRESS cycle carrying an EPAT block command.
+;
+;  The bridge is COMMANDED, not merely streamed. Until it has taken one of
+;  these it has nothing selected, and the data cycles that follow move
+;  nothing - which is exactly what the 2026-09-13 ECP write did.
+;
+;   In: BL = command byte, port already in ECP mode.
+;   Out: CF=1 on timeout.  Clobbers EAX, ECX, EDX.
+LS_EcpCmd:
+	call	LS_EcpWaitEmpty
+	jc	lec_out
+	movzx	edx, LS_BasePort
+	mov	al, bl
+	out	dx, al			; base+0 in ECP mode IS the address FIFO
+	call	LS_EcpWaitEmpty
+lec_out:
+	ret
+
+;  LS_EcpLeave - forward, quiescent, and back to plain SPP.
+;
+;  Mode 000 and NOT byte mode: the task file is read with nibble cycles
+;  through the status register, and any ECR mode with bits 7:5 non-zero makes
+;  the port bidirectional, which changes what those reads return.
 LS_EcpLeave:
 	movzx	edx, LS_BasePort
 	add	edx, LPT_CONTROL
 	in	al, dx
-	and	al, 01Fh			; clears the direction bit
+	and	al, LPT_CT_IRQEN
+	or	al, CTRL_FWD
 	out	dx, al
 	movzx	edx, LS_BasePort
 	add	edx, LPT_ECP_ECR
-;  Back to mode 000 - plain SPP - and NOT byte mode. The task file is read
-;  with nibble cycles through the status register, and any ECR mode with bits
-;  7:5 non-zero makes the port bidirectional, which changes what those reads
-;  return. Leaving byte mode set here would break every register access after
-;  the first block transfer.
 	in	al, dx
 	and	al, 01Fh
 	out	dx, al
 	ret
 
-;  LS_BlockReadEcp - ECX bytes into ES:EDI, through the ECP FIFO.
-;   Out: CF=1 on timeout
+;----------------------------------------------------------------------------
+;  LS_BlockReadEcp - ECX bytes into ES:EDI through the ECP data FIFO.
+;
+;  Shape taken from epat.c's mode 3 and confirmed against SD120PPD.SYS: the
+;  last byte is fetched under its own 0A0h command, so the bulk read is
+;  count-1 bytes.
+;
+;   In:   EDI = buffer, ECX = byte count.  Out: CF=1 on timeout.
+;----------------------------------------------------------------------------
 LS_BlockReadEcp:
+	or	ecx, ecx
+	jz	lbre_none
 	push	ebx
 	push	ecx
-	xor	bl, bl
-	call	LS_EcpEnter
+
+	mov	al, CTRL_FWD
+	call	LS_EcpDir
+	mov	bl, ECP_CMD_READ
+	call	LS_EcpCmd
+	jc	lbre_fail
+
 	pop	ecx
 	push	ecx
-	movzx	edx, LS_BasePort
-	add	edx, LPT_ECPFIFO
+	dec	ecx
+	jz	lbre_last
+
+	mov	al, CTRL_REV
+	call	LS_EcpDir
 	cld
+	movzx	edx, LS_BasePort
+	add	edx, LPT_ECP_FIFO
 	rep	insb
+
+lbre_last:
+	mov	al, CTRL_FWD
+	call	LS_EcpDir
+	mov	bl, ECP_CMD_LAST
+	call	LS_EcpCmd
+	jc	lbre_fail
+	mov	al, CTRL_REV
+	call	LS_EcpDir
+	movzx	edx, LS_BasePort
+	add	edx, LPT_ECP_FIFO
+	in	al, dx
+	mov	[edi], al
+	inc	edi
+
 	call	LS_EcpLeave
 	pop	ecx
 	pop	ebx
 	clc
 	ret
+lbre_fail:
+	call	LS_EcpLeave
+	pop	ecx
+	pop	ebx
+	stc
+	ret
+lbre_none:
+	clc
+	ret
 
-;  LS_BlockWriteEcp - ECX bytes from DS:ESI, through the ECP FIFO.
+;----------------------------------------------------------------------------
+;  LS_BlockWriteEcp - ECX bytes from DS:ESI through the ECP data FIFO.
+;
+;  No last-byte command on this side: 0C0h covers the whole block, which is
+;  what both epat.c and SD120PPD.SYS do.
+;----------------------------------------------------------------------------
 LS_BlockWriteEcp:
+	or	ecx, ecx
+	jz	lbwe_none
 	push	ebx
 	push	ecx
-	mov	bl, 1
-	call	LS_EcpEnter
+
+	mov	al, CTRL_FWD
+	call	LS_EcpDir
+	mov	bl, ECP_CMD_WRITE
+	call	LS_EcpCmd
+	jc	lbwe_fail
+
 	pop	ecx
 	push	ecx
-	movzx	edx, LS_BasePort
-	add	edx, LPT_ECPFIFO
 	cld
+	movzx	edx, LS_BasePort
+	add	edx, LPT_ECP_FIFO
 	rep	outsb
 
-;  ** Wait for the FIFO to drain before leaving ECP mode. ** Writing the ECR
-;  back to a non-FIFO mode RESETS the FIFO, so anything still queued is thrown
-;  away - the drive then sits holding DRQ for bytes that were discarded, and
-;  the OS reports the failed write as "not enough disk space". The vendor's own
-;  ECP handler polls ECR bit 0 for exactly this reason (SD120PPD.SYS 0x494c:
-;  mov cx,0xffff / in al,dx / test al,1 / loope).
-	push	ecx
-	movzx	edx, LS_BasePort
-	add	edx, LPT_ECP_ECR
-	mov	ecx, 0FFFFh
-lbwe_drain:
-	in	al, dx
-	test	al, ECR_FIFO_EMPTY
-	jnz	lbwe_drained
-	dec	ecx
-	jnz	lbwe_drain
-lbwe_drained:
-	pop	ecx
+;  Drain before leaving. Writing the ECR back to a non-FIFO mode RESETS the
+;  FIFO, so anything still queued is thrown away - the drive then sits holding
+;  DRQ for bytes that were discarded and the OS reports "not enough disk
+;  space". The vendor polls ECR bit 0 for the same reason (0x494c).
+	call	LS_EcpWaitEmpty
 
 	call	LS_EcpLeave
 	pop	ecx
 	pop	ebx
+	clc
+	ret
+lbwe_fail:
+	call	LS_EcpLeave
+	pop	ecx
+	pop	ebx
+	stc
+	ret
+lbwe_none:
 	clc
 	ret
 
