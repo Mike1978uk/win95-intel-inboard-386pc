@@ -42,6 +42,28 @@ suggested by @andrew-hoffman on issue #3 — the git history had become hard to 
 - State what was tested and on what. Say plainly what was *not* tested.
 - Minimise changed lines. No drive-by reformatting.
 
+### Code comments
+
+@andrew-hoffman, on [issue #22](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/22),
+2026-09-13 — apply this from the next commit, not "later":
+
+> *"comments should document why code does what it does, not what the code used to do, it
+> leaves a lot of comments about things that don't happen anymore. That's what the Git
+> history is for"*
+
+- **A comment explains why the code is the way it is.** State the constraint — the register
+  is write-only, the FIFO has no back-pressure, nInit is the reverse request. Not the story
+  of how we found out.
+- **No dated war stories in source.** "Measured 2026-09-13 as 145 bytes lost" belongs in the
+  commit message and in `docs/`. The diff already records what changed, and a comment about
+  behaviour that no longer exists is worse than none — it describes a program nobody is
+  running.
+- **Delete a comment when its bug is fixed**, the same way a diagnostic hook goes when its
+  question is answered (`inboard-hw-debug` technique 21).
+- Keep the one exception the project has earned: a comment that stops someone re-breaking
+  something — *"do not raise this, the port aliases onto the 8259"* — is a live constraint,
+  so it stays. Say the constraint, not the incident.
+
 ### Prose
 
 - Use as few words as possible; pick every word deliberately.
