@@ -858,15 +858,15 @@ LS_EcpWaitData:
 	movzx	edx, LS_BasePort
 	add	edx, LPT_ECP_ECR
 	mov	ecx, ECP_SPIN_REV
-lwd_loop:
+lwda_loop:
 	in	al, dx
 	test	al, ECR_FIFO_EMPTY
-	jz	lwd_ok				; empty clear -> a byte is waiting
+	jz	lwda_ok				; empty clear -> a byte is waiting
 	dec	ecx
-	jnz	lwd_loop
+	jnz	lwda_loop
 	stc
 	ret
-lwd_ok:
+lwda_ok:
 	clc
 	ret
 
