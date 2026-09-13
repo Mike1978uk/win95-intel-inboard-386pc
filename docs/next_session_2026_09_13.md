@@ -632,3 +632,100 @@ wait there too, with a budget of **10 s**, not to raise a spin count.
 
 ⚠ Do not simply set `LS_SPIN_BSY = 220000`. Ten seconds of unpaced spinning is 220,000 nibble
 register reads and a blocked CPU — worse than the bug.
+
+---
+
+# LATE 2026-09-13 — SPP PROVEN END TO END. ECP builds, selects, and stops after INQUIRY.
+
+## ⭐ The LS-120 reads AND writes, verified from outside the guest
+
+The owner opened the drive in the bed, listed it, opened `HELLO.TXT`, **edited it and saved**.
+Checked host-side afterwards, which is the only proof that counts:
+
+| file | before | after |
+|---|---|---|
+| `HELLO.TXT` | 121 bytes, md5 `02ccfe793c63` | **168 bytes, md5 `02b26be69183`** - his text appended, original intact |
+| `PATTERN.BIN` | `27425bfef648` | **unchanged** |
+| `BIG.BIN` | `c2374fcb71c5` | **unchanged** |
+
+Both pattern files byte-identical is the half that could have failed: a broken transport would
+have scrambled them. **Mount, directory, read, modify, write - all correct.**
+
+Measured cost of the SPP/nibble transport over that session: **8.4 nibble half-reads per payload
+byte**, 219,776 EPAT operations for 25,088 bytes. Slow, and correctly so.
+
+## The three driver bugs that got it there
+
+1. **`FINISH` state** - a BSY drive with no ERR means the command is still running, so wait it
+   out on pf.c's 8 s budget instead of re-issuing. Re-issuing burned all five retries 60 ms into
+   a 750 ms wait.
+2. **The write path did not exist.** The ICR gate required data-IN, so every write sent its CDB
+   and no payload. Now decodes all four ATAPI phases.
+3. **Bridge model swallowed payload bytes equal to `0x22`** - the unlock recogniser ran on every
+   data-port write and the early return ate the byte. Reads were immune; only a write pushes
+   arbitrary payload that way.
+
+## ECP: everything is in place except the last handshake
+
+Built and committed, both transports selectable (`MODE=SPP` / `MODE=ECP`, or `-Mode` at build
+time for testing without touching a live registry):
+
+| piece | state |
+|---|---|
+| Inboard XT's LPT modelled as the ECP card it is (`lpt_set_ecp`) | ✅ `0x378`, IRQ 7, ECR at `0x77A` |
+| `lpt_device_t.ecp_read_data` + `lpt_set_ecp_read_data()` | ✅ the framework's ECP FIFO was chardev-only |
+| `LS_BlockReadEcp` / `LS_BlockWriteEcp`, SPP fallback | ✅ audited, zero fixed-port writes |
+| driver selects ECP | ✅ **24 nibble half-reads against SPP's 195,064** |
+| CDB stays SPP, payload uses ECP | ✅ |
+| **the data phase itself** | ❌ **stops here** |
+
+### Exactly where it stops
+
+```
+CDB 12 00 00 00 24 00 ...        <- INQUIRY, sent via SPP, correct
+data phase in, 36 bytes           <- the drive has data
+R reg 1A -> 02                    <- ireason 2 = data IN, correct
+R reg 1C/1D -> 24 00              <- byte count 36, correct
+DISCONNECT                        <- and nothing more, ever
+```
+
+Everything up to the transfer is right. The ECP read returns nothing useful, the driver gives up,
+SCSIPORT sees no device and the drive does not appear.
+
+### What has been checked and is NOT the cause
+
+- `epat_data_read()` is self-contained - advances `pos`, calls `epat_pio_request()` - so it works
+  for ECP as well as nibble.
+- `epat_write_ctrl()` does store the direction bit in `dev->ctrl`, and `lpt_get_ctrl_raw()`'s
+  `& 0xef` keeps bit 5. So `case 0x0400`'s `ctrl & 0x20` test should pass.
+- The ECR write lands in range: `0x378 + 0x402 = 0x77A`, and `lpt.c` claims `port+0x400` for 3
+  ports when `dev->ecp` is set.
+
+### Next step, and it is cheap
+
+**Log it rather than reason about it.** Add one `lpt_log` in `lpt.c` `case 0x0400` printing
+`ecr`, `lpt_get_ctrl_raw()` and whether `dev->dt->ecp_read_data` was called. One boot answers
+whether the read is reaching the device at all, which splits the remaining space in half. That
+is the thing I should have done instead of a third reasoning pass.
+
+## Two bugs of mine worth not repeating
+
+- **A probe must not change state.** `LS_DetectEcp` left the ECR in byte mode; any ECR mode with
+  bits 7:5 set makes the port bidirectional, and nibble status reads go through exactly that -
+  so the probe broke the fallback it was probing for. Boot stalled with 12,588 nibble reads and
+  no commands. `LS_EcpLeave` had the same flaw.
+- **An absent setting must not clobber a default.** `LsParseMode` returns 0 for "not stated" and
+  `LsFindAdapter` stored it unconditionally, zeroing the build-time pin - so a `-Mode ecp` build
+  silently ran nibble. Caught only by measuring the transport rather than trusting the flag.
+
+## Bed state
+
+Restored to the **proven SPP build** (`38069bfd`, md5 `d9512bd4`). Media intact and carrying the
+owner's edit. Emulator is current with the ECP work, which is inert unless a driver selects it.
+
+## Open, unrelated, and the owner raised it twice
+
+**The long pause after `smwclock` in `AUTOEXEC.BAT`, on real hardware as well as in the bed.**
+`c:\clock\smwclock s` is the last line before `IVT68FIX.COM`, and the owner notes the following
+step never appears to write to the screen. His suggestion - if something is waiting unanswered,
+let it pass faster - is worth testing. Not touched tonight; it predates all of this work.
