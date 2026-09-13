@@ -363,3 +363,109 @@ it** - which `/ni` already demonstrates is unnecessary.
 `    Read  Mode : ` and `    Write Mode : ` at load (strings `0x66fc`, `0x670e`). Those lines on
 the real machine name the exact mode indices in use, which turns "it works in ECP" into the
 specific handler to port.
+
+---
+
+# Fourth pass — the list closed
+
+## The mode handlers are straight-line, one access per call
+
+None of the seventeen contains a backward jump: **the per-byte loop is in the caller**, and each
+handler performs a single access. So their port-access count *is* the per-access cost.
+
+Counting from each entry to its first `ret`:
+
+| `/rx` | mode | out | in | | `/wy` | mode | out | in |
+|---|---|---|---|---|---|---|---|---|
+| 0 | **NIBBLE Fast** | 6 | 2 | | 0 | WRITE Fast | 6 | 0 |
+| 1 | NIBBLE Normal | 7 | 2 | | 1 | WRITE Normal | 7 | 0 |
+| 2 | NIBBLE Slow | 10 | 4 | | 2 | WRITE Slow | 10 | 0 |
+| 3 | UNIDIR Fast | 7 | 2 | | 3 | EPP Normal | 12 | 3 |
+| 4 | UNIDIR Normal | 8 | 2 | | 4 | EPP Normal(v) | 12 | 3 |
+| 5 | UNIDIR Slow | 12 | 4 | | | | | |
+| 6 | TOSHIBA Fast | 8 | 1 | | | | | |
+| 7 | TOSHIBA Normal | 13 | 2 | | | | | |
+| 8 | **PS/2 Fast** | **7** | **1** | | | | | |
+| 9 | PS/2 Normal | 11 | 2 | | | | | |
+| 10/11 | EPP Normal | 13 | 6 | | | | | |
+
+⚠ **Read these as indicative, not exact.** The count runs to the first `ret` and several handlers
+branch on chipset type on the way, so a given run does not execute every instruction counted.
+A precise per-byte figure needs each path walked individually - **not done**. What the table does
+support is the shape: nibble and the "Slow" variants are the expensive end, `PS/2 Fast` and
+`TOSHIBA Fast` the cheap end, and EPP's high count is a dispatcher fanning out, not a hot loop.
+
+## ⛔ The danger is INSIDE some handlers, not only beside them
+
+This corrects the boundary stated in the third pass. The EPP read dispatcher at `0x3c26`:
+
+```asm
+0x3c26  cmp byte ptr [0xbc7], 1
+0x3c2b  jne 0x3c41              ; ---- fallback ----
+0x3c2d  add dx, 3               ; SAFE PATH: entirely base-relative
+0x3c31  in  al, dx
+0x3c34  or  al, 6
+0x3c36  out dx, al
+0x3c3b  out dx, al
+0x3c3f  jmp 0x3c82              ; -> the transfer
+
+0x3c41  cmp byte ptr [0xbc0], 3 ; chipset type 3
+0x3c4c  out 0x23, al            ; ⛔ THE 8259 ALIAS
+0x3c52  out 0x22, al            ; ⛔
+0x3c58  in  al, 0x22            ; ⛔
+```
+
+**One handler, two paths**: a base-relative path taken when `[0xbc7] == 1`, and a chipset-type
+fallback that writes `0x22`/`0x23`. So "copy the handler, never its neighbour" was too loose.
+The accurate rule is:
+
+> **Take the `[0xbc7] == 1` branch. Never the fallback.**
+
+This is also the code-level explanation of why `/ni` works on the real machine: with chipset init
+skipped, the flags steer transfers down the base-relative path, and the dangerous branch is never
+entered. The ECP handlers remain clean by inspection - **zero** fixed-port accesses on any path.
+
+## `SC_EXEC_SCSI_CMD`, from its entry
+
+```asm
+0x5a69  mov bl, byte ptr es:[di + 2]    ; host adapter number
+0x5a70  mov cl, byte ptr es:[di + 8]    ; target ID
+0x5a74  cmp byte ptr [0xffb], bl        ; validate the HA
+0x5a7b  mov si, 0xfad                   ; per-HA device table
+0x5a80  mov si, word ptr [bx + si]
+0x5a84  mov al, byte ptr [bx + si]      ; device entry for this target
+0x5a86  cmp al, 0xff                    ; 0xFF = no such device
+0x5a8a  test byte ptr [bx + si + 8], 0x10
+0x5a92  call 0x5aa3                     ; accepted -> execute
+...
+0x5a97  mov byte ptr es:[di + 1], 4     ; SRB status = error
+0x5a9c  mov byte ptr es:[di + 0x18], 0x11   ; HASTAT 0x11 = selection timeout
+```
+
+`0x5aa3` then clears `SRB[0x32]`, `SRB[0x34]`, `SRB[0x36]`, re-reads the HA number, and checks
+`[bx + 0xf42] & 4` before proceeding - a per-adapter "ready" flag - with `SRB[3] & 1` selecting a
+residual/linked path via `0x5b47`.
+
+So the device table is `[0xfad + ha*2] -> per-HA array indexed by target`, entry `0xFF` meaning
+absent, and byte `+8` of an entry carrying flags of which bit 4 rejects the command.
+
+## The list is now closed
+
+| item | state |
+|---|---|
+| full-file coverage | ✅ 26,095 instructions, all 56,198 bytes |
+| timeouts | ✅ complete table, BIOS ticks |
+| phase machine | ✅ four waits, both binaries agree |
+| register offset map | ✅ from code |
+| mode tables | ✅ index -> name, both directions |
+| ECP handlers | ✅ read, and clean of fixed ports |
+| I/O footprint | ✅ counted, 243 fixed-port accesses located |
+| ASPI surface | ✅ entry, jump table, all seven commands |
+| `SC_EXEC_SCSI_CMD` | ✅ entry and validation path |
+| EPP/ECP detection | ✅ the safe/unsafe branch identified |
+| error reporting | ✅ HA status decode strings |
+| retry policy | ✅ **none found** - the driver uses long timeouts instead |
+
+**Still not walked instruction by instruction:** the individual inner paths of the fifteen
+non-ECP mode handlers, and `0x5aa3`'s downstream execution past `0x5b47`. Both are located and
+neither blocks any decision now open.
