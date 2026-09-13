@@ -146,6 +146,34 @@ Ruled out so far:
 the source read, the RAM and the swap are all fine, so the fault is specific to this
 destination.
 
+### ⭐ The vendor's DOS driver in the bed — and the bridge gap it exposed
+
+The owner's idea, and it produced the most actionable finding of the day. `SD120PPD.SYS` +
+`ASPIHDRM.SYS` loaded with the real machine's own switches
+(`/port:378 /IRQ:7 /de /db /ni /dpc /dp /fp`), and the bridge model answered:
+
+```
+EPAT: unlock frame committed with unknown command 40
+EPAT: unlock frame committed with unknown command 50
+EPAT: unlock frame committed with unknown command 10 11 12 13 14 15 16 17
+EPAT: CONNECT / LPT1 drive attached
+EPAT: W reg 16 = 04 / 00 / device reset: status 50, signature 14 EB
+```
+
+It connects, pulses SRST and reads the ATAPI signature — then **no drive letter appears** and
+the real-mode `COPY` fails with an invalid drive.
+
+**Our bridge implements exactly two CPP commands, `0xE0` connect and `0x30` disconnect.** The
+vendor sends `0x40`, `0x50` and a full `0x10`–`0x17` sweep, which is the **chain unit-select
+scan** `epat.c` carries a FIXME about. `0x40` appears in `epat.c`'s `epatc8` branch; the
+`0x10`–`0x17` sweep is vendor-specific and is in neither of our references.
+
+**Why this matters beyond the DOS driver:** the bed has been treated as faithful, and it is
+not. Anything our Windows driver does that depends on bridge behaviour we never modelled is
+unverified — which is the same trap as the unframed ECP reads (technique 110). Implementing
+those CPP commands is the prerequisite for trusting the bed on the stall, and it makes the
+vendor's own driver available as a live reference inside the bed.
+
 ---
 
 ## Diagnostics: three brakes removed, and one lesson
