@@ -1,3 +1,28 @@
+---
+
+## ⛔ READ THIS BEFORE USING THIS DOCUMENT
+
+**The ECP question was already answered on 2026-09-08 and is in
+`drivers/imation_ls120/TRANSPORT_SPEC.md` section 0.** It carries a live memory read from the
+running vendor driver on the real 5160 - `[0BCB] -> 'ECP Read'`, `[0BCF] -> 'ECP Write'`,
+`[0BD7] port type = 0C`, selectors **13 and 6** - plus the boot capture, plus the explicit
+statement that our driver uses the bottom rung of both ladders, plus the ~4-vs-~1 accesses-per-
+byte comparison and the `base+402h` FIFO.
+
+I re-derived all of it here on 2026-09-13 without reading that section first. That is
+[[feedback-read-our-own-spec-before-working]] for the third time in one day.
+
+**What this document adds that the spec does not:**
+
+| | |
+|---|---|
+| the ECP handlers' actual instructions | ECR at `base+0x402`, `0x74` = ECP FIFO mode, `0x34` = byte mode, bit 0 = FIFO-empty, polled per byte |
+| **zero fixed-port accesses in either ECP handler** | the safety proof, by inspection of every path |
+| the danger is **inside** some handlers | `[0xbc7]==1` selects a base-relative path; the fallback writes `0x22`/`0x23` |
+| selectors 13 and 6 are **outside** `/rx` 0-11 and `/wy` 0-4 | so ECP is reachable by **detection only**, not by the documented switches |
+
+Everything else here is corroboration of work already done.
+
 # SD120PPD.SYS read in full — the DOS driver that works on this machine
 
 2026-09-13, at the owner's insistence after I had read fragments three times:
