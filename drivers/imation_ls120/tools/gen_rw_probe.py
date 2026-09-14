@@ -68,6 +68,12 @@ WBSY, WBSYL, WBSYE = 0x1920, 0x1930, 0x1950
 WDRQ, WDRQL, WDRQE, WDRQ6 = 0x1960, 0x1970, 0x1990, 0x19A0
 BR, BR2, BRH, BRB, BRJ, BRE, BRL = (
     0x1A00, 0x1A10, 0x1A30, 0x1A50, 0x1A80, 0x1AA0, 0x1AC0)
+# Trampoline for the JCXZ guard below. JCXZ is short-only (-128..+127) and BRE
+# is +158 from it, so `jcxz BRE` does not assemble: DEBUG rejects the line,
+# re-prompts at the same address, and the guard is silently ABSENT from the
+# code. That is what wedged the box three times on 2026-09-14 - the guard the
+# setup comment calls load-bearing was never actually there.
+BRG = 0x1A2A          # the 6-byte gap after BR2, +40 from the jcxz
 XFER_MAX = 0x200          # no buffer in this probe is larger
 
 # Every command is another chance for something unforeseen, and a runaway
@@ -241,7 +247,7 @@ def build():
     # Block read. SI = destination, CX = count. JCXZ guard: a device that
     # offers nothing gives cx=0, and without this the loop runs 65536 times
     # and walks over the probe's own code. That wedged the box once.
-    setup = ["jcxz %04X" % BRE,
+    setup = ["jcxz %04X" % BRG,
              "cmp cx,%04X" % XFER_MAX, "jbe %04X" % BR2,
              "mov cx,%04X" % XFER_MAX, "jmp %04X" % BR2]
     setup2 = [
@@ -291,7 +297,8 @@ def build():
                        "dec cx", "jnz %04X" % WDRQL, "jmp %04X" % WDRQE])
          + blk(WDRQE, ["pop cx", "ret"])
          + blk(WDRQ6, ["call %04X" % WDRQ] * 6 + ["ret"])
-         + blk(BR, setup) + blk(BR2, setup2) + blk(BRH, head) + blk(BRB, body) + blk(BRJ, join)
+         + blk(BR, setup) + blk(BR2, setup2) + blk(BRG, ["jmp %04X" % BRE])
+         + blk(BRH, head) + blk(BRB, body) + blk(BRJ, join)
          + blk(BRE, leave) + blk(BRL, lastb)
          + blk(BW, bw) + blk(BWC, bwc) + blk(BWL, bwl) + blk(BWE, bwe)
          + blk(DLY, ["push cx", "push dx", "mov cx,00B4", "mov dx,0080",
@@ -333,6 +340,21 @@ def build():
         # against the NEXT block, so it cannot see a marker or a result slot
         # sitting in the middle of one - which is exactly how MARK at 0580 and
         # the slots at 0600 ended up inside a main block that had grown to 0717.
+        # An out-of-range short jump is not a build error here: DEBUG prints
+        # its own message, re-prompts at the same address and carries on
+        # WITHOUT the instruction, so the jump silently deletes itself.
+        pc = addr
+        for x in l[n + 1:n + 1 + count]:
+            nxt = pc + isize(x)
+            t = x.replace(" ", "")
+            if t[:2] in ("jz", "jn", "jb") or t.startswith("jcxz"):
+                disp = int(x.split()[-1], 16) - nxt
+                if not -128 <= disp <= 127:
+                    raise SystemExit(
+                        "%04X: %s is %+d away - short jumps reach -128..+127, "
+                        "and DEBUG DROPS the instruction rather than failing"
+                        % (pc, x, disp))
+            pc = nxt
         for name, lo, hi in (("MARK", MARK, MARK),
                              ("SLOTS", SLOTS, SLOTS + 0x7F)):
             if lo < addr + need and hi >= addr:
