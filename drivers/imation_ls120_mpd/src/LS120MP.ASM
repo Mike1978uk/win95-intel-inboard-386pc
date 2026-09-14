@@ -47,18 +47,12 @@ ifdef LS_PHASE2
 ;  skeleton neither references nor contains any of it.
 ;----------------------------------------------------------------------------
 EXTERNDEF	LS_PacketCommand	: NEAR
-EXTERNDEF	LS_RequestSense		: NEAR
 EXTERNDEF	LS_Connect		: NEAR
 EXTERNDEF	LS_BringUp		: NEAR
-EXTERNDEF	LS_ColdStart		: NEAR
-EXTERNDEF	LS_ReadyPoll		: NEAR
-EXTERNDEF	LS_BridgeProbe		: NEAR
 EXTERNDEF	LS_SpinUp		: NEAR
 EXTERNDEF	LS_Disconnect		: NEAR
 EXTERNDEF	LS_BasePort		: WORD
 EXTERNDEF	LS_LastStatus		: DWORD
-EXTERNDEF	LS_SrstDone		: DWORD
-EXTERNDEF	LS_ColdDead		: DWORD
 LS_CDB_MAX	equ	12
 endif
 
@@ -93,106 +87,10 @@ endif
 
 ;  One adapter, one target. Phase 0 answers nothing, so this only bounds how
 ;  many times SCSIPORT asks.
-LS_ATA_ST_ERR		equ	001h	; status bit 0 - device reports CHECK CONDITION
-LS_ATA_ST_BSY		equ	080h	; status bit 7 - the command is still running
-;  SCSI.INC is not included here (srb.inc + miniport.inc only), and pulling a
-;  whole header in for one value is not worth the collision risk.
-LS_SCSISTAT_CHECK	equ	002h	; SCSISTAT_CHECK_CONDITION
-;  Timer interval in microseconds. Imation's miniport uses 1000 (1 ms) and so
-;  does the DDK's PC2X sample; there is no reason to differ.
-LS_TIMER_US		equ	1000
-
-;  DIAGNOSTIC, bed only. One report to the host: the tag to 0E0h, then the
-;  value LSB-first to 0E1h. The emulator prints it as DBGPORT tag=xx val=...
-;  A driver with no readback channel has no other way to say what it did.
-;  Remove with the -DLS_DBGPORT it is gated on.
-LSDBG	MACRO	tagv, srcreg
-ifdef LS_DBGPORT
-	push	eax
-	push	edx
-	mov	eax, srcreg
-	push	eax
-	mov	dx, 0E0h
-	mov	al, tagv
-	out	dx, al
-	inc	dx
-	pop	eax
-	out	dx, al
-	shr	eax, 8
-	out	dx, al
-	shr	eax, 8
-	out	dx, al
-	shr	eax, 8
-	out	dx, al
-	pop	edx
-	pop	eax
-endif
-	ENDM
 LS_MAX_TARGETS		equ	2	; XTIDEMP.MPD uses 2 and enumerates correctly
 					; on this machine; 1 was the only config value
 					; that differed from it.
-;  MaximumTransferLength. NOT 65536: the ATAPI byte-count registers are 16
-;  bits, so a 65536-byte request programmes a byte count of ZERO and the
-;  drive is told to transfer nothing (IMPLEMENTATION.md section 7).
-;
-;  And not 65024 either. A transfer is moved INLINE, one byte per port access,
-;  so this is also a length of TIME the system is held: at 5.55 us per 8-bit
-;  access, 30,720 bytes is ~170 ms, and the nibble path holds IF clear for all
-;  of it. Windows does not survive that. 4096 is what completes.
-;
-;  Raise it only once a transfer is finished from the timer instead of inline
-;  - the vendor's architecture, TRANSPORT_SPEC.md section 8.
-;  MEASURED 2026-09-14 on the real drive, not chosen: one ATAPI data burst on
-;  this device is 3584 bytes - seven sectors. Ask for 4096 and it answers with
-;  3584 and holds the rest, which this driver cannot collect because
-;  LS_PacketCommand does a single data phase. Ask for 3584 and both directions
-;  complete clean, error 00, byte-exact.
-;
-;  This was 4096 - "8 sectors" - one sector over the ceiling, which would have
-;  lost 512 bytes of every full-length write without reporting anything.
-;
-;  ⚠ An SPP/nibble measurement. ECP is untested and may differ; DESIGN.md 5.2
-;  says calibrate per transport and use the lower until both are known.
-LS_MAX_XFER		equ	3584		; 7 sectors - one burst
-
-;----------------------------------------------------------------------------
-;  The request state machine, which runs in LsTimer.
-;
-;  Every multi-second wait this driver needs is a COUNT OF TICKS here, not a
-;  spin loop. That is the whole restructure: the OS expects a miniport to
-;  return promptly and be called back, and every timeout tuned before this
-;  was a constant inside a shape it does not expect.
-;----------------------------------------------------------------------------
-LS_ST_IDLE		equ	0
-LS_ST_COLDSTART		equ	1	; open the bridge, pulse SRST
-LS_ST_READY		equ	2	; poll until the drive is not busy
-LS_ST_ISSUE		equ	3	; hand over the packet
-LS_ST_SENSE		equ	4	; fetch sense after a CHECK CONDITION
-LS_ST_DONE		equ	5	; complete on the next tick
-LS_ST_FINISH		equ	6	; issued, data moved, drive still BSY - wait it out
-
-;  Tick budgets, in 1 ms timer ticks.
-;  pf.c allows PF_SPIN = 8 s for a drive to become ready, and an LS-120
-;  genuinely takes seconds to spin up. Waiting that long is fine HERE - it
-;  costs 8000 timer callbacks and no blocked CPU - and was fatal in a spin
-;  loop.
-LS_TICKS_READY		equ	8000	; 8 s, pf.c's PF_SPIN
-;  A cold-start tick IS about a millisecond again. LS_ColdStart now pulses
-;  SRST on its first call only and does one status read per call after that,
-;  so this is back to being a time: 3000 ticks is ~3 s.
-;
-;  Measured 2026-09-14: a drive coming out of SRST needs SECONDS. 0.29 s is
-;  not enough - every command after it returns ABORTED COMMAND - and 2.3 s is.
-;  3 s of ticks costs the system nothing; 3 s of spinning would cost it
-;  everything, which is the whole point of DESIGN.md I3.
-LS_TICKS_COLD		equ	3000	; ~3 s, as ticks
-
-;  Bounds on the caller's own deadline, in SECONDS. The default is what we
-;  assume when an SRB carries no timeout; the maximum is the longest this
-;  driver will hold any request open even if the caller asks for more.
-LS_LIMIT_DEFSEC		equ	10
-LS_LIMIT_MAXSEC		equ	30
-LS_MAX_RETRY		equ	5	; pf.c's PF_MAX_RETRIES
+LS_MAX_XFER		equ	3584
 
 ;----------------------------------------------------------------------------
 ;  Per-adapter storage. SCSIPORT needs a non-zero size and hands the pointer
@@ -202,36 +100,14 @@ DEVEXT	STRUCT
 dxBase		DWORD	?		; parallel-port base actually in use
 dxStatus	DWORD	?		; status byte read at FindAdapter
 dxSrbCount	DWORD	?		; SRBs seen - phase 0 evidence
-dxPendSrb	DWORD	?		; SRB awaiting deferred completion, 0 = idle
-dxPendStat	DWORD	?		; the SrbStatus it will be completed with
-dxTicks		DWORD	?		; timer ticks this request has taken
-dxState		DWORD	?		; LS_ST_* - where the current request is
-dxRetry		DWORD	?		; attempts made at the current command
-dxBuf		DWORD	?		; caller's data buffer
-dxLen		DWORD	?		; caller's transfer length
-dxDir		DWORD	?		; 0 = data in, 1 = data out
-dxColdDone	DWORD	?		; the bridge has been opened once
-dxBridgeVer	DWORD	?		; EPAT version code read at FindAdapter
-;  Set once a cold start has spent its whole budget. Every later SRB then
-;  fails IMMEDIATELY instead of re-discovering the same absence.
-dxColdFail	DWORD	?
-;  Ticks elapsed across the WHOLE request. dxTicks restarts at every state
-;  change, so it cannot bound the request as a whole.
-dxTotal		DWORD	?
-;  The caller's own deadline, in ticks. Srb->TimeOutValue is in SECONDS.
-dxLimit		DWORD	?
+dxReserved	DWORD	5 DUP (?)
 DEVEXT	ENDS
 
 	.DATA
 
 ;  The tag looked for in the Settings-tab string. Lower case: the compare
 ;  lowercases the input, and '=' already has bit 5 set so the OR leaves it be.
-	extrn	LS_ModeReq:DWORD	; the transport's mode selector
-
 LsPortTag	db	'port='
-LsModeTag	db	'mode='
-LsSppTag	db	'spp'
-LsEcpTag	db	'ecp'
 
 ifdef LS_PHASE2
 ;  The twelve-byte ATAPI packet handed to the device. SCSIPORT serialises
@@ -381,17 +257,6 @@ endif
 ;     person installing it already knows which LPT the drive is on.
 	mov	esi, ArgumentString
 	call	LsParseBase			; eats ESI
-	push	eax
-	mov	esi, ArgumentString
-	call	LsParseMode			; MODE=SPP / MODE=ECP, 0 = "not stated"
-;  Only store a value the string actually carried. An absent MODE= means
-;  "leave the default alone", NOT "force auto" - writing 0 unconditionally
-;  clobbered a build-time pin and made every -Mode build fall back to nibble.
-	or	eax, eax
-	jz	lfa_nomode
-	mov	LS_ModeReq, eax
-lfa_nomode:
-	pop	eax
 	mov	esi, ConfigInfo
 	or	eax, eax
 	jnz	lfa_havebase
@@ -417,65 +282,6 @@ lfa_havebase:
 ifdef LS_PHASE2
 ;  The transport addresses the port directly, so it needs the same base.
 	mov	LS_BasePort, ax
-
-;----------------------------------------------------------------------------
-;  Tier 1 of the presence test - DESIGN.md section 4.2.
-;
-;  Is an EPAT on the cable at all? Read the bridge's own version register,
-;  which answers whether or not a drive is attached behind it. Declining here
-;  costs the boot nothing; the alternative is what the owner measured with the
-;  drive unplugged - the state machine treating a floating bus as a device
-;  that had not replied yet, and waiting for it until he plugged the drive
-;  back in.
-;
-;  This routine used to return SP_RETURN_FOUND unconditionally, deliberately:
-;  a phase-0 build that declined to load would have tested nothing. That was
-;  right for phase 0 and is wrong now.
-;
-;  Three attempts, because a bridge that is powered but not yet settled is an
-;  ordinary thing to meet on a cold boot. There is no delay between them
-;  beyond the CPP disconnect and connect frames each attempt already issues -
-;  about 60 port accesses, ~350 us of settling. Whole cost if nothing is
-;  there: under 1 ms, against the hours the old path could spend.
-;----------------------------------------------------------------------------
-	mov	ecx, 3
-lfa_probe:
-	push	ecx
-	call	LS_BridgeProbe
-	pop	ecx
-	jnc	lfa_probe_ok
-	dec	ecx
-	jnz	lfa_probe
-
-;  ADVISORY, NOT A GATE - and this is a correction, not a design choice.
-;
-;  Declining here returned SP_RETURN_NOT_FOUND, which SCSIPORT reports as
-;  Device Manager **code 10, "this device cannot start"** - measured on the
-;  real machine 2026-09-14 with a bridge that was demonstrably healthy, since
-;  the drive spun up in the same boot.
-;
-;  The read itself is the suspect, not the bridge. ECPPROBE's own bridge
-;  register slots (br0d_pre / br0d_post, register 0Dh) BOTH read 00 on this
-;  hardware, so a plain nibble read of the EPAT's own register space does not
-;  return what epat.c's RR() does - something about addressing that space is
-;  still wrong, and DESIGN.md section 4.2's tier 1 rests on it.
-;
-;  So record the value and carry on. A driver that declines to load teaches us
-;  nothing and costs the owner the device; a driver that loads and reports what
-;  it saw is diagnosable. Restore the gate only once a bridge register read is
-;  proven to return a real version code on this machine.
-	mov	eax, 0
-	mov	ebx, DeviceExtension
-	mov	[ebx].DEVEXT.dxBridgeVer, eax
-	mov	esi, ConfigInfo
-	jmp	lfa_probe_done
-
-lfa_probe_ok:
-;  Recorded rather than checked. Linux prints this value and never compares
-;  it, so there is no constant to test against - see DESIGN.md section 8.
-;  Reading it out of a live machine once is what turns it into one.
-	mov	[ebx].DEVEXT.dxBridgeVer, eax
-lfa_probe_done:
 endif
 
 ;  The one and only hardware access in phase 0: read the status register.
@@ -620,446 +426,52 @@ lpb_out:
 LsParseBase ENDP
 
 ;============================================================================
-; LsParseMode - read `MODE=SPP` or `MODE=ECP` out of the Settings-tab string.
-;
-;   In:   ESI -> ASCIIZ ArgumentString, or NULL
-;   Out:  EAX = 0 auto-detect (nothing said), 1 = force SPP, 2 = force ECP
-;   Uses: EAX, EBX, ECX, EDX, ESI, EDI
-;
-;   SPP/nibble works on every parallel port and is what the driver falls back
-;   to; ECP is faster and is what the vendor's own driver selects on this
-;   machine. Auto-detection probes for an ECR, but a probe can be wrong in
-;   either direction on hardware nobody here has seen, so BOTH answers are
-;   forceable - a user with a port that lies about its ECR can pin SPP, and a
-;   user whose ECR does not answer the probe can pin ECP.
-;
-;   Same shape as LsParseBase deliberately: case-insensitive, scans for the
-;   tag anywhere in the string, and anything unrecognised returns 0 so a typo
-;   auto-detects rather than selecting something the caller did not ask for.
-;============================================================================
-LsParseMode PROC
-
-	push	ebx
-	push	edi
-	xor	eax, eax
-	or	esi, esi
-	jz	lpm_out
-
-lpm_next:
-	cmp	byte ptr [esi], 0
-	je	lpm_out
-	mov	edi, esi
-	mov	edx, OFFSET LsModeTag
-	mov	ecx, 5
-lpm_cmp:
-	mov	bl, [edi]
-	or	bl, 20h
-	cmp	bl, [edx]
-	jne	lpm_advance
-	inc	edi
-	inc	edx
-	dec	ecx
-	jnz	lpm_cmp
-	jmp	lpm_value
-lpm_advance:
-	inc	esi
-	jmp	lpm_next
-
-;  EDI now points at the value. Three characters, case-insensitive.
-lpm_value:
-	mov	esi, edi
-	mov	edx, OFFSET LsSppTag
-	mov	ecx, 3
-	call	lpm_match
-	jc	lpm_tryecp
-	mov	eax, 1			; SPP
-	jmp	lpm_out
-lpm_tryecp:
-	mov	edx, OFFSET LsEcpTag
-	mov	ecx, 3
-	call	lpm_match
-	jc	lpm_out			; unrecognised - leave EAX 0, auto-detect
-	mov	eax, 2			; ECP
-	jmp	lpm_out
-
-;  lpm_match: ESI vs EDX for ECX chars, case-insensitive. CF=0 on a match.
-lpm_match:
-	push	esi
-	push	edx
-	push	ecx
-lpm_mloop:
-	mov	bl, [esi]
-	or	bl, 20h
-	cmp	bl, [edx]
-	jne	lpm_mno
-	inc	esi
-	inc	edx
-	dec	ecx
-	jnz	lpm_mloop
-	pop	ecx
-	pop	edx
-	pop	esi
-	clc
-	ret
-lpm_mno:
-	pop	ecx
-	pop	edx
-	pop	esi
-	stc
-	ret
-
-lpm_out:
-	pop	edi
-	pop	ebx
-	ret
-
-LsParseMode ENDP
-
-
-;============================================================================
-; LsInitialize - returns TRUE, and touches nothing.
-;
-;   RESTRUCTURED 2026-09-11. This used to call LS_BringUp: open the bridge,
-;   pulse SRST, issue an INQUIRY and drain the sense - seconds of device I/O
-;   inside the call the OS makes while the boot waits on it. That is what
-;   stalled the boot, and every attempt to fix it by allowing MORE time made
-;   it worse, because the time was being spent somewhere the OS does not
-;   expect a driver to spend any.
-;
-;   Two independent implementations agree on this shape. Imation's own
-;   HwInitialize (SD120PPD.MPD rva 0x3277) is twenty instructions with no
-;   device I/O and returns TRUE unconditionally; the DDK's PC2X.C sample is
-;   the same. IMPLEMENTATION.md section 1.1.
-;
-;   The bring-up still has to happen - the drive powers up held in ATA reset
-;   and answers nothing until SRST is pulsed - so it is now the first state of
-;   the request state machine, where it costs ticks instead of a blocked boot.
+; LsInitialize - nothing to initialise in phase 0, and that is the point.
 ;============================================================================
 LsInitialize PROC STDCALL DeviceExtension:DWORD
 
-	mov	eax, DeviceExtension
-	mov	[eax].DEVEXT.dxState, LS_ST_IDLE
-	mov	[eax].DEVEXT.dxPendSrb, 0
-	mov	[eax].DEVEXT.dxColdDone, 0
-	mov	[eax].DEVEXT.dxColdFail, 0
-;  A fresh adapter init must pulse SRST again, whatever a previous load left
-;  behind. Still no device I/O here - this only clears a flag.
-	mov	LS_SrstDone, 0
+ifdef LS_PHASE2
+;  Bring the drive up, once, at init - rather than letting the first SRB
+;  discover a dead bus. The drive powers up held in ATA reset, so this is not
+;  optional and not a probe: without the SRST pulse inside LS_BringUp every
+;  task-file register reads 00h and the hardware is indistinguishable from an
+;  absent bridge. That cost two sessions; TRANSPORT_SPEC.md section 5.
+;  LS_BringUp releases the port itself - it is shared with the printer.
+ifdef LS_FAKE_DEVICE
+;  No bridge in 86Box; the bed is testing Windows, not hardware.
 	mov	eax, TRUE
 	ret
-
-LsInitialize ENDP
-
-;============================================================================
-; LsTimer - the request state machine. All the waiting lives here.
+else
+;  Run the bring-up for its SIDE EFFECT - the ATA soft reset, without which
+;  the drive stays deaf - but do NOT let its verdict veto the adapter.
 ;
-;   Registered per-request by ScsiPortNotification(RequestTimerCall, ...), so
-;   there is nothing to declare in HW_INITIALIZATION_DATA. It re-arms itself
-;   while work is outstanding and completes the SRB only when the device is
-;   actually done.
+;  BOOTLOG's "Init Success ls120mp.mpd" is IOS reporting that the DRIVER
+;  LOADED. It says nothing about what HwInitialize returned, so a FALSE here
+;  is invisible and looks exactly like the symptom we have: no SRBs, no
+;  device, no diagnostics. The stub build differs from this one in only two
+;  places, and one of them is that its init cannot fail.
 ;
-;   This is the shape both references use. Imation's miniport re-arms at rva
-;   0x48bb by pushing ITS OWN linked address back into ScsiPortNotification;
-;   PC2X.C does the same in PC2xTimer.
+;  Imation's own SD120PPD.MPD settles it. Its HwInitialize (0x3277) is four
+;  short calls and then:
 ;
-;   Each tick does ONE bounded step. Nothing here waits for a drive to spin
-;   up, or for a bridge to appear - it asks once, and if the answer is "not
-;   yet" it re-arms and asks again in a millisecond. A drive that needs eight
-;   seconds gets eight thousand ticks and blocks nothing.
-;============================================================================
-LsTimer PROC STDCALL DeviceExtension:DWORD
-
-	push	ebx
-	push	esi
-	push	edi
-
-	mov	esi, DeviceExtension
-	mov	ebx, [esi].DEVEXT.dxPendSrb
-	or	ebx, ebx
-	jz	lt_idle			; nothing outstanding - do not re-arm
-
-	inc	[esi].DEVEXT.dxTicks
-
-;  The caller's deadline bounds the whole request, whatever state it is in.
-;  Without this the per-state budgets can add up past what SCSIPORT allows,
-;  and the request is failed by the OS rather than by us - which during
-;  enumeration reads as an absent device.
-	inc	[esi].DEVEXT.dxTotal
-	mov	eax, [esi].DEVEXT.dxTotal
-	cmp	eax, [esi].DEVEXT.dxLimit
-	jb	lt_within
-	mov	al, SRB_STATUS_TIMEOUT
-	jmp	lt_setstat
-lt_within:
-
-ifdef LS_PHASE2
-	mov	eax, [esi].DEVEXT.dxState
-
-	cmp	eax, LS_ST_COLDSTART
-	je	lt_coldstart
-	cmp	eax, LS_ST_READY
-	je	lt_ready
-	cmp	eax, LS_ST_ISSUE
-	je	lt_issue
-	cmp	eax, LS_ST_SENSE
-	je	lt_sense
-	cmp	eax, LS_ST_FINISH
-	je	lt_finishwait
-;  IDLE means there is no request to complete, and lt_finish would take the
-;  null dxPendSrb as an SRB: it writes SrbStatus through it and hands it to
-;  RequestComplete. A near-null write in ring 0 does NOT fault here - linear
-;  page 0 is the V86 low-memory mapping - so the damage is silent and lands
-;  somewhere else entirely. Return instead, and do not re-arm.
-	cmp	eax, LS_ST_IDLE
-	je	lt_idle
-;  LS_ST_DONE, or any state we do not recognise: complete with what we have.
-	jmp	lt_finish
-
-;----------------------------------------------------------------------------
-;  COLDSTART - open the bridge and take the drive out of ATA reset.
+;      xor ecx, ecx
+;      mov al, 1          <- TRUE, unconditionally
+;      ret 4
 ;
-;  Retried every tick until it answers or the budget runs out, because a
-;  bridge that is powered but not yet settled is a normal thing to meet on a
-;  cold boot and is not a reason to fail the request.
-;----------------------------------------------------------------------------
-lt_coldstart:
-	call	LS_ColdStart
-	jnc	lt_cold_ok
-;  A dead bus is not a slow drive, and giving it the full budget is what made
-;  an absent drive cost MINUTES of boot instead of milliseconds. LS_ColdDead
-;  is set only when the status register read 00h or FFh - nothing driving the
-;  bus at all - which is DESIGN.md section 4.3's tier-1/tier-2 split finally
-;  reaching the state machine. A busy drive still gets every one of its ticks.
-	cmp	LS_ColdDead, 0
-	jne	lt_cold_absent
-	mov	eax, [esi].DEVEXT.dxTicks
-	cmp	eax, LS_TICKS_COLD
-	jb	lt_rearm		; not yet - ask again next tick
-;  Giving up. Arm a fresh SRST for the next request rather than leaving the
-;  flag set, or a drive plugged in after this point would never be reset.
-	mov	LS_SrstDone, 0
-lt_cold_absent:
-;  Remember it. Without this every later SRB spends the budget again.
-	mov	[esi].DEVEXT.dxColdFail, 1
-	mov	al, SRB_STATUS_SELECTION_TIMEOUT
-	jmp	lt_setstat
-lt_cold_ok:
-	mov	[esi].DEVEXT.dxColdDone, 1
-	mov	[esi].DEVEXT.dxState, LS_ST_READY
-	mov	[esi].DEVEXT.dxTicks, 0
-	jmp	lt_rearm
-
-;----------------------------------------------------------------------------
-;  READY - one status read per tick until the drive is idle.
-;
-;  This is where a spin-up is waited for. pf.c allows 8 s (PF_SPIN) and so do
-;  we; the difference is that those 8 s are 8000 callbacks rather than a
-;  blocked CPU. IMPLEMENTATION.md section 4 - the spin constants were never
-;  the bug, their location was.
-;----------------------------------------------------------------------------
-lt_ready:
-	call	LS_ReadyPoll
-	jc	lt_ready_dead
-	jz	lt_ready_ok		; BSY and DRQ both clear
-	mov	eax, [esi].DEVEXT.dxTicks
-	cmp	eax, LS_TICKS_READY
-	jb	lt_rearm
-	mov	al, SRB_STATUS_TIMEOUT
-	jmp	lt_setstat
-lt_ready_dead:
-	mov	eax, [esi].DEVEXT.dxTicks
-	cmp	eax, LS_TICKS_READY
-	jb	lt_rearm
-	mov	al, SRB_STATUS_SELECTION_TIMEOUT
-	jmp	lt_setstat
-lt_ready_ok:
-	mov	[esi].DEVEXT.dxState, LS_ST_ISSUE
-	jmp	lt_rearm
-
-;----------------------------------------------------------------------------
-;  ISSUE - hand the packet over.
-;
-;  The drive was idle as of the previous tick, so the waits inside
-;  LS_PacketCommand only have to cover the latency of a command already
-;  accepted. That is why LS_SPIN_BSY could be cut to ~90 ms.
-;----------------------------------------------------------------------------
-lt_issue:
-;  LS_PacketCommand takes ESI = packet, EDI = buffer, ECX = length,
-;  EDX = direction. Read the extension fields BEFORE ESI is repointed.
-	mov	edi, [esi].DEVEXT.dxBuf
-	mov	ecx, [esi].DEVEXT.dxLen
-	mov	edx, [esi].DEVEXT.dxDir
-	lea	esi, LsPacket
-	call	LS_PacketCommand
-	mov	esi, DeviceExtension
-	jc	lt_issue_err
-
-	mov	al, SRB_STATUS_SUCCESS
-	jmp	lt_setstat
-
-lt_issue_err:
-;  ERR in the status means the device is reporting CHECK CONDITION, and the
-;  class driver cannot act on that without the sense data. Most often it is
-;  UNIT ATTENTION after a media change or a reset, which it clears by reading
-;  the sense and retrying. Reporting a bare SRB_STATUS_ERROR with ScsiStatus
-;  left at 0 says "the command failed but the device says GOOD", which is
-;  incoherent and gets treated as unreadable media - "media is not formatted".
-;  Measured on the real drive: error register 64h. IMPLEMENTATION.md section 3.
-	mov	eax, LS_LastStatus
-	test	al, LS_ATA_ST_ERR
-	jnz	lt_issue_check
-
-;  No ERR, but the drive is still BSY: the command is simply STILL RUNNING.
-;  Re-issuing it here restarts a command already in flight, which is what made
-;  every media command fail after LS_MAX_RETRY attempts - measured in the bed
-;  2026-09-13, twenty READ CAPACITYs each abandoned after exactly LS_SPIN_BSY
-;  polls. Wait it out in the state machine instead, on pf.c's full PF_SPIN
-;  budget. Only a drive that is NOT busy justifies retrying the command.
-	test	al, LS_ATA_ST_BSY
-	jz	lt_issue_retry
-	mov	[esi].DEVEXT.dxState, LS_ST_FINISH
-	mov	[esi].DEVEXT.dxTicks, 0
-	jmp	lt_rearm
-
-lt_issue_check:
-
-	mov	[ebx].SCSI_REQUEST_BLOCK.ScsiStatus, LS_SCSISTAT_CHECK
-
-	mov	eax, [ebx].SCSI_REQUEST_BLOCK.SrbFlags
-	test	eax, SRB_FLAGS_DISABLE_AUTOSENSE
-	jnz	lt_plainerr
-	mov	eax, [ebx].SCSI_REQUEST_BLOCK.SenseInfoBuffer
-	or	eax, eax
-	jz	lt_plainerr
-	movzx	eax, [ebx].SCSI_REQUEST_BLOCK.SenseInfoBufferLength
-	or	eax, eax
-	jz	lt_plainerr
-
-	mov	[esi].DEVEXT.dxState, LS_ST_SENSE
-	mov	[esi].DEVEXT.dxTicks, 0
-	jmp	lt_rearm
-
-lt_issue_retry:
-;  No ERR bit: the transport gave up rather than the device refusing. Try the
-;  whole command again, up to pf.c's PF_MAX_RETRIES, before calling it a day.
-	inc	[esi].DEVEXT.dxRetry
-	mov	eax, [esi].DEVEXT.dxRetry
-	cmp	eax, LS_MAX_RETRY
-	jae	lt_plainerr
-	mov	[esi].DEVEXT.dxState, LS_ST_READY
-	mov	[esi].DEVEXT.dxTicks, 0
-	jmp	lt_rearm
-
-lt_plainerr:
-	mov	al, SRB_STATUS_ERROR
-	jmp	lt_setstat
-
-;----------------------------------------------------------------------------
-;  FINISH - the packet was issued and its data phase completed, but the drive
-;  is still BSY. One status read per tick until it settles.
-;
-;  Budget is LS_TICKS_READY - 8 s, pf.c's PF_SPIN. Three independent sources
-;  agree on seconds here and we were allowing ~60 ms: Linux pf.c computes
-;  PF_SPIN = 160,000 x udelay(50) = 8 s; Imation's own SD120PPD.MPD spins
-;  500,000 x ScsiPortStallExecution(10) = 5 s for BSY and 1,000,000 = 10 s for
-;  BSY-or-DRQ; and this driver's own LS_TICKS_READY already says 8 s.
-;  docs/ls120_constant_sweep_2026_09_13.md.
-;----------------------------------------------------------------------------
-lt_finishwait:
-	call	LS_ReadyPoll
-	jc	lt_fin_dead
-	jz	lt_fin_done
-	mov	eax, [esi].DEVEXT.dxTicks
-	cmp	eax, LS_TICKS_READY
-	jb	lt_rearm
-	mov	al, SRB_STATUS_TIMEOUT
-	jmp	lt_setstat
-lt_fin_dead:
-	mov	al, SRB_STATUS_SELECTION_TIMEOUT
-	jmp	lt_setstat
-lt_fin_done:
-;  Settled. ERR here is a real CHECK CONDITION and takes the sense path.
-	mov	eax, LS_LastStatus
-	test	al, LS_ATA_ST_ERR
-	jnz	lt_issue_check
-	mov	al, SRB_STATUS_SUCCESS
-	jmp	lt_setstat
-
-;----------------------------------------------------------------------------
-;  SENSE - fetch the sense data into the SRB's own buffer.
-;----------------------------------------------------------------------------
-lt_sense:
-;  LS_RequestSense takes EDI = buffer, ECX = length - the SRB's own sense
-;  buffer, so the class driver reads it where it expects to.
-	mov	edi, [ebx].SCSI_REQUEST_BLOCK.SenseInfoBuffer
-	movzx	ecx, [ebx].SCSI_REQUEST_BLOCK.SenseInfoBufferLength
-	push	ebx
-	call	LS_RequestSense
-	pop	ebx
-	mov	esi, DeviceExtension
-	jc	lt_plainerr
-	mov	al, SRB_STATUS_ERROR OR SRB_STATUS_AUTOSENSE_VALID
-	jmp	lt_setstat
+;  No validation, no failure path, and nothing that blocks. Refusing to
+;  initialise because a probe did not like what it saw is the wrong pattern
+;  anyway: finding devices is SCSIPORT's job, and a miniport that vetoes
+;  itself removes the only channel that could report why.
+	call	LS_BringUp
+	mov	eax, TRUE
+	ret
+endif
+else
+	mov	eax, TRUE
+	ret
 endif
 
-;  Phase 0 has no state machine: the verdict was decided in LsStartIo and is
-;  already in dxPendStat, so go straight to completing it.
-	jmp	lt_finish
-
-lt_setstat:
-	movzx	eax, al
-	mov	[esi].DEVEXT.dxPendStat, eax
-
-lt_finish:
-;  Complete, and stop. Do NOT re-arm - there is nothing left to do and a timer
-;  that keeps firing on an idle adapter is a tick the machine cannot spare.
-	mov	ebx, [esi].DEVEXT.dxPendSrb
-;  Belt and braces: no SRB, nothing to complete. Reaching here without one is
-;  a bug upstream, and completing a null SRB corrupts SCSIPORT rather than
-;  reporting anything.
-	or	ebx, ebx
-	jz	lt_idle
-	LSDBG	021h, ebx			; finish: we are completing this one
-	mov	[esi].DEVEXT.dxPendSrb, 0
-	mov	[esi].DEVEXT.dxState, LS_ST_IDLE
-	mov	eax, [esi].DEVEXT.dxPendStat
-	LSDBG	022h, eax			; and this is the status it gets
-	mov	[ebx].SCSI_REQUEST_BLOCK.SrbStatus, al
-
-	push	ebx
-	push	DeviceExtension
-	push	RequestComplete
-	call	ScsiPortNotification
-	add	esp, 12
-
-	push	DeviceExtension
-	push	NextRequest
-	call	ScsiPortNotification
-	add	esp, 8
-
-;  Leave one tick armed. NextRequest does not promise to hand the next request
-;  back inside this call; if it defers, nothing else will arm the timer and the
-;  adapter sleeps with work queued. The vendor arms its next tick at the TOP of
-;  every callback, before doing any work, for the same reason. Costs one
-;  callback on a genuinely idle adapter, which then finds LS_ST_IDLE and stops.
-	jmp	lt_rearm
-
-lt_rearm:
-;  Still working. Ask to be called again in a millisecond.
-	push	LS_TIMER_US
-	push	OFFSET LsTimer
-	push	DeviceExtension
-	push	RequestTimerCall
-	call	ScsiPortNotification
-	add	esp, 16
-
-lt_idle:
-	pop	edi
-	pop	esi
-	pop	ebx
-	ret
-
-LsTimer ENDP
+LsInitialize ENDP
 
 ;============================================================================
 ; LsResetBus - nothing to reset. Returning FALSE would tell SCSIPORT the
@@ -1067,24 +479,20 @@ LsTimer ENDP
 ;============================================================================
 LsResetBus PROC STDCALL DeviceExtension:DWORD, PathId:DWORD
 
-	push	esi
-	mov	esi, DeviceExtension
-	LSDBG	024h, [esi].DEVEXT.dxPendSrb	; RESET: and what was in flight
-	pop	esi
 	mov	eax, TRUE
 	ret
 
 LsResetBus ENDP
 
 ;============================================================================
-; LsStartIo - validate, stash, arm the timer, RETURN.
+; LsStartIo - phase 0 answers every request with a selection timeout.
 ;
-;   RESTRUCTURED 2026-09-11. This used to run the entire ATAPI command inline
-;   and then arm a timer to report the answer it already had, which made the
-;   deferral cosmetic. The vendor's HwStartIo (rva 0x29ac) returns without
-;   completing, and so does PC2X's. IMPLEMENTATION.md section 1.2.
+;   SCSIPORT will scan the bus, be told there is nothing on it, and stop. The
+;   adapter stays loaded and resident, which is what the keyboard test needs -
+;   a driver that declined to load would prove nothing about a driver that
+;   runs.
 ;
-;   NO DEVICE I/O HAPPENS IN THIS FUNCTION.
+;   No hardware is touched here at all.
 ;============================================================================
 LsStartIo PROC STDCALL DeviceExtension:DWORD, Srb:DWORD
 
@@ -1093,28 +501,27 @@ LsStartIo PROC STDCALL DeviceExtension:DWORD, Srb:DWORD
 	push	edi
 
 	mov	ebx, Srb
+
+;  Count what we were asked, so a later phase can read back evidence that the
+;  dispatch path really ran rather than inferring it.
 	mov	esi, DeviceExtension
 	inc	[esi].DEVEXT.dxSrbCount
-;  Log WHAT was asked for, not which SRB it was. The pointer says nothing; the
-;  function and the CDB opcode say whether Windows wanted something we refuse.
-	push	eax
-	movzx	eax, [ebx].SCSI_REQUEST_BLOCK.Function
-	shl	eax, 8
-	mov	al, [ebx].SCSI_REQUEST_BLOCK.Cdb
-	LSDBG	020h, eax			; StartIo: (function << 8) | cdb[0]
-	pop	eax
 
-;  There is one slot. A second request arriving while one is still pending
-;  would overwrite dxPendSrb and the first would never be completed, which
-;  the OS waits for forever. Report it rather than assume it cannot happen.
-ifdef LS_DBGPORT
-	push	eax
-	mov	eax, [esi].DEVEXT.dxPendSrb
-	or	eax, eax
-	jz	lsi_noclash
-	LSDBG	023h, eax			; OVERLAP: this one is still pending
-lsi_noclash:
-	pop	eax
+ifdef LS_PHASE2
+;  First SRB ever: spin the media up. Correct for removable media - the drive
+;  is left stopped after init - and it is the one audible signal that says
+;  HwStartIo is being reached at all. Init no longer touches the motor, so a
+;  spin-up during boot means SCSIPORT is talking to us.
+;  NO unsolicited spin-up here. It used to fire on the first SRB, and that is
+;  what stopped the drive ever being enumerated: START STOP UNIT waits for the
+;  motor, an LS-120 takes seconds to come up, and SCSIPORT times an SRB out
+;  long before that - so the very INQUIRY that would have created the device
+;  was aborted. The stub build, which answers instantly, enumerates fine on
+;  the same machine; that pair is what identified this.
+;
+;  Spinning up is the class driver's business anyway. It issues its own START
+;  STOP UNIT with a timeout suited to it. A miniport's job here is to answer
+;  quickly and let the layer above decide how long it is willing to wait.
 endif
 
 	movzx	eax, [ebx].SCSI_REQUEST_BLOCK.Function
@@ -1124,7 +531,7 @@ endif
 ifndef LS_PHASE2
 ;  PHASE 0: nothing is attached, as far as this build is concerned.
 	mov	al, SRB_STATUS_SELECTION_TIMEOUT
-	jmp	lsi_defer
+	jmp	lsi_complete
 else
 ;----------------------------------------------------------------------------
 ;  PHASE 2: SRB -> ATAPI, and it is very nearly a pass-through.
@@ -1134,14 +541,47 @@ else
 ;  - zero-padded if the class driver sent a 6- or 10-byte form. So this layer
 ;  does no command translation at all, which is the whole reason an ATAPI
 ;  device is worth presenting as SCSI.
+;
+;  *** UNTESTED. The transport beneath this is stubbed. ***
 ;----------------------------------------------------------------------------
 	cmp	[ebx].SCSI_REQUEST_BLOCK.Lun, 0
 	jne	lsi_noselect
 	cmp	[ebx].SCSI_REQUEST_BLOCK.TargetId, 0
 	jne	lsi_noselect
 
-;  Copy the CDB into a zero-filled twelve-byte packet. SCSIPORT serialises
-;  requests for one adapter, so a single static packet is safe.
+ifdef LS_FAKE_DEVICE
+;  Answer from canned data; touch no hardware at all.
+	movzx	eax, byte ptr [ebx].SCSI_REQUEST_BLOCK.Cdb
+	cmp	eax, 012h		; INQUIRY
+	je	lsi_fake_inq
+	cmp	eax, 025h		; READ CAPACITY
+	je	lsi_fake_cap
+	cmp	eax, 000h		; TEST UNIT READY
+	je	lsi_fake_ok
+	mov	al, SRB_STATUS_SUCCESS
+	jmp	lsi_complete
+lsi_fake_inq:
+	lea	esi, LsFakeInq
+	mov	ecx, 36
+	jmp	lsi_fake_copy
+lsi_fake_cap:
+	lea	esi, LsFakeCap
+	mov	ecx, 8
+lsi_fake_copy:
+	mov	eax, [ebx].SCSI_REQUEST_BLOCK.DataTransferLength
+	cmp	ecx, eax
+	jbe	lsi_fake_len
+	mov	ecx, eax
+lsi_fake_len:
+	mov	edi, [ebx].SCSI_REQUEST_BLOCK.DataBuffer
+	cld
+	rep	movsb
+lsi_fake_ok:
+	mov	al, SRB_STATUS_SUCCESS
+	jmp	lsi_complete
+endif
+
+;  Copy the CDB into a zero-filled twelve-byte packet.
 	lea	edi, LsPacket
 	mov	ecx, LS_CDB_MAX
 	xor	eax, eax
@@ -1168,90 +608,45 @@ else
 	mov	edx, 1
 lsi_dirin:
 
-	mov	esi, DeviceExtension
-	mov	[esi].DEVEXT.dxDir, edx
-	mov	eax, [ebx].SCSI_REQUEST_BLOCK.DataBuffer
-	mov	[esi].DEVEXT.dxBuf, eax
-	mov	eax, [ebx].SCSI_REQUEST_BLOCK.DataTransferLength
-	mov	[esi].DEVEXT.dxLen, eax
-	mov	[esi].DEVEXT.dxRetry, 0
+	lea	esi, LsPacket
+	mov	edi, [ebx].SCSI_REQUEST_BLOCK.DataBuffer
+	mov	ecx, [ebx].SCSI_REQUEST_BLOCK.DataTransferLength
+	call	LS_PacketCommand
+	jc	lsi_ioerror
 
-;  Take the caller's deadline. SCSIPORT puts a timeout on every SRB and this
-;  driver had never read it - the state machine's own budgets came to
-;  LS_TICKS_COLD + 2 x LS_TICKS_READY = 19 s with no reference to what the OS
-;  would wait for. SCSIPORT then times the request out itself, and a timed-out
-;  INQUIRY during enumeration means NO DEVICE. DESIGN.md I5a.
-;
-;  TimeOutValue is in seconds; a tick is a millisecond. Clamp both ends: 0
-;  means the caller did not say, and anything beyond LS_LIMIT_MAX ticks is
-;  longer than this driver is willing to hold a request open regardless.
-	mov	[esi].DEVEXT.dxTotal, 0
-	mov	eax, [ebx].SCSI_REQUEST_BLOCK.TimeOutValue
-	or	eax, eax
-	jz	lsi_lim_default
-	cmp	eax, LS_LIMIT_MAXSEC
-	jbe	lsi_lim_ok
-lsi_lim_default:
-	mov	eax, LS_LIMIT_DEFSEC
-lsi_lim_ok:
-	mov	ecx, 1000
-	mul	ecx
-	mov	[esi].DEVEXT.dxLimit, eax
+	mov	al, SRB_STATUS_SUCCESS
+	jmp	lsi_complete
+endif
 
-;  First request of all opens the bridge; after that go straight to waiting
-;  for the drive. Either way the work happens in the timer, not here.
-;  A cold start that already failed does not get another 3 seconds. SCSIPORT
-;  probes every target and some paths retry five times, so at
-;  LS_TICKS_COLD + 2 x LS_TICKS_READY = 19 s of budget per SRB that is minutes
-;  of boot spent proving the same absence over and over. Measured as a long
-;  quiet pause before the desktop on 2026-09-14.
-;
-;  DESIGN.md I1 says absence is an answer, not a timeout. The budgets honour
-;  that for ONE request; this makes it hold for the adapter.
-	mov	eax, [esi].DEVEXT.dxColdFail
-	or	eax, eax
-	jnz	lsi_noselect
-
-	mov	eax, [esi].DEVEXT.dxColdDone
-	or	eax, eax
-	jnz	lsi_warm
-	mov	[esi].DEVEXT.dxState, LS_ST_COLDSTART
-	jmp	lsi_arm
-lsi_warm:
-	mov	[esi].DEVEXT.dxState, LS_ST_READY
-	jmp	lsi_arm
-
+ifdef LS_PHASE2
+lsi_ioerror:
+	mov	al, SRB_STATUS_ERROR
+	jmp	lsi_complete
 lsi_badreq:
 	mov	al, SRB_STATUS_INVALID_REQUEST
-	jmp	lsi_defer
+	jmp	lsi_complete
 lsi_noselect:
 	mov	al, SRB_STATUS_SELECTION_TIMEOUT
-	jmp	lsi_defer
+	jmp	lsi_complete
 endif
 
 lsi_badfunc:
 	mov	al, SRB_STATUS_BAD_FUNCTION
 
-lsi_defer:
-;  A verdict we already have. Still completed from the timer, because
-;  completing inside HwStartIo is the thing this restructure removes.
-	movzx	eax, al
-	mov	esi, DeviceExtension
-	mov	[esi].DEVEXT.dxPendStat, eax
-	mov	[esi].DEVEXT.dxState, LS_ST_DONE
-
-lsi_arm:
-	mov	esi, DeviceExtension
-	mov	[esi].DEVEXT.dxPendSrb, ebx
-	mov	[esi].DEVEXT.dxTicks, 0
+lsi_complete:
+	mov	[ebx].SCSI_REQUEST_BLOCK.SrbStatus, al
 
 ;  ScsiPortNotification is cdecl and varargs, so we clean the stack.
-	push	LS_TIMER_US
-	push	OFFSET LsTimer
+	push	ebx
 	push	DeviceExtension
-	push	RequestTimerCall
+	push	RequestComplete
 	call	ScsiPortNotification
-	add	esp, 16
+	add	esp, 12
+
+	push	DeviceExtension
+	push	NextRequest
+	call	ScsiPortNotification
+	add	esp, 8
 
 	pop	edi
 	pop	esi
