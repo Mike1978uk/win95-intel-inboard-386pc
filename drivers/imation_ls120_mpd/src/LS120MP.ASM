@@ -52,6 +52,7 @@ EXTERNDEF	LS_Connect		: NEAR
 EXTERNDEF	LS_BringUp		: NEAR
 EXTERNDEF	LS_ColdStart		: NEAR
 EXTERNDEF	LS_ReadyPoll		: NEAR
+EXTERNDEF	LS_BridgeProbe		: NEAR
 EXTERNDEF	LS_SpinUp		: NEAR
 EXTERNDEF	LS_Disconnect		: NEAR
 EXTERNDEF	LS_BasePort		: WORD
@@ -163,7 +164,13 @@ LS_ST_FINISH		equ	6	; issued, data moved, drive still BSY - wait it out
 ;  costs 8000 timer callbacks and no blocked CPU - and was fatal in a spin
 ;  loop.
 LS_TICKS_READY		equ	8000	; 8 s, pf.c's PF_SPIN
-LS_TICKS_COLD		equ	3000	; 3 s to open a bridge that is present
+;  A cold-start tick is NOT a millisecond. LS_ColdStart pulses SRST and then
+;  waits LS_SPIN_RESET for BSY to clear - ~92 ms - so this is an attempt
+;  count, not a time in ms, and 3000 of them was ~276 s rather than the 3 s
+;  the old comment claimed. 30 x 92 ms = ~2.8 s, which is what was meant.
+;  The wait belongs in this state machine rather than inside LS_ColdStart
+;  (DESIGN.md I3, change 5); until it moves, the budget has to account for it.
+LS_TICKS_COLD		equ	30	; ~2.8 s to open a bridge that is present
 LS_MAX_RETRY		equ	5	; pf.c's PF_MAX_RETRIES
 
 ;----------------------------------------------------------------------------
@@ -183,7 +190,8 @@ dxBuf		DWORD	?		; caller's data buffer
 dxLen		DWORD	?		; caller's transfer length
 dxDir		DWORD	?		; 0 = data in, 1 = data out
 dxColdDone	DWORD	?		; the bridge has been opened once
-dxReserved	DWORD	2 DUP (?)
+dxBridgeVer	DWORD	?		; EPAT version code read at FindAdapter
+dxReserved	DWORD	?
 DEVEXT	ENDS
 
 	.DATA
@@ -381,6 +389,47 @@ lfa_havebase:
 ifdef LS_PHASE2
 ;  The transport addresses the port directly, so it needs the same base.
 	mov	LS_BasePort, ax
+
+;----------------------------------------------------------------------------
+;  Tier 1 of the presence test - DESIGN.md section 4.2.
+;
+;  Is an EPAT on the cable at all? Read the bridge's own version register,
+;  which answers whether or not a drive is attached behind it. Declining here
+;  costs the boot nothing; the alternative is what the owner measured with the
+;  drive unplugged - the state machine treating a floating bus as a device
+;  that had not replied yet, and waiting for it until he plugged the drive
+;  back in.
+;
+;  This routine used to return SP_RETURN_FOUND unconditionally, deliberately:
+;  a phase-0 build that declined to load would have tested nothing. That was
+;  right for phase 0 and is wrong now.
+;
+;  Three attempts, because a bridge that is powered but not yet settled is an
+;  ordinary thing to meet on a cold boot. There is no delay between them
+;  beyond the CPP disconnect and connect frames each attempt already issues -
+;  about 60 port accesses, ~350 us of settling. Whole cost if nothing is
+;  there: under 1 ms, against the hours the old path could spend.
+;----------------------------------------------------------------------------
+	mov	ecx, 3
+lfa_probe:
+	push	ecx
+	call	LS_BridgeProbe
+	pop	ecx
+	jnc	lfa_probe_ok
+	dec	ecx
+	jnz	lfa_probe
+
+	pop	edi
+	pop	esi
+	pop	ebx
+	mov	eax, SP_RETURN_NOT_FOUND
+	ret
+
+lfa_probe_ok:
+;  Recorded rather than checked. Linux prints this value and never compares
+;  it, so there is no constant to test against - see DESIGN.md section 8.
+;  Reading it out of a live machine once is what turns it into one.
+	mov	[ebx].DEVEXT.dxBridgeVer, eax
 endif
 
 ;  The one and only hardware access in phase 0: read the status register.

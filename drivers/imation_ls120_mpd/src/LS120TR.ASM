@@ -86,6 +86,13 @@ CONT_BRIDGE		equ	000h		; internal bridge registers
 CONT_IDECTL		equ	010h		; IDE control
 CONT_TASKFILE		equ	018h		; IDE task file - ATA status is 018h+7
 
+;  Two registers in the EPAT's own space, from epat.c's epat_log_adapter:
+;  write 38h to 0Ah to select the version code, then read it from 0Bh. They
+;  answer with no drive attached, which is the whole point of LS_BridgeProbe -
+;  nothing else the driver can read distinguishes "no bridge" from "no drive".
+EPAT_REG_VERSEL		equ	00Ah
+EPAT_REG_VERSION	equ	00Bh
+
 ;  WRITE Normal tags the register number; NIBBLE read sends it bare.
 NIB_WRITE_TAG		equ	060h
 
@@ -171,6 +178,14 @@ ATAPI_PACKET_LEN	equ	12
 ;  ~44 us per nibble register read, so 2000 = ~90 ms and 1000 = ~45 ms.
 LS_SPIN_BSY		equ	2000		; ~90 ms
 LS_SPIN_DRQ		equ	1000		; ~45 ms
+
+;  The wait for BSY to clear after SRST. This was 0FFFFh - the only loop in
+;  the transport that did not carry a derived bound - and at 46 us per nibble
+;  read that is 65535 x 46 us = 3.0 SECONDS inside one timer callback, which
+;  LsTimer then re-armed up to LS_TICKS_COLD times. Measured per-access cost:
+;  5.77 us (technique 109e), 8 accesses per nibble register read.
+;    2000 x 46 us = ~92 ms per attempt, x LS_TICKS_COLD attempts = ~2.8 s.
+LS_SPIN_RESET		equ	2000		; ~92 ms
 
 	.DATA
 
@@ -373,18 +388,20 @@ LS_AtaSoftReset:
 ;  Poll BSY down. A nibble read is ~8 port accesses at ~3.9 us of Inboard-to-
 ;  XT-bus sync each, so this loop is self-timing at roughly 30 us an iteration
 ;  - no calibrated delay to get wrong, and none to go stale on other hardware.
-	mov	ecx, 0FFFFh
+	mov	ecx, LS_SPIN_RESET
 lsrst_wait:
 	push	ecx
-	mov	al, ATA_REG_STATUS
-	call	LS_RegRead
+	call	LS_StatusRead
 	pop	ecx
-	jc	lsrst_next
+;  CF here means nothing is driving the bus - an empty cable, or a live bridge
+;  with no drive behind it. There is no point spending the rest of the budget
+;  on it, and spending it is exactly what stalled the boot.
+	jc	lsrst_dead
 	test	al, ATA_ST_BSY
 	jz	lsrst_done
-lsrst_next:
 	dec	ecx
 	jnz	lsrst_wait
+lsrst_dead:
 	pop	ebx
 	stc
 	ret
@@ -606,6 +623,20 @@ LS_Disconnect:
 ;----------------------------------------------------------------------------
 public LS_RegRead
 LS_RegRead:
+	push	ecx
+	mov	ch, CONT_TASKFILE
+	jmp	short lrr_common
+
+;  Same read, into a caller-chosen container. CONT_BRIDGE reaches the EPAT's
+;  own registers, which answer with no drive attached - that is what makes the
+;  presence probe in LS_BridgeProbe possible. epat.c calls the two spaces RR
+;  (cont 2, offset 0, the bridge) and RRi (cont 0, offset 18h, the task file);
+;  its cont_map is { 18h, 10h, 0 }, so its numbering is the reverse of ours.
+;   In:   AL = register index, CH = CONT_* container offset
+public LS_RegReadCont
+LS_RegReadCont:
+	push	ecx
+lrr_common:
 ;  NIBBLE Normal. The bridge returns a byte as two nibbles, each arriving in
 ;  the TOP four bits of the SPP status port, so the low nibble has to be
 ;  shifted down and the high one masked. Getting that pair the wrong way round
@@ -613,7 +644,7 @@ LS_RegRead:
 	push	ebx
 	pushfd
 	cli
-	add	al, CONT_TASKFILE	; a bare register number addresses nothing
+	add	al, ch			; a bare register number addresses nothing
 	movzx	edx, LS_BasePort
 	out	dx, al
 	movzx	edx, LS_BasePort
@@ -642,7 +673,82 @@ LS_RegRead:
 	movzx	eax, al
 	popfd
 	pop	ebx
+	pop	ecx
 	clc
+	ret
+
+;----------------------------------------------------------------------------
+; LS_StatusRead - read the ATA status register, and say whether it is real.
+;
+;   Out:  AL = status, CF=0 if a device answered
+;         CF=1 if nothing is on the cable (AL is 00h or FFh)
+;   Uses: EAX, ECX, EDX
+;
+;   LS_RegRead cannot fail - it ends `clc`, unconditionally - so with nothing
+;   attached the SPP status port floats high, both nibbles read 0Fh, and it
+;   returns FFh REPORTED AS A GOOD READ. FFh has BSY set, so every caller then
+;   treats an empty cable as a device that is merely busy and waits for it.
+;   That is what stopped Windows reaching the desktop with the drive unplugged:
+;   the SRST wait below spent its full budget on a bus nobody was driving.
+;
+;   The judgement lives here rather than in LS_RegRead because FFh and 00h are
+;   only diagnostic for STATUS. A byte count of 00h is ordinary, and an error
+;   register of 00h is the good case; flagging those would break real reads.
+;   For status both are impossible: BSY and DRDY set together is illegal, and
+;   00h is the classic ATA "no device" float.
+;----------------------------------------------------------------------------
+public LS_StatusRead
+LS_StatusRead:
+	mov	al, ATA_REG_STATUS
+	call	LS_RegRead
+	cmp	al, 0FFh
+	je	lsr_dead
+	or	al, al
+	jz	lsr_dead
+	clc
+	ret
+lsr_dead:
+	stc
+	ret
+
+;----------------------------------------------------------------------------
+; LS_BridgeProbe - is an EPAT on the cable at all? Costs ~250 us, once.
+;
+;   Out:  CF=0 and AL = the bridge's version code
+;         CF=1 if nothing answered
+;   Uses: EAX, ECX, EDX
+;
+;   epat.c's own identity read (epat_log_adapter): write 38h to bridge
+;   register 0Ah to select the version code, then read bridge register 0Bh.
+;   Both are in the EPAT's OWN register space, so this answers with no drive
+;   attached - which is the distinction the driver has been missing. A missing
+;   BRIDGE must make the miniport decline to load; a missing DRIVE behind a
+;   live bridge is a failed SRB and nothing worse.
+;
+;   Linux prints the version and never compares it, so there is no constant to
+;   check against. Presence does not need one: 00h and FFh are the two ways a
+;   floating bus lies, and anything else means silicon answered.
+;----------------------------------------------------------------------------
+public LS_BridgeProbe
+LS_BridgeProbe:
+	call	LS_PortOpen		; the FULL open, not a bare CPP connect
+	mov	ch, CONT_BRIDGE
+	mov	ax, (038h SHL 8) OR EPAT_REG_VERSEL
+	call	LS_RegWriteCont
+	mov	al, EPAT_REG_VERSION
+	mov	ch, CONT_BRIDGE
+	call	LS_RegReadCont
+	push	eax
+	call	LS_Disconnect
+	pop	eax
+	cmp	al, 0FFh
+	je	lbp_dead
+	or	al, al
+	jz	lbp_dead
+	clc
+	ret
+lbp_dead:
+	stc
 	ret
 
 ;----------------------------------------------------------------------------
@@ -1398,9 +1504,8 @@ LS_WaitNotBusy:
 	push	ebx
 	mov	ebx, LS_SPIN_BSY
 lwnb_loop:
-	mov	al, ATA_REG_STATUS
-	call	LS_RegRead
-	jc	lwnb_fail
+	call	LS_StatusRead
+	jc	lwnb_fail		; nothing on the cable - stop, do not wait it out
 	mov	LS_LastStatus, eax
 	test	al, ATA_ST_BSY
 	jz	lwnb_ok
@@ -1426,9 +1531,8 @@ LS_WaitDrq:
 	push	ebx
 	mov	ebx, LS_SPIN_DRQ
 lwd_loop:
-	mov	al, ATA_REG_STATUS
-	call	LS_RegRead
-	jc	lwd_fail
+	call	LS_StatusRead
+	jc	lwd_fail		; nothing on the cable - stop, do not wait it out
 	mov	LS_LastStatus, eax
 	test	al, ATA_ST_BSY
 	jnz	lwd_next
@@ -1583,8 +1687,12 @@ LS_PfWait:
 	push	edx
 	mov	ecx, LS_SPIN_BSY
 lpw_loop:
-	mov	al, ATA_REG_STATUS
-	call	LS_RegRead
+	call	LS_StatusRead
+;  pf.c cannot meet this case - its bus is an IDE cable, not a bridge that may
+;  not be there - so it has no equivalent branch. A dead bus is not a phase
+;  that has yet to arrive, and spinning out the budget on one is the bug this
+;  whole change exists to remove.
+	jc	lpw_dead
 	mov	LS_LastStatus, eax
 	mov	dl, al
 	and	dl, bl			; any "go" bit still set?
@@ -1597,6 +1705,7 @@ lpw_loop:
 lpw_next:
 	dec	ecx
 	jnz	lpw_loop
+lpw_dead:
 	pop	edx
 	pop	ecx
 	stc
@@ -1881,6 +1990,43 @@ lpc_fail:
 ;   TRANSPORT_SPEC.md section 5.
 ;----------------------------------------------------------------------------
 LS_ColdStart:
+	call	LS_PortOpen
+	call	LS_AtaSoftReset
+	jc	lcs_fail
+	mov	al, ATA_REG_BCLO
+	call	LS_RegRead
+	jc	lcs_fail
+	cmp	al, ATAPI_SIG_LO
+	jne	lcs_fail
+	mov	al, ATA_REG_BCHI
+	call	LS_RegRead
+	jc	lcs_fail
+	cmp	al, ATAPI_SIG_HI
+	jne	lcs_fail
+	call	LS_Disconnect
+	clc
+	ret
+lcs_fail:
+	call	LS_Disconnect
+	stc
+	ret
+
+;----------------------------------------------------------------------------
+; LS_PortOpen - put the port in a known state and connect to the bridge.
+;
+;   Out:  bridge connected, LS_Connected = 1, LS_HasEcp set
+;   Uses: EAX, ECX, EDX
+;
+;   Split out of LS_ColdStart so LS_BridgeProbe can open the port the SAME
+;   way. A bare CPP(0E0h) is not a port open: epat_connect always sends
+;   CPP(0) first, and the vendor sends 30h/40h/50h/00h before it. A probe
+;   that connected with E0h alone could fail on a perfectly good bridge that
+;   had simply never been initialised - and this probe decides whether the
+;   driver loads at all, so a false negative there is worse than the bug it
+;   was added to fix.
+;----------------------------------------------------------------------------
+public LS_PortOpen
+LS_PortOpen:
 	movzx	edx, LS_BasePort
 	add	edx, LPT_ECP_ECR
 	in	al, dx
@@ -1911,24 +2057,6 @@ LS_ColdStart:
 	mov	al, CPP_CONNECT
 	call	LS_CppFrame
 	mov	LS_Connected, 1
-	call	LS_AtaSoftReset
-	jc	lcs_fail
-	mov	al, ATA_REG_BCLO
-	call	LS_RegRead
-	jc	lcs_fail
-	cmp	al, ATAPI_SIG_LO
-	jne	lcs_fail
-	mov	al, ATA_REG_BCHI
-	call	LS_RegRead
-	jc	lcs_fail
-	cmp	al, ATAPI_SIG_HI
-	jne	lcs_fail
-	call	LS_Disconnect
-	clc
-	ret
-lcs_fail:
-	call	LS_Disconnect
-	stc
 	ret
 
 ;----------------------------------------------------------------------------
@@ -1951,9 +2079,8 @@ LS_ReadyPoll:
 	call	LS_Connect
 	jc	lrp_fail
 lrp_have:
-	mov	al, ATA_REG_STATUS
-	call	LS_RegRead
-	jc	lrp_fail
+	call	LS_StatusRead
+	jc	lrp_fail		; CF now reachable - LS_RegRead alone never set it
 	mov	LS_LastStatus, eax
 	call	LS_Disconnect
 	mov	eax, LS_LastStatus
