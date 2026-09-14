@@ -113,6 +113,15 @@ MEDIA_LBA = 100000
 # the rest is stranded - and the command still reports success. That is a
 # silent short transfer, which is the one failure mode worse than an error.
 # The offered count lands at slot+6, so this measures it directly.
+# Issue FORMAT UNIT. The drive formats its own surface internally, so this is
+# ONE command with no data phase and no parameter list (FmtData=0 - "default
+# parameters" - which means there is no defect-list header to get wrong on
+# real media). It holds BSY for minutes, far past this probe's 2.3 s waits, so
+# the probe fires it, times out waiting, and exits; the drive carries on. Run
+# an ordinary read probe afterwards to see whether it finished.
+#
+# *** DESTRUCTIVE. This erases the disk. ***
+FORMAT_UNIT = False
 MEDIA_SECTORS = 1
 BUF_BIG_W, BUF_BIG_R = 0x4000, 0x8000   # 16 KB each, clear of everything
 BW, BWC, BWL, BWE = 0x1B00, 0x1B20, 0x1B40, 0x1B60
@@ -148,8 +157,8 @@ def blk(a, i):
 # The generator's layout check could not catch this: it only compares each
 # block against the NEXT block's start, and these are data addresses, not
 # blocks. check_layout() below now tests them explicitly.
-SLOTS = 0x1D00            # 16 slots of 8 bytes, clear of CDBS..CDBS+0xC0
-MARK = 0x1D80             # one byte: how far the probe got
+SLOTS = 0x1E00            # clear of CDBS..CDBS+0x120 (nine CDBs)
+MARK = 0x1EA0             # one byte: how far the probe got
 
 
 def mark(n):
@@ -295,6 +304,10 @@ def build():
         m += mark(0x90) + packet(CDBS + 0xC0, wbuf, nbytes,
                                  SLOTS + 0x90, out=True)
         m += mark(0x98) + packet(CDBS + 0xE0, rbuf, nbytes, SLOTS + 0x98)
+    elif FORMAT_UNIT:
+        # No data phase. Fire and leave - the drive keeps formatting after
+        # DEBUG exits, so a later read probe is what reports the outcome.
+        m += mark(0xA0) + packet(CDBS + 0x100, BUF_SECTOR, 0, SLOTS + 0xA0)
     elif MEDIA_READ_ONLY:
         m += mark(0x97) + ["call %04X" % (POISB if MEDIA_SECTORS > 1 else POIS)]
         m += mark(0x98) + packet(CDBS + 0xE0, rbuf, nbytes, SLOTS + 0x98)
@@ -397,6 +410,7 @@ def build():
         % ((MEDIA_LBA >> 24) & 0xFF, (MEDIA_LBA >> 16) & 0xFF,
            (MEDIA_LBA >> 8) & 0xFF, MEDIA_LBA & 0xFF,
            (MEDIA_SECTORS >> 8) & 0xFF, MEDIA_SECTORS & 0xFF),
+        "04 00 00 00 00 00 00 00 00 00 00 00",   # FORMAT UNIT, default params
     ]
     for i, c in enumerate(cdbs):
         l += ["e %04X %s" % (CDBS + i * 0x20, c), ""]
@@ -437,6 +451,13 @@ def build():
                         "and DEBUG DROPS the instruction rather than failing"
                         % (pc, x, disp))
             pc = nxt
+        cdb_end = CDBS + len(cdbs) * 0x20 - 1
+        for name, lo, hi in (("MARK", MARK, MARK),
+                             ("SLOTS", SLOTS, SLOTS + 0x9F)):
+            if lo <= cdb_end and hi >= CDBS:
+                raise SystemExit(
+                    "%s (%04X-%04X) overlaps the CDB table at %04X-%04X"
+                    % (name, lo, hi, CDBS, cdb_end))
         for name, lo, hi in (("MARK", MARK, MARK),
                              ("SLOTS", SLOTS, SLOTS + 0x7F)):
             if lo < addr + need and hi >= addr:
@@ -473,6 +494,8 @@ if __name__ == "__main__":
         MEDIA_TEST = True
     if "--mediaread" in sys.argv:
         MEDIA_READ_ONLY = True
+    if "--formatunit" in sys.argv:
+        FORMAT_UNIT = True
     if "--sectors" in sys.argv:
         MEDIA_SECTORS = int(sys.argv[sys.argv.index("--sectors") + 1])
         if MEDIA_SECTORS > 1:
