@@ -144,5 +144,23 @@ if (-not (Test-Path $ledger)) {
     "utc`tcode`tmd5`tbytes`tcommit`ttree`tflags" | Out-File -FilePath $ledger -Encoding ascii
 }
 $flags = if ($defs) { $defs -join ' ' } else { '(none)' }
+
+# Stamp the build's identity into the INF's model name. Device Manager shows
+# DriverDesc and nothing else about a miniport, so an INF whose name never
+# changes makes every iteration look identical on the machine - there is no way
+# to tell which build is installed, or whether a deploy took. The name must
+# carry the code hash.
+$infSrc = Join-Path $here 'LS120MP.INF'
+$infOut = Join-Path $out 'LS120MP.INF'
+if (Test-Path $infSrc) {
+    $modeTag = if ($Mode) { $Mode } else { 'auto' }
+    $desc = "LS-120 EPAT  $code  $commit  $modeTag"
+    $infText = [System.IO.File]::ReadAllText($infSrc)
+    $pattern = '(?m)^LS120PP=".*"[ 	]*?$'
+    if ($infText -notmatch $pattern) { throw 'LS120MP.INF has no LS120PP= model line to stamp' }
+    $infText = [System.Text.RegularExpressions.Regex]::Replace($infText, $pattern, "LS120PP=`"$desc`"")
+    [System.IO.File]::WriteAllText($infOut, $infText)
+    Write-Host "LS120MP.INF  DriverDesc = $desc" -ForegroundColor Green
+}
 "{0}`t{1}`t{2}`t{3}`t{4}`t{5}`t{6}" -f (Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ'), $code, $md5, $bytes, $commit, $tree, $flags |
     Out-File -FilePath $ledger -Encoding ascii -Append
