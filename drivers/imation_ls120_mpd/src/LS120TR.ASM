@@ -372,6 +372,23 @@ LS_Connect:
 	mov	al, CPP_CONNECT
 	call	LS_CppFrame
 	mov	LS_Connected, 1
+
+;  Same four writes as LS_PortOpen. A disconnect does not preserve the bridge's
+;  configuration, and this is the reconnect used by every poll and every SRB -
+;  LS_ReadyPoll, LS_ColdStart's poll path, LS_PacketCommand. Without them the
+;  first connect worked and every one after it read zeros.
+	mov	ch, CONT_BRIDGE
+	mov	ax, (010h SHL 8) OR 008h
+	call	LS_RegWriteCont
+	mov	ch, CONT_BRIDGE
+	mov	ax, (014h SHL 8) OR 00Ch
+	call	LS_RegWriteCont
+	mov	ch, CONT_BRIDGE
+	mov	ax, (038h SHL 8) OR 00Ah
+	call	LS_RegWriteCont
+	mov	ch, CONT_BRIDGE
+	mov	ax, (010h SHL 8) OR 012h
+	call	LS_RegWriteCont
 	clc
 	ret
 
@@ -2150,6 +2167,31 @@ LS_PortOpen:
 	mov	al, CPP_CONNECT
 	call	LS_CppFrame
 	mov	LS_Connected, 1
+
+;  Configure the bridge. THIS WAS MISSING ENTIRELY, and it is why the driver
+;  read status 00h for ever under Windows while the DOS probe read 50h and did
+;  full read/write with the same sequences.
+;
+;  epat_connect does these four on EVERY connect, and the probe that works does
+;  them too (mov ax,1008 / 140C / 380A / 1012). The driver did them never. A
+;  CPP connect alone addresses the bridge; it does not set it up.
+;
+;    08h = 10h   transfer/mode configuration
+;    0Ch = 14h
+;    0Ah = 38h   selects the version code in 0Bh
+;    12h = 10h
+	mov	ch, CONT_BRIDGE
+	mov	ax, (010h SHL 8) OR 008h
+	call	LS_RegWriteCont
+	mov	ch, CONT_BRIDGE
+	mov	ax, (014h SHL 8) OR 00Ch
+	call	LS_RegWriteCont
+	mov	ch, CONT_BRIDGE
+	mov	ax, (038h SHL 8) OR 00Ah
+	call	LS_RegWriteCont
+	mov	ch, CONT_BRIDGE
+	mov	ax, (010h SHL 8) OR 012h
+	call	LS_RegWriteCont
 	ret
 
 ;----------------------------------------------------------------------------
