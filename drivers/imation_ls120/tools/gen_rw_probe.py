@@ -142,6 +142,29 @@ PAT, PATL = 0x1BB0, 0x1BD0
 POIS, POISL = 0x1BE0, 0x1BF0
 PATB, PATBL, POISB, POISBL = 0x1700, 0x1710, 0x1720, 0x1730
 
+# ECP block transfer, transliterated from the driver's LS_BlockReadEcp and
+# LS_BlockWriteEcp so that a pass here is evidence about the driver and not
+# about a second implementation (IMPLEMENTATION.md section 9).
+#
+# Registers stay NIBBLE throughout - only the DATA phase goes over ECP. A
+# per-register ECP read times out by design: a register read has no data
+# phase, so the reverse FIFO never fills (IMPLEMENTATION.md section 5).
+#
+# Unlike the driver this does NOT fall back to SPP on a refusal. The probe
+# exists to find out whether ECP works, and a silent fallback would report
+# SPP's result as ECP's.
+ENEG, ENEGW, ENEGD = 0x1000, 0x1040, 0x1060
+EDIR = 0x1080
+EWE, EWEL = 0x10B0, 0x10C0
+EWD, EWDL = 0x10E0, 0x10F0
+ECMD, ECMDX = 0x1110, 0x1140
+ELV = 0x1160
+EBR, EBRL, EBRF = 0x1190, 0x11F0, 0x11D0   # EBRF within jcxz reach of EBR
+EBW, EBWC, EBWS, EBWT = 0x1250, 0x1290, 0x12C0, 0x1288   # EBWT ditto
+ECP_MODE, ECP_BYTE = 0x74, 0x34
+ECP_FIFO, ECP_ECR = 0x400, 0x402
+USE_ECP = False
+
 CDBS = 0x1C00   # five 12-byte CDBs, 0x20 apart
 BUF_INQ, BUF_SENSE, BUF_SECTOR, BUF_PATTERN, BUF_BACK = (
     0x2000, 0x2040, 0x2200, 0x2400, 0x2600)
@@ -229,12 +252,89 @@ def packet(cdb, buf, ln, slot, out=False):
         "mov cx,[%04X]" % (slot + 6), "add cx,0003", "and cx,FFFC",
         "mov si,%04X" % buf,
         "mov byte ptr [%04X],%02X" % (MARK, (slot & 0xF0) | 4),
-        "call %04X" % (BW if out else BR),
+        "call %04X" % ((EBW if USE_ECP else BW) if out
+                       else (EBR if USE_ECP else BR)),
         "mov byte ptr [%04X],%02X" % (MARK, (slot & 0xF0) | 5),
         "call %04X" % WBSY,                             # pf's "data done"
         "mov al,1F", "call %04X" % NIB, "mov [%04X],al" % (slot + 2),
         "mov al,19", "call %04X" % NIB, "mov [%04X],al" % (slot + 3),
     ]
+
+
+def ecp_blocks():
+    """The driver's ECP path, in DEBUG's 16-bit form."""
+    F, R = B + ECP_FIFO, B + ECP_ECR
+    neg = ["mov dx,%04X" % C, "mov al,0C", "out dx,al", "mov al,04", "out dx,al",
+           "mov dx,%04X" % B, "xor al,al", "out dx,al", "out dx,al",
+           "mov dx,%04X" % C, "mov al,01", "out dx,al", "out dx,al",
+           "mov al,04", "out dx,al", "mov al,0C", "out dx,al",
+           "mov dx,%04X" % B, "mov al,10", "out dx,al",
+           "mov dx,%04X" % C, "mov al,06", "out dx,al", "out dx,al", "out dx,al",
+           "mov dx,%04X" % S, "mov cx,0100", "jmp %04X" % ENEGW]
+    negw = ["in al,dx", "test al,40", "jz %04X" % ENEGD,
+            "dec cx", "jnz %04X" % ENEGW, "jmp %04X" % ENEGD]
+    negd = ["mov [%04X],al" % (SLOTS + 0xA8),
+            "mov dx,%04X" % C, "mov al,07", "out dx,al", "out dx,al",
+            "mov al,04", "out dx,al", "out dx,al", "ret"]
+    # AL = CTRL_FWD (04) or CTRL_REV (20)
+    edir = ["mov bh,al", "mov dx,%04X" % R, "mov al,%02X" % ECP_BYTE, "out dx,al",
+            "mov dx,%04X" % C, "in al,dx", "and al,10", "or al,bh", "out dx,al",
+            "mov dx,%04X" % R, "mov al,%02X" % ECP_MODE, "out dx,al", "ret"]
+    ewe = ["mov dx,%04X" % R, "mov cx,FFFF", "jmp %04X" % EWEL]
+    ewel = ["in al,dx", "test al,01", "jnz %04X" % ECMDX,
+            "dec cx", "jnz %04X" % EWEL, "stc", "ret"]
+    ewd = ["mov dx,%04X" % R, "mov cx,8000", "jmp %04X" % EWDL]
+    ewdl = ["in al,dx", "test al,01", "jz %04X" % ECMDX,
+            "dec cx", "jnz %04X" % EWDL, "stc", "ret"]
+    # BL = the ECP command byte
+    ecmd = ["call %04X" % EWE, "jc %04X" % ECMDX,
+            "mov dx,%04X" % B, "mov al,bl", "out dx,al",
+            "call %04X" % EWE, "ret"]
+    ecmdx = ["clc", "ret"]
+    # EXACTLY the driver's LS_EcpLeave. Both stores are read-modify-write:
+    # the control port keeps IRQEN, and the ECR keeps its low five bits while
+    # the mode bits are cleared. An earlier transliteration here stored 34h,
+    # a bare 04h and a guessed 15h instead - which left the port in a state
+    # where nibble register reads returned F5 and the whole ECP run failed.
+    # Technique 118: restore what you found, do not write what you assumed.
+    elv = ["mov dx,%04X" % C, "in al,dx", "and al,10", "or al,04", "out dx,al",
+           "mov dx,%04X" % R, "in al,dx", "and al,1F", "out dx,al", "ret"]
+    # block read: DI = dest, CX = count
+    ebr = ["jcxz %04X" % EBRF, "call %04X" % ENEG,
+           "push cx", "mov al,04", "call %04X" % EDIR,
+           "mov bl,80", "call %04X" % ECMD,
+           "pop cx", "push cx", "dec cx", "jcxz %04X" % EBRL,
+           "mov al,20", "call %04X" % EDIR, "cld",
+           "mov dx,%04X" % F, "rep insb", "jmp %04X" % EBRL]
+    ebrl = ["mov al,04", "call %04X" % EDIR,
+            "mov bl,A0", "call %04X" % ECMD,
+            "mov al,20", "call %04X" % EDIR,
+            "call %04X" % EWD,
+            "mov dx,%04X" % F, "in al,dx", "mov [di],al", "inc di",
+            "call %04X" % ELV, "pop cx", "clc", "ret"]
+    ebrf = ["clc", "ret"]
+    # block write: SI = source, CX = count
+    ebw = ["jcxz %04X" % EBWT, "call %04X" % ENEG,
+           "push cx", "mov al,04", "call %04X" % EDIR,
+           "mov bl,C0", "call %04X" % ECMD,
+           "pop cx", "push cx", "cld", "mov bx,cx", "jmp %04X" % EBWC]
+    ebwc = ["or bx,bx", "jz %04X" % EBWS,
+            "call %04X" % EWE,
+            "mov cx,0010", "cmp bx,cx", "jae %04X" % (EBWC + 0x20),
+            "mov cx,bx", "jmp %04X" % (EBWC + 0x20)]
+    ebwc2 = ["sub bx,cx", "mov dx,%04X" % F, "rep outsb", "jmp %04X" % EBWC]
+    ebws = ["call %04X" % EWE, "call %04X" % ELV,
+            "pop cx", "clc", "ret"]
+    ebwt = ["clc", "ret"]
+    return (blk(ENEG, neg) + blk(ENEGW, negw) + blk(ENEGD, negd)
+            + blk(EDIR, edir)
+            + blk(EWE, ewe) + blk(EWEL, ewel)
+            + blk(EWD, ewd) + blk(EWDL, ewdl)
+            + blk(ECMD, ecmd) + blk(ECMDX, ecmdx)
+            + blk(ELV, elv)
+            + blk(EBR, ebr) + blk(EBRL, ebrl) + blk(EBRF, ebrf)
+            + blk(EBW, ebw) + blk(EBWC, ebwc) + blk(EBWC + 0x20, ebwc2)
+            + blk(EBWS, ebws) + blk(EBWT, ebwt))
 
 
 def build():
@@ -404,7 +504,8 @@ def build():
                        "mov cx,%04X" % (MEDIA_SECTORS * 512),
                        "mov al,EE", "jmp %04X" % POISBL])
          + blk(POISBL, ["mov [di],al", "inc di", "dec cx",
-                        "jnz %04X" % POISBL, "ret"]))
+                        "jnz %04X" % POISBL, "ret"])
+         + ecp_blocks())
 
     cdbs = [
         "12 00 00 00 24 00 00 00 00 00 00 00",   # INQUIRY, 36
@@ -511,6 +612,8 @@ if __name__ == "__main__":
         MEDIA_READ_ONLY = True
     if "--noreset" in sys.argv:
         NO_RESET = True
+    if "--ecp" in sys.argv:
+        USE_ECP = True
     if "--formatunit" in sys.argv:
         FORMAT_UNIT = True
     if "--sectors" in sys.argv:
