@@ -42,6 +42,8 @@ end to end.** Find what applies, read that, and add back what you learn.
 | A fix did nothing | **74** prove the driver LOADED; **70** `stat` the binary against `git log`; **89** a binary that cannot be rebuilt is not evidence |
 | Two fix-and-run cycles have failed | **80** - stop fixing, start bisecting. **88** - bisect by REMOVING the component |
 | Timing, throughput, "is this fast enough" | **109** - 5.55 us per 8-bit I/O access, MEASURED. Do not use the old 1 us figure |
+| A DEBUG-script probe hangs, or its results look impossible | **121** - an out-of-range short jump DELETES ITSELF, and data can land inside code |
+| One timeout constant bounds two different waits | **122** - a reset settle is seconds, a status poll is milliseconds. Never share |
 
 ### By area
 
@@ -53,7 +55,8 @@ end to end.** Find what applies, read that, and add back what you learn.
 | Win9x drivers, IOS, SCSIPORT | 74, 81, 82, 83, 85, 86, **88**, 92, 94, 96, 97 |
 | Hardware / XT-specific traps | 37, 56, **62**, **75**, 100, 101, 102 |
 | Memory map, the Inboard's own quirks | 63, 66, 67, 71, 72 |
-| Process and evidence discipline | 7, 28, 59, 77, 89, 98, 99, **103**, 104, 110, 111, 113 |
+| Process and evidence discipline | 7, 28, 59, 77, 89, 98, 99, **103**, 104, 110, 111, 113, **121c** |
+| Writing or trusting a DEBUG-script probe | **121**, 121a, 121b, 121c, 105, 116 |
 
 ### Elsewhere, deliberately
 
@@ -6952,3 +6955,114 @@ The general rule: **a difference that lands exactly on a semantic field boundary
 writing that field, not a transport dropping bytes.** A transport fault does not respect
 structure. Before calling a diff corruption, check whether it fits a field.
 
+
+---
+
+## Technique 121: in a DEBUG script, an out-of-range short jump DELETES ITSELF
+
+2026-09-14. Three reboots of the owner's machine, and the cause is four bytes.
+
+`DEBUG`'s `a` command is not an assembler with error handling. When a line does not
+assemble it prints its own message, **re-prompts at the same address, and carries on with
+the next line**. The instruction is silently absent from the code and every later line
+assembles at the address it would have occupied. Nothing fails; the program is just
+missing a piece.
+
+`gen_rw_probe.py` emitted:
+
+```
+a 1A00
+jcxz 1AA0        ; +158 from the next instruction. A short jump reaches +127.
+```
+
+so the guard never existed. That guard's own comment: *"a device that offers nothing gives
+cx=0, and without this the loop runs 65536 times and walks over the probe's own code. That
+wedged the box once."* It then wedged it three more times.
+
+**Rules:**
+
+- **Compute every short jump's displacement before emitting a DEBUG script.** `jz`, `jnz`,
+  `jb`, `jcxz` and friends reach -128..+127 from the *following* instruction. A generator
+  that lays blocks out at fixed addresses will cross that as soon as a block grows.
+- **When a target is out of reach, trampoline** - put a 3-byte near `jmp` in a nearby gap
+  and jump to that. `tools`' own fix: `jcxz 1A2A` where `1A2A` holds `jmp 1AA0`.
+- **Symptom to recognise:** a probe that hangs identically no matter what you change about
+  its *timing*. Cutting the wait budget eightfold changed the runtime not at all, which is
+  what finally proved the waits were never involved.
+
+### 121a: a layout check must cover DATA against everything, not blocks against blocks
+
+The same generator had three more bugs of the same family, all invisible to a check that
+only compared each code block against the next block's start:
+
+| | |
+|---|---|
+| `MARK` at `0580`, slots at `0600-067F` | inside a main block that had grown to `0716` - the probe wrote its results into its own instruction stream |
+| inserting one CDB | pushed the media `READ(10)` CDB onto `1D00`, which was the slot base |
+| `MARK` at `1EA0` | landed exactly on `SLOTS+0xA0`, the one result the run existed to collect |
+
+**Check every pair that can collide:** code vs code, data vs code, data vs the constant
+tables, and data vs other data. And **sort blocks by address, not by their order in the
+emitted list** - blocks get appended in whatever order reads well.
+
+### 121b: prove each guard fails on the bug it was written for
+
+Every guard above was verified by putting the original broken value back and confirming the
+generator refuses:
+
+```
+MARK (0580-0580) lands inside the code block at 0100-0716
+SLOTS (1D00-1D9F) overlaps the CDB table at 1C00-1D1F
+MARK (1EA0) is inside SLOTS (1E00-1EA7) - it will overwrite a result slot
+1A00: jcxz 1AA0 is +158 away - short jumps reach -128..+127
+```
+
+This is [[feedback-a-self-test-must-be-able-to-fail]] applied to tooling. The third guard
+was written believing it covered the fourth bug; it did not, and only the deliberate
+failure test showed that.
+
+### 121c: a generator that has never produced a working run is not a proven artefact
+
+`gen_rw_probe.py` was treated as proven for three reboots. It had never run successfully -
+there is no `RW.OUT` in `docs/captures/2026-09-11_ls120/` beside the INQUIRY and READ
+captures, and its own `WRITE_TEST` still carried the comment *"set it true once READ(10)
+returns a valid boot sector"*. **Before trusting a tool, look for its output, not its
+source.** Technique 89 says an artefact under test must be traceable to a commit; this is
+the same rule for the instrument rather than the subject.
+
+---
+
+## Technique 122: one timeout constant serving two different waits
+
+Same session. The probe bounded every status wait with one constant. Cutting it to make a
+*failing* run fail fast also cut the wait that settles the **ATA soft reset** - and a drive
+coming out of SRST needs seconds, not milliseconds.
+
+| budget | result |
+|---|---|
+| `--spin 2000` (~0.29 s) | every command after the reset returns status `C1`, error `04` (ABRT), **byte-identical across two runs** |
+| `--spin FFFF` (~2.3 s) | the identical script reads LBA 0 correctly, first attempt |
+
+The byte-identical repeat is what ruled out a spin-up race: a drive that was still starting
+would have given a different answer the second time.
+
+**The rule, and it is the same one the driver needs:** a **reset settle** and a
+**per-command status poll** are different waits with different orders of magnitude, and
+they must not share a budget. In a state-machine driver the long one is a state polled
+across ticks; the short one is a bounded spin inside a step. Collapsing them into a single
+constant guarantees that tuning for one breaks the other.
+
+Corollary for this project: `LS_SPIN_RESET = 2000` (~92 ms) cannot work, and re-pulsing
+SRST on every retry restarts the reset rather than waiting it out.
+
+### 122a: a check that resets destroys what it is measuring
+
+`FORMAT UNIT` runs inside the drive for minutes. Every probe run here begins with an SRST -
+and **SRST aborts an in-progress format**. A format was fired and then "checked" 90 seconds
+later by an ordinary probe, which would have killed it; the disk came back untouched and
+the run proved nothing in either direction.
+
+Technique 45 says heavy instrumentation can change which bug reproduces. This is the
+sharper case: the instrument's *setup* undoes the operation. **Before polling a long
+device-side operation, ask what your probe does on the way in.** A `--noreset` mode is one
+line and makes the difference between a measurement and a void run.
