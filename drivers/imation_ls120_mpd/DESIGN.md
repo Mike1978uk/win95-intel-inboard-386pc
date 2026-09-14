@@ -338,6 +338,26 @@ Ordered. Each is independently testable.
 
 **1-3 are the fix for the reported defect.** 4-6 are the design catching up with it.
 
+### Status, 2026-09-14 evening
+
+| change | state |
+|---|---|
+| 1, `LS_RegRead` validity | done as `LS_StatusRead` - the judgement is in the status reader, because `00h`/`FFh` are legitimate for a byte count and an error register but impossible for status |
+| 2, bound the SRST wait | **superseded** - the wait moved out entirely rather than being bounded |
+| 3, tier-1 presence gate | done, `LS_BridgeProbe`, **never run** |
+| 4, split no-bridge from no-drive | done |
+| 5, SRST wait becomes a state | **done** - pulse once on the first tick, one status read per tick after. `LS_TICKS_COLD` = 3000 is now 3 real seconds |
+| 6, ceiling from the transport | **partly** - `LS_MAX_XFER` is the measured 3584, but it is still a build constant, not calibrated at init |
+
+Added beyond the list, from the 09-14 measurements:
+
+- **A short data phase now fails instead of passing.** DRQ still set at completion
+  means the device holds a remainder this driver cannot collect, and reporting success
+  there loses it silently. `docs/ls120_write_boundary_2026_09_14.md` and
+  `docs/next_session_2026_09_15.md`.
+
+**None of it has run on hardware.** Binary `dcc442b5`, commit `07f7fa5`, clean tree.
+
 ---
 
 ## 7. What is not changing
