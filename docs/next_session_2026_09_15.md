@@ -341,9 +341,37 @@ transliterate these exact sequences:
 | SRST pulse-only + `LS_ColdDead` | reset settle needs seconds; a dead bus needs none |
 | sense drain | two queued unit attentions, one per REQUEST SENSE |
 
-⚠ The **ECP block** work in this file does not function and is not needed - blocks are SPP
-(§11 and `IMPLEMENTATION.md` §5). It is inert unless `MODE=ECP` is selected. Leave it, or strip
-it, but do not let it hold up the miniport work.
+### ECP - KEEP. It is the speed path and it is nearly there.
+
+⛔ **An earlier line here said the ECP work "is not needed" and could be stripped. That was
+wrong and is retracted.** It came from over-reading "the bridge has an SPP block mode" as "the
+bridge only has an SPP block mode". Both are true at once: SPP block mode works and is what we
+ship today; the vendor's own ECP block path exists at `0x4CA3` and is decoded in §11.
+
+**Why it matters:** SPP block mode costs 2-4 bus accesses per byte. ECP block costs **one**.
+On a machine where a bus access is 5.77 us and the transport is the bottleneck, that is the
+difference between a usable drive and a slow one. It is the reason to do any of this.
+
+Progress so far, none of it wasted:
+
+| | state |
+|---|---|
+| IEEE-1284 ECP negotiation | **works** - `B8`, root-caused 2026-09-13 |
+| ECP **per-register** access | **works on clean hardware** - `ecpprobe.py`, 2026-09-14 |
+| ECP block descriptor (`0Eh`/`0Fh`/`0Bh` pairs, ECR-gated) | **found and implemented** |
+| ECP block data phase | **runs** - status `58`, interrupt reason `00`, bytes move |
+| what remains | the port wedges after the transfer |
+
+**The next step is a bisect, not another guess** - three fix-and-run cycles have already failed:
+
+1. descriptor **alone**, no `C0h`, no streaming - does the port survive?
+2. then `C0h` alone. then one chunk. then all chunks.
+
+Unknowns a bisect will need: what `[0C18h]` holds (chunk size), the read direction (§11 decodes
+the write side), and whether the two `0Bh` writes are one register or two.
+
+ECP is selectable at runtime (`MODE=ECP`) and at build time (`-Mode ecp`), with SPP as the
+fallback, so it can be finished without risking the working path.
 
 ### `LS120MP.ASM` - miniport. THIS is what regressed.
 

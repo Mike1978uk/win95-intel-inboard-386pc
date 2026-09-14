@@ -183,9 +183,14 @@ What the vendor actually does — **registers and blocks use different transport
 So per-register ECP is the vendor's *normal* register mode and does not time out — and **ECP is
 not a block transport on this bridge at all.**
 
-⛔ **There is no "ECP block path" to find.** `TRANSPORT_SPEC.md` line 678 says *"find the ECP
-block path"*; that expectation is wrong and cost a session. Blocks are SPP. `epat.c` has no ECP
-mode whatsoever (4-bit, 5/3, 8-bit, EPP-8/16/32), which is the corroboration.
+⛔ **CORRECTION to the line that used to be here.** It said "there is no ECP block path to
+find; blocks are SPP". Half right, and the wrong half matters: the bridge **does** have an SPP
+block mode (`epat.c` mode 0, which we ship and which works), **and** the vendor has an ECP block
+path at `SD120PPD.SYS 0x4CA3`, decoded in `TRANSPORT_SPEC.md` §11. `epat.c` having no ECP mode
+says what Linux chose, not what the bridge supports.
+
+**ECP block is the speed path**: SPP block mode costs 2-4 bus accesses per byte, ECP block costs
+one. At 5.77 us an access that is the whole performance argument.
 
 **We already have the correct block transport.** `LS_BlockReadSpp` / `LS_BlockWriteSpp` are
 epat.c mode 0, and every byte verified on media on 2026-09-14 moved through them.
