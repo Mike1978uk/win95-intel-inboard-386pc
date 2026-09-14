@@ -271,6 +271,57 @@ writes are one register or two.
 
 **None of this blocks Windows.** SPP is proven across the whole disk; ECP is throughput.
 
+## THE REGRESSION IS BISECTED TO ONE COMMIT
+
+**Our driver enumerated the LS-120 on 2026-09-11 and has not since.** Confirmed by the owner:
+the vendor's `CONFIG.SYS` lines were **commented out** at the time, so this was our driver
+alone - no technique-110 confound.
+
+| commit | time | state |
+|---|---|---|
+| **`bc453ca`** | 09-11 **19:57** | builds `976e4114` - **drive ENUMERATED**, symptom was "media not formatted" |
+| **`05bbd3e`** | 09-11 **22:32** | **"Move all waiting out of the miniport's callbacks"** - the restructure |
+| 24 more | 09-13 -> 09-14 | ECP work, then the 09-14 transport fixes |
+
+The last build that enumerated is the last one **before** the restructure, 2.5 hours earlier.
+
+⚠ **The restructure was theory-driven, not failure-driven.** Its own handoff records the driver
+as *"enumerates and boots clean"* that same day. It was done to match the vendor's and PC2X's
+architecture (`IMPLEMENTATION.md` §1), which is sound reasoning - and it regressed a working
+driver. Technique 97: do not "fix" a configuration that is working; say what you predict will
+improve and how you will know.
+
+### The test, and it costs one command
+
+`976e4114` is **already on the card** as `LS120MP.B13`. Technique 94 - substitute the
+known-good component:
+
+```
+copy C:\WINDOWS\SYSTEM\IOSUBSYS\LS120MP.B13 C:\WINDOWS\SYSTEM\IOSUBSYS\LS120MP.MPD
+```
+
+then a **logged** boot (F8 -> Logged).
+
+- **Drive enumerates** -> confirmed. Bisect the 25 commits, `05bbd3e` first. Today's transport
+  work sits *below* the layer that broke, so it is unaffected either way.
+- **It does not** -> something outside the driver changed since 09-11, and the driver was never
+  the variable.
+
+⚠ `LS120MP.MPD` currently on the card is `dcc442b5` (the code-10 build). Back it up first if
+you want it: `LS120MP.B14` already holds the pre-09-14 binary.
+
+## What the 09-14 fixes are worth either way
+
+They are transport-layer and measured, so they survive whatever the bisect says:
+
+- `LS_MAX_XFER` 4096 -> **3584**, the measured one-burst ceiling
+- a short data phase **fails** instead of silently losing 512 bytes per write
+- SRST pulsed once, settle as a state
+- **dead bus detected in ~2 ms** instead of spending 3000 ticks on an empty cable
+- cold-start failure cached, so later SRBs do not re-spend the budget
+
+Latest build: `5ca5469f`, commit `0d9a910`, clean. **Not deployed.**
+
 ## Next, in order
 
 1. **Fix the transfer ceiling** - the data-loss bug. Cap at 3584 or loop bursts.
