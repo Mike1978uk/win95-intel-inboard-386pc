@@ -205,7 +205,9 @@ dxLen		DWORD	?		; caller's transfer length
 dxDir		DWORD	?		; 0 = data in, 1 = data out
 dxColdDone	DWORD	?		; the bridge has been opened once
 dxBridgeVer	DWORD	?		; EPAT version code read at FindAdapter
-dxReserved	DWORD	?
+;  Set once a cold start has spent its whole budget. Every later SRB then
+;  fails IMMEDIATELY instead of re-discovering the same absence.
+dxColdFail	DWORD	?
 DEVEXT	ENDS
 
 	.DATA
@@ -727,6 +729,7 @@ LsInitialize PROC STDCALL DeviceExtension:DWORD
 	mov	[eax].DEVEXT.dxState, LS_ST_IDLE
 	mov	[eax].DEVEXT.dxPendSrb, 0
 	mov	[eax].DEVEXT.dxColdDone, 0
+	mov	[eax].DEVEXT.dxColdFail, 0
 ;  A fresh adapter init must pulse SRST again, whatever a previous load left
 ;  behind. Still no device I/O here - this only clears a flag.
 	mov	LS_SrstDone, 0
@@ -804,6 +807,8 @@ lt_coldstart:
 ;  Giving up. Arm a fresh SRST for the next request rather than leaving the
 ;  flag set, or a drive plugged in after this point would never be reset.
 	mov	LS_SrstDone, 0
+;  Remember it. Without this every later SRB spends the budget again.
+	mov	[esi].DEVEXT.dxColdFail, 1
 	mov	al, SRB_STATUS_SELECTION_TIMEOUT
 	jmp	lt_setstat
 lt_cold_ok:
@@ -1141,6 +1146,18 @@ lsi_dirin:
 
 ;  First request of all opens the bridge; after that go straight to waiting
 ;  for the drive. Either way the work happens in the timer, not here.
+;  A cold start that already failed does not get another 3 seconds. SCSIPORT
+;  probes every target and some paths retry five times, so at
+;  LS_TICKS_COLD + 2 x LS_TICKS_READY = 19 s of budget per SRB that is minutes
+;  of boot spent proving the same absence over and over. Measured as a long
+;  quiet pause before the desktop on 2026-09-14.
+;
+;  DESIGN.md I1 says absence is an answer, not a timeout. The budgets honour
+;  that for ONE request; this makes it hold for the adapter.
+	mov	eax, [esi].DEVEXT.dxColdFail
+	or	eax, eax
+	jnz	lsi_noselect
+
 	mov	eax, [esi].DEVEXT.dxColdDone
 	or	eax, eax
 	jnz	lsi_warm
