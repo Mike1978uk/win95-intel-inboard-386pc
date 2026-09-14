@@ -291,6 +291,18 @@ architecture (`IMPLEMENTATION.md` §1), which is sound reasoning - and it regres
 driver. Technique 97: do not "fix" a configuration that is working; say what you predict will
 improve and how you will know.
 
+### What "it worked" looks like - two separate things
+
+⚠ **Under Windows `D:` is the CD-ROM.** Under DOS with the vendor driver loaded `D:` was the
+LS-120, which is what every probe on 2026-09-14 used. Do not read one as the other.
+
+| check | meaning |
+|---|---|
+| **LS-120 in Device Manager** | the miniport enumerated it. **This is the regression test.** |
+| a drive letter | a separate step with a separate known blocker: the node carries `UserDriveLetterAssignment="II"`, pinning it to `I:`, which the Nakamichi holds |
+
+**Device Manager entry with no drive letter is still a PASS** on what is being tested.
+
 ### The test, and it costs one command
 
 `976e4114` is **already on the card** as `LS120MP.B13`. Technique 94 - substitute the
