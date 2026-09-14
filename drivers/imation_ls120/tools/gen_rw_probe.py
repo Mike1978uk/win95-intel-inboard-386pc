@@ -90,9 +90,28 @@ XFER_MAX = 0x200          # no buffer in this probe is larger
 # hard reset only. So the write test is OFF until a read is proven. Set it
 # true once READ(10) returns a valid boot sector.
 WRITE_TEST = False
+
+# Write a sector to the MEDIA and read it straight back. Unlike WRITE BUFFER
+# this really does touch the disk, so it is off by default and the target is
+# deliberately far from anything: LBA 100000 is ~51 MB into a 120 MB disk,
+# well past the FATs, the root directory and every file written this session.
+MEDIA_TEST = False
+# Read the media WITHOUT writing first. The point is cache: a READ(10) issued
+# straight after a WRITE(10) can be served from the drive's own buffer, so the
+# pair proves the data round-tripped, not that it reached the platter. This
+# mode runs after a fresh SRST with no write at all - if the pattern is still
+# there, it is on the disk.
+MEDIA_READ_ONLY = False
+MEDIA_LBA = 100000
 BW, BWC, BWL, BWE = 0x1B00, 0x1B20, 0x1B40, 0x1B60
 DLY, DLYL, DLYE = 0x1B80, 0x1B90, 0x1BA0
 PAT, PATL = 0x1BB0, 0x1BD0
+# Poison the media read-back buffer before reading into it. Without this a
+# read that moves NOTHING leaves the previous run's data in place - DEBUG
+# reloads at the same segment - and a stale buffer is indistinguishable from a
+# successful read. EE is chosen because it is not in the 00..FF ramp position
+# it would occupy, so a partial transfer shows its own stopping point.
+POIS, POISL = 0x1BE0, 0x1BF0
 
 CDBS = 0x1C00   # five 12-byte CDBs, 0x20 apart
 BUF_INQ, BUF_SENSE, BUF_SECTOR, BUF_PATTERN, BUF_BACK = (
@@ -250,6 +269,15 @@ def build():
     if WRITE_TEST:
         m += packet(CDBS + 0x60, BUF_PATTERN, 512, SLOTS + 0x30, out=True)
         m += packet(CDBS + 0x80, BUF_BACK, 512, SLOTS + 0x40)
+    if MEDIA_TEST:
+        # The real thing: the pattern onto the disk, then back off it into a
+        # DIFFERENT buffer so a stale read cannot look like a successful write.
+        m += mark(0x90) + packet(CDBS + 0xC0, BUF_PATTERN, 512,
+                                 SLOTS + 0x90, out=True)
+        m += mark(0x98) + packet(CDBS + 0xE0, BUF_SECTOR2, 512, SLOTS + 0x98)
+    elif MEDIA_READ_ONLY:
+        m += mark(0x97) + ["call %04X" % POIS]
+        m += mark(0x98) + packet(CDBS + 0xE0, BUF_SECTOR2, 512, SLOTS + 0x98)
     m += ["mov ah,40", "call %04X" % CPP4, "mov ah,30", "call %04X" % CPP4,
           "int 3"]
 
@@ -318,7 +346,11 @@ def build():
          + blk(PAT, ["mov di,%04X" % BUF_PATTERN, "mov cx,0200", "xor al,al",
                      "jmp %04X" % PATL])
          + blk(PATL, ["mov [di],al", "inc di", "inc al", "dec cx",
-                      "jnz %04X" % PATL, "ret"]))
+                      "jnz %04X" % PATL, "ret"])
+         + blk(POIS, ["mov di,%04X" % BUF_SECTOR2, "mov cx,0200",
+                      "mov al,EE", "jmp %04X" % POISL])
+         + blk(POISL, ["mov [di],al", "inc di", "dec cx",
+                       "jnz %04X" % POISL, "ret"]))
 
     cdbs = [
         "12 00 00 00 24 00 00 00 00 00 00 00",   # INQUIRY, 36
@@ -327,6 +359,12 @@ def build():
         "3B 02 00 00 00 00 00 02 00 00 00 00",   # WRITE BUFFER, mode 2, 512
         "3C 02 00 00 00 00 00 02 00 00 00 00",   # READ BUFFER,  mode 2, 512
         "1B 00 00 00 01 00 00 00 00 00 00 00",   # START STOP UNIT, start=1
+        "2A 00 %02X %02X %02X %02X 00 00 01 00 00 00"    # WRITE(10), 1 block
+        % ((MEDIA_LBA >> 24) & 0xFF, (MEDIA_LBA >> 16) & 0xFF,
+           (MEDIA_LBA >> 8) & 0xFF, MEDIA_LBA & 0xFF),
+        "28 00 %02X %02X %02X %02X 00 00 01 00 00 00"    # READ(10) the same
+        % ((MEDIA_LBA >> 24) & 0xFF, (MEDIA_LBA >> 16) & 0xFF,
+           (MEDIA_LBA >> 8) & 0xFF, MEDIA_LBA & 0xFF),
     ]
     for i, c in enumerate(cdbs):
         l += ["e %04X %s" % (CDBS + i * 0x20, c), ""]
@@ -373,7 +411,7 @@ def build():
 
     l += ["g=100",
           "d %04X %04X" % (MARK, MARK),
-          "d %04X %04X" % (SLOTS, SLOTS + 0x7F),
+          "d %04X %04X" % (SLOTS, SLOTS + 0x9F),
           "d %04X %04X" % (BUF_INQ, BUF_INQ + 0x23),
           "d %04X %04X" % (BUF_SENSE, BUF_SENSE + 0x11),
           "d %04X %04X" % (BUF_SENSE + 0x20, BUF_SENSE + 0x31),
@@ -382,6 +420,9 @@ def build():
           "d %04X %04X" % (BUF_SECTOR, BUF_SECTOR + 0x1F),
           "d %04X %04X" % (BUF_SECTOR + 0x1F0, BUF_SECTOR + 0x1FF),
           "d %04X %04X" % (BUF_BACK, BUF_BACK + 0x1F),
+          # media read-back: head and tail, so a partial write shows up
+          "d %04X %04X" % (BUF_SECTOR2, BUF_SECTOR2 + 0x1F),
+          "d %04X %04X" % (BUF_SECTOR2 + 0x1E0, BUF_SECTOR2 + 0x1FF),
           "q"]
     return CRLF.join(l) + CRLF
 
@@ -393,4 +434,8 @@ if __name__ == "__main__":
         START_STOP = True
     if "--write" in sys.argv:
         WRITE_TEST = True
+    if "--media" in sys.argv:
+        MEDIA_TEST = True
+    if "--mediaread" in sys.argv:
+        MEDIA_READ_ONLY = True
     print(base64.b64encode(build().encode("ascii")).decode())
