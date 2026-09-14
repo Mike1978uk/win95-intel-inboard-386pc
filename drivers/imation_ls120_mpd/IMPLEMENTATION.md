@@ -7,6 +7,12 @@ in binaries we already had.
 **Read this before writing code or running anything on hardware.** If something here is
 wrong, fix it here — do not discover it again on the bench.
 
+> **`DESIGN.md` is the other half, and it comes first.** The split: `DESIGN.md` holds the
+> architecture and the invariants it exists to enforce — what the driver must be. This file
+> holds how to build it — command sequences, constants, the known-wrong list. A rule belongs
+> there; a byte sequence belongs here. Where they disagree, `DESIGN.md` is authoritative and
+> this file is the one to correct.
+
 Sources, all **local**, none to be fetched:
 
 | source | what it gives |
