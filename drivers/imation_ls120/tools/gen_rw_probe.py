@@ -52,9 +52,18 @@ B, S, C, E = 0x378, 0x379, 0x37A, 0x77A
 # tell a slow probe from a wedged one - which is exactly what happened on
 # 2026-09-14.
 #
-# Pass a smaller value to make a FAILING run fail fast. A drive that is
-# actually answering replies in microseconds, so this only shortens the
-# no-answer case. --spin 2000 gives ~0.3 s a wait, ~16 s for the whole probe.
+# Pass a smaller value to make a FAILING run fail fast.
+#
+# *** DO NOT GO BELOW ABOUT 0x8000. *** The same constant bounds the wait that
+# settles the ATA SOFT RESET, and a drive coming out of SRST needs seconds, not
+# milliseconds. Measured 2026-09-14: --spin 2000 (~0.29 s) walks on while the
+# drive is still in reset, and EVERY command after it comes back status C1
+# with error 04 (ABRT) - deterministically, byte-identical across runs, which
+# is what proves it is not a spin-up race. At 0xFFFF (~2.3 s) the identical
+# script reads LBA 0 correctly on the first attempt.
+#
+# The lesson for the driver: a reset settle is a LONG wait and a per-command
+# status poll is a SHORT one, and they must not share a budget. DESIGN.md I3.
 SPIN = 0xFFFF
 
 # Spin the drive up before anything else. An LS-120 that has parked answers
@@ -382,4 +391,6 @@ if __name__ == "__main__":
         SPIN = int(sys.argv[sys.argv.index("--spin") + 1], 16)
     if "--startstop" in sys.argv:
         START_STOP = True
+    if "--write" in sys.argv:
+        WRITE_TEST = True
     print(base64.b64encode(build().encode("ascii")).decode())
