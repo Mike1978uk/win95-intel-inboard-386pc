@@ -269,6 +269,33 @@ negotiated and a refusal falls back to nibble at runtime: **set `MaximumTransfer
 transport actually negotiated**, not from a build constant. That is I6 applied to a second
 quantity.
 
+### 5.1 The write boundary, measured 2026-09-14
+
+There is a second ceiling on `MaximumTransferLength` and it is not about time at all.
+`docs/ls120_write_boundary_2026_09_14.md`:
+
+> **A write burst to this drive is intact for the first 5120 bytes and silently garbage beyond
+> it. Split into separate operations of 5120 bytes or less it works indefinitely.**
+
+Nine runs on the real machine. 4096 clean, 5120 clean, 8192 and 16384 good to 5119 and corrupt
+after — deterministic across repeats, identical on different clusters, identical with random
+content, and 16 KB written as four separate 4 KB files is byte-perfect. So the drive and the
+medium are fine and the limit is per-burst.
+
+Three things follow, and they are the reason this file's invariants are shaped the way they are:
+
+- **`LS_MAX_XFER = 4096` is measured-safe**, two sectors under the boundary. It was picked as
+  "8 sectors"; it now has a number behind it.
+- **The boundary is not a constant** — an earlier session saw 6144 on the same drive. I6 is not
+  a stylistic preference; a pinned 5120 would be wrong on the next machine and possibly on this
+  one after a reboot.
+- **Every failing run reported success.** DOS printed `1 file(s) copied` nine times out of nine.
+  That is I2 and section 7 stated as a measurement rather than a principle.
+
+⚠ All nine runs had the **vendor** driver loaded and owning the port (technique 110). The
+boundary is a property of the transport we share; it has not been shown that our own driver
+hits the same wall.
+
 ---
 
 ## 6. Changes this implies
