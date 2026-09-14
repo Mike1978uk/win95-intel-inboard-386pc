@@ -140,7 +140,18 @@ LS_MAX_TARGETS		equ	2	; XTIDEMP.MPD uses 2 and enumerates correctly
 ;
 ;  Raise it only once a transfer is finished from the timer instead of inline
 ;  - the vendor's architecture, TRANSPORT_SPEC.md section 8.
-LS_MAX_XFER		equ	4096		; 8 sectors
+;  MEASURED 2026-09-14 on the real drive, not chosen: one ATAPI data burst on
+;  this device is 3584 bytes - seven sectors. Ask for 4096 and it answers with
+;  3584 and holds the rest, which this driver cannot collect because
+;  LS_PacketCommand does a single data phase. Ask for 3584 and both directions
+;  complete clean, error 00, byte-exact.
+;
+;  This was 4096 - "8 sectors" - one sector over the ceiling, which would have
+;  lost 512 bytes of every full-length write without reporting anything.
+;
+;  ⚠ An SPP/nibble measurement. ECP is untested and may differ; DESIGN.md 5.2
+;  says calibrate per transport and use the lower until both are known.
+LS_MAX_XFER		equ	3584		; 7 sectors - one burst
 
 ;----------------------------------------------------------------------------
 ;  The request state machine, which runs in LsTimer.

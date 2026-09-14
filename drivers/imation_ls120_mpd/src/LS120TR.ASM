@@ -1941,6 +1941,23 @@ lpc_done:
 	test	al, ATA_ST_ERR
 	jnz	lpc_fail
 
+;  DRQ still set here means the device wants ANOTHER data phase - it answered
+;  with a smaller burst than we asked for and is still holding the rest. This
+;  routine does exactly one data phase, so that remainder is stranded, and
+;  falling through to success loses it silently.
+;
+;  Measured on the real drive 2026-09-14: a 4096-byte WRITE(10) is answered
+;  with a 3584-byte burst and completes with status 58 - DRDY set, so PfWait
+;  is satisfied, ERR clear, and DRQ still asserted. The next command then dies
+;  ABORTED COMMAND because the bus was left mid-transfer. At 3584 the same
+;  command completes with status 50 and DRQ clear.
+;
+;  PfWait cannot catch this: its stop mask is DRDY|ERR, and DRDY is set in
+;  both cases. Until LS_PacketCommand loops bursts, a short phase is a failure
+;  and must be reported as one. DESIGN.md I2.
+	test	al, ATA_ST_DRQ
+	jnz	lpc_fail
+
 ;  Release the port. The vendor driver leaves it quiescent between
 ;  operations - measured 2026-09-08, control 14h and ECR 35h at rest - so
 ;  a connect is mandatory per operation, not once at init. Holding the
