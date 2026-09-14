@@ -1,103 +1,144 @@
 # Next session - 2026-09-15
 
-`next_session_2026_09_14.md` is still current for the **truncation** work — the
-reproducer, the CRC32s, the `/di` / `/w0` / size-sweep order. Nothing here
-replaces it. This is the driver-design session that ran alongside it.
+Supersedes the earlier 09-15 draft, which covered only the presence gate.
+`next_session_2026_09_14.md` is now history: its truncation work is answered
+below and its `/di` / `/w0` plan is overtaken.
 
 ## Start here
 
-**A disconnected drive used to stop Windows reaching the desktop. It was ours,
-it is found, and the fix is built but has never run.** One boot answers it, and
-the drive is already unplugged for the test that matters most.
+**The LS-120 reads and writes correctly from DOS on our own code path, with the
+vendor driver removed.** Proven on real media. And the measurement that matters:
+
+> **A single ATAPI data burst on this drive is 3584 bytes - 7 sectors.** A
+> 4096-byte WRITE(10) is answered with a 3584-byte burst, the transfer is left
+> mid-flight with DRQ still asserted, and the next command dies ABORTED COMMAND.
+
+**`LS_MAX_XFER = 4096` is one sector over that, and neither the probe nor
+`LS_PacketCommand` loops bursts.** So the driver would move 3584 bytes of a
+4096-byte write, leave 512 behind, and report success. That is silent data loss
+and it is the first thing to fix.
 
 ## Machine state
 
-- CF in the 5160, COMrade up at the Win95 DOS prompt.
-- **The NOS disk formatted by the vendor DOS driver is in the drive**, holding
-  the truncation reproducer `D:\FC.EXE` — 20,494 bytes, first 6,144 real. Keep it.
-- `LS120MP.MPD` on the card is still **`220be39e`** (commit `d21d4a6`). The new
-  binary has **not** been deployed.
-- New build: **`9d89bcc3`**, 8192 bytes, commit `560e9fd`, **tree clean**,
-  `-Phase 2`. Sitting in `drivers/imation_ls120_mpd/build/`.
+- CF in the 5160. **`CONFIG.SYS` has both `SD120PPD` lines REM'd** - `D:` does
+  not exist. Restore with `copy C:\CONFIG.B4 C:\CONFIG.SYS` (backup verified,
+  crc `18043ce5`, 397 bytes). `INBRDPC.SYS` untouched.
+- The NOS disk is still in the drive and **still has its original filesystem** -
+  `EB 3E 90 MSWIN4.0`, 512 b/sector, 4 sectors/cluster, 2 FATs of 241, 32
+  sectors/track, 8 heads. `D:\FC.EXE` and the session's test files are gone from
+  DOS's view only because the driver is unloaded, not because anything erased
+  them.
+- LBA 100000 holds a 00..FF ramp from the media write test.
+- Driver binary on the card is still `220be39e`. The presence-gate build
+  `9d89bcc3` (commit `560e9fd`) is **still not deployed and still never run**.
 - Repo clean, nothing pushed.
 
-## What the owner found, and what it was
+## Proven today, on hardware
 
-Booting with the drive unplugged sat forever and released the moment the drive
-was plugged back in. Three faults compounding, all ours:
+Vendor driver unloaded for all of it. Captures in
+`docs/captures/2026-09-14_ls120/`.
 
-1. **`LS_RegRead` ended in an unconditional `clc`.** It could not report a failed
-   read, so three `jc` guards that looked like they handled a dead bus were dead
-   code. With nothing on the cable the SPP status port floats high, both nibbles
-   read `0Fh`, and the routine returned **`FFh` reported as a good read**. `FFh`
-   has BSY set — so an empty cable looked exactly like a busy drive.
-2. **The SRST wait was `mov ecx, 0FFFFh`** — the only loop in the transport with
-   no derived bound. At 46 µs per nibble read (8 accesses x 5.77 µs, technique
-   109e) that is **3.0 s inside one timer callback**.
-3. **`LS_TICKS_COLD = 3000` assumed a tick was a millisecond.** 3000 x 3.0 s is
-   **~2.5 hours per SRB**, and SCSIPORT issues one per target.
+| | evidence |
+|---|---|
+| register reads | status `50` (DRDY\|DSC), ATAPI signature |
+| register writes | SRST pulses, drive goes BSY, raises unit attention |
+| **block read** | LBA 0 = real FAT boot sector, `MSWIN4.0` … `WINBOOT SYS` `55 AA` |
+| **block write, drive buffer** | WRITE BUFFER / READ BUFFER 512 bytes byte-exact, correct order |
+| **block write, MEDIA** | WRITE(10) → READ(10) at LBA 100000, 512 bytes byte-exact |
+| **it is on the platter** | re-read after SRST, buffer poisoned to `EE`, no write that run - same pattern |
+| multi-sector | 7 sectors (3584) clean both ways; 8 sectors (4096) short-bursts |
+| unit attention | two queued, ASC `29` then `28`, one cleared per REQUEST SENSE |
 
-The comment claimed "3 s to open a bridge that is present". It was ~276 s even
-with a sane step, and unbounded in practice.
+**All of it is SPP/nibble. ECP has not been exercised at all.**
 
-## What changed
+## What the driver must change, with numbers
 
-Built and listing-verified (branch targets checked in the emitted bytes,
-technique 82) — **not run anywhere**.
+1. **Transfer ceiling.** Either cap at **3584** (7 sectors) or implement burst
+   looping. Capping is one constant; looping is correct and is what `pf.c` does.
+   Until one of them lands, any write over 3584 bytes loses data silently.
+2. **The reset settle is a LONG wait and must not share a budget with a
+   per-command poll.** Measured: `--spin 2000` (~0.29 s) aborts every command
+   after SRST, deterministically, byte-identical across runs. `0xFFFF` (~2.3 s)
+   works first time. So `LS_SPIN_RESET = 2000` (~92 ms), shipped this morning,
+   cannot work - and `lt_coldstart` re-pulses SRST every retry, restarting the
+   reset forever. `DESIGN.md` I3 and change 5.
+3. **Drain the sense until it comes back clean**, not a fixed count. The drive
+   queued two unit attentions and reads only worked once both were gone.
+4. **Calibrate per transport** (`DESIGN.md` §5.2) - and note 3584 is an SPP
+   number. ECP may differ; nothing says they share it.
 
-- `LS_StatusRead`: reads ATA status, CF=1 on `00h`/`FFh`. The judgement is here
-  and not in `LS_RegRead` because `00h` is a legitimate byte count and a
-  legitimate error register; for *status* both values are impossible.
-- All five status waits go through it. `LS_PfWait` gained the bail-out `pf.c`
-  has no need for — its bus is a cable, not a bridge that may be absent.
-- `LS_SPIN_RESET = 2000` (~92 ms) replaces `0FFFFh`; `LS_TICKS_COLD` 3000 → 30,
-  so the cold start is the ~2.8 s it always claimed to be.
-- `LS_PortOpen` split out of `LS_ColdStart`, and **`LS_BridgeProbe`** reads the
-  EPAT's own version register (write `38h` to bridge reg `0Ah`, read `0Bh`).
-- `LsFindAdapter` returns **`SP_RETURN_NOT_FOUND`** when three attempts get no
-  answer. Under 1 ms if nothing is there.
+## The format: attempted, void, and how to do it properly
 
-`DESIGN.md` is new and holds the invariants. `IMPLEMENTATION.md` stays the build
-spec and now says which is which.
+FORMAT UNIT (CDB `04 00 …`, FmtData=0, no parameter list) was issued and the
+packet ran to completion. **The result is void and the disk is unchanged.**
+
+Two reasons, both mine:
+
+- **`MARK` sat on the FORMAT UNIT result slot** (`SLOTS+0xA0` = `1EA0`), so its
+  status and error were overwritten before they could be read. Fixed: `MARK` is
+  `1F00` and the layout check now tests it against `SLOTS`.
+- **The check run reset the drive.** Every probe starts with an SRST, and SRST
+  aborts an in-progress format. The check ran 90 s after the fire - on a format
+  the owner expects to take ~10 minutes, that run would have killed it.
+
+`--noreset` now exists for exactly this. The correct sequence:
+
+1. `--formatunit` to fire it, and **read the slot** to confirm the drive accepted
+   the command rather than rejecting it.
+2. Leave it alone for ~10 minutes. Do not run anything that resets.
+3. `--noreset` poll runs to watch BSY clear.
+4. Then an ordinary probe to read LBA 0 and see a blank surface.
+
+⚠ If the drive rejects FmtData=0, the parameter-list form needs sourcing from a
+primary reference before being tried on real media - do not guess a defect-list
+header.
+
+## `FORMAT.COM` vs FORMAT UNIT
+
+Different things, and the distinction decided the plan:
+
+- **FORMAT UNIT** is a raw ATAPI command. No drive letter, no mount, no bulk
+  transfer - the drive formats its own surface internally, so transport speed
+  barely matters. The probe can issue it.
+- **`FORMAT D:`** is a filesystem tool and needs a block device. That means the
+  vendor driver, or ours once it loads under Windows.
+
+A full "clean bill of health" is really both: FORMAT UNIT for the surface, then
+filesystem structures, which need a block driver.
+
+⚠ An earlier claim in this session that a format would take ~47 minutes was
+**wrong twice over** - it assumed nibble when the card is ECP-capable, and it
+assumed the host streams every sector when FORMAT UNIT is drive-side. Roughly
+10 minutes, drive-bound, is the right expectation.
+
+## The probe had four bugs, all of the same family
+
+`gen_rw_probe.py` had never run successfully - there is no `RW.OUT` beside the
+09-11 INQUIRY captures. Four defects, every one of them **something that fails
+by silently not existing**:
+
+1. `jcxz BRE` is +158 from the jump; a short jump reaches +127. DEBUG prints an
+   error, **re-prompts at the same address and carries on without the
+   instruction**, so the guard its own comment calls load-bearing was absent.
+   With `cx=0` the read loop ran 65536 times over the probe's own code. Three
+   wedges, three reboots.
+2. `MARK` at `0580` and slots at `0600-067F` sat inside a main block that had
+   grown to `0716` - the probe wrote results into its own instruction stream.
+3. Adding a CDB pushed the media READ(10) onto `1D00`, which was `SLOTS`.
+4. `MARK` at `1EA0` landed on the FORMAT UNIT slot.
+
+The layout check now measures every short jump, and tests data against code,
+against the CDB table, and against the other data regions. **Each guard was
+verified to fail on the bug it was written for** before being trusted.
 
 ## Next, in order
 
-1. **Deploy `9d89bcc3` and boot with the drive still unplugged.** This is the
-   whole test, and the machine is already in the right state for it. Expect a
-   desktop at normal speed and no LS-120 in Device Manager.
-2. **Plug the drive in and boot again.** The regression that matters: the probe
-   must not decline a bridge that is actually there. If it does, the driver will
-   not load at all — worse than the bug it fixes. `LS_BridgeProbe` uses the full
-   `LS_PortOpen`, not a bare CPP connect, precisely to avoid this, but that
-   reasoning has not met hardware.
-3. **Read `dxBridgeVer`** once it loads. Linux prints this value and never
-   compares it, so we have no constant for our EPAT. Capture it and write it
-   down — presence only needs "not `00h`, not `FFh`", but a known value turns a
-   liveness check into an identity check.
-4. Then back to the truncation order in `next_session_2026_09_14.md`.
-
-## The thing worth taking to the bed
-
-`epat.c:274-281` — **the EPAT has a built-in test-pattern generator.** Write
-`13h`=1, `13h`=0, `0Ah`=`11h` to the *bridge's own* registers, then read 512
-bytes: they come back `k, 0FFh-k`.
-
-It is in the bridge, so it verifies a block read **with no drive attached and no
-media**. That is the first test we have ever had that separates the transport
-from the device, it discharges technique 111b item 3 off the bench, and it is a
-much smaller first milestone for `lpt-epat-bridge` than a full ATAPI model — the
-bed could reproduce a transport fault instead of passing every case.
-
-**Unverified on our bridge.** And the drive is unplugged right now, which is
-exactly the configuration it wants.
-
-## Not done
-
-- The SRST wait is bounded but still lives inside `LS_ColdStart`. Per `DESIGN.md`
-  I3 it should be a state in `LsTimer`; the budget accounts for it meanwhile.
-- `MaximumTransferLength` is still a build constant, not taken from the
-  negotiated transport (`DESIGN.md` change 6). At 4096 bytes the nibble fallback
-  is ~94 ms for one transfer.
-- The phase-0 build (`build.ps1` with no `-Phase`) does not link: `LS_ModeReq` is
-  `extrn`'d outside the `LS_PHASE2` guard. Pre-existing, and phase 0 is retired,
-  but it means the default invocation of `build.ps1` fails. **Use `-Phase 2`.**
+1. **Fix the transfer ceiling** - the data-loss bug. Cap at 3584 or loop bursts.
+2. **Fix the reset settle** - it needs seconds, as a state, pulsed once.
+3. **Repeat the whole DOS proof on ECP.** It is the untested half and the owner
+   has asked for both. `LS_NegotiateEcp` exists in the driver; the probe has no
+   ECP path at all and needs one.
+4. **Format properly**, per the sequence above - between the SPP and ECP proofs,
+   so ECP verifies against a known-clean surface.
+5. Then Windows: deploy `9d89bcc3`, boot with the vendor still REM'd, and see
+   whether the driver loads now that nothing else owns `0x378`.
