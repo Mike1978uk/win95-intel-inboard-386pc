@@ -293,8 +293,9 @@ improve and how you will know.
 
 ### What "it worked" looks like - two separate things
 
-⚠ **Under Windows `D:` is the CD-ROM.** Under DOS with the vendor driver loaded `D:` was the
-LS-120, which is what every probe on 2026-09-14 used. Do not read one as the other.
+⚠ **`D:` on the 5160 is the LS-120** when the vendor driver is loaded - that is what every
+probe on 2026-09-14 used. (An earlier note here said `D:` was the CD-ROM on the 5160; that was
+a typo, corrected by the owner. `D:` on the *host* is the CF card in its reader.)
 
 | check | meaning |
 |---|---|
@@ -405,6 +406,25 @@ all of it is unproven against a real Windows enumeration.
 
 **What must not happen:** reverting `LS120TR.ASM`. The transport is the half that is measured,
 and it is the half that was genuinely unknown at the start of 2026-09-14.
+
+## The code-10 boot, from its own log
+
+`docs/captures/2026-09-14_ls120/BOOTLOG_code10.TXT`, the 14:59 boot with `dcc442b5`:
+
+```
+[000EF04A] Initing xtidemp.mpd     [000EF052] Init Success      8 ticks
+[000EF052] Initing t130.mpd        [000EF0A1] Init Success     79 ticks
+[000EF0A2] Initing ls120mp.mpd     [000EF2F7] Init FAILURE    597 ticks
+```
+
+Two other miniports initialise in the same boot, in 8 and 79 ticks. **`IOS.LOG` is absent**, so
+IOS did not refuse us - the failure is ours.
+
+597 ticks is far more than three bridge probes should cost, and `Init Failure` is the same event
+as Device Manager's code 10 seen from the other side. The hard presence gate is the suspect, and
+its fix was built but had not been deployed when that boot ran.
+
+For scale: 09-09 `Init Success` in **2** ticks; 09-13 `Init Failure` in **1598**; this one 597.
 
 ## Next, in order
 
