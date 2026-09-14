@@ -373,22 +373,6 @@ LS_Connect:
 	call	LS_CppFrame
 	mov	LS_Connected, 1
 
-;  Same four writes as LS_PortOpen. A disconnect does not preserve the bridge's
-;  configuration, and this is the reconnect used by every poll and every SRB -
-;  LS_ReadyPoll, LS_ColdStart's poll path, LS_PacketCommand. Without them the
-;  first connect worked and every one after it read zeros.
-	mov	ch, CONT_BRIDGE
-	mov	ax, (010h SHL 8) OR 008h
-	call	LS_RegWriteCont
-	mov	ch, CONT_BRIDGE
-	mov	ax, (014h SHL 8) OR 00Ch
-	call	LS_RegWriteCont
-	mov	ch, CONT_BRIDGE
-	mov	ax, (038h SHL 8) OR 00Ah
-	call	LS_RegWriteCont
-	mov	ch, CONT_BRIDGE
-	mov	ax, (010h SHL 8) OR 012h
-	call	LS_RegWriteCont
 	clc
 	ret
 
@@ -2064,14 +2048,24 @@ LS_ColdStart:
 	call	LS_PortOpen
 	call	LS_AtaPulseReset	; pulse and return - no waiting here
 	mov	LS_SrstDone, 1
-	call	LS_Disconnect
+;  STAY CONNECTED. The build that enumerated this drive (bc453ca, md5
+;  976e4114) did the whole bring-up inside ONE connected session: port setup,
+;  CPP frames, connect, SRST, poll BSY, read the signature. The restructure
+;  split the waiting across ticks and disconnected at the end of each one, so
+;  the bridge was pulled off the bus repeatedly while the drive was coming out
+;  of reset. That is the structural difference between the two, found by
+;  diffing our own code rather than reasoning about it.
 	stc				; not ready yet; ask again next tick
 	ret
 
 ;  A bare connect is enough from here: LS_PortOpen configured the bridge on
 ;  the first tick and a disconnect does not undo that.
 lcs_poll:
+;  Only connect if the reset pulse left us disconnected - normally it did not.
+	cmp	LS_Connected, 0
+	jne	lcs_have
 	call	LS_Connect
+lcs_have:
 	call	LS_StatusRead
 	jc	lcs_maybe_dead		; 00h or FFh - which one decides everything
 	test	al, ATA_ST_BSY
@@ -2089,8 +2083,8 @@ lcs_poll:
 	call	LS_Disconnect
 	clc
 	ret
+;  Still in reset. Hold the connection and ask again next tick.
 lcs_notready:
-	call	LS_Disconnect
 	stc
 	ret
 
@@ -2168,30 +2162,6 @@ LS_PortOpen:
 	call	LS_CppFrame
 	mov	LS_Connected, 1
 
-;  Configure the bridge. THIS WAS MISSING ENTIRELY, and it is why the driver
-;  read status 00h for ever under Windows while the DOS probe read 50h and did
-;  full read/write with the same sequences.
-;
-;  epat_connect does these four on EVERY connect, and the probe that works does
-;  them too (mov ax,1008 / 140C / 380A / 1012). The driver did them never. A
-;  CPP connect alone addresses the bridge; it does not set it up.
-;
-;    08h = 10h   transfer/mode configuration
-;    0Ch = 14h
-;    0Ah = 38h   selects the version code in 0Bh
-;    12h = 10h
-	mov	ch, CONT_BRIDGE
-	mov	ax, (010h SHL 8) OR 008h
-	call	LS_RegWriteCont
-	mov	ch, CONT_BRIDGE
-	mov	ax, (014h SHL 8) OR 00Ch
-	call	LS_RegWriteCont
-	mov	ch, CONT_BRIDGE
-	mov	ax, (038h SHL 8) OR 00Ah
-	call	LS_RegWriteCont
-	mov	ch, CONT_BRIDGE
-	mov	ax, (010h SHL 8) OR 012h
-	call	LS_RegWriteCont
 	ret
 
 ;----------------------------------------------------------------------------
