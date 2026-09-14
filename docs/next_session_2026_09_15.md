@@ -1,439 +1,87 @@
-# Next session - 2026-09-15
-
-Supersedes the earlier 09-15 draft, which covered only the presence gate.
-`next_session_2026_09_14.md` is now history: its truncation work is answered
-below and its `/di` / `/w0` plan is overtaken.
-
-## Start here
-
-**The LS-120 reads and writes correctly from DOS on our own code path, with the
-vendor driver removed.** Proven on real media. And the measurement that matters:
-
-> **A single ATAPI data burst on this drive is 3584 bytes - 7 sectors.** A
-> 4096-byte WRITE(10) is answered with a 3584-byte burst, the transfer is left
-> mid-flight with DRQ still asserted, and the next command dies ABORTED COMMAND.
-
-**`LS_MAX_XFER = 4096` is one sector over that, and neither the probe nor
-`LS_PacketCommand` loops bursts.** So the driver would move 3584 bytes of a
-4096-byte write, leave 512 behind, and report success. That is silent data loss
-and it is the first thing to fix.
+# LS-120 — handoff, 2026-09-14 (late)
 
 ## Machine state
 
-- CF in the 5160. **`CONFIG.SYS` has both `SD120PPD` lines REM'd** - `D:` does
-  not exist. Restore with `copy C:\CONFIG.B4 C:\CONFIG.SYS` (backup verified,
-  crc `18043ce5`, 397 bytes). `INBRDPC.SYS` untouched.
-- The NOS disk is still in the drive and **still has its original filesystem** -
-  `EB 3E 90 MSWIN4.0`, 512 b/sector, 4 sectors/cluster, 2 FATs of 241, 32
-  sectors/track, 8 heads. `D:\FC.EXE` and the session's test files are gone from
-  DOS's view only because the driver is unloaded, not because anything erased
-  them.
-- LBA 100000 holds a 00..FF ramp from the media write test.
-- Driver binary on the card is still `220be39e`. The presence-gate build
-  `9d89bcc3` (commit `560e9fd`) is **still not deployed and still never run**.
-- Repo clean, nothing pushed.
+CF in the reader at `D:` at time of writing. Vendor driver REM'd in `CONFIG.SYS`
+(restore with `copy C:\CONFIG.B4 C:\CONFIG.SYS`). The LS-120 device node was removed
+from Device Manager by the owner and has **not** been reinstalled.
 
-## Proven today, on hardware
+On the card:
 
-Vendor driver unloaded for all of it. Captures in
-`docs/captures/2026-09-14_ls120/`.
-
-| | evidence |
+| path | contents |
 |---|---|
-| register reads | status `50` (DRDY\|DSC), ATAPI signature |
-| register writes | SRST pulses, drive goes BSY, raises unit attention |
-| **block read** | LBA 0 = real FAT boot sector, `MSWIN4.0` … `WINBOOT SYS` `55 AA` |
-| **block write, drive buffer** | WRITE BUFFER / READ BUFFER 512 bytes byte-exact, correct order |
-| **block write, MEDIA** | WRITE(10) → READ(10) at LBA 100000, 512 bytes byte-exact |
-| **it is on the platter** | re-read after SRST, buffer poisoned to `EE`, no write that run - same pattern |
-| multi-sector | 7 sectors (3584) clean both ways; 8 sectors (4096) short-bursts |
-| unit attention | two queued, ASC `29` then `28`, one cleared per REQUEST SENSE |
-
-**All of it is SPP/nibble. ECP has not been exercised at all.**
-
-## What the driver must change, with numbers
-
-1. **Transfer ceiling.** Either cap at **3584** (7 sectors) or implement burst
-   looping. Capping is one constant; looping is correct and is what `pf.c` does.
-   Until one of them lands, any write over 3584 bytes loses data silently.
-2. **The reset settle is a LONG wait and must not share a budget with a
-   per-command poll.** Measured: `--spin 2000` (~0.29 s) aborts every command
-   after SRST, deterministically, byte-identical across runs. `0xFFFF` (~2.3 s)
-   works first time. So `LS_SPIN_RESET = 2000` (~92 ms), shipped this morning,
-   cannot work - and `lt_coldstart` re-pulses SRST every retry, restarting the
-   reset forever. `DESIGN.md` I3 and change 5.
-3. **Drain the sense until it comes back clean**, not a fixed count. The drive
-   queued two unit attentions and reads only worked once both were gone.
-4. **Calibrate per transport** (`DESIGN.md` §5.2) - and note 3584 is an SPP
-   number. ECP may differ; nothing says they share it.
-
-## The format: attempted, void, and how to do it properly
-
-FORMAT UNIT (CDB `04 00 …`, FmtData=0, no parameter list) was issued and the
-packet ran to completion. **The result is void and the disk is unchanged.**
-
-Two reasons, both mine:
-
-- **`MARK` sat on the FORMAT UNIT result slot** (`SLOTS+0xA0` = `1EA0`), so its
-  status and error were overwritten before they could be read. Fixed: `MARK` is
-  `1F00` and the layout check now tests it against `SLOTS`.
-- **The check run reset the drive.** Every probe starts with an SRST, and SRST
-  aborts an in-progress format. The check ran 90 s after the fire - on a format
-  the owner expects to take ~10 minutes, that run would have killed it.
-
-`--noreset` now exists for exactly this. The correct sequence:
-
-1. `--formatunit` to fire it, and **read the slot** to confirm the drive accepted
-   the command rather than rejecting it.
-2. Leave it alone for ~10 minutes. Do not run anything that resets.
-3. `--noreset` poll runs to watch BSY clear.
-4. Then an ordinary probe to read LBA 0 and see a blank surface.
-
-⚠ If the drive rejects FmtData=0, the parameter-list form needs sourcing from a
-primary reference before being tried on real media - do not guess a defect-list
-header.
-
-## `FORMAT.COM` vs FORMAT UNIT
-
-Different things, and the distinction decided the plan:
-
-- **FORMAT UNIT** is a raw ATAPI command. No drive letter, no mount, no bulk
-  transfer - the drive formats its own surface internally, so transport speed
-  barely matters. The probe can issue it.
-- **`FORMAT D:`** is a filesystem tool and needs a block device. That means the
-  vendor driver, or ours once it loads under Windows.
-
-A full "clean bill of health" is really both: FORMAT UNIT for the surface, then
-filesystem structures, which need a block driver.
-
-⚠ An earlier claim in this session that a format would take ~47 minutes was
-**wrong twice over** - it assumed nibble when the card is ECP-capable, and it
-assumed the host streams every sector when FORMAT UNIT is drive-side. Roughly
-10 minutes, drive-bound, is the right expectation.
-
-## The probe had four bugs, all of the same family
-
-`gen_rw_probe.py` had never run successfully - there is no `RW.OUT` beside the
-09-11 INQUIRY captures. Four defects, every one of them **something that fails
-by silently not existing**:
-
-1. `jcxz BRE` is +158 from the jump; a short jump reaches +127. DEBUG prints an
-   error, **re-prompts at the same address and carries on without the
-   instruction**, so the guard its own comment calls load-bearing was absent.
-   With `cx=0` the read loop ran 65536 times over the probe's own code. Three
-   wedges, three reboots.
-2. `MARK` at `0580` and slots at `0600-067F` sat inside a main block that had
-   grown to `0716` - the probe wrote results into its own instruction stream.
-3. Adding a CDB pushed the media READ(10) onto `1D00`, which was `SLOTS`.
-4. `MARK` at `1EA0` landed on the FORMAT UNIT slot.
-
-The layout check now measures every short jump, and tests data against code,
-against the CDB table, and against the other data regions. **Each guard was
-verified to fail on the bug it was written for** before being trusted.
-
-## ECP: register level proven, block level not
-
-Added after the SPP work, same session, vendor driver still absent.
-
-**Register level works.** `ECPPROBE.COM` (`drivers/imation_ls120/tools/ecpprobe.py`)
-on clean hardware:
-
-| slot | value | meaning |
-|---|---|---|
-| `neg_flag` / `neg_stat` | `00` / `B8` | **IEEE-1284 ECP negotiation succeeded** |
-| `w1_flag` `w2_flag` `w3_flag` | all `00` | forward drain, address cycle **and the reverse wait** all completed |
-| `ecp_ecr_mode` / `ecp_ecr_rev` | `75` / `74` | ECR tracks the mode through the turnaround |
-| `ecp_byte` | `14` | **correct** - the address cycle targets BCLO (line 492), and the nibble read of the same register also says `14` |
-
-⚠ The slot comment says `expect 50` and the docstring says it replays a status
-read. **Both are stale** - the code addresses `CONT_TASKFILE + ATA_REG_BCLO`.
-Two transports, one register, same answer is the real result here.
-
-**Block level does not work.** `--ecp --sectors 7` against the media:
-
-- read-back buffer untouched at its `EE` poison - nothing transferred, and the
-  poison is why that is unambiguous rather than a stale success
-- every nibble status read after the ECP episode returns **`F5`**, which is not
-  a valid ATA status
-- the phases *before* it are fine: interrupt reason `01` before the CDB, as
-  required. So the ECP episode itself is what leaves the port unusable
-- **transient** - the next SPP run is byte-exact again, because `LS_PortOpen`
-  recovers the port. Nothing is damaged
-
-One fix was applied and is correct in itself: the probe's `LS_EcpLeave`
-transliteration stored `34h`, a bare `04h` and a guessed `15h` where the driver
-does a **read-modify-write** (control: keep IRQEN, set forward; ECR: `AND 1Fh`).
-Technique 118. It changed nothing, so the cause is earlier.
-
-### CAUSE FOUND - it is architectural, and it was in our own spec
-
-**ECP is not a block transport on this bridge.** The vendor's mode tables say `ECP Read`
-(handler `3CCEh`) and `ECP Write` (`4932h`) each take a **register number** - per-register ECP
-is its normal mode. And Linux `epat.c` has **no ECP mode at all**: 4-bit, 5/3, 8-bit, EPP-8/16/32.
-
-The block path is **EPP**, which `TRANSPORT_SPEC.md` §4f-corrected states and `epat.c` mode 3
-confirms byte for byte:
-
-```c
-w3(0x80); w2(0x24);                      // 0x80 -> EPP ADDRESS register at base+3
-for (k=0;k<count-1;k++) buf[k] = r4();   // data from EPP DATA register at base+4
-w2(4); w3(0xa0); w2(0x24);               // 0xA0 = last byte
-buf[count-1] = r4();
-w2(4);
-```
-
-Same `80h`/`A0h` command bytes our ECP code uses - but to **base+3**, with data at **base+4**.
-`LS_BlockReadEcp` sends them to the ECP FIFO at base+0 and reads base+400h. Wrong ports.
-
-So the correct architecture is:
-
-| | transport |
-|---|---|
-| registers | **ECP per register** (`3CCEh` / `4932h`), nibble as fallback |
-| block data | **EPP**, `epat.c` mode 3 |
-
-Our driver has **neither**: nibble registers (works, slow) and ECP-block (does not work).
-**The speed win for data is EPP, not ECP.**
-
-⚠ This was already written down. `IMPLEMENTATION.md` §5 carried the retracted claim ("ECP
-belongs to the DATA phase only... ship nibble registers + ECP `rep insb` for sector data") while
-`TRANSPORT_SPEC.md`'s index had retracted it on 09-13. I built the probe from the stale file.
-§5 is now corrected and points at the right one.
-
-### Second bug, independent of the above
-
-**Every ECP failure path must restore `ECR = 0x34` and un-reverse the control port.** The spec
-is explicit: *"an abandoned reverse channel wedges the port on this machine, so the failure
-paths matter more than the happy path."* My transliteration has **no `jc` after `call ECMD`**
-and none after `call EWD`, so a failed phase carries on with the port reversed and leaves it
-there. That is the `F5`.
-
-### If it still misbehaves, bisect rather than guess
-
-One fix-and-run has already failed. The order:
-
-1. **Negotiation alone** - call `ENEG`, then immediately a nibble status read.
-   `50` means negotiation is innocent; `F5` means it is the culprit and the
-   transliteration or the sequence is wrong.
-2. If innocent, add `EcpDir` alone, re-read status.
-3. Then `EcpCmd` alone. Then the FIFO transfer.
-
-Each step is one flag and one run, and each one halves the space. The probe's
-blocks are at `1000`-`12FF` and the driver's originals are `LS_Neg1284`,
-`LS_EcpDir`, `LS_EcpCmd`, `LS_EcpLeave`, `LS_BlockReadEcp`, `LS_BlockWriteEcp`.
-
-## FORMAT UNIT is refused
-
-`04 00 ...` - FmtData=0, "default parameters", no parameter list - comes back
-**status 51, error 54: sense key 5, ILLEGAL REQUEST**. The parameter-list form
-(SFF-8070i) is needed and **must be sourced, not guessed** on real media.
-
-Route the owner can take meanwhile: restore the vendor driver briefly,
-`FORMAT D:`, re-REM it. The surface format is drive-side so the vendor's
-truncation does not touch it, and this disk's current FAT16 came from exactly
-that route.
-
-## The whole disk is addressable - the gate before Windows
-
-| LBA | what | result |
-|---|---|---|
-| 0 | READ(10) | real FAT boot sector |
-| 100000 | WRITE(10) + READ(10), 512 B | byte-exact, survives SRST |
-| **230000** | **WRITE(10) + READ(10), 3584 B** | **byte-exact** - ~117 MB into a ~120 MB disk |
-
-Start, middle and far end, all through SPP block mode. **`READ(10)`/`WRITE(10)` addressing is
-sound across the disk**, which is what had to be true before building for Windows.
-
-⚠ READ CAPACITY still does not return its 8 bytes - the command completes clean (status `50`,
-error `00`, 8 offered) but the buffer stays at its poison. A probe bug, not a drive one, and
-not worth chasing: the far-LBA test answers the question directly.
-
-## ECP block: descriptor decoded and running, still wedges
-
-The vendor's real ECP block path is `0x4CA3` and is now decoded end to end
-(`TRANSPORT_SPEC.md` §11). Implementing the descriptor moved it forward:
-
-| attempt | result |
-|---|---|
-| bare `C0h`, no descriptor | nothing moves, port wedges (`F5`) |
-| EPP mode 3 | nothing moves, port survives |
-| **+ descriptor via `0Eh`/`0Fh`/`0Bh`** | **data phase runs** - status `58`, reason `00` - **bytes move**, port still wedges |
-| + chunking by FIFO depth | identical |
-
-**Three fix-and-run cycles without resolution, so stop.** The bisect that has not been done:
-
-1. Descriptor **alone**, no `C0h`, no streaming - does the port survive?
-2. If yes, add `C0h` alone. Then one chunk. Then all chunks.
-
-Unknowns that a bisect will need: what `[0C18h]` holds (chunk size - the FIFO depth is the
-guess, unmeasured), the read direction (§11 decodes the write side), and whether the two `0Bh`
-writes are one register or two.
-
-**None of this blocks Windows.** SPP is proven across the whole disk; ECP is throughput.
-
-## THE REGRESSION IS BISECTED TO ONE COMMIT
-
-**Our driver enumerated the LS-120 on 2026-09-11 and has not since.** Confirmed by the owner:
-the vendor's `CONFIG.SYS` lines were **commented out** at the time, so this was our driver
-alone - no technique-110 confound.
-
-| commit | time | state |
-|---|---|---|
-| **`bc453ca`** | 09-11 **19:57** | builds `976e4114` - **drive ENUMERATED**, symptom was "media not formatted" |
-| **`05bbd3e`** | 09-11 **22:32** | **"Move all waiting out of the miniport's callbacks"** - the restructure |
-| 24 more | 09-13 -> 09-14 | ECP work, then the 09-14 transport fixes |
-
-The last build that enumerated is the last one **before** the restructure, 2.5 hours earlier.
-
-⚠ **The restructure was theory-driven, not failure-driven.** Its own handoff records the driver
-as *"enumerates and boots clean"* that same day. It was done to match the vendor's and PC2X's
-architecture (`IMPLEMENTATION.md` §1), which is sound reasoning - and it regressed a working
-driver. Technique 97: do not "fix" a configuration that is working; say what you predict will
-improve and how you will know.
-
-### What "it worked" looks like - two separate things
-
-⚠ **`D:` on the 5160 is the LS-120** when the vendor driver is loaded - that is what every
-probe on 2026-09-14 used. (An earlier note here said `D:` was the CD-ROM on the 5160; that was
-a typo, corrected by the owner. `D:` on the *host* is the CF card in its reader.)
-
-| check | meaning |
-|---|---|
-| **LS-120 in Device Manager** | the miniport enumerated it. **This is the regression test.** |
-| a drive letter | a separate step with a separate known blocker: the node carries `UserDriveLetterAssignment="II"`, pinning it to `I:`, which the Nakamichi holds |
-
-**Device Manager entry with no drive letter is still a PASS** on what is being tested.
-
-### The test, and it costs one command
-
-`976e4114` is **already on the card** as `LS120MP.B13`. Technique 94 - substitute the
-known-good component:
+| `D:\LS120MP\LS120MP.MPD` | code `6b7939bd`, 6144 bytes — `a925038` rebuilt |
+| `D:\LS120MP\LS120MP.INF` | model name `Parallel-port LS-120 (Shuttle EPAT) - a925038 12:01 build` |
+| `D:\WINDOWS\SYSTEM\IOSUBSYS\LS120MP.MPD` | same binary |
+| `D:\WINDOWS\INF\OEM3.INF`, `OEM4.INF` | skeleton registrations **retired** (originals kept as `.SKL`) |
+
+Previous binaries kept as `LS120MP.B13`…`B25`; the skeleton pair as
+`D:\LS120MP\LS120MP.SEP7` and `LS120MP.IN0`.
+
+## What was actually wrong
+
+**The install source held the phase-0 skeleton, and the device node was registered
+against the skeleton INF.** `D:\LS120MP\LS120MP.MPD` was
+`2026-09-07T11:07:39Z  code 7bfc5476  md5 61fcab5d  5120 bytes  3f56e63  clean  (none)` —
+flags `(none)`, i.e. **no `-DLS_PHASE2`**. That build registers with SCSIPORT, reads one
+register and reports no devices, by design; its INF says so in capitals.
+
+Because that folder is the INF's `SourceDisksFiles` location, **every driver refresh
+restored it over `IOSUBSYS`**. Sessions repeatedly replaced only the `.MPD` beneath a node
+whose `DriverDesc` stayed `PHASE 0 SKELETON` for ever, so:
+
+- the machine showed no way to tell one build from another — **no iteration record**;
+- a deploy that was silently overwritten looked exactly like a deploy that worked;
+- the owner's only means of identifying a build was one photograph with a timestamp.
+
+Confirmed in both backup images: `LS120MP\` is `5120 + 3723` bytes on 09-10 **and** 09-12,
+while `IOSUBSYS` held 7168-byte phase-2 builds.
+
+## ⛔ Retraction: the "2-tick Init Success" was the skeleton
+
+`BOOTLOG.OLD` (2026-09-09 14:04:54) reads `Init Success` in **2 ticks**, and that number has
+been the good-boot reference ever since. On that date `IOSUBSYS\LS120MP.MPD` was the
+5120-byte `61fcab5d` skeleton dated 2026-09-07 11:18. Two ticks is a driver that reads one
+register and returns. **It is not evidence that anything worked.** Every comparison resting
+on it — including the hardware-vs-bed argument — is void.
+
+The only record of the drive working is the owner's photograph, Friday 2026-09-11 12:10,
+mapped at `L:`. The ledger identifies that build unambiguously, because nothing was built
+between 12:01 and 12:41:
 
 ```
-copy C:\WINDOWS\SYSTEM\IOSUBSYS\LS120MP.B13 C:\WINDOWS\SYSTEM\IOSUBSYS\LS120MP.MPD
+2026-09-11T12:01:24Z  code 6b7939bd  md5 ff80f056  6144 bytes  a925038  clean  -DLS_PHASE2
 ```
 
-then a **logged** boot (F8 -> Logged).
+`a925038` rebuilds to code `6b7939bd` exactly. **Identify a build from `build_ledger.tsv`,
+never from a comment in the source** — a comment in `LS120TR.ASM` named
+`bc453ca`/`976e4114` as "the build that enumerated this drive" and cost an evening.
 
-- **Drive enumerates** -> confirmed. Bisect the 25 commits, `05bbd3e` first. Today's transport
-  work sits *below* the layer that broke, so it is unaffected either way.
-- **It does not** -> something outside the driver changed since 09-11, and the driver was never
-  the variable.
+## Fixed this session
 
-⚠ `LS120MP.MPD` currently on the card is `dcc442b5` (the code-10 build). Back it up first if
-you want it: `LS120MP.B14` already holds the pre-09-14 binary.
+- Build stamps code hash, commit and mode into the INF model name, so an installed driver
+  names itself in Device Manager.
+- Deploy must write **both** the install source and `IOSUBSYS`.
+- Transport budgets restored for the synchronous miniport: reset settle 92 ms → 3.0 s,
+  BSY → 1.0 s, DRQ → 0.5 s. The async restructure had cut them ~10x because it drew its
+  seconds from a tick budget a synchronous miniport does not have.
+- Dead-bus test narrowed to `FFh` only; `00h` is a legitimate post-SRST status.
 
-## What the 09-14 fixes are worth either way
+## Measured on hardware tonight (both committed with captures)
 
-They are transport-layer and measured, so they survive whatever the bisect says:
+- **SPP works.** Four `READ(10)`s, LBA 0 returns a real `MSWIN4.0` boot sector. Both queued
+  unit attentions (ASC `29`, `28`) drain as documented. `RW_1930.OUT`.
+- **ECP is broken.** Identical script, only the block helper swapped: every task-file
+  register reads `F5` (BSY+ERR) after one ECP burst. `RWECP_1935.OUT`. The probe's leave
+  already mirrors `LS_EcpLeave`, so this reproduces the driver's defect at DOS — the bisect
+  that cost three fix-and-run cycles in Windows, now one flag.
 
-- `LS_MAX_XFER` 4096 -> **3584**, the measured one-burst ceiling
-- a short data phase **fails** instead of silently losing 512 bytes per write
-- SRST pulsed once, settle as a state
-- **dead bus detected in ~2 ms** instead of spending 3000 ticks on an empty cable
-- cold-start failure cached, so later SRBs do not re-spend the budget
+## Next
 
-Latest build: `5ca5469f`, commit `0d9a910`, clean. **Not deployed.**
-
-## Aligning the two halves - what keeps, what is recovered
-
-The split is almost exactly file-level, which makes this tractable.
-
-### `LS120TR.ASM` - transport. KEEPS. Proven on hardware.
-
-Every one of these was verified on the real drive on 2026-09-14 through DOS probes that
-transliterate these exact sequences:
-
-| | evidence |
-|---|---|
-| ATAPI packet sequence, `pf.c` shape | INQUIRY, REQUEST SENSE, READ(10), WRITE(10) all complete clean |
-| SPP block read / write | LBA 0 boot sector; media write byte-exact at LBA 100000 **and 230000** |
-| `LS_MAX_XFER` = **3584** | measured one-burst ceiling; 4096 short-bursts and strands the bus |
-| short data phase **fails** | DRQ still set at completion = 512 bytes would be lost silently |
-| `LS_StatusRead` dead-bus | `00h`/`FFh` detected in ~46 us |
-| SRST pulse-only + `LS_ColdDead` | reset settle needs seconds; a dead bus needs none |
-| sense drain | two queued unit attentions, one per REQUEST SENSE |
-
-### ECP - KEEP. It is the speed path and it is nearly there.
-
-⛔ **An earlier line here said the ECP work "is not needed" and could be stripped. That was
-wrong and is retracted.** It came from over-reading "the bridge has an SPP block mode" as "the
-bridge only has an SPP block mode". Both are true at once: SPP block mode works and is what we
-ship today; the vendor's own ECP block path exists at `0x4CA3` and is decoded in §11.
-
-**Why it matters:** SPP block mode costs 2-4 bus accesses per byte. ECP block costs **one**.
-On a machine where a bus access is 5.77 us and the transport is the bottleneck, that is the
-difference between a usable drive and a slow one. It is the reason to do any of this.
-
-Progress so far, none of it wasted:
-
-| | state |
-|---|---|
-| IEEE-1284 ECP negotiation | **works** - `B8`, root-caused 2026-09-13 |
-| ECP **per-register** access | **works on clean hardware** - `ecpprobe.py`, 2026-09-14 |
-| ECP block descriptor (`0Eh`/`0Fh`/`0Bh` pairs, ECR-gated) | **found and implemented** |
-| ECP block data phase | **runs** - status `58`, interrupt reason `00`, bytes move |
-| what remains | the port wedges after the transfer |
-
-**The next step is a bisect, not another guess** - three fix-and-run cycles have already failed:
-
-1. descriptor **alone**, no `C0h`, no streaming - does the port survive?
-2. then `C0h` alone. then one chunk. then all chunks.
-
-Unknowns a bisect will need: what `[0C18h]` holds (chunk size), the read direction (§11 decodes
-the write side), and whether the two `0Bh` writes are one register or two.
-
-ECP is selectable at runtime (`MODE=ECP`) and at build time (`-Mode ecp`), with SPP as the
-fallback, so it can be finished without risking the working path.
-
-### `LS120MP.ASM` - miniport. THIS is what regressed.
-
-Nothing in this file has been shown to work since `05bbd3e`. The drive enumerated at `bc453ca`
-and has not since. The state machine, the tick budgets, `dxColdFail`, the presence-gate wiring -
-all of it is unproven against a real Windows enumeration.
-
-### The alignment, in order
-
-1. **`LS120MP.B13` substitution** - one `COPY`, one logged boot. Does the pre-restructure
-   miniport still enumerate with today's transport absent? Settles the bisect.
-2. **Honour `Srb->TimeOutValue`** (I5a). The leading mechanism: the restructure turned the first
-   INQUIRY into seconds, SCSIPORT timed it out, and a timed-out INQUIRY during enumeration is
-   "no device". This would explain the lost drive AND the long pause with one cause.
-3. **Then re-pair.** If (2) is the cause, the async architecture is kept and the transport work
-   needs no change at all - the two halves are already aligned and only the timeout was wrong.
-   If it is not, revert `LS120MP.ASM` toward `bc453ca` and re-apply the transport-independent
-   parts on top.
-
-**What must not happen:** reverting `LS120TR.ASM`. The transport is the half that is measured,
-and it is the half that was genuinely unknown at the start of 2026-09-14.
-
-## The code-10 boot, from its own log
-
-`docs/captures/2026-09-14_ls120/BOOTLOG_code10.TXT`, the 14:59 boot with `dcc442b5`:
-
-```
-[000EF04A] Initing xtidemp.mpd     [000EF052] Init Success      8 ticks
-[000EF052] Initing t130.mpd        [000EF0A1] Init Success     79 ticks
-[000EF0A2] Initing ls120mp.mpd     [000EF2F7] Init FAILURE    597 ticks
-```
-
-Two other miniports initialise in the same boot, in 8 and 79 ticks. **`IOS.LOG` is absent**, so
-IOS did not refuse us - the failure is ours.
-
-597 ticks is far more than three bridge probes should cost, and `Init Failure` is the same event
-as Device Manager's code 10 seen from the other side. The hard presence gate is the suspect, and
-its fix was built but had not been deployed when that boot ran.
-
-For scale: 09-09 `Init Success` in **2** ticks; 09-13 `Init Failure` in **1598**; this one 597.
-
-## Next, in order
-
-1. **Fix the transfer ceiling** - the data-loss bug. Cap at 3584 or loop bursts.
-2. **Fix the reset settle** - it needs seconds, as a state, pulsed once.
-3. **Repeat the whole DOS proof on ECP.** It is the untested half and the owner
-   has asked for both. `LS_NegotiateEcp` exists in the driver; the probe has no
-   ECP path at all and needs one.
-4. **Format properly**, per the sequence above - between the SPP and ECP proofs,
-   so ECP verifies against a known-clean surface.
-5. Then Windows: deploy `9d89bcc3`, boot with the vendor still REM'd, and see
-   whether the driver loads now that nothing else owns `0x378`.
+1. Install from `D:\LS120MP` — one entry, `a925038 12:01 build`. Boot.
+2. If it enumerates but has no letter: `UserDriveLetterAssignment = II` is still armed in
+   the hive, pinning the drive to `I:` which the Nakamichi holds. Device Manager → Disk
+   drives → `MATSHITA LS-120 COSM 04` → Settings → reserved drive letters → `L`.
+3. ECP bisect at DOS: stub the burst, then the descriptor alone, then one chunk.
+4. Backfill into the 86Box bed: 3584-byte burst ceiling, two queued unit attentions,
+   seconds-long SRST settle, `FORMAT UNIT` refusing FmtData=0.
