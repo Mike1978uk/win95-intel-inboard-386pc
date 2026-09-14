@@ -433,17 +433,35 @@ lfa_probe:
 	dec	ecx
 	jnz	lfa_probe
 
-	pop	edi
-	pop	esi
-	pop	ebx
-	mov	eax, SP_RETURN_NOT_FOUND
-	ret
+;  ADVISORY, NOT A GATE - and this is a correction, not a design choice.
+;
+;  Declining here returned SP_RETURN_NOT_FOUND, which SCSIPORT reports as
+;  Device Manager **code 10, "this device cannot start"** - measured on the
+;  real machine 2026-09-14 with a bridge that was demonstrably healthy, since
+;  the drive spun up in the same boot.
+;
+;  The read itself is the suspect, not the bridge. ECPPROBE's own bridge
+;  register slots (br0d_pre / br0d_post, register 0Dh) BOTH read 00 on this
+;  hardware, so a plain nibble read of the EPAT's own register space does not
+;  return what epat.c's RR() does - something about addressing that space is
+;  still wrong, and DESIGN.md section 4.2's tier 1 rests on it.
+;
+;  So record the value and carry on. A driver that declines to load teaches us
+;  nothing and costs the owner the device; a driver that loads and reports what
+;  it saw is diagnosable. Restore the gate only once a bridge register read is
+;  proven to return a real version code on this machine.
+	mov	eax, 0
+	mov	ebx, DeviceExtension
+	mov	[ebx].DEVEXT.dxBridgeVer, eax
+	mov	esi, ConfigInfo
+	jmp	lfa_probe_done
 
 lfa_probe_ok:
 ;  Recorded rather than checked. Linux prints this value and never compares
 ;  it, so there is no constant to test against - see DESIGN.md section 8.
 ;  Reading it out of a live machine once is what turns it into one.
 	mov	[ebx].DEVEXT.dxBridgeVer, eax
+lfa_probe_done:
 endif
 
 ;  The one and only hardware access in phase 0: read the status register.
