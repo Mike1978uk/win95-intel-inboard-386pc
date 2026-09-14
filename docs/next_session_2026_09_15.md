@@ -233,6 +233,44 @@ Route the owner can take meanwhile: restore the vendor driver briefly,
 truncation does not touch it, and this disk's current FAT16 came from exactly
 that route.
 
+## The whole disk is addressable - the gate before Windows
+
+| LBA | what | result |
+|---|---|---|
+| 0 | READ(10) | real FAT boot sector |
+| 100000 | WRITE(10) + READ(10), 512 B | byte-exact, survives SRST |
+| **230000** | **WRITE(10) + READ(10), 3584 B** | **byte-exact** - ~117 MB into a ~120 MB disk |
+
+Start, middle and far end, all through SPP block mode. **`READ(10)`/`WRITE(10)` addressing is
+sound across the disk**, which is what had to be true before building for Windows.
+
+⚠ READ CAPACITY still does not return its 8 bytes - the command completes clean (status `50`,
+error `00`, 8 offered) but the buffer stays at its poison. A probe bug, not a drive one, and
+not worth chasing: the far-LBA test answers the question directly.
+
+## ECP block: descriptor decoded and running, still wedges
+
+The vendor's real ECP block path is `0x4CA3` and is now decoded end to end
+(`TRANSPORT_SPEC.md` §11). Implementing the descriptor moved it forward:
+
+| attempt | result |
+|---|---|
+| bare `C0h`, no descriptor | nothing moves, port wedges (`F5`) |
+| EPP mode 3 | nothing moves, port survives |
+| **+ descriptor via `0Eh`/`0Fh`/`0Bh`** | **data phase runs** - status `58`, reason `00` - **bytes move**, port still wedges |
+| + chunking by FIFO depth | identical |
+
+**Three fix-and-run cycles without resolution, so stop.** The bisect that has not been done:
+
+1. Descriptor **alone**, no `C0h`, no streaming - does the port survive?
+2. If yes, add `C0h` alone. Then one chunk. Then all chunks.
+
+Unknowns that a bisect will need: what `[0C18h]` holds (chunk size - the FIFO depth is the
+guess, unmeasured), the read direction (§11 decodes the write side), and whether the two `0Bh`
+writes are one register or two.
+
+**None of this blocks Windows.** SPP is proven across the whole disk; ECP is throughput.
+
 ## Next, in order
 
 1. **Fix the transfer ceiling** - the data-loss bug. Cap at 3584 or loop bursts.
