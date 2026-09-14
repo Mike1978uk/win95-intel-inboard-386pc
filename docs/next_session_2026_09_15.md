@@ -131,6 +131,65 @@ The layout check now measures every short jump, and tests data against code,
 against the CDB table, and against the other data regions. **Each guard was
 verified to fail on the bug it was written for** before being trusted.
 
+## ECP: register level proven, block level not
+
+Added after the SPP work, same session, vendor driver still absent.
+
+**Register level works.** `ECPPROBE.COM` (`drivers/imation_ls120/tools/ecpprobe.py`)
+on clean hardware:
+
+| slot | value | meaning |
+|---|---|---|
+| `neg_flag` / `neg_stat` | `00` / `B8` | **IEEE-1284 ECP negotiation succeeded** |
+| `w1_flag` `w2_flag` `w3_flag` | all `00` | forward drain, address cycle **and the reverse wait** all completed |
+| `ecp_ecr_mode` / `ecp_ecr_rev` | `75` / `74` | ECR tracks the mode through the turnaround |
+| `ecp_byte` | `14` | **correct** - the address cycle targets BCLO (line 492), and the nibble read of the same register also says `14` |
+
+⚠ The slot comment says `expect 50` and the docstring says it replays a status
+read. **Both are stale** - the code addresses `CONT_TASKFILE + ATA_REG_BCLO`.
+Two transports, one register, same answer is the real result here.
+
+**Block level does not work.** `--ecp --sectors 7` against the media:
+
+- read-back buffer untouched at its `EE` poison - nothing transferred, and the
+  poison is why that is unambiguous rather than a stale success
+- every nibble status read after the ECP episode returns **`F5`**, which is not
+  a valid ATA status
+- the phases *before* it are fine: interrupt reason `01` before the CDB, as
+  required. So the ECP episode itself is what leaves the port unusable
+- **transient** - the next SPP run is byte-exact again, because `LS_PortOpen`
+  recovers the port. Nothing is damaged
+
+One fix was applied and is correct in itself: the probe's `LS_EcpLeave`
+transliteration stored `34h`, a bare `04h` and a guessed `15h` where the driver
+does a **read-modify-write** (control: keep IRQEN, set forward; ECR: `AND 1Fh`).
+Technique 118. It changed nothing, so the cause is earlier.
+
+### Bisect it, do not guess again
+
+One fix-and-run has already failed. The order:
+
+1. **Negotiation alone** - call `ENEG`, then immediately a nibble status read.
+   `50` means negotiation is innocent; `F5` means it is the culprit and the
+   transliteration or the sequence is wrong.
+2. If innocent, add `EcpDir` alone, re-read status.
+3. Then `EcpCmd` alone. Then the FIFO transfer.
+
+Each step is one flag and one run, and each one halves the space. The probe's
+blocks are at `1000`-`12FF` and the driver's originals are `LS_Neg1284`,
+`LS_EcpDir`, `LS_EcpCmd`, `LS_EcpLeave`, `LS_BlockReadEcp`, `LS_BlockWriteEcp`.
+
+## FORMAT UNIT is refused
+
+`04 00 ...` - FmtData=0, "default parameters", no parameter list - comes back
+**status 51, error 54: sense key 5, ILLEGAL REQUEST**. The parameter-list form
+(SFF-8070i) is needed and **must be sourced, not guessed** on real media.
+
+Route the owner can take meanwhile: restore the vendor driver briefly,
+`FORMAT D:`, re-REM it. The surface format is drive-side so the vendor's
+truncation does not touch it, and this disk's current FAT16 came from exactly
+that route.
+
 ## Next, in order
 
 1. **Fix the transfer ceiling** - the data-loss bug. Cap at 3584 or loop bursts.
