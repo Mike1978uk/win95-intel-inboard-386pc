@@ -322,6 +322,50 @@ They are transport-layer and measured, so they survive whatever the bisect says:
 
 Latest build: `5ca5469f`, commit `0d9a910`, clean. **Not deployed.**
 
+## Aligning the two halves - what keeps, what is recovered
+
+The split is almost exactly file-level, which makes this tractable.
+
+### `LS120TR.ASM` - transport. KEEPS. Proven on hardware.
+
+Every one of these was verified on the real drive on 2026-09-14 through DOS probes that
+transliterate these exact sequences:
+
+| | evidence |
+|---|---|
+| ATAPI packet sequence, `pf.c` shape | INQUIRY, REQUEST SENSE, READ(10), WRITE(10) all complete clean |
+| SPP block read / write | LBA 0 boot sector; media write byte-exact at LBA 100000 **and 230000** |
+| `LS_MAX_XFER` = **3584** | measured one-burst ceiling; 4096 short-bursts and strands the bus |
+| short data phase **fails** | DRQ still set at completion = 512 bytes would be lost silently |
+| `LS_StatusRead` dead-bus | `00h`/`FFh` detected in ~46 us |
+| SRST pulse-only + `LS_ColdDead` | reset settle needs seconds; a dead bus needs none |
+| sense drain | two queued unit attentions, one per REQUEST SENSE |
+
+⚠ The **ECP block** work in this file does not function and is not needed - blocks are SPP
+(§11 and `IMPLEMENTATION.md` §5). It is inert unless `MODE=ECP` is selected. Leave it, or strip
+it, but do not let it hold up the miniport work.
+
+### `LS120MP.ASM` - miniport. THIS is what regressed.
+
+Nothing in this file has been shown to work since `05bbd3e`. The drive enumerated at `bc453ca`
+and has not since. The state machine, the tick budgets, `dxColdFail`, the presence-gate wiring -
+all of it is unproven against a real Windows enumeration.
+
+### The alignment, in order
+
+1. **`LS120MP.B13` substitution** - one `COPY`, one logged boot. Does the pre-restructure
+   miniport still enumerate with today's transport absent? Settles the bisect.
+2. **Honour `Srb->TimeOutValue`** (I5a). The leading mechanism: the restructure turned the first
+   INQUIRY into seconds, SCSIPORT timed it out, and a timed-out INQUIRY during enumeration is
+   "no device". This would explain the lost drive AND the long pause with one cause.
+3. **Then re-pair.** If (2) is the cause, the async architecture is kept and the transport work
+   needs no change at all - the two halves are already aligned and only the timeout was wrong.
+   If it is not, revert `LS120MP.ASM` toward `bc453ca` and re-apply the transport-independent
+   parts on top.
+
+**What must not happen:** reverting `LS120TR.ASM`. The transport is the half that is measured,
+and it is the half that was genuinely unknown at the start of 2026-09-14.
+
 ## Next, in order
 
 1. **Fix the transfer ceiling** - the data-loss bug. Cap at 3584 or loop bursts.
