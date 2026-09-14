@@ -296,6 +296,26 @@ Three things follow, and they are the reason this file's invariants are shaped t
 boundary is a property of the transport we share; it has not been shown that our own driver
 hits the same wall.
 
+### 5.2 Calibrate PER TRANSPORT, not once
+
+The driver runs two data paths — ECP block when negotiation succeeds, SPP nibble when it does
+not — and they can fall back **per block** at runtime, not just per boot. So a single boundary
+measured at init is the wrong shape: it would be measured on whichever transport happened to be
+live at the time and then applied to the other.
+
+Nothing rules out the two having different ceilings. The 09-13 note that a 30,720-byte write
+stalls on **both** transports says the rough limit is shared; it does not say the exact number
+is. Today's 5120 was measured through the vendor driver, and we do not know which transport it
+was using.
+
+So: **calibrate after negotiation, once per transport, and carry a ceiling for each.** When a
+block falls back from ECP to SPP, it must fall back to the SPP ceiling too. A single
+`LS_MAX_XFER` cannot express that, which makes this a change to the driver and not only to this
+document.
+
+Until both are measured, the honest position is to use the **lower** of the two candidates for
+both paths — which is what `LS_MAX_XFER = 4096` does today by accident rather than by design.
+
 ---
 
 ## 6. Changes this implies
