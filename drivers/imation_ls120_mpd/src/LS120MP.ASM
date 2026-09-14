@@ -186,6 +186,12 @@ LS_TICKS_READY		equ	8000	; 8 s, pf.c's PF_SPIN
 ;  3 s of ticks costs the system nothing; 3 s of spinning would cost it
 ;  everything, which is the whole point of DESIGN.md I3.
 LS_TICKS_COLD		equ	3000	; ~3 s, as ticks
+
+;  Bounds on the caller's own deadline, in SECONDS. The default is what we
+;  assume when an SRB carries no timeout; the maximum is the longest this
+;  driver will hold any request open even if the caller asks for more.
+LS_LIMIT_DEFSEC		equ	10
+LS_LIMIT_MAXSEC		equ	30
 LS_MAX_RETRY		equ	5	; pf.c's PF_MAX_RETRIES
 
 ;----------------------------------------------------------------------------
@@ -209,6 +215,11 @@ dxBridgeVer	DWORD	?		; EPAT version code read at FindAdapter
 ;  Set once a cold start has spent its whole budget. Every later SRB then
 ;  fails IMMEDIATELY instead of re-discovering the same absence.
 dxColdFail	DWORD	?
+;  Ticks elapsed across the WHOLE request. dxTicks restarts at every state
+;  change, so it cannot bound the request as a whole.
+dxTotal		DWORD	?
+;  The caller's own deadline, in ticks. Srb->TimeOutValue is in SECONDS.
+dxLimit		DWORD	?
 DEVEXT	ENDS
 
 	.DATA
@@ -769,6 +780,18 @@ LsTimer PROC STDCALL DeviceExtension:DWORD
 
 	inc	[esi].DEVEXT.dxTicks
 
+;  The caller's deadline bounds the whole request, whatever state it is in.
+;  Without this the per-state budgets can add up past what SCSIPORT allows,
+;  and the request is failed by the OS rather than by us - which during
+;  enumeration reads as an absent device.
+	inc	[esi].DEVEXT.dxTotal
+	mov	eax, [esi].DEVEXT.dxTotal
+	cmp	eax, [esi].DEVEXT.dxLimit
+	jb	lt_within
+	mov	al, SRB_STATUS_TIMEOUT
+	jmp	lt_setstat
+lt_within:
+
 ifdef LS_PHASE2
 	mov	eax, [esi].DEVEXT.dxState
 
@@ -1152,6 +1175,28 @@ lsi_dirin:
 	mov	eax, [ebx].SCSI_REQUEST_BLOCK.DataTransferLength
 	mov	[esi].DEVEXT.dxLen, eax
 	mov	[esi].DEVEXT.dxRetry, 0
+
+;  Take the caller's deadline. SCSIPORT puts a timeout on every SRB and this
+;  driver had never read it - the state machine's own budgets came to
+;  LS_TICKS_COLD + 2 x LS_TICKS_READY = 19 s with no reference to what the OS
+;  would wait for. SCSIPORT then times the request out itself, and a timed-out
+;  INQUIRY during enumeration means NO DEVICE. DESIGN.md I5a.
+;
+;  TimeOutValue is in seconds; a tick is a millisecond. Clamp both ends: 0
+;  means the caller did not say, and anything beyond LS_LIMIT_MAX ticks is
+;  longer than this driver is willing to hold a request open regardless.
+	mov	[esi].DEVEXT.dxTotal, 0
+	mov	eax, [ebx].SCSI_REQUEST_BLOCK.TimeOutValue
+	or	eax, eax
+	jz	lsi_lim_default
+	cmp	eax, LS_LIMIT_MAXSEC
+	jbe	lsi_lim_ok
+lsi_lim_default:
+	mov	eax, LS_LIMIT_DEFSEC
+lsi_lim_ok:
+	mov	ecx, 1000
+	mul	ecx
+	mov	[esi].DEVEXT.dxLimit, eax
 
 ;  First request of all opens the bridge; after that go straight to waiting
 ;  for the drive. Either way the work happens in the timer, not here.
