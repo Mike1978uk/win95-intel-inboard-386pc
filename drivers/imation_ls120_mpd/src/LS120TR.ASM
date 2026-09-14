@@ -86,13 +86,6 @@ CONT_BRIDGE		equ	000h		; internal bridge registers
 CONT_IDECTL		equ	010h		; IDE control
 CONT_TASKFILE		equ	018h		; IDE task file - ATA status is 018h+7
 
-;  Two registers in the EPAT's own space, from epat.c's epat_log_adapter:
-;  write 38h to 0Ah to select the version code, then read it from 0Bh. They
-;  answer with no drive attached, which is the whole point of LS_BridgeProbe -
-;  nothing else the driver can read distinguishes "no bridge" from "no drive".
-EPAT_REG_VERSEL		equ	00Ah
-EPAT_REG_VERSION	equ	00Bh
-
 ;  WRITE Normal tags the register number; NIBBLE read sends it bare.
 NIB_WRITE_TAG		equ	060h
 
@@ -168,42 +161,13 @@ ATAPI_PACKET_LEN	equ	12
 ;  slower (a spin-up) belongs to the class driver and its own timeout. The
 ;  DDK's PC2X sample bounds its waits in TIME, calling ScsiPortStallExecution(1)
 ;  per turn so the count IS microseconds - the right shape, worth adopting.
-;  RESIZED 2026-09-11 for the restructure. These no longer have to cover a
-;  spin-up, because LS_ST_READY in the miniport's timer waits for the drive
-;  to stop being busy BEFORE a command is issued, one poll per 1 ms tick.
-;  What is left here is the latency of a command the drive has already
-;  accepted, which is milliseconds. Sizing them for the worst case was what
-;  made a single tick block for a second at a time.
-;
-;  ~44 us per nibble register read, so 2000 = ~90 ms and 1000 = ~45 ms.
-LS_SPIN_BSY		equ	2000		; ~90 ms
-LS_SPIN_DRQ		equ	1000		; ~45 ms
-
-;  The wait for BSY to clear after SRST. This was 0FFFFh - the only loop in
-;  the transport that did not carry a derived bound - and at 46 us per nibble
-;  read that is 65535 x 46 us = 3.0 SECONDS inside one timer callback, which
-;  LsTimer then re-armed up to LS_TICKS_COLD times. Measured per-access cost:
-;  5.77 us (technique 109e), 8 accesses per nibble register read.
-;    2000 x 46 us = ~92 ms per attempt, x LS_TICKS_COLD attempts = ~2.8 s.
-LS_SPIN_RESET		equ	2000		; ~92 ms
+LS_SPIN_BSY		equ	22000		; ~1.0 s
+LS_SPIN_DRQ		equ	11000		; ~0.5 s
 
 	.DATA
 
 	PUBLIC	LS_BasePort
 LS_BasePort		dw	0378h		; set by the miniport from PORT=
-
-;  REQUEST SENSE. MEASURED on the real drive 2026-09-11: a READ(10) after a
-;  media change comes back status 51h, error register 64h - sense key 6,
-;  UNIT ATTENTION - and transfers nothing. That is the device REFUSING the
-;  command, not a broken data path. The class driver clears it by reading the
-;  sense data and retrying; a miniport that never reports CHECK CONDITION
-;  leaves it set for ever, so the volume never mounts ("media is not
-;  formatted") and the dismount that would release PREVENT MEDIUM REMOVAL
-;  never runs either - which is a drive that will not eject until you cut its
-;  power. Both symptoms, one cause.
-LS_SENSE_LEN		equ	18
-LS_SenseCdb		db	003h, 0, 0, 0, LS_SENSE_LEN, 0, 0, 0, 0, 0, 0, 0
-LS_SenseBuf		db	LS_SENSE_LEN dup (0)
 
 ;  A real INQUIRY, issued once by LS_BringUp so that BOOTLOG.TXT reports on the
 ;  whole packet path and not merely on the transport. BOOTLOG's Init
@@ -229,33 +193,8 @@ LS_Mode			dd	0		; negotiated transfer mode, 0 = none
 	PUBLIC	LS_Connected
 LS_Connected		dd	0		; layer 2 currently owns the port
 
-;  1 once SRST has been pulsed for this bring-up. Cleared by LS_ResetBringUp
-;  so a fresh adapter init, or a cold start that gave up, pulses again.
-	PUBLIC	LS_SrstDone
-LS_SrstDone		dd	0
-
-;  1 when a cold start failed because NOTHING IS DRIVING THE BUS, as distinct
-;  from a drive that is merely still busy. The two need opposite responses: a
-;  busy drive is worth 3000 more ticks, an empty cable is worth none. Without
-;  this split the state machine spends its whole budget on an absent device,
-;  which is minutes of boot once SCSIPORT probes every target.
-	PUBLIC	LS_ColdDead
-LS_ColdDead		dd	0
-
 	PUBLIC	LS_LastStatus
 LS_LastStatus		dd	0		; last ATA status byte read
-LS_XferN		dd	0		; byte count the DEVICE offered this phase
-LS_Phase		dd	0		; ATAPI interrupt reason, masked to 2 bits
-LS_HasEcp		dd	0		; 1 = an ECR answered at base+402h, use the FIFO
-	PUBLIC	LS_EcpNegStat
-LS_EcpNegStat		dd	0		; last status byte seen waiting for nAck
-LS_EcpNegFail		dd	0		; negotiations that expired, since load
-	PUBLIC	LS_ModeReq
-ifdef LS_FORCE_MODE
-LS_ModeReq		dd	LS_FORCE_MODE	; PINNED AT BUILD TIME - a test build
-else
-LS_ModeReq		dd	0		; 0 = auto-detect, 1 = force SPP, 2 = force ECP
-endif
 
 	.CODE
 
@@ -372,7 +311,6 @@ LS_Connect:
 	mov	al, CPP_CONNECT
 	call	LS_CppFrame
 	mov	LS_Connected, 1
-
 	clc
 	ret
 
@@ -391,38 +329,29 @@ LS_Connect:
 ;   Must be called with the bridge connected.
 ;----------------------------------------------------------------------------
 public LS_AtaSoftReset
-;  Pulse SRST and return immediately. The wait belongs to the caller's state
-;  machine, not to a spin inside a timer callback - DESIGN.md I3.
-public LS_AtaPulseReset
-LS_AtaPulseReset:
+LS_AtaSoftReset:
+	push	ebx
 	mov	ch, CONT_IDECTL
 	mov	ax, (ATA_DEVCTL_SRST SHL 8) OR ATA_REG_DEVCTL
 	call	LS_RegWriteCont		; SRST asserted
 	mov	ch, CONT_IDECTL
 	mov	ax, (0 SHL 8) OR ATA_REG_DEVCTL
 	call	LS_RegWriteCont		; SRST released - status reads 80h here
-	ret
-
-LS_AtaSoftReset:
-	push	ebx
-	call	LS_AtaPulseReset
 ;  Poll BSY down. A nibble read is ~8 port accesses at ~3.9 us of Inboard-to-
 ;  XT-bus sync each, so this loop is self-timing at roughly 30 us an iteration
 ;  - no calibrated delay to get wrong, and none to go stale on other hardware.
-	mov	ecx, LS_SPIN_RESET
+	mov	ecx, 0FFFFh
 lsrst_wait:
 	push	ecx
-	call	LS_StatusRead
+	mov	al, ATA_REG_STATUS
+	call	LS_RegRead
 	pop	ecx
-;  CF here means nothing is driving the bus - an empty cable, or a live bridge
-;  with no drive behind it. There is no point spending the rest of the budget
-;  on it, and spending it is exactly what stalled the boot.
-	jc	lsrst_dead
+	jc	lsrst_next
 	test	al, ATA_ST_BSY
 	jz	lsrst_done
+lsrst_next:
 	dec	ecx
 	jnz	lsrst_wait
-lsrst_dead:
 	pop	ebx
 	stc
 	ret
@@ -498,18 +427,6 @@ LS_BringUp:
 	cmp	al, ATAPI_SIG_HI
 	jne	lbu_fail
 
-;  4a. Prove the peripheral will negotiate into ECP before committing the
-;      transport to it. The ECR probe in LS_DetectEcp only says this HOST has
-;      an ECP port; it says nothing about the far end of the cable, and a
-;      bridge that never answers takes one byte into the FIFO and stops.
-;      A refusal here is not a failure to init - it is nibble, which works.
-	cmp	LS_HasEcp, 0
-	je	lbu_inq
-	call	LS_NegotiateEcp
-	jnc	lbu_inq
-	mov	LS_HasEcp, 0
-lbu_inq:
-
 ;  5. One INQUIRY, so a failure anywhere in the ATAPI path shows up as Init
 ;     Failure in BOOTLOG rather than as a silently missing drive letter. That
 ;     is what the first hardware boot cost: transport perfect, Init Success,
@@ -532,11 +449,6 @@ lbu_inq:
 	xor	edx, edx		; data in
 	call	LS_PacketCommand
 	jc	lbu_fail
-
-;  Drain the unit attentions the soft reset just raised, or the class driver's
-;  very first READ is refused and the volume never mounts. INQUIRY above is
-;  exempt from them, so this is invisible until something else is tried.
-	call	LS_DrainSense
 
 ;  Byte 4 is Additional Length. 0AAh means nothing was written at all; a real
 ;  device reports at least 4 and usually 1Fh.
@@ -644,20 +556,6 @@ LS_Disconnect:
 ;----------------------------------------------------------------------------
 public LS_RegRead
 LS_RegRead:
-	push	ecx
-	mov	ch, CONT_TASKFILE
-	jmp	short lrr_common
-
-;  Same read, into a caller-chosen container. CONT_BRIDGE reaches the EPAT's
-;  own registers, which answer with no drive attached - that is what makes the
-;  presence probe in LS_BridgeProbe possible. epat.c calls the two spaces RR
-;  (cont 2, offset 0, the bridge) and RRi (cont 0, offset 18h, the task file);
-;  its cont_map is { 18h, 10h, 0 }, so its numbering is the reverse of ours.
-;   In:   AL = register index, CH = CONT_* container offset
-public LS_RegReadCont
-LS_RegReadCont:
-	push	ecx
-lrr_common:
 ;  NIBBLE Normal. The bridge returns a byte as two nibbles, each arriving in
 ;  the TOP four bits of the SPP status port, so the low nibble has to be
 ;  shifted down and the high one masked. Getting that pair the wrong way round
@@ -665,7 +563,7 @@ lrr_common:
 	push	ebx
 	pushfd
 	cli
-	add	al, ch			; a bare register number addresses nothing
+	add	al, CONT_TASKFILE	; a bare register number addresses nothing
 	movzx	edx, LS_BasePort
 	out	dx, al
 	movzx	edx, LS_BasePort
@@ -694,82 +592,7 @@ lrr_common:
 	movzx	eax, al
 	popfd
 	pop	ebx
-	pop	ecx
 	clc
-	ret
-
-;----------------------------------------------------------------------------
-; LS_StatusRead - read the ATA status register, and say whether it is real.
-;
-;   Out:  AL = status, CF=0 if a device answered
-;         CF=1 if nothing is on the cable (AL is 00h or FFh)
-;   Uses: EAX, ECX, EDX
-;
-;   LS_RegRead cannot fail - it ends `clc`, unconditionally - so with nothing
-;   attached the SPP status port floats high, both nibbles read 0Fh, and it
-;   returns FFh REPORTED AS A GOOD READ. FFh has BSY set, so every caller then
-;   treats an empty cable as a device that is merely busy and waits for it.
-;   That is what stopped Windows reaching the desktop with the drive unplugged:
-;   the SRST wait below spent its full budget on a bus nobody was driving.
-;
-;   The judgement lives here rather than in LS_RegRead because FFh and 00h are
-;   only diagnostic for STATUS. A byte count of 00h is ordinary, and an error
-;   register of 00h is the good case; flagging those would break real reads.
-;   For status both are impossible: BSY and DRDY set together is illegal, and
-;   00h is the classic ATA "no device" float.
-;----------------------------------------------------------------------------
-public LS_StatusRead
-LS_StatusRead:
-	mov	al, ATA_REG_STATUS
-	call	LS_RegRead
-	cmp	al, 0FFh
-	je	lsr_dead
-	or	al, al
-	jz	lsr_dead
-	clc
-	ret
-lsr_dead:
-	stc
-	ret
-
-;----------------------------------------------------------------------------
-; LS_BridgeProbe - is an EPAT on the cable at all? Costs ~250 us, once.
-;
-;   Out:  CF=0 and AL = the bridge's version code
-;         CF=1 if nothing answered
-;   Uses: EAX, ECX, EDX
-;
-;   epat.c's own identity read (epat_log_adapter): write 38h to bridge
-;   register 0Ah to select the version code, then read bridge register 0Bh.
-;   Both are in the EPAT's OWN register space, so this answers with no drive
-;   attached - which is the distinction the driver has been missing. A missing
-;   BRIDGE must make the miniport decline to load; a missing DRIVE behind a
-;   live bridge is a failed SRB and nothing worse.
-;
-;   Linux prints the version and never compares it, so there is no constant to
-;   check against. Presence does not need one: 00h and FFh are the two ways a
-;   floating bus lies, and anything else means silicon answered.
-;----------------------------------------------------------------------------
-public LS_BridgeProbe
-LS_BridgeProbe:
-	call	LS_PortOpen		; the FULL open, not a bare CPP connect
-	mov	ch, CONT_BRIDGE
-	mov	ax, (038h SHL 8) OR EPAT_REG_VERSEL
-	call	LS_RegWriteCont
-	mov	al, EPAT_REG_VERSION
-	mov	ch, CONT_BRIDGE
-	call	LS_RegReadCont
-	push	eax
-	call	LS_Disconnect
-	pop	eax
-	cmp	al, 0FFh
-	je	lbp_dead
-	or	al, al
-	jz	lbp_dead
-	clc
-	ret
-lbp_dead:
-	stc
 	ret
 
 ;----------------------------------------------------------------------------
@@ -834,7 +657,7 @@ lrw_common:
 ;   Uses: EAX, ECX, EDX, ESI, EDI
 ;   STUBS.
 ;----------------------------------------------------------------------------
-public LS_BlockReadSpp
+public LS_BlockRead
 ;----------------------------------------------------------------------------
 ;  NIBBLE block read, mode 0, transcribed from epat.c's epat_read_block.
 ;
@@ -844,560 +667,15 @@ public LS_BlockReadSpp
 ;  with an alternating PHASE bit driven on the control port. Nothing in a
 ;  per-register read expresses that handshake.
 ;
-;  A loop of single-register reads cannot express that handshake, and it does
-;  not fail loudly: it returns zeros while the drive sits holding real data.
+;  Proven on hardware 2026-09-11: the drive set byte count to 36 for an
+;  INQUIRY - it had the data ready - and the old routine still read 36 zeros.
 ;
 ;   In:   EDI = buffer, ECX = byte count
 ;----------------------------------------------------------------------------
-; ECP support.
-;
-;  The owner's card is ECP-capable and the vendor's own driver selects
-;  "ECP Read" / "ECP Write" on this exact machine - captured live on
-;  2026-09-08, TRANSPORT_SPEC.md section 0, [0BCB]/[0BCF]/[0BD7]=0C.
-;  Nibble costs ~4 port accesses per byte; the ECP FIFO costs ~1, because the
-;  hardware does the handshake. Keep BOTH: SPP/nibble is universal and is the
-;  fallback for any port without an ECR.
-;
-;  Register layout, confirmed from SD120PPD.SYS's own arithmetic
-;  (rva 0x3cd2: base -> +2 -> +0x402 -> -0x402 -> ...):
-;
-;      base+000h  data                base+002h  control (bit 5 = direction)
-;      base+400h  ECP data FIFO       base+402h  ECR
-;
-;  ECR bits 7:5 are the mode - 0x74 selects ECP, 0x34 byte mode - and bit 0
-;  reads 1 when the FIFO is empty.
-;
-;  ** The vendor's block routines sit next to chipset writes to 22h/23h, which
-;  alias onto the 8259 here (technique 75). Those are GATED on a chipset type
-;  ([0xbc0] == 3, SD120PPD.SYS rva 0x443c / 0x4ba7) and are jumped over when it
-;  does not match. Nothing below writes any fixed port - every access is
-;  base-relative, which is the same guarantee /ni gives on the real machine. **
-;----------------------------------------------------------------------------
-LPT_ECPFIFO	equ	400h
-
-ECR_MODE_ECP	equ	074h
-ECR_MODE_BYTE	equ	034h		; PS/2 byte mode - transient, between phases
-ECR_FIFO_EMPTY	equ	001h
-CTRL_DIR	equ	020h
-
-;  Control values for the two ECP channel directions. Bit 5 is the port's own
-;  direction; bit 2 is nInit, which an ECP host drives LOW to request the
-;  reverse channel - so forward is 004h and reverse is 020h, and they are not
-;  simply the same byte with one bit flipped. SD120PPD.SYS writes exactly
-;  these two values (rva 0x4714 and 0x4759).
-CTRL_FWD	equ	004h
-CTRL_REV	equ	020h
-
-;  EPAT block commands, carried by an ECP ADDRESS cycle - a write to base+0
-;  while the ECR is in ECP mode. The same two bytes Linux's epat.c sends as
-;  w3(080h) / w3(0c0h) on an EPP host; SD120PPD.SYS sends them at rva 0x4736
-;  (read) and 0x4DB9 (write). 0A0h announces the last byte of a read, the fast
-;  path's equivalent of the nibble path's w0(0FDh).
-ECP_CMD_READ	equ	080h
-ECP_CMD_LAST	equ	0A0h
-ECP_CMD_WRITE	equ	0C0h
-
-;  ECR status bits, and the vendor's own spin budgets: 0FFFFh on the forward
-;  phases, 08000h on the reverse one. They differ deliberately - a reverse wait
-;  is waiting on the DEVICE, a forward wait only on the port.
-ECR_FIFO_FULL	equ	002h		; bit 1 - a whole chunk is ready
-ECR_SERVICE	equ	004h		; bit 2 - serviceIntr, one byte ready
-ECP_SPIN	equ	0FFFFh		; forward
-ECP_SPIN_REV	equ	08000h		; reverse
-
-;  ECP FIFO depth, and the unit a transfer is broken into. The vendor holds
-;  this in a word of its own data area ([0C18h] in SD120PPD.SYS, shipped as
-;  0010h) and divides every block transfer by it: chunks of this size with an
-;  ECR poll between, plus a remainder. The port cannot accept more than a
-;  FIFO's worth between polls, so this is not a tuning knob.
-ECP_FIFO_DEPTH	equ	16
-
-;  LS_DetectEcp - is there an ECR at base+402h?
-;
-;  The standard probe: the ECR's low bits are read-only status, bits 7:5 are
-;  the mode. Write byte mode, read it back, and require the mode bits to stick
-;  while the status bits stay sane. A port with no ECR floats or mirrors, and
-;  neither survives this.
-;
-;   Out: LS_HasEcp = 0/1, AL = the ECR value seen
-public LS_DetectEcp
-LS_DetectEcp:
-	push	edx
-	push	ebx
-	mov	LS_HasEcp, 0
-	cmp	LS_ModeReq, 1
-	je	lde_done			; MODE=SPP - pinned to nibble, do not probe
-	cmp	LS_ModeReq, 2
-	jne	lde_probe
-	mov	LS_HasEcp, 1			; MODE=ECP - trust the operator over the probe
-	jmp	lde_done
-lde_probe:
-	movzx	edx, LS_BasePort
-	add	edx, LPT_ECP_ECR
-	in	al, dx
-	mov	bl, al				; whatever the port was in
-	mov	al, ECR_KEEP_MASK
-	out	dx, al
-	in	al, dx
-	mov	ah, al
-
-;  RESTORE BEFORE DECIDING. Any ECR mode with bits 7:5 set makes the port
-;  bidirectional, and the nibble path reads status through it - so a probe
-;  that leaves byte mode behind breaks the SPP fallback it was probing for.
-	mov	al, bl
-	and	al, 01Fh			; mode 000 - plain SPP
-	out	dx, al
-
-	cmp	ah, 0FFh
-	je	lde_done			; floating bus - no ECR here
-	mov	al, ah
-	and	al, 0E0h
-	cmp	al, ECR_KEEP_MASK AND 0E0h
-	jne	lde_done
-	mov	LS_HasEcp, 1
-lde_done:
-	pop	ebx
-	pop	edx
-	ret
-
-;  LS_Neg1284 - ask the peripheral into ECP mode. SD120PPD.SYS 0x2993.
-;
-;  ** SETTING THE ECR DOES NOT PUT THE PERIPHERAL INTO ECP. ** The ECR
-;  configures this end of the cable only. Until the bridge has been asked it
-;  stays in compatibility mode and never acknowledges a forward handshake, so
-;  the FIFO takes one byte and never drains. Every missing-ECR-wait theory
-;  chased before 2026-09-13 was a symptom of this.
-;
-;  The idle-into-SPP is not optional. A peripheral part-way through a phase
-;  will not answer a request: without it the status register sits at E0h and
-;  nAck never asserts; with it status reads B8h and the forward cycle drains
-;  in one iteration. 10h is the extensibility byte for ECP - epat.c puts 40h
-;  there to ask for EPP instead.
-;
-;  Repeated writes to the same port are the I/O delay, as in LS_CppFrame. Do
-;  not fold them.
-;
-;   Out: CF=0 if the peripheral answered.  Clobbers EAX, ECX, EDX.
-LS_Neg1284:
-	push	ebx
-	pushfd
-	cli
-	xor	ebx, ebx		; 0 = answered
-
-	movzx	edx, LS_BasePort
-	add	edx, LPT_CONTROL
-	mov	al, 0Ch
-	out	dx, al
-	mov	al, 04h
-	out	dx, al
-
-;  0x24D1 - idle into SPP.  w0(0); w2(1); w2(4).
-	movzx	edx, LS_BasePort
-	xor	al, al
-	out	dx, al
-	out	dx, al
-	movzx	edx, LS_BasePort
-	add	edx, LPT_CONTROL
-	mov	al, 01h
-	out	dx, al
-	out	dx, al
-	mov	al, 04h
-	out	dx, al
-	mov	al, 0Ch
-	out	dx, al
-
-;  The request: the extensibility byte on the data lines, then nAutoFeed.
-	movzx	edx, LS_BasePort
-	mov	al, 10h
-	out	dx, al
-	movzx	edx, LS_BasePort
-	add	edx, LPT_CONTROL
-	mov	al, 06h
-	out	dx, al
-	out	dx, al
-	out	dx, al
-
-;  The peripheral answers by pulling nAck LOW. The vendor's budget is 100h and
-;  that is deliberate - this is a handshake with one device, not a transfer, so
-;  a long spin here only delays the fallback to nibble.
-	movzx	edx, LS_BasePort
-	add	edx, LPT_STATUS
-	mov	ecx, 100h
-ln_wait:
-	in	al, dx
-	test	al, LPT_ST_ACK
-	jz	ln_answered
-	dec	ecx
-	jnz	ln_wait
-	mov	ebx, 1
-ln_answered:
-;  Keep the last status byte either way. On a failure it is the whole of the
-;  evidence, and E0h against B8h is what told us the request was being ignored
-;  rather than refused.
-	movzx	eax, al
-	mov	LS_EcpNegStat, eax
-
-;  Complete the handshake whether or not it was answered. Leaving the request
-;  asserted wedges the next attempt, and the vendor's retry below depends on
-;  this ending cleanly.
-	movzx	edx, LS_BasePort
-	add	edx, LPT_CONTROL
-	mov	al, 07h
-	out	dx, al
-	out	dx, al
-	mov	al, 04h
-	out	dx, al
-	out	dx, al
-
-	popfd
-	cmp	ebx, 0
-	pop	ebx
-	je	ln_ok
-	inc	LS_EcpNegFail
-	stc
-	ret
-ln_ok:
-	clc
-	ret
-
-;  LS_NegotiateEcp - negotiate, and on failure recover and try once more.
-;
-;  SD120PPD.SYS 0x2A21 does not treat a failed negotiation as fatal: it drives
-;  0Ch then 0Eh, waits for nAck to come back HIGH, and asks again. The second
-;  budget is 8000h because this one waits on the DEVICE letting go, not on the
-;  port.
-;
-;   Out: CF=0 if the peripheral answered.  Clobbers EAX, ECX, EDX.
-public LS_NegotiateEcp
-LS_NegotiateEcp:
-	call	LS_Neg1284
-	jnc	lne_ok
-
-	pushfd
-	cli
-	movzx	edx, LS_BasePort
-	add	edx, LPT_CONTROL
-	mov	al, 0Ch
-	out	dx, al
-	mov	al, 0Eh
-	out	dx, al
-	movzx	edx, LS_BasePort
-	add	edx, LPT_STATUS
-	mov	ecx, ECP_SPIN_REV
-lne_rec:
-	in	al, dx
-	test	al, LPT_ST_ACK
-	jnz	lne_recovered
-	dec	ecx
-	jnz	lne_rec
-lne_recovered:
-	movzx	edx, LS_BasePort
-	add	edx, LPT_CONTROL
-	mov	al, 0Ch
-	out	dx, al
-	popfd
-
-	call	LS_Neg1284
-	ret
-lne_ok:
-	clc
-	ret
-
-;  LS_EcpDir - set the ECP channel direction and (re)enter ECP mode.
-;
-;  A direction change is not legal inside an ECP FIFO mode, so the ECR has to
-;  leave it and come back: byte mode, control, ECP mode. IRQ-enable (bit 4) is
-;  carried across - the vendor preserves it too, and dropping it silently
-;  disarms an interrupt somebody else armed.
-;
-;   In: AL = CTRL_FWD or CTRL_REV.  Clobbers EAX, EDX, BH.
-LS_EcpDir:
-	mov	bh, al
-	movzx	edx, LS_BasePort
-	add	edx, LPT_ECP_ECR
-	mov	al, ECR_MODE_BYTE
-	out	dx, al
-	movzx	edx, LS_BasePort
-	add	edx, LPT_CONTROL
-	in	al, dx
-	and	al, LPT_CT_IRQEN
-	or	al, bh
-	out	dx, al
-	movzx	edx, LS_BasePort
-	add	edx, LPT_ECP_ECR
-	mov	al, ECR_MODE_ECP
-	out	dx, al
-	ret
-
-;  LS_EcpWaitData - spin until the ECR says the reverse FIFO has something.
-;
-;  ** THE READ PATH MUST WAIT. ** A bare rep insb assumes the bridge already
-;  has the data, which it does not: the vendor gates every reverse phase on
-;  the ECR (SD120PPD.SYS 3D22h uses exactly this, budget 8000h). Reading
-;  early returns whatever the port last drove. An emulated bridge that answers
-;  on demand hides this completely, which is why an unwaited read passed in
-;  the bed and failed on the real machine.
-;
-;   Out: CF=1 on timeout.  Clobbers EAX, ECX, EDX.
-LS_EcpWaitData:
-	movzx	edx, LS_BasePort
-	add	edx, LPT_ECP_ECR
-	mov	ecx, ECP_SPIN_REV
-lwda_loop:
-	in	al, dx
-	test	al, ECR_FIFO_EMPTY
-	jz	lwda_ok				; empty clear -> a byte is waiting
-	dec	ecx
-	jnz	lwda_loop
-	stc
-	ret
-lwda_ok:
-	clc
-	ret
-
-;  LS_EcpWaitFull - spin until a whole FIFO's worth is ready to be taken.
-;  The vendor reads a chunk only once the FIFO reports full (47C7h), and falls
-;  back to one byte per serviceIntr for the tail.
-;   Out: CF=1 on timeout.  Clobbers EAX, ECX, EDX.
-LS_EcpWaitFull:
-	movzx	edx, LS_BasePort
-	add	edx, LPT_ECP_ECR
-	mov	ecx, ECP_SPIN_REV
-lwf_loop:
-	in	al, dx
-	test	al, ECR_FIFO_FULL
-	jnz	lwf_ok
-	dec	ecx
-	jnz	lwf_loop
-	stc
-	ret
-lwf_ok:
-	clc
-	ret
-
-;  LS_EcpWaitEmpty - spin until the ECR reports the FIFO drained.
-;   Out: CF=1 on timeout.  Clobbers EAX, ECX, EDX.
-LS_EcpWaitEmpty:
-	movzx	edx, LS_BasePort
-	add	edx, LPT_ECP_ECR
-	mov	ecx, ECP_SPIN
-lew_loop:
-	in	al, dx
-	test	al, ECR_FIFO_EMPTY
-	jnz	lew_ok
-	dec	ecx
-	jnz	lew_loop
-	stc
-	ret
-lew_ok:
-	clc
-	ret
-
-;  LS_EcpCmd - one ECP ADDRESS cycle carrying an EPAT block command.
-;
-;  The bridge is COMMANDED, not merely streamed. Until it has taken one of
-;  these it has nothing selected, and the data cycles that follow move nothing.
-;
-;   In: BL = command byte, port already in ECP mode.
-;   Out: CF=1 on timeout.  Clobbers EAX, ECX, EDX.
-LS_EcpCmd:
-	call	LS_EcpWaitEmpty
-	jc	lec_out
-	movzx	edx, LS_BasePort
-	mov	al, bl
-	out	dx, al			; base+0 in ECP mode IS the address FIFO
-	call	LS_EcpWaitEmpty
-lec_out:
-	ret
-
-;  LS_EcpLeave - forward, quiescent, and back to plain SPP.
-;
-;  Mode 000 and NOT byte mode: the task file is read with nibble cycles
-;  through the status register, and any ECR mode with bits 7:5 non-zero makes
-;  the port bidirectional, which changes what those reads return.
-LS_EcpLeave:
-	movzx	edx, LS_BasePort
-	add	edx, LPT_CONTROL
-	in	al, dx
-	and	al, LPT_CT_IRQEN
-	or	al, CTRL_FWD
-	out	dx, al
-	movzx	edx, LS_BasePort
-	add	edx, LPT_ECP_ECR
-	in	al, dx
-	and	al, 01Fh
-	out	dx, al
-	ret
-
-;----------------------------------------------------------------------------
-;  LS_BlockReadEcp - ECX bytes into ES:EDI through the ECP data FIFO.
-;
-;  Shape taken from epat.c's mode 3 and confirmed against SD120PPD.SYS: the
-;  last byte is fetched under its own 0A0h command, so the bulk read is
-;  count-1 bytes.
-;
-;   In:   EDI = buffer, ECX = byte count.  Out: CF=1 on timeout.
-;----------------------------------------------------------------------------
-LS_BlockReadEcp:
-;  Negotiate before every ECP episode. The sequence idles the link into SPP
-;  first, so asking a peripheral that is already in ECP is harmless - and a
-;  CPP connect/disconnect cycle happens between commands, which is exactly the
-;  kind of thing that ends a 1284 phase. Negotiating once at init and assuming
-;  it holds would be an assumption nothing here has tested.
-;
-;  A refusal is not an error: fall back to nibble for this block and let the
-;  next one ask again. LS_EcpNegFail is the record if it becomes persistent.
-	push	ecx
-	call	LS_NegotiateEcp
-	pop	ecx
-	jc	LS_BlockReadSpp
-	or	ecx, ecx
-	jz	lbre_none
-	push	ebx
-	push	ecx
-
-	mov	al, CTRL_FWD
-	call	LS_EcpDir
-	mov	bl, ECP_CMD_READ
-	call	LS_EcpCmd
-	jc	lbre_fail
-
-	pop	ecx
-	push	ecx
-	dec	ecx
-	jz	lbre_last
-
-	mov	al, CTRL_REV
-	call	LS_EcpDir
-	cld
-	movzx	edx, LS_BasePort
-	add	edx, LPT_ECP_FIFO
-	rep	insb
-
-lbre_last:
-	mov	al, CTRL_FWD
-	call	LS_EcpDir
-	mov	bl, ECP_CMD_LAST
-	call	LS_EcpCmd
-	jc	lbre_fail
-	mov	al, CTRL_REV
-	call	LS_EcpDir
-	movzx	edx, LS_BasePort
-	add	edx, LPT_ECP_FIFO
-	in	al, dx
-	mov	[edi], al
-	inc	edi
-
-	call	LS_EcpLeave
-	pop	ecx
-	pop	ebx
-	clc
-	ret
-lbre_fail:
-	call	LS_EcpLeave
-	pop	ecx
-	pop	ebx
-	stc
-	ret
-lbre_none:
-	clc
-	ret
-
-;----------------------------------------------------------------------------
-;  LS_BlockWriteEcp - ECX bytes from DS:ESI through the ECP data FIFO.
-;
-;  No last-byte command on this side: 0C0h covers the whole block, which is
-;  what both epat.c and SD120PPD.SYS do.
-;----------------------------------------------------------------------------
-LS_BlockWriteEcp:
-	push	ecx
-	call	LS_NegotiateEcp
-	pop	ecx
-	jc	LS_BlockWriteSpp
-	or	ecx, ecx
-	jz	lbwe_none
-	push	ebx
-	push	ecx
-
-	mov	al, CTRL_FWD
-	call	LS_EcpDir
-	mov	bl, ECP_CMD_WRITE
-	call	LS_EcpCmd
-	jc	lbwe_fail
-
-;  ** ONE FIFO-DEPTH CHUNK PER ECR POLL. ** A bare rep outsb of a whole
-;  transfer assumes the port stalls the ISA cycle when the FIFO fills. If it
-;  does not, the overflow is discarded silently and the sector arrives short -
-;  no error anywhere, and the drive sits holding DRQ for bytes that no longer
-;  exist. Wait for ECR bit 0, send at most a FIFO's worth, wait again.
-;
-;  EBX carries the remaining count because LS_EcpWaitEmpty needs ECX for its
-;  own spin budget.
-	pop	ecx
-	push	ecx
-	cld
-	mov	ebx, ecx
-lbwe_chunk:
-	or	ebx, ebx
-	jz	lbwe_tail
-	call	LS_EcpWaitEmpty
-	jc	lbwe_fail
-	mov	ecx, ECP_FIFO_DEPTH
-	cmp	ebx, ecx
-	jae	lbwe_send
-	mov	ecx, ebx			; short final chunk
-lbwe_send:
-	sub	ebx, ecx
-	movzx	edx, LS_BasePort
-	add	edx, LPT_ECP_FIFO
-	rep	outsb
-	jmp	lbwe_chunk
-
-;  Drain before leaving. Writing the ECR back to a non-FIFO mode RESETS the
-;  FIFO, so anything still queued is discarded and the drive is left holding
-;  DRQ for bytes it will never get. The vendor polls ECR bit 0 here too.
-lbwe_tail:
-	call	LS_EcpWaitEmpty
-
-	call	LS_EcpLeave
-	pop	ecx
-	pop	ebx
-	clc
-	ret
-lbwe_fail:
-	call	LS_EcpLeave
-	pop	ecx
-	pop	ebx
-	stc
-	ret
-lbwe_none:
-	clc
-	ret
-
-;----------------------------------------------------------------------------
-; Transport selector. SPP/nibble is the fallback and works on any parallel
-; port; ECP is taken when an ECR answered at bring-up. One decision, made
-; once, so the hot path costs a single test.
-;----------------------------------------------------------------------------
-public LS_BlockRead
 LS_BlockRead:
-	cmp	LS_HasEcp, 0
-	je	LS_BlockReadSpp
-	jmp	LS_BlockReadEcp
-
-public LS_BlockWrite
-LS_BlockWrite:
-	cmp	LS_HasEcp, 0
-	je	LS_BlockWriteSpp
-	jmp	LS_BlockWriteEcp
-
-;----------------------------------------------------------------------------
-LS_BlockReadSpp:
 	or	ecx, ecx
 	jz	lbr_done
 	push	ebx
-	pushfd
-	cli
 	movzx	edx, LS_BasePort
 	mov	al, 7
 	out	dx, al			; w0(7) - enter block read
@@ -1454,13 +732,12 @@ lbr_join:
 	add	edx, LPT_CONTROL
 	mov	al, 4
 	out	dx, al			; w2(4) - leave block mode
-	popfd
 	pop	ebx
 lbr_done:
 	clc
 	ret
 
-public LS_BlockWriteSpp
+public LS_BlockWrite
 ;----------------------------------------------------------------------------
 ;  NIBBLE block write, from epat_write_block. Same shape: enter block mode
 ;  once, then a byte and a phase-alternating strobe each iteration.
@@ -1468,19 +745,12 @@ public LS_BlockWriteSpp
 ;  Two port accesses per byte instead of the old four, which halves bus
 ;  occupancy on the write path as a side effect of being correct.
 ;
-;  Interrupts OFF for the duration, and that is not optional: with them live
-;  the drive returns sense key 0Bh / ASC 4Ah, COMMAND PHASE ERROR. A 512-byte
-;  sector is ~11 ms of port accesses, which is a long time to hold IF clear -
-;  chunking the transfer is the way to shorten it, not running unmasked.
-;
 ;   In:   ESI = buffer, ECX = byte count
 ;----------------------------------------------------------------------------
-LS_BlockWriteSpp:
+LS_BlockWrite:
 	or	ecx, ecx
 	jz	lbw_done
 	push	ebx
-	pushfd
-	cli
 	movzx	edx, LS_BasePort
 	mov	al, 067h
 	out	dx, al			; w0(067h) - enter block write
@@ -1508,7 +778,6 @@ lbw_loop:
 	out	dx, al			; w2(7)
 	mov	al, 4
 	out	dx, al			; w2(4)
-	popfd
 	pop	ebx
 lbw_done:
 	clc
@@ -1525,8 +794,9 @@ LS_WaitNotBusy:
 	push	ebx
 	mov	ebx, LS_SPIN_BSY
 lwnb_loop:
-	call	LS_StatusRead
-	jc	lwnb_fail		; nothing on the cable - stop, do not wait it out
+	mov	al, ATA_REG_STATUS
+	call	LS_RegRead
+	jc	lwnb_fail
 	mov	LS_LastStatus, eax
 	test	al, ATA_ST_BSY
 	jz	lwnb_ok
@@ -1552,8 +822,9 @@ LS_WaitDrq:
 	push	ebx
 	mov	ebx, LS_SPIN_DRQ
 lwd_loop:
-	call	LS_StatusRead
-	jc	lwd_fail		; nothing on the cable - stop, do not wait it out
+	mov	al, ATA_REG_STATUS
+	call	LS_RegRead
+	jc	lwd_fail
 	mov	LS_LastStatus, eax
 	test	al, ATA_ST_BSY
 	jnz	lwd_next
@@ -1624,152 +895,7 @@ LS_SpinUp:
 	clc
 	ret
 
-;----------------------------------------------------------------------------
-; LS_RequestSense - fetch sense data after a device reports CHECK CONDITION.
-;
-;   In:   EDI = buffer, ECX = its length in bytes
-;   Out:  CF=0 if the REQUEST SENSE itself succeeded
-;   Uses: everything
-;
-;   REQUEST SENSE is the one command a device will answer while a contingent
-;   allegiance condition is pending, and answering it is what clears the
-;   condition. See the LS_SenseCdb comment for the measurement.
-;----------------------------------------------------------------------------
-;----------------------------------------------------------------------------
-; LS_DrainSense - consume the unit-attention conditions a reset leaves behind.
-;
-;   Out:  always CF=0 - this is best effort
-;   Uses: everything
-;
-;   MEASURED 2026-09-11. After SRST the drive queues MORE THAN ONE condition -
-;   ASC 28h "medium may have changed" and ASC 29h "power on / reset occurred"
-;   were both observed, reported one per REQUEST SENSE - and a contingent
-;   allegiance condition is cleared by READING THE SENSE, not by the next
-;   command. So every command until they are drained returns CHECK CONDITION.
-;
-;   INQUIRY is exempt, which is exactly why bring-up looked healthy: the
-;   INQUIRY below succeeds, Init Success is logged, the drive enumerates - and
-;   then the first READ the class driver issues is refused, which Windows
-;   reports as "media is not formatted".
-;
-;   Five attempts, matching pf.c's PF_MAX_RETRIES.
-;----------------------------------------------------------------------------
-public LS_DrainSense
-LS_DrainSense:
-	push	ebx
-	mov	ebx, 5
-lds_loop:
-	lea	edi, LS_SenseBuf
-	mov	ecx, LS_SENSE_LEN
-	call	LS_RequestSense
-	jc	lds_done
-	mov	al, LS_SenseBuf+2
-	and	al, 0Fh			; sense key
-	jz	lds_done		; nothing pending - done
-	dec	ebx
-	jnz	lds_loop
-lds_done:
-	pop	ebx
-	clc
-	ret
-
-public LS_RequestSense
-LS_RequestSense:
-	cmp	ecx, LS_SENSE_LEN
-	jbe	lrq_len
-	mov	ecx, LS_SENSE_LEN
-lrq_len:
-	or	ecx, ecx
-	jz	lrq_none
-	mov	byte ptr LS_SenseCdb + 4, cl	; allocation length
-	lea	esi, LS_SenseCdb
-	xor	edx, edx			; data in
-	call	LS_PacketCommand
-	ret
-lrq_none:
-	stc
-	ret
-
-;----------------------------------------------------------------------------
-; LS_PfWait - Linux pf.c's pf_wait, transliterated.
-;
-;   In:   BL = "go" mask   - spin while ANY of these bits are SET
-;         BH = "stop" mask - spin while ALL of these are CLEAR (0 = ignore)
-;   Out:  AL = last status, CF=1 on timeout OR on ERR-within-stop
-;   Uses: EAX, ECX, EDX
-;
-;   pf.c treats ERR appearing inside the stop mask as a FAILURE, not as a
-;   reason to stop happily. Our own waits never did that, so an error left
-;   the caller believing the phase had completed.
-;----------------------------------------------------------------------------
-public LS_PfWait
-LS_PfWait:
-	push	ecx
-	push	edx
-	mov	ecx, LS_SPIN_BSY
-lpw_loop:
-	call	LS_StatusRead
-;  pf.c cannot meet this case - its bus is an IDE cable, not a bridge that may
-;  not be there - so it has no equivalent branch. A dead bus is not a phase
-;  that has yet to arrive, and spinning out the budget on one is the bug this
-;  whole change exists to remove.
-	jc	lpw_dead
-	mov	LS_LastStatus, eax
-	mov	dl, al
-	and	dl, bl			; any "go" bit still set?
-	jnz	lpw_next
-	or	bh, bh
-	jz	lpw_ok			; no stop mask - clear is enough
-	mov	dl, al
-	and	dl, bh
-	jnz	lpw_ok			; a "stop" bit has appeared
-lpw_next:
-	dec	ecx
-	jnz	lpw_loop
-lpw_dead:
-	pop	edx
-	pop	ecx
-	stc
-	ret
-lpw_ok:
-	mov	dl, al
-	and	dl, bh
-	and	dl, ATA_ST_ERR
-	jnz	lpw_err
-	pop	edx
-	pop	ecx
-	clc
-	ret
-lpw_err:
-	pop	edx
-	pop	ecx
-	stc
-	ret
-
-;----------------------------------------------------------------------------
-; LS_Delay1ms - pf_atapi's mdelay(1), which sits between handing over the
-; command packet and reading the reply. We had no delay there at all.
-;
-;   1 ms at the measured 5.55 us per 8-bit I/O access is ~180 accesses.
-;   Port 80h is inside the XT's write-only DMA page block, so a READ returns
-;   floating bus and disturbs nothing (technique 75).
-;----------------------------------------------------------------------------
-LS_Delay1ms:
-	push	ecx
-	push	edx
-	mov	ecx, 180
-	mov	edx, 80h
-lda_loop:
-	in	al, dx
-	dec	ecx
-	jnz	lda_loop
-	pop	edx
-	pop	ecx
-	ret
-
 public LS_PacketCommand
-public LS_ColdStart
-public LS_ReadyPoll
 LS_PacketCommand:
 
 	push	ebp
@@ -1795,12 +921,7 @@ lpc_have:
 	call	LS_RegWrite
 	jc	lpc_fail
 
-;  pf_wait(STAT_BUSY | STAT_DRQ, 0) - "before command". Both must be CLEAR.
-;  We used to check BSY only, so a stale DRQ from a previous command that was
-;  not drained went straight into the next one.
-	mov	bl, ATA_ST_BSY OR ATA_ST_DRQ
-	xor	bh, bh
-	call	LS_PfWait
+	call	LS_WaitNotBusy
 	jc	lpc_fail
 
 ;  2. Byte count = how much data we are prepared to move in one go. The device
@@ -1827,156 +948,44 @@ lpc_have:
 	call	LS_RegWrite
 	jc	lpc_fail
 
-;  4. pf_wait(STAT_BUSY, STAT_DRQ) - the device asks for the packet.
-	mov	bl, ATA_ST_BSY
-	mov	bh, ATA_ST_DRQ
-	call	LS_PfWait
+;  4. The device asks for the packet by raising DRQ.
+	call	LS_WaitDrq
 	jc	lpc_fail
-
-;  pf_command: if (read_reg(pf, 2) != 1) -> "command phase error".
-;  Interrupt reason must read exactly 1 - C/D set, I/O clear - meaning the
-;  device wants a command packet. Handing 12 bytes to a device that is in
-;  some other phase is what earns sense key 0Bh / ASC 4Ah, which is exactly
-;  what this drive reported on 2026-09-11.
-	mov	al, ATA_REG_ICR
-	call	LS_RegRead
-	jc	lpc_fail
-	and	al, 03h
-	cmp	al, 1
-	jne	lpc_fail
 
 	mov	esi, [ebp-16]
 	mov	ecx, ATAPI_PACKET_LEN
-;  ** The COMMAND PACKET always goes out in SPP. ** Only the data payload uses
-;  ECP. The bridge's command phase is framed by the SPP block-write sequence
-;  (w0(67) w2(1) w2(5) ... w2(7)); pushing the CDB through the ECP FIFO instead
-;  means the bridge never sees a command at all - measured 2026-09-13, the
-;  drive sat at status 48h (DRDY|DRQ) through 5,733 connect/disconnect cycles
-;  with not one CDB logged. The vendor does the same: its ECP Read/ECP Write
-;  handlers carry data, while the task file and command phase stay nibble.
-	call	LS_BlockWriteSpp
+	call	LS_BlockWrite
 	jc	lpc_fail
 
-;  pf_atapi does mdelay(1) here, between the packet and the reply.
-	call	LS_Delay1ms
-
-;  5. pf_completion.
-;     pf_wait(STAT_BUSY, STAT_DRQ | STAT_READY | STAT_ERR) - "completion".
-	mov	bl, ATA_ST_BSY
-	mov	bh, ATA_ST_DRQ OR ATA_ST_DRDY OR ATA_ST_ERR
-	call	LS_PfWait
-	jc	lpc_fail
-
-;     if ((read_reg(2) & 2) && (read_reg(7) & STAT_DRQ))
-;     Move data ONLY when the device says it is in a data-in phase and is
-;     actually asking. We used to transfer unconditionally, which is how a
-;     command that returned nothing still had bytes clocked out of the bridge.
-	mov	al, ATA_REG_ICR
-	call	LS_RegRead
-	jc	lpc_fail
-	and	eax, 03h
-	mov	LS_Phase, eax
-
-;     The two low bits are C/D and I/O, and they name the phase outright:
-;
-;         0  data OUT - the device wants the payload FROM us
-;         1  command  - it wants another CDB, which here means we are lost
-;         2  data IN  - it has the payload FOR us
-;         3  status   - the command is finished and moved no data
-;
-;     This used to be `test al,02h / jz lpc_done`, which required I/O set and
-;     so treated phase 0 exactly like phase 3 - "nothing to do". Every write
-;     therefore sent its CDB, declined to send the data, and waited for a
-;     completion the drive could not give while it held DRQ for 512 bytes
-;     that never arrived. Measured in the bed 2026-09-13: 15 CDB blocks, 9
-;     read blocks, ZERO blocks carrying write data.
-;
-;     Imation's own miniport never had this bug because its phase wait takes
-;     the expected phase as an argument - rva 0x1e27 waits for `0 or 3` on a
-;     write where rva 0x1df6 waits for `2 or 3` on a read.
-	cmp	eax, 3
-	je	lpc_done		; finished, no data phase at all
-	cmp	eax, 1
-	je	lpc_fail		; it wants a command packet - out of step
-
-	mov	eax, LS_LastStatus
-	test	al, ATA_ST_DRQ
-	jz	lpc_done
-
-;     n = ((read_reg(4) + 256 * read_reg(5)) + 3) & 0xfffc
-;     The count the DEVICE is offering this phase, rounded up to a multiple
-;     of 4 - not the length we asked for. Reading more than it offers leaves
-;     the bridge mid-stream and the NEXT command dies in its command phase,
-;     which is the sense key 0Bh / ASC 4Ah this drive reported.
-	mov	al, ATA_REG_BCLO
-	call	LS_RegRead
-	jc	lpc_fail
-	mov	LS_XferN, eax
-	mov	al, ATA_REG_BCHI
-	call	LS_RegRead
-	jc	lpc_fail
-	shl	eax, 8
-	add	LS_XferN, eax
-	mov	ecx, LS_XferN
-	add	ecx, 3
-	and	ecx, 0FFFCh
-	jz	lpc_done
-
-;     Never overrun the caller's buffer, whatever the device claims.
-	mov	eax, [ebp-24]
-	cmp	ecx, eax
-	jbe	lpc_n_ok
-	mov	ecx, eax
-lpc_n_ok:
+;  5. Data phase, if there is one.
+	mov	ecx, [ebp-24]
 	or	ecx, ecx
 	jz	lpc_done
-;     Cross-check the caller's direction against the DEVICE's phase before
-;     moving a byte. They must agree; if they do not, transferring either way
-;     corrupts something, so fail loudly instead.
+
+	call	LS_WaitDrq
+	jc	lpc_fail
+
+	mov	ecx, [ebp-24]
 	cmp	dword ptr [ebp-28], 0
-	jne	lpc_want_out
-	cmp	LS_Phase, 2
-	jne	lpc_fail		; we expect to read, the drive is not sending
+	jne	lpc_out
+
 	mov	edi, [ebp-20]
 	call	LS_BlockRead
 	jc	lpc_fail
 	jmp	lpc_done
-lpc_want_out:
-	cmp	LS_Phase, 0
-	jne	lpc_fail		; we expect to write, the drive is not asking
-	jmp	lpc_out
 
 lpc_out:
 	mov	esi, [ebp-20]
 	call	LS_BlockWrite
 	jc	lpc_fail
 
-;  6. pf_wait(STAT_BUSY, STAT_READY | STAT_ERR) - "data done".
+;  6. Completion.
 lpc_done:
-	mov	bl, ATA_ST_BSY
-	mov	bh, ATA_ST_DRDY OR ATA_ST_ERR
-	call	LS_PfWait
+	call	LS_WaitNotBusy
 	jc	lpc_fail
 
 	mov	eax, LS_LastStatus
 	test	al, ATA_ST_ERR
-	jnz	lpc_fail
-
-;  DRQ still set here means the device wants ANOTHER data phase - it answered
-;  with a smaller burst than we asked for and is still holding the rest. This
-;  routine does exactly one data phase, so that remainder is stranded, and
-;  falling through to success loses it silently.
-;
-;  Measured on the real drive 2026-09-14: a 4096-byte WRITE(10) is answered
-;  with a 3584-byte burst and completes with status 58 - DRDY set, so PfWait
-;  is satisfied, ERR clear, and DRQ still asserted. The next command then dies
-;  ABORTED COMMAND because the bus was left mid-transfer. At 3584 the same
-;  command completes with status 50 and DRQ clear.
-;
-;  PfWait cannot catch this: its stop mask is DRDY|ERR, and DRDY is set in
-;  both cases. Until LS_PacketCommand loops bursts, a short phase is a failure
-;  and must be reported as one. DESIGN.md I2.
-	test	al, ATA_ST_DRQ
 	jnz	lpc_fail
 
 ;  Release the port. The vendor driver leaves it quiescent between
@@ -2002,198 +1011,6 @@ lpc_fail:
 	pop	esi
 	pop	ebx
 	pop	ebp
-	stc
-	ret
-
-
-;----------------------------------------------------------------------------
-; LS_ColdStart - open the bridge and take the drive out of reset. Nothing more.
-;
-;   Out:  CF=0 if the drive answered with the ATAPI signature
-;   Uses: EAX, ECX, EDX
-;
-;   This is LS_BringUp with the INQUIRY and the sense drain removed, and it
-;   exists because those two do not belong in a bring-up at all:
-;
-;     - The class driver issues its own INQUIRY. Ours only ever existed to
-;       put something in BOOTLOG.TXT, which was the only diagnostic channel
-;       available before the 86Box bridge existed. It is not any more.
-;     - The sense drain is the unit attention the soft reset itself raises.
-;       Draining it here HIDES it from the class driver, which is entitled
-;       to see it and will retry. Reporting CHECK CONDITION properly is the
-;       correct handling, and that now lives in the state machine.
-;
-;   What is left is only what the hardware genuinely requires: the drive
-;   powers up held in ATA reset and answers nothing until SRST is pulsed.
-;   TRANSPORT_SPEC.md section 5.
-;----------------------------------------------------------------------------
-;  Called once per timer tick until it succeeds or the caller's budget runs
-;  out. SRST is pulsed on the FIRST tick only; every later tick is a single
-;  status read.
-;
-;  It used to pulse SRST on every call and then wait LS_SPIN_RESET (~92 ms)
-;  for BSY inside that one call. Both halves were wrong. Re-asserting SRST
-;  restarts the reset, so a driver that pulses per retry never finishes one;
-;  and the wait is seconds, not milliseconds - measured 2026-09-14, a 0.29 s
-;  budget leaves the drive still in reset and every command after it comes
-;  back ABORTED COMMAND, deterministically. 92 ms could not have worked.
-;
-;  The seconds now come from the tick budget, where they cost the system
-;  nothing, which is what DESIGN.md I3 asks for: a reset settle is a STATE.
-LS_ColdStart:
-	mov	LS_ColdDead, 0
-	cmp	LS_SrstDone, 0
-	jne	lcs_poll
-
-	call	LS_PortOpen
-	call	LS_AtaPulseReset	; pulse and return - no waiting here
-	mov	LS_SrstDone, 1
-;  STAY CONNECTED. The build that enumerated this drive (bc453ca, md5
-;  976e4114) did the whole bring-up inside ONE connected session: port setup,
-;  CPP frames, connect, SRST, poll BSY, read the signature. The restructure
-;  split the waiting across ticks and disconnected at the end of each one, so
-;  the bridge was pulled off the bus repeatedly while the drive was coming out
-;  of reset. That is the structural difference between the two, found by
-;  diffing our own code rather than reasoning about it.
-	stc				; not ready yet; ask again next tick
-	ret
-
-;  A bare connect is enough from here: LS_PortOpen configured the bridge on
-;  the first tick and a disconnect does not undo that.
-lcs_poll:
-;  Only connect if the reset pulse left us disconnected - normally it did not.
-	cmp	LS_Connected, 0
-	jne	lcs_have
-	call	LS_Connect
-lcs_have:
-	call	LS_StatusRead
-	jc	lcs_maybe_dead		; 00h or FFh - which one decides everything
-	test	al, ATA_ST_BSY
-	jnz	lcs_notready
-	mov	al, ATA_REG_BCLO
-	call	LS_RegRead
-	jc	lcs_fail
-	cmp	al, ATAPI_SIG_LO
-	jne	lcs_fail
-	mov	al, ATA_REG_BCHI
-	call	LS_RegRead
-	jc	lcs_fail
-	cmp	al, ATAPI_SIG_HI
-	jne	lcs_fail
-	call	LS_Disconnect
-	clc
-	ret
-;  Still in reset. Hold the connection and ask again next tick.
-lcs_notready:
-	stc
-	ret
-
-;  00h and FFh are NOT the same answer here.
-;
-;  FFh is a floating bus - pull-ups with nothing driving them - and means give
-;  up. 00h is a legitimate ATA status for a device still coming out of SRST,
-;  and this drive really does report it: the 2026-09-14 ECP probe recorded
-;  nib_post = 00 immediately after a reset, with a valid ATAPI signature in the
-;  byte-count registers straight afterwards.
-;
-;  Treating 00h as a dead bus abandoned the cold start on the first poll, so
-;  the first SRB failed and SCSIPORT enumerated no device - the adapter loaded
-;  and nothing appeared under it. Measured on the real machine.
-lcs_maybe_dead:
-	cmp	al, 0FFh
-	jne	lcs_notready		; 00h - still in reset, keep polling
-;  fall through - FFh really is nobody home
-
-;  Absence, not patience. The caller must give up now, not re-arm.
-lcs_dead:
-	mov	LS_ColdDead, 1
-	call	LS_Disconnect
-	stc
-	ret
-lcs_fail:
-	call	LS_Disconnect
-	stc
-	ret
-
-;----------------------------------------------------------------------------
-; LS_PortOpen - put the port in a known state and connect to the bridge.
-;
-;   Out:  bridge connected, LS_Connected = 1, LS_HasEcp set
-;   Uses: EAX, ECX, EDX
-;
-;   Split out of LS_ColdStart so LS_BridgeProbe can open the port the SAME
-;   way. A bare CPP(0E0h) is not a port open: epat_connect always sends
-;   CPP(0) first, and the vendor sends 30h/40h/50h/00h before it. A probe
-;   that connected with E0h alone could fail on a perfectly good bridge that
-;   had simply never been initialised - and this probe decides whether the
-;   driver loads at all, so a false negative there is worse than the bug it
-;   was added to fix.
-;----------------------------------------------------------------------------
-public LS_PortOpen
-LS_PortOpen:
-	movzx	edx, LS_BasePort
-	add	edx, LPT_ECP_ECR
-	in	al, dx
-	and	al, ECR_KEEP_MASK
-	out	dx, al
-	movzx	edx, LS_BasePort
-	add	edx, LPT_CONTROL
-	mov	al, LPT_CT_NINIT
-	out	dx, al
-	mov	al, LPT_CT_NINIT OR LPT_CT_SELIN
-	out	dx, al
-	mov	al, LPT_CT_NINIT OR LPT_CT_SELIN OR LPT_CT_AUTOFD
-	out	dx, al
-	out	dx, al
-	out	dx, al
-	mov	al, LPT_CT_NINIT
-	out	dx, al
-	out	dx, al
-	call	LS_DetectEcp		; sets LS_HasEcp; MODE=SPP pins the nibble path
-	mov	al, CPP_PRE1
-	call	LS_CppFrame
-	mov	al, CPP_PRE2
-	call	LS_CppFrame
-	mov	al, CPP_PRE3
-	call	LS_CppFrame
-	mov	al, CPP_PRE4
-	call	LS_CppFrame
-	mov	al, CPP_CONNECT
-	call	LS_CppFrame
-	mov	LS_Connected, 1
-
-	ret
-
-;----------------------------------------------------------------------------
-; LS_ReadyPoll - is the drive willing to take a command RIGHT NOW?
-;
-;   Out:  CF=0 and ZF=1  drive is idle (BSY and DRQ both clear)
-;         CF=0 and ZF=0  still busy - the caller should try again next tick
-;         CF=1           the bridge did not answer at all
-;   Uses: EAX, ECX, EDX
-;
-;   ONE status read, then the port is released. This is the whole point of
-;   the restructure: a drive that is spinning up is waited for across many
-;   1 ms ticks, costing the system nothing, instead of inside a spin loop
-;   that holds the CPU for a second at a time. pf.c allows 8 seconds here
-;   (PF_SPIN) and so does the caller, as a tick budget.
-;----------------------------------------------------------------------------
-LS_ReadyPoll:
-	cmp	LS_Connected, 0
-	jne	lrp_have
-	call	LS_Connect
-	jc	lrp_fail
-lrp_have:
-	call	LS_StatusRead
-	jc	lrp_fail		; CF now reachable - LS_RegRead alone never set it
-	mov	LS_LastStatus, eax
-	call	LS_Disconnect
-	mov	eax, LS_LastStatus
-	test	al, ATA_ST_BSY OR ATA_ST_DRQ
-	clc
-	ret
-lrp_fail:
-	call	LS_Disconnect
 	stc
 	ret
 
