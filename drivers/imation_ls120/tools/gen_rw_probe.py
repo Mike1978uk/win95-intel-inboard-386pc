@@ -122,6 +122,7 @@ MEDIA_LBA = 100000
 #
 # *** DESTRUCTIVE. This erases the disk. ***
 FORMAT_UNIT = False
+CAPACITY = False
 
 # Skip the ATA soft reset. Polling a FORMAT UNIT needs this: SRST ABORTS an
 # in-progress format, so a check run that resets destroys the thing it is
@@ -186,6 +187,14 @@ PBW, PBWF = 0x1420, 0x1460
 EPP_ADDR, EPP_DATA = 3, 4
 ECR_EPP = 0x80
 USE_EPP = False
+
+# The vendor's REAL ECP block write, SD120PPD.SYS 0x4CA3 (TRANSPORT_SPEC 11).
+# The descriptor goes in FIRST through the bridge's 0Eh/0Fh/0Bh indirect
+# register pair, and only then does the C0h command cycle happen. Issuing C0h
+# cold - which is what the first attempt did - moves nothing.
+VBW, VBWX = 0x1500, 0x1580   # jcxz reaches +126; block needs 123
+VBWC, VBWS, VBWE = 0x15A0, 0x15D0, 0x15F0
+USE_VECP = False
 
 CDBS = 0x1C00   # five 12-byte CDBs, 0x20 apart
 BUF_INQ, BUF_SENSE, BUF_SECTOR, BUF_PATTERN, BUF_BACK = (
@@ -274,7 +283,7 @@ def packet(cdb, buf, ln, slot, out=False):
         "mov cx,[%04X]" % (slot + 6), "add cx,0003", "and cx,FFFC",
         "mov si,%04X" % buf,
         "mov byte ptr [%04X],%02X" % (MARK, (slot & 0xF0) | 4),
-        "call %04X" % ((PBW if USE_EPP else EBW if USE_ECP else BW) if out
+        "call %04X" % ((VBW if USE_VECP else PBW if USE_EPP else EBW if USE_ECP else BW) if out
                        else (PBR if USE_EPP else EBR if USE_ECP else BR)),
         "mov byte ptr [%04X],%02X" % (MARK, (slot & 0xF0) | 5),
         "call %04X" % WBSY,                             # pf's "data done"
@@ -388,7 +397,41 @@ def ecp_blocks():
            "mov dx,%04X" % R, "in al,dx", "and al,1F", "out dx,al",
            "clc", "ret"]
     pbwf = ["clc", "ret"]
-    return (blk(PNEG, pneg) + blk(PNEGW, pnegw) + blk(PNEGD, pnegd)
+    # one address cycle + one data byte, each ECR-gated, as the vendor does
+    def ad(addr_val, data_ins):
+        return (["mov dx,%04X" % B, "mov al,%02X" % addr_val, "out dx,al",
+                 "call %04X" % EWE]
+                + ["mov dx,%04X" % (B + ECP_FIFO)] + data_ins
+                + ["out dx,al", "call %04X" % EWE])
+    vbw = (["jcxz %04X" % VBWX, "call %04X" % ENEG,
+            "mov dx,%04X" % R, "mov al,14", "out dx,al",
+            "mov dx,%04X" % C, "mov al,04", "out dx,al",
+            "mov dx,%04X" % R, "mov al,74", "out dx,al",
+            "call %04X" % EWE, "push cx"]
+           + ad(0x0E, ["mov al,0B"])
+           + ad(0x0F, ["pop cx", "push cx", "mov al,ch"])
+           + ad(0x0B, ["pop cx", "push cx", "mov al,cl"])
+           + ["mov dx,%04X" % C, "mov al,04", "out dx,al",
+              "mov dx,%04X" % R, "mov al,74", "out dx,al",
+              "mov dx,%04X" % B, "mov al,C0", "out dx,al",
+              "call %04X" % EWE,
+              "pop cx", "cld", "mov bx,cx", "jmp %04X" % VBWC])
+    # CHUNKED, waiting for FIFO-empty before each chunk - vendor 0x4DED/0x4E0C.
+    # The ECP FIFO is 16 bytes deep; the first attempt pushed 3584 bytes at it
+    # in one rep outsb, which is what wedged the port.
+    vbwc = ["or bx,bx", "jz %04X" % VBWE,
+            "call %04X" % EWE,
+            "mov cx,0010", "cmp bx,cx", "jae %04X" % VBWS,
+            "mov cx,bx", "jmp %04X" % VBWS]
+    vbws = ["sub bx,cx", "mov dx,%04X" % (B + ECP_FIFO), "rep outsb",
+            "jmp %04X" % VBWC]
+    vbwe = ["call %04X" % EWE,
+            "mov dx,%04X" % R, "mov al,34", "out dx,al",   # vendor's teardown
+            "clc", "ret"]
+    vbwx = ["clc", "ret"]
+    return (blk(VBW, vbw) + blk(VBWX, vbwx)
+            + blk(VBWC, vbwc) + blk(VBWS, vbws) + blk(VBWE, vbwe)
+            + blk(PNEG, pneg) + blk(PNEGW, pnegw) + blk(PNEGD, pnegd)
             + blk(PBR, pbr) + blk(PBRL, pbrl) + blk(PBRF, pbrf)
             + blk(PBW, pbw) + blk(PBWF, pbwf)
             + blk(ENEG, neg) + blk(ENEGW, negw) + blk(ENEGD, negd)
@@ -480,6 +523,17 @@ def build():
         m += mark(0x90) + packet(CDBS + 0xC0, wbuf, nbytes,
                                  SLOTS + 0x90, out=True)
         m += mark(0x98) + packet(CDBS + 0xE0, rbuf, nbytes, SLOTS + 0x98)
+    if CAPACITY:
+        # Where does the disk end? Every media test so far has touched LBA 0
+        # and LBA 100000 - two points on a ~234,000 sector disk. Nothing has
+        # shown the far end is reachable at all.
+        #
+        # POISON FIRST. An earlier media read leaves a 00,01,02.. ramp in this
+        # buffer, and the first eight bytes of that ramp are indistinguishable
+        # from a capacity reply. Third time in one session that an unpoisoned
+        # buffer made a failure look like a result.
+        m += mark(0xB0) + ["call %04X" % POIS]
+        m += packet(CDBS + 0x120, BUF_SENSE2, 8, SLOTS + 0xB0)
     elif FORMAT_UNIT:
         # No data phase. Fire and leave - the drive keeps formatting after
         # DEBUG exits, so a later read probe is what reports the outcome.
@@ -588,6 +642,7 @@ def build():
            (MEDIA_LBA >> 8) & 0xFF, MEDIA_LBA & 0xFF,
            (MEDIA_SECTORS >> 8) & 0xFF, MEDIA_SECTORS & 0xFF),
         "04 00 00 00 00 00 00 00 00 00 00 00",   # FORMAT UNIT, default params
+        "25 00 00 00 00 00 00 00 00 00 00 00",   # READ CAPACITY, 8 bytes
     ]
     for i, c in enumerate(cdbs):
         l += ["e %04X %s" % (CDBS + i * 0x20, c), ""]
@@ -628,13 +683,13 @@ def build():
                         "and DEBUG DROPS the instruction rather than failing"
                         % (pc, x, disp))
             pc = nxt
-        if SLOTS <= MARK <= SLOTS + 0xAF:
+        if SLOTS <= MARK <= SLOTS + 0xBF:
             raise SystemExit(
                 "MARK (%04X) is inside SLOTS (%04X-%04X) - it will overwrite "
                 "a result slot" % (MARK, SLOTS, SLOTS + 0xAF))
         cdb_end = CDBS + len(cdbs) * 0x20 - 1
         for name, lo, hi in (("MARK", MARK, MARK),
-                             ("SLOTS", SLOTS, SLOTS + 0xAF)):
+                             ("SLOTS", SLOTS, SLOTS + 0xBF)):
             if lo <= cdb_end and hi >= CDBS:
                 raise SystemExit(
                     "%s (%04X-%04X) overlaps the CDB table at %04X-%04X"
@@ -648,7 +703,8 @@ def build():
 
     l += ["g=100",
           "d %04X %04X" % (MARK, MARK),
-          "d %04X %04X" % (SLOTS, SLOTS + 0xAF),
+          "d %04X %04X" % (SLOTS, SLOTS + 0xBF),
+          "d %04X %04X" % (BUF_SENSE2, BUF_SENSE2 + 0x0F),
           "d %04X %04X" % (BUF_INQ, BUF_INQ + 0x23),
           "d %04X %04X" % (BUF_SENSE, BUF_SENSE + 0x11),
           "d %04X %04X" % (BUF_SENSE + 0x20, BUF_SENSE + 0x31),
@@ -681,6 +737,12 @@ if __name__ == "__main__":
         USE_ECP = True
     if "--epp" in sys.argv:
         USE_EPP = True
+    if "--vecp" in sys.argv:
+        USE_VECP = True
+    if "--lba" in sys.argv:
+        MEDIA_LBA = int(sys.argv[sys.argv.index("--lba") + 1])
+    if "--capacity" in sys.argv:
+        CAPACITY = True
     if "--formatunit" in sys.argv:
         FORMAT_UNIT = True
     if "--sectors" in sys.argv:
