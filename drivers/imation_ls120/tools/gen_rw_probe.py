@@ -38,9 +38,29 @@ an earlier version put them at 0300 and the main block grew past it.
     DEBUG < C:\\RW.SCR > C:\\RW.OUT
 """
 import base64
+import sys
 
 CRLF = "\r\n"
 B, S, C, E = 0x378, 0x379, 0x37A, 0x77A
+
+# How many nibble reads a status wait is allowed before it gives up.
+#
+# 0xFFFF was the original, and it makes an unattended run impossible: a nibble
+# read is ~6 port accesses at 5.77 us (technique 109e), so one expired wait is
+# ~2.3 s, WDRQ6 is six of them, and a command that finds no drive costs ~20 s.
+# Eight commands is then minutes of staring at a static screen with no way to
+# tell a slow probe from a wedged one - which is exactly what happened on
+# 2026-09-14.
+#
+# Pass a smaller value to make a FAILING run fail fast. A drive that is
+# actually answering replies in microseconds, so this only shortens the
+# no-answer case. --spin 2000 gives ~0.3 s a wait, ~16 s for the whole probe.
+SPIN = 0xFFFF
+
+# Spin the drive up before anything else. An LS-120 that has parked answers
+# INQUIRY perfectly well and refuses every media command, so a probe that
+# skips this can look like a transport fault when it is a parked motor.
+START_STOP = False
 
 # helpers, moved clear of the main block
 CPP4, CPPP, FRAME, NIB, KICK, WR = 0x1800, 0x1810, 0x1820, 0x18A0, 0x18D0, 0x18F0
@@ -190,6 +210,9 @@ def build():
     # attention exits its wait immediately - the wait breaks on ERR - so the
     # extra attempts are nearly free, and only a read that actually starts
     # moving data spends the long timeout.
+    if START_STOP:
+        # No data phase: ln=0, and the device goes straight to completion.
+        m += mark(0x10) + packet(CDBS + 0xA0, BUF_SECTOR, 0, 0x0670)
     for i in range(4):
         m += mark(0x20 + i * 4) + packet(
             CDBS + 0x20, BUF_SENSE + i * 0x20, 18, 0x0650 + i * 8)
@@ -242,12 +265,12 @@ def build():
     l = (blk(0x100, m)
          + blk(CPP4, cpp4) + blk(CPPP, cppp) + blk(FRAME, fr)
          + blk(NIB, nib) + blk(KICK, kick) + blk(WR, wr)
-         + blk(WBSY, ["push cx", "mov cx,FFFF", "jmp %04X" % WBSYL])
+         + blk(WBSY, ["push cx", "mov cx,%04X" % SPIN, "jmp %04X" % WBSYL])
          + blk(WBSYL, ["mov al,1F", "call %04X" % NIB, "and al,88",
                        "jz %04X" % WBSYE, "dec cx", "jnz %04X" % WBSYL,
                        "jmp %04X" % WBSYE])
          + blk(WBSYE, ["pop cx", "ret"])
-         + blk(WDRQ, ["push cx", "mov cx,FFFF", "jmp %04X" % WDRQL])
+         + blk(WDRQ, ["push cx", "mov cx,%04X" % SPIN, "jmp %04X" % WDRQL])
          + blk(WDRQL, ["mov al,1F", "call %04X" % NIB, "and al,89",
                        "cmp al,08", "jz %04X" % WDRQE,
                        "and al,01", "jnz %04X" % WDRQE,
@@ -309,4 +332,8 @@ def build():
 
 
 if __name__ == "__main__":
+    if "--spin" in sys.argv:
+        SPIN = int(sys.argv[sys.argv.index("--spin") + 1], 16)
+    if "--startstop" in sys.argv:
+        START_STOP = True
     print(base64.b64encode(build().encode("ascii")).decode())
