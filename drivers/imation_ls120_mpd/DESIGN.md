@@ -111,6 +111,26 @@ A spin count is a time budget divided by a measured per-access cost. Write both 
 source next to the constant. `LS_SPIN_BSY equ 2000 ; ~90 ms` is the correct form; `0FFFFh` with no
 comment is how §1.2 happened.
 
+### I5a. The worst case is the OS's number, not ours
+
+**`Srb->TimeOutValue` exists and this driver has never read it.** It is in `SRB.INC` at offset
+108; `LS120MP.ASM` references it nowhere. So the state machine's budgets - `LS_TICKS_COLD` plus
+two `LS_TICKS_READY`, 19 s per request - were chosen with no reference to what SCSIPORT is
+willing to wait for.
+
+That is not merely untidy. SCSIPORT times the request out itself, and for the **INQUIRY during
+enumeration** a timed-out request means *no device*. Which would explain, with one mechanism,
+both the long pause before the desktop and the drive no longer appearing - the two symptoms
+seen on 2026-09-14.
+
+⚠ **Hypothesis, not a measurement.** It fits the bisect (enumeration was lost at the commit that
+turned inline waiting into seconds of state machine) and it fits the observed delay, but it has
+not been tested. The `LS120MP.B13` substitution settles the bisect; reading `TimeOutValue`
+settles this.
+
+**The rule: a wait is bounded by whatever the caller said it would tolerate.** Our own constants
+are a ceiling underneath that, never above it.
+
 ### I5. The worst case is a stated number
 
 For every configuration — drive absent, drive present but empty, drive spinning up, cable
