@@ -175,17 +175,22 @@ ATAPI_PACKET_LEN	equ	12
 ;  accepted, which is milliseconds. Sizing them for the worst case was what
 ;  made a single tick block for a second at a time.
 ;
-;  ~44 us per nibble register read, so 2000 = ~90 ms and 1000 = ~45 ms.
-LS_SPIN_BSY		equ	2000		; ~90 ms
-LS_SPIN_DRQ		equ	1000		; ~45 ms
+;  ~44 us per nibble register read.
+;
+;  These are spun by the caller. Nothing else bounds them, so they must hold
+;  the whole wait rather than one slice of it.
+LS_SPIN_BSY		equ	22000		; ~1.0 s
+LS_SPIN_DRQ		equ	11000		; ~0.5 s
 
-;  The wait for BSY to clear after SRST. This was 0FFFFh - the only loop in
-;  the transport that did not carry a derived bound - and at 46 us per nibble
-;  read that is 65535 x 46 us = 3.0 SECONDS inside one timer callback, which
-;  LsTimer then re-armed up to LS_TICKS_COLD times. Measured per-access cost:
-;  5.77 us (technique 109e), 8 accesses per nibble register read.
-;    2000 x 46 us = ~92 ms per attempt, x LS_TICKS_COLD attempts = ~2.8 s.
-LS_SPIN_RESET		equ	2000		; ~92 ms
+;  The wait for BSY to clear after SRST, and it has to be SECONDS. A 0.29 s
+;  budget walks on while the drive is still in reset, and then every command
+;  returns ABORTED COMMAND - deterministically, on this drive. pf.c allows 8 s.
+;
+;  A budget this long is only affordable because LS_StatusRead recognises a
+;  floating bus: with no drive on the cable the first read returns FFh and the
+;  loop exits at once, so the seconds are spent only on a drive that is really
+;  there and really resetting.
+LS_SPIN_RESET		equ	0FFFFh		; ~3.0 s
 
 	.DATA
 
@@ -417,15 +422,23 @@ lsrst_wait:
 ;  CF here means nothing is driving the bus - an empty cable, or a live bridge
 ;  with no drive behind it. There is no point spending the rest of the budget
 ;  on it, and spending it is exactly what stalled the boot.
-	jc	lsrst_dead
+	jc	lsrst_float
 	test	al, ATA_ST_BSY
 	jz	lsrst_done
+lsrst_next:
 	dec	ecx
 	jnz	lsrst_wait
 lsrst_dead:
 	pop	ebx
 	stc
 	ret
+;  00h is what this drive reports while it is still coming out of SRST - the
+;  ECP probe caught it with a valid ATAPI signature in the byte-count registers
+;  immediately afterwards. Only FFh is absence.
+lsrst_float:
+	cmp	al, 0FFh
+	jne	lsrst_next
+	jmp	lsrst_dead
 lsrst_done:
 	pop	ebx
 	clc
@@ -1526,16 +1539,23 @@ LS_WaitNotBusy:
 	mov	ebx, LS_SPIN_BSY
 lwnb_loop:
 	call	LS_StatusRead
-	jc	lwnb_fail		; nothing on the cable - stop, do not wait it out
+	jc	lwnb_float
 	mov	LS_LastStatus, eax
 	test	al, ATA_ST_BSY
 	jz	lwnb_ok
+lwnb_next:
 	dec	ebx
 	jnz	lwnb_loop
 lwnb_fail:
 	pop	ebx
 	stc
 	ret
+;  FFh is a floating bus - stop, do not wait it out. 00h is a device that has
+;  not driven the lines yet, which is a reason to keep polling, not to give up.
+lwnb_float:
+	cmp	al, 0FFh
+	jne	lwnb_next
+	jmp	lwnb_fail
 lwnb_ok:
 	pop	ebx
 	clc
@@ -1553,7 +1573,7 @@ LS_WaitDrq:
 	mov	ebx, LS_SPIN_DRQ
 lwd_loop:
 	call	LS_StatusRead
-	jc	lwd_fail		; nothing on the cable - stop, do not wait it out
+	jc	lwd_float
 	mov	LS_LastStatus, eax
 	test	al, ATA_ST_BSY
 	jnz	lwd_next
@@ -1568,6 +1588,10 @@ lwd_fail:
 	pop	ebx
 	stc
 	ret
+lwd_float:
+	cmp	al, 0FFh		; FFh only - see LS_WaitNotBusy
+	jne	lwd_next
+	jmp	lwd_fail
 lwd_ok:
 	pop	ebx
 	clc
@@ -1713,7 +1737,7 @@ lpw_loop:
 ;  not be there - so it has no equivalent branch. A dead bus is not a phase
 ;  that has yet to arrive, and spinning out the budget on one is the bug this
 ;  whole change exists to remove.
-	jc	lpw_dead
+	jc	lpw_float
 	mov	LS_LastStatus, eax
 	mov	dl, al
 	and	dl, bl			; any "go" bit still set?
@@ -1731,6 +1755,10 @@ lpw_dead:
 	pop	ecx
 	stc
 	ret
+lpw_float:
+	cmp	al, 0FFh		; FFh only - see LS_WaitNotBusy
+	jne	lpw_next
+	jmp	lpw_dead
 lpw_ok:
 	mov	dl, al
 	and	dl, bh
