@@ -57,6 +57,7 @@ EXTERNDEF	LS_SpinUp		: NEAR
 EXTERNDEF	LS_Disconnect		: NEAR
 EXTERNDEF	LS_BasePort		: WORD
 EXTERNDEF	LS_LastStatus		: DWORD
+EXTERNDEF	LS_SrstDone		: DWORD
 LS_CDB_MAX	equ	12
 endif
 
@@ -175,13 +176,15 @@ LS_ST_FINISH		equ	6	; issued, data moved, drive still BSY - wait it out
 ;  costs 8000 timer callbacks and no blocked CPU - and was fatal in a spin
 ;  loop.
 LS_TICKS_READY		equ	8000	; 8 s, pf.c's PF_SPIN
-;  A cold-start tick is NOT a millisecond. LS_ColdStart pulses SRST and then
-;  waits LS_SPIN_RESET for BSY to clear - ~92 ms - so this is an attempt
-;  count, not a time in ms, and 3000 of them was ~276 s rather than the 3 s
-;  the old comment claimed. 30 x 92 ms = ~2.8 s, which is what was meant.
-;  The wait belongs in this state machine rather than inside LS_ColdStart
-;  (DESIGN.md I3, change 5); until it moves, the budget has to account for it.
-LS_TICKS_COLD		equ	30	; ~2.8 s to open a bridge that is present
+;  A cold-start tick IS about a millisecond again. LS_ColdStart now pulses
+;  SRST on its first call only and does one status read per call after that,
+;  so this is back to being a time: 3000 ticks is ~3 s.
+;
+;  Measured 2026-09-14: a drive coming out of SRST needs SECONDS. 0.29 s is
+;  not enough - every command after it returns ABORTED COMMAND - and 2.3 s is.
+;  3 s of ticks costs the system nothing; 3 s of spinning would cost it
+;  everything, which is the whole point of DESIGN.md I3.
+LS_TICKS_COLD		equ	3000	; ~3 s, as ticks
 LS_MAX_RETRY		equ	5	; pf.c's PF_MAX_RETRIES
 
 ;----------------------------------------------------------------------------
@@ -706,6 +709,9 @@ LsInitialize PROC STDCALL DeviceExtension:DWORD
 	mov	[eax].DEVEXT.dxState, LS_ST_IDLE
 	mov	[eax].DEVEXT.dxPendSrb, 0
 	mov	[eax].DEVEXT.dxColdDone, 0
+;  A fresh adapter init must pulse SRST again, whatever a previous load left
+;  behind. Still no device I/O here - this only clears a flag.
+	mov	LS_SrstDone, 0
 	mov	eax, TRUE
 	ret
 
@@ -777,6 +783,9 @@ lt_coldstart:
 	mov	eax, [esi].DEVEXT.dxTicks
 	cmp	eax, LS_TICKS_COLD
 	jb	lt_rearm		; not yet - ask again next tick
+;  Giving up. Arm a fresh SRST for the next request rather than leaving the
+;  flag set, or a drive plugged in after this point would never be reset.
+	mov	LS_SrstDone, 0
 	mov	al, SRB_STATUS_SELECTION_TIMEOUT
 	jmp	lt_setstat
 lt_cold_ok:

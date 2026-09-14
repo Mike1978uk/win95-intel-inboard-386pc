@@ -229,6 +229,11 @@ LS_Mode			dd	0		; negotiated transfer mode, 0 = none
 	PUBLIC	LS_Connected
 LS_Connected		dd	0		; layer 2 currently owns the port
 
+;  1 once SRST has been pulsed for this bring-up. Cleared by LS_ResetBringUp
+;  so a fresh adapter init, or a cold start that gave up, pulses again.
+	PUBLIC	LS_SrstDone
+LS_SrstDone		dd	0
+
 	PUBLIC	LS_LastStatus
 LS_LastStatus		dd	0		; last ATA status byte read
 LS_XferN		dd	0		; byte count the DEVICE offered this phase
@@ -377,14 +382,21 @@ LS_Connect:
 ;   Must be called with the bridge connected.
 ;----------------------------------------------------------------------------
 public LS_AtaSoftReset
-LS_AtaSoftReset:
-	push	ebx
+;  Pulse SRST and return immediately. The wait belongs to the caller's state
+;  machine, not to a spin inside a timer callback - DESIGN.md I3.
+public LS_AtaPulseReset
+LS_AtaPulseReset:
 	mov	ch, CONT_IDECTL
 	mov	ax, (ATA_DEVCTL_SRST SHL 8) OR ATA_REG_DEVCTL
 	call	LS_RegWriteCont		; SRST asserted
 	mov	ch, CONT_IDECTL
 	mov	ax, (0 SHL 8) OR ATA_REG_DEVCTL
 	call	LS_RegWriteCont		; SRST released - status reads 80h here
+	ret
+
+LS_AtaSoftReset:
+	push	ebx
+	call	LS_AtaPulseReset
 ;  Poll BSY down. A nibble read is ~8 port accesses at ~3.9 us of Inboard-to-
 ;  XT-bus sync each, so this loop is self-timing at roughly 30 us an iteration
 ;  - no calibrated delay to get wrong, and none to go stale on other hardware.
@@ -2006,10 +2018,38 @@ lpc_fail:
 ;   powers up held in ATA reset and answers nothing until SRST is pulsed.
 ;   TRANSPORT_SPEC.md section 5.
 ;----------------------------------------------------------------------------
+;  Called once per timer tick until it succeeds or the caller's budget runs
+;  out. SRST is pulsed on the FIRST tick only; every later tick is a single
+;  status read.
+;
+;  It used to pulse SRST on every call and then wait LS_SPIN_RESET (~92 ms)
+;  for BSY inside that one call. Both halves were wrong. Re-asserting SRST
+;  restarts the reset, so a driver that pulses per retry never finishes one;
+;  and the wait is seconds, not milliseconds - measured 2026-09-14, a 0.29 s
+;  budget leaves the drive still in reset and every command after it comes
+;  back ABORTED COMMAND, deterministically. 92 ms could not have worked.
+;
+;  The seconds now come from the tick budget, where they cost the system
+;  nothing, which is what DESIGN.md I3 asks for: a reset settle is a STATE.
 LS_ColdStart:
+	cmp	LS_SrstDone, 0
+	jne	lcs_poll
+
 	call	LS_PortOpen
-	call	LS_AtaSoftReset
-	jc	lcs_fail
+	call	LS_AtaPulseReset	; pulse and return - no waiting here
+	mov	LS_SrstDone, 1
+	call	LS_Disconnect
+	stc				; not ready yet; ask again next tick
+	ret
+
+;  A bare connect is enough from here: LS_PortOpen configured the bridge on
+;  the first tick and a disconnect does not undo that.
+lcs_poll:
+	call	LS_Connect
+	call	LS_StatusRead
+	jc	lcs_fail		; nothing driving the bus at all
+	test	al, ATA_ST_BSY
+	jnz	lcs_notready
 	mov	al, ATA_REG_BCLO
 	call	LS_RegRead
 	jc	lcs_fail
@@ -2022,6 +2062,10 @@ LS_ColdStart:
 	jne	lcs_fail
 	call	LS_Disconnect
 	clc
+	ret
+lcs_notready:
+	call	LS_Disconnect
+	stc
 	ret
 lcs_fail:
 	call	LS_Disconnect
