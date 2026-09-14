@@ -2056,7 +2056,7 @@ LS_ColdStart:
 lcs_poll:
 	call	LS_Connect
 	call	LS_StatusRead
-	jc	lcs_dead		; 00h/FFh - nothing is driving the bus
+	jc	lcs_maybe_dead		; 00h or FFh - which one decides everything
 	test	al, ATA_ST_BSY
 	jnz	lcs_notready
 	mov	al, ATA_REG_BCLO
@@ -2076,6 +2076,22 @@ lcs_notready:
 	call	LS_Disconnect
 	stc
 	ret
+
+;  00h and FFh are NOT the same answer here.
+;
+;  FFh is a floating bus - pull-ups with nothing driving them - and means give
+;  up. 00h is a legitimate ATA status for a device still coming out of SRST,
+;  and this drive really does report it: the 2026-09-14 ECP probe recorded
+;  nib_post = 00 immediately after a reset, with a valid ATAPI signature in the
+;  byte-count registers straight afterwards.
+;
+;  Treating 00h as a dead bus abandoned the cold start on the first poll, so
+;  the first SRB failed and SCSIPORT enumerated no device - the adapter loaded
+;  and nothing appeared under it. Measured on the real machine.
+lcs_maybe_dead:
+	cmp	al, 0FFh
+	jne	lcs_notready		; 00h - still in reset, keep polling
+;  fall through - FFh really is nobody home
 
 ;  Absence, not patience. The caller must give up now, not re-arm.
 lcs_dead:
