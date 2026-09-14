@@ -165,6 +165,28 @@ ECP_MODE, ECP_BYTE = 0x74, 0x34
 ECP_FIFO, ECP_ECR = 0x400, 0x402
 USE_ECP = False
 
+# EPP block transfer - epat.c mode 3, which is what the vendor's block path
+# actually is (TRANSPORT_SPEC 4f-corrected). ECP on this bridge is a
+# PER-REGISTER mode, not a block one, which is why the ECP block attempt moved
+# nothing.
+#
+#   read : w3(80h) w2(24h) <count-1 bytes from base+4> w2(04h)
+#          w3(A0h) w2(24h) <last byte> w2(04h)
+#   write: w3(C0h) <count bytes to base+4> w2(04h)
+#
+# base+3 is the EPP ADDRESS register and base+4 the EPP DATA register. They
+# only decode as EPP while the ECR is in EPP mode (100b), so it is switched
+# for the transfer and restored after.
+#
+# The 1284 negotiation differs too: epat_connect sends extensibility byte 40h
+# to request EPP where ECP uses 10h.
+PNEG, PNEGW, PNEGD = 0x1300, 0x1340, 0x1360
+PBR, PBRL, PBRF = 0x1380, 0x13D0, 0x1400
+PBW, PBWF = 0x1420, 0x1460
+EPP_ADDR, EPP_DATA = 3, 4
+ECR_EPP = 0x80
+USE_EPP = False
+
 CDBS = 0x1C00   # five 12-byte CDBs, 0x20 apart
 BUF_INQ, BUF_SENSE, BUF_SECTOR, BUF_PATTERN, BUF_BACK = (
     0x2000, 0x2040, 0x2200, 0x2400, 0x2600)
@@ -252,8 +274,8 @@ def packet(cdb, buf, ln, slot, out=False):
         "mov cx,[%04X]" % (slot + 6), "add cx,0003", "and cx,FFFC",
         "mov si,%04X" % buf,
         "mov byte ptr [%04X],%02X" % (MARK, (slot & 0xF0) | 4),
-        "call %04X" % ((EBW if USE_ECP else BW) if out
-                       else (EBR if USE_ECP else BR)),
+        "call %04X" % ((PBW if USE_EPP else EBW if USE_ECP else BW) if out
+                       else (PBR if USE_EPP else EBR if USE_ECP else BR)),
         "mov byte ptr [%04X],%02X" % (MARK, (slot & 0xF0) | 5),
         "call %04X" % WBSY,                             # pf's "data done"
         "mov al,1F", "call %04X" % NIB, "mov [%04X],al" % (slot + 2),
@@ -326,7 +348,50 @@ def ecp_blocks():
     ebws = ["call %04X" % EWE, "call %04X" % ELV,
             "pop cx", "clc", "ret"]
     ebwt = ["clc", "ret"]
-    return (blk(ENEG, neg) + blk(ENEGW, negw) + blk(ENEGD, negd)
+    A, D2 = B + EPP_ADDR, B + EPP_DATA
+    # same handshake as ENEG, extensibility byte 40h instead of 10h
+    pneg = ["mov dx,%04X" % C, "mov al,0C", "out dx,al", "mov al,04", "out dx,al",
+            "mov dx,%04X" % B, "xor al,al", "out dx,al", "out dx,al",
+            "mov dx,%04X" % C, "mov al,01", "out dx,al", "out dx,al",
+            "mov al,04", "out dx,al", "mov al,0C", "out dx,al",
+            "mov dx,%04X" % B, "mov al,40", "out dx,al",
+            "mov dx,%04X" % C, "mov al,06", "out dx,al", "out dx,al", "out dx,al",
+            "mov dx,%04X" % S, "mov cx,0100", "jmp %04X" % PNEGW]
+    pnegw = ["in al,dx", "test al,40", "jz %04X" % PNEGD,
+             "dec cx", "jnz %04X" % PNEGW, "jmp %04X" % PNEGD]
+    pnegd = ["mov [%04X],al" % (SLOTS + 0xA9),
+             "mov dx,%04X" % C, "mov al,07", "out dx,al", "out dx,al",
+             "mov al,04", "out dx,al", "out dx,al", "ret"]
+    # DI = dest, CX = count
+    pbr = ["jcxz %04X" % PBRF, "call %04X" % PNEG,
+           "mov dx,%04X" % R, "mov al,%02X" % ECR_EPP, "out dx,al",
+           "in al,dx", "mov [%04X],al" % (SLOTS + 0xAA),
+           "push cx", "dec cx", "jcxz %04X" % PBRL,
+           "mov dx,%04X" % A, "mov al,80", "out dx,al",
+           "mov dx,%04X" % C, "mov al,24", "out dx,al",
+           "cld", "mov dx,%04X" % D2, "rep insb",
+           "mov dx,%04X" % C, "mov al,04", "out dx,al", "jmp %04X" % PBRL]
+    pbrl = ["mov dx,%04X" % A, "mov al,A0", "out dx,al",
+            "mov dx,%04X" % C, "mov al,24", "out dx,al",
+            "mov dx,%04X" % D2, "in al,dx", "mov [di],al", "inc di",
+            "mov dx,%04X" % C, "mov al,04", "out dx,al",
+            "mov dx,%04X" % R, "in al,dx", "and al,1F", "out dx,al",
+            "pop cx", "clc", "ret"]
+    pbrf = ["clc", "ret"]
+    # SI = source, CX = count
+    pbw = ["jcxz %04X" % PBWF, "call %04X" % PNEG,
+           "mov dx,%04X" % R, "mov al,%02X" % ECR_EPP, "out dx,al",
+           "in al,dx", "mov [%04X],al" % (SLOTS + 0xAB),
+           "mov dx,%04X" % A, "mov al,C0", "out dx,al",
+           "cld", "mov dx,%04X" % D2, "rep outsb",
+           "mov dx,%04X" % C, "mov al,04", "out dx,al",
+           "mov dx,%04X" % R, "in al,dx", "and al,1F", "out dx,al",
+           "clc", "ret"]
+    pbwf = ["clc", "ret"]
+    return (blk(PNEG, pneg) + blk(PNEGW, pnegw) + blk(PNEGD, pnegd)
+            + blk(PBR, pbr) + blk(PBRL, pbrl) + blk(PBRF, pbrf)
+            + blk(PBW, pbw) + blk(PBWF, pbwf)
+            + blk(ENEG, neg) + blk(ENEGW, negw) + blk(ENEGD, negd)
             + blk(EDIR, edir)
             + blk(EWE, ewe) + blk(EWEL, ewel)
             + blk(EWD, ewd) + blk(EWDL, ewdl)
@@ -563,13 +628,13 @@ def build():
                         "and DEBUG DROPS the instruction rather than failing"
                         % (pc, x, disp))
             pc = nxt
-        if SLOTS <= MARK <= SLOTS + 0xA7:
+        if SLOTS <= MARK <= SLOTS + 0xAF:
             raise SystemExit(
                 "MARK (%04X) is inside SLOTS (%04X-%04X) - it will overwrite "
-                "a result slot" % (MARK, SLOTS, SLOTS + 0xA7))
+                "a result slot" % (MARK, SLOTS, SLOTS + 0xAF))
         cdb_end = CDBS + len(cdbs) * 0x20 - 1
         for name, lo, hi in (("MARK", MARK, MARK),
-                             ("SLOTS", SLOTS, SLOTS + 0xA7)):
+                             ("SLOTS", SLOTS, SLOTS + 0xAF)):
             if lo <= cdb_end and hi >= CDBS:
                 raise SystemExit(
                     "%s (%04X-%04X) overlaps the CDB table at %04X-%04X"
@@ -583,7 +648,7 @@ def build():
 
     l += ["g=100",
           "d %04X %04X" % (MARK, MARK),
-          "d %04X %04X" % (SLOTS, SLOTS + 0xA7),
+          "d %04X %04X" % (SLOTS, SLOTS + 0xAF),
           "d %04X %04X" % (BUF_INQ, BUF_INQ + 0x23),
           "d %04X %04X" % (BUF_SENSE, BUF_SENSE + 0x11),
           "d %04X %04X" % (BUF_SENSE + 0x20, BUF_SENSE + 0x31),
@@ -614,6 +679,8 @@ if __name__ == "__main__":
         NO_RESET = True
     if "--ecp" in sys.argv:
         USE_ECP = True
+    if "--epp" in sys.argv:
+        USE_EPP = True
     if "--formatunit" in sys.argv:
         FORMAT_UNIT = True
     if "--sectors" in sys.argv:
