@@ -89,7 +89,20 @@ def blk(a, i):
     return ["a %04X" % a] + i + [""]
 
 
-MARK = 0x0580             # one byte: how far the probe got
+# Progress marker and result slots. These MUST sit clear of every code block.
+#
+# They used to be at 0580 and 0600-067F, which was fine when the main block
+# held five commands and ended around 04B0. The main loop then grew to eight
+# packets, the block grew past them, and the probe began writing its marks and
+# its results INTO ITS OWN INSTRUCTION STREAM. It hung both times it was run on
+# 2026-09-14, and cutting the status-wait budget eightfold changed nothing -
+# which is what proved it was never the waits.
+#
+# The generator's layout check could not catch this: it only compares each
+# block against the NEXT block's start, and these are data addresses, not
+# blocks. check_layout() below now tests them explicitly.
+SLOTS = 0x1D00            # 16 slots of 8 bytes, clear of CDBS..CDBS+0xC0
+MARK = 0x1D80             # one byte: how far the probe got
 
 
 def mark(n):
@@ -115,6 +128,7 @@ def isize(ins):
     if t[:2] in ("jz", "jn", "jb") or t.startswith("jcxz"): return 2
     if t.startswith(("cmpcx,", "addcx,", "andcx,")): return 4
     if t.startswith("mov[") and ",cx" in t: return 4
+    if t.startswith("movcx,["): return 4   # 8B 0E xx xx - was counted as 3
     if t.startswith("mov["): return 3
     if t.startswith("xorbh,0"): return 3
     for r in ("movdx,", "movax,", "movcx,", "movsi,", "movdi,", "movbx,"):
@@ -212,15 +226,15 @@ def build():
     # moving data spends the long timeout.
     if START_STOP:
         # No data phase: ln=0, and the device goes straight to completion.
-        m += mark(0x10) + packet(CDBS + 0xA0, BUF_SECTOR, 0, 0x0670)
+        m += mark(0x10) + packet(CDBS + 0xA0, BUF_SECTOR, 0, SLOTS + 0x70)
     for i in range(4):
         m += mark(0x20 + i * 4) + packet(
-            CDBS + 0x20, BUF_SENSE + i * 0x20, 18, 0x0650 + i * 8)
+            CDBS + 0x20, BUF_SENSE + i * 0x20, 18, SLOTS + 0x50 + i * 8)
         m += mark(0x22 + i * 4) + packet(
-            CDBS + 0x40, BUF_SECTOR, 512, 0x0610 + i * 8)
+            CDBS + 0x40, BUF_SECTOR, 512, SLOTS + 0x10 + i * 8)
     if WRITE_TEST:
-        m += packet(CDBS + 0x60, BUF_PATTERN, 512, 0x0630, out=True)
-        m += packet(CDBS + 0x80, BUF_BACK, 512, 0x0640)
+        m += packet(CDBS + 0x60, BUF_PATTERN, 512, SLOTS + 0x30, out=True)
+        m += packet(CDBS + 0x80, BUF_BACK, 512, SLOTS + 0x40)
     m += ["mov ah,40", "call %04X" % CPP4, "mov ah,30", "call %04X" % CPP4,
           "int 3"]
 
@@ -315,10 +329,20 @@ def build():
             raise SystemExit(
                 "block %04X: %d instructions need up to %d bytes, "
                 "next block starts at %04X" % (addr, count, need, limit))
+        # Data must not land inside code. The check above only compares a block
+        # against the NEXT block, so it cannot see a marker or a result slot
+        # sitting in the middle of one - which is exactly how MARK at 0580 and
+        # the slots at 0600 ended up inside a main block that had grown to 0717.
+        for name, lo, hi in (("MARK", MARK, MARK),
+                             ("SLOTS", SLOTS, SLOTS + 0x7F)):
+            if lo < addr + need and hi >= addr:
+                raise SystemExit(
+                    "%s (%04X-%04X) lands inside the code block at %04X-%04X"
+                    % (name, lo, hi, addr, addr + need - 1))
 
     l += ["g=100",
           "d %04X %04X" % (MARK, MARK),
-          "d 600 67F",
+          "d %04X %04X" % (SLOTS, SLOTS + 0x7F),
           "d %04X %04X" % (BUF_INQ, BUF_INQ + 0x23),
           "d %04X %04X" % (BUF_SENSE, BUF_SENSE + 0x11),
           "d %04X %04X" % (BUF_SENSE + 0x20, BUF_SENSE + 0x31),
