@@ -234,6 +234,14 @@ LS_Connected		dd	0		; layer 2 currently owns the port
 	PUBLIC	LS_SrstDone
 LS_SrstDone		dd	0
 
+;  1 when a cold start failed because NOTHING IS DRIVING THE BUS, as distinct
+;  from a drive that is merely still busy. The two need opposite responses: a
+;  busy drive is worth 3000 more ticks, an empty cable is worth none. Without
+;  this split the state machine spends its whole budget on an absent device,
+;  which is minutes of boot once SCSIPORT probes every target.
+	PUBLIC	LS_ColdDead
+LS_ColdDead		dd	0
+
 	PUBLIC	LS_LastStatus
 LS_LastStatus		dd	0		; last ATA status byte read
 LS_XferN		dd	0		; byte count the DEVICE offered this phase
@@ -2032,6 +2040,7 @@ lpc_fail:
 ;  The seconds now come from the tick budget, where they cost the system
 ;  nothing, which is what DESIGN.md I3 asks for: a reset settle is a STATE.
 LS_ColdStart:
+	mov	LS_ColdDead, 0
 	cmp	LS_SrstDone, 0
 	jne	lcs_poll
 
@@ -2047,7 +2056,7 @@ LS_ColdStart:
 lcs_poll:
 	call	LS_Connect
 	call	LS_StatusRead
-	jc	lcs_fail		; nothing driving the bus at all
+	jc	lcs_dead		; 00h/FFh - nothing is driving the bus
 	test	al, ATA_ST_BSY
 	jnz	lcs_notready
 	mov	al, ATA_REG_BCLO
@@ -2064,6 +2073,13 @@ lcs_poll:
 	clc
 	ret
 lcs_notready:
+	call	LS_Disconnect
+	stc
+	ret
+
+;  Absence, not patience. The caller must give up now, not re-arm.
+lcs_dead:
+	mov	LS_ColdDead, 1
 	call	LS_Disconnect
 	stc
 	ret

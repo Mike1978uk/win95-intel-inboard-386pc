@@ -58,6 +58,7 @@ EXTERNDEF	LS_Disconnect		: NEAR
 EXTERNDEF	LS_BasePort		: WORD
 EXTERNDEF	LS_LastStatus		: DWORD
 EXTERNDEF	LS_SrstDone		: DWORD
+EXTERNDEF	LS_ColdDead		: DWORD
 LS_CDB_MAX	equ	12
 endif
 
@@ -801,12 +802,20 @@ ifdef LS_PHASE2
 lt_coldstart:
 	call	LS_ColdStart
 	jnc	lt_cold_ok
+;  A dead bus is not a slow drive, and giving it the full budget is what made
+;  an absent drive cost MINUTES of boot instead of milliseconds. LS_ColdDead
+;  is set only when the status register read 00h or FFh - nothing driving the
+;  bus at all - which is DESIGN.md section 4.3's tier-1/tier-2 split finally
+;  reaching the state machine. A busy drive still gets every one of its ticks.
+	cmp	LS_ColdDead, 0
+	jne	lt_cold_absent
 	mov	eax, [esi].DEVEXT.dxTicks
 	cmp	eax, LS_TICKS_COLD
 	jb	lt_rearm		; not yet - ask again next tick
 ;  Giving up. Arm a fresh SRST for the next request rather than leaving the
 ;  flag set, or a drive plugged in after this point would never be reset.
 	mov	LS_SrstDone, 0
+lt_cold_absent:
 ;  Remember it. Without this every later SRB spends the budget again.
 	mov	[esi].DEVEXT.dxColdFail, 1
 	mov	al, SRB_STATUS_SELECTION_TIMEOUT
