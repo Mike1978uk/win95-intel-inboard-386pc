@@ -165,7 +165,50 @@ transliteration stored `34h`, a bare `04h` and a guessed `15h` where the driver
 does a **read-modify-write** (control: keep IRQEN, set forward; ECR: `AND 1Fh`).
 Technique 118. It changed nothing, so the cause is earlier.
 
-### Bisect it, do not guess again
+### CAUSE FOUND - it is architectural, and it was in our own spec
+
+**ECP is not a block transport on this bridge.** The vendor's mode tables say `ECP Read`
+(handler `3CCEh`) and `ECP Write` (`4932h`) each take a **register number** - per-register ECP
+is its normal mode. And Linux `epat.c` has **no ECP mode at all**: 4-bit, 5/3, 8-bit, EPP-8/16/32.
+
+The block path is **EPP**, which `TRANSPORT_SPEC.md` §4f-corrected states and `epat.c` mode 3
+confirms byte for byte:
+
+```c
+w3(0x80); w2(0x24);                      // 0x80 -> EPP ADDRESS register at base+3
+for (k=0;k<count-1;k++) buf[k] = r4();   // data from EPP DATA register at base+4
+w2(4); w3(0xa0); w2(0x24);               // 0xA0 = last byte
+buf[count-1] = r4();
+w2(4);
+```
+
+Same `80h`/`A0h` command bytes our ECP code uses - but to **base+3**, with data at **base+4**.
+`LS_BlockReadEcp` sends them to the ECP FIFO at base+0 and reads base+400h. Wrong ports.
+
+So the correct architecture is:
+
+| | transport |
+|---|---|
+| registers | **ECP per register** (`3CCEh` / `4932h`), nibble as fallback |
+| block data | **EPP**, `epat.c` mode 3 |
+
+Our driver has **neither**: nibble registers (works, slow) and ECP-block (does not work).
+**The speed win for data is EPP, not ECP.**
+
+⚠ This was already written down. `IMPLEMENTATION.md` §5 carried the retracted claim ("ECP
+belongs to the DATA phase only... ship nibble registers + ECP `rep insb` for sector data") while
+`TRANSPORT_SPEC.md`'s index had retracted it on 09-13. I built the probe from the stale file.
+§5 is now corrected and points at the right one.
+
+### Second bug, independent of the above
+
+**Every ECP failure path must restore `ECR = 0x34` and un-reverse the control port.** The spec
+is explicit: *"an abandoned reverse channel wedges the port on this machine, so the failure
+paths matter more than the happy path."* My transliteration has **no `jc` after `call ECMD`**
+and none after `call EWD`, so a failed phase carries on with the port reversed and leaves it
+there. That is the `F5`.
+
+### If it still misbehaves, bisect rather than guess
 
 One fix-and-run has already failed. The order:
 

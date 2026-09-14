@@ -168,9 +168,29 @@ unacceptable; that is what §1.3 is for.
 The card is **ECP-capable** (`port type = 0C`) and the vendor negotiates **ECP for both
 directions on this machine** — `TRANSPORT_SPEC.md` §0, §4f, re-confirmed live 2026-09-11.
 
-⚠ **ECP belongs to the DATA phase only.** Per-register ECP reads time out *by design* — a
-register read has no data phase, so the reverse FIFO never fills. Ship **nibble registers +
-ECP `rep insb`/`rep outsb` for sector data** (§4f).
+⛔ **THE LINE THAT USED TO BE HERE IS RETRACTED, AND IT COST A SESSION.** It said "ECP belongs
+to the DATA phase only; per-register ECP reads time out by design; ship nibble registers + ECP
+`rep insb`/`rep outsb` for sector data". **Every clause of that is wrong**, and
+`TRANSPORT_SPEC.md`'s index has said so since 2026-09-13 — this file was never updated to match.
+
+What the vendor actually does, from its own mode tables:
+
+| | transport | where |
+|---|---|---|
+| **registers** | **ECP, per register** — `ECP Read` (handler `3CCEh`) and `ECP Write` (`4932h`), each taking a register number | `TRANSPORT_SPEC.md` §4f-corrected |
+| **block data** | **EPP** — `0x80`/`0xA0` to the EPP **address** register at `base+3`, data at `base+4` | ditto, and Linux `epat.c` **mode 3** |
+
+So per-register ECP is the vendor's *normal* mode and does not time out; and ECP is **not** a
+block transport on this bridge at all. `epat.c` has no ECP mode whatsoever — its modes are
+4-bit, 5/3, 8-bit and EPP-8/16/32.
+
+**Measured 2026-09-14:** ECP per-register works on clean hardware (`ecpprobe.py` — negotiation
+`B8`, all three ECR waits pass, correct byte). ECP *block* streaming fails and leaves the port
+wedged, which is what this retracted line had us build.
+
+⚠ **And every ECP failure path must restore `ECR = 0x34` and un-reverse the control port.** An
+abandoned reverse channel wedges the port on this machine — the symptom is every later nibble
+register read returning `F5`. The failure paths matter more than the happy path.
 
 ⚠⚠ **Do NOT adopt the vendor's DMA block path.** It writes `0x22`/`0x23`, which alias onto
 the 8259 on this XT — the #22 keyboard-killer — and those writes are in the **transfer**
