@@ -173,16 +173,29 @@ to the DATA phase only; per-register ECP reads time out by design; ship nibble r
 `rep insb`/`rep outsb` for sector data". **Every clause of that is wrong**, and
 `TRANSPORT_SPEC.md`'s index has said so since 2026-09-13 — this file was never updated to match.
 
-What the vendor actually does, from its own mode tables:
+What the vendor actually does — **registers and blocks use different transports**:
 
 | | transport | where |
 |---|---|---|
-| **registers** | **ECP, per register** — `ECP Read` (handler `3CCEh`) and `ECP Write` (`4932h`), each taking a register number | `TRANSPORT_SPEC.md` §4f-corrected |
-| **block data** | **EPP** — `0x80`/`0xA0` to the EPP **address** register at `base+3`, data at `base+4` | ditto, and Linux `epat.c` **mode 3** |
+| **registers** | **ECP, per register** — `ECP Read` (`3CCEh`) and `ECP Write` (`4932h`), each taking a register number. Nibble is the fallback | `TRANSPORT_SPEC.md` §4f-corrected |
+| **block data** | **SPP block mode** — enter once with `w0(7); w2(1); w2(3); w0(FFh)`, stream alternating a phase bit, announce the last byte `w0(FDh)`, leave `w0(0); w2(4)` | `TRANSPORT_SPEC.md` §"Why", Linux `epat.c` **mode 0** |
 
-So per-register ECP is the vendor's *normal* mode and does not time out; and ECP is **not** a
-block transport on this bridge at all. `epat.c` has no ECP mode whatsoever — its modes are
-4-bit, 5/3, 8-bit and EPP-8/16/32.
+So per-register ECP is the vendor's *normal* register mode and does not time out — and **ECP is
+not a block transport on this bridge at all.**
+
+⛔ **There is no "ECP block path" to find.** `TRANSPORT_SPEC.md` line 678 says *"find the ECP
+block path"*; that expectation is wrong and cost a session. Blocks are SPP. `epat.c` has no ECP
+mode whatsoever (4-bit, 5/3, 8-bit, EPP-8/16/32), which is the corroboration.
+
+**We already have the correct block transport.** `LS_BlockReadSpp` / `LS_BlockWriteSpp` are
+epat.c mode 0, and every byte verified on media on 2026-09-14 moved through them.
+
+⚠ **EPP was measured and is a dead end for us.** The port IS EPP-capable (ECR reads back `85h`,
+mode bits 100) and EPP negotiation succeeds (`B8`), but the data phase moves nothing. It is not
+what the bridge's block protocol is, so this was never going to work.
+
+**The speed that remains is in the REGISTERS, not the blocks** — ECP per register instead of
+nibble's ~4 accesses/byte. That is an optimisation, not a correctness fix.
 
 **Measured 2026-09-14:** ECP per-register works on clean hardware (`ecpprobe.py` — negotiation
 `B8`, all three ECR waits pass, correct byte). ECP *block* streaming fails and leaves the port
