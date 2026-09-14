@@ -122,6 +122,13 @@ MEDIA_LBA = 100000
 #
 # *** DESTRUCTIVE. This erases the disk. ***
 FORMAT_UNIT = False
+
+# Skip the ATA soft reset. Polling a FORMAT UNIT needs this: SRST ABORTS an
+# in-progress format, so a check run that resets destroys the thing it is
+# measuring. 2026-09-14: the first format attempt was fired, then checked 90 s
+# later by an ordinary probe - whose SRST would have killed it. LBA 0 came back
+# untouched and the run proved nothing either way.
+NO_RESET = False
 MEDIA_SECTORS = 1
 BUF_BIG_W, BUF_BIG_R = 0x4000, 0x8000   # 16 KB each, clear of everything
 BW, BWC, BWL, BWE = 0x1B00, 0x1B20, 0x1B40, 0x1B60
@@ -158,7 +165,10 @@ def blk(a, i):
 # block against the NEXT block's start, and these are data addresses, not
 # blocks. check_layout() below now tests them explicitly.
 SLOTS = 0x1E00            # clear of CDBS..CDBS+0x120 (nine CDBs)
-MARK = 0x1EA0             # one byte: how far the probe got
+# Clear of SLOTS' FULL range. MARK sat at 1EA0 and the FORMAT UNIT slot is
+# SLOTS+0xA0 = 1EA0, so the marker overwrote the one result that run existed
+# to collect. The guard below only knew about slots 00-9F.
+MARK = 0x1F00             # one byte: how far the probe got
 
 
 def mark(n):
@@ -263,7 +273,8 @@ def build():
          "mov dx,%04X" % C, "mov al,01", "out dx,al", "mov al,04", "out dx,al",
          "mov ax,1008", "call %04X" % WR, "mov ax,140C", "call %04X" % WR,
          "mov ax,380A", "call %04X" % WR, "mov ax,1012", "call %04X" % WR,
-         "mov ax,0416", "call %04X" % WR, "mov ax,0016", "call %04X" % WR,
+         ] + ([] if NO_RESET else
+         ["mov ax,0416", "call %04X" % WR, "mov ax,0016", "call %04X" % WR]) + [
          "call %04X" % WBSY,
          "call %04X" % PAT]                             # build the pattern
     m = mark(0x01) + m[:5] + mark(0x02) + m[5:] + mark(0x03)
@@ -451,9 +462,13 @@ def build():
                         "and DEBUG DROPS the instruction rather than failing"
                         % (pc, x, disp))
             pc = nxt
+        if SLOTS <= MARK <= SLOTS + 0xA7:
+            raise SystemExit(
+                "MARK (%04X) is inside SLOTS (%04X-%04X) - it will overwrite "
+                "a result slot" % (MARK, SLOTS, SLOTS + 0xA7))
         cdb_end = CDBS + len(cdbs) * 0x20 - 1
         for name, lo, hi in (("MARK", MARK, MARK),
-                             ("SLOTS", SLOTS, SLOTS + 0x9F)):
+                             ("SLOTS", SLOTS, SLOTS + 0xA7)):
             if lo <= cdb_end and hi >= CDBS:
                 raise SystemExit(
                     "%s (%04X-%04X) overlaps the CDB table at %04X-%04X"
@@ -467,7 +482,7 @@ def build():
 
     l += ["g=100",
           "d %04X %04X" % (MARK, MARK),
-          "d %04X %04X" % (SLOTS, SLOTS + 0x9F),
+          "d %04X %04X" % (SLOTS, SLOTS + 0xA7),
           "d %04X %04X" % (BUF_INQ, BUF_INQ + 0x23),
           "d %04X %04X" % (BUF_SENSE, BUF_SENSE + 0x11),
           "d %04X %04X" % (BUF_SENSE + 0x20, BUF_SENSE + 0x31),
@@ -494,6 +509,8 @@ if __name__ == "__main__":
         MEDIA_TEST = True
     if "--mediaread" in sys.argv:
         MEDIA_READ_ONLY = True
+    if "--noreset" in sys.argv:
+        NO_RESET = True
     if "--formatunit" in sys.argv:
         FORMAT_UNIT = True
     if "--sectors" in sys.argv:
