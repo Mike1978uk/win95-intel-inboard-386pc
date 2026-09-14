@@ -674,8 +674,8 @@ Live, `[0BE1] = 0000:0000`. We need none of it.
    DEBUG run settles whether the transport is complete. Needs COMrade file I/O working — a reboot
    of the box restores it.
 2. Disconnect/teardown sequence — not yet located.
-3. ATAPI packet issue and data phase. The block-transfer path at `0x4C83` uses the EPP-BIOS vector
-   and is **not** our model; find the ECP block path.
+3. ~~ATAPI packet issue and data phase. The block-transfer path at `0x4C83` uses the EPP-BIOS
+   vector and is **not** our model; find the ECP block path.~~ **FOUND 2026-09-14 — see §11.**
 4. Size estimate unchanged at **8-12 KB**: transport is 89 + 139 bytes, connect ~60, plus dispatch.
 
 ## 10. Hardware target
@@ -1335,3 +1335,72 @@ skips. Adopt the ECP FIFO path; do **not** adopt the DMA block path.
 
 Bridge banner from the same image, for the record: `S H U T T L E   E P A T`,
 `ATAPI LS-120 module V5.23b` (23 Apr 1997), `EPATRM Device Module 5.32b` (28 Apr 1997).
+
+
+---
+
+## 11. The ECP block path — FOUND, `0x4CA3` **[DECODED, NOT YET IMPLEMENTED]**
+
+§9 item 3 asked for this and assumed it might not exist. It does. There are **two** block
+routines in `SD120PPD.SYS` and only one of them is the EPP-BIOS one:
+
+| | |
+|---|---|
+| `0x4C83` | **EPP-BIOS.** `mov al,0C0h / mov ah,0Eh / lcall [0BE1h]` — a far call through a stored vector. Not our model, as §9 said |
+| **`0x4CA3`** | **ECP.** Direct port I/O, ECR-gated throughout. **This is the one** |
+
+### The sequence
+
+Every step waits on **ECR bit 0** with budget `8000h` and `loope`, and every timeout jumps to a
+common error exit at `0x4E26`. The waits are not optional — they are half the routine.
+
+```
+ECR   = 14h                      ; base+402
+ctrl  = 04h                      ; base+2, forward
+ECR   = 74h                      ; ECP mode          -> wait
+addr  0Eh   at base+0            ; ECP ADDRESS cycle -> wait
+data  0Bh   at base+400h         ; ECP DATA          -> wait
+addr  0Fh                                            -> wait
+data  CH                         ; transfer count, HIGH byte
+addr  0Bh                                            -> wait
+data  CL                         ; transfer count, LOW byte
+ctrl  = 04h ; ECR = 74h          ; re-arm
+read status (base+1), test bit 3
+addr  C0h   at base+0            ; NOW the block command
+cmp cx,[0C18h] ; div             ; BP = whole chunks, remainder -> [0C1Dh]
+<stream>
+```
+
+**Registers `0Eh`/`0Fh` are the bridge's indirect select/value pair** — the same pair
+`epat.c`'s `epatc8` connect drives (`WR(0xe,0xf); WR(0xf,4); WR(0xe,0xd); WR(0xf,0)`). The
+vendor uses them to **program the transfer length into the bridge before streaming**.
+
+### Why our attempt moved nothing
+
+`LS_BlockReadEcp` issues `80h`/`C0h` as a bare command with **no descriptor programmed** and no
+ECR gating between phases. The bridge was never told how much to move. Measured 2026-09-14: the
+transfer moves zero bytes and leaves the port so that every later nibble register read returns
+`F5`.
+
+`80h`/`A0h`/`C0h` from `epat.c` are the **SPP/EPP block-mode** command bytes. They are not
+wrong in themselves — `C0h` appears here too — but in ECP they come *after* the descriptor.
+
+### Still unknown
+
+- what `[0C18h]` holds (chunk size — the FIFO depth is the obvious candidate, but unmeasured)
+- the streaming loop itself, from `0x4DED`
+- the read direction: this decode is the write side
+- whether the `0Bh` writes are two different registers or one written twice
+
+### Status of the three transports, measured
+
+| | registers | block data |
+|---|---|---|
+| **SPP / nibble** | works | **works — every byte verified on media 2026-09-14** |
+| **ECP** | **works** (`3CCEh` / `4932h`, per register) | **exists at `0x4CA3`, decoded above, not implemented** |
+| **EPP** | — | port is capable (ECR reads back `85h`, negotiation `B8`) but the data phase moves nothing. The vendor reaches EPP through the BIOS vector, not direct I/O |
+
+⚠ **Three claims were made and retracted about this in one session on 2026-09-14**: "ECP is
+data-phase only", "the block path is EPP", "blocks are SPP". Each came from reading one
+fragment and generalising. The decode above is from the routine end to end. **It is still a
+decode, not a measurement — nothing here has been executed.**
