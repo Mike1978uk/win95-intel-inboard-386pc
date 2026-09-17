@@ -151,15 +151,51 @@ can carry. **All five built-but-never-run changes have now executed.**
 Every file checked **from the host** against its source, not from the guest's own `DIR`. The
 9 MB case is the owner's own real-use test - the copy that used to fail.
 
+## Real-use validation of the SHIPPING build
+
+`SHIP_AUTO_FIXED.MPD` - `code 9a7668d5`, md5 `e328ed54`, **auto** mode. Owner-driven in the
+bed, not a fixture:
+
+1. 9 MB Creative ZIP copied to the medium - **worked**
+2. Explorer disk format - **clean**
+3. Reboot
+4. ScanDisk - **clean**
+
+Host-side check of `rd.img` afterwards: 246,528 sectors (exactly the LS-120 capacity and the
+image size), boot signature `55 AA`, media `F8`, **`FAT1` and `FAT2` byte-identical** across
+123,392 bytes each, **0 bad clusters**. Two FAT copies written through the transport and
+agreeing is a write-integrity check for free.
+
+### 🔑 Windows' format never issues FORMAT UNIT - DEMOTE that open item
+
+CDB census for the run: **3,266 `WRITE(10)`**, 330 `READ(10)`, 23 TEST UNIT READY, 21
+PREVENT/ALLOW, 3 READ CAPACITY, 2 INQUIRY, 2 REQUEST SENSE, and **zero `CDB 04`**.
+
+Explorer's format on a removable is **filesystem-level** - boot sector, both FATs, root
+directory - and never sends the ATAPI `FORMAT UNIT`. So the hardware refusal recorded in
+`FMT2_illegal_request.OUT` (ILLEGAL REQUEST, `FmtData=0`) **does not block the workflow the
+owner actually wants**. It remains a real gap for a DOS-level format and nothing more.
+
+Note the bed's `FORMAT UNIT` is a stub that completes instantly unless the medium is
+read-only (`rdisk.c` ~1333) - it cannot fail, so it would have been weak evidence anyway. It
+was never called.
+
 ## STAGED ON THE CF, 2026-09-17 - not yet booted
 
-`fc2088ab` (ECP, `code 7097b586`, commit `bbe73b2`) written to **both** locations:
+`e328ed54` (**auto**, `code 9a7668d5`, commit `4ea1dee`) written to **both** locations:
 
 | path | md5 |
 |---|---|
-| `D:\LS120MP\LS120MP.MPD` (install source) | `fc2088ab` |
-| `D:\LS120MP\LS120MP.INF` (stamped, CRLF 135/135) | `71ca8778` |
-| `D:\WINDOWS\SYSTEM\IOSUBSYS\LS120MP.MPD` (load path) | `fc2088ab` |
+| `D:\LS120MP\LS120MP.MPD` (install source) | `e328ed54` |
+| `D:\LS120MP\LS120MP.INF` (stamped, CRLF 135/135) | `d6adc0c3` |
+| `D:\WINDOWS\SYSTEM\IOSUBSYS\LS120MP.MPD` (load path) | `e328ed54` |
+
+⛔ **An earlier staging put `fc2088ab` on the card - an `LS_FORCE_MODE=2` build, which the
+source itself calls "PINNED AT BUILD TIME - a test build".** Forcing makes `LS_DetectEcp` set
+`LS_HasEcp = 1` without probing, and **ECP block has never once succeeded on this hardware**
+(`ECP7_block_fails.OUT`). The nibble fallback survives forcing only for a *negotiation
+refusal*, which is not the observed hardware failure. Replaced with the auto build, which
+probes honestly and falls back. **Do not ship a `FORCE_MODE` build.**
 
 Verified at the destination, not the staging copy. Previous card files backed up as
 `LS120MP.I17` / `LS120MP.M17`; the INF they replace still said `a925038 12:01 build`, which is
