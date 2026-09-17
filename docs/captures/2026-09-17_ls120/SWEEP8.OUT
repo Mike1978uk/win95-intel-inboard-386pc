@@ -1,0 +1,1522 @@
+-a 0100
+3595:0100 mov byte ptr [1F00],01
+3595:0105 call 1740
+3595:0108 mov dx,077A
+3595:010B in al,dx
+3595:010C and al,34
+3595:010E out dx,al
+3595:010F call 18D0
+3595:0112 mov byte ptr [1F00],02
+3595:0117 mov ah,30
+3595:0119 call 1800
+3595:011C mov ah,40
+3595:011E call 1800
+3595:0121 mov ah,50
+3595:0123 call 1800
+3595:0126 mov ah,00
+3595:0128 call 1800
+3595:012B mov ah,E0
+3595:012D call 1810
+3595:0130 mov dx,0378
+3595:0133 xor al,al
+3595:0135 out dx,al
+3595:0136 mov dx,037A
+3595:0139 mov al,01
+3595:013B out dx,al
+3595:013C mov al,04
+3595:013E out dx,al
+3595:013F mov ax,1008
+3595:0142 call 18F0
+3595:0145 mov ax,140C
+3595:0148 call 18F0
+3595:014B mov ax,380A
+3595:014E call 18F0
+3595:0151 mov ax,1012
+3595:0154 call 18F0
+3595:0157 mov ax,0416
+3595:015A call 18F0
+3595:015D mov ax,0016
+3595:0160 call 18F0
+3595:0163 call 1920
+3595:0166 call 1BB0
+3595:0169 mov byte ptr [1F00],03
+3595:016E mov byte ptr [1F00],20
+3595:0173 mov ax,A01E
+3595:0176 call 18F0
+3595:0179 call 1920
+3595:017C mov ax,121C
+3595:017F call 18F0
+3595:0182 mov ax,001D
+3595:0185 call 18F0
+3595:0188 mov ax,0019
+3595:018B call 18F0
+3595:018E mov ax,A01F
+3595:0191 call 18F0
+3595:0194 mov byte ptr [1F00],51
+3595:0199 call 1960
+3595:019C mov al,1A
+3595:019E call 18A0
+3595:01A1 and al,03
+3595:01A3 mov [1E54],al
+3595:01A6 mov si,1C20
+3595:01A9 mov cx,000C
+3595:01AC call 1B00
+3595:01AF mov byte ptr [1F00],52
+3595:01B4 call 1B80
+3595:01B7 call 19A0
+3595:01BA mov byte ptr [1F00],53
+3595:01BF mov al,1F
+3595:01C1 call 18A0
+3595:01C4 mov [1E50],al
+3595:01C7 mov al,1A
+3595:01C9 call 18A0
+3595:01CC mov [1E51],al
+3595:01CF mov al,1C
+3595:01D1 call 18A0
+3595:01D4 mov [1E56],al
+3595:01D7 mov al,1D
+3595:01D9 call 18A0
+3595:01DC mov [1E57],al
+3595:01DF mov cx,[1E56]
+3595:01E3 add cx,0003
+3595:01E6 and cx,FFFC
+3595:01EA mov si,2040
+3595:01ED mov byte ptr [1F00],54
+3595:01F2 call 1A00
+3595:01F5 mov byte ptr [1F00],55
+3595:01FA call 1920
+3595:01FD mov al,1F
+3595:01FF call 18A0
+3595:0202 mov [1E52],al
+3595:0205 mov al,19
+3595:0207 call 18A0
+3595:020A mov [1E53],al
+3595:020D mov byte ptr [1F00],22
+3595:0212 mov ax,A01E
+3595:0215 call 18F0
+3595:0218 call 1920
+3595:021B mov ax,001C
+3595:021E call 18F0
+3595:0221 mov ax,021D
+3595:0224 call 18F0
+3595:0227 mov ax,0019
+3595:022A call 18F0
+3595:022D mov ax,A01F
+3595:0230 call 18F0
+3595:0233 mov byte ptr [1F00],11
+3595:0238 call 1960
+3595:023B mov al,1A
+3595:023D call 18A0
+3595:0240 and al,03
+3595:0242 mov [1E14],al
+3595:0245 mov si,1C40
+3595:0248 mov cx,000C
+3595:024B call 1B00
+3595:024E mov byte ptr [1F00],12
+3595:0253 call 1B80
+3595:0256 call 19A0
+3595:0259 mov byte ptr [1F00],13
+3595:025E mov al,1F
+3595:0260 call 18A0
+3595:0263 mov [1E10],al
+3595:0266 mov al,1A
+3595:0268 call 18A0
+3595:026B mov [1E11],al
+3595:026E mov al,1C
+3595:0270 call 18A0
+3595:0273 mov [1E16],al
+3595:0276 mov al,1D
+3595:0278 call 18A0
+3595:027B mov [1E17],al
+3595:027E mov cx,[1E16]
+3595:0282 add cx,0003
+3595:0285 and cx,FFFC
+3595:0289 mov si,2200
+3595:028C mov byte ptr [1F00],14
+3595:0291 call 1A00
+3595:0294 mov byte ptr [1F00],15
+3595:0299 call 1920
+3595:029C mov al,1F
+3595:029E call 18A0
+3595:02A1 mov [1E12],al
+3595:02A4 mov al,19
+3595:02A6 call 18A0
+3595:02A9 mov [1E13],al
+3595:02AC mov byte ptr [1F00],24
+3595:02B1 mov ax,A01E
+3595:02B4 call 18F0
+3595:02B7 call 1920
+3595:02BA mov ax,121C
+3595:02BD call 18F0
+3595:02C0 mov ax,001D
+3595:02C3 call 18F0
+3595:02C6 mov ax,0019
+3595:02C9 call 18F0
+3595:02CC mov ax,A01F
+3595:02CF call 18F0
+3595:02D2 mov byte ptr [1F00],51
+3595:02D7 call 1960
+3595:02DA mov al,1A
+3595:02DC call 18A0
+3595:02DF and al,03
+3595:02E1 mov [1E5C],al
+3595:02E4 mov si,1C20
+3595:02E7 mov cx,000C
+3595:02EA call 1B00
+3595:02ED mov byte ptr [1F00],52
+3595:02F2 call 1B80
+3595:02F5 call 19A0
+3595:02F8 mov byte ptr [1F00],53
+3595:02FD mov al,1F
+3595:02FF call 18A0
+3595:0302 mov [1E58],al
+3595:0305 mov al,1A
+3595:0307 call 18A0
+3595:030A mov [1E59],al
+3595:030D mov al,1C
+3595:030F call 18A0
+3595:0312 mov [1E5E],al
+3595:0315 mov al,1D
+3595:0317 call 18A0
+3595:031A mov [1E5F],al
+3595:031D mov cx,[1E5E]
+3595:0321 add cx,0003
+3595:0324 and cx,FFFC
+3595:0328 mov si,2060
+3595:032B mov byte ptr [1F00],54
+3595:0330 call 1A00
+3595:0333 mov byte ptr [1F00],55
+3595:0338 call 1920
+3595:033B mov al,1F
+3595:033D call 18A0
+3595:0340 mov [1E5A],al
+3595:0343 mov al,19
+3595:0345 call 18A0
+3595:0348 mov [1E5B],al
+3595:034B mov byte ptr [1F00],26
+3595:0350 mov ax,A01E
+3595:0353 call 18F0
+3595:0356 call 1920
+3595:0359 mov ax,001C
+3595:035C call 18F0
+3595:035F mov ax,021D
+3595:0362 call 18F0
+3595:0365 mov ax,0019
+3595:0368 call 18F0
+3595:036B mov ax,A01F
+3595:036E call 18F0
+3595:0371 mov byte ptr [1F00],11
+3595:0376 call 1960
+3595:0379 mov al,1A
+3595:037B call 18A0
+3595:037E and al,03
+3595:0380 mov [1E1C],al
+3595:0383 mov si,1C40
+3595:0386 mov cx,000C
+3595:0389 call 1B00
+3595:038C mov byte ptr [1F00],12
+3595:0391 call 1B80
+3595:0394 call 19A0
+3595:0397 mov byte ptr [1F00],13
+3595:039C mov al,1F
+3595:039E call 18A0
+3595:03A1 mov [1E18],al
+3595:03A4 mov al,1A
+3595:03A6 call 18A0
+3595:03A9 mov [1E19],al
+3595:03AC mov al,1C
+3595:03AE call 18A0
+3595:03B1 mov [1E1E],al
+3595:03B4 mov al,1D
+3595:03B6 call 18A0
+3595:03B9 mov [1E1F],al
+3595:03BC mov cx,[1E1E]
+3595:03C0 add cx,0003
+3595:03C3 and cx,FFFC
+3595:03C7 mov si,2200
+3595:03CA mov byte ptr [1F00],14
+3595:03CF call 1A00
+3595:03D2 mov byte ptr [1F00],15
+3595:03D7 call 1920
+3595:03DA mov al,1F
+3595:03DC call 18A0
+3595:03DF mov [1E1A],al
+3595:03E2 mov al,19
+3595:03E4 call 18A0
+3595:03E7 mov [1E1B],al
+3595:03EA mov byte ptr [1F00],28
+3595:03EF mov ax,A01E
+3595:03F2 call 18F0
+3595:03F5 call 1920
+3595:03F8 mov ax,121C
+3595:03FB call 18F0
+3595:03FE mov ax,001D
+3595:0401 call 18F0
+3595:0404 mov ax,0019
+3595:0407 call 18F0
+3595:040A mov ax,A01F
+3595:040D call 18F0
+3595:0410 mov byte ptr [1F00],61
+3595:0415 call 1960
+3595:0418 mov al,1A
+3595:041A call 18A0
+3595:041D and al,03
+3595:041F mov [1E64],al
+3595:0422 mov si,1C20
+3595:0425 mov cx,000C
+3595:0428 call 1B00
+3595:042B mov byte ptr [1F00],62
+3595:0430 call 1B80
+3595:0433 call 19A0
+3595:0436 mov byte ptr [1F00],63
+3595:043B mov al,1F
+3595:043D call 18A0
+3595:0440 mov [1E60],al
+3595:0443 mov al,1A
+3595:0445 call 18A0
+3595:0448 mov [1E61],al
+3595:044B mov al,1C
+3595:044D call 18A0
+3595:0450 mov [1E66],al
+3595:0453 mov al,1D
+3595:0455 call 18A0
+3595:0458 mov [1E67],al
+3595:045B mov cx,[1E66]
+3595:045F add cx,0003
+3595:0462 and cx,FFFC
+3595:0466 mov si,2080
+3595:0469 mov byte ptr [1F00],64
+3595:046E call 1A00
+3595:0471 mov byte ptr [1F00],65
+3595:0476 call 1920
+3595:0479 mov al,1F
+3595:047B call 18A0
+3595:047E mov [1E62],al
+3595:0481 mov al,19
+3595:0483 call 18A0
+3595:0486 mov [1E63],al
+3595:0489 mov byte ptr [1F00],2A
+3595:048E mov ax,A01E
+3595:0491 call 18F0
+3595:0494 call 1920
+3595:0497 mov ax,001C
+3595:049A call 18F0
+3595:049D mov ax,021D
+3595:04A0 call 18F0
+3595:04A3 mov ax,0019
+3595:04A6 call 18F0
+3595:04A9 mov ax,A01F
+3595:04AC call 18F0
+3595:04AF mov byte ptr [1F00],21
+3595:04B4 call 1960
+3595:04B7 mov al,1A
+3595:04B9 call 18A0
+3595:04BC and al,03
+3595:04BE mov [1E24],al
+3595:04C1 mov si,1C40
+3595:04C4 mov cx,000C
+3595:04C7 call 1B00
+3595:04CA mov byte ptr [1F00],22
+3595:04CF call 1B80
+3595:04D2 call 19A0
+3595:04D5 mov byte ptr [1F00],23
+3595:04DA mov al,1F
+3595:04DC call 18A0
+3595:04DF mov [1E20],al
+3595:04E2 mov al,1A
+3595:04E4 call 18A0
+3595:04E7 mov [1E21],al
+3595:04EA mov al,1C
+3595:04EC call 18A0
+3595:04EF mov [1E26],al
+3595:04F2 mov al,1D
+3595:04F4 call 18A0
+3595:04F7 mov [1E27],al
+3595:04FA mov cx,[1E26]
+3595:04FE add cx,0003
+3595:0501 and cx,FFFC
+3595:0505 mov si,2200
+3595:0508 mov byte ptr [1F00],24
+3595:050D call 1A00
+3595:0510 mov byte ptr [1F00],25
+3595:0515 call 1920
+3595:0518 mov al,1F
+3595:051A call 18A0
+3595:051D mov [1E22],al
+3595:0520 mov al,19
+3595:0522 call 18A0
+3595:0525 mov [1E23],al
+3595:0528 mov byte ptr [1F00],2C
+3595:052D mov ax,A01E
+3595:0530 call 18F0
+3595:0533 call 1920
+3595:0536 mov ax,121C
+3595:0539 call 18F0
+3595:053C mov ax,001D
+3595:053F call 18F0
+3595:0542 mov ax,0019
+3595:0545 call 18F0
+3595:0548 mov ax,A01F
+3595:054B call 18F0
+3595:054E mov byte ptr [1F00],61
+3595:0553 call 1960
+3595:0556 mov al,1A
+3595:0558 call 18A0
+3595:055B and al,03
+3595:055D mov [1E6C],al
+3595:0560 mov si,1C20
+3595:0563 mov cx,000C
+3595:0566 call 1B00
+3595:0569 mov byte ptr [1F00],62
+3595:056E call 1B80
+3595:0571 call 19A0
+3595:0574 mov byte ptr [1F00],63
+3595:0579 mov al,1F
+3595:057B call 18A0
+3595:057E mov [1E68],al
+3595:0581 mov al,1A
+3595:0583 call 18A0
+3595:0586 mov [1E69],al
+3595:0589 mov al,1C
+3595:058B call 18A0
+3595:058E mov [1E6E],al
+3595:0591 mov al,1D
+3595:0593 call 18A0
+3595:0596 mov [1E6F],al
+3595:0599 mov cx,[1E6E]
+3595:059D add cx,0003
+3595:05A0 and cx,FFFC
+3595:05A4 mov si,20A0
+3595:05A7 mov byte ptr [1F00],64
+3595:05AC call 1A00
+3595:05AF mov byte ptr [1F00],65
+3595:05B4 call 1920
+3595:05B7 mov al,1F
+3595:05B9 call 18A0
+3595:05BC mov [1E6A],al
+3595:05BF mov al,19
+3595:05C1 call 18A0
+3595:05C4 mov [1E6B],al
+3595:05C7 mov byte ptr [1F00],2E
+3595:05CC mov ax,A01E
+3595:05CF call 18F0
+3595:05D2 call 1920
+3595:05D5 mov ax,001C
+3595:05D8 call 18F0
+3595:05DB mov ax,021D
+3595:05DE call 18F0
+3595:05E1 mov ax,0019
+3595:05E4 call 18F0
+3595:05E7 mov ax,A01F
+3595:05EA call 18F0
+3595:05ED mov byte ptr [1F00],21
+3595:05F2 call 1960
+3595:05F5 mov al,1A
+3595:05F7 call 18A0
+3595:05FA and al,03
+3595:05FC mov [1E2C],al
+3595:05FF mov si,1C40
+3595:0602 mov cx,000C
+3595:0605 call 1B00
+3595:0608 mov byte ptr [1F00],22
+3595:060D call 1B80
+3595:0610 call 19A0
+3595:0613 mov byte ptr [1F00],23
+3595:0618 mov al,1F
+3595:061A call 18A0
+3595:061D mov [1E28],al
+3595:0620 mov al,1A
+3595:0622 call 18A0
+3595:0625 mov [1E29],al
+3595:0628 mov al,1C
+3595:062A call 18A0
+3595:062D mov [1E2E],al
+3595:0630 mov al,1D
+3595:0632 call 18A0
+3595:0635 mov [1E2F],al
+3595:0638 mov cx,[1E2E]
+3595:063C add cx,0003
+3595:063F and cx,FFFC
+3595:0643 mov si,2200
+3595:0646 mov byte ptr [1F00],24
+3595:064B call 1A00
+3595:064E mov byte ptr [1F00],25
+3595:0653 call 1920
+3595:0656 mov al,1F
+3595:0658 call 18A0
+3595:065B mov [1E2A],al
+3595:065E mov al,19
+3595:0660 call 18A0
+3595:0663 mov [1E2B],al
+3595:0666 call 1700
+3595:0669 call 1720
+3595:066C mov byte ptr [1F00],90
+3595:0671 mov ax,A01E
+3595:0674 call 18F0
+3595:0677 call 1920
+3595:067A mov ax,001C
+3595:067D call 18F0
+3595:0680 mov ax,101D
+3595:0683 call 18F0
+3595:0686 mov ax,0019
+3595:0689 call 18F0
+3595:068C mov ax,A01F
+3595:068F call 18F0
+3595:0692 mov byte ptr [1F00],91
+3595:0697 call 1960
+3595:069A mov al,1A
+3595:069C call 18A0
+3595:069F and al,03
+3595:06A1 mov [1E94],al
+3595:06A4 mov si,1CC0
+3595:06A7 mov cx,000C
+3595:06AA call 1B00
+3595:06AD mov byte ptr [1F00],92
+3595:06B2 call 1B80
+3595:06B5 call 19A0
+3595:06B8 mov byte ptr [1F00],93
+3595:06BD mov al,1F
+3595:06BF call 18A0
+3595:06C2 mov [1E90],al
+3595:06C5 mov al,1A
+3595:06C7 call 18A0
+3595:06CA mov [1E91],al
+3595:06CD mov al,1C
+3595:06CF call 18A0
+3595:06D2 mov [1E96],al
+3595:06D5 mov al,1D
+3595:06D7 call 18A0
+3595:06DA mov [1E97],al
+3595:06DD mov cx,[1E96]
+3595:06E1 add cx,0003
+3595:06E4 and cx,FFFC
+3595:06E8 mov si,4000
+3595:06EB mov byte ptr [1F00],94
+3595:06F0 call 1B00
+3595:06F3 mov byte ptr [1F00],95
+3595:06F8 call 1920
+3595:06FB mov al,1F
+3595:06FD call 18A0
+3595:0700 mov [1E92],al
+3595:0703 mov al,19
+3595:0705 call 18A0
+3595:0708 mov [1E93],al
+3595:070B mov byte ptr [1F00],98
+3595:0710 mov ax,A01E
+3595:0713 call 18F0
+3595:0716 call 1920
+3595:0719 mov ax,001C
+3595:071C call 18F0
+3595:071F mov ax,101D
+3595:0722 call 18F0
+3595:0725 mov ax,0019
+3595:0728 call 18F0
+3595:072B mov ax,A01F
+3595:072E call 18F0
+3595:0731 mov byte ptr [1F00],91
+3595:0736 call 1960
+3595:0739 mov al,1A
+3595:073B call 18A0
+3595:073E and al,03
+3595:0740 mov [1E9C],al
+3595:0743 mov si,1CE0
+3595:0746 mov cx,000C
+3595:0749 call 1B00
+3595:074C mov byte ptr [1F00],92
+3595:0751 call 1B80
+3595:0754 call 19A0
+3595:0757 mov byte ptr [1F00],93
+3595:075C mov al,1F
+3595:075E call 18A0
+3595:0761 mov [1E98],al
+3595:0764 mov al,1A
+3595:0766 call 18A0
+3595:0769 mov [1E99],al
+3595:076C mov al,1C
+3595:076E call 18A0
+3595:0771 mov [1E9E],al
+3595:0774 mov al,1D
+3595:0776 call 18A0
+3595:0779 mov [1E9F],al
+3595:077C mov cx,[1E9E]
+3595:0780 add cx,0003
+3595:0783 and cx,FFFC
+3595:0787 mov si,8000
+3595:078A mov byte ptr [1F00],94
+3595:078F call 1A00
+3595:0792 mov byte ptr [1F00],95
+3595:0797 call 1920
+3595:079A mov al,1F
+3595:079C call 18A0
+3595:079F mov [1E9A],al
+3595:07A2 mov al,19
+3595:07A4 call 18A0
+3595:07A7 mov [1E9B],al
+3595:07AA mov ah,40
+3595:07AC call 1800
+3595:07AF mov ah,30
+3595:07B1 call 1800
+3595:07B4 int 3
+3595:07B5 
+-a 1800
+3595:1800 mov dx,037A
+3595:1803 mov al,04
+3595:1805 out dx,al
+3595:1806 jmp 1820
+3595:1808 
+-a 1810
+3595:1810 mov dx,037A
+3595:1813 in al,dx
+3595:1814 and al,0F
+3595:1816 out dx,al
+3595:1817 jmp 1820
+3595:1819 
+-a 1820
+3595:1820 mov dx,0378
+3595:1823 mov al,22
+3595:1825 out dx,al
+3595:1826 out dx,al
+3595:1827 mov al,AA
+3595:1829 out dx,al
+3595:182A out dx,al
+3595:182B mov al,55
+3595:182D out dx,al
+3595:182E out dx,al
+3595:182F mov al,00
+3595:1831 out dx,al
+3595:1832 out dx,al
+3595:1833 mov al,FF
+3595:1835 out dx,al
+3595:1836 out dx,al
+3595:1837 mov al,87
+3595:1839 out dx,al
+3595:183A out dx,al
+3595:183B mov al,78
+3595:183D out dx,al
+3595:183E out dx,al
+3595:183F mov al,ah
+3595:1841 out dx,al
+3595:1842 out dx,al
+3595:1843 mov dx,037A
+3595:1846 mov al,04
+3595:1848 out dx,al
+3595:1849 out dx,al
+3595:184A in al,dx
+3595:184B and al,10
+3595:184D or al,05
+3595:184F out dx,al
+3595:1850 out dx,al
+3595:1851 and al,FE
+3595:1853 out dx,al
+3595:1854 out dx,al
+3595:1855 mov dx,0378
+3595:1858 mov al,FF
+3595:185A out dx,al
+3595:185B out dx,al
+3595:185C ret
+3595:185D 
+-a 18A0
+3595:18A0 mov dx,0378
+3595:18A3 out dx,al
+3595:18A4 mov dx,037A
+3595:18A7 mov al,01
+3595:18A9 out dx,al
+3595:18AA mov al,03
+3595:18AC out dx,al
+3595:18AD mov dx,0379
+3595:18B0 in al,dx
+3595:18B1 and al,F0
+3595:18B3 shr al,1
+3595:18B5 shr al,1
+3595:18B7 shr al,1
+3595:18B9 shr al,1
+3595:18BB mov bl,al
+3595:18BD mov dx,037A
+3595:18C0 mov al,04
+3595:18C2 out dx,al
+3595:18C3 mov dx,0379
+3595:18C6 in al,dx
+3595:18C7 and al,F0
+3595:18C9 or al,bl
+3595:18CB ret
+3595:18CC 
+-a 18D0
+3595:18D0 mov dx,037A
+3595:18D3 mov al,04
+3595:18D5 out dx,al
+3595:18D6 mov al,0C
+3595:18D8 out dx,al
+3595:18D9 mov al,0E
+3595:18DB out dx,al
+3595:18DC out dx,al
+3595:18DD out dx,al
+3595:18DE mov al,04
+3595:18E0 out dx,al
+3595:18E1 out dx,al
+3595:18E2 ret
+3595:18E3 
+-a 18F0
+3595:18F0 mov bl,ah
+3595:18F2 or al,60
+3595:18F4 mov dx,0378
+3595:18F7 out dx,al
+3595:18F8 mov dx,037A
+3595:18FB mov al,01
+3595:18FD out dx,al
+3595:18FE mov dx,0378
+3595:1901 mov al,bl
+3595:1903 out dx,al
+3595:1904 mov dx,037A
+3595:1907 mov al,04
+3595:1909 out dx,al
+3595:190A ret
+3595:190B 
+-a 1920
+3595:1920 push cx
+3595:1921 mov cx,FFFF
+3595:1924 jmp 1930
+3595:1926 
+-a 1930
+3595:1930 mov al,1F
+3595:1932 call 18A0
+3595:1935 and al,88
+3595:1937 jz 1950
+3595:1939 dec cx
+3595:193A jnz 1930
+3595:193C jmp 1950
+3595:193E 
+-a 1950
+3595:1950 pop cx
+3595:1951 ret
+3595:1952 
+-a 1960
+3595:1960 push cx
+3595:1961 mov cx,FFFF
+3595:1964 jmp 1970
+3595:1966 
+-a 1970
+3595:1970 mov al,1F
+3595:1972 call 18A0
+3595:1975 and al,89
+3595:1977 cmp al,08
+3595:1979 jz 1990
+3595:197B and al,01
+3595:197D jnz 1990
+3595:197F dec cx
+3595:1980 jnz 1970
+3595:1982 jmp 1990
+3595:1984 
+-a 1990
+3595:1990 pop cx
+3595:1991 ret
+3595:1992 
+-a 19A0
+3595:19A0 call 1960
+3595:19A3 call 1960
+3595:19A6 call 1960
+3595:19A9 call 1960
+3595:19AC call 1960
+3595:19AF call 1960
+3595:19B2 ret
+3595:19B3 
+-a 1A00
+3595:1A00 jcxz 1A2A
+3595:1A02 cmp cx,1000
+3595:1A06 jbe 1A10
+3595:1A08 mov cx,1000
+3595:1A0B jmp 1A10
+3595:1A0D 
+-a 1A10
+3595:1A10 mov dx,0378
+3595:1A13 mov al,07
+3595:1A15 out dx,al
+3595:1A16 mov dx,037A
+3595:1A19 mov al,01
+3595:1A1B out dx,al
+3595:1A1C mov al,03
+3595:1A1E out dx,al
+3595:1A1F mov dx,0378
+3595:1A22 mov al,FF
+3595:1A24 out dx,al
+3595:1A25 xor bh,bh
+3595:1A27 jmp 1A30
+3595:1A29 
+-a 1A2A
+3595:1A2A jmp 1AA0
+3595:1A2C 
+-a 1A30
+3595:1A30 cmp cx,0001
+3595:1A33 jnz 1A50
+3595:1A35 jmp 1AC0
+3595:1A38 
+-a 1A50
+3595:1A50 mov dx,037A
+3595:1A53 mov al,06
+3595:1A55 add al,bh
+3595:1A57 out dx,al
+3595:1A58 mov dx,0379
+3595:1A5B in al,dx
+3595:1A5C mov ah,al
+3595:1A5E test al,08
+3595:1A60 jnz 1A80
+3595:1A62 mov dx,037A
+3595:1A65 mov al,04
+3595:1A67 add al,bh
+3595:1A69 out dx,al
+3595:1A6A mov dx,0379
+3595:1A6D in al,dx
+3595:1A6E jmp 1A80
+3595:1A70 
+-a 1A80
+3595:1A80 and al,F0
+3595:1A82 shr ah,1
+3595:1A84 shr ah,1
+3595:1A86 shr ah,1
+3595:1A88 shr ah,1
+3595:1A8A or al,ah
+3595:1A8C mov [si],al
+3595:1A8E inc si
+3595:1A8F xor bh,01
+3595:1A92 dec cx
+3595:1A93 jnz 1A30
+3595:1A95 jmp 1AA0
+3595:1A97 
+-a 1AA0
+3595:1AA0 mov dx,0378
+3595:1AA3 xor al,al
+3595:1AA5 out dx,al
+3595:1AA6 mov dx,037A
+3595:1AA9 mov al,04
+3595:1AAB out dx,al
+3595:1AAC ret
+3595:1AAD 
+-a 1AC0
+3595:1AC0 mov dx,0378
+3595:1AC3 mov al,FD
+3595:1AC5 out dx,al
+3595:1AC6 jmp 1A50
+3595:1AC8 
+-a 1B00
+3595:1B00 jcxz 1B60
+3595:1B02 cmp cx,1000
+3595:1B06 jbe 1B20
+3595:1B08 mov cx,1000
+3595:1B0B jmp 1B20
+3595:1B0D 
+-a 1B20
+3595:1B20 mov dx,0378
+3595:1B23 mov al,67
+3595:1B25 out dx,al
+3595:1B26 mov dx,037A
+3595:1B29 mov al,01
+3595:1B2B out dx,al
+3595:1B2C mov al,05
+3595:1B2E out dx,al
+3595:1B2F xor bh,bh
+3595:1B31 jmp 1B40
+3595:1B33 
+-a 1B40
+3595:1B40 mov al,[si]
+3595:1B42 inc si
+3595:1B43 mov dx,0378
+3595:1B46 out dx,al
+3595:1B47 mov dx,037A
+3595:1B4A mov al,04
+3595:1B4C add al,bh
+3595:1B4E out dx,al
+3595:1B4F xor bh,01
+3595:1B52 dec cx
+3595:1B53 jnz 1B40
+3595:1B55 jmp 1B60
+3595:1B57 
+-a 1B60
+3595:1B60 mov dx,037A
+3595:1B63 mov al,07
+3595:1B65 out dx,al
+3595:1B66 mov al,04
+3595:1B68 out dx,al
+3595:1B69 ret
+3595:1B6A 
+-a 1B80
+3595:1B80 push cx
+3595:1B81 push dx
+3595:1B82 mov cx,00B4
+3595:1B85 mov dx,0080
+3595:1B88 jmp 1B90
+3595:1B8A 
+-a 1B90
+3595:1B90 in al,dx
+3595:1B91 dec cx
+3595:1B92 jnz 1B90
+3595:1B94 jmp 1BA0
+3595:1B96 
+-a 1BA0
+3595:1BA0 pop dx
+3595:1BA1 pop cx
+3595:1BA2 ret
+3595:1BA3 
+-a 1BB0
+3595:1BB0 mov di,2400
+3595:1BB3 mov cx,0200
+3595:1BB6 xor al,al
+3595:1BB8 jmp 1BD0
+3595:1BBA 
+-a 1BD0
+3595:1BD0 mov [di],al
+3595:1BD2 inc di
+3595:1BD3 inc al
+3595:1BD5 dec cx
+3595:1BD6 jnz 1BD0
+3595:1BD8 ret
+3595:1BD9 
+-a 1BE0
+3595:1BE0 mov di,2800
+3595:1BE3 mov cx,0200
+3595:1BE6 mov al,EE
+3595:1BE8 jmp 1BF0
+3595:1BEA 
+-a 1BF0
+3595:1BF0 mov [di],al
+3595:1BF2 inc di
+3595:1BF3 dec cx
+3595:1BF4 jnz 1BF0
+3595:1BF6 ret
+3595:1BF7 
+-a 1740
+3595:1740 mov di,2000
+3595:1743 mov cx,0400
+3595:1746 mov al,EE
+3595:1748 jmp 1750
+3595:174A 
+-a 1750
+3595:1750 mov [di],al
+3595:1752 inc di
+3595:1753 dec cx
+3595:1754 jnz 1750
+3595:1756 jmp 1760
+3595:1758 
+-a 1760
+3595:1760 mov di,2600
+3595:1763 mov cx,0400
+3595:1766 mov al,EE
+3595:1768 jmp 1770
+3595:176A 
+-a 1770
+3595:1770 mov [di],al
+3595:1772 inc di
+3595:1773 dec cx
+3595:1774 jnz 1770
+3595:1776 jmp 16A0
+3595:1779 
+-a 16A0
+3595:16A0 mov di,1E00
+3595:16A3 mov cx,00C0
+3595:16A6 mov al,EE
+3595:16A8 jmp 16C0
+3595:16AA 
+-a 16C0
+3595:16C0 mov [di],al
+3595:16C2 inc di
+3595:16C3 dec cx
+3595:16C4 jnz 16C0
+3595:16C6 ret
+3595:16C7 
+-a 1700
+3595:1700 mov di,4000
+3595:1703 mov cx,1000
+3595:1706 xor al,al
+3595:1708 jmp 1710
+3595:170A 
+-a 1710
+3595:1710 mov [di],al
+3595:1712 inc di
+3595:1713 inc al
+3595:1715 dec cx
+3595:1716 jnz 1710
+3595:1718 ret
+3595:1719 
+-a 1720
+3595:1720 mov di,8000
+3595:1723 mov cx,1000
+3595:1726 mov al,EE
+3595:1728 jmp 1730
+3595:172A 
+-a 1730
+3595:1730 mov [di],al
+3595:1732 inc di
+3595:1733 dec cx
+3595:1734 jnz 1730
+3595:1736 ret
+3595:1737 
+-a 1500
+3595:1500 jcxz 1580
+3595:1502 call 1000
+3595:1505 mov dx,077A
+3595:1508 mov al,14
+3595:150A out dx,al
+3595:150B mov dx,037A
+3595:150E mov al,04
+3595:1510 out dx,al
+3595:1511 mov dx,077A
+3595:1514 mov al,74
+3595:1516 out dx,al
+3595:1517 call 10B0
+3595:151A push cx
+3595:151B mov dx,0378
+3595:151E mov al,0E
+3595:1520 out dx,al
+3595:1521 call 10B0
+3595:1524 mov dx,0778
+3595:1527 mov al,0B
+3595:1529 out dx,al
+3595:152A call 10B0
+3595:152D mov dx,0378
+3595:1530 mov al,0F
+3595:1532 out dx,al
+3595:1533 call 10B0
+3595:1536 mov dx,0778
+3595:1539 pop cx
+3595:153A push cx
+3595:153B mov al,ch
+3595:153D out dx,al
+3595:153E call 10B0
+3595:1541 mov dx,0378
+3595:1544 mov al,0B
+3595:1546 out dx,al
+3595:1547 call 10B0
+3595:154A mov dx,0778
+3595:154D pop cx
+3595:154E push cx
+3595:154F mov al,cl
+3595:1551 out dx,al
+3595:1552 call 10B0
+3595:1555 mov dx,037A
+3595:1558 mov al,04
+3595:155A out dx,al
+3595:155B mov dx,077A
+3595:155E mov al,74
+3595:1560 out dx,al
+3595:1561 mov dx,0378
+3595:1564 mov al,C0
+3595:1566 out dx,al
+3595:1567 call 10B0
+3595:156A pop cx
+3595:156B cld
+3595:156C mov bx,cx
+3595:156E jmp 15A0
+3595:1570 
+-a 1580
+3595:1580 clc
+3595:1581 ret
+3595:1582 
+-a 15A0
+3595:15A0 or bx,bx
+3595:15A2 jz 15F0
+3595:15A4 call 10B0
+3595:15A7 mov cx,0010
+3595:15AA cmp bx,cx
+3595:15AC jae 15D0
+3595:15AE mov cx,bx
+3595:15B0 jmp 15D0
+3595:15B2 
+-a 15D0
+3595:15D0 sub bx,cx
+3595:15D2 mov dx,0778
+3595:15D5 rep outsb
+                 ^ Error
+3595:15D6 jmp 15A0
+3595:15D8 
+-a 15F0
+3595:15F0 call 10B0
+3595:15F3 mov dx,077A
+3595:15F6 mov al,34
+3595:15F8 out dx,al
+3595:15F9 clc
+3595:15FA ret
+3595:15FB 
+-a 1300
+3595:1300 mov dx,037A
+3595:1303 mov al,0C
+3595:1305 out dx,al
+3595:1306 mov al,04
+3595:1308 out dx,al
+3595:1309 mov dx,0378
+3595:130C xor al,al
+3595:130E out dx,al
+3595:130F out dx,al
+3595:1310 mov dx,037A
+3595:1313 mov al,01
+3595:1315 out dx,al
+3595:1316 out dx,al
+3595:1317 mov al,04
+3595:1319 out dx,al
+3595:131A mov al,0C
+3595:131C out dx,al
+3595:131D mov dx,0378
+3595:1320 mov al,40
+3595:1322 out dx,al
+3595:1323 mov dx,037A
+3595:1326 mov al,06
+3595:1328 out dx,al
+3595:1329 out dx,al
+3595:132A out dx,al
+3595:132B mov dx,0379
+3595:132E mov cx,0100
+3595:1331 jmp 1340
+3595:1333 
+-a 1340
+3595:1340 in al,dx
+3595:1341 test al,40
+3595:1343 jz 1360
+3595:1345 dec cx
+3595:1346 jnz 1340
+3595:1348 jmp 1360
+3595:134A 
+-a 1360
+3595:1360 mov [1EA9],al
+3595:1363 mov dx,037A
+3595:1366 mov al,07
+3595:1368 out dx,al
+3595:1369 out dx,al
+3595:136A mov al,04
+3595:136C out dx,al
+3595:136D out dx,al
+3595:136E ret
+3595:136F 
+-a 1380
+3595:1380 jcxz 1400
+3595:1382 call 1300
+3595:1385 mov dx,077A
+3595:1388 mov al,80
+3595:138A out dx,al
+3595:138B in al,dx
+3595:138C mov [1EAA],al
+3595:138F push cx
+3595:1390 dec cx
+3595:1391 jcxz 13D0
+3595:1393 mov dx,037B
+3595:1396 mov al,80
+3595:1398 out dx,al
+3595:1399 mov dx,037A
+3595:139C mov al,24
+3595:139E out dx,al
+3595:139F cld
+3595:13A0 mov dx,037C
+3595:13A3 rep insb
+                  ^ Error
+3595:13A4 mov dx,037A
+3595:13A7 mov al,04
+3595:13A9 out dx,al
+3595:13AA jmp 13D0
+3595:13AC 
+-a 13D0
+3595:13D0 mov dx,037B
+3595:13D3 mov al,A0
+3595:13D5 out dx,al
+3595:13D6 mov dx,037A
+3595:13D9 mov al,24
+3595:13DB out dx,al
+3595:13DC mov dx,037C
+3595:13DF in al,dx
+3595:13E0 mov [di],al
+3595:13E2 inc di
+3595:13E3 mov dx,037A
+3595:13E6 mov al,04
+3595:13E8 out dx,al
+3595:13E9 mov dx,077A
+3595:13EC in al,dx
+3595:13ED and al,1F
+3595:13EF out dx,al
+3595:13F0 pop cx
+3595:13F1 clc
+3595:13F2 ret
+3595:13F3 
+-a 1400
+3595:1400 clc
+3595:1401 ret
+3595:1402 
+-a 1420
+3595:1420 jcxz 1460
+3595:1422 call 1300
+3595:1425 mov dx,077A
+3595:1428 mov al,80
+3595:142A out dx,al
+3595:142B in al,dx
+3595:142C mov [1EAB],al
+3595:142F mov dx,037B
+3595:1432 mov al,C0
+3595:1434 out dx,al
+3595:1435 cld
+3595:1436 mov dx,037C
+3595:1439 rep outsb
+                 ^ Error
+3595:143A mov dx,037A
+3595:143D mov al,04
+3595:143F out dx,al
+3595:1440 mov dx,077A
+3595:1443 in al,dx
+3595:1444 and al,1F
+3595:1446 out dx,al
+3595:1447 clc
+3595:1448 ret
+3595:1449 
+-a 1460
+3595:1460 clc
+3595:1461 ret
+3595:1462 
+-a 1000
+3595:1000 mov dx,037A
+3595:1003 mov al,0C
+3595:1005 out dx,al
+3595:1006 mov al,04
+3595:1008 out dx,al
+3595:1009 mov dx,0378
+3595:100C xor al,al
+3595:100E out dx,al
+3595:100F out dx,al
+3595:1010 mov dx,037A
+3595:1013 mov al,01
+3595:1015 out dx,al
+3595:1016 out dx,al
+3595:1017 mov al,04
+3595:1019 out dx,al
+3595:101A mov al,0C
+3595:101C out dx,al
+3595:101D mov dx,0378
+3595:1020 mov al,10
+3595:1022 out dx,al
+3595:1023 mov dx,037A
+3595:1026 mov al,06
+3595:1028 out dx,al
+3595:1029 out dx,al
+3595:102A out dx,al
+3595:102B mov dx,0379
+3595:102E mov cx,0100
+3595:1031 jmp 1040
+3595:1033 
+-a 1040
+3595:1040 in al,dx
+3595:1041 test al,40
+3595:1043 jz 1060
+3595:1045 dec cx
+3595:1046 jnz 1040
+3595:1048 jmp 1060
+3595:104A 
+-a 1060
+3595:1060 mov [1EA8],al
+3595:1063 mov dx,037A
+3595:1066 mov al,07
+3595:1068 out dx,al
+3595:1069 out dx,al
+3595:106A mov al,04
+3595:106C out dx,al
+3595:106D out dx,al
+3595:106E ret
+3595:106F 
+-a 1080
+3595:1080 mov bh,al
+3595:1082 mov dx,077A
+3595:1085 mov al,34
+3595:1087 out dx,al
+3595:1088 mov dx,037A
+3595:108B in al,dx
+3595:108C and al,10
+3595:108E or al,bh
+3595:1090 out dx,al
+3595:1091 mov dx,077A
+3595:1094 mov al,74
+3595:1096 out dx,al
+3595:1097 ret
+3595:1098 
+-a 1780
+3595:1780 mov ah,al
+3595:1782 mov al,04
+3595:1784 call 1080
+3595:1787 call 10B0
+3595:178A jc 17D0
+3595:178C mov dx,0378
+3595:178F mov al,ah
+3595:1791 out dx,al
+3595:1792 call 10B0
+3595:1795 jc 17D0
+3595:1797 mov al,20
+3595:1799 call 1080
+3595:179C call 10E0
+3595:179F jc 17D0
+3595:17A1 mov dx,0778
+3595:17A4 in al,dx
+3595:17A5 mov bl,al
+3595:17A7 mov al,04
+3595:17A9 call 1080
+3595:17AC call 1160
+3595:17AF mov al,bl
+3595:17B1 clc
+3595:17B2 ret
+3595:17B3 
+-a 17D0
+3595:17D0 call 1160
+3595:17D3 mov al,FF
+3595:17D5 stc
+3595:17D6 ret
+3595:17D7 
+-a 1600
+3595:1600 mov dx,037A
+3595:1603 mov al,0C
+3595:1605 out dx,al
+3595:1606 mov dx,0379
+3595:1609 mov cx,FFFF
+3595:160C jmp 1620
+3595:160E 
+-a 1620
+3595:1620 in al,dx
+3595:1621 test al,40
+3595:1623 jz 1640
+3595:1625 dec cx
+3595:1626 jnz 1620
+3595:1628 jmp 1640
+3595:162A 
+-a 1640
+3595:1640 mov dx,037A
+3595:1643 mov al,0E
+3595:1645 out dx,al
+3595:1646 mov dx,0379
+3595:1649 mov cx,FFFF
+3595:164C jmp 1660
+3595:164E 
+-a 1660
+3595:1660 in al,dx
+3595:1661 test al,40
+3595:1663 jnz 1680
+3595:1665 dec cx
+3595:1666 jnz 1660
+3595:1668 jmp 1680
+3595:166A 
+-a 1680
+3595:1680 mov dx,037A
+3595:1683 mov al,0C
+3595:1685 out dx,al
+3595:1686 mov al,04
+3595:1688 out dx,al
+3595:1689 ret
+3595:168A 
+-a 10B0
+3595:10B0 mov dx,077A
+3595:10B3 mov cx,FFFF
+3595:10B6 jmp 10C0
+3595:10B8 
+-a 10C0
+3595:10C0 in al,dx
+3595:10C1 test al,01
+3595:10C3 jnz 1140
+3595:10C5 dec cx
+3595:10C6 jnz 10C0
+3595:10C8 stc
+3595:10C9 ret
+3595:10CA 
+-a 10E0
+3595:10E0 mov dx,077A
+3595:10E3 mov cx,8000
+3595:10E6 jmp 10F0
+3595:10E8 
+-a 10F0
+3595:10F0 in al,dx
+3595:10F1 test al,01
+3595:10F3 jz 1140
+3595:10F5 dec cx
+3595:10F6 jnz 10F0
+3595:10F8 stc
+3595:10F9 ret
+3595:10FA 
+-a 1110
+3595:1110 call 10B0
+3595:1113 jc 1140
+3595:1115 mov dx,0378
+3595:1118 mov al,bl
+3595:111A out dx,al
+3595:111B call 10B0
+3595:111E ret
+3595:111F 
+-a 1140
+3595:1140 clc
+3595:1141 ret
+3595:1142 
+-a 1160
+3595:1160 mov dx,037A
+3595:1163 in al,dx
+3595:1164 and al,10
+3595:1166 or al,04
+3595:1168 out dx,al
+3595:1169 mov dx,077A
+3595:116C in al,dx
+3595:116D and al,1F
+3595:116F out dx,al
+3595:1170 ret
+3595:1171 
+-a 1190
+3595:1190 jcxz 11D0
+3595:1192 call 1000
+3595:1195 push cx
+3595:1196 mov al,04
+3595:1198 call 1080
+3595:119B mov bl,80
+3595:119D call 1110
+3595:11A0 pop cx
+3595:11A1 push cx
+3595:11A2 dec cx
+3595:11A3 jcxz 11F0
+3595:11A5 mov al,20
+3595:11A7 call 1080
+3595:11AA cld
+3595:11AB call 1220
+3595:11AE jmp 11F0
+3595:11B0 
+-a 11F0
+3595:11F0 mov al,04
+3595:11F2 call 1080
+3595:11F5 mov bl,A0
+3595:11F7 call 1110
+3595:11FA mov al,20
+3595:11FC call 1080
+3595:11FF call 10E0
+3595:1202 mov dx,0778
+3595:1205 in al,dx
+3595:1206 mov [di],al
+3595:1208 inc di
+3595:1209 call 1160
+3595:120C pop cx
+3595:120D clc
+3595:120E ret
+3595:120F 
+-a 11D0
+3595:11D0 clc
+3595:11D1 ret
+3595:11D2 
+-a 1220
+3595:1220 push cx
+3595:1221 call 10E0
+3595:1224 pop cx
+3595:1225 mov dx,0778
+3595:1228 in al,dx
+3595:1229 mov [di],al
+3595:122B inc di
+3595:122C dec cx
+3595:122D jnz 1220
+3595:122F ret
+3595:1230 
+-a 1250
+3595:1250 jcxz 1288
+3595:1252 call 1000
+3595:1255 push cx
+3595:1256 mov al,04
+3595:1258 call 1080
+3595:125B mov bl,C0
+3595:125D call 1110
+3595:1260 pop cx
+3595:1261 push cx
+3595:1262 cld
+3595:1263 mov bx,cx
+3595:1265 jmp 1290
+3595:1267 
+-a 1290
+3595:1290 or bx,bx
+3595:1292 jz 12C0
+3595:1294 call 10B0
+3595:1297 mov cx,0010
+3595:129A cmp bx,cx
+3595:129C jae 12B0
+3595:129E mov cx,bx
+3595:12A0 jmp 12B0
+3595:12A2 
+-a 12B0
+3595:12B0 sub bx,cx
+3595:12B2 mov dx,0778
+3595:12B5 rep outsb
+                 ^ Error
+3595:12B6 jmp 1290
+3595:12B8 
+-a 12C0
+3595:12C0 call 10B0
+3595:12C3 call 1160
+3595:12C6 pop cx
+3595:12C7 clc
+3595:12C8 ret
+3595:12C9 
+-a 1288
+3595:1288 clc
+3595:1289 ret
+3595:128A 
+-e 1C00 12 00 00 00 24 00 00 00 00 00 00 00
+-
+-e 1C20 03 00 00 00 12 00 00 00 00 00 00 00
+-
+-e 1C40 28 00 00 00 00 00 00 00 01 00 00 00
+-
+-e 1C60 3B 02 00 00 00 00 00 02 00 00 00 00
+-
+-e 1C80 3C 02 00 00 00 00 00 02 00 00 00 00
+-
+-e 1CA0 1B 00 00 00 01 00 00 00 00 00 00 00
+-
+-e 1CC0 2A 00 00 01 86 A0 00 00 08 00 00 00
+-
+-e 1CE0 28 00 00 01 86 A0 00 00 08 00 00 00
+-
+-e 1D00 04 00 00 00 00 00 00 00 00 00 00 00
+-
+-e 1D20 25 00 00 00 00 00 00 00 00 00 00 00
+-
+-e 1D40 3C 03 00 00 00 00 00 00 04 00 00 00
+-
+-g=100
+
+AX=30FF  BX=0004  CX=0000  DX=0378  SP=FFEE  BP=0000  SI=9000  DI=9000  
+DS=3595  ES=3595  SS=3595  CS=3595  IP=07B4   NV UP EI PL NZ NA PO NC 
+3595:07B4 CC            INT	3                                  
+-d 1F00 1F00
+3595:1F00  95                                                .
+-d 1E00 1EBF
+3595:1E00  EE EE EE EE EE EE EE EE-EE EE EE EE EE EE EE EE   ................
+3595:1E10  51 03 51 64 01 EE 00 02-D0 01 D0 00 01 EE 00 02   Q.Qd............
+3595:1E20  58 02 50 00 01 EE 00 02-58 02 50 00 01 EE 00 02   X.P.....X.P.....
+3595:1E30  EE EE EE EE EE EE EE EE-EE EE EE EE EE EE EE EE   ................
+3595:1E40  EE EE EE EE EE EE EE EE-EE EE EE EE EE EE EE EE   ................
+3595:1E50  08 02 50 00 01 EE 12 00-58 02 50 00 01 EE 12 00   ..P.....X.P.....
+3595:1E60  58 01 58 00 01 EE 12 00-58 02 50 00 01 EE 12 00   X.X.....X.P.....
+3595:1E70  EE EE EE EE EE EE EE EE-EE EE EE EE EE EE EE EE   ................
+3595:1E80  EE EE EE EE EE EE EE EE-EE EE EE EE EE EE EE EE   ................
+3595:1E90  58 00 58 00 01 EE 00 0E-58 01 51 B4 01 EE 00 10   X.X.....X.Q.....
+3595:1EA0  EE EE EE EE EE EE EE EE-EE EE EE EE EE EE EE EE   ................
+3595:1EB0  EE EE EE EE EE EE EE EE-EE EE EE EE EE EE EE EE   ................
+-d 2060 206F
+3595:2060  70 00 06 00 00 00 00 0A-00 00 00 00 28 00 00 00   p...........(...
+-d 2000 2023
+3595:2000  EE EE EE EE EE EE EE EE-EE EE EE EE EE EE EE EE   ................
+3595:2010  EE EE EE EE EE EE EE EE-EE EE EE EE EE EE EE EE   ................
+3595:2020  EE EE EE EE                                       ....
+-d 2040 2051
+3595:2040  70 00 06 00 00 00 00 0A-00 00 00 00 29 00 00 00   p...........)...
+3595:2050  00 00                                             ..
+-d 2060 2071
+3595:2060  70 00 06 00 00 00 00 0A-00 00 00 00 28 00 00 00   p...........(...
+3595:2070  00 00                                             ..
+-d 2080 2091
+3595:2080  00 00 00 00 00 00 00 00-00 00 00 00 00 00 00 00   ................
+3595:2090  00 00                                             ..
+-d 20A0 20B1
+3595:20A0  70 00 00 00 00 00 00 0A-00 00 00 00 00 00 00 00   p...............
+3595:20B0  00 00                                             ..
+-d 2200 221F
+3595:2200  EB 3E 90 4D 53 57 49 4E-34 2E 30 00 02 04 01 00   .>.MSWIN4.0.....
+3595:2210  02 00 02 00 00 F0 F1 00-20 00 08 00 00 00 00 00   ........ .......
+-d 23F0 23FF
+3595:23F0  00 57 49 4E 42 4F 4F 54-20 53 59 53 00 00 55 AA   .WINBOOT SYS..U.
+-d 2600 261F
+3595:2600  EE EE EE EE EE EE EE EE-EE EE EE EE EE EE EE EE   ................
+3595:2610  EE EE EE EE EE EE EE EE-EE EE EE EE EE EE EE EE   ................
+-d 8000 801F
+3595:8000  00 00 00 00 00 00 00 00-00 00 00 00 00 00 00 00   ................
+3595:8010  00 00 00 00 00 00 00 00-00 00 00 00 00 00 00 00   ................
+-d 8FE0 8FFF
+3595:8FE0  00 00 00 00 00 00 00 00-00 00 00 00 00 00 00 00   ................
+3595:8FF0  00 00 00 00 00 00 00 00-00 00 00 00 00 00 00 00   ................
+-q

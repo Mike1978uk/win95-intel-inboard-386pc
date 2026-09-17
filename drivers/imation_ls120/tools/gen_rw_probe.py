@@ -123,6 +123,7 @@ MEDIA_LBA = 100000
 # *** DESTRUCTIVE. This erases the disk. ***
 FORMAT_UNIT = False
 CAPACITY = False
+BUFSIZE = False          # --bufsize: ask the drive how big its buffer is
 
 # Skip the ATA soft reset. Polling a FORMAT UNIT needs this: SRST ABORTS an
 # in-progress format, so a check run that resets destroys the thing it is
@@ -145,6 +146,11 @@ POIS, POISL = 0x1BE0, 0x1BF0
 # SECTOR2 (2600-29FF). BUF_PATTERN (2400) is deliberately skipped - it
 # carries the write ramp and must not be overwritten.
 POISA, POISAL, POISA2, POISAL2 = 0x1740, 0x1750, 0x1760, 0x1770
+# SLOTS too. A slot that is never written otherwise holds whatever the
+# PREVIOUS run left at the same address - POSTSRST.OUT showed a write
+# result in +90 on a run that issued no write. An unwritten slot must read
+# EE, not last time's answer.
+POISA3, POISAL3 = 0x16A0, 0x16C0
 # The vendor's ECP REGISTER read, SD120PPD.SYS 3CCEh: register number in AL,
 # ONE byte out, every phase gated on the ECR. This is what 'ECP Read' in the
 # vendor's mode table is. Every earlier ECP test here drove a BLOCK STREAM
@@ -622,6 +628,16 @@ def build():
         # buffer made a failure look like a result.
         m += mark(0xB0) + ["call %04X" % POIS]
         m += packet(CDBS + 0x120, BUF_SENSE2, 8, SLOTS + 0xB0)
+
+    # READ BUFFER mode 3: the DRIVE's own buffer capacity, straight from the
+    # drive. Distinct from the 3584-byte BRIDGE burst ceiling - that is what
+    # the EPAT will carry in one go, this is what the LS-120 will absorb
+    # before it must commit to the platter. The two together decide whether
+    # throughput or bus-occupancy is the lever worth pulling first.
+    #   byte 0   offset boundary (log2 alignment)
+    #   byte 1-3 BUFFER CAPACITY, big-endian
+    if BUFSIZE:
+        m += mark(0xC0) + packet(CDBS + 0x140, BUF_INQ, 4, SLOTS + 0xB8)
     elif FORMAT_UNIT:
         # No data phase. Fire and leave - the drive keeps formatting after
         # DEBUG exits, so a later read probe is what reports the outcome.
@@ -709,7 +725,11 @@ def build():
          + blk(POISA2, ["mov di,2600", "mov cx,0400", "mov al,EE",
                         "jmp %04X" % POISAL2])
          + blk(POISAL2, ["mov [di],al", "inc di", "dec cx",
-                         "jnz %04X" % POISAL2, "ret"])
+                         "jnz %04X" % POISAL2, "jmp %04X" % POISA3])
+         + blk(POISA3, ["mov di,%04X" % SLOTS, "mov cx,00C0",
+                        "mov al,EE", "jmp %04X" % POISAL3])
+         + blk(POISAL3, ["mov [di],al", "inc di", "dec cx",
+                         "jnz %04X" % POISAL3, "ret"])
          + blk(PATB, ["mov di,%04X" % BUF_BIG_W,
                       "mov cx,%04X" % (MEDIA_SECTORS * 512),
                       "xor al,al", "jmp %04X" % PATBL])
@@ -739,6 +759,7 @@ def build():
            (MEDIA_SECTORS >> 8) & 0xFF, MEDIA_SECTORS & 0xFF),
         "04 00 00 00 00 00 00 00 00 00 00 00",   # FORMAT UNIT, default params
         "25 00 00 00 00 00 00 00 00 00 00 00",   # READ CAPACITY, 8 bytes
+        "3C 03 00 00 00 00 00 00 04 00 00 00",   # READ BUFFER mode 3, descriptor
     ]
     for i, c in enumerate(cdbs):
         l += ["e %04X %s" % (CDBS + i * 0x20, c), ""]
@@ -844,6 +865,9 @@ if __name__ == "__main__":
     if "--lba" in sys.argv:
         MEDIA_LBA = int(sys.argv[sys.argv.index("--lba") + 1])
     if "--capacity" in sys.argv:
+        CAPACITY = True
+    if "--bufsize" in sys.argv:
+        BUFSIZE = True
         CAPACITY = True
     if "--formatunit" in sys.argv:
         FORMAT_UNIT = True
