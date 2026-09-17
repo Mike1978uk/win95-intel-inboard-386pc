@@ -1242,6 +1242,65 @@ LS_EcpLeave:
 	in	al, dx
 	and	al, 01Fh
 	out	dx, al
+;  FALL THROUGH into the 1284 terminate. Restoring the ECR and the control
+;  port fixes the HOST only. LS_Neg1284 put the PERIPHERAL into 1284 ECP as
+;  well, and it stays there until it is told otherwise - after which every
+;  nibble register read returns 0F5h and the whole task file is unreadable.
+;
+;  MEASURED on the 5160, 2026-09-18, four runs one variable apart:
+;    negotiate, no terminate -> ECP reads EBh correctly, nibble then reads F5h
+;    no negotiate            -> ECP times out, nibble still reads EBh
+;    negotiate + terminate   -> ECP reads EBh AND nibble still reads EBh
+;  So negotiation is required, termination is required, and the pair leaves
+;  the port exactly as it was found. This is the defect that made every
+;  ECP-capable build report Init Failure while a nibble-only build worked.
+
+;----------------------------------------------------------------------------
+;  LS_Term1284 - hand the peripheral back to compatibility mode.
+;
+;  nSelectIn asserted with nAutoFeed high asks for termination; the peripheral
+;  answers on nAck. Budgets match the vendor's forward budget. A timeout here
+;  is not reported: there is nothing useful to do about it, and leaving the
+;  port forward and quiescent is still the best available state.
+;
+;   Uses: EAX, ECX, EDX
+;----------------------------------------------------------------------------
+public LS_Term1284
+LS_Term1284:
+	movzx	edx, LS_BasePort
+	add	edx, LPT_CONTROL
+	mov	al, 00Ch			; nSelectIn + nInit
+	out	dx, al
+	movzx	edx, LS_BasePort
+	add	edx, LPT_STATUS
+	mov	ecx, ECP_SPIN
+lt1_low:					; wait nAck LOW
+	in	al, dx
+	test	al, 040h
+	jz	lt1_ack
+	dec	ecx
+	jnz	lt1_low
+lt1_ack:
+	movzx	edx, LS_BasePort
+	add	edx, LPT_CONTROL
+	mov	al, 00Eh			; add nAutoFeed
+	out	dx, al
+	movzx	edx, LS_BasePort
+	add	edx, LPT_STATUS
+	mov	ecx, ECP_SPIN
+lt1_high:					; wait nAck HIGH
+	in	al, dx
+	test	al, 040h
+	jnz	lt1_done
+	dec	ecx
+	jnz	lt1_high
+lt1_done:
+	movzx	edx, LS_BasePort
+	add	edx, LPT_CONTROL
+	mov	al, 00Ch
+	out	dx, al
+	mov	al, CTRL_FWD
+	out	dx, al
 	ret
 
 ;----------------------------------------------------------------------------
