@@ -79,8 +79,10 @@ if ($NoDriver) {
 $uut = Join-Path $env:TEMP "ls120_under_test.mpd"
 Remove-Item $uut -EA SilentlyContinue
 python "$repo\tools\fatls.py" $img --get "C:\WINDOWS\SYSTEM\IOSUBSYS\LS120MP.MPD" $uut | Out-Null
+$uutMd5 = "none"
 if (Test-Path $uut) {
-    Write-Output ("driver in the image: md5 " + (Get-FileHash $uut -Algorithm MD5).Hash.ToLower())
+    $uutMd5 = (Get-FileHash $uut -Algorithm MD5).Hash.ToLower()
+    Write-Output ("driver in the image: md5 " + $uutMd5)
 } elseif ($NoDriver) {
     Write-Output "driver in the image: NONE, as intended"
 } else {
@@ -128,7 +130,17 @@ Start-Sleep 2
 
 if (Test-Path $log) {
     Copy-Item $log (Join-Path $VmPath "86box.log.$Tag") -Force
-    Write-Output ("86box.log.$Tag  " + (Get-Item $log).Length + " bytes")
+    # A rotated log that does not say which driver produced it cannot be cited.
+    # The md5 was only ever on the harness's stdout, so fifty archived runs have
+    # no attribution at all - keep it beside the log it describes.
+    @("tag        $Tag",
+      "driver_md5 $uutMd5",
+      "driver_src $Driver",
+      "86box_exe  $ExePath",
+      "86box_built $exeTime",
+      "finished   " + (Get-Date -Format s)
+    ) | Set-Content -Path (Join-Path $VmPath "86box.log.$Tag.provenance") -Encoding ascii
+    Write-Output ("86box.log.$Tag  " + (Get-Item $log).Length + " bytes  driver md5 $uutMd5")
 }
 python "$repo\tools\fatls.py" $img --get "C:\BOOTLOG.TXT" (Join-Path $VmPath "bootlog_$Tag.txt") | Out-Null
 if (Test-Path (Join-Path $VmPath "bootlog_$Tag.txt")) {
