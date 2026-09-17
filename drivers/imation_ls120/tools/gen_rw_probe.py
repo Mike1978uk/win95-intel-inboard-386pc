@@ -145,6 +145,28 @@ POIS, POISL = 0x1BE0, 0x1BF0
 # SECTOR2 (2600-29FF). BUF_PATTERN (2400) is deliberately skipped - it
 # carries the write ramp and must not be overwritten.
 POISA, POISAL, POISA2, POISAL2 = 0x1740, 0x1750, 0x1760, 0x1770
+# The vendor's ECP REGISTER read, SD120PPD.SYS 3CCEh: register number in AL,
+# ONE byte out, every phase gated on the ECR. This is what 'ECP Read' in the
+# vendor's mode table is. Every earlier ECP test here drove a BLOCK STREAM
+# the vendor never performs, so none of them answered whether this bridge
+# talks ECP at all. --ecpreg does NOT switch the rest of the probe to ECP:
+# the media path stays on proven nibble so a hang is attributable.
+ECPR, ECPRF = 0x1780, 0x17D0
+# IEEE-1284 TERMINATE. Entering 1284 puts the PERIPHERAL into ECP too; the
+# host dropping back to SPP does not bring it with us. Measured 2026-09-18:
+# negotiate -> ECP read completes -> every later nibble read returns F5.
+# Same probe without negotiation: ECP times out (FF) but nibble still reads
+# EB. So negotiation is REQUIRED and termination is MISSING.
+ETERM, ETERMA, ETERMB = 0x1600, 0x1620, 0x1640
+ETERMC, ETERMD = 0x1660, 0x1680
+ECPREG = False
+ECPREG_REG = 0x1D        # cyl-high: holds EB of the 14 EB ATAPI signature
+#            after SRST. A distinctive value - 00 matching 00 proves nothing.
+ECPREG_TERM = False      # --ecpterm: terminate the 1284 phase on the way out
+ECPREG_NEG = False       # --ecpneg: negotiate 1284 first (we do; the VENDOR
+#            DOES NOT - 3CCEh goes straight to control=04, ECR=74h. Leaving
+#            the bridge in 1284 ECP with the host back in SPP is the best
+#            explanation for nibble reading F5 after every ECP episode.
 PATB, PATBL, POISB, POISBL = 0x1700, 0x1710, 0x1720, 0x1730
 
 # ECP block transfer, transliterated from the driver's LS_BlockReadEcp and
@@ -448,6 +470,31 @@ def ecp_blocks():
             + blk(PBW, pbw) + blk(PBWF, pbwf)
             + blk(ENEG, neg) + blk(ENEGW, negw) + blk(ENEGD, negd)
             + blk(EDIR, edir)
+         + blk(ECPR, ["mov ah,al"]
+                     + (["call %04X" % ENEG, "jc %04X" % ECPRF] if ECPREG_NEG else [])
+                     + [
+                      "mov al,04", "call %04X" % EDIR,
+                      "call %04X" % EWE, "jc %04X" % ECPRF,
+                      "mov dx,%04X" % B, "mov al,ah", "out dx,al",
+                      "call %04X" % EWE, "jc %04X" % ECPRF,
+                      "mov al,20", "call %04X" % EDIR,
+                      "call %04X" % EWD, "jc %04X" % ECPRF,
+                      "mov dx,%04X" % (B + 0x400), "in al,dx", "mov bl,al",
+                      "mov al,04", "call %04X" % EDIR,
+                      "call %04X" % ELV]
+                     + (["call %04X" % ETERM] if ECPREG_TERM else [])
+                     + ["mov al,bl", "clc", "ret"])
+         + blk(ECPRF, ["call %04X" % ELV, "mov al,FF", "stc", "ret"])
+         + blk(ETERM, ["mov dx,%04X" % C, "mov al,0C", "out dx,al",
+                       "mov dx,%04X" % S, "mov cx,FFFF", "jmp %04X" % ETERMA])
+         + blk(ETERMA, ["in al,dx", "test al,40", "jz %04X" % ETERMB,
+                        "dec cx", "jnz %04X" % ETERMA, "jmp %04X" % ETERMB])
+         + blk(ETERMB, ["mov dx,%04X" % C, "mov al,0E", "out dx,al",
+                        "mov dx,%04X" % S, "mov cx,FFFF", "jmp %04X" % ETERMC])
+         + blk(ETERMC, ["in al,dx", "test al,40", "jnz %04X" % ETERMD,
+                        "dec cx", "jnz %04X" % ETERMC, "jmp %04X" % ETERMD])
+         + blk(ETERMD, ["mov dx,%04X" % C, "mov al,0C", "out dx,al",
+                        "mov al,04", "out dx,al", "ret"])
             + blk(EWE, ewe) + blk(EWEL, ewel)
             + blk(EWD, ewd) + blk(EWDL, ewdl)
             + blk(ECMD, ecmd) + blk(ECMDX, ecmdx)
@@ -505,6 +552,28 @@ def build():
     # data still sitting at the same addresses. A buffer that cannot show
     # "untouched" cannot fail, so it is not evidence.
     m = mark(0x01) + ["call %04X" % POISA] + m[:5] + mark(0x02) + m[5:] + mark(0x03)
+
+    # Read ONE register three ways in one run: nibble, then the vendor's ECP
+    # sequence, then nibble again - the last one says whether the ECP episode
+    # left the port usable. ECR captured either side. Slots B0-B4 are already
+    # inside the SLOTS..SLOTS+BF dump.
+    if ECPREG:
+        m += (mark(0xE0)
+              + ["mov al,%02X" % ECPREG_REG, "call %04X" % NIB,
+                 "mov [%04X],al" % (SLOTS + 0xB0)]
+              + mark(0xE1)
+              + ["mov dx,%04X" % E, "in al,dx",
+                 "mov [%04X],al" % (SLOTS + 0xB2)]
+              + mark(0xE2)
+              + ["mov al,%02X" % ECPREG_REG, "call %04X" % ECPR,
+                 "mov [%04X],al" % (SLOTS + 0xB1)]
+              + mark(0xE3)
+              + ["mov dx,%04X" % E, "in al,dx",
+                 "mov [%04X],al" % (SLOTS + 0xB3)]
+              + mark(0xE4)
+              + ["mov al,%02X" % ECPREG_REG, "call %04X" % NIB,
+                 "mov [%04X],al" % (SLOTS + 0xB4)]
+              + mark(0xE5))
     # REQUEST SENSE consumes the unit-attention condition SRST just raised,
     # then two reads: the first may still meet a spinning drive, the second
     # should not. INQUIRY is dropped - it is proven and costs four more waits.
@@ -760,6 +829,12 @@ if __name__ == "__main__":
         MEDIA_READ_ONLY = True
     if "--noreset" in sys.argv:
         NO_RESET = True
+    if "--ecpreg" in sys.argv:
+        ECPREG = True
+    if "--ecpneg" in sys.argv:
+        ECPREG_NEG = True
+    if "--ecpterm" in sys.argv:
+        ECPREG_TERM = True
     if "--ecp" in sys.argv:
         USE_ECP = True
     if "--epp" in sys.argv:
