@@ -138,7 +138,7 @@ if (Test-Path $log) {
       "driver_src $Driver",
       "86box_exe  $ExePath",
       "86box_built $exeTime",
-      "finished   " + (Get-Date -Format s)
+      "finished   $(Get-Date -Format s)"
     ) | Set-Content -Path (Join-Path $VmPath "86box.log.$Tag.provenance") -Encoding ascii
     Write-Output ("86box.log.$Tag  " + (Get-Item $log).Length + " bytes  driver md5 $uutMd5")
 }
