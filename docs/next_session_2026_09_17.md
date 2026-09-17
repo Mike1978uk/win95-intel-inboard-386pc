@@ -1,5 +1,40 @@
 # LS-120 — handoff, 2026-09-17
 
+## ⭐ READ FIRST: `drivers/imation_ls120/MEASURED_FACTS.md`
+
+Everything measured on the real 5160 on 2026-09-17/18 is there, each row naming
+the capture it came from. **If you are about to probe for something in that
+file, read the capture instead.**
+
+### The headline: ECP works, and we were breaking it ourselves
+
+ECP reads the drive - register `1Dh` returns `EB` through ECP, matching nibble
+in the same run. It needs **negotiation AND termination**. We had the first and
+never the second, so the peripheral stayed in 1284 while the host went back to
+SPP, and every later nibble read returned `F5`.
+
+**That is why every ECP-capable build reported `Init Failure` and why
+`a925038` - which has no `LS_DetectEcp` and never enters 1284 - is the one that
+gave the owner `L:`.** Shipped as `LS_Term1284` (`code cb34891b`), falling
+through from `LS_EcpLeave` so both block paths get it on success and failure.
+
+Also measured: the **3584-byte burst ceiling is real and hard** - 8 sectors
+offers `0E00` not `1000`, strands the last 512 bytes and ABORTS the next
+command. `LS_MAX_XFER = 3584` is measured, not chosen.
+
+### Not done, deliberately
+
+- **Emulator realism** - parked by the owner. We now have the data to model the
+  bridge honestly (burst ceiling, 1284 terminate, ECP-block-is-not-a-thing).
+  The bed currently passes ECP code the real bridge refuses.
+- **Small/large file transfer** - needs the driver installed under Windows.
+- **Drive buffer capacity** - the drive REFUSES `READ BUFFER` mode 3
+  (ILLEGAL REQUEST). Bound it empirically instead.
+- **The card still has the SPP build.** `cb34891b` (ECP + terminate) is built
+  and unproven in the driver - the terminate is proven in the PROBE only, and
+  those are different code.
+
+
 ## ⛔ Read this first: what is PROVEN is not what is BUILT
 
 The DOS/COMrade work proved the **wire protocol**. It did not prove the **driver**.
