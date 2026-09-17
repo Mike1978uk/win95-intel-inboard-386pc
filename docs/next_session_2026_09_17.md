@@ -141,15 +141,45 @@ can carry. **All five built-but-never-run changes have now executed.**
 - `vm_ls120win/nvr/mach8.nvr` was missing and has been restored. Without it Win95 dies with a
   protection error on every image.
 
+## Proven in the bed - all four combinations, byte-exact
+
+| transport | 92 KB (`LSWRITE`) | 9 MB Creative ZIP (`LSBULK`) |
+|---|---|---|
+| **SPP** `fe657dc8` / `1ac15b08` | `ECPTEST.BIN` 92,870, md5 `ea923fa0…` | `BULK.ZIP` 8,996,287, md5 `ea039999…` |
+| **ECP** `7097b586` / `fc2088ab` | `ECPTEST.BIN` 92,870 | `BULK.ZIP` 8,996,287, md5 `ea039999…` |
+
+Every file checked **from the host** against its source, not from the guest's own `DIR`. The
+9 MB case is the owner's own real-use test - the copy that used to fail.
+
+## STAGED ON THE CF, 2026-09-17 - not yet booted
+
+`fc2088ab` (ECP, `code 7097b586`, commit `bbe73b2`) written to **both** locations:
+
+| path | md5 |
+|---|---|
+| `D:\LS120MP\LS120MP.MPD` (install source) | `fc2088ab` |
+| `D:\LS120MP\LS120MP.INF` (stamped, CRLF 135/135) | `71ca8778` |
+| `D:\WINDOWS\SYSTEM\IOSUBSYS\LS120MP.MPD` (load path) | `fc2088ab` |
+
+Verified at the destination, not the staging copy. Previous card files backed up as
+`LS120MP.I17` / `LS120MP.M17`; the INF they replace still said `a925038 12:01 build`, which is
+the mislabelling that cost the week. Device Manager will now read
+`LS-120 EPAT  7097b586  bbe73b2  ecp`.
+
+**Prerequisites checked:** `inbrdpc.sys` is safelisted in `IOS.INI` (line 290) - that is the
+gate that matters, the unrecognised `INT 13h` hooker, not our miniport. Vendor driver REM'd in
+`CONFIG.SYS`, so this is a clean control.
+
+**`IOSUBSYS\LS120MP.MPD` did not exist before this** and the device node was removed, so this
+is an **install**, not a refresh: Add New Hardware, **decline autodetect**, point it at
+`D:\LS120MP`.
+
 ## Next
 
-1. **ECP + the fix** (`code 7097b586`, md5 `fc2088ab`) and **the 9 MB bulk copy**
-   (`LSBULK.BAT`, which copies the Creative ZIP - the owner's own real-use test). Both queued
-   at the time of writing. SPP is proven at 92 KB; ECP is the target transport and is untested
-   with the fix.
-2. **Then hardware.** The 5160 has not been touched this session. The hardware bring-up
-   failure has the same symptom as the one fixed here, so the same cause is a good candidate -
-   **that is a prediction, not a result.** Deploy to the install source AND `IOSUBSYS`.
+1. **Boot the 5160.** The hardware bring-up failure has the same symptom as the one fixed
+   here, so the same cause is a good candidate - **a prediction, not a result.** If it still
+   fails, the bed now reproduces this class of bug, so diff the hardware `BOOTLOG` against a
+   bed run rather than theorising.
 3. Backfill the remaining 09-14 hardware findings into the bed: the 3584-byte burst ceiling
    and the seconds-long SRST settle are still not modelled (the branch stops 09-13), plus
    `FORMAT UNIT` refusing `FmtData=0`.
