@@ -45,6 +45,12 @@ param(
     # hot path and there is no such port on the real machine.
     [switch] $DbgPort,
 
+    # DIAGNOSTIC ONLY - make HwInitialize return FALSE when bring-up fails, so
+    # BOOTLOG says "Init Failure" instead of "Init Success". IOS prints Init
+    # Success for a driver that merely LOADED, so without this a failing probe
+    # and a working one are indistinguishable in the log. Never ship it.
+    [switch] $InitVeto,
+
     [switch] $FakeDevice,
 
     [string] $DdkRoot = 'C:\Users\lycet\OneDrive\Desktop\XT_project\Windows95_ddk'
@@ -75,6 +81,7 @@ if ($Mode -eq 'spp') { $defs += '-DLS_FORCE_MODE=1' }
 if ($Mode -eq 'ecp') { $defs += '-DLS_FORCE_MODE=2' }
 if ($FakeDevice)  { $defs += '-DLS_FAKE_DEVICE' }
 if ($DbgPort)     { $defs += '-DLS_DBGPORT' }
+if ($InitVeto)    { $defs += '-DLS_INIT_VETO' }
 
 # -coff is what makes ML emit objects the PE linker can use at all.
 $aflags = @('-coff', '-DBLD_COFF', '-DIS_32', '-DMASM6', '-nologo', '-W2', '-Zd', '-c', '-Cx') + $defs

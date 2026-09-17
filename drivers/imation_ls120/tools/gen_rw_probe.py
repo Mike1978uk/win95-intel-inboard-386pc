@@ -141,6 +141,10 @@ PAT, PATL = 0x1BB0, 0x1BD0
 # successful read. EE is chosen because it is not in the 00..FF ramp position
 # it would occupy, so a partial transfer shows its own stopping point.
 POIS, POISL = 0x1BE0, 0x1BF0
+# Poison-all: BUF_INQ/SENSE/SENSE2/SECTOR (2000-23FF) and BUF_BACK/
+# SECTOR2 (2600-29FF). BUF_PATTERN (2400) is deliberately skipped - it
+# carries the write ramp and must not be overwritten.
+POISA, POISAL, POISA2, POISAL2 = 0x1740, 0x1750, 0x1760, 0x1770
 PATB, PATBL, POISB, POISBL = 0x1700, 0x1710, 0x1720, 0x1730
 
 # ECP block transfer, transliterated from the driver's LS_BlockReadEcp and
@@ -161,6 +165,10 @@ EWD, EWDL = 0x10E0, 0x10F0
 ECMD, ECMDX = 0x1110, 0x1140
 ELV = 0x1160
 EBR, EBRL, EBRF = 0x1190, 0x11F0, 0x11D0   # EBRF within jcxz reach of EBR
+# Gated bulk reader. EBRL already calls EWD for the last byte; the BULK read
+# was a bare rep insb, which is the defect SD120PPD.SYS does not have and
+# the reason ECP moves nothing on real hardware. 0x1220 is clear of EBRL.
+EBRD = 0x1220
 EBW, EBWC, EBWS, EBWT = 0x1250, 0x1290, 0x12C0, 0x1288   # EBWT ditto
 ECP_MODE, ECP_BYTE = 0x74, 0x34
 ECP_FIFO, ECP_ECR = 0x400, 0x402
@@ -336,7 +344,11 @@ def ecp_blocks():
            "mov bl,80", "call %04X" % ECMD,
            "pop cx", "push cx", "dec cx", "jcxz %04X" % EBRL,
            "mov al,20", "call %04X" % EDIR, "cld",
-           "mov dx,%04X" % F, "rep insb", "jmp %04X" % EBRL]
+           "call %04X" % EBRD, "jmp %04X" % EBRL]
+    # EWD sets CX=8000 as its own budget, so the byte count is preserved.
+    ebrd = ["push cx", "call %04X" % EWD, "pop cx",
+            "mov dx,%04X" % F, "in al,dx", "mov [di],al", "inc di",
+            "dec cx", "jnz %04X" % EBRD, "ret"]
     ebrl = ["mov al,04", "call %04X" % EDIR,
             "mov bl,A0", "call %04X" % ECMD,
             "mov al,20", "call %04X" % EDIR,
@@ -441,6 +453,7 @@ def ecp_blocks():
             + blk(ECMD, ecmd) + blk(ECMDX, ecmdx)
             + blk(ELV, elv)
             + blk(EBR, ebr) + blk(EBRL, ebrl) + blk(EBRF, ebrf)
+            + blk(EBRD, ebrd)
             + blk(EBW, ebw) + blk(EBWC, ebwc) + blk(EBWC + 0x20, ebwc2)
             + blk(EBWS, ebws) + blk(EBWT, ebwt))
 
@@ -485,7 +498,13 @@ def build():
          ["mov ax,0416", "call %04X" % WR, "mov ax,0016", "call %04X" % WR]) + [
          "call %04X" % WBSY,
          "call %04X" % PAT]                             # build the pattern
-    m = mark(0x01) + m[:5] + mark(0x02) + m[5:] + mark(0x03)
+    # POISON EVERY READ BUFFER FIRST, not just BUF_SECTOR2. On 2026-09-17 an
+    # ECP run "matched" an SPP run across five regions and was read as a pass;
+    # only BUF_SECTOR2 was poisoned, and it was the one region that showed the
+    # truth - ECP had delivered nothing and the rest was the previous run's
+    # data still sitting at the same addresses. A buffer that cannot show
+    # "untouched" cannot fail, so it is not evidence.
+    m = mark(0x01) + ["call %04X" % POISA] + m[:5] + mark(0x02) + m[5:] + mark(0x03)
     # REQUEST SENSE consumes the unit-attention condition SRST just raised,
     # then two reads: the first may still meet a spinning drive, the second
     # should not. INQUIRY is dropped - it is proven and costs four more waits.
@@ -614,6 +633,14 @@ def build():
                       "mov al,EE", "jmp %04X" % POISL])
          + blk(POISL, ["mov [di],al", "inc di", "dec cx",
                        "jnz %04X" % POISL, "ret"])
+         + blk(POISA, ["mov di,2000", "mov cx,0400", "mov al,EE",
+                       "jmp %04X" % POISAL])
+         + blk(POISAL, ["mov [di],al", "inc di", "dec cx",
+                        "jnz %04X" % POISAL, "jmp %04X" % POISA2])
+         + blk(POISA2, ["mov di,2600", "mov cx,0400", "mov al,EE",
+                        "jmp %04X" % POISAL2])
+         + blk(POISAL2, ["mov [di],al", "inc di", "dec cx",
+                         "jnz %04X" % POISAL2, "ret"])
          + blk(PATB, ["mov di,%04X" % BUF_BIG_W,
                       "mov cx,%04X" % (MEDIA_SECTORS * 512),
                       "xor al,al", "jmp %04X" % PATBL])

@@ -1282,12 +1282,30 @@ LS_BlockReadEcp:
 	dec	ecx
 	jz	lbre_last
 
+;  GATE EVERY BYTE ON THE ECR, the way SD120PPD.SYS does at 3D22h. A bare
+;  rep insb reads before the bridge has anything to give and returns whatever
+;  the port last drove. The emulated bridge answers on demand and its FIFO is
+;  never legitimately empty, so an unwaited read passes in the bed and moves
+;  nothing on the real machine - measured 2026-09-17, poisoned buffer still
+;  EE after a full ECP episode while SPP filled it.
+;
+;  LS_EcpWaitData clobbers ECX, which is the byte count, so it is preserved
+;  across the call. The push/pop is free next to a 5.77 us bus access.
 	mov	al, CTRL_REV
 	call	LS_EcpDir
 	cld
+lbre_rd:
+	push	ecx
+	call	LS_EcpWaitData
+	pop	ecx			; POP does not disturb CF
+	jc	lbre_fail
 	movzx	edx, LS_BasePort
 	add	edx, LPT_ECP_FIFO
-	rep	insb
+	in	al, dx
+	mov	[edi], al
+	inc	edi
+	dec	ecx
+	jnz	lbre_rd
 
 lbre_last:
 	mov	al, CTRL_FWD
@@ -1297,6 +1315,10 @@ lbre_last:
 	jc	lbre_fail
 	mov	al, CTRL_REV
 	call	LS_EcpDir
+;  The last byte is gated too - it is the one the LAST command was issued for,
+;  so it is the byte most likely to need waiting on.
+	call	LS_EcpWaitData
+	jc	lbre_fail
 	movzx	edx, LS_BasePort
 	add	edx, LPT_ECP_FIFO
 	in	al, dx

@@ -463,8 +463,22 @@ else
 ;  anyway: finding devices is SCSIPORT's job, and a miniport that vetoes
 ;  itself removes the only channel that could report why.
 	call	LS_BringUp
+ifdef LS_INIT_VETO
+;  DIAGNOSTIC BUILD ONLY. Shipping must never veto - see the reasoning above,
+;  and Imation's own miniport returns TRUE unconditionally. But a bring-up
+;  failure is otherwise invisible: IOS prints "Init Success" for a driver that
+;  merely LOADED, so a failing probe and a working one read identically in
+;  BOOTLOG. Vetoing makes the boot log answer the only question that matters -
+;  did the device actually answer - at the cost of no drive when it did not.
+	jc	lsi_veto
+endif
 	mov	eax, TRUE
 	ret
+ifdef LS_INIT_VETO
+lsi_veto:
+	xor	eax, eax		; FALSE - BOOTLOG will say Init Failure
+	ret
+endif
 endif
 else
 	mov	eax, TRUE
