@@ -39,7 +39,11 @@ bed result is unattributable again.
 |---|---|---|---|---|---|
 | `976e4114` | 09-11 20:14, `bc453ca` **DIRTY** | Success @ **6** | 10, all completed | **1, never completed** | 19,721 CONNECT/DISCONNECT retries, Explorer egg-timers |
 | `5b7b88d2` (= `ff80f056`) | 09-11 12:01, `a925038` clean | Success | 46 | 3, small ones complete | **BSOD on a 30,720-byte `WRITE(10)`** |
-| `762fe8ac` | 09-11 00:17, `cb4b62a` clean | *(run pending)* | | | also the artefact published in `dist/ls120_mpd/` |
+| `762fe8ac` | 09-11 00:17, `cb4b62a` clean | Success @ 15 | 45, all completed | 3, small ones complete | **same BSOD, same 30,720-byte `WRITE(10)`**. Also the artefact published in `dist/ls120_mpd/` |
+
+**Both Friday builds are functionally equivalent in the bed and fail at the identical
+instruction**, so "which build was in the photo" no longer gates anything. Only `976e4114`
+differs, and it is strictly worse - every write hangs regardless of size.
 
 ### The 30,720-byte write is confirmed, and it is the recorded open item
 
@@ -55,17 +59,61 @@ hardware ceiling is **3584 bytes per burst**. The driver asks for ~8.5x that in 
 phase. `LS_MAX_XFER = 3584` is built and has never executed — this is the first evidence of
 what it is for.
 
-### ⛔ The bed does NOT reproduce the hardware bring-up failure
+### The bed and the hardware bring-up failure - it depends which build
 
-| `976e4114` | real 5160 | bed |
-|---|---|---|
-| | `Init Failure` @ 1520-1598 | `Init Success` @ **6** |
+For the **Friday** builds the bed diverges: they enumerate here and fail on the 5160, and
+`busy_ms = 750` did not close that. So "the drive is slow to go ready" is falsified as the
+explanation for *their* hardware failure.
 
-Unchanged by `busy_ms = 750`. The spindle model was added specifically to close this and it
-did not, so **"the drive is slow to go ready" is falsified as the bring-up explanation.**
+**But HEAD reproduces the hardware symptom exactly**, which is what made this session's fix
+possible:
 
-Consequence: the bed is good for the **write path** and is **not evidence** about enumeration
-on the 5160. Do not read a bed `Init Success` across to hardware.
+```
+86box.log.HEAD_SPP_75b7024c   driver md5 db8dce5f
+[00000261] Initing ls120mp.mpd
+[00000267] Init Success ls120mp.mpd
+LSPROBE.TXT:  no ls120 volume
+```
+
+`Init Success` with no volume is the `BOOTLOG_final_a925038.TXT` symptom. **`Init Success` was
+never evidence that bring-up worked** - `HwInitialize` is deliberately non-vetoing (`c122377`),
+so a failed bring-up still reports success and simply presents no devices.
+
+## ✅ FIXED: `LS_StatusRead` rejected 00h as a dead bus
+
+`bbe73b2`. Both HEAD arms - ECP and SPP - died at the identical instruction with identical
+1,477-byte logs, byte-for-byte the same as a working Friday run up to `W reg 1E = A0` and then
+nothing. That exonerated the transport and left one call:
+
+```asm
+;  LS_PacketCommand, between drive select and byte count
+	mov	bl, ATA_ST_BSY OR ATA_ST_DRQ
+	call	LS_PfWait
+	jc	lpc_fail
+```
+
+`LS_StatusRead` raised the dead-bus carry for **00h**, while `LS_PfWait`'s float handler
+applies the **FFh-only** rule and cannot tell that carry from a real dead bus - so it spun out
+all 22,000 iterations, returned carry, and every command failed before the byte count. The
+FFh-only narrowing recorded in `next_session_2026_09_15.md` had been applied to the other two
+readers and **missed here**.
+
+The short-phase DRQ check is not wrong. It is simply the first code to call `LS_PfWait` before
+a command, so it walked into a latent bug Friday's build never touched.
+
+### Result, verified from the host
+
+`FIX_STATUSREAD_fe657dc8` / md5 `1ac15b08`, SPP:
+
+| | |
+|---|---|
+| `Init Success`, `drive D` | enumerates |
+| `DIR` | reads |
+| `ECPTEST.BIN` | **92,870 bytes** - 3x the transfer that BSOD'd both Friday builds |
+| host-side md5 vs source | **`ea923fa0…` identical** |
+
+`LS_MAX_XFER = 3584` is what makes that work: SCSIPORT splits the copy into bursts the bridge
+can carry. **All five built-but-never-run changes have now executed.**
 
 ## Retractions and corrections made this session
 
@@ -95,14 +143,31 @@ on the 5160. Do not read a bed `Init Success` across to hardware.
 
 ## Next
 
-1. **Finish the `762fe8ac` bed run** and compare where all three Friday builds fail.
-2. **Backfill the 09-14 hardware findings into the bed** — 3584-byte burst ceiling and the
-   seconds-long SRST settle. The branch stops at 09-13 and neither is modelled, which is why
-   the bed cannot currently show a bring-up that bails in 2 ticks.
-3. **The bring-up gap is the real blocker.** The wire protocol is proven and the miniport
-   still fails at `Init` on hardware. Standing lead: `a925038` has no `LS_DetectEcp`, so it
-   never restores the ECR to mode 000 — a non-SPP ECR makes the port bidirectional and breaks
-   every nibble read. Works at DOS (port already SPP), fails under Windows. **Test baseline +
-   ECR normalisation ONLY.**
-4. Exercise the four built-but-never-run changes one at a time, in the bed, and record each
-   result against its md5. Nothing on that list may be described as working until it has run.
+1. **ECP + the fix** (`code 7097b586`, md5 `fc2088ab`) and **the 9 MB bulk copy**
+   (`LSBULK.BAT`, which copies the Creative ZIP - the owner's own real-use test). Both queued
+   at the time of writing. SPP is proven at 92 KB; ECP is the target transport and is untested
+   with the fix.
+2. **Then hardware.** The 5160 has not been touched this session. The hardware bring-up
+   failure has the same symptom as the one fixed here, so the same cause is a good candidate -
+   **that is a prediction, not a result.** Deploy to the install source AND `IOSUBSYS`.
+3. Backfill the remaining 09-14 hardware findings into the bed: the 3584-byte burst ceiling
+   and the seconds-long SRST settle are still not modelled (the branch stops 09-13), plus
+   `FORMAT UNIT` refusing `FmtData=0`.
+4. **`dist/ls120_mpd/LS120MP.MPD` is `762fe8ac`** - the 00:17 build, which predates the CDB
+   block-path fix and BSODs on a 30,720-byte write. Whatever `FIXES.md` claims for the LS-120
+   needs checking against that before the next release.
+
+## Process notes from this session
+
+- **The ledger dirties its own tree.** It is tracked, so the first build of a pair records
+  `tree clean` and the second `DIRTY` purely because the first appended a row. Read the `code`
+  column, not `tree`, when attributing a pair built back to back.
+- **Two mode builds overwrite each other.** `-Mode ecp` and `-Mode spp` both write
+  `build/LS120MP.MPD`; the second silently destroyed the first, putting `be9e215a` in the
+  ledger and nowhere on disk. Copy each to a distinct name immediately after building.
+- **The md5 moves when the source does not.** `be9e215a` and `124648b5` are the same source
+  (`code 7bc9ebec`) built twice - the PE timestamp differs. **The `code` column is the
+  attribution; the md5 identifies a file, not a build.**
+- `tools/ls120_bed_run.ps1` now writes `86box.log.<tag>.provenance` recording the driver md5
+  read back from **inside the image**. Fifty archived bed runs predate it and cannot be
+  attributed - including the `x512_bulk` log showing 3,077 completed writes.
