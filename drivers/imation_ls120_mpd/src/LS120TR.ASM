@@ -735,10 +735,12 @@ public LS_StatusRead
 LS_StatusRead:
 	mov	al, ATA_REG_STATUS
 	call	LS_RegRead
+;  FFh is the only dead-bus value. 00h is a legitimate post-SRST status, so it
+;  must not raise the dead-bus carry: LS_PfWait's float handler applies the
+;  FFh-only rule and cannot tell a carry raised for 00h from a real dead bus,
+;  so it spins out the whole budget and fails the command before the byte count.
 	cmp	al, 0FFh
 	je	lsr_dead
-	or	al, al
-	jz	lsr_dead
 	clc
 	ret
 lsr_dead:
