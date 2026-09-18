@@ -201,6 +201,67 @@ hash**. Only the PE timestamp differs; the code is identical.
 - Steps 5 of the spec (`SpecificLuExtensionSize`, `MapBuffers`, the three extra
   SRB functions) are untouched.
 
+## 5. RESULT: the drive mounts in the bed, and ECP is the blocker
+
+Two bed runs, identical in every respect except the transport pin, on the
+non-blocking init build. Driver's own trace ring, read out of physical
+0B9000h by the emulator's dumper.
+
+### The bring-up fix works
+
+Both runs trace `ENTR FADP FOUN PULS ... HOLD REDY RSUM` - the vendor's shape
+end to end: pulse and return, hold the SRB that arrives during the settle,
+resume it when the drive answers. `Init Success` fell from 7 ticks to 3.
+
+### The transport is the remaining fault
+
+| | ECP (auto, code `c376510b`) | SPP (code `0d98c894`) |
+|---|---|---|
+| INQUIRY | `DONE=04` SRB_STATUS_ERROR | **`DONE=01` SUCCESS** |
+| TEST UNIT READY | never reached | `04`, then `01` |
+| PREVENT/ALLOW MEDIUM REMOVAL | - | `01`, `01` |
+| READ CAPACITY | - | `04`, `04`, then `01` |
+| READ(10) | - | **`01`, `01`** |
+| drive letter | none | **`J:` mounted** |
+
+The ECP failure is NOT a transfer failure. `86box.log` for that run shows
+`data phase in, 36 bytes, request length 36` - the whole INQUIRY reply crossed
+the wire - and the command was then reported as an error. So the fault is in
+the POST-transfer status read, which is exactly the 2026-09-18 hardware
+measurement: without a 1284 terminate the peripheral stays in ECP and every
+nibble read returns `F5`.
+
+⚠ **This is a bed result.** The bed's ECP is a model, not the Intek21 TK9901.
+It is *consistent* with ECP never having worked on the bench, and that is all
+it is. Do not write this up as an ECP finding about the hardware.
+
+### Shipped: SPP is now the default on the card
+
+| path | md5 | what |
+|---|---|---|
+| `D:\WINDOWS\SYSTEM\IOSUBSYS\LS120MP.MPD` | `d8154f1d` | **SPP, code `5084a71c`** |
+| `D:\LS120MP\LS120MP.MPD` | `d8154f1d` | same - install source too |
+| `D:\LS120MP\LS120MP.SPP` | `d8154f1d` | the same file, kept under its own name |
+| `D:\LS120MP\LS120MP.AUT` | `508ab8d3` | the ECP/auto build |
+| `*.B28` | | the 09-18 morning build |
+
+`git diff 28e85f4..47b191b -- src` is empty, so the shipped SPP binary is the
+same source as the traced build that mounted the drive; it differs only by
+`-Trace`. **Never booted on hardware.**
+
+### Instruments
+
+- ⛔ **`-DbgPort` is a DEAD SWITCH.** `build.ps1:93` adds `-DLS_DBGPORT` and no
+  source file has consumed it for days. Every build that claimed to use it
+  emitted nothing. Delete it or reconnect it. Technique 123.
+- `-Trace` (the 0B9000h ring) **works in the bed** and is what produced
+  everything above, collected by `LS120_TRACE_DUMP=1` into `lstrace.bin`.
+- `4a2ed1c` makes the three post-data-phase exits in `LS_PacketCommand` name
+  themselves (`PFWT` / `PERR` / `PDRQ`) and print `LS_LastStatus`. They all
+  shared one label, so a failure said only that it failed. Diagnostic build
+  `aa0d89be` is parked at `%TEMP%\ls120_failtrace.mpd`; one bed run with it
+  says which guard the ECP path trips and with what status byte.
+
 ## Next
 
 1. **Bisect against the build that enumerated.** `762fe8ac` (code `7d389ebc`,
