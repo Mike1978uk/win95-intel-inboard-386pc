@@ -134,7 +134,47 @@ has taken several ECP builds that strand the peripheral, a DEBUG run that
 executed unassembled memory for minutes, and multiple boots. Something in the
 install has drifted in a way `SYSTEM.DAT` does not show.
 
-**Next session should not build anything.** Two candidates, in order:
+**Next session should not build a DRIVER blind.** But the readback problem is
+NOT a wall - the owner's point, and he is right: **the trace ring works in the
+bed**, and everything learned tonight can be emulated. Build the MODEL, then
+the driver question answers itself with full visibility and no hardware.
+
+### ⭐ FIRST JOB: teach the bed's EPAT model PS/2 byte mode
+
+`86box_upstream/src/device/lpt_epat.c` implements nibble register access only:
+
+```
+read : w0(r); w2(1); w2(3); a = r1(); w2(4); b = r1();
+write: w0(0x60 + r); w2(1); w0(val); w2(4)
+```
+
+The `0x60` WRITE tag exists; there is **no `0x20` byte-mode READ path**. So
+running the byte-mode driver in the bed today fails for a MODEL reason and
+looks like a driver bug - technique 90 exactly.
+
+Adding it is fully specified by tonight's captures, which are byte-identical
+hardware ground truth:
+
+- `BM1_bytemode_matches_nibble.OUT` - one register, byte mode == nibble
+- `BM2_inquiry_bytemode.OUT` - a whole INQUIRY, byte mode
+- `BM2_inquiry_nibble_control.OUT` - the same INQUIRY, nibble, same boot
+
+The sequence to model, from `epat.c` mode 2 and verified on the 5160:
+`w0(0x20 + r); w2(1); w2(0x25); a = r0(); w2(4)` - the value returns on the
+DATA port in one access, with the ECR parked at `34h` (mode 001).
+
+**Validate it the way technique 116 requires: replay `BYTEMODE.SCR` and
+`INQBYTE.SCR` UNMODIFIED against the model and require the same bytes the
+hardware returned.** If the probe has to be edited for the bed, the two sides
+are no longer exercising the same path and the result proves nothing.
+
+Then build the driver `-ByteMode -Trace`, run it in the bed, and read the ring.
+That is the visibility that does not exist on hardware.
+
+⚠ The bed CANNOT answer why the real install stopped enumerating - it has its
+own image. That is a separate hunt (below), and the two must not be conflated.
+
+Two further candidates, in order:
 
 1. **Get a readback channel under Windows.** Technique 123 - it was the right
    call a week ago and it is still unpaid. Without it, every Windows result is
