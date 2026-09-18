@@ -2,7 +2,7 @@
 
 ## Staged on the card, never booted
 
-`LS120MP.MPD` = **`6924eeaf` / code `1616e877` / commit `e5c2fc4`, clean tree**,
+`LS120MP.MPD` = **`52b7bf23` / code `d22aee88` / commit `1a2714d`, clean tree**,
 built `-Phase 2 -Mode ecp`. Written to **both** `C:\LS120MP\` and
 `C:\WINDOWS\SYSTEM\IOSUBSYS\` (CRC-verified, identical).
 
@@ -99,6 +99,16 @@ mask-ROM part; `0Bh` is an 8-bit version code, not a window into code space.
    parks at `34h`, because ECR mode 000 is not bidirectional and cannot carry a
    reverse request. Reverted; `3e6bcf0` is superseded, do not reapply it.
 3. **The descriptor** — necessary, and now measured rather than inferred.
+4. **The reverse read gated on the wrong ECR bit.** Ours waited on bit 0,
+   FIFO-not-empty. Bit 0 describes the **host** FIFO; the vendor's reverse read
+   waits on **bit 2, serviceIntr** (`48B2h`) — the reverse channel reporting a
+   byte has arrived. `ECR_SERVICE equ 004h` was already defined in
+   `LS120TR.ASM` and **referenced nowhere**: the right bit was worked out once
+   and never wired up. Fixed in `13b7dd7`.
+
+⚠ None of the four is confirmed to be *the* cause. Buffers left holding their
+`EE` poison are equally consistent with nothing being sent at all. They are four
+places where we provably diverge from a driver that works on this hardware.
 
 ## Not done, and why
 
