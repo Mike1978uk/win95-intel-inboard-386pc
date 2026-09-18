@@ -1571,3 +1571,86 @@ this bridge. **The vendor uses ECP; believe the live capture over the Linux driv
 data-phase only", "the block path is EPP", "blocks are SPP". Each came from reading one
 fragment and generalising. The decode above is from the routine end to end. **It is still a
 decode, not a measurement — nothing here has been executed.**
+
+---
+
+## ⭐ 11a. The descriptor MEASURED, end to end, 2026-09-18
+
+§11 asked for a measurement instead of a guess. This is it. The vendor's
+`0x4CA3` was single-stepped under DEBUG on the real 5160 with the bridge
+connected and the peripheral negotiated into IEEE-1284 ECP mode
+(`docs/captures/2026-09-18_media/VC2_vendor_descriptor_negotiated.OUT`).
+Every ECR wait passes on its first poll, so the routine runs its success path.
+
+### The precondition — this is why every previous attempt moved nothing
+
+**The peripheral must be negotiated into 1284 ECP mode before the descriptor.**
+With the bridge CPP-connected but not negotiated, the very first address cycle
+(`0Eh` -> `base+0`) leaves the FIFO permanently non-empty: the port hardware
+drives the ECP forward handshake and nothing answers it. The routine then spins
+at its `0x8000` budget and branches to teardown without emitting anything
+(capture `VC1_vendor_descriptor_connected.OUT`). Negotiation acknowledged reads
+status `B8h`.
+
+### The sequence
+
+| # | port | value | cycle |
+|---|---|---|---|
+| 1 | `base+402` ECR | `14h` | SPP mode 000 + nErrIntrEn |
+| 2 | `base+002` ctrl | `04h` | |
+| 3 | `base+402` ECR | `74h` | ECP mode 011 |
+| 4 | `base+000` | `0Eh` | address |
+| 5 | `base+400` FIFO | `0Bh` | data |
+| 6 | `base+000` | `0Fh` | address |
+| 7 | `base+400` FIFO | count **high** | data |
+| 8 | `base+000` | `0Bh` | address — **gated, see below** |
+| 9 | `base+400` FIFO | count **low** | data — **gated** |
+
+Each write is bracketed by a wait on ECR bit 0 (FIFO empty), budget `0x8000`;
+a timeout jumps to teardown at `4F26`. **The count is big-endian: high byte
+first.** §11's guess on byte order was right; its open question "two different
+registers or one written twice" is answered — `0Bh` is written twice, once as a
+*data* byte after address `0Eh`, once as an *address* before count-low.
+
+### Two gates §11 did not know about
+
+**A length cache at `[0C1A]`.** `CMP [0C1A],CX / JNZ` — if the requested count
+equals the last one programmed, the routine jumps to `4E8D` and **skips the
+whole descriptor**. For a fixed 512-byte block that means it is programmed once
+and never again. Worth copying: it is nine port accesses per transfer.
+
+**A bridge-version gate at `[0C5C]`.** `CMP BYTE PTR [0C5C],C3 / JB 4E8D` — rows
+8 and 9 are emitted only when the byte is `>= C3h`. `[0C5C]` is loaded at
+`dbg 9F8D` from **bridge register `0Bh`** (`MOV DX,000B` then the register-read
+dispatcher at `254C`), so it is the EPAT version byte.
+
+**Measured on this bridge: register `0Bh` = `C6h`**
+(`RD1_bridge_regs_00_17.OUT`). `C6 >= C3`, so **the count-low pair is emitted
+here** and our unconditional version is correct for this hardware. The vendor's
+own classification agrees: it computes `AL & F8 == C0` (true for `C6`) and
+stores `AL - C2` = `4` in `[0BE8]`.
+
+### The bridge's own register space, first time dumped
+
+Read `00h`–`17h` by nibble with the destination poisoned `EE` beforehand, so an
+unread register cannot read as zero. `17h` is the last before the ATA task file
+at `18h`.
+
+```
+00: 00 99 99 99 99 99 99 00   08: 85 10 00 C6 00 00 00 00
+10: F0 FF 00 00 00 00 80 02
+```
+
+`0Bh = C6h` is the version byte above. Registers `01h`–`06h` all read `99h`.
+
+### What this changes in our driver
+
+1. `LS_EcpDir`'s intermediate ECR is `34h`; the vendor uses **`14h`**. Measured
+   difference, not yet shown to matter.
+2. The descriptor in `LS_EcpDescriptor` matches rows 4–9 including byte order.
+   Keep it unconditional — this bridge is `C6h`.
+3. Add the `[0C1A]` length cache.
+4. **Confirm our 1284 negotiate actually succeeds.** The negotiate helper the
+   probe scripts inherited stores its status byte and carries on regardless, so
+   a failed negotiate is silent — and a failed negotiate is exactly the
+   condition that makes the descriptor emit nothing.

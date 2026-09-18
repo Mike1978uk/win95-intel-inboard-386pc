@@ -1,0 +1,153 @@
+-a 0100
+3595:0100 mov dx,077A
+3595:0103 in al,dx
+3595:0104 and al,34
+3595:0106 out dx,al
+3595:0107 call 03D0
+3595:010A mov ah,30
+3595:010C call 0300
+3595:010F mov ah,40
+3595:0111 call 0300
+3595:0114 mov ah,50
+3595:0116 call 0300
+3595:0119 mov ah,00
+3595:011B call 0300
+3595:011E mov ah,E0
+3595:0120 call 0310
+3595:0123 mov dx,0378
+3595:0126 xor al,al
+3595:0128 out dx,al
+3595:0129 mov dx,037A
+3595:012C mov al,01
+3595:012E out dx,al
+3595:012F mov al,04
+3595:0131 out dx,al
+3595:0132 mov di,0700
+3595:0135 xor si,si
+3595:0137 jmp 0180
+3595:0139 
+-a 0180
+3595:0180 mov ax,si
+3595:0182 call 03A0
+3595:0185 mov [di],al
+3595:0187 inc di
+3595:0188 inc si
+3595:0189 cmp si,0018
+3595:018C jb 0180
+3595:018E mov ah,40
+3595:0190 call 0300
+3595:0193 mov ah,30
+3595:0195 call 0300
+3595:0198 int 3
+3595:0199 
+-a 0300
+3595:0300 mov dx,037A
+3595:0303 mov al,04
+3595:0305 out dx,al
+3595:0306 jmp 0320
+3595:0308 
+-a 0310
+3595:0310 mov dx,037A
+3595:0313 in al,dx
+3595:0314 and al,0F
+3595:0316 out dx,al
+3595:0317 jmp 0320
+3595:0319 
+-a 0320
+3595:0320 cli
+3595:0321 mov dx,0378
+3595:0324 mov al,22
+3595:0326 out dx,al
+3595:0327 out dx,al
+3595:0328 mov al,AA
+3595:032A out dx,al
+3595:032B out dx,al
+3595:032C mov al,55
+3595:032E out dx,al
+3595:032F out dx,al
+3595:0330 mov al,00
+3595:0332 out dx,al
+3595:0333 out dx,al
+3595:0334 mov al,FF
+3595:0336 out dx,al
+3595:0337 out dx,al
+3595:0338 mov al,87
+3595:033A out dx,al
+3595:033B out dx,al
+3595:033C mov al,78
+3595:033E out dx,al
+3595:033F out dx,al
+3595:0340 mov al,ah
+3595:0342 out dx,al
+3595:0343 out dx,al
+3595:0344 mov dx,037A
+3595:0347 mov al,04
+3595:0349 out dx,al
+3595:034A out dx,al
+3595:034B in al,dx
+3595:034C and al,10
+3595:034E or al,05
+3595:0350 out dx,al
+3595:0351 out dx,al
+3595:0352 and al,FE
+3595:0354 out dx,al
+3595:0355 out dx,al
+3595:0356 mov dx,0378
+3595:0359 mov al,FF
+3595:035B out dx,al
+3595:035C out dx,al
+3595:035D sti
+3595:035E ret
+3595:035F 
+-a 03A0
+3595:03A0 mov dx,0378
+3595:03A3 out dx,al
+3595:03A4 mov dx,037A
+3595:03A7 mov al,01
+3595:03A9 out dx,al
+3595:03AA mov al,03
+3595:03AC out dx,al
+3595:03AD mov dx,0379
+3595:03B0 in al,dx
+3595:03B1 and al,F0
+3595:03B3 shr al,1
+3595:03B5 shr al,1
+3595:03B7 shr al,1
+3595:03B9 shr al,1
+3595:03BB mov bl,al
+3595:03BD mov dx,037A
+3595:03C0 mov al,04
+3595:03C2 out dx,al
+3595:03C3 mov dx,0379
+3595:03C6 in al,dx
+3595:03C7 and al,F0
+3595:03C9 or al,bl
+3595:03CB ret
+3595:03CC 
+-a 03D0
+3595:03D0 mov dx,037A
+3595:03D3 mov al,04
+3595:03D5 out dx,al
+3595:03D6 mov al,0C
+3595:03D8 out dx,al
+3595:03D9 mov al,0E
+3595:03DB out dx,al
+3595:03DC out dx,al
+3595:03DD out dx,al
+3595:03DE mov al,04
+3595:03E0 out dx,al
+3595:03E1 out dx,al
+3595:03E2 ret
+3595:03E3 
+-e 0700 EE EE EE EE EE EE EE EE
+-e 0708 EE EE EE EE EE EE EE EE
+-e 0710 EE EE EE EE EE EE EE EE
+-g=100
+
+AX=30FF  BX=0002  CX=0000  DX=0378  SP=FFEE  BP=0000  SI=0018  DI=0718  
+DS=3595  ES=3595  SS=3595  CS=3595  IP=0198   NV UP EI PL NZ NA PO NC 
+3595:0198 CC            INT	3                                  
+-d 700 717
+3595:0700  00 99 99 99 99 99 99 00-85 10 00 C6 00 00 00 00   ................
+3595:0710  F0 FF 00 00 00 00 80 02                           ........
+-q
