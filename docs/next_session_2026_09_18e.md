@@ -158,3 +158,36 @@ fresh and small rather than patching `ECPBULK`'s 80-block descendant.
   real measurement a harness failure on the strength of it.
 - The dispatch tables mix two entry layouts: start/length for most selectors,
   **start/end** for the ECP ones. Read the pair before trusting either.
+
+---
+
+## ⛔ RESULT: the ECP build does NOT enumerate — owner-tested 2026-09-18
+
+Booted `52b7bf23` / code `d22aee88` / commit `1a2714d` on the real 5160.
+**No drive letter.** The CD sits at `D:`; the LS-120 never appears, so the
+planned big-file copy could not be attempted at all.
+
+The SPP build `d8154f1d` mounts the same drive at `J:` on the same machine.
+Same driver, one flag. So **all four ECP fixes together still leave the ECP
+path unable to complete enumeration**, and the regression is in ECP, not in
+the surrounding miniport.
+
+This does not retract any of the four — each is a measured divergence from the
+vendor — but it does say plainly that they are **not sufficient**, and that
+something in the ECP path fails before or during INQUIRY.
+
+### Where to pick this up
+
+1. ⭐ **Ship SPP.** `C:\LS120MP\LS120MP.SPP` (`d8154f1d`) is the build that
+   works. Copy it over `LS120MP.MPD` in **both** `C:\LS120MP\` and
+   `C:\WINDOWS\SYSTEM\IOSUBSYS\`. ECP is an optimisation; a mounting drive is
+   the deliverable.
+2. The earlier bed result is the sharpest clue available and matches this:
+   **ECP failed INQUIRY with `SrbStatus 04` AFTER all 36 bytes had crossed the
+   wire** — the failure is in the post-transfer status read, i.e. the 1284
+   terminate, not the data phase.
+3. **The sense fix is independent of all of this** and is what unblocks writes
+   on the SPP path: `ScsiStatus = 02h`, copy sense into `SenseInfoBuffer`
+   bounded by `SenseInfoBufferLength`, OR in `SRB_STATUS_AUTOSENSE_VALID`.
+   Do that next - it is the one change with a known mechanism and a known
+   payoff.
