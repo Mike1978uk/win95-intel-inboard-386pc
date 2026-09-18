@@ -7184,6 +7184,24 @@ had corrected the same point **in every session** before it was finally checked.
   not that the point needs explaining again. Reading `ECPNOW.SCR` took two
   minutes and overturned a claim that had survived a week.
 
+### The handover at session start is a statement of CURRENT state
+
+The worst part of this one: the session's own handover opened with the commit
+subjects
+
+    Gate every ECP read on the ECR, as the vendor does
+    Terminate the 1284 phase, and ECP works
+
+and the same line was in `git log` in the session context. A stale row in a
+document was still allowed to override it, for a whole session, after repeated
+correction.
+
+**A handover, and the newest commit subjects, are a primary statement of where
+the work actually got to.** When a document contradicts them, the document is
+the thing that needs its provenance checked - not the handover. Technique 113
+says establish current state before proposing anything; this is the failure mode
+where current state was established, handed over, and then argued with.
+
 ### And do not let one component's behaviour become the bus's
 
 The vendor's `ECP Read` at `3CCEh` is a REGISTER path that returns one byte. That
