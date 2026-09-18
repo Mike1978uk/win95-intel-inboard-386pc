@@ -1,0 +1,260 @@
+a E000
+mov dx,077A
+in al,dx
+and al,34
+out dx,al
+call E1D0
+mov ah,30
+call E100
+mov ah,40
+call E100
+mov ah,50
+call E100
+mov ah,00
+call E100
+mov ah,E0
+call E110
+mov dx,0378
+xor al,al
+out dx,al
+mov dx,037A
+mov al,01
+out dx,al
+mov al,04
+out dx,al
+call E200
+int 3
+
+a E100
+mov dx,037A
+mov al,04
+out dx,al
+jmp E120
+
+a E110
+mov dx,037A
+in al,dx
+and al,0F
+out dx,al
+jmp E120
+
+a E120
+cli
+mov dx,0378
+mov al,22
+out dx,al
+out dx,al
+mov al,AA
+out dx,al
+out dx,al
+mov al,55
+out dx,al
+out dx,al
+mov al,00
+out dx,al
+out dx,al
+mov al,FF
+out dx,al
+out dx,al
+mov al,87
+out dx,al
+out dx,al
+mov al,78
+out dx,al
+out dx,al
+mov al,ah
+out dx,al
+out dx,al
+mov dx,037A
+mov al,04
+out dx,al
+out dx,al
+in al,dx
+and al,10
+or al,05
+out dx,al
+out dx,al
+and al,FE
+out dx,al
+out dx,al
+mov dx,0378
+mov al,FF
+out dx,al
+out dx,al
+sti
+ret
+
+a E1D0
+mov dx,037A
+mov al,04
+out dx,al
+mov al,0C
+out dx,al
+mov al,0E
+out dx,al
+out dx,al
+out dx,al
+mov al,04
+out dx,al
+out dx,al
+ret
+
+a E200
+mov dx,037A
+mov al,0C
+out dx,al
+mov al,04
+out dx,al
+mov dx,0378
+xor al,al
+out dx,al
+out dx,al
+mov dx,037A
+mov al,01
+out dx,al
+out dx,al
+mov al,04
+out dx,al
+mov al,0C
+out dx,al
+mov dx,0378
+mov al,10
+out dx,al
+mov dx,037A
+mov al,06
+out dx,al
+out dx,al
+out dx,al
+mov dx,0379
+mov cx,0100
+jmp E240
+
+a E240
+in al,dx
+test al,40
+jz E260
+dec cx
+jnz E240
+jmp E260
+
+a E260
+mov [E2F0],al
+mov dx,037A
+mov al,07
+out dx,al
+out dx,al
+mov al,04
+out dx,al
+out dx,al
+ret
+
+a E300
+mov dx,0379
+in al,dx
+mov [E2F1],al
+mov dx,077A
+mov al,34
+out dx,al
+mov dx,037A
+mov al,22
+out dx,al
+mov dx,077A
+mov al,74
+out dx,al
+mov al,34
+out dx,al
+mov dx,0379
+in al,dx
+mov [E2F2],al
+mov dx,037A
+mov al,20
+out dx,al
+mov dx,0379
+in al,dx
+mov [E2F9],al
+mov dx,037A
+mov al,22
+out dx,al
+mov dx,0379
+in al,dx
+mov [E2FA],al
+mov dx,037A
+mov al,20
+out dx,al
+mov dx,0379
+in al,dx
+mov [E2FB],al
+mov dx,037A
+mov al,22
+out dx,al
+mov dx,0379
+in al,dx
+mov [E2FC],al
+mov dx,037A
+mov al,04
+out dx,al
+mov dx,077A
+in al,dx
+and al,1F
+out dx,al
+mov dx,0379
+mov cx,0400
+call E540
+mov [E2F5],al
+mov [E2F6],cx
+call E580
+mov dx,0379
+in al,dx
+mov [E2F8],al
+int 3
+
+a E500
+in al,dx
+test al,20
+jz E508
+dec cx
+jnz E500
+ret
+
+a E540
+in al,dx
+test al,20
+jnz E548
+dec cx
+jnz E540
+ret
+
+a E580
+mov dx,037A
+mov al,0C
+out dx,al
+mov dx,0379
+mov cx,FFFF
+in al,dx
+test al,40
+jz E594
+dec cx
+jnz E58C
+mov dx,037A
+mov al,0E
+out dx,al
+mov dx,0379
+mov cx,FFFF
+in al,dx
+test al,40
+jnz E5A8
+dec cx
+jnz E5A0
+mov dx,037A
+mov al,0C
+out dx,al
+mov al,04
+out dx,al
+ret
+
+f E2F0 E2FF EE
+g=E000
+d E2F0 E2F0
+g=E300
+d E2F0 E2FF
+q

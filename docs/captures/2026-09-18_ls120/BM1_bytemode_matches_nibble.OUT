@@ -1,0 +1,183 @@
+-a E000
+3595:E000 mov dx,077A
+3595:E003 in al,dx
+3595:E004 and al,34
+3595:E006 out dx,al
+3595:E007 call E1D0
+3595:E00A mov ah,30
+3595:E00C call E100
+3595:E00F mov ah,40
+3595:E011 call E100
+3595:E014 mov ah,50
+3595:E016 call E100
+3595:E019 mov ah,00
+3595:E01B call E100
+3595:E01E mov ah,E0
+3595:E020 call E110
+3595:E023 mov dx,0378
+3595:E026 xor al,al
+3595:E028 out dx,al
+3595:E029 mov dx,037A
+3595:E02C mov al,01
+3595:E02E out dx,al
+3595:E02F mov al,04
+3595:E031 out dx,al
+3595:E032 int 3
+3595:E033 
+-a E100
+3595:E100 mov dx,037A
+3595:E103 mov al,04
+3595:E105 out dx,al
+3595:E106 jmp E120
+3595:E108 
+-a E110
+3595:E110 mov dx,037A
+3595:E113 in al,dx
+3595:E114 and al,0F
+3595:E116 out dx,al
+3595:E117 jmp E120
+3595:E119 
+-a E120
+3595:E120 cli
+3595:E121 mov dx,0378
+3595:E124 mov al,22
+3595:E126 out dx,al
+3595:E127 out dx,al
+3595:E128 mov al,AA
+3595:E12A out dx,al
+3595:E12B out dx,al
+3595:E12C mov al,55
+3595:E12E out dx,al
+3595:E12F out dx,al
+3595:E130 mov al,00
+3595:E132 out dx,al
+3595:E133 out dx,al
+3595:E134 mov al,FF
+3595:E136 out dx,al
+3595:E137 out dx,al
+3595:E138 mov al,87
+3595:E13A out dx,al
+3595:E13B out dx,al
+3595:E13C mov al,78
+3595:E13E out dx,al
+3595:E13F out dx,al
+3595:E140 mov al,ah
+3595:E142 out dx,al
+3595:E143 out dx,al
+3595:E144 mov dx,037A
+3595:E147 mov al,04
+3595:E149 out dx,al
+3595:E14A out dx,al
+3595:E14B in al,dx
+3595:E14C and al,10
+3595:E14E or al,05
+3595:E150 out dx,al
+3595:E151 out dx,al
+3595:E152 and al,FE
+3595:E154 out dx,al
+3595:E155 out dx,al
+3595:E156 mov dx,0378
+3595:E159 mov al,FF
+3595:E15B out dx,al
+3595:E15C out dx,al
+3595:E15D sti
+3595:E15E ret
+3595:E15F 
+-a E1D0
+3595:E1D0 mov dx,037A
+3595:E1D3 mov al,04
+3595:E1D5 out dx,al
+3595:E1D6 mov al,0C
+3595:E1D8 out dx,al
+3595:E1D9 mov al,0E
+3595:E1DB out dx,al
+3595:E1DC out dx,al
+3595:E1DD out dx,al
+3595:E1DE mov al,04
+3595:E1E0 out dx,al
+3595:E1E1 out dx,al
+3595:E1E2 ret
+3595:E1E3 
+-a E600
+3595:E600 mov dx,0378
+3595:E603 mov al,1F
+3595:E605 out dx,al
+3595:E606 mov dx,037A
+3595:E609 mov al,01
+3595:E60B out dx,al
+3595:E60C mov al,03
+3595:E60E out dx,al
+3595:E60F mov dx,0379
+3595:E612 in al,dx
+3595:E613 mov [E2E0],al
+3595:E616 mov dx,037A
+3595:E619 mov al,04
+3595:E61B out dx,al
+3595:E61C mov dx,0379
+3595:E61F in al,dx
+3595:E620 mov [E2E1],al
+3595:E623 mov dx,077A
+3595:E626 mov al,34
+3595:E628 out dx,al
+3595:E629 mov dx,0378
+3595:E62C mov al,3F
+3595:E62E out dx,al
+3595:E62F mov dx,037A
+3595:E632 mov al,01
+3595:E634 out dx,al
+3595:E635 mov al,25
+3595:E637 out dx,al
+3595:E638 mov dx,0378
+3595:E63B in al,dx
+3595:E63C mov [E2E2],al
+3595:E63F mov dx,037A
+3595:E642 mov al,04
+3595:E644 out dx,al
+3595:E645 mov dx,0378
+3595:E648 mov al,3C
+3595:E64A out dx,al
+3595:E64B mov dx,037A
+3595:E64E mov al,01
+3595:E650 out dx,al
+3595:E651 mov al,25
+3595:E653 out dx,al
+3595:E654 mov dx,0378
+3595:E657 in al,dx
+3595:E658 mov [E2E3],al
+3595:E65B mov dx,037A
+3595:E65E mov al,04
+3595:E660 out dx,al
+3595:E661 mov dx,0378
+3595:E664 mov al,3D
+3595:E666 out dx,al
+3595:E667 mov dx,037A
+3595:E66A mov al,01
+3595:E66C out dx,al
+3595:E66D mov al,25
+3595:E66F out dx,al
+3595:E670 mov dx,0378
+3595:E673 in al,dx
+3595:E674 mov [E2E4],al
+3595:E677 mov dx,037A
+3595:E67A mov al,04
+3595:E67C out dx,al
+3595:E67D mov dx,077A
+3595:E680 in al,dx
+3595:E681 and al,1F
+3595:E683 out dx,al
+3595:E684 int 3
+3595:E685 
+-f E2E0 E2EF EE
+-g=E000
+
+AX=E004  BX=0000  CX=0000  DX=037A  SP=FFEE  BP=0000  SI=0000  DI=0000  
+DS=3595  ES=3595  SS=3595  CS=3595  IP=E032   NV UP EI PL ZR NA PE NC 
+3595:E032 CC            INT	3                                  
+-g=E600
+
+AX=E015  BX=0000  CX=0000  DX=077A  SP=FFEE  BP=0000  SI=0000  DI=0000  
+DS=3595  ES=3595  SS=3595  CS=3595  IP=E684   NV UP EI PL NZ NA PO NC 
+3595:E684 CC            INT	3                                  
+-d E2E0 E2EF
+3595:E2E0  18 58 51 14 EB EE EE EE-EE EE EE EE EE EE EE EE   .XQ.............
+-q
