@@ -297,6 +297,35 @@ in the emulator" is a claim about the emulator.
 Port (LPT1)* -> disable in this hardware profile -> reboot. Costs the printer for
 one boot.
 
+## 7. STILL OPEN: two builds have mounted the drive, for different reasons
+
+⛔ **Today was NOT the first time.** `a925038` - fully synchronous, no timer,
+the shape this session replaced - was **photographed** on 2026-09-11 12:10
+mapping the drive at `L:`, 119.0 Mb, Windows creating a file system.
+
+So the record is:
+
+| build | shape | LPT1 node | result on the 5160 |
+|---|---|---|---|
+| `a925038` / `ff80f056` | synchronous, inline waits | **unknown** | mounted at `L:` (photographed) |
+| everything after it | synchronous, inline waits | enabled | nothing |
+| `5084a71c` (today, SPP) | non-blocking init + timer | enabled | nothing |
+| `5084a71c` (today, SPP) | same binary | **disabled** | **mounted at `J:`, reads** |
+
+**The unanswered question is whether the LPT1 node existed on 2026-09-11.** The
+owner thinks he set the ECP port up before that Friday but is not certain. It
+decides which of two stories is true:
+
+- if LPT1 was **enabled** on 09-11, then LPT1 contention is not sufficient to
+  block the drive, something else changed between `a925038` and now, and
+  disabling LPT1 today is a workaround for a different fault;
+- if LPT1 was **added after** 09-11, the whole September regression has one
+  cause and the bisect that has been hanging over this work is unnecessary.
+
+Cheap ways to settle it, in order: the install date of the LPT1 node's INF, the
+`SETUPLOG.TXT` / `DETLOG.TXT` timestamps on the card, or a `SYSTEM.DA0`
+comparison against an image snapshot taken before 09-11.
+
 ## Next
 
 1. **Bisect against the build that enumerated.** `762fe8ac` (code `7d389ebc`,
