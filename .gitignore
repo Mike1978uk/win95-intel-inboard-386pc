@@ -5,6 +5,10 @@ build/
 !custom_vkd/build/*.VXD
 *.o
 *.exe
+# ...but CTCHIP34 is a deliverable, not a build artefact. It is the tool that
+# sets this machine's CPU registers (issue #9) and CPUSET.BAT is useless
+# without it; `*.exe` above had silently kept it out of the repo.
+!dist/post-install-fixes/ctchip34/CTCHIP34.EXE
 test-images/*.img
 test-images/*.bin
 !test-images/README.md
