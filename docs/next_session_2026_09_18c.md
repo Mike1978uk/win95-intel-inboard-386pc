@@ -76,40 +76,48 @@ reproduce a bring-up timeout because the emulated drive was ready instantly.
 
 ## 3. The bed's SCSI chain now matches the real machine
 
-Read out of the card's own `SYSTEM.DAT` (`SCSITargetID` + `ProductId` per
-node), so this is measured, not guessed:
+Read out of the card's own `SYSTEM.DAT` - `SCSITargetID` + **`SCSILUN`** +
+`CurrentDriveLetterAssignment` per node, walking forward from each node rather
+than taking the nearest preceding string, which bleeds across records
+(technique 65).
 
-| id | device | type | modelled as |
-|---|---|---|---|
-| 0:00 | NECITSU M2512A | magneto-optical | `mo_01` |
-| 0:01 | YAMAHA CRW4416S | CD-RW | `cdrom_01` |
-| 0:02 | NAKAMICH MJ-5.16S | **5-disc changer** | `cdrom_02`, plus `cdrom_03`/`cdrom_04` |
-| 0:03 | IOMEGA ZIP 100 | removable | `rdisk_02` |
-| 0:04 | HP C1537A | tape | not modelled — no drive letter |
-| 0:06 | UMAX Astra 610S | scanner | not modelled — no drive letter |
+| id | lun | device | letter | modelled as |
+|---|---|---|---|---|
+| 0:00 | 0 | NECITSU M2512A, magneto-optical | `D` | `mo_01` |
+| 0:02 | **0-4** | NAKAMICH MJ-5.16S, **5-disc changer** | `E F G H I` | `cdrom_01..05` |
+| LPT | - | MATSHITA LS-120 COSM 04 | **`J`** | `rdisk_01` |
+| 0:04 | 0 | HP C1537A tape | - | not modelled, no letter |
+| 0:06 | 0 | UMAX Astra 610S scanner | - | not modelled, no letter |
 
-⚠ **The changer is one SCSI id with five LUNs.** 86Box addresses `bus:id` with
-no LUN, so the extra slots are stood up as separate ids at `0:04`/`0:05` —
-wrong topology, right drive-letter count. The count is the point: it is what
-moves the LS-120 from `D:` in the bed to `J:` the way the real machine has it.
+Six removables before `J`, and they account for the live map exactly:
+`C` XT-CF, `D` MO, `E-I` changer, `J` LS-120.
 
-The machine's own remembered letters, same hive scan: `C` TRANSCEND (XT-CF),
-`D`/`I` Nakamichi, `E`/`F` NEC MO and Yamaha, `G`/`H` Zip, **`J` the LS-120**,
-`L` unidentified.
+⚠ **The changer is one id with five LUNs.** 86Box addresses `bus:id` with no
+LUN, so the five slots are stood up as five ids (`0:01`-`0:05`) - wrong
+topology, right drive-letter count. The count is the point: it is what puts
+the LS-120 at `J:` in the bed as it is on the bench.
+
+⛔ **The YAMAHA CRW4416S and IOMEGA ZIP 100 are NOT modelled.** They have nodes
+in the hive, but their remembered letters (`F` and `D`) **collide with live
+devices**, which is what a node left behind by an earlier configuration looks
+like. Modelling them would push the LS-120 two letters past `J`. An earlier
+draft of this bed included the Zip on that evidence and it was wrong. **If the
+owner confirms either drive is physically on the chain, the letter arithmetic
+changes and so does this table** - and note there are then 8 devices for 7
+usable SCSI ids, so one changer slot would have to go.
 
 Bed config is `vm_ls120win/86box.cfg.master` (gitignored, which is why the
 settings are written out here):
 
 ```
-cdrom_01..04  scsi 0:01, 0:02, 0:04, 0:05
-mo_01         scsi 0:00
-rdisk_02      scsi 0:03
-rdisk_01      lpt  (the LS-120 itself)
+cdrom_01..05  scsi 0:01 0:02 0:03 0:04 0:05   (the changer's five slots)
+mo_01         scsi 0:00                       (NECITSU M2512A)
+rdisk_01      lpt                             (the LS-120 itself)
 [Shuttle EPAT parallel-port ATAPI bridge]  busy_ms = 750   reset_ms = 2500
 ```
 
-All keys confirmed read — they survive 86Box's own rewrite of `86box.cfg`
-(technique 69).
+All keys confirmed read - they survive 86Box's rewrite of `86box.cfg`
+(technique 69), verified by counting them back out of the rewritten file.
 
 ## Still not faithful, and deliberately left alone
 
