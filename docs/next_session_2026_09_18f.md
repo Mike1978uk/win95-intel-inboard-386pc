@@ -386,3 +386,42 @@ card. `LS120MP.MPD` is still `d8154f1d` in both locations.
 
 **SPP-only on the Intek card** — unaffected by any of this, and still the
 candidate the elimination points at. The card is currently ECP/EPP.
+
+---
+
+## ⭐ FIRST THING TOMORROW — power the drive off overnight, change NOTHING
+
+Owner's hypothesis, 2026-09-19, and it is better than the "it must be the
+Intek card" conclusion recorded above. **That conclusion was over-narrowed.**
+
+The elimination establishes the fault is HARDWARE-SIDE - something the bed
+cannot model. The Intek card is one candidate in that bucket. **Drive and
+bridge state that survives a host reboot is another, and it is cheaper to
+test:**
+
+- the drive powers up **held in ATA reset** ([[ls120-cold-init-dependency-2026-09-10]])
+- the enclosure has **no off button** - it stays powered unless switched off
+  at the wall, so a host reboot does not reset it
+- **every DOS probe this session ends with the bridge CONNECTED.** `CPP(0xE0)`
+  connects it and nothing disconnects it
+- the bed's modelled bridge **always starts clean**, which is exactly why this
+  class cannot reproduce there
+- a brief switch-off may not discharge enough to clear latched state; an
+  overnight one will
+
+### The test
+
+**Power the drive off at the wall overnight. Change NOTHING else. Boot.**
+
+Single variable, no edits, no risk. `CONFIG.SYS` is already restored and the
+driver is `d8154f1d` in both locations, so the machine is in its last-known
+configuration.
+
+| outcome | meaning |
+|---|---|
+| `J:` returns | drive/bridge state. The Intek card is innocent and so is every software change from 2026-09-18 |
+| `J:` does not | state is excluded, and the card reconfiguration (SPP-only) is next |
+
+⛔ Do this BEFORE touching the card's mode. Reconfiguring hardware first would
+make the result uninterpretable - the same mistake that cost this session its
+control once already.
