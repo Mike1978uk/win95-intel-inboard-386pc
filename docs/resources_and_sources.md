@@ -90,6 +90,31 @@ the directory's own `README.md`.
   — Stynx and Harrison Frazier's daughterboard. Valid board sizes are **1024 / 3072 / 5120 KB only**.
 - **[ronnyroy111/inboard386](https://github.com/ronnyroy111/inboard386)** — RonnyRoy reproducing the
   Inboard as cloned hardware.
+- **IEEE 1284 and ECP**, for the LS-120's parallel bridge (#22). Found 2026-09-18 while chasing
+  why an ECP build fails to enumerate where SPP mounts:
+  - **[National Instruments AN062, *IEEE 1284 — Updating the PC Parallel Port*, Heidi Frock,
+    October 1995](https://www.ardent-tool.com/comms/an062_Updating_the_parallel_port.pdf)** — the
+    only source found that says how ECP mode *ends*. Two lines carry it: `AckReverse*` is driven
+    "to follow the level of the `ReverseRequest*` line", and `SelectIn*` — "1284 Active" in ECP
+    naming — is driven "high while in ECP mode, and low to terminate ECP mode". So the host must
+    wait for the peripheral to follow `ReverseRequest*` back high before dropping 1284 Active.
+    That is the handshake `LS_EcpLeave` was missing. Also fixes `AckReverse*` as SPP `PError`,
+    status bit 5, and confirms extensibility byte `10h` is ECP-without-RLE, which is what our
+    negotiate already sends.
+    ❌ **No numbered 1284 events** — "Event 47/49" is Linux `parport` naming and stays out of our
+    source. ❌ Its ECP register table and extensibility-byte table are **scrambled by PDF column
+    extraction**; do not cite either from this document. It is a text PDF, not a scan — read it
+    with `pdftotext -layout`, which is in the MSYS2 tree here.
+  - **[Beyond Logic, *Interfacing the Extended Capabilities Parallel Port*](http://wearcam.org/seatsale/programs/www.beyondlogic.org/ecp/ecp.htm)**
+    (WearCam mirror) — ECR modes and bits: 011 ECP FIFO, 001 Byte, bit 0 FIFO empty, bit 1 FIFO
+    full, bit 2 service. Confirms our `ECR_MODE_ECP` = `74h` and `ECR_MODE_PARK` = `34h`.
+    ❌ "Does not explicitly specify how to terminate ECP transfers or return to forward phase" —
+    the exact gap AN062 fills. ⚠ It describes bit 2 as "an interrupt request has been initiated",
+    weaker than our source comment's "a byte has arrived"; the vendor binary waits on bit 2
+    (`SD120PPD.SYS` `48B2h`) and outranks it, so we did not change on this.
+  - **[IEEE 1284 ECP Mode, hallikainen.org](https://pic.hallikainen.org/techref/io/parallel/1284/ecpmode.htm)**
+    — forward and reverse transfer handshakes signal by signal. ❌ Same gap: "omits return
+    procedures". Useful only as corroboration of the signal naming.
 
 ## 4. Video — ATI Mach8 / 8514-A
 
