@@ -278,3 +278,30 @@ The port is **currently removed and the drive still does not enumerate**. So
 removing it is NOT SUFFICIENT, whatever else it is. The LPT1 question and
 tonight's failure are therefore probably **separate problems**, and collapsing
 them - as was done here - loses both.
+
+---
+
+## Hardware fact, owner-stated 2026-09-19: the Intek card is set to ECP/EPP
+
+Not recorded anywhere before. It matters twice:
+
+1. **EPP is genuinely available**, so the vendor driver's auto-detect is a fair
+   test of whether EPP works on this bus - not a test of whether the port
+   offers it.
+2. **It is very likely why the `ECP Printer Port (LPT1)` node exists at all.**
+   In ECP/EPP the port advertises 1284 capability, so Windows enumerates it,
+   binds `lpt.vxd`/`lptenum.vxd`, and LPTENUM performs 1284 negotiation on
+   `0x378` - against a peripheral that must be 1284-terminated or every nibble
+   read returns `F5`. That is the mechanism behind the contention.
+
+### Two independent card-config experiments, both cheap
+
+| mode | question |
+|---|---|
+| **ECP/EPP** (current) + vendor auto-detect | does EPP work on this bus? `CONFIG.SYS` staged 2026-09-19 with `/de /db /sf` removed so the driver prints its Read/Write Mode |
+| **SPP only** | does the `ECP Printer Port` node stop being enumerated, removing the conflict by construction? |
+
+SPP-only costs nothing measured - **no ECP build has ever moved a byte** - and
+byte mode needs the port only BIDIRECTIONAL (ECR mode 001), not ECP. ⚠ Open
+question: if SPP-only removes the ECR entirely, byte mode goes with it and
+register reads fall back to two status accesses each.
