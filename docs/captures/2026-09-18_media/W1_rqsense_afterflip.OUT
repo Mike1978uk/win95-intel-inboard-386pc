@@ -1,0 +1,516 @@
+-a 0100
+3595:0100 mov dx,077A
+3595:0103 in al,dx
+3595:0104 and al,34
+3595:0106 out dx,al
+3595:0107 call 03D0
+3595:010A mov ah,30
+3595:010C call 0300
+3595:010F mov ah,40
+3595:0111 call 0300
+3595:0114 mov ah,50
+3595:0116 call 0300
+3595:0119 mov ah,00
+3595:011B call 0300
+3595:011E mov ah,E0
+3595:0120 call 0310
+3595:0123 mov dx,0378
+3595:0126 xor al,al
+3595:0128 out dx,al
+3595:0129 mov dx,037A
+3595:012C mov al,01
+3595:012E out dx,al
+3595:012F mov al,04
+3595:0131 out dx,al
+3595:0132 mov ax,1008
+3595:0135 call 03F0
+3595:0138 mov ax,140C
+3595:013B call 03F0
+3595:013E mov ax,380A
+3595:0141 call 03F0
+3595:0144 mov ax,1012
+3595:0147 call 03F0
+3595:014A call 0420
+3595:014D mov al,1F
+3595:014F call 03A0
+3595:0152 mov [0602],al
+3595:0155 mov ax,A01E
+3595:0158 call 03F0
+3595:015B mov ax,121C
+3595:015E call 03F0
+3595:0161 mov ax,001D
+3595:0164 call 03F0
+3595:0167 mov ax,0019
+3595:016A call 03F0
+3595:016D mov ax,A01F
+3595:0170 call 03F0
+3595:0173 call 0460
+3595:0176 mov al,1F
+3595:0178 call 03A0
+3595:017B mov [0603],al
+3595:017E call 0900
+3595:0181 call 0460
+3595:0184 mov al,1F
+3595:0186 call 03A0
+3595:0189 mov [0604],al
+3595:018C mov al,1A
+3595:018E call 03A0
+3595:0191 mov [0605],al
+3595:0194 mov al,1C
+3595:0196 call 03A0
+3595:0199 mov [0606],al
+3595:019C mov al,1D
+3595:019E call 03A0
+3595:01A1 mov [0607],al
+3595:01A4 call 0500
+3595:01A7 mov al,1F
+3595:01A9 call 03A0
+3595:01AC mov [0600],al
+3595:01AF mov al,19
+3595:01B1 call 03A0
+3595:01B4 mov [0601],al
+3595:01B7 mov ah,40
+3595:01B9 call 0300
+3595:01BC mov ah,30
+3595:01BE call 0300
+3595:01C1 int 3
+3595:01C2 
+-a 0300
+3595:0300 mov dx,037A
+3595:0303 mov al,04
+3595:0305 out dx,al
+3595:0306 jmp 0320
+3595:0308 
+-a 0310
+3595:0310 mov dx,037A
+3595:0313 in al,dx
+3595:0314 and al,0F
+3595:0316 out dx,al
+3595:0317 jmp 0320
+3595:0319 
+-a 0320
+3595:0320 cli
+3595:0321 mov dx,0378
+3595:0324 mov al,22
+3595:0326 out dx,al
+3595:0327 out dx,al
+3595:0328 mov al,AA
+3595:032A out dx,al
+3595:032B out dx,al
+3595:032C mov al,55
+3595:032E out dx,al
+3595:032F out dx,al
+3595:0330 mov al,00
+3595:0332 out dx,al
+3595:0333 out dx,al
+3595:0334 mov al,FF
+3595:0336 out dx,al
+3595:0337 out dx,al
+3595:0338 mov al,87
+3595:033A out dx,al
+3595:033B out dx,al
+3595:033C mov al,78
+3595:033E out dx,al
+3595:033F out dx,al
+3595:0340 mov al,ah
+3595:0342 out dx,al
+3595:0343 out dx,al
+3595:0344 mov dx,037A
+3595:0347 mov al,04
+3595:0349 out dx,al
+3595:034A out dx,al
+3595:034B in al,dx
+3595:034C and al,10
+3595:034E or al,05
+3595:0350 out dx,al
+3595:0351 out dx,al
+3595:0352 and al,FE
+3595:0354 out dx,al
+3595:0355 out dx,al
+3595:0356 mov dx,0378
+3595:0359 mov al,FF
+3595:035B out dx,al
+3595:035C out dx,al
+3595:035D sti
+3595:035E ret
+3595:035F 
+-a 03A0
+3595:03A0 mov dx,0378
+3595:03A3 out dx,al
+3595:03A4 mov dx,037A
+3595:03A7 mov al,01
+3595:03A9 out dx,al
+3595:03AA mov al,03
+3595:03AC out dx,al
+3595:03AD mov dx,0379
+3595:03B0 in al,dx
+3595:03B1 and al,F0
+3595:03B3 shr al,1
+3595:03B5 shr al,1
+3595:03B7 shr al,1
+3595:03B9 shr al,1
+3595:03BB mov bl,al
+3595:03BD mov dx,037A
+3595:03C0 mov al,04
+3595:03C2 out dx,al
+3595:03C3 mov dx,0379
+3595:03C6 in al,dx
+3595:03C7 and al,F0
+3595:03C9 or al,bl
+3595:03CB ret
+3595:03CC 
+-a 03D0
+3595:03D0 mov dx,037A
+3595:03D3 mov al,04
+3595:03D5 out dx,al
+3595:03D6 mov al,0C
+3595:03D8 out dx,al
+3595:03D9 mov al,0E
+3595:03DB out dx,al
+3595:03DC out dx,al
+3595:03DD out dx,al
+3595:03DE mov al,04
+3595:03E0 out dx,al
+3595:03E1 out dx,al
+3595:03E2 ret
+3595:03E3 
+-a 03F0
+3595:03F0 mov bl,ah
+3595:03F2 or al,60
+3595:03F4 mov dx,0378
+3595:03F7 out dx,al
+3595:03F8 mov dx,037A
+3595:03FB mov al,01
+3595:03FD out dx,al
+3595:03FE mov dx,0378
+3595:0401 mov al,bl
+3595:0403 out dx,al
+3595:0404 mov dx,037A
+3595:0407 mov al,04
+3595:0409 out dx,al
+3595:040A ret
+3595:040B 
+-a 0420
+3595:0420 push cx
+3595:0421 mov cx,4000
+3595:0424 jmp 0430
+3595:0426 
+-a 0430
+3595:0430 mov al,1F
+3595:0432 call 03A0
+3595:0435 test al,80
+3595:0437 jz 0450
+3595:0439 dec cx
+3595:043A jnz 0430
+3595:043C jmp 0450
+3595:043E 
+-a 0450
+3595:0450 pop cx
+3595:0451 ret
+3595:0452 
+-a 0460
+3595:0460 push cx
+3595:0461 mov cx,4000
+3595:0464 jmp 0470
+3595:0466 
+-a 0470
+3595:0470 mov al,1F
+3595:0472 call 03A0
+3595:0475 and al,88
+3595:0477 cmp al,08
+3595:0479 jz 0490
+3595:047B dec cx
+3595:047C jnz 0470
+3595:047E jmp 0490
+3595:0480 
+-a 0490
+3595:0490 pop cx
+3595:0491 ret
+3595:0492 
+-e 0800 03 00 00 00 12 00 00 00 00 00 00 00
+-
+-a 0900
+3595:0900 cli
+3595:0901 mov si,0800
+3595:0904 mov cx,000C
+3595:0907 mov dx,0378
+3595:090A mov al,67
+3595:090C out dx,al
+3595:090D mov dx,037A
+3595:0910 mov al,01
+3595:0912 out dx,al
+3595:0913 mov al,05
+3595:0915 out dx,al
+3595:0916 xor bh,bh
+3595:0918 jmp 0930
+3595:091A 
+-a 0930
+3595:0930 mov al,[si]
+3595:0932 inc si
+3595:0933 mov dx,0378
+3595:0936 out dx,al
+3595:0937 mov dx,037A
+3595:093A mov al,04
+3595:093C add al,bh
+3595:093E out dx,al
+3595:093F xor bh,01
+3595:0942 dec cx
+3595:0943 jnz 0930
+3595:0945 jmp 0950
+3595:0947 
+-a 0950
+3595:0950 mov dx,037A
+3595:0953 mov al,07
+3595:0955 out dx,al
+3595:0956 mov al,04
+3595:0958 out dx,al
+3595:0959 sti
+3595:095A ret
+3595:095B 
+-a 0500
+3595:0500 cli
+3595:0501 mov si,0700
+3595:0504 mov cx,0012
+3595:0507 mov dx,0378
+3595:050A mov al,07
+3595:050C out dx,al
+3595:050D mov dx,037A
+3595:0510 mov al,01
+3595:0512 out dx,al
+3595:0513 mov al,03
+3595:0515 out dx,al
+3595:0516 mov dx,0378
+3595:0519 mov al,FF
+3595:051B out dx,al
+3595:051C xor bh,bh
+3595:051E jmp 0530
+3595:0520 
+-a 0530
+3595:0530 cmp cx,0001
+3595:0533 jnz 0550
+3595:0535 jmp 05C0
+3595:0538 
+-a 0550
+3595:0550 mov dx,037A
+3595:0553 mov al,06
+3595:0555 add al,bh
+3595:0557 out dx,al
+3595:0558 mov dx,0379
+3595:055B in al,dx
+3595:055C mov ah,al
+3595:055E test al,08
+3595:0560 jnz 0580
+3595:0562 mov dx,037A
+3595:0565 mov al,04
+3595:0567 add al,bh
+3595:0569 out dx,al
+3595:056A mov dx,0379
+3595:056D in al,dx
+3595:056E jmp 0580
+3595:0570 
+-a 0580
+3595:0580 and al,F0
+3595:0582 shr ah,1
+3595:0584 shr ah,1
+3595:0586 shr ah,1
+3595:0588 shr ah,1
+3595:058A or al,ah
+3595:058C mov [si],al
+3595:058E inc si
+3595:058F xor bh,01
+3595:0592 dec cx
+3595:0593 jnz 0530
+3595:0595 jmp 05A0
+3595:0597 
+-a 05A0
+3595:05A0 mov dx,0378
+3595:05A3 xor al,al
+3595:05A5 out dx,al
+3595:05A6 mov dx,037A
+3595:05A9 mov al,04
+3595:05AB out dx,al
+3595:05AC sti
+3595:05AD ret
+3595:05AE 
+-a 05C0
+3595:05C0 mov dx,0378
+3595:05C3 mov al,FD
+3595:05C5 out dx,al
+3595:05C6 jmp 0550
+3595:05C8 
+-u 500 5CF
+3595:0500 FA            CLI	                                   
+3595:0501 BE0007        MOV	SI,0700                            
+3595:0504 B91200        MOV	CX,0012                            
+3595:0507 BA7803        MOV	DX,0378                            
+3595:050A B007          MOV	AL,07                              
+3595:050C EE            OUT	DX,AL                              
+3595:050D BA7A03        MOV	DX,037A                            
+3595:0510 B001          MOV	AL,01                              
+3595:0512 EE            OUT	DX,AL                              
+3595:0513 B003          MOV	AL,03                              
+3595:0515 EE            OUT	DX,AL                              
+3595:0516 BA7803        MOV	DX,0378                            
+3595:0519 B0FF          MOV	AL,FF                              
+3595:051B EE            OUT	DX,AL                              
+3595:051C 30FF          XOR	BH,BH                              
+3595:051E EB10          JMP	0530                               
+3595:0520 4D            DEC	BP                                 
+3595:0521 0000          ADD	[BX+SI],AL                         
+3595:0523 0300          ADD	AX,[BX+SI]                         
+3595:0525 61            DB	61                                 
+3595:0526 7265          JB	058D                               
+3595:0528 5C            POP	SP                                 
+3595:0529 4D            DEC	BP                                 
+3595:052A 69            DB	69                                 
+3595:052B 63            DB	63                                 
+3595:052C 726F          JB	059D                               
+3595:052E 736F          JNB	059F                               
+3595:0530 83F901        CMP	CX,+01                             
+3595:0533 751B          JNZ	0550                               
+3595:0535 E98800        JMP	05C0                               
+3595:0538 0000          ADD	[BX+SI],AL                         
+3595:053A 0000          ADD	[BX+SI],AL                         
+3595:053C 0000          ADD	[BX+SI],AL                         
+3595:053E 0000          ADD	[BX+SI],AL                         
+3595:0540 0000          ADD	[BX+SI],AL                         
+3595:0542 0000          ADD	[BX+SI],AL                         
+3595:0544 E602          OUT	02,AL                              
+3595:0546 0000          ADD	[BX+SI],AL                         
+3595:0548 FFFF          ???	DI                                 
+3595:054A FFFF          ???	DI                                 
+3595:054C AC            LODSB	                                   
+3595:054D 0000          ADD	[BX+SI],AL                         
+3595:054F 00BA7A03      ADD	[BP+SI+037A],BH                    
+3595:0553 B006          MOV	AL,06                              
+3595:0555 00F8          ADD	AL,BH                              
+3595:0557 EE            OUT	DX,AL                              
+3595:0558 BA7903        MOV	DX,0379                            
+3595:055B EC            IN	AL,DX                              
+3595:055C 88C4          MOV	AH,AL                              
+3595:055E A808          TEST	AL,08                              
+3595:0560 751E          JNZ	0580                               
+3595:0562 BA7A03        MOV	DX,037A                            
+3595:0565 B004          MOV	AL,04                              
+3595:0567 00F8          ADD	AL,BH                              
+3595:0569 EE            OUT	DX,AL                              
+3595:056A BA7903        MOV	DX,0379                            
+3595:056D EC            IN	AL,DX                              
+3595:056E EB10          JMP	0580                               
+3595:0570 0000          ADD	[BX+SI],AL                         
+3595:0572 0000          ADD	[BX+SI],AL                         
+3595:0574 CC            INT	3                                  
+3595:0575 CC            INT	3                                  
+3595:0576 0000          ADD	[BX+SI],AL                         
+3595:0578 0000          ADD	[BX+SI],AL                         
+3595:057A 0000          ADD	[BX+SI],AL                         
+3595:057C 0000          ADD	[BX+SI],AL                         
+3595:057E 0000          ADD	[BX+SI],AL                         
+3595:0580 24F0          AND	AL,F0                              
+3595:0582 D0EC          SHR	AH,1                               
+3595:0584 D0EC          SHR	AH,1                               
+3595:0586 D0EC          SHR	AH,1                               
+3595:0588 D0EC          SHR	AH,1                               
+3595:058A 08E0          OR	AL,AH                              
+3595:058C 8804          MOV	[SI],AL                            
+3595:058E 46            INC	SI                                 
+3595:058F 80F701        XOR	BH,01                              
+3595:0592 49            DEC	CX                                 
+3595:0593 759B          JNZ	0530                               
+3595:0595 EB09          JMP	05A0                               
+3595:0597 005200        ADD	[BP+SI+00],DL                      
+3595:059A 07            POP	ES                                 
+3595:059B 0000          ADD	[BX+SI],AL                         
+3595:059D 0000          ADD	[BX+SI],AL                         
+3595:059F 00BA7803      ADD	[BP+SI+0378],BH                    
+3595:05A3 30C0          XOR	AL,AL                              
+3595:05A5 EE            OUT	DX,AL                              
+3595:05A6 BA7A03        MOV	DX,037A                            
+3595:05A9 B004          MOV	AL,04                              
+3595:05AB EE            OUT	DX,AL                              
+3595:05AC FB            STI	                                   
+3595:05AD C3            RET	                                   
+3595:05AE 704E          JO	05FE                               
+3595:05B0 52            PUSH	DX                                 
+3595:05B1 47            INC	DI                                 
+3595:05B2 44            INC	SP                                 
+3595:05B3 42            INC	DX                                 
+3595:05B4 7CA0          JL	0556                               
+3595:05B6 0000          ADD	[BX+SI],AL                         
+3595:05B8 3915          CMP	[DI],DX                            
+3595:05BA 0000          ADD	[BX+SI],AL                         
+3595:05BC 0C00          OR	AL,00                              
+3595:05BE 07            POP	ES                                 
+3595:05BF 00BA7803      ADD	[BP+SI+0378],BH                    
+3595:05C3 B0FD          MOV	AL,FD                              
+3595:05C5 EE            OUT	DX,AL                              
+3595:05C6 EB88          JMP	0550                               
+3595:05C8 0000          ADD	[BX+SI],AL                         
+3595:05CA F9            STC	                                   
+3595:05CB 3F            AAS	                                   
+3595:05CC 29B841D7      SUB	[BX+SI+D741],DI                    
+-u 900 95F
+3595:0900 FA            CLI	                                   
+3595:0901 BE0008        MOV	SI,0800                            
+3595:0904 B90C00        MOV	CX,000C                            
+3595:0907 BA7803        MOV	DX,0378                            
+3595:090A B067          MOV	AL,67                              
+3595:090C EE            OUT	DX,AL                              
+3595:090D BA7A03        MOV	DX,037A                            
+3595:0910 B001          MOV	AL,01                              
+3595:0912 EE            OUT	DX,AL                              
+3595:0913 B005          MOV	AL,05                              
+3595:0915 EE            OUT	DX,AL                              
+3595:0916 30FF          XOR	BH,BH                              
+3595:0918 EB16          JMP	0930                               
+3595:091A 796C          JNS	0988                               
+3595:091C 69            DB	69                                 
+3595:091D 67            DB	67                                 
+3595:091E 68            DB	68                                 
+3595:091F 7446          JZ	0967                               
+3595:0921 6C            DB	6C                                 
+3595:0922 61            DB	61                                 
+3595:0923 67            DB	67                                 
+3595:0924 0200          ADD	AL,[BX+SI]                         
+3595:0926 0000          ADD	[BX+SI],AL                         
+3595:0928 0000          ADD	[BX+SI],AL                         
+3595:092A 0000          ADD	[BX+SI],AL                         
+3595:092C 0000          ADD	[BX+SI],AL                         
+3595:092E 0000          ADD	[BX+SI],AL                         
+3595:0930 8A04          MOV	AL,[SI]                            
+3595:0932 46            INC	SI                                 
+3595:0933 BA7803        MOV	DX,0378                            
+3595:0936 EE            OUT	DX,AL                              
+3595:0937 BA7A03        MOV	DX,037A                            
+3595:093A B004          MOV	AL,04                              
+3595:093C 00F8          ADD	AL,BH                              
+3595:093E EE            OUT	DX,AL                              
+3595:093F 80F701        XOR	BH,01                              
+3595:0942 49            DEC	CX                                 
+3595:0943 75EB          JNZ	0930                               
+3595:0945 EB09          JMP	0950                               
+3595:0947 005469        ADD	[SI+69],DL                         
+3595:094A 6D            DB	6D                                 
+3595:094B 65            DB	65                                 
+3595:094C 205A6F        AND	[BP+SI+6F],BL                      
+3595:094F 6E            DB	6E                                 
+3595:0950 BA7A03        MOV	DX,037A                            
+3595:0953 B007          MOV	AL,07                              
+3595:0955 EE            OUT	DX,AL                              
+3595:0956 B004          MOV	AL,04                              
+3595:0958 EE            OUT	DX,AL                              
+3595:0959 FB            STI	                                   
+3595:095A C3            RET	                                   
+3595:095B 0015          ADD	[DI],DL                            
+3595:095D 005061        ADD	[BX+SI+61],DL                      
+-g=100
+
+AX=30FF  BX=0000  CX=0000  DX=0378  SP=FFEE  BP=0000  SI=0712  DI=0000  
+DS=3595  ES=3595  SS=3595  CS=3595  IP=01C1   NV UP EI PL NZ NA PO NC 
+3595:01C1 CC            INT	3                                  
+-d 600 607
+3595:0600  D0 60 50 58 58 02 12 00                           .`PXX...
+-d 700 711
+3595:0700  70 00 06 00 00 00 00 0A-00 00 00 00 28 00 00 00   p...........(...
+3595:0710  00 00                                             ..
+-q
