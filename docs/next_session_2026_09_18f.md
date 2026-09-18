@@ -305,3 +305,53 @@ SPP-only costs nothing measured - **no ECP build has ever moved a byte** - and
 byte mode needs the port only BIDIRECTIONAL (ECR mode 001), not ECP. ⚠ Open
 question: if SPP-only removes the ECR entirely, byte mode goes with it and
 register reads fall back to two status accesses each.
+
+---
+
+## ⭐⭐ 2026-09-19 00:35 — THE INSTALL IS FINE. THE FAULT IS THE INTEK CARD.
+
+The owner's current card image (`ls120_image.img`, backed up 2026-09-19,
+copied to `vm_cardrepro/card.img` and verified identical) **enumerates the
+drive in the bed**, with `d8154f1d` - the same binary that fails on hardware -
+extracted from its own `IOSUBSYS` and confirmed `d8154f1d`.
+
+```
+CDB 00 x5 TEST UNIT READY   CDB 25 x3  READ CAPACITY
+CDB 12 x1 INQUIRY           CDB 28 x72 READ(10)
+CDB 1E x4 PREVENT/ALLOW     CDB 2A x2  WRITE(10)
+0 aborts
+```
+
+**So nothing is corrupt or drifted.** Same disk, same hive, same node at
+`0278-027F`, same driver - works in emulation, fails on the 5160.
+
+### The elimination
+
+`SYSTEM.INI` loads `device=*vpd` statically, independent of the PnP node - so
+deleting the `ECP Printer Port` entry did not remove all parallel-port
+software. **But the bed runs that same `SYSTEM.INI`.** Anything identical in
+both places behaves identically, so no software-side difference can explain
+this.
+
+The only material difference left is **what the hardware presents at 0x378**:
+
+| | bed | 5160 |
+|---|---|---|
+| the port | `lpt1_device = lpt_epat` - the port IS the bridge | real Intek TK9901 in **ECP/EPP** mode |
+| ECR | none for Windows to find | present at `0x77A` |
+| 1284 capability advertised | no | **yes** - so Windows enumerates, binds `lpt.vxd`/`lptenum.vxd`, and negotiates |
+
+**The fault is the Intek card's presence and mode, and what Windows does in
+response to it.** That is the owner's SPP hypothesis, reached by elimination.
+
+### Next
+
+1. **The EPP mode test already staged on the CF** - does EPP work on this bus
+   at all, per the vendor driver's own auto-detect.
+2. **Set the Intek card to SPP-only.** No 1284-capable port to enumerate, no
+   ECR, nothing for the printer stack to negotiate on. ⚠ If that also removes
+   the ECR, byte mode goes with it (it needs bidirectional, not ECP) and
+   register reads fall back to two status accesses. Correctness is unaffected.
+
+⛔ Do NOT resume hunting the install, the hive or the driver binary. All three
+are now excluded by a same-image reproduction.
