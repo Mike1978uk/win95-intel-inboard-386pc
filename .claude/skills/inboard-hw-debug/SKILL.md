@@ -56,6 +56,7 @@ end to end.** Find what applies, read that, and add back what you learn.
 | Disassembly and binary analysis | 16, 29, 44, **60**, 91, **112** |
 | Win9x drivers, IOS, SCSIPORT | 74, 81, 82, 83, 85, 86, **88**, 92, 94, 96, 97 |
 | Hardware / XT-specific traps | 37, 56, **62**, **75**, 100, 101, 102, **125** |
+| Characterising a storage device before writing its driver | **126** - probe derivation, every media/drive state, timing an A/B honestly |
 | Memory map, the Inboard's own quirks | 63, 66, 67, 71, 72 |
 | Process and evidence discipline | **124** (measured vs inferred), 7, 28, 59, 77, 89, 98, 99, **103**, 104, 110, 111, 113, **121c** |
 | Writing or trusting a DEBUG-script probe | **121**, 121a, 121b, 121c, 105, 116 |
@@ -7255,3 +7256,146 @@ which, on a peripheral that must be 1284-terminated or every nibble read returns
 - **The corollary for our own INF convention:** an `AdapterSettings` base is an
   override, not a claim. If the address belongs to another driver, say so in the
   INF next to the setting, because nothing downstream will.
+
+---
+
+## Technique 126: characterising a storage device before writing its driver
+
+2026-09-18 spent a hardware session mapping an ATAPI drive end to end over DOS
+COMrade, and the method transfers to any storage driver this project writes
+next. It answered, in one evening: every media state, every drive state, the
+full mode page set, the geometry, the drive controls, and which of two
+transports actually moves data. Several of the steps exist because they caught
+a wrong answer on the way.
+
+### 126a. Derive every probe from ONE capture proven on the machine
+
+Take a capture that has run byte-identical on the hardware - here `INQ9.SCR`,
+re-run and diffed against its own capture from a week earlier - and produce
+each new probe by changing **only**:
+
+1. the CDB,
+2. the byte count programmed into the task file,
+3. the number of bytes the data-in loop collects,
+4. the dump range.
+
+Print the diff before running. Four lines means the harness is a **control,
+not a variable** - if a probe misbehaves, it is the CDB, because nothing else
+moved. A dozen probes were built this way in minutes; none of them needed
+debugging.
+
+Two shapes need more than four lines, and both are worth knowing:
+- a **no-data-phase** command (START STOP UNIT) needs the data-in call removed
+  entirely - left in, with a byte count of zero, the loop counter wraps to
+  65536 iterations;
+- a **no-reset** variant needs the SRST pulse removed - see 126b.
+
+### 126b. The harness's own reset hides the answer
+
+A probe that pulses SRST raises UNIT ATTENTION, and **every non-exempt command
+then aborts** - status `51h`, error `64h` (sense key 6). INQUIRY is exempt,
+which is the only reason the original probe ever worked; READ CAPACITY and
+MODE SENSE are not, and both came back empty with a plausible-looking buffer.
+
+Worse, **an SRST queues more than one condition** and each REQUEST SENSE pops
+exactly one: `29h` POWER ON/RESET first, then `28h` MEDIUM MAY HAVE CHANGED. A
+single sense read does not drain the drive.
+
+So: keep two forms of each probe, one that resets and one that does not, and
+**run a REQUEST SENSE (twice) first**. State that ordering as a prerequisite
+wherever the probes are documented - a query run without it aborts, and that
+is the probe's fault, not the device's (technique 110).
+
+### 126c. Characterise every DEVICE state, not just the working one
+
+Before trusting any presence or readiness test, measure what the bus actually
+reads in each state. For this drive:
+
+| state | nibble status | discriminator |
+|---|---|---|
+| present, ready | `50h` | - |
+| present, settling | `80h` then clears | BSY clears |
+| **powered off, connected** | **`80h` forever** | BSY never clears |
+| **disconnected** | **`77h`** | idle-port pattern |
+| *(never observed)* | `FFh` | - |
+
+**The driver's only absence test was `FFh`, which never occurs.** Both genuine
+absence cases read something else, so the fast path was dead code and the
+driver reached the right answer only by exhausting its settle budget.
+
+Two more traps from the same pass:
+- **a raw port read cannot tell a switched-off device from an idle one** -
+  `0x379` read `00` in both cases; only the probe distinguished them;
+- **the device signature is not a presence test** - the ATAPI `14 EB` came back
+  from a drive that was switched off.
+
+### 126d. Characterise every MEDIA state, and do not trust one bit
+
+| state | mode header | medium type | WP |
+|---|---|---|---|
+| writable | `00 66 31 00 ...` | `31h` | 0 |
+| write-protected | `00 66 31 80 ...` | `31h` | 1 |
+| **no media** | `00 66 00 80 ...` | **`00h`** | **1** |
+
+**An empty drive reports write-protected.** Any code reading the WP bit alone
+calls an empty drive a protected one. Read the medium type first, or use
+READ CAPACITY, which fails unambiguously with `MEDIUM NOT PRESENT`.
+
+Ask the owner to toggle the media tab and eject the disk - three states, three
+captures, and the pair differs by exactly one bit, which is what proves the
+measurement rather than a story about it.
+
+### 126e. Time with the GUEST's clock, and interleave the arms
+
+A host-side stopwatch puts the link's round trip (~34 ms here) inside the
+measurement. Put the timestamps in a batch **on the machine**:
+
+```
+ECHO. | TIME > C:\TT.TXT
+DEBUG < C:\A.SCR > C:\A.OUT
+ECHO. | TIME >> C:\TT.TXT
+```
+
+And **interleave A,B,A,B** rather than A,A,B,B: identical runs of the same
+script varied 11.75-16.86 s here, a 1.43x spread from drive state alone. Run
+the arms alternately or the drift reads as a difference.
+
+### 126f. A fast result usually means nothing happened
+
+An ECP arm came back at a constant **0.38 s** against SPP's 15 s - an apparent
+43x win. It was a mangled batch file: shell `printf` turned `\E` into an ESC
+character, the input redirect failed, and COMMAND.COM aborted the line
+**before creating the output file**. The tells:
+
+- the output file **did not exist**, and
+- the time was implausibly *constant* across runs.
+
+Then the next arm ran for real and was still void - full of `F5`, the poisoned
+-port signature. **Check the artefact, not the elapsed time.** Specifically:
+does the output exist, is it the expected size, and does it contain data that
+could only have come from the device?
+
+### 126g. Poison the destination, so "no data" is evidence
+
+The decisive result of the session was that an ECP bulk transfer delivered
+**nothing** - and that was only provable because the buffers were pre-filled
+with `EE`. Absence of data in a poisoned buffer is evidence; absence in an
+uninitialised one is nothing at all.
+
+The same pass found the mirror error: a **failed** READ BUFFER returned
+`02 00 02 00`, which looked like a buffer capacity and was actually the
+previous run's bytes in an un-poisoned region. **Read the phase/status bytes
+before reading the data buffer** - a failed command's buffer is not data.
+
+### 126h. Check the A/B scripts are comparable before timing them
+
+Two scripts that differ "only in the transport" were timed against each other
+for most of an hour. Reading the diff afterwards showed:
+
+- the ECP arm predated the protocol fix by twenty minutes, and
+- the script that *had* the fix did its bulk transfers over the **other**
+  transport - it only ever proved the fix for single-register reads.
+
+So no script had ever done bulk over the transport under test. **Diff the arms
+and read what each actually calls before believing any timing between them**,
+and check the file dates against the date the relevant fix was discovered.
