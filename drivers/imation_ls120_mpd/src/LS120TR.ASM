@@ -1014,8 +1014,11 @@ public LS_BlockReadSpp
 LPT_ECPFIFO	equ	400h
 
 ECR_MODE_ECP	equ	074h
-ECR_MODE_PARK	equ	014h		; mode 000 + nErrIntrEn - where the ECR parks
-					; between phases, so a direction change is legal
+ECR_MODE_PARK	equ	034h		; ECR mode 001 + nErrIntrEn. A direction
+					; change needs a bidirectional mode and mode 000
+					; is not one, so park here, never at 014h. The
+					; vendor's 014h is an ENTRY park only, before its
+					; first control write (4727h, 4DA3h).
 ECR_FIFO_EMPTY	equ	001h
 CTRL_DIR	equ	020h
 
@@ -1033,7 +1036,6 @@ CTRL_REV	equ	020h
 ;  (read) and 0x4DB9 (write). 0A0h announces the last byte of a read, the fast
 ;  path's equivalent of the nibble path's w0(0FDh).
 ECP_CMD_READ	equ	080h
-ECP_CMD_LAST	equ	0A0h
 ECP_CMD_WRITE	equ	0C0h
 
 ;  ECR status bits, and the vendor's own spin budgets: 0FFFFh on the forward
@@ -1247,9 +1249,9 @@ lne_ok:
 ;  A direction change is not legal inside an ECP FIFO mode, so the ECR has to
 ;  leave it and come back: park in mode 000, control, ECP mode.
 ;
-;  Mode 000 and not byte mode. Any ECR mode with bits 7:5 non-zero makes the
-;  port bidirectional, which changes what a nibble task-file read returns -
-;  and the vendor parks at 014h here too (TRANSPORT_SPEC.md section 11a).
+;  ECR mode 001, because the port has to be bidirectional for the direction bit
+;  to mean anything. Mode 000 would be wrong here - that belongs in
+;  LS_EcpLeave, where the point is to make nibble reads work again.
 ;  IRQ-enable (bit 4) is carried across: dropping it silently disarms an
 ;  interrupt somebody else armed.
 ;
@@ -1554,8 +1556,6 @@ LS_BlockReadEcp:
 
 	pop	ecx
 	push	ecx
-	dec	ecx
-	jz	lbre_last
 
 ;  GATE EVERY BYTE ON THE ECR, the way SD120PPD.SYS does at 3D22h. A bare
 ;  rep insb reads before the bridge has anything to give and returns whatever
@@ -1581,24 +1581,6 @@ lbre_rd:
 	inc	edi
 	dec	ecx
 	jnz	lbre_rd
-
-lbre_last:
-	mov	al, CTRL_FWD
-	call	LS_EcpDir
-	mov	bl, ECP_CMD_LAST
-	call	LS_EcpCmd
-	jc	lbre_fail
-	mov	al, CTRL_REV
-	call	LS_EcpDir
-;  The last byte is gated too - it is the one the LAST command was issued for,
-;  so it is the byte most likely to need waiting on.
-	call	LS_EcpWaitData
-	jc	lbre_fail
-	movzx	edx, LS_BasePort
-	add	edx, LPT_ECP_FIFO
-	in	al, dx
-	mov	[edi], al
-	inc	edi
 
 	call	LS_EcpLeave
 	pop	ecx
