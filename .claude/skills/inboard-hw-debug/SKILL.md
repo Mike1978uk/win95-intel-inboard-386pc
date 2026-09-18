@@ -7209,3 +7209,48 @@ was written up as "ECP block streaming is not a thing on this bridge" - a claim
 about the hardware drawn from a claim about one routine, and contradicted by the
 vendor's own BULK path at `4458h` documented two lines away. Same shape as
 technique 95: a property of the test article became a property of the board.
+
+---
+
+## Technique 125: a port your driver drives but does not CLAIM is a conflict no tool can show you
+
+2026-09-18, LS-120. The owner reported an Explorer hang and, reasonably, looked
+at the device node's I/O range - the one thing Device Manager offers. It was
+`0278-027F`, then `03BC-03BF`, and the hang changed with it.
+
+Neither is the port the driver uses. `LsFindAdapter` takes `AdapterSettings`
+(`PORT=0x378`) in preference to `AccessRanges`, and the hive confirms the string
+is present. That design was deliberate and is right - technique 97 adopted it
+precisely to stop a mis-assigned node breaking the driver. The cost nobody had
+written down is that **it decouples what the driver drives from what the system
+believes it owns.**
+
+Reading the whole hive rather than our own node found the real state:
+
+```
+ForcedConfig  378-37A   DeviceDesc  ECP Printer Port (LPT1)   *PNP0401
+ForcedConfig  3BC-3BF   DeviceDesc  LS-120 EPAT ...           (ours)
+```
+
+Windows' own parallel-port driver holds `0378-037A`. We drive it unclaimed.
+**CONFIGMG has nothing to arbitrate, so Device Manager is silent, and it will
+stay silent however long anyone stares at it.** `LPTENUM` and `SPOOLER` both
+initialise in the same boot and LPTENUM performs 1284 negotiation on that port -
+which, on a peripheral that must be 1284-terminated or every nibble read returns
+`F5`, is not a theoretical clash.
+
+**Rules:**
+
+- **Whenever a driver takes its address from anywhere other than its own node -
+  a Settings string, a build-time pin, a probe - enumerate every OTHER node's
+  resources and check who owns that address.** One printable-run scan of
+  `SYSTEM.DAT` for `ForcedConfig`/`BootConfig`, decoding the little-endian word
+  pairs, lists the whole machine in one pass. Decode a known-good node in the
+  same pass (the floppy's `3F2-3F5`) to prove the decode.
+- **Do not explain a symptom with the resource the user happened to look at.**
+  The `0278` vs `03BC` difference is real, was reported honestly, and remains
+  **unexplained**. Recording it as unexplained is the correct outcome; inventing
+  a mechanism for it would have buried the finding above.
+- **The corollary for our own INF convention:** an `AdapterSettings` base is an
+  override, not a claim. If the address belongs to another driver, say so in the
+  INF next to the setting, because nothing downstream will.
