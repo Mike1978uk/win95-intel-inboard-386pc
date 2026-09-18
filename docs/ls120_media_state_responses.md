@@ -18,8 +18,16 @@ sense key 6 - until a REQUEST SENSE cleared the condition:
 | when | sense key | ASC | meaning |
 |---|---|---|---|
 | after SRST | 6 | `29h` | POWER ON, RESET OR BUS DEVICE RESET OCCURRED |
-| **after a bridge reconnect** | **6** | **`28h`** | **NOT READY TO READY CHANGE, MEDIUM MAY HAVE CHANGED** |
+| after SRST, **second** read | 6 | `28h` | NOT READY TO READY CHANGE, MEDIUM MAY HAVE CHANGED |
 | after an eject/insert | 6 | `28h` | same |
+| once drained, steady state | **0** | `00h` | NO SENSE - and it stays clean across runs |
+
+⚠ **An SRST queues MORE THAN ONE condition**, and each REQUEST SENSE pops
+exactly one: `29h` first, then `28h`. A single sense read does not drain the
+drive. Measured 2026-09-18 (`Q2A`, `N2`) and consistent with the 2026-09-11
+finding already in the record. An earlier draft of this file said the drive
+raises `28h` "on essentially every reconnect" - **that was wrong**; `N2` shows
+a clean key 0 on a plain repeat with nothing changed.
 
 **INQUIRY is exempt from unit attention, which is the only reason `INQ9.SCR`
 ever worked.** READ CAPACITY and MODE SENSE are not, and both aborted.
@@ -65,8 +73,8 @@ the condition, and the sense bytes are then discarded.
 So the class driver receives a featureless `SRB_STATUS_ERROR` and cannot tell
 apart:
 
-- "medium may have changed, re-read it and retry" (`6 / 28h`) - **routine, and
-  this drive raises it constantly**
+- "medium may have changed, re-read it and retry" (`6 / 28h`) - routine, and
+  queued two-deep after any reset
 - "the medium is write protected" (`7 / 27h`)
 - "the drive is broken"
 
