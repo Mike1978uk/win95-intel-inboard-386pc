@@ -355,3 +355,34 @@ response to it.** That is the owner's SPP hypothesis, reached by elimination.
 
 ⛔ Do NOT resume hunting the install, the hive or the driver binary. All three
 are now excluded by a same-image reproduction.
+
+---
+
+## ⛔ EPP IS CLOSED — tested 2026-09-19, and it cost the keyboard
+
+The vendor EPP test staged above **was run and must not be repeated.**
+`CONFIG.SYS` with `/de /db /sf` removed and `/ni` kept produced:
+
+- `No Devices connected. Driver not installed` — the EPP auto-detect found nothing
+- **keyboard input lost** — technique 75's exact signature
+
+`/ni` does NOT cover the EPP probe. `/de` (Disable Epp check) and `/db`
+(Disables Eppbios check) are separate probe suppressors and are **necessary,
+not inherited** — technique 58's question, answered by experiment. The tell
+was in the same binary all along: it ships `/fe` and `/fev` to *force*
+chipset-specific EPP initialization, so its EPP **detection** pokes chipset
+registers in its own right.
+
+**So EPP is answered on this hardware, negatively and decisively:** the only
+implementation known to work here refuses it, and its detection path is
+destructive on this bus. Do not re-propose EPP without new evidence about the
+HARDWARE — the driver question is settled.
+
+`CONFIG.SYS` was restored byte-identical from `CARD_CONFIG.SYS`, the capture
+taken before the edit. Both vendor lines REM'd, 405 bytes, verified on the
+card. `LS120MP.MPD` is still `d8154f1d` in both locations.
+
+### What remains
+
+**SPP-only on the Intek card** — unaffected by any of this, and still the
+candidate the elimination points at. The card is currently ECP/EPP.
