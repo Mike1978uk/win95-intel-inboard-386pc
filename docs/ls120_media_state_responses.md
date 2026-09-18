@@ -57,6 +57,42 @@ byte 6-7  block descriptor length     0000h
 the header moves. So a "write protected" message from Windows while the tab is
 write-enabled does not come from the drive.
 
+## THE MATRIX - all three media states, measured
+
+| state | MODE SENSE header at 0700 | medium type | WP | READ CAPACITY | sense after |
+|---|---|---|---|---|---|
+| **write-enabled** | `00 66 31 00 00 00 00 00` | `31h` | **0** | ok | key 0 NO SENSE |
+| **write-protected** | `00 66 31 80 00 00 00 00` | `31h` | **1** | ok | key 0 NO SENSE |
+| **no media** | `00 66 00 80 00 00 00 00` | **`00h`** | **1** | **ERR** `51h`/`24h` | key **2**, ASC **`3Ah`** MEDIUM NOT PRESENT |
+
+### ⛔ WP=1 does NOT mean "write protected"
+
+**An empty drive also reports WP=1.** The discriminator is the **medium type**
+byte, not the WP bit:
+
+| medium type | WP | means |
+|---|---|---|
+| `31h` | 0 | disk present, writable |
+| `31h` | 1 | disk present, tab set |
+| `00h` | 1 | **no disk** |
+
+Any code that reads bit 7 of byte 3 and concludes "write protected" will call
+an empty drive a protected one. Read byte 2 first.
+
+### READ CAPACITY is the cleaner presence test
+
+With no media it fails with error register `24h` - sense key **2 (NOT READY)**
+plus ABRT - and the following REQUEST SENSE gives ASC `3Ah` MEDIUM NOT PRESENT.
+That is unambiguous and needs no interpretation.
+
+Capture files: `Q3_msense_wrenabled_clean.OUT`, `W3_msense_writeprotected.OUT`,
+`E3_msense_nomedia.OUT`, `E4_rdcap_nomedia.OUT`,
+`E5_rqsense_after_nomedia_rdcap.OUT`.
+
+⚠ Ejecting the disk did **not** by itself produce a unit attention on the next
+REQUEST SENSE (`E1` reads key 0). The NOT READY only surfaces on a command that
+actually needs the medium. Do not rely on a sense poll to notice an eject.
+
 ## INQUIRY - the control
 
 `MATSHITA LS-120 COSM   04 0270`, phase bytes `80 00 00 08 08 02 24 00`,
