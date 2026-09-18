@@ -252,6 +252,7 @@ LS_LastStatus		dd	0		; last ATA status byte read
 LS_XferN		dd	0		; byte count the DEVICE offered this phase
 LS_Phase		dd	0		; ATAPI interrupt reason, masked to 2 bits
 	PUBLIC	LS_HasEcp
+LS_EcpCount		dd	0		; byte count handed to the bridge descriptor
 LS_HasEcp		dd	0		; 1 = an ECR answered at base+402h, use the FIFO
 	PUBLIC	LS_EcpNegStat
 LS_EcpNegStat		dd	0		; last status byte seen waiting for nAck
@@ -1426,6 +1427,83 @@ lt1_done:
 	ret
 
 ;----------------------------------------------------------------------------
+;----------------------------------------------------------------------------
+; LS_EcpDataByte - one ECP DATA cycle: AL out to base+400h, gated both sides.
+;
+;   Out:  CF=1 on timeout
+;   Uses: EAX, EBX, ECX, EDX
+;
+;   The ADDRESS half of a descriptor pair is LS_EcpCmd (base+0); this is the
+;   VALUE half. Both wait on the ECR before and after, which is what
+;   SD120PPD.SYS does between every phase of its descriptor.
+;----------------------------------------------------------------------------
+LS_EcpDataByte:
+	push	ebx
+	mov	bl, al
+	call	LS_EcpWaitEmpty
+	jc	ledb_out
+	movzx	edx, LS_BasePort
+	add	edx, LPT_ECP_FIFO
+	mov	al, bl
+	out	dx, al
+	call	LS_EcpWaitEmpty
+ledb_out:
+	pop	ebx
+	ret
+
+;----------------------------------------------------------------------------
+; LS_EcpDescriptor - tell the bridge how many bytes the next block moves.
+;
+;   In:   ECX = byte count
+;   Out:  CF=1 on timeout, ECX preserved
+;   Uses: EAX, EBX, EDX
+;
+;   ** THIS IS WHY ECP BULK MOVED NOTHING. ** Every ECP episode this driver
+;   has ever run issued the block command with no length programmed, so the
+;   bridge was never told how much to transfer and streamed zero bytes -
+;   measured 2026-09-18, destination buffers still poisoned after a full
+;   episode while SPP filled them.
+;
+;   The sequence is SD120PPD.SYS 4CA3h, alternating ECP ADDRESS cycles
+;   (base+0) with ECP DATA cycles (base+400h):
+;
+;       addr 0Eh / data 0Bh          select
+;       addr 0Fh / data count-high
+;       addr 0Bh / data count-low
+;
+;   Registers 0Eh/0Fh are the bridge's indirect select/value pair - the same
+;   pair epat.c's epatc8 connect drives. TRANSPORT_SPEC.md section 11.
+;----------------------------------------------------------------------------
+LS_EcpDescriptor:
+	mov	LS_EcpCount, ecx
+	mov	bl, 00Eh
+	call	LS_EcpCmd
+	jc	led_fail
+	mov	al, 00Bh
+	call	LS_EcpDataByte
+	jc	led_fail
+	mov	bl, 00Fh
+	call	LS_EcpCmd
+	jc	led_fail
+;  count, high byte first
+	mov	eax, LS_EcpCount
+	mov	al, ah
+	call	LS_EcpDataByte
+	jc	led_fail
+	mov	bl, 00Bh
+	call	LS_EcpCmd
+	jc	led_fail
+	mov	eax, LS_EcpCount
+	call	LS_EcpDataByte	; AL is already the low byte
+	jc	led_fail
+	mov	ecx, LS_EcpCount
+	clc
+	ret
+led_fail:
+	mov	ecx, LS_EcpCount
+	stc
+	ret
+
 ;  LS_BlockReadEcp - ECX bytes into ES:EDI through the ECP data FIFO.
 ;
 ;  Shape taken from epat.c's mode 3 and confirmed against SD120PPD.SYS: the
@@ -1452,6 +1530,12 @@ LS_BlockReadEcp:
 	push	ebx
 	push	ecx
 
+	mov	al, CTRL_FWD
+	call	LS_EcpDir
+;  Program the length BEFORE the command - the bridge streams nothing
+;  without it. Re-arm afterwards, as the vendor does.
+	call	LS_EcpDescriptor
+	jc	lbre_fail
 	mov	al, CTRL_FWD
 	call	LS_EcpDir
 	mov	bl, ECP_CMD_READ
@@ -1537,6 +1621,11 @@ LS_BlockWriteEcp:
 	push	ebx
 	push	ecx
 
+	mov	al, CTRL_FWD
+	call	LS_EcpDir
+;  Same descriptor as the read path - see LS_EcpDescriptor.
+	call	LS_EcpDescriptor
+	jc	lbwe_fail
 	mov	al, CTRL_FWD
 	call	LS_EcpDir
 	mov	bl, ECP_CMD_WRITE
