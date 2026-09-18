@@ -1284,14 +1284,17 @@ LS_EcpDir:
 ;  the bed and failed on the real machine.
 ;
 ;   Out: CF=1 on timeout.  Clobbers EAX, ECX, EDX.
+;  Gate on serviceIntr (ECR bit 2), not FIFO-empty. Bit 0 describes the HOST
+;  FIFO; bit 2 is the reverse channel reporting that a byte has arrived, and
+;  it is what the vendor's reverse read waits on (SD120PPD.SYS 48B2h).
 LS_EcpWaitData:
 	movzx	edx, LS_BasePort
 	add	edx, LPT_ECP_ECR
 	mov	ecx, ECP_SPIN_REV
 lwda_loop:
 	in	al, dx
-	test	al, ECR_FIFO_EMPTY
-	jz	lwda_ok				; empty clear -> a byte is waiting
+	test	al, ECR_SERVICE
+	jnz	lwda_ok				; serviceIntr -> a byte is waiting
 	dec	ecx
 	jnz	lwda_loop
 	stc
