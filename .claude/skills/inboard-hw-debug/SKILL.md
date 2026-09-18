@@ -3215,6 +3215,49 @@ no search, because it closes the question.
 Corollary that also held here: check whether the package you are about to reverse-engineer is
 **already staged somewhere on the machine** from an earlier session. It was.
 
+### ⛔ `/ni` IS NOT THE ONLY PROBE SUPPRESSOR - the EPP check kills the keyboard too
+
+**Measured 2026-09-19, by doing it.** `SD120PPD.SYS`'s documented switches are
+a FAMILY of probe suppressors, and removing any one of them re-opens this
+bug class:
+
+| switch | help text |
+|---|---|
+| `/ni` | Skip chipset initialization |
+| **`/de`** | **Disable Epp check** |
+| **`/db`** | **Disables Eppbios check** |
+| `/sf` | Skips fast mode detection |
+| `/dp` `/fp` | PS/2 DMA arbitration (writes `0x94`, inside the XT DMA page block) |
+
+The owner's working line carries **all** of them. To test whether EPP was
+viable on this machine, `/de /db /sf` were removed and `/ni` kept - on the
+reasoning that `/ni` covered the destructive-probe hazard. **It does not.**
+The boot produced `No Devices connected. Driver not installed` *and killed
+keyboard input*, which is technique 75's exact signature.
+
+The tell was available and missed: the same binary ships `/fe` (force 386sl
+EPP initialization) and `/fev` (force VLSI chipset EPP initialization). A
+driver that offers to *force* chipset-specific EPP init is one whose EPP
+**detection** pokes chipset registers on its own account, separately from the
+init `/ni` suppresses.
+
+**Rules:**
+
+- **Treat every `/d*` and `/skip*` switch in a vendor driver as load-bearing
+  until proven otherwise**, not just the one whose help text mentions the
+  hazard you already know about.
+- **Technique 58's question, answered for this line:** `/de` and `/db` are
+  NECESSARY, not inherited. The vendor's auto-detect cannot safely run here.
+- **Consequence for #22: EPP IS CLOSED as a direction.** Not on theory - the
+  one implementation known to work on this machine refuses EPP, and its
+  detection path is actively destructive on this bus. Do not re-propose it
+  without new evidence about the *hardware*, not the driver.
+- **Recovery, when a CONFIG.SYS line kills the keyboard:** the keyboard works
+  until the driver loads, so **F8 -> Step-by-step confirmation -> decline that
+  line** still works. Safe Mode does not (it drops `INBRDPC.SYS`). Fastest of
+  all is the card in a reader and the file restored from a capture taken
+  BEFORE the edit - which is why one is taken before every edit.
+
 ### And check the DOS driver for switches first
 
 A DOS driver often has a documented escape the Windows driver lacks. `SD120PPD.SYS` carries its own
