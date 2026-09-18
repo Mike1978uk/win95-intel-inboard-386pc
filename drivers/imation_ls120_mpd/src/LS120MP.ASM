@@ -103,6 +103,54 @@ dxSrbCount	DWORD	?		; SRBs seen - phase 0 evidence
 dxReserved	DWORD	5 DUP (?)
 DEVEXT	ENDS
 
+;============================================================================
+;  LS_TRACE - a stage trace the real 5160 can hand back.
+;
+;  There is no readback channel from a Win95 miniport on this machine: COMrade
+;  is DOS-only, a miniport cannot open a file, and the machine is a floor away.
+;  So the trace goes to a fixed physical address and is collected from DOS
+;  after a warm reboot.
+;
+;  0B9000h is text-mode VRAM page 1. Nothing in a VGA graphics session writes
+;  it, DOS rewrites only page 0, and POST skips the memory test when 40:72
+;  holds 1234h - which is what Ctrl+Alt+Del sets. VMM identity-maps the first
+;  megabyte, so a ring-0 store to linear 0B9000h IS physical 0B9000h.
+;
+;  ⛔ THE CHANNEL IS NOT PROVEN. A VGA in a graphics mode may leave B8000
+;  unmapped, in which case these stores go nowhere and the instrument is
+;  worthless while looking exactly like a driver that never ran. Poison
+;  0B9000h from DOS, boot Windows, warm-reboot and read it back BEFORE
+;  trusting a single record. See docs/ls120_trace_channel.md.
+;
+;  Records are 16 ASCII bytes so nothing has to decode them:
+;
+;      TTTT=XXXXXXXX<CR><LF><SP>
+;
+;  Header: +0 magic, +4 running record count. The count keeps climbing past
+;  the ring size, so it also says how many records were lost to wrap.
+;============================================================================
+;  Overridable, because the poison test may find B9000h is not retained under
+;  this display driver. A fallback then costs a build flag, not a source edit.
+ifndef LS_TRACE_BASE
+LS_TRACE_BASE	equ	0B9000h
+endif
+LS_TRACE_MAGIC	equ	'21SL'		; reads "LS12" in memory
+LS_TRACE_RECS	equ	200		; 200 x 16 = 3200 bytes, inside one 4K page
+
+;  Tag is written most-significant byte first, so TRACE 'INIT' reads "INIT".
+;  Value is anything worth having; 0 where there is nothing to say.
+TRACE	MACRO	tag, val
+ifdef LS_TRACE
+	push	eax
+	push	ebx
+	mov	eax, val		; before EBX is touched, so val may BE ebx
+	mov	ebx, tag
+	call	LS_Trace
+	pop	ebx
+	pop	eax
+endif
+	ENDM
+
 	.DATA
 
 ;  The tag looked for in the Settings-tab string. Lower case: the compare
@@ -145,6 +193,95 @@ endif
 
 	.CODE
 
+ifdef LS_TRACE
+;============================================================================
+; LS_Trace - append one record to the ring at LS_TRACE_BASE.
+;
+;   In:   EBX = four-character tag, EAX = value
+;   Uses: nothing. Every register and the flags are preserved, because this
+;         is called from the middle of sequences that are mid-handshake.
+;============================================================================
+	PUBLIC	LS_Trace
+LS_Trace PROC
+	pushfd
+	push	eax
+	push	ebx
+	push	ecx
+	push	edx
+	push	esi
+	push	edi
+
+	mov	esi, eax		; ESI = the value; EAX is needed for DIV
+	mov	edi, LS_TRACE_BASE
+
+;  Lay the header down on the first call of this boot, and fill the ring with
+;  '.' so a short run is visibly short rather than trailing into old bytes.
+;  [[feedback-a-self-test-must-be-able-to-fail]] - an unpoisoned ring would
+;  show the PREVIOUS boot's records and read exactly like a live trace.
+	cmp	dword ptr [edi], LS_TRACE_MAGIC
+	je	lt_ready
+	mov	dword ptr [edi], LS_TRACE_MAGIC
+	mov	dword ptr [edi+4], 0
+	push	edi
+	add	edi, 16
+	mov	ecx, LS_TRACE_RECS*16
+	mov	al, '.'
+	cld
+	rep	stosb
+	pop	edi
+
+lt_ready:
+	mov	eax, [edi+4]
+	mov	ecx, eax
+	inc	ecx
+	mov	[edi+4], ecx		; count climbs past the ring, so wrap shows
+	xor	edx, edx
+	mov	ecx, LS_TRACE_RECS
+	div	ecx			; EDX = index mod RECS
+	shl	edx, 4
+	lea	edi, [edi+edx+16]	; EDI = this record
+
+;  Reverse the tag so 'INIT' lands as "INIT" and not "TINI". BSWAP is 486+,
+;  and this driver is built .386.
+	mov	eax, ebx
+	xchg	al, ah
+	rol	eax, 16
+	xchg	al, ah
+	mov	[edi], eax
+
+	mov	byte ptr [edi+4], '='
+	mov	byte ptr [edi+13], 0Dh
+	mov	byte ptr [edi+14], 0Ah
+	mov	byte ptr [edi+15], ' '
+
+;  Eight hex digits, least significant first, written backwards from +12.
+	add	edi, 12
+	mov	ecx, 8
+lt_hex:
+	mov	eax, esi
+	and	al, 0Fh
+	cmp	al, 9
+	jbe	lt_dig
+	add	al, 7			; 10 -> 'A'
+lt_dig:
+	add	al, '0'
+	mov	[edi], al
+	dec	edi
+	shr	esi, 4
+	dec	ecx
+	jnz	lt_hex
+
+	pop	edi
+	pop	esi
+	pop	edx
+	pop	ecx
+	pop	ebx
+	pop	eax
+	popfd
+	ret
+LS_Trace ENDP
+endif
+
 ;============================================================================
 ; DriverEntry - the PE entry point named in the link line.
 ;============================================================================
@@ -155,6 +292,7 @@ DriverEntry PROC STDCALL PUBLIC DriverObject:DWORD, Argument2:DWORD
 	LOCAL	context	: DWORD
 
 	push	ebx
+	TRACE	'ENTR', 0
 	push	esi
 	push	edi
 
@@ -240,6 +378,7 @@ LsFindAdapter PROC STDCALL DeviceExtension:DWORD, Context:DWORD,
 	push	ebx
 	push	esi
 	push	edi
+	TRACE	'FADP', 0
 
 	mov	esi, ConfigInfo
 
@@ -332,6 +471,7 @@ endif
 	pop	edi
 	pop	esi
 	pop	ebx
+	TRACE	'FOUN', 0
 	mov	eax, SP_RETURN_FOUND
 	ret
 
@@ -463,6 +603,7 @@ else
 ;  anyway: finding devices is SCSIPORT's job, and a miniport that vetoes
 ;  itself removes the only channel that could report why.
 	call	LS_BringUp
+	TRACE	'BRUP', eax		; the non-vetoing bring-up verdict
 ifdef LS_INIT_VETO
 ;  DIAGNOSTIC BUILD ONLY. Shipping must never veto - see the reasoning above,
 ;  and Imation's own miniport returns TRUE unconditionally. But a bring-up
@@ -515,6 +656,10 @@ LsStartIo PROC STDCALL DeviceExtension:DWORD, Srb:DWORD
 	push	edi
 
 	mov	ebx, Srb
+	movzx	eax, [ebx].SCSI_REQUEST_BLOCK.Function
+	TRACE	'SRBF', eax		; 0 = EXECUTE_SCSI
+	movzx	eax, byte ptr [ebx].SCSI_REQUEST_BLOCK.Cdb
+	TRACE	'CDB0', eax		; 12h INQUIRY is the one that enumerates
 
 ;  Count what we were asked, so a later phase can read back evidence that the
 ;  dispatch path really ran rather than inferring it.
@@ -649,6 +794,8 @@ lsi_badfunc:
 
 lsi_complete:
 	mov	[ebx].SCSI_REQUEST_BLOCK.SrbStatus, al
+	movzx	eax, al
+	TRACE	'DONE', eax		; SrbStatus - 1 = SUCCESS
 
 ;  ScsiPortNotification is cdecl and varargs, so we clean the stack.
 	push	ebx

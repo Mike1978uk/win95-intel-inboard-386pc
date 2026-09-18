@@ -41,6 +41,7 @@ end to end.** Find what applies, read that, and add back what you learn.
 | "It does not reproduce in the emulator" | **90** - that is a claim about the emulator. Check what it does not model |
 | A fix did nothing | **74** prove the driver LOADED; **70** `stat` the binary against `git log`; **89** a binary that cannot be rebuilt is not evidence |
 | Two fix-and-run cycles have failed | **80** - stop fixing, start bisecting. **88** - bisect by REMOVING the component |
+| Two cycles produced no INFORMATION, not just no fix | **123** - build the readback channel before anything else. A bisect needs a signal to bisect on |
 | Timing, throughput, "is this fast enough" | **109** - 5.55 us per 8-bit I/O access, MEASURED. Do not use the old 1 us figure |
 | A DEBUG-script probe hangs, or its results look impossible | **121** - an out-of-range short jump DELETES ITSELF, and data can land inside code |
 | One timeout constant bounds two different waits | **122** - a reset settle is seconds, a status poll is milliseconds. Never share |
@@ -49,7 +50,7 @@ end to end.** Find what applies, read that, and add back what you learn.
 
 | area | techniques |
 |---|---|
-| Tracing and instrumentation | 1, 10, 11, 12, 13, 25, 45, 47, 48, 49, 93 |
+| Tracing and instrumentation | **123** (build it FIRST), 1, 10, 11, 12, 13, 25, 45, 47, 48, 49, 93 |
 | Config that is silently ignored | 4, 43, **69** |
 | Disassembly and binary analysis | 16, 29, 44, **60**, 91, **112** |
 | Win9x drivers, IOS, SCSIPORT | 74, 81, 82, 83, 85, 86, **88**, 92, 94, 96, 97 |
@@ -7066,3 +7067,86 @@ Technique 45 says heavy instrumentation can change which bug reproduces. This is
 sharper case: the instrument's *setup* undoes the operation. **Before polling a long
 device-side operation, ask what your probe does on the way in.** A `--noreset` mode is one
 line and makes the difference between a measurement and a void run.
+
+---
+
+## Technique 123: on a component with no readback, BUILD THE INSTRUMENT FIRST
+
+2026-09-18, LS-120, and the owner's own words: *"debug code and logging should
+have been considered before, especially with something already taking more than
+a week to resolve."* He is right, and the cost is measurable - eight days of
+one-boot-per-iteration on a driver nobody could see inside.
+
+### The rule
+
+**When a component can only be exercised by a slow cycle somebody else has to
+drive - a boot on a machine a floor away - the first engineering task is a
+readback channel, not a fix.** Not the second, not "once we have a theory".
+
+Technique 80 says that after two failed fix-and-run cycles you stop fixing and
+start bisecting. This is its companion: **if two cycles have produced no
+information, the thing to build is a trace, not another bisect.** A bisect needs
+a signal to bisect on. Without one you are measuring the same null repeatedly
+and calling it elimination.
+
+Count it honestly. On a five-minute cycle, an instrument that costs two hours
+pays for itself in a morning. On a cycle that costs somebody else's evening it
+pays for itself on the first use.
+
+### A build switch is not an instrument - check the ARTEFACT
+
+`build.ps1` offered `-DbgPort` and the ledger showed eight builds using it. The
+source had not contained `LS_DBGPORT` for days. The flag added a `-D` nothing
+consumed, the build succeeded, and the switch looked like working instrumentation
+to everyone reading the build script.
+
+That is technique 28's silent no-op in a new place. **Grep the source for every
+switch the build script offers, and confirm the emitted binary contains the
+code** - here, `mov edi, 0xb9000` and the ring magic, read out of the linked
+`.MPD` with `tools/pedis.py`, not out of the `.ASM`.
+
+### The channels available on THIS machine, and which are dead
+
+| channel | verdict |
+|---|---|
+| COMrade `mem_read`/`file_read` | **DOS only** on real hardware. Useless while Windows runs |
+| `-DbgPort` (port I/O the emulator prints) | bed only - there is no such port on the 5160 |
+| `BOOTLOG.TXT` | IOS writes it; we cannot add to it. And `Init Success` is printed for a driver that merely LOADED (technique 86), so it says nothing about our code |
+| `IOS.LOG` | only written for failures IOS considers notable |
+| file I/O from a miniport | not available |
+| speaker / port `0x61` | **do not** - bit 7 is the XT keyboard-latch acknowledge (technique 37) |
+| **a ring-0 store to low physical memory** | **works** - see below |
+
+### The channel that works, and why
+
+Windows' VMM identity-maps the first megabyte, so a ring-0 store to linear
+`0B9000h` **is** physical `0B9000h`. That is text-mode VRAM page 1: nothing in a
+VGA graphics session writes it, DOS rewrites only page 0, and Ctrl+Alt+Del sets
+`40:72 = 1234h`, which makes POST skip the memory test - so the contents survive
+a warm reboot into DOS, where COMrade's `mem_read` can collect them.
+
+Write **ASCII records** so nothing has to decode them - `TTTT=XXXXXXXX<CR><LF>`
+reads correctly straight out of a `mem_read` dump. Keep a running record count
+in the header so wrap is visible rather than silent.
+
+Shipped as `-Trace` in `drivers/imation_ls120_mpd/build.ps1`, with
+`LS_TRACE_BASE` overridable so a fallback address costs a flag, not a source
+edit.
+
+### ⛔ Prove the channel before believing one record
+
+**A channel that silently drops writes is indistinguishable from a driver that
+never ran.** A VGA in a graphics mode may leave `B8000` unmapped, in which case
+every store goes nowhere and the trace is empty for the wrong reason.
+
+The test, and it is one DOS boot: poison the address, boot Windows, warm-reboot,
+read it back. If the poison is gone the page is not retained and the instrument
+is worthless. This is
+[[feedback-a-self-test-must-be-able-to-fail]] applied to the instrument rather
+than the code under test, and technique 116's "drive the model with the
+unmodified hardware probe" one step earlier.
+
+**And test the instrument in the bed before hardware** - the bed proves the
+records are written and the read-back procedure works. It does **not** prove the
+retention question, because the bed's video is a model. Two different claims;
+say which one a green bed run supports.

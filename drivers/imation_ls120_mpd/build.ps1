@@ -51,6 +51,16 @@ param(
     # and a working one are indistinguishable in the log. Never ship it.
     [switch] $InitVeto,
 
+    # Stage trace to physical 0B9000h (text VRAM page 1), collected from DOS
+    # after a warm reboot. Works on the real 5160, unlike -DbgPort. The channel
+    # must be proven with the poison test before any record is believed -
+    # docs/ls120_trace_channel.md.
+    [switch] $Trace,
+
+    # Where the trace ring lives, if the poison test rules out the default
+    # 0B9000h on this display driver. 0 = leave the source default alone.
+    [int] $TraceBase = 0,
+
     [switch] $FakeDevice,
 
     [string] $DdkRoot = 'C:\Users\lycet\OneDrive\Desktop\XT_project\Windows95_ddk'
@@ -82,6 +92,7 @@ if ($Mode -eq 'ecp') { $defs += '-DLS_FORCE_MODE=2' }
 if ($FakeDevice)  { $defs += '-DLS_FAKE_DEVICE' }
 if ($DbgPort)     { $defs += '-DLS_DBGPORT' }
 if ($InitVeto)    { $defs += '-DLS_INIT_VETO' }
+if ($Trace)       { $defs += '-DLS_TRACE' }
 
 # -coff is what makes ML emit objects the PE linker can use at all.
 $aflags = @('-coff', '-DBLD_COFF', '-DIS_32', '-DMASM6', '-nologo', '-W2', '-Zd', '-c', '-Cx') + $defs
