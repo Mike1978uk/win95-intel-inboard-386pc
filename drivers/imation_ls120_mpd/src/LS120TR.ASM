@@ -251,6 +251,7 @@ LS_ColdDead		dd	0
 LS_LastStatus		dd	0		; last ATA status byte read
 LS_XferN		dd	0		; byte count the DEVICE offered this phase
 LS_Phase		dd	0		; ATAPI interrupt reason, masked to 2 bits
+	PUBLIC	LS_HasEcp
 LS_HasEcp		dd	0		; 1 = an ECR answered at base+402h, use the FIFO
 	PUBLIC	LS_EcpNegStat
 LS_EcpNegStat		dd	0		; last status byte seen waiting for nAck
@@ -471,6 +472,102 @@ lsrst_done:
 ;   they were shown to be necessary - on this hardware the soft reset alone
 ;   was what unblocked it. A later test can remove them.
 ;----------------------------------------------------------------------------
+;----------------------------------------------------------------------------
+; LS_OpenReset - connect the bridge and pulse SRST. Returns AT ONCE.
+;
+;   Uses: EAX, ECX, EDX
+;
+;   This is LS_BringUp's steps 1-4 with the WAIT REMOVED. Both working
+;   references do exactly this much at init and no more: Imation's own
+;   HwInitialize (SD120PPD.MPD rva 3277h) performs no port I/O at all, and the
+;   DDK's PC2xInitialize asserts reset, stalls only the pulse-hold time, calls
+;   ScsiPortNotification(ResetDetected) and returns TRUE. Neither waits for the
+;   device to become ready - that belongs to the per-SRB path.
+;
+;   docs/ls120_enumeration_from_working_drivers.md
+;----------------------------------------------------------------------------
+public LS_OpenReset
+LS_OpenReset:
+;  1. Mask the ECP control register rather than storing a value into it.
+	movzx	edx, LS_BasePort
+	add	edx, LPT_ECP_ECR
+	in	al, dx
+	and	al, ECR_KEEP_MASK
+	out	dx, al
+;  2. The control-port kick.
+	movzx	edx, LS_BasePort
+	add	edx, LPT_CONTROL
+	mov	al, LPT_CT_NINIT
+	out	dx, al
+	mov	al, LPT_CT_NINIT OR LPT_CT_SELIN
+	out	dx, al
+	mov	al, LPT_CT_NINIT OR LPT_CT_SELIN OR LPT_CT_AUTOFD
+	out	dx, al
+	out	dx, al
+	out	dx, al
+	mov	al, LPT_CT_NINIT
+	out	dx, al
+	out	dx, al
+;  3. The CPP preamble.
+	mov	al, CPP_PRE1
+	call	LS_CppFrame
+	mov	al, CPP_PRE2
+	call	LS_CppFrame
+	mov	al, CPP_PRE3
+	call	LS_CppFrame
+	mov	al, CPP_PRE4
+	call	LS_CppFrame
+;  4. Connect and pulse. The bridge is deliberately LEFT CONNECTED across the
+;     settle so the poll below can read status without re-running the CPP
+;     preamble on every tick.
+	mov	al, CPP_CONNECT
+	call	LS_CppFrame
+	mov	LS_Connected, 1
+	call	LS_AtaPulseReset
+	ret
+
+;----------------------------------------------------------------------------
+; LS_SettleStep - ONE poll of the post-SRST settle. Never spins.
+;
+;   Out:  AL = 0 still settling, 1 ready, 2 absent
+;   Uses: EAX, ECX, EDX
+;
+;   Costs one nibble status read, ~30 us, which is what a 1 ms timer tick can
+;   afford. The deadline is counted in ticks by the caller, so the reset settle
+;   (seconds) and a status poll (milliseconds) never share a budget -
+;   inboard-hw-debug technique 122.
+;----------------------------------------------------------------------------
+public LS_SettleStep
+LS_SettleStep:
+	call	LS_StatusRead
+	jc	lss_float
+	test	al, ATA_ST_BSY
+	jnz	lss_wait
+;  BSY is down. Only the ATAPI signature says a drive is really there.
+	mov	al, ATA_REG_BCLO
+	call	LS_RegRead
+	jc	lss_absent
+	cmp	al, ATAPI_SIG_LO
+	jne	lss_absent
+	mov	al, ATA_REG_BCHI
+	call	LS_RegRead
+	jc	lss_absent
+	cmp	al, ATAPI_SIG_HI
+	jne	lss_absent
+	mov	al, 1
+	ret
+;  FFh is the only value that means nothing is driving the bus. 00h is what
+;  this drive reports while it is still coming out of SRST.
+lss_float:
+	cmp	al, 0FFh
+	je	lss_absent
+lss_wait:
+	xor	al, al
+	ret
+lss_absent:
+	mov	al, 2
+	ret
+
 public LS_BringUp
 LS_BringUp:
 ;  1. Mask the ECP control register rather than storing a value into it. An

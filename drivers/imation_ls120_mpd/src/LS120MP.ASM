@@ -49,6 +49,11 @@ ifdef LS_PHASE2
 EXTERNDEF	LS_PacketCommand	: NEAR
 EXTERNDEF	LS_Connect		: NEAR
 EXTERNDEF	LS_BringUp		: NEAR
+EXTERNDEF	LS_OpenReset		: NEAR
+EXTERNDEF	LS_SettleStep		: NEAR
+EXTERNDEF	LS_DetectEcp		: NEAR
+EXTERNDEF	LS_NegotiateEcp		: NEAR
+EXTERNDEF	LS_HasEcp		: DWORD
 EXTERNDEF	LS_SpinUp		: NEAR
 EXTERNDEF	LS_Disconnect		: NEAR
 EXTERNDEF	LS_BasePort		: WORD
@@ -161,6 +166,25 @@ ifdef LS_PHASE2
 ;  The twelve-byte ATAPI packet handed to the device. SCSIPORT serialises
 ;  requests for a single adapter, so one static buffer is safe.
 LsPacket	db	12 dup (0)
+
+;  The bring-up state machine. Both working references refuse to wait
+;  inside a SCSIPORT call: Imation's HwInitialize does no port I/O at all
+;  and PC2xInitialize pulses reset, says ResetDetected and returns. The
+;  settle on this drive is SECONDS, so it is counted here in 1 ms ticks
+;  and polled from the timer instead of spun on.
+LS_ST_SETTLING	equ	0
+LS_ST_READY	equ	1
+LS_ST_ABSENT	equ	2
+;  6 s. A bench probe bounded at 0.29 s aborted every command after the
+;  reset, so this is deliberately generous - and it costs nothing now,
+;  because nothing is blocked while it runs.
+LS_SETTLE_TICKS	equ	6000
+LS_TICK_US	equ	1000
+LsState		db	LS_ST_SETTLING
+LsSettleLeft	dd	LS_SETTLE_TICKS
+;  At most one SRB is outstanding - SCSIPORT sends no more until
+;  NextRequest - so one slot is enough.
+LsPendSrb	dd	0
 
 ifdef LS_FAKE_DEVICE
 ;----------------------------------------------------------------------------
@@ -601,8 +625,32 @@ else
 ;  initialise because a probe did not like what it saw is the wrong pattern
 ;  anyway: finding devices is SCSIPORT's job, and a miniport that vetoes
 ;  itself removes the only channel that could report why.
-	call	LS_BringUp
-	TRACE	'BRUP', eax		; the non-vetoing bring-up verdict
+;  Connect the bridge and pulse SRST. NO WAIT: LS_OpenReset returns as
+;  soon as the pulse is out, exactly as PC2xInitialize does. The settle is
+;  polled from LsTimer. Spinning here for ~3 s is what held the machine
+;  at boot - docs/ls120_enumeration_from_working_drivers.md.
+	call	LS_OpenReset
+	mov	LsState, LS_ST_SETTLING
+	mov	LsSettleLeft, LS_SETTLE_TICKS
+	mov	LsPendSrb, 0
+	TRACE	'PULS', 0
+
+;  Tell SCSIPORT a reset happened so it rescans. This is the line that
+;  makes the device appear, and neither reference probes for the drive
+;  before calling it.
+	push	DeviceExtension
+	push	ResetDetected
+	call	ScsiPortNotification
+	add	esp, 8
+
+;  Start the 1 ms heartbeat that owns every wait from here on.
+	push	LS_TICK_US
+	push	OFFSET LsTimer
+	push	DeviceExtension
+	push	RequestTimerCall
+	call	ScsiPortNotification
+	add	esp, 16
+
 ifdef LS_INIT_VETO
 ;  DIAGNOSTIC BUILD ONLY. Shipping must never veto - see the reasoning above,
 ;  and Imation's own miniport returns TRUE unconditionally. But a bring-up
@@ -610,7 +658,6 @@ ifdef LS_INIT_VETO
 ;  merely LOADED, so a failing probe and a working one read identically in
 ;  BOOTLOG. Vetoing makes the boot log answer the only question that matters -
 ;  did the device actually answer - at the cost of no drive when it did not.
-	jc	lsi_veto
 endif
 	mov	eax, TRUE
 	ret
@@ -637,6 +684,99 @@ LsResetBus PROC STDCALL DeviceExtension:DWORD, PathId:DWORD
 	ret
 
 LsResetBus ENDP
+
+;============================================================================
+; LsTimer - the 1 ms heartbeat, and the only place this driver waits.
+;
+;   SCSIPORT calls this back after the interval asked for in
+;   ScsiPortNotification(RequestTimerCall, ...). Both working references
+;   have exactly this routine:
+;
+;     SD120PPD.MPD rva 48bbh   re-arms itself at the TOP, before any work,
+;                              then steps the engine at 2892h
+;     PC2X.C:932               if (!pending) return; if (!step()) re-arm
+;
+;   Re-arming first is what makes it a heartbeat rather than a one-shot,
+;   and it is why neither driver ever holds the machine: a wait is
+;   expressed as 'not finished, call me again', never as a spin.
+;
+;   STDCALL, one argument - the vendor's routine ends 'ret 4' (rva 4a49h).
+;============================================================================
+LsTimer PROC STDCALL DeviceExtension:DWORD
+
+ifdef LS_PHASE2
+	push	ebx
+	push	esi
+	push	edi
+
+;  Nothing left to do: stop the heartbeat rather than re-arming forever.
+	cmp	LsState, LS_ST_SETTLING
+	je	lst_work
+	cmp	LsPendSrb, 0
+	jne	lst_work
+	jmp	lst_out
+
+lst_work:
+;  Re-arm FIRST, the way both references do, so a slow step below cannot
+;  lose the heartbeat.
+	push	LS_TICK_US
+	push	OFFSET LsTimer
+	push	DeviceExtension
+	push	RequestTimerCall
+	call	ScsiPortNotification
+	add	esp, 16
+
+	cmp	LsState, LS_ST_SETTLING
+	jne	lst_pending
+
+;  One nibble status read, ~30 us. Affordable in a 1 ms tick; a spin to
+;  the same deadline is three seconds of held machine.
+	call	LS_SettleStep
+	cmp	al, 1
+	je	lst_ready
+	cmp	al, 2
+	je	lst_absent
+;  Still busy. Spend one tick of the budget.
+	dec	LsSettleLeft
+	jnz	lst_out
+lst_absent:
+	mov	LsState, LS_ST_ABSENT
+	TRACE	'ABSN', 0
+	jmp	lst_pending
+
+lst_ready:
+;  The drive answered with the ATAPI signature. Settle the transport now,
+;  once, while nothing is in flight - the ECP handshake is a few port
+;  writes, not a wait.
+	call	LS_DetectEcp
+	cmp	LS_HasEcp, 0
+	je	lst_ready2
+	call	LS_NegotiateEcp
+	jnc	lst_ready2
+	mov	LS_HasEcp, 0
+lst_ready2:
+	mov	LsState, LS_ST_READY
+	TRACE	'REDY', 0
+
+;  Anything that arrived while we were settling runs now.
+lst_pending:
+	mov	ebx, LsPendSrb
+	or	ebx, ebx
+	jz	lst_out
+	mov	LsPendSrb, 0
+	TRACE	'RSUM', 0
+	push	ebx
+	push	DeviceExtension
+	call	LsStartIo
+
+lst_out:
+	pop	edi
+	pop	esi
+	pop	ebx
+endif
+	ret
+
+LsTimer ENDP
 
 ;============================================================================
 ; LsStartIo - phase 0 answers every request with a selection timeout.
@@ -702,6 +842,29 @@ else
 ;
 ;  *** UNTESTED. The transport beneath this is stubbed. ***
 ;----------------------------------------------------------------------------
+;  Do not touch the drive until the reset has settled. Holding the SRB
+;  and answering it from the timer is what a reference miniport does with
+;  a device that is not ready yet; completing it early with an error is
+;  what makes SCSIPORT decide there is nothing there.
+	cmp	LsState, LS_ST_ABSENT
+	je	lsi_noselect
+	cmp	LsState, LS_ST_SETTLING
+	jne	lsi_selected
+	cmp	LsPendSrb, 0
+	jne	lsi_busy
+	mov	LsPendSrb, ebx
+	TRACE	'HOLD', 0
+;  Return WITHOUT completing. The timer owns it now.
+	pop	edi
+	pop	esi
+	pop	ebx
+	mov	eax, TRUE
+	ret
+lsi_busy:
+	mov	al, SRB_STATUS_BUSY
+	jmp	lsi_complete
+
+lsi_selected:
 	cmp	[ebx].SCSI_REQUEST_BLOCK.Lun, 0
 	jne	lsi_noselect
 	cmp	[ebx].SCSI_REQUEST_BLOCK.TargetId, 0
