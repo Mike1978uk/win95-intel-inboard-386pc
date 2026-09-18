@@ -68,6 +68,13 @@ LPT_CT_SELIN		equ	08h		; inverted on the wire
 LPT_CT_IRQEN		equ	10h
 LPT_CT_DIR		equ	20h		; 1 = input, bidirectional only
 
+;  Status register, read directly - only BUSY (bit 7) is inverted on the wire.
+;  Bit 5 is PError in SPP naming and AckReverse* in ECP naming, and the two
+;  are the same pin. The peripheral drives it to FOLLOW the level of
+;  ReverseRequest*, which is what makes it the handshake for leaving reverse.
+LPT_ST_ACKREV		equ	20h		; bit 5 - AckReverse* / PError
+LPT_ST_ACK		equ	40h		; bit 6 - PeriphClk / nAck
+
 ;  ECP register file, offset from the SPP base. Not used by the nibble path.
 LPT_ECP_FIFO		equ	400h		; ECP data FIFO
 LPT_ECP_ECR		equ	402h		; bit 0 = FIFO empty
@@ -257,6 +264,10 @@ LS_HasEcp		dd	0		; 1 = an ECR answered at base+402h, use the FIFO
 	PUBLIC	LS_EcpNegStat
 LS_EcpNegStat		dd	0		; last status byte seen waiting for nAck
 LS_EcpNegFail		dd	0		; negotiations that expired, since load
+	PUBLIC	LS_EcpRevStuck
+LS_EcpRevStuck		dd	0		; AckReverse* never followed ReverseRequest*
+LS_EcpTermFail		dd	0		; terminates that expired on nAck
+LS_EcpDegrade		dd	0		; times ECP was abandoned for the nibble path
 	PUBLIC	LS_ModeReq
 ifdef LS_FORCE_MODE
 LS_ModeReq		dd	LS_FORCE_MODE	; PINNED AT BUILD TIME - a test build
@@ -1045,6 +1056,11 @@ ECR_FIFO_FULL	equ	002h		; bit 1 - a whole chunk is ready
 ECR_SERVICE	equ	004h		; bit 2 - serviceIntr, one byte ready
 ECP_SPIN	equ	0FFFFh		; forward
 ECP_SPIN_REV	equ	08000h		; reverse
+;  AckReverse* follows ReverseRequest* as a level, not as a transaction, so it
+;  arrives in microseconds or it is not coming. Giving it the forward budget
+;  would cost 0.36 s of held bus on a bridge that does not drive the line at
+;  all (technique 122 - a settle and a handshake must not share a constant).
+ECP_SPIN_IDLE	equ	00400h		; ~5.7 ms at 5.55 us per 8-bit I/O
 
 ;  ECP FIFO depth, and the unit a transfer is broken into. The vendor holds
 ;  this in a word of its own data area ([0C18h] in SD120PPD.SYS, shipped as
@@ -1370,12 +1386,26 @@ LS_EcpLeave:
 	and	al, LPT_CT_IRQEN
 	or	al, CTRL_FWD
 	out	dx, al
+;  ReverseRequest* is now high. The peripheral is still in reverse phase until
+;  it follows that level on AckReverse*, and terminating before it does asks
+;  it to leave 1284 from a phase it is not in. Wait, bounded.
+	movzx	edx, LS_BasePort
+	add	edx, LPT_STATUS
+	mov	ecx, ECP_SPIN_IDLE
+lel_fwd:
+	in	al, dx
+	test	al, LPT_ST_ACKREV
+	jnz	lel_idle			; followed - forward idle, safe to terminate
+	dec	ecx
+	jnz	lel_fwd
+	inc	LS_EcpRevStuck
+lel_idle:
 	movzx	edx, LS_BasePort
 	add	edx, LPT_ECP_ECR
 	in	al, dx
 	and	al, 01Fh
 	out	dx, al
-;  FALL THROUGH into the 1284 terminate. Restoring the ECR and the control
+;  Terminate, then PROVE it worked. Restoring the ECR and the control
 ;  port fixes the HOST only. LS_Neg1284 put the PERIPHERAL into 1284 ECP as
 ;  well, and it stays there until it is told otherwise - after which every
 ;  nibble register read returns 0F5h and the whole task file is unreadable.
@@ -1387,14 +1417,37 @@ LS_EcpLeave:
 ;  So negotiation is required, termination is required, and the pair leaves
 ;  the port exactly as it was found. This is the defect that made every
 ;  ECP-capable build report Init Failure while a nibble-only build worked.
+;
+;  The verify costs one nibble register read per ECP episode - under 1% of a
+;  3584-byte burst - and it is the only signal we have on hardware, where the
+;  trace ring does not survive. F5h is the stranded-in-ECP signature; it is
+;  also an illegal ATA status (BSY and DRDY set together), so it cannot be a
+;  real device answering, and LS_StatusRead passes it because only FFh raises
+;  the dead-bus carry.
+	call	LS_Term1284
+	call	LS_StatusRead
+	jc	lel_degrade			; dead bus - nothing to fall back to
+	cmp	al, 0F5h
+	jne	lel_done
+lel_degrade:
+	inc	LS_EcpDegrade
+	mov	LS_HasEcp, 0			; LS_BlockRead/Write now take the SPP path
+lel_done:
+	ret
 
 ;----------------------------------------------------------------------------
 ;  LS_Term1284 - hand the peripheral back to compatibility mode.
 ;
 ;  nSelectIn asserted with nAutoFeed high asks for termination; the peripheral
-;  answers on nAck. Budgets match the vendor's forward budget. A timeout here
-;  is not reported: there is nothing useful to do about it, and leaving the
-;  port forward and quiescent is still the best available state.
+;  answers on nAck. Budgets match the vendor's forward budget. A timeout is
+;  counted in LS_EcpTermFail rather than returned: the caller cannot act on it
+;  directly, and LS_EcpLeave's status verify catches the case that matters -
+;  a peripheral left in ECP - whatever the reason it was left there.
+;
+;  CALLER MUST BE IN ECP FORWARD IDLE. SelectIn* is "1284 Active" in ECP
+;  naming and driving it low is what ends the mode; doing that while the
+;  peripheral is still in reverse phase asks it to leave from a phase it is
+;  not in. LS_EcpLeave establishes forward idle first.
 ;
 ;   Uses: EAX, ECX, EDX
 ;----------------------------------------------------------------------------
@@ -1409,10 +1462,11 @@ LS_Term1284:
 	mov	ecx, ECP_SPIN
 lt1_low:					; wait nAck LOW
 	in	al, dx
-	test	al, 040h
+	test	al, LPT_ST_ACK
 	jz	lt1_ack
 	dec	ecx
 	jnz	lt1_low
+	inc	LS_EcpTermFail
 lt1_ack:
 	movzx	edx, LS_BasePort
 	add	edx, LPT_CONTROL
@@ -1423,10 +1477,11 @@ lt1_ack:
 	mov	ecx, ECP_SPIN
 lt1_high:					; wait nAck HIGH
 	in	al, dx
-	test	al, 040h
+	test	al, LPT_ST_ACK
 	jnz	lt1_done
 	dec	ecx
 	jnz	lt1_high
+	inc	LS_EcpTermFail
 lt1_done:
 	movzx	edx, LS_BasePort
 	add	edx, LPT_CONTROL
