@@ -1,8 +1,12 @@
 # ECP vs SPP timing — what was measured, and why it does NOT say ECP is slower
 
-Measured on the real 5160, 2026-09-18, DOS COMrade. Read the conclusion before
-the numbers: **this session did not produce a valid ECP bulk timing, and
-nothing here refutes the expectation that ECP is faster.**
+Measured on the real 5160, 2026-09-18, DOS COMrade.
+
+**Conclusion first:** the first ECP timing was void (broken script). A correct
+ECP bulk script was then built - `ECPBULK.SCR`, the first one to do bulk over
+ECP *with* a working 1284 terminate - and it **delivers no data at all**, twice,
+while taking longer than SPP. So SPP is the right default today, and ECP bulk
+needs the vendor's own sequence rather than a patched-up pre-fix script.
 
 ## Method
 
@@ -128,21 +132,27 @@ not. The ECP work remains worth doing - the arithmetic still says ~6.7x on the
 data phase - but it needs the vendor's own bulk sequence transliterated, not
 `ECP2`'s pre-fix guess with a terminate bolted on.
 
-## What would actually settle it
+## What would settle the remaining question
 
-Build `ECP2.SCR` + the corrected terminate — i.e. take the bulk ECP path
-(`call 1190`) and add `ECPTERM2`'s terminate to its exit. Then time it against
-`SPP2` the same way. Until that script exists, **the ECP-vs-SPP bulk question
-is open and the expectation that ECP wins is unrefuted.**
+`ECPBULK` shows *this* ECP bulk path fails. It does not show ECP bulk is
+impossible. The untried route is the one the vendor actually ships:
 
-Predicted, so there is something to check against: nibble is ~7 port accesses
-per byte, ECP ~1. At the measured `3.90 us` fixed sync + `1.87 us`/byte per
-access that is ~39 us/byte against ~5.8 us/byte — about **6.7x** on the data
-phase alone, less end to end once command overhead is included.
+- transliterate `SD120PPD.SYS`'s own ECP block paths at **`0x4465`** (read) and
+  **`0x4BD3`** (write) - `rep insb` / `rep outsb` on the ECP FIFO after setting
+  the control direction bit - rather than reusing `ECP2`'s pre-1284 guess;
+- ⚠ **audit it for fixed-port writes first.** The vendor's DMA-assisted block
+  variant writes `out 23h` / `out 22h`, which on this XT alias onto the 8259
+  (technique 75). That is in the *block transfer* path, not just chipset init,
+  so `/ni` does not protect against it.
 
-⚠ And the owner's own caveat stands: ECP may only pay on **large** transfers,
-like the Hi-Speed lever on the XT-IDE. A nine-transfer mixed workload of small
-commands is not where it would show best.
+Prediction to check against, so the next attempt has a target: nibble is ~7
+port accesses per byte, ECP ~1. At the measured `3.90 us` fixed sync +
+`1.87 us`/byte per access that is ~39 us/byte against ~5.8 us/byte - about
+**6.7x** on the data phase, less end to end once command overhead is included.
+
+⚠ The owner's caveat stands and is now more relevant, not less: ECP may only
+pay on **large** transfers, like the Hi-Speed lever on the XT-IDE. A
+nine-transfer workload of small commands is not where it would show best.
 
 ## Captures
 
