@@ -1014,7 +1014,8 @@ public LS_BlockReadSpp
 LPT_ECPFIFO	equ	400h
 
 ECR_MODE_ECP	equ	074h
-ECR_MODE_BYTE	equ	034h		; PS/2 byte mode - transient, between phases
+ECR_MODE_PARK	equ	014h		; mode 000 + nErrIntrEn - where the ECR parks
+					; between phases, so a direction change is legal
 ECR_FIFO_EMPTY	equ	001h
 CTRL_DIR	equ	020h
 
@@ -1244,16 +1245,20 @@ lne_ok:
 ;  LS_EcpDir - set the ECP channel direction and (re)enter ECP mode.
 ;
 ;  A direction change is not legal inside an ECP FIFO mode, so the ECR has to
-;  leave it and come back: byte mode, control, ECP mode. IRQ-enable (bit 4) is
-;  carried across - the vendor preserves it too, and dropping it silently
-;  disarms an interrupt somebody else armed.
+;  leave it and come back: park in mode 000, control, ECP mode.
+;
+;  Mode 000 and not byte mode. Any ECR mode with bits 7:5 non-zero makes the
+;  port bidirectional, which changes what a nibble task-file read returns -
+;  and the vendor parks at 014h here too (TRANSPORT_SPEC.md section 11a).
+;  IRQ-enable (bit 4) is carried across: dropping it silently disarms an
+;  interrupt somebody else armed.
 ;
 ;   In: AL = CTRL_FWD or CTRL_REV.  Clobbers EAX, EDX, BH.
 LS_EcpDir:
 	mov	bh, al
 	movzx	edx, LS_BasePort
 	add	edx, LPT_ECP_ECR
-	mov	al, ECR_MODE_BYTE
+	mov	al, ECR_MODE_PARK
 	out	dx, al
 	movzx	edx, LS_BasePort
 	add	edx, LPT_CONTROL
@@ -1458,11 +1463,12 @@ ledb_out:
 ;   Out:  CF=1 on timeout, ECX preserved
 ;   Uses: EAX, EBX, EDX
 ;
-;   ** THIS IS WHY ECP BULK MOVED NOTHING. ** Every ECP episode this driver
-;   has ever run issued the block command with no length programmed, so the
-;   bridge was never told how much to transfer and streamed zero bytes -
-;   measured 2026-09-18, destination buffers still poisoned after a full
-;   episode while SPP filled them.
+;   The bridge streams nothing until it is told how many bytes to move, so
+;   this has to run before every block command.
+;
+;   The descriptor only works with the peripheral already negotiated into
+;   1284 ECP mode. Without that the first address cycle never drains the
+;   FIFO and every wait below times out.
 ;
 ;   The sequence is SD120PPD.SYS 4CA3h, alternating ECP ADDRESS cycles
 ;   (base+0) with ECP DATA cycles (base+400h):
@@ -1472,7 +1478,11 @@ ledb_out:
 ;       addr 0Bh / data count-low
 ;
 ;   Registers 0Eh/0Fh are the bridge's indirect select/value pair - the same
-;   pair epat.c's epatc8 connect drives. TRANSPORT_SPEC.md section 11.
+;   pair epat.c's epatc8 connect drives.
+;
+;   The count-low pair is conditional in the vendor on bridge register 0Bh
+;   being >= 0C3h; this bridge reads 0C6h, so it is emitted unconditionally
+;   here. TRANSPORT_SPEC.md section 11a has the measured sequence.
 ;----------------------------------------------------------------------------
 LS_EcpDescriptor:
 	mov	LS_EcpCount, ecx
