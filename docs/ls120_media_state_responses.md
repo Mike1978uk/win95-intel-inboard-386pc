@@ -218,6 +218,45 @@ the previous run's bytes still in an un-poisoned buffer, exactly the trap the
 bridge burst ceiling is the *only* constraint we have. The drive imposes none
 of its own that it is willing to declare.
 
+## START STOP UNIT (1Bh) - the drive controls, measured 2026-09-18
+
+The command Windows' Eject uses. Three variants, phase bytes at 0600:
+
+| variant | CDB byte 4 | phase bytes | verdict |
+|---|---|---|---|
+| **EJECT** LOEJ=1 START=0 | `02` | `50 00 50 58 50 03 00 00` | **works** - status `50h`, error `00`, and the disk physically came out (owner confirmed) |
+| **LOAD** LOEJ=1 START=1 | `03` | `51 54 50 58 51 03 00 00` | **ILLEGAL REQUEST** (error `54h`, sense key 5) |
+| **SPIN UP** LOEJ=0 START=1 | `01` | `D0 00 51 58 D0 01 00 00` | **accepted**, error `00`, but leaves the drive **BSY** |
+
+### LOAD is refused, and that is correct
+
+The LS-120 is manual-insert, like a floppy. It has an eject mechanism but no
+loader - there is no motor to pull a disk in - so `LOEJ=1 START=1` is properly
+rejected. Do not treat that rejection as a fault.
+
+### SPIN UP returns immediately and leaves BSY set
+
+Error register `00` - the command was accepted - but the final status is `D0h`
+(BSY|DRDY|DSC). The drive is spinning up *after* the command completes. A
+following READ CAPACITY succeeded normally (`SB_rdcap_after_spinup.OUT`).
+
+**This is the measurement behind the existing comment in `LsStartIo`** ("NO
+unsolicited spin-up here... an LS-120 takes seconds to come up, and SCSIPORT
+times an SRB out long before that"). Now it is measured rather than asserted:
+the command itself is fast, the *motor* is not. So the correct handling is to
+issue it and return, and let the next command's BSY poll absorb the wait on the
+timer - never to wait for BSY inside the spin-up SRB.
+
+### Eject is fast, which corrects an earlier prediction
+
+This session predicted Windows' Eject would fail because START STOP UNIT is
+slow and our poll budget is short. **Wrong** - the eject completes in well
+under a second at the protocol level. If Eject misbehaves in Windows it is not
+for that reason.
+
+Captures: `S8_startstop_eject.OUT`, `S9_startstop_load_ua_pending.OUT`,
+`SA_startstop_spinup.OUT`, `SB_rdcap_after_spinup.OUT`.
+
 ## INQUIRY - the control
 
 `MATSHITA LS-120 COSM   04 0270`, phase bytes `80 00 00 08 08 02 24 00`,
