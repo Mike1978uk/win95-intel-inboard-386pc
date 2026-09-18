@@ -1,0 +1,8 @@
+n c:\lstrace.log
+m b900:0 b900:0fff 100
+rbx
+0
+rcx
+1000
+w
+q
