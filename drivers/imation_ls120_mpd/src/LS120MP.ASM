@@ -202,7 +202,7 @@ ifdef LS_TRACE
 ;         is called from the middle of sequences that are mid-handshake.
 ;============================================================================
 	PUBLIC	LS_Trace
-LS_Trace PROC
+LS_Trace:
 	pushfd
 	push	eax
 	push	ebx
@@ -279,7 +279,6 @@ lt_dig:
 	pop	eax
 	popfd
 	ret
-LS_Trace ENDP
 endif
 
 ;============================================================================

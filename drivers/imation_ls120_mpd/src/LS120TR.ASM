@@ -262,6 +262,22 @@ else
 LS_ModeReq		dd	0		; 0 = auto-detect, 1 = force SPP, 2 = force ECP
 endif
 
+ifdef LS_TRACE
+EXTERNDEF	LS_Trace : NEAR
+TRACE	MACRO	tag, val
+	push	eax
+	push	ebx
+	mov	eax, val
+	mov	ebx, tag
+	call	LS_Trace
+	pop	ebx
+	pop	eax
+	ENDM
+else
+TRACE	MACRO	tag, val
+	ENDM
+endif
+
 	.CODE
 
 ;============================================================================
@@ -2261,6 +2277,7 @@ LS_PortOpen:
 	out	dx, al
 	out	dx, al
 	call	LS_DetectEcp		; sets LS_HasEcp; MODE=SPP pins the nibble path
+	TRACE	'ECPD', LS_HasEcp	; 1 = ECP block path, 0 = nibble. Which ran, not which was asked for.
 	mov	al, CPP_PRE1
 	call	LS_CppFrame
 	mov	al, CPP_PRE2
