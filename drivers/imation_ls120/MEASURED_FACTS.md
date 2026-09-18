@@ -166,8 +166,9 @@ workflow** and should not be treated as a blocker.
 - **A buffer that cannot show "untouched" is not evidence.**
 - **`rbuf = BUF_SECTOR2 = 0x2800`** for a single sector; `0x2600` is unused, so
   `EE` there means nothing.
-- **`DEBUG` is the right command**; `C:\WINDOWS\COMMAND\DEBUG.EXE` does not
-  exist on this machine.
+- **`DEBUG` is the right command** - it is on the PATH. Both
+  `C:\WINDOWS\COMMAND\DEBUG.EXE` (20,522 bytes) and `C:\DOS\DEBUG.EXE` are
+  present; an earlier note here said the former was absent, and that is wrong.
 - **`run_command` returns `idle` in ~1 s while DEBUG still runs.** Reading the
   `.OUT` immediately gives 0 bytes — that is *read too early*, not an empty
   result.
