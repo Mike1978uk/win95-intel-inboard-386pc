@@ -1,0 +1,28 @@
+e 0BFA 78 03
+e 0BC7 01
+e 0C18 10 00
+e 0C1D 00 00
+e 0C1A 00 00
+e 4DD8 0C 01
+e 4DF4 0C 01
+e 4E0E 0C 01
+e 4E2A 0C 01
+e 4E44 0C 01
+e 4E67 0C 01
+e 4E81 0C 01
+e 4EB0 0C 01
+e 4EEE 0C 01
+e 4EF7 0C 01
+e 4F22 0C 01
+r cx
+0200
+r si
+8000
+r di
+8000
+r bp
+0001
+r ip
+4DA3
+t 70
+q

@@ -1458,6 +1458,60 @@ Matches the cold read of `ECR = 0x35` in §2.
   `ECP_FIFO_DEPTH = 16`, which is in fact correct.
 - whether the `0Bh` writes in the descriptor are two registers or one written twice
 
+### ✅ MEASURED 2026-09-18: the vendor's descriptor, single-stepped
+
+Not decoded - **executed and traced**. `SD120PPD.SYS` loaded into DEBUG as a
+file (it lands at `CS:0100`, so **code** addresses are file+100h while the
+driver's **data** references stay unshifted - patch globals at `[0BFA]`, not
+`[0CFA]`), globals set by hand, IP pointed at `4DA3` (= file `4CA3`), `t`.
+Capture `VT3_vendor_descriptor_full.OUT`, script `VTRACE2.SCR`.
+
+Port accesses in execution order:
+
+```
+ECR    = 14h        ; SPP mode 000 + nErrIntrEn
+ctrl   = 04h        ; forward
+ECR    = 74h        ; ECP mode 011
+       IN ECR       ; wait FIFO empty
+base+0 = 0Eh        ; ADDRESS cycle
+       IN ECR
+FIFO   = 0Bh        ; DATA cycle
+       IN ECR
+base+0 = 0Fh        ; ADDRESS cycle
+       IN ECR
+FIFO   = 02h        ; DATA cycle - CX was 0200h, so this is COUNT-HIGH
+       IN ECR
+ctrl   = 04h ; ECR = 74h      ; re-arm
+       IN status (base+1)
+ECR    = 34h        ; teardown
+```
+
+#### Two corrections to what we implement
+
+1. **The intermediate ECR is `14h`, not `34h`.** `LS_EcpDir` uses `34h`
+   (mode 001, PS/2 byte) where the vendor uses `14h` (mode 000, SPP).
+   Mode 001 makes the port bidirectional; mode 000 does not. Measured.
+2. The descriptor pairs are **`(0Eh -> 0Bh)`, `(0Fh -> count-high)`** -
+   address cycle to `base+0`, data cycle to `base+400h`, ECR-gated between
+   every one. That much of section 11's decode is confirmed.
+
+#### Still open
+
+The traced run branched to teardown without emitting **count-low** or the
+block command, because the bridge was not connected so the real status check
+at `4EA6` failed. So section 11's third pair (`0Bh -> count-low`) remains
+**unconfirmed**.
+
+⭐ **Next: connect the bridge first, then trace.** Replay the known-good CPP
+connect (INQ9's `0320` block) before setting IP to `4DA3`, so the waits
+actually drain and the routine takes its success path. That yields the
+complete sequence including the block command.
+
+⚠ The `TEST AL,01 -> OR AL,01` patch used here forces every ECR wait to
+"succeed" so the trace walks instead of spinning. It is a **tracing aid, not
+the protocol** - it also makes the routine take paths it would not take with a
+live peripheral.
+
 ### ⛔ ATTEMPT 1 FAILED - the descriptor as decoded is not sufficient
 
 `ECPDESC.SCR` (2026-09-18) = `ECPBULK.SCR` + the descriptor above, programmed
