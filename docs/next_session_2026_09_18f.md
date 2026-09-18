@@ -243,3 +243,38 @@ hardware pass and must not be reported as one.
 **Does NOT explain** why the real install stopped enumerating. Separate hunt,
 below. Do not conflate them - that conflation is what cost this session its
 control.
+
+---
+
+## ⛔ THE BED CANNOT TEST LPT1 CONTENTION - BY CONSTRUCTION
+
+Recorded because it was got wrong within an hour of being written down.
+
+The hive diff (`SYSTEM_0912_working.DAT` vs `SYSTEM_after_revert_no_J.DAT`)
+shows the `ECP Printer Port (LPT1)` node - `*PNP0401`, `lpt.vxd`,
+`lptenum.vxd`, `EcpPort` - **present on the 09-12 image that enumerates, and
+absent from the install that does not**. That was read here as evidence the
+node is harmless. **It is not evidence of that.**
+
+In the bed, `86box.cfg` has `lpt1_device = lpt_epat`: **the parallel port IS
+the EPAT bridge.** There is no Windows printer-port driver competing for
+`0x378`, because there is no separate port for one to enumerate on. On the
+real machine `lpt.vxd`/`lptenum.vxd` drive that address, and LPTENUM performs
+1284 negotiation on it - against a peripheral that must be 1284-terminated or
+every nibble read returns `F5`.
+
+So the bed **structurally cannot** reproduce the conflict. "The 09-12 hive has
+the node and enumerates in the bed" is technique 90 in its exact form: a claim
+about the emulator, not about the hardware. The owner's hardware observation
+that removing the port unblocked enumeration outranks it -
+[[feedback-real-hardware-outranks-inference]].
+
+**What the diff does establish, and no more:** the node was present on 09-12
+and is absent now. Causation, in either direction, is not established.
+
+### The useful consequence
+
+The port is **currently removed and the drive still does not enumerate**. So
+removing it is NOT SUFFICIENT, whatever else it is. The LPT1 question and
+tonight's failure are therefore probably **separate problems**, and collapsing
+them - as was done here - loses both.
