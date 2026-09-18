@@ -1,0 +1,22 @@
+DEVICE=c:\INBRDPC.SYS NODIAGS NOPAUSE
+
+DEVICE=C:\WINDOWS\SETVER.EXE
+DEVICE=C:\WINDOWS\HIMEM.SYS
+DOS=HIGH,UMB
+device=C:\WINDOWS\COMMAND\display.sys con=(ega,,1)
+Country=044,850,C:\WINDOWS\COMMAND\country.sys
+
+REM DEVICEHIGH=C:\SD120PPD\SD120PPD.SYS /port:378 /IRQ:7 /de /db /ni /sf /dpc /dp /fp
+REM --- EPP mode test 2026-09-19. Line above is the ORIGINAL, untouched. ---
+REM Dropped /de (Disable Epp check), /db (Disables Eppbios check) and /sf
+REM (Skips fast mode detection) so the driver AUTO-DETECTS and prints its
+REM Read Mode / Write Mode. KEPT /ni - its chipset probe writes 22h/23h,
+REM which alias onto the 8259 on this XT and killed the keyboard in August.
+DEVICEHIGH=C:\SD120PPD\SD120PPD.SYS /port:378 /IRQ:7 /ni /dpc /dp /fp
+REM DEVICEHIGH=C:\SD120PPD\ASPIHDRM.SYS
+
+LASTDRIVE=M
+BUFFERS=30,0
+BREAK=ON
+Stacks=0,0
+FILES=40
