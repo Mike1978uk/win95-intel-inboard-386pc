@@ -1458,6 +1458,37 @@ Matches the cold read of `ECR = 0x35` in §2.
   `ECP_FIFO_DEPTH = 16`, which is in fact correct.
 - whether the `0Bh` writes in the descriptor are two registers or one written twice
 
+### ⛔ ATTEMPT 1 FAILED - the descriptor as decoded is not sufficient
+
+`ECPDESC.SCR` (2026-09-18) = `ECPBULK.SCR` + the descriptor above, programmed
+before the block command with a re-arm after, using the script's existing
+helpers (`1110` ECP address cycle, a new `1690` ECP data cycle, both gated on
+`10B0`). Ran to completion on the real 5160.
+
+**Result: still essentially nothing.** Destination buffers stay `EE` poison
+except eight bytes at `2600` reading `00 00 00 00 00 00 FF 53`.
+
+So the transfer-length descriptor - at least as encoded here - is **not** the
+whole of what is missing. Do not treat section 11's sequence as sufficient
+until something actually moves.
+
+What is still uncertain in that decode, and any of it could be the reason:
+
+- §11's own open question: **whether the `0Bh` writes are two different
+  registers or one written twice.** This attempt assumed addr `0Bh` selects a
+  register and the following data cycle is the count-low byte. That is a guess.
+- the byte order of the count (`CH` then `CL` was assumed)
+- whether the address cycles belong at `base+0` in ECP mode at all, or whether
+  the bridge's indirect `0Eh`/`0Fh` pair must be driven with ordinary
+  `LS_RegWrite` nibble cycles *before* entering ECP
+- whether a status check between the descriptor and the command is mandatory
+  (`read status base+1, test bit 3` appears in the vendor trace and was omitted)
+
+**Next measurement, not next guess:** single-step the vendor's own `0x4CA3`
+under DEBUG on the real machine and record the actual port/value sequence it
+emits, rather than transliterating from a static decode. Everything about this
+path that has been inferred has been wrong at least once.
+
 ### What to implement, in order
 
 1. **The descriptor** (§11 sequence above) - the bridge must be told the length
