@@ -102,7 +102,7 @@ mask-ROM part; `0Bh` is an 8-bit version code, not a window into code space.
 
 ## Not done, and why
 
-**The corrected read is untested.** The DOS harness hung **three times, always
+**The corrected read is untested.** The DOS harness hung **four times, always
 at the same point** - reproducible, not intermittent. The first hang
 was my bug — the per-byte gate at `10E0` sets `CX = 0x8000` as its own spin
 budget, so calling it inside a `LOOP` destroys the counter. `ECPDESC4.SCR`
@@ -110,13 +110,21 @@ fixes that with `PUSH`/`POP CX` and a `JC` timeout exit, and **still** hangs.
 Each attempt needed a 5160 reset; `Ctrl+C` cannot reach a loop that polls no
 DOS service.
 
-The remaining suspect is **cumulative**, not a single infinite loop: the only
-change from `ECPDESC.SCR` (which completes in ~4 s) is that the read path now
-gates every byte, and the script drives that path repeatedly. At `0x8000` spins
-per byte worst case, a read that mostly times out costs seconds *per call*.
-Before debugging it further, bound the gate far lower - `0x0800` is ample at
-39 us/byte - or drop the DOS harness for ECP entirely and test through the
-driver, which is the only consumer that matters.
+⛔ **"Cumulative timeout cost" was my theory and it is WRONG.**
+`ECPDESC5.SCR` cut the gate budget from `0x8000` to `0x0800`, 16x less, and it
+hung identically. So it is a real infinite loop, not accumulated waiting.
+
+What that leaves. The `1790` block is bounded on inspection - `JC 17C0` exits on
+the first timeout, `LOOP 1790` is in range, `CX` is preserved across the gate,
+and `17C0` sits clear in the `1770`-`1800` gap. Both exits are stack-balanced
+against the caller's `PUSH CX`. So either the block is not assembling as read,
+or **the hang is not in the read path at all** and removing `DEC CX / JCXZ 11F0`
+changed the flow somewhere I have not traced.
+
+**Do not spend more on this harness.** Four attempts, four 5160 resets, no
+measurement. The driver is the only consumer that matters and it is already
+staged on the card. If a DOS-side ECP check is ever wanted again, build it
+fresh and small rather than patching `ECPBULK`'s 80-block descendant.
 
 ## Next, in order
 
