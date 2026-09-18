@@ -1386,25 +1386,20 @@ LS_EcpLeave:
 	and	al, LPT_CT_IRQEN
 	or	al, CTRL_FWD
 	out	dx, al
-;  ReverseRequest* is now high. The peripheral is still in reverse phase until
-;  it follows that level on AckReverse*, and terminating before it does asks
-;  it to leave 1284 from a phase it is not in. Wait, bounded.
-	movzx	edx, LS_BasePort
-	add	edx, LPT_STATUS
-	mov	ecx, ECP_SPIN_IDLE
-lel_fwd:
-	in	al, dx
-	test	al, LPT_ST_ACKREV
-	jnz	lel_idle			; followed - forward idle, safe to terminate
-	dec	ecx
-	jnz	lel_fwd
-	inc	LS_EcpRevStuck
-lel_idle:
+;  DROP THE ECR FIRST. Measured on the 5160, 2026-09-18: with the ECR in ECP
+;  mode (74h) the status port reads 00 in EVERY bit - D8h at park, 00h the
+;  instant the ECR goes to 74h. So any status wait taken while still in ECP
+;  mode reads a dead register and can only ever time out. Both waits below,
+;  and the two in LS_Term1284, depend on this ordering.
 	movzx	edx, LS_BasePort
 	add	edx, LPT_ECP_ECR
 	in	al, dx
 	and	al, 01Fh
 	out	dx, al
+;  NO AckReverse* WAIT HERE. One was added and removed on 2026-09-18: the
+;  vendor's own teardown (SD120PPD.SYS 0x481D) is these two writes and nothing
+;  else, and a probe showed the status port reads 00 in the reverse state we
+;  actually use. Waiting on a bit that cannot rise only costs a timeout.
 ;  Terminate, then PROVE it worked. Restoring the ECR and the control
 ;  port fixes the HOST only. LS_Neg1284 put the PERIPHERAL into 1284 ECP as
 ;  well, and it stays there until it is told otherwise - after which every
