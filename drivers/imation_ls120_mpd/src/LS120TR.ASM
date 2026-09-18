@@ -2189,11 +2189,18 @@ lpc_done:
 	mov	bl, ATA_ST_BSY
 	mov	bh, ATA_ST_DRDY OR ATA_ST_ERR
 	call	LS_PfWait
-	jc	lpc_fail
+	jnc	lpc_pf_ok
+	TRACE	'PFWT', LS_LastStatus
+	jmp	lpc_fail
+lpc_pf_ok:
 
 	mov	eax, LS_LastStatus
+	TRACE	'PSTS', eax
 	test	al, ATA_ST_ERR
-	jnz	lpc_fail
+	jz	lpc_noerr
+	TRACE	'PERR', eax
+	jmp	lpc_fail
+lpc_noerr:
 
 ;  DRQ still set here means the device wants ANOTHER data phase - it answered
 ;  with a smaller burst than we asked for and is still holding the rest. This
@@ -2210,7 +2217,10 @@ lpc_done:
 ;  both cases. Until LS_PacketCommand loops bursts, a short phase is a failure
 ;  and must be reported as one. DESIGN.md I2.
 	test	al, ATA_ST_DRQ
-	jnz	lpc_fail
+	jz	lpc_nodrq
+	TRACE	'PDRQ', eax
+	jmp	lpc_fail
+lpc_nodrq:
 
 ;  Release the port. The vendor driver leaves it quiescent between
 ;  operations - measured 2026-09-08, control 14h and ECR 35h at rest - so
