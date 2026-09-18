@@ -5,9 +5,15 @@ working tree with uncommitted changes, or is not in `build_ledger.tsv` at all, s
 `git checkout` regenerates them. Technique 89: an artefact under test must be traceable to a
 commit, or its results are not evidence.
 
-**Clean-tree builds are deliberately NOT kept here.** The toolchain is deterministic - the
-same source links to the same md5 - so a clean-tree row in `build_ledger.tsv` plus its commit
-already is the artefact:
+**Clean-tree builds are deliberately NOT kept here.** The toolchain is deterministic in the
+sense that matters: the same source links to the same **code hash**. So a clean-tree row in
+`build_ledger.tsv` plus its commit regenerates the driver:
+
+⚠ **It does not regenerate the same md5, and it never will.** A PE header carries a
+`TimeDateStamp` that the linker writes per link, so the file hash moves every time even when
+nothing in the source changed. Measured 2026-09-18 - three links of identical source gave code
+`a98157ec` every time and md5 `3c98b759`, `87ced927`, `ac5cf686`. **Identify a build by its code
+hash; use md5 only to match a specific file back to a specific ledger row.**
 
 ```
 git checkout <commit>

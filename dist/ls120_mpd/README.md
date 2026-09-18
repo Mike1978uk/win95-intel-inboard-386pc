@@ -11,6 +11,11 @@ parallel-port bridge, on an IBM 5160 with an Intel Inboard 386/PC.
 Built from `drivers/imation_ls120_mpd` at commit `28e85f4`, clean tree, with
 `build.ps1 -Phase 2 -Mode spp`. The ledger row is in `build_ledger.tsv`.
 
+**The md5 moves with the PE timestamp; the code hash does not.** Rebuilding from
+`28e85f4` gives code `5084a71c` again and a different md5 every link. So this file is
+kept here as bytes - a rebuild cannot reproduce the artefact that was tested, only its
+code. Compare `5084a71c` to check you have the right driver.
+
 ## What works, measured on the real 5160
 
 **The drive enumerates, mounts and reads**, at `J:`, 2026-09-18. Confirmed on the

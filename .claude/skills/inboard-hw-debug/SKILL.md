@@ -4383,6 +4383,42 @@ Enforced rather than remembered, since remembering it did not work:
 The ledger is seeded with every binary this project knows about, including `70298a8f` marked
 `UNREPRODUCIBLE`, so the next person who finds it does not repeat the archaeology.
 
+### 89a: an md5 identifies a LINK, not a BUILD - record the code hash too
+
+**A PE file carries a `TimeDateStamp` in its header that the linker writes on every link.** So
+the same source, rebuilt from the same commit, produces a **different md5 every time** and
+identical code. Measured 2026-09-18 on the LS-120 miniport - three links of byte-identical
+source gave code `a98157ec` each time and md5 `3c98b759`, `87ced927`, `ac5cf686`.
+
+This does not weaken the ledger, but it changes what each column is *for*:
+
+| column | answers |
+|---|---|
+| **md5** | "which specific FILE is this, and which ledger row produced it" |
+| **code hash** | "which BUILD is this, and can I regenerate it" |
+
+Consequences, both of which were stated wrongly here before being measured:
+
+- **"Rebuild from the commit and you get the artefact back" is false.** You get the same code,
+  not the same file. So anything whose exact bytes were tested - a `dist/` deliverable, a
+  binary a hardware result is attributed to - must be **kept as bytes**, not treated as
+  regenerable. `CLAUDE.md`'s "`dist/` is byte-identical to what was tested" depends on this.
+- **Never diff two builds by md5 to decide whether the code changed.** Two links a minute apart
+  differ. `build.ps1` prints both hashes for exactly this reason; use the code hash.
+
+`tools/pe_codehash.py` is what makes the code hash stable, and **its docstring is the primary
+record** - it names the exact nine bytes that move between two links of one source
+(COFF `TimeDateStamp`, the optional header `CheckSum`, a `TimeDateStamp` in each
+`IMAGE_DEBUG_DIRECTORY` entry - which lives inside `.rdata`, so excluding a `.debug` section
+does not catch it, and that mistake was made first - and trailing debug data past the last
+section). It zeroes those and hashes the rest.
+
+⚠ **This applies to PE files only.** For an **LE VxD**, MASM+LINK do produce a byte-identical
+file from identical source, so md5 is a stable identity there and the distinction above does
+not arise. `.MPD` and PE `.PDR` are affected; `.VXD` and `.386` are not.
+
+A ledger without a code-hash column can identify files and cannot identify builds.
+
 **Corollary for a long debugging session:** commit at each verified iteration, which `CLAUDE.md`
 already asks for. The reason is not tidiness. It is that a bisect needs a control, and a control
 you cannot rebuild is not one.
