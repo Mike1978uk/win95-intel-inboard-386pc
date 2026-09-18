@@ -128,8 +128,35 @@ Run the probe instead and the difference is stark:
 Capture: `PWROFF_inq9_drivepoweredoff.OUT`, against the powered-on control
 `../2026-09-11_ls120/INQ9NOW.OUT`.
 
-⚠ Not yet measured: **cable unplugged**. That needs the 5160 shut down first -
-DB25 has no staggered ground pin and both boxes are separately mains-powered.
+### Cable unplugged - measured 2026-09-18
+
+Setup stated exactly: cable removed **at the drive end**, still attached to the
+5160's port, short cable, drive powered off.
+
+Raw `0x379` reads a stable `78h` across three reads - every status input
+floating high on the port's pull-ups. Through the nibble path that assembles to
+`77`, and the probe returns `77` for **every** byte.
+
+### ⛔ THE FAST-ABSENCE PATH IS UNREACHABLE
+
+| drive state | nibble status | `LS_SettleStep` verdict |
+|---|---|---|
+| working | `50h` eventually | ready |
+| **powered off** | **`80h` forever** | "still settling" -> full 6 s budget |
+| **disconnected** | **`77h`** | "still settling" -> full 6 s budget |
+| *(never observed)* | `FFh` | the only value we treat as absent |
+
+`FFh` does not occur in any real state. The comment in `LS_SettleStep` saying
+"FFh is the only dead-bus value, 00h is a legitimate post-SRST status" is
+**falsified**: the two genuine absence cases read `80h` and `77h`.
+
+Both still end in `LS_ST_ABSENT` once the budget expires, so **no boot hang** -
+that part of the redesign holds. But the driver reaches the right answer by
+accident. A presence test that matched measurement would key on `77h` (idle
+port) and on BSY never clearing, not on `FFh`.
+
+Captures: `PWROFF_inq9_drivepoweredoff.OUT`,
+`UNPLUG_inq9_cableoff_at_drive.OUT`, control `../2026-09-11_ls120/INQ9NOW.OUT`.
 
 ## INQUIRY - the control
 
