@@ -31,8 +31,26 @@ COSM 04**, firmware **0270**, bridge **SHUTTLE EPATRM**, port `0x378`.
 | **ECP register read** | **WORKS** — returns `EB` from register `1Dh`, matching nibble | `ECPTERM2.OUT` |
 | **ECP needs NEGOTIATION** | without it, every ECP access times out (`FF`) | `ECPREG2.OUT` |
 | **ECP needs TERMINATION** | without it, every later nibble read returns `F5` | `ECPREG.OUT`, `ECPTERM.OUT` |
-| **ECP block streaming** | **the bridge does not do it** — poisoned buffer stayed `EE` | `ECPNOW.OUT` |
+| **ECP block streaming** | ⛔ **UNTESTED — the one attempt is VOID**, see §2z | `ECPNOW.OUT` |
 | EPP | port is EPP-capable; `epat.c` mode 3 is the bulk path | `EPP7_port_is_epp_capable.OUT` |
+
+### 2z. RETRACTED: "the bridge does not do ECP block streaming"
+
+**That row was wrong and is withdrawn.** `ECPNOW.OUT` was captured at 23:45 on
+09-17. The four-run proof that ECP requires 1284 negotiation is `ECPREG.OUT`
+through `ECPTERM2.OUT`, 00:08-00:14 on 09-18 — **23 minutes later**.
+`ECPNOW.SCR` contains no negotiation at all: no `al,10`, no `or al,05`, no
+`0C`/`0E` terminate, where `ECPTERM2.SCR` has every one of them.
+
+So the block attempt ran without the prerequisite this very section proves is
+mandatory, and by the table above an un-negotiated ECP access times out by
+construction. **A run missing a prerequisite is not a negative result — it is
+not a result** (technique 110).
+
+**Honest state: ECP bulk transfer is UNTESTED with negotiation.** It is also
+the only place ECP can pay, since §2b measures a register read as slower than
+nibble — so the task file stays nibble either way, and bulk is what the 1284
+work was for.
 
 ### 2a. The 1284 sequence, exactly
 
