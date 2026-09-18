@@ -1385,12 +1385,84 @@ transfer moves zero bytes and leaves the port so that every later nibble registe
 `80h`/`A0h`/`C0h` from `epat.c` are the **SPP/EPP block-mode** command bytes. They are not
 wrong in themselves — `C0h` appears here too — but in ECP they come *after* the descriptor.
 
+### DECODED 2026-09-18 — both directions, and the reason ours moves nothing
+
+Three of the four unknowns are closed. `DX` is the **ECR** (`base+0x402`) throughout
+both streaming loops; `base+0x400` (the FIFO) is reached with `sub dx,2`, and
+`base+1` (status) with `sub dx,0x401`.
+
+| | routine | streams at | waits on ECR |
+|---|---|---|---|
+| **ECP block READ** | `0x4763`-`0x4830` | `rep insb` at `0x47FE` | **bit 1 — FIFO FULL** |
+| **ECP block WRITE** | descriptor `0x4CA3`, loop `0x4DED`-`0x4E4B` | `rep outsb` at `0x4E12` | **bit 0 — FIFO EMPTY** |
+
+#### ⭐ The asymmetry is the whole point
+
+- a **write** waits for the FIFO to be **empty** — room to put bytes in
+- a **read** waits for the FIFO to be **full** — bytes are actually there
+
+```asm
+; READ, 0x47DA                      ; WRITE, 0x4DF6
+in  al, dx                          in  al, dx
+test al, 2      ; FIFO FULL         test al, 1      ; FIFO EMPTY
+jne  transfer                       jne  transfer
+sub dx, 0x401   ; -> status         sub dx, 0x401   ; -> status
+in  al, dx                          in  al, dx
+test al, 8      ; error bit         add dx, 0x401
+je   error_exit                     test al, 8
+add dx, 0x401                       loopne wait     ; budget 0x8000
+loopne wait     ; budget 0x8000
+```
+
+**This is why `LS_BlockReadEcp` moves zero bytes.** It is a bare `rep insb` with no
+wait at all, so it reads a FIFO that is still empty. Adding the 1284 terminate does
+not help - measured 2026-09-18, `ECPBULK.SCR`: the terminate works (no `F5`), and
+every destination buffer stays poisoned.
+
+#### The chunking
+
+```
+BP        = whole chunks          cx = [0C18h] per chunk
+[0C1Dh]   = remainder             transferred with bp=1 after the whole chunks
+```
+
+Per chunk: wait -> `rep insb`/`rep outsb` of `cx` bytes -> `dec bp` -> reload
+`cx = [0C18h]` -> round again. After the last whole chunk a write **drains** (waits
+FIFO empty at `0x4E21`) before the remainder.
+
+#### Teardown, both directions
+
+```
+ctrl (base+2)   = 04h      forward/idle
+ECR  (base+402) = 34h      quiescent
+```
+
+Matches the cold read of `ECR = 0x35` in §2.
+
 ### Still unknown
 
-- what `[0C18h]` holds (chunk size — the FIFO depth is the obvious candidate, but unmeasured)
-- the streaming loop itself, from `0x4DED`
-- the read direction: this decode is the write side
-- whether the `0Bh` writes are two different registers or one written twice
+- **what sets `[0C18h]`** - it is only ever read in the disassembly
+  (`cmp cx,[0C18h]` / `mov cx,[0C18h]`), never written by any `mov [0C18h],r`
+  encoding searched for. It is the chunk size and almost certainly the ECP FIFO
+  depth; **16 is the usual depth** and is the safe first value to try.
+  ⚠ Unmeasured - do not write it down as 16 until it is.
+- whether the `0Bh` writes in the descriptor are two registers or one written twice
+
+### What to implement, in order
+
+1. **The descriptor** (§11 sequence above) - the bridge must be told the length
+   before any streaming. This is the piece with no equivalent in our driver at all.
+2. **The ECR gate** - bit 1 before a read chunk, bit 0 before a write chunk, budget
+   `0x8000`, status bit 3 as the error escape.
+3. **Chunking** by `[0C18h]` with the remainder pass.
+4. **Teardown** `ctrl=04h`, `ECR=34h`.
+
+⛔ Do **not** reach for EPP. `0x4465` is an EPP-family handler
+(§4f correction, line ~407) and is **not** what this machine selects: the live
+capture in §0 shows READ selector **13** -> `0x3CCE` and WRITE **6** -> `0x4932`,
+named `'ECP Read'`/`'ECP Write'`, with `port type = 0C` ECP-capable. `epat.c` has no
+ECP mode at all - it stops at EPP-32 - so its absence there proves nothing about
+this bridge. **The vendor uses ECP; believe the live capture over the Linux driver.**
 
 ### Status of the three transports, measured
 
