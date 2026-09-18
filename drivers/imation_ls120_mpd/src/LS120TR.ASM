@@ -532,6 +532,15 @@ LS_BringUp:
 ;      an ECP port; it says nothing about the far end of the cable, and a
 ;      bridge that never answers takes one byte into the FIFO and stops.
 ;      A refusal here is not a failure to init - it is nibble, which works.
+;
+;  DETECT FIRST. LS_HasEcp is set in LS_DetectEcp and nowhere else, and
+;  LS_DetectEcp was only ever called from LS_PortOpen - which is called only
+;  from LS_BridgeProbe and LS_ColdStart, neither of which has a call site
+;  anywhere in this driver. So LS_HasEcp could never leave 0 and every ECP
+;  path below was behind a guard that always failed, in every -Mode. The
+;  1284 work was unreachable, not unused.
+	call	LS_DetectEcp
+	TRACE	'ECPD', LS_HasEcp
 	cmp	LS_HasEcp, 0
 	je	lbu_inq
 	call	LS_NegotiateEcp
