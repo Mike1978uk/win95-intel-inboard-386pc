@@ -1,7 +1,13 @@
 # LS-120 + Shuttle EPAT on the IBM 5160 — MEASURED FACTS
 
 **Every number here was measured on the owner's machine. None is inferred, and
-none should be measured again.** Each row names the capture it came from, in
+none should be measured again.**
+
+⛔ **Two rows broke that promise and were corrected on 2026-09-18** — an ECP
+block-streaming "failure" from a run that predated the negotiation discovery
+(§2z), and an ECP-vs-nibble speed ordering that is an instruction COUNT, not a
+timing (§2b). **Anything not measured must say so in the row itself.** A file
+that says "do not re-measure" launders inference into fact unless it does. Each row names the capture it came from, in
 `docs/captures/`. If you are about to run a probe to establish something in
 this file, read the capture instead.
 
@@ -92,9 +98,13 @@ in al, base+400h                the byte
 control = (ctrl & 10h) | 04h / ECR = 34h
 ```
 
-⚠ **An ECP register read is SLOWER than nibble** — ~12 accesses plus ECR polls
-against nibble's 7. ECP only wins on bulk, where the setup amortises. Do not
-wire ECP into the task-file path.
+⚠ **COUNTED, NOT MEASURED.** The vendor's per-register sequence is ~12 accesses
+plus ECR polls against nibble's 7, so on that pattern a SINGLE register read
+costs more. **ECP and nibble have never been TIMED against each other on this
+hardware** — treat the ordering as an inference about the vendor's
+enter/leave-per-read pattern, not a property of ECP. Holding one negotiation
+open across several register reads is untested and could reverse it.
+**For bulk, ECP is expected to win outright** and that is what it is for.
 
 ⚠ The vendor's bulk path at `4458h` writes **`out 0x22`**, which **aliases onto
 the 8259 on this XT**. Never copy it verbatim; that is the issue #22

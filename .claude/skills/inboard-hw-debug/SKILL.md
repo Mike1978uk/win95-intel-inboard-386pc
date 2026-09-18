@@ -56,7 +56,7 @@ end to end.** Find what applies, read that, and add back what you learn.
 | Win9x drivers, IOS, SCSIPORT | 74, 81, 82, 83, 85, 86, **88**, 92, 94, 96, 97 |
 | Hardware / XT-specific traps | 37, 56, **62**, **75**, 100, 101, 102 |
 | Memory map, the Inboard's own quirks | 63, 66, 67, 71, 72 |
-| Process and evidence discipline | 7, 28, 59, 77, 89, 98, 99, **103**, 104, 110, 111, 113, **121c** |
+| Process and evidence discipline | **124** (measured vs inferred), 7, 28, 59, 77, 89, 98, 99, **103**, 104, 110, 111, 113, **121c** |
 | Writing or trusting a DEBUG-script probe | **121**, 121a, 121b, 121c, 105, 116 |
 
 ### Elsewhere, deliberately
@@ -7150,3 +7150,44 @@ unmodified hardware probe" one step earlier.
 records are written and the read-back procedure works. It does **not** prove the
 retention question, because the bed's video is a model. Two different claims;
 say which one a green bed run supports.
+
+---
+
+## Technique 124: a "measured facts" file launders inference into fact unless every row says which it is
+
+2026-09-18. `drivers/imation_ls120/MEASURED_FACTS.md` opens with *"Every number
+here was measured. None is inferred, and none should be measured again."* Two of
+its rows were neither measured nor true, and because the file forbids
+re-measuring, they were quoted back as settled for a whole session. The owner
+had corrected the same point **in every session** before it was finally checked.
+
+| row | what it actually was |
+|---|---|
+| "ECP block streaming - the bridge does not do it" | a run 23 minutes OLDER than the discovery that 1284 negotiation is mandatory, whose script contains no negotiation at all. Void by the file's own table |
+| "An ECP register read is SLOWER than nibble" | an instruction COUNT off the vendor's binary. ECP and nibble have never been timed against each other on this hardware |
+
+### The rules
+
+- **A file that says "do not re-measure" carries a duty the row itself must
+  discharge: say whether it was measured, counted, or inferred.** Without that,
+  the file's authority attaches to every line equally, and the weakest line
+  inherits the strength of the strongest.
+- **Check a capture's TIMESTAMP against the discovery it depends on.** One `ls -l`
+  ordered the ECP captures and settled it: the "failure" predated the
+  prerequisite. Technique 110 says a result from a run missing its control is not
+  a result; this is how you SPOT one after the fact.
+- **A negative result needs its prerequisites listed next to it**, or it cannot
+  be audited later. "Block streaming failed" is unfalsifiable; "block streaming
+  failed, negotiation not attempted" is obviously void.
+- **When the owner repeats a correction across sessions, stop and check the
+  primary capture.** Repetition is the signal that a written record is wrong,
+  not that the point needs explaining again. Reading `ECPNOW.SCR` took two
+  minutes and overturned a claim that had survived a week.
+
+### And do not let one component's behaviour become the bus's
+
+The vendor's `ECP Read` at `3CCEh` is a REGISTER path that returns one byte. That
+was written up as "ECP block streaming is not a thing on this bridge" - a claim
+about the hardware drawn from a claim about one routine, and contradicted by the
+vendor's own BULK path at `4458h` documented two lines away. Same shape as
+technique 95: a property of the test article became a property of the board.
