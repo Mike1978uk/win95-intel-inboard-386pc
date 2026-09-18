@@ -73,6 +73,61 @@ SPP, the same nine-transfer workload, four runs: **16.86, 15.15, 11.97,
 treating any single SPP timing as precise. Likely drive state (spin-up,
 seek position); not yet attributed.
 
+## SETTLED: ECP bulk was built and it does not deliver
+
+`ECPBULK.SCR` is `ECP2.SCR` with `ECPTERM2`'s terminate (routine `1600`)
+grafted onto **both** block tails - the read tail at `11F0` and the write tail
+at `12C0`, since both leave the peripheral in ECP. `1600-16FF` was free in
+`ECP2`, so nothing moved. The diff is exactly two `call 1600` lines plus the
+routine.
+
+Interleaved against `SPP2`, guest clock:
+
+| run | elapsed | data buffers at `2200`/`2800` |
+|---|---|---|
+| ECPBULK #1 | **21.25 s** | **`EE` - poison, untouched** |
+| SPP2 #1 | 15.66 s | `EB 3E 90 4D 53 57 49 4E ...` "MSWIN4.0" |
+| ECPBULK #2 | **21.75 s** | **`EE` - poison, untouched** |
+| SPP2 #2 | 16.26 s | boot sector |
+
+### The terminate works. The bulk transfer does not.
+
+- **No `F5` flood** - 31 occurrences, the same as the SPP run; the broken
+  `ECP2` had 56. So the terminate does its job and the port is left usable.
+- **Every data buffer is still `EE`.** The buffers are poisoned before the run,
+  so this is evidence of absence, not a stale read
+  ([[feedback-a-self-test-must-be-able-to-fail]]).
+- The 21 s is time spent timing out, not transferring - it is *longer* than SPP
+  while delivering nothing.
+
+Reproduced twice, 21.25 / 21.75 s, both empty.
+
+### ⚠ Scope this claim carefully
+
+What is measured: **this implementation of ECP bulk does not deliver on this
+hardware.** `ECP2`'s bulk path was written on 09-17 *before* the 1284
+negotiation/termination was understood, so its **negotiate** may be as wrong as
+its terminate was. Adding the terminate fixed the port poisoning and nothing
+else.
+
+What is NOT measured, and must not be claimed:
+
+- that ECP bulk is impossible on this bridge
+- that the vendor's ECP bulk path (`SD120PPD.SYS` `0x4465` / `0x4BD3`) would
+  fail the same way - it has never been transliterated and run
+
+**ECP *register* reads do work** with negotiate + terminate - that is
+`ECPTERM2`, four runs one variable apart. So the split is: ECP good for
+registers, not yet working for bulk.
+
+### What this justifies
+
+Shipping **SPP as the default** on the card is now backed by measurement rather
+than by the bed: on real hardware SPP moves the data and this ECP path does
+not. The ECP work remains worth doing - the arithmetic still says ~6.7x on the
+data phase - but it needs the vendor's own bulk sequence transliterated, not
+`ECP2`'s pre-fix guess with a terminate bolted on.
+
 ## What would actually settle it
 
 Build `ECP2.SCR` + the corrected terminate — i.e. take the bulk ECP path
