@@ -158,6 +158,66 @@ port) and on BSY never clearing, not on `FFh`.
 Captures: `PWROFF_inq9_drivepoweredoff.OUT`,
 `UNPLUG_inq9_cableoff_at_drive.OUT`, control `../2026-09-11_ls120/INQ9NOW.OUT`.
 
+## The drive's complete MODE PAGE set - measured 2026-09-18
+
+MODE SENSE(10) page 3Fh, allocation 104 (`MSFULL.SCR`). Completed clean -
+phase bytes `D0 00 50 58 58 02 68 00`, no ERR, 104 bytes offered. Capture
+`S7_msense_allpages.OUT`. (Header shows WP=1 because the write-protected disk
+was the one loaded at the time.)
+
+| page | len | name |
+|---|---|---|
+| `01h` | 10 | Read-Write Error Recovery |
+| `03h` | 22 | Format Device |
+| `05h` | 30 | Flexible Disk |
+| `08h` | 10 | Caching |
+| `0Bh` | 14 | Medium Types Supported |
+
+### Geometry, and it cross-checks itself
+
+Flexible Disk page `05h`: **C=963, H=8, S=32, 512 bytes/sector**.
+
+```
+963 x 8 x 32 = 246,528 blocks
+READ CAPACITY  = 246,528 blocks (last LBA 246,527, 0x3C2FF), 512-byte blocks
+```
+
+Two independent commands agreeing exactly. 120.4 MB. Format Device page `03h`
+agrees again: 32 sectors/track, 512 bytes/sector, removable bit set.
+
+### Caching page 08h is all zeros
+
+Read cache enabled (RCD clear), **write cache disabled** (WCE clear). So writes
+go to the medium, and SYNCHRONIZE CACHE has nothing to flush. That matches
+`POSTSRST.OUT` from 09-17, where a written ramp survived a fresh SRST with a
+poisoned buffer - it was on the platter, not in a cache.
+
+### Supported medium types, page 0Bh
+
+`10 11 20 22 23 24 25 26 27 30 31` - and the loaded medium reports `31h`.
+
+### ⛔ Two commands this drive does NOT implement
+
+| command | result |
+|---|---|
+| **READ BUFFER mode 3** (`3C 03`, buffer capacity) | status `51h`, error **`54h`** = sense key 5 **ILLEGAL REQUEST** |
+| **MODE SENSE page 2** (disconnect/reconnect) | status `51h`, error **`54h`** = ILLEGAL REQUEST |
+
+So the two items the 09-17 results listed as "still unmeasured" are now
+answered, and the answer is that neither is available:
+
+- the **drive's buffer capacity** cannot be read this way, and
+- **the drive advertises no preferred transfer size** - page 2 is absent, so
+  nothing in the mode pages constrains burst size.
+
+⚠ **The `02 00 02 00` returned by the failed READ BUFFER is NOT data** - it is
+the previous run's bytes still in an un-poisoned buffer, exactly the trap the
+09-17 notes warn about. Read the phase bytes before reading the buffer.
+
+**Consequence for the transfer design:** the measured 3584-byte (7-sector)
+bridge burst ceiling is the *only* constraint we have. The drive imposes none
+of its own that it is willing to declare.
+
 ## INQUIRY - the control
 
 `MATSHITA LS-120 COSM   04 0270`, phase bytes `80 00 00 08 08 02 24 00`,
