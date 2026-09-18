@@ -1,0 +1,1541 @@
+#
+# 86Box v7.0 logfile, created 2026/09/19 00:26:46
+#
+# Emulator path: C:/Users/lycet/RiderProjects/86Box-Inboard/86box_upstream/build/src//
+# Global configuration file: C:/Users/lycet/AppData/Local/86Box/86box_global.cfg
+# VM: vm_cardrepro
+#
+# Configuration file: C:/Users/lycet/RiderProjects/86Box-Inboard/vm_cardrepro/86box.cfg
+#
+
+# Userfiles path: C:/Users/lycet/RiderProjects/86Box-Inboard/vm_cardrepro/
+# ROM path: C:/Users/lycet/RiderProjects/86Box-Inboard/vm_cardrepro/roms/
+# ROM path: C:/Users/lycet/RiderProjects/86Box-Inboard/86box_upstream/build/src//roms/
+# ROM path: C:/Users/lycet/AppData/Local/86Box/roms/
+# Asset path: C:/Users/lycet/RiderProjects/86Box-Inboard/vm_cardrepro/assets/
+# Asset path: C:/Users/lycet/RiderProjects/86Box-Inboard/86box_upstream/build/src//assets/
+# Asset path: C:/Users/lycet/AppData/Local/86Box/assets/
+XTIDE: access trace off (XTIDE_TRACE=unset)
+XTIDE: base 0300  stride 2  bios xtcf_lotech
+[ECPDIAG] ECR write 14 (mode 0), was 15 | port=0 gated=0 fifo=0 full=0 relief=0 ->dev=0 ->spp=0 ->addr=0 ctrl=0C state=0 tmr=0
+EPAT: DISCONNECT
+EPAT: unlock frame committed with unknown command 40
+EPAT: unlock frame committed with unknown command 50
+EPAT: CPP init
+EPAT: CONNECT
+EPAT: LPT1 drive attached
+EPAT: W reg 16 = 04
+EPAT: W reg 16 = 00
+EPAT: SRST released, settling for 2500000 us
+EPAT: device reset: status 50, signature 14 EB
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 60
+EPAT: W reg 1D = 00
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 96
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 12 00 00 00 24 00 00 00 00 00 00 00
+EPAT: data phase in, 36 bytes, request length 36
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 80 00 21 1F 00 00 02 38 36 42 6F 78 20 20 20
+EPAT: data phase ended in COMPLETE
+EPAT: command done, status 40
+EPAT: block read done
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 00
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 0
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: command done, status 41
+EPAT: block write done
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 00
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 0
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: command done, status 40
+EPAT: block write done
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 00
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 0
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 1E 00 00 00 01 00 00 00 00 00 00 00
+EPAT: command done, status 40
+EPAT: block write done
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 00
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 0
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 1E 00 00 00 00 00 00 00 00 00 00 00
+EPAT: command done, status 40
+EPAT: block write done
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 00
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 0
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: command done, status 40
+EPAT: block write done
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 08
+EPAT: W reg 1D = 00
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 8
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 25 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase in, 8 bytes, request length 8
+EPAT: block write done
+EPAT: block read start
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 750000 us (spin-up)
+EPAT: block read done
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: command done, status 40
+EPAT: W reg 1C = 08
+EPAT: W reg 1D = 00
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 8
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 25 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase in, 8 bytes, request length 8
+EPAT: block write done
+EPAT: block read start
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 00 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head EB 3C 90 4D 53 57 49 4E 34 2E 31 00 02 04 01 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 00 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head EB 3C 90 4D 53 57 49 4E 34 2E 31 00 02 04 01 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+[0117:0000B929] Illegal instruction 00008B55 (FF)
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 00
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 0
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: command done, status 40
+EPAT: block write done
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 08
+EPAT: W reg 1D = 00
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 8
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 25 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase in, 8 bytes, request length 8
+EPAT: block write done
+EPAT: block read start
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 00 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head EB 3C 90 4D 53 57 49 4E 34 2E 31 00 02 04 01 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 00 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head EB 3C 90 4D 53 57 49 4E 34 2E 31 00 02 04 01 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 01 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head F0 FF FF FF FF FF 04 00 05 00 06 00 07 00 08 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 2A 00 00 00 00 01 00 00 01 00 00 00
+EPAT: data phase out, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block write start
+EPAT: DATA OUT head F0 FF FF FF FF FF 04 00 05 00 06 00 07 00 08 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block write done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 00
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 0
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: command done, status 40
+EPAT: block write done
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 00 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head EB 3C 90 4D 53 57 49 4E 34 2E 31 00 02 04 01 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 00
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 0
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 1E 00 00 00 01 00 00 00 00 00 00 00
+EPAT: command done, status 40
+EPAT: block write done
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 2A 00 00 00 00 00 00 00 01 00 00 00
+EPAT: data phase out, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block write start
+EPAT: DATA OUT head EB 3C 90 21 23 52 73 60 49 48 43 00 02 04 01 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block write done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 01 E3 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 48 45 4C 4C 4F 20 20 20 54 58 54 20 00 00 00 60
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 0E
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 3584
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 01 E3 00 00 07 00 00 00
+EPAT: data phase in, 3584 bytes, request length 3584
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 48 45 4C 4C 4F 20 20 20 54 58 54 20 00 00 00 60
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 01 EA 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 06
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 1536
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 00 00 00 03 00 00 00
+EPAT: data phase in, 1536 bytes, request length 1536
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head EB 3C 90 21 23 52 73 60 49 48 43 00 02 04 01 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 0E
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 3584
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 03 00 00 07 00 00 00
+EPAT: data phase in, 3584 bytes, request length 3584
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 01 02 02 02 03 02 04 02 05 02 06 02 07 02 08 02
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 0A 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 0E
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 3584
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 0B 00 00 07 00 00 00
+EPAT: data phase in, 3584 bytes, request length 3584
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 12 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 0E
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 3584
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 13 00 00 07 00 00 00
+EPAT: data phase in, 3584 bytes, request length 3584
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 1A 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 0E
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 3584
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 1B 00 00 07 00 00 00
+EPAT: data phase in, 3584 bytes, request length 3584
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 22 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 0E
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 3584
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 23 00 00 07 00 00 00
+EPAT: data phase in, 3584 bytes, request length 3584
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 2A 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 0E
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 3584
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 2B 00 00 07 00 00 00
+EPAT: data phase in, 3584 bytes, request length 3584
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 32 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 0E
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 3584
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 33 00 00 07 00 00 00
+EPAT: data phase in, 3584 bytes, request length 3584
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 3A 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 0E
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 3584
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 3B 00 00 07 00 00 00
+EPAT: data phase in, 3584 bytes, request length 3584
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 42 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 0E
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 3584
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 43 00 00 07 00 00 00
+EPAT: data phase in, 3584 bytes, request length 3584
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 4A 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 0E
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 3584
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 4B 00 00 07 00 00 00
+EPAT: data phase in, 3584 bytes, request length 3584
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 52 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 0E
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 3584
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 53 00 00 07 00 00 00
+EPAT: data phase in, 3584 bytes, request length 3584
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 5A 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 0E
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 3584
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 5B 00 00 07 00 00 00
+EPAT: data phase in, 3584 bytes, request length 3584
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 62 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 0E
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 3584
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 63 00 00 07 00 00 00
+EPAT: data phase in, 3584 bytes, request length 3584
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 6A 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 0E
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 3584
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 6B 00 00 07 00 00 00
+EPAT: data phase in, 3584 bytes, request length 3584
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 72 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 0E
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 3584
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 73 00 00 07 00 00 00
+EPAT: data phase in, 3584 bytes, request length 3584
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 7A 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 0E
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 3584
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 7B 00 00 07 00 00 00
+EPAT: data phase in, 3584 bytes, request length 3584
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 82 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 0E
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 3584
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 83 00 00 07 00 00 00
+EPAT: data phase in, 3584 bytes, request length 3584
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 8A 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 0E
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 3584
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 8B 00 00 07 00 00 00
+EPAT: data phase in, 3584 bytes, request length 3584
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 92 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 0E
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 3584
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 93 00 00 07 00 00 00
+EPAT: data phase in, 3584 bytes, request length 3584
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 9A 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 0E
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 3584
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 9B 00 00 07 00 00 00
+EPAT: data phase in, 3584 bytes, request length 3584
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 A2 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 0E
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 3584
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 A3 00 00 07 00 00 00
+EPAT: data phase in, 3584 bytes, request length 3584
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 AA 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 0E
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 3584
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 AB 00 00 07 00 00 00
+EPAT: data phase in, 3584 bytes, request length 3584
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 B2 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 0E
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 3584
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 B3 00 00 07 00 00 00
+EPAT: data phase in, 3584 bytes, request length 3584
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 BA 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 0E
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 3584
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 BB 00 00 07 00 00 00
+EPAT: data phase in, 3584 bytes, request length 3584
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 C2 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 0E
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 3584
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 C3 00 00 07 00 00 00
+EPAT: data phase in, 3584 bytes, request length 3584
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 CA 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 0E
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 3584
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 CB 00 00 07 00 00 00
+EPAT: data phase in, 3584 bytes, request length 3584
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 D2 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 0E
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 3584
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 D3 00 00 07 00 00 00
+EPAT: data phase in, 3584 bytes, request length 3584
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 DA 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 0E
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 3584
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 DB 00 00 07 00 00 00
+EPAT: data phase in, 3584 bytes, request length 3584
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 E2 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 0E
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 3584
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 E3 00 00 07 00 00 00
+EPAT: data phase in, 3584 bytes, request length 3584
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 EA 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 0E
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 3584
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 EB 00 00 07 00 00 00
+EPAT: data phase in, 3584 bytes, request length 3584
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 00 F2 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head F0 FF FF FF FF FF 04 00 05 00 06 00 07 00 08 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 0E
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 3584
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 01 E3 00 00 07 00 00 00
+EPAT: data phase in, 3584 bytes, request length 3584
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 48 45 4C 4C 4F 20 20 20 54 58 54 20 00 00 00 60
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 02
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 512
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 28 00 00 00 01 EA 00 00 01 00 00 00
+EPAT: data phase in, 512 bytes, request length 512
+EPAT: block write done
+EPAT: block read start
+EPAT: DATA IN  head 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+EPAT: data phase ended in COMPLETE
+EPAT: drive busy 15000 us (spinning)
+EPAT: block read done
+EPAT: command done, status 40
+EPAT: DISCONNECT
+EPAT: CONNECT
+EPAT: W reg 1E = A0
+EPAT: W reg 1C = 00
+EPAT: W reg 1D = 00
+EPAT: W reg 19 = 00
+EPAT: PACKET, byte count 0
+EPAT: W reg 1F = A0
+EPAT: block write start
+EPAT: CDB 1E 00 00 00 00 00 00 00 00 00 00 00
+EPAT: command done, status 40
+EPAT: block write done
+EPAT: DISCONNECT
