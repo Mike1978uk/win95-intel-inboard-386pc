@@ -1,0 +1,30 @@
+a 0100
+mov dx,077A
+mov al,C0
+out dx,al
+xor cx,cx
+jmp 0120
+
+a 0120
+mov dx,0778
+mov al,55
+out dx,al
+inc cx
+mov dx,077A
+in al,dx
+test al,02
+jnz 0140
+cmp cx,0200
+jb 0120
+jmp 0140
+
+a 0140
+mov [0200],cx
+mov dx,077A
+mov al,15
+out dx,al
+int 3
+
+g=100
+d 200 201
+q

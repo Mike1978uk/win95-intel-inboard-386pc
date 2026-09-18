@@ -1443,9 +1443,19 @@ Matches the cold read of `ECR = 0x35` in §2.
 
 - **what sets `[0C18h]`** - it is only ever read in the disassembly
   (`cmp cx,[0C18h]` / `mov cx,[0C18h]`), never written by any `mov [0C18h],r`
-  encoding searched for. It is the chunk size and almost certainly the ECP FIFO
-  depth; **16 is the usual depth** and is the safe first value to try.
-  ⚠ Unmeasured - do not write it down as 16 until it is.
+  encoding searched for.
+
+  ✅ **The ECP FIFO depth is MEASURED at 16** (2026-09-18, `FIFODEP.SCR`).
+  Method: put the ECR in **test mode** (`0C0h`, mode 110 - the FIFO loops back
+  and does not drive the port), write bytes to `base+400h` counting until ECR
+  bit 1 (full) asserts, restore the ECR. The port takes mode 110 and reads back
+  `0C5h`. **16 writes to full, from a clean start.**
+
+  ⚠ The first run returned **15** because a byte written by hand beforehand
+  was still in the FIFO - entering test mode did not flush it. Repeating from
+  clean gave 16. **A single run of this measurement is not trustworthy**; the
+  off-by-one would have looked exactly like a real defect in
+  `ECP_FIFO_DEPTH = 16`, which is in fact correct.
 - whether the `0Bh` writes in the descriptor are two registers or one written twice
 
 ### What to implement, in order
