@@ -199,3 +199,47 @@ half of nibble, and needs no 1284 phase management at all.
 false here - the vendor's ECP block path is PIO with `dmaEn=0`, read from the
 binary. The 2 / 2.5 MB/s mode figures are irrelevant on this bus, where the
 measured 5.77 us per 8-bit access caps everything at about 173 KB/s.
+
+---
+
+## ✅ 2026-09-19 00:15 — BYTE MODE ENUMERATES IN THE BED
+
+`lpt_epat.c` now models PS/2 byte mode (`86box_upstream` `fced847ce`), and the
+byte-mode driver **works end to end** against it. Driver `cc0148fa`, commit
+`fc33863`, clean tree, built `-Phase 2 -Mode spp -ByteMode -Trace`.
+
+Evidence: `docs/captures/2026-09-18_ls120/BM3_bed_bytemode_enumerates.log`
+
+```
+740 byte-mode register reads served,  ZERO nibble reads
+R reg 1C = 14 / R reg 1D = EB      ATAPI signature through the data port
+R reg 1A = 01 then 02              CoD command phase, then IO data-in phase
+
+CDB 00 x5   TEST UNIT READY        CDB 25 x3   READ CAPACITY
+CDB 12 x1   INQUIRY                CDB 28 x70  READ(10)
+CDB 1E x4   PREVENT/ALLOW          CDB 2A x2   WRITE(10)
+322 block transfers,  0 errors,  0 aborts
+```
+
+Zero nibble reads is the important number: the driver is not falling back, it
+is genuinely running the whole transport on one data-port access per register.
+
+### What this settles, and what it does NOT
+
+**Settles:** the byte-mode register read is correct *in the driver*, not just as
+a DEBUG probe. Stage 1 is done. The transport can be made homogeneous, which is
+the precondition for dropping mode 000, dropping the 1284 terminate, and giving
+ECP or EPP a fair test.
+
+**Settles by elimination:** the real machine's failure is **not** the byte-mode
+code. `d8154f1d` fails there too, and byte mode works here.
+
+**Does NOT settle:** that it will work on the 5160. The bed models no real bus
+timing, and the bridge model is ours. It IS fitted to hardware captures rather
+than to our expectations - `BM1`/`BM2` are byte-identical 5160 output and the
+sequence is `epat.c`'s, not something we invented - but that is weaker than a
+hardware pass and must not be reported as one.
+
+**Does NOT explain** why the real install stopped enumerating. Separate hunt,
+below. Do not conflate them - that conflation is what cost this session its
+control.
