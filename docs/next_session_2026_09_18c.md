@@ -56,8 +56,9 @@ independently of the source argument above. One free read of the bed image
 killed the theory before anyone touched the 5160.
 
 The owner also said, correctly, that he set the ECP port up before the Friday
-on which the drive enumerated. Both lines of evidence agree. **Do not re-raise
-this; do not ask for the LPT1 node to be disabled.**
+on which the drive enumerated. Both lines of evidence agree. ~~Do not re-raise this.~~ **⚠ THAT WAS WRONG - see section 6.** The bed
+cannot exonerate LPT1: in the bed `lpt1_device = lpt_epat`, so LPT1 *is* the
+bridge and no printer-port driver exists to compete with us.
 
 The residual, and it is small: a driver that drives a port it has not claimed
 is still a latent hazard on any machine where LPTENUM or the spooler is doing
@@ -261,6 +262,40 @@ same source as the traced build that mounted the drive; it differs only by
   shared one label, so a failure said only that it failed. Diagnostic build
   `aa0d89be` is parked at `%TEMP%\ls120_failtrace.mpd`; one bed run with it
   says which guard the ECP path trips and with what status byte.
+
+
+## 6. HARDWARE, evening: the drive is fine and the fault is Windows-side
+
+Over DOS COMrade, with `SD120PPD.SYS` REM'd out in `CONFIG.SYS` and the machine
+cold:
+
+- **`INQ9.SCR` re-run byte for byte** - the same script as the 2026-09-11
+  known-good capture, pushed to the card and run. Output is **identical** apart
+  from the DEBUG load segment:
+  `MATSHITA LS-120 COSM   04 0270` at `0700`, phase bytes `80 00 00 08 08 02 24 00`.
+- So the **drive, the bridge, the cable and the transport sequence are all
+  good, right now.** That retires "maybe the drive was in the right state that
+  one time" - it is in the right state today and Windows still cannot use it.
+- The failing boot ran **`d8154f1d` (SPP, code `5084a71c`)** - hash read back off
+  the card, not assumed - the same binary that mounts `J:` in the bed.
+- `Initing ls120mp.mpd` -> `Init Success` in **2 ticks** on hardware, so the
+  non-blocking init works on the bench too.
+
+### The bed/bench difference that actually stands
+
+`vm_ls120win/86box.cfg`: **`lpt1_device = lpt_epat`**. In the bed LPT1 *is* the
+bridge. There is no emulated parallel port and no printer-port driver competing
+for it. On the 5160, LPT1 is a real ECP port that Windows owns
+(`ForcedConfig 378-37A`, `*PNP0401`), with `LPTENUM` performing 1284 device-ID
+negotiation on it, and the bridge hanging off the same cable.
+
+**So the earlier exoneration of LPT1 was invalid** - it compared against a bed
+that cannot show the problem. Same shape as technique 90: "it does not reproduce
+in the emulator" is a claim about the emulator.
+
+**Next test, two clicks at the machine:** Device Manager -> Ports -> *ECP Printer
+Port (LPT1)* -> disable in this hardware profile -> reboot. Costs the printer for
+one boot.
 
 ## Next
 
