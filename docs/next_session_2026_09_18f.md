@@ -97,3 +97,65 @@ The byte-mode read is verified present in the linked binary at `0x696`
   broke INF stamping. Read and write in binary.
 - **`md5` identifies a LINK, not a build** — see technique 89a. The PE
   `TimeDateStamp` moves every link. Use the code hash.
+
+---
+
+## ⛔ POST-REVERT: `d8154f1d` NO LONGER ENUMERATES EITHER
+
+The bisect in "Next, in order" was run and **did not clear the driver**. With
+`d8154f1d` byte-verified in both locations - the exact binary that mounted at
+`J:` earlier on 2026-09-18 - there is still no drive letter, and Explorer shows
+the hourglass again.
+
+**So tonight's byte-mode result is uninterpretable.** The byte-mode build may
+be fine; we cannot tell, because the control does not work either.
+
+### Checked, and all clean - do not re-check these
+
+| | |
+|---|---|
+| driver binary | `crc32 2a64e85c` at BOTH destinations, matches `dist/ls120_mpd/LS120MP.MPD` |
+| LS-120 adapter node | ONE node, `ForcedConfig 0278-027F`, `AdapterSettings PORT=0x378`, `ConfigFlags = 0x04` (MANUAL_INSTALL - not disabled, not failed) |
+| competing claim on `0378` | **none** - the deleted LPT1 printer port has NOT been re-detected |
+| the drive | `MATSHITA LS-120 COSM   04` present TWICE as a device node, `ConfigFlags = 0` - Windows has enumerated it before and remembers it |
+| `IOS.LOG` | does not exist - IOS is not refusing anything |
+| the drive itself | power-cycled before the run, and a full INQUIRY from DOS returns `MATSHITA` |
+| bridge left dirty by a probe | ruled out - the owner power-cycled before this boot |
+
+⚠ An earlier scan of this hive reported TWO LS-120 nodes at `0278` and `0378`.
+**That was a scan artefact** - the context windows were +-420 bytes and the two
+`LS-120 EPAT` strings are 522 bytes apart, so one node was counted twice
+(technique 65's record-bleed warning). There is one node.
+
+### What that leaves
+
+The last CONFIRMED `J:` predates this session. Between then and now the card
+has taken several ECP builds that strand the peripheral, a DEBUG run that
+executed unassembled memory for minutes, and multiple boots. Something in the
+install has drifted in a way `SYSTEM.DAT` does not show.
+
+**Next session should not build anything.** Two candidates, in order:
+
+1. **Get a readback channel under Windows.** Technique 123 - it was the right
+   call a week ago and it is still unpaid. Without it, every Windows result is
+   one bit and the diagnosis cannot advance. The drive's own buffer
+   (`WRITE BUFFER` / `READ BUFFER`) remains the candidate; its capacity is
+   still unmeasured and `READ BUFFER` mode 3 returns it in four bytes.
+2. **Compare against a known-good image** rather than the live install. If a
+   snapshot from when `J:` worked exists, diff `SYSTEM.INI`, `IOS.INI` and
+   `USER.DAT` against it - none of which were examined tonight.
+
+### And a genuinely new direction, from the owner
+
+**EPP, not ECP.** `reference_gpl/epat.c` has **no ECP path at all**: modes 0-2
+are nibble/byte/PS2 and modes **3-5 are EPP** (`w3()`/`r4()`), with a negotiate
+sending `0x40` - "Request EPP Mode" in AN062's table. The Linux driver for this
+exact Shuttle bridge chose EPP for its fast modes, and this project already
+measured the port as EPP-capable (`EPP7_port_is_epp_capable.OUT`, 2026-09-14)
+and never followed it up. EPP costs one access per byte, the same as ECP and
+half of nibble, and needs no 1284 phase management at all.
+
+⛔ Do not repeat these from the same source: "ECP requires a DMA channel" is
+false here - the vendor's ECP block path is PIO with `dmaEn=0`, read from the
+binary. The 2 / 2.5 MB/s mode figures are irrelevant on this bus, where the
+measured 5.77 us per 8-bit access caps everything at about 173 KB/s.
