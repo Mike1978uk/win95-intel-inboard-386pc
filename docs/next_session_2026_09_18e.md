@@ -102,12 +102,21 @@ mask-ROM part; `0Bh` is an 8-bit version code, not a window into code space.
 
 ## Not done, and why
 
-**The corrected read is untested.** The DOS harness hung twice. The first hang
+**The corrected read is untested.** The DOS harness hung **three times, always
+at the same point** - reproducible, not intermittent. The first hang
 was my bug — the per-byte gate at `10E0` sets `CX = 0x8000` as its own spin
 budget, so calling it inside a `LOOP` destroys the counter. `ECPDESC4.SCR`
-fixes that with `PUSH`/`POP CX` and a `JC` timeout exit, and **still** hung, for
-a reason not yet established. Required a 5160 reset both times; `Ctrl+C` cannot
-reach a loop that polls no DOS service.
+fixes that with `PUSH`/`POP CX` and a `JC` timeout exit, and **still** hangs.
+Each attempt needed a 5160 reset; `Ctrl+C` cannot reach a loop that polls no
+DOS service.
+
+The remaining suspect is **cumulative**, not a single infinite loop: the only
+change from `ECPDESC.SCR` (which completes in ~4 s) is that the read path now
+gates every byte, and the script drives that path repeatedly. At `0x8000` spins
+per byte worst case, a read that mostly times out costs seconds *per call*.
+Before debugging it further, bound the gate far lower - `0x0800` is ample at
+39 us/byte - or drop the DOS harness for ECP entirely and test through the
+driver, which is the only consumer that matters.
 
 ## Next, in order
 
