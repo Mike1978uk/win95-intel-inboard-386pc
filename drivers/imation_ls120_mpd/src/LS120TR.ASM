@@ -406,7 +406,14 @@ LS_Connect:
 	mov	al, CPP_CONNECT
 	call	LS_CppFrame
 	mov	LS_Connected, 1
-
+ifdef LS_BYTEMODE
+;  Park the ECR in mode 001 for the whole connected session. Byte-mode reads
+;  need the data port bidirectional, and this is where the VENDOR leaves it -
+;  SD120PPD.SYS's teardown ends `ECR = 34h` (0x482D) rather than dropping to
+;  mode 000, because it never reads a register as nibbles and so never needs
+;  the port unidirectional. One write per connect, not one per register read.
+	call	LS_ParkEcr
+endif
 	clc
 	ret
 
@@ -805,6 +812,52 @@ public LS_RegReadCont
 LS_RegReadCont:
 	push	ecx
 lrr_common:
+ifdef LS_BYTEMODE
+;  PS/2 BYTE MODE - epat.c mode 2. The bridge puts the whole byte on the DATA
+;  port, so one access replaces two status reads plus a shift and a merge.
+;
+;  MEASURED on the 5160, 2026-09-18: a complete ATAPI INQUIRY driven through
+;  this path returned byte-identical data to the nibble path on the same boot
+;  (docs/captures/2026-09-18_ls120/BM2_*), and a single register read agreed
+;  with the nibble control to the byte, ATAPI signature included.
+;
+;  ADD, not OR, for the 20h tag. epat.c writes w0(0x20+r) and the two differ
+;  the moment a register address has bit 5 set. Every address this driver uses
+;  today is 00h-1Fh so they agree, which is why the write path's OR has never
+;  been wrong - but that is an accident of the current container map, not a
+;  property worth relying on.
+;
+;  REQUIRES THE ECR IN MODE 001. Mode 000 makes the data port write-only and
+;  this read returns the output latch instead of the bridge. LS_ParkEcr sets
+;  it and LS_EcpLeave restores it.
+	push	ebx
+	pushfd
+	cli
+	add	al, ch			; a bare register number addresses nothing
+	add	al, 020h		; epat.c: w0(0x20 + r)
+	movzx	edx, LS_BasePort
+	out	dx, al
+	movzx	edx, LS_BasePort
+	add	edx, LPT_CONTROL
+	mov	al, 01h
+	out	dx, al
+	mov	al, 025h		; strobe + nInit + DIR=input
+	out	dx, al
+	movzx	edx, LS_BasePort
+	in	al, dx			; the whole byte, one access
+	mov	bl, al
+	movzx	edx, LS_BasePort
+	add	edx, LPT_CONTROL
+	mov	al, 04h
+	out	dx, al
+	mov	al, bl
+	movzx	eax, al
+	popfd
+	pop	ebx
+	pop	ecx
+	clc
+	ret
+else
 ;  NIBBLE Normal. The bridge returns a byte as two nibbles, each arriving in
 ;  the TOP four bits of the SPP status port, so the low nibble has to be
 ;  shifted down and the high one masked. Getting that pair the wrong way round
@@ -844,6 +897,7 @@ lrr_common:
 	pop	ecx
 	clc
 	ret
+endif
 
 ;----------------------------------------------------------------------------
 ; LS_StatusRead - read the ATA status register, and say whether it is real.
@@ -1272,6 +1326,23 @@ lne_ok:
 ;  interrupt somebody else armed.
 ;
 ;   In: AL = CTRL_FWD or CTRL_REV.  Clobbers EAX, EDX, BH.
+;----------------------------------------------------------------------------
+;  LS_ParkEcr - leave the ECR in PS/2 byte mode (001), where the vendor parks.
+;
+;  Defined here rather than beside LS_Connect because ECR_MODE_PARK is an equ
+;  declared further down this file; the forward `call` resolves, a forward equ
+;  does not.
+;
+;   Uses: EAX, EDX
+;----------------------------------------------------------------------------
+public LS_ParkEcr
+LS_ParkEcr:
+	movzx	edx, LS_BasePort
+	add	edx, LPT_ECP_ECR
+	mov	al, ECR_MODE_PARK
+	out	dx, al
+	ret
+
 LS_EcpDir:
 	mov	bh, al
 	movzx	edx, LS_BasePort
@@ -1391,11 +1462,18 @@ LS_EcpLeave:
 ;  instant the ECR goes to 74h. So any status wait taken while still in ECP
 ;  mode reads a dead register and can only ever time out. Both waits below,
 ;  and the two in LS_Term1284, depend on this ordering.
+ifdef LS_BYTEMODE
+;  Park at mode 001, not 000. Registers are read through the data port now, so
+;  the port must stay bidirectional - and this is exactly where the vendor
+;  leaves it (SD120PPD.SYS 0x482D).
+	call	LS_ParkEcr
+else
 	movzx	edx, LS_BasePort
 	add	edx, LPT_ECP_ECR
 	in	al, dx
 	and	al, 01Fh
 	out	dx, al
+endif
 ;  NO AckReverse* WAIT HERE. One was added and removed on 2026-09-18: the
 ;  vendor's own teardown (SD120PPD.SYS 0x481D) is these two writes and nothing
 ;  else, and a probe showed the status port reads 00 in the reverse state we

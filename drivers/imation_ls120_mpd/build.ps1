@@ -57,6 +57,11 @@ param(
     # docs/ls120_trace_channel.md.
     [switch] $Trace,
 
+    # Read the task file through the DATA port (epat.c mode 2) instead of as
+    # two nibbles through the status port. Parks the ECR in mode 001, where
+    # the vendor leaves it. Proven on hardware 2026-09-18; not the default.
+    [switch] $ByteMode,
+
     # Where the trace ring lives, if the poison test rules out the default
     # 0B9000h on this display driver. 0 = leave the source default alone.
     [int] $TraceBase = 0,
@@ -93,6 +98,7 @@ if ($FakeDevice)  { $defs += '-DLS_FAKE_DEVICE' }
 if ($DbgPort)     { $defs += '-DLS_DBGPORT' }
 if ($InitVeto)    { $defs += '-DLS_INIT_VETO' }
 if ($Trace)       { $defs += '-DLS_TRACE' }
+if ($ByteMode)    { $defs += '-DLS_BYTEMODE' }
 
 # -coff is what makes ML emit objects the PE linker can use at all.
 $aflags = @('-coff', '-DBLD_COFF', '-DIS_32', '-DMASM6', '-nologo', '-W2', '-Zd', '-c', '-Cx') + $defs
