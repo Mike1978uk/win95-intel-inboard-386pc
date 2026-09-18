@@ -45,6 +45,7 @@ end to end.** Find what applies, read that, and add back what you learn.
 | Timing, throughput, "is this fast enough" | **109** - 5.55 us per 8-bit I/O access, MEASURED. Do not use the old 1 us figure |
 | A DEBUG-script probe hangs, or its results look impossible | **121** - an out-of-range short jump DELETES ITSELF, and data can land inside code |
 | One timeout constant bounds two different waits | **122** - a reset settle is seconds, a status poll is milliseconds. Never share |
+| The driver's base does not come from its own device node | **125** - enumerate who else owns that address. Device Manager cannot show this clash |
 
 ### By area
 
@@ -54,7 +55,7 @@ end to end.** Find what applies, read that, and add back what you learn.
 | Config that is silently ignored | 4, 43, **69** |
 | Disassembly and binary analysis | 16, 29, 44, **60**, 91, **112** |
 | Win9x drivers, IOS, SCSIPORT | 74, 81, 82, 83, 85, 86, **88**, 92, 94, 96, 97 |
-| Hardware / XT-specific traps | 37, 56, **62**, **75**, 100, 101, 102 |
+| Hardware / XT-specific traps | 37, 56, **62**, **75**, 100, 101, 102, **125** |
 | Memory map, the Inboard's own quirks | 63, 66, 67, 71, 72 |
 | Process and evidence discipline | **124** (measured vs inferred), 7, 28, 59, 77, 89, 98, 99, **103**, 104, 110, 111, 113, **121c** |
 | Writing or trusting a DEBUG-script probe | **121**, 121a, 121b, 121c, 105, 116 |
