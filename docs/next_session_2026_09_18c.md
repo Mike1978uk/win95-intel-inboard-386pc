@@ -146,6 +146,61 @@ All keys confirmed read - they survive 86Box's rewrite of `86box.cfg`
 this is the same class of gap as the two closed above, but fixing it slows
 every boot. The owner's call.
 
+## 4. BUILT: the non-blocking init, from the two working references
+
+`6db3616`, code **`c376510b`**. Staged on the card in both paths and never yet
+booted on hardware.
+
+What changed, and why each line is there —
+`docs/ls120_enumeration_from_working_drivers.md` has the evidence:
+
+| before | now | reference |
+|---|---|---|
+| `LsInitialize` calls `LS_BringUp`, which spins `LS_SPIN_RESET` = `0FFFFh` ~3.0 s | `LS_OpenReset` pulses SRST and returns at once | `PC2xInitialize`; vendor `HwInitialize` does no port I/O at all |
+| nothing announced | `ScsiPortNotification(ResetDetected, devext)` | both references, and it is what makes SCSIPORT rescan |
+| no timer anywhere | `ScsiPortNotification(RequestTimerCall, devext, LsTimer, 1000)` | vendor rva `48bbh` / `PC2X.C:932` |
+| every wait inline | `LsTimer` polls the settle one nibble read (~30 us) per tick, 6000 ticks | technique 122: the settle and a status poll get separate budgets |
+| an SRB during bring-up hit a dead bus | held in `LsPendSrb`, returned **without completing**, run when ready | this is what stops SCSIPORT concluding there is nothing there |
+
+Emitted code verified against the binary, not the source (technique 123):
+
+```
+0x00115b  call 0x48d           ; LS_OpenReset - pulse, no wait
+0x001160  mov  [state], 0      ; SETTLING
+0x001167  mov  [left], 0x1770  ; 6000 ticks
+0x00117e  push 3               ; ResetDetected
+0x001188  push 0x3e8 / push 0x111b4 / push 6   ; RequestTimerCall, LsTimer, 1 ms
+0x00119f  mov  eax, 1 / ret 4
+```
+
+`LsTimer` re-arms at the top before doing any work, as both references do.
+
+### Staged on the card
+
+| | |
+|---|---|
+| `D:\WINDOWS\SYSTEM\IOSUBSYS\LS120MP.MPD` | md5 `508ab8d3`, code `c376510b` |
+| `D:\LS120MP\LS120MP.MPD` | same — install source AND `IOSUBSYS`, per the 09-14 lesson |
+| previous build | kept as `LS120MP.B28` in both paths |
+| `D:\LS120MP\LS120MP.SPP` | **fallback**: identical but `-Mode spp`, code `5084a71c` |
+| INF model name | `LS-120 EPAT  c376510b  6db3616  auto` — Device Manager shows which build is installed |
+
+The rebuilt tree copy has a different md5 (`09e53865`) and the **same code
+hash**. Only the PE timestamp differs; the code is identical.
+
+### What this build does NOT fix, stated plainly
+
+- **Commands still run inline once the drive is ready.** Only the *settle* moved
+  to the timer. A 3584-byte read is ~140 ms of held machine at 39 us/byte, so
+  Explorer may still be unhappy during bulk transfer. Step 4 of the spec — turn
+  each `LS_*Wait` into a polled state — is not done. Mounting first.
+- **The ECP negotiate at ready is carried over unchanged** from the previous
+  build. It has never once succeeded on hardware, which is why `LS120MP.SPP`
+  exists. Boot the `auto` build first; if the drive still does not appear, swap
+  in the `.SPP` copy and boot again. One variable.
+- Steps 5 of the spec (`SpecificLuExtensionSize`, `MapBuffers`, the three extra
+  SRB functions) are untouched.
+
 ## Next
 
 1. **Bisect against the build that enumerated.** `762fe8ac` (code `7d389ebc`,
