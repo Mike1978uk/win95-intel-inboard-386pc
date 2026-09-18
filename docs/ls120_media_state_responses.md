@@ -93,6 +93,44 @@ Capture files: `Q3_msense_wrenabled_clean.OUT`, `W3_msense_writeprotected.OUT`,
 REQUEST SENSE (`E1` reads key 0). The NOT READY only surfaces on a command that
 actually needs the medium. Do not rely on a sense poll to notice an eject.
 
+## DRIVE state, as distinct from MEDIA state - measured 2026-09-18
+
+Raw parallel-port registers, read directly with COMrade `io_in`, data lines
+parked low first:
+
+| drive | `0x378` data | `0x379` status | `0x37A` control | `0x77A` ECR |
+|---|---|---|---|---|
+| powered ON, bridge idle | `00` | `00` | `04` | `15` |
+| **powered OFF, still plugged** | `00` | `00` | `04` | - |
+
+**A raw port read cannot tell a switched-off drive from a present idle one.**
+
+Run the probe instead and the difference is stark:
+
+| | phase bytes at 0600 | meaning |
+|---|---|---|
+| powered ON | `80 00 00 08 08 02 24 00` | reaches DRQ, returns the INQUIRY data |
+| **powered OFF** | `80 01 00 80 80 01 14 EB` | **status stuck at `80h` BSY, never clears** |
+
+### ⛔ Two traps this exposes in our own code
+
+1. **`FFh` is not the only absence.** `LS_SettleStep` declares `LS_ST_ABSENT`
+   only on `FFh`. A powered-off drive reads `80h`, which we treat as "still
+   coming out of reset", so we poll the **entire 6000-tick (6 s) settle budget**
+   every boot before giving up. It does not hang - which is the point of the
+   redesign - but the fast path never fires and the reason is wrong.
+
+2. **The ATAPI signature is NOT a presence test.** Byte count reads `14 EB` with
+   the drive switched off. `LS_BringUp` checks exactly that signature to decide
+   the drive answered, and it would pass. **The only discriminator measured so
+   far is BSY clearing.**
+
+Capture: `PWROFF_inq9_drivepoweredoff.OUT`, against the powered-on control
+`../2026-09-11_ls120/INQ9NOW.OUT`.
+
+⚠ Not yet measured: **cable unplugged**. That needs the 5160 shut down first -
+DB25 has no staggered ground pin and both boxes are separately mains-powered.
+
 ## INQUIRY - the control
 
 `MATSHITA LS-120 COSM   04 0270`, phase bytes `80 00 00 08 08 02 24 00`,
