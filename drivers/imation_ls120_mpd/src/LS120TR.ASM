@@ -2116,6 +2116,19 @@ LS_SpinUp:
 	jne	lsu_done
 	mov	LS_SpunUp, 1
 	TRACE	'SPIN', LS_SpunUp
+
+;  DRAIN FIRST, or the spin-up below is refused and the motor never starts.
+;  START STOP UNIT is not exempt from a pending unit attention - INQUIRY and
+;  REQUEST SENSE are, which is exactly why the drive looks present and then
+;  refuses everything else. Measured in the bed 2026-09-19: with the reset's
+;  condition left standing, 1Bh is rejected and every TEST UNIT READY, READ
+;  CAPACITY and READ(10) after it returns an error, so no volume appears.
+;
+;  A contingent allegiance condition clears by READING THE SENSE, not by the
+;  next command, and a reset queues more than one - LS_DrainSense reads until
+;  the key comes back 0.
+	call	LS_DrainSense
+
 	lea	esi, LS_StartCdb
 	xor	edi, edi
 	xor	ecx, ecx
