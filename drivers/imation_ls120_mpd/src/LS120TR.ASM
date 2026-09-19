@@ -2104,8 +2104,18 @@ lwd_ok:
 ;   under test. Nothing else in init touches the motor now, so any spin-up
 ;   noise means SRBs are arriving.
 ;----------------------------------------------------------------------------
+;  One-shot is enforced HERE, not at the call site. This routine spent a
+;  session declared, public, and called from nowhere while its own comment
+;  claimed it ran on the first SRB; keeping the guard inside means a second
+;  call site cannot reintroduce a spin-up per request.
+LS_SpunUp		dd	0
+
 public LS_SpinUp
 LS_SpinUp:
+	cmp	LS_SpunUp, 0
+	jne	lsu_done
+	mov	LS_SpunUp, 1
+	TRACE	'SPIN', LS_SpunUp
 	lea	esi, LS_StartCdb
 	xor	edi, edi
 	xor	ecx, ecx
@@ -2117,6 +2127,7 @@ LS_SpinUp:
 	xor	ecx, ecx
 	xor	edx, edx
 	call	LS_PacketCommand
+lsu_done:
 	clc
 	ret
 
@@ -2681,7 +2692,17 @@ lpo_ok:
 ;   Uses: EAX, ECX, EDX
 ;
 ;   The bridge's OWN register space, so this answers with no drive attached.
-;   00h and FFh are the two ways a floating bus lies; anything else is real.
+;
+;   ⚠ THIS TEST IS WEAK, and the weakness is measured, not suspected. With no
+;   LPT device at all, the bed returned 0DDh here - neither 00h nor FFh - so
+;   this accepted a bus with nothing on it. It rejects the two classic
+;   floating values and nothing else, because there is no version constant to
+;   compare against (Linux reads this register and never checks it).
+;
+;   The strong test is the vendor's checkpointed CPP probe at 0x2DBB, which
+;   verifies status after each magic byte and returns B8 58 F0 on a live
+;   bridge - a triple a floating bus cannot produce. Not implemented here.
+;   Absence is still caught downstream by LS_SettleStep, which reports ABSN.
 ;----------------------------------------------------------------------------
 LS_BridgeVerify:
 	mov	ch, CONT_BRIDGE
@@ -2690,6 +2711,7 @@ LS_BridgeVerify:
 	mov	al, EPAT_REG_VERSION
 	mov	ch, CONT_BRIDGE
 	call	LS_RegReadCont
+	TRACE	'BVER', eax		; what the bus actually answered
 	cmp	al, 0FFh
 	je	lbv_dead
 	or	al, al

@@ -902,6 +902,13 @@ lsi_fake_ok:
 	jmp	lsi_complete
 endif
 
+;  Spin the motor up before the first real command. A drive left powered off
+;  has its motor stopped, and READ CAPACITY fails against a stopped motor -
+;  which the class driver sees as a bare error and gives up on, so no volume
+;  appears. START STOP UNIT is how the vendor's stack enumerates a drive
+;  whatever state it was left in. Self-limiting to one call.
+	call	LS_SpinUp
+
 ;  Copy the CDB into a zero-filled twelve-byte packet.
 	lea	edi, LsPacket
 	mov	ecx, LS_CDB_MAX
