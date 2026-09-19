@@ -1,5 +1,36 @@
 # LS120MP.MPD — a Windows 95 miniport for a parallel-port LS-120
 
+> ### ⛔ SUPERSEDED — 2026-09-19
+>
+> **Do not install this. The LS-120 works, and it is not with this driver.**
+>
+> The shipping answer is Imation's own `sd120ppd.mpd` with the probe
+> suppressors set in its INF:
+>
+> ```
+> AdapterSettings = PORT=0x378 /ni /de /db /sf /dp /dpc /fp
+> ```
+>
+> Enumerates every boot, keyboard alive, write-protect reported correctly,
+> **3.4 MB verified byte-identical** by `FC /B`. See
+> `docs/next_session_2026_09_19.md`.
+>
+> **Two claims below are RETRACTED**, and between them they closed off the
+> working route for three weeks:
+>
+> 1. *"its whole `AdapterSettings` surface turned out to contain no equivalent
+>    of the DOS driver's `/ni`"* — **false.** It accepts `/ni`, and a jump
+>    table of others. No switch STRING exists in the binary to grep for,
+>    because the switches are decoded one character at a time (parser rva
+>    `0x32c0`). **Find the parser, not the option's name.**
+> 2. *"Both ends of persuade-the-vendor-binary-to-behave are now exhausted"* —
+>    neither end had been reached.
+>
+> **This driver is kept as a research vehicle, not a deliverable.** It is still
+> the right place to understand the transport, and its own two real bugs were
+> found and fixed on 2026-09-19: `LS_DrainSense` and `LS_SpinUp` were both
+> written, both documented as being called, and **both had no call site**.
+
 **Status: PHASE 0 — skeleton. It does not drive the drive, and installing it will not give you a drive letter.** That is deliberate. Tracked as [issue #22](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/22).
 
 ## Why write one at all

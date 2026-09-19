@@ -7618,3 +7618,53 @@ failure mode applied to the search that *founded* technique 75.
 option's name.** A table-driven parser leaves no strings behind. Start from
 the routine that receives the argument (for a SCSI miniport,
 `HwFindAdapter`'s `ArgumentString`) and read what it calls.
+
+### ⛔ Technique 75 SECOND RETRACTION, 2026-09-19: "EPP IS CLOSED" overstates the measurement
+
+The addendum concludes *"EPP IS CLOSED as a direction"*. What was actually
+measured is narrower, and conflating the two closed off the only remaining
+fast transport on this machine:
+
+> dropping `/de /db /sf` while keeping `/ni` killed the keyboard
+
+That is **EPP auto-detection** being destructive. It is not EPP **mode** being
+unusable, and the vendor binary says the opposite - mode 6 (EPP) is the branch
+that **avoids** the 8259-aliasing ports entirely:
+
+```
+0x8d78  cmp byte ptr [0x20bd9], 1   ; EPP path
+0x8d81  add dx,3 / in / and 0f8 / or 6 / out    ; base+3 only
+0x8d96  jmp 0x8de3                  ; never reaches out 0x23 / out 0x22
+0x8d98  cmp byte ptr [0x20bd2], 3   ; mode 3 - THIS is the destructive one
+```
+
+**`/fe` forces EPP init without probing, and it is LIVE**: set at `0x341d`,
+read at `0x26d4`, one instruction after `/ni`, into the same bring-up flags
+word. So the combination never tried is *suppress the probe AND force the
+mode* - `/de /db /fe` together.
+
+**The general rule: separate a CAPABILITY from its DETECTION before declaring
+the capability unavailable.** A destructive probe is a reason to skip the
+probe, not to abandon the mode. Ask whether the thing you measured was the
+feature or the feature's discovery path.
+
+Worth it because the transports are not close: nibble/SPP costs ~4 port
+accesses per byte, EPP costs 1, and on this machine bus transactions are the
+entire cost model (technique 109, ~3.9 us fixed sync per access).
+
+### ⛔ And ECP really is closed - three configurations, 2026-09-19
+
+Recorded so nobody reopens it on theory:
+
+| config | init | first data access |
+|---|---|---|
+| `ECP=1` | hang | — |
+| `ECP=1 IRQ=7` | OK | egg timer |
+| `ECP=1 IRQ=7 DMA=3` + SCSIPORT page-latch guard | OK, 891 ticks | egg timer |
+
+Every prerequisite was met on the third run - channel 3 free, the Intek
+TK9901 jumpered DRQ3/DACK3, and the 1 MB guard in place so the answer would be
+trustworthy. **Two independent implementations now fail at ECP bulk on this
+hardware** - ours and the vendor's, and the vendor's works on other machines.
+That is the independent confirmation the old "scoped to THIS implementation"
+caveat was waiting for.
