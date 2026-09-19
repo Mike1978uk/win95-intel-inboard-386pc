@@ -1,0 +1,69 @@
+# EPP Fast (dword) unlock for the vendor LS-120 miniport
+
+Put the CF in a reader. `<CF>` below is whatever letter it takes.
+
+| file here | what it is | md5 |
+|---|---|---|
+| `SD120PPD.MPD` | **patched** — EPP dword unlocked | `4f1fb59cb7dda09d1002c34bfe32ef0f` |
+| `SD120PPD.STK` | stock, byte-identical to `SD120PPD.MPD.orig` | `08104ffb559ae4b47b84377daee473bc` |
+
+## What it changes
+
+Two bytes, at rva `0x80B2`, `75 0d` -> `90 90`.
+
+The miniport defaults to byte-wide EPP and upgrades to dword only if a gate at
+rva `0x80AB` passes. That gate reads a byte set **only** as a by-product of a
+successful chipset detection — and detection is suppressed here (`/de /db /ni`)
+because it writes `0x22`/`0x23`, which alias onto the 8259 on an XT. So the byte
+stays 0 and dword can never be selected. Nopping the `jne` drops that one test
+and leaves the CPU-class test below it intact.
+
+Read mode goes 10 -> 11 and write mode 3 -> 4: `ScsiPortReadPortBufferUchar`
+becomes `...Ulong`. **One I/O access carries four bytes instead of one.**
+
+Adds no port access of any kind. With `/fe` the transfer routines take the
+`[0x20BD9]` branch at `0x8D81` and never reach the `0x22`/`0x23` writes.
+
+## Where it goes
+
+⚠ **Confirm both paths on the card before copying — not yet verified this
+session**, because FC had the disk locked when this was written.
+
+1. `<CF>:\WINDOWS\SYSTEM\IOSUBSYS\SD120PPD.MPD` — the driver Windows loads.
+2. The vendor install source (believed `<CF>:\LS120VEN\`). Deploy to **both**:
+   a driver refreshed from a stale install source silently reverts, which has
+   already cost this project a week once.
+
+**Back up what is there before overwriting**, and after copying, md5 the file
+**in its destination** — not the staging copy. That is the check that catches a
+half-finished write.
+
+## Revert
+
+Copy `SD120PPD.STK` over both destinations as `SD120PPD.MPD`. Or, from the repo:
+
+```
+python patch_sd120ppd_eppfast.py --revert <patched> <out>
+```
+
+which refuses a no-op and reproduces `08104ffb...` exactly.
+
+## What to look for after booting
+
+- **Drive letter present.** If it is gone, revert.
+- **Time a copy of a known file** and compare against the byte-wide baseline:
+  36,735,152 bytes in ~7 min = **85.4 KiB/s**. Measured cost model says a dword
+  access should take 5.77 us/byte to about 2.85 — call it up to 2x.
+- **Verify the bytes, not just the clock.** `FC /B` against the source, with the
+  DOS driver reading it back, so the write path and the read path are different
+  code.
+
+## If dword does not work
+
+The driver catches it itself: the recovery ladder at `0xAEEC` calls `0xABC6`,
+latches `[0x20C7C]=1` and drops back to byte-wide for the rest of the boot. So a
+wrong answer degrades to today's behaviour rather than corrupting anything.
+
+That latch is one-way and never cleared, so **a transient error costs you the
+width until the next reboot** — which is also why a re-timed copy should be run
+on a fresh boot with nothing else having touched the drive first.
