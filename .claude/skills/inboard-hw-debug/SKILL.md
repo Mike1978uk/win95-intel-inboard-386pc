@@ -7652,7 +7652,22 @@ Worth it because the transports are not close: nibble/SPP costs ~4 port
 accesses per byte, EPP costs 1, and on this machine bus transactions are the
 entire cost model (technique 109, ~3.9 us fixed sync per access).
 
-### ⛔ And ECP really is closed - three configurations, 2026-09-19
+### ⛔ ECP is closed ON THE WINDOWS PATH - three configurations, 2026-09-19
+
+> ⚠ **RETRACTED IN PART, 2026-09-20.** The heading used to read "ECP really is
+> closed" and the conclusion below used to say two independent implementations
+> fail at ECP bulk on this hardware. **That is wrong.** The vendor **DOS**
+> driver runs `ECP Read` / `ECP Write` on this machine and the drive works -
+> owner-observed at the console, and the owner had to say so several times
+> before this file was corrected. See `drivers/imation_ls120/MEASURED_FACTS.md`
+> §2y. What the table below measures is the vendor **Windows miniport** with
+> `ECP=1`, and that remains closed. Scope every ECP claim to the artefact it
+> was measured on.
+>
+> **The process failure worth keeping:** technique 124 says that when the owner
+> repeats a correction, the written record is what is wrong. This file was the
+> record doing the misleading, and it was quoted back at the owner instead of
+> checked. Repetition is a signal to open the document, not to re-argue.
 
 Recorded so nobody reopens it on theory:
 
@@ -7664,7 +7679,11 @@ Recorded so nobody reopens it on theory:
 
 Every prerequisite was met on the third run - channel 3 free, the Intek
 TK9901 jumpered DRQ3/DACK3, and the 1 MB guard in place so the answer would be
-trustworthy. **Two independent implementations now fail at ECP bulk on this
-hardware** - ours and the vendor's, and the vendor's works on other machines.
-That is the independent confirmation the old "scoped to THIS implementation"
-caveat was waiting for.
+trustworthy. So **ECP bulk fails in our miniport and in the vendor's Windows
+miniport** - two implementations, one host path, and both under SCSIPORT.
+
+**It succeeds in the vendor's DOS driver on the same machine and the same
+cable.** So the bridge does ECP bulk, the bus does ECP bulk, and the defect is
+in the Windows-side implementations. The DOS driver is therefore a *working
+reference* for the path we have been unable to build (technique 81: an
+implementation that has executed outranks the docs and the disassembly).

@@ -37,8 +37,28 @@ COSM 04**, firmware **0270**, bridge **SHUTTLE EPATRM**, port `0x378`.
 | **ECP register read** | **WORKS** — returns `EB` from register `1Dh`, matching nibble | `ECPTERM2.OUT` |
 | **ECP needs NEGOTIATION** | without it, every ECP access times out (`FF`) | `ECPREG2.OUT` |
 | **ECP needs TERMINATION** | without it, every later nibble read returns `F5` | `ECPREG.OUT`, `ECPTERM.OUT` |
-| **ECP block streaming** | ⛔ **UNTESTED — the one attempt is VOID**, see §2z | `ECPNOW.OUT` |
+| **ECP block streaming** | ✅ **WORKS** — the vendor DOS driver runs it on this machine, see §2y | owner, 5160 console |
 | EPP | port is EPP-capable; `epat.c` mode 3 is the bulk path | `EPP7_port_is_epp_capable.OUT` |
+
+### 2y. ECP BULK WORKS — observed, and it is not ours that proves it
+
+`SD120PPD.SYS`, loaded from `CONFIG.SYS` with `/port:378 /IRQ:7 /de /db /ni
+/sf /dpc /dp /fp`, reports **`Read Mode : ECP Read`** and **`Write Mode : ECP
+Write`** on this machine, and the drive enumerates, mounts at `D:` and serves
+a 36 MB file. Owner-observed at the console, stated repeatedly.
+
+Mechanism, from the driver's own help text: `/de` disables the **Epp** check
+and `/db` the **Eppbios** check. **Neither suppresses ECP detection**, and
+nothing else in that line does either — so ECP is what autodetection lands on.
+
+**What this retires:** every "ECP is closed" claim in this project was measured
+against a different artefact — our own miniport (`ls120-ecp-bulk-delivers-nothing`)
+or the vendor *Windows* miniport with `ECP=1` (`3a318bf`, three configurations).
+The vendor **DOS** driver's ECP path had never been tested. So our empty buffers
+are an implementation defect, not a property of this bridge or this bus.
+
+**What it does NOT say:** nothing here times ECP. Working and fast are separate
+claims and only the first is established.
 
 ### 2z. RETRACTED: "the bridge does not do ECP block streaming"
 
@@ -57,6 +77,10 @@ not a result** (technique 110).
 the only place ECP can pay, since §2b measures a register read as slower than
 nibble — so the task file stays nibble either way, and bulk is what the 1284
 work was for.
+
+⇒ **Superseded by §2y**: ECP bulk is no longer untested. The vendor DOS driver
+does it on this machine. This section stands for its method — a run missing a
+prerequisite is not a result — not for its verdict.
 
 ### 2a. The 1284 sequence, exactly
 
