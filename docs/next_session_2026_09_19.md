@@ -10,6 +10,54 @@ night: **no drive letter.** And the point that reframes the hunt —
 
 So the fault is not the transport, which works. It is the **bring-up path**.
 
+## ⭐ STAGED ON THE CARD, NEVER BOOTED
+
+```
+LS120MP.MPD   code 0efce401   md5 5140442c   commit 58676c3   tree clean
+```
+
+Verified at BOTH destinations, not at the staging copy:
+
+| path | md5 |
+|---|---|
+| `D:\LS120MP\LS120MP.MPD` | `5140442c` |
+| `D:\WINDOWS\SYSTEM\IOSUBSYS\LS120MP.MPD` | `5140442c` |
+| `D:\LS120MP\LS120MP.B31` (tagged spare) | `5140442c` |
+| `D:\LS120MP\LS120MP.SPP` (`d8154f1d`, **rollback only**) | intact |
+
+⛔ **`d8154f1d` IS NOT A KNOWN-GOOD BUILD.** It mounted at `J:` once on
+2026-09-18 and has not enumerated since - not after the revert that same
+evening, and not on the cold boot of 2026-09-19. Calling it "the revert"
+invites the reading that there is a working state to fall back to. **There is
+not.** It is a rollback to the previous FAILING state, nothing more.
+
+Two consequences that change how this test should be read:
+
+1. **There is no downside to testing.** Nothing working is being risked,
+   because nothing works. A failure leaves the machine exactly where it is.
+2. **Any drive letter at all is a strong positive.** With no build currently
+   enumerating, `J:` appearing is not a marginal improvement - it is the
+   first working state since 2026-09-18.
+
+**The test:** drive powered OFF cold, then boot. Expect `J:`.
+**Rollback:** copy `LS120MP.SPP` over both live locations - returns to the
+previous failing state, which is the only thing it can do.
+⚠ First access may pause for seconds while the motor spins - that is START
+STOP UNIT blocking in `HwStartIo`, not a hang.
+
+### The A/B/C that justified it — bed, modelled cold drive, one variable each
+
+| arm | drain | spin-up | TEST UNIT READY | READ CAPACITY | READ(10) | verdict |
+|---|---|---|---|---|---|---|
+| A | ✗ | ✗ | 12 x ERROR | 5 x ERROR | 6 x ERROR | fail |
+| B | ✗ | ✓ | 12 x ERROR | 6 x ERROR | 6 x ERROR | **fail** |
+| C | ✓ | ✓ | 2 x SUCCESS | 1 x SUCCESS | 2 x SUCCESS | **pass** |
+
+**Arm B is the one that earned the bed its keep.** The spin-up ALONE still
+failed, because START STOP UNIT carries no `ALLOW_UA` and the reset's unit
+attention was still standing. Shipping after the warm-bed result would have
+cost a hardware boot and taught nothing.
+
 ## ⛔ READ THIS FIRST — the headline below is OVERSTATED
 
 The verify-and-retry work in this document is real, shipped and neutral. **It
