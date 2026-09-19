@@ -505,3 +505,59 @@ leave a 16 MB ceiling against a 4-bit latch — the unsafe combination).
 `PORT=0x378 /ni /de /db /sf /dp /dpc /fp` — enumerates every time, keyboard
 alive, write-protect correct, **3.4 MB verified byte-identical**. ECP would
 have been throughput on top; it is not function.
+
+---
+
+## ⚠ EPP IS **NOT** CLOSED — technique 75's addendum overstates it
+
+The addendum says *"EPP IS CLOSED as a direction"*. What was actually measured
+is narrower and the distinction matters:
+
+> dropping `/de /db /sf` while keeping `/ni` killed the keyboard
+
+That is **EPP auto-detection** being destructive. It is not EPP *mode* being
+unusable. The disassembly says the opposite — mode 6 (EPP) is the branch that
+**avoids** the 8259 aliasing:
+
+```
+0x8d78  cmp byte ptr [0x20bd9], 1    ; EPP path
+0x8d81  add dx,3 / in / and 0f8 / or 6 / out   ; base+3 only
+0x8d96  jmp 0x8de3                   ; never reaches out 0x23 / out 0x22
+0x8d98  cmp byte ptr [0x20bd2], 3    ; mode 3 - THIS is the destructive one
+```
+
+### `/fe` forces EPP init without probing, and it is LIVE
+
+| flag | set at | read at | status |
+|---|---|---|---|
+| `/fe` force EPP init | `0x341d` | **`0x26d4`** | **live** |
+| `/ep` | `0x33fb` | `0x26e1` | live |
+| `/fb` | `0x342c` | — | dead |
+
+`/fe` ORs bit 6 into the bring-up flags word at `[ebp-0x1c]`, one instruction
+after `/ni` ORs bit 2. Same routine, same word, same consumer.
+
+So the combination that was never tried is **suppress the probe AND force the
+mode**: `/de /db` keep the destructive detection off, `/fe` turns EPP on
+anyway. That is exactly what you want on a port known to be EPP-capable -
+which this one is, measured 2026-09-14 (`EPP7_port_is_epp_capable.OUT`).
+
+### Staged, one variable off the verified config
+
+`C:\EPPGO.BAT` →
+
+```
+PORT=0x378 /ni /de /db /sf /dp /dpc /fp /fe
+```
+
+The shipped working line plus `/fe`. Nothing else changes.
+
+**Why it is worth a boot:** nibble/SPP costs ~4 port accesses per byte. EPP is
+1. On this machine bus transactions are the entire cost model (technique 109:
+~3.9 us fixed sync per access), so this is a ~4x reduction in the thing that
+actually costs - the same shape of win as XT-IDE Hi-Speed mode.
+
+⚠ **Watch the keyboard on the first boot.** `/fe` forces a chipset-specific
+EPP init path (the DOS driver calls it "force 386sl EPP initialization"), and
+although mode 6 avoids `0x22`/`0x23`, the force path has never run here.
+`C:\ECPBACK.BAT` reverts.
