@@ -531,29 +531,19 @@ public LS_OpenReset
 ;  An attempt is ~110 port accesses at 5.55 us (technique 109), so a normal
 ;  open costs ~0.6 ms and the full escalation under 150 ms, paid only when the
 ;  bridge is not answering.
+;  ⛔ THE VERIFY-AND-RETRY THAT WAS HERE IS REVERTED. Measured on the real
+;  5160 2026-09-19: init went from 2 ticks to 46, which is the retry loop
+;  grinding all 50 attempts because LS_BridgeVerify fails on the real bridge -
+;  the same test that ACCEPTED a bus with no device on it in the bed. It also
+;  left LS_CppReps at 8 on the way out, so every later CPP frame in the
+;  session ran at four times the pulse width.
+;
+;  It was never justified either: TRANSPORT_SPEC section 3 measures the CPP
+;  connect checkpoints returning B8 58 F0 cold AND warm, so the bridge open is
+;  not the step that fails. Do not reinstate it without a verification that
+;  has been shown to fail on a dead bus and pass on a live one.
 LS_OpenReset:
-	mov	LS_CppReps, 2
-	mov	LS_OpenTries, LS_OPEN_RETRIES
-	mov	LS_OpenUsed, 0
-lor_attempt:
-	inc	LS_OpenUsed
 	call	LS_OpenFrame
-	call	LS_BridgeVerify
-	jnc	lor_ok
-;  Nothing answered. Widen the frame pulse and open again from scratch -
-;  LS_OpenFrame resets the ECR and the control port itself.
-	mov	LS_Connected, 0
-	mov	LS_CppReps, LS_CPP_REPS_SLOW
-	dec	LS_OpenTries
-	jnz	lor_attempt
-	TRACE	'OPNF', LS_OpenUsed
-;  Still pulse and let LS_SettleStep decide. It already separates a floating
-;  bus from a drive in reset, and this keeps the old behaviour for the case
-;  where the bridge genuinely is not there.
-	call	LS_AtaPulseReset
-	ret
-lor_ok:
-	TRACE	'OPNO', LS_OpenUsed
 	call	LS_AtaPulseReset
 	ret
 
