@@ -7573,3 +7573,48 @@ must be reachable AND escapable by the exact mechanism under test**. If your
 injected failure also disables the escape, the experiment cannot distinguish
 a working fix from a broken one - and it fails in the direction that looks
 like a confirmed negative, which is the expensive direction.
+
+### ⛔ Technique 75 RETRACTION, 2026-09-19: the Windows miniport DOES take the switches
+
+Technique 75 states, as fact: *"The miniport exposes none of them, no
+`AdapterSettings`, nothing."* **That is wrong, and it closed off the shortest
+route to a working driver for three weeks.**
+
+`SD120PPD.MPD` parses `AdapterSettings` TWICE, from `HwFindAdapter` (rva
+`0x3854`), through one parser at rva `0x32c0`:
+
+| call | 3rd arg | what it parses |
+|---|---|---|
+| `0x38ca` | **0** | **slash switches** - `cmp ecx, 0x2f` is `'/'` |
+| `0x38d6` onward | 1 | `NAME=value`: `BLK DMA ECP MSN NATN NDPC port size` |
+
+The switch letters come from a jump table (index byte table at rva `0x3779`,
+handlers at rva `0x3749`). Valid first letters:
+
+```
+/a /d /e /f /i /n /p /r /s /w /z        (slot 11 -> 0x35ec is the reject path)
+```
+
+And the handlers confirm the second letter:
+
+```
+/n at 0x3484:  cmp byte ptr [esi], 0x69   ; 'i'  ->  /ni  IS ACCEPTED
+/d at 0x337a:  cmp al, 0x69 / 0x65 / 0x61 ; i, e, a  ->  /di /de /da
+```
+
+**So the Windows miniport takes `/ni` - "Skip chipset initialization" - the
+same switch that makes the DOS driver safe on this XT.** The `NAME=value`
+parameters are undocumented too; the vendor README mentions only `PORT=` and
+`IRQ=`.
+
+**How the wrong conclusion was reached, and the rule it earns:** the original
+search grepped the binary for switch-like STRINGS and found none. There are
+none to find - the switches are decoded by a jump table on single characters,
+so no `/ni` literal exists anywhere in the image. Technique 75 already says a
+confident negative from a string grep is worse than no search; this is that
+failure mode applied to the search that *founded* technique 75.
+
+**Rule: to decide whether a binary accepts an option, find the PARSER, not the
+option's name.** A table-driven parser leaves no strings behind. Start from
+the routine that receives the argument (for a SCSI miniport,
+`HwFindAdapter`'s `ArgumentString`) and read what it calls.
