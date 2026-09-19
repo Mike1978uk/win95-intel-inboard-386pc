@@ -241,6 +241,23 @@ LS_Mode			dd	0		; negotiated transfer mode, 0 = none
 	PUBLIC	LS_Connected
 LS_Connected		dd	0		; layer 2 currently owns the port
 
+;  How many times LS_CppFrame writes each byte of the frame. The vendor keeps
+;  the same count in [0c15h] and raises it when a port open has already
+;  failed: 0x26D9 writes each byte twice, 0x2800 is the same routine writing
+;  eight times, and 0x2C42 switches to the second one before it retries. A
+;  bridge that is cold, or on a long cable, needs the data lines held longer
+;  than one bus cycle for the frame to latch.
+	PUBLIC	LS_CppReps
+LS_CppReps		dd	2
+LS_CPP_REPS_SLOW	equ	8
+;  0x32 in the vendor's own retry counter at 0x2C42.
+LS_OPEN_RETRIES		equ	50
+LS_OpenTries		dd	0
+;  Attempts the last LS_PortOpen actually needed. 1 means the bridge answered
+;  cold; anything higher is the escalation earning its place.
+	PUBLIC	LS_OpenUsed
+LS_OpenUsed		dd	0
+
 ;  1 once SRST has been pulsed for this bring-up. Cleared by LS_ResetBringUp
 ;  so a fresh adapter init, or a cold start that gave up, pulses again.
 	PUBLIC	LS_SrstDone
@@ -506,7 +523,42 @@ lsrst_done:
 ;   docs/ls120_enumeration_from_working_drivers.md
 ;----------------------------------------------------------------------------
 public LS_OpenReset
+;  VERIFIED AND RETRIED. The vendor's 0x2C42 probes the bridge after opening
+;  the port and, on a failure, raises the frame repeat count and opens again -
+;  up to 0x32 times. Opening once and assuming it worked is why enumeration
+;  here depends on what state the drive was left in.
+;
+;  An attempt is ~110 port accesses at 5.55 us (technique 109), so a normal
+;  open costs ~0.6 ms and the full escalation under 150 ms, paid only when the
+;  bridge is not answering.
 LS_OpenReset:
+	mov	LS_CppReps, 2
+	mov	LS_OpenTries, LS_OPEN_RETRIES
+	mov	LS_OpenUsed, 0
+lor_attempt:
+	inc	LS_OpenUsed
+	call	LS_OpenFrame
+	call	LS_BridgeVerify
+	jnc	lor_ok
+;  Nothing answered. Widen the frame pulse and open again from scratch -
+;  LS_OpenFrame resets the ECR and the control port itself.
+	mov	LS_Connected, 0
+	mov	LS_CppReps, LS_CPP_REPS_SLOW
+	dec	LS_OpenTries
+	jnz	lor_attempt
+	TRACE	'OPNF', LS_OpenUsed
+;  Still pulse and let LS_SettleStep decide. It already separates a floating
+;  bus from a drive in reset, and this keeps the old behaviour for the case
+;  where the bridge genuinely is not there.
+	call	LS_AtaPulseReset
+	ret
+lor_ok:
+	TRACE	'OPNO', LS_OpenUsed
+	call	LS_AtaPulseReset
+	ret
+
+;  One unverified open: ECR mask, control kick, CPP preamble, connect.
+LS_OpenFrame:
 ;  1. Mask the ECP control register rather than storing a value into it.
 	movzx	edx, LS_BasePort
 	add	edx, LPT_ECP_ECR
@@ -536,13 +588,13 @@ LS_OpenReset:
 	call	LS_CppFrame
 	mov	al, CPP_PRE4
 	call	LS_CppFrame
-;  4. Connect and pulse. The bridge is deliberately LEFT CONNECTED across the
-;     settle so the poll below can read status without re-running the CPP
-;     preamble on every tick.
+;  4. Connect. The bridge is deliberately LEFT CONNECTED across the settle so
+;     the poll below can read status without re-running the CPP preamble on
+;     every tick. The SRST pulse belongs to the caller, which issues it only
+;     once the bridge has been verified.
 	mov	al, CPP_CONNECT
 	call	LS_CppFrame
 	mov	LS_Connected, 1
-	call	LS_AtaPulseReset
 	ret
 
 ;----------------------------------------------------------------------------
@@ -726,8 +778,9 @@ lbu_fail:
 ;   Uses: EAX, EDX
 ;
 ;   VERIFIED on the real 5160, 2026-09-08, checkpoints reproducible twice.
-;   Eight bytes to the SPP data port, EACH WRITTEN TWICE - the second write is
-;   the I/O delay, not a retry - then commit by pulsing nINIT 04h/05h/04h.
+;   Eight bytes to the SPP data port, each written LS_CppReps times - the
+;   repeats are the I/O delay, not retries - then commit by pulsing nINIT
+;   04h/05h/04h.
 ;
 ;   Runs with interrupts off and restores IF from the CALLER's flags, which is
 ;   what the vendor's own dispatchers do. The handshake cannot tolerate an
@@ -771,9 +824,18 @@ LS_CppFrame:
 	pop	ebx
 	ret
 
+;  Each byte of the frame is written LS_CppReps times. The repeat is the I/O
+;  delay that holds the data lines, not a retry, so the count is the width of
+;  the pulse the bridge sees. ECX is preserved: LS_CppFrame's callers are
+;  entitled to it.
 lcpp_twice:
+	push	ecx
+	mov	ecx, LS_CppReps
+lcpp_rep:
 	out	dx, al
-	out	dx, al		; the second write IS the I/O delay
+	dec	ecx
+	jnz	lcpp_rep
+	pop	ecx
 	ret
 
 ;----------------------------------------------------------------------------
@@ -956,20 +1018,13 @@ lsr_dead:
 public LS_BridgeProbe
 LS_BridgeProbe:
 	call	LS_PortOpen		; the FULL open, not a bare CPP connect
-	mov	ch, CONT_BRIDGE
-	mov	ax, (038h SHL 8) OR EPAT_REG_VERSEL
-	call	LS_RegWriteCont
-	mov	al, EPAT_REG_VERSION
-	mov	ch, CONT_BRIDGE
-	call	LS_RegReadCont
+	jc	lbp_dead		; it retried and nothing ever answered
+	call	LS_BridgeVerify
+	pushfd
 	push	eax
 	call	LS_Disconnect
 	pop	eax
-	cmp	al, 0FFh
-	je	lbp_dead
-	or	al, al
-	jz	lbp_dead
-	clc
+	popfd
 	ret
 lbp_dead:
 	stc
@@ -2584,8 +2639,70 @@ lcs_fail:
 ;   driver loads at all, so a false negative there is worse than the bug it
 ;   was added to fix.
 ;----------------------------------------------------------------------------
+;  The open is VERIFIED and RETRIED, which is the part the vendor has and this
+;  driver did not. 0x2C42 probes the bridge, and only on a failure does it
+;  apply the control kick, raise the frame repeat count and go round again -
+;  up to 0x32 times. Opening once and believing it is why enumeration here
+;  depends on what state the drive was left in: a bridge that needs a second
+;  frame gets one attempt and the miniport reports no device.
+;
+;  An attempt costs ~110 port accesses, 5.55 us each (technique 109), so a
+;  normal open is ~0.6 ms and the full 50-attempt escalation is under 150 ms -
+;  paid once, and only when the bridge is not answering.
 public LS_PortOpen
 LS_PortOpen:
+	mov	LS_CppReps, 2
+	mov	LS_OpenTries, LS_OPEN_RETRIES
+	mov	LS_OpenUsed, 0
+lpo_attempt:
+	inc	LS_OpenUsed
+	call	LS_PortOpenOnce
+	call	LS_BridgeVerify
+	jnc	lpo_ok
+;  Nothing answered. Widen the frame pulse and open again from scratch -
+;  LS_PortOpenOnce resets the ECR and the control port itself, so there is
+;  nothing to undo first.
+	mov	LS_Connected, 0
+	mov	LS_CppReps, LS_CPP_REPS_SLOW
+	dec	LS_OpenTries
+	jnz	lpo_attempt
+	TRACE	'OPNF', LS_OpenUsed
+	stc
+	ret
+lpo_ok:
+	TRACE	'OPNO', LS_OpenUsed
+	clc
+	ret
+
+;----------------------------------------------------------------------------
+; LS_BridgeVerify - did silicon answer, with the port already open?
+;
+;   Out:  AL = version code, CF=0 if a bridge answered
+;   Uses: EAX, ECX, EDX
+;
+;   The bridge's OWN register space, so this answers with no drive attached.
+;   00h and FFh are the two ways a floating bus lies; anything else is real.
+;----------------------------------------------------------------------------
+LS_BridgeVerify:
+	mov	ch, CONT_BRIDGE
+	mov	ax, (038h SHL 8) OR EPAT_REG_VERSEL
+	call	LS_RegWriteCont
+	mov	al, EPAT_REG_VERSION
+	mov	ch, CONT_BRIDGE
+	call	LS_RegReadCont
+	cmp	al, 0FFh
+	je	lbv_dead
+	or	al, al
+	jz	lbv_dead
+	clc
+	ret
+lbv_dead:
+	stc
+	ret
+
+;  One unverified open: ECR mask, control kick, ECP detect, CPP preamble,
+;  connect. Never call this directly - LS_PortOpen is the one that checks.
+LS_PortOpenOnce:
 	movzx	edx, LS_BasePort
 	add	edx, LPT_ECP_ECR
 	in	al, dx
