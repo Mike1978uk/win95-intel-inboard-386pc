@@ -379,3 +379,79 @@ the buffer read/write primitives. We use `Initialize` and `Notification`.
 Not claimed as today's bug. Recorded because it is measured, and because
 `GetDeviceBase` is the sanctioned answer to a port we currently take without
 asking.
+
+---
+
+# ✅ RESOLVED BY CONFIGURATION — the vendor miniport, with probes suppressed
+
+The LS-120 enumerates reliably under Windows, keeps the keyboard, reports
+write-protect correctly, and writes correct bytes. **Not our driver** — the
+vendor's, configured.
+
+## What shipped
+
+`D:\LS120VEN\` — the vendor's own `120PPD95.INF`, extracted from the
+installer's `DATA.Z`, with one line added:
+
+```
+HKR,,AdapterSettings,,"PORT=0x378 /ni /de /db /sf /dp /dpc /fp"
+```
+
+In `[epatlsreg]`, the section the install actually references, so the
+switches apply **at install** and the keyboard is never needed to recover
+from a keyboard failure.
+
+## Verified, not asserted
+
+| check | result |
+|---|---|
+| enumeration | immediate, drive letter present |
+| keyboard | alive |
+| write-protect reporting | **correct** (ours got this wrong) |
+| `WC2P9XUP.EXE` 427,273 B | `FC: no differences encountered` |
+| `WC2MON.EXE` 2,975,731 B | `FC: no differences encountered` |
+
+**3.4 MB byte-identical.** Written by the Windows miniport, read back by the
+DOS driver — two different code paths, so a symmetric error cannot cancel.
+
+## The two wrong conclusions that cost three weeks
+
+1. **"The miniport exposes no switches."** It parses them from
+   `HwFindAdapter` via a jump table on single characters (parser rva
+   `0x32c0`), so **no switch string exists in the binary to grep for**. The
+   original search looked for strings. Full set: `/a /d /e /f /i /n /p /r /s
+   /w /z`, and `NAME=value` for `BLK DMA ECP MSN NATN NDPC port size irq`.
+2. **`[DriverSettings] Flags=""` dismissed as boilerplate.** The vendor's own
+   INF labels it `; **********Add your default driver switches here`.
+
+**Rule earned: to decide whether a binary accepts an option, find the PARSER,
+not the option's name.** A table-driven parser leaves no strings behind.
+
+## ⛔ ECP HANGS THE BOOT — measured 2026-09-19
+
+`ECP=1` never returns from miniport init:
+
+```
+working : [000F6ED4] Initing sd120ppd.mpd
+          [000F7250] Init Success sd120ppd.mpd     892 ticks
+ECP=1   : [0010BA2A] Initing sd120ppd.mpd
+          <log ends - no Success, no Failure>
+```
+
+**Ruled out:** no printer-port node exists and nothing claims `0378`, so it is
+not a resource conflict. The hang is inside the driver's own ECP bring-up.
+
+**Also established, and it kills the 1 MB worry for the non-ECP path:** the
+driver never programs the 8237 (zero writes to `00-0F` or `81-8F`), has no
+`_PageAllocate` calls, and moves data with `ScsiPortRead/WritePortBuffer*`.
+Its `DmaChannel` declaration — which only happens when ECP is on — is
+vestigial. `HwDmaStarted` is a 4-instruction forwarder.
+
+**Untested hypothesis, staged as `C:\ECPIRQ.BAT`:** ECP conventionally
+transfers on the ECP service interrupt, and our settings declare none
+(`Polling=1`, no IRQ). The driver has an undocumented `irq` parameter. If
+`IRQ=7` also hangs, stop guessing at parameters and take it to the bed where
+the spin is visible.
+
+⚠ The hive still holds `ECP=1`, so the machine hangs until `C:\ECPBACK.BAT`
+is run from real-mode DOS. `C:\ECPSTEPS.TXT` says so on the console.
