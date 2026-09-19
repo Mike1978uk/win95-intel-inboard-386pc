@@ -455,3 +455,53 @@ the spin is visible.
 
 ⚠ The hive still holds `ECP=1`, so the machine hangs until `C:\ECPBACK.BAT`
 is run from real-mode DOS. `C:\ECPSTEPS.TXT` says so on the console.
+
+---
+
+## ⛔ ECP IS CLOSED ON THIS HARDWARE — three configurations, all eliminated
+
+| config | miniport init | first data access |
+|---|---|---|
+| `ECP=1` | **hang** — log stops after `Initing` | — |
+| `ECP=1 IRQ=7` | OK | **egg timer** |
+| `ECP=1 IRQ=7 DMA=3` + patched SCSIPORT | OK, **891 ticks** (working config is 892) | **egg timer** |
+
+`IRQ=7` fixed the init hang, which confirmed the interrupt is real and is the
+Intek TK9901's. DMA changed init not at all and did not touch the data hang.
+
+**Both plausible mechanisms are now eliminated by experiment, not argument:**
+
+1. *"ECP waits on a service interrupt it never gets"* — an IRQ was declared
+   and the card is jumpered for it. Init unblocked; data still hangs.
+2. *"The ECP FIFO needs DMA to be serviced"* — channel 3 declared, card
+   jumpered DRQ3/DACK3, and the 1 MB page-latch guard in place so the result
+   would be trustworthy. No change.
+
+Prerequisites were all genuinely met for the third run - free channel, card
+support confirmed by the owner, and the guard - so this is not a "we never
+set it up properly" negative.
+
+### What that means
+
+**ECP is a hardware limit on this card/bus, not a software gap.** Two
+independent implementations now fail at ECP bulk here: ours, and the vendor's,
+which demonstrably works on other machines. That is the independent
+confirmation the earlier "scoped to THIS implementation" caveat was waiting
+for. ⛔ Do not spend further sessions on ECP parameters - the configuration
+surface is exhausted (`BLK`, `MSN`, `NATN`, `NDPC` are all parsed and never
+read; `ECP` and `DMA` are the only live transport parameters).
+
+### Kept, because it is correct regardless
+
+`dist/post-install-fixes/scsiport_xt_dma/SCSIPORT.PDR` — the DMA ceiling
+patch. It was never exercised before because nothing but the SB Pro did ISA
+DMA on this machine, and it is right for this hardware whether or not ECP is
+used. Stock is at `C:\SCSIPORT.ORG`; `C:\FIXBACK.BAT` reverts both the
+registry and the driver, in that order (reverting the driver first would
+leave a 16 MB ceiling against a 4-bit latch — the unsafe combination).
+
+### The shipped configuration stands
+
+`PORT=0x378 /ni /de /db /sf /dp /dpc /fp` — enumerates every time, keyboard
+alive, write-protect correct, **3.4 MB verified byte-identical**. ECP would
+have been throughput on top; it is not function.
