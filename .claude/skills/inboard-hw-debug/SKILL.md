@@ -7544,3 +7544,32 @@ Technique 90 in its constructive form - **before running a fix in the bed, ask
 whether the bed can produce the failure the fix addresses.** If it cannot, say
 so in the same breath as the result, or the green run will be cited later as a
 pass.
+
+### 127c: a model added to MAKE a test fail must not block the mechanism under test
+
+Same session. To test a driver fix that issues START STOP UNIT, the bed's
+drive model was given a stopped-motor state: answer NOT READY to every
+`CHECK_READY` command until START STOP UNIT arrives.
+
+`rdisk.c`'s own command table says:
+
+```c
+[0x1b]          = IMPLEMENTED | CHECK_READY,      /* START STOP UNIT */
+```
+
+So the new gate blocked **START STOP UNIT itself**. The drive could never be
+started, both arms of the experiment would have failed identically, and the
+obvious reading - "the spin-up fix does not work" - would have been exactly
+backwards.
+
+**Before arming a model that refuses commands, check whether the command that
+CLEARS the state is in the set being refused.** A device's own command-flags
+table answers it in one grep, and the exemption list a real device implements
+(START STOP UNIT, REQUEST SENSE, INQUIRY) is the list to copy.
+
+The general form, and it is technique 45's observer-effect one layer up: when
+you add a failure to the environment in order to test a fix, **the failure
+must be reachable AND escapable by the exact mechanism under test**. If your
+injected failure also disables the escape, the experiment cannot distinguish
+a working fix from a broken one - and it fails in the direction that looks
+like a confirmed negative, which is the expensive direction.
