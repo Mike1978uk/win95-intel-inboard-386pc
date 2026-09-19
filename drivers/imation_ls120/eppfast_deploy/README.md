@@ -89,3 +89,46 @@ wrong answer degrades to today's behaviour rather than corrupting anything.
 That latch is one-way and never cleared, so **a transient error costs you the
 width until the next reboot** — which is also why a re-timed copy should be run
 on a fresh boot with nothing else having touched the drive first.
+
+---
+
+# BOUNDARY.BIN — the test file
+
+`BOUNDARY.BIN`, 4,000,000 bytes, md5 `a2ea9a7af4c73214840b2988d334a353`.
+Copy it to `<CF>:\` while the card is in the reader. Test cycle is then
+`COPY C:\BOUNDARY.BIN D:\` and `FC /B` — about three minutes, not an hour.
+
+## Why 4 MB
+
+| | |
+|---|---|
+| at today's 85.4 KiB/s | ~46 s |
+| at dword, if it works | ~23 s |
+
+A 2x difference against a stopwatch error of a second or two is unmissable.
+Smaller than ~2 MB and the reading gets ambiguous; larger and the loop stops
+being repeatable, which is what we actually need now.
+
+## What it crosses
+
+| boundary | |
+|---|---|
+| 512-byte sectors | 7812.5 -> **7813, last one partial** |
+| ATAPI bursts (3584 B = 7 sectors) | 1116.07 -> **1117, last one short** |
+| 64 KB | **61** crossings |
+| dwords | 1,000,000 exact — and since a sector is 128 dwords, `epat.c` mode 5's tail path (`count/4-1` dwords, then 3 bytes, then the last byte) runs on **every sector** regardless |
+
+## Why the content is a counter, not a slice of the video
+
+Dword N holds the value N, so **every dword names its own address**.
+
+- Read any dword, multiply by 4, and that is where it should have been. A
+  mismatch is self-locating instead of "FC says byte 1,234,567 differs".
+- A **byte-lane swap inside the dword** — the classic failure of a 32-bit
+  transport on an 8-bit bus, and exactly what this patch risks — is visible at
+  a glance rather than needing to be inferred.
+- A repeated or dropped burst shows as a clean step in the counter.
+
+Compressed data (an MPEG) does the opposite: every corruption looks like noise,
+and the decoder hides the rest. Technique 109f's incrementing-pattern rule,
+applied at file scale.
