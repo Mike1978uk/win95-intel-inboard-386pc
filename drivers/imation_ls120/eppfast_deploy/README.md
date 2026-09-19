@@ -4,8 +4,30 @@ Put the CF in a reader. `<CF>` below is whatever letter it takes.
 
 | file here | what it is | md5 |
 |---|---|---|
-| `SD120PPD.MPD` | **patched** — EPP dword unlocked | `4f1fb59cb7dda09d1002c34bfe32ef0f` |
-| `SD120PPD.STK` | stock, byte-identical to `SD120PPD.MPD.orig` | `08104ffb559ae4b47b84377daee473bc` |
+| `SD120PPD.MPD` | **patched** Windows miniport — EPP dword unlocked | `4f1fb59cb7dda09d1002c34bfe32ef0f` |
+| `SD120PPD.STK` | stock miniport, for revert | `08104ffb559ae4b47b84377daee473bc` |
+| `SD120PPD.SYS` | **patched** DOS driver — same gate | `96018ce66d2312a26fa16193b5273a37` |
+| `SD120PPD.SYK` | stock DOS driver, for revert | `cbb42e8eb7847869e274e45f258cf718` |
+
+## Do the DOS one FIRST
+
+Both drivers carry the **same gate from the same source** — the 16-bit build
+ends on the identical `3c 03 72 04 b6 0b b2 04`. But only the DOS driver
+**prints the mode it chose**:
+
+```
+    Read  Mode : EPP Fast      <- dword, the gate opened
+    Read  Mode : EPP Normal    <- byte-wide, it did not
+```
+
+So patch the DOS driver, add `/fe` to its `CONFIG.SYS` line, boot to DOS, and
+**read the banner**. That is a direct readout of whether the patch does what it
+claims, on a driver that cannot damage the Windows install — instead of
+inferring it from a stopwatch afterwards. Only then do the miniport.
+
+⚠ `/fe` on the DOS line is for **this test only**. The verification copy wants
+the DOS side on its normal transport so it stays a different path from the
+Windows write.
 
 ## What it changes
 

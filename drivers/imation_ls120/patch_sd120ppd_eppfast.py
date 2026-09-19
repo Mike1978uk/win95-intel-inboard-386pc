@@ -31,27 +31,41 @@ import hashlib
 import os
 import sys
 
-# Anchor on the whole gate, not the two bytes: "75 0d" alone occurs all over
-# a 64 KB image, and patching the wrong one is silent.
-RVA = 0x80AB
-STOCK = bytes.fromhex("e8f9470000" "3c02" "750d" "e8347c0000" "3c03" "7204" "b60b" "b204")
-FIXED = bytes.fromhex("e8f9470000" "3c02" "9090" "e8347c0000" "3c03" "7204" "b60b" "b204")
-JNE_RVA = RVA + 7  # the two bytes that actually move
-
-# .text has rawoff == rva (0x400), so a .text rva is also its file offset.
-# Asserted below rather than assumed.
-TEXT_RVA, TEXT_RAWOFF, TEXT_SIZE = 0x400, 0x400, 0xFC00
+# Anchor on the whole gate, not the two bytes: a bare "75 0d" occurs all over a
+# 64 KB image and patching the wrong one is silent.
+#
+# The 32-bit miniport and the 16-bit DOS driver carry the SAME gate from the
+# same source -- both end "3c 03 72 xx b6 0b b2 04", read mode 11 / write mode 4.
+# Only the call encodings and the jne displacement differ.
+TARGETS = [
+    dict(name="SD120PPD.MPD (Windows miniport, 32-bit)",
+         off=0x80AB, jne=7,
+         stock=bytes.fromhex("e8f9470000" "3c02" "750d" "e8347c0000" "3c03" "7204" "b60b" "b204"),
+         fixed=bytes.fromhex("e8f9470000" "3c02" "9090" "e8347c0000" "3c03" "7204" "b60b" "b204")),
+    dict(name="SD120PPD.SYS (DOS driver, 16-bit)",
+         off=0x87D5, jne=5,
+         stock=bytes.fromhex("e84e1d" "3c02" "750b" "e80146" "3c03" "7204" "b60b" "b204"),
+         fixed=bytes.fromhex("e84e1d" "3c02" "9090" "e80146" "3c03" "7204" "b60b" "b204")),
+]
 
 
 def md5(b):
     return hashlib.md5(b).hexdigest()
 
 
-def check_layout(d):
-    if d[:2] != b"MZ":
-        sys.exit("not a PE image (no MZ)")
-    if not (TEXT_RVA <= RVA < TEXT_RVA + TEXT_SIZE):
-        sys.exit("gate rva is outside .text")
+def find_target(d, revert):
+    """Identify the file by which gate it actually contains, not by its name."""
+    hits = []
+    for t in TARGETS:
+        here = bytes(d[t["off"]:t["off"] + len(t["stock"])])
+        if here in (t["stock"], t["fixed"]):
+            hits.append((t, here))
+    if not hits:
+        sys.exit("no known EPP-width gate found -- not a driver this tool handles,\n"
+                 "or a different build. Nothing written.")
+    if len(hits) > 1:
+        sys.exit("ambiguous: matched %d gates" % len(hits))
+    return hits[0]
 
 
 def main():
@@ -64,20 +78,17 @@ def main():
     args = ap.parse_args()
 
     d = bytearray(open(args.infile, "rb").read())
-    check_layout(d)
+    t, here = find_target(d, args.revert)
 
-    want, make = (FIXED, STOCK) if args.revert else (STOCK, FIXED)
+    want, make = (t["fixed"], t["stock"]) if args.revert else (t["stock"], t["fixed"])
     verb = "revert" if args.revert else "patch"
+    off, j = t["off"], t["jne"]
 
-    here = bytes(d[RVA:RVA + len(STOCK)])
     if here != want:
-        if here == make:
-            sys.exit("refusing to %s: already in the target state (no-op)" % verb)
-        sys.exit("refusing to %s: bytes at rva 0x%05x are\n  %s\nexpected\n  %s"
-                 % (verb, RVA, here.hex(" "), want.hex(" ")))
+        sys.exit("refusing to %s: already in the target state (no-op)" % verb)
 
     before = md5(d)
-    d[RVA:RVA + len(STOCK)] = make
+    d[off:off + len(want)] = make
     patched = sum(1 for a, b in zip(want, make) if a != b)
     if patched == 0:
         sys.exit("refusing to write: 0 bytes changed")
@@ -86,9 +97,10 @@ def main():
     after = md5(open(args.outfile, "rb").read())
 
     print("%s: %s" % (verb, args.infile))
-    print("  rva 0x%05x  %s -> %s   (%s)"
-          % (JNE_RVA, want[7:9].hex(" "), make[7:9].hex(" "),
-             "jne -> nop nop" if not args.revert else "nop nop -> jne"))
+    print("  identified as %s" % t["name"])
+    print("  offset 0x%05x  %s -> %s   (%s)"
+          % (off + j, want[j:j + 2].hex(" "), make[j:j + 2].hex(" "),
+             "nop nop -> jne" if args.revert else "jne -> nop nop"))
     print("  Patched: %d byte(s)" % patched)
     print("  md5 in  %s" % before)
     print("  md5 out %s" % after)
