@@ -133,9 +133,17 @@ if (Test-Path $log) {
     # A rotated log that does not say which driver produced it cannot be cited.
     # The md5 was only ever on the harness's stdout, so fifty archived runs have
     # no attribution at all - keep it beside the log it describes.
+    # The workload switches belong here too. Without them a log showing two
+    # READ(10)s and one showing seventy are not comparable, and nothing in the
+    # archive says which of them had a batch driving the drive.
     @("tag        $Tag",
       "driver_md5 $uutMd5",
       "driver_src $Driver",
+      "startup    $(if ($Startup)  { $Startup }  else { '(none)' })",
+      "configsys  $(if ($ConfigSys){ $ConfigSys} else { '(image default)' })",
+      "autoexec   $(if ($Autoexec) { $Autoexec } else { '(image default)' })",
+      "nodriver   $NoDriver",
+      "seconds    $Seconds",
       "86box_exe  $ExePath",
       "86box_built $exeTime",
       "finished   $(Get-Date -Format s)"

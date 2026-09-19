@@ -46,6 +46,8 @@ end to end.** Find what applies, read that, and add back what you learn.
 | A DEBUG-script probe hangs, or its results look impossible | **121** - an out-of-range short jump DELETES ITSELF, and data can land inside code |
 | One timeout constant bounds two different waits | **122** - a reset settle is seconds, a status poll is milliseconds. Never share |
 | The driver's base does not come from its own device node | **125** - enumerate who else owns that address. Device Manager cannot show this clash |
+| An error line in a log looks like the cause | **127** - grep a run that WORKED for the same line before explaining it. Base rate first |
+| A fix passed in the bed | **127b** - can the bed even produce the failure you fixed? If not, the run proves no regression and nothing else |
 
 ### By area
 
@@ -58,7 +60,7 @@ end to end.** Find what applies, read that, and add back what you learn.
 | Hardware / XT-specific traps | 37, 56, **62**, **75**, 100, 101, 102, **125** |
 | Characterising a storage device before writing its driver | **126** - probe derivation, every media/drive state, timing an A/B honestly |
 | Memory map, the Inboard's own quirks | 63, 66, 67, 71, 72 |
-| Process and evidence discipline | **124** (measured vs inferred), 7, 28, 59, 77, 89, 98, 99, **103**, 104, 110, 111, 113, **121c** |
+| Process and evidence discipline | **124** (measured vs inferred), 7, 28, 59, 77, 89, 98, 99, **103**, 104, 110, 111, 113, **121c**, **127** |
 | Writing or trusting a DEBUG-script probe | **121**, 121a, 121b, 121c, 105, 116 |
 
 ### Elsewhere, deliberately
@@ -7478,3 +7480,67 @@ for most of an hour. Reading the diff afterwards showed:
 So no script had ever done bulk over the transport under test. **Diff the arms
 and read what each actually calls before believing any timing between them**,
 and check the file dates against the date the relevant fix was discovered.
+
+---
+
+## Technique 127: an anomaly is only a finding if the KNOWN-GOOD run lacks it
+
+2026-09-19, LS-120. A bed run of the vendor's DOS driver ended with
+
+```
+[0117:0000B929] Illegal instruction 00008B55 (FF)
+```
+
+and it was written up as "the vendor driver crashes in the bed", with the
+chain scan immediately before it as the suspected cause. A whole line of
+investigation - what the model answers for CPP unit IDs, whether `CPP(0x40)`
+and `CPP(0x50)` needed implementing - was started on that reading.
+
+**The line appears in 66 of 69 archived runs of that bed, including the
+known-good run that enumerated correctly and mounted the volume.** It is
+background noise. One command disproved it:
+
+```bash
+grep -c "Illegal instruction" <the run that WORKED>.log
+```
+
+Technique 88b already says to take the control from the same run, before the
+failure. This is its cheaper cousin: **when the archive holds a successful
+run, grep it for your anomaly before you explain your anomaly.** An archive of
+past runs is a free control population, and the check costs one command
+against a file already on disk.
+
+The same pass gives you the base rate, which is the number that matters. "This
+line appears in the failing run" is not evidence. "This line appears in the
+failing run and in none of the twelve successful ones" is.
+
+### 127a: a provenance record that omits a workload switch makes two logs incomparable
+
+The same session compared a new build's log (2 `READ(10)`s) against archived
+runs (42, 70 and 493 `READ(10)`s) and read the difference as a stall in the
+new build. The archived runs had almost certainly been driven by a startup
+batch exercising the drive; the new one had nothing running after enumeration.
+
+**Nothing in the provenance file said so** - it recorded the driver md5, the
+source path and the exe, but not `-Startup`, `-ConfigSys` or `-NoDriver`, all
+of which change what the run does. So the archive could not answer the one
+question needed to interpret it.
+
+**A provenance record must name every switch that changes the workload, not
+just the artefact under test.** Technique 89's rule is that a binary must be
+traceable to a commit; this is the other half - **the RUN must be traceable to
+its conditions.** Fixed in `tools/ls120_bed_run.ps1`.
+
+### 127b: a bed that cannot fail the thing you fixed cannot test the fix
+
+The change under test was a retry: open the bridge, verify silicon answered,
+and on failure widen the frame pulse and open again. The bed's EPAT model
+answers on the first frame, always. So the trace read `OPNO = 1` - success on
+attempt one - and **the retry never executed at all**.
+
+That is a real result and it is worth exactly what it is: proof the new code
+runs and does not regress the success path. It is not evidence the fix works.
+Technique 90 in its constructive form - **before running a fix in the bed, ask
+whether the bed can produce the failure the fix addresses.** If it cannot, say
+so in the same breath as the result, or the green run will be cited later as a
+pass.
