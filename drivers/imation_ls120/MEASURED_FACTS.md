@@ -40,6 +40,31 @@ COSM 04**, firmware **0270**, bridge **SHUTTLE EPATRM**, port `0x378`.
 | **ECP block streaming** | ✅ **WORKS** — the vendor DOS driver runs it on this machine, see §2y | owner, 5160 console |
 | EPP | port is EPP-capable; `epat.c` mode 3 is the bulk path | `EPP7_port_is_epp_capable.OUT` |
 
+### 2x. VERIFIED: 36.7 MB round trip, EPP write / ECP read, byte-identical
+
+2026-09-20. `GOODTIME.MPG`, **36,735,152 bytes**, written to the LS-120 by the
+vendor Windows miniport over **EPP**, read back by the vendor DOS driver over
+**ECP Read**, compared with `FC /B`:
+
+```
+Comparing files GOODTIME.MPG and d:\goodtime.mpg
+FC: no differences encountered
+```
+
+Two different drivers, two different transports, so a symmetric error cannot
+cancel (technique 79). This establishes, in one run:
+
+- **the EPP write path is byte-correct** at the 85.4 KiB/s measured earlier;
+- **the ECP read path is byte-correct**, not merely functional — §2y said ECP
+  bulk works, this says it works *correctly*, over 36 MB.
+
+⚠ **Inference, not measurement:** FC ran 00:26 -> 00:47:54, about 22 minutes, of
+which the `C:` side is ~70 s. That bounds the ECP read at roughly 31 KiB/s **or
+better** — FC's own compare overhead is inside the figure and is not separated.
+Read against EPP's measured 85.4 KiB/s it is *suggestive* that ECP is not faster
+here, and that is all it is. The clean number needs a timed copy with the
+stamps on the machine (technique 126e).
+
 ### 2y. ECP BULK WORKS — observed, and it is not ours that proves it
 
 `SD120PPD.SYS`, loaded from `CONFIG.SYS` with `/port:378 /IRQ:7 /de /db /ni
