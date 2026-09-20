@@ -159,7 +159,7 @@ def io(p):
 
 
 def strings(p):
-    for name, va, vs, ra, rs in p.sec:
+    for name, va, vs, ra, rs, _c in p.sec:
         blob = p.d[ra:ra + rs]
         cur, start = bytearray(), 0
         for i, c in enumerate(blob):
