@@ -155,7 +155,37 @@ sixteen times over and verifies in seconds. `TBS` writes FC to its own
 
 ⚠ `D:\BOUNDARY.BIN` on the LS-120 cartridge is **known corrupt**. Delete it.
 
+**Logged as [issue #27](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/27)** - LS-120: DOS ECP writes corrupt everything past the first 16 KB.
+
 ---
+
+## 4b. Bed result: `-PhysBreaks 17` PASSES the correctness gate
+
+`vm_xtide_mpd`, image cloned from `xtidemp.img`, driver injected into **both**
+`\WINDOWS\SYSTEM\IOSUBSYS\` and the `\XTIDEMP\` install source (the
+install-source lesson), both verified back out as code `5670a4a1`.
+
+The bed baseline is code **`f8e1e3a2`** (commit `a75b7f3`, flags as live **plus**
+`-DXT_FORCE_BASE=0300h`) - note the bed and the card were on **different
+builds**, so no bed number has ever been comparable to a card number. Today's
+HEAD reproduces both baselines exactly.
+
+| check | result |
+|---|---|
+| `Initing xtidemp.mpd` -> `Init Success xtidemp.mpd` | ✅ |
+| `INITCOMPLETESUCCESS` DiskTSD / SCSIPORT / VFAT / IFSMGR | ✅ all four |
+| boot depth | reached `InitDone = TSRQuery` - fully up |
+| BOOTLOG is from **this** run | ✅ md5 and size differ from the source image |
+
+⚠ **Open:** the run logged `[0117:0000B929] Illegal instruction 00008B55 (FF)`.
+Whether that is normal for this bed is **not yet known** - the six previous
+`stderr_*.txt` files are **21 bytes each**, holding only `SDL: version 3.4.12`,
+so they never captured the pclog channel and prove nothing either way. A
+baseline run through the same `-L` channel is in progress.
+
+⚠ Boot success is not a data-path test. It shows SCSIPORT accepted the larger
+`NumberOfPhysicalBreaks` and the volume mounted; it does not show a 64 KB
+transfer is byte-correct, and 64 KB has still never been exercised.
 
 ## 5. Next, in order
 
