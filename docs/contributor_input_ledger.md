@@ -239,3 +239,34 @@ once the driver work is done — is agreed and outstanding.
 
 ⏳ **Owed**: tell him the warning is retracted, that the FIFO drop was the real fault, and
 that the comment rule is in `CLAUDE.md`.
+
+---
+
+## @andrew-hoffman — issue #23, and @JoshRodd — 86Box/86Box#8010, 2026-09-20
+
+Both asked, independently and on the back of the EPAT work, for the **Micro Solutions
+BackPack** parallel-port CD-ROM to be modelled. Tracked here as
+[#37](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/37).
+
+✅ **Built, and it reads a disc.** `lpt_bpck.c` models a real pod — a BackPack Bantam,
+model 180100, E/N 00749, serial 17627007, 10X, Toshiba XM-1502B mechanism — with its
+93C46 identity EEPROM reproduced verbatim, read off the drive itself over the parallel
+port. The vendor DOS driver connects to it, accepts it, and MSCDEX reads sectors.
+
+Two things came out of it that are worth more than the device:
+
+1. **`CDROM_BUS_LPT` is now implemented.** It had been declared in `cdrom.h` and
+   referenced by nothing. A CD-ROM can now sit on a parallel-port bridge at all —
+   `scsi_cdrom.c` gains an LPT arm, `cdrom.c` resets those drives, `config.c` reads
+   `cdrom_XX_lpt_port`.
+2. **A latent bug in `scsi_cdrom_current_mode()`**: it returns 2 for SCSI, 1 for ATAPI
+   and 0 — "no transfer" — for anything else. Any future bus hitting that default gets a
+   drive that enumerates and returns no data on every command, INQUIRY included. It cost
+   a session to find.
+
+⏳ **Owed**: tell both that it is built and reading, and that the answer to "is BackPack
+already in 86Box?" is *the protocol yes, the drive no* — `lpt_ditto.c` carries the
+Micro Solutions wire protocol for the Iomega Ditto **tape**, which is a different
+product. That distinction cost real time here and is worth stating plainly.
+
+⚠ **Nothing has been posted.** Wording to be approved by the owner first.
