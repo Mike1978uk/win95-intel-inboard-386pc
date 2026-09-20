@@ -30,6 +30,15 @@ param(
     # whatever else is installed. Renaming a driver out is the cheapest
     # bisect there is and it needs no reinstall.
     [switch] $NoDriver,
+    # Run the VENDOR miniport instead of ours: removes LS120MP.MPD and puts
+    # the given sd120ppd.mpd into IOSUBSYS. The vendor SETUP has already run
+    # on this image - C:\LS120FIX\APPLY.BAT swaps binaries into the same path,
+    # which it could not do unless the device node and its PortDriver entry
+    # existed - so only the file is needed, not a reinstall.
+    #
+    # This is the configuration a stranger reproducing the work would have,
+    # and therefore the one a claim that the bridge "works" has to rest on.
+    [string] $VendorDriver = "",
     # Replace the guest's CONFIG.SYS / AUTOEXEC.BAT for this run, to boot the
     # vendor's real-mode stack instead. It is the one implementation of this
     # transport known to work on the owner's machine, so it is the reference
@@ -67,7 +76,13 @@ Copy-Item (Join-Path $VmPath "rd_verified_good.img") $rd -Force
 $mach = (Select-String -Path (Join-Path $VmPath "86box.cfg") -Pattern '^machine = (.+)$').Matches[0].Groups[1].Value
 if ($mach -ne "ibmxt_inboard386") { Write-Output "WRONG MACHINE: $mach"; exit 1 }
 
-if ($NoDriver) {
+if ($VendorDriver -ne "") {
+    if (-not (Test-Path $VendorDriver)) { Write-Output "MISSING vendor driver: $VendorDriver"; exit 1 }
+    python "$repo\tools\fatcp.py" $img --rm "C:\WINDOWS\SYSTEM\IOSUBSYS\LS120MP.MPD" 2>&1 | Out-Null
+    python "$repo\tools\fatcp.py" $img "WINDOWS/SYSTEM/IOSUBSYS/SD120PPD.MPD" $VendorDriver --yes
+    if ($LASTEXITCODE -ne 0) { Write-Output "VENDOR DEPLOY FAILED"; exit 1 }
+    Write-Output "VENDOR sd120ppd.mpd deployed, LS120MP.MPD removed"
+} elseif ($NoDriver) {
     python "$repo\tools\fatcp.py" $img --rm "C:\WINDOWS\SYSTEM\IOSUBSYS\LS120MP.MPD" 2>&1 | Out-Null
     Write-Output "LS120MP.MPD REMOVED from IOSUBSYS - our driver is not under test"
 } else {
@@ -78,11 +93,14 @@ if ($NoDriver) {
 # Verify at the DESTINATION, never the staging copy (technique 75).
 $uut = Join-Path $env:TEMP "ls120_under_test.mpd"
 Remove-Item $uut -EA SilentlyContinue
-python "$repo\tools\fatls.py" $img --get "C:\WINDOWS\SYSTEM\IOSUBSYS\LS120MP.MPD" $uut | Out-Null
+# Verify whichever driver this run is actually meant to be exercising.
+$uutPath = if ($VendorDriver -ne "") { "C:\WINDOWS\SYSTEM\IOSUBSYS\SD120PPD.MPD" }
+           else { "C:\WINDOWS\SYSTEM\IOSUBSYS\LS120MP.MPD" }
+python "$repo\tools\fatls.py" $img --get $uutPath $uut | Out-Null
 $uutMd5 = "none"
 if (Test-Path $uut) {
     $uutMd5 = (Get-FileHash $uut -Algorithm MD5).Hash.ToLower()
-    Write-Output ("driver in the image: md5 " + $uutMd5)
+    Write-Output ("driver in the image: " + $uutPath + "  md5 " + $uutMd5)
 } elseif ($NoDriver) {
     Write-Output "driver in the image: NONE, as intended"
 } else {
