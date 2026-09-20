@@ -262,3 +262,34 @@ not code work.
 - **`86box_upstream/src/io.c` is modified and uncommitted** - the access-width
   tally from technique 128. It is env-gated on `IOWIDTH_BASE` and inert
   otherwise. **Kept deliberately. It must never go upstream.**
+
+## ⛔ Correction: it was the FRONTEND, not the ROM set
+
+The "master will not start" runs were diagnosed here as a stale ROM set. That
+was wrong, and it was a guess dressed as a conclusion - the owner spotted the
+actual cause from the screen: **Qt5 errors**.
+
+| | `QT` | imports |
+|---|---|---|
+| fork build | **OFF** | no Qt - the SDL/imgui OSD frontend |
+| master worktree | **ON** (the default) | `Qt5Core`, `Qt5Gui`, `Qt5Network`, `Qt5Widgets` |
+
+`objdump -p` settles it. The master build was a **Qt frontend with no Qt
+runtime deployed beside it**, so the GUI never initialised - live process, no
+log file, nothing written to the image. Every symptom I attributed to ROMs.
+
+**Fix: configure master with `-DQT=OFF`**, matching the fork, rather than
+deploying Qt.
+
+⚠ The lesson is the same one as technique 130, one level up: **match the
+working build's *configuration*, not just its flags.** `CMakeCache.txt` holds
+it - `grep -E "^(QT|CMAKE_BUILD_TYPE)" build/CMakeCache.txt` on the build that
+works, before building the one that does not. Two variables were wrong here
+(`Release` vs `RelWithDebInfo`, and `QT` ON vs OFF) and I found each only after
+a failed run.
+
+⚠ A current ROM set was cloned to `<master>/build/src/roms` (221 MB, all of
+`floppy hdd machines memcard network printer rtc scsi sound video`, against a
+local set that had only `machines` and `network`). **That was probably also
+needed, but it is unproven** - it fixed nothing on its own, and the frontend
+was the blocker.
