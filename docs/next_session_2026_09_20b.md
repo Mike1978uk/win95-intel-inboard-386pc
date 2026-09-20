@@ -214,3 +214,100 @@ nWAIT, drive write latency, FAT updates and Windows. So a perfect dword win is
 worth **~20-25% overall, not 2x**. Earlier notes in this document say "up to
 2x"; that was always a claim about the *bus* and it was allowed to read as a
 claim about the copy. Corrected here.
+
+---
+
+## 8. THE A/B, SETTLED — the dword patch buys NOTHING
+
+Same batch, same file, same instrument, one variable.
+
+| | stock | patched | |
+|---|---|---|---|
+| copy 1 | **51.90 s** | 53.17 s | stock faster by 1.27 s |
+| copy 2 | **43.45 s** | 44.49 s | stock faster by 1.04 s |
+| verify | no differences | no differences | |
+
+**No gain, and the sign is weakly against the patch.** Within-run spread
+(copy 1 -> copy 2, ~8 s, a warm/cold effect) is far larger than the
+between-build spread (~1.2 s), so at n=1 the honest reading is **no measurable
+difference**.
+
+Two explanations fit equally well and timing alone cannot separate them:
+**dword never engaged** (the builds are then functionally identical), or it
+engaged and is marginally slower on this bridge. **We still have no readout of
+the selected mode under Windows** — which is the actual blocker.
+
+⇒ **Stock is live on the card.** Patched trio kept as `.EPF`, stock as `.B4F`,
+swap commands in `\ABTEST.TXT`. Do not re-run this patch without a readout.
+
+### Leading hypothesis for why it did nothing
+
+The upgrade block is only entered if the incoming read mode is already 10 or 11:
+
+```
+0x8079  cmp dh, 0Ah / jb  skip      ; below EPP -> whole block skipped
+0x807E  cmp dh, 0Bh / ja  skip      ; above EPP -> whole block skipped
+0x8083  mov dh,0Ah / mov dl,3       ; default byte-wide
+        ...four gates, one of which we patched...
+0x80BD  mov dh,0Bh / mov dl,4       ; dword
+```
+
+If Windows arrives on **mode 12, `EPP BIOS(N)`**, the entire block — including
+the gate we patched — is skipped by the range check. That is consistent with
+everything observed and is testable. Modes 12 and 13 have no dword variant in
+the table at all.
+
+---
+
+## 9. THE BIGGER LEVER, found tonight: the Windows stack, not the transport
+
+Same 4,000,000 bytes to the same drive:
+
+| path | time | rate |
+|---|---|---|
+| **DOS + ECP** | **34.55 / 35.70 s** | 110-113 KiB/s |
+| **Windows + EPP** | **51.90 / 43.45 s** | 75-90 KiB/s |
+| bus time alone, 1 access/byte @ 5.77 us | 23 s | — |
+
+Rough budget for the Windows copy:
+
+| component | share |
+|---|---|
+| bus | ~23 s |
+| bridge nWAIT + drive + FAT | ~12 s (from the DOS number minus bus) |
+| **Windows stack** | **~10-18 s** |
+
+**That Windows-side slice is bigger than the whole width prize (~11 s).** It is
+the first time transport cost and stack cost have been separated on this
+machine, and it only became measurable once the stamps went on the guest.
+
+⚠ Inference, not measurement: the DOS and Windows runs differ in more than the
+stack (real mode vs protected, different driver, different filesystem path).
+The split above is apportionment, not a measured decomposition.
+
+---
+
+## 10. TOMORROW, in order — instrument first
+
+1. **Build a mode readout for the Windows miniport.** Until we can see the
+   selected read/write mode, every patch is a guess and every null is
+   uninterpretable. The mode index is stored at `[0x20BF7]` (read) and
+   `[0x20BF9]` (write), and the name pointer at `[0x20BDD]` / `[0x20BE5]`.
+   ⛔ COMR95 cannot `mem_read`, so this needs either a patch that persists the
+   byte somewhere DOS can read after a warm reboot (the `0B9000h` channel,
+   technique 123) or a different route entirely. **This is the whole job.**
+2. **Then** test the mode-12 hypothesis, and only then consider a patch.
+3. **Separately, and probably worth more:** attack the Windows-stack slice.
+   `MapBuffers`, `SpecificLuExtensionSize`, the SRB path and the per-request
+   overhead are all visible in the vendor miniport and in `SCSIPORT.PDR`.
+4. Re-measure with `TBW.BAT` every time. It is now the standard instrument:
+   two copies, stamps on the guest, `FC /B` at the end.
+
+### Standing state — good, and worth saying plainly
+
+- **The LS-120 enumerates and mounts on every boot, 100%.**
+- **36,735,152 bytes verified byte-identical**, written over EPP by the Windows
+  miniport and read back over ECP by the DOS driver.
+- **A second 4 MB file verified twice more**, stock and patched.
+- The configuration on the card right now is the **stock vendor miniport**, the
+  one all of that was proven on.
