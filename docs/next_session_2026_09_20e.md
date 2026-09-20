@@ -104,3 +104,62 @@ unrun**. Rebuild it as a `.COM`, not a DEBUG script. Note the confound: DOS
 INT 25h and BIOS INT 13h both pass through `INBRDPC.SYS`, which may
 bounce-buffer through low memory and mask the answer. A failure would be
 decisive; a success would not.
+
+---
+
+# Evening session 2: EGACACHE closed, BackPack opened
+
+## ⛔ EGACACHE does nothing — lever closed, measured
+
+A/B on the real 5160 with `PC000.COM`:
+
+| | byte | word | dword |
+|---|---|---|---|
+| baseline | 1746 | 1476 | 1340 |
+| `EGACACHE` on the `INBRDPC.SYS` line | 1746 | 1478 | 1336 |
+
+±2 ticks is this harness's own noise. `0xC0000` stays at **2.858 us/byte**.
+
+Both preconditions verified, so it is a result and not a failed test:
+`CONFIG.SYS` line 1 really is `DEVICE=c:\INBRDPC.SYS EGACACHE NODIAGS NOPAUSE`,
+and `C000:0000` reads `55 AA 40` - a real 32 KB option ROM. ⛔ Do not
+re-propose EGACACHE without a new mechanism to test.
+
+**Shadow track is closed**: five regions measured, only `0xF000` is shadowed,
+and no configuration on this machine moves an option ROM off the bus.
+
+## ⭐ The probe harness that made it possible
+
+`tools/gen_memwidth_com.py` emits a **`.COM`**, not a DEBUG script, and leaves
+its three PIT deltas at `0040:00F0` so the console is never needed to read
+them. A DEBUG script wedged the 5160 twice in one session with no remote
+recovery. Cross-validated: it agreed with the older DEBUG-script harness to
+**2 ticks on all three widths** against an independent ROM.
+
+## BackPack (#37) - phase 1 done offline
+
+`tools/dosdrv_disasm.py` full-sweeps a raw DOS driver, emitting `db` and
+resyncing instead of stopping at the first undecodable byte - the trap
+recorded at the head of `SD120PPD_SYS.asm`, where an earlier dump silently
+covered 21% of the file.
+
+`BPCDDRV.SYS` (53,090 B, v4.02.CB): **23,591 instructions, 48 `db`** (99.8%
+decoded), **1,291 I/O instructions** - 598 `out dx,al`, 394 `in al,dx`, first
+cluster at `0x09F6`.
+
+🔑 **It writes `0x22` (x42) and reads `0x23` (x23)** - the ports that alias
+onto the 8259 on an XT bus, the same mechanism that made the LS-120 vendor
+driver kill the keyboard. Harmless for 86Box modelling; relevant if a
+BackPack is ever put on the 5160.
+
+⭐ Owner's correction, and it reshapes the plan: **BackPack is not XT-specific,
+so the whole model can be built and evaluated in a VM** on a stock machine
+with an ordinary parallel port - no 5160, no Inboard, no floppies. The
+physical drive becomes confirmation, not a prerequisite: `paride/bpck.c` plus
+the vendor driver's own validation checks supply the expected responses, which
+is exactly how the EPAT's chip-version check was found.
+
+## Next
+
+- CF comes local → add `/fe` to the INF `AdapterSettings` for EPP.
+- #29 needs an **SB Pro DMA** harness written before any more machine time.
