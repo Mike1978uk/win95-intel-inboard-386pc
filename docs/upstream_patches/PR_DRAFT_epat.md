@@ -78,7 +78,10 @@ their plumbing, and the `rdisk` change is an attach path.
 - **No real-hardware chardev passthrough** through the new ECP callbacks — they
   are used by the emulated device path only.
 - Tested on Windows hosts only.
-- ⛔ **Not run on master.** It compiles there; it has not been executed there.
+- ⛔ **Run on master, and the drive does not appear.** The vendor driver
+  reaches the bridge - unlock frame committed, CPP chain scan runs, unit 0
+  answers - and then no drive letter. See `docs/next_session_2026_09_20d.md`.
+  **This blocks submission.**
 - ⛔ **No non-LPT regression run** on the patched build. The changes are
   reviewed as additive and NULL-guarded, but that is reasoning, not a result.
 
@@ -107,11 +110,14 @@ their plumbing, and the `rdisk` change is an attach path.
    `epp_write_data` and `epp_request_read`?** It predates them and does its own
    framing. A reviewer will ask, and they would be right to. **This is the main
    piece of work left.**
-2. **Run it on master.** It applies and builds; it has never run there. Blocked
-   on the local 86Box ROM set, which is from July and predates master's
-   requirements. A fork control on the same bed boots and reaches the drive, so
-   the patch and the bed are both exonerated - but "builds" is not "works".
+2. ⛔ **THE BLOCKER: the drive does not enumerate on master.** Run on the
+   owner's own working Windows 95 image, with the vendor `SD120PPD.MPD` the
+   real machine uses, the driver talks to the bridge and then no drive letter
+   appears. Submitting a device nobody can get a drive out of is worse than
+   not submitting. `docs/next_session_2026_09_20d.md` has the log and what it
+   rules out.
 3. **Non-LPT regression run.** Boot a plain IDE/ATAPI machine on the patched
-   master build and confirm nothing moved. Same ROM-set blocker.
+   master build and confirm nothing moved. (The ROM-set blocker is gone; the
+   build runs.)
 4. **`src/config.c`** gains 17 lines. Check those are all genuinely needed for
    the device and not project-local convenience.
