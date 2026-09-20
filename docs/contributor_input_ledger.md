@@ -214,7 +214,10 @@ The old sweep measured shadowed memory and video RAM rather than the bus. His me
 holds — the per-bus-cycle cost is the same for both, the **fixed per-access** cost is not
 (3.752 us I/O against 0.883 us memory). `docs/isa_memory_vs_io_2026_09_20.md`.
 
-**Owed**: a reply covering the four items above, the retraction, and the miniport outcome.
+✅ **Replied 2026-09-21** on [#22](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/22#issuecomment-5753333871)
+— the 4.2x retraction, his mechanism confirmed, T130.MPD closed, the LS-120 figure with
+its levers still open, the IHC retraction, and the miniport outcome. The #18 reproduction
+bed is stated there as still outstanding on our side.
 
 ---
 
