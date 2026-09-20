@@ -7687,3 +7687,71 @@ cable.** So the bridge does ECP bulk, the bus does ECP bulk, and the defect is
 in the Windows-side implementations. The DOS driver is therefore a *working
 reference* for the path we have been unable to build (technique 81: an
 implementation that has executed outranks the docs and the disassembly).
+
+---
+
+## Technique 128: attribute the fixed per-access cost before selling a width win
+
+The cost model in `docs/xt_bus_optimisation_roadmap.md` is **~3.90 us fixed +
+~1.87 us per byte inside an access**. Everything ranked on "access count, not
+byte count" rests on that 3.90 us, and **what it is paid per has never been
+established**:
+
+| if the 3.90 us is paid per... | a dword to an 8-bit port costs | width is worth |
+|---|---|---|
+| **386 I/O transaction** (one `outsd` iteration) | 3.90 + 4x1.87 = 11.38 us | **~51% of the bus term** |
+| **ISA bus cycle** | 4 x 5.77 = 23.08 us | **nothing** |
+
+An 8-bit slot carries 8 data lines, so a dword is always four bus cycles. The
+only question is whether the Inboard re-synchronises for each of them. The
+XT-IDE `rep insw` result (35%, shipped) is evidence for the first row but does
+not settle it, because that card's stride-2 map means the two halves may not be
+the same port.
+
+**Do not quote a width prize as a percentage until this is attributed.** It was
+quoted as "up to 2x", then as ~4%, then as ~27%, from the same measurements.
+
+**The instrument is the bed, not the machine.** 86Box can log every I/O access
+with its width and a cycle stamp, which answers "how many bus cycles did that
+byte-wide burst take, and how many did the word-wide one take" directly. Wall
+clock on the 5160 cannot separate the two because the bridge's nWAIT is in
+series with whatever the answer is.
+
+### 128a: the demoscene method transfers; the demoscene rules do not
+
+- [Trixter, *Optimizing for the 8088*](https://trixter.oldskool.org/2013/01/10/optimizing-for-the-8088-and-8086-cpu-part-1/)
+  — "it takes 4 cycles to read a byte, and because the prefetch queue is so
+  tiny, smaller code is usually better", and string instructions are "ludicrously
+  powerful" because they are 1 byte and self-repeating. **The rule transfers, the
+  content does not:** the Inboard's 386 runs cached from card-local RAM, so code
+  size is free here. What survives is the shape of the argument — rank by bus
+  transactions, not by clock tables. It contains nothing on ISA I/O timing.
+- [reenigne, *ISA bus sniffer*](https://www.reenigne.org/blog/isa-bus-sniffer/)
+  and [*update*](https://www.reenigne.org/blog/isa-bus-sniffer-update/) — the
+  useful idea is the **instrument**: he built a card to watch every bus cycle
+  because the timing could not be reasoned out from datasheets. **Neither post
+  gives ISA I/O cycle lengths, T-states or IOCHRDY behaviour** — do not send the
+  next reader there for numbers. Our equivalent instrument is the emulator, free.
+- [reenigne, *The CGA wait states*](https://www.reenigne.org/blog/the-cga-wait-states/)
+  — "you can get an extra NOP per word for free because it fits into the wait
+  states". The transferable form is **dead time inside a transaction is usable
+  time**. On this machine the 386 is hard-stalled during an ISA cycle, so that
+  particular gap is not ours; the one that is ours is the drive's nWAIT and write
+  latency, during which the bus is idle. That is roadmap lever 5, overlap.
+
+### 128b: ardent-tool's parallel pages are MCA, and mostly do not apply
+
+[Parallel_DMA](https://ardent-tool.com/comms/Parallel_DMA.html) documents DMA on
+**PS/2 Type 2/3 ports only** — Interface Control `037B`, Interface Status `037C`,
+`16h` into `037D` before DMA, arbitration level 6, enabled through POS. A 5160
+has no MCA and no POS, and the Intek21 is ISA, so none of it is reachable.
+One number is worth keeping: IBM's own DMA parallel port ran **~5 us between
+bytes**, which is the same order as our measured 5.77 us. The "2 MB/s" printed on
+an ECP card's box is the spec's burst rate against a fast host bus, not something
+a 4.77 MHz XT bus can source.
+[Using_Bidir](https://www.ardent-tool.com/comms/Using_Bidir.html) confirms
+control-register bit 5 as the direction bit and the write-pattern-and-read-back
+detection, both of which we already drive.
+[New_Developments](https://www.ardent-tool.com/comms/New_Developments_Parallel_Ports.html)
+is Boling on PS/2 Type 1/3 and the Intel 386SL fast-mode port and, despite the
+title, **contains no EPP or ECP material at all**.
