@@ -205,3 +205,47 @@ Things that were *not* ruled out, and must be before the patch is blamed:
 The fork builds **`RelWithDebInfo`**; the master worktree was **`Release`**.
 Rebuilt to match so the only variable is the patch. **Re-run required before
 anything is concluded.**
+
+## The control settles it: the bed is fine, master will not start
+
+Same bed, same config, same image, same driver (`SHIP_SPP_FIXED.MPD`,
+md5 `55327f8e`), only the emulator binary changed.
+
+| | fork build | master + patch |
+|---|---|---|
+| `BOOTLOG.TXT` written to the image | ✅ **20,533 bytes** | ⛔ absent, on two runs |
+| emulator log | ✅ 1,523 bytes | ⛔ **no file created at all** |
+| EPAT bridge activity | ✅ `EPAT: CONNECT`, `W reg 1E = A0`, `device reset: status 50, signature 14 EB` | — |
+
+The fork's run reaches the drive: `signature 14 EB` is the ATAPI signature, and
+it matches what the real LS-120 returns. **The bridge model works.**
+
+The master build produces **no log header at all** - not even the `# ROM path:`
+/ `# Asset path:` lines the fork prints before touching any device - so it is
+failing before device init, not in anything this patch adds.
+
+⇒ **The patch is exonerated by control, and so is the bed.** What is unproven
+is only that master *can be run at all* in this environment.
+
+### Most likely cause, with evidence but not proof
+
+The fork logs `# ROM path: C:/Users/lycet/AppData/Local/86Box/roms/`, and that
+directory holds only `machines/` and `network/`, dated 30 July. 86Box's ROM set
+has grown and been reorganised over 21,833 commits, so a master build that
+cannot find a ROM it now requires for `ibmxt_inboard386` would fail exactly
+this way - machine never starts, window sits there, nothing written.
+
+**To finish this validation:** update the local 86Box ROM set to one current
+with master, and regenerate `86box.cfg` with master's own UI rather than
+reusing the fork-era config. Neither is difficult; both are environment work,
+not code work.
+
+## Where the submission stands
+
+| | |
+|---|---|
+| applies to current master | ✅ 9 files, +1,693 / −21, no conflicts |
+| builds on current master | ✅ after removing one redundant `case` |
+| runs on current master | ❓ **blocked on the local ROM set**, not on the patch |
+| runs on the fork | ✅ bridge reaches the drive and returns the ATAPI signature |
+| ready to push | ⛔ **no** - the `strobe`/`epp_*` design question is still open |
