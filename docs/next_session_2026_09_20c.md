@@ -177,11 +177,15 @@ HEAD reproduces both baselines exactly.
 | boot depth | reached `InitDone = TSRQuery` - fully up |
 | BOOTLOG is from **this** run | ✅ md5 and size differ from the source image |
 
-⚠ **Open:** the run logged `[0117:0000B929] Illegal instruction 00008B55 (FF)`.
-Whether that is normal for this bed is **not yet known** - the six previous
-`stderr_*.txt` files are **21 bytes each**, holding only `SDL: version 3.4.12`,
-so they never captured the pclog channel and prove nothing either way. A
-baseline run through the same `-L` channel is in progress.
+✅ **The illegal instruction is pre-existing bed behaviour, not the change.**
+The run logged `[0117:0000B929] Illegal instruction 00008B55 (FF)`. A baseline
+run through the **same `-L` channel** produced a log **byte-identical apart
+from the timestamp line**, same illegal instruction included.
+
+⚠ The six older `stderr_*.txt` files are **21 bytes each** - only
+`SDL: version 3.4.12`. They never captured the pclog channel, so "absent from
+previous runs" would have been meaningless. Technique 127a: a control has to
+come through the same instrument.
 
 ⚠ Boot success is not a data-path test. It shows SCSIPORT accepted the larger
 `NumberOfPhysicalBreaks` and the volume mounted; it does not show a 64 KB
