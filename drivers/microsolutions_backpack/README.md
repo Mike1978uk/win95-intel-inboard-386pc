@@ -369,3 +369,20 @@ without needing the protocol at all. The shadow bytes are at `[si+0x10]`
 (reg 5), `[si+0x11]` (reg 6), `[si+0x12]` (reg 7), `[si+0x13]` (reg 0x1A),
 with flags at `[si+6]`, `[si+0xB]` and `[si+0xF]` - enough to recognise the
 structure in a memory dump.
+
+### ⛔ Correction: port mode is NOT the established difference
+
+The section above reasons that the 5160 failed because its card is in ECP/EPP
+while a BackPack wants plain SPP. **That is withdrawn.** The owner reports the
+Libretto is most likely in ECP mode too, and the drive works there.
+
+So what actually separates the two machines is **not established**. Candidates,
+none measured: the parallel card itself, bus speed and timing on an 8 MHz XT
+bus, drive strength, or the pod needing something the 5160's card cannot do.
+
+What IS established, and does not depend on the above:
+
+- the pod is a working 10X BackPack CD-ROM that reads pressed media;
+- the vendor driver mounts it on the Libretto and finds nothing on the 5160;
+- our knock moves the status line on neither machine, including the one where
+  the drive works. **That is the fault we own.**
