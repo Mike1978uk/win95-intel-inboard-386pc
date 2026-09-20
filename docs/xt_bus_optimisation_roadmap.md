@@ -27,6 +27,33 @@ time = commands x 4.17ms  +  sectors x (data + think)  +  host gap
 bus. So **access count is what matters, not byte count** - that is the design rule for every driver
 in this project.
 
+## The third point, not yet taken
+
+The cost model above is a two-point fit (technique 109e: `rep insb` against
+`rep insw`, same port). Every width argument extrapolates it to four bytes.
+`tools/gen_iowidth_probe.py` takes the third point - 512 bytes to one port as
+512 x `outsb`, 256 x `outsw`, 128 x `outsd`, PIT latched either side, one run.
+
+**Predictions, recorded before the run so the result cannot be read after the
+fact.** PIT ticks at 1.193182 MHz:
+
+| arm | if the fit holds | ticks |
+|---|---|---|
+| `rep outsb` x512 | 5.77 us/byte | **~3525** |
+| `rep outsw` x256 | 3.82 us/byte | **~2334** |
+| `rep outsd` x128 | 2.85 us/byte | **~1738** |
+
+| dword result | means |
+|---|---|
+| ~1738 | the fit holds; width is worth ~51% of the bus term |
+| ~2334 | the Inboard amortises two bytes but not four |
+| ~3525 | it re-synchronises per ISA cycle above a word; **width dies at 16 bits** |
+
+⚠ Writes only, and to the LPT data register, which drives the data lines
+without a strobe. Run it with the LS-120 powered down the first time.
+⚠ 109e measured *reads*. All three arms here are writes, so the set is
+internally consistent but is not directly comparable to 109e's numbers.
+
 ## The stack
 
 | # | lever | attacks | status | 8-sector read |
