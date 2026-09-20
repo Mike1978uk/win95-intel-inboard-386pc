@@ -15,6 +15,8 @@ rather than any card's data window.
 | 1 | `0xD8000` XT-CF, XUB212 r638 | `D4 06 C6 05 3A 05` | 1748 | 1478 | 1338 |
 | 2 | `0xD8000` | `D8 06 C6 05 3A 05` | 1752 | 1478 | 1338 |
 | 3 | `0xD0000` the other option ROM | `FC 08 F4 07 6E 07` | 2300 | 2036 | 1902 |
+| 4 | `0xB8000` Mach8 video RAM | `40 0B 2A 0A B6 09` | 2880 | 2602 | 2486 |
+| 5 | `0xF000` system ROM | `A8 02 82 01 EE 00` | 680 | 386 | 238 |
 
 Runs 1 and 2 differ by 0.2%; the word and dword arms are identical.
 
@@ -87,10 +89,10 @@ shadowing directly.
 
 3. **Dword memory is 2.6x better than byte-wide I/O**, 2.190 against 5.695.
 
-4. **The sync is the Inboard's; the per-cycle is the card's.** Two different
-   memory windows gave the same sync to 2% and per-cycle costs differing by
-   0.923 us - about 4.4 clocks of 4.77 MHz, i.e. the `0xD0000` card inserts
-   roughly four wait states where the XT-CF inserts none.
+4. **The fixed term is the Inboard's; the per-cycle is the card's.** Three
+   memory windows agreed on the fixed term to 3% (0.864 / 0.883 / 0.909) while
+   per-cycle ran 1.978 / 2.901 / 3.805 us - a 2x spread, roughly nine clocks of
+   4.77 MHz between the fastest and slowest card in the same machine.
 
 ## Which answers the wait-state question
 
@@ -124,9 +126,11 @@ to 2.861 us/byte for a memory read is the memory/IO distinction, not direction.
   anything **understated**.
 - ~9% of the width saving is `rep` loop overhead rather than bus, as in the
   port run.
-- **The ROMs are not shadowed.** 2.861 us/byte is far above what Inboard-local
-  RAM would cost, so these reads are genuinely crossing the bus. That was the
-  probe's built-in self-check and it passed.
+- **The option ROMs and video RAM are not shadowed; `0xF000` is.** The
+  self-check is the per-cycle term: 1.978-3.805 us for the three real windows
+  against 0.151 us for `0xF000`, which is well under one ISA bus cycle and so
+  cannot have left the accelerator. That is the check E4's original sweep
+  lacked.
 
 ## Who can actually use this
 
@@ -135,7 +139,7 @@ to 2.861 us/byte for a memory read is the memory/IO distinction, not direction.
 | Lo-tech XT-CF rev 3 | I/O `0x300-0x31F` only | **no** - ports are all it has |
 | Intek21 parallel | I/O `0x378` only | **no** |
 | **Trantor T130B** | none - **checked, see below** | **no** |
-| Mach8 video | framebuffer at `0xA0000`/`0xB8000` | already memory-mapped, already collecting this |
+| Mach8 video | framebuffer at `0xB8000` | memory-mapped already - but **4.714 us/byte**, the slowest window measured. It collects the low fixed term and then loses it again to its own wait states |
 
 ## ⛔ The T130B has no memory window. Checked 2026-09-20, avenue closed.
 
