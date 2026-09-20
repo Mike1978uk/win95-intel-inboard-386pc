@@ -15,7 +15,9 @@
 # file the guest lists is not necessarily on the medium. Verify from the host.
 
 param(
-    [Parameter(Mandatory = $true)] [string] $Driver,
+    # Not mandatory: a -VendorDriver or -NoDriver run has no driver of ours
+    # under test. Exactly one of the three must be given, checked below.
+    [string] $Driver = "",
     [Parameter(Mandatory = $true)] [string] $Tag,
     [int]    $Seconds = 600,
     # A batch dropped into the guest's StartUp folder after the image is
@@ -50,15 +52,27 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+if (($Driver -eq "") -and ($VendorDriver -eq "") -and (-not $NoDriver)) {
+    Write-Output "Give one of -Driver <path>, -VendorDriver <path>, or -NoDriver"
+    exit 1
+}
+if (($Driver -ne "") -and ($VendorDriver -ne "")) {
+    Write-Output "-Driver and -VendorDriver are mutually exclusive"
+    exit 1
+}
 $repo = "C:\Users\lycet\RiderProjects\86Box-Inboard"
 $img  = Join-Path $VmPath "ls120win.img"
 $rd   = Join-Path $VmPath "rd.img"
 
-foreach ($t in @($ExePath,
-                 (Join-Path $VmPath "86box.cfg.master"),
-                 (Join-Path $VmPath "ls120win_clean.img"),
-                 (Join-Path $VmPath "rd_verified_good.img"),
-                 $Driver)) {
+$needed = @($ExePath,
+            (Join-Path $VmPath "86box.cfg.master"),
+            (Join-Path $VmPath "ls120win_clean.img"),
+            (Join-Path $VmPath "rd_verified_good.img"))
+# Only one of these exists on any given run; an empty path fails Test-Path.
+if ($Driver -ne "")       { $needed += $Driver }
+if ($VendorDriver -ne "") { $needed += $VendorDriver }
+foreach ($t in $needed) {
     if (-not (Test-Path $t)) { Write-Output "MISSING: $t"; exit 1 }
 }
 
