@@ -153,3 +153,35 @@ referenced by nothing, so the bus enum is already there.
 onto the 8259 on an XT bus — the mechanism that killed the keyboard with the
 LS-120 vendor driver. Irrelevant on an AT-class machine, which is where all of
 this was measured.
+
+## The knock must not be gated on being connected
+
+The first model connected once and then spun: 6,790 traced lines, one connect,
+no chain scan. The knock test had been put behind `if (!dev->connected)`, so a
+connected pod could never be re-addressed. Evaluating it unconditionally — the
+host may knock at any time, and only a SELECT edge returns early — changed the
+trace completely: 55,756 lines, a full chain scan of units 01..09+, two
+connects, and the driver going on to real work.
+
+## The pod identifies itself from a 93C46 EEPROM
+
+Register `0x06` is the serial EEPROM, bit-banged. From the trace:
+
+| bit | line |
+|---|---|
+| `0x08` | CS |
+| `0x02` | DI |
+| `0x01` | CLK |
+
+The opening sequence `08, 0C, 0E, 0F, 0E, 0E, 0F, 0E, 0C, 0D, 0C...` clocks in
+`1`, `1`, `0`, then six zeros — a 93C46 START, READ opcode, address 0. The
+driver then reads register `0x00` **1024 times**: 64 words of 16 bits, the
+whole device. `lpt_ditto.c` does not model this at all — it treats `0x06` only
+as an interrupt arm, because the Ditto driver never reads the EEPROM.
+
+⭐ **This is the last unknown before the ATA layer.** The driver rejects the pod
+because the EEPROM reads as zeros. What it needs is:
+
+1. which bit of register `0x00` carries DO;
+2. the word layout it parses, and the value that says "CD-ROM";
+3. then the task file at `0x40` can be given an ATAPI drive.

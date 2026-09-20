@@ -388,29 +388,31 @@ bpck_write_ctrl(uint8_t val, void *priv)
      * INIT alone, with the unit address on the data lines. Taken as a level,
      * so stray counts are thrown out.
      */
-    if (!dev->connected) {
-        if ((lines & ~LPT_CTRL_SELECT) != LPT_CTRL_INIT)
+    if ((lines & ~LPT_CTRL_SELECT) != LPT_CTRL_INIT)
+        dev->knock = 0;
+    else if (chg & LPT_CTRL_SELECT) {
+        if (++dev->knock >= 3) {
             dev->knock = 0;
-        else if (chg & LPT_CTRL_SELECT) {
-            if (++dev->knock >= 3) {
-                dev->knock = 0;
 
-                /*
-                 * The knock is addressed: these chain, so only the pod named
-                 * on the data lines may take the link. Answering to every
-                 * address is not harmless - the host decides a unit is present
-                 * by the status changing across the knock, so a pod that
-                 * answers everywhere is found nowhere.
-                 */
-                if (dev->dat == dev->unit)
-                    bpck_connect(dev);
-                else
-                    bpck_log("BPCK: knock for unit %02X, not ours (%02X)\n",
-                             dev->dat, dev->unit);
-            }
+            /*
+             * The knock is addressed: these chain, so only the pod named on
+             * the data lines may take the link. Answering to every address is
+             * not harmless - the host decides a unit is present by the status
+             * changing across the knock, so a pod that answers everywhere is
+             * found nowhere.
+             */
+            if (dev->dat == dev->unit)
+                bpck_connect(dev);
+            else
+                bpck_log("BPCK: knock for unit %02X, not ours (%02X)\n",
+                         dev->dat, dev->unit);
         }
+
         return;
     }
+
+    if (!dev->connected)
+        return;
 
     if (chg & LPT_CTRL_AUTOFD) {
         dev->cur_reg = dev->dat;
