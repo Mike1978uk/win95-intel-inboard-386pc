@@ -7710,12 +7710,32 @@ two ISA bus cycles; the slot cannot carry sixteen bits. 109e measured
 was 35% faster per byte. Two bus cycles, one sync. **So the 3.90 us is paid per
 386 I/O transaction, not per ISA bus cycle, and width amortisation is real.**
 
-Extrapolated to four bytes: `3.90 + 4 x 1.87 = 11.38 us`, i.e. **2.85 us/byte
-against 5.77** - about half the bus term. That is an extrapolation from a
-two-point fit, so **take the third point before building on it**: `rep insd`,
-128 dwords off the same port, in the same DEBUG run as the other two. Ten
-minutes, no driver, no Windows, and it settles the width lever for every driver
-in this project at once.
+### MEASURED 2026-09-20 on the real 5160 - and the extrapolation was 10% optimistic
+
+`tools/gen_iowidth_probe.py`, 512 bytes to one port as byte, word and dword,
+PIT either side. Two runs at `0x378` and one at `0x278`, spread 0.4%:
+
+| width | us per access | **us per byte** | vs byte-wide |
+|---|---|---|---|
+| byte | 5.695 | **5.695** | — |
+| word | 7.638 | **3.819** | -32.9% |
+| dword | 12.729 | **3.183** | **-44.1%** |
+
+Writes fit `sync 3.752 + 1.943 per byte`, against 109e's 3.90 + 1.87 for reads.
+The linear fit predicts 2.881 us/byte for a dword; the measurement is 3.183.
+**The marginal byte inside a dword costs 2.244 us against 1.943 inside a word**,
+so the third and fourth bytes are dearer. Quote **44%, not 51%**.
+
+⭐ **The control is the load-bearing part.** `0x278` decodes to nothing on this
+machine and matched the Intek21 to **0.1% at all three widths**. So the cost is
+the Inboard synchronising 16 MHz to 4.77 MHz, not any card's wait states -
+which means this table applies to **every** ISA device on this machine, and
+there is nothing to win by swapping a card.
+
+⚠ Bounds, both of which shrink the prize in a real driver: the probe writes a
+register no peripheral answers, so a handshaked bus (EPP nWAIT) extends each
+*bus cycle* and will not amortise; and ~9% of the saving is `rep` loop overhead
+(512 iterations become 128), not bus.
 
 ⚠ **Do not quote a width prize as a percentage without saying which row it
 assumes.** This one was quoted as "up to 2x", then ~4%, then ~27%, from the same
