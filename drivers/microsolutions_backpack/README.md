@@ -798,3 +798,49 @@ Trace: PS/2 byte mode attempted twice and answered, falls back to nibble,
 **That is the claim to make in a submission**: the vendor DOS driver, in its
 own installer's configuration, enumerates the drive and MSCDEX reads an ISO.
 Nothing about it depends on a switch chosen by us.
+
+## Reproducing this yourself
+
+Everything needed is in this directory and in `tools/fixtures/`.
+
+**The vendor package** is in [`vendor/`](vendor/) exactly as shipped — `BPCDDRV.SYS`
+v4.02.CB, `MSCDEX.EXE`, `DEVICE.COM` (loads a driver from the DOS prompt, no CONFIG.SYS
+edit), `CDDRIVES.EXE`, `SETUP.EXE` and the vendor README. Proprietary, Micro Solutions'
+own, kept here because the work cannot be checked without it.
+
+⚠ **Not XT-safe.** It masks both PICs and probes `0x22`/`0x23`, which alias onto the 8259
+on an XT bus. On a 5160 that kills the keyboard. Everything here was measured on AT-class
+machines for that reason.
+
+**In 86Box**, with a build carrying `lpt_bpck.c`:
+
+```ini
+[Ports (COM & LPT)]
+lpt1_device = bpck
+
+[Floppy and CD-ROM drives]
+cdrom_01_parameters = 1, lpt
+cdrom_01_lpt_port = 0
+cdrom_01_speed = 10
+cdrom_01_image_path = <your .iso>
+
+[Micro Solutions BackPack Bantam CD-ROM]
+unit = 7
+port = 0
+```
+
+The whole file is `tools/fixtures/86box.cfg.bpck` — a generic 486, no Inboard, nothing
+project-specific. `unit = 7` is the chain address of the drive modelled here; a different
+pod may answer elsewhere, and `BPCKSCAN.COM` in `../../tools/backpack/` finds it.
+
+**In the guest**, the vendor installer's own lines — no switches:
+
+```
+CONFIG.SYS    device=\bpcdrom\bpcddrv.sys /d:bpcddrv$
+AUTOEXEC.BAT  IF EXIST BPCDDRV$ \BPCDROM\MSCDEX /D:BPCDDRV$
+```
+
+**Against real hardware**, `tools/gen_bpckee.py` builds `BPCKEE.COM`, which dumps a drive's
+64-word identity EEPROM to a file. It needs no BackPack driver loaded and touches only the
+parallel port, so it is safe to run anywhere — including an XT. `--port` and `--unit` if
+yours differs.

@@ -270,6 +270,10 @@ Full write-up of the original submission, with the testing matrix and known limi
     serves `C:` on real hardware ([#21](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/21))
   - **`trantor_t130b/`** — Adaptec's `T130.MPD`, with the `Polling=1` registry entry and the
     notes needed to make it work without an IRQ ([#19](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/19))
+  - **`microsolutions_backpack/`** — the BackPack parallel CD-ROM: the vendor DOS package as
+    shipped (`vendor/`), a full disassembly of `BPCDDRV.SYS`, the wire protocol measured off a
+    real drive, the 86Box device, and the drive's own identity EEPROM read over the parallel
+    port (`capture/`). Enough to reproduce the whole thing
   - **`imation_ls120/`** — the LS-120 reverse-engineering: full disassemblies of the vendor's
     Win95 miniport and DOS driver, `TRANSPORT_SPEC.md` (the parallel-port wire protocol,
     derived and proven on hardware), and `tools/pedis.py`, a PE disassembler that works on any
