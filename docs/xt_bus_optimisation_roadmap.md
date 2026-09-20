@@ -20,6 +20,8 @@ time = commands x 4.17ms  +  sectors x (data + think)  +  host gap
 | fixed per-I/O-access sync | **~3.90 us** | two-point solve, technique 109e |
 | per byte inside an access | **~1.87 us** | same |
 | one byte-wide access | 5.77 us | direct, twice, 0.03% apart |
+| one word access | **7.638 us** | 2026-09-20, writes, three runs |
+| one dword access | **12.729 us** | same run; 10.5% above the linear fit |
 | per command | **4.17 ms** | two-point INT 13h fit, technique 109b |
 | think time per sector | ~0.6 ms | same fit, minus measured data phase |
 
@@ -27,7 +29,15 @@ time = commands x 4.17ms  +  sectors x (data + think)  +  host gap
 bus. So **access count is what matters, not byte count** - that is the design rule for every driver
 in this project.
 
-## The third point, not yet taken
+## The third point, TAKEN 2026-09-20 - dword is worth 44%
+
+**Measured on the real 5160: 3479 / 2333 / 1944 ticks, i.e. 5.695 / 3.819 /
+3.183 us per byte. Width does not die at 16 bits.** Control at an undecoded
+port matched to 0.1%, so the Intek21 adds no wait states and the cost is the
+Inboard's alone. Full record and caveats: `docs/iowidth_measured_2026_09_20.md`.
+The predictions below are left exactly as they were committed.
+
+### The predictions, as recorded beforehand
 
 The cost model above is a two-point fit (technique 109e: `rep insb` against
 `rep insw`, same port). Every width argument extrapolates it to four bytes.

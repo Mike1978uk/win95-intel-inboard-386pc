@@ -142,13 +142,18 @@ def main():
     code, done = build(port)
     verify(code, port)
 
+    # DEBUG truncates an input line at ~256 chars, and a truncated `e` writes
+    # a short patch that still runs and still produces a number. 16 a line.
     out = []
-    out.append(f"e {ORG:x} " + " ".join(f"{b:02x}" for b in code))
+    for off in range(0, len(code), 16):
+        chunk = code[off:off + 16]
+        out.append(f"e {ORG + off:x} " + " ".join(f"{b:02x}" for b in chunk))
     out.append(f"e {RES:x} 00 00 00 00 00 00")
     out.append(f"g={ORG:x} {done:x}")
     out.append(f"d {RES:x} l 6")
     out.append("q")
-    print("\r\n".join(out) + "\r\n", end="")
+    # Binary stdout: text mode on Windows turns each \r\n into \r\r\n.
+    sys.stdout.buffer.write(("\r\n".join(out) + "\r\n").encode("ascii"))
 
 
 if __name__ == "__main__":
