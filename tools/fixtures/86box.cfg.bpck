@@ -30,6 +30,14 @@ hdd_01_speed = ramdisk
 [Floppy and CD-ROM drives]
 fdd_01_type = none
 fdd_02_type = none
+cdrom_01_parameters = 1, lpt
+cdrom_01_lpt_port = 0
+cdrom_01_speed = 10
+cdrom_01_image_path = C:\Users\lycet\Downloads\Windows 98 Second Edition.iso
 
 [Ports (COM & LPT)]
 lpt1_device = bpck
+
+[Micro Solutions BackPack Bantam CD-ROM]
+unit = 7
+port = 0

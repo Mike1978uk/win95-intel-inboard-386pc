@@ -589,3 +589,36 @@ done; what it polls for does not exist yet.
 discovery**: `lpt_epat.c` already carries a working ATAPI packet engine against
 `ide_tf_t`, written for the LS-120. Point it at the task file at `0x40` and at
 a CD-ROM instead of an rdisk. `CDROM_BUS_LPT` is in `cdrom.h` and unused.
+
+## ✅ MSCDEX mounts a drive letter from the emulated BackPack
+
+The device is now **"Micro Solutions BackPack Bantam CD-ROM"**, modelled on a
+real unit: **model 180100, E/N 00749, made in the USA, serial 17627007**, a 10X
+pod with a Toshiba XM-1502B mechanism. Its identity EEPROM is reproduced
+verbatim in the source, read off that drive over the parallel port.
+
+What now happens in the bed, with the vendor driver and MSCDEX:
+
+1. knock, connect, presence test - the pod answers at address 7;
+2. all 64 EEPROM words read and accepted;
+3. `EC` (IDENTIFY DEVICE) and `A1` aborted **with the ATAPI signature** - which
+   is how the host tells a packet device from an ATA disk;
+4. real `PACKET` commands: byte counts 12, 14, 28, 36 (INQUIRY) and **2048**;
+5. **MSCDEX assigns a drive letter and tries to read the volume descriptor.**
+
+It stops at `CDR103: CDROM not High Sierra or ISO-9660`, and the trace says why:
+the 2048-byte sector never fully transferred. Only 512 register reads happened
+in the whole run and register `0x80` was never touched.
+
+⭐ **The remaining piece is the bridge block transfer.** Bulk data does not move
+as 2048 single register reads; the driver addresses `0x40 | offset` and then
+calls its block routine at `0x126A` with a count and a far buffer (see
+`0x1573`). `0x80` is almost certainly the data window for it. Model that and
+the disc should mount.
+
+### CD-ROM on a parallel bridge, in 86Box
+
+`CDROM_BUS_LPT` existed in `cdrom.h` and was implemented by nothing. It now is:
+`scsi_cdrom.c` gains an LPT arm beside the SCSI one and a
+`cdrom_get_lpt_device()`, `cdrom.c` resets those drives, and `config.c` reads
+`cdrom_XX_lpt_port`. Configure with `cdrom_01_parameters = 1, lpt`.

@@ -1,7 +1,12 @@
 /*
  * 86Box     A hypervisor and IBM PC system emulator.
  *
- *           Micro Solutions BackPack parallel-port CD-ROM.
+ *           Micro Solutions BackPack Bantam Portable CD-ROM.
+ *
+ *           Modelled from a real unit: model 180100, E/N 00749, made in the
+ *           USA, serial 17627007, a 10X drive with a Toshiba XM-1502B
+ *           mechanism inside it. Its identity EEPROM is reproduced verbatim
+ *           below, read off the drive over the parallel port.
  *
  *           The BackPack wire protocol is already modelled in lpt_ditto.c,
  *           because the Iomega Ditto rides on the same Micro Solutions
@@ -27,6 +32,11 @@
 #include <86box/device.h>
 #include <86box/lpt.h>
 #include <86box/plat_unused.h>
+#include <86box/scsi.h>
+#include <86box/scsi_device.h>
+#include <86box/hdc_ide.h>
+#include <86box/cdrom.h>
+#include <86box/scsi_cdrom.h>
 #include <86box/log.h>
 
 #define ENABLE_LPT_BPCK_LOG 1
@@ -115,6 +125,23 @@ typedef struct bpck_s {
     int      ee_reading;
     int      ee_do;
     uint16_t ee_data[64];
+
+    /* The ATAPI drive behind the bridge, and the task file it presents. */
+    scsi_device_t *sd;
+    ide_tf_t      *tf;
+    void          *log;
+    uint8_t        port;
+    uint8_t        no_drive;
+    uint8_t        tf_regs[0x100];
+    pc_timer_t     busy_timer;
+    int            busy_us;
+    int            busy_pending;
+    uint64_t       last_media_ts;
+    int            spinning;
+    pc_timer_t     reset_timer;
+    int            reset_us;
+    int            in_reset;
+    int            reset_abrt;
 } bpck_t;
 
 #define BPCK_EE_ENABLE 0x08
@@ -122,9 +149,49 @@ typedef struct bpck_s {
 #define BPCK_EE_DI     0x02
 #define BPCK_EE_CLK    0x01
 
+/* The ATAPI task file the bridge exposes, and the drive behind it. */
+#define BPCK_REG_TASKFILE 0x40 /* measured: the driver forms 0x40 | offset */
+#define BPCK_REG_DEVCTL   0x46
+
+#define ATA_DATA     0
+#define ATA_ERROR    1
+#define ATA_IREASON  2
+#define ATA_BCLO     4
+#define ATA_BCHI     5
+#define ATA_DRVHD    6
+#define ATA_STATUS   7
+
+#define ATA_CMD_PACKET 0xA0
+#define ATA_CDB_LEN    12
+
+#define ATA_ST_DRDY 0x40
+#define ATA_ST_DSC  0x10
+
+#define BPCK_SPINDOWN_TSC  ((uint64_t) 2000000 * TIMER_USEC)
+#define BPCK_SPINNING_DIV  50
+
+/* The ATAPI signature a packet device puts in the byte-count registers. */
+#define ATAPI_SIG_LO 0x14
+#define ATAPI_SIG_HI 0xEB
+
+/*
+ * Carried over from the EPAT engine, which serves its own bridge registers
+ * from the same read path. A BackPack has neither, and both numbers are in
+ * use for something else here, so they are put out of reach rather than
+ * deleted - the engine is easier to keep in step with its original if the
+ * shape of it is left alone.
+ */
+#define BPCK_REG_BLOCK     0xFE
+#define BPCK_REG_VERSION   0xFD
+#define BPCK_CHIP_VERSION  0xC0
+
+
+
 /*
  * The identity EEPROM of a real pod, read off the hardware with
- * tools/gen_bpckee.py: "TOSHIBA CD-ROM XM-1502B/2696", serial 17627007.
+ * tools/gen_bpckee.py: a BackPack Bantam, model 180100, E/N 00749, serial
+ * 17627007. The mechanism inside reports itself as "TOSHIBA CD-ROM
+ * XM-1502B/2696"; the pod is what the label on the case names.
  * The driver reads all 64 words before it will accept the pod, so the whole
  * array matters, not just the identifying part.
  */
@@ -152,6 +219,10 @@ bpck_state(const bpck_t *dev)
 
     return buf;
 }
+
+/* The ATAPI engine, defined below: the task file is served out of it. */
+static uint8_t bpck_reg_read(bpck_t *dev, const uint8_t addr);
+static void    bpck_reg_write(bpck_t *dev, const uint8_t addr, const uint8_t val);
 
 /* --------------------------------------------------------------------- */
 /* Layer 2: the register file                                            */
@@ -211,7 +282,20 @@ bpck_ee_write(bpck_t *dev, uint8_t val)
 static uint8_t
 bpck_read_reg(bpck_t *dev, int reg)
 {
-    uint8_t ret = dev->regs[reg & 0xff];
+    uint8_t ret;
+
+    /*
+     * The task file the driver forms as 0x40 | offset belongs to the drive,
+     * not the bridge, so it is served by the ATAPI engine.
+     */
+    if (((reg & 0xff) >= BPCK_REG_TASKFILE) &&
+        ((reg & 0xff) <= (BPCK_REG_TASKFILE + ATA_STATUS))) {
+        ret = bpck_reg_read(dev, (uint8_t) reg);
+        bpck_log("BPCK:    RR %02X -> %02X\n", reg & 0xff, ret);
+        return ret;
+    }
+
+    ret = dev->regs[reg & 0xff];
 
     /* Register 0x00 bit 7 is the EEPROM data line, not stored state. */
     if ((reg & 0xff) == 0x00)
@@ -228,6 +312,12 @@ bpck_write_reg(bpck_t *dev, int reg, uint8_t val)
     bpck_log("BPCK:    WR %02X <- %02X\n", reg & 0xff, val);
 
     dev->regs[reg & 0xff] = val;
+
+    if (((reg & 0xff) >= BPCK_REG_TASKFILE) &&
+        ((reg & 0xff) <= (BPCK_REG_TASKFILE + ATA_STATUS))) {
+        bpck_reg_write(dev, (uint8_t) reg, val);
+        return;
+    }
 
     if ((reg & 0xff) == 0x06)
         bpck_ee_write(dev, val);
@@ -251,6 +341,462 @@ bpck_write_reg(bpck_t *dev, int reg, uint8_t val)
         if (dev->proto != was)
             bpck_log("BPCK: protocol now %s\n", bpck_proto_name[dev->proto]);
     }
+}
+
+static int
+bpck_attach_drive(bpck_t *dev)
+{
+    if (dev->sd != NULL)
+        return 1;
+
+    if (dev->no_drive)
+        return 0;
+
+    dev->sd = cdrom_get_lpt_device(dev->port);
+
+    if (dev->sd == NULL) {
+        dev->no_drive = 1;
+        bpck_log("BPCK: no removable disk assigned to LPT%i - "
+                           "answering from the bridge's own registers\n",
+                 dev->port + 1);
+        return 0;
+    }
+
+    dev->tf = ((scsi_cdrom_t *) dev->sd->sc)->tf;
+    bpck_log("BPCK: LPT%i drive attached\n", dev->port + 1);
+
+    return 1;
+}
+
+/*
+ * The packet phase engine, transliterated from ide_atapi_callback() and
+ * ide_atapi_pio_request() in hdc_ide.c. The drive is an ordinary ATAPI device;
+ * all that differs is that its task file and data register are reached a nibble
+ * at a time down a parallel cable instead of over the ISA bus.
+ *
+ * Two deliberate departures from the IDE path:
+ *
+ *   - No interrupts. The Shuttle bridges here run polled - the real machine
+ *     measures dmaEn = 0 - and the driver polls BSY and DRQ.
+ *   - No callback timing. The IDE controller arms a timer for the delay the
+ *     drive asks for; the bridge completes immediately, because one byte over
+ *     this link costs far more than any seek that delay models. This does mean
+ *     a spin-up wait is not reproduced, which is worth remembering when using
+ *     the bridge to test a driver's timeouts.
+ */
+static void bpck_pio_request(bpck_t *dev, int out);
+static void bpck_atapi_callback(bpck_t *dev);
+static void bpck_device_reset(bpck_t *dev);
+
+/* The reset settle has expired - the drive is now genuinely ready. */
+static void
+bpck_reset_done(void *priv)
+{
+    bpck_t *dev = (bpck_t *) priv;
+
+    dev->in_reset   = 0;
+    dev->reset_abrt = 0;
+    bpck_device_reset(dev);
+}
+
+/* The BSY window has expired - finish the command the drive was sitting on. */
+static void
+bpck_busy_done(void *priv)
+{
+    bpck_t *dev = (bpck_t *) priv;
+
+    bpck_atapi_callback(dev);
+}
+
+/*
+ * Does this command move the mechanism? INQUIRY, REQUEST SENSE and MODE SENSE
+ * are answered out of drive firmware and come back promptly on the real LS-120;
+ * anything that reads, writes or positions the medium pays the spin-up. Modelling
+ * one latency for every command stalls enumeration, which the drive does not do -
+ * on the real 5160 it enumerates and gets a drive letter, then hangs on the first
+ * read. Keeping INQUIRY fast is what reproduces that.
+ */
+static int
+bpck_cdb_touches_media(uint8_t op)
+{
+    switch (op) {
+        case 0x08: /* READ(6)        */
+        case 0x0a: /* WRITE(6)       */
+        case 0x1b: /* START STOP UNIT*/
+        case 0x25: /* READ CAPACITY  */
+        case 0x28: /* READ(10)       */
+        case 0x2a: /* WRITE(10)      */
+        case 0x2f: /* VERIFY(10)     */
+        case 0x35: /* SYNCHRONIZE CACHE */
+            return 1;
+        default:
+            return 0;
+    }
+}
+
+static void
+bpck_atapi_callback(bpck_t *dev)
+{
+    scsi_common_t *sc = dev->sd->sc;
+
+    switch (sc->packet_status) {
+        default:
+            break;
+
+        case PHASE_IDLE:
+            dev->tf->pos     = 0;
+            dev->tf->phase   = 1;
+            dev->tf->atastat = READY_STAT | DRQ_STAT | (dev->tf->atastat & ERR_STAT);
+            break;
+
+        case PHASE_COMMAND:
+            dev->tf->atastat = BUSY_STAT | (dev->tf->atastat & ERR_STAT);
+            dev->sd->command(sc, sc->atapi_cdb);
+            /*
+             * Whatever delay the drive asked for is discarded, and the phase it
+             * moved to is acted on now. rdisk_set_callback() is a no-op for an
+             * LPT drive, so nothing else would ever run this.
+             */
+            sc->callback = 0.0;
+            if (sc->packet_status != PHASE_COMMAND)
+                bpck_atapi_callback(dev);
+            break;
+
+        case PHASE_COMPLETE:
+        case PHASE_ERROR:
+            /*
+             * Hold BSY for the configured drive latency before reporting the
+             * result, the way the real drive does. Without this the bridge
+             * never goes busy at all and a driver's ready-poll is never
+             * exercised.
+             */
+            if ((dev->busy_us > 0) && !dev->busy_pending &&
+                bpck_cdb_touches_media(sc->atapi_cdb[0])) {
+                const uint64_t now  = tsc;
+                const uint64_t idle = (dev->last_media_ts == 0) ? ~0ULL
+                                                                : (now - dev->last_media_ts);
+                int            us;
+
+                if (!dev->spinning || (idle > BPCK_SPINDOWN_TSC)) {
+                    us            = dev->busy_us;           /* cold - full spin-up */
+                    dev->spinning = 1;
+                } else
+                    us = dev->busy_us / BPCK_SPINNING_DIV;  /* already turning */
+
+                dev->last_media_ts = now;
+                dev->busy_pending  = 1;
+                dev->tf->atastat   = BUSY_STAT | (dev->tf->atastat & ERR_STAT);
+                timer_set_delay_u64(&dev->busy_timer, (uint64_t) us * TIMER_USEC);
+                bpck_log("BPCK: drive busy %d us (%s)\n", us,
+                         (us == dev->busy_us) ? "spin-up" : "spinning");
+                break;
+            }
+            dev->busy_pending = 0;
+            dev->tf->atastat = READY_STAT;
+            if (sc->packet_status == PHASE_ERROR)
+                dev->tf->atastat |= ERR_STAT;
+            dev->tf->phase    = 3;
+            sc->packet_status = PHASE_NONE;
+            bpck_log("BPCK: command done, status %02X\n", dev->tf->atastat);
+            break;
+
+        case PHASE_DATA_IN:
+        case PHASE_DATA_OUT:
+            dev->tf->atastat = READY_STAT | DRQ_STAT | (dev->tf->atastat & ERR_STAT);
+            /* PHASE_DATA_IN gives ireason 2 (I/O set), PHASE_DATA_OUT gives 0. */
+            dev->tf->phase   = !(sc->packet_status & 0x01) << 1;
+            bpck_log("BPCK: data phase %s, %u bytes, request length %u\n",
+                     (sc->packet_status == PHASE_DATA_IN) ? "in" : "out",
+                     sc->packet_len, dev->tf->request_length);
+            break;
+    }
+}
+
+/* A transfer has reached the end of a block, or of the whole command. */
+static void
+bpck_pio_request(bpck_t *dev, const int out)
+{
+    scsi_common_t *sc = dev->sd->sc;
+
+    dev->tf->atastat = BUSY_STAT;
+
+    if (dev->tf->pos >= sc->packet_len) {
+        dev->tf->pos    = 0;
+        sc->request_pos = 0;
+
+        if (out)
+            dev->sd->phase_data_out(sc);
+        else
+            dev->sd->command_stop(sc);
+
+        sc->callback = 0.0;
+        /*
+         * rdisk_phase_data_out() calls command_stop() itself and returns 1 on
+         * success, but its failure path returns 0 having left the phase at
+         * PHASE_ERROR. Firing the callback only for PHASE_COMPLETE therefore
+         * stranded every failed write: the data moved, the device never
+         * reported, DRQ stayed asserted and the driver polled status forever.
+         * Observed 2026-09-13 - a WRITE(10) to LBA 1 followed by 11,000+
+         * status reads of 48h (DRDY|DRQ) and no completion.
+         */
+        if ((sc->packet_status == PHASE_COMPLETE) ||
+            (sc->packet_status == PHASE_ERROR)) {
+            bpck_log("BPCK: data phase ended in %s\n",
+                     (sc->packet_status == PHASE_ERROR) ? "ERROR" : "COMPLETE");
+            bpck_atapi_callback(dev);
+        }
+    } else {
+        /* Short tail: tell the host how much is actually left. */
+        if ((sc->packet_len - dev->tf->pos) < sc->max_transfer_len) {
+            sc->max_transfer_len    = (uint16_t) (sc->packet_len - dev->tf->pos);
+            dev->tf->request_length = sc->max_transfer_len;
+        }
+
+        sc->packet_status = PHASE_DATA_IN | out;
+        bpck_atapi_callback(dev);
+        sc->request_pos = 0;
+    }
+}
+
+/*
+ * The data register. The bridge is a byte-wide link, so unlike the IDE path
+ * this moves one byte per access rather than a word.
+ */
+static uint8_t
+bpck_data_read(bpck_t *dev)
+{
+    scsi_common_t *sc = dev->sd->sc;
+    uint8_t        ret;
+
+    if ((sc->temp_buffer == NULL) || (sc->packet_status != PHASE_DATA_IN))
+        return 0;
+
+    /*
+     * Reading past the buffer returns zero rather than reading off the end:
+     * a command with an allocation length below one sector leaves the host
+     * asking for more than the drive prepared.
+     */
+    ret = (dev->tf->pos < sc->packet_len) ? sc->temp_buffer[dev->tf->pos] : 0;
+    dev->tf->pos++;
+    sc->request_pos++;
+
+    /* DIAGNOSTIC 2026-09-13 - remove once LBA 0 is settled. */
+    if (dev->tf->pos == 16)
+        bpck_log("BPCK: DATA IN  head %02X %02X %02X %02X %02X %02X %02X %02X "
+                           "%02X %02X %02X %02X %02X %02X %02X %02X\n",
+                 sc->temp_buffer[0],  sc->temp_buffer[1],  sc->temp_buffer[2],
+                 sc->temp_buffer[3],  sc->temp_buffer[4],  sc->temp_buffer[5],
+                 sc->temp_buffer[6],  sc->temp_buffer[7],  sc->temp_buffer[8],
+                 sc->temp_buffer[9],  sc->temp_buffer[10], sc->temp_buffer[11],
+                 sc->temp_buffer[12], sc->temp_buffer[13], sc->temp_buffer[14],
+                 sc->temp_buffer[15]);
+
+    if ((sc->request_pos >= sc->max_transfer_len) || (dev->tf->pos >= sc->packet_len))
+        bpck_pio_request(dev, 0);
+
+    return ret;
+}
+
+static void
+bpck_data_write(bpck_t *dev, const uint8_t val)
+{
+    scsi_common_t *sc  = dev->sd->sc;
+    uint8_t       *buf = NULL;
+
+    /* Before a command is assembled the data register carries the CDB. */
+    if (sc->packet_status == PHASE_IDLE)
+        buf = sc->atapi_cdb;
+    else if (sc->packet_status == PHASE_DATA_OUT)
+        buf = sc->temp_buffer;
+
+    if (buf == NULL)
+        return;
+
+    buf[dev->tf->pos] = val;
+    dev->tf->pos++;
+    sc->request_pos++;
+
+    /* DIAGNOSTIC 2026-09-13 - remove once LBA 0 is settled. */
+    if ((sc->packet_status == PHASE_DATA_OUT) && (dev->tf->pos == 16))
+        bpck_log("BPCK: DATA OUT head %02X %02X %02X %02X %02X %02X %02X %02X "
+                           "%02X %02X %02X %02X %02X %02X %02X %02X\n",
+                 buf[0],  buf[1],  buf[2],  buf[3],  buf[4],  buf[5],  buf[6],
+                 buf[7],  buf[8],  buf[9],  buf[10], buf[11], buf[12], buf[13],
+                 buf[14], buf[15]);
+
+    if (sc->packet_status == PHASE_DATA_OUT) {
+        if ((sc->request_pos >= sc->max_transfer_len) ||
+            (dev->tf->pos >= sc->packet_len))
+            bpck_pio_request(dev, 1);
+    } else if (dev->tf->pos >= ATA_CDB_LEN) {
+        bpck_log("BPCK: CDB %02X %02X %02X %02X %02X %02X "
+                           "%02X %02X %02X %02X %02X %02X\n",
+                 buf[0], buf[1], buf[2],  buf[3],  buf[4],  buf[5],
+                 buf[6], buf[7], buf[8],  buf[9],  buf[10], buf[11]);
+
+        dev->tf->pos      = 0;
+        dev->tf->atastat  = BUSY_STAT;
+        sc->packet_status = PHASE_COMMAND;
+        bpck_atapi_callback(dev);
+    }
+}
+
+/* A write to the command register. PACKET is the only one that means anything. */
+static void
+bpck_command(bpck_t *dev, const uint8_t cmd)
+{
+    scsi_common_t *sc = dev->sd->sc;
+
+    if (dev->in_reset) {
+        bpck_log("BPCK: command %02X inside the reset settle, aborting\n", cmd);
+        dev->reset_abrt = 1;
+        return;
+    }
+
+    if (cmd != ATA_CMD_PACKET) {
+        /*
+         * A packet device aborts anything that is not PACKET and leaves the
+         * ATAPI signature in the byte-count registers. That is how a host
+         * tells an ATAPI drive from an ATA one: it issues IDENTIFY DEVICE,
+         * expects it to fail, and reads 14/EB back. Without the signature the
+         * abort looks like a broken ATA disk and the host gives up.
+         */
+        bpck_log("BPCK: command %02X is not PACKET, aborting with the signature\n", cmd);
+        dev->tf->atastat        = READY_STAT | ERR_STAT | ATA_ST_DSC;
+        dev->tf->error          = ABRT_ERR;
+        dev->tf->request_length = (ATAPI_SIG_HI << 8) | ATAPI_SIG_LO;
+        dev->tf->phase          = 1;
+        return;
+    }
+
+    bpck_log("BPCK: PACKET, byte count %u\n", dev->tf->request_length);
+
+    dev->tf->pos      = 0;
+    sc->packet_status = PHASE_IDLE;
+    dev->tf->phase    = 1; /* ireason 1: the drive wants the CDB */
+    dev->tf->atastat  = READY_STAT | DRQ_STAT;
+}
+
+/*
+ * The ATA task file belongs to the drive, not to the bridge. These map the
+ * eight task-file offsets onto ide_tf_t, which is the same structure the IDE
+ * controller drives the drive through. Offsets outside the task file (device
+ * control, and the bridge's own registers) stay in regs[].
+ */
+static uint8_t
+bpck_reg_read(bpck_t *dev, const uint8_t addr)
+{
+    bpck_attach_drive(dev);
+
+    /*
+     * Inside the settle window only status and error mean anything, and they
+     * describe the mechanism rather than tf, which still holds pre-reset
+     * state. C1/04 is what the bench returns for a command issued too early.
+     */
+    if (dev->in_reset) {
+        if (addr == (BPCK_REG_TASKFILE + ATA_STATUS))
+            return dev->reset_abrt ? (BUSY_STAT | READY_STAT | ERR_STAT) : BUSY_STAT;
+        if (addr == (BPCK_REG_TASKFILE + ATA_ERROR))
+            return dev->reset_abrt ? ABRT_ERR : 0x00;
+    }
+
+    if ((dev->tf != NULL) && (addr == BPCK_REG_BLOCK))
+        return bpck_data_read(dev);
+
+    if ((dev->tf == NULL) || (addr < BPCK_REG_TASKFILE) ||
+        (addr > (BPCK_REG_TASKFILE + ATA_STATUS)))
+        return dev->tf_regs[addr];
+
+    switch (addr - BPCK_REG_TASKFILE) {
+        case ATA_DATA:
+            return bpck_data_read(dev);
+        case ATA_ERROR:
+            return dev->tf->error;
+        case ATA_IREASON:
+            return dev->tf->phase;
+        case ATA_BCLO:
+            return dev->tf->request_length & 0xff;
+        case ATA_BCHI:
+            return (dev->tf->request_length >> 8) & 0xff;
+        case ATA_DRVHD:
+            return dev->tf->drvsel;
+        case ATA_STATUS:
+            return dev->tf->atastat;
+        default:
+            return dev->tf_regs[addr];
+    }
+}
+
+static void
+bpck_reg_write(bpck_t *dev, const uint8_t addr, const uint8_t val)
+{
+    dev->tf_regs[addr] = val;
+
+    bpck_attach_drive(dev);
+
+    if ((dev->tf == NULL) || (addr < BPCK_REG_TASKFILE) ||
+        (addr > (BPCK_REG_TASKFILE + ATA_STATUS)))
+        return;
+
+    switch (addr - BPCK_REG_TASKFILE) {
+        case ATA_DATA:
+            bpck_data_write(dev, val);
+            break;
+        case ATA_ERROR:
+            dev->tf->features = val;
+            break;
+        case ATA_IREASON:
+            dev->tf->phase = val;
+            break;
+        case ATA_BCLO:
+            dev->tf->request_length = (dev->tf->request_length & 0xff00) | val;
+            break;
+        case ATA_BCHI:
+            dev->tf->request_length = (dev->tf->request_length & 0x00ff) |
+                                      ((uint16_t) val << 8);
+            break;
+        case ATA_DRVHD:
+            dev->tf->drvsel = val;
+            break;
+        case ATA_STATUS: /* the command register, on a write */
+            bpck_command(dev, val);
+            break;
+        default:
+            break;
+    }
+}
+
+/* Present the drive as it is immediately after a reset. */
+static void
+bpck_device_reset(bpck_t *dev)
+{
+    memset(dev->tf_regs, 0x00, sizeof(dev->tf_regs));
+    dev->tf_regs[BPCK_REG_VERSION]               = BPCK_CHIP_VERSION;
+    dev->tf_regs[BPCK_REG_TASKFILE + ATA_STATUS] = ATA_ST_DRDY | ATA_ST_DSC;
+    dev->tf_regs[BPCK_REG_TASKFILE + ATA_BCLO]   = ATAPI_SIG_LO;
+    dev->tf_regs[BPCK_REG_TASKFILE + ATA_BCHI]   = ATAPI_SIG_HI;
+
+    /*
+     * A real drive sets its own signature here. rdisk_reset() writes
+     * request_length = 0xEB14, which is that signature, so the values above
+     * only apply when the bridge is running without a drive.
+     */
+    if (bpck_attach_drive(dev)) {
+        dev->sd->reset(dev->sd->sc);
+
+        /*
+         * A real drive raises a unit attention when it is reset, and the
+         * physical LS-120 demonstrably does: after this same SRST it answers
+         * the next READ with sense key 6. rdisk_reset() clears the flag, so
+         * without this the emulated drive is more forgiving than the real one
+         * and a driver that mishandles the condition would pass here and fail
+         * on hardware. rdisk already implements the rest, ALLOW_UA included.
+         */
+        ((scsi_cdrom_t *) dev->sd->sc)->unit_attention = 1;
+    }
+
+    bpck_log("BPCK: device reset: status %02X, signature %02X %02X\n",
+             dev->tf_regs[BPCK_REG_TASKFILE + ATA_STATUS], ATAPI_SIG_LO, ATAPI_SIG_HI);
 }
 
 /* --------------------------------------------------------------------- */
@@ -567,6 +1113,7 @@ bpck_init(UNUSED(const device_t *info))
         return NULL;
 
     dev->unit  = (uint8_t) device_get_config_int("unit");
+    dev->port  = (uint8_t) device_get_config_int("port");
 
     memcpy(dev->ee_data, bpck_ee_default, sizeof(dev->ee_data));
     dev->proto = BPCK_PROTO_SPP;
@@ -580,7 +1127,10 @@ bpck_init(UNUSED(const device_t *info))
         return NULL;
     }
 
-    bpck_log("BPCK: attached as unit %02X\n", dev->unit);
+    timer_add(&dev->busy_timer, bpck_busy_done, dev, 0);
+    timer_add(&dev->reset_timer, bpck_reset_done, dev, 0);
+
+    bpck_log("BPCK: attached as unit %02X on LPT port %i\n", dev->unit, dev->port);
 
     return dev;
 }
@@ -611,12 +1161,29 @@ static const device_config_t bpck_config[] = {
         },
         .bios           = { { 0 } }
     },
+    {
+        .name           = "port",
+        .description    = "LPT port the drive is assigned to",
+        .type           = CONFIG_SELECTION,
+        .default_string = NULL,
+        .default_int    = 0,
+        .file_filter    = NULL,
+        .spinner        = { 0 },
+        .selection      = {
+            { .description = "LPT1", .value = 0 },
+            { .description = "LPT2", .value = 1 },
+            { .description = "LPT3", .value = 2 },
+            { .description = "LPT4", .value = 3 },
+            { .description = "" }
+        },
+        .bios           = { { 0 } }
+    },
     { .name = "", .description = "", .type = CONFIG_END }
 };
 // clang-format on
 
 const device_t lpt_bpck_device = {
-    .name          = "Micro Solutions BackPack CD-ROM",
+    .name          = "Micro Solutions BackPack Bantam CD-ROM",
     .internal_name = "bpck",
     .flags         = DEVICE_LPT,
     .local         = 0,
