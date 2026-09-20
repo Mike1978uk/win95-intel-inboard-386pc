@@ -97,6 +97,23 @@ XT_SECTOR_SIZE		equ	512
 ;  this is the transfer SCSIPORT may hand us in one SRB, not the ATA limit.
 XT_MAX_XFER		equ	65536
 
+;  How many physically discontiguous chunks SCSIPORT may hand us in one SRB.
+;  Zero means the buffer must be one physical run, which caps a request at a
+;  page and is why XT_MAX_XFER above has never been reachable.
+;
+;  This adapter never sees a physical address: MapBuffers is TRUE,
+;  NeedPhysicalAddresses is FALSE, and the transfer loops walk
+;  Srb.DataBuffer as a virtual address with rep insw/outsw. Physical
+;  fragmentation is therefore invisible to it, and the zero is a promise we
+;  did not need to make. ScatterGather stays FALSE, so SCSIPORT still hands
+;  us one mapped buffer rather than a descriptor list.
+;
+;  Left at 0 by default until a run shows it changes the command count -
+;  -PhysBreaks 17 covers 64 KB of 4 KB pages.
+ifndef XT_PHYS_BREAKS
+XT_PHYS_BREAKS		equ	0
+endif
+
 ;  Default I/O base if the device node supplies none. MEASURED on the real
 ;  card 2026-08-31; the INF sets it too, so this is a floor and not a policy.
 ifndef XT_DEFAULT_BASE
@@ -356,7 +373,7 @@ endif
 ;  Describe the adapter. Everything not set here was zeroed by SCSIPORT.
 	mov	[esi].PORT_CONFIGURATION_INFORMATION.NumberOfBuses, 1
 	mov	[esi].PORT_CONFIGURATION_INFORMATION.MaximumTransferLength, XT_MAX_XFER
-	mov	[esi].PORT_CONFIGURATION_INFORMATION.NumberOfPhysicalBreaks, 0
+	mov	[esi].PORT_CONFIGURATION_INFORMATION.NumberOfPhysicalBreaks, XT_PHYS_BREAKS
 	mov	[esi].PORT_CONFIGURATION_INFORMATION.MaximumNumberOfTargets, XT_MAX_TARGETS
 	mov	[esi].PORT_CONFIGURATION_INFORMATION.AlignmentMask, 0
 

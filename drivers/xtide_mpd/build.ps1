@@ -40,9 +40,18 @@ param(
     [switch] $ClaimRange,
 
     # Pace the status polls instead of spinning flat out. Every poll is a full
-    # ~1 us bus cycle that transfers nothing; the Inboard's cache is enabled,
-    # so a register-only delay between polls costs no bus cycle at all.
+    # 5.70 us I/O access that transfers nothing - 3.75 us of that is the
+    # Inboard synchronising to the 4.77 MHz bus, measured 2026-09-20. The
+    # cache is enabled, so a register-only delay between polls costs no bus
+    # cycle at all.
     [switch] $PollBackoff,
+
+    # NumberOfPhysicalBreaks. 0 (the default) promises SCSIPORT one physical
+    # run per SRB, which caps a request at a page and is why the 64 KB
+    # MaximumTransferLength has never been reachable. This miniport never uses
+    # a physical address, so the promise costs us transfer size for nothing.
+    # 17 covers 64 KB of 4 KB pages. See docs/bus_optimisation_plan.md B1.
+    [int] $PhysBreaks = 0,
 
     # rep insb / rep outsb for the 512-byte data phase instead of a five
     # instruction per byte loop. Removes core cycles, not bus cycles.
@@ -76,6 +85,7 @@ if (-not $WriteTest) { $defs += '-DXT_NO_WRITETEST' }
 if ($Base -ne 0)    { $defs += ("-DXT_FORCE_BASE=0{0:X}h" -f $Base) }
 if ($ClaimRange)    { $defs += '-DXT_CLAIM_RANGE' }
 if ($PollBackoff)   { $defs += '-DXT_POLL_BACKOFF' }
+if ($PhysBreaks -ne 0) { $defs += "-DXT_PHYS_BREAKS=$PhysBreaks" }
 if ($FastXfer)      { $defs += '-DXT_FAST_XFER' }
 
 # -coff is what makes ML emit objects the PE linker can use at all.
