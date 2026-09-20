@@ -52,3 +52,55 @@ Andrew's actual test — boot and *swap disks* — on `monster_fdc`.
 looped forever on the 2500 ms settle and ate two runs. A repeating `SRST released` in the log
 means that, not the thing under test. Technique 131 extended with both of today's repeat
 offences.
+
+---
+
+# Measurement session, 2026-09-20 evening
+
+## Answered
+
+- **#32 — 3C509B drains in bulk, no lever.** `ELNK3.DOS` (`78242932`) and
+  `ELNK3.VXD` (`301b14c4`), extracted from the card image, both carry `REP`
+  string I/O: 22/19 and 8/10 `insw`/`outsw`, the VxD including `o32` 32-bit
+  variants. Still open: the on-card buffer size, which `3C509B_PORT_SPEC.md`
+  does not state.
+- **#35a — only `0xF000` is shadowed.** Settled from the existing five-window
+  probe, no new run: a shadowed region's per-cycle cost collapses below one
+  ISA cycle (`0.151` us vs `1.978`-`3.805` for the option ROMs and video).
+  ⭐ **Lever exposed:** the XT-CF option ROM at `0xD8000` runs at 2.861 us/byte
+  against the shadowed ROM's 1.113 - a 2.6x gap on the **DOS** INT 13h path.
+  Worth nothing under Windows. Open question: can the Inboard shadow regions
+  other than `F000`?
+- **#31a — `T130.MPD` shows no disconnect grant.** No literal `0xC0`
+  (`IDENTIFY | DiscPriv`) anywhere, no `0x40` OR'd into a message byte.
+  Indicative, **not proof** - the value could be computed. The definitive
+  test is dynamic.
+
+## Method corrections - both change what the issues asked for
+
+- **#29 A5 is impossible as written.** The 8237A's mask and mode registers are
+  **write-only**, as are the XT's 74LS670 page latches. Channel assignments
+  cannot be read back on a 5160. Status port `0x08` read `0x81` twice: bit 0
+  is refresh on channel 0, bit 7 is a channel-3 request that almost certainly
+  reflects an **undriven DREQ3 floating**, since nothing on this machine uses
+  channel 3. Recorded as inconclusive.
+- **#29 A4 cannot use the floppy.** A track read is rotation-limited - about
+  4,608 bytes per 200 ms revolution, roughly 43 us/byte - so it measures the
+  disk spinning, not bus transfer cost. ⭐ **The owner's suggestion is the way
+  in: the Sound Blaster Pro's DMA channel 1 transfers asynchronously**, so a
+  PIT-timed CPU loop can be compared with DMA running and idle. That measures
+  bus cycles stolen, which is what the cost model actually ranks. The floppy
+  can never do this because BIOS blocks until the read completes.
+
+## State of the machine
+
+⛔ **DEBUG is wedged at its `-` prompt** and needs a physical Ctrl+C or a
+reboot. `DEBUG < file` redirects stdin from the file, so at EOF no keystroke
+can reach it - see [[comrade-debug-redirect-wedges]]. COMrade is unaffected;
+`io_in`, `mem_read` and `dos_status` need no shell.
+
+A3 (can the 8237 reach the 384 KB served from the Inboard?) is **still
+unrun**. Rebuild it as a `.COM`, not a DEBUG script. Note the confound: DOS
+INT 25h and BIOS INT 13h both pass through `INBRDPC.SYS`, which may
+bounce-buffer through low memory and mask the answer. A failure would be
+decisive; a success would not.
