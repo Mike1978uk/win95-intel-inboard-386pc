@@ -22,6 +22,8 @@ time = commands x 4.17ms  +  sectors x (data + think)  +  host gap
 | one byte-wide access | 5.77 us | direct, twice, 0.03% apart |
 | one word access | **7.638 us** | 2026-09-20, writes, three runs |
 | one dword access | **12.729 us** | same run; 10.5% above the linear fit |
+| fixed sync, ISA **memory** | **0.883 us** | 2026-09-20; against 3.752 us for I/O |
+| per bus cycle, ISA memory | 1.978 us | same as I/O's 1.943 - only the sync differs |
 | per command | **4.17 ms** | two-point INT 13h fit, technique 109b |
 | think time per sector | ~0.6 ms | same fit, minus measured data phase |
 

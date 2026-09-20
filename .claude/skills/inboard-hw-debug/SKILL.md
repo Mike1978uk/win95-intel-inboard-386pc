@@ -7741,6 +7741,52 @@ register no peripheral answers, so a handshaked bus (EPP nWAIT) extends each
 assumes.** This one was quoted as "up to 2x", then ~4%, then ~27%, from the same
 measurements, before anyone checked that 109e had already answered it.
 
+### 128d: an ISA I/O access costs 2.87 us more to START than an ISA memory access
+
+Measured 2026-09-20 with `tools/gen_memwidth_probe.py`, same instrument as 128,
+512 bytes copied out of an option ROM. Three runs, two windows, 0.2% spread.
+
+| path | fixed sync | per bus cycle | byte us/B | dword us/B |
+|---|---|---|---|---|
+| **ISA I/O** (`0x378`, `0x278`) | **3.752** | 1.943 | 5.695 | 3.183 |
+| **ISA memory** (`0xD8000`, XT-CF ROM) | **0.883** | 1.978 | **2.861** | **2.190** |
+| ISA memory (`0xD0000`, slower card) | 0.864 | 2.901 | 3.765 | 3.113 |
+
+**The per-cycle cost is the same. The fixed synchronisation is 4.25x worse for
+I/O.** An XT's mandatory I/O wait state is one clock, 210 ns, of the 2.87 us
+gap; the rest is the accelerator serialising I/O the way a 386 must, while a
+memory read pipelines.
+
+Consequences, in order of how much they change decisions:
+
+- **Byte-wide memory beats dword I/O** - 2.861 against 3.183 us/byte. A memory
+  aperture read one byte at a time is faster than the best port transfer
+  possible on this machine.
+- **Dword memory is 2.6x better than byte-wide I/O.**
+- **The sync belongs to the Inboard, the per-cycle to the card.** Two memory
+  windows agreed on sync to 2% and differed by 0.923 us per cycle - about four
+  wait states. So a card's zero-wait-state jumper moves the per-cycle term
+  only: ~24% on a memory path, worth having, but a smaller lever than choosing
+  memory over I/O at all. There is nothing equivalent to win on the port side -
+  the undecoded-port control matched a real card to 0.1%.
+- Memory is **linear in width**; I/O was 10.5% sub-linear.
+
+⚠ **Reads only.** A ROM cannot be written, so writes to a card's memory
+aperture are untested and must not be assumed symmetric.
+⚠ The read/write confound was checked, not waved away: 109e measured `rep insb`
+*reading* a port at 5.87 us/byte against 5.695 for `outsb`, so I/O costs the
+same in both directions and the gap to memory is real.
+⚠ The probe self-checks for shadowing - Inboard-local RAM would be an order of
+magnitude faster than 2.861 us/byte, so these reads did cross the bus.
+
+⛔ **This rescues nothing that is port-only.** The Lo-tech XT-CF (`0x300-0x31F`)
+and the Intek21 (`0x378`) have no data aperture, so width remains their only
+lever. The **Trantor T130B** has a `bios_addr` window, currently `0`, and
+Trantor cards commonly map the NCR5380 into memory - that is the one place this
+could be worth 2x, and it is unchecked.
+
+Full record: `docs/isa_memory_vs_io_2026_09_20.md`.
+
 ### 128c: XT-IDE cannot use dword; the EPP data port can
 
 109e closed 32-bit for XT-IDE on a register-map argument, not a bus argument:
