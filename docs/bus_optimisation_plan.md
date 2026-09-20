@@ -433,7 +433,7 @@ exactly that).
 |---|---|---|---|
 | **XT-CF / XT-IDE** | ✅ **both halves** | Q1 done → `rep insw`, **35%/33% shipped**. Q5: card decode ceiling reached. Q2 open | A1, A2 |
 | **Mach8 / Graphics Ultra** | ✅ **machine half, offline** | Q1 ✅ already `rep outsw` (43). Q3 ✅ 1 MB installed, ~256 KB spare at the current mode. Q4 ✅ engine used hard (651 loads, 63 CMD). Q5 ⚠ **16-bit card in 8-bit slots** | A12a, A12b |
-| **Trantor T130B** | ❌ **not started** | #1 in our own occupancy ranking and never examined. `pedis.py T130.MPD io` is one command | A10/A14, **A15 disconnect** |
+| **Trantor T130B** | 🟡 **Q1 done 2026-09-20** | Q1 ✅ **already string I/O**: `T130.MPD` calls `ScsiPortReadPortBufferUshort` (2 sites) and `ScsiPortWritePortBufferUshort` (1) for bulk, with `...PortUchar` (28 rd / 32 wr) for registers. **No lever here.** ⚠ `pedis.py io` alone shows one `in al, dx` — a SCSIPORT miniport does I/O through imported helpers, so count IAT call sites, not opcodes. Q2-Q6 open | **A15 disconnect** |
 | **The SCSI chain** (6 targets) | ❌ **not started** | Every target has a cache. Disconnect probably off. Mode page 8 readable in one DOS run | A15, A16 |
 | **3C509B** | ❌ **not started** | On-card packet buffer, size unknown; is it drained in bulk? | A13 |
 | **Floppy / `HSFLOP.PDR`** | 🟡 partial | Q6: polls hard during a seek. We already patch this binary | D4, and it is the instrument for A3/A4 |

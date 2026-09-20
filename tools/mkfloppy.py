@@ -5,7 +5,16 @@ knows exactly. Formatting inside the guest is not an option: the 32-bit
 floppy driver is the thing under test, so a guest-side FORMAT would be
 writing with the code we are trying to judge.
 
-Files go in afterwards with tools/fatcp.py, which already speaks FAT12.
+Files go in afterwards with tools/fatcp.py - except that fatcp.py is FAT16
+only despite its docstring (issue #36), so use add_file() below instead.
+
+WARNING, 2026-09-20: an image from this tool has never been validated by an
+independent reader. Its boot sector carries a 0x55AA signature with NO boot
+code, and DOS reported "General failure reading drive A:" against one. That
+result was withdrawn precisely because the media could not be trusted - the
+image and its only checker came from the same untested code. Before using
+one as the medium in a test, have something else read it: format inside a
+guest under a known-good configuration, or verify with a separate reader.
 """
 import os
 import sys
