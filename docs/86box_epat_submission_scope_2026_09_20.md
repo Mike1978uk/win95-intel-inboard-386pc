@@ -120,3 +120,38 @@ that it should not now be rewritten to use them instead of its own framing.
 ⚠ **"Hooks with no consumer" is a fair review objection.** The three `ecp_*`
 callbacks are only justified by a device that uses them, so the small PR and
 the bridge probably have to go up together after all.
+
+---
+
+## It builds on current master
+
+Applied to a worktree at `5731e20a3` and built with the same MinGW/Ninja
+toolchain the project uses. **One compile error, one line to fix:**
+
+```
+src/disk/hdd.c: error: duplicate case value
+    case TAPE_BUS_LPT:            <- upstream added this since our merge base
+    previously used here: case CDROM_BUS_LPT:
+```
+
+Both are `6`. Upstream has independently grown LPT-attached device support and
+already maps that value to `"lpt"` - `scsi_tape.h` even comments that it
+*"coincides with HDD_BUS_LPT/CDROM_BUS_LPT for config strings"*. **Our case was
+redundant**, so the fix is to delete ours, which is also the minimal diff.
+
+With that one deletion: **`[362/362] Linking CXX executable src\86Box.exe`.**
+
+The working patch is kept as
+`docs/upstream_patches/epat_on_master_5731e20a3.patch` - **9 files, 1,693
+insertions, 21 deletions**, which is a reviewable size.
+
+| | |
+|---|---|
+| applies to master | ✅ no conflicts |
+| builds on master | ✅ after one redundant case removed |
+| **runs** | ⏳ bed run in progress against the master binary |
+
+⛔ Still not to be pushed. "Builds" is not "works", and the PR also needs a
+decision on whether `lpt_epat.c` should be rewritten to use upstream's
+`strobe` / `epp_write_data` / `epp_request_read` rather than its own framing -
+a reviewer will ask.
