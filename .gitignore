@@ -63,6 +63,7 @@ __pycache__/
 # config that matters gets recorded in docs/, the image never belongs in git.
 # vm_win311/ is deliberately NOT here - it holds tracked deliverables (the Win 3.11 Inboard
 # drivers IBKBD.DRV / IBVKD.386, and the INT 15h shim source).
+vm_clean_epat/
 vm_alias_*/
 vm_fdd/
 vm_fenix/

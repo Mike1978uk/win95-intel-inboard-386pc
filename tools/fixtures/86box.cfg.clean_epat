@@ -1,0 +1,45 @@
+[General]
+emu_build_dynarec_type = old
+update_icons = 0
+
+[Machine]
+cpu_family = i486dx
+cpu_multi = 1
+cpu_speed = 33333333
+cpu_use_dynarec = 0
+machine = ami495
+mem_size = 16384
+
+[Video]
+gfxcard = et4000ax
+
+[Input devices]
+keyboard_type = internal
+mouse_type = none
+tablet_type = none
+
+[Storage controllers]
+hdc = ide_isa
+
+[Hard disks]
+hdd_01_fn = ls120win.img
+hdd_01_ide_channel = 0:0
+hdd_01_parameters = 63, 16, 3949, 0, ide
+hdd_01_speed = ramdisk
+
+[Floppy and CD-ROM drives]
+fdd_01_type = 35_2hd
+fdd_02_type = none
+
+[Ports (COM & LPT)]
+lpt1_device = lpt_epat
+
+[Other removable devices]
+rdisk_01_image_path = rd.img
+rdisk_01_lpt_port = 0
+rdisk_01_parameters = 6, lpt
+
+[Shuttle EPAT parallel-port ATAPI bridge]
+port = 0
+busy_ms = 750
+reset_ms = 2500
