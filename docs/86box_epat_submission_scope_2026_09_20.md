@@ -155,3 +155,20 @@ insertions, 21 deletions**, which is a reviewable size.
 decision on whether `lpt_epat.c` should be rewritten to use upstream's
 `strobe` / `epp_write_data` / `epp_request_read` rather than its own framing -
 a reviewer will ask.
+
+### ⚠ A Release build of master writes no log
+
+The master worktree was configured with a plain `-DCMAKE_BUILD_TYPE=Release`,
+and 86Box compiles `pclog` out of a release build. So `-L` is accepted (both
+master and our fork parse `-L` / `--logfile`) and **nothing is written**.
+
+That is not a failure, but it means **a bed run against a release build cannot
+be validated from the emulator log**. Validate from inside the guest instead -
+extract `BOOTLOG.TXT` from the image afterwards and check the driver's
+`Initing` / `Init Success` pair and the `INITCOMPLETESUCCESS` entries for
+DiskTSD / SCSIPORT / VFAT / IFSMGR, and prove the log is from *this* run by
+diffing it against the source image's copy.
+
+For a run where the `[ECPDIAG]` and EPAT trace output is actually wanted,
+configure the worktree the way the project's own build is configured rather
+than a bare Release.
