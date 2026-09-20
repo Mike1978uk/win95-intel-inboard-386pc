@@ -171,6 +171,29 @@ sixteen times over and verifies in seconds. `TBS` writes FC to its own
    still be real; nothing establishes it. Do not rank it first again without a
    verified pair.
 
+## 5b. ⛔ The 86Box branch is NOT in a fit state to submit
+
+Checked 2026-09-20 with the repo-hygiene procedure.
+
+`86box_upstream` is on **`lpt-epat-bridge`**, **34 commits ahead** of
+`86Box/86Box` master and **21,833 behind**. A PR from that base is
+unmergeable, and the branch is not submission-shaped regardless:
+
+- it carries **`03ddc5eb1`**, TC1995's own upstream Mach8 fix cherry-picked in,
+  which would conflict with itself;
+- it carries project-only diagnostics - `LS-120 trace ring dump to the host`,
+  `Make the leftover diagnostics opt-in`;
+- `src/io.c` holds an uncommitted access-width tally added today as a local
+  instrument. **It must not go upstream.**
+
+What a submission needs: rebase onto current master, drop the cherry-pick,
+drop or gate the diagnostics, squash ~34 iterative commits into a coherent
+series, and a PR body saying what was tested and what was not. That is a
+session of its own.
+
+⛔ Standing rule: no push to the fork without the owner's yes on a **tested**
+branch (`feedback-no-pushes-without-go-ahead`).
+
 ## 6. Method notes worth keeping
 
 - `run_command` over COMrade **times out at 8 s while the machine carries on**.
