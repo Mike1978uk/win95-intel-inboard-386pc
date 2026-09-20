@@ -753,10 +753,23 @@ Undocumented in the vendor README; they exist only as strings in the binary:
 
 `NONSTOP` · `NODETECT` · `LASTLPT` · `UNIDIR` · `NOFAST` · `BUSCLK` · `RESERVE`
 
-⛔ **Every test above was run with `NOFAST UNIDIR`** - which forces the slowest,
-unidirectional path. So the earlier claim that "the driver negotiated SPP
-nibble" is wrong: it was *told* to. The owner spotted this from the Toshiba
+⛔ **Every test in the bed above was run with `NOFAST UNIDIR`** - which forces
+the slowest, unidirectional path. So the earlier claim that "the driver
+negotiated SPP nibble" is wrong: it was *told* to, by a switch line **I**
+suggested for XT safety on the 5160. The owner spotted it from the Toshiba
 reporting ECP at boot.
+
+⭐ **On the real machine no switches were ever used.** The vendor installer
+wrote, and the Libretto has been running:
+
+```
+CONFIG.SYS    device=pcdrompcddrv.sys /d:bpcddrv$
+AUTOEXEC.BAT  IF EXIST BPCDDRV$ \BPCDROM\MSCDEX /D:BPCDDRV$
+```
+
+Read off the machine over COMrade rather than assumed. The driver has been at
+full defaults on hardware throughout, and works. Note `/d:` is taken by the
+**driver** as well as by MSCDEX - it names the device.
 
 Re-run in the bed with **no switches at all**, the driver does try harder:
 
