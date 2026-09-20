@@ -128,6 +128,8 @@ rebuildable.
 | baseline | `20535159` | `-PollBackoff -FastXfer` |
 | test | `01be936b` | `-PollBackoff -FastXfer -PhysBreaks 17` |
 
+Byte-diffing the two bed builds proves the switch is both live and minimal: **exactly one code byte differs, offset `0x0D5E`, `0x00 -> 0x11` = 17.** The other five differing bytes are the PE timestamp and checksum. Nothing else in the driver moved.
+
 Pre-flight: `XT_MAX_CHUNK` is 128 sectors (fits the 8-bit ATA count register),
 all request state is `dd`, and `XferRun` already loops chunks - so a larger SRB
 is handled. **The untested surface is that 64 KB has never actually been
