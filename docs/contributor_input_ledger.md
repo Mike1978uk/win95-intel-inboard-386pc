@@ -264,9 +264,14 @@ Two things came out of it that are worth more than the device:
    drive that enumerates and returns no data on every command, INQUIRY included. It cost
    a session to find.
 
-⏳ **Owed**: tell both that it is built and reading, and that the answer to "is BackPack
-already in 86Box?" is *the protocol yes, the drive no* — `lpt_ditto.c` carries the
-Micro Solutions wire protocol for the Iomega Ditto **tape**, which is a different
+✅ **Submitted upstream as [86Box/86Box#8012](https://github.com/86Box/86Box/pull/8012)**,
+based on #8010 which supplies the `lpt` bus keyword. Three commits: `CDROM_BUS_LPT`
+implemented, the BackPack device, and the EPAT taught to carry a CD.
+
+⏳ **Owed**: tell both that it is built, reading, and submitted; and that the answer to
+"is BackPack already in 86Box?" is *the protocol yes, the drive no* — `lpt_ditto.c`
+carries the Micro Solutions wire protocol for the Iomega Ditto **tape**, a different
 product. That distinction cost real time here and is worth stating plainly.
 
-⚠ **Nothing has been posted.** Wording to be approved by the owner first.
+⚠ **No reply has been posted to either of them.** Wording to be approved by the owner
+first.

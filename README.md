@@ -176,11 +176,17 @@ and there was nothing to configure.
 ## Upstream
 
 **The Intel Inboard 386/PC is part of 86Box.** All eight Inboard PRs raised from this project are
-merged. One further submission is **open**: [#8010](https://github.com/86Box/86Box/pull/8010), a
-parallel-port LS-120 - the Shuttle EPAT bridge, the ECP path an LPT device needs to carry payload,
-and the SuperDisk `rdisk` type upstream already had behind `#if 0`. Tested on master: the drive
-enumerates, reads and writes; a non-LPT machine is unaffected; the SuperDisk also works on SCSI
-with no bridge.
+merged. **Two** further submissions are **open**:
+
+- [#8010](https://github.com/86Box/86Box/pull/8010), a parallel-port LS-120 - the Shuttle EPAT
+  bridge, the ECP path an LPT device needs to carry payload, and the SuperDisk `rdisk` type
+  upstream already had behind `#if 0`. Tested on master: the drive enumerates, reads and writes;
+  a non-LPT machine is unaffected; the SuperDisk also works on SCSI with no bridge.
+- [#8012](https://github.com/86Box/86Box/pull/8012), a parallel-port **CD-ROM** - `CDROM_BUS_LPT`
+  implemented (it was declared and used by nothing), the Micro Solutions BackPack modelled from a
+  real drive, and the EPAT taught to carry a CD as well as a removable disk. Based on #8010,
+  which supplies the `lpt` bus keyword. The vendor DOS driver, in its own installer's
+  configuration, enumerates the drive and MSCDEX reads an ISO.
 
 | PR | What it fixed |
 |---|---|
@@ -193,6 +199,7 @@ with no bridge.
 | [#7771](https://github.com/86Box/86Box/pull/7771) | The XT 4-bit DMA page latch — truncation was gated on `dma_at`, so an Inboard got an 8-bit page register it does not physically have |
 | [#7858](https://github.com/86Box/86Box/pull/7858) | XT-IDE logging was inert on the plain card — only `jride_init()` opened a log handle, so `xtide_log()` wrote to NULL |
 | [#8010](https://github.com/86Box/86Box/pull/8010) | **OPEN** - a parallel-port LS-120: the Shuttle EPAT bridge, three optional ECP callbacks on `lpt_device_t`, and the SuperDisk drive type enabled |
+| [#8012](https://github.com/86Box/86Box/pull/8012) | **OPEN** - a parallel-port CD-ROM: `CDROM_BUS_LPT` implemented, the Micro Solutions BackPack modelled from hardware, and a `scsi_cdrom_current_mode()` fix - an unrecognised bus got "no transfer", so the drive enumerated and returned no data for any command |
 
 Between them these close [86Box/86Box#7638](https://github.com/86Box/86Box/issues/7638) (all memory
 reported "BAD", 640K available) and this repo's issues #11, #12, #13 and #16.
