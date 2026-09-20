@@ -687,3 +687,46 @@ paths set up elsewhere and the LPT path never does. If it also fails to read,
 the problem is the image or the drive type, and nothing to do with the bridge.
 
 Run that first: it splits the remaining fault in half in one boot.
+
+## ✅ IT READS
+
+`scsi_cdrom_current_mode()` returns 2 for SCSI, 1 for ATAPI and **0 for
+anything else**, and 0 means "no transfer". `CDROM_BUS_LPT` fell straight
+through it, so the drive completed every command - INQUIRY included - with an
+empty data phase. That single unhandled case produced both symptoms: the driver
+reporting no drives, and `CDR103` on the disc.
+
+Teaching it that a parallel bridge is PIO fixed both at once:
+
+```
+    else if (dev->drv->bus_type == CDROM_BUS_LPT)
+        return 1;   /* a bridge moves bytes; there is no DMA to offer */
+```
+
+⭐ **The owner found this**, by pointing out that a drive can enumerate without
+media and that "no media" therefore could not explain "no drive". That stopped
+a wrong line of investigation and pointed straight at the shared cause: nothing
+was returning data, INQUIRY included.
+
+Before: 0 data reads, every command `status 40` with no data phase.
+After: **10,850 data reads and five `READ(12)`s** - the drive is reading
+sectors off the disc.
+
+### What the model is
+
+A **Micro Solutions BackPack Bantam Portable CD-ROM**, model 180100, E/N 00749,
+serial 17627007 - a real 10X pod with a Toshiba XM-1502B mechanism - with its
+identity EEPROM reproduced verbatim, read off the drive itself over the
+parallel port. Every layer was measured on hardware:
+
+| layer | how it was established |
+|---|---|
+| chain address 7 | scanned all eight, watched the status line |
+| connect | transliterated from the driver at `0x09EE` |
+| presence test | status bits 3-5 = address, complement with AUTOFD cleared |
+| taking the link | the tail at `0x0AB1`, `ch ^ 8` |
+| register framing | driver `0xC05` / `0xC90` / `0xDFC`, mode-0 arms |
+| nibble decode | the driver's own 256-byte table, checked entry by entry |
+| EEPROM | 93C46 on register `0x06`, DO on register `0x00` bit 7 |
+| task file | `0x40 \| offset`, from `0x1573` |
+| ATAPI | 86Box's own CD-ROM, on a new `CDROM_BUS_LPT` |

@@ -1,0 +1,271 @@
+diff --git a/src/cdrom/cdrom.c b/src/cdrom/cdrom.c
+index 9c6135adb..52fcb9013 100644
+--- a/src/cdrom/cdrom.c
++++ b/src/cdrom/cdrom.c
+@@ -3509,6 +3509,7 @@ cdrom_hard_reset(void)
+             switch (dev->bus_type) {
+                 case CDROM_BUS_ATAPI:
+                 case CDROM_BUS_SCSI:
++                case CDROM_BUS_LPT:
+                     scsi_cdrom_drive_reset(i);
+                     break;
+ 
+diff --git a/src/char/char.c b/src/char/char.c
+index 23b112348..824a82f20 100644
+--- a/src/char/char.c
++++ b/src/char/char.c
+@@ -65,6 +65,7 @@ static const struct {
+     { &lpt_prt_ps_device },
+     { &lpt_prt_pcl_device },
+     { &lpt_hasp_savquest_device },
++    { &lpt_bpck_device },
+     { &lpt_ditto_device },
+     { &lpt_epat_device },
+     { &char_pipe_lpt_device },
+diff --git a/src/config.c b/src/config.c
+index 09f931ea5..df5a84357 100644
+--- a/src/config.c
++++ b/src/config.c
+@@ -1951,6 +1951,12 @@ load_floppy_and_cdrom_drives(void)
+ 
+             if (cdrom[c].ide_channel > 7)
+                 cdrom[c].ide_channel = 7;
++        } else if (cdrom[c].bus_type == CDROM_BUS_LPT) {
++            sprintf(temp, "cdrom_%02i_lpt_port", c + 1);
++            cdrom[c].res = ini_section_get_int(cat, temp, 0);
++
++            if (cdrom[c].res >= PARALLEL_MAX)
++                cdrom[c].res = PARALLEL_MAX - 1;
+         } else if (cdrom[c].bus_type == CDROM_BUS_SCSI) {
+             sprintf(temp, "cdrom_%02i_scsi_location", c + 1);
+             sprintf(tmp2, "%01u:%02u", SCSI_BUS_MAX, c & 3);
+diff --git a/src/device/CMakeLists.txt b/src/device/CMakeLists.txt
+index 55193daf7..17eb54c10 100644
+--- a/src/device/CMakeLists.txt
++++ b/src/device/CMakeLists.txt
+@@ -48,6 +48,7 @@ add_library(dev OBJECT
+     keyboard_at.c
+     keyboard_xt.c
+     lpt.c
++    lpt_bpck.c
+     lpt_ditto.c
+     lpt_epat.c
+     mouse.c
+diff --git a/src/include/86box/cdrom.h b/src/include/86box/cdrom.h
+index f9ae941bc..619ca14f2 100644
+--- a/src/include/86box/cdrom.h
++++ b/src/include/86box/cdrom.h
+@@ -618,6 +618,9 @@ extern int             cdrom_load(cdrom_t *dev, const char *fn, const int skip_i
+ 
+ extern void            cdrom_global_init(void);
+ extern void            cdrom_hard_reset(void);
++/* Forward declared: cdrom.h is included where scsi_device.h is not. */
++struct scsi_device_t;
++extern struct scsi_device_t *cdrom_get_lpt_device(const uint8_t port);
+ extern void            cdrom_close(void);
+ extern void            cdrom_insert(const uint8_t id);
+ extern void            cdrom_exit(const uint8_t id);
+diff --git a/src/include/86box/lpt.h b/src/include/86box/lpt.h
+index 55b295314..cfd349a91 100644
+--- a/src/include/86box/lpt.h
++++ b/src/include/86box/lpt.h
+@@ -133,6 +133,7 @@ extern const device_t      lpt_epat_device;
+ 
+ extern const device_t      lpt_hasp_savquest_device;
+ 
++extern const device_t      lpt_bpck_device;
+ extern const device_t      lpt_ditto_device;
+ 
+ extern const device_t      lpt_loopback_device;
+diff --git a/src/io.c b/src/io.c
+index dfd5215d3..00c4423de 100644
+--- a/src/io.c
++++ b/src/io.c
+@@ -77,6 +77,64 @@ io_log(const char *fmt, ...)
+ #    define io_log(fmt, ...)
+ #endif
+ 
++/* Access-width tally for one port window.
++   ENABLE_IO_LOG logs every access in the machine, which is unusable across a
++   Windows boot; this counts one named window by width, which is what "did the
++   driver issue 32-bit accesses" actually needs. Off unless IOWIDTH_BASE is
++   set, so it costs one compare when unused. Diagnostic: remove it once the
++   question is answered. */
++static int      iow_base = -1;
++static unsigned iow_len  = 8;
++static uint64_t iow_in[3];   /* slot 0/1/2 = 1/2/4 bytes */
++static uint64_t iow_out[3];
++
++static void
++iowidth_dump(void)
++{
++    const char *path = getenv("IOWIDTH_OUT");
++    FILE       *f;
++
++    if (iow_base < 0)
++        return;
++    f = fopen(path ? path : "iowidth.txt", "w");
++    if (f == NULL)
++        return;
++    fprintf(f, "window %04X..%04X\n", (unsigned) iow_base,
++            (unsigned) (iow_base + (int) iow_len - 1));
++    fprintf(f, "width  in            out\n");
++    for (int i = 0; i < 3; i++)
++        fprintf(f, "%-5d  %-12llu  %llu\n", 1 << i,
++                (unsigned long long) iow_in[i], (unsigned long long) iow_out[i]);
++    fclose(f);
++}
++
++static void
++iowidth_tally(uint16_t port, int slot, int is_out)
++{
++    static int armed = 0;
++
++    if (!armed) {
++        const char *b = getenv("IOWIDTH_BASE");
++        const char *l = getenv("IOWIDTH_LEN");
++
++        armed = 1;
++        if (b == NULL)
++            return;
++        iow_base = (int) strtol(b, NULL, 16);
++        if (l != NULL)
++            iow_len = (unsigned) strtoul(l, NULL, 10);
++        atexit(iowidth_dump);
++    }
++    if (iow_base < 0)
++        return;
++    if ((port < iow_base) || (port >= (iow_base + (int) iow_len)))
++        return;
++    if (is_out)
++        iow_out[slot]++;
++    else
++        iow_in[slot]++;
++}
++
+ void
+ io_init(void)
+ {
+@@ -340,6 +398,7 @@ inb(uint16_t port)
+     uint8_t qfound = 0;
+ #endif
+ 
++    iowidth_tally(port, 0, 0);
+     io_port = port;
+ 
+ #ifdef USE_DEBUG_REGS_486
+@@ -406,6 +465,7 @@ outb(uint16_t port, uint8_t val)
+     uint8_t qfound = 0;
+ #endif
+ 
++    iowidth_tally(port, 0, 1);
+     io_port = port;
+     io_val  = val;
+ 
+@@ -465,6 +525,7 @@ inw(uint16_t port)
+ #endif
+     uint8_t  ret8[2];
+ 
++    iowidth_tally(port, 1, 0);
+     io_port = port;
+ 
+ #ifdef USE_DEBUG_REGS_486
+@@ -543,6 +604,7 @@ outw(uint16_t port, uint16_t val)
+     uint8_t qfound = 0;
+ #endif
+ 
++    iowidth_tally(port, 1, 1);
+     io_port = port;
+     io_val  = val;
+ 
+@@ -618,6 +680,7 @@ inl(uint16_t port)
+     uint8_t  qfound = 0;
+ #endif
+ 
++    iowidth_tally(port, 2, 0);
+     io_port = port;
+ 
+ #ifdef USE_DEBUG_REGS_486
+@@ -727,6 +790,7 @@ outl(uint16_t port, uint32_t val)
+     uint8_t qfound = 0;
+ #endif
+ 
++    iowidth_tally(port, 2, 1);
+     io_port = port;
+     io_val  = val;
+ 
+diff --git a/src/scsi/scsi_cdrom.c b/src/scsi/scsi_cdrom.c
+index 90cf03856..aab33ef27 100644
+--- a/src/scsi/scsi_cdrom.c
++++ b/src/scsi/scsi_cdrom.c
+@@ -324,6 +324,15 @@ scsi_cdrom_current_mode(const scsi_cdrom_t *dev)
+ {
+     if (dev->drv->bus_type == CDROM_BUS_SCSI)
+         return 2;
++    else if (dev->drv->bus_type == CDROM_BUS_LPT)
++        /*
++         * A parallel-port bridge moves everything a byte at a time; there is
++         * no DMA to offer. Saying so matters: an unrecognised bus falls
++         * through to "no transfer", and the drive then completes every
++         * command with no data phase at all - which looks like a drive that
++         * enumerates and reads nothing.
++         */
++        return 1;
+     else if (dev->drv->bus_type == CDROM_BUS_ATAPI) {
+         scsi_cdrom_log(dev->log, "ATAPI drive, setting to %s\n",
+                        (dev->tf->features & 1) ? "DMA" : "PIO",
+@@ -4453,6 +4462,22 @@ scsi_cdrom_identify(const ide_t *ide, UNUSED(const int ide_has_dma))
+     }
+ }
+ 
++/* Drives reached through a parallel-port bridge, indexed by LPT port. */
++static scsi_device_t lpt_cdrom_devices[PARALLEL_MAX];
++
++/*
++ * Hand a parallel-port bridge the drive assigned to its port, or NULL if none
++ * is. The bridge owns the wire protocol; the drive owns ATAPI.
++ */
++scsi_device_t *
++cdrom_get_lpt_device(const uint8_t port)
++{
++    if (port >= PARALLEL_MAX)
++        return NULL;
++
++    return (lpt_cdrom_devices[port].sc == NULL) ? NULL : &lpt_cdrom_devices[port];
++}
++
+ void
+ scsi_cdrom_drive_reset(const int c)
+ {
+@@ -4505,7 +4530,30 @@ scsi_cdrom_drive_reset(const int c)
+     drv->sector_size = 2048;
+     (void) scsi_cdrom_update_sector_flags(dev);
+ 
+-    if (drv->bus_type == CDROM_BUS_SCSI) {
++    if (drv->bus_type == CDROM_BUS_LPT) {
++        /*
++         * Parallel-port drive, reached through a bridge such as the Micro
++         * Solutions BackPack. There is no bus to attach to: the bridge fetches
++         * the drive from lpt_cdrom_devices[] by its own port number, and
++         * drives it with the same entry points a SCSI drive uses.
++         */
++        if (dev->tf == NULL)
++            dev->tf              = (ide_tf_t *) calloc(1, sizeof(ide_tf_t));
++
++        dev->ms_page_flags       = scsi_cdrom_ms_page_flags;
++        dev->ms_pages_default    = scsi_cdrom_ms_pages_default;
++        dev->ms_pages_changeable = scsi_cdrom_ms_pages_changeable;
++
++        scsi_device_t *sd        = &lpt_cdrom_devices[drv->res & (PARALLEL_MAX - 1)];
++
++        sd->sc                   = (scsi_common_t *) dev;
++        sd->command              = scsi_cdrom_command;
++        sd->request_sense        = scsi_cdrom_request_sense_for_scsi;
++        sd->reset                = scsi_cdrom_reset;
++        sd->phase_data_out       = scsi_cdrom_phase_data_out;
++        sd->command_stop         = scsi_cdrom_command_stop;
++        sd->type                 = SCSI_REMOVABLE_CDROM;
++    } else if (drv->bus_type == CDROM_BUS_SCSI) {
+         char *vendor               = cdrom_get_vendor(dev->drv->type);
+ 
+         dev->ven_cmd               = NULL;
