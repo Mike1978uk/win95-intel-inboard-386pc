@@ -163,3 +163,46 @@ is exactly how the EPAT's chip-version check was found.
 
 - CF comes local → add `/fe` to the INF `AdapterSettings` for EPP.
 - #29 needs an **SB Pro DMA** harness written before any more machine time.
+
+---
+
+# The standard for the parallel-bridge work
+
+Owner, 2026-09-20: *"it's not linked to an xt and the inboard or project... if
+we can test and it works in vm then it's a pass"*.
+
+**None of the parallel-port work is Inboard-specific** - not the EPAT bridge,
+not EPP, not BackPack. Framing it around this project is a weakness, not
+provenance:
+
+- a reviewer should not have to evaluate an Inboard-equipped XT to judge a
+  parallel device
+- the XT bed carries confounds that have nothing to do with the bridge - 8259
+  aliasing, a 4.77 MHz bus, the Inboard's own quirks
+- a **stock emulated PC with an ordinary parallel port** is both the cleaner
+  claim and the cleaner test
+
+PR #8010 edited accordingly, in one batched edit: the `ibmxt_inboard386`
+reference and the "author's own machine" sentence are gone.
+
+## What this means for testing
+
+⭐ **Acceptance is a generic VM**, not the 5160 and not the Inboard bed. The
+cheapest route with assets already held: boot the existing disk image to
+**DOS** on a generic machine type, load the vendor driver, and look for the
+drive. No Windows re-detection, no Inboard, no floppies.
+
+Applies equally to BackPack (#37) and to the EPP wiring (#38, branch
+`epat-epp`, `d38a636c3`).
+
+## ⛔ EPP is implemented and is NOT the blocker
+
+Direct test against a registry that forces `/fe`: **zero EPP lines**. The
+driver stops after the CPP chain scan (`unit 0 -> FFAA`, `1-7 -> 0000`) and
+never issues `CONNECT`. Three theories for this one symptom have now been
+wrong - trace build, then EPP, now the scan - and only this elimination was
+by test rather than argument.
+
+Next, both offline: what the vendor driver compares the scan ID against
+(`SD120PPD_SYS.asm` at `0x2767` stores it at `[0xbbe]`), and ruling out the
+boring explanation that the bed's LPT address does not match `PORT=0x378`.
