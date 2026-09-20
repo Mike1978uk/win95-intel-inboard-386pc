@@ -95,7 +95,43 @@ to 2.861 us/byte for a memory read is the memory/IO distinction, not direction.
 |---|---|---|
 | Lo-tech XT-CF rev 3 | I/O `0x300-0x31F` only | **no** - ports are all it has |
 | Intek21 parallel | I/O `0x378` only | **no** |
-| **Trantor T130B** | has a `bios_addr` memory window, currently `0` | **worth checking** - Trantor cards commonly map the NCR5380 into memory, and if the data register is reachable there it is a 2x lever on the SCSI path |
+| **Trantor T130B** | none - **checked, see below** | **no** |
+| Mach8 video | framebuffer at `0xA0000`/`0xB8000` | already memory-mapped, already collecting this |
+
+## ⛔ The T130B has no memory window. Checked 2026-09-20, avenue closed.
+
+Three independent lines, all negative:
+
+1. **No Trantor ROM is present.** A `55 AA` scan of `C000`-`E000` found exactly
+   two option ROMs: `0xD8000` is `XUB212-=-XTIDE Universal BIOS (XT+)=-` r638,
+   and `0xD0000` is a **floppy BIOS** - its own config words read base `0x03F0`,
+   IRQ `6`, second channel `0x0000`. Neither is the T130B, which matches
+   `bios_addr=0`.
+2. **The vendor's resource declaration has no memory range.**
+   `T130.INF`'s `[*T130.LogConfig]` lists `IOConfig`, `IRQConfig` and
+   `DMAConfig=0`, and **no `MemConfig`**. A card with an aperture declares one.
+3. **The shipped driver is I/O-space only.** `T130.MPD` imports
+   `ScsiPortRead/WritePortUchar`, `...PortUshort` and `...PortBufferUshort` -
+   all I/O - and nothing memory-mapped.
+
+What would reopen it: documentation of a T130B memory decode with no ROM, or
+fitting a **T128**, which is the memory-mapped member of the family.
+
+## So the finding is currently unexploitable, and that is the honest summary
+
+Every data path on this machine except video is port-only: XT-CF `0x300-0x31F`,
+Intek21 `0x378`, T130B `0x340`, 3C509B `0x320`, SB Pro `0x220`. **The only
+memory-mapped data path is the Mach8 framebuffer, which already gets the
+benefit.** Nothing in the storage stack can collect the 2.87 us today.
+
+It still changes three things:
+- **Card selection.** Any future card with a data aperture is worth ~2x over an
+  equivalent port-mapped one, and that is now a measured number rather than a
+  hunch.
+- **The cost model.** The 3.90 us sync is an **I/O** figure. Do not apply it to
+  memory-mapped work; memory is 0.883 us.
+- **Emulator fidelity.** 86Box charges I/O and memory ISA accesses alike. The
+  real machine does not, by 4.25x on the fixed term.
 
 ⛔ This does not rescue the LS-120 or XT-IDE paths. Both are port-only by
 construction, and for them the width work stands as the lever.
