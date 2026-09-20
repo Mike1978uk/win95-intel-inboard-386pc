@@ -46,11 +46,13 @@ their plumbing, and the `rdisk` change is an attach path.
 
 ## Tested
 
-- **Builds clean** on `5731e20a3` with GCC 14 / MinGW / Ninja on Windows,
-  `-Werror` settings as configured by the project's own CMake.
-- **Runs**: 86Box boots a Windows 95 guest on `ibmxt_inboard386` with an
-  LS-120 attached to LPT1 through this bridge; the guest's miniport reaches the
-  drive and issues ATAPI packets over it.
+- **Builds clean on current master** (`5731e20a3`) with GCC / MinGW / Ninja on
+  Windows, `-Werror` settings as configured by the project's own CMake.
+- **Runs, on a fork.** 86Box boots a Windows 95 guest on `ibmxt_inboard386`
+  with an LS-120 attached to LPT1 through this bridge; the guest's miniport
+  reaches the drive and the bridge returns the drive's real ATAPI signature
+  (`14 EB`). **This was on a build several thousand commits behind master, not
+  on master itself** - see "Still open" below.
 - Developed against a **real** Imation LS-120 on a real IBM 5160 with a
   Shuttle EPAT bridge, with the emulated bridge's behaviour checked against
   register captures taken from the physical device.
@@ -64,6 +66,9 @@ their plumbing, and the `rdisk` change is an attach path.
 - **No real-hardware chardev passthrough** through the new ECP callbacks — they
   are used by the emulated device path only.
 - Tested on Windows hosts only.
+- ⛔ **Not run on master.** It compiles there; it has not been executed there.
+- ⛔ **No non-LPT regression run** on the patched build. The changes are
+  reviewed as additive and NULL-guarded, but that is reasoning, not a result.
 
 ---
 
