@@ -153,6 +153,10 @@ arguments at load time and will silently corrupt the surrounding command.
 - Never propose disabling `INBRDPC.SYS` as a test variable; it is required, not optional.
 - Closing the loop with a contributor whose input was verified, shipped, or disproved is
   a deliverable, not a nicety. Ledger: `docs/contributor_input_ledger.md`.
+- **Always thank them for their continued input.** A reply that is all findings and no
+  thanks reads as extraction. These people steer the project for nothing — @andrew-hoffman
+  has changed its direction repeatedly — and the thanks is the part that keeps them
+  engaged. Drafts have gone out without it; put it in before showing the owner.
   **This applies to people who engaged with this project** — raised an issue, answered a
   question, sent a config. It does **not** extend to every source cited: for a public
   write-up we merely relied on, credit by reference is sufficient and no reply is owed.
