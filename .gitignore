@@ -126,3 +126,4 @@ vm_mach8_master/
 # Build product of drivers/imation_ls120/tools/ecpprobe.py - regenerate, do not track
 drivers/imation_ls120/tools/ECPPROBE.COM
 .aider*
+vm_bpck/
