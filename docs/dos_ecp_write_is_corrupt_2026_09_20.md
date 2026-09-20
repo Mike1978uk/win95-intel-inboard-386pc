@@ -104,3 +104,54 @@ not a result"* - applied to a **positive** one, and it cost a session's
 priorities. Technique 79 exists for exactly this: the read-back must come from
 outside the code under test. The Windows arm had it, the DOS arm did not, and
 the two were compared anyway.
+
+---
+
+## Second run: it reproduces, but the 16 KB boundary does not
+
+Different cartridge, **create** path (target deleted first), 256 KB
+(`BOUND256.BIN`) via `TBS D:`.
+
+| | |
+|---|---|
+| copy | 16:48:12.68 -> 16:48:19.38 = **6.70 s** for 262,144 B = **25.6 us/byte** |
+| `FC /B` output | **1,163,550 bytes** of difference records |
+| first difference | **`0x8800` (34,816)** - *not* `0x4001` |
+
+⛔ **So "corrupts past the first 16 KB" is withdrawn as a general claim.** One
+run, one offset. Corruption reproduces; its boundary does not. The issue title
+has been corrected.
+
+### The wrong data is structured, and that is the lead
+
+Expected at `0x8800` is `00 22 00 00` - correct for the test file, whose dword
+N sits at offset 4N. What came back:
+
+```
+00008800: 00 30      00008804: 01 B0      00008808: 02 30
+00008801: 22 B8      00008805: 22 B0      0000880A: 00 31
+00008802: 00 21      00008807: 00 20      0000880C: 03 30
+```
+
+`30` `31` `20` `21` are ASCII `0` `1` space `!`; `B0` and `B8` are CP437 shade
+blocks. **That is content, not noise** - no dropped bits, no shifted lanes, no
+random values. It reads like a buffer sourced from somewhere else entirely.
+
+⚠ **Direction unknown.** `FC` compares the source against the file read back
+**through the same drive**, so it cannot separate a bad write from a bad read.
+Every verification this project has done on this drive shares that weakness.
+
+### Why this run is not clean either
+
+- the cartridge reports a **~2.3 MB volume**, not 120 MB - most likely a BPB
+  damaged by this project's own raw-sector writes on 2026-09-14, whose output
+  files are still on the disk;
+- it wrote at **25.6 us/byte against 8.78** on the first cartridge, which
+  suggests a different and slower transfer mode;
+- a **`Not ready reading drive D`** appeared mid-run and was answered Abort.
+
+### What would settle it
+
+A **factory-fresh NOS 120 MB disk** - never written by this project, known
+geometry - at 256 KB and then 4 MB. That separates the three live candidates:
+**media**, **create vs overwrite**, and **transport**. Owner has unused stock.
