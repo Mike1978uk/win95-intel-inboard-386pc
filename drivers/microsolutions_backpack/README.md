@@ -273,3 +273,35 @@ capture the vendor driver's own port writes on a machine where it runs, or
 transliterate its `0xC05`/`0xD5F` primitives — which are jump-table dispatched
 by protocol mode, so they need a careful pass. Until then the connect sequence
 is unverified against the real pod, and everything above it is built on sand.
+
+## ⛔ The pod does not answer on the 5160 at all
+
+With `BPCDDRV.SYS NOFAST UNIDIR` loaded from the DOS prompt on the 5160, pod
+plugged in and powered, `CDDRIVES.EXE` reports:
+
+```
+BPDRIVES Version 4.00
+No BACKPACK drives are available.
+```
+
+So the **vendor's own driver does not detect the pod on this machine**. Three
+observations now agree: the driver finds nothing, `BPCKEE.COM` returned 128
+zero bytes, and the status register never moved across a hand-driven knock.
+
+⛔ **This supersedes the conclusion above that "the knock is wrong".** The knock
+may well be wrong — it is still unverified against real hardware — but it is not
+what is being measured here, because nothing answers the vendor sequence either.
+The fault is below the protocol.
+
+What it is not: the parallel port itself, which carries the EPAT/LS-120 bridge
+on this same machine at `0x378`.
+
+Worth checking next, cheapest first: pod power supply actually delivering;
+the cable; whether this pod needs a bidirectional or EPP-capable port that the
+5160's card does not provide; and whether the drive behind the bridge spins up
+at all. **Until the pod answers something, no emulator work can be validated
+against it** - and the bed cannot substitute, because both sides of the
+handshake there are ours.
+
+✅ The keyboard survived `NOFAST UNIDIR`, so the `0x22`/`0x23` hazard did not
+bite on this path.
