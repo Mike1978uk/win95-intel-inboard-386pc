@@ -7,29 +7,58 @@ questions at the bottom answered first.
 
 ## Title
 
-> Add a Shuttle EPAT parallel-port ATAPI bridge, and let an emulated LPT device serve ECP
+> Add a working parallel-port LS-120: the Shuttle EPAT bridge, and the ECP path a device needs
 
 ## Body
 
-86Box can attach a CD-ROM or removable disk to a parallel port, but it has no
-model of the bridge chips that real parallel-port drives actually used. This
-adds one: the **Shuttle EPAT**, the bridge in the Imation SuperDisk LS-120
-parallel-port drive and in a good deal of other period kit.
+This adds a **complete, tested configuration**: an Imation LS-120 SuperDisk
+on LPT1, reached through a Shuttle EPAT bridge, enumerating as a drive letter
+in a Windows 95 guest and serving reads and writes. The EPAT is the bridge
+chip in the retail parallel-port LS-120 and in a good deal of other period
+kit.
 
-It also fixes a gap that blocks any such device. **The ECP FIFO is filled only
-by the chardev passthrough, so an ECP read from an emulated LPT device returns
-`0xFF` forever.** There is no path for a device to supply or receive ECP
-payload, and no way for it to see the forward address cycle that frames a
-block transfer. Three optional `lpt_device_t` callbacks fix that:
+### Why this is one change and not three
+
+The parts are inert on their own, so splitting them would mean landing
+something nobody can use:
+
+| part | alone it is |
+|---|---|
+| `lpt_epat.c`, the bridge | a chip with no drive behind it |
+| `RDISK_BUS_LPT` and its attach path | a bus with nothing on it |
+| enabling `RDISK_TYPE_SUPERDISK_120` | a drive with no medium it accepts |
+
+Taken together they are a drive that works. Reviewed as one transaction, it
+can be accepted or rejected on whether that drive is worth having.
+
+### The gap it closes
+
+**The ECP FIFO is filled only by the chardev passthrough, so an ECP read from
+an emulated LPT device returns `0xFF` forever.** There is no path for a device
+to supply or receive ECP payload, and no way for it to see the forward address
+cycle that frames a block transfer. Three optional `lpt_device_t` callbacks
+fix that:
 
 | callback | why |
 |---|---|
 | `ecp_read_data` | supply a byte when the FIFO is empty on a reverse transfer |
 | `ecp_write_data` | receive ECP payload on its own path, so a device that frames SPP block writes separately can tell an ECP byte from a stray one |
-| `ecp_write_addr` | the forward address/command cycle — the EPAT is commanded this way (`0x80` arms a block read, `0xC0` a block write, `0xA0` the last byte of a read) |
+| `ecp_write_addr` | the forward address/command cycle - the EPAT is commanded this way (`0x80` arms a block read, `0xC0` a block write, `0xA0` the last byte of a read) |
 
-All three are optional. A device that does not set them behaves exactly as
-before.
+All three are optional, and a device that does not set them behaves exactly as
+before. They are generic `lpt_device_t` hooks rather than EPAT-specific ones:
+the Shuttle EPAT is one of a family of parallel-ATAPI bridges - Linux's
+`paride` carries `epat`, `epia`, `bpck`, `comm`, `dstr`, `fit2`, `fit3`,
+`friq`, `frpw`, `kbic`, `ktti`, `on20`, `on26` - and any of them would land on
+the same foundation.
+
+### On the SuperDisk type
+
+86Box already had SuperDisk support written and switched off behind `#if 0` -
+the sector counts, the type table, the INQUIRY strings. This enables it and
+fills in the two `switch` cases in `rdisk.c` it needs. Because it is an
+ordinary `rdisk` type it also works on ATAPI and SCSI with no bridge at all,
+which is tested below.
 
 ## What it enables
 
