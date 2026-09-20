@@ -185,3 +185,46 @@ because the EEPROM reads as zeros. What it needs is:
 1. which bit of register `0x00` carries DO;
 2. the word layout it parses, and the value that says "CD-ROM";
 3. then the task file at `0x40` can be given an ATAPI drive.
+
+## The EEPROM protocol, verified
+
+Modelled in `lpt_bpck.c` and confirmed by trace: the driver reads **all 64
+words, addresses `00` to `3F` in order**. So the decode is right.
+
+| line | bit of register `0x06` |
+|---|---|
+| enable | `0x08` |
+| CS | `0x04` |
+| DI | `0x02` |
+| CLK | `0x01` |
+| DO | **bit 7 of register `0x00`** |
+
+Routines in the driver: `0x7736` CS on, `0x773E` CS off, `0x7752` clock one bit
+out, `0x7776` read DO, `0x7746` wait for ready, `0x77E9` write, `0x782D` read a
+word (`1`,`1`,`0`, six address bits, then 16 bits in MSB first).
+
+### The pod ID table, at `0x78E8`
+
+A 16-bit ID selects the pod type and its capability flags:
+
+| ID | effect |
+|---|---|
+| `0x0603`, `0x0604` | flag `0x20` |
+| `0x0401` | flags `0x10` and `0x02` |
+| `0x0402` | flag `0x08` |
+| `0x0801` | `[si+0x0C] = 6`, flag `0x02` |
+| `AH == 0x07` | `[si+0x13] = 5` |
+| `AH == 0x0D` | flag `0x04` |
+| `AH == 0x00` | probes the port for bidirectionality |
+| `0x1101` | flag `0x01`, and `[si+6] |= 0x41` |
+
+### What is still not known
+
+⛔ **Filling all 64 words with `0x1101` changed nothing** — the trace is
+identical and the task file at `0x40` is still never touched. So the ID is not
+read from a raw word: something validates the image first, a header or a
+checksum, and that check fails on a uniform pattern.
+
+⭐ **The cheapest way past this is the hardware.** The owner has the drive, so
+a dump of a real pod's 64 words settles the layout, the checksum and the ID in
+one go — no further disassembly. Until then the model reads as an erased part.

@@ -101,7 +101,26 @@ typedef struct bpck_s {
      * identifies the map before any of it is given behaviour.
      */
     uint8_t regs[256];
+
+    /*
+     * The 93C46 the pod identifies itself from. Register 0x06 carries the
+     * lines and register 0x00 bit 7 is DO, which is why a read of 0x00 is not
+     * simply the stored byte. Addressing, opcode and word size are the
+     * standard part; only the contents are ours to supply.
+     */
+    uint8_t  ee_lines;
+    uint16_t ee_shift;   /* command being clocked in */
+    int      ee_bits;    /* bits clocked since CS rose */
+    uint16_t ee_out;     /* word being clocked out */
+    int      ee_reading;
+    int      ee_do;
+    uint16_t ee_data[64];
 } bpck_t;
+
+#define BPCK_EE_ENABLE 0x08
+#define BPCK_EE_CS     0x04
+#define BPCK_EE_DI     0x02
+#define BPCK_EE_CLK    0x01
 
 static const char *bpck_proto_name[] = { "SPP 4-bit", "PS/2 8-bit", "EPP" };
 
@@ -121,10 +140,65 @@ bpck_state(const bpck_t *dev)
 /* Layer 2: the register file                                            */
 /* --------------------------------------------------------------------- */
 
+/*
+ * The 93C46. CS falling ends a frame; every rising CLK clocks DI in until a
+ * command is recognised, after which each rising edge shifts the addressed
+ * word out MSB first. Only READ is implemented: the driver issues EWEN and
+ * WRITE as well, but a pod whose identity changed under it would be a fault,
+ * not a feature.
+ */
+static void
+bpck_ee_write(bpck_t *dev, uint8_t val)
+{
+    const uint8_t old = dev->ee_lines;
+
+    dev->ee_lines = val;
+
+    if (!(val & BPCK_EE_CS)) {
+        dev->ee_bits    = 0;
+        dev->ee_shift   = 0;
+        dev->ee_reading = 0;
+        dev->ee_do      = 0;
+        return;
+    }
+
+    /* Everything happens on the rising edge of the clock. */
+    if (!((val & BPCK_EE_CLK) && !(old & BPCK_EE_CLK)))
+        return;
+
+    if (dev->ee_reading) {
+        dev->ee_do  = (dev->ee_out & 0x8000) ? 1 : 0;
+        dev->ee_out = (uint16_t) (dev->ee_out << 1);
+        return;
+    }
+
+    dev->ee_shift = (uint16_t) ((dev->ee_shift << 1) | ((val & BPCK_EE_DI) ? 1 : 0));
+    dev->ee_bits++;
+
+    /* START, opcode and six address bits: nine in all. */
+    if (dev->ee_bits >= 9) {
+        const uint8_t addr = dev->ee_shift & 0x3f;
+
+        if ((dev->ee_shift & 0x180) == 0x180) {
+            dev->ee_out     = dev->ee_data[addr];
+            dev->ee_reading = 1;
+            bpck_log("BPCK: EEPROM read word %02X -> %04X\n", addr, dev->ee_out);
+        } else {
+            bpck_log("BPCK: EEPROM command %03X ignored\n", dev->ee_shift & 0x1ff);
+            dev->ee_bits  = 0;
+            dev->ee_shift = 0;
+        }
+    }
+}
+
 static uint8_t
 bpck_read_reg(bpck_t *dev, int reg)
 {
-    const uint8_t ret = dev->regs[reg & 0xff];
+    uint8_t ret = dev->regs[reg & 0xff];
+
+    /* Register 0x00 bit 7 is the EEPROM data line, not stored state. */
+    if ((reg & 0xff) == 0x00)
+        ret = (uint8_t) ((ret & 0x7f) | (dev->ee_do ? 0x80 : 0x00));
 
     bpck_log("BPCK:    RR %02X -> %02X\n", reg & 0xff, ret);
 
@@ -137,6 +211,9 @@ bpck_write_reg(bpck_t *dev, int reg, uint8_t val)
     bpck_log("BPCK:    WR %02X <- %02X\n", reg & 0xff, val);
 
     dev->regs[reg & 0xff] = val;
+
+    if ((reg & 0xff) == 0x06)
+        bpck_ee_write(dev, val);
 
     /*
      * Register 0x04 carries the protocol the bridge is to use. It is acted on
@@ -473,6 +550,14 @@ bpck_init(UNUSED(const device_t *info))
         return NULL;
 
     dev->unit  = (uint8_t) device_get_config_int("unit");
+
+    /*
+     * An erased 93C46 until the contents of a real pod are read off one. The
+     * driver reads all 64 words before it decides, so the whole array matters,
+     * not just the first.
+     */
+    for (int i = 0; i < 64; i++)
+        dev->ee_data[i] = 0xffff;
     dev->proto = BPCK_PROTO_SPP;
 
     dev->lpt = lpt_attach(bpck_write_data, bpck_write_ctrl, NULL,
