@@ -1,0 +1,30 @@
+#
+# 86Box v7.0 logfile, created 2026/09/20 17:24:44
+#
+# Emulator path: C:/Users/lycet/AppData/Local/Temp/claude/86box_master/build/src//
+# Global configuration file: C:/Users/lycet/AppData/Local/86Box/86box_global.cfg
+# VM: vm_ls120win
+#
+# Configuration file: C:/Users/lycet/RiderProjects/86Box-Inboard/vm_ls120win/86box.cfg
+#
+
+# Userfiles path: C:/Users/lycet/RiderProjects/86Box-Inboard/vm_ls120win/
+# ROM path: C:/Users/lycet/RiderProjects/86Box-Inboard/vm_ls120win/roms/
+# ROM path: C:/Users/lycet/AppData/Local/Temp/claude/86box_master/build/src//roms/
+# ROM path: C:/Users/lycet/AppData/Local/86Box/roms/
+# Asset path: C:/Users/lycet/RiderProjects/86Box-Inboard/vm_ls120win/assets/
+# Asset path: C:/Users/lycet/AppData/Local/Temp/claude/86box_master/build/src//assets/
+# Asset path: C:/Users/lycet/AppData/Local/86Box/assets/
+EPAT: DISCONNECT
+EPAT: unlock frame committed with unknown command 40
+EPAT: unlock frame committed with unknown command 50
+EPAT: CPP init
+EPAT: CPP unit 0 id -> FFAA
+EPAT: CPP unit 1 id -> 0000
+EPAT: CPP unit 2 id -> 0000
+EPAT: CPP unit 3 id -> 0000
+EPAT: CPP unit 4 id -> 0000
+EPAT: CPP unit 5 id -> 0000
+EPAT: CPP unit 6 id -> 0000
+EPAT: CPP unit 7 id -> 0000
+[0117:0000B929] Illegal instruction 00008B55 (FF)
