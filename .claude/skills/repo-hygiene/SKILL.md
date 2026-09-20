@@ -257,3 +257,57 @@ Same rule as the hardware work: **a confirmation that looked good is not a confi
 When a contributor's input is verified, shipped, or disproved, **telling them is a
 deliverable**, not a nicety. Record it in `docs/contributor_input_ledger.md` with its
 `[PRIMARY]` / `[AI-SOURCED]` tag and whether they have been told yet.
+
+---
+
+## 6. "Behind by N commits" does not predict conflicts — apply it and see
+
+2026-09-20: `lpt-epat-bridge` was **34 ahead of and 21,833 behind** 86Box
+master, which looked fatal. The submittable subset then applied to current
+master with **zero conflicts** — nine files, 1,963 lines, `git apply --3way`.
+
+A big commit count means the *project* moved, not necessarily the files you
+touched. Measure the thing you care about:
+
+```bash
+git -C <clone> worktree add --detach /tmp/master origin/master
+git diff $(git merge-base origin/master HEAD)..HEAD -- <the files you'd submit> > /tmp/subset.patch
+cd /tmp/master && git apply --check --3way /tmp/subset.patch
+```
+
+Generating the patch from `merge-base..HEAD` **restricted to the submittable
+files** is what keeps cherry-picked upstream fixes, local diagnostics and
+project-specific code out of it automatically.
+
+### The drift shows up at COMPILE time, not apply time
+
+The same patch then failed to build on one line:
+
+```
+src/disk/hdd.c: error: duplicate case value
+    case TAPE_BUS_LPT:        <- upstream added this since our merge base
+    previously used here: case CDROM_BUS_LPT:
+```
+
+Both are `6`. Upstream had independently grown LPT-attached device support and
+already handled that value, so **our case was redundant** and the fix was to
+delete ours — which is also the minimal diff the PR rules ask for.
+
+**So the order is: apply, build, then run.** A clean apply says nothing about
+semantics, and "it applies" is not a validation anyone should be told.
+
+### Check whether upstream already solved it before porting anything
+
+Before the port, confirm the gap still exists on master and that nobody has
+filled it:
+
+- our three `ecp_*` device callbacks: **still absent** on master, so still novel;
+- a parallel-port ATAPI bridge: **still absent** (the only similar device is
+  `lpt_ditto.c`);
+- but `lpt_device_t` had gained `strobe`, `read_ctrl`, `epp_write_data` and
+  `epp_request_read`, so the device should now *use* those rather than
+  reimplement them.
+
+⚠ **Hooks with no consumer get rejected.** An additive callback is only
+justified by a device that calls it, so a "small safe interface PR" split out
+on its own may be the wrong shape. Decide that before writing the PR, not after.
