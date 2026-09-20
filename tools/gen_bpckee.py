@@ -61,6 +61,12 @@ class Asm:
         self.emit(0xC3)
 
 
+def delay(a):
+    """The settling pause the driver takes between connect steps."""
+    a.emit(0xB9, 0x00, 0x08)                 # mov cx, 0800h
+    a.emit(0xE2, 0xFE)                       # loop $
+
+
 def sub_write_reg6(a):
     """Write CL to register 0x06.
 
@@ -150,12 +156,34 @@ def build(port, unit):
     rddo = sub_read_do(a)
     struct.pack_into("<H", a.b, jmp_fix, a.here() - (ORG + 3))
 
-    # The knock: three SELECT edges with INIT held and the unit on the data
-    # lines, then one more edge to take the bridge out of its address probe.
-    a.mov_dx(a.data); a.mov_al(unit); a.out()
+    # The connect sequence, transliterated from the vendor driver at 0x09EE.
+    # The pod is looking for the unit address presented INVERTED and then
+    # straight, with a settling pause between each step - a complement pair an
+    # empty port cannot produce. Three SELECT toggles follow, then AUTOFD for
+    # the address probe. Leaving out the inverted write is why an earlier
+    # version of this program was ignored by a pod that works.
     a.mov_dx(a.ctrl)
-    for v in (INIT, INIT | SELECT, INIT, INIT | SELECT, INIT):
-        a.mov_al(v); a.out()
+    a.mov_al(0x00); a.out()
+    a.mov_al(0x00); a.out()
+    a.mov_al(0x00); a.out()
+    a.mov_al(0x00); a.out()
+    a.mov_al(0x00); a.out()                  # five writes, as the driver does
+
+    a.mov_dx(a.data); a.mov_al((~unit) & 0xFF); a.out()
+    a.mov_dx(a.ctrl); a.mov_al(INIT); a.out()
+    delay(a)
+    a.mov_dx(a.data); a.mov_al(unit); a.out()
+    delay(a)
+
+    a.mov_dx(a.ctrl)
+    ctl = INIT
+    for _ in range(3):
+        ctl ^= SELECT
+        a.mov_al(ctl); a.out()
+        delay(a)
+    ctl |= AUTOFD
+    a.mov_al(ctl); a.out()
+    delay(a)
 
     a.emit(0xBF); buf_fix1 = len(a.b); a.emit(0x00, 0x00)   # mov di, buffer
 

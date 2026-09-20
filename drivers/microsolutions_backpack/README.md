@@ -421,3 +421,37 @@ driver that does work is sitting in memory on a machine we can read, so its
 conclusions are recoverable without solving the protocol first. Next: locate
 where those strings are parsed, and the ID word from the table at `0x78E8`
 should be in the same structure.
+
+## The connect sequence, from the driver at 0x09EE
+
+⛔ **This was in this file from the first day** - the section above records
+`mov al,[si+2]` / `not al` / `out dx,al` and stars it: *"BackPack inverts data
+on the wire"*. The model's knock was transliterated from `lpt_ditto.c` anyway,
+and three machines were spent rediscovering what the page already said. Read
+the component's own notes before building against it.
+
+The full sequence:
+
+1. read STATUS; if bit 0 set, write it back;
+2. read CTRL; if bit 0 set, clear it and **write five times** - a settling run;
+3. save DATA, then write **`NOT [si+2]`** to the data lines;
+4. CTRL = `(old & 0x10) | 0x04` - INIT alone, preserving the IRQ bit; delay;
+5. write **`[si+2]`** plain to DATA; delay;
+6. `xor al,8` three times, each followed by a delay - the three SELECT edges;
+7. `or al,2` - AUTOFD, opening the address probe, which then shifts
+   `[si+2] & 7` out in three steps.
+
+Every step is separated by the `[si+0x14]` delay loop, which is an `xchg` with
+memory - a bus-locked instruction used deliberately as a calibrated period.
+
+⭐ **`[si+2]` is `0x03` on this pod**, read from the live adapter structure at
+`0x7F9E` in the resident image - not the `0x00` a unit-0 assumption gives.
+
+### Still zero, and the likely reason
+
+With the corrected sequence the pod still returns 128 zero bytes, and a
+hand-driven knock still leaves `0x379` at `0x7F`. **The vendor driver was
+resident throughout, with the drive mounted at `E:`** - a pod that has already
+taken the link will not answer a new knock. The outstanding test is therefore:
+boot with the driver **not loaded** (Win98 F8, step-by-step, decline the
+`BPCDDRV` line) and run `BPCKEE.COM` against an idle pod.
