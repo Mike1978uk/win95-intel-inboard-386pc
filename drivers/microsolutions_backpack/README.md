@@ -333,3 +333,24 @@ A model cannot validate its own handshake. Our driver connected to our bridge
 because both halves were written from the same guess; three real machines were
 needed to show it. Get the sequence from the vendor driver's own port writes -
 the primitives are `0xC05` and `0xD5F`, jump-table dispatched by protocol mode.
+
+## The working reference, on the Libretto
+
+With the vendor driver loaded, `CDDRIVES.EXE` reports:
+
+```
+BPDRIVES Version 4.00
+The following BACKPACK drive is available:
+  Drive E: CD-ROM (10X)
+```
+
+and the drive reads real media - 32.5 MB across ten directories off a pressed
+disc. So the pod is a **10X BackPack CD-ROM**, and the whole stack works on a
+machine whose parallel port is in plain SPP.
+
+That is the positive control every earlier run lacked, and it is what makes the
+zero dump conclusive rather than ambiguous.
+
+⛔ **The drive's own firmware is not reachable this way.** MSCDEX and the block
+driver expose media, not the device: there is no command to read the pod ROM,
+and the identity we need is the 93C46, which still requires a working knock.
