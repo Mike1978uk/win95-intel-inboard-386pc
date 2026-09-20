@@ -787,3 +787,14 @@ real machine is what would say, since its port reports ECP.
 **For any submission**: EPP is untested; PS/2 byte mode is attempted and
 answered but not settled on, cause unknown; the tested-and-working transport
 is SPP nibble.
+
+## ✅ Verified against the vendor's own installer configuration
+
+The bed now runs exactly what the installer wrote on the real machine -
+`bpcddrv.sys /d:bpcddrv$`, then MSCDEX, no switches - and lists the disc.
+Trace: PS/2 byte mode attempted twice and answered, falls back to nibble,
+10,850 data reads, five `READ(12)`s.
+
+**That is the claim to make in a submission**: the vendor DOS driver, in its
+own installer's configuration, enumerates the drive and MSCDEX reads an ISO.
+Nothing about it depends on a switch chosen by us.
