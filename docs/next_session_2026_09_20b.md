@@ -173,3 +173,44 @@ steps, the revert commands and the 46-second baseline.
   `"D:\r\n"` wrote `COPY C:\BOUNDARY.BIN D:\r` with a bare LF instead of
   `D:\` + CRLF — a wrong command in the file the owner would have typed from.
   Rewritten with the Write tool and verified byte by byte.
+
+---
+
+## 7. FIRST PATCHED RUN, 2026-09-20 — bytes perfect, speed unmoved
+
+`TBW.BAT` under Windows, patched miniport, 4,000,000 bytes to `J:`:
+
+| | elapsed | rate |
+|---|---|---|
+| copy 1 | **53.17 s** | 73.5 KiB/s |
+| copy 2 | **44.49 s** | 87.8 KiB/s |
+| verify | `FC: no differences encountered` | |
+
+- **Nothing is broken.** Byte-identical, including the partial final sector and
+  the short final ATAPI burst. If dword engaged, it is byte-correct.
+- **No downgrade.** Copy 2 was *faster* than copy 1, so the `[0x20C7C]` latch
+  never tripped.
+- **No measurable gain.** 73.5-87.8 KiB/s sits inside the pre-patch 75-99.
+
+⛔ **We cannot say whether dword engaged**, because no Windows baseline was ever
+taken with this instrument. The only comparison available is the coarse +/-59 s
+wall-clock figure, whose range swallows the result. **That is a control failure
+and it was mine** — this very document says establish a control first.
+
+**Drivers reverted to stock on the card**; the patched trio kept as `.EPF`,
+stock as `.B4F`, swap commands in `\ABTEST.TXT`. Next action is the stock
+baseline with the same batch, then a like-for-like comparison.
+
+### The lever is smaller than advertised — arithmetic, not opinion
+
+| | |
+|---|---|
+| bus time for 4 MB byte-wide (5.77 us/byte) | **23 s** |
+| measured | **44-53 s** |
+| everything that is not bus | **21-30 s** |
+
+Even byte-wide, **the bus is only about half the budget** — the rest is bridge
+nWAIT, drive write latency, FAT updates and Windows. So a perfect dword win is
+worth **~20-25% overall, not 2x**. Earlier notes in this document say "up to
+2x"; that was always a claim about the *bus* and it was allowed to read as a
+claim about the copy. Corrected here.
