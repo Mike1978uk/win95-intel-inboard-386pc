@@ -1,0 +1,81 @@
+; MODIFIED 2026-09-19 - switches added to [epatlsreg]. Vendor original
+; extracted from ls120_95\DATA.Z with tools/blast.py; the extracted
+; sd120ppd.mpd hashes 08104ffb, matching the known-good original.
+
+; SCSI.INF  -- This file contains descriptions for
+;              Shuttle parallel to SCSI & parallel to ATA adapters.
+;              for Windows 95.
+;              Copyright (c) 1995 Shuttle Technology  Ltd.
+
+[Version]
+signature="$CHICAGO$"
+Class=SCSIAdapter
+Provider=%SHUTTLE%
+LayoutFile=LAYOUT.INF
+
+; Class Install
+[ClassInstall]
+Addreg=SCSIReg
+
+[SCSIReg]
+HKR,,,,%SCSIClassName%
+HKR,,EnumPropPages,,"iosclass.dll,SCSIEnumPropPages"
+HKR,,Icon,,-10
+
+; Table of Contents
+[Manufacturer]
+%SHUTTLE%=SHUTTLE
+
+[SHUTTLE]
+%sd120ppd.DeviceDesc%=sd120ppd.drv,epatls
+
+[sd120ppd.drv]                  ; Shuttle sd120ppd
+CopyFiles=@sd120ppd.mpd
+AddReg=IOS,Poll,epatlsReg
+
+[sd120ppd.det]
+AddReg=ForceMPCopy
+
+[epatlsreg]
+HKR,,PortDriver,,sd120ppd.mpd
+; Probe suppressors, applied AT INSTALL so nothing has to be typed after.
+; Measured on the real 5160 2026-09-19: keeping /ni but dropping /de /db
+; /sf killed keyboard input, because the EPP detection pokes chipset
+; registers separately from the chipset init /ni suppresses. Ports 22h/23h
+; and 94h alias onto the 8259 on an XT bus.
+HKR,,AdapterSettings,,"PORT=0x378 /ni /de /db /sf /dp /dpc /fp"
+HKR,,PollingSupportNeeded,1,01
+
+[DestinationDirs]
+ASPIDEV = 11                    ; delete from SYSTEM dir if exists
+DefaultDestDir = 12             ; IOSubsys directory
+
+[strings]
+SHUTTLE="Imation Enterprises Corp."
+SCSIClassName="SCSI controllers"
+sd120ppd.DeviceDesc="Imation SuperDisk Drive - Parallel Port"
+
+;********************************IOS common section
+[IOS]
+HKR,,DevLoader,,*IOS
+HKR,,DontLoadIfConflict,,"Y"
+
+[IOSMCA]
+HKR,,ConfigFlags,1,00,02,00,00
+
+[Poll]
+HKR,,Polling,,1
+
+[ForceMPCopy]
+HKR,,NoSetupUI,,1
+
+; **********Add your default driver switches here
+[DriverSettings]
+Flags="PORT=0x378 /ni /de /db /sf /dp /dpc /fp"
+
+;**********Install - defaults section
+[Install]
+DEFAULT_PROGRAM_PATH=C:\Program Files\SD120PPD
+DEFAULT_PROGRAM_FOLDER=SD120PPD
+
+
