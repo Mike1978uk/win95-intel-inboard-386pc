@@ -7945,3 +7945,77 @@ default path byte-identical.
 
 ⚠ A build that prints `tree DIRTY` cannot be rebuilt from a commit. The build
 script says so; believe it before deploying anywhere a conclusion is drawn.
+
+---
+
+## Technique 131: the bed pre-flight - four things, before the run, every time
+
+2026-09-20 burned roughly two hours on setup errors, not on the bug. Every one
+would have been caught by a check that takes seconds. Do these four **before**
+launching, and name the answer you expect.
+
+### 1. Is the binary the one you just changed?
+
+After **any** tree change - a patch, a `git stash`, a `git stash pop`, a CMake
+option - **rebuild, then read the timestamp**. `ls120_bed_run.ps1` prints
+`86Box.exe built <time>` for exactly this reason; read it, do not skim it.
+
+A run was launched against a binary built *before* the patch was restored,
+which would have reported "no drive" from an emulator with no such device
+compiled in - a confident false negative that looks identical to a real one.
+
+### 2. Does the build CONFIGURATION match the reference, not just the flags?
+
+Technique 130 says match the ledger's compiler flags. That is not enough for
+an emulator: **diff the whole `CMakeCache.txt`** against the build that works.
+
+```bash
+grep -E "^(QT|LIBRASHADER|DISCORD|CMAKE_BUILD_TYPE|DEV_BRANCH)[A-Z_]*:" build/CMakeCache.txt
+```
+
+Two differences were found one failed run at a time: `CMAKE_BUILD_TYPE`
+(`Release` vs `RelWithDebInfo`) and **`QT` (ON vs OFF)**. The Qt build linked
+`Qt5Core/Gui/Network/Widgets` with no Qt runtime beside it, so the GUI never
+initialised - live process, no log file, nothing written to the image. That
+symptom was misdiagnosed here as a stale ROM set, twice, on no evidence.
+
+⚠ A runtime-loaded library shows **nothing** in `objdump -p`. `LIBRASHADER`
+was suspected on that basis and was innocent; the import table cannot rule a
+dependency out.
+
+### 3. Is the driver under test the one a stranger would run?
+
+Every bed run used *our* miniport, because `-Driver` deploys to a hardcoded
+`LS120MP.MPD`. The driver anyone reproducing the work would reach for is the
+vendor's, which sat unused in the image at `C:\LS120FIX\`. Use `-VendorDriver`.
+
+**A model demonstrated only with the code that was written against it has not
+been demonstrated.**
+
+### 4. Name the acceptance observation BEFORE the run
+
+Write down the artefact that will convince a stranger, and check the run can
+produce it. `Init Success` is **non-vetoing** and proves only that the driver
+loaded; a bridge answering a reset proves the model responds to a register
+poke. **Neither is a mounted volume.** The acceptance artefact here is
+`C:\LSPROBE.TXT` saying `drive J`, written by the guest.
+
+### And two traps in reading a run
+
+- **A silent screen is not progress.** Several long waits were spent on a
+  machine sitting at `Abort, Retry, Fail?`, not working. Before waiting again,
+  **read the screen** and look for a prompt. `dos_status` answering while
+  `run_command` times out means DOS is busy *or* blocked - it does not say
+  which.
+- **Never scan drive letters on a machine with removable media.**
+  `IF EXIST D:\...` against a not-ready CD raises `Abort, Retry, Fail?` and a
+  batch with nobody at the keyboard stops there forever. On this chain the
+  LS-120 is **J:** and D:-I: are the Zip and the changer's LUNs - target the
+  letter directly (`tools/fixtures/LSENUMJ.BAT`).
+
+### The shape of all of it
+
+Every one of these produced a *plausible* result rather than an error. That is
+what makes them expensive: a build with no device, a driver that was never
+loaded, a batch blocked on a prompt and an init callback that always succeeds
+all look exactly like evidence.
