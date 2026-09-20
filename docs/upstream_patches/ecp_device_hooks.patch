@@ -1,0 +1,262 @@
+diff --git a/src/device/lpt.c b/src/device/lpt.c
+index 2d0633e6f..5ccbeb514 100644
+--- a/src/device/lpt.c
++++ b/src/device/lpt.c
+@@ -451,9 +451,38 @@ lpt_get_ctrl(const lpt_t *dev)
+     return ret;
+ }
+ 
++static void lpt_fifo_deliver(lpt_t *dev);
++
++/* DIAGNOSTIC 2026-09-13 - ECP write path census. Remove once ECP is proven. */
++uint32_t ecpdiag_wr_port = 0, ecpdiag_wr_gated = 0, ecpdiag_wr_fifo = 0,
++         ecpdiag_wr_full = 0, ecpdiag_wr_dev = 0, ecpdiag_wr_spp = 0,
++         ecpdiag_wr_addr = 0, ecpdiag_wr_relief = 0;
++
+ static void
+ lpt_write_fifo(lpt_t *dev, const uint8_t val, const uint8_t tag)
+ {
++    /*
++     * Real ECP hardware holds the ISA cycle until the FIFO has room, so a host
++     * `rep outsb` cannot outrun it. Nothing here models that stall, and without
++     * this a full FIFO would silently discard the byte. Deliver one queued byte
++     * instead: the same thing the drain timer does, at the moment the stall
++     * would have happened. Narrowed to a device implementing the ECP forward
++     * path, so chardev and DMA behaviour are unchanged.
++     */
++    if (fifo_get_full(dev->fifo) && dev->ecp && dev->dt && dev->dt->priv &&
++        (dev->dt->ecp_write_data != NULL)) {
++        /* Counted, because a driver that paces itself against the ECR never
++           gets here. A non-zero count means that driver is relying on the
++           stall, and would lose bytes on a port that does not provide one. */
++        ecpdiag_wr_relief++;
++        lpt_fifo_deliver(dev);
++    }
++
++    if (!fifo_get_full(dev->fifo))
++        ecpdiag_wr_fifo++;
++    else
++        ecpdiag_wr_full++;
++
+     if (!fifo_get_full(dev->fifo)) {
+         fifo_write_evt_tagged(tag, val, dev->fifo);
+ 
+@@ -482,6 +511,50 @@ lpt_strobe(lpt_t *dev, const uint8_t val)
+     dev->strobe = val;
+ }
+ 
++/* Hand one queued FIFO byte to the attached device. Called from the drain
++   timer and, when the FIFO is full, straight from the port write. */
++static void
++lpt_fifo_deliver(lpt_t *dev)
++{
++    uint8_t       tag = 0x00;
++    const uint8_t val = fifo_read_evt_tagged(&tag, dev->fifo);
++
++    lpt_log("FIFO: %02X, TAG = %02X\n", val, tag);
++
++    /*
++     * Tag 0x00 is an ECP ADDRESS cycle - the byte the host wrote to base+0
++     * while in an ECP mode. A device that offers ecp_write_addr is commanded
++     * through it; the EPAT bridge takes 0x80/0xC0/0xA0 there and will not
++     * move a byte of payload until it has seen one.
++     */
++    if ((tag == 0x00) && dev->output_enabled && dev->dt &&
++        dev->dt->priv && dev->ecp && dev->dt->ecp_write_addr) {
++        ecpdiag_wr_addr++;
++        dev->dt->ecp_write_addr(val, dev->dt->priv);
++    }
++
++    if (tag == 0x01) {
++        /*
++         * In an ECP FIFO mode a device that offers ecp_write_data gets the
++         * byte there instead: its write_data() path is framed for SPP block
++         * transfers and cannot recognise an ECP payload byte arriving
++         * without that framing.
++         */
++        if (dev->output_enabled && dev->dt && dev->dt->priv &&
++            dev->ecp && ((dev->ecr & 0xe0) != 0x00) &&
++            dev->dt->ecp_write_data) {
++            ecpdiag_wr_dev++;
++            dev->dt->ecp_write_data(val, dev->dt->priv);
++        } else if (dev->output_enabled && dev->dt && dev->dt->write_data && dev->dt->priv) {
++            ecpdiag_wr_spp++;
++            dev->dt->write_data(val, dev->dt->priv);
++        }
++
++        lpt_strobe(dev, 1);
++        lpt_strobe(dev, 0);
++    }
++}
++
+ static void
+ lpt_fifo_out_callback(void *priv)
+ {
+@@ -518,21 +591,8 @@ lpt_fifo_out_callback(void *priv)
+             break;
+ 
+         case LPT_STATE_WRITE_FIFO:
+-            if (!fifo_get_empty(dev->fifo)) {
+-                uint8_t tag = 0x00;
+-                const uint8_t val = fifo_read_evt_tagged(&tag, dev->fifo);
+-
+-                lpt_log("FIFO: %02X, TAG = %02X\n", val, tag);
+-
+-                /* We do not currently support sending commands. */
+-                if (tag == 0x01) {
+-                    if (dev->output_enabled && dev->dt && dev->dt->write_data && dev->dt->priv)
+-                        dev->dt->write_data(val, dev->dt->priv);
+-
+-                    lpt_strobe(dev, 1);
+-                    lpt_strobe(dev, 0);
+-                }
+-            }
++            if (!fifo_get_empty(dev->fifo))
++                lpt_fifo_deliver(dev);
+ 
+             if (((dev->ecr & 0xe0) != 0xc0) && (dev->ecr & 0x08)) {
+                 if (fifo_get_empty(dev->fifo)) {
+@@ -676,13 +736,36 @@ lpt_write(const uint16_t port, const uint8_t val, void *priv)
+                     lpt_write_fifo(dev, val, 0x01);
+                     break;
+                 case 3:
++                    /* DIAGNOSTIC 2026-09-13 - remove once ECP is proven. */
++                    ecpdiag_wr_port++;
++                    /* A long transfer that never finishes reports nothing at
++                       all when the census only prints on an ECR write, so
++                       mark progress as it goes. */
++                    if ((ecpdiag_wr_port % 4096) == 0)
++                        pclog("[ECPDIAG] write progress %u bytes (fifo=%u full=%u ->dev=%u)\n",
++                              ecpdiag_wr_port, ecpdiag_wr_fifo, ecpdiag_wr_full,
++                              ecpdiag_wr_dev);
+                     if (!(lpt_get_ctrl_raw(dev) & 0x20))
+                         lpt_write_fifo(dev, val, 0x01);
++                    else
++                        ecpdiag_wr_gated++;
+                     break;
+             }
+             break;
+ 
+         case 0x0402: case 0x0406:
++            /* DIAGNOSTIC 2026-09-13 - remove once ECP is proven. */
++            pclog("[ECPDIAG] ECR write %02X (mode %i), was %02X | port=%u gated=%u "
++                  "fifo=%u full=%u relief=%u ->dev=%u ->spp=%u ->addr=%u ctrl=%02X state=%i tmr=%i\n",
++                    val, (val >> 5) & 7, dev->ecr,
++                    ecpdiag_wr_port, ecpdiag_wr_gated, ecpdiag_wr_fifo,
++                    ecpdiag_wr_full, ecpdiag_wr_relief, ecpdiag_wr_dev,
++                    ecpdiag_wr_spp, ecpdiag_wr_addr,
++                    lpt_get_ctrl_raw(dev), dev->state,
++                    !!timer_is_enabled(&dev->fifo_out_timer));
++            ecpdiag_wr_port = ecpdiag_wr_gated = ecpdiag_wr_fifo = 0;
++            ecpdiag_wr_full = ecpdiag_wr_dev = ecpdiag_wr_spp = 0;
++            ecpdiag_wr_addr = ecpdiag_wr_relief = 0;
+             if ((val & 0xc0) == 0x40) { /* FIFO modes */
+                 if (((dev->ecr & 0x0c) != 0x08) && ((val & 0x0c) == 0x08)) { /* transition to dmaEn && !serviceIntr */
+                     dev->dma_stat = 0x00;
+@@ -895,8 +978,22 @@ lpt_read(const uint16_t port, void *priv)
+                 default:
+                     break;
+                 case 3:
+-                    if (lpt_get_ctrl_raw(dev) & 0x20)
+-                        ret = lpt_read_fifo(dev);
++                    if (lpt_get_ctrl_raw(dev) & 0x20) {
++                        /*
++                         * Real FIFO content first - that is the chardev
++                         * passthrough. An attached emulated device supplies a
++                         * byte on demand when the FIFO has none, which is the
++                         * only route it has: nothing fills the FIFO on its
++                         * behalf.
++                         */
++                        if (!fifo_get_empty(dev->fifo))
++                            ret = lpt_read_fifo(dev);
++                        else if ((dev->dt != NULL) &&
++                                 (dev->dt->ecp_read_data != NULL) &&
++                                 (dev->dt->priv != NULL)) {
++                            ret = dev->dt->ecp_read_data(dev->dt->priv);
++                        }
++                    }
+                     break;
+                 case 6:
+                     /* TFIFO */
+@@ -1317,6 +1414,27 @@ lpt_init(const device_t *info)
+     return dev;
+ }
+ 
++void
++lpt_set_ecp_read_data(lpt_t *dev, uint8_t (*ecp_read_data)(void *priv))
++{
++    if ((dev != NULL) && (dev->dt != NULL))
++        dev->dt->ecp_read_data = ecp_read_data;
++}
++
++void
++lpt_set_ecp_write_data(lpt_t *dev, void (*ecp_write_data)(uint8_t val, void *priv))
++{
++    if ((dev != NULL) && (dev->dt != NULL))
++        dev->dt->ecp_write_data = ecp_write_data;
++}
++
++void
++lpt_set_ecp_write_addr(lpt_t *dev, void (*ecp_write_addr)(uint8_t val, void *priv))
++{
++    if ((dev != NULL) && (dev->dt != NULL))
++        dev->dt->ecp_write_addr = ecp_write_addr;
++}
++
+ void
+ lpt_set_next_inst(int ni)
+ {
+diff --git a/src/include/86box/lpt.h b/src/include/86box/lpt.h
+index 3e96a4c56..55b295314 100644
+--- a/src/include/86box/lpt.h
++++ b/src/include/86box/lpt.h
+@@ -25,6 +25,28 @@ typedef struct lpt_device_s {
+     uint8_t       (*read_ctrl)(void *priv);
+     void          (*epp_write_data)(uint8_t is_addr, uint8_t val, void *priv);
+     void          (*epp_request_read)(uint8_t is_addr, void *priv);
++    /*
++     * ECP reverse transfer. The ECP FIFO is filled only by the chardev
++     * passthrough, so an emulated device had no way to supply bytes and an
++     * ECP read from one returned 0xFF forever. A device that sets this
++     * supplies a byte on demand when the FIFO is empty.
++     */
++    uint8_t       (*ecp_read_data)(void *priv);
++    /*
++     * ECP forward transfer. The FIFO drain hands bytes to write_data(),
++     * but a device that frames SPP block writes separately cannot tell an
++     * ECP byte from a stray one there. A device that sets this receives
++     * ECP payload on its own path.
++     */
++    void          (*ecp_write_data)(uint8_t val, void *priv);
++    /*
++     * ECP forward ADDRESS cycle - a write to base+0 while the ECR is in an
++     * ECP mode, which the standard calls the address/command FIFO. The EPAT
++     * bridge is commanded this way: 0x80 arms a block read, 0xC0 a block
++     * write, 0xA0 the last byte of a read. Without it an emulated device
++     * cannot tell a framed block from stray payload.
++     */
++    void          (*ecp_write_addr)(uint8_t val, void *priv);
+ 
+     void *        priv;
+ } lpt_device_t;
+@@ -107,6 +129,7 @@ extern const device_t      lpt_adlipt_device;
+ extern const device_t      lpt_opl3_device;
+ extern const device_t      lpt_cms_device;
+ extern const device_t      lpt_tnd_device;
++extern const device_t      lpt_epat_device;
+ 
+ extern const device_t      lpt_hasp_savquest_device;
+ 
+@@ -159,6 +182,12 @@ extern void *              lpt_attach_ex(int     port,
+ extern void                lpt_devices_close(int soft);
+ extern void                lpt_devices_reset(void);
+ 
++extern void                lpt_set_ecp_read_data(lpt_t *dev,
++                                                 uint8_t (*ecp_read_data)(void *priv));
++extern void                lpt_set_ecp_write_data(lpt_t *dev,
++                                                  void (*ecp_write_data)(uint8_t val, void *priv));
++extern void                lpt_set_ecp_write_addr(lpt_t *dev,
++                                                  void (*ecp_write_addr)(uint8_t val, void *priv));
+ extern void                lpt_set_next_inst(int ni);
+ extern void                lpt_set_3bc_used(int is_3bc_used);
+ 

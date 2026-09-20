@@ -79,3 +79,44 @@ unvalidated PR wastes a maintainer's time.
 
 ⚠ `src/io.c` in the working tree carries an access-width tally added
 2026-09-20 as a local instrument (technique 128). **It must not go upstream.**
+
+---
+
+## Update, same day: it applies cleanly after all
+
+The 21,833-commit gap turns out not to matter much for these files.
+`git apply --3way` of the submittable subset onto current master
+(`5731e20a3`, *Merge pull request #8007 from WNT50/mod70*):
+
+```
+Applied patch to 'src/char/char.c' cleanly.
+Applied patch to 'src/config.c' cleanly.
+Applied patch to 'src/device/CMakeLists.txt' cleanly.
+Applied patch to 'src/device/lpt.c' cleanly.
+Applied patch to 'src/disk/hdd.c' cleanly.
+Applied patch to 'src/disk/rdisk.c' cleanly.
+Applied patch to 'src/include/86box/lpt.h' cleanly.
+Applied patch to 'src/include/86box/rdisk.h' cleanly.
+```
+
+1,963 lines, `src/device/lpt_epat.c` added whole. **Nine files, no conflicts.**
+
+The patches are kept at `docs/upstream_patches/`:
+
+| file | what |
+|---|---|
+| `ecp_device_hooks.patch` | just the three `ecp_*` callbacks and their plumbing - 262 lines |
+| `epat_full.patch` | the whole submittable subset - 1,963 lines |
+
+Both are generated from `merge-base(origin/master, lpt-epat-bridge)..HEAD`, so
+they carry none of the Mach8 cherry-pick, none of the dynarec/mem diagnostics
+and nothing from `inboard386.c`.
+
+⚠ **Applying is not building, and building is not working.** The struct gained
+`strobe`, `read_ctrl`, `epp_write_data` and `epp_request_read` since our merge
+base; a clean textual apply does not mean `lpt_epat.c` uses them correctly, or
+that it should not now be rewritten to use them instead of its own framing.
+
+⚠ **"Hooks with no consumer" is a fair review objection.** The three `ecp_*`
+callbacks are only justified by a device that uses them, so the small PR and
+the bridge probably have to go up together after all.
