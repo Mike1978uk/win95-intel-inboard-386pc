@@ -249,3 +249,16 @@ not code work.
 | runs on current master | ❓ **blocked on the local ROM set**, not on the patch |
 | runs on the fork | ✅ bridge reaches the drive and returns the ATAPI signature |
 | ready to push | ⛔ **no** - the `strobe`/`epp_*` design question is still open |
+
+## Local state this left behind
+
+- **A git worktree in the scratch directory.** `86box_upstream` now has
+  `C:/Users/lycet/AppData/Local/Temp/claude/86box_master` registered at
+  `5731e20a3`, with a full `RelWithDebInfo` build of master + the patch in it.
+  Useful next session; it will go stale when temp is cleared, and
+  `git -C 86box_upstream worktree prune` tidies the entry afterwards.
+  (A third worktree, `86Box-Inboard/86box_master` at `b2033f1aa`, predates
+  this and was not touched.)
+- **`86box_upstream/src/io.c` is modified and uncommitted** - the access-width
+  tally from technique 128. It is env-gated on `IOWIDTH_BASE` and inert
+  otherwise. **Kept deliberately. It must never go upstream.**
