@@ -144,14 +144,20 @@ What makes a reply worth sending — and worth replying *to*:
 | input | status |
 |---|---|
 | 32-bit miniports win on thunks and paging, **not** raw bus throughput; the raw win needs **every** storage driver 32-bit | **Accepted.** States the case for finishing #22 better than we had it. Recorded in `docs/bus_optimisation_plan.md` |
-| Memory accesses likely have fewer wait states than I/O, so try memory-mapped storage (DiskOnChip, memory-mapped CF) | **CONFIRMED, with numbers.** Memory across the bus is **4.2x** faster per byte than our best I/O path (`rep insw`) and **12.7x** faster than byte-wide I/O. Measured on the 5160, `RMTMAF.OUT` |
+| Memory accesses likely have fewer wait states than I/O, so try memory-mapped storage (DiskOnChip, memory-mapped CF) | **CONFIRMED in direction; our NUMBER was wrong.** ⛔ The 4.2x / 12.7x figures are **retracted** — re-measured 2026-09-20 with a controlled probe, the honest figure is about **2x** byte-for-byte (2.861 vs 5.695 us/B) and **1.45x** at dword. The old sweep measured **shadowed and wait-stated memory, not the bus**: `F000` is shadowed into the Inboard (0.390 us/B at dword — below one ISA bus cycle, so it never left the card) and `B800` video RAM is the **slowest** window on the machine at 4.714 us/B, not 0.454. ✅ **His mechanism is real and now properly measured:** the per-bus-cycle cost is identical for I/O and memory (1.943 vs 1.978 us); it is the **fixed per-access cost** that differs, 3.752 us for I/O against 0.883 us for memory. And the margin depends on the card's own wait states, which vary 2x across three windows in this one machine. `docs/isa_memory_vs_io_2026_09_20.md` |
 | Caveat: the Inboard must not shadow the window such a card lives behind | **Accepted, and we know where it lives** — the `0x5E0000`/`0x5F0000` machinery, techniques 66/67/72 |
 | DriveSpace has a 32-bit driver on Win95, above the miniports | **Corrects one of our notes.** We had parked compression because of its real-mode INT 13h hooker; that objection does not apply on the Windows path. Still parked, now for footprint and corruption risk |
 | `rep insw`/`outsw` on every card that supports it | **Shipped for XT-IDE** (35% read / 33% write). **Not yet** for the Trantor T130B, which already imports the Ushort buffer calls |
 | Extreme options: PAL equations, 8 MHz bus, Inboard redesign | Noted, out of scope |
 
-**Owed:** a reply telling him the memory-vs-I/O hypothesis measured 4.2x and that the
+**Owed:** a reply telling him the memory-vs-I/O hypothesis is **confirmed** and that the
 DriveSpace note corrected a parked decision. Both are results he produced.
+
+⛔ **Do not send the 4.2x figure.** It was wrong, and this row now carries the corrected
+one. The reply should say plainly: his mechanism was right, our first measurement of it
+was not, and the properly controlled number is ~2x with the cause isolated to the fixed
+per-access cost rather than wait states. Correcting our own number to a contributor is
+better than letting him quote ours.
 
 ## @andrew-hoffman — consolidated OPEN items, swept 2026-09-11
 
