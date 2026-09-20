@@ -590,7 +590,7 @@ discovery**: `lpt_epat.c` already carries a working ATAPI packet engine against
 `ide_tf_t`, written for the LS-120. Point it at the task file at `0x40` and at
 a CD-ROM instead of an rdisk. `CDROM_BUS_LPT` is in `cdrom.h` and unused.
 
-## ✅ MSCDEX mounts a drive letter from the emulated BackPack
+## The command layer works; the data layer does not
 
 The device is now **"Micro Solutions BackPack Bantam CD-ROM"**, modelled on a
 real unit: **model 180100, E/N 00749, made in the USA, serial 17627007**, a 10X
@@ -604,11 +604,18 @@ What now happens in the bed, with the vendor driver and MSCDEX:
 3. `EC` (IDENTIFY DEVICE) and `A1` aborted **with the ATAPI signature** - which
    is how the host tells a packet device from an ATA disk;
 4. real `PACKET` commands: byte counts 12, 14, 28, 36 (INQUIRY) and **2048**;
-5. **MSCDEX assigns a drive letter and tries to read the volume descriptor.**
+5. the driver registers a unit, so MSCDEX hands out a letter and tries to read
+   the volume descriptor.
 
-It stops at `CDR103: CDROM not High Sierra or ISO-9660`, and the trace says why:
-the 2048-byte sector never fully transferred. Only 512 register reads happened
-in the whole run and register `0x80` was never touched.
+⛔ **It is not working yet, and the driver says so**: `CDDRIVES` still reports
+*"no BACKPACK drives are available"*, and the read ends in `CDR103: CDROM not
+High Sierra or ISO-9660`. Those are the same fault, not two. A drive letter
+from MSCDEX only means the driver registered a unit with DOS; the driver's own
+enumeration failed.
+
+The cause is that **no returned data can be trusted**: only 512 register reads
+happened in the whole run and register `0x80` was never touched, so neither the
+36-byte INQUIRY nor the 2048-byte sector fully transferred.
 
 ⭐ **The remaining piece is the bridge block transfer.** Bulk data does not move
 as 2048 single register reads; the driver addresses `0x40 | offset` and then
