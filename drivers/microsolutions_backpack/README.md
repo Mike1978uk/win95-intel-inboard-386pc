@@ -562,3 +562,30 @@ Saved as `capture/pod_eeprom_93c46.bin`.
 | every step | separated by a settling delay |
 
 That is the layer the model needs, measured rather than inferred.
+
+## ✅ The model is accepted by the vendor driver
+
+With the real EEPROM image and chain address 7 in `lpt_bpck.c`, the vendor
+driver in the bed:
+
+- knocks, connects, and passes the presence test;
+- **reads all 64 EEPROM words and accepts them** - `07F8 0000 0082 4F54 ...`,
+  the same image the hardware gave;
+- then addresses **registers `0x46` and `0x47`** - the ATA task file at `0x40`,
+  drive/head and status/command - and polls `0x47` nearly ten thousand times.
+
+That is the driver looking for the drive behind the bridge. The bridge layer is
+done; what it polls for does not exist yet.
+
+| trace | count | meaning |
+|---|---|---|
+| `RR 13` | 178,304 | a bridge status register, spun on |
+| `RR 47` | 9,914 | ATA status - waiting for a drive |
+| `WR 06` | 4,932 | the EEPROM clocking |
+| `RR 00` | 1,024 | 64 words of DO |
+| `WR 47`, `WR 46` | 2, 2 | ATA command and drive/head |
+
+⭐ **Remaining work is the ATAPI layer, and it is a port rather than a
+discovery**: `lpt_epat.c` already carries a working ATAPI packet engine against
+`ide_tf_t`, written for the LS-120. Point it at the task file at `0x40` and at
+a CD-ROM instead of an rdisk. `CDROM_BUS_LPT` is in `cdrom.h` and unused.

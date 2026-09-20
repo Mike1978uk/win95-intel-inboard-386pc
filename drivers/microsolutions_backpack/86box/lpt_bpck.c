@@ -122,6 +122,23 @@ typedef struct bpck_s {
 #define BPCK_EE_DI     0x02
 #define BPCK_EE_CLK    0x01
 
+/*
+ * The identity EEPROM of a real pod, read off the hardware with
+ * tools/gen_bpckee.py: "TOSHIBA CD-ROM XM-1502B/2696", serial 17627007.
+ * The driver reads all 64 words before it will accept the pod, so the whole
+ * array matters, not just the identifying part.
+ */
+static const uint16_t bpck_ee_default[64] = {
+    0x07F8, 0x0000, 0x0082, 0x4F54, 0x4853, 0x4249, 0x2041, 0x4443,
+    0x522D, 0x4D4F, 0x5820, 0x2D4D, 0x3531, 0x3230, 0x2F42, 0x3632,
+    0x3639, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
+    0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
+    0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
+    0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x3204, 0x0000,
+    0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x3731,
+    0x3236, 0x3037, 0x3730, 0x0C08, 0x07CD, 0x0C08, 0x07CD, 0x0000,
+};
+
 static const char *bpck_proto_name[] = { "SPP 4-bit", "PS/2 8-bit", "EPP" };
 
 static const char *
@@ -551,13 +568,7 @@ bpck_init(UNUSED(const device_t *info))
 
     dev->unit  = (uint8_t) device_get_config_int("unit");
 
-    /*
-     * An erased 93C46 until the contents of a real pod are read off one. The
-     * driver reads all 64 words before it decides, so the whole array matters,
-     * not just the first.
-     */
-    for (int i = 0; i < 64; i++)
-        dev->ee_data[i] = 0xffff;
+    memcpy(dev->ee_data, bpck_ee_default, sizeof(dev->ee_data));
     dev->proto = BPCK_PROTO_SPP;
 
     dev->lpt = lpt_attach(bpck_write_data, bpck_write_ctrl, NULL,
@@ -587,7 +598,7 @@ static const device_config_t bpck_config[] = {
         .description    = "Chain address",
         .type           = CONFIG_SELECTION,
         .default_string = NULL,
-        .default_int    = 0,
+        .default_int    = 7,
         .file_filter    = NULL,
         .spinner        = { 0 },
         .selection      = {
@@ -595,6 +606,7 @@ static const device_config_t bpck_config[] = {
             { .description = "Unit 1", .value = 1 },
             { .description = "Unit 2", .value = 2 },
             { .description = "Unit 3", .value = 3 },
+            { .description = "Unit 7", .value = 7 },
             { .description = "" }
         },
         .bios           = { { 0 } }
