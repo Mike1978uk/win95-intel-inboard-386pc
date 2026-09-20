@@ -730,3 +730,19 @@ parallel port. Every layer was measured on hardware:
 | EEPROM | 93C46 on register `0x06`, DO on register `0x00` bit 7 |
 | task file | `0x40 \| offset`, from `0x1573` |
 | ATAPI | 86Box's own CD-ROM, on a new `CDROM_BUS_LPT` |
+
+## Verified: the disc lists
+
+`DIR D:\` returns the contents of the Windows 98 SE ISO through the modelled
+BackPack. Bridge, EEPROM, ATAPI and the CD-ROM bus all working together.
+
+### The EPAT can now carry a CD-ROM too
+
+`lpt_epat.c` only ever looked up an rdisk, so the Shuttle bridge could not
+carry a CD even once `CDROM_BUS_LPT` existed. It now tries a removable disk
+first and falls back to a CD-ROM on the same port - the EPAT is a generic
+parallel-to-ATAPI adapter and was sold carrying both.
+
+⚠ **Untested.** There is no EPAT CD-ROM driver to hand, so this path has been
+compiled and reasoned about but never exercised. The BackPack path is the
+tested one. Say so in any submission.

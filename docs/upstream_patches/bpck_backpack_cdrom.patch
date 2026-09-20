@@ -51,6 +51,55 @@ index 55193daf7..17eb54c10 100644
      lpt_ditto.c
      lpt_epat.c
      mouse.c
+diff --git a/src/device/lpt_epat.c b/src/device/lpt_epat.c
+index b501b4d7b..1a7a69990 100644
+--- a/src/device/lpt_epat.c
++++ b/src/device/lpt_epat.c
+@@ -35,6 +35,8 @@
+ #include <86box/scsi_device.h>
+ #include <86box/hdc_ide.h>
+ #include <86box/rdisk.h>
++#include <86box/cdrom.h>
++#include <86box/scsi_cdrom.h>
+ #include <86box/plat_unused.h>
+ #include <86box/log.h>
+ 
+@@ -391,8 +393,26 @@ epat_attach_drive(epat_t *dev)
+     if (dev->no_drive)
+         return 0;
+ 
++    /*
++     * Either kind of drive may sit behind this bridge - the EPAT is a generic
++     * parallel-to-ATAPI adapter, and was sold carrying both removable disks
++     * and CD-ROMs. A removable disk wins if both are assigned to the port,
++     * because that is the pairing this bridge was written against.
++     */
+     dev->sd = rdisk_get_lpt_device(dev->port);
+ 
++    if (dev->sd != NULL)
++        dev->tf = ((rdisk_t *) dev->sd->sc)->tf;
++    else {
++        dev->sd = (scsi_device_t *) cdrom_get_lpt_device(dev->port);
++
++        if (dev->sd != NULL) {
++            dev->tf = ((scsi_cdrom_t *) dev->sd->sc)->tf;
++            epat_log(dev->log, "CD-ROM assigned to LPT%i\n", dev->port + 1);
++            return 1;
++        }
++    }
++
+     if (dev->sd == NULL) {
+         dev->no_drive = 1;
+         epat_log(dev->log, "no removable disk assigned to LPT%i - "
+@@ -400,8 +420,6 @@ epat_attach_drive(epat_t *dev)
+                  dev->port + 1);
+         return 0;
+     }
+-
+-    dev->tf = ((rdisk_t *) dev->sd->sc)->tf;
+     epat_log(dev->log, "LPT%i drive attached\n", dev->port + 1);
+ 
+     return 1;
 diff --git a/src/include/86box/cdrom.h b/src/include/86box/cdrom.h
 index f9ae941bc..619ca14f2 100644
 --- a/src/include/86box/cdrom.h
