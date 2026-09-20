@@ -34,6 +34,12 @@ Comparing files c:\BOUNDARY.BIN and D:\boundary.bin
   (182k / 287k / 254k / 62k at offsets 0-3 mod 4), so this is **not** a
   byte-lane swap. It is gross corruption.
 
+✅ **The source is not the problem.** With the CF in a host reader,
+`C:\BOUNDARY.BIN` hashes to `a2ea9a7af4c73214840b2988d334a353` - byte-identical
+to the known-good copy in `drivers/imation_ls120/eppfast_deploy/`. FC compares
+`C:` against `D:`, so this rules out a corrupt source and puts the fault on the
+LS-120 side. Checked before the conclusion was drawn on, not after.
+
 ⚠ This is the state left by copy 2, which **overwrote** an existing 4 MB file.
 Copy 1's output was overwritten and cannot now be checked, so whether the
 create path is also broken is **unknown**.
