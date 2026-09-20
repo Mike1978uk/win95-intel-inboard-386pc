@@ -243,3 +243,33 @@ not pass — and the program returned all 64 words correctly.
 
 Run it at a DOS prompt with the pod powered on and nothing else on the chain,
 then read `BPCKEE.BIN` back. Those 128 bytes are what the model needs.
+
+## ⛔ Measured on the 5160, 2026-09-20: the knock does not work on hardware
+
+COMrade, pod plugged in and powered, no driver loaded, port `0x378`:
+
+| step | `0x379` |
+|---|---|
+| idle | `0x78` |
+| after `0x37A` = `04` | `0x78` |
+| after `0x37A` = `0C` | `0x78` |
+| after `04`, `0C` (knock complete) | `0x78` |
+
+**The status line never moves.** The host decides a pod is present by the status
+changing across the knock, so on this evidence the pod is not taking the link.
+`BPCKEE.COM` returned 128 zero bytes for the same reason: DO is bit 7 and bit 7
+of `0x78` is 0, so every bit clocked out read zero.
+
+⛔ **What this invalidates.** The knock in `lpt_bpck.c` was transliterated from
+`lpt_ditto.c`, which models a *different product* on the same bridge. It was
+then "confirmed" by the vendor driver connecting to our model — but that only
+proves the model is self-consistent, not that it matches a BackPack CD pod. The
+bed cannot falsify a layer-1 assumption, because both sides of it are ours.
+
+Note also that real idle status is `0x78`, where the model uses `0xD8`.
+
+⭐ **Next: take the sequence from the hardware, not from a model.** Either
+capture the vendor driver's own port writes on a machine where it runs, or
+transliterate its `0xC05`/`0xD5F` primitives — which are jump-table dispatched
+by protocol mode, so they need a careful pass. Until then the connect sequence
+is unverified against the real pod, and everything above it is built on sand.
