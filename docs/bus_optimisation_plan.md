@@ -882,7 +882,7 @@ uncosted, and costing it is itself a task.
 | B1 | **Request merging** | **1.22x / 1.38x / 1.52x** at x2 / x4 / 64 KB commands. 36% of disk time is command setup | ❌ **not started - biggest remaining** |
 | B2 | Scatter/gather descriptor coalescing | re-enables `XT_SG`; today it costs **1,104 commands for 975 KB** vs 603 for 1,149 KB | ❌ same work as B1 |
 | B3 | Transfer-loop overhead | **4%**, free, compounds with everything | ❌ not started |
-| B4 | `rep movsd` for buffer copies in local RAM (0.135 us/byte) | small, free | ❌ `XTIDEMP.ASM` has **zero** string ops / 9 byte-move lines; `XTIDETR.ASM` 4 / 20 |
+| B4 | `rep movsd` for buffer copies in local RAM | **0** | ⛔ **CLOSED 2026-09-20 - there are no bulk byte-copies to convert.** The line counts were a grep, not a reading. Every hit is init-time or dead: `xvi_loop`/`xci_loop` validate and byte-swap the 40-byte IDENTIFY model string **once per probe**; `xrd_pio8_loop` is the fallback compiled out when `XT_WORD_XFER` is on; `xrd_latch_loop` is the `XT_TR_LATCH` transport, and **this card has no high-byte latch**. The two real `rep` sites in `XTIDEMP.ASM` zero a 60-byte struct once and copy a <=36-byte INQUIRY reply. **The bulk paths already use `rep insw`/`outsw`.** Do not re-open. |
 | B5 | Compression (32-bit DriveSpace) | ~480 spare CPU cycles per bus byte | ⏸ parked on **risk and footprint**, not architecture (Andrew corrected our reason) |
 | B6 | Read-ahead into Inboard RAM | moves bus work off the critical path | ❓ **uncosted** |
 | B7 | The VxD layer | unknown | ❓ **unmeasured.** DDK ships debug builds + symbols for IOS/SCSIPORT/DISKTSD/VMM plus `WDEB386` - still unopened |
