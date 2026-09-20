@@ -175,8 +175,12 @@ and there was nothing to configure.
 
 ## Upstream
 
-**The Intel Inboard 386/PC is part of 86Box.** All eight PRs raised from this project are merged;
-nothing is outstanding upstream:
+**The Intel Inboard 386/PC is part of 86Box.** All eight Inboard PRs raised from this project are
+merged. One further submission is **open**: [#8010](https://github.com/86Box/86Box/pull/8010), a
+parallel-port LS-120 - the Shuttle EPAT bridge, the ECP path an LPT device needs to carry payload,
+and the SuperDisk `rdisk` type upstream already had behind `#if 0`. Tested on master: the drive
+enumerates, reads and writes; a non-LPT machine is unaffected; the SuperDisk also works on SCSI
+with no bridge.
 
 | PR | What it fixed |
 |---|---|
@@ -188,6 +192,7 @@ nothing is outstanding upstream:
 | [#7766](https://github.com/86Box/86Box/pull/7766) | POST 1801 on every boot — the machine must not default to a 5161 expansion unit |
 | [#7771](https://github.com/86Box/86Box/pull/7771) | The XT 4-bit DMA page latch — truncation was gated on `dma_at`, so an Inboard got an 8-bit page register it does not physically have |
 | [#7858](https://github.com/86Box/86Box/pull/7858) | XT-IDE logging was inert on the plain card — only `jride_init()` opened a log handle, so `xtide_log()` wrote to NULL |
+| [#8010](https://github.com/86Box/86Box/pull/8010) | **OPEN** - a parallel-port LS-120: the Shuttle EPAT bridge, three optional ECP callbacks on `lpt_device_t`, and the SuperDisk drive type enabled |
 
 Between them these close [86Box/86Box#7638](https://github.com/86Box/86Box/issues/7638) (all memory
 reported "BAD", 640K available) and this repo's issues #11, #12, #13 and #16.
