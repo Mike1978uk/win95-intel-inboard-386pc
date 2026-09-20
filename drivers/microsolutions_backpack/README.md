@@ -386,3 +386,38 @@ What IS established, and does not depend on the above:
 - the vendor driver mounts it on the Libretto and finds nothing on the 5160;
 - our knock moves the status line on neither machine, including the one where
   the drive works. **That is the fault we own.**
+
+## The live driver, read out of the working machine
+
+COMrade on the Libretto, drive mounted at `E:`. `MEM /D` puts the `IO` block at
+segment `020D`; the devices inside it run in listed order, and the `BPCDDRV$`
+device header - next pointer, attributes `C800`, strategy `00BC`, interrupt
+`00C7`, then the name and a `BPcd` signature - sits at linear **`0x6E00`**.
+
+An 88-byte `.COM` copied all 33,168 resident bytes to a file, which came back
+over COMrade as `capture/BPCDDRV_resident_libretto.bin`.
+
+⭐ **Diffing the resident image against the on-disk `BPCDDRV.SYS` isolates
+exactly what the driver learned from the pod** - 89 changed runs, everything
+else identical. Two of them are ASCII written at runtime and present nowhere in
+the file on disk:
+
+| offset | value | |
+|---|---|---|
+| `0x7FD1` | `17627007` | serial |
+| `0x7FDA` | `2696` | model or part number |
+
+and at `0x7F9E` the adapter structure carries `78 03` - the base port - with
+`0x7FA0` onward holding the mode and shadow bytes the disassembly names.
+
+⭐ **This is the EEPROM surfacing through the driver rather than the protocol.**
+It does not yet give the 64 raw words, but it gives what the driver *derived*
+from them on a pod that works, which is the thing the model has to satisfy.
+
+### Why this route matters
+
+The knock is still wrong and the pod still answers nothing we send. But the
+driver that does work is sitting in memory on a machine we can read, so its
+conclusions are recoverable without solving the protocol first. Next: locate
+where those strings are parsed, and the ID word from the table at `0x78E8`
+should be in the same structure.
