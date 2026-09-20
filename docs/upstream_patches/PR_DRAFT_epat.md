@@ -40,7 +40,7 @@ and debugged.
 
 ## Changed
 
-Nine files, **+1,693 / −21**. `src/device/lpt_epat.c` is new and is most of it.
+Nine files, **+1,578 / −21**. `src/device/lpt_epat.c` is new and is most of it.
 No existing behaviour is modified: the LPT changes are additive callbacks plus
 their plumbing, and the `rdisk` change is an attach path.
 
@@ -67,17 +67,34 @@ their plumbing, and the `rdisk` change is an attach path.
 
 ---
 
-## ⚠ Open questions to settle BEFORE submitting
+## ✅ Done since the first draft
+
+- **Diagnostics stripped.** Fourteen marked sites removed across `lpt.c`,
+  `lpt_epat.c` and `rdisk.c` - the ECP write census, the LBA 0 header dumps,
+  the CPP chain-scan trace, and the env-gated motor-stopped model. The patch
+  went from +1,693 to **+1,578**, and `rdisk.c` from 113 changed lines to 58.
+  Rebuilds clean. Verified: zero occurrences of `DIAGNOSTIC`, `ecpdiag`,
+  `RDISK_START_REQUIRED` or `not for upstream` remain in the patch.
+- **`hdd.c` duplicate resolved.** Our `case CDROM_BUS_LPT:` was redundant -
+  upstream already maps bus value 6 through `TAPE_BUS_LPT`, and says so in a
+  comment. Dropped; the minimal diff is 4 added lines.
+- **Non-LPT safety reviewed.** The three `ecp_*` callbacks are NULL-guarded at
+  every call site and additionally gated on `dev->ecp`; the `ide_channel`
+  change only adds an exclusion for the new LPT bus type; the SUPERDISK media
+  cases are additive. A device that does not set the callbacks behaves exactly
+  as before. **Reviewed, not yet tested** - see below.
+
+## ⚠ Still open BEFORE submitting
 
 1. **Should `lpt_epat.c` use upstream's `strobe`, `read_ctrl`,
    `epp_write_data` and `epp_request_read`?** It predates them and does its own
-   framing. A reviewer will ask, and they would be right to. This is the main
-   piece of work left.
-2. **`hdd.c`**: our `case CDROM_BUS_LPT:` was redundant — upstream already maps
-   bus value 6 through `TAPE_BUS_LPT`. Dropped. Confirm nothing else in the
-   patch duplicates something upstream grew independently.
-3. **Splitting.** The three `ecp_*` hooks are a much smaller review surface
-   than the bridge, but hooks with no consumer usually get rejected, so they
-   probably have to go together. Decide deliberately.
+   framing. A reviewer will ask, and they would be right to. **This is the main
+   piece of work left.**
+2. **Run it on master.** It applies and builds; it has never run there. Blocked
+   on the local 86Box ROM set, which is from July and predates master's
+   requirements. A fork control on the same bed boots and reaches the drive, so
+   the patch and the bed are both exonerated - but "builds" is not "works".
+3. **Non-LPT regression run.** Boot a plain IDE/ATAPI machine on the patched
+   master build and confirm nothing moved. Same ROM-set blocker.
 4. **`src/config.c`** gains 17 lines. Check those are all genuinely needed for
    the device and not project-local convenience.
