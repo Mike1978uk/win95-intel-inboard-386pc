@@ -7862,3 +7862,45 @@ detection, both of which we already drive.
 [New_Developments](https://www.ardent-tool.com/comms/New_Developments_Parallel_Ports.html)
 is Boling on PS/2 Type 1/3 and the Intel 386SL fast-mode port and, despite the
 title, **contains no EPP or ECP material at all**.
+
+---
+
+## Technique 129: apply "unverified is not a result" to POSITIVE results too
+
+`CLAUDE.md` says *"a negative result from an unverified run is not a result."*
+On 2026-09-20 a **positive** one steered a whole session and was wrong.
+
+The claim: *"DOS+ECP moves the same 4 MB in 35 s against Windows' 43-52 s,
+therefore the Windows stack costs 10-18 s and is the bigger lever."* Both
+numbers were real timings. Only one arm had ever been byte-checked.
+
+| arm | timed | verified |
+|---|---|---|
+| Windows + EPP | 43.45-51.90 s | ✅ `FC: no differences encountered` |
+| DOS + ECP | 34.55-35.70 s | ⛔ **no `FC` line in the log at all** |
+
+The repeat verified it, and the DOS write is **corrupt**: first 16,384 bytes
+correct, then ~62% of bytes wrong, differences spread across all four byte
+positions of a dword. An unverified transfer that drops most of its payload is
+of course faster than one that delivers it.
+
+### The rules that follow
+
+- **A timing without a verification is not a throughput figure.** It is a
+  duration. Write it down as one, and never put it in a table beside a
+  verified number.
+- **Check the log, not the memory of the run.** The evidence was sitting in
+  `T2.TXT` on the card the whole time - two `TIME` stamps and no `FC` line.
+  One `grep -c Comparing` would have caught it a day earlier.
+- **When two arms disagree in the direction that favours your hypothesis, go
+  and check the cheap thing first.** "DOS is faster" was believed because it
+  was convenient, and the belief survived a session.
+- Technique 79 already says the read-back must come from outside the code
+  under test. It does not help if you only apply it to one arm.
+
+### And a corollary about direction
+
+`ls120-ecp-bulk-works-dos-driver-2026-09-20` records the drive "serving" a
+36 MB file over ECP, verified. **Serving is reading.** The ECP *write*
+direction had never been exercised. **A transport verified in one direction is
+not verified in the other**, and on this bridge the write is where it breaks.
