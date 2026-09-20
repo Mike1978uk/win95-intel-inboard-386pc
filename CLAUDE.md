@@ -64,6 +64,42 @@ suggested by @andrew-hoffman on issue #3 — the git history had become hard to 
   something — *"do not raise this, the port aliases onto the 8259"* — is a live constraint,
   so it stays. Say the constraint, not the incident.
 
+### Comments are a canary — @JoshRodd, 86Box/86Box#8010, 2026-09-20
+
+> *"double-check comments it writes to make sure they are not non-sensical ... Comments
+> going off the rails could mean code is off the rails, too."*
+
+- **Re-read every comment in a file you generated or ported**, before it is committed and
+  certainly before it is submitted. A comment describing a different device, a function
+  this file never calls, or a bug that was fixed elsewhere is evidence the code was moved
+  without being understood.
+- **Porting carries comments with it.** `lpt_bpck.c` went out in #8012 still talking about
+  the LS-120, `rdisk_*` functions it does not call, and a dated WRITE(10) diagnostic — in a
+  read-only CD-ROM. Caught by this rule within an hour of it being written down.
+
+### Alert, do not fix — same source
+
+> *"don't tell it to just 'fix it'; tell it to alert you but NOT make any changes so you can
+> manually review what went wrong."*
+
+- When something looks wrong in work already committed, pushed or submitted: **say what is
+  wrong and stop.** Do not open an editor. The owner decides whether it is fixed, reverted,
+  or left.
+- This is stronger than the general "ask before outward-facing actions": it applies to the
+  *local* tree too, because a silent fix destroys the evidence of how it went wrong.
+
+### Hand-written for humans — same source
+
+> *"would you be comfortable making sure to hand-write PRs? ... it can be frustrating when an
+> AI responds with a comment to a human who typed a comment out."*
+
+- **PR text and replies to people are the owner's to write.** Draft on request; never post.
+  Already covered under Git, GitHub, docs — restated because it was asked for directly by a
+  maintainer after it was breached on #8010.
+- **Audit generated code, especially a whole new file.** @JoshRodd's phrase for the failure
+  mode is *"vibe rot"*: a codebase several agents have contributed to without anyone reading
+  the result. A 1,000-line file that compiles is not a file that has been reviewed.
+
 ### Prose
 
 - Use as few words as possible; pick every word deliberately.
