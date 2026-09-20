@@ -173,8 +173,12 @@ if ($Heartbeat) {
 } else {
     Remove-Item Env:INBOARD_HEARTBEAT -EA SilentlyContinue
 }
+# -WindowStyle Hidden suppresses the console box. 86Box's CMake FORCEs the
+# console subsystem whenever the SDL frontend is built (WIN32 AND NOT QT), so
+# the window exists whether or not anyone reads it; the emulator's own window
+# still appears and -L still writes the log.
 $p = Start-Process $ExePath -ArgumentList @("-P", $VmPath, "-L", $log) `
-        -WorkingDirectory $VmPath -PassThru
+        -WorkingDirectory $VmPath -WindowStyle Hidden -PassThru
 Write-Output "86Box pid $($p.Id), running $Seconds s..."
 $p | Wait-Process -Timeout $Seconds -EA SilentlyContinue
 if (-not $p.HasExited) { $p | Stop-Process -Force }
