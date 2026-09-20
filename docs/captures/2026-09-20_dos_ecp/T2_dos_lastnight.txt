@@ -1,0 +1,8 @@
+Current time is   1:00:59.24
+Enter new time:  
+Current time is   1:01:33.79
+Enter new time:  
+Current time is   1:01:34.12
+Enter new time:  
+Current time is   1:02:09.82
+Enter new time:  

@@ -1,0 +1,23 @@
+--- drive check, LS-120 should be J: --- 
+
+ Volume in drive J has no label
+ Volume Serial Number is 0000-0001
+ Directory of J:\
+
+GOODTIME MPG    36,735,152  24/08/96  12:11 GOODTIME.MPG
+         1 file(s)     36,735,152 bytes
+         0 dir(s)      86,880,256 bytes free
+--- copy 1 --- 
+Current time is   1:40:38.01
+Enter new time:  
+Current time is   1:41:29.91
+Enter new time:  
+--- copy 2 --- 
+Current time is   1:41:30.02
+Enter new time:  
+Current time is   1:42:13.47
+Enter new time:  
+--- verify --- 
+Comparing files c:\BOUNDARY.BIN and j:\boundary.bin
+FC: no differences encountered
+

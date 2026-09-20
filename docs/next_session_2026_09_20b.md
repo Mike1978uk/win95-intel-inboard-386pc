@@ -261,6 +261,14 @@ the table at all.
 
 ## 9. THE BIGGER LEVER, found tonight: the Windows stack, not the transport
 
+> ⛔ **RETRACTED 2026-09-20.** The DOS+ECP arm below was **never verified**, and the
+> repeat is corrupt: first 16,384 bytes correct, then ~62% of bytes wrong.
+> `T2.TXT` on the card holds these exact timings and contains no `FC` line.
+> **Everything in this section that compares DOS against Windows is withdrawn** -
+> it compared a verified transfer against a broken one.
+> See `docs/dos_ecp_write_is_corrupt_2026_09_20.md`. The ECP *read* result is
+> unaffected.
+
 Same 4,000,000 bytes to the same drive:
 
 | path | time | rate |
