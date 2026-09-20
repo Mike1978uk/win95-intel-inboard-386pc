@@ -7741,6 +7741,28 @@ register no peripheral answers, so a handshaked bus (EPP nWAIT) extends each
 assumes.** This one was quoted as "up to 2x", then ~4%, then ~27%, from the same
 measurements, before anyone checked that 109e had already answered it.
 
+### 126i: delete the destination before EVERY copy, not once before the pair
+
+`TBW.BAT` and the first `TBD.BAT` deleted the target file **once, before copy
+1**. So copy 1 created a file on freshly-freed space and copy 2 **overwrote an
+existing 4 MB file**. Those are different operations - different directory and
+FAT work, and on an LS-120 possibly different block handling - so the pair was
+never a repeat.
+
+Measured 2026-09-20, DOS+ECP, 4 MB to the LS-120: copy 1 **35.10 s**, copy 2
+**42.02 s**. In the Windows runs the order was reversed (51.90 then 43.45), and
+that was read as a warm/cold cache effect. **It is not; it is two different
+operations, and the direction of the difference is not even stable.**
+
+⚠ This does not invalidate an A/B that compared arm to arm - last night's
+stock-against-patched still holds, because both arms had the same flaw. What it
+invalidates is **reading copy 1 against copy 2 within a run**, which is exactly
+what was used to argue "the downgrade latch never tripped".
+
+Fix: `if exist <target> del <target>` before *each* timed copy. And when the
+within-run spread (7-8.5 s here) is the same size as the effect being measured,
+say so rather than quoting a mean.
+
 ### 128d: an ISA I/O access costs 2.87 us more to START than an ISA memory access
 
 Measured 2026-09-20 with `tools/gen_memwidth_probe.py`, same instrument as 128,
