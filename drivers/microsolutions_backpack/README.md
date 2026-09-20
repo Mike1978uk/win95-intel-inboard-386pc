@@ -305,3 +305,31 @@ handshake there are ours.
 
 ✅ The keyboard survived `NOFAST UNIDIR`, so the `0x22`/`0x23` hazard did not
 bite on this path.
+
+## ⭐ The pod is fine; the 5160 is not the machine; the knock is wrong
+
+The owner's steer settled it: the 5160's parallel card is in **ECP/EPP mode**,
+because that is the LS-120's shipping transport there (`/fe`). A BackPack pod
+wanting plain SPP sees nothing it understands, which is why *nothing* answered
+on that machine - vendor driver included.
+
+On a **Toshiba Libretto** the vendor driver loads and mounts the drive at `E:`.
+LPT1 there is `0x378`, the same address.
+
+With the drive proven working on that machine, `BPCKEE.COM` still returned
+**128 zero bytes**. That is the positive control the 5160 could never provide:
+
+⭐ **Our connect sequence is wrong.** Not the pod, not the cable, not the port.
+The knock was transliterated from `lpt_ditto.c`, a model of a different product,
+and it does not open a link to a real BackPack CD pod.
+
+⚠ One confound remains: the vendor driver was resident and owns the pod, so it
+may hold the link in a state that ignores a knock. The clean run is a reboot
+with **no driver loaded**, then `BPCKEE.COM` alone. Do that before concluding.
+
+### Standing lesson
+
+A model cannot validate its own handshake. Our driver connected to our bridge
+because both halves were written from the same guess; three real machines were
+needed to show it. Get the sequence from the vendor driver's own port writes -
+the primitives are `0xC05` and `0xD5F`, jump-table dispatched by protocol mode.
