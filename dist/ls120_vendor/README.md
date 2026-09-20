@@ -72,14 +72,13 @@ EPP costs **one**. Measured on this machine under Windows:
 That verification is strong: the write and the read used **different drivers
 over different transports**, so a symmetric error cannot cancel itself out.
 
-⚠ **Two honest caveats.**
+✅ **The keyboard survives it.** `/fe` forces a chipset-specific init path,
+and before it was first tried the keyboard was flagged as the thing most
+likely to break - the same failure this switch line exists to avoid. Owner
+confirmed 2026-09-20: **the keyboard works in both modes**, with and without
+`/fe`.
 
-- `/fe` forces a chipset-specific init path. Before it was first tried, the
-  keyboard was flagged as the thing most likely to break - and **the handoff
-  that recorded the successful EPP run does not state what the keyboard did**.
-  The transfer clearly worked; the keyboard outcome is simply not written down.
-  Check it on the first boot.
-- Reverting is deleting four characters and rebooting.
+Reverting is deleting four characters and rebooting.
 
 ## Do not add `/r` or `/w`
 
