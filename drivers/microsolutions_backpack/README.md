@@ -228,3 +228,18 @@ checksum, and that check fails on a uniform pattern.
 ⭐ **The cheapest way past this is the hardware.** The owner has the drive, so
 a dump of a real pod's 64 words settles the layout, the checksum and the ID in
 one go — no further disassembly. Until then the model reads as an erased part.
+
+## BPCKEE.COM — dumping a real pod
+
+`tools/gen_bpckee.py` builds a standalone DOS program that reads all 64 EEPROM
+words and writes them to `BPCKEE.BIN` as little-endian words. **No BackPack
+driver is loaded and none is needed**, which is what makes it XT-safe: it does
+`IN`/`OUT` on `0x378`-`0x37A` and three INT 21h calls, and nothing else. No PIC
+masking, no `0x22`/`0x23`, plain 8086 encodings only.
+
+⭐ **Verified in the bed before it went near hardware.** The model was loaded
+with `0xA000 | word` — a pattern neither zeros nor `FF`s, so a wrong dump could
+not pass — and the program returned all 64 words correctly.
+
+Run it at a DOS prompt with the pod powered on and nothing else on the chain,
+then read `BPCKEE.BIN` back. Those 128 bytes are what the model needs.
