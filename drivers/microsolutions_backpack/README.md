@@ -354,3 +354,18 @@ zero dump conclusive rather than ambiguous.
 ⛔ **The drive's own firmware is not reachable this way.** MSCDEX and the block
 driver expose media, not the device: there is no command to read the pod ROM,
 and the identity we need is the 93C46, which still requires a working knock.
+
+### Probed by hand on the Libretto, with the drive working
+
+`0x379` idle reads `0x7F`. Driving our knock by hand through COMrade -
+`0x378` = unit, then `0x37A` = `04`, `0C`, `04`, `0C` - leaves it at `0x7F` at
+every step. On a machine where the vendor driver mounts the drive, **our
+connect sequence moves nothing**. The knock is wrong; nothing else is.
+
+⭐ **Next lead, cheaper than solving the knock:** the resident driver read all
+64 EEPROM words at init, so its copy is in the Libretto's memory and COMrade
+can read memory. Find the TSR's adapter structure and the contents fall out
+without needing the protocol at all. The shadow bytes are at `[si+0x10]`
+(reg 5), `[si+0x11]` (reg 6), `[si+0x12]` (reg 7), `[si+0x13]` (reg 0x1A),
+with flags at `[si+6]`, `[si+0xB]` and `[si+0xF]` - enough to recognise the
+structure in a memory dump.
