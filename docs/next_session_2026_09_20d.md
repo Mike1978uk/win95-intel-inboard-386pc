@@ -1,5 +1,23 @@
 # 2026-09-20d — the EPAT submission is BLOCKED: no drive on master
 
+> ### SUPERSEDED the same day - the conclusion below is WRONG.
+>
+> The drive **does** enumerate on master: `J:`, directory read, and a
+> 92,870-byte write that landed. The bridge was never at fault.
+>
+> Run B failed because the owner's card image carries `5140442c`, a 09-19
+> **trace** build of `LS120MP.MPD`, not the enumerating `d8154f1d`. Run B
+> changed the emulator build *and* the guest image at once; holding the guest
+> fixed and changing only the build gave `drive J`.
+>
+> Also cleared: the `[0117:0000B929] Illegal instruction` is **not ours** - it
+> appears identically with no EPAT device in the config.
+>
+> Kept as written because its reasoning was sound - the CPP chain scan was
+> exonerated and the fault did lie after unit select - only the attribution
+> to the emulator was wrong. See `docs/upstream_patches/PR_DRAFT_epat.md`.
+
+
 ## The bar, and the result
 
 The owner set it plainly: *"it has to work and the drive has to be there for
