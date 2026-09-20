@@ -85,8 +85,9 @@ Chipset id table at `0x1F1A0`, 8 bytes per entry, name function first:
 ```
 
 `[0x20BD3]==1` aborts the whole function four instructions in, so the
-declaration never happens and `[0x20D9D]` stays 0. **That is why gate 4
-refuses.** It is not that detection fails; it is that detection never runs.
+declaration never happens and `[0x20D9D]` stays 0. That is the failure mode to
+look for — but see §6: in the miniport the bit defaults to **clear**, so this is
+what `/de` does to the DOS driver, not what the stock `.MPD` does to itself.
 
 ### `0xD030`, the declared-EPP path
 
