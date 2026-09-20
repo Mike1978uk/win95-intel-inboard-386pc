@@ -483,3 +483,41 @@ From `0x0A83`: with AUTOFD set, status bits 3-5 must equal `[si+2] & 7`; with
 AUTOFD cleared, their complement must. That is the presence check, and our
 model already implements exactly this pair - the design was right, the framing
 around it was not.
+
+## ⭐ The pod answers: it is at chain address 7
+
+Brute-forcing the three address bits settled what reading the live structure
+got wrong. `BPCKSCAN.COM` runs the connect for units 0-7 and records the status
+either side of the AUTOFD edge:
+
+```
+unit 7: AUTOFD set 7F (bits 3-5 = 7)   AUTOFD clear C7 (bits 3-5 = 0)
+units 0-6: 7F / 7F - no response
+```
+
+⭐ **That is the driver's own presence test passing**: bits 3-5 equal the
+address with AUTOFD set, and its complement with AUTOFD cleared. `C7` is the
+first time this pod has moved the status line for us.
+
+⛔ `[si+2]` = `0x03` from the live image is **not** the chain address, or the
+structure base was misread. Do not trust that reading; the scan is authority.
+
+### The read framing is right, and proves it
+
+With the link up, every register reads `0x77` - exactly `xlatb` of an idle
+`0x7F` under the driver's own table (`((s>>3)&7)|((s>>4)&8)`, verified against
+all 256 entries). So the decode path is correct and is faithfully reporting an
+idle bus, not producing garbage.
+
+### What remains
+
+The link comes up at the ident probe and is gone by the first register access,
+so **the connect has a tail we stop short of**: `0x0AB1` to `0x0B66` in the
+driver, after the complement check - it clears AUTOFD, re-tests, then branches
+on `[si+3]` and `AH`. Transliterate that and the registers should talk.
+
+Tools, all driven over COMrade against the live Libretto:
+`tools/gen_bpckee.py` (EEPROM dumper, `--unit`/`--port`), plus
+`tools/backpack/BPCKSCAN.COM` (address scan) and `BPCKDIAG.COM` (status and
+register probe) - the diagnostics that turned "128 zero bytes" into a located
+fault.

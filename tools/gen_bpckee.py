@@ -61,165 +61,203 @@ class Asm:
         self.emit(0xC3)
 
 
+XLAT_OFF = 0xE9E   # the status->nibble table, inline in the vendor driver
+
+
 def delay(a):
-    """The settling pause the driver takes between connect steps."""
-    a.emit(0xB9, 0x00, 0x08)                 # mov cx, 0800h
+    """The settling pause the driver takes between every port step."""
+    a.emit(0x51)                             # push cx
+    a.emit(0xB9, 0x00, 0x04)                 # mov cx, 0400h
     a.emit(0xE2, 0xFE)                       # loop $
+    a.emit(0x59)                             # pop cx
 
 
-def sub_write_reg6(a):
-    """Write CL to register 0x06.
+def sub_addr(a, ctl):
+    """Address a register: number to DATA, then CTRL = (ctl | 1) ^ 2.
 
-    AUTOFD must fall while the data lines still carry the register number,
-    because any AUTOFD edge re-latches the address from them. Only then may the
-    value go out, committed by INIT falling with STROBE up.
+    Transliterated from the vendor driver at 0xC05, mode-0 arm (0x0C1F). The
+    control byte is carried forward in memory exactly as the driver carries it
+    in [si+9] - each call toggles AUTOFD, so it cannot be recomputed.
     """
     at = a.here()
-    a.mov_dx(a.data); a.mov_al(0x06); a.out()
+    a.mov_dx(a.data); a.out()
+    delay(a)
     a.mov_dx(a.ctrl)
-    a.mov_al(INIT); a.out()
-    a.mov_al(INIT | AUTOFD); a.out()         # latch register 6
-    a.mov_al(INIT); a.out()                  # AUTOFD down, address held
-    a.mov_dx(a.data); a.emit(0x8A, 0xC1); a.out()   # mov al, cl
-    a.mov_dx(a.ctrl)
-    a.mov_al(INIT | STROBE); a.out()         # STROBE up, no INIT edge
-    a.mov_al(STROBE); a.out()                # INIT falls -> commit
-    a.mov_al(0x00); a.out()
+    a.emit(0xA0); a.emit(ctl & 0xFF, ctl >> 8)      # mov al, [ctl]
+    a.emit(0x0C, 0x01)                              # or al, 1
+    a.emit(0x34, 0x02)                              # xor al, 2
+    a.out()
+    a.emit(0xA2); a.emit(ctl & 0xFF, ctl >> 8)      # mov [ctl], al
+    delay(a)
     a.ret()
     return at
 
 
-def sub_read_do(a):
-    """Clock one DO bit out of register 0x00 and shift it into BX.
-
-    A nibble read hands back the low half first and the high half second, and
-    bit 7 of the byte is bit 3 of the high nibble - which is bit 7 of the
-    status register on the second toggle. So only that read is needed, and the
-    carry does the rest: no branches in the bit loop.
-    """
+def sub_write(a, ctl):
+    """Write AL to the addressed register - driver 0xC90, mode-0 arm 0x0CAA."""
     at = a.here()
-    a.mov_dx(a.data); a.mov_al(0x00); a.out()
+    a.mov_dx(a.data); a.out()
+    delay(a)
     a.mov_dx(a.ctrl)
-    a.mov_al(INIT); a.out()
-    a.mov_al(INIT | AUTOFD); a.out()         # latch register 0
-    a.mov_al(INIT); a.out()                  # nibble phase reset
-    a.mov_al(0x00); a.out()                  # first toggle: low nibble
-    a.mov_al(INIT); a.out()                  # second toggle: high nibble
-    a.mov_dx(a.stat); a.emit(0xEC)
-    a.emit(0xD0, 0xE0)                       # shl al, 1  -> CF = bit 7
-    a.emit(0xD1, 0xD3)                       # rcl bx, 1
+    a.emit(0xA0); a.emit(ctl & 0xFF, ctl >> 8)
+    a.emit(0x0C, 0x01); a.out()                     # STROBE up
+    a.emit(0x34, 0x04); a.out()                     # INIT toggles -> commit
+    delay(a)
+    a.emit(0x24, 0xFE)                              # and al, 0FEh
+    for _ in range(5):
+        a.out()
+    a.emit(0xA2); a.emit(ctl & 0xFF, ctl >> 8)
     a.ret()
     return at
 
 
-def clock_bit(a, wr6, state, di):
-    """One EEPROM clock, exactly as the driver frames it: data, up, down."""
+def sub_read(a, ctl, sav, table):
+    """Read the addressed register - driver 0xDFC, the mode-0 read.
+
+    Five settling writes with STROBE down, then INIT toggled to clock the low
+    nibble out and back again for the high one. The status byte is decoded
+    through the driver's own 256-entry table rather than a reconstruction of
+    it, so the mapping cannot be got wrong.
+    """
+    at = a.here()
+    a.mov_dx(a.ctrl)
+    a.emit(0xA0); a.emit(ctl & 0xFF, ctl >> 8)
+    a.emit(0x24, 0xFE)                              # and al, 0FEh
+    for _ in range(5):
+        a.out()
+    a.emit(0xA2); a.emit(sav & 0xFF, sav >> 8)      # save it
+    a.emit(0x34, 0x04); a.out()                     # xor al,4 -> clock
+    delay(a)
+    a.emit(0xBB); a.emit(table & 0xFF, table >> 8)  # mov bx, table
+    a.emit(0xFE, 0xCA)                              # dec dl -> STATUS
+    a.emit(0xEC); a.emit(0xD7)                      # in al,dx ; xlatb
+    a.emit(0x8A, 0xE0)                              # mov ah, al
+    a.emit(0xFE, 0xC2)                              # inc dl -> CTRL
+    a.emit(0xA0); a.emit(sav & 0xFF, sav >> 8)
+    a.out()
+    a.emit(0xA2); a.emit(ctl & 0xFF, ctl >> 8)
+    delay(a)
+    a.emit(0xFE, 0xCA)
+    a.emit(0xEC); a.emit(0xD7)
+    a.emit(0x25, 0xF0, 0x0F)                        # and ax, 0FF0h
+    a.emit(0x0A, 0xC4)                              # or al, ah
+    a.ret()
+    return at
+
+
+def ee_write(a, addr_s, write_s, val):
+    """One write to register 6: address it, then hand it the value."""
+    a.mov_al(0x06); a.call(addr_s)
+    a.mov_al(val);  a.call(write_s)
+
+
+def clock_bit(a, addr_s, write_s, state, di):
     state = state & 0xFC
     if di:
         state |= 0x02
-    a.emit(0xB1, state); a.call(wr6)         # mov cl, state
-    a.emit(0xB1, state | 0x01); a.call(wr6)
-    a.emit(0xB1, state); a.call(wr6)
+    ee_write(a, addr_s, write_s, state)
+    ee_write(a, addr_s, write_s, state | 0x01)
+    ee_write(a, addr_s, write_s, state)
     return state
 
 
-def read_word(a, wr6, rddo, addr):
-    """A 93C46 READ: START, opcode 10, six address bits, then 16 bits back."""
-    state = 0x08                             # enable, CS low
-    a.emit(0xB1, state); a.call(wr6)
-    state |= 0x04                            # CS up
-    a.emit(0xB1, state); a.call(wr6)
+def read_word(a, addr_s, write_s, read_s, addr):
+    """93C46 READ: START, opcode 10, six address bits, sixteen bits back."""
+    state = 0x08
+    ee_write(a, addr_s, write_s, state)
+    state |= 0x04
+    ee_write(a, addr_s, write_s, state)
 
     for bit in (1, 1, 0):
-        state = clock_bit(a, wr6, state, bit)
+        state = clock_bit(a, addr_s, write_s, state, bit)
     for i in range(5, -1, -1):
-        state = clock_bit(a, wr6, state, (addr >> i) & 1)
+        state = clock_bit(a, addr_s, write_s, state, (addr >> i) & 1)
 
-    a.emit(0xBB, 0x00, 0x00)                 # mov bx, 0
+    a.emit(0xBE, 0x00, 0x00)                        # mov si, 0
     for _ in range(16):
-        state = clock_bit(a, wr6, state, 0)
-        a.call(rddo)
+        state = clock_bit(a, addr_s, write_s, state, 0)
+        a.mov_al(0x00); a.call(addr_s)
+        a.call(read_s)
+        a.emit(0xD0, 0xE0)                          # shl al,1 -> CF = bit 7
+        a.emit(0xD1, 0xD6)                          # rcl si,1
 
-    a.emit(0x89, 0x1D)                       # mov [di], bx
-    a.emit(0x83, 0xC7, 0x02)                 # add di, 2
+    a.emit(0x89, 0x35)                              # mov [di], si
+    a.emit(0x83, 0xC7, 0x02)                        # add di, 2
 
-    state &= ~0x04                           # CS down ends the frame
-    a.emit(0xB1, state); a.call(wr6)
+    state &= ~0x04
+    ee_write(a, addr_s, write_s, state)
 
 
 def build(port, unit):
     a = Asm(port)
+    xlat = open("drivers/microsolutions_backpack/vendor/BPCDDRV.SYS",
+                "rb").read()[XLAT_OFF:XLAT_OFF + 256]
 
-    a.emit(0xE9, 0x00, 0x00)                 # jmp over the subroutines
+    a.emit(0xE9, 0x00, 0x00)
     jmp_fix = 1
-    wr6 = sub_write_reg6(a)
-    rddo = sub_read_do(a)
+    # Placeholders for the variables, patched once their addresses are known.
+    ctl, sav, table = 0x9000, 0x9002, 0x9004
+    addr_s  = sub_addr(a, ctl)
+    write_s = sub_write(a, ctl)
+    read_s  = sub_read(a, ctl, sav, table)
     struct.pack_into("<H", a.b, jmp_fix, a.here() - (ORG + 3))
 
-    # The connect sequence, transliterated from the vendor driver at 0x09EE.
-    # The pod is looking for the unit address presented INVERTED and then
-    # straight, with a settling pause between each step - a complement pair an
-    # empty port cannot produce. Three SELECT toggles follow, then AUTOFD for
-    # the address probe. Leaving out the inverted write is why an earlier
-    # version of this program was ignored by a pod that works.
+    # Connect, from the vendor driver at 0x09EE: the address inverted, then
+    # straight, three SELECT edges, then AUTOFD for the address probe.
     a.mov_dx(a.ctrl)
-    a.mov_al(0x00); a.out()
-    a.mov_al(0x00); a.out()
-    a.mov_al(0x00); a.out()
-    a.mov_al(0x00); a.out()
-    a.mov_al(0x00); a.out()                  # five writes, as the driver does
-
+    for _ in range(5):
+        a.mov_al(0x00); a.out()
     a.mov_dx(a.data); a.mov_al((~unit) & 0xFF); a.out()
     a.mov_dx(a.ctrl); a.mov_al(INIT); a.out()
     delay(a)
     a.mov_dx(a.data); a.mov_al(unit); a.out()
     delay(a)
-
     a.mov_dx(a.ctrl)
-    ctl = INIT
+    ctlv = INIT
     for _ in range(3):
-        ctl ^= SELECT
-        a.mov_al(ctl); a.out()
+        ctlv ^= SELECT
+        a.mov_al(ctlv); a.out()
         delay(a)
-    ctl |= AUTOFD
-    a.mov_al(ctl); a.out()
+    ctlv |= AUTOFD
+    a.mov_al(ctlv); a.out()
     delay(a)
+    a.mov_al(ctlv)
+    a.emit(0xA2); a.emit(ctl & 0xFF, ctl >> 8)      # seed the carried CTRL
 
-    a.emit(0xBF); buf_fix1 = len(a.b); a.emit(0x00, 0x00)   # mov di, buffer
+    a.emit(0xBF); buf_fix = len(a.b); a.emit(0x00, 0x00)
 
     for word in range(64):
-        read_word(a, wr6, rddo, word)
-
-    # Release the link so a driver loaded afterwards finds the pod idle.
-    a.mov_dx(a.ctrl)
-    a.mov_al(AUTOFD); a.out()
-    a.mov_al(INIT | SELECT); a.out()
+        read_word(a, addr_s, write_s, read_s, word)
 
     a.emit(0xBA); name_fix = len(a.b); a.emit(0x00, 0x00)
-    a.emit(0xB9, 0x00, 0x00)                 # mov cx, 0
-    a.emit(0xB4, 0x3C); a.emit(0xCD, 0x21)   # create
-    a.emit(0x93)                             # xchg ax, bx  -> handle in bx
+    a.emit(0xB9, 0x00, 0x00)
+    a.emit(0xB4, 0x3C); a.emit(0xCD, 0x21)
+    a.emit(0x93)
     a.emit(0xBA); buf_fix2 = len(a.b); a.emit(0x00, 0x00)
-    a.emit(0xB9, 0x80, 0x00)                 # mov cx, 128
-    a.emit(0xB4, 0x40); a.emit(0xCD, 0x21)   # write
-    a.emit(0xB4, 0x3E); a.emit(0xCD, 0x21)   # close
-
+    a.emit(0xB9, 0x80, 0x00)
+    a.emit(0xB4, 0x40); a.emit(0xCD, 0x21)
+    a.emit(0xB4, 0x3E); a.emit(0xCD, 0x21)
     a.emit(0xBA); msg_fix = len(a.b); a.emit(0x00, 0x00)
-    a.emit(0xB4, 0x09); a.emit(0xCD, 0x21)   # print
+    a.emit(0xB4, 0x09); a.emit(0xCD, 0x21)
     a.emit(0xB8, 0x00, 0x4C); a.emit(0xCD, 0x21)
 
-    name_off = a.here()
-    a.b.extend(b"BPCKEE.BIN\x00")
-    msg_off = a.here()
-    a.b.extend(b"BPCKEE: 128 bytes written to BPCKEE.BIN\r\n$")
-    buf_off = a.here()
-    a.b.extend(b"\x00" * 128)
+    name_off = a.here(); a.b.extend(b"BPCKEE.BIN" + bytes([0]))
+    msg_off = a.here(); a.b.extend(b"BPCKEE: 128 bytes written to BPCKEE.BIN" + bytes([13,10]) + b"$")
+    ctl_off = a.here(); a.b.append(0)
+    sav_off = a.here(); a.b.append(0)
+    tbl_off = a.here(); a.b.extend(xlat)
+    buf_off = a.here(); a.b.extend(bytes(128))
 
-    struct.pack_into("<H", a.b, buf_fix1, buf_off)
+    blob = bytes(a.b)
+    blob = blob.replace(struct.pack("<H", 0x9000), struct.pack("<H", ctl_off))
+    blob = blob.replace(struct.pack("<H", 0x9002), struct.pack("<H", sav_off))
+    blob = blob.replace(struct.pack("<H", 0x9004), struct.pack("<H", tbl_off))
+    a.b = bytearray(blob)
+
+    struct.pack_into("<H", a.b, buf_fix, buf_off)
     struct.pack_into("<H", a.b, buf_fix2, buf_off)
     struct.pack_into("<H", a.b, name_fix, name_off)
     struct.pack_into("<H", a.b, msg_fix, msg_off)
-
     return bytes(a.b)
 
 
@@ -231,7 +269,7 @@ def main():
     args = p.parse_args()
 
     com = build(int(args.port, 0), args.unit)
-    if len(com) > 60000:
+    if len(com) > 64000:
         print("TOO BIG for a .COM: %d" % len(com), file=sys.stderr)
         return 1
 
