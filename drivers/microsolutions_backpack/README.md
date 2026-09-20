@@ -521,3 +521,44 @@ Tools, all driven over COMrade against the live Libretto:
 `tools/backpack/BPCKSCAN.COM` (address scan) and `BPCKDIAG.COM` (status and
 register probe) - the diagnostics that turned "128 zero bytes" into a located
 fault.
+
+## ✅ The EEPROM is read
+
+The connect tail was the whole of it. Driver `0x0AB1`-`0x0B64`: after the
+complement check, clear AUTOFD (`ch &= 0xFD`), then write **`ch ^ 8`** and keep
+that as the carried control byte. Without those two writes the pod passes the
+presence test and goes straight back to idle - which is exactly what we saw.
+
+With them, `BPCKEE.COM --unit 7` returns the pod's 93C46:
+
+```
+00: 07F8 0000 0082 4F54 4853 4249 2041 4443
+08: 522D 4D4F 5820 2D4D 3531 3230 2F42 3632
+10: 3639 0000 ...
+2E: 3204
+37: 3731 3236 3037 3730 0C08 07CD 0C08 07CD
+```
+
+ASCII: **`TOSHIBA CD-ROM XM-1502B/2696`** and the serial **`17627007`**.
+
+⭐ **Independently confirmed.** `2696` and `17627007` are the two strings found
+earlier in the *resident driver's own memory* on the same machine, arrived at
+by a completely different route. The read is genuine, not an artefact.
+
+Saved as `capture/pod_eeprom_93c46.bin`.
+
+### The full working recipe
+
+| step | detail |
+|---|---|
+| chain address | **7** (found by scanning, not from the driver's structure) |
+| connect | settling writes; `NOT addr` to DATA; CTRL = `(old & 0x10) \| 4`; `addr` to DATA; three `xor 8` SELECT edges; `or 2` for the ident probe |
+| presence | status bits 3-5 = addr with AUTOFD set, complement with it cleared |
+| take the link | clear AUTOFD, then write `ch ^ 8`; carry that byte forward |
+| address a reg | reg to DATA; CTRL = `(carried \| 1) ^ 2` |
+| write a reg | value to DATA; CTRL `\|= 1`; `^= 4`; then `&= 0xFE` five times |
+| read a reg | CTRL `&= 0xFE` five times; `^= 4`; read status; restore; read again |
+| nibble decode | `((status >> 3) & 7) \| ((status >> 4) & 8)`, verified over all 256 |
+| every step | separated by a settling delay |
+
+That is the layer the model needs, measured rather than inferred.

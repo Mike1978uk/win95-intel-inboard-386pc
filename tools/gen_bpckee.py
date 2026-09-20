@@ -221,8 +221,19 @@ def build(port, unit):
     ctlv |= AUTOFD
     a.mov_al(ctlv); a.out()
     delay(a)
+
+    # The tail of the connect, driver 0x0AB1-0x0B64. The ident probe leaves
+    # AUTOFD set; the link is only taken once AUTOFD is dropped and SELECT is
+    # toggled once more. Stopping at the probe is why the pod answered the
+    # presence test and then went idle again.
+    ctlv &= ~AUTOFD
+    a.mov_al(ctlv); a.out()
+    delay(a)
+    ctlv ^= SELECT
+    a.mov_al(ctlv); a.out()
     a.mov_al(ctlv)
-    a.emit(0xA2); a.emit(ctl & 0xFF, ctl >> 8)      # seed the carried CTRL
+    a.emit(0xA2); a.emit(ctl & 0xFF, ctl >> 8)      # the carried CTRL, as [si+9]
+    delay(a)
 
     a.emit(0xBF); buf_fix = len(a.b); a.emit(0x00, 0x00)
 
