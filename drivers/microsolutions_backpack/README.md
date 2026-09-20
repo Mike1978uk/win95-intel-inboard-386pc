@@ -629,3 +629,28 @@ the disc should mount.
 `scsi_cdrom.c` gains an LPT arm beside the SCSI one and a
 `cdrom_get_lpt_device()`, `cdrom.c` resets those drives, and `config.c` reads
 `cdrom_XX_lpt_port`. Configure with `cdrom_01_parameters = 1, lpt`.
+
+### Exactly where the data path stops
+
+Traced after the 2048-byte PACKET:
+
+```
+RR 47 -> 48          DRDY|DRQ - the drive wants the CDB
+WR 04 <- 44          arms the bridge for the transfer   <- bit 0x40
+WR 40 <- A8 00 00 .. the CDB: 0xA8 is READ(12)
+(nothing further - not one register access)
+```
+
+⭐ **The CDB is accepted; the payload never comes back through the register
+file.** After writing `0x44` to bridge register `0x04` the driver stops using
+registers entirely, so bulk data moves by some other framing - most likely a
+byte-mode stream straight off the data port, which is what bit `0x40` of
+register `0x04` selects. Our model does not serve that, so the host reads its
+own latch back and MSCDEX sees a corrupt sector.
+
+**Next, and it is a decode not a guess:** what bit `0x40` of register `0x04`
+switches the bridge to, and the framing the driver uses immediately after the
+CDB write. The block routine at `0x126A` dispatches on mode through the inline
+table at `0x1270` (mode 0 -> `0x12FC`); `0x12FC` is the block *write* path -
+address once, then stream bytes with an INIT toggle each. The read counterpart
+is its sibling in that table.
