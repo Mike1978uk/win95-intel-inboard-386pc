@@ -96,3 +96,60 @@ Two things worth carrying into any model:
 ⭐ **None of this needs the 5160.** BackPack is not XT-specific, so the model
 can be built and evaluated on a stock emulated machine with an ordinary
 parallel port.
+
+## Measured against the model, 2026-09-20
+
+`src/device/lpt_bpck.c` (kept here under `86box/`) implements the wire
+protocol, transliterated from 86Box's `lpt_ditto.c` — the Ditto is a different
+product, but Iomega shipped it on this same Micro Solutions bridge, so layer 1
+is common and already proven. Layer 2 is a logging stub: reads return what was
+written, and every access is traced.
+
+Run in a clean 486 bed (`tools/fixtures/86box.cfg.bpck`) with the vendor
+`BPCDDRV.SYS` v4.02.CB loaded by `DEVICE.COM`. 6,790 traced lines.
+
+**The protocol is right.** The driver knocks three times on SELECT with the
+unit address on the data lines, connects, and reads the ident response as the
+complement pair (`R1 -> 40`, then `78`). It then runs a register conversation:
+
+| order | access | our stub returned |
+|---|---|---|
+| 1 | read `04` | `00` |
+| 2 | write `04` | — |
+| 3 | write `05` | — |
+| 4 | read `0B` | `00` |
+| 5 | write `07` | — |
+| 6 | write `04` | — |
+
+then disconnects and retries. It rejects the pod because the stub answers zero;
+what those two reads must return is the open question.
+
+### The register map, from the binary
+
+Two layer-1 primitives, both taking the register number in `AL`:
+
+- `0xC05` — address a register
+- `0xD5F` — read the addressed register
+
+⭐ **The ATA task file is at `0x40`.** At `0x1573` the driver forms the register
+number as `mov al,0x40` / `or al,[bp+8]`, then calls the block transfer at
+`0x126A` with a count and a far buffer pointer. So task-file offset *n* is
+register `0x40 | n`, which is where `lpt_ditto.c` puts the Ditto's 765 — the
+bridge reserves the same window for whatever controller is fitted.
+
+- `0x0B` bit 7 is a flag: the helper at `0x16D7` addresses `0x0B`, reads it and
+  returns `AL & 0x80`.
+- Registers the driver addresses at all: `0x0A`, `0x0B`, `0x0C`, `0x0D`, `0x0E`,
+  `0x13`, `0x2C`, `0x38`, `0x40`, `0x80`.
+
+### Next
+
+Give `0x04` and `0x0B` the values the driver accepts, then hang the ATAPI
+engine already written in `lpt_epat.c` off the `0x40` task file, bound to a
+CD-ROM rather than the LS-120. `CDROM_BUS_LPT` is declared in `cdrom.h` and
+referenced by nothing, so the bus enum is already there.
+
+⚠ **This driver is not XT-safe.** It writes `0x22` and reads `0x23`, which alias
+onto the 8259 on an XT bus — the mechanism that killed the keyboard with the
+LS-120 vendor driver. Irrelevant on an AT-class machine, which is where all of
+this was measured.

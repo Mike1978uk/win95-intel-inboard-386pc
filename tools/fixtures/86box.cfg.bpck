@@ -1,0 +1,35 @@
+[General]
+emu_build_dynarec_type = old
+update_icons = 0
+
+[Machine]
+cpu_family = i486dx
+cpu_multi = 1
+cpu_speed = 33333333
+cpu_use_dynarec = 0
+machine = ami495
+mem_size = 4096
+
+[Video]
+gfxcard = et4000ax
+
+[Input devices]
+keyboard_type = internal
+mouse_type = none
+tablet_type = none
+
+[Storage controllers]
+hdc = xtide_at
+
+[Hard disks]
+hdd_01_fn = dos.img
+hdd_01_ide_channel = 0:0
+hdd_01_parameters = 63, 16, 3949, 0, ide
+hdd_01_speed = ramdisk
+
+[Floppy and CD-ROM drives]
+fdd_01_type = none
+fdd_02_type = none
+
+[Ports (COM & LPT)]
+lpt1_device = bpck
