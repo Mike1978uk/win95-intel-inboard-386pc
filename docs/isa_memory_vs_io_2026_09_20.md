@@ -58,15 +58,17 @@ against 8.760 measured, and `0.864 + 4 x 2.901 = 12.468` against 12.454.
 ## Which answers the wait-state question
 
 A card's "zero wait state" setting moves the **per-cycle** term, not the sync.
-On these numbers that is 2.901 -> 1.978 us, about 0.92 us/byte, **~24% on a
-memory-mapped path** - real, worth having, and the T130B already has it. It is
-not a way of bypassing the bus; it means the card does not stretch the standard
-cycle. It is also a **smaller** lever than the memory-versus-I/O choice, which
-is worth 2.87 us per access.
+It is not a way of bypassing the bus; it means the card does not stretch the
+standard cycle. Between the two memory windows that term is 2.901 -> 1.978 us,
+about 0.92 us/byte, **~24% on a memory-mapped path**. It is a **smaller** lever
+than the memory-versus-I/O choice, which is worth 2.87 us per access.
 
-And it is not available on the port side at all: the `0x278` control in the
-port run matched the Intek21 to 0.1%, so nothing there was adding wait states
-to remove.
+It applies to whichever space the card decodes, so for the T130B it would act
+on its I/O window at `0x340`. **That is unmeasured**, deliberately: the probe
+writes 512 bytes to the target, and `0x340` is live NCR5380 registers with a
+SCSI chain on the end. The Intek21 comparison suggests the answer anyway - the
+`0x278` control matched it to 0.1%, so that card adds no I/O wait states, and
+the 3.752 us sync dwarfs the 210 ns a single wait state would cost.
 
 ## The read/write confound, checked
 
