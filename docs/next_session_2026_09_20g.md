@@ -72,3 +72,20 @@ describe the work as "using the Ditto" — it is `lpt_bpck.c`, its own device.
   only as #8010 comments; check there before re-deriving.
 - **The owner drives the VM.** No headless runs with kill timers.
 - **Read the binary we hold before running another experiment.**
+
+---
+
+## Update: the EEPROM is modelled; the blocker is its contents
+
+`lpt_bpck.c` now implements the 93C46 and the decode is **confirmed by trace**
+— the driver reads all 64 words, `00` to `3F`, in order. Lines, routines and the
+pod ID table are in `drivers/microsolutions_backpack/README.md`.
+
+⛔ Filling every word with a recognised ID (`0x1101`) changed nothing, so the
+image is validated before the ID is used. **The next step is a dump of the real
+pod's 64 EEPROM words** — the owner has the drive, and that answers the layout,
+the checksum and the ID at once. Guessing it from the disassembly is the slow
+path; the hardware is the fast one.
+
+After that: the task file at `0x40`, then the ATAPI engine from `lpt_epat.c`
+bound to a CD-ROM, then the ISO mounts.
