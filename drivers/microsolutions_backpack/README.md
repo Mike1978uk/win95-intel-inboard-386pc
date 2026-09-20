@@ -455,3 +455,31 @@ resident throughout, with the drive mounted at `E:`** - a pod that has already
 taken the link will not answer a new knock. The outstanding test is therefore:
 boot with the driver **not loaded** (Win98 F8, step-by-step, decline the
 `BPCDDRV` line) and run `BPCKEE.COM` against an idle pod.
+
+## Where it actually stands
+
+Tested on the Libretto in safe-mode command prompt - **no driver loaded**, pod
+powered, port confirmed SPP (ECR at `0x77A` reads `0x15`, mode bits `000`) and
+the control register's direction bit clear, so writes do reach the pins.
+
+`BPCKEE.COM` returns 128 zero bytes with the connect sequence transliterated
+from `0x09EE` and the address byte `0x03` taken from the live driver. A
+hand-driven knock leaves `0x379` at `0x7F` throughout.
+
+⛔ **The remaining fault is one layer down.** The connect is now the driver's
+own, but the register framing in the dumper - address a register, write it,
+read it back as nibbles - is still the `lpt_ditto.c` guess. The driver does
+none of that directly: it calls `0xC05` (address), `0xC90` (write) and `0xD5F`
+(read), each of which dispatches through a jump table on the protocol mode in
+`[si+3]`.
+
+⭐ **`[si+3]` is `0` on this pod**, from the live structure - so only the mode-0
+arm of those three routines has to be transliterated, not all of them. That is
+the next job, and it is bounded.
+
+### The ident test, for when the framing is right
+
+From `0x0A83`: with AUTOFD set, status bits 3-5 must equal `[si+2] & 7`; with
+AUTOFD cleared, their complement must. That is the presence check, and our
+model already implements exactly this pair - the design was right, the framing
+around it was not.
