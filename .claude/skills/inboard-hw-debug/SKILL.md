@@ -8013,6 +8013,42 @@ poke. **Neither is a mounted volume.** The acceptance artefact here is
   LS-120 is **J:** and D:-I: are the Zip and the changer's LUNs - target the
   letter directly (`tools/fixtures/LSENUMJ.BAT`).
 
+### 5. Will the GUEST boot at all with what you just staged?
+
+A driver left in the image can hang the boot of a run that has nothing to do
+with it. `ls120win_clean.img` carries a pre-09-18 `LS120MP.MPD` whose
+`LsInitialize` blocks on the reset settle; since the bed began modelling a
+real settle (`reset_ms = 2500`) the two loop forever:
+
+```
+EPAT: SRST released, settling for 2500000 us
+EPAT: DISCONNECT ... CPP init ... SRST released ...
+```
+
+Windows never finishes booting, and **the log looks busy**, so it reads as
+"still booting" rather than "stuck". Two runs died this way on 2026-09-20.
+Either deploy a post-09-18 miniport or remove it, and start a non-LS-120
+config from `tools/fixtures/86box.cfg.nonlpt`.
+
+### Recurrences on 2026-09-20 - items 4 and the media trap, both broken again
+
+Both were already written down here, and both were violated the same day.
+
+- **A run was launched with no startup probe at all.** It could only ever
+  produce `BOOTLOG.TXT`, which cannot show enumeration. Caught three minutes
+  in and killed. Item 4 is not "know your artefact", it is **check the run is
+  configured to produce it** - the probe actually deployed, not intended.
+- **The media trap is not about scanning letters.** It is about *any* access
+  to media that can fail. `FD18.BAT` did a plain `DIR A:` on a floppy whose
+  driver was the one under test, hit `General failure reading drive A:` and
+  blocked on `Abort, Retry, Fail?`.
+
+  The fix is not a cleverer batch - DOS's critical-error handler runs through
+  INT 24h and reads the console directly, so **redirecting stdin does not
+  help**. The fix is to expect it: on an arm you predict will FAIL, the prompt
+  *is* the result, so do not also expect a written artefact from it. Collect
+  the artefact from the arm you expect to pass.
+
 ### The shape of all of it
 
 Every one of these produced a *plausible* result rather than an error. That is
