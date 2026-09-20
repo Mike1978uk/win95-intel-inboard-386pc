@@ -145,6 +145,7 @@ serves the boot volume.
 | `\TBD.BAT` | 4 MB write+verify, **now deletes before each copy** | md5 matched |
 | `\TBS.BAT` | **256 KB** write+verify - seconds, not 7 minutes | md5 matched |
 | `\BOUND256.BIN` | 262,144 bytes, first 256 KB of `BOUNDARY.BIN` | md5 matched |
+| `\SD120PPD\SD120PPD.TB` | **truthful-banner DOS driver** - reports the mode it SELECTED | md5 `a8d93d1f` |
 
 ⛔ **`XTIDEMP.PB` is staged, NOT installed.** Do not copy it over `XTIDEMP.MPD`
 until the bed has passed it. Revert is `COPY XTIDEMP.B20 XTIDEMP.MPD`.
@@ -199,8 +200,22 @@ transfer is byte-correct, and 64 KB has still never been exercised.
    only the overwrite? That decides whether this is a write bug or an
    overwrite bug.
 3. **Then `-PhysBreaks` on hardware**, with a verified baseline this time.
-4. **LS-120 dword** remains the best-evidenced transport lever at 44%/byte, and
-   is still blocked on a readout of `[0x20D9D]` / `[0x20BF7]`.
+4. **LS-120 dword** remains the best-evidenced transport lever at 44%/byte.
+   **The readout now exists** for the DOS side:
+   `drivers/imation_ls120/patch_sd120ppd_truthbanner.py`, staged on the card as
+   `\SD120PPD\SD120PPD.TB`.
+
+   `[0xBDF]` (the `.MPD`'s `[0x20BFD]`) is set from the **requested** mode
+   before any gate runs and never updated, so the stock banner cannot report a
+   dword upgrade. The patch repoints the four 5-byte tests at `dh`/`dl`, which
+   hold the **selected** mode - the driver stores them to `[0xBD9]`/`[0xBDB]`
+   in the same routine. Same length, no port access, no transfer-path change,
+   and the revert reproduces stock md5 `cbb42e8e` exactly.
+
+   To use: `COPY C:\SD120PPD\SD120PPD.TB C:\SD120PPD\SD120PPD.SYS`, boot to
+   DOS, read the banner. "EPP Fast" then means dword was actually selected.
+   Revert with `SD120PPD.B4F`.
+   ⚠ Still no readout for the **Windows** miniport.
 5. **The Windows-stack work has no measurement supporting it any more.** It may
    still be real; nothing establishes it. Do not rank it first again without a
    verified pair.
