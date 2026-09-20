@@ -23,15 +23,52 @@ Runs 1 and 2 differ by 0.2%; the word and dword arms are identical.
 PIT at 1.193182 MHz, 0.83810 us/tick. Fitting `sync + n x cycle`, where an
 8-bit slot forces `n` bus cycles for an `n`-byte access:
 
-| path | fixed sync | per bus cycle | byte, us/B | word, us/B | dword, us/B |
+| path | fixed | per bus cycle | byte, us/B | word, us/B | dword, us/B |
 |---|---|---|---|---|---|
-| **ISA I/O** (`0x378` and `0x278`) | **3.752** | 1.943 | 5.695 | 3.819 | 3.183 |
-| **ISA memory** (`0xD8000`) | **0.883** | 1.978 | **2.861** | **2.420** | **2.190** |
-| ISA memory (`0xD0000`) | 0.864 | 2.901 | 3.765 | 3.333 | 3.113 |
+| **ISA I/O** (`0x378`, `0x278`) | **3.752** | 1.943 | 5.695 | 3.819 | 3.183 |
+| **ISA memory** (`0xD8000` XT-CF ROM) | **0.883** | 1.978 | **2.861** | **2.420** | **2.190** |
+| ISA memory (`0xD0000` floppy ROM) | 0.864 | 2.901 | 3.765 | 3.333 | 3.113 |
+| ISA memory (`0xB8000` Mach8 video) | 0.909 | 3.805 | 4.714 | 4.259 | 4.069 |
+| `0xF000` system ROM - **shadowed, NOT on the bus** | 0.962 | 0.151 | 1.113 | 0.632 | 0.390 |
 
-Both memory fits are near-exact at four bytes: `0.883 + 4 x 1.978 = 8.795`
-against 8.760 measured, and `0.864 + 4 x 2.901 = 12.468` against 12.454.
-**Memory is linear in width; I/O was 10.5% sub-linear.**
+**Three genuine ISA memory windows agree on the fixed term to within 3%
+(0.864 / 0.883 / 0.909) and differ on per-cycle by 2x (1.978 / 2.901 / 3.805).**
+The fixed term is the Inboard and the `rep movs` pair; the per-cycle term is
+the card's wait states. `0xF000` has a per-cycle of 0.151 us, far below one ISA
+bus cycle, which is how we know it never leaves the accelerator.
+
+Every memory fit is near-exact at four bytes: `0.883 + 4 x 1.978 = 8.795`
+against 8.760, `0.864 + 4 x 2.901 = 12.468` against 12.454, and
+`0.909 + 4 x 3.805 = 16.13` against 16.28. **Memory is linear in width; I/O was
+10.5% sub-linear.**
+
+## ⛔ This corrects E4 in `docs/bus_optimisation_plan.md`, which is wrong
+
+E4 is recorded as **CONFIRMED** and is the basis for a recommendation to buy
+memory-mapped storage. Three of its four rows do not survive measurement:
+
+| E4 recorded | measured 2026-09-20 | |
+|---|---|---|
+| system ROM `F000`, "across the bus", **0.270** | **1.113** byte / 0.390 dword | **not across the bus at all - shadowed** |
+| video RAM `B800`, "across the bus", **0.454** | **4.714** byte / 4.069 dword | **10x out, and it is the SLOWEST window here** |
+| 8-bit I/O `rep insw`, **1.910** | **3.819** | 109e's own figure is 1956 us / 512 bytes = 3.82; 1.910 halves it twice |
+| 8-bit I/O byte at a time, 5.770 | 5.695 | ✅ stands |
+
+So **"memory-mapped beats I/O by 4.2x, and 12.7x over byte-wide" is wrong.**
+The honest figure, best real ISA memory window against the port path, is
+**2.861 vs 5.695 byte-for-byte - about 2x - and 2.190 vs 3.183 at dword, about
+1.45x.**
+
+And the margin depends on the card, not just on being memory-mapped: per-cycle
+cost varies 2x between the three windows in this one machine. **A memory-mapped
+card with Mach8-like wait states would be 4.714 us/byte - barely better than
+the 5.695 us/byte port path it replaced.** The recommendation should be "a
+memory-mapped card *with low wait states* is worth about 2x", not 4.2x.
+
+⭐ The likely cause of the original error is that a 32 KB linear sweep of a
+shadowed or cached region measures the accelerator, not the bus. This probe
+avoids it by reading only 512 bytes and by having a per-cycle term that exposes
+shadowing directly.
 
 ## What it says
 
