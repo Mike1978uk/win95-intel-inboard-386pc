@@ -104,9 +104,17 @@ if ($Autoexec -ne "") {
     python "$repo\tools\fatcp.py" $img "AUTOEXEC.BAT" $Autoexec --yes
     if ($LASTEXITCODE -ne 0) { Write-Output "AUTOEXEC.BAT DEPLOY FAILED"; exit 1 }
 }
+# These three may legitimately not exist - a fresh master image has never run.
+# fatcp.py writes "not found" to stderr and PowerShell turns a native command's
+# stderr into a terminating error under ErrorActionPreference=Stop, which aborted
+# the whole run before 86Box was ever launched. Relax it for the removals only.
+$oldEAP = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
 python "$repo\tools\fatcp.py" $img --rm "C:\DOSPROBE.TXT" 2>&1 | Out-Null
 python "$repo\tools\fatcp.py" $img --rm "C:\LSPROBE.TXT" 2>&1 | Out-Null
 python "$repo\tools\fatcp.py" $img --rm "C:\BOOTLOG.TXT" 2>&1 | Out-Null
+$ErrorActionPreference = $oldEAP
+$global:LASTEXITCODE = 0
 python "$repo\tools\fatclean.py" $img | Out-Null
 
 $log = Join-Path $VmPath "86box.log"
