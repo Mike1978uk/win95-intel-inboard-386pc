@@ -654,3 +654,36 @@ CDB write. The block routine at `0x126A` dispatches on mode through the inline
 table at `0x1270` (mode 0 -> `0x12FC`); `0x12FC` is the block *write* path -
 address once, then stream bytes with an INIT toggle each. The read counterpart
 is its sibling in that table.
+
+### The command layer is fully working; the drive returns no data
+
+The engine logs every CDB it assembles, and they are real, correct commands
+from the vendor driver and MSCDEX:
+
+```
+5A 00 2A ... MODE SENSE(10), page 2A (capabilities)
+03 ...       REQUEST SENSE
+12 ...       INQUIRY, 36 bytes
+2B ...       SEEK(10) to LBA 16
+00 ...       TEST UNIT READY
+43 ...       READ TOC
+A8 00 00 00 00 10 00 00 00 01 00 00   READ(12), LBA 16, one sector
+```
+
+That last one is the ISO volume descriptor, formed perfectly. The bridge, the
+EEPROM, the ATAPI signature, the packet phase and the CDB path all work.
+
+⛔ **But the drive answers `command done, status 40` with no data phase** -
+`RR 42 -> 03` (command complete) and `RR 47 -> 40` (DRDY, no DRQ). Nothing
+comes back. Combined with the `TEST UNIT READY` / `REQUEST SENSE` pair, that is
+a drive reporting no media.
+
+⭐ **The decisive next test is a control, not more tracing:** put the same ISO
+on an ordinary **ATAPI** CD-ROM in the same bed (`cdrom_01_parameters = 1,
+atapi` and an IDE channel) and boot DOS with any CD driver. If it reads, the
+image and `scsi_cdrom` are fine and the fault is in the LPT arm added to
+`scsi_cdrom_drive_reset` - most likely media state that the SCSI and ATAPI
+paths set up elsewhere and the LPT path never does. If it also fails to read,
+the problem is the image or the drive type, and nothing to do with the bridge.
+
+Run that first: it splits the remaining fault in half in one boot.
