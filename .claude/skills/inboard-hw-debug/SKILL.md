@@ -7702,20 +7702,39 @@ established**:
 | **386 I/O transaction** (one `outsd` iteration) | 3.90 + 4x1.87 = 11.38 us | **~51% of the bus term** |
 | **ISA bus cycle** | 4 x 5.77 = 23.08 us | **nothing** |
 
-An 8-bit slot carries 8 data lines, so a dword is always four bus cycles. The
-only question is whether the Inboard re-synchronises for each of them. The
-XT-IDE `rep insw` result (35%, shipped) is evidence for the first row but does
-not settle it, because that card's stride-2 map means the two halves may not be
-the same port.
+### RESOLVED by technique 109e's own data - the first row is right
 
-**Do not quote a width prize as a percentage until this is attributed.** It was
-quoted as "up to 2x", then as ~4%, then as ~27%, from the same measurements.
+An 8-bit slot carries 8 data lines, so a word access to a port there **must** be
+two ISA bus cycles; the slot cannot carry sixteen bits. 109e measured
+`rep insb` against `rep insw` **on the same port, `031Ch`**, and the word loop
+was 35% faster per byte. Two bus cycles, one sync. **So the 3.90 us is paid per
+386 I/O transaction, not per ISA bus cycle, and width amortisation is real.**
 
-**The instrument is the bed, not the machine.** 86Box can log every I/O access
-with its width and a cycle stamp, which answers "how many bus cycles did that
-byte-wide burst take, and how many did the word-wide one take" directly. Wall
-clock on the 5160 cannot separate the two because the bridge's nWAIT is in
-series with whatever the answer is.
+Extrapolated to four bytes: `3.90 + 4 x 1.87 = 11.38 us`, i.e. **2.85 us/byte
+against 5.77** - about half the bus term. That is an extrapolation from a
+two-point fit, so **take the third point before building on it**: `rep insd`,
+128 dwords off the same port, in the same DEBUG run as the other two. Ten
+minutes, no driver, no Windows, and it settles the width lever for every driver
+in this project at once.
+
+⚠ **Do not quote a width prize as a percentage without saying which row it
+assumes.** This one was quoted as "up to 2x", then ~4%, then ~27%, from the same
+measurements, before anyone checked that 109e had already answered it.
+
+### 128c: XT-IDE cannot use dword; the EPP data port can
+
+109e closed 32-bit for XT-IDE on a register-map argument, not a bus argument:
+stride 2 still decodes A1, so `base+2`/`base+3` are the Error register and a
+dword would read three bytes of garbage. **That reasoning does not carry to the
+parallel port.** The EPP data register is a *single address*: four bytes of a
+`rep outsd` all land on the same port and produce four EPP handshakes, which is
+exactly what four separate `out`s would have produced. The Linux `epat` driver
+does this in its mode 5 (`r4l`/`w4l`) against this bridge family, and the vendor
+miniport links `ScsiPortRead/WritePortBufferUlong` for the same purpose.
+
+So the arithmetic XT-IDE could not collect is collectable on the LS-120 path.
+That is the gap: it was written down as closed, and it was only closed for the
+card whose register map forbids it.
 
 ### 128a: the demoscene method transfers; the demoscene rules do not
 
