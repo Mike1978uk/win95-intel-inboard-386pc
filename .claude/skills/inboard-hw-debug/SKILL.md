@@ -7904,3 +7904,44 @@ of course faster than one that delivers it.
 36 MB file over ECP, verified. **Serving is reading.** The ECP *write*
 direction had never been exercised. **A transport verified in one direction is
 not verified in the other**, and on this bridge the write is where it breaks.
+
+---
+
+## Technique 130: build the A/B baseline from the LIVE artefact's ledger flags
+
+Before timing a build against what is installed, find what the installed thing
+was built with. `drivers/*/build_ledger.tsv` records `code`, `md5`, `commit`,
+tree state and **flags** for every build.
+
+2026-09-20, twice in one session:
+
+| | code | flags |
+|---|---|---|
+| live on the card | `20535159` | `-DXT_NO_WRITETEST -DXT_POLL_BACKOFF -DXT_FAST_XFER` |
+| live in the **bed** | `f8e1e3a2` | the same **plus `-DXT_FORCE_BASE=0300h`** |
+| what I first built | `0d7aeecc` | `-DXT_STRIDE=2 -DXT_POLL_BACKOFF` |
+
+**`XT_FAST_XFER` gates the entire `rep insw`/`outsw` path - the shipped 35%/33%
+win.** Both of the first builds omitted it. An A/B between them would have
+measured a driver nobody runs, and the result would have looked clean.
+
+Note also that **the bed and the hardware were on different builds**, so a bed
+number and a card number were never comparable either.
+
+### The procedure
+
+1. Hash what is installed: `python tools/pe_codehash.py <file>` - the **code**
+   hash, not md5. The PE carries a timestamp, so md5 moves between identical
+   builds and code does not.
+2. Find that code hash in the ledger. Take its flags **and** its commit.
+3. Build with exactly those flags and check the code hash **reproduces**. If it
+   does not, the source has drifted and the difference is not your change.
+4. Only then add the one flag under test.
+
+Step 3 is the part that pays. Today's HEAD reproduced `20535159` and
+`f8e1e3a2` exactly, which proved in one command that the source had not moved
+under either baseline - and that the new `ifndef`-guarded option left the
+default path byte-identical.
+
+⚠ A build that prints `tree DIRTY` cannot be rebuilt from a commit. The build
+script says so; believe it before deploying anywhere a conclusion is drawn.
