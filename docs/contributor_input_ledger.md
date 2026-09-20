@@ -200,8 +200,21 @@ ships a 12x5 mode matrix and we implemented selector 0 of each. If his 300 KB/s 
 drive's own ceiling then the faster modes buy bus occupancy rather than throughput - which
 is still the point of this track, but it changes how the result should be described.
 
-**Owed on all three**, plus the two results from #23 already logged above (the 4.2x
-memory-vs-I/O measurement, and the DriveSpace note correcting a parked decision).
+### Status, 2026-09-21 — two of the three are answered
+
+| | |
+|---|---|
+| **1. T130.MPD word I/O** | ✅ **Answered: it already does it.** `pedis.py ... io` shows `ScsiPortReadPortBufferUshort` at two sites on the data path. Nothing to win; closed, do not re-propose |
+| **2. Issue #18 reproduction bed** | ⏳ **Still not built.** 86Box + Monster Floppy + the DMA-patched driver + a media change. Needs no hardware. **This is the one real follow-up** |
+| **3. LS-120 300 KB/s ceiling** | ✅ **Answered, and he was generous.** Measured **75-99 KiB/s** over EPP by wall clock — 36,735,152 bytes in 7 min ±59 s — so the drive is not the limit, the transport is. `docs/next_session_2026_09_20b.md` |
+
+⛔ **The 4.2x memory-vs-I/O figure quoted to him is retracted.** Re-measured with a
+controlled probe: about **2x** byte-for-byte (2.861 vs 5.695 us/B) and **1.45x** at dword.
+The old sweep measured shadowed memory and video RAM rather than the bus. His mechanism
+holds — the per-bus-cycle cost is the same for both, the **fixed per-access** cost is not
+(3.752 us I/O against 0.883 us memory). `docs/isa_memory_vs_io_2026_09_20.md`.
+
+**Owed**: a reply covering the four items above, the retraction, and the miniport outcome.
 
 ---
 
