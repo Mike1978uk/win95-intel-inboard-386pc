@@ -206,7 +206,7 @@ is still the point of this track, but it changes how the result should be descri
 |---|---|
 | **1. T130.MPD word I/O** | ✅ **Answered: it already does it.** `pedis.py ... io` shows `ScsiPortReadPortBufferUshort` at two sites on the data path. Nothing to win; closed, do not re-propose |
 | **2. Issue #18 reproduction bed** | ⏳ **Still not built.** 86Box + Monster Floppy + the DMA-patched driver + a media change. Needs no hardware. **This is the one real follow-up** |
-| **3. LS-120 300 KB/s ceiling** | ✅ **Answered, and he was generous.** Measured **75-99 KiB/s** over EPP by wall clock — 36,735,152 bytes in 7 min ±59 s — so the drive is not the limit, the transport is. `docs/next_session_2026_09_20b.md` |
+| **3. LS-120 300 KB/s ceiling** | ✅ **Answered, and he was generous.** Measured **75-99 KiB/s** over EPP by wall clock — 36,735,152 bytes in 7 min ±59 s. ⚠ **That is a floor, not a ceiling**: it is the current Windows path with the host-side levers unopened — request merging (modelled 1.88x on sequential; a 1-sector command is 53% overhead), transfer-loop overhead (4%), and the VxD layer above the miniport, which has never been measured. ⛔ Do **not** restate "the Windows stack is the bigger lever" as fact — that was retracted, having compared an unverified broken DOS transfer against a verified one. `docs/next_session_2026_09_20b.md`, `docs/bus_optimisation_plan.md` |
 
 ⛔ **The 4.2x memory-vs-I/O figure quoted to him is retracted.** Re-measured with a
 controlled probe: about **2x** byte-for-byte (2.861 vs 5.695 us/B) and **1.45x** at dword.
