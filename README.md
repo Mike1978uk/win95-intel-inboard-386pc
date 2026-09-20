@@ -284,7 +284,7 @@ Full write-up of the original submission, with the testing matrix and known limi
 - **`vm_xtide_inboard/`** — the reference 86Box config the XT-IDE driver work is tested against
 - **`dist/post-install-fixes/`** — what you actually download: the patched files that must be
   applied *after* driver installation, plus the DMA audit scripts
-- **[`dist/ls120_vendor_spp/`](dist/ls120_vendor_spp/)** — Have Disk package for the
+- **[`dist/ls120_vendor/`](dist/ls120_vendor/)** — Have Disk package for the
   parallel-port Imation SuperDisk LS-120: the vendor's Windows 95 driver with its probe
   suppressors applied **at install**, so the keyboard survives it. One INF line differs from
   the vendor original

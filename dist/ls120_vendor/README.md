@@ -51,6 +51,36 @@ the DOS driver, so a symmetric error in one path cannot hide itself.
 - Tested on one machine, one bridge (Shuttle EPAT), one drive (Matsushita
   LS-120 COSM 04) at `0x378`.
 
+## ⭐ The faster option: force EPP with `/fe`
+
+The switch line shipped in the INF is the **conservative** one - recorded as
+enumerating every boot with the keyboard alive. There is a faster, measured
+alternative: add **`/fe`**, which forces EPP init without probing for it.
+
+```
+HKR,,AdapterSettings,,"PORT=0x378 /ni /de /db /sf /dp /dpc /fp /fe"
+```
+
+**Why it is worth it.** SPP/nibble costs about **four port accesses per byte**;
+EPP costs **one**. Measured on this machine under Windows:
+
+| | |
+|---|---|
+| EPP throughput | **75-99 KiB/s** - 36,735,152 bytes by wall clock, +/-59 s |
+| EPP write correctness | `FC /B` → `no differences encountered` over all 36,735,152 bytes |
+
+That verification is strong: the write and the read used **different drivers
+over different transports**, so a symmetric error cannot cancel itself out.
+
+⚠ **Two honest caveats.**
+
+- `/fe` forces a chipset-specific init path. Before it was first tried, the
+  keyboard was flagged as the thing most likely to break - and **the handoff
+  that recorded the successful EPP run does not state what the keyboard did**.
+  The transfer clearly worked; the keyboard outcome is simply not written down.
+  Check it on the first boot.
+- Reverting is deleting four characters and rebooting.
+
 ## Do not add `/r` or `/w`
 
 Forcing a read or write mode here cancels against `/de` and drops the link to
