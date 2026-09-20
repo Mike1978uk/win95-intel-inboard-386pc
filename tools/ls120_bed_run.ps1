@@ -33,13 +33,25 @@ param(
     # bisect there is and it needs no reinstall.
     [switch] $NoDriver,
     # Run the VENDOR miniport instead of ours: removes LS120MP.MPD and puts
-    # the given sd120ppd.mpd into IOSUBSYS. The vendor SETUP has already run
-    # on this image - C:\LS120FIX\APPLY.BAT swaps binaries into the same path,
-    # which it could not do unless the device node and its PortDriver entry
-    # existed - so only the file is needed, not a reinstall.
+    # the given sd120ppd.mpd into IOSUBSYS.
     #
-    # This is the configuration a stranger reproducing the work would have,
-    # and therefore the one a claim that the bridge "works" has to rest on.
+    # ⛔ THIS DOES NOT WORK ON ls120win_clean.img, and the reason is worth
+    # keeping. A Win9x miniport is bound to a device node by the registry's
+    # PortDriver value; dropping the file into IOSUBSYS installs nothing. On
+    # that image the node points at LS120MP.MPD, so this switch produces:
+    #
+    #     Initing ls120mp.mpd / Init Failure ls120mp.mpd
+    #
+    # - our driver referenced, its file removed - while the vendor binary sits
+    # there unreferenced. The run looks like "the drive did not enumerate" and
+    # means nothing at all.
+    #
+    # C:\LS120FIX\APPLY.BAT was read as proof the vendor SETUP had run here.
+    # It is not: it proves the vendor was installed on SOME image once. Check
+    # the binding, not a leftover batch file.
+    #
+    # Use this only on an image whose registry already binds sd120ppd.mpd -
+    # i.e. one taken from a machine where the vendor install actually works.
     [string] $VendorDriver = "",
     # Replace the guest's CONFIG.SYS / AUTOEXEC.BAT for this run, to boot the
     # vendor's real-mode stack instead. It is the one implementation of this
