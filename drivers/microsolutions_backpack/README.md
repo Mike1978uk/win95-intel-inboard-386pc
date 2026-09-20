@@ -746,3 +746,31 @@ parallel-to-ATAPI adapter and was sold carrying both.
 ⚠ **Untested.** There is no EPAT CD-ROM driver to hand, so this path has been
 compiled and reasoned about but never exercised. The BackPack path is the
 tested one. Say so in any submission.
+
+## The vendor switches, and what they cost us
+
+Undocumented in the vendor README; they exist only as strings in the binary:
+
+`NONSTOP` · `NODETECT` · `LASTLPT` · `UNIDIR` · `NOFAST` · `BUSCLK` · `RESERVE`
+
+⛔ **Every test above was run with `NOFAST UNIDIR`** - which forces the slowest,
+unidirectional path. So the earlier claim that "the driver negotiated SPP
+nibble" is wrong: it was *told* to. The owner spotted this from the Toshiba
+reporting ECP at boot.
+
+Re-run in the bed with **no switches at all**, the driver does try harder:
+
+```
+WR 04 <- 14 / 84 / 94        the PS/2 mode bits
+BPCK: protocol now PS/2 8-bit   (twice)
+BPCK: protocol now SPP 4-bit    (twice, falling back)
+```
+
+and the disc still lists. So byte mode **is** exercised and the model answers
+in it, but the driver does not settle there. Whether that is our model or the
+emulated port not offering a bidirectional data path is **undetermined** - the
+real machine is what would say, since its port reports ECP.
+
+**For any submission**: EPP is untested; PS/2 byte mode is attempted and
+answered but not settled on, cause unknown; the tested-and-working transport
+is SPP nibble.
