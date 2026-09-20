@@ -38,6 +38,18 @@ CPP unlock, register access by nibble/byte/EPP/ECP, ATAPI packet phases, and
 block data — so period software that talks to the bridge directly can be run
 and debugged.
 
+## A question for you before you spend time reviewing
+
+`lpt_epat.c` was written against an older `lpt_device_t` and **does its own
+strobe and EPP framing**. Since then this tree has gained `strobe`,
+`read_ctrl`, `epp_write_data` and `epp_request_read`, which cover some of the
+same ground.
+
+I have deliberately **not** reworked it onto those, because I would rather ask
+than guess at the shape you want. If you would prefer the device to use the
+existing callbacks and drop its own framing, say so and I will rework it -
+that is a mechanical change, not a redesign.
+
 ## Changed
 
 Nine files, **+1,578 / −21**. `src/device/lpt_epat.c` is new and is most of it.
