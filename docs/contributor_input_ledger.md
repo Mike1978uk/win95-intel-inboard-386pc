@@ -268,10 +268,12 @@ Two things came out of it that are worth more than the device:
 based on #8010 which supplies the `lpt` bus keyword. Three commits: `CDROM_BUS_LPT`
 implemented, the BackPack device, and the EPAT taught to carry a CD.
 
-⏳ **Owed**: tell both that it is built, reading, and submitted; and that the answer to
-"is BackPack already in 86Box?" is *the protocol yes, the drive no* — `lpt_ditto.c`
-carries the Micro Solutions wire protocol for the Iomega Ditto **tape**, a different
-product. That distinction cost real time here and is worth stating plainly.
+✅ **Closed by the owner on [86Box/86Box#8010](https://github.com/86Box/86Box/pull/8010)**,
+2026-09-21 — hand-written, and taken as the reply to both requests.
 
-⚠ **No reply has been posted to either of them.** Wording to be approved by the owner
-first.
+@JoshRodd also used that thread to set out how he wants LLM contributions handled:
+comments double-checked because nonsense in them signals nonsense in the code; the
+agent to **alert rather than fix** so a human reviews what went wrong; PRs hand-written;
+and generated files — especially whole new ones — actually read, against what he calls
+*"vibe rot"*. All four are now in `CLAUDE.md`, and the comment rule immediately found
+stale LS-120 comments in the submitted `lpt_bpck.c`, corrected in #8012.
