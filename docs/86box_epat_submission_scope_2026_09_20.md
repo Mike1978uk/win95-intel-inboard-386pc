@@ -172,3 +172,36 @@ diffing it against the source image's copy.
 For a run where the `[ECPDIAG]` and EPAT trace output is actually wanted,
 configure the worktree the way the project's own build is configured rather
 than a bare Release.
+
+## First bed run against master: NO EVIDENCE, and that is all it means
+
+`tools/ls120_bed_run.ps1 -Tag master_epat -Seconds 420` against the master
+binary. The runner's own check fired:
+
+```
+86Box pid 21236, running 420 s...
+NO BOOTLOG.TXT - the run may not have reached Windows. Read the screen.
+```
+
+The guest wrote **nothing** to the image in eleven minutes - `ls120win.img`
+mtime never moved off the moment the runner restored it - and `BOOTLOG.TXT`
+was absent afterwards.
+
+⛔ **This is not evidence against the patch.** It is an absence of evidence,
+and the reason it cannot be diagnosed is mine: the worktree was configured
+`-DCMAKE_BUILD_TYPE=Release`, where 86Box compiles `pclog` out, so there is no
+log to read and no way to tell a failed machine init from a failed device init
+from a guest that simply never started.
+
+Things that were *not* ruled out, and must be before the patch is blamed:
+
+- a **control run of unpatched master** on the same bed, same channel
+  (technique 127 - an anomaly is only a finding if the known-good run lacks it);
+- ROM discovery: neither build has a `roms/` directory beside its exe, so both
+  rely on the `-P` path, but 86Box's search order may have changed in 21,833
+  commits;
+- config-format drift between the fork's 86Box and master.
+
+The fork builds **`RelWithDebInfo`**; the master worktree was **`Release`**.
+Rebuilt to match so the only variable is the patch. **Re-run required before
+anything is concluded.**
