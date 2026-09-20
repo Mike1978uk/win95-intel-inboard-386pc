@@ -224,7 +224,74 @@ sites, both taking the requested pair from a table rather than a constant:
 0xd6d8  mov ax, word ptr [ebx]   ; push ; call 0x8035
 ```
 
-**Mapping that mode-preference table is the next job**, and it is offline.
+### The table, mapped
+
+`0xB96E` pushes `0x20D2D` and calls the walker at `0xC839`. That is a list of
+pointers to descriptors; the walker steps 4 bytes at a time and stops on
+`FFFF`. Each descriptor is `[+0] type`, `[+1] mode word`, `[+0A]` a result byte.
+`0xC8BA` dispatches on the type through a 5-entry table at `0x1C8E2`, and
+**type 2 is `0xCAF1`, the detect dispatcher**.
+
+| slot | type | requested read | requested write |
+|---|---|---|---|
+| 0 | 0 | 2 NIBBLE Slow | 2 WRITE Slow |
+| **1** | **2 -> `0xCAF1`** | **10 EPP Normal** | 3 EPP Normal |
+| 2 | 3 | 10 EPP Normal | 3 EPP Normal |
+| 3 | 4 | 12 EPP BIOS(N) | 5 EPP BIOS(N) |
+| 4 | 1 | 9 PS/2 Normal | 1 WRITE Normal |
+| 5 | 0 | 4 UNIDIR Normal | 1 WRITE Normal |
+| 6 | 0 | 1 NIBBLE Normal | 1 WRITE Normal |
+| 7 | `FFFF` | terminator | |
+
+**`0Bh` is never requested by anything.** `0x8083`-`0x80BD` is an *upgrade*
+path, not a request path: `0Ah` goes in and the gates decide whether `0Bh`
+comes out. `patch_sd120ppd_eppfast.py` is aimed at the right instruction.
+
+### Gate 3 is force-closed during the walk, and reopened after
+
+```
+0xb95a  mov cl, [0x20C7B]        ; save
+0xb961  mov byte [0x20C7B], 2    ; gate 3 CLOSED - no upgrade during probing
+0xb96e  call 0xC839              ; the walk
+0xb991  mov [0x20C7B], cl        ; restore
+0xb9a0  call 0xB9E7  ... 0xBFD6 ... 0xA9FF
+```
+
+Sensible design: probing at dword width would conflate "EPP does not work" with
+"dword does not work". And it is **not** a permanent blocker - `0xB9E7`,
+`0xBFD6` and `0xA9FF` all reach `0x8035` again, after the restore. So there is
+a post-walk selection with gates 1-3 open and **gate 4 operative**, which is
+what the patch addresses.
+
+---
+
+## 9. Where this stops being a static question
+
+Every structural precondition for dword now checks out:
+
+| | |
+|---|---|
+| `0Bh` requested? | no - but the upgrade path exists and is the intended route |
+| gates 1-3 at the post-walk call | open |
+| gate 5, CPU class | 386 returns 3 |
+| the `0x80C6` stomp | disarmed, `[0x20BD7]/[0x20BD8]` zeroed at `0xCB0C` |
+| gate 4 | needs `[0x20D9D]==2`, set by `0xD030` at slot 1 |
+
+The only thing left is **whether `0xD030` actually reaches `0x04F` on this
+hardware**, which depends on `0xD0B0`, `0xD6D4` and `0x7F57` succeeding at
+runtime. That is not answerable from the binary.
+
+**So the readout is unavoidable, and it is now precisely specified: two bytes,
+`[0x20D9D]` and `[0x20BF7]`.**
+
+### The cheap instrument is the bed, and it does not need those bytes
+
+86Box sees the *width* of every port access. A `rep outsd` to the EPP data
+register arrives as 32-bit `io_out` calls; `rep outsb` arrives as 8-bit ones.
+So "did dword engage" is answerable by logging access widths at the LPT base in
+one bed boot, with no memory read, no trace channel and no hardware. The bed
+models no drive latency, so it cannot say what dword is *worth* - but it can say
+whether it happened, which is the question that has blocked three sessions.
 
 ## 8. Verify in the bed before the 5160
 
