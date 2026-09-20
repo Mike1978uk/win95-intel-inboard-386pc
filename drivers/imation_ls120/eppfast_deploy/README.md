@@ -74,8 +74,9 @@ which refuses a no-op and reproduces `08104ffb...` exactly.
 
 - **Drive letter present.** If it is gone, revert.
 - **Time a copy of a known file** and compare against the byte-wide baseline:
-  36,735,152 bytes in ~7 min = **85.4 KiB/s**. Measured cost model says a dword
-  access should take 5.77 us/byte to about 2.85 — call it up to 2x.
+  36,735,152 bytes in 7 min **by wall clock, +/-59 s** = **75-99 KiB/s**. The
+  measured cost model says a dword access should take 5.77 us/byte to about
+  2.85 — call it up to 2x.
 - **Verify the bytes, not just the clock.** `FC /B` against the source, with the
   DOS driver reading it back, so the write path and the read path are different
   code.
@@ -102,7 +103,7 @@ Copy it to `<CF>:\` while the card is in the reader. Test cycle is then
 
 | | |
 |---|---|
-| at today's 85.4 KiB/s | ~46 s |
+| at today's 75-99 KiB/s | 41-55 s |
 | at dword, if it works | ~23 s |
 
 A 2x difference against a stopwatch error of a second or two is unmissable.

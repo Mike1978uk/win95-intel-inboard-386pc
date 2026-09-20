@@ -54,14 +54,14 @@ FC: no differences encountered
 Two different drivers, two different transports, so a symmetric error cannot
 cancel (technique 79). This establishes, in one run:
 
-- **the EPP write path is byte-correct** at the 85.4 KiB/s measured earlier;
+- **the EPP write path is byte-correct** at the throughput below;
 - **the ECP read path is byte-correct**, not merely functional — §2y said ECP
   bulk works, this says it works *correctly*, over 36 MB.
 
 ⚠ **Inference, not measurement:** FC ran 00:26 -> 00:47:54, about 22 minutes, of
 which the `C:` side is ~70 s. That bounds the ECP read at roughly 31 KiB/s **or
 better** — FC's own compare overhead is inside the figure and is not separated.
-Read against EPP's measured 85.4 KiB/s it is *suggestive* that ECP is not faster
+Read against EPP's 75-99 KiB/s it is *suggestive* that ECP is not faster
 here, and that is all it is. The clean number needs a timed copy with the
 stamps on the machine (technique 126e).
 

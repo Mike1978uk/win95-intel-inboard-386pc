@@ -10,7 +10,7 @@ open is speed, and there is a two-byte patch staged for it.
 | | |
 |---|---|
 | **EPP write is byte-correct** | 36,735,152 bytes, `FC /B` → `no differences encountered` |
-| **EPP throughput** | **85.4 KiB/s** (36,735,152 B in ~7 min, owner-timed) |
+| **EPP throughput** | **75-99 KiB/s** - 36,735,152 B in 7 min by WALL CLOCK, +/-59 s. NOT 85.4; that figure treated a coarse reading as exact |
 | **ECP read is byte-correct** | the same file, read back by the DOS driver over `ECP Read` |
 | **ECP bulk works on this hardware** | vendor DOS driver, `Read Mode : ECP Read` — see below |
 
@@ -39,7 +39,7 @@ not to re-argue.
 
 **Inference, not measurement.** `FC` ran 00:26 → 00:47:54, ~22 min, of which the
 `C:` side is ~70 s. That bounds the ECP read at **~31 KiB/s or better**, with
-FC's compare overhead inside the figure. Against EPP's measured 85.4 KiB/s it is
+FC's compare overhead inside the figure. Against EPP's 75-99 KiB/s it is
 *suggestive that ECP is slower here* — and that is all it is.
 
 If it holds, it reframes everything: EPP already beats ECP on this machine, and
