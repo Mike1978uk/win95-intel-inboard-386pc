@@ -177,14 +177,55 @@ fire. **`dh=0Bh, dl=4` — EPP dword, with no binary patch and nothing written t
 `/de /db /ni` is a bigger hammer than the job needs: it sets bit 0, which kills
 the declaration along with the probing.
 
-## 6. What is not known
+## 6. The struct is built at `0x266F`, and the flags are already settable
 
-How the registry or INF populates the config struct. The miniport's own keyword
-table is `BLK · DMA · ECP · MSN · NATN · NDPC · port · size · irq · LPT1-9 ·
-Dev`; none of those is obviously the flags word, so the struct is assembled a
-layer above. Until that is mapped, this is a patch target rather than a setting.
+The struct is a stack local at `[ebp-0x3C]`, filled in `0x266F` before
+`call 0x5808`. Flags word = `[ebp-0x1C]`:
 
-## 7. Verify in the bed before the 5160
+```
+0x267f  [ebp-0x1c] = 0                          ; ecx, just xored
+0x268c  cmp [0x2045C], 0
+0x26a3  je  0x26ac                              ; equal -> bit 0 NOT set
+0x26a5  [ebp-0x1c] = 1                          ; bit 0
+0x26b6  if [0x2043C] -> |= 8                    ; bit 3
+0x26c3  if [0x20440] -> |= 0x20                 ; bit 5   <- the one we want
+0x26d0  if [0x204E0] -> |= 4                    ; bit 2
+0x26dd  if [0x20454] -> |= 0x40                 ; bit 6
+```
+
+Every source byte initialises to `00` in `.data`, and they are written by a
+character-based switch parser at `0x34C0`-`0x3600` (`cmp byte [esi],0x73` `'s'`,
+`0x66` `'f'`, `0x70` `'p'`, `0x68` `'h'`), i.e. the miniport parses `/x`-style
+letters out of `AdapterSettings`, not just the `BLK`/`ECP`/`port` keywords.
+
+| bit | source byte | set by |
+|---|---|---|
+| 0, kills the dispatcher | `[0x2045C]` | parser `0x33A0` |
+| 5, skips `0xDD77` | `[0x20440]` | parser `0x34DA`, switch letter **`f`** |
+
+**Bit 9 is never set by this block**, so `[0x20BD4]` stays 0 and gate 4's first
+condition is satisfied by default.
+
+**Bit 0 defaults to 0.** The dispatcher therefore *does* run by default, and
+with `[0x20C2A]` also 0 the `0xCB23` compare falls through to `0xCB2C` and
+`0xD030` is called. So the declared-EPP path is not unreachable in the stock
+driver the way `/de /db /ni` makes it unreachable in the DOS one.
+
+## 7. So the live question moved
+
+If `[0x20D9D]` can reach 2 by default, the remaining explanation for a
+byte-wide selection is that **`dh` never arrives as `0Ah` or `0Bh`** and the
+range check at `0x8079` skips the block. `0x8035` is called from exactly two
+sites, both taking the requested pair from a table rather than a constant:
+
+```
+0xd0bb  mov ax, word ptr [esi+1] ; push ; call 0x8035
+0xd6d8  mov ax, word ptr [ebx]   ; push ; call 0x8035
+```
+
+**Mapping that mode-preference table is the next job**, and it is offline.
+
+## 8. Verify in the bed before the 5160
 
 The question this raises is "which ports does it touch", and 86Box answers that
 exactly — log every I/O access and confirm nothing lands in `0x20-0x3F`. The bed
