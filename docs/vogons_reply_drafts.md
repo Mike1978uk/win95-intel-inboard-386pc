@@ -161,3 +161,43 @@ the regression.
 **Provenance of the "before" column:** recovered from the CF image `win95_postsiv.img` taken
 2026-09-12 13:19, at byte offsets `100684602` and `1469371625` — two independent captures that
 agree. It is not a remembered number and not anyone's summary.
+
+---
+
+## Thread state read back, 2026-09-21 — #26 closed on the strength of it
+
+#26 carried an unchecked box: *"read the actual post first — the request is recorded from the
+owner's recollection."* Done, from
+<https://www.vogons.org/viewtopic.php?t=112093&start=60>.
+
+**@disruptor's ask, verbatim:**
+
+> Perhaps you can provide some source code too. Unfortuneately we do not have an Inboard XT here
+> too but it would be interesting if there is a possibility to add support for a ST01 SCSI
+> controller too.
+
+Context in the same post: a colleague runs an ST01 with a 1 GB disk in a turbo XT, transferring by
+**ISA DMA**, and has no ASPI driver.
+
+So the recollection was right and §1 above still answers it. **The first sentence of the reply is
+the whole ask** — the source is public, MIT, at
+<https://github.com/Mike1978uk/win95-intel-inboard-386pc>, and the worked example is
+`drivers/xtide_mpd/`: a polled, no-IRQ Win95 SCSI miniport for an 8-bit ISA card, confirmed on
+hardware. Everything after that is the part he did not know to ask for, and the two silent-failure
+warnings are the valuable half — **his card is a DMA card**, so the 20-bit reach is directly in
+his path.
+
+One line worth adding that §1 does not have, since the owner raised it: there is a **Linux** driver
+for the ST01/ST02, but **no 32-bit protected-mode Windows driver exists**. That is the gap, and it
+is why a template is the useful answer rather than a finished driver.
+
+**@red-ray's latest ask, verbatim:**
+
+> Please try the attached SIV V5.88 Hope-11, do **SIV32L -DBGCPU -EXIT=30 > SIV_DBGOUT.log | more**
+> and post the new .log.
+
+His IBM 486DLX2 detect code *"did not work as I hoped"*. The owner has since reported back on the
+thread that **every attempt met a BSOD**, so there is no log to send. He is iterating on the
+script; further runs are paused until it settles. Nothing is owed until then.
+
+⛔ Both replies are the owner's to send, in his own words.
