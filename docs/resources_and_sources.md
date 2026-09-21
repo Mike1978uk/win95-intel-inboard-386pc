@@ -286,15 +286,34 @@ the directory's own `README.md`.
 
   Also `PK486BL.COM`, a driver offering **1x / 2x / 3x** on the CPU itself, up to 100 MHz.
 
-  ⭐ **Two leads, both new:**
-  1. **SW1 may invalidate a measured assumption.** If the cache flushes on every I/O read and
-     write, then on a machine where one sector transfer is hundreds of port accesses the L1 is
-     being flushed constantly — and technique 109's *"a register-only delay runs from L1 and
-     costs NO bus cycle"* only holds if the cache survives the poll before it. **Testable with
-     `tools/gen_busload_com.py`**: compare a pure cached loop against one with an I/O access in
-     it. If flushing happens, the mixed loop costs far more than the sum of its parts.
-  2. **3x is available and we run 2x** (`1002h:3 = 03`, doubling confirmed live). On a 16 MHz
-     Inboard that is 48 MHz against a 75 MHz-rated part.
+  ⭐ **The switch table is feipoa's own work in that thread**, as is the compatibility warning
+  below — the same person behind CTCHIP/KTCHIP34 (section 8), which closed issue #9. He is the
+  authority this project keeps landing on for these upgrade modules.
+
+  ⛔ **SW1 is a CONSTRAINT, not a lever.** feipoa, in the same thread:
+
+  > *"I have found the IODATA unit not very forgiving for IBM-based systems without SW1 set to
+  > ON. **Cannot even run DOOM.**"*
+
+  This is an IBM-based system. So SW1 must be **ON**, the cache flushes on **every I/O read and
+  write**, and that cannot be turned off for speed. **Do not propose flipping it.**
+
+  ⭐ **What that implies, and it strengthens the plan rather than undermining it.** If every
+  port access flushes the L1, then the true cost of an I/O access is the **5.55 us of bus plus a
+  cache refill afterwards** — so avoiding a transaction saves more than the bus time alone, and
+  *"spend CPU to avoid transactions"* is a better trade than it already looked.
+
+  ⚠ **One measured claim needs narrowing, not retracting.** Technique 109 says a paced-polling
+  delay loop *"runs from L1 and costs NO bus cycle"*. The **bus** half stands — the loop lives in
+  Inboard-local RAM and never crosses ISA either way, which is the claim that matters for
+  occupancy. The **L1** half does not survive a preceding I/O access. Our 0.201 us/iteration
+  baseline was measured with no I/O in the loop, so it does not capture this.
+  ➡ **Testable with `tools/gen_busload_com.py`**: a pure cached loop against one with an I/O
+  access in it. If the mixed loop costs far more than the sum of its parts, flushing is real and
+  measurable.
+
+  ⭐ **And the remaining lead: 3x is available where we run 2x** (`1002h:3 = 03`, doubling
+  confirmed live). On a 16 MHz Inboard that is 48 MHz against a 75 MHz-rated part.
 
   ❌ **This thread documents the PC-98 variant.** Whether the owner's module is this exact
   board is **unconfirmed** — the register map we hold (`1000h`/`1001h`/`1002h` via `CTCHIP34

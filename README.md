@@ -427,8 +427,12 @@ and the [contributor ledger](docs/contributor_input_ledger.md).
 - **[cimonvg](https://forum.vcfed.org/index.php?members/cimonvg.8268/)** - From vcfed ongoing work pushing the Inboard 386/PC to its limits, and support throughout.
 - **[RonnyRoy](https://github.com/ronnyroy111/inboard386)** — reproducing the Inboard as cloned
   hardware, which may be the path past today's 4MB ceiling.
-- **Feipoa** (Vogons) — the [CTCHIP/KTCHIP34 write-up](https://www.vogons.org/viewtopic.php?t=45756)
-  and the register-level approach behind it, which closed issue #9.
+- **Feipoa** — twice now the authority this project has landed on for the CPU upgrade module.
+  The [CTCHIP/KTCHIP34 write-up](https://www.vogons.org/viewtopic.php?t=45756) (Vogons) and the
+  register-level approach behind it, which closed issue #9; and the
+  [IBM 486BL3 module's DIP-switch table](https://www.cpu-world.com/forum/viewtopic.php?t=33652&view=previous&)
+  (cpu-world), including the warning that saved us a bad idea — an IBM-based system needs `SW1`
+  **ON**, so the cache flushes on every I/O access and that is a constraint rather than a lever.
 - **Fenix770** — the VM attachment that root-caused the shadow-RAM alias failure.
 - **Wim Osterholt** — [XT, AT and PS/2 I/O port addresses](https://wiki.preterhuman.net/XT,_AT_and_PS/2_I/O_port_addresses)
   (1994), which marks entries `(XT only)` — the exact distinction most bugs here turn on.
