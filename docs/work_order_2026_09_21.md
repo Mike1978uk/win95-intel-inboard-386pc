@@ -76,6 +76,32 @@ on the data phase.
 Supporting but not conclusive: `ELNK3.VXD` does `rep insd` to a 16-bit ISA card at a single
 port address, so a shipping period driver does do exactly this shape of thing.
 
+#### ⚠ A15a is complete, and it reframes the lever
+
+The INF side is now checked too: **neither `T130.INF` nor `T130-XT.INF` carries a disconnect
+setting.** They set `PortDriver`, `Polling`, `DevLoader`, `DontLoadIfConflict`, `NoSetupUI` and
+nothing else. So two independent lines agree - the driver never asks for disconnect, and there
+is no knob to make it.
+
+That means "the lever is open" does **not** mean "flip a registry key". It means patching
+Adaptec's binary, which is a much bigger job than the plan implied.
+
+⭐ **And it may be the wrong lever.** Disconnect frees the **SCSI** bus during a seek. What
+this machine is short of is **ISA** bus. The card is jumpered for no IRQ and runs `Polling=1`,
+so during a transfer the driver sits *polling the card over the ISA bus* - and that is the
+occupancy the cost model actually ranks. XT-IDE already solved exactly this with
+`XT_POLL_BACKOFF` (spin ~32 times, then a cache-resident delay costing zero bus cycles),
+recorded in this plan as *"arguably worth more than the width win"*.
+
+Static evidence, indicative only: 28 `ScsiPortReadPortUchar` call sites, **10 of them inside a
+read/test/jump-back loop**, against 12 `ScsiPortStallExecution` sites. So it is partly paced
+already and partly not.
+
+❓ **Untested reasoning, not a measurement.** The cheap way to settle it is B2's own
+instrument: a PIT-timed CPU loop, run while a SCSI transfer is in flight. If the loop slows,
+polling is stealing bus cycles and paced polling is the lever. **Build that harness once and it
+answers B2 and this together.**
+
 #### Dead end recorded
 
 ❌ `references/3c509b_qemu` cannot answer the **buffer size** half of A13. It models its own
