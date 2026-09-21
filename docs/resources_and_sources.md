@@ -379,6 +379,7 @@ the directory's own `README.md`.
   board is **unconfirmed** — the register map we hold (`1000h`/`1001h`/`1002h` via `CTCHIP34
   IBM486`) is consistent with an IBM 486BL3, but consistency is not identification. **Confirm
   the board before trusting a switch table against it.**
+  ➡ **Moved to [#40](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/40).** The cheapest test is reading the markings on the module.
 
 ## 8b. Bus timing and the demoscene (added to this page 2026-09-21)
 
@@ -436,7 +437,9 @@ which is less than it looks, but not nothing.
   a clock period, the Pico can use at most 6 cycles"*, and the caution that holding IOCHRDY
   low *"effectively halt[s] ISA bus"*. Same currency as our bus-occupancy metric. Raises one
   question worth asking of 86Box: does it model an IOCHRDY stall at all, or is every device
-  infinitely fast once addressed?
+  infinitely fast once addressed? ✅ **Answered, and it is the latter** — `grep -ri iochrdy` over
+  the 86Box tree returns nothing, and the only wait-state mechanism is video-specific
+  (`video_wait_states_cb_t`). Moved to [#43](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/43) with the cost figures.
   ❌ The repository README carries **none** of this - it is in the HN and Hackaday write-ups
   ([HN](https://news.ycombinator.com/item?id=36061326),
   [Hackaday](https://hackaday.com/2023/11/21/picogus-for-all-your-isa-sound-card-needs/)).
@@ -474,14 +477,21 @@ answers in a sentence and a document does not answer at all:
    only ever characterised on faster buses? Ours is the 4.77 MHz case, and it is the one
    that decides whether
    [#35](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/35) is worth anything.
+   ✅ **No published figure exists, and we no longer need one** — `isa_memory_vs_io_2026_09_20.md`
+   measures it here: 2.861 µs/byte for the best real ISA memory window against 5.695 for the port
+   path. Ranking the lever is [#35](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/35)'s job now, not this page's.
 2. How much does holding **IOCHRDY** actually cost a period machine in practice? The PicoGUS
    caution is qualitative, and we have a measured bus-occupancy model to put a number against
    it.
+   ➡ **Moved to [#43](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/43) to be measured.** Still the only question on this page that is
+   outstanding *and* answerable here.
 
 ⚠ The **BlueSCSI** question - does it do target-side caching or disconnect/reconnect, and what
 did enabling them do on a slow host, which is half of
 [#31](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/31) - is **not** his, and
 has no contact attached to it. It still has to be measured on our own chain.
+➡ **Stays on [#31](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/31)**, which is where the measurement belongs; an AI-sourced pass at it
+is assessed below and changed nothing.
 
 ⛔ **Nothing has been sent.** Contact is the owner's to make, in his own words.
 
@@ -613,6 +623,7 @@ Not present in this machine's `CONFIG.SYS`, so it is at the default **ON**. Noth
 worth holding constant - or deliberately toggling - in the #18 floppy-corruption bed.** That
 issue's recorded trigger is a media change flushing a stale cache page to the wrong disk, and
 multi-track requests are exactly the shape of access that spans what a cache page covers.
+➡ **Moved to [#18](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/18)** as a variable for that bed.
 
 Also in the file, not relevant here: `AVAILDEV` (removed after DOS 3.0), `SWITCHAR`
 (gone after DOS 3.0, still reachable via INT 21h AH=37h).
