@@ -70,6 +70,58 @@ def one_pass(iters):
     return b
 
 
+BUF = 0x4000           # 1 KB working set inside our own segment
+
+
+def cached_pass(outer, dwords, io_port=None):
+    """Re-read a small buffer `outer` times, optionally with one port read first.
+
+    The buffer is 1 KB and the BL3's L1 is 16 KB, so after the first pass every
+    read should hit cache and cost no bus cycle. Inserting ONE I/O access per
+    outer iteration is the whole experiment: if SW1 is ON ("DMA + I/O
+    read/write"), that access flushes the cache and the next 1 KB has to come
+    back from Inboard RAM at ~135 ns/byte instead of from L1.
+
+    The port is read, not written, and 0x21 is the 8259's interrupt mask
+    register - a standard, non-destructive read with no side effects. Interrupts
+    are already masked by the caller's cli.
+    """
+    b = pit_read()
+    b += bytes([0x89, 0xDD])                        # mov bp,bx      t0
+    b += bytes([0xBF]) + struct.pack("<H", outer)   # mov di,outer
+    body = b""
+    if io_port is not None:
+        body += bytes([0xE4, io_port])              # in al,port
+    body += bytes([0xBE]) + struct.pack("<H", BUF)  # mov si,BUF
+    body += bytes([0xB9]) + struct.pack("<H", dwords)
+    body += bytes([0x66, 0xF3, 0xAD])               # rep lodsd
+    body += bytes([0x4F])                           # dec di
+    # jnz back to the top of body
+    body += bytes([0x75, (256 - (len(body) + 2)) & 0xFF])
+    b += body
+    b += pit_read()
+    b += bytes([0x29, 0xDD])                        # sub bp,bx
+    b += bytes([0x55])                              # push bp
+    return b
+
+
+def build_flush(outer, dwords, io_port):
+    """Two passes: without the I/O access, then with it. Then repeat, to show
+    the pair is stable rather than drifting."""
+    c = bytes([0xFA, 0xFC])                         # cli ; cld
+    c += cached_pass(outer, dwords, None)
+    c += cached_pass(outer, dwords, io_port)
+    c += cached_pass(outer, dwords, None)
+    c += cached_pass(outer, dwords, io_port)
+    c += bytes([0xFB])                              # sti
+    c += bytes([0xB8, 0x40, 0x00, 0x8E, 0xD8])      # mov ax,40h ; mov ds,ax
+    for i in range(3, -1, -1):
+        c += bytes([0x5D])
+        c += bytes([0x89, 0x2E]) + struct.pack("<H", IACA + i * 2)
+    c += bytes([0xB4, 0x4C, 0xCD, 0x21])
+    return c
+
+
 def build(passes, iters):
     c = bytes([0xFA, 0xFC])                       # cli ; cld
     for _ in range(passes):
@@ -84,13 +136,59 @@ def build(passes, iters):
     return c
 
 
+def verify_flush(code, io_port):
+    """The flush test is only meaningful if the two pass types differ by exactly
+    one instruction, so check that rather than trusting the builder."""
+    try:
+        from capstone import Cs, CS_ARCH_X86, CS_MODE_16
+    except ImportError:
+        print("WARNING: capstone missing, code NOT verified")
+        return
+    md = Cs(CS_ARCH_X86, CS_MODE_16)
+    text = [i.mnemonic + " " + i.op_str for i in md.disasm(code, 0x100)]
+    n_lods = sum(1 for t in text if t.startswith("rep lodsd"))
+    n_io   = sum(1 for t in text if t == "in al, 0x%x" % io_port)
+    n_latch = sum(1 for t in text if t.startswith("out 0x43"))
+    if n_lods != 4:
+        sys.exit("FAILED: %d rep lodsd, expected 4" % n_lods)
+    if n_io != 2:
+        sys.exit("FAILED: %d reads of port %02Xh, expected exactly 2 "
+                 "(the with-IO passes only)" % (n_io, io_port))
+    if n_latch != 8:
+        sys.exit("FAILED: %d PIT latches, expected 8" % n_latch)
+    stray = [t for t in text if t.startswith(("in ", "out "))
+             and "0x4" not in t and ("0x%x" % io_port) not in t]
+    if stray:
+        sys.exit("FAILED: unexpected port access: %r" % stray)
+    if any("int3" in t for t in text):
+        sys.exit("FAILED: an INT 3 survived")
+    print("verified: 4 rep lodsd, exactly 2 port reads, 8 PIT latches, nothing stray")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--passes", type=int, default=4)
     ap.add_argument("--iters", type=lambda s: int(s, 0), default=0x4000,
                     help="loop iterations per pass (default 0x4000)")
     ap.add_argument("--out", required=True)
+    ap.add_argument("--flush", action="store_true",
+                    help="SW1 cache-flush test: 4 passes, alternating without/with "
+                         "one I/O read per outer iteration")
+    ap.add_argument("--outer", type=lambda s: int(s, 0), default=64)
+    ap.add_argument("--dwords", type=lambda s: int(s, 0), default=256,
+                    help="dwords re-read per outer iteration (256 = 1 KB)")
+    ap.add_argument("--io-port", type=lambda s: int(s, 0), default=0x21,
+                    help="port to read; 0x21 is the 8259 IMR, non-destructive")
     a = ap.parse_args()
+
+    if a.flush:
+        code = build_flush(a.outer, a.dwords, a.io_port)
+        verify_flush(code, a.io_port)
+        open(a.out, "wb").write(code)
+        print("wrote %s: %d bytes, 4 passes (no-IO, IO, no-IO, IO), "
+              "%d x %d dwords, port %02Xh, results at 0040:%04X"
+              % (a.out, len(code), a.outer, a.dwords, a.io_port, IACA))
+        return
 
     if not 1 <= a.passes <= MAX_PASSES:
         sys.exit("passes must be 1..%d - the IACA is only 16 bytes" % MAX_PASSES)
