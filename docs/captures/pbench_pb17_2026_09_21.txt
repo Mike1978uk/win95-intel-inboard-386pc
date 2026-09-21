@@ -1,0 +1,5 @@
+ARM pb17 
+Current time is  13:05:06.30
+Enter new time:  
+Current time is  13:06:39.56
+Enter new time:  
