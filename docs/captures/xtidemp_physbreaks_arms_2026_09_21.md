@@ -47,6 +47,40 @@ The general point is the one technique 130 already makes, sharpened: *check what
 in the artefacts, rather than reasoning from their provenance.* Two builds from different trees can
 still be a valid single-variable pair, and two builds from the same tree might not be.
 
+## ⛔ First A/B attempt FAILED — my harness bug, no data, 2026-09-21
+
+Both runs were terminated by the owner after they ran far past the expected ~3 minutes.
+**Neither measured anything.** `PBENCH.OUT` came back 692,661 bytes containing:
+
+```
+ARM pb17
+--- START ---
+Current time is  12:35:17.15
+Enter new time: ^A^A^A^A^A ... ^G^G^G^G ... ^C
+```
+
+One `Current time`, **no END marker**, then bell characters until the owner pressed Ctrl+C.
+
+⛔ **`TIME < NUL` does not return.** Fed EOF, DOS re-prompts *"Enter new time:"* forever and
+writes control characters into the redirect. **The batch hung on the first `TIME` and the `COPY`
+never executed.** Use `ECHO. | TIME` instead - a blank line makes `TIME` print and accept,
+which returns. `PBENCH.BAT` on the card and in `tools/fixtures/` is fixed.
+
+⭐ **One real result survived the failure**: the active driver was `a6bfb48b` when the CF came
+back, so **Windows 95 boots and runs on the `-PhysBreaks 17` arm**. The stated risk - that 64 KB
+SRBs would break the boot volume, never having been exercised - **is retired**. That was the
+scary half of this experiment and it is now known-good.
+
+⛔ **Baseline restored.** `XTIDEMP.MPD` is back to `db88f64d` from `XTIDEMP.B20`. The
+PhysBreaks arm was **not** adopted, despite booting, because:
+- there is **no throughput measurement** either way, and
+- `a6bfb48b` was built from a **DIRTY tree** and cannot be rebuilt bit-for-bit, so it must not
+  become the published driver that `FIXES.md` hands out with an md5.
+
+➡ **Next session: re-run the A/B with the fixed batch.** Everything is staged - `PBENCH.BAT`,
+`USEPB.BAT`, `USEBASE.BAT` on `C:\`, both arms in `IOSUBSYS`, and the 36.7 MB
+`C:\GOODTIME\GOODTIME.MPG` as the workload. Two Windows boots, about 6 minutes.
+
 ## What has NOT been done
 
 ⛔ **Neither arm has been run on hardware for throughput.** The A/B is staged and never executed.
