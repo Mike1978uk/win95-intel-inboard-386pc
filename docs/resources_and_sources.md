@@ -306,11 +306,28 @@ which is less than it looks, but not nothing.
   [Performance](https://bluescsi.com/docs/Performance).
   ❌ Nothing on **target-side caching** or disconnect/reconnect policy, which is half of what
   #31 asks. That still has to be measured on our own chain.
-- **PicoPCMCIA** (Kevin Moonlight) - ❌ nothing transferable found; PCMCIA is a different bus
-  and the problem shape does not match. Noted only because the same author wrote
-  [COMrade](https://github.com/yyzkevin/COMrade), which this project runs on the real 5160
-  and credits already. **No contact made, and none is owed** - this is a citation, not a
-  contribution.
+- **PicoPCMCIA** (Kevin Moonlight) - ❌ no *bus* learning transferred; PCMCIA is a different
+  bus and the problem shape does not match.
+
+⭐ **These four are not four unrelated strangers.** Kevin Moonlight has contributed to all of
+them (owner, 2026-09-21), and he wrote [COMrade](https://github.com/yyzkevin/COMrade) - the
+tool this project uses for live introspection on the real 5160, credited in the README since
+the start. So the reading above is not a cold survey of outside work: it overlaps an existing
+contributor to this project.
+
+That matters for the three questions the repositories did **not** answer, all of which are
+the kind a person answers in a sentence and a document does not answer at all:
+
+1. Is there an **8-bit XT** aperture-vs-port figure anywhere, or is PicoMEM's memory path
+   only ever characterised on faster buses? Ours is the 4.77 MHz case.
+2. Does BlueSCSI implement **target-side caching or disconnect/reconnect**, and what did
+   turning them on actually do on a slow host? That is half of
+   [#31](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/31).
+3. How much does holding **IOCHRDY** actually cost a period machine in practice - the
+   PicoGUS caution is qualitative, and we have a measured bus-occupancy model to put a
+   number against it.
+
+⛔ **Nothing has been sent.** Contact is the owner's to make, in his own words.
 
 ---
 
