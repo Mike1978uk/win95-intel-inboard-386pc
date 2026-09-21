@@ -345,6 +345,70 @@ peripheral's limit without asking what the transaction costs on the other side o
 connector. Rank by bus cycles occupied, take every gain that costs nothing to keep, and
 when a hardware ceiling is reached, turn round.
 
+
+## E7. Take the planar RAM out entirely — the owner's idea, 2026-09-21
+
+> *"if we removed the system ram and modified the bios we might be able to then utilise 100% fast
+> ram on the inboard and not cross the bus at all for ram ... could the inboard backfill the whole
+> 640kb? people have changed roms before on these machines historically so it is a period correct
+> thing to potentially explore."*
+
+**Well founded, and the same class as E1 — which paid.** E1 took conventional memory on the bus
+from 640 KB to 256 KB. This takes the remaining 256 KB to zero. By this document's standing
+principle, rank by bus cycles occupied, that is the largest structural change left to
+conventional memory.
+
+Seed: [minuszerodegrees, substituting the 5150 U33 BIOS ROM](https://www.minuszerodegrees.net/5150/motherboard/IBM%205150%20motherboard%20-%20Substituting%20the%20U33%20BIOS%20ROM.htm) — a
+diagnostic ROM can run with no usable RAM because it keeps everything in registers, which is what
+makes "boot without bank 0" thinkable at all. ⚠ It documents the **5150**; the 5160 case is not
+established and must not be assumed.
+
+### One correction to the premise, and it matters
+
+The owner's phrase is *"fast ram"*. **Measured, it is not faster.** E1's own sweep:
+
+| region | before | after | delta |
+|---|---|---|---|
+| seg `1000` (64K — planar either way) | 5286 | 5284 | -2 |
+| seg `8000` (512K — planar, then **Inboard**) | **5290** | **5290** | **0** |
+
+Against a +/-2 tick noise floor, moving 512 K from planar to card changed read speed by **nothing**.
+Both read 135 ns/byte. The gain from E1 was **occupancy, not latency** — and E7's would be too.
+
+⭐ **But that null is not safe, and the owner's idea is exactly what makes it worth re-testing.**
+E1 says so itself: *"a linear sweep is the one pattern a line-fill cache hides."* The strided
+retest (`gen_ramstride.py`, `RMTMST.SCR`) was written and **deliberately not run**, on the
+reasoning that *"no outcome changes the decision."*
+
+➡ **That reasoning has now expired.** There is a decision that depends on it: whether card RAM
+is genuinely faster decides whether E7 is worth the risk of a ROM change, or whether it is only
+an occupancy play. **Run `gen_ramstride.py` before anything else here.**
+
+### The cheap first step is a switch, not a ROM
+
+⛔ **Do not start by modifying a BIOS or pulling chips.** SW1-3/4 on the 5160 encode the planar
+bank size, and Intel's manual says to set them *"down to 256K bytes"*. Whether that is a hardware
+limit or conservative advice is **untested**.
+
+**Set SW1-3/4 for 64 KB planar and boot.** If POST still counts 640 KB, the card backfills from
+64 KB upward, the decode reaches far below 256 KB, and E7 is live. If POST counts 64 KB, the
+backfill has a floor and E7 needs the decode changed, not just the RAM removed. **One boot,
+instantly reversible, no soldering and no ROM.**
+
+### Open questions, in the order they gate the idea
+
+1. **Does the backfill decode reach below 256 KB?** — the switch test above. ⚠ `hardware/pal_gal_reverse_engineering/` is **empty**, so no decode analysis exists in this repo to answer it on paper.
+2. **Parity.** The XT uses parity RAM and an absent bank can raise NMI. Does the card supply parity for backfilled addresses? Unknown.
+3. **Does the 5160 POST require bank 0 at all?** The minuszerodegrees page is 5150. Needs the 5160 case establishing before any chip comes out.
+4. **DMA into 0-256 KB once it is card RAM.** Lower risk than it looks: sound already DMAs into card-served memory every time it plays, and has for weeks.
+5. **Which BIOS?** This machine requires a **1986** ROM already (`ibm5160_050986` / `ibm5160_011086`); a modified ROM must stay in that family.
+
+### Why it is worth logging even if it never ships
+
+The backfill is **hardware, active at power-on** — POST counts 640 KB before any driver loads, so
+`INBRDPC.SYS` is not what creates it. That means the question is purely one of address decode,
+and the answer is a fact about this card that is worth knowing whether or not we act on it.
+
 ## THE THIRD STRATEGY — don't move the bytes at all
 
 Everything in this document until 2026-09-12 was one of two ideas:
@@ -507,6 +571,7 @@ measure it ranks below a small one we can settle this week.
 | **A18** | ⭐ **Pace `T130.MPD`'s tight poll loops** | 10 of 28 `ScsiPortReadPortUchar` sites sit in read/test/jump-back loops | binary patch + 1 boot | ✅ **owner approved patching this binary 2026-09-21.** Likely worth more than A15 disconnect: disconnect frees the SCSI bus, this frees the ISA bus |
 | **A19** | Q6 on the VxDs nobody had asked | ✅ **DONE 2026-09-21, and it is a NEGATIVE - write it down rather than re-derive it.** Poll-loop density (port read + backward Jcc): `VKD` **1** in 45 KB, `VDMAD` **1** in 42 KB, `VPICD` **1** in 47 KB, `KEYBOARD.DRV` **2** in 13 KB. **None of our four VxDs is a polling target.** Control: `T130.MPD` scores 0 by this method because it polls through SCSIPORT helpers, not raw opcodes - which is why it needs call-site counting instead | offline | ✅ closed |
 | **A21** | ⭐ **`ELNK3.VXD` spins flat out on the NIC** (NEW, 2026-09-21) | **27** candidate poll loops in 30 KB - **40x our VxDs' density**. Confirmed by disassembly at `0xd03`: `in ax,dx` / `test ah,0x10` / `jne` back, twice in a row, **no delay of any kind**. Each iteration is ~3.82 us of bus moving nothing | binary patch + 1 boot | ❓ stock 3Com driver, we do not patch it today. ⚠ **Unquantified** - bursty, and the NIC may complete fast. Quantify with the B2 PIT harness during network traffic before patching anything || **A20** | **dword on the T130B pseudo-DMA port** | `base+4` is a single address and the register file starts at `base+8`, so `base+5..7` are clear - unlike XT-IDE. Word → dword is 3.819 → 3.183 us/byte | binary patch, after A18 | ❓ **candidate, not a finding** - the port handshakes on DRQ and a handshaked cycle may not amortise |
+| **A22** | ⭐ **Can the Inboard backfill BELOW 256 KB - and eventually all 640 KB?** (owner, 2026-09-21) | ⭐ **Cheapest first step is a switch change and one boot, not a ROM.** SW1-3/4 encode planar size; set them to **64 KB** and see what POST counts. If it still counts 640 KB, the card backfills from 64 KB up, Intel's "down to 256K" is conservative advice rather than a hardware limit, and the idea is live | 1 boot, instantly reversible | ❓ **logged, not started.** See E7 below |
 
 ---
 
