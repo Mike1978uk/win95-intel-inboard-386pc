@@ -513,6 +513,7 @@ rather than a DMA-reach one — is on the issue.
 | [#36](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/36) | `fatcp.py` / `fatls.py` claim FAT12 support but are FAT16 only |
 | [#37](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/37) | BackPack parallel CD-ROM. **Built and submitted** as [86Box#8012](https://github.com/86Box/86Box/pull/8012) - the drive is modelled from real hardware and reads a disc. Open until that merges |
 | [#38](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/38) | Wire `lpt_epat.c` to upstream's EPP callbacks - the transport the real hardware uses |
+| [#40](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/40) | CPU upgrade module: the registers we never explored, and its switches. `CMLR` was one register and took Dhrystone from 2 to 13-15; **`XTOUT` is set where feipoa recommends 0** and has never been tested. The module's switches are undocumented here |
 
 Issues are labelled **`emulator`** or **`real-hardware`** so you can pick by what you have, and
 **`upstream`** marks the ones destined for 86Box itself.
