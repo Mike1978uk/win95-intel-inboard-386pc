@@ -331,6 +331,29 @@ the directory's own `README.md`.
   | 100 MHz | **does not power on** |
   | cooling | a **fan has been fitted** |
 
+  ⛔ **32 MHz crystal at 3x (= 96 MHz) considered and rejected, 2026-09-21 — the owner's
+  reasoning, and it is better than the risk argument.** The crystal does not only set the CPU
+  core: **it clocks the Inboard card.** So it is a trade, not an upgrade:
+
+  | | |
+  |---|---|
+  | CPU core | 80 → **96 MHz** (+20%) |
+  | **Inboard card clock** | 40 → **32 MHz** (−20%) |
+
+  The card side is where this machine lives — it serves **576 KB** of conventional memory, and
+  with SW1 forcing a cache flush on **every I/O access**, refills out of Inboard RAM are
+  constant. Giving up 20% there to gain 20% on a core already ~17x faster than the bus is a bad
+  trade **before** the risk of a 60 MHz-rated part at 96 MHz is counted.
+
+  ⚠ Also likely already answered: **100 MHz did not power on**, and 100 is not reachable from a
+  40 MHz base (40/80/120), so it was probably 33.3 x 3 — which makes 96 MHz a 4% step below a
+  known failure.
+
+  ⭐ **The free experiment that would settle the whole question**: the machine already has 1x/2x
+  (SW2 and the software multiplier). Benchmark a real storage workload at **40** and at **80 MHz**.
+  If halving the core barely hurts, the machine is bus-bound as measured and no overclock will
+  help. Reversible, zero risk, and it needs no new hardware.
+
   ⭐ **The crystal swap is only worth anything because the BL3 stopped dividing.** On the Intel
   part a 40 MHz crystal would have given 20 MHz; on the BL3 it gives 40 at the base and 80 at the
   core.
