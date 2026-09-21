@@ -2526,6 +2526,27 @@ Note this is NOT the same thing as caching the video ROM at `0xC0000` - Intel's 
 which this file correctly leaves alone. The card reserves the window regardless, which is also why
 the panel prints `EGA BIOS: 32-bit RAM` on machines that never enable EGA caching.
 
+⛔ **`EGACACHE` is a closed lever, and as of 2026-09-21 the mechanism is known.** The switch
+*"reserves up to 32K bytes ... for caching the EGA ROM BIOS"*, and the reference machine's card
+is an **ATI Mach8 - a VGA, not an EGA**. So it is not that the switch is inert; it is that it
+targets a ROM this machine does not present in the form it expects.
+
+That upgrades the 2026-09-20 A/B from an unexplained null to an explained one:
+
+| | byte | word | dword |
+|---|---|---|---|
+| baseline | 1746 | 1476 | 1340 |
+| `EGACACHE` on the line | 1746 | 1478 | 1336 |
+
+±2 ticks is the harness's own noise and `0xC0000` stayed at 2.858 us/byte. The owner removed the
+switch from `CONFIG.SYS` on 2026-09-21. **Do not re-propose it for this machine.** It would only
+become interesting on a genuine EGA, which this project does not have.
+
+⭐ **The general lesson.** A null A/B is worth much less than a null A/B with a mechanism. This
+one sat as "does nothing" for a day, which invites someone to retest it; "it caches an EGA ROM
+and the card is a VGA" closes it permanently. When a lever measures as zero, ask what the lever
+acts *on* before filing the result.
+
 ### `0xFF` / "every bit wrong" is an UNMAPPED signature, not a memory-fault signature
 
 Technique 63 recorded the mark-bad hits as `EBP=FFFFFFFF`, "a *complete* mismatch, every bit wrong",

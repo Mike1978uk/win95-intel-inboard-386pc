@@ -97,7 +97,7 @@ chain, `HSFLOP_XTDMA.PDR` for the floppies, and the vendor miniport for the LS-1
 `CONFIG.SYS`, read off the machine's own CF card:
 
 ```
-DEVICE=c:\INBRDPC.SYS EGACACHE NODIAGS NOPAUSE
+DEVICE=c:\INBRDPC.SYS NODIAGS NOPAUSE
 DEVICE=C:\WINDOWS\SETVER.EXE
 DEVICE=C:\WINDOWS\HIMEM.SYS
 DOS=HIGH,UMB
@@ -117,8 +117,15 @@ FILES=40
 **Four `DEVICE` lines, and not one of them is storage.** The LS-120's real-mode driver and its
 ASPI manager are commented out, kept only as the DOS-side reference — Windows serves that drive
 now. `INBRDPC.SYS` stays, and always will: it is the Inboard's own board driver, not a storage
-driver, and the machine does not boot without it. (`EGACACHE` on that line was A/B-measured on
-2026-09-20 and makes **no** measurable difference — it is left on, and is not a lever.)
+driver, and the machine does not boot without it.
+
+⛔ **`EGACACHE` came off that line on 2026-09-21, and here is why it never mattered.** Intel's
+switch *"reserves up to 32K bytes ... for caching the EGA ROM BIOS"* — and this machine's card
+is an ATI Mach8, a **VGA**. An A/B on the real 5160 on 2026-09-20 had already measured it as no
+change at all (1746 / 1476 / 1340 byte-word-dword against 1746 / 1478 / 1336, inside the
+harness's own ±2-tick noise, with `0xC0000` unmoved at 2.858 us/byte). The mechanism explains
+the null result rather than leaving it unexplained: the switch does do something, just not for
+a card that is not an EGA. **Do not re-propose it.**
 
 **Floppy drives work.** The patched [`HSFLOP_XTDMA.PDR`](FIXES.md) loads and initialises on
 the real machine (`Init Success`, `INITCOMPLETE`, measured 2026-09-06) — for over a month it was
