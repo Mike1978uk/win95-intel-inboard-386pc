@@ -409,6 +409,59 @@ physically or not at all. **E7 has no cheap first step; its first step is the ex
 both exist and their bank sizes differ, so the RAM total and what bank 0 holds depend on which one
 this is.
 
+### ⭐ E7 IS LIVE — I closed it an hour too early, and the primary source says otherwise
+
+⛔ **RETRACTION, same session.** I closed E7 on Intel's FaxBACK compatibility catalog, which says
+machine after machine that a board must be *"disabled down to 256K bytes"*. I read that as a
+**floor**. Intel's own manual, in `inboard_files/DOX1.TXT`, says it is a **ceiling**:
+
+> **S.O.S. Beeps.** *This error occurs if the InBoard 386/PC detects the computer supplying over
+> 256k of memory. The InBoard 386/PC can only replace the system board memory if **256k (or
+> less)** is being provided by the system board.*
+>
+> *It may be necessary to check with the system board manufacturer as to how to properly disable
+> memory to **256k (or lower)**.*
+
+**"Or less." "Or lower."** Twice, and the second is an instruction to the user, which is hard to
+read as loose phrasing. The card also **detects** how much the board supplies - it raises S.O.S.
+beeps above 256 KB - so it measures rather than assumes.
+
+➡ **The constraint is `board <= 256 KB`, not `board == 256 KB`.** Intel's wording permits the
+system board supplying less, and the card *"replaces the system board memory"* accordingly.
+
+**The lesson, which is the reusable part:** the FaxBACK catalog is a **secondary, derived** source
+- a compatibility list written per machine. `DOX1.TXT` is the **product's own manual**. When they
+disagree, the primary source wins, and I should have read it first rather than closing on the one
+I happened to grep. [[feedback-real-hardware-outranks-inference]] one rung further down.
+
+### ⭐ So everything now turns on one fact: which board revision
+
+Per [minuszerodegrees](https://www.minuszerodegrees.net/5160/misc/5160_motherboard_switch_settings.htm)
+there are **two** 5160 planars, and SW1-3/4 = ON/ON means *bank 0 only* on both:
+
+| board revision | bank 0 holds | planar RAM today | card supplies | at Intel's ceiling? |
+|---|---|---|---|---|
+| **256-640 KB** | 256 KB | **256 KB** | 384 KB | ⚠ **exactly at it** - no headroom |
+| **64-256 KB** | 64 KB | **64 KB** | **576 KB** | ✅ **already well under it** |
+
+⛔ **If it is the 64-256 KB board, E1's "256 KB planar" is wrong and the machine is already at
+64 KB** - 576 KB of conventional memory already served by the card, and only 64 KB still crossing
+the bus. That would mean most of E7's prize is **already collected** and nobody noticed.
+
+✅ **The owner is pulling the lid to check.** That single observation decides whether E7 is a
+hardware project or a bookkeeping correction.
+
+### What stays true from the earlier closure
+
+- **UniPCemu models no backfill base register** - `inboardXT_PortA0` bit 7 is ROM mapping only.
+  So there is still no evidence of a *software* control, and the owner's preferred route remains
+  unsupported. What changed is the **floor**, not the mechanism.
+- **The bank enable is decode logic** - Intel offers a *PAL* to boards that cannot disable memory,
+  never a setting.
+- ✅ `gen_ramstride.py` still unrun, and still worth running either way.
+
+### ⛔ Superseded reasoning, kept because it was wrong in an instructive way
+
 ### ⛔ E7 LOOKS CLOSED — investigated and answered 2026-09-21, offline, same day
 
 Three independent lines all say the backfill floor is **256 KB and it is hardware**. No case was
