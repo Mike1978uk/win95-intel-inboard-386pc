@@ -130,6 +130,73 @@ physical SRAM. `3C509B_PORT_SPEC.md` defers to it and so inherits the gap.
 | **B5 = A7** | DRAM refresh tuning — reprogram PIT channel 1, memory-pattern test, throughput A/B | 1 DOS run, instantly reversible | A tax every device pays, and E1 changed the premise. [#33](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/33) |
 | **B6 = A12a** | Display mode as a bus lever — benchmark 1024×768 vs 800×600 vs 640×480 | Control Panel + a benchmark, **no code** | ~2.6× fewer bytes at 640×480 and ~470 KB more off-screen VRAM. **A trade, so the owner's call** — it is the only row here that costs something visible. [#34](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/34) |
 
+### ⭐ Host side: what is actually left, checked 2026-09-21
+
+The owner's standing point, and the plan already carries it as a rule: **do not rank a lever out
+because it is small.** *"4% that costs nothing is 4%, and it compounds with every other change
+rather than competing with it."* These were checked against the source, not re-asserted.
+
+#### A2 is mostly a phantom — fold it into A1
+
+The shipped read path is **already one `rep insw` per sector**:
+
+```
+shr  ecx, 1        ; 256 words
+rep  insw          ; the whole 512-byte sector
+```
+
+There is no per-byte inner loop in the shipped build — `xrd_pio8_loop` is the
+`XT_FAST_XFER`-off fallback. So the *"96% bus / 4% our loop"* figure was measured **with**
+`rep insw` already in, which makes 4% the **residual** cost of `rep` plus per-sector setup, not
+a loop waiting to be unrolled.
+
+➡ **What is left of A2 is the per-SECTOR setup, and the way to remove that is to move more
+sectors per command — which is A1.** Run them as one job, not two.
+
+#### The plan's `rep movsd` row is aimed at the wrong file
+
+It says *"`XTIDEMP.ASM` has **zero** string ops and 9 byte-move lines"*. Wrong on both counts
+now, and the correction matters more than the count:
+
+| site | what it is | on the data path? |
+|---|---|---|
+| line 196 `rep stosb` | zeroes `HW_INITIALIZATION_DATA` | ❌ **runs once**, at init |
+| line 853 `rep movsb` | `xsi_copyout` — INQUIRY-sized control data into the SRB buffer | ❌ per-request, but ~36 bytes, not bulk |
+
+Both are byte-wide and **neither is on the bulk path**, which goes straight from `rep insw` into
+the caller's buffer. Widening them is worth approximately nothing. **Do not spend a build on
+this file for that reason.**
+
+#### ⭐ The Windows side is the real untouched area, and the way in is on disk
+
+The plan says the DDK's debug builds and symbols are *"still unopened ... the cheapest way into
+this layer and nobody has looked."* **They are present**, at `C:/Users/lycet/OneDrive/Desktop/XT_project/Windows95_ddk/DEBUG`:
+
+```
+IOS.VXD + IOS.SYM        SCSIPORT.PDR + SCSIPORT.SYM
+DISKTSD.VXD              CONFIGMG.VXD + .SYM
+RUNWDEB.BAT   DEBUG.TXT   950/ 951/ 952/ 953/
+```
+
+⭐ **This is how A1 gets its premise settled without a single boot.** A 1-sector command is 53%
+overhead — but our miniport does not choose the request size, **`DISKTSD` and `IOS` do**; ours
+only advertises `MaximumTransferLength`. So *"why are the requests small?"* is a question about
+those two binaries, and we hold debug builds **with symbols** for both. Raising
+`MaximumTransferLength` without knowing what sits above it is guessing.
+
+⚠ Check which Windows build `950/951/952/953` correspond to before trusting a symbol file
+against the machine's own `IOS.VXD` — this install is **OSR1**.
+
+#### Also already named, and still true
+
+- **`HSFLOP.PDR` polls hard during a seek**, and it is a driver **we already patch**
+  (`maxPhys`). Same paced-polling fix, same measured basis: a poll is 5.55 us of bus that moves
+  nothing; a cached delay loop is 0.22 us and occupies no bus at all.
+- **`T130.MPD` polling** — 10 of 28 `ScsiPortReadPortUchar` sites sit in tight
+  read/test/jump-back loops. ✅ **Owner approved patching this binary, 2026-09-21.**
+
+---
+
 ### Track C — emulator, whenever
 
 | | Action | Why it is last |
