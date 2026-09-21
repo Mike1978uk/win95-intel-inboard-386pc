@@ -268,6 +268,50 @@ the directory's own `README.md`.
   ⚠️ `PATH=/c/msys64/mingw64/bin` must be set or the build fails silently, with no message.
 - **[The project video](https://youtu.be/KxuKTNQyBKE?is=OkK0_sxReKwSKeK6)**.
 
+## 9. Modern cards on an 8-bit ISA bus (read 2026-09-21)
+
+Suggested by the owner: four projects that put new silicon on an old bus. All of them
+**build a card to impersonate a peripheral**, which is the opposite of this project's
+problem - we have real cards and the cost is in the host driver. Read for what transfers,
+which is less than it looks, but not nothing.
+
+- **[ISA-PicoMEM](https://github.com/FreddyVRetro/ISA-PicoMEM)** (FreddyVRetro) - ⭐ the
+  useful one. Moves disk data through a **memory aperture, not I/O ports**: *"PicoMEM Disks
+  data transfer done via the emulated Memory"*, 16 KB address granularity, and IOCHRDY
+  generation tightened *"from 120ns to 40ns"*. It independently reproduces our #30 result -
+  *"single sector read is slower than multiple sector read"*. Relevant to
+  [#35](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/35) as a worked
+  design for memory-mapped storage, and it **corrects our own record**: technique 128d's
+  "nothing can use the cheaper memory path because no card has a data aperture" is true of
+  *this machine's* cards, not of ISA cards generally.
+  ❌ No figures for an **8-bit XT** bus specifically, and no comparison of aperture vs port
+  cost on a 4.77 MHz machine - the thing we would actually need to rank the lever.
+- **[PicoGUS](https://github.com/polpo/picogus)** (polpo) - the ISA deadline from the card's
+  side: *"the Pico runs at 125MHz, while the ISA bus runs at 8MHz, so to respond within half
+  a clock period, the Pico can use at most 6 cycles"*, and the caution that holding IOCHRDY
+  low *"effectively halt[s] ISA bus"*. Same currency as our bus-occupancy metric. Raises one
+  question worth asking of 86Box: does it model an IOCHRDY stall at all, or is every device
+  infinitely fast once addressed?
+  ❌ The repository README carries **none** of this - it is in the HN and Hackaday write-ups
+  ([HN](https://news.ycombinator.com/item?id=36061326),
+  [Hackaday](https://hackaday.com/2023/11/21/picogus-for-all-your-isa-sound-card-needs/)).
+  Do not fetch the repo root expecting timing detail; read `sw/` or the wiki.
+- **[BlueSCSI v2](https://github.com/yyzkevin/BlueSCSI-v2)** - on point for
+  [#31](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/31). Synchronous
+  transfer is a setting of 10 MHz / 5 MHz / **0 = asynchronous**, and their guidance is that
+  on old or slow hosts **async is often faster and more reliable than sync** - an Amiga A2091
+  benchmarked better in async. Also: fragmented images cost throughput, and *"the SCSI drivers
+  can make a huge difference"*. The warning to carry: **the fastest negotiated mode is not the
+  fastest real mode.** Settings: [bluescsi.ini](https://bluescsi.com/docs/bluescsi.ini),
+  [Performance](https://bluescsi.com/docs/Performance).
+  ❌ Nothing on **target-side caching** or disconnect/reconnect policy, which is half of what
+  #31 asks. That still has to be measured on our own chain.
+- **PicoPCMCIA** (Kevin Moonlight) - ❌ nothing transferable found; PCMCIA is a different bus
+  and the problem shape does not match. Noted only because the same author wrote
+  [COMrade](https://github.com/yyzkevin/COMrade), which this project runs on the real 5160
+  and credits already. **No contact made, and none is owed** - this is a citation, not a
+  contribution.
+
 ---
 
 *Adding to this page: put the software in the repository if the licence allows and it is small

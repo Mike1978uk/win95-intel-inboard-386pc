@@ -7810,9 +7810,30 @@ magnitude faster than 2.861 us/byte, so these reads did cross the bus.
 
 ⛔ **This rescues nothing that is port-only.** The Lo-tech XT-CF (`0x300-0x31F`)
 and the Intek21 (`0x378`) have no data aperture, so width remains their only
-lever. The **Trantor T130B** has a `bios_addr` window, currently `0`, and
-Trantor cards commonly map the NCR5380 into memory - that is the one place this
-could be worth 2x, and it is unchecked.
+lever.
+
+⛔ **CORRECTION 2026-09-21: the T130B avenue is CLOSED, not "unchecked".** This
+section used to call the Trantor's `bios_addr` window *"the one place this could
+be worth 2x, and it is unchecked"*. It was checked the same day, three
+independent ways, and there is no memory window:
+
+1. a `55 AA` scan of `C000`-`E000` found only a floppy BIOS at `0xD0000` and XUB
+   at `0xD8000` - **no Trantor ROM at all**;
+2. `T130.INF`'s LogConfig declares `DMAConfig=0` and **no `MemConfig`** - a card
+   with an aperture declares one;
+3. `T130.MPD` imports only I/O-space calls.
+
+**Do not re-propose it.** It reopens only with a documented T130B memory decode,
+or a **T128**, which is the memory-mapped sibling. Record:
+`docs/isa_memory_vs_io_2026_09_20.md`.
+
+⚠ **But "no card has an aperture" is a fact about THIS MACHINE, not about ISA.**
+Modern ISA cards do move disk data through a memory window -
+[ISA-PicoMEM](https://github.com/FreddyVRetro/ISA-PicoMEM) does exactly that
+(*"PicoMEM Disks data transfer done via the emulated Memory"*, 16 KB
+granularity). So the finding stands as **card selection guidance**: an aperture
+is worth ~2x here, measured, and is a reason to prefer such a card if one ever
+goes in this machine.
 
 Full record: `docs/isa_memory_vs_io_2026_09_20.md`.
 
