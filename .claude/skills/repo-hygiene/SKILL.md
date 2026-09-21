@@ -349,3 +349,53 @@ support a claim that the device works.
 Before writing "tested" in a PR, name the **observation** that would convince a
 stranger, and check you have it. "The subsystem initialised" is not it. A
 submission that fails on first contact costs more than one never sent.
+
+---
+
+## 8. Evidence in a public claim must not be a property of YOUR machine
+
+2026-09-21, caught by the owner on 86Box#8010: the PR said *"the drive
+enumerates as `J:`"*. `J:` is not a property of the bridge. It is a property of
+this machine's SCSI chain - a Zip at `D:`, a Nakamichi changer's five LUNs at
+`E:`-`I:` - so the SuperDisk lands at `J:`. Nobody reproducing it gets `J:`.
+
+The bed image replicates that chain, which is why `LSENUMJ.BAT` probes `J:` and
+nothing else, so the bed happily confirmed a letter that means nothing to a
+reader.
+
+**Before a claim goes public, separate the observation from the configuration
+that produced it.** The claim that travels is *"the drive enumerates, takes a
+drive letter, its directory reads, and a write lands"*, with the free-space
+delta as evidence - none of which depends on which letter it got.
+
+A useful test: would a stranger who reproduced this correctly still see the
+number you quoted? If not, quote the thing they would see.
+
+---
+
+## 9. A rebase moves the branch ref out from under a sibling worktree
+
+Rebasing a branch that another worktree has checked out updates `refs/heads/`
+for both. The other worktree's **files are not touched**, so its `git status`
+suddenly shows a large staged diff that is really just old-base vs new-base -
+here, 660 deleted lines across the sound backend and `machine_table.c`, none of
+it anyone's work.
+
+It looks exactly like destroyed local changes, and the reflex is `git reset
+--hard`. Check first - it costs one command:
+
+```bash
+git diff            # UNSTAGED: real local work. Empty means nothing is at risk
+git status --porcelain | grep '^??'   # untracked
+git stash list
+```
+
+If `git diff` is empty, nothing is at risk and the fix is not a hard reset:
+
+```bash
+git checkout HEAD -- .    # refresh index+worktree from the new HEAD
+```
+
+**Rebase in a throwaway worktree** (`git worktree add -f <tmp> <branch>`) and
+this does not arise - but the branch ref still moves, so the main checkout
+still needs the refresh afterwards.

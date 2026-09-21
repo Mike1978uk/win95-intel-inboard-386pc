@@ -26,7 +26,7 @@ rather than adding another dated note.
 
 ---
 
-## ⛔ INDEX — find it here before reading 6,500 lines
+## ⛔ INDEX — find it here before reading 8,000 lines
 
 This file is long because every technique in it was paid for. **It is not meant to be read
 end to end.** Find what applies, read that, and add back what you learn.
@@ -48,6 +48,10 @@ end to end.** Find what applies, read that, and add back what you learn.
 | The driver's base does not come from its own device node | **125** - enumerate who else owns that address. Device Manager cannot show this clash |
 | An error line in a log looks like the cause | **127** - grep a run that WORKED for the same line before explaining it. Base rate first |
 | A fix passed in the bed | **127b** - can the bed even produce the failure you fixed? If not, the run proves no regression and nothing else |
+| About to run the bed | **131** - the four pre-flight checks, before the run, every time |
+| Setting up an A/B | **130** - build the baseline from the LIVE artefact's ledger flags, not from source |
+| A run came back POSITIVE | **129** - "unverified is not a result" applies to good news too |
+| Selling a transfer-width win | **128** - attribute the fixed per-access cost first. **128c**: XT-IDE cannot use dword |
 
 ### By area
 
@@ -60,14 +64,17 @@ end to end.** Find what applies, read that, and add back what you learn.
 | Hardware / XT-specific traps | 37, 56, **62**, **75**, 100, 101, 102, **125** |
 | Characterising a storage device before writing its driver | **126** - probe derivation, every media/drive state, timing an A/B honestly |
 | Memory map, the Inboard's own quirks | 63, 66, 67, 71, 72 |
-| Process and evidence discipline | **124** (measured vs inferred), 7, 28, 59, 77, 89, 98, 99, **103**, 104, 110, 111, 113, **121c**, **127** |
+| Process and evidence discipline | **124** (measured vs inferred), 7, 28, 59, 77, 89, 98, 99, **103**, 104, 110, 111, 113, **121c**, **127**, **129**, **130**, **131** |
+| Bus cost, transfer width, throughput | **109**, **128**, 128a-d |
 | Writing or trusting a DEBUG-script probe | **121**, 121a, 121b, 121c, 105, 116 |
 
 ### Elsewhere, deliberately
 
 - **`docs/win95_boot_fix_inventory.md`** - the Win95 boot checklist. Moved out 2026-09-11;
   it is a reference list, not a method.
-- **`drivers/imation_ls120_mpd/IMPLEMENTATION.md`** - the LS-120 build spec.
+- **`drivers/imation_ls120_mpd/IMPLEMENTATION.md`** - the LS-120 build spec. ⛔ **The driver
+  itself is RETIRED** (reads, never wrote; the vendor driver supersedes it). The spec and the
+  transport work behind it stand - they are what produced the 86Box EPAT device.
 - **`drivers/imation_ls120/TRANSPORT_SPEC.md`** - the bridge protocol. **Read its index.**
 - **`docs/bus_optimisation_plan.md`** - the 26-lever optimisation ledger.
 
