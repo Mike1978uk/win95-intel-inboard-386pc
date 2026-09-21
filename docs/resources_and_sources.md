@@ -268,6 +268,39 @@ the directory's own `README.md`.
   ⚠️ `PATH=/c/msys64/mingw64/bin` must be set or the build fails silently, with no message.
 - **[The project video](https://youtu.be/KxuKTNQyBKE?is=OkK0_sxReKwSKeK6)**.
 
+## 8b. Bus timing and the demoscene (added to this page 2026-09-21)
+
+⚠ **These were cited only inside `.claude/skills/inboard-hw-debug` (technique 128a) and had
+never reached this page** - so nobody reading the repo's own sources list could find them.
+Recorded here properly, with what each does **not** contain, which is the more useful half.
+
+- **[Trixter, *Optimizing for the 8088*](https://trixter.oldskool.org/2013/01/10/optimizing-for-the-8088-and-8086-cpu-part-1/)** —
+  *"it takes 4 cycles to read a byte, and because the prefetch queue is so tiny, smaller code is
+  usually better"*, and string instructions are *"ludicrously powerful"* because they are one byte
+  and self-repeating. ⭐ **The method transfers; the content does not.** The Inboard's 386 runs
+  cached out of card-local RAM, so code size is free here. What survives is the shape of the
+  argument — **rank by bus transactions, not by clock tables** — and that is the principle the
+  whole optimisation plan is built on.
+  ❌ **Nothing on ISA I/O timing.** Every bus number this project uses was measured here, not
+  taken from it: 5.55 us per 8-bit I/O cycle (technique 109), and the byte/word/dword table in
+  `docs/iowidth_measured_2026_09_20.md`.
+- **[reenigne, *ISA bus sniffer*](https://www.reenigne.org/blog/isa-bus-sniffer/)** and its
+  **[update](https://www.reenigne.org/blog/isa-bus-sniffer-update/)** — the useful idea is the
+  **instrument**: he built a card to watch every bus cycle because the timing could not be reasoned
+  out of datasheets. That is the same conclusion this project reached independently, and our
+  equivalent instrument is the emulator plus a PIT-timed probe, which cost nothing.
+  ❌ **Neither post gives ISA I/O cycle lengths, T-states or IOCHRDY behaviour.** Do not send the
+  next reader there for numbers.
+- **[reenigne, *The CGA wait states*](https://www.reenigne.org/blog/the-cga-wait-states/)** —
+  *"you can get an extra NOP per word for free because it fits into the wait states"*. The
+  transferable form is **dead time inside a transaction is usable time**.
+  ❌ Not directly ours: the 386 is hard-stalled during an ISA cycle here. The gap that *is* ours
+  is the drive's nWAIT and write latency, when the bus is idle.
+
+⚠ **And a caveat on a source already listed above**: Ardent Tool's *parallel port* pages are
+**MCA** and mostly do not apply to an XT bus (technique 128b). The AN062 IEEE 1284 application
+note listed in section 3 is a different document and does apply.
+
 ## 9. Modern cards on an 8-bit ISA bus (read 2026-09-21)
 
 Suggested by the owner: four projects that put new silicon on an old bus. All of them
