@@ -509,7 +509,6 @@ rather than a DMA-reach one — is on the issue.
 | [#26](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/26) | Replies owed on VOGONS - disruptor's ST01 question and red-ray's SIV test |
 | [#28](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/28) | Per-component audit: walk every driver and VxD, six questions each |
 | [#29](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/29) | Measure DMA: reach, cost per byte, channel inventory, CPU overlap |
-| [#30](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/30) | XT-IDE: request merging, physical breaks, the transfer loop. Request merging is modelled at **1.88x** on sequential and is not started |
 | [#31](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/31) | The SCSI chain: does it disconnect, and are the target caches on? Every target has one, and this is the most on-point mechanism in the machine |
 | [#33](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/33) | DRAM refresh tuning: a tax every device pays |
 | [#34](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/34) | Display mode as a bus lever: 1024x768 vs 800x600 vs 640x480 |

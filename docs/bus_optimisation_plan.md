@@ -840,7 +840,7 @@ measure it ranks below a small one we can settle this week.
 
 | # | Action | Method | Cost | Status |
 |---|---|---|---|---|
-| **A1** | Request merging in `XTIDEMP.MPD` | Raise `MaximumTransferLength`, coalesce adjacent SRBs; re-run the technique 93 traffic capture | driver build + 1 boot | 🎯 **next after LS-120** — 1.2-1.5x, measured not modelled |
+| **A1** | Request merging in `XTIDEMP.MPD` | ⛔ **MEASURED 2026-09-21: NO EFFECT.** 93.15 s baseline against 93.26 s with `-PhysBreaks 17` on 36.7 MB sequential - **0.12%, and the baseline is the faster one.** Modelled at 1.88x, delivers nothing. At **385 KiB/s** the transfer is **bus-bound per byte, not per command**, so removing commands changes nothing. `docs/captures/xtide_request_merging_result_2026_09_21.md` | — | ✅ **closed, #30 closed** |
 | **A2** | The free 4% — transfer-loop overhead | `rep movsd` in the buffer paths; unroll the per-sector loop | driver build | 🎯 queued behind A1 |
 | **A3** | E5c - can the 8237 reach the 384 KB E1 moved onto the Inboard? | — | — | ✅ **RETIRED 2026-09-21, not measured - answered by operation.** The owner: *"it works and has been for a few weeks, sound works fine."* Sound DMAs into conventional memory on every play; weeks of clean audio since the switches changed on 09-11 is the answer. ⚠ Strictly it proves DMA reaches *where those buffers landed*, not all of `0x40000-0x9FFFF` - but no outcome of a probe changes a decision, which is the same reason the strided E1 retest was deliberately not run |
 | **A4** | **E5 — time a real DMA transfer** | PIT harness (technique 109) around a one-track floppy DMA read; us/byte against PIO `1.87` and memory-mapped `0.454` | 1 DOS run | ❓ answers @andrew-hoffman's actual question with a number |

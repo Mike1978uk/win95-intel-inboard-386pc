@@ -4,46 +4,29 @@ Read this one first. Supersedes `next_session_2026_09_21b.md`.
 
 ---
 
-## Start here: one experiment is staged and 6 minutes from an answer
+## ✅ RESOLVED: the XT-IDE A/B ran, and request merging buys nothing
 
-**The XT-IDE `-PhysBreaks 17` A/B.** Everything is on the CF already.
+| arm | elapsed | throughput |
+|---|---|---|
+| baseline `db88f64d` | **93.15 s** | **385.1 KiB/s** |
+| `-PhysBreaks 17` `a6bfb48b` | **93.26 s** | 384.7 KiB/s |
 
-| | |
-|---|---|
-| baseline | `XTIDEMP.MPD` = `db88f64d` (active now), backed up as `XTIDEMP.B20` |
-| test arm | `XTIDEMP.PB` = `a6bfb48b` |
-| workload | `C:\GOODTIME\GOODTIME.MPG`, 36,735,152 bytes — 7x total RAM, so the cache cannot hide it |
-| scripts | `C:\PBENCH.BAT`, `C:\USEPB.BAT`, `C:\USEBASE.BAT` |
+**0.12% apart, baseline faster** — noise. Modelled at 1.88x, delivered nothing.
+`docs/captures/xtide_request_merging_result_2026_09_21.md`. **#30 closed. Baseline stays.**
 
-**Procedure.** Boot Windows → **MS-DOS Prompt** → `PBENCH BASE`. Reboot → command prompt →
-`USEPB` → reboot to Windows → `PBENCH PB17`. Restore any time with `USEBASE`.
+⭐ **Why**: 385 KiB/s is **2.1x** the ~180 KB/s ceiling the driver source derives for byte-wide
+8-bit PIO — we are already at the rate `XT_FAST_XFER` bought. The transfer is **bus-bound per
+byte, not per command**, so removing commands changes nothing.
 
-⚠ **It must be an MS-DOS Prompt INSIDE Windows.** A real-mode DOS boot uses the BIOS path and
-never touches the miniport — the easiest way to get a meaningless number here.
+✅ **XT-IDE is closed.** Word transfers shipped · paced polling shipped · "the free 4%" a
+phantom · merging measured null · dword blocked by the register map · no card here has a memory
+aperture. **Nothing further without different hardware.**
 
-⛔ **The first attempt failed on a harness bug of mine**, not the driver: `TIME < NUL`
-re-prompts forever on EOF, so both runs hung before the `COPY` and measured nothing. Fixed to
-`ECHO. | TIME`. **Do not use `TIME < NUL` in a DOS batch.**
+✅ Risk retired on the way: Windows 95 boots and runs normally on the PhysBreaks arm, so 64 KB
+SRBs on the boot volume are harmless.
 
-✅ **One result survived it:** Windows 95 **boots and runs** on the PhysBreaks arm, so the
-"64 KB SRBs have never been exercised on the boot volume" risk is **retired**.
-
-⛔ **Do not adopt `a6bfb48b` as the published driver** even if it wins. It came from a DIRTY
-tree and cannot be rebuilt bit-for-bit. Rebuild from a clean tree first — `FIXES.md` hands out
-an md5.
-
-### Why this is the last XT-IDE lever
-
-Word transfers ✅ shipped · paced polling ✅ shipped · A2 "the free 4%" ⛔ phantom (the loop is
-already one `rep insw` per sector) · dword ⛔ blocked (stride 2 decodes A1) · memory aperture ⛔
-no card has one. **Request merging is what is left**, and the cap was never IOS or DISKTSD —
-it is ours: we advertise 64 KB then set `NumberOfPhysicalBreaks = 0`, which our own source
-comment calls *"a promise we did not need to make"*.
-
-Verified byte-by-byte: exactly **one functional byte** differs, at **`0x0D57`**
-(`c7 46 1c 00` → `c7 46 1c 11`). ⚠ `next_session_2026_09_20c.md` records `0x0D5E` — **seven
-bytes out**; checking there reads `0x02` and makes a good build look wrong. The other 16
-differing bytes are PE timestamp, checksum and CodeView records.
+⚠ Scope: one large sequential read. Small-random was not tested — but sequential was the case
+modelled at 1.88x and the one the plan ranks by.
 
 ---
 
