@@ -409,6 +409,52 @@ physically or not at all. **E7 has no cheap first step; its first step is the ex
 both exist and their bank sizes differ, so the RAM total and what bank 0 holds depend on which one
 this is.
 
+### Owner's constraints, 2026-09-21
+
+> *"the board with the current bios needs bank 0 populated, i can't pull the ram from the board -
+> also i would rather not remove it but disable via software and that would mean a bios hack. as
+> for the revision of the board i'll have to pull the lid."*
+
+1. **Bank 0 stays populated.** The current BIOS requires it, and the owner does not want it out.
+2. **Software route preferred**, not chip removal.
+3. **Board revision unknown** until the lid comes off - and it decides what bank 0 actually holds.
+
+### ⭐ The reframe those constraints force, and it may be good news
+
+**"Remove the planar RAM" was never the goal.** The Inboard sits **in the CPU socket**, between
+the CPU and the bus. If it serves an address out of its own RAM it never issues a bus cycle at
+all, and the planar chips simply sit there unread. **Populated-but-unused costs nothing.**
+
+➡ So the objective is not *"disable bank 0"*, it is *"make the card serve `0x00000-0x3FFFF`
+locally"*. Whether bank 0 is fitted becomes irrelevant rather than blocking, and no chip has to
+come out.
+
+⚠ **Unverified, and our own tools cannot verify it.** `86box_upstream/src/device/inboard386.c`
+does **not** model the backfill as a mechanism - conventional RAM there is just `mem_size` on the
+machine — so the emulator has no opinion to consult. This has to come from the card.
+
+### ⛔ The timing problem, which is the real obstacle
+
+At power-on the BIOS POST uses `0x00000-0x3FFFF` for the interrupt vector table, the BIOS data
+area and its stack **before any software of ours can run**. Reconfiguring the card to serve that
+range *after* DOS is up would swap the IVT, the BDA and DOS itself out from under the running
+machine.
+
+➡ So it cannot be a driver doing it, and *"a BIOS hack"* is the right instinct for the wrong
+reason: the change has to happen **at or before POST**, which means the card's own hardware
+configuration or option ROM, not `INBRDPC.SYS`. **Establish whether the backfill base is
+configurable at all before designing anything around it.**
+
+### Leads worth pulling first — all offline
+
+- **Intel's Inboard manual.** It documents `EGACACHE` and the shadow behaviour precisely; if the
+  backfill base is configurable it will say so. Paths in [[reference-recovered-intel-files-2026-08-03]].
+- **UniPCemu's `hardware/inboard.c`** - this project's model is a direct port of it, and it is the
+  only other implementation of this card in existence.
+- **Port `0xA0`.** Our own `inboard386.c` carries it as *"XT-only port 0xA0 shadow (memory-size/remap
+  related)"* and nothing else in this repo has followed that up.
+- ⛔ `hardware/pal_gal_reverse_engineering/` is **empty** - the decode has never been analysed.
+
 ### Open questions, in the order they gate the idea
 
 1. **Does the backfill decode reach below 256 KB?** — the switch test above. ⚠ `hardware/pal_gal_reverse_engineering/` is **empty**, so no decode analysis exists in this repo to answer it on paper.
