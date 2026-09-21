@@ -268,6 +268,39 @@ the directory's own `README.md`.
   ⚠️ `PATH=/c/msys64/mingw64/bin` must be set or the build fails silently, with no message.
 - **[The project video](https://youtu.be/KxuKTNQyBKE?is=OkK0_sxReKwSKeK6)**.
 
+## 8c. The CPU upgrade module (added 2026-09-21)
+
+- **[cpu-world forum, IBM 486BL3 / I-O Data PK-A486BL75 upgrade module](https://www.cpu-world.com/forum/viewtopic.php?t=33652&view=previous&)**
+  — supplied by the owner. ⚠ It had been shared in an earlier session and **never recorded**,
+  the second such gap found the same day after Trixter. The module: **IBM 486BL3**, 16 KB
+  **write-back** cache, Cyrix 87DLC 33 MHz coprocessor.
+
+  **Four DIP switches:**
+
+  | | |
+  |---|---|
+  | **SW1** | cache flush trigger — ON: **"DMA + I/O read/write"** (IBM PC mode) · OFF: "DMA only" (PC-98 mode) |
+  | **SW2** | bus multiplier — ON: **2x** (turbo) · OFF: 1x |
+  | **SW3** | coprocessor — ON: disabled · OFF: enabled |
+  | **SW4** | unused |
+
+  Also `PK486BL.COM`, a driver offering **1x / 2x / 3x** on the CPU itself, up to 100 MHz.
+
+  ⭐ **Two leads, both new:**
+  1. **SW1 may invalidate a measured assumption.** If the cache flushes on every I/O read and
+     write, then on a machine where one sector transfer is hundreds of port accesses the L1 is
+     being flushed constantly — and technique 109's *"a register-only delay runs from L1 and
+     costs NO bus cycle"* only holds if the cache survives the poll before it. **Testable with
+     `tools/gen_busload_com.py`**: compare a pure cached loop against one with an I/O access in
+     it. If flushing happens, the mixed loop costs far more than the sum of its parts.
+  2. **3x is available and we run 2x** (`1002h:3 = 03`, doubling confirmed live). On a 16 MHz
+     Inboard that is 48 MHz against a 75 MHz-rated part.
+
+  ❌ **This thread documents the PC-98 variant.** Whether the owner's module is this exact
+  board is **unconfirmed** — the register map we hold (`1000h`/`1001h`/`1002h` via `CTCHIP34
+  IBM486`) is consistent with an IBM 486BL3, but consistency is not identification. **Confirm
+  the board before trusting a switch table against it.**
+
 ## 8b. Bus timing and the demoscene (added to this page 2026-09-21)
 
 ⚠ **These were cited only inside `.claude/skills/inboard-hw-debug` (technique 128a) and had
