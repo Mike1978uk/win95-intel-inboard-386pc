@@ -409,6 +409,60 @@ physically or not at all. **E7 has no cheap first step; its first step is the ex
 both exist and their bank sizes differ, so the RAM total and what bank 0 holds depend on which one
 this is.
 
+### ⛔ E7 LOOKS CLOSED — investigated and answered 2026-09-21, offline, same day
+
+Three independent lines all say the backfill floor is **256 KB and it is hardware**. No case was
+opened, no ROM touched, no chip pulled.
+
+**1. Intel's own documentation, repeatedly.** The FaxBACK catalog
+(`OneDrive/Desktop/XT_project/ibrd/`) states the requirement machine by machine, and always as the
+same number:
+
+> *"This version of the memory expansion card **can't be disabled down to 256K bytes**, so Inboard
+> 386 can't provide conventional memory in these computers without the ILIM386.SYS memory manager."*
+
+> *"You must remove SIMMs on system board for an Inboard 386 to work. **You can't disable the
+> memory down to 256K bytes.**"*
+
+➡ **The Inboard backfills *above* 256 KB. It does not serve `0x00000-0x3FFFF`.** That is the
+product's architecture, not cautious advice, and Intel repeats it for every machine in the
+compatibility list.
+
+**2. The remedy Intel offers is a PAL, not a setting.** For one non-compliant board: *"you can
+request a **PAL** from Smartec that will allow this."* The bank enable is decode logic. There is no
+software route, which is what the owner hoped for.
+
+**3. UniPCemu models no such register.** The only other implementation of this card in existence
+(`unipcemu/UniPCemu/hardware/inboard.c`, 257 lines) has exactly three Inboard ports, and
+`inboardXT_PortA0` is referenced in **one** place:
+
+```c
+if (inboardXT_PortA0 & 0x80) //Mapping the ROM areas low (unconfirmed)?
+```
+
+Port `0xA0` bit 7 is **ROM** mapping. `0x670` is wait states plus cache. `0x674` is AT-only. **No
+backfill base register exists in the model.** That retires the `0xA0` lead this plan raised an
+hour earlier.
+
+### What is left of it, honestly
+
+⚠ **Not disproven, just very unlikely.** Documentation describes the product as sold and a model
+implements what its author needed; neither is a schematic. But three independent sources agreeing,
+against zero evidence for a software route, is enough to stop spending on it.
+
+✅ **E1 already collected most of this prize anyway.** Conventional memory on the bus went 640 KB
+→ 256 KB, a 60% cut. The remaining 256 KB is the part Intel's design reserves for the system
+board, and it is out of reach without different hardware.
+
+⭐ **Where it could still go:** @RonnyRoy is
+[cloning the Inboard](https://github.com/ronnyroy111/inboard386). A clone is not bound by Intel's
+decode. If the floor is a PAL term, a reproduction card could lower it — that is his domain, not a
+patch to ours, and it is a hardware project rather than an optimisation.
+
+✅ **And one thing survives regardless:** `gen_ramstride.py`, still unrun. Whether card RAM is
+genuinely faster than planar under a cache-defeating access pattern is a fact worth having about
+this machine, independent of E7.
+
 ### Owner's constraints, 2026-09-21
 
 > *"the board with the current bios needs bank 0 populated, i can't pull the ram from the board -
