@@ -3,8 +3,9 @@
 Windows 95 on a real IBM 5160 fitted with an Intel Inboard 386/PC. This repository holds:
 
 1. **`drivers/`** — the Windows 95 storage drivers written here, which are now the main
-   deliverable: `xtide_mpd` (shipped), `trantor_t130b` (shipped), `imation_ls120` +
-   `imation_ls120_mpd` (LS-120, in progress), `xtide_cdrom`
+   deliverable: `xtide_mpd` (shipped), `trantor_t130b` (shipped), `imation_ls120` (LS-120
+   reverse-engineering; `imation_ls120_mpd` is RETIRED - the vendor driver supersedes it),
+   `xtide_cdrom`
 2. **`86box_full/`** — 86Box fork with the Inboard 386/PC hardware model (`src/device/inboard386.c`)
 3. **`hardware/`** — real 5160 reverse-engineering (INBRDPC.SYS, PAL/GAL analysis)
 4. **`vxd-patches/`, `custom_vkd/`, `ivt68fix/`, `mach8_w31_display/`** — the

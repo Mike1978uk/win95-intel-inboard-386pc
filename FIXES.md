@@ -226,6 +226,44 @@ which does not apply to a machine without `INBRDPC.SYS`.
 See [issue #21](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/21).
 
 ---
+
+### `120PPD95.INF` — parallel-port LS-120, without losing the keyboard
+
+**[⬇ 120PPD95.INF](https://github.com/Mike1978uk/win95-intel-inboard-386pc/raw/master/dist/ls120_vendor/120PPD95.INF)** · md5 `4b1f2579fa2944f24f096d53d7969a8c`
+· [`SD120PPD.MPD`](https://github.com/Mike1978uk/win95-intel-inboard-386pc/raw/master/dist/ls120_vendor/SD120PPD.MPD) `08104ffb559ae4b47b84377daee473bc`, the vendor binary **unmodified**
+
+The one patched vendor file in this project, and the only fix here that is not a binary patch.
+Shuttle Technology / Imation's own Windows 95 driver for the parallel-port Imation SuperDisk
+LS-120, with a single line changed in `[epatlsreg]`:
+
+```
+HKR,,AdapterSettings,,"PORT=0x378 /ni /de /db /sf /dp /dpc /fp"
+```
+
+**Why it has to be in the INF and cannot be typed afterwards.** On an XT-class bus the driver's EPP
+and chipset probes poke ports that alias onto the 8259, and the keyboard dies during the install.
+You then cannot type the switches that would have prevented it. Putting them in the INF breaks that
+circle.
+
+Nothing else differs from the vendor original, and `SD120PPD.MPD` is untouched. Copyright remains
+with the original authors — the MIT licence on this repository covers this project's own work, not
+these two files.
+
+**Confirmed on the real 5160**: enumerates immediately, keyboard survives the install, write-protect
+reported correctly, 3.4 MB read back with `FC: no differences encountered`.
+
+**The faster line.** Adding `/fe` forces EPP instead of probing for it — one port access per byte
+against nibble's four. Measured on this machine under Windows: **75-99 KiB/s**, and 36,735,152 bytes
+verified byte-identical with `FC /B`, written by the Windows miniport and read by the DOS driver so
+a symmetric error cannot hide itself. The keyboard survives it too (confirmed 2026-09-20). The
+conservative line above is what ships; `/fe` is four characters and a reboot either way.
+
+⛔ **Do not add `/r` or `/w`.** Forcing a read or write mode cancels against `/de` and drops the
+link to nibble. `/ded` and `/fed` are not switches at all — the parser ignores them.
+
+Install steps and full provenance: [`dist/ls120_vendor/`](dist/ls120_vendor/).
+
+---
 ## ⚠️ Loads on real hardware, not yet proven correct
 
 ### `HSFLOP.PDR` — floppy DMA reach

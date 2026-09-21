@@ -1,5 +1,20 @@
 # LS120MP.MPD - parallel-port LS-120 miniport (issue #22)
 
+> ### ⛔ RETIRED 2026-09-21 - do not install this
+>
+> **It reads. It cannot write.** Kept here as a record of the transport work, not as a
+> driver. If you want a working parallel-port LS-120 on Windows 95, use the vendor
+> driver: **[`dist/ls120_vendor/`](../ls120_vendor/)**, which does reads *and* writes
+> at 75-99 KiB/s and is what this project's own machine runs.
+>
+> The write failure is this driver's bug and is described below. It was never fixed
+> because the vendor driver was brought up two days later and there was nothing left
+> for ours to be better at. The card no longer binds this file.
+>
+> The reverse-engineering behind it was **not** wasted - it is what made the 86Box
+> Shuttle EPAT device possible ([86Box#8010](https://github.com/86Box/86Box/pull/8010)).
+> See `drivers/imation_ls120/TRANSPORT_SPEC.md`.
+
 Windows 95 SCSI miniport for an Imation LS-120 SuperDisk behind a Shuttle EPAT
 parallel-port bridge, on an IBM 5160 with an Intel Inboard 386/PC.
 
@@ -18,7 +33,7 @@ code. Compare `5084a71c` to check you have the right driver.
 
 ## What works, measured on the real 5160
 
-**The drive enumerates, mounts and reads**, at `J:`, 2026-09-18. Confirmed on the
+**The drive enumerates, mounts and reads**, 2026-09-18. Confirmed on the
 machine, not inferred: the device appears in Explorer and files read back correctly.
 
 ## What does not work

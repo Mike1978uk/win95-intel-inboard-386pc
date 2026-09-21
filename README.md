@@ -76,12 +76,27 @@ at the center of the fix.
   and the machine shuts down cleanly. **This is not Inboard-specific** — it should apply to any
   XT-class Windows 95 machine with an XT-IDE card, and a report either way would be welcome
   ([#21](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/21))
+- **32-bit protected-mode access to the parallel-port LS-120**, confirmed on real hardware
+  2026-09-20. An Imation SuperDisk behind a Shuttle EPAT bridge at `0x378`, served by the vendor's
+  own Windows 95 miniport with this project's INF change ([`dist/ls120_vendor/`](dist/ls120_vendor/)).
+  The stock install kills the keyboard on an XT bus — its EPP and chipset probes alias onto the 8259,
+  and you then cannot type the switches that would have prevented it, so they go in the INF instead.
+  Forced to EPP with `/fe` it runs at **75-99 KiB/s**, and 36,735,152 bytes read back byte-identical
+  under `FC /B` — written by the Windows miniport and read by the DOS driver, so a symmetric error in
+  one path cannot hide itself
 - Network working using stock Windows 95 3com 3c509b driver from Windows. Hand configured IP, gateway and subnet and navigated to frogfind.com
 - Sound Blaster Pro audio, clean, confirmed on real hardware 2026-08-24 (see below)
 - Accelerated video — ATI Mach8 (Graphics Ultra) at 1024x768x256, confirmed on real hardware
   2026-08-24 (see below)
 
 **Video, sound and networking all work at the same time on the real 5160.**
+
+**No real-mode storage drivers are left.** Every disk, floppy, SCSI target and the SuperDisk is
+served by a 32-bit protected-mode driver: `XTIDEMP.MPD` for the boot disk, `T130.MPD` for the SCSI
+chain, `HSFLOP_XTDMA.PDR` for the floppies, and the vendor miniport for the LS-120. `CONFIG.SYS`
+carries no storage device line at all — `SD120PPD.SYS` and the real-mode SCSI chain are both out of
+it. `INBRDPC.SYS` stays, and always will: it is the Inboard's own board driver, not storage, and the
+machine does not run without it.
 
 **Floppy drives work.** The patched [`HSFLOP_XTDMA.PDR`](FIXES.md) loads and initialises on
 the real machine (`Init Success`, `INITCOMPLETE`, measured 2026-09-06) — for over a month it was
@@ -278,8 +293,12 @@ Full write-up of the original submission, with the testing matrix and known limi
     Win95 miniport and DOS driver, `TRANSPORT_SPEC.md` (the parallel-port wire protocol,
     derived and proven on hardware), and `tools/pedis.py`, a PE disassembler that works on any
     period driver
-  - **`imation_ls120_mpd/`** — the replacement miniport being built from that spec, with
-    `IMPLEMENTATION.md` as its single build specification ([#22](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/22))
+  - **`imation_ls120_mpd/`** — ⛔ **retired, do not install.** This project's own replacement
+    miniport, built from that spec. It reached read-only operation on the real 5160 and never
+    wrote correctly; the vendor driver above does both, and faster. Kept as a record of the
+    transport work, not as a driver — see
+    [`what_worked_and_what_didnt.md`](docs/what_worked_and_what_didnt.md)
+    ([#22](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/22))
   - **`xtide_cdrom/`** — notes on reaching an ATAPI CD-ROM through XT-IDE
 - **`86box_full/`** — the 86Box emulator fork: the Inboard 386/PC hardware model
   (`src/device/inboard386.c`) plus the debug/tracing hooks used throughout this investigation.

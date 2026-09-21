@@ -101,6 +101,18 @@ Kept deliberately short. Each line is a dead end somebody else does not need to 
   what made "none exists" so easy to believe.
 - **Treating the PS/2 mouse node as a device to fix.** It was fiction — a `BootConfig` with
   a `DetFunc` and no hardware behind it. There was nothing to configure.
+- **Writing our own LS-120 miniport (`LS120MP.MPD`) — retired 2026-09-21.** It got further than
+  most dead ends: it enumerated, mounted and **read** on the real 5160 (2026-09-18, build `d8154f1d`,
+  SPP/nibble). It never wrote. The miniport never sets `ScsiStatus`, never fills `SenseInfoBuffer`
+  and never raises `SRB_STATUS_AUTOSENSE_VALID`, so the class driver cannot tell `6/28h`
+  medium-changed from `7/27h` write-protected and gives up. Two days later the **vendor** driver was
+  brought up with `/fe`, which does reads *and* writes at 75-99 KiB/s with 36.7 MB verified
+  byte-identical — so there was nothing left for ours to be better at, and the card no longer binds
+  it. **The transport work was not wasted**: `TRANSPORT_SPEC.md` and the disassemblies are what made
+  the 86Box EPAT device possible, and that is now upstream as
+  [86Box#8010](https://github.com/86Box/86Box/pull/8010). The driver is kept as a record and is
+  marked do-not-install; `drivers/imation_ls120_mpd/` and `dist/ls120_mpd/` both say so.
+  ([#22](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/22))
 
 ### Measurement and tooling failures — the expensive ones
 
