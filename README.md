@@ -93,10 +93,32 @@ at the center of the fix.
 
 **No real-mode storage drivers are left.** Every disk, floppy, SCSI target and the SuperDisk is
 served by a 32-bit protected-mode driver: `XTIDEMP.MPD` for the boot disk, `T130.MPD` for the SCSI
-chain, `HSFLOP_XTDMA.PDR` for the floppies, and the vendor miniport for the LS-120. `CONFIG.SYS`
-carries no storage device line at all — `SD120PPD.SYS` and the real-mode SCSI chain are both out of
-it. `INBRDPC.SYS` stays, and always will: it is the Inboard's own board driver, not storage, and the
-machine does not run without it.
+chain, `HSFLOP_XTDMA.PDR` for the floppies, and the vendor miniport for the LS-120. The whole of
+`CONFIG.SYS`, read off the machine's own CF card:
+
+```
+DEVICE=c:\INBRDPC.SYS EGACACHE NODIAGS NOPAUSE
+DEVICE=C:\WINDOWS\SETVER.EXE
+DEVICE=C:\WINDOWS\HIMEM.SYS
+DOS=HIGH,UMB
+device=C:\WINDOWS\COMMAND\display.sys con=(ega,,1)
+Country=044,850,C:\WINDOWS\COMMAND\country.sys
+
+REM DEVICEHIGH=C:\SD120PPD\SD120PPD.SYS /port:378 /IRQ:7 /de /db /ni /sf /dpc /dp /fp /fe
+REM DEVICEHIGH=C:\SD120PPD\ASPIHDRM.SYS
+
+LASTDRIVE=M
+BUFFERS=30,0
+BREAK=ON
+Stacks=0,0
+FILES=40
+```
+
+**Four `DEVICE` lines, and not one of them is storage.** The LS-120's real-mode driver and its
+ASPI manager are commented out, kept only as the DOS-side reference — Windows serves that drive
+now. `INBRDPC.SYS` stays, and always will: it is the Inboard's own board driver, not a storage
+driver, and the machine does not boot without it. (`EGACACHE` on that line was A/B-measured on
+2026-09-20 and makes **no** measurable difference — it is left on, and is not a lever.)
 
 **Floppy drives work.** The patched [`HSFLOP_XTDMA.PDR`](FIXES.md) loads and initialises on
 the real machine (`Init Success`, `INITCOMPLETE`, measured 2026-09-06) — for over a month it was
@@ -488,7 +510,9 @@ Issues are labelled **`emulator`** or **`real-hardware`** so you can pick by wha
 is [in this repo](86box_full/) and now [upstream](https://github.com/86Box/86Box/pull/7626).
 
 Before opening a PR here, please read [`CLAUDE.md`](CLAUDE.md) — short commit subjects, short
-bodies, reasoning in `docs/` rather than in the history.
+bodies, reasoning in `docs/` rather than in the history. If you are working with an AI agent,
+[`AGENTS.md`](AGENTS.md) is the short version of what we hold them to, most of it written after
+a breach and credited to whoever caught it.
 
 ### Before installing any stock driver: audit its port writes
 
