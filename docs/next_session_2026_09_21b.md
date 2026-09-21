@@ -28,7 +28,7 @@ approval, and verified posted.
 - **BackPack bed**: `BPDRIVES` reports the drive, `DIR D:\` lists the Win98SE ISO, through the
   vendor DOS driver in its own installer's configuration
 
-⏳ **CI was still running when the session ended** — 29 of 45 checks, nothing failed. Our build
+⏳ **CI was still running when the session ended** — 39 of 45 checks, nothing failed. Our build
 is `QT=OFF` and CI builds Qt, so **check it before assuming the rebase is clean.**
 
 ### The open design question on #8010
@@ -96,7 +96,8 @@ Only `vm_bpck/dos.img` still carries the old line, harmlessly.
 
 ## Corrections made to our own record
 
-Four, all in the same session, three of them to things written earlier the same day:
+Six, all in the same session, most of them to things written earlier the same day, and
+four of the six caught by the owner rather than by me:
 
 1. **`J:` removed from #8010's body.** Caught by the owner. It is a property of this machine's
    SCSI chain — Zip at `D:`, five Nakamichi LUNs at `E:`-`I:` — not of the bridge. Nobody
@@ -110,6 +111,10 @@ Four, all in the same session, three of them to things written earlier the same 
 4. **Then over-corrected**, crediting him on BlueSCSI by reading `yyzkevin/BlueSCSI-v2` as his
    work. It is his **fork**. His contributions are COMrade, PicoPCMCIA, and the **CD-ROM
    emulation** and **WiFi code** in PicoMEM and PicoGUS.
+5. **Quoted the bed's `CONFIG.SYS` as if it were the machine's.** The card was readable on the
+   host at `D:` the whole time. A capture is not the configuration.
+6. **Called removing `EGACACHE` an unproven change.** It is the revert; the line without it has
+   the boot history. Ask which state has the history before calling either one untested.
 
 The pattern worth carrying: **reading outside work is most valuable for what it makes you
 re-read at home.** Nothing in PicoMEM found the 128d error; going to check a claim against it
