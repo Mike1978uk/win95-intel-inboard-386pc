@@ -345,9 +345,13 @@ the directory's own `README.md`.
   constant. Giving up 20% there to gain 20% on a core already ~17x faster than the bus is a bad
   trade **before** the risk of a 60 MHz-rated part at 96 MHz is counted.
 
-  ⚠ Also likely already answered: **100 MHz did not power on**, and 100 is not reachable from a
-  40 MHz base (40/80/120), so it was probably 33.3 x 3 — which makes 96 MHz a 4% step below a
-  known failure.
+  **What was actually tried** (owner, 2026-09-21 — replacing a guess of mine that it was
+  33.3 x 3): **3x at the 40 MHz base = 120 MHz, and that is too high.** 100 MHz also does not
+  power on. So the tested ceiling sits between 80 and 100 MHz.
+
+  ⛔ **And the owner's judgement, which settles it**: a lower crystal with 3x is possible but
+  **not worth doing**. Every version of it either lands above the tested ceiling or buys core
+  speed by giving up card speed. **The clock is done.**
 
   ⭐ **The free experiment that would settle the whole question**: the machine already has 1x/2x
   (SW2 and the software multiplier). Benchmark a real storage workload at **40** and at **80 MHz**.
