@@ -312,8 +312,26 @@ the directory's own `README.md`.
   access in it. If the mixed loop costs far more than the sum of its parts, flushing is real and
   measurable.
 
-  ⭐ **And the remaining lead: 3x is available where we run 2x** (`1002h:3 = 03`, doubling
-  confirmed live). On a 16 MHz Inboard that is 48 MHz against a 75 MHz-rated part.
+  ⛔ **There is no multiplier lead — corrected by the owner, 2026-09-21, and I had it wrong.**
+  An earlier draft of this entry said *"3x is available where we run 2x ... on a 16 MHz Inboard
+  that is 48 MHz against a 75 MHz-rated part."* Every number in that sentence was wrong:
+
+  | | |
+  |---|---|
+  | Inboard crystal | **swapped to 40 MHz** (not the stock 16) |
+  | multiplier | **2x** → **80 MHz** |
+  | CPU rating | **60 MHz** — so it already runs **33% over** |
+  | 3x | **tried, does not work** |
+  | 100 MHz | **does not power on** |
+  | cooling | a **fan has been fitted** |
+
+  ➡ **The clock is not a lever: it is already past the part's rating and at the limit of what
+  powers on.** Do not re-propose a multiplier or crystal change.
+
+  ⭐ **The lesson is the recurring one.** I inferred a stock 16 MHz Inboard from the card's
+  nominal spec and a rating from a forum thread about a *different variant*, and wrote both down
+  as fact. The owner's machine is not the reference machine in the thread. **Ask what the
+  hardware is; do not derive it.**
 
   ❌ **This thread documents the PC-98 variant.** Whether the owner's module is this exact
   board is **unconfirmed** — the register map we hold (`1000h`/`1001h`/`1002h` via `CTCHIP34
