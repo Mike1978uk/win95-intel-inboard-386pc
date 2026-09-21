@@ -42,6 +42,55 @@ one *ranks* a piece of track B. Going to the machine without them means measurin
 | **A13** | 3C509B packet buffer, drained in bulk? | `pedis.py` the packet driver — `rep insw` vs per-byte loops | [#32](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/32). Never examined |
 | **A15a** | Does the SCSI chain disconnect? | `pedis.py` `T130.MPD` for identify-message handling; the INF/registry for a disconnect setting | Half of [#31](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/31). ⚠ **Indicative only** — the value could be computed at runtime, so a negative here is not proof. The definitive test is dynamic |
 
+### ✅ Track A RESULTS — run 2026-09-21, all three
+
+**Two of the three levers were already taken.** That is the whole argument for doing the free
+checks first: both would have cost a hardware run to discover.
+
+| | Question | Answer |
+|---|---|---|
+| **A10/A14** | Does `T130.MPD` use string I/O? | ✅ **Yes, already.** Imports `ScsiPortRead/WritePortBufferUshort`. The 35%/33% class of win XT-IDE got is **not** on the table here |
+| **A13** | Is the 3C509B drained in bulk? | ✅ **Yes, already, and at dword.** `ELNK3.VXD` (30,773 B, 1995-07-11, pulled off the machine) does `mov ecx,[ebp-0x1c]` / `shr ecx,2` / `rep insd`. Disassembled, not pattern-matched |
+| **A15a** | Does the SCSI chain disconnect? | ⛔ **No evidence it ever grants it.** Zero `0xc0` and zero `or ...,0x40` in the whole driver — so it is not a computed value either. **This lever is OPEN** |
+
+#### What the T130B disassembly gave beyond yes/no
+
+| | |
+|---|---|
+| pseudo-DMA port | **`base+4`**, one fixed address, both directions |
+| chunk | **0x40 ushorts = 128 bytes per call**, in a loop |
+| NCR5380 registers | `base+8` … `base+0xd`, byte-wide |
+
+⭐ **A new candidate: dword on the T130B.** 32-bit port access was ruled out in this plan
+because `base+2`/`base+3` are XT-IDE's Error and Feature registers. **That reasoning is
+XT-IDE's, and does not carry here** — the T130B's register file starts at `base+8`, so nothing
+the driver touches occupies `base+5..+7`. Word → dword is 3.819 → 3.183 us/byte, about **16.6%**
+on the data phase.
+
+⚠ **Candidate, not a finding**, for three reasons:
+1. "the driver does not touch `base+5..7`" is not "the card does not decode them";
+2. the pseudo-DMA port handshakes on the 5380's DRQ, and the 2026-09-20 width measurement
+   warns that a handshaked bus cycle **extends** rather than amortises;
+3. `T130.MPD` is Adaptec's binary — this means patching an IAT entry and a count, not a rebuild.
+
+Supporting but not conclusive: `ELNK3.VXD` does `rep insd` to a 16-bit ISA card at a single
+port address, so a shipping period driver does do exactly this shape of thing.
+
+#### Dead end recorded
+
+❌ `references/3c509b_qemu` cannot answer the **buffer size** half of A13. It models its own
+32-entry FIFO and a `txbuffer[2048+4]` — that is the emulator's implementation, not the card's
+physical SRAM. `3C509B_PORT_SPEC.md` defers to it and so inherits the gap.
+
+#### Consequence for the order
+
+- **A10/A14 and A13 are closed.** [#32](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/32)
+  can be closed or narrowed to the buffer-size question alone.
+- **A15/A16 rise.** The SCSI chain is now the only device-side lever in Track A still open, and
+  the static evidence points the same way twice.
+
+---
+
 ### Track B — needs the 5160
 
 **B1 first, and it is not an optimisation.**
