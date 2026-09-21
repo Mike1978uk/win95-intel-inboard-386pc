@@ -404,11 +404,11 @@ and the [contributor ledger](docs/contributor_input_ledger.md).
 - **Microsoft's Windows 95 DDK** — the genuine period source and toolchain behind the `VKD.VXD` fix.
 - **[Kevin Moonlight](https://github.com/yyzkevin)** — original author of
   [COMrade](https://github.com/yyzkevin/COMrade), which is how this project reads and writes the
-  real 5160 while it is running; almost every hardware measurement here came back over it. Also a
-  contributor to [BlueSCSI v2](https://github.com/yyzkevin/BlueSCSI-v2),
-  [ISA-PicoMEM](https://github.com/FreddyVRetro/ISA-PicoMEM),
-  [PicoGUS](https://github.com/polpo/picogus) and PicoPCMCIA — modern silicon on period buses,
-  read here for what transfers ([`resources_and_sources.md`](docs/resources_and_sources.md) §9).
+  real 5160 while it is running; almost every hardware measurement here came back over it. Also
+  PicoPCMCIA, and contributions to [ISA-PicoMEM](https://github.com/FreddyVRetro/ISA-PicoMEM) and
+  [PicoGUS](https://github.com/polpo/picogus) — the **CD-ROM emulation** and the **WiFi code**,
+  among others. Those projects are read here for what transfers to an 8-bit bus
+  ([`resources_and_sources.md`](docs/resources_and_sources.md) §9).
 - **Ahmad Byagowi** ([Open-Source-PC110](https://github.com/ahmadexp/Open-Source-PC110)) — ported
   COMrade to Windows 95 as `COMR95.EXE`, used for live real-hardware introspection.
 - **[86Box](https://github.com/86Box/86Box)** — the base emulator this project is built on.

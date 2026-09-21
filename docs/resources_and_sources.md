@@ -296,7 +296,7 @@ which is less than it looks, but not nothing.
   ([HN](https://news.ycombinator.com/item?id=36061326),
   [Hackaday](https://hackaday.com/2023/11/21/picogus-for-all-your-isa-sound-card-needs/)).
   Do not fetch the repo root expecting timing detail; read `sw/` or the wiki.
-- **[BlueSCSI v2](https://github.com/yyzkevin/BlueSCSI-v2)** - on point for
+- **[BlueSCSI v2](https://github.com/BlueSCSI/BlueSCSI-v2)** - on point for
   [#31](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/31). Synchronous
   transfer is a setting of 10 MHz / 5 MHz / **0 = asynchronous**, and their guidance is that
   on old or slow hosts **async is often faster and more reliable than sync** - an Amiga A2091
@@ -309,23 +309,34 @@ which is less than it looks, but not nothing.
 - **PicoPCMCIA** (Kevin Moonlight) - ❌ no *bus* learning transferred; PCMCIA is a different
   bus and the problem shape does not match.
 
-⭐ **These four are not four unrelated strangers.** Kevin Moonlight has contributed to all of
-them (owner, 2026-09-21), and he wrote [COMrade](https://github.com/yyzkevin/COMrade) - the
-tool this project uses for live introspection on the real 5160, credited in the README since
-the start. So the reading above is not a cold survey of outside work: it overlaps an existing
-contributor to this project.
+⭐ **Two of these are not outside work.** Kevin Moonlight contributed the **CD-ROM emulation**
+and the **WiFi code** to **PicoMEM and PicoGUS**, among others, and wrote PicoPCMCIA (owner,
+2026-09-21). He also wrote [COMrade](https://github.com/yyzkevin/COMrade) - the tool this
+project uses for live introspection on the real 5160, credited in the README since the start.
+So the reading above is not a cold survey: it overlaps a contributor to this project.
 
-That matters for the three questions the repositories did **not** answer, all of which are
-the kind a person answers in a sentence and a document does not answer at all:
+⚠ **He is not a BlueSCSI contributor** - corrected by the owner the same day, after this page
+first said he was. The link originally cited here was his fork, not his work.
+
+⭐ Worth noting for our own CD-ROM work: the PicoMEM CD-ROM emulation is **his**, and we have
+just modelled a parallel-port CD-ROM ([86Box#8012](https://github.com/86Box/86Box/pull/8012)).
+Different bus, same problem shape.
+
+Two questions the PicoMEM/PicoGUS repositories did **not** answer, both the kind a person
+answers in a sentence and a document does not answer at all:
 
 1. Is there an **8-bit XT** aperture-vs-port figure anywhere, or is PicoMEM's memory path
-   only ever characterised on faster buses? Ours is the 4.77 MHz case.
-2. Does BlueSCSI implement **target-side caching or disconnect/reconnect**, and what did
-   turning them on actually do on a slow host? That is half of
-   [#31](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/31).
-3. How much does holding **IOCHRDY** actually cost a period machine in practice - the
-   PicoGUS caution is qualitative, and we have a measured bus-occupancy model to put a
-   number against it.
+   only ever characterised on faster buses? Ours is the 4.77 MHz case, and it is the one
+   that decides whether
+   [#35](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/35) is worth anything.
+2. How much does holding **IOCHRDY** actually cost a period machine in practice? The PicoGUS
+   caution is qualitative, and we have a measured bus-occupancy model to put a number against
+   it.
+
+⚠ The **BlueSCSI** question - does it do target-side caching or disconnect/reconnect, and what
+did enabling them do on a slow host, which is half of
+[#31](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/31) - is **not** his, and
+has no contact attached to it. It still has to be measured on our own chain.
 
 ⛔ **Nothing has been sent.** Contact is the owner's to make, in his own words.
 
