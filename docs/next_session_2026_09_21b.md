@@ -14,8 +14,40 @@ the public face honest.
 
 | | |
 |---|---|
-| [#8010](https://github.com/86Box/86Box/pull/8010) | rebased onto `e08ee5a52`, head `f3fa3e1bd`, **MERGEABLE** |
-| [#8012](https://github.com/86Box/86Box/pull/8012) | rebased onto the above, head `43d668a1e`, **MERGEABLE** |
+| [#8010](https://github.com/86Box/86Box/pull/8010) | head **`25e28f178`**, **MERGEABLE**, CI green |
+| [#8012](https://github.com/86Box/86Box/pull/8012) | head **`90d81f013`**, **MERGEABLE**, CI green |
+
+### ✅ Second round: the LPT dropdown, and both are now answered
+
+`dhrdlicka` left a **review comment** on `src/char/char.c` — *"I don't think this belongs here"* —
+which is easy to miss because review comments do not appear in the main thread. It anchored to the
+whole added block, both device entries.
+
+**We complied, and it was the right call.** Both bridges are now instantiated from the drive's own
+bus assignment, exactly as `lpt_ditto` has been since `e684a9add`:
+
+```c
+if (rdisk_drives[c].bus_type == RDISK_BUS_LPT)      /* rdisk_hard_reset */
+    device_add_inst(&lpt_epat_device, rdisk_drives[c].res + 1);
+
+case CDROM_BUS_LPT:                                 /* cdrom_hard_reset */
+    device_add_inst(&lpt_bpck_device, dev->res + 1);
+```
+
+⭐ **`src/char/char.c` has dropped out of both diffs entirely.**
+
+**Both retested with no `lpt1_device` line in either config**, so the bridge can only have come
+from the drive assignment: LS-120 reaches a drive letter with the write landing
+(124,841,984 → 124,747,776), BackPack lists the Win98 ISO. Byte-identical to the pre-change runs,
+and the owner watched the BackPack run himself.
+
+⛔ **One capability deliberately dropped**: the EPAT-carries-a-CD commit. Never exercised, and
+unreachable once the bridge is implied by bus type. It returns with a per-drive bridge setting and
+a test if a real EPAT CD-ROM appears.
+
+⚠ **`lpt.h` declares `lpt_t` only inside `#ifdef _TIMER_H_`.** Including it without `timer.h`
+first compiles at the include and fails confusingly further down. `rdisk.c` already had `timer.h`;
+`cdrom.c` did not. Cost one build.
 
 #8012 is stacked on #8010, so one rebase cleared both. Both replied to, by the owner's
 approval, and verified posted.
@@ -96,8 +128,9 @@ Only `vm_bpck/dos.img` still carries the old line, harmlessly.
 
 ## Corrections made to our own record
 
-Six, all in the same session, most of them to things written earlier the same day, and
-four of the six caught by the owner rather than by me:
+**Nine**, all in one session, most of them to things written earlier the same day, and
+most caught by the owner rather than by me. Listed because the pattern matters more than
+the count — see the note at the end:
 
 1. **`J:` removed from #8010's body.** Caught by the owner. It is a property of this machine's
    SCSI chain — Zip at `D:`, five Nakamichi LUNs at `E:`-`I:` — not of the bridge. Nobody
@@ -115,6 +148,17 @@ four of the six caught by the owner rather than by me:
    host at `D:` the whole time. A capture is not the configuration.
 6. **Called removing `EGACACHE` an unproven change.** It is the revert; the line without it has
    the boot history. Ask which state has the history before calling either one untested.
+7. **Followed the ACTIONS table over the register**, and redid A10/A14 which the register already
+   recorded as done on 09-20. The plan contradicted itself; the register is now marked as the
+   authority.
+8. **Closed E7 on a derived source** (the FaxBACK catalog) without reading the product manual,
+   which says the opposite. Retracted the same session.
+9. **Proposed a switch test that does not exist** — `SW1-3/4` has no setting below bank 0, and the
+   machine was already there.
+
+⭐ **The pattern worth carrying**: every one of these was caught by checking a cheap fact against
+the machine, the owner, or a primary source — never by reasoning harder. Three proposals died on
+contact with a fact the owner already had. **Ask before writing the plan.**
 
 The pattern worth carrying: **reading outside work is most valuable for what it makes you
 re-read at home.** Nothing in PicoMEM found the 128d error; going to check a claim against it
@@ -144,10 +188,78 @@ owner's to make.**
 
 ---
 
+## The optimisation track moved a long way — read `work_order_2026_09_21.md`
+
+**Track A ran, offline, and two of three levers were already taken.** That is the argument for
+doing the free checks first; both would otherwise have cost a hardware run.
+
+| | answer |
+|---|---|
+| **A10/A14** `T130.MPD` string I/O? | ✅ already `...BufferUshort`. Pseudo-DMA at `base+4`, 128 B/call |
+| **A13** 3C509B drained in bulk? | ✅ already, **at dword** — `ELNK3.VXD` `shr ecx,2` / `rep insd`, disassembled |
+| **A15a** SCSI disconnect? | ⛔ **never granted** — no `0xc0`, no `or ...,0x40`, and **no setting in either INF** |
+| **A19** do our four VxDs poll? | ✅ **NEGATIVE, recorded**: VKD 1, VDMAD 1, VPICD 1, KEYBOARD.DRV 2 |
+| **A21** (new) | ⛔ **`ELNK3.VXD` spins flat out** — 27 loops in 30 KB, confirmed at `0xd03`, no delay |
+
+⭐ **The pattern**: of four data paths audited for width, **three were already optimal**. Polling
+is the inverse — **only XT-IDE is paced**. That is where the free wins are, and it is why the
+owner's *"bus polling is the big lever"* is the right read. One poll = **5.55 us** of bus moving
+nothing; a cache-resident delay = **0.22 us** and no bus at all.
+
+**New actions: A17** pace `HSFLOP.PDR` · **A18** pace `T130.MPD` (✅ owner approved patching it) ·
+**A19** done · **A20** dword on the T130B pseudo-DMA port (candidate) · **A21** pace `ELNK3.VXD`
+(unquantified) · **A21a** model the 3C509B so A21 has a bed at all — that reframes
+[#20](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/20) from *fidelity only* to a
+**prerequisite**.
+
+⛔ **A3 stood down** — the owner answered it: *"it works and has been for a few weeks, sound works
+fine."* Sound DMAs into that range every play.
+
+---
+
+## ⛔ E1 WAS WRONG FOR TEN DAYS — 64 KB planar, not 256 KB
+
+The owner read bank 0's chips: **HYB4164 P3EF 8437**, Siemens 64K x 1. So this is the
+**64-256 KB** 5160 planar and `SW1-3/4 = ON/ON` (bank 0 only) means **64 KB**, not 256 KB.
+
+| | recorded | actual |
+|---|---|---|
+| planar on the bus | 256 KB | **64 KB** |
+| served by the card | 384 KB | **576 KB** |
+| E1's reduction | 60% | **90%** |
+
+Nobody checked the chips for ten days because the note asserted a number.
+
+## E7 — remove the planar RAM: investigated, and it is a hardware question
+
+The owner's idea. Chased through four offline sources in one sitting, no case opened.
+
+1. ⛔ I **closed it on the FaxBACK catalog**, which says *"disabled down to 256K bytes"* — read as a
+   floor.
+2. ⭐ **Retracted the same session.** Intel's own manual (`inboard_files/DOX1.TXT`) says the card
+   works when the board supplies *"256k **(or less)**"* and to disable *"to 256k **(or lower)**"*.
+   It is a **ceiling**. The FaxBACK catalog is derived; the manual is primary. **Read the primary
+   source first.**
+3. ⭐ **@RonnyRoy dumped the card's PALs unsecured** and published CUPL equations — cloned to
+   `references/inboard386_ronnyroy/` (gitignored). **`logic/U71.pld` is the memory decoder**, the
+   only one touching `A16`-`A23`. Its inputs are address lines and control signals and **nothing
+   else: no jumper, no register, no switch.** ➡ **There is no software disable.**
+4. ⚠ Which range each `RAS_EN_*` covers needs the schematic and the unnamed `i9`/`i13`. **Decoding
+   U71 properly is a session of its own** — and the material is now local, so it is paper work, not
+   hardware work.
+
+✅ **And most of the prize was already collected**: only **64 KB** still crosses the bus, not
+256 KB. E7 is a small remainder, not a big lever.
+
+⭐ **Still worth running: `gen_ramstride.py`.** It was parked because *"no outcome changes the
+decision"*. One does now — whether card RAM is genuinely faster under a cache-defeating pattern.
+
+---
+
 ## Still outstanding
 
-- **Check CI on both PRs** - it was 39/45 with nothing failed at session end - then they are
-  waiting on maintainers only.
+- ✅ **Both PRs are green, MERGEABLE, and every maintainer comment is answered.** Waiting on
+  maintainers only; nothing is owed.
 - ✅ **`AGENTS.md` written** — the promise to @JoshRodd on #8010 is kept. Nine sections, each
   credited to whoever caught the breach; linked from the README's Contributing section.
 - **The work order** that `next_session_2026_09_21.md` was for. Live leads unchanged: **#38**
