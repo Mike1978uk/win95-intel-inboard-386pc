@@ -316,14 +316,29 @@ the directory's own `README.md`.
   An earlier draft of this entry said *"3x is available where we run 2x ... on a 16 MHz Inboard
   that is 48 MHz against a 75 MHz-rated part."* Every number in that sentence was wrong:
 
-  | | |
+  **The clock chain, owner-stated — and it explains why "16 MHz Inboard" is both in the
+  literature and wrong for this machine:**
+
+  | stage | |
   |---|---|
-  | Inboard crystal | **swapped to 40 MHz** (not the stock 16) |
-  | multiplier | **2x** → **80 MHz** |
-  | CPU rating | **60 MHz** — so it already runs **33% over** |
+  | original crystal | **32 MHz** |
+  | Intel 386 on the Inboard | **divides by 2** → **16 MHz** — this is where the published figure comes from |
+  | **IBM 486BL3** | **uses the base clock, no divide** |
+  | crystal now | **swapped to 40 MHz** → 40 MHz base |
+  | BL3 internal multiplier | **2x** → **80 MHz** core |
+  | part rating | **60 MHz** — already **33% over** |
   | 3x | **tried, does not work** |
   | 100 MHz | **does not power on** |
   | cooling | a **fan has been fitted** |
+
+  ⭐ **The crystal swap is only worth anything because the BL3 stopped dividing.** On the Intel
+  part a 40 MHz crystal would have given 20 MHz; on the BL3 it gives 40 at the base and 80 at the
+  core.
+
+  ⚠ **The ISA bus is untouched by any of this.** It is clocked from the system board, not the
+  Inboard's crystal, so every bus figure in this project (5.55 us per 8-bit I/O access and the
+  width table) stands regardless — and the CPU-to-bus asymmetry is **80 MHz against 4.77 MHz**,
+  far wider than the plan's prose implies.
 
   ➡ **The clock is not a lever: it is already past the part's rating and at the limit of what
   powers on.** Do not re-propose a multiplier or crystal change.
