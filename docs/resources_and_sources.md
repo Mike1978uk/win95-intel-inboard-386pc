@@ -485,6 +485,62 @@ has no contact attached to it. It still has to be measured on our own chain.
 
 ⛔ **Nothing has been sent.** Contact is the owner's to make, in his own words.
 
+### An AI-sourced pass at all three, 2026-09-21 — and what survives measurement
+
+The owner put the three questions above to Google's AI and brought the answer back **explicitly
+"with a pinch of salt"**. It is recorded here because two of the three are now partly answered and
+one of its claims is flatly contradicted by our own measurements — which is worth more than the
+answer was.
+
+⚠ **Tag: `[AI-SOURCED]`, no primary citation attached.** Nothing below is a measurement by anyone.
+Treat every unmarked claim as unverified.
+
+**Q1 — the 8-bit XT aperture-vs-port figure.** It agrees no such published figure exists, which
+matches the ❌ above. But the *reason* it gives — that a memory aperture is "an illusion of speed"
+on a 4.77 MHz bus, because every memory cycle costs at least four clocks, so `REP MOVSB` loses to
+`REP INSB` — is **wrong on this machine, and we measured it**
+([`isa_memory_vs_io_2026_09_20.md`](isa_memory_vs_io_2026_09_20.md)):
+
+| path | µs/byte |
+|---|---|
+| best real ISA memory window (XT-CF ROM, `0xD8000`) | **2.861** |
+| 8-bit I/O port path | **5.695** |
+
+Memory is roughly **2× cheaper** here, and it is *linear in width* where I/O is not. The AI has
+the direction backwards. What it does get at, without knowing it, is the real caveat we already
+recorded: the margin belongs to the **card's wait states**, not to being memory-mapped. A window
+with Mach8-like wait states costs 4.714 µs/byte — barely better than the port path. PicoMEM's
+QSPI PSRAM is exactly that case, so its *conclusion* may hold for that card while its mechanism
+does not. **Do not carry the "memory mapping is an illusion" line into
+[#35](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/35).**
+
+**Q2 — the cost of holding IOCHRDY.** Qualitatively right and still unquantified: the card
+deasserts READY, the CPU inserts wait states and executes nothing. Two corrections before this is
+repeated anywhere:
+
+- **Interrupts are delayed, not lost.** The PIT runs off its own clock and keeps counting through
+  the stall, and the 8259 latches the request. The keyboard-drops-characters story needs a longer
+  stall than the mechanism alone implies.
+- **The XT-specific hazard it misses is DRAM refresh.** On a 5160 refresh is 8237 channel 0,
+  driven by PIT channel 1, and it cannot run while the bus is held. That is a data-integrity
+  failure, not a responsiveness one, and it is the sharp end of this question here.
+- ❌ Its claim that *"early PicoGUS firmware variants routinely froze keyboard vector registers"*
+  carries no citation and should not be repeated as fact.
+
+**Q3 — BlueSCSI caching and disconnect/reconnect.** It asserts target-side read-ahead caching into
+the RP2040's RAM, and recommends **caching ON, disconnect/reconnect OFF** for a polled host. That
+is a restatement of what [#31](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/31)
+and `A15` already expect, not a new fact, and it is asserted with no measurement. ⚠ It also
+assumes the host stays polled — see
+[#42](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/42), which asks whether the
+T130B should take IRQ 2, in which case the recommendation inverts. **Still to be measured on our
+own chain.**
+
+❌ **One factual error, worth naming so it is not quoted back.** It twice describes the CPU as an
+"83.5 MHz Blue Lightning core". This machine runs a **40 MHz crystal at 2× = 80 MHz**. The number
+was invented.
+
+
 ---
 
 *Adding to this page: put the software in the repository if the licence allows and it is small
