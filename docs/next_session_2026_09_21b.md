@@ -64,16 +64,33 @@ only fix here that is not a binary patch.
 
 ---
 
-## ⚠ One claim the owner should check
+## ✅ SETTLED: the CONFIG.SYS claim, read off the card
 
-`README.md` now asserts, under the new headline **"No real-mode storage drivers are left"**:
+The headline **"No real-mode storage drivers are left"** was first written from the *bed's*
+copy of `C:`. It has since been checked against the machine's own CF card, mounted locally at
+`D:`, and the README now **quotes the file** instead of paraphrasing it. Four `DEVICE` lines,
+none of them storage; `SD120PPD.SYS` and `ASPIHDRM.SYS` both `REM`-ed.
 
-> `CONFIG.SYS` carries no storage device line at all — `SD120PPD.SYS` and the real-mode SCSI
-> chain are both out of it.
+⭐ **The CF reads on the host at `D:` when it is out of the machine.** That is the cheapest way
+to settle any claim about the real configuration - no COMrade, no boot. Use it before quoting
+a bed image for anything the real machine decides.
 
-That was read off the **bed's copy** of `C:` (`vm_bpck/dos.img`), where `SD120PPD.SYS` is
-`REM`-ed out. If the live `CONFIG.SYS` has drifted since that capture, **that sentence is the
-load-bearing one under the headline** and needs correcting.
+### `EGACACHE` is off the line, and now explained
+
+It was on the line for the 2026-09-20 A/B and the owner removed it on 2026-09-21. The switch
+*"reserves up to 32K bytes ... for caching the EGA ROM BIOS"* and this machine's card is an ATI
+Mach8 - a **VGA**. So the null A/B was not "the switch is inert", it was "the switch is aimed at
+a ROM this machine does not present".
+
+⚠ **Which state is the baseline matters.** The line *without* `EGACACHE` is the long-standing
+one - recorded since 2026-07-26 and booted hundreds of times. Removing it restored the proven
+state; the question was ever only about having it **on**. This handoff originally said the
+opposite.
+
+✅ **That also un-breaks a comment in upstream 86Box.** `src/device/inboard386.c` on master says
+the reference machine's CONFIG.SYS is `DEVICE=c:\INBRDPC.SYS NODIAGS NOPAUSE`, no EGACACHE -
+which had gone stale and is now true again, character for character. **No upstream fix needed.**
+Only `vm_bpck/dos.img` still carries the old line, harmlessly.
 
 ---
 
@@ -124,9 +141,10 @@ owner's to make.**
 
 ## Still outstanding
 
-- **Check CI on both PRs**, then they are waiting on maintainers only.
-- **`AGENTS.md` does not exist** — promised to @JoshRodd on #8010 (*"Noted I'm happy to add
-  that"*). `CLAUDE.md` already carries the four rules it would point at.
+- **Check CI on both PRs** - it was 39/45 with nothing failed at session end - then they are
+  waiting on maintainers only.
+- ✅ **`AGENTS.md` written** — the promise to @JoshRodd on #8010 is kept. Nine sections, each
+  credited to whoever caught the breach; linked from the README's Contributing section.
 - **The work order** that `next_session_2026_09_21.md` was for. Live leads unchanged: **#38**
   (EPP — the blocker for running the vendor miniport in the bed), **#30** (request merging,
   1.88×), **#31** (SCSI chain), **#18** (the media-change bed, now the README's headline ask).
