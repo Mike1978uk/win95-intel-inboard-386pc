@@ -429,17 +429,38 @@ exactly that).
 
 ### Register — where each device stands
 
-| device | audited? | what is known | actions |
-|---|---|---|---|
-| **XT-CF / XT-IDE** | ✅ **both halves** | Q1 done → `rep insw`, **35%/33% shipped**. Q5: card decode ceiling reached. Q2 open | A1, A2 |
-| **Mach8 / Graphics Ultra** | ✅ **machine half, offline** | Q1 ✅ already `rep outsw` (43). Q3 ✅ 1 MB installed, ~256 KB spare at the current mode. Q4 ✅ engine used hard (651 loads, 63 CMD). Q5 ⚠ **16-bit card in 8-bit slots** | A12a, A12b |
-| **Trantor T130B** | 🟡 **Q1 done 2026-09-20** | Q1 ✅ **already string I/O**: `T130.MPD` calls `ScsiPortReadPortBufferUshort` (2 sites) and `ScsiPortWritePortBufferUshort` (1) for bulk, with `...PortUchar` (28 rd / 32 wr) for registers. **No lever here.** ⚠ `pedis.py io` alone shows one `in al, dx` — a SCSIPORT miniport does I/O through imported helpers, so count IAT call sites, not opcodes. Q2-Q6 open | **A15 disconnect** |
-| **The SCSI chain** (6 targets) | ❌ **not started** | Every target has a cache. Disconnect probably off. Mode page 8 readable in one DOS run | A15, A16 |
-| **3C509B** | ❌ **not started** | On-card packet buffer, size unknown; is it drained in bulk? | A13 |
-| **Floppy / `HSFLOP.PDR`** | 🟡 partial | Q6: polls hard during a seek. We already patch this binary | D4, and it is the instrument for A3/A4 |
-| **SB Pro** | 🟡 partial | Data path is DMA, so no width lever. Hazard is 20-bit reach, already fixed | — |
-| **LS-120 / EPAT** | 🟡 in progress | Transport solved; driver restructured. ⚠ its DMA path aliases onto the 8259 — do not use | #22 first |
-| **Inboard itself** | 🟡 partial | E1 done. E5a (DMA/CPU overlap) and E6 (refresh) are the host-side levers | A6, A7 |
+**Updated 2026-09-21.** Every driver we touch gets a row, not just the storage ones — the owner's
+rule: *"every driver we touch"*, and *"sub-1% changes are worthwhile, they collectively add up"*.
+
+⚠ **This register is the authority, not the ACTIONS table below it.** On 2026-09-21 the two
+disagreed — this said the T130B's Q1 was done on 09-20, ACTIONS said "never run" — and the work
+was redone. If they conflict again, believe this one and fix that one.
+
+Q1 string I/O · Q2 transactions · Q3 own memory · Q4 unattended · Q5 width ceiling · Q6 polling.
+
+| device / binary | ours? | Q1 width | Q6 polling | what is left |
+|---|---|---|---|---|
+| **XT-CF / XT-IDE** (`XTIDEMP.MPD`) | ✅ we wrote it | ✅ `rep insw` one per sector, **35%/33% shipped** | ✅ **paced, shipped** (`XT_POLL_BACKOFF`) | **A1 request merging, 1.88x.** A2 folded in — the loop is already one `rep`, what is left is per-**sector** setup, which only merging removes |
+| **Trantor T130B** (`T130.MPD`) | ❌ Adaptec's — **patch approved 2026-09-21** | ✅ already `...BufferUshort`. Pseudo-DMA at **`base+4`**, 128 B/call. ⭐ **dword candidate**: registers start at `base+8`, so `base+5..7` are clear — unlike XT-IDE | ⚠ **10 of 28 `ReadPortUchar` sites in tight read/test/jump-back loops**, 12 `StallExecution`. Partly paced, partly not | **Pace the tight loops** (the XT-IDE fix). Test dword second |
+| **3C509B** (`ELNK3.VXD`) | ❌ stock MS/3Com | ✅ **already bulk at dword** — `shr ecx,2` / `rep insd`. Disassembled 2026-09-21 | ❓ unexamined | Buffer **size** still unknown; ❌ the QEMU model cannot answer it |
+| **Floppy** (`HSFLOP.PDR`) | ✅ **we patch it** (`maxPhys`) | ❓ unexamined | ⛔ **polls hard during a seek** | ⭐ **The most tractable pacing target we already own.** Same fix, same measured basis |
+| **Mach8** (display drivers) | ❌ stock ATI | ✅ `rep outsw` (43 sites) | ❓ | A12a mode-as-lever, A12b glyph cache |
+| **SB Pro** (`MSSBLST.VXD`) | ✅ **we patch it** | n/a — DMA path | ❓ does the VxD poll the DSP? | 20-bit reach fixed. **Q6 never asked** |
+| **Keyboard** (`VKD.VXD`, `KEYBOARD.DRV`) | ✅ **both ours** | n/a | ❓ INT 09 path runs on **every keystroke** | Q6 never asked. Small, but it is a hot path and free |
+| **`VDMAD.VXD` / `VPICD.VXD`** | ✅ **both ours** | n/a | ❓ | Never audited for occupancy at all |
+| **`INBRDPC.SYS`** | ✅ we patch it | n/a | n/a | Measured: slows floppies only. ⛔ Required, never disable |
+| **LS-120 / EPAT** | vendor driver ships | ✅ EPP, 75-99 KiB/s | ❓ | ✅ **Done.** Our miniport retired 2026-09-21 |
+| **The SCSI chain** (6 targets) | — | — | — | **A16 mode page 8** — caches per target, nobody has looked. ⚠ async may beat sync (BlueSCSI) |
+| **Inboard itself** | ✅ | — | — | **A3 correctness**, A6 DMA/CPU overlap, A7 refresh |
+
+⭐ **The pattern across the table**: of the four data paths audited for width, **three were already
+optimal** and only XT-IDE needed the fix. **Polling is the opposite** — only XT-IDE is paced, and
+every other driver is either unexamined or known to spin. That is where the remaining free wins are,
+and it is why the owner's *"bus polling is the big lever"* is the right read.
+
+Cost of one poll, measured 2026-09-10: **5.55 us of bus moving nothing**, against **0.22 us** for a
+cache-resident delay that occupies **no bus at all**. A 25x difference, and it is free only because
+the Inboard has a cache — on a stock XT it would not be.
 
 ### Order for that session
 
@@ -478,10 +499,14 @@ measure it ranks below a small one we can settle this week.
 | **A12** | **The Mach8 as a coprocessor** (owner's lead, 2026-09-12) | — | — | ✅ **MEASURED offline 2026-09-12.** Accelerator installed, selected and used (651 register loads, 63 CMD). `rep outsw` already in use. Card has **1 MB**. See A12 below |
 | **A12a** | **Display mode as a bus lever — 1024x768x256 today** | Benchmark at 1024x768 vs 800x600 vs 640x480 on the real machine | Control Panel + a benchmark run, no code | 🎯 **~2.6x fewer bytes at 640x480, and it frees ~470 KB more off-screen VRAM.** Owner's call - it is a trade |
 | **A12b** | Does the driver cache glyphs/bitmaps in off-screen VRAM? | Dynamic: time a repeated text draw, then repeat after a mode change that halves off-screen memory | 1 boot | ❓ static counts cannot answer it |
-| **A13** | **3C509B — how big is the on-card packet buffer, and is it drained in bulk?** | `pedis.py` the packet driver: `rep insw` against per-byte loops; read the card's buffer size | no hardware | ❓ never examined |
+| **A13** | 3C509B packet buffer | ✅ **DRAINED IN BULK, dword** - `ELNK3.VXD` `shr ecx,2` / `rep insd`, 2026-09-21. Buffer **size** still open; the QEMU model cannot give it | - | ✅ half closed |
 | **A14** | **T130B — what does the card hold, and does `T130.MPD` use string I/O?** | `pedis.py T130.MPD io` (this is A10), plus the card's pseudo-DMA buffer size | no hardware | ❓ never examined |
 | **A15** | ⭐ **Does the SCSI chain DISCONNECT, or does it hold the bus through every seek?** | Check `T130.MPD`'s identify-message handling and the registry/INF for a disconnect setting; confirm on the wire by timing a seek-heavy read while another device transfers | `pedis.py` first, then 1 boot | ❓ **the single most on-point lever found so far** - see below |
 | **A16** | **SCSI cache mode pages (page 8) across the chain** | `MODE SENSE` page 8 on every target: read-cache enable, write-cache enable, prefetch. Then `MODE SELECT` to turn on what is off | 1 DOS run, no code | ❓ settable per device, and nobody has looked |
+| **A17** | ⭐ **Pace `HSFLOP.PDR`'s seek polling** | Same shape as `XT_POLL_BACKOFF`: spin briefly, then a register-only cache-resident delay | binary patch + 1 boot | ❓ **a driver we already patch**, and it is named in this plan as the most tractable pacing target. Never started |
+| **A18** | ⭐ **Pace `T130.MPD`'s tight poll loops** | 10 of 28 `ScsiPortReadPortUchar` sites sit in read/test/jump-back loops | binary patch + 1 boot | ✅ **owner approved patching this binary 2026-09-21.** Likely worth more than A15 disconnect: disconnect frees the SCSI bus, this frees the ISA bus |
+| **A19** | **Q6 on the VxDs nobody has asked** | `MSSBLST.VXD` (does it poll the DSP?), `VKD.VXD` / `KEYBOARD.DRV` (INT 09, every keystroke), `VDMAD`/`VPICD` | offline, binaries we hold | ❓ all four are **ours**, all on hot paths, none ever audited for occupancy |
+| **A20** | **dword on the T130B pseudo-DMA port** | `base+4` is a single address and the register file starts at `base+8`, so `base+5..7` are clear - unlike XT-IDE. Word → dword is 3.819 → 3.183 us/byte | binary patch, after A18 | ❓ **candidate, not a finding** - the port handshakes on DRQ and a handshaked cycle may not amortise |
 
 ---
 
