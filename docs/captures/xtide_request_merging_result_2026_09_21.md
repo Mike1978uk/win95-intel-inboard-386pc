@@ -53,6 +53,35 @@ Every lever is now either shipped or measured shut:
 
 **There is nothing further to do to this driver without different hardware.**
 
+## ⭐ OPEN QUESTION the null threw up: the transfer beats the cost model by 1.51x
+
+| | us/byte | this file |
+|---|---|---|
+| **measured, real transfer** | **2.536** | **93.15 s** |
+| iowidth table, word | 3.819 | 140.3 s |
+| iowidth table, byte | 5.695 | 209.2 s |
+| iowidth table, dword | 3.183 | 116.9 s |
+
+The shipped driver uses `rep insw` (word), so the model predicts **140 s**. It took **93 s** —
+**1.51x faster than the machine's own measured width table**, and faster even than the *dword*
+figure the same table says is the floor.
+
+⛔ **Something is wrong, and it matters**, because that table is what ranks every remaining
+lever in `bus_optimisation_plan.md` — including how much paced polling is worth.
+
+Candidates, none tested:
+- The iowidth probe used the **LPT port** (`0x378`, control `0x278`); the XT-CF is at `0x300`.
+  The memory note claims the cost is the Inboard's sync and so *"applies to every ISA device on
+  the machine"*. **This measurement is evidence against that.**
+- The probe **wrote** to a port nothing answers; this **reads** a real card. 109e found reads
+  slightly *slower* (5.87 vs 5.695 byte-wide), so that is the wrong direction.
+- Not every byte crosses the bus — but the file is **7x RAM**, so caching cannot explain 1.5x.
+- `rep` loop overhead was ~9% of the probe's figure, nowhere near 51%.
+
+➡ **Next step**: re-run `tools/gen_iowidth_probe.py` against the **XT-CF's data port** rather
+than LPT, and see whether the per-byte cost is card-specific. If it is, the width table is not a
+machine constant and several rankings need revisiting.
+
 ## Scope, stated honestly
 
 This measures **one large sequential read**. Merging helps most where requests are small and
