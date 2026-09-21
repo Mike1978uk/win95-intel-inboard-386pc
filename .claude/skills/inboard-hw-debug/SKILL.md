@@ -2547,6 +2547,15 @@ one sat as "does nothing" for a day, which invites someone to retest it; "it cac
 and the card is a VGA" closes it permanently. When a lever measures as zero, ask what the lever
 acts *on* before filing the result.
 
+⚠ **And know which state is the baseline before calling a change "unproven".** Removing
+`EGACACHE` was described here as an untested edit awaiting a boot. It is the opposite: the line
+**without** it is the configuration this machine has run since 2026-07-26 and booted hundreds of
+times, and `EGACACHE` was the temporary addition made to measure it. Taking it off restores the
+proven state.
+
+The check that avoids this costs nothing: before calling a config change unproven, ask **which
+of the two states has the boot history**. A revert to a long-standing line is not a new variable.
+
 ### `0xFF` / "every bit wrong" is an UNMAPPED signature, not a memory-fault signature
 
 Technique 63 recorded the mark-bad hits as `EBP=FFFFFFFF`, "a *complete* mismatch, every bit wrong",

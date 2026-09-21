@@ -127,6 +127,11 @@ harness's own ±2-tick noise, with `0xC0000` unmoved at 2.858 us/byte). The mech
 the null result rather than leaving it unexplained: the switch does do something, just not for
 a card that is not an EGA. **Do not re-propose it.**
 
+Note which way round this is: the line **without** `EGACACHE` is the long-standing
+configuration — recorded as `DEVICE=c:\INBRDPC.SYS NODIAGS NOPAUSE` since 2026-07-26 and booted
+hundreds of times. `EGACACHE` was added only to measure it. Taking it off restores the proven
+baseline; the state that was ever in question was having it **on**.
+
 **Floppy drives work.** The patched [`HSFLOP_XTDMA.PDR`](FIXES.md) loads and initialises on
 the real machine (`Init Success`, `INITCOMPLETE`, measured 2026-09-06) — for over a month it was
 deployed but never loaded, so nothing measured about it before then meant anything. Read and write
