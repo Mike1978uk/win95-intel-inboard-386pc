@@ -3,6 +3,32 @@
 Started 2026-09-10. This is the plan file for the performance work; the commit history
 stays short and points here.
 
+## ⛔ AMENDMENT 2026-09-21: the per-access cost below is a FLOOR
+
+Everything in this document prices an 8-bit I/O access at **5.695 us** of bus. **Measured
+2026-09-21, that is only half the cost.** SW1 on the CPU module is ON, so **every I/O read and
+write flushes the L1 cache**, and the refill is paid by whatever code runs next.
+
+| | |
+|---|---|
+| a 1 KB working set, cached | **39.5 ns/byte** |
+| the same with one I/O access per KB | **128.1 ns/byte** |
+| penalty | **3.24x** |
+| refill cost | **83 ns/byte** over whatever working set was lost |
+
+⭐ Cross-checked: 128.1 ns/byte flushed against **E1's independently measured 135 ns/byte** for
+conventional RAM, a different instrument in a different session. Full record:
+`docs/captures/io_cache_flush_2026_09_21.md`.
+
+➡ **Every ranking below understates the value of removing a transaction**, and by a variable
+amount — it depends on the working set destroyed. **Do not re-rank on this without measuring the
+specific case**; the transferable number is the 83 ns/byte rate, not a fixed multiplier.
+
+⛔ **SW1 cannot be turned off.** feipoa: an IBM-based system *"cannot even run DOOM"* without it.
+This is a constraint to design around, not a setting to change.
+
+---
+
 ## The one fact everything follows from
 
 The Inboard's 386 and its RAM are **on the same card**, joined by a local bus. RAM access

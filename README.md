@@ -518,6 +518,7 @@ rather than a DMA-reach one — is on the issue.
 | [#37](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/37) | BackPack parallel CD-ROM. **Built and submitted** as [86Box#8012](https://github.com/86Box/86Box/pull/8012) - the drive is modelled from real hardware and reads a disc. Open until that merges |
 | [#38](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/38) | Wire `lpt_epat.c` to upstream's EPP callbacks - the transport the real hardware uses |
 | [#40](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/40) | CPU upgrade module: the registers we never explored, and its switches. `CMLR` was one register and took Dhrystone from 2 to 13-15; **`XTOUT` is set where feipoa recommends 0** and has never been tested. The module's switches are undocumented here |
+| [#41](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/41) | Pace the polling in every driver that spins: `T130.MPD`, `HSFLOP.PDR`, `ELNK3.VXD`. A poll is **5.55 us** of bus moving nothing against **0.22 us** for a cached delay - and since 2026-09-21 we know it also **flushes the L1**, so each poll removed is worth more than its bus time |
 
 Issues are labelled **`emulator`** or **`real-hardware`** so you can pick by what you have, and
 **`upstream`** marks the ones destined for 86Box itself.
