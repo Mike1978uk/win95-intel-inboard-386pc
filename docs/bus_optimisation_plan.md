@@ -95,7 +95,9 @@ stack on every buffer access.
 > ballpoint pen to set switches 3 and 4 on the system board to ON."
 
 The machine had been running SW1-3/4 **Off/Off** - all four banks, 640 KB of planar DRAM,
-the Inboard backfilling nothing. Now On/On: 256 KB planar, **384 KB served from the card**.
+the Inboard backfilling nothing. Now On/On: **bank 0 only**.
+
+⛔ **CORRECTED 2026-09-21: that is 64 KB planar and 576 KB from the card, not 256/384.** This line read *"256 KB planar, 384 KB served from the card"* for ten days. The owner read the chips in bank 0: **HYB4164** - Siemens 64K x 1, nine to a bank with parity - so this is the **64-256 KB** 5160 planar and bank 0 holds **64 KB**. The reduction E1 achieved is therefore **640 KB -> 64 KB, a 90% cut** in conventional memory crossing the bus, not the 60% recorded below. ⭐ It also puts the machine **well under** Intel's 256 KB ceiling with room to spare, where 256 KB would have been exactly at it.
 POST still counts 640 KB, which is the backfill confirmed.
 
 Sources: modem7 and cimonvg in
@@ -398,8 +400,9 @@ A first draft of this section proposed *"set SW1-3/4 for 64 KB planar and see wh
 | OFF | OFF | banks 0/1/2/3 |
 
 The switches are **already at their minimum**, set on 2026-09-11. On the **256-640 KB** board
-revision bank 0 is itself 256 KB, which is why E1 records "256 KB planar, 384 KB from the card" -
-those are the same statement, not two.
+revision bank 0 would itself be 256 KB. ⛔ **It is not that board** - corrected 2026-09-21, see
+E1 above: the chips are **HYB4164** (64K x 1), so this is the 64-256 KB planar and bank 0 is
+**64 KB**.
 
 ➡ So what is already proven is that **the card backfills 256 KB-640 KB**. What is unproven is
 whether it can serve **0-256 KB**, and there is no switch that asks the question. Bank 0 comes out
@@ -480,12 +483,14 @@ there are **two** 5160 planars, and SW1-3/4 = ON/ON means *bank 0 only* on both:
 | **256-640 KB** | 256 KB | **256 KB** | 384 KB | ⚠ **exactly at it** - no headroom |
 | **64-256 KB** | 64 KB | **64 KB** | **576 KB** | ✅ **already well under it** |
 
-⛔ **If it is the 64-256 KB board, E1's "256 KB planar" is wrong and the machine is already at
-64 KB** - 576 KB of conventional memory already served by the card, and only 64 KB still crossing
-the bus. That would mean most of E7's prize is **already collected** and nobody noticed.
+✅ **ANSWERED 2026-09-21: it is the 64-256 KB board.** The owner read bank 0's chips -
+**HYB4164 P3EF 8437**, Siemens 64K x 1. So the machine has been at **64 KB planar / 576 KB from
+the card** since 2026-09-11, and **only 64 KB of conventional memory still crosses the bus.**
 
-✅ **The owner is pulling the lid to check.** That single observation decides whether E7 is a
-hardware project or a bookkeeping correction.
+⭐ **Most of E7's prize was already collected, and nobody noticed for ten days** - because E1's
+note said 256/384 and nobody checked the chips. The outstanding gain is the last **64 KB**, not
+256 KB, which changes the cost/benefit of a hardware modification sharply: E7 is now a
+**bookkeeping correction plus a small remainder**, not a big lever.
 
 ### What stays true from the earlier closure
 
