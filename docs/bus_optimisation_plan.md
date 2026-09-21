@@ -384,16 +384,30 @@ reasoning that *"no outcome changes the decision."*
 is genuinely faster decides whether E7 is worth the risk of a ROM change, or whether it is only
 an occupancy play. **Run `gen_ramstride.py` before anything else here.**
 
-### The cheap first step is a switch, not a ROM
+### ⛔ There is no cheap switch version — corrected 2026-09-21
 
-⛔ **Do not start by modifying a BIOS or pulling chips.** SW1-3/4 on the 5160 encode the planar
-bank size, and Intel's manual says to set them *"down to 256K bytes"*. Whether that is a hardware
-limit or conservative advice is **untested**.
+A first draft of this section proposed *"set SW1-3/4 for 64 KB planar and see what POST counts"*.
+**That setting does not exist.** Per
+[minuszerodegrees, 5160 switch settings](https://www.minuszerodegrees.net/5160/misc/5160_motherboard_switch_settings.htm):
 
-**Set SW1-3/4 for 64 KB planar and boot.** If POST still counts 640 KB, the card backfills from
-64 KB upward, the decode reaches far below 256 KB, and E7 is live. If POST counts 64 KB, the
-backfill has a floor and E7 needs the decode changed, not just the RAM removed. **One boot,
-instantly reversible, no soldering and no ROM.**
+| SW1-3 | SW1-4 | result |
+|---|---|---|
+| **ON** | **ON** | **enable only bank 0** ← **this machine, already** |
+| OFF | ON | banks 0/1 |
+| ON | OFF | banks 0/1/2 |
+| OFF | OFF | banks 0/1/2/3 |
+
+The switches are **already at their minimum**, set on 2026-09-11. On the **256-640 KB** board
+revision bank 0 is itself 256 KB, which is why E1 records "256 KB planar, 384 KB from the card" -
+those are the same statement, not two.
+
+➡ So what is already proven is that **the card backfills 256 KB-640 KB**. What is unproven is
+whether it can serve **0-256 KB**, and there is no switch that asks the question. Bank 0 comes out
+physically or not at all. **E7 has no cheap first step; its first step is the experiment itself.**
+
+⚠ Confirm the board revision before anything else - "64-256 KB" and "256-640 KB" 5160 planars
+both exist and their bank sizes differ, so the RAM total and what bank 0 holds depend on which one
+this is.
 
 ### Open questions, in the order they gate the idea
 
@@ -571,7 +585,8 @@ measure it ranks below a small one we can settle this week.
 | **A18** | ⭐ **Pace `T130.MPD`'s tight poll loops** | 10 of 28 `ScsiPortReadPortUchar` sites sit in read/test/jump-back loops | binary patch + 1 boot | ✅ **owner approved patching this binary 2026-09-21.** Likely worth more than A15 disconnect: disconnect frees the SCSI bus, this frees the ISA bus |
 | **A19** | Q6 on the VxDs nobody had asked | ✅ **DONE 2026-09-21, and it is a NEGATIVE - write it down rather than re-derive it.** Poll-loop density (port read + backward Jcc): `VKD` **1** in 45 KB, `VDMAD` **1** in 42 KB, `VPICD` **1** in 47 KB, `KEYBOARD.DRV` **2** in 13 KB. **None of our four VxDs is a polling target.** Control: `T130.MPD` scores 0 by this method because it polls through SCSIPORT helpers, not raw opcodes - which is why it needs call-site counting instead | offline | ✅ closed |
 | **A21** | ⭐ **`ELNK3.VXD` spins flat out on the NIC** (NEW, 2026-09-21) | **27** candidate poll loops in 30 KB - **40x our VxDs' density**. Confirmed by disassembly at `0xd03`: `in ax,dx` / `test ah,0x10` / `jne` back, twice in a row, **no delay of any kind**. Each iteration is ~3.82 us of bus moving nothing | binary patch + 1 boot | ❓ stock 3Com driver, we do not patch it today. ⚠ **Unquantified** - bursty, and the NIC may complete fast. Quantify with the B2 PIT harness during network traffic before patching anything || **A20** | **dword on the T130B pseudo-DMA port** | `base+4` is a single address and the register file starts at `base+8`, so `base+5..7` are clear - unlike XT-IDE. Word → dword is 3.819 → 3.183 us/byte | binary patch, after A18 | ❓ **candidate, not a finding** - the port handshakes on DRQ and a handshaked cycle may not amortise |
-| **A22** | ⭐ **Can the Inboard backfill BELOW 256 KB - and eventually all 640 KB?** (owner, 2026-09-21) | ⭐ **Cheapest first step is a switch change and one boot, not a ROM.** SW1-3/4 encode planar size; set them to **64 KB** and see what POST counts. If it still counts 640 KB, the card backfills from 64 KB up, Intel's "down to 256K" is conservative advice rather than a hardware limit, and the idea is live | 1 boot, instantly reversible | ❓ **logged, not started.** See E7 below |
+| **A21a** | ⭐ **Model the 3C509B in 86Box** (owner's point, 2026-09-21) | Currently the bed has no NIC, so **A21 cannot be tested in emulation at all** - any pacing patch to `ELNK3.VXD` would have to go straight to the real machine. Modelling the card makes the bed match the machine and gives the patch somewhere safe to fail | emulator work | ❓ **this is [#20](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/20), reframed.** It was filed as *fidelity only*; it is also the **prerequisite for testing A21**. Base any port on QEMU's 3C509B (**MIT**, Antony T Curtis), never on `net_3c503.c` |
+| **A22** | ⛔ **WITHDRAWN 2026-09-21, same day it was written.** I proposed "set SW1-3/4 to 64 KB and see what POST counts" as E7's cheap first step. **There is no such setting.** On a 5160 SW1-3/4 = ON/ON means *enable only bank 0*, the switches are **already there**, and on the 256-640 KB board revision bank 0 **is** 256 KB. So the minimum is already set, POST already counts 640 KB, and the card already backfills 256-640 KB. Bank 0 can only be removed **physically** - which is exactly E7 | — | ⛔ no cheap version exists |
 
 ---
 
