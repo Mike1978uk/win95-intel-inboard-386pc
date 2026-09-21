@@ -350,7 +350,7 @@ Everything learned the hard way is written back into three skill files, so it is
 They are plain Markdown and readable without the tooling.
 
 - **`.claude/skills/inboard-hw-debug/`** — the hardware/timing/boot debugging methodology.
-  **113 numbered techniques**, each one written after it resolved *or ruled out* a real bug
+  **127 numbered techniques**, each one written after it resolved *or ruled out* a real bug
   here. Several carry retractions of their own earlier conclusions, which are the most useful
   lines in the file
 - **`.claude/skills/win9x-dma-driver-audit/`** — finding Windows 9x drivers that assume 24-bit
@@ -366,15 +366,22 @@ everything required to boot Windows 95 on this machine, emulator-side and disk-i
 Full detail in the [writeup's credits section](docs/windows95_on_inboard386pc_writeup.md#sources-and-prior-art)
 and the [contributor ledger](docs/contributor_input_ledger.md).
 
+- **[@andrew-hoffman](https://github.com/andrew-hoffman)** — **the project's most consistent
+  outside contributor**, and repeatedly the reason it changed direction. The XT 4-bit DMA
+  page-register lead and the sources behind it, which produced the 640 KB figure and an emulator
+  fidelity bug now upstream as [#7771](https://github.com/86Box/86Box/pull/7771); the driver-audit
+  method; the steer that Trantor T128/T130 might work because the SCSI port drivers came from
+  NT 3.51, which is the only reason anyone went looking for `T130.MPD` (#19); his emulated T130B
+  boot, which proved the IOS stack accepts a 32-bit miniport and became the control for `XTIDEMP.MPD`
+  (#21); the media-change floppy corruption still open as #18; the bus-throughput and
+  memory-mapped-storage framing behind #35 and the optimisation track; and this repo's writing and
+  line-ending conventions. Every item, with what it produced and whether he has been told:
+  [contributor ledger](docs/contributor_input_ledger.md).
 - **[Stynx and Harrison Frazier](https://forum.vcfed.org/index.php?threads/inboard-386-pc-2mb-expansion-clone.78562/)**
   (VCFed) — the 4MB Inboard daughterboard (ParrotyError). Windows 95 does not fit without it.
 - **SuperFury / [UniPCemu](https://superfury.itch.io/unipcemu)** — this project's entire Inboard
   hardware model is a direct port of UniPCemu's `hardware/inboard.c`. The foundation everything
   else is built on.
-- **[@andrew-hoffman](https://github.com/andrew-hoffman)** — the XT 4-bit DMA page-register lead
-  and the sources behind it, which produced the 640 KB figure, an emulator DMA fidelity bug now
-  upstream as [#7771](https://github.com/86Box/86Box/pull/7771), the driver-audit method, and this
-  repo's writing and line-ending conventions.
 - **[Bob Smith](https://github.com/sudleyplace)** (Qualitas) — author of **386MAX**, whose source
   carries first-class Inboard support and is the primary-source evidence for the XT DMA ceiling.
   He states he had no involvement with the Inboard itself: [full detail and quotes](docs/386max_and_the_inboard.md).
@@ -430,25 +437,19 @@ where they actually stand without reading the thread.
 
 ### The most useful thing anyone could pick up
 
-**[#8](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/8) — the ATI Mach 8
-self-test.** The option ROM reports `RAM Addressing` in 86Box where the real card reports `Ok`.
-Reproduced on stock upstream 86Box, so it is an 86Box defect.
+**[#18](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/18) — build the floppy
+media-change reproduction bed.** @andrew-hoffman hit a fatal exception and a corrupted disk after
+changing floppies a few times, in 86Box, on his configuration. The DMA-reach bug that `HSFLOP_XTDMA.PDR`
+fixes is a different fault, and reads and writes were measured clean here on real hardware — but that
+harness wrote twice to one disk and **never changed media**, so it never tested the recorded trigger.
 
-It is no longer blocked on information. On 2026-09-08 the real card's registers were read
-directly over COMrade —
-[`docs/mach8_real_hardware_registers_2026_09_08.md`](docs/mach8_real_hardware_registers_2026_09_08.md)
-— giving `SUBSYS_STAT = 0x00AB`, `DISP_STAT = 0x0001`, `GP_STAT = 0x0000` on the physical
-Graphics Ultra. That also retired the framing this section used to carry: per Michal Necasek,
-the 8514/A is **not memory-mapped at all**, so there is no "accelerator-side memory banking" to
-document — VRAM is reachable only through I/O via `PIX_TRANS`.
+**Needs no Inboard and no hardware at all.** 86Box, the Monster Floppy controller, the patched driver,
+and a media change. The job is to make it happen on demand; the diagnosis comes after. If it does not
+reproduce, that is worth knowing too, and it goes on the issue either way.
 
-**Two concrete jobs, neither needing an Inboard:**
-
-1. Read those same three ports in 86Box under the same conditions and diff. A divergence is a
-   reportable emulation gap for whoever maintains `vid_ati_mach8.c`.
-2. Run the Mach8 at **512 KB** instead of 1 MB. The engine processes 4 or 8 bits depending on
-   VRAM size and 86Box models that; if the self-test passes at one size and fails at the other,
-   the defect is width handling and no register documentation is needed at all. A config change.
+Everything needed is published: the patched driver is in [FIXES.md](FIXES.md) with its md5, and the
+analysis so far — a stale cache page flushed to the wrong disk, a media-change detection failure
+rather than a DMA-reach one — is on the issue.
 
 ### Open issues
 
