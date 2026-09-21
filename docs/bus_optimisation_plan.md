@@ -348,6 +348,61 @@ connector. Rank by bus cycles occupied, take every gain that costs nothing to ke
 when a hardware ceiling is reached, turn round.
 
 
+## A23. The CPU upgrade module — the owner's lead, 2026-09-21
+
+> *"we matched the cpu registers that were set by revto486 but we haven't explored if there is
+> more to be done or better outcomes ... i believe that module has switches also."*
+
+**Both halves are unexplored, and one is already written down as unfinished.**
+
+### What is set today, and verified by read-back
+
+| register | value | |
+|---|---|---|
+| `1000h:0` | `92` | CE, ASNP, CPC enabled · **SNP disabled** |
+| `1000h:1` | `9C` | CNPX, **XTOUT**, CRLD, IKEN enabled |
+| `1000h:2` | `00` | ❓ purpose never recorded |
+| `1001h:0/1` | `FF` / `03` | LMCR - low 640 KB cacheable |
+| `1001h:2/3` | `00` / `00` | ❓ LMROR - **no region marked read-only** |
+| `1001h:4` | `F0` | CMLR - **our 2026-09-12 fix**, 1-16 MB cacheable |
+| `1001h:5/6` | `00` / `00` | ECMLR - above 16 MB, moot on a 5 MB machine |
+| `1002h:3` | `03` | 2:1 clock, doubling confirmed live |
+
+### The concrete one
+
+⭐ **`XTOUT` (`1000h:1` bit 4) is set; feipoa recommends `0`.** Recorded on 2026-09-12 under
+"Not done" as *"separate, minor, untested here"* and never picked up. One bit, one boot,
+instantly reversible.
+
+### Method constraints — already paid for, do not re-derive
+
+- ✅ **`22h`/`23h` do NOT hit the 8259.** Suspected (technique 75's aliasing) and **disproven**:
+  every value written read back correctly. The BL3 claims those I/O cycles internally rather than
+  driving them onto the bus - if it did not, an index write to `22h` would fire ICW1 and kill
+  interrupts on every boot. **Do not re-raise this.**
+- ⛔ **`CTCHIP34`'s screen print is NOT a read-back.** Proven by running the same batch under
+  86Box, where `cpu_read()` returns `0xFF` and the writes are dropped entirely - and CTCHIP
+  still prints `92 / CE: Internal Cache: enabled`. **Verify with a separate, write-free
+  `CPUSHOW.BAT` invocation, always.**
+- ⚠ **Do not raise CMLR beyond installed RAM.** The Inboard aliases its BIOS shadow at
+  `0x5E0000`/`0x5F0000` ≈ 5.9 MB, above the 5 MB fitted. Caching an alias window invites stale
+  data.
+- **Benchmark harness exists**: the CMLR change was sized with Dhrystone and a cache latency
+  walk (`docs/cpu_cache_cmlr_2026_09_12.md`). Reuse it rather than inventing a measure.
+
+### Why it is complementary, not a competitor
+
+This plan ranks by **bus occupancy**, and CPU registers do not move bus cycles. But the whole
+strategy here is *"spend CPU to avoid transactions"* - 0.2 us for a cached instruction against
+5.55 us for an I/O access. **A faster CPU makes that trade better**, so this compounds with every
+pacing and merging lever rather than competing with them.
+
+### ❌ Missing: the switch documentation
+
+The owner has a cpu-world page detailing the module's **physical switches**. It was shared in an
+earlier session and **never recorded on this page** - the second such gap found on 2026-09-21,
+after Trixter. **Get the URL and record it before the hardware side is touched.**
+
 ## E7. Take the planar RAM out entirely — the owner's idea, 2026-09-21
 
 > *"if we removed the system ram and modified the bios we might be able to then utilise 100% fast
@@ -781,6 +836,7 @@ measure it ranks below a small one we can settle this week.
 | **A21** | ⭐ **`ELNK3.VXD` spins flat out on the NIC** (NEW, 2026-09-21) | **27** candidate poll loops in 30 KB - **40x our VxDs' density**. Confirmed by disassembly at `0xd03`: `in ax,dx` / `test ah,0x10` / `jne` back, twice in a row, **no delay of any kind**. Each iteration is ~3.82 us of bus moving nothing | binary patch + 1 boot | ❓ stock 3Com driver, we do not patch it today. ⚠ **Unquantified** - bursty, and the NIC may complete fast. Quantify with the B2 PIT harness during network traffic before patching anything || **A20** | **dword on the T130B pseudo-DMA port** | `base+4` is a single address and the register file starts at `base+8`, so `base+5..7` are clear - unlike XT-IDE. Word → dword is 3.819 → 3.183 us/byte | binary patch, after A18 | ❓ **candidate, not a finding** - the port handshakes on DRQ and a handshaked cycle may not amortise |
 | **A21a** | ⭐ **Model the 3C509B in 86Box** (owner's point, 2026-09-21) | Currently the bed has no NIC, so **A21 cannot be tested in emulation at all** - any pacing patch to `ELNK3.VXD` would have to go straight to the real machine. Modelling the card makes the bed match the machine and gives the patch somewhere safe to fail | emulator work | ❓ **this is [#20](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/20), reframed.** It was filed as *fidelity only*; it is also the **prerequisite for testing A21**. Base any port on QEMU's 3C509B (**MIT**, Antony T Curtis), never on `net_3c503.c` |
 | **A22** | ⛔ **WITHDRAWN 2026-09-21, same day it was written.** I proposed "set SW1-3/4 to 64 KB and see what POST counts" as E7's cheap first step. **There is no such setting.** On a 5160 SW1-3/4 = ON/ON means *enable only bank 0*, the switches are **already there**, and on the 256-640 KB board revision bank 0 **is** 256 KB. So the minimum is already set, POST already counts 640 KB, and the card already backfills 256-640 KB. Bank 0 can only be removed **physically** - which is exactly E7 | — | ⛔ no cheap version exists |
+| **A23** | ⭐ **The CPU upgrade module: the registers we never explored, and its switches** (owner, 2026-09-21) | We matched what `REVTO486` set and fixed the one register that was wrong (`CMLR`). **We never asked what else is available.** ⭐ One lever is already written down as untested: **`1000h:1` bit 4 (`XTOUT`) is SET and feipoa recommends `0`** - recorded 2026-09-12 as *"separate, minor, untested here"*. Unexplored besides: `1000h:2` = `00` (purpose never recorded), **LMROR** `1001h:2/3` = `0000` (no region marked read-only), and **SNP snooping is disabled** while ASNP is enabled. The module also has **physical switches** | one boot each, reversible | ❓ **logged 2026-09-21.** Precedent is strong - `CMLR` was one register and took Dhrystone from **2 to 13-15** - but that was pathological (the cache covered nothing Windows used), so do not expect that size again |
 
 ---
 
