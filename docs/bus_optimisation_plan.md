@@ -434,6 +434,42 @@ system board supplying less, and the card *"replaces the system board memory"* a
 disagree, the primary source wins, and I should have read it first rather than closing on the one
 I happened to grep. [[feedback-real-hardware-outranks-inference]] one rung further down.
 
+### ⭐ The decode is FIXED IN A PAL — @RonnyRoy's dumps, read 2026-09-21
+
+The fourth lead paid. [@RonnyRoy's reproduction](https://github.com/ronnyroy111/inboard386) dumped
+the card's PALs — *"luckily not secured"* — and published **CUPL equation files**, not just JEDEC
+blobs. Cloned to `references/inboard386_ronnyroy/` (gitignored: read it, do not vendor it).
+
+**`logic/U71.pld` is the memory decoder** — the only one of the sixteen PALs that touches
+`A16`-`A23`. It is also one of only two RonnyRoy modified, which is a hint in itself.
+
+```
+INPUTS   A16..A23, i9, W_R, DACK0, ROMCACHE, _A20EN, i13, MAENA_BA
+OUTPUTS  RAS_EN_SYS, RAS_EN_1M_1, RAS_EN_1M_2, RAS_EN_4M, _32BIT_EN, _MA7C, _MA8a
+```
+
+⛔ **There is no configuration input.** No jumper line, no register bit, no switch. The bank
+enables are a pure function of the address lines and a few control signals. **If the backfill
+boundary were settable, this PAL would need an input telling it where the boundary is, and it has
+none.**
+
+➡ **That answers the owner's preferred route directly: there is no software disable.** It also
+explains why UniPCemu models no such register — there is nothing to model. Intel's remedy for
+non-compliant boards being *a PAL from Smartec* fits the same picture: on this card, memory decode
+is wiring.
+
+⚠ **What this does NOT settle, and I am not going to claim it does.** Which address ranges each
+`RAS_EN_*` actually covers needs the schematic and the two unnamed inputs `i9` and `i13`, whose
+names the dump did not recover. A first read of the sum-of-products is suggestive — `RAS_EN_SYS`
+looks like the card's own base 1 MB bank rather than the system board — but reading PAL equations
+without the netlist is exactly the kind of inference this project keeps getting wrong. **Decoding
+U71 properly is a session of its own**, and the material to do it is now local.
+
+⭐ **And it is the route to a real answer, not a guess.** The equations plus
+`inboard386/inboard386.kicad_sch` are enough to derive the true backfill range **on paper**, with
+no hardware, no case open and no risk — which is a far better outcome than the experiment the
+owner was contemplating.
+
 ### ⭐ So everything now turns on one fact: which board revision
 
 Per [minuszerodegrees](https://www.minuszerodegrees.net/5160/misc/5160_motherboard_switch_settings.htm)

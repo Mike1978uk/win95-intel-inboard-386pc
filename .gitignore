@@ -127,3 +127,5 @@ vm_mach8_master/
 drivers/imation_ls120/tools/ECPPROBE.COM
 .aider*
 vm_bpck/
+# Third-party clone (RonnyRoy's Inboard reproduction) - read it, do not vendor it
+references/inboard386_ronnyroy/
