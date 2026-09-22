@@ -16,7 +16,7 @@ CAVE_BYTES = bytes.fromhex(
     "0F 85 06 00 00 00 "
     "B8 02 00 00 00 "
     "E9 16 EB FF FF "
-    "E9 FD EA FF FF"
+    "E9 01 EB FF FF"
 )
 EXPECTED_CAVE = bytes(24)
 
