@@ -48,7 +48,7 @@ end to end.** Find what applies, read that, and add back what you learn.
 | The driver's base does not come from its own device node | **125** - enumerate who else owns that address. Device Manager cannot show this clash |
 | An error line in a log looks like the cause | **127** - grep a run that WORKED for the same line before explaining it. Base rate first |
 | A fix passed in the bed | **127b** - can the bed even produce the failure you fixed? If not, the run proves no regression and nothing else |
-| About to run the bed | **131** - launch only via `tools/bed_launch.ps1`, then the pre-flight checks, every time |
+| About to run the bed | **131** - launch only via `tools/bed_launch.ps1`, then the pre-flight checks, every time. **132** - the scripting traps when staging one |
 | Setting up an A/B | **130** - build the baseline from the LIVE artefact's ledger flags, not from source |
 | A run came back POSITIVE | **129** - "unverified is not a result" applies to good news too |
 | Selling a transfer-width win | **128** - attribute the fixed per-access cost first. **128c**: XT-IDE cannot use dword |
@@ -8133,3 +8133,32 @@ Every one of these produced a *plausible* result rather than an error. That is
 what makes them expensive: a build with no device, a driver that was never
 loaded, a batch blocked on a prompt and an init callback that always succeeds
 all look exactly like evidence.
+---
+
+## Technique 132: staging a bed - the scripting traps, all hit on 2026-09-24
+
+Every row cost a run or a restage. None of them was the thing under test.
+
+| trap | what happened | do this instead |
+|---|---|---|
+| `"dir\$var"` in bash double quotes | `\$b` became a literal `$b`: two beds staged into `g4$b`, and a junction to the real ROM folder appeared at `min$b\roms` | forward slashes in bash paths, always |
+| Python in a bash heredoc | backslash escapes mangled (technique 84, again, twice) | write the script with the Write tool, run the file |
+| `re.sub` replacement holding a DOS path | `\S` in `C:\SD120PPD` raised "bad escape" | pass a function: `re.sub(pat, lambda _: text, s)` |
+| `$` against CRLF text | `(?m)...$` never matched: the line ends in `\r` | `(?=[ \t]*\r?$)` |
+| a `.BAT` written with the Write tool | LF only; `COMMAND.COM` ran none of it and the probe never wrote its file | convert to CRLF and count bare LFs before deploying (technique 75) |
+| counting a device table's rows | an entry inside `#if 0` was counted, so LS-120 was set as type 8 (SuperDisk 240, generic name) | read the **enum** the code compares against, not the table |
+| removable-disk type numbers | positional and renumbered upstream (SyQuest added): an old config's 6 is now a SparQ | check the enum on the build under test; state the type by name in the bed's notes |
+| copying a bed with its `uuid` | "This machine might have been moved or copied" on the owner's desktop | drop the line (`bed_launch.ps1` now refuses a shared uuid) |
+| `win95_at_master.img` | a pre-first-run image: Windows 95 Setup's time-zone dialog | `win95_at.img` is the post-setup AT image |
+| editing a file after a rebase under `core.autocrlf` | the working copy was CRLF, an edit left a stray CR inside a line | count CRs against `git show HEAD:file` before committing a source edit |
+| `RUNDLL32 USER.EXE,ExitWindows` from a probe batch | the shutdown waits on the probe's own DOS box: "not responding / End Task" | with the owner present, let them shut down; unattended, expect the prompt |
+| guessing a tool's arguments | `fatcp.py img FILE -` is a **write** call; it stopped only because `-` was not a file | read the usage line of any tool that can write before calling it |
+| stopping a VM the owner is driving | the first L1 was closed under them | say which PID and why, before stopping it |
+
+### And the one that is not scripting
+
+**Automated runs passed while the owner, watching, found four defects in minutes**: "(Unknown
+Bus)" in the Media menu, the LS-120 named "86B_RD00" in Device Manager, Settings offering only
+SCSI models for an LPT CD-ROM, and a CD-ROM on LPT2 whose bridge looked for its drive on LPT1.
+A probe answers the question it was written for. The owner looks at the machine. That is repo-hygiene
+gate G10, and it is why it exists.
