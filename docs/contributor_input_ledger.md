@@ -293,3 +293,18 @@ agent to **alert rather than fix** so a human reviews what went wrong; PRs hand-
 and generated files — especially whole new ones — actually read, against what he calls
 *"vibe rot"*. All four are now in `CLAUDE.md`, and the comment rule immediately found
 stale LS-120 comments in the submitted `lpt_bpck.c`, corrected in #8012.
+
+## @andrew-hoffman — #42 and #35, 2026-09-22 to 09-24
+
+| Input | Status | Told? |
+|---|---|---|
+| [#42](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/42), 09-22: upstream's new `net_3c59x_eisa.c` is also an Etherlink III - check before building one | Our ISA model was already built; merged as 86Box#8076 on 09-24 | ✅ owner, 09-24 |
+| #42, 09-23: VPICD may need patching to take IRQ 2 from the master directly rather than as the cascade | Confirmed against our own `VPICD_INBOARD.VXD`, which NOPs the slave, so master IRQ 2 is dropped as spurious. Now the planned route | ✅ owner, 09-23 |
+| #42, 09-24: A/B the T130B driver with and without an interrupt in an instrumented 86Box, no NIC fitted, before going further | Open. Placed first: it decides whether #42 is worth a VPICD patch at all | ❌ |
+| #42, 09-24: WDEB386 over serial for the Protection Error, instead of the bare message | Open. Planned for the #42 trace in the bed | ❌ |
+| [#35](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/35), 09-22: does `INBRDPC.SYS` refuse to shadow a non-IBM EGA ROM (hash, size, signature), or is it blocked by other option ROMs in `C0000`-`E0000`? Disassemble it | Open. Static read, no hardware | 🟡 owner acknowledged 09-22 |
+
+## 86Box#8076 testers, 2026-09-24
+
+@Cacodemon345 confirmed the 3C509B under NT 3.5 (built-in and EtherDisk 4.3 drivers) and
+Linux; @waltje, one of the card's chipset designers, commented. Owner replied to @waltje.
