@@ -10,7 +10,7 @@ listed; they are generated, not read.
 |---|---|---|---|
 | ATI Graphics Ultra (Mach8) BIOS, 32 KB | [`roms/video/ATI_MACH8.bin`](../roms/video/ATI_MACH8.bin) | `92700634…1f5c1d8c` | matches the card's `113-11504-002` BIOS; identical to `roms/video/mach8/BIOS.BIN` |
 | Mach8, other images | [`roms/video/mach8/`](../roms/video/mach8/) | | `11301113140_*` (8 KB) and an older `11301115150` BIOS (64 KB); what each came from is not recorded |
-| Trantor T130B SCSI BIOS v2.14, 8 KB | [`roms/scsi/trantor_t130b_bios_v2.14.bin`](../roms/scsi/trantor_t130b_bios_v2.14.bin) | `67f28e88…99e857c` | at `CA000h` on the 5160 |
+| Trantor T130B SCSI BIOS v2.14, 8 KB | [`roms/scsi/trantor_t130b_bios_v2.14.bin`](../roms/scsi/trantor_t130b_bios_v2.14.bin) | `67f28e88…99e857c` | a downloaded image, not a read of the card; its first 6 KB match what the card exposes at `CA000h` on the 5160 (CRC-32 `f64b78ef`) |
 | Sergey Kiselev Multi-Floppy BIOS 2.2, 8 KB | [`roms/network/Sergey_FDD.bin`](../roms/network/Sergey_FDD.bin) | `df93d1d5…b3997b` | at `D0000h` on the 5160, on his floppy/serial controller. Project: [github.com/skiselev/floppy_bios](https://github.com/skiselev/floppy_bios) |
 | Sergey Kiselev Multi-Floppy BIOS 2.7, 8 KB | [`roms/network/Sergey_FDD_v2.7.bin`](../roms/network/Sergey_FDD_v2.7.bin) | `b727f971…ece4c42e` | read from a 2764 EPROM programmed 2026-05-31; not the version the 5160 was running on 2026-09-07 (2.2) |
 | Lo-tech XT-CF, as found, 8 KB | [`roms/xtcf_card/XTCF_D8000_asfound_2026_08_31.bin`](../roms/xtcf_card/XTCF_D8000_asfound_2026_08_31.bin) | `86ff8885…f31b18e52` | XTIDE Universal BIOS 2.0.4, read off the card at `D8000h` before reflashing |
