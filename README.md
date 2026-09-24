@@ -224,15 +224,15 @@ and there was nothing to configure.
 
 ## Upstream
 
-**The Intel Inboard 386/PC is part of 86Box.** Eleven PRs raised from this project are merged.
+**The Intel Inboard 386/PC is part of 86Box.** Eleven PRs raised from this project are merged;
+one is open.
+
+| Open PR | What it fixes |
+|---|---|
+| [#8078](https://github.com/86Box/86Box/pull/8078) | The LPT bridges from #8010/#8012: IDE/SCSI CD-ROMs no longer create a phantom BackPack on LPT1; an LPT CD-ROM is initialised (its first long seek stopped the emulator) and no longer pokes IDE channel 0; both bridges use the port their drive is set to, and a CD-ROM's port is saved; Settings offers ATAPI models for an LPT CD-ROM and keeps it on LPT; the Media menu names the LPT bus; the SuperDisk 120 reports the real drive's MATSHITA identity; logging no longer forced on. Tested in 86Box by the owner on Windows 95 and DOS; an LS-120 on LPT2 and the vendor LS-120 DOS driver are not |
 
 Not yet upstream:
 
-- **LPT bridge fixes** - submitted as [#8078](https://github.com/86Box/86Box/pull/8078), open. What
-  #8010/#8012 got wrong: every IDE/SCSI CD-ROM also created a BackPack on LPT1, an LPT CD-ROM
-  stopped the emulator on its first long seek, both bridges ignored the port their drive was set
-  to, "(Unknown Bus)" in the Media menu, SCSI-only models offered for an LPT CD-ROM, and the
-  SuperDisk 120 reporting "86B_RD00" instead of the real drive's MATSHITA identity.
 - IRQ 9 delivered as IRQ 2 on single-PIC machines (local branch).
 - The vendor LS-120 DOS driver does not initialise on the EPAT model
   ([#44](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/44)).
@@ -513,7 +513,7 @@ rather than a DMA-reach one — is on the issue.
 | [#34](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/34) | Display mode as a bus lever: 1024x768 vs 800x600 vs 640x480 |
 | [#35](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/35) | Shadow RAM inventory, and memory-mapped storage in the emulator |
 | [#36](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/36) | `fatcp.py` / `fatls.py` claim FAT12 support but are FAT16 only |
-| [#37](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/37) | BackPack parallel CD-ROM. **Merged** in [86Box#8012](https://github.com/86Box/86Box/pull/8012). Open for a regression it introduced: every IDE or SCSI CD-ROM also creates a BackPack that claims LPT1. Fix built, not yet tested |
+| [#37](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/37) | BackPack parallel CD-ROM. **Merged** in [86Box#8012](https://github.com/86Box/86Box/pull/8012). The regression it introduced (every IDE or SCSI CD-ROM also created a BackPack on LPT1), and the other LPT defects found testing that fix, are submitted as [86Box#8078](https://github.com/86Box/86Box/pull/8078) |
 | [#38](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/38) | Wire `lpt_epat.c` to upstream's EPP callbacks - the transport the real hardware uses |
 | [#40](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/40) | CPU upgrade module: the registers we never explored, and its switches. `CMLR` was one register and took Dhrystone from 2 to 13-15; **`XTOUT` is set where feipoa recommends 0** and has never been tested. The module's switches are undocumented here |
 | [#41](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/41) | Pace the polling in every driver that spins: `T130.MPD`, `HSFLOP.PDR`, `ELNK3.VXD`. A poll is **5.55 us** of bus moving nothing against **0.22 us** for a cached delay - and since 2026-09-21 we know it also **flushes the L1**, so each poll removed is worth more than its bus time |

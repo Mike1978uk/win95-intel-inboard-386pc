@@ -2,8 +2,9 @@
 
 ## Priorities
 
-1. **Owner: approve and open the LPT bridges PR - every gate has passed.** Branch `fix-lpt-bridges` in `86box_lptfix/`,
-   8 commits on master `f7683576a`, head `84ebcdfe9`. Local only - not pushed. Draft text below.
+1. **LPT bridges: submitted as [86Box#8078](https://github.com/86Box/86Box/pull/8078)** (branch
+   `fix-lpt-bridges`, 8 commits, head `84ebcdfe9`), in the owner's approved wording. Read review
+   comments when starting upstream work; the owner writes every reply.
 2. **#42 (IRQ 9 -> 2)** - unchanged from the earlier handoff.
 3. **The vendor LS-120 DOS driver in the emulator** - a new task, below.
 
