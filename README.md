@@ -226,9 +226,16 @@ and there was nothing to configure.
 
 **The Intel Inboard 386/PC is part of 86Box.** Eleven PRs raised from this project are merged.
 
-Not yet upstream: IRQ 9 delivered as IRQ 2 on single-PIC machines (local branch), and a fix for
-a regression from #8012 — every IDE or SCSI CD-ROM also creates a BackPack bridge that claims
-LPT1 (fix built, not yet tested).
+Not yet upstream:
+
+- **LPT bridge fixes** (branch `fix-lpt-bridges`, 8 commits, tested, not yet submitted) - what
+  #8010/#8012 got wrong: every IDE/SCSI CD-ROM also created a BackPack on LPT1, an LPT CD-ROM
+  stopped the emulator on its first long seek, both bridges ignored the port their drive was set
+  to, "(Unknown Bus)" in the Media menu, SCSI-only models offered for an LPT CD-ROM, and the
+  SuperDisk 120 reporting "86B_RD00" instead of the real drive's MATSHITA identity.
+- IRQ 9 delivered as IRQ 2 on single-PIC machines (local branch).
+- The vendor LS-120 DOS driver does not initialise on the EPAT model
+  ([#44](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/44)).
 
 | Merged PR | What it fixed |
 |---|---|
@@ -512,6 +519,7 @@ rather than a DMA-reach one — is on the issue.
 | [#41](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/41) | Pace the polling in every driver that spins: `T130.MPD`, `HSFLOP.PDR`, `ELNK3.VXD`. A poll is **5.55 us** of bus moving nothing against **0.22 us** for a cached delay - and since 2026-09-21 we know it also **flushes the L1**, so each poll removed is worth more than its bus time |
 | [#42](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/42) | T130B: an IRQ needs the 3C509B moved off 3 first. The card's jumpers offer **3, 5 or 7 only** - 5 is fixed for the SB Pro, 7 for LPT1 - so the NIC is the one movable claimant, and its only route is IRQ 2 via the card's "IRQ 9" setting (same B4 slot pin on an XT). An IRQ moves no bytes, but **no IRQ is what forecloses #31**: catching a SCSI reselection needs one |
 | [#43](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/43) | IOCHRDY: what a held bus actually costs. Our own three-window fit already isolates it - per bus cycle **1.978 us** (XT-CF ROM) against **3.805 us** (Mach8 video), same machine, same fixed sync term. And **86Box models no bus stall at all**, so any lever whose whole benefit is holding the bus for less time measures as zero in the bed |
+| [#44](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/44) | The vendor LS-120 DOS driver does not initialise on 86Box's EPAT model (pre-existing). The Windows miniport works; next is `CPP(0x40)`/`CPP(0x50)` in `lpt_epat.c` |
 
 Issues are labelled **`emulator`** or **`real-hardware`** so you can pick by what you have, and
 **`upstream`** marks the ones destined for 86Box itself.
