@@ -28,6 +28,10 @@ if (-not $Log) { $Log = Join-Path $VmPath '86box.log' }
 $tree = (Resolve-Path (Join-Path $exeDir '..\..')).Path
 $head = git -C $tree log -1 --format='%h %ci' 2>$null
 Write-Host ("exe   {0}`n      built {1:yyyy-MM-dd HH:mm:ss}, tree HEAD {2}" -f $Exe, (Get-Item $Exe).LastWriteTime, $head)
+$headTime = git -C $tree log -1 --format='%ct' 2>$null
+if ($headTime -and ([DateTimeOffset]::FromUnixTimeSeconds([int64]$headTime).LocalDateTime -gt (Get-Item $Exe).LastWriteTime)) {
+  Write-Host "      WARNING: the exe predates HEAD - this run does not test the newest commit (gate G9)"
+}
 $cache = Join-Path (Split-Path $exeDir) 'CMakeCache.txt'
 if (Test-Path $cache) {
   $flags = @(Select-String $cache -Pattern '^(QT|CMAKE_BUILD_TYPE|ENABLE_\w+_LOG)\b[^=]*=' | ForEach-Object { $_.Line })
