@@ -79,8 +79,8 @@ got wrong:
 
 Tested in 86Box on current master, with and without this: an AT with Windows 95 and MS-DOS 7, and
 the IBM XT with an Intel Inboard 386/PC. LS-120 with the Windows miniport (drive letter, read and
-write, Device Manager name); BackPack with the Micro Solutions DOS driver and MSCDEX, alone and on
-LPT2; no LPT device alongside a SCSI CD-ROM; attaching both from Settings and saving.
+write, Device Manager name); BackPack with the Micro Solutions DOS driver and MSCDEX, on LPT1 and on
+LPT2; no LPT device alongside a SCSI CD-ROM; attaching both from Settings, saving, and reloading.
 
-Not tested: the vendor LS-120 DOS driver, which does not initialise in 86Box before or after this
-change; both drives in use together under Windows.
+Not tested: an LS-120 on LPT2; the vendor LS-120 DOS driver, which does not initialise in 86Box
+before or after this change; both drives in use together under Windows.
