@@ -33,8 +33,7 @@
 
 ## Open
 
-- **Owner decision:** EEPROM words 4-6 (the card's manufacturing data) are in the #8076
-  template. Zero them and force-push if preferred, ideally before review.
+- EEPROM words 4-6 (the card's manufacturing data) stay in the #8076 template: owner's decision.
 - **LPT bridge fix — built, not tested.** Branch `fix-lpt-bridges`, worktree `86box_lptfix/`,
   5 lines, no warnings:
   - `src/cdrom/cdrom.c`: `CDROM_BUS_LPT` gets its own `case`. Master adds the BackPack bridge
