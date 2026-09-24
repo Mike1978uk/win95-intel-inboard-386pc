@@ -224,12 +224,7 @@ and there was nothing to configure.
 
 ## Upstream
 
-**The Intel Inboard 386/PC is part of 86Box.** Ten PRs raised from this project are merged;
-one is open.
-
-| Open PR | What it adds |
-|---|---|
-| [#8076](https://github.com/86Box/86Box/pull/8076) | The 3Com EtherLink III ISA (3C509B), modelled on the card in this machine: jumperless ID-port configuration, its real EEPROM as the template, defaults that work in an XT slot. Tested in 86Box with Windows 95 and with DOS + mTCP |
+**The Intel Inboard 386/PC is part of 86Box.** Eleven PRs raised from this project are merged.
 
 Not yet upstream: IRQ 9 delivered as IRQ 2 on single-PIC machines (local branch), and a fix for
 a regression from #8012 — every IDE or SCSI CD-ROM also creates a BackPack bridge that claims
@@ -247,6 +242,7 @@ LPT1 (fix built, not yet tested).
 | [#7858](https://github.com/86Box/86Box/pull/7858) | XT-IDE logging was inert on the plain card — only `jride_init()` opened a log handle, so `xtide_log()` wrote to NULL |
 | [#8010](https://github.com/86Box/86Box/pull/8010) | A parallel-port LS-120: the Shuttle EPAT bridge, three optional ECP callbacks on `lpt_device_t`, and the SuperDisk drive type enabled |
 | [#8012](https://github.com/86Box/86Box/pull/8012) | A parallel-port CD-ROM: `CDROM_BUS_LPT` implemented, the Micro Solutions BackPack modelled from hardware, and a `scsi_cdrom_current_mode()` fix - an unrecognised bus got "no transfer", so the drive enumerated and returned no data for any command |
+| [#8076](https://github.com/86Box/86Box/pull/8076) | The 3Com EtherLink III ISA (3C509B), modelled on the card in this machine: jumperless ID-port configuration, its real EEPROM as the template, defaults that work in an XT slot. Merged 2026-09-24; also confirmed by others under NT 3.5 and Linux |
 
 Between them these close [86Box/86Box#7638](https://github.com/86Box/86Box/issues/7638) (all memory
 reported "BAD", 640K available) and this repo's issues #11, #12, #13 and #16.
@@ -501,7 +497,7 @@ rather than a DMA-reach one — is on the issue.
 | [#14](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/14) | POST intermittently halts with 101, at `mem_size` 2688 and 3072. Needs a quiet build, not `86box_full` |
 | [#15](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/15) | Windows 3.0 faults after the splash screen in 386 enhanced mode |
 | [#18](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/18) | Floppy corruption after a media change. DMA reach is fixed (`maxPhys 0x1000 -> 0xFF`, shipped as `HSFLOP_XTDMA.PDR`) and reads/writes measured clean here, but that harness never changed media, which is this issue's trigger. The reproduction bed - 86Box + Monster Floppy + the patched driver + a media change - is still to be built, and needs no hardware |
-| [#20](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/20) | 86Box has no 3C509B. **Built and submitted** as [86Box#8076](https://github.com/86Box/86Box/pull/8076) - modelled on this machine's card, tested in 86Box with Windows 95 and DOS + mTCP. Open until it merges; it also unblocks the `ELNK3.VXD` polling work |
+| [#20](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/20) | 86Box has no 3C509B. **Merged** in [86Box#8076](https://github.com/86Box/86Box/pull/8076), modelled on this machine's card. Unblocks the `ELNK3.VXD` polling work (#41) and the IRQ 9 → 2 work (#42) |
 | [#23](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/23) | `XTIDEMP.MPD` cannot drive the XT-IDE Hi-Speed register map - an A3/A0 swap is a permutation, and the driver computes `base + index * stride`. Blocked on hardware to test against, and on 86Box having no Hi-Speed model |
 | [#28](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/28) | Per-component audit: walk every driver and VxD, six questions each |
 | [#29](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/29) | Measure DMA: reach, cost per byte, channel inventory, CPU overlap |
