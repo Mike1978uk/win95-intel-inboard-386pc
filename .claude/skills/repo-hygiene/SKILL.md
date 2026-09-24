@@ -414,7 +414,7 @@ still needs the refresh afterwards.
 
 ---
 
-## 10. The upstream submission gate - every item, every PR
+## 10. The upstream submission gate - every item, every PR (G1-G9)
 
 Each follow-up patch after an 86Box submission traced to a check nobody ran:
 
@@ -424,9 +424,9 @@ Each follow-up patch after an 86Box submission traced to a check nobody ran:
 | `J:` quoted as evidence - a property of this machine | #8010 | G6 |
 | Comments about the LS-120 and `rdisk_*` in a CD-ROM bridge | #8012 | G5 |
 | `#define ENABLE_LPT_BPCK_LOG 1` / `ENABLE_EPAT_LOG 1` left forced on | #8010, #8012 | G1 |
-| `case` fall-through: every IDE/SCSI CD-ROM also adds a BackPack that claims LPT1 | #8012 | G2 |
+| `case` fall-through: every IDE/SCSI CD-ROM also adds a BackPack that claims LPT1 | #8012 | G2, G9 |
 
-Tick all of these, in the PR's worktree, before the owner is asked to open it:
+Tick all of these (G1-G9), in the PR's worktree, before the owner is asked to open it:
 
 - **G1 No debug left on.** In every touched file, no `#define ENABLE_*_LOG 1`, no forced
   log define, no `pclog` outside a `*_log()` helper, no `#if 1`/`#if 0` experiments.
@@ -443,6 +443,10 @@ Tick all of these, in the PR's worktree, before the owner is asked to open it:
 - **G7 Builds on current master** with no new warnings: apply, build, run (section 6).
   Re-fetch first - upstream may have fixed or moved it (`git log origin/master -- <files>`).
 - **G8 Minimal diff.** No reformatting, no project-local diagnostics, one change per PR.
+- **G9 The last run is on the submitted HEAD.** Compare the exe's build time with the newest
+  commit's time; any commit after the last run is untested. #8012's final commit
+  (`90d81f013`, 11:25) is the one that caused the regression, and the last bed run used an
+  exe built at 11:21.
 
-Record the G1-G8 result in the handoff next to the PR number. An item not run is written as
+Record the G1-G9 result in the handoff next to the PR number. An item not run is written as
 not run, never as passed.
