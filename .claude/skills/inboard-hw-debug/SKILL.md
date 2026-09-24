@@ -48,7 +48,7 @@ end to end.** Find what applies, read that, and add back what you learn.
 | The driver's base does not come from its own device node | **125** - enumerate who else owns that address. Device Manager cannot show this clash |
 | An error line in a log looks like the cause | **127** - grep a run that WORKED for the same line before explaining it. Base rate first |
 | A fix passed in the bed | **127b** - can the bed even produce the failure you fixed? If not, the run proves no regression and nothing else |
-| About to run the bed | **131** - the four pre-flight checks, before the run, every time |
+| About to run the bed | **131** - launch only via `tools/bed_launch.ps1`, then the pre-flight checks, every time |
 | Setting up an A/B | **130** - build the baseline from the LIVE artefact's ledger flags, not from source |
 | A run came back POSITIVE | **129** - "unverified is not a result" applies to good news too |
 | Selling a transfer-width win | **128** - attribute the fixed per-access cost first. **128c**: XT-IDE cannot use dword |
@@ -8011,6 +8011,25 @@ script says so; believe it before deploying anywhere a conclusion is drawn.
 2026-09-20 burned roughly two hours on setup errors, not on the bug. Every one
 would have been caught by a check that takes seconds. Do these four **before**
 launching, and name the answer you expect.
+
+### 0. Launch 86Box ONLY through `tools/bed_launch.ps1`
+
+Every hand-rolled launch has eventually put a modal dialog on the owner's
+desktop. The script refuses instead:
+
+| trap | what the owner sees | the script's check |
+|---|---|---|
+| a Qt build without `C:\msys64\mingw64\bin` on `PATH` | a Qt5 *System Error* box (`Qt5Core.dll` not found) | every imported DLL resolved before launch; MSYS bin prepended |
+| `86Box.exe --help` | a message box of command-line options - on Windows it does not print to the console | never run it; the flags are `-P` and `-L`, read from `src/86box.c` |
+| a mouse in the config | 86Box grabs the pointer on a click | `mouse_type` must be `none` |
+| an image outside the bed, or missing | ROM BASIC, a header-only log | every `*_fn` resolves inside the bed |
+| stopping VMs by name | the owner's own 86Box closed | stops only the PID it started |
+
+It prints the exe's build time, the tree's HEAD and the `QT` / log flags from
+`CMakeCache.txt` (items 1 and 2 below), and warns when the log is header-only.
+**A header-only log proves nothing** - `vm_3c509b/lpttest*/` held three of them
+on 2026-09-24, and an absent line in one was nearly read as a pass. Pair every
+"line absent" run with a run where the line MUST appear (technique 127).
 
 ### 1. Is the binary the one you just changed?
 
