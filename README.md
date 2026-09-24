@@ -228,7 +228,7 @@ and there was nothing to configure.
 
 Not yet upstream:
 
-- **LPT bridge fixes** (branch `fix-lpt-bridges`, 8 commits, tested, not yet submitted) - what
+- **LPT bridge fixes** - submitted as [#8078](https://github.com/86Box/86Box/pull/8078), open. What
   #8010/#8012 got wrong: every IDE/SCSI CD-ROM also created a BackPack on LPT1, an LPT CD-ROM
   stopped the emulator on its first long seek, both bridges ignored the port their drive was set
   to, "(Unknown Bus)" in the Media menu, SCSI-only models offered for an LPT CD-ROM, and the
