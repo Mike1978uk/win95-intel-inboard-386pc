@@ -411,3 +411,38 @@ git checkout HEAD -- .    # refresh index+worktree from the new HEAD
 **Rebase in a throwaway worktree** (`git worktree add -f <tmp> <branch>`) and
 this does not arise - but the branch ref still moves, so the main checkout
 still needs the refresh afterwards.
+
+---
+
+## 10. The upstream submission gate - every item, every PR
+
+Each follow-up patch after an 86Box submission traced to a check nobody ran:
+
+| Escaped | PR | Gate that would have caught it |
+|---|---|---|
+| No Settings entry; OBattler added one (`90baccc21`) | #8010, #8012 | G3 |
+| `J:` quoted as evidence - a property of this machine | #8010 | G6 |
+| Comments about the LS-120 and `rdisk_*` in a CD-ROM bridge | #8012 | G5 |
+| `#define ENABLE_LPT_BPCK_LOG 1` / `ENABLE_EPAT_LOG 1` left forced on | #8010, #8012 | G1 |
+| `case` fall-through: every IDE/SCSI CD-ROM also adds a BackPack that claims LPT1 | #8012 | G2 |
+
+Tick all of these, in the PR's worktree, before the owner is asked to open it:
+
+- **G1 No debug left on.** In every touched file, no `#define ENABLE_*_LOG 1`, no forced
+  log define, no `pclog` outside a `*_log()` helper, no `#if 1`/`#if 0` experiments.
+  `git diff origin/master -- <files> | grep -nE '^\+.*(define +ENABLE_|_LOG +1|#if [01]|pclog)'`
+- **G2 Absent means unchanged.** Boot a config that does NOT use the new code (same class
+  of device on another bus, nothing on the port) on master and on the branch, both built
+  with the new module's log enabled. The logs must match: no new attach, no claimed port,
+  IRQ or I/O range. Read every `switch` the diff touches for fall-through into new cases.
+- **G3 Settings attach** from an empty config in a fresh Qt build (section 7).
+- **G4 Working device** with the driver a stranger would use (section 7).
+- **G5 Every comment re-read** against this file, not the one it was ported from
+  (`CLAUDE.md`, "Comments are a canary").
+- **G6 Every claim reproducible** by a stranger (section 8); what was not tested, said plainly.
+- **G7 Builds on current master** with no new warnings: apply, build, run (section 6).
+  Re-fetch first - upstream may have fixed or moved it (`git log origin/master -- <files>`).
+- **G8 Minimal diff.** No reformatting, no project-local diagnostics, one change per PR.
+
+Record the G1-G8 result in the handoff next to the PR number. An item not run is written as
+not run, never as passed.
