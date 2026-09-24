@@ -1,6 +1,24 @@
 # Next session — 2026-09-24
 
-## 3C509B emulation — built, every gate passed, awaiting the owner's submission
+## Update, end of session
+
+- **3C509B submitted: 86Box PR #8076** (`Mike1978uk:3c509b-isa`, commit `7e32b6ce8`, one
+  commit on master `715a1c1ca`). Wording is the owner's. Announced on discussion #6447
+  (comment 18584701). **Watch both; report new comments to the owner; never reply.**
+- Open owner decision: EEPROM words 4-6 (the card's manufacturing data) are in the template;
+  zero them and force-push if the owner prefers, ideally before review.
+- **LPT bridge fix still untested.** Two attempted runs produced no evidence: the Inboard bed
+  and a copied 486 config both reached ROM BASIC / "no ROM BASIC" on the fix build (the copy
+  pointed at `../at95/win95_at.img`; the disk was never seen). Both grabbed the owner's mouse.
+- **Before any VM run:** ask first; set `mouse_type = none` in test configs (86Box captures
+  the mouse only on a click in the window when a mouse is configured); keep the disk image in
+  the bed's own folder and check it resolves; close only the PIDs launched.
+- Test plan for the fix: (1) SCSI/IDE CD-ROM, nothing on LPT, `build_log` variant of unfixed
+  vs fixed - `BPCK: attached` present then absent; (2) owner configures an LPT CD-ROM **through
+  Settings** in the fixed Qt build (checks the menus still offer LPT - the gap missed on
+  #8010/#8012) and confirms the drive letter in `vm_bpck`. The fix does not touch `src/qt/`.
+
+## 3C509B emulation — built, every gate passed
 
 Branch `3c509b-isa-pr` in worktree `86box_3c509b_pr/`: one commit on 86Box master `715a1c1ca`,
 builds with zero warnings. Working branch `3c509b-isa` (worktree `86box_3c509b/`) also carries
