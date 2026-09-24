@@ -224,10 +224,18 @@ and there was nothing to configure.
 
 ## Upstream
 
-**The Intel Inboard 386/PC is part of 86Box.** All ten PRs raised from this project are
-merged.
+**The Intel Inboard 386/PC is part of 86Box.** Ten PRs raised from this project are merged;
+one is open.
 
-| PR | What it fixed |
+| Open PR | What it adds |
+|---|---|
+| [#8076](https://github.com/86Box/86Box/pull/8076) | The 3Com EtherLink III ISA (3C509B), modelled on the card in this machine: jumperless ID-port configuration, its real EEPROM as the template, defaults that work in an XT slot. Tested in 86Box with Windows 95 and with DOS + mTCP |
+
+Not yet upstream: IRQ 9 delivered as IRQ 2 on single-PIC machines (local branch), and a fix for
+a regression from #8012 — every IDE or SCSI CD-ROM also creates a BackPack bridge that claims
+LPT1 (fix built, not yet tested).
+
+| Merged PR | What it fixed |
 |---|---|
 | [#7626](https://github.com/86Box/86Box/pull/7626) | The hardware model itself, ported from SuperFury's [UniPCemu](https://superfury.itch.io/unipcemu) `hardware/inboard.c` |
 | [#7749](https://github.com/86Box/86Box/pull/7749) | POST 101 (the machine defaulted to an incompatible 1982 ROM); 386DX ran no POST fix-ups at all; double-throttled memory timing |
@@ -493,7 +501,7 @@ rather than a DMA-reach one — is on the issue.
 | [#14](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/14) | POST intermittently halts with 101, at `mem_size` 2688 and 3072. Needs a quiet build, not `86box_full` |
 | [#15](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/15) | Windows 3.0 faults after the splash screen in 386 enhanced mode |
 | [#18](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/18) | Floppy corruption after a media change. DMA reach is fixed (`maxPhys 0x1000 -> 0xFF`, shipped as `HSFLOP_XTDMA.PDR`) and reads/writes measured clean here, but that harness never changed media, which is this issue's trigger. The reproduction bed - 86Box + Monster Floppy + the patched driver + a media change - is still to be built, and needs no hardware |
-| [#20](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/20) | 86Box has no 3C509B device, so emulated networking cannot match the real machine's card. **No longer fidelity-only**: `ELNK3.VXD` was found on 2026-09-21 to spin flat out on the NIC (27 poll loops, no delay), and with no card in the bed a pacing patch has nowhere safe to fail - so this now **blocks** that work. Upstream [discussion #6447](https://github.com/86Box/86Box/discussions/6447) has the documents; base any port on QEMU's 3C509B (MIT, Antony T Curtis), never on `net_3c503.c` |
+| [#20](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/20) | 86Box has no 3C509B. **Built and submitted** as [86Box#8076](https://github.com/86Box/86Box/pull/8076) - modelled on this machine's card, tested in 86Box with Windows 95 and DOS + mTCP. Open until it merges; it also unblocks the `ELNK3.VXD` polling work |
 | [#23](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/23) | `XTIDEMP.MPD` cannot drive the XT-IDE Hi-Speed register map - an A3/A0 swap is a permutation, and the driver computes `base + index * stride`. Blocked on hardware to test against, and on 86Box having no Hi-Speed model |
 | [#28](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/28) | Per-component audit: walk every driver and VxD, six questions each |
 | [#29](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/29) | Measure DMA: reach, cost per byte, channel inventory, CPU overlap |
@@ -502,7 +510,7 @@ rather than a DMA-reach one — is on the issue.
 | [#34](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/34) | Display mode as a bus lever: 1024x768 vs 800x600 vs 640x480 |
 | [#35](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/35) | Shadow RAM inventory, and memory-mapped storage in the emulator |
 | [#36](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/36) | `fatcp.py` / `fatls.py` claim FAT12 support but are FAT16 only |
-| [#37](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/37) | BackPack parallel CD-ROM. **Built and submitted** as [86Box#8012](https://github.com/86Box/86Box/pull/8012) - the drive is modelled from real hardware and reads a disc. Open until that merges |
+| [#37](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/37) | BackPack parallel CD-ROM. **Merged** in [86Box#8012](https://github.com/86Box/86Box/pull/8012). Open for a regression it introduced: every IDE or SCSI CD-ROM also creates a BackPack that claims LPT1. Fix built, not yet tested |
 | [#38](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/38) | Wire `lpt_epat.c` to upstream's EPP callbacks - the transport the real hardware uses |
 | [#40](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/40) | CPU upgrade module: the registers we never explored, and its switches. `CMLR` was one register and took Dhrystone from 2 to 13-15; **`XTOUT` is set where feipoa recommends 0** and has never been tested. The module's switches are undocumented here |
 | [#41](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/41) | Pace the polling in every driver that spins: `T130.MPD`, `HSFLOP.PDR`, `ELNK3.VXD`. A poll is **5.55 us** of bus moving nothing against **0.22 us** for a cached delay - and since 2026-09-21 we know it also **flushes the L1**, so each poll removed is worth more than its bus time |
