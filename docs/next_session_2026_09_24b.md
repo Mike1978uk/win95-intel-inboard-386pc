@@ -2,7 +2,7 @@
 
 ## Priorities
 
-1. **Owner: approve and open the LPT bridges PR.** Branch `fix-lpt-bridges` in `86box_lptfix/`,
+1. **Owner: approve and open the LPT bridges PR - every gate has passed.** Branch `fix-lpt-bridges` in `86box_lptfix/`,
    8 commits on master `f7683576a`, head `84ebcdfe9`. Local only - not pushed. Draft text below.
 2. **#42 (IRQ 9 -> 2)** - unchanged from the earlier handoff.
 3. **The vendor LS-120 DOS driver in the emulator** - a new task, below.
@@ -32,7 +32,7 @@
 | G6 claims | not tested: LS-120 with the vendor DOS driver (fails on master and fix alike, below); both drives together under Windows (out of scope, owner) |
 | G7 builds on master | pass, no new warnings |
 | G8 minimal diff | pass |
-| G9 last run on HEAD | the LS-120 Windows check ran on `9ce35056b`; C1 (BackPack on LPT2) and the DOS runs on `84ebcdfe9` |
+| G9 last run on HEAD | pass - owner re-ran both on `84ebcdfe9`, the shipped Qt build: LS-120 (Explorer, Device Manager MATSHITA, Media menu) and BackPack (browse, open a file, Media menu) |
 | G10 owner by hand | done for LS-120 (L1), BackPack (B1), Settings (G3) |
 
 ## Found, not part of the PR - report, do not fix
