@@ -1,5 +1,11 @@
 # Next session — 2026-09-24
 
+## Priorities (owner, end of session)
+
+1. **The 86Box LPT bridge fixes**: test (plan below), then the owner opens the PR.
+2. **#42: IRQ 9 → 2 on the XT.** Card at 9, stock ELNK3, VPICD dispatching master IRQ 2 as
+   IRQ 9. The bed already reproduces the fault; trace it, then write the patch.
+
 ## Update, end of session
 
 - **3C509B submitted: 86Box PR #8076** (`Mike1978uk:3c509b-isa`, commit `7e32b6ce8`, one
