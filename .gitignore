@@ -129,3 +129,9 @@ drivers/imation_ls120/tools/ECPPROBE.COM
 vm_bpck/
 # Third-party clone (RonnyRoy's Inboard reproduction) - read it, do not vendor it
 references/inboard386_ronnyroy/
+
+# 3C509B work (#42): the 86Box worktree, its bed, and a clone of
+# hackerb9/3C509B-nestor kept for reading.
+86box_3c509b/
+vm_3c509b/
+references/3c509b_nestor/
