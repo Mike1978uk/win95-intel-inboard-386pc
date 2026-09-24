@@ -425,6 +425,7 @@ Each follow-up patch after an 86Box submission traced to a check nobody ran:
 | Comments about the LS-120 and `rdisk_*` in a CD-ROM bridge | #8012 | G5 |
 | `#define ENABLE_LPT_BPCK_LOG 1` / `ENABLE_EPAT_LOG 1` left forced on | #8010, #8012 | G1 |
 | `case` fall-through: every IDE/SCSI CD-ROM also adds a BackPack that claims LPT1 | #8012 | G2, G9 |
+| Media menu labels an LPT drive "(Unknown Bus)" | #8010, #8012 | G3 |
 
 Tick all of these (G1-G9), in the PR's worktree, before the owner is asked to open it:
 
@@ -435,7 +436,10 @@ Tick all of these (G1-G9), in the PR's worktree, before the owner is asked to op
   of device on another bus, nothing on the port) on master and on the branch, both built
   with the new module's log enabled. The logs must match: no new attach, no claimed port,
   IRQ or I/O range. Read every `switch` the diff touches for fall-through into new cases.
-- **G3 Settings attach** from an empty config in a fresh Qt build (section 7).
+- **G3 Settings attach** from an empty config in a fresh Qt build (section 7), then read the
+  Media menu and status bar: every new bus needs a label there too. #8010 and #8012 show
+  "(Unknown Bus)" because `qt_mediamenu.cpp` names only ATAPI and SCSI for CD-ROMs and
+  removable disks.
 - **G4 Working device** with the driver a stranger would use (section 7).
 - **G5 Every comment re-read** against this file, not the one it was ported from
   (`CLAUDE.md`, "Comments are a canary").
