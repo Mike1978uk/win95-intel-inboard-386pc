@@ -13,6 +13,20 @@ model**. Detail for today is in `docs/next_session_2026_09_24b.md`.
 | `pic.c` IRQ 9 as IRQ 2 | local branch `3c509b-isa` (`ef082884b`), not submitted - #42 |
 | #44 LS-120 DOS driver | open, below |
 
+## Close the loop with @andrew-hoffman, as each input is tested
+
+His inputs from #42 and #35 (ledger: `docs/contributor_input_ledger.md`, "#42 and #35, 2026-09-22
+to 09-24"). When one is tested, tell him the result - with thanks for his continued input. The owner
+writes the reply; draft it on request.
+
+| input | tested? | owner replied? |
+|---|---|---|
+| upstream's `net_3c59x_eisa.c` before building a 3C509B | built; #8076 merged | yes, 09-24 - a closing note that it merged is still owed |
+| VPICD must take IRQ 2 from the master, not as the cascade | confirmed by reading our `VPICD_INBOARD.VXD`; patch not written | yes, 09-23 |
+| A/B the T130B with and without an interrupt, no NIC, first | **not yet** - do this before any #42 work | **no** |
+| WDEB386 over serial for the Protection Error | **not yet** | **no** |
+| does `INBRDPC.SYS` refuse to shadow a non-IBM EGA ROM? disassemble it (#35) | **not yet** | acknowledged 09-22 |
+
 ## #44 - where to start
 
 `SD120PPD.SYS` + `ASPIHDRM.SYS` report "Error initialising adapter" on master and on #8078
