@@ -8024,6 +8024,7 @@ desktop. The script refuses instead:
 | a mouse in the config | 86Box grabs the pointer on a click | `mouse_type` must be `none` |
 | an image outside the bed, or missing | ROM BASIC, a header-only log | every `*_fn` resolves inside the bed |
 | stopping VMs by name | the owner's own 86Box closed | stops only the PID it started |
+| a bed copied with its `uuid` line | *"This machine might have been moved or copied"* | refuses a `uuid` that another bed's config also holds |
 
 It prints the exe's build time, the tree's HEAD and the `QT` / log flags from
 `CMakeCache.txt` (items 1 and 2 below), and warns when the log is header-only.

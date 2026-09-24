@@ -44,7 +44,11 @@ if ($missing) { Fail "DLLs not found in $($search -join '; '): $($missing -join 
 
 # 3. Config: no mouse, ROMs reachable, every image inside the bed and present.
 $ini = Get-Content $cfg
-$mouse = ($ini | Select-String '^\s*mouse_type\s*=\s*(\S+)').Matches | ForEach-Object { $_.Groups[1].Value }
+function Get-CfgValue($key) {
+  $m = $ini | Select-String "^\s*$key\s*=\s*(\S+)" | Select-Object -First 1
+  if ($m) { $m.Matches[0].Groups[1].Value } else { $null }
+}
+$mouse = Get-CfgValue 'mouse_type'
 if (-not $AllowMouse -and $mouse -ne 'none') { Fail "mouse_type = '$mouse'; set it to none (or pass -AllowMouse)" }
 $roms = @(@((Join-Path $VmPath 'roms\machines'), (Join-Path $exeDir 'roms\machines')) | Where-Object { Test-Path $_ })
 if (-not $roms) { Fail "no roms\machines under the bed or the exe" }
@@ -55,6 +59,15 @@ foreach ($m in ($ini | Select-String '^\s*\w+_(fn|image_path)\s*=\s*(.+)$')) {
   if (-not (Test-Path $p)) { Fail "image not found: $f" }
   $full = (Resolve-Path $p).Path
   if (-not $full.StartsWith($VmPath, 'OrdinalIgnoreCase')) { Fail "image outside the bed: $full" }
+}
+# A copied bed keeps the original's uuid, and 86Box then stops on a
+# "This machine might have been moved or copied" dialog.
+$uuid = Get-CfgValue 'uuid'
+if ($uuid) {
+  $repo = Split-Path $PSScriptRoot
+  $twins = Get-ChildItem $repo -Filter 86box.cfg -Recurse -Depth 4 -EA SilentlyContinue |
+    Where-Object { $_.FullName -ne $cfg -and (Select-String -Path $_.FullName -Pattern "^\s*uuid\s*=\s*$uuid" -Quiet) }
+  if ($twins) { Fail "uuid $uuid is shared with $($twins[0].FullName) - delete the uuid line from a copied bed" }
 }
 Write-Host "cfg   $cfg (mouse $mouse, roms $($roms[0]))"
 if ($DryRun) { Write-Host "DRY RUN: all checks passed, nothing launched"; exit 0 }
