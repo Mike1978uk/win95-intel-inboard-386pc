@@ -344,6 +344,18 @@ vendor's `sd120ppd.mpd`, which sits unused in the bed image at
 `C:\LS120FIX\`. Demonstrating the model with a project-local driver does not
 support a claim that the device works.
 
+### ...and a stranger has to be able to attach it from the Settings dialog
+
+#8010 (LS-120) and #8012 (BackPack) merged on 2026-09-21 with nothing under
+`src/qt/`. Every test here set the bus by hand in `86box.cfg`, so the missing
+menu entry never showed up. Users then asked how to configure the devices, and
+OBattler added "LPT" to the CD-ROM and removable-disk bus lists the next day
+(`90baccc21`).
+
+Before submitting a device, **open Settings in a fresh build and attach it from
+there**, starting from an empty config. If it can't be reached, the PR is not
+finished: either add the UI or say in the PR that it is config-file only.
+
 ### The general rule
 
 Before writing "tested" in a PR, name the **observation** that would convince a
