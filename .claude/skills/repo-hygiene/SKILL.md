@@ -414,7 +414,7 @@ still needs the refresh afterwards.
 
 ---
 
-## 10. The upstream submission gate - every item, every PR (G1-G9)
+## 10. The upstream submission gate - every item, every PR (G1-G10)
 
 Each follow-up patch after an 86Box submission traced to a check nobody ran:
 
@@ -427,7 +427,7 @@ Each follow-up patch after an 86Box submission traced to a check nobody ran:
 | `case` fall-through: every IDE/SCSI CD-ROM also adds a BackPack that claims LPT1 | #8012 | G2, G9 |
 | Media menu labels an LPT drive "(Unknown Bus)" | #8010, #8012 | G3 |
 
-Tick all of these (G1-G9), in the PR's worktree, before the owner is asked to open it:
+Tick all of these (G1-G10), in the PR's worktree, before the owner is asked to open it:
 
 - **G1 No debug left on.** In every touched file, no `#define ENABLE_*_LOG 1`, no forced
   log define, no `pclog` outside a `*_log()` helper, no `#if 1`/`#if 0` experiments.
@@ -447,10 +447,16 @@ Tick all of these (G1-G9), in the PR's worktree, before the owner is asked to op
 - **G7 Builds on current master** with no new warnings: apply, build, run (section 6).
   Re-fetch first - upstream may have fixed or moved it (`git log origin/master -- <files>`).
 - **G8 Minimal diff.** No reformatting, no project-local diagnostics, one change per PR.
+- **G10 The owner verifies it by hand, as with the 3C509B (#8076).** On the submitted HEAD, in
+  a Qt build, with the owner driving: attach from Settings, read the Media menu (bus label,
+  image path), then in the guest read Device Manager (every entry the device creates, and the
+  name it shows), use the drive letter (read and write), and shut down cleanly. Automated runs
+  do not satisfy this: on 2026-09-24 they missed the "(Unknown Bus)" label, the "86B_RD00"
+  drive name, the SCSI-only model list and the renumbered SuperDisk type. The owner saw them.
 - **G9 The last run is on the submitted HEAD.** Compare the exe's build time with the newest
   commit's time; any commit after the last run is untested. #8012's final commit
   (`90d81f013`, 11:25) is the one that caused the regression, and the last bed run used an
   exe built at 11:21.
 
-Record the G1-G9 result in the handoff next to the PR number. An item not run is written as
+Record the G1-G10 result in the handoff next to the PR number. An item not run is written as
 not run, never as passed.
