@@ -12,6 +12,7 @@ listed; they are generated, not read.
 | Mach8, other images | [`roms/video/mach8/`](../roms/video/mach8/) | | `11301113140_*` (8 KB) and an older `11301115150` BIOS (64 KB); what each came from is not recorded |
 | Trantor T130B SCSI BIOS v2.14, 8 KB | [`roms/scsi/trantor_t130b_bios_v2.14.bin`](../roms/scsi/trantor_t130b_bios_v2.14.bin) | `67f28e88…99e857c` | at `CA000h` on the 5160 |
 | Sergey Kiselev Multi-Floppy BIOS 2.2, 8 KB | [`roms/network/Sergey_FDD.bin`](../roms/network/Sergey_FDD.bin) | `df93d1d5…b3997b` | at `D0000h` on the 5160, on his floppy/serial controller. Project: [github.com/skiselev/floppy_bios](https://github.com/skiselev/floppy_bios) |
+| Sergey Kiselev Multi-Floppy BIOS 2.7, 8 KB | [`roms/network/Sergey_FDD_v2.7.bin`](../roms/network/Sergey_FDD_v2.7.bin) | `b727f971…ece4c42e` | read from a 2764 EPROM programmed 2026-05-31; not the version the 5160 was running on 2026-09-07 (2.2) |
 | Lo-tech XT-CF, as found, 8 KB | [`roms/xtcf_card/XTCF_D8000_asfound_2026_08_31.bin`](../roms/xtcf_card/XTCF_D8000_asfound_2026_08_31.bin) | `86ff8885…f31b18e52` | XTIDE Universal BIOS 2.0.4, read off the card at `D8000h` before reflashing |
 | Lo-tech XT-CF, as flashed, 8 KB | [`roms/xtcf_card/IDE_XTP_configured_2026_08_31.bin`](../roms/xtcf_card/IDE_XTP_configured_2026_08_31.bin) | `2512f5a0…4b7c` | XTIDE Universal BIOS r638 XT+, configured for this machine; what the card runs now |
 
