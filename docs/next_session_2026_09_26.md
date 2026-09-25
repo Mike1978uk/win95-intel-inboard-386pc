@@ -1,5 +1,29 @@
 # Next session - midday handoff from 2026-09-25
 
+## ✅ Update 2026-09-25 evening: #8099 MERGED; 3C509B IRQ regression fixed as 86Box#8102 (open)
+
+**#8099 merged** 14:37 UTC by OBattler (`14c5ec7f7`); README updated (`3f5b07c`). #44 on this repo
+is still open - owner's call to close.
+
+**86Box#8102** (branch `3c509b-reset-keeps-irq`, `075bb5d30`, worktree `86box_master`): since
+#8087, every ID-sequence global reset (C0h) resets the card's PnP state, and the callback wrote
+PnP IRQ 0 over the EEPROM's - the card activated with no interrupt, the DOS packet driver timed
+out. Fix: apply PnP resources only on PnP activate. Independent of the `pnp` option.
+Gates: G1 G4 G5 G6 G7 G8 G9 G10 pass; G2 not run as a pair; G3 n/a (no UI change).
+Runs: XT `vm_wfw3c509` PnP off and on (DOS DHCP, WfW 3.11 + `ELNK3.DOS` browses);
+AT `vm_3c509b/at95` Win95 PnP on (assigned IRQ 5 / 210h / C8000h, browses).
+
+**The WfW "freeze" on #8076** did not reproduce once the emulated **SB Pro v2** was removed - the
+same wallpaper-and-hourglass hang the port plan recorded in July on this image (never
+investigated; open). Ruled out on the way: COM2 on IRQ 3, slirp's ICMP replies to NetBIOS
+broadcasts, the `pnp` setting. The reporter's WfW **3.1** case is unconfirmed; #8086 fixed an
+`ELNK3.386` hang this image never exercises.
+
+Beds: `vm_wfw3c509` (new; copy of `win311_test_copy.img`, 63/16/7785, no SB, COM2 off; configs
+`86box.cfg.master` and `86box.cfg.master_withsb`). `vm_3c509b/at95` uuid line dropped (backup
+`86box.cfg.pre_run3`); `lpttest3` uuid dropped (`86box.cfg.bak_uuid`). Diagnostics used:
+`docs/patches/3c509b_diag_idseq_eeprom_frames.patch` (ID/EEPROM logs, frame dump, ICMP drop).
+
 ## ✅ Update 2026-09-25 afternoon: #44 SUBMITTED as 86Box#8099
 
 Head `f361a8a02` (three commits on `lpt-epat-vendor-dos`, fork `Mike1978uk/86Box`), opened by
