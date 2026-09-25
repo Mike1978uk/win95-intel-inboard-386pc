@@ -137,3 +137,8 @@ vm_3c509b/
 references/3c509b_nestor/
 86box_lptfix/
 86box_3c509b_pr/
+
+# #44 (86Box#8099) worktree and its DOS bed; the WfW 3.11 + 3C509B bed (#8102).
+86box_epat44/
+vm_ls120dos44/
+vm_wfw3c509/
