@@ -1,5 +1,25 @@
 # Next session - midday handoff from 2026-09-25
 
+## ▶ NEXT: Andrew's T130B A/B (#42) - planned, not run
+
+Owner's priority from here: **Win95 on the XT, not 86Box quirks** (fix only his own 86Box code).
+The A/B decides whether #42 (IRQ 9 -> 2) is worth doing. All in 86Box, no 5160 needed.
+
+- Bed `vm_t130b`: Inboard XT, Win95 `t130b.img`, SCSI disk `scsi_test.img` (64 MB, FAT16,
+  `1997_5400rpm`), no NIC, SB Pro on 5, T130B `irq = 00`. Masters: `*_master.img`.
+- The installed node is OUR XT INF (`OEM1.INF`, section `T_ISA`, `Polling=1`) and
+  `drivers/trantor_t130b/T130-XT.INF` **has no `IRQConfig`** - that node can never get an IRQ.
+- Run A: as installed (polled). Run B: bed `irq = 3` (JP3 on 3); owner removes the node, reboots,
+  Add New Hardware -> Have Disk with the **vendor `T130.INF`** (`IRQConfig=3,5,7`, no Polling),
+  confirms IRQ 3 in Device Manager. Stage `T130.INF` + `T130.MPD` to e.g. `C:\T130VND\` (CRLF).
+- Workload: a staged CRLF batch `T130AB.BAT` - `echo.|time` stamp, `copy` a fixed set (e.g.
+  `C:\WIN95\*.*`, ~1 MB+, or a larger file) to the SCSI disk, stamp again - guest clock, same in
+  both runs. Owner runs it from a DOS box.
+- Answer Andrew with the result, with thanks; the #8076-merged note is owed too.
+- If B is faster: submit the unsubmitted 4-line `pic.c` fix (`ef082884b` on `86box_3c509b`:
+  without a slave, IRQ 9 is IRQ 2) as its own PR, then VPICD + `ELNK3` 9->2 with WDEB386.
+- `T130.MPD` registers `HwInterrupt` (`0x10A9C`); JP3 offers 3/5/7 (established).
+
 ## ✅ Update 2026-09-25 evening: #8099 MERGED; 3C509B IRQ regression fixed as 86Box#8102 (open)
 
 **#8099 merged** 14:37 UTC by OBattler (`14c5ec7f7`); README updated (`3f5b07c`). #44 on this repo
