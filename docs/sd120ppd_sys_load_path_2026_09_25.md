@@ -76,6 +76,88 @@ bits 6-4 = unit -> ours. Modelled from this read (arm on `CPP(0x48)`, off on `CP
 status bit 6 high while armed and disconnected; unit byte `0x80|unit<<4` when pending), **untested**.
 On the real machine `[0C0D] = 01` skips it.
 
+### The transfer engine - read in full, 2026-09-25 afternoon
+
+**Start**, `0x1A84` -> `0x3357`, called before every PACKET data phase with `DX:AX = 0` and
+`CX` = the SRB's byte count (`es:[di+0Ah]`); `SI = 0` for SRB flag `08h` (in), `1` for `10h` (out):
+
+| step | writes |
+|---|---|
+| `[09E9]` bit 6 only | reg `0A` = `10`, reg `0C` &= `EF` |
+| unless `DX = FFFF` | internal `06` = blocks low, internal `07` = blocks bits 9-8 (`DX:AX / 512`, so `0` here) |
+| always | reg `14` = `CX / 512 - 1`, **not** bytes/2 - 1 as the handoff said: `FF` below 512 bytes, `00` for one sector |
+| always | reg `12` = read value, bit 0 **set** for in / clear for out, bit 1 set (start); `[09E9]` bit 9 adds bit 7 |
+
+Then `0x1AB9` sets the direction in the chip view: internal `0C` = 1, reg `18` = `26` in / `22` out
+on the `E2` chip (`03`/`02` otherwise), internal `0C` = 0.
+
+**Collect**, read path `0x18F2`: `0x383C` reads internal `06`/`07` back as a count of 512-byte
+blocks, and `0x1B3E` then block-reads `min(count x 512 + 512, requested)` bytes through `0x1FB7`
+-> `0x329E`, the same block read the polled path uses. Between chunks `0x1FB7` calls `0x3619`.
+Writes go out through `0x1B85` -> `0x1F58` -> `0x31F0`.
+
+**Status**, `0x3619`: reg `12` bits 4 and 5 both set -> `1` (done); bit 3 -> `2`; else it checks
+reg `09` (`F0`/`50`/`A0` -> `18`/`08`/`10`) when `[0C16]` is set, else folds reg `08` bits 0-1 into
+reg `0D` and returns `4000`.
+
+**Stop**, `0x1B35` -> `0x33E4`: reg `12` &= `FC`; with `[09E9]` bit 6, reg `0A` = `18`, reg `0C` |= `10`.
+**Abort**, `0x368C` (no direct caller): if reg `12` bit 1, set reg `13` bit 1, poll `0x3619` up to
+`0x800` times for `1`, clear reg `13` bit 1 and reg `12` bits 0-1.
+
+**What the bed shows.** The `/di` run B15 already starts the engine 266 times (`W12=33`,
+`W14`, `W18=26`) and reads correctly, because every READ(10) there is one sector and the model
+serves the block read from the drive directly. So the engine does not need modelling for
+single-sector transfers. In the default-line run B13 the driver starts READ CAPACITY, disconnects,
+sends `CPP(0x48)` and sets control bit 4 - and never sends `CPP(0x08|u)`: **no interrupt arrived.**
+
+**Cause.** The model raises the port interrupt the moment `CPP(0x48)` is decoded, because its drive
+has already finished. 86Box's `lpt_irq()` discards a raise while control bit 4 is clear and does not
+re-check when bit 4 is later set, so the raise is lost. On hardware the drive completes after the
+disconnect and the nACK edge lands with bit 4 already set. The fix belongs in the model: forward
+INTRQ to the port after a drive latency, not at the instant of arming.
+
+**Run B16 (default line, latency fix).** The interrupt now reaches the driver, which then scans
+`CPP 08|u` / `50|u` for u = 0..8 and re-arms, forever: unit 0 always answers `00`.
+
+### The interrupt path, read in full
+
+| address | what it does |
+|---|---|
+| `0x20DE`-`0x2114` | four IRQ entries, `BP` = slot 0-3, all into `0x2116` |
+| `0x2116` | IRQ number from `[0A6E+BP]`; `0x2323` checks the PIC in-service bit (OCW3 `0B`); calls the slot handler `[0A86+2BP]`; on `AX=1` far-calls `[0A76]` |
+| `0x1E84` -> `0x1DF3` | `0x356A` must pass (non-ECP: nACK high, control bit 4 set); with `[0983]=1` it is "ours" at once and `0x1EA6` calls `[0981]` |
+| `0x80C3` | API function 1 registers `0x621B` as that handler, and a completion callback per unit in `[0A03+4u]` for each unit in `[09F4]`, sending `CPP 50\|u` to every unit as it goes |
+| `0x621B` | `CPP 40`; fn 5 (`0x239D`); for u = 0..8: **`CPP 40`, `CPP 08\|u`, `CPP 50\|u`**, and if the `08\|u` byte has bit 7 set, far-call unit u's callbacks and stop; then fn 8 = `CPP 48` |
+| `0x26D9` | the CPP frame. `08\|u` has no commit strobe: status is read once, straight after the command byte. Control bit 4 is cleared by every frame and set again only after `48` |
+
+The `0x1284` API (`0x1D13`, table at `0x1D35`) maps function 8 to `CPP 48`, 9 to `CPP 40`,
+10 to `CPP 50|u`, 11 to `CPP 08|u`. The wrappers are at `0x604B`, `0x6034`, `0x6093`, `0x6079`.
+
+**What the model got wrong.** It answered `08|u` with `80|u<<4` only while forwarding was armed.
+The scan disarms with `CPP 40` before every query, so the answer was always `00`. The byte has to
+report the unit's pending interrupt regardless of the arm; `0x621B` reads only bit 7. `CPP 50|u`
+follows every query and is sent to every unit at registration: an acknowledge with no reply. INTRQ
+is a level cleared by the status read, which the unit's completion callback performs, so the
+`CPP 48` re-arm after the scan cannot fire again on the same completion.
+
+**Run B17, default line:** passes - drive letter mapped, 539 interrupts, all single-sector reads.
+**Run B17, `/di`:** froze on the first WRITE(10), after the write itself completed (status `40`).
+The engine setup for OUT writes the direction code `22` to register `18` in the chip view. The
+model fed that value to its unlock recogniser (`22` is unlock byte 0), dropped it, took the next
+address byte `6F` as the value, and lost the `0F = 00` that closes the chip view - so every later
+task-file write went to the chip view and no command reached the drive. The read direction writes
+`26`, which is why no run met it before.
+
+The register-write routines, every one read: modes 0/1/2/7/8 (`0x4847`, `0x4873`, `0x48CD`,
+`0x48A0`, `0x48FD`) all write `60|reg`, control `01`, the value, control `04`, each byte doubled
+or trebled. Modes 3/4 (`0x499F`) use the EPP ports and mode 5 is a far call; neither passes the
+data port. Mode 6 (`0x4932`) did not decode from the sweep and is unread. An unlock frame is seven
+data bytes with no control write between them, always preceded by a control write (`0x2718`).
+So a data byte arriving while a register value is pending is that value, never frame content.
+
+**Still open.** Internal `06`/`07` read back whatever was written (`0`), which serves one block per
+collect. A multi-sector READ(10) under the engine has never run in the bed, with or without `/di`.
+
 The AT bed's port is 86Box's standalone parallel port - plain SPP (`ext`, `epp`, `ecp` all 0) - so
 the driver choosing nibble modes and this interrupt path there is correct for that hardware, not a
 fault. The real 5160's Intek21 is ECP and takes the ECP path.
