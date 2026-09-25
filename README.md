@@ -230,14 +230,8 @@ and there was nothing to configure.
 
 ## Upstream
 
-**The Intel Inboard 386/PC is part of 86Box.** Twelve PRs raised from this project are merged;
+**The Intel Inboard 386/PC is part of 86Box.** Fourteen PRs raised from this project are merged;
 none is open.
-
-Not yet upstream: [86Box#8102](https://github.com/86Box/86Box/pull/8102), open. Since #8087's
-Plug and Play support, a 3C509B found by 3Com's DOS drivers came up with no IRQ; the fix keeps the
-EEPROM's IRQ across a Plug and Play reset. Nothing is outstanding from the LS-120 work: the vendor
-drivers work on the EPAT model since [86Box#8099](https://github.com/86Box/86Box/pull/8099)
-([#44](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/44)).
 
 | Merged PR | What it fixed |
 |---|---|
@@ -254,9 +248,7 @@ drivers work on the EPAT model since [86Box#8099](https://github.com/86Box/86Box
 | [#8076](https://github.com/86Box/86Box/pull/8076) | The 3Com EtherLink III ISA (3C509B), modelled on the card in this machine: jumperless ID-port configuration, its real EEPROM as the template, defaults that work in an XT slot. Merged 2026-09-24; also confirmed by others under NT 3.5 and Linux |
 | [#8078](https://github.com/86Box/86Box/pull/8078) | The LPT bridges from #8010/#8012: IDE/SCSI CD-ROMs no longer create a phantom BackPack on LPT1; an LPT CD-ROM is initialised (its first long seek stopped the emulator) and no longer pokes IDE channel 0; both bridges use the port their drive is set to, and a CD-ROM's port is saved; Settings offers ATAPI models for an LPT CD-ROM and keeps it on LPT; the Media menu names the LPT bus; the SuperDisk 120 reports the real drive's MATSHITA identity; logging no longer forced on. Merged 2026-09-25. Tested by the owner on Windows 95 and DOS; an LS-120 on LPT2 and the vendor LS-120 DOS driver were not |
 | [#8099](https://github.com/86Box/86Box/pull/8099) | The vendor LS-120 drivers on the EPAT model: `SD120PPD.SYS` with and without `/di`, and `SD120PPD.MPD` under Windows 95, each reading and writing. Fixes read out of the driver: the unit scan, doubled writes, the interrupt self-test, INTRQ in register 12h, the internal register window, interrupt delivery after the port is enabled, and a register value of 22h no longer taken for an unlock frame. Merged 2026-09-25 |
-
-Between them these close [86Box/86Box#7638](https://github.com/86Box/86Box/issues/7638) (all memory
-reported "BAD", 640K available) and this repo's issues #11, #12, #13 and #16.
+| [#8102](https://github.com/86Box/86Box/pull/8102) | Since #8087's Plug and Play support, a 3C509B found by 3Com's DOS drivers came up with no IRQ; the fix keeps the EEPROM's IRQ across a Plug and Play reset. |
 
 One further upstream bug was reported from here and fixed by 86Box directly, with no PR from us:
 [#7805](https://github.com/86Box/86Box/issues/7805) — the Machine settings dialog snapped RAM to a
