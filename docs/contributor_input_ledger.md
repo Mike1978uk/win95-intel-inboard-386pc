@@ -311,8 +311,8 @@ Linux; @waltje, one of the card's chipset designers, commented. Owner replied to
 
 @Cacodemon345 also relayed a report (not his own test) that WfW 3.1 freezes at boot. Tested
 2026-09-25 on our WfW 3.11 image (`ELNK3.DOS`): the card works after 86Box#8102; the only WfW hang
-came with an emulated SB Pro v2 fitted. The 3.1 case is unconfirmed. **Not yet replied** - owner
-writes it, with thanks, once #8102 is decided.
+came with an emulated SB Pro v2 fitted. The 3.1 case is unconfirmed. ✅ **He has seen it** - the
+owner posted on Discord and he picked up 86Box#8102 (09-25); no reply owed on #8076.
 
 @Hinoserm's #8087 (Plug and Play) set a 3C509B found by the ID sequence to IRQ 0 on every
 global reset; fixed in 86Box#8102, which thanks him. **Owner messaged him on Discord, 09-25.** His #8086 (WfW 3.11 `ELNK3.386` hang) is
