@@ -233,8 +233,10 @@ and there was nothing to configure.
 **The Intel Inboard 386/PC is part of 86Box.** Twelve PRs raised from this project are merged;
 none is open.
 
-Not yet upstream: nothing from the LS-120 work. The vendor drivers work on the EPAT model since
-[86Box#8099](https://github.com/86Box/86Box/pull/8099)
+Not yet upstream: [86Box#8102](https://github.com/86Box/86Box/pull/8102), open. Since #8087's
+Plug and Play support, a 3C509B found by 3Com's DOS drivers came up with no IRQ; the fix keeps the
+EEPROM's IRQ across a Plug and Play reset. Nothing is outstanding from the LS-120 work: the vendor
+drivers work on the EPAT model since [86Box#8099](https://github.com/86Box/86Box/pull/8099)
 ([#44](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/44)).
 
 The IRQ 9 → 2 work ([#42](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/42)) is
@@ -510,7 +512,7 @@ rather than a DMA-reach one — is on the issue.
 | [#14](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/14) | POST intermittently halts with 101, at `mem_size` 2688 and 3072. Needs a quiet build, not `86box_full` |
 | [#15](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/15) | Windows 3.0 faults after the splash screen in 386 enhanced mode |
 | [#18](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/18) | Floppy corruption after a media change. DMA reach is fixed (`maxPhys 0x1000 -> 0xFF`, shipped as `HSFLOP_XTDMA.PDR`) and reads/writes measured clean here, but that harness never changed media, which is this issue's trigger. The reproduction bed - 86Box + Monster Floppy + the patched driver + a media change - is still to be built, and needs no hardware |
-| [#20](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/20) | 86Box has no 3C509B. **Merged** in [86Box#8076](https://github.com/86Box/86Box/pull/8076), modelled on this machine's card. Unblocks the `ELNK3.VXD` polling work (#41) and the IRQ 9 → 2 work (#42). Reported on #8076 to freeze Windows for Workgroups 3.1 at boot; to be reproduced on our 3.11 image, which shares the driver base |
+| [#20](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/20) | 86Box has no 3C509B. **Merged** in [86Box#8076](https://github.com/86Box/86Box/pull/8076), modelled on this machine's card. Unblocks the `ELNK3.VXD` polling work (#41) and the IRQ 9 → 2 work (#42). Reported on #8076 to freeze Windows for Workgroups 3.1 at boot. On our WfW 3.11 image (`ELNK3.DOS`) the card works once [86Box#8102](https://github.com/86Box/86Box/pull/8102) is in; the only WfW hang we saw came with an emulated Sound Blaster Pro v2 fitted, not from this card. The 3.1 report itself is unconfirmed |
 | [#23](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/23) | `XTIDEMP.MPD` cannot drive the XT-IDE Hi-Speed register map - an A3/A0 swap is a permutation, and the driver computes `base + index * stride`. Blocked on hardware to test against, and on 86Box having no Hi-Speed model |
 | [#28](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/28) | Per-component audit: walk every driver and VxD, six questions each |
 | [#29](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/29) | Measure DMA: reach, cost per byte, channel inventory, CPU overlap |

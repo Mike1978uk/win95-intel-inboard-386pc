@@ -308,3 +308,12 @@ stale LS-120 comments in the submitted `lpt_bpck.c`, corrected in #8012.
 
 @Cacodemon345 confirmed the 3C509B under NT 3.5 (built-in and EtherDisk 4.3 drivers) and
 Linux; @waltje, one of the card's chipset designers, commented. Owner replied to @waltje.
+
+@Cacodemon345 also relayed a report (not his own test) that WfW 3.1 freezes at boot. Tested
+2026-09-25 on our WfW 3.11 image (`ELNK3.DOS`): the card works after 86Box#8102; the only WfW hang
+came with an emulated SB Pro v2 fitted. The 3.1 case is unconfirmed. **Not yet replied** - owner
+writes it, with thanks, once #8102 is decided.
+
+@Hinoserm's #8087 (Plug and Play) set a 3C509B found by the ID sequence to IRQ 0 on every
+global reset; fixed in 86Box#8102, which thanks him. His #8086 (WfW 3.11 `ELNK3.386` hang) is
+untested here - our image does not load that driver.
