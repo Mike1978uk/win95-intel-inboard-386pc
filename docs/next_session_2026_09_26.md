@@ -106,8 +106,8 @@ Add it to the README's merged table and the contributor ledger: what was submitt
 
 ## Other state
 
-- **5160:** vendor DOS driver lines are un-REM'd in `CONFIG.SYS` (for the reads); owner to
-  restore. `C:\MEMD.TXT` left on the card.
+- **5160:** `CONFIG.SYS` restored by the owner (09-25). `C:\MEMD.TXT` stays on the card by the
+  owner's choice - harmless, do not raise it again.
 - `vm_ls120win\86box.cfg.master` corrected from type 6 (SparQ since the renumber) to 7.
 - WfW 3.1 report on #8076: not started; our 3.11 image shares the driver base.
 - README updated this morning (`d816909`): #8078 merged, IRQ 9 -> 2 is Windows-side, XT caveat.
