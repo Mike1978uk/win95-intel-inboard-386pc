@@ -239,10 +239,6 @@ EEPROM's IRQ across a Plug and Play reset. Nothing is outstanding from the LS-12
 drivers work on the EPAT model since [86Box#8099](https://github.com/86Box/86Box/pull/8099)
 ([#44](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/44)).
 
-The IRQ 9 → 2 work ([#42](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/42)) is
-not an emulator change and is not going upstream. It is a Windows 95 fix for XT-class machines, in
-`VPICD` and the network driver.
-
 | Merged PR | What it fixed |
 |---|---|
 | [#7626](https://github.com/86Box/86Box/pull/7626) | The hardware model itself, ported from SuperFury's [UniPCemu](https://superfury.itch.io/unipcemu) `hardware/inboard.c` |
