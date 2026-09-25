@@ -1,35 +1,45 @@
-# Next session - handoff from 2026-09-25
+# Next session - midday handoff from 2026-09-25
 
-## #44 - the vendor LS-120 DOS driver works in 86Box
+## ⛔ First: #44 is HELD - one task closes before it can be submitted
 
-`SD120PPD.SYS` + `ASPIHDRM.SYS` load in the AT bed and present **one** drive, `D:`, whose files
-read back correctly (owner, B15). Windows regression passes on the same build: our miniport
-`d8154f1d` mounts `J:`, files read, a write reached the medium (owner, G10 by hand).
+The vendor LS-120 DOS driver works in 86Box **only with `/di`** (polled). With the line a
+stranger copies (`/IRQ:7`, no `/di`) the driver hands transfers to the EPAT's own **transfer
+engine**, which is not modelled, and hangs on the splash screen. That breaks repo-hygiene
+section 7 ("people will try it and say it's failed"), so the owner held the push.
+
+**Task 1: model the transfer engine.** Read it statically first and write it into
+`docs/sd120ppd_sys_load_path_2026_09_25.md` before any code:
+- setup `0x3357`: internal regs 6/7 (size), reg `0x14` = bytes/2 - 1, reg `0x12` bits 0-1
+  (direction + start), window reg `0x18` = direction code (`0x26`/`0x22` on the `E2` chip);
+- wait/finish `0x368C`, `0x36B6` (reg `0x12` bit 1, reg `0x13` bit 1), and how the data is
+  then collected from the bridge;
+- completion by interrupt: already modelled (`CPP 48` arm, INTRQ -> IRQ 7, `CPP 08|u` byte).
+Then implement, and run: default line (pass = one drive letter, files read), then `/di`,
+then the Windows regression. Owner drives every check (G10), **no startup batch**.
+
+## State of #44
 
 | | |
 |---|---|
-| branch | `epat-cpp-40-50` in worktree `86box_epat44`, **local only** |
-| commits | `35bf8fe5c` (chain scan, doubled register bytes), `b3259c62d` (the rest, WIP) |
-| clean build | `86box_epat44/build_log`, 10:54:55, HEAD `b3259c62d`, no trace |
-| the read of the driver | `docs/sd120ppd_sys_load_path_2026_09_25.md` |
-| measured on the 5160 | `drivers/imation_ls120/MEASURED_FACTS.md` sections 8 and 9 (chip id `E2`, the IDENTIFY block) |
+| PR branch | `lpt-epat-vendor-dos` in worktree `86box_epat44`, one commit `876b6c53b` on master `1c7e3a573`. **Not pushed** |
+| builds | yes, on current master, no new warnings (G7) - `86box_epat44/build_log`, 11:13 |
+| tested | on `b3259c62d` (same code before three comment fixes and a dead-code removal): DOS `/di` one drive `D:` reads (B15); Windows `LS120MP.MPD` mounts `J:`, reads, a write lands. **Retest on the final HEAD (G9)** |
+| not run | G2 (nothing on LPT, and the BackPack, unchanged) |
+| open decision | the identify block carries the owner's drive serial `X713CA0B4594` - keep or genericise |
+| PR text | drafted in the session; drop the ECP and LPT2 lines (owner) |
+| the read | `docs/sd120ppd_sys_load_path_2026_09_25.md`; measured values `drivers/imation_ls120/MEASURED_FACTS.md` sections 8-9 |
 
-**Passes only with `/di` (polled).** With `/IRQ:7` alone the driver uses the EPAT's own transfer
-engine (reg `0x12` bit 1, count in `0x14`, internal regs 6/7) and waits for it to finish - not
-modelled. Read it statically before modelling it (`0x3357`, `0x368C`, `0x36B6`).
+Old branch `epat-cpp-40-50` (`35bf8fe5c`, `b3259c62d`) is the tested history; keep it until
+the PR merges.
 
-## Before this becomes a PR (G1-G10)
+## After the PR merges
 
-- Split `b3259c62d` into one commit per fix, each tied to the vendor code in the load-path doc.
-- G2: a config with nothing on LPT, and the BackPack, must be unchanged.
-- The identify block carries the owner's drive serial `X713CA0B4594` - owner's call whether to
-  keep it or use a generic one.
-- Say plainly: works with `/di`; interrupt mode needs the transfer engine.
+Add it to the README's merged table and the contributor ledger: what was submitted, what merged.
 
 ## Other state
 
-- 5160: vendor DOS driver lines un-REM'd in `CONFIG.SYS` for the reads; owner to restore.
-  `C:\MEMD.TXT` left on the card.
+- **5160:** vendor DOS driver lines are un-REM'd in `CONFIG.SYS` (for the reads); owner to
+  restore. `C:\MEMD.TXT` left on the card.
 - `vm_ls120win\86box.cfg.master` corrected from type 6 (SparQ since the renumber) to 7.
 - WfW 3.1 report on #8076: not started; our 3.11 image shares the driver base.
-- README updated (`d816909`): #8078 merged, IRQ 9 -> 2 is Windows-side, XT probe caveat.
+- README updated this morning (`d816909`): #8078 merged, IRQ 9 -> 2 is Windows-side, XT caveat.
