@@ -15,6 +15,14 @@ The A/B decides whether #42 (IRQ 9 -> 2) is worth doing. All in 86Box, no 5160 n
 - Workload: a staged CRLF batch `T130AB.BAT` - `echo.|time` stamp, `copy` a fixed set (e.g.
   `C:\WIN95\*.*`, ~1 MB+, or a larger file) to the SCSI disk, stamp again - guest clock, same in
   both runs. Owner runs it from a DOS box.
+- **Measure polling and CPU, not just speed** (owner, 09-25). Per run: (1) count T130B/5380
+  register reads per sector - add a capped counter to the 86Box T130B model, scratch only, and
+  dump it per copy; (2) CPU headroom while copying - a CPU-bound loop running alongside, iterations
+  counted, so polled vs interrupt shows what the driver takes from everything else; (3) time.
+  Rank by bus cycles occupied (5.55 us per access), per `feedback-optimise-for-bus-occupancy`.
+- **Review `T130.MPD` itself either way** (`tools/pedis.py`, whole binary first): where it spins
+  (`ScsiPortStallExecution` loops, status polls), what `HwInterrupt` (`0x10A9C`) does, and whether
+  it still polls with an IRQ assigned. That read is the #41 (pace the polling) input too.
 - Answer Andrew with the result, with thanks; the #8076-merged note is owed too.
 - If B is faster: submit the unsubmitted 4-line `pic.c` fix (`ef082884b` on `86box_3c509b`:
   without a slave, IRQ 9 is IRQ 2) as its own PR, then VPICD + `ELNK3` 9->2 with WDEB386.
