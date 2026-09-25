@@ -315,5 +315,5 @@ came with an emulated SB Pro v2 fitted. The 3.1 case is unconfirmed. **Not yet r
 writes it, with thanks, once #8102 is decided.
 
 @Hinoserm's #8087 (Plug and Play) set a 3C509B found by the ID sequence to IRQ 0 on every
-global reset; fixed in 86Box#8102, which thanks him. His #8086 (WfW 3.11 `ELNK3.386` hang) is
+global reset; fixed in 86Box#8102, which thanks him. **Owner messaged him on Discord, 09-25.** His #8086 (WfW 3.11 `ELNK3.386` hang) is
 untested here - our image does not load that driver.
