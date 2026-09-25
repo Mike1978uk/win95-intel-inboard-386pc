@@ -253,3 +253,36 @@ workflow** and should not be treated as a blocker.
   grinds.
 - **Keystroke injection garbles command lines under load.** Use
   `delay_ms=120`, and read the screen before assuming a command ran.
+
+## 8. The chip revision test - MEASURED 2026-09-25
+
+`SD120PPD.SYS` `0x6FD1` opens the chip's internal view (`WR(0x0E,0x0C)`, `WR(0x0F,0x21)`,
+`WR(0x0F,0x01)`), reads offset `0x1F`, and accepts only `0x00` or `0xE2`; the result sets
+`[0x946]` and selects the direction codes written to `0x18` (`3`/`2` for `0x00`, `0x26`/`0x22`
+for `0xE2`).
+
+**Measured on the real 5160**, vendor driver loaded (`/port:378 /IRQ:7 /de /db /ni /sf /dpc /dp
+/fp /fe`), read out of the resident driver at `0575:0000` over DOS COMrade, no port I/O issued:
+
+| address | value | meaning |
+|---|---|---|
+| `[0x9BE]` | `01` | set only by `0x7E50`, after the test passed (file value `00`) |
+| `[0x946]` | `01` | **the chip returned `0xE2`** (file value `00`) |
+
+So this EPATRM answers `0xE2`. `ASPIHDRM.SYS` installed `D:` on the same boot.
+
+## 9. IDENTIFY PACKET DEVICE - MEASURED 2026-09-25
+
+`SD120PPD.SYS` identifies the drive with ATA `0xA1` before any PACKET command. The reply was read
+out of the resident driver's buffer at `0575:00C4` on the real 5160 (same boot as section 8), and
+is archived byte for byte as `docs/captures/ls120_identify_packet_2026_09_25.bin`.
+
+| field | value |
+|---|---|
+| word 0 | `8080` (ATAPI, removable) |
+| serial (words 10-19) | `X713CA0B4594` - stored **unswapped**, unlike the next two |
+| firmware (words 23-26) | `0270M09T` |
+| model (words 27-46) | `LS-120 COSM   04              UHD Floppy` |
+| other non-zero words | 1,3-6 and 54-58 (geometry), 49, 51, 53, 60-61, 67-68, 128-129 |
+
+⚠ This is the driver's copy of the reply, not a bus capture; the fields show no sign of editing.

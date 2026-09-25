@@ -50,6 +50,7 @@ end to end.** Find what applies, read that, and add back what you learn.
 | A fix passed in the bed | **127b** - can the bed even produce the failure you fixed? If not, the run proves no regression and nothing else |
 | About to run the bed | **131** - launch only via `tools/bed_launch.ps1`, then the pre-flight checks, every time. **132** - the scripting traps when staging one |
 | Setting up an A/B | **130** - build the baseline from the LIVE artefact's ledger flags, not from source |
+| A device model works with OUR driver and fails with the VENDOR's | **133** - raw wire trace first; the model's own log only shows its interpretation |
 | A run came back POSITIVE | **129** - "unverified is not a result" applies to good news too |
 | Selling a transfer-width win | **128** - attribute the fixed per-access cost first. **128c**: XT-IDE cannot use dword |
 
@@ -8021,7 +8022,7 @@ desktop. The script refuses instead:
 |---|---|---|
 | a Qt build without `C:\msys64\mingw64\bin` on `PATH` | a Qt5 *System Error* box (`Qt5Core.dll` not found) | every imported DLL resolved before launch; MSYS bin prepended |
 | `86Box.exe --help` | a message box of command-line options - on Windows it does not print to the console | never run it; the flags are `-P` and `-L`, read from `src/86box.c` |
-| a mouse in the config | 86Box grabs the pointer on a click | `mouse_type` must be `none` |
+| a mouse in the config | 86Box grabs the pointer on a click | refused unless `-AllowMouse`. ⚠ **The owner wants the mouse installed** (2026-09-25): keep `msserial`, pass `-AllowMouse`, never switch it to `none` |
 | an image outside the bed, or missing | ROM BASIC, a header-only log | every `*_fn` resolves inside the bed |
 | stopping VMs by name | the owner's own 86Box closed | stops only the PID it started |
 | a bed copied with its `uuid` line | *"This machine might have been moved or copied"* | refuses a `uuid` that another bed's config also holds |
@@ -8154,6 +8155,8 @@ Every row cost a run or a restage. None of them was the thing under test.
 | `RUNDLL32 USER.EXE,ExitWindows` from a probe batch | the shutdown waits on the probe's own DOS box: "not responding / End Task" | with the owner present, let them shut down; unattended, expect the prompt |
 | guessing a tool's arguments | `fatcp.py img FILE -` is a **write** call; it stopped only because `-` was not a file | read the usage line of any tool that can write before calling it |
 | stopping a VM the owner is driving | the first L1 was closed under them | say which PID and why, before stopping it |
+| `sed -i` on a CRLF working copy | Git Bash's `sed` wrote the whole file back as LF | edit with a read-modify-write script that keeps `\r\n`, then count CRs |
+| a relative `-Log` to `bed_launch.ps1` | 86Box resolves it against its own working directory; no log was written and a run was lost | pass the log path absolute |
 
 ### And the one that is not scripting
 
@@ -8162,3 +8165,62 @@ Bus)" in the Media menu, the LS-120 named "86B_RD00" in Device Manager, Settings
 SCSI models for an LPT CD-ROM, and a CD-ROM on LPT2 whose bridge looked for its drive on LPT1.
 A probe answers the question it was written for. The owner looks at the machine. That is repo-hygiene
 gate G10, and it is why it exists.
+
+---
+
+## Technique 133: a device model proven with OUR driver is unproven for the VENDOR's
+
+2026-09-25, #44. The EPAT model had mounted the LS-120 for two weeks - with **our** miniport and
+**our** DEBUG probes. The vendor DOS driver (`SD120PPD.SYS`), the one a stranger would load, had
+never been run in the bed until 2026-09-24. It then failed at three separate points, each a bridge
+feature our code simply never used:
+
+| layer | what the vendor does | what the model did | seen as |
+|---|---|---|---|
+| chain scan `CPP(0x10\|unit)` | ends the frame at control 4 and reads the first id nibble **before** any strobe | presented the id on the next 4->5 edge: one nibble late | "Error Initializing Adapter" |
+| register writes, slow mode | puts every data byte on the port **twice** before strobing | acted on each data write, so the repeat became the value | `W reg 0E = 6E` (value = `0x60\|reg`) |
+| interrupt self-test (`/IRQ:7`) | 20 x (reg 08 bit 6 + `0x80` on data), counts interrupts | never pulsed nACK | "No devices connected" |
+
+**Rule, the same as repo-hygiene G4 one level down: before calling a device model done, run the
+vendor's driver on it, in the vendor's default configuration.** Each fix above took one run once it
+was looked for; the gap sat unseen because the only drivers ever run were written against the model.
+
+### 133a: when the model's log is an interpretation, trace the wire
+
+The model logged `W reg 0E = 6E` - a well-formed, plausible line. It was the model's own misparse.
+Three rounds of reasoning from those lines went wrong. What ended it was a capped raw trace of every
+data write, control write and status read (`EPW D/C/S xx`), decoded against the vendor's routine
+table (`[0xbdb]` indexes write routines at `0x4F15`, `[0xbd9]` read routines at `0x4E9D`).
+
+- Add it at `CONNECT`, cap it (6000 lines here), keep it out of any upstream commit.
+- `pclog` folds identical lines, so a doubled write shows as `*** 1 repeats ***` - which is itself
+  the evidence of the double-write mode.
+- The trace missed **data-port reads**. Cover every access the driver can make, or say which ones
+  the trace cannot see before concluding from its absence.
+
+### 133b: compute each branch's polarity before modelling a handler
+
+The first IRQ model returned nACK **low**, because `test al,0x40 / jne count` was read as
+"count when clear". It counts when **set**: the handler runs after nACK's rising edge, so it sees
+nACK released and PE still up. One run was spent on the inverted version. Technique 90d applies to
+every conditional you model, not only loops: write down, for each branch, which input value takes it.
+
+### 133c: "we had this working" - answer with a table of WHAT ran WHERE
+
+Asked mid-session whether the vendor DOS driver had worked in the bed before, the answer came from
+three rows: our DEBUG probes (bed, DOS), our miniport (bed, Windows), the vendor DOS driver (real
+5160 only). "The LS-120 works in the bed" was true and said nothing about the vendor driver. State a
+past success with its driver and machine, or it will be read as covering both.
+
+### 133d: "read the whole disassembly" means enumerate every primitive's call sites
+
+Asked to read the whole driver before more runs, I followed the load path to the first unmodelled
+feature, fixed it, and ran again - five times, each run finding the next feature (`IDENTIFY
+PACKET`, the SRST edge, the reset wiping bridge registers). The owner had asked for the other thing.
+
+What answers "is anything else missing" is an enumeration, not a walk: every call to the driver's
+register-write, register-read and CPP primitives, with the immediate register and value before each
+(for `SD120PPD.SYS`: `0x346A`/`0x343E` ATA, `0x2472`/`0x244B` bridge, `0x26D9` CPP). One script, one
+pass, and it listed every ATA command (`A1`, `F0`), every CPP code (`0x48`), and every bridge and
+internal-window register the model must answer - including `0x0F` read-backs the walk never reached.
+Check the model against that list, then run.
