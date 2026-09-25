@@ -231,7 +231,7 @@ and there was nothing to configure.
 ## Upstream
 
 **The Intel Inboard 386/PC is part of 86Box.** Fourteen PRs raised from this project are merged;
-none is open.
+none are open.
 
 | Merged PR | What it fixed |
 |---|---|
