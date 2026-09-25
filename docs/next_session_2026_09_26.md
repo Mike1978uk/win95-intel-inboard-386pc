@@ -1,6 +1,30 @@
 # Next session - midday handoff from 2026-09-25
 
-## ⛔ First: #44 is HELD - one task closes before it can be submitted
+## ✅ Update 2026-09-25 afternoon: #44 SUBMITTED as 86Box#8099
+
+Head `f361a8a02` (three commits on `lpt-epat-vendor-dos`, fork `Mike1978uk/86Box`), opened by
+Claude with the owner's go-ahead; the owner overrode "never post" and the full not-tested list.
+The engine was not the blocker: a lost interrupt, an arm-gated unit query, and register value
+22h eaten by the unlock matcher. Detail: `docs/sd120ppd_sys_load_path_2026_09_25.md`.
+
+| gate | result |
+|---|---|
+| G1 | pass |
+| G2 | **not run** |
+| G3 | not run (no UI change in the diff) |
+| G4 | pass - vendor DOS (default and `/di`) and vendor Windows MPD from `dist/ls120_vendor`, writes checked on host |
+| G5 | pass |
+| G6 | pass |
+| G7 | built on base `1c7e3a573` only; **not rebased** onto current master (owner: push as-is) |
+| G8 | pass |
+| G9 | source at HEAD byte-identical to the tested source; exe predates the commits |
+| G10 | partial - owner drove all runs; Settings/Media menu/Device Manager names not checked |
+
+Serial `X713CA0B4594` kept (owner). Test 3 first ran on our RETIRED `LS120MP.MPD` because this
+handoff named it - the regression bed is now on the vendor MPD (`vm_ls120win`, backups
+`ls120win_preVendorStage.img`, `rd_preRegr44d.img`). `vm_ls120dos44` is on the default line.
+
+## (superseded) #44 was HELD - one task closes before it can be submitted
 
 The vendor LS-120 DOS driver works in 86Box **only with `/di`** (polled). With the line a
 stranger copies (`/IRQ:7`, no `/di`) the driver hands transfers to the EPAT's own **transfer

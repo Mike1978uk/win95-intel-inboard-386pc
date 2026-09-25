@@ -8224,3 +8224,19 @@ register-write, register-read and CPP primitives, with the immediate register an
 pass, and it listed every ATA command (`A1`, `F0`), every CPP code (`0x48`), and every bridge and
 internal-window register the model must answer - including `0x0F` read-backs the walk never reached.
 Check the model against that list, then run.
+
+### 133e: model a reply from EVERY path that asks for it, and every VALUE a write can carry
+
+Two #44 defects, 2026-09-25, both from reading one path and generalising:
+
+- The unit query (`CPP 08|u`) was modelled from the handler `0x1DF3`, which asks while forwarding
+  is armed, so the model answered only while armed. The path that actually runs is the scan
+  `0x621B`, which sends `CPP 40` (disarm) before **every** query. Find the reply's callers through
+  the dispatch tables too (here the `1284h` API at `0x1D13`), not only direct `call`s.
+- The unlock matcher was guarded against payload bytes, but a register VALUE can be `22h` too (the
+  OUT direction code at `0x1AB9`). Reads write `26h`, so it passed until the first write. When a
+  byte stream carries both framing and data, list every value the driver writes, not every address.
+
+And the interrupt was lost because 86Box's `lpt_irq()` drops a raise while control bit 4 is clear
+and never re-checks; the driver sets bit 4 after `CPP 48`. A model whose device completes
+instantly must not interrupt before the host can take it - on hardware the drive is slower.
