@@ -83,7 +83,13 @@ at the center of the fix.
   and you then cannot type the switches that would have prevented it, so they go in the INF instead.
   Forced to EPP with `/fe` it runs at **75-99 KiB/s**, and 36,735,152 bytes read back byte-identical
   under `FC /B` — written by the Windows miniport and read by the DOS driver, so a symmetric error in
-  one path cannot hide itself
+  one path cannot hide itself.
+  ⚠ **Known vendor bug on any XT-class machine, DOS and Windows alike:** both vendor drivers probe
+  for a host chipset at `0x22`/`0x23`. An XT decodes the 8259 across `0x20`-`0x3F`, so the probe
+  "finds" a chipset and its configuration writes land on the interrupt mask, disabling the keyboard (measured with the miniport; the DOS driver carries the same probe).
+  Load `SD120PPD.SYS` with **`/ni`** (skip chipset initialisation); the Windows miniport takes the
+  same switch through its INF `AdapterSettings`, as `dist/ls120_vendor/` ships it
+  ([analysis](docs/ls120_keyboard_root_cause.md))
 - Network working using stock Windows 95 3com 3c509b driver from Windows. Hand configured IP, gateway and subnet and navigated to frogfind.com
 - Sound Blaster Pro audio, clean, confirmed on real hardware 2026-08-24 (see below)
 - Accelerated video — ATI Mach8 (Graphics Ultra) at 1024x768x256, confirmed on real hardware
@@ -224,18 +230,17 @@ and there was nothing to configure.
 
 ## Upstream
 
-**The Intel Inboard 386/PC is part of 86Box.** Eleven PRs raised from this project are merged;
-one is open.
-
-| Open PR | What it fixes |
-|---|---|
-| [#8078](https://github.com/86Box/86Box/pull/8078) | The LPT bridges from #8010/#8012: IDE/SCSI CD-ROMs no longer create a phantom BackPack on LPT1; an LPT CD-ROM is initialised (its first long seek stopped the emulator) and no longer pokes IDE channel 0; both bridges use the port their drive is set to, and a CD-ROM's port is saved; Settings offers ATAPI models for an LPT CD-ROM and keeps it on LPT; the Media menu names the LPT bus; the SuperDisk 120 reports the real drive's MATSHITA identity; logging no longer forced on. Tested in 86Box by the owner on Windows 95 and DOS; an LS-120 on LPT2 and the vendor LS-120 DOS driver are not |
+**The Intel Inboard 386/PC is part of 86Box.** Twelve PRs raised from this project are merged;
+none is open.
 
 Not yet upstream:
 
-- IRQ 9 delivered as IRQ 2 on single-PIC machines (local branch).
 - The vendor LS-120 DOS driver does not initialise on the EPAT model
   ([#44](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/44)).
+
+The IRQ 9 → 2 work ([#42](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/42)) is
+not an emulator change and is not going upstream. It is a Windows 95 fix for XT-class machines, in
+`VPICD` and the network driver.
 
 | Merged PR | What it fixed |
 |---|---|
@@ -250,6 +255,7 @@ Not yet upstream:
 | [#8010](https://github.com/86Box/86Box/pull/8010) | A parallel-port LS-120: the Shuttle EPAT bridge, three optional ECP callbacks on `lpt_device_t`, and the SuperDisk drive type enabled |
 | [#8012](https://github.com/86Box/86Box/pull/8012) | A parallel-port CD-ROM: `CDROM_BUS_LPT` implemented, the Micro Solutions BackPack modelled from hardware, and a `scsi_cdrom_current_mode()` fix - an unrecognised bus got "no transfer", so the drive enumerated and returned no data for any command |
 | [#8076](https://github.com/86Box/86Box/pull/8076) | The 3Com EtherLink III ISA (3C509B), modelled on the card in this machine: jumperless ID-port configuration, its real EEPROM as the template, defaults that work in an XT slot. Merged 2026-09-24; also confirmed by others under NT 3.5 and Linux |
+| [#8078](https://github.com/86Box/86Box/pull/8078) | The LPT bridges from #8010/#8012: IDE/SCSI CD-ROMs no longer create a phantom BackPack on LPT1; an LPT CD-ROM is initialised (its first long seek stopped the emulator) and no longer pokes IDE channel 0; both bridges use the port their drive is set to, and a CD-ROM's port is saved; Settings offers ATAPI models for an LPT CD-ROM and keeps it on LPT; the Media menu names the LPT bus; the SuperDisk 120 reports the real drive's MATSHITA identity; logging no longer forced on. Merged 2026-09-25. Tested by the owner on Windows 95 and DOS; an LS-120 on LPT2 and the vendor LS-120 DOS driver were not |
 
 Between them these close [86Box/86Box#7638](https://github.com/86Box/86Box/issues/7638) (all memory
 reported "BAD", 640K available) and this repo's issues #11, #12, #13 and #16.
@@ -504,7 +510,7 @@ rather than a DMA-reach one — is on the issue.
 | [#14](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/14) | POST intermittently halts with 101, at `mem_size` 2688 and 3072. Needs a quiet build, not `86box_full` |
 | [#15](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/15) | Windows 3.0 faults after the splash screen in 386 enhanced mode |
 | [#18](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/18) | Floppy corruption after a media change. DMA reach is fixed (`maxPhys 0x1000 -> 0xFF`, shipped as `HSFLOP_XTDMA.PDR`) and reads/writes measured clean here, but that harness never changed media, which is this issue's trigger. The reproduction bed - 86Box + Monster Floppy + the patched driver + a media change - is still to be built, and needs no hardware |
-| [#20](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/20) | 86Box has no 3C509B. **Merged** in [86Box#8076](https://github.com/86Box/86Box/pull/8076), modelled on this machine's card. Unblocks the `ELNK3.VXD` polling work (#41) and the IRQ 9 → 2 work (#42) |
+| [#20](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/20) | 86Box has no 3C509B. **Merged** in [86Box#8076](https://github.com/86Box/86Box/pull/8076), modelled on this machine's card. Unblocks the `ELNK3.VXD` polling work (#41) and the IRQ 9 → 2 work (#42). Reported on #8076 to freeze Windows for Workgroups 3.1 at boot; to be reproduced on our 3.11 image, which shares the driver base |
 | [#23](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/23) | `XTIDEMP.MPD` cannot drive the XT-IDE Hi-Speed register map - an A3/A0 swap is a permutation, and the driver computes `base + index * stride`. Blocked on hardware to test against, and on 86Box having no Hi-Speed model |
 | [#28](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/28) | Per-component audit: walk every driver and VxD, six questions each |
 | [#29](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/29) | Measure DMA: reach, cost per byte, channel inventory, CPU overlap |
@@ -513,13 +519,13 @@ rather than a DMA-reach one — is on the issue.
 | [#34](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/34) | Display mode as a bus lever: 1024x768 vs 800x600 vs 640x480 |
 | [#35](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/35) | Shadow RAM inventory, and memory-mapped storage in the emulator |
 | [#36](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/36) | `fatcp.py` / `fatls.py` claim FAT12 support but are FAT16 only |
-| [#37](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/37) | BackPack parallel CD-ROM. **Merged** in [86Box#8012](https://github.com/86Box/86Box/pull/8012). The regression it introduced (every IDE or SCSI CD-ROM also created a BackPack on LPT1), and the other LPT defects found testing that fix, are submitted as [86Box#8078](https://github.com/86Box/86Box/pull/8078) |
+| [#37](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/37) | BackPack parallel CD-ROM. **Merged** in [86Box#8012](https://github.com/86Box/86Box/pull/8012). The regression it introduced (every IDE or SCSI CD-ROM also created a BackPack on LPT1), and the other LPT defects found testing that fix, are fixed in [86Box#8078](https://github.com/86Box/86Box/pull/8078), merged |
 | [#38](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/38) | Wire `lpt_epat.c` to upstream's EPP callbacks - the transport the real hardware uses |
 | [#40](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/40) | CPU upgrade module: the registers we never explored, and its switches. `CMLR` was one register and took Dhrystone from 2 to 13-15; **`XTOUT` is set where feipoa recommends 0** and has never been tested. The module's switches are undocumented here |
 | [#41](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/41) | Pace the polling in every driver that spins: `T130.MPD`, `HSFLOP.PDR`, `ELNK3.VXD`. A poll is **5.55 us** of bus moving nothing against **0.22 us** for a cached delay - and since 2026-09-21 we know it also **flushes the L1**, so each poll removed is worth more than its bus time |
-| [#42](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/42) | T130B: an IRQ needs the 3C509B moved off 3 first. The card's jumpers offer **3, 5 or 7 only** - 5 is fixed for the SB Pro, 7 for LPT1 - so the NIC is the one movable claimant, and its only route is IRQ 2 via the card's "IRQ 9" setting (same B4 slot pin on an XT). An IRQ moves no bytes, but **no IRQ is what forecloses #31**: catching a SCSI reselection needs one |
+| [#42](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/42) | T130B: an IRQ needs the 3C509B moved off 3 first. The card's jumpers offer **3, 5 or 7 only** - 5 is fixed for the SB Pro, 7 for LPT1 - so the NIC is the one movable claimant, and its only route is IRQ 2 via the card's "IRQ 9" setting (same B4 slot pin on an XT). An IRQ moves no bytes, but **no IRQ is what forecloses #31**: catching a SCSI reselection needs one. The fix is Windows-side - `VPICD` delivering master IRQ 2 to the driver as IRQ 9 - not an emulator change |
 | [#43](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/43) | IOCHRDY: what a held bus actually costs. Our own three-window fit already isolates it - per bus cycle **1.978 us** (XT-CF ROM) against **3.805 us** (Mach8 video), same machine, same fixed sync term. And **86Box models no bus stall at all**, so any lever whose whole benefit is holding the bus for less time measures as zero in the bed |
-| [#44](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/44) | The vendor LS-120 DOS driver does not initialise on 86Box's EPAT model (pre-existing). The Windows miniport works; next is `CPP(0x40)`/`CPP(0x50)` in `lpt_epat.c` |
+| [#44](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/44) | The vendor LS-120 DOS driver does not initialise on 86Box's EPAT model (pre-existing). The Windows miniport works; next is `CPP(0x40)`/`CPP(0x50)` in `lpt_epat.c`, on an AT bed, clear of the XT chipset-probe bug described under the LS-120 above |
 
 Issues are labelled **`emulator`** or **`real-hardware`** so you can pick by what you have, and
 **`upstream`** marks the ones destined for 86Box itself.
