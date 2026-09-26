@@ -17,6 +17,7 @@ before Help; the owner noticed the stall point had moved earlier, and it was not
 |---|---|---|
 | 7a | stock `VPICD_INBOARD` | froze at the same step |
 | 7b | #42 patch `VPICD_INBOARD_IRQ2` | froze at the same step |
+| **7c** | #42 patch + **`WAIT86`** | **Setup completed to the desktop on the first pass** |
 
 - The CPU keeps running: ring-0 VMM and VDMAD, and a V86 BIOS loop. No ring-3 code runs again.
 - The PIC is clean throughout (`isr=00`). IRQ 4 is unmasked and the mouse's interrupts are still
@@ -41,7 +42,7 @@ System VM hangs inside the floppy BIOS call.
 This fits every known property of #7: both machines, a reboot gets past it (Setup's second pass
 does not touch the floppy), and the stall point depends on when the floppy is first touched.
 
-## Fix under test: `tools/wait86/WAIT86.COM`
+## Fix: `tools/wait86/WAIT86.COM` - confirmed in 86Box
 
 A 247-byte resident loaded from `AUTOEXEC.BAT` that implements `INT 15h AH=86h` by waiting on the
 BIOS tick count at `0040:006C`, which Windows advances in every VM. The BIOS then never reaches the
@@ -52,3 +53,21 @@ Rejected for now: un-trapping port 00h in VDMAD. The BIOS loop also depends on t
 
 Not done: `HSFLOP.PDR` loading would take the floppy out of V86 altogether (see #18); that is the
 long-term route.
+
+## Run 7c result
+
+Same bed and image as 7b, plus `C:\WAIT86.COM` before `IVT68FIX.COM` in `AUTOEXEC.BAT`. Log:
+`docs/captures/run7c.log`.
+
+| | INT 15h AH=86h | heartbeat samples in the refresh loop |
+|---|---|---|
+| before the Start menu step | 14 (boot) | 1 (POST) |
+| after it | **35** | **1** |
+
+Setup's 21 motor waits at that step went through `WAIT86`; none reached the refresh loop. Windows
+Help, MS-DOS program settings, time zone and printer followed, ending at "Welcome to Windows 95"
+without a reboot - the first time on this machine. Owner-observed, 2026-09-26.
+
+**Not yet done:** the real 5160 (its install is already past Setup, so the test there is any
+V86 floppy access with the motor off), and no measurement of the waits' length against the
+drive's motor-start time.
