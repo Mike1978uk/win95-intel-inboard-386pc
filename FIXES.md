@@ -63,6 +63,18 @@ pre-monolith image; see *Applying to a bundled VxD* below.
 Neuters the phantom slave 8259 at `0xA0`/`0xA1` (36 sites). An XT has one PIC; VPICD assumes two.
 Bundled — pre-monolith route.
 
+### `VPICD` — IRQ 2 as IRQ 9 (optional, frees an IRQ)
+
+**[patch_vmm32_vpicd_irq2.py](vxd-patches/patch_vmm32_vpicd_irq2.py)** (post-monolith, inside `VMM32.VXD`) ·
+[patch_vpicd_irq2.py](vxd-patches/patch_vpicd_irq2.py) → `VPICD_INBOARD_IRQ2.VXD` (pre-monolith)
+
+On top of the fix above. A card set to IRQ 9 drives slot pin B4, which is IRQ 2 on an XT; stock
+VPICD treats 2 as the cascade and drops it. Patched, VPICD delivers master IRQ 2 as IRQ 9. Used to
+move the 3C509B to "IRQ 9" and free IRQ 3 for the T130B
+([#42](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/42)). Needs
+[patcher9x](https://github.com/JHRobotics/patcher9x) to convert `VMM32.VXD` W4 → W3 and back; the
+steps are in the script's header.
+
 ### `VKD.VXD` — keyboard input
 
 **[⬇ VKD_CUSTOM_INT09FIX_v2.VXD](https://github.com/Mike1978uk/win95-intel-inboard-386pc/raw/master/custom_vkd/build/VKD_CUSTOM_INT09FIX_v2.VXD)** · 18,698 bytes
@@ -94,6 +106,16 @@ Copy to `C:\INBRDPC.SYS`.
 
 Points `INT 68h` at `F000:FF53` (thanks to Michal Nečasek). **Must be the very last line of
 `AUTOEXEC.BAT`** — run earlier it gets clobbered by DOS's own low-memory init.
+
+### `WAIT86.COM` — Setup stall before the Help files
+
+**[⬇ WAIT86.COM](https://github.com/Mike1978uk/win95-intel-inboard-386pc/raw/master/tools/wait86/WAIT86.COM)** · 247 bytes
+
+Implements `INT 15h AH=86h`, which the XT BIOS lacks, so its floppy motor-start wait no longer
+counts DRAM refresh on DMA channel 0 - a port Windows traps, which hangs Setup
+([#7](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/7)). Load from `AUTOEXEC.BAT`,
+before `IVT68FIX.COM`. Setup completes on the first pass in 86Box; on the real 5160 it runs with no
+side effects, but that install is past Setup, so the fix itself is proven in emulation only.
 
 ---
 
@@ -363,6 +385,9 @@ fixes. Same `maxPhys` change as the sound driver.
   driver is PIO-only and never programs the 8237, Adaptec themselves comment that line out in the
   sibling `T128.INF`. `DontLoadIfConflict` comes from the same sibling. Raised by
   @andrew-hoffman.
+  **With a free IRQ, use [`T130-XT-IRQ3.INF`](drivers/trantor_t130b/T130-XT-IRQ3.INF)** and jumper
+  the card to 3: a 1 MB copy to the Zip drops from 18.9 s to 14.3 s on the 5160. IRQ 3 is free only
+  once the network card has moved (see the VPICD IRQ 2 patch above).
 - **ATI Mach 8 — working as of 2026-08-24** ([#4](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/4)). Nothing to patch: use Windows 95's
   **own** driver, *ATI Graphics Ultra (mach8)* (`ATIM8.DRV` + `ATI.VXD`, `MSDISP.INF` section `[ATI8]`),
   then **set the adapter's configuration manually** in Device Manager (Resources → untick *Use
