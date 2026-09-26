@@ -21,12 +21,12 @@ The A/B decides whether #42 (IRQ 9 -> 2) is worth doing. All in 86Box, no 5160 n
   counted, so polled vs interrupt shows what the driver takes from everything else; (3) time.
   Rank by bus cycles occupied (5.55 us per access), per `feedback-optimise-for-bus-occupancy`.
 - **Review `T130.MPD` itself either way** (`tools/pedis.py`, whole binary first): where it spins
-  (`ScsiPortStallExecution` loops, status polls), what `HwInterrupt` (`0x10A9C`) does, and whether
+  (`ScsiPortStallExecution` loops, status polls), what `HwInterrupt` (`0x109A4`) does, and whether
   it still polls with an IRQ assigned. That read is the #41 (pace the polling) input too.
 - Answer Andrew with the result, with thanks; the #8076-merged note is owed too.
 - If B is faster: submit the unsubmitted 4-line `pic.c` fix (`ef082884b` on `86box_3c509b`:
   without a slave, IRQ 9 is IRQ 2) as its own PR, then VPICD + `ELNK3` 9->2 with WDEB386.
-- `T130.MPD` registers `HwInterrupt` (`0x10A9C`); JP3 offers 3/5/7 (established).
+- `T130.MPD` registers `HwInterrupt` at `0x109A4` (`0x10A9C` is `HwResetBus`); JP3 offers 3/5/7 (established).
 
 ## ✅ Update 2026-09-25 evening: #8099 MERGED; 3C509B IRQ regression fixed as 86Box#8102 (open)
 
