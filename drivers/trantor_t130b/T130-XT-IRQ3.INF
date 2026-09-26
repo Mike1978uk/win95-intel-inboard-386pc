@@ -1,0 +1,77 @@
+; T130-XT-IRQ3.INF  Trantor T130B miniport, IBM 5160 + Inboard 386/PC, on IRQ 3
+;
+; T130-XT.INF with the card on an interrupt instead of polling (#42). Measured
+; on the 5160: IRQ 5 took 23% off a 1 MB copy to the Zip. IRQ 3 is free once the
+; 3C509B is set to "IRQ 9" (slot pin B4, IRQ 2 on the XT), which needs the
+; patched VPICD (vxd-patches/patch_vpicd_irq2.py).
+;
+;   1. IOConfig     340-34F first. That is the card's jumpered address.
+;   2. IRQConfig    3 only. The T130B's jumpers offer 3, 5 or 7; 5 is the SB Pro
+;                   and 7 the Intek21 parallel card.
+;   3. DMAConfig    left out. On a 5160, 8237 channel 0 is DRAM refresh, and
+;                   T130.MPD is PIO-only, so it never programs the 8237.
+;
+; No Polling=1: with an interrupt the driver completes from HwInterrupt.
+;
+; Prerequisite: inbrdpc.sys must be in [SafeList] in WINDOWS\IOS.INI, or IOS
+; declines every miniport. See issue #17.
+
+[Version]
+signature="$CHICAGO$"
+Class=SCSIAdapter
+Provider=%TRA%
+LayoutFile=LAYOUT.INF
+
+[Manufacturer]
+%TRA%=TRANTOR
+
+
+[TRANTOR]
+%T130%=T_ISA
+
+
+[T_ISA]
+LogConfig=*T130.LogConfig
+CopyFiles=@T130.MPD
+AddReg=IOS, TLOG_REG
+UpdateInis=DoubleBuffer
+
+
+[TLOG_REG]
+HKR,,PortDriver,,T130.MPD
+
+
+[*T130.Det]
+AddReg=ForceMPCopy
+
+
+[*T130.LogConfig]
+ConfigPriority=HARDRECONFIG
+IOConfig=340-34F(3FF::), 240-24F(3FF::), 350-35F(3FF::), 250-25F(3FF::)
+IRQConfig=3
+
+
+[DestinationDirs]
+DefaultDestDir=12
+
+[SourceDisksFiles]
+T130.MPD = 1
+
+[SourceDisksNames]
+1 =  "T130 Driver Installation Disk",,
+
+[IOS]
+HKR,,DevLoader,,*IOS
+HKR,,DontLoadIfConflict,,Y
+
+[ForceMPCopy]
+HKR,,NoSetupUI,,1
+
+[DoubleBuffer]
+%31%msdos.sys,Options,,"DoubleBuffer=1"
+
+
+[Strings]
+TRA="Trantor"
+T130="T130 SCSI Miniport Driver (XT / Inboard, IRQ 3)"
+SCSIClassName="SCSI controllers"

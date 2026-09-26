@@ -35,3 +35,16 @@
   INT 13h / INT 15h counters; `INBOARD_HEARTBEAT=1`). Bed `vm_vpicd_irq2`, golden clone per run.
 - Next: patch VPICD into the CF's post-monolith `VMM32.VXD` with VxDLIB, proven first on
   `vm_3c509b/card_dhcp.img` (NIC at IRQ 9), then the 5160 with `WAIT86`.
+
+## CF staged for the 5160, 2026-09-26 late (owner backed it up first)
+
+| file on the CF | md5 | what |
+|---|---|---|
+| `WINDOWS\SYSTEM\VMM32.VXD` | `f4933989` | patched VPICD inside; the exact file tested in `vm_3c509b_irq2` |
+| `WINDOWS\SYSTEM\VMM32ORG.VXD` | `b89fd581` | the original, for a one-copy revert |
+| `WAIT86.COM` + `AUTOEXEC.BAT` line | `978f7dcc` | `AUTOEXEC.B42` is the original |
+| `T130IRQ\` | INF `c052cbf4`, MPD `9cc53279` | `drivers/trantor_t130b/T130-XT-IRQ3.INF` |
+| `TIMERRES.EXE` | `db4b2862` | current build |
+| `STEPS42.TXT` | | the owner's step sheet: TIMERRES first, then IRQ 9 / IRQ 3 |
+
+The CF's original `VMM32.VXD` is byte-identical to `vm_3c509b/card_dhcp.img`'s, so no re-derivation.
