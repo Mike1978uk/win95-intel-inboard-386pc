@@ -48,3 +48,32 @@
 | `STEPS42.TXT` | | the owner's step sheet: TIMERRES first, then IRQ 9 / IRQ 3 |
 
 The CF's original `VMM32.VXD` is byte-identical to `vm_3c509b/card_dhcp.img`'s, so no re-derivation.
+
+## ▶ NEXT SESSION START - the owner reports back from the 5160
+
+The owner runs `C:\STEPS42.TXT` on the 5160 and brings the CF. Read first:
+
+- `TIMERRES.TXT` - the real Windows tick, and its CPU cost (#45's timer lead).
+- `T130P1.TXT` / `T130P2.TXT` - polled copy at the default tick / with `TIMERRES HOLD` (1 ms).
+- `T130I3.TXT` - T130B on IRQ 3 with the NIC on IRQ 9. Compare with 18.80 s polled, 14.48 s IRQ 5.
+- `BOOTLOG.TXT` - `VPICD` must load (bundled form); the WAIT86 banner shows at boot.
+- Whether the network works on IRQ 9, `DIR A:` never hangs, Device Manager is clean.
+
+Then, depending on the result:
+- **#42:** write it up; close or report on the issue with Andrew thanked; ship the VPICD route
+  (`vxd-patches/patch_vmm32_vpicd_irq2.py` + patcher9x) and `T130-XT-IRQ3.INF` into `dist/`.
+- **#7:** the dated status block for the issue body is drafted in this session's transcript
+  ("root cause found, fix confirmed in 86Box, not yet tested on the real 5160") - **not posted**;
+  post once the 5160 result is in, with the owner's approval. Keep open until then.
+- `WAIT86` stays resident permanently (owner asked): any V86 floppy access with the motor off can
+  hang the same way while `HSFLOP.PDR` does not load (#18).
+
+Pending, not started:
+- `tools/bed_launch.ps1`: warn when a device's config section exists but nothing selects the
+  device (86Box drops `net_01_card` on exit under a different build - cost a run tonight).
+- Control run with the stock monolith in `vm_3c509b_irq2` (the 09-24 failure is the stand-in).
+- 86Box diagnostics live on `86box_3c509b` branch `diag-issue7` (not for upstream).
+
+Tools added tonight, outside the repo: `..\MSVC420` (VC++ 4.2), `..\patcher9x` (built with MinGW;
+needs `..\fasm` on PATH to rebuild), `..\fasm` (FASM 1.73.35), and NASM via MSYS2
+(`/c/msys64/mingw64/bin/nasm.exe`). All listed in `docs/resources_and_sources.md` except FASM/NASM.
