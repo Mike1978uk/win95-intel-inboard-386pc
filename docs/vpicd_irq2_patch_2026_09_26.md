@@ -1,7 +1,7 @@
 # VPICD: delivering the XT's IRQ 2 as IRQ 9 (#42)
 
-Static read of our `vxd-patches/VPICD_INBOARD.VXD` (md5 `65fa4757`), 2026-09-26. **Nothing
-here has run yet.** The patch exists so the bed run is traceable to a commit.
+Static read of our `vxd-patches/VPICD_INBOARD.VXD` (md5 `65fa4757`), 2026-09-26. **Confirmed in
+86Box the same evening** - see *Result* at the end.
 
 ## Base
 
@@ -56,3 +56,32 @@ machine, but a driver that did would fight IRQ 9 for the mask.
 2. Control: the same bed with stock `VPICD_INBOARD.VXD` - expect the 09-24 failure.
 3. Pass = Windows boots, the NIC passes traffic, and IRQ 3-7 devices (mouse, SB Pro) still work.
 4. Only then the 5160, with the card set to 9 in `3C5X9CFG` and the T130B on IRQ 3.
+
+## Result, 2026-09-26 - 86Box, post-monolith, NIC at IRQ 9
+
+Bed `vm_3c509b_irq2`: a copy of `vm_3c509b/card_dhcp.img` (networked, already combined) with the
+patch applied **inside its `VMM32.VXD`**, the route the real CF needs:
+
+```
+patcher9x -force-w3 --vxd-convert VMM32.VXD        W4 -> W3
+python vxd-patches/patch_vmm32_vpicd_irq2.py VMM32.VXD
+patcher9x -force-w4 --vxd-convert VMM32.VXD        W3 -> W4
+```
+
+`patch_vmm32_vpicd_irq2.py` maps each of the 37 bytes into VPICD's LE image in the W3 file and
+refuses to write unless every original byte matches there; all matched. patcher9x:
+<https://github.com/JHRobotics/patcher9x> (Andrew, #5), built locally with MinGW and FASM.
+
+With the 3C509B at IRQ 9 (86Box build `diag-issue7`, which carries `ef082884b`):
+
+- `3C509B: IRQ 9 up` / `IRQ 9 down` pairs: the driver's handler runs and acknowledges the card.
+  The 09-24 run stopped at the first `up`.
+- master IR2 delivered and acknowledged (heartbeat counters);
+- DHCP lease `10.0.2.15`, gateway `10.0.2.2`; ping 4/4;
+- Device Manager: no error, I/O `0320-032F`.
+
+Log: `docs/captures/run42b.log`. One run lost first: 86Box had dropped `net_01_card` from the
+bed config on an earlier exit, so no card existed and Windows reported Code 10 (technique 43).
+
+**Not yet done:** the real 5160 (card to "IRQ 9" in `3C5X9CFG`, T130B to IRQ 3), and a control
+run with the stock monolith in this bed.
