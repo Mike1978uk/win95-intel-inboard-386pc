@@ -170,6 +170,11 @@ void start(void)
         sleep_period(b);
         say("holding 1 ms - run the copy in another MS-DOS Prompt, then press Enter\r\n");
         ReadFile(GetStdHandle(STD_INPUT_HANDLE), b, sizeof b, &r, 0);
+        /* A grant is not proof the period took effect: the check above
+         * can read the default period. Measure again before releasing, so
+         * a run that never held 1 ms shows it at both ends. */
+        say("at release, still holding\r\n");
+        sleep_period(b);
         timeEndPeriod(1);
         say("released\r\n");
     } else {
