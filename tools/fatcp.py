@@ -33,20 +33,11 @@ class FatRW(Fat):
         b = self.f.read(512)
         self.nfat = b[16]
         self.spf = struct.unpack_from('<H', b, 22)[0]
-        tot16 = struct.unpack_from('<H', b, 19)[0]
-        tot32 = struct.unpack_from('<I', b, 32)[0]
-        self.totsec = tot16 or tot32
-        self.nclus = (self.totsec - (self.data_start - self.base) // self.bps) // self.spc + 2
-        self.fat12 = self.nclus < 4085
         self.eoc = 0xFFF if self.fat12 else 0xFFFF
 
     # ---- FAT entry access, in the in-memory copy ----
     def get(self, c):
-        if not self.fat12:
-            return struct.unpack_from('<H', self.fat, c * 2)[0]
-        o = c + c // 2
-        v = struct.unpack_from('<H', self.fat, o)[0]
-        return (v >> 4) if (c & 1) else (v & 0xFFF)
+        return self.nxt(c)
 
     def set(self, c, v):
         if not self.fat12:
@@ -64,7 +55,7 @@ class FatRW(Fat):
 
     def chain(self, c):
         out = []
-        while 2 <= c < (0xFF8 if self.fat12 else 0xFFF8):
+        while 2 <= c < self.end:
             out.append(c)
             c = self.get(c)
         return out

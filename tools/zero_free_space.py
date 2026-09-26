@@ -36,8 +36,7 @@ def hash_all_files(img):
 
 def free_clusters(img):
     fat = Fat(img)
-    n = len(fat.fat) // 2
-    free = [c for c in range(2, n) if struct.unpack_from('<H', fat.fat, c * 2)[0] == 0]
+    free = [c for c in range(2, fat.nclus) if fat.nxt(c) == 0]
     csize, coff = fat.csize, fat.coff
     total = os.path.getsize(img)
     # A cluster whose bytes run past the end of the file is outside the partition's

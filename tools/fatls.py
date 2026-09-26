@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-r"""List or extract files from a raw FAT12/16 disk image (MBR + one partition).
+r"""List or extract files from a raw FAT12/16 image: a partitioned disk (MBR + one
+partition) or an unpartitioned floppy.
 
 Written 2026-08-23 because the CF card is usually in the 5160 or in a running
 emulator, and the disk images are the only copy reachable from the host. Read-only
@@ -16,11 +17,15 @@ BS = chr(92)
 class Fat:
     def __init__(self, path):
         self.f = open(path, 'rb')
-        mbr = self.f.read(512)
-        if struct.unpack_from('<H', mbr, 510)[0] != 0xAA55:
-            raise SystemExit("no MBR signature")
-        plba = struct.unpack_from('<I', mbr, 0x1BE + 8)[0]
-        self.base = plba * 512
+        s0 = self.f.read(512)
+        if struct.unpack_from('<H', s0, 510)[0] != 0xAA55:
+            raise SystemExit("no boot signature")
+        # A floppy has no MBR: sector 0 is the volume boot sector. Both end in
+        # AA55, so tell them apart by a plausible BPB.
+        if s0[0] in (0xEB, 0xE9) and struct.unpack_from('<H', s0, 11)[0] == 512                 and s0[21] >= 0xF0:
+            self.base = 0
+        else:
+            self.base = struct.unpack_from('<I', s0, 0x1BE + 8)[0] * 512
         self.f.seek(self.base); b = self.f.read(512)
         self.bps  = struct.unpack_from('<H', b, 11)[0]
         self.spc  = b[13]
@@ -33,8 +38,19 @@ class Fat:
         self.data_start = self.root_start + ((self.rootent * 32 + self.bps - 1) // self.bps) * self.bps
         self.f.seek(self.fat_start); self.fat = self.f.read(spf * self.bps)
         self.csize = self.spc * self.bps
+        tot = struct.unpack_from('<H', b, 19)[0] or struct.unpack_from('<I', b, 32)[0]
+        self.nclus = (tot - (self.data_start - self.base) // self.bps) // self.spc + 2
+        # The FAT type is decided by cluster count alone (under 4085 is FAT12),
+        # never by the label in the boot sector.
+        self.fat12 = self.nclus < 4085
+        self.end = 0xFF8 if self.fat12 else 0xFFF8   # first end-of-chain value
 
-    def nxt(self, c):   return struct.unpack_from('<H', self.fat, c * 2)[0]
+    def nxt(self, c):
+        if not self.fat12:
+            return struct.unpack_from('<H', self.fat, c * 2)[0]
+        v = struct.unpack_from('<H', self.fat, c + c // 2)[0]
+        return (v >> 4) if (c & 1) else (v & 0xFFF)
+
     def coff(self, c):  return self.data_start + (c - 2) * self.csize
 
     def _ents(self, off, n):
@@ -53,7 +69,7 @@ class Fat:
     def listdir(self, clus):
         if clus == 0: return self._ents(self.root_start, self.rootent)
         out = []; c = clus
-        while 2 <= c < 0xFFF8:
+        while 2 <= c < self.end:
             out += self._ents(self.coff(c), self.csize // 32); c = self.nxt(c)
         return out
 
@@ -68,7 +84,7 @@ class Fat:
 
     def read(self, ent):
         b = bytearray(); c = ent['clus']
-        while 2 <= c < 0xFFF8 and len(b) < ent['size']:
+        while 2 <= c < self.end and len(b) < ent['size']:
             self.f.seek(self.coff(c)); b += self.f.read(self.csize); c = self.nxt(c)
         return bytes(b[:ent['size']])
 

@@ -28,7 +28,7 @@ from fatls import Fat
 def chain(fat, clus):
     out = []
     c = clus
-    while 2 <= c < 0xFFF8:
+    while 2 <= c < fat.end:
         out.append(c)
         c = fat.nxt(c)
     return out
@@ -72,7 +72,7 @@ def update_dirent_size(img, path, newsize):
         cands = entry_offsets(fat.root_start, fat.rootent)
     else:
         c = clus
-        while 2 <= c < 0xFFF8:
+        while 2 <= c < fat.end:
             cands += entry_offsets(fat.coff(c), fat.csize // 32)
             c = fat.nxt(c)
     fat.f.seek(0)
