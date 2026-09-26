@@ -142,3 +142,5 @@ references/3c509b_nestor/
 86box_epat44/
 vm_ls120dos44/
 vm_wfw3c509/
+# Crynwr 3C509 packet-driver source, from Nestor's collection: local reference only
+drivers/3c509b/3c509.asm
