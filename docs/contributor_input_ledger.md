@@ -301,7 +301,7 @@ stale LS-120 comments in the submitted `lpt_bpck.c`, corrected in #8012.
 |---|---|---|
 | [#42](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/42), 09-22: upstream's new `net_3c59x_eisa.c` is also an Etherlink III - check before building one | Our ISA model was already built; merged as 86Box#8076 on 09-24 | ✅ owner, 09-24 |
 | #42, 09-23: VPICD may need patching to take IRQ 2 from the master directly rather than as the cascade | Confirmed against our own `VPICD_INBOARD.VXD`, which NOPs the slave, so master IRQ 2 is dropped as spurious. Now the planned route | ✅ owner, 09-23 |
-| #42, 09-24: A/B the T130B driver with and without an interrupt in an instrumented 86Box, no NIC fitted, before going further | Open. Placed first: it decides whether #42 is worth a VPICD patch at all | ❌ |
+| #42, 09-24: A/B the T130B driver with and without an interrupt in an instrumented 86Box, no NIC fitted, before going further | ⭐ **Done, and it decided #42.** The bed gave the access counts (polled wait under 1% of register traffic) but cannot raise the 5380's line, so the timing A/B ran on the real 5160: **IRQ 5 took 23% off a 1 MB copy to the Zip** (18.80 -> 14.48 s). #42 proceeds. [`t130_mpd_review_2026_09_26.md`](t130_mpd_review_2026_09_26.md) | ❌ reply drafted for the owner |
 | #42, 09-24: WDEB386 over serial for the Protection Error, instead of the bare message | Open. Planned for the #42 trace in the bed | ❌ |
 | [#35](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/35), 09-22: does `INBRDPC.SYS` refuse to shadow a non-IBM EGA ROM (hash, size, signature), or is it blocked by other option ROMs in `C0000`-`E0000`? Disassemble it | Open. Static read, no hardware | 🟡 owner acknowledged 09-22 |
 
