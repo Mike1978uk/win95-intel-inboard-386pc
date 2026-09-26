@@ -8242,3 +8242,26 @@ Two #44 defects, 2026-09-25, both from reading one path and generalising:
 And the interrupt was lost because 86Box's `lpt_irq()` drops a raise while control bit 4 is clear
 and never re-checks; the driver sets bit 4 after `CPP 48`. A model whose device completes
 instantly must not interrupt before the host can take it - on hardware the drive is slower.
+
+## Technique 134: a GUI freeze with a clean PIC - sample the V86 stack, and suspect a BIOS delay
+
+2026-09-26, #7 (Setup stalls after "Programs on the Start menu", mouse dead). Found in three
+emulator runs with a heartbeat (`86box_3c509b` branch `diag-issue7`, `INBOARD_HEARTBEAT=1`)
+that logs CS:EIP, V86/IF, the 8259's IMR/ISR/IRR, per-IRQ raised/delivered counts and, when in
+V86, SS:SP and 12 stack words. Write-up: `docs/issue7_setup_stall_2026_09_26.md`.
+
+- **A dead mouse with `isr=00` and IRQ 4 still delivered is not an interrupt bug.** The
+  interrupt path was fine; the System VM was stuck in a V86 BIOS call, so nothing drew the cursor.
+- **The V86 stack names the caller in one sample.** Static reasoning had it as the POST beep; the
+  stack's return address (`F000:09B2`, U19) said floppy motor-start wait, and `EFA0` on the stack
+  was the diskette parameter table.
+- **The XT BIOS times delays by counting DRAM refresh on DMA channel 0** (`F000:ECA0`) when
+  INT 15h AH=86h fails - which it always does on a 5160. Under Windows VDMAD traps port 00h and the
+  count never moves. Any V86 BIOS path that waits this way hangs its VM.
+- **Fix at the request, not the trap:** `tools/wait86/WAIT86.COM` answers AH=86h from the BIOS tick
+  count, so the BIOS never reaches the loop. Un-trapping port 00h in VDMAD was rejected: the loop
+  also relies on the DMA flip-flop, which VDMAD virtualises and the floppy's channel 2 shares.
+- **Stock-vs-patch control first.** Run 7a used the stock VPICD precisely to clear the #42 patch;
+  it froze identically.
+- **A sampler that sees an unchanged screen is not a stall detector** on its own - it flagged a
+  password dialog. Pair it with the heartbeat, and ask the person watching.
