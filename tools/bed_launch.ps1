@@ -46,6 +46,11 @@ $search = @($exeDir, $msys, "$env:WINDIR\System32")
 $missing = $dlls | Where-Object { $d = $_; -not ($search | Where-Object { Test-Path (Join-Path $_ $d) }) -and $d -notmatch '^(api-ms-|ext-ms-)' }
 if ($missing) { Fail "DLLs not found in $($search -join '; '): $($missing -join ', ')" }
 
+# 2b. A console-subsystem build opens a cmd window on the owner's desktop, and closing it kills 86Box.
+$pe = [IO.File]::ReadAllBytes($Exe)
+$subsystem = [BitConverter]::ToUInt16($pe, [BitConverter]::ToInt32($pe, 0x3C) + 24 + 68)
+if ($subsystem -ne 2) { Fail "the exe is a console program (PE subsystem $subsystem); relink with -DCMAKE_EXE_LINKER_FLAGS=-mwindows" }
+
 # 3. Config: no mouse, ROMs reachable, every image inside the bed and present.
 $ini = Get-Content $cfg
 function Get-CfgValue($key) {

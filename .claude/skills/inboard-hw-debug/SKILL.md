@@ -8025,6 +8025,7 @@ desktop. The script refuses instead:
 | a mouse in the config | 86Box grabs the pointer on a click | refused unless `-AllowMouse`. ⚠ **The owner wants the mouse installed** (2026-09-25): keep `msserial`, pass `-AllowMouse`, never switch it to `none` |
 | an image outside the bed, or missing | ROM BASIC, a header-only log | every `*_fn` resolves inside the bed |
 | stopping VMs by name | the owner's own 86Box closed | stops only the PID it started |
+| a console-subsystem exe | a cmd window beside the emulator; closing it kills 86Box | refuses unless the PE subsystem is GUI; relink with `-DCMAKE_EXE_LINKER_FLAGS=-mwindows` |
 | a bed copied with its `uuid` line | *"This machine might have been moved or copied"* | refuses a `uuid` that another bed's config also holds |
 
 It prints the exe's build time, the tree's HEAD and the `QT` / log flags from
