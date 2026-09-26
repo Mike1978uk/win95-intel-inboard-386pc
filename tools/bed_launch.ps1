@@ -2,8 +2,9 @@
 # Refuses to launch rather than let Windows raise a dialog on the owner's desktop.
 # Stops only the process it started.
 #
-#   tools\bed_launch.ps1 -Exe <86Box.exe> -VmPath <bed dir> [-Seconds 15] [-Log <file>] [-AllowMouse]
+#   tools\bed_launch.ps1 -Exe <86Box.exe> -VmPath <bed dir> [-Seconds 15] [-Log <file>] [-AllowMouse] [-Scale 3]
 #
+# -Scale sets the window size: 1 = 100%, 2 = 150%, 3 = 200% (default, the owner's request), 4 = 300%.
 # -Seconds 0 leaves the VM running and prints its PID. -DryRun checks everything and launches nothing.
 
 param(
@@ -12,6 +13,7 @@ param(
   [int]$Seconds = 0,
   [string]$Log = "",
   [switch]$AllowMouse,
+  [ValidateRange(0, 9)] [int]$Scale = 3,
   [switch]$DryRun
 )
 $ErrorActionPreference = 'Stop'
@@ -80,6 +82,19 @@ if ($uuid) {
 }
 Write-Host "cfg   $cfg (mouse $mouse, roms $($roms[0]))"
 if ($DryRun) { Write-Host "DRY RUN: all checks passed, nothing launched"; exit 0 }
+
+# 3b. Window size. 86Box rewrites the config on exit, so set it on every launch.
+$text = [IO.File]::ReadAllText($cfg)
+$nl = if ($text.Contains("`r`n")) { "`r`n" } else { "`n" }
+$scaleLine = [regex]'(?m)^scale[ \t]*=[^\r\n]*'
+$general = [regex]'\[General\]\r?\n'
+if ($scaleLine.IsMatch($text)) {
+  $text = $scaleLine.Replace($text, "scale = $Scale", 1)
+} elseif ($general.IsMatch($text)) {
+  $text = $general.Replace($text, "[General]$nl" + "scale = $Scale$nl", 1)
+} else { Fail "no [General] section in $cfg to hold scale" }
+[IO.File]::WriteAllText($cfg, $text, (New-Object Text.UTF8Encoding($true)))
+Write-Host "scale $Scale"
 
 # 4. Launch with the MSYS2 runtime on PATH; flags are -P and -L only (see src/86box.c).
 $env:PATH = "$msys;$env:PATH"
