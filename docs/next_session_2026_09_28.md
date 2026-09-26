@@ -22,19 +22,11 @@ The 1 ms tick costs 15% of the CPU while held, so B has to beat that to be worth
   `BOOTLOG.TXT`, 00:02 boot). Plan: find the wait by disassembly, give up on `80h`.
 - #36 fixed (`4c35149`): `fatls`/`fatcp` read FAT12 and unpartitioned floppies.
 
-## Waiting on the owner's wording approval (not posted)
+## Posted after midnight, owner-approved
 
-- **#14 close** (owner agreed to close; the comment was blocked because its wording was unseen):
-  *"Closing as not reproducible: 40 runs across 2048, 3072 and 5120 KB, zero POST 101. The
-  leading suspect, the misplaced shadow alias, was fixed upstream (86Box#7765). If you hit 101
-  on current 86Box master, please post the config and this will be reopened."*
-- **#29 item 1** (DMA reaches the 384 KB SW1-3/4 moved onto the Inboard). Owner: sound plays
-  cleanly at startup and shutdown. ⚠ That proves DMA reaches wherever the SB buffer is today;
-  the only address ever read is `0x09xxxx` (86Box, 08-24), which is Inboard RAM (256-640 KB) on
-  the 5160. Strong, not a readback. Tick item 1 with that caveat; #29 stays open for items 2-4.
-- **#45 row 5**: the machine is already on *Network server*, not *Desktop*. Server enlarges the
-  VFAT path and name caches (more RAM, faster lookups); on 5 MB that is a trade, unmeasured.
-  Correct the row; keep Server unless an A/B says otherwise.
+- #14 closed as not reproducible. #29 item 1 answered in practice (clean SB audio; buffer
+  address not read back - the 8237 is write-only); items 2-4 open. #45 row 5 corrected: the
+  machine is on Network server and stays there unless an A/B says otherwise.
 - #10 stays open (owner: it widens the project to early 5160s).
 
 ## Optimisation order - agreed with the owner, not started

@@ -497,7 +497,6 @@ rather than a DMA-reach one — is on the issue.
 | | |
 |---|---|
 | [#10](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/10) | Idea: a loadable BIOS-extension shim so 1982-era 5150/5160 ROMs can run Windows |
-| [#14](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/14) | POST intermittently halts with 101, at `mem_size` 2688 and 3072. Needs a quiet build, not `86box_full` |
 | [#18](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/18) | Floppy corruption after a media change. DMA reach is fixed (`maxPhys 0x1000 -> 0xFF`, shipped as `HSFLOP_XTDMA.PDR`) and reads/writes measured clean here, but that harness never changed media, which is this issue's trigger. The reproduction bed - 86Box + Monster Floppy + the patched driver + a media change - is still to be built, and needs no hardware |
 | [#23](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/23) | `XTIDEMP.MPD` cannot drive the XT-IDE Hi-Speed register map - an A3/A0 swap is a permutation, and the driver computes `base + index * stride`. Blocked on hardware to test against, and on 86Box having no Hi-Speed model |
 | [#28](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/28) | Per-component audit: walk every driver and VxD, six questions each |
@@ -506,7 +505,6 @@ rather than a DMA-reach one — is on the issue.
 | [#33](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/33) | DRAM refresh tuning: a tax every device pays |
 | [#34](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/34) | Display mode as a bus lever: 1024x768 vs 800x600 vs 640x480 |
 | [#35](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/35) | Shadow RAM inventory, and memory-mapped storage in the emulator |
-| [#36](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/36) | `fatcp.py` / `fatls.py` claim FAT12 support but are FAT16 only |
 | [#40](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/40) | CPU upgrade module: the registers we never explored, and its switches. `CMLR` was one register and took Dhrystone from 2 to 13-15; **`XTOUT` is set where feipoa recommends 0** and has never been tested. The module's switches are undocumented here |
 | [#41](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/41) | Pace the polling in every driver that spins: `T130.MPD`, `HSFLOP.PDR`, `ELNK3.VXD`. A poll is **5.55 us** of bus moving nothing against **0.22 us** for a cached delay - and since 2026-09-21 we know it also **flushes the L1**, so each poll removed is worth more than its bus time |
 | [#43](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/43) | IOCHRDY: what a held bus actually costs. Our own three-window fit already isolates it - per bus cycle **1.978 us** (XT-CF ROM) against **3.805 us** (Mach8 video), same machine, same fixed sync term. And **86Box models no bus stall at all**, so any lever whose whole benefit is holding the bus for less time measures as zero in the bed |
