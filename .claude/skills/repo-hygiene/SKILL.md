@@ -109,6 +109,13 @@ A reader should not have to scroll a comment thread to learn the current state. 
 compact `> ### Status — <date>` block to the body; leave the original text below it intact.
 Say honestly when something is deployed but unmeasured.
 
+### Contributor links
+
+Every link a contributor posts on an issue belongs in `docs/resources_and_sources.md`, with what it
+was offered for. On 2026-09-26 a sweep found 19 of @andrew-hoffman's never recorded, including the
+tool that patches `VMM32.VXD` after Setup - needed that day and four weeks old. Sweep: list every
+non-owner comment's URLs with `gh api .../issues/N/comments` and print those absent from `docs/`.
+
 ### Publication check
 
 Any fix that shipped must be reachable by someone who does not have this working tree:
