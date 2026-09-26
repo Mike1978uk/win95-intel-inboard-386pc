@@ -629,3 +629,30 @@ multi-track requests are exactly the shape of access that spans what a cache pag
 
 Also in the file, not relevant here: `AVAILDEV` (removed after DOS 3.0), `SWITCHAR`
 (gone after DOS 3.0, still reachable via INT 21h AH=37h).
+
+## 10. @andrew-hoffman's links, swept 2026-09-26
+
+A sweep of every link posted on this repo's issues found these never recorded here. Each line says
+what Andrew offered it for. **Unread** means exactly that: listed, not yet evaluated.
+
+**VxD and Win9x driver work**
+- [patcher9x VxDLIB](https://github.com/JHRobotics/patcher9x/blob/main/doc/VXDLIB_UTF8.txt) (#5) - unpack/repack `VMM32.VXD` after Setup. Entry in section 2.
+- [sym2map](https://github.com/ExplodingBottle/sym2map) (#21) - converts `.SYM` to a parseable symbol list. Directly usable on the DDK's `DEBUG/*.SYM` (`VPICD.SYM`, `IOS.SYM`, `SCSIPORT.SYM`). Unread.
+- [Hazzah, *Writing Windows VxDs and Device Drivers*, 2nd ed. 1997](http://bitsavers.informatik.uni-stuttgart.de/pdf/microsoft/windows_95/Hazzah_-_Writing_Windows_VxDs_and_Device_Drivers_2ed_1997.pdf) (#3) - recommended reading for building a VxD from scratch. Unread.
+- [Walter Oney, *Systems Programming for Windows 95*](https://archive.org/details/systemsprogrammi00oney/) (#21) - borrowable only; also named: Pietrek, *Windows 95 System Programming Secrets*. Unread.
+- [*Inside the Windows 95 File System*, 1997](https://archive.org/details/bitsavers_microsoftwidetheWindows95FileSystem1997_40878940/page/29/mode/2up) (#3) - IFS/IOS layering. Unread.
+- [I/O Supervisor Guide, docshare copy](https://web.archive.org/web/20200427173941/http://docshare01.docshare.tips/files/5609/56093391.pdf) and [Microsoft's original download page](https://web.archive.org/web/20060428220240/http://www.microsoft.com/downloads/details.aspx?FamilyID=7528EDD4-ED43-4498-B0A9-B484F8FAB50A&displaylang=en) (#21) - the Guide itself is already used; these are its provenance.
+- [NVME2k](https://github.com/techomancer/nvme2k) and [SweetLow's nvme9x backport](https://github.com/LordOfMice/Tools/blob/master/nvme9x.zip) (#21) - a modern SCSIPORT miniport with source, and its 9x port (binary only). Unread.
+
+**Hardware references**
+- [IBM 5160 Technical Reference, APR83](https://minuszerodegrees.net/manuals/IBM/IBM_5160_Technical_Reference_APR83.pdf) and [retroarchive copy](http://www.retroarchive.org/dos/docs/ibm5160techref.pdf) (#22) - schematics and logic diagrams; the MAR86 revision we cite is the third link he gave.
+- [Intel, *Installing the Inboard 386/PC* (1987)](https://minuszerodegrees.net/manuals/Intel/Intel%20-%20Installing%20the%20Inboard%20386_PC%20Personal%20Computer%20Enhancement%20(1987).pdf) (#5) - the card can map a 64 KB EMS page frame; relevant to DMA buffers between 640 KB and 1 MB.
+- [Lo-tech XT-CF-lite rev.2](https://www.lo-tech.co.uk/wiki/XT-CF-lite_rev.2) and [ISA CompactFlash rev.2b](https://www.lo-tech.co.uk/wiki/Lo-tech_ISA_CompactFlash_Adapter_revision_2b) (#21) - schematics showing D8-D15 unconnected; since confirmed by the owner's photograph (technique 95).
+- [OS/2 Museum, *More Fun with ISA DMA*](https://www.os2museum.com/wp/more-fun-with-isa-dma/) (#23) - a technique for timing ISA DMA; relevant to #29. Unread.
+
+**86Box**
+- [`net_3c59x_eisa.c`](https://github.com/86Box/86Box/blob/master/src/network/net_3c59x_eisa.c) (#42) - upstream's EISA EtherLink III, flagged before we built the ISA model (#8076).
+- [86Box#7944, commit `c54d36c`](https://github.com/86Box/86Box/pull/7944/changes/c54d36cffe9253ececebc7f4ea6ea7358e09256a) (#8) - the upstream change he expected to fix the Mach8 issue.
+
+**Background**
+- [Computer Ads from the Past: Intel's Inboard 386/PC](https://computeradsfromthepast.substack.com/p/intels-inboard-386pc), and two videos on the card's inherent limits ([1](https://m.youtube.com/watch?v=jYY8SIWAeuc), [2](https://m.youtube.com/watch?v=4JdaklvI81o)) (#23) - context: the card predates integrated chipsets and was built for business upgrades, so not everything is fixable.
