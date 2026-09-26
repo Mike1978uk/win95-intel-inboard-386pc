@@ -71,3 +71,12 @@ without a reboot - the first time on this machine. Owner-observed, 2026-09-26.
 **Not yet done:** the real 5160 (its install is already past Setup, so the test there is any
 V86 floppy access with the motor off), and no measurement of the waits' length against the
 drive's motor-start time.
+
+## The 5160, 2026-09-26 evening
+
+`WAIT86` resident from `AUTOEXEC.BAT` on the real machine: its banner shows, Windows starts,
+the network and Device Manager are unchanged, and `DIR A:` twice in an MS-DOS Prompt does not
+hang (owner-observed). **That does not exercise the fix:** `BOOTLOG.TXT` shows
+`Init Success hsflop.pdr`, so after Setup the floppy runs through the 32-bit driver and the
+BIOS motor wait is never reached. What the 5160 shows is that `WAIT86` does no harm. Proving it
+there needs Setup's first boot, when `HSFLOP.PDR` is not yet loaded - a fresh install.
