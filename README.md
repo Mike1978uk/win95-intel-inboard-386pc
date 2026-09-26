@@ -125,13 +125,14 @@ ASPI manager are commented out, kept only as the DOS-side reference — Windows 
 now. `INBRDPC.SYS` stays, and always will: it is the Inboard's own board driver, not a storage
 driver, and the machine does not boot without it.
 
-⛔ **`EGACACHE` came off that line on 2026-09-21, and here is why it never mattered.** Intel's
-switch *"reserves up to 32K bytes ... for caching the EGA ROM BIOS"* — and this machine's card
-is an ATI Mach8, a **VGA**. An A/B on the real 5160 on 2026-09-20 had already measured it as no
-change at all (1746 / 1476 / 1340 byte-word-dword against 1746 / 1478 / 1336, inside the
-harness's own ±2-tick noise, with `0xC0000` unmoved at 2.858 us/byte). The mechanism explains
-the null result rather than leaving it unexplained: the switch does do something, just not for
-a card that is not an EGA. **Do not re-propose it.**
+**`EGACACHE` came off that line on 2026-09-21.** An A/B on the real 5160 on 2026-09-20
+measured no change (1746 / 1476 / 1340 byte-word-dword against 1746 / 1478 / 1336, inside the
+harness's ±2-tick noise, with `0xC0000` unmoved at 2.858 us/byte). **Why it does nothing is
+not known.** Intel's switch *"reserves up to 32K bytes ... for caching the EGA ROM BIOS"* and
+this card is a VGA, which may be the reason; @andrew-hoffman suggests two others on
+[#35](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/35): `INBRDPC.SYS` may
+check the ROM's signature, or be blocked by other option ROMs in `C0000`-`E0000`. Reading
+`INBRDPC.SYS` settles it; until then the lever is open.
 
 Note which way round this is: the line **without** `EGACACHE` is the long-standing
 configuration — recorded as `DEVICE=c:\INBRDPC.SYS NODIAGS NOPAUSE` since 2026-07-26 and booted
