@@ -23,3 +23,15 @@
    `3C509B: IRQ 9 up`, black screen with cursor, 86Box still running.
 2. `TIMERRES` on the 5160, then the polled `T130AB` with and without `TIMERRES HOLD`.
 3. The settings issue's A/Bs, one variable each.
+
+## Update, evening 2026-09-26: #7 root-caused and fixed in 86Box
+
+- **#7:** Setup's stall is the XT BIOS floppy motor-start wait falling back to counting DRAM
+  refresh on DMA channel 0, which VDMAD traps under Windows. `tools/wait86/WAIT86.COM` (INT 15h
+  AH=86h) fixes it: Setup reached the desktop on the first pass, no reboot, first time ever.
+  `docs/issue7_setup_stall_2026_09_26.md`. Not yet on the 5160.
+- **#42:** the patched VPICD does not cause #7 (stock and patched stall identically without WAIT86).
+- Diagnostic 86Box: `86box_3c509b` branch `diag-issue7` (heartbeat, PIC, V86 stack, IRQ and
+  INT 13h / INT 15h counters; `INBOARD_HEARTBEAT=1`). Bed `vm_vpicd_irq2`, golden clone per run.
+- Next: patch VPICD into the CF's post-monolith `VMM32.VXD` with VxDLIB, proven first on
+  `vm_3c509b/card_dhcp.img` (NIC at IRQ 9), then the 5160 with `WAIT86`.
