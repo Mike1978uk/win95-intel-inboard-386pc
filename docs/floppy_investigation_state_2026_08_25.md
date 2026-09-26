@@ -37,9 +37,9 @@ has become unavailable" screen, i.e. a blocked thread, no fault, no crash dump.
   is 18, same 500 kbps - a 5.25" driven as 3.5" reads 1-15 then fails). **Dead**: the drive that
   stalled is the 3.5", and it is correctly detected as such.
 - **`DMABufferIn1MB`.** Already `True`, `DMABufferSize=64`.
-- **Corrupt `VDMAD`.** Never deployed - `a4fd183b` sits unused in `C:\patched_files\` and
-  `C:\WINDOWS\SYSTEM\VMM32\` holds only `MRCI2.VXD` + `QEMMFIX.VXD`, so `VMM32.VXD` was never
-  rebuilt with it. Sound works because `MSSBLST.VXD` is dynamically loaded.
+- **Corrupt `VDMAD`.** Not a lead from `C:\patched_files\`: that folder is a leftover backup and
+  nothing in it is loaded. Bundled VxDs come from the pre-monolith image the combine was built from
+  (corrected 2026-09-26, owner). Sound works because `MSSBLST.VXD` is dynamically loaded.
 
 ## Deployed, effect UNMEASURED
 

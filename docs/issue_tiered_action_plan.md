@@ -94,9 +94,10 @@ a 7-byte wild write to an unmapped linear address, sitting exactly at `OBJ1:0x16
 faulting instruction the BSOD names, to the byte — which is why the reported offset never moved
 across any attempt.
 
-**Why the earlier "fixed VDMAD failed on real hardware" result proved nothing.** The fixed file was
-only ever staged in the card's `\patched_files\`; it was never placed in `WINDOWS\SYSTEM\VMM32\`.
-`BOOTLOG.TXT` on both cards shows `Loading Vxd = VDMAD` — the bundled-from-`VMM32.VXD` form, not the
+**Why the earlier "fixed VDMAD failed on real hardware" result proved nothing.** Bundled VxDs are
+read only from the combined `VMM32.VXD`, built from the pre-monolith image; a file added afterwards
+is not read. (Corrected 2026-09-26, owner: `\patched_files\` on the card is a leftover backup folder,
+never a deployment route.) `BOOTLOG.TXT` on both cards shows `Loading Vxd = VDMAD` — the bundled-from-`VMM32.VXD` form, not the
 `Loading Device = <path>` form a file-loaded VxD produces. And `VMM32.VXD` is **W4-compressed**, so
 nothing was patched in place there either. The corrupt Aug-4 copy has been the one loading all along.
 

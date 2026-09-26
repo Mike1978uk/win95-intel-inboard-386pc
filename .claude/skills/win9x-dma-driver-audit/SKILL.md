@@ -113,9 +113,8 @@ Loading Vxd = VDMAD                     <- bundled inside VMM32.VXD; a file copy
 Dynamic load device  mssblst.vxd        <- loaded from the file on disk; a file copy WILL take
 ```
 
-A real case lost eighteen days testing a correct fix that was never being loaded. Bundled VxDs need
-the pre-monolith route (replace before the combine step); dynamically loaded ones are a plain file
-copy.
+A bundled VxD added after the combine is not read. Bundled VxDs need the pre-monolith route
+(replace before the combine step); dynamically loaded ones are a plain file copy.
 
 For the same reason, **sweep a pre-monolith image** if you want full coverage - VxDs inside a
 combined `VMM32.VXD` cannot be audited at all, because that file is `W4` compressed. On one real

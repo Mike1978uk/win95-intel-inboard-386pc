@@ -390,7 +390,7 @@ fixes. Same `maxPhys` change as the sound driver.
 
 `VDMAD`, `VKD` and `VPICD` are combined into `VMM32.VXD` by Setup. **After that combine, a
 replacement is silently ignored** — `BOOTLOG.TXT` keeps loading the bundled copy, and `VMM32.VXD` is
-`W4` compressed so it cannot be patched in place. This cost the project eighteen days.
+`W4` compressed so it cannot be patched in place.
 
 Drop them into `WINDOWS\SYSTEM\VMM32\` on a **pre-monolith** install (Setup has not yet combined),
 then let Setup run:

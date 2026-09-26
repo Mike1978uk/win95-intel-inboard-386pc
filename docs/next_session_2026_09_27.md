@@ -12,7 +12,7 @@
 
 ## Waiting on the owner
 
-- **Issue draft** `docs/drafts/issue_win95_settings_and_timer.md` - wording approval, then post.
+- Settings and timer tests captured as [#45](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/45).
 - The 5160 is being rebuilt (CF restored, SB Pro refitted, T130B jumper off IRQ 5).
 
 ## Next, in order

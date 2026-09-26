@@ -1972,11 +1972,11 @@ for opcodes finds nothing whether or not the code is in there.
 | `Loading Vxd = VDMAD` | came from the bundled, combined `VMM32.VXD` |
 | `Loading Device = C:\WINDOWS\SYSTEM\VMM32\VDMAD.VXD` | came from the file |
 
-For eighteen days this project believed a fix had been "tested on real hardware and failed". The
-fixed file was sitting in `\patched_files\` on the card, had never been placed anywhere Windows
-looks, and `BOOTLOG` had been saying `Loading Vxd = VDMAD` the whole time. **Before drawing any
-conclusion from a VxD change, prove the new file loaded.** The reliable route is to apply patches to
-a *pre-monolith* image — one where `WINDOWS\SYSTEM\VMM32\` still holds the individual VxDs and
+**A bundled VxD added after the combine is not read** (owner, 2026-09-26): every patched VxD this
+project runs was put into the pre-monolith image before Setup combined it. `\patched_files\` on the
+card is a leftover backup folder - nothing in it is loaded and it was never a deployment route.
+**Before drawing any conclusion from a VxD change, prove the new file loaded.** The route is to
+apply patches to a *pre-monolith* image — one where `WINDOWS\SYSTEM\VMM32\` still holds the individual VxDs and
 `VMM32.VXD` is still the stock 411,132-byte copy — and let Setup's own combine bake them in.
 `vxd-patches/deploy_premonolith.sh` does this and refuses to run against a post-combine image.
 
