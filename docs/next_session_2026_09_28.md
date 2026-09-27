@@ -28,7 +28,7 @@ DOS mode; not yet measured against the ~23 KB/s-per-revolution ceiling.
 
 - `C:\CTCHIP\CPUSET.BAT` now writes `1000h:1 = 8C` (XTOUT clear); old file `CPUSET.B9C`.
   `dist/` still holds the `9C` version until the Windows gate passes on `8C`.
-- `C:\SNPTEST.BAT <file on A:>`: BUSFLUSH x2 on `92`, then `1000h:0 = 8A` (SNP on, flush
+- `C:\SNPTEST.BAT <file on B:>`: BUSFLUSH x2 on `92`, then `1000h:0 = 8A` (SNP on, flush
   snooping off), BUSFLUSH x2, two floppy copies `FC /B` against a copy made on `92`, back to
   `92`. Timed floppy copy included. Results `C:\SNP.TXT` (ticks as the `0040:00F0` dump).
   No read-back of `8A` in the batch - CTCHIP is interactive; run `CPUSHOW` by hand if wanted.
