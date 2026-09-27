@@ -20,9 +20,10 @@ discounted. The copy ranges do not overlap (mean 7.17 vs 6.59 s). **Owner kept t
 Future workloads for the RAM track must run without input. The cap is live in `SYSTEM.INI`; `SYSTEM.VC` is gone from the CF,
 `SYSTEM.BVC` (the uncapped backup) is present.
 
-**Floppy:** INT 13h AH=08 reports type 3 (720 KB, 80 x 9) for A: and B: - the Sergey ROM is not
-loaded, so the drives run at 250 kbit/s. Owner reports reads and writes feel slow in Windows and
-DOS mode; not yet measured against the ~23 KB/s-per-revolution ceiling.
+**Floppy:** A: is 1.44 MB 3.5", B: 1.2 MB 5.25", both through the Sergey ROM, which loads on
+the 5160 (only the emulator leaves it out). The old `FDTYPE.TXT` probe reporting 720 KB for both
+is not trusted. Owner reports reads and writes feel slow in Windows and DOS mode; the timed B:
+copy in `SNPTEST` is the first number.
 
 ## ▶ ON THE CF NOW: XTOUT clear and the SNP test (2026-09-27 late)
 
