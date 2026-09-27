@@ -274,7 +274,7 @@ machine now has its own BIOS list containing only the two 1986 revisions.
 ⚠ **Corrected 2026-09-27:** this paragraph used to say `INBRDPC.SYS` cannot work with a 1982 ROM
 because it checks a signature at `F000:E05B`. It does not: all IBM revisions carry the same bytes
 there, and the check is the driver's own shadow-RAM test. In the current emulator the 1982 XT ROM
-boots Windows 95 to the desktop. The August failure came from a shadow-window bug fixed later.
+and the 5150 ROM both boot Windows 95 to the desktop. The August failure came from a shadow-window bug fixed later.
 Details: [`docs/issue10_old_bios_2026_09_27.md`](docs/issue10_old_bios_2026_09_27.md).
 
 ### Worth knowing — the XT 4-bit DMA page latch ([#7771](https://github.com/86Box/86Box/pull/7771))

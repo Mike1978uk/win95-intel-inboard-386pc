@@ -5,13 +5,16 @@
 - The 1982 XT ROM boots Win95 to the desktop on the Inboard in the emulator; the
   "1982 ROM incompatible" claim was a shadow-window bug. README corrected.
 - Five BIOS-service differences applied to the 1986 ROM do not stop Win95.
-- The 5150 ROM loops in POST in the emulator (emulator gap; a real 5150 boots). NEXT: log each
-  reset's cause, and one boot with plain VGA instead of the Mach8.
+- The 5150 ROM also reaches the desktop in the emulator once SW2 reports <=640 KB, so the BIOS
+  is ruled out as far as the emulator models it. Leading suspect: 5150 planar RAM (not
+  modelled). Cimon asked for the DEBUG DMA probe + BOOTLOG; the owner can run the probe on the 5160.
 - Diagnostic 86Box: branch `diag-issue10` in `86box_3c509b` (local, not pushed), build `build_log`.
   `INBOARD_OLDBIOS` bitmask; the Inboard machine also offers `ibm5160_1501512_5000027` and
   `ibm5150_1501476`. `vm_3c509b` is back on `ibm5160_050986`.
-- Owed: a Cimon message (BOOTLOG.TXT, BIOS date, planar RAM/switches) and a #10 status block,
-  both drafts for the owner.
+- Cimon's message drafted and handed to the owner. Owed: a #10 status block for approval.
+- XTAB did not finish: FastDoom 1.2 appears not to exit after -timedemo. Rewrite with
+  `-benchmark single demo1` once the CF shows how many runs completed. Reboot after
+  interrupting it - XTOUT may be left clear.
 
 ## ▶ NOW: #40 XTOUT, measured with FastDoom
 

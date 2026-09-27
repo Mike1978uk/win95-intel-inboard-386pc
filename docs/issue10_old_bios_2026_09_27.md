@@ -8,8 +8,9 @@ can a loadable BIOS extension fix it for every owner?
 - **The 1982 XT ROM (08NOV82) boots Windows 95 to the desktop on the Inboard in the emulator.**
   The long-standing claim that 1982 ROMs are incompatible with `INBRDPC.SYS` does not hold.
   Not yet confirmed on a real 1982 XT.
-- **The 5150 ROM (27OCT82) loops in POST in the emulator.** A real 5150 boots DOS with the Inboard
-  and XT-IDE (owner, 2023; Cimon, 2026), so this is an emulator gap. The 5150 is untested past POST.
+- **The 5150 ROM (27OCT82), with the 5150's own keyboard/switch interface, also boots Windows 95
+  to the desktop in the emulator** - once the emulated SW2 reports at most 640 KB (see 4a).
+  So as far as the emulator models a 5150, the BIOS is not what crashes Cimon's machine.
 - **Five BIOS-service differences, applied to the 1986 ROM, do not stop Windows 95.**
 
 ## 1. The "1982 ROM incompatible" claim was an emulator artefact
@@ -54,10 +55,34 @@ The ROM model byte is read by eleven code locations, including a VxD (`0028:C036
 | baseline | 09MAY86 | desktop |
 | `INBOARD_OLDBIOS=31`: model `FF`, no `C0`, no `88`, old INT 1Ah, old diskette range | 09MAY86 patched, checksum kept | **desktop** |
 | real ROM | 5160 08NOV82 | **desktop** |
-| real ROM | 5150 27OCT82, 5150 PPI | POST reset loop (emulator gap) |
+| real ROM | 5150 27OCT82, 5150 PPI | POST loop - emulator SW2 bug, 4a |
+| real ROM | 5150 27OCT82, 5150 PPI, SW2 capped at 640 KB | **desktop** |
 
 The first `OLDBIOS` attempt halted at `F000:E0AB`: the patches broke the ROM checksum. The build
 now rebalances each 8 KB block through unused `CC` padding.
+
+### 4a. The 5150 POST loop was the emulator's SW2
+
+A 5150 BIOS sizes conventional memory from the SW2 switches. 86Box builds that value from total
+RAM, which on the Inboard machine includes the card's extended memory (5120 KB here), so POST was
+told it had megabytes of conventional memory. Logging showed no reset and one entry to POST;
+POST itself was looping. Capping the reported value at 640 KB let it through. Diagnostic only:
+the combination exists only in `diag-issue10`.
+
+## What the emulator does not model
+
+It has no planar RAM separate from the Inboard's: CPU and DMA see one flat block. On a real
+5150 the planar RAM cannot be disabled, so below the planar limit the CPU may use the Inboard's
+copy while DMA uses the planar copy. DOS booting from SCSI or XT-IDE (no DMA) would not notice;
+Windows could. Untested. The DEBUG probe below separates the cases; the same probe on a 5160
+also answers ledger item E5c (can DMA reach Inboard-served memory):
+
+```
+DEBUG
+L 1000:0 0 0 1
+L 9000:0 0 0 1
+C 1000:0 L200 9000:0
+```
 
 ## 5. Forum context
 
@@ -75,7 +100,9 @@ now rebalances each 8 KB block through unused `CC` padding.
 
 ## Next
 
-1. Make the 5150 ROM POST in the emulator: log the cause of each restart, and try one boot with a
-   plain VGA card to see whether the Mach8 ROM is involved.
-2. Then boot Windows 95 and 3.11 on the 5150 ROM.
-3. Ask Cimon for `BOOTLOG.TXT`, his 5150's BIOS date, planar RAM and switch settings.
+1. Cimon (message sent by the owner): the DEBUG DMA probe on his 5150 and 5160, `BOOTLOG.TXT`
+   from the failing boot, BIOS date, planar RAM and SW1/SW2.
+2. The owner can run the same probe on the 5160 as the control.
+3. If DMA and CPU disagree on a 5150, model planar RAM in the emulator (DMA-only block below the
+   planar limit) and test workarounds there first.
+4. Windows 3.11 on the 5150 ROM in the emulator is still untried.
