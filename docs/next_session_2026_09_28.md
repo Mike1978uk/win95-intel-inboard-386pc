@@ -53,6 +53,25 @@ is byte-identical to `C:\DOS\MWBACKUP.HLP` (md5 `c585bad3`).
 Floppy, owner: B: needs the disk ejected and reinserted before each use. A COMrade `dir_list B:\`
 left DOS at Abort, Retry, Fail, which is why the later COMrade calls timed out.
 
+## ▶ RESULT: CRW auto insert notification A/B (#45 row 2) and the 8C gate, 2026-09-28
+
+`TIMERRES` CPU loop at the default tick, k passes/s, mean of six readings per run:
+
+| | run 1 | run 2 | run 3 | mean |
+|---|---|---|---|---|
+| external SCSI drives off | 4724 | 4757 | 4702 | **4728** |
+| on, CRW auto insert ON | 4702 | 4631 | 4686 | **4673** |
+| on, CRW auto insert OFF | 4740 | 4724 | 4729 | **4731** |
+
+The CRW's media poll costs ~1.2% of idle CPU; with it off, the powered chain costs nothing
+measurable. **Kept off.** Row 2 closed. `8C` gate: Windows booted three times, `BOOTLOG.TXT` shows
+the same four LoadFailed lines as before (EBIOS x2, ndis2sup, vshare), no odd behaviour reported
+yet - owner to confirm, then `dist/` gets the `8C` `CPUSET.BAT` and #40 can close.
+
+**On the CF for the RAM baseline:** `C:\PERFLOG.EXE` and `C:\RAMBASE.BAT A` - PERFLOG for 300 s,
+`T130AB` copies, then PSP, WordPad, Notepad and Paint opened 30-40 s apart, then the copies again
+with them open. Copy times land in `RBA1.TXT` / `RBA2.TXT`, counters in `PERFLOG.CSV`.
+
 ## ▶ Device Manager settings on the 5160 (owner, 2026-09-27 late) - #45 row 2, #31
 
 | device | Disconnect | Sync | Removable | Int 13 | Auto insert notification |
