@@ -1,12 +1,33 @@
-# Next session - handoff from 2026-09-27 (after midnight)
+# Next session - handoff from 2026-09-27
 
-## ▶ NEXT SESSION START
+## ▶ NOW: SW1 on the CPU module, case open (#40)
 
-The owner brings the CF back from the LS-120 timer A/B (`C:\LS120TMR.TXT`). Read first:
-`LSA1.TXT`, `LSB.TXT`, `LSA2.TXT` (the 1 MB copy to the LS-120 at default / 1 ms / default) and
-`TIMERRES.TXT`. **Run B counts only if both `Sleep(1)` lines in `TIMERRES.TXT` read ~2000 us**
-(the start check and the new at-release check). The 09-26 file is kept as `TIMER926.TXT`.
-The 1 ms tick costs 15% of the CPU while held, so B has to beat that to be worth keeping.
+The switches read transposed: they look `1 OFF, 2 OFF, 3 ON, 4 ON` and act as `1 ON, 2 ON,
+3 OFF, 4 OFF` (FPU works; I/O flush measured). Sources: `resources_and_sources.md` §8c. The
+test does not depend on that reading: **flip switch 1 to its other position** and let
+`BUSFLUSH` say which position flushes on I/O.
+
+feipoa: *"cannot even run DOOM"* on IBM systems without SW1 ON; his 2025 post calls OFF
+optimal. So DOOM is the gate. Both positions flush on DMA, so the risk is that the module's DMA
+detection misses the XT's DMA and the I/O flush was covering for it - hence floppy and sound.
+
+1. **Baseline, SW1 as now.** Boot to DOS. `D:\UTILS\BENCHPC\DOSBENCH`, option `a` (DOOM min
+   detail, `-timedemo demo3`): note gametics / realtics, and anything visibly wrong. Run
+   `BUSFLUSH` with `COMRADE` up; results read over COMrade as on 09-21.
+2. **Power off, flip switch 1, power on.** Same DOOM timedemo, same `BUSFLUSH`.
+3. If DOOM runs clean and `BUSFLUSH` shows the with-I/O passes near the no-I/O passes, boot
+   Windows 95 and run the gate: floppy copy + FC, a WAV through the SB, a network copy, Zip
+   copy + FC. Any failure: flip back.
+4. Record both DOOM results and both `BUSFLUSH` tables.
+
+Then #40 registers (item 2 below), starting with XTOUT.
+
+## LS-120 timer A/B (#45 row 6) - ruled out, closed by the owner
+
+1 MB copy to the LS-120, seconds: default tick 29.44 / 43.67 / 29.33 and 31.42 / 30.21 /
+37.35 (mean 33.57); 1 ms tick 30.97 / 34.33 / 35.32 (mean 33.54). `TIMERRES` held 1 ms at the
+start (2983 us) but not at release (9391 us), so B is void by the pre-agreed rule - and even
+taken as read it shows no gain against a 29-44 s spread in the default runs. No rerun.
 
 ## Done this session
 
@@ -31,11 +52,12 @@ The 1 ms tick costs 15% of the CPU while held, so B has to beat that to be worth
 
 ## Optimisation order - agreed with the owner, not started
 
-1. **SW1 on the CPU module** (#40): every I/O flushes L1, 90.7 us per access against 5.7 us of
-   bus (`docs/captures/io_cache_flush_2026_09_21.md`). Likely most of the 15% tick cost -
-   inferred. Try OFF ("DMA only"), maybe with SNP enabled; re-run `BUSFLUSH`, then a correctness
-   gate (floppy copy + FC, sound, network, Zip copy + FC). Case open: the owner's hands.
-2. #40 registers: `XTOUT` clear (feipoa), `LMROR`, `1000h:2`. One CTCHIP write, one boot each.
+1. **SW1 on the CPU module** (#40) - in progress, see the top. Every I/O flushes L1, 90.7 us
+   per access against 5.7 us of bus (`docs/captures/io_cache_flush_2026_09_21.md`). Not "with
+   SNP": the book says flush snooping (`1000h` bit 4) is used only with SNP (bit 3) clear.
+2. #40 registers: **`XTOUT` clear first** - it is "Wait for Ready after Output" (van Gilluwe,
+   §8c): the CPU stalls after every OUT for the whole bus cycle. Same gate as SW1. `1000h:2 = 00`
+   is correct (test and power bits): dropped. LMROR only affects writes to ROM: low value.
 3. #45 row 1: cap VCACHE on 5 MB; time a paging-heavy workload.
 4. #34 display mode (Mach8 is the biggest bus user). Owner's comfort call.
 5. #45 row 2: auto insert notification off on the changer LUNs and CRW (idle polls, each a flush).

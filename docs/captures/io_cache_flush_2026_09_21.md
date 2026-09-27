@@ -2,10 +2,11 @@
 
 **SW1 on the CPU module is ON, the cache flush on I/O is real, and it is large.**
 Established by measurement over COMrade, without opening the case.
+The switches read transposed on the board (they look OFF); see `resources_and_sources.md` §8c.
 
 ## Why this was asked
 
-feipoa's DIP-switch table for the IBM 486BL3 module
+ph4nt0m's DIP-switch table for the IBM 486BL3 module
 ([cpu-world](https://www.cpu-world.com/forum/viewtopic.php?t=33652&view=previous&))
 gives **SW1 = cache flush trigger: ON = "DMA + I/O read/write", OFF = "DMA only"**, and
 warns that an IBM-based system *"cannot even run DOOM"* with it OFF. This machine runs

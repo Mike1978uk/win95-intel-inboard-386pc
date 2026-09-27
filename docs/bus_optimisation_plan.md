@@ -24,8 +24,9 @@ conventional RAM, a different instrument in a different session. Full record:
 amount — it depends on the working set destroyed. **Do not re-rank on this without measuring the
 specific case**; the transferable number is the 83 ns/byte rate, not a fixed multiplier.
 
-⛔ **SW1 cannot be turned off.** feipoa: an IBM-based system *"cannot even run DOOM"* without it.
-This is a constraint to design around, not a setting to change.
+⚠ **SW1 OFF is a gated test, not a free lever.** feipoa: an IBM-based system *"cannot even run
+DOOM"* without it; his 2025 post calls OFF *"optimal"*. Test with DOOM as the gate
+(`docs/next_session_2026_09_28.md`); sources in `resources_and_sources.md` §8c.
 
 ---
 
