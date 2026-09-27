@@ -2714,7 +2714,9 @@ Other BL3 registers worth knowing from the same file:
 | `1000h:0` | 2 | `A20M` - A20 mask. Relevant: this card does A20 its own way (port `0x60`, `0xDF`/`0xDD`) |
 | `1000h:0` | 1 | `CPC` - Cache Parity Checking |
 | `1000h:1` | 7 | `CNPX` - Cachability of NPX operands (feipoa: set **1**, FPU perf) |
-| `1000h:1` | 4 | `XTOUT` - Extended Out instruction (feipoa: set **0**, costs DOOM realtics if 1) |
+| `1000h:0` | 4 | Flush snooping. Clearing it (`82`) leaves the per-I/O cache flush unchanged on the 5160 |
+| `1000h:0` | 3 | `SNP` snoop invalidate. **Do not set: `8A` hangs the 5160** at the first cached loop (2026-09-27) |
+| `1000h:1` | 4 | `XTOUT` - wait for READY after every OUT. **Shipped clear (`8C`)**: FastDoom 1.1% faster, Windows stable (#40, 2026-09-28) |
 | `1001h:0/1` | all | `LMCR` - **1 MB Cacheable** region mask, lo/hi byte |
 | `1001h:2/3` | all | `LMROR` - **1 MB Read-Only** region mask, lo/hi byte |
 | `1001h:4` | all | `CMLR` - 1..16 MB cache memory limit |
@@ -8265,3 +8267,21 @@ V86, SS:SP and 12 stack words. Write-up: `docs/issue7_setup_stall_2026_09_26.md`
   it froze identically.
 - **A sampler that sees an unchanged screen is not a stall detector** on its own - it flagged a
   password dialog. Pair it with the heartbeat, and ask the person watching.
+
+## Technique 135: an A/B that may hang the machine logs each step to disk before the next
+
+2026-09-27, #40 SNP test on the 5160. `C:\SNPTEST.BAT` appended a line to `C:\SNP.TXT` before
+each step (baseline, register write, benchmark, floppy check) and redirected each result into it.
+The machine hung and was power-cycled; the log still said exactly where: the `ECHO` after the
+`8A` write landed, the benchmark's result did not. So the write completed and the first cached
+loop after it hung - no screen, no COMrade, no second run needed.
+
+- **Log the step name before running the step**, not after, so the last line names the culprit.
+  `>>` from COMMAND.COM opens and closes the file per line, so each line is on disk at once.
+- **Put the restore at the end of the batch** (`92` here) and still expect to need the reboot.
+- **A reference copy made before the change** is what an integrity check compares against;
+  comparing a floppy file to itself under the suspect setting proves nothing.
+- ⛔ **Never list or touch a floppy drive over COMrade.** A `dir_list B:\` left DOS at *Abort,
+  Retry, Fail* and every later COMrade request timed out as "DOS stayed busy". The owner had to
+  answer it at the machine.
+
