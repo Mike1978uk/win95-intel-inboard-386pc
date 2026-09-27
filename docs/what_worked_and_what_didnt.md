@@ -69,14 +69,12 @@ Small, but each is free and they add up. Details in `docs/next_session_2026_09_2
   SCSI miniport (`XTIDEMP.MPD`, #21 closed on hardware), which deletes the layer instead of
   debugging it. Retired to [`archive/xtide_pdr_retired/`](archive/xtide_pdr_retired/); it paid
   for Techniques 78-91 on the way out.
-- **`HSFLOP.PDR`** — `maxPhys 0x1000 → 0xFF`, the same fix as the sound driver. On the card and
-  md5-verified, but **`BOOTLOG.TXT` shows Windows never loads it**, so it is inert. `RMM.PDR`
-  (Real Mode Mapper) loads instead and `ESDI_506.PDR` does not: the whole storage stack is
-  **real-mode BIOS**. Three earlier "invalid" probe runs were chasing a driver that was never
-  running.
-- **Floppy drives.** A controller is installed and correctly resourced (I/O `03F2-03F5`, IRQ 06,
-  DMA 02), but reads still stall part-way through a directory listing. **A: and B: do not work
-  yet** — an earlier version of the README said they did, which was wrong.
+- **`HSFLOP.PDR` and the floppy drives** — `maxPhys` patched to the XT's DMA reach, the same fix
+  as the sound driver. The card carries `HSFLOP_XTDMA.PDR` (md5 `8e695d00`) and `BOOTLOG.TXT`
+  shows `Init Success hsflop.pdr`; A: (1.44 MB) and B: (1.2 MB) are in use under Windows on the
+  5160. No byte-for-byte test of a Windows floppy read yet, and
+  [#18](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/18)'s garbage reads,
+  seen on another machine, do not reproduce here.
 
 ### Methods that generalise
 
@@ -93,13 +91,13 @@ Kept deliberately short. Each line is a dead end somebody else does not need to 
 
 ### Wrong from the start
 
-- **1982-dated IBM XT BIOS.** Incompatible with the Inboard — `INBRDPC.SYS` checks a
-  signature at `F000:E05B` that those revisions do not carry. **Use a 1986 revision only.**
-  This was the real cause of the POST 101 reported against #7626, and it failed *silently*:
-  a `bios =` line naming a 1986 ROM was not a valid option elsewhere and was ignored.
-- **Two fixed-address patches to defeat that `F000:E05B` check.** Both failed. The value is
-  reset-vector-relative runtime data, not a fixed signature. A loadable BIOS shim is parked
-  as [#10](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/10).
+- **"The 1982 IBM XT BIOS is incompatible with the Inboard."** Retracted: in 86Box the 1982 XT
+  and 5150 ROMs both boot Windows 95 to the desktop. `INBRDPC.SYS` tests its own shadow copy of
+  the BIOS, not a ROM signature; the failures came from an emulator shadow-window bug fixed in
+  August. Not yet tried on a real early machine.
+  [#10](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/10)
+- **Two fixed-address patches to defeat an `F000:E05B` signature check.** Both failed, because
+  there is no such check (above).
 - **The BIOS-shadow alias derived from `mem_size`** (`0xF0000 + mem_size*1024`). It is fixed
   at `0x5F0000`. The two agree only at `mem_size = 5120`, which is why the bug hid so long.
 - **Board sizes other than 1024 / 3072 / 5120.** Those three are the only valid ones; 2688
@@ -150,8 +148,8 @@ Kept deliberately short. Each line is a dead end somebody else does not need to 
 - **The 5161 expansion unit attached by default** — POST 1801 on every boot. It had been
   "ruled out" in July by a test that never actually ran.
 - **`bios =` with no valid entry** black-screens rather than warning.
-- **The 3C509B model in this fork is an init-only stub**, not functional. Networking works
-  on real hardware, not in emulation.
+- **The 3C509B in emulation** was once an init-only stub. It is now a working model, merged
+  upstream as [86Box#8076](https://github.com/86Box/86Box/pull/8076).
 - **Replacing a VxD after Setup has combined it into `VMM32.VXD`.** Silently ignored. Use a
   [pre-monolith image](../vxd-patches/README.md).
 - **Patch scripts that report nothing.** They can no-op silently — confirm `Patched: N`, N > 0.
