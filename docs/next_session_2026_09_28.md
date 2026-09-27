@@ -53,6 +53,21 @@ is byte-identical to `C:\DOS\MWBACKUP.HLP` (md5 `c585bad3`).
 Floppy, owner: B: needs the disk ejected and reinserted before each use. A COMrade `dir_list B:\`
 left DOS at Abort, Retry, Fail, which is why the later COMrade calls timed out.
 
+## ▶ Device Manager settings on the 5160 (owner, 2026-09-27 late) - #45 row 2, #31
+
+| device | Disconnect | Sync | Removable | Int 13 | Auto insert notification |
+|---|---|---|---|---|---|
+| Nakamichi changer, 5 LUNs | on | off | - | - | **already off** |
+| Iomega Zip | on | off | off | off | not offered |
+| LS-120 | off | off | on | off | not offered |
+| XT-IDE (CF) | on | on | off | greyed | - |
+| CD writer | not yet read | | | | |
+
+Row 2's premise (Windows polling the changer for media) does not hold on the 5160: the setting is
+already off. If the CD writer is off too, row 2 closes without a TIMERRES A/B. The bed's ~790
+T130B accesses per 2 s then need another explanation. Disconnect is allowed on the changer and the
+Zip; whether `T130.MPD` honours it is #31/A15.
+
 ## ▶ PLAN addition (owner, 2026-09-27): RAM footprint after bus and CPU
 
 Once bus and cycle work is done: make Windows 95 as lean as it can be in 5 MB, so it pages less
