@@ -30,11 +30,13 @@ sets the same silicon without a resident driver. That is what closed #9 on
 ## The applied set
 
 ```
-1000h:0 = 92    1000h:1 = 9C    1001h:0 = FF    1001h:1 = 03    1002h:3 = 03
+1000h:0 = 92    1000h:1 = 8C    1001h:0 = FF    1001h:1 = 03    1001h:4 = F0    1002h:3 = 03
 ```
 
-Read off this machine from CTCHIP34's own screens and REVTO486's MSR dump on
-2026-08-24 — measured, not guessed. **Windows 95 runs at 1:1 with the cache
+The REVTO486 set read off this machine, with two changes measured on the real
+5160: `1001h:4 = F0` makes 1-16 MB cacheable (Windows 95 lives there), and
+`1000h:1 = 8C` clears XTOUT so the CPU does not wait for READY after every OUT
+(FastDoom 1.1% faster, #40). Do not set SNP (`1000h:0` bit 3): it hangs the 5160. **Windows 95 runs at 1:1 with the cache
 off and nothing cacheable until this executes**, i.e. half clock speed.
 
 ## Two traps, both paid for

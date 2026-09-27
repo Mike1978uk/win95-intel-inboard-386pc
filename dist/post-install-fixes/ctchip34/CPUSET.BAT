@@ -41,8 +41,10 @@ CTCHIP34.EXE IBM486 /1001h:4=&11110000
 REM 2. Clock mode 2:1.
 CTCHIP34.EXE IBM486 /1002h:3=&00000011
 
-REM 3. Processor Operation Register byte 1 = 9C.
-CTCHIP34.EXE IBM486 /1000h:1=&10011100
+REM 3. Processor Operation Register byte 1 = 8C: 9C with XTOUT (bit 4)
+REM    clear, so the CPU does not wait for ready after every OUT.
+REM    9C is the REVTO486 value; see docs/next_session_2026_09_28.md
+CTCHIP34.EXE IBM486 /1000h:1=&10001100
 
 REM 4. Cache ON with ADS# snooping - never CE without ASNP, the
 REM    T130B does bus-master DMA.
@@ -51,4 +53,4 @@ CTCHIP34.EXE IBM486 /1000h:0=&10010010
 CD \
 ECHO.
 ECHO CPU set. Verify: C:\CTCHIP\CPUSHOW.BAT
-ECHO   want 1000h:0=92  1000h:1=9C  1001h:0=FF  1001h:1=03  1001h:4=F0  1002h:3=03
+ECHO   want 1000h:0=92  1000h:1=8C  1001h:0=FF  1001h:1=03  1001h:4=F0  1002h:3=03
