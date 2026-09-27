@@ -288,17 +288,25 @@ the directory's own `README.md`.
 
   Also `PK486BL.COM`, a driver offering **1x / 2x / 3x** on the CPU itself, up to 100 MHz.
 
-  ⭐ **The switch table is feipoa's own work in that thread**, as is the compatibility warning
-  below — the same person behind CTCHIP/KTCHIP34 (section 8), which closed issue #9. He is the
-  authority this project keeps landing on for these upgrade modules.
+  **The switch table is ph4nt0m's**, the thread's author — corrected 2026-09-27; this entry
+  previously credited it to feipoa. The compatibility warning below is feipoa's, the same
+  person behind CTCHIP/KTCHIP34 (section 8), which closed issue #9.
 
-  ⛔ **SW1 is a CONSTRAINT, not a lever.** feipoa, in the same thread:
+  ⚠ **SW1 is a test with a correctness gate, not a free lever.** feipoa, in the same thread:
 
   > *"I have found the IODATA unit not very forgiving for IBM-based systems without SW1 set to
   > ON. **Cannot even run DOOM.**"*
 
-  This is an IBM-based system. So SW1 must be **ON**, the cache flushes on **every I/O read and
-  write**, and that cannot be turned off for speed. **Do not propose flipping it.**
+  But feipoa's 2025 VOGONS post (below) calls SW1 OFF *"optimal"*. The two are reconciled only
+  by trying it here: `BUSFLUSH`, then floppy copy + FC, sound, network, Zip copy + FC (#40).
+
+  **The owner's module, as set (2026-09-27):** the switches *appear* as 1 OFF, 2 OFF, 3 ON, 4 ON
+  (photo: `XT_project\photos\blue_lightning_switches.jpeg`, owner's OneDrive). ⚠ **Read them
+  transposed: effectively 1 ON, 2 ON, 3 OFF, 4 OFF.** Two independent tables say SW3 ON
+  *disables* the coprocessor, and the FPU works; SW1 ON agrees with the measured flush on every
+  I/O access ([`io_cache_flush_2026_09_21.md`](captures/io_cache_flush_2026_09_21.md)). Likely
+  rocker switches, where the pressed-down side is the setting — owner's inference, not yet
+  confirmed by hand. Confirm with a press the next time the case is open.
 
   ⭐ **What that implies, and it strengthens the plan rather than undermining it.** If every
   port access flushes the L1, then the true cost of an I/O access is the **5.55 us of bus plus a
@@ -382,6 +390,63 @@ the directory's own `README.md`.
   IBM486`) is consistent with an IBM 486BL3, but consistency is not identification. **Confirm
   the board before trusting a switch table against it.**
   ➡ **Moved to [#40](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/40).** The cheapest test is reading the markings on the module.
+
+- **[VOGONS, "Evergreen revto486.sys parameters and manual", page 3](https://www.vogons.org/viewtopic.php?t=66242&start=40)**
+  — feipoa, 2025-09-09, replying to alsgeeklab. A second switch table for the I-O Data module:
+  SW1 ON = flush on DMA & I/O, **OFF = flush on DMA only ("optimal")**; SW2 ON = I-O Data turbo,
+  *"an extra 2x multiplier on the I/O Data's PCB ... unrelated to the IBM BL3's internal CPU
+  multipliers"*, OFF = 1x; **SW3 ON = coprocessor disabled**, OFF = enabled. Agrees with
+  ph4nt0m on SW1 and SW3; differs on what SW2 multiplies. Page 1 of the same thread has feipoa's
+  *"flushing the cache on I/O read/writes ... solved a lot of the issues, but at speed penalty"*.
+  ❌ No register values for the BL3.
+
+- **The owner's set-up note, 2025-03-03** — kept from when the module was fitted; cites the
+  VOGONS thread above. Its table matches the box on SW2 (ON = turbo, 2x/4x; OFF = normal,
+  1x/2x/3x, chosen with `PK486BL.COM`) and gives factory default all OFF. ⚠ **Its SW3 reads
+  ON = use coprocessor, the opposite of both forum tables.** Treat SW3 in this note as a
+  translation slip.
+
+- **I-O Data PK-A486BL60/75 box, back panel** (Japanese) — `XT_project\photos\IO_DATA_PK-A486BL_box_2.jpg`,
+  owner's OneDrive. Gives: BL60 = 3x up to 20 MHz, BL75 = 4x at 16 MHz (turbo is BL75-only; a
+  BL60 in turbo runs 2x); a clock-selector table (normal 3x/2x/1x, default 3x; turbo 4x/2x,
+  default 4x); and a **reset-control table** where the number of reset presses picks both the
+  mode and the flush source — hardware DMA only, or **DMA + I/O port**. So on the PC-98 the
+  flush mode is also chosen at reset, not only by SW1. Benchmark panel is PC-9801DA / Windows
+  3.1. ❌ No DIP-switch table.
+
+- **Frank van Gilluwe, *The Undocumented PC*, pp. 111–115** — scanned pages, owner's copy:
+  `Downloads\Undocumented_register_settings_for_IBM_Blue_Lightning.pdf` (image-only; render
+  with PyMuPDF, `pdftotext` returns nothing). Not committed: copyrighted. The bit map behind the
+  #40 registers:
+
+  | MSR | bit | meaning (book) | ours |
+  |---|---|---|---|
+  | `1000h` | 3 | Snoop input: invalidate on bus writes while in HOLD | `0` |
+  | `1000h` | 4 | Flush snooping: flush the L1 in HOLD when a CPU line is driven. *"It can be used when bit 3 is zero"* | `1` |
+  | `1000h` | 7 | Internal cache enabled | `1` |
+  | `1000h` | 10 | Cache enable from the `1001h` limits, not the pin; settable once per reset | `1` |
+  | `1000h` | 12 | **Wait for Ready after Output** — the CPU stalls after every OUT until READY | `1` (**XTOUT**) |
+  | `1000h` | 15 | FP operand reads cacheable; set for a Cyrix FPU | `1` |
+  | `1000h` | 16–18 | parity test, force external reads (factory test), low-power PLA | `0` — so `1000h:2 = 00` is correct |
+  | `1001h` | 16–31 | ROM blocks in the first MB: writes there skip the cache | `0000` (LMROR) |
+  | `1001h` | 32–39 | 64 KB blocks above 1 MB that are cacheable | `F0` (CMLR) |
+  | `1002h` | 24–26 | clock mode: /2, 1:1 (doubling), 3:1 (unconfirmed) | 1:1 |
+  | `1004h` | 20 | cache off when idle (low power) | `0` |
+
+  What it gives us: **XTOUT is why feipoa recommends `0`** — clearing it lets the CPU run on
+  during an OUT's ~5.7 us bus cycle; a correctness gate is still needed for code that relies on
+  an OUT having landed. **SNP and flush snooping are alternatives, not a pair.** `1000h:2` needs
+  no test. LMROR only affects writes to ROM, so expect no speed from it. `1004h` is marked
+  *"unconfirmed"* in the book.
+
+- **[OS/2 Museum, "IBM Blue Lightning: World's Fastest 386?"](http://www.os2museum.com/wp/ibm-blue-lightning-worlds-fastest-386/)**
+  — Michal Necasek. The BL has no built-in FPU and most software reports it as a 486SX; the
+  reviewed board paired it with a Cyrix FasMath. ❌ Nothing on the MSRs, cache flushing,
+  snooping or upgrade modules.
+
+- **[VOGONS, "Register settings for various CPUs"](https://www.vogons.org/viewtopic.php?t=45756)**
+  — feipoa's thread covering the BL3 among others; he points to it from t=66242. ❌ Page 3 is
+  Cyrix SXL2 / TI486SXLC2 material; nothing on the I-O Data switches there.
 
 ## 8b. Bus timing and the demoscene (added to this page 2026-09-21)
 
