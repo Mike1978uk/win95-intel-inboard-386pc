@@ -448,6 +448,21 @@ the directory's own `README.md`.
   — feipoa's thread covering the BL3 among others; he points to it from t=66242. ❌ Page 3 is
   Cyrix SXL2 / TI486SXLC2 material; nothing on the I-O Data switches there.
 
+## 8d. Early BIOS revisions and the 5150 (added 2026-09-27, #10)
+
+- **[VCFed, "Windows 3.1 w/ Intel Inboard 386/PC - VxD Issue"](https://forum.vcfed.org/index.php?threads/windows-3-1-w-intel-inboard-386-pc-vxd-issue.79730/)**
+  - Harrison's Windows 3.1 CF image (post 1304483) ran on Cimon's 5160 and failed on his 5150,
+  March 2023; modem7 on 5150 vs 5160 planar RAM, with IBM schematics. Summary in
+  `docs/issue10_old_bios_2026_09_27.md`.
+- **[VCFed, "Inboard 386/PC 2mb expansion CLONE"](https://forum.vcfed.org/index.php?threads/inboard-386-pc-2mb-expansion-clone.78562/)**
+  - mtrahms: a 5150 with the Inboard needs Sergey's Multi-Floppy BIOS 2.4. ❌ Nothing on BIOS
+  services or Windows.
+- **Cimon's VCFed conversation "Inboard 386 experiments", page 10** (private messages, owner's
+  account) - Win95 on his 5160 with a 16 MHz Intel 386, Mach32 and Future Domain SCSI;
+  `HIMEM.SYS` halts his machine; the same install crashes on his 5150.
+- **[minuszerodegrees, IBM BIOS versions](https://minuszerodegrees.net/bios/bios.htm)** - all
+  5150/5160 ROMs needed are already in `roms/machines/`.
+
 ## 8b. Bus timing and the demoscene (added to this page 2026-09-21)
 
 ⚠ **These were cited only inside `.claude/skills/inboard-hw-debug` (technique 128a) and had

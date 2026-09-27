@@ -267,11 +267,15 @@ guest instructions per second, which is why [#14](https://github.com/Mike1978uk/
 needs a quiet build. Keep it for reproducing the traces, not for measuring behaviour.
 
 The POST 101 story is worth knowing if you tried the merged machine early and found it broken: the
-machine shared `ibmxt_config`, whose default is a 1982-dated 5160 ROM. `INBRDPC.SYS` — the card's
-own required driver — cannot work with that revision; it checks a signature at `F000:E05B` the 1982
-ROMs do not carry. It failed *silently*: the 1986 entries existed only in this repo's tree, so a
-`bios =` line naming one was not a valid option elsewhere and was ignored without warning. The
-machine now has its own BIOS list containing only the two compatible 1986 revisions.
+machine shared `ibmxt_config`, whose default is a 1982-dated 5160 ROM, and the 1986 entries
+existed only in this repo's tree, so a `bios =` line naming one was ignored without warning. The
+machine now has its own BIOS list containing only the two 1986 revisions.
+
+⚠ **Corrected 2026-09-27:** this paragraph used to say `INBRDPC.SYS` cannot work with a 1982 ROM
+because it checks a signature at `F000:E05B`. It does not: all IBM revisions carry the same bytes
+there, and the check is the driver's own shadow-RAM test. In the current emulator the 1982 XT ROM
+boots Windows 95 to the desktop. The August failure came from a shadow-window bug fixed later.
+Details: [`docs/issue10_old_bios_2026_09_27.md`](docs/issue10_old_bios_2026_09_27.md).
 
 ### Worth knowing — the XT 4-bit DMA page latch ([#7771](https://github.com/86Box/86Box/pull/7771))
 

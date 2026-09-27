@@ -1,5 +1,18 @@
 # Next session - handoff from 2026-09-27
 
+## ▶ #10: early BIOS revisions (2026-09-27) - `docs/issue10_old_bios_2026_09_27.md`
+
+- The 1982 XT ROM boots Win95 to the desktop on the Inboard in the emulator; the
+  "1982 ROM incompatible" claim was a shadow-window bug. README corrected.
+- Five BIOS-service differences applied to the 1986 ROM do not stop Win95.
+- The 5150 ROM loops in POST in the emulator (emulator gap; a real 5150 boots). NEXT: log each
+  reset's cause, and one boot with plain VGA instead of the Mach8.
+- Diagnostic 86Box: branch `diag-issue10` in `86box_3c509b` (local, not pushed), build `build_log`.
+  `INBOARD_OLDBIOS` bitmask; the Inboard machine also offers `ibm5160_1501512_5000027` and
+  `ibm5150_1501476`. `vm_3c509b` is back on `ibm5160_050986`.
+- Owed: a Cimon message (BOOTLOG.TXT, BIOS date, planar RAM/switches) and a #10 status block,
+  both drafts for the owner.
+
 ## ▶ NOW: #40 XTOUT, measured with FastDoom
 
 `1000h:1` bit 4 (`XTOUT`, "Wait for Ready after Output"): the CPU stalls after every OUT for
