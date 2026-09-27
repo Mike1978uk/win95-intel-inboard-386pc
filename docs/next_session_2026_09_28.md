@@ -75,6 +75,12 @@ Once bus and cycle work is done: make Windows 95 as lean as it can be in 5 MB, s
 to the XT-CF. Measure first (System Monitor page-ins and swapfile in use during `WLOAD`), then
 trim. The VCACHE cap is the first item on this track.
 
+**`tools/perflog/` (PERFLOG.EXE, 5.6 KB) works in the bed** (`vm_3c509b`, 2026-09-27): 31 rows over
+60 s, 24 counters. `VMM\cpg*` values are bytes, `VMM\c*` are running counts (diff two rows),
+`KERNEL\CPUUsage` is percent. In the bed, straight after boot: swapfile in use 2.5 -> 3.1 MB,
+free memory 0, page-ins 1331 -> 2021 and then flat once the desktop settled. Bed `WIN.INI`
+restored. On the 5160: `START C:\PERFLOG label seconds`, results in `C:\PERFLOG.CSV`.
+
 ## ▶ START HERE - three things waiting on the owner or others
 
 1. **The CF.** Stop `XTAB` if it is still running (Ctrl+Break, or F10/Y in FastDoom), **reboot**
