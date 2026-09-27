@@ -11,10 +11,13 @@ feipoa: *"cannot even run DOOM"* on IBM systems without SW1 ON; his 2025 post ca
 optimal. So DOOM is the gate. Both positions flush on DMA, so the risk is that the module's DMA
 detection misses the XT's DMA and the I/O flush was covering for it - hence floppy and sound.
 
-1. **Baseline, SW1 as now.** Boot to DOS. `D:\UTILS\BENCHPC\DOSBENCH`, option `a` (DOOM min
-   detail, `-timedemo demo3`): note gametics / realtics, and anything visibly wrong. Run
-   `BUSFLUSH` with `COMRADE` up; results read over COMrade as on 09-21.
-2. **Power off, flip switch 1, power on.** Same DOOM timedemo, same `BUSFLUSH`.
+1. **Baseline, SW1 as now.** Boot to DOS. Vanilla DOOM loses the keyboard on this machine, so
+   use FastDoom with its XT keyboard switch: in `C:\GAMES\FDOOM`,
+   `FDOOM -xt -iwad DOOM1.WAD -timedemo demo1 -csv` - appends gametics / realtics / fps to
+   `BENCH.CSV`. Note anything visibly wrong. (The 2026-04-13 row predates the CMLR fix: not a
+   baseline.) Sound is AdLib, so DOOM does not exercise DMA; step 3 does. Then `BUSFLUSH` with
+   `COMRADE` up; results read over COMrade as on 09-21.
+2. **Power off, flip switch 1, power on.** Same FastDoom timedemo, same `BUSFLUSH`.
 3. If DOOM runs clean and `BUSFLUSH` shows the with-I/O passes near the no-I/O passes, boot
    Windows 95 and run the gate: floppy copy + FC, a WAV through the SB, a network copy, Zip
    copy + FC. Any failure: flip back.
