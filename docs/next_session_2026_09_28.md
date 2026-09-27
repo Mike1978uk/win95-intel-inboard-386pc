@@ -24,6 +24,15 @@ Future workloads for the RAM track must run without input. The cap is live in `S
 loaded, so the drives run at 250 kbit/s. Owner reports reads and writes feel slow in Windows and
 DOS mode; not yet measured against the ~23 KB/s-per-revolution ceiling.
 
+## ▶ ON THE CF NOW: XTOUT clear and the SNP test (2026-09-27 late)
+
+- `C:\CTCHIP\CPUSET.BAT` now writes `1000h:1 = 8C` (XTOUT clear); old file `CPUSET.B9C`.
+  `dist/` still holds the `9C` version until the Windows gate passes on `8C`.
+- `C:\SNPTEST.BAT <file on A:>`: BUSFLUSH x2 on `92`, then `1000h:0 = 8A` (SNP on, flush
+  snooping off), BUSFLUSH x2, two floppy copies `FC /B` against a copy made on `92`, back to
+  `92`. Timed floppy copy included. Results `C:\SNP.TXT` (ticks as the `0040:00F0` dump).
+  No read-back of `8A` in the batch - CTCHIP is interactive; run `CPUSHOW` by hand if wanted.
+
 ## ▶ PLAN addition (owner, 2026-09-27): RAM footprint after bus and CPU
 
 Once bus and cycle work is done: make Windows 95 as lean as it can be in 5 MB, so it pages less
