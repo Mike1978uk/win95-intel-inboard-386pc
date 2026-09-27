@@ -15,8 +15,9 @@ Small but real. Next: the Windows gate on `8C`, then `CPUSET.BAT`. FastDoom does
 | WinZip | 58.22 | 58.27 |
 | 3 copies on C: | 7.03 / 7.03 / 7.46 | 6.92 / 6.59 / 6.26 |
 
-B is ahead on PSP and copies, level on WinZip. n=1 per boot and A ran first, so an A rerun is
-owed before the cap is kept. The cap is live in `SYSTEM.INI`; `SYSTEM.VC` is gone from the CF,
+Only the copies are hands-off: PSP needed Alt+F4 and WinZip a splash-screen click, so both are
+discounted. The copy ranges do not overlap (mean 7.17 vs 6.59 s). **Owner kept the cap on.**
+Future workloads for the RAM track must run without input. The cap is live in `SYSTEM.INI`; `SYSTEM.VC` is gone from the CF,
 `SYSTEM.BVC` (the uncapped backup) is present.
 
 **Floppy:** INT 13h AH=08 reports type 3 (720 KB, 80 x 9) for A: and B: - the Sergey ROM is not
