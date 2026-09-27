@@ -1,29 +1,35 @@
 # Next session - handoff from 2026-09-27
 
-## ▶ NOW: SW1 on the CPU module, case open (#40)
+## ▶ NOW: #40 XTOUT, measured with FastDoom
 
-The switches read transposed: they look `1 OFF, 2 OFF, 3 ON, 4 ON` and act as `1 ON, 2 ON,
-3 OFF, 4 OFF` (FPU works; I/O flush measured). Sources: `resources_and_sources.md` §8c. The
-test does not depend on that reading: **flip switch 1 to its other position** and let
-`BUSFLUSH` say which position flushes on I/O.
+`1000h:1` bit 4 (`XTOUT`, "Wait for Ready after Output"): the CPU stalls after every OUT for
+the whole bus cycle. feipoa: set costs DOOM realtics. FastDoom's Mode Y renderer issues OUTs
+every frame, so it is the benchmark. Sound off - see the parked item below.
 
-feipoa: *"cannot even run DOOM"* on IBM systems without SW1 ON; his 2025 post calls OFF
-optimal. So DOOM is the gate. Both positions flush on DMA, so the risk is that the module's DMA
-detection misses the XT's DMA and the I/O flush was covering for it - hence floppy and sound.
+1. At the DOS prompt: `CD \GAMES\FDOOM`, then twice:
+   `FDOOM -xt -nosound -iwad DOOM1.WAD -timedemo demo1 -csv` (XTOUT set, `9C`).
+2. `CD \CTCHIP`, `CTCHIP34 IBM486 /1000h:1=&10001100` (`8C`, XTOUT clear). Same two runs.
+3. A reboot restores `9C` via `CPUSET.BAT`. Only if 8C is faster: the Windows gate, then make
+   it permanent in `CPUSET.BAT`.
 
-1. **Baseline, SW1 as now.** Boot to DOS. Vanilla DOOM loses the keyboard on this machine, so
-   use FastDoom with its XT keyboard switch: in `C:\GAMES\FDOOM`,
-   `FDOOM -xt -iwad DOOM1.WAD -timedemo demo1 -csv` - appends gametics / realtics / fps to
-   `BENCH.CSV`. Note anything visibly wrong. (The 2026-04-13 row predates the CMLR fix: not a
-   baseline.) Sound is AdLib, so DOOM does not exercise DMA; step 3 does. Then `BUSFLUSH` with
-   `COMRADE` up; results read over COMrade as on 09-21.
-2. **Power off, flip switch 1, power on.** Same FastDoom timedemo, same `BUSFLUSH`.
-3. If DOOM runs clean and `BUSFLUSH` shows the with-I/O passes near the no-I/O passes, boot
-   Windows 95 and run the gate: floppy copy + FC, a WAV through the SB, a network copy, Zip
-   copy + FC. Any failure: flip back.
-4. Record both DOOM results and both `BUSFLUSH` tables.
+## SW1 and flush snooping: ruled out as the I/O flush (2026-09-27)
 
-Then #40 registers (item 2 below), starting with XTOUT.
+`BUSFLUSH` ticks (no I/O / with I/O / no I/O / with I/O):
+
+| | |
+|---|---|
+| 09-21, SW1 as fitted, `1000h:0 = 92` | 3092 / 10072 / 3090 / 9956 |
+| switch 1 flipped, full power cycle, `92` | 3090 / 10076 / 3092 / 9956 |
+| switch 1 flipped, `82` (bit 4 flush snooping clear) | 3094 / 10092 / 3088 / 9956 |
+
+Neither SW1 nor bit 4 changes it. What still flushes on I/O is unknown; inferred, not measured:
+if the Inboard holds the CPU off the bus for each XT cycle, the module sees it as DMA and flushes
+in either SW1 position. No register lever is left for it. (The `82` write is shown only by
+CTCHIP's own print, which is not a read-back.) FastDoom ran in both positions with sound off.
+Switch 1 is back as fitted.
+
+**Parked:** FastDoom with SB sound freezes (Apogee Sound System); `FDSETUP` has other SB
+options. Not yet checked with the switch back as fitted. Owner: later, not a priority.
 
 ## LS-120 timer A/B (#45 row 6) - ruled out, closed by the owner
 
