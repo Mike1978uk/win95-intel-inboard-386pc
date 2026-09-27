@@ -8,8 +8,7 @@
 2. **Cimon's reply** (#10): DEBUG DMA probe on his 5150 and 5160, `BOOTLOG.TXT` from the failing
    5150 boot, BIOS date, planar RAM, SW1/SW2. If DMA and CPU disagree, model 5150 planar RAM in
    the emulator and test workarounds there.
-3. **#10's old status block** ("1982 ROMs are genuinely incompatible") still sits under the new
-   one. The owner has not yet said whether to strike it through.
+3. #10 is active, not parked: the old "parked idea" status block was removed 2026-09-27.
 
 Also open: the owner can run the same DEBUG probe on the 5160 (answers ledger item E5c).
 
