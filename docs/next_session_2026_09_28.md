@@ -47,8 +47,11 @@ copy in `SNPTEST` is the first number.
 
 `82` ran the same BUSFLUSH on 09-27, so the SNP bit is the difference. XTOUT clear leaves the
 I/O flush unchanged, as expected for a port read. #40 registers are done bar MOVS Split (not
-worth a boot); #40 closes after the `8C` Windows gate. Pending: `SNP92.TMP` vs
-`C:\DOS\MWBACKUP.HLP` compare on the host (floppy DMA read on `8C`).
+worth a boot); #40 closes after the `8C` Windows gate. `SNP92.TMP` (floppy DMA read on `8C`)
+is byte-identical to `C:\DOS\MWBACKUP.HLP` (md5 `c585bad3`).
+
+Floppy, owner: B: needs the disk ejected and reinserted before each use. A COMrade `dir_list B:\`
+left DOS at Abort, Retry, Fail, which is why the later COMrade calls timed out.
 
 ## ▶ PLAN addition (owner, 2026-09-27): RAM footprint after bus and CPU
 
