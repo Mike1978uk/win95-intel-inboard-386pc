@@ -1,4 +1,17 @@
-# Next session - handoff from 2026-09-27
+# Next session - handoff from 2026-09-27 (evening)
+
+## ▶ START HERE - three things waiting on the owner or others
+
+1. **The CF.** Stop `XTAB` if it is still running (Ctrl+Break, or F10/Y in FastDoom), **reboot**
+   (XTOUT may be left clear), then run `C:\VCTEST.TXT`'s steps. Bring back `BENCH.CSV`,
+   `WLA`/`WLB`, `VCA`/`VCB`. Then rewrite `XTAB.BAT` with `-benchmark single demo1` and rerun.
+2. **Cimon's reply** (#10): DEBUG DMA probe on his 5150 and 5160, `BOOTLOG.TXT` from the failing
+   5150 boot, BIOS date, planar RAM, SW1/SW2. If DMA and CPU disagree, model 5150 planar RAM in
+   the emulator and test workarounds there.
+3. **#10's old status block** ("1982 ROMs are genuinely incompatible") still sits under the new
+   one. The owner has not yet said whether to strike it through.
+
+Also open: the owner can run the same DEBUG probe on the 5160 (answers ledger item E5c).
 
 ## ▶ #10: early BIOS revisions (2026-09-27) - `docs/issue10_old_bios_2026_09_27.md`
 
@@ -11,7 +24,7 @@
 - Diagnostic 86Box: branch `diag-issue10` in `86box_3c509b` (local, not pushed), build `build_log`.
   `INBOARD_OLDBIOS` bitmask; the Inboard machine also offers `ibm5160_1501512_5000027` and
   `ibm5150_1501476`. `vm_3c509b` is back on `ibm5160_050986`.
-- Cimon's message drafted and handed to the owner. Owed: a #10 status block for approval.
+- Cimon's message sent by the owner. #10 status block posted 2026-09-27 (Cimon not named).
 - XTAB did not finish: FastDoom 1.2 appears not to exit after -timedemo. Rewrite with
   `-benchmark single demo1` once the CF shows how many runs completed. Reboot after
   interrupting it - XTOUT may be left clear.
