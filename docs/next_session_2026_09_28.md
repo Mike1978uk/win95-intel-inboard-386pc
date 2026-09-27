@@ -1,5 +1,34 @@
 # Next session - handoff from 2026-09-27 (evening)
 
+## ▶ RESULTS in 2026-09-27 late (CF read on the host)
+
+**XTOUT (#40), FastDoom `-timedemo demo1`, realtics:** set 46514 / clear 46002 / clear 46003 /
+set 46516. Clearing XTOUT (`8C`) is 1.1% faster (512 tics = 14.6 s), run-to-run spread 1-2 tics.
+Small but real. Next: the Windows gate on `8C`, then `CPUSET.BAT`. FastDoom does exit after
+`-timedemo`: each run is ~22 min (46514 / 35 Hz), so no `-benchmark` rewrite is needed.
+
+**VCACHE cap (#45 row 1), one boot each, seconds:**
+
+| | A (no cap) | B (512-1024 KB) |
+|---|---|---|
+| PSP cold start | 26.04 | 23.51 |
+| WinZip | 58.22 | 58.27 |
+| 3 copies on C: | 7.03 / 7.03 / 7.46 | 6.92 / 6.59 / 6.26 |
+
+B is ahead on PSP and copies, level on WinZip. n=1 per boot and A ran first, so an A rerun is
+owed before the cap is kept. The cap is live in `SYSTEM.INI`; `SYSTEM.VC` is gone from the CF,
+`SYSTEM.BVC` (the uncapped backup) is present.
+
+**Floppy:** INT 13h AH=08 reports type 3 (720 KB, 80 x 9) for A: and B: - the Sergey ROM is not
+loaded, so the drives run at 250 kbit/s. Owner reports reads and writes feel slow in Windows and
+DOS mode; not yet measured against the ~23 KB/s-per-revolution ceiling.
+
+## ▶ PLAN addition (owner, 2026-09-27): RAM footprint after bus and CPU
+
+Once bus and cycle work is done: make Windows 95 as lean as it can be in 5 MB, so it pages less
+to the XT-CF. Measure first (System Monitor page-ins and swapfile in use during `WLOAD`), then
+trim. The VCACHE cap is the first item on this track.
+
 ## ▶ START HERE - three things waiting on the owner or others
 
 1. **The CF.** Stop `XTAB` if it is still running (Ctrl+Break, or F10/Y in FastDoom), **reboot**
