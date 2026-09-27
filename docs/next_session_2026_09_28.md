@@ -12,6 +12,14 @@ every frame, so it is the benchmark. Sound off - see the parked item below.
 3. A reboot restores `9C` via `CPUSET.BAT`. Only if 8C is faster: the Windows gate, then make
    it permanent in `CPUSET.BAT`.
 
+## On the CF now (owner has it, 2026-09-27)
+
+`C:\XTAB.BAT` (XTOUT A/B, set / clear / clear / set, results in `C:\GAMES\FDOOM\BENCH.CSV`),
+then `C:\VCTEST.TXT` (#45 row 1: `SYSTEM.VC` capped, `SYSTEM.BVC` backup; results `VCA.TXT`,
+`VCB.TXT`). The heavy workload is still the owner's pick; if it runs from a DOS prompt, time it
+with `TIME` rather than a stopwatch. CF root tidied: 369 test files archived to the owner's
+`XT_project\cf_root_archive_2026-09-27` (hash-verified, list in `_ARCHIVED_FILES.txt`), 53 kept.
+
 ## SW1 and flush snooping: ruled out as the I/O flush (2026-09-27)
 
 `BUSFLUSH` ticks (no I/O / with I/O / no I/O / with I/O):
