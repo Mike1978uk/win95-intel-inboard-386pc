@@ -80,7 +80,7 @@ already modified parts of it, and every VxD sits on a hot path.
 |---|---|
 | `VKD.VXD` (custom-built from DDK source) | Its INT 09 path runs on every keystroke |
 | `KEYBOARD.DRV` (patched at `0xf14`) | Same path, ring 3 |
-| `HSFLOP.PDR` (patched `maxPhys`) | **Polls hard during a seek** - the most tractable pacing target we already patch |
+| `HSFLOP.PDR` (patched `maxPhys`) | Interrupt-driven; its RQM waits are short. Not a pacing target - `docs/hsflop_poll_audit_2026_09_27.md` |
 | `INBRDPC.SYS` | Only slows floppies (measured). Do not disable it - required, not optional |
 
 The DDK ships **debug builds and symbols** of IOS, SCSIPORT, DISKTSD and VMM, plus `WDEB386`,
@@ -100,7 +100,7 @@ and they are **still unopened**. That is the cheapest way into this layer and no
 |---|---|---|---|---|
 | 1 | **Trantor T130B SCSI** | yes - `Polling=1`, no IRQ | yes - PIO data loop | Vendor binary, no source. Patch or rewrite; `XTIDEMP.MPD` is a proven template |
 | 2 | **Mach8 video** | - | yes | Most bytes on the bus of anything here. Framebuffer is on ISA, so every pixel crosses |
-| 3 | **`HSFLOP.PDR` floppy** | yes - polls hard during a seek | little data | We already patch this binary, so it is the most tractable |
+| 3 | **`HSFLOP.PDR` floppy** | no - seek completes on IRQ 6 (`docs/hsflop_poll_audit_2026_09_27.md`) | little data | Short RQM waits only |
 | 4 | **Sound (SB Pro)** | yes, if it polls the DSP | **no** | Data path is DMA. No per-byte loop to widen. The real hazard is 20-bit DMA reach (technique 62), a correctness issue |
 | 5 | **3C509B network** | ? | only if not already string I/O | 16-bit card. Well-written packet drivers already use `rep insw`; check before spending time |
 | 6 | **Keyboard** | few accesses per event | - | Latency-bound. Near zero to win |
@@ -799,7 +799,7 @@ Q1 string I/O · Q2 transactions · Q3 own memory · Q4 unattended · Q5 width c
 | **XT-CF / XT-IDE** (`XTIDEMP.MPD`) | ✅ we wrote it | ✅ `rep insw` one per sector, **35%/33% shipped** | ✅ **paced, shipped** (`XT_POLL_BACKOFF`) | **A1 request merging, 1.88x.** A2 folded in — the loop is already one `rep`, what is left is per-**sector** setup, which only merging removes |
 | **Trantor T130B** (`T130.MPD`) | ❌ Adaptec's — **patch approved 2026-09-21** | ✅ already `...BufferUshort`. Pseudo-DMA at **`base+4`**, 128 B/call. ⭐ **dword candidate**: registers start at `base+8`, so `base+5..7` are clear — unlike XT-IDE | ⚠ **10 of 28 `ReadPortUchar` sites in tight read/test/jump-back loops**, 12 `StallExecution`. Partly paced, partly not | **Pace the tight loops** (the XT-IDE fix). Test dword second |
 | **3C509B** (`ELNK3.VXD`) | ❌ stock MS/3Com | ✅ **already bulk at dword** — `shr ecx,2` / `rep insd` | ⛔ **27 flat-out spin loops**, confirmed at `0xd03`. **40x our VxDs' density** | Buffer **size** still unknown; ❌ the QEMU model cannot answer it |
-| **Floppy** (`HSFLOP.PDR`) | ✅ **we patch it** (`maxPhys`) | ❓ unexamined | ⛔ **polls hard during a seek** | ⭐ **The most tractable pacing target we already own.** Same fix, same measured basis |
+| **Floppy** (`HSFLOP.PDR`) | ✅ **we patch it** (`maxPhys`) | ❓ unexamined | ✅ interrupt-driven; four short RQM waits | Not a pacing target - `docs/hsflop_poll_audit_2026_09_27.md` |
 | **Mach8** (display drivers) | ❌ stock ATI | ✅ `rep outsw` (43 sites) | ❓ | A12a mode-as-lever, A12b glyph cache |
 | **SB Pro** (`MSSBLST.VXD`) | ✅ **we patch it** | n/a — DMA path | ❓ does the VxD poll the DSP? | 20-bit reach fixed. **Q6 never asked** |
 | **Keyboard** (`VKD.VXD`, `KEYBOARD.DRV`) | ✅ **both ours** | n/a | ✅ **1 and 2 candidates — clean** | ✅ A19 closed. No lever, despite the hot path |
@@ -859,7 +859,7 @@ measure it ranks below a small one we can settle this week.
 | **A14** | **T130B — what does the card hold, and does `T130.MPD` use string I/O?** | `pedis.py T130.MPD io` (this is A10), plus the card's pseudo-DMA buffer size | no hardware | ❓ never examined |
 | **A15** | ⭐ **Does the SCSI chain DISCONNECT, or does it hold the bus through every seek?** | Check `T130.MPD`'s identify-message handling and the registry/INF for a disconnect setting; confirm on the wire by timing a seek-heavy read while another device transfers | `pedis.py` first, then 1 boot | ❓ **the single most on-point lever found so far** - see below |
 | **A16** | **SCSI cache mode pages (page 8) across the chain** | `MODE SENSE` page 8 on every target: read-cache enable, write-cache enable, prefetch. Then `MODE SELECT` to turn on what is off | 1 DOS run, no code | ❓ settable per device, and nobody has looked |
-| **A17** | ⭐ **Pace `HSFLOP.PDR`'s seek polling** | Same shape as `XT_POLL_BACKOFF`: spin briefly, then a register-only cache-resident delay | binary patch + 1 boot | ❓ **a driver we already patch**, and it is named in this plan as the most tractable pacing target. Never started |
+| **A17** | ~~Pace `HSFLOP.PDR`'s seek polling~~ | Disassembly: the seek completes on IRQ 6; only short RQM waits remain | - | ⬇ **downgraded 2026-09-27**, `docs/hsflop_poll_audit_2026_09_27.md` |
 | **A18** | ⭐ **Pace `T130.MPD`'s tight poll loops** | 10 of 28 `ScsiPortReadPortUchar` sites sit in read/test/jump-back loops | binary patch + 1 boot | ✅ **owner approved patching this binary 2026-09-21.** Likely worth more than A15 disconnect: disconnect frees the SCSI bus, this frees the ISA bus |
 | **A19** | Q6 on the VxDs nobody had asked | ✅ **DONE 2026-09-21, and it is a NEGATIVE - write it down rather than re-derive it.** Poll-loop density (port read + backward Jcc): `VKD` **1** in 45 KB, `VDMAD` **1** in 42 KB, `VPICD` **1** in 47 KB, `KEYBOARD.DRV` **2** in 13 KB. **None of our four VxDs is a polling target.** Control: `T130.MPD` scores 0 by this method because it polls through SCSIPORT helpers, not raw opcodes - which is why it needs call-site counting instead | offline | ✅ closed |
 | **A21** | ⭐ **`ELNK3.VXD` spins flat out on the NIC** (NEW, 2026-09-21) | **27** candidate poll loops in 30 KB - **40x our VxDs' density**. Confirmed by disassembly at `0xd03`: `in ax,dx` / `test ah,0x10` / `jne` back, twice in a row, **no delay of any kind**. Each iteration is ~3.82 us of bus moving nothing | binary patch + 1 boot | ❓ stock 3Com driver, we do not patch it today. ⚠ **Unquantified** - bursty, and the NIC may complete fast. Quantify with the B2 PIT harness during network traffic before patching anything || **A20** | **dword on the T130B pseudo-DMA port** | `base+4` is a single address and the register file starts at `base+8`, so `base+5..7` are clear - unlike XT-IDE. Word → dword is 3.819 → 3.183 us/byte | binary patch, after A18 | ❓ **candidate, not a finding** - the port handshakes on DRQ and a handshaked cycle may not amortise |
@@ -1286,7 +1286,7 @@ uncosted, and costing it is itself a task.
 | D1 | Trantor T130B - `rep insw`/`outsw` | uncosted | ❓ imports `ScsiPortRead/WritePortBufferUshort`; **nobody has checked if it uses them.** One `pedis.py <file> io` |
 | D2 | T130B - polling (`Polling=1`, no IRQ) | uncosted | ❓ |
 | D3 | Mach8 video | **most bytes on the bus of anything here** - framebuffer is across ISA | ❓ uncosted |
-| D4 | `HSFLOP.PDR` - polls hard during a seek | uncosted | ❓ we already patch this binary, so most tractable |
+| D4 | `HSFLOP.PDR` - interrupt-driven, short RQM waits | small | ⬇ `docs/hsflop_poll_audit_2026_09_27.md` |
 | D5 | Sound (SB Pro) - DSP polling | uncosted | ❓ data path is DMA, no per-byte loop to widen |
 | D6 | 3C509B network | uncosted | ❓ 16-bit card; well-written packet drivers already use `rep insw` - check first |
 | D7 | Keyboard | near zero | latency-bound, few accesses per event |
