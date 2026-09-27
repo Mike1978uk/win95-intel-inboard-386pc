@@ -50,6 +50,18 @@ Nothing is listed as working unless it has been run.
 
 **Video, sound and networking all run at the same time on the real 5160.**
 
+### Tuning, measured on the real 5160
+
+Small, but each is free and they add up. Details in `docs/next_session_2026_09_28.md`.
+
+- **`XTOUT` clear (`1000h:1 = 8C`)** — the CPU no longer waits for READY after every OUT.
+  FastDoom `-timedemo demo1` 1.1% faster (46514 → 46002 realtics, spread 1-2); a floppy DMA
+  read is byte-identical. In `CPUSET.BAT`. [#40](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/40)
+- **VCACHE capped at 512-1024 KB** — the same copy workload 8% faster (7.17 → 6.59 s) on
+  5 MB. [#45](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/45) row 1
+- **Auto insert notification off on the CD writer** — 1.2% of idle CPU back (TIMERRES 4673 →
+  4731 k passes/s); with it off the powered SCSI chain costs nothing measurable at idle. #45 row 2
+
 ### Deployed but NOT confirmed — do not treat as working
 
 - **The XT-IDE IOS port driver (`PORT.PDR`)** — reached the disk and served it, then wedged
@@ -114,6 +126,9 @@ Kept deliberately short. Each line is a dead end somebody else does not need to 
   marked do-not-install; `drivers/imation_ls120_mpd/` and `dist/ls120_mpd/` both say so.
   ([#22](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/22))
 
+- **Pacing `HSFLOP.PDR`'s polling.** There is nothing to pace: the seek completes on IRQ 6 and
+  only short RQM waits remain. `docs/hsflop_poll_audit_2026_09_27.md`
+
 ### Measurement and tooling failures — the expensive ones
 
 - **`scripts/vxd_dma_audit.py` reported a false negative**, clearing a genuinely broken
@@ -140,6 +155,9 @@ Kept deliberately short. Each line is a dead end somebody else does not need to 
 - **Replacing a VxD after Setup has combined it into `VMM32.VXD`.** Silently ignored. Use a
   [pre-monolith image](../vxd-patches/README.md).
 - **Patch scripts that report nothing.** They can no-op silently — confirm `Patched: N`, N > 0.
+- **SNP on the CPU module (`1000h:0 = 8A`)** hangs the 5160 at the first cached loop after the
+  write. `92` (SNP off) is the only working setting; neither SNP nor flush snooping touches the
+  per-I/O cache flush.
 
 ---
 
