@@ -65,7 +65,7 @@ left DOS at Abort, Retry, Fail, which is why the later COMrade calls timed out.
 | Yamaha CRW4416S | on | off | - | - | **ON** - the one A/B left |
 
 Row 2's premise (Windows polling the changer for media) does not hold on the 5160: the setting is
-already off. Only the CRW4416S has it on: TIMERRES x3, untick it, reboot, TIMERRES x3. The bed's ~790
+already off. Only the CRW4416S has it on: TIMERRES x3, untick it, reboot, TIMERRES x3. `C:\TIMERRES.TXT` will hold nine new runs in order: 3 with the external SCSI drives off, 3 on (CRW auto insert on), 3 on (CRW auto insert off). The 8C Windows gate rides on the same boots. The bed's ~790
 T130B accesses per 2 s then need another explanation. Disconnect is allowed on the changer and the
 Zip; whether `T130.MPD` honours it is #31/A15.
 
