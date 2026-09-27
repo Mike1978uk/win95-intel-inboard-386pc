@@ -34,6 +34,22 @@ copy in `SNPTEST` is the first number.
   `92`. Timed floppy copy included. Results `C:\SNP.TXT` (ticks as the `0040:00F0` dump).
   No read-back of `8A` in the batch - CTCHIP is interactive; run `CPUSHOW` by hand if wanted.
 
+## ▶ SNP RESULT (2026-09-27 late): `8A` hangs the machine - ruled out
+
+`SNPTEST` log, `C:\SNP.TXT`:
+
+| step | result |
+|---|---|
+| BUSFLUSH on `92` (XTOUT clear), ticks | 3090 / 10074 / 3092 / 9954 and 3090 / 10072 / 3090 / 9952 |
+| B: copy on `92`, 400,880 B | 17.31 s = 23.2 KB/s (1.2 MB drive, ceiling ~45 KB/s) |
+| `1000h:0 = 8A`, then `ECHO` to the log | completed |
+| first BUSFLUSH on `8A` | never finished; keyboard dead, motor left on; power cycle |
+
+`82` ran the same BUSFLUSH on 09-27, so the SNP bit is the difference. XTOUT clear leaves the
+I/O flush unchanged, as expected for a port read. #40 registers are done bar MOVS Split (not
+worth a boot); #40 closes after the `8C` Windows gate. Pending: `SNP92.TMP` vs
+`C:\DOS\MWBACKUP.HLP` compare on the host (floppy DMA read on `8C`).
+
 ## ▶ PLAN addition (owner, 2026-09-27): RAM footprint after bus and CPU
 
 Once bus and cycle work is done: make Windows 95 as lean as it can be in 5 MB, so it pages less
