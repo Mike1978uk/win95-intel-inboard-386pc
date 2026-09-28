@@ -2530,13 +2530,14 @@ Note this is NOT the same thing as caching the video ROM at `0xC0000` - Intel's 
 which this file correctly leaves alone. The card reserves the window regardless, which is also why
 the panel prints `EGA BIOS: 32-bit RAM` on machines that never enable EGA caching.
 
-⚠ **`EGACACHE` measured as no change on 2026-09-20, and WHY is not known.** The switch
-*"reserves up to 32K bytes ... for caching the EGA ROM BIOS"* and the Mach8 is a VGA, which
-may be the reason - but that was never tested.
-@andrew-hoffman ([#35](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/35),
-2026-09-22) offers two others: `INBRDPC.SYS` checks the ROM's signature, size or hash, or
-another option ROM in `C0000`-`E0000` blocks it. A static read of `INBRDPC.SYS`'s `EGACACHE`
-path decides between the three, so the lever is open until then.
+⛔ **`EGACACHE` does not shadow `C0000` - it moves `INT 10h` onto a RAM copy** (static read,
+2026-09-28, `docs/egacache_static_read_2026_09_28.md`). It checks `C000:0000` for `AA55` and a
+length byte of at most `0x40`, copies the ROM into 32 KB of the driver's own resident memory, and
+points `INT 10h` at the copy. Any VGA passes - the Mach8 BIOS is exactly 32 KB - and other option
+ROMs play no part. So the 2026-09-20 A/B below measured the ROM's bus cost, which the switch never
+touches. It helps DOS `INT 10h` text output only and costs 32 KB locked under Windows: keep it off.
+Raised by @andrew-hoffman on [#35](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/35)
+(signature/size check - right; another ROM blocking it - no).
 
 | | byte | word | dword |
 |---|---|---|---|

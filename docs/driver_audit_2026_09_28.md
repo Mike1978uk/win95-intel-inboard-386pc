@@ -76,11 +76,12 @@ drivers neither is a hot path, so a VxD probably buys little speed.
 The likelier gain is memory: whatever it leaves resident in the first megabyte stays locked all
 session. Gates, cheapest first:
 
-1. Resident size from `MEM /C` (checklist item 1). If large, patch it to drop its setup and
-   self-test code after init - far less work than a VxD.
+1. Resident size: **answered statically, 2026-09-28** - `0EA0h` = 3,744 bytes without `EGACACHE`
+   (`docs/egacache_static_read_2026_09_28.md`). Nothing to shrink; `MEM /C` confirms.
 2. A bed trace counting entries into its resident code after the desktop appears.
 
-Build a VxD only if the trace shows Windows really calling it.
+Build a VxD only if the trace shows Windows really calling it. With 3.7 KB resident, memory is no
+longer a reason.
 
 ## Safe Mode with `INBRDPC.SYS`
 

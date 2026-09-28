@@ -1297,7 +1297,7 @@ uncosted, and costing it is itself a task.
 |---|---|---|---|
 | E1 | Conventional RAM off the planar | **384 KB of 640 KB no longer crosses the bus** | ✅ **done** - SW1-3/4 ON. No read-speed change; the gain is bus footprint |
 | E2 | Shadowing - what is already shadowed | uncosted | ❓ confirm rather than assume |
-| E2a | `EGACACHE` - cache the video ROM at `0xC0000` in Inboard RAM | `0xC0000` costs 2.858 us/byte on the bus today | ❓ **reopened 2026-09-26.** Measured no change on 2026-09-20; the "it targets an EGA, the card is a VGA" reason was never tested. @andrew-hoffman (#35): a ROM signature check, or blocked by other option ROMs in `C0000`-`E0000`. Static read of `INBRDPC.SYS` decides |
+| E2a | `EGACACHE` - cache the video ROM at `0xC0000` in Inboard RAM | `0xC0000` costs 2.858 us/byte on the bus today | ⛔ **explained 2026-09-28** (`docs/egacache_static_read_2026_09_28.md`). It does not shadow `C0000`: it copies the ROM into 32 KB of resident memory and points `INT 10h` at the copy, so the 09-20 A/B could not see it. Checks `AA55` and length at most 32 KB (the Mach8 BIOS passes). Speeds DOS `INT 10h` only, costs 32 KB locked under Windows - off |
 | E3 | Wait-state tuning | 0 | ❌ already 0 wait states, cache on. Port `0x670` is write-only |
 | E4 | Memory-mapped storage (JR-IDE/ISA) | **4.2x on the data phase** (0.454 vs 1.910 us/byte) | ❓ needs different hardware, but **86Box models it** - provable before buying |
 | E5 | **ISA DMA instead of PIO** - @andrew-hoffman, 2026-09-11 | potentially **the whole per-access sync cost**, uncosted | ❓ closed for the XT-CF (PIO-only card), **reframed** as E5a/b/c below |
