@@ -2,6 +2,9 @@
 
 ## ▶ START HERE
 
+**Updated 2026-09-28 evening:** items 1 and 2 below are done at the desk. At the machine,
+work through `docs/5160_checklist_2026_09_29.md`; findings in `docs/driver_audit_2026_09_28.md`.
+
 1. **RAM track, step 1: break down the ~2 MB locked memory.** The baseline
    (`docs/ram_baseline_2026_09_28.md`) shows ~2 MB of the 5 MB can never be paged. Read
    `BOOTLOG.TXT`, `SYSTEM.INI [386Enh]` and `IOSUBSYS` on the CF for what loads, and list what this
