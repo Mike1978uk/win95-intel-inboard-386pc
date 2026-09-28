@@ -1,0 +1,28 @@
+[menu]
+menuitem=FULL, Windows 95 - LS-120 and Nero loaded
+menuitem=LEAN, Windows 95 - LS-120 and Nero off (less locked RAM)
+menudefault=FULL,5
+
+[common]
+DEVICE=c:\INBRDPC.SYS NODIAGS NOPAUSE
+
+DEVICE=C:\WINDOWS\SETVER.EXE
+DEVICE=C:\WINDOWS\HIMEM.SYS
+DOS=HIGH,UMB
+device=C:\WINDOWS\COMMAND\display.sys con=(ega,,1)
+Country=044,850,C:\WINDOWS\COMMAND\country.sys
+
+REM DEVICEHIGH=C:\SD120PPD\SD120PPD.SYS /port:378 /IRQ:7 /de /db /ni /sf /dpc /dp /fp /fe
+REM DEVICEHIGH=C:\SD120PPD\ASPIHDRM.SYS
+
+LASTDRIVE=M
+BUFFERS=30,0
+BREAK=ON
+Stacks=0,0
+FILES=40
+
+[FULL]
+
+[LEAN]
+
+[common]
