@@ -52,6 +52,9 @@ end to end.** Find what applies, read that, and add back what you learn.
 | Setting up an A/B | **130** - build the baseline from the LIVE artefact's ledger flags, not from source |
 | A device model works with OUR driver and fails with the VENDOR's | **133** - raw wire trace first; the model's own log only shows its interpretation |
 | A run came back POSITIVE | **129** - "unverified is not a result" applies to good news too |
+| Attributing RAM, "what is locked" | **136** - System Monitor's locked figure includes the disk cache; subtract it. `tools/le_locked.py` for driver shares |
+| Need Safe Mode | **137** - F5 skips `INBRDPC.SYS`; use the boot menu's SAFE entry (`WIN /D:M`) |
+| Editing `AUTOEXEC.BAT` / a boot menu | **138** - never a bare `GOTO %CONFIG%`; `IVT68FIX` must stay the last command before Windows |
 | Selling a transfer-width win | **128** - attribute the fixed per-access cost first. **128c**: XT-IDE cannot use dword |
 
 ### By area
@@ -7852,6 +7855,8 @@ independent ways, and there is no memory window:
 
 1. a `55 AA` scan of `C000`-`E000` found only a floppy BIOS at `0xD0000` and XUB
    at `0xD8000` - **no Trantor ROM at all**;
+   (that floppy BIOS chip sits in the **3C509B's boot-ROM socket** - keep the NIC's
+   `D0000` boot-ROM window enabled, or the floppy BIOS disappears; owner, 2026-09-28)
 2. `T130.INF`'s LogConfig declares `DMAConfig=0` and **no `MemConfig`** - a card
    with an aperture declares one;
 3. `T130.MPD` imports only I/O-space calls.
@@ -8285,3 +8290,40 @@ loop after it hung - no screen, no COMrade, no second run needed.
   Retry, Fail* and every later COMrade request timed out as "DOS stayed busy". The owner had to
   answer it at the machine.
 
+## Technique 136: System Monitor's "locked" includes the disk cache - subtract it before blaming drivers
+
+2026-09-28, RAM track (`docs/driver_audit_2026_09_28.md`). `VMM\cpgLocked` tracks
+`VMM\cpgDiskcache` at r = 0.97 across a 151-sample PERFLOG run; the first step is +106,496 bytes in
+both. So the "~2 MB locked" baseline was ~0.55 MB of VCACHE plus ~1.4 MB of everything else.
+
+- **Subtract `cpgDiskcache` from `cpgLocked`** before comparing runs or attributing memory.
+- **Driver share from the files, no boot:** `tools/le_locked.py` splits each VxD's LE objects into
+  locked (preload, not discardable), pageable and init-only. `VMM32.VXD` on the CF is W4: convert a
+  **copy** with `patcher9x -force-w3 --vxd-convert VMM32.VXD`, then run the tool on it. `.MPD`
+  miniports are PE - count the file size as the upper bound.
+- On 09-28 drivers explained ~0.8 of the ~1.4 MB. The rest is not in any driver file: first-MB
+  real-mode residents, the 64 KB DMA buffer, 16-bit Windows, VMM heaps. `MEM /C` is the next read.
+- Header flags are not a measurement - a VxD can lock more at run time. A before/after RAMBASE
+  per trim is what confirms a saving.
+
+## Technique 137: Safe Mode here means CONFIG.SYS plus `WIN /D:M`, never F5
+
+F5 Safe Mode skips `CONFIG.SYS`, so `INBRDPC.SYS` never loads, Windows has no extended memory, and
+Safe Mode is unusable on this machine. Route (2026-09-28, `tools/bootmenu/`, untested at time of
+writing): a DOS 7 `[menu]` entry SAFE processes `CONFIG.SYS` normally, and `AUTOEXEC.BAT` ends with
+`IF "%CONFIG%"=="SAFE" WIN /D:M` straight after `IVT68FIX.COM` (technique 38 wants it the last
+command before Windows, not literally the last line). Uses: Device Manager clean-ups, and a
+minimal-Windows RAM figure against LEAN.
+
+## Technique 138: DOS 7 boot-menu batch traps
+
+- **`GOTO %CONFIG%` ends the batch when `CONFIG` is unset** ("Label not found") - F8 menus,
+  or a `CONFIG.SYS` without `[menu]`. Here that silently skips `IVT68FIX`. Test the named cases with
+  `IF "%CONFIG%"==...` and fall through to the default.
+- **Keep batch lines short** - `CD` into the directory rather than repeating long paths; the drafts
+  stay under 90 characters.
+- **Disable a miniport or IOSUBSYS VxD by renaming it to `.OFF`** before Windows starts - proven by
+  the owner during the LS-120 and XTIDE work. Rename-only; never rewrite `SYSTEM.INI` at boot.
+- **Heredocs through this shell eat backslashes** in inline Python: a doubled backslash in the
+  source arrived single, and a string ending in one became a syntax error. It happened again while
+  writing this bullet. Write generator scripts with the Write tool and build paths with `chr(92)`.
