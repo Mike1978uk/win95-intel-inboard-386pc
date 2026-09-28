@@ -109,6 +109,22 @@ A reader should not have to scroll a comment thread to learn the current state. 
 compact `> ### Status — <date>` block to the body; leave the original text below it intact.
 Say honestly when something is deployed but unmeasured.
 
+**The block is updated in the same session as the comment that changes the state** - a
+finding, a retraction, a sub-question opened or closed. Replace the block, do not stack a
+second one. A comment that changes nothing (a side topic, a cross-post) needs no update.
+On 2026-09-28 the owner checked #31 and #29 from a phone and saw no progress: both had
+answers, but only in comments.
+
+Sweep - any issue with comments whose first body line is not a status block, or whose block
+predates its newest comment, needs a look:
+
+```bash
+gh issue list --state open --limit 100 --json number,body,comments --jq '.[] |
+  [.number, (.body|split("\n")[0][:60]), ((.comments|last|.createdAt[:10]) // "none")] | @tsv'
+```
+
+Status blocks are GitHub writes: draft them and get the owner's go-ahead on the wording.
+
 ### Contributor links
 
 Every link a contributor posts on an issue belongs in `docs/resources_and_sources.md`, with what it
