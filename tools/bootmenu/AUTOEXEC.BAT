@@ -33,8 +33,10 @@ CD \
 REM INT 15h AH=86h wait, so the floppy motor wait never counts DMA refresh (#7).
 C:\WAIT86.COM
 
-REM IRET patch from Win 95 build. Must stay the LAST line - technique 38.
+REM IRET patch from Win 95 build. Must be the last command before Windows - technique 38.
 C:\IVT68FIX.COM
+REM Safe Mode after a normal CONFIG.SYS; WIN must follow IVT68FIX directly.
+IF "%CONFIG%"=="SAFE" WIN /D:M
 
 REM echo Starting Comrade
 REM c:\Comrade.exe
