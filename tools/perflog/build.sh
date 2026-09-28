@@ -44,3 +44,10 @@ ld -m i386pe --subsystem console:4.0 --major-os-version 4 -e _start \
     $B/perflog.o $B/libkernel32.a $B/libadvapi32.a $B/libuser32.a -o $B/PERFLOG.EXE
 strip $B/PERFLOG.EXE
 ls -l $B/PERFLOG.EXE
+
+gcc -m32 -march=i386 -O2 -ffreestanding -fno-builtin -fno-stack-protector \
+    -fno-asynchronous-unwind-tables -mno-sse -Wall -x c -c SLEEP.C -o $B/sleep.o
+ld -m i386pe --subsystem console:4.0 --major-os-version 4 -e _start \
+    $B/sleep.o $B/libkernel32.a -o $B/SLEEP.EXE
+strip $B/SLEEP.EXE
+ls -l $B/SLEEP.EXE
