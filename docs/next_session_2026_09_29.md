@@ -2,6 +2,8 @@
 
 ## ▶ START HERE
 
+**Superseded by `docs/next_session_2026_09_29b.md`.**
+
 **Updated 2026-09-28 evening:** items 1 and 2 below are done at the desk. At the machine,
 work through `docs/5160_checklist_2026_09_29.md`; findings in `docs/driver_audit_2026_09_28.md`.
 
