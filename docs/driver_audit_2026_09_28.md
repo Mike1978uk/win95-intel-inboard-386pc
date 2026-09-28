@@ -65,3 +65,26 @@ need it for the UK layout.
   to delete (checklist).
 - `SYSTEM.INI [386Enh]` repeats devices the registry already loads: `*vshare` and `ebios` fail
   as duplicates in `BOOTLOG.TXT`. Harmless; not worth a boot.
+
+## `INBRDPC.SYS`: shrink it, or hand off to a VxD? (gated, not started)
+
+It has to stay: it sets up the Inboard's RAM before `HIMEM` and Windows load, so a VxD could only
+take over afterwards, XTIDE-style. After boot it hooks `INT 13h` (wait states around real-mode disk
+calls, not in the data path - `docs/ios_safelist_howto.md`) and `INT 15h 87h/88h`. With 32-bit disk
+drivers neither is a hot path, so a VxD probably buys little speed.
+
+The likelier gain is memory: whatever it leaves resident in the first megabyte stays locked all
+session. Gates, cheapest first:
+
+1. Resident size from `MEM /C` (checklist item 1). If large, patch it to drop its setup and
+   self-test code after init - far less work than a VxD.
+2. A bed trace counting entries into its resident code after the desktop appears.
+
+Build a VxD only if the trace shows Windows really calling it.
+
+## Safe Mode with `INBRDPC.SYS`
+
+F5 Safe Mode skips `CONFIG.SYS`, so `INBRDPC.SYS` never loads and Windows has no extended memory:
+Safe Mode is unusable on this machine. The boot menu's **SAFE** entry processes `CONFIG.SYS`
+normally and starts `WIN /D:M` itself, straight after `IVT68FIX`. That also gives a minimal-Windows
+RAM figure to compare against LEAN.
