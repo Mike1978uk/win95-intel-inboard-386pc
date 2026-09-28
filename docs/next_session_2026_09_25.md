@@ -47,8 +47,9 @@ Bed: `python tools/bed_stage_at.py <dir> --lpt1 ls120-dos --dos`, then
   with and without an interrupt first (the bed's T130B model offers IRQ 3/4/5/7) - it may make
   #42 unnecessary. WDEB386 over serial for the Protection Error if it goes ahead.
 - #41: `ELNK3.VXD` polling can now be measured in the bed, since the card model is upstream.
-- The NIC's EEPROM enables a boot-ROM window at `D0000h`, where Sergey's floppy BIOS lives (#35).
-  `3C5X9CFG` can disable it; not yet done.
+- The NIC's EEPROM enables a boot-ROM window at `D0000h` (#35). **Keep it enabled:** Sergey's
+  floppy BIOS is fitted in the NIC's boot-ROM socket, so that window is how it reaches the bus
+  (owner, 2026-09-28). Disabling it in `3C5X9CFG` would remove the floppy BIOS.
 
 ## How to run the bed now
 
