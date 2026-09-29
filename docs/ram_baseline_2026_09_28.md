@@ -41,3 +41,22 @@ turn; the copies again with all four open. Raw log: `docs/captures/perflog_5160_
 1. Break down the 2 MB locked: which VxDs and drivers hold it (`MEM /D` equivalents for Windows:
    `SYSTEM.INI [386Enh]` and `BOOTLOG.TXT` list what loads; drop what this machine does not use).
 2. Rerun `RAMBASE` after each trim and compare page-ins for the same four programs.
+
+## Run 2 - 2026-09-29, 800x600
+
+Same `RAMBASE A` (the label was reused, so the card's `RBA1/2.TXT` from 09-28 were overwritten;
+the timings above are the record). Not first after boot: page-ins started at 3,447, not 1,854.
+Dial-Up Adapter was removed in Control Panel, but the boot this ran on still loaded `PPPMAC` and
+`SPAP` (`BOOTLOG.TXT` 22:19), so this is not the trim's result.
+
+| | run 1 | run 2 |
+|---|---|---|
+| locked after boot | 1.93 MB | 1.79 MB |
+| page-ins to open the four programs | ~3,370 | ~3,150 |
+| copies after boot / programs open | 7.7 7.5 7.1 / 7.1 6.7 6.7 s | 7.7 8.0 7.0 / 7.0 6.9 6.6 s |
+| CPU between steps | 100% (`CHOICE`) | 0-2% (`SLEEP.EXE`) |
+
+`PERFLOG` appends: `docs/captures/perflog_5160_2026-09-29_800x600.csv` holds run 1 then run 2.
+Timings `rambase_5160_2026-09-29_RBA*.txt`; `MEM /C` and both boot logs alongside. No
+`VREDIR` in either log: Client for Microsoft Networks is not installed. Next: reboot, check
+`PPPMAC` is gone, `RAMBASE B` first after boot.
