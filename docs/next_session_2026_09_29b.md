@@ -20,7 +20,7 @@ needs the machine), then #41 (`T130.MPD` A18, `ELNK3.VXD` A21 - both can run in 
 | `INBRDPC.SYS` keeps only 3,744 bytes resident - nothing to shrink; a VxD hand-off gains little | same read, end address `0EA0h` | `docs/driver_audit_2026_09_28.md` |
 | F5 Safe Mode skips `INBRDPC.SYS`, so it cannot work here; the boot menu's SAFE entry (`WIN /D:M`) is the route | reasoning, untested | technique 137 |
 | Sergey's floppy BIOS is fitted in the 3C509B's boot-ROM socket - keep the `D0000` window enabled | owner | skill ROM-scan note, #35 |
-| DMA channel 3 looks free and the XT-CF rev 3 can use it; worth it only if DMA costs about 1 us/byte | XUB device list, 08-31 note | #29 items 2-3 first; 86Box has no XT-CF DMA to test in |
+| ~~DMA channel 3 looks free and the XT-CF rev 3 can use it~~ - corrected 2026-09-29: the XT-CF has no DMA logic and channel 3 is the parallel card's | owner checked both cards | memory `xtcf-no-dma-channel3-parallel-2026-09-29` |
 
 Ruled out, do not re-propose: Above Board EMS as a paging tier, a second COM port, the SCSI
 WRITE BUFFER "sink", swapfile on another disk. All four full-length slots are taken and IRQs 2-7

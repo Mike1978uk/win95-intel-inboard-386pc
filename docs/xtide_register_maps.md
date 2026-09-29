@@ -257,7 +257,7 @@ must be carried into any conclusion drawn from it. Three entries matter here:
 |---|---|
 | **XT-CF PIO8 (BIU offload)** | "BIU offload" means the transfer is done by the CPU's bus interface unit, i.e. **string instructions** - `rep insb`. 186+, which is why the XT+ reflash was needed |
 | **XT-CF PIO16 (BIU offload)** | **word** transfers. This may be XUB already supporting what this project discovered independently - that the Lo-tech card does not decode A0, so `base+1` mirrors the data register and a word access returns two sequential bytes. If so, lever **C1 is a menu selection, not a code change** |
-| **XT-CF DMA (v3 only)** | **the card here IS a Lo-tech rev 3.** Uncosted, and see the caution below |
+| **XT-CF DMA (v3 only)** | **Not this card.** It has no DMA jumper and no DRQ/DACK logic (74HCT688 x2, 74HCT139, a slot-8 open-collector gate); checked by the owner 2026-09-29. PIO only |
 | **JR-IDE/ISA** | confirms the memory-mapped option exists in this XUB build (lever E4a) |
 
 ### Before changing the device type - two things
