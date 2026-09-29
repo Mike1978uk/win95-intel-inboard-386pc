@@ -58,7 +58,9 @@ are allocated. Memory `slot-layout-and-above-board-ruled-out-2026-09-28`.
 
 ## Waiting on
 
-- Cimon's reply on #10.
+- Cimon on #10: replied 09-29 (doc §6); asked again for his 5150 BIOS and `BOOTLOG.TXT`.
+- red-ray on SIV Hope-11: analysed 09-29, owner to reply; notes kept outside git (memory).
+- GLaBIOS bed run for #10 (Andrew's suggestion): parked.
 - Owner: whether a Win32 `nc.exe` runs on Windows 95 (for the plotter and JetDirect).
 
 ## Commits this session
