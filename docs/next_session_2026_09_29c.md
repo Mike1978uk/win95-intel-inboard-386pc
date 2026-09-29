@@ -52,3 +52,15 @@ Then bring the CF back: read `DMAINV.TXT` and each `BOOTLOG.TXT`.
 ## Commits this session
 
 `96f2342` .. this handoff. Not pushed.
+
+## Update, 2026-09-30 early
+
+Done since: `chkdsk` (8 old DEBUG chains, deleted); memory-report boot (`docs/inboard_memory_layout_2026_09_30.md`,
+#35 answered and its status block replaced); FULL + `RAMBASE B`, LEAN + `RAMBASE C`
+(`docs/ram_baseline_2026_09_28.md` runs 3-4: LEAN -0.09 MB locked, -11% page-ins; Dial-Up gone from
+both boots); `CONFIG.SYS` restored to `NODIAGS NOPAUSE`; #10 status block replaced; Cimon asked to
+retest without the Future Domain drivers.
+
+Still open at the 5160: `DMAINV` (Command prompt only), a SAFE boot, the System Properties RAM
+figure (expect 4,992 KB), #46 with the LS-120 unpowered on FULL. Last boot was LEAN, so
+`SD120PPD` and `NEROCD95` are `.OFF` until FULL runs.
