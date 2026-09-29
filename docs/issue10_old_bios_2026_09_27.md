@@ -98,8 +98,36 @@ C 1000:0 L200 9000:0
   with the Inboard needs Sergey's Multi-Floppy BIOS 2.4; 2.5 and later lock up.
 - **Cimon, 2026-09-27**: Windows 95 that runs on his 5160 goes black and crashes on his 5150.
 
+## 6. Cimon's reply, 2026-09-29
+
+Received by the owner (not posted on GitHub). Four photos held locally at
+`XT_project/photos/CIMON/`, not in the repo - they are Cimon's.
+
+| machine | BIOS date (bytes after `F000:FFF0`) | DOS 6.22 probe | Win95 DOS probe |
+|---|---|---|---|
+| 5160, 256 KB planar | `11/08/82` | ran, no differences | "Invalid media type writing drive A" |
+| 5150, 64 KB planar | `05/02/12` | `dir a:` works; halts on the first `L` | same halt |
+
+- **A real 5160 with the 08NOV82 ROM runs Windows 95 on the Inboard.** This is the machine Cimon
+  already runs it on, so section 1 is now confirmed on hardware, assuming the ROM was not changed.
+- **The 5160 control passes:** DMA into `1000:0` and `9000:0` lands where the CPU reads it.
+- **`05/02/12` is not an IBM 5150 date.** It reads as a replacement ROM dated 2 May 2012; the
+  photos show white-labelled EPROMs on the 5150 board. The emulator runs used 27OCT82, so they
+  did not test his ROM. Ask which BIOS it is.
+- **The 5150 board is the 16KB-64KB type** (photo), so planar RAM ends at `1000:0`. Both probe
+  addresses are above it: the probe as sent cannot test the planar hypothesis on this machine.
+- **The halt is not DMA evidence.** `L 1000:0` overwrites whatever is at 64 KB; with DOS and
+  drivers loaded that can be DOS itself or DEBUG. The second try's "File not found" is what DEBUG
+  prints when the command is typed on the `DEBUG` command line, so it did not run.
+- **The planar hypothesis is weaker.** Booting from floppy is itself a DMA read to `0000:7C00`,
+  inside the 64 KB planar. It works, so DMA and CPU agree there.
+- The Win95-DOS error on the 5160 is unexplained; `L` does not write.
+- `BOOTLOG.TXT` from `WIN /B` on the 5150 is very short; Cimon will send it via a portable.
+
 ## Next
 
+0. Ask Cimon which BIOS the 5150 carries (the `05/02/12` ROM), and for the `BOOTLOG.TXT`.
+   Any re-run of the probe needs a free address checked first (`R` in DEBUG shows its own segment).
 1. Cimon (message sent by the owner): the DEBUG DMA probe on his 5150 and 5160, `BOOTLOG.TXT`
    from the failing boot, BIOS date, planar RAM and SW1/SW2.
 2. The owner can run the same probe on the 5160 as the control.
