@@ -124,6 +124,29 @@ Received by the owner (not posted on GitHub). Four photos held locally at
 - The Win95-DOS error on the 5160 is unexplained; `L` does not write.
 - `BOOTLOG.TXT` from `WIN /B` on the 5150 is very short; Cimon will send it via a portable.
 
+## 7. Cimon's second reply, 2026-09-29 late
+
+Two `BOOTLOG.TXT` files and a board photo, held locally with the others in
+`XT_project/photos/CIMON/` (his, not in the repo).
+
+- **The 5150's BIOS is a replacement from a DIY 8088 kit.** He points at Plasma's Super PC/Turbo
+  XT BIOS (<https://www.phatcode.net/downloads.php?id=101>, v3.1 of Oct 2017; a drop-in for the
+  5150/5160). His `05/02/12` date suggests an earlier release of that line. The page says nothing
+  about INT 15h or other AT services.
+- **The 5150 log stops at the last real-mode VxD load** (`EBIOS` LoadFailed). On his 5160 the
+  next line is `SYSCRITINIT = VMM`, so the 5150 dies at or just after the switch to protected
+  mode - or before the log was flushed.
+- **The two Windows installs differ.** The 5150 also loads Future Domain SCSI drivers:
+  `DCAM950.EXE` and `FDCD.SYS` (both LoadFailed), `mtrr.vxd`, and `V9FCAMD.386`, `FDSCSI.386` and
+  `C:\PWSCSI\INT13.386` in place of the standard `int13`. His 5160 loads none of them. That is a
+  second variable next to the BIOS; the 5150 failure cannot be pinned on the ROM until it is gone.
+- **The photo is labelled "IBM BIOS in PC XT" but looks like a 5150 board:** TMS4116 16 Kbit
+  DRAM, several 24-pin ROMs (the 5160 has two ROM sockets), and a BIOS marked `1501476`, which
+  from memory is the 5150's 10/27/82 part number. Unverified; the byte read (`11/08/82`) stays
+  the record for his 5160.
+- The 5160 floppy was formatted elsewhere; `DIR` works on both machines under both DOS versions,
+  so the Win95-DOS "Invalid media type" stays unexplained and low priority.
+
 ## Next
 
 0. Asked Cimon 2026-09-29 (owner): which BIOS the 5150 carries (`05/02/12`), the `BOOTLOG.TXT`,
