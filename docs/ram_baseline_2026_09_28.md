@@ -81,7 +81,8 @@ disk cache (technique 136), median over the run.
   0.12 MB drop there cannot be split between the two.
 - Copy times unchanged in every run (6.5-8.0 s): the copies do not page.
 - LEAN still logs `Initing sd120ppd.mpd` / `Init Failure` (the registry names the port driver;
-  the file is `.OFF`) - 1 ms. On FULL its init takes 0.9 s with the drive powered.
+  the file is `.OFF`) - 1 tick. On FULL its init takes 897 ticks, about 49 s: the #46 stall
+  (`BOOTLOG.TXT` times are BIOS ticks of ~55 ms, not ms).
 
 Raw: `docs/captures/perflog_5160_2026-09-30_runs1-4.csv` (all four runs, appended),
 `rambase_5160_2026-09-29_RB[B,C][1,2].txt`, `bootlog_5160_2026-09-29_FULL_RB-B.txt`,

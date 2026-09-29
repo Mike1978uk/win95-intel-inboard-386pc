@@ -10,8 +10,17 @@ The card was last booted to DOS after a LEAN Windows boot, so `SD120PPD` and `NE
 until FULL runs. `CONFIG.SYS` is the menu version with `NODIAGS NOPAUSE` (`CONFIG.MNU` = same;
 `CONFIG.B29`/`AUTOEXEC.B29` = pre-menu pair).
 
-**At the desk:** #46 (patch the wait in `SD120PPD.MPD` - FULL always stalls with the drive
-unpowered; LEAN avoids it), then #41 (`T130.MPD` A18, `ELNK3.VXD` A21, both bed-testable).
+**At the desk:** #46 (patch the wait in `SD120PPD.MPD`), then #41 (`T130.MPD` A18, `ELNK3.VXD` A21, both bed-testable).
+
+## #46 - the owner's statement (2026-09-30)
+
+- With the drive powered off and `SD120PPD.MPD` active, Windows **does not reach the desktop**, as
+  the owner recalls it. #46 records two ~40 s pauses and then a desktop; which one holds now is
+  unverified.
+- The owner wants the driver's start-up check removed: it adds ~80 s and gains nothing.
+- Tonight's FULL boot (RAMBASE B) logged `sd120ppd.mpd` init at 897 ticks (~49 s), matching #46's
+  892. Whether the drive was powered for that boot was not noted - ask.
+- LEAN avoids all of it (1 tick). The patch is the fix; LEAN is the workaround until then.
 
 ## Results since 09-29
 
