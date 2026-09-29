@@ -60,3 +60,29 @@ Dial-Up Adapter was removed in Control Panel, but the boot this ran on still loa
 Timings `rambase_5160_2026-09-29_RBA*.txt`; `MEM /C` and both boot logs alongside. No
 `VREDIR` in either log: Client for Microsoft Networks is not installed. Next: reboot, check
 `PPPMAC` is gone, `RAMBASE B` first after boot.
+
+## Runs 3 and 4 - 2026-09-29 late, Dial-Up removed, boot menu
+
+Both first after boot, 800x600. B on the FULL menu entry, C on LEAN (`SD120PPD.MPD` and
+`NEROCD95.VXD` renamed to `.OFF`). Neither boot loads `PPPMAC` or `SPAP`; the 3C509B stack
+(`ELNK3`, `VTDI`, `VIP`, `MSTCP`, `VNETBIOS`) initialises on both. "Locked" below excludes the
+disk cache (technique 136), median over the run.
+
+| run | setup | locked excl. cache | page-ins to open the four programs | swap at end |
+|---|---|---|---|---|
+| 1 (A, 09-28) | 1024x768, Dial-Up | 1.46 MB | 3,373 | 5.61 MB |
+| 2 (A, 09-29) | 800x600, Dial-Up, not first after boot | 1.34 MB | 3,145 | 5.73 MB |
+| 3 (B) | 800x600, Dial-Up removed, FULL | 1.33 MB | 3,035 | 5.53 MB |
+| 4 (C) | same, LEAN | 1.24 MB | 2,700 | 5.29 MB |
+
+- **LEAN saves ~0.09 MB locked and ~11% of page-ins** against FULL, same boot conditions.
+- **Removing Dial-Up is not visible against run 2** (0.01 MB, expected ~0.1). Run 2 was not
+  first after boot, and the 1024x768 -> 800x600 change landed between runs 1 and 2, so the
+  0.12 MB drop there cannot be split between the two.
+- Copy times unchanged in every run (6.5-8.0 s): the copies do not page.
+- LEAN still logs `Initing sd120ppd.mpd` / `Init Failure` (the registry names the port driver;
+  the file is `.OFF`) - 1 ms. On FULL its init takes 0.9 s with the drive powered.
+
+Raw: `docs/captures/perflog_5160_2026-09-30_runs1-4.csv` (all four runs, appended),
+`rambase_5160_2026-09-29_RB[B,C][1,2].txt`, `bootlog_5160_2026-09-29_FULL_RB-B.txt`,
+`bootlog_5160_2026-09-30_LEAN_RB-C.txt`.
