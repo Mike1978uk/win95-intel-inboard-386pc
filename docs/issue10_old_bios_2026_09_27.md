@@ -127,6 +127,10 @@ Received by the owner (not posted on GitHub). Four photos held locally at
 ## Next
 
 0. Ask Cimon which BIOS the 5150 carries (the `05/02/12` ROM), and for the `BOOTLOG.TXT`.
+   His ROM is not the whole cause: the owner's former 5150 and others on VCFed failed Windows
+   3.11 on stock IBM ROMs.
+   @andrew-hoffman suggested GLaBIOS (<https://github.com/640-KB/GLaBIOS>), an open-source
+   PC/XT BIOS, to try in the bed; not yet tried.
    Any re-run of the probe needs a free address checked first (`R` in DEBUG shows its own segment).
 1. Cimon (message sent by the owner): the DEBUG DMA probe on his 5150 and 5160, `BOOTLOG.TXT`
    from the failing boot, BIOS date, planar RAM and SW1/SW2.
