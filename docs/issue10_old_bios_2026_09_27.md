@@ -149,6 +149,8 @@ Two `BOOTLOG.TXT` files and a board photo, held locally with the others in
 
 ## Next
 
+0a. Asked Cimon 2026-09-29 late (owner, thanked): boot the 5150 once more with the Future Domain
+   lines remarked out (or with his 5160 disk), boot log on; and which board the photo shows.
 0. Asked Cimon 2026-09-29 (owner): which BIOS the 5150 carries (`05/02/12`), the `BOOTLOG.TXT`,
    and whether the 5160 floppy was formatted elsewhere. Told him not to repeat the probe.
    His ROM is not the whole cause: the owner's former 5150 and others on VCFed failed Windows
