@@ -19,7 +19,8 @@ until FULL runs. `CONFIG.SYS` is the menu version with `NODIAGS NOPAUSE` (`CONFI
   unverified.
 - The owner wants the driver's start-up check removed: it adds ~80 s and gains nothing.
 - Tonight's FULL boot (RAMBASE B) logged `sd120ppd.mpd` init at 897 ticks (~49 s), matching #46's
-  892. Whether the drive was powered for that boot was not noted - ask.
+  892. **The drive WAS powered** (owner): the ~49 s wait happens on every FULL boot, not only
+  with the drive off. #46's title and premise ("with its power removed") are too narrow.
 - LEAN avoids all of it (1 tick). The patch is the fix; LEAN is the workaround until then.
 
 ## Results since 09-29
