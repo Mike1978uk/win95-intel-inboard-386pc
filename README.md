@@ -511,7 +511,7 @@ rather than a DMA-reach one — is on the issue.
 | [#41](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/41) | Pace the polling in every driver that spins: `T130.MPD`, `HSFLOP.PDR`, `ELNK3.VXD`. A poll is **5.55 us** of bus moving nothing against **0.22 us** for a cached delay - and since 2026-09-21 we know it also **flushes the L1**, so each poll removed is worth more than its bus time |
 | [#43](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/43) | IOCHRDY: what a held bus actually costs. Our own three-window fit already isolates it - per bus cycle **1.978 us** (XT-CF ROM) against **3.805 us** (Mach8 video), same machine, same fixed sync term. And **86Box models no bus stall at all**, so any lever whose whole benefit is holding the bus for less time measures as zero in the bed |
 | [#45](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/45) | Windows 95 settings and the timer tick, each A/B tested on the 5160. A 1 ms tick costs 15% of the CPU; the LS-120 is the one driver left that might gain from it |
-| [#46](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/46) | With the LS-120 unpowered, the vendor `SD120PPD.MPD` stalls Windows boot for about 80 s |
+| [#46](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/46) | The vendor `SD120PPD.MPD` stalls every Windows boot by about 49 s, drive powered or not. The LEAN boot entry avoids it until the driver is patched |
 | [#47](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/47) | FastDoom: settings that give Sound Blaster sound and a usable frame rate |
 | [#48](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/48) | Optimisation timeline: what each change bought, from first boot to now |
 
