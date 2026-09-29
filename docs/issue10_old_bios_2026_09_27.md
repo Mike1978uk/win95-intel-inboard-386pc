@@ -126,7 +126,8 @@ Received by the owner (not posted on GitHub). Four photos held locally at
 
 ## Next
 
-0. Ask Cimon which BIOS the 5150 carries (the `05/02/12` ROM), and for the `BOOTLOG.TXT`.
+0. Asked Cimon 2026-09-29 (owner): which BIOS the 5150 carries (`05/02/12`), the `BOOTLOG.TXT`,
+   and whether the 5160 floppy was formatted elsewhere. Told him not to repeat the probe.
    His ROM is not the whole cause: the owner's former 5150 and others on VCFed failed Windows
    3.11 on stock IBM ROMs.
    @andrew-hoffman suggested GLaBIOS (<https://github.com/640-KB/GLaBIOS>), an open-source
