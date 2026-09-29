@@ -38,4 +38,5 @@ At most 128 KB (the idle EGA half and the redundant 64 KB), both fixed by the ca
 not by a setting. 128 KB is 32 pages against ~3,000 page-ins to open the RAMBASE programs: about
 1%. Not a lever worth a driver patch.
 
-Windows should see 640 + 4,352 = 4,992 KB; the System Properties General tab is the cross-check.
+Windows should see 640 + 4,352 = 4,992 KB. The System Properties General tab reads **5.0 MB**, which
+is 4,992 KB rounded; the tab is too coarse to confirm more than that.
