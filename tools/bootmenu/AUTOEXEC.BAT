@@ -6,8 +6,6 @@ SET TEMP=C:\TEMP
 
 CALL C:\CTCHIP\CPUSET.BAT
 
-mode con codepage prepare=((850) C:\WINDOWS\COMMAND\ega.cpi)
-mode con codepage select=850
 keyb uk,,C:\WINDOWS\COMMAND\keyboard.sys
 SET BLASTER=A220 I5 D1 T4
 
