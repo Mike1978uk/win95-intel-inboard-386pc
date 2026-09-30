@@ -147,6 +147,30 @@ Two `BOOTLOG.TXT` files and a board photo, held locally with the others in
 - The 5160 floppy was formatted elsewhere; `DIR` works on both machines under both DOS versions,
   so the Win95-DOS "Invalid media type" stays unexplained and low priority.
 
+## 8. Cimon's third reply, 2026-09-30
+
+New files, held locally in `XT_project/photos/CIMON/` (his, not in the repo): a 5160 board photo,
+a 5150 `BOOTLOG.TXT` without the Future Domain drivers (`5150PC2T.TXT`), and MSD, MEM and Norton SI
+reports from the 5150. He confirms the earlier board photo was his other 5150, with IBM ROMs.
+
+- **Removing the Future Domain drivers changed nothing.** The log still ends at `EBIOS` LoadFailed,
+  the last real-mode VxD load; his 5160 logs `SYSCRITINIT = VMM` next. The SCSI stack is ruled out.
+  What is left is the BIOS or the 5150 board.
+- **The 5150's BIOS is Plasma's "Super PC BIOS v2.5 for 8088/V20", dated `05/02/12`** (MSD's
+  BIOS version string). Not an IBM ROM.
+- **His 5160 carries the IBM `1501512` BIOS (the 08NOV82 part) and `5000027` BASIC** (photo), so
+  section 6's hardware confirmation stands: a real 1982 XT ROM runs Windows 95 on the Inboard.
+- **HIMEM sees extended memory on the 5150:** MSD reports 4,284 KB XMS free. `INBRDPC.SYS` loads at
+  3,744 bytes, as here.
+- **Ignore the "18,504 KB extended" in MSD and SI.** 18,504 is `4848h`: both tools read CMOS
+  bytes, and an XT has no CMOS, so ports `70h`/`71h` land on another device. Their CMOS disk types
+  are the same artefact.
+- `MEM-d.TXT` is a different setup (PC DOS, `INBRDPC` 28,416 bytes = `0F00h` + a 24 KB video ROM,
+  i.e. `EGACACHE` on; Future Domain `FDBIOS`). Which machine it is was not stated.
+
+Next: ask for a dump of the 5150's BIOS, so the exact ROM can run in the bed on the 5150 machine
+type. That separates the BIOS from the board without another boot on his side.
+
 ## Next
 
 0a. Asked Cimon 2026-09-29 late (owner, thanked): boot the 5150 once more with the Future Domain
