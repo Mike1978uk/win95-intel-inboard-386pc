@@ -168,7 +168,7 @@ reports from the 5150. He confirms the earlier board photo was his other 5150, w
 - `MEM-d.TXT` is a different setup (PC DOS, `INBRDPC` 28,416 bytes = `0F00h` + a 24 KB video ROM,
   i.e. `EGACACHE` on; Future Domain `FDBIOS`). Which machine it is was not stated.
 
-Next: ask for a dump of the 5150's BIOS, so the exact ROM can run in the bed on the 5150 machine
+Owner replied 2026-09-30 and asked for a dump of the 5150's BIOS (`DEBUG`, `w f000:0` with `BX:CX` = `1:0000`), so the exact ROM can run in the bed on the 5150 machine
 type. That separates the BIOS from the board without another boot on his side.
 
 ## Next
