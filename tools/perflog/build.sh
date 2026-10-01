@@ -32,6 +32,10 @@ cat > $B/user32.def <<'DEF'
 LIBRARY USER32.dll
 EXPORTS
 wsprintfA
+EnumWindows@8
+GetWindowTextA@12
+IsWindowVisible@4
+PostMessageA@16
 DEF
 
 for l in kernel32 advapi32 user32; do
@@ -51,3 +55,8 @@ ld -m i386pe --subsystem console:4.0 --major-os-version 4 -e _start \
     $B/sleep.o $B/libkernel32.a -o $B/SLEEP.EXE
 strip $B/SLEEP.EXE
 ls -l $B/SLEEP.EXE
+
+gcc -m32 -march=i386 -O2 -ffreestanding -fno-builtin -fno-stack-protector     -fno-asynchronous-unwind-tables -mno-sse -Wall -x c -c WINCLOSE.C -o $B/winclose.o
+ld -m i386pe --subsystem console:4.0 --major-os-version 4 -e _start     $B/winclose.o $B/libkernel32.a $B/libuser32.a -o $B/WINCLOSE.EXE
+strip $B/WINCLOSE.EXE
+ls -l $B/WINCLOSE.EXE
