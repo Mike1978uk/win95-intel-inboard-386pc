@@ -1,42 +1,113 @@
 # Next session - 2026-10-02
 
-Supersedes `next_session_2026_09_30.md`. Findings: `docs/magnaram_and_swap_compression_2026_10_01.md`.
+Supersedes `next_session_2026_09_30.md`. Findings and numbers:
+`docs/magnaram_and_swap_compression_2026_10_01.md`.
 
-## Done this session
+## Where it stands
 
-- **MagnaRAM 97: no.** Bed A/B, same image: workload 8.9 min against 4.4, +0.5 MB locked,
-  CPU pinned, guest clock stalled. Not going on the 5160.
-- **Swap compression: the direction.** The 5160's `WIN386.SWP` compresses 2.1:1 with a simple
-  LZ (WKdm 1.5:1, deflate 2.9:1). Under Windows the bus costs per byte, not per command
-  (#30), so cutting bytes is the only lever left on the paging path.
-- **Stage 1 built and run: `drivers/swapcomp/` (SWAPCNT.VXD).** Hooks `PageFile_Read_Or_Write`
-  and counts. Bed: 62% of page-ins come from swap, one page per call, each written page read
-  ~2.9 times. Boots and runs clean in the bed. **Not yet on the 5160.**
-- `RAMBASE` now tears down after itself (`WINCLOSE.EXE`); copied to the CF.
-- Swap file: keep 32 MB fixed. The 09-30 "8 MB" advice was wrong (sized from pages written,
-  not commit).
+- **MagnaRAM 97: rejected.** Bed A/B: workload 8.9 min against 4.4, +0.5 MB locked.
+- **Swap compression is the track.** Measured so far:
+  - 62% of page-ins come from the swap file (SWAPCNT, bed), one page per call.
+  - Real swap pages compress 2.26:1 with plain LZ4 (LZ4BENCH, 5160).
+  - On the 5160's CPU: decompress 1.17 ms, compress 4.71 ms per page. Bus: ~10.4 ms per page.
+  - Estimate: -36% per swap page-in, ~-25% of all paging time. **Not yet measured end to end.**
+- **`SWAPCOMP.VXD` is built and has never run.** `drivers/swapcomp/`, `build.ps1` makes:
 
-## Unpushed (owner's go-ahead)
+| file | what | use |
+|---|---|---|
+| `SWAPCNT.VXD` | counts swap I/O, changes nothing | the share of paging that is swap |
+| `SWAPCMPC.VXD` | compression + a checksum per page | **first runs: bed, then 5160** |
+| `SWAPCOMP.VXD` | compression | the timed A/B |
 
-`144afc9` boot-file trims (held for the 5160 FULL boot), `7220494`, `6a1b7ee`, `5e6fe61`,
-`34d2c03`.
+  Each page keeps its 4 KB slot in `WIN386.SWP`; only its compressed sectors are written. A
+  RAM table (8 KB) says how many. PAGEFILE still does the I/O; a hook on
+  `IFSMgr_Ring0_FileIO` shortens the transfer when it sees our buffer. If that hook ever misses
+  a compressed write, the page is rewritten whole and compression stops for the session
+  (`Fallback` counter). ~22 KB locked.
 
-## Next, in order
+## 1. Bed correctness (emulator, ~30 min, nothing at the 5160)
 
-1. **5160 FULL boot** with the trimmed boot files - the `144afc9` checks (menu, no KEYB or
-   COUNTRY warning, the pound key in a DOS box, `BOOTLOG.TXT` without DISPLAY.SYS, SETVER,
-   DBLBUFF). Then push.
-2. **SWAPCNT on the 5160** (optional, ~10 min): same `RAMBASE`, to get the real swap share.
-   Add `device=C:\SWAPCNT.VXD` to `[386Enh]` - the owner edits SYSTEM.INI.
-3. **Stage 2:** LZ4-class decompression timed on the Blue Lightning - a DOS program over real
-   swap pages, PIT-timed. Kills the idea if a page costs more than ~5 ms.
-4. **Stage 3:** the compressing hook. The hard part is a page-to-location map and its own file
-   I/O, because compressed pages are not 4 KB slots. Checksum every page. Bed first.
-5. #46 (the ~49 s LS-120 wait) and #41 are still open; the owner chose swap compression first.
+Bed `vm_magnaram_off`: RAMBASE autoruns from StartUp with teardown; PERFLOG logs every
+counter. It currently loads `C:\SWAPCNT.VXD`.
+
+1. Copy `build/SWAPCMPC.VXD` to the image (`tools/fatcp.py`), and in `SYSTEM.INI [386Enh]`
+   replace `device=C:\SWAPCNT.VXD` with `device=C:\SWAPCMPC.VXD`. One driver at a time.
+2. Delete `C:\PERFLOG.CSV`, boot, let RAMBASE finish, shut down.
+3. **Pass:** boots; RAMBASE says done; clean shutdown; and in the CSV
+   `SWAPCOMP\CompressedWrites` and `CompressedReads` > 0, `Errors` = 0, `ChecksumErrors` = 0,
+   `Fallback` = 0.
+4. Run it twice more (warm boots). Then once with a heavier load (open extra programs by
+   hand while it runs) to page harder.
+
+| if | then |
+|---|---|
+| `Fallback` > 0 | retail DYNAPAGE does not do its I/O the way the DDK sample does; redesign the I/O path |
+| `ChecksumErrors` > 0 | a real corruption bug; do not go near the 5160 |
+| hang at boot or first page-out | likely the semaphore in the pager path; read the screen, then the source |
+
+## 2. Build the stopwatch first (desk, ~1 h)
+
+RAMBASE waits fixed times (SLEEP 40/30/15/30), so its wall time cannot change, and its
+copies do not page. It shows page **counts**, not speed. The A/B needs a clock:
+
+- **`PAGETIME.EXE`** (same toolchain as PERFLOG): starts PSP, WordPad, Notepad and Paint one
+  after another, each with `CreateProcess` + `WaitForInputIdle`, writes ms per program and the
+  total to `C:\PAGETIME.TXT`, then closes them (as WINCLOSE does). Run it from RAMBASE in
+  place of the START/SLEEP block, or on its own, first after boot.
+- Optionally a second pass that switches back to each program in turn and times it: with all
+  four open, that is where swap is read.
+
+## 3. The A/B on the 5160
+
+**Before the first run: image the CF on this PC.** The swap file is rebuilt every boot, so the
+driver cannot damage files by design, but a crash during any disk write can hurt FAT.
+
+**Run 0, safety (checksum build), once:** `device=C:\SWAPCMPC.VXD`, run the workload, check
+`ChecksumErrors` = 0, `Errors` = 0, `Fallback` = 0. Only then the timed runs.
+
+**Timed runs, release build `SWAPCOMP.VXD`.** The owner edits `SYSTEM.INI` between runs; the
+only difference between arms is the one `device=` line (put a `;` in front for A).
+
+| rule | why |
+|---|---|
+| same boot entry every run (FULL), same card, swap fixed at 32 MB | one variable |
+| first workload after boot, hands off | the 09-29 run 2 showed what a second run does |
+| order **A B A B** (4 boots), better A B B A A B | drift, warm-up and cache state cancel |
+| report each run and the median, never the best | |
+| note anything that changed between runs | |
+
+Collect per run: `PAGETIME.TXT`, `PERFLOG.CSV` (page-ins, locked, SWAPCOMP counters),
+`BOOTLOG.TXT`. Summarise with `tools/perflog/perflog_table.py`.
+
+**What counts as a result:**
+- **Win:** program-open total lower with SWAPCOMP in every pairing, by more than the spread
+  between the two A runs. The estimate says ~25% of paging time.
+- **Cost check:** locked memory up by ~22 KB and no more; page-in count about the same in
+  both arms (compression changes the cost of a page-in, not the number).
+- **No win:** record it in `what_worked_and_what_didnt.md` in one line, with the numbers.
+
+## 4. Publishing (after the A/B, owner verifies by hand)
+
+`dist/swapcomp/`: `SWAPCOMP.VXD`, a README (what it does, the one SYSTEM.INI line, how to
+remove it, what was tested on what, what was not), `FIXES.md` entry. Release only after the
+owner has run it on the 5160 (G10-style hand check).
+
+## 5. Later
+
+- **Stage 3b - the idle 64 KB.** The EGA half of the Inboard's reserved shadow block is RAM
+  Windows never gets (`docs/inboard_memory_layout_2026_09_30.md`). SWAPCOMP's ~22 KB could
+  live there at no cost to Windows. Its address (0x5E0000) is from the emulator model and
+  UniPCemu, not the real card: the VxD must pattern-test it at init and fall back to its own
+  memory. The owner's question: could DOS TSRs use it too? Only if the card can map it below
+  1 MB as an upper memory block; and conventional memory is not the constraint (578 KB free,
+  DOS drivers 63 KB), Windows' RAM is.
+- **SETVER still loads** after `144afc9`: IO.SYS loads `C:\WINDOWS\SETVER.EXE` whenever it
+  exists. Owner's call: rename the file, revert, or leave. Not touched.
+- Boot-file trim checks still open: KEYB/COUNTRY warnings on screen, the pound key in a DOS box.
+- #46 (the ~49 s LS-120 wait) and #41 remain.
 
 ## Beds
 
-`vm_magnaram/` (MagnaRAM installed) and `vm_magnaram_off/` (control, now also carries
-SWAPCNT in SYSTEM.INI, `CTL3D.DLL`, the `[vcache]` cap and a RAMBASE StartUp entry). Both
-ignored by git. The bed image lacked `CTL3D.DLL` and the 512-1024 KB VCACHE cap that the
-real card has - copy both into any new bed built from `vm_vpicd_irq2`.
+`vm_magnaram/` (MagnaRAM installed) and `vm_magnaram_off/` (control: SWAPCNT in SYSTEM.INI,
+`CTL3D.DLL`, `[vcache]` 512-1024, RAMBASE StartUp entry ending in PAUSE). Both ignored by git.
+Any new bed from `vm_vpicd_irq2` needs `CTL3D.DLL` and the `[vcache]` cap the real card has.
