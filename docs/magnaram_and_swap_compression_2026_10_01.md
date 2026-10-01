@@ -96,9 +96,23 @@ Same 400-page sample, LZ4 block format (`tools/swapcomp/lz4est.py`):
 | LZ4-HC (searches harder when compressing) | 2.28:1 | 4.6 ms |
 | deflate level 1 | 2.92:1 | 3.6 ms, but decompression ~5-10 ms |
 
-LZ4-HC costs more only when compressing, which happens once per page against ~2.9 reads, and
-decompresses as fast as LZ4. Use it, but expect little: nearly all the gain is in the first
-2:1.
+A preset dictionary (`tools/swapcomp/lz4dict.py`, built from half the pages, tested on the
+other half) adds little: LZ4 2.19 -> 2.26:1 at 16 KB, 2.32:1 at 60 KB. It must stay resident,
+so on 5 MB it is about break-even. Skip it.
+
+**The sweet spot is plain LZ4, not HC.** Count a page-in plus 0.35 of a page-out (2,820
+writes per 8,050 reads in the bed):
+
+| | per page-in | vs none |
+|---|---|---|
+| none | 14.0 ms | - |
+| LZ4, 2.19:1 | ~8.5-9.5 ms | -35 to -40% |
+| LZ4-HC, 2.30:1 | ~10.5-23 ms | break-even to worse |
+| deflate, 2.97:1 | ~16-25 ms | worse |
+
+HC's harder search costs ~15-50 ms per page on a 486, and page-outs are on the critical path.
+CPU figures are typical cycles-per-byte estimates, not measured: stage 2 must time
+compression as well as decompression.
 
 ## Was the request-merging null (#30) a fair test?
 
