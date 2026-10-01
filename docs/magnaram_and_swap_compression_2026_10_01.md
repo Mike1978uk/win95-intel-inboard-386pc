@@ -132,7 +132,26 @@ time, since with PIO and no IRQ the CPU moves every byte itself.
 A fairer re-test, if wanted: count XT-IDE commands per arm in the bed (86Box IDE log), then
 repeat the A/B on a mixed workload (RAMBASE, a many-small-files copy, a write).
 
-Next: stage 2, LZ4-class decompression timed on the real CPU; stage 3, the compressing hook.
+## Stage 2 - LZ4BENCH on the 5160, 2026-10-02
+
+`tools/swapcomp/LZ4BENCH.C`, 64 real swap pages, 80 MHz, best of five, self-test passed
+(round trip byte-exact, corruption caught). Raw: `docs/captures/lz4bench_5160_2026-10-02.txt`.
+
+| | per page | cycles/byte |
+|---|---|---|
+| copy (floor) | 0.83 ms | 16 |
+| LZ4 decompress | 1.17 ms | 23 |
+| LZ4 compress | 4.71 ms | 92 |
+| 4-candidate search | 9.29 ms | 181 |
+| 16-candidate search | 11.02 ms | 215 |
+
+Per page-in (one read + 0.35 write): none 14.0 ms, **plain LZ4 9.0 ms (-36%)**, 4-candidate
+10.4 ms, 16-candidate 10.9 ms. Over all paging in the SWAPCNT run, including the 38% that is
+unreachable, ~25% less paging time. Memory is slower than assumed: a 4 KB copy is 0.83 ms.
+10.4 ms per page is a sequential figure; single-page reads may carry more per-command cost,
+which compression does not reduce.
+
+**Stage 3 is justified: plain LZ4 in the hook.**
 
 ## Swap file size
 
