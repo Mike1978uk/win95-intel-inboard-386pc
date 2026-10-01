@@ -1,0 +1,20 @@
+T130AB drive C 
+copy 1 start 
+Current time is   0:01:27.44
+Enter new time: 
+copy 1 end 
+Current time is   0:01:33.64
+Enter new time: 
+copy 2 start 
+Current time is   0:01:34.25
+Enter new time: 
+copy 2 end 
+Current time is   0:01:39.85
+Enter new time: 
+copy 3 start 
+Current time is   0:01:40.56
+Enter new time: 
+copy 3 end 
+Current time is   0:01:46.22
+Enter new time: 
+done 

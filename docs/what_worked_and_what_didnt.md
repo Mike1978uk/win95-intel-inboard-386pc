@@ -124,6 +124,10 @@ Kept deliberately short. Each line is a dead end somebody else does not need to 
   marked do-not-install; `drivers/imation_ls120_mpd/` and `dist/ls120_mpd/` both say so.
   ([#22](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/22))
 
+- **MagnaRAM 97 (RAM compression).** In the bed it slowed boot and the workload about 2x, locked
+  0.5 MB more and held the CPU at 100%. It works the wrong layer: on 5 MB the bus, not RAM, is what
+  to compress. `docs/magnaram_and_swap_compression_2026_10_01.md`
+
 - **Pacing `HSFLOP.PDR`'s polling.** There is nothing to pace: the seek completes on IRQ 6 and
   only short RQM waits remain. `docs/hsflop_poll_audit_2026_09_27.md`
 
