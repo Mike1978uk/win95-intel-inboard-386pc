@@ -85,6 +85,39 @@ counts, and passes through; counters appear in PERFLOG as `SWAPCNT\*`.
 - Estimate for the 5160 baseline (~3,100 page-ins for the four programs): ~1,900 swap reads,
   ~20 s of bus, of which 2.1:1 might save 8-10 s. Unmeasured.
 
+## How far compression goes
+
+Same 400-page sample, LZ4 block format (`tools/swapcomp/lz4est.py`):
+
+| | ratio | bus per 4 KB page |
+|---|---|---|
+| none | 1:1 | 10.4 ms |
+| LZ4 fast | 2.17:1 | 4.8 ms |
+| LZ4-HC (searches harder when compressing) | 2.28:1 | 4.6 ms |
+| deflate level 1 | 2.92:1 | 3.6 ms, but decompression ~5-10 ms |
+
+LZ4-HC costs more only when compressing, which happens once per page against ~2.9 reads, and
+decompresses as fast as LZ4. Use it, but expect little: nearly all the gain is in the first
+2:1.
+
+## Was the request-merging null (#30) a fair test?
+
+Fair as an A/B: one byte differs between the arms, same session, 7x RAM so the cache cannot
+hide the disk. Narrow in two ways:
+
+- **One workload:** a sequential read of one file to NUL. Writes, many small files and paging
+  were not tested.
+- **The mechanism was never confirmed.** Nothing showed that larger requests reached the
+  driver with `-PhysBreaks 17`; the result doc itself lists "the cap was never binding" as a
+  candidate. The null says "no gain on this workload", not "merging cannot help".
+
+For paging specifically it does not matter: SWAPCNT shows one page per call, synchronous, so
+there is nothing to merge. Async completion would overlap only the card's per-sector think
+time, since with PIO and no IRQ the CPU moves every byte itself.
+
+A fairer re-test, if wanted: count XT-IDE commands per arm in the bed (86Box IDE log), then
+repeat the A/B on a mixed workload (RAMBASE, a many-small-files copy, a write).
+
 Next: stage 2, LZ4-class decompression timed on the real CPU; stage 3, the compressing hook.
 
 ## Swap file size
