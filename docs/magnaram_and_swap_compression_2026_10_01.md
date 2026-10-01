@@ -41,17 +41,19 @@ Raw: `docs/captures/perflog_bed_2026-10-01_magnaram_pass{1,2}_{with,without}.csv
 
 ## Swap compression - the arithmetic
 
-The 8-bit bus is the cost: a 4 KB page-in is ~15.6 ms at 3.8 us/B (word transfers). The CPU
-has 300-480 cycles per bus byte to spare.
+The 8-bit bus is the cost. Under Windows the XT-CF moves 385 KiB/s sequential (2026-09-21), so a
+4 KB page is ~10.4 ms. That is per byte, not per command: merging requests measured no gain
+(#30), so cutting bytes is the only lever left on this path. The CPU has 300-480 cycles per bus
+byte to spare.
 
 The 5160's `WIN386.SWP` (32 MB, read from the card on the host, `tools/swapcomp/`): 72% of
 pages are all-zero (never used); the other 2,289 pages compress as follows.
 
 | | ratio | est. per page-in |
 |---|---|---|
-| WKdm (word-based, the macOS family) | 1.51:1 | ~10.5 ms |
-| simple LZ, no entropy coding (LZ4-class) | 2.12:1 (400-page sample) | ~8-9 ms |
-| deflate level 1 (zstd-class) | 2.92:1 | ~10-15 ms |
+| WKdm (word-based, the macOS family) | 1.51:1 | ~7 ms |
+| simple LZ, no entropy coding (LZ4-class) | 2.12:1 (400-page sample) | ~5.5-6.5 ms |
+| deflate level 1 (zstd-class) | 2.92:1 | ~8-13 ms |
 
 Ratios are measured. CPU costs are estimates from typical cycles per byte, not measured on
 the Blue Lightning. WKdm loses because 57% of words miss its dictionary: Windows 95 here pages
@@ -61,10 +63,29 @@ the Blue Lightning. WKdm loses because 57% of words miss its dictionary: Windows
 session, never a file - which matters while #18 is open. Nothing else in the storage stack
 changes. The cost: page-ins from program files (EXEs, DLLs) are not helped.
 
-**Open, both desk work:**
-1. Where Windows 95 lets a VxD intercept paging-file I/O (`PAGEFILE.VXD` replacement is the
-   guess; check the DDK).
-2. What share of RAMBASE's ~3,000 page-ins come from swap rather than program files.
+## Stage 1 - SWAPCNT, 2026-10-02
+
+The hook point is `PageFile_Read_Or_Write`: synchronous, `EBX` = one `PageSwapBufferDesc`. The
+DDK ships the swap device's source (`BASE\SAMPLES\DYNAPAGE\PAGEFILE.ASM`): it opens the file
+with `R0_NO_CACHE`, so swap I/O already bypasses VCACHE. `drivers/swapcomp/` hooks the service,
+counts, and passes through; counters appear in PERFLOG as `SWAPCNT\*`.
+
+`vm_magnaram_off` bed, RAMBASE with teardown, `docs/captures/perflog_bed_2026-10-02_swapcnt.csv`:
+
+| | |
+|---|---|
+| page-ins, all | 12,953 |
+| swap pages read | **8,050 (62%)** |
+| page-outs / swap pages written | 2,820 / 2,820 (hook sees every write) |
+| pages per call | 1.00, reads and writes |
+| all-zero pages written | 42 (1.5%) |
+
+- **62% of page-ins are reachable.** The other 38% are EXE and DLL pages.
+- **Each written page is read ~2.9 times**, so decompression speed matters most: LZ4-class.
+- Estimate for the 5160 baseline (~3,100 page-ins for the four programs): ~1,900 swap reads,
+  ~20 s of bus, of which 2.1:1 might save 8-10 s. Unmeasured.
+
+Next: stage 2, LZ4-class decompression timed on the real CPU; stage 3, the compressing hook.
 
 ## Swap file size
 
