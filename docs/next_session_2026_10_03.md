@@ -44,7 +44,7 @@ normal. **PagesAdded not yet read** - System Monitor or `PERFLOG X 30` on the ne
 | **#41 driver polling** | Re-scope first: the T130B now runs on IRQ 3 (#42), so A18's "polls throughout every transfer" premise is stale. Re-read `T130.MPD`'s loops with the IRQ path in mind. A21 `ELNK3.VXD` is **unblocked** - the 3C509B is in 86Box. Static: `tools/le_poll_scan.py`, then bed | each target measured or retired |
 | **#46** | find `SD120PPD.MPD`'s ~49 s wait (static), model the unpowered drive (`80h`) in the bed, patch | boot stall gone in the bed, then one 5160 boot |
 | **#28** | six-question walk per driver; the locked-memory audit is done, the walk is not | the walk table filled |
-| `DMABufferSize` | see section 4 - a settings A/B, not a code change | #45 row |
+| `DMABufferSize` | removed on the card 2026-10-03; check on the 5160 (section 8) | #45 row 7 |
 | #47 FastDoom | settings sweep in the bed | settings found |
 | #48 | optimisation timeline; add SWAPCOMP | written |
 | #10 GLaBIOS | owed to Andrew once tried: bed, 5150 and 5160 types | tried |
@@ -69,7 +69,7 @@ Tidy: almost everything in `[386Enh]` is earned or measured.
 |---|---|
 | `DEVICE=c:\swapcomp.vxd` | keep - released, -4.5% |
 | `DEVICE=C:\WINDOWS\UMAXIS11.386` | scanner VxD, 9 KB locked every boot; audit said leave |
-| `DMABufferIn1MB=True`, **`DMABufferSize=64`** | **the one lever.** 64 KB locked below 1 MB for VDMAD's bounce buffer; Windows' default is 16. Chosen 2026-08-23 as the largest size avoiding the 128 KB alignment rule (technique 58), not because anything needs 64. The SB Pro (patched `MSSBLST`) and floppy (`HSFLOP`) allocate their own buffers; what still bounces through VDMAD is unknown. A/B at 32 and 16: floppy copy, SB playback, LS-120 - up to **48 KB** back. Belongs on #45 |
+| `DMABufferIn1MB=True`, ~~`DMABufferSize=64`~~ | **Removed 2026-10-03** (default 16 KB; `docs/settings_review_2026_10_03.md`). Was: **the one lever.** 64 KB locked below 1 MB for VDMAD's bounce buffer; Windows' default is 16. Chosen 2026-08-23 as the largest size avoiding the 128 KB alignment rule (technique 58), not because anything needs 64. The SB Pro (patched `MSSBLST`) and floppy (`HSFLOP`) allocate their own buffers; what still bounces through VDMAD is unknown. A/B at 32 and 16: floppy copy, SB playback, LS-120 - up to **48 KB** back. Belongs on #45 |
 | `ebios=*ebios`, `device=*vshare` | duplicates of registry entries, fail harmlessly in BOOTLOG (audit) |
 | `Min/MaxPagingFileSize=32768` | keep - fixed size suits SWAPCOMP, whose table covers exactly 32 MB |
 | `[vcache] 512-1024` | keep - measured (#45 row 1) |
@@ -115,6 +115,9 @@ No unanswered GitHub comments: Andrew's last two (#35, #42) both have replies.
 
 ## 7. Issue updates proposed (owner approves wording before anything is posted)
 
+**2026-10-03: approved by the owner; drafts in `docs/issue_drafts_2026_10_03.md`. Not posted -
+the session's permission check blocked GitHub writes. Owner posts, or allows `gh issue edit`.**
+
 - **#35**: status block - SHADRAM built and bed-tested, 5160 next.
 - **#41**: status block - A18 premise stale since #42 (IRQ 3), A21 unblocked.
 - **#45**: new row - `DMABufferSize` 64 -> 32 -> 16.
@@ -131,7 +134,16 @@ No unanswered GitHub comments: Andrew's last two (#35, #42) both have replies.
    normal) but `PagesAdded` was never read. System Monitor -> SHADRAM, or `PERFLOG X 30`.
    16 confirms the `0x5E0000` address on the real card.
 2. Owner approves the issue posts in section 7 (#29 status block, #35, #41, #45, #48).
-3. Then a SHADRAM A/B on the 5160 (as SWAPCOMP's), and the `DMABufferSize` A/B.
+3. Then a SHADRAM A/B on the 5160 (as SWAPCOMP's).
+4. `DMABufferSize` removed: SB sound in a DOS box, a floppy copy, locked memory (PERFLOG).
+5. #45 rows 3-4: Hard Disk read-ahead Full vs None; CD-ROM "No read-ahead" (the drives buffer
+   in their own RAM). Starting values in `docs/settings_review_2026_10_03.md`.
+6. Desk: #46's stall by disassembly; #41 re-scope incl. ELNK3 buffers; SWAPCOMP `HASH_LOG 10`.
+
+## State of the CF, 2026-10-03
+
+- `DMABufferSize=64` removed from `SYSTEM.INI`; revert copy `SYSTEM.BSR`, pre-SHADRAM copy now
+  `SYSTEM.B02`. Latest image: `win95_shdw_swp.img` on the Desktop, taken before this edit.
 
 ## State of the CF at the end of 2026-10-02
 
