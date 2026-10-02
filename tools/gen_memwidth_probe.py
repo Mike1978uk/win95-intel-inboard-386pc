@@ -33,7 +33,7 @@ RES = 0x200
 NBYTES = 512
 
 
-def build(seg):
+def build(seg, flush=False):
     b = bytearray()
 
     def emit(*v):
@@ -58,6 +58,8 @@ def build(seg):
     emit(0x8E, 0xD8)                # mov ds, ax
 
     def run(slot, count, opcode):
+        if flush:
+            emit(0x0F, 0x09)                    # wbinvd: the copy must come from RAM, not L1
         read_pit()
         emit(0x89, 0xC5)                        # mov bp, ax
         emit(0xBE, 0x00, 0x00)                  # mov si, 0      (ROM offset 0)
@@ -104,10 +106,12 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--seg", default="d800",
                     help="hex source segment, default d800 (the XT-CF option ROM)")
+    ap.add_argument("--flush", action="store_true",
+                    help="WBINVD before each pass, for a source the L1 may cache")
     args = ap.parse_args()
     seg = int(args.seg, 16)
 
-    code, done = build(seg)
+    code, done = build(seg, args.flush)
     verify(code, seg)
 
     out = []
