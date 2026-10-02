@@ -25,6 +25,13 @@ Supersedes `next_session_2026_09_30.md`. Findings and numbers:
   a compressed write, the page is rewritten whole and compression stops for the session
   (`Fallback` counter). ~22 KB locked.
 
+## ▶ RELEASED 2026-10-02 - sections 3 and 4 done
+
+On the 5160 (A1 B1 A2 B2, FULL, all devices on) SWAPCOMP is **4.5% faster** over the whole
+workload, every step faster, 2.64:1, 0 errors, +22 KB locked. Published as `dist/swapcomp/`
+(`9fde4934`) with a `FIXES.md` entry. Open: run `SWAPCMPC.VXD` once on the 5160 so page
+integrity is shown on real hardware, not only in 86Box. Next: stage 3b (section 5).
+
 ## ▶ Done 2026-10-02 - sections 1 and 2
 
 Bed correctness **passed** and the stopwatch exists. In the bed SWAPCOMP is **slower**
