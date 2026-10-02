@@ -30,7 +30,7 @@ Windows rather than DOS, as the owner asked: DOS has 578 KB free and is not shor
 
 ⭐ **This re-ranks the RAM track.** The pageable pool is only ~1.3 MB (most of the 5 MB is
 locked), so every KB returned to it is worth ~4x what its share of total RAM suggests. Raise:
-the Dial-Up Adapter removal (~109 KB locked, checklist item 3), `DMABufferSize` 64 -> 16 (up
+`DMABufferSize` 64 -> 16 (up
 to 48 KB, section 4), and the second idle 64 KB (the card's RAM under the planar's, inferred
 only - `docs/inboard_memory_layout_2026_09_30.md`).
 
@@ -48,8 +48,8 @@ only - `docs/inboard_memory_layout_2026_09_30.md`).
 
 ## 3. At the 5160 (owner)
 
-From `docs/5160_checklist_2026_09_29.md`, still open: `MEM /C`; Network panel; remove the
-Dial-Up Adapter (~109 KB locked); RAMBASE after it; LS-120 `.OFF` toggle and #46's stall with
+From `docs/5160_checklist_2026_09_29.md`, still open: `MEM /C`; Network panel (the Dial-Up
+Adapter is already removed - no `PPPMAC` in the card's `BOOTLOG.TXT`); RAMBASE; LS-120 `.OFF` toggle and #46's stall with
 the drive off; boot menu LEAN/FULL/SAFE; #45 rows 3-4 (read-ahead, CD cache). Then #34 display
 mode, #33 DRAM refresh, #31 SCSI cache pages, #43 IOCHRDY.
 
