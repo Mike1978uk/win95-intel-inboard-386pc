@@ -285,6 +285,17 @@ link to nibble. `/ded` and `/fed` are not switches at all — the parser ignores
 
 Install steps and full provenance: [`dist/ls120_vendor/`](dist/ls120_vendor/).
 
+### `SWAPCOMP.VXD` — compressed swap file, 4.5% faster paging
+
+**[⬇ SWAPCOMP.VXD](https://github.com/Mike1978uk/win95-intel-inboard-386pc/raw/master/dist/swapcomp/SWAPCOMP.VXD)** · md5 `9fde4934ed339d33492294ff80824d70`
+
+A new VxD, not a patch. LZ4-compresses pages on their way to the swap file, so fewer bytes cross
+the 8-bit bus. One line in `SYSTEM.INI` `[386Enh]`: `device=C:\SWAPCOMP.VXD`. Delete it to remove.
+
+**Confirmed on the real 5160**: off/on/off/on, whole workload 283 s against 296 s, every step
+faster, 2.64:1 on real swap traffic, 0 errors, +22 KB locked. Page integrity was checked with
+the checksum build in 86Box only. Details and the checksum build: [`dist/swapcomp/`](dist/swapcomp/).
+
 ---
 ## ⚠️ Loads on real hardware, not yet proven correct
 
