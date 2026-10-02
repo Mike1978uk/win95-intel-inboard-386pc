@@ -144,6 +144,10 @@ Text in `docs/issue_drafts_2026_10_03.md`; read back from GitHub.
 
 - `DMABufferSize=64` removed from `SYSTEM.INI`; revert copy `SYSTEM.BSR`, pre-SHADRAM copy now
   `SYSTEM.B02`. Latest image: `win95_shdw_swp.img` on the Desktop, taken before this edit.
+- `C:\CMR95\COMR95.EXE`: COMrade95 0.1.0 (ahmadexp, https://github.com/ahmadexp/COMrade95), the
+  package's 8.3 alias of `COMRADE95.EXE`, SHA-256 `ee7dc303...` matches the release. Separate folder
+  because `C:\COMR95.EXE` is the old agent the `comrade` MCP server talks to. Not run yet;
+  release tested on OSR2 in QEMU only. Host bridge not installed; it needs COM2, as `comrade` does.
 
 ## State of the CF at the end of 2026-10-02
 
