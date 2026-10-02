@@ -53,8 +53,7 @@ normal. **PagesAdded not yet read** - System Monitor or `PERFLOG X 30` on the ne
 
 From `docs/5160_checklist_2026_09_29.md`, still open: `MEM /C`; Network panel (the Dial-Up
 Adapter is already removed - no `PPPMAC` in the card's `BOOTLOG.TXT`); RAMBASE; LS-120 `.OFF` toggle and #46's stall with
-the drive off; boot menu LEAN/FULL/SAFE; #45 rows 3-4 (read-ahead, CD cache). Then #34 display
-mode, #33 DRAM refresh, #31 SCSI cache pages, #43 IOCHRDY.
+the drive off; boot menu LEAN/FULL/SAFE; #45 rows 3-4 (read-ahead, CD cache). Then #33 DRAM refresh, #31 SCSI cache pages, #43 IOCHRDY.
 
 Housekeeping on the CF (host, with the card in the reader): 23 retired `LS120MP.*` in
 `IOSUBSYS` (backed up, not loaded); `C:\SNP92.TMP` (400 KB).
@@ -141,6 +140,9 @@ Text in `docs/issue_drafts_2026_10_03.md`; read back from GitHub.
 6. Desk: #46's stall by disassembly; #41 re-scope incl. ELNK3 buffers; SWAPCOMP `HASH_LOG 10`.
 
 ## State of the CF, 2026-10-03
+
+- #34 closed 2026-10-03 on the owner's decision: 800x600x256 (registry read from the CF); benchmark not run.
+- DMA buffer check: a DOS game with SAMPLED sound (FastDoom, Wolf3D, Keen 4-6), not Monkey Island (FM only).
 
 - `DMABufferSize=64` removed from `SYSTEM.INI`; revert copy `SYSTEM.BSR`, pre-SHADRAM copy now
   `SYSTEM.B02`. Latest image: `win95_shdw_swp.img` on the Desktop, taken before this edit.
