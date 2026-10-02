@@ -1,7 +1,7 @@
-# Issue updates - 2026-10-03 (approved by the owner; not yet posted)
+# Issue updates - 2026-10-03 (posted 2026-10-03)
 
 Each status block replaces the existing `> ### Status` block at the top of the issue body.
-Posting from the session was blocked by the tool's permission check, so the owner posts these.
+Posted by the owner from the session prompt; read back from GitHub.
 
 ## #29 - status block
 

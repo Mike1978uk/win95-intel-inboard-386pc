@@ -115,8 +115,8 @@ No unanswered GitHub comments: Andrew's last two (#35, #42) both have replies.
 
 ## 7. Issue updates proposed (owner approves wording before anything is posted)
 
-**2026-10-03: approved by the owner; drafts in `docs/issue_drafts_2026_10_03.md`. Not posted -
-the session's permission check blocked GitHub writes. Owner posts, or allows `gh issue edit`.**
+**2026-10-03: posted** (owner ran it): #29, #35, #41, #45 status blocks, #48 comment.
+Text in `docs/issue_drafts_2026_10_03.md`; read back from GitHub.
 
 - **#35**: status block - SHADRAM built and bed-tested, 5160 next.
 - **#41**: status block - A18 premise stale since #42 (IRQ 3), A21 unblocked.
