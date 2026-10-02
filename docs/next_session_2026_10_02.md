@@ -25,6 +25,13 @@ Supersedes `next_session_2026_09_30.md`. Findings and numbers:
   a compressed write, the page is rewritten whole and compression stops for the session
   (`Fallback` counter). ~22 KB locked.
 
+## ▶ Done 2026-10-02 - sections 1 and 2
+
+Bed correctness **passed** and the stopwatch exists. In the bed SWAPCOMP is **slower**
+(+16-30% per step): the bed charges the compression CPU in full and does not model the 5160's
+bus cost, so only the 5160 can show a win. Numbers: `docs/swapcomp_bed_results_2026_10_02.md`.
+Next is section 3, with the steps updated below.
+
 ## 1. Bed correctness (emulator, ~30 min, nothing at the 5160)
 
 Bed `vm_magnaram_off`: RAMBASE autoruns from StartUp with teardown; PERFLOG logs every
@@ -62,8 +69,16 @@ copies do not page. It shows page **counts**, not speed. The A/B needs a clock:
 **Before the first run: image the CF on this PC.** The swap file is rebuilt every boot, so the
 driver cannot damage files by design, but a crash during any disk write can hurt FAT.
 
-**Run 0, safety (checksum build), once:** `device=C:\SWAPCMPC.VXD`, run the workload, check
-`ChecksumErrors` = 0, `Errors` = 0, `Fallback` = 0. Only then the timed runs.
+**Copy to `C:\` from the card reader:** `SWAPCMPC.VXD`, `SWAPCOMP.VXD`
+(`drivers/swapcomp/build/`), `PAGETIME.EXE` (`tools/perflog/build/`), `PAGERUN.BAT`
+(`tools/perflog/`). PERFLOG, SLEEP and WINCLOSE are already on the card. The workload is
+`PAGERUN <label>` from an MS-DOS Prompt, first thing after boot, hands off.
+
+**Run 0, safety (checksum build), once:** `device=C:\SWAPCMPC.VXD`, `PAGERUN S`, check
+`ChecksumErrors` = 0, `Errors` = 0, `Fallback` = 0. Only then the timed runs. Run 0 is also the
+first test of PAGETIME's WinZip steps (the bed had no WinZip): if the licence dialog is not
+pressed by itself within a few seconds, press I Agree by hand and note it; the timed runs then
+need that fixed or the zip steps dropped.
 
 **Timed runs, release build `SWAPCOMP.VXD`.** The owner edits `SYSTEM.INI` between runs; the
 only difference between arms is the one `device=` line (put a `;` in front for A).
@@ -83,7 +98,8 @@ Collect per run: `PAGETIME.TXT`, `PERFLOG.CSV` (page-ins, locked, SWAPCOMP count
 - **Win:** program-open total lower with SWAPCOMP in every pairing, by more than the spread
   between the two A runs. The estimate says ~25% of paging time.
 - **Cost check:** locked memory up by ~22 KB and no more; page-in count about the same in
-  both arms (compression changes the cost of a page-in, not the number).
+  both arms (compression changes the cost of a page-in, not the number). The bed showed +13%
+  page-ins with SWAPCOMP on one run per arm - check whether the 5160 repeats it.
 - **No win:** record it in `what_worked_and_what_didnt.md` in one line, with the numbers.
 
 ## 4. Publishing (after the A/B, owner verifies by hand)
