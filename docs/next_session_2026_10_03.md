@@ -31,8 +31,11 @@ Windows rather than DOS, as the owner asked: DOS has 578 KB free and is not shor
 ⭐ **This re-ranks the RAM track.** The pageable pool is only ~1.3 MB (most of the 5 MB is
 locked), so every KB returned to it is worth ~4x what its share of total RAM suggests. Raise:
 `DMABufferSize` 64 -> 16 (up
-to 48 KB, section 4), and the second idle 64 KB (the card's RAM under the planar's, inferred
-only - `docs/inboard_memory_layout_2026_09_30.md`).
+to 48 KB, section 4), and nothing else in the reserved RAM: the "second 64 KB" is the planar's own RAM behind
+the card, measured 2026-10-02 (`docs/inboard_memory_layout_2026_09_30.md`).
+
+**SHADRAM on the 5160, 2026-10-02:** loads and initialises (all four BOOTLOG stages), Windows
+normal. **PagesAdded not yet read** - System Monitor or `PERFLOG X 30` on the next boot.
 
 ## 2. Desk and bed - can be done without the 5160
 
