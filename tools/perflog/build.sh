@@ -19,6 +19,9 @@ GetCommandLineA@0
 CreateFileA@28
 SetFilePointer@16
 CloseHandle@4
+CreateProcessA@40
+WaitForSingleObject@8
+DeleteFileA@4
 DEF
 cat > $B/advapi32.def <<'DEF'
 LIBRARY ADVAPI32.dll
@@ -36,6 +39,12 @@ EnumWindows@8
 GetWindowTextA@12
 IsWindowVisible@4
 PostMessageA@16
+WaitForInputIdle@8
+SendMessageTimeoutA@28
+SetForegroundWindow@4
+RedrawWindow@16
+GetUpdateRect@12
+EnumChildWindows@12
 DEF
 
 for l in kernel32 advapi32 user32; do
@@ -60,3 +69,8 @@ gcc -m32 -march=i386 -O2 -ffreestanding -fno-builtin -fno-stack-protector     -f
 ld -m i386pe --subsystem console:4.0 --major-os-version 4 -e _start     $B/winclose.o $B/libkernel32.a $B/libuser32.a -o $B/WINCLOSE.EXE
 strip $B/WINCLOSE.EXE
 ls -l $B/WINCLOSE.EXE
+
+gcc -m32 -march=i386 -O2 -ffreestanding -fno-builtin -fno-stack-protector     -fno-asynchronous-unwind-tables -mno-sse -Wall -x c -c PAGETIME.C -o $B/pagetime.o
+ld -m i386pe --subsystem console:4.0 --major-os-version 4 -e _start     $B/pagetime.o $B/libkernel32.a $B/libuser32.a -o $B/PAGETIME.EXE
+strip $B/PAGETIME.EXE
+ls -l $B/PAGETIME.EXE
