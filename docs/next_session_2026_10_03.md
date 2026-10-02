@@ -120,3 +120,26 @@ No unanswered GitHub comments: Andrew's last two (#35, #42) both have replies.
 - **#45**: new row - `DMABufferSize` 64 -> 32 -> 16.
 - **#48**: add SWAPCOMP (-4.5%).
 - No new issue needed: every item above fits an existing one.
+- **#29 - REOPENED 2026-10-02 with the DMA question** ([comment](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/29#issuecomment-5959939970)):
+  does a DMA transfer into 0-64 KB land in the planar's hidden copy, which the CPU never reads?
+  Check where VDMAD's 64 KB buffer sits before the `DMABufferSize` A/B. Left open because it is
+  not answered. **Its status block still says "answered" - draft a new one for the owner.**
+
+## 8. First things next session
+
+1. **SHADRAM page count on the 5160** - it loads cleanly (all four BOOTLOG stages, Windows
+   normal) but `PagesAdded` was never read. System Monitor -> SHADRAM, or `PERFLOG X 30`.
+   16 confirms the `0x5E0000` address on the real card.
+2. Owner approves the issue posts in section 7 (#29 status block, #35, #41, #45, #48).
+3. Then a SHADRAM A/B on the 5160 (as SWAPCOMP's), and the `DMABufferSize` A/B.
+
+## State of the CF at the end of 2026-10-02
+
+- `SYSTEM.INI [386Enh]`: `DEVICE=c:\swapcomp.vxd` and `DEVICE=C:\SHADRAM.VXD` both load.
+  Pre-SHADRAM copy: `C:\WINDOWS\SYSTEM.BSR` (it still has the SWAPCOMP line).
+- On `C:\`: `SWAPCOMP.VXD`, `SWAPCMPC.VXD`, `SHADRAM.VXD`, `PAGETIME.EXE`, `PAGERUN.BAT`,
+  `MEMLO.BAT` + `MEMLO0/1.SCR/.TXT`, `PL_A1-B2.CSV`, `PAGETIME.TXT` (all captured in `docs/captures/`).
+- Last image: `win95_swapcrunch.img` on the Desktop, from before any of today's files.
+
+Host beds made today, gitignored, ~2 GB each, safe to delete when no longer wanted:
+`vm_swapcomp/`, `vm_magnaram_A/`, `vm_magnaram_B/`. `vm_magnaram_off/` is the A/B bed to keep.
