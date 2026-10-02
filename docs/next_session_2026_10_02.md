@@ -94,11 +94,14 @@ owner has run it on the 5160 (G10-style hand check).
 
 ## 5. Later
 
-- **Stage 3b - the idle 64 KB.** The EGA half of the Inboard's reserved shadow block is RAM
-  Windows never gets (`docs/inboard_memory_layout_2026_09_30.md`). SWAPCOMP's ~22 KB could
-  live there at no cost to Windows. Its address (0x5E0000) is from the emulator model and
-  UniPCemu, not the real card: the VxD must pattern-test it at init and fall back to its own
-  memory. The owner's question: could DOS TSRs use it too? Only if the card can map it below
+- **Stage 3b - the idle 64 KB, given to Windows.** The EGA half of the Inboard's reserved
+  shadow block is RAM Windows never gets (`docs/inboard_memory_layout_2026_09_30.md`). Better
+  than parking SWAPCOMP's ~22 KB there: donate all 16 pages to the VMM free pool with
+  `_AddFreePhysPage` (VMM.INC, init-time only), so every driver and program gains 64 KB. Same
+  for the second 64 KB (the card's RAM under the planar's), which is only inferred. The address
+  (0x5E0000) is from the emulator model and UniPCemu, not the real card: pattern-test every
+  page at init, donate only pages that pass. Expected gain ~1% of page-ins per 64 KB (the
+  layout doc's estimate) - small, but the VxD to carry it now exists. The owner's question: could DOS TSRs use it too? Only if the card can map it below
   1 MB as an upper memory block; and conventional memory is not the constraint (578 KB free,
   DOS drivers 63 KB), Windows' RAM is.
 - **SETVER still loads** after `144afc9`: IO.SYS loads `C:\WINDOWS\SETVER.EXE` whenever it
