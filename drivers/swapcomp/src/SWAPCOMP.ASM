@@ -3,8 +3,8 @@
 ;
 ;   Stage 3 of swap compression (docs/magnaram_and_swap_compression_2026_10_01.md).
 ;   On this machine paging costs bus bytes, ~10.4 ms per 4 KB page, while LZ4
-;   costs 1.17 ms to decompress and 4.71 ms to compress a page on the 80 MHz
-;   CPU (LZ4BENCH). Fewer bytes over the bus is the whole idea.
+;   costs 1.17 ms to decompress and 4.71 ms to compress a page on the 5160's
+;   486BL3 (LZ4BENCH). Fewer bytes over the bus is the whole idea.
 ;
 ;   Layout: every page keeps its own 4 KB slot in the swap file; only the
 ;   compressed sectors of it are written and read. SlotTab records how many
@@ -216,8 +216,8 @@ sch_done:
 EndProc SwapComp_Hook
 
 ;******************************************************************************
-;   SC_One - one page, described by SC_Desc. Any failure is ORed into
-;   SC_Status.
+;   SC_One - one page, described by SC_Desc. A failure sets SC_Status to
+;   PFS_Failure.
 ;******************************************************************************
 
 BeginProc SC_One
