@@ -19,7 +19,7 @@ appear in `F0000` or `C0000` (alias of live ROM shadow) or alias each other, and
 rest to the VMM with `_AddFreePhysPage`. Counters `SHADRAM\PagesTested/Added/Failed/Status`.
 Load: `device=C:\SHADRAM.VXD` in `[386Enh]`.
 
-Bed result (`docs/shadram_2026_10_02.md`): Status 0, 16/16 pages added, PAGERUN clean; page-ins -13% and program open -10% against the A run - one run per arm, repeat before quoting.
+Bed result (`docs/shadram_2026_10_02.md`): Status 0, 16/16 pages added, PAGERUN clean; confirmed on a repeat (2 runs per arm): page-ins -13.8%, program open -11%, no extra locked RAM.
 
 **On the 5160:** the address is from the emulator model and UniPCemu, not the real card. The
 driver's checks make a wrong address cost the pages, not the machine - except one case they
@@ -27,6 +27,12 @@ cannot see: the window aliasing live RAM other than the two ROM areas. Image the
 one boot; read `SHADRAM\*` with PERFLOG. `EGACACHE` must stay off (it uses this half).
 
 Windows rather than DOS, as the owner asked: DOS has 578 KB free and is not short; Windows is.
+
+⭐ **This re-ranks the RAM track.** The pageable pool is only ~1.3 MB (most of the 5 MB is
+locked), so every KB returned to it is worth ~4x what its share of total RAM suggests. Raise:
+the Dial-Up Adapter removal (~109 KB locked, checklist item 3), `DMABufferSize` 64 -> 16 (up
+to 48 KB, section 4), and the second idle 64 KB (the card's RAM under the planar's, inferred
+only - `docs/inboard_memory_layout_2026_09_30.md`).
 
 ## 2. Desk and bed - can be done without the 5160
 
