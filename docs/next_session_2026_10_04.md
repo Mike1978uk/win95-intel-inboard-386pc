@@ -33,8 +33,8 @@ that window is suspect.
    (FastDoom, Wolf3D, Keen 4-6 - not Monkey Island, FM only), then a floppy copy. If DOS-box
    sound breaks, `DMABufferSize=32`.
 2. **#45 row 3 speed:** `T130AB` + `PERFLOG` with read-ahead None (current), then Full.
-3. **Decide on SHADRAM:** take `DEVICE=C:\SHADRAM.VXD` out of `SYSTEM.INI` (it adds nothing, holds
-   ~4 KB), or keep it while the desk work below runs.
+3. ~~SHADRAM~~ **removed** from `SYSTEM.INI` by the owner, 2026-10-03 (it adds nothing). `SHADRAM.VXD`
+   stays on `C:\` unloaded.
 4. **Desk:** how `INBRDPC.SYS` opens and closes the reserved window while copying the BIOS
    (not port `A0h` bit 7 on its own). Only then is the EGA half reachable,
    and Windows would need the window left open. Not a quick lever - rank it against #46 and #41.
