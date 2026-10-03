@@ -101,3 +101,18 @@ egistry_2026-10-03_pre_phantom\`.
   enabled in `SYSTEM.INI`. Backups: `SYSTEM.BSR` = just before (line commented), `SYSTEM.B04` = the
   previous `.BSR`. Revert: `copy C:\WINDOWS\SYSTEM.BSR C:\WINDOWS\SYSTEM.INI`. First boot: read
   `SHADRAM\*` with `START PERFLOG X 30` (want Status 0, PagesAdded 16, BiosPage 1520 = 5F0h).
+
+## SHADRAM v2 on the 5160, 2026-10-03 late
+
+Raw: `docs/captures/2026-10-03_shadram2_card/`. Loads clean (`BOOTLOG.TXT`). PERFLOG: Status **7**
+(I/O channel check), PagesTested 16, PagesFailed 0, **PagesAdded 0**, BiosPage 1520 (5F0h),
+VMsMapped 2. The window opened and every page passed its data tests; port 62h bit 6 was set when
+read once at the end, so all 16 were refused. Which access raised it is not known - the driver
+reads the latch only once.
+`PAGERUN ml` and `T130AB` (6.81 s x 3) sit at the 10-02 B level, as expected with no pages added.
+
+**Alert, not fixed:** on Status 7 the driver still leaves port 670h bit 0 clear and maps V86
+`F0000` onto `5F0000` - a changed machine for no pages.
+
+`SYSTEM.INI` (owner's edit, 23:11): `DMABufferSize=` has no value. The last good Windows floppy
+run was with 64.
