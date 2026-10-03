@@ -80,3 +80,7 @@ that window is suspect.
     `sd120ppd.mpd` adapter), `DiskDrive\0007`. Stale: parent `ROOT\SCSIADAPTER\0000`, which is now
     the XT-CF adapter, `DiskDrive\0002`, the one with reserved drive letters `I`-`I`.
   Registry backed up host-side before any removal: `..\image_archiveegistry_2026-10-03_pre_phantom\`.
+- **`DMABufferSize=64` restored** on the card (reader, 2026-10-03 evening), the setting under which
+  Windows floppy worked. One change, to test whether the 16 KB default broke Windows floppy.
+  Backups: `SYSTEM.BSR` = the file just before (no line), `SYSTEM.B03` = the old `.BSR` (SHADRAM on,
+  64). Next: in Windows, copy to `A:` and `B:` and `FC /B`, with a disk that just worked in DOS.
