@@ -1,0 +1,1 @@
+Comparing files c:\T130AB.BAT and b:\t130ab.bat

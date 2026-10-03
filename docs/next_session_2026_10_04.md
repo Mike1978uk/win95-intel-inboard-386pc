@@ -56,3 +56,20 @@ that window is suspect.
 `C:\PHYSPROB.COM`, `C:\CHK.BAT`, `C:\PP*.TXT`, `C:\CHKDONE.TXT` (probe and checks, all captured in
 `docs/captures/2026-10-03_physprobe/`), `C:\CMR95\`. Last image `win95_shdw_swp.img` predates the
 `SYSTEM.INI` edit and read-ahead change. `C:\SNP92.TMP` (400 KB) still there, deletable.
+
+## Done 2026-10-03, evening (owner at the 5160)
+
+- **ROMPROBE: parity error, no output.** Read never-written RAM at `5E0000` with port 670h bit 0
+  clear - see `docs/romcache_decode_2026_10_03.md` 3a. `ROMPROB2` staged (`C:\RP2.BAT`), command
+  prompt boot.
+- **Read-ahead, hard disk:** `T130AB` on `C:` (the CF) - off 7.20 + 7.20 + 6.38 = 20.78 s, on
+  7.09 + 6.43 + 6.86 = 20.38 s. No difference beyond the scatter. The owner prefers off; it stays
+  off. The PERFLOG files ran after the copies (counters flat), so they hold memory state only.
+  Raw: `docs/captures/2026-10-03_readahead/`. `t130ya` (`G:`, a changer LUN) failed in 0.4 s - not
+  a result.
+- **CD-ROM read-ahead on:** Explorer hung after a CD was inserted (once). Left at "No read-ahead".
+- **DMA buffer (default 16 KB since 2026-10-03):** Wolf3D in a DOS box plays sampled sound. FastDoom
+  `-xt` with sound hung the machine (#47 settings, not a verdict on the buffer). Floppy in Windows
+  unreliable: `B:` copied once, then not; `A:` difficult. In DOS both work - `B:` formatted, copied
+  and `FC` identical. Open: was Windows floppy reliable with `DMABufferSize=64`?
+- **SAFE boot / Device Manager phantoms:** not reported yet.

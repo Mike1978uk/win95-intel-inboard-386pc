@@ -53,11 +53,23 @@ BIOS copy) - the same addresses UniPCemu and 86Box use. `580000`-`59FFFF` is con
 **Test:** ROMPROBE's write at `580100` should show up at `080100` as well, and its write at
 `5E0100` nowhere else. Either result settles the table.
 
+## 3a. ROMPROBE on the 5160: parity error, 2026-10-03
+
+`ROMPROBE` stopped with the Inboard's parity error before printing (`RP.TXT` empty). It read
+`5E0000` with bit 0 clear. That half is never written, and DRAM with parity must be written
+before it is read - the same error appears when `INBRDPC.SYS` has not run. Most likely reading:
+**the window opened and the read reached real, uninitialised DRAM.** Not yet proven - the probe
+also read `5A0000`-`5DFFFF` (extended `100000`-`13FFFF`) in that state.
+
+`ROMPROB2` (`tools/physprobe/ROMPROB2.S`) does not read `5E0000` until it has written it, and only
+writes it if the `580100` -> `080100` alias comes out as predicted. Staged as `C:\RP2.BAT`.
+
 ## 4. Consequences
 
 - **No E000 or C000 shadow in hardware.** U71's only ROM-area term is the `F0000` read. The card
   cannot map RAM at E000, so it cannot be doing EMS there; the EGA copy must be made in ordinary
   RAM with INT 10h repointed, as Andrew suggested.
+- **Any driver using the block must write every page before reading it** (parity, section 3a).
 - **The 128 KB is reachable only with `ROMCACHE` = 0, which turns off the BIOS shadow.** With it
   set, there is no CPU address for system `E0000`-`FFFFF`. So `SHADRAM.VXD` cannot work as built.
   A version that clears bit 0 would give Windows 32 pages, and every V86 BIOS call (the timer
