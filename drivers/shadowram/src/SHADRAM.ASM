@@ -15,7 +15,9 @@
 ;   2. checks 5F0000 now holds the BIOS copy, i.e. the window is open;
 ;   3. writes the 64 KB at 5E0000 before reading any of it - the card checks
 ;      parity on every read, and this RAM is never written at power-on -
-;      with NMI masked and the I/O channel check polled, as INBRDPC does;
+;      with NMI masked and the I/O channel check polled, as INBRDPC does.
+;      That first write itself raises the check, so the latch is cleared
+;      after it and only the tests that follow are judged;
 ;   4. tests each page and gives the ones that pass to the VMM;
 ;   5. maps V86 F0000-FFFFF onto the BIOS copy in every VM, so BIOS calls
 ;      still run from the card's RAM rather than the 8-bit ROM.
@@ -126,7 +128,7 @@ DIAG_STEP macro bit
 ds_done:
 	endm
 
-DIAG_STICKY	EQU	0F8h		; stages after the latch is first cleared
+DIAG_STICKY	EQU	0E8h		; stages that refuse: not the first fill (10h)
 endif
 
 VxD_IDATA_SEG
@@ -285,7 +287,8 @@ ifdef SR_DIAG
 	DIAG_STEP 08h				; set here = the pulse does not clear it
 endif
 
-; Write every dword before any read, so parity is valid.
+; Write every dword before any read, so parity is valid. This write raises
+; the I/O channel check on the card; the RAM then tests clean, so clear it.
 	cld
 	mov	edi, [linWin]
 	mov	ecx, SR_PAGES * PAGE_BYTES / 4
@@ -293,6 +296,8 @@ endif
 	rep	stosd
 ifdef SR_DIAG
 	DIAG_STEP 10h
+else
+	call	SR_Clear_Check
 endif
 
 ; 4a. Page by page: two patterns, each read back and checked absent from the ROM areas.

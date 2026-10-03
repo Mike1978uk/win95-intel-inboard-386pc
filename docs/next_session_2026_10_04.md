@@ -134,3 +134,9 @@ the final zero - left it clear (`DiagParityPages` 0, `DiagParityRom` 0). `DiagLa
 So the first write to never-written RAM raises the I/O channel check; the RAM then tests clean.
 v2's single check at the end sees that write. Candidate v3: clear the latch after the first fill
 and judge on the tests only. Not built - owner's call.
+
+**v3 built and on the card (2026-10-04):** the latch is cleared after the first fill; a check
+raised by any later test still refuses every page. `C:\SHADRAM.VXD` = v3 with the Diag counters
+(`SHADRAMD`, md5 `4badd94b`, one byte from the last diagnostic: the refusal mask F8h -> E8h).
+`C:\SHADRAM.V3` = v3 without them (md5 `bb633ec5`). Next boot: `START PERFLOG X 30`, want
+Status 0, PagesAdded 16. Revert: `copy C:\SHADRAM.V2 C:\SHADRAM.VXD`.
