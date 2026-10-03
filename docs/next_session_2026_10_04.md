@@ -88,3 +88,14 @@ that window is suspect.
   (`docs/captures/2026-10-03_readahead/t130comp.txt`). `A:` still flaky. One run each way, so
   64 stays on for now; `A:` looks like the drive or media rather than the buffer - it was flaky at
   16 KB too, and works in DOS.
+- **SHADRAM v2** (`drivers/shadowram/`, md5 `01de5ce6`): clears port 670h bit 0 as INBRDPC's
+  `0B60h` routine does, writes `5E0000` before reading it, donates 16 pages, maps V86 `F0000` onto
+  the BIOS copy at `5F0000`. **Bed** (`vm_magnaram_shadram2`, clone of `vm_magnaram_off`, SHADRAM
+  the only `[386Enh]` driver, `PAGERUN V`): Status 0, 16/16 added, `BiosPage` 5F0h, 3 VMs mapped,
+  workload completed. Page-ins 16,568 - at the A level of 2026-10-02, not the S level; one run,
+  and the bed charges BIOS reads at `5F0000` as slow while 670h bit 0 is clear (86Box model), so
+  the bed cannot judge speed here. Raw: `docs/captures/2026-10-03_shadram2_bed/`.
+- **On the card now:** `C:\SHADRAM.VXD` = v2 (v1 kept as `SHADRAM.V1`), `DEVICE=C:\SHADRAM.VXD`
+  enabled in `SYSTEM.INI`. Backups: `SYSTEM.BSR` = just before (line commented), `SYSTEM.B04` = the
+  previous `.BSR`. Revert: `copy C:\WINDOWS\SYSTEM.BSR C:\WINDOWS\SYSTEM.INI`. First boot: read
+  `SHADRAM\*` with `START PERFLOG X 30` (want Status 0, PagesAdded 16, BiosPage 1520 = 5F0h).
