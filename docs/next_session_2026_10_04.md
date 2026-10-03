@@ -140,3 +140,8 @@ raised by any later test still refuses every page. `C:\SHADRAM.VXD` = v3 with th
 (`SHADRAMD`, md5 `4badd94b`, one byte from the last diagnostic: the refusal mask F8h -> E8h).
 `C:\SHADRAM.V3` = v3 without them (md5 `bb633ec5`). Next boot: `START PERFLOG X 30`, want
 Status 0, PagesAdded 16. Revert: `copy C:\SHADRAM.V2 C:\SHADRAM.VXD`.
+
+**SHADRAM v3 WORKS on the 5160 (2026-10-04, one boot):** Status 0, PagesTested 16, PagesFailed 0,
+**PagesAdded 16**, BiosPage 1520 (5F0h), VMsMapped 2, DiagSteps 16 (the first fill only),
+DiagParityPages/Rom 0. Raw: `docs/captures/2026-10-04_shadram3_card/`. Windows has the 64 KB.
+Not yet measured: whether it helps - `PAGERUN` A/B against v2-off, on the card only.
