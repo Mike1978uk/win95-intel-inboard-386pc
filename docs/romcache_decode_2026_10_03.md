@@ -64,6 +64,16 @@ also read `5A0000`-`5DFFFF` (extended `100000`-`13FFFF`) in that state.
 `ROMPROB2` (`tools/physprobe/ROMPROB2.S`) does not read `5E0000` until it has written it, and only
 writes it if the `580100` -> `080100` alias comes out as predicted. Staged as `C:\RP2.BAT`.
 
+**ROMPROB2 stopped the same way** - PARITY CHECK 2, no output - without reading `5E0000`, so
+never-written RAM at `5E0000` is not the whole explanation. `ROMPROB3` reads only, one step at a
+time, with a marker on screen per step.
+
+**How the card raises it (netlist):** one 74F280 per byte lane (U44, U38, U40, U37) checks the
+data against its parity chip; U59 (74AS21) ANDs the four; U43 gates it into U45B (74F74), clocked
+on `~CAS` - so every read of card DRAM is checked, in any bank. U45B drives U87, which pulls the
+bus's I/O CH CK, and the IBM BIOS reports that as PARITY CHECK 2. Any read of a location never
+written since power-on can trip it. RonnyRoy's `U87_modified.pld` never enables that output.
+
 ## 4. Consequences
 
 - **No E000 or C000 shadow in hardware.** U71's only ROM-area term is the `F0000` read. The card
