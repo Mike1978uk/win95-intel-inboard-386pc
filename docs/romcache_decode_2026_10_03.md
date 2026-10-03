@@ -82,6 +82,23 @@ latch by pulsing port 61h bit 5, and writes A0h = 80h at the end (driver offsets
 (U86 keeps the card's copy of it), not a ROM-mapping bit as UniPCemu and our 86Box port describe
 it. `ROMPROB4` probes the window the same way: no halt, one parity flag per block.
 
+## 3b. ROMPROB4 on the 5160: the window opens, 2026-10-03
+
+Raw: `docs/captures/2026-10-03_romprobe/RP4.TXT`. With 670h = 1Eh and NMI masked:
+
+| block | first dword | parity (62h) | reading |
+|---|---|---|---|
+| `080000` (control, 1Fh) | `00000000`, 3FF7 differ from F0000 | clean | |
+| `580000` | `00000000`, 3FF7 differ | clean | same figures as `080000` |
+| `590000` | `E80AB001` | clean | code - conventional `90000` |
+| `5A0000`-`5D0000` | data, text at `5D0000` | clean | extended `100000`-`13FFFF` |
+| `5F0000` | same as `F0000`, 3 dwords differ | clean | **the BIOS copy** |
+| `5E0000` | `FFEFFFFF` | **40** | real RAM, never written |
+
+The table in section 3 holds for every block read. `ROMPROB2`'s halt is unexplained: it read no
+`5E0000`; its one-dword reads of every 64 KB block (including `540000`-`57FFFF`) are the
+remaining suspects. `ROMPROB5` reads those with NMI masked.
+
 ## 4. Consequences
 
 - **No E000 or C000 shadow in hardware.** U71's only ROM-area term is the `F0000` read. The card
