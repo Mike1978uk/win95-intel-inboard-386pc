@@ -149,8 +149,10 @@ Text in `docs/issue_drafts_2026_10_03.md`; read back from GitHub.
   `0x5F0000` read FF, writes do not stick, also with `A0h` bit 7. SHADRAM cannot work as built.
   The 86Box model keeps both windows mapped - fidelity bug, alert only. Next (desk): how
   `INBRDPC.SYS` opens the window. `C:\PHYSPROB.COM` on the card.
-- `MEM /C` over COMrade stalled mid-typing (prompt shows `MEM /C >`): press Esc. Run it
-  without COMRADE resident (~119 KB) or the reading is not the baseline.
+- Checklist item 1 **done**: `C:\MEMMIKE.TXT` (owner, 2026-09-29) - INBRDPC 3,760 B, 578 KB free;
+  video ROM header `55 AA 40` (PHYSPROBE). `MEM` is not on the path in a command-prompt-only
+  boot (`CHK.BAT` produced nothing). COMrade keystroke injection timed out repeatedly tonight;
+  file read/write worked - prefer a batch written out-of-band plus one short command.
 
 - #34 closed 2026-10-03 on the owner's decision: 800x600x256 (registry read from the CF); benchmark not run.
 - DMA buffer check: a DOS game with SAMPLED sound (FastDoom, Wolf3D, Keen 4-6), not Monkey Island (FM only).
