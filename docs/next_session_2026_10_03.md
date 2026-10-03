@@ -145,6 +145,12 @@ Text in `docs/issue_drafts_2026_10_03.md`; read back from GitHub.
   The 0x5E0000 address is the emulator's, not the card's. Next: per-reason counters, one boot.
   DMA buffer: locked memory ~40 KB lower, consistent with 48. Read-ahead (disk + CD) now OFF on the
   card; frees no locked memory. `docs/shadram_5160_2026_10_03.md`.
+- ⚠ **PHYSPROBE (01:30): the reserved 128 KB is not in the CPU's map after boot** - `0x5E0000`,
+  `0x5F0000` read FF, writes do not stick, also with `A0h` bit 7. SHADRAM cannot work as built.
+  The 86Box model keeps both windows mapped - fidelity bug, alert only. Next (desk): how
+  `INBRDPC.SYS` opens the window. `C:\PHYSPROB.COM` on the card.
+- `MEM /C` over COMrade stalled mid-typing (prompt shows `MEM /C >`): press Esc. Run it
+  without COMRADE resident (~119 KB) or the reading is not the baseline.
 
 - #34 closed 2026-10-03 on the owner's decision: 800x600x256 (registry read from the CF); benchmark not run.
 - DMA buffer check: a DOS game with SAMPLED sound (FastDoom, Wolf3D, Keen 4-6), not Monkey Island (FM only).
