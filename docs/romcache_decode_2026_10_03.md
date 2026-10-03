@@ -99,6 +99,20 @@ The table in section 3 holds for every block read. `ROMPROB2`'s halt is unexplai
 `5E0000`; its one-dword reads of every 64 KB block (including `540000`-`57FFFF`) are the
 remaining suspects. `ROMPROB5` reads those with NMI masked.
 
+## 3c. ROMPROB5 on the 5160: mapping proved, `5E0000` usable, 2026-10-03
+
+Raw: `docs/captures/2026-10-03_romprobe/RP5.TXT`. With 670h = 1Eh and NMI masked:
+
+- Every 64 KB block read clean except `5E0100` (parity `40`, never written).
+- A write at `580100` changed exactly `080100` and `580100`: the window's low half is
+  conventional memory, as section 3 predicted.
+- `5E0000`-`5EFFFF` copied onto itself: parity clean after; address test 0 mismatches; zeroed,
+  0 non-zero; parity clean after each pass; no other block changed.
+
+So 64 KB of the card's own 32-bit RAM can be given to Windows: clear 670h bit 0, write the block
+once with NMI masked, and serve V86 `F0000` from the BIOS copy at `5F0000` by paging so the BIOS
+stays in RAM. ROMPROB2's halt stays unexplained - no block it read flags here.
+
 ## 4. Consequences
 
 - **No E000 or C000 shadow in hardware.** U71's only ROM-area term is the `F0000` read. The card

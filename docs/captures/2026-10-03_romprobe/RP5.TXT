@@ -1,0 +1,7 @@
+ROMPROB5 - 670h=1E, NMI masked, parity polled via port 62h
+Blocks (offset 100h) with a parity flag on read: 005E0100=40 
+Write at 00580100: orig 00000000  readback 5A3CC3A5
+  changed at: 00080100 00580100 
+5E0000: parity after copy-onto-itself 00  address-test mismatches 00000000  parity 00  non-zero after zeroing 00000000  parity 00
+  blocks changed by the 5E0000 writes: 005E0100 
+670h restored to 1F, NMI re-enabled.
