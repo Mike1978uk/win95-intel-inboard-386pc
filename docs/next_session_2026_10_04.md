@@ -122,3 +122,15 @@ run was with 64.
 `SHADRAM\Diag*` counters naming the stage that sets port 62h bit 6. `DMABufferSize=64` restored
 (the blank line is in `SYSTEM.BSR`, previous `.BSR` is `SYSTEM.B05`). Next boot: `START PERFLOG X 30`.
 Revert: `copy C:\SHADRAM.V2 C:\SHADRAM.VXD`.
+
+## SHADRAMD on the 5160, 2026-10-04 (one boot)
+
+Raw: `docs/captures/2026-10-04_shadramd_card/` (last block of `PERFLOG.CSV`). Status 7, 16/16 tested,
+0 failed, 0 added, as v2. `DiagSteps` = 16: the flag was clear on entry (`DiagPortsEntry` 4834h:
+61h = 48h, 62h = 34h), clear after the 670h write and the 5F0000 compare, clear after the pulse
+(so the 61h bit 5 pulse does clear it), and **set after the first zero-fill write of 5E0000**.
+Every later stage - both patterns on all 16 pages, the ROM compares, the address fill and check,
+the final zero - left it clear (`DiagParityPages` 0, `DiagParityRom` 0). `DiagLast62` = 74h.
+So the first write to never-written RAM raises the I/O channel check; the RAM then tests clean.
+v2's single check at the end sees that write. Candidate v3: clear the latch after the first fill
+and judge on the tests only. Not built - owner's call.
