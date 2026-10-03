@@ -145,3 +145,14 @@ Status 0, PagesAdded 16. Revert: `copy C:\SHADRAM.V2 C:\SHADRAM.VXD`.
 **PagesAdded 16**, BiosPage 1520 (5F0h), VMsMapped 2, DiagSteps 16 (the first fill only),
 DiagParityPages/Rom 0. Raw: `docs/captures/2026-10-04_shadram3_card/`. Windows has the 64 KB.
 Not yet measured: whether it helps - `PAGERUN` A/B against v2-off, on the card only.
+
+**SHADRAM v3 A/B on the 5160 (2026-10-04, one pair, no WinZip):** raw `docs/captures/2026-10-04_shadram3_ab/`.
+
+| | S16 (on) | N (off) |
+|---|---|---|
+| open / switch1 / 2 / 3 (ms) | 36,819 / 5,578 / 2,716 / 2,852 | 36,283 / 6,096 / 2,736 / 2,873 |
+| total (ms) | 47,965 | 47,988 |
+| page-ins / page-outs | 2,832 / 1,140 | 2,879 / 1,132 |
+
+No measurable difference: totals within 0.05%, page-ins -1.6%. 64 KB is ~1.3% of RAM; the bed's -13.8%
+did not carry over. The tagged labels (`R-S16-003522`, `R-N-004410`) worked first time.
