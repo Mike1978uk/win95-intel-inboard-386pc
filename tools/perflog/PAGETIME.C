@@ -1,16 +1,16 @@
 /*
  * PAGETIME - time how long programs take to open and to come back.
  *
- *   PAGETIME label
+ *   PAGETIME label [ZIP]
  *
  * RAMBASE waits fixed times between steps, so its wall time cannot show a
  * speed-up; this is the clock for an A/B. It opens Paint Shop Pro, WordPad,
  * Notepad and Paint one after another, each as soon as the last is ready,
  * then switches back to each in turn twice: with all four open, the
- * switches are where pages come back from the swap file. With them still
- * open, WinZip zips C:\SBPRO and unzips it again, real work competing for
- * the same RAM, and a third switch pass follows. Then it closes them. One
- * line per step is appended to C:\PAGETIME.TXT:
+ * switches are where pages come back from the swap file. With ZIP given and
+ * them still open, WinZip zips C:\SBPRO and unzips it again, real work
+ * competing for the same RAM. A third switch pass follows. Then it closes
+ * them. One line per step is appended to C:\PAGETIME.TXT:
  *
  *   label,open,WordPad,4120       milliseconds
  *   label,open,total,23510
@@ -23,7 +23,8 @@
  * WinZip here is the evaluation copy, which shows a licence dialog on every
  * start; PAGETIME presses its "I Agree" button, as the run must be hands
  * off. The time to that dialog is logged as its own step (zipnag), since
- * it is not paging work.
+ * it is not paging work. The press does not always land, which stops a run
+ * for a person to click, so the WinZip steps are off unless asked for.
  *
  * Every wait gives up (WinZip after 10 minutes, the rest after 2) and the
  * step is logged as -1, so a program that never appears cannot leave a
@@ -313,6 +314,7 @@ void start(void)
 {
     char *cl = GetCommandLineA(), *p;
     unsigned i, k;
+    int zip = 0;
     DWORD w;
 
     /* Skip the program name, quoted or not. */
@@ -329,7 +331,14 @@ void start(void)
         cl++;
     for (p = cl; *p && *p != ' ' && *p != '\r' && *p != '\n'; p++)
         ;
-    *p = 0;
+    if (*p == ' ') {
+        *p++ = 0;
+        while (*p == ' ')
+            p++;
+        zip = (p[0] | 32) == 'z' && (p[1] | 32) == 'i' && (p[2] | 32) == 'p';
+    } else {
+        *p = 0;
+    }
     label = cl;
 
     out = GetStdHandle((DWORD)-11);
@@ -345,9 +354,11 @@ void start(void)
     pass("open", open_one);
     pass("switch1", switch_one);
     pass("switch2", switch_one);
-    DeleteFileA("C:\\TEMP\\PT.ZIP");
-    winzip("zip", "-a -r -p C:\\TEMP\\PT.ZIP C:\\SBPRO\\*.*");
-    winzip("unzip", "-e -o C:\\TEMP\\PT.ZIP C:\\TEMP\\PTX");
+    if (zip) {
+        DeleteFileA("C:\\TEMP\\PT.ZIP");
+        winzip("zip", "-a -r -p C:\\TEMP\\PT.ZIP C:\\SBPRO\\*.*");
+        winzip("unzip", "-e -o C:\\TEMP\\PT.ZIP C:\\TEMP\\PTX");
+    }
     pass("switch3", switch_one);
 
     for (i = 0; i < NPROG; i++) {
