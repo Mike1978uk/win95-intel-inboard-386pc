@@ -79,7 +79,8 @@ that window is suspect.
   - `MATSHITA LS-120 COSM 04`, twice. Live: parent `ROOT\SCSIADAPTER\0002` (the Imation
     `sd120ppd.mpd` adapter), `DiskDrive\0007`. Stale: parent `ROOT\SCSIADAPTER\0000`, which is now
     the XT-CF adapter, `DiskDrive\0002`, the one with reserved drive letters `I`-`I`.
-  Registry backed up host-side before any removal: `..\image_archiveegistry_2026-10-03_pre_phantom\`.
+  Registry backed up host-side before any removal: `..\image_archive
+egistry_2026-10-03_pre_phantom\`.
 - **`DMABufferSize=64` restored** on the card (reader, 2026-10-03 evening), the setting under which
   Windows floppy worked. One change, to test whether the 16 KB default broke Windows floppy.
   Backups: `SYSTEM.BSR` = the file just before (no line), `SYSTEM.B03` = the old `.BSR` (SHADRAM on,
@@ -93,8 +94,9 @@ that window is suspect.
   the BIOS copy at `5F0000`. **Bed** (`vm_magnaram_shadram2`, clone of `vm_magnaram_off`, SHADRAM
   the only `[386Enh]` driver, `PAGERUN V`): Status 0, 16/16 added, `BiosPage` 5F0h, 3 VMs mapped,
   workload completed. Page-ins 16,568 - at the A level of 2026-10-02, not the S level; one run,
-  and the bed charges BIOS reads at `5F0000` as slow while 670h bit 0 is clear (86Box model), so
-  the bed cannot judge speed here. Raw: `docs/captures/2026-10-03_shadram2_bed/`.
+  and 86Box ties 670h bit 0 to the timing of every memory access (`inboard386_apply_mem_timing`:
+  bit clear = all reads and writes charged at XT-bus rate), so the bed cannot judge speed with this
+  driver. On the card bit 0 reaches only U71 and U101 (netlist). Model gap, alerted, not fixed. Raw: `docs/captures/2026-10-03_shadram2_bed/`.
 - **On the card now:** `C:\SHADRAM.VXD` = v2 (v1 kept as `SHADRAM.V1`), `DEVICE=C:\SHADRAM.VXD`
   enabled in `SYSTEM.INI`. Backups: `SYSTEM.BSR` = just before (line commented), `SYSTEM.B04` = the
   previous `.BSR`. Revert: `copy C:\WINDOWS\SYSTEM.BSR C:\WINDOWS\SYSTEM.INI`. First boot: read
