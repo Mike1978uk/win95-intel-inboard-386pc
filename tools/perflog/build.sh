@@ -16,6 +16,7 @@ WriteFile@20
 Sleep@4
 GetTickCount@0
 GetCommandLineA@0
+GetLocalTime@4
 CreateFileA@28
 SetFilePointer@16
 CloseHandle@4
@@ -71,6 +72,6 @@ strip $B/WINCLOSE.EXE
 ls -l $B/WINCLOSE.EXE
 
 gcc -m32 -march=i386 -O2 -ffreestanding -fno-builtin -fno-stack-protector     -fno-asynchronous-unwind-tables -mno-sse -Wall -x c -c PAGETIME.C -o $B/pagetime.o
-ld -m i386pe --subsystem console:4.0 --major-os-version 4 -e _start     $B/pagetime.o $B/libkernel32.a $B/libuser32.a -o $B/PAGETIME.EXE
+ld -m i386pe --subsystem console:4.0 --major-os-version 4 -e _start     $B/pagetime.o $B/libkernel32.a $B/libadvapi32.a $B/libuser32.a -o $B/PAGETIME.EXE
 strip $B/PAGETIME.EXE
 ls -l $B/PAGETIME.EXE

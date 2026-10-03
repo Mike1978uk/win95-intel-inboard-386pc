@@ -30,6 +30,7 @@ WINAPI int    WriteFile(HANDLE, const void *, DWORD, DWORD *, void *);
 WINAPI void   Sleep(DWORD);
 WINAPI DWORD  GetTickCount(void);
 WINAPI char  *GetCommandLineA(void);
+WINAPI void   GetLocalTime(void *);
 WINAPI HANDLE CreateFileA(const char *, DWORD, DWORD, void *, DWORD, DWORD, HANDLE);
 WINAPI DWORD  SetFilePointer(HANDLE, long, long *, DWORD);
 WINAPI int    CloseHandle(HANDLE);
@@ -38,6 +39,7 @@ WINAPI LONG   RegEnumValueA(HKEY, DWORD, char *, DWORD *, DWORD *, DWORD *, void
 WINAPI LONG   RegQueryValueExA(HKEY, const char *, DWORD *, DWORD *, void *, DWORD *);
 WINAPI LONG   RegCloseKey(HKEY);
 __attribute__((dllimport)) int __cdecl wsprintfA(char *, const char *, ...);
+typedef struct { unsigned short y, mo, dow, d, h, mi, s, ms; } SYSTEMTIME;
 
 #define STD_OUTPUT_HANDLE ((DWORD)-11)
 #define INVALID_HANDLE    ((HANDLE)-1)
@@ -138,6 +140,30 @@ static void sample(HKEY k, const char *label, DWORD ms)
     put("\r\n");
 }
 
+/* SHADRAM's state this boot, from its own counters: -S<pages added> if it
+ * loaded, -N if not. With the start time it lets one appended log hold both
+ * arms of an A/B without renaming. */
+static void shadram_tag(char *s)
+{
+    HKEY k;
+    DWORD v = 0, sz = sizeof v, type;
+    const char *name = "SHADRAM\\PagesAdded";
+    int found = 0;
+    if (RegOpenKeyExA(HKEY_DYN_DATA, "PerfStats\\StartStat", 0, KEY_READ, &k) == 0) {
+        found = RegQueryValueExA(k, name, 0, &type, &v, &sz) == 0;
+        RegCloseKey(k);
+    }
+    if (found && RegOpenKeyExA(HKEY_DYN_DATA, "PerfStats\\StatData", 0, KEY_READ, &k) == 0) {
+        sz = sizeof v;
+        RegQueryValueExA(k, name, 0, &type, &v, &sz);
+        RegCloseKey(k);
+    }
+    if (found)
+        wsprintfA(s, "-S%lu", v);
+    else
+        wsprintfA(s, "-N");
+}
+
 static DWORD number(char **p)
 {
     DWORD n = 0;
@@ -150,7 +176,8 @@ static DWORD number(char **p)
 
 void start(void)
 {
-    char label[16], b[96], *cl = GetCommandLineA();
+    char label[32], b[96], *cl = GetCommandLineA();
+    SYSTEMTIME st;
     DWORD secs, every, t0, next, now, row = 0;
     HKEY data;
     int i;
@@ -180,6 +207,12 @@ void start(void)
         say("Usage: PERFLOG label seconds [interval]   e.g. START PERFLOG A 300\r\n");
         ExitProcess(1);
     }
+    /* The start time makes every run's label unique in the appended log. */
+    GetLocalTime(&st);
+    shadram_tag(label + i);
+    while (label[i])
+        i++;
+    wsprintfA(label + i, "-%02u%02u%02u", st.h, st.mi, st.s);
 
     if (!list_stats()) {
         say("no counters under HKEY_DYN_DATA\\PerfStats\\StartStat\r\n");

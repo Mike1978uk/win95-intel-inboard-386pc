@@ -38,6 +38,8 @@ typedef void *HANDLE;
 typedef void *HWND;
 typedef int BOOL;
 typedef long LPARAM;
+typedef void *HKEY;
+typedef long LONG;
 
 #define WINAPI __attribute__((dllimport, stdcall))
 #define CALLBACK __attribute__((stdcall))
@@ -52,6 +54,8 @@ typedef long LPARAM;
 #define LIMIT_MS 120000
 #define ZIP_LIMIT_MS 600000
 #define BM_CLICK 0x00F5
+#define HKEY_DYN_DATA ((HKEY)0x80000006)
+#define KEY_READ 0x20019
 
 typedef struct {
     DWORD cb;
@@ -74,6 +78,10 @@ WINAPI void   ExitProcess(unsigned);
 WINAPI void   Sleep(DWORD);
 WINAPI DWORD  GetTickCount(void);
 WINAPI char  *GetCommandLineA(void);
+WINAPI void   GetLocalTime(void *);
+WINAPI LONG   RegOpenKeyExA(HKEY, const char *, DWORD, DWORD, HKEY *);
+WINAPI LONG   RegQueryValueExA(HKEY, const char *, DWORD *, DWORD *, void *, DWORD *);
+WINAPI LONG   RegCloseKey(HKEY);
 WINAPI HANDLE GetStdHandle(DWORD);
 WINAPI int    WriteFile(HANDLE, const void *, DWORD, DWORD *, void *);
 WINAPI HANDLE CreateFileA(const char *, DWORD, DWORD, void *, DWORD, DWORD, HANDLE);
@@ -94,6 +102,7 @@ WINAPI BOOL   SetForegroundWindow(HWND);
 WINAPI BOOL   RedrawWindow(HWND, const void *, void *, unsigned);
 WINAPI BOOL   GetUpdateRect(HWND, void *, BOOL);
 __attribute__((dllimport)) int __cdecl wsprintfA(char *, const char *, ...);
+typedef struct { unsigned short y, mo, dow, d, h, mi, s, ms; } SYSTEMTIME;
 
 /* The title text identifies the window; "- Paint" does not match "Paint Shop Pro". */
 static struct { const char *name, *cmd, *title; } prog[] = {
@@ -105,7 +114,7 @@ static struct { const char *name, *cmd, *title; } prog[] = {
 #define NPROG (sizeof prog / sizeof prog[0])
 
 static HANDLE out, logf;
-static char *label;
+static char label[32];
 static const char *want;
 static HWND hit;
 
@@ -294,6 +303,30 @@ static void winzip(const char *step, const char *args)
     put("zip", step, ms);
 }
 
+/* SHADRAM's state this boot, from its own counters: -S<pages added> if it
+ * loaded, -N if not. With the start time it lets one appended log hold both
+ * arms of an A/B without renaming. */
+static void shadram_tag(char *s)
+{
+    HKEY k;
+    DWORD v = 0, sz = sizeof v, type;
+    const char *name = "SHADRAM\\PagesAdded";
+    int found = 0;
+    if (RegOpenKeyExA(HKEY_DYN_DATA, "PerfStats\\StartStat", 0, KEY_READ, &k) == 0) {
+        found = RegQueryValueExA(k, name, 0, &type, &v, &sz) == 0;
+        RegCloseKey(k);
+    }
+    if (found && RegOpenKeyExA(HKEY_DYN_DATA, "PerfStats\\StatData", 0, KEY_READ, &k) == 0) {
+        sz = sizeof v;
+        RegQueryValueExA(k, name, 0, &type, &v, &sz);
+        RegCloseKey(k);
+    }
+    if (found)
+        wsprintfA(s, "-S%lu", v);
+    else
+        wsprintfA(s, "-N");
+}
+
 static void pass(const char *phase, long (*step)(unsigned))
 {
     long ms, total = 0;
@@ -315,6 +348,7 @@ void start(void)
     char *cl = GetCommandLineA(), *p;
     unsigned i, k;
     int zip = 0;
+    SYSTEMTIME st;
     DWORD w;
 
     /* Skip the program name, quoted or not. */
@@ -339,13 +373,19 @@ void start(void)
     } else {
         *p = 0;
     }
-    label = cl;
-
     out = GetStdHandle((DWORD)-11);
-    if (*label == 0) {
+    if (*cl == 0) {
         WriteFile(out, "Usage: PAGETIME label\r\n", 23, &w, 0);
         ExitProcess(2);
     }
+    /* The start time makes every run's label unique in the appended log. */
+    for (k = 0; k < 15 && cl[k]; k++)
+        label[k] = cl[k];
+    shadram_tag(label + k);
+    while (label[k])
+        k++;
+    GetLocalTime(&st);
+    wsprintfA(label + k, "-%02u%02u%02u", st.h, st.mi, st.s);
     logf = CreateFileA("C:\\PAGETIME.TXT", 0x40000000, 1, 0, 4 /* OPEN_ALWAYS */, 0x80, 0);
     if (logf == (HANDLE)-1)
         ExitProcess(1);
