@@ -159,3 +159,8 @@ did not carry over. The tagged labels (`R-S16-003522`, `R-N-004410`) worked firs
 
 **Kept (owner, 2026-10-04):** `C:\SHADRAM.VXD` = v3 without counters (md5 `bb633ec5`), ~60 KB net
 (16 pages added, one 4 KB locked page). Diagnostic v3 kept as `C:\SHADRAM.DG3`.
+
+**`DMABufferSize=64` commented out (2026-10-04, reader):** default 16 KB, `DMABufferIn1MB=True` kept.
+Backups: `SYSTEM.BSR` = just before (64 active), `SYSTEM.B06` = the previous `.BSR`. The 10-03 floppy
+corruption happened at 64, so 64 is not shown to help. Test: Windows copy + `FC /B` to A: and B:,
+then check the same disks from a DOS boot. Same steps at 64 only if 16 misbehaves.
