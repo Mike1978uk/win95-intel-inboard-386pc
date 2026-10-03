@@ -21,3 +21,4 @@ function Build($name, $asm, $def, $extra) {
 }
 
 Build 'SHADRAM' 'SHADRAM.ASM' 'SHADRAM.DEF' @()
+Build 'SHADRAMD' 'SHADRAM.ASM' 'SHADRAM.DEF' @('-DSR_DIAG')

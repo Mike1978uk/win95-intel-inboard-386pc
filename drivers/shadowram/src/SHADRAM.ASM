@@ -89,7 +89,45 @@ szStatus	db	"Status",0
 szBiosPage	db	"BiosPage",0
 szMapped	db	"VMsMapped",0
 
+ifdef SR_DIAG
+; Which stage raised the I/O channel check (port 62h bit 6). The final check
+; reads the latch once, so it cannot say what set it.
+	ALIGN 4
+dwSteps 	dd	0		; bit per stage, see DIAG_LOOK/DIAG_STEP calls
+dwParPages	dd	0		; bit n: set after page n's write/read-back
+dwParRom	dd	0		; bit n: set after page n's ROM-area compares
+dwPorts 	dd	0		; port 61h << 8 | port 62h on entry
+dwLast62	dd	0		; port 62h the last time bit 6 was seen set
+szSteps 	db	"DiagSteps",0
+szParPages	db	"DiagParityPages",0
+szParRom	db	"DiagParityRom",0
+szPorts 	db	"DiagPortsEntry",0
+szLast62	db	"DiagLast62",0
+endif
+
 VxD_LOCKED_DATA_ENDS
+
+ifdef SR_DIAG
+; Record the latch without touching it.
+DIAG_LOOK macro bit
+	local	dl_done
+	call	SR_Diag_Look
+	jnc	SHORT dl_done
+	or	[dwSteps], bit
+dl_done:
+	endm
+
+; Record the latch and clear it, so the next stage is attributed separately.
+DIAG_STEP macro bit
+	local	ds_done
+	call	SR_Diag_Check
+	jnc	SHORT ds_done
+	or	[dwSteps], bit
+ds_done:
+	endm
+
+DIAG_STICKY	EQU	0F8h		; stages after the latch is first cleared
+endif
 
 VxD_IDATA_SEG
 
@@ -194,10 +232,22 @@ ssi_nomap:
 ssi_have_maps:
 	mov	[linVideo], eax
 
+ifdef SR_DIAG
+	in	al, 61h
+	mov	ah, al
+	in	al, 62h
+	movzx	eax, ax
+	mov	[dwPorts], eax
+	DIAG_LOOK 01h
+endif
+
 ; 1. Clear ROMCACHE as INBRDPC's routine at 0B60h does.
 	mov	esi, [linInb]
 	mov	byte ptr [esi + INB_CACHE], 0
 	call	SR_Write_670
+ifdef SR_DIAG
+	DIAG_LOOK 02h
+endif
 
 ; 2. The window is open if 5F0000 now reads as the BIOS (INBRDPC patches a few dwords).
 	mov	esi, [linCopy]
@@ -223,11 +273,17 @@ ssi_cmp_next:
 	jmp	ssi_done
 ssi_open:
 	mov	[dwBiosPage], SR_BIOS_PAGE
+ifdef SR_DIAG
+	DIAG_LOOK 04h
+endif
 
 ; 3. NMI masked and the latch cleared, as INBRDPC does around its memory tests.
 	mov	al, 0
 	out	0A0h, al
 	call	SR_Clear_Check
+ifdef SR_DIAG
+	DIAG_STEP 08h				; set here = the pulse does not clear it
+endif
 
 ; Write every dword before any read, so parity is valid.
 	cld
@@ -235,6 +291,9 @@ ssi_open:
 	mov	ecx, SR_PAGES * PAGE_BYTES / 4
 	xor	eax, eax
 	rep	stosd
+ifdef SR_DIAG
+	DIAG_STEP 10h
+endif
 
 ; 4a. Page by page: two patterns, each read back and checked absent from the ROM areas.
 	xor	ebx, ebx			; EBX = page index
@@ -276,6 +335,9 @@ ssi_fill_next:
 	inc	ebx
 	cmp	ebx, SR_PAGES
 	jb	ssi_fill
+ifdef SR_DIAG
+	DIAG_STEP 20h
+endif
 
 	xor	ebx, ebx
 ssi_check:
@@ -298,6 +360,9 @@ ssi_check_next:
 	inc	ebx
 	cmp	ebx, SR_PAGES
 	jb	ssi_check
+ifdef SR_DIAG
+	DIAG_STEP 40h
+endif
 
 ; Leave the pages zeroed, then read the I/O channel check: any parity error
 ; during the tests refuses every page.
@@ -305,9 +370,18 @@ ssi_check_next:
 	mov	ecx, SR_PAGES * PAGE_BYTES / 4
 	xor	eax, eax
 	rep	stosd
+ifdef SR_DIAG
+	DIAG_STEP 80h
+	mov	eax, [dwSteps]
+	and	eax, DIAG_STICKY
+	or	eax, [dwParPages]
+	or	eax, [dwParRom]
+	jz	SHORT ssi_nmi_on
+else
 	in	al, 62h
 	test	al, 40h
 	jz	SHORT ssi_nmi_on
+endif
 	mov	[dwStatus], SRS_PARITY
 	mov	[PassMask], 0
 ssi_nmi_on:
@@ -359,6 +433,37 @@ BeginProc SR_Clear_Check
 	ret
 EndProc SR_Clear_Check
 
+ifdef SR_DIAG
+;   CF set if port 62h bit 6 is set; the value goes to dwLast62. Preserves EAX.
+BeginProc SR_Diag_Look
+	push	eax
+	in	al, 62h
+	test	al, 40h
+	jz	SHORT sdl_clean
+	movzx	eax, al
+	mov	[dwLast62], eax
+	pop	eax
+	stc
+	ret
+sdl_clean:
+	pop	eax
+	clc
+	ret
+EndProc SR_Diag_Look
+
+;   As SR_Diag_Look, and clear the latch when it was set. Preserves EAX.
+BeginProc SR_Diag_Check
+	call	SR_Diag_Look
+	jnc	SHORT sdc_done
+	push	eax
+	call	SR_Clear_Check
+	pop	eax
+	stc
+sdc_done:
+	ret
+EndProc SR_Diag_Check
+endif
+
 ;******************************************************************************
 ;   SR_Pattern - fill the page at ESI with EAX, verify it, and check that the
 ;   BIOS and video ROM areas did not change to the pattern at the same offset.
@@ -374,6 +479,14 @@ BeginProc SR_Pattern
 	mov	edi, esi
 	mov	ecx, PAGE_BYTES / 4
 	repe	scasd
+ifdef SR_DIAG
+	pushfd
+	call	SR_Diag_Check
+	jnc	SHORT srp_page_clean
+	bts	[dwParPages], ebx
+srp_page_clean:
+	popfd
+endif
 	jne	SHORT srp_fail
 
 	mov	edx, ebx
@@ -384,6 +497,12 @@ BeginProc SR_Pattern
 	mov	edi, [linVideo]
 	cmp	[edi + edx], eax
 	je	SHORT srp_fail
+ifdef SR_DIAG
+	call	SR_Diag_Check
+	jnc	SHORT srp_rom_clean
+	bts	[dwParRom], ebx
+srp_rom_clean:
+endif
 	clc
 	ret
 srp_fail:
@@ -410,7 +529,7 @@ BeginProc ShadRam_Device_Init
 
 	VxDCall PERF_Get_Version
 	or	eax, eax
-	jz	SHORT sdi_done
+	jz	sdi_done
 
 ; PERF_Server_Register(&perf_server_0): level, flags, name, node, control
 	push	0
@@ -422,7 +541,7 @@ BeginProc ShadRam_Device_Init
 	VxDCall PERF_Server_Register
 	add	esp, 6*4
 	or	eax, eax
-	jz	SHORT sdi_done
+	jz	sdi_done
 	mov	edx, eax
 
 	mov	esi, OFFSET32 szTested
@@ -443,6 +562,23 @@ BeginProc ShadRam_Device_Init
 	mov	esi, OFFSET32 szMapped
 	mov	edi, OFFSET32 dwMapped
 	call	SR_Add_Stat
+ifdef SR_DIAG
+	mov	esi, OFFSET32 szSteps
+	mov	edi, OFFSET32 dwSteps
+	call	SR_Add_Stat
+	mov	esi, OFFSET32 szParPages
+	mov	edi, OFFSET32 dwParPages
+	call	SR_Add_Stat
+	mov	esi, OFFSET32 szParRom
+	mov	edi, OFFSET32 dwParRom
+	call	SR_Add_Stat
+	mov	esi, OFFSET32 szPorts
+	mov	edi, OFFSET32 dwPorts
+	call	SR_Add_Stat
+	mov	esi, OFFSET32 szLast62
+	mov	edi, OFFSET32 dwLast62
+	call	SR_Add_Stat
+endif
 
 sdi_done:
 	clc
