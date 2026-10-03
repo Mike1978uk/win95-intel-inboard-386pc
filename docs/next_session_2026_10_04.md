@@ -38,7 +38,9 @@ that window is suspect.
 4. **Desk:** how `INBRDPC.SYS` opens and closes the reserved window while copying the BIOS
    (not port `A0h` bit 7 on its own). Only then is the EGA half reachable,
    and Windows would need the window left open. Not a quick lever - rank it against #46 and #41.
-5. Then section 2 of the 10-03 handoff: #46 (LS-120 boot stall), #41 re-scope incl. ELNK3 buffers,
+5. Then section 2 of the 10-03 handoff: #46 (LS-120 boot stall - the LEAN entry removes it on
+   every boot, confirmed by the owner over several boots; LEAN also drops Nero, but `BOOTLOG.TXT`
+   puts the wait in `sd120ppd.mpd`. The patch is still the fix), #41 re-scope incl. ELNK3 buffers,
    SWAPCOMP `HASH_LOG 10` (5160-only A/B).
 
 ## COMrade notes
