@@ -116,3 +116,9 @@ reads the latch only once.
 
 `SYSTEM.INI` (owner's edit, 23:11): `DMABufferSize=` has no value. The last good Windows floppy
 run was with 64.
+
+**On the card now (late 2026-10-03):** `C:\SHADRAM.VXD` = the diagnostic build `SHADRAMD`
+(md5 `73d6eea9`, `a01b508`), v2 kept as `C:\SHADRAM.V2`. Same accept/refuse logic as v2; it adds
+`SHADRAM\Diag*` counters naming the stage that sets port 62h bit 6. `DMABufferSize=64` restored
+(the blank line is in `SYSTEM.BSR`, previous `.BSR` is `SYSTEM.B05`). Next boot: `START PERFLOG X 30`.
+Revert: `copy C:\SHADRAM.V2 C:\SHADRAM.VXD`.
