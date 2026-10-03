@@ -74,6 +74,14 @@ on `~CAS` - so every read of card DRAM is checked, in any bank. U45B drives U87,
 bus's I/O CH CK, and the IBM BIOS reports that as PARITY CHECK 2. Any read of a location never
 written since power-on can trip it. RonnyRoy's `U87_modified.pld` never enables that output.
 
+**How INBRDPC.SYS avoids it (disassembly of the card's copy, md5 `d3c45801...`):** around every
+memory test it writes port A0h = 00h (NMI masked), reads port 62h bit 6 after each block, clears the
+latch by pulsing port 61h bit 5, and writes A0h = 80h at the end (driver offsets `0x9908`,
+`0x9BFE`-`0x9C14`, `0xA626`-`0xA668`). Its conventional-memory pass copies each 64 KB onto itself
+(`rep movsd`, `0xA634`), which rewrites the parity bits. So **port A0h bit 7 is the NMI enable**
+(U86 keeps the card's copy of it), not a ROM-mapping bit as UniPCemu and our 86Box port describe
+it. `ROMPROB4` probes the window the same way: no halt, one parity flag per block.
+
 ## 4. Consequences
 
 - **No E000 or C000 shadow in hardware.** U71's only ROM-area term is the `F0000` read. The card
