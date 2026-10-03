@@ -156,3 +156,6 @@ Not yet measured: whether it helps - `PAGERUN` A/B against v2-off, on the card o
 
 No measurable difference: totals within 0.05%, page-ins -1.6%. 64 KB is ~1.3% of RAM; the bed's -13.8%
 did not carry over. The tagged labels (`R-S16-003522`, `R-N-004410`) worked first time.
+
+**Kept (owner, 2026-10-04):** `C:\SHADRAM.VXD` = v3 without counters (md5 `bb633ec5`), ~60 KB net
+(16 pages added, one 4 KB locked page). Diagnostic v3 kept as `C:\SHADRAM.DG3`.
