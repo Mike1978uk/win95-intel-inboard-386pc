@@ -84,3 +84,7 @@ that window is suspect.
   Windows floppy worked. One change, to test whether the 16 KB default broke Windows floppy.
   Backups: `SYSTEM.BSR` = the file just before (no line), `SYSTEM.B03` = the old `.BSR` (SHADRAM on,
   64). Next: in Windows, copy to `A:` and `B:` and `FC /B`, with a disk that just worked in DOS.
+- **Floppy with `DMABufferSize=64` back (Windows):** `B:` copy, read and write good, `FC` identical
+  (`docs/captures/2026-10-03_readahead/t130comp.txt`). `A:` still flaky. One run each way, so
+  64 stays on for now; `A:` looks like the drive or media rather than the buffer - it was flaky at
+  16 KB too, and works in DOS.
