@@ -18,9 +18,13 @@
 ;      with NMI masked and the I/O channel check polled, as INBRDPC does.
 ;      That first write itself raises the check, so the latch is cleared
 ;      after it and only the tests that follow are judged;
-;   4. tests each page and gives the ones that pass to the VMM;
-;   5. maps V86 F0000-FFFFF onto the BIOS copy in every VM, so BIOS calls
-;      still run from the card's RAM rather than the 8-bit ROM.
+;   4. decides which pages of the BIOS copy at 5F0000 are still needed: FE
+;      and FF, any page INBRDPC patched, and any page of code. Uniform filler
+;      and IBM cassette BASIC (F6000-FDFFF, found by its signature) are not;
+;   5. tests the 5E0000 half and the unneeded 5F0000 pages, and gives the
+;      ones that pass to the VMM;
+;   6. maps V86 F0000-FFFFF in every VM: kept pages onto the copy, so BIOS
+;      calls still run from the card's RAM, the rest onto the ROM itself.
 ;
 ;   Nothing is changed unless INBRDPC is found, the pages are free and V86
 ;   pages F0-FF can be assigned. If the window does not open, the bit and
@@ -51,8 +55,14 @@ PSTF_COUNT	EQU	0
 SR_FIRST_PAGE	EQU	5E0h		; physical page of the idle half
 SR_BIOS_PAGE	EQU	5F0h		; physical page of the BIOS copy
 SR_PAGES	EQU	16		; 64 KB
+SR_ALL		EQU	32		; the whole reserved block, 5E0000-5FFFFF
 PAGE_BYTES	EQU	4096
 V86_BIOS_PAGE	EQU	0F0h
+BASIC_FIRST	EQU	6		; F6000: IBM cassette BASIC, 8 pages
+BASIC_LAST	EQU	13
+BASIC_SIG0	EQU	0E87E8FE9h	; E9 8F 7E E8 A7 6B CB E8 at F6000
+BASIC_SIG1	EQU	0E8CB6BA7h
+KEEP_ALWAYS	EQU	0C000h		; FE and FF: reset entry, POST, fonts
 
 ROMCACHE_PORT	EQU	670h
 INB_NORMAL	EQU	02ACh		; INBRDPC: normal speed byte
@@ -80,6 +90,7 @@ dwFailed	dd	0		; pages refused by a test
 dwStatus	dd	SRS_OK
 dwBiosPage	dd	0		; physical page V86 F0000 is mapped to (0 = not ours)
 dwMapped	dd	0		; VMs mapped
+dwKeepMask	dd	0		; bit n: V86 page F0+n runs from the copy
 
 ; PERF may keep these pointers after init, so they cannot live in discardable data.
 szSrvName	db	"Inboard shadow RAM",0
@@ -90,6 +101,7 @@ szFailed	db	"PagesFailed",0
 szStatus	db	"Status",0
 szBiosPage	db	"BiosPage",0
 szMapped	db	"VMsMapped",0
+szKeepMask	db	"KeepMask",0
 
 ifdef SR_DIAG
 ; Which stage raised the I/O channel check (port 62h bit 6). The final check
@@ -134,12 +146,14 @@ endif
 VxD_IDATA_SEG
 
 	ALIGN 4
-linWin		dd	0		; ring-0 alias of 5E0000
-linCopy 	dd	0		; ring-0 alias of 5F0000
+linWin		dd	0		; ring-0 alias of 5E0000-5FFFFF
+linCopy 	dd	0		; linWin + 64 KB: the BIOS copy at 5F0000
 linBios 	dd	0		; ring-0 alias of F0000-FFFFF
 linVideo	dd	0		; ring-0 alias of C0000-CFFFF
 linInb		dd	0		; ring-0 address of INBRDPC's resident image
+CandMask	dd	0		; bit n set = page 5E0+n is to be tested and donated
 PassMask	dd	0		; bit n set = page n passed
+DiffMask	dd	0		; bit n set = INBRDPC changed BIOS copy page n
 PgArray 	dd	9 dup (0)	; V86 page assignment bits, 110h pages
 
 VxD_IDATA_ENDS
@@ -155,14 +169,31 @@ BeginProc ShadRam_Control
 	ret
 EndProc ShadRam_Control
 
-;   EBX = VM. Map its V86 F0000-FFFFF onto dwBiosPage, if the pages are ours.
+;   EBX = VM. Map its V86 F0000-FFFFF, if the pages are ours: each page in
+;   dwKeepMask onto the copy at dwBiosPage, every other page onto the ROM.
 BeginProc ShadRam_Map_VM
+	cmp	[dwBiosPage], 0
+	je	SHORT smv_done
+	xor	esi, esi			; ESI = page index
+	xor	edi, edi			; EDI = 0 if every page mapped
+smv_page:
+	lea	eax, [esi + V86_BIOS_PAGE]	; the ROM
+	bt	[dwKeepMask], esi
+	jnc	SHORT smv_map
 	mov	eax, [dwBiosPage]
+	add	eax, esi			; the copy
+smv_map:
+	lea	ecx, [esi + V86_BIOS_PAGE]
+	VMMCall _PhysIntoV86, <eax, ebx, ecx, 1, 0>
 	or	eax, eax
-	jz	SHORT smv_done
-	VMMCall _PhysIntoV86, <eax, ebx, V86_BIOS_PAGE, SR_PAGES, 0>
-	or	eax, eax
-	jz	SHORT smv_done
+	jnz	SHORT smv_next
+	inc	edi
+smv_next:
+	inc	esi
+	cmp	esi, SR_PAGES
+	jb	smv_page
+	or	edi, edi
+	jnz	SHORT smv_done
 	inc	[dwMapped]
 smv_done:
 	clc
@@ -191,7 +222,7 @@ ssi_have_inb:
 	add	edx, [ebx.CB_High_Linear]
 	mov	[linInb], edx
 
-	VMMCall _GetPhysPageInfo, <SR_FIRST_PAGE, SR_PAGES, 0>
+	VMMCall _GetPhysPageInfo, <SR_FIRST_PAGE, SR_ALL, 0>
 	cmp	eax, PHYSINFO_NONE
 	je	SHORT ssi_v86
 	mov	[dwStatus], SRS_OWNED
@@ -213,13 +244,11 @@ ssi_v86_bad:
 ssi_v86_ok:
 	mov	[dwBiosPage], V86_BIOS_PAGE	; ROM, until the copy is proven
 
-	VMMCall _MapPhysToLinear, <SR_FIRST_PAGE * PAGE_BYTES, SR_PAGES * PAGE_BYTES, 0>
+	VMMCall _MapPhysToLinear, <SR_FIRST_PAGE * PAGE_BYTES, SR_ALL * PAGE_BYTES, 0>
 	cmp	eax, 0FFFFFFFFh
 	je	SHORT ssi_nomap
 	mov	[linWin], eax
-	VMMCall _MapPhysToLinear, <SR_BIOS_PAGE * PAGE_BYTES, SR_PAGES * PAGE_BYTES, 0>
-	cmp	eax, 0FFFFFFFFh
-	je	SHORT ssi_nomap
+	add	eax, SR_PAGES * PAGE_BYTES
 	mov	[linCopy], eax
 	VMMCall _MapPhysToLinear, <0F0000h, 10000h, 0>
 	cmp	eax, 0FFFFFFFFh
@@ -251,21 +280,24 @@ ifdef SR_DIAG
 	DIAG_LOOK 02h
 endif
 
-; 2. The window is open if 5F0000 now reads as the BIOS (INBRDPC patches a few dwords).
+; 2. The window is open if 5F0000 now reads as the BIOS (INBRDPC patches a few
+; dwords). Note which pages those patches are in: their copies must be kept.
 	mov	esi, [linCopy]
 	mov	edi, [linBios]
-	mov	ecx, 10000h / 4
+	xor	ecx, ecx			; ECX = dword index
 	xor	edx, edx
 ssi_cmp:
-	mov	eax, [esi]
-	cmp	eax, [edi]
+	mov	eax, [esi + ecx*4]
+	cmp	eax, [edi + ecx*4]
 	je	SHORT ssi_cmp_next
 	inc	edx
+	mov	eax, ecx
+	shr	eax, 10 			; 1024 dwords per page
+	bts	[DiffMask], eax
 ssi_cmp_next:
-	add	esi, 4
-	add	edi, 4
-	dec	ecx
-	jnz	ssi_cmp
+	inc	ecx
+	cmp	ecx, 10000h / 4
+	jb	ssi_cmp
 	cmp	edx, COPY_MAX_DIFF
 	jb	SHORT ssi_open
 	mov	esi, [linInb]			; put INBRDPC's state back
@@ -275,6 +307,7 @@ ssi_cmp_next:
 	jmp	ssi_done
 ssi_open:
 	mov	[dwBiosPage], SR_BIOS_PAGE
+	call	SR_Choose_Pages
 ifdef SR_DIAG
 	DIAG_LOOK 04h
 endif
@@ -303,6 +336,8 @@ endif
 ; 4a. Page by page: two patterns, each read back and checked absent from the ROM areas.
 	xor	ebx, ebx			; EBX = page index
 ssi_page:
+	bt	[CandMask], ebx
+	jnc	SHORT ssi_page_next
 	inc	[dwTested]
 	mov	esi, ebx
 	shl	esi, 12
@@ -319,7 +354,7 @@ ssi_bad:
 	inc	[dwFailed]
 ssi_page_next:
 	inc	ebx
-	cmp	ebx, SR_PAGES
+	cmp	ebx, SR_ALL
 	jb	ssi_page
 
 ; 4b. Every passing page holds its own physical address in each dword; if two
@@ -338,7 +373,7 @@ ssi_fill_dw:
 	jnz	ssi_fill_dw
 ssi_fill_next:
 	inc	ebx
-	cmp	ebx, SR_PAGES
+	cmp	ebx, SR_ALL
 	jb	ssi_fill
 ifdef SR_DIAG
 	DIAG_STEP 20h
@@ -363,18 +398,26 @@ ssi_alias:
 	inc	[dwFailed]
 ssi_check_next:
 	inc	ebx
-	cmp	ebx, SR_PAGES
+	cmp	ebx, SR_ALL
 	jb	ssi_check
 ifdef SR_DIAG
 	DIAG_STEP 40h
 endif
 
-; Leave the pages zeroed, then read the I/O channel check: any parity error
-; during the tests refuses every page.
-	mov	edi, [linWin]
-	mov	ecx, SR_PAGES * PAGE_BYTES / 4
+; Leave the tested pages zeroed - never the kept BIOS pages - then read the
+; I/O channel check: any parity error during the tests refuses every page.
+	xor	ebx, ebx
+ssi_zero:
+	bt	[CandMask], ebx
+	jnc	SHORT ssi_zero_next
+	call	SR_Page_Address
+	mov	ecx, PAGE_BYTES / 4
 	xor	eax, eax
 	rep	stosd
+ssi_zero_next:
+	inc	ebx
+	cmp	ebx, SR_ALL
+	jb	ssi_zero
 ifdef SR_DIAG
 	DIAG_STEP 80h
 	mov	eax, [dwSteps]
@@ -406,7 +449,7 @@ ssi_add:
 	inc	[dwAdded]
 ssi_add_next:
 	inc	ebx
-	cmp	ebx, SR_PAGES
+	cmp	ebx, SR_ALL
 	jb	ssi_add
 
 ssi_done:
@@ -495,6 +538,7 @@ endif
 	jne	SHORT srp_fail
 
 	mov	edx, ebx
+	and	edx, SR_PAGES - 1		; the same offset in the 64 KB ROM areas
 	shl	edx, 12
 	mov	edi, [linBios]
 	cmp	[edi + edx], eax
@@ -515,6 +559,66 @@ srp_fail:
 	ret
 
 EndProc SR_Pattern
+
+;******************************************************************************
+;   SR_Choose_Pages - after the window opens: every 5E0000 page is a candidate,
+;   and so is each 5F0000 page the BIOS no longer needs. Called with linBios
+;   reading the ROM. Sets CandMask and dwKeepMask.
+;******************************************************************************
+
+BeginProc SR_Choose_Pages
+
+	pushad
+	mov	[CandMask], 0FFFFh
+	mov	[dwKeepMask], 0
+
+; BASIC is only given away when it is IBM's, found by its first eight bytes.
+	xor	ebp, ebp			; EBP = 1 if cassette BASIC is at F6000
+	mov	esi, [linBios]
+	cmp	dword ptr [esi + BASIC_FIRST * PAGE_BYTES], BASIC_SIG0
+	jne	SHORT scp_scan
+	cmp	dword ptr [esi + BASIC_FIRST * PAGE_BYTES + 4], BASIC_SIG1
+	jne	SHORT scp_scan
+	inc	ebp
+
+scp_scan:
+	xor	ebx, ebx			; EBX = page index F0+n
+scp_page:
+	mov	eax, KEEP_ALWAYS
+	bt	eax, ebx
+	jc	SHORT scp_keep
+	bt	[DiffMask], ebx
+	jc	SHORT scp_keep
+; A page of one repeated byte (FF or CC filler) holds nothing.
+	mov	esi, ebx
+	shl	esi, 12
+	add	esi, [linBios]
+	mov	edi, esi
+	mov	al, [esi]
+	mov	ecx, PAGE_BYTES
+	cld
+	repe	scasb
+	je	SHORT scp_donate
+	or	ebp, ebp
+	jz	SHORT scp_keep
+	cmp	ebx, BASIC_FIRST
+	jb	SHORT scp_keep
+	cmp	ebx, BASIC_LAST
+	ja	SHORT scp_keep
+scp_donate:
+	lea	eax, [ebx + SR_PAGES]
+	bts	[CandMask], eax
+	jmp	SHORT scp_next
+scp_keep:
+	bts	[dwKeepMask], ebx
+scp_next:
+	inc	ebx
+	cmp	ebx, SR_PAGES
+	jb	scp_page
+	popad
+	ret
+
+EndProc SR_Choose_Pages
 
 ;   EBX = page index -> EDI = linear address of the page, EAX = its physical address
 BeginProc SR_Page_Address
@@ -566,6 +670,9 @@ BeginProc ShadRam_Device_Init
 	call	SR_Add_Stat
 	mov	esi, OFFSET32 szMapped
 	mov	edi, OFFSET32 dwMapped
+	call	SR_Add_Stat
+	mov	esi, OFFSET32 szKeepMask
+	mov	edi, OFFSET32 dwKeepMask
 	call	SR_Add_Stat
 ifdef SR_DIAG
 	mov	esi, OFFSET32 szSteps
