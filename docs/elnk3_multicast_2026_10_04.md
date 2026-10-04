@@ -28,5 +28,6 @@ Raw: `docs/captures/2026-10-04_elnk3_mcast/`.
 
 Patched driver loaded (md5 `73f85aee`, `ELNK3` init success). Idle `KERNEL\CPUUsage`, 30 s PERFLOG runs
 (first sample dropped): stock 1.27% and 1.40%, patched **1.07%**. Within the noise of a 30 s run: no
-worse, possibly slightly better; the saving is bus time when the LAN carries multicast. Stock kept as
+worse, possibly slightly better; the owner then browsed to three web sites (DNS, TCP, HTTP all
+working), so the patched driver stays; the saving is bus time when the LAN carries multicast. Stock kept as
 `C:\WINDOWS\SYSTEM\ELNK3_orig.VXD`. Raw: `docs/captures/2026-10-04_elnk3_mcast_card/`.
