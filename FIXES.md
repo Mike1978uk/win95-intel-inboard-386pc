@@ -252,9 +252,8 @@ See [issue #21](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/2
 ### `120PPD95.INF` — parallel-port LS-120, without losing the keyboard
 
 **[⬇ 120PPD95.INF](https://github.com/Mike1978uk/win95-intel-inboard-386pc/raw/master/dist/ls120_vendor/120PPD95.INF)** · md5 `4b1f2579fa2944f24f096d53d7969a8c`
-· [`SD120PPD.MPD`](https://github.com/Mike1978uk/win95-intel-inboard-386pc/raw/master/dist/ls120_vendor/SD120PPD.MPD) `08104ffb559ae4b47b84377daee473bc`, the vendor binary **unmodified**
+· [`SD120PPD.MPD`](https://github.com/Mike1978uk/win95-intel-inboard-386pc/raw/master/dist/ls120_vendor/SD120PPD.MPD) `4fafb2e9f0163635c5ffdea385988925`, the vendor binary with **one byte changed** (vendor original `08104ffb559ae4b47b84377daee473bc`)
 
-The one patched vendor file in this project, and the only fix here that is not a binary patch.
 Shuttle Technology / Imation's own Windows 95 driver for the parallel-port Imation SuperDisk
 LS-120, with a single line changed in `[epatlsreg]`:
 
@@ -267,9 +266,15 @@ and chipset probes poke ports that alias onto the 8259, and the keyboard dies du
 You then cannot type the switches that would have prevented it. Putting them in the INF breaks that
 circle.
 
-Nothing else differs from the vendor original, and `SD120PPD.MPD` is untouched. Copyright remains
-with the original authors — the MIT licence on this repository covers this project's own work, not
-these two files.
+**And one byte in `SD120PPD.MPD`, for a 49 s boot stall (#46).** At start-up the driver probes two
+positions behind the bridge, master and slave. The SuperDisk is the bridge's only device, so the empty
+slave probe ran to its timeout on every boot. The patch probes the master only: driver start-up went
+from ~892 to 113 `BOOTLOG.TXT` ticks (~49 s to ~6 s) on the 5160, and the drive still mounts, writes
+and compares clean. Not yet tested with the drive unpowered. Rebuild from the vendor file with
+`drivers/imation_ls120/patch_sd120ppd_masteronly.py`; decoding in `docs/issue46_init_wait_2026_10_04.md`.
+
+Nothing else differs from the vendor original. Copyright remains with the original authors — the
+MIT licence on this repository covers this project's own work, not these two files.
 
 **Confirmed on the real 5160**: enumerates immediately, keyboard survives the install, write-protect
 reported correctly, 3.4 MB read back with `FC: no differences encountered`.

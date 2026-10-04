@@ -15,8 +15,22 @@ One line, in `[epatlsreg]` — the section the install actually references:
 HKR,,AdapterSettings,,"PORT=0x378 /ni /de /db /sf /dp /dpc /fp"
 ```
 
-Nothing else. `SD120PPD.MPD` here is the vendor binary, unmodified
-(`md5 08104ffb559ae4b47b84377daee473bc`).
+And one byte in `SD120PPD.MPD` (md5 `4fafb2e9f0163635c5ffdea385988925`; the vendor
+original is `08104ffb559ae4b47b84377daee473bc`). At start-up the driver probes two
+positions behind the parallel-port bridge, master and slave. The SuperDisk is the
+bridge's only device, so the empty slave probe ran to its timeout - about 43 s on every
+boot on an XT. The patch probes the master only (#46). Rebuild it from the stock file
+with `drivers/imation_ls120/patch_sd120ppd_masteronly.py`; the decoding is in
+`docs/issue46_init_wait_2026_10_04.md`.
+
+| driver start-up (`BOOTLOG.TXT`) | ticks | seconds |
+|---|---|---|
+| vendor original | 891-897 | ~49 |
+| this package | 113 | ~6 |
+
+Measured on one FULL boot with the drive powered; the drive then mounted, took a
+write, and `FC` matched a copied file. **Not yet tested:** booting with the drive
+unpowered or disconnected.
 
 ## Install
 
@@ -89,7 +103,7 @@ nibble. `/ded` and `/fed` are not switches at all — the parser ignores them.
 
 `120PPD95.INF` and `SD120PPD.MPD` are Shuttle Technology / Imation's, from the
 `ls120_95` installer's `DATA.Z`, extracted with `tools/blast.py`. They are
-redistributed here unmodified apart from the single INF line above, so that a
-machine which loses its keyboard during a stock install can still be brought
+redistributed here unmodified apart from the INF line and the one driver byte above,
+so that a machine which loses its keyboard during a stock install can still be brought
 up. Copyright remains with the original authors; the MIT licence on this
 repository covers this project's own work, not these two files.
