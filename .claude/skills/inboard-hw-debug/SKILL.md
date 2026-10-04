@@ -55,6 +55,7 @@ end to end.** Find what applies, read that, and add back what you learn.
 | Attributing RAM, "what is locked" | **136** - System Monitor's locked figure includes the disk cache; subtract it. `tools/le_locked.py` for driver shares |
 | Need Safe Mode | **137** - F5 skips `INBRDPC.SYS`; use the boot menu's SAFE entry (`WIN /D:M`) |
 | Editing `AUTOEXEC.BAT` / a boot menu | **138** - never a bare `GOTO %CONFIG%`; `IVT68FIX` must stay the last command before Windows |
+| Editing ANY DOS/Windows text file (`.INI`, `.BAT`, `.SYS` config, `.INF`) on the card or in an image | **139** - read the bytes first: CRLF or LF? Match on what is there, never on what it should be |
 | Selling a transfer-width win | **128** - attribute the fixed per-access cost first. **128c**: XT-IDE cannot use dword |
 
 ### By area
@@ -8328,3 +8329,20 @@ minimal-Windows RAM figure against LEAN.
 - **Heredocs through this shell eat backslashes** in inline Python: a doubled backslash in the
   source arrived single, and a string ending in one became a syntax error. It happened again while
   writing this bullet. Write generator scripts with the Write tool and build paths with `chr(92)`.
+
+## Technique 139: line endings - read the bytes before you match, every time
+
+Techniques 75, 132 and 138 all say it; it still broke three stagings on 2026-10-04. The rule is
+not knowledge, it is a step:
+
+1. **Read the bytes around the anchor first:** `repr(open(p,'rb').read()[i-3:i+40])`. Do not
+   trust `grep | cat -A` through Git Bash for this - it showed a CRLF `SYSTEM.INI` as LF.
+2. **Build the anchor and the insert from what you read:** `nl = b"\r\n" if b"\r\n" in t else b"\n"`,
+   and use `nl` in both. The card's `SYSTEM.INI` and `AUTOEXEC.BAT` are CRLF; bed images vary.
+3. **Assert the anchor count before any write, and make backups AFTER the assert,** so a failed
+   match changes nothing. On 2026-10-04 the backup rotation ran before the match failed.
+4. **Never `sed` a DOS file from Git Bash:** it drops the CRs. A `RUNPT.BAT` lost both and
+   `COMMAND.COM` ran it as one line, echoing `OFF` - which looked like a hang.
+5. **Backslashes:** write the script with the Write tool and build paths with `b"\x5c"` or
+   `chr(92)` (technique 138). Never Python inside a bash heredoc.
+6. **Verify by size, not by eye:** a CRLF file grows by exactly the inserted bytes plus 2 per line.
