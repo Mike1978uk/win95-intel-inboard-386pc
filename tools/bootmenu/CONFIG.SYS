@@ -1,6 +1,7 @@
 [menu]
 menuitem=FULL, Windows 95 - LS-120 and Nero loaded
 menuitem=LEAN, Windows 95 - LS-120 and Nero off (less locked RAM)
+menuitem=OFFLINE, Windows 95 - network and LS-120 off, Nero on (CD or tape writing)
 menuitem=SAFE, Windows 95 Safe Mode - INBRDPC.SYS loaded, LS-120 and Nero off
 menudefault=FULL,5
 
@@ -23,6 +24,8 @@ FILES=40
 [FULL]
 
 [LEAN]
+
+[OFFLINE]
 
 [SAFE]
 

@@ -2,6 +2,7 @@
 BS = chr(92)
 NL = chr(10)
 IOSUB = BS + 'WINDOWS' + BS + 'SYSTEM' + BS + 'IOSUBSYS'
+NETDRV = 'C:' + BS + 'WINDOWS' + BS + 'SYSTEM' + BS
 
 cfg = open('D:/CONFIG.SYS', 'rb').read().decode('latin1').replace('\r\n', NL).rstrip(NL)
 aut = open('D:/AUTOEXEC.BAT', 'rb').read().decode('latin1').replace('\r\n', NL).rstrip(NL)
@@ -10,6 +11,7 @@ menu = NL.join([
     '[menu]',
     'menuitem=FULL, Windows 95 - LS-120 and Nero loaded',
     'menuitem=LEAN, Windows 95 - LS-120 and Nero off (less locked RAM)',
+    'menuitem=OFFLINE, Windows 95 - network and LS-120 off, Nero on (CD or tape writing)',
     'menuitem=SAFE, Windows 95 Safe Mode - INBRDPC.SYS loaded, LS-120 and Nero off',
     'menudefault=FULL,5',
     '',
@@ -19,6 +21,8 @@ menu = NL.join([
     '[FULL]',
     '',
     '[LEAN]',
+    '',
+    '[OFFLINE]',
     '',
     '[SAFE]',
     '',
@@ -41,13 +45,23 @@ block = NL.join([
     'REM Test, not GOTO %CONFIG%: an unset CONFIG would end the batch before IVT68FIX.',
     'IF "%CONFIG%"=="LEAN" GOTO LEAN',
     'IF "%CONFIG%"=="SAFE" GOTO LEAN',
+    'IF "%CONFIG%"=="OFFLINE" GOTO OFFLINE',
     ':FULL',
     on('SD120PPD', 'MPD'),
     on('NEROCD95', 'VXD'),
-    'GOTO MENUDONE',
+    'GOTO NETON',
     ':LEAN',
     off('SD120PPD', 'MPD'),
     off('NEROCD95', 'VXD'),
+    'GOTO NETON',
+    ':OFFLINE',
+    off('SD120PPD', 'MPD'),
+    on('NEROCD95', 'VXD'),
+    'REM Without the card driver Windows loads none of TCP/IP or NetBIOS over TCP: ~200 KB locked.',
+    'IF EXIST ' + NETDRV + 'ELNK3.VXD REN ' + NETDRV + 'ELNK3.VXD ELNK3.OFF',
+    'GOTO MENUDONE',
+    ':NETON',
+    'IF EXIST ' + NETDRV + 'ELNK3.OFF IF NOT EXIST ' + NETDRV + 'ELNK3.VXD REN ' + NETDRV + 'ELNK3.OFF ELNK3.VXD',
     ':MENUDONE',
     'CD ' + BS,
     '',
