@@ -96,6 +96,17 @@ ATI's accelerated mode yet.
   and <https://forums.guru3d.com/threads/all-in-one-daniel_k-modded-soundcard-driver-packs-disks.327083/>.
   His work is audio, not display; what carries over is the method - take a vendor driver apart, patch
   and recombine it, and unlock what the hardware could already do. No display-driver work by him found.
+- Angel Trinidad - Omega Drivers, tweaked ATI and NVIDIA graphics drivers built on the vendors' releases:
+  registry tweaks, extra resolutions, overclocking, internal optimisations, an alternative installer.
+  <https://en.wikipedia.org/wiki/Omega_Drivers>. The closest model for #49: improve the vendor driver
+  rather than rewrite it, and look for modes and settings the stock setup hides (e.g. a 640x480 mode
+  with room for two pages, for page flipping).
+- Robert McClelland - PAX drivers, modified Creative sound card drivers (audio):
+  <https://www.overclock.net/threads/new-pax-creative-drivers.1216641/>.
+- Asder00 is a different person: an account reporting AMD/ATI and Intel driver leaks and releases
+  (<http://asder00.blogspot.com/>), not a driver modder; nothing linked the two names.
+- **Shared lesson of all three modders:** start from the vendor's driver, unlock what the hardware
+  already does, retune internals, measure, and package it cleanly. Supports patching `ATIM8.DRV` first.
 - ATI, *Programmer's Guide to the mach32 Registers* (a superset of the Mach8's 8514/A and ATI-native
   registers): <https://fenarinarsa.com/misc/atari-forum/reg-688000-15_programmers_guide_to_the_mach32_registers.pdf>
 - OS/2 Museum, ATI mach8/mach32 documentation: <http://www.os2museum.com/wp/ati-mach8mach32early-mach64-documentation/>
