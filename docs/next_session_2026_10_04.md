@@ -227,3 +227,12 @@ build offers it (`0f993dfb5`). **It does not boot:** the XT-CF ROM finds the dis
 C then A, and falls to ROM BASIC; one floppy is configured. Cimon's machine boots through a Future Domain
 SCSI ROM instead. Next: a DOS boot floppy image (none found in the tree), or look at why the XT-CF ROM
 cannot boot under this BIOS. Screenshots: `tools`-free PrintWindow capture in the session scratchpad.
+
+**SHADRAM v4 on the 5160 (2026-10-04 22:22, one boot):** Status 0, Tested 28, Added 28, Failed 0,
+KeepMask 49155, VMsMapped 2; owner reports it stable. 112 KB of the reserved block now with Windows
+(v3: 64 KB). Raw: `docs/captures/2026-10-04_shadram4_card/`.
+
+Owner, same evening: a FULL boot with the LS-120 **unplugged** does not reach Windows (#46 fix tested
+powered only - reopen); the next unattended boot came up at the Safe Mode prompt with a "press
+Ctrl+Alt+Del" message, wording not captured; Mouse Properties > General shows a garbled device name
+and Change does nothing (photo `XT_project/photos/IMG_1464.jpeg`).
