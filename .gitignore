@@ -71,6 +71,7 @@ vm_golden/
 vm_magnaram*/
 vm_nmitest/
 vm_romcache/
+vm_5150/
 vm_mousetest/
 vm_qbr*/
 vm_shadow/

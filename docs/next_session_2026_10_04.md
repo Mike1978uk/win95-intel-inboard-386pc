@@ -205,3 +205,25 @@ red-ray the owner answers in his own time, not tracked here; nothing is owed to 
 instead let `INBRDPC.SYS`'s memory diagnostic fall back into POST (`F000:E05B` from `E059`)
 in the bed; with bit 0 it passes. Bed boots: gating with and without `NODIAGS` reach the
 desktop. Why the diagnostic needs that slow phase is open. Raw: `docs/captures/2026-10-04_romcache_bed/`.
+
+## SHADRAM v4, 2026-10-04 late (Andrew's suggestion on #35)
+
+`e1e7bfd`, `SHADRAM.VXD` md5 `bd529d50`. Keeps BIOS-copy pages only for code (`F0`, `F1`, `FE`, `FF` on
+the 1986 ROM) and any page INBRDPC patched; donates the filler and cassette-BASIC pages of `5F0000`
+too; V86 maps donated pages to the ROM. **Bed** (`vm_romcache`, 1986 ROM, `NODIAGS`, gated 86Box):
+Status 0, Tested 28, Added 28, KeepMask 49155 (`C003h`), desktop. Raw: `docs/captures/2026-10-04_shadram4_bed/`.
+
+**On the card now:** `C:\SHADRAM.VXD` = v4, v3 kept as `C:\SHADRAM.V3` (md5 `bb633ec5`). Next boot:
+`START PERFLOG X 30`, want Status 0, PagesAdded 28, KeepMask 49155; System Properties should show more
+memory. Revert: `copy C:\SHADRAM.V3 C:\SHADRAM.VXD`. NMIWATCH/NMICHK removed from `SYSTEM.INI` and
+`AUTOEXEC.BAT` (files left on `C:\`). `IOSUBSYS\SD120PPD.MPD` = the #46 master-only driver.
+
+## 5150 bed (#10), parked
+
+`vm_5150` (gitignored): `vm_nmitest` image (no tools, `NODIAGS`), `bios = cimon5150_superpc25` - Cimon's
+Super PC v2.5 dump with INBRDPC's `E05B` jump undone (8 KB checksums to 0), at
+`vm_5150\roms\machines\ibmpc82\CIMON_SUPERPC25_FE000.BIN`, his file, kept out of git. The diagnostic
+build offers it (`0f993dfb5`). **It does not boot:** the XT-CF ROM finds the disk, shows `W»HDD [C]`, tries
+C then A, and falls to ROM BASIC; one floppy is configured. Cimon's machine boots through a Future Domain
+SCSI ROM instead. Next: a DOS boot floppy image (none found in the tree), or look at why the XT-CF ROM
+cannot boot under this BIOS. Screenshots: `tools`-free PrintWindow capture in the session scratchpad.
