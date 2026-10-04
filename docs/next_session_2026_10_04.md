@@ -164,3 +164,10 @@ did not carry over. The tagged labels (`R-S16-003522`, `R-N-004410`) worked firs
 Backups: `SYSTEM.BSR` = just before (64 active), `SYSTEM.B06` = the previous `.BSR`. The 10-03 floppy
 corruption happened at 64, so 64 is not shown to help. Test: Windows copy + `FC /B` to A: and B:,
 then check the same disks from a DOS boot. Same steps at 64 only if 16 misbehaves.
+
+## Next session (owner, 2026-10-04 01:00)
+
+1. Floppy test at the 16 KB default (above). If it passes, the buffer saves 48 KB.
+2. **The driver track** - RAM trim, `docs/driver_audit_2026_09_28.md`, technique 136 (subtract the
+   disk cache from locked before attributing).
+Tonight's net: SHADRAM ~60 KB to Windows; the DMA buffer default would add 48 KB - ~108 KB if it holds.
