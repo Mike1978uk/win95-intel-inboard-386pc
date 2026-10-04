@@ -236,3 +236,15 @@ Owner, same evening: a FULL boot with the LS-120 **unplugged** does not reach Wi
 powered only - reopen); the next unattended boot came up at the Safe Mode prompt with a "press
 Ctrl+Alt+Del" message, wording not captured; Mouse Properties > General shows a garbled device name
 and Change does nothing (photo `XT_project/photos/IMG_1464.jpeg`).
+
+## Late additions, 2026-10-05 (card state)
+
+- `ELNK3.VXD` = multicast patch (md5 `73f85aee`), stock as `ELNK3_orig.VXD`; web browsing works.
+  `docs/elnk3_multicast_2026_10_04.md`, shipped in `dist/post-install-fixes/`.
+- TXTBENCH: text ~81 us per character, glyphs cross the bus each time; Small Fonts already set.
+  `docs/txtbench_2026_10_04.md`.
+- **OFFLINE boot entry** (owner asked me to edit `CONFIG.SYS` in the reader this once): menu item 3,
+  renames `ELNK3.VXD` to `.OFF`, LS-120 off, Nero on; every other entry renames it back. Backups:
+  `CONFIG.BSR` (md5 `8287cff9`), `AUTOEXEC.BSR` (`9846e238`). Sources in `tools/bootmenu/`. Not yet
+  booted: test with `START PERFLOG X 30`, expect ~200 KB less locked than a FULL boot, and note any
+  network-card message.
