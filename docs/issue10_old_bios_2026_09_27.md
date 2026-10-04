@@ -215,8 +215,29 @@ is survivable under Windows.
 `NODIAGS` in Cimon's `CONFIG.SYS` means Windows makes the first writes to his extended memory.
 Whether the check fires on his 5150, and how Windows 95 reacts, is not known.
 
+## 10. NMI tools, 2026-10-04
+
+Hypothesis: on the 5150 an NMI (parity or I/O channel check) arrives as Windows 95 switches to
+protected mode, and Windows' handler stops the machine. Not yet tested on a 5150.
+
+- `tools/nmichk/NMICHK.COM` (353 B, md5 `cfb2f668`): last line of `AUTOEXEC.BAT`; logs ports `61h`/`62h`
+  to `C:\NMICHK.TXT`; `/C` clears the latches; `/M` also masks NMI (port `A0h` = 0) for the session.
+  **Sent to Cimon 2026-10-04** for one boot with `/m`, `NODIAGS` unchanged.
+- `drivers/nmiwatch/` (`NMIWATCH.VXD`, 5,000 B, md5 `bb5420ab`, 504 B locked): count only. Ports at
+  `Sys_Critical_Init` and `Init_Complete`, every NMI counted by source and passed on, latches polled
+  each second. PERFLOG `NMIWATCH\*`.
+- **Bed, one boot** (`vm_magnaram_nmiwatch`, clone of `vm_magnaram_shadram2`, 09MAY86 ROM):
+  desktop reached, SHADRAM 16/16 alongside. `NMICHK`: `61=48 62=20`. `NMIWATCH`: ports `4820h` at
+  entry and at `Init_Complete`, 0 NMIs, 0 latched seconds. 86Box models neither check, so this proves
+  the tools load and read, not the hypothesis. Raw: `docs/captures/2026-10-04_nmiwatch_bed/`.
+- No positive control: there is no safe way to raise an NMI on purpose, so a zero NMI count is weak.
+- Open: Windows' PARITY driver is written for an AT, where port `61h` bits 6/7 are the check flags.
+  On an XT port `61h` reads `48h` (bit 6 = keyboard clock). If PARITY reads it as an AT, any NMI under
+  Windows 95 would look like an I/O channel check. Needs `VMM32.VXD` decompressed (`patcher9x`).
+
 ## Next
 
+0. `NMICHK /m` boot on the 5150 (sent 2026-10-04); `NMIWATCH` + `NMICHK` boot on the owner's 5160.
 1. Cimon, looking only: SW1-3/4 positions on the 5150; whether a parity message has ever appeared.
 2. Cimon, one edit and one boot: remove `NODIAGS` from `INBRDPC.SYS`'s line, so its memory test
    writes all extended memory before Windows starts.
