@@ -1,0 +1,9 @@
+start 
+
+Pinging 10.0.2.2 with 32 bytes of data:
+
+Reply from 10.0.2.2: bytes=32 time=2ms TTL=255
+Reply from 10.0.2.2: bytes=32 time=1ms TTL=255
+Reply from 10.0.2.2: bytes=32 time=1ms TTL=255
+Reply from 10.0.2.2: bytes=32 time=1ms TTL=255
+done 
