@@ -23,7 +23,7 @@ Supersedes `next_session_2026_10_04.md` (still the record of that day: SHADRAM v
 
 1. **OFFLINE test boot:** pick OFFLINE, note any network-card message, `START PERFLOG X 30`. Expect
    ~200 KB less locked than FULL. Then one FULL boot to confirm the network comes back.
-2. **Mach8 text driver** - `docs/mach8_text_and_driver_plan.md`: off-screen memory map, mono source
+2. **Mach8 text driver (#49)** - `docs/mach8_text_and_driver_plan.md`, wider ideas in `docs/mach8_graphics_vision.md`: off-screen memory map, mono source
    from card memory, choose patch vs own driver (DDK XGA sample), find a 16-bit linker.
 3. Cimon's `WIN /D:X` / `SystemROMBreakPoint` results when they come; `vm_5150` boot (DOS boot floppy).
 
