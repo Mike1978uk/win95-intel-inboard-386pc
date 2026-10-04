@@ -69,6 +69,8 @@ vm_fdd/
 vm_fenix/
 vm_golden/
 vm_magnaram*/
+vm_nmitest/
+vm_romcache/
 vm_mousetest/
 vm_qbr*/
 vm_shadow/
