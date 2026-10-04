@@ -1,0 +1,1 @@
+NMICHK 61=48 62=20 after=20 mode=-
