@@ -194,3 +194,6 @@ Tonight's net: SHADRAM ~60 KB to Windows; the DMA buffer default would add 48 KB
 **Alert, not fixed:** `ivt68fix/IVT68FIX.ASM` and the matching comment in
 `86box_full/src/cpu/386_dynarec.c` still say 1982 ROMs fail `INBRDPC.SYS`'s signature check.
 Disproved (#10 section 1, and Cimon's 5160 on the 08NOV82 ROM).
+
+**Owed replies (owner, 2026-10-04):** only @andrew-hoffman. disruptor was answered on the forum;
+red-ray the owner answers in his own time, not tracked here; nothing is owed to Michal Necasek.

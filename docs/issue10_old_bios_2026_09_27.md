@@ -209,7 +209,9 @@ default (Intel Appendix D); it changes nothing.
   memory configuration." The Inboard reads SW1 at power-up (SOS beep if they report over 256 KB).
 
 Parity Check 2 is the I/O channel check (port `62h` bit 6). On the 5160, SHADRAM v2's first write
-to never-written card RAM raised it under Windows without a crash (`docs/next_session_2026_10_04.md`).
+to never-written card RAM raised it at Windows start-up (`docs/next_session_2026_10_04.md`). SHADRAM
+masks NMI (port `A0h` = 0) around that write, so it says nothing about whether an unmasked check
+is survivable under Windows.
 `NODIAGS` in Cimon's `CONFIG.SYS` means Windows makes the first writes to his extended memory.
 Whether the check fires on his 5150, and how Windows 95 reacts, is not known.
 
