@@ -55,3 +55,12 @@ Master-only driver loaded (md5 `4fafb2e9` in `IOSUBSYS`, stock kept as `SD120PPD
 `docs/captures/2026-10-04_issue46_card/BOOTLOG.TXT`.
 
 Still to run: the same driver with the drive unpowered, then publish it in `dist/ls120_vendor/`.
+
+## Drive unplugged, 2026-10-04 late
+
+Master-only driver: a FULL boot did not reach Windows. Master-only plus a 65,536-pass BSY wait
+(`patch_sd120ppd_bsywait.py`, md5 `8723f3d7`): start-up took 630 ticks (~35 s), reported Init Success
+with no drive, and Explorer then crashed. Other timeouts on the path (the 45 s IDENTIFY budget) still
+dominate, and the driver claims the adapter without a drive. Not a small patch. **Decision (owner):
+boot LEAN when the LS-120 is not connected.** The card is back on the master-only driver.
+Raw: `docs/captures/2026-10-04_issue46_unplugged/BOOTLOG.TXT`.
