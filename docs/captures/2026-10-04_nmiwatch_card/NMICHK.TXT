@@ -1,0 +1,2 @@
+NMICHK 61=48 62=34 after=34 mode=-
+NMICHK 61=48 62=34 after=34 mode=-

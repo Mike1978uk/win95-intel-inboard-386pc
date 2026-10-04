@@ -45,3 +45,13 @@ but the unpowered boot measured the same 892 ticks. So this is a test, not yet a
 **Test:** `patch_sd120ppd_masteronly.py` changes the loop bound at `0x209a` from 2 to 1 (file offset
 `0x209d`, md5 `4fafb2e9`). One boot with the drive powered, `BOOTLOG.TXT` on. If init drops from
 ~892 ticks to a few dozen, the slave probe is the cost; then the unpowered case.
+
+## Result on the 5160, 2026-10-04 (one FULL boot, drive powered)
+
+Master-only driver loaded (md5 `4fafb2e9` in `IOSUBSYS`, stock kept as `SD120PPD.STK`):
+`[00159E2E] Initing sd120ppd.mpd` -> `[00159E9F] Init Success`, **113 ticks** (~6 s) against
+891-897 with the stock driver. The drive mounted, took a write, and `FC` matched a copied file
+(owner). So the empty slave position cost ~779 ticks (~43 s) every boot. Raw:
+`docs/captures/2026-10-04_issue46_card/BOOTLOG.TXT`.
+
+Still to run: the same driver with the drive unpowered, then publish it in `dist/ls120_vendor/`.
