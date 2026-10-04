@@ -197,3 +197,11 @@ Disproved (#10 section 1, and Cimon's 5160 on the 08NOV82 ROM).
 
 **Owed replies (owner, 2026-10-04):** only @andrew-hoffman. disruptor was answered on the forum;
 red-ray the owner answers in his own time, not tracked here; nothing is owed to Michal Necasek.
+
+## 86Box window gating, 2026-10-04 evening (diagnostic tree `86box_3c509b`, local)
+
+`696cd8cd1` gates the `5E0000`/`5F0000` windows on port `670h` bit 0, as the card does;
+`32bbc97c0` puts the memory timing back on bit 0. Keying the timing on the wait-state field
+instead let `INBRDPC.SYS`'s memory diagnostic fall back into POST (`F000:E05B` from `E059`)
+in the bed; with bit 0 it passes. Bed boots: gating with and without `NODIAGS` reach the
+desktop. Why the diagnostic needs that slow phase is open. Raw: `docs/captures/2026-10-04_romcache_bed/`.
