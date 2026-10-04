@@ -1,0 +1,1 @@
+large 800x600x8 dpi=96 text_sys=5133 text_sys_same=6496 text_fixed=5578 blit=368 fill=770 ms
