@@ -301,6 +301,21 @@ the 8-bit bus. One line in `SYSTEM.INI` `[386Enh]`: `device=C:\SWAPCOMP.VXD`. De
 faster, 2.64:1 on real swap traffic, 0 errors, +22 KB locked. Page integrity was checked with
 the checksum build in 86Box only. Details and the checksum build: [`dist/swapcomp/`](dist/swapcomp/).
 
+### `ELNK3.VXD` — 3C509B network card, without every multicast frame on the LAN
+
+**[⬇ ELNK3_NOMCAST.VXD](https://github.com/Mike1978uk/win95-intel-inboard-386pc/raw/master/dist/post-install-fixes/ELNK3_NOMCAST.VXD)** · md5 `73f85aeeb2a06e72b6a5aab605a8fa63` (stock `301b14c435de0a94d8b2f5aba7bf42f8`)
+
+The 3C509B has no multicast hash filter: it accepts all multicast or none. Windows 95's TCP/IP asks
+for a multicast list, so the stock driver opens the card to every mDNS, SSDP and IPv6 multicast frame
+on the LAN, and each one is read across the 8-bit bus before the stack drops it. One byte stops a
+multicast-list request setting that bit; an explicit all-multicast request still does. Copy it over
+`C:\WINDOWS\SYSTEM\ELNK3.VXD` after the network card is installed (keep the original), and reboot.
+
+**Confirmed on the real 5160**: loads, idle CPU 1.07% against 1.27-1.40% on stock (30 s runs, within
+noise), and web browsing to three sites works. In 86Box the receive filter changes from 7 to 5 and
+DHCP, ARP and ping still work. **Not tested:** Windows file sharing or mapped drives, and long sessions.
+Patch script: `drivers/3c509b/patch_elnk3_nomcast.py`; notes: [`docs/elnk3_multicast_2026_10_04.md`](docs/elnk3_multicast_2026_10_04.md).
+
 ---
 ## ⚠️ Loads on real hardware, not yet proven correct
 
