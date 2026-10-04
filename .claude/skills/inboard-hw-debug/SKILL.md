@@ -55,6 +55,9 @@ end to end.** Find what applies, read that, and add back what you learn.
 | Attributing RAM, "what is locked" | **136** - System Monitor's locked figure includes the disk cache; subtract it. `tools/le_locked.py` for driver shares |
 | Need Safe Mode | **137** - F5 skips `INBRDPC.SYS`; use the boot menu's SAFE entry (`WIN /D:M`) |
 | Editing `AUTOEXEC.BAT` / a boot menu | **138** - never a bare `GOTO %CONFIG%`; `IVT68FIX` must stay the last command before Windows |
+| A bed run: what to watch, screenshots, which bed has which device | **140** - count a PERFLOG label's rows before the boot; `PrintWindow` armed before launch |
+| A driver's start-up time does not change with the device's state | **141** - an empty bridge position or a fast-bus loop count running to its timeout |
+| The emulator cannot produce the fault (parity, I/O channel check) | **142** - inject it (`INBOARD_NMITEST`) as a positive control |
 | Editing ANY DOS/Windows text file (`.INI`, `.BAT`, `.SYS` config, `.INF`) on the card or in an image | **139** - read the bytes first: CRLF or LF? Match on what is there, never on what it should be |
 | Selling a transfer-width win | **128** - attribute the fixed per-access cost first. **128c**: XT-IDE cannot use dword |
 
@@ -8346,3 +8349,32 @@ not knowledge, it is a step:
 5. **Backslashes:** write the script with the Write tool and build paths with `b"\x5c"` or
    `chr(92)` (technique 138). Never Python inside a bash heredoc.
 6. **Verify by size, not by eye:** a CRLF file grows by exactly the inserted bytes plus 2 per line.
+
+## Technique 140: bed runs - watch the right thing, capture the screen properly (2026-10-04)
+
+- **PERFLOG labels collide.** Bed images carry old rows (151 rows labelled `C` sat in one); a watcher
+  counting rows for a reused label fires at once. Count the label's rows *before* the boot and watch for
+  the increase, or pick a label that is not there. The same goes for any result file a probe overwrites
+  (`NETPROBE.TXT`): check the 86Box log shows this boot did the work.
+- **Screenshots of a covered or off-screen 86Box window:** desktop capture grabs whatever is on top. Use
+  `PrintWindow` with flag 2 on the 86Box window handle. Arm the capture *before* launch, waiting for the
+  new process: POST and boot ROM messages are gone within seconds.
+- **Check a bed has the device before asking it a question.** The `vm_magnaram*` / `vm_romcache` line has
+  no 3C509B (and breaks the mirror-the-hardware rule); `vm_3c509b_irq2` has NIC 320/IRQ 9.
+- **The 86Box Mach8 model does not run ATI's accelerated mode:** Windows in the bed falls back to VGA,
+  so any display-driver question is measured on the 5160 (`tools/txtbench/`).
+
+## Technique 141: an empty position on a bridge costs a full timeout every boot (#46)
+
+A vendor miniport that probes master *and* slave behind a single-device bridge waits out its whole BSY
+timeout on the empty slave, every boot, drive powered or not - the giveaway is a start-up time that does
+not change with the drive's state (`SD120PPD.MPD`: 891-897 ticks in every configuration). Loop counts
+sized for a fast bus also stretch here: a 500,000-pass BSY wait with a status read through the parallel
+bridge ran ~43 s. Patch the probe loop bound before shortening timeouts. An *unplugged* drive is a
+different problem: the driver still claims the adapter and later I/O hangs - boot without the driver.
+
+## Technique 142: inject the fault the emulator cannot produce
+
+86Box raises no parity or I/O channel check on an XT. `INBOARD_NMITEST=<n>` (diagnostic branch) sets port
+`62h` bit 6 and raises one NMI `<n>` instructions after the first CS `28h` code: the positive control a
+real-hardware NMI counter lacks. Result recorded in #10: one NMI is not fatal to Windows 95.
