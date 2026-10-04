@@ -171,20 +171,58 @@ reports from the 5150. He confirms the earlier board photo was his other 5150, w
 Owner replied 2026-09-30 and asked for a dump of the 5150's BIOS (`DEBUG`, `w f000:0` with `BX:CX` = `1:0000`), so the exact ROM can run in the bed on the 5150 machine
 type. That separates the BIOS from the board without another boot on his side.
 
+## 9. Cimon's replies to 2026-10-04, and what they rule out
+
+VCFed private conversation "Inboard 386 experiments", page 11 (owner's account; not public).
+
+| fact (Cimon) | consequence |
+|---|---|
+| WfW 3.11 runs on his 5150 in protected mode (WfW 3.11 is 386 enhanced only) | The switch to protected mode works on a 5150 with the Inboard. Only Windows 95 stops there. |
+| The 5150 tests used the hard disk from his 5160 | Same Windows install on both. The logs still differ (`mtrr.vxd`, `VMCPD.VXD` from file only on the 5150); not explained. |
+| A second 5150 board, another TMS850 SCSI card, same Super PC BIOS: same stop | Not a faulty board or card. |
+| His IBM `1501476` ROM does not pass the first floppy test | Chip probably damaged (board had a RIFA capacitor failure). He has another, not yet found. Every failing boot so far ran the Super PC BIOS. |
+| The Super PC BIOS was fitted because the IBM ROM would not run newer CPUs | - |
+
+**Super PC/Turbo XT BIOS v2.5 source read** (<https://www.phatcode.net/downloads.php?id=101>,
+`pcxtbios25.zip`, source and binaries; Plasma, May 2012). Nothing found that Windows 95 would trip on:
+
+- INT 15h: `stc / mov ah,86h / retf 2` for every function - byte for byte the 08NOV82 XT stub,
+  which runs Win95 on Cimon's 5160 and in the section 4 `OLDBIOS` run.
+- Model byte `FF` when built with `IBM_PC` (his MSD reads `FF`).
+- Memory size: probes RAM up to `MAX_MEMORY` (640 KB) and never reads SW2.
+- 8259 init `13h 08h 09h`, NMI and parity enabled at the end of POST, unexpected-IRQ handler: as IBM.
+- The download's binaries are the default XT build (model `FE`, turbo on), not his. His exact ROM
+  still needs the dump requested in section 8.
+
+**Our patches on his machine.** His `AUTOEXEC.BAT` (in `MSD5150.TXT`) ends with `c:\ivt68fix.com`.
+`F000:FF53` is `CF` (`IRET`) in the Super PC binary and in every IBM 5150 and 5160 ROM in `roms/`,
+so `IVT68FIX` works with his BIOS. `WAIT86` is not installed; it only matters for V86 floppy motor
+waits (Setup), and his BIOS's INT 15h never waits. `ISPEEDPC.EXE 4` = 0 added wait states, the
+default (Intel Appendix D); it changes nothing.
+
+**Intel's troubleshooting notes** (`DOX1.TXT` in the owner's Intel files):
+
+- "A055 201 Parity Check 2: make sure the power supply is rated for 100 watts or greater." The
+  stock 5150 supply is 63.5 W. Deprioritised: WfW 3.11 reaches protected mode on the same supply,
+  and the stop is at the same point on two boards.
+- The same error on IBM PCs when SW1-3 and SW1-4 are ON: "These switches must be OFF for a valid
+  memory configuration." The Inboard reads SW1 at power-up (SOS beep if they report over 256 KB).
+
+Parity Check 2 is the I/O channel check (port `62h` bit 6). On the 5160, SHADRAM v2's first write
+to never-written card RAM raised it under Windows without a crash (`docs/next_session_2026_10_04.md`).
+`NODIAGS` in Cimon's `CONFIG.SYS` means Windows makes the first writes to his extended memory.
+Whether the check fires on his 5150, and how Windows 95 reacts, is not known.
+
 ## Next
 
-0a. Asked Cimon 2026-09-29 late (owner, thanked): boot the 5150 once more with the Future Domain
-   lines remarked out (or with his 5160 disk), boot log on; and which board the photo shows.
-0. Asked Cimon 2026-09-29 (owner): which BIOS the 5150 carries (`05/02/12`), the `BOOTLOG.TXT`,
-   and whether the 5160 floppy was formatted elsewhere. Told him not to repeat the probe.
-   His ROM is not the whole cause: the owner's former 5150 and others on VCFed failed Windows
-   3.11 on stock IBM ROMs.
-   @andrew-hoffman suggested GLaBIOS (<https://github.com/640-KB/GLaBIOS>), an open-source
-   PC/XT BIOS, to try in the bed; not yet tried.
-   Any re-run of the probe needs a free address checked first (`R` in DEBUG shows its own segment).
-1. Cimon (message sent by the owner): the DEBUG DMA probe on his 5150 and 5160, `BOOTLOG.TXT`
-   from the failing boot, BIOS date, planar RAM and SW1/SW2.
-2. The owner can run the same probe on the 5160 as the control.
-3. If DMA and CPU disagree on a 5150, model planar RAM in the emulator (DMA-only block below the
-   planar limit) and test workarounds there first.
-4. Windows 3.11 on the 5150 ROM in the emulator is still untried.
+1. Cimon, looking only: SW1-3/4 positions on the 5150; whether a parity message has ever appeared.
+2. Cimon, one edit and one boot: remove `NODIAGS` from `INBRDPC.SYS`'s line, so its memory test
+   writes all extended memory before Windows starts.
+3. If the check is implicated: a small `.COM` before `WIN` that reports port `62h` bits 6/7 and
+   clears the latch. A VxD that catches the NMI and continues comes last - it would also hide real
+   parity errors, so it must count and report them.
+4. His BIOS dump (section 8) in the bed on the 5150 machine type; or his second IBM `1476` ROM, or
+   the Super PC BIOS fitted in his 5160, to separate BIOS from board on hardware.
+5. The pre-monolith install on the 5150 (Cimon's suggestion) - after 1-4, since it changes the
+   whole Windows build.
+6. GLaBIOS in the bed (@andrew-hoffman, <https://github.com/640-KB/GLaBIOS>) - still untried.

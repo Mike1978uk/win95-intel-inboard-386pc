@@ -171,3 +171,26 @@ then check the same disks from a DOS boot. Same steps at 64 only if 16 misbehave
 2. **The driver track** - RAM trim, `docs/driver_audit_2026_09_28.md`, technique 136 (subtract the
    disk cache from locked before attributing).
 Tonight's net: SHADRAM ~60 KB to Windows; the DMA buffer default would add 48 KB - ~108 KB if it holds.
+
+## Desk notes, 2026-10-04 afternoon
+
+- **Network panel (owner):** no File and Printer Sharing; TCP/IP is the only protocol. Nothing
+  left to unbind; the stack that remains is what drive mapping needs.
+- **`PAGERUN` screen leftovers** (photo `XT_project/photos/IMG_1442.jpeg`): intact pieces of closed
+  windows (Notepad on `WIN.INI`), partly repainted. A missed desktop repaint under paging, not bus or
+  VRAM corruption. Check next time: F5 on the desktop or drag a window over it. Optional: a desktop
+  `RedrawWindow` as `PAGERUN`'s last step (cosmetic, not done).
+- **Mouse clicks lag, pointer does not:** a serial mouse sends buttons and movement in the same
+  3-byte packet, so the delay is after the driver - the click waits for its program to run. Test:
+  Mouse control panel test area, idle and during `PAGERUN`.
+- **Driver size:** `SD120PPD.MPD` `.text` 64,018 B against our retired `LS120MP.MPD` 3,932 B and
+  `XTIDEMP.MPD` 3,360 B. Compressing drivers gains no RAM (locked code runs decompressed). A
+  coverage trace of the vendor driver in the LS-120 bed is the spec for a lean rewrite; pair it
+  with #46.
+- **Mach8 VRAM as RAM:** no - reachable only through `PIX_TRANS` at ~1.9 us/byte, no faster than
+  paging to the CF. A12b (glyph cache timing, `docs/bus_optimisation_plan.md`) is the open item.
+- **#10:** section 9 of `docs/issue10_old_bios_2026_09_27.md`.
+
+**Alert, not fixed:** `ivt68fix/IVT68FIX.ASM` and the matching comment in
+`86box_full/src/cpu/386_dynarec.c` still say 1982 ROMs fail `INBRDPC.SYS`'s signature check.
+Disproved (#10 section 1, and Cimon's 5160 on the 08NOV82 ROM).
