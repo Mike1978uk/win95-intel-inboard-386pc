@@ -235,6 +235,24 @@ protected mode, and Windows' handler stops the machine. Not yet tested on a 5150
   On an XT port `61h` reads `48h` (bit 6 = keyboard clock). If PARITY reads it as an AT, any NMI under
   Windows 95 would look like an I/O channel check. Needs `VMM32.VXD` decompressed (`patcher9x`).
 
+### 10a. Injected NMI in the bed, 2026-10-04
+
+Diagnostic build (`diag-issue10` `6bdb6eb5c`, local): `INBOARD_NMITEST=<n>` sets port `62h` bit 6
+and raises one NMI `<n>` instructions after the first protected-mode code at CS `28h` (the VMM);
+port `61h` bit 5 clears the latch. Bed `vm_nmitest` (clone of `vm_magnaram_nmiwatch`, no
+NMIWATCH, NMICHK or SHADRAM), 09MAY86 ROM, `n` = 2,000,000. Raw: `docs/captures/2026-10-04_nmitest_bed/`.
+
+| run | log | result |
+|---|---|---|
+| 1 | raised at `0028:C0361586`, mask `80h` (delivery not logged) | desktop, PERFLOG ran |
+| 2 | raised as run 1; **delivered** to `0028:C0004054`, protected mode | desktop; PERFLOG did not run (startup batch staged with LF line ends - our error) |
+
+Port `62h` was never read and the latch never cleared: Windows 95 took the NMI and carried on
+without looking at the cause. So in the emulator, one NMI after the VMM is running is **not
+fatal**, which weakens the "PARITY was written for an AT" idea for this moment. Not yet tested: an
+NMI at the switch itself (`n` = 0), before the VMM's interrupt table is in place; the 5150 ROM;
+repeated NMIs.
+
 ## Next
 
 0. `NMICHK /m` boot on the 5150 (sent 2026-10-04); `NMIWATCH` + `NMICHK` boot on the owner's 5160.
