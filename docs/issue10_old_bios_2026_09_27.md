@@ -256,6 +256,14 @@ form of the hypothesis does not hold here. Still possible on hardware and not mo
 inside the few instructions of the mode switch itself, repeated NMIs, or a check that comes with
 corrupted memory rather than alone. Cimon's `NMICHK /m` boot remains the hardware test.
 
+### 10b. Cimon's NMICHK boot, 2026-10-04
+
+`NMICHK /m` on his 5150 (Super PC BIOS, `NODIAGS` unchanged), run just before `IVT68FIX`:
+`61=48 62=20 after=20 mode=M`. Nothing latched before Windows, NMI masked for the boot - and Windows 95
+still stops after the last real-mode VxD (`EBIOS` LoadFailed), as before. **The NMI lead is closed.**
+Files held locally with his others (`NMICHK.TXT`, `BTLG0410.txt`). Left: the 5150 board versus his
+exact BIOS build - the `vm_5150` bed separates them once it boots.
+
 ## Next
 
 0. `NMICHK /m` boot on the 5150 (sent 2026-10-04); `NMIWATCH` + `NMICHK` boot on the owner's 5160.
