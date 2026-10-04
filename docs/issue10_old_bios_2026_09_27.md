@@ -246,12 +246,15 @@ NMIWATCH, NMICHK or SHADRAM), 09MAY86 ROM, `n` = 2,000,000. Raw: `docs/captures/
 |---|---|---|
 | 1 | raised at `0028:C0361586`, mask `80h` (delivery not logged) | desktop, PERFLOG ran |
 | 2 | raised as run 1; **delivered** to `0028:C0004054`, protected mode | desktop; PERFLOG did not run (startup batch staged with LF line ends - our error) |
+| 3 | `n` = 0: raised at the first CS `28h` instruction; delivered to `0008:000007E1` (the loader's handler) | desktop, PERFLOG ran |
+| 4 | as run 3 on the **5150 ROM** (27OCT82, 5150 PPI) | desktop, PERFLOG ran; identical log |
 
 Port `62h` was never read and the latch never cleared: Windows 95 took the NMI and carried on
-without looking at the cause. So in the emulator, one NMI after the VMM is running is **not
-fatal**, which weakens the "PARITY was written for an AT" idea for this moment. Not yet tested: an
-NMI at the switch itself (`n` = 0), before the VMM's interrupt table is in place; the 5150 ROM;
-repeated NMIs.
+without looking at the cause. In the emulator a single I/O channel check NMI is **not fatal** -
+at the switch or after it, on the 1986 XT ROM or the 5150 ROM. The "any NMI is fatal on an XT"
+form of the hypothesis does not hold here. Still possible on hardware and not modelled: an NMI
+inside the few instructions of the mode switch itself, repeated NMIs, or a check that comes with
+corrupted memory rather than alone. Cimon's `NMICHK /m` boot remains the hardware test.
 
 ## Next
 

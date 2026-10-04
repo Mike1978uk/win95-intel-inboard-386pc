@@ -1,0 +1,56 @@
+#
+# 86Box v7.0 logfile, created 2026/10/04 20:56:40
+#
+# Emulator path: C:/Users/lycet/RiderProjects/86Box-Inboard/86box_3c509b/build_log/src//
+# Global configuration file: C:/Users/lycet/AppData/Local/86Box/86box_global.cfg
+# VM: vm_nmitest
+#
+# Configuration file: C:/Users/lycet/RiderProjects/86Box-Inboard/vm_nmitest/86box.cfg
+#
+
+# Userfiles path: C:/Users/lycet/RiderProjects/86Box-Inboard/vm_nmitest/
+# ROM path: C:/Users/lycet/RiderProjects/86Box-Inboard/vm_nmitest/roms/
+# ROM path: C:/Users/lycet/RiderProjects/86Box-Inboard/86box_3c509b/build_log/src//roms/
+# ROM path: C:/Users/lycet/AppData/Local/86Box/roms/
+# Asset path: C:/Users/lycet/RiderProjects/86Box-Inboard/vm_nmitest/assets/
+# Asset path: C:/Users/lycet/RiderProjects/86Box-Inboard/86box_3c509b/build_log/src//assets/
+# Asset path: C:/Users/lycet/AppData/Local/86Box/assets/
+DIAG10: Inboard machine BIOS ibm5150_1501476 (5150 PPI)
+BPCK: attached as unit 07 on LPT port 0
+*** 1 repeats ***
+DIAG10 RESET hard  at 0000:00000000
+DIAG10 RESETVEC F000:FFF0 reached from 0000:00000000 (pm=0)
+NMITEST: enabled, delay 0
+DIAG10 RESETVEC F000:E05B reached from F000:0000FFF0 (pm=0)
+  MODELBYTE read by [F000:0000EC53] pm=0 v86=0 cpl=0
+DIAG7 [C000:0000041C] 4AE8 advfunc=00 on=0 hdisp=0 vdisp=0
+DIAG7 [C000:00007A62] 4AE8 advfunc=06 on=0 hdisp=640 vdisp=480
+DIAG7 [C000:0000731E] 4AEE clock_sel=1850 on=0 hdisp=640 vdisp=480
+DIAG7 [C000:0000731E] 4AEE clock_sel=181C on=0 hdisp=1024 vdisp=768
+DIAG7 [C000:00007A62] 4AE8 advfunc=02 on=0 hdisp=1024 vdisp=768
+DIAG7 [C000:000075CD] 4AE8 advfunc=02 on=0 hdisp=640 vdisp=480
+DIAG7 [C000:00007A62] 4AE8 advfunc=02 on=0 hdisp=640 vdisp=480
+*** 5 repeats ***
+DIAG7 [C000:000075CD] 4AE8 advfunc=02 on=0 hdisp=640 vdisp=480
+DIAG7 [C000:0000731E] 4AEE clock_sel=1850 on=0 hdisp=640 vdisp=480
+DIAG7 [C000:0000731E] 4AEE clock_sel=181C on=0 hdisp=640 vdisp=480
+DIAG7 [C000:0000708E] 4AE8 advfunc=02 on=0 hdisp=640 vdisp=480
+BPCK: W0 AA            [---- reg=00 knock=0]
+  MODELBYTE read by [0070:00000A77] pm=0 v86=0 cpl=0
+BPCK: W2 08 (was 00)  [---- reg=00 knock=0]
+BPCK: W2 0C (was 08)  [---- reg=00 knock=0]
+BPCK: R1 -> D8          [---- reg=00 knock=0]
+  MODELBYTE read by [0020:00000950] pm=1 v86=0 cpl=0
+  MODELBYTE read by [0325:000008A1] pm=0 v86=0 cpl=0
+  MODELBYTE read by [8785:00003A3A] pm=0 v86=0 cpl=0
+  MODELBYTE read by [0B5C:000005AA] pm=0 v86=0 cpl=0
+  MODELBYTE read by [0B5A:000005AA] pm=0 v86=0 cpl=0
+  MODELBYTE read by [0B5B:0000124C] pm=0 v86=0 cpl=0
+  MODELBYTE read by [0B5B:000012FF] pm=0 v86=0 cpl=0
+NMITEST: armed at 0028:C03604FA
+NMITEST: raised at 0028:C03604FA, nmi_mask 80
+NMITEST: delivered, now at 0008:000007E1, pm 1, vm86 0
+  MODELBYTE read by [0028:C0360575] pm=1 v86=0 cpl=0
+[0117:0000B929] Illegal instruction 00008B55 (FF)
+  MODELBYTE read by [01EF:0000002A] pm=1 v86=0 cpl=3
+  MODELBYTE read by [0028:C0234B9E] pm=1 v86=0 cpl=0
