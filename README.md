@@ -232,12 +232,12 @@ and there was nothing to configure.
 ## Upstream
 
 **The Intel Inboard 386/PC is part of 86Box.** Fourteen PRs raised from this project are merged;
-none are open.
+two are open.
 
 | Merged PR | What it fixed |
 |---|---|
 | [#7626](https://github.com/86Box/86Box/pull/7626) | The hardware model itself, ported from SuperFury's [UniPCemu](https://superfury.itch.io/unipcemu) `hardware/inboard.c` |
-| [#7749](https://github.com/86Box/86Box/pull/7749) | POST 101 (the machine defaulted to an incompatible 1982 ROM); 386DX ran no POST fix-ups at all; double-throttled memory timing |
+| [#7749](https://github.com/86Box/86Box/pull/7749) | POST 101 (the machine silently defaulted to the 1982 ROM, then blamed for it - see #8217); 386DX ran no POST fix-ups at all; double-throttled memory timing |
 | [#7760](https://github.com/86Box/86Box/pull/7760) | `rammap()` dereferenced NULL on a page-table walk through unbacked memory — a guest could crash 86Box outright |
 | [#7761](https://github.com/86Box/86Box/pull/7761) | The reserved block is 128 KB at a fixed `0x5E0000`–`0x5FFFFF`, not 64 KB derived from RAM size |
 | [#7765](https://github.com/86Box/86Box/pull/7765) | `bad extended memory` — the high `0x5F0000` alias must read shadow RAM, not ROM. Now reports **0k** |
@@ -251,6 +251,11 @@ none are open.
 | [#8099](https://github.com/86Box/86Box/pull/8099) | The vendor LS-120 drivers on the EPAT model: `SD120PPD.SYS` with and without `/di`, and `SD120PPD.MPD` under Windows 95, each reading and writing. Fixes read out of the driver: the unit scan, doubled writes, the interrupt self-test, INTRQ in register 12h, the internal register window, interrupt delivery after the port is enabled, and a register value of 22h no longer taken for an unlock frame. Merged 2026-09-25 |
 | [#8102](https://github.com/86Box/86Box/pull/8102) | Since #8087's Plug and Play support, a 3C509B found by 3Com's DOS drivers came up with no IRQ; the fix keeps the EEPROM's IRQ across a Plug and Play reset. |
 
+| Open PR | What it fixes |
+|---|---|
+| [#8216](https://github.com/86Box/86Box/pull/8216) | The Inboard memory map: the card's own 256 KB of extended memory (a 1 MB board had none, every other size was 256 KB short); the `0x5E0000`/`0x5F0000` windows follow port 670h bit 0, as on the card; and the BIOS window's exec pointer follows its reads, so `INBRDPC.SYS`'s full memory check finishes under the dynarec. Reported on [#7638](https://github.com/86Box/86Box/issues/7638) |
+| [#8217](https://github.com/86Box/86Box/pull/8217) | Offers the 08NOV82 XT BIOS on the Inboard again: the "incompatible" verdict that removed it came from the shadow-window bugs, and a real 5160 runs Windows 95 on it. Only that ROM - others are untested |
+
 One further upstream bug was reported from here and fixed by 86Box directly, with no PR from us:
 [#7805](https://github.com/86Box/86Box/issues/7805) — the Machine settings dialog snapped RAM to a
 bitmask from zero rather than from the machine's minimum, so opening the dialog and clicking OK
@@ -260,7 +265,7 @@ here, fixed by OBattler in `9ee5197`.
 ### Which build to test on
 
 **Test on upstream 86Box master, not on [`86box_full/`](86box_full/).** Every Inboard change is now
-merged, so master carries the whole model — the device, the machine entry, the 1986-only BIOS list
+merged, so master carries the whole model — the device, the machine entry, the 1986 BIOS list
 and the DMA page latch — plus upstream's own fixes as they land. `86box_full/` is a vendored
 snapshot that also carries the investigation's tracing hooks; those hooks cost roughly 3.45× in
 guest instructions per second, which is why [#14](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/14)
@@ -269,7 +274,8 @@ needs a quiet build. Keep it for reproducing the traces, not for measuring behav
 The POST 101 story is worth knowing if you tried the merged machine early and found it broken: the
 machine shared `ibmxt_config`, whose default is a 1982-dated 5160 ROM, and the 1986 entries
 existed only in this repo's tree, so a `bios =` line naming one was ignored without warning. The
-machine now has its own BIOS list containing only the two 1986 revisions.
+machine now has its own BIOS list; [#8217](https://github.com/86Box/86Box/pull/8217) adds the
+08NOV82 ROM back to it.
 
 ⚠ **Corrected 2026-09-27:** this paragraph used to say `INBRDPC.SYS` cannot work with a 1982 ROM
 because it checks a signature at `F000:E05B`. It does not: all IBM revisions carry the same bytes
@@ -500,20 +506,20 @@ rather than a DMA-reach one — is on the issue.
 
 | | |
 |---|---|
-| [#10](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/10) | Idea: a loadable BIOS-extension shim so 1982-era 5150/5160 ROMs can run Windows |
+| [#10](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/10) | 1982-era ROMs. The 08NOV82 XT ROM runs Windows 95, on a real 5160 and in the emulator ([#8217](https://github.com/86Box/86Box/pull/8217) offers it upstream); a real 5150 still stops when Windows starts |
 | [#18](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/18) | Floppy corruption after a media change. DMA reach is fixed (`maxPhys 0x1000 -> 0xFF`, shipped as `HSFLOP_XTDMA.PDR`) and reads/writes measured clean here, but that harness never changed media, which is this issue's trigger. The reproduction bed - 86Box + Monster Floppy + the patched driver + a media change - is still to be built, and needs no hardware |
 | [#23](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/23) | `XTIDEMP.MPD` cannot drive the XT-IDE Hi-Speed register map - an A3/A0 swap is a permutation, and the driver computes `base + index * stride`. Blocked on hardware to test against, and on 86Box having no Hi-Speed model |
 | [#28](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/28) | Per-component audit: walk every driver and VxD, six questions each |
+| [#29](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/29) | Measure DMA: reach, cost per byte, channel inventory, CPU overlap |
 | [#31](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/31) | The SCSI chain: does it disconnect, and are the target caches on? Every target has one, and this is the most on-point mechanism in the machine |
 | [#33](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/33) | DRAM refresh tuning: a tax every device pays |
-| [#34](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/34) | Display mode as a bus lever: 1024x768 vs 800x600 vs 640x480 |
 | [#35](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/35) | Shadow RAM inventory, and memory-mapped storage in the emulator |
 | [#41](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/41) | Pace the polling in every driver that spins: `T130.MPD`, `HSFLOP.PDR`, `ELNK3.VXD`. A poll is **5.55 us** of bus moving nothing against **0.22 us** for a cached delay - and since 2026-09-21 we know it also **flushes the L1**, so each poll removed is worth more than its bus time |
 | [#43](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/43) | IOCHRDY: what a held bus actually costs. Our own three-window fit already isolates it - per bus cycle **1.978 us** (XT-CF ROM) against **3.805 us** (Mach8 video), same machine, same fixed sync term. And **86Box models no bus stall at all**, so any lever whose whole benefit is holding the bus for less time measures as zero in the bed |
 | [#45](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/45) | Windows 95 settings and the timer tick, each A/B tested on the 5160. A 1 ms tick costs 15% of the CPU; the LS-120 is the one driver left that might gain from it |
-| [#46](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/46) | The vendor `SD120PPD.MPD` stalls every Windows boot by about 49 s, drive powered or not. The LEAN boot entry avoids it until the driver is patched |
 | [#47](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/47) | FastDoom: settings that give Sound Blaster sound and a usable frame rate |
 | [#48](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/48) | Optimisation timeline: what each change bought, from first boot to now |
+| [#49](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/49) | Mach8 display driver: a glyph cache to cut text traffic on the 8-bit bus |
 
 Issues are labelled **`emulator`** or **`real-hardware`** so you can pick by what you have, and
 **`upstream`** marks the ones destined for 86Box itself.
