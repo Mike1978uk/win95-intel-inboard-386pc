@@ -127,3 +127,24 @@ pointer at the ROM snapshot or the shadow buffer to match the read handler. Clea
 1 MB and 5 MB: 256k and 4352k detected/diagnosed/functional, 0k bad. Branch
 `inboard-ext-256k-master` is two commits, one file, +66/-5. Diagnostics kept on
 `inboard-ext-256k-heartbeat` (`4f3738caf`), not for upstream.
+
+### The 08NOV82 XT BIOS, offered again - 2026-10-05
+
+The Inboard's BIOS list was cut to the two 1986 ROMs in August on the claim that `INBRDPC.SYS` needs a
+signature at `F000:E05B`. That was the shadow-window bug (`docs/issue10_old_bios_2026_09_27.md`), and
+Cimon's real 5160 runs Windows 95 on the 08NOV82 ROM. Branch `inboard-1982-bios` (`0d234a599`, off
+upstream master): one list entry, identical to `ibmxt_config`'s, and the August comment replaced.
+Only this ROM is offered - 16AUG82, the Alt BASIC pairing and the 5150 ROMs have no Inboard evidence,
+and the owner does not want to support ROMs that are not known to work.
+
+Tested with all three commits together (branch `inboard-test-all`):
+
+- the 1982 ROM is the one running: DEBUG in the guest read `B1 05 D2 EC ...` at `F000:E07E` and
+  `11/08/82` at `F000:FFF5`;
+- memory panel, both cores, 1 MB and 5 MB: 256k and 4352k detected/diagnosed/functional, 0k bad;
+- Windows 95 on `vm_magnaram_off` (`86box_3c509b`, branch `inboard-ext-256k-diag` with the exec fix
+  merged into its local port-670h window gating): 5.0 MB on 09MAY86 and on 08NOV82, owner-read; one
+  hard reset at power-on in each log. The bed's PERFLOG startup was off for the 08NOV82 boot only and
+  is restored.
+
+ILIM386 on a 1 MB board reported "Total available = 256 KB": independent confirmation of the 256 KB fix.
