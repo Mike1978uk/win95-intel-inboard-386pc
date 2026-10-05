@@ -446,6 +446,9 @@ and the [contributor ledger](docs/contributor_input_ledger.md).
   Annotated in [`docs/xt_io_port_reference_annotated.md`](docs/xt_io_port_reference_annotated.md).
 - **[FastDoom](https://github.com/viti95/FastDoom)** (viti95) — real-hardware-validated XT
   keyboard ISR reference.
+- **Christian ([@holzachr](https://github.com/holzachr))** — [`xga-win9x`](https://github.com/holzachr/xga-win9x),
+  his build of the Windows 95 DDK's XGA display driver. His working 16-bit build is the recipe and
+  layout for the Mach8 driver work on #49. Thank you, Christian.
 - **Kevin E. Martin** — author of the XFree86 8514/A and Mach8 accelerated servers
   ([XFree86 3.3.6](http://ftp.xfree86.org/pub/XFree86/3.3.6/source/), with Rickard E. Faith, Scott
   Laird and Tiago Gons). Their off-screen glyph cache is the model for the Mach8 text work on #49;

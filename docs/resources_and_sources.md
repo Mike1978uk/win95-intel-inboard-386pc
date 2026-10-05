@@ -128,6 +128,12 @@ the directory's own `README.md`.
   — reframed issue #8. **[PRIMARY]**
 - **[DOSDays: ATI Mach8](https://www.dosdays.co.uk/topics/Manufacturers/ati/ati_mach8.php)** — the
   real card's jumper block.
+- **Christian (@holzachr), [`xga-win9x`](https://github.com/holzachr/xga-win9x)** - the Win95 DDK XGA
+  mini-driver sample, extended for XGA-2 and built; local copy `references/xga-win9x/`, not vendored. Gave:
+  a working 16-bit display-driver build (`buildall.bat`: MASM 6.11 with its 16-bit `LINK`, MSVC 1.5x `RC`,
+  MSVC 2.0 for the VxD, DDK headers and libs) - which names the two tools we lack - and a known-good layout
+  for a DIB Engine mini-driver. Does not contain: anything on the Mach8/8514, or a glyph cache. No licence
+  on the repo, so his code is read, not copied, unless he agrees. The owner knows him; credited in the README.
 - **XFree86 3.3.6 `XF86_Mach8` server** - http://ftp.xfree86.org/pub/XFree86/3.3.6/source/X336src-1.tgz,
   `xc/programs/Xserver/hw/xfree86/accel/{mach8,ibm8514,cache}`; local copy `references/xfree86_336_mach8/`,
   not vendored. Kevin E. Martin's Mach8/8514 servers, MIT-style licence. Gave: a working off-screen glyph

@@ -70,7 +70,7 @@ restoring it from DOS. Extend `TXTBENCH` with a bitmap test (`SetDIBitsToDevice`
   `ExtTextOut` jumps to `DIB_ExtTextOutExt`; the DIB Engine lays out the string into one 1-bpp buffer
   and calls back `DrawTextBitmap`, which copies it to off-screen memory and colour-expands once per
   string. No glyph cache. Depends on the XGA aperture. Also `XGA.NT35` (NT 3.5 XGA driver). Nothing on
-  the Mach8 or 8514/A. He is a source, not a contact.
+  the Mach8 or 8514/A. The owner knows him; credited in the README. No licence on the repo - read his code, do not copy it without asking.
 - **michaeldale, `velocity9x`** (Andrew, #49) - <https://github.com/michaeldale/velocity9x>. Win98,
   linear-framebuffer cards (Mach64 via VBE). Gave: the 8514/A-family colour-expand sequence for
   `DrawTextBitmap` on the Trio64 (`docs/decisions/2026-09-06-gdi-accel-005-text.md`: `PIX_CNTL=A080h`,
