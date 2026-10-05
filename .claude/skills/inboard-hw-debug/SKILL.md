@@ -2296,9 +2296,10 @@ RAM" - explicitly attributed to memory-hole calculation during the diagnostic. T
 (`case 0x670: MoveLowMemoryHigh = 1;`). **Our `inboard386_write_670` handles speed, ROM shadow,
 wait states and prefetch, but not the memory move at all.**
 
-**Do not test this by raising `mem_size`.** `INBRDPC.SYS` validates the board configuration and
-refuses anything that is not 1 MB, 1+2 MB or 1+4 MB - a `3328` config makes it bail before probing,
-giving a silent false negative. The fix has to come from remapping *within* the existing total.
+~~**Do not test this by raising `mem_size`.**~~ ⛔ **RETRACTED 2026-10-05.** This said `INBRDPC.SYS`
+bails on a `3328` config. QuantumByteRider ran exactly 3328 on 86Box#7638 and got 2304k extended - the
+right figure for a 3 MB board. Raising `mem_size` by 256 is a valid workaround. The proper fix maps the
+card's 256 KB in the device instead (`inboard-ext-256k`, `docs/inboard_memory_layout_2026_09_30.md`).
 
 ## ✅ FINAL VALIDATED FIX SET (2026-08-22) — 5 files, all needed
 1. `machine/m_xt.c` — dedicated `ibmxt_inboard386_config[]`, 1986 ROMs only, default
