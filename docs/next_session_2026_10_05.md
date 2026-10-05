@@ -33,3 +33,23 @@ Supersedes `next_session_2026_10_04.md` (still the record of that day: SHADRAM v
 
 86Box timing on bit 0 (why INBRDPC's diagnostic needs the slow phase); garbled mouse name in the
 registry; slow right-click menu; #46 unplugged-drive driver refusal (LEAN covers it).
+
+## Done later on 2026-10-05: three Inboard fixes for upstream 86Box (#7638)
+
+Branches pushed to `Mike1978uk/86Box`; the owner opens the PRs (drafts approved in the session).
+Write-up: `docs/inboard_memory_layout_2026_09_30.md` (last four sections). Skill technique 143.
+
+- **`inboard-memmap`** (`842b7b82d`, 3 commits, `inboard386.c` +79/-5): the card's own 256 KB of
+  extended memory; 670h bit 0 window gating; the BIOS window's exec pointer (the dynarec stall).
+- **`inboard-1982-bios`** (`0d234a599`, `m_xt.c` +13/-17): the 08NOV82 ROM offered again. Only that
+  ROM: the owner does not want to support ROMs not known to work.
+
+Gates: G1 clean (no debug in either diff). G5 comments re-read. G6 claims hold for a stranger.
+G7 both build; upstream moved to `501e717d0` with no change to the touched files. G8 minimal.
+G9 last runs on the pushed HEADs (memmap exe 15:48:46 after its 15:48:32 commit; BIOS-only exe
+15:54:53 after 15:23:43). G2 not run: the changes sit inside the Inboard device and its BIOS list,
+so other machines cannot reach them - by construction, not by measurement. G3/G10: owner checks by
+hand in a Qt build before opening (BIOS list shows 08NOV82, RAM box 1/3/5 MB, one boot). G4 n/a.
+
+Open from this: RonnyRoy is named in a code comment in `inboard-memmap` - confirm he is happy to be
+named upstream. Cimon is not named in either PR. Reply on #7638 once the PRs are up.
