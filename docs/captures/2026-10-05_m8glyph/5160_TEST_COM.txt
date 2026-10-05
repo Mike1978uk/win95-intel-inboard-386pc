@@ -1,0 +1,23 @@
+ATI TEST.COM (M8UTL), real 5160, DOS boot after M8GLYPH, 2026-10-05 21:43.
+Transcribed from the owner's photos (kept locally). No error codes at any stage.
+
+ATI Accelerator Series, Extended Test Sequence 1.46V1
+  Memory: 1M VRAM
+  Bus   :  8 bit (E)ISA
+  PCLK  :  18810-2
+  VGA installed
+
+Testing Register Integrity
+Testing FIFO Integrity
+Testing RAMDAC Integrity
+Testing Video RAM
+Test Sequence 1
+Test Sequence 2
+Hit a key to begin test patterns
+640x480x8 72 Hz Non-interlaced Test Pattern
+800x600x8 72 Hz Non-interlaced Test Pattern
+1024x768x8 72 Hz Non-interlaced Test Pattern
+1280x1024x4 87 Hz Interlaced Test Pattern
+
+The first three patterns displayed on the owner's AOC LCD; the 87 Hz interlaced
+mode did not sync (a monitor limit, not a card fault).

@@ -120,6 +120,11 @@ but the output was not kept; re-run it from a DOS boot (skip the startup) and ph
 That is the reference result, and the failing tests name what the emulator's Mach8 model lacks - the reason ATI's
 accelerated mode does not run in the bed.
 
+**Run 2026-10-05 on the 5160: every test passes** (register, FIFO, RAMDAC, video RAM, test sequences 1 and
+2; 1M VRAM, 8-bit bus, PCLK 18810-2). The 640x480, 800x600 and 1024x768 patterns displayed; 1280x1024x4
+87 Hz interlaced did not sync on the LCD. Transcript `docs/captures/2026-10-05_m8glyph/5160_TEST_COM.txt`.
+Next: the same `TEST.COM` in the bed - any test that fails there is a model gap.
+
 ## Findings from the full `ATIM8.DRV` read, 2026-10-05 (`tools/nedis.py`, new)
 
 - **`ATIM8.DRV` is a Windows 95 DIB Engine mini-driver** (imports `DIBENG`, 45 sites; `CreateDIBPDevice` at
