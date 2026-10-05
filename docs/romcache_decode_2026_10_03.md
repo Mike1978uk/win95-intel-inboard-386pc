@@ -126,3 +126,20 @@ stays in RAM. ROMPROB2's halt stays unexplained - no block it read flags here.
   `F0000` would cost 16 of those pages back.
 - **86Box** keeps `5E0000`/`5F0000` mapped whatever port 670h bit 0 says. On the card the window
   exists only while bit 0 is clear. Alerted, not fixed (owner's call).
+
+## 5. Andrew's two points on 86Box#7638, checked against the equations - 2026-10-05
+
+**The read-only low view is `F0000`-`FFFFF`, not `E0000`.** Both U71 terms that use `ROMCACHE`
+need `A16` = 1: `!_32BIT_EN = (A18 & A17 & A16 & !W_R & i13 & ROMCACHE) # ...` and the first
+`!RAS_EN_SYS` term. `E0000`-`EFFFF` has `A16` = 0, so with `ROMCACHE` set only reads of the `F` segment
+come from card RAM, and `!W_R` makes them read-only (writes go to the bus). `E0000` is where the 128 KB
+sits inside the card's own bank (section 3), which is probably what "read only at E0000h" meant.
+86Box maps exactly that one low view (`F0000`); no change needed. The UniPCemu `C0000` view is not on
+this board.
+
+**`ROMCACHE` does not set RAM wait states.** It reaches only U71 and U101 (section 1). The wait-state
+counter U80 (74F161) loads from U69 Q1-Q4, i.e. port 670h bits 1-4. In U101 `ROMCACHE` appears once,
+in the `rf15`-`rf17` state machine that drives `INTR`. In U71 it changes only `F0000` reads. So
+`inboard386_apply_mem_timing()` pacing all memory on bit 0 is wrong; keying it on bits 1-4
+(`696cd8cd1`) is what the board does. That change made `INBRDPC.SYS`'s diagnostic fall back into POST
+on 2026-10-04, before #8216's three fixes - retest on current master before concluding anything.
