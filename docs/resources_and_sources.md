@@ -133,6 +133,10 @@ the directory's own `README.md`.
   not vendored. Kevin E. Martin's Mach8/8514 servers, MIT-style licence. Gave: a working off-screen glyph
   cache for the Mach8 (`mach8fcach.c`, `mach8fc.c`) - answers #49 questions 1-2. Does not contain: anything
   on Windows' GDI or the DIB engine. Lead from an AI answer the owner pasted, 2026-10-05; the source was checked.
+  Authors' later work, searched on GitHub 2026-10-05: nothing on 8514/Mach8. `jprichter` (Jake Richter) and
+  `scottlaird` (Scott Laird) match by name only - not confirmed as the same people, no graphics repos.
+  Nothing found for Kevin E. Martin, Rickard E. Faith or Tiago Gons. Unchecked lead: Jake Richter's 1990
+  book on 8514/A programming (Richter and Smith, *Graphics Programming for the 8514/A*).
 - ❌ The "28800 VGA core + 38800 coprocessor" description circulating in AI-sourced notes is
   **unverified** — check it against Ardent Tool before relying on it.
 

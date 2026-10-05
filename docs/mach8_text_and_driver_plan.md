@@ -141,5 +141,23 @@ that ran on real Mach8 cards, so it is the template for the cache, whichever rou
 - **Question 1, revised:** the map XFree86 uses is a choice, not something ATI's driver forces. Our
   own driver can take the same layout; a patch to `ATIM8.DRV` still has to avoid ATI's 5 lines and the
   `[0x1B5]` block.
-- **Licence:** MIT-style with notice - code can be adapted if the copyright and permission notice
-  travel with it.
+### Licence terms - what we may do with it
+
+Read from the file headers 2026-10-05. Stay inside these.
+
+| Files | Holder | Terms |
+|---|---|---|
+| `mach8fc.c`, `mach8fcach.c`, `cache/xf86fcache.c`, `cache/xf86text.c` (and the rest of `mach8/`) | Copyright 1992 Kevin E. Martin, Chapel Hill, North Carolina | Use, copy, modify, distribute and sell, for any purpose, without fee - **provided** the copyright notice appears in all copies, the copyright and permission notice appear in supporting documentation, and **his name is not used in advertising or publicity** for the result without his written permission. As is, no warranty |
+| `regmach8.h` | Copyright 1989, 1990 Panacea Inc. (written by Jake Richter); additions by Kevin E. Martin, Rickard E. Faith, Scott Laird, Tiago Gons | "May be freely incorporated in any program without royalty, as long as the copyright notice stays intact." No warranty |
+
+What that means here:
+
+- **Any source file of ours that adapts their code** opens with the original notice, verbatim, and one
+  line naming the XFree86 3.3.6 file it came from. A register header adapted from `regmach8.h` keeps the
+  Panacea notice intact.
+- **Supporting documentation** - the driver's `dist/` README - carries the same notice text, not only
+  a credit line.
+- **Credit, not endorsement.** The README credits say the work is *based on* XFree86 3.3.6 by Kevin E.
+  Martin, with the URL. Never "endorsed by", and his name is not used to promote the driver.
+- Using the method alone (plane pools, `PIX_CNTL` expansion, the per-glyph write order) copies no code;
+  credit it anyway, as above.
