@@ -57,6 +57,11 @@ glyph area). A full-screen text repaint ~0.3 s -> ~0.2 s.
 
 ## Testing
 
+**First hardware step: `tools/m8glyph/` (`M8GLYPH.COM`).** From a DOS boot it measures the `RD_MASK`
+bit-to-plane map on all eight bits and expands one glyph from plane 5 with the rotated and the plain
+mask, reading every result back through `PIX_TRANS` into `M8GLYPH.BIN`. All in Mach8 memory below
+line 900; the screen does not change. Decode with `gen_m8glyph.py decode`.
+
 Only on the 5160: 86Box's Mach8 model does not run ATI's accelerated mode (Windows falls back to VGA in
 the bed, so the `MACH8_COUNT` counter saw nothing). Each test: `TXTBENCH` before and after, plus a look
 at the desktop. Keep stock `ATIM8.DRV` beside any test build; a broken text path is recovered by
