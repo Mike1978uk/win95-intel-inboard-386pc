@@ -148,3 +148,16 @@ Tested with all three commits together (branch `inboard-test-all`):
   is restored.
 
 ILIM386 on a 1 MB board reported "Total available = 256 KB": independent confirmation of the 256 KB fix.
+
+### PR layout, 2026-10-05 (local, nothing pushed)
+
+Two PRs, at the owner's request (one per subject, not one per fix):
+
+1. `inboard-memmap` (`86box_ext256k`): `b2a016f77` the card's 256 KB, `9c299d7cc` the 670h bit 0
+   window gating (local commits `696cd8cd1` + `32bbc97c0`, squashed to their net change), `842b7b82d`
+   the exec pointer. One file, +79/-5. Panels pass on both cores at 1 and 5 MB; Windows 95 at 5.0 MB
+   on the same `apply_rom_shadow()` in `86box_3c509b`, on both ROMs.
+2. `inboard-1982-bios`: `0d234a599`, the 08NOV82 entry.
+
+Each matches the real 5160: 4352k at 5 MB (driver panel), `FF` at the windows once shadowing is on,
+the full check completing (owner photo), and Windows 95 on 08NOV82 (Cimon's 5160).
