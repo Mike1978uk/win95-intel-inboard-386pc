@@ -268,8 +268,7 @@ here, fixed by OBattler in `9ee5197`.
 merged, so master carries the whole model — the device, the machine entry, the 1986 BIOS list
 and the DMA page latch — plus upstream's own fixes as they land. `86box_full/` is a vendored
 snapshot that also carries the investigation's tracing hooks; those hooks cost roughly 3.45× in
-guest instructions per second, which is why [#14](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/14)
-needs a quiet build. Keep it for reproducing the traces, not for measuring behaviour.
+guest instructions per second, so keep it for reproducing the traces, not for measuring behaviour.
 
 The POST 101 story is worth knowing if you tried the merged machine early and found it broken: the
 machine shared `ibmxt_config`, whose default is a 1982-dated 5160 ROM, and the 1986 entries
