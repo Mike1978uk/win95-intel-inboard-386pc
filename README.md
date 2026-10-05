@@ -231,8 +231,8 @@ and there was nothing to configure.
 
 ## Upstream
 
-**The Intel Inboard 386/PC is part of 86Box.** Fourteen PRs raised from this project are merged;
-two are open.
+**The Intel Inboard 386/PC is part of 86Box.** Sixteen PRs raised from this project are merged;
+none are open.
 
 | Merged PR | What it fixed |
 |---|---|
@@ -250,11 +250,8 @@ two are open.
 | [#8078](https://github.com/86Box/86Box/pull/8078) | The LPT bridges from #8010/#8012: IDE/SCSI CD-ROMs no longer create a phantom BackPack on LPT1; an LPT CD-ROM is initialised (its first long seek stopped the emulator) and no longer pokes IDE channel 0; both bridges use the port their drive is set to, and a CD-ROM's port is saved; Settings offers ATAPI models for an LPT CD-ROM and keeps it on LPT; the Media menu names the LPT bus; the SuperDisk 120 reports the real drive's MATSHITA identity; logging no longer forced on. Merged 2026-09-25. Tested by the owner on Windows 95 and DOS; an LS-120 on LPT2 and the vendor LS-120 DOS driver were not |
 | [#8099](https://github.com/86Box/86Box/pull/8099) | The vendor LS-120 drivers on the EPAT model: `SD120PPD.SYS` with and without `/di`, and `SD120PPD.MPD` under Windows 95, each reading and writing. Fixes read out of the driver: the unit scan, doubled writes, the interrupt self-test, INTRQ in register 12h, the internal register window, interrupt delivery after the port is enabled, and a register value of 22h no longer taken for an unlock frame. Merged 2026-09-25 |
 | [#8102](https://github.com/86Box/86Box/pull/8102) | Since #8087's Plug and Play support, a 3C509B found by 3Com's DOS drivers came up with no IRQ; the fix keeps the EEPROM's IRQ across a Plug and Play reset. |
-
-| Open PR | What it fixes |
-|---|---|
-| [#8216](https://github.com/86Box/86Box/pull/8216) | The Inboard memory map: the card's own 256 KB of extended memory (a 1 MB board had none, every other size was 256 KB short); the `0x5E0000`/`0x5F0000` windows follow port 670h bit 0, as on the card; and the BIOS window's exec pointer follows its reads, so `INBRDPC.SYS`'s full memory check finishes under the dynarec. Reported on [#7638](https://github.com/86Box/86Box/issues/7638) |
-| [#8217](https://github.com/86Box/86Box/pull/8217) | Offers the 08NOV82 XT BIOS on the Inboard again: the "incompatible" verdict that removed it came from the shadow-window bugs, and a real 5160 runs Windows 95 on it. Only that ROM - others are untested |
+| [#8216](https://github.com/86Box/86Box/pull/8216) | The Inboard memory map: the card's own 256 KB of extended memory (a 1 MB board had none, every other size was 256 KB short); the `0x5E0000`/`0x5F0000` windows follow port 670h bit 0, as on the card; and the BIOS window's exec pointer follows its reads, so `INBRDPC.SYS`'s full memory check finishes under the dynarec. Merged 2026-10-05. Reported on [#7638](https://github.com/86Box/86Box/issues/7638) |
+| [#8217](https://github.com/86Box/86Box/pull/8217) | Offers the 08NOV82 XT BIOS on the Inboard again: the "incompatible" verdict that removed it came from the shadow-window bugs, and a real 5160 runs Windows 95 on it. Only that ROM - others are untested. Merged 2026-10-05 |
 
 One further upstream bug was reported from here and fixed by 86Box directly, with no PR from us:
 [#7805](https://github.com/86Box/86Box/issues/7805) — the Machine settings dialog snapped RAM to a
@@ -265,7 +262,7 @@ here, fixed by OBattler in `9ee5197`.
 ### Which build to test on
 
 **Test on upstream 86Box master, not on [`86box_full/`](86box_full/).** Every Inboard change is now
-merged, so master carries the whole model — the device, the machine entry, the 1986 BIOS list
+merged, so master carries the whole model — the device, the machine entry, its BIOS list
 and the DMA page latch — plus upstream's own fixes as they land. `86box_full/` is a vendored
 snapshot that also carries the investigation's tracing hooks; those hooks cost roughly 3.45× in
 guest instructions per second, so keep it for reproducing the traces, not for measuring behaviour.
@@ -273,7 +270,7 @@ guest instructions per second, so keep it for reproducing the traces, not for me
 The POST 101 story is worth knowing if you tried the merged machine early and found it broken: the
 machine shared `ibmxt_config`, whose default is a 1982-dated 5160 ROM, and the 1986 entries
 existed only in this repo's tree, so a `bios =` line naming one was ignored without warning. The
-machine now has its own BIOS list; [#8217](https://github.com/86Box/86Box/pull/8217) adds the
+machine now has its own BIOS list; [#8217](https://github.com/86Box/86Box/pull/8217) added the
 08NOV82 ROM back to it.
 
 ⚠ **Corrected 2026-09-27:** this paragraph used to say `INBRDPC.SYS` cannot work with a 1982 ROM
@@ -505,7 +502,7 @@ rather than a DMA-reach one — is on the issue.
 
 | | |
 |---|---|
-| [#10](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/10) | 1982-era ROMs. The 08NOV82 XT ROM runs Windows 95, on a real 5160 and in the emulator ([#8217](https://github.com/86Box/86Box/pull/8217) offers it upstream); a real 5150 still stops when Windows starts |
+| [#10](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/10) | 1982-era ROMs. The 08NOV82 XT ROM runs Windows 95, on a real 5160 and in the emulator (offered in 86Box since [#8217](https://github.com/86Box/86Box/pull/8217)); a real 5150 still stops when Windows starts |
 | [#18](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/18) | Floppy corruption after a media change. DMA reach is fixed (`maxPhys 0x1000 -> 0xFF`, shipped as `HSFLOP_XTDMA.PDR`) and reads/writes measured clean here, but that harness never changed media, which is this issue's trigger. The reproduction bed - 86Box + Monster Floppy + the patched driver + a media change - is still to be built, and needs no hardware |
 | [#23](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/23) | `XTIDEMP.MPD` cannot drive the XT-IDE Hi-Speed register map - an A3/A0 swap is a permutation, and the driver computes `base + index * stride`. Blocked on hardware to test against, and on 86Box having no Hi-Speed model |
 | [#28](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/28) | Per-component audit: walk every driver and VxD, six questions each |

@@ -36,7 +36,8 @@ registry; slow right-click menu; #46 unplugged-drive driver refusal (LEAN covers
 
 ## Done later on 2026-10-05: three Inboard fixes for upstream 86Box (#7638)
 
-Opened 2026-10-05 as 86Box/86Box#8216 (memory map) and #8217 (BIOS), owner-approved text.
+Opened 2026-10-05 as 86Box/86Box#8216 (memory map) and #8217 (BIOS); **both merged by OBattler the same day**
+(`e748927c9`, `6b09b25c6`). The owner posted the #7638 reply. #10 status block updated.
 Write-up: `docs/inboard_memory_layout_2026_09_30.md` (last four sections). Skill technique 143.
 
 - **`inboard-memmap`** (`842b7b82d`, 3 commits, `inboard386.c` +79/-5): the card's own 256 KB of
@@ -51,5 +52,6 @@ G9 last runs on the pushed HEADs (memmap exe 15:48:46 after its 15:48:32 commit;
 so other machines cannot reach them - by construction, not by measurement. G3/G10: owner checks by
 hand in a Qt build before opening (BIOS list shows 08NOV82, RAM box 1/3/5 MB, one boot). G4 n/a.
 
-Open from this: RonnyRoy is named in a code comment in `inboard-memmap` - confirm he is happy to be
-named upstream. Cimon is not named in either PR. Reply on #7638 once the PRs are up.
+RonnyRoy's board is public (https://github.com/ronnyroy111/inboard386) and is linked in #8216. Follow-ups
+from Andrew on #7638: the 128 KB read-only low view (E0000h vs our F0000/C0000) and the ROM-select bit
+changing RAM wait states for all memory - check both against the netlist. SHADRAM v4 published (`dist/shadram/`).

@@ -345,4 +345,5 @@ untested here - our image does not load that driver.
 - Confirms the ROM-select bit wrongly changes RAM wait states for all memory: our 696cd8cd1 tried that and was
   reverted (32bbc97c0) because INBRDPC.SYS's diagnostic fell back into POST. Open follow-up; not in #8216.
 - Motherboard RAM does not appear in the map once the card runs - supports the reply to QuantumByteRider.
-- ⏳ Reply drafted 2026-10-05 for the owner to post on #7638 (thanks + the two points above).
+- ✅ Told 2026-10-05: the owner posted the reply on #7638 (thanks, RonnyRoy's link, the two open points).
+  86Box #8216 and #8217 merged the same day.
