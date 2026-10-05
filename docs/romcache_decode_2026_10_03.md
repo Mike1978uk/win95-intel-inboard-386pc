@@ -143,3 +143,7 @@ in the `rf15`-`rf17` state machine that drives `INTR`. In U71 it changes only `F
 `inboard386_apply_mem_timing()` pacing all memory on bit 0 is wrong; keying it on bits 1-4
 (`696cd8cd1`) is what the board does. That change made `INBRDPC.SYS`'s diagnostic fall back into POST
 on 2026-10-04, before #8216's three fixes - retest on current master before concluding anything.
+
+**Retested 2026-10-05 - the wait-state keying now passes.** With #8216 in, `vm_romcache` (the bed that
+fell into POST on 10-04), diagnostics on, boots to Windows 95 at 5.0 MB with no return to `F000:E05B`; the
+5 MB panel reads 4352k/4352k/4352k, 0k bad on both cores. Upstream as 86Box#8219 (`3678a1e42`).
