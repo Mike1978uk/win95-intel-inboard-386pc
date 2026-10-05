@@ -98,3 +98,15 @@ Windows 95 on `vm_magnaram_off` (same commit cherry-picked onto `86box_3c509b`, 
 the RAM box steps 1/3/5 MB and snaps typed values, so the 1280 KB workaround was only
 reachable by editing the config file. Not tested: Intel's SETUP at 1 MB, the dynarec, the
 AT Inboard (untouched - the change is `is_xt` only).
+
+**Pre-PR checks, same day.** The commit cherry-picks cleanly onto upstream master `ed1b5209b`
+(worktree `86box_ext256k`, branch `inboard-ext-256k-master`, commit `b2a016f77`).
+
+- Master + fix, interpreter, 5 MB: 4352k / 4352k / 4352k, bad 0k.
+- Hard reset: no separate run needed. The SDL front end starts every VM through
+  `pc_reset_hard_init()`, the same function as the menu's Hard Reset, and its order is
+  `machine_init()` -> `mem_reset()` -> Inboard init -> remap. Every bed run took that path.
+- Dynarec, 5 MB: the memory diagnostic stalls with **and without** the fix (owner read both
+  panels): detected and diagnosed fill in, functional and bad stay blank. Older than this
+  change; not investigated. `PrintWindow` returned stale frames under the dynarec - use the
+  owner's reading, not a capture.
