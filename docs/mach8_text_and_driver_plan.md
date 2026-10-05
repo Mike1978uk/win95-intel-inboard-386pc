@@ -123,7 +123,22 @@ accelerated mode does not run in the bed.
 **Run 2026-10-05 on the 5160: every test passes** (register, FIFO, RAMDAC, video RAM, test sequences 1 and
 2; 1M VRAM, 8-bit bus, PCLK 18810-2). The 640x480, 800x600 and 1024x768 patterns displayed; 1280x1024x4
 87 Hz interlaced did not sync on the LCD. Transcript `docs/captures/2026-10-05_m8glyph/5160_TEST_COM.txt`.
-Next: the same `TEST.COM` in the bed - any test that fails there is a model gap.
+**Bed, same night (`vm_magnaram_off`, `mach8_vga_isa`, 8-bit):** detection identical, then five of six stages fail
+(`docs/captures/2026-10-05_m8glyph/bed_86box_TEST_COM.png`):
+
+| stage | 5160 | 86Box |
+|---|---|---|
+| Register Integrity | pass | `82EE000A` / `14204 0602 0004 Graphics Subsystem Failure` |
+| FIFO Integrity | pass | pass |
+| RAMDAC Integrity | pass | `14205 1727 0005 RAMDAC Failure` |
+| Video RAM | pass | `14206 74F1 0006 RAM Failure` |
+| Test Sequence 1 | pass | `14216 27DB 0016 RAM Post Examination Failure` |
+| Test Sequence 2 | pass | `14204 0602 0004 Graphics Subsystem Failure01` |
+
+`82EE` is `PATT_DATA_INDEX`; the model returns it only for a word read (`vid_ati_mach8.c`, `case 0x82ee: if (len == 2)`).
+Not investigated further: the Mach8 model is not the owner's code. What this means for the work: the bed is
+proven for the path M8GLYPH tests (8514 fills, plane-select expand blits, `PIX_TRANS` reads) and **not** for
+pattern registers, the RAMDAC or ATI's VRAM tests. Check anything outside the proven path on the 5160.
 
 ## Findings from the full `ATIM8.DRV` read, 2026-10-05 (`tools/nedis.py`, new)
 
