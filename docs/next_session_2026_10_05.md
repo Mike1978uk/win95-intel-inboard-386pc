@@ -59,3 +59,4 @@ changing RAM wait states for all memory - check both against the netlist. SHADRA
 **Evening, 2026-10-05:** Andrew's two #7638 points checked against RonnyRoy's netlist. Low view F0000 only
 (86Box right). Memory pacing on bit 0 was wrong: 86Box#8219 keys it on bits 1-4, tested both cores at 5 MB and
 Windows 95 on `vm_romcache` with diagnostics on. Owner to post the #7638 reply naming #8219.
+86Box#8219 merged 2026-10-05 19:23 UTC; all Inboard PRs are now upstream.

@@ -127,12 +127,15 @@ driver, and the machine does not boot without it.
 
 **`EGACACHE` came off that line on 2026-09-21.** An A/B on the real 5160 on 2026-09-20
 measured no change (1746 / 1476 / 1340 byte-word-dword against 1746 / 1478 / 1336, inside the
-harness's ±2-tick noise, with `0xC0000` unmoved at 2.858 us/byte). **Why it does nothing is
-not known.** Intel's switch *"reserves up to 32K bytes ... for caching the EGA ROM BIOS"* and
-this card is a VGA, which may be the reason; @andrew-hoffman suggests two others on
-[#35](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/35): `INBRDPC.SYS` may
-check the ROM's signature, or be blocked by other option ROMs in `C0000`-`E0000`. Reading
-`INBRDPC.SYS` settles it; until then the lever is open.
+harness's ±2-tick noise, with `0xC0000` unmoved at 2.858 us/byte). **That test could not see
+it:** `EGACACHE` does not shadow `C0000`. It copies the video ROM into 32 KB of the driver's
+resident memory and points `INT 10h` at the copy, so only BIOS video calls get faster - DOS text
+output, mode sets - not the bus. Windows 95's display driver does not call `INT 10h`, and the copy
+costs 32 KB of conventional memory for the whole session, so it stays off. SHADRAM does not change
+this: it hands the card's idle reserved block to Windows, a different memory. Static read, and the
+answers to @andrew-hoffman's points on
+[#35](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/35):
+[`docs/egacache_static_read_2026_09_28.md`](docs/egacache_static_read_2026_09_28.md).
 
 Note which way round this is: the line **without** `EGACACHE` is the long-standing
 configuration — recorded as `DEVICE=c:\INBRDPC.SYS NODIAGS NOPAUSE` since 2026-07-26 and booted
@@ -231,8 +234,8 @@ and there was nothing to configure.
 
 ## Upstream
 
-**The Intel Inboard 386/PC is part of 86Box.** Sixteen PRs raised from this project are merged;
-one is open.
+**The Intel Inboard 386/PC is part of 86Box.** Seventeen PRs raised from this project are merged;
+none is open.
 
 | Merged PR | What it fixed |
 |---|---|
@@ -252,10 +255,7 @@ one is open.
 | [#8102](https://github.com/86Box/86Box/pull/8102) | Since #8087's Plug and Play support, a 3C509B found by 3Com's DOS drivers came up with no IRQ; the fix keeps the EEPROM's IRQ across a Plug and Play reset. |
 | [#8216](https://github.com/86Box/86Box/pull/8216) | The Inboard memory map: the card's own 256 KB of extended memory (a 1 MB board had none, every other size was 256 KB short); the `0x5E0000`/`0x5F0000` windows follow port 670h bit 0, as on the card; and the BIOS window's exec pointer follows its reads, so `INBRDPC.SYS`'s full memory check finishes under the dynarec. Merged 2026-10-05. Reported on [#7638](https://github.com/86Box/86Box/issues/7638) |
 | [#8217](https://github.com/86Box/86Box/pull/8217) | Offers the 08NOV82 XT BIOS on the Inboard again: the "incompatible" verdict that removed it came from the shadow-window bugs, and a real 5160 runs Windows 95 on it. Only that ROM - others are untested. Merged 2026-10-05 |
-
-| Open PR | What it fixes |
-|---|---|
-| [#8219](https://github.com/86Box/86Box/pull/8219) | Memory was paced at XT-bus speed whenever port 670h bit 0 was clear; on the card that bit only steers BIOS reads and the reserved-block windows, and RAM wait states come from bits 1-4 (RonnyRoy's netlist, via @andrew-hoffman on [#7638](https://github.com/86Box/86Box/issues/7638)). Anything that clears the bit, such as SHADRAM under Windows, no longer slows all memory |
+| [#8219](https://github.com/86Box/86Box/pull/8219) | Memory was paced at XT-bus speed whenever port 670h bit 0 was clear; on the card that bit only steers BIOS reads and the reserved-block windows, and RAM wait states come from bits 1-4 (RonnyRoy's netlist, via @andrew-hoffman on [#7638](https://github.com/86Box/86Box/issues/7638)). Anything that clears the bit, such as SHADRAM under Windows, no longer slows all memory. Merged 2026-10-05 |
 
 One further upstream bug was reported from here and fixed by 86Box directly, with no PR from us:
 [#7805](https://github.com/86Box/86Box/issues/7805) — the Machine settings dialog snapped RAM to a
