@@ -334,3 +334,15 @@ untested here - our image does not load that driver.
 - velocity9x: read; design ideas carry over, code does not (Mach64, aperture).
 - InPort mouse port: the card has none (owner, 2026-10-05).
 - ⏳ Reply owed on #49 - draft given to the owner 2026-10-05, not posted.
+
+## @andrew-hoffman - 86Box #7638, 2026-10-05 15:02
+
+- Points at RonnyRoy's reverse-engineered board (https://github.com/ronnyroy111/inboard386) as the source of
+  truth. His 1 MB map (640 KB conventional, 256 KB extended at 100000h, 128 KB for ROM shadowing) matches
+  86Box #8216.
+- Says the 128 KB is read-only at **E0000h**; we map the low views at F0000/C0000 (UniPCemu). **Unchecked** -
+  read the netlist before claiming either way.
+- Confirms the ROM-select bit wrongly changes RAM wait states for all memory: our 696cd8cd1 tried that and was
+  reverted (32bbc97c0) because INBRDPC.SYS's diagnostic fell back into POST. Open follow-up; not in #8216.
+- Motherboard RAM does not appear in the map once the card runs - supports the reply to QuantumByteRider.
+- ⏳ Reply drafted 2026-10-05 for the owner to post on #7638 (thanks + the two points above).
