@@ -161,3 +161,12 @@ What that means here:
   Martin, with the URL. Never "endorsed by", and his name is not used to promote the driver.
 - Using the method alone (plane pools, `PIX_CNTL` expansion, the per-glyph write order) copies no code;
   credit it anyway, as above.
+- **The owner accepted these terms on 2026-10-05** and will cite the work.
+
+### `RD_MASK` is rotated by one plane
+
+To read plane *n*, set `RD_MASK` bit *(n + 1) mod 8* - plane 0 is bit 1, plane 7 is bit 0. Two independent
+sources: Richter and Smith's register chapter (AEE8h table: "bit 0 = plane 7, bit 1 = plane 0 ...") and
+XFree86's `mach8cachemaskswapped[] = {02,04,08,10,20,40,80,01}` (same in `ibm8514/fc.c`). Applies to the
+8514 `PIX_CNTL` planar route; whether the Mach8-only `DP_CONFIG` route (question 2) rotates too is unchecked.
+The one-glyph hardware test must use the rotated mask, or it reads the wrong plane.

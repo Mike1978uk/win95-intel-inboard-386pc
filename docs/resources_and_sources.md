@@ -136,7 +136,17 @@ the directory's own `README.md`.
   Authors' later work, searched on GitHub 2026-10-05: nothing on 8514/Mach8. `jprichter` (Jake Richter) and
   `scottlaird` (Scott Laird) match by name only - not confirmed as the same people, no graphics repos.
   Nothing found for Kevin E. Martin, Rickard E. Faith or Tiago Gons. Unchecked lead: Jake Richter's 1990
-  book on 8514/A programming (Richter and Smith, *Graphics Programming for the 8514/A*).
+  book on 8514/A programming (Richter and Smith, *Graphics Programming for the 8514/A*) - now checked, below.
+- **Jake Richter and Bud Smith, *Graphics Programming for the 8514/A* (1990)** -
+  https://archive.org/details/graphics-programming-for-the-8514-a ; local `references/8514a_docs/`, not vendored.
+  Gave: the register reference, including the rotated `RD_MASK` plane mapping (matches XFree86), and
+  confirmation that off-screen memory is meant for "bit-map or font storage". Mostly about IBM's Adapter
+  Interface (AI); does not contain an off-screen glyph cache - its multiplane font support is "left as an exercise".
+- **IBM, *Display Adapter 8514/A Technical Reference* (S68X-2248-0, April 1987)** -
+  https://archive.org/details/bitsavers_ibmpccardsyAdapter8514ATechnicalReference198704_6282463 ; local copy as above.
+  The primary register reference. Not yet read.
+- Not fetched: Richter's *Power Programming: the IBM XGA* (1992) - https://archive.org/details/powerprogramming0000rich ,
+  borrow-only, and XGA rather than 8514. Both leads came from an AI answer the owner pasted, 2026-10-05; items checked.
 - ❌ The "28800 VGA core + 38800 coprocessor" description circulating in AI-sourced notes is
   **unverified** — check it against Ardent Tool before relying on it.
 
