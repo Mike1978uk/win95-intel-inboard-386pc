@@ -70,5 +70,11 @@ The real 5160 confirms it at 5 MB (4,352 = 256 + 4,096). 86Box reports 256 KB le
 | 3 MB | 2,304k | 2,048k (Fenix770; also our 2026-08 matrix) |
 | 5 MB | 4,352k (measured) | 4,096k (Fenix770, upstream master) |
 
-Both #7638 reports are this one defect. Only the 5 MB row is measured on hardware. Not traced: where
-86Box places RAM above 640 KB for this machine. First check: read `0x100000`-`0x13FFFF` at 1 MB.
+Both #7638 reports are this one defect. Only the 5 MB row is measured on hardware.
+
+Cause: 86Box's generic `mem_reset()` (`src/mem/mem.c`) maps `mem_size - 1024` KB at 1 MB, treating
+640-1024 KB as a hole. The card has only its 128 KB reserved block there, so 256 KB is lost at
+every size. QuantumByteRider's workaround (`mem_size = 1280`) works for that reason, not because
+the planar keeps 256 KB: on the 5160 the card serves 0-64 KB (measured above). The machine entry
+allows 1024/3072/5120 only (`.step = 2048`, `.max = 5120`), so the workaround cannot reach 5 MB.
+Fix belongs in the Inboard device or machine entry: map `mem_size - 640 - 128` KB at 1 MB.
