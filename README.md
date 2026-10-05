@@ -446,6 +446,13 @@ and the [contributor ledger](docs/contributor_input_ledger.md).
   Annotated in [`docs/xt_io_port_reference_annotated.md`](docs/xt_io_port_reference_annotated.md).
 - **[FastDoom](https://github.com/viti95/FastDoom)** (viti95) — real-hardware-validated XT
   keyboard ISR reference.
+- **Kevin E. Martin** — author of the XFree86 8514/A and Mach8 accelerated servers
+  ([XFree86 3.3.6](http://ftp.xfree86.org/pub/XFree86/3.3.6/source/), with Rickard E. Faith, Scott
+  Laird and Tiago Gons). Their off-screen glyph cache is the model for the Mach8 text work on #49;
+  any code adapted from it keeps his copyright and permission notice. Credit only - no endorsement
+  implied. Register definitions from Jake Richter (Panacea Inc.), whose book with Bud Smith,
+  [*Graphics Programming for the 8514/A*](https://archive.org/details/graphics-programming-for-the-8514-a),
+  is the register reference used alongside it.
 - **Microsoft's Windows 95 DDK** — the genuine period source and toolchain behind the `VKD.VXD` fix.
 - **[Kevin Moonlight](https://github.com/yyzkevin)** — original author of
   [COMrade](https://github.com/yyzkevin/COMrade), which is how this project reads and writes the
