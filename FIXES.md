@@ -316,6 +316,18 @@ noise), and web browsing to three sites works. In 86Box the receive filter chang
 DHCP, ARP and ping still work. **Not tested:** Windows file sharing or mapped drives, and long sessions.
 Patch script: `drivers/3c509b/patch_elnk3_nomcast.py`; notes: [`docs/elnk3_multicast_2026_10_04.md`](docs/elnk3_multicast_2026_10_04.md).
 
+### `SHADRAM.VXD` — the Inboard's spare shadow RAM, 112 KB more for Windows
+
+**[⬇ SHADRAM.VXD](https://github.com/Mike1978uk/win95-intel-inboard-386pc/raw/master/dist/shadram/SHADRAM.VXD)** · md5 `bd529d5007b732b99658ff1517dc5dc9`
+
+A new VxD, not a patch. The card reserves 128 KB of its own RAM for ROM shadowing; half of it is
+never used, and so are the filler and cassette BASIC pages of the BIOS copy. This gives those pages
+to Windows and keeps the BIOS running from the card's RAM. One line in `SYSTEM.INI` `[386Enh]`:
+`device=C:\SHADRAM.VXD`. Delete it to remove. Needs `INBRDPC.SYS` v1.1; without it, adds nothing.
+
+**Confirmed on the real 5160**: 28 pages (112 KB) added, Windows 95 stable. The gain is
+memory, not speed: the previous version measured no speed change. Details: [`dist/shadram/`](dist/shadram/).
+
 ---
 ## ⚠️ Loads on real hardware, not yet proven correct
 
