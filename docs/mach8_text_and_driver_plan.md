@@ -62,6 +62,12 @@ bit-to-plane map on all eight bits and expands one glyph from plane 5 with the r
 mask, reading every result back through `PIX_TRANS` into `M8GLYPH.BIN`. All in Mach8 memory below
 line 900; the screen does not change. Decode with `gen_m8glyph.py decode`.
 
+**86Box bed, 2026-10-05** (`vm_magnaram_off`, `mach8_vga_isa`): every check passed - detection, both
+controls, no timeouts; the bits map rotated (bit 0 -> plane 7) and only the rotated mask draws the F.
+Capture `docs/captures/2026-10-05_m8glyph/`. This agrees with the documents by construction: 86Box
+hard-codes the same rotation (`vid_8514a.c`, `rd_mask` rotate in the accel setup). Only the 5160 can
+show the card does it; a byte-identical result there is what makes the bed trustworthy for this path.
+
 Only on the 5160: 86Box's Mach8 model does not run ATI's accelerated mode (Windows falls back to VGA in
 the bed, so the `MACH8_COUNT` counter saw nothing). Each test: `TXTBENCH` before and after, plus a look
 at the desktop. Keep stock `ATIM8.DRV` beside any test build; a broken text path is recovered by

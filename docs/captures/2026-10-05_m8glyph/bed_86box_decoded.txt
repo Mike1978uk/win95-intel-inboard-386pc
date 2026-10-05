@@ -1,0 +1,37 @@
+ERR_TERM read back 5A5A / 2525 (expect 5A5A / 2525)
+SUBSYS_STAT 00AA: 1 MB, 8 planes
+timeouts: engine idle 0, data ready 0
+
+Controls (the fills, read straight back):
+  plane-ID source, row r = 1<<r: OK
+  glyph source, F in plane 5:    OK
+
+RD_MASK bit -> plane read (expand blit, one bit at a time):
+  bit 0 (01) -> plane 7
+  bit 1 (02) -> plane 0
+  bit 2 (04) -> plane 1
+  bit 3 (08) -> plane 2
+  bit 4 (10) -> plane 3
+  bit 5 (20) -> plane 4
+  bit 6 (40) -> plane 5
+  bit 7 (80) -> plane 6
+  => ROTATED: plane n is bit (n+1) mod 8
+
+Glyph, rotated mask 40, colour 5A over 11: THE GLYPH
+    #######.   5A 5A 5A 5A 5A 5A 5A 11
+    ##......   5A 5A 11 11 11 11 11 11
+    ##......   5A 5A 11 11 11 11 11 11
+    #####...   5A 5A 5A 5A 5A 11 11 11
+    ##......   5A 5A 11 11 11 11 11 11
+    ##......   5A 5A 11 11 11 11 11 11
+    ##......   5A 5A 11 11 11 11 11 11
+    ........   11 11 11 11 11 11 11 11
+Glyph, plain mask 20, colour 5A over 11: no glyph
+    ########   5A 5A 5A 5A 5A 5A 5A 5A
+    ########   5A 5A 5A 5A 5A 5A 5A 5A
+    ########   5A 5A 5A 5A 5A 5A 5A 5A
+    ########   5A 5A 5A 5A 5A 5A 5A 5A
+    ########   5A 5A 5A 5A 5A 5A 5A 5A
+    ########   5A 5A 5A 5A 5A 5A 5A 5A
+    ########   5A 5A 5A 5A 5A 5A 5A 5A
+    ########   5A 5A 5A 5A 5A 5A 5A 5A
