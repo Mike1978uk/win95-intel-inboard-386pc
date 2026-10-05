@@ -36,7 +36,7 @@ registry; slow right-click menu; #46 unplugged-drive driver refusal (LEAN covers
 
 ## Done later on 2026-10-05: three Inboard fixes for upstream 86Box (#7638)
 
-Branches pushed to `Mike1978uk/86Box`; the owner opens the PRs (drafts approved in the session).
+Opened 2026-10-05 as 86Box/86Box#8216 (memory map) and #8217 (BIOS), owner-approved text.
 Write-up: `docs/inboard_memory_layout_2026_09_30.md` (last four sections). Skill technique 143.
 
 - **`inboard-memmap`** (`842b7b82d`, 3 commits, `inboard386.c` +79/-5): the card's own 256 KB of
