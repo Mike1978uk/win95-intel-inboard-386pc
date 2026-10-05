@@ -110,3 +110,20 @@ AT Inboard (untouched - the change is `is_xt` only).
   panels): detected and diagnosed fill in, functional and bad stay blank. Older than this
   change; not investigated. `PrintWindow` returned stale frames under the dynarec - use the
   owner's reading, not a capture.
+
+### The dynarec stall, root-caused and fixed, 2026-10-05
+
+With the dynarec on, the full memory check stopped after "diagnosed" at 3 and 5 MB, with or without
+the 256 KB fix. Cause, from a timer-driven CS:EIP heartbeat, a CS-load hook and a write watch on the IVT:
+the low BIOS window's **exec pointer** always named `bios_shadow_ram`, while its read handler returns
+the ROM until shadowing is switched on. `INBRDPC.SYS`'s reserved-block test writes patterns into that
+buffer through `0x5F0000` while shadowing is off. The interpreter (read handler) kept running the ROM;
+the dynarec (exec pointer) compiled the patterns as BIOS code, ran past `F000:FFFF` into address 0 with
+A20 off, rewrote vectors 4-9, and the next timer tick went to `5EDD:FF23`. At 1 MB the test path that
+reaches it does not run.
+
+Fix, second commit on the PR branch (`32013c53f`): `inboard386_apply_rom_shadow()` points the exec
+pointer at the ROM snapshot or the shadow buffer to match the read handler. Clean build, both cores,
+1 MB and 5 MB: 256k and 4352k detected/diagnosed/functional, 0k bad. Branch
+`inboard-ext-256k-master` is two commits, one file, +66/-5. Diagnostics kept on
+`inboard-ext-256k-heartbeat` (`4f3738caf`), not for upstream.

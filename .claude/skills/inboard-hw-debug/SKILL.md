@@ -8379,3 +8379,23 @@ different problem: the driver still claims the adapter and later I/O hangs - boo
 86Box raises no parity or I/O channel check on an XT. `INBOARD_NMITEST=<n>` (diagnostic branch) sets port
 `62h` bit 6 and raises one NMI `<n>` instructions after the first CS `28h` code: the positive control a
 real-hardware NMI counter lacks. Result recorded in #10: one NMI is not fatal to Windows 95.
+
+## Technique 143: under the dynarec, code comes from the mapping's EXEC pointer, not its read handler
+
+2026-10-05, `INBRDPC.SYS`'s full memory check hung under the dynarec only. A mapping with a custom
+read handler and an exec pointer serves two different things: the interpreter reads code through the
+handler, the dynarec compiles from `exec`. If the handler steers (ROM vs shadow) and `exec` does not,
+the cores run different code whenever the two buffers differ. **Any mapping whose read handler
+switches its source must switch `exec` with `mem_mapping_set_exec()` at the same moment.**
+
+How it was found, and the traps on the way:
+- **`GDBSTUB=ON` forces `DYNAREC=OFF`** (`CMakeLists.txt`), and the stub holds the CPU at reset until
+  a client connects. It cannot observe a dynarec-only fault.
+- The interpreter-only hooks in `exec386()` go silent under the dynarec (technique 16). A **device
+  timer** (`timer_add` + `timer_on_auto(&t, 1000000.0)`) fires from the dynarec loop too: a 1 s CS:EIP
+  sample with 16 code bytes gave the first real evidence (EIP past `0xFFFF` in real mode, running zeros).
+- A one-shot hook in `loadcs()` keyed on the bad CS caught the transfer; a dump of the IVT showed vectors
+  4-9 rewritten.
+- To watch writes the dynarec makes, stop `addwritelookup()` caching a host pointer for the page under
+  watch, then log in `mem_write_ram*()`. Arm it late: the BIOS RAM test fills any small cap.
+- Two fixes were guessed first and both failed. Build the instrument after the second miss (technique 80).
