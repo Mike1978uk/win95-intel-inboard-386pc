@@ -68,6 +68,12 @@ Capture `docs/captures/2026-10-05_m8glyph/`. This agrees with the documents by c
 hard-codes the same rotation (`vid_8514a.c`, `rd_mask` rotate in the accel setup). Only the 5160 can
 show the card does it; a byte-identical result there is what makes the bed trustworthy for this path.
 
+**Real 5160, 2026-10-05: the same.** Rotated map, glyph drawn with mask `40h` only, both controls OK, no
+timeouts. The result file matches the bed's in all 784 bytes but one: `SUBSYS_STAT` reads `A8` on the card
+and `AA` in 86Box - bit 1, `PICKFLAG`, an interrupt status the model leaves set after reset. The glyph
+cache does not use it. **So 86Box models the engine path the glyph cache needs: develop the cache in the
+bed, time it on the 5160.** Question 2 is answered on hardware; question 1 (ATI's own off-screen use) only matters for a patch to `ATIM8.DRV`.
+
 Only on the 5160: 86Box's Mach8 model does not run ATI's accelerated mode (Windows falls back to VGA in
 the bed, so the `MACH8_COUNT` counter saw nothing). Each test: `TXTBENCH` before and after, plus a look
 at the desktop. Keep stock `ATIM8.DRV` beside any test build; a broken text path is recovered by
