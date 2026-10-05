@@ -78,3 +78,23 @@ every size. QuantumByteRider's workaround (`mem_size = 1280`) works for that rea
 the planar keeps 256 KB: on the 5160 the card serves 0-64 KB (measured above). The machine entry
 allows 1024/3072/5120 only (`.step = 2048`, `.max = 5120`), so the workaround cannot reach 5 MB.
 Fix belongs in the Inboard device or machine entry: map `mem_size - 640 - 128` KB at 1 MB.
+
+### Fixed in the emulator, 2026-10-05 - local, not yet submitted
+
+`86box_upstream` branch `inboard-ext-256k`, commit `4f18c5b98`: `inboard386_reset()` calls
+`mem_remap_top_ex_nomid(256, mem_size)`, placing the RAM behind the hole directly after the
+(mem_size - 1024) KB mem.c maps, plus an A31 alias for that 256 KB. One file, 59 lines.
+Beds in `vm_ext7638/`: QuantumByteRider's image, stock `INBRDPC.SYS` with `NOPAUSE` and
+`NODIAGS` blanked.
+
+| board | before (control exe) | after (detected / diagnosed / functional) | real 5160 |
+|---|---|---|---|
+| 1 MB | 0k detected, bad 10560k | 256k / 256k / 256k, bad 0k | - |
+| 3 MB | not run | 2304k / 2304k / 2304k, bad 0k | - |
+| 5 MB | 4096k | 4352k / 4352k / 4352k, bad 0k | 4352k |
+
+Windows 95 on `vm_magnaram_off` (same commit cherry-picked onto `86box_3c509b`, branch
+`inboard-ext-256k-diag`): boots, System Properties 5.0 MB (owner). No new setting is needed:
+the RAM box steps 1/3/5 MB and snaps typed values, so the 1280 KB workaround was only
+reachable by editing the config file. Not tested: Intel's SETUP at 1 MB, the dynarec, the
+AT Inboard (untouched - the change is `is_xt` only).
