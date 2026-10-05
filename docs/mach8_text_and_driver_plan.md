@@ -94,6 +94,7 @@ cache removes the bits instead (~7). They combine only if the Mach8 can expand f
 ## Cheap test from Andrew's M8UTL
 
 `TEST.COM` in `M8UTL.ZIP` (<https://www.ardent-tool.com/video/ATI_mach8_Drivers.html>) runs ATI's
-draw-engine tests. Andrew sees most 8514 command tests fail in 86Box. Running it on the 5160 gives the
-reference result, and the failing tests name what the emulator's Mach8 model lacks - the reason ATI's
+draw-engine tests. Andrew sees most 8514 command tests fail in 86Box. It was run on the 5160 before,
+but the output was not kept; re-run it from a DOS boot (skip the startup) and photograph each screen.
+That is the reference result, and the failing tests name what the emulator's Mach8 model lacks - the reason ATI's
 accelerated mode does not run in the bed.

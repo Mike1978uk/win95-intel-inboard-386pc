@@ -329,8 +329,8 @@ untested here - our image does not load that driver.
 - Two VRAM pools on the Graphics Ultra (Mach8 + 28800 VGA), "does the Mach8 have a framebuffer mode?":
   answered by our own record (`bus_optimisation_plan.md`, Mach8 section): no aperture, `PIX_TRANS`
   only; the VGA RAM is reachable only through banked `A0000`. Whether the Mach8 can read it: unknown.
-- `M8UTL.ZIP`: `TEST.COM` fails most 8514 tests in 86Box. Untested on the 5160 - planned
-  (`mach8_text_and_driver_plan.md`).
+- `M8UTL.ZIP`: `TEST.COM` fails most 8514 tests in 86Box. Run on the 5160 earlier (owner), but no
+  output found in docs, issues #4/#7/#8 or the CF; the owner will re-run it from a DOS boot.
 - velocity9x: read; design ideas carry over, code does not (Mach64, aperture).
-- InPort mouse port on the card: question for the owner.
+- InPort mouse port: the card has none (owner, 2026-10-05).
 - ⏳ Reply owed on #49 - draft given to the owner 2026-10-05, not posted.

@@ -25,7 +25,8 @@ Supersedes `next_session_2026_10_04.md` (still the record of that day: SHADRAM v
    ~200 KB less locked than FULL. Then one FULL boot to confirm the network comes back.
 2. **Mach8 text driver (#49)** - `docs/mach8_text_and_driver_plan.md`, wider ideas in `docs/mach8_graphics_vision.md`: off-screen memory map, mono source
    from card memory, choose patch vs own driver (DDK XGA sample), find a 16-bit linker.
-   Run `TEST.COM` (`M8UTL.ZIP`, Andrew on #49) on the 5160 first: the reference for 86Box's Mach8.
+   Re-run `TEST.COM` (`M8UTL.ZIP`, Andrew on #49) on the 5160 from a DOS boot, photograph it: the
+   reference for 86Box's Mach8. Not on the CF now; local copy in `COMrade_Latest/XT_5160_rework_claude/ATI/ATIMACH8/M8UTL/`.
 3. Cimon's `WIN /D:X` / `SystemROMBreakPoint` results when they come; `vm_5150` boot (DOS boot floppy).
 
 ## Open, lower
