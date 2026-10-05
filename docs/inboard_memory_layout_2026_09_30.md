@@ -58,3 +58,17 @@ EGA half, which `SHADRAM.VXD` now gives to Windows (`docs/shadram_2026_10_02.md`
 
 The "about 1%" estimate above used total RAM as its base; the pageable pool is ~1.3 MB, and in
 the bed 64 KB cut page-ins by ~14%.
+
+## The emulator under-counts by 256 KB - 86Box/86Box#7638, 2026-10-05
+
+Intel's manual (page A-3): the card itself has 256 KB of extended memory; the piggyback adds to it.
+The real 5160 confirms it at 5 MB (4,352 = 256 + 4,096). 86Box reports 256 KB less at every size:
+
+| board | real (manual arithmetic) | 86Box |
+|---|---|---|
+| 1 MB | 256k | 0k - Intel's SETUP refuses: "contains 256K ... found less than 256K" (QuantumByteRider) |
+| 3 MB | 2,304k | 2,048k (Fenix770; also our 2026-08 matrix) |
+| 5 MB | 4,352k (measured) | 4,096k (Fenix770, upstream master) |
+
+Both #7638 reports are this one defect. Only the 5 MB row is measured on hardware. Not traced: where
+86Box places RAM above 640 KB for this machine. First check: read `0x100000`-`0x13FFFF` at 1 MB.

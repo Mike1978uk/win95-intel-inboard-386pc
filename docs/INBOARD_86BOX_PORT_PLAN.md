@@ -1576,7 +1576,9 @@ understood, cosmetic side issue - worth fixing properly for full fidelity, but d
 
 Per the user's suggestion to validate the simplest configuration first: tested `mem_size=1024` (no
 piggyback at all) against a copy of the bare test image with `NOCACHE` removed (so shadowing is
-exercised, matching the real-image test above). Result: `extended memory detected: 0k` (correct -
+exercised, matching the real-image test above). Result: `extended memory detected: 0k` (⚠ WRONG, corrected 2026-10-05: the card
+itself has 256 KB extended, so 256k is expected - `inboard_memory_layout_2026_09_30.md`. Original text:
+correct -
 no piggyback genuinely means zero extended memory) but **`bad extended memory: 18624k`** - a
 nonsensical value nowhere near any real quantity in this system, strongly suggesting the driver's
 own summary-line arithmetic divides or subtracts against an assumed-nonzero piggyback size and
