@@ -37,9 +37,13 @@ glyph area). A full-screen text repaint ~0.3 s -> ~0.2 s.
 
 1. **Off-screen memory map.** At 800x600 there are ~424 spare lines of 1 MB. Which does ATI already use
    (cursor save, brush cache, save-under)? Read `ENABLE` (ordinal 5) and the cursor/brush code.
-2. **Mono source from card memory.** Can the Mach8 colour-expand from a bit-plane in off-screen memory
-   (`DP_CONFIG` mono source = video memory, `RD_MASK` selecting the plane)? Confirm against the register
-   docs before designing storage. 8 glyph masks can share one 8-bpp area, one per plane.
+2. **Mono source from card memory - ANSWERED 2026-10-05: yes, on the Mach8.** ATI's *Programmer's Guide to
+   the mach32 Registers* (REG688000-15, local copy `references/ati_mach32/`, not vendored) marks `RD_MASK`
+   (AEE8) "Mach 32 | 8514/A | Mach 8" and `DP_CONFIG` (CEEE) "Mach 32 | Mach8". `DP_CONFIG[6:5]` MONO_SRC
+   = 3 is "VRAM blit source"; each source pixel P counts as foreground when `(P | ~RD_MASK) == FFh`, so one
+   `RD_MASK` bit selects a plane and **an 8-bpp area holds eight glyph sets**. ATI's text path writes
+   `DP_CONFIG = 3251h` (MONO_SRC = 2, pixel transfer); the cache changes that field to 3 and adds the blit
+   source. Unverified on the real card - first hardware test is one cached glyph.
 3. **Route.** (a) Binary-patch `ATIM8.DRV`: a new NE segment for the cache code, `EXTTEXTOUT` jumping
    into it. (b) Our own driver: the Win95 DDK has an accelerated mini-driver sample over the DIB engine,
    `Windows95_ddk\DISPLAY\SAMPLES\MINI\XGA`, a template for a Mach8/8514 driver built with 2026 design
@@ -98,3 +102,17 @@ draw-engine tests. Andrew sees most 8514 command tests fail in 86Box. It was run
 but the output was not kept; re-run it from a DOS boot (skip the startup) and photograph each screen.
 That is the reference result, and the failing tests name what the emulator's Mach8 model lacks - the reason ATI's
 accelerated mode does not run in the bed.
+
+## Findings from the full `ATIM8.DRV` read, 2026-10-05 (`tools/nedis.py`, new)
+
+- **`ATIM8.DRV` is a Windows 95 DIB Engine mini-driver** (imports `DIBENG`, 45 sites; `CreateDIBPDevice` at
+  `2:083D` with **`lpBits = 0`**). Every mode's flags (`cs:1B83` table) carry `VRAM | NOT_FRAMEBUFFER` -
+  DDK `DIBENG.INC`: "NOT_FRAMEBUFFER ... example: 8514/a". **This corrects route (b)'s caveat above:** an
+  8514-class mini-driver over the DIB Engine needs neither an aperture nor a screen shadow - it is what ATI shipped.
+- No aperture: the selector built at `2:3141` maps ATI's video BIOS ROM (`52EE` -> `C000h + n*80h`, DPMI 0800h);
+  `6AEE` is `MAX_WAITSTATES` (bit 8 = `LINE_OPT_ENA`) on the Mach8.
+- Mode table `cs:1B17` (320x200 .. 1280x1024) -> `[0x192]` width, `[0x194]` height; `[0x196]` pitch.
+- **Off-screen use (question 1, partial):** `2:24E9` checks `pitch * (height + 5) + [0x1B5]` against VRAM size
+  `[0x1A5]` - ATI appears to reserve **5 lines below the screen** plus a block of `[0x1B5]` bytes; `2:2641` asks the
+  VDD (`lcall [0x62]`, function 80h/83h) for memory and stores lines in use in `[0x116E]`. Not yet read: what the
+  5 lines and `[0x1B5]` hold, and the cursor path (DIBENG cursor calls 102-106). Continue there.

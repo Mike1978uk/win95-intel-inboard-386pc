@@ -350,3 +350,5 @@ untested here - our image does not load that driver.
 - Both points checked against the netlist the same evening (`docs/romcache_decode_2026_10_03.md` s5): the low view
   is F0000 only (86Box already right; "C0000" in our reply was wrong), and he was right about the wait states -
   fixed and up as 86Box#8219. ✅ Owner posted the reply naming #8219, 2026-10-05.
+
+- #49: the owner posted the reply to Andrew (two VRAM pools, velocity9x, TEST.COM, no mouse port), 2026-10-05.
