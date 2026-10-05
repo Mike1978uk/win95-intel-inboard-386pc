@@ -349,4 +349,4 @@ untested here - our image does not load that driver.
   86Box #8216 and #8217 merged the same day.
 - Both points checked against the netlist the same evening (`docs/romcache_decode_2026_10_03.md` s5): the low view
   is F0000 only (86Box already right; "C0000" in our reply was wrong), and he was right about the wait states -
-  fixed and up as 86Box#8219. ⏳ Reply with #8219 drafted for the owner to post.
+  fixed and up as 86Box#8219. ✅ Owner posted the reply naming #8219, 2026-10-05.

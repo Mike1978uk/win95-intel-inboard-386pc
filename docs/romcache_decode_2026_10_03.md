@@ -125,7 +125,7 @@ stays in RAM. ROMPROB2's halt stays unexplained - no block it read flags here.
   tick's INT 8 handler included) would run from the 8-bit ROM. Paging a RAM copy of the BIOS in at
   `F0000` would cost 16 of those pages back.
 - **86Box** keeps `5E0000`/`5F0000` mapped whatever port 670h bit 0 says. On the card the window
-  exists only while bit 0 is clear. Alerted, not fixed (owner's call).
+  exists only while bit 0 is clear. Alerted, not fixed (owner's call). **Fixed 2026-10-05: 86Box#8216 gates them.**
 
 ## 5. Andrew's two points on 86Box#7638, checked against the equations - 2026-10-05
 

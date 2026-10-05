@@ -2266,6 +2266,9 @@ of wasted and extended becomes `mem_size - 640K`. In 86Box that is re-pointing `
 `ram + 0xa0000` and growing it by 384 KB. **Stable, no crash** (no top-of-memory window, so no A20
 interaction) - and it correctly reclaims the memory: `extended now 2432 KB (was 2048 KB)`. It just
 does not touch the diagnostic. Shipped opt-in behind `INBOARD_BACKFILL=1`, default off.
+⛔ **Superseded 2026-10-05 by 86Box#8216.** That opt-in reclaimed 384 KB (128 KB too many) and only
+moved the exec pointer: `mem_read_ram()` indexes `ram[addr]` by raw address, so reads and writes disagreed.
+#8216 adds the 256 KB with `mem_remap_top_ex_nomid()` instead (`docs/inboard_memory_layout_2026_09_30.md`).
 
 **Where to start next time:** stop theorising about the memory map and hook the driver's own compare.
 The port plan pins the mark-bad site at `INBRDPC.SYS` code offset `9D2E`, and live traces show the
@@ -2581,7 +2584,7 @@ of them, and not the same byte count at every RAM size.
    inverted: bit clear -> ROMs mapped **high** (the `0x5E`/`0x5F` windows exist); bit set -> mapped
    **low only**. That is the same bit our port already reads as
    `dev->rom_shadow_enabled = dev->speed & 1;`, so our high alias is permanently enabled where
-   UniPCemu's is conditional.
+   UniPCemu's is conditional. **Fixed 2026-10-05: 86Box#8216 gates both windows on that bit.**
 2. UniPCemu also clamps `MMU.maxsize = MIN(MMU.size, 0x500000)` (XT) / `0x300000` (AT) and recomputes
    it on every `0xA0` / `0x670` / `0x674` write. We never do.
 

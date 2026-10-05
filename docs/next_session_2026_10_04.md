@@ -96,7 +96,7 @@ egistry_2026-10-03_pre_phantom\`.
   workload completed. Page-ins 16,568 - at the A level of 2026-10-02, not the S level; one run,
   and 86Box ties 670h bit 0 to the timing of every memory access (`inboard386_apply_mem_timing`:
   bit clear = all reads and writes charged at XT-bus rate), so the bed cannot judge speed with this
-  driver. On the card bit 0 reaches only U71 and U101 (netlist). Model gap, alerted, not fixed. Raw: `docs/captures/2026-10-03_shadram2_bed/`.
+  driver. On the card bit 0 reaches only U71 and U101 (netlist). Model gap, alerted, not fixed. **Fixed 2026-10-05: 86Box#8219 keys the pacing on bits 1-4.** Raw: `docs/captures/2026-10-03_shadram2_bed/`.
 - **On the card now:** `C:\SHADRAM.VXD` = v2 (v1 kept as `SHADRAM.V1`), `DEVICE=C:\SHADRAM.VXD`
   enabled in `SYSTEM.INI`. Backups: `SYSTEM.BSR` = just before (line commented), `SYSTEM.B04` = the
   previous `.BSR`. Revert: `copy C:\WINDOWS\SYSTEM.BSR C:\WINDOWS\SYSTEM.INI`. First boot: read
