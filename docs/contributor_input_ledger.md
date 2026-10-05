@@ -323,3 +323,14 @@ owner posted on Discord and he picked up 86Box#8102 (09-25); no reply owed on #8
 @Hinoserm's #8087 (Plug and Play) set a 3C509B found by the ID sequence to IRQ 0 on every
 global reset; fixed in 86Box#8102, which thanks him. **Owner messaged him on Discord, 09-25.** His #8086 (WfW 3.11 `ELNK3.386` hang) is
 untested here - our image does not load that driver.
+
+## @andrew-hoffman - #49, 2026-10-04/05
+
+- Two VRAM pools on the Graphics Ultra (Mach8 + 28800 VGA), "does the Mach8 have a framebuffer mode?":
+  answered by our own record (`bus_optimisation_plan.md`, Mach8 section): no aperture, `PIX_TRANS`
+  only; the VGA RAM is reachable only through banked `A0000`. Whether the Mach8 can read it: unknown.
+- `M8UTL.ZIP`: `TEST.COM` fails most 8514 tests in 86Box. Untested on the 5160 - planned
+  (`mach8_text_and_driver_plan.md`).
+- velocity9x: read; design ideas carry over, code does not (Mach64, aperture).
+- InPort mouse port on the card: question for the owner.
+- ⏳ Reply owed on #49 - draft given to the owner 2026-10-05, not posted.
