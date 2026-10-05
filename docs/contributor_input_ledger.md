@@ -353,6 +353,6 @@ untested here - our image does not load that driver.
 
 - #49: the owner posted the reply to Andrew (two VRAM pools, velocity9x, TEST.COM, no mouse port), 2026-10-05.
 
-- Christian (@holzachr), `xga-win9x` [PRIMARY]: his working Win95 DDK XGA mini-driver build is the recipe for the
+- Christian Holzapfel (@holzachr), `xga-win9x` [PRIMARY]: his working Win95 DDK XGA mini-driver build is the recipe for the
   #49 Mach8 driver (names the 16-bit LINK and RC we lack). Credited in the README 2026-10-05. A contact of the
   owner's. ⏳ Not yet told - the owner's to send. No licence on the repo: ask before copying any of his code.

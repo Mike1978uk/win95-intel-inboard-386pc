@@ -128,7 +128,7 @@ the directory's own `README.md`.
   — reframed issue #8. **[PRIMARY]**
 - **[DOSDays: ATI Mach8](https://www.dosdays.co.uk/topics/Manufacturers/ati/ati_mach8.php)** — the
   real card's jumper block.
-- **Christian (@holzachr), [`xga-win9x`](https://github.com/holzachr/xga-win9x)** - the Win95 DDK XGA
+- **Christian Holzapfel (@holzachr), [`xga-win9x`](https://github.com/holzachr/xga-win9x)** - the Win95 DDK XGA
   mini-driver sample, extended for XGA-2 and built; local copy `references/xga-win9x/`, not vendored. Gave:
   a working 16-bit display-driver build (`buildall.bat`: MASM 6.11 with its 16-bit `LINK`, MSVC 1.5x `RC`,
   MSVC 2.0 for the VxD, DDK headers and libs) - which names the two tools we lack - and a known-good layout
