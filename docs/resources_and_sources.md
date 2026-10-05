@@ -128,6 +128,11 @@ the directory's own `README.md`.
   — reframed issue #8. **[PRIMARY]**
 - **[DOSDays: ATI Mach8](https://www.dosdays.co.uk/topics/Manufacturers/ati/ati_mach8.php)** — the
   real card's jumper block.
+- **XFree86 3.3.6 `XF86_Mach8` server** - http://ftp.xfree86.org/pub/XFree86/3.3.6/source/X336src-1.tgz,
+  `xc/programs/Xserver/hw/xfree86/accel/{mach8,ibm8514,cache}`; local copy `references/xfree86_336_mach8/`,
+  not vendored. Kevin E. Martin's Mach8/8514 servers, MIT-style licence. Gave: a working off-screen glyph
+  cache for the Mach8 (`mach8fcach.c`, `mach8fc.c`) - answers #49 questions 1-2. Does not contain: anything
+  on Windows' GDI or the DIB engine. Lead from an AI answer the owner pasted, 2026-10-05; the source was checked.
 - ❌ The "28800 VGA core + 38800 coprocessor" description circulating in AI-sourced notes is
   **unverified** — check it against Ardent Tool before relying on it.
 

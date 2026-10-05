@@ -116,3 +116,30 @@ accelerated mode does not run in the bed.
   `[0x1A5]` - ATI appears to reserve **5 lines below the screen** plus a block of `[0x1B5]` bytes; `2:2641` asks the
   VDD (`lcall [0x62]`, function 80h/83h) for memory and stores lines in use in `[0x116E]`. Not yet read: what the
   5 lines and `[0x1B5]` hold, and the cursor path (DIBENG cursor calls 102-106). Continue there.
+
+## XFree86 3.3.6 already did this (read 2026-10-05)
+
+`XF86_Mach8` (Kevin E. Martin, MIT-style licence; local `references/xfree86_336_mach8/`, see
+`docs/resources_and_sources.md` s4) ships an off-screen glyph cache for the Mach8. It is real code
+that ran on real Mach8 cards, so it is the template for the cache, whichever route is chosen.
+
+- **Layout (`mach8FontCache8Init`, `mach8fcach.c`):** everything below the visible screen. A 64x64 area
+  at (0, virtualY) for expanding pixmaps; the rest, from x = 64 to 1023 and from virtualY to line 1023 on
+  a 1 MB card, is the font cache, **registered once per bit plane - 8 pools over the same rectangle**.
+  No cache unless at least two 6x13 fonts fit (w >= 192, h >= 26).
+- **Draw (`mach8GlyphWrite`, `mach8fc.c`):** set once per string: `FRGD_COLOR`, `PIX_CNTL` =
+  `MIXSEL_EXPBLT` (`MULTIFUNC_CNTL` A0C0h), `FRGD_MIX` = colour with the GC's ALU, `BKGD_MIX` = destination
+  (transparent), `WRT_MASK`, scissors. Per font block: `CUR_Y` and `RD_MASK` (the plane), only when they
+  change. **Per glyph: `CUR_X`, `DESTX_DIASTP`, `DESTY_AXSTP`, `CMD` = 4 word writes**, plus
+  `MAJ_AXIS_PCNT`/`MIN_AXIS_PCNT` only when the glyph size changes, plus a FIFO poll (`WaitQueue`, an
+  `inw` of 9AEEh). Glyphs sit 32 to a row, so the source X is `block.x + (char & 31) * width`.
+- **This is plain 8514/A plane expansion** (`PIX_CNTL` mix select 3, "VRAM bitplane picks the mix"), not
+  the Mach8-only `DP_CONFIG` MONO_SRC route in question 2. The `ibm8514` server does the same. Either
+  should work; the 8514 route is the one that is known to have worked.
+- **Against our estimate:** ~4 writes and a poll per character instead of the ~7 estimated above, and
+  ~13 in ATI's path today. Still to be measured on the card.
+- **Question 1, revised:** the map XFree86 uses is a choice, not something ATI's driver forces. Our
+  own driver can take the same layout; a patch to `ATIM8.DRV` still has to avoid ATI's 5 lines and the
+  `[0x1B5]` block.
+- **Licence:** MIT-style with notice - code can be adapted if the copyright and permission notice
+  travel with it.

@@ -138,6 +138,8 @@ references/inboard386_ronnyroy/
 # register guide - read them, do not vendor them
 references/xga-win9x/
 references/ati_mach32/
+# XFree86 3.3.6 Mach8/8514/cache servers (MIT-style licence) - read them, do not vendor them
+references/xfree86_336_mach8/
 
 # 3C509B work (#42): the 86Box worktree, its bed, and a clone of
 # hackerb9/3C509B-nestor kept for reading.
