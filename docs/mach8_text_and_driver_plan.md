@@ -95,6 +95,15 @@ restoring it from DOS. Extend `TXTBENCH` with a bitmap test (`SetDIBitsToDevice`
   meanings against the Mach32 guide; Open Watcom as a 16-bit toolchain; and "`DP_MONO_SRC_BLIT` glyph
   caching in off-screen VRAM" listed as a Mach64 win - the same idea as ours. Not usable as code here:
   Mach64 is not register-compatible with the Mach8, and the driver needs an aperture.
+  Re-read 2026-10-06 for Andrew's VGA/8514 switching idea (#49): **GPL-3.0** (this repo is MIT - read
+  it, do not copy it). `docs/decisions/2026-08-10-dynamic-mode-switching.md`: live switching through
+  `ReEnable` (`C1_REINIT_ABLE`, rebuild the PDEVICE in place between `DIB_BeginAccess`/`DIB_EndAccess`,
+  re-register with the VDD), taken from vmdisp9x (<https://github.com/JHRobotics/vmdisp9x>, MIT);
+  **same depth only** - Windows 9x never changes depth live (KB Q127139). `2026-08-16-vbe-tier0-family.md`:
+  in a Win9x display driver, DPMI 0100h fails - get DOS buffers from `GlobalDosAlloc`.
+- **VBEMP** (owner, 2026-10-06) - <https://bearwindows.zcm.com.au/vbemp.htm>. NT 3.1-XP only, no Win9x
+  build, closed source (freeware, non-commercial), needs a VBE BIOS and mostly a linear framebuffer.
+  Nothing for this card.
 - **Ardent Tool** (MCA community): <https://www.ardent-tool.com/video/8514.html> - an 8514/A register
   summary (`8514A_Registers.pdf`, from MIPS 1990; nothing beyond the Mach32 guide). `8514_Experience`
   and `8514A_Standard_Who_Wants_It` - history only (no aperture, AI too slow, Microsoft drove the
