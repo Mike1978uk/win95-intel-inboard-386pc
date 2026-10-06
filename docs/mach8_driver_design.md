@@ -61,7 +61,7 @@ a FIFO-room check before each operation and the engine's finish included. The ra
 | XFree86 3.3.6 `XF86_Mach8` (Kevin E. Martin) | glyph cache layout and draw sequence, 8514/A command usage | MIT-style: keep the notices, credit, no endorsement (`docs/mach8_text_and_driver_plan.md`) |
 | velocity9x (Michael Dale) | DIB Engine glue, VDD registration, `ReEnable` mode switching, test tools (`V9XGDI`, `V9XMSW`), Open Watcom build | GPL-3.0; author's permission to use parts and to contribute, 2026-10-06. The driver is therefore GPL-3.0 |
 | vmdisp9x (JHRobotics) | where velocity9x's switching came from; Win95 support claimed | MIT |
-| xga-win9x (Christian Holzapfel) | how the DDK mini-driver sample builds and works, `DrawTextBitmap` | no licence: read, do not copy without asking |
+| xga-win9x (Christian Holzapfel) | how the DDK mini-driver sample builds and works, `DrawTextBitmap` | no licence; the author's blessing to use it (reported by the owner, 2026-10-07). His own code only: parts derived from the DDK sample stay out of a GPL-3.0 driver |
 | ATI `MACHW3.DRV`, Microsoft `ATIM8.DRV` | the reference for what works on this card: DIB Engine with `NOT_FRAMEBUFFER`, the extended path, init sequences | proprietary: study only |
 | TEST.COM, ATI ROM | register behaviour, init tables | proprietary: study only |
 
