@@ -116,11 +116,25 @@ More, measured with `M8ROW` (rows 100h-10Fh read back directly after each operat
 | `197776365` | 64 -> 70 | DEST_CMP_FN functions 2-7: TRUE leaves the pixel unchanged (Mach32 guide says so too); 86Box had them inverted |
 | `7da6fc80c` | 70 -> 74 | DEST_CMP_FN bit 6 in 8 bpp is not in the guide's table: it ignores COLOR_CMP and tests a nibble for 0 or F - bit 4 picks the nibble (0 high, 1 low), bit 3 picks the side written, bit 5 is ignored (`5160_M8CMP.BIN`) |
 
+Then, each measured over COMrade with `M8ROW3` (a 64x16 area read back directly at chosen checkpoints) and
+`M8SRC` (which register writes switch a SCAN_TO_X to the 8514/A source):
+
+| commit | first difference moved | what the real card does |
+|---|---|---|
+| `35da79908` | op 74 -> 77 | PATTERN_L (MULTIFUNC index 8) is the LEFT four pixels of the fixed pattern, bit 4 leftmost (Richter and Smith agree); the model took index 9 first |
+| `54859c68b` | 77 -> 81 | a CPU-fed vector line with LAST_PIXEL off ends on its last drawn pixel and moves CUR to its end; the model waited for data for the undrawn point and kept CUR |
+| `6ce5dee9f`, `27d9c1cbe`, `a8cd388f4` | 81 -> 84 | SCAN_TO_X: only a FRGD_MIX write (not WRT_MASK, RD_MASK, COLOR_CMP, BKGD_MIX, FRGD_COLOR, PIX_CNTL, CUR_X, SRC_X_START) after DP_CONFIG selects the 8514/A source, whatever DP_CONFIG bit 4 says; after a draw CUR_X is one past the end pixel; a zero-width SCAN_TO_X draws nothing and leaves CUR_X. `27d9c1cbe` also fixed my own `88f53e2aa`, whose hook sat in a case shared with four other registers |
+| `a0bad65cc` | 84 -> 85 | a CPU-fed RECTANGLE with the 16-bit bit clear and BYTE_SEQ set takes the first pixel from the high byte (lines with the same bits already matched) |
+| `c9b4c970a` | 85 -> 87 | PIX_CNTL polygon mode on a rectangle: boundary = all RD_MASK bits set; a boundary flips inside/outside and is always filled; others filled while inside; RD_MASK planes cleared everywhere. The model sent `40FD` (bit 3 set) down the vectored path and drew nothing |
+| `5b8db62f4`, `f825dab75` | 87 -> 91 | LAST_PIXEL off makes every rectangle row MAJ pixels and consumes MAJ pixels of CPU data |
+
 **Open:**
-- op 74, two lines with the 8514/A fixed pattern (`PIX_CNTL A040`, pattern words through MULTIFUNC index 8/9).
-- 86Box's 8514/A drawing path (`vid_8514a.c`) ignores the Mach8's DEST_CMP_FN; the card applies it to
-  8514/A commands too (M8CMP fills with `40F3`). TS1 does not depend on it so far.
-- The 8514/A path's own COLOR_CMP compare writes on TRUE; the guide says TRUE leaves the pixel. Unmeasured.
+- **op 91, `63F5`** - a CPU-fed rectangle filled in the Y direction (command 3), data `0102 0304 0506` at
+  (34h,1Ch). M8ROW3 for checkpoints 90-92 was built (`M8R9`) but the 5160 stopped answering COMrade before it ran.
+- M8SEQ does not initialise everything: running M8SRC before it in the bed changed op 74's result. Fuller
+  init needed before its checkpoints can be trusted after other programs.
+- Earlier: 86Box's 8514/A path ignores DEST_CMP_FN (the card applies it to 8514/A commands too); the 8514/A
+  COLOR_CMP compare writes on TRUE (guide: TRUE leaves the pixel). Unmeasured / TS1 does not depend on them yet.
 
 (Superseded below this line: the first account of the polygon lines, before M8PL2.)
 
