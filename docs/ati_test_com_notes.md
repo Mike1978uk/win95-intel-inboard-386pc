@@ -107,10 +107,20 @@ operations; file version `M8S3`, reference `5160_M8SEQ3.BIN`):
 | `ebd093b15` | mix 1Fh | ATI mix 1Fh = (S+D > FFh) ? FFh : (S+D)/2 (Mach32 guide); 86Box halved first and never saturated |
 | `433ae0650` | op 60 -> 62 | a VRAM-source non-conforming blit (`DP_CONFIG 6211`) leaves CUR_X/CUR_Y at its end; 86Box left them, so the next host-data blit started 7 rows high |
 
-**Open: op 62**, a `6211` blit to row 100h that sets no source position of its own, so it continues the
-source trajectory of op 61. 86Box continues from somewhere else. Not a starting-state effect: initialising
-`DEST_CMP_FN` (M8S3) changed neither machine's result. Next: log the model's source position at op 61's end
-and op 62's start, and read the card's source registers over COMrade after replaying to op 62.
+More, measured with `M8ROW` (rows 100h-10Fh read back directly after each operation) and `M8CMP`
+(every DEST_CMP_FN code 40h-78h against a 00-FFh ramp, three compare colours), both run over COMrade:
+
+| commit | first difference moved | what the real card does |
+|---|---|---|
+| `88f53e2aa` | op 62 -> 64 | a FRGD_MIX write after DP_CONFIG hands the source back to the 8514/A registers: op 62 fills with FRGD_COLOR although DP_CONFIG still says VRAM blit |
+| `197776365` | 64 -> 70 | DEST_CMP_FN functions 2-7: TRUE leaves the pixel unchanged (Mach32 guide says so too); 86Box had them inverted |
+| `7da6fc80c` | 70 -> 74 | DEST_CMP_FN bit 6 in 8 bpp is not in the guide's table: it ignores COLOR_CMP and tests a nibble for 0 or F - bit 4 picks the nibble (0 high, 1 low), bit 3 picks the side written, bit 5 is ignored (`5160_M8CMP.BIN`) |
+
+**Open:**
+- op 74, two lines with the 8514/A fixed pattern (`PIX_CNTL A040`, pattern words through MULTIFUNC index 8/9).
+- 86Box's 8514/A drawing path (`vid_8514a.c`) ignores the Mach8's DEST_CMP_FN; the card applies it to
+  8514/A commands too (M8CMP fills with `40F3`). TS1 does not depend on it so far.
+- The 8514/A path's own COLOR_CMP compare writes on TRUE; the guide says TRUE leaves the pixel. Unmeasured.
 
 (Superseded below this line: the first account of the polygon lines, before M8PL2.)
 
