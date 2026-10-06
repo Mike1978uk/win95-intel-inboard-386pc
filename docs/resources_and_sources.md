@@ -121,9 +121,13 @@ the directory's own `README.md`.
 ## 4. Video — ATI Mach8 / 8514-A
 
 - **[Ardent Tool: ATI 8514 Ultra](https://www.ardent-tool.com/video/ATI_8514_Ultra.html)** and
-  **[Mach8 drivers](https://www.ardent-tool.com/video/ATI_mach8_Drivers.html)** — the detailed
-  register and driver documentation.
-- **[8514/A register reference (PDF)](https://www.ardent-tool.com/video/8514A_Registers.pdf)**.
+  **[Mach8 drivers](https://www.ardent-tool.com/video/ATI_mach8_Drivers.html)** — card hardware, jumpers,
+  TEST.COM error codes and test sequences (1 MB boards run 1, 2, 3), the drivers, and both 8514/Ultra User's Guides
+  (v1.0, v2.1). Local copies `references/8514a_docs/ardent/`, not vendored. The guides are scans with no text
+  layer (no OCR here yet); the page already quotes their diagnostics. Does not contain: register semantics.
+- **[8514/A register reference (PDF)](https://www.ardent-tool.com/video/8514A_Registers.pdf)** - two pages from
+  "Harnessing the 8514/A" (MIPS, January 1990): port list, GP_STAT and CMD bits, columns misaligned. Adds nothing
+  the Mach32 guide does not have.
 - **Michal Necasek, [*The 8514/A Graphics Accelerator*](https://www.os2museum.com/wp/the-8514a-graphics-accelerator/)**
   — reframed issue #8. **[PRIMARY]**
 - **[DOSDays: ATI Mach8](https://www.dosdays.co.uk/topics/Manufacturers/ati/ati_mach8.php)** — the
@@ -134,6 +138,14 @@ the directory's own `README.md`.
   MSVC 2.0 for the VxD, DDK headers and libs) - which names the two tools we lack - and a known-good layout
   for a DIB Engine mini-driver. Does not contain: anything on the Mach8/8514, or a glyph cache. No licence
   on the repo, so his code is read, not copied, unless he agrees. The owner knows him; credited in the README.
+- **ATI, *Programmer's Guide to the mach32 Registers* (REG688000-15, 1993)** - local `references/ati_mach32/`
+  (`guide.txt` is the text), not vendored. **Source URL not recorded - owner to supply.** Marks each register
+  "8514/A | Mach 8 | Mach 32". Gave, 2026-10-06, without a measurement: polygon fill types A/B/C (section 7,
+  "Polygon Fills"), CMD bit names (9 = 16-bit data, 12 = LSB_FIRST), PATT_DATA/PATT_INDEX/PATT_LENGTH,
+  EXT_SHORT_STROKE, DP_CONFIG, BRES_COUNT, and the warning that the first short stroke of a pair mishandles
+  host data. Mach8 differences are flagged inline only sometimes: the 18-register pattern layout is the
+  guide's ATI68800-3 one, assumed for the Mach8, unverified. Possible disagreement with the card: polygon
+  type A right edge (open in `docs/ati_test_com_notes.md`).
 - **XFree86 3.3.6 `XF86_Mach8` server** - http://ftp.xfree86.org/pub/XFree86/3.3.6/source/X336src-1.tgz,
   `xc/programs/Xserver/hw/xfree86/accel/{mach8,ibm8514,cache}`; local copy `references/xfree86_336_mach8/`,
   not vendored. Kevin E. Martin's Mach8/8514 servers, MIT-style licence. Gave: a working off-screen glyph
@@ -150,7 +162,8 @@ the directory's own `README.md`.
   Interface (AI); does not contain an off-screen glyph cache - its multiplane font support is "left as an exercise".
 - **IBM, *Display Adapter 8514/A Technical Reference* (S68X-2248-0, April 1987)** -
   https://archive.org/details/bitsavers_ibmpccardsyAdapter8514ATechnicalReference198704_6282463 ; local copy as above.
-  The primary register reference. Not yet read.
+  Read 2026-10-06 (text extracted to `ibm_8514a_techref_198704.txt`): it documents only the Adapter Interface
+  (AI) API - no register-level content at all. Do not search it for register behaviour.
 - Not fetched: Richter's *Power Programming: the IBM XGA* (1992) - https://archive.org/details/powerprogramming0000rich ,
   borrow-only, and XGA rather than 8514. Both leads came from an AI answer the owner pasted, 2026-10-05; items checked.
 - ❌ The "28800 VGA core + 38800 coprocessor" description circulating in AI-sourced notes is

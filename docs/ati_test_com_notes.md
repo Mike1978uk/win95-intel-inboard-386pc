@@ -87,7 +87,7 @@ Model fixes found this way, each checked against the real card's file in the bed
 
 | commit | first difference moved | what the real card does |
 |---|---|---|
-| `8f520484d` | command 0 -> 3 | a PIX_TRANS word read with the 16-bit bit clear and BYTE_SEQ set (`43F0`) returns the first pixel in the HIGH byte; with the 16-bit bit set (`53B0`, M8GLYPH) in the low byte |
+| `8f520484d` | command 0 -> 3 | a PIX_TRANS word read with 16-bit data (CMD bit 9) and LSB_FIRST (bit 12) clear (`43F0`) returns the first pixel in the HIGH byte; with LSB_FIRST set (`53B0`, M8GLYPH) in the low byte |
 | `5bcd8bf03` | 3 -> 8 | lines and short strokes add X to the row as 11 bits unsigned: (-1,-1) lands at X 1023 of row 0, not the row above |
 | `ab2fe76ef`, `5924277c2` | 8 -> 16 | Bresenham `DESTY_AXSTP`, `DESTX_DIASTP`, `ERR_TERM` are 13-bit signed (`1FFE` = -2), and a line steps diagonally while the error is not negative. Both scoped to `ATI_GRAPHICS_ULTRA` |
 
@@ -124,20 +124,36 @@ Then, each measured over COMrade with `M8ROW3` (a 64x16 area read back directly 
 | `35da79908` | op 74 -> 77 | PATTERN_L (MULTIFUNC index 8) is the LEFT four pixels of the fixed pattern, bit 4 leftmost (Richter and Smith agree); the model took index 9 first |
 | `54859c68b` | 77 -> 81 | a CPU-fed vector line with LAST_PIXEL off ends on its last drawn pixel and moves CUR to its end; the model waited for data for the undrawn point and kept CUR |
 | `6ce5dee9f`, `27d9c1cbe`, `a8cd388f4` | 81 -> 84 | SCAN_TO_X: only a FRGD_MIX write (not WRT_MASK, RD_MASK, COLOR_CMP, BKGD_MIX, FRGD_COLOR, PIX_CNTL, CUR_X, SRC_X_START) after DP_CONFIG selects the 8514/A source, whatever DP_CONFIG bit 4 says; after a draw CUR_X is one past the end pixel; a zero-width SCAN_TO_X draws nothing and leaves CUR_X. `27d9c1cbe` also fixed my own `88f53e2aa`, whose hook sat in a case shared with four other registers |
-| `a0bad65cc` | 84 -> 85 | a CPU-fed RECTANGLE with the 16-bit bit clear and BYTE_SEQ set takes the first pixel from the high byte (lines with the same bits already matched) |
+| `a0bad65cc` | 84 -> 85 | a CPU-fed RECTANGLE with 16-bit data and LSB_FIRST clear takes the first pixel from the high byte (the lines that "already matched" had byte-symmetric data, AAAAh/5555h; see op 108) |
 | `c9b4c970a` | 85 -> 87 | PIX_CNTL polygon mode on a rectangle: boundary = all RD_MASK bits set; a boundary flips inside/outside and is always filled; others filled while inside; RD_MASK planes cleared everywhere. The model sent `40FD` (bit 3 set) down the vectored path and drew nothing |
 | `5b8db62f4`, `f825dab75` | 87 -> 91 | LAST_PIXEL off makes every rectangle row MAJ pixels and consumes MAJ pixels of CPU data |
-
 | `9c50163ab` | 91 -> 95 | command 3 (`63F5`, "rectangle, Y direction") runs MAJ down each column, then the next column, MIN+1 columns; CPU words carry two pixels, high byte first. The model treated it as command 2 |
+| `6059f3dd5`, `87e19f112` | 95 -> 98 | command 4 (`83F5`, "Y direction using nibbles", M8NIB): 4-pixel columns aligned to X mod 4, each data byte fills one row of one column; the first column runs in the command's Y direction from CUR_Y, the next back; LAST_PIXEL ignored; 16-bit data gives two bytes per word, MSB first unless LSB_FIRST |
+| `bf2d347bd` | (M8EXP) | GE_PITCH applies to the extended path as soon as it is written |
+| `3929cfd3d` | 98 -> 109 | host COLOUR data with 16-bit data and LSB_FIRST clear is MSB first for blits (op 99), lines (op 108, worked out from the fold: (A5h-12h)/2 = 49h on the card) and short strokes; host MONO data for lines keeps the low byte first (ops 78-79) |
+| `6fae05813` | op 105 | PIX_CNTL bit 1 = polygon fill type B: WRT_MASK qualifies the outline, both edges fill, no planes cleared. Straight from the Mach32 guide's fill-type table (section 7, "Polygon Fills"); the card agreed |
+| `c69bfbc3d` | (op 110) | a linear mono pattern is PATT_LENGTH+1 bits from PATT_DATA_10 on, from PATT_INDEX, MSB first in each 16-bit word; the model repeated one byte |
+| `7a72b6a27` | 109 -> 110 | SHORT_STROKE with host data: the first vector of the pair takes no host data and draws with the low byte of the stroke word (the guide says only that it "does not consume host data correctly"); the second takes PIX_TRANS MSB first, then, when it runs dry, the low byte of the next FIFO entry whatever its port (TS1 writes 5678h to CUR_X there; the card draws 78 78 78) |
+| `04956aedf` | 110 -> 112 | EXT_SHORT_STROKE (C6EE, a TODO in 86Box): two IBM SSV bytes, 15:8 first, drawn as extended degree-mode lines with the DP_CONFIG path; a PATT_INDEX write sets the next pattern pixel |
+
+**The harness itself (M8SEQ `M8S4`, M8ROW3 `M8RC`).** TEST.COM runs routine `1E21` before every test
+sequence: its `05F0` (32EEh = 0, SUBSYS_CNTL 900Fh/400Fh) and the setup table at `17E7` (PIX_CNTL, scissors,
+FRGD_MIX 27h, BKGD_MIX 07h, colours, patterns, masks, two full-screen fills). Both tools now play exactly that
+from the loaded TEST.COM before every checkpoint. Before, BKGD_MIX and COLOR_CMP kept whatever the previous
+program left: a bed run after M8ROW3 104-107 (which reaches TS1's BKGD_MIX write) failed op 74, and the old
+reference `5160_M8SEQ3.BIN` differs from the new `5160_M8SEQ4.BIN` at 10 checkpoints for the same reason.
+Reference from now on: `5160_M8SEQ4.BIN`.
 
 **Open:**
-- **op 95, command 4 (`83F5`, "Y direction using nibbles")** at (32h,20h), data 01..06: the real card writes
-  columns 32h and 33h both 01 02 03 top-down and column 34h 04 05 06 bottom-up
-  (`5160_M8ROW3_94-96.BIN`). Not modelled; the rule needs more cases than TS1 gives.
-- M8SEQ does not initialise everything: running M8SRC before it in the bed changed op 74's result. Fuller
-  init needed before its checkpoints can be trusted after other programs.
+- op 111 (checkpoint 112) onward, 61 of 173 checkpoints still differ (2026-10-06); TS2 not yet bisected.
+- the polygon type A rule above fills the right edge; the Mach32 guide says type A excludes it. Op 85's data may
+  not tell the two apart - check before relying on it.
+- the linear mono pattern rule is only applied to SCAN_TO_X; blits and lines still repeat one byte.
 - Earlier: 86Box's 8514/A path ignores DEST_CMP_FN (the card applies it to 8514/A commands too); the 8514/A
   COLOR_CMP compare writes on TRUE (guide: TRUE leaves the pixel). Unmeasured / TS1 does not depend on them yet.
+
+Bit names: the Mach32 guide calls CMD bit 9 DATA_WIDTH (1 = 16-bit host data) and bit 12 LSB_FIRST. Older
+notes and code comments here called them "BYTE_SEQ" and "the 16-bit bit" the other way round.
 
 (Superseded below this line: the first account of the polygon lines, before M8PL2.)
 
