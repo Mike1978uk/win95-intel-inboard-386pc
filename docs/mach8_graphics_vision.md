@@ -76,6 +76,28 @@ copies done entirely on the card.
 3. **Later, possibly:** DCI or a DirectDraw HAL in our own driver (off-screen surfaces and blits), so
    Windows games could use the card. Large; only after 1 and 2 prove the ideas.
 
+## 3D, built around the card (owner, 2026-10-07)
+
+Not Direct3D: perspective-correct texturing and a Z-buffer are per-pixel work, and per-pixel means the bus.
+A 3D engine designed around what the card does cheaply is a different question, and the answer may be yes.
+The principle is the one this file opens with: send commands, not pixels.
+
+- **Flat-shaded polygons:** the 8514/A polygon fill (outline, then fill; types A and B, modelled in the bed
+  for TS1) draws a triangle in a handful of writes whatever its size. At 15-20 writes, the bus allows on the
+  order of 10,000 triangles a second.
+- **Lighting by palette:** colour ramps, so shading is an index; fades are DAC writes. Patterns (`A211`)
+  for dithered tones.
+- **Page flipping:** two 640x480 pages at pitch 1024 fit in 1 MB; more at lower resolutions.
+- **The 486 does the maths:** transforms, clipping, painter's-algorithm sort.
+- **Textured walls, raycaster style:** pre-scale each texture's columns once into spare card memory; each
+  screen column is then one engine blit (~320 blits, ~10 ms of bus per frame).
+- **Planes and write masks** for layers (HUD, sprites) composited by the palette.
+- **Two cards in one:** VGA side (512 KB) and 8514 side (1 MB) have separate memory and the engine cannot
+  read the VGA side, but the CPU can fill one while the engine draws on the other.
+
+Speculative until measured on the 5160: the cost of a polygon-fill triangle, the engine's fill rate, and
+whether pre-scaled column blits hold up. Comes after the desktop driver; probes can be written any time.
+
 ## Measure first, always
 
 Extend `TXTBENCH` before each step: a bitmap test (`SetDIBitsToDevice` of photo-like and flat-colour
