@@ -1,6 +1,6 @@
 ; M8ROW3.COM - what TEST.COM Test Sequence 1's operations 80-84 (SCAN_TO_X with write masks, short strokes) leave,
 ; read back directly (no fold). Same replay as M8SEQ.COM (version M8S3: checkpoints before each
-; CMD, DEST_Y_END or SCAN_TO_X write), checkpoints 90-92 only (M8R9; M8R8 87-89, M8R7 85-87, M8R6 84-86, M8R5 80-85, M8R4 76-81, M8R3 74-76 at y 08h). Each reads (20h,18h)-(5Fh,27h),
+; CMD, DEST_Y_END or SCAN_TO_X write), checkpoints 94-96 only (M8RA; M8R9 90-92, M8R8 87-89, M8R7 85-87, M8R6 84-86, M8R5 80-85, M8R4 76-81, M8R3 74-76 at y 08h). Each reads (20h,18h)-(5Fh,27h),
 ; 64x16, with the 16-bit read (53B0h) proved on both machines. Op 62 is a VRAM blit that keeps
 ; the source trajectory of op 61; the row it writes shows which source row each machine used.
 ;
@@ -33,8 +33,8 @@ TBL_OFS         equ     29A4h - 100h    ; Test Sequence 1, 1 MB table, in the fi
 BUF             equ     2000h           ; TEST.COM loaded here
 RES             equ     0C900h          ; results, after TEST.COM (2000h-C8A0h); 7 x 1028 bytes
 REC             equ     1028            ; per checkpoint: idle timeouts, data timeouts, 2 pad, 1024 data
-K_FIRST         equ     90
-K_LAST          equ     92
+K_FIRST         equ     94
+K_LAST          equ     96
 AREA_X          equ     20h
 AREA_Y          equ     18h
 
@@ -167,7 +167,7 @@ say:    mov     ah, 9
         mov     ax, 4C00h
         int     21h
 
-hdr     db      'M8R9', 0, 0
+hdr     db      'M8RA', 0, 0
 
 ; --- outw dx <- imm, used by the fixed sequences below ---
 %macro  OUTW 2

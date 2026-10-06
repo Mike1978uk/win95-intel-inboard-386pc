@@ -128,9 +128,12 @@ Then, each measured over COMrade with `M8ROW3` (a 64x16 area read back directly 
 | `c9b4c970a` | 85 -> 87 | PIX_CNTL polygon mode on a rectangle: boundary = all RD_MASK bits set; a boundary flips inside/outside and is always filled; others filled while inside; RD_MASK planes cleared everywhere. The model sent `40FD` (bit 3 set) down the vectored path and drew nothing |
 | `5b8db62f4`, `f825dab75` | 87 -> 91 | LAST_PIXEL off makes every rectangle row MAJ pixels and consumes MAJ pixels of CPU data |
 
+| `9c50163ab` | 91 -> 95 | command 3 (`63F5`, "rectangle, Y direction") runs MAJ down each column, then the next column, MIN+1 columns; CPU words carry two pixels, high byte first. The model treated it as command 2 |
+
 **Open:**
-- **op 91, `63F5`** - a CPU-fed rectangle filled in the Y direction (command 3), data `0102 0304 0506` at
-  (34h,1Ch). M8ROW3 for checkpoints 90-92 was built (`M8R9`) but the 5160 stopped answering COMrade before it ran.
+- **op 95, command 4 (`83F5`, "Y direction using nibbles")** at (32h,20h), data 01..06: the real card writes
+  columns 32h and 33h both 01 02 03 top-down and column 34h 04 05 06 bottom-up
+  (`5160_M8ROW3_94-96.BIN`). Not modelled; the rule needs more cases than TS1 gives.
 - M8SEQ does not initialise everything: running M8SRC before it in the bed changed op 74's result. Fuller
   init needed before its checkpoints can be trusted after other programs.
 - Earlier: 86Box's 8514/A path ignores DEST_CMP_FN (the card applies it to 8514/A commands too); the 8514/A
