@@ -1,3 +1,12 @@
+; M8POLY.COM - what each polygon-boundary line in ATI TEST.COM's Test Sequence 1 draws,
+; read back directly. Same replay as M8SEQ.COM (read its notes), for checkpoints 16-24 only:
+; commands 16-23 are the eight polygon-boundary lines (A0xx). Instead of TEST.COM's fold, each
+; checkpoint reads the 16x16 area at (16,0)-(31,15) where they are drawn, with the 16-bit read
+; (53B0h) that M8GLYPH proved byte-identical on the real card and in 86Box. Diff consecutive
+; checkpoints to see one command's pixels.
+;
+; ---- M8SEQ's own notes follow ----
+;
 ; M8SEQ.COM - find the first drawing command in ATI TEST.COM's Test Sequence 1 that a
 ; Mach8 model gets wrong, by running the same replay on the real card and in 86Box.
 ;
@@ -8,7 +17,7 @@
 ; end, which does not say which command.
 ;
 ; For k = 0 .. NCMD, this program: resets the engine, clears the card, replays the table up
-; to (not including) its k-th operation trigger (CMD, DEST_Y_END or SCAN_TO_X) - so every earlier command has received all its
+; to (not including) its k-th CMD write - so every earlier command has received all its
 ; pixel data - then folds and reads the 8x8 block exactly as TEST.COM does, and stores the
 ; 64 bytes. Checkpoint NCMD is the whole table. Diff the files from the two machines with
 ; m8seq_diff.py: the first checkpoint that differs names the command.
@@ -23,17 +32,19 @@
 TC_SIZE         equ     43169           ; TEST.COM, md5 bf168ffd9f68f3a27bd8963d3dd39b63
 TBL_OFS         equ     29A4h - 100h    ; Test Sequence 1, 1 MB table, in the file
 BUF             equ     2000h           ; TEST.COM loaded here
-RES             equ     0C900h          ; results, after TEST.COM (2000h-C8A0h)
-REC             equ     68              ; per checkpoint: idle timeouts, data timeouts, 2 pad, 64 data
+RES             equ     0D000h          ; results
+REC             equ     260             ; per checkpoint: idle timeouts, data timeouts, 2 pad, 256 data
+K_FIRST         equ     16
+K_LAST          equ     24
 
         jmp     start
 
 fname   db      'TEST.COM', 0
-oname   db      'M8SEQ.BIN', 0
-m_ok    db      'M8SEQ: done, results in M8SEQ.BIN', 13, 10, '$'
-m_nof   db      'M8SEQ: cannot read TEST.COM (must be the 43,169-byte ATI v1.46)', 13, 10, '$'
-m_bad   db      'M8SEQ: TEST.COM table not where expected', 13, 10, '$'
-m_out   db      'M8SEQ: cannot write M8SEQ.BIN', 13, 10, '$'
+oname   db      'M8POLY.BIN', 0
+m_ok    db      'M8POLY: done, results in M8POLY.BIN', 13, 10, '$'
+m_nof   db      'M8POLY: cannot read TEST.COM (must be the 43,169-byte ATI v1.46)', 13, 10, '$'
+m_bad   db      'M8POLY: TEST.COM table not where expected', 13, 10, '$'
+m_out   db      'M8POLY: cannot write M8POLY.BIN', 13, 10, '$'
 
 ncmd    dw      0                       ; CMD writes in the table
 kcur    dw      0                       ; checkpoint being run
@@ -79,7 +90,7 @@ start:
         je      badtbl
         cmp     ax, 4AE8h
         je      badtbl
-        call    trig
+        cmp     ax, 9AE8h
         jne     .cskip
         inc     cx
 .cskip: lodsw
@@ -96,14 +107,14 @@ start:
         out     dx, ax
         call    delay
 
-        mov     word [kcur], 0
+        mov     word [kcur], K_FIRST
         mov     word [recp], RES
 .ckpt:  mov     byte [to_idle], 0
         mov     byte [to_data], 0
         call    init_clear
         mov     cx, [kcur]
         call    replay
-        call    fold_read
+        call    area_read
         mov     di, [recp]
         mov     al, [to_idle]
         mov     [di], al
@@ -113,7 +124,7 @@ start:
         mov     ax, [kcur]
         inc     ax
         mov     [kcur], ax
-        cmp     ax, [ncmd]
+        cmp     ax, K_LAST
         jbe     .ckpt
 
         ; --- back to VGA ---
@@ -155,7 +166,7 @@ say:    mov     ah, 9
         mov     ax, 4C00h
         int     21h
 
-hdr     db      'M8S3', 0, 0
+hdr     db      'M8P1', 0, 0
 
 ; --- outw dx <- imm, used by the fixed sequences below ---
 %macro  OUTW 2
@@ -180,7 +191,6 @@ init_clear:
         OUTW    0AAE8h, 00FFh           ; WRT_MASK
         OUTW    0AEE8h, 00FFh           ; RD_MASK
         OUTW    0BEE8h, 0A000h          ; PIX_CNTL
-        OUTW    0EEEEh, 0               ; DEST_CMP_FN: compare off - TS1 relies on it before it writes one
         call    idle
         OUTW    0A6E8h, 0               ; FRGD_COLOR
         OUTW    0BAE8h, 27h             ; FRGD_MIX: colour, source
@@ -207,8 +217,7 @@ replay:
         call    idle
         jmp     .next
 .port:  mov     dx, ax
-        mov     ax, dx
-        call    trig
+        cmp     dx, 9AE8h
         jne     .val
         or      bx, bx
         jz      .done                   ; stop before the next CMD
@@ -297,14 +306,39 @@ fold_read:
         rep     stosw
         ret
 
-; ZF set if port AX starts an operation: the 8514/A CMD, or the Mach8 extended triggers
-; DEST_Y_END (blit) and SCAN_TO_X (raster draw). Checkpoints fall before each of these.
-trig:   cmp     ax, 9AE8h
-        je      .t
-        cmp     ax, 0AEEEh
-        je      .t
-        cmp     ax, 0CAEEh
-.t:     ret
+; Read (16,0)-(31,15) straight back: full scissors, masks open, 53B0h as M8GLYPH.
+area_read:
+        call    idle
+        OUTW    0BEE8h, 1000h
+        OUTW    0BEE8h, 2000h
+        OUTW    0BEE8h, 33FFh
+        OUTW    0BEE8h, 43FFh
+        OUTW    0AAE8h, 00FFh
+        OUTW    0AEE8h, 00FFh
+        OUTW    0BEE8h, 0A000h
+        OUTW    0BAE8h, 47h             ; FRGD_MIX: PC data, source
+        OUTW    86E8h, 16
+        OUTW    82E8h, 0
+        OUTW    96E8h, 15
+        OUTW    0BEE8h, 15              ; MIN_AXIS
+        call    idle
+        OUTW    9AE8h, 53B0h
+        mov     di, [recp]
+        add     di, 4
+        mov     cx, 128
+.r:     call    dready
+        cmp     byte [to_data], 0
+        jne     .rz
+        mov     dx, 0E2E8h
+        in      ax, dx
+        stosw
+        loop    .r
+        call    idle
+        OUTW    0BAE8h, 27h
+        ret
+.rz:    xor     ax, ax
+        rep     stosw
+        ret
 
 ; Bounded waits. 65,536 polls of GP_STAT is about 0.4 s on the 5160.
 idle:   push    cx

@@ -4,7 +4,8 @@
     python m8seq_diff.py REAL.BIN BED.BIN [TEST.COM]
 
 Checkpoint k holds the 8x8 corner block after Test Sequence 1's table was replayed up to,
-not including, its k-th CMD write, then folded. If checkpoint k is the first to differ,
+not including, its k-th operation trigger, then folded. M8S1 files count only CMD (9AE8);
+M8S2 files also count the Mach8 extended triggers DEST_Y_END (AEEE) and SCAN_TO_X (CAEE). If checkpoint k is the first to differ,
 command k-1 (0-based) - the last one that ran - is the first the model gets wrong.
 Given TEST.COM, the writes leading up to that command are printed with register names.
 """
@@ -18,11 +19,11 @@ REC = 68
 
 def load(p):
     d = Path(p).read_bytes()
-    if d[:4] != b"M8S1":
+    if d[:4] not in (b"M8S1", b"M8S2", b"M8S3"):
         raise SystemExit("%s: not an M8SEQ result" % p)
     n = struct.unpack_from("<H", d, 4)[0]
     recs = [d[6 + k * REC:6 + (k + 1) * REC] for k in range(n + 1)]
-    return n, recs
+    return n, recs, d[:4]
 
 
 def cmd_writes(testcom):
@@ -36,8 +37,11 @@ def cmd_writes(testcom):
 def main():
     if len(sys.argv) < 3:
         raise SystemExit(__doc__)
-    na, a = load(sys.argv[1])
-    nb, b = load(sys.argv[2])
+    na, a, va = load(sys.argv[1])
+    nb, b, vb = load(sys.argv[2])
+    if va != vb:
+        raise SystemExit("different M8SEQ versions: %s vs %s" % (va, vb))
+    trig = (0x9ae8,) if va == b"M8S1" else (0x9ae8, 0xaeee, 0xcaee)
     print("commands: %d / %d" % (na, nb))
     for k in range(min(len(a), len(b))):
         ta, tb = a[k][:2], b[k][:2]
@@ -51,7 +55,7 @@ def main():
                 ops, tt = cmd_writes(sys.argv[3])
                 seen, start, end = 0, 0, len(ops)
                 for i, (p, v) in enumerate(ops):
-                    if p == 0x9ae8:
+                    if p in trig:
                         seen += 1
                         if seen == k - 1:
                             start = i + 1

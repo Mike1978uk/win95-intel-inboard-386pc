@@ -91,6 +91,29 @@ Model fixes found this way, each checked against the real card's file in the bed
 | `5bcd8bf03` | 3 -> 8 | lines and short strokes add X to the row as 11 bits unsigned: (-1,-1) lands at X 1023 of row 0, not the row above |
 | `ab2fe76ef`, `5924277c2` | 8 -> 16 | Bresenham `DESTY_AXSTP`, `DESTX_DIASTP`, `ERR_TERM` are 13-bit signed (`1FFE` = -2), and a line steps diagonally while the error is not negative. Both scoped to `ATI_GRAPHICS_ULTRA` |
 
+**Polygon-boundary lines, measured with `tools/m8seq/M8PL2` (16 lines in open space, read back directly; real
+card over COMrade, `docs/captures/2026-10-06_m8seq/5160_M8PL2.BIN`):** octant bits 7/6/5 = +Y / Y-major / +X;
+a Bresenham polygon line writes the LAST pixel of each scan line it crosses (endpoint included); a radial one
+writes every pixel except that horizontal ones write nothing; X is clamped to the left scissor only and the
+clamp does not move the line. `3642d259d` implements this for `ATI_GRAPHICS_ULTRA`; M8PL2 and M8POLY then match
+the card in all 16 cases and all 8 TEST.COM polygon lines.
+
+Later fixes, same method (M8SEQ now also checkpoints the Mach8 triggers `DEST_Y_END` and `SCAN_TO_X`, 172
+operations; file version `M8S3`, reference `5160_M8SEQ3.BIN`):
+
+| commit | first difference moved | what the real card does |
+|---|---|---|
+| `3642d259d` | op 16 -> mix sweep | polygon-boundary lines as above |
+| `ebd093b15` | mix 1Fh | ATI mix 1Fh = (S+D > FFh) ? FFh : (S+D)/2 (Mach32 guide); 86Box halved first and never saturated |
+| `433ae0650` | op 60 -> 62 | a VRAM-source non-conforming blit (`DP_CONFIG 6211`) leaves CUR_X/CUR_Y at its end; 86Box left them, so the next host-data blit started 7 rows high |
+
+**Open: op 62**, a `6211` blit to row 100h that sets no source position of its own, so it continues the
+source trajectory of op 61. 86Box continues from somewhere else. Not a starting-state effect: initialising
+`DEST_CMP_FN` (M8S3) changed neither machine's result. Next: log the model's source position at op 61's end
+and op 62's start, and read the card's source registers over COMrade after replaying to op 62.
+
+(Superseded below this line: the first account of the polygon lines, before M8PL2.)
+
 **Open: command 16 onward, polygon-boundary lines (`A0xx`).** The Mach32 guide: one pixel per scan line,
 clamped to the left scissor. Measured (fold coordinates, read swap undone): radial vertical lines match;
 radial horizontal lines draw **nothing** on the card (86Box draws every pixel - its vectored loop never
