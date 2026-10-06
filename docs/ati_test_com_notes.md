@@ -49,7 +49,27 @@ printer (`0776`). Only Register Integrity prints the failing port.
 
 `851a39139` `82EE` six bits; `ec3a00cc5` `D6EE` read, `A2EE` mask, Graphics Ultra DAC address read;
 `0cc24cb14` + `c07be80ea` `LINEDRAW` index 5 as a move, masked to 11 bits. With these, Register Integrity
-and RAMDAC Integrity pass in the bed. Still failing: Video RAM, Test Sequence 1, Test Sequence 2.
-`28bd7a883` adds a diagnostic trace of the Video RAM stage (armed by its `006B` mix write, `[M8T]` lines
-in the 86Box log), not yet run. The Mach8 model is TC1995's code: the owner asked for this work; upstream
-is his decision.
+and RAMDAC Integrity pass in the bed. The Mach8 model is TC1995's code: the owner asked for this work;
+upstream is his decision.
+
+Later, each measured on the real card over COMrade first:
+
+- `805bb2a56` FIFO test mode (`LOCAL_CNTL` bit 4) queues writes instead of carrying them out;
+  `23f38fead` reading `FIFO_TEST_TAG`, not `FIFO_TEST_DATA`, takes an entry off the queue.
+- `ea7d3951d` the idle report in `SUBSYS_STAT` is no longer gated on the 8514 display being off.
+- `76b4cf4ee` (8514/A data path keyed on `dp_compat` alone) - reverted 2026-10-06 (`047c79e0a`): a
+  revert changed nothing in the bed, so it is out until something needs it.
+- **`78eeb22d5` (2026-10-06): `SCAN_TO_X` on the 8514/A path ignores `DP_CONFIG`'s read/write bit.** With
+  FIFO test writes queued, `DP_CONFIG` stays `0000`, bit 0 clear reads as a pixel read, and the corner
+  draws of the RAM Addressing test (`75AE`, table `7691`) set busy + data-ready and drew nothing. The
+  ATI ROM runs the same test (same code and corner table, at `+125h` in `ATI_MACH8.bin`), so this also
+  brought back the option ROM's `RAM Addressing` POST error that TC1995's `c54d36cff` had fixed (#8).
+  With the fix the ROM prints `Testing........Ok` again.
+
+**Bed, 2026-10-06, `78eeb22d5`:** Register, FIFO, RAMDAC and Video RAM pass. Still failing:
+Test Sequence 1 `14216 27DB 0016 RAM Post Examination Failure` and Test Sequence 2
+`14204 0602 0004 Graphics Subsystem Failure01`. Both are scripts (`2952`, `509C`); interpreter not
+yet located.
+
+Diagnostic commits in the same tree (`[M8T]`, `[M8A]`, `[M8X]`, `[M8Y]` in the 86Box log) are not for
+upstream.
