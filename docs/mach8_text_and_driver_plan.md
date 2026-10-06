@@ -103,7 +103,11 @@ restoring it from DOS. Extend `TXTBENCH` with a bitmap test (`SetDIBitsToDevice`
   in a Win9x display driver, DPMI 0100h fails - get DOS buffers from `GlobalDosAlloc`.
   Author's Reddit post (u/mwdmeyer, <https://www.reddit.com/r/windows98/comments/1vow8fj/>): targets
   **Windows 98SE only** (Win95 untested), written with Claude and ChatGPT, asks for testers and card data
-  from `V9XSURV.EXE` (runs under DOS). Whether the framework runs on Win95 is unknown - ask him.
+  from `V9XSURV.EXE` (runs under DOS).
+  **Michael Dale replied 2026-10-06 (Reddit):** the driver "should already work on Windows 95" (expected, not
+  tested here); we may use parts of it and reference it, or contribute directly, and he offered to help set up.
+  Leaning to contributing a Mach8 family. Open: whether a family with no linear framebuffer (8514/A engine
+  only, DIB Engine `NOT_FRAMEBUFFER`) fits the framework - asked in the owner's reply. Prove Win95 in a bed first.
 - **VBEMP** (owner, 2026-10-06) - <https://bearwindows.zcm.com.au/vbemp.htm>. NT 3.1-XP only, no Win9x
   build, closed source (freeware, non-commercial), needs a VBE BIOS and mostly a linear framebuffer.
   Nothing for this card.

@@ -356,3 +356,8 @@ untested here - our image does not load that driver.
 - Christian Holzapfel (@holzachr), `xga-win9x` [PRIMARY]: his working Win95 DDK XGA mini-driver build is the recipe for the
   #49 Mach8 driver (names the 16-bit LINK and RC we lack). Credited in the README 2026-10-05. A contact of the
   owner's. ✅ Owner told him on Messenger, 2026-10-05. No licence on the repo: ask before copying any of his code.
+
+- Michael Dale (u/mwdmeyer), `velocity9x` [PRIMARY], https://github.com/michaeldale/velocity9x: GPL-3.0 Win98
+  display-driver framework (live mode switching, DIB Engine glue, test tools). Owner asked on Reddit 2026-10-06
+  about a Mach8 family and Win95; he replied the same day: Win95 should work, use parts with reference or
+  contribute directly, offered help. Reply drafted (thanks, the no-framebuffer question); owner to send.
