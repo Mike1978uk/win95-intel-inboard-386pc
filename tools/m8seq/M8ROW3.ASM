@@ -1,6 +1,6 @@
 ; M8ROW3.COM - what TEST.COM Test Sequence 1's operations 80-84 (SCAN_TO_X with write masks, short strokes) leave,
-; read back directly (no fold). Same replay as M8SEQ.COM (version M8S3: checkpoints before each
-; CMD, DEST_Y_END or SCAN_TO_X write), checkpoints 94-96 only (M8RA; M8R9 90-92, M8R8 87-89, M8R7 85-87, M8R6 84-86, M8R5 80-85, M8R4 76-81, M8R3 74-76 at y 08h). Each reads (20h,18h)-(5Fh,27h),
+; read back directly (no fold). Same replay as M8SEQ.COM (version M8S4: checkpoints before each
+; CMD, DEST_Y_END or SCAN_TO_X write), checkpoints 108-111 at y 30h (M8RC; 104-107 at y 28h, M8RB; 96-100 at y 20h; M8RA 94-96, M8R9 90-92, M8R8 87-89, M8R7 85-87, M8R6 84-86, M8R5 80-85, M8R4 76-81, M8R3 74-76 at y 08h). Each reads (20h,18h)-(5Fh,27h),
 ; 64x16, with the 16-bit read (53B0h) proved on both machines. Op 62 is a VRAM blit that keeps
 ; the source trajectory of op 61; the row it writes shows which source row each machine used.
 ;
@@ -30,13 +30,14 @@
 
 TC_SIZE         equ     43169           ; TEST.COM, md5 bf168ffd9f68f3a27bd8963d3dd39b63
 TBL_OFS         equ     29A4h - 100h    ; Test Sequence 1, 1 MB table, in the file
+SETUP_OFS       equ     17E7h - 100h    ; engine setup table played before every test sequence
 BUF             equ     2000h           ; TEST.COM loaded here
 RES             equ     0C900h          ; results, after TEST.COM (2000h-C8A0h); 7 x 1028 bytes
 REC             equ     1028            ; per checkpoint: idle timeouts, data timeouts, 2 pad, 1024 data
-K_FIRST         equ     94
-K_LAST          equ     96
+K_FIRST         equ     108
+K_LAST          equ     111
 AREA_X          equ     20h
-AREA_Y          equ     18h
+AREA_Y          equ     30h
 
         jmp     start
 
@@ -77,6 +78,10 @@ start:
         cmp     word [BUF + TBL_OFS], 0BEE8h    ; first entry: MULTIFUNC_CNTL = 17FE
         jne     badtbl
         cmp     word [BUF + TBL_OFS + 2], 17FEh
+        jne     badtbl
+        cmp     word [BUF + SETUP_OFS], 0BEE8h  ; setup table: PIX_CNTL = A000
+        jne     badtbl
+        cmp     word [BUF + SETUP_OFS + 2], 0A000h
         jne     badtbl
 
         ; --- count CMD writes, checking the table holds nothing we do not replay ---
@@ -133,6 +138,9 @@ start:
         mov     dx, 4AE8h
         mov     ax, 2
         out     dx, ax
+        mov     dx, 2EAh                ; DAC mask: TEST.COM's setup table clears it
+        mov     al, 0FFh
+        out     dx, al
 
         ; --- write M8SEQ.BIN: "M8S1", ncmd, then the records ---
         mov     ah, 3Ch
@@ -167,7 +175,7 @@ say:    mov     ah, 9
         mov     ax, 4C00h
         int     21h
 
-hdr     db      'M8RA', 0, 0
+hdr     db      'M8RC', 0, 0
 
 ; --- outw dx <- imm, used by the fixed sequences below ---
 %macro  OUTW 2
@@ -176,31 +184,24 @@ hdr     db      'M8RA', 0, 0
         out     dx, ax
 %endmacro
 
-; Engine reset and a 1024x1024 clear to colour 0 (TEST.COM's 083Fh does the same clear).
+; The state TEST.COM sets before every test sequence (1E21h): its 05F0h (32EE, engine reset),
+; then its table at 17E7h, played from the copy of TEST.COM in memory - scissors, mixes, colours,
+; patterns, masks, two full-screen fills, CUR 0,0. Without it, registers TS1 uses before writing
+; them (BKGD_MIX, COLOR_CMP) keep whatever the previous program left. MEM_CNTL, GE_PITCH and
+; DEST_CMP_FN are set by earlier TEST.COM stages that are not replayed.
 init_clear:
-        OUTW    42E8h, 9000h            ; reset, chip test normal
-        OUTW    42E8h, 5000h            ; enable
+        OUTW    32EEh, 0
+        OUTW    42E8h, 900Fh
+        OUTW    42E8h, 400Fh
         call    idle
         OUTW    0BEE8h, 5006h           ; MEM_CNTL: 1 MB layout, as M8GLYPH
         OUTW    76EEh, 0080h            ; GE_PITCH 1024
         OUTW    72EEh, 0
         OUTW    6EEEh, 0
-        OUTW    0BEE8h, 1000h           ; scissors 0,0 - 1023,1023
-        OUTW    0BEE8h, 2000h
-        OUTW    0BEE8h, 33FFh
-        OUTW    0BEE8h, 43FFh
-        OUTW    0AAE8h, 00FFh           ; WRT_MASK
-        OUTW    0AEE8h, 00FFh           ; RD_MASK
-        OUTW    0BEE8h, 0A000h          ; PIX_CNTL
         OUTW    0EEEEh, 0               ; DEST_CMP_FN: compare off - TS1 relies on it before it writes one
-        call    idle
-        OUTW    0A6E8h, 0               ; FRGD_COLOR
-        OUTW    0BAE8h, 27h             ; FRGD_MIX: colour, source
-        OUTW    86E8h, 0
-        OUTW    82E8h, 0
-        OUTW    96E8h, 3FFh
-        OUTW    0BEE8h, 3FFh            ; MIN_AXIS
-        OUTW    9AE8h, 40F3h            ; fill
+        mov     si, BUF + SETUP_OFS
+        mov     bx, 0FFFFh              ; no trigger limit
+        call    play
         call    idle
         ret
 
@@ -210,6 +211,8 @@ init_clear:
 replay:
         mov     si, BUF + TBL_OFS
         mov     bx, cx
+; Play the table at SI, stopping before trigger BX+1.
+play:
 .next:  call    fifo
         lodsw
         cmp     al, 0
