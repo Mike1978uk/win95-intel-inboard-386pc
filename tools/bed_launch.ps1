@@ -81,6 +81,13 @@ if ($uuid) {
   if ($twins) { Fail "uuid $uuid is shared with $($twins[0].FullName) - delete the uuid line from a copied bed" }
 }
 Write-Host "cfg   $cfg (mouse $mouse, roms $($roms[0]))"
+# The Mach8 ROM refuses modes above 640x480 when its EEPROM holds no monitor setup, so ATI's
+# Windows 95 driver fails; DOS probes and the Win 3.x driver set modes themselves and do not show it.
+if ((Get-CfgValue 'gfxcard') -like 'mach8*') {
+  $nvr = Join-Path $VmPath 'nvr\mach8.nvr'
+  $blank = -not (Test-Path $nvr) -or -not ([IO.File]::ReadAllBytes($nvr) | Where-Object { $_ })
+  if ($blank) { Write-Host "      WARNING: Mach8 EEPROM blank - copy roms\video\mach8\eeprom_flexview2x_56hz_800x600.nvr to nvr\mach8.nvr" }
+}
 if ($DryRun) { Write-Host "DRY RUN: all checks passed, nothing launched"; exit 0 }
 
 # 3b. Window size. 86Box rewrites the config on exit, so set it on every launch.

@@ -16,6 +16,22 @@ listed; they are generated, not read.
 | Lo-tech XT-CF, as found, 8 KB | [`roms/xtcf_card/XTCF_D8000_asfound_2026_08_31.bin`](../roms/xtcf_card/XTCF_D8000_asfound_2026_08_31.bin) | `86ff8885…f31b18e52` | XTIDE Universal BIOS 2.0.4, read off the card at `D8000h` before reflashing |
 | Lo-tech XT-CF, as flashed, 8 KB | [`roms/xtcf_card/IDE_XTP_configured_2026_08_31.bin`](../roms/xtcf_card/IDE_XTP_configured_2026_08_31.bin) | `2512f5a0…4b7c` | XTIDE Universal BIOS r638 XT+, configured for this machine; what the card runs now |
 
+## Mach8 EEPROM for the emulator
+
+[`roms/video/mach8/eeprom_flexview2x_56hz_800x600.nvr`](../roms/video/mach8/eeprom_flexview2x_56hz_800x600.nvr)
+(MD5 `f1d81e21…ee920030`) goes in a bed's `nvr/mach8.nvr`. Written by ATI's own `INSTALL.EXE` (M8UTL) →
+Set Power Up Configuration, inside the bed, 2026-10-06, to the settings C-INFO reported on the real card:
+
+- Monitor Type: ALR FlexVIEW2X, 56 Hz, 800x600
+- Power-up video mode VGA C80; VGA ROM 8-bit; VGA bus I/O 8-bit; coprocessor bus I/O auto-select
+
+Not a read of the card's EEPROM: the settings match, the bytes are what INSTALL writes for them.
+Without it the ROM refuses accelerated modes above 640x480, so ATI's Windows 95 driver (`ATIM8.DRV`)
+reports a display adapter problem; DOS tools and the Win 3.x driver set modes themselves and do not
+show it. `tools/bed_launch.ps1` warns when a Mach8 bed's EEPROM is blank.
+`vxd-patches/realhw_backups/mach8.nvr.configured-by-INSTALL-20260823` is an earlier INSTALL run whose
+monitor setting was not recorded; it allows 640x480 only.
+
 ## Serial EEPROMs
 
 Each was read by a small DOS program that touches only the device's own ports, and each is
