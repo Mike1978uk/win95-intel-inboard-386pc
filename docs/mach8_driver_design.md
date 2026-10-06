@@ -26,6 +26,34 @@ bed (`docs/ati_test_com_notes.md`; the 8514/A command path is ~80% measured, the
 | cursor | software (DIB Engine) | save-under + blit from spare memory | - |
 | screen modes | one mode per boot (ATI) | live same-depth switch via `ReEnable` (velocity9x / vmdisp9x), incl. 8514 <-> VGA for Andrew's DirectDraw idea | - |
 
+## Measured: M8TIME on the 5160, 2026-10-06
+
+`tools/m8seq/M8TIME` (capture `docs/captures/2026-10-06_m8seq/5160_M8TIME3.BIN`). Interrupts off, PIT timed,
+a FIFO-room check before each operation and the engine's finish included. The raw upload works out at
+7.6 us per 16-bit write, the same as the 2026-09-20 port measurement, so the timer scale holds.
+
+| job | technique | cost | |
+|---|---|---|---|
+| text, 8x16 glyph | A: glyph cache, plane-select blit from spare memory (XFree86) | **51 us** | best |
+| | C: one expansion per string, Mach8 `DP_CONFIG 3251` (DDK pattern) | 68 us | 1.3x |
+| | B: one expansion per character, same path (ATI's `ExtTextOut`) | 121 us | 2.4x |
+| fill | 64x16 rectangle, 8514/A `40F3` | 61 us | |
+| blit | 64x16 card-to-card, 8514/A `C0F3` | 102 us | |
+| raw bitmap | 64x16 pixels from the CPU, 16-bit words | 3,931 us = 3.84 us/pixel | |
+| VGA memory | writes to the VGA side's memory, `rep stosw` | 2.07 us/byte | |
+
+- **Text: the glyph cache wins.** First version of the text path: XFree86's layout, per-string expansion
+  (C) as the fallback for glyphs not yet cached.
+- **Bitmaps: never send what the card can make.** A 64x16 area costs 61 us as a fill and 3.9 ms as
+  pixels, 64x. The bitmap path encodes per scanline: runs as fills, two-colour spans as expansion, raw
+  only for the rest (vision doc).
+- **Andrew's VGA point holds for writes:** 2.07 us/byte into the VGA's memory against 3.84 us/pixel through
+  the engine. Reads were the slow direction (`docs/isa_memory_vs_io_2026_09_20.md`). The 8514 desktop has no
+  memory window, so this only helps a VGA-mode path (DirectDraw, games) - a reason to keep live mode
+  switching in the design.
+- First attempts (`M8T1`, `M8T2`) sent the 1-bit text tests down the 8514/A path without the right
+  command; the engine never finished. XFree86 never feeds 1-bit data from the CPU at all.
+
 ## What each source contributes, and on what terms
 
 | source | takes | licence / terms |
