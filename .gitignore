@@ -137,6 +137,7 @@ references/inboard386_ronnyroy/
 # Mach8 driver work (#49): Christian Holzapfel's xga-win9x (no licence) and ATI's Mach32
 # register guide - read them, do not vendor them
 references/xga-win9x/
+references/velocity9x/
 references/ati_mach32/
 # XFree86 3.3.6 Mach8/8514/cache servers (MIT-style licence) - read them, do not vendor them
 references/xfree86_336_mach8/
@@ -161,3 +162,6 @@ vm_ls120dos44/
 vm_wfw3c509/
 # Crynwr 3C509 packet-driver source, from Nestor's collection: local reference only
 drivers/3c509b/3c509.asm
+
+# assembler listings, regenerated from the .ASM
+tools/m8seq/*.LST
