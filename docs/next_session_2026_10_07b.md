@@ -11,7 +11,9 @@ Ideas beyond the desktop: `docs/mach8_graphics_vision.md`.
   `docs/captures/2026-10-0[67]_*_usage/`.
 - Bed `vm_5160_now`: the owner's card image of 2026-10-06, configured as the 5160, Mach8 EEPROM
   `roms/video/mach8/eeprom_flexview2x_56hz_800x600.nvr`. ATI's Win95 driver runs there at 800x600x256 with
-  the accelerator on; Paint Shop Pro works.
+  the accelerator on; Paint Shop Pro works. Default bed from now on; a known-good copy of its disk, config
+  and EEPROM is in `vm_5160_now/default/` - restore from there instead of rebuilding a bed. No SmartWatch in
+  86Box: "SmartWatch not found" at boot is expected, set date/time by hand.
 - Build: `86box_3c509b/build_log` (`ee29d00c8`), launch with `$env:MACH8_COUNT='1'` for a usage tally.
 - Sources and terms: velocity9x (Michael Dale, GPL-3.0, permission given), XFree86 Mach8 (MIT-style),
   xga-win9x (Christian Holzapfel, blessing given; DDK-sample-derived parts stay out of a GPL driver),
