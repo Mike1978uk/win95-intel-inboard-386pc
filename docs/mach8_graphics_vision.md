@@ -80,8 +80,8 @@ copies done entirely on the card.
 
 Extend `TXTBENCH` before each step: a bitmap test (`SetDIBitsToDevice` of photo-like and flat-colour
 images), a long-run fill test, a palette-write test. Count port writes per operation as well as time:
-writes are bus occupancy, the thing we are saving. All on the 5160: 86Box's Mach8 model does not run
-ATI's accelerated mode yet.
+writes are bus occupancy, the thing we are saving. Timing on the 5160 (the bed does not model bus cost); behaviour in the bed, which runs ATI's accelerated
+Win95 driver since 2026-10-07 with the EEPROM in `roms/video/mach8/`.
 
 ## Unknowns to settle before designing
 
