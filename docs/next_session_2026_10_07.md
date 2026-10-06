@@ -45,6 +45,20 @@ old beds, works. Tally:
 2. Fix model differences row by row, scoped to the Graphics Ultra, evidence in `ati_test_com_notes.md`.
 3. Then driver work (`docs/mach8_driver_design.md`).
 
+## Later, optional
+
+- **VESA:** no separate Windows VESA driver. It would draw with the CPU through the VGA side's 64 KB
+  window (~35x slower than an engine fill) and cannot reach the 8514 side's 1 MB. For DOS games that need
+  VESA modes, check `VVESA.COM` (on the Win 3.11 card, commented out in `MWIN.BAT`) in a bed.
+- **DirectDraw:** after the desktop driver works. A DirectDraw HAL in our driver: `Blt` mapped to the
+  engine (sprites kept in card memory never cross the bus), page flipping (two 640x480 pages fit in
+  1 MB at pitch 1024), and `Lock` through the VGA side (`VFLATD`) with live mode switching (`ReEnable`).
+  Programs that write every pixel themselves (DOOM95) stay bus-bound: ~7 frames/s at 320x200.
+  `docs/mach8_graphics_vision.md` "Where it can land", item 3.
+- **Upstream PR of the Mach8 model** (owner's decision; his rule is to fix only code he contributed):
+  talk to TC1995 first (blit ends vs `c54d36cff`); clean branch without DIAGNOSTIC commits; regress the
+  Mach32 and 8514/A models, since several fixes touch shared code; owner writes the PR text.
+
 ## Bed notes
 
 - No sound card in `vm_mach8_w311`: with SB Pro 2, Win 3.11 stalls at the wallpaper (known since July,
