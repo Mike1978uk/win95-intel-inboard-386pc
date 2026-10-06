@@ -71,5 +71,30 @@ Test Sequence 1 `14216 27DB 0016 RAM Post Examination Failure` and Test Sequence
 `14204 0602 0004 Graphics Subsystem Failure01`. Both are scripts (`2952`, `509C`); interpreter not
 yet located.
 
-Diagnostic commits in the same tree (`[M8T]`, `[M8A]`, `[M8X]`, `[M8Y]` in the 86Box log) are not for
-upstream.
+Diagnostic commits in the same tree (`[M8T]`, `[M8A]`, `[M8X]`, `[M8Y]`, `[M8R]` in the 86Box log) are not
+for upstream.
+
+## Test Sequence 1, bisected with M8SEQ (2026-10-06)
+
+Test Sequence 1 is not a script: it is port table `29A4` (1 MB card; `3D40` on 512 KB), 1,230 writes and
+106 commands, played by the same runner at `0641` as every other table. `tools/testcom_tables.py` decodes
+all 38 tables (output in the git-ignored `references/ati_test_com/tables.txt`). `tools/m8seq/` replays the
+table up to each command, then does TEST.COM's fold and 8x8 read, so the real card and 86Box can be diffed
+per command. The real card's final checkpoint equals TEST.COM's expected table, so the replay is faithful.
+Reference result: `docs/captures/2026-10-06_m8seq/5160_M8SEQ.BIN`.
+
+Model fixes found this way, each checked against the real card's file in the bed (diagnostic tree):
+
+| commit | first difference moved | what the real card does |
+|---|---|---|
+| `8f520484d` | command 0 -> 3 | a PIX_TRANS word read with the 16-bit bit clear and BYTE_SEQ set (`43F0`) returns the first pixel in the HIGH byte; with the 16-bit bit set (`53B0`, M8GLYPH) in the low byte |
+| `5bcd8bf03` | 3 -> 8 | lines and short strokes add X to the row as 11 bits unsigned: (-1,-1) lands at X 1023 of row 0, not the row above |
+| `ab2fe76ef`, `5924277c2` | 8 -> 16 | Bresenham `DESTY_AXSTP`, `DESTX_DIASTP`, `ERR_TERM` are 13-bit signed (`1FFE` = -2), and a line steps diagonally while the error is not negative. Both scoped to `ATI_GRAPHICS_ULTRA` |
+
+**Open: command 16 onward, polygon-boundary lines (`A0xx`).** The Mach32 guide: one pixel per scan line,
+clamped to the left scissor. Measured (fold coordinates, read swap undone): radial vertical lines match;
+radial horizontal lines draw **nothing** on the card (86Box draws every pixel - its vectored loop never
+updates `oldcy` on a horizontal step); Bresenham polygon lines draw 2-4 pixels on the card and nothing in
+86Box. A rule fit ("plot the pixel being left when the row changes") explains the radial lines only.
+The fold mixes pixels, so the next evidence should be a probe that draws one polygon line into a cleared
+area and reads the area back directly, on the 5160 and in the bed.
