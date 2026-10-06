@@ -8402,3 +8402,29 @@ How it was found, and the traps on the way:
 - To watch writes the dynarec makes, stop `addwritelookup()` caching a host pointer for the page under
   watch, then log in `mem_write_ram*()`. Arm it late: the BIOS RAM test fills any small cap.
 - Two fixes were guessed first and both failed. Build the instrument after the second miss (technique 80).
+
+## Technique 144: scope emulation fidelity by what the guest driver actually uses
+
+Before matching a diagnostic's every operation, tally what the production drivers send. `MACH8_COUNT=1`
+(diagnostic tree, `ee29d00c8`) records each distinct control-register value and engine start and dumps
+them on close. A ten-minute owner session per OS gave the Mach8 set: 21 operation shapes across ATI's
+Win 3.11 and Win95 drivers (`docs/captures/2026-10-0[67]_*_usage/`). TEST.COM's TS1 op 134 onward uses
+92EEh/EAEEh, which no ATI driver writes: chasing it would have cost 5160 probes for nothing a driver needs.
+Search the vendor binaries for the port before probing it - and check the file is not a compressed SFX
+first (`WIN31ACC.EXE` hits were LHA bytes).
+
+## Technique 145: a workaround in the image can hide a defect in every bed
+
+All ~70 beds had a blank Mach8 EEPROM. The ROM then refuses accelerated modes above 640x480, and ATI's
+Win95 driver reports "a problem with your display adapter" while Device Manager says the device works.
+Nobody saw it for months because the Win95 bed images carried the August `display.drv=vga.drv`
+workaround, and DOS probes and the Win 3.x driver set modes themselves. Symptom in the log: ATIM8's ROM
+call (`03A7:708E`) writes `advfunc=02` without programming the clock first. Fix: copy
+`roms/video/mach8/eeprom_flexview2x_56hz_800x600.nvr` to `nvr/mach8.nvr` (written by ATI INSTALL to the
+card's C-INFO settings); `tools/bed_launch.ps1` now warns on a blank one. Lesson: when a workaround goes
+into an image, list what it hides, and re-test without it once the real path is fixed.
+
+Bed-building traps from the same night (`vm_5160_now`): never pass `-Seconds` for an owner session (it
+force-kills the VM); 86Box rewrites `86box.cfg` and `nvr/` on exit, so edit only while closed; no B:
+drive without Sergey's floppy ROM ("Error 40h", then ROM BASIC); XT-CF BIOS at `d8000` as on the card.
+Retracted the same night: the 3C509B model maps no boot ROM, so it cannot hide the XT-CF BIOS at D0000h.
