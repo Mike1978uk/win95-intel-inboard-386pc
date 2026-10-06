@@ -24,9 +24,23 @@ Manager, text, Paint Shop Pro, window moves); nothing drew wrong. Tally:
 - Mixes: foreground 00 01 02 04 05 07 0B 0C, background 01 02 03 05 07 0C. LINEDRAW_OPT `070C` only. No DEST_CMP_FN, no 92EEh, no EAEEh.
 - 16.5 MB through E2E8 (host pixels): ATI's driver re-sends bitmaps. Ours should cache them on the card.
 
+## Windows 95 (ATIM8.DRV) - same exercise, 2026-10-07
+
+Bed `vm_5160_now`: the owner's card image of 2026-10-06 (`win95_0610.img`), configured as the 5160 (NIC 320/IRQ 9,
+T130B irq=60, XT-CF BIOS d8000, no B:) with the Mach8 EEPROM `roms/video/mach8/eeprom_flexview2x_56hz_800x600.nvr`.
+Every earlier bed had a blank EEPROM, so ATIM8 failed above 640x480 ("problem with your display adapter").
+With it: 800x600x256, accelerator on, owner saw no faults; Paint Shop Pro's brush tool, broken in the
+old beds, works. Tally:
+`docs/captures/2026-10-07_w95_usage/atim8_800x600_session_tally.txt`.
+
+- 17 shapes; the union with Win 3.11 is 21 (Win95 adds LINEDRAW with `2231`; 3.11 alone uses `0291 2051`,
+  scan-to-X `4010 A211`). Mixes add `0E`. EXT_GE_CONFIG `000E` (800x600 pitch) as well as `000A`.
+- Win95 draws far more lines (FEEE 184 KB vs 8 KB) and pushes 8.9 MB of host pixels through E2E8.
+- The conformance probe covers the union: 21 shapes, mixes 00-05, 07, 0B, 0C, 0E, PATT_LENGTH 0-7.
+
 ## Next, in order
 
-1. Write the conformance probe (M8SEQ style): each shape above x its mixes, on a known VRAM pattern,
+1. Write the conformance probe (M8SEQ style): each shape in the union x its mixes, on a known VRAM pattern,
    read back. Run in the bed, then on the 5160 over COMrade; diff.
 2. Fix model differences row by row, scoped to the Graphics Ultra, evidence in `ati_test_com_notes.md`.
 3. Then driver work (`docs/mach8_driver_design.md`).
