@@ -151,7 +151,9 @@ Reference from now on: `5160_M8SEQ4.BIN`.
 - op 134 onward, 39 of 173 checkpoints still differ (2026-10-06 evening); TS2 not yet bisected. Op 133-140 are one-row
   blits after writes to 92EEh (8, 10h, 18h, ...) and EAEEh (55h): Mach8-only registers, read/write (they are in
   TEST.COM's and the ROM's register-integrity port list at TEST.COM 741Bh / ROM 78BEh), not in the Mach32 guide,
-  ignored by 86Box. WIN31ACC.EXE references EAEE twice (0x247e, 0xe4fb) - read those next.
+  ignored by 86Box. The WIN31ACC.EXE "hits" were compressed bytes (it is an LHA SFX). No ATI Windows driver
+  (ULTRA*.DRV, VDDULTRA.386) touches either port; the M8UTL/V3 utilities only read 92EEh. Only TEST.COM
+  writes them. XFree86 3.3.6 mach8 does not name them either.
 - the polygon type A rule above fills the right edge; the Mach32 guide says type A excludes it. Op 85's data may
   not tell the two apart - check before relying on it.
 - the linear mono pattern rule is only applied to SCAN_TO_X; blits and lines still repeat one byte.

@@ -1,0 +1,204 @@
+M8USAGE begin
+M8USAGE port 02E8 bytes 6
+M8USAGE port 06E8 bytes 6
+M8USAGE port 0AE8 bytes 6
+M8USAGE port 0EE8 bytes 6
+M8USAGE port 12E8 bytes 12
+M8USAGE port 16E8 bytes 12
+M8USAGE port 1AE8 bytes 12
+M8USAGE port 1EE8 bytes 6
+M8USAGE port 22E8 bytes 19
+M8USAGE port 26EE bytes 2
+M8USAGE port 2AEE bytes 2
+M8USAGE port 2EEE bytes 2
+M8USAGE port 32EE bytes 6
+M8USAGE port 36EE bytes 3
+M8USAGE port 42E8 bytes 120208
+M8USAGE port 46EE bytes 36
+M8USAGE port 4AE8 bytes 46
+M8USAGE port 4AEE bytes 12
+M8USAGE port 52EE bytes 2
+M8USAGE port 56EE bytes 1
+M8USAGE port 56EF bytes 1
+M8USAGE port 5AEE bytes 24
+M8USAGE port 6AEE bytes 8
+M8USAGE port 6EEE bytes 6012
+M8USAGE port 72EE bytes 6012
+M8USAGE port 76EE bytes 6012
+M8USAGE port 7AEE bytes 7
+M8USAGE port 82E8 bytes 272750
+M8USAGE port 82EE bytes 53474
+M8USAGE port 86E8 bytes 290970
+M8USAGE port 8AE8 bytes 126304
+M8USAGE port 8EE8 bytes 126236
+M8USAGE port 8EEE bytes 88130
+M8USAGE port 92E8 bytes 2
+M8USAGE port 96E8 bytes 172
+M8USAGE port 9AE8 bytes 170
+M8USAGE port 9AEE bytes 2630
+M8USAGE port A2E8 bytes 25620
+M8USAGE port A2EE bytes 2628
+M8USAGE port A6E8 bytes 64022
+M8USAGE port A6EE bytes 172448
+M8USAGE port AAE8 bytes 1660
+M8USAGE port AAEE bytes 172448
+M8USAGE port AEE8 bytes 36420
+M8USAGE port AEEE bytes 199552
+M8USAGE port B2E8 bytes 4
+M8USAGE port B2EE bytes 52098
+M8USAGE port B6E8 bytes 4
+M8USAGE port B6EE bytes 48180
+M8USAGE port BAE8 bytes 24
+M8USAGE port BAEE bytes 187296
+M8USAGE port BEE8 bytes 114
+M8USAGE port BEEE bytes 52098
+M8USAGE port C2EE bytes 41848
+M8USAGE port CAEE bytes 117848
+M8USAGE port CEEE bytes 186524
+M8USAGE port D2EE bytes 6352
+M8USAGE port D6EE bytes 17428
+M8USAGE port DAEE bytes 100440
+M8USAGE port DEEE bytes 87472
+M8USAGE port E2E8 bytes 16567002
+M8USAGE port E2E9 bytes 28884
+M8USAGE port E2EE bytes 126978
+M8USAGE port E6EE bytes 112230
+M8USAGE port FEEE bytes 7940
+M8USAGE ext cmd_type 2 dp_config 5211 fmix 07 bmix 01 cpu_input 1  n 249416
+M8USAGE ext cmd_type 2 dp_config 2231 fmix 07 bmix 07 cpu_input 0  n 144
+M8USAGE ext cmd_type 2 dp_config 2211 fmix 02 bmix 05 cpu_input 0  n 4
+M8USAGE reg D6EE = 0006  n 937
+M8USAGE ext cmd_type 2 dp_config A211 fmix 07 bmix 05 cpu_input 0  n 232
+M8USAGE ext cmd_type 5 dp_config A211 fmix 07 bmix 01 cpu_input 0  n 1078
+M8USAGE reg 9AE8 = 40F3  n 9
+M8USAGE ext cmd_type 2 dp_config 5210 fmix 07 bmix 0C cpu_input 0  n 1
+M8USAGE ext cmd_type 2 dp_config 2211 fmix 00 bmix 05 cpu_input 0  n 29
+M8USAGE ext cmd_type 2 dp_config 5211 fmix 0C bmix 07 cpu_input 0  n 13
+M8USAGE ext cmd_type 5 dp_config 4010 fmix 07 bmix 05 cpu_input 1  n 1408035
+M8USAGE ext cmd_type 5 dp_config 6211 fmix 07 bmix 05 cpu_input 0  n 5419
+M8USAGE ext cmd_type 2 dp_config 5210 fmix 07 bmix 03 cpu_input 0  n 20
+M8USAGE ext cmd_type 3 dp_config 2211 fmix 07 bmix 07 cpu_input 0  n 106
+M8USAGE reg CEEE = A211  n 2660
+M8USAGE ext cmd_type 2 dp_config 2051 fmix 02 bmix 01 cpu_input 1  n 28884
+M8USAGE ext cmd_type 2 dp_config 5210 fmix 07 bmix 05 cpu_input 1  n 3127650
+M8USAGE ext cmd_type 2 dp_config 3251 fmix 07 bmix 07 cpu_input 0  n 28
+M8USAGE ext cmd_type 2 dp_config 5211 fmix 0B bmix 05 cpu_input 0  n 1
+M8USAGE reg D6EE = 0003  n 1323
+M8USAGE reg CEEE = 2231  n 516
+M8USAGE reg CEEE = 5210  n 164
+M8USAGE ext cmd_type 5 dp_config 4210 fmix 07 bmix 01 cpu_input 1  n 1381
+M8USAGE ext cmd_type 2 dp_config 5211 fmix 0C bmix 03 cpu_input 0  n 6
+M8USAGE ext cmd_type 5 dp_config 4215 fmix 07 bmix 01 cpu_input 0  n 1483
+M8USAGE ext cmd_type 5 dp_config 4010 fmix 07 bmix 01 cpu_input 1  n 147548
+M8USAGE ext cmd_type 2 dp_config 6211 fmix 07 bmix 05 cpu_input 0  n 6857
+M8USAGE ext cmd_type 5 dp_config 6211 fmix 07 bmix 01 cpu_input 0  n 302
+M8USAGE ext cmd_type 2 dp_config 5211 fmix 07 bmix 02 cpu_input 1  n 103357
+M8USAGE ext cmd_type 2 dp_config 3251 fmix 0C bmix 0C cpu_input 1  n 30382
+M8USAGE ext cmd_type 3 dp_config 2211 fmix 07 bmix 03 cpu_input 0  n 191
+M8USAGE reg BAE8 = 0073  n 1
+M8USAGE ext cmd_type 2 dp_config 5211 fmix 0C bmix 05 cpu_input 1  n 368
+M8USAGE ext cmd_type 2 dp_config 5211 fmix 07 bmix 05 cpu_input 0  n 1338
+M8USAGE ext cmd_type 5 dp_config 2211 fmix 07 bmix 05 cpu_input 0  n 9261
+M8USAGE reg CEEE = 6211  n 14476
+M8USAGE reg CEEE = 4010  n 30312
+M8USAGE reg BAE8 = 0027  n 6
+M8USAGE ext cmd_type 2 dp_config 5210 fmix 07 bmix 01 cpu_input 1  n 2181824
+M8USAGE reg CEEE = 2071  n 14689
+M8USAGE ext cmd_type 2 dp_config 5211 fmix 05 bmix 05 cpu_input 0  n 3
+M8USAGE reg BAE8 = 006B  n 2
+M8USAGE ext cmd_type 2 dp_config 5211 fmix 07 bmix 07 cpu_input 1  n 318406
+M8USAGE reg D6EE = 0000  n 957
+M8USAGE ext cmd_type 2 dp_config 6211 fmix 07 bmix 01 cpu_input 0  n 53
+M8USAGE ext cmd_type 5 dp_config 3251 fmix 02 bmix 01 cpu_input 0  n 552
+M8USAGE ext cmd_type 2 dp_config 2211 fmix 07 bmix 05 cpu_input 0  n 5100
+M8USAGE ext cmd_type 2 dp_config 5211 fmix 07 bmix 01 cpu_input 0  n 91
+M8USAGE ext cmd_type 2 dp_config 2071 fmix 07 bmix 07 cpu_input 0  n 19075
+M8USAGE ext cmd_type 2 dp_config 5211 fmix 07 bmix 0C cpu_input 1  n 26324
+M8USAGE ext cmd_type 5 dp_config 2211 fmix 07 bmix 01 cpu_input 0  n 410
+M8USAGE reg CEEE = 2211  n 19321
+M8USAGE reg D6EE = 0005  n 1318
+M8USAGE reg CEEE = 3251  n 995
+M8USAGE ext cmd_type 5 dp_config 6211 fmix 07 bmix 02 cpu_input 0  n 3
+M8USAGE ext cmd_type 2 dp_config 2211 fmix 05 bmix 05 cpu_input 0  n 401
+M8USAGE ext cmd_type 2 dp_config 5211 fmix 05 bmix 0C cpu_input 1  n 103334
+M8USAGE ext cmd_type 2 dp_config 5211 fmix 07 bmix 03 cpu_input 1  n 1477571
+M8USAGE ext cmd_type 5 dp_config 4010 fmix 07 bmix 05 cpu_input 0  n 25965
+M8USAGE ext cmd_type 2 dp_config A211 fmix 07 bmix 07 cpu_input 0  n 8
+M8USAGE ext cmd_type 5 dp_config 0000 fmix 07 bmix 07 cpu_input 0  n 4
+M8USAGE ext cmd_type 5 dp_config A211 fmix 05 bmix 0C cpu_input 0  n 39
+M8USAGE reg 9AE8 = 40B3  n 1
+M8USAGE reg BAE8 = 0007  n 1
+M8USAGE reg CEEE = 2051  n 1502
+M8USAGE ext cmd_type 5 dp_config 6211 fmix 07 bmix 07 cpu_input 0  n 323
+M8USAGE ext cmd_type 2 dp_config 2211 fmix 07 bmix 01 cpu_input 0  n 32
+M8USAGE ext cmd_type 2 dp_config 2071 fmix 07 bmix 03 cpu_input 0  n 16260
+M8USAGE ext cmd_type 2 dp_config 2051 fmix 02 bmix 01 cpu_input 0  n 1502
+M8USAGE ext cmd_type 2 dp_config 5210 fmix 07 bmix 05 cpu_input 0  n 103
+M8USAGE reg 9AE8 = C0F1  n 70
+M8USAGE reg D6EE = 0002  n 1124
+M8USAGE ext cmd_type 2 dp_config 6211 fmix 07 bmix 02 cpu_input 0  n 2
+M8USAGE reg CEEE = 0291  n 3116
+M8USAGE reg A2EE = 070C  n 1314
+M8USAGE ext cmd_type 2 dp_config 2211 fmix 00 bmix 0C cpu_input 0  n 1
+M8USAGE ext cmd_type 2 dp_config 5211 fmix 04 bmix 01 cpu_input 1  n 3456
+M8USAGE ext cmd_type 5 dp_config 4210 fmix 07 bmix 01 cpu_input 0  n 1381
+M8USAGE ext cmd_type 2 dp_config 5210 fmix 07 bmix 07 cpu_input 1  n 401944
+M8USAGE ext cmd_type 5 dp_config 4010 fmix 07 bmix 01 cpu_input 0  n 4347
+M8USAGE ext cmd_type 2 dp_config A211 fmix 07 bmix 03 cpu_input 0  n 96
+M8USAGE ext cmd_type 5 dp_config 6211 fmix 07 bmix 0C cpu_input 0  n 394
+M8USAGE reg B6E8 = 0007  n 2
+M8USAGE ext cmd_type 2 dp_config 5211 fmix 07 bmix 02 cpu_input 0  n 4
+M8USAGE ext cmd_type 2 dp_config 3251 fmix 0C bmix 0C cpu_input 0  n 691
+M8USAGE ext cmd_type 2 dp_config 2231 fmix 05 bmix 05 cpu_input 0  n 20817
+M8USAGE ext cmd_type 2 dp_config 5211 fmix 0C bmix 05 cpu_input 0  n 5
+M8USAGE ext cmd_type 2 dp_config 6211 fmix 07 bmix 07 cpu_input 0  n 249
+M8USAGE reg D6EE = 0007  n 846
+M8USAGE ext cmd_type 5 dp_config 6211 fmix 07 bmix 03 cpu_input 0  n 194
+M8USAGE reg 7AEE = 0000  n 1
+M8USAGE ext cmd_type 2 dp_config 0291 fmix 07 bmix 07 cpu_input 0  n 3116
+M8USAGE ext cmd_type 2 dp_config 5210 fmix 07 bmix 01 cpu_input 0  n 21
+M8USAGE ext cmd_type 2 dp_config 5210 fmix 07 bmix 0C cpu_input 1  n 15394
+M8USAGE ext cmd_type 2 dp_config 2211 fmix 01 bmix 01 cpu_input 0  n 100
+M8USAGE ext cmd_type 3 dp_config 2211 fmix 07 bmix 05 cpu_input 0  n 372
+M8USAGE ext cmd_type 2 dp_config 5211 fmix 0C bmix 07 cpu_input 1  n 708
+M8USAGE ext cmd_type 2 dp_config 5211 fmix 07 bmix 07 cpu_input 0  n 317
+M8USAGE ext cmd_type 5 dp_config 2211 fmix 07 bmix 07 cpu_input 0  n 375
+M8USAGE reg CEEE = 4210  n 1381
+M8USAGE ext cmd_type 2 dp_config 5210 fmix 07 bmix 03 cpu_input 1  n 867862
+M8USAGE ext cmd_type 2 dp_config 6211 fmix 07 bmix 0C cpu_input 0  n 56
+M8USAGE ext cmd_type 2 dp_config 2211 fmix 07 bmix 02 cpu_input 0  n 4
+M8USAGE reg BEE8 = A000  n 2
+M8USAGE ext cmd_type 2 dp_config 3251 fmix 07 bmix 07 cpu_input 1  n 13440
+M8USAGE ext cmd_type 2 dp_config 5211 fmix 07 bmix 0C cpu_input 0  n 47
+M8USAGE ext cmd_type 2 dp_config 5211 fmix 0B bmix 05 cpu_input 1  n 128
+M8USAGE ext cmd_type 2 dp_config 6211 fmix 05 bmix 0C cpu_input 0  n 388
+M8USAGE ext cmd_type 2 dp_config 6211 fmix 07 bmix 03 cpu_input 0  n 236
+M8USAGE reg D6EE = 0004  n 1316
+M8USAGE reg CEEE = 5211  n 2647
+M8USAGE reg CEEE = 4215  n 1483
+M8USAGE ext cmd_type 2 dp_config 5211 fmix 0C bmix 03 cpu_input 1  n 360
+M8USAGE ext cmd_type 2 dp_config 5211 fmix 05 bmix 0C cpu_input 0  n 228
+M8USAGE ext cmd_type 2 dp_config 2211 fmix 07 bmix 07 cpu_input 0  n 3265
+M8USAGE ext cmd_type 2 dp_config 5211 fmix 07 bmix 03 cpu_input 0  n 593
+M8USAGE ext cmd_type 5 dp_config 4215 fmix 07 bmix 01 cpu_input 1  n 1483
+M8USAGE ext cmd_type 5 dp_config 2211 fmix 07 bmix 03 cpu_input 0  n 649
+M8USAGE reg 7AEE = 000A  n 4
+M8USAGE reg 9AE8 = 43F0  n 5
+M8USAGE ext cmd_type 2 dp_config 2071 fmix 0C bmix 0C cpu_input 0  n 6635
+M8USAGE ext cmd_type 2 dp_config 2211 fmix 05 bmix 07 cpu_input 0  n 100
+M8USAGE ext cmd_type 2 dp_config 5211 fmix 07 bmix 05 cpu_input 1  n 5899144
+M8USAGE ext cmd_type 3 dp_config 0000 fmix 07 bmix 07 cpu_input 0  n 1
+M8USAGE ext cmd_type 2 dp_config 2211 fmix 07 bmix 0C cpu_input 0  n 344
+M8USAGE ext cmd_type 5 dp_config A211 fmix 07 bmix 05 cpu_input 0  n 3586
+M8USAGE ext cmd_type 2 dp_config 5211 fmix 05 bmix 05 cpu_input 1  n 1536
+M8USAGE reg BAE8 = 006C  n 2
+M8USAGE reg D6EE = 0001  n 893
+M8USAGE ext cmd_type 2 dp_config 2211 fmix 05 bmix 0C cpu_input 0  n 112
+M8USAGE ext cmd_type 2 dp_config 2211 fmix 07 bmix 03 cpu_input 0  n 4347
+M8USAGE ext cmd_type 5 dp_config A211 fmix 05 bmix 05 cpu_input 0  n 3159
+M8USAGE ext cmd_type 2 dp_config 5211 fmix 04 bmix 01 cpu_input 0  n 1
+M8USAGE ext cmd_type 2 dp_config 5210 fmix 07 bmix 07 cpu_input 0  n 19
+M8USAGE ext cmd_type 5 dp_config 3251 fmix 02 bmix 01 cpu_input 1  n 35328
+M8USAGE ext cmd_type 2 dp_config 2211 fmix 05 bmix 03 cpu_input 0  n 46
+M8USAGE ext cmd_type 2 dp_config 2071 fmix 05 bmix 05 cpu_input 0  n 6635
+M8USAGE end
