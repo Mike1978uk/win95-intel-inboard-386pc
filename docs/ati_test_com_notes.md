@@ -135,6 +135,9 @@ Then, each measured over COMrade with `M8ROW3` (a 64x16 area read back directly 
 | `c69bfbc3d` | (op 110) | a linear mono pattern is PATT_LENGTH+1 bits from PATT_DATA_10 on, from PATT_INDEX, MSB first in each 16-bit word; the model repeated one byte |
 | `7a72b6a27` | 109 -> 110 | SHORT_STROKE with host data: the first vector of the pair takes no host data and draws with the low byte of the stroke word (the guide says only that it "does not consume host data correctly"); the second takes PIX_TRANS MSB first, then, when it runs dry, the low byte of the next FIFO entry whatever its port (TS1 writes 5678h to CUR_X there; the card draws 78 78 78) |
 | `04956aedf` | 110 -> 112 | EXT_SHORT_STROKE (C6EE, a TODO in 86Box): two IBM SSV bytes, 15:8 first, drawn as extended degree-mode lines with the DP_CONFIG path; a PATT_INDEX write sets the next pattern pixel |
+| `ed8cb37b0` | 112 -> 113 | a LINEDRAW (FEEE) line reaches its end point unless LINEDRAW_OPT bit 2; the model stopped one short |
+| `4ecf27e40`, `5a781453f`, `39456c0e4` | 113 -> 116 | 16-bit host COLOUR data via DP_CONFIG is MSB first unless bit 12. DP_CONFIG foreground source 6 (not in the guide) waits for host data; each byte picks colour-pattern byte ((byte & 7) << 2) \| (x & 1), ignoring PATT_INDEX/LENGTH (M8FG6-9 on the 5160). Bit 11 set (CA11h): data starts 4 pixels late in every probe, 8 in TS1 op 112 - not explained by PATT_INDEX, PATT_LENGTH, CUR_X, write speed or a prior pattern draw (M8FG7-9); model keeps (byte >> 2), which fits TS1 only. OPEN |
+| `03b909952` | 116 -> 134 | a non-conforming blit that wraps rows draws neither DEST_X_END nor reads SRC_X_END; source and destination are separate streams, first row from CUR_X/SRC_X. TC1995's `c54d36cff` counted both ends; Graphics Ultra only, and TEST.COM's Video RAM test still passes in the bed |
 
 **The harness itself (M8SEQ `M8S4`, M8ROW3 `M8RC`).** TEST.COM runs routine `1E21` before every test
 sequence: its `05F0` (32EEh = 0, SUBSYS_CNTL 900Fh/400Fh) and the setup table at `17E7` (PIX_CNTL, scissors,
@@ -145,7 +148,10 @@ reference `5160_M8SEQ3.BIN` differs from the new `5160_M8SEQ4.BIN` at 10 checkpo
 Reference from now on: `5160_M8SEQ4.BIN`.
 
 **Open:**
-- op 111 (checkpoint 112) onward, 61 of 173 checkpoints still differ (2026-10-06); TS2 not yet bisected.
+- op 134 onward, 39 of 173 checkpoints still differ (2026-10-06 evening); TS2 not yet bisected. Op 133-140 are one-row
+  blits after writes to 92EEh (8, 10h, 18h, ...) and EAEEh (55h): Mach8-only registers, read/write (they are in
+  TEST.COM's and the ROM's register-integrity port list at TEST.COM 741Bh / ROM 78BEh), not in the Mach32 guide,
+  ignored by 86Box. WIN31ACC.EXE references EAEE twice (0x247e, 0xe4fb) - read those next.
 - the polygon type A rule above fills the right edge; the Mach32 guide says type A excludes it. Op 85's data may
   not tell the two apart - check before relying on it.
 - the linear mono pattern rule is only applied to SCAN_TO_X; blits and lines still repeat one byte.
