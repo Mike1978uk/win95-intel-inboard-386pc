@@ -101,6 +101,9 @@ restoring it from DOS. Extend `TXTBENCH` with a bitmap test (`SetDIBitsToDevice`
   re-register with the VDD), taken from vmdisp9x (<https://github.com/JHRobotics/vmdisp9x>, MIT);
   **same depth only** - Windows 9x never changes depth live (KB Q127139). `2026-08-16-vbe-tier0-family.md`:
   in a Win9x display driver, DPMI 0100h fails - get DOS buffers from `GlobalDosAlloc`.
+  Author's Reddit post (u/mwdmeyer, <https://www.reddit.com/r/windows98/comments/1vow8fj/>): targets
+  **Windows 98SE only** (Win95 untested), written with Claude and ChatGPT, asks for testers and card data
+  from `V9XSURV.EXE` (runs under DOS). Whether the framework runs on Win95 is unknown - ask him.
 - **VBEMP** (owner, 2026-10-06) - <https://bearwindows.zcm.com.au/vbemp.htm>. NT 3.1-XP only, no Win9x
   build, closed source (freeware, non-commercial), needs a VBE BIOS and mostly a linear framebuffer.
   Nothing for this card.
