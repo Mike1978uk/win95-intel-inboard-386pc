@@ -802,6 +802,9 @@ what Andrew offered it for. **Unread** means exactly that: listed, not yet evalu
   Same page: a 1993 VGA Wonder GT (109-00115-40) with our chips (38800-1, 28800-6) but an unlabelled 27C256,
   and a Graphics Vantage chip labelled 113-01115-140. dosdays offers no ROM dumps. Not yet compared:
   113-11800 to 11802 (the latest Mach8+VGA range) and any 01115 other than -150.
+- https://theretroweb.com/expansioncards/s/ati-ac-vga-v-vram - Graphics Ultra 109-00115-50 (owner, 2026-10-07):
+  ROM 113-11503-004 (1992/5/12), copied to `XT_project/ATI/theretroweb/`. It has no 26EEh/76EEh A0h write at
+  all; the block in our 11504-002 at 70A4h is new in that ROM (see next_session_2026_10_08.md).
 - ATI software set (owner, 2026-10-07), `XT_project/ATI/`: HDILOAD 2.21a (ATI's 8514/A Adapter Interface
   TSR) + DEMOAI.EXE, which exercises the AI calls - a second conformance test beside TEST.COM, unrun; 8514/Ultra
   INSTALL/TEST.COM (8514ut, ati8tool), M8UTL, Win 3.1 mach8 drivers v1-v3 / M8W20 / M8W23 / m8wr30,

@@ -32,6 +32,11 @@ ROM also writes (mov dx count): 7AEEh EXT_GE_CONFIG x2 right after the pitch, EA
 52EEh/56EEh (EEPROM interface?), 12EEh x6 (CONFIG_STATUS reads), 3AEE, 46EE, 5AEE, 6AEE. Read each value at boot.
 Other ROMs: three more versions on ardent-tool (ATI_8514_Ultra page, in resources_and_sources.md); Michael's
 card carries 113-01115-150 (our old 64 KB file), same board otherwise, 1 MB. Compare pitch writes across all.
+The jne is now read (11504-002, 709Ch-70BEh): CL = ((in 42E8h >> 4) & 7) | 8; only if CH bit 0 is set AND
+in B2EEh == 9Fh: CL |= 10h, out 26EEh,A0h, out 76EEh,A0h; then out 7AEEh,CL either way. 9Fh = 1280/8 - 1,
+A0h = 1280/8, so B2EEh is probably a horizontal-displayed readback: pitch 1280 only when the mode is 1280 wide.
+Check in the model: what B2EEh returns and what CH holds there. 113-11503-004 (theretroweb) lacks the
+A0h block entirely - a card with that ROM would run TEST.COM at the default pitch.
 
 TS1 code is trivial (3CDDh: play 29A4h, fold 76D2h, read 7735h, compare 27F0h vs 32 words at 2964h).
 The card passes TEST.COM even after our probes. Probes (all in `tools/m8seq/`, card BINs in the captures dir):
