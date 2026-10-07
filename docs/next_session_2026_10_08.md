@@ -19,6 +19,12 @@ Supersedes `docs/next_session_2026_10_07b.md` for order. Results and rules: `doc
 
 ## TEST.COM TS1 still fails in the bed - cause narrowed (end of 2026-10-07)
 
+**Lead, found last:** ATI_MACH8.bin (owner's copy, XT_project/ATI) at 70B4h: out 26EEh,A0h then out 76EEh,AL -
+GE_PITCH = A0h (1280 px), the ROM's only GE pitch write; it never writes GE_OFFSET. TEST.COM never sets the pitch,
+so the card runs TS1 at 1280. Check first: M8TSY with 76EEh = A0h forced should give the expected table on the
+card; then why the bed (M8TSX straight after boot) is not at A0h - the jne before 70B4h (EEPROM? memory size?)
+or how the model applies GE_PITCH. The model takes byte writes to 76EEh (vid_ati_mach8.c case 0x76ee).
+
 TS1 code is trivial (3CDDh: play 29A4h, fold 76D2h, read 7735h, compare 27F0h vs 32 words at 2964h).
 The card passes TEST.COM even after our probes. Probes (all in `tools/m8seq/`, card BINs in the captures dir):
 - M8TS1 (M8SEQ5's setup): card is 17 bytes off TEST.COM's expected table; every M8SEQ capture since 10-06 is
