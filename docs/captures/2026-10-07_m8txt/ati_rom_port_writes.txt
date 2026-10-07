@@ -1,0 +1,12 @@
+ATI Graphics Ultra option ROM (owner's ATI_MACH8.bin, 32 KB): accelerator port writes found by
+"mov dx, imm16" followed by out within 6 bytes; value = nearest preceding mov al/ax immediate, ? = computed.
+port@offset:width=value
+46E8@404:8=16 46E8@410:8=0E 4AE8@416:16=0E 56EE@788:8=? 56EF@791:8=? 46E8@3439:8=0E 22E8@7081:16=0060
+4AE8@708A:16=0060 26EE@70AE:8=A0 76EE@70B4:8=A0 7AEE@70B8:8=? 22E8@70BE:16=0020 52EE@70EC:16=0000
+7AEE@70F7:16=? 5AEE@72F0:16=? 46EE@72F6:16=? 02E8@72FF:8=? 22E8@7315:8=? 4AEE@731A:16=? 46EE@7321:16=003F
+5AEE@7325:16=? 46EE@732B:16=? 4AE8@75C6:16=0002 A6E8@7651:16=? BAE8@7660:16=? BAE8@76DE:16=0073
+BEE8@7803:16=? 96E8@780A:16=? 82E8@7813:16=? 86E8@7819:16=? 8EE8@781F:16=? 8AE8@7823:16=?
+9AE8@7827:16=C0F1 96E8@7831:16=? 86E8@7838:16=? 82E8@783E:16=? 8AE8@7844:16=? 9AE8@7848:16=C0F1
+EAEE@78BD:8=? 32EE@795C:16=0010 32EE@7974:16=? 6AEE@7ED9:16=? 6AEE@7EE9:16=?
+Key: 26EEh CRT_PITCH and 76EEh GE_PITCH = A0h (1280 px) - TEST.COM never sets GE_PITCH, so TS1 runs on it.
+Writes through table runners (port/value lists) are not caught by this scan.
