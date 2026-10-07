@@ -24,6 +24,8 @@ GE_PITCH = A0h (1280 px), the ROM's only GE pitch write; it never writes GE_OFFS
 so the card runs TS1 at 1280. Check first: M8TSY with 76EEh = A0h forced should give the expected table on the
 card; then why the bed (M8TSX straight after boot) is not at A0h - the jne before 70B4h (EEPROM? memory size?)
 or how the model applies GE_PITCH. The model takes byte writes to 76EEh (vid_ati_mach8.c case 0x76ee).
+ROM also writes (mov dx count): 7AEEh EXT_GE_CONFIG x2 right after the pitch, EAEEh once, 26EEh CRT_PITCH,
+52EEh/56EEh (EEPROM interface?), 12EEh x6 (CONFIG_STATUS reads), 3AEE, 46EE, 5AEE, 6AEE. Read each value at boot.
 
 TS1 code is trivial (3CDDh: play 29A4h, fold 76D2h, read 7735h, compare 27F0h vs 32 words at 2964h).
 The card passes TEST.COM even after our probes. Probes (all in `tools/m8seq/`, card BINs in the captures dir):
