@@ -46,6 +46,10 @@ is set reads EEPROM words 1Dh and 02h, writes 7AEEh = (w02 & 0Fh) | 10h | (20h i
 52EEh = 0000h, 42E8h = 00ABh, B2EEh = 694Fh (low byte = H_DISP readback 4Fh, 640; B2EFh = H_TOTAL per
 TEST.COM 1F93h). Next: read 56EEh in the bed. If it has bit 0 (CL=0) or bit 2 (CL=2) of AH set, the bed takes
 the A0h path and the card does not - the reverse of the earlier theory, so recheck which side M8TSY's 80h matched.
+Bed read (vm_5160_now, build_log d4024748c, MACH8_WLOG, POST only; log vm_5160_now/wlog_56ee.log): the ROM
+writes 56EEh = 04h (byte), 7AEEh = 000Ah (same CL as the card's 42E8h gives). AH = 00h, so the bed skips A0h
+too - the pitch gate is closed on both sides; the 17 bytes come from elsewhere. Open: card 0820h vs bed 0004h.
+The card was read after an unknown session, not cold - read 56EEh on the 5160 straight after a cold boot.
 
 TS1 code is trivial (3CDDh: play 29A4h, fold 76D2h, read 7735h, compare 27F0h vs 32 words at 2964h).
 The card passes TEST.COM even after our probes. Probes (all in `tools/m8seq/`, card BINs in the captures dir):
