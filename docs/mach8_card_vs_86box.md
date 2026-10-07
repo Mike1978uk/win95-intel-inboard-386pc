@@ -108,6 +108,33 @@ not; SET 0 and SET 2 writes do not. Open: the unlocked SET 0 write (70h) never a
 one (80h) became the displayed value when the lock was released. The 86Box model would read 70h, 71h,
 72h after the unlocked writes and ignore every locked write.
 
+Second pass (`tools/m8seq/M8SHC2.COM`, `M8SHC2_5160.BIN`, after a reboot), settles it:
+
+| Step | H_TOTAL / H_DISP read |
+|---|---|
+| unlocked: SET 1 = 71h, SET 2 = 72h, SET 0 = 70h | 71h/4Fh |
+| 4AE8h = 6 (1024 select, display still on the VGA) | **72h/7Fh** - set 2, with the ROM's 1024 H_DISP |
+| 4AE8h = 2 | 71h/4Fh - set 1 |
+| lock, unlock, pointer at SET 0 | 71h |
+| locked, SET 0 = 80h, unlock (pointer still 0) | 71h |
+| SET 1 = 91h (unlocked) | **91h** |
+| lock | 91h |
+| unlock, pointer at SET 1 | **80h** - the primary set's value |
+
+The rule, consistent with all three probes:
+
+1. There are three sets: primary (0), shadow 1, shadow 2. A CRT register write goes to the set
+   SHADOW_SET points at, locked or not; the lock does not block writes.
+2. The set read back - and, by inference, displayed - follows ADVFUNC_CNTL bit 2: shadow 1 for
+   640x480, shadow 2 for 1024x768. Moving the pointer or the lock alone changes nothing.
+3. Writing SHADOW_CTL with the lock clear, while the pointer is at shadow set n, copies the primary
+   set into set n. With the pointer at 0 nothing visible happens. The ROM's POST sequence (load set n
+   unlocked, lock, pointer back to 0, unlock) never triggers the copy.
+
+Only H_TOTAL was tested; that the other CRT registers and the per-group lock bits behave the same is
+an assumption until measured. Whether the primary set is ever displayed (ATI extended mode, 4AEEh
+bit 0) is not tested.
+
 ## Register dumps
 
 `tools/m8seq/M8REGS.COM` reads ATI extended registers A0h-BFh and the Mach8 status and
