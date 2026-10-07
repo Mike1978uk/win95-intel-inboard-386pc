@@ -34,6 +34,8 @@ The card passes TEST.COM even after our probes. Probes (all in `tools/m8seq/`, c
   6EEEh 0000h, unchanged. So bisect by writes (M8TSY-style), not by reading the registers.
   Infer it instead: draw pixels at (0,0) and (0,1) under the unknown state, force pitch 80h / offset 0,
   read rows 0-1 back - where they land gives the effective pitch and offset. Check after 17E7h and TS1 chunks.
+  Software clues: ATIM8.DRV writes 76EEh 3 times per session (mode set), MACHW3 ~3,000; read what values,
+  and the option ROM (ATI_MACH8.bin) mode-set code for 76EEh/72EEh/6EEEh - the card may run TS1 on the ROM's pitch.
 - Measured: 42E8h reset clears PATT_INDEX, keeps LINEDRAW_OPT/PATT_DATA_INDEX; fixed `d4024748c`.
 - Bed run of REGR after M8TSX ended on a black screen (owner closed it); M8TSX/M8TS1 had finished. Check.
 
