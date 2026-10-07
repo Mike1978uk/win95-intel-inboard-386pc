@@ -793,5 +793,15 @@ what Andrew offered it for. **Unread** means exactly that: listed, not yet evalu
 **Background**
 - [Computer Ads from the Past: Intel's Inboard 386/PC](https://computeradsfromthepast.substack.com/p/intels-inboard-386pc), and two videos on the card's inherent limits ([1](https://m.youtube.com/watch?v=jYY8SIWAeuc), [2](https://m.youtube.com/watch?v=4JdaklvI81o)) (#23) - context: the card predates integrated chipsets and was built for business upgrades, so not everything is fixable.
 - https://www.ardent-tool.com/video/ATI_8514_Ultra.html - ATI 8514 Ultra page with three more option ROM
-  versions (owner, 2026-10-07). To compare against our two (113-11504-002 = BIOS.BIN, 113-01115-150 = the old
-  64 KB file): does each have the GE_PITCH A0h write at boot and the same conditional before it. Not yet downloaded.
+  versions (owner, 2026-10-07). Downloaded to `XT_project/ATI/Ardent roms/`: 113-01113-131 (1991/5/12),
+  -140 (1991/11/11, same code as our `11301113140_4k.BIN`, 2 KB blocks in a different order) and -15
+  (1990/12/25). These are the Mach8-only 8514/Ultra ROMs (2 KB option ROM); 131 and 140 write GE_PITCH = A0h
+  (word `out 76EEh`, after 7AEEh), the 1990 ROM has no 26EEh/76EEh/7AEEh write. Our card: 113-11504-002,
+  byte write of A0h at 70B4h, same as 113-01115-150. ROM list by part number:
+  https://www.dosdays.co.uk/topics/Manufacturers/ati/ati_mach8.php#B
+- ATI software set (owner, 2026-10-07), `XT_project/ATI/`: HDILOAD 2.21a (ATI's 8514/A Adapter Interface
+  TSR) + DEMOAI.EXE, which exercises the AI calls - a second conformance test beside TEST.COM, unrun; 8514/Ultra
+  INSTALL/TEST.COM (8514ut, ati8tool), M8UTL, Win 3.1 mach8 drivers v1-v3 / M8W20 / M8W23 / m8wr30,
+  GFXULTRA, ATIDESK, VGA Wonder utilities, VVESA 2.22, NT driver M93NT1. Unread beyond the READMEs.
+- ZSoft PC Paintbrush for Windows 1.05 (owner download, `Downloads/`): the program 86Box#6695 is about -
+  Andrew, #49, corrected "Paint" to this. Retest 6695 with it, not Windows Paint.

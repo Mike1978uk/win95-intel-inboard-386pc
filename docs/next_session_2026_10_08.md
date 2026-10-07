@@ -16,6 +16,10 @@ Supersedes `docs/next_session_2026_10_07b.md` for order. Results and rules: `doc
   failed before it.
 - 86Box#6695 does not reproduce on master or ours (Windows/386 2.11 bed `vm_6695_w2`). No comment posted:
   owner's order is build, PR, then ask them to retest. Draft kept in the 10-07 conversation; rewrite then.
+  Andrew (#49): the program is ZSoft PC Paintbrush for Windows, not Windows Paint - our no-repro was with the
+  wrong program. Owner has 1.05 in `Downloads/`; install it in `vm_6695_w2` and retest before saying anything.
+- More ATI ROMs and software are in `XT_project/ATI/` (resources_and_sources.md): DEMOAI under HDILOAD is a
+  possible second conformance test.
 
 ## TEST.COM TS1 still fails in the bed - cause narrowed (end of 2026-10-07)
 
