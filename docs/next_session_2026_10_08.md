@@ -50,6 +50,10 @@ Bed read (vm_5160_now, build_log d4024748c, MACH8_WLOG, POST only; log vm_5160_n
 writes 56EEh = 04h (byte), 7AEEh = 000Ah (same CL as the card's 42E8h gives). AH = 00h, so the bed skips A0h
 too - the pitch gate is closed on both sides; the 17 bytes come from elsewhere. Open: card 0820h vs bed 0004h.
 The card was read after an unknown session, not cold - read 56EEh on the 5160 straight after a cold boot.
+Cold boot to DOS, 5160: 56EEh = 0820h again (52EEh 0000h, B2EEh 694Fh, 42E8h 00ABh). The ROM (0783h) fills
+56EEh/56EFh from EEPROM words 8 and 9 (low byte each, read routine 3A4Eh). Bed EEPROM word 8 = 0004h, word 9 =
+0000h; card: word 8 low = 20h, word 9 low = 08h. The bed EEPROM (INSTALL-written, rom_and_eeprom_dumps.md) is
+not the card's. Next: dump the card's EEPROM (an EEDUMP built on ROM routine 3A4Eh) and give the bed the real one.
 
 TS1 code is trivial (3CDDh: play 29A4h, fold 76D2h, read 7735h, compare 27F0h vs 32 words at 2964h).
 The card passes TEST.COM even after our probes. Probes (all in `tools/m8seq/`, card BINs in the captures dir):
