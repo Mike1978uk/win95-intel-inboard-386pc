@@ -117,6 +117,9 @@ start:
         mov     dx, 4AE8h
         mov     ax, 2
         out     dx, ax
+        mov     dx, 4AEEh               ; M8PRE.DAT leaves bit 0 set, which keeps the display
+        mov     ax, 1850h               ; on the Mach8; 1850h is what the ROM leaves at boot
+        out     dx, ax
         mov     dx, 2EAh                ; DAC mask: TEST.COM's setup table clears it
         mov     al, 0FFh
         out     dx, al

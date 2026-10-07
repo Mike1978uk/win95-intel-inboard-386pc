@@ -75,6 +75,13 @@ which only serves pages with an exec pointer; the VGA mapping has none, so it re
 indexed as a whole page - out of bounds. 86Box cannot execute code from video memory on this CPU path. Same code
 in upstream 4f18c5b98. Fix to discuss: fall back to readmembl() in fastreadb/w/l when a page has no exec pointer,
 as the 2386 path already does. Upstream-worthy on its own.
+FIXED in the fork, 5fce405ab (cpu: fetch code from pages with no exec pointer): the full card EEPROM boots.
+TS1/TS2 still fail; M8TSX/M8TS1 byte-identical to before (M8TSX_bed_fullee_fetchfix.BIN).
+M8TSX now restores 4AEEh to 1850h at exit, so REGR no longer leaves a black screen.
+MACH8_SPLIT8=1 (diagnostic, fork): 16/32-bit Mach8 I/O as byte cycles. Results moved AWAY from the card
+(M8TSX 789 bytes off vs 492) and later probes crawl to their timeouts: the model's byte paths for 16-bit
+registers are not faithful (V_DISP read back 96), so this run says nothing about the bus. Next: AT control -
+TEST.COM in an AT bed with the card at 16-bit; pass there points at the XT/8-bit path, fail at the engine.
 
 TS1 code is trivial (3CDDh: play 29A4h, fold 76D2h, read 7735h, compare 27F0h vs 32 words at 2964h).
 The card passes TEST.COM even after our probes. Probes (all in `tools/m8seq/`, card BINs in the captures dir):
