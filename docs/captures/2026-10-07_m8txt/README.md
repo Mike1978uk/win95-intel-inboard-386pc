@@ -50,3 +50,23 @@ Bed `vm_6695_w2` (opti495 AMI, 486DX/33, 16 MB, Mach8 16-bit, Windows/386 2.11 w
 (`w2_master_fill.png`, `w2_ours_fill.png`). With DOS 6.22 `HIMEM.SYS` and `SMARTDRV` loaded, Windows/386
 froze solid (mouse too) starting Paint; without them it works. Not yet shown to involve the display.
 Windows 3.11 Paintbrush fill also works on both builds.
+
+## TS1 commands 133-141: the source colour compare (fixed)
+
+`M8ROW4` (TS1 commands 133-141 read back directly) showed the card writing only some 4-pixel groups of a
+one-row blit. `M8SCMP` (`tools/m8seq/M8SCMP.ASM`) measured it directly on the 5160 (`M8SCMP_5160.BIN`):
+
+- 92EEh bits 3-5: compare function, DEST_CMP_FN's encoding (08 never, 10 src < key, 18 >=, 20 =, 28 !=,
+  30 >, 38 <=, 00 off), applied to each blit source pixel. EAEEh: the key colour.
+- A true result writes the background (BKGD_COLOR through the background mix), not "leave unchanged" as the
+  8514/A destination compare does (Sanchez and Canton p. 175).
+- An engine reset (42E8h or 32EEh) does not clear 92EEh. So M8SEQ/M8ROW4 checkpoints after 133 inherit the
+  previous checkpoint's compare; `M8SEQ5` and `M8ROW5` clear both ports at each checkpoint. On the card that
+  changes checkpoints 134-140 only.
+
+Fork `8283ed2bc` models it in the BitBLT path. `M8SCMP` and `M8ROW5` now match the card exactly; `M8SEQ5`
+first differs at checkpoint 143 (was 134), 30 checkpoints differ. Next: command 142, a colour-pattern blit
+(`PATT_DATA` 1111..8888, DP_CONFIG E211h/EA11h).
+
+The Windows runs above used a blank Mach8 EEPROM (1024x768 interlaced only); the beds have the FlexView image
+from the regression run of 14:16 on.
