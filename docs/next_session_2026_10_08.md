@@ -2,6 +2,16 @@
 
 Supersedes `docs/next_session_2026_10_07b.md` for order. Results and rules: `docs/captures/2026-10-07_m8txt/README.md`.
 
+## Late 2026-10-07, read this first
+
+Model and card findings are now in `docs/mach8_card_vs_86box.md` (the write-up for Michal and others).
+Fork: `5fce405ab` fetch fix (full card EEPROM boots), `f9b466ac2` config straps, two DIAGNOSTIC commits.
+Order for next session: (1) clean shadow-set probe on the 5160 (one change at a time, two reads each,
+one set written per pass); (2) model three CRT sets to match, loaded from the EEPROM by the ROM;
+(3) M8MONO leaves the bed's VGA blank, not the card's: log the renderer chosen when 4AE8h returns to
+the VGA with M8MONO run alone; (4) TS1/TS2. vm_6695 has the full card EEPROM (needs the fork build);
+REGR names each probe and pauses 3 s.
+
 ## Where it stands (2026-10-07)
 
 - Owner's direction: understand the whole card, not only what drivers use; TEST.COM fully clean before the

@@ -76,6 +76,18 @@ the display. No 1024 values appear: with an 800x600 monitor in its EEPROM the ca
 sets. The rule (the lock appears to invert the selection) needs one more probe that writes a marker
 value into each set before the model can copy it. 86Box would read the same values in every cell.
 
+Marker probe (`tools/m8seq/M8SHMK.COM`, `M8SHMK_5160.BIN`), B2EEh high byte after writing H_TOTAL:
+
+| Written | CTL 00: set 0 / 1 / 2 | CTL 3F: set 0 / 1 / 2 |
+|---|---|---|
+| unlocked: 70h, 71h, 72h into sets 0, 1, 2 | 70 / 70 / 70 | 70 / 70 / 71 |
+| locked: 80h, 81h, 82h into sets 0, 1, 2 | 81 / 81 / 80 | 80 / 80 / 81 |
+
+Only two values are visible in 640 mode (the third write never reads back), and the lock changes
+both where a write lands and which set is read. The first block does not swap the way the second
+does, so the exact rule is not settled: the probe changed SHADOW_CTL and SHADOW_SET in one pass and
+read once. Next probe: one change at a time, two reads after each, one set written per pass.
+
 ## Register dumps
 
 `tools/m8seq/M8REGS.COM` reads ATI extended registers A0h-BFh and the Mach8 status and
