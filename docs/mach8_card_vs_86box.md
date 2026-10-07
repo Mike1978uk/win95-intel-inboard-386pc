@@ -88,6 +88,26 @@ both where a write lands and which set is read. The first block does not swap th
 does, so the exact rule is not settled: the probe changed SHADOW_CTL and SHADOW_SET in one pass and
 read once. Next probe: one change at a time, two reads after each, one set written per pass.
 
+Clean probe (`tools/m8seq/M8SHCL.COM`, `M8SHCL_5160.BIN`, after a reboot; one write per step, two
+B2EEh reads after each; display on the VGA, 640 mode). H_TOTAL as read back:
+
+| Step | Read |
+|---|---|
+| after POST; then SHADOW_SET and SHADOW_CTL changed alone, every combination | 69h throughout |
+| unlocked, SET 0, write 70h | 69h |
+| unlocked, SET 1, write 71h | **71h** |
+| unlocked, SET 2, write 72h | 71h |
+| locked, SET 0, write 80h | 71h |
+| locked, SET 1, write 81h | **81h** |
+| then SHADOW_CTL = 0 (unlock) | **80h**, and it stays 80h for every later pointer, lock or SET 2 write |
+
+Firm: B2EEh reads the set driving the display, not the one SHADOW_SET points at, and changing the
+pointer or the lock alone does not change it (the earlier probes' variation came from re-writing
+4AE8h and SHADOW_CTL inside the loop). In 640 mode a write with SET 1 changes it at once, locked or
+not; SET 0 and SET 2 writes do not. Open: the unlocked SET 0 write (70h) never appeared, but the locked
+one (80h) became the displayed value when the lock was released. The 86Box model would read 70h, 71h,
+72h after the unlocked writes and ignore every locked write.
+
 ## Register dumps
 
 `tools/m8seq/M8REGS.COM` reads ATI extended registers A0h-BFh and the Mach8 status and
