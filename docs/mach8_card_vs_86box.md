@@ -41,11 +41,25 @@ is the obvious reader). Every row says how it was established.
 | 5 | 16-bit I/O on an 8-bit slot | two byte cycles | one word access; `bus_width` only changes status bits | open: splitting into bytes made results worse, so the model's byte paths for 16-bit registers are not faithful either (V_DISP read back 96) |
 | 6 | Extended A1h, A4h, A5h, ABh, ACh, ADh after POST | 1Fh, 54h, 76h, 80h, 03h, 10h | 00h | open |
 | 7 | 7AEEh / 7EEEh read back after POST | 0400h / 03FFh | 0000h / 0000h | open |
+| 8 | CRT shadow sets | three register sets: primary, shadow 1 (640x480), shadow 2 (1024x768); SHADOW_SET (5AEEh) picks which set the CRT writes load, SHADOW_CTL (46EEh) locks groups of them | one set; SHADOW_CTL lock bits only block writes, SHADOW_SET is logged and otherwise ignored, so the last set written wins | open: after POST the card reads B2EEh 694Fh (640 set), the bed A17Fh (the 1024 set the ROM loads last) |
 
 Decoding sources: ATI's register reference (Mach8 pages of the Mach32 programmer's guide,
 `references/ati_mach32/guide.txt`, CONFIG_STATUS_1 at 9-64, CONFIG_STATUS_2 at 9-66). Neither the
 ROM nor TEST.COM tests the bits corrected in rows 2-3 (they test bits 1, 2, 4 and 5-6 of 12EEh,
 which already matched), so rows 2-3 are accuracy fixes, not the TEST.COM TS1/TS2 cause.
+
+## How the ROM loads the shadow sets at POST
+
+From an 86Box write log of the ROM (the order is the ROM's; the values came from the bed's EEPROM):
+
+    5AEE=0001 46EE=0000  02E8=63 06E8=4F 0AE8=52 0EE8=2C 12E8=418 16E8=3BF 1AE8=3D6 1EE8=22 22E8=23
+                         4AEE=1850 46EE=003F 5AEE=0000 46EE=0000
+    5AEE=0002 46EE=0000  02E8=9D 06E8=7F 0AE8=81 0EE8=16 12E8=662 16E8=5FF 1AE8=600 1EE8=09 22E8=33
+                         4AEE=181C 46EE=003F 5AEE=0000 46EE=0000
+
+Set 1 gets 640x480 timings, set 2 1024x768, each followed by SHADOW_CTL = 3Fh, then the pointer
+goes back to the primary set and the locks are released. Which set B2EEh (R_H_TOTAL&DISP) reads,
+and which set drives the display in each 4AE8h mode, is still to be measured on the card.
 
 ## Register dumps
 
