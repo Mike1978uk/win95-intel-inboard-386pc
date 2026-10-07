@@ -68,6 +68,13 @@ before (owner). So the EEPROM does not cause the TS1 gap - expected for M8TSX, w
 17 bytes and the data-ready flag are engine bugs. Pixel-placement probe next.
 Black screen after REGR (bed and 5160): M8TSX replays 4AEEh writes ending at 1631h (bit 0 = Mach8 owns the display)
 and restores only 4AE8h. Proposed, not made: restore 4AEEh to the ROM's 1850h at exit. REGR still runs behind it.
+ROOT CAUSE of the full-EEPROM hang (INBOARD_RINGAT=F000:FF23,B800, a new diagnostic ring in 386_dynarec.c):
+the ROM far-calls B800:1000; byte, word and dword reads there return the copied code correctly, but the CPU
+executes garbage (PC 1000 -> 1002 -> 1005 ...). The interpreter fetches code through getpccache() (mem.c),
+which only serves pages with an exec pointer; the VGA mapping has none, so it returns ff_pccache (4 bytes of FF)
+indexed as a whole page - out of bounds. 86Box cannot execute code from video memory on this CPU path. Same code
+in upstream 4f18c5b98. Fix to discuss: fall back to readmembl() in fastreadb/w/l when a page has no exec pointer,
+as the 2386 path already does. Upstream-worthy on its own.
 
 TS1 code is trivial (3CDDh: play 29A4h, fold 76D2h, read 7735h, compare 27F0h vs 32 words at 2964h).
 The card passes TEST.COM even after our probes. Probes (all in `tools/m8seq/`, card BINs in the captures dir):
