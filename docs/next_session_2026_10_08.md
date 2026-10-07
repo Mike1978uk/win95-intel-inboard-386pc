@@ -2,15 +2,26 @@
 
 Supersedes `docs/next_session_2026_10_07b.md` for order. Results and rules: `docs/captures/2026-10-07_m8txt/README.md`.
 
-## Late 2026-10-07, read this first
+## Late 2026-10-07 / early 10-08, read this first
 
-Model and card findings are now in `docs/mach8_card_vs_86box.md` (the write-up for Michal and others).
-Fork: `5fce405ab` fetch fix (full card EEPROM boots), `f9b466ac2` config straps, two DIAGNOSTIC commits.
-Order for next session: (1) clean shadow-set probe on the 5160 (one change at a time, two reads each,
-one set written per pass); (2) model three CRT sets to match, loaded from the EEPROM by the ROM;
-(3) M8MONO leaves the bed's VGA blank, not the card's: log the renderer chosen when 4AE8h returns to
-the VGA with M8MONO run alone; (4) TS1/TS2. vm_6695 has the full card EEPROM (needs the fork build);
-REGR names each probe and pauses 3 s.
+Write-up for Michal and others: `docs/mach8_card_vs_86box.md` (card vs model, every row measured or marked).
+Fork `inboard-ext-256k-diag`, all pushed:
+- `5fce405ab` cpu: fetch code from pages with no exec pointer - the card's full EEPROM now boots (upstream on its own)
+- `f9b466ac2` mach8: Graphics Ultra config straps (12EEh/16EEh) as read off the card
+- `aa1849be5` mach8: Graphics Ultra CRT shadow sets as measured (M8SHCL/M8SHC2); REGR black screen gone with it
+- `65d7a2bdd`, `cc4e7cd85` DIAGNOSTIC: INBOARD_RINGAT ring dump, MACH8_SPLIT8 byte cycles (not for upstream)
+
+TS1/TS2 still fail; M8TSX/M8TS1 unchanged by the EEPROM, the fetch fix and the shadow sets. The gap is in the
+drawing engine. vm_6695 has the card's full EEPROM (needs this fork build); REGR is plain again (M8REGS first).
+
+Next, in order:
+1. Pixel-placement probe: draw known pixels under TEST.COM's state, card and bed, read where they land.
+2. Vertical CRT read-backs: the card returns them halved (Y_CONTROL encoding), the model raw; V_TOTAL and
+   V_SYNC_STRT 2-4 lines off.
+3. TEST.COM runs slower in the bed since the shadow sets: time it on the 5160 to see if that matches.
+4. Andrew's 86Box#6695 lead: install ZSoft PC Paintbrush for Windows 1.05 (owner's Downloads) in `vm_6695_w2`
+   and retest the boundary fill on this build - a real application, may catch something TEST.COM does not.
+5. Then the PR list: fetch fix (CPU core, its own PR), config straps + shadow sets (Mach8), with G1-G10.
 
 ## Where it stands (2026-10-07)
 
