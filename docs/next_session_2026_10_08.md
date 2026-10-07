@@ -19,8 +19,9 @@ Supersedes `docs/next_session_2026_10_07b.md` for order. Results and rules: `doc
 ## Next, in order
 
 1. **TS1 command 145: foreground source 4** - the last TS1 feature. Card data so far in
-   `docs/captures/2026-10-07_m8txt/README.md` (M8SRC4, M8SRC4B). Next probe: one FF source pixel at a time,
-   several positions, to see which source pixels feed which destination pixel. Then model it in the BitBLT.
+   `docs/captures/2026-10-07_m8txt/README.md` (M8SRC4, M8SRC4B, M8SRC4C). M8SRC4C: a 4:1 reduction, each
+   destination pixel = 11h x set pixels in source pixels 4n-4n+3. Explain the constant 44h at 31/47/63, then
+   model it in the BitBLT.
 2. Re-read M8ROW7's third area (X >= 1024) with a wider scissor; and model reads outside the scissor as FFh.
 3. Bisect TS2 the same way (M8SEQ5-style replay of its table). Goal: TEST.COM all stages pass.
 4. Regression after every fix: `vm_6695` boots straight into `C:\M8SEQ\REGR.BAT` (all probes); compare each
@@ -30,7 +31,7 @@ Supersedes `docs/next_session_2026_10_07b.md` for order. Results and rules: `doc
 
 TS1 progress, 2026-10-07: commands 133-144 and 149-172 match the card; only 145-148 (source 4) remain.
 Fork commits today after the morning: `554cfeddc` (source 7), `de789efb6` (mono host bits), `4e9ef658d`
-(POLY_MODE lines). Fork pushed to `8283ed2bc`; later commits local until pushed.
+(POLY_MODE lines). Main repo and fork pushed to these at the end of 2026-10-07.
 
 ## Beds and tools
 
