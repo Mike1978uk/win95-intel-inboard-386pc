@@ -809,5 +809,8 @@ what Andrew offered it for. **Unread** means exactly that: listed, not yet evalu
   TSR) + DEMOAI.EXE, which exercises the AI calls - a second conformance test beside TEST.COM, unrun; 8514/Ultra
   INSTALL/TEST.COM (8514ut, ati8tool), M8UTL, Win 3.1 mach8 drivers v1-v3 / M8W20 / M8W23 / m8wr30,
   GFXULTRA, ATIDESK, VGA Wonder utilities, VVESA 2.22, NT driver M93NT1. Unread beyond the READMEs.
+  Owner unpacked the LH1 packs (7-Zip cannot). Drivers that write GE_PITCH 76EEh: MACHW3.DRV (ATIMACH8, 1994,
+  9 sites), MACH.DRV (M8W20 = ATIMACH8/V2; M8W23 newer, ~75 sites), MACHVDD.386, VDDULTRA.386, HDILOAD.EXE,
+  ATI.SYS (NT). TEST.COM is one file in all four copies.
 - ZSoft PC Paintbrush for Windows 1.05 (owner download, `Downloads/`): the program 86Box#6695 is about -
   Andrew, #49, corrected "Paint" to this. Retest 6695 with it, not Windows Paint.
