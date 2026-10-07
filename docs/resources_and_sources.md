@@ -176,6 +176,14 @@ the directory's own `README.md`.
   features are reachable only through its 8514/A-style registers or the AI TSR; the 8514/A books "don't
   cover the MACH8's extensions". Also names Sanchez and Canton, *Graphics Programming Solutions*
   (McGraw-Hill, ISBN 0-07-911465-2) for 8514/A AI. No register detail. Found by the owner, 2026-10-07.
+- **Julio Sanchez and Maria P. Canton, *Graphics Programming Solutions* (McGraw-Hill), chapter 6 "The XGA and
+  8514/A Adapter Interface", pp. 152-193** - borrowed on the Internet Archive by the owner, 2026-10-07; AI-level
+  only, no register detail, nothing on Mach8 extensions. Kept: p. 153 (IBM published 8514/A registers only after
+  pressure from developers; one transfer register, no DMA); p. 163 (short-stroke byte: direction bits 7-5 in
+  45-degree steps counter-clockwise, draw/move bit 4, length bits 3-0, current point ends one pixel past the
+  length); p. 175 (destination colour compare: TRUE leaves the pixel unchanged - the Mach8 source compare at
+  92EEh does not: a true result writes the background, M8SCMP); p. 176 (plane masking happens before compares
+  and mixes).
 - **Ardent Tool's diagnostic code list** (page above): 14201-14215. 14204 Graphics Subsystem, 14205 RAMDAC,
   14206 RAM match TEST.COM's messages in 86Box; TEST.COM's TS1 code 14216 is not listed.
 
