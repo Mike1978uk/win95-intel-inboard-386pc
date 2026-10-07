@@ -25,7 +25,7 @@ Set Power Up Configuration, inside the bed, 2026-10-06, to the settings C-INFO r
 - Monitor Type: ALR FlexVIEW2X, 56 Hz, 800x600
 - Power-up video mode VGA C80; VGA ROM 8-bit; VGA bus I/O 8-bit; coprocessor bus I/O auto-select
 
-Not a read of the card's EEPROM: the settings match, the bytes are what INSTALL writes for them.
+Not a read of the card's EEPROM: the settings match, the bytes are what INSTALL writes for them. The card's own EEPROM was read on 2026-10-07 (Serial EEPROMs, below) and differs in 32 of 64 words.
 Without it the ROM refuses accelerated modes above 640x480, so ATI's Windows 95 driver (`ATIM8.DRV`)
 reports a display adapter problem; DOS tools and the Win 3.x driver set modes themselves and do not
 show it. `tools/bed_launch.ps1` warns when a Mach8 bed's EEPROM is blank.
@@ -40,6 +40,7 @@ checked against something independent of the read.
 | Device | File | Read by | Checked against |
 |---|---|---|---|
 | 3Com 3C509B-COMBO NIC (93C46, 64 words) | [`drivers/3c509b/eeprom/3c509b_combo_owner_card.bin`](../drivers/3c509b/eeprom/3c509b_combo_owner_card.bin) | [`tools/gen_eedump_com.py`](../tools/gen_eedump_com.py) → `EEDUMP.COM`, on the 5160 | the card's own checksum (word 0Fh) matches |
+| ATI Graphics Ultra (Mach8), 64 words | [`roms/video/mach8/eeprom_card_5160_2026_10_07.nvr`](../roms/video/mach8/eeprom_card_5160_2026_10_07.nvr) | [`tools/m8eedump/m8eedump.asm`](../tools/m8eedump/m8eedump.asm) → `M8EEDUMP.COM`, on the 5160, following the option ROM's read routine (3A4Eh) | words 8 and 9 match ScratchPad1 (56EEh = 0820h), which the ROM fills from them at POST |
 | Micro Solutions BackPack CD-ROM pod (93C46, 64 words) | [`drivers/microsolutions_backpack/capture/pod_eeprom_93c46.bin`](../drivers/microsolutions_backpack/capture/pod_eeprom_93c46.bin) | [`tools/gen_bpckee.py`](../tools/gen_bpckee.py) → `BPCKEE.COM` | the drive name and serial match strings found separately in the vendor driver's resident memory |
 
 ### 3C509B-COMBO
