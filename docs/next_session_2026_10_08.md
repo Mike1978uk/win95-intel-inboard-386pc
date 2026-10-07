@@ -37,6 +37,8 @@ The card passes TEST.COM even after our probes. Probes (all in `tools/m8seq/`, c
   Software clues: ATIM8.DRV writes 76EEh 3 times per session (mode set), MACHW3 ~3,000; read what values,
   and the option ROM (ATI_MACH8.bin) mode-set code for 76EEh/72EEh/6EEEh - the card may run TS1 on the ROM's pitch.
   Also XFree86 3.x XF86_Mach8 server source (owner's lead): open code for this chip's GE_PITCH/GE_OFFSET setup.
+  First, cheapest: diff the bed's EEPROM (roms/video/mach8/eeprom_flexview2x_56hz_800x600.nvr) against the real
+  card's EEPROM data, and trace the option ROM from its EEPROM read to its 76EEh/72EEh/6EEEh writes.
 - Measured: 42E8h reset clears PATT_INDEX, keeps LINEDRAW_OPT/PATT_DATA_INDEX; fixed `d4024748c`.
 - Bed run of REGR after M8TSX ended on a black screen (owner closed it); M8TSX/M8TS1 had finished. Check.
 
