@@ -30,6 +30,8 @@ The card passes TEST.COM even after our probes. Probes (all in `tools/m8seq/`, c
   17 bytes; 92EE/EAEE, DEST_CMP_FN, MEM_CNTL do not. The next pass recovers, so something in setup or TS1
   sets the pitch/offset on the card by a path the model lacks. Next: find it (read back 76EE/72EE/6EEE if
   readable; check which TS1/17E7 writes could alias them), fix, then the data-ready bug, then TEST.COM.
+- COMrade read-back, 5160: 76EEh reads 0000h even after writing 80h (write-only); 72EEh reads F800h,
+  6EEEh 0000h, unchanged. So bisect by writes (M8TSY-style), not by reading the registers.
 - Measured: 42E8h reset clears PATT_INDEX, keeps LINEDRAW_OPT/PATT_DATA_INDEX; fixed `d4024748c`.
 - Bed run of REGR after M8TSX ended on a black screen (owner closed it); M8TSX/M8TS1 had finished. Check.
 
