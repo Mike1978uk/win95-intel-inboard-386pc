@@ -41,8 +41,8 @@ is the obvious reader). Every row says how it was established.
 | 5 | 16-bit I/O on an 8-bit slot | two byte cycles | one word access; `bus_width` only changes status bits | open: splitting into bytes made results worse, so the model's byte paths for 16-bit registers are not faithful either (V_DISP read back 96) |
 | 6 | Extended A1h, A4h, A5h, ABh, ACh, ADh after POST | 1Fh, 54h, 76h, 80h, 03h, 10h | 00h | open |
 | 7 | 7AEEh / 7EEEh read back after POST | 0400h / 03FFh | 0000h / 0000h | open |
-| 8 | CRT shadow sets | three register sets: primary, shadow 1 (640x480), shadow 2 (1024x768); SHADOW_SET (5AEEh) picks which set the CRT writes load, SHADOW_CTL (46EEh) locks groups of them | one set; SHADOW_CTL lock bits only block writes, SHADOW_SET is logged and otherwise ignored, so the last set written wins | open: after POST the card reads B2EEh 694Fh (640 set), the bed A17Fh (the 1024 set the ROM loads last) |
-| 9 | Display after M8MONO (mono host data, then 4AE8h = 2) | VGA picture returns | VGA output stays blank until a mode set (TEST.COM) | open: same ports as earlier probes that recover; next step logs the renderer chosen when 4AE8h returns to the VGA |
+| 8 | CRT shadow sets | three sets (see below) | one set; locks blocked writes; SHADOW_SET ignored | fixed in the fork, `aa1849be5`: after POST B2EEh/B6EEh/BAEEh read 694Fh/53h/05h as on the card. Open: vertical read-backs return the raw value (3BFh) where the card returns it halved (1DFh), and V_TOTAL/V_SYNC_STRT differ by 2-4 lines |
+| 9 | Display after M8MONO (mono host data, then 4AE8h = 2) | VGA picture returns | VGA output stayed blank until a mode set | gone with the shadow sets (`aa1849be5`); the cause is inferred, not traced |
 
 Decoding sources: ATI's register reference (Mach8 pages of the Mach32 programmer's guide,
 `references/ati_mach32/guide.txt`, CONFIG_STATUS_1 at 9-64, CONFIG_STATUS_2 at 9-66). Neither the
@@ -134,6 +134,11 @@ The rule, consistent with all three probes:
 Only H_TOTAL was tested; that the other CRT registers and the per-group lock bits behave the same is
 an assumption until measured. Whether the primary set is ever displayed (ATI extended mode, 4AEEh
 bit 0) is not tested.
+
+With the shadow sets in place, M8TSX.BIN and M8TS1.BIN are byte-identical to the runs before it, and
+TEST.COM still fails TS1 and TS2: the TS1 gap is in the drawing engine, not in the CRT state. TEST.COM
+runs noticeably slower in the bed since the change (its 1024 stages now use shadow set 2); not yet
+compared with the card's run time.
 
 ## Register dumps
 
