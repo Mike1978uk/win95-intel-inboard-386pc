@@ -334,6 +334,12 @@ untested here - our image does not load that driver.
 - velocity9x: read; design ideas carry over, code does not (Mach64, aperture).
 - InPort mouse port: the card has none (owner, 2026-10-05).
 - ⏳ Reply owed on #49 - draft given to the owner 2026-10-05, not posted.
+- 2026-10-06/07, two more comments: use the VGA framebuffer for DirectDraw/full-screen and switch
+  modes without a reboot; can the 8514 go below 640x480, can the engine switch mid-frame, do VGA writes flush L1;
+  blank EEPROM limits Win95 to 640x480 / 1024x768i (matches our finding, `reference-mach8-bed-eeprom`); set refresh
+  rates without M8UTL; points at 86Box#6695 (Win 2.x Paintbrush fill on 8514/Mach8/Mach32 ignores boundaries, hangs).
+  ✅ Owner posted the reply 2026-10-07 (EEPROM confirmed, VGA-side plan, open questions to measure, 6695 to be
+  tried on our build and reported there either way). Michael's card left out pending his OK.
 
 ## @andrew-hoffman - 86Box #7638, 2026-10-05 15:02
 
@@ -361,3 +367,4 @@ untested here - our image does not load that driver.
   display-driver framework (live mode switching, DIB Engine glue, test tools). Owner asked on Reddit 2026-10-06
   about a Mach8 family and Win95; he replied the same day: Win95 should work, use parts with reference or
   contribute directly, offered help. Reply drafted (thanks, the no-framebuffer question); owner to send.
+  2026-10-07: he has a Graphics Ultra himself (owner on Reddit, looking for another channel) - a second real card.
