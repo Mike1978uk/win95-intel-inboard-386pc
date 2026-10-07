@@ -77,19 +77,36 @@ from the regression run of 14:16 on.
 |---|---|---|---|---|
 | 142-143 | foreground source 7: VRAM source byte indexes the colour pattern, as source 6 does for host data (bit 11 picks `byte >> 2`, else `((byte & 7) << 2) \| (x & 1)`) | M8ROW6 | `554cfeddc` | fixed |
 | 144 | 16-bit monochrome host data, LSB_FIRST clear: bit 15 first | M8ROW6 | `de789efb6` | fixed |
-| 145-148 | foreground source 4, ALU 13h (add, no saturation) | M8ROW7, M8SRC4, M8SRC4B | - | open |
+| 145-148 | foreground source 4: 4:1 count of set source pixels (below), ALU 13h (add, no saturation) | M8ROW7, M8SRC4-4E | `8193af4b3` | fixed |
 | lines before 149 | LINEDRAW_OPT POLY_MODE vector lines: every pixel, X clamped to the left scissor, dropped past the right (CLIP_MODE 2 "polygon boundary lines") | M8ROW7 | `4e9ef658d` | fixed |
 | 149-172 | blits, scan-to-X, 8514/A rectangle and blits | M8ROW7 | - | match |
 
-Source 4 so far (M8SRC4/M8SRC4B on the 5160): values are `11h x n`, n 0-4, in 16-pixel units; the colour
+After `8193af4b3` M8SEQ5 matches the card at all 173 checkpoints (`M8SEQ5_bed_8193af4b3.BIN`), M8ROW6 at all ten,
+M8ROW7 in its first two areas; the third (X >= 1024) is the scissor read-back below. Still different: M8SRC4/4B
+tests with mono source "always 1", where the card waits for host data and the model does not.
+
+Source 4 history (M8SRC4/M8SRC4B on the 5160): values are `11h x n`, n 0-4, in 16-pixel units; the colour
 pattern plays no part (TS1's pattern and a ramp give identical rows); with every pixel foreground the first 16
 pixels are `44h` and only the last pixel of each later group is; mono source "always 1" leaves the engine not
 taking host data. Not in the Mach32 guide (sources 0,1,2,3,5 only).
 
-`M8SRC4C` (one FFh source pixel at position p, destination 00h, ALU replace; `M8SRC4C_5160.BIN`): the 11h
-lands at destination pixel p / 4 (p 0-3 -> 0, 4 -> 1, 15 -> 3, 16 and 17 -> 4, 31 -> 7, 32 -> 8). So each
-destination pixel counts set source pixels in a group of four, 11h each: a 4:1 reduction. Destination pixels
-31, 47 and 63 read 44h in every test, whatever the source; not yet explained.
+`M8SRC4C`, `M8SRC4D`, `M8SRC4E` on the 5160 (BINs alongside) give the whole rule, 8 bpp:
+
+- Destination pixel k of a row (counted from the destination start) takes source pixels 4k to 4k+3 from the
+  row's source start: a 4:1 horizontal reduction. TS1's own bits (nibbles 0-F) give `00 11 11 22 11 22 22 33
+  ... 44`, 11h times the population count.
+- A source pixel counts when all its read-mask bits are set: `(pixel & RD_MASK) == RD_MASK`. Under mask FFh
+  only FFh counts (01h, 80h, 0Fh, F0h do not); under 01h, 01h and 0Fh count.
+- The result is always the foreground: a lone set pixel at position 1 still gives 11h, where the per-pixel
+  monochrome source would have picked the background.
+- Past the source (k >= source width / 4) the four reads are not VRAM: each is (k mod 16) x 11h. So under mask
+  FFh destination pixels 31, 47 and 63 read 44h; under 01h every odd k from 17 (from 9 with a 32-wide source).
+  Moving the destination by 5 changes nothing; VRAM past the source end read 00h before and after.
+- With mono source "always 1" (DP_CONFIG 8219h) the engine waits for host data and draws nothing (M8SRC4).
+
+For the driver: a hardware 4:1 coverage count. A 1-bit glyph or shape drawn 4x wide off-screen, then blitted
+with source 4, gives 0-4 coverage per pixel in one pass: antialiased text or edges, or a horizontal
+downscale, with no CPU work per pixel. Vertical needs four passes with ALU add (TS1 uses ALU 13h, add).
 
 Reads beyond X 1023 return FFh on the card when the 8514 scissor is 3FFh (M8ROW7 third area); the model
 returns memory. Re-read with a wider scissor before concluding anything about writes there.
