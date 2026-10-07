@@ -14,10 +14,10 @@ upstream (`86box_master`, 2026-09-25).
   does that; the swap reversed it. `53B3` matches everywhere. Files: `M8MONO_5160.BIN`, `_master`, `_ours`
   (before the fix), `_fixed`.
 - Fix: fork `02c3b70cb`, no swap for monochrome host data. `M8MONO` matches the 5160 and the text is clean.
-  M8SEQ/TEST.COM regression run still owed.
+  Regression: the other probes are byte-identical before and after; TEST.COM unchanged.
 
-Also from `M8MONO` on the 5160: over the 8-bit bus each byte of monochrome data gives 4 pixels, from
-bits 1-4 in the order 3,4,1,2. Both 86Box builds already match.
+Also from `M8MONO` on the 5160: over the 8-bit bus each byte of planar monochrome data gives 4 pixels,
+from bits 4 down to 1 (rule 3 below).
 
 ## Monochrome host data on the 8-bit Graphics Ultra (M8LINE, fixed)
 
@@ -41,8 +41,7 @@ the 5160; the other 13 probes are byte-identical before and after; M8SEQ still m
 Still different: when a command is short of data the card stays busy waiting, the models go idle.
 
 The decoder first read the 53B0h read-back high byte first; it is low byte first (LSB_FIRST set). The
-earlier statements in this file about bit numbers were written before that correction; the
-comparisons were unaffected.
+comparisons between machines were unaffected.
 
 ## 86Box#6695 (Windows/386 2.11, 8514/A fill)
 
