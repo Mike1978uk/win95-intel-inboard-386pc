@@ -38,6 +38,15 @@ A0h = 1280/8, so B2EEh is probably a horizontal-displayed readback: pitch 1280 o
 Check in the model: what B2EEh returns and what CH holds there. 113-11503-004 (theretroweb) lacks the
 A0h block entirely - a card with that ROM would run TEST.COM at the default pitch.
 
+Correction, same evening: TEST.COM DOES write the pitch. Its mode-set routine (7BD9h-7C41h; AL=1: 4AE8h=3,
+CL=0; AL=2: 4AE8h=7, CL=2) reads 56EEh (ScratchPad1, set by the ROM), shifts AH right by CL, and only if bit 0
+is set reads EEPROM words 1Dh and 02h, writes 7AEEh = (w02 & 0Fh) | 10h | (20h if w1D high byte = 4Fh), then
+76EEh = 26EEh = A0h. The ROM's own A0h block (709Eh) is dead on the AL=0 entry (CH = 2, bit 0 clear).
+5160 at DOS, read by COMrade: 56EEh = 0820h (AH = 08h: bit 0 clear for both CL values, so A0h NOT written),
+52EEh = 0000h, 42E8h = 00ABh, B2EEh = 694Fh (low byte = H_DISP readback 4Fh, 640; B2EFh = H_TOTAL per
+TEST.COM 1F93h). Next: read 56EEh in the bed. If it has bit 0 (CL=0) or bit 2 (CL=2) of AH set, the bed takes
+the A0h path and the card does not - the reverse of the earlier theory, so recheck which side M8TSY's 80h matched.
+
 TS1 code is trivial (3CDDh: play 29A4h, fold 76D2h, read 7735h, compare 27F0h vs 32 words at 2964h).
 The card passes TEST.COM even after our probes. Probes (all in `tools/m8seq/`, card BINs in the captures dir):
 - M8TS1 (M8SEQ5's setup): card is 17 bytes off TEST.COM's expected table; every M8SEQ capture since 10-06 is
