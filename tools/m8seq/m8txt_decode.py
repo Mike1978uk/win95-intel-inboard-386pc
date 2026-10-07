@@ -3,7 +3,7 @@
 
     python m8txt_decode.py M8TXT.BIN [OTHER.BIN]
 
-Prints, per command, the 64x32 area as a map: '..' not drawn, otherwise the bit index g (hex,
+Prints, per case (command and start x), the 64x32 area as a map: '..' not drawn, otherwise the bit index g (hex,
 00-7F) the pixel took, worked out from runs 0-6. With a second file, prints only whether the
 two machines agree and where they first differ.
 """
@@ -24,12 +24,11 @@ def load(p):
     out = {}
     for k in range(n):
         r = d[6 + k * REC:6 + (k + 1) * REC]
-        cmd, run, ti, td = struct.unpack_from("<HBBB", r, 0)
-        px = bytearray(r[8:])
-        # 53B0h reads with BYTE_SEQ: the first pixel of each word is in the high byte
-        for i in range(0, len(px), 2):
-            px[i], px[i + 1] = px[i + 1], px[i]
-        out.setdefault(cmd, {})[run] = (bytes(px), ti, td)
+        cmd, run, ti, td, case, x0 = struct.unpack_from("<HBBBBB", r, 0)
+        # 53B0h has LSB_FIRST set: the first pixel of each word is in the low byte. (M8LINE case 2,
+        # a line started at x 41h, covers 41h-50h only when read this way.)
+        px = bytes(r[8:])
+        out.setdefault((k // NRUN, cmd, x0), {})[run] = (px, ti, td)
     return out
 
 
@@ -48,9 +47,10 @@ def bitmap(runs):
     return m
 
 
-def show(cmd, runs):
+def show(key, runs):
+    _, cmd, x0 = key
     t = [(r, runs[r][1], runs[r][2]) for r in range(NRUN) if runs[r][1] or runs[r][2]]
-    print("CMD %04X  timeouts (run, idle, data): %s" % (cmd, t or "none"))
+    print("CMD %04X%s  timeouts (run, idle, data): %s" % (cmd, "  x0 %02X" % x0 if x0 else "", t or "none"))
     m = bitmap(runs)
     odd = {runs[7][0][i] for i in range(W * H)} - {0, 0x0F}
     if odd:
@@ -60,7 +60,7 @@ def show(cmd, runs):
     if not rows:
         print("  nothing drawn")
         return
-    print("  x %02X-%02X, y %02X-%02X (start 40,48)" % (cols[0] + 0x20, cols[-1] + 0x20,
+    print("  x %02X-%02X, y %02X-%02X" % (cols[0] + 0x20, cols[-1] + 0x20,
                                                         rows[0] + 0x38, rows[-1] + 0x38))
     for y in rows:
         print("  %02X " % (y + 0x38) + " ".join(
@@ -72,12 +72,13 @@ def main():
         raise SystemExit(__doc__)
     a = load(sys.argv[1])
     if len(sys.argv) == 2:
-        for cmd in a:
-            show(cmd, a[cmd])
+        for key in a:
+            show(key, a[key])
         return
     b = load(sys.argv[2])
-    for cmd in a:
-        ma, mb = bitmap(a[cmd]), bitmap(b[cmd])
+    for key in a:
+        cmd = key[1]
+        ma, mb = bitmap(a[key]), bitmap(b[key])
         diff = [i for i in range(W * H) if ma[i] != mb[i]]
         print("CMD %04X: %s" % (cmd, "same" if not diff else "%d pixels differ, first at x %02X y %02X"
                                 % (len(diff), diff[0] % W + 0x20, diff[0] // W + 0x38)))

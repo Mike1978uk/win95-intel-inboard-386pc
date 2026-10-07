@@ -19,12 +19,30 @@ upstream (`86box_master`, 2026-09-25).
 Also from `M8MONO` on the 5160: over the 8-bit bus each byte of monochrome data gives 4 pixels, from
 bits 1-4 in the order 3,4,1,2. Both 86Box builds already match.
 
-## Gap found, not fixed
+## Monochrome host data on the 8-bit Graphics Ultra (M8LINE, fixed)
 
-`M8TXT` (`CMD 3319` is a line, `5319` a rectangle, monochrome host data): both 86Box builds agree with
-each other and differ from the 5160 - which bit selects each pixel, and the rectangle's row step.
-Files: `M8TXT_5160.BIN`, `_master`, `_ours`. Also the 5160 stays busy after 8 words of `43B3`/`5319`
-(it wants more data); both models go idle.
+Measured on the 5160 (`M8LINE_5160.BIN`; `tools/m8seq/M8LINE.ASM`), PIX_CNTL A080h:
+
+1. Only bits 1-4 of each byte are used. The pixel at X takes bit 4 - (X mod 4) - screen X, not the
+   count from the start.
+2. Pixel mode (CMD bit 1 clear, lines `3319`, rectangles `5319`): one byte per pixel.
+3. Planar mode (bit 1 set, `43B3`): one byte per aligned group of four pixels; a start inside a group
+   uses the remaining bits; a row ending inside a group drops the rest of the byte; rows keep their
+   start X and width.
+4. 16-bit transfers (bit 9): low byte first when LSB_FIRST (bit 12) is set, high first when clear.
+   8-bit transfers (bit 9 clear, `3119`): the low byte of each word only.
+5. A vectored rectangle with direction 0 (`5319`) draws rows in +X and steps up one line.
+
+Both 86Box builds took bits 7 and 6 in pixel mode, did not step rows in (5), and widened unaligned
+planar rows. Fixed in the fork: `96859258f`, `ecea8636e`, `0e9796012`. M8LINE, M8TXT and M8MONO now match
+the 5160; the other 13 probes are byte-identical before and after; M8SEQ still matches to checkpoint
+134; Windows 3.1 text clean.
+
+Still different: when a command is short of data the card stays busy waiting, the models go idle.
+
+The decoder first read the 53B0h read-back high byte first; it is low byte first (LSB_FIRST set). The
+earlier statements in this file about bit numbers were written before that correction; the
+comparisons were unaffected.
 
 ## 86Box#6695 (Windows/386 2.11, 8514/A fill)
 
