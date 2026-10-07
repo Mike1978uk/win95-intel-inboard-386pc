@@ -8428,3 +8428,21 @@ Bed-building traps from the same night (`vm_5160_now`): never pass `-Seconds` fo
 force-kills the VM); 86Box rewrites `86box.cfg` and `nvr/` on exit, so edit only while closed; no B:
 drive without Sergey's floppy ROM ("Error 40h", then ROM BASIC); XT-CF BIOS at `d8000` as on the card.
 Retracted the same night: the 3C509B model maps no boot ROM, so it cannot hide the XT-CF BIOS at D0000h.
+
+## Technique 146: before comparing card and bed, prove they start from the same stored state
+
+2026-10-07, Mach8 TS1. Hours went into why TEST.COM's pitch differed between card and bed. The
+answer was upstream of the test: the bed's EEPROM had been written by ATI INSTALL to the card's
+settings, and the card's own EEPROM differs in 32 of 64 words. A config register the ROM fills from
+it at POST (56EEh ScratchPad1: card 0820h, bed 0004h) showed it in one COMrade read.
+
+- **Read one ROM-derived register on both sides first.** Cold-boot the card to DOS, read it; take
+  the bed's from a write log (`MACH8_WLOG=1`), not a COMrade bridge into the VM.
+- **Dump stored state with the ROM's own read routine.** Disassemble the routine (here 3A4Eh: ATI
+  extended register B3h at 1CEh, bit-banged), mirror it in a `.COM` (`tools/m8eedump/`), and use
+  only the read opcode. Self-check: the dump must reproduce the register you already read.
+- **"Matches the settings" is not "matches the device".** A configuration tool writes its own
+  bytes for the same choices; tables it never touches stay blank.
+- **Read every program that sets the register before blaming the model.** TEST.COM writes
+  GE_PITCH itself, gated on ScratchPad1; the handoff said it never did, from a log taken on a bed
+  where the gate was closed.
