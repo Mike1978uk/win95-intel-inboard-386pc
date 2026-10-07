@@ -42,6 +42,7 @@ is the obvious reader). Every row says how it was established.
 | 6 | Extended A1h, A4h, A5h, ABh, ACh, ADh after POST | 1Fh, 54h, 76h, 80h, 03h, 10h | 00h | open |
 | 7 | 7AEEh / 7EEEh read back after POST | 0400h / 03FFh | 0000h / 0000h | open |
 | 8 | CRT shadow sets | three register sets: primary, shadow 1 (640x480), shadow 2 (1024x768); SHADOW_SET (5AEEh) picks which set the CRT writes load, SHADOW_CTL (46EEh) locks groups of them | one set; SHADOW_CTL lock bits only block writes, SHADOW_SET is logged and otherwise ignored, so the last set written wins | open: after POST the card reads B2EEh 694Fh (640 set), the bed A17Fh (the 1024 set the ROM loads last) |
+| 9 | Display after M8MONO (mono host data, then 4AE8h = 2) | VGA picture returns | VGA output stays blank until a mode set (TEST.COM) | open: same ports as earlier probes that recover; next step logs the renderer chosen when 4AE8h returns to the VGA |
 
 Decoding sources: ATI's register reference (Mach8 pages of the Mach32 programmer's guide,
 `references/ati_mach32/guide.txt`, CONFIG_STATUS_1 at 9-64, CONFIG_STATUS_2 at 9-66). Neither the
@@ -60,6 +61,20 @@ From an 86Box write log of the ROM (the order is the ROM's; the values came from
 Set 1 gets 640x480 timings, set 2 1024x768, each followed by SHADOW_CTL = 3Fh, then the pointer
 goes back to the primary set and the locks are released. Which set B2EEh (R_H_TOTAL&DISP) reads,
 and which set drives the display in each 4AE8h mode, is still to be measured on the card.
+
+Measured on the card (`tools/m8seq/M8SHAD.COM`, `M8SHAD_5160.BIN`): reading B2EEh/B6EEh/BAEEh/C2EEh/
+C6EEh/CAEEh after setting 4AE8h (2 or 6, display on the VGA), SHADOW_CTL and SHADOW_SET:
+
+| SHADOW_CTL | SET 0 | SET 1 | SET 2 |
+|---|---|---|---|
+| 00h | A | A | B |
+| 3Fh | B | B | A |
+
+A = 694Fh 53h 05h, V 414h/3BFh/3D0h (the card's own 640x480 timing); B = 634Fh 52h 2Ch,
+V 418h/3BFh/3D4h (`MONITOR.INF` 640x480 60 Hz). 4AE8h bit 2 changes nothing while the VGA drives
+the display. No 1024 values appear: with an 800x600 monitor in its EEPROM the card holds two 640
+sets. The rule (the lock appears to invert the selection) needs one more probe that writes a marker
+value into each set before the model can copy it. 86Box would read the same values in every cell.
 
 ## Register dumps
 
