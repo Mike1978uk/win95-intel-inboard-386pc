@@ -62,6 +62,12 @@ BIOS's unexpected-interrupt handler (F000:FF2F, IF=0, IMR=FF). Card word 02 with
 Card EEPROM block E (words 31h-37h) is MONITOR.INF's 1280x1024 87 Hz interlaced set (H_TOTAL C7, H_DISP 9F,
 CRT_PITCH A0, V_TOTAL 8F8, V_DISP 7FF, V_SYNC_STRT 861, DISP_CNTL 33, CLOCK_SEL 2D, FIFO_DEPTH 16); blocks A, C, D
 not yet decoded. Block B (18h-1Dh) is what INSTALL wrote; 1Ch/1Dh differ from the card.
+Result with eeprom_card_5160_w02b0clear.nvr in vm_6695 (now in both beds, old file kept as mach8.nvr.flexview_install):
+M8TSX.BIN and M8TS1.BIN byte-identical to the FlexView-EEPROM run (M8TSX_bed_d4024748c.BIN); TEST.COM TS1/TS2 fail as
+before (owner). So the EEPROM does not cause the TS1 gap - expected for M8TSX, which replays TEST.COM's writes; the
+17 bytes and the data-ready flag are engine bugs. Pixel-placement probe next.
+Black screen after REGR (bed and 5160): M8TSX replays 4AEEh writes ending at 1631h (bit 0 = Mach8 owns the display)
+and restores only 4AE8h. Proposed, not made: restore 4AEEh to the ROM's 1850h at exit. REGR still runs behind it.
 
 TS1 code is trivial (3CDDh: play 29A4h, fold 76D2h, read 7735h, compare 27F0h vs 32 words at 2964h).
 The card passes TEST.COM even after our probes. Probes (all in `tools/m8seq/`, card BINs in the captures dir):
