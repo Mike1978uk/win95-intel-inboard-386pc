@@ -18,14 +18,19 @@ Supersedes `docs/next_session_2026_10_07b.md` for order. Results and rules: `doc
 
 ## Next, in order
 
-1. TS1 command 142: colour-pattern blit (PATT_DATA 1111..8888 via 8EEEh, DP_CONFIG E211h/EA11h, then 2251h).
-   Make an M8ROW variant for commands 142-150 that clears 92EEh/EAEEh each checkpoint (as M8ROW5), area near
-   (74h,56h); run on the 5160 over COMrade, then in `vm_6695`; fix; regress.
-2. Continue down M8SEQ5 to 172, then bisect TS2 the same way. Goal: TEST.COM all stages pass.
-3. Regression after every fix: `vm_6695`, `C:\M8SEQ\REGR.BAT` (all probes); compare with the previous build's
-   results; only the intended probe may change. Check Windows 3.1 text (`WIN`, the Sound Blaster dialog).
-4. Then: clean upstream branch (drop DIAGNOSTIC commits), regress Mach32 and plain 8514/A, TC1995 first, PR.
-5. Then the driver (handoff 07b: velocity9x vs NOT_FRAMEBUFFER).
+1. **TS1 command 145: foreground source 4** - the last TS1 feature. Card data so far in
+   `docs/captures/2026-10-07_m8txt/README.md` (M8SRC4, M8SRC4B). Next probe: one FF source pixel at a time,
+   several positions, to see which source pixels feed which destination pixel. Then model it in the BitBLT.
+2. Re-read M8ROW7's third area (X >= 1024) with a wider scissor; and model reads outside the scissor as FFh.
+3. Bisect TS2 the same way (M8SEQ5-style replay of its table). Goal: TEST.COM all stages pass.
+4. Regression after every fix: `vm_6695` boots straight into `C:\M8SEQ\REGR.BAT` (all probes); compare each
+   probe with the previous build's results; only the intended probe may change. Check Windows 3.1 text.
+5. Then: clean upstream branch (drop DIAGNOSTIC commits), regress Mach32 and plain 8514/A, TC1995 first, PR.
+6. Then the driver (handoff 07b: velocity9x vs NOT_FRAMEBUFFER).
+
+TS1 progress, 2026-10-07: commands 133-144 and 149-172 match the card; only 145-148 (source 4) remain.
+Fork commits today after the morning: `554cfeddc` (source 7), `de789efb6` (mono host bits), `4e9ef658d`
+(POLY_MODE lines). Fork pushed to `8283ed2bc`; later commits local until pushed.
 
 ## Beds and tools
 
@@ -34,7 +39,8 @@ Supersedes `docs/next_session_2026_10_07b.md` for order. Results and rules: `doc
   now have the FlexView EEPROM.
 - `tools/m8seq/`: M8TXT, M8MONO, M8LINE, M8SCMP, M8ROW4/5, M8SEQ5; `m8txt_decode.py` (read-back is low byte
   first), `m8seq_diff.py`, `REGR.BAT` (DOS batch lines must stay under 127 characters).
-- COMrade: file_write and hash sometimes time out at 8 s but the copy lands; verify by reading the file back.
+- COMrade: file_write and hash sometimes time out at 8 s but the copy lands; verify by reading the file back
+  BEFORE running it (a truncated M8ROW6 ran once because the two were done in parallel).
   `run_command` cannot use `&&`.
 - Window capture of a bed for checking the screen: a PrintWindow script (worked even with the bed behind other
   windows); not yet in `tools/`.
