@@ -10,8 +10,8 @@ Supersedes `docs/next_session_2026_10_07b.md` for order. Results and rules: `doc
 - Fork branch `inboard-ext-256k-diag` (86box_3c509b), today: `02c3b70cb` (monochrome host data byte order -
   fixed our own Windows 3.1 8514.DRV text bug from `a0bad65cc`), `96859258f`, `ecea8636e`, `0e9796012`
   (monochrome host-data rules from M8LINE), `8283ed2bc` (source colour compare 92EEh/EAEEh). Diagnostics
-  `cdfb0657d` (MACH8_SEQ logger). Nothing pushed.
-- Card and bed agree on: M8LINE, M8MONO, M8TXT, M8SCMP, M8ROW5, and M8SEQ5 to checkpoint 142. TEST.COM: Register,
+  `cdfb0657d` (MACH8_SEQ logger). Main repo and fork pushed to `8283ed2bc` mid-afternoon; later commits local.
+- Card and bed agree on: M8LINE, M8MONO, M8TXT, M8SCMP, M8ROW5, M8ROW6, and TS1 everywhere except source 4 (commands 145-148). TEST.COM: Register,
   FIFO, RAMDAC, Video RAM pass; TS1 14216 27DB 0016 and TS2 14204 0602 0004 still fail.
 - 86Box#6695 does not reproduce on master or ours (Windows/386 2.11 bed `vm_6695_w2`). No comment posted:
   owner's order is build, PR, then ask them to retest. Draft kept in the 10-07 conversation; rewrite then.
@@ -37,7 +37,7 @@ Fork commits today after the morning: `554cfeddc` (source 7), `de789efb6` (mono 
 - `vm_6695`: Win 3.11 + Microsoft 8514.DRV (ATI's SYSTEM.INI kept as `WINDOWS\SYSTEM.ATI`), boots to DOS,
   probes in `C:\M8SEQ` with TEST.COM. `vm_6695_master`: same on upstream (`86box_master`). All four 6695 beds
   now have the FlexView EEPROM.
-- `tools/m8seq/`: M8TXT, M8MONO, M8LINE, M8SCMP, M8ROW4/5, M8SEQ5; `m8txt_decode.py` (read-back is low byte
+- `tools/m8seq/`: M8TXT, M8MONO, M8LINE, M8SCMP, M8SRC4/4B, M8ROW4-7, M8SEQ5; `m8txt_decode.py` (read-back is low byte
   first), `m8seq_diff.py`, `REGR.BAT` (DOS batch lines must stay under 127 characters).
 - COMrade: file_write and hash sometimes time out at 8 s but the copy lands; verify by reading the file back
   BEFORE running it (a truncated M8ROW6 ran once because the two were done in parallel).
