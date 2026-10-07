@@ -17,9 +17,23 @@ Supersedes `docs/next_session_2026_10_07b.md` for order. Results and rules: `doc
 - 86Box#6695 does not reproduce on master or ours (Windows/386 2.11 bed `vm_6695_w2`). No comment posted:
   owner's order is build, PR, then ask them to retest. Draft kept in the 10-07 conversation; rewrite then.
 
-## Next, in order
+## TEST.COM TS1 still fails in the bed - cause narrowed (end of 2026-10-07)
 
-1. Run TEST.COM on `8193af4b3` in `vm_6695`: TS1 should now pass. Record the result.
+TS1 code is trivial (3CDDh: play 29A4h, fold 76D2h, read 7735h, compare 27F0h vs 32 words at 2964h).
+The card passes TEST.COM even after our probes. Probes (all in `tools/m8seq/`, card BINs in the captures dir):
+- M8TS1 (M8SEQ5's setup): card is 17 bytes off TEST.COM's expected table; every M8SEQ capture since 10-06 is
+  too. `docs/ati_test_com_notes.md` saying the replay equalled the table was wrong.
+- M8TSX (TEST.COM's own 1E21h setup, plus its 692 earlier writes from `M8PRE.DAT`, made by
+  `m8pre_from_log.py` from a `MACH8_WLOG=1` bed log): card = expected exactly. Bed = 17 bytes off, AND
+  GP_STAT 0100h (data ready) still set after the 32 words - the card reads 0000h. Two model bugs.
+- M8TSY (card): forcing GE_PITCH 80h / GE_OFFSET 0 (76EEh, 72EEh, 6EEEh) is the only change that gives the
+  17 bytes; 92EE/EAEE, DEST_CMP_FN, MEM_CNTL do not. The next pass recovers, so something in setup or TS1
+  sets the pitch/offset on the card by a path the model lacks. Next: find it (read back 76EE/72EE/6EEE if
+  readable; check which TS1/17E7 writes could alias them), fix, then the data-ready bug, then TEST.COM.
+- Measured: 42E8h reset clears PATT_INDEX, keeps LINEDRAW_OPT/PATT_DATA_INDEX; fixed `d4024748c`.
+- Bed run of REGR after M8TSX ended on a black screen (owner closed it); M8TSX/M8TS1 had finished. Check.
+
+1. Run TEST.COM on `8193af4b3` in `vm_6695`: done - TS1 and TS2 still fail; see above.
 2. Re-read M8ROW7's third area (X >= 1024) with a wider scissor; and model reads outside the scissor as FFh.
 3. Bisect TS2 the same way (M8SEQ5-style replay of its table). Goal: TEST.COM all stages pass.
 4. Regression after every fix: `vm_6695` boots straight into `C:\M8SEQ\REGR.BAT` (all probes); compare each

@@ -80,7 +80,7 @@ Test Sequence 1 is not a script: it is port table `29A4` (1 MB card; `3D40` on 5
 106 commands, played by the same runner at `0641` as every other table. `tools/testcom_tables.py` decodes
 all 38 tables (output in the git-ignored `references/ati_test_com/tables.txt`). `tools/m8seq/` replays the
 table up to each command, then does TEST.COM's fold and 8x8 read, so the real card and 86Box can be diffed
-per command. The real card's final checkpoint equals TEST.COM's expected table, so the replay is faithful.
+per command. The real card's final checkpoint is 17 bytes off TEST.COM's expected table: the replay forces GE_PITCH/GE_OFFSET, which TEST.COM does not (M8TSY, 2026-10-07).
 Reference result: `docs/captures/2026-10-06_m8seq/5160_M8SEQ.BIN`.
 
 Model fixes found this way, each checked against the real card's file in the bed (diagnostic tree):
