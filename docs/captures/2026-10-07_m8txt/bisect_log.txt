@@ -1,0 +1,18 @@
+# bad: [cdfb0657d98d40acdccb6fe55bc6ee19164b651f] DIAGNOSTIC: log the writes around the first command-3 operations
+# good: [48e098d4567938954719ae59e3b352f6e677024b] Merge pull request #8064 from MaxwellS04/SCSI
+git bisect start 'HEAD' '48e098d45'
+# good: [715aea82214bb675c2404fcfc85eeb0e2589c3bf] DIAGNOSTIC: log SCAN_TO_X's data-path inputs
+git bisect good 715aea82214bb675c2404fcfc85eeb0e2589c3bf
+# bad: [573f07f84a1b9c3ea5f23a7d7b58fcb5efb27b5b] DIAGNOSTIC: log 8514/A rectangle and polygon-fill entry
+git bisect bad 573f07f84a1b9c3ea5f23a7d7b58fcb5efb27b5b
+# good: [433ae0650214bc74cb3035dbfdb4d5d201fe3b44] mach8: Graphics Ultra VRAM-source blits update the current position
+git bisect good 433ae0650214bc74cb3035dbfdb4d5d201fe3b44
+# good: [579d5856ff4644c414fabff0265bbb9b6fa917b5] DIAGNOSTIC: log 8514/A line starts and exits
+git bisect good 579d5856ff4644c414fabff0265bbb9b6fa917b5
+# good: [27d9c1cbe592a694e7890cdc8dc69bcf492251ee] mach8: only FRGD_MIX, not its fallthrough neighbours, selects the 8514/A source
+git bisect good 27d9c1cbe592a694e7890cdc8dc69bcf492251ee
+# bad: [a0bad65ccdd40c40558a83525b14ccab9b489982] mach8: Graphics Ultra 8-bit BYTE_SEQ rectangle data takes the high byte first
+git bisect bad a0bad65ccdd40c40558a83525b14ccab9b489982
+# good: [a8cd388f494d1f2377037bee4df6ffcb9f828a48] mach8: Graphics Ultra zero-width SCAN_TO_X draws nothing
+git bisect good a8cd388f494d1f2377037bee4df6ffcb9f828a48
+# first 'bad' commit: [a0bad65ccdd40c40558a83525b14ccab9b489982] mach8: Graphics Ultra 8-bit BYTE_SEQ rectangle data takes the high byte first
