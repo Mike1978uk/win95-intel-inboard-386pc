@@ -84,8 +84,12 @@ from the regression run of 14:16 on.
 Source 4 so far (M8SRC4/M8SRC4B on the 5160): values are `11h x n`, n 0-4, in 16-pixel units; the colour
 pattern plays no part (TS1's pattern and a ramp give identical rows); with every pixel foreground the first 16
 pixels are `44h` and only the last pixel of each later group is; mono source "always 1" leaves the engine not
-taking host data. Looks like a bit-count reduction over the blit source. Next: a single FF source pixel at a
-time, at several positions. Not in the Mach32 guide (sources 0,1,2,3,5 only).
+taking host data. Not in the Mach32 guide (sources 0,1,2,3,5 only).
+
+`M8SRC4C` (one FFh source pixel at position p, destination 00h, ALU replace; `M8SRC4C_5160.BIN`): the 11h
+lands at destination pixel p / 4 (p 0-3 -> 0, 4 -> 1, 15 -> 3, 16 and 17 -> 4, 31 -> 7, 32 -> 8). So each
+destination pixel counts set source pixels in a group of four, 11h each: a 4:1 reduction. Destination pixels
+31, 47 and 63 read 44h in every test, whatever the source; not yet explained.
 
 Reads beyond X 1023 return FFh on the card when the 8514 scissor is 3FFh (M8ROW7 third area); the model
 returns memory. Re-read with a wider scissor before concluding anything about writes there.
