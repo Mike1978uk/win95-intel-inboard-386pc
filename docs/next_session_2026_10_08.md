@@ -54,6 +54,14 @@ Cold boot to DOS, 5160: 56EEh = 0820h again (52EEh 0000h, B2EEh 694Fh, 42E8h 00A
 56EEh/56EFh from EEPROM words 8 and 9 (low byte each, read routine 3A4Eh). Bed EEPROM word 8 = 0004h, word 9 =
 0000h; card: word 8 low = 20h, word 9 low = 08h. The bed EEPROM (INSTALL-written, rom_and_eeprom_dumps.md) is
 not the card's. Next: dump the card's EEPROM (an EEDUMP built on ROM routine 3A4Eh) and give the bed the real one.
+Done (M8EEDUMP, roms/video/mach8/eeprom_card_5160_2026_10_07.nvr, 32 of 64 words differ). With it the bed hangs
+at POST: EEPROM word 02 bit 0 (card 0919h, INSTALL file 0700h) makes the ROM (04C0h) copy 12Bh bytes of code to
+B800:1000, far-call it (a ROM/bus timing check via ext regs B7h/B9h/A3h/A0h), then the CPU loops in the system
+BIOS's unexpected-interrupt handler (F000:FF2F, IF=0, IMR=FF). Card word 02 with bit 0 cleared
+(eeprom_card_5160_w02b0clear.nvr) boots. Model gap: trace why that routine fails in 86Box and works on the card.
+Card EEPROM block E (words 31h-37h) is MONITOR.INF's 1280x1024 87 Hz interlaced set (H_TOTAL C7, H_DISP 9F,
+CRT_PITCH A0, V_TOTAL 8F8, V_DISP 7FF, V_SYNC_STRT 861, DISP_CNTL 33, CLOCK_SEL 2D, FIFO_DEPTH 16); blocks A, C, D
+not yet decoded. Block B (18h-1Dh) is what INSTALL wrote; 1Ch/1Dh differ from the card.
 
 TS1 code is trivial (3CDDh: play 29A4h, fold 76D2h, read 7735h, compare 27F0h vs 32 words at 2964h).
 The card passes TEST.COM even after our probes. Probes (all in `tools/m8seq/`, card BINs in the captures dir):
