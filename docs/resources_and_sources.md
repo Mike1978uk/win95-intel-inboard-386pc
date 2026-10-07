@@ -169,6 +169,16 @@ the directory's own `README.md`.
 - ❌ The "28800 VGA core + 38800 coprocessor" description circulating in AI-sourced notes is
   **unverified** — check it against Ardent Tool before relying on it.
 
+- **Henry Worth, Usenet thread "ATI Ultra specs", 20 Aug 1993** -
+  https://web.archive.org/web/20210206145516/http://www.verycomputer.com/275_d9993695f1cc42c3_1.htm#p4 (the
+  original verycomputer.com address now redirects to a parked domain). Gave us: the Ultra is two adapters
+  (VGAWONDER with 512 KB DRAM, MACH8 with up to 1 MB VRAM) sharing only the video output; the Mach8's
+  features are reachable only through its 8514/A-style registers or the AI TSR; the 8514/A books "don't
+  cover the MACH8's extensions". Also names Sanchez and Canton, *Graphics Programming Solutions*
+  (McGraw-Hill, ISBN 0-07-911465-2) for 8514/A AI. No register detail. Found by the owner, 2026-10-07.
+- **Ardent Tool's diagnostic code list** (page above): 14201-14215. 14204 Graphics Subsystem, 14205 RAMDAC,
+  14206 RAM match TEST.COM's messages in 86Box; TEST.COM's TS1 code 14216 is not listed.
+
 ## 5. DMA, memory and the 8237
 
 - **Michal Necasek (OS/2 Museum)**: [386MAX and EISA DMA](https://www.os2museum.com/wp/386max-and-eisa-dma/),
