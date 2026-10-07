@@ -26,6 +26,8 @@ card; then why the bed (M8TSX straight after boot) is not at A0h - the jne befor
 or how the model applies GE_PITCH. The model takes byte writes to 76EEh (vid_ati_mach8.c case 0x76ee).
 ROM also writes (mov dx count): 7AEEh EXT_GE_CONFIG x2 right after the pitch, EAEEh once, 26EEh CRT_PITCH,
 52EEh/56EEh (EEPROM interface?), 12EEh x6 (CONFIG_STATUS reads), 3AEE, 46EE, 5AEE, 6AEE. Read each value at boot.
+Other ROMs: three more versions on ardent-tool (ATI_8514_Ultra page, in resources_and_sources.md); Michael's
+card carries 113-01115-150 (our old 64 KB file), same board otherwise, 1 MB. Compare pitch writes across all.
 
 TS1 code is trivial (3CDDh: play 29A4h, fold 76D2h, read 7735h, compare 27F0h vs 32 words at 2964h).
 The card passes TEST.COM even after our probes. Probes (all in `tools/m8seq/`, card BINs in the captures dir):
