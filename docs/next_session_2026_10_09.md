@@ -24,11 +24,7 @@ TEST.COM's TS2 error `14204 0602 0004` is NOT data: 1E49h is the generic compare
 | TS2 sub-tests 2-11 fixed: 8514 planar read returns nuggets, bits 4..1 = columns 0..3 (Richter & Smith p. 299), RD_MASK rotated left one bit for IBM reads (ATI guide RD_MASK note 3), first group in the high byte with CMD bit 12 clear. 141 -> 116 differ | fork `50d2be32f`; fit `tools/m8seq/m8ts2_nugget_fit.py` (0 mismatches) |
 | TS1 "blit source after ADVFUNC" lead closed statically: the Mach8 has ONE GE_PITCH/GE_OFFSET for source and destination (split is Mach32-only, guide pp. 9-20/9-21); TEST.COM never sets SHADOW_SET bits 9:8 nor writes GE_OFFSET. No card probe needed | this doc |
 | Model gaps vs the guide, harmless for TEST.COM: SHADOW_SET[9:8] split applied to the Mach8 (`mach32` only); 4AE8h does not reset GE_OFFSET on the Mach8 | for the PR |
-
-**Built, not yet run in the bed** (`86box_3c509b/build_log`, 17:09, uncommitted): sub-test 14 - monochrome read
-(DP_CONFIG bit 2) through an extended blit returns 16 pixels per word, from bit 15 down unless LSB_FIRST, pixel = 1
-when `(P | ~RD_MASK) == FFh` (RD_MASK unrotated in ATI ops); and planar reads now set the reserved bit 0 the card
-returns (all 20 card words). Run M8TS2 in the bed, decode, commit if sub-test 14 matches.
+| TS2 sub-test 14 fixed: monochrome read (DP_CONFIG bit 2) on an extended blit returns 16 pixels per word, bit 15 first unless LSB_FIRST, pixel = 1 when `(P | ~RD_MASK) == FFh`, RD_MASK unrotated. Planar reads set reserved bit 0 like the card. Sub-tests 1-14 now identical to the card; 116 -> 112 differ | fork `2af5fbf35`, `ddf484f78`; capture `M8TS2_bed_ddf484f78.BIN` |
 
 **Sub-test 15 (open):** 8514 colour rectangle 8x4 at y=206h, then CMD C3F0h BitBLT read (FRGD_MIX 67h). Guide p. 8-34:
 a BLIT read ignores CMD[1] and acts as NIBBLE mode from the source trajectory, still drawing to the destination.
