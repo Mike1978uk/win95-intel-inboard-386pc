@@ -35,6 +35,14 @@ Next, in order:
    in a memory bitmap finds nothing to do, or the driver's read conversion misleads it. Next: static - the Windows 2
    8514.DRV (bound into WIN200.BIN) read / ScanLR / BitBlt-to-memory code; compare with what 3318h returns.
    Diagnostics: MACH8_WLOG, MACH8_RLOG (fork DIAGNOSTIC commit).
+   Static, 10-09 01:00 - driver now in `references/win2_8514/` (8514.DRV 37,328 bytes from W2 disk 7, = the 6695
+   driver; `python tools/nedis.py references/win2_8514/8514.DRV exports|all`): SCANLR 4:0408 reads one row with CMD
+   3318h (x..3FFh right / 0..x left), `rep insw` low byte first, then `repe/repne scasb` for the colour byte
+   [bp+8]; PIXEL 3:0008 is the same read for one pixel; 1:3083 copies screen rows into a memory bitmap byte for
+   byte. The fill = canvas copy (1:3083, 300 rows) + ONE left SCANLR at the click; that row's data is right
+   (x 118-179 FF, 180-184 E0 outline, 185-280 FF) yet Paintbrush never scans right or draws. Next: a CPU trigger
+   at SCANLR's scasb (4:0596) to log AL (the colour) and the AX it returns - if AL is not FFh the colour
+   realisation (ColorInfo 1:28C6 / RealizeObject 1:2740) is the suspect.
 7. Then the PR (owner writes the text), then the driver.
 
 ## Done 2026-10-08 (all pushed: main `master`, fork `inboard-ext-256k-diag` on remote `mike`)

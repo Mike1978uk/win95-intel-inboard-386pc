@@ -812,5 +812,9 @@ what Andrew offered it for. **Unread** means exactly that: listed, not yet evalu
   Owner unpacked the LH1 packs (7-Zip cannot). Drivers that write GE_PITCH 76EEh: MACHW3.DRV (ATIMACH8, 1994,
   9 sites), MACH.DRV (M8W20 = ATIMACH8/V2; M8W23 newer, ~75 sites), MACHVDD.386, VDDULTRA.386, HDILOAD.EXE,
   ATI.SYS (NT). TEST.COM is one file in all four copies.
+- Windows 2.x 8514/A driver set, `references/win2_8514/` (gitignored, Microsoft's): 8514.DRV 37,328 bytes (= the
+  driver in 86Box#6695 and in `vm_6695_w2*`), 8514.386/.3EX/.GRB and fonts, from `vm_6695_w2/floppies/W2_7 Additional
+  Drivers.img`. NE exports include SCANLR, PIXEL, BITBLT, OUTPUT; read it with `tools/nedis.py`. A reference for our
+  own driver work: how Microsoft drove the 8514 engine (row reads by CMD 3318h, software cursor by BitBLT).
 - ZSoft PC Paintbrush for Windows 1.05 (owner download, `Downloads/`): the program 86Box#6695 is about -
   Andrew, #49, corrected "Paint" to this. Retest 6695 with it, not Windows Paint.
