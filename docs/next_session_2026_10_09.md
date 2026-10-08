@@ -16,6 +16,18 @@ Supersedes `docs/next_session_2026_10_08.md` for order (still the reference for 
 
 TEST.COM's TS2 error `14204 0602 0004` is NOT data: 1E49h is the generic compare-failed message (DX=4, SI=0602h).
 
+## FIRST: TS2 sub-test 1 root cause found (end of 10-08), fix not yet written
+
+M8T2S1 (`tools/m8seq/M8T2S1.ASM`, captures `docs/captures/2026-10-08_black/M8T2S1_{card,bed}.BIN`): the raster
+write is right in the bed (rectangle read = card's 55 55 AA AA AA AA 55 55); TS2's LINEDRAW read is wrong (bed
+55 55 then zeros, card correct). Cause, `vid_ati_mach8.c` `mach_accel_start` case 3 (Direct Linedraw, ~line 1626):
+on host-data calls (cpu_input, count = pixels in the word) it overwrites `count` with the whole line length and
+re-initialises `mach->accel.err` every call, so the first PIX_TRANS word runs the entire line. Fix: compute the
+length and err only when !cpu_input (store total in `mach->accel.width`, already set); on cpu_input draw
+min(count, width + 1 - sx) pixels and keep err. Then rerun M8T2S1 and M8TS2 in the bed. Also seen there: the
+model sign-extends coordinates >= 600h (`|= ~0x5ff`), and CUR_X/CUR_Y read back raw (FE01h) where the card
+returns 11 bits (0601h) - the CUR group in item 1.
+
 ## Next, in order
 
 1. TS2 bed vs card (`docs/captures/2026-10-08_black/M8TS2_bed_46d9ad164.BIN` vs `M8TS2_card.BIN`, decode with
