@@ -8469,3 +8469,13 @@ it at POST (56EEh ScratchPad1: card 0820h, bed 0004h) showed it in one COMrade r
 - Check the scan before trusting a negative: a table walker that misreads the terminator returns
   "nothing found" (TEST.COM's tables end on a port word whose LOW byte is 0), and OCR'd manuals
   misalign bit columns - read the field text, not the column positions.
+- **Broken the same day it was written (10-08 afternoon), and the owner caught it:** a card probe
+  (M8BSRC) was written straight from a handoff lead and sent to the 5160. Two guide pages and a scan
+  of TEST.COM then closed the lead (one GE_PITCH on the Mach8; TEST.COM never sets the split) and the
+  probe was deleted unrun. The same afternoon, static reads alone (Richter & Smith p. 299, guide RD_MASK
+  note 3) explained ten TS2 sub-tests exactly. Before writing ANY probe, name the static sources you
+  checked; if you cannot, you have not done step one.
+- **Fit the documented rules to the test's expected values, and do not invent a rule to close a gap.**
+  A guessed "RD_MASK bit-reversed" fitted one sub-test and failed nine; the guide's rotation fitted all
+  ten (`tools/m8seq/m8ts2_nugget_fit.py`). A partial fit means a rule is missing, not that one is wrong
+  by a small amount.

@@ -19,7 +19,7 @@ routine and call it (`comdis.py` follows that pattern).
 | FIFO Integrity | `23E9` | - |
 | RAMDAC Integrity | `1793` | switches the display to the 8514 side (`069B`), then per pattern (`55`, `AA`) through `2EB`/`2EC`/`2ED`: set read index n-1 and read `2EC` = n; write 768 bytes, `2EB` = 0; read them back; `2EB` = 1 |
 | Video RAM | `23A1` -> `7627` | per pattern and mix (`7539`): colour, fill by repeated blits (`76D2`, CMD `C0F1`), read 32 words from `PIX_TRANS` against the pattern, then `GP_STAT & 0300` and `SUBSYS_STAT & 04` must be clear (else `0615`, "Graphics Subsystem Failure"); then `75AE` |
-| Test Sequence 1 / 2 | scripts at `2952`, `509C` | data, not code - an interpreter not yet located |
+| Test Sequence 1 / 2 | scripts at `2952`, `509C` | data, not code. TS1's 1 MB table is at `29A4` (replayed by `tools/m8seq/M8TS1`); TS2's pointer table at `5A31` lists 71 (write table, compare list) pairs (`tools/m8seq/m8ts2_decode.py`). Write tables are (port, value) pairs, `FFFF` alone = wait for idle, a port with low byte 0 ends the table. A disassembly cannot see these; use the decoders |
 
 Error lines read `142tt mmmm cccc text`: test number, the message's address, the code passed to the
 printer (`0776`). Only Register Integrity prints the failing port.
