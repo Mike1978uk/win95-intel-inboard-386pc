@@ -23,7 +23,11 @@ Next, in order:
    Copying only on a lock 1->0 transition (`shadowset_transition_rule.patch`) was NOT enough - still 640x480.
    Card data M8SHCL never rewrote an already-clear lock. Re-add with the Windows 2 boot (`vm_6695_w2_ours`) as a
    required test; without them M8REGS reads 1024x768 CRT values at boot where the card reads 640x480.
-6. Paintbrush (86Box#6695): PBRUSH.EXE, EAGLE.PCX in `vm_6695_w2_ours` and `vm_6695_w2` `\WIN386`; not yet run.
+6. Paintbrush (86Box#6695), first run 10-09: ZSoft PC Paintbrush for Windows 1.05 on Windows/386 2.11 (8514.DRV 37,328 bytes,
+   colour). Pencil, airbrush, lines draw; the paint-roller fill does NOTHING inside a closed outline - no leak, no hang
+   seen - on ours (`ebb7bc429`, `pbrush_fill_ours_ebb7bc429.png`) AND on upstream master (09-25 build, owner's report, not
+   captured). So long-standing, not from our changes. Next: `MACH8_WLOG=1` on one fill to see which engine ops and
+   read-backs the driver's flood fill uses (likely a read path), then fix and report on 6695 (owner posts).
 7. Then the PR (owner writes the text), then the driver.
 
 ## Done 2026-10-08 (all pushed: main `master`, fork `inboard-ext-256k-diag` on remote `mike`)
