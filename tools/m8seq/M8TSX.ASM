@@ -42,6 +42,9 @@ pass    dw      0
 recp    dw      0
 to_idle db      0
 to_data db      0
+sv_6aee dw      0
+sv_52ee dw      0
+sv_56ee dw      0
 
 start:
         cld
@@ -87,6 +90,19 @@ start:
         popf
         jc      nopre
 
+        ; M8PRE.DAT carries TEST.COM's writes to 6AEEh (bit 10 PASSTHROUGH_OVERRIDE: set, the VGA
+        ; picture is lost) and to both scratch pads, which hold the ROM's configuration. Keep the
+        ; card's own values to put back at exit.
+        mov     dx, 6AEEh
+        in      ax, dx
+        mov     [sv_6aee], ax
+        mov     dx, 52EEh
+        in      ax, dx
+        mov     [sv_52ee], ax
+        mov     dx, 56EEh
+        in      ax, dx
+        mov     [sv_56ee], ax
+
         mov     word [pass], 0
         mov     word [recp], RES
 .p:     mov     byte [to_idle], 0
@@ -118,7 +134,16 @@ start:
         mov     ax, 2
         out     dx, ax
         mov     dx, 4AEEh               ; M8PRE.DAT leaves bit 0 set, which keeps the display
-        mov     ax, 1850h               ; on the Mach8; 1850h is what the ROM leaves at boot
+        mov     ax, 1850h               ; on the Mach8; the ROM's first CLOCK_SEL write
+        out     dx, ax
+        mov     dx, 6AEEh
+        mov     ax, [sv_6aee]
+        out     dx, ax
+        mov     dx, 52EEh
+        mov     ax, [sv_52ee]
+        out     dx, ax
+        mov     dx, 56EEh
+        mov     ax, [sv_56ee]
         out     dx, ax
         mov     dx, 2EAh                ; DAC mask: TEST.COM's setup table clears it
         mov     al, 0FFh
