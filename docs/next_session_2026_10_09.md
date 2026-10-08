@@ -42,7 +42,14 @@ Next, in order:
    byte. The fill = canvas copy (1:3083, 300 rows) + ONE left SCANLR at the click; that row's data is right
    (x 118-179 FF, 180-184 E0 outline, 185-280 FF) yet Paintbrush never scans right or draws. Next: a CPU trigger
    at SCANLR's scasb (4:0596) to log AL (the colour) and the AX it returns - if AL is not FFh the colour
-   realisation (ColorInfo 1:28C6 / RealizeObject 1:2740) is the suspect.
+   realisation (ColorInfo 1:28C6 / RealizeObject 1:2740) was the suspect - RULED OUT, see below.
+   **Likely answer, from PBRUSH.EXE itself** (`references/pbrush105/`, gitignored; `tools/nedis.py`): the roller is
+   3:1229 `FloodFill(hdc, x, y, crBorder)` with brush = palette[[33BAh]] (left click in the palette, 2:14C4) and
+   border = palette[[1BC0h]] (RIGHT click, 2:15D8 = the background colour). Clicking white with background white
+   starts on the border, so GDI's first SCANLR (repne scasb for the border) stops at once - the one scan logged.
+   Paintbrush behaviour, not the emulator. The driver never reads the DAC (ColorInfo is table-based). NOT YET
+   TESTED: right-click the outline colour (border), left-click the fill colour, click inside. If it fills, 6695
+   is fine on our build; if it leaks or hangs, that is the reported bug - rerun with MACH8_RLOG/WLOG.
 7. Then the PR (owner writes the text), then the driver.
 
 ## Done 2026-10-08 (all pushed: main `master`, fork `inboard-ext-256k-diag` on remote `mike`)

@@ -152,6 +152,8 @@ references/xfree86_336_mach8/
 references/8514a_docs/
 # Microsoft Windows 2.x 8514/A driver set (8514.DRV 37,328 bytes = the 86Box#6695 driver), from the W2 disk 7 image
 references/win2_8514/
+# ZSoft PC Paintbrush for Windows 1.05 (PBRUSH.EXE), the 86Box#6695 program - read only
+references/pbrush105/
 # Disassembly of ATI's TEST.COM (regenerate with tools/comdis.py) - ATI's code, not vendored
 references/ati_test_com/
 
