@@ -1,4 +1,4 @@
-# Next session - Mach8: TS2 first bed difference, then TS1's 17 bytes
+# Next session - Mach8: TS2 matches the card; TS1's 17 bytes (M8TSX) are next
 
 Supersedes `docs/next_session_2026_10_08.md` for order (still the reference for 10-07 detail).
 
@@ -30,6 +30,7 @@ TEST.COM's TS2 error `14204 0602 0004` is NOT data: 1E49h is the generic compare
 | TS2 sub-test 24 fixed: a 16-bit colour read takes pixels along the trajectory (first row from CUR_X, later rows from DEST_X_START), odd-width rows run on into the next, first pixel in D15:8 unless LSB_FIRST (guide DP_CONFIG), last word padded with 00. 79 -> 69 differ; other 36 probes unchanged | fork `a93a112f5`; capture `M8TS2_bed_a93a112f5.BIN` |
 | TS2 sub-tests 25-71 (LINEDRAW pre-clip, EXT_GE_STATUS) fixed except PATT_INDEX: guide table p. 7-10 and pp. 9-29..9-34, 9-68; the rest fitted to TS2 (CLIP_FLAGS are outcodes, 1 = outside, opposite to the guide wording; POINTS_OUTSIDE cleared by a start point; CLIP_INSIDE rules; CLIP_MODE 0 drops lines leaving device space) - `tools/m8seq/m8ts2_clip_fit.py` fits all 70 compares, each fitted rule needed. CUR reads 11 bits. 69 -> 6 differ (PATT_INDEX 26-31: the read returned the written value). TS2 final 32 words still differ in 2 words (FFFF/FF00, FFFE/FFFD) | fork `6eb406741`; `tools/m8seq/m8ts2_table.py`; capture `M8TS2_bed_6eb406741.BIN` |
 | **TS2 passes against TEST.COM in the bed: 0 of 150 differ.** PATT_INDEX read returns the drawing index (the engine already advanced it per step). Left vs the card: EXT_GE_STATUS bit 14 EE_DATA_IN (bed 1, card 0; TEST.COM masks it) and 2 of the final 32 words (FFFF/FF00, FFFE/FFFD). TS1 checkpoints unchanged | fork `f011fcc31`; capture `M8TS2_bed_f011fcc31.BIN` |
+| **TS2 now identical to the card** (all 150 read-backs and the final 8x8 block). EE_DATA_IN reads 0 while the EEPROM is deselected (fork `23ccd0dfd`). Final block: M8TS2Q (TS2 checkpoint bisect, card capture `M8TS2Q_card.BIN`) put it at sub-test 22, a point at x=1365; in 8514/A-compatible pitch the card plots X mod 1024 (guide pp. 8-21/22) - modelled for LINEDRAW only (fork `261ab1548`), other draw paths still linear: open for the PR. M8TS2Q bed: one idle timeout at checkpoint 1 (LINEDRAW read with LAST_PEL_OFF offers a 9th pixel; card does not) - open, not hit by TEST.COM. **TS1 still 17 bytes off the card in M8TSX** (all 6 passes; counts, GP_STAT, timeouts now match) | captures `M8TS2_bed_261ab1548.BIN`, `M8TS2Q_bed_261ab1548.BIN`, `M8TSX_bed_261ab1548.BIN` |
 
 DP_CONFIG's BG_COLOR_SRC and MONO_SRC reaching 8514/A commands are not measured (M8BLRD only exercises the foreground).
 
@@ -48,7 +49,7 @@ returns 11 bits (0601h) - the CUR group in item 1.
 ## Next, in order
 
 1. TS2 bed vs card (`docs/captures/2026-10-08_black/M8TS2_bed_46d9ad164.BIN` vs `M8TS2_card.BIN`, decode with
-   `tools/m8seq/m8ts2_decode.py`): 144 of 150 differed at the start of 10-08; now 0 - TS2 passes. Left: EE_DATA_IN bit 14 and 2 final words. Groups:
+   `tools/m8seq/m8ts2_decode.py`): 144 of 150 differed at the start of 10-08; now 0, and identical to the card including the final block. Groups:
    - EXT_GE_STATUS 62EEh (sub-tests 25-71): bed 4xxxh (bit 14 set, low bits counting); card clip/status flags
      (8501h, 9000h, 1400h...). Read the guide page (p. 9-68) first.
    - CUR_X/CUR_Y after lines leaving the clip area (26-34, 51-57): bed FE01h/FDFFh, card 0601h/0602h/01FEh - the end
