@@ -17,7 +17,14 @@ Next, in order:
 4. Open for the PR: X mod 1024 only in LINEDRAW, raster and 8514/A line paths (rect/blit still linear);
    LINEDRAW read with LAST_PEL_OFF offers a 9th pixel (M8TS2Q checkpoint 1); DP_CONFIG BG/MONO sources unmeasured;
    SHADOW_SET split and 4AE8h GE_OFFSET reset (Mach8); TEST.COM speed vs the 5160 (owner: runs straight through fast).
-5. Then the PR (owner writes the text), then the driver.
+5. Re-add the CRT shadow sets (reverted 10-09, fork `65c603e28`): the model copied the primary set into set 2 on
+   the ROM's second setup pass (46EEh=0 written with the pointer at 2 and the lock already clear), so Windows/386
+   2.11's 8514 driver got 640x480 at 1024x768 (`w2_ours_shadowsets_640.png` vs `w2_ours_noshadow_1024.png`).
+   Copying only on a lock 1->0 transition (`shadowset_transition_rule.patch`) was NOT enough - still 640x480.
+   Card data M8SHCL never rewrote an already-clear lock. Re-add with the Windows 2 boot (`vm_6695_w2_ours`) as a
+   required test; without them M8REGS reads 1024x768 CRT values at boot where the card reads 640x480.
+6. Paintbrush (86Box#6695): PBRUSH.EXE, EAGLE.PCX in `vm_6695_w2_ours` and `vm_6695_w2` `\WIN386`; not yet run.
+7. Then the PR (owner writes the text), then the driver.
 
 ## Done 2026-10-08 (all pushed: main `master`, fork `inboard-ext-256k-diag` on remote `mike`)
 
@@ -52,6 +59,7 @@ TEST.COM's TS2 error `14204 0602 0004` is NOT data: 1E49h is the generic compare
 | **TS1 now identical to the card** (M8TSX all 6 passes = TEST.COM's expected table). M8SEQ6 (M8SEQ5 without the GE_PITCH/OFFSET writes) on the card named the rest without a bed run: card M8SEQ5 vs M8SEQ6 diverge at checkpoints 4-6 (8514/A degree lines from (0,0) at 135/180/225 deg into x -1/-2) and 153/155 (the raster ops). The 8514/A line path masked X to 11 bits; a Graphics Ultra flag (`x_wrap`, set with `compat_pitch`) makes it 10. TS2, M8SEQ5, M8TS1 unchanged; other probes unchanged (M8ROW4/5 differ only in unwritten pad bytes). **Both TS1 and TS2 replays now equal the card. Next: TEST.COM itself in the bed - from a boot that skips REGR (after REGR it black-screens, item 3)** | fork `3a940860c`; `tools/m8seq/M8SEQ6.ASM`; captures `M8SEQ6_card.BIN`, `M8SEQ6_bed_3a940860c.BIN`, `M8TSX_bed_3a940860c.BIN` |
 | TEST.COM itself in the bed (boot without REGR - bed AUTOEXEC.BAT now ends `REM CALL REGR`; put `CALL REGR` back for regression runs). Black screen was NOT REGR. Cause 1 (fixed): TEST.COM 797Eh writes A4h to the VGA DAC read index 3C7h and reads 2ECh, expecting A5h (one shared DAC); the model had two DAC address registers, so TEST.COM set 6AEEh bit 10 (049Ah) and the VGA went black. Now 009Ah. **M8PRE.DAT (from a bed log) still carries 049Ah - regenerate it.** Cause 2 (open): TEST.COM now runs TS1 (passes) and all of TS2 to its final fold, then waits for a key (heartbeat: INT 16h loop at 067C:71D9) - on the 5160 it runs straight through, so it is showing an error, on a black screen. No 3C6h writes in TEST.COM; VGA render uses `svga->dac_mask`. Next: a hook that dumps the VGA state and B8000 text at the wait (or logs TEST.COM's compare values) | fork `11412f112` |
 | **TEST.COM passes in the bed.** Black screen cause 2: TEST.COM locks SHADOW_CNTL (003Fh); the Graphics Ultra branch of `mach_set_resolution` then skipped `svga_recalctimings`, so ADVFUNC=2 cleared `on` but the output stayed on `ibm8514_poll`, which draws nothing when off. Found with the MACH8_VGADUMP hook (VGA text page intact, VGA poll stopped). With it fixed TEST.COM shows its whole screen and every stage passes; the key-wait was its normal "Hit a key to begin test patterns". AUTOEXEC restored to `CALL REGR` | fork `b0639742e` (fix), `7fece103e` (DIAGNOSTIC hook); capture `TEST_COM_bed_b0639742e.txt` |
+| 10-09 00:10: Windows/386 2.11 (8514) showed 640x480 with the 1024x768 desktop cut off - caused by the CRT shadow-set model (10-07b). Reverted; narrowed tonight's recalc to the 8514-off case. On that build: Windows 2 at 1024x768 again, REGR done, TEST.COM passes straight after REGR, M8TSX = card, TS2 = card | fork `65c603e28`, `ebb7bc429` |
 
 DP_CONFIG's BG_COLOR_SRC and MONO_SRC reaching 8514/A commands are not measured (M8BLRD only exercises the foreground).
 

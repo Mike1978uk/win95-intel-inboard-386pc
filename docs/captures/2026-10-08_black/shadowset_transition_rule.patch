@@ -1,0 +1,56 @@
+diff --git a/src/video/vid_ati_mach8.c b/src/video/vid_ati_mach8.c
+index 4e1618e3d..772ae57d9 100644
+--- a/src/video/vid_ati_mach8.c
++++ b/src/video/vid_ati_mach8.c
+@@ -3617,8 +3617,8 @@ mach_set_resolution(mach_t *mach, svga_t *svga)
+                 }
+             }
+             svga_recalctimings(svga);
+-        } else if (ATI_GRAPHICS_ULTRA)
+-            svga_recalctimings(svga); /*locked shadow registers keep the CRT values, but the VGA/8514/A output switch still follows ADVFUNC_CNTL*/
++        } else if (ATI_GRAPHICS_ULTRA && !dev->on)
++            svga_recalctimings(svga); /*locked shadow registers keep the CRT values, but turning the 8514/A off still hands the screen back to VGA*/
+     }
+ }
+ 
+@@ -9192,9 +9192,10 @@ ati8514_vblank_start(void *priv)
+ /* Graphics Ultra CRT register sets, as measured on a 113-11504-002 card: a write to 02E8h-1EE8h
+    lands in the set SHADOW_SET points at, whatever the SHADOW_CTL locks; the display uses shadow
+    set 1 in 640x480 and shadow set 2 in 1024x768 (ADVFUNC_CNTL bit 2), and the primary set in ATI
+-   extended mode (inferred: the only set that mode can be programmed through); writing SHADOW_CTL
+-   with a group's lock clear while the pointer is at shadow set n copies that group from the
+-   primary set into set n. */
++   extended mode (inferred: the only set that mode can be programmed through); clearing a group's
++   lock in SHADOW_CTL while the pointer is at shadow set n copies that group from the primary set
++   into set n. Rewriting a lock that is already clear copies nothing: the ROM does that with the
++   pointer at set 2 after loading set 2, and set 2 must keep its 1024x768 values. */
+ static int
+ mach_crt_index(uint16_t port)
+ {
+@@ -9245,6 +9246,7 @@ mach_combo_accel_out_fifo(void *priv, uint16_t port, uint16_t val, int len)
+     ibm8514_t *dev = (ibm8514_t *) svga->dev8514;
+     int        idx;
+     int        active;
++    uint16_t   old_ctl;
+ 
+     mach_log(mach->log,"Accel OUT Combo=%04x, val=%04x, len=%d.\n", port, val, len);
+     if (!ATI_GRAPHICS_ULTRA || mach->crt_replay) {
+@@ -9273,7 +9275,8 @@ mach_combo_accel_out_fifo(void *priv, uint16_t port, uint16_t val, int len)
+         return;
+     }
+ 
+-    active = mach_crt_active(mach, dev);
++    active   = mach_crt_active(mach, dev);
++    old_ctl  = mach->shadow_cntl;
+     mach_accel_out_fifo(mach, svga, dev, port, val, len);
+ 
+     if ((port & 0xfffe) == 0x46ee) {
+@@ -9282,7 +9285,7 @@ mach_combo_accel_out_fifo(void *priv, uint16_t port, uint16_t val, int len)
+ 
+         if ((set == 1) || (set == 2)) {
+             for (int i = 0; i < 8; i++) {
+-                if (!(mach->shadow_cntl & mach_crt_lock[i]) && mach->crt_valid[0][i]) {
++                if ((old_ctl & mach_crt_lock[i]) && !(mach->shadow_cntl & mach_crt_lock[i]) && mach->crt_valid[0][i]) {
+                     mach->crt_sets[set][i][0] = mach->crt_sets[0][i][0];
+                     mach->crt_sets[set][i][1] = mach->crt_sets[0][i][1];
+                     mach->crt_valid[set][i]   = 1;
