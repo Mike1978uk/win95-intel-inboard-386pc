@@ -31,3 +31,9 @@ bus width does not explain TS1. Still to measure: which of those byte-written po
   record pad bytes the probes never write (memory left by the previous program); all checkpoints unchanged.
   M8REGS differs in extended register A9h (bed 97h before, CBh now; card 01h) - already wrong before, varies.
 - TEST.COM hung after REGR (owner); log `vm_6695/run_bytebus.log` ends in its clock-select loop at 067C:17D3.
+
+## FIFO_OPT (36EEh) bit 1, HOST_8_ENA - M8BYTE5, 5160
+
+The ATI guide (p. 9-8) gives 36EEh bit 1 as 8-bit (1) or 16-bit (0) host data I/O. M8BYTE5 runs the three read
+tests above with 36EEh = 0, 1, 2, 3 written first: all twelve results are the same as M8BYTE 8-10 (low byte peeks,
+high byte pops a word, words read correctly). In an 8-bit slot the bit does not change PIX_TRANS reads.
