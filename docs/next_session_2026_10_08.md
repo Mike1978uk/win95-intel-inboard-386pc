@@ -23,6 +23,15 @@ Next, in order:
    and retest the boundary fill on this build - a real application, may catch something TEST.COM does not.
 5. Then the PR list: fetch fix (CPU core, its own PR), config straps + shadow sets (Mach8), with G1-G10.
 
+## Later: the shared byte latch as a driver lever (2026-10-08)
+
+M8BYTE (`docs/captures/2026-10-08_m8byte/`): on the 8-bit bus the card holds the low byte in one latch shared by
+all ports and commits on the high byte; a high-byte read of E2E8h pops a whole word. If the latch keeps its
+value across commits, a driver could send the low byte once and then only high bytes (repeated low bytes:
+solid host-data fills, mono patterns, coordinates sharing a low byte) - one I/O cycle instead of two, about
+5.7 us saved each. M8BYTE3 says the latch does NOT simply keep the last low byte written; measure what
+refreshes and clears it before relying on it.
+
 ## Where it stands (2026-10-07)
 
 - Owner's direction: understand the whole card, not only what drivers use; TEST.COM fully clean before the
