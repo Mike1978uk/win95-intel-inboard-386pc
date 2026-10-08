@@ -19,7 +19,7 @@ REC = 68
 
 def load(p):
     d = Path(p).read_bytes()
-    if d[:4] not in (b"M8S1", b"M8S2", b"M8S3", b"M8S4", b"M8S5"):
+    if d[:4] not in (b"M8S1", b"M8S2", b"M8S3", b"M8S4", b"M8S5", b"M8S6"):
         raise SystemExit("%s: not an M8SEQ result" % p)
     n = struct.unpack_from("<H", d, 4)[0]
     recs = [d[6 + k * REC:6 + (k + 1) * REC] for k in range(n + 1)]
