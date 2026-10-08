@@ -36,6 +36,7 @@ end to end.** Find what applies, read that, and add back what you learn.
 | situation | go to |
 |---|---|
 | Anything at all | **Core principle** - live evidence beats static disassembly, which has produced confident wrong answers here repeatedly |
+| A device fails a vendor test, or a register's meaning is unclear | **147** - read the vendor's own sources first: the test's expected values, the programmer's guide, the vendor driver. Then one probe to confirm |
 | Before proposing ANYTHING | **113** - check issue STATE, the newest `docs/next_session_*.md`, and the component's spec index. Three things were re-derived on 2026-09-11 for want of this |
 | A working binary exists for the hardware | **112** - disassemble it IN FULL, FIRST. `tools/pedis.py <file> sections\|imports\|all\|io` |
 | "It does not reproduce in the emulator" | **90** - that is a claim about the emulator. Check what it does not model |
@@ -8446,3 +8447,25 @@ it at POST (56EEh ScratchPad1: card 0820h, bed 0004h) showed it in one COMrade r
 - **Read every program that sets the register before blaming the model.** TEST.COM writes
   GE_PITCH itself, gated on ScratchPad1; the handoff said it never did, from a log taken on a bed
   where the gate was closed.
+
+## Technique 147: derive from the vendor's own sources before probing the card
+
+2026-10-08, Mach8. Answers that a day of card probes had circled came from files already on disk
+(owner's rule: if the ROM, EEPROM, documents or drivers can answer it, look there first):
+
+- **The test's own data names its failure.** TEST.COM's TS2 compare walker (5074h) reads
+  (port, expected, mask) triples. The bed's error `14204 0602 0004` printed the expected values of the
+  failing group: CUR_Y 0602h and pattern index (D6EEh) 0004h, after a LINEDRAW from (0,-512) to (0,-511).
+  The failing check and its draw came out of the binary without running anything.
+- **The programmer's guide defines bits the model treats as one value.** `references/ati_mach32/guide.txt`
+  (ATI REG688000-15): 6AEEh bit 10 PASSTHROUGH_OVERRIDE was the 5160's black screen; 36EEh FIFO_OPT
+  HOST_8_ENA; the 8-bit-slot layout of 7AEEh. Audit: `docs/mach8_guide_audit.md`.
+- **The vendor driver shows how the maker used a register.** ATI's MACHW3.DRV sets and clears 6AEEh
+  bit 8 (LINE_OPT_ENA) around its own drawing, which the guide says governs ERR_TERM compatibility.
+- **The rule that comes with it:** a static source gives a lead and the meaning of a bit; the card decides.
+  36EEh and the ADVFUNC_CNTL reset rule were both documented and both changed nothing when measured
+  (M8BYTE5, M8PLACE). This does not contradict the core principle: that one warns against inferring what
+  code does from its disassembly. Here the source is the vendor's stated data and documentation.
+- Check the scan before trusting a negative: a table walker that misreads the terminator returns
+  "nothing found" (TEST.COM's tables end on a port word whose LOW byte is 0), and OCR'd manuals
+  misalign bit columns - read the field text, not the column positions.
