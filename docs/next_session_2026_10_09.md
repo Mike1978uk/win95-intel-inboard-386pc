@@ -18,9 +18,17 @@ TEST.COM's TS2 error `14204 0602 0004` is NOT data: 1E49h is the generic compare
 
 ## Next, in order
 
-1. Read the 10-08 bed run of REGR with M8TS2 (`vm_6695/run_ts2.log`; image results): `python tools/m8seq/m8ts2_decode.py
-   TEST.COM <bed M8TS2.BIN> docs/captures/2026-10-08_black/M8TS2_card.BIN`. The first differing sub-test names the
-   register; its write table is in TEST.COM. Fix the model, rerun.
+1. TS2 bed vs card (`docs/captures/2026-10-08_black/M8TS2_bed_46d9ad164.BIN` vs `M8TS2_card.BIN`, decode with
+   `tools/m8seq/m8ts2_decode.py`): 144 of 150 differ, 32 idle timeouts in the bed, none on the card. Groups:
+   - EXT_GE_STATUS 62EEh (sub-tests 25-71): bed 4xxxh (bit 14 set, low bits counting); card clip/status flags
+     (8501h, 9000h, 1400h...). Read the guide page (p. 9-68) first.
+   - CUR_X/CUR_Y after lines leaving the clip area (26-34, 51-57): bed FE01h/FDFFh, card 0601h/0602h/01FEh - the end
+     position differs, not only the mask.
+   - Pattern index D6EEh (26-31): bed stuck at 2, card advances 3-6.
+   - Bounds accumulator 72EE/76EE/7AEE/7EEEh (16-23): bed 0000h/07FFh, card reset values 07FFh/F800h and real bounds.
+   - PIX_TRANS read-back (1-15, 24): zeros/garbage; sub-test 24 bytes swapped (bed 0403h, card 0304h).
+   Work them from sub-test 1 up; each sub-test's write table is in TEST.COM (pointer table 5A31h). Rerun M8TS2 in the
+   bed after each fix; the card file is the reference.
 2. TS1 17 bytes: last lead is the blit SOURCE pitch/offset after an ADVFUNC write (M8PLACE tested only the
    destination). One card probe: marker, 4AE8h, blit, read.
 3. Bed-only: TEST.COM hangs after REGR (after its CLOCK_SEL sweep). Not explained by CLOCK_SEL bits. Needs a trace.
