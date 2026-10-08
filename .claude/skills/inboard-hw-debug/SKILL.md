@@ -8479,3 +8479,9 @@ it at POST (56EEh ScratchPad1: card 0820h, bed 0004h) showed it in one COMrade r
   A guessed "RD_MASK bit-reversed" fitted one sub-test and failed nine; the guide's rotation fitted all
   ten (`tools/m8seq/m8ts2_nugget_fit.py`). A partial fit means a rule is missing, not that one is wrong
   by a small amount.
+- **When the sources give the shape but not the content, and the test's data cannot separate the
+  candidates, that is when the one probe is earned.** TS2 sub-test 15: the guide fixed the shape (one
+  byte per nibble, one row per word); two rules fitted TEST.COM exactly because its pixels shared a high
+  nibble. M8BLRD fed pixels chosen so every candidate predicted differently and settled it in one run.
+  Include a case that replays the test verbatim, so a wrong setup is caught; and read back what you
+  drew - it exposed a second, unrelated bug (DP_CONFIG feeding 8514/A commands) the read alone hid.
