@@ -27,7 +27,14 @@ Next, in order:
    colour). Pencil, airbrush, lines draw; the paint-roller fill does NOTHING inside a closed outline - no leak, no hang
    seen - on ours (`ebb7bc429`, `pbrush_fill_ours_ebb7bc429.png`) AND on upstream master (09-25 build, owner's report, not
    captured). So long-standing, not from our changes. Next: `MACH8_WLOG=1` on one fill to see which engine ops and
-   read-backs the driver's flood fill uses (likely a read path), then fix and report on 6695 (owner posts).
+   read-backs the driver's flood fill uses, then fix and report on 6695 (owner posts).
+   Measured 10-09 (WLOG + RLOG on one fill, `vm_6695_w2_ours`): the fill is two 40F3h rect copies, then 300 x CMD 3318h
+   (8514 line READ, degree 0, 16-bit, LSB first, MAJ 599) = Paintbrush reads the whole 600x300 canvas back (values
+   sensible: white FFh, outline E0h), then writes NOTHING back - the rest is the software cursor (4 x C0B3h per move:
+   save, AND mask 40h/300h, XOR mask 80h/300h, restore; cursor shape via 41B1h, WRT_MASK 80h). So the software flood
+   in a memory bitmap finds nothing to do, or the driver's read conversion misleads it. Next: static - the Windows 2
+   8514.DRV (bound into WIN200.BIN) read / ScanLR / BitBlt-to-memory code; compare with what 3318h returns.
+   Diagnostics: MACH8_WLOG, MACH8_RLOG (fork DIAGNOSTIC commit).
 7. Then the PR (owner writes the text), then the driver.
 
 ## Done 2026-10-08 (all pushed: main `master`, fork `inboard-ext-256k-diag` on remote `mike`)
