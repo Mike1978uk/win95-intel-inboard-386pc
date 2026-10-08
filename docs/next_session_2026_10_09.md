@@ -28,6 +28,7 @@ TEST.COM's TS2 error `14204 0602 0004` is NOT data: 1E49h is the generic compare
 | TS2 sub-test 15 fixed. Static sources gave the shape only (guide pp. 8-29, 8-34: NIBBLE mode, one byte per 4-pixel group); M8BLRD measured the content: each byte = AND of the source pixels in one screen-aligned group, RD_MASK ignored, bytes run on across rows. Second bug found on the way: a DP_CONFIG write sets the 8514/A foreground source (register written last wins). 112 -> 108 differ, bed idle timeouts 32 -> 0; other 34 probes unchanged (M8REGS A9h varies every run) | fork `08adab8d1`, `20ca51adb`; `tools/m8seq/M8BLRD.ASM`; captures `M8BLRD_card.BIN` (= bed), `M8TS2_bed_20ca51adb.BIN` |
 | TS2 sub-tests 16-23 fixed, statically (guide pp. 9-23, 9-48): BOUNDS_RESET gives L=T=2047, R=B=-2048; writes without it do not reset; every LINEDRAW point grows the box, a coordinate outside the device range -512..1535 counting as 2047/-2048 (fits all 8 sub-tests; -512..-1 untested). 108 -> 79 differ; other probes unchanged (boot bounds now match the card cold capture) | fork `16653c40f`; capture `M8TS2_bed_16653c40f.BIN` |
 | TS2 sub-test 24 fixed: a 16-bit colour read takes pixels along the trajectory (first row from CUR_X, later rows from DEST_X_START), odd-width rows run on into the next, first pixel in D15:8 unless LSB_FIRST (guide DP_CONFIG), last word padded with 00. 79 -> 69 differ; other 36 probes unchanged | fork `a93a112f5`; capture `M8TS2_bed_a93a112f5.BIN` |
+| TS2 sub-tests 25-71 (LINEDRAW pre-clip, EXT_GE_STATUS) fixed except PATT_INDEX: guide table p. 7-10 and pp. 9-29..9-34, 9-68; the rest fitted to TS2 (CLIP_FLAGS are outcodes, 1 = outside, opposite to the guide wording; POINTS_OUTSIDE cleared by a start point; CLIP_INSIDE rules; CLIP_MODE 0 drops lines leaving device space) - `tools/m8seq/m8ts2_clip_fit.py` fits all 70 compares, each fitted rule needed. CUR reads 11 bits. 69 -> 6 differ (PATT_INDEX 26-31: the read returned the written value). TS2 final 32 words still differ in 2 words (FFFF/FF00, FFFE/FFFD) | fork `6eb406741`; `tools/m8seq/m8ts2_table.py`; capture `M8TS2_bed_6eb406741.BIN` |
 
 DP_CONFIG's BG_COLOR_SRC and MONO_SRC reaching 8514/A commands are not measured (M8BLRD only exercises the foreground).
 
@@ -46,7 +47,7 @@ returns 11 bits (0601h) - the CUR group in item 1.
 ## Next, in order
 
 1. TS2 bed vs card (`docs/captures/2026-10-08_black/M8TS2_bed_46d9ad164.BIN` vs `M8TS2_card.BIN`, decode with
-   `tools/m8seq/m8ts2_decode.py`): 144 of 150 differed at the start of 10-08; now 69, first is sub-test 25 (EXT_GE_STATUS). Groups:
+   `tools/m8seq/m8ts2_decode.py`): 144 of 150 differed at the start of 10-08; now 6 (PATT_INDEX 26-31, fix built). Groups:
    - EXT_GE_STATUS 62EEh (sub-tests 25-71): bed 4xxxh (bit 14 set, low bits counting); card clip/status flags
      (8501h, 9000h, 1400h...). Read the guide page (p. 9-68) first.
    - CUR_X/CUR_Y after lines leaving the clip area (26-34, 51-57): bed FE01h/FDFFh, card 0601h/0602h/01FEh - the end
