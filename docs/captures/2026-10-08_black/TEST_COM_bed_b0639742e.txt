@@ -1,0 +1,18 @@
+ATI TEST.COM 1.46V1 in the 86Box bed (vm_6695, fork b0639742e), 2026-10-08 23:35, boot without REGR.
+Read from the MACH8_VGADUMP text dump (VGA text page), rows 10-24. Same stages as the card (5160_TEST_COM.txt), no error codes.
+
+C:\M8SEQ>test
+
+ATI Accelerator Series, Extended Test Sequence 1.46V1
+  Memory: 1M VRAM
+  Bus   :  8 bit (E)ISA
+  PCLK  : 18810-2
+  VGA installed
+
+Testing Register Integrity
+Testing FIFO Integrity
+Testing RAMDAC Integrity
+Testing Video RAM
+Test Sequence 1
+Test Sequence 2
+Hit a key to begin test patterns
