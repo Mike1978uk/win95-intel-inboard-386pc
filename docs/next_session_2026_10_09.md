@@ -25,11 +25,9 @@ TEST.COM's TS2 error `14204 0602 0004` is NOT data: 1E49h is the generic compare
 | TS1 "blit source after ADVFUNC" lead closed statically: the Mach8 has ONE GE_PITCH/GE_OFFSET for source and destination (split is Mach32-only, guide pp. 9-20/9-21); TEST.COM never sets SHADOW_SET bits 9:8 nor writes GE_OFFSET. No card probe needed | this doc |
 | Model gaps vs the guide, harmless for TEST.COM: SHADOW_SET[9:8] split applied to the Mach8 (`mach32` only); 4AE8h does not reset GE_OFFSET on the Mach8 | for the PR |
 | TS2 sub-test 14 fixed: monochrome read (DP_CONFIG bit 2) on an extended blit returns 16 pixels per word, bit 15 first unless LSB_FIRST, pixel = 1 when `(P | ~RD_MASK) == FFh`, RD_MASK unrotated. Planar reads set reserved bit 0 like the card. Sub-tests 1-14 now identical to the card; 116 -> 112 differ | fork `2af5fbf35`, `ddf484f78`; capture `M8TS2_bed_ddf484f78.BIN` |
+| TS2 sub-test 15 fixed. Static sources gave the shape only (guide pp. 8-29, 8-34: NIBBLE mode, one byte per 4-pixel group); M8BLRD measured the content: each byte = AND of the source pixels in one screen-aligned group, RD_MASK ignored, bytes run on across rows. Second bug found on the way: a DP_CONFIG write sets the 8514/A foreground source (register written last wins). 112 -> 108 differ, bed idle timeouts 32 -> 0; other 34 probes unchanged (M8REGS A9h varies every run) | fork `08adab8d1`, `20ca51adb`; `tools/m8seq/M8BLRD.ASM`; captures `M8BLRD_card.BIN` (= bed), `M8TS2_bed_20ca51adb.BIN` |
 
-**Sub-test 15 (open):** 8514 colour rectangle 8x4 at y=206h, then CMD C3F0h BitBLT read (FRGD_MIX 67h). Guide p. 8-34:
-a BLIT read ignores CMD[1] and acts as NIBBLE mode from the source trajectory, still drawing to the destination.
-Expected 0000/1010/2020/3030 (card matches, bed FFFF) = each row's pixels AND F0h - not nugget-shaped (bit 5 set).
-The rule that produces that is not found yet.
+DP_CONFIG's BG_COLOR_SRC and MONO_SRC reaching 8514/A commands are not measured (M8BLRD only exercises the foreground).
 
 ## (done) TS2 sub-test 1 root cause, 10-08 morning
 
@@ -46,7 +44,7 @@ returns 11 bits (0601h) - the CUR group in item 1.
 ## Next, in order
 
 1. TS2 bed vs card (`docs/captures/2026-10-08_black/M8TS2_bed_46d9ad164.BIN` vs `M8TS2_card.BIN`, decode with
-   `tools/m8seq/m8ts2_decode.py`): 144 of 150 differ, 32 idle timeouts in the bed, none on the card. Groups:
+   `tools/m8seq/m8ts2_decode.py`): 144 of 150 differed at the start of 10-08; now 108, first is sub-test 16. Groups:
    - EXT_GE_STATUS 62EEh (sub-tests 25-71): bed 4xxxh (bit 14 set, low bits counting); card clip/status flags
      (8501h, 9000h, 1400h...). Read the guide page (p. 9-68) first.
    - CUR_X/CUR_Y after lines leaving the clip area (26-34, 51-57): bed FE01h/FDFFh, card 0601h/0602h/01FEh - the end
