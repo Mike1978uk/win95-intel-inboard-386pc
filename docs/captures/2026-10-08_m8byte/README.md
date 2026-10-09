@@ -37,3 +37,6 @@ bus width does not explain TS1. Still to measure: which of those byte-written po
 The ATI guide (p. 9-8) gives 36EEh bit 1 as 8-bit (1) or 16-bit (0) host data I/O. M8BYTE5 runs the three read
 tests above with 36EEh = 0, 1, 2, 3 written first: all twelve results are the same as M8BYTE 8-10 (low byte peeks,
 high byte pops a word, words read correctly). In an 8-bit slot the bit does not change PIX_TRANS reads.
+
+`M8BYTE_bed_dready.BIN` (12:00): bed after the data-ready fix - 12 bytes differ from the card, against 13 for
+`M8BYTE_bed_bytebus.BIN`. Committed 2026-10-09; the byte that changed was not checked.
