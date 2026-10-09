@@ -28,6 +28,11 @@ Next, in order:
    failing run `w2_ours_pershadow_e749c3496.png`); REGR 38/39 byte-identical to the pre-shadow build `ea1f70b5d`,
    M8REGS differs only in CRT read-backs, B2EE/B6EE/BAEE now 694F/0053/0005 = card (`M8REGS_bed_bf68c27d6.BIN` vs
    `M8REGS_bed_ea1f70b5d.BIN`); TEST.COM passes after REGR (owner). Still open: vertical read-backs not halved.
+   **Card, 10-09 (M8SHRL, M8SHR2):** per-set locks CONFIRMED for set 1 and set 2 - an unlocked set shows the primary
+   value, re-locking shows its own again (71, 73; copy rule would give 80, B0). NEW, not modelled: in 1024 mode a
+   5AEEh write moves the B2EEh read-back to set 1, a 46EEh write leaves it there, the next 4AE8h=6 returns to set 2
+   (display vs read-back not separated - the VGA drove the screen). Also not modelled: the card's primary H_DISP reads
+   00 when never written (bed 7F after REGR). M8PRE.DAT regenerated (`8170a2f`); M8TSX not yet re-run on it.
 6. Paintbrush (86Box#6695), first run 10-09: ZSoft PC Paintbrush for Windows 1.05 on Windows/386 2.11 (8514.DRV 37,328 bytes,
    colour). Pencil, airbrush, lines draw; the paint-roller fill does NOTHING inside a closed outline - no leak, no hang
    seen - on ours (`ebb7bc429`, `pbrush_fill_ours_ebb7bc429.png`) AND on upstream master (09-25 build, owner's report, not
