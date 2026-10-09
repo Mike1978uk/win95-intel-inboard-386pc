@@ -49,15 +49,19 @@ Next, in order:
    - Tests 61/62: the card's LINEDRAW steps as 2*min - max; the model used min - max. The guide's ERR_TERM
      rule (p. 8-39) adds -1 when start X < end X; both failing lines step X down, so that term is from the
      guide only, not measured.
-   - Fixed in the fork worktree `86box_3c509b` (uncommitted, gated to the Graphics Ultra), `build_log`
-     rebuilt 15:20. **Next: re-run M8CONF in `vm_6695` with that build; tests 28, 61, 62 should match the
-     card and the other 71 must not move.**
-   - Test 58 is NOT fixed. The card drew the line in FRGD_COLOR (FF) and drew its end point; the bed drew
-     00 and no end point. The test writes neither DP_CONFIG nor LINEDRAW_OPT, so both are inherited (2211 from
-     test 52, 070C from test 50; tests 59-63 write 070C and draw no end point on either machine). FRGD_MIX
-     (BAE8) is written last: the model lets that pick the source for blits only, never LINEDRAW. Settle with
-     a card probe: engine reset, one 8514/A CMD, then LINEDRAW; and again after a DP_CONFIG write. Why the bed
-     drew 00 is not explained; a logged bed run of test 58 shows it.
+   - **Fixed: fork `39ae78a0d`** (`86box_3c509b`, branch `inboard-ext-256k-diag`, not pushed; Graphics Ultra
+     only). Bed re-run `M8CONF_w311_bed_39ae78a0d.BIN`: tests 28, 61, 62 now match the card; no other test
+     moved. **74 of 82 identical; the remaining 8 are the 7 read-op probe gaps and 1 pixel of test 58.**
+     REGR (all 44 outputs, `vm_6695/before_7ce9f2a` vs `after_7ce9f2a`): M8SEQ/5/6 change only in record
+     bytes 2-3, which the probe never writes (stale memory), and m8seq_diff still finds them identical to
+     the card; M8REGS's three changed bytes are read before any drawing and now hold the bed's usual values
+     (A9h also varies on the card).
+   - Test 58: the line colour now matches (the 00 came from the old line setup, mechanism not traced). One
+     pixel left: the card draws the end point (1023,1023), the bed does not. The test writes no
+     LINEDRAW_OPT, so it inherits 070C from test 50 (tests 59-63 write 070C and draw no end point on either
+     machine). Something between test 50 and 58 changes it on the card: the 8514/A CMDs in tests 55-57, the
+     engine reset, or the FRGD_MIX write. Card probe: engine reset, one 8514/A CMD, then a LINEDRAW with
+     LINEDRAW_OPT 070C; and the same without the CMD.
 2. Win95 capture: `vm_5160_now` (ATIM8.DRV, 800x600) with MACH8_WLOG=1, owner session ~10 min; run
    gen_m8conf.py over both logs into one M8CONF.DAT.
 3. Card run via the CF reader (COMrade cannot move files this size reliably): copy M8CONF.COM/.DAT to
