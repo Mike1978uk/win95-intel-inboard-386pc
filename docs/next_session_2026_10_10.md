@@ -87,6 +87,17 @@ Next, in order:
      read-back before and after CMDs with bit 2 clear and set settles it.
    - Test 58: card draws the end point (fits the above: M8CONF's pattern fill is CMD 40F3) and colour FF;
      the bed draws 00 again. The colour is inherited state, still not traced.
+1f. **Scan reads fixed: fork `48471b1c1`** (not pushed). DP_CONFIG bit 9 (data width) and bit 12
+   (LSB_FIRST) decide the format, as the guide says (pp. 9-15, 9-48): 8-bit = one pixel per word in D15:8
+   when MSB first; 16-bit = two. Data-ready now drops when the raster draw ends (the old check tested SX,
+   which the draw resets on finishing; GP_STAT's bit 8 is read through 9AE9 on this 8-bit bus).
+   **Bed `M8CONF_w311_bed_48471b1c1.BIN` vs card: 81 of 82 identical, read data included; only test 58's
+   end pixel left.** REGR unchanged except M8REGS A9h (varies on the card too).
+   - **M8LOPT** (`tools/m8seq/`, `533033c`): on the CF (`D:\M8LOPT.COM`, 6752d9a1). Bed
+     (`M8LOPT_bed_48471b1c1.BIN`): ignores the CMDs (0708 draws the end point, 070C does not) and reads
+     LINEDRAW_OPT back as 060C/0608. Next: run `M8LOPT` on the card; cases 2 and 4 (CMD with bit 2 set)
+     decide between one latch shared by CMD bit 2 and LINEDRAW_OPT bit 2, and "any CMD turns it on".
+     Then put that rule in the model and re-run M8CONF.
    - `M8LEND` (+ `m8lend_decode.py`): LINEDRAW (10,2)-(30,12) after LINEDRAW_OPT 070C, with 7 different
      writes in between (engine reset, subsystem reset, one 8514/A CMD, FRGD_MIX, and CMD followed by
      FRGD_MIX / DP_CONFIG / LINEDRAW_OPT). Bed: no end point in any case. The card shows which write
