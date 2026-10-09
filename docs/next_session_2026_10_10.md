@@ -41,6 +41,23 @@ Next, in order:
    drain and record PIX_TRANS reads after the trigger (the write log has no reads; the card stalls, 7
    timeouts). Real differences to chase: test 28 blit A211 fg07/bg05 (244 bytes), tests 58/61/62 LINEDRAW
    (2211 bg 03/05; 32/8/2 bytes - end points or last pixel). Test order = gen_m8conf.py's sorted keys.
+1c. **The four real differences, read from the two .BINs (no runs; tools `m8conf_cmp.py`, `m8conf_patt.py`,
+   `m8line_fit.py` in `tools/m8seq/`):**
+   - Test 28: every row of a colour-pattern blit starts at PATT_INDEX on the card; the model carried the
+     index across rows (+2 per row: 90 pixels mod 8). Not destination-aligned: test 76 (scan, even X,
+     PATT_INDEX 5) drew entry 5. Guide p. 9-59 does not say either way.
+   - Tests 61/62: the card's LINEDRAW steps as 2*min - max; the model used min - max. The guide's ERR_TERM
+     rule (p. 8-39) adds -1 when start X < end X; both failing lines step X down, so that term is from the
+     guide only, not measured.
+   - Fixed in the fork worktree `86box_3c509b` (uncommitted, gated to the Graphics Ultra), `build_log`
+     rebuilt 15:20. **Next: re-run M8CONF in `vm_6695` with that build; tests 28, 61, 62 should match the
+     card and the other 71 must not move.**
+   - Test 58 is NOT fixed. The card drew the line in FRGD_COLOR (FF) and drew its end point; the bed drew
+     00 and no end point. The test writes neither DP_CONFIG nor LINEDRAW_OPT, so both are inherited (2211 from
+     test 52, 070C from test 50; tests 59-63 write 070C and draw no end point on either machine). FRGD_MIX
+     (BAE8) is written last: the model lets that pick the source for blits only, never LINEDRAW. Settle with
+     a card probe: engine reset, one 8514/A CMD, then LINEDRAW; and again after a DP_CONFIG write. Why the bed
+     drew 00 is not explained; a logged bed run of test 58 shows it.
 2. Win95 capture: `vm_5160_now` (ATIM8.DRV, 800x600) with MACH8_WLOG=1, owner session ~10 min; run
    gen_m8conf.py over both logs into one M8CONF.DAT.
 3. Card run via the CF reader (COMrade cannot move files this size reliably): copy M8CONF.COM/.DAT to
