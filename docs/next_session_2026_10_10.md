@@ -66,10 +66,15 @@ Next, in order:
 1d. **Probes for the card, written and run in the bed (`vm_6695/probes_39ae78a0d/`):**
    - `M8CONF` now drains PIX_TRANS after a read operation (CMD with bit 8 set and bit 0 clear, or a test
      that writes DP_CONFIG with host source and bit 0 clear: exactly tests 3-6, 54, 66, 67) and keeps up to
-     4,096 words ("M8C3" records; `m8conf_cmp.py` compares them). Bed: no timeouts left; test 54 read its
-     32 words (8x8) and stopped. The blits (3-6) are 6,912-7,296 px, so the first cap of 2,048 cut them
-     short; raised to 4,096 and NOT yet re-run. Tests 66 (916 px scan) and 67 (1 px scan) ran to the cap
-     in the bed: the model seems to keep data-ready set after an extended scan read. Card to say.
+     4,096 words ("M8C3" records; `m8conf_cmp.py` compares them). Bed (`99eb7c2` probes,
+     `docs/captures/2026-10-09_m8probes/`): no timeouts; tests 3-6 stop by themselves at exactly the blit
+     size (3,456 / 3,536 / 3,456 / 3,648 words, 2 px per word) and test 54 at 32 (8x8); no pixel moved.
+     Tests 66 (916 px scan) and 67 (1 px scan) run to the 4,096 cap in the bed: the model seems to keep
+     data-ready set after an extended scan read. Card to say.
+   - **On the CF (`D:\`, md5 checked at destination): `M8CONF.COM` 807c85f9, `M8CONF.DAT` a865cd33,
+     `M8LEND.COM` 2f8a6967.** Run both from a DOS boot in `C:\`; compare with
+     `m8conf_cmp.py M8CONF_w311.DAT <card M8CONF.BIN> docs/captures/2026-10-09_m8probes/M8CONF_w311_bed_39ae78a0d_m8c3.BIN`
+     and `m8lend_decode.py <card M8LEND.BIN> docs/captures/2026-10-09_m8probes/M8LEND_bed_39ae78a0d.BIN`.
    - `M8LEND` (+ `m8lend_decode.py`): LINEDRAW (10,2)-(30,12) after LINEDRAW_OPT 070C, with 7 different
      writes in between (engine reset, subsystem reset, one 8514/A CMD, FRGD_MIX, and CMD followed by
      FRGD_MIX / DP_CONFIG / LINEDRAW_OPT). Bed: no end point in any case. The card shows which write
