@@ -98,6 +98,17 @@ Next, in order:
      LINEDRAW_OPT back as 060C/0608. Next: run `M8LOPT` on the card; cases 2 and 4 (CMD with bit 2 set)
      decide between one latch shared by CMD bit 2 and LINEDRAW_OPT bit 2, and "any CMD turns it on".
      Then put that rule in the model and re-run M8CONF.
+1g. **Card M8LOPT (`M8LOPT_5160.BIN`): CMD and LINEDRAW_OPT share the line bits, last write wins.** A CMD
+   with bit 2 set leaves the end point off even after LINEDRAW_OPT 0708; read-back after CMD 40F3/40F7 is
+   06E0/06E4, so a CMD copies its bits 7:5 (direction), 3 (DIR_TYPE) and 2 (LAST_PEL_OFF) - mask ECh. Bit 1
+   not measured (it was 0 before every CMD). **Fixed: fork `4b729786d`** (not pushed).
+   **Bed `M8CONF_w311_bed_4b729786d.BIN`: all 82 M8CONF tests match the card, read data included; M8LOPT
+   matches in all 6 cases, pixels and read-back.** REGR: M8REGS's LINEDRAW_OPT power-up read is now 00E0,
+   as all three card captures have it (was 0000); nothing else moved but A9h.
+   Not covered by measurement: BRES_COUNT lines after a CMD now take the CMD's direction bits (follows from
+   the read-back; no M8CONF test exercises it). M8LEND was not re-run on this build.
+   **Remaining before the PR (item 5 above, and the rest of item 4): the Windows 95 capture into the probe,
+   the 1024 wrap in rect/blit, Mach32/8514/A regression, TC1995 on blit ends, clean branch.**
    - `M8LEND` (+ `m8lend_decode.py`): LINEDRAW (10,2)-(30,12) after LINEDRAW_OPT 070C, with 7 different
      writes in between (engine reset, subsystem reset, one 8514/A CMD, FRGD_MIX, and CMD followed by
      FRGD_MIX / DP_CONFIG / LINEDRAW_OPT). Bed: no end point in any case. The card shows which write
