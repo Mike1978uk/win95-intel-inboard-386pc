@@ -148,6 +148,8 @@ references/velocity9x/
 references/ati_mach32/
 # XFree86 3.3.6 Mach8/8514/cache servers (MIT-style licence) - read them, do not vendor them
 references/xfree86_336_mach8/
+# XFree86 3.3.6 vga256 ATI driver (VGA Wonder 18800/28800 and later; same source archive, same terms)
+references/xfree86_336_ati/
 # 8514/A book (Richter and Smith, 1990) and IBM's 8514/A Technical Reference - copyrighted, read only
 references/8514a_docs/
 # Microsoft Windows 2.x 8514/A driver set (8514.DRV 37,328 bytes = the 86Box#6695 driver), from the W2 disk 7 image

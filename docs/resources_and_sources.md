@@ -195,6 +195,19 @@ the directory's own `README.md`.
   descriptions too thin to use. Worth following: Sutty and Blair, *Advanced Programmer's Guide to
   SuperVGAs* (the book it names); VGADOC4B's ATI section; the full XFree86 3.3.6 `vga256/drivers/ati/`
   (we hold only its Mach8 part).
+- **XFree86 3.3.6 `vga256/drivers/ati/`** - same archive as the Mach8 server above (`X336src-1.tgz`), extracted
+  2026-10-09 to `references/xfree86_336_ati/` (59 files, not vendored). Gave: the 28800's B2h page register,
+  from `atibanks.s` - D7-D5 read page bits 2-0, D4 page bit 3, D3-D1 page bits 2-0, D0 read page bit 3; dual
+  paging via BEh bit 3 (`atiwonder.c` sets BEh |= 09h); AEh carries page bits 5-4 on cards over 1 MB. Agrees
+  with 86Box's model and refutes the AI answer above. Lists the 28800-6 as a known chip (`atichip.c`).
+  Not yet read in full: clocks (`aticlock.c`), CRTC (`aticrtc.c`), DAC, probe and identification.
+- **George Sutty and Steve Blair, *Advanced Programmer's Guide to SuperVGAs* (Brady, 1990)** -
+  owner's PDF at `XT_project/ATI/Advanced_Programmers_Guide_to_SuperVGAs.pdf` (copyrighted, not in the
+  repo). Chapter 11 covers the ATI **18800** VGAWONDER only - no 28800. Gave: every extended register
+  B0h-BEh with bit names (rev 1 vs rev 2), e.g. B2h rev 2 = read page D7-D5, page D3-D1; BEh D3 dual page;
+  B3h EEPROM lines D3/D1/D0 (match the card's EEPROM path); B6h D5 vertical interrupt enable; B5h D4 eight
+  simultaneous fonts; B1h double / 3-of-4 scanning; B4h/B8h register locks; BBh memory size and monitor
+  type latch; extended BIOS (INT 10h 12h/6 parameter table). The 28800's additions are not in it.
 - **Ardent Tool's diagnostic code list** (page above): 14201-14215. 14204 Graphics Subsystem, 14205 RAMDAC,
   14206 RAM match TEST.COM's messages in 86Box; TEST.COM's TS1 code 14216 is not listed.
 
