@@ -109,6 +109,16 @@ Next, in order:
    the read-back; no M8CONF test exercises it). M8LEND was not re-run on this build.
    **Remaining before the PR (item 5 above, and the rest of item 4): the Windows 95 capture into the probe,
    the 1024 wrap in rect/blit, Mach32/8514/A regression, TC1995 on blit ends, clean branch.**
+1h. **X mod 1024 in fills and blits: DONE, fork `9c9fa70c2`** (not pushed). `M8WRAP` (card
+   `M8WRAP_5160.BIN`, read over COMrade): at the 8514/A-compatible pitch the card wraps an 8514/A rect
+   fill, an ATI blit fill, and both source and destination of an 8514/A blit onto the same row, as the
+   guide says (pp. 8-21/22). Model: `x_wrap` now masks X in vid_8514a.c's rect and blit paths (mask -1
+   when off, so other chips are unchanged) and the ATI blit's destination. Bed `M8WRAP_bed_9c9fa70c2.BIN`:
+   all 5 cases = card; M8CONF still 82/82; REGR unchanged but A9h.
+   Not measured, not modelled: an ATI blit's SOURCE crossing X 1023; host reads at the compatible pitch
+   (guide: reads wrap too, and colour reads outside the scissors return FFh); the polygon path.
+   Pre-PR note: `vid_8514a.c:3337` (polygon path, not ours today) gives -Wdangling-else - check whether
+   upstream master has it before calling the build warning-free (gate G7).
    - `M8LEND` (+ `m8lend_decode.py`): LINEDRAW (10,2)-(30,12) after LINEDRAW_OPT 070C, with 7 different
      writes in between (engine reset, subsystem reset, one 8514/A CMD, FRGD_MIX, and CMD followed by
      FRGD_MIX / DP_CONFIG / LINEDRAW_OPT). Bed: no end point in any case. The card shows which write
