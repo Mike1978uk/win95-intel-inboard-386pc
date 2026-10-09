@@ -17,12 +17,17 @@ Next, in order:
 4. Open for the PR: X mod 1024 only in LINEDRAW, raster and 8514/A line paths (rect/blit still linear);
    LINEDRAW read with LAST_PEL_OFF offers a 9th pixel (M8TS2Q checkpoint 1); DP_CONFIG BG/MONO sources unmeasured;
    SHADOW_SET split and 4AE8h GE_OFFSET reset (Mach8); TEST.COM speed vs the 5160 (owner: runs straight through fast).
-5. Re-add the CRT shadow sets (reverted 10-09, fork `65c603e28`): the model copied the primary set into set 2 on
-   the ROM's second setup pass (46EEh=0 written with the pointer at 2 and the lock already clear), so Windows/386
-   2.11's 8514 driver got 640x480 at 1024x768 (`w2_ours_shadowsets_640.png` vs `w2_ours_noshadow_1024.png`).
-   Copying only on a lock 1->0 transition (`shadowset_transition_rule.patch`) was NOT enough - still 640x480.
-   Card data M8SHCL never rewrote an already-clear lock. Re-add with the Windows 2 boot (`vm_6695_w2_ours`) as a
-   required test; without them M8REGS reads 1024x768 CRT values at boot where the card reads 640x480.
+5. **DONE 10-09: CRT shadow sets re-added** (fork `e749c3496` + `bf68c27d6`, local, not pushed). New rule: SHADOW_CTL
+   is a lock mask per set (written to the set SHADOW_SET points at); the shown set (1 = 640, 2 = 1024 by 4AE8h bit 2)
+   takes each register group from the shadow set where locked, from the primary where not (guide 9-6 note 1). No copy.
+   Fits all 88 M8SHCL/M8SHC2 card reads; the copy rule fitted them too - they differ only on re-locking an unlocked
+   set, which no probe did (one card probe settles it before the PR). The Windows 2 640x480 was NOT the copy: the
+   MACH8_WLOG run showed set 2's 1024 values replayed correctly, but after 4AE8h=7 - and `mach_set_resolution` sizes
+   the display from the CRT registers it finds, so it saw set 1's 640 values. `bf68c27d6` loads the new mode's set
+   before the 4AE8h/4AEEh write. Results: Windows/386 2.11 at 1024x768 (`w2_ours_pershadow_1024_bf68c27d6.png`;
+   failing run `w2_ours_pershadow_e749c3496.png`); REGR 38/39 byte-identical to the pre-shadow build `ea1f70b5d`,
+   M8REGS differs only in CRT read-backs, B2EE/B6EE/BAEE now 694F/0053/0005 = card (`M8REGS_bed_bf68c27d6.BIN` vs
+   `M8REGS_bed_ea1f70b5d.BIN`); TEST.COM passes after REGR (owner). Still open: vertical read-backs not halved.
 6. Paintbrush (86Box#6695), first run 10-09: ZSoft PC Paintbrush for Windows 1.05 on Windows/386 2.11 (8514.DRV 37,328 bytes,
    colour). Pencil, airbrush, lines draw; the paint-roller fill does NOTHING inside a closed outline - no leak, no hang
    seen - on ours (`ebb7bc429`, `pbrush_fill_ours_ebb7bc429.png`) AND on upstream master (09-25 build, owner's report, not
