@@ -200,6 +200,8 @@ the directory's own `README.md`.
   from `atibanks.s` - D7-D5 read page bits 2-0, D4 page bit 3, D3-D1 page bits 2-0, D0 read page bit 3; dual
   paging via BEh bit 3 (`atiwonder.c` sets BEh |= 09h); AEh carries page bits 5-4 on cards over 1 MB. Agrees
   with 86Box's model and refutes the AI answer above. Lists the 28800-6 as a known chip (`atichip.c`).
+  **Measured on the card 2026-10-09 (M8BANK, `docs/captures/2026-10-09_m8probes/M8BANK_5160.BIN`): exactly
+  this layout in both modes, and page 8 aliases page 0 (512 KB on the VGA half).**
   Not yet read in full: clocks (`aticlock.c`), CRTC (`aticrtc.c`), DAC, probe and identification.
 - **George Sutty and Steve Blair, *Advanced Programmer's Guide to SuperVGAs* (Brady, 1990)** -
   owner's PDF at `XT_project/ATI/Advanced_Programmers_Guide_to_SuperVGAs.pdf` (copyrighted, not in the
