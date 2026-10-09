@@ -3,20 +3,34 @@
 drew one filled box on Windows/386 2.11 (8514.DRV), so the card and the 86Box model can be given the
 same command stream and their pixels compared.
 
-    python gen_m8rect.py <86box.log> <M8RECT.INC>
+    python gen_m8rect.py <86box.log> <M8RECT.INC> <M8RECT.DAT>
 
 The log's writes are split into groups that each end with a CMD (9AE8h) write. The window starts at
 the box's fill (the last 40F3h with FRGD_COLOR 070Ch) and ends at the last C0D3h blit before the next
 2037h line. Before it, every register's last value written ahead of the window is replayed (MULTIFUNC
-indices kept apart) so the engine starts in the driver's state. Each entry is "dw port, value".
+indices kept apart) so the engine starts in the driver's state. The state goes to the .INC as
+"dw port, value". The window, too large for a .COM, goes to the .DAT as the same word pairs ended by
+a zero port, and M8RECT.COM reads it from disk.
+
+pclog folds repeated lines, so "*** N repeats ***" is expanded: a row of solid pixels is a run of
+identical PIX_TRANS words, and dropping them hands the card a short row.
 """
+import struct
 import sys
 
+# pclog folds identical consecutive lines into "*** N repeats ***", which repeats the line before it.
 w = []
+last = None
 for line in open(sys.argv[1], errors='replace'):
     if line.startswith('M8W '):
         a = line.split()
-        w.append((int(a[1], 16), int(a[2], 16)))
+        last = (int(a[1], 16), int(a[2], 16))
+        w.append(last)
+    elif line.startswith('*** ') and line.rstrip().endswith(' repeats ***'):
+        if last is not None:
+            w.extend([last] * int(line.split()[1]))
+    else:
+        last = None
 
 groups, cur = [], []
 for x in w:
@@ -58,10 +72,10 @@ with open(sys.argv[2], 'w', newline='\r\n') as o:
     for p, v in pre:
         o.write('        dw      0%04Xh, 0%04Xh\n' % (p, v))
     o.write('        dw      0\n')
-    o.write('window:\n')
+with open(sys.argv[3], 'wb') as o:
     for p, v in body:
-        o.write('        dw      0%04Xh, 0%04Xh\n' % (p, v))
-    o.write('        dw      0\n')
+        o.write(struct.pack('<HH', p, v))
+    o.write(struct.pack('<HH', 0, 0))
 print('%d state writes, groups %d-%d, %d writes, commands: %s' % (
     len(pre), first, last, len(body),
     ' '.join(sorted({'%04X' % g[-1][1] for g in groups[first:last + 1]}))))

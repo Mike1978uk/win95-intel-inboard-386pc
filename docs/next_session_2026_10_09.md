@@ -62,6 +62,13 @@ Next, in order:
    border, the roller fills cleanly, no leak** (`pbrush_fill_border_ok_ebb7bc429.png`). The fill works on our build.
    Upstream master with the border set is not tested. Windows/386 2.11 refuses the real 5160 ("Unsupported 80386
    machine"), so there is no card comparison.
+6b. **DONE 10-09: 6695 items on build `e0cbfc1c7`.** No hang clicking outside the canvas, no fade glitch seen
+   (owner). Filled box: M8RECT replays 8514.DRV's exact writes (`tools/m8seq/gen_m8rect.py`, from
+   `vm_6695_w2_ours/w2_rect_e0cbfc1c7.log`) - card and bed BYTE-IDENTICAL (`M8RECT2_5160.BIN`,
+   `M8RECT2_bed_e0cbfc1c7.BIN`): 0C fill, 2-pixel border in 02, one extra 0C row and column. The border is
+   real hardware behaviour. CORRECTION to `ff78ee1`: its "VRAM-expansion gap" was the replay dropping pclog
+   `*** N repeats ***` lines (rows of 6-10 PIX_TRANS words where 8514.DRV 1:2D8F sends 89) - skill
+   technique 148. PR on hold at the owner's request until all gaps closed; none open from this work.
 7. Then the PR (owner writes the text), then the driver.
 
 ## Done 2026-10-08 (all pushed: main `master`, fork `inboard-ext-256k-diag` on remote `mike`)

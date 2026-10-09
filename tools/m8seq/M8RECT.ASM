@@ -1,8 +1,9 @@
 ; M8RECT.COM - the commands Windows/386 2.11's 8514.DRV sends when PC Paintbrush draws one filled box
 ; (86Box#6695: a border appears around it on 8514/A and Mach models, not on XGA), played on the card or
-; the model so their pixels can be compared. M8RECT.INC comes from a MACH8_WLOG=1 bed log through
-; gen_m8rect.py: the driver's engine state before the box, then every write from the box's fill to the
-; last copy-back - fill, save to off-screen memory, the shape written back row by row, cursor included.
+; the model so their pixels can be compared. gen_m8rect.py makes both inputs from a MACH8_WLOG=1 bed
+; log: M8RECT.INC, the driver's engine state before the box, and M8RECT.DAT, every write from the box's
+; fill to the last copy-back - fill, save to off-screen memory, the shape written back row by row as
+; mono host data, cursor included. M8RECT.DAT must be in the current directory.
 ;
 ; Before playing it the screen is filled with FFh and the off-screen rows 300h-3FFh with 00h, so both
 ; machines start from the same pixels. Then four 64x16 areas around the box's corners are read with the
@@ -25,6 +26,9 @@
 oname   db      'M8RECT.BIN', 0
 m_ok    db      'M8RECT: done', 13, 10, '$'
 m_out   db      'M8RECT: cannot write M8RECT.BIN', 13, 10, '$'
+m_dat   db      'M8RECT: cannot read M8RECT.DAT', 13, 10, '$'
+dname   db      'M8RECT.DAT', 0
+dhand   dw      0
 hdr     db      'M8RC'
 to_idle db      0
 to_data db      0
@@ -76,8 +80,8 @@ start:
         ; --- the driver's state again (the fills changed it), then the box ---
         mov     si, state
         call    play
-        mov     si, window
-        call    play
+        call    play_file
+        jc      .noda
         call    idle
 
         ; --- read the four areas ---
@@ -130,6 +134,11 @@ start:
         mov     dx, m_ok
         jmp     .say
 .err:   mov     dx, m_out
+        jmp     .say
+.noda:  OUTW    4AE8h, 2
+        mov     ax, 3
+        int     10h
+        mov     dx, m_dat
 .say:   mov     ah, 9
         int     21h
         mov     ax, 4C00h
@@ -180,6 +189,47 @@ play:
 .byte:  out     dx, al
         jmp     .next
 .done:  ret
+
+; Play M8RECT.DAT the same way, 4 KB at a time, until a zero port. CF set if it cannot be opened.
+play_file:
+        mov     ax, 3D00h
+        mov     dx, dname
+        int     21h
+        jc      .ret
+        mov     [dhand], ax
+.chunk: mov     ah, 3Fh
+        mov     bx, [dhand]
+        mov     cx, 4096
+        mov     dx, dbuf
+        int     21h
+        jc      .close
+        or      ax, ax
+        jz      .close
+        mov     cx, ax
+        shr     cx, 2
+        jz      .close
+        mov     si, dbuf
+.e:     call    fifo
+        lodsw
+        or      ax, ax
+        jz      .close
+        mov     dx, ax
+        lodsw
+        test    dx, 0F000h
+        jz      .byte
+        cmp     dx, 22E8h
+        je      .byte
+        out     dx, ax
+        loop    .e
+        jmp     .chunk
+.byte:  out     dx, al
+        loop    .e
+        jmp     .chunk
+.close: mov     ah, 3Eh
+        mov     bx, [dhand]
+        int     21h
+        clc
+.ret:   ret
 
 ; Bounded waits. 65,536 polls of GP_STAT is about 0.4 s on the 5160.
 idle:   push    cx
@@ -232,4 +282,5 @@ delay:  push    cx
 %include "M8RECT.INC"
 
 hdr2    db      0, 0
-res:
+res:    times   4096 db 0
+dbuf:

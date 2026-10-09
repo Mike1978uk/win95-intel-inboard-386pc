@@ -16,11 +16,19 @@ CRT = {0x02E8, 0x06E8, 0x0AE8, 0x0EE8, 0x12E8, 0x16E8, 0x1AE8, 0x1EE8, 0x22E8}
 SIG = [(0x4AE8, 7), (0x4AE8, 2), (0x32EE, 0), (0x42E8, 0x900F), (0x42E8, 0x400F), (0x6AEE, 0x009A),
        (0x36EE, 1)]
 
+# pclog folds identical consecutive lines into "*** N repeats ***", which repeats the line before it.
 w = []
+last = None
 for line in open(sys.argv[1], errors='replace'):
     if line.startswith('M8W '):
         a = line.split()
-        w.append((int(a[1], 16), int(a[2], 16), int(a[3])))
+        last = (int(a[1], 16), int(a[2], 16), int(a[3]))
+        w.append(last)
+    elif line.startswith('*** ') and line.rstrip().endswith(' repeats ***'):
+        if last is not None:
+            w.extend([last] * int(line.split()[1]))
+    else:
+        last = None
 idx = [i for i, x in enumerate(w) if x[0] not in CRT]
 f = [w[i] for i in idx]
 # 6AEEh bit 10 (PASSTHROUGH_OVERRIDE) depends on whether TEST.COM finds one shared DAC, so it is

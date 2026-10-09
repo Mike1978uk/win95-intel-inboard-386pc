@@ -37,6 +37,7 @@ end to end.** Find what applies, read that, and add back what you learn.
 |---|---|
 | Anything at all | **Core principle** - live evidence beats static disassembly, which has produced confident wrong answers here repeatedly |
 | A device fails a vendor test, or a register's meaning is unclear | **147** - read the vendor's own sources first: the test's expected values, the programmer's guide, the vendor driver. Then one probe to confirm |
+| Replaying writes taken from an 86Box log | **148** - expand `*** N repeats ***`; check the replay against the driver's own loop counts |
 | Before proposing ANYTHING | **113** - check issue STATE, the newest `docs/next_session_*.md`, and the component's spec index. Three things were re-derived on 2026-09-11 for want of this |
 | A working binary exists for the hardware | **112** - disassemble it IN FULL, FIRST. `tools/pedis.py <file> sections\|imports\|all\|io` |
 | "It does not reproduce in the emulator" | **90** - that is a claim about the emulator. Check what it does not model |
@@ -8485,3 +8486,18 @@ it at POST (56EEh ScratchPad1: card 0820h, bed 0004h) showed it in one COMrade r
   nibble. M8BLRD fed pixels chosen so every candidate predicted differently and settled it in one run.
   Include a case that replays the test verbatim, so a wrong setup is caught; and read back what you
   drew - it exposed a second, unrelated bug (DP_CONFIG feeding 8514/A commands) the read alone hid.
+
+## Technique 148: a log-derived replay must expand pclog's folded repeats
+
+2026-10-09, Mach8 (86Box#6695). `pclog` folds identical consecutive lines into `*** N repeats ***`,
+which repeats the line before it. A write log (`MACH8_WLOG`) of mono host data is mostly runs of
+identical PIX_TRANS words, and two scripts read only the `M8W` lines. M8RECT then played card and bed a
+filled box with 6-10 data words per row where the driver sends 89 (2 per source byte, 8514.DRV 1:2D8F),
+and the "difference" between them (1,437 of 4,096 bytes) was the two machines handling short data the
+driver never sends. With the repeats expanded the card and the bed were byte-identical.
+
+- Expand `*** N repeats ***` after an `M8W` line; ignore it after any other line.
+- Before trusting a replay, count what the driver's own loop sends and check the table holds it.
+- A difference that appears only in replayed data, never in a live run, is suspect until the replay
+  is checked. Here the tell was a row of 340 pixels carried by 6 words.
+- `m8pre_from_log.py` had the same parser; M8PRE.DAT came out unchanged, but that was luck.
