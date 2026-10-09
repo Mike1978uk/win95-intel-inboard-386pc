@@ -8,9 +8,13 @@
 ; Graphics Ultra lets the register written last pick the foreground source, so it is replayed in the
 ; driver's write order), the operation, then two 64x16 areas read back with the 16-bit read 53B0h as
 ; M8ROW7 does: around the operation's first corner and its last.
-; Run from a DOS boot in the directory holding M8CONF.DAT. Writes M8CONF.BIN: "M8CF", then per test:
-; idle timeouts, data timeouts, 2 pad, 2 x 1024 bytes. Each test is written as it completes.
-; The 8514 display is on while it runs.
+; A read operation sends pixels to the host, and the engine holds until they are read. For those, the
+; data is read from PIX_TRANS after the trigger until the engine stops offering it (or MAXRD words), and
+; kept. A read is a CMD with bit 8 (host data) set and bit 0 (write) clear, or an extended operation
+; whose test writes DP_CONFIG with the host as foreground source (bits 15:13 = 2) and bit 0 clear.
+; Run from a DOS boot in the directory holding M8CONF.DAT. Writes M8CONF.BIN: "M8C3", then per test:
+; idle timeouts, data timeouts, words read (word), 2 x 1024 bytes, MAXRD words of read data (zero past
+; the count). Each test is written as it completes. The 8514 display is on while it runs.
 ;
 ;   nasm -f bin -o M8CONF.COM M8CONF.ASM
 
@@ -23,7 +27,8 @@
 %endmacro
 
 MAXENT  equ     4200                    ; entries per test (state + operation)
-REC     equ     4 + 2048
+MAXRD   equ     4096                    ; words kept from a read operation
+REC     equ     4 + 2048 + 2 * MAXRD
 
         jmp     start
 
@@ -33,7 +38,7 @@ m_ok    db      'M8CONF: done', 13, 10, '$'
 m_dat   db      'M8CONF: cannot read M8CONF.DAT', 13, 10, '$'
 m_out   db      'M8CONF: cannot write M8CONF.BIN', 13, 10, '$'
 m_big   db      'M8CONF: test too large', 13, 10, '$'
-hdr     db      'M8CF'
+hdr     db      'M8C3'
 dhand   dw      0
 ohand   dw      0
 thdr    dw      0, 0, 0, 0, 0, 0        ; state count, op count, area A x, y, area B x, y
@@ -42,6 +47,11 @@ areay   dw      0
 recp    dw      0
 to_idle db      0
 to_data db      0
+isrd    db      0                       ; this test's operation is a read
+dpseen  db      0
+dpc     dw      0
+trigp   dw      0
+trigv   dw      0
 
 start:
         cld
@@ -97,6 +107,11 @@ start:
         mov     dx, ebuf
         int     21h
 
+        mov     di, res                 ; a fresh record: counts and read data start at zero
+        mov     cx, REC
+        xor     al, al
+        rep     stosb
+        call    classify
         mov     byte [to_idle], 0
         mov     byte [to_data], 0
         OUTW    32EEh, 0                ; engine reset
@@ -112,6 +127,10 @@ start:
         call    play
         mov     cx, [thdr + 2]          ; the operation follows the state in the buffer
         call    play
+        cmp     byte [isrd], 0
+        je      .noread
+        call    drain
+.noread:
         call    idle
 
         mov     ax, [thdr + 4]
@@ -263,6 +282,94 @@ area_read:
         ret
 .rz:    xor     ax, ax
         rep     stosw
+        ret
+
+; Set [isrd] if this test's operation is a read (see the header): the last trigger among the entries,
+; and the last DP_CONFIG the test writes.
+classify:
+        mov     byte [isrd], 0
+        mov     byte [dpseen], 0
+        mov     word [trigp], 0
+        mov     si, ebuf
+        mov     cx, [thdr]
+        add     cx, [thdr + 2]
+        jcxz    .decide
+.e:     lodsw
+        mov     bx, ax                  ; port
+        lodsw
+        mov     dx, ax                  ; value
+        lodsw                           ; width
+        cmp     bx, 0CEEEh
+        jne     .t
+        mov     [dpc], dx
+        mov     byte [dpseen], 1
+        jmp     .n
+.t:     cmp     bx, 9AE8h
+        je      .trig
+        cmp     bx, 0AEEEh
+        je      .trig
+        cmp     bx, 0CAEEh
+        je      .trig
+        cmp     bx, 96EEh
+        je      .trig
+        cmp     bx, 0FEEEh
+        jne     .n
+.trig:  mov     [trigp], bx
+        mov     [trigv], dx
+.n:     loop    .e
+.decide:
+        mov     ax, [trigp]
+        or      ax, ax
+        jz      .ret
+        cmp     ax, 9AE8h
+        jne     .ext
+        mov     ax, [trigv]
+        and     ax, 101h
+        cmp     ax, 100h
+        jne     .ret
+        jmp     .yes
+.ext:   cmp     byte [dpseen], 0
+        je      .ret
+        mov     ax, [dpc]
+        test    al, 1
+        jnz     .ret
+        mov     cl, 13
+        shr     ax, cl
+        cmp     ax, 2
+        jne     .ret
+.yes:   mov     byte [isrd], 1
+.ret:   ret
+
+; Read PIX_TRANS while the engine offers data, up to MAXRD words, into the record; the count goes at
+; res+2. The wait that ends it costs one bounded poll, which is not counted as a timeout.
+drain:  mov     di, res + 4 + 2048
+        xor     bx, bx
+.w:     cmp     bx, MAXRD
+        jae     .end
+        call    dpoll
+        jc      .end
+        mov     dx, 0E2E8h
+        in      ax, dx
+        stosw
+        inc     bx
+        jmp     .w
+.end:   mov     [res + 2], bx
+        ret
+
+; CF clear if GP_STAT shows data ready within the bounded wait, set if not.
+dpoll:  push    cx
+        push    dx
+        mov     dx, 9AE8h
+        xor     cx, cx
+.d:     in      ax, dx
+        test    ax, 100h
+        jnz     .ok
+        loop    .d
+        stc
+        jmp     .x
+.ok:    clc
+.x:     pop     dx
+        pop     cx
         ret
 
 ; Bounded waits. 65,536 polls of GP_STAT is about 0.4 s on the 5160.

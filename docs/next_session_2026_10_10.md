@@ -56,12 +56,24 @@ Next, in order:
      bytes 2-3, which the probe never writes (stale memory), and m8seq_diff still finds them identical to
      the card; M8REGS's three changed bytes are read before any drawing and now hold the bed's usual values
      (A9h also varies on the card).
-   - Test 58: the line colour now matches (the 00 came from the old line setup, mechanism not traced). One
-     pixel left: the card draws the end point (1023,1023), the bed does not. The test writes no
+   - Test 58: in the 39ae78a0d run its line colour matched the card (FF), but the probe run below drew 00
+     again with the same model: test 58 inherits DP_CONFIG and other state from earlier tests, and the
+     read drain changed what is left behind. So its colour is inherited state, NOT fixed by the line
+     setup (that claim in ab45641 was wrong). Its end point: the card draws (1023,1023), the bed does not. The test writes no
      LINEDRAW_OPT, so it inherits 070C from test 50 (tests 59-63 write 070C and draw no end point on either
      machine). Something between test 50 and 58 changes it on the card: the 8514/A CMDs in tests 55-57, the
-     engine reset, or the FRGD_MIX write. Card probe: engine reset, one 8514/A CMD, then a LINEDRAW with
-     LINEDRAW_OPT 070C; and the same without the CMD.
+     engine reset, or the FRGD_MIX write.
+1d. **Probes for the card, written and run in the bed (`vm_6695/probes_39ae78a0d/`):**
+   - `M8CONF` now drains PIX_TRANS after a read operation (CMD with bit 8 set and bit 0 clear, or a test
+     that writes DP_CONFIG with host source and bit 0 clear: exactly tests 3-6, 54, 66, 67) and keeps up to
+     4,096 words ("M8C3" records; `m8conf_cmp.py` compares them). Bed: no timeouts left; test 54 read its
+     32 words (8x8) and stopped. The blits (3-6) are 6,912-7,296 px, so the first cap of 2,048 cut them
+     short; raised to 4,096 and NOT yet re-run. Tests 66 (916 px scan) and 67 (1 px scan) ran to the cap
+     in the bed: the model seems to keep data-ready set after an extended scan read. Card to say.
+   - `M8LEND` (+ `m8lend_decode.py`): LINEDRAW (10,2)-(30,12) after LINEDRAW_OPT 070C, with 7 different
+     writes in between (engine reset, subsystem reset, one 8514/A CMD, FRGD_MIX, and CMD followed by
+     FRGD_MIX / DP_CONFIG / LINEDRAW_OPT). Bed: no end point in any case. The card shows which write
+     brings it back.
 2. Win95 capture: `vm_5160_now` (ATIM8.DRV, 800x600) with MACH8_WLOG=1, owner session ~10 min; run
    gen_m8conf.py over both logs into one M8CONF.DAT.
 3. Card run via the CF reader (COMrade cannot move files this size reliably): copy M8CONF.COM/.DAT to

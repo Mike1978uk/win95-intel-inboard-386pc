@@ -9,7 +9,7 @@ reloads from PATT_INDEX" from "the index follows the destination X".
 """
 import sys
 
-from m8conf_cmp import last, read_bin, read_dat
+from m8conf_cmp import last, pixdiff, read_bin, read_dat
 
 TRIG = (0xAEEE, 0xCAEE, 0x96EE, 0xFEEE, 0x9AE8)
 
@@ -24,7 +24,7 @@ def main():
         if (dpc >> 13) != 5:
             continue
         trig = [p for p, _, _ in t['op'] if p in TRIG]
-        diff = sum(1 for x, y in zip(card[n][4:], bed[n][4:]) if x != y)
+        diff = pixdiff(card[n], bed[n])
         print('test %2d DP_CONFIG %04X trigger %s PATT_INDEX %s PATT_LENGTH %s CUR_X %s DEST_X_START %s '
               'DEST_X_END %s CUR_Y %s DEST_Y_END %s  diff %d' % (
                   n, dpc, '%04X' % trig[0] if trig else '-', last(e, 0xD6EE), last(e, 0xD2EE), last(e, 0x86E8),

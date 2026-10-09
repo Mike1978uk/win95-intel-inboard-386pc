@@ -39,12 +39,30 @@ def read_dat(path):
     return tests
 
 
+MAXRD = {b'M8C2': 2048, b'M8C3': 4096}
+
+
 def read_bin(path):
-    """Records from M8CONF.BIN: idle timeouts, data timeouts, 2 pad, then 2 x 1024 pixel bytes."""
+    """Records from M8CONF.BIN: idle timeouts, data timeouts, then 2 x 1024 pixel bytes. "M8CF" files
+    have 2 pad bytes before the pixels; "M8C2" and "M8C3" files have the count of words read back from
+    a read operation there, and MAXRD words of that data after the pixels."""
     d = open(path, 'rb').read()
-    if d[:4] != b'M8CF':
+    rec = 2052 + 2 * MAXRD[d[:4]] if d[:4] in MAXRD else (2052 if d[:4] == b'M8CF' else None)
+    if rec is None:
         raise SystemExit('%s is not an M8CONF result' % path)
-    return [d[k:k + 2052] for k in range(4, len(d) - 2051, 2052)]
+    return [d[k:k + rec] for k in range(4, len(d) - rec + 1, rec)]
+
+
+def read_words(rec):
+    """The words a read operation returned, or None for a record without them."""
+    if len(rec) <= 2052:
+        return None
+    n = struct.unpack_from('<H', rec, 2)[0]
+    return list(struct.unpack_from('<%dH' % n, rec, 2052))
+
+
+def pixdiff(c, b):
+    return sum(1 for x, y in zip(c[4:2052], b[4:2052]) if x != y)
 
 
 def pattern(x, y):
@@ -84,13 +102,28 @@ def dump_entries(title, entries):
         prev = e
 
 
+def readback(c, b):
+    """'' when neither record holds read data, else a summary of the two."""
+    wc, wb = read_words(c), read_words(b)
+    if wc is None or wb is None or (not wc and not wb):
+        return ''
+    k = next((i for i, (x, y) in enumerate(zip(wc, wb)) if x != y), None)
+    if k is None and len(wc) == len(wb):
+        return '  read %d words, same' % len(wc)
+    at = ('first differ at word %d' % k) if k is not None else 'common words agree'
+    return '  read card %d bed %d words, %s' % (len(wc), len(wb), at)
+
+
 def dump(n, test, c, b):
-    diff = sum(1 for x, y in zip(c[4:], b[4:]) if x != y)
     print('=' * 70)
-    print('test %d  diff %d bytes  timeouts card %d/%d bed %d/%d  area A %s  area B %s'
-          % (n, diff, c[0], c[1], b[0], b[1], test['a'], test['b']))
+    print('test %d  pixels diff %d bytes  timeouts card %d/%d bed %d/%d  area A %s  area B %s%s'
+          % (n, pixdiff(c, b), c[0], c[1], b[0], b[1], test['a'], test['b'], readback(c, b)))
     dump_entries('state', test['st'])
     dump_entries('operation', test['op'])
+    wc, wb = read_words(c), read_words(b)
+    if wc or wb:
+        for name, w in (('card', wc), ('bed ', wb)):
+            print(' read %s %s%s' % (name, ' '.join('%04X' % x for x in (w or [])[:16]), ' ...' if w and len(w) > 16 else ''))
     for ai, (ox, oy) in enumerate((test['a'], test['b'])):
         base = 4 + ai * 1024
         for r in range(16):
@@ -117,9 +150,9 @@ def main():
             if n in want:
                 dump(n, tests[n], c, b)
             continue
-        diff = sum(1 for x, y in zip(c[4:], b[4:]) if x != y)
-        if diff or c[:2] != b[:2]:
-            print('test %2d  diff %4d  timeouts card %d/%d bed %d/%d' % (n, diff, c[0], c[1], b[0], b[1]))
+        diff, rb = pixdiff(c, b), readback(c, b)
+        if diff or c[:2] != b[:2] or (rb and not rb.endswith('same')):
+            print('test %2d  diff %4d  timeouts card %d/%d bed %d/%d%s' % (n, diff, c[0], c[1], b[0], b[1], rb))
 
 
 if __name__ == '__main__':
