@@ -119,6 +119,18 @@ Next, in order:
    (guide: reads wrap too, and colour reads outside the scissors return FFh); the polygon path.
    Pre-PR note: `vid_8514a.c:3337` (polygon path, not ours today) gives -Wdangling-else - check whether
    upstream master has it before calling the build warning-free (gate G7).
+1i. **Whole-card coverage (owner, 2026-10-09): both halves, never ranked by driver use** - our driver,
+   DirectDraw and 3D will use parts no ATI driver touches. Plan: `docs/mach8_card_coverage.md`, one row per
+   register/feature: guide text, model status, card-measured?, driver use, possible use. Accelerator first
+   (guide chapters 8-9, ~100 register descriptions; an automated case-label cross-check was too noisy -
+   read each handler), then the appendices (BIOS, EEPROM map, CRT, clocks, RAMDAC), then the VGA half.
+   - **VGA half = an ATI VGA Wonder (28800-6, 512 KB)**: Henry Worth 1993; dosdays' VGA Wonder GT has the
+     same chip pair. Sources now held: XFree86 3.3.6 `vga256/drivers/ati/` (`references/xfree86_336_ati/`,
+     not vendored) and Sutty and Blair (18800 only, owner's PDF). Both in `docs/resources_and_sources.md`.
+   - **M8BANK on the card** (`M8BANK_5160.BIN`, decoder `m8bank_decode.py`): B2h page register exactly as
+     XFree86 documents, single and dual page; page 8 wraps to page 0. An AI answer's layout was wrong.
+   - Worth a look for the vision work: B6h bit 5 vertical interrupt enable, B5h eight simultaneous fonts,
+     B1h double / 3-of-4 scanning (Sutty and Blair, 18800 - check the 28800 against XFree86 and the card).
    - `M8LEND` (+ `m8lend_decode.py`): LINEDRAW (10,2)-(30,12) after LINEDRAW_OPT 070C, with 7 different
      writes in between (engine reset, subsystem reset, one 8514/A CMD, FRGD_MIX, and CMD followed by
      FRGD_MIX / DP_CONFIG / LINEDRAW_OPT). Bed: no end point in any case. The card shows which write
