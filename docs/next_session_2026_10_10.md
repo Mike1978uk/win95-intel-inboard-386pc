@@ -1,0 +1,58 @@
+# Next session - Mach8: finish the gap list, then the PR
+
+Supersedes `docs/next_session_2026_10_09.md` for order (still the reference for 10-08/09 detail).
+
+## Owner's rule (10-09)
+
+No PR until every gap that matters for our driver is closed: "if they matter for us and our driver they
+matter for the PR". The CPU fix (`5fce405ab`, fetch from pages with no exec pointer) is a separate PR.
+
+## Done 2026-10-09 (all pushed except where noted)
+
+| what | where |
+|---|---|
+| CRT shadow sets re-added: per-set locks, SHADOW_SET write shows set 1 until the next ADVFUNC, primary set powers up zero, DISP_CNTL in the sets, read-backs from the shown set; vertical read-backs decoded (guide SKIP_2) | fork `e749c3496` `bf68c27d6` `3b34eb220` `e0cbfc1c7`; card probes M8SHRL/M8SHR2 = bed exactly |
+| Windows/386 2.11 at 1024x768; REGR = pre-shadow baseline except CRT read-backs; TEST.COM passes | `w2_ours_1024_e0cbfc1c7.png` |
+| 6695: fill works with border set, no hang outside canvas, no fade glitch; filled-box border is real hardware - M8RECT card = bed byte for byte | `M8RECT2_5160.BIN`, `M8RECT2_bed_e0cbfc1c7.BIN`; skill technique 148 (pclog repeats) |
+| Vertical read-back decode gated to the Graphics Ultra (Mach32 untouched) | fork `fd653e6b9` |
+| **Win 3.11 text was blank** (MACHW3.DRV font upload, DP_CONFIG 2051h): 8-bit mono host data must come from D15:8 - exposed by the 10-08 8-bit bus fix. Fixed; text back | fork `dcfbf6e67`; `w311_sb_dialog_notext_fd653e6b9.png` vs `w311_text_back_dcfbf6e67.png` |
+| M8PRE.DAT regenerated (6AEE 009Ah); unchanged by the repeats fix | `8170a2f` |
+
+Fork branch `inboard-ext-256k-diag` on `mike`. Bed `vm_mach8_w311` now carries the FlexView EEPROM
+(blank one kept as `nvr/mach8.nvr.blank_bak`).
+
+## In progress: the conformance probe (items 2-4)
+
+Every operation shape ATI's drivers use, replayed from real driver writes on card and bed, pixels compared.
+
+- `tools/m8seq/gen_m8conf.py` - extracts one instance per shape (trigger, DP_CONFIG, ALU_FG/BG_FN, host
+  data) from MACH8_WLOG logs, largest up to 2,048 px, with the driver's state in last-write order.
+- `tools/m8seq/M8CONF.ASM/.COM` - per test: reset, state, pattern (x XOR 5y, whole 1 MB), state, op,
+  two 64x16 reads (53B0h). Output M8CONF.BIN: "M8CF", per test 4 + 2048 bytes.
+- Win 3.11 capture: `vm_mach8_w311/conf_w311_dcfbf6e67.log` (118 MB) -> 82 shapes ->
+  `vm_6695/M8CONF_w311.DAT` (52 blit, 18 scan, 6 line, 6 cmd).
+- **A sanity run was left going in `vm_6695`** (AUTOEXEC calls `\M8SEQ\M8CF.BAT`): read
+  `C:\M8SEQ\M8CONF.BIN` out of `vm_6695/w311.img` (`tools/fatls.py --get`), check no timeouts and sane
+  pixels, then put `AUTOEXEC.BAT` back from the 538-byte original (md5 45d89fad...).
+
+Next, in order:
+1. Check the sanity run. Untested probe: expect a fix or two.
+2. Win95 capture: `vm_5160_now` (ATIM8.DRV, 800x600) with MACH8_WLOG=1, owner session ~10 min; run
+   gen_m8conf.py over both logs into one M8CONF.DAT.
+3. Card run via the CF reader (COMrade cannot move files this size reliably): copy M8CONF.COM/.DAT to
+   `D:\`, owner runs `M8CONF`, read `D:\M8CONF.BIN`. Bed run the same. Diff per test; fix rows.
+4. Remaining list: X wrap mod 1024 in rect/blit (5), SHADOW_SET[9:8] split and 4AE8h GE_OFFSET reset
+   applied to the Mach8 (guide: Mach32 only), M8REGS read-backs a driver reads (22E8 card 0005, 12EE,
+   1AEE, 36EE, 3AEE, 7AEE, A2EE, D6EE), LINEDRAW LAST_PEL_OFF 9th pixel (only if the capture shows line
+   reads), TEST.COM patterns/speed.
+5. Pre-PR: regress the Mach32 and 8514/A models (shared code), talk to TC1995 (blit ends vs
+   `c54d36cff`), clean branch without DIAGNOSTIC commits on current master, G1-G10. Owner writes the PR;
+   6695 reply draft is in the 10-09 conversation (post after the PR number exists).
+
+## Traps met this session
+
+- COMrade file_write of >5 KB times out part-way; use the CF reader for probes. Parts must sit inside the
+  repo (bridge root). Keystroke injection stalls - have the owner type commands.
+- A run that timed out still left a truncated .COM on the card; it ran and locked the machine. Hash
+  before running, every time.
+- pclog `*** N repeats ***` must be expanded in any log-derived replay (technique 148).
