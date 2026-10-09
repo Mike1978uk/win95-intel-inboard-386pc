@@ -13,7 +13,7 @@ import struct
 import sys
 
 CRT = {0x02E8, 0x06E8, 0x0AE8, 0x0EE8, 0x12E8, 0x16E8, 0x1AE8, 0x1EE8, 0x22E8}
-SIG = [(0x4AE8, 7), (0x4AE8, 2), (0x32EE, 0), (0x42E8, 0x900F), (0x42E8, 0x400F), (0x6AEE, 0x049A),
+SIG = [(0x4AE8, 7), (0x4AE8, 2), (0x32EE, 0), (0x42E8, 0x900F), (0x42E8, 0x400F), (0x6AEE, 0x009A),
        (0x36EE, 1)]
 
 w = []
@@ -23,7 +23,12 @@ for line in open(sys.argv[1], errors='replace'):
         w.append((int(a[1], 16), int(a[2], 16), int(a[3])))
 idx = [i for i, x in enumerate(w) if x[0] not in CRT]
 f = [w[i] for i in idx]
-starts = [j for j in range(len(f) - len(SIG)) if [(p, v) for p, v, _ in f[j:j + len(SIG)]] == SIG]
+# 6AEEh bit 10 (PASSTHROUGH_OVERRIDE) depends on whether TEST.COM finds one shared DAC, so it is
+# not part of the signature.
+def key(p, v):
+    return (p, v & ~0x0400) if p == 0x6AEE else (p, v)
+
+starts = [j for j in range(len(f) - len(SIG)) if [key(p, v) for p, v, _ in f[j:j + len(SIG)]] == SIG]
 if not starts:
     raise SystemExit('no TEST.COM run in the log')
 s = idx[starts[-1]]
