@@ -31,12 +31,11 @@ Every operation shape ATI's drivers use, replayed from real driver writes on car
   two 64x16 reads (53B0h). Output M8CONF.BIN: "M8CF", per test 4 + 2048 bytes.
 - Win 3.11 capture: `vm_mach8_w311/conf_w311_dcfbf6e67.log` (118 MB) -> 82 shapes ->
   `vm_6695/M8CONF_w311.DAT` (52 blit, 18 scan, 6 line, 6 cmd).
-- **A sanity run was left going in `vm_6695`** (AUTOEXEC calls `\M8SEQ\M8CF.BAT`): read
-  `C:\M8SEQ\M8CONF.BIN` out of `vm_6695/w311.img` (`tools/fatls.py --get`), check no timeouts and sane
-  pixels, then put `AUTOEXEC.BAT` back from the 538-byte original (md5 45d89fad...).
 
 Next, in order:
-1. Check the sanity run. Untested probe: expect a fix or two.
+1. Sanity run DONE (`M8CONF_w311_bed_dcfbf6e67.BIN`): all 82 tests ran, varied pixels, one test uniform;
+   tests 54, 66, 67 report timeouts - look at those three (which shapes, which wait) first. vm_6695
+   AUTOEXEC.BAT restored.
 2. Win95 capture: `vm_5160_now` (ATIM8.DRV, 800x600) with MACH8_WLOG=1, owner session ~10 min; run
    gen_m8conf.py over both logs into one M8CONF.DAT.
 3. Card run via the CF reader (COMrade cannot move files this size reliably): copy M8CONF.COM/.DAT to
