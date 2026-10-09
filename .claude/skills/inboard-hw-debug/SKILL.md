@@ -8405,7 +8405,13 @@ How it was found, and the traps on the way:
   watch, then log in `mem_write_ram*()`. Arm it late: the BIOS RAM test fills any small cap.
 - Two fixes were guessed first and both failed. Build the instrument after the second miss (technique 80).
 
-## Technique 144: scope emulation fidelity by what the guest driver actually uses
+## Technique 144: tally what the guest drivers use - as a test source, not a scope limit
+
+⛔ **Corrected (owner, 2026-10-07 and 2026-10-09): do not scope fidelity by driver usage.** This project's
+own driver, DirectDraw and 3D work will use parts of the card no existing driver touches - both halves of
+the Graphics Ultra, its RAM on each side, tricks nobody tried. The whole card is the scope; the tally below
+says which operations to test first and gives real driver traffic to replay (M8CONF). The "for nothing a
+driver needs" reasoning at the end of this section is retracted: TS1/TS2 were made fully clean on 10-08.
 
 Before matching a diagnostic's every operation, tally what the production drivers send. `MACH8_COUNT=1`
 (diagnostic tree, `ee29d00c8`) records each distinct control-register value and engine start and dumps
