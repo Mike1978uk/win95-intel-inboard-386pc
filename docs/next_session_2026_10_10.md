@@ -75,6 +75,18 @@ Next, in order:
      `M8LEND.COM` 2f8a6967.** Run both from a DOS boot in `C:\`; compare with
      `m8conf_cmp.py M8CONF_w311.DAT <card M8CONF.BIN> docs/captures/2026-10-09_m8probes/M8CONF_w311_bed_39ae78a0d_m8c3.BIN`
      and `m8lend_decode.py <card M8LEND.BIN> docs/captures/2026-10-09_m8probes/M8LEND_bed_39ae78a0d.BIN`.
+1e. **Card run DONE (`docs/captures/2026-10-09_m8probes/*_5160*`): 79 of 82 identical**, read data
+   included. Tests 3-6 and 54 read back exactly what the bed does.
+   - Tests 66, 67 (scan reads, DP_CONFIG 4010/4210): the card gives ONE pixel per word (916 words for 916
+     px, 1 for 1) and drops data-ready at the end; the bed gives 4,096 words, different from word 0.
+   - M8LEND: an 8514/A CMD (40F3, bit 2 clear) between LINEDRAW_OPT 070C and the line brings the end point
+     back; writing LINEDRAW_OPT after the CMD drops it again; engine reset, subsystem reset, FRGD_MIX and
+     DP_CONFIG do nothing to it. Fits one last-pixel latch shared by CMD bit 2 and LINEDRAW_OPT bit 2,
+     last write wins (guide p. 8-21; short-stroke vectors honour LINEDRAW_OPT's LAST_PEL_OFF). Not yet
+     separated from "any CMD clears it": no case used a CMD with bit 2 set. LINEDRAW_OPT is R/W, so a
+     read-back before and after CMDs with bit 2 clear and set settles it.
+   - Test 58: card draws the end point (fits the above: M8CONF's pattern fill is CMD 40F3) and colour FF;
+     the bed draws 00 again. The colour is inherited state, still not traced.
    - `M8LEND` (+ `m8lend_decode.py`): LINEDRAW (10,2)-(30,12) after LINEDRAW_OPT 070C, with 7 different
      writes in between (engine reset, subsystem reset, one 8514/A CMD, FRGD_MIX, and CMD followed by
      FRGD_MIX / DP_CONFIG / LINEDRAW_OPT). Bed: no end point in any case. The card shows which write
