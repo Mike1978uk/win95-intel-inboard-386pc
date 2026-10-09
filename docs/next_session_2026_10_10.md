@@ -36,6 +36,11 @@ Next, in order:
 1. Sanity run DONE (`M8CONF_w311_bed_dcfbf6e67.BIN`): all 82 tests ran, varied pixels, one test uniform;
    tests 54, 66, 67 report timeouts - look at those three (which shapes, which wait) first. vm_6695
    AUTOEXEC.BAT restored.
+1b. **Card run DONE (`M8CONF_w311_5160.BIN` vs `M8CONF_w311_bed_dcfbf6e67.BIN`): 71 of 82 shapes identical.**
+   Probe gap first: read shapes (tests 3-6 blit 5210, 54 cmd 43F0, 66/67 scan 4010/4210) need the probe to
+   drain and record PIX_TRANS reads after the trigger (the write log has no reads; the card stalls, 7
+   timeouts). Real differences to chase: test 28 blit A211 fg07/bg05 (244 bytes), tests 58/61/62 LINEDRAW
+   (2211 bg 03/05; 32/8/2 bytes - end points or last pixel). Test order = gen_m8conf.py's sorted keys.
 2. Win95 capture: `vm_5160_now` (ATIM8.DRV, 800x600) with MACH8_WLOG=1, owner session ~10 min; run
    gen_m8conf.py over both logs into one M8CONF.DAT.
 3. Card run via the CF reader (COMrade cannot move files this size reliably): copy M8CONF.COM/.DAT to
