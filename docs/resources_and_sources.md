@@ -184,6 +184,17 @@ the directory's own `README.md`.
   length); p. 175 (destination colour compare: TRUE leaves the pixel unchanged - the Mach8 source compare at
   92EEh does not: a true result writes the background, M8SCMP); p. 176 (plane masking happens before compares
   and mixes).
+- **[AI-SOURCED] Google AI answer on the VGA Wonder+/XL/GT (28800), pasted by the owner 2026-10-09** - for the
+  Graphics Ultra's VGA half (Henry Worth above: a VGA Wonder; our card's VGA chip is a 28800-6, the same pair
+  as dosdays' VGA Wonder GT). Checked the same day: (1) BIOS signature "761295520" - **holds**, at C000:0031
+  in our card's ROM (`roms/video/ATI_MACH8.bin`) and in 113-01113-140; (2) extended registers through
+  1CEh/1CFh - **holds** (the card's EEPROM is read through index B3h there; M8REGS dumps A0h-BFh);
+  (3) bank select B2h "read bits 1-0, write bits 4-3" and its sample code - **does not match** 86Box
+  (`vid_ati28800.c`: write bank bits 4-1; with dual paging, read bank bit 0 + bits 7-5), so unverified
+  either way until measured on the card; (4) chip variants "-2, -4, -5" - omits our -6; B0h/B8h/BEh
+  descriptions too thin to use. Worth following: Sutty and Blair, *Advanced Programmer's Guide to
+  SuperVGAs* (the book it names); VGADOC4B's ATI section; the full XFree86 3.3.6 `vga256/drivers/ati/`
+  (we hold only its Mach8 part).
 - **Ardent Tool's diagnostic code list** (page above): 14201-14215. 14204 Graphics Subsystem, 14205 RAMDAC,
   14206 RAM match TEST.COM's messages in 86Box; TEST.COM's TS1 code 14216 is not listed.
 
