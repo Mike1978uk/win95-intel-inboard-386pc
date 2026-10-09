@@ -210,6 +210,17 @@ the directory's own `README.md`.
   B3h EEPROM lines D3/D1/D0 (match the card's EEPROM path); B6h D5 vertical interrupt enable; B5h D4 eight
   simultaneous fonts; B1h double / 3-of-4 scanning; B4h/B8h register locks; BBh memory size and monitor
   type latch; extended BIOS (INT 10h 12h/6 parameter table). The 28800's additions are not in it.
+- **Richard F. Ferraro, *Programmer's Guide to the EGA, VGA and Super VGA Cards*, 3rd edition** - owner's text
+  capture (from a text stream, so OCR-grade: read field text, not columns) at `XT_project/ATI/Programmers Guide
+  to the EGA VGA and Super VGA Cards 3rd Edition by Richard F Ferraro.txt` (copyrighted, not in the repo).
+  Chapter 19 covers the 18800, the 28800 revisions 1-6, the Mach8 (38800) and the Mach32 (68800): detection,
+  modes, single/dual banking with separate code for 28800 rev 1 and rev 2+ (listings 19.10-19.13), CRT start and
+  cursor addressing, BIOS extensions, then the Mach8/Mach32 engines (19.7-19.24: data path, LINEDRAW_OPT,
+  scissors, pre-clip, direct and Bresenham lines, short strokes, BitBlt, patterns, pixel transfer, compare,
+  masks, status). Table 19.46/47 ("Mach-32 extended VGA registers", ATIxx = index 80h+xx): B2h paging as the
+  card measures; BEh bit 3 dual paging, bit 2 a 128 KB window at A0000-BFFFF; B6h bit 5 vertical interrupt,
+  bits 2/6 linear addressing; B0h memory size and 8-bit DAC; AEh page bits 5-4. Mach32 VGA tables - check each
+  against the 28800 (XFree86, the card) before use. Read 2026-10-09 (chapter map and tables 19.46-19.47 only).
 - **Ardent Tool's diagnostic code list** (page above): 14201-14215. 14204 Graphics Subsystem, 14205 RAMDAC,
   14206 RAM match TEST.COM's messages in 86Box; TEST.COM's TS1 code 14216 is not listed.
 
