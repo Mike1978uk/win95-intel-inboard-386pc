@@ -221,6 +221,19 @@ the directory's own `README.md`.
   card measures; BEh bit 3 dual paging, bit 2 a 128 KB window at A0000-BFFFF; B6h bit 5 vertical interrupt,
   bits 2/6 linear addressing; B0h memory size and 8-bit DAC; AEh page bits 5-4. Mach32 VGA tables - check each
   against the 28800 (XFree86, the card) before use. Read 2026-10-09 (chapter map and tables 19.46-19.47 only).
+- **ATI VGAWONDER XL24 driver diskette (`ativtool.zip`, VOGONS drivers archive, ATI Technical Note #079,
+  1994-02-18)** - owner's copy at `XT_project/ATI/ativtool/`. Covers all 18800/28800 VGAWONDER cards. Holds
+  VINSTALL (+ .HLP), RAMBIOS.SYS, VANSI.SYS, VVESA.COM, L43/CLR/PRTSCRN, mouse drivers, README (21 KB, not yet
+  read). **VVESA.COM (13,548 bytes) is the same size as `C:\VVESA.COM` on the bed image** - ATI's own VESA
+  driver for the 28800 is already on the machine: a working implementation of banking, modes and clocks to
+  disassemble (technique 112) before trusting any summary.
+- **[AI-SOURCED] second Google AI answer on the 28800, pasted by the owner 2026-10-09.** Right: Ferraro ch. 19
+  is the reference; Tech Note #079 is in ativtool.zip. Wrong or unverified: (a) "B2h bits 0-1 read, 3-4 write" -
+  refuted on the card (M8BANK); (b) an unlock sequence (XOR BEh with 55h, set B0h bit 2) without which 1CEh
+  writes are "ignored" - M8BANK wrote B2h and BEh with no unlock and they took effect, so not needed for those;
+  (c) "86Box engineers flagged" a GR05/chain-4 page-mirroring pitfall - no source given, treat as invented until
+  shown; (d) clock select = 3C2h bits 2-3 + B8h bit 4 + B8h bit 6 - check against XFree86 `aticlock.c` and the
+  card before use (Sutty and Blair give B8h bits 7-6 as a clock divider and bit 4 as an H-sync lock).
 - **Ardent Tool's diagnostic code list** (page above): 14201-14215. 14204 Graphics Subsystem, 14205 RAMDAC,
   14206 RAM match TEST.COM's messages in 86Box; TEST.COM's TS1 code 14216 is not listed.
 

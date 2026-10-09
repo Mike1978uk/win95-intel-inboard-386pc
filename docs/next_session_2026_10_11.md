@@ -45,6 +45,10 @@ statements as reliable, label them guide-only, measure where a driver depends on
    - **XFree86 3.3.6 `vga256/drivers/ati/`** (`references/xfree86_336_ati/`, not vendored): B2h confirmed;
      clocks, CRTC, DAC, identification not yet read.
    - **Sutty and Blair** (18800 only, owner's PDF).
+   - **ATI VGAWONDER XL24 diskette** (`XT_project/ATI/ativtool/`, Tech Note #079): read its README; disassemble
+     **VVESA.COM** (same size as the one on the machine) - ATI's own 28800 banking/mode/clock code.
+   - A second AI answer (logged, AI-SOURCED) claims an unlock sequence and a clock-bit split: unlock is not
+     needed for B2h/BEh (M8BANK); check the clock bits against XFree86 `aticlock.c` before any probe.
    - First fields to settle on the card: BEh bit 2 (128 KB window at A0000-BFFFF), B6h bit 5 (vertical
      interrupt), B6h bits 2/6 (linear addressing), B0h (memory size, 8-bit DAC). One COMrade probe each,
      like M8BANK.
