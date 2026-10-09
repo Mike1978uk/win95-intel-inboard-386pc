@@ -47,9 +47,11 @@ Next, in order:
    3:1229 `FloodFill(hdc, x, y, crBorder)` with brush = palette[[33BAh]] (left click in the palette, 2:14C4) and
    border = palette[[1BC0h]] (RIGHT click, 2:15D8 = the background colour). Clicking white with background white
    starts on the border, so GDI's first SCANLR (repne scasb for the border) stops at once - the one scan logged.
-   Paintbrush behaviour, not the emulator. The driver never reads the DAC (ColorInfo is table-based). NOT YET
-   TESTED: right-click the outline colour (border), left-click the fill colour, click inside. If it fills, 6695
-   is fine on our build; if it leaks or hangs, that is the reported bug - rerun with MACH8_RLOG/WLOG.
+   Paintbrush behaviour, not the emulator. The driver never reads the DAC (ColorInfo is table-based).
+   **Tested 10-09 in `vm_6695_w2_ours` (exe built from `ebb7bc429`): with the outline colour right-clicked as the
+   border, the roller fills cleanly, no leak** (`pbrush_fill_border_ok_ebb7bc429.png`). The fill works on our build.
+   Upstream master with the border set is not tested. Windows/386 2.11 refuses the real 5160 ("Unsupported 80386
+   machine"), so there is no card comparison.
 7. Then the PR (owner writes the text), then the driver.
 
 ## Done 2026-10-08 (all pushed: main `master`, fork `inboard-ext-256k-diag` on remote `mike`)
