@@ -231,7 +231,7 @@ the end. Model readings are by hand; "card" means measured on the 5160.
 | SRC_X_START / SRC_X_END / SRC_Y_DIR | B2EE / BEEE / C2EE W | 9-62..63 | implemented | see extended blit source above |
 | R_SRC_X / R_SRC_Y | DAEE / DEEE R | 9-60..61. Source pointer read-back; indeterminate after a blit (32-byte source FIFO) | implemented | - |
 | EXT_GE_STATUS | 62EE R | 9-68. CLIP_OVERRUN 3:0, CLIP_INSIDE, CLIP_FLAGS, GE_ACTIVE, EE_DATA_IN | implemented | pre-clip loop (9-36) |
-| CONFIG_STATUS_1 | 12EE R | 9-64. Clock mode, **BUS_16**, EEPROM, DRAM/VRAM, memory installed, ROM location | **card 0xFE21 (10-10 COMrade, and `M8REGS_5160.BIN` 10-07), model 0x0021**: low byte matches (clock chip, 8-bit bus, 1 MB VRAM); high byte (ROM_LOCATION 7Fh) not modelled | fix in A3 |
+| CONFIG_STATUS_1 | 12EE R | 9-64. Clock mode, **BUS_16**, EEPROM, DRAM/VRAM, memory installed, ROM location | **card 0xFE21 (10-10 COMrade, and `M8REGS_5160.BIN` 10-07), model was 0x0021**: low byte matched (clock chip, 8-bit bus, 1 MB VRAM). **Fixed in fork `a7b84dbe4`: bed now FE21** (`M8REGS_bed_cfg1.BIN`) | - |
 | CONFIG_STATUS_2 | 16EE R | 9-66. **SHARE_CLOCK** (Mach8 shares the VGA's clock), HIRES_BOOT, **WRITE_PER_BIT** (fast write-masked ops) | **ok/card: 0046** (`M8REGS_5160.BIN`, 10-07, cold and warm; model 0046): **SHARE_CLOCK 0, WRITE_PER_BIT 0**. The 10-10 single-byte timeouts were the COMrade link | **the halves run off separate clocks**: same frequency possible, no phase lock - constrains worklist C3. No fast write-masked ops: plane layers cost full writes |
 
 **VGA half, ATI extended registers A0h-BFh (1CEh/1CFh)**, `M8REGS` 10-07/10-08, card cold vs bed `ea1f70b5d`:

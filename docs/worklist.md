@@ -32,7 +32,7 @@ hardware nobody else touches; never rank a feature by whether ATI's drivers use 
       PATTERN_L/H; DEST_CMP_FN masked by WRT_MASK; LINE_SYNC (DISP_STATUS bit 2); the guide-only six
       (ERR_TERM -1, CMD bit 3, blit SOURCE wrap, reads outside scissors = FFh, poly at compatible pitch,
       BRES_COUNT after CMD). Add A1's unmeasured rows.
-- [ ] **A3 Model fixes from A1/A2 (desk + B).** Found 10-10: (1) DEST_CMP_FN ignored on 8514/A commands; (2) ~~SCAN_TO_X fill flag~~ fixed `a52d2f2ce`; (3) CONFIG_STATUS_1 high byte 00 vs card FEh. Measure DEST_CMP_FN colour codes 08h-38h on CMDs first.
+- [ ] **A3 Model fixes from A1/A2 (desk + B).** Found 10-10: (1) DEST_CMP_FN ignored on 8514/A commands; (2) ~~SCAN_TO_X fill flag~~ fixed `a52d2f2ce`; (3) ~~CONFIG_STATUS_1 high byte~~ fixed `a7b84dbe4`. Measure DEST_CMP_FN colour codes 08h-38h on CMDs first.
       Previously listed: Regress M8CONF, TEST.COM, REGR after each. Includes deciding
       how far to model the FIFO (EXT_FIFO_STATUS occupancy, INVALID_IO on overrun) - our driver relies on it.
 - [ ] **A4 Appendices (desk).** EEPROM map (we have the dump), BIOS interface, CRT parameters, clocks, RAMDAC,
