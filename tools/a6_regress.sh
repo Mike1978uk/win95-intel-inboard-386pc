@@ -2,6 +2,7 @@
 # A6: run every Mach8 probe in the AT bed vm_6695_w2 on one build and one card, and collect the results.
 #
 #   tools/a6_regress.sh <86Box.exe> <card: mach32_isa | 8514a> <label>
+#   A6_PROBES="M8FG6" tools/a6_regress.sh ...   runs only those probes (bisects)
 #
 # Starts from vm_6695_w2/w2_pristine.img and 86box_pristine.cfg (made on first use), stages the probes
 # in C:\M8SEQ, runs them from AUTOEXEC.BAT, waits for C:\M8SEQ\DONE.TXT, copies every .BIN to
@@ -20,10 +21,10 @@ mkdir -p "$OUT"
 cp $BED/w2_pristine.img $BED/w2.img
 cp $BED/86box_pristine.cfg $BED/86box.cfg
 
-PROBES="M8REGS M8BYTE M8BYTE2 M8BYTE3 M8BYTE4 M8TSX M8TS1 M8TS2 M8BLRD M8SEQ5 M8SEQ6 M8ROW5 M8SCMP M8ROW4
+PROBES="${A6_PROBES:-M8REGS M8BYTE M8BYTE2 M8BYTE3 M8BYTE4 M8TSX M8TS1 M8TS2 M8BLRD M8SEQ5 M8SEQ6 M8ROW5 M8SCMP M8ROW4
 M8LINE M8SEQ M8ROW3 M8CMP M8EXP M8NIB M8FG6 M8FG7 M8FG8 M8FG9 M8POLY M8PL2 M8ROW M8SRC M8MONO M8TXT M8ROW6
 M8ROW7 M8SRC4 M8SRC4B M8SRC4C M8SRC4D M8SRC4E M8TS2Q M8WRAP M8LOPT M8LEND M8MIX M8TILE M8PF M8CMPA M8CMPC
-M8CMP8 M8STAT M8CONF"
+M8CMP8 M8STAT M8CONF}"
 
 python tools/fatcp.py $BED/w2.img --mkdir 'M8SEQ' >/dev/null
 {
@@ -47,6 +48,7 @@ grep -n "gfxcard\|8514a" $BED/86box.cfg
 
 powershell.exe -NoProfile -File tools/bed_launch.ps1 -Exe "$EXE" -VmPath ".\\$BED" -Log "$PWD/$OUT/86box.log" -Seconds 0 -AllowMouse | tail -1
 for i in $(seq 1 180); do
+  tasklist | grep -qi 86box || { echo "86Box exited before DONE.TXT"; break; }
   python -c "
 import sys; sys.path.insert(0,'tools')
 from fatls import Fat
@@ -54,7 +56,7 @@ sys.exit(0 if Fat('$BED/w2.img').resolve('M8SEQ\\\\DONE.TXT') else 1)" && break
   sleep 10
 done
 sleep 5
-tasklist | grep -i 86box | awk '{print $2}' | while read pid; do taskkill //PID "$pid" //F >/dev/null; done
+tasklist | grep -i 86box | awk '{print $2}' | while read pid; do taskkill //PID "$pid" //F >/dev/null; done || true
 sleep 2
 python - "$BED/w2.img" "$OUT" <<'EOF'
 import sys; sys.path.insert(0, 'tools')
