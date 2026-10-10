@@ -21,7 +21,7 @@ hardware nobody else touches; never rank a feature by whether ATI's drivers use 
 - [ ] Read and format one floppy at divisor 64
 - [ ] Reboot clean first (F8, command prompt) and load COMrade ONCE - re-running `comrade` stacks resident copies
 - [x] `M8STAT` run 10-10 (LINE_SYNC live). ZWS.SCR full copy (5,009 B) staged on the card 10-10, 22:31
-- [ ] At the 5160: `DEBUG < ZWS.SCR > ZWS.OUT`, then fetch ZWS.OUT. Was: the B2 wait-state timing: `python tools/gen_zws_probe.py > ZWS.SCR`, then
+- [x] ZWS on the card 10-10: AB wait-state bits change nothing (negative result, `docs/captures/2026-10-10_zws/`). Was: the B2 wait-state timing: `python tools/gen_zws_probe.py > ZWS.SCR`, then
       `DEBUG < ZWS.SCR > ZWS.OUT` (proven in the bed, restores AB)
 - [ ] Any card probes ready from A2 below, run in the same sitting
 

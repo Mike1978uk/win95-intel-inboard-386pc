@@ -243,7 +243,7 @@ Differ at A0, A1, A4, A5, A8, A9 (varies on the card too), AB, AC, AD, B7. Meani
 (28800-6) zero wait state - all off**; bit 7 text-mode video data latch delay. AC 03: bit 0 linear addressing.
 A4/A5: ROM pages. A8/A9: vertical line counter (why A9 varies). B7 6C: bit 0 clear = 8-bit ISA, bit 2 DRAM,
 bit 3 EEPROM data, bit 5 I/O decode. A0 bits 0-3, A1 bits 3-4 (monitor detect), AD bit 4: undocumented here.
-**Lead (worklist B2): AB bits 0 and 5 could cut the 2.0 us/byte VGA write cost** - measure with the M8BUS
+**Measured 10-10 (`ZWS_5160.OUT`): AB bits 0, 1 and 5 make no difference** - writes 2.18/1.96/1.86 us per byte (byte/word/dword) and ROM reads 2.71 in every arm, within 0.5%; the limit is the Inboard's or the XT bus's cycle, not the 28800. The dword figure matches the refresh-64 gain (1.98 at 18). Was: lead (worklist B2): AB bits 0 and 5 could cut the 2.0 us/byte VGA write cost - measure with the M8BUS
 write test, then soak for stability on the XT bus. ATI.TXT says nothing on how many waits each saves.
 
 Mach32 only, absent from the Mach8 by design: hardware cursor (0AEE-1EEE, 3AEE/3EEE), overscan (62EE W,
