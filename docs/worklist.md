@@ -74,6 +74,11 @@ The CPU writes the VGA side at 2.0 us/byte, the cheapest path on the card; the e
       reenigne's 8088 MPH: VGA text or HUD on top, engine graphics below. Needs C1's timing answer.
 - [ ] **C4 Pick the winner for the driver and the demo**, measured with TXTBENCH-style counts.
 
+- [ ] **B6 (parked idea) A custom card ROM.** EEPROM is 128 B of settings, no code, full. VGA BIOS image
+      (`roms/video/mach8/BIOS.BIN`, 32 KB) has 249 B free; the older image is a 64 KB chip with the 32 KB twice, and the
+      28800 has ROM page registers (A4/A5, card 54/76) - so a larger chip's spare half may be reachable. Needs an EPROM
+      programmer; gains are boot/DOS-only, which a RAM-resident extension gets with no risk. Confirm the paging first.
+
 ## D. Our driver and the demo (after A)
 
 - [ ] **D1 TXTBENCH extensions** - bitmap, long fill, palette tests; count port writes too.
