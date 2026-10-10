@@ -6,7 +6,7 @@ Cheapest first in each. **B** = bed, unattended. **M** = owner at the 5160. **C*
 
 | Front | State | Next steps |
 |---|---|---|
-| Timer #45 | 72.8 Hz tick = VMM `MinTimeSlice`; `=54` gives 55 ms and a working desktop (`docs/captures/2026-10-10_timer/`) | T1 B: #45's CPU loop, default vs 54. T2 B: DOS box + serial at 54. T3 C: owner adds the line (SYSTEM.BSR backup). T4 M: confirm on the card. T5: #45 status block, drafted for the owner |
+| Timer #45 | 72.8 Hz tick = VMM `MinTimeSlice`; `=54` gives 55 ms and a working desktop (`docs/captures/2026-10-10_timer/`) | T1 B: #45's CPU loop at default, 30 and 54 (VTD's rounding predicts 13.7, 27.5 and 55 ms; 30 tests the rule). T2 B: DOS box + serial at 54. T3 C: owner adds the line (SYSTEM.BSR backup). T4 M: confirm on the card. T5: #45 status block, drafted for the owner |
 | DRAM refresh | divisor 64 gains 3-6%; cold soak clean (`mach8_card_coverage.md` "DRAM refresh") | R1 B: log PIT channel 1 writes too (same diagnostic, `86box_xtcf`) - does Windows touch it? R2: write the setter .COM (two OUTs). R3 M: warm soak (RSOAK2 after an hour of use), floppy read/format. R4 C: owner adds the AUTOEXEC line |
 | XT-CF wait-first | reads measured: 238 us to first sector, none between (`docs/captures/2026-10-10_xtlat/`) | X1: write-latency probe, rewrite one sector with its own data (needs owner OK). X2 M: run it. X3: driver change in `drivers/xtide_mpd`, bed then card |
 | ATI.VXD port trapping | named in the lost session, **never written down** | recover from the owner's screen capture, or re-derive |
