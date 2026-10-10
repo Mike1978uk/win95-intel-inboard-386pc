@@ -1,0 +1,164 @@
+#
+# 86Box v7.0 logfile, created 2026/10/10 20:18:32
+#
+# Emulator path: C:/Users/lycet/RiderProjects/86Box-Inboard/86box_3c509b/build_log/src//
+# Global configuration file: C:/Users/lycet/AppData/Local/86Box/86box_global.cfg
+# VM: vm_xtide_mpd
+#
+# Configuration file: C:/Users/lycet/RiderProjects/86Box-Inboard/vm_xtide_mpd/86box.cfg
+#
+
+# Userfiles path: C:/Users/lycet/RiderProjects/86Box-Inboard/vm_xtide_mpd/
+# ROM path: C:/Users/lycet/RiderProjects/86Box-Inboard/vm_xtide_mpd/roms/
+# ROM path: C:/Users/lycet/RiderProjects/86Box-Inboard/86box_3c509b/build_log/src//roms/
+# ROM path: C:/Users/lycet/AppData/Local/86Box/roms/
+# Asset path: C:/Users/lycet/RiderProjects/86Box-Inboard/vm_xtide_mpd/assets/
+# Asset path: C:/Users/lycet/RiderProjects/86Box-Inboard/86box_3c509b/build_log/src//assets/
+# Asset path: C:/Users/lycet/AppData/Local/86Box/assets/
+DIAG10: Inboard machine BIOS ibm5160_050986
+XTIDE: access trace off (XTIDE_TRACE=unset)
+XTIDE: base 0300  stride 2  bios xtcf_lotech
+DIAG10 RESET hard  at 0000:00000000
+DIAG10 RESETVEC F000:FFF0 reached from 0000:00000000 (pm=0)
+DIAG10 RESETVEC F000:E05B reached from F000:0000FFF0 (pm=0)
+  MODELBYTE read by [F000:0000F8CF] pm=0 v86=0 cpl=0
+DIAG7 [C000:0000041C] 4AE8 advfunc=00 on=0 hdisp=0 vdisp=0
+DIAG7 [C000:00007A62] 4AE8 advfunc=06 on=0 hdisp=640 vdisp=480
+DIAG7 [C000:0000731E] 4AEE clock_sel=1850 on=0 hdisp=1024 vdisp=768
+DIAG7 [C000:0000731E] 4AEE clock_sel=181C on=0 hdisp=640 vdisp=480
+[M8F] [C000:7963] 32EE 0000 -> 0010 queued=0
+[M8W] [C000:7908] OUTW ceee=5555 fifo=0 test=0
+[M8W] [C000:7908] OUTW 82ee=5555 fifo=1 test=1
+[M8W] [C000:7908] OUTW 86ee=5555 fifo=2 test=2
+[M8W] [C000:7908] OUTW 8aee=5555 fifo=3 test=3
+[M8W] [C000:7908] OUTW 8eee=5555 fifo=4 test=4
+[M8W] [C000:7908] OUTW 92ee=5555 fifo=5 test=5
+[M8W] [C000:7908] OUTW a6ee=5555 fifo=6 test=6
+[M8W] [C000:7908] OUTW baee=5555 fifo=7 test=7
+[M8W] [C000:7908] OUTW eaee=5555 fifo=8 test=8
+[M8W] [C000:7908] OUTW d2ee=5555 fifo=9 test=9
+[M8W] [C000:7908] OUTW d6ee=5555 fifo=10 test=10
+[M8W] [C000:7908] OUTW daee=5555 fifo=11 test=11
+[M8W] [C000:7908] OUTW deee=5555 fifo=12 test=12
+[M8W] [C000:7908] OUTW e2ee=5555 fifo=13 test=13
+[M8W] [C000:7908] OUTW e6ee=5555 fifo=14 test=14
+[M8W] [C000:7908] OUTW feee=5555 fifo=15 test=15
+[M8W] [C000:790E] INW  9aee=ffff fifo=0 test=16
+[M8W] [C000:791A] INW  3aee=4c01 fifo=0 test=15
+[M8W] [C000:792D] INW  1aee=5555 fifo=0 test=15
+[M8W] [C000:791A] INW  3aee=0001 fifo=0 test=14
+[M8W] [C000:792D] INW  1aee=5555 fifo=0 test=14
+[M8W] [C000:791A] INW  3aee=0401 fifo=0 test=13
+[M8W] [C000:792D] INW  1aee=5555 fifo=0 test=13
+[M8W] [C000:791A] INW  3aee=0801 fifo=0 test=12
+[M8W] [C000:792D] INW  1aee=5555 fifo=0 test=12
+[M8W] [C000:791A] INW  3aee=0c01 fifo=0 test=11
+[M8W] [C000:792D] INW  1aee=5555 fifo=0 test=11
+[M8W] [C000:791A] INW  3aee=1001 fifo=0 test=10
+[M8W] [C000:792D] INW  1aee=5555 fifo=0 test=10
+[M8W] [C000:791A] INW  3aee=2401 fifo=0 test=9
+[M8W] [C000:792D] INW  1aee=5555 fifo=0 test=9
+[M8W] [C000:791A] INW  3aee=3801 fifo=0 test=8
+[M8W] [C000:792D] INW  1aee=5555 fifo=0 test=8
+[M8W] [C000:791A] INW  3aee=6801 fifo=0 test=7
+[M8W] [C000:792D] INW  1aee=5555 fifo=0 test=7
+[M8W] [C000:791A] INW  3aee=5001 fifo=0 test=6
+[M8W] [C000:792D] INW  1aee=5555 fifo=0 test=6
+[M8W] [C000:791A] INW  3aee=5401 fifo=0 test=5
+[M8W] [C000:792D] INW  1aee=5555 fifo=0 test=5
+[M8W] [C000:791A] INW  3aee=5801 fifo=0 test=4
+[M8W] [C000:792D] INW  1aee=5555 fifo=0 test=4
+[M8W] [C000:791A] INW  3aee=5c01 fifo=0 test=3
+[M8W] [C000:792D] INW  1aee=5555 fifo=0 test=3
+[M8W] [C000:791A] INW  3aee=6001 fifo=0 test=2
+[M8W] [C000:792D] INW  1aee=5555 fifo=0 test=2
+[M8W] [C000:791A] INW  3aee=6401 fifo=0 test=1
+[M8W] [C000:792D] INW  1aee=5555 fifo=0 test=1
+[M8W] [C000:791A] INW  3aee=7c01 fifo=0 test=0
+[M8W] [C000:792D] INW  1aee=5555 fifo=0 test=0
+[M8W] [C000:7937] INW  9aee=0000 fifo=0 test=0
+[M8W] [C000:7908] OUTW ceee=aaaa fifo=0 test=0
+[M8W] [C000:7908] OUTW 82ee=aaaa fifo=1 test=1
+[M8W] [C000:7908] OUTW 86ee=aaaa fifo=2 test=2
+[M8W] [C000:7908] OUTW 8aee=aaaa fifo=3 test=3
+[M8W] [C000:7908] OUTW 8eee=aaaa fifo=4 test=4
+[M8W] [C000:7908] OUTW 92ee=aaaa fifo=5 test=5
+[M8W] [C000:7908] OUTW a6ee=aaaa fifo=6 test=6
+[M8W] [C000:7908] OUTW baee=aaaa fifo=7 test=7
+[M8W] [C000:7908] OUTW eaee=aaaa fifo=8 test=8
+[M8W] [C000:7908] OUTW d2ee=aaaa fifo=9 test=9
+[M8W] [C000:7908] OUTW d6ee=aaaa fifo=10 test=10
+[M8W] [C000:7908] OUTW daee=aaaa fifo=11 test=11
+[M8W] [C000:7908] OUTW deee=aaaa fifo=12 test=12
+[M8W] [C000:7908] OUTW e2ee=aaaa fifo=13 test=13
+[M8W] [C000:7908] OUTW e6ee=aaaa fifo=14 test=14
+[M8W] [C000:7908] OUTW feee=aaaa fifo=15 test=15
+[M8W] [C000:790E] INW  9aee=ffff fifo=0 test=16
+[M8W] [C000:791A] INW  3aee=4c01 fifo=0 test=15
+[M8W] [C000:792D] INW  1aee=aaaa fifo=0 test=15
+[M8W] [C000:791A] INW  3aee=0001 fifo=0 test=14
+[M8W] [C000:792D] INW  1aee=aaaa fifo=0 test=14
+[M8W] [C000:791A] INW  3aee=0401 fifo=0 test=13
+[M8W] [C000:792D] INW  1aee=aaaa fifo=0 test=13
+[M8W] [C000:791A] INW  3aee=0801 fifo=0 test=12
+[M8W] [C000:792D] INW  1aee=aaaa fifo=0 test=12
+[M8W] [C000:791A] INW  3aee=0c01 fifo=0 test=11
+[M8W] [C000:792D] INW  1aee=aaaa fifo=0 test=11
+[M8W] [C000:791A] INW  3aee=1001 fifo=0 test=10
+[M8W] [C000:792D] INW  1aee=aaaa fifo=0 test=10
+[M8W] [C000:791A] INW  3aee=2401 fifo=0 test=9
+[M8W] [C000:792D] INW  1aee=aaaa fifo=0 test=9
+[M8W] [C000:791A] INW  3aee=3801 fifo=0 test=8
+[M8W] [C000:792D] INW  1aee=aaaa fifo=0 test=8
+[M8W] [C000:791A] INW  3aee=6801 fifo=0 test=7
+[M8W] [C000:792D] INW  1aee=aaaa fifo=0 test=7
+[M8W] [C000:791A] INW  3aee=5001 fifo=0 test=6
+[M8W] [C000:792D] INW  1aee=aaaa fifo=0 test=6
+[M8W] [C000:791A] INW  3aee=5401 fifo=0 test=5
+[M8W] [C000:792D] INW  1aee=aaaa fifo=0 test=5
+[M8W] [C000:791A] INW  3aee=5801 fifo=0 test=4
+[M8W] [C000:792D] INW  1aee=aaaa fifo=0 test=4
+[M8W] [C000:791A] INW  3aee=5c01 fifo=0 test=3
+[M8W] [C000:792D] INW  1aee=aaaa fifo=0 test=3
+[M8W] [C000:791A] INW  3aee=6001 fifo=0 test=2
+[M8W] [C000:792D] INW  1aee=aaaa fifo=0 test=2
+[M8W] [C000:791A] INW  3aee=6401 fifo=0 test=1
+[M8W] [C000:792D] INW  1aee=aaaa fifo=0 test=1
+[M8W] [C000:791A] INW  3aee=7c01 fifo=0 test=0
+[M8W] [C000:792D] INW  1aee=aaaa fifo=0 test=0
+[M8W] [C000:7937] INW  9aee=0000 fifo=0 test=0
+[M8W] [C000:797A] OUTW 32ee=0000 fifo=0 test=0
+[M8F] [C000:797A] 32EE 0010 -> 0000 queued=0
+DIAG7 [C000:00007A62] 4AE8 advfunc=02 on=0 hdisp=640 vdisp=480
+DIAG7 [C000:000075CD] 4AE8 advfunc=02 on=0 hdisp=640 vdisp=480
+DIAG7 [C000:00007A62] 4AE8 advfunc=02 on=0 hdisp=640 vdisp=480
+*** 5 repeats ***
+DIAG7 [C000:000075CD] 4AE8 advfunc=02 on=0 hdisp=640 vdisp=480
+DIAG7 [C000:0000731E] 4AEE clock_sel=1850 on=0 hdisp=640 vdisp=480
+DIAG7 [C000:0000731E] 4AEE clock_sel=181C on=0 hdisp=640 vdisp=480
+DIAG7 [C000:0000708E] 4AE8 advfunc=02 on=0 hdisp=640 vdisp=480
+PITCH0 reload 22 (0.018 ms) mode 0
+PITCH0 reload 255 (0.214 ms) mode 0
+PITCH0 reload 65536 (54.925 ms) mode 3
+  MODELBYTE read by [0020:00000950] pm=1 v86=0 cpl=0
+  MODELBYTE read by [0325:000008A1] pm=0 v86=0 cpl=0
+  MODELBYTE read by [8785:00003A3A] pm=0 v86=0 cpl=0
+  MODELBYTE read by [09E0:0000124C] pm=0 v86=0 cpl=0
+  MODELBYTE read by [09E0:000012FF] pm=0 v86=0 cpl=0
+  MODELBYTE read by [0028:C0360575] pm=1 v86=0 cpl=0
+PITCH0 reload 32768 (27.463 ms) mode 2
+PITCH0 caller EIP C002D6C9 ESP C13A1E4C
+PITCH0 stack+000 C002D4E1 code[-8..+8] 4C304BE88801000061F8C361F9C36083
+PITCH0 stack+004 C036842E code[-8..+8] 004F4646003000004D696E54696D6553
+PITCH0 stack+00C C13A1F70 code[-8..+8] CCCCCCCCCCCCCCCC0000000000000000
+PITCH0 stack+010 C13A1E70 code[-8..+8] FA0132C01E000000866B36C07F010000
+PITCH0 stack+014 C15200E8 code[-8..+8] 00000000FFFFFFFF00000000000040C1
+PITCH0 stack+01C C03201FA code[-8..+8] 1CC11200000000070800FB0002900000
+PITCH0 stack+024 C0366B86 code[-8..+8] 01C0FF15ECD802C0A1600701C0BEC1A1
+PITCH0 stack+030 C13A1F70 code[-8..+8] CCCCCCCCCCCCCCCC0000000000000000
+PITCH0 stack+034 C13A1E94 code[-8..+8] FA0132C0FBFF03004F0B36C0CCCCCCCC
+PITCH0 stack+038 C15200E8 code[-8..+8] 00000000FFFFFFFF00000000000040C1
+PITCH0 stack+040 C03201FA code[-8..+8] 1CC11200000000070800FB0002900000
+PITCH0 stack+048 C0360B4F code[-8..+8] 090000E80460000033C0BF108336C0CD
+[0117:0000B929] Illegal instruction 00008B55 (FF)
+  MODELBYTE read by [01EF:0000002A] pm=1 v86=0 cpl=3

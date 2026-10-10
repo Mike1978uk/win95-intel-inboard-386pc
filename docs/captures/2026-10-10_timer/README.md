@@ -47,3 +47,6 @@ and check DOS boxes and serial/COMrade timing at the coarser slice.
 - **Tickless:** program channel 0 for the next event Windows needs instead of a fixed period. VxD work.
 - **One budget:** channel 0 (tick), channel 1 (refresh) and the disk's waits all spend bus time; measure
   them together to find the next gain.
+
+**Rounding rule confirmed** (`pitlog_mts30.log`, Mach8 build `fb6142612`): `MinTimeSlice=30` gives 32768 (27.46 ms),
+as predicted. The three reachable ticks are 13.7 ms (14-27), 27.5 ms (28-53) and 54.9 ms (54 and up).

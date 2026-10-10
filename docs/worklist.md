@@ -75,7 +75,7 @@ The CPU writes the VGA side at 2.0 us/byte, the cheapest path on the card; the e
 ## E. Timer, refresh, XT-CF (in flight)
 
 - [ ] **T1 (M)** TIMERRES CPU loop at MinTimeSlice default vs 54 on the 5160 - the bed does not model bus cost
-- [ ] **T1b (B)** MinTimeSlice=30 gives PIT 32768? (tests VTD's rounding rule)
+- [x] **T1b (B)** MinTimeSlice=30 gives PIT 32768 (27.5 ms): VTD's rounding rule holds
 - [ ] **T2 (B)** DOS box and serial at the chosen value; then the owner puts it on the card
 - [ ] **T3 (B)** Cost per tick: bus cycles per tick interrupt (`docs/captures/2026-10-10_timer/`)
 - [ ] **R1 (B)** Does Windows reprogram PIT channel 1? (extend the PIT log)
