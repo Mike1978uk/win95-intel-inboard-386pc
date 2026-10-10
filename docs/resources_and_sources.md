@@ -241,6 +241,7 @@ the directory's own `README.md`.
   accelerator has an 8-bit bus jumper; one card ran at a 20.8 MHz ISA clock. Anonymous Coward: Mach8 Win 3.1
   drivers v1.3 run on a 286, later sets do not. dr.zeissler (2022-12-23) only *plans* to use the engine in
   8514 demos. ❌ No demo names, no register use, no code. (WebFetch gets 403; curl with a browser UA works.)
+  Saved: `references/web_captures/vogons_t28392_p2_mach8_graphics_ultra.txt`.
 
 ## 5. DMA, memory and the 8237
 
@@ -621,6 +622,9 @@ Same 4.77 MHz XT bus, so their limits are ours. None covers the Mach8 itself:
   real-mode Doom, the project @andrew-hoffman mentioned. Renderer split into column/span/masked drawers with
   quality variants - a template for the 3D plan (`docs/mach8_graphics_vision.md`). That forum page is 286
   chipset/EMS hardware talk. ❌ No accelerator or Mach8 content anywhere yet.
+- Plasma's [Super PC/Turbo XT BIOS](https://www.phatcode.net/downloads.php?id=101) v2.5, Cimon's 5150 BIOS (#10):
+  `references/pcxtbios_25/` (gitignored). Gave: refresh divisor 12h, the same as IBM's, so refresh is not a
+  5150 difference. RealDOOM README and the VCFed page are in `references/web_captures/`.
 - [VOGONS t=101489 p.2](https://www.vogons.org/viewtopic.php?t=101489&start=20) - "How to add more memory to a
   286?"; Win3.x/NT on 286 discussion. ❌ Nothing for this project.
 - [morluto/rea](https://github.com/morluto/rea) - MCP server (MIT, npm `rea-agents`) that drives Ghidra, IDA
