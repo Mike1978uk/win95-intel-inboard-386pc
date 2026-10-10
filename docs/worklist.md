@@ -47,7 +47,7 @@ hardware nobody else touches; never rank a feature by whether ATI's drivers use 
 
 - [ ] **B1 28800 knobs from static sources (desk).** Start from the 10 extended registers where card and bed differ (`mach8_card_coverage.md`). VVESA.COM disassembly, XFree86 `aticlock.c` and CRTC code,
       Ferraro ch. 19, Sutty and Blair. Table: register, bits, what it trades.
-- [ ] **B2 One probe per 28800 field (M).** BEh bit 2 (128 KB window), B6h bits 2/5/6, B0h - as M8BANK did B2h.
+- [ ] **B2 One probe per 28800 field (M).** First: **AB bits 0/5 (zero-wait-state video writes), off on our card** - M8BUS write timing with them set, then a stability soak. BEh bit 2 (128 KB window), B6h bits 2/5/6, B0h - as M8BANK did B2h.
 - [ ] **B3 Mach8 knobs under load (M).** FIFO_OPT W_STATE_ENA and MAX_WAITSTATES during a FIFO-full burst
       (idle cost already = an empty port).
 - [ ] **B4 Inboard write-through cache over A0000 (M).** Coherent for a packed-256 bank if flushed on bank switch.

@@ -237,8 +237,14 @@ the end. Model readings are by hand; "card" means measured on the 5160.
 **VGA half, ATI extended registers A0h-BFh (1CEh/1CFh)**, `M8REGS` 10-07/10-08, card cold vs bed `ea1f70b5d`:
 card `4d 1f 00 02 54 76 20 00 00 3d 06 80 03 10 00 00 12 00 00 00 00 08 00 6c 40 33 01 21 00 90 30 88`,
 bed  `0d 00 00 02 00 00 20 00 01 17 06 00 00 00 00 00 12 00 00 00 00 08 00 88 40 33 01 21 00 90 30 88`.
-Differ at A0, A1, A4, A5, A8, A9 (varies on the card too), AB, AC, AD, B7. 28800 side: out of the PR gate,
-input to worklist B1 (what each one controls).
+Differ at A0, A1, A4, A5, A8, A9 (varies on the card too), AB, AC, AD, B7. Meanings from vgadoc `ATI.TXT`
+(<https://pdos.csail.mit.edu/6.828/2018/readings/hardware/vgadoc/ATI.TXT>, local `references/vgadoc/`):
+**AB = 80 on the card: bit 0 video-memory zero-wait-state write, bit 1 BIOS zero-wait-state read, bit 5
+(28800-6) zero wait state - all off**; bit 7 text-mode video data latch delay. AC 03: bit 0 linear addressing.
+A4/A5: ROM pages. A8/A9: vertical line counter (why A9 varies). B7 6C: bit 0 clear = 8-bit ISA, bit 2 DRAM,
+bit 3 EEPROM data, bit 5 I/O decode. A0 bits 0-3, A1 bits 3-4 (monitor detect), AD bit 4: undocumented here.
+**Lead (worklist B2): AB bits 0 and 5 could cut the 2.0 us/byte VGA write cost** - measure with the M8BUS
+write test, then soak for stability on the XT bus. ATI.TXT says nothing on how many waits each saves.
 
 Mach32 only, absent from the Mach8 by design: hardware cursor (0AEE-1EEE, 3AEE/3EEE), overscan (62EE W,
 66EE, 02EE-06EF), VERT_LINE_CNTR (CEEE R), MEM_BNDRY (42EE; the Graphics Ultra's halves have separate

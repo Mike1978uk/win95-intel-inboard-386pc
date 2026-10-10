@@ -185,3 +185,5 @@ references/web_captures/
 
 # XT-CF stride-2 worktree (#45 PIT diagnostics, XT-CF latency).
 86box_xtcf/
+# vgadoc ATI notes (Finn Thoegersen), downloaded 2026-10-10; cited in docs/resources_and_sources.md.
+references/vgadoc/
