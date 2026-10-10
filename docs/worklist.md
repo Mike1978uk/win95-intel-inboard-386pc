@@ -78,6 +78,21 @@ The CPU writes the VGA side at 2.0 us/byte, the cheapest path on the card; the e
 - [ ] **D2 Glyph cache in the driver (#49)**, then icon / brush / save-under caches, then the encoding bitmap path.
 - [ ] **D3 3D probes (M):** cost of a polygon-fill triangle, pre-scaled column blits (RealDOOM shape).
 
+## S. Sound on the same bus (owner, 2026-10-10: 8088 MPH / Area 5150 / FastDoom spirit, Daniel_K's licence to fix what the vendor didn't)
+
+The SB Pro (220h, IRQ 5, DMA 1) moves every sample byte over the same 8-bit bus by DMA, and each buffer-end IRQ costs
+like a timer tick (~170 us measured for #45). Ideas, cheapest first - measure before building, as everywhere else:
+
+- [ ] **S1 Measure** what audio costs the bus now: DMA bytes/s per format, IRQs/s per buffer size, and the CPU loop
+      (TIMERRES) with a sound playing vs silent.
+- [ ] **S2 Fewer IRQs:** large auto-init DMA buffers (one IRQ per half-buffer), sized from S1. Buffer must stay below
+      1 MB (8237 reach; `DMABufferIn1MB`).
+- [ ] **S3 Fewer bytes - the card as decoder:** the SB's DSP decodes Creative ADPCM (4-, 2.6- and 2-bit) in hardware.
+      Same principle as the Mach8 work - send intent, not samples: 4-bit ADPCM halves the DMA traffic of 8-bit PCM.
+      Check the SB Pro's DSP version supports auto-init ADPCM, and the quality.
+- [ ] **S4 Mix on the 486** into one stream (FastDoom's approach) rather than several; the CPU has cycles, the bus has none.
+- [ ] **S5 The demoscene end:** cycle-exact PC-speaker / DAC tricks are a later, separate study.
+
 ## E. Timer, refresh, XT-CF (in flight)
 
 - [ ] **T1 (M)** TIMERRES CPU loop at MinTimeSlice default vs 54 on the 5160 - the bed does not model bus cost
