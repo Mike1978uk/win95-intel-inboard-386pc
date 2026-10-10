@@ -6352,6 +6352,14 @@ stream is **4% of a transfer** and the bus is 96%. The lever is not how fast the
 **how few times the bus is touched**, which is a code question about command count and poll count,
 not about cycles per instruction.
 
+> ⛔ **CORRECTED 2026-10-10 (XTLAT, `docs/captures/2026-10-10_xtlat/`): the 0.79 ms per sector and the
+> 4.17 ms per command above are the XTIDE Universal BIOS's INT 13h path, NOT the CF.** Reading the card
+> directly (READ SECTORS, 8 sectors, 64 commands): command to first DRQ **232-313 us** (median 238), and
+> **every sector after the first is ready on the first poll** - the CF has the next sector buffered while
+> the previous one transfers. 109d's "that wait is the drive's own think time" is therefore wrong too.
+> The BIOS's extra per-sector cost fits its byte-wide transfer (512 x 5.77 us = 2.95 ms), not polling.
+> Writes (flash commit) are still unmeasured.
+
 ### Technique 109c: the 5.55 us is the MACHINE, not the card - measured on two cards at once
 
 Timed 1000 reads of an XT-CF register (`031Ch`) and a Trantor T130B register (`0344h`) **in the same
