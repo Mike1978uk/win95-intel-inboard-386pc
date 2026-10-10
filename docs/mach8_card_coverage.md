@@ -138,10 +138,21 @@ If (1) equals the control, the Mach8 adds no wait states at idle and its knobs m
 the FIFO fills - then measure a burst. Any knob change is followed by M8CONF and TEST.COM, as the
 CPU changes were (SNP `8A` hung the 5160).
 
-A bus-wide idea from the demoscene, not measured: DRAM refresh is a DMA cycle on channel 0 every
-18 PIT ticks (~15 us), each costing the bus about a microsecond, roughly 6%. 8088 demos lengthen the
-interval (PIT channel 1). Here the planar's 64 KB bank 0 still needs refresh, and the BIOS times
-delays by counting refresh (technique 134), so any change needs a memory soak and WAIT86 in place.
+**DRAM refresh, measured 2026-10-10** (`tools/gen_refresh_probe.py`, `docs/captures/2026-10-10_refresh/`).
+Refresh is a DMA cycle on channel 0 paced by PIT channel 1; Speeder, FastV20 and GLaBIOS lengthen it.
+Interleaved arms, divisor written back to 18 at the end, us per byte:
+
+| divisor | out 0278h byte | write BA000h dword | read C0000h byte |
+|---|---|---|---|
+| 18 (IBM) | 5.696 / 5.693 | 1.987 / 1.974 | 2.865 / 2.868 |
+| 64 | 5.533 / 5.533 | 1.866 / 1.860 | 2.707 / 2.711 |
+| gain | **2.9%** | **6.0%** | **5.5%** |
+
+Repeats agree to 0.2%. Software only - two `OUT`s, no ROM. Before shipping it: the planar's 64 KB
+(the bottom of memory) is the DRAM this rate keeps alive, so it needs a memory soak at the new rate;
+and any BIOS delay that counts refresh runs 3.5x longer (technique 134 - WAIT86 covers INT 15h
+AH=86h). Cimon's Super PC/Turbo XT BIOS v2.5 also programs 12h (`PCXTBIOS.ASM` line 492), so refresh
+is not a 5150 difference for issue #10.
 
 A cross-chip idea, not measured: the Mach8 engine cannot write the VGA side, so in a packed
 256-colour bank only the CPU writes A0000-AFFFF. A write-through cache over that window would then
