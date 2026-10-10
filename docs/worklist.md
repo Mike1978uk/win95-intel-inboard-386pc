@@ -10,7 +10,7 @@ hardware nobody else touches; never rank a feature by whether ATI's drivers use 
 
 ## 0. Decide
 
-- [ ] **PR gate (owner).** Proposed: the PR covers the Mach8 accelerator (`vid_ati_mach8.c`, `vid_8514a.c`);
+- [x] **PR gate (owner, 10-10: a gate for now, not forever).** The PR covers the Mach8 accelerator (`vid_ati_mach8.c`, `vid_8514a.c`);
       the 28800 VGA half is own-use work (sections B, C) and does not gate it. Revises the 10-07 gate.
 
 ## Next machine sitting (M, ~1 h, one card trip)
