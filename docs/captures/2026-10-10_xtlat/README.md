@@ -18,3 +18,9 @@ sectors no wait is needed. Writes (flash commit) are not measured yet.
 Write-path regression, bed (`vm_xtide_mpd`, `86box_xtcf` build, shipped XTIDEMP.MPD), 2026-10-10: WRTEST
 copied 129 files (5.9 MB) under Windows 95 and shut down cleanly; every copy byte-identical to its source,
 checked on the host.
+
+XTWLAT safety run, same bed, plain DOS (F8, command prompt only), 2026-10-10 (`XTWLAT_bed.BIN`): 32 of 32
+commands written and read back identical. Image against a snapshot taken just before: none of the 256
+rewritten sectors changed; the 7 that did are XTWLAT.BIN (root entry, both FATs, data) and a timestamp
+`CPUSET.BAT` touches at boot. The bed's timings are the model's, not the card's; the model rejects FLUSH
+CACHE, which exercised the probe's declined path. Ready for the card.
