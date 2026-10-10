@@ -58,6 +58,10 @@ start:
         jc      .err
         mov     bx, ax
         mov     ah, 40h
+        mov     cx, 4
+        mov     dx, hdr
+        int     21h
+        mov     ah, 40h
         mov     cx, di
         sub     cx, RES
         mov     dx, RES

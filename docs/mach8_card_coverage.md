@@ -138,6 +138,21 @@ touching any knob - one DOS run, three costs on the card, against an undecoded-p
 - The ROM at C0000h is not shadowed and costs what the XT-CF's ROM does (technique 128d), so
   ROM_SPEED = 9 shows no penalty on reads.
 
+**Command FIFO, measured 2026-10-10** (M8FIFO, `docs/captures/2026-10-10_m8fifo/`), writes behind a
+1024x512 fill:
+
+- **Depth 16.** EXT_FIFO_STATUS (9AEEh) works on the Mach8 and shows all 16 entries; GE_STAT shows the
+  first 8 only. A driver can read 9AEEh once and send up to 16 minus its count.
+- **A full FIFO drops writes.** Writes 17-24 took no longer than the others and SUBSYS_STAT bit 2
+  (INVALID_IO) was set. With A14 (E6E8h) writes 9-17 took ~20 us more each - wait states once the FIFO
+  is half full - but the writes past 16 were still dropped and INVALID_IO still set. A14 does not
+  make blind bursts safe here.
+- **Engine fill rate ~31 Mpixel/s** (8 bpp solid fill: 256x256 2.25 ms, 1024x512 17.0 ms); a command
+  costs ~84 us end to end for a 1x1 fill including its seven setup writes. Any fill over ~250 pixels
+  outruns the bus that feeds it.
+- Model: the engine completes at once, so the FIFO never fills, INVALID_IO is never set and
+  EXT_FIFO_STATUS cannot show occupancy - a gap for a driver that relies on the depth.
+
 If (1) equals the control, the Mach8 adds no wait states at idle and its knobs matter only when
 the FIFO fills - then measure a burst. Any knob change is followed by M8CONF and TEST.COM, as the
 CPU changes were (SNP `8A` hung the 5160).

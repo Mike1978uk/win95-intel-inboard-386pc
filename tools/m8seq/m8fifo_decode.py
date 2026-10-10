@@ -33,9 +33,8 @@ def fillarm(d, off, name):
 
 def main():
     d = open(sys.argv[1], "rb").read()
-    if d[:4] != b"M8F1":
-        sys.exit("not an M8FIFO.BIN")
-    off = fillarm(d, 4, "Arm A: FRGD_COLOR at A6E8h behind a 1024x512 fill")
+    base = 4 if d[:4] == b"M8F1" else 0      # a capture without the header starts at the data
+    off = fillarm(d, base, "Arm A: FRGD_COLOR at A6E8h behind a 1024x512 fill")
     off = fillarm(d, off, "Arm B: the same at E6E8h (A14 set)")
     print("Drain: fill size, time from CMD to GE_BUSY clear")
     for i in range(5):
