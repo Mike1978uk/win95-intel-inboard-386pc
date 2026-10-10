@@ -31,6 +31,14 @@ known to be ready, then check once. No existing driver is the reference: design 
    tick, MinTimeSlice=54 makes a yield wake up to 55 ms late, so the two settings must be chosen
    together.
 
+## Writes, measured on the 5160 (10-10)
+
+`docs/captures/2026-10-10_xtlat/`: ~3 ms to the first DRQ, ~1.1 ms at each 16 KB boundary, then **~110 ms**
+of commit after the last sector (30 of 32 commands). So the answer to item 5 is: yield on writes. A 110 ms
+wait dwarfs any tick - even a 55 ms tick wakes the driver at most half a commit late - and today that time
+is the CPU frozen and the bus full of status reads. MinTimeSlice still matters: the finer the tick, the
+smaller the overshoot, so choose T1's value with the write path in mind.
+
 ## Who gets the freed bus
 
 While the driver holds the CPU (synchronous, as today), the bus time a poll no longer takes is free only

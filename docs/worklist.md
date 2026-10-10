@@ -15,7 +15,7 @@ hardware nobody else touches; never rank a feature by whether ATI's drivers use 
 
 ## Next machine sitting (M, ~1 h, one card trip)
 
-- [ ] XTWLAT from F8 command prompt -> `XTWLAT.BIN` (write waits; `docs/xtcf_measured_wait.md`)
+- [x] XTWLAT on the card: ~3 ms to DRQ, ~110 ms commit, 1.1 ms per 16 KB boundary (`docs/captures/2026-10-10_xtlat/`)
 - [ ] RSOAK2 warm, then `REFR64` again (RSOAK2 ends at 18)
 - [ ] Read and format one floppy at divisor 64
 - [ ] Any card probes ready from A2 below, run in the same sitting
