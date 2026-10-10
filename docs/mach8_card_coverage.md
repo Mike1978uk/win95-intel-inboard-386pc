@@ -39,7 +39,7 @@ CRT writes reach the model only with CLOCK_SEL bit 0 set or the 8514 side off (`
 | SUBSYS_CNTL | 42E8 W | 8-18. ACK bits 3:0, ENA bits 11:8, 15:14 engine reset | partial: ACK, reset ok/card (PATT_INDEX cleared, measured). **ENA bits never raise an IRQ on ISA** (`mach8_vga_isa` has no IRQ line; comment at 9905) | **GE_IDLE interrupt instead of polling GE_STAT** - each poll is an I/O read at 5.7 us/byte here |
 | SUBSYS_STAT | 42E8 R | 8-20. INT bits 3:0, MONITOR_ID 6:4, MEM_SIZE 7 | partial: VBLANK, INSIDE_SCISSOR (named INT_GE_BSY in code), FIFO empty, MONITOR_ID, MEM_SIZE. **INVALID_IO (bit 2) never set** | INSIDE_SCISSOR + CMD "no draw" = hardware hit test (8-30): pick, collision |
 | GE_STAT | 9AE8 R | 8-41. Bits 7:0 FIFO occupied, 8 DATA_READY, 9 GE_BUSY | partial: FIFO bits from a counter reset by every read; busy and data-ready ok/card (TEST.COM) | - |
-| MEM_CNTL | BEE8 idx 5 | 8-17. Y skip, PLANE_SELECT (512 KB boards) | conflict: Mach8 model resets pitch to 1024 on this write; the guide says nothing of it. PLANE_SELECT absent (our card is 1 MB) | - |
+| MEM_CNTL | BEE8 idx 5 | 8-17. Y skip, PLANE_SELECT (512 KB boards). 9-5 and 9-20: on the Mach8 a write resets CRT_PITCH and GE_PITCH to 128 | ok: the model's pitch reset matches 9-5 (was listed as a conflict from chapter 8 alone). PLANE_SELECT absent (our card is 1 MB) | - |
 | FIFO / A14 | - | 8-14. With port bit A14 set, the card adds wait states instead of overrunning the FIFO | absent: A14 is stripped and the FIFO never overruns | **write bursts without reading GE_STAT** - if the card honours A14, a driver skips the FIFO poll |
 
 ### Drawing
@@ -183,4 +183,38 @@ be coherent if flushed on every bank switch. Planar modes read through latches a
 
 ## Chapter 9 - ATI extended registers
 
-Not started.
+In progress (10-10): guide lines 9500-11420 read (CRT control, engine setup, engine control, drawing
+operations to the bounds accumulator). Not yet: scissors, LINEDRAW, patterns, config status, overscan,
+cursor, CRT read-back (guide lines 11420-13000).
+
+### CRT control and engine setup
+
+| reg | port | guide | model | use |
+|---|---|---|---|---|
+| CLOCK_SEL | 4AEE W | 9-4. Bit 0 PASS_THROUGH: 0 = the RAMDAC shows the VGA, 1 = the 8514 buffer. Clock select and divide. Writing it puts the CRTC in ATI mode | ok: bit 0 sets `dev->on`, bit 6 the divide. Carries a `DIAG7` pclog (A7 clean-up) | **one bit switches the shared DAC between the two halves** - section C of `docs/worklist.md` |
+| CRT_OFFSET_LO/HI | 2AEE / 2EEE W | 9-5. 20-bit display start, bytes/4 | ok | page flip, hardware scroll |
+| CRT_PITCH | 26EE W | 9-5. Units of 8 pixels; Mach8: reset to 128 by ADVFUNC_CNTL or MEM_CNTL | ok | - |
+| SHADOW_CTL / SHADOW_SET | 46EE / 5AEE W | 9-6..7. Lock bits; primary / shadow 1 / shadow 2 CRT sets. LOAD_SRC/DST (9:8) 68800-6 only | ok: both used by the CRT code | - |
+| FIFO_OPT | 36EE W | 9-9. Bit 0 W_STATE_ENA, bit 1 HOST_8_ENA (8-bit host data) | stored with `&= 0xfff0`, so both bits are dropped; harmless while the model has no bus timing | wait-state knob (worklist B3) |
+| MAX_WAITSTATES | 6AEE R/W | 9-10. 3:0 write wait states (reset Ch), 7:4 ROM_SPEED (reset Fh), 8 LINE_OPT, 9 IOR16_ENA, 10 PASSTHROUGH_OVERRIDE | bits 8 and 10 used; wait-state counts stored, no effect (no bus timing in 86Box) | knob (B3) |
+
+### Engine control
+
+| reg | port | guide | model | use |
+|---|---|---|---|---|
+| DP_CONFIG | CEEE W | 9-26..27. Read/write, POLY_FILL_MODE blit, READ_MODE, DRAW, MONO_SRC (3 = **VRAM blit source**), BG/FG source, DATA_WIDTH, LSB_FIRST | implemented, incl. MONO_SRC 3 and poly-fill blit; MONO_SRC 3 not card-measured | **colour-expand from card memory**: glyphs and masks kept on the card as 1 bpp, expanded with no host data |
+| EXT_FIFO_STATUS | 9AEE R | 9-28. One bit per FIFO entry, 16 | engine finishes at once: occupancy never shows (FIFO probe, 10-10) | driver sends up to 16 minus count |
+| EXT_GE_CONFIG | 7AEE W | 9-29..31. 8-bit-slot layout puts the EEPROM lines in bits 0-2 and 7; 16-bit layout adds pixel width, DAC 8-bit | EEPROM path works in the bed (ATIM8 reads it) | - |
+| GE_PITCH / GE_OFFSET | 76EE / 6EEE+72EE W | 9-20..21. Drawing pitch and 20-bit drawing base; Mach8 pitch resets as CRT_PITCH | ok | **draw into any off-screen page**: render page N+1 while N shows |
+| LINEDRAW_OPT | A2EE R/W | 9-37..38. POLY_MODE, LAST_PEL_OFF, DIR_TYPE, OCTANT/DEGREE, 8 BOUNDS_RESET, 10:9 CLIP_MODE | implemented, incl. bounds reset and clip modes with an overrun count | hardware pre-clip (9-36 sample code) |
+
+### Drawing operations (to 9-49)
+
+| reg | port | guide | model | use |
+|---|---|---|---|---|
+| BOUNDS_L/T/R/B | 72EE / 76EE / 7AEE / 7EEE R | 9-48. Box around the **points written through LINEDRAW** only - not blits or fills | ok/card (TS2 sub-tests 17-23, clamped outside -512..1535) | bounding box of vector and polygon drawing without CPU work |
+| CLIP_MODE pre-clip | A2EE 10:9 | 9-33..36. Trivial reject / accept / exception; CLIP_OVERRUN in EXT_GE_STATUS | implemented | the CPU clips only the rare exception line |
+| Extended blit source | B2EE, BEEE, C2EE | 9-42..44. Source shape and direction independent of the destination; 32-byte source FIFO; SRC_X_START = SRC_X_END aborts | implemented (`sx_start`/`sx_end`); not card-measured | **tile a texture or unpack a linear sprite into a rectangle in one blit** |
+| ALU_FG_FN / ALU_BG_FN | BAEE / B6EE W | 9-47. Mix codes as 8-24 | ok | arithmetic mixes - see chapter 8 row |
+| BRES_COUNT | 96EE R/W | 9-49. Starts a raw Bresenham line; reads back MAJ_AXIS_PCNT | ok | - |
+
