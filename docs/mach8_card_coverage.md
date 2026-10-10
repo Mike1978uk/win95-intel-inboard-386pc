@@ -65,14 +65,14 @@ CRT writes reach the model only with CLOCK_SEL bit 0 set or the 8514 side off (`
 |---|---|---|---|---|
 | FRGD_COLOR / BKGD_COLOR | A6E8 / A2E8 W | 8-27, 8-40 | ok | - |
 | FRGD_MIX / BKGD_MIX | BAE8 / B6E8 W | 8-24..25. 16 Boolean + 16 arithmetic mixes | logical ok/card; **arithmetic 10h-1Fh present, never measured on the Mach8** | **average (17h) = 50% translucency; saturating add/sub = light and shadow** (3D, DirectDraw, demo). Check the Mach8 has them at all |
-| PIX_CNTL | BEE8 idx A | 8-46. Poly fill, COLOR_CMP_FN 5:3, MONO_SRC 7:6 | MONO_SRC ok/card. **Compare: conflict, below** | - |
-| COLOR_CMP | B2E8 W | 8-36. TRUE = not written; compare ignores write-masked planes | **conflict, below** | **colour-keyed sprites** (DirectDraw colour key); write-protect a colour range |
+| PIX_CNTL | BEE8 idx A | 8-46. Poly fill, COLOR_CMP_FN 5:3, MONO_SRC 7:6 | MONO_SRC ok/card. Compare ok/card (below) | - |
+| COLOR_CMP | B2E8 W | 8-36. TRUE = not written; compare ignores write-masked planes | **ok/card** (fixed `c454a6324`) | **colour-keyed sprites** (DirectDraw colour key); write-protect a colour range |
 | PATTERN_L / PATTERN_H | BEE8 idx 8 / 9 | 8-44..45. 4-pixel mono patterns, even / odd nibbles | present (`vid_8514a.c` 1257); not measured | dithered tones |
 | WRT_MASK / RD_MASK | AAE8 / AEE8 W | 8-48, 8-54. RD_MASK rotated left one bit in IBM mono reads | ok/card (TS2 fit, M8BLRD) | plane layers (3D plan) |
 | PIX_TRANS | E2E8 R/W | 8-47 | ok/card: byte order, data width, mono layout (M8ROW3, M8SEQ, M8MONO) | host images |
 | DAC_* | 02EA-02ED | 8-1..3 | ok (TEST.COM DAC test) | palette fades |
 
-### The compare conflict
+### The compare conflict - fixed 2026-10-10
 
 Both written sources agree: when the compare is TRUE the pixel is **not** written (guide 8-36, 8-46;
 R&S p. 246 and p. 9582). R&S also says planes disabled in WRT_MASK are treated as 0 in the compare.
@@ -87,8 +87,12 @@ R&S p. 246 and p. 9582). R&S also says planes disabled in WRT_MASK are treated a
 TS1/TS2 pass in the bed, so TEST.COM does not exercise a mode 2-7 PIX_CNTL compare; no ATI driver
 shape in M8CONF uses one either. Our colour-key path would.
 
-Confirming probe (not written): M8CMP with the compare set through PIX_CNTL (A000h | mode << 3) and a
-CMD 9AE8h fill instead of DEST_CMP_FN, modes 2-7, plus a WRT_MASK = 0Fh case. One DOS run.
+**Measured** with M8CMP8 (`tools/m8seq/`, `docs/captures/2026-10-10_m8cmp8/`): 48 cases, WRT_MASK FFh and
+0Fh x three colours x modes 0-7. The card follows the guide with both operands masked by WRT_MASK -
+0 of 11,880 pixels off; every model rule missed by 7,000+. Fork `c454a6324` replaces the 17 copies of the
+compare with one helper; the bed now equals the card byte for byte, and the other 47 REGR outputs are
+unchanged (M8REGS A9h aside, which varies on the card too). Not yet measured: whether DEST_CMP_FN on the
+ATI path also masks by WRT_MASK.
 
 ## Host-interface tuning across both chips (owner's idea, 2026-10-10)
 
