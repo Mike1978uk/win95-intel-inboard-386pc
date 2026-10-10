@@ -1,5 +1,20 @@
 # Next session - Mach8: the whole-card coverage pass
 
+## The other three fronts (added 10-10 evening; git clean at `1a968b5`)
+
+Cheapest first in each. **B** = bed, unattended. **M** = owner at the 5160. **C** = card in the reader.
+
+| Front | State | Next steps |
+|---|---|---|
+| Timer #45 | 72.8 Hz tick = VMM `MinTimeSlice`; `=54` gives 55 ms and a working desktop (`docs/captures/2026-10-10_timer/`) | T1 B: #45's CPU loop, default vs 54. T2 B: DOS box + serial at 54. T3 C: owner adds the line (SYSTEM.BSR backup). T4 M: confirm on the card. T5: #45 status block, drafted for the owner |
+| DRAM refresh | divisor 64 gains 3-6%; cold soak clean (`mach8_card_coverage.md` "DRAM refresh") | R1 B: log PIT channel 1 writes too (same diagnostic, `86box_xtcf`) - does Windows touch it? R2: write the setter .COM (two OUTs). R3 M: warm soak (RSOAK2 after an hour of use), floppy read/format. R4 C: owner adds the AUTOEXEC line |
+| XT-CF wait-first | reads measured: 238 us to first sector, none between (`docs/captures/2026-10-10_xtlat/`) | X1: write-latency probe, rewrite one sector with its own data (needs owner OK). X2 M: run it. X3: driver change in `drivers/xtide_mpd`, bed then card |
+| ATI.VXD port trapping | named in the lost session, **never written down** | recover from the owner's screen capture, or re-derive |
+
+One card trip: write the setter (R2) and the write probe (X1) first, then copy both plus RSOAK2 onto the card
+while it is in the reader. One machine sitting then covers R3, X2, T4 and the Windows 95 M8CONF capture (item 4).
+Order of everything else is the owner's call; Mach8 below is unchanged.
+
 Supersedes `docs/next_session_2026_10_10.md` for order; that file (items 1c-1i) holds the detail of 10-09.
 
 ## Owner's rules for this work
