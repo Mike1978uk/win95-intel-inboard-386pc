@@ -43,6 +43,7 @@ CAND = {
     "sat(d-s)>>1": lambda s, d: max(d - s, 0) >> 1,
     "sat(s-d)>>1": lambda s, d: max(s - d, 0) >> 1,
     "sat(s+d)>>1": lambda s, d: min(s + d, M) >> 1,
+    "sat(s+d)>>1 c": lambda s, d: M if s + d > M else (s + d) >> 1,
 }
 REC = 2 + 256
 

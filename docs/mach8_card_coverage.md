@@ -64,7 +64,7 @@ CRT writes reach the model only with CLOCK_SEL bit 0 set or the 8514 side off (`
 | reg | port | guide | model | use |
 |---|---|---|---|---|
 | FRGD_COLOR / BKGD_COLOR | A6E8 / A2E8 W | 8-27, 8-40 | ok | - |
-| FRGD_MIX / BKGD_MIX | BAE8 / B6E8 W | 8-24..25. 16 Boolean + 16 arithmetic mixes | logical ok/card; **arithmetic 10h-1Fh present, never measured on the Mach8** | **average (17h) = 50% translucency; saturating add/sub = light and shadow** (3D, DirectDraw, demo). Check the Mach8 has them at all |
+| FRGD_MIX / BKGD_MIX | BAE8 / B6E8 W | 8-24..25. 16 Boolean + 16 arithmetic mixes | **ok/card, all 32** (M8MIX, 10-10, `docs/captures/2026-10-10_m8mix/`): card = bed byte for byte, 2 colours x 256 destinations. MIN 10h, D-S 11h, S-D 12h, S+D 13h, MAX 14h, halved 15h-17h (carry shifted in), saturated 18h = 19h D-S, 1Ah S-D, 1Bh S+D, halved 1Ch = 1Dh, 1Eh, 1Fh (FFh on overflow, else (S+D)/2) | **the Mach8 blends on its own: 17h = 50% translucency, 1Bh/18h = saturating light and shadow, MIN/MAX** (3D, DirectDraw, demo) |
 | PIX_CNTL | BEE8 idx A | 8-46. Poly fill, COLOR_CMP_FN 5:3, MONO_SRC 7:6 | MONO_SRC ok/card. Compare ok/card (below) | - |
 | COLOR_CMP | B2E8 W | 8-36. TRUE = not written; compare ignores write-masked planes | **ok/card** (fixed `c454a6324`) | **colour-keyed sprites** (DirectDraw colour key); write-protect a colour range |
 | PATTERN_L / PATTERN_H | BEE8 idx 8 / 9 | 8-44..45. 4-pixel mono patterns, even / odd nibbles | present (`vid_8514a.c` 1257); not measured | dithered tones |

@@ -28,7 +28,7 @@ hardware nobody else touches; never rank a feature by whether ATI's drivers use 
 - [ ] **A1 Chapter 9 coverage (desk).** ATI extended registers into `docs/mach8_card_coverage.md`, same columns
       as chapter 8. Guide + Ferraro ch. 19 + a hand read of the model.
 - [ ] **A2 Close chapter 8's unmeasured rows (desk -> M).** One probe file, one sitting:
-      arithmetic mixes 10h-1Fh (does the Mach8 have them?); CMD DRAW=0 + INSIDE_SCISSOR hit test;
+      ~~arithmetic mixes~~ (done 10-10: all 32 present, card = model); CMD DRAW=0 + INSIDE_SCISSOR hit test;
       PATTERN_L/H; DEST_CMP_FN masked by WRT_MASK; LINE_SYNC (DISP_STATUS bit 2); the guide-only six
       (ERR_TERM -1, CMD bit 3, blit SOURCE wrap, reads outside scissors = FFh, poly at compatible pitch,
       BRES_COUNT after CMD). Add A1's unmeasured rows.
