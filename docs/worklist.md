@@ -78,7 +78,7 @@ The CPU writes the VGA side at 2.0 us/byte, the cheapest path on the card; the e
 - [x] **T1b (B)** MinTimeSlice=30 gives PIT 32768 (27.5 ms): VTD's rounding rule holds
 - [ ] **T2 (B)** DOS box and serial at the chosen value; then the owner puts it on the card
 - [ ] **T3 (B)** Cost per tick: bus cycles per tick interrupt (`docs/captures/2026-10-10_timer/`)
-- [ ] **R1 (B)** Does Windows reprogram PIT channel 1? (extend the PIT log)
+- [x] **R1 (B)** Windows does not touch PIT channel 1: divisor 64 survives into Windows (bed)
 - [x] R4 `REFR64` in the card's AUTOEXEC.BAT (10-10, backup `AUTOEXEC.B10`)
 - [ ] **X3 (desk + B + M)** Measured-wait driver, after XTWLAT's numbers
 - [ ] ATI.VXD port-trapping lead - lost 10-10; recover or re-derive
