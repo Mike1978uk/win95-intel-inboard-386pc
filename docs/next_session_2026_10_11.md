@@ -1,5 +1,7 @@
 # Next session - Mach8: the whole-card coverage pass
 
+**The ordered, tick-off list is now `docs/worklist.md`; it wins where this file disagrees.**
+
 ## The other three fronts (added 10-10 evening; git clean at `1a968b5`)
 
 Cheapest first in each. **B** = bed, unattended. **M** = owner at the 5160. **C** = card in the reader.
