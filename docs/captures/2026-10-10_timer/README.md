@@ -23,3 +23,16 @@ VTD (`VTD.VXD` file offset 0x9F9-0xA57) takes the smallest requested period in m
 else is rounded DOWN to a power of two of ms x 1193. 16384 therefore means a request of 14-27 ms (20 ms most
 likely). Candidates on this machine: VTDAPI for an application's timeBeginPeriod, or a DOS box programming the
 timer. At ~170 us per interrupt (#45) the 72.8 Hz tick costs ~1.2% of the CPU; back at 18.2 Hz it would be ~0.3%.
+
+## Who asks, and the knob
+
+- **Idle** (`pitlog_idle.log`, WRTEST removed from StartUp): still 16384. No application or DOS box needed.
+- **Caller** (`pitlog_stack.log`, stack dump at the write): `stack+004` = C036842E, whose bytes read
+  `...OFF\0 0\0\0 MinTimeS` - VMM's `MinTimeSlice` key string. The tick is VMM's scheduler period, not a driver.
+  The previous session also read VMM32.VXD's default as 16 ms; that output was lost, so treat the value as
+  unconfirmed. 16 ms x 1193 = 19088, rounded down to 16384, fits.
+- **`MinTimeSlice=54`** in `[386Enh]` (`pitlog_mts54.log`): only the BIOS 65536 appears - no 16384. Windows
+  reached a working desktop (owner, by eye). Not measured: CPU gained, multitasking feel, DOS-box behaviour.
+
+So the 72.8 Hz tick is one SYSTEM.INI line. Before it goes on the card: measure the gain (#45's loop),
+and check DOS boxes and serial/COMrade timing at the coarser slice.
