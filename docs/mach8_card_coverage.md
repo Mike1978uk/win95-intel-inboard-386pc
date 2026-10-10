@@ -183,9 +183,8 @@ be coherent if flushed on every bank switch. Planar modes read through latches a
 
 ## Chapter 9 - ATI extended registers
 
-In progress (10-10): guide lines 9500-11420 read (CRT control, engine setup, engine control, drawing
-operations to the bounds accumulator). Not yet: scissors, LINEDRAW, patterns, config status, overscan,
-cursor, CRT read-back (guide lines 11420-13000).
+Guide lines 9500-13000 read 10-10. Rows are the Mach8's registers; Mach32-only features are listed once at
+the end. Model readings are by hand; "card" means measured on the 5160.
 
 ### CRT control and engine setup
 
@@ -217,4 +216,30 @@ cursor, CRT read-back (guide lines 11420-13000).
 | Extended blit source | B2EE, BEEE, C2EE | 9-42..44. Source shape and direction independent of the destination; 32-byte source FIFO; SRC_X_START = SRC_X_END aborts | implemented (`sx_start`/`sx_end`); not card-measured | **tile a texture or unpack a linear sprite into a rectangle in one blit** |
 | ALU_FG_FN / ALU_BG_FN | BAEE / B6EE W | 9-47. Mix codes as 8-24 | ok | arithmetic mixes - see chapter 8 row |
 | BRES_COUNT | 96EE R/W | 9-49. Starts a raw Bresenham line; reads back MAJ_AXIS_PCNT | ok | - |
+
+### Drawing operations (9-50 on)
+
+| reg | port | guide | model | use |
+|---|---|---|---|---|
+| DEST_CMP_FN | EEEE W | 9-50. Codes 0-7; TRUE = pixel kept; unsigned; **only WRT_MASK-enabled planes compare** | ok/card on the ATI path (M8CMP, `c454a6324`); the WRT_MASK masking is now guide-confirmed for this path too, card unmeasured | colour key |
+| DEST_X_START / X_END / Y_END | A6EE / AAEE / AEEE W | 9-44..46. Writing Y_END starts the blit; left inclusive, right exclusive; direction from the ends | ok/card (M8CONF) | all blits |
+| EXT_SCISSOR_L/T/R/B | DAEE / DEEE / E2EE / E6EE W | 9-53..54. 12-bit signed, -2048..2047 | ok | - |
+| EXT_SHORT_STROKE | C6EE W | 9-55. Two SSVs per 16-bit write; packed mono; colour patterns | implemented; not card-measured | glyph strokes |
+| LINEDRAW / LINEDRAW_INDEX | FEEE / 9AEE W | 9-56..57. Index 0-3 draw, 4-5 move; `rep outsw` a polyline; index 4/5 grows the bounds without drawing | ok/card (TS2) | polylines at one 16-bit write per coordinate |
+| PATT_DATA / PATT_DATA_INDEX / PATT_INDEX / PATT_LENGTH | 8EEE / 82EE / D6EE / D2EE | 9-58..60. 16 colour + mono pattern registers, linear patterns; 8x8 mono tiling is 68800-6 (Mach32) only | ok/card (M8ROW3, M8FG6-9) | dithers, line styles |
+| SCAN_TO_X | CAEE W | 9-61. Span from CUR_X to the written X; fill-flag toggles for host polygon scan conversion; fast horizontal lines | implemented; not card-measured | **flat-shaded spans at about one write each** (3D plan) |
+| SRC_X_START / SRC_X_END / SRC_Y_DIR | B2EE / BEEE / C2EE W | 9-62..63 | implemented | see extended blit source above |
+| R_SRC_X / R_SRC_Y | DAEE / DEEE R | 9-60..61. Source pointer read-back; indeterminate after a blit (32-byte source FIFO) | implemented | - |
+| EXT_GE_STATUS | 62EE R | 9-68. CLIP_OVERRUN 3:0, CLIP_INSIDE, CLIP_FLAGS, GE_ACTIVE, EE_DATA_IN | implemented | pre-clip loop (9-36) |
+| CONFIG_STATUS_1 | 12EE R | 9-64. Clock mode, **BUS_16**, EEPROM, DRAM/VRAM, memory installed, ROM location | implemented | read once on the card |
+| CONFIG_STATUS_2 | 16EE R | 9-66. **SHARE_CLOCK** (Mach8 shares the VGA's clock), HIRES_BOOT, **WRITE_PER_BIT** (fast write-masked ops) | implemented; card value unknown | SHARE_CLOCK answers part of worklist C1 (can both CRTCs run in step?); WRITE_PER_BIT the cost of plane layers |
+
+Mach32 only, absent from the Mach8 by design: hardware cursor (0AEE-1EEE, 3AEE/3EEE), overscan (62EE W,
+66EE, 02EE-06EF), VERT_LINE_CNTR (CEEE R), MEM_BNDRY (42EE; the Graphics Ultra's halves have separate
+memory), MEM_CFG aperture (5EEE), MISC_OPTIONS (36EE R/W), 8x8 mono patterns. Not checked: whether the
+model gates each of these off for `mach8_vga_isa`.
+
+**Card probes this chapter adds to worklist A2:** read 12EE and 16EE; colour-expand with MONO_SRC 3 from
+VRAM; an extended blit with source width different from the destination's; SCAN_TO_X spans and the
+fill flag; DEST_CMP_FN with WRT_MASK 0Fh on the ATI path.
 
