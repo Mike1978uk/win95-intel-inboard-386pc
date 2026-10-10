@@ -236,6 +236,11 @@ the directory's own `README.md`.
   card before use (Sutty and Blair give B8h bits 7-6 as a clock divider and bit 4 as an H-sync lock).
 - **Ardent Tool's diagnostic code list** (page above): 14201-14215. 14204 Graphics Subsystem, 14205 RAMDAC,
   14206 RAM match TEST.COM's messages in 86Box; TEST.COM's TS1 code 14216 is not listed.
+- **[VOGONS, *ATi Mach8 Graphics Ultra ISA VGA card, quick test*, page 2](https://www.vogons.org/viewtopic.php?t=28392&start=20)**
+  (owner, 2026-10-10). User reports, unmeasured: the VGA half is slow with no 16-bit gain over 8-bit; the
+  accelerator has an 8-bit bus jumper; one card ran at a 20.8 MHz ISA clock. Anonymous Coward: Mach8 Win 3.1
+  drivers v1.3 run on a 286, later sets do not. dr.zeissler (2022-12-23) only *plans* to use the engine in
+  8514 demos. ❌ No demo names, no register use, no code. (WebFetch gets 403; curl with a browser UA works.)
 
 ## 5. DMA, memory and the 8237
 
@@ -601,6 +606,26 @@ Recorded here properly, with what each does **not** contain, which is the more u
 ⚠ **And a caveat on a source already listed above**: Ardent Tool's *parallel port* pages are
 **MCA** and mostly do not apply to an XT bus (technique 128b). The AN062 IEEE 1284 application
 note listed in section 3 is a different document and does apply.
+
+**Owner's demoscene links, 2026-10-10** - 8088/CGA cycle-exact work; useful for XT bus timing, none
+covers the Mach8 or 8514/A:
+- [dbalsom/martypc](https://github.com/dbalsom/martypc) - cycle-accurate 8088 PC emulator (its book is
+  already cited in section 5). [dbalsom/XTCE-Blue](https://github.com/dbalsom/XTCE-Blue) - cycle-exact
+  XT hardware reference tests. [dbalsom/cga_sim](https://github.com/dbalsom/cga_sim) - CGA composite simulation.
+- [reenigne](https://github.com/reenigne) (8088 MPH author) and [crtc-demos](https://github.com/crtc-demos)
+  - demo source using CRTC tricks; the method (reprogram the CRTC mid-frame) may apply to the Mach8's CRT
+  registers later.
+- [sqpat/RealDOOM](https://github.com/sqpat/RealDOOM) and its
+  [VCFed thread p.10](https://forum.vcfed.org/index.php?threads/realdoom-a-port-of-doom-to-real-mode.1244730/page-10) -
+  real-mode Doom, the project @andrew-hoffman mentioned. Renderer split into column/span/masked drawers with
+  quality variants - a template for the 3D plan (`docs/mach8_graphics_vision.md`). That forum page is 286
+  chipset/EMS hardware talk. ❌ No accelerator or Mach8 content anywhere yet.
+- [VOGONS t=101489 p.2](https://www.vogons.org/viewtopic.php?t=101489&start=20) - "How to add more memory to a
+  286?"; Win3.x/NT on 286 discussion. ❌ Nothing for this project.
+- [morluto/rea](https://github.com/morluto/rea) - MCP server (MIT, npm `rea-agents`) that drives Ghidra, IDA
+  or Hopper for an agent. None is installed here; our DOS/VxD disassembly is Capstone plus
+  `tools/*dis*.py` (`docs/host_tools.md`). Not adopted: its value is Ghidra's decompiler and cross-references,
+  worth it only if a target outgrows Capstone (VxD LE is not listed as supported).
 
 ## 9. Modern cards on an 8-bit ISA bus (read 2026-09-21)
 

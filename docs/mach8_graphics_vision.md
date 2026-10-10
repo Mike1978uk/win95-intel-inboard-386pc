@@ -95,6 +95,12 @@ The principle is the one this file opens with: send commands, not pixels.
 - **Two cards in one:** VGA side (512 KB) and 8514 side (1 MB) have separate memory and the engine cannot
   read the VGA side, but the CPU can fill one while the engine draws on the other.
 
+- **A working model to follow: [sqpat/RealDOOM](https://github.com/sqpat/RealDOOM)** (real-mode Doom, the
+  project Andrew pointed at). Its renderer is already split into column, span and masked drawers with quality
+  variants (`r_col*`, `r_span*`, `r_mask*`; `*fl` flat, its "potato" level), so the seam where an engine
+  backend would plug in exists: flat spans become fills, wall columns the pre-scaled blits above. Unread
+  beyond the file list and README; check its frame-buffer interface before building on it.
+
 Speculative until measured on the 5160: the cost of a polygon-fill triangle, the engine's fill rate, and
 whether pre-scaled column blits hold up. Comes after the desktop driver; probes can be written any time.
 
