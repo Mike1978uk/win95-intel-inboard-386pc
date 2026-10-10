@@ -213,7 +213,7 @@ the end. Model readings are by hand; "card" means measured on the 5160.
 |---|---|---|---|---|
 | BOUNDS_L/T/R/B | 72EE / 76EE / 7AEE / 7EEE R | 9-48. Box around the **points written through LINEDRAW** only - not blits or fills | ok/card (TS2 sub-tests 17-23, clamped outside -512..1535) | bounding box of vector and polygon drawing without CPU work |
 | CLIP_MODE pre-clip | A2EE 10:9 | 9-33..36. Trivial reject / accept / exception; CLIP_OVERRUN in EXT_GE_STATUS | implemented | the CPU clips only the rare exception line |
-| Extended blit source | B2EE, BEEE, C2EE | 9-42..44. Source shape and direction independent of the destination; 32-byte source FIFO; SRC_X_START = SRC_X_END aborts | implemented (`sx_start`/`sx_end`); M8CONF blits carry source and destination widths that differ (from register state, so suggestive only); a deliberate tiling probe is still to do | **tile a texture or unpack a linear sprite into a rectangle in one blit** |
+| Extended blit source | B2EE, BEEE, C2EE | 9-42..44. Source shape and direction independent of the destination; 32-byte source FIFO; SRC_X_START = SRC_X_END aborts | **ok/card** (M8TILE, 10-10, `docs/captures/2026-10-10_m8tile/`, card = bed): the source is one stream - at SRC_X_END it moves to SRC_X_START on the next source row, independent of the destination's rows | **unpack a linearly stored sprite into any rectangle in one blit** (sprites packed with no pitch waste in spare memory). Not a horizontal tiler: a narrow source does not repeat along a row |
 | ALU_FG_FN / ALU_BG_FN | BAEE / B6EE W | 9-47. Mix codes as 8-24 | ok | arithmetic mixes - see chapter 8 row |
 | BRES_COUNT | 96EE R/W | 9-49. Starts a raw Bresenham line; reads back MAJ_AXIS_PCNT | ok | - |
 
@@ -239,5 +239,5 @@ Mach32 only, absent from the Mach8 by design: hardware cursor (0AEE-1EEE, 3AEE/3
 memory), MEM_CFG aperture (5EEE), MISC_OPTIONS (36EE R/W), 8x8 mono patterns. Not checked: whether the
 model gates each of these off for `mach8_vga_isa`.
 
-**Card probes this chapter adds to worklist A2:** 16EE (timed out 10-10); a deliberate tiling blit (source narrower than the destination); the polygon-fill blit; SCAN_TO_X's fill flag; DEST_CMP_FN with WRT_MASK 0Fh on the ATI path. Colour-expand from VRAM and plain SCAN_TO_X are already = card through M8CONF.
+**Card probes this chapter adds to worklist A2:** 16EE (timed out 10-10); the polygon-fill blit; SCAN_TO_X's fill flag; DEST_CMP_FN with WRT_MASK 0Fh on the ATI path. Colour-expand from VRAM and plain SCAN_TO_X are already = card through M8CONF.
 
