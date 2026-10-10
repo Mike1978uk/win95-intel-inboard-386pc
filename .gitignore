@@ -179,6 +179,6 @@ drivers/3c509b/3c509.asm
 # assembler listings, regenerated from the .ASM
 tools/m8seq/*.LST
 # Plasma's Super PC/Turbo XT BIOS v2.5 (phatcode.net id=101), Cimon's 5150 BIOS for #10 - read only
-references/pcxtbios_25/
+roms/machines/pcxtbios_25/
 # Saved web pages (forum threads, READMEs) so they are not fetched twice - third-party text
 references/web_captures/

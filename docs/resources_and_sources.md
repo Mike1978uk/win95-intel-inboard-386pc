@@ -623,7 +623,7 @@ Same 4.77 MHz XT bus, so their limits are ours. None covers the Mach8 itself:
   quality variants - a template for the 3D plan (`docs/mach8_graphics_vision.md`). That forum page is 286
   chipset/EMS hardware talk. ❌ No accelerator or Mach8 content anywhere yet.
 - Plasma's [Super PC/Turbo XT BIOS](https://www.phatcode.net/downloads.php?id=101) v2.5, Cimon's 5150 BIOS (#10):
-  `references/pcxtbios_25/` (gitignored). Gave: refresh divisor 12h, the same as IBM's, so refresh is not a
+  `roms/machines/pcxtbios_25/` (source and images, gitignored: licence unclear). Gave: refresh divisor 12h, the same as IBM's, so refresh is not a
   5150 difference. RealDOOM README and the VCFed page are in `references/web_captures/`.
 - [VOGONS t=101489 p.2](https://www.vogons.org/viewtopic.php?t=101489&start=20) - "How to add more memory to a
   286?"; Win3.x/NT on 286 discussion. ❌ Nothing for this project.
