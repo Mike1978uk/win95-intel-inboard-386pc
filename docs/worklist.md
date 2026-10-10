@@ -22,8 +22,9 @@ hardware nobody else touches; never rank a feature by whether ATI's drivers use 
 
 ## A. Mach8 to the PR
 
-- [ ] **A0 One emulator build (desk + B).** Move the PIT diagnostics off `xtcf-lotech-stride2` (11 Sept base) onto
-      the Mach8 branch; fit `vm_xtide_mpd` with the Mach8 EEPROM. Every bed then runs current code.
+- [x] **A0 One emulator build (10-10).** Mach8 branch `inboard-ext-256k-diag` now carries XT-CF stride 2, the
+      trace-off default and the PIT diagnostics (`3e6c49449`..`fb6142612`, pushed); `build_log` rebuilt, 0 warnings.
+      `vm_xtide_mpd` has the Mach8 EEPROM. Check boot: stride 2 up, tick logged, WRTEST 129/129 identical.
 - [ ] **A1 Chapter 9 coverage (desk).** ATI extended registers into `docs/mach8_card_coverage.md`, same columns
       as chapter 8. Guide + Ferraro ch. 19 + a hand read of the model.
 - [ ] **A2 Close chapter 8's unmeasured rows (desk -> M).** One probe file, one sitting:
@@ -73,7 +74,8 @@ The CPU writes the VGA side at 2.0 us/byte, the cheapest path on the card; the e
 
 ## E. Timer, refresh, XT-CF (in flight)
 
-- [ ] **T1 (B)** #45's CPU loop at MinTimeSlice default / 30 / 54 (30 tests VTD's rounding)
+- [ ] **T1 (M)** TIMERRES CPU loop at MinTimeSlice default vs 54 on the 5160 - the bed does not model bus cost
+- [ ] **T1b (B)** MinTimeSlice=30 gives PIT 32768? (tests VTD's rounding rule)
 - [ ] **T2 (B)** DOS box and serial at the chosen value; then the owner puts it on the card
 - [ ] **T3 (B)** Cost per tick: bus cycles per tick interrupt (`docs/captures/2026-10-10_timer/`)
 - [ ] **R1 (B)** Does Windows reprogram PIT channel 1? (extend the PIT log)
