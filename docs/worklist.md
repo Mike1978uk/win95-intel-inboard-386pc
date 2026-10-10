@@ -18,7 +18,7 @@ hardware nobody else touches; never rank a feature by whether ATI's drivers use 
 - [x] XTWLAT on the card: ~3 ms to DRQ, ~110 ms commit, 1.1 ms per 16 KB boundary (`docs/captures/2026-10-10_xtlat/`)
 - [ ] RSOAK2 warm, then `REFR64` again (RSOAK2 ends at 18)
 - [ ] Read and format one floppy at divisor 64
-- [ ] Fetch `C:\M8CMPA.BIN` from the card (ran 10-10 20:32; COMrade file reads were timing out) and compare with `docs/captures/2026-10-10_m8cmp8/M8CMPA_bed_7ed52ce3e.BIN`; re-read 16EE
+- [ ] Fetch `C:\M8CMPA.BIN` from the card (ran 10-10 20:32; COMrade file reads were timing out) and compare with `docs/captures/2026-10-10_m8cmp8/M8CMPA_bed_7ed52ce3e.BIN`
 - [ ] Any card probes ready from A2 below, run in the same sitting
 
 ## A. Mach8 to the PR
@@ -45,7 +45,7 @@ hardware nobody else touches; never rank a feature by whether ATI's drivers use 
 
 ## B. Bus knobs on both chips (own use; performance)
 
-- [ ] **B1 28800 knobs from static sources (desk).** VVESA.COM disassembly, XFree86 `aticlock.c` and CRTC code,
+- [ ] **B1 28800 knobs from static sources (desk).** Start from the 10 extended registers where card and bed differ (`mach8_card_coverage.md`). VVESA.COM disassembly, XFree86 `aticlock.c` and CRTC code,
       Ferraro ch. 19, Sutty and Blair. Table: register, bits, what it trades.
 - [ ] **B2 One probe per 28800 field (M).** BEh bit 2 (128 KB window), B6h bits 2/5/6, B0h - as M8BANK did B2h.
 - [ ] **B3 Mach8 knobs under load (M).** FIFO_OPT W_STATE_ENA and MAX_WAITSTATES during a FIFO-full burst

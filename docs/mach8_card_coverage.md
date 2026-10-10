@@ -231,8 +231,14 @@ the end. Model readings are by hand; "card" means measured on the 5160.
 | SRC_X_START / SRC_X_END / SRC_Y_DIR | B2EE / BEEE / C2EE W | 9-62..63 | implemented | see extended blit source above |
 | R_SRC_X / R_SRC_Y | DAEE / DEEE R | 9-60..61. Source pointer read-back; indeterminate after a blit (32-byte source FIFO) | implemented | - |
 | EXT_GE_STATUS | 62EE R | 9-68. CLIP_OVERRUN 3:0, CLIP_INSIDE, CLIP_FLAGS, GE_ACTIVE, EE_DATA_IN | implemented | pre-clip loop (9-36) |
-| CONFIG_STATUS_1 | 12EE R | 9-64. Clock mode, **BUS_16**, EEPROM, DRAM/VRAM, memory installed, ROM location | **card 0xFE21 (10-10, COMrade), model 0x0021**: low byte matches (clock chip, 8-bit bus, 1 MB VRAM); high byte (ROM_LOCATION 7Fh) not modelled | fix in A3 |
-| CONFIG_STATUS_2 | 16EE R | 9-66. **SHARE_CLOCK** (Mach8 shares the VGA's clock), HIRES_BOOT, **WRITE_PER_BIT** (fast write-masked ops) | model 0x0046, from an earlier read of this card (comment at `vid_ati_mach8.c` 9679): **SHARE_CLOCK 0, WRITE_PER_BIT 0**. 10-10: 16EF read 00h; 16EE timed out twice over COMrade (12EE/12EF/16EF did not); later file reads timed out too, so the link may be the cause - retry on a fresh COMrade | **the halves run off separate clocks**: same frequency possible, no phase lock - constrains worklist C3. No fast write-masked ops: plane layers cost full writes |
+| CONFIG_STATUS_1 | 12EE R | 9-64. Clock mode, **BUS_16**, EEPROM, DRAM/VRAM, memory installed, ROM location | **card 0xFE21 (10-10 COMrade, and `M8REGS_5160.BIN` 10-07), model 0x0021**: low byte matches (clock chip, 8-bit bus, 1 MB VRAM); high byte (ROM_LOCATION 7Fh) not modelled | fix in A3 |
+| CONFIG_STATUS_2 | 16EE R | 9-66. **SHARE_CLOCK** (Mach8 shares the VGA's clock), HIRES_BOOT, **WRITE_PER_BIT** (fast write-masked ops) | **ok/card: 0046** (`M8REGS_5160.BIN`, 10-07, cold and warm; model 0046): **SHARE_CLOCK 0, WRITE_PER_BIT 0**. The 10-10 single-byte timeouts were the COMrade link | **the halves run off separate clocks**: same frequency possible, no phase lock - constrains worklist C3. No fast write-masked ops: plane layers cost full writes |
+
+**VGA half, ATI extended registers A0h-BFh (1CEh/1CFh)**, `M8REGS` 10-07/10-08, card cold vs bed `ea1f70b5d`:
+card `4d 1f 00 02 54 76 20 00 00 3d 06 80 03 10 00 00 12 00 00 00 00 08 00 6c 40 33 01 21 00 90 30 88`,
+bed  `0d 00 00 02 00 00 20 00 01 17 06 00 00 00 00 00 12 00 00 00 00 08 00 88 40 33 01 21 00 90 30 88`.
+Differ at A0, A1, A4, A5, A8, A9 (varies on the card too), AB, AC, AD, B7. 28800 side: out of the PR gate,
+input to worklist B1 (what each one controls).
 
 Mach32 only, absent from the Mach8 by design: hardware cursor (0AEE-1EEE, 3AEE/3EEE), overscan (62EE W,
 66EE, 02EE-06EF), VERT_LINE_CNTR (CEEE R), MEM_BNDRY (42EE; the Graphics Ultra's halves have separate
