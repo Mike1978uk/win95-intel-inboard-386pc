@@ -201,7 +201,7 @@ the end. Model readings are by hand; "card" means measured on the 5160.
 
 | reg | port | guide | model | use |
 |---|---|---|---|---|
-| DP_CONFIG | CEEE W | 9-26..27. Read/write, POLY_FILL_MODE blit, READ_MODE, DRAW, MONO_SRC (3 = **VRAM blit source**), BG/FG source, DATA_WIDTH, LSB_FIRST | ok/card for MONO_SRC 3 (4 M8CONF shapes, from ATI's Win 3.11 driver) and FG sources 0/1/2/3/5; poly-fill blit (bit 1) in no M8CONF shape - unmeasured | **colour-expand from card memory**: glyphs and masks kept on the card as 1 bpp, expanded with no host data |
+| DP_CONFIG | CEEE W | 9-26..27. Read/write, POLY_FILL_MODE blit, READ_MODE, DRAW, MONO_SRC (3 = **VRAM blit source**), BG/FG source, DATA_WIDTH, LSB_FIRST | ok/card for MONO_SRC 3 (4 M8CONF shapes, from ATI's Win 3.11 driver) and FG sources 0/1/2/3/5; **poly-fill blit ok/card** (M8PF, 10-10: edges 10/20, 5/30, 10/20/30 fill left-inclusive, right-exclusive, flag toggling; card = bed) | **colour-expand from card memory**: glyphs and masks kept on the card as 1 bpp, expanded with no host data |
 | EXT_FIFO_STATUS | 9AEE R | 9-28. One bit per FIFO entry, 16 | engine finishes at once: occupancy never shows (FIFO probe, 10-10) | driver sends up to 16 minus count |
 | EXT_GE_CONFIG | 7AEE W | 9-29..31. 8-bit-slot layout puts the EEPROM lines in bits 0-2 and 7; 16-bit layout adds pixel width, DAC 8-bit | EEPROM path works in the bed (ATIM8 reads it) | - |
 | GE_PITCH / GE_OFFSET | 76EE / 6EEE+72EE W | 9-20..21. Drawing pitch and 20-bit drawing base; Mach8 pitch resets as CRT_PITCH | ok | **draw into any off-screen page**: render page N+1 while N shows |
@@ -221,13 +221,13 @@ the end. Model readings are by hand; "card" means measured on the 5160.
 
 | reg | port | guide | model | use |
 |---|---|---|---|---|
-| DEST_CMP_FN | EEEE W | 9-50. Codes 0-7; TRUE = pixel kept; unsigned; **only WRT_MASK-enabled planes compare** | ok/card on the ATI path (M8CMP, `c454a6324`); the WRT_MASK masking is now guide-confirmed for this path too, card unmeasured | colour key |
+| DEST_CMP_FN | EEEE W | 9-50. Codes 0-7; TRUE = pixel kept; unsigned; **only WRT_MASK-enabled planes compare** | ok/card on the ATI path. **Gap on 8514/A commands:** the card applies DEST_CMP_FN to a CMD fill (M8CMP 10-06, M8CMPA 10-10); the model ignores it there and writes every pixel (bed M8CMP 255/256 written vs card 32 or 223). Codes 40h-78h (the Graphics Ultra nibble test) ignore WRT_MASK on the card (M8CMPA); colour codes 08h-38h on CMDs unmeasured | colour key |
 | DEST_X_START / X_END / Y_END | A6EE / AAEE / AEEE W | 9-44..46. Writing Y_END starts the blit; left inclusive, right exclusive; direction from the ends | ok/card (M8CONF) | all blits |
 | EXT_SCISSOR_L/T/R/B | DAEE / DEEE / E2EE / E6EE W | 9-53..54. 12-bit signed, -2048..2047 | ok | - |
 | EXT_SHORT_STROKE | C6EE W | 9-55. Two SSVs per 16-bit write; packed mono; colour patterns | implemented; not card-measured | glyph strokes |
 | LINEDRAW / LINEDRAW_INDEX | FEEE / 9AEE W | 9-56..57. Index 0-3 draw, 4-5 move; `rep outsw` a polyline; index 4/5 grows the bounds without drawing | ok/card (TS2) | polylines at one 16-bit write per coordinate |
 | PATT_DATA / PATT_DATA_INDEX / PATT_INDEX / PATT_LENGTH | 8EEE / 82EE / D6EE / D2EE | 9-58..60. 16 colour + mono pattern registers, linear patterns; 8x8 mono tiling is 68800-6 (Mach32) only | ok/card (M8ROW3, M8FG6-9) | dithers, line styles |
-| SCAN_TO_X | CAEE W | 9-61. Span from CUR_X to the written X; fill-flag toggles for host polygon scan conversion; fast horizontal lines | ok/card (18 M8CONF shapes); the fill-flag toggle mode unmeasured | **flat-shaded spans at about one write each** (3D plan) |
+| SCAN_TO_X | CAEE W | 9-61. Span from CUR_X to the written X; fill-flag toggles for host polygon scan conversion; fast horizontal lines | plain spans ok/card (18 M8CONF shapes). **Fill flag: gap.** Card (M8PF): after CUR_X, successive SCAN_TO_X writes alternate draw and move (10-19 drawn, 20-29 not, 30-39 drawn); the model draws every span and leaves a 1-pixel gap after each | **flat-shaded spans at about one write each** (3D plan); with the flag, a scanline's edge list is one write per edge |
 | SRC_X_START / SRC_X_END / SRC_Y_DIR | B2EE / BEEE / C2EE W | 9-62..63 | implemented | see extended blit source above |
 | R_SRC_X / R_SRC_Y | DAEE / DEEE R | 9-60..61. Source pointer read-back; indeterminate after a blit (32-byte source FIFO) | implemented | - |
 | EXT_GE_STATUS | 62EE R | 9-68. CLIP_OVERRUN 3:0, CLIP_INSIDE, CLIP_FLAGS, GE_ACTIVE, EE_DATA_IN | implemented | pre-clip loop (9-36) |

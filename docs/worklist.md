@@ -18,7 +18,6 @@ hardware nobody else touches; never rank a feature by whether ATI's drivers use 
 - [x] XTWLAT on the card: ~3 ms to DRQ, ~110 ms commit, 1.1 ms per 16 KB boundary (`docs/captures/2026-10-10_xtlat/`)
 - [ ] RSOAK2 warm, then `REFR64` again (RSOAK2 ends at 18)
 - [ ] Read and format one floppy at divisor 64
-- [ ] Fetch `C:\M8CMPA.BIN` from the card (ran 10-10 20:32; COMrade file reads were timing out) and compare with `docs/captures/2026-10-10_m8cmp8/M8CMPA_bed_7ed52ce3e.BIN`
 - [ ] Any card probes ready from A2 below, run in the same sitting
 
 ## A. Mach8 to the PR
@@ -33,7 +32,9 @@ hardware nobody else touches; never rank a feature by whether ATI's drivers use 
       PATTERN_L/H; DEST_CMP_FN masked by WRT_MASK; LINE_SYNC (DISP_STATUS bit 2); the guide-only six
       (ERR_TERM -1, CMD bit 3, blit SOURCE wrap, reads outside scissors = FFh, poly at compatible pitch,
       BRES_COUNT after CMD). Add A1's unmeasured rows.
-- [ ] **A3 Model fixes from A1/A2 (desk + B).** Regress M8CONF, TEST.COM, REGR after each. Includes deciding
+- [ ] **A3 Model fixes from A1/A2 (desk + B).** Found 10-10: (1) DEST_CMP_FN ignored on 8514/A commands; (2) SCAN_TO_X fill
+      flag not modelled; (3) CONFIG_STATUS_1 high byte 00 vs card FEh. Measure DEST_CMP_FN colour codes 08h-38h on CMDs first.
+      Previously listed: Regress M8CONF, TEST.COM, REGR after each. Includes deciding
       how far to model the FIFO (EXT_FIFO_STATUS occupancy, INVALID_IO on overrun) - our driver relies on it.
 - [ ] **A4 Appendices (desk).** EEPROM map (we have the dump), BIOS interface, CRT parameters, clocks, RAMDAC,
       checked against the model.
