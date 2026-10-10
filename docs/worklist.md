@@ -20,7 +20,8 @@ hardware nobody else touches; never rank a feature by whether ATI's drivers use 
 - [ ] RSOAK2 again from a clean boot with NO COMrade loaded - the planar 64 KB check was confounded by 3 resident copies
 - [ ] Read and format one floppy at divisor 64
 - [ ] Reboot clean first (F8, command prompt) and load COMrade ONCE - re-running `comrade` stacks resident copies
-- [ ] `M8STAT` (on C:, LINE_SYNC) and the B2 wait-state timing: `python tools/gen_zws_probe.py > ZWS.SCR`, then
+- [x] `M8STAT` run 10-10 (LINE_SYNC live). ZWS.SCR full copy (5,009 B) staged on the card 10-10, 22:31
+- [ ] At the 5160: `DEBUG < ZWS.SCR > ZWS.OUT`, then fetch ZWS.OUT. Was: the B2 wait-state timing: `python tools/gen_zws_probe.py > ZWS.SCR`, then
       `DEBUG < ZWS.SCR > ZWS.OUT` (proven in the bed, restores AB)
 - [ ] Any card probes ready from A2 below, run in the same sitting
 
@@ -36,7 +37,7 @@ hardware nobody else touches; never rank a feature by whether ATI's drivers use 
       PATTERN_L/H; DEST_CMP_FN masked by WRT_MASK; LINE_SYNC (DISP_STATUS bit 2); the guide-only six
       (ERR_TERM -1, CMD bit 3, blit SOURCE wrap, reads outside scissors = FFh, poly at compatible pitch,
       BRES_COUNT after CMD). Add A1's unmeasured rows.
-- [ ] **A3 Model fixes from A1/A2 (desk + B).** Found 10-10: (1) ~~DEST_CMP_FN ignored on 8514/A commands~~ fixed `c12ab587c`; (2) ~~SCAN_TO_X fill flag~~ fixed `a52d2f2ce`; (4) LINE_SYNC (02E8 bit 2) absent - card toggles it (M8STAT); (5) **A6: HEAD exits on a Mach32 at M8FG6** - the branch point runs every probe; repeated (`head_mach32_r2`). Last write before the exit: engine reset, scissors, then an 8514/A fill CMD 40F3h at y=025Ah, MAJ_AXIS 1Fh. **Bisected 10-10: first bad = `5a5079fbc` "DIAGNOSTIC: trace TEST.COM's RAM Addressing stage"** - a diagnostic hook, not a model change (`bisect_log.txt`). **Fixed 10-10: reverted on the working branch (`3667abf59`)**; it read `dev->vram`, absent on a Mach32. `tools/a6_finish.sh` (left running) writes `base_8514a` and `head_mach32_fixed` under docs/captures/2026-10-10_a6/: next session, check head_mach32_fixed has DONE.TXT and cmp every BIN against base_mach32, and head_8514a against base_8514a; (3) ~~CONFIG_STATUS_1 high byte~~ fixed `a7b84dbe4`.
+- [ ] **A3 Model fixes from A1/A2 (desk + B).** Found 10-10: (1) ~~DEST_CMP_FN ignored on 8514/A commands~~ fixed `c12ab587c`; (2) ~~SCAN_TO_X fill flag~~ fixed `a52d2f2ce`; (4) LINE_SYNC (02E8 bit 2) absent - card toggles it (M8STAT); (5) **A6: HEAD exits on a Mach32 at M8FG6** - the branch point runs every probe; repeated (`head_mach32_r2`). Last write before the exit: engine reset, scissors, then an 8514/A fill CMD 40F3h at y=025Ah, MAJ_AXIS 1Fh. **Bisected 10-10: first bad = `5a5079fbc` "DIAGNOSTIC: trace TEST.COM's RAM Addressing stage"** - a diagnostic hook, not a model change (`bisect_log.txt`). **Fixed 10-10: reverted on the working branch (`3667abf59`)**; it read `dev->vram`, absent on a Mach32. `tools/a6_finish.sh` (left running) writes `base_8514a` and `head_mach32_fixed` under docs/captures/2026-10-10_a6/: **HEAD 8514/A run crawled** (owner stopped it): M8CONF logs an `[M8P]` line per 1x1 fill on the plain 8514/A path, minutes became hours - find and gate that trace, then rerun. Also next session, check head_mach32_fixed has DONE.TXT and cmp every BIN against base_mach32, and head_8514a against base_8514a; (3) ~~CONFIG_STATUS_1 high byte~~ fixed `a7b84dbe4`.
       Previously listed: Regress M8CONF, TEST.COM, REGR after each. Includes deciding
       how far to model the FIFO (EXT_FIFO_STATUS occupancy, INVALID_IO on overrun) - our driver relies on it.
 - [ ] **A4 Appendices (desk).** EEPROM map (we have the dump), BIOS interface, CRT parameters, clocks, RAMDAC,
