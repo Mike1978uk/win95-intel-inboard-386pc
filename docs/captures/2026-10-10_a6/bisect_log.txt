@@ -1,0 +1,31 @@
+running '../tools/a6_bisect_step.sh'
+Bisecting: 36 revisions left to test after this (roughly 5 steps)
+[23f38feadcaa972a07ad73bd353ba7b65d2fc8aa] mach8: FIFO_TEST_TAG takes the entry off the FIFO, not FIFO_TEST_DATA
+running '../tools/a6_bisect_step.sh'
+Bisecting: 18 revisions left to test after this (roughly 4 steps)
+[433ae0650214bc74cb3035dbfdb4d5d201fe3b44] mach8: Graphics Ultra VRAM-source blits update the current position
+running '../tools/a6_bisect_step.sh'
+Bisecting: 8 revisions left to test after this (roughly 3 steps)
+[78eeb22d5363bd495bc3324c9d8e429583979f9f] mach8: SCAN_TO_X on the 8514/A path ignores DP_CONFIG's read bit
+running '../tools/a6_bisect_step.sh'
+Bisecting: 4 revisions left to test after this (roughly 2 steps)
+[76b4cf4eea6c68029f582ba0e91bf810b28d2d1e] mach8: take the 8514/A data path whenever the last command came through it
+running '../tools/a6_bisect_step.sh'
+Bisecting: 2 revisions left to test after this (roughly 1 step)
+[047c79e0aad39912d7996df6fd7955a78a563401] Revert "mach8: take the 8514/A data path whenever the last command came through it"
+running '../tools/a6_bisect_step.sh'
+Bisecting: 0 revisions left to test after this (roughly 0 steps)
+[5a5079fbc8987f98a99e0176cdd6be7de5507d5f] DIAGNOSTIC: trace TEST.COM's RAM Addressing stage
+running '../tools/a6_bisect_step.sh'
+5a5079fbc8987f98a99e0176cdd6be7de5507d5f is the first 'bad' commit
+commit 5a5079fbc8987f98a99e0176cdd6be7de5507d5f
+Author: Mike1978uk <lycett_mike@yahoo.co.uk>
+Date:   Tue Oct 6 10:32:36 2026 +0100
+
+    DIAGNOSTIC: trace TEST.COM's RAM Addressing stage
+    
+    Arms on its first SCAN_TO_X write; dumps the four corner pixels at the fold and the 8x8 origin block at each read.
+
+ src/video/vid_ati_mach8.c | 21 +++++++++++++++++++++
+ 1 file changed, 21 insertions(+)
+bisect found first 'bad' commit

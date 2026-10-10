@@ -1,0 +1,64 @@
+#
+# 86Box v7.0 logfile, created 2026/10/10 22:02:24
+#
+# Emulator path: C:/Users/lycet/RiderProjects/86Box-Inboard/86box_a6base/build/src//
+# Global configuration file: C:/Users/lycet/AppData/Local/86Box/86box_global.cfg
+# VM: vm_6695_w2
+#
+# Configuration file: C:/Users/lycet/RiderProjects/86Box-Inboard/vm_6695_w2/86box.cfg
+#
+
+# Userfiles path: C:/Users/lycet/RiderProjects/86Box-Inboard/vm_6695_w2/
+# ROM path: C:/Users/lycet/RiderProjects/86Box-Inboard/vm_6695_w2/roms/
+# ROM path: C:/Users/lycet/RiderProjects/86Box-Inboard/86box_a6base/build/src//roms/
+# ROM path: C:/Users/lycet/AppData/Local/86Box/roms/
+# Asset path: C:/Users/lycet/RiderProjects/86Box-Inboard/vm_6695_w2/assets/
+# Asset path: C:/Users/lycet/RiderProjects/86Box-Inboard/86box_a6base/build/src//assets/
+# Asset path: C:/Users/lycet/AppData/Local/86Box/assets/
+DIAG10 RESET hard  at 0000:00000000
+DIAG10 RESETVEC F000:FFF0 reached from 0000:00000000 (pm=0)
+DIAG10 RESETVEC F000:E05B reached from F000:0000FFF0 (pm=0)
+DIAG10 RESETVEC F000:E05B reached from F000:0000F096 (pm=0)
+DIAG7 [C000:00005DF9] 4AE8 advfunc=03 on=1 hdisp=0 vdisp=0
+DIAG7 [C000:00005E27] 4AEE clock_sel=0051 on=1 hdisp=0 vdisp=0
+DIAG7 [C000:00005E8B] 4AEE clock_sel=0000 on=0 hdisp=0 vdisp=0
+DIAG7 [C000:00005EA2] 4AE8 advfunc=02 on=0 hdisp=640 vdisp=480
+DIAG7 [C000:000059EA] 4AEE clock_sel=0250 on=0 hdisp=640 vdisp=480
+DIAG7 [C000:000059EA] 4AEE clock_sel=0638 on=0 hdisp=1024 vdisp=768
+DIAG7 [C000:000059EA] 4AEE clock_sel=0250 on=0 hdisp=640 vdisp=480
+DIAG7 [C000:000059EA] 4AEE clock_sel=0638 on=0 hdisp=1024 vdisp=768
+DIAG7 [C000:00005632] 4AE8 advfunc=02 on=0 hdisp=1024 vdisp=768
+DIAG7 [C000:00005DF9] 4AE8 advfunc=03 on=1 hdisp=1024 vdisp=768
+DIAG7 [C000:00005EA2] 4AE8 advfunc=02 on=0 hdisp=1024 vdisp=768
+DIAG10 RESETVEC F000:E05B reached from F000:0000F096 (pm=0)
+*** 36 repeats ***
+[M8T] OUT2 caee=0010
+[M8T] OUT2 e2e8=0102
+[M8T] OUT2 e2e8=0408
+[M8T] OUT2 e2e8=1020
+[M8T] OUT2 e2e8=4080
+[M8T] OUT2 e2e8=030c
+[M8T] OUT2 e2e8=30c0
+[M8T] OUT2 e2e8=050a
+[M8T] OUT2 e2e8=50a0
+[M8T] IN2 9ae8=00ff
+[M8T] OUT2 42e8=9000
+[M8T] OUT2 42e8=5000
+[M8T] IN2 9ae8=0000
+[M8T] OUT2 bee8=5006
+[M8T] OUT2 bee8=1000
+[M8C] scissor 1000
+[M8T] OUT2 bee8=2000
+[M8C] scissor 2000
+[M8T] OUT2 bee8=33ff
+[M8C] scissor 33ff
+[M8T] OUT2 bee8=43ff
+[M8C] scissor 43ff
+[M8T] OUT2 bee8=a000
+[M8T] OUT2 bae8=0027
+[M8T] OUT2 a6e8=0000
+[M8T] OUT2 86e8=0000
+[M8T] OUT2 82e8=025a
+[M8T] OUT2 96e8=001f
+[M8T] OUT2 bee8=0000
+[M8T] OUT2 9ae8=40f3
