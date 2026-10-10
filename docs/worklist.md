@@ -19,6 +19,9 @@ hardware nobody else touches; never rank a feature by whether ATI's drivers use 
 - [x] RSOAK2 warm (10-10): XMS + conventional clean at 64; `REFR64` re-applied
 - [ ] RSOAK2 again from a clean boot with NO COMrade loaded - the planar 64 KB check was confounded by 3 resident copies
 - [ ] Read and format one floppy at divisor 64
+- [ ] Reboot clean first (F8, command prompt) and load COMrade ONCE - re-running `comrade` stacks resident copies
+- [ ] `M8STAT` (on C:, LINE_SYNC) and the B2 wait-state timing: `python tools/gen_zws_probe.py > ZWS.SCR`, then
+      `DEBUG < ZWS.SCR > ZWS.OUT` (proven in the bed, restores AB)
 - [ ] Any card probes ready from A2 below, run in the same sitting
 
 ## A. Mach8 to the PR
