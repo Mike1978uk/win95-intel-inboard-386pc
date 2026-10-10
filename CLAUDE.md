@@ -86,6 +86,9 @@ suggested by @andrew-hoffman on issue #3 — the git history had become hard to 
 - When something looks wrong in work already committed, pushed or submitted: **say what is
   wrong and stop.** Do not open an editor. The owner decides whether it is fixed, reverted,
   or left.
+- **Owner's override, 2026-10-10:** a known breakage in work *we* built or modified is fixed fully, and
+  the owner is told what was wrong and what was done. *"my rules override those of others - of course i
+  need to know of issues and it can be decided."* Alert-and-stop is for anything not ours or not settled.
 - This is stronger than the general "ask before outward-facing actions": it applies to the
   *local* tree too, because a silent fix destroys the evidence of how it went wrong.
 
