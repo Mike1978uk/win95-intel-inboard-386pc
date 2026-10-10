@@ -1,5 +1,7 @@
 # Work list - in attack order
 
+**Next session (owner, 10-10): build the XT-CF measured-wait driver first** (E: X3, design `docs/xtcf_measured_wait.md`) - frees bus and CPU for the ATI work. Prior art to borrow: Linux block-layer hybrid polling (sleep ~half the mean completion time, then poll).
+
 The one list. Tick an item in the same commit as its result; the detail stays in the doc each item links.
 Where: **desk** = sources and code only; **B** = emulator bed, unattended; **M** = owner at the 5160
 (batched into one sitting where possible); **C** = card in the reader.
