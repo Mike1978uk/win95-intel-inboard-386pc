@@ -90,6 +90,37 @@ shape in M8CONF uses one either. Our colour-key path would.
 Confirming probe (not written): M8CMP with the compare set through PIX_CNTL (A000h | mode << 3) and a
 CMD 9AE8h fill instead of DEST_CMP_FN, modes 2-7, plus a WRT_MASK = 0Fh case. One DOS run.
 
+## Host-interface tuning across both chips (owner's idea, 2026-10-10)
+
+The CPU work set five BL3 registers together (CTCHIP34: cache, cacheable regions, clock). The card
+has the same kind of knobs on both chips, and the bus is where all the cost is: an I/O byte costs
+5.695 us here, a memory byte 2.861 us read (technique 128d). Knobs known so far:
+
+| chip | register | bits | POST/driver value | source |
+|---|---|---|---|---|
+| Mach8 | MAX_WAITSTATES 6AEE | 3:0 max wait states on engine I/O writes; 7:4 ROM_SPEED (POST ROM reads, Fh = wait forever at reset); 9 IOR16_ENA; 8 LINE_OPT_ENA | `009A` from TEST.COM (writes A, ROM 9) | guide 9-10 ("set by the POST ROM, not for applications") |
+| Mach8 | FIFO_OPT 36EE (write-only) | 0 W_STATE_ENA: 1 = wait states once the FIFO is half full (power-up), 0 = only when full; 1 HOST_8_ENA | unknown | guide 9-8, Ferraro table 19.11 |
+| Mach8 | port bit A14 | waits instead of overrunning the FIFO | - | guide 8-14 |
+| 28800 | not yet known | Ferraro 13.7.2 lists fast write, fast decode, 8/16-bit memory, I/O and BIOS as typical Super VGA knobs, per chip in ch. 15-21; XFree86 names none for the 28800 | - | VVESA.COM, Sutty and Blair (18800) |
+| Inboard | LMCR 1001h | A0000-BFFFF is not cacheable (`FF/03` = 0-640 KB) | shipped | technique 68 |
+
+Only the card can rank these: 86Box does not model per-card bus timing. First measurement, before
+touching any knob - one DOS run, three costs on the card, against an undecoded-port control:
+
+1. Mach8 register writes: `outsb`/`outsw` to FRGD_COLOR (A6E8h). No `outsd` - A6EAh/A6EBh are not
+   registers and their decode is unknown.
+2. 28800 memory writes: byte/word/dword to text page 2 (B9000h is the LS-120 trace page; use BA000h).
+   Technique 128d measured memory reads only.
+3. Mach8 ROM reads at C000h, which ROM_SPEED governs. Shadowed? Check first - EGACACHE is off.
+
+If (1) equals the control, the Mach8 adds no wait states at idle and its knobs matter only when
+the FIFO fills - then measure a burst. Any knob change is followed by M8CONF and TEST.COM, as the
+CPU changes were (SNP `8A` hung the 5160).
+
+A cross-chip idea, not measured: the Mach8 engine cannot write the VGA side, so in a packed
+256-colour bank only the CPU writes A0000-AFFFF. A write-through cache over that window would then
+be coherent if flushed on every bank switch. Planar modes read through latches and must stay uncached.
+
 ## Chapter 9 - ATI extended registers
 
 Not started.
