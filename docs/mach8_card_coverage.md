@@ -21,7 +21,7 @@ kept, no effect; **absent**; **conflict** = model disagrees with the sources.
 |---|---|---|---|---|
 | ADVFUNC_CNTL | 4AE8 W | 8-6. Bit 0 VGA/8514 output, bit 2 shadow set 1/2. Mach8 only: a write resets CRT_PITCH, GE_PITCH, CRT_OFFSET, GE_OFFSET | ok. Mach8 path resets pitch to 1024 and offsets | driver mode set |
 | DISP_CNTL | 22E8 W | 8-7. Bits 2:1 Y_CONTROL skip, 3 double scan, 4 interlace, 6:5 enable/reset | partial: interlace, double scan used; Y_CONTROL skip and the 5:6 reset state not modelled | the guide's mode-change sequence resets the CRTC first |
-| DISP_STATUS | 02E8 R | 8-8. Bit 0 SENSE (RGB > 0.3 V), 1 VSYNC, 2 LINE_SYNC toggles each line | partial: SENSE and VSYNC; LINE_SYNC (bit 2) absent | LINE_SYNC: per-line timing for raster effects (demo) |
+| DISP_STATUS | 02E8 R | 8-8. Bit 0 SENSE (RGB > 0.3 V), 1 VSYNC, 2 LINE_SYNC toggles each line | partial: SENSE and VSYNC; **LINE_SYNC absent in the model, present on the card** (M8STAT 10-10: bit 2 toggles every ~11 reads, ~64 us per state, with the 8514 side not displaying; SENSE toggles too, likely following the VGA picture through the shared DAC) | LINE_SYNC: per-line timing for raster effects (demo) |
 | H_TOTAL | 02E8 W | 8-9 | ok | - |
 | H_DISP | 06E8 W | 8-8. High byte is an alternate H_TOTAL | ok | - |
 | H_SYNC_STRT | 0AE8 W | 8-9 | ok | - |
