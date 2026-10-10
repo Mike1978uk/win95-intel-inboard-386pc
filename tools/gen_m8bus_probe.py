@@ -130,7 +130,7 @@ def verify(code):
 def decode(path):
     text = open(path, "rb").read().decode("ascii", "replace")
     words = []
-    for m in re.finditer(r"^[0-9A-Fa-f]{4}:0(40[0-9A-Fa-f])\s+((?:[0-9A-Fa-f]{2}[ -]){1,16})", text, re.M):
+    for m in re.finditer(r"^[0-9A-Fa-f]{4}:(04[0-9A-Fa-f]0)\s+((?:[0-9A-Fa-f]{2}[ -]){1,16})", text, re.M):
         bs = [int(x, 16) for x in re.findall(r"[0-9A-Fa-f]{2}", m.group(2))]
         words.extend(bs)
     if len(words) < 2 * len(TESTS):

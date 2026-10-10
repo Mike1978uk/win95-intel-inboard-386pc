@@ -113,6 +113,27 @@ touching any knob - one DOS run, three costs on the card, against an undecoded-p
    Technique 128d measured memory reads only.
 3. Mach8 ROM reads at C000h, which ROM_SPEED governs. Shadowed? Check first - EGACACHE is off.
 
+**Measured on the 5160, 2026-10-10** (`tools/gen_m8bus_probe.py`, `docs/captures/2026-10-10_m8bus/`),
+512 bytes each, us per byte:
+
+| | byte | word | dword |
+|---|---|---|---|
+| out, undecoded control 0278h | 5.696 | 3.814 | - |
+| out, Mach8 FRGD_COLOR A6E8h | 5.690 | 3.827 | - |
+| in, undecoded control 0278h | 5.782 | 3.807 | - |
+| in, Mach8 GE_STAT 9AE8h | 5.782 | 3.824 | - |
+| write, 28800 memory BA000h | **2.324** | **2.092** | **1.981** |
+| read, Mach8 ROM C0000h | 2.865 | 2.416 | 2.187 |
+
+- **The Mach8 adds nothing at idle**: its ports cost what an empty port costs, to 0.3%. Its
+  wait-state and FIFO knobs can only matter when the FIFO fills - next test is a burst behind a
+  long fill.
+- **VGA memory writes are the cheapest path on the card**: sync ~0.46 us, ~1.86 us per bus cycle;
+  half the read sync (0.88). Host pixels cost 3.8 us/byte through PIX_TRANS and 2.0 through the VGA
+  window - but only the VGA side can use the latter.
+- The ROM at C0000h is not shadowed and costs what the XT-CF's ROM does (technique 128d), so
+  ROM_SPEED = 9 shows no penalty on reads.
+
 If (1) equals the control, the Mach8 adds no wait states at idle and its knobs matter only when
 the FIFO fills - then measure a burst. Any knob change is followed by M8CONF and TEST.COM, as the
 CPU changes were (SNP `8A` hung the 5160).
