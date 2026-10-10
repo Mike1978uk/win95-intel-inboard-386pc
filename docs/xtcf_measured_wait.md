@@ -31,6 +31,14 @@ known to be ready, then check once. No existing driver is the reference: design 
    tick, MinTimeSlice=54 makes a yield wake up to 55 ms late, so the two settings must be chosen
    together.
 
+## Who gets the freed bus
+
+While the driver holds the CPU (synchronous, as today), the bus time a poll no longer takes is free only
+for DMA - sound, floppy, refresh. A read of 8 sectors is ~7.7 ms of PIO and ~0.3 ms of wait, so the read
+gain is ~1-3%, mostly noticing the card sooner. The larger gain needs the CPU released during a wait, so
+it can draw to the Mach8 or run code meanwhile; that pays only for waits of milliseconds - writes, if
+XTWLAT shows them. Step 1: wait on the measured time. Step 2, if writes are long: yield during them.
+
 ## How to tell it worked
 
 Polls per command (an XTLAT-style count on the card, or a bed counter), unchanged or better
