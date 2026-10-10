@@ -182,3 +182,6 @@ tools/m8seq/*.LST
 roms/machines/pcxtbios_25/
 # Saved web pages (forum threads, READMEs) so they are not fetched twice - third-party text
 references/web_captures/
+
+# XT-CF stride-2 worktree (#45 PIT diagnostics, XT-CF latency).
+86box_xtcf/
