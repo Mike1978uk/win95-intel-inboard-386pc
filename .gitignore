@@ -187,3 +187,6 @@ references/web_captures/
 86box_xtcf/
 # vgadoc ATI notes (Finn Thoegersen), downloaded 2026-10-10; cited in docs/resources_and_sources.md.
 references/vgadoc/
+
+# A6 regression: 86Box at the Mach8 branch point 48e098d45, built for the before/after diff.
+86box_a6base/
