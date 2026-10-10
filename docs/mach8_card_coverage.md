@@ -201,7 +201,7 @@ the end. Model readings are by hand; "card" means measured on the 5160.
 
 | reg | port | guide | model | use |
 |---|---|---|---|---|
-| DP_CONFIG | CEEE W | 9-26..27. Read/write, POLY_FILL_MODE blit, READ_MODE, DRAW, MONO_SRC (3 = **VRAM blit source**), BG/FG source, DATA_WIDTH, LSB_FIRST | implemented, incl. MONO_SRC 3 and poly-fill blit; MONO_SRC 3 not card-measured | **colour-expand from card memory**: glyphs and masks kept on the card as 1 bpp, expanded with no host data |
+| DP_CONFIG | CEEE W | 9-26..27. Read/write, POLY_FILL_MODE blit, READ_MODE, DRAW, MONO_SRC (3 = **VRAM blit source**), BG/FG source, DATA_WIDTH, LSB_FIRST | ok/card for MONO_SRC 3 (4 M8CONF shapes, from ATI's Win 3.11 driver) and FG sources 0/1/2/3/5; poly-fill blit (bit 1) in no M8CONF shape - unmeasured | **colour-expand from card memory**: glyphs and masks kept on the card as 1 bpp, expanded with no host data |
 | EXT_FIFO_STATUS | 9AEE R | 9-28. One bit per FIFO entry, 16 | engine finishes at once: occupancy never shows (FIFO probe, 10-10) | driver sends up to 16 minus count |
 | EXT_GE_CONFIG | 7AEE W | 9-29..31. 8-bit-slot layout puts the EEPROM lines in bits 0-2 and 7; 16-bit layout adds pixel width, DAC 8-bit | EEPROM path works in the bed (ATIM8 reads it) | - |
 | GE_PITCH / GE_OFFSET | 76EE / 6EEE+72EE W | 9-20..21. Drawing pitch and 20-bit drawing base; Mach8 pitch resets as CRT_PITCH | ok | **draw into any off-screen page**: render page N+1 while N shows |
@@ -213,7 +213,7 @@ the end. Model readings are by hand; "card" means measured on the 5160.
 |---|---|---|---|---|
 | BOUNDS_L/T/R/B | 72EE / 76EE / 7AEE / 7EEE R | 9-48. Box around the **points written through LINEDRAW** only - not blits or fills | ok/card (TS2 sub-tests 17-23, clamped outside -512..1535) | bounding box of vector and polygon drawing without CPU work |
 | CLIP_MODE pre-clip | A2EE 10:9 | 9-33..36. Trivial reject / accept / exception; CLIP_OVERRUN in EXT_GE_STATUS | implemented | the CPU clips only the rare exception line |
-| Extended blit source | B2EE, BEEE, C2EE | 9-42..44. Source shape and direction independent of the destination; 32-byte source FIFO; SRC_X_START = SRC_X_END aborts | implemented (`sx_start`/`sx_end`); not card-measured | **tile a texture or unpack a linear sprite into a rectangle in one blit** |
+| Extended blit source | B2EE, BEEE, C2EE | 9-42..44. Source shape and direction independent of the destination; 32-byte source FIFO; SRC_X_START = SRC_X_END aborts | implemented (`sx_start`/`sx_end`); M8CONF blits carry source and destination widths that differ (from register state, so suggestive only); a deliberate tiling probe is still to do | **tile a texture or unpack a linear sprite into a rectangle in one blit** |
 | ALU_FG_FN / ALU_BG_FN | BAEE / B6EE W | 9-47. Mix codes as 8-24 | ok | arithmetic mixes - see chapter 8 row |
 | BRES_COUNT | 96EE R/W | 9-49. Starts a raw Bresenham line; reads back MAJ_AXIS_PCNT | ok | - |
 
@@ -227,7 +227,7 @@ the end. Model readings are by hand; "card" means measured on the 5160.
 | EXT_SHORT_STROKE | C6EE W | 9-55. Two SSVs per 16-bit write; packed mono; colour patterns | implemented; not card-measured | glyph strokes |
 | LINEDRAW / LINEDRAW_INDEX | FEEE / 9AEE W | 9-56..57. Index 0-3 draw, 4-5 move; `rep outsw` a polyline; index 4/5 grows the bounds without drawing | ok/card (TS2) | polylines at one 16-bit write per coordinate |
 | PATT_DATA / PATT_DATA_INDEX / PATT_INDEX / PATT_LENGTH | 8EEE / 82EE / D6EE / D2EE | 9-58..60. 16 colour + mono pattern registers, linear patterns; 8x8 mono tiling is 68800-6 (Mach32) only | ok/card (M8ROW3, M8FG6-9) | dithers, line styles |
-| SCAN_TO_X | CAEE W | 9-61. Span from CUR_X to the written X; fill-flag toggles for host polygon scan conversion; fast horizontal lines | implemented; not card-measured | **flat-shaded spans at about one write each** (3D plan) |
+| SCAN_TO_X | CAEE W | 9-61. Span from CUR_X to the written X; fill-flag toggles for host polygon scan conversion; fast horizontal lines | ok/card (18 M8CONF shapes); the fill-flag toggle mode unmeasured | **flat-shaded spans at about one write each** (3D plan) |
 | SRC_X_START / SRC_X_END / SRC_Y_DIR | B2EE / BEEE / C2EE W | 9-62..63 | implemented | see extended blit source above |
 | R_SRC_X / R_SRC_Y | DAEE / DEEE R | 9-60..61. Source pointer read-back; indeterminate after a blit (32-byte source FIFO) | implemented | - |
 | EXT_GE_STATUS | 62EE R | 9-68. CLIP_OVERRUN 3:0, CLIP_INSIDE, CLIP_FLAGS, GE_ACTIVE, EE_DATA_IN | implemented | pre-clip loop (9-36) |
@@ -239,7 +239,5 @@ Mach32 only, absent from the Mach8 by design: hardware cursor (0AEE-1EEE, 3AEE/3
 memory), MEM_CFG aperture (5EEE), MISC_OPTIONS (36EE R/W), 8x8 mono patterns. Not checked: whether the
 model gates each of these off for `mach8_vga_isa`.
 
-**Card probes this chapter adds to worklist A2:** read 12EE and 16EE; colour-expand with MONO_SRC 3 from
-VRAM; an extended blit with source width different from the destination's; SCAN_TO_X spans and the
-fill flag; DEST_CMP_FN with WRT_MASK 0Fh on the ATI path.
+**Card probes this chapter adds to worklist A2:** 16EE (timed out 10-10); a deliberate tiling blit (source narrower than the destination); the polygon-fill blit; SCAN_TO_X's fill flag; DEST_CMP_FN with WRT_MASK 0Fh on the ATI path. Colour-expand from VRAM and plain SCAN_TO_X are already = card through M8CONF.
 
