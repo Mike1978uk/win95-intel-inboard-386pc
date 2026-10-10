@@ -152,8 +152,11 @@ Interleaved arms, divisor written back to 18 at the end, us per byte:
 | 64 | 5.533 / 5.533 | 1.866 / 1.860 | 2.707 / 2.711 |
 | gain | **2.9%** | **6.0%** | **5.5%** |
 
-Repeats agree to 0.2%. Software only - two `OUT`s, no ROM. Before shipping it: the planar's 64 KB
-(the bottom of memory) is the DRAM this rate keeps alive, so it needs a memory soak at the new rate;
+Repeats agree to 0.2%. Software only - two `OUT`s, no ROM. Before shipping it: this rate refreshes
+**all** the memory, not only the planar's 64 KB - the Inboard has no refresh of its own and enables
+every bank's RAS on DACK0, the XT's refresh DMA cycle (RonnyRoy's reproduction, `U71.pld`). Its
+TMM41256s want 256 rows per 4 ms (15.6 us); divisor 18 gives 15.08 us, 64 gives 53.6 us. So it needs
+a soak of planar, conventional and XMS memory (`tools/soak/RSOAK2`); INBRDPC.SYS sets no refresh;
 and any BIOS delay that counts refresh runs 3.5x longer (technique 134 - WAIT86 covers INT 15h
 AH=86h). Cimon's Super PC/Turbo XT BIOS v2.5 also programs 12h (`PCXTBIOS.ASM` line 492), so refresh
 is not a 5150 difference for issue #10.
