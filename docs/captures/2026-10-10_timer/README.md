@@ -36,3 +36,14 @@ timer. At ~170 us per interrupt (#45) the 72.8 Hz tick costs ~1.2% of the CPU; b
 
 So the 72.8 Hz tick is one SYSTEM.INI line. Before it goes on the card: measure the gain (#45's loop),
 and check DOS boxes and serial/COMrade timing at the coarser slice.
+
+## Leads beyond the rate (owner, 2026-10-10: invent for this bus, do not copy other drivers)
+
+- **Cost per tick.** ~170 us (#45) is ~14,000 cycles at 83.5 MHz. If the path reflects INT 8 into the BIOS
+  ROM, its code is fetched over the 8-bit bus every tick. Count bus cycles per tick in the bed before
+  guessing; a cheaper tick gains at every rate.
+- **PIT channel 2** (speaker gate) as a free one-shot timer, read on port 61h bit 5: precise waits with
+  no interrupt and no change to channel 0.
+- **Tickless:** program channel 0 for the next event Windows needs instead of a fixed period. VxD work.
+- **One budget:** channel 0 (tick), channel 1 (refresh) and the disk's waits all spend bus time; measure
+  them together to find the next gain.
