@@ -607,8 +607,9 @@ Recorded here properly, with what each does **not** contain, which is the more u
 **MCA** and mostly do not apply to an XT bus (technique 128b). The AN062 IEEE 1284 application
 note listed in section 3 is a different document and does apply.
 
-**Owner's demoscene links, 2026-10-10** - 8088/CGA cycle-exact work; useful for XT bus timing, none
-covers the Mach8 or 8514/A:
+**Owner's demoscene links, 2026-10-10** - given as a **method** for the Mach8 driver, not for their
+subject: measure the hardware to the cycle, build the instrument to see it, use behaviour nobody used.
+Same 4.77 MHz XT bus, so their limits are ours. None covers the Mach8 itself:
 - [dbalsom/martypc](https://github.com/dbalsom/martypc) - cycle-accurate 8088 PC emulator (its book is
   already cited in section 5). [dbalsom/XTCE-Blue](https://github.com/dbalsom/XTCE-Blue) - cycle-exact
   XT hardware reference tests. [dbalsom/cga_sim](https://github.com/dbalsom/cga_sim) - CGA composite simulation.

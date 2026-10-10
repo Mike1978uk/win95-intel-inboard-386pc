@@ -117,6 +117,11 @@ If (1) equals the control, the Mach8 adds no wait states at idle and its knobs m
 the FIFO fills - then measure a burst. Any knob change is followed by M8CONF and TEST.COM, as the
 CPU changes were (SNP `8A` hung the 5160).
 
+A bus-wide idea from the demoscene, not measured: DRAM refresh is a DMA cycle on channel 0 every
+18 PIT ticks (~15 us), each costing the bus about a microsecond, roughly 6%. 8088 demos lengthen the
+interval (PIT channel 1). Here the planar's 64 KB bank 0 still needs refresh, and the BIOS times
+delays by counting refresh (technique 134), so any change needs a memory soak and WAIT86 in place.
+
 A cross-chip idea, not measured: the Mach8 engine cannot write the VGA side, so in a packed
 256-colour bank only the CPU writes A0000-AFFFF. A write-through cache over that window would then
 be coherent if flushed on every bank switch. Planar modes read through latches and must stay uncached.
