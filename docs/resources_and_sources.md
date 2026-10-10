@@ -243,6 +243,12 @@ the directory's own `README.md`.
   8514 demos. ❌ No demo names, no register use, no code. (WebFetch gets 403; curl with a browser UA works.)
   Saved: `references/web_captures/vogons_t28392_p2_mach8_graphics_ultra.txt`.
 
+- **vgadoc `ATI.TXT`** (Finn Thoegersen's VGADOC), <https://pdos.csail.mit.edu/6.828/2018/readings/hardware/vgadoc/ATI.TXT>,
+  local copy `references/vgadoc/` (not vendored). Gave the bit meanings of the 28800's extended registers
+  A0h-BFh: **AB bits 0/1/5 = zero-wait-state enables, off on our card** (worklist B2), AC bit 0 linear
+  addressing, A8/A9 vertical line counter, B7 bus and memory straps. ❌ Silent on A0 bits 0-3 for the 28800,
+  AD bit 4, and on how many wait states each AB bit saves.
+
 ## 5. DMA, memory and the 8237
 
 - **Michal Necasek (OS/2 Museum)**: [386MAX and EISA DMA](https://www.os2museum.com/wp/386max-and-eisa-dma/),
