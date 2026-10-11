@@ -192,3 +192,5 @@ references/vgadoc/
 
 # A6 regression: 86Box at the Mach8 branch point 48e098d45, built for the before/after diff.
 86box_a6base/
+86box_prprep/
+86box_prup/
