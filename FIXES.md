@@ -340,6 +340,22 @@ memory, not speed: the previous version measured no speed change. Details: [`dis
 ---
 ## ⚠️ Loads on real hardware, not yet proven correct
 
+### `REFR64.COM` — DRAM refresh at divisor 64
+
+**[⬇ REFR64.COM](https://github.com/Mike1978uk/win95-intel-inboard-386pc/raw/master/dist/refresh/REFR64.COM)** · 13 bytes · md5 `760e4a8b` · **[⬇ REFR18.COM](https://github.com/Mike1978uk/win95-intel-inboard-386pc/raw/master/dist/refresh/REFR18.COM)** (undo) · md5 `4e3e1ea3`
+
+Refresh every 53.6 us instead of IBM's 15.08 us; each refresh holds the bus, so fewer free it.
+3-6% faster transfers on the 5160, cold soak clean. Warm soak and floppy at divisor 64 still to
+confirm. Run from `AUTOEXEC.BAT`. [`dist/refresh/README.md`](dist/refresh/README.md), #33.
+
+### `SCSIPORT.PDR` — DMA buffer within the XT's 20-bit reach
+
+**[⬇ SCSIPORT.PDR](https://github.com/Mike1978uk/win95-intel-inboard-386pc/raw/master/dist/post-install-fixes/scsiport_xt_dma/SCSIPORT.PDR)** · md5 `3f85fa2b`
+
+Four bytes: the two `_PageAllocate` ISA-DMA ceilings lowered to 1 MB. The 5160 boots on it and
+the XT-CF tests run on it; no test has yet pushed SCSI DMA through its buffer.
+[`README`](dist/post-install-fixes/scsiport_xt_dma/README.md).
+
 ### `HSFLOP.PDR` — floppy DMA reach
 
 **[⬇ HSFLOP_XTDMA.PDR](https://github.com/Mike1978uk/win95-intel-inboard-386pc/raw/master/vxd-patches/floppy/HSFLOP_XTDMA.PDR)** · 18,998 bytes
@@ -415,6 +431,10 @@ fixes. Same `maxPhys` change as the sound driver.
 ---
 
 ## Not a patched file, but needed
+
+- **`CTCHIP34` + `CPUSET.BAT` — the Blue Lightning's 2x clock and cache.** Replaces `revto486.sys`,
+  which halts during the Windows 95 `CONFIG.SYS` load. Confirmed on the 5160.
+  [`dist/post-install-fixes/ctchip34/`](dist/post-install-fixes/ctchip34/README.md).
 
 - **`IOS.INI` `[SafeList]` — the manual edit every 32-bit storage driver here depends on.**
   Windows 95's I/O Supervisor refuses to hand a disk to a 32-bit driver when something it does not

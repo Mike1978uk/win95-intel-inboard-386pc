@@ -39,6 +39,9 @@ IF EXIST C:\WINDOWS\SYSTEM\ELNK3.OFF IF NOT EXIST C:\WINDOWS\SYSTEM\ELNK3.VXD RE
 :MENUDONE
 CD \
 
+REM DRAM refresh divisor 64 (IBM: 18) frees 3-6% of the bus. C:\REFR18.COM undoes it.
+C:\REFR64.COM
+
 REM INT 15h AH=86h wait, so the floppy motor wait never counts DMA refresh (#7).
 C:\WAIT86.COM
 

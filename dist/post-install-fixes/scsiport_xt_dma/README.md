@@ -28,4 +28,6 @@ the buffer below 1 MB is correct for all of them on this machine, but `C:` is
 in the blast radius if anything is wrong. The stock file is kept on the card at
 `C:\SCSIPORT.ORG`; restore it from real-mode DOS.
 
-⚠ **UNTESTED.** Staged, never booted.
+⚠ **Loads on the real 5160, not yet proven correct.** This file (`3f85fa2b`) is what the card boots
+with, and the XT-CF write tests of 2026-10-11 ran on top of it; no test has yet sent SCSI DMA
+through its buffer.
