@@ -42,9 +42,6 @@ following the references out of `[PNPB002_Device]` transitively, so the install 
 byte for byte and only the file source changes. It is nonetheless **untested** — built and
 internally consistent, never installed. Suggested by @andrew-hoffman on issue #5.
 
-> **Do not use Browse in the Have Disk dialog.** It defaults to `A:\`, this machine has no floppy
-> controller installed, and that read never returns. Type the path. See issue #3.
-
 ### `VDMAD.VXD` — Sound Blaster Pro BSOD
 
 **[⬇ VDMAD_INBOARD_FIXED.VXD](https://github.com/Mike1978uk/win95-intel-inboard-386pc/raw/master/vxd-patches/VDMAD_INBOARD_FIXED.VXD)** · md5 `09af55b032aa7139d92d34b4246e7a05` · 41,844 bytes
