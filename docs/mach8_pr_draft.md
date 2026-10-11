@@ -1,6 +1,6 @@
 # Mach8 PR - draft for the owner to rewrite (not posted)
 
-Branch: `Mike1978uk/86Box:mach8-pr` (`6e9978efd`), one commit on upstream `1741108a7`.
+Branch: `Mike1978uk/86Box:mach8-pr` (`0d54a50fc`), one commit on upstream `1741108a7`, five files (+1727/-414).
 
 ## Gate status (repo-hygiene section 10), 2026-10-11
 
@@ -14,7 +14,7 @@ Branch: `Mike1978uk/86Box:mach8-pr` (`6e9978efd`), one commit on upstream `17411
 | G6 claims reproducible | in the text below: TEST.COM ships with the card; no claim depends on this machine |
 | G7 builds on current master | pass: applies with --3way, builds, no warnings in the four files |
 | G8 minimal diff | 1708/410 lines; 35 lines change only whitespace - to check before submitting |
-| G9 last run on the submitted HEAD | pass: Mach32 35/35 and Graphics Ultra probes identical on `6e9978efd`'s build |
+| G9 last run on the submitted HEAD | `0d54a50fc`: TEST.COM passes (watched); probe rerun in progress |
 | G10 owner by hand | open |
 
 ## Draft text
@@ -35,7 +35,7 @@ What changes, Graphics Ultra only unless stated:
   states the rule and its source.
 
 Tested:
-- TEST.COM passes on the Graphics Ultra model. [TO VERIFY on `6e9978efd` - last run was the working branch, 10-08]
+- ATI TEST.COM passes on the Graphics Ultra model (AT bed, `0d54a50fc`, watched 10-11).
 - Register-level probes run on the real card and in 86Box (including an 82-test conformance set built from ATI's Windows 3.1 driver): pixels and read-backs match; SUBSYS_STAT's monitor-ID and vblank bits differ, which depend on the monitor and timing.
 - Mach32 and IBM 8514/A: the same probe set before and after. The only differences are the two
   guide-documented fixes above.
@@ -59,3 +59,12 @@ Graphics Ultra; 16-bit slot operation.
 - Not a PR-code fault in itself (probes pass on the rebased build), but the PR is blocked until explained.
 - Next: log the IN values TEST.COM sees between 06ACh and 06CCh on both builds (one short diagnostic), or
   bisect upstream's 648 commits with TEST.COM as the test (owner-watched, ~10 runs).
+
+## Resolved 10-11 late: the missing file was vid_svga.c
+
+TEST.COM went black on the rebased build because the PR carried four files and the fork's fix in
+`vid_svga.c` stayed behind: the Graphics Ultra has one DAC (INMOS IMSG176) behind the VGA and 8514/A port
+sets, so a DAC index set on 3C7h/3C8h must read back on 02EBh/02ECh. Without it TEST.COM (797Eh) decides
+the VGA has a separate pass-through DAC and sets 6AEEh bit 10, blanking the picture. Found by logging the
+reads TEST.COM makes after ADVFUNC=7 on both builds (3DAh/02E8h diverged). `vid_svga.c` added (its
+MACH8_VGADUMP diagnostic stripped); TEST.COM then passes on `0d54a50fc`.
