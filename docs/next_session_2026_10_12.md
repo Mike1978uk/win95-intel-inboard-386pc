@@ -51,4 +51,4 @@ Start from `docs/worklist.md`; this page is the state at the end of 10-11.
 - Replies posted: 86Box#6695 (Paintbrush fill, thanks Andrew) and #4898 (TEST.COM). Owner approved wording.
 - Next: watch #8289 review; follow-up PR for the INMOS IMSG176 DAC; tell Andrew on our #49 that #8289 is up.
 
-- **CPU fix not yet submitted:** `5fce405ab` "cpu: fetch code from pages with no exec pointer" (src/cpu/386_common.h, src/mem/mem.c) - needs its own PR and gates (owner, Thursday).
+- **CPU fix: no PR needed.** Upstream fixed the same bug independently - Hinoserm, `acc82a87f`, 2026-09-24 ("cpu: fetch code from device memory through the bus"). Checked 10-11: upstream master with the card EEPROM boots the Inboard bed to the Windows desktop. Our `5fce405ab` stays fork-only.
