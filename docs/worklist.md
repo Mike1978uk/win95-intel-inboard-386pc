@@ -87,7 +87,7 @@ The CPU writes the VGA side at 2.0 us/byte, the cheapest path on the card; the e
 - [ ] **D4 More than 256 colours (owner, 10-11).** Mach8 is 8 bpp only, so: (1) dithered fills from PATTERN_L/H /
       PATT_DATA - same bus cost as a plain fill; probe with A2; (2) palette splits per band on vblank / LINE_SYNC,
       ~1 colour change per line (estimate: ~23 us per entry vs ~32 us line); (3) error diffusion for still images on
-      the 486; (4) 8-bit DAC - read the RAMDAC part number, and B0h on the 28800 side.
+      the 486; (4) ~~8-bit DAC~~ - the RAMDAC is an INMOS IMSG176 (6-bit), no 8-bit mode (photo, 10-11).
 - [ ] **D5 DirectDraw (later).** A surface Lock needs a linear frame buffer; the Mach8 has none, so it rests on the
       28800 A000 window. M8LIN (10-11): one 64 KB bank, no 128 KB window, AC bit 0 no effect - 320x200x8 fits
       unbanked, 320x240 needs a bank switch. Then a HAL from

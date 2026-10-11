@@ -253,3 +253,17 @@ model gates each of these off for `mach8_vga_isa`.
 
 **Card probes this chapter adds to worklist A2:** 16EE (timed out 10-10); the polygon-fill blit; SCAN_TO_X's fill flag; DEST_CMP_FN with WRT_MASK 0Fh on the ATI path. Colour-expand from VRAM and plain SCAN_TO_X are already = card through M8CONF.
 
+## The board (owner's photo, 2026-10-11: `XT_project/photos/IMG_0037.jpeg`)
+
+ATI Graphics Ultra, PN 1090011541 (c) 1990, BIOS label "ACCELERATOR 113-11504-002 (C) 1992".
+
+| Part | Marking | Note |
+|---|---|---|
+| Accelerator | ATI 38800-1 | Mach8 |
+| VGA | ATI 28800-6 | |
+| RAMDAC | **INMOS IMSG176J-80Z** (U23) | 6-bit VGA DAC family (G178 is the 8-bit one): no 8-bit mode. **86Box models an ATI 68875 here** - fidelity gap to check |
+| Clock | ATI18810-2 / ICS1394 (U21) | |
+| Crystals | 33.000 MHz (XTAL1), 45.000 MHz (XTAL2), 14.318 MHz (Y1); XTAL3 empty | |
+| EEPROM | ST 93C46 | the 128-byte dump |
+| VGA memory | 4 x GoldStar GM71C4256A-80 (256Kx4) | 512 KB |
+| 8514 memory | 8 chips under the heatsink | 1 MB |
