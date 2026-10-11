@@ -33,3 +33,13 @@ Start from `docs/worklist.md`; this page is the state at the end of 10-11.
 - Why `vm_xtide_mpd`'s image no longer loads any XTIDEMP build (Init Failure) - use `vm_5160_now` meanwhile.
 - The 8514 output path: M8SHOW decides whether anything reaches the monitor; then M8FLIP v3.
 - `SYSTEM.BSR` on the card was overwritten on 10-11 (old contents unknown; B02-B07 untouched).
+
+## Added late 10-11 (unattended)
+
+- PR branch built: fork `mach8-pr` = `6e9978efd` on upstream `1741108a7`; prep branch `mach8-pr-prep`
+  (`91afd001f` strip, comments rewritten). G1/G5/G7/G9 pass; gate table and a text draft in
+  `docs/mach8_pr_draft.md`. Left: G8 (35 whitespace-only lines to check), G2 non-8514 config (not run),
+  G4/G10 owner: ATI's Windows driver and **TEST.COM on the `6e9978efd` build** (watched run).
+- Skill `inboard-hw-debug` techniques 149-151 added and pushed.
+- M8SHOW lead: if it shows black too, check MAX_WAITSTATES (6AEEh) bit 10 PASSTHROUGH_OVERRIDE - TEST.COM
+  sets it and it blanks the picture (10-08 notes).
