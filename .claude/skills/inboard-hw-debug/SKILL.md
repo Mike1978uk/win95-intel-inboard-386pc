@@ -8515,3 +8515,35 @@ driver never sends. With the repeats expanded the card and the bed were byte-ide
 - A difference that appears only in replayed data, never in a live run, is suspect until the replay
   is checked. Here the tell was a row of 340 pixels carried by 6 words.
 - `m8pre_from_log.py` had the same parser; M8PRE.DAT came out unchanged, but that was luck.
+
+## Technique 149: a Windows 95 storage test proves nothing until BOOTLOG says the driver loaded
+
+2026-10-11, XTIDEMP. A WRTEST run passed 129/129 files in `vm_xtide_mpd` - with `Init Failure
+xtidemp.mpd` in BOOTLOG. Windows had fallen back to the real-mode mapper (RMM, INT 13h), which writes
+correctly, so the "pass" was the BIOS. The shipped driver failed there too, so the 10-10 pass in the same
+bed may have been RMM as well. On the card the same driver loaded and a bug showed at once.
+
+- Before reading any write-path result: `grep -a -i "<driver>" BOOTLOG.TXT` must say `Init Success`.
+- A fallback that works hides everything: the system boots, copies, shuts down. Only BOOTLOG tells.
+- Same rule as technique 74, for the IOS case: prove the file under test is the one doing the work.
+
+## Technique 150: SCSIPORT's timer runs at the VMM tick - hand off only waits longer than a tick
+
+2026-10-11, from `SCSIPORT.PDR` 0xe57/0xeaa. `ScsiPortNotification(RequestTimerCall)` divides the
+microseconds by 1000 and calls `Set_Async_Time_Out`; HwTimer runs inside the timer interrupt at the next
+VMM tick (13.7 ms default, 55 ms with MinTimeSlice=54). A pending timer is not replaced (bit 11h).
+Re-arming from HwTimer works, as Microsoft's PC2X sample does. The first XTIDEMP yield handed every write
+still busy at 0.7 ms to the timer; short commits then cost a whole tick each and the desktop stalled.
+Poll the short ones out (paced, from L1), yield only past ~one tick.
+
+## Technique 151: emulate the device's slow path, and bisect leaks into other cards
+
+- **A bed with a fast model cannot exercise a slow path.** 86Box's IDE finished writes at once, so the
+  yield code never ran. `IDE_COMMIT_US` (fork DIAGNOSTIC) holds BSY after a write's last sector and logs
+  the status reads during it: ~10 with the yield, ~1,550 without. Make the bed as slow as the card first.
+- **A fix measured on one card can leak to its siblings.** The A6 regression (`tools/a6_regress.sh`)
+  showed Mach32 M8CONF tests moving; `git bisect run` with an `A6_PROBES=M8CONF` runner named the two
+  commits (`8f520484d`, `46d9ad164`) in 7 steps each. Gate the behaviour to the card that was measured.
+- **On the Mach8, writing CLOCK_SEL (4AEE) forces ATI CRT mode with bit 0 = VGA output** (guide 8-6);
+  ADVFUNC (4AE8) returns 8514-compatible mode on the BIOS's shadow sets. M8FLIP v1 wrote CLOCK_SEL 0
+  and the 8514 side never reached the monitor.
