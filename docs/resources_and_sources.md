@@ -244,8 +244,20 @@ the directory's own `README.md`.
   full FIFO does not lock the bus (A14 / FIFO_OPT give wait states); 8AE8 is not a line start and 8CE8 is
   not a register; a short stroke is one direction per byte, not eight at once; the Mach8 has no linear
   aperture for a DirectDraw lock (only the 28800's A000 window); "mach32 is a pure superset" is false
-  (`mach8_guide_audit.md`). New lead, unverified: "JHRobotics/vmhal9x", a DirectDraw HAL for Win9x guests - check it exists and
-  its licence at the HAL stage, not before.
+  (`mach8_guide_audit.md`). New lead: JHRobotics' DirectDraw HAL, entry below.
+- **JHRobotics (Jaroslav Hensl), [vmhal9x](https://github.com/JHRobotics/vmhal9x),
+  [vmdisp9x](https://github.com/JHRobotics/vmdisp9x), [softgpu](https://github.com/JHRobotics/softgpu),
+  [fixlink](https://github.com/JHRobotics/fixlink)** - MIT, shallow clones 2026-10-11 in
+  `references/jhrobotics/` (not vendored; patcher9x is in section 2). Pointed out by the owner. Gave:
+  vmhal9x is a working Win9x DirectDraw HAL (`ddraw.c`, `flip32.c`, `fill.c`, `rop3.c`, `transblt.c`) and
+  states what DirectDraw needs from hardware: a linear frame buffer, HW cursor, a movable display start
+  (flip), beam position. The Mach8 has the flip (CRT_OFFSET) and vblank, but no linear frame buffer: a
+  DirectDraw surface Lock needs one, so a HAL here would expose only the 28800's A000 window or blits.
+  `ddrawi_ddk.h`/`d3dhal_ddk.h` fill gaps in MinGW's `ddrawi.h`. The HAL DLL must sit above 2 GB with shared
+  sections; vmhal9x's `makeshared` and fixlink do that with GCC/Watcom linkers. vmdisp9x (`dddrv.c`,
+  `palette.c`, `vxd_fbhda_dd.c`) shows the 16-bit display driver side; velocity9x already cites it.
+  softgpu is an installer bundle - nothing for this card. Did not contain: anything banked, 8-bit-bus or
+  accelerator-specific.
 - **Ardent Tool's diagnostic code list** (page above): 14201-14215. 14204 Graphics Subsystem, 14205 RAMDAC,
   14206 RAM match TEST.COM's messages in 86Box; TEST.COM's TS1 code 14216 is not listed.
 - **[VOGONS, *ATi Mach8 Graphics Ultra ISA VGA card, quick test*, page 2](https://www.vogons.org/viewtopic.php?t=28392&start=20)**
