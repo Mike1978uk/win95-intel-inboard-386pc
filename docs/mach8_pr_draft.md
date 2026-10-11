@@ -9,7 +9,7 @@ Branch: `Mike1978uk/86Box:mach8-pr` (`0d54a50fc`), one commit on upstream `17411
 | G1 no debug left on | pass: no pclog, getenv, ENABLE_*_LOG or #if 0/1 in the added lines |
 | G2 absent means unchanged | Mach32 and IBM 8514/A share the changed code: both regressed against the branch point (A6) - differences only the colour-compare fix and mix 1Fh, both per the guides. A config with no 8514-class card: not run (the changed files build only into those devices) |
 | G3 Settings attach | not applicable: no new device, bus or option |
-| G4 working device, stranger's driver | not run: needs ATI's own Windows 3.1/95 driver on the Graphics Ultra - owner (A5) |
+| G4 working device, stranger's driver | pass on `mach8-pr-prep` (same Mach8 code; upstream has no stride-2 XT-CF to boot these beds): Windows 3.11 and Windows 95 on ATI's drivers - text, dialogs, window size correct (owner, 10-11). Win95 needed the reference EEPROM in the bed: a blank or partial EEPROM gives "a problem with your display settings" |
 | G5 comments re-read | done: probe names, tool paths and repo docs removed; every note is a guide page, ATI TEST.COM or "measured on a real card" |
 | G6 claims reproducible | in the text below: TEST.COM ships with the card; no claim depends on this machine |
 | G7 builds on current master | pass: applies with --3way, builds, no warnings in the four files |
