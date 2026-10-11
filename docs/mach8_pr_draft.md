@@ -36,7 +36,7 @@ What changes, Graphics Ultra only unless stated:
 
 Tested:
 - TEST.COM passes on the Graphics Ultra model. [TO VERIFY on `6e9978efd` - last run was the working branch, 10-08]
-- A set of register-level probes, run on the real card and in 86Box: results byte-identical.
+- Register-level probes run on the real card and in 86Box (including an 82-test conformance set built from ATI's Windows 3.1 driver): pixels and read-backs match; SUBSYS_STAT's monitor-ID and vblank bits differ, which depend on the monitor and timing.
 - Mach32 and IBM 8514/A: the same probe set before and after. The only differences are the two
   guide-documented fixes above.
 
