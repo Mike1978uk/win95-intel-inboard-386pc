@@ -234,6 +234,18 @@ the directory's own `README.md`.
   (c) "86Box engineers flagged" a GR05/chain-4 page-mirroring pitfall - no source given, treat as invented until
   shown; (d) clock select = 3C2h bits 2-3 + B8h bit 4 + B8h bit 6 - check against XFree86 `aticlock.c` and the
   card before use (Sutty and Blair give B8h bits 7-6 as a clock divider and bit 4 as an H-sync lock).
+- **[AI-SOURCED] third Google AI answer (dithering, dirty rectangles, DirectDraw, "3D"), pasted by the owner
+  2026-10-11.** Right, and already in `mach8_graphics_vision.md`: dirty rectangles, on-card blits from spare
+  memory, page flip via CRT_OFFSET with both pages kept in step, line and fill engines for wireframe and
+  raycaster columns, ordered dither (fits PATTERN_L/H and PATT_DATA). Its sources (Ferraro, mach32 guide,
+  Ardent, VGADOC, XFree86) are all local already. Wrong against `mach8_card_coverage.md`: 22E8 is DISP_CNTL,
+  not a draw port (commands go to CMD 9AE8 W); 4AE8 is ADVFUNC_CNTL, scissors are BEE8 idx 1-4 or
+  EXT_SCISSOR; BKGD_MIX is B6E8; no FIFO_STAT register (GE_STAT 9AE8 bits 7:0, EXT_FIFO_STATUS 9AEE); a
+  full FIFO does not lock the bus (A14 / FIFO_OPT give wait states); 8AE8 is not a line start and 8CE8 is
+  not a register; a short stroke is one direction per byte, not eight at once; the Mach8 has no linear
+  aperture for a DirectDraw lock (only the 28800's A000 window); "mach32 is a pure superset" is false
+  (`mach8_guide_audit.md`). New lead, unverified: "JHRobotics/vmhal9x", a DirectDraw HAL for Win9x guests - check it exists and
+  its licence at the HAL stage, not before.
 - **Ardent Tool's diagnostic code list** (page above): 14201-14215. 14204 Graphics Subsystem, 14205 RAMDAC,
   14206 RAM match TEST.COM's messages in 86Box; TEST.COM's TS1 code 14216 is not listed.
 - **[VOGONS, *ATi Mach8 Graphics Ultra ISA VGA card, quick test*, page 2](https://www.vogons.org/viewtopic.php?t=28392&start=20)**
