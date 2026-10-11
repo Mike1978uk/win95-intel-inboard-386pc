@@ -15,3 +15,14 @@ Sources in `tools/m8seq/`. Run from a DOS boot on the Graphics Ultra.
   v2 needs CLOCK_SEL bit 0 set and the 25.175 MHz clock index from the EEPROM's mode table (A4).
 - **M8A2**: 4,618 bytes, raw; compare against a bed run.
 - BEh bit 2 is "internal EGA DIP switches" (ATI.TXT), not a 128 KB window; the 128 KB map is VGA GR06.
+
+## Bed comparison, 2026-10-11 (`vm_xtide_mpd`, build_log at `5897f6a48`, DOS boot)
+
+- M8STAT: LINE_SYNC now toggles in the model (4086 of 8192 reads); the card's rate is not yet matched.
+- M8XMEM: bed = card.
+- M8A2: lines with ERR_TERM -1 and the compare under WRT_MASK 0Fh match. Hit test: same INSIDE_SCISSOR
+  behaviour; SUBSYS_STAT bits 6 (monitor ID) and 0 (vblank) differ (card A0/AA/A8, bed E1/EB/E9).
+  **Model gaps:** a fixed-pattern fill of 4 rows draws only row 0; reads outside the scissors return the
+  pixels instead of FFh; a blit source past x=1023 reads zeros where the card continues into the next row.
+- M8LIN: the model opens a real 128 KB window (B000 = bank 1); the card mirrors A000. 28800 half, not PR.
+- M8BLEND, M8FLIP2: bed timings say nothing about the card (the model's engine finishes at once).
