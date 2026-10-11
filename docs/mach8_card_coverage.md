@@ -266,4 +266,4 @@ ATI Graphics Ultra, PN 1090011541 (c) 1990, BIOS label "ACCELERATOR 113-11504-00
 | Crystals | 33.000 MHz (XTAL1), 45.000 MHz (XTAL2), 14.318 MHz (Y1); XTAL3 empty | |
 | EEPROM | ST 93C46 | the 128-byte dump |
 | VGA memory | 4 x GoldStar GM71C4256A-80 (256Kx4) | 512 KB |
-| 8514 memory | 8 chips under the heatsink | 1 MB |
+| 8514 memory | 8 ZIP-package chips standing on edge (U1-U8) | 1 MB |
