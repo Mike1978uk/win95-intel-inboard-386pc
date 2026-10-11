@@ -125,6 +125,18 @@ gh issue list --state open --limit 100 --json number,body,comments --jq '.[] |
 
 Status blocks are GitHub writes: draft them and get the owner's go-ahead on the wording.
 
+**After any upstream PR or a change on the machine, sweep every issue it touches in the same session.**
+2026-10-11: PR #8289 went up and #49, #45, #33 and #48 kept stale blocks until the owner asked.
+
+**Rewriting a body: normalise line endings first.** Issue bodies come back with `
+`; splitting on `
+`
+and editing put blank lines between #45's table rows and broke the table (words intact, rendering not).
+Normalise to `
+`, write the file with `newline='
+'`, and check afterwards that no table row is
+followed by a blank line. GitHub keeps every body version (`userContentEdits` in GraphQL) - the way back.
+
 ### Contributor links
 
 Every link a contributor posts on an issue belongs in `docs/resources_and_sources.md`, with what it
