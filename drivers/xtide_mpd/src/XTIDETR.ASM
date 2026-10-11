@@ -145,6 +145,19 @@ XT_POLL_FAST	equ	32	; 32 x 5.55us = 178 us flat out, then back off
 XT_POLL_DELAY	equ	256	; 256 x 0.22us = ~51 us, so ~10x less poll traffic
 XT_SPIN_SLOW	equ	20000	; x 56.5us = ~1.1 s, near the old real timeout
 
+;  Wait first, then look (XT_WAIT_FIRST). The card's latencies are known
+;  (docs/captures/2026-10-10_xtlat/), so the driver stays off the bus for most
+;  of each one and polls only near its end. Counts are register-only loop
+;  passes at 0.22 us, the same unit as XT_POLL_DELAY; each is set just under
+;  the shortest latency measured, so a ready card is never kept waiting.
+XT_RD_FIRST_WAIT	equ	1000	; ~220 us; a read's first DRQ, 232-313 us
+XT_WR_FIRST_WAIT	equ	3200	; ~700 us; a write's first DRQ, 0.8-3.3 ms
+XT_COMMIT_WAIT		equ	3200	; ~700 us; the fastest commit seen, 0.8 ms
+;  Paced polls before a commit is handed to the timer: 170 x ~61 us = ~10 ms.
+;  A handoff can cost up to one tick (13.7 ms) of latency, so only a commit
+;  that outlasts this - a flash erase, ~110 ms - is worth handing off.
+XT_COMMIT_POLLS		equ	170
+
 ;  Inner-loop count for one unit of the boot-log delay channel. Calibrated on
 ;  86Box's Deskpro bed, where one unit is about 11.6 log ticks. The 5160 is
 ;  several times faster, so the same constant compresses every fail code into
@@ -237,6 +250,14 @@ XTIDE_ModelChars	dd	0
 ;  be told apart afterwards.
 public XTIDE_LastStatus
 XTIDE_LastStatus	dd	0
+
+;  Commit handoff (XT_YIELD_COMMIT). DeferOk lets XTIDE_WriteSectors return
+;  with the drive still committing; it is set only for the last chunk of a
+;  request, because a later chunk could not start until the commit ends.
+;  CommitPending says it did, and XTIDE_CommitPoll finishes the job.
+public XTIDE_CommitPending
+XTIDE_CommitPending	dd	0
+XTIDE_DeferOk		dd	0
 
 ;  Set once a unit IDENTIFY validates. Phase 2 turns this into an array.
 public XTIDE_MasterPresent
@@ -749,6 +770,55 @@ xwd_ok:
 ;  end XTIDE_WaitDrq
 
 ;----------------------------------------------------------------------------
+; XTIDE_Spin - spin ECX register-only loop passes (0.22 us each).
+;
+;   Uses: ECX
+;
+;   Runs from L1 with the Inboard cache on, so it holds the CPU but not the
+;   bus: DMA and refresh go on while it spins.
+;----------------------------------------------------------------------------
+XTIDE_Spin:
+	dec	ecx
+	jnz	XTIDE_Spin
+	ret
+
+;  end XTIDE_Spin
+
+;----------------------------------------------------------------------------
+; XTIDE_CommitPoll - PUBLIC. One look at a write left committing by
+;                    XTIDE_WriteSectors.
+;
+;   Out:  EAX = 0 still busy, 1 committed, 2 committed with ERR
+;   Uses: EAX, EDX
+;
+;   One status read and no loop: the caller is a timer callback running in
+;   the timer interrupt, and comes back on the next tick if the drive is busy.
+;----------------------------------------------------------------------------
+public XTIDE_CommitPoll
+XTIDE_CommitPoll:
+
+	mov	edx, XTIDE_pAltStatus
+	in	al, dx
+	test	al, ST_BSY
+	jnz	xcp_busy
+	mov	XTIDE_CommitPending, 0
+	test	al, ST_ERR
+	jnz	xcp_err
+	mov	eax, 1
+	ret
+xcp_err:
+	movzx	eax, al
+	mov	XTIDE_LastStatus, eax
+	mov	XTIDE_FailCode, 14	; drive reported ERR on completion
+	mov	eax, 2
+	ret
+xcp_busy:
+	xor	eax, eax
+	ret
+
+;  end XTIDE_CommitPoll
+
+;----------------------------------------------------------------------------
 ; XTIDE_ReadData - read 512 bytes from the data register.
 ;
 ;   In:   EDI -> destination buffer, XTIDE_TryTransport selects how
@@ -1186,6 +1256,10 @@ XTIDE_ReadSectors:
 	mov	XTIDE_Cmd, ATA_READ
 	call	XTIDE_ProgramTaskfile
 	jc	xrd_fail
+ifdef XT_WAIT_FIRST
+	mov	ecx, XT_RD_FIRST_WAIT	; later sectors are ready at once: no wait
+	call	XTIDE_Spin
+endif
 
 	mov	ecx, XTIDE_ReqCount
 	mov	edi, XTIDE_ReqBuf
@@ -1226,6 +1300,10 @@ XTIDE_WriteSectors:
 	mov	XTIDE_Cmd, ATA_WRITE
 	call	XTIDE_ProgramTaskfile
 	jc	xwr_fail
+ifdef XT_WAIT_FIRST
+	mov	ecx, XT_WR_FIRST_WAIT
+	call	XTIDE_Spin
+endif
 
 	mov	ecx, XTIDE_ReqCount
 	mov	esi, XTIDE_ReqBuf
@@ -1251,8 +1329,34 @@ xwr_sector:
 	dec	ecx
 	jnz	xwr_sector
 
+ifdef XT_YIELD_COMMIT
+;  Most commits finish in milliseconds; a flash erase takes ~110 ms. Poll
+;  the short ones out, paced so the bus stays nearly free, and hand only a
+;  commit still running after XT_COMMIT_POLLS to the caller's timer.
+	cmp	XTIDE_DeferOk, 0
+	je	xwr_sync
+	mov	ecx, XT_COMMIT_WAIT
+	call	XTIDE_Spin
+	mov	edx, XTIDE_pAltStatus
+	mov	ecx, XT_COMMIT_POLLS
+xwr_cpoll:
+	in	al, dx
+	test	al, ST_BSY
+	jz	xwr_check
+	push	ecx
+	mov	ecx, XT_POLL_DELAY
+	call	XTIDE_Spin
+	pop	ecx
+	dec	ecx
+	jnz	xwr_cpoll
+	mov	XTIDE_CommitPending, 1
+	clc
+	ret
+xwr_sync:
+endif
 	call	XTIDE_WaitNotBusy	; the drive is still committing the last sector
 	jc	xwr_notready
+xwr_check:
 	test	al, ST_ERR
 	jnz	xwr_err
 	clc
@@ -1550,6 +1654,9 @@ public XTIDE_XferRun
 XTIDE_XferRun:
 
 	push	ebx
+ifdef XT_YIELD_COMMIT
+	mov	XTIDE_CommitPending, 0
+endif
 xfr_chunk:
 	mov	ecx, XTIDE_ReqCount
 	or	ecx, ecx
@@ -1569,7 +1676,16 @@ xfr_have:
 	call	XTIDE_ReadSectors
 	jmp	xfr_done_chunk
 xfr_write:
+ifdef XT_YIELD_COMMIT
+	or	eax, eax		; last chunk? only then may the commit be left running
+	setz	al
+	movzx	eax, al
+	mov	XTIDE_DeferOk, eax
+endif
 	call	XTIDE_WriteSectors
+ifdef XT_YIELD_COMMIT
+	mov	XTIDE_DeferOk, 0	; leaves EFLAGS alone: CF is still the result
+endif
 xfr_done_chunk:
 	pop	eax			; remaining
 	pop	ecx			; this chunk

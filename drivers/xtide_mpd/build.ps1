@@ -57,6 +57,14 @@ param(
     # instruction per byte loop. Removes core cycles, not bus cycles.
     [switch] $FastXfer,
 
+    # Stay off the bus for the measured part of each wait, then poll
+    # (docs/xtcf_measured_wait.md). Needs -PollBackoff for the polls after it.
+    [switch] $WaitFirst,
+
+    # Hand a write's ~110 ms flash commit to SCSIPORT's timer instead of
+    # holding the CPU and polling through it.
+    [switch] $YieldCommit,
+
     [string] $DdkRoot = 'C:\Users\lycet\OneDrive\Desktop\XT_project\Windows95_ddk'
 )
 
@@ -87,6 +95,8 @@ if ($ClaimRange)    { $defs += '-DXT_CLAIM_RANGE' }
 if ($PollBackoff)   { $defs += '-DXT_POLL_BACKOFF' }
 if ($PhysBreaks -ne 0) { $defs += "-DXT_PHYS_BREAKS=$PhysBreaks" }
 if ($FastXfer)      { $defs += '-DXT_FAST_XFER' }
+if ($WaitFirst)     { $defs += '-DXT_WAIT_FIRST' }
+if ($YieldCommit)   { $defs += '-DXT_YIELD_COMMIT' }
 
 # -coff is what makes ML emit objects the PE linker can use at all.
 $aflags = @('-coff', '-DBLD_COFF', '-DIS_32', '-DMASM6', '-nologo', '-W2', '-Zd', '-c', '-Cx') + $defs

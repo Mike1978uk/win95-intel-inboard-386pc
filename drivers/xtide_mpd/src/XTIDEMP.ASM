@@ -49,6 +49,8 @@ ScsiPortNotification	PROTO	C	:DWORD, :VARARG
 EXTERNDEF	XTIDE_Probe		: NEAR
 EXTERNDEF	XTIDE_XferRun		: NEAR
 EXTERNDEF	XTIDE_SelectUnit	: NEAR
+EXTERNDEF	XTIDE_CommitPoll	: NEAR
+EXTERNDEF	XTIDE_CommitPending	: DWORD
 
 EXTERNDEF	XTIDE_BasePort		: WORD
 EXTERNDEF	XTIDE_Stride		: DWORD
@@ -124,6 +126,18 @@ endif
 ;  bytes; the silkscreen on the real card agrees - "IO: 300-31Fh".
 XT_PORT_COUNT		equ	32
 
+;  Commit wait (XT_YIELD_COMMIT). SCSIPORT turns a RequestTimerCall into a
+;  VMM async time-out in whole milliseconds, and VMM serves time-outs on the
+;  timer tick, so 1 ms means "the next tick": 13.7 ms at Windows' default
+;  rate, up to 55 ms with MinTimeSlice raised. HwTimer is called from inside
+;  the timer interrupt, so each wake is one status read and nothing more.
+XT_COMMIT_TIMER_US	equ	1000
+;  Wakes before a commit is declared failed: 1.4 s at the fastest tick, the
+;  same order as the synchronous path's XT_SPIN_SLOW.
+XT_COMMIT_WAKES		equ	100
+
+XtTimer		PROTO	STDCALL :DWORD
+
 ;----------------------------------------------------------------------------
 ;  Per-adapter storage. The transport keeps its state in module variables, so
 ;  this is small on purpose - but SCSIPORT needs a non-zero size and hands the
@@ -133,7 +147,9 @@ XT_PORT_COUNT		equ	32
 DEVEXT	STRUCT
 dxBase		DWORD	?
 dxFound		DWORD	?
-dxReserved	DWORD	6 DUP (?)
+dxSrb		DWORD	?	; write waiting on its commit, or 0
+dxWakes		DWORD	?	; timer wakes spent on it
+dxReserved	DWORD	4 DUP (?)
 DEVEXT	ENDS
 
 	.DATA
@@ -587,6 +603,30 @@ XtInitialize ENDP
 ;============================================================================
 XtResetBus PROC STDCALL DeviceExtension:DWORD, PathId:DWORD
 
+ifdef XT_YIELD_COMMIT
+;  A write still waiting on its commit belongs to the bus being reset: stop
+;  its timer and hand it back, or SCSIPORT waits for it forever.
+	push	ebx
+	push	esi
+	mov	esi, DeviceExtension
+	mov	ebx, [esi].DEVEXT.dxSrb
+	or	ebx, ebx
+	jz	xrb_out
+	mov	[esi].DEVEXT.dxSrb, 0
+	mov	XTIDE_CommitPending, 0
+	push	0			; timer value 0 cancels
+	push	OFFSET XtTimer
+	push	esi
+	push	RequestTimerCall
+	call	ScsiPortNotification
+	add	esp, 16
+	mov	al, SRB_STATUS_BUS_RESET
+	mov	edx, esi
+	call	XtFinish
+xrb_out:
+	pop	esi
+	pop	ebx
+endif
 	mov	eax, TRUE
 	ret
 
@@ -596,14 +636,11 @@ XtResetBus ENDP
 ; XtStartIo - the SRB dispatch. This is the only genuinely new code in the
 ;             port; everything below it is the transport we already had.
 ;
-;   Completion is synchronous: the transfer runs inline and the request is
-;   completed before returning. That is what zikolas/cfu1-win9x's synchronous
-;   polled engine does, and his own notes record the trade - it freezes the UI
-;   during a transfer and it tears down cleanly. Tearing down cleanly is the
-;   entire point of this port, so take that trade first and make it
-;   asynchronous later, from the timer callback SCSIPORT already provides
-;   (ScsiPortNotification RequestTimerCall). Doing both at once would be two
-;   variables in one build.
+;   The transfer runs inline, as in zikolas/cfu1-win9x's synchronous polled
+;   engine: the data phase must not be interrupted (see XTIDE_ReadData), and a
+;   synchronous driver tears down cleanly. The one exception is a write's
+;   flash commit (XT_YIELD_COMMIT): the data is already on the card, so the
+;   request is left open and XtTimer completes it when the drive is idle.
 ;============================================================================
 XtStartIo PROC STDCALL DeviceExtension:DWORD, Srb:DWORD
 
@@ -784,6 +821,10 @@ xsi_nobound:
 
 	call	XTIDE_XferRun
 	jc	xsi_ioerror
+ifdef XT_YIELD_COMMIT
+	cmp	XTIDE_CommitPending, 0
+	jne	xsi_yield
+endif
 
 ;  Report what actually moved. XferRun drains ReqCount to zero on success, so
 ;  the whole request transferred.
@@ -873,20 +914,26 @@ xsi_badfunc:
 	mov	al, SRB_STATUS_BAD_FUNCTION
 
 xsi_complete:
-	mov	[ebx].SCSI_REQUEST_BLOCK.SrbStatus, al
+	mov	edx, DeviceExtension
+	call	XtFinish
+	jmp	xsi_out
 
-;  ScsiPortNotification is cdecl and varargs, so we clean the stack.
-	push	ebx
-	push	DeviceExtension
-	push	RequestComplete
+ifdef XT_YIELD_COMMIT
+;  No RequestComplete and no NextRequest: SCSIPORT sends nothing else until
+;  XtTimer finishes this one, so the transport's globals stay ours.
+xsi_yield:
+	mov	esi, DeviceExtension
+	mov	[esi].DEVEXT.dxSrb, ebx
+	mov	[esi].DEVEXT.dxWakes, 0
+	push	XT_COMMIT_TIMER_US
+	push	OFFSET XtTimer
+	push	esi
+	push	RequestTimerCall
 	call	ScsiPortNotification
-	add	esp, 12
+	add	esp, 16
+endif
 
-	push	DeviceExtension
-	push	NextRequest
-	call	ScsiPortNotification
-	add	esp, 8
-
+xsi_out:
 	pop	edi
 	pop	esi
 	pop	ebx
@@ -894,5 +941,85 @@ xsi_complete:
 	ret
 
 XtStartIo ENDP
+
+;============================================================================
+; XtFinish - complete an SRB and ask for the next one.
+;
+;   In:   AL = SRB status, EBX -> SRB, EDX -> device extension
+;   Uses: EAX, ECX, EDX
+;============================================================================
+XtFinish PROC
+
+	mov	[ebx].SCSI_REQUEST_BLOCK.SrbStatus, al
+
+;  ScsiPortNotification is cdecl and varargs, so we clean the stack - and it
+;  may clobber EDX, so keep the extension across the first call.
+	push	edx
+	push	ebx
+	push	edx
+	push	RequestComplete
+	call	ScsiPortNotification
+	add	esp, 12
+	pop	edx
+
+	push	edx
+	push	NextRequest
+	call	ScsiPortNotification
+	add	esp, 8
+	ret
+
+XtFinish ENDP
+
+ifdef XT_YIELD_COMMIT
+;============================================================================
+; XtTimer - HwTimer for a write left committing by XtStartIo.
+;
+;   Called by SCSIPORT from the timer interrupt. One status read: busy means
+;   ask for the next tick, idle means complete the SRB.
+;============================================================================
+XtTimer PROC STDCALL DeviceExtension:DWORD
+
+	push	ebx
+	push	esi
+	mov	esi, DeviceExtension
+	mov	ebx, [esi].DEVEXT.dxSrb
+	or	ebx, ebx
+	jz	xtm_out			; cancelled by a bus reset
+
+	call	XTIDE_CommitPoll
+	or	eax, eax
+	jnz	xtm_idle
+
+	inc	[esi].DEVEXT.dxWakes
+	cmp	[esi].DEVEXT.dxWakes, XT_COMMIT_WAKES
+	jae	xtm_timeout
+	push	XT_COMMIT_TIMER_US
+	push	OFFSET XtTimer
+	push	esi
+	push	RequestTimerCall
+	call	ScsiPortNotification
+	add	esp, 16
+	jmp	xtm_out
+
+xtm_timeout:
+	mov	XTIDE_CommitPending, 0
+	mov	al, SRB_STATUS_TIMEOUT
+	jmp	xtm_finish
+xtm_idle:
+	cmp	eax, 1
+	mov	al, SRB_STATUS_SUCCESS
+	je	xtm_finish
+	mov	al, SRB_STATUS_ERROR
+xtm_finish:
+	mov	[esi].DEVEXT.dxSrb, 0
+	mov	edx, esi
+	call	XtFinish
+xtm_out:
+	pop	esi
+	pop	ebx
+	ret
+
+XtTimer ENDP
+endif
 
 	END
