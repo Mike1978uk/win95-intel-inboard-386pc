@@ -51,3 +51,25 @@ XTWLAT shows them. Step 1: wait on the measured time. Step 2, if writes are long
 
 Polls per command (an XTLAT-style count on the card, or a bed counter), unchanged or better
 throughput, and the #45 CPU loop for whatever Windows gains back. Bed first, then the card.
+
+## Built and tested, 2026-10-11
+
+Build switches `-WaitFirst -YieldCommit` (with `-PollBackoff -FastXfer`); passing build `a67fefc4`.
+
+- Reads: silent ~220 us after the command, then the existing polls.
+- Writes: silent ~700 us, paced polls (~61 us apart) to ~10 ms, then `RequestTimerCall`; `XtTimer` reads
+  status once per tick and completes the SRB. SCSIPORT (`SCSIPORT_reference.PDR` 0xe57) turns the timer
+  value into a VMM `Set_Async_Time_Out` in whole ms and calls HwTimer from the timer interrupt (0xeaa).
+- First build (`92913c8f`) handed every write still busy at 0.7 ms to the timer: the 5160 stalled at the
+  desktop. Short commits each cost a tick (13.7 ms). Hand off only commits longer than a tick.
+
+| test | result |
+|---|---|
+| bed `vm_5160_now`, today's card image, `IDE_COMMIT_US=110000` (fork diagnostic) | yield path: ~10 status reads per commit vs ~1,550 for the shipped driver |
+| same, `IDE_COMMIT_US=3000`, `a67fefc4` | Init Success; WRTEST 129/129 match; ~30 reads per commit, no handoff |
+| 5160, `a67fefc4` | Init Success; desktop normal; WRTEST 129/129 match; mouse slightly uneven during the copy |
+
+Not measured: copy time against the shipped driver, CPU returned to Windows. Bed note: `vm_xtide_mpd`'s
+image no longer loads any XTIDEMP build (Init Failure, cause unknown) and falls back to RMM silently - so
+the 10-10 WRTEST pass in `docs/captures/2026-10-10_xtlat/` may not have gone through the miniport. Check
+BOOTLOG before trusting any write-path run.

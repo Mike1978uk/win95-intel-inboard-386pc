@@ -115,7 +115,7 @@ like a timer tick (~170 us measured for #45). Ideas, cheapest first - measure be
 - [ ] **T3 (B)** Cost per tick: bus cycles per tick interrupt (`docs/captures/2026-10-10_timer/`)
 - [x] **R1 (B)** Windows does not touch PIT channel 1: divisor 64 survives into Windows (bed)
 - [x] R4 `REFR64` in the card's AUTOEXEC.BAT (10-10, backup `AUTOEXEC.B10`)
-- [ ] **X3 (desk + B + M)** Measured-wait driver, after XTWLAT's numbers
+- [x] **X3 (desk + B + M)** Measured-wait driver: `a67fefc4` passes bed + 5160 (10-11, `xtcf_measured_wait.md`); not yet in `dist/`; next: copy time and CPU returned
 - [ ] ATI.VXD port-trapping lead - lost 10-10; recover or re-derive
 
 ## Done 10-10
