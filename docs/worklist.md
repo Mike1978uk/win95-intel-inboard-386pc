@@ -45,7 +45,7 @@ hardware nobody else touches; never rank a feature by whether ATI's drivers use 
 - [ ] **A4 Appendices (desk).** EEPROM map (we have the dump), BIOS interface, CRT parameters, clocks, RAMDAC,
       checked against the model.
 - [ ] **A5 Windows 95 capture into M8CONF (owner ~10 min, `vm_5160_now`, MACH8_WLOG=1).**
-- [ ] **A6 Regression on other cards (B, ~2 h).** Mach32 and 8514/A, branch point `48e098d45` vs HEAD,
+- [x] **A6 Regression on other cards (B).** Done 10-11 (`docs/captures/2026-10-10_a6/`, HEAD `3667abf59`+IDE diag, `MACH8_COUNT=1`): Mach32 runs every probe (crash fixed). vs branch point, 8514/A 33/35 same, Mach32 32/35: M8CMP8 = the colour-compare fix (HEAD = the card byte for byte); M8MIX mix 1Fh saturates per guide 8-24; **M8CONF on the Mach32, tests 3-6 one fewer read word and test 54 byte order - Graphics Ultra measurements now applied to the Mach32 with no Mach32 evidence: gate them to the Graphics Ultra before the PR, or show the Mach32 guide agrees.** 8514/A M8CONF skipped (>30 min, owner 10-11). Was: Mach32 and 8514/A, branch point `48e098d45` vs HEAD,
       `vm_6695_w2`, REGR + M8CONF + M8WRAP, diff.
 - [ ] **A7 Submit.** Clean branch, G1-G10 (`repo-hygiene` section 10), owner's G10 by hand, PR text drafted for
       the owner. Then the separate CPU-fix PR (`5fce405ab`) and the 86Box#6695 reply.
