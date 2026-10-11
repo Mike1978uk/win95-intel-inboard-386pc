@@ -1,6 +1,6 @@
 # Mach8 PR - draft for the owner to rewrite (not posted)
 
-Branch: `Mike1978uk/86Box:mach8-pr` (`0d54a50fc`), one commit on upstream `1741108a7`, five files (+1727/-414).
+Branch: `Mike1978uk/86Box:mach8-pr` (`942e2de86`), one commit on upstream `1741108a7`, six files (+1741/-417).
 
 ## Gate status (repo-hygiene section 10), 2026-10-11
 
@@ -30,12 +30,15 @@ What changes, Graphics Ultra only unless stated:
 - 8514/A colour compare: a TRUE compare protects the pixel, and planes outside WRT_MASK take no part
   (Richter and Smith; Mach32 guide). Applies to all 8514-class cards.
 - Mix 1Fh saturates as the guide's table gives it. Applies to all 8514-class cards.
+- A new Graphics Ultra starts with a real card's EEPROM (113-11504-002) instead of zeros, which left
+  ATI's Windows drivers unable to set modes above 640x480. The BIOS boots on it; Windows 95 comes up at
+  800x600. The VGA and 8514/A port sets share one DAC address register, as the card's single DAC does.
 - Host-data byte order, command 3/4 shapes, polygon fill, short strokes, LINEDRAW pre-clip, scissor
   reads, pattern fills, read-back flags, CRT shadow sets, CONFIG_STATUS_1, LINE_SYNC - each comment
   states the rule and its source.
 
 Tested:
-- ATI TEST.COM passes on the Graphics Ultra model (AT bed, `0d54a50fc`, watched 10-11).
+- ATI TEST.COM passes on the Graphics Ultra model (AT bed, `942e2de86`, new-card EEPROM default, watched 10-11).
 - Register-level probes run on the real card and in 86Box (including an 82-test conformance set built from ATI's Windows 3.1 driver): pixels and read-backs match; SUBSYS_STAT's monitor-ID and vblank bits differ, which depend on the monitor and timing.
 - Mach32 and IBM 8514/A: the same probe set before and after. The only differences are the two
   guide-documented fixes above.
