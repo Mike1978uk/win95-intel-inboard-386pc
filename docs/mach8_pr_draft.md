@@ -14,7 +14,7 @@ Branch: `Mike1978uk/86Box:mach8-pr` (`942e2de86`), one commit on upstream `17411
 | G6 claims reproducible | in the text below: TEST.COM ships with the card; no claim depends on this machine |
 | G7 builds on current master | pass: applies with --3way, builds, no warnings in the four files |
 | G8 minimal diff | 1708/410 lines; 35 lines change only whitespace - to check before submitting |
-| G9 last run on the submitted HEAD | pass on `0d54a50fc`: TEST.COM passes (watched), Mach32 35/35, Graphics Ultra M8A2/M8XMEM/M8LIN identical |
+| G9 last run on the submitted HEAD | pass on `942e2de86`: TEST.COM passes (watched, new-card EEPROM), Mach32 35/35, Graphics Ultra M8A2/M8XMEM/M8LIN identical |
 | G10 owner by hand | open |
 
 ## Draft text
