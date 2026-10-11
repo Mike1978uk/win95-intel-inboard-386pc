@@ -1,4 +1,7 @@
-# Mach8 PR - draft for the owner to rewrite (not posted)
+# Mach8 PR - MERGED as 86Box #8289 (OBattler, 2026-10-11, merge `3a0efe82b`)
+
+The draft below is what was posted, owner-approved.
+
 
 Branch: `Mike1978uk/86Box:mach8-pr` (`942e2de86`), one commit on upstream `1741108a7`, six files (+1741/-417).
 

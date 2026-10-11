@@ -49,6 +49,6 @@ Start from `docs/worklist.md`; this page is the state at the end of 10-11.
 - **86Box PR #8289 MERGED** (OBattler, 21:42 UTC, `3a0efe82b`) https://github.com/86Box/86Box/pull/8289 - `Mike1978uk:mach8-pr` `942e2de86`, six files.
   TEST.COM passes; Win 3.11/95 checked; Mach32/8514/A regressed. G10 (Settings attach by hand) not done.
 - Replies posted: 86Box#6695 (Paintbrush fill, thanks Andrew) and #4898 (TEST.COM). Owner approved wording.
-- Next: watch #8289 review; follow-up PR for the INMOS IMSG176 DAC; tell Andrew on our #49 that #8289 is up.
+- Done: #8289 merged; Andrew told on our #49. Next: follow-up PR for the INMOS IMSG176 DAC (was: tell Andrew on our #49 that #8289 is up.
 
 - **CPU fix: no PR needed.** Upstream fixed the same bug independently - Hinoserm, `acc82a87f`, 2026-09-24 ("cpu: fetch code from device memory through the bus"). Checked 10-11: upstream master with the card EEPROM boots the Inboard bed to the Windows desktop. Our `5fce405ab` stays fork-only.
