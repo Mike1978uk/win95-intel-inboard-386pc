@@ -53,6 +53,8 @@ copies done entirely on the card.
 
 ## Techniques to build on
 
+Owner, 2026-10-11: exploit every part of the card, especially what ATI built and never used.
+
 - **Off-screen caches:** glyphs (#49 first step), then icons, brushes, cursors, and "save under" for
   menus and dialogs, so repainting what a menu covered is a blit, not a resend.
 - **Dirty rectangles:** send only what changed; the driver already gets this from GDI, games must do it.
@@ -65,6 +67,17 @@ copies done entirely on the card.
   per frame.
 - **CPU-side encoding:** the 486 can afford to analyse a bitmap per scanline and pick the cheapest
   encoding above - the Windows driver's bitmap path (`SetDIBitsToDevice`) is the place for it.
+- **Engine and CPU in parallel:** a fill or blit is a few words; the engine then works on its own
+  memory while the CPU writes the VGA half or computes. Keep the 16-entry command FIFO from overflowing
+  (it drops, measured 10-10).
+- **Compiled deltas (Trixter's video streaming):** turn a frame's changes into code that writes only the
+  changed bytes, values as immediates; from the Inboard's L1 each changed byte costs one bus write.
+- **Palette splits:** rewrite palette entries mid-frame on LINE_SYNC for more than 256 colours per frame
+  (worklist D4); about one entry per line on this bus.
+- **The arithmetic mixes:** all 32 FRGD/BKGD mixes are on the card (M8MIX, 10-10), including the
+  arithmetic ones ATI's drivers never use - blending, shading and saturation in the engine.
+- **Two halves, one bus:** neither half reaches the other's memory (M8XMEM, 10-11); data moves only as a
+  CPU copy, so plan which half owns which layer.
 
 ## Where it can land
 
