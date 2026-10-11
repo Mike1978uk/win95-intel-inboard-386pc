@@ -35,7 +35,7 @@ What changes, Graphics Ultra only unless stated:
   states the rule and its source.
 
 Tested:
-- TEST.COM passes on the Graphics Ultra model.
+- TEST.COM passes on the Graphics Ultra model. [TO VERIFY on `6e9978efd` - last run was the working branch, 10-08]
 - A set of register-level probes, run on the real card and in 86Box: results byte-identical.
 - Mach32 and IBM 8514/A: the same probe set before and after. The only differences are the two
   guide-documented fixes above.
