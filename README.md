@@ -235,7 +235,11 @@ and there was nothing to configure.
 ## Upstream
 
 **The Intel Inboard 386/PC is part of 86Box.** Seventeen PRs raised from this project are merged;
-none is open.
+one is open:
+
+| Open PR | What it does |
+|---|---|
+| [#8289](https://github.com/86Box/86Box/pull/8289) | ATI Graphics Ultra (Mach8): accelerator behaviour measured on the real card - ATI's TEST.COM passes every test (#4898), the Paintbrush fill works (#6695), Windows 3.11/95 drivers checked, a new card starts with a real card's EEPROM. Submitted 2026-10-11 |
 
 | Merged PR | What it fixed |
 |---|---|
