@@ -46,7 +46,7 @@ Start from `docs/worklist.md`; this page is the state at the end of 10-11.
 
 ## Submitted 10-11 night
 
-- **86Box PR #8289** https://github.com/86Box/86Box/pull/8289 - `Mike1978uk:mach8-pr` `942e2de86`, six files.
+- **86Box PR #8289 MERGED** (OBattler, 21:42 UTC, `3a0efe82b`) https://github.com/86Box/86Box/pull/8289 - `Mike1978uk:mach8-pr` `942e2de86`, six files.
   TEST.COM passes; Win 3.11/95 checked; Mach32/8514/A regressed. G10 (Settings attach by hand) not done.
 - Replies posted: 86Box#6695 (Paintbrush fill, thanks Andrew) and #4898 (TEST.COM). Owner approved wording.
 - Next: watch #8289 review; follow-up PR for the INMOS IMSG176 DAC; tell Andrew on our #49 that #8289 is up.

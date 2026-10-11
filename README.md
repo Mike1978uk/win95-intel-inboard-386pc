@@ -234,12 +234,8 @@ and there was nothing to configure.
 
 ## Upstream
 
-**The Intel Inboard 386/PC is part of 86Box.** Seventeen PRs raised from this project are merged;
-one is open:
-
-| Open PR | What it does |
-|---|---|
-| [#8289](https://github.com/86Box/86Box/pull/8289) | ATI Graphics Ultra (Mach8): accelerator behaviour measured on the real card - ATI's TEST.COM passes every test (#4898), the Paintbrush fill works (#6695), Windows 3.11/95 drivers checked, a new card starts with a real card's EEPROM. Submitted 2026-10-11 |
+**The Intel Inboard 386/PC is part of 86Box.** Eighteen PRs raised from this project are merged;
+none is open.
 
 | Merged PR | What it fixed |
 |---|---|
@@ -260,6 +256,7 @@ one is open:
 | [#8216](https://github.com/86Box/86Box/pull/8216) | The Inboard memory map: the card's own 256 KB of extended memory (a 1 MB board had none, every other size was 256 KB short); the `0x5E0000`/`0x5F0000` windows follow port 670h bit 0, as on the card; and the BIOS window's exec pointer follows its reads, so `INBRDPC.SYS`'s full memory check finishes under the dynarec. Merged 2026-10-05. Reported on [#7638](https://github.com/86Box/86Box/issues/7638) |
 | [#8217](https://github.com/86Box/86Box/pull/8217) | Offers the 08NOV82 XT BIOS on the Inboard again: the "incompatible" verdict that removed it came from the shadow-window bugs, and a real 5160 runs Windows 95 on it. Only that ROM - others are untested. Merged 2026-10-05 |
 | [#8219](https://github.com/86Box/86Box/pull/8219) | Memory was paced at XT-bus speed whenever port 670h bit 0 was clear; on the card that bit only steers BIOS reads and the reserved-block windows, and RAM wait states come from bits 1-4 (RonnyRoy's netlist, via @andrew-hoffman on [#7638](https://github.com/86Box/86Box/issues/7638)). Anything that clears the bit, such as SHADRAM under Windows, no longer slows all memory. Merged 2026-10-05 |
+| [#8289](https://github.com/86Box/86Box/pull/8289) | ATI Graphics Ultra (Mach8), measured on the real card: ATI's TEST.COM passes every test (#4898), the Paintbrush fill works (#6695), a new card starts with a real card's EEPROM. Merged 2026-10-11 |
 
 One further upstream bug was reported from here and fixed by 86Box directly, with no PR from us:
 [#7805](https://github.com/86Box/86Box/issues/7805) — the Machine settings dialog snapped RAM to a
