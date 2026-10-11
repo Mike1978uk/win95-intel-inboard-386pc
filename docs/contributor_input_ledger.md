@@ -370,4 +370,4 @@ untested here - our image does not load that driver.
   contribute directly, offered help. Reply drafted (thanks, the no-framebuffer question); owner to send.
   2026-10-07: he has a Graphics Ultra himself (owner on Reddit, looking for another channel) - a second real card.
 
-- #49 / 86Box#6695 (@andrew-hoffman): his Paintbrush lead closed out - 86Box PR #8289 merged 2026-10-11 (submitted the same evening-11; replies posted on 86Box#6695, #4898 and our #49 (owner-approved wording, thanked). Loop closed.
+- #49 / 86Box#6695 (@andrew-hoffman): his Paintbrush lead closed out - 86Box PR #8289 merged 2026-10-11 (submitted the same evening); replies posted on 86Box#6695, #4898 and our #49 (owner-approved wording, thanked). Loop closed.
