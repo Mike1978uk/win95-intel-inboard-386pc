@@ -302,6 +302,20 @@ Generating the patch from `merge-base..HEAD` **restricted to the submittable
 files** is what keeps cherry-picked upstream fixes, local diagnostics and
 project-specific code out of it automatically.
 
+### Pick the files from the whole range, not from memory
+
+2026-10-11, Mach8 PR: the subset was chosen as "the four Mach8 files". A real fix lived in a fifth,
+`vid_svga.c` (one DAC behind both port sets), so the rebased build passed every register probe and still
+failed ATI's TEST.COM with a black screen. List what the branch touched first, then remove diagnostics
+file by file:
+
+```bash
+git diff --stat <merge-base>..HEAD -- src/       # every file the work touched
+git log --oneline <merge-base>..HEAD -- <file>   # per file: real fix, or DIAGNOSTIC?
+```
+
+And run the end-to-end test (here TEST.COM, watched) on the submitted build, not only the probes.
+
 ### The drift shows up at COMPILE time, not apply time
 
 The same patch then failed to build on one line:
