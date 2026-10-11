@@ -26,3 +26,10 @@ Sources in `tools/m8seq/`. Run from a DOS boot on the Graphics Ultra.
   pixels instead of FFh; a blit source past x=1023 reads zeros where the card continues into the next row.
 - M8LIN: the model opens a real 128 KB window (B000 = bank 1); the card mirrors A000. 28800 half, not PR.
 - M8BLEND, M8FLIP2: bed timings say nothing about the card (the model's engine finishes at once).
+
+## M8BLEND on the 5160, 2026-10-11 (`M8BLEND_5160.BIN`)
+
+64x64 at 8 bpp, BIOS-tick timing: engine copy (mix 07h) 0.23 ms, engine average (17h) 0.30 ms, engine
+saturating add (1Bh) 0.30 ms; the CPU doing the average (read back through PIX_TRANS, blend, write) 35.7 ms.
+The engine blends about 120 times faster than the CPU path, for 30% over a plain copy. No ATI driver uses
+these mixes (Windows GDI has only the Boolean ones).

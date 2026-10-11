@@ -1,0 +1,19 @@
+---- run 
+
+---------- C:\WINDOWS\SYSTEM.INI
+copy 1 start 
+Current time is  21:24:12.72
+Current time is  21:27:22.32
+copy 2 start 
+Current time is  21:27:23.14
+Current time is  21:30:31.92
+---- run 
+
+---------- C:\WINDOWS\SYSTEM.INI
+MinTimeSlice=54
+copy 1 start 
+Current time is  21:45:25.56
+Current time is  21:48:33.90
+copy 2 start 
+Current time is  21:48:34.34
+Current time is  21:51:41.47

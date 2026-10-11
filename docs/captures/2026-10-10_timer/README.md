@@ -63,3 +63,6 @@ New XT-CF driver (`a67fefc4`), REFR64. CPU loop, k passes/s; "copy" = TIMERRES d
 The tick costs ~6% of the CPU on the real machine at idle, five times the bed's 1.2% estimate. Not measured:
 the copy's duration (a coarser tick may finish long write commits later), DOS boxes and serial (T2).
 SYSTEM.INI on the card carries MinTimeSlice=54 (backup SYSTEM.BSR).
+
+Copy time (`CPYTIME_5160_1011.TXT`, 36 MB GOODTIME, SmartWatch-set clock): default 189.6 / 188.8 s,
+MinTimeSlice=54 188.3 / 187.1 s - about 0.7% faster, so the coarser tick costs writes nothing. **Adopted.**
