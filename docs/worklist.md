@@ -84,6 +84,13 @@ The CPU writes the VGA side at 2.0 us/byte, the cheapest path on the card; the e
 - [ ] **D1 TXTBENCH extensions** - bitmap, long fill, palette tests; count port writes too.
 - [ ] **D2 Glyph cache in the driver (#49)**, then icon / brush / save-under caches, then the encoding bitmap path.
 - [ ] **D3 3D probes (M):** cost of a polygon-fill triangle, pre-scaled column blits (RealDOOM shape).
+- [ ] **D4 More than 256 colours (owner, 10-11).** Mach8 is 8 bpp only, so: (1) dithered fills from PATTERN_L/H /
+      PATT_DATA - same bus cost as a plain fill; probe with A2; (2) palette splits per band on vblank / LINE_SYNC,
+      ~1 colour change per line (estimate: ~23 us per entry vs ~32 us line); (3) error diffusion for still images on
+      the 486; (4) 8-bit DAC - read the RAMDAC part number, and B0h on the 28800 side.
+- [ ] **D5 DirectDraw (later).** A surface Lock needs a linear frame buffer; the Mach8 has none, so it rests on the
+      28800 A000 window: AC bit 0 + BEh bit 2 (B2) decide whether 320x200/320x240x8 fit unbanked. Then a HAL from
+      vmhal9x (`references/jhrobotics/`, MIT) with flip on CRT_OFFSET.
 
 ## S. Sound on the same bus (owner, 2026-10-10: 8088 MPH / Area 5150 / FastDoom spirit, Daniel_K's licence to fix what the vendor didn't)
 
