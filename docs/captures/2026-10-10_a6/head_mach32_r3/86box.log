@@ -1,0 +1,139 @@
+#
+# 86Box v7.0 logfile, created 2026/10/11 18:38:43
+#
+# Emulator path: C:/Users/lycet/RiderProjects/86Box-Inboard/86box_3c509b/build_log/src//
+# Global configuration file: C:/Users/lycet/AppData/Local/86Box/86box_global.cfg
+# VM: vm_6695_w2
+#
+# Configuration file: C:/Users/lycet/RiderProjects/86Box-Inboard/vm_6695_w2/86box.cfg
+#
+
+# Userfiles path: C:/Users/lycet/RiderProjects/86Box-Inboard/vm_6695_w2/
+# ROM path: C:/Users/lycet/RiderProjects/86Box-Inboard/vm_6695_w2/roms/
+# ROM path: C:/Users/lycet/RiderProjects/86Box-Inboard/86box_3c509b/build_log/src//roms/
+# ROM path: C:/Users/lycet/AppData/Local/86Box/roms/
+# Asset path: C:/Users/lycet/RiderProjects/86Box-Inboard/vm_6695_w2/assets/
+# Asset path: C:/Users/lycet/RiderProjects/86Box-Inboard/86box_3c509b/build_log/src//assets/
+# Asset path: C:/Users/lycet/AppData/Local/86Box/assets/
+DIAG10 RESET hard  at 0000:00000000
+DIAG10 RESETVEC F000:FFF0 reached from 0000:00000000 (pm=0)
+DIAG10 RESETVEC F000:E05B reached from F000:0000FFF0 (pm=0)
+DIAG10 RESETVEC F000:E05B reached from F000:0000F096 (pm=0)
+DIAG7 [C000:00005DF9] 4AE8 advfunc=03 on=1 hdisp=0 vdisp=0
+DIAG7 [C000:00005E27] 4AEE clock_sel=0051 on=1 hdisp=0 vdisp=0
+DIAG7 [C000:00005E8B] 4AEE clock_sel=0000 on=0 hdisp=0 vdisp=0
+DIAG7 [C000:00005EA2] 4AE8 advfunc=02 on=0 hdisp=640 vdisp=480
+DIAG7 [C000:000059EA] 4AEE clock_sel=0250 on=0 hdisp=640 vdisp=480
+DIAG7 [C000:000059EA] 4AEE clock_sel=0638 on=0 hdisp=1024 vdisp=768
+DIAG7 [C000:000059EA] 4AEE clock_sel=0250 on=0 hdisp=640 vdisp=480
+DIAG7 [C000:000059EA] 4AEE clock_sel=0638 on=0 hdisp=1024 vdisp=768
+DIAG7 [C000:00005632] 4AE8 advfunc=02 on=0 hdisp=1024 vdisp=768
+DIAG7 [C000:00005DF9] 4AE8 advfunc=03 on=1 hdisp=1024 vdisp=768
+DIAG7 [C000:00005EA2] 4AE8 advfunc=02 on=0 hdisp=1024 vdisp=768
+DIAG10 RESETVEC F000:E05B reached from F000:0000F096 (pm=0)
+*** 36 repeats ***
+DIAG7 [0FE2:00000172] 4AE8 advfunc=07 on=1 hdisp=1024 vdisp=768
+DIAG7 [0FE2:000001E4] 4AE8 advfunc=02 on=0 hdisp=1024 vdisp=768
+DIAG7 [0FE2:00000177] 4AE8 advfunc=07 on=1 hdisp=1024 vdisp=768
+DIAG7 [0FE2:000001DF] 4AE8 advfunc=02 on=0 hdisp=1024 vdisp=768
+DIAG7 [0FE2:00000177] 4AE8 advfunc=07 on=1 hdisp=1024 vdisp=768
+DIAG7 [0FE2:000001DF] 4AE8 advfunc=02 on=0 hdisp=1024 vdisp=768
+DIAG7 [0FE2:00000177] 4AE8 advfunc=07 on=1 hdisp=1024 vdisp=768
+DIAG7 [0FE2:000001DF] 4AE8 advfunc=02 on=0 hdisp=1024 vdisp=768
+DIAG7 [0FE2:000001CB] 4AE8 advfunc=07 on=1 hdisp=1024 vdisp=768
+DIAG7 [0FE2:00000243] 4AE8 advfunc=02 on=0 hdisp=1024 vdisp=768
+DIAG7 [0FE2:000001D3] 4AE8 advfunc=07 on=1 hdisp=1024 vdisp=768
+DIAG7 [0FE2:00000274] 4AE8 advfunc=02 on=0 hdisp=1024 vdisp=768
+DIAG7 [0FE2:000001C3] 4AE8 advfunc=07 on=1 hdisp=1024 vdisp=768
+DIAG7 [0FE2:0000021B] 4AE8 advfunc=02 on=0 hdisp=1024 vdisp=768
+[M8E] pixtrans val=8001 dpc=3251 cmdtype=2 cmd_back=0 cur=0,600 dyend=616
+[M8E] pixtrans val=f00f dpc=3251 cmdtype=2 cmd_back=0 cur=0,600 dyend=616
+[M8E] pixtrans val=1234 dpc=3251 cmdtype=2 cmd_back=0 cur=0,600 dyend=616
+[M8E] pixtrans val=5aa5 dpc=3251 cmdtype=2 cmd_back=0 cur=0,600 dyend=616
+[M8E] pixtrans val=00ff dpc=3251 cmdtype=2 cmd_back=0 cur=0,600 dyend=616
+[M8E] pixtrans val=ff00 dpc=3251 cmdtype=2 cmd_back=0 cur=0,600 dyend=616
+[M8E] pixtrans val=c3c3 dpc=3251 cmdtype=2 cmd_back=0 cur=0,600 dyend=616
+[M8E] pixtrans val=a55a dpc=3251 cmdtype=2 cmd_back=0 cur=0,600 dyend=616
+[M8E] pixtrans val=8001 dpc=3251 cmdtype=2 cmd_back=0 cur=16,600 dyend=616
+[M8E] pixtrans val=f00f dpc=3251 cmdtype=2 cmd_back=0 cur=16,600 dyend=616
+[M8E] pixtrans val=1234 dpc=3251 cmdtype=2 cmd_back=0 cur=16,600 dyend=616
+[M8E] pixtrans val=5aa5 dpc=3251 cmdtype=2 cmd_back=0 cur=16,600 dyend=616
+[M8E] pixtrans val=00ff dpc=3251 cmdtype=2 cmd_back=0 cur=16,600 dyend=616
+[M8E] pixtrans val=ff00 dpc=3251 cmdtype=2 cmd_back=0 cur=16,600 dyend=616
+[M8E] pixtrans val=c3c3 dpc=3251 cmdtype=2 cmd_back=0 cur=16,600 dyend=616
+[M8E] pixtrans val=a55a dpc=3251 cmdtype=2 cmd_back=0 cur=16,600 dyend=616
+[M8E] pixtrans val=8001 dpc=3251 cmdtype=2 cmd_back=0 cur=16,600 dyend=616
+[M8E] pixtrans val=f00f dpc=3251 cmdtype=2 cmd_back=0 cur=16,600 dyend=616
+[M8E] pixtrans val=1234 dpc=3251 cmdtype=2 cmd_back=0 cur=16,600 dyend=616
+[M8E] pixtrans val=5aa5 dpc=3251 cmdtype=2 cmd_back=0 cur=16,600 dyend=616
+[M8E] pixtrans val=00ff dpc=3251 cmdtype=2 cmd_back=0 cur=16,600 dyend=616
+[M8E] pixtrans val=ff00 dpc=3251 cmdtype=2 cmd_back=0 cur=16,600 dyend=616
+[M8E] pixtrans val=c3c3 dpc=3251 cmdtype=2 cmd_back=0 cur=16,600 dyend=616
+[M8E] pixtrans val=a55a dpc=3251 cmdtype=2 cmd_back=0 cur=16,600 dyend=616
+[M8E] pixtrans val=8001 dpc=3251 cmdtype=2 cmd_back=0 cur=16,600 dyend=616
+[M8E] pixtrans val=f00f dpc=3251 cmdtype=2 cmd_back=0 cur=16,600 dyend=616
+[M8E] pixtrans val=1234 dpc=3251 cmdtype=2 cmd_back=0 cur=16,600 dyend=616
+[M8E] pixtrans val=5aa5 dpc=3251 cmdtype=2 cmd_back=0 cur=16,600 dyend=616
+[M8E] pixtrans val=00ff dpc=3251 cmdtype=2 cmd_back=0 cur=16,600 dyend=616
+[M8E] pixtrans val=ff00 dpc=3251 cmdtype=2 cmd_back=0 cur=16,600 dyend=616
+[M8E] pixtrans val=c3c3 dpc=3251 cmdtype=2 cmd_back=0 cur=16,600 dyend=616
+[M8E] pixtrans val=a55a dpc=3251 cmdtype=2 cmd_back=0 cur=16,600 dyend=616
+[M8E] pixtrans val=8001 dpc=3251 cmdtype=2 cmd_back=0 cur=16,600 dyend=616
+[M8E] pixtrans val=f00f dpc=3251 cmdtype=2 cmd_back=0 cur=16,600 dyend=616
+[M8E] pixtrans val=1234 dpc=3251 cmdtype=2 cmd_back=0 cur=16,600 dyend=616
+[M8E] pixtrans val=5aa5 dpc=3251 cmdtype=2 cmd_back=0 cur=16,600 dyend=616
+[M8E] pixtrans val=00ff dpc=3251 cmdtype=2 cmd_back=0 cur=16,600 dyend=616
+[M8E] pixtrans val=ff00 dpc=3251 cmdtype=2 cmd_back=0 cur=16,600 dyend=616
+[M8E] pixtrans val=c3c3 dpc=3251 cmdtype=2 cmd_back=0 cur=16,600 dyend=616
+[M8E] pixtrans val=a55a dpc=3251 cmdtype=2 cmd_back=0 cur=16,600 dyend=616
+DIAG7 [0FE2:00000191] 4AE8 advfunc=07 on=1 hdisp=1024 vdisp=768
+DIAG7 [0FE2:000001DC] 4AE8 advfunc=02 on=0 hdisp=1024 vdisp=768
+DIAG7 [0FE2:0000018C] 4AE8 advfunc=07 on=1 hdisp=1024 vdisp=768
+DIAG7 [0FE2:000001D7] 4AE8 advfunc=02 on=0 hdisp=1024 vdisp=768
+DIAG7 [0FE2:000001AF] 4AE8 advfunc=07 on=1 hdisp=1024 vdisp=768
+DIAG7 [0FE2:00000206] 4AE8 advfunc=02 on=0 hdisp=1024 vdisp=768
+DIAG7 [0FE2:000001C8] 4AE8 advfunc=07 on=1 hdisp=1024 vdisp=768
+DIAG7 [0FE2:00000222] 4AE8 advfunc=02 on=0 hdisp=1024 vdisp=768
+DIAG7 [0FE2:00000222] 4AE8 advfunc=07 on=1 hdisp=1024 vdisp=768
+DIAG7 [0FE2:0000027C] 4AE8 advfunc=02 on=0 hdisp=1024 vdisp=768
+DIAG7 [0FE2:00000202] 4AE8 advfunc=07 on=1 hdisp=1024 vdisp=768
+DIAG7 [0FE2:0000029A] 4AE8 advfunc=02 on=0 hdisp=1024 vdisp=768
+DIAG7 [0FE2:0000019E] 4AE8 advfunc=07 on=1 hdisp=1024 vdisp=768
+DIAG7 [0FE2:00000206] 4AE8 advfunc=02 on=0 hdisp=1024 vdisp=768
+DIAG7 [0FE2:00000367] 4AE8 advfunc=07 on=1 hdisp=1024 vdisp=768
+DIAG7 [0FE2:00000401] 4AE8 advfunc=02 on=0 hdisp=1024 vdisp=768
+DIAG7 [0FE2:00000301] 4AE8 advfunc=07 on=1 hdisp=1024 vdisp=768
+DIAG7 [0FE2:000003A2] 4AE8 advfunc=02 on=0 hdisp=1024 vdisp=768
+DIAG7 [0FE2:00000313] 4AE8 advfunc=07 on=1 hdisp=1024 vdisp=768
+DIAG7 [0FE2:000003AD] 4AE8 advfunc=02 on=0 hdisp=1024 vdisp=768
+DIAG7 [0FE2:000001E5] 4AE8 advfunc=07 on=1 hdisp=1024 vdisp=768
+DIAG7 [0FE2:0000032B] 4AE8 advfunc=02 on=0 hdisp=1024 vdisp=768
+DIAG7 [0FE2:0000032B] 4AEE clock_sel=1850 on=0 hdisp=640 vdisp=480
+DIAG7 [0FE2:0000032B] 4AEE clock_sel=181C on=0 hdisp=1024 vdisp=768
+DIAG7 [0FE2:0000032B] 4AE8 advfunc=02 on=0 hdisp=1024 vdisp=768
+DIAG7 [0FE2:0000032B] 4AEE clock_sel=1850 on=0 hdisp=640 vdisp=480
+DIAG7 [0FE2:0000032B] 4AEE clock_sel=181C on=0 hdisp=1024 vdisp=768
+DIAG7 [0FE2:0000032B] 4AE8 advfunc=07 on=1 hdisp=1024 vdisp=768
+DIAG7 [0FE2:0000032B] 4AE8 advfunc=00 on=0 hdisp=1024 vdisp=768
+DIAG7 [0FE2:0000032B] 4AE8 advfunc=06 on=0 hdisp=1024 vdisp=768
+DIAG7 [0FE2:0000032B] 4AEE clock_sel=1850 on=0 hdisp=640 vdisp=480
+DIAG7 [0FE2:0000032B] 4AEE clock_sel=181C on=0 hdisp=1024 vdisp=768
+[M8F] [0FE2:032B] 32EE 0000 -> 0010 queued=6
+[M8W] [0FE2:0562] INW  9aee=0000 fifo=0 test=6
+[M8W] [0FE2:032B] OUTW 32ee=0000 fifo=0 test=6
+[M8F] [0FE2:032B] 32EE 0010 -> 0000 queued=6
+[M8F] replay 40b3=13fb
+[M8F] replay 0000=0000
+[M8F] replay 0000=03ff
+*** 1 repeats ***
+[M8F] replay 0000=0000
+[M8F] replay 0000=40f3
+MACH8COUNT 1000000 writes: cmd nop 0 line 45 rect 177316 rect2 0 line2 6 -- 16 blit 9 pat 0
+MACH8COUNT   port 82E8 bytes 355740
+MACH8COUNT   port 86E8 bytes 355356
+MACH8COUNT   port 96E8 bytes 261195
+MACH8COUNT   port 9AE8 bytes 354786
+MACH8COUNT   port A6E8 bytes 353990
+MACH8COUNT   port BEE8 bytes 270242
+MACH8COUNT   port E2E8 bytes 22034
+DIAG7 [0FE2:000002E9] 4AE8 advfunc=02 on=0 hdisp=1024 vdisp=768
