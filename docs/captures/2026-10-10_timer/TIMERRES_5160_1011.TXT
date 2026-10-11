@@ -1,0 +1,325 @@
+TIMERRES   QPC 1193180 Hz
+default rate
+  Sleep(1)       mean 10861 us  min 1022  max 19042
+  timeGetTime    step mean 1 ms  min 1
+  GetTickCount   step mean 18 ms  min 8
+  CPU loop       4653 k passes/s
+  CPU loop       4719 k passes/s
+  CPU loop       4719 k passes/s
+timeBeginPeriod(1) = 0 (0 = granted)
+1 ms requested
+  Sleep(1)       mean 2861 us  min 1121  max 17784
+  timeGetTime    step mean 1 ms  min 1
+  GetTickCount   step mean 1 ms  min 1
+  CPU loop       4030 k passes/s
+  CPU loop       4030 k passes/s
+  CPU loop       3998 k passes/s
+default rate again
+  Sleep(1)       mean 10540 us  min 1042  max 40143
+  timeGetTime    step mean 1 ms  min 1
+  GetTickCount   step mean 13 ms  min 5
+  CPU loop       4751 k passes/s
+  CPU loop       4784 k passes/s
+  CPU loop       4719 k passes/s
+done
+
+TIMERRES   QPC 1193180 Hz
+default rate
+  Sleep(1)       mean 13030 us  min 1084  max 25709
+  timeGetTime    step mean 1 ms  min 1
+  GetTickCount   step mean 10 ms  min 1
+  CPU loop       4751 k passes/s
+  CPU loop       4751 k passes/s
+  CPU loop       4784 k passes/s
+timeBeginPeriod(1) = 0 (0 = granted)
+1 ms requested
+  Sleep(1)       mean 3373 us  min 1122  max 11966
+  timeGetTime    step mean 1 ms  min 1
+  GetTickCount   step mean 2 ms  min 1
+  CPU loop       3965 k passes/s
+  CPU loop       3998 k passes/s
+  CPU loop       4030 k passes/s
+default rate again
+  Sleep(1)       mean 9368 us  min 1018  max 19914
+  timeGetTime    step mean 1 ms  min 1
+  GetTickCount   step mean 11 ms  min 6
+  CPU loop       4784 k passes/s
+  CPU loop       4784 k passes/s
+  CPU loop       4686 k passes/s
+done
+
+TIMERRES   QPC 1193180 Hz
+default rate
+  Sleep(1)       mean 13379 us  min 1534  max 38525
+  timeGetTime    step mean 1 ms  min 1
+  GetTickCount   step mean 18 ms  min 15
+  CPU loop       4588 k passes/s
+  CPU loop       4653 k passes/s
+  CPU loop       4719 k passes/s
+timeBeginPeriod(1) = 0 (0 = granted)
+1 ms requested
+  Sleep(1)       mean 3456 us  min 1137  max 14476
+  timeGetTime    step mean 1 ms  min 1
+  GetTickCount   step mean 1 ms  min 1
+  CPU loop       3998 k passes/s
+  CPU loop       3998 k passes/s
+  CPU loop       3998 k passes/s
+default rate again
+  Sleep(1)       mean 10619 us  min 1044  max 19467
+  timeGetTime    step mean 1 ms  min 1
+  GetTickCount   step mean 15 ms  min 11
+  CPU loop       4784 k passes/s
+  CPU loop       4784 k passes/s
+  CPU loop       4686 k passes/s
+done
+
+TIMERRES   QPC 1193180 Hz
+default rate
+  Sleep(1)       mean 9661 us  min 1038  max 17515
+  timeGetTime    step mean 1 ms  min 1
+  GetTickCount   step mean 15 ms  min 11
+  CPU loop       4489 k passes/s
+  CPU loop       4686 k passes/s
+  CPU loop       4784 k passes/s
+timeBeginPeriod(1) = 0 (0 = granted)
+1 ms requested
+  Sleep(1)       mean 3088 us  min 795  max 13214
+  timeGetTime    step mean 1 ms  min 1
+  GetTickCount   step mean 2 ms  min 1
+  CPU loop       3965 k passes/s
+  CPU loop       3998 k passes/s
+  CPU loop       3998 k passes/s
+default rate again
+  Sleep(1)       mean 11097 us  min 1023  max 41755
+  timeGetTime    step mean 1 ms  min 1
+  GetTickCount   step mean 14 ms  min 9
+  CPU loop       4686 k passes/s
+  CPU loop       4784 k passes/s
+  CPU loop       4784 k passes/s
+done
+
+TIMERRES   QPC 1193180 Hz
+default rate
+  Sleep(1)       mean 12988 us  min 1191  max 33234
+  timeGetTime    step mean 1 ms  min 1
+  GetTickCount   step mean 12 ms  min 3
+  CPU loop       4719 k passes/s
+  CPU loop       4194 k passes/s
+  CPU loop       4751 k passes/s
+timeBeginPeriod(1) = 0 (0 = granted)
+1 ms requested
+  Sleep(1)       mean 3239 us  min 1116  max 14890
+  timeGetTime    step mean 1 ms  min 1
+  GetTickCount   step mean 2 ms  min 1
+  CPU loop       3998 k passes/s
+  CPU loop       3932 k passes/s
+  CPU loop       3998 k passes/s
+default rate again
+  Sleep(1)       mean 10539 us  min 1030  max 27290
+  timeGetTime    step mean 2 ms  min 1
+  GetTickCount   step mean 13 ms  min 9
+  CPU loop       4784 k passes/s
+  CPU loop       4719 k passes/s
+  CPU loop       4620 k passes/s
+done
+
+TIMERRES   QPC 1193180 Hz
+default rate
+  Sleep(1)       mean 11561 us  min 1092  max 27640
+  timeGetTime    step mean 2 ms  min 1
+  GetTickCount   step mean 15 ms  min 11
+  CPU loop       4751 k passes/s
+  CPU loop       4751 k passes/s
+  CPU loop       4751 k passes/s
+timeBeginPeriod(1) = 0 (0 = granted)
+1 ms requested
+  Sleep(1)       mean 3472 us  min 1133  max 14551
+  timeGetTime    step mean 1 ms  min 1
+  GetTickCount   step mean 2 ms  min 1
+  CPU loop       3932 k passes/s
+  CPU loop       3965 k passes/s
+  CPU loop       3998 k passes/s
+default rate again
+  Sleep(1)       mean 9055 us  min 696  max 20759
+  timeGetTime    step mean 1 ms  min 1
+  GetTickCount   step mean 14 ms  min 10
+  CPU loop       4686 k passes/s
+  CPU loop       4653 k passes/s
+  CPU loop       4522 k passes/s
+done
+
+TIMERRES   QPC 1193180 Hz
+default rate
+  Sleep(1)       mean 8938 us  min 1031  max 17855
+  timeGetTime    step mean 1 ms  min 1
+  GetTickCount   step mean 12 ms  min 2
+  CPU loop       4620 k passes/s
+  CPU loop       4751 k passes/s
+  CPU loop       4719 k passes/s
+timeBeginPeriod(1) = 0 (0 = granted)
+1 ms requested
+  Sleep(1)       mean 3096 us  min 1128  max 12129
+  timeGetTime    step mean 1 ms  min 1
+  GetTickCount   step mean 1 ms  min 1
+  CPU loop       4030 k passes/s
+  CPU loop       3998 k passes/s
+  CPU loop       4030 k passes/s
+default rate again
+  Sleep(1)       mean 10425 us  min 1034  max 24402
+  timeGetTime    step mean 1 ms  min 1
+  GetTickCount   step mean 12 ms  min 8
+  CPU loop       4784 k passes/s
+  CPU loop       4784 k passes/s
+  CPU loop       4784 k passes/s
+done
+
+TIMERRES   QPC 1193180 Hz
+default rate
+  Sleep(1)       mean 13311 us  min 3435  max 19869
+  timeGetTime    step mean 1 ms  min 1
+  GetTickCount   step mean 14 ms  min 9
+  CPU loop       4817 k passes/s
+  CPU loop       4751 k passes/s
+  CPU loop       4751 k passes/s
+timeBeginPeriod(1) = 0 (0 = granted)
+1 ms requested
+  Sleep(1)       mean 3633 us  min 1129  max 12440
+  timeGetTime    step mean 1 ms  min 1
+  GetTickCount   step mean 2 ms  min 1
+  CPU loop       3867 k passes/s
+  CPU loop       3965 k passes/s
+  CPU loop       4030 k passes/s
+default rate again
+  Sleep(1)       mean 9883 us  min 1040  max 18681
+  timeGetTime    step mean 1 ms  min 1
+  GetTickCount   step mean 14 ms  min 7
+  CPU loop       4751 k passes/s
+  CPU loop       4686 k passes/s
+  CPU loop       4588 k passes/s
+done
+
+TIMERRES   QPC 1193180 Hz
+default rate
+  Sleep(1)       mean 13636 us  min 1105  max 26330
+  timeGetTime    step mean 2 ms  min 1
+  GetTickCount   step mean 18 ms  min 10
+  CPU loop       4784 k passes/s
+  CPU loop       4751 k passes/s
+  CPU loop       4620 k passes/s
+timeBeginPeriod(1) = 0 (0 = granted)
+1 ms requested
+  Sleep(1)       mean 3255 us  min 1123  max 16034
+  timeGetTime    step mean 1 ms  min 1
+  GetTickCount   step mean 1 ms  min 1
+  CPU loop       3998 k passes/s
+  CPU loop       3998 k passes/s
+  CPU loop       4030 k passes/s
+default rate again
+  Sleep(1)       mean 8816 us  min 1033  max 19549
+  timeGetTime    step mean 2 ms  min 1
+  GetTickCount   step mean 14 ms  min 6
+  CPU loop       4751 k passes/s
+  CPU loop       4817 k passes/s
+  CPU loop       4653 k passes/s
+done
+
+TIMERRES   QPC 1193180 Hz
+default rate
+  Sleep(1)       mean 10426 us  min 969  max 33831
+  timeGetTime    step mean 1 ms  min 1
+  GetTickCount   step mean 13 ms  min 8
+  CPU loop       4325 k passes/s
+  CPU loop       4325 k passes/s
+  CPU loop       3277 k passes/s
+timeBeginPeriod(1) = 0 (0 = granted)
+1 ms requested
+  Sleep(1)       mean 29049 us  min 2117  max 146954
+  timeGetTime    step mean 1 ms  min 1
+  GetTickCount   step mean 6 ms  min 1
+  CPU loop       557 k passes/s
+  CPU loop       3932 k passes/s
+  CPU loop       786 k passes/s
+default rate again
+  Sleep(1)       mean 31381 us  min 1522  max 188850
+  timeGetTime    step mean 7 ms  min 1
+  GetTickCount   step mean 57 ms  min 7
+  CPU loop       1212 k passes/s
+  CPU loop       918 k passes/s
+  CPU loop       1376 k passes/s
+done
+
+TIMERRES   QPC 1193180 Hz
+default rate
+  Sleep(1)       mean 65431 us  min 1109  max 644479
+  timeGetTime    step mean 2 ms  min 1
+  GetTickCount   step mean 29 ms  min 5
+  CPU loop       1704 k passes/s
+  CPU loop       1737 k passes/s
+  CPU loop       1704 k passes/s
+timeBeginPeriod(1) = 0 (0 = granted)
+1 ms requested
+  Sleep(1)       mean 35047 us  min 1723  max 211704
+  timeGetTime    step mean 1 ms  min 1
+  GetTickCount   step mean 1 ms  min 1
+  CPU loop       1278 k passes/s
+  CPU loop       1638 k passes/s
+  CPU loop       1638 k passes/s
+default rate again
+  Sleep(1)       mean 61375 us  min 1014  max 337571
+  timeGetTime    step mean 1 ms  min 1
+  GetTickCount   step mean 21 ms  min 7
+  CPU loop       852 k passes/s
+  CPU loop       655 k passes/s
+  CPU loop       295 k passes/s
+done
+
+TIMERRES   QPC 1193180 Hz
+default rate
+  Sleep(1)       mean 23643 us  min 954  max 55357
+  timeGetTime    step mean 1 ms  min 1
+  GetTickCount   step mean 55 ms  min 46
+  CPU loop       4981 k passes/s
+  CPU loop       4981 k passes/s
+  CPU loop       5014 k passes/s
+timeBeginPeriod(1) = 0 (0 = granted)
+1 ms requested
+  Sleep(1)       mean 2684 us  min 1064  max 17292
+  timeGetTime    step mean 1 ms  min 1
+  GetTickCount   step mean 1 ms  min 1
+  CPU loop       4162 k passes/s
+  CPU loop       4162 k passes/s
+  CPU loop       4162 k passes/s
+default rate again
+  Sleep(1)       mean 29455 us  min 1455  max 58294
+  timeGetTime    step mean 1 ms  min 1
+  GetTickCount   step mean 54 ms  min 39
+  CPU loop       4981 k passes/s
+  CPU loop       4981 k passes/s
+  CPU loop       4981 k passes/s
+done
+
+TIMERRES   QPC 1193180 Hz
+default rate
+  Sleep(1)       mean 98625 us  min 989  max 681933
+  timeGetTime    step mean 1 ms  min 1
+  GetTickCount   step mean 89 ms  min 9
+  CPU loop       2753 k passes/s
+  CPU loop       2785 k passes/s
+  CPU loop       2654 k passes/s
+timeBeginPeriod(1) = 0 (0 = granted)
+1 ms requested
+  Sleep(1)       mean 94271 us  min 1116  max 727398
+  timeGetTime    step mean 3 ms  min 1
+  GetTickCount   step mean 1 ms  min 1
+  CPU loop       1311 k passes/s
+  CPU loop       1376 k passes/s
+  CPU loop       1802 k passes/s
+default rate again
+  Sleep(1)       mean 107448 us  min 1028  max 499584
+  timeGetTime    step mean 1 ms  min 1
+  GetTickCount   step mean 68 ms  min 12
+  CPU loop       2327 k passes/s
+  CPU loop       2359 k passes/s
+  CPU loop       1868 k passes/s
+done
+

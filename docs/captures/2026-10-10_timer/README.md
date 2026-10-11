@@ -50,3 +50,16 @@ and check DOS boxes and serial/COMrade timing at the coarser slice.
 
 **Rounding rule confirmed** (`pitlog_mts30.log`, Mach8 build `fb6142612`): `MinTimeSlice=30` gives 32768 (27.46 ms),
 as predicted. The three reachable ticks are 13.7 ms (14-27), 27.5 ms (28-53) and 54.9 ms (54 and up).
+
+## MinTimeSlice=54 on the 5160, 2026-10-11 (`TIMERRES_5160_1011.TXT`, runs 10-13)
+
+New XT-CF driver (`a67fefc4`), REFR64. CPU loop, k passes/s; "copy" = TIMERRES during a copy of C:\GOODTIME:
+
+| | default (13.7 ms) | MinTimeSlice=54 (55 ms) |
+|---|---|---|
+| idle | ~4,720 | ~4,990 (+6%) |
+| during the copy | ~1,700 | ~2,730 (+60%) |
+
+The tick costs ~6% of the CPU on the real machine at idle, five times the bed's 1.2% estimate. Not measured:
+the copy's duration (a coarser tick may finish long write commits later), DOS boxes and serial (T2).
+SYSTEM.INI on the card carries MinTimeSlice=54 (backup SYSTEM.BSR).
