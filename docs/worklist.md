@@ -54,7 +54,7 @@ hardware nobody else touches; never rank a feature by whether ATI's drivers use 
 
 - [ ] **B1 28800 knobs from static sources (desk).** Start from the 10 extended registers where card and bed differ (`mach8_card_coverage.md`). VVESA.COM disassembly, XFree86 `aticlock.c` and CRTC code,
       Ferraro ch. 19, Sutty and Blair. Table: register, bits, what it trades.
-- [ ] **B2 One probe per 28800 field (M).** First: **AB bits 0/5 (zero-wait-state video writes), off on our card** - M8BUS write timing with them set, then a stability soak. BEh bit 2 (128 KB window), B6h bits 2/5/6, B0h - as M8BANK did B2h.
+- [ ] **B2 One probe per 28800 field (M).** First: **AB bits 0/5 (zero-wait-state video writes), off on our card** - M8BUS write timing with them set, then a stability soak. ~~BEh bit 2 (128 KB window)~~ (it is the EGA DIP-switch select; the 128 KB map is VGA GR06; M8LIN 10-11: no 128 KB linear window, B000 mirrors A000; B6h bit 2 = 256-colour banking), B6h bits 2/5/6, B0h - as M8BANK did B2h.
 - [ ] **B3 Mach8 knobs under load (M).** FIFO_OPT W_STATE_ENA and MAX_WAITSTATES during a FIFO-full burst
       (idle cost already = an empty port).
 - [ ] **B4 Inboard write-through cache over A0000 (M).** Coherent for a packed-256 bank if flushed on bank switch.
@@ -66,7 +66,7 @@ The halves have separate memory and separate CRTCs; only one drives the monitor 
 The CPU writes the VGA side at 2.0 us/byte, the cheapest path on the card; the engine draws the 8514 side at
 ~31 Mpixel/s and cannot touch VGA memory. Ideas, in order of what they depend on:
 
-- [ ] **C1 Settle the facts (desk -> M).** Is the DAC shared? What does an output switch cost - a resync on the
+- [ ] **C1 Settle the facts (desk -> M).** 10-11 (`docs/captures/2026-10-11_m8probes/`): memories do not cross (M8XMEM); halves not phase locked; M8FLIP v1 never reached the monitor (CLOCK_SEL 0 = pass-through) - v2 needs the 640x480 clock index from the EEPROM (A4). Is the DAC shared? What does an output switch cost - a resync on the
       monitor, or clean? Can both CRTCs run identical timing?
 - [ ] **C2 Two renderers, alternate frames.** CPU builds frame N+1 in VGA memory while the engine draws frame N on
       the 8514 side; flip by the output switch. Two "GPUs" on one card.
@@ -89,7 +89,8 @@ The CPU writes the VGA side at 2.0 us/byte, the cheapest path on the card; the e
       ~1 colour change per line (estimate: ~23 us per entry vs ~32 us line); (3) error diffusion for still images on
       the 486; (4) 8-bit DAC - read the RAMDAC part number, and B0h on the 28800 side.
 - [ ] **D5 DirectDraw (later).** A surface Lock needs a linear frame buffer; the Mach8 has none, so it rests on the
-      28800 A000 window: AC bit 0 + BEh bit 2 (B2) decide whether 320x200/320x240x8 fit unbanked. Then a HAL from
+      28800 A000 window. M8LIN (10-11): one 64 KB bank, no 128 KB window, AC bit 0 no effect - 320x200x8 fits
+      unbanked, 320x240 needs a bank switch. Then a HAL from
       vmhal9x (`references/jhrobotics/`, MIT) with flip on CRT_OFFSET.
 
 ## S. Sound on the same bus (owner, 2026-10-10: 8088 MPH / Area 5150 / FastDoom spirit, Daniel_K's licence to fix what the vendor didn't)
