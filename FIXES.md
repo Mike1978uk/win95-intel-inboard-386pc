@@ -121,8 +121,17 @@ side effects, but that install is past Setup, so the fix itself is proven in emu
 
 ### `XTIDEMP.MPD` — 32-bit disk access for the XT-CF / XT-IDE
 
-**[⬇ XTIDEMP.MPD](https://github.com/Mike1978uk/win95-intel-inboard-386pc/raw/master/dist/xtide_mpd/XTIDEMP.MPD)** · 10,752 bytes · md5 `db88f64d9a0500d13690032445ad4e31`
+**[⬇ XTIDEMP.MPD](https://github.com/Mike1978uk/win95-intel-inboard-386pc/raw/master/dist/xtide_mpd/XTIDEMP.MPD)** · 11,264 bytes · md5 `a67fefc44d5368c59a9736f93eeb13af`
 · **[⬇ XTIDEMP.INF](https://github.com/Mike1978uk/win95-intel-inboard-386pc/raw/master/dist/xtide_mpd/XTIDEMP.INF)**
+
+> ### 2026-10-11 revision - wait on measured times, yield long commits
+>
+> Supersedes md5 `db88f64d9a0500d13690032445ad4e31`. Polls only near the card's measured latency,
+> so the bus stays free while the card works. Reads: ~220 us without a bus cycle, then 1-3 status
+> reads instead of ~33. Writes: a commit still busy after ~10 ms (a flash erase, ~110 ms on this
+> card) is handed to SCSIPORT's timer, so Windows gets the CPU back instead of ~19,000 status reads.
+> Tested on the real 5160: boots, desktop normal, a 129-file copy byte-identical. Not measured:
+> copy speed against the previous revision, CPU returned. Details: `docs/xtcf_measured_wait.md`.
 
 > ### 2026-09-10 revision - word-wide transfers on stride-2 cards
 >

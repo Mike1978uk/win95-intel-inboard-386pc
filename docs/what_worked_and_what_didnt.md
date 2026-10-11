@@ -54,6 +54,10 @@ Nothing is listed as working unless it has been run.
 
 Small, but each is free and they add up. Details in `docs/next_session_2026_09_28.md`.
 
+- **XT-CF measured-wait driver (`a67fefc4`, 2026-10-11)** — polls only near the card's measured latency; a
+  write commit still busy after ~10 ms goes to the SCSIPORT timer and frees the CPU for the ~110 ms erase.
+  Handing every commit to the timer stalled the desktop: a short commit then costs a whole 13.7 ms tick.
+  `docs/xtcf_measured_wait.md`.
 - **`XTOUT` clear (`1000h:1 = 8C`)** — the CPU no longer waits for READY after every OUT.
   FastDoom `-timedemo demo1` 1.1% faster (46514 → 46002 realtics, spread 1-2); a floppy DMA
   read is byte-identical. In `CPUSET.BAT`. [#40](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/40)
