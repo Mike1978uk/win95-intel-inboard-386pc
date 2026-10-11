@@ -928,3 +928,15 @@ what Andrew offered it for. **Unread** means exactly that: listed, not yet evalu
   own driver work: how Microsoft drove the 8514 engine (row reads by CMD 3318h, software cursor by BitBLT).
 - ZSoft PC Paintbrush for Windows 1.05 (owner download, `Downloads/`): the program 86Box#6695 is about -
   Andrew, #49, corrected "Paint" to this. Retest 6695 with it, not Windows Paint.
+
+## 11. Where this project's work is used (added 2026-10-11)
+
+- **maniek86, [M8SBC-486: Windows 95](https://maniek86.xyz/projects/m8sbc_486_win95.php)** - a homebrew 486
+  single-board computer with no second PIC and no DMA. Started from our published 2 GB image
+  ([win95-desktop-v1](https://github.com/Mike1978uk/win95-intel-inboard-386pc/releases/tag/win95-desktop-v1)),
+  shrunk to 500 MB, Inboard-specific parts removed; credits the single-PIC changes as "the final unexpected
+  piece". Disk in legacy (INT 13h) mode, so our XT-CF miniport is not in use there. Not a contact yet - ask
+  before treating it as one.
+- **Reddit, r/vintagecomputing, [comment pf8a52u](https://www.reddit.com/r/vintagecomputing/comments/1vg70dt/comment/pf8a52u/?context=1)**
+  on our "Windows 95 finally running on an Intel Inboard" post - owner-reported as another use of the code.
+  Reddit blocks fetching from here; content not read.
