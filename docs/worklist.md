@@ -101,6 +101,11 @@ The CPU writes the VGA side at 2.0 us/byte, the cheapest path on the card; the e
 
 ## D. Our driver and the demo (after A)
 
+**Build order (owner, 2026-10-12):** Windows 95 first. Step 1: our own drawing driver (replaces ATIM8.DRV, uses
+the whole engine) on top of ATI.VXD - it costs nothing while Windows owns the card (`docs/ati_vxd_traps.md`).
+Step 2: our own VxD, to save the registers ATI.VXD does not know (DEST_CMP_FN, BOUNDS) across DOS boxes.
+
+
 - [ ] **D1 TXTBENCH extensions** - bitmap, long fill, palette tests; count port writes too.
 - [ ] **D2 Glyph cache in the driver (#49)**, then icon / brush / save-under caches, then the encoding bitmap path.
 - [ ] **D3 3D probes (M):** cost of a polygon-fill triangle, pre-scaled column blits (RealDOOM shape).
