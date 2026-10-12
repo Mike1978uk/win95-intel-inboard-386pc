@@ -81,3 +81,16 @@ Start from `docs/worklist.md`; this page is the state at the end of 10-11.
   builds for open runs. `vm_5160_now/default/card.img` differs from the live disk (no `C:\M8UTL` on live until 10-12).
 
 - **CPU fix: no PR needed.** Upstream fixed the same bug independently - Hinoserm, `acc82a87f`, 2026-09-24 ("cpu: fetch code from device memory through the bus"). Checked 10-11: upstream master with the card EEPROM boots the Inboard bed to the Windows desktop. Our `5fce405ab` stays fork-only.
+
+## 10-12: 6695 static step 1 - where it stopped
+
+- Our bed `vm_6695_w2` binds the W2 disk-7 `8514.DRV` (`references/win2_8514/`): its seg 1 sits in
+  `WIN386\WIN200.BIN` at 0x10750, 890/919 16-byte chunks identical (rest = fixups). In that driver the
+  wrap add `add di,[bp-24h]` (1:1BD9) has one direct caller (1:1615), right after `mov [bp-24h],di`
+  (1:1612) - slot set first. Computed jump at 1:15ED not followed.
+- The reporter's VHD (86Box#6695 attachment `504-win211.vhd.zip`, the one skiretic and OBattler use)
+  binds a DIFFERENT build: same base 0x10750, identical up to seg1 ~0x3050, then differs to ~0x32A0
+  and is shifted -0x6E after. skiretic's addresses (3109, 320D) fall in exactly that region - the
+  screen-to-mono copy. So the bug lives in code our bed never runs; that is why our 10-09 test passed.
+- Next: disassemble the reporter's bound seg1 at file 0x10750+0x3050..0x32A0 and diff against ours
+  (1:30A0-1:3300). Download sits in the session scratchpad only; re-fetch from the issue if needed.
