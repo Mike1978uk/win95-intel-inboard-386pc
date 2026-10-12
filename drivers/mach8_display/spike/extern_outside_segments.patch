@@ -1,5 +1,5 @@
 --- DDK/DISPLAY/SAMPLES/MINI/FRAMEBUF/DIBLINK.ASM	1996-05-20 18:53:36.000000000 +0100
-+++ spike/DIBLINK.ASM	2026-10-12 12:59:16.970507600 +0100
++++ spike/DIBLINK.ASM	2026-10-12 13:00:40.354581300 +0100
 @@ -20,7 +20,6 @@
  ; MACROS
  ;----------------------------------------------------------------------------
@@ -8,7 +8,7 @@
  public name
  name:
  	assumes	ds,nothing
-@@ -41,6 +40,32 @@
+@@ -41,6 +40,35 @@
  ;----------------------------------------------------------------------------
  ; D A T A
  ;----------------------------------------------------------------------------
@@ -38,9 +38,36 @@
 +externFP DIB_DeviceBitmap
 +externFP DIB_SetAttribute
 +externFP DIB_FastBorder
++externFP DIB_CheckCursorExt
++externFP DIB_BitBlt
++externFP DIB_ExtTextOut
  sBegin	Data
  	externD	lpDriverPDevice
          externW wPalettized
+@@ -88,7 +116,6 @@
+ ;----------------------------------------------------------------------------
+ ; Weird linkages
+ ;----------------------------------------------------------------------------
+-externFP DIB_CheckCursorExt
+ public CheckCursor
+ CheckCursor:
+ 	mov	ax,DGROUP
+@@ -102,7 +129,6 @@
+ 	jmp	DIB_CheckCursorExt
+ @@:	retf
+ 
+-externFP DIB_BitBlt
+ public BitBlt
+ BitBlt:
+ 	mov	ax,DGROUP
+@@ -123,7 +149,6 @@
+ 	push	ax			;push null for options
+ 	push	ecx
+ 
+-externFP DIB_ExtTextOut
+ public ExtTextOut
+ ExtTextOut:
+ 	mov	ax,DGROUP
 --- DDK/DISPLAY/SAMPLES/MINI/FRAMEBUF/SPECIAL.ASM	1996-05-20 18:53:38.000000000 +0100
 +++ spike/SPECIAL.ASM	2026-10-12 12:59:24.777070700 +0100
 @@ -28,6 +28,7 @@
