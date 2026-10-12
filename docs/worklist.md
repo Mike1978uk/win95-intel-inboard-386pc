@@ -122,14 +122,14 @@ like a timer tick (~170 us measured for #45). Ideas, cheapest first - measure be
 
 ## E. Timer, refresh, XT-CF (in flight)
 
-- [ ] **T1 (M)** TIMERRES CPU loop at MinTimeSlice default vs 54 on the 5160 - the bed does not model bus cost
+- [x] **T1 (M)** (done 10-10/11: +6% idle CPU, 36 MB copy 0.7% faster, `5160_tuned_config.md`) TIMERRES CPU loop at MinTimeSlice default vs 54 on the 5160 - the bed does not model bus cost
 - [x] **T1b (B)** MinTimeSlice=30 gives PIT 32768 (27.5 ms): VTD's rounding rule holds
 - [ ] **T2 (B)** DOS box and serial at the chosen value; then the owner puts it on the card
 - [ ] **T3 (B)** Cost per tick: bus cycles per tick interrupt (`docs/captures/2026-10-10_timer/`)
 - [x] **R1 (B)** Windows does not touch PIT channel 1: divisor 64 survives into Windows (bed)
 - [x] R4 `REFR64` in the card's AUTOEXEC.BAT (10-10, backup `AUTOEXEC.B10`)
 - [x] **X3 (desk + B + M)** Measured-wait driver: `a67fefc4` passes bed + 5160 (10-11, `xtcf_measured_wait.md`); not yet in `dist/`; next: copy time and CPU returned
-- [ ] ATI.VXD port-trapping lead - lost 10-10; recover or re-derive
+- [x] ATI.VXD port-trapping lead - recovered 10-12: `docs/ati_vxd_traps.md` (handlers on 01CE/02E8/4AE8/4AEE; 65 ports trapped as a group)
 
 ## Done 10-10
 
