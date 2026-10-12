@@ -1,0 +1,82 @@
+# This file produced by MS2WLINK
+format windows dll initglobal
+file CHIPBLT.obj
+file CHIPS.obj
+file CONTROL.obj
+file DIBLINK.obj
+file DISABLE.obj
+file ENABLE.obj
+file GETRESID.obj
+file INIT.obj
+file INKREADY.obj
+file OAK.obj
+file OAKBLT.obj
+file PALETTE.obj
+file SPECIAL.obj
+file SSWITCH.obj
+file TRIDENT.obj
+file TSENG.obj
+file TSENGBLT.obj
+file TSENGTXT.obj
+file V7.obj
+file V7BLT.obj
+file VGA.obj
+file WONDER.obj
+name framebuf.drv
+option map=framebuf.map
+library libw.lib
+library dibeng.lib
+# noextdictionary option is not necessary when using WLINK
+option nodefaultlibs
+# linenumbers option is not supported by WLINK
+option alignment=16
+option modname=DISPLAY
+option description 'DISPLAY : 100, 96, 96 : Chicago 256 color SVGA display driver.'
+option oneautodata
+segment type data preload fixed
+# definition file segments keyword handled differently in WLINK
+segment '_TEXT'  preload moveable shared
+segment '_INIT'  preload moveable
+export BitBlt.1
+export ColorInfo.2
+export Control.3
+export Disable.4
+export Enable.5
+export EnumDFonts.6
+export EnumObj.7
+export Output.8
+export Pixel.9
+export RealizeObject.10
+export StrBlt.11
+export ScanLR.12
+export DeviceMode.13
+export ExtTextOut.14
+export GetCharWidth.15
+export DeviceBitmap.16
+export FastBorder.17
+export SetAttribute.18
+export DibBlt.19
+export CreateDIBitmap.20
+export DibToDevice.21
+export SetPalette.22
+export GetPalette.23
+export SetPaletteTranslate.24
+export GetPaletteTranslate.25
+export UpdateColors.26
+export StretchBlt.27
+export StretchDIBits.28
+export SelectBitmap.29
+export BitmapBits.30
+export ReEnable.31
+export Inquire.101
+export SetCursor.102
+export MoveCursor.103
+export CheckCursor.104
+export GetDriverResourceID.450
+export UserRepaintDisable.500
+export ValidateMode.700
+import KernelsScreenSel  KERNEL.174
+option nocaseexact
+libpath C:/Users/lycet/OneDrive/Desktop/XT_project/Windows95_ddk/LIB
+option resource=../RES/display.res
+option alignment=16

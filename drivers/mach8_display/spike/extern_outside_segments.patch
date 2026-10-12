@@ -1,0 +1,61 @@
+--- DDK/DISPLAY/SAMPLES/MINI/FRAMEBUF/DIBLINK.ASM	1996-05-20 18:53:36.000000000 +0100
++++ spike/DIBLINK.ASM	2026-10-12 12:59:16.970507600 +0100
+@@ -20,7 +20,6 @@
+ ; MACROS
+ ;----------------------------------------------------------------------------
+ DIBLINK macro name,target,extra
+-externFP target
+ public name
+ name:
+ 	assumes	ds,nothing
+@@ -41,6 +40,32 @@
+ ;----------------------------------------------------------------------------
+ ; D A T A
+ ;----------------------------------------------------------------------------
++externFP DIB_ColorInfo
++externFP DIB_GetCharWidth
++externFP DIB_SetCursorExt
++externFP DIB_MoveCursorExt
++externFP DIB_Inquire
++externFP DIB_DibBltExt
++externFP DIB_DibToDevice
++externFP DIB_CreateDIBitmap
++externFP DIB_EnumDFonts
++externFP DIB_EnumObjExt
++externFP DIB_Output
++externFP DIB_SetPaletteTranslateExt
++externFP DIB_GetPaletteTranslateExt
++externFP DIB_GetPaletteExt
++externFP DIB_UpdateColorsExt
++externFP DIB_Pixel
++externFP DIB_RealizeObjectExt
++externFP DIB_SelectBitmap
++externFP DIB_BitmapBits
++externFP DIB_ScanLR
++externFP DIB_DeviceMode
++externFP DIB_StretchBlt
++externFP DIB_StretchDIBits
++externFP DIB_DeviceBitmap
++externFP DIB_SetAttribute
++externFP DIB_FastBorder
+ sBegin	Data
+ 	externD	lpDriverPDevice
+         externW wPalettized
+--- DDK/DISPLAY/SAMPLES/MINI/FRAMEBUF/SPECIAL.ASM	1996-05-20 18:53:38.000000000 +0100
++++ spike/SPECIAL.ASM	2026-10-12 12:59:24.777070700 +0100
+@@ -28,6 +28,7 @@
+ ;----------------------------------------------------------------------------
+ ; C O D E
+ ;----------------------------------------------------------------------------
++externFP DIB_BeginAccess
+ sBegin  Code
+ assumes cs,Code
+         .386
+@@ -114,7 +115,6 @@
+ ;----------------------------------------------------------------------------
+ ; E X T E R N S
+ ;----------------------------------------------------------------------------
+-        externFP        DIB_BeginAccess
+         externA         KernelsScreenSel        ;equates to a000:0000
+ 
+ 
