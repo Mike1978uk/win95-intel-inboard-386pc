@@ -19,8 +19,8 @@ hardware nobody else touches; never rank a feature by whether ATI's drivers use 
 
 - [x] XTWLAT on the card: ~3 ms to DRQ, ~110 ms commit, 1.1 ms per 16 KB boundary (`docs/captures/2026-10-10_xtlat/`)
 - [x] RSOAK2 warm (10-10): XMS + conventional clean at 64; `REFR64` re-applied
-- [ ] RSOAK2 again from a clean boot with NO COMrade loaded - the planar 64 KB check was confounded by 3 resident copies
-- [ ] Read and format one floppy at divisor 64
+- [x] RSOAK2 again from a clean boot with NO COMrade loaded (done 10-11, `5160_tuned_config.md`) - the planar 64 KB check was confounded by 3 resident copies
+- [x] Read and format one floppy at divisor 64 (done 10-11)
 - [ ] Reboot clean first (F8, command prompt) and load COMrade ONCE - re-running `comrade` stacks resident copies
 - [x] `M8STAT` run 10-10 (LINE_SYNC live). ZWS.SCR full copy (5,009 B) staged on the card 10-10, 22:31
 - [x] ZWS on the card 10-10: AB wait-state bits change nothing (negative result, `docs/captures/2026-10-10_zws/`). Was: the B2 wait-state timing: `python tools/gen_zws_probe.py > ZWS.SCR`, then
@@ -34,7 +34,9 @@ hardware nobody else touches; never rank a feature by whether ATI's drivers use 
       `vm_xtide_mpd` has the Mach8 EEPROM. Check boot: stride 2 up, tick logged, WRTEST 129/129 identical.
 - [ ] **A1 Chapter 9 coverage (desk) - AFTER the PR (owner, 10-11).** ATI extended registers into `docs/mach8_card_coverage.md`, same columns
       as chapter 8. Guide + Ferraro ch. 19 + a hand read of the model.
-- [ ] **A2 Close chapter 8's unmeasured rows (desk -> M).** One probe file, one sitting:
+- [x] **A2 Close chapter 8's unmeasured rows (desk -> M). Done 10-11 by M8A2/M8PF/M8REGS/M8STAT (checked 10-12);
+      left, not driver-relevant: CMD opcode 7, CMD bit 3, poly fill at compatible pitch, BRES_COUNT after CMD,
+      colour compares under a partial WRT_MASK. Model gap still open (A3): blit source past x=1023.** One probe file, one sitting:
       ~~arithmetic mixes~~ (done 10-10: all 32 present, card = model); CMD DRAW=0 + INSIDE_SCISSOR hit test;
       PATTERN_L/H; DEST_CMP_FN masked by WRT_MASK; LINE_SYNC (DISP_STATUS bit 2); the guide-only six
       (ERR_TERM -1, CMD bit 3, blit SOURCE wrap, reads outside scissors = FFh, poly at compatible pitch,

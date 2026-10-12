@@ -47,17 +47,17 @@ CRT writes reach the model only with CLOCK_SEL bit 0 set or the 8514 side off (`
 | reg | port | guide | model | use |
 |---|---|---|---|---|
 | CMD | 9AE8 W | 8-28..34. Opcodes 0-6, bits 0-12 | ok/card for lines, fills, blits, short strokes, reads (M8CONF 82/82, TEST.COM). Opcode 7 (8514/A: stuck busy) not checked | all |
-| CMD bit 4 DRAW=0 | | 8-30. Trajectory runs, nothing drawn; side effects and INSIDE_SCISSOR still happen | unchecked | hit test |
+| CMD bit 4 DRAW=0 | | 8-30. Trajectory runs, nothing drawn; side effects and INSIDE_SCISSOR still happen | ok/card (M8A2, 10-11): same INSIDE_SCISSOR behaviour | hit test |
 | Poly fill A / B | PIX_CNTL bits 2:1 | 8-34..35 | ok/card (TEST.COM TS1) | **flat-shaded polygons** (3D plan) |
 | CUR_X / CUR_Y | 86E8 / 82E8 R/W | 8-37..38. Range -512..1535 | ok/card, 11 bits | - |
 | DESTX_DIASTP / DESTY_AXSTP | 8EE8 / 8AE8 W | 8-52..53. 13-bit signed steps | ok/card (13 bits measured, M8SEQ) | - |
-| ERR_TERM | 92E8 R/W | 8-39 | ok/card, 13 bits. "-1 when X increases" guide only | - |
+| ERR_TERM | 92E8 R/W | 8-39 | ok/card, 13 bits; "-1 when X increases" ok/card (M8A2, 10-11) | - |
 | MAJ_AXIS_PCNT | 96E8 W | 8-42 | ok | - |
 | MIN_AXIS_PCNT | BEE8 idx 0 | 8-43 | ok | - |
 | SHORT_STROKE | 9EE8 W | 8-51. Guide: with host data the first vector of a pair consumes it wrongly | ok/card (M8ROW3) | line art, glyphs |
 | SCISSOR_T/L/B/R | BEE8 idx 1-4 | 8-49..50. T/L 11-bit signed, B/R 11-bit unsigned | ok | clipping |
 | X wrap mod 1024 | | 8-22 | ok/card (M8WRAP, 10-09 fix) | - |
-| Host read outside scissors returns FFh | | 8-23 | guide only | - |
+| Host read outside scissors returns FFh | | 8-23 | ok/card (M8A2 10-11; model fixed `e8d4dc5c2`) | - |
 
 ### Data path
 
@@ -67,7 +67,7 @@ CRT writes reach the model only with CLOCK_SEL bit 0 set or the 8514 side off (`
 | FRGD_MIX / BKGD_MIX | BAE8 / B6E8 W | 8-24..25. 16 Boolean + 16 arithmetic mixes | **ok/card, all 32** (M8MIX, 10-10, `docs/captures/2026-10-10_m8mix/`): card = bed byte for byte, 2 colours x 256 destinations. MIN 10h, D-S 11h, S-D 12h, S+D 13h, MAX 14h, halved 15h-17h (carry shifted in), saturated 18h = 19h D-S, 1Ah S-D, 1Bh S+D, halved 1Ch = 1Dh, 1Eh, 1Fh (FFh on overflow, else (S+D)/2) | **the Mach8 blends on its own: 17h = 50% translucency, 1Bh/18h = saturating light and shadow, MIN/MAX** (3D, DirectDraw, demo) |
 | PIX_CNTL | BEE8 idx A | 8-46. Poly fill, COLOR_CMP_FN 5:3, MONO_SRC 7:6 | MONO_SRC ok/card. Compare ok/card (below) | - |
 | COLOR_CMP | B2E8 W | 8-36. TRUE = not written; compare ignores write-masked planes | **ok/card** (fixed `c454a6324`) | **colour-keyed sprites** (DirectDraw colour key); write-protect a colour range |
-| PATTERN_L / PATTERN_H | BEE8 idx 8 / 9 | 8-44..45. 4-pixel mono patterns, even / odd nibbles | present (`vid_8514a.c` 1257); not measured | dithered tones |
+| PATTERN_L / PATTERN_H | BEE8 idx 8 / 9 | 8-44..45. 4-pixel mono patterns, even / odd nibbles | ok/card (M8A2 10-11; model drew row 0 only, fixed `125bfddc8`) | dithered tones |
 | WRT_MASK / RD_MASK | AAE8 / AEE8 W | 8-48, 8-54. RD_MASK rotated left one bit in IBM mono reads | ok/card (TS2 fit, M8BLRD) | plane layers (3D plan) |
 | PIX_TRANS | E2E8 R/W | 8-47 | ok/card: byte order, data width, mono layout (M8ROW3, M8SEQ, M8MONO) | host images |
 | DAC_* | 02EA-02ED | 8-1..3 | ok (TEST.COM DAC test) | palette fades |
