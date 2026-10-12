@@ -371,3 +371,9 @@ untested here - our image does not load that driver.
   2026-10-07: he has a Graphics Ultra himself (owner on Reddit, looking for another channel) - a second real card.
 
 - #49 / 86Box#6695 (@andrew-hoffman): his Paintbrush lead closed out - 86Box PR #8289 merged 2026-10-11 (submitted the same evening); replies posted on 86Box#6695, #4898 and our #49 (owner-approved wording, thanked). Loop closed.
+- #49 (@andrew-hoffman), 2026-10-12: #8289 crashed every non-8514 VGA card (86Box#8290, NULL `dev` in `svga_out`;
+  OBattler fixed it, `13751de8c`); he suggested smoke-testing unmodified configs - adopted as G11 in `repo-hygiene`.
+  Also: default EEPROM gives 72 Hz (it is the owner's card verbatim; 60 Hz follow-up promised); the 6695 fill is
+  still broken on OBattler's VM (our "fills correctly" overstated - we tested the border-set leak only); link
+  skiretic/86Box#23. Replies posted 10-12 (owner-approved, thanked) on #49, PR #8289 (apology) and 86Box#6695
+  (correction). Owed: 60 Hz default; the 6695 top-left paste checked against the card.

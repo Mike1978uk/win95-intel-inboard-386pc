@@ -51,4 +51,15 @@ Start from `docs/worklist.md`; this page is the state at the end of 10-11.
 - Replies posted: 86Box#6695 (Paintbrush fill, thanks Andrew) and #4898 (TEST.COM). Owner approved wording.
 - Done: #8289 merged; Andrew told on our #49. Next: follow-up PR for the INMOS IMSG176 DAC (was: tell Andrew on our #49 that #8289 is up.
 
+## 10-12: #8289 broke every other VGA card
+
+- Build 10378 segfaulted on every VGA card except the Mach8 (86Box#8290): our `svga_out` tested
+  `ATI_GRAPHICS_ULTRA` (reads `dev->local`) before `dev`. OBattler fixed it (`13751de8c`). G2 had been skipped
+  ("Mach8-only files") although `vid_svga.c` is shared. New gate G11 (smoke-test untouched configs), `7d431e3`.
+- Same fix committed locally in `86box_prprep` `57f5e6a5f`, `86box_prup` `d4998f8dc`, `86box_3c509b` `4a79b0b4f`.
+- 86Box#6695 is NOT fixed: OBattler's VM still pastes the screen's top-left into the canvas. We only tested the
+  border-set leak. Next: the top-left paste on the card (skiretic/86Box#23: uninitialised frame slot FFFE).
+- Promised on #49: a 60 Hz default EEPROM (the current default is the owner's card verbatim, 72-73 Hz).
+- Replies posted 10-12 (owner-approved): #49, PR #8289, 86Box#6695.
+
 - **CPU fix: no PR needed.** Upstream fixed the same bug independently - Hinoserm, `acc82a87f`, 2026-09-24 ("cpu: fetch code from device memory through the bus"). Checked 10-11: upstream master with the card EEPROM boots the Inboard bed to the Windows desktop. Our `5fce405ab` stays fork-only.
