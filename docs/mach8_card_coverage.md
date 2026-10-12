@@ -251,6 +251,15 @@ Mach32 only, absent from the Mach8 by design: hardware cursor (0AEE-1EEE, 3AEE/3
 memory), MEM_CFG aperture (5EEE), MISC_OPTIONS (36EE R/W), 8x8 mono patterns. Not checked: whether the
 model gates each of these off for `mach8_vga_isa`.
 
+
+**Port census, 2026-10-12** (`tools/m8_port_census2.py`): every `mov dx,imm16` + `in`/`out` with a Mach8-style port in
+306 files of `XT_project/ATI` (all driver sets, utilities, three BIOS revisions), the card's ATIM8/ATI.VXD/MACHW3,
+`D:\utils\ATIVGA` (VVESA, VINSTALL) and the Windows/386 2.11 images. **No Mach8 port outside the guide.** All ten
+raw candidates checked by hand: COM3 (03E8/03EB), byte runs across two instructions, 32-bit `mov edx,imm32` in
+the .3GR grabbers, and the LHA-compressed WIN31ACC.EXE. ATI.VXD names every word register's high byte (xxE9/xxEF)
+twice - its port-trap table. Limit: ports built at run time are not seen; the 28800's 01CE index census needs a
+DX-tracking disassembly, and the card probe (M8VGA) reads every index directly.
+
 **Card probes this chapter adds to worklist A2:** 16EE (timed out 10-10); the polygon-fill blit; SCAN_TO_X's fill flag; DEST_CMP_FN with WRT_MASK 0Fh on the ATI path. Colour-expand from VRAM and plain SCAN_TO_X are already = card through M8CONF.
 
 ## The board (owner's photo, 2026-10-11: `XT_project/photos/IMG_0037.jpeg`)
