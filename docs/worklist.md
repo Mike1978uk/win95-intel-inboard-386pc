@@ -52,6 +52,15 @@ hardware nobody else touches; never rank a feature by whether ATI's drivers use 
 - [x] **A7 Merged 10-11: 86Box PR #8289** (OBattler, merge `3a0efe82b`) (`942e2de86`, 6 files); replies posted on #6695 and #4898. Follow-up: INMOS IMSG176 DAC model. Was: 10-11: fork `mach8-pr` = `6e9978efd`, one commit on upstream `1741108a7`, +1708/-410 in 4 files; diagnostics stripped (`mach8-pr-prep` `91afd001f`), comments made upstream-neutral; G1 pass; G7 applies and builds (no warnings in our files); G9 Mach32 35/35 and Graphics Ultra M8A2/M8XMEM/M8LIN identical on that build (`prup_mach32`). Left: G5 comment read, G2-G4, G6, G8, G10 (owner), PR text. Clean branch, G1-G10 (`repo-hygiene` section 10), owner's G10 by hand, PR text drafted for
       the owner. ~~Then the separate CPU-fix PR (`5fce405ab`)~~ - not needed, upstream `acc82a87f` (Hinoserm) fixed it; 86Box#6695 reply posted 10-11.
 
+- [ ] **A8 (Thursday, owner) Siblings of #8289 (TC1995, 86Box Discord 10-12).** The Mach8 fixes should
+      apply to the 8514/ULTRA add-on (same chip; `ATI_8514A_ULTRA`) and likely the Mach32. #8289 added 118
+      lines gated on `ATI_GRAPHICS_ULTRA`. List each gated fix (fix, measured on our card, siblings it
+      should cover); widen engine fixes to the add-on; ask TC1995 about the 68800; regress all four cards
+      (repo-hygiene G11). Also boot the add-on on PR #8294's build.
+- [ ] **A9 M8VGA second bed pass** on the card's own EEPROM, to read mode 63h's 164 differences
+      (`docs/captures/2026-10-12_m8vga/`). Model fixes found 10-12: ATI indexes 80h-9Fh and C0h-FFh read
+      FFh on the card (model 00); BA 01 vs 00.
+
 ## B. Bus knobs on both chips (own use; performance)
 
 - [ ] **B1 28800 knobs from static sources (desk).** Start from the 10 extended registers where card and bed differ (`mach8_card_coverage.md`). VVESA.COM disassembly, XFree86 `aticlock.c` and CRTC code,
