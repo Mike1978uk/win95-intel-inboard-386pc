@@ -46,7 +46,7 @@ hardware nobody else touches; never rank a feature by whether ATI's drivers use 
       how far to model the FIFO (EXT_FIFO_STATUS occupancy, INVALID_IO on overrun) - our driver relies on it.
 - [ ] **A4 Appendices (desk) - AFTER the PR (owner, 10-11).** EEPROM map (we have the dump), BIOS interface, CRT parameters, clocks, RAMDAC,
       checked against the model.
-- [ ] **A5 Windows 95 capture into M8CONF (owner ~10 min, `vm_5160_now`, MACH8_WLOG=1).**
+- [x] **A5 Windows 95 capture into M8CONF (taken 10-12, `docs/captures/2026-10-12_a5_win95/`; feeding M8CONF still to do) (owner ~10 min, `vm_5160_now`, MACH8_WLOG=1).**
 - [x] **A6 Regression on other cards (B).** Rerun 10-11 after gating `27e57fcfe`/`89942be5e`: Mach32 M8CONF 82/82 = branch point (`head_mach32_r3`). 8514/A (`head_8514a_r3`): 33/35, only M8CMP8 and M8MIX differ (the documented fixes). A6 complete. First run 10-11 (`docs/captures/2026-10-10_a6/`, HEAD `3667abf59`+IDE diag, `MACH8_COUNT=1`): Mach32 runs every probe (crash fixed). vs branch point, 8514/A 33/35 same, Mach32 32/35: M8CMP8 = the colour-compare fix (HEAD = the card byte for byte); M8MIX mix 1Fh saturates per guide 8-24; **M8CONF on the Mach32, tests 3-6 one fewer read word and test 54 byte order - Graphics Ultra measurements now applied to the Mach32 with no Mach32 evidence: gate them to the Graphics Ultra before the PR, or show the Mach32 guide agrees.** 8514/A M8CONF skipped (>30 min, owner 10-11). Was: Mach32 and 8514/A, branch point `48e098d45` vs HEAD,
       `vm_6695_w2`, REGR + M8CONF + M8WRAP, diff.
 - [x] **A7 Merged 10-11: 86Box PR #8289** (OBattler, merge `3a0efe82b`) (`942e2de86`, 6 files); replies posted on #6695 and #4898. Follow-up: INMOS IMSG176 DAC model. Was: 10-11: fork `mach8-pr` = `6e9978efd`, one commit on upstream `1741108a7`, +1708/-410 in 4 files; diagnostics stripped (`mach8-pr-prep` `91afd001f`), comments made upstream-neutral; G1 pass; G7 applies and builds (no warnings in our files); G9 Mach32 35/35 and Graphics Ultra M8A2/M8XMEM/M8LIN identical on that build (`prup_mach32`). Left: G5 comment read, G2-G4, G6, G8, G10 (owner), PR text. Clean branch, G1-G10 (`repo-hygiene` section 10), owner's G10 by hand, PR text drafted for
@@ -66,7 +66,7 @@ hardware nobody else touches; never rank a feature by whether ATI's drivers use 
       Read 10-12: reuse the method and host_stubs.c (pclog, config, RAM, an io_sethandler that records the
       device handlers); our MACH8_WLOG logs are already a capture tap. Not useful: the Rage 128 vectors, JIT,
       GPU, bus-master/PCI stubs. Main cost: his VGA core is an empty shell; ours needs more of svga_t.
-- [ ] **A9 M8VGA second bed pass** on the card's own EEPROM, to read mode 63h's 164 differences
+- [x] **A9 M8VGA second bed pass** (done 10-12: mode 63h 164 -> 31 differences; left = VGA register read-back must be masked to implemented bits, model fix for Thursday) on the card's own EEPROM, to read mode 63h's 164 differences
       (`docs/captures/2026-10-12_m8vga/`). Model fixes found 10-12: ATI indexes 80h-9Fh and C0h-FFh read
       FFh on the card (model 00); BA 01 vs 00.
 
