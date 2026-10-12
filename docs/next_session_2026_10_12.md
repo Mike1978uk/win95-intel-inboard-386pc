@@ -94,3 +94,10 @@ Start from `docs/worklist.md`; this page is the state at the end of 10-11.
   screen-to-mono copy. So the bug lives in code our bed never runs; that is why our 10-09 test passed.
 - Next: disassemble the reporter's bound seg1 at file 0x10750+0x3050..0x32A0 and diff against ours
   (1:30A0-1:3300). Download sits in the session scratchpad only; re-fetch from the issue if needed.
+- RESULT (static, both binaries): the reporter's screen-to-mono routine (seg1 30FE-3220) is a different
+  implementation from ours. It tests the segment wrap with `mov ax,di / add ax,[bp-24h] / jb` at 320D and
+  NEVER writes [bp-24h]; the only writers in its seg1 are 1612 (another blit path) and 222B/2285
+  (0300h-0340h). Ours computes the slot at 312D before using it. So the driver on the reporter's disk
+  has the uninitialised-slot bug; the disk-7 driver does not. Open for 86Box: whether the stale value
+  (FFFEh in skiretic's capture) depends on anything the emulator does differently from a real card.
+  That needs a write watch on the stack slot in the reporter's VM; cannot be settled statically.
