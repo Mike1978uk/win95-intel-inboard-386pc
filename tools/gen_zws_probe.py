@@ -21,14 +21,16 @@ import re
 import sys
 
 ORG = 0x100
-RES = 0x800
-SAVE = 0x7F0
+RES = 0xC00
+SAVE = 0xBF0
 BUF = 0x2000
 NBYTES = 512
 TICK_US = 1e6 / 1193182
 ARMS = [0x00, 0x01, 0x20, 0x21, 0x02, 0x00]
 TESTS = [("write BA000 byte", "stos", 1), ("write BA000 word", "stos", 2),
-         ("write BA000 dword", "stos", 4), ("read C0000 byte", "movs", 1)]
+         ("write BA000 dword", "stos", 4), ("read C0000 byte", "movs", 1),
+         ("read BA000 byte", "movsv", 1), ("read BA000 word", "movsv", 2),
+         ("read BA000 dword", "movsv", 4)]
 
 
 def build():
@@ -64,9 +66,12 @@ def build():
                     e([0xB8, 0x20, 0x07, 0xF3, 0xAB])
                 else:
                     e([0x66, 0xB8, 0x20, 0x07, 0x20, 0x07, 0x66, 0xF3, 0xAB])
-            else:
+            elif kind == "movs":
                 e([0xBF, BUF & 0xFF, BUF >> 8, 0xB8, 0x00, 0xC0, 0x8E, 0xD8,
                    0x31, 0xF6, 0xF3, 0xA4])
+            else:                                         # video memory reads, ds = BA00h
+                e([0xBF, BUF & 0xFF, BUF >> 8, 0xB8, 0x00, 0xBA, 0x8E, 0xD8, 0x31, 0xF6])
+                e({1: [0xF3, 0xA4], 2: [0xF3, 0xA5], 4: [0x66, 0xF3, 0xA5]}[width])
             read_pit()
             e([0x07, 0x1F, 0x29, 0xC5])                   # pop es / pop ds / sub bp,ax
             off = RES + 2 * slot
@@ -87,7 +92,8 @@ def verify(code, slots):
     if sum(i.size for i in ins) != len(code):
         sys.exit("FAILED: disassembly does not cover the code")
     reps = [i.mnemonic for i in ins if i.mnemonic.startswith("rep ")]
-    if reps != ["rep stosb", "rep stosw", "rep stosd", "rep movsb"] * len(ARMS):
+    if reps != ["rep stosb", "rep stosw", "rep stosd", "rep movsb",
+                "rep movsb", "rep movsw", "rep movsd"] * len(ARMS):
         sys.exit(f"FAILED: transfers {reps}")
     ors = [i.op_str for i in ins if i.mnemonic == "or" and i.op_str.startswith("al,")]
     want = [f"al, {m:#x}" if m > 9 else f"al, {m}" for m in ARMS + [0]]   # capstone prints 0-9 in decimal
@@ -102,7 +108,7 @@ def verify(code, slots):
 def decode(path):
     text = open(path, "rb").read().decode("ascii", "replace")
     bs = []
-    for m in re.finditer(r"^[0-9A-Fa-f]{4}:(08[0-9A-Fa-f]0)\s+((?:[0-9A-Fa-f]{2}[ -]){1,16})", text, re.M):
+    for m in re.finditer(r"^[0-9A-Fa-f]{4}:(" + f"{RES >> 8:02X}" + r"[0-9A-Fa-f]0)\s+((?:[0-9A-Fa-f]{2}[ -]){1,16})", text, re.M):
         bs += [int(x, 16) for x in re.findall(r"[0-9A-Fa-f]{2}", m.group(2))]
     n = len(ARMS) * len(TESTS)
     if len(bs) < 2 * n:
