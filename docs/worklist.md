@@ -103,7 +103,8 @@ The CPU writes the VGA side at 2.0 us/byte, the cheapest path on the card; the e
 
 **Toolchain spike (10-12):** `drivers/mach8_display/spike/` - DDK FRAMEBUF with MASM 6.11 + Open Watcom; resources and
 links cleanly to an NE driver (one source rule: declare imports outside segments). Sources: xga-win9x (permission given), velocity9x,
-skiretic's 86Box test tools.
+skiretic's 86Box test tools, the XFree86 3.3.6 Mach8 server (`references/xfree86_336_mach8/`: accelerated Mach8
+under Linux, off-screen font cache in bit-plane pools - the D2 glyph-cache template).
 
 **Build order (owner, 2026-10-12):** Windows 95 first. Step 1: our own drawing driver (replaces ATIM8.DRV, uses
 the whole engine) on top of ATI.VXD - it costs nothing while Windows owns the card (`docs/ati_vxd_traps.md`).
