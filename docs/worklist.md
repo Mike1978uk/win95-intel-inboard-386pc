@@ -63,6 +63,9 @@ hardware nobody else touches; never rank a feature by whether ATI's drivers use 
       replays a recorded command stream against the device sources in seconds. Build the Mach8 equivalent
       (reuse `host_stubs.c`), feed it MACH8_WLOG captures and the card probes (M8CONF, M8A2, M8VGA), and
       regress all four 8514-family cards per build - makes A8 cheap.
+      Read 10-12: reuse the method and host_stubs.c (pclog, config, RAM, an io_sethandler that records the
+      device handlers); our MACH8_WLOG logs are already a capture tap. Not useful: the Rage 128 vectors, JIT,
+      GPU, bus-master/PCI stubs. Main cost: his VGA core is an empty shell; ours needs more of svga_t.
 - [ ] **A9 M8VGA second bed pass** on the card's own EEPROM, to read mode 63h's 164 differences
       (`docs/captures/2026-10-12_m8vga/`). Model fixes found 10-12: ATI indexes 80h-9Fh and C0h-FFh read
       FFh on the card (model 00); BA 01 vs 00.
