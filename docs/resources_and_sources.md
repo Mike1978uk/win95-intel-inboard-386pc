@@ -928,6 +928,9 @@ what Andrew offered it for. **Unread** means exactly that: listed, not yet evalu
   own driver work: how Microsoft drove the 8514 engine (row reads by CMD 3318h, software cursor by BitBLT).
 - ZSoft PC Paintbrush for Windows 1.05 (owner download, `Downloads/`): the program 86Box#6695 is about -
   Andrew, #49, corrected "Paint" to this. Retest 6695 with it, not Windows Paint.
+- https://github.com/skiretic/86Box/issues/23 - skiretic's fork, an earlier 86Box#6695 investigation (Andrew,
+  #49, 2026-10-12). Traces the roller fill to the Win 2.x 8514 driver wrapping a write pointer on an
+  uninitialised frame slot (FFFE) and overwriting the mask bitmap header. Not yet read against our PR.
 
 ## 11. Where this project's work is used (added 2026-10-11)
 

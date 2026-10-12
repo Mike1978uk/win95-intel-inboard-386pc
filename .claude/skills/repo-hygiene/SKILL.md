@@ -463,7 +463,7 @@ still needs the refresh afterwards.
 
 ---
 
-## 10. The upstream submission gate - every item, every PR (G1-G10)
+## 10. The upstream submission gate - every item, every PR (G1-G11)
 
 Each follow-up patch after an 86Box submission traced to a check nobody ran:
 
@@ -475,8 +475,9 @@ Each follow-up patch after an 86Box submission traced to a check nobody ran:
 | `#define ENABLE_LPT_BPCK_LOG 1` / `ENABLE_EPAT_LOG 1` left forced on | #8010, #8012 | G1 |
 | `case` fall-through: every IDE/SCSI CD-ROM also adds a BackPack that claims LPT1 | #8012 | G2, G9 |
 | Media menu labels an LPT drive "(Unknown Bus)" | #8010, #8012 | G3 |
+| NULL `dev` dereferenced in `svga_out`: every non-8514 VGA card segfaulted (#8290, fixed `13751de8c`) | #8289 | G2, G11 |
 
-Tick all of these (G1-G10), in the PR's worktree, before the owner is asked to open it:
+Tick all of these (G1-G11), in the PR's worktree, before the owner is asked to open it:
 
 - **G1 No debug left on.** In every touched file, no `#define ENABLE_*_LOG 1`, no forced
   log define, no `pclog` outside a `*_log()` helper, no `#if 1`/`#if 0` experiments.
@@ -485,6 +486,11 @@ Tick all of these (G1-G10), in the PR's worktree, before the owner is asked to o
   of device on another bus, nothing on the port) on master and on the branch, both built
   with the new module's log enabled. The logs must match: no new attach, no claimed port,
   IRQ or I/O range. Read every `switch` the diff touches for fall-through into new cases.
+  **No exemption for a shared file.** #8289's G2 was marked "not run - the changed files build
+  only into those devices"; `vid_svga.c` runs for every VGA card. If the diff touches a file
+  other devices use, G2 and G11 are mandatory. Read every new condition for a pointer that can
+  be NULL for those devices, and check it is tested before it is dereferenced - including
+  inside a macro (`ATI_GRAPHICS_ULTRA` reads `dev->local`).
 - **G3 Settings attach** from an empty config in a fresh Qt build (section 7), then read the
   Media menu and status bar: every new bus needs a label there too. #8010 and #8012 show
   "(Unknown Bus)" because `qt_mediamenu.cpp` names only ATAPI and SCSI for CD-ROMs and
@@ -502,10 +508,14 @@ Tick all of these (G1-G10), in the PR's worktree, before the owner is asked to o
   name it shows), use the drive letter (read and write), and shut down cleanly. Automated runs
   do not satisfy this: on 2026-09-24 they missed the "(Unknown Bus)" label, the "86B_RD00"
   drive name, the SCSI-only model list and the renumbered SuperDisk type. The owner saw them.
+- **G11 Smoke-test what you did NOT modify** (@andrew-hoffman, our #49, 2026-10-12). On the
+  submitted HEAD, boot to the guest OS on at least: a plain VGA card (IBM VGA or ET4000), one other
+  SVGA card from a different vendor, and a stock 386/486 machine with its default devices.
+  The emulator must stay up past POST and into the OS. Run this for every PR, whatever G2 concluded.
 - **G9 The last run is on the submitted HEAD.** Compare the exe's build time with the newest
   commit's time; any commit after the last run is untested. #8012's final commit
   (`90d81f013`, 11:25) is the one that caused the regression, and the last bed run used an
   exe built at 11:21.
 
-Record the G1-G10 result in the handoff next to the PR number. An item not run is written as
+Record the G1-G11 result in the handoff next to the PR number. An item not run is written as
 not run, never as passed.
