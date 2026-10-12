@@ -6,6 +6,8 @@
 #
 # -Scale sets the window size: 1 = 100%, 2 = 150%, 3 = 200% (default, the owner's request), 4 = 300%.
 # -Seconds 0 leaves the VM running and prints its PID. -DryRun checks everything and launches nothing.
+# A run left open for the owner (-Seconds 0) needs a Qt build: without Qt there are no menus, so no
+# floppy or CD can be changed. -NoMenus accepts a non-Qt build anyway.
 
 param(
   [Parameter(Mandatory)] [string]$Exe,
@@ -14,7 +16,8 @@ param(
   [string]$Log = "",
   [switch]$AllowMouse,
   [ValidateRange(0, 9)] [int]$Scale = 3,
-  [switch]$DryRun
+  [switch]$DryRun,
+  [switch]$NoMenus
 )
 $ErrorActionPreference = 'Stop'
 $msys = 'C:\msys64\mingw64\bin'
@@ -39,6 +42,9 @@ if (Test-Path $cache) {
   $flags = @(Select-String $cache -Pattern '^(QT|CMAKE_BUILD_TYPE|ENABLE_\w+_LOG)\b[^=]*=' | ForEach-Object { $_.Line })
   $flags += (Select-String $cache -Pattern '-D(ENABLE_\w+_LOG)=1' -AllMatches | ForEach-Object { $_.Matches } | ForEach-Object { $_.Groups[1].Value + '=1' } | Sort-Object -Unique)
   Write-Host ("      " + ($flags -join '  '))
+  if ($Seconds -le 0 -and -not $NoMenus -and ($flags -contains 'QT:BOOL=OFF')) {
+    Fail "non-Qt build: no menus for the owner. Use a Qt build (cmake -DQT=ON) or pass -NoMenus"
+  }
 }
 
 # 2. Every imported DLL must resolve, or Windows shows a system-error dialog.
