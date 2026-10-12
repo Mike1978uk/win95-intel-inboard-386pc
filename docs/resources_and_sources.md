@@ -943,3 +943,8 @@ what Andrew offered it for. **Unread** means exactly that: listed, not yet evalu
 - **Reddit, r/vintagecomputing, [comment pf8a52u](https://www.reddit.com/r/vintagecomputing/comments/1vg70dt/comment/pf8a52u/?context=1)**
   on our "Windows 95 finally running on an Intel Inboard" post - owner-reported as another use of the code.
   Reddit blocks fetching from here; content not read.
+
+- 86Box `tests/video/rage128/` (skiretic, PR #8292, https://github.com/86Box/86Box/pull/8292; pointed out
+  on the 86Box Discord 2026-10-12): `reg-harness/` (device register handlers, no VM, with `host_stubs.c`)
+  and `replay-harness/` (record a guest command stream once, replay against the device sources). Template for
+  a Mach8/8514 harness - worklist A10. Not yet adapted.

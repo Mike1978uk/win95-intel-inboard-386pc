@@ -58,6 +58,11 @@ hardware nobody else touches; never rank a feature by whether ATI's drivers use 
       should cover); widen engine fixes to the add-on AND the Mach32 at 8 bpp - TC1995 12:04: "think of the
       mach32 as a 8bpp+ mach8 in the acceleration"; only its >8 bpp paths need separate thought; regress all four cards
       (repo-hygiene G11). Also boot the add-on on PR #8294's build.
+- [ ] **A10 Host-side harness for the 8514 family (skiretic, 86Box Discord 10-12).** Upstream
+      `tests/video/rage128/` (PR #8292): `reg-harness/` calls device handlers with no VM; `replay-harness/`
+      replays a recorded command stream against the device sources in seconds. Build the Mach8 equivalent
+      (reuse `host_stubs.c`), feed it MACH8_WLOG captures and the card probes (M8CONF, M8A2, M8VGA), and
+      regress all four 8514-family cards per build - makes A8 cheap.
 - [ ] **A9 M8VGA second bed pass** on the card's own EEPROM, to read mode 63h's 164 differences
       (`docs/captures/2026-10-12_m8vga/`). Model fixes found 10-12: ATI indexes 80h-9Fh and C0h-FFh read
       FFh on the card (model 00); BA 01 vs 00.
