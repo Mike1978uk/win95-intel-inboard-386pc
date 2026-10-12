@@ -62,4 +62,18 @@ Start from `docs/worklist.md`; this page is the state at the end of 10-11.
 - Promised on #49: a 60 Hz default EEPROM (the current default is the owner's card verbatim, 72-73 Hz).
 - Replies posted 10-12 (owner-approved): #49, PR #8289, 86Box#6695.
 
+## 10-12: 60 Hz default EEPROM - measured, PR not yet raised
+
+- Card EEPROM (PR #8289 default) = FlexVIEW2X name, but refresh flags 72 Hz at 640/800/1024 (Mach32 guide
+  EEPROM map, words 7-9). INSTALL "NEC 4D 60 Hz" -> `roms/video/mach8/eeprom_card_then_nec4d_60hz_install.nvr`
+  (leaves 640x480 at 72); candidate = that + word 7 = 0: `eeprom_60hz_candidate.nvr`.
+- Fork Qt build `86box_3c509b/build_qt` (`4a79b0b4f`, 09:43), candidate in `vm_5160_now`: TEST.COM passes;
+  Win95 ATIM8 60 Hz at 800x600 and 1024x768. Win 3.11 not run.
+- G11: `vm_fenix` plain VGA boots DOS 70 Hz; `vm_6695_w2` with ET4000AX boots DOS 70 Hz (cfg restored).
+- Open: `vm_fenix` INBRDPC banner shows "conventional memory initialized" blank on the fork build; the
+  09-11 `86box_full` build fails POST 101 on that bed; upstream-master control not run.
+- #8289 left a `-Wdangling-else` at `vid_8514a.c:3307` (unbraced `if` around the `WRITE` macro; behaviour correct).
+- Bed hygiene: `WRTEST.BAT` removed from `vm_5160_now` StartUp; launcher now refuses boot hooks and non-Qt
+  builds for open runs. `vm_5160_now/default/card.img` differs from the live disk (no `C:\M8UTL` on live until 10-12).
+
 - **CPU fix: no PR needed.** Upstream fixed the same bug independently - Hinoserm, `acc82a87f`, 2026-09-24 ("cpu: fetch code from device memory through the bus"). Checked 10-11: upstream master with the card EEPROM boots the Inboard bed to the Windows desktop. Our `5fce405ab` stays fork-only.
