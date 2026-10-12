@@ -101,3 +101,12 @@ Start from `docs/worklist.md`; this page is the state at the end of 10-11.
   has the uninitialised-slot bug; the disk-7 driver does not. Open for 86Box: whether the stale value
   (FFFEh in skiretic's capture) depends on anything the emulator does differently from a real card.
   That needs a write watch on the stack slot in the reporter's VM; cannot be settled statically.
+- MEASURED (fork `diag-6695` 48dfb71b1, reporter's VHD/cfg/NVRs in `vm_6695_rep`, Mach32 VLB): reproduced.
+  At CMD 41F0 the slot SS=6811 BP=80F0 holds FFFE; its last 32 writers are Windows/386 2.11's own V86
+  code at segment FFFE (EIP 0083/0094/AFF5/AFFF, 5548 writes cycling 31B0/AFE5/FFFE). No card read in
+  the chain, no HIMEM or DOS=HIGH in the reporter's CONFIG.SYS. A real 386 does the same: driver bug,
+  86Box correct.
+- Good driver (WinWorld Windows 2.11 (386) 3.5", "Additional Drivers" 8514.DRV, md5 42e8f034 =
+  references/win2_8514): `vm_6695_w2`, Mach8, a bounded fill - correct, no paste, and CMD 41F0 is never
+  issued (it fills by pattern copies + 3318 reads). Owner, 10-12.
+- Our own driver: use this build's fill path; never read an unset frame slot.
