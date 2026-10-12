@@ -512,6 +512,12 @@ Tick all of these (G1-G11), in the PR's worktree, before the owner is asked to o
   submitted HEAD, boot to the guest OS on at least: a plain VGA card (IBM VGA or ET4000), one other
   SVGA card from a different vendor, and a stock 386/486 machine with its default devices.
   The emulator must stay up past POST and into the OS. Run this for every PR, whatever G2 concluded.
+  **8514-family PRs (Mach8, Mach32, 8514/A): regress all four** - ATI Graphics Ultra (`mach8_vga_isa`),
+  the ATI 8514/ULTRA add-on (`8514_isa` with ATI extensions - the same Mach8 chip), Mach32, IBM 8514/A.
+  TC1995 (86Box Discord, 2026-10-12): the three ATI parts share the extended registers and 8514/A
+  compatibility, so a Mach8 fix should usually apply to all of them; #8289 was gated to the Graphics
+  Ultra (`ATI_GRAPHICS_ULTRA`, 118 lines) and never tested the add-on. A gate that excludes a sibling
+  needs a measured reason, not a moved test result.
 - **G9 The last run is on the submitted HEAD.** Compare the exe's build time with the newest
   commit's time; any commit after the last run is untested. #8012's final commit
   (`90d81f013`, 11:25) is the one that caused the regression, and the last bed run used an
