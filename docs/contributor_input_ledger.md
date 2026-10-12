@@ -377,3 +377,4 @@ untested here - our image does not load that driver.
   still broken on OBattler's VM (our "fills correctly" overstated - we tested the border-set leak only); link
   skiretic/86Box#23. Replies posted 10-12 (owner-approved, thanked) on #49, PR #8289 (apology) and 86Box#6695
   (correction). Owed: 60 Hz default; the 6695 top-left paste checked against the card.
+  10-12: 60 Hz delivered as 86Box PR #8294; replied on #49 (owner-approved, thanked). Owed: the 6695 top-left paste.

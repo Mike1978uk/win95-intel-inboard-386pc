@@ -74,6 +74,10 @@ Start from `docs/worklist.md`; this page is the state at the end of 10-11.
   09-11 `86box_full` build fails POST 101 on that bed; upstream-master control not run.
 - #8289 left a `-Wdangling-else` at `vid_8514a.c:3307` (unbraced `if` around the `WRITE` macro; behaviour correct).
 - Bed hygiene: `WRTEST.BAT` removed from `vm_5160_now` StartUp; launcher now refuses boot hooks and non-Qt
+- **86Box PR #8294 opened** (60 Hz default EEPROM, `Mike1978uk:mach8-eeprom-60hz` `8eb305898`, 1 file +9 -8):
+  G1-G11 on the PR's Qt build (`86box_prup/build_qt`, 10:08): written nvr = candidate byte for byte, TEST.COM
+  passes, Win/386 2.11 60 Hz; VGA and ET4000AX boot DOS. Win 3.11/95 60 Hz on the fork build, same bytes.
+  OBattler had already fixed the dangling-else (`7f5afe2fb`). Andrew told on #49 (owner-approved, thanked).
   builds for open runs. `vm_5160_now/default/card.img` differs from the live disk (no `C:\M8UTL` on live until 10-12).
 
 - **CPU fix: no PR needed.** Upstream fixed the same bug independently - Hinoserm, `acc82a87f`, 2026-09-24 ("cpu: fetch code from device memory through the bus"). Checked 10-11: upstream master with the card EEPROM boots the Inboard bed to the Windows desktop. Our `5fce405ab` stays fork-only.
