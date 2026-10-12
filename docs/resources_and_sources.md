@@ -137,7 +137,7 @@ the directory's own `README.md`.
   a working 16-bit display-driver build (`buildall.bat`: MASM 6.11 with its 16-bit `LINK`, MSVC 1.5x `RC`,
   MSVC 2.0 for the VxD, DDK headers and libs) - which names the two tools we lack - and a known-good layout
   for a DIB Engine mini-driver. Does not contain: anything on the Mach8/8514, or a glyph cache. No licence
-  on the repo, so his code is read, not copied, unless he agrees. The owner knows him; credited in the README.
+  on the repo; **he has given permission to use it as a source** (owner, 2026-10-12). The owner knows him; credited in the README.
 - **ATI, *Programmer's Guide to the mach32 Registers* (REG688000-15, 1993)** - local `references/ati_mach32/`
   (`guide.txt` is the text), not vendored. **Source URL not recorded - owner to supply.** Marks each register
   "8514/A | Mach 8 | Mach 32". Gave, 2026-10-06, without a measurement: polygon fill types A/B/C (section 7,

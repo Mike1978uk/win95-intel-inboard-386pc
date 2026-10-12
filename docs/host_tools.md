@@ -5,6 +5,7 @@ better tool to be installed when a job needs one; add it here when it is.
 
 | Tool | Where | Used for | Limits |
 |---|---|---|---|
+| Open Watcom v2 snapshot | `C:/Users/lycet/tools/openwatcom` | 16-bit NE display driver: `wlink`, `wrc`, `ms2wlink` | installed 2026-10-12; velocity9x uses it; spike `drivers/mach8_display/spike/` |
 | NASM | `C:\msys64\mingw64\bin\nasm.exe` | assembling DOS `.COM` probes (`tools/m8eedump/`) | - |
 | Capstone 5 (Python) | pythoncore `pip` | 16/32-bit disassembly of ROMs, `.COM`, drivers | - |
 | `tools/pedis.py`, `tools/vxd_disasm.py`, `tools/sysdis.py` | repo | PE miniports, LE VxDs (`CD 20` services), DOS `.SYS` | technique 112 |

@@ -101,6 +101,10 @@ The CPU writes the VGA side at 2.0 us/byte, the cheapest path on the card; the e
 
 ## D. Our driver and the demo (after A)
 
+**Toolchain spike (10-12):** `drivers/mach8_display/spike/` - DDK FRAMEBUF with MASM 6.11 + Open Watcom; resources and
+all 22 objects build, link at 6 errors (README). Finish it first. Sources: xga-win9x (permission given), velocity9x,
+skiretic's 86Box test tools.
+
 **Build order (owner, 2026-10-12):** Windows 95 first. Step 1: our own drawing driver (replaces ATIM8.DRV, uses
 the whole engine) on top of ATI.VXD - it costs nothing while Windows owns the card (`docs/ati_vxd_traps.md`).
 Step 2: our own VxD, to save the registers ATI.VXD does not know (DEST_CMP_FN, BOUNDS) across DOS boxes.
