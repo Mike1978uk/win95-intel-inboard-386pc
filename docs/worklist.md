@@ -55,7 +55,8 @@ hardware nobody else touches; never rank a feature by whether ATI's drivers use 
 - [ ] **A8 (Thursday, owner) Siblings of #8289 (TC1995, 86Box Discord 10-12).** The Mach8 fixes should
       apply to the 8514/ULTRA add-on (same chip; `ATI_8514A_ULTRA`) and likely the Mach32. #8289 added 118
       lines gated on `ATI_GRAPHICS_ULTRA`. List each gated fix (fix, measured on our card, siblings it
-      should cover); widen engine fixes to the add-on; ask TC1995 about the 68800; regress all four cards
+      should cover); widen engine fixes to the add-on AND the Mach32 at 8 bpp - TC1995 12:04: "think of the
+      mach32 as a 8bpp+ mach8 in the acceleration"; only its >8 bpp paths need separate thought; regress all four cards
       (repo-hygiene G11). Also boot the add-on on PR #8294's build.
 - [ ] **A9 M8VGA second bed pass** on the card's own EEPROM, to read mode 63h's 164 differences
       (`docs/captures/2026-10-12_m8vga/`). Model fixes found 10-12: ATI indexes 80h-9Fh and C0h-FFh read

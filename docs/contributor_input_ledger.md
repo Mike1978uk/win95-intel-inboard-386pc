@@ -378,3 +378,7 @@ untested here - our image does not load that driver.
   skiretic/86Box#23. Replies posted 10-12 (owner-approved, thanked) on #49, PR #8289 (apology) and 86Box#6695
   (correction). Owed: 60 Hz default; the 6695 top-left paste checked against the card.
   10-12: 60 Hz delivered as 86Box PR #8294; replied on #49 (owner-approved, thanked). 6695 closed out the same day: driver bug on the reporter's VHD, measured; posted on 86Box#6695 with screenshots (owner-approved).
+
+- @TC1995 (86Box Mach8/Mach32 maintainer), 86Box Discord 2026-10-12: Mach8 fixes should apply to the 8514/ULTRA
+  add-on and the Mach32 ("think of the mach32 as a 8bpp+ mach8 in the acceleration"); verify all three. Adopted:
+  repo-hygiene G11 (all four 8514-family cards), worklist A8. Owner replied and thanked him on Discord.
