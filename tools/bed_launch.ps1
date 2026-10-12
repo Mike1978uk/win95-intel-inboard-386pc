@@ -8,6 +8,8 @@
 # -Seconds 0 leaves the VM running and prints its PID. -DryRun checks everything and launches nothing.
 # A run left open for the owner (-Seconds 0) needs a Qt build: without Qt there are no menus, so no
 # floppy or CD can be changed. -NoMenus accepts a non-Qt build anyway.
+# A bed whose Windows has anything in StartUp or a WINSTART.BAT is refused: a fixture left there
+# runs on every later boot. -AllowStartup accepts it for the run that planted it.
 
 param(
   [Parameter(Mandatory)] [string]$Exe,
@@ -17,7 +19,8 @@ param(
   [switch]$AllowMouse,
   [ValidateRange(0, 9)] [int]$Scale = 3,
   [switch]$DryRun,
-  [switch]$NoMenus
+  [switch]$NoMenus,
+  [switch]$AllowStartup
 )
 $ErrorActionPreference = 'Stop'
 $msys = 'C:\msys64\mingw64\bin'
@@ -93,6 +96,13 @@ if ((Get-CfgValue 'gfxcard') -like 'mach8*') {
   $nvr = Join-Path $VmPath 'nvr\mach8.nvr'
   $blank = -not (Test-Path $nvr) -or -not ([IO.File]::ReadAllBytes($nvr) | Where-Object { $_ })
   if ($blank) { Write-Host "      WARNING: Mach8 EEPROM blank - copy roms\video\mach8\eeprom_flexview2x_56hz_800x600.nvr to nvr\mach8.nvr" }
+}
+$hdd = ($ini | Select-String '^\s*hdd_01_fn\s*=\s*(.+)$' | Select-Object -First 1 | ForEach-Object { $_.Matches[0].Groups[1].Value.Trim() })
+if ($hdd -and -not $AllowStartup) {
+  $img = if ([IO.Path]::IsPathRooted($hdd)) { $hdd } else { Join-Path $VmPath $hdd }
+  $hooks = & python (Join-Path $PSScriptRoot 'bed_startup_hooks.py') $img 2>$null
+  if ($LASTEXITCODE -eq 3) { Write-Host "      WARNING: boot hooks not checked - $hooks" }
+  if ($LASTEXITCODE -eq 2) { Fail "boot hooks on the bed disk: $($hooks -join ', ') - remove them or pass -AllowStartup" }
 }
 if ($DryRun) { Write-Host "DRY RUN: all checks passed, nothing launched"; exit 0 }
 

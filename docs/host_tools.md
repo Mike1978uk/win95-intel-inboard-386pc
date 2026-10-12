@@ -13,6 +13,7 @@ better tool to be installed when a job needs one; add it here when it is.
 | WinZip | `C:\Program Files\WinZip\winzip64.exe` | LHarc `-lh1-` packs (ATI 1994 drivers) | GUI only; no command line installed |
 | MSYS2 MinGW64 | `C:\msys64\mingw64\bin` | 86Box builds, `objdump` | must be on `PATH` for `cmake --build` |
 | COMrade (`comrade` MCP) | COM2 to the 5160 | port and memory reads, file transfer, running probes | DOS agent only for ports and memory |
+| `pyfatfs` 1.x (+ `setuptools<81` for `pkg_resources`) | pip, Python 3.12 | write files into a bed's FAT disk image with the VM stopped (`PyFatFS(img, offset=63*512)`) | write new files only: overwriting an existing one corrupted the chain on 2026-10-12; back up the image first |
 
 Missing, worth having if a job needs it: an `-lh1-` command-line extractor (`lha` or `lhasa`),
 so LZH packs need no hand step.
