@@ -194,3 +194,8 @@ references/vgadoc/
 86box_a6base/
 86box_prprep/
 86box_prup/
+
+# 2026-10-15: PR #8339 worktrees, and the fork build's multi-MB diagnostic logs in A6 runs
+86box_bisect/
+86box_cursorfix/
+docs/captures/2026-10-10_a6/*/86box.log
