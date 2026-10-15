@@ -52,6 +52,13 @@ hardware nobody else touches; never rank a feature by whether ATI's drivers use 
 - [x] **A7 Merged 10-11: 86Box PR #8289** (OBattler, merge `3a0efe82b`) (`942e2de86`, 6 files); replies posted on #6695 and #4898. Follow-up: INMOS IMSG176 DAC model. Was: 10-11: fork `mach8-pr` = `6e9978efd`, one commit on upstream `1741108a7`, +1708/-410 in 4 files; diagnostics stripped (`mach8-pr-prep` `91afd001f`), comments made upstream-neutral; G1 pass; G7 applies and builds (no warnings in our files); G9 Mach32 35/35 and Graphics Ultra M8A2/M8XMEM/M8LIN identical on that build (`prup_mach32`). Left: G5 comment read, G2-G4, G6, G8, G10 (owner), PR text. Clean branch, G1-G10 (`repo-hygiene` section 10), owner's G10 by hand, PR text drafted for
       the owner. ~~Then the separate CPU-fix PR (`5fce405ab`)~~ - not needed, upstream `acc82a87f` (Hinoserm) fixed it; 86Box#6695 reply posted 10-11.
 
+- [x] **A7b Merged 10-12: 86Box PR #8294** (OBattler), default EEPROM at 60 Hz.
+- [ ] **A11 FIRST: Win 3.x cursor regression from #8289 (TC1995, 86Box Discord 10-12).** ATI's mach8
+      Win 3.x driver draws the mouse cursor as a black square; his hint: extended bitblt (cmd type 2),
+      `frgd_sel`. Not fixed upstream as of 10-15. Suspect: #8289's `mach_frgd_sel()` (6 -> 2) and
+      `frgd_sel` 4/7 as host data, both `ATI_GRAPHICS_ULTRA`. Repro `vm_mach8_w311` (MACHW3.DRV, mach8
+      rev 3.0) on builds before (`1741108a7`) and after #8289; fix, rerun probes + TEST.COM, G11, PR;
+      owner writes to TC1995.
 - [ ] **A8 (Thursday, owner) Siblings of #8289 (TC1995, 86Box Discord 10-12).** The Mach8 fixes should
       apply to the 8514/ULTRA add-on (same chip; `ATI_8514A_ULTRA`) and likely the Mach32. #8289 added 118
       lines gated on `ATI_GRAPHICS_ULTRA`. List each gated fix (fix, measured on our card, siblings it
@@ -111,6 +118,10 @@ the whole engine) on top of ATI.VXD - it costs nothing while Windows owns the ca
 Step 2: our own VxD, to save the registers ATI.VXD does not know (DEST_CMP_FN, BOUNDS) across DOS boxes.
 
 
+- [ ] **D0 Skeleton loads in Windows 95 (10-13).** Our FRAMEBUF build (`OWFB.DRV`) and Microsoft's own
+      FRAMEBUF.DRV both fail on `vm_5160_now` ("problem with your display settings", 1024x768 and 640x480),
+      so the control failed too: the sample cannot drive this card, and our build is not yet shown to load.
+      Next: the same swap on a bed where Windows itself installs FRAMEBUF.DRV, or start the Mach8 skeleton.
 - [ ] **D1 TXTBENCH extensions** - bitmap, long fill, palette tests; count port writes too.
 - [ ] **D2 Glyph cache in the driver (#49)**, then icon / brush / save-under caches, then the encoding bitmap path.
 - [ ] **D3 3D probes (M):** cost of a polygon-fill triangle, pre-scaled column blits (RealDOOM shape).
@@ -154,3 +165,9 @@ like a timer tick (~170 us measured for #45). Ideas, cheapest first - measure be
 - [x] Colour compare fixed and = card; command FIFO measured (16 deep, drops); refresh gain + cold soak
 - [x] Tick source found (MinTimeSlice); XT-CF read waits; XTWLAT written and proven safe in the bed;
       write-path regression passes
+
+## Parked (owner, 10-15)
+
+- [ ] IE4 install broke the disk driver on the webcam image (no snapshot). Reproduce in a VM with one.
+- [ ] Creative WebCam II on LPT: image `OneDrive\Desktop\win95_webcam.img` (LS-120 removed, port visible).
+- [ ] Iomega Jaz 2 GB on the T130B worked first time as a disk: add to `docs/5160_tuned_config.md`.

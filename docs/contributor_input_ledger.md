@@ -382,3 +382,7 @@ untested here - our image does not load that driver.
 - @TC1995 (86Box Mach8/Mach32 maintainer), 86Box Discord 2026-10-12: Mach8 fixes should apply to the 8514/ULTRA
   add-on and the Mach32 ("think of the mach32 as a 8bpp+ mach8 in the acceleration"); verify all three. Adopted:
   repo-hygiene G11 (all four 8514-family cards), worklist A8. Owner replied and thanked him on Discord.
+
+- @TC1995, 86Box Discord 2026-10-12 14:38 / 17:25: #8289 regressed ATI's Win 3.x mach8 driver - the cursor
+  draws as a black square; "the first is about extended bitblt's (cmd type 2) on the frgd_sel". Not fixed
+  upstream on 10-15. Ours to fix (worklist A11); owner replies.
