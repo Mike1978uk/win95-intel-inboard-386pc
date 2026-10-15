@@ -44,7 +44,11 @@ write order. TC1995's hint named this code at the start; it was dismissed becaus
 `mach_accel_start()` case 2: on the Graphics Ultra, `dp_compat` takes only `frgd_sel` from the 8514/A
 registers; `bkgd_sel` and `mono_src` stay with DP_CONFIG. Branch `mach8-fg-source` (`86box_cursorfix`).
 
-Upstream branch `mach8-fg-source` = `068d00e6d` on master `06985f178` (`86box_cursorfix`), not pushed.
+**86Box PR #8339** (https://github.com/86Box/86Box/pull/8339), opened 2026-10-15: branch `mach8-fg-source` =
+`068d00e6d` on master `06985f178`. Gates: G1 clean; G2/G11 VGA + ET4000AX boot, change behind
+`ATI_GRAPHICS_ULTRA`; G3 n/a; G4 ULTRA.DRV + TEST.COM; G5 comments re-read; G7 master unchanged since base,
+no warnings; G8 1 file +7/-8; G9 exe = commit content; G10 TEST.COM by the owner on this build, ULTRA.DRV
+by the owner on the fork build and by screenshot on this one. 8514/ULTRA add-on, Mach32, 8514/A: not run.
 Fork test build = `4a79b0b4f` + the same change, uncommitted (`86box_bisect`).
 
 ## Tested, and not
