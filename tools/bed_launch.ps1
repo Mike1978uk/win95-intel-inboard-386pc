@@ -57,6 +57,11 @@ $search = @($exeDir, $msys, "$env:WINDIR\System32")
 $missing = $dlls | Where-Object { $d = $_; -not ($search | Where-Object { Test-Path (Join-Path $_ $d) }) -and $d -notmatch '^(api-ms-|ext-ms-)' }
 if ($missing) { Fail "DLLs not found in $($search -join '; '): $($missing -join ', ')" }
 
+# 2a. msvcrt and UCRT in one exe: stdio crosses runtimes and 86Box dies at start (0xC0000005).
+if (($dlls -contains 'msvcrt.dll') -and ($dlls | Where-Object { $_ -match '^api-ms-win-crt-' })) {
+  Fail "the exe links both msvcrt and UCRT; rebuild from a clean build dir with MSYSTEM=MINGW64"
+}
+
 # 2b. A console-subsystem build opens a cmd window on the owner's desktop, and closing it kills 86Box.
 $pe = [IO.File]::ReadAllBytes($Exe)
 $subsystem = [BitConverter]::ToUInt16($pe, [BitConverter]::ToInt32($pe, 0x3C) + 24 + 68)
