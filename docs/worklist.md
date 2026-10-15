@@ -53,12 +53,10 @@ hardware nobody else touches; never rank a feature by whether ATI's drivers use 
       the owner. ~~Then the separate CPU-fix PR (`5fce405ab`)~~ - not needed, upstream `acc82a87f` (Hinoserm) fixed it; 86Box#6695 reply posted 10-11.
 
 - [x] **A7b Merged 10-12: 86Box PR #8294** (OBattler), default EEPROM at 60 Hz.
-- [ ] **A11 FIRST: Win 3.x cursor regression from #8289 (TC1995, 86Box Discord 10-12).** ATI's mach8
-      Win 3.x driver draws the mouse cursor as a black square; his hint: extended bitblt (cmd type 2),
-      `frgd_sel`. Not fixed upstream as of 10-15. Suspect: #8289's `mach_frgd_sel()` (6 -> 2) and
-      `frgd_sel` 4/7 as host data, both `ATI_GRAPHICS_ULTRA`. Repro `vm_mach8_w311` (MACHW3.DRV, mach8
-      rev 3.0) on builds before (`1741108a7`) and after #8289; fix, rerun probes + TEST.COM, G11, PR;
-      owner writes to TC1995.
+- [x] **A11 Submitted 10-15: 86Box PR #8339** (TC1995's Win 3.x cursor regression from #8289). Cause: ATI's
+      ULTRA.DRV (1992) uploads cursor masks with DP_CONFIG then FRGD_MIX; #8289 moved the mono source to
+      PIX_CNTL too. Fix keeps only the foreground switch. MACHW3 never affected. Tests and gates:
+      `docs/mach8_ultra_drv_cursor_2026_10_15.md`. Owner tells TC1995. Watch for review; merge -> tick.
 - [ ] **A8 (Thursday, owner) Siblings of #8289 (TC1995, 86Box Discord 10-12).** The Mach8 fixes should
       apply to the 8514/ULTRA add-on (same chip; `ATI_8514A_ULTRA`) and likely the Mach32. #8289 added 118
       lines gated on `ATI_GRAPHICS_ULTRA`. List each gated fix (fix, measured on our card, siblings it
