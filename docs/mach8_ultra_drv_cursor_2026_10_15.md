@@ -59,7 +59,7 @@ Fork test build = `4a79b0b4f` + the same change, uncommitted (`86box_bisect`).
 | 8514/A A6 | fork + fix | **not run to the end**: the fork's per-fill `[M8P]` trace takes hours; the changed lines are behind `ATI_GRAPHICS_ULTRA` |
 | G11: plain VGA (`vm_fenix`), ET4000AX (`vm_6695_w2`) boot | upstream branch | pass (INBRDPC loads; DOS prompt) |
 | Build warnings, whole tree | upstream branch | none |
-| **ATI TEST.COM, watched** | upstream branch | **not yet - owner** |
+| ATI TEST.COM, all sequences, owner watching (AT bed, new-card default EEPROM) | upstream branch `068d00e6d` | pass |
 | Mach32 / 8514/A on the upstream branch | upstream branch | not run |
 | Graphics Ultra A6 on the upstream branch | upstream branch | not run |
 | Real 5160 | - | not applicable (emulator-only change) |
