@@ -37,6 +37,11 @@ python tools/fatcp.py $BED/w2.img --mkdir 'M8SEQ' >/dev/null
 } > "$TMP/AUTOEXEC.BAT"
 python tools/fatcp.py $BED/w2.img 'M8SEQ\M8PRE.DAT' $SEQ/M8PRE.DAT --yes >/dev/null
 python tools/fatcp.py $BED/w2.img 'M8SEQ\M8CONF.DAT' $SEQ/M8CONF_w311.DAT --yes >/dev/null
+# 15 probes (M8ROW*, M8SEQ*, M8TS*, M8POLY) load ATI's TEST.COM from their own folder; without it they
+# print "cannot read" and leave no .BIN. ATI's file is not in the repo.
+TESTCOM=${A6_TESTCOM:-/c/Users/lycet/OneDrive/Desktop/XT_project/ATI/8514ut/TEST.COM}
+[ -f "$TESTCOM" ] || { echo "TEST.COM not found at $TESTCOM (set A6_TESTCOM)"; exit 1; }
+python tools/fatcp.py $BED/w2.img 'M8SEQ\TEST.COM' "$TESTCOM" --yes >/dev/null
 python tools/fatcp.py $BED/w2.img 'AUTOEXEC.BAT' "$TMP/AUTOEXEC.BAT" --yes >/dev/null
 
 if [ "$CARD" = 8514a ]; then
