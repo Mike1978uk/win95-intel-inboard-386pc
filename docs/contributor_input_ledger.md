@@ -386,4 +386,4 @@ untested here - our image does not load that driver.
 - @TC1995, 86Box Discord 2026-10-12 14:38 / 17:25: #8289 regressed ATI's Win 3.x mach8 driver - the cursor
   draws as a black square; "the first is about extended bitblt's (cmd type 2) on the frgd_sel". Not fixed
   upstream on 10-15. Ours to fix (worklist A11); owner replies.
-  10-15: reproduced with ATI's ULTRA.DRV (not MACHW3); fixed in 86Box PR #8339; owner tells him on Discord.
+  10-15: reproduced with ATI's ULTRA.DRV (not MACHW3); fixed in 86Box PR #8339; owner told him on Discord 10-15. Loop closed.
