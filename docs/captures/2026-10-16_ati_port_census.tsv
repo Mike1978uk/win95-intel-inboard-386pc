@@ -1,0 +1,122 @@
+port	TEST.COM	ROM	VVESA	tools	MACH(W31)	ULTRA	MACHW3	ATIM8/VXD	ATIM32	ATIDESK	guide
+0100	.	.	.	.	.	.	.	.	.	.	uC Setup Mode ID Byte
+0101	.	.	.	.	.	.	.	.	.	.	uC Setup Mode ID Byte
+0103	.	.	.	.	.	.	.	.	.	.	uC ROM Base Address Setup Register
+0104	.	.	.	.	.	.	.	.	.	.	uC Setup Byte
+0105	.	.	.	.	.	.	.	.	.	.	SETUP
+02E8	x	x	.	x	x	x	x	x	x	.	Display Status Register; Horizontal Total Regi
+02EE	.	.	.	x	.	.	.	.	.	x	Overscan Color Register
+06E8	x	.	.	x	x	x	x	.	.	.	Horizontal Displayed Register
+06EE	.	.	.	x	x	.	.	.	.	x	
+0AE8	x	.	.	x	x	x	x	.	.	.	
+0AEE	.	.	.	x	x	.	x	x	x	.	
+0EE8	x	x	.	x	x	x	x	.	.	.	
+0EEE	.	.	.	x	x	.	x	x	x	.	Cursor Offset High Register
+12E8	x	.	.	x	x	x	x	.	.	.	Vertical Total Register
+12EE	x	x	x	x	x	.	x	x	x	x	CONFIG; Horizontal Cursor Position Registers
+16E8	x	.	.	x	x	x	x	.	.	.	
+16EE	.	.	.	x	x	.	x	x	x	.	CONFIG; Configuration Status
+1AE8	x	.	.	x	x	x	x	.	.	.	Vertical Sync Start Register
+1AEE	x	x	.	x	x	.	x	x	x	.	
+1EE8	x	.	.	x	x	x	x	.	.	.	Vertical Sync Width Register I
+1EEE	.	.	.	x	x	.	x	x	x	.	
+22E8	x	x	.	x	x	x	x	.	.	.	Display Control Register
+22EE	x	.	.	x	.	.	.	.	.	.	
+26E8	.	.	.	x	.	.	.	.	.	.	
+26EE	x	x	x	x	x	.	x	x	x	.	
+2AEE	.	.	.	x	x	x	x	x	x	.	CRT Offset
+2EEE	.	.	.	x	x	x	x	x	x	.	
+32E8	.	.	.	x	x	.	.	.	.	.	
+32EE	x	x	.	x	x	.	x	x	x	x	I Mach
+36E8	.	.	.	.	.	.	.	.	.	x	
+36EE	x	x	.	x	x	.	x	x	x	x	Miscellaneous Register
+3AE8	.	.	.	.	x	.	.	.	.	.	
+3AEE	x	x	.	x	x	.	x	x	x	.	Extended Cursor Color
+3EEE	.	.	.	x	x	.	x	x	x	.	Extended Cursor Color
+42E8	x	x	.	x	x	x	x	x	x	x	Subsystem Status Register I Mach; Subsystem Co
+42EE	x	x	x	x	x	x	x	x	x	.	Memory Boundary Register
+46E8	x	x	.	.	.	.	.	.	.	.	
+46EE	x	x	.	x	x	.	x	.	.	.	Shadow Set Control Register
+4AE8	x	x	.	x	x	x	x	x	.	.	Advanced Function Control Register
+4AEE	x	x	.	x	x	.	x	x	.	x	i - - - - - - -
+4EE8	.	.	.	x	.	x	.	.	.	.	
+52EE	x	x	x	x	x	x	x	x	x	x	Scratch Pad O Register
+56EE	x	x	.	x	x	.	x	x	x	.	t-------r--
+5AEE	x	x	.	x	x	.	x	.	.	.	
+5EEE	.	.	.	x	x	x	.	.	.	x	I---; i - - - - - - - r -
+62EE	x	.	.	x	x	x	x	x	x	.	Horizontal Overscan Register
+66E8	.	.	.	x	.	.	x	.	.	.	
+66EE	.	.	.	x	.	.	.	.	.	.	Vertical Overscan Register
+6AE8	.	x	.	.	.	.	.	.	.	.	
+6AEE	x	x	.	.	x	.	x	x	x	.	APERTURE
+6EEE	.	.	.	x	x	x	x	x	x	.	
+72E8	.	.	.	x	.	.	.	.	.	x	
+72EE	.	.	.	x	x	x	x	x	x	.	Bounds Accumulator Left Register
+76EE	x	x	.	x	x	.	x	x	x	.	Bounds Accumulator Top Register; Graphics Engi
+7AEE	x	x	.	x	.	.	.	.	.	.	Bounds Accumulator Right Register
+7EEE	.	.	.	x	.	.	.	.	.	.	Bounds Accumulator Bottom Register
+82E8	x	x	.	x	x	x	x	x	x	.	Current Y Register
+82EE	x	.	.	x	x	x	x	x	x	.	
+86E8	x	x	.	x	x	x	x	x	x	.	
+86EE	.	.	.	x	.	.	.	.	.	.	
+8AE8	x	x	.	x	x	x	x	x	x	.	Axial Step Register; Source V Destination V Re
+8EE8	x	x	x	x	x	x	x	x	x	x	
+8EEE	.	.	x	x	x	x	x	x	x	.	
+92E8	x	.	.	x	x	.	.	x	.	x	
+92EE	.	.	.	x	.	.	.	.	.	.	
+96E8	x	x	.	x	x	x	x	x	x	x	
+96EE	x	.	.	x	x	.	x	x	x	x	
+9AE8	x	x	.	x	x	x	x	x	x	x	Graphics Engine Status Register
+9AEE	x	x	.	x	x	x	x	x	x	.	Extended FIFO STatus Register
+9EE8	x	.	.	x	.	.	.	.	.	.	
+A2E8	.	.	.	x	x	x	x	x	x	.	Background Color Register
+A2EE	x	.	.	x	x	x	x	x	x	.	t--------r---LI; Linedraw Options Register
+A6E8	x	x	.	x	x	x	x	x	x	.	
+A6EE	.	.	.	x	x	x	x	x	x	.	
+AAE8	x	.	.	x	x	x	x	x	x	.	Write Mask Register I Mach
+AAEE	.	.	.	x	x	x	x	x	x	.	Destination X End Register
+AEE8	.	.	.	x	x	x	x	x	x	.	
+AEEE	.	.	.	x	x	x	x	x	x	.	Destination V End Register
+B2E8	.	.	.	x	x	x	x	x	x	.	
+B2EE	x	x	.	x	x	.	x	x	x	x	Source X Start Register
+B6E8	.	.	.	x	x	x	x	x	x	.	Background Mix Register
+B6EE	x	.	.	x	x	x	x	x	x	.	
+BAE8	x	x	.	x	x	x	x	x	x	.	
+BAEE	x	.	.	x	x	x	x	x	x	.	Horizontal Sync Width Register; Foreground Fun
+BEE8	x	x	.	x	x	x	x	x	x	.	
+BEEE	.	.	.	x	x	.	x	x	x	.	
+C2EE	x	.	.	x	x	.	x	x	x	x	Vertical Total Register; Source V Direction Re
+C6EE	x	.	.	x	x	.	.	.	x	.	Vertical Displayed Register
+CAE8	.	.	.	x	.	.	.	.	.	.	
+CAEE	x	.	.	x	x	x	x	x	x	.	Vertical Sync Start Register; Scan To X Regist
+CEEE	.	.	.	x	x	x	x	x	x	.	Data Path Configuration Register
+D2EE	x	.	.	x	x	x	x	x	x	.	
+D6EE	x	.	.	x	x	x	x	x	x	.	Pattern Index Register
+DAE8	.	x	.	.	.	.	.	.	.	.	
+DAEE	.	.	x	x	x	x	x	x	x	x	Extended Left Scissor Register
+DEE8	.	.	.	x	.	.	.	.	.	.	
+DEEE	.	.	.	x	x	x	x	x	x	.	Read Source V Register; Extended Top Scissor R
+E2E8	x	x	.	x	x	x	x	x	x	.	Pixel Transfer Register I Mach
+E2EE	.	.	.	x	x	x	x	x	x	.	Extended Right Scissor Register
+E6E8	.	x	.	.	.	.	.	.	.	.	
+E6EE	.	.	.	x	x	x	x	x	x	.	
+EAEE	x	x	.	.	.	.	.	.	.	.	
+EEEE	.	.	.	x	.	.	.	x	.	x	
+F6EE	x	.	.	.	.	.	.	.	.	.	
+FAE8	.	.	.	x	.	.	.	.	.	.	
+FAEE	.	.	.	.	x	.	.	.	x	x	
+FEE8	.	.	.	x	.	.	.	x	x	.	
+FEEE	.	.	.	x	x	x	x	x	x	.	Linedraw Register
+1CE:A0	.	x	.	.	.	.	.	.	.	.	28800 ext
+1CE:A2	.	.	.	.	.	.	.	.	.	x	28800 ext
+1CE:A6	x	x	.	.	.	.	.	.	.	.	28800 ext
+1CE:AE	.	.	.	.	.	.	.	x	.	.	28800 ext
+1CE:B0	.	.	.	x	x	.	x	.	.	.	28800 ext
+1CE:B2	.	.	x	x	x	.	x	x	x	.	28800 ext
+1CE:B3	.	.	.	.	x	.	x	.	.	.	28800 ext
+1CE:B6	.	.	.	.	x	.	.	.	.	.	28800 ext
+1CE:B7	.	x	.	.	.	.	.	.	.	.	28800 ext
+1CE:B8	.	.	.	x	x	.	x	.	.	.	28800 ext
+1CE:B9	.	x	.	.	.	.	.	.	.	.	28800 ext
+1CE:BB	x	.	.	x	.	.	.	.	.	.	28800 ext
+1CE:BE	.	.	.	.	.	.	.	x	.	.	28800 ext
