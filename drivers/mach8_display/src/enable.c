@@ -6,7 +6,17 @@
  */
 
 #include "m8ddi.h"
-#include <valmode.h>
+/* Not the DDK's valmode.h: it declares ValidateMode without __loadds, and that
+ * first declaration wins - ValidateMode then ran on the caller's DS and read
+ * the mode table from the wrong segment (bed, 10-16: 1024x768x8 refused). */
+typedef struct {
+    UINT    dvmSize;
+    UINT    dvmBpp;
+    int     dvmXRes;
+    int     dvmYRes;
+} DISPVALMODE;
+#define VALMODE_YES         0
+#define VALMODE_NO_UNKNOWN  4
 #include <string.h>
 #include <conio.h>
 #include <dos.h>

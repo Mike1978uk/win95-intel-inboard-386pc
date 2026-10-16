@@ -434,3 +434,10 @@ MaxResolution - `bed/MONITOR.REG` sets 1024,768. Choosing 640x480 picked 16 colo
 once (declined: 8 bpp only) and Windows disabled our driver to switch to vga.drv - correct for a 16-colour request; the
 change was not kept (registry still 8 bpp, 800,600, m8disp.drv). Next: 640x480 with 256 colours chosen explicitly,
 then 1024x768.
+**Third modes run (`m8disp_d8_modes3_1016.log.gz`):** monitor now "Super VGA" with MaxResolution 1024,768 (owner set
+it), yet the slider still stopped at 800x600. The ValidateMode trace: 800x600x4 no, 1024x768x4 no (correct, 8 bpp
+only), **1024x768x8 no - wrong.** Cause: the DDK's valmode.h declares ValidateMode without __loadds and that first
+declaration won, so ValidateMode ran on the caller's DS and read the mode table from the wrong segment (wdis: no DS
+load in its prologue; every other entry has one). Fixed by declaring DISPVALMODE locally; the build now fails if any
+exported C entry lacks the DS load (checked: it fails on the old code). 640x480 offered only 16 colours: Windows never
+asked ValidateMode about 640x480x8 - next run will show whether that follows from this bug.

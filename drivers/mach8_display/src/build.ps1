@@ -88,6 +88,19 @@ if ($b[$ne] -ne 0x4E -or $b[$ne + 1] -ne 0x45) { throw 'no NE header' }
 $b[$ne + 0x3E] = 0x00; $b[$ne + 0x3F] = 0x04
 [IO.File]::WriteAllBytes($drv, $b)
 
+# Every exported C entry must load DS (__loadds): a header that declares one
+# without it wins silently and the entry runs on the caller's DS.
+$cEntries = @('ENABLE','DISABLE','CONTROL','SETPALETTE','REENABLE','USERREPAINTDISABLE',
+  'GETDRIVERRESOURCEID','VALIDATEMODE','SAVESCREENBITMAP','BITBLT','OUTPUT','PIXEL','SCANLR',
+  'EXTTEXTOUT','STRBLT','DIBTODEVICE','STRETCHDIBITS','STRETCHBLT','FASTBORDER','UPDATECOLORS',
+  'M8SETCURSOR','MOVECURSOR','CHECKCURSOR')
+$dis = foreach ($o in 'enable', 'screen') { & wdis "$Out\$o.obj" 2>$null }
+foreach ($e in $cEntries) {
+  $i = [array]::FindIndex([string[]]$dis, [Predicate[string]]{ param($l) $l -match "^\s*[0-9A-F]+\s+$e`:" })
+  if ($i -lt 0) { throw "entry $e not found in the objects" }
+  if (-not ($dis[($i+1)..($i+6)] -match 'mov\s+ds,ax')) { throw "entry $e does not load DS (__loadds)" }
+}
+
 # wlink links a fixup to a segment the file does not have without complaint;
 # Windows then refuses the driver (BOOTLOG: LoadFail, failure code 0).
 $bad = & wdump -a $drv 2>$null | Select-String 'invalid segment'
