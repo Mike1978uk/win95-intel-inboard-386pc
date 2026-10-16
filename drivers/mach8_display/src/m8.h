@@ -141,5 +141,7 @@ extern void m8_hw_marker( WORD value );
 #define M8_MARK_CURSOR_MOVE 0xB0C0
 #define M8_MARK_CURSOR_SET  0xB0C1
 #define M8_MARK_TEXT_FALLBACK 0xB0E0  /* engine text declined; the fallback follows */
+#define M8_MARK_SSB_SAVE    0xB0D0
+#define M8_MARK_SSB_RESTORE 0xB0D1
 
 #endif

@@ -120,11 +120,10 @@ static void m8_fill_gdiinfo( LPGDIINFO lpInfo )
     lpInfo->dpLogPixelsX = m8_dpi;
     lpInfo->dpLogPixelsY = m8_dpi;
     lpInfo->dpDCManage   = DC_IgnoreDFNP;
-    /* RC_SAVEBITMAP would have the DIB Engine save screen areas by reading a
-     * frame buffer; there is none. C1_SLOW_CARD turns off the window effects
-     * that read the screen back. */
-    lpInfo->dpRaster    |= RC_DIBTODEV | RC_PALETTE;
-    lpInfo->dpRaster    &= ~RC_SAVEBITMAP;
+    /* RC_SAVEBITMAP: USER calls our SaveScreenBitmap (screen.c) for what a menu
+     * covers. C1_SLOW_CARD turns off the window effects that read the screen
+     * back. */
+    lpInfo->dpRaster    |= RC_DIBTODEV | RC_PALETTE | RC_SAVEBITMAP;
     lpInfo->dpCaps1     |= C1_BYTE_PACKED | C1_GLYPH_INDEX | C1_SLOW_CARD;
     lpInfo->dpCaps1     &= ~(C1_COLORCURSOR | C1_REINIT_ABLE);
 }

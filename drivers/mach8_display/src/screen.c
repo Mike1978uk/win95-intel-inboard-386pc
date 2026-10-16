@@ -1436,6 +1436,67 @@ BOOL WINAPI __loadds StretchBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, 
     return( TRUE );
 }
 
+/* ------------------------------------------------------- SaveScreenBitmap */
+
+/* USER saves what a menu covers and puts it back when the menu closes (ordinal
+ * 92: 0 save, 1 restore, 2 discard; 1 = done, 0 = GDI does it itself). One
+ * area at a time, kept in the off-screen rows below the visible screen, moved
+ * there and back by engine copy: nothing crosses the bus. */
+#define M8_SSB_SAVE     0
+#define M8_SSB_RESTORE  1
+#define M8_SSB_DISCARD  2
+#define M8_SSB_Y        M8_SCREEN_Y         /* rows 600-1023 at x 0 */
+
+static int      m8_ssb_used;
+static M8_RECT  m8_ssb_rect;
+
+WORD WINAPI __loadds SaveScreenBitmap( LPRECT lpRect, WORD wCmd )
+{
+    M8_RECT r;
+    M8_RECT scr;
+    int     w;
+    int     h;
+
+    if( m8_screen == NULL ) {
+        return( 0 );
+    }
+    if( wCmd == M8_SSB_DISCARD ) {
+        m8_ssb_used = 0;
+        return( 1 );
+    }
+    if( wCmd == M8_SSB_RESTORE ) {
+        if( !m8_ssb_used ) {
+            return( 0 );
+        }
+        M8_STEP( M8_MARK_SSB_RESTORE );
+        w = m8_ssb_rect.r - m8_ssb_rect.l;
+        h = m8_ssb_rect.b - m8_ssb_rect.t;
+        m8_enter( &m8_ssb_rect );
+        m8_hw_copy( 0, M8_SSB_Y, m8_ssb_rect.l, m8_ssb_rect.t, w, h );
+        m8_leave();
+        m8_ssb_used = 0;
+        return( 1 );
+    }
+    if( wCmd != M8_SSB_SAVE || m8_ssb_used || lpRect == NULL ) {
+        return( 0 );
+    }
+    m8_rect_from_gdi( &r, lpRect );
+    m8_rect_screen( &scr );
+    m8_rect_and( &r, &scr );
+    w = r.r - r.l;
+    h = r.b - r.t;
+    if( w <= 0 || h <= 0 || w > M8_PITCH || h > M8_PITCH - M8_SSB_Y ) {
+        return( 0 );
+    }
+    M8_STEP( M8_MARK_SSB_SAVE );
+    m8_enter( &r );
+    m8_hw_copy( r.l, r.t, 0, M8_SSB_Y, w, h );
+    m8_leave();
+    m8_ssb_rect = r;
+    m8_ssb_used = 1;
+    return( 1 );
+}
+
 /* --------------------------------------------------- FastBorder, UpdateColors */
 
 /* Zero hands the border back to GDI, which draws it with BitBlt. */
@@ -1545,6 +1606,7 @@ int m8_screen_init( LPDIBENGINE screen )
     M8_RECT one;
 
     m8_screen = screen;
+    m8_ssb_used = 0;
     /* The DIB Engine calls these on the screen around engine text; the cursor
      * is excluded by the callbacks themselves. */
     screen->deBeginAccess = (void (WINAPI *)())m8_begin_access;
