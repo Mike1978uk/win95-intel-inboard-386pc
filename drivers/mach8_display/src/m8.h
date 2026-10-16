@@ -112,6 +112,7 @@
 extern DWORD m8_stats[M8_STAT_COUNT];
 
 /* m8hw.c */
+extern int  m8_hw_off;
 extern int  m8_hw_set_mode( void );
 extern void m8_hw_passthrough( void );
 extern void m8_hw_set_palette( UINT start, UINT count, RGBQUAD FAR *pal );

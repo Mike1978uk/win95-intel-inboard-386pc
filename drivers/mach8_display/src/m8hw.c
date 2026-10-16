@@ -8,6 +8,11 @@
 #include <conio.h>
 #include "m8.h"
 
+/* Set while a DOS session has the screen (INT 2Fh 4001h-4002h): every primitive
+ * returns without touching the card. A read-back then leaves its buffer as it
+ * was; nothing it leads to reaches the screen. */
+int m8_hw_off;
+
 #define M8_WAIT_LIMIT       60000u      /* polls; ~0.4 s of GP_STAT reads on the 5160 */
 
 /* One register write: port, value, and whether the port takes a byte. */
@@ -119,6 +124,9 @@ void m8_hw_set_palette( UINT start, UINT count, RGBQUAD FAR *pal )
 {
     UINT i;
 
+    if( m8_hw_off ) {
+        return;
+    }
     outp( 0x02EA, 0xFF );
     outp( 0x02EC, (BYTE)start );
     for( i = 0; i < count; ++i ) {
@@ -132,7 +140,7 @@ void m8_hw_set_palette( UINT start, UINT count, RGBQUAD FAR *pal )
  * FRGD_COLOR as its source. */
 void m8_hw_fill_mix( int x, int y, int w, int h, BYTE color, WORD mix )
 {
-    if( w <= 0 || h <= 0 ) {
+    if( m8_hw_off || w <= 0 || h <= 0 ) {
         return;
     }
     m8_wait_fifo_empty();
@@ -158,6 +166,9 @@ void m8_hw_copy( int sx, int sy, int dx, int dy, int w, int h )
 {
     WORD cmd = M8_CMD_BLIT | M8_CMD_INC_X | M8_CMD_INC_Y;
 
+    if( m8_hw_off ) {
+        return;
+    }
     if( w <= 0 || h <= 0 ) {
         return;
     }
@@ -193,6 +204,9 @@ void m8_hw_read_rect( int x, int y, int w, int h, BYTE FAR *dst, WORD pitch )
     WORD    FAR *p;
     WORD    n;
 
+    if( m8_hw_off ) {
+        return;
+    }
     m8_wait_fifo_empty();
     m8_hw_wait_idle();
     outpw( M8_FRGD_MIX, M8_MIX_SRC_HOST | M8_MIX_REPLACE );
@@ -224,6 +238,9 @@ void m8_hw_write_rect( int x, int y, int w, int h, const BYTE FAR *src, WORD pit
     WORD        words = (WORD)w / 2;
     const WORD  FAR *p;
 
+    if( m8_hw_off ) {
+        return;
+    }
     m8_wait_fifo_empty();
     outpw( M8_FRGD_MIX, M8_MIX_SRC_HOST | M8_MIX_REPLACE );
     outpw( M8_CUR_X, x );
@@ -256,6 +273,9 @@ void m8_hw_mono( int x, int y, WORD width_bytes, WORD height, const BYTE FAR *bi
     const WORD  FAR *p = (const WORD FAR *)bits;
     WORD        i;
 
+    if( m8_hw_off ) {
+        return;
+    }
     m8_wait_fifo_empty();
     outpw( M8_EXT_SCISSOR_L, clip_l );
     outpw( M8_EXT_SCISSOR_T, clip_t );

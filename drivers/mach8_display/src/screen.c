@@ -1667,6 +1667,27 @@ int m8_screen_init( LPDIBENGINE screen )
     return( 1 );
 }
 
+/* DOS has the screen (INT 2Fh 4001h). The cursor and a saved menu area are
+ * left in video memory nobody will repaint for us; forget both. */
+void m8_screen_suspend( void )
+{
+    m8_cur_shown = 0;
+    m8_cur_pending = 0;
+    m8_ssb_used = 0;
+}
+
+/* Windows has the screen again; USER repaints everything after this. */
+void m8_screen_resume( void )
+{
+    m8_cur_shown = 0;
+    m8_ssb_used = 0;
+    if( !m8_busy ) {
+        m8_cursor_show();
+    } else {
+        m8_cur_pending = 1;
+    }
+}
+
 void m8_screen_done( void )
 {
     m8_busy = 1;

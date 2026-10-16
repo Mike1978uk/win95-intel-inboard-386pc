@@ -9,6 +9,7 @@
 #include <valmode.h>
 #include <string.h>
 #include <conio.h>
+#include <dos.h>
 #include "m8.h"
 
 #define STOP_IO_TRAP        0x4000      /* INT 2Fh: the VDD stops trapping video I/O */
@@ -23,6 +24,16 @@
 
 extern int  m8_screen_init( LPDIBENGINE screen );
 extern void m8_screen_done( void );
+extern void m8_screen_suspend( void );
+extern void m8_screen_resume( void );
+
+/* switch.asm: the INT 2Fh hook and, in its code segment, the previous vector. */
+extern void __far M8_INT2F_HOOK( void );
+#pragma aux M8_INT2F_HOOK "*";
+extern void __far * __far m8_old_int2f;
+UINT WINAPI AllocCStoDSAlias( UINT selCode );
+
+#define REPAINT_ORDINAL     275         /* USER's repaint-everything entry */
 
 UINT WINAPI GlobalSmartPageLock( HGLOBAL hglb );
 
@@ -32,6 +43,9 @@ static WORD m8_dib_pdev_size;
 static RGBQUAD FAR *m8_color_table;
 static WORD m8_dpi = 96;
 static WORD m8_repaint_disabled;
+static WORD m8_repaint_pending;
+static FARPROC m8_repaint;
+static WORD m8_int2f_hooked;
 
 /* The 20 static colours: first ten and last ten of the 8 bpp table. */
 static const DIBColorEntry m8_static_lo[] = {
@@ -128,6 +142,81 @@ static void m8_fill_gdiinfo( LPGDIINFO lpInfo )
     lpInfo->dpCaps1     &= ~(C1_COLORCURSOR | C1_REINIT_ABLE);
 }
 
+static void __far *m8_get_vec( BYTE n );
+#pragma aux m8_get_vec = "mov ah,35h" "int 21h" parm [al] value [es bx];
+static void m8_set_vec( BYTE n, void __far *v );
+#pragma aux m8_set_vec = "mov ah,25h" "push ds" "push es" "pop ds" "int 21h" "pop ds"     parm [al] [es dx];
+
+/* The previous INT 2Fh vector is kept in the code segment (the hook jumps to
+ * it CS-relative), so it is written through a data alias of that segment. */
+static void m8_hook_int2f( void )
+{
+    WORD                alias;
+    void __far * __far  *slot;
+
+    if( m8_int2f_hooked ) {
+        return;
+    }
+    if( m8_repaint == NULL ) {
+        m8_repaint = GetProcAddress( GetModuleHandle( "USER" ), (LPCSTR)REPAINT_ORDINAL );
+    }
+    alias = AllocCStoDSAlias( FP_SEG( &m8_old_int2f ) );
+    slot = (void __far * __far *)MK_FP( alias, FP_OFF( &m8_old_int2f ) );
+    *slot = m8_get_vec( 0x2F );
+    FreeSelector( alias );
+    m8_set_vec( 0x2F, (void __far *)M8_INT2F_HOOK );
+    m8_int2f_hooked = 1;
+}
+
+static void m8_unhook_int2f( void )
+{
+    if( m8_int2f_hooked ) {
+        m8_set_vec( 0x2F, m8_old_int2f );
+        m8_int2f_hooked = 0;
+    }
+}
+
+static void m8_request_repaint( void )
+{
+    if( m8_repaint == NULL ) {
+        return;
+    }
+    if( m8_repaint_disabled ) {
+        m8_repaint_pending = 1;
+    } else {
+        m8_repaint();
+    }
+}
+
+/* INT 2Fh 4001h: a DOS session takes the screen. Nothing may draw on the Mach8
+ * until 4002h, and the monitor goes back to the VGA half. */
+void __cdecl m8_switch_out( void )
+{
+    if( m8_pdevice == NULL ) {
+        return;
+    }
+    m8_pdevice->deFlags |= BUSY;
+    m8_screen_suspend();
+    m8_hw_passthrough();
+    m8_hw_off = 1;
+}
+
+/* INT 2Fh 4002h: Windows has the screen again. A DOS program may have used the
+ * 8514 side (ATI's TEST.COM does), so the mode is set again and USER repaints
+ * everything rather than trusting what is in video memory. */
+void __cdecl m8_switch_in( void )
+{
+    if( m8_pdevice == NULL ) {
+        return;
+    }
+    m8_hw_off = 0;
+    m8_hw_set_mode();
+    m8_hw_set_palette( 0, 256, m8_color_table );
+    m8_pdevice->deFlags &= ~BUSY;
+    m8_screen_resume();
+    m8_request_repaint();
+}
+
 /* GDI calls Enable twice: style bit 0 set to fill in GDIINFO, then clear to
  * build the PDevice and set the mode. */
 UINT WINAPI __loadds Enable( LPVOID lpDevice, UINT style, LPSTR lpDeviceType,
@@ -205,6 +294,7 @@ UINT WINAPI __loadds Enable( LPVOID lpDevice, UINT style, LPSTR lpDeviceType,
         return( 0 );
     }
     m8_hw_set_palette( 0, 256, m8_color_table );
+    m8_hook_int2f();
     M8_STEP( 0xA025 );
     return( 1 );
 }
@@ -219,6 +309,7 @@ UINT WINAPI __loadds Disable( LPVOID lpDevice )
     }
     /* As every DDK-era minidriver leaves: trapping back on before the VGA mode
      * is set, the monitor back on the VGA half, the BIOS's 80x25 text mode. */
+    m8_unhook_int2f();
     int_2Fh( START_IO_TRAP );
     m8_screen_done();
     m8_pdevice = 0;
@@ -271,4 +362,8 @@ DWORD WINAPI __loadds GetDriverResourceID( WORD wResID, LPSTR lpResType )
 VOID WINAPI __loadds UserRepaintDisable( BOOL bDisable )
 {
     m8_repaint_disabled = bDisable;
+    if( !bDisable && m8_repaint_pending ) {
+        m8_repaint_pending = 0;
+        m8_request_repaint();
+    }
 }
