@@ -72,6 +72,11 @@
 #define M8_MIX_SRC_VRAM     0x0060
 #define M8_MIX_REPLACE      0x0007
 #define M8_MIX_LEAVE        0x0003      /* the result is the destination */
+#define M8_MIX_XOR          0x0005
+
+/* Off-screen memory: the strip right of the 800-wide screen. */
+#define M8_CURSOR_SAVE_X    800         /* 32 x 32 under the cursor */
+#define M8_CURSOR_SAVE_Y    0
 
 /* Commands. Rectangle (010), LSB_FIRST (bit 12: first pixel in the low byte), 16-bit
  * transfers (bit 9), wait for host data (bit 8), x and y increasing, draw. */
@@ -100,7 +105,7 @@
 #define M8_STAT_FILL_HW     11
 #define M8_STAT_COPY_HW     12
 #define M8_STAT_READBACK    13      /* fallback strips that needed the screen read */
-#define M8_STAT_TEXT_HW     14
+#define M8_STAT_TEXT_HW     14      /* mono expansions: text and cursor */
 #define M8_STAT_TEXT_FAIL   15      /* engine text declined, drawn by the fallback */
 #define M8_STAT_COUNT       16
 
@@ -114,7 +119,7 @@ extern int  m8_hw_wait_idle( void );
 extern void m8_hw_fill( int x, int y, int w, int h, BYTE color );
 extern void m8_hw_copy( int sx, int sy, int dx, int dy, int w, int h );
 extern void m8_hw_mono( int x, int y, WORD width_bytes, WORD height, const BYTE FAR *bits,
-                        BYTE fg, BYTE bg, int transparent,
+                        WORD fg_mix, BYTE fg, WORD bg_mix, BYTE bg,
                         int clip_l, int clip_t, int clip_r, int clip_b );
 extern void m8_hw_read_rect( int x, int y, int w, int h, BYTE FAR *dst, WORD pitch );
 extern void m8_hw_write_rect( int x, int y, int w, int h, const BYTE FAR *src, WORD pitch );

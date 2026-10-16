@@ -233,14 +233,14 @@ void m8_hw_write_rect( int x, int y, int w, int h, const BYTE FAR *src, WORD pit
     outpw( M8_FRGD_MIX, M8_MIX_SRC_FRGD | M8_MIX_REPLACE );
 }
 
-/* Mono expansion through the Mach8 extended path (DP_CONFIG 3251: the
- * foreground colour where a bit is 1), as ATIM8 draws text. The bits run on
- * across rows with no padding (M8DPM, card = bed), so the expansion is
- * `width_bytes` x 8 wide and the buffer streams as it is; the extended
- * scissors cut it back to the clip (inclusive edges). Transparent leaves the
- * screen where a bit is 0 (BKGD_MIX = D); opaque paints `bg` there. */
+/* Mono expansion through the Mach8 extended path (DP_CONFIG 3251: a 1 bit takes
+ * the foreground mix, a 0 bit the background mix), as ATIM8 draws text. The
+ * bits run on across rows with no padding (M8DPM, card = bed), so the expansion
+ * is `width_bytes` x 8 wide and the buffer streams as it is; the extended
+ * scissors cut it back to the clip (inclusive edges), and they clip this path
+ * (bed, 10-16: no text past window edges). Mixes are full mix-register values. */
 void m8_hw_mono( int x, int y, WORD width_bytes, WORD height, const BYTE FAR *bits,
-                 BYTE fg, BYTE bg, int transparent,
+                 WORD fg_mix, BYTE fg, WORD bg_mix, BYTE bg,
                  int clip_l, int clip_t, int clip_r, int clip_b )
 {
     DWORD       bytes = (DWORD)width_bytes * height;
@@ -253,14 +253,10 @@ void m8_hw_mono( int x, int y, WORD width_bytes, WORD height, const BYTE FAR *bi
     outpw( M8_EXT_SCISSOR_T, clip_t );
     outpw( M8_EXT_SCISSOR_R, clip_r );
     outpw( M8_EXT_SCISSOR_B, clip_b );
-    outpw( M8_FRGD_MIX, M8_MIX_SRC_FRGD | M8_MIX_REPLACE );
+    outpw( M8_FRGD_MIX, fg_mix );
     outpw( M8_FRGD_COLOR, fg );
-    if( transparent ) {
-        outpw( M8_BKGD_MIX, M8_MIX_LEAVE );
-    } else {
-        outpw( M8_BKGD_COLOR, bg );
-        outpw( M8_BKGD_MIX, M8_MIX_SRC_BKGD | M8_MIX_REPLACE );
-    }
+    outpw( M8_BKGD_MIX, bg_mix );
+    outpw( M8_BKGD_COLOR, bg );
     outpw( M8_DP_CONFIG, M8_DP_MONO_HOST );
     outpw( M8_CUR_X, x );
     outpw( M8_DEST_X_START, x );
@@ -271,12 +267,13 @@ void m8_hw_mono( int x, int y, WORD width_bytes, WORD height, const BYTE FAR *bi
         outpw( M8_PIX_TRANS, p[i] );
     }
     /* An odd byte count: the last byte alone, never a word read past the end
-     * of the DIB Engine's buffer. */
+     * of the caller's buffer. */
     if( bytes & 1 ) {
         outpw( M8_PIX_TRANS, bits[bytes - 1] );
     }
     m8_hw_wait_idle();
     outpw( M8_DP_CONFIG, M8_DP_8514 );
+    outpw( M8_FRGD_MIX, M8_MIX_SRC_FRGD | M8_MIX_REPLACE );
     outpw( M8_BKGD_MIX, M8_MIX_SRC_BKGD | M8_MIX_REPLACE );
     outpw( M8_EXT_SCISSOR_L, M8_EXT_SCISSOR_MIN );
     outpw( M8_EXT_SCISSOR_T, M8_EXT_SCISSOR_MIN );

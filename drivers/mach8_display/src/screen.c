@@ -74,6 +74,7 @@ static int      m8_cur_x;
 static int      m8_cur_y;
 static int      m8_cur_have_shape;
 static int      m8_cur_shown;       /* drawn on the screen now */
+static int      m8_cur_soft;        /* shown by the software path: m8_cur_save holds it */
 static M8_RECT  m8_cur_rect;        /* where m8_cur_save came from */
 static int      m8_cur_pending;     /* a move arrived while busy */
 
@@ -271,33 +272,37 @@ static void m8_strip_write( M8_STRIP *s, const M8_RECT *r )
 
 static void m8_cursor_hide( void )
 {
-    if( m8_cur_shown ) {
+    if( !m8_cur_shown ) {
+        return;
+    }
+    if( m8_cur_soft ) {
         m8_hw_write_rect( m8_cur_rect.l, m8_cur_rect.t, m8_cur_rect.r - m8_cur_rect.l,
                           m8_cur_rect.b - m8_cur_rect.t, m8_cur_save, M8_CURSOR_SAVE_W );
-        m8_cur_shown = 0;
+    } else {
+        m8_hw_copy( M8_CURSOR_SAVE_X, M8_CURSOR_SAVE_Y, m8_cur_rect.l, m8_cur_rect.t,
+                    m8_cur_rect.r - m8_cur_rect.l, m8_cur_rect.b - m8_cur_rect.t );
+        m8_hw_wait_idle();
     }
+    m8_cur_shown = 0;
 }
 
 /* Mono cursor: AND 1 XOR 0 keeps the screen, AND 0 XOR 0 is black,
- * AND 0 XOR 1 is white, AND 1 XOR 1 inverts. */
-static void m8_cursor_show( void )
+ * AND 0 XOR 1 is white, AND 1 XOR 1 inverts. Index 0 is black and XOR FFh
+ * maps each static colour to its inverse in the default palette. */
+
+/* Software: read back, compose in RAM, write back. Kept for a cursor hanging
+ * off the top or left edge, where the engine would need negative coordinates. */
+static void m8_cursor_show_soft( int cx, int cy )
 {
     M8_RECT r;
     M8_RECT scr;
     int     x;
     int     y;
-    int     cx;
-    int     cy;
     int     w;
     int     h;
     int     bit;
     BYTE    p;
 
-    if( !m8_cur_have_shape || m8_cur_shown ) {
-        return;
-    }
-    cx = m8_cur_x - m8_cur_hot_x;
-    cy = m8_cur_y - m8_cur_hot_y;
     m8_rect_set( &r, cx, cy, cx + M8_CURSOR_MAX, cy + M8_CURSOR_MAX );
     m8_rect_screen( &scr );
     m8_rect_and( &r, &scr );
@@ -328,6 +333,43 @@ static void m8_cursor_show( void )
     }
     m8_hw_write_rect( r.l, r.t, w, h, m8_cur_draw, M8_CURSOR_SAVE_W );
     m8_cur_rect = r;
+    m8_cur_soft = 1;
+    m8_cur_shown = 1;
+}
+
+/* Engine: what is under the cursor is copied to off-screen memory, then the
+ * two masks are expanded over it. Only the 256 bytes of mask cross the bus. */
+static void m8_cursor_show( void )
+{
+    M8_RECT r;
+    M8_RECT scr;
+    int     cx;
+    int     cy;
+
+    if( !m8_cur_have_shape || m8_cur_shown ) {
+        return;
+    }
+    cx = m8_cur_x - m8_cur_hot_x;
+    cy = m8_cur_y - m8_cur_hot_y;
+    if( cx < 0 || cy < 0 ) {
+        m8_cursor_show_soft( cx, cy );
+        return;
+    }
+    m8_rect_set( &r, cx, cy, cx + M8_CURSOR_MAX, cy + M8_CURSOR_MAX );
+    m8_rect_screen( &scr );
+    m8_rect_and( &r, &scr );
+    if( m8_rect_empty( &r ) ) {
+        return;
+    }
+    m8_hw_copy( r.l, r.t, M8_CURSOR_SAVE_X, M8_CURSOR_SAVE_Y, r.r - r.l, r.b - r.t );
+    m8_hw_mono( cx, cy, M8_CURSOR_MAX / 8, M8_CURSOR_MAX, m8_cur_and,
+                M8_MIX_LEAVE, 0, M8_MIX_SRC_BKGD | M8_MIX_REPLACE, 0,
+                r.l, r.t, r.r - 1, r.b - 1 );
+    m8_hw_mono( cx, cy, M8_CURSOR_MAX / 8, M8_CURSOR_MAX, m8_cur_xor,
+                M8_MIX_SRC_FRGD | M8_MIX_XOR, 0xFF, M8_MIX_LEAVE, 0,
+                r.l, r.t, r.r - 1, r.b - 1 );
+    m8_cur_rect = r;
+    m8_cur_soft = 0;
     m8_cur_shown = 1;
 }
 
@@ -891,7 +933,9 @@ static WORD WINAPI __loadds m8_text_bitmap( LPDIBENGINE lpDevice, BYTE FAR *lpBi
         return( 1 );
     }
     m8_exclude( &r );
-    m8_hw_mono( x, y, wWidthBytes, wHeight, lpBits, (BYTE)dwFg, (BYTE)dwBg, wFlags & 1,
+    m8_hw_mono( x, y, wWidthBytes, wHeight, lpBits,
+                M8_MIX_SRC_FRGD | M8_MIX_REPLACE, (BYTE)dwFg,
+                (wFlags & 1) ? M8_MIX_LEAVE : M8_MIX_SRC_BKGD | M8_MIX_REPLACE, (BYTE)dwBg,
                 r.l, r.t, r.r - 1, r.b - 1 );
     return( 1 );
 }
