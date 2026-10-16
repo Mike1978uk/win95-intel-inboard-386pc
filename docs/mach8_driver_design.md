@@ -136,3 +136,16 @@ aperture hook, `fill_engine` declaring the engine type and caps). The Trio64 bac
   aperture. Under `NOT_FRAMEBUFFER` it cannot - our decline goes to the read-back rectangle fallback.
 - Its house rules (C89, no `enum`, everything not exported `static`, `v9x_<vendor>_<chip>_<verb>`, gates in
   `scripts/`) apply to code we contribute back.
+
+### velocity9x build on this machine, 2026-10-16
+
+- Tree check and host tests: **pass** (Open Watcom snapshot 2026-10-10; `lib386` extracted from the archive already on disk).
+- Win16 driver (`build-active-package.ps1 -Family s3`): **compiles and links** to `v9xdisp.drv` (49,444 bytes) against
+  the **Windows 95** DDK's `DIBENG.LIB`, MASM 6.11 and VxD `LINK.EXE`, laid out as the scripts expect in
+  `C:\Users\lycet\tools\ddk95_as98` (`-DdkRoot`). The post-link audits then fail on output format only: our newer
+  `wdump` prints segment flags inline and the version resource as "Version info" (segment 1 is `CODE | FIXED`, as the
+  audit requires). One local, uncommitted widening in `scripts/common.ps1`; worth telling Michael (owner sends).
+- Mini-VDD: fails to assemble - `GET_MONITOR_POWER_STATE_CAPS` / `SET_MONITOR_POWER_STATE` are Windows 98 additions to
+  `MINIVDD.INC`; `-NoDpms` does not guard their registration. Needs the Windows 98 DDK, or a guard. Ours targets
+  Windows 95 and would not register DPMS anyway.
+- For a faithful build: the Windows 98 DDK and the Open Watcom snapshot velocity9x's audits were written against.
