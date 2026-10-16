@@ -683,6 +683,27 @@ BOOL WINAPI __loadds BitBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPD
                             dwRop3, lpPBrush, lpDrawMode ) );
     }
     M8_ENTRY( M8_STAT_BITBLT );
+
+    /* A memory source clips the copy to its own extent, as the DIB Engine
+     * does: GDI passed the castle deck's bat sprite 36 wide from x 42 of a
+     * 71-wide card bitmap, the DIB Engine drew 29 columns, and the fallback
+     * wrote the other 7 back from a stale buffer. deWidth/deHeight sit where a
+     * plain BITMAP keeps bmWidth/bmHeight. */
+    if( m8_rop_uses_src( dwRop3 ) && lpSrcDev != NULL && !m8_is_screen( lpSrcDev ) ) {
+        LPDIBENGINE s = lpSrcDev;
+        long        sw = (long)s->deWidth - (short)wSrcX;
+        long        sh = (long)s->deHeight - (short)wSrcY;
+
+        if( (short)wSrcX < 0 || (short)wSrcY < 0 || sw <= 0 || sh <= 0 ) {
+            return( TRUE );
+        }
+        if( (long)wXext > sw ) {
+            wXext = (WORD)sw;
+        }
+        if( (long)wYext > sh ) {
+            wYext = (WORD)sh;
+        }
+    }
     M8_STEP( 0xC000 | (m8_src_kind( lpSrcDev, src_screen ) << 8) | rop );
 #ifdef M8_TRACE
     /* The call's own arguments, after an F0F0 marker: the castle sprite is drawn

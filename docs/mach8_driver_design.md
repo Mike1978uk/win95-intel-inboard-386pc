@@ -355,3 +355,10 @@ arguments (log wDestX/wXext/wSrcX for C2CC calls in a -Trace build).
 adds at most 1 per side), so about 8 pixels wider - the overhang. The -Trace build now logs each DIB -> screen BitBlt's
 arguments after an F0F0 marker (wDestX, wDestY, wXext, wYext, wSrcX, wSrcY): one castle run shows whether GDI passes
 us a wider rectangle than ATIM8 draws, or we misread it.
+
+**Cause found (`m8disp_d8b_castle_args_1016.log.gz`):** GDI passes the bat sprite as BitBlt dst (125,127) **36 wide**,
+src x 42, from Solitaire's 71-wide card bitmap - only 29 columns exist (= ATIM8's 29). The DIB Engine clips to the
+source extent and draws 29; our fallback had skipped the read (SRCCOPY "covers" its rectangle) and wrote the other 7
+columns back from a stale buffer: the sky of an earlier frame, beside the card. **Fix:** BitBlt clips the rectangle
+to a memory source's extent before any path (deWidth/deHeight = bmWidth/bmHeight offsets). Not yet re-run.
+Lesson: "the operation overwrites its rectangle" holds only after clipping to the source.
