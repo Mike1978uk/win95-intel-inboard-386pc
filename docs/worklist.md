@@ -76,6 +76,12 @@ hardware nobody else touches; never rank a feature by whether ATI's drivers use 
       Read 10-12: reuse the method and host_stubs.c (pclog, config, RAM, an io_sethandler that records the
       device handlers); our MACH8_WLOG logs are already a capture tap. Not useful: the Rage 128 vectors, JIT,
       GPU, bus-master/PCI stubs. Main cost: his VGA core is an empty shell; ours needs more of svga_t.
+      **Order (10-16, for D8):** (1) the tap exists - `MACH8_WLOG=1` (fork diagnostic commits `1c58617df`, `778f9f180`,
+      on `mike/mach8-pr-prep` and `mike/inboard-ext-256k-diag`): cherry-pick onto the D8 test build, run the driver in a bed
+      with a marker write between operations (e.g. SCRATCH_PAD_1, 56EEh), count writes / reads / PIX_TRANS bytes per
+      operation - D8's bus-cost numbers with no replay at all. (2) Replay later: capture -> host program linking
+      `vid_8514a.c` + `vid_ati_mach8.c` with skiretic's `host_stubs.c`, VRAM dump and diff per driver or emulator change.
+      (3) Baselines: the same tap over 8514.DRV (`vm_mach8_8514drv`) and ATIM8 (`vm_5160_now` via `ATIM8.REG`).
 - [x] **A9 M8VGA second bed pass** (done 10-12: mode 63h 164 -> 31 differences; left = VGA register read-back must be masked to implemented bits, model fix for Thursday) on the card's own EEPROM, to read mode 63h's 164 differences
       (`docs/captures/2026-10-12_m8vga/`). Model fixes found 10-12: ATI indexes 80h-9Fh and C0h-FFh read
       FFh on the card (model 00); BA 01 vs 00.
