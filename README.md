@@ -234,10 +234,7 @@ and there was nothing to configure.
 
 ## Upstream
 
-**The Intel Inboard 386/PC is part of 86Box.** Twenty PRs raised from this project are merged;
-one is open: [#8351](https://github.com/86Box/86Box/pull/8351) - since #8289, Windows 3.1's own
-8514.DRV drew text backgrounds transposed on the Graphics Ultra (File Manager's selection); command 4
-had its width and height swapped. Measured on the real card.
+**The Intel Inboard 386/PC is part of 86Box.** Twenty-one PRs raised from this project are merged.
 
 | Merged PR | What it fixed |
 |---|---|
@@ -261,6 +258,7 @@ had its width and height swapped. Measured on the real card.
 | [#8289](https://github.com/86Box/86Box/pull/8289) | ATI Graphics Ultra (Mach8), measured on the real card: ATI's TEST.COM passes every test (#4898), the Paintbrush fill works (#6695), a new card starts with a real card's EEPROM. Merged 2026-10-11 |
 | [#8294](https://github.com/86Box/86Box/pull/8294) | A new Graphics Ultra's default EEPROM runs its 8514/A modes at 60 Hz instead of 72 Hz, which many current displays drop frames at. Spotted by @andrew-hoffman. Merged 2026-10-12 |
 | [#8339](https://github.com/86Box/86Box/pull/8339) | A regression from #8289, reported by TC1995: under ATI's 1992 Windows 3.x driver (`ULTRA.DRV`) the cursor drew as a black square. A FRGD_MIX write after DP_CONFIG now moves only the foreground source. Merged 2026-10-15 |
+| [#8351](https://github.com/86Box/86Box/pull/8351) | Also from #8289, reported by TC1995: Windows 3.1's own `8514.DRV` drew text backgrounds transposed on the Graphics Ultra (File Manager's selection). Command 4 had its width and height swapped; measured on the real card. Merged 2026-10-16 |
 
 One further upstream bug was reported from here and fixed by 86Box directly, with no PR from us:
 [#7805](https://github.com/86Box/86Box/issues/7805) — the Machine settings dialog snapped RAM to a
