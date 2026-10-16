@@ -436,15 +436,22 @@ UINT WINAPI __loadds ValidateMode( DISPVALMODE FAR *lpMode )
     int x;
     int y;
 
+    /* Trace: what Windows asks (size, bpp, x, y) and the answer (A071 yes,
+     * A072 no). */
     M8_STEP( 0xA070 );
-
+    M8_STEP( lpMode->dvmSize );
+    M8_STEP( lpMode->dvmBpp );
+    M8_STEP( lpMode->dvmXRes );
+    M8_STEP( lpMode->dvmYRes );
     if( lpMode->dvmBpp == 8 ) {
         for( i = 0; i < M8_MODE_COUNT; ++i ) {
             if( m8_hw_mode_size( i, &x, &y ) && lpMode->dvmXRes == x && lpMode->dvmYRes == y ) {
+                M8_STEP( 0xA071 );
                 return( VALMODE_YES );
             }
         }
     }
+    M8_STEP( 0xA072 );
     return( VALMODE_NO_UNKNOWN );
 }
 
