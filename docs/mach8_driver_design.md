@@ -100,3 +100,15 @@ sample source. DDK headers and documentation are fine.
   blits, DirectDraw colour keys); pattern-register dithering (D4); palette splits on retrace (D4); the 28800 half
   as a VFLATD surface with frame flipping by passthrough (D5/D6, C2) and its zero-wait write bits (B2); polygon
   boundary + fill for 3D triangles (D3).
+
+### The two open questions, answered 2026-10-16 (static read)
+
+- **No frame buffer:** the DDK documents it (`DOCS/DESGUIDE/DISPLAY.DOC`; `INC16/DIBENG.INC`): set `NOT_FRAMEBUFFER`
+  (0020h) in `deFlags` - "Example: 8514/a or ATIM8". The DIB engine then does memory-bitmap operations only; every
+  operation whose destination is the screen is the driver's, through the engine. velocity9x has no such path
+  (`references/velocity9x` @ `45d439e2`, no `NOT_FRAMEBUFFER` anywhere): every card it drives has an aperture. So we
+  take its build, INF, VDD registration and `ReEnable` switching, and write the screen-drawing core ourselves.
+  The read-back rectangle fallback covers screen operations not yet accelerated.
+- **Windows 95:** velocity9x has run on a 486 with an S3 Trio64 (VLB) under Windows 95 4.00.950, after Win95-only
+  INF fixes; its mini-VDD `v9xmini.vxd` did not load there at the time (`docs/changelog/0.1-to-0.6.0.md`).
+  Not yet re-checked against its current state.
