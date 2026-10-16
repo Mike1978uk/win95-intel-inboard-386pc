@@ -362,3 +362,8 @@ source extent and draws 29; our fallback had skipped the read (SRCCOPY "covers" 
 columns back from a stale buffer: the sky of an earlier frame, beside the card. **Fix:** BitBlt clips the rectangle
 to a memory source's extent before any path (deWidth/deHeight = bmWidth/bmHeight offsets). Not yet re-run.
 Lesson: "the operation overwrites its rectangle" holds only after clipping to the source.
+
+**Re-run with the source clip (`98bca4c`, `m8disp_d8b_castle_fix_1016.log.gz`): castle fixed** - the bats stay inside
+the card (owner). Minor, open: on a click, a couple of white pixels flash at each top corner of the card - too fast to
+capture; may be Solitaire's own drawing (its rounded-corner masks, or the click inversion). Compare with ATIM8 before
+treating it as ours.
