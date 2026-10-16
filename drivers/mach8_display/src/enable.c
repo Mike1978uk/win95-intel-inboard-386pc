@@ -5,9 +5,7 @@
  * (Michal Necasek, JHRobotics; MIT, see LICENSE-MIT.txt).
  */
 
-#include "winhack.h"
-#include <gdidefs.h>
-#include <dibeng.h>
+#include "m8ddi.h"
 #include <valmode.h>
 #include <string.h>
 #include <conio.h>

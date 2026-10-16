@@ -4,9 +4,8 @@
  * Copyright (c) 2026 the win95-intel-inboard-386pc project. GPL-3.0-or-later.
  */
 
-#include "winhack.h"
+#include "m8ddi.h"
 #include <conio.h>
-#include <gdidefs.h>
 #include "m8.h"
 
 #define M8_WAIT_LIMIT       60000u      /* polls; ~0.4 s of GP_STAT reads on the 5160 */

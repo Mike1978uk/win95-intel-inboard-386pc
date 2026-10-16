@@ -16,11 +16,9 @@
  * the DIB Engine inside the strip.
  */
 
-#include "winhack.h"
+#include "m8ddi.h"
 #include <dos.h>
 #include <conio.h>
-#include <gdidefs.h>
-#include <dibeng.h>
 #include "m8.h"
 
 #define M8_BUF_BYTES        0xFFF0u     /* one strip; < 64 KB so one selector covers it */
