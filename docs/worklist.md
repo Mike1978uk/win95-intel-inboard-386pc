@@ -204,6 +204,10 @@ Step 2: our own VxD, to save the registers ATI.VXD does not know (DEST_CMP_FN, B
       **D8b done in the bed (10-16):** text, cursor, pattern ROPs (via the DIB Engine's own 8x8 brush rendering), source
       clip, SaveScreenBitmap (guarded; an intermittent overwrite of its rectangle is under watch), DOS switching.
       Next: bitmap uploads as runs, then the first timed run on the 5160 against ATIM8.
+- [ ] **D8c Parity with ATIM8's modes (owner, 10-16: "equal and better than ATI", for the purists).** 256 colours at
+      640x480, 800x600, 1024x768 (built 10-16, `9bd77c2`, in test). 16 colours at 800x600 and 1024x768 as ATIM8 offers
+      them (640x480x16 is Windows' vga.drv on the VGA half, unchanged): Mach8 4-bit pixel mode, DIB Engine at 4 bpp,
+      host transfers 4 pixels per word; fills, copies and mono expansion carry over. Bonus: half the bytes per upload.
       **D8 regression list (owner, 10-16), run on every driver build, screenshots of any difference vs ATIM8:**
       desktop icons + labels; Start menu; Explorer (folder icons, selection focus rectangle); Notepad "save changes?"
       (default-button frame); shutdown dialog (radio buttons, grey-out); window drag outline; Solitaire castle deck
