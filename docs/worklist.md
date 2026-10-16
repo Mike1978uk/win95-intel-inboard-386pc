@@ -123,6 +123,10 @@ Step 2: our own VxD, to save the registers ATI.VXD does not know (DEST_CMP_FN, B
       FRAMEBUF.DRV both fail on `vm_5160_now` ("problem with your display settings", 1024x768 and 640x480),
       so the control failed too: the sample cannot drive this card, and our build is not yet shown to load.
       Next: the same swap on a bed where Windows itself installs FRAMEBUF.DRV, or start the Mach8 skeleton.
+      10-16 cause (static read): FRAMEBUF takes its screen selector from VFLATD.VXD (`GetScreenSelector`); the
+      card install has none (not in SYSTEM.INI, not in VMM32.VXD), so PhysicalEnable fails for any FRAMEBUF build.
+      Detection passes (BIOS signature, product code '3'). The sample drives the 28800 half only: 512 KB, so
+      640x480/800x600 x 256; its 1024x768 needs 1 MB. Next: VFLATD.VXD (retail, golden install) + `device=` line, boot.
 - [ ] **D1 TXTBENCH extensions** - bitmap, long fill, palette tests; count port writes too.
 - [ ] **D2 Glyph cache in the driver (#49)**, then icon / brush / save-under caches, then the encoding bitmap path.
 - [ ] **D3 3D probes (M):** cost of a polygon-fill triangle, pre-scaled column blits (RealDOOM shape).
@@ -135,6 +139,13 @@ Step 2: our own VxD, to save the registers ATI.VXD does not know (DEST_CMP_FN, B
       unbanked, 320x240 needs a bank switch. Then a HAL from
       vmhal9x (`references/jhrobotics/`, MIT) with flip on CRT_OFFSET.
 
+- [ ] **D6 VGA-half framebuffer driver on VFLATD (owner, 10-16).** The 28800's 512 KB through A000 is the
+      cheapest CPU path on the card; VFLATD banks it into a flat surface. A fallback driver (640x480/800x600 x 256)
+      and the base for D5. The Mach8's own 1 MB has no CPU window, so VFLATD cannot serve the accelerated driver.
+- [ ] **D7 Our own "VFLATD" for the Mach8: a RAM shadow buffer.** DIB-engine punts draw into system RAM; the
+      driver uploads dirty rectangles by host-data blit (~1.9 us/B). Costs 300 KB (640x480) to 768 KB (1024x768).
+      Gate: measure how often the driver punts (D1) first. A page-fault mapper over PIX_TRANS is ruled out (a port
+      transfer per access).
 ## S. Sound on the same bus (owner, 2026-10-10: 8088 MPH / Area 5150 / FastDoom spirit, Daniel_K's licence to fix what the vendor didn't)
 
 The SB Pro (220h, IRQ 5, DMA 1) moves every sample byte over the same 8-bit bus by DMA, and each buffer-end IRQ costs
