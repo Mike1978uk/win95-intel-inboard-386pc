@@ -376,3 +376,8 @@ dp8BrushMono holds rows 4 bytes apart, while the drag-outline brushes dumped ear
 layouts, neither documented. Now: the driver has the DIB Engine paint the brush into an 8x8 scratch bitmap in RAM
 (one DIB_BitBlt PATCOPY, CPU only) and takes the pattern from those 64 pixels - what the DIB Engine itself would
 draw, for every brush kind. Pattern expansion is back on; the trace logs the 8 pattern bytes (E2xx) per call.
+
+**Result (`03074e6`, `m8disp_d8b_patrender_1016.log.gz`): pattern ROPs correct and on the engine** (owner: grey-out,
+Explorer selection, default-button frame, drag outline all correct). Shutdown grey-out (0A, full screen) 4.6 s -> 0.23 s;
+5A 5.2 -> 0.29 s; F0 2,673 fills, no read-backs. Session total ~15.7 s. Left: bitmap uploads (DIB SRCCOPY) 5.5 s,
+screen -> memory saves 4.4 s, DibToDevice 1.8 s.
