@@ -112,3 +112,27 @@ sample source. DDK headers and documentation are fine.
 - **Windows 95:** velocity9x has run on a 486 with an S3 Trio64 (VLB) under Windows 95 4.00.950, after Win95-only
   INF fixes; its mini-VDD `v9xmini.vxd` did not load there at the time (`docs/changelog/0.1-to-0.6.0.md`).
   Not yet re-checked against its current state.
+
+## velocity9x read, 2026-10-16 (`references/velocity9x` @ `45d439e2`)
+
+Layout: `src/display16/` is the Win16 driver (`ddi.c` entry points, `enable16.c`, `modes16.c`, `gdi_accel.c` the 2D
+engine paths, `runtime.asm`); each card is a small descriptor under `src/chipsets/` (`V9X_HW16_DEVICE`: id, name,
+aperture hook, `fill_engine` declaring the engine type and caps). The Trio64 back end is 123 lines.
+
+- **Its Trio64 drives an 8514/A engine by port I/O** - the same register set as the Mach8's 8514/A half. Solid fill
+  (`v9x_gdi_trio_fill`: FRGD_MIX, FRGD_COLOR, PIX_CNTL, CUR_X/Y, MAJ, MIN, CMD), screen copy with direction by overlap
+  (`v9x_gdi_trio_copy`) and text map nearly one to one. Template for our first three primitives.
+- **Text:** the DIB engine lays the string out (`DIB_ExtTextOutExt`) and hands the driver one mono string bitmap; the
+  driver expands it through PIX_TRANS with clip in the scissors - M8TIME's candidate C (68 us/char). **Data format
+  differs:** the Trio takes 16 pixels per word; the Graphics Ultra in planar 16-bit mode takes one byte per group of
+  four pixels (bits 4-1), and in pixel mode one byte per pixel (measured for #8289). Use the Mach8 extended mono path
+  (`DP_CONFIG 3251`, as M8TIME C) or convert. Then the glyph cache (A, 51 us).
+- **FIFO pacing:** Trio waits for an empty FIFO every 8 words (depth unknown there). The Mach8's is measured: 16 deep,
+  and a write to a full FIFO is dropped - pace by 16.
+- **Robustness to keep:** bounded engine waits; a session "poison" latch on timeout (everything then declines);
+  per-path counters (`v9x_gdi_accel_stats`), fault injection; `ADVFUNC_CNTL` re-asserted before every operation
+  because DOS-box activity cleared it on real silicon. The Mach8 equivalent needs checking (ATI.VXD traps).
+- **What changes for us:** a decline hands the operation to the DIB engine, which on its cards draws into the
+  aperture. Under `NOT_FRAMEBUFFER` it cannot - our decline goes to the read-back rectangle fallback.
+- Its house rules (C89, no `enum`, everything not exported `static`, `v9x_<vendor>_<chip>_<verb>`, gates in
+  `scripts/`) apply to code we contribute back.
