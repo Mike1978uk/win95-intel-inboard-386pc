@@ -33,3 +33,9 @@ Sources in `tools/m8seq/`. Run from a DOS boot on the Graphics Ultra.
 saturating add (1Bh) 0.30 ms; the CPU doing the average (read back through PIX_TRANS, blend, write) 35.7 ms.
 The engine blends about 120 times faster than the CPU path, for 30% over a plain copy. No ATI driver uses
 these mixes (Windows GDI has only the Boolean ones).
+
+## M8SHOW, run on the 5160 around 2026-10-12, recorded 2026-10-16 from the owner's recollection
+
+The owner saw both sets of coloured stripes ("the one with the two sets of coloured stripes"): **the 8514 side reaches the
+monitor through ADVFUNC_CNTL alone** (shadow sets 2 then 1, no CLOCK_SEL or CRTC write). M8FLIP v1's black screen was
+its own CLOCK_SEL 0 write. No file (watch-only probe). Next: M8FLIP3 (ADVFUNC-only switching, `tools/m8seq/M8FLIP3.ASM`).
