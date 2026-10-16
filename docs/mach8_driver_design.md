@@ -192,3 +192,30 @@ flip-based games and the demo: 640x480.
 **Both chips, still:** the VGA half drives its own modes (D6, the VFLATD driver, DirectDraw at 640x480/800x600); on the
 Mach8 side a double-buffered flip fits at 640x480 (two 480-row pages in 1 MB at pitch 1024), timed by CRT_OFFSET and the
 raster position, without switching halves.
+
+## Priorities and the first build (owner, 2026-10-16)
+
+**Order:** (1) a desktop driver at least as fast as ATIM8, using the card more intelligently - the whole card
+where a measurement shows a gain; (2) then the experimental work: DirectDraw (no driver for this chipset ever had
+it), more colours (D4), 3D (D3), video.
+
+**Home:** our own tree, `drivers/mach8_display/src/`, GPL-3.0, taking velocity9x files one at a time with credit.
+velocity9x's Win16 driver (14,750 lines) assumes an aperture; Michael can take back a fork of ours at any time.
+
+**Why a fallback first:** ATIM8 exports its own BitBlt, Output, ExtTextOut, StrBlt, Pixel, ScanLR, StretchDIBits
+and the rest (~120 KB of code). Under `NOT_FRAMEBUFFER` the DIB engine draws memory bitmaps only, so every screen
+operation needs a path from the first boot.
+
+**D8a:**
+1. Enable / Disable / ReEnable from velocity9x; screen PDevice with `NOT_FRAMEBUFFER`; 800x600 by candidate A
+   (ROM C000:64h through DPMI), B if A fails.
+2. One fallback for every screen operation: read the bounding rectangle back, the DIB engine draws it in RAM,
+   write it back. Fixed 64 KB buffer; larger operations in strips. Each strip goes to the DIB engine through a
+   selector whose base is offset by the strip's top-left, so screen coordinates pass unchanged - no per-function
+   argument rewriting.
+3. Solid fill on the engine (RECT `40F3`): the first primitive off the fallback.
+4. Counters per GDI function at the fallback; with the tap (`MACH8_WLOG=1`) they give bus cost per function -
+   A10 step 1. The counts order the rest of the lever table.
+
+Pass: one boot of `vm_5160_now` draws the desktop correctly at 800x600. Risks: the ROM mode set from protected
+mode is unproven; read-back speed for large rectangles is unmeasured.

@@ -106,7 +106,9 @@ The CPU writes the VGA side at 2.0 us/byte, the cheapest path on the card; the e
 ~31 Mpixel/s and cannot touch VGA memory. Ideas, in order of what they depend on:
 
 - [ ] **C1 Settle the facts (desk -> M).** 10-11 (`docs/captures/2026-10-11_m8probes/`): memories do not cross (M8XMEM); halves not phase locked; M8FLIP v1 never reached the monitor (CLOCK_SEL 0 = pass-through) - v2 needs the 640x480 clock index from the EEPROM (A4). Is the DAC shared? What does an output switch cost - a resync on the
-      monitor, or clean? Can both CRTCs run identical timing?
+      monitor, or clean? Can both CRTCs run identical timing? Can the CPU read and write VGA memory while the Mach8
+      drives the output (owner, 10-16)? If so, the 512 KB is a parking place that saves system RAM - not a cache for
+      the 8514 desktop (the engine cannot read it; data parked there crosses the bus twice).
 - [ ] ~~**C2 Two renderers, alternate frames.**~~ **Not viable as designed (10-16, L4c):** every switch between the halves
       blanks the monitor for over a second (owner: black, then white, no signal loss); the halves run different timing and are
       not phase locked. Matched timing untested, but the sync phase would still jump. Was: CPU builds frame N+1 in VGA memory while the engine draws frame N on
