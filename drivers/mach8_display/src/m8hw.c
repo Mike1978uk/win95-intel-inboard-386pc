@@ -49,7 +49,7 @@ static const M8_REG m8_mode_800x600[] = {
     { 0x76EE, 0x0080, 0 },      /* GE_PITCH: 1024 / 8 */
     { 0x6EEE, 0x0000, 0 },      /* GE_OFFSET */
     { 0x72EE, 0x0000, 0 },
-    { 0xB2E8, 0x0000, 0 },      /* BKGD_COLOR */
+    { 0xB2E8, 0x0000, 0 },      /* COLOR_CMP */
     { 0xAAE8, 0x00FF, 0 },      /* WRT_MASK */
     { 0xAEE8, 0x00FF, 0 },      /* RD_MASK */
     { 0xB6EE, 0x0002, 0 },
