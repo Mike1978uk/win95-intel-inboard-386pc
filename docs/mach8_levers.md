@@ -176,3 +176,14 @@ still to confirm from the two branches (7341h, 73BEh). Previously "words 10h-15h
 **Lever:** monitor timings are data the ROM reads at mode set, four slots. A custom record (refresh, blanking, a
 non-standard resolution) changes a mode with no code - as long as the ROM sets the mode. Our driver can also read these
 records and program the CRT itself.
+
+## L4 card results, 2026-10-16 (`docs/captures/2026-10-16_l4/`; bed runs in `docs/captures/2026-10-10_a6/{dpm_bed,lev_bed}`)
+
+| Probe | Card | Bed | Meaning |
+|---|---|---|---|
+| **M8DPM** DP_CONFIG 3251h host mono expansion | 10 cases | **= card, byte for byte** | bits run on across rows (a 12-wide row takes 12 bits), MSB first within a byte, low byte first. The text path (M8TIME C) can be developed in the bed |
+| **M8SPLIT** split read/write banks | BEh bit 3 set: one-pass A000->A000 copy lands, 0/2048 mismatches; clear: 2048/2048 miss | same | **BEh bit 3 is the switch** (VVESA's reading confirmed). **No time gain**: 27,114 vs 27,044 ticks for 4 KB (~11 us per word) - every word still crosses the bus once each way, and the RAM pass costs nothing on the 486. Saves code and bank switches only |
+| **M8RAST** line counter | A9h = counter, A8h = its high part (00/01); steps every ~2 lines; samples 0000h-BF01h. **A9h alone 11.5 us per poll**, pair 26.8 us, 3DAh 6.0 us | same layout | **a raster clock** at ~2-line resolution for about a third of a line per poll: palette changes at a chosen line (D4), tear-free flips (C2). 3DAh only gives in/out of retrace |
+
+Card BEh read 20h, bed 30h (bit 4, a clock-select bit): likely the bed's EEPROM, not checked.
+Per-read costs match the 2026-09-20 I/O measurement (~5.7 us per byte-wide port access).

@@ -123,10 +123,10 @@ Inventory and results: `docs/mach8_levers.md` (one place; this list only orders 
       bit-banged via B3/B7, clock select B9/BE + Misc Output, revision in AA); ATIM8/ATIM32 (no short strokes anywhere;
       314 FIFO-status poll sites in ATIM8 - pace by the measured 16-deep FIFO instead). Left: EEPROM byte map vs
       `docs/rom_and_eeprom_dumps.md`; ROM mode tables bit by bit (B0/B1/B4/B5/BA/BB/BD/BF); ROM API arguments (72DDh).
-- [ ] **L4 Card sitting (M), probes written first.** Every index already read once (M8VGA). (a) A8/A9 line counter as a
-      raster clock (read cost, stability); (b) split read/write banking (B2/BE bit 3): a bank-to-bank copy; (c) DP_CONFIG mono
-      expansion vs the bed (text path C); (d) EXT_SHORT_STROKE (C6EE); (e) the unknown bits (A0 0-3, AD 4, AF, BC) - read,
-      toggle, read. Folds in B2.
+- [ ] **L4 Card sitting (M).** Done 10-16 (`docs/mach8_levers.md`): (a) line counter A9h = raster clock, 11.5 us/poll,
+      ~2-line steps; (b) split banking works (BEh bit 3) but **no time gain** - bus-bound; (c) DP_CONFIG mono expansion
+      **= bed byte for byte**. Left: (d) EXT_SHORT_STROKE (C6EE), after a guide read; (e) the unknown bits (A0 0-3, AD 4,
+      AF, BC) - read, toggle, read, **hang risk, owner's call**.
 - [ ] **L5 Fold results into `docs/mach8_driver_design.md`** - which levers the driver uses, and for what.
 
 
