@@ -381,3 +381,15 @@ draw, for every brush kind. Pattern expansion is back on; the trace logs the 8 p
 Explorer selection, default-button frame, drag outline all correct). Shutdown grey-out (0A, full screen) 4.6 s -> 0.23 s;
 5A 5.2 -> 0.29 s; F0 2,673 fills, no read-backs. Session total ~15.7 s. Left: bitmap uploads (DIB SRCCOPY) 5.5 s,
 screen -> memory saves 4.4 s, DibToDevice 1.8 s.
+
+### SaveScreenBitmap, first run (`23cb79d`, `m8disp_d8b_ssb_1016.log.gz`)
+
+Ordinal 92 + RC_SAVEBITMAP: menus saved to rows 600+ and restored by engine copy (the DDK XGA sample and xga-win9x
+both stub it to fail). Menus otherwise drew correctly. **One glitch:** after a right-click menu closed, a solid
+black square about the cursor's size stayed on the desktop (owner screenshot `black square.png`); later menus over
+it kept it, a Solitaire repaint cleared it. Log so far: the menu's save (line 1,987,555, rect 226,199 347x201) and
+restore (1,999,652) are paired; just before it a full-screen ROP 0A (shutdown grey-out, correct AA/55 pattern) ran.
+A checkerboard cannot make a solid square, and the square's position (~292,320) is only estimated from the
+screenshot. Not yet explained. Next: mark cursor hide/show copies with their coordinates in the trace, reproduce
+(right-click menu, close, with and without a cancelled shutdown dialog first), and take a full-window screenshot to
+place the square exactly.
