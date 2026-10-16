@@ -257,6 +257,8 @@ none is open.
 | [#8217](https://github.com/86Box/86Box/pull/8217) | Offers the 08NOV82 XT BIOS on the Inboard again: the "incompatible" verdict that removed it came from the shadow-window bugs, and a real 5160 runs Windows 95 on it. Only that ROM - others are untested. Merged 2026-10-05 |
 | [#8219](https://github.com/86Box/86Box/pull/8219) | Memory was paced at XT-bus speed whenever port 670h bit 0 was clear; on the card that bit only steers BIOS reads and the reserved-block windows, and RAM wait states come from bits 1-4 (RonnyRoy's netlist, via @andrew-hoffman on [#7638](https://github.com/86Box/86Box/issues/7638)). Anything that clears the bit, such as SHADRAM under Windows, no longer slows all memory. Merged 2026-10-05 |
 | [#8289](https://github.com/86Box/86Box/pull/8289) | ATI Graphics Ultra (Mach8), measured on the real card: ATI's TEST.COM passes every test (#4898), the Paintbrush fill works (#6695), a new card starts with a real card's EEPROM. Merged 2026-10-11 |
+| [#8294](https://github.com/86Box/86Box/pull/8294) | A new Graphics Ultra's default EEPROM runs its 8514/A modes at 60 Hz instead of 72 Hz, which many current displays drop frames at. Spotted by @andrew-hoffman. Merged 2026-10-12 |
+| [#8339](https://github.com/86Box/86Box/pull/8339) | A regression from #8289, reported by TC1995: under ATI's 1992 Windows 3.x driver (`ULTRA.DRV`) the cursor drew as a black square. A FRGD_MIX write after DP_CONFIG now moves only the foreground source. Merged 2026-10-15 |
 
 One further upstream bug was reported from here and fixed by 86Box directly, with no PR from us:
 [#7805](https://github.com/86Box/86Box/issues/7805) — the Machine settings dialog snapped RAM to a
