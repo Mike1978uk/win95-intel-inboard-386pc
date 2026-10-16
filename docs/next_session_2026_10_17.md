@@ -22,17 +22,11 @@ silicon ATI's drivers never used - kept wherever a measurement shows a gain. Lea
   on the 28800 (B2 + BE bit 3), AE bank high bits; 28800 indices no ATI binary touches listed.
 - Sources added: DDK ATI mini-VDD sample (`DISPLAY/SAMPLES/VDD/ATI`, has a Mach8 path); 3Dos and Portfolio repos (§12).
 
-## Next, in order
+## Next
 
-1. **Card session at the 5160 (owner):** write probes first - (a) 28800 read-back of every untouched index, (b)
-   DP_CONFIG mono expansion vs the bed (text path C), (c) EXT_SHORT_STROKE (C6EE). One DOS boot runs all three.
-2. **Static, no boots:** compare the two VVESA builds; ROM mode tables (A0/A6/B7/B9); ATIM32 usage of C6EE /
-   DP_CONFIG / PATT_DATA / FIFO pacing.
-3. **Tools (owner OK'd downloads):** Windows 98 DDK (archive.org) for a faithful velocity9x build.
-4. **A10 replay harness** (skiretic's `tests/video/rage128/replay-harness`) adapted to the Mach8 - port-write and
-   PIX_TRANS byte counts per operation, driver regression without boots.
-5. **D8:** velocity9x framework + `NOT_FRAMEBUFFER` + Mach8 800x600; fill, copy, text background on the engine;
-   counted read-back fallback for the rest.
+The plan is `docs/worklist.md` - the one source of truth; this file is a snapshot. Order agreed 10-16: **section L
+(card levers) before D8**; L3 (desk) and the L4 probes first, then A10 (replay harness), then D8. Tools the owner OK'd:
+the Windows 98 DDK (archive.org) for a faithful velocity9x build.
 
 ## Owed / to tell people (owner sends)
 

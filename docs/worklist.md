@@ -1,6 +1,8 @@
 # Work list - in attack order
 
-**Next session (owner, 10-10): build the XT-CF measured-wait driver first** (E: X3, design `docs/xtcf_measured_wait.md`) - frees bus and CPU for the ATI work. Prior art to borrow: Linux block-layer hybrid polling (sleep ~half the mean completion time, then poll).
+**Next (owner, 10-16): levers first, then the driver.** Section L before D8: the more we know about the card, the
+better the driver - 10-16's census already found silicon ATI's drivers never used. The XT-CF measured-wait driver
+(E, 10-10) stays queued behind it.
 
 The one list. Tick an item in the same commit as its result; the detail stays in the doc each item links.
 Where: **desk** = sources and code only; **B** = emulator bed, unattended; **M** = owner at the 5160
@@ -80,7 +82,7 @@ hardware nobody else touches; never rank a feature by whether ATI's drivers use 
 
 ## B. Bus knobs on both chips (own use; performance)
 
-- [ ] **B1 28800 knobs from static sources (desk).** Start from the 10 extended registers where card and bed differ (`mach8_card_coverage.md`). VVESA.COM disassembly, XFree86 `aticlock.c` and CRTC code,
+- [ ] **B1 28800 knobs from static sources (desk).** 10-16: census + VVESA done (L1, L2); rest is L3. Start from the 10 extended registers where card and bed differ (`mach8_card_coverage.md`). VVESA.COM disassembly, XFree86 `aticlock.c` and CRTC code,
       Ferraro ch. 19, Sutty and Blair. Table: register, bits, what it trades.
 - [ ] **B2 One probe per 28800 field (M).** First: **AB bits 0/5 (zero-wait-state video writes), off on our card** - M8BUS write timing with them set, then a stability soak. ~~BEh bit 2 (128 KB window)~~ (it is the EGA DIP-switch select; the 128 KB map is VGA GR06; M8LIN 10-11: no 128 KB linear window, B000 mirrors A000; B6h bit 2 = 256-colour banking), B6h bits 2/5/6, B0h - as M8BANK did B2h.
 - [ ] **B3 Mach8 knobs under load (M).** FIFO_OPT W_STATE_ENA and MAX_WAITSTATES during a FIFO-full burst
@@ -107,7 +109,23 @@ The CPU writes the VGA side at 2.0 us/byte, the cheapest path on the card; the e
       28800 has ROM page registers (A4/A5, card 54/76) - so a larger chip's spare half may be reachable. Needs an EPROM
       programmer; gains are boot/DOS-only, which a RAM-resident extension gets with no risk. Confirm the paging first.
 
-## D. Our driver and the demo (after A)
+## L. Card levers first (owner, 10-16) - before D8
+
+Find every switch on both chips, including silicon ATI's drivers never used; each kept where a measurement shows a gain.
+Inventory and results: `docs/mach8_levers.md` (one place; this list only orders the work).
+
+- [x] **L1 Port census of ATI's software (desk, 10-16).** 84 binaries, `tools/ati_port_census.py`. Source colour compare
+      (92EE/EAEE) and short strokes: TEST.COM only. 17 28800 indices no ATI binary touches.
+- [x] **L2 VVESA.COM disassembly (desk, 10-16).** 28800 split read/write banks (B2 + BE bit 3), AE bank high bits,
+      HiColor DAC probe (A7), clock bit (BB). Static reading; L4 measures it.
+- [ ] **L3 Desk:** compare the two VVESA builds (CF vs `ATIMACH8/V3`); ROM mode tables (A0/A6/B7/B9); ATIM32's use of
+      C6EE, DP_CONFIG, PATT_DATA and FIFO pacing; EEPROM - every byte accounted for.
+- [ ] **L4 Card sitting (M), probes written first:** (a) read back every untouched 28800 index, then poke the ones that
+      read live; (b) split read/write banking; (c) DP_CONFIG mono expansion vs the bed (text path C); (d) EXT_SHORT_STROKE
+      (C6EE). Folds in B2.
+- [ ] **L5 Fold results into `docs/mach8_driver_design.md`** - which levers the driver uses, and for what.
+
+
 
 **Toolchain spike (10-12):** `drivers/mach8_display/spike/` - DDK FRAMEBUF with MASM 6.11 + Open Watcom; resources and
 links cleanly to an NE driver (one source rule: declare imports outside segments). Sources: xga-win9x (permission given), velocity9x,
@@ -144,10 +162,15 @@ Step 2: our own VxD, to save the registers ATI.VXD does not know (DEST_CMP_FN, B
 - [ ] **D6 VGA-half framebuffer driver on VFLATD (owner, 10-16).** The 28800's 512 KB through A000 is the
       cheapest CPU path on the card; VFLATD banks it into a flat surface. A fallback driver (640x480/800x600 x 256)
       and the base for D5. The Mach8's own 1 MB has no CPU window, so VFLATD cannot serve the accelerated driver.
-- [ ] **D7 Our own "VFLATD" for the Mach8: a RAM shadow buffer.** DIB-engine punts draw into system RAM; the
+- [ ] ~~**D7 Our own "VFLATD" for the Mach8: a RAM shadow buffer.**~~ Superseded 10-16 (owner: least RAM): a counted
+      read-back of only the bounding rectangle instead (`mach8_driver_design.md`). Was: DIB-engine punts draw into system RAM; the
       driver uploads dirty rectangles by host-data blit (~1.9 us/B). Costs 300 KB (640x480) to 768 KB (1024x768).
       Gate: measure how often the driver punts (D1) first. A page-fault mapper over PIX_TRANS is ruled out (a port
       transfer per access).
+- [ ] **D8 First Mach8 build (after L).** velocity9x framework (builds here, 10-16), `NOT_FRAMEBUFFER`, Mach8 800x600;
+      fill, copy and text background on the engine; the counted read-back fallback for the rest. Needs A10 (replay
+      harness) for per-operation port and PIX_TRANS counts. Design: `docs/mach8_driver_design.md`.
+
 ## S. Sound on the same bus (owner, 2026-10-10: 8088 MPH / Area 5150 / FastDoom spirit, Daniel_K's licence to fix what the vendor didn't)
 
 The SB Pro (220h, IRQ 5, DMA 1) moves every sample byte over the same 8-bit bus by DMA, and each buffer-end IRQ costs
