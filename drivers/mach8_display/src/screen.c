@@ -571,7 +571,10 @@ static int m8_brush_colours( LPBRUSH brush, LPDRAWMODE dm, BYTE *c1, BYTE *c2, B
     int             i;
     int             two = 0;
 
-    if( b == NULL || b->dp8BrushBpp != 8 ) {
+    /* Not dp8BrushBpp: it does not read 8 for this screen's solid brushes
+     * (bed, 10-16: every solid PATCOPY fell back). The screen is 8 bpp, so the
+     * realized pattern is 8 bpp. */
+    if( b == NULL ) {
         return( 0 );
     }
     M8_STEP( 0xD000 | ((b->dp8BrushFlags & 0xFF) << 4) | (b->dp8BrushStyle & 0xF) );
