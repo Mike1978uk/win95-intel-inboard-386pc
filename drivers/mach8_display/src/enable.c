@@ -10,6 +10,7 @@
 #include <dibeng.h>
 #include <valmode.h>
 #include <string.h>
+#include <conio.h>
 #include "m8.h"
 
 #define STOP_IO_TRAP        0x4000      /* INT 2Fh: the VDD stops trapping video I/O */
@@ -64,9 +65,11 @@ extern char __based( __segname( "_TEXT" ) ) *pText;
 #pragma aux DriverInit parm [cx] [di] [es si]
 UINT FAR DriverInit( UINT cbHeap, UINT hModule, LPSTR lpCmdLine )
 {
+    M8_STEP( 0xA001 );
     /* The cursor runs at interrupt time: its code must not be paged out. */
     GlobalSmartPageLock( (__segment)pText );
     m8_dpi = GetPrivateProfileInt( "display", "dpi", 96, "system.ini" );
+    M8_STEP( 0xA002 );
     return( 1 );
 }
 
@@ -134,20 +137,26 @@ UINT WINAPI __loadds Enable( LPVOID lpDevice, UINT style, LPSTR lpDeviceType,
     if( style & 1 ) {
         LPGDIINFO lpGdi = lpDevice;
 
+        M8_STEP( 0xA011 );
         _fmemset( lpGdi, 0, sizeof( GDIINFO ) );
         DIB_Enable( lpDevice, style, lpDeviceType, lpOutputFile, lpStuff );
         m8_fill_gdiinfo( lpGdi );
         m8_dib_pdev_size = lpGdi->dpDEVICEsize;
         lpGdi->dpDEVICEsize += sizeof( BITMAPINFOHEADER ) + 256 * 4;
+        M8_STEP( 0xA012 );
         return( sizeof( GDIINFO ) );
     }
 
+    M8_STEP( 0xA020 );
     int_2Fh( STOP_IO_TRAP );
+    M8_STEP( 0xA021 );
     if( !m8_hw_set_mode() ) {
         m8_hw_passthrough();
         return( 0 );
     }
+    M8_STEP( 0xA022 );
     DIB_Enable( lpDevice, style, lpDeviceType, lpOutputFile, lpStuff );
+    M8_STEP( 0xA023 );
     DIB_SetPaletteTranslateExt( NULL, lpDevice );
 
     lpInfo = (LPBITMAPINFO)((LPBYTE)lpDevice + m8_dib_pdev_size);
@@ -186,12 +195,14 @@ UINT WINAPI __loadds Enable( LPVOID lpDevice, UINT style, LPSTR lpDeviceType,
     lpEng->deEndAccess    = 0;
 
     m8_pdevice = lpEng;
+    M8_STEP( 0xA024 );
     if( !m8_screen_init( lpEng ) ) {
         m8_pdevice = 0;
         m8_hw_passthrough();
         return( 0 );
     }
     m8_hw_set_palette( 0, 256, m8_color_table );
+    M8_STEP( 0xA025 );
     return( 1 );
 }
 
@@ -199,6 +210,7 @@ UINT WINAPI __loadds Disable( LPVOID lpDevice )
 {
     LPDIBENGINE lpEng = lpDevice;
 
+    M8_STEP( 0xA040 );
     if( lpEng != NULL ) {
         lpEng->deFlags |= BUSY;
     }
@@ -232,6 +244,7 @@ LONG WINAPI __loadds Control( LPVOID lpDevice, UINT function, LPVOID lpInput, LP
 /* One mode in D8a: 800 x 600 x 8. */
 UINT WINAPI __loadds ValidateMode( DISPVALMODE FAR *lpMode )
 {
+    M8_STEP( 0xA070 );
     if( lpMode->dvmBpp == 8 && lpMode->dvmXRes == M8_SCREEN_X && lpMode->dvmYRes == M8_SCREEN_Y ) {
         return( VALMODE_YES );
     }

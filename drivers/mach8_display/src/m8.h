@@ -95,4 +95,12 @@ extern void m8_hw_read_rect( int x, int y, int w, int h, BYTE FAR *dst, WORD pit
 extern void m8_hw_write_rect( int x, int y, int w, int h, const BYTE FAR *src, WORD pitch );
 extern void m8_hw_marker( WORD value );
 
+/* Bring-up trace (build.ps1 -Trace): step numbers the tap logs as SCRATCH_PAD_1
+ * writes. Port I/O only, so it works before the driver has a PDevice. */
+#ifdef M8_TRACE
+#define M8_STEP( v )        outpw( M8_SCRATCH_PAD_1, (v) )
+#else
+#define M8_STEP( v )
+#endif
+
 #endif

@@ -5,7 +5,8 @@
 
 param(
   [string]$Watcom = 'C:\Users\lycet\tools\openwatcom',
-  [string]$Out = (Join-Path $PSScriptRoot 'build')
+  [string]$Out = (Join-Path $PSScriptRoot 'build'),
+  [switch]$Trace      # bring-up step markers to SCRATCH_PAD_1 (M8_STEP)
 )
 $ErrorActionPreference = 'Stop'
 $src = $PSScriptRoot
@@ -39,6 +40,7 @@ Run wlib @('-b', '-q', '-n', '-fo', '-ii', "@$src\ddk\dibeng.lbc", "$Out\dibeng.
 # (-zu, SS is not DGROUP), so a pointer to a local is far. W303 (unused parameter) is off: DDI entry
 # points have fixed signatures.
 $cflags = @('-q', '-wx', '-we', '-s', '-zu', '-zls', '-zW', '-4', '-mc', '-wcd=303')
+if ($Trace) { $cflags += '-dM8_TRACE' }
 foreach ($c in 'enable', 'screen', 'm8hw') {
   Run wcc ($cflags + $inc + @("-fo=$Out\$c.obj", "$src\$c.c"))
 }
