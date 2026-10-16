@@ -457,3 +457,10 @@ Owner: all correct (800x600, plus 1024x768 and back). 749 hits, 603 stores in on
 use). Text cost per ExtTextOut 0.53 -> 0.39 ms (store 451 ms + hits 156 ms + the rest 332 ms over 2,424 calls).
 Open: 48 strings fell back to the read-back path (1.6 s) against 15 in the previous run - find what the callback
 refused before building on it.
+
+### Bitmap cache (`c19476f`, `m8disp_d9_bmpcache_1016.log.gz`)
+
+Owner: all correct (icons, toolbars, Solitaire). Bitmap cache 595 hits / 32 stores (95%); string cache 2,444 hits / 501
+stores (83%, longer session). Text declines: 2, both strings starting off the top/left edge (reason 3). But 1,486
+DIB SRCCOPY copies still went the upload route (3.3 M px): the cache's size limit of 4,096 px excludes Solitaire's
+cards (71x96 = 6,816 px) - raise it.
