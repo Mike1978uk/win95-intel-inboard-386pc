@@ -219,3 +219,30 @@ operation needs a path from the first boot.
 
 Pass: one boot of `vm_5160_now` draws the desktop correctly at 800x600. Risks: the ROM mode set from protected
 mode is unproven; read-back speed for large rectangles is unmeasured.
+
+## D8a result, 2026-10-16 (bed `vm_5160_now`, tap build `e8a50f66a`)
+
+**Passes in the bed:** Windows 95 boots to an 800x600x8 desktop on `M8DISP.DRV`; icon labels, menus, dialogs,
+Explorer and Solitaire draw correctly. Not yet run on the 5160. Four bring-up bugs, each one commit:
+- `LoadFail`, failure code 0: a `__segname("_TEXT")` cast linked as a fixup to a segment the file lacks;
+  the build now fails on any invalid fixup (`wdump`). BOOTLOG only logs the Windows phase on an F8 "Logged"
+  boot, not from `WIN` at a DOS prompt.
+- Icon labels missing: the DIB Engine's negative-count measure gave a 2-row height; text is bounded by
+  the font height instead.
+- Radio buttons "C|", folder icons clipped: the even-aligned strip was passed on as the clip, so BitBlt drew
+  a neighbouring source column; the DIB Engine now draws only the unwidened rectangle, the extra columns are
+  read and written back unchanged.
+
+**Where the bus went** (one session: boot, Explorer, Solitaire, menus; `m8disp_d8a_fix3_1016.log`):
+
+| path | ops | pixels | on the bus |
+|---|---|---|---|
+| engine fill | 1,410 | 17.5 M | no (5 register writes each) |
+| engine copy | 133 | 7.1 M | no (7 writes) |
+| fallback read-back | 4,526 | 5.8 M | yes |
+| fallback write-back | 4,420 | 6.0 M | yes |
+| cursor (read + 2 writes per move) | 1,902 | 2.1 M | yes |
+
+**Next (D8b), by that table:** attribute the fallback pixels to GDI entry points (a marker per entry);
+text on the engine (DP_CONFIG mono expansion, then the glyph cache); the cursor saved and restored by
+engine copy to off-screen memory instead of read-back; DOS full-screen switching (INT 2Fh 4001h/4002h).

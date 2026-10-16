@@ -194,6 +194,8 @@ Step 2: our own VxD, to save the registers ATI.VXD does not know (DEST_CMP_FN, B
 - [ ] **D8 First Mach8 build (after L).** velocity9x framework (builds here, 10-16), `NOT_FRAMEBUFFER`, Mach8 800x600;
       fill, copy and text background on the engine; the counted read-back fallback for the rest. Needs A10 (replay
       harness) for per-operation port and PIX_TRANS counts. Design: `docs/mach8_driver_design.md`.
+      **D8a passes in the bed (10-16):** `drivers/mach8_display/src/`, desktop/Explorer/Solitaire correct at 800x600;
+      engine fill + copy, read-back fallback for the rest. Bus tally and D8b order in the design doc. Not yet on the 5160.
 
 ## S. Sound on the same bus (owner, 2026-10-10: 8088 MPH / Area 5150 / FastDoom spirit, Daniel_K's licence to fix what the vendor didn't)
 
