@@ -74,8 +74,7 @@ not yet compared). Extended port taken from a variable (`[150h] = 1CEh`), plus h
 | B0 | bit 6 set from a VVESA flag | unknown (B0 also used by the drivers) |
 | B6, B8 | mode setting | 256-colour mode (B6), as the drivers |
 
-Still untouched by every ATI binary: **A1, A2 (ATIDESK only), A4, A5, A8-AD, AF, B1, B4, B5, BA, BC, BD, BF** - B2's
-probe list for the card (one read-back each, then the ones that change something).
+(The untouched list that stood here was superseded by the ROM reading below.)
 
 ## L3 (desk), 2026-10-16
 
@@ -108,3 +107,27 @@ ROM (`roms/video/mach8/BIOS.BIN`, dated "1992/4/8 12:16" at 50h) has a jump tabl
 **For D8, a candidate:** set the Mach8 mode through ROM entry 64h - the EEPROM's monitor timings, no CRTC tables of our
 own. Unproven from protected mode (no Windows driver does it); the ROM code uses SS as scratch. Still to read: each AL
 function's arguments and effect (72DDh, 710Dh).
+
+### The ROM's own 28800 use (disassembly, helpers at 2536h OR / 254Bh AND / 2567h read / 2572h write, AX = value:index)
+
+The census pattern missed these: the ROM passes index and value together in AX. Uses found (bits as hex masks):
+
+| Index | ROM use | Reading |
+|---|---|---|
+| A3 | OR 20; per-mode table bits 0-2 (58Bh) | mode table field |
+| A6 | OR 20 if revision 6; OR 10 / AND EF around one routine; AND FB | revision-dependent bits; bit 2 cleared before EEPROM access |
+| AA | read, low nibble compared with 5 and 6 | **chip revision** (28800-5 / -6) |
+| B0 | many (OR 01/02/20, AND EF/DF/DE, WR 30) | mode control |
+| B1 | the most used: OR 01/02/08/28/30/40/80, AND 05/67/C7/DF/FE | mode control (to map bit by bit) |
+| B3 | bit-banged at 3A4Eh with B7 bit 3 read back | **EEPROM serial interface** (B3 = clock/select/data out, B7 bit 3 = data in) |
+| B4, B5 | OR/AND on bits 0, 1, 3, 7 | to map |
+| B6 | OR 01/02/04/08/18/20/80 | mode control; B6 2 = 256-colour banking (M8LIN) |
+| B8 | OR 02/04/08/0B, WR 40 | mode control |
+| B9 | bit 1 in the 16-clock loop; bits 4-5 per mode; OR 40/80 | clock select (with Misc Output bits 2-3 and BE bit 4) |
+| BA, BB, BD | read / write | to map |
+| BE | bit 4 in the clock loop; bit 5 if revision >= 5; OR 02/05/08 | clock select bit; revision features; bit 3 = VVESA's split banking |
+| BF | OR 80 / AND 7F on one mode path | to map |
+
+**Touched by no ATI code found** (ROM, VVESA, drivers, TEST.COM, tools): **A1, A4, A5, A8, A9, AB, AC, AD, AF, BC**.
+A2: ATIDESK only. A7: VVESA only (HiColor DAC probe). AE: VVESA and ATI.VXD (bank high bits). These ten are L4's
+read-back list; the rest are mapped bit by bit from the ROM's mode tables before any poke.
