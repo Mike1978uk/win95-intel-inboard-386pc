@@ -948,3 +948,14 @@ what Andrew offered it for. **Unread** means exactly that: listed, not yet evalu
   on the 86Box Discord 2026-10-12): `reg-harness/` (device register handlers, no VM, with `host_stubs.c`)
   and `replay-harness/` (record a guest command stream once, replay against the device sources). Template for
   a Mach8/8514 harness - worklist A10. Not yet adapted.
+
+## 12. Leads from the owner, not yet used (added 2026-10-16)
+
+- **xms0g/3Dos** - https://github.com/xms0g/3Dos , BSD-3, Turbo C++ 3.0 + asm. Low-poly software renderer, VGA
+  mode 13h: triangle rasteriser, LUT trig, backface culling, 4x4 Bayer dither, `REP MOVSW` frame copy. Kept as
+  a candidate workload: a fixed scene to time on the 8-bit bus and, ported, against Mach8 line/fill commands.
+  Does not contain: anything accelerated or Windows-side.
+- **daxx2k/atari-portfolio-ai** - https://github.com/daxx2k/atari-portfolio-ai . The Portfolio runs a small DOS
+  client (`AI.COM`) over its serial interface; an ESP32-S3 does camera, Wi-Fi and the AI, and sends a reduced
+  monochrome preview ("coarse mode trades detail for speed"). Idea worth keeping for the parked WebCam II item:
+  reduce the image before the slow link. Only the README was read, not the preview encoding.

@@ -391,3 +391,7 @@ untested here - our image does not load that driver.
   Win 3.1's built-in 8514.DRV glitches in File Manager, "with mine it worked fine". For the plain 8514/A, #8289
   left command 4 on the generic path; its only change there was the colour compare (TRUE now protects, WRT_MASK
   applies), measured on the Mach8 only. "Mine" (his local code, or pre-#8289) not yet established. Open.
+  10-16: "mine" = before #8289 (owner). Cause: 8514.DRV (and ATI's ULTRA.DRV) fill text backgrounds with
+  command 4, MAJ = width, MIN = height; #8289's Graphics Ultra model had them swapped (M8NIB only drew squares).
+  Reproduced in `vm_mach8_8514drv` (File Manager selection transposed); fixed on fork branch
+  `mach8-nibble-axes` `3b23c04b2`, File Manager clean. Card probe M8NIB2 pending; PR not yet raised.
