@@ -184,6 +184,11 @@ From `docs/mach8_levers.md` (census, VVESA, ROM, three card sittings) and M8TIME
 raster-split use of the two chips); split read/write banking for speed (no gain, M8SPLIT); EXT_SHORT_STROKE (diagonals
 only, M8SSV3); 28800 zero-wait bits AB (no gain, 10-10); the unknown 28800 bits (no effect, M8BITS).
 
+**Resolution (owner's question, 10-16):** the engine accelerates 640x480, 800x600 and 1024x768 alike; per-operation
+cost hardly changes. Resolution sets the off-screen cache (about 424 KB at 800x600, 256 KB at 1024x768 - less cache,
+more data on the bus) and whether two pages fit for flipping (640x480 only). Desktop: 800x600 (1024x768 as an option);
+flip-based games and the demo: 640x480.
+
 **Both chips, still:** the VGA half drives its own modes (D6, the VFLATD driver, DirectDraw at 640x480/800x600); on the
 Mach8 side a double-buffered flip fits at 640x480 (two 480-row pages in 1 MB at pitch 1024), timed by CRT_OFFSET and the
 raster position, without switching halves.

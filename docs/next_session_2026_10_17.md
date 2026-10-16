@@ -28,8 +28,9 @@ silicon ATI's drivers never used - kept wherever a measurement shows a gain. Lea
 
 ## Next
 
-The plan is `docs/worklist.md` - the one source of truth; this file is a snapshot. Order agreed 10-16: **section L
-(card levers) before D8**; L3 (desk) and the L4 probes first, then A10 (replay harness), then D8. Tools the owner OK'd:
+The plan is `docs/worklist.md` - the one source of truth; this file is a snapshot. Section L (card levers) is **done** 10-16 except
+L3's desk details (mode-table bits, ROM API arguments, EEPROM record layouts - not blocking). **Next: A10 (replay
+harness), then D8** from the "Lever decisions for D8" table in `docs/mach8_driver_design.md`. Tools the owner OK'd:
 the Windows 98 DDK (archive.org) for a faithful velocity9x build.
 
 ## Owed / to tell people (owner sends)
