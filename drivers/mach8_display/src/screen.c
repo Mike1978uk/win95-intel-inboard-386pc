@@ -828,6 +828,146 @@ static void m8_pattern_fill( int x, int y, int w, int h, const BYTE *pat,
     }
 }
 
+/* Bitmap cache. Icons, toolbar buttons and card faces are copied from the same
+ * memory bitmaps again and again. The source pixels are hashed on the CPU; the
+ * first time a content is seen it is uploaded to the off-screen strip right of
+ * the screen, and every later copy of the same content is one engine copy
+ * through the ROP's mix - no pixels on the bus. Keyed by content, so a bitmap
+ * that changes simply gets a new entry. 8-bit device bitmaps only (a DIB section
+ * may carry its own colour table, which the DIB Engine translates); no strip at
+ * 1024x768, so the cache is off there. */
+#define M8_BC_ENTRIES       128
+#define M8_BC_MAX_PX        4096
+
+typedef struct {
+    DWORD   h1;
+    DWORD   h2;
+    WORD    w;
+    WORD    h;
+    int     x;
+    int     y;
+} M8_BCENTRY;
+
+static M8_BCENTRY   m8_bc[M8_BC_ENTRIES];
+static int          m8_bc_n;
+static int          m8_bc_x;
+static int          m8_bc_y;
+static int          m8_bc_shelf;
+static WORD         m8_bc_sel;
+
+static int m8_bc_left( void )
+{
+    return( (M8_SCREEN_X + 1) & ~1 );
+}
+
+static int m8_bc_on( void )
+{
+    return( m8_bc_sel != 0 && M8_CURSOR_SAVE_X - m8_bc_left() >= 32 );
+}
+
+static void m8_bc_flush( void )
+{
+    m8_bc_n = 0;
+    m8_bc_x = 0;
+    m8_bc_y = 0;
+    m8_bc_shelf = 0;
+}
+
+static int m8_bc_alloc( int w, int h, int *x, int *y )
+{
+    int width = M8_CURSOR_SAVE_X - m8_bc_left();
+
+    if( w > width || h > M8_SCREEN_Y ) {
+        return( 0 );
+    }
+    if( m8_bc_x + w > width ) {
+        m8_bc_y += m8_bc_shelf;
+        m8_bc_x = 0;
+        m8_bc_shelf = 0;
+    }
+    if( m8_bc_y + h > M8_SCREEN_Y ) {
+        return( 0 );
+    }
+    *x = m8_bc_left() + m8_bc_x;
+    *y = m8_bc_y;
+    m8_bc_x += w;
+    if( h > m8_bc_shelf ) {
+        m8_bc_shelf = h;
+    }
+    return( 1 );
+}
+
+/* Copy w x h of an 8-bit memory bitmap through the cache: 1 if done. */
+static int m8_bc_draw( LPDIBENGINE src, int sx, int sy, int dx, int dy, int w, int h, WORD mix )
+{
+    WORD        we = (WORD)((w + 1) & ~1);
+    DWORD       base;
+    long        delta;
+    DWORD       h1 = 2166136261UL;
+    DWORD       h2 = (DWORD)w * 131 + h;
+    int         row;
+    int         col;
+    int         k;
+    BYTE FAR    *p;
+    BYTE FAR    *q;
+    M8_BCENTRY  *e = NULL;
+    M8_RECT     r;
+
+    if( !m8_bc_on() || src->deBitsPixel != 8 || (src->deFlags & SELECTEDDIB) ||
+        (long)we * h > M8_BC_MAX_PX || (long)we * h > 0xFFF0L ) {
+        return( 0 );
+    }
+    base = GetSelectorBase( src->deBitsSelector ) + src->deBitsOffset;
+    delta = (long)src->deDeltaScan;
+    for( row = 0; row < h; ++row ) {
+        SetSelectorBase( m8_bc_sel, base + (DWORD)((long)(sy + row) * delta) + (DWORD)sx );
+        SetSelectorLimit( m8_bc_sel, (DWORD)w - 1 );
+        p = (BYTE FAR *)MK_FP( m8_bc_sel, 0 );
+        q = m8_src.bits + (DWORD)row * we;
+        for( col = 0; col < w; ++col ) {
+            q[col] = p[col];
+            h1 = (h1 ^ p[col]) * 16777619UL;
+            h2 = (h2 << 5) + h2 + p[col];
+        }
+        if( we != (WORD)w ) {
+            q[w] = 0;
+        }
+    }
+    for( k = 0; k < m8_bc_n; ++k ) {
+        if( m8_bc[k].h1 == h1 && m8_bc[k].h2 == h2 && m8_bc[k].w == (WORD)w &&
+            m8_bc[k].h == (WORD)h ) {
+            e = &m8_bc[k];
+            M8_STEP( M8_MARK_BC_HIT );
+            break;
+        }
+    }
+    m8_rect_set( &r, dx, dy, dx + w, dy + h );
+    m8_enter( &r );
+    if( e == NULL ) {
+        if( m8_bc_n >= M8_BC_ENTRIES ) {
+            m8_bc_flush();
+        }
+        e = &m8_bc[m8_bc_n];
+        if( !m8_bc_alloc( we, h, &e->x, &e->y ) ) {
+            m8_bc_flush();
+            if( !m8_bc_alloc( we, h, &e->x, &e->y ) ) {
+                m8_leave();
+                return( 0 );
+            }
+        }
+        e->h1 = h1;
+        e->h2 = h2;
+        e->w = (WORD)w;
+        e->h = (WORD)h;
+        ++m8_bc_n;
+        M8_STEP( M8_MARK_BC_STORE );
+        m8_hw_write_rect( e->x, e->y, we, h, m8_src.bits, we );
+    }
+    m8_hw_copy_mix( e->x, e->y, dx, dy, w, h, M8_MIX_SRC_VRAM | mix );
+    m8_leave();
+    return( 1 );
+}
+
 BOOL WINAPI __loadds BitBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPDEVICE lpSrcDev,
                              WORD wSrcX, WORD wSrcY, WORD wXext, WORD wYext, DWORD dwRop3,
                              LPBRUSH lpPBrush, LPDRAWMODE lpDrawMode )
@@ -912,6 +1052,12 @@ BOOL WINAPI __loadds BitBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPD
                 m8_leave();
                 return( TRUE );
             }
+        }
+        if( !src_screen && m8_rop_uses_src( dwRop3 ) && !m8_rop_uses_pat( dwRop3 ) &&
+            ((LPDIBENGINE)lpSrcDev)->deType == TYPE_DIBENG &&
+            m8_bc_draw( (LPDIBENGINE)lpSrcDev, wSrcX, wSrcY, wDestX, wDestY, wXext, wYext,
+                        m8_mix_for_key[rop & 0x0F] ) ) {
+            return( TRUE );
         }
         if( rop == 0xCC && src_screen ) {
             M8_RECT sr;
@@ -1359,6 +1505,7 @@ static WORD WINAPI __loadds m8_text_bitmap( LPDIBENGINE lpDevice, BYTE FAR *lpBi
     int     y = (short)wY;
 
     if( lpDevice != m8_screen || lpBits == NULL ) {
+        M8_STEP( M8_MARK_TEXT_WHY | 1 );
         m8_text_failed = 1;
         return( 1 );
     }
@@ -1369,6 +1516,10 @@ static WORD WINAPI __loadds m8_text_bitmap( LPDIBENGINE lpDevice, BYTE FAR *lpBi
     if( (DWORD)FP_OFF( lpBits ) + (DWORD)wWidthBytes * wHeight > 0x10000UL ||
         x < 0 || y < 0 || x + (long)wWidthBytes * 8 > M8_COORD_MAX ||
         y + (long)wHeight > M8_COORD_MAX ) {
+        /* Trace: 2 = the bitmap crosses its selector, 3 = it starts off the
+         * top or left, 4 = beyond the engine's coordinates. */
+        M8_STEP( M8_MARK_TEXT_WHY | ((DWORD)FP_OFF( lpBits ) + (DWORD)wWidthBytes * wHeight > 0x10000UL ? 2 :
+                                     (x < 0 || y < 0) ? 3 : 4) );
         m8_text_failed = 1;
         return( 1 );
     }
@@ -1408,6 +1559,7 @@ static WORD WINAPI __loadds m8_text_rect( LPDIBENGINE lpDevice, DWORD dwBg, WORD
     M8_RECT c;
 
     if( lpDevice != m8_screen ) {
+        M8_STEP( M8_MARK_TEXT_WHY | 5 );
         m8_text_failed = 1;
         return( 1 );
     }
@@ -1938,6 +2090,7 @@ int m8_screen_init( LPDIBENGINE screen )
     m8_screen = screen;
     m8_ssb_used = 0;
     m8_sc_flush();
+    m8_bc_flush();
     /* The DIB Engine calls these on the screen around engine text; the cursor
      * is excluded by the callbacks themselves. */
     screen->deBeginAccess = (void (WINAPI *)())m8_begin_access;
@@ -1947,6 +2100,9 @@ int m8_screen_init( LPDIBENGINE screen )
     }
     if( m8_src.sel == 0 && !m8_strip_alloc( &m8_src, &m8_src_mem ) ) {
         return( 0 );
+    }
+    if( m8_bc_sel == 0 ) {
+        m8_bc_sel = AllocSelector( m8_src.sel );
     }
     /* Text measuring calls use m8_dst without a strip: give it a valid one. */
     m8_dst.pitch = 4;
@@ -1962,6 +2118,7 @@ void m8_screen_suspend( void )
 {
     m8_busy = 1;
     m8_sc_flush();
+    m8_bc_flush();
     m8_cur_shown = 0;
     m8_cur_pending = 0;
     m8_ssb_used = 0;
@@ -1982,6 +2139,10 @@ void m8_screen_done( void )
     m8_busy = 1;
     m8_cursor_hide();
     m8_screen = NULL;
+    if( m8_bc_sel != 0 ) {
+        FreeSelector( m8_bc_sel );
+        m8_bc_sel = 0;
+    }
     m8_strip_free( &m8_dst, &m8_dst_mem );
     m8_strip_free( &m8_src, &m8_src_mem );
     m8_busy = 0;

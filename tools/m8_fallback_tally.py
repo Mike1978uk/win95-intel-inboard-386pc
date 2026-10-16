@@ -27,7 +27,7 @@ NAMES = {
     0xB004: 'ExtTextOut', 0xB005: 'ScanLR', 0xB006: 'StretchBlt',
     0xB007: 'StretchDIBits', 0xB008: 'DibToDevice', 0xB009: 'FastBorder',
     0xB00A: 'UpdateColors', 0xB00E: 'BitBlt screen->memory',
-    0xB0C0: 'cursor move', 0xB0C1: 'cursor shape', 0xB0E0: 'ExtTextOut fallback', 0xB0F1: 'string cache hit', 0xB0F2: 'string cache store', 0xB0D0: 'SaveScreenBitmap save', 0xB0D1: 'SaveScreenBitmap restore',
+    0xB0C0: 'cursor move', 0xB0C1: 'cursor shape', 0xB0E0: 'ExtTextOut fallback', 0xB0F3: 'bitmap cache hit', 0xB0F4: 'bitmap cache store', 0xB0F1: 'string cache hit', 0xB0F2: 'string cache store', 0xB0D0: 'SaveScreenBitmap save', 0xB0D1: 'SaveScreenBitmap restore',
 }
 US_WRITE = 3.84
 US_READ = 5.7

@@ -136,6 +136,7 @@ extern int  m8_hw_wait_idle( void );
 extern void m8_hw_fill( int x, int y, int w, int h, BYTE color );
 extern void m8_hw_fill_mix( int x, int y, int w, int h, BYTE color, WORD mix );
 extern void m8_hw_copy( int sx, int sy, int dx, int dy, int w, int h );
+extern void m8_hw_copy_mix( int sx, int sy, int dx, int dy, int w, int h, WORD mix );
 extern void m8_hw_mono_plane( int x, int y, WORD width_bytes, WORD height, const BYTE FAR *bits,
                               int plane );
 extern void m8_hw_plane_blit( int sx, int sy, int dx, int dy, int w, int h, int plane,
@@ -162,8 +163,11 @@ extern void m8_hw_marker( WORD value );
 #define M8_MARK_CURSOR_MOVE 0xB0C0
 #define M8_MARK_CURSOR_SET  0xB0C1
 #define M8_MARK_TEXT_FALLBACK 0xB0E0  /* engine text declined; the fallback follows */
+#define M8_MARK_TEXT_WHY    0xA0E0  /* | reason the text callback declined (screen.c) */
 #define M8_MARK_CURSOR_SHOW 0xA100  /* then x, y of the area saved */
 #define M8_MARK_CURSOR_HIDE 0xA101  /* then x, y of the area restored */
+#define M8_MARK_BC_HIT      0xB0F3  /* bitmap cache: one engine copy */
+#define M8_MARK_BC_STORE    0xB0F4  /* bitmap cache: uploaded, then copied */
 #define M8_MARK_SC_HIT      0xB0F1  /* string cache: drawn from video memory */
 #define M8_MARK_SC_STORE    0xB0F2  /* string cache: stored, then drawn */
 #define M8_MARK_SSB_SAVE    0xB0D0

@@ -211,6 +211,13 @@ void m8_hw_fill( int x, int y, int w, int h, BYTE color )
  * when moving down, right-to-left when moving right on the same rows. */
 void m8_hw_copy( int sx, int sy, int dx, int dy, int w, int h )
 {
+    m8_hw_copy_mix( sx, sy, dx, dy, w, h, M8_MIX_SRC_VRAM | M8_MIX_REPLACE );
+}
+
+/* As m8_hw_copy, through any mix of source and destination (a full mix-register
+ * value with the VRAM source). */
+void m8_hw_copy_mix( int sx, int sy, int dx, int dy, int w, int h, WORD mix )
+{
     WORD cmd = M8_CMD_BLIT | M8_CMD_INC_X | M8_CMD_INC_Y;
 
     if( m8_hw_off ) {
@@ -229,7 +236,7 @@ void m8_hw_copy( int sx, int sy, int dx, int dy, int w, int h )
         dx += w - 1;
     }
     m8_wait_fifo_empty();
-    outpw( M8_FRGD_MIX, M8_MIX_SRC_VRAM | M8_MIX_REPLACE );
+    outpw( M8_FRGD_MIX, mix );
     outpw( M8_CUR_X, sx );
     outpw( M8_CUR_Y, sy );
     outpw( M8_DESTX_DIASTP, dx );
