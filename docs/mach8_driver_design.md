@@ -82,3 +82,21 @@ sample source. DDK headers and documentation are fine.
 3. velocity9x review: clone, read, build; answer the two open questions.
 4. The driver, primitive by primitive in the order M8TIME ranks them, each one measured with `TXTBENCH`
    before and after on the 5160.
+
+## 2026-10-16 additions
+
+- **Base mode 800x600x256 (owner).** Pitch 1024, so 600 KB visible and ~424 KB off-screen (rows 600-1023) plus a
+  224x600 strip (x 800-1023) for the glyph cache, brushes, icons and cursor save-under. Higher modes are table
+  entries. Aims restated: least RAM, least bus traffic, both halves and unused hardware kept on a measured gain.
+- **D0: the DDK FRAMEBUF sample, built with our toolchain, loads and draws in Windows 95** (28800 half, 640x480,
+  needs VFLATD). That proves the toolchain only: FRAMEBUF is DDK sample source, so it is not the base of the
+  GPL-3.0 driver (section above).
+- **No full RAM shadow.** For a screen operation not yet accelerated, a fallback that reads back only the
+  bounding rectangle, lets the DIB engine draw it in RAM and writes it back - counted per GDI function - is a
+  candidate if `NOT_FRAMEBUFFER` (ATIM8's method) leaves gaps. Check ATIM8 and velocity9x first.
+- **8514.DRV / ULTRA.DRV command set** (`docs/mach8_cmd4_axes_2026_10_16.md`) is a third reference for what GDI
+  asks of the engine; command 4 (`80B3`) is their text-background fill - a candidate for that job.
+- **Unused hardware, each kept only on a measured gain:** DEST_CMP_FN nibble tests and colour compare (colour-keyed
+  blits, DirectDraw colour keys); pattern-register dithering (D4); palette splits on retrace (D4); the 28800 half
+  as a VFLATD surface with frame flipping by passthrough (D5/D6, C2) and its zero-wait write bits (B2); polygon
+  boundary + fill for 3D triangles (D3).
