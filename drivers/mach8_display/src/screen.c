@@ -562,12 +562,9 @@ static int m8_rop_uses_pat( DWORD rop )
 
 /* A realized brush as at most two colours: returns 0 if it is not, 1 for a
  * solid colour (c1), 2 for a pattern - pat[row] has bit 7 for column 0, a 1
- * bit is c1 and a 0 bit c2. Colour and dithered brushes are read from the
- * 8 bpp pattern the DIB Engine renders (dp8BrushBits). A brush from a mono
- * bitmap takes the draw mode's colours, as Windows defines it (1 = background,
- * 0 = text); its mono rows are assumed 4 bytes apart (DIBENG.INC gives 32 bytes
- * for 8 rows and no layout). Hatched brushes, whose gaps depend on the
- * background mode, are not handled. */
+ * bit is c1 and a 0 bit c2. Read from the 8 bpp pattern the DIB Engine renders
+ * (dp8BrushBits). Hatched brushes, whose gaps depend on the background mode,
+ * and mono-bitmap brushes are not handled. */
 static int m8_brush_colours( LPBRUSH brush, LPDRAWMODE dm, BYTE *c1, BYTE *c2, BYTE *pat )
 {
     DIB_Brush8 FAR  *b = (DIB_Brush8 FAR *)brush;
@@ -581,16 +578,16 @@ static int m8_brush_colours( LPBRUSH brush, LPDRAWMODE dm, BYTE *c1, BYTE *c2, B
     if( b->dp8BrushStyle != 0 && b->dp8BrushStyle != 3 ) {
         return( 0 );
     }
+    /* A mono-bitmap brush's dp8BrushMono layout is not what was assumed (rows
+     * 4 bytes apart read 55h on all 8 rows of a halftone): the fallback draws
+     * it, and the trace logs its 32 bytes (E1xx) to settle the layout. */
     if( b->dp8BrushFlags & PATTERNMONO ) {
-        if( dm == NULL ) {
-            return( 0 );
+#ifdef M8_TRACE
+        for( i = 0; i < 32; ++i ) {
+            M8_STEP( 0xE100 | b->dp8BrushMono[i] );
         }
-        *c1 = (BYTE)dm->bkColor;
-        *c2 = (BYTE)dm->TextColor;
-        for( i = 0; i < 8; ++i ) {
-            pat[i] = b->dp8BrushMono[i * 4];
-        }
-        return( 2 );
+#endif
+        return( 0 );
     }
     *c1 = b->dp8BrushBits[0];
     *c2 = *c1;
@@ -633,12 +630,16 @@ static void m8_pattern_fill( int x, int y, int w, int h, const BYTE *pat,
 {
     int         x0 = x & ~7;
     WORD        wb = (WORD)(((x + w + 7) >> 3) - (x >> 3));
-    int         band = (int)(M8_BUF_BYTES / wb);
+    long        rows = (long)(M8_BUF_BYTES / wb);
+    int         band;
     int         row;
     int         yb;
     int         hb;
     BYTE FAR    *q;
 
+    /* In long: a one-byte-wide rectangle fits 65,520 rows in the buffer, which
+     * a 16-bit int reads as -16 - the loop then ran backwards for ever. */
+    band = rows < (long)h ? (int)rows : h;
     for( yb = y; yb < y + h; yb += band ) {
         hb = y + h - yb < band ? y + h - yb : band;
         q = m8_dst.bits;
@@ -671,8 +672,10 @@ BOOL WINAPI __loadds BitBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPD
     M8_STEP( 0xC000 | (m8_src_kind( lpSrcDev, src_screen ) << 8) | rop );
 
     /* Engine paths. A background palette translation is something the engine
-     * cannot apply, so it disqualifies them. */
-    if( dst_screen && !(m8_screen->deFlags & PALETTE_XLAT) ) {
+     * cannot apply, so it disqualifies them; so does an empty or negative
+     * extent, which the engine would take as a huge one. */
+    if( dst_screen && !(m8_screen->deFlags & PALETTE_XLAT) &&
+        (short)wXext > 0 && (short)wYext > 0 ) {
         m8_rect_set( &r, wDestX, wDestY, wDestX + wXext, wDestY + wYext );
         if( !m8_rop_uses_src( dwRop3 ) ) {
             WORD    mix = m8_rop_mix( rop );
