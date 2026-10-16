@@ -56,3 +56,23 @@ The Mach32 keeps the Mach8's engine and adds to it; the guide marks each registe
 Microsoft's Win95 `ATIM32.DRV/.DLL` (golden install) uses, beyond the Mach8 set, CHIP_ID (FAEE), FEE8 and C6EE. Reading
 how a later ATI-tuned driver drives the shared registers (C6EE, DP_CONFIG, PATT_DATA, FIFO pacing) is a cheap source of
 technique for ours; Mach32-only registers do not apply.
+
+## VVESA.COM, disassembled 2026-10-16 (static reading - each line is what the code implies, not yet measured)
+
+ATI's VESA TSR (13,548 bytes; **the copy on the CF, `D:\utils\ATIVGA`, differs from `ATIMACH8/V3`** - two builds,
+not yet compared). Extended port taken from a variable (`[150h] = 1CEh`), plus helpers at 1016h (OR), 102Bh
+(write), 1032h (read), 103Dh (AND). Indices it touches: **A3, A7, AE, B0, B2, B6, B8, BB, BE**.
+
+| Index | What VVESA does | Reading |
+|---|---|---|
+| B2 | +2 / -2 for the write bank; ror, +10h, rol for the read bank | **separate read and write banks**: write bank bits 1-4, read bank bits 5-7 + 0. A VGA-to-VGA copy across banks with no reprogramming |
+| BE | bit 3 set / cleared around banking | enables the split read/write banking above |
+| AE | bits 0-1 = bits 4-5 of the bank number | bank high bits: reaches all 512 KB (and beyond, on larger boards) |
+| A7 | bit 1 tested on chip revision '5', then five reads of 3C6h | the hidden DAC command register probe: detects a HiColor DAC. Ours is an INMOS IMSG176, 6-bit, none |
+| BB | bit 4 merged into a clock-select value | a clock-select bit |
+| A3 | bit 4 set from a VVESA flag | unknown |
+| B0 | bit 6 set from a VVESA flag | unknown (B0 also used by the drivers) |
+| B6, B8 | mode setting | 256-colour mode (B6), as the drivers |
+
+Still untouched by every ATI binary: **A1, A2 (ATIDESK only), A4, A5, A8-AD, AF, B1, B4, B5, BA, BC, BD, BF** - B2's
+probe list for the card (one read-back each, then the ones that change something).
