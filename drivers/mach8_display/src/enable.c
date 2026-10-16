@@ -60,14 +60,16 @@ static const DIBColorEntry m8_static_hi[] = {
     { 0xFF, 0xFF, 0xFF, MAPTOWHITE }
 };
 
-extern char __based( __segname( "_TEXT" ) ) *pText;
+/* The code segment, from CS: DriverInit runs in it. */
+static WORD m8_code_seg( void );
+#pragma aux m8_code_seg = "mov ax,cs" value [ax];
 
 #pragma aux DriverInit parm [cx] [di] [es si]
 UINT FAR DriverInit( UINT cbHeap, UINT hModule, LPSTR lpCmdLine )
 {
     M8_STEP( 0xA001 );
     /* The cursor runs at interrupt time: its code must not be paged out. */
-    GlobalSmartPageLock( (__segment)pText );
+    GlobalSmartPageLock( (HGLOBAL)m8_code_seg() );
     m8_dpi = GetPrivateProfileInt( "display", "dpi", 96, "system.ini" );
     M8_STEP( 0xA002 );
     return( 1 );

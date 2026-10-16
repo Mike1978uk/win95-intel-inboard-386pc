@@ -86,4 +86,9 @@ $ne = [BitConverter]::ToInt32($b, 0x3C)
 if ($b[$ne] -ne 0x4E -or $b[$ne + 1] -ne 0x45) { throw 'no NE header' }
 $b[$ne + 0x3E] = 0x00; $b[$ne + 0x3F] = 0x04
 [IO.File]::WriteAllBytes($drv, $b)
+
+# wlink links a fixup to a segment the file does not have without complaint;
+# Windows then refuses the driver (BOOTLOG: LoadFail, failure code 0).
+$bad = & wdump -a $drv 2>$null | Select-String 'invalid segment'
+if ($bad) { throw "fixup to a missing segment:`n$($bad -join "`n")" }
 Get-Item $drv | Format-Table Name, Length, LastWriteTime
