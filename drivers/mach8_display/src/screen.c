@@ -1218,6 +1218,126 @@ static void m8_text_bound( M8_TEXT *t, M8_RECT *bound )
     }
 }
 
+/* String cache. The DIB Engine hands text over as one 1-bit bitmap per string,
+ * and Windows draws the same strings again and again (menus, labels, file
+ * names). Each string is kept in one bit-plane of off-screen memory - 8 planes,
+ * so 8 layers in the same rows - and every later draw is one plane-select blit
+ * (M8TIME A on the card) with no bits on the bus. Rows just above the cursor's
+ * corner; 128 of them (96 at 1024x768, to leave room for menu saves). Packed in
+ * shelves per plane; when full, the whole cache is cleared. Keyed by two 32-bit
+ * hashes of the bits and the size. */
+#define M8_SC_ENTRIES       384
+#define M8_SC_W             (M8_CURSOR_SAVE_X)      /* 992: clear of the cursor's corner */
+#define M8_SC_MAX_H         32
+
+typedef struct {
+    DWORD   h1;
+    DWORD   h2;
+    WORD    wb;
+    WORD    h;
+    int     x;
+    int     y;
+    int     plane;
+} M8_SCENTRY;
+
+static M8_SCENTRY   m8_sc[M8_SC_ENTRIES];
+static int          m8_sc_n;
+static int          m8_sc_plane;
+static int          m8_sc_x;
+static int          m8_sc_y;
+static int          m8_sc_shelf;
+
+static int m8_sc_rows( void )
+{
+    return( M8_SCREEN_Y >= 768 ? 96 : 128 );
+}
+
+static int m8_sc_top( void )
+{
+    return( M8_CURSOR_SAVE_Y - m8_sc_rows() );
+}
+
+static void m8_sc_flush( void )
+{
+    m8_sc_n = 0;
+    m8_sc_plane = 0;
+    m8_sc_x = 0;
+    m8_sc_y = 0;
+    m8_sc_shelf = 0;
+}
+
+/* A free spot for w x h, or 0 when every plane is full. */
+static int m8_sc_alloc( int w, int h, int *x, int *y, int *plane )
+{
+    for( ;; ) {
+        if( m8_sc_x + w > M8_SC_W ) {
+            m8_sc_y += m8_sc_shelf;
+            m8_sc_x = 0;
+            m8_sc_shelf = 0;
+        }
+        if( m8_sc_y + h <= m8_sc_rows() ) {
+            break;
+        }
+        if( ++m8_sc_plane >= 8 ) {
+            return( 0 );
+        }
+        m8_sc_x = 0;
+        m8_sc_y = 0;
+        m8_sc_shelf = 0;
+    }
+    *x = m8_sc_x;
+    *y = m8_sc_top() + m8_sc_y;
+    *plane = m8_sc_plane;
+    m8_sc_x += w;
+    if( h > m8_sc_shelf ) {
+        m8_sc_shelf = h;
+    }
+    return( 1 );
+}
+
+/* The cached copy of this string: found, or stored now. NULL if it cannot be
+ * cached (too big, or the cache is full and has just been cleared). */
+static M8_SCENTRY *m8_sc_get( const BYTE FAR *bits, WORD wb, WORD h )
+{
+    DWORD       h1 = 2166136261UL;
+    DWORD       h2 = 0;
+    DWORD       n = (DWORD)wb * h;
+    DWORD       i;
+    int         k;
+    M8_SCENTRY  *e;
+
+    if( (int)wb * 8 > M8_SC_W || h > M8_SC_MAX_H || (int)h > m8_sc_rows() ) {
+        return( NULL );
+    }
+    for( i = 0; i < n; ++i ) {
+        h1 = (h1 ^ bits[i]) * 16777619UL;
+        h2 = (h2 << 5) + h2 + bits[i] + i;
+    }
+    for( k = 0; k < m8_sc_n; ++k ) {
+        e = &m8_sc[k];
+        if( e->h1 == h1 && e->h2 == h2 && e->wb == wb && e->h == h ) {
+            M8_STEP( M8_MARK_SC_HIT );
+            return( e );
+        }
+    }
+    if( m8_sc_n >= M8_SC_ENTRIES ) {
+        m8_sc_flush();
+    }
+    e = &m8_sc[m8_sc_n];
+    if( !m8_sc_alloc( wb * 8, h, &e->x, &e->y, &e->plane ) ) {
+        m8_sc_flush();
+        return( NULL );
+    }
+    e->h1 = h1;
+    e->h2 = h2;
+    e->wb = wb;
+    e->h = h;
+    ++m8_sc_n;
+    M8_STEP( M8_MARK_SC_STORE );
+    m8_hw_mono_plane( e->x, e->y, wb, h, bits, e->plane );
+    return( e );
+}
+
 /* Engine text: DIB_ExtTextOutExt lays the string out and calls back with the
  * opaque rectangle and with the string as one mono bitmap (rows of
  * width_bytes, leftmost pixel in each byte's top bit; the callback list is the
@@ -1263,6 +1383,17 @@ static WORD WINAPI __loadds m8_text_bitmap( LPDIBENGINE lpDevice, BYTE FAR *lpBi
         return( 1 );
     }
     m8_exclude( &r );
+    {
+        M8_SCENTRY *e = m8_sc_get( lpBits, wWidthBytes, wHeight );
+
+        if( e != NULL ) {
+            /* The visible part only: the blit has no scissors of its own. */
+            m8_hw_plane_blit( e->x + (r.l - x), e->y + (r.t - y), r.l, r.t,
+                              r.r - r.l, r.b - r.t, e->plane, (BYTE)dwFg, (BYTE)dwBg,
+                              wFlags & 1 );
+            return( 1 );
+        }
+    }
     m8_hw_mono( x, y, wWidthBytes, wHeight, lpBits,
                 M8_MIX_SRC_FRGD | M8_MIX_REPLACE, (BYTE)dwFg,
                 (wFlags & 1) ? M8_MIX_LEAVE : M8_MIX_SRC_BKGD | M8_MIX_REPLACE, (BYTE)dwBg,
@@ -1681,9 +1812,9 @@ WORD WINAPI __loadds SaveScreenBitmap( LPRECT lpRect, WORD wCmd )
     m8_rect_and( &r, &scr );
     w = r.r - r.l;
     h = r.b - r.t;
-    /* Up to the cursor's save area in the bottom-right corner: 512 rows at
-     * 640x480, 392 at 800x600, 224 at 1024x768. */
-    if( w <= 0 || h <= 0 || w > M8_PITCH || h > M8_CURSOR_SAVE_Y - M8_SSB_Y ) {
+    /* Up to the string cache: 384 rows at 640x480, 264 at 800x600, 128 at
+     * 1024x768. */
+    if( w <= 0 || h <= 0 || w > M8_PITCH || h > m8_sc_top() - M8_SSB_Y ) {
         return( 0 );
     }
     M8_STEP( M8_MARK_SSB_SAVE );
@@ -1806,6 +1937,7 @@ int m8_screen_init( LPDIBENGINE screen )
 
     m8_screen = screen;
     m8_ssb_used = 0;
+    m8_sc_flush();
     /* The DIB Engine calls these on the screen around engine text; the cursor
      * is excluded by the callbacks themselves. */
     screen->deBeginAccess = (void (WINAPI *)())m8_begin_access;
@@ -1829,6 +1961,7 @@ int m8_screen_init( LPDIBENGINE screen )
 void m8_screen_suspend( void )
 {
     m8_busy = 1;
+    m8_sc_flush();
     m8_cur_shown = 0;
     m8_cur_pending = 0;
     m8_ssb_used = 0;

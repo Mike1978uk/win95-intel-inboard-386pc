@@ -37,6 +37,7 @@ extern int m8_scr_y;
 #define M8_CMD              0x9AE8      /* write */
 #define M8_FRGD_COLOR       0xA6E8
 #define M8_WRT_MASK         0xAAE8
+#define M8_RD_MASK          0xAEE8
 #define M8_FRGD_MIX         0xBAE8
 #define M8_MULTIFUNC_CNTL   0xBEE8
 #define M8_PIX_TRANS        0xE2E8
@@ -97,6 +98,7 @@ extern int m8_scr_y;
 #define M8_CMD_BLIT         0xC053      /* screen-to-screen, add the increment bits */
 #define M8_CMD_INC_X        0x0020
 #define M8_CMD_INC_Y        0x0080
+#define M8_CMD_PLANE_BLIT   0xC0B3      /* blit, source mixes chosen by a plane (M8TIME A) */
 
 /* The FIFO is 16 entries deep and drops writes when full (card, 10-10). */
 #define M8_FIFO_DEPTH       16
@@ -134,6 +136,10 @@ extern int  m8_hw_wait_idle( void );
 extern void m8_hw_fill( int x, int y, int w, int h, BYTE color );
 extern void m8_hw_fill_mix( int x, int y, int w, int h, BYTE color, WORD mix );
 extern void m8_hw_copy( int sx, int sy, int dx, int dy, int w, int h );
+extern void m8_hw_mono_plane( int x, int y, WORD width_bytes, WORD height, const BYTE FAR *bits,
+                              int plane );
+extern void m8_hw_plane_blit( int sx, int sy, int dx, int dy, int w, int h, int plane,
+                              BYTE fg, BYTE bg, int transparent );
 extern void m8_hw_mono( int x, int y, WORD width_bytes, WORD height, const BYTE FAR *bits,
                         WORD fg_mix, BYTE fg, WORD bg_mix, BYTE bg,
                         int clip_l, int clip_t, int clip_r, int clip_b );
@@ -158,6 +164,8 @@ extern void m8_hw_marker( WORD value );
 #define M8_MARK_TEXT_FALLBACK 0xB0E0  /* engine text declined; the fallback follows */
 #define M8_MARK_CURSOR_SHOW 0xA100  /* then x, y of the area saved */
 #define M8_MARK_CURSOR_HIDE 0xA101  /* then x, y of the area restored */
+#define M8_MARK_SC_HIT      0xB0F1  /* string cache: drawn from video memory */
+#define M8_MARK_SC_STORE    0xB0F2  /* string cache: stored, then drawn */
 #define M8_MARK_SSB_SAVE    0xB0D0
 #define M8_MARK_SSB_RESTORE 0xB0D1
 #define M8_MARK_SSB_CORRUPT 0xEBAD  /* then l, t, r, b of the overwritten rectangle */

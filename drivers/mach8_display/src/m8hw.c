@@ -357,6 +357,59 @@ void m8_hw_mono( int x, int y, WORD width_bytes, WORD height, const BYTE FAR *bi
     ++m8_stats[M8_STAT_TEXT_HW];
 }
 
+/* Write 1-bit data into one bit-plane of video memory (the string cache): the
+ * mono expansion with WRT_MASK limited to that plane, 1 bits as FFh and 0 bits
+ * as 00h, so only the plane's bit changes. */
+void m8_hw_mono_plane( int x, int y, WORD width_bytes, WORD height, const BYTE FAR *bits,
+                       int plane )
+{
+    if( m8_hw_off ) {
+        return;
+    }
+    m8_wait_fifo_empty();
+    outpw( M8_WRT_MASK, 1 << plane );
+    m8_hw_mono( x, y, width_bytes, height, bits,
+                M8_MIX_SRC_FRGD | M8_MIX_REPLACE, 0xFF,
+                M8_MIX_SRC_BKGD | M8_MIX_REPLACE, 0x00,
+                x, y, x + width_bytes * 8 - 1, y + height - 1 );
+    outpw( M8_WRT_MASK, 0x00FF );
+}
+
+/* Draw 1-bit data from a bit-plane of video memory: the plane-select blit
+ * (M8TIME test A on the card, 51 us a glyph). PIX_CNTL lets the plane that
+ * RD_MASK selects pick the foreground or background mix; RD_MASK is the plane's
+ * bit rotated left by one (plane 5 -> 40h, measured). */
+void m8_hw_plane_blit( int sx, int sy, int dx, int dy, int w, int h, int plane,
+                       BYTE fg, BYTE bg, int transparent )
+{
+    if( m8_hw_off || w <= 0 || h <= 0 ) {
+        return;
+    }
+    m8_wait_fifo_empty();
+    outpw( M8_MULTIFUNC_CNTL, M8_MF_PIX_CNTL | 0x00C0 );
+    outpw( M8_RD_MASK, (1 << ((plane + 1) & 7)) & 0xFF );
+    outpw( M8_FRGD_MIX, M8_MIX_SRC_FRGD | M8_MIX_REPLACE );
+    outpw( M8_FRGD_COLOR, fg );
+    if( transparent ) {
+        outpw( M8_BKGD_MIX, M8_MIX_LEAVE );
+    } else {
+        outpw( M8_BKGD_COLOR, bg );
+        outpw( M8_BKGD_MIX, M8_MIX_SRC_BKGD | M8_MIX_REPLACE );
+    }
+    outpw( M8_CUR_X, sx );
+    outpw( M8_CUR_Y, sy );
+    outpw( M8_DESTX_DIASTP, dx );
+    outpw( M8_DESTY_AXSTP, dy );
+    outpw( M8_MAJ_AXIS_PCNT, w - 1 );
+    outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
+    outpw( M8_CMD, M8_CMD_PLANE_BLIT );
+    m8_hw_wait_idle();
+    outpw( M8_MULTIFUNC_CNTL, M8_MF_PIX_CNTL );
+    outpw( M8_RD_MASK, 0x00FF );
+    outpw( M8_BKGD_MIX, M8_MIX_SRC_BKGD | M8_MIX_REPLACE );
+    ++m8_stats[M8_STAT_TEXT_HW];
+}
+
 /* A value the tap logs between operations, so a capture splits per GDI call. */
 void m8_hw_marker( WORD value )
 {
