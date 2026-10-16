@@ -403,3 +403,6 @@ Prime suspect: the DIB Engine writing past the 48-byte header of our temporary s
 DGROUP). Now: a second, separately placed copy of the rectangle is compared on every m8_enter; the first mismatch
 logs EBAD + l,t,r,b after the current entry's marker; a restore with a bad or mismatched rectangle refuses (USER
 repaints).
+**Third SSB run (`1e14321`, m8disp_d8b_ssb3_1016.log):** owner tried repeatedly (Start menu, submenus, right-click
+menus); not reproduced. 62 saves, 62 restores, all paired; the detector (EBAD) never fired. Intermittent. Detector and
+guarded restore stay in; the next occurrence names the entry that overwrites the rectangle.
