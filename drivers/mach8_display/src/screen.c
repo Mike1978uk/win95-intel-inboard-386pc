@@ -24,7 +24,7 @@
 
 #define M8_BUF_BYTES        0xFFF0u     /* one strip; < 64 KB so one selector covers it */
 #define M8_CURSOR_MAX       32
-#define M8_PATTERN_EXPANSION 0     /* two-colour patterns by mono expansion: see BitBlt */
+#define M8_PATTERN_EXPANSION 1     /* two-colour patterns by mono expansion: see BitBlt */
 #define M8_CURSOR_SAVE_W    (M8_CURSOR_MAX + 2)     /* even-aligned around a 32-wide cursor */
 
 /* Rectangle, right and bottom exclusive. */
@@ -563,18 +563,20 @@ static int m8_rop_uses_pat( DWORD rop )
 
 /* A realized brush as at most two colours: returns 0 if it is not, 1 for a
  * solid colour (c1), 2 for a pattern - pat[row] has bit 7 for column 0, a 1
- * bit is c1 and a 0 bit c2. Colour and dithered brushes are read from the 8 bpp
- * pattern the DIB Engine renders (dp8BrushBits). Hatched brushes, whose gaps
+ * bit is c1 and a 0 bit c2. The pattern is what the DIB Engine itself paints:
+ * an 8x8 PATCOPY into a scratch bitmap in RAM (no bus traffic). Reading the
+ * realized brush directly failed - dp8BrushMono had rows 1 byte apart in one
+ * brush and 4 apart in another (shutdown grey-out came out in 4-row bands), and
+ * dp8BrushBits is not filled for solid brushes. Hatched brushes, whose gaps
  * depend on the background mode, are not handled. */
 static int m8_brush_colours( LPBRUSH brush, LPDRAWMODE dm, BYTE *c1, BYTE *c2, BYTE *pat )
 {
     DIB_Brush8 FAR  *b = (DIB_Brush8 FAR *)brush;
+    M8_RECT         cell;
+    BYTE FAR        *px;
     int             i;
     int             two = 0;
 
-    /* Not dp8BrushBpp: it does not read 8 for this screen's solid brushes
-     * (bed, 10-16: every solid PATCOPY fell back). The screen is 8 bpp, so the
-     * realized pattern is 8 bpp. */
     if( b == NULL ) {
         return( 0 );
     }
@@ -582,39 +584,29 @@ static int m8_brush_colours( LPBRUSH brush, LPDRAWMODE dm, BYTE *c1, BYTE *c2, B
     if( b->dp8BrushStyle != 0 && b->dp8BrushStyle != 3 ) {
         return( 0 );
     }
-    /* A mono-bitmap brush takes the draw mode's colours, as Windows defines it
-     * (1 = background, 0 = text). dp8BrushMono holds one byte per row: the
-     * bed's halftone brushes logged 55 AA 55 AA ... across all 32 bytes, so
-     * rows 0-7 are bytes 0-7 (what follows is further copies). */
-    if( b->dp8BrushFlags & PATTERNMONO ) {
-        if( dm == NULL ) {
-            return( 0 );
-        }
-        *c1 = (BYTE)dm->bkColor;
-        *c2 = (BYTE)dm->TextColor;
-        for( i = 0; i < 8; ++i ) {
-            pat[i] = b->dp8BrushMono[i];
-        }
-        return( 2 );
-    }
-    /* COLORSOLID: only the start of dp8BrushBits is the colour (the bed's solid
-     * brushes failed a two-colour scan of all 64 bytes). Take the flag, as the
-     * DDK samples and velocity9x do. */
+    /* COLORSOLID: the start of dp8BrushBits is the colour, as the DDK samples
+     * and velocity9x read it. */
     *c1 = b->dp8BrushBits[0];
     if( b->dp8BrushFlags & COLORSOLID ) {
         return( 1 );
     }
+
+    m8_src.pitch = 8;
+    m8_rect_set( &cell, 0, 0, 8, 8 );
+    m8_strip_place( &m8_src, &cell );
+    DIB_BitBlt( &m8_src.dev, 0, 0, NULL, 0, 0, 8, 8, 0x00F00021UL, brush, dm );
+    px = m8_src.bits;
+
+    *c1 = px[0];
     *c2 = *c1;
     for( i = 0; i < 64; ++i ) {
-        BYTE p = b->dp8BrushBits[i];
-
-        if( p == *c1 ) {
+        if( px[i] == *c1 ) {
             continue;
         }
         if( !two ) {
-            *c2 = p;
+            *c2 = px[i];
             two = 1;
-        } else if( p != *c2 ) {
+        } else if( px[i] != *c2 ) {
             return( 0 );
         }
     }
@@ -626,11 +618,12 @@ static int m8_brush_colours( LPBRUSH brush, LPDRAWMODE dm, BYTE *c1, BYTE *c2, B
         BYTE    bits = 0;
 
         for( col = 0; col < 8; ++col ) {
-            if( b->dp8BrushBits[i * 8 + col] == *c1 ) {
+            if( px[i * 8 + col] == *c1 ) {
                 bits |= (BYTE)(0x80 >> col);
             }
         }
         pat[i] = bits;
+        M8_STEP( 0xE200 | bits );
     }
     return( 2 );
 }
@@ -741,10 +734,9 @@ BOOL WINAPI __loadds BitBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPD
                 m8_leave();
                 return( TRUE );
             }
-            /* Pattern expansion drew wrongly in the bed (10-16: Explorer's focus
-             * rectangle left dots behind, the shutdown grey-out came out in
-             * stripes, the default button's frame dashed); ATIM8 and the fallback
-             * draw all three correctly. Off until the pattern mapping is found. */
+            /* Two-colour patterns come from the DIB Engine's own 8x8 rendering
+             * (m8_brush_colours); M8_PATTERN_EXPANSION 0 sends them back to the
+             * fallback. */
             if( kind == 2 && M8_PATTERN_EXPANSION ) {
                 m8_enter( &r );
                 m8_pattern_fill( wDestX, wDestY, wXext, wYext, pat, c1, c2, mix );

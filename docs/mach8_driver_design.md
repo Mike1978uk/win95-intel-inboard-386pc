@@ -367,3 +367,12 @@ Lesson: "the operation overwrites its rectangle" holds only after clipping to th
 the card (owner). Minor, open: on a click, a couple of white pixels flash at each top corner of the card - too fast to
 capture; may be Solitaire's own drawing (its rounded-corner masks, or the click inversion). Compare with ATIM8 before
 treating it as ours.
+
+### Pattern brushes through the DIB Engine's own rendering, 2026-10-16 (new session)
+
+The striped grey-out decoded (`m8disp_d8b_castle_retest_1016.log.gz`, full-screen ROP 0A): we sent 4-row bands
+(200 words of 5555, then 200 of AAAA, 50 words per row) - pat[] was 55 55 55 55 AA AA AA AA, so that brush's
+dp8BrushMono holds rows 4 bytes apart, while the drag-outline brushes dumped earlier alternate every byte. Two
+layouts, neither documented. Now: the driver has the DIB Engine paint the brush into an 8x8 scratch bitmap in RAM
+(one DIB_BitBlt PATCOPY, CPU only) and takes the pattern from those 64 pixels - what the DIB Engine itself would
+draw, for every brush kind. Pattern expansion is back on; the trace logs the 8 pattern bytes (E2xx) per call.
