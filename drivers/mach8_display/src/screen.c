@@ -596,7 +596,13 @@ static int m8_brush_colours( LPBRUSH brush, LPDRAWMODE dm, BYTE *c1, BYTE *c2, B
         }
         return( 2 );
     }
+    /* COLORSOLID: only the start of dp8BrushBits is the colour (the bed's solid
+     * brushes failed a two-colour scan of all 64 bytes). Take the flag, as the
+     * DDK samples and velocity9x do. */
     *c1 = b->dp8BrushBits[0];
+    if( b->dp8BrushFlags & COLORSOLID ) {
+        return( 1 );
+    }
     *c2 = *c1;
     for( i = 0; i < 64; ++i ) {
         BYTE p = b->dp8BrushBits[i];
