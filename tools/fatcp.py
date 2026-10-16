@@ -169,7 +169,22 @@ def make_dir(fs, dest):
     print("created %s (cluster %d)" % (dest, c))
 
 
+def emulator_running():
+    """86Box keeps the image open and writes its own sectors back on exit, so a
+    write from here while it runs can be lost or mixed (2026-10-16). Windows only;
+    elsewhere this check is skipped."""
+    if os.name != 'nt':
+        return False
+    import subprocess
+    out = subprocess.run(['tasklist', '/FI', 'IMAGENAME eq 86Box.exe', '/NH'],
+                         capture_output=True, text=True).stdout
+    return '86Box.exe' in out
+
+
 def main():
+    if emulator_running() and '--while-running' not in sys.argv:
+        sys.exit('86Box is running: close the VM before writing into its image '
+                 '(--while-running overrides)')
     args = [a for a in sys.argv[1:] if not a.startswith('--')]
     opts = [a for a in sys.argv[1:] if a.startswith('--')]
     attr = 0x20
