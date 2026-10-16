@@ -731,16 +731,26 @@ static DWORD m8_draw_strblt( void *ctx, LPDIBENGINE dev, LPRECT c )
     return( DIB_StrBlt( dev, t->x, t->y, &clip, t->str, t->count, t->font, t->dm, t->xform ) );
 }
 
-/* The text's own box from a measuring call (negative count draws nothing),
- * widened for italic overhang, joined with the opaque rectangle and clipped. */
-static void m8_text_bound( M8_TEXT *t, DWORD extent, M8_RECT *bound )
+/* The rows the text can touch: from y down by the font's height, with a margin,
+ * across the clip; joined with the opaque rectangle and clipped. A measuring
+ * call (negative count) is no guide - it returned a 2-row height for icon
+ * labels. Rotated text, or a height that makes no sense, takes the whole clip. */
+static void m8_text_bound( M8_TEXT *t, M8_RECT *bound )
 {
     M8_RECT box;
     M8_RECT op;
+    int     h = 0;
 
-    m8_rect_set( &box, t->x - 8, t->y, t->x + LOWORD( extent ) + 8, t->y + HIWORD( extent ) );
-    if( LOWORD( extent ) == 0 || HIWORD( extent ) == 0 ) {
-        m8_rect_screen( &box );
+    if( t->font != NULL ) {
+        h = t->font->dfPixHeight;
+    }
+    if( t->xform != NULL && t->xform->ftHeight > h ) {
+        h = t->xform->ftHeight;
+    }
+    m8_rect_screen( &box );
+    if( h > 0 && h < M8_SCREEN_Y && (t->xform == NULL || t->xform->ftEscapement == 0) ) {
+        box.t = t->y - 4;
+        box.b = t->y + h + 4;
     }
     if( t->opaque != NULL ) {
         m8_rect_from_gdi( &op, t->opaque );
@@ -761,23 +771,21 @@ DWORD WINAPI __loadds ExtTextOut( LPPDEVICE lpDestDev, WORD wDestXOrg, WORD wDes
 {
     M8_TEXT t;
     M8_RECT bound;
-    DWORD   extent;
 
     if( !m8_is_screen( lpDestDev ) ) {
         return( DIB_ExtTextOut( lpDestDev, wDestXOrg, wDestYOrg, lpClipRect, lpString, wCount,
                                 lpFontInfo, lpDrawMode, lpTextXForm, lpCharWidths,
                                 lpOpaqueRect, wOptions ) );
     }
-    /* A negative count only measures: no pixels, so any surface will do. A
-     * zero count with an opaque rectangle is a fill and still draws. */
-    extent = 0;
-    if( wCount != 0 ) {
-        extent = DIB_ExtTextOut( &m8_dst.dev, wDestXOrg, wDestYOrg, lpClipRect, lpString,
-                                 wCount < 0 ? wCount : -wCount, lpFontInfo, lpDrawMode,
-                                 lpTextXForm, lpCharWidths, NULL, wOptions );
+    /* A negative count only measures: no pixels, so any surface will do. */
+    if( wCount < 0 ) {
+        return( DIB_ExtTextOut( &m8_dst.dev, wDestXOrg, wDestYOrg, lpClipRect, lpString, wCount,
+                                lpFontInfo, lpDrawMode, lpTextXForm, lpCharWidths, NULL,
+                                wOptions ) );
     }
-    if( wCount < 0 || (wCount == 0 && lpOpaqueRect == NULL) ) {
-        return( extent );
+    /* A zero count with an opaque rectangle is a fill and still draws. */
+    if( wCount == 0 && lpOpaqueRect == NULL ) {
+        return( 1 );
     }
     ++m8_stats[M8_STAT_EXTTEXTOUT];
     t.x = wDestXOrg;
@@ -791,9 +799,9 @@ DWORD WINAPI __loadds ExtTextOut( LPPDEVICE lpDestDev, WORD wDestXOrg, WORD wDes
     t.widths = lpCharWidths;
     t.opaque = lpOpaqueRect;
     t.options = wOptions;
-    m8_text_bound( &t, extent, &bound );
+    m8_text_bound( &t, &bound );
     m8_fallback( &bound, 1, 1, 0, m8_draw_exttextout, &t );
-    return( extent );
+    return( 1 );
 }
 
 DWORD WINAPI __loadds StrBlt( LPPDEVICE lpDestDev, WORD wDestXOrg, WORD wDestYOrg,
@@ -803,20 +811,14 @@ DWORD WINAPI __loadds StrBlt( LPPDEVICE lpDestDev, WORD wDestXOrg, WORD wDestYOr
 {
     M8_TEXT t;
     M8_RECT bound;
-    DWORD   extent;
 
     if( !m8_is_screen( lpDestDev ) ) {
         return( DIB_StrBlt( lpDestDev, wDestXOrg, wDestYOrg, lpClipRect, lpString, wCount,
                             lpFontInfo, lpDrawMode, lpTextXForm ) );
     }
-    if( (int)wCount == 0 ) {
-        return( 0 );
-    }
-    extent = DIB_StrBlt( &m8_dst.dev, wDestXOrg, wDestYOrg, lpClipRect, lpString,
-                         (int)wCount < 0 ? wCount : (WORD)-(int)wCount, lpFontInfo,
-                         lpDrawMode, lpTextXForm );
-    if( (int)wCount < 0 ) {
-        return( extent );
+    if( (int)wCount <= 0 ) {
+        return( DIB_StrBlt( &m8_dst.dev, wDestXOrg, wDestYOrg, lpClipRect, lpString, wCount,
+                            lpFontInfo, lpDrawMode, lpTextXForm ) );
     }
     ++m8_stats[M8_STAT_STRBLT];
     t.x = wDestXOrg;
@@ -828,9 +830,9 @@ DWORD WINAPI __loadds StrBlt( LPPDEVICE lpDestDev, WORD wDestXOrg, WORD wDestYOr
     t.dm = lpDrawMode;
     t.xform = lpTextXForm;
     t.opaque = NULL;
-    m8_text_bound( &t, extent, &bound );
+    m8_text_bound( &t, &bound );
     m8_fallback( &bound, 1, 1, 0, m8_draw_strblt, &t );
-    return( extent );
+    return( 1 );
 }
 
 /* ------------------------------------------------------ DIBs to the screen */
