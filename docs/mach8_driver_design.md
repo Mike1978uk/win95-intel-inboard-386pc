@@ -464,3 +464,8 @@ Owner: all correct (icons, toolbars, Solitaire). Bitmap cache 595 hits / 32 stor
 stores (83%, longer session). Text declines: 2, both strings starting off the top/left edge (reason 3). But 1,486
 DIB SRCCOPY copies still went the upload route (3.3 M px): the cache's size limit of 4,096 px excludes Solitaire's
 cards (71x96 = 6,816 px) - raise it.
+**Bitmap cache up to 8,192 px (`9f1ab5b`, `m8disp_d9_bmpcache2_1017.log.gz`):** owner: all correct. Cards now cached:
+596 hits / 334 stores; all DIB SRCCOPY work 4.4 ms per call against 13.5 ms the run before. Stores now dominate
+(1.9 M px, 7.4 s): the strip at 800x600 (192x600) holds about a dozen cards and the cache clears everything when full,
+so cards are uploaded again and again. **Next for the cache:** more room (off-screen rows shared with SSB and the
+string cache, sized per mode) and evict the least recently used entry instead of flushing all.

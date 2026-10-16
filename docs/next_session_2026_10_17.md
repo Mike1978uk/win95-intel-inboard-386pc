@@ -51,7 +51,8 @@ silicon ATI's drivers never used - kept wherever a measurement shows a gain. Lea
   the DDK header dropped __loadds); live mode change (ReEnable); DOS switching; DibToDevice coverage test.
 - **D9 new league started:** string cache in 8 video-memory bit-planes (83% hits), bitmap cache by content in the
   off-screen strip (95% hits), write-back as runs. Last build `9f1ab5b` (bitmap cache up to 8,192 px for Solitaire's
-  cards) is in the bed image, **not yet run**.
+  cards) ran 10-17: cards cached, bitmap work 13.5 -> 4.4 ms per call; the strip thrashes (clear-all eviction) -
+  next: LRU eviction and more cache room.
 - **Next:** run `9f1ab5b`; then D9 (2) engine lines, colour-compare transparency; then the timed 5160 run vs ATIM8.
   D8c (16-colour modes) for parity. Open: SSB rectangle overwrite (intermittent, guarded), Solitaire corner flash.
 - Bed: on m8disp.drv, monitor set to Super VGA 1024x768. `tools/fatcp.py` refuses to write while 86Box runs.
