@@ -450,3 +450,10 @@ own first (or last) column. Now read into m8_src and only the outer column copie
 **Edge-fix run (`2c1f6ed`, `m8disp_d8_edgefix_1016.log.gz`):** folder icons correct (owner). DibToDevice no longer
 among the top costs (covered strips need no read-back); bitmap uploads 6.4 ms per call; no SSB overwrite. Session
 ~20 s estimated bus time (7,409 PATCOPY calls - a longer session than the last).
+
+### String cache (`c578aa6`, `m8disp_d9_strcache_1016.log.gz`)
+
+Owner: all correct (800x600, plus 1024x768 and back). 749 hits, 603 stores in one session (55% hit rate, first
+use). Text cost per ExtTextOut 0.53 -> 0.39 ms (store 451 ms + hits 156 ms + the rest 332 ms over 2,424 calls).
+Open: 48 strings fell back to the read-back path (1.6 s) against 15 in the previous run - find what the callback
+refused before building on it.
