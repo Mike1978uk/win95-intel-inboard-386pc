@@ -108,7 +108,8 @@
 #define M8_STAT_TEXT_HW     14      /* mono expansions: text and cursor */
 #define M8_STAT_TEXT_FAIL   15      /* engine text declined, drawn by the fallback */
 #define M8_STAT_RUN_FILL    16      /* write-back runs sent as fills */
-#define M8_STAT_COUNT       17
+#define M8_STAT_COVERED     17      /* strips drawn without a read-back (m8_covered) */
+#define M8_STAT_COUNT       18
 
 extern DWORD m8_stats[M8_STAT_COUNT];
 

@@ -519,9 +519,43 @@ static void m8_leave( void )
 typedef DWORD (*M8_DRAW)( void *ctx, LPDIBENGINE dev, LPRECT clip );
 
 /* Run `draw` over `bound` in strips. `read` = the operation depends on what
- * is on the screen (or does not cover all of its rectangle); `write` = it
- * changes the screen. `bottom_up` when a screen source lies above the
+ * is on the screen (or does not cover all of its rectangle); M8_READ_IF_UNCOVERED
+ * = it should cover it but the driver cannot tell which rows it draws (see
+ * m8_covered); `write` = it changes the screen. `bottom_up` when a screen source lies above the
  * destination: top-down, a strip would overwrite source rows not yet read. */
+#define M8_READ_IF_UNCOVERED 2
+
+/* Draw the strip twice, into buffers pre-filled 00h and FFh: a pixel equal in
+ * both was drawn, one that differs was not. 1 if every pixel of `area`'s
+ * columns was drawn - then the screen need not be read. The second draw is in
+ * RAM only. */
+static int m8_covered( M8_DRAW draw, void *ctx, const M8_RECT *s, const M8_RECT *area,
+                       LPRECT clip )
+{
+    DWORD       n = (DWORD)(s->b - s->t) * m8_dst.pitch;
+    int         y;
+    int         x;
+    BYTE FAR    *p;
+    BYTE FAR    *q;
+
+    m8_src.pitch = m8_dst.pitch;
+    m8_strip_place( &m8_src, s );
+    _fmemset( m8_dst.bits, 0x00, (size_t)n );
+    _fmemset( m8_src.bits, 0xFF, (size_t)n );
+    draw( ctx, &m8_dst.dev, clip );
+    draw( ctx, &m8_src.dev, clip );
+    for( y = 0; y < s->b - s->t; ++y ) {
+        p = m8_dst.bits + (DWORD)y * m8_dst.pitch;
+        q = m8_src.bits + (DWORD)y * m8_dst.pitch;
+        for( x = area->l - s->l; x < area->r - s->l; ++x ) {
+            if( p[x] != q[x] ) {
+                return( 0 );
+            }
+        }
+    }
+    return( 1 );
+}
+
 static DWORD m8_fallback( const M8_RECT *bound_in, int read, int write, int bottom_up,
                           M8_DRAW draw, void *ctx )
 {
@@ -569,16 +603,24 @@ static DWORD m8_fallback( const M8_RECT *bound_in, int read, int write, int bott
             }
         }
         m8_strip_place( &m8_dst, &s );
-        if( read ) {
-            m8_strip_read( &m8_dst, &s );
-        } else if( edges ) {
-            m8_strip_read_edges( &m8_dst, &s, &area );
-        }
         clip.left = area.l;
         clip.top = s.t;
         clip.right = area.r;
         clip.bottom = s.b;
-        rc = draw( ctx, &m8_dst.dev, &clip );
+        if( read == M8_READ_IF_UNCOVERED && m8_covered( draw, ctx, &s, &area, &clip ) ) {
+            /* Drawn already, into m8_dst; only the alignment columns are read. */
+            if( bound.l != area.l || bound.r != area.r ) {
+                m8_strip_read_edges( &m8_dst, &s, &area );
+            }
+            ++m8_stats[M8_STAT_COVERED];
+        } else {
+            if( read ) {
+                m8_strip_read( &m8_dst, &s );
+            } else if( edges ) {
+                m8_strip_read_edges( &m8_dst, &s, &area );
+            }
+            rc = draw( ctx, &m8_dst.dev, &clip );
+        }
         if( write ) {
             m8_strip_write( &m8_dst, &s );
         }
@@ -1369,7 +1411,7 @@ WORD WINAPI __loadds DibToDevice( LPPDEVICE lpDestDev, WORD X, WORD Y, WORD iSca
     d.info = lpBitmapInfo;
     d.xlat = lpTranslate;
     m8_rect_from_gdi( &bound, lpClipRect );
-    m8_fallback( &bound, 1, 1, 0, m8_draw_dibtodev, &d );
+    m8_fallback( &bound, M8_READ_IF_UNCOVERED, 1, 0, m8_draw_dibtodev, &d );
     return( cScans );
 }
 
