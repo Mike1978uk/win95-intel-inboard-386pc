@@ -204,3 +204,21 @@ Per-read costs match the 2026-09-20 I/O measurement (~5.7 us per byte-wide port 
   always reads 00h** (read-only or absent). Memory-read timing ~7 us/word, +-15% with no pattern by bit. The line-counter
   arm failed on every record including the baseline: it wrote the index once and re-read 1CFh - **the 28800 latches the
   value at the index write**, so each counter poll must rewrite the index (M8RAST did; its 11.5 us includes that).
+
+## L4 third sitting, 2026-10-16 (`docs/captures/2026-10-16_l4/5160_M8SSV3.BIN`; M8FLIP4 watched)
+
+- **M8SSV3 - EXT_SHORT_STROKE decoded on the card (as set up: DP_CONFIG 2211h, LINEDRAW_OPT not written):** either byte
+  draws on its own; a null vector draws nothing; a move (bit 4 clear) draws nothing. **Only 45-degree diagonals:** bit 7
+  = down, bit 5 = right, **bit 6 has no effect** - four directions, no horizontal or vertical. Length 4 -> 5 pixels,
+  length 15 -> 9. The guide's "IBM-compatible SSV" (eight directions) does not hold; the model follows the guide.
+  Possibly LINEDRAW_OPT (A2EEh) changes it - untested. **Not a lever as found**; the 8514 SHORT_STROKE (9EE8h) is
+  card-measured correct (M8ROW3) and is the one to use.
+- **M8FLIP4 (owner watched):** A text mode -> white, but **not for the full 3 s**; B after mode 12h -> white; C mode 12h +
+  DISP_CNTL 23h -> white; **D DISP_CNTL 60h -> black** (ENA_DISPLAY reset turns the 8514 output off, as the guide says).
+  So a BIOS mode set does **not** cause M8FLIP3's black. Reading: **each switch between the halves makes the monitor
+  re-sync**, taking over a second on the owner's monitor - M8FLIP3's ~1 s slow switches flipped back before anything
+  showed. Consistent with the halves' different timing (VGA ~5,020 status polls per frame, 8514 ~6,400-7,000) and no
+  phase lock (10-11). Owner to confirm a blank or sync message before the white in arm A.
+- **If confirmed, C1 is answered: switching the output costs a monitor re-sync, so C2 (alternate frames between the
+  halves) and C3 (raster split) are not viable as designed.** Both halves can still work together without switching the
+  output - e.g. the CPU stages data in VGA memory while the engine draws.
