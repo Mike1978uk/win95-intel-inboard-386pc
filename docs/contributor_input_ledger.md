@@ -398,3 +398,7 @@ untested here - our image does not load that driver.
   command 4, MAJ = width, MIN = height; #8289's Graphics Ultra model had them swapped (M8NIB only drew squares).
   Reproduced in `vm_mach8_8514drv` (File Manager selection transposed); fixed on fork branch
   `mach8-nibble-axes` `3b23c04b2`, File Manager clean. M8NIB2 on the card: MAJ = width; fixed build = card byte for byte. 86Box PR #8351 raised 10-16; owner told him. Merged 10-16 (OBattler); owner told him of the merge 10-16. Loop closed.
+- @TC1995, 86Box Discord 2026-10-16 21:12: asks whether he may "merge" our Graphics Ultra work into the Mach8 add-on
+  (VGA combo) and the Mach32, with his own changes, which he says work on all three. Worklist A8 (siblings). Reply is the
+  owner's; suggested: yes, with the Graphics Ultra re-checked after (TEST.COM, M8DPM/M8NIB2/M8A2, non-8514 cards still
+  boot - the #8290 lesson); offer to run our card probes on his branch. Open.
