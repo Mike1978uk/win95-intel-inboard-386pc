@@ -174,6 +174,11 @@ Step 2: our own VxD, to save the registers ATI.VXD does not know (DEST_CMP_FN, B
 - [ ] **D1 TXTBENCH extensions** - bitmap, long fill, palette tests; count port writes too.
 - [ ] **D2 Glyph cache in the driver (#49)**, then icon / brush / save-under caches, then the encoding bitmap path.
 - [ ] **D3 3D probes (M):** cost of a polygon-fill triangle, pre-scaled column blits (RealDOOM shape).
+      Vectors (owner, 10-16 - the Vectrex model): 8514/A short strokes (9EE8, card-proven M8ROW3) are a hardware
+      vector list - one byte = direction (8) + length (0-15), two per word; full lines ~5-6 writes. Estimate ~800-900
+      lines per 33 ms frame; the 486 transforms, the engine draws. Erase by fill, XOR redraw, or 640x480 page flip
+      (CRT_OFFSET, timed by the A9h raster counter). Re-probe EXT_SHORT_STROKE (C6EEh) with CMD set per the guide -
+      a denser encoding if it works. Read M8POLY's result first (`tools/m8seq/M8POLY.ASM`).
 - [ ] **D4 More than 256 colours (owner, 10-11).** Mach8 is 8 bpp only, so: (1) dithered fills from PATTERN_L/H /
       PATT_DATA - same bus cost as a plain fill; probe with A2; (2) palette splits per band on vblank / LINE_SYNC,
       ~1 colour change per line (estimate: ~23 us per entry vs ~32 us line); (3) error diffusion for still images on
