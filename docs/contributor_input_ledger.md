@@ -387,3 +387,7 @@ untested here - our image does not load that driver.
   draws as a black square; "the first is about extended bitblt's (cmd type 2) on the frgd_sel". Not fixed
   upstream on 10-15. Ours to fix (worklist A11); owner replies.
   10-15: reproduced with ATI's ULTRA.DRV (not MACHW3); fixed in 86Box PR #8339; owner told him on Discord 10-15. Loop closed.
+- @TC1995, 86Box Discord 2026-10-16 19:46: #8339 merged; next is "the whole implementation of 8514/a command 4" -
+  Win 3.1's built-in 8514.DRV glitches in File Manager, "with mine it worked fine". For the plain 8514/A, #8289
+  left command 4 on the generic path; its only change there was the colour compare (TRUE now protects, WRT_MASK
+  applies), measured on the Mach8 only. "Mine" (his local code, or pre-#8289) not yet established. Open.
