@@ -684,6 +684,19 @@ BOOL WINAPI __loadds BitBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPD
     }
     M8_ENTRY( M8_STAT_BITBLT );
     M8_STEP( 0xC000 | (m8_src_kind( lpSrcDev, src_screen ) << 8) | rop );
+#ifdef M8_TRACE
+    /* The call's own arguments, after an F0F0 marker: the castle sprite is drawn
+     * wider than ATIM8 draws it, and this shows what GDI passed. */
+    if( m8_src_kind( lpSrcDev, src_screen ) == 2 ) {
+        M8_STEP( 0xF0F0 );
+        M8_STEP( wDestX );
+        M8_STEP( wDestY );
+        M8_STEP( wXext );
+        M8_STEP( wYext );
+        M8_STEP( wSrcX );
+        M8_STEP( wSrcY );
+    }
+#endif
 
     /* Engine paths. A background palette translation is something the engine
      * cannot apply, so it disqualifies them; so does an empty or negative

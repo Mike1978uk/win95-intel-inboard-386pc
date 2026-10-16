@@ -348,3 +348,10 @@ The DIB Engine draws only inside the rectangle GDI passed, so either GDI's recta
 source bitmap holds card-back art there. **Next:** in `atim8_baseline_castle_1016.log.gz`, find ATIM8's uploads for
 the same sprite and compare their width; if ATIM8's is narrower, the difference is in how we read that call's
 arguments (log wDestX/wXext/wSrcX for C2CC calls in a -Trace build).
+
+**ATIM8 baseline, same sprite (`atim8_baseline_castle_1016.log.gz`):** ATIM8 draws the deck card as an extended blit
+(DP_CONFIG 5211) clipped to x 87-157 (71 wide), and the bat sprite at x 129 (42 into the card) clipped to x 129-157 or
+129-154 - **29 and 26 pixels wide, inside the card**. Ours: same 42-pixel offset, uploaded **38 and 36 wide** (alignment
+adds at most 1 per side), so about 8 pixels wider - the overhang. The -Trace build now logs each DIB -> screen BitBlt's
+arguments after an F0F0 marker (wDestX, wDestY, wXext, wYext, wSrcX, wSrcY): one castle run shows whether GDI passes
+us a wider rectangle than ATIM8 draws, or we misread it.
