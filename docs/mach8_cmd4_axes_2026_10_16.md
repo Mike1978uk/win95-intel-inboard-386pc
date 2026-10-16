@@ -69,3 +69,12 @@ Lessons:
   command and the registers in minutes, before any boot.
 - Our own driver will be judged by the same commands. Keep the bed (`vm_mach8_8514drv`) as a reference
   for what correct Win 3.x output looks like on this model.
+
+## Submission gates - 86Box PR #8351 (raised 2026-10-16, head `3b23c04b2`)
+
+G1 pass (no log defines in the diff). G2/G11 siblings (8514/ULTRA add-on, Mach32, IBM 8514/A), a second
+vendor's SVGA and a stock 386/486: **not run** - owner's call, the change is behind `ATI_GRAPHICS_ULTRA`
+and `cmd == 4`. G3/G4/G10: not applicable (no new device or setting). G5 comment re-read. G6 claims are
+card measurements and the bed. G7 built on current master, no warnings in the file. G8 three code lines
+plus the comment. G9 last bed runs on the submitted HEAD's build. CI: the Windows jobs failed in "Prepare
+MSYS2 environment" (signing key "unknown trust"), before compiling - 86Box's CI, not the change.
