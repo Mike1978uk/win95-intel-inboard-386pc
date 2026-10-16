@@ -327,3 +327,11 @@ shutdown since; the earlier blue screen (0D at 0137:BFF72A08, after Disable) has
 
 Tools for both: `tools/m8_fallback_tally.py` (per-entry cost, brush flags), and the one-pixel history script used
 above (to add to tools/ if it is needed again).
+
+**Retest on our driver after `d2808a4` (owner, 10-16 night; `m8disp_d8b_castle_retest_1016.log.gz`):** the castle
+square is smaller but still there; Explorer's focus rectangle leaves dots; the shutdown grey-out is striped and smears
+text (a clean 50% checkerboard is expected); the default-button frame is still dashed. The last three all go through
+the two-colour pattern expansion, which the fallback drew correctly before. **Pattern expansion is off**
+(`M8_PATTERN_EXPANSION 0`, screen.c); solid brushes with any mix stay on the engine. To find before turning it back on:
+the pattern phase and row mapping (stripes suggest every row got the same byte) - check the bits sent against the
+brush in a trace before changing code.

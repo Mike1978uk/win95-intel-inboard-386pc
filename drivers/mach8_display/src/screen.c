@@ -24,6 +24,7 @@
 
 #define M8_BUF_BYTES        0xFFF0u     /* one strip; < 64 KB so one selector covers it */
 #define M8_CURSOR_MAX       32
+#define M8_PATTERN_EXPANSION 0     /* two-colour patterns by mono expansion: see BitBlt */
 #define M8_CURSOR_SAVE_W    (M8_CURSOR_MAX + 2)     /* even-aligned around a 32-wide cursor */
 
 /* Rectangle, right and bottom exclusive. */
@@ -706,7 +707,11 @@ BOOL WINAPI __loadds BitBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPD
                 m8_leave();
                 return( TRUE );
             }
-            if( kind == 2 ) {
+            /* Pattern expansion drew wrongly in the bed (10-16: Explorer's focus
+             * rectangle left dots behind, the shutdown grey-out came out in
+             * stripes, the default button's frame dashed); ATIM8 and the fallback
+             * draw all three correctly. Off until the pattern mapping is found. */
+            if( kind == 2 && M8_PATTERN_EXPANSION ) {
                 m8_enter( &r );
                 m8_pattern_fill( wDestX, wDestY, wXext, wYext, pat, c1, c2, mix );
                 m8_leave();
