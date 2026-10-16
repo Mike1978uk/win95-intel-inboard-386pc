@@ -401,4 +401,4 @@ untested here - our image does not load that driver.
 - @TC1995, 86Box Discord 2026-10-16 21:12: asks whether he may "merge" our Graphics Ultra work into the Mach8 add-on
   (VGA combo) and the Mach32, with his own changes, which he says work on all three. Worklist A8 (siblings). Reply is the
   owner's; suggested: yes, with the Graphics Ultra re-checked after (TEST.COM, M8DPM/M8NIB2/M8A2, non-8514 cards still
-  boot - the #8290 lesson); offer to run our card probes on his branch. Open.
+  boot - the #8290 lesson); offer to run our card probes on his branch. Open. 10-16: owner asked him to share the PR when it is up; we check it then.
