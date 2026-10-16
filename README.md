@@ -234,8 +234,10 @@ and there was nothing to configure.
 
 ## Upstream
 
-**The Intel Inboard 386/PC is part of 86Box.** Eighteen PRs raised from this project are merged;
-none is open.
+**The Intel Inboard 386/PC is part of 86Box.** Twenty PRs raised from this project are merged;
+one is open: [#8351](https://github.com/86Box/86Box/pull/8351) - since #8289, Windows 3.1's own
+8514.DRV drew text backgrounds transposed on the Graphics Ultra (File Manager's selection); command 4
+had its width and height swapped. Measured on the real card.
 
 | Merged PR | What it fixed |
 |---|---|
