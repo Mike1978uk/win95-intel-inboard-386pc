@@ -291,3 +291,10 @@ the extended blit).
 
 Next by cost: cursor 11.9 s (895 moves) - save-under off-screen by engine copy, shape by mono expansion; bitmap
 uploads (DIB SRCCOPY) 11.7 s - runs as fills; screen -> memory 7.6 s; one full-screen ROP 0A 4.6 s.
+
+### Engine cursor result, 2026-10-16 (`m8disp_d8b_cursor_1016.log.gz`)
+
+Save-under by engine copy to off-screen x 800, masks by mono expansion (`f2d2d39`): **13.3 -> 1.0 ms per move**
+(579 moves; 2 read-backs, both the software path at the top/left edge). Owner: cursor, hourglass and I-beam correct,
+no trails, all four edges. Session total ~14 s estimated bus time. Left: one full-screen ROP 0A (shutdown grey-out)
+4.6 s; bitmap uploads 3.1 s; screen -> memory 2.7 s; DibToDevice 1.0 s; patterned F0 0.8 s.
