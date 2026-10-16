@@ -393,3 +393,13 @@ A checkerboard cannot make a solid square, and the square's position (~292,320) 
 screenshot. Not yet explained. Next: mark cursor hide/show copies with their coordinates in the trace, reproduce
 (right-click menu, close, with and without a cancelled shutdown dialog first), and take a full-window screenshot to
 place the square exactly.
+
+**Second SSB run (`m8disp_d8b_ssb2_1016.log.gz`, `ssb_partial_restore_1016.png`):** after the Start menu closed, part of
+it stayed on screen with a desktop-coloured block restored over its lower left. The Start menu's save was correct
+((2,260) 164x316 -> rows 600-915, bottom-up), but its restore copied to **(2,479) 94x288** - a rectangle reaching row
+767, which our save (clipped to the screen) can never store. **The stored rectangle was overwritten in memory while
+the menu was open.** Not RAM pressure: something in the driver writes where it should not; SSB is the victim.
+Prime suspect: the DIB Engine writing past the 48-byte header of our temporary strip PDevices (m8_dst/m8_src in
+DGROUP). Now: a second, separately placed copy of the rectangle is compared on every m8_enter; the first mismatch
+logs EBAD + l,t,r,b after the current entry's marker; a restore with a bad or mismatched rectangle refuses (USER
+repaints).

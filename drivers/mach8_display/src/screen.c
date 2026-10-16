@@ -57,6 +57,12 @@ typedef struct {
 
 DWORD m8_stats[M8_STAT_COUNT];
 
+/* A second copy of SaveScreenBitmap's stored rectangle, kept away from the
+ * first: on 10-16 the first was found overwritten while a menu was open. A
+ * mismatch is reported once in the trace and refuses the restore. */
+static M8_RECT  m8_ssb_check;
+static int      m8_ssb_reported;
+
 static LPDIBENGINE  m8_screen;
 static M8_STRIP     m8_dst;
 static M8_STRIP     m8_src;
@@ -393,8 +399,11 @@ static void m8_exclude( const M8_RECT *r )
 /* Every screen operation runs between m8_enter and m8_leave. A cursor move
  * that arrives at interrupt time in between is recorded and drawn at m8_leave,
  * so it never interleaves with an engine command. */
+static void m8_ssb_verify( void );
+
 static int m8_enter( const M8_RECT *r )
 {
+    m8_ssb_verify();
     m8_busy = 1;
     if( m8_cur_shown && (r == NULL || m8_rect_overlap( r, &m8_cur_rect )) ) {
         m8_cursor_hide();
@@ -1456,6 +1465,24 @@ BOOL WINAPI __loadds StretchBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, 
 static int      m8_ssb_used;
 static M8_RECT  m8_ssb_rect;
 
+/* Trace: the first time the two copies differ, log the entry being run (the
+ * last B0xx marker shows it) and the corrupted rectangle. */
+static void m8_ssb_verify( void )
+{
+    if( !m8_ssb_used || m8_ssb_reported ) {
+        return;
+    }
+    if( m8_ssb_rect.l != m8_ssb_check.l || m8_ssb_rect.t != m8_ssb_check.t ||
+        m8_ssb_rect.r != m8_ssb_check.r || m8_ssb_rect.b != m8_ssb_check.b ) {
+        m8_ssb_reported = 1;
+        M8_STEP( M8_MARK_SSB_CORRUPT );
+        M8_STEP( m8_ssb_rect.l );
+        M8_STEP( m8_ssb_rect.t );
+        M8_STEP( m8_ssb_rect.r );
+        M8_STEP( m8_ssb_rect.b );
+    }
+}
+
 WORD WINAPI __loadds SaveScreenBitmap( LPRECT lpRect, WORD wCmd )
 {
     M8_RECT r;
@@ -1472,6 +1499,15 @@ WORD WINAPI __loadds SaveScreenBitmap( LPRECT lpRect, WORD wCmd )
     }
     if( wCmd == M8_SSB_RESTORE ) {
         if( !m8_ssb_used ) {
+            return( 0 );
+        }
+        m8_ssb_verify();
+        m8_rect_screen( &scr );
+        if( m8_ssb_rect.l != m8_ssb_check.l || m8_ssb_rect.t != m8_ssb_check.t ||
+            m8_ssb_rect.r != m8_ssb_check.r || m8_ssb_rect.b != m8_ssb_check.b ||
+            m8_ssb_rect.l < 0 || m8_ssb_rect.t < 0 || m8_ssb_rect.r > scr.r ||
+            m8_ssb_rect.b > scr.b ) {
+            m8_ssb_used = 0;
             return( 0 );
         }
         M8_STEP( M8_MARK_SSB_RESTORE );
@@ -1499,6 +1535,7 @@ WORD WINAPI __loadds SaveScreenBitmap( LPRECT lpRect, WORD wCmd )
     m8_hw_copy( r.l, r.t, 0, M8_SSB_Y, w, h );
     m8_leave();
     m8_ssb_rect = r;
+    m8_ssb_check = r;
     m8_ssb_used = 1;
     return( 1 );
 }

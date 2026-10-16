@@ -145,5 +145,6 @@ extern void m8_hw_marker( WORD value );
 #define M8_MARK_CURSOR_HIDE 0xA101  /* then x, y of the area restored */
 #define M8_MARK_SSB_SAVE    0xB0D0
 #define M8_MARK_SSB_RESTORE 0xB0D1
+#define M8_MARK_SSB_CORRUPT 0xEBAD  /* then l, t, r, b of the overwritten rectangle */
 
 #endif
