@@ -281,3 +281,13 @@ the DDK structures were not byte-packed, so FONTINFO.dfPixHeight was read 2 byte
 | 12.8 s | BitBlt screen -> memory (175; menus, Solitaire drags) | SaveScreenBitmap; device bitmaps later |
 | 11.9 s | pattern ROPs 5A (504), F0 patterned (275 fallback), 0A (one full screen) | engine mixes + pattern registers |
 | 4.4 s | Output (40 calls, large clip bounds) | tighter bound / engine lines |
+
+### Engine text result, 2026-10-16 (`m8disp_d8b_text_1016.log.gz`)
+
+ExtTextOut through `DIB_ExtTextOutExt` + Mach8 mono expansion (`a155f1e`): **17.0 -> 2.0 ms per call** (1,190 calls,
+924 expansions, 532 opaque fills, 2 fallbacks). Its remaining read-backs are cursor redraws after text under the
+pointer. Owner: text, menus and highlights correct; nothing drawn past window edges (so the extended scissors clip
+the extended blit).
+
+Next by cost: cursor 11.9 s (895 moves) - save-under off-screen by engine copy, shape by mono expansion; bitmap
+uploads (DIB SRCCOPY) 11.7 s - runs as fills; screen -> memory 7.6 s; one full-screen ROP 0A 4.6 s.
