@@ -469,3 +469,19 @@ cards (71x96 = 6,816 px) - raise it.
 (1.9 M px, 7.4 s): the strip at 800x600 (192x600) holds about a dozen cards and the cache clears everything when full,
 so cards are uploaded again and again. **Next for the cache:** more room (off-screen rows shared with SSB and the
 string cache, sized per mode) and evict the least recently used entry instead of flushing all.
+
+### Against the XFree86 Mach8 driver (status 2026-10-17)
+
+| XFree86 Mach8 | Ours |
+|---|---|
+| Solid fills on the engine | done |
+| Screen-to-screen copies on the engine | done |
+| Patterned fills (stipples/tiles) | done, own route: mono expansion, pattern from the DIB Engine's 8x8 rendering |
+| Images through the pixel port | done, encoded as runs (fills for solid spans) - XFree86 does not |
+| Glyph cache in spare video memory | **done differently:** whole rendered strings cached in 8 bit-planes, drawn by plane-select blit (83% hits) |
+| Off-screen pixmap / tile cache | **done:** bitmap cache by content hash, drawn through the ROP's mix (95% hits; eviction to improve) |
+| Lines on the engine (Bresenham) | **not yet** - Output still uses the fallback (D9 step 2) |
+
+Ours and in neither ATI's nor XFree86's: SaveScreenBitmap by engine copy, run-encoded uploads, the double-draw
+coverage test, per-call bus accounting, string-level caching in bit-planes. Still to come (D9): colour-compare
+transparency, raster-timed drawing, >256 colours, DirectDraw on the VGA half, vectors and 3D.
