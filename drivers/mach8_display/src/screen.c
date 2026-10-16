@@ -610,9 +610,28 @@ static DWORD m8_fallback( const M8_RECT *bound_in, int read, int write, int bott
         clip.right = area.r;
         clip.bottom = s.b;
         if( read == M8_READ_IF_UNCOVERED && m8_covered( draw, ctx, &s, &area, &clip ) ) {
-            /* Drawn already, into m8_dst; only the alignment columns are read. */
+            /* Drawn already, into m8_dst. The alignment columns come from the
+             * screen, but an edge read takes two columns and the inner one is
+             * the DIB's own: read into m8_src and copy only the outer one (the
+             * inner one was lost when this read went straight into m8_dst -
+             * Explorer's folder icons without their left edge, 10-16). */
             if( bound.l != area.l || bound.r != area.r ) {
-                m8_strip_read_edges( &m8_dst, &s, &area );
+                int         row;
+                int         last = (s.r - s.l) - 1;
+                BYTE FAR    *d;
+                BYTE FAR    *e;
+
+                m8_strip_read_edges( &m8_src, &s, &area );
+                for( row = 0; row < s.b - s.t; ++row ) {
+                    d = m8_dst.bits + (DWORD)row * m8_dst.pitch;
+                    e = m8_src.bits + (DWORD)row * m8_dst.pitch;
+                    if( bound.l != area.l ) {
+                        d[0] = e[0];
+                    }
+                    if( bound.r != area.r ) {
+                        d[last] = e[last];
+                    }
+                }
             }
             ++m8_stats[M8_STAT_COVERED];
         } else {

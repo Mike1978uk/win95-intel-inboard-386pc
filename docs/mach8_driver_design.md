@@ -441,3 +441,9 @@ declaration won, so ValidateMode ran on the caller's DS and read the mode table 
 load in its prologue; every other entry has one). Fixed by declaring DISPVALMODE locally; the build now fails if any
 exported C entry lacks the DS load (checked: it fails on the old code). 640x480 offered only 16 colours: Windows never
 asked ValidateMode about 640x480x8 - next run will show whether that follows from this bug.
+
+**Fourth modes run (`m8disp_d8_modes4_1016.log.gz`, screenshots `mode*_1016.png`): 640x480x256 and 1024x768x256
+work** after the ValidateMode DS fix (slider to 1024x768, 256 Color offered at 640x480). Owner: folder icons looked
+clipped in every mode - zoomed, each lacked its leftmost column. Cause, the DibToDevice coverage path (`9f583e0`):
+after a covered draw it read the 2-pixel edge columns straight into m8_dst, and the inner one of the two is the DIB's
+own first (or last) column. Now read into m8_src and only the outer column copied.
