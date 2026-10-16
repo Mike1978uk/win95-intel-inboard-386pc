@@ -837,7 +837,7 @@ static void m8_pattern_fill( int x, int y, int w, int h, const BYTE *pat,
  * may carry its own colour table, which the DIB Engine translates); no strip at
  * 1024x768, so the cache is off there. */
 #define M8_BC_ENTRIES       128
-#define M8_BC_MAX_PX        4096
+#define M8_BC_MAX_PX        8192        /* a Solitaire card is 71x96 */
 
 typedef struct {
     DWORD   h1;
