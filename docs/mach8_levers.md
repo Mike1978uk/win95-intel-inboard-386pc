@@ -37,7 +37,7 @@ display memory (the XFree86 glyph cache path).
 | A0, A6, B7, B9 | card ROM | mode set / clocks |
 | A6, BB | TEST.COM | |
 | AE, BE | Win95 ATI.VXD | AE, BE: save/restore around DOS boxes |
-| **A1-A5, A7-AD, AF, B1, B4, B5, BA, BC, BD, BF** | **nothing found** | **unknown or unused**. AB bits 0/5 (zero-wait writes) are off on our card (B2) |
+| (superseded) | | the census missed the ROM's AX-style accesses - see "The ROM's own 28800 use" below |
 
 ## Open, and how each gets answered
 
@@ -129,5 +129,29 @@ The census pattern missed these: the ROM passes index and value together in AX. 
 | BF | OR 80 / AND 7F on one mode path | to map |
 
 **Touched by no ATI code found** (ROM, VVESA, drivers, TEST.COM, tools): **A1, A4, A5, A8, A9, AB, AC, AD, AF, BC**.
-A2: ATIDESK only. A7: VVESA only (HiColor DAC probe). AE: VVESA and ATI.VXD (bank high bits). These ten are L4's
-read-back list; the rest are mapped bit by bit from the ROM's mode tables before any poke.
+A2: ATIDESK only. A7: VVESA only (HiColor DAC probe). AE: VVESA and ATI.VXD (bank high bits).
+
+**Already known before 10-16** (`mach8_card_coverage.md`, 28800 section: the M8VGA card read of every index, and vgadoc
+`ATI.TXT`): A1 bits 3-4 monitor detect; A4/A5 ROM pages; **A8/A9 vertical line counter** (why A9 varies); **AB zero-wait
+bits - measured 10-10, no gain** (the Inboard/XT bus cycle is the limit); **AC bit 0 linear addressing**; B7 bus/DRAM/EEPROM
+data bits. A 10-12 census (`tools/m8_port_census2.py`, 306 files) found no Mach8 port outside the guide. Left genuinely
+unknown: A0 bits 0-3, AD bit 4, AF, BC, and most B0/B1/B4/B5/BA/BB/BD/BF bits (map from the ROM's mode tables).
+
+Levers this points at, for L4: **A8/A9** as a cheap raster position for palette splits and tear-free flips (D4, C2);
+B2/BE split banking. (AC reads 03h on the card - bit 0 is already set, so M8LIN's "no linear window" result stands.)
+
+### Microsoft's Win95 drivers: ATIM32.DRV and ATIM8.DRV (direct `mov dx,port` scan)
+
+| | ATIM8 (Mach8) | ATIM32 (Mach32) |
+|---|---|---|
+| Short strokes (9EE8 / C6EE) | 0 / 0 | 0 / 0 |
+| Source compare (92EE/EAEE), DEST_CMP_FN (EEEE) | 0 | 0 |
+| FIFO status polls (9AEE / 9AE8 sites) | **314 / 63** | 197 / 22 |
+| PATT_DATA / PATT_INDEX sites | 50 / 55 | 43 / 58 |
+| DP_CONFIG values | 0007, 2231, 2211, 6211, 5211, 3251, A211, 5210, 0047, 4210, 4215, 4011, 4010, 2071 | 2211, A211, 2231, 0007, 6211, 3251, 5211, ... |
+
+- **No Windows driver uses short strokes** - the census's C6EE hit for ATIM32 was a byte coincidence.
+- **FIFO pacing is a bus-traffic lever:** each status poll is an ISA port read (~3.8 us). The Mach8 FIFO is measured 16 deep
+  and drops writes when full, so our driver counts its writes and polls once per 16 entries at most.
+- DP_CONFIG's working set (fill 2211, blit 6211, mono expansion 3251, colour pattern A211, ...) is the candidate list for
+  D8; mapping each to its source/mono/pattern fields is part of L5.

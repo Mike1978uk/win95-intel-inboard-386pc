@@ -118,11 +118,15 @@ Inventory and results: `docs/mach8_levers.md` (one place; this list only orders 
       (92EE/EAEE) and short strokes: TEST.COM only. 17 28800 indices no ATI binary touches.
 - [x] **L2 VVESA.COM disassembly (desk, 10-16).** 28800 split read/write banks (B2 + BE bit 3), AE bank high bits,
       HiColor DAC probe (A7), clock bit (BB). Static reading; L4 measures it.
-- [ ] **L3 Desk:** compare the two VVESA builds (CF vs `ATIMACH8/V3`); ROM mode tables (A0/A6/B7/B9); ATIM32's use of
-      C6EE, DP_CONFIG, PATT_DATA and FIFO pacing; EEPROM - every byte accounted for.
-- [ ] **L4 Card sitting (M), probes written first:** (a) read back every untouched 28800 index, then poke the ones that
-      read live; (b) split read/write banking; (c) DP_CONFIG mono expansion vs the bed (text path C); (d) EXT_SHORT_STROKE
-      (C6EE). Folds in B2.
+- [ ] **L3 Desk.** Done 10-16: VVESA 2.21 vs 2.22 (B2 bit 0 = read-bank top bit; ROM call before clearing memory); the
+      **ROM's API** (far-call entry points 64h/68h, used by TEST.COM and VVESA, no driver); the ROM's 28800 use (EEPROM
+      bit-banged via B3/B7, clock select B9/BE + Misc Output, revision in AA); ATIM8/ATIM32 (no short strokes anywhere;
+      314 FIFO-status poll sites in ATIM8 - pace by the measured 16-deep FIFO instead). Left: EEPROM byte map vs
+      `docs/rom_and_eeprom_dumps.md`; ROM mode tables bit by bit (B0/B1/B4/B5/BA/BB/BD/BF); ROM API arguments (72DDh).
+- [ ] **L4 Card sitting (M), probes written first.** Every index already read once (M8VGA). (a) A8/A9 line counter as a
+      raster clock (read cost, stability); (b) split read/write banking (B2/BE bit 3): a bank-to-bank copy; (c) DP_CONFIG mono
+      expansion vs the bed (text path C); (d) EXT_SHORT_STROKE (C6EE); (e) the unknown bits (A0 0-3, AD 4, AF, BC) - read,
+      toggle, read. Folds in B2.
 - [ ] **L5 Fold results into `docs/mach8_driver_design.md`** - which levers the driver uses, and for what.
 
 
