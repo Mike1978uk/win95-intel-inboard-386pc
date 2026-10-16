@@ -155,3 +155,24 @@ B2/BE split banking. (AC reads 03h on the card - bit 0 is already set, so M8LIN'
   and drops writes when full, so our driver counts its writes and polls once per 16 entries at most.
 - DP_CONFIG's working set (fill 2211, blit 6211, mono expansion 3251, colour pattern A211, ...) is the candidate list for
   D8; mapping each to its source/mono/pattern fields is part of L5.
+
+### EEPROM: the undecoded words are monitor-timing records (ROM 7340h-744Bh, static reading)
+
+The ROM scans **four 11-word records at EEPROM words 0Dh, 18h, 23h, 2Eh** (CL from 0Dh, step 0Bh, stop at 39h; read routine
+3A4Eh, word number in BL). Per record: word 0 flags (bit 0 skips it; bit 6 picks one of two layouts - bytes into one
+parameter block, or words into another); words 1-2 = the mode codes the record serves (each byte compared with the requested
+mode); words 3-9 = timing. The card (`eeprom_card_5160_2026_10_07.nvr`):
+
+| Record | Word 0 | Mode keys | Timing words 3-9 |
+|---|---|---|---|
+| 0Dh | 0000 | 1211, 0000 | 6509 559A E80B 0000 0000 3E40 0000 |
+| 18h | 4040 | 5463, 6A00 | 7E4B 6896 3203 0000 0000 1F00 0000 |
+| 23h | 0040 | 6567, 5500 | 4C24 420B 0208 0000 0000 FD60 0000 |
+| 2Eh | 0140 | 6800, 0000 | C79F A00A 08F8 07FF 0861 0A33 162D (the set decoded earlier: H_TOTAL C7 ... CLOCK_SEL 2D, FIFO 16) |
+
+The keys 54h, 55h, 63h, 65h, 67h, 68h, 6Ah are ATI mode-number-like; which layout is the 28800's and which the Mach8's is
+still to confirm from the two branches (7341h, 73BEh). Previously "words 10h-15h and 23h-2Fh not yet decoded".
+
+**Lever:** monitor timings are data the ROM reads at mode set, four slots. A custom record (refresh, blanking, a
+non-standard resolution) changes a mode with no code - as long as the ROM sets the mode. Our driver can also read these
+records and program the CRT itself.
