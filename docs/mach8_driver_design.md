@@ -246,3 +246,23 @@ Explorer and Solitaire draw correctly. Not yet run on the 5160. Four bring-up bu
 **Next (D8b), by that table:** attribute the fallback pixels to GDI entry points (a marker per entry);
 text on the engine (DP_CONFIG mono expansion, then the glyph cache); the cursor saved and restored by
 engine copy to off-screen memory instead of read-back; DOS full-screen switching (INT 2Fh 4001h/4002h).
+
+## D8b step 1: bus time per GDI entry, 2026-10-16
+
+`tools/m8_fallback_tally.py` over a -Trace session (boot, Explorer, Solitaire, Start menu, dialogs, window drag;
+`docs/captures/2026-10-16_atim8_tap/m8disp_d8b_tally_1016.log.gz`). Bus time estimated at 3.84 us/pixel written,
+5.7 us/pixel read back.
+
+| entry | calls | read px | write px | bus s |
+|---|---|---|---|---|
+| BitBlt to screen (fallback; 1,204 fills and 66 copies went to the engine) | 1,839 | 2.13 M | 2.78 M | 22.8 |
+| ExtTextOut | 915 | 1.83 M | 1.99 M | 18.1 |
+| cursor move | 663 | 0.69 M | 1.37 M | 9.2 |
+| BitBlt screen -> memory (save-under) | 50 | 0.78 M | 0.10 M | 4.8 |
+| DibToDevice | 170 | 0.11 M | 0.13 M | 1.1 |
+| cursor shape / Pixel | 40 / 2,073 | small | small | 0.5 / 0.3 |
+| total | | | | 56.8 |
+
+Order this sets: text on the engine (no read-back; bound by character widths first); BitBlt split by ROP and
+source, and edge-column reads instead of whole-rectangle reads when alignment widens a plain copy; cursor
+save-under in off-screen memory by engine copy; `RC_SAVEBITMAP` with `SaveScreenBitmap` by engine copy.
