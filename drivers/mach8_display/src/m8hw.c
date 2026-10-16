@@ -128,20 +128,28 @@ void m8_hw_set_palette( UINT start, UINT count, RGBQUAD FAR *pal )
     }
 }
 
-void m8_hw_fill( int x, int y, int w, int h, BYTE color )
+/* A rectangle through the foreground mix (a full mix-register value) with
+ * FRGD_COLOR as its source. */
+void m8_hw_fill_mix( int x, int y, int w, int h, BYTE color, WORD mix )
 {
     if( w <= 0 || h <= 0 ) {
         return;
     }
     m8_wait_fifo_empty();
-    outpw( M8_FRGD_MIX, M8_MIX_SRC_FRGD | M8_MIX_REPLACE );
+    outpw( M8_FRGD_MIX, mix );
     outpw( M8_FRGD_COLOR, color );
     outpw( M8_CUR_X, x );
     outpw( M8_CUR_Y, y );
     outpw( M8_MAJ_AXIS_PCNT, w - 1 );
     outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
     outpw( M8_CMD, M8_CMD_FILL );
+    outpw( M8_FRGD_MIX, M8_MIX_SRC_FRGD | M8_MIX_REPLACE );
     ++m8_stats[M8_STAT_FILL_HW];
+}
+
+void m8_hw_fill( int x, int y, int w, int h, BYTE color )
+{
+    m8_hw_fill_mix( x, y, w, h, color, M8_MIX_SRC_FRGD | M8_MIX_REPLACE );
 }
 
 /* Screen-to-screen copy. Overlapping areas copy from the far end: bottom-up

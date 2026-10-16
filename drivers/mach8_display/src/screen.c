@@ -19,6 +19,7 @@
 #include "m8ddi.h"
 #include <dos.h>
 #include <conio.h>
+#include <string.h>
 #include "m8.h"
 
 #define M8_BUF_BYTES        0xFFF0u     /* one strip; < 64 KB so one selector covers it */
@@ -535,17 +536,119 @@ static WORD m8_src_kind( LPPDEVICE src, int src_screen )
 }
 #endif
 
-/* A solid colour from a realized brush: the first byte of its 8 bpp pattern,
- * which the DIB Engine renders at the screen's depth. */
-static int m8_solid_brush( LPBRUSH brush, BYTE *color )
-{
-    DIB_Brush8 FAR *b = (DIB_Brush8 FAR *)brush;
+/* A ROP3 with no source is a 2-input function of pattern and destination,
+ * applied to each colour bit; the 8514/A's 16 mixes are exactly the 16 such
+ * functions, with the pattern colour as the mix source. Key: the ROP's result
+ * for (P,D) = (0,0), (0,1), (1,0), (1,1) in bits 0-3; value: the mix (the
+ * 86Box model's MIX table, card-checked by M8MIX). */
+static const BYTE m8_mix_for_key[16] = {
+    0x1, 0xF, 0xE, 0x4, 0xD, 0x0, 0x5, 0x8, 0xC, 0x6, 0x3, 0x9, 0x7, 0xA, 0xB, 0x2
+};
 
-    if( b == NULL || b->dp8BrushStyle != 0 || !(b->dp8BrushFlags & COLORSOLID) ) {
+static WORD m8_rop_mix( BYTE rop )
+{
+    int key = (rop & 1) | (((rop >> 1) & 1) << 1) | (((rop >> 4) & 1) << 2) |
+              (((rop >> 5) & 1) << 3);
+
+    return( m8_mix_for_key[key] );
+}
+
+static int m8_rop_uses_pat( DWORD rop )
+{
+    BYTE r = (BYTE)(rop >> 16);
+
+    return( ((r >> 4) & 0x0F) != (r & 0x0F) );
+}
+
+/* A realized brush as at most two colours: returns 0 if it is not, 1 for a
+ * solid colour (c1), 2 for a pattern - pat[row] has bit 7 for column 0, a 1
+ * bit is c1 and a 0 bit c2. Colour and dithered brushes are read from the
+ * 8 bpp pattern the DIB Engine renders (dp8BrushBits). A brush from a mono
+ * bitmap takes the draw mode's colours, as Windows defines it (1 = background,
+ * 0 = text); its mono rows are assumed 4 bytes apart (DIBENG.INC gives 32 bytes
+ * for 8 rows and no layout). Hatched brushes, whose gaps depend on the
+ * background mode, are not handled. */
+static int m8_brush_colours( LPBRUSH brush, LPDRAWMODE dm, BYTE *c1, BYTE *c2, BYTE *pat )
+{
+    DIB_Brush8 FAR  *b = (DIB_Brush8 FAR *)brush;
+    int             i;
+    int             two = 0;
+
+    if( b == NULL || b->dp8BrushBpp != 8 ) {
         return( 0 );
     }
-    *color = b->dp8BrushBits[0];
-    return( 1 );
+    M8_STEP( 0xD000 | ((b->dp8BrushFlags & 0xFF) << 4) | (b->dp8BrushStyle & 0xF) );
+    if( b->dp8BrushStyle != 0 && b->dp8BrushStyle != 3 ) {
+        return( 0 );
+    }
+    if( b->dp8BrushFlags & PATTERNMONO ) {
+        if( dm == NULL ) {
+            return( 0 );
+        }
+        *c1 = (BYTE)dm->bkColor;
+        *c2 = (BYTE)dm->TextColor;
+        for( i = 0; i < 8; ++i ) {
+            pat[i] = b->dp8BrushMono[i * 4];
+        }
+        return( 2 );
+    }
+    *c1 = b->dp8BrushBits[0];
+    *c2 = *c1;
+    for( i = 0; i < 64; ++i ) {
+        BYTE p = b->dp8BrushBits[i];
+
+        if( p == *c1 ) {
+            continue;
+        }
+        if( !two ) {
+            *c2 = p;
+            two = 1;
+        } else if( p != *c2 ) {
+            return( 0 );
+        }
+    }
+    if( !two ) {
+        return( 1 );
+    }
+    for( i = 0; i < 8; ++i ) {
+        int     col;
+        BYTE    bits = 0;
+
+        for( col = 0; col < 8; ++col ) {
+            if( b->dp8BrushBits[i * 8 + col] == *c1 ) {
+                bits |= (BYTE)(0x80 >> col);
+            }
+        }
+        pat[i] = bits;
+    }
+    return( 2 );
+}
+
+/* An 8x8 two-colour pattern over a rectangle by mono expansion: the expansion
+ * starts on the 8-pixel boundary at or left of x, so every row is its pattern
+ * byte repeated, and the scissors cut it to the rectangle. Rows are built in
+ * the strip buffer, a band at a time. */
+static void m8_pattern_fill( int x, int y, int w, int h, const BYTE *pat,
+                             BYTE c1, BYTE c2, WORD mix )
+{
+    int         x0 = x & ~7;
+    WORD        wb = (WORD)(((x + w + 7) >> 3) - (x >> 3));
+    int         band = (int)(M8_BUF_BYTES / wb);
+    int         row;
+    int         yb;
+    int         hb;
+    BYTE FAR    *q;
+
+    for( yb = y; yb < y + h; yb += band ) {
+        hb = y + h - yb < band ? y + h - yb : band;
+        q = m8_dst.bits;
+        for( row = 0; row < hb; ++row ) {
+            _fmemset( q, pat[(yb + row) & 7], wb );
+            q += wb;
+        }
+        m8_hw_mono( x0, yb, wb, hb, m8_dst.bits, M8_MIX_SRC_FRGD | mix, c1,
+                    M8_MIX_SRC_BKGD | mix, c2, x, yb, x + w - 1, yb + hb - 1 );
+    }
 }
 
 BOOL WINAPI __loadds BitBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPDEVICE lpSrcDev,
@@ -556,7 +659,6 @@ BOOL WINAPI __loadds BitBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPD
     int         src_screen = m8_rop_uses_src( dwRop3 ) && m8_is_screen( lpSrcDev );
     M8_BLT      b;
     M8_RECT     r;
-    BYTE        color;
     BYTE        rop = (BYTE)(dwRop3 >> 16);
     int         rows;
     WORD        pitch;
@@ -572,16 +674,28 @@ BOOL WINAPI __loadds BitBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPD
      * cannot apply, so it disqualifies them. */
     if( dst_screen && !(m8_screen->deFlags & PALETTE_XLAT) ) {
         m8_rect_set( &r, wDestX, wDestY, wDestX + wXext, wDestY + wYext );
-        if( rop == 0x00 || rop == 0xFF || (rop == 0xF0 && m8_solid_brush( lpPBrush, &color )) ) {
-            if( rop == 0x00 ) {
-                color = 0;
-            } else if( rop == 0xFF ) {
-                color = 0xFF;
+        if( !m8_rop_uses_src( dwRop3 ) ) {
+            WORD    mix = m8_rop_mix( rop );
+            BYTE    c1 = 0;
+            BYTE    c2 = 0;
+            BYTE    pat[8];
+            int     kind = 1;
+
+            if( m8_rop_uses_pat( dwRop3 ) ) {
+                kind = m8_brush_colours( lpPBrush, lpDrawMode, &c1, &c2, pat );
             }
-            m8_enter( &r );
-            m8_hw_fill( wDestX, wDestY, wXext, wYext, color );
-            m8_leave();
-            return( TRUE );
+            if( kind == 1 ) {
+                m8_enter( &r );
+                m8_hw_fill_mix( wDestX, wDestY, wXext, wYext, c1, M8_MIX_SRC_FRGD | mix );
+                m8_leave();
+                return( TRUE );
+            }
+            if( kind == 2 ) {
+                m8_enter( &r );
+                m8_pattern_fill( wDestX, wDestY, wXext, wYext, pat, c1, c2, mix );
+                m8_leave();
+                return( TRUE );
+            }
         }
         if( rop == 0xCC && src_screen ) {
             M8_RECT sr;

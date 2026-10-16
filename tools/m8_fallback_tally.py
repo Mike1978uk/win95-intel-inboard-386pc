@@ -5,7 +5,8 @@ Reads an 86Box log taken with MACH8_WLOG=1 while a -Trace build of M8DISP.DRV
 ran. The driver writes B0xx to SCRATCH_PAD_1 (56EEh) as each screen entry
 starts (m8.h, M8_ENTRY); every engine command after it is charged to that
 entry until the next marker. BitBlt adds Cksr: k = source kind (0 none,
-1 screen, 2 DIB Engine bitmap, 3 plain BITMAP), rr = ROP3 byte.
+1 screen, 2 DIB Engine bitmap, 3 plain BITMAP), rr = ROP3 byte. A pattern
+BitBlt adds Dffs: ff = brush flags, s = brush style (listed, not charged).
 
   python tools/m8_fallback_tally.py <86box.log>
 
@@ -52,6 +53,7 @@ def main(path):
     reg = {}
     who = 'before any marker'
     rows = {}
+    brushes = {}
 
     def row(name):
         return rows.setdefault(name, {'calls': 0, 'fill': 0, 'copy': 0, 'mono': 0, 'mono_w': 0,
@@ -62,6 +64,10 @@ def main(path):
         if port == '56EE' and (val & 0xFF00) == 0xB000:
             who = NAMES.get(val, hex(val))
             row(who)['calls'] += 1
+            continue
+        if port == '56EE' and (val & 0xF000) == 0xD000:
+            key = f'flags {(val >> 4) & 0xFF:02X} style {val & 0xF}'
+            brushes[key] = brushes.get(key, 0) + 1
             continue
         if port == '56EE' and (val & 0xF000) == 0xC000:
             kind = ('none', 'screen', 'DIB', 'BITMAP')[(val >> 8) & 3]
@@ -102,6 +108,8 @@ def main(path):
     for ms, name, r in sorted(out, key=lambda x: -x[0]):
         print(f"{name:24} {r['calls']:6} {r['fill']:6} {r['copy']:6} {r['mono']:6} {r['rd_ops']:6} {r['rd_px']:9} "
               f"{r['wr_ops']:6} {r['wr_px']:9} {ms:8.0f}")
+    for key, n in sorted(brushes.items(), key=lambda x: -x[1]):
+        print(f'brush {key}: {n}')
     print(f"{'total':24} {'':6} {'':6} {'':6} {'':6} {'':6} {'':9} {'':6} {'':9} {total:8.0f}")
 
 
