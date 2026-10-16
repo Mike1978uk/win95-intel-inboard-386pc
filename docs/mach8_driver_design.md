@@ -68,20 +68,20 @@ a FIFO-room check before each operation and the engine's finish included. The ra
 GPL-3.0 and the DDK sample code do not mix: the driver is built on velocity9x's framework, not on DDK
 sample source. DDK headers and documentation are fine.
 
-## Open before the framework is fixed
+## Open before the framework is fixed - answered 2026-10-16
 
-- Whether velocity9x's framework fits a card with **no linear framebuffer** (`NOT_FRAMEBUFFER`, every
-  pixel through the engine). Asked of Michael Dale; check its code too.
-- Whether it runs on Windows 95 (author: "should"). Prove it in a Win95 bed before building on it.
+- No linear framebuffer: `NOT_FRAMEBUFFER` is the DDK's documented mode; velocity9x has no such path, so we take its
+  build, INF, VDD registration and `ReEnable` and write the screen-drawing core ourselves (section below).
+- Windows 95: velocity9x has run on Win95 4.00.950; its Win16 driver builds here against the Win95 DDK.
 
 ## Order of work
 
-1. **M8TIME** on the 5160: time candidates A/B/C for text, fill, blit and bitmap upload, with port-write
-   counts, and writes into A0000h (Andrew's VGA point). One DOS run.
-2. Finish matching 86Box on the paths M8TIME picks (the bed then develops the driver).
-3. velocity9x review: clone, read, build; answer the two open questions.
-4. The driver, primitive by primitive in the order M8TIME ranks them, each one measured with `TXTBENCH`
-   before and after on the 5160.
+1. ~~M8TIME on the 5160~~ - done 10-06 (table above).
+2. Match 86Box on the paths M8TIME picks - done for fill, blit, 8514/A mono and DP_CONFIG mono (M8DPM, 10-16).
+3. ~~velocity9x review~~ - done 10-16 (sections below).
+4. Card levers (worklist L, 10-16) - decisions in "Lever decisions" below.
+5. The A10 replay harness, then D8: the driver primitive by primitive in M8TIME's order, each measured with
+   `TXTBENCH` before and after on the 5160.
 
 ## 2026-10-16 additions
 
@@ -159,3 +159,31 @@ aperture hook, `fill_engine` declaring the engine type and caps). The Trio64 bac
 - Two renderers (worklist C2): the CPU builds frame N+1 in the 28800's memory while the engine draws frame N on the Mach8's,
   and the output switch flips. The raster clock (A9h, 11.5 us per poll, L4) times a tear-free switch; split banking gives
   no speed (L4), so the VGA side uses plain single-bank writes. Gated on C1 (what the output switch costs).
+
+## Lever decisions for D8 (L5, 2026-10-16)
+
+From `docs/mach8_levers.md` (census, VVESA, ROM, three card sittings) and M8TIME. "Card" = measured on the 5160.
+
+| Job | D8 uses | Evidence | Later |
+|---|---|---|---|
+| Mode set, 800x600 | **candidate A:** the ROM's own mode set, entry C000:64h AL 0, called through DPMI (INT 31h 0301h, real-mode far call) at Enable - EEPROM timings, no tables of ours. **Candidate B:** read the EEPROM timing record and program the CRTC/shadow set ourselves (as ATIM8 does) | ROM API static only; no driver calls it. B is what every shipping driver does | test A in the bed first; B if A fails |
+| Text | DP_CONFIG 3251h host mono expansion, one per string (M8TIME C, 68 us/char) | card = bed byte for byte (M8DPM) | glyph cache, DP_CONFIG mono source 3 (M8TIME A, 51 us; card ok) |
+| Text background | RECT fill `40F3` or command 4 `80B3` - measure both | 8514.DRV uses command 4; axes now card-measured (M8NIB2) | - |
+| Solid fill | 8514/A RECT `40F3` (61 us for 64x16) | card (M8TIME) | - |
+| Screen-to-screen blit | 8514/A BLIT `C0F3`/`C0B3`, direction by overlap (velocity9x Trio64 pattern) | card (M8TIME 102 us) | - |
+| Transparent blit / colour key | source colour compare 92EEh/EAEEh | card-measured, modelled (`8283ed2bc`); no ATI driver used it | DirectDraw colour keys (D5) |
+| Pattern brush | PATT_DATA colour patterns | card (M8ROW3, M8FG6-9) | brush cache off-screen |
+| Lines | 8514/A Bresenham; SHORT_STROKE 9EE8h for short ones | card (M8ROW3) | - |
+| Bitmap upload | per-scanline encoding: runs as fills, two-colour spans as mono expansion, raw only for the rest | raw costs 64x a fill (M8TIME) | - |
+| FIFO pacing | count our writes; poll 9AEEh at most once per 16 entries | FIFO 16 deep, drops when full (card); ATIM8 has 314 poll sites | - |
+| Off-screen memory | 800x600 at pitch 1024: rows 600-1023 and the x 800-1023 strip | layout above | glyph, icon, save-under caches |
+| Raster position | line counter A9h, index rewritten per poll | card: 11.5 us/poll, ~2-line steps (M8RAST, M8BITS) | palette changes per band (D4); tear-free flips |
+| Unaccelerated screen ops | read back the bounding rectangle, DIB engine draws it, write back; counted per GDI function | design above | counts pick the next primitive |
+
+**Ruled out by measurement:** switching the output between the halves (>1 s blank, M8FLIP4 - so no alternate-frame or
+raster-split use of the two chips); split read/write banking for speed (no gain, M8SPLIT); EXT_SHORT_STROKE (diagonals
+only, M8SSV3); 28800 zero-wait bits AB (no gain, 10-10); the unknown 28800 bits (no effect, M8BITS).
+
+**Both chips, still:** the VGA half drives its own modes (D6, the VFLATD driver, DirectDraw at 640x480/800x600); on the
+Mach8 side a double-buffered flip fits at 640x480 (two 480-row pages in 1 MB at pitch 1024), timed by CRT_OFFSET and the
+raster position, without switching halves.

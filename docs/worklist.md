@@ -134,7 +134,8 @@ Inventory and results: `docs/mach8_levers.md` (one place; this list only orders 
       monitor resync) and whether both CRTCs can run identical timing - it gates C2 (two renderers, frame N+1 built while
       N shows). 10-16: M8SHOW shows both stripe sets (ADVFUNC alone works); M8FLIP3 black after an INT 10h
       mode 12h - next M8FLIP4 (text / mode 12h / mode 12h + DISP_CNTL on).
-- [ ] **L5 Fold results into `docs/mach8_driver_design.md`** - which levers the driver uses, and for what.
+- [x] **L5 Folded 10-16:** "Lever decisions for D8" in `docs/mach8_driver_design.md` - per-job choice, evidence, what is
+      ruled out. Was: Fold results into `docs/mach8_driver_design.md` - which levers the driver uses, and for what.
 
 
 
