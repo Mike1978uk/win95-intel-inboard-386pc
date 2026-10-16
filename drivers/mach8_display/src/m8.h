@@ -103,4 +103,11 @@ extern void m8_hw_marker( WORD value );
 #define M8_STEP( v )
 #endif
 
+/* Count a GDI entry that reached the screen; in a -Trace build also mark it, so
+ * the tap log can charge the bus traffic that follows to this entry (B0xx). */
+#define M8_ENTRY( i )       { ++m8_stats[i]; M8_STEP( 0xB000 | (i) ); }
+#define M8_MARK_SCR2MEM     0xB00E      /* BitBlt from the screen to memory */
+#define M8_MARK_CURSOR_MOVE 0xB0C0
+#define M8_MARK_CURSOR_SET  0xB0C1
+
 #endif

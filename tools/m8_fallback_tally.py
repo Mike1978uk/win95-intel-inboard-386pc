@@ -1,0 +1,97 @@
+#!/usr/bin/env python3
+"""Charge M8DISP's bus traffic to the GDI entry that caused it.
+
+Reads an 86Box log taken with MACH8_WLOG=1 while a -Trace build of M8DISP.DRV
+ran. The driver writes B0xx to SCRATCH_PAD_1 (56EEh) as each screen entry
+starts (m8.h, M8_ENTRY); every engine command after it is charged to that
+entry until the next marker.
+
+  python tools/m8_fallback_tally.py <86box.log>
+
+Bus estimates use the card's measured costs: 3.84 us per pixel for a host
+write (M8TIME raw), 5.7 us per pixel for a read-back (two word reads per two
+pixels: data-ready poll and PIX_TRANS, ~5.7 us per byte-wide access).
+pclog folds identical consecutive lines into "*** N repeats ***"; those are
+expanded (inboard-hw-debug technique 148).
+"""
+import re
+import sys
+
+NAMES = {
+    0xB000: 'BitBlt', 0xB001: 'Output', 0xB002: 'Pixel', 0xB003: 'StrBlt',
+    0xB004: 'ExtTextOut', 0xB005: 'ScanLR', 0xB006: 'StretchBlt',
+    0xB007: 'StretchDIBits', 0xB008: 'DibToDevice', 0xB009: 'FastBorder',
+    0xB00A: 'UpdateColors', 0xB00E: 'BitBlt screen->memory',
+    0xB0C0: 'cursor move', 0xB0C1: 'cursor shape',
+}
+US_WRITE = 3.84
+US_READ = 5.7
+
+
+def lines(path):
+    prev = None
+    for raw in open(path, errors='replace'):
+        m = re.match(r'\*\*\* (\d+) repeats \*\*\*', raw.strip())
+        if m:
+            if prev is not None:
+                for _ in range(int(m.group(1))):
+                    yield prev
+            continue
+        if raw.startswith('M8W '):
+            prev = raw
+            yield raw
+        else:
+            prev = None
+
+
+def main(path):
+    reg = {}
+    who = 'before any marker'
+    rows = {}
+
+    def row(name):
+        return rows.setdefault(name, {'calls': 0, 'fill': 0, 'copy': 0,
+                                      'rd_ops': 0, 'rd_px': 0, 'wr_ops': 0, 'wr_px': 0})
+
+    for l in lines(path):
+        port, val = l.split()[1], int(l.split()[2], 16)
+        if port == '56EE' and (val & 0xFF00) == 0xB000:
+            who = NAMES.get(val, hex(val))
+            row(who)['calls'] += 1
+            continue
+        if port in ('96E8', '86E8', '82E8'):
+            reg[port] = val
+        elif port == 'BEE8' and val < 0x1000:
+            reg['min'] = val
+        elif port == '9AE8':
+            px = (reg.get('96E8', 0) + 1) * (reg.get('min', 0) + 1)
+            r = row(who)
+            if val == 0x40F3:
+                r['fill'] += 1
+            elif (val & 0xFF00) == 0xC000:
+                r['copy'] += 1
+            elif val == 0x53B0:
+                r['rd_ops'] += 1
+                r['rd_px'] += px
+            elif val == 0x53B1:
+                r['wr_ops'] += 1
+                r['wr_px'] += px
+
+    total = 0.0
+    out = []
+    for name, r in rows.items():
+        ms = (r['rd_px'] * US_READ + r['wr_px'] * US_WRITE) / 1000.0
+        total += ms
+        out.append((ms, name, r))
+    print(f"{'entry':24} {'calls':>6} {'fills':>6} {'copies':>6} {'reads':>6} {'read px':>9} "
+          f"{'writes':>6} {'write px':>9} {'bus ms':>8}")
+    for ms, name, r in sorted(out, key=lambda x: -x[0]):
+        print(f"{name:24} {r['calls']:6} {r['fill']:6} {r['copy']:6} {r['rd_ops']:6} {r['rd_px']:9} "
+              f"{r['wr_ops']:6} {r['wr_px']:9} {ms:8.0f}")
+    print(f"{'total':24} {'':6} {'':6} {'':6} {'':6} {'':9} {'':6} {'':9} {total:8.0f}")
+
+
+if __name__ == '__main__':
+    if len(sys.argv) != 2:
+        sys.exit(__doc__)
+    main(sys.argv[1])

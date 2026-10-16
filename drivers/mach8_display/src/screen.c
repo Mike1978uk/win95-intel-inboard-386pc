@@ -18,6 +18,7 @@
 
 #include "winhack.h"
 #include <dos.h>
+#include <conio.h>
 #include <gdidefs.h>
 #include <dibeng.h>
 #include "m8.h"
@@ -482,7 +483,7 @@ BOOL WINAPI __loadds BitBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPD
         return( DIB_BitBlt( lpDestDev, wDestX, wDestY, lpSrcDev, wSrcX, wSrcY, wXext, wYext,
                             dwRop3, lpPBrush, lpDrawMode ) );
     }
-    ++m8_stats[M8_STAT_BITBLT];
+    M8_ENTRY( M8_STAT_BITBLT );
 
     /* Engine paths. A background palette translation is something the engine
      * cannot apply, so it disqualifies them. */
@@ -528,6 +529,7 @@ BOOL WINAPI __loadds BitBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPD
         int     y;
         int     h;
 
+        M8_STEP( M8_MARK_SCR2MEM );
         m8_rect_set( &sr, wSrcX, wSrcY, wSrcX + wXext, wSrcY + wYext );
         m8_rect_align( &sr );
         rows = m8_strip_rows( &sr, &pitch );
@@ -585,7 +587,7 @@ WORD WINAPI __loadds Output( LPPDEVICE lpDestDev, WORD wStyle, WORD wCount, LPPO
     if( wStyle == OS_BEGINNSCAN || wStyle == OS_ENDNSCAN ) {
         return( 1 );
     }
-    ++m8_stats[M8_STAT_OUTPUT];
+    M8_ENTRY( M8_STAT_OUTPUT );
     m8_rect_from_gdi( &bound, lpClipRect );
 
     /* Shapes drawn inside their points' bounding box: shrink to it, with a
@@ -642,7 +644,7 @@ DWORD WINAPI __loadds Pixel( LPPDEVICE lpDestDev, WORD X, WORD Y, DWORD dwPhysCo
     if( !m8_is_screen( lpDestDev ) ) {
         return( DIB_Pixel( lpDestDev, X, Y, dwPhysColor, lpDrawMode ) );
     }
-    ++m8_stats[M8_STAT_PIXEL];
+    M8_ENTRY( M8_STAT_PIXEL );
     p.x = X;
     p.y = Y;
     p.color = dwPhysColor;
@@ -676,7 +678,7 @@ WORD WINAPI __loadds ScanLR( LPPDEVICE lpDestDev, WORD X, WORD Y, DWORD dwPhysCo
     if( !m8_is_screen( lpDestDev ) ) {
         return( DIB_ScanLR( lpDestDev, X, Y, dwPhysColor, wStyle ) );
     }
-    ++m8_stats[M8_STAT_SCANLR];
+    M8_ENTRY( M8_STAT_SCANLR );
     s.x = X;
     s.y = Y;
     s.color = dwPhysColor;
@@ -795,7 +797,7 @@ DWORD WINAPI __loadds ExtTextOut( LPPDEVICE lpDestDev, WORD wDestXOrg, WORD wDes
     if( wCount == 0 && lpOpaqueRect == NULL ) {
         return( 1 );
     }
-    ++m8_stats[M8_STAT_EXTTEXTOUT];
+    M8_ENTRY( M8_STAT_EXTTEXTOUT );
     t.x = wDestXOrg;
     t.y = wDestYOrg;
     t.clip = lpClipRect;
@@ -828,7 +830,7 @@ DWORD WINAPI __loadds StrBlt( LPPDEVICE lpDestDev, WORD wDestXOrg, WORD wDestYOr
         return( DIB_StrBlt( &m8_dst.dev, wDestXOrg, wDestYOrg, lpClipRect, lpString, wCount,
                             lpFontInfo, lpDrawMode, lpTextXForm ) );
     }
-    ++m8_stats[M8_STAT_STRBLT];
+    M8_ENTRY( M8_STAT_STRBLT );
     t.x = wDestXOrg;
     t.y = wDestYOrg;
     t.clip = lpClipRect;
@@ -883,7 +885,7 @@ WORD WINAPI __loadds DibToDevice( LPPDEVICE lpDestDev, WORD X, WORD Y, WORD iSca
         return( DIB_DibToDevice( lpDestDev, X, Y, iScan, cScans, lpClipRect, lpDrawMode,
                                  lpDIBits, lpBitmapInfo, lpTranslate ) );
     }
-    ++m8_stats[M8_STAT_DIBTODEV];
+    M8_ENTRY( M8_STAT_DIBTODEV );
     d.x = X;
     d.y = Y;
     d.scan = iScan;
@@ -950,7 +952,7 @@ BOOL WINAPI __loadds StretchDIBits( LPPDEVICE lpDestDev, WORD fGet, WORD wDestX,
                                    wSrcX, wSrcY, wSrcWidth, wSrcHeight, lpBits, lpInfo,
                                    lpTranslate, dwRop3, lpPBrush, lpDrawMode, lpClipRect ) );
     }
-    ++m8_stats[M8_STAT_STRETCHDIB];
+    M8_ENTRY( M8_STAT_STRETCHDIB );
     s.get = fGet;
     s.dx = wDestX;
     s.dy = wDestY;
@@ -1038,7 +1040,7 @@ BOOL WINAPI __loadds StretchBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, 
                                 wSrcX, wSrcY, wSrcWidth, wSrcHeight, dwRop3, lpPBrush,
                                 lpDrawMode, lpClipRect ) );
     }
-    ++m8_stats[M8_STAT_STRETCHBLT];
+    M8_ENTRY( M8_STAT_STRETCHBLT );
     s.dx = wDestX;
     s.dy = wDestY;
     s.dw = wDestWidth;
@@ -1074,7 +1076,7 @@ WORD WINAPI __loadds FastBorder( LPRECT lpRect, WORD wHorizBorder, WORD wVertBor
                                  DWORD dwRop3, LPPDEVICE lpDestDev, LPBRUSH lpPBrush,
                                  LPDRAWMODE lpDrawMode, LPRECT lpClipRect )
 {
-    ++m8_stats[M8_STAT_FASTBORDER];
+    M8_ENTRY( M8_STAT_FASTBORDER );
     return( 0 );
 }
 
@@ -1097,7 +1099,7 @@ VOID WINAPI __loadds UpdateColors( WORD wStartX, WORD wStartY, WORD wExtX, WORD 
     M8_UPD  u;
     M8_RECT r;
 
-    ++m8_stats[M8_STAT_UPDATECOL];
+    M8_ENTRY( M8_STAT_UPDATECOL );
     u.xlat = lpTranslate;
     m8_rect_set( &r, wStartX, wStartY, wStartX + wExtX, wStartY + wExtY );
     m8_fallback( &r, 1, 1, 0, m8_draw_updatecolors, &u );
@@ -1113,6 +1115,7 @@ VOID WINAPI __loadds M8SetCursor( M8_CURSORSHAPE FAR *lpShape )
     int         x;
     int         wb;
 
+    M8_STEP( M8_MARK_CURSOR_SET );
     m8_busy = 1;
     m8_cursor_hide();
     m8_cur_have_shape = 0;
@@ -1150,6 +1153,7 @@ VOID WINAPI __loadds MoveCursor( WORD wAbsX, WORD wAbsY )
         return;
     }
     m8_busy = 1;
+    M8_STEP( M8_MARK_CURSOR_MOVE );
     m8_cursor_hide();
     m8_cursor_show();
     m8_busy = 0;
