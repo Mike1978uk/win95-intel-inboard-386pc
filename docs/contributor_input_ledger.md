@@ -371,7 +371,7 @@ untested here - our image does not load that driver.
   2026-10-07: he has a Graphics Ultra himself (owner on Reddit, looking for another channel) - a second real card.
   2026-10-16: velocity9x built here against the Win95 DDK (Win16 driver links); two build notes for him (audits depend
   on one Open Watcom snapshot's wdump format; -NoDpms does not guard the Win98-only DPMS symbols). Note drafted with
-  thanks and an offer of our probes for his Graphics Ultra; owner to send.
+  thanks and an offer of our probes for his Graphics Ultra; **owner sent it 10-16**.
 
 - #49 / 86Box#6695 (@andrew-hoffman): his Paintbrush lead closed out - 86Box PR #8289 merged 2026-10-11 (submitted the same evening); replies posted on 86Box#6695, #4898 and our #49 (owner-approved wording, thanked). Loop closed.
 - #49 (@andrew-hoffman), 2026-10-12: #8289 crashed every non-8514 VGA card (86Box#8290, NULL `dev` in `svga_out`;

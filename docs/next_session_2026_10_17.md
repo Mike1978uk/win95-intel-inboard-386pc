@@ -35,8 +35,8 @@ the Windows 98 DDK (archive.org) for a faithful velocity9x build.
 
 ## Owed / to tell people (owner sends)
 
-- Michael Dale (velocity9x): audits depend on one Open Watcom snapshot's `wdump` format; `-NoDpms` does not guard
-  the two Win98-only symbols. Local edit in our clone's `scripts/common.ps1`, uncommitted.
+- Michael Dale (velocity9x): build notes **sent by the owner 10-16** (ledger). Watch for a reply. Our clone keeps one
+  local, uncommitted edit in `scripts/common.ps1`.
 
 ## Left on disk
 
