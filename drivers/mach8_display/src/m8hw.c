@@ -22,35 +22,36 @@ typedef struct {
     WORD    is_byte;
 } M8_REG;
 
-/* 800 x 600 at pitch 1024, as ATIM8 sets it on this card. Shadow set 2 is
- * loaded with the 800 x 600 timings and ADVFUNC_CNTL bit 2 selects it. The
- * values are the monitor timings ATIM8 programs for 800 x 600; the EEPROM has
- * no Mach8 record for this mode (docs/mach8_levers.md).
- * Source: docs/captures/2026-10-16_atim8_tap/atim8_800x600_modeset.txt. */
-static const M8_REG m8_mode_800x600[] = {
-    { 0x22E8, 0x0060, 0 },      /* DISP_CNTL: display off */
-    { 0x4AE8, 0x0002, 0 },      /* ADVFUNC_CNTL: VGA passes through while the set loads */
-    { 0x7AEE, 0x000A, 1 },      /* EXT_GE_CONFIG */
-    { 0x22E8, 0x0020, 0 },
-    { 0x5AEE, 0x0002, 0 },      /* SHADOW_SET: set 2 */
-    { 0x46EE, 0x0000, 0 },      /* SHADOW_CTL: unlocked */
-    { 0x02E8, 0x0082, 1 },      /* H_TOTAL */
-    { 0x06E8, 0x0063, 1 },      /* H_DISP: 800 */
-    { 0x0AE8, 0x0066, 1 },      /* H_SYNC_STRT */
-    { 0x0EE8, 0x002E, 1 },      /* H_SYNC_WID */
-    { 0x12E8, 0x0535, 0 },      /* V_TOTAL */
-    { 0x16E8, 0x04AB, 0 },      /* V_DISP: 600 */
-    { 0x1AE8, 0x04C9, 0 },      /* V_SYNC_STRT */
-    { 0x1EE8, 0x0002, 1 },      /* V_SYNC_WID */
-    { 0x22E8, 0x0023, 1 },      /* DISP_CNTL */
-    { 0x4AEE, 0x1E10, 0 },      /* CLOCK_SEL */
-    { 0x46EE, 0x003F, 0 },      /* SHADOW_CTL: locked */
-    { 0x5AEE, 0x0000, 0 },
-    { 0x46EE, 0x0000, 0 },
-    { 0x22E8, 0x0060, 0 },
-    { 0x4AE8, 0x0007, 0 },      /* ADVFUNC_CNTL: 8514 output, shadow set 2 */
-    { 0x7AEE, 0x000A, 1 },
-    { 0x22E8, 0x0020, 0 },      /* display on */
+/* The modes, with ATIM8's values for this card: which shadow set it loads, the
+ * ADVFUNC_CNTL that selects it, the CRTC registers H_TOTAL .. V_SYNC_WID (the
+ * horizontal four and V_SYNC_WID take a byte) and CLOCK_SEL. 800x600 from its
+ * 800x600 mode set; 640x480 and 1024x768 from the two sets it loads at start.
+ * Source: docs/captures/2026-10-16_atim8_tap/ (atim8_tap_1016.log.gz). The
+ * EEPROM has a Mach8 record for none of these (docs/mach8_levers.md). */
+typedef struct {
+    int     x;
+    int     y;
+    WORD    set;
+    WORD    advfunc;
+    WORD    crtc[8];
+    WORD    clock;
+} M8_MODE;
+
+static const M8_MODE m8_modes[M8_MODE_COUNT] = {
+    {  640, 480, 1, 0x0003,
+       { 0x69, 0x4F, 0x53, 0x05, 0x0412, 0x03BF, 0x03D4, 0x03 }, 0x1824 },
+    {  800, 600, 2, 0x0007,
+       { 0x82, 0x63, 0x66, 0x2E, 0x0535, 0x04AB, 0x04C9, 0x02 }, 0x1E10 },
+    { 1024, 768, 2, 0x0007,
+       { 0xA1, 0x7F, 0x81, 0x12, 0x0649, 0x05FF, 0x0602, 0x06 }, 0x1E38 },
+};
+
+static const WORD m8_crtc_port[8] = {
+    0x02E8, 0x06E8, 0x0AE8, 0x0EE8, 0x12E8, 0x16E8, 0x1AE8, 0x1EE8
+};
+
+/* After the timings: the drawing engine as ATIM8 leaves it. */
+static const M8_REG m8_engine_init[] = {
     { 0x76EE, 0x0080, 0 },      /* GE_PITCH: 1024 / 8 */
     { 0x6EEE, 0x0000, 0 },      /* GE_OFFSET */
     { 0x72EE, 0x0000, 0 },
@@ -65,6 +66,9 @@ static const M8_REG m8_mode_800x600[] = {
     { 0xCEEE, 0x2211, 0 },      /* DP_CONFIG */
     { M8_MULTIFUNC_CNTL, M8_MF_PIX_CNTL, 0 },
 };
+
+int m8_scr_x = 800;
+int m8_scr_y = 600;
 
 static void m8_write_regs( const M8_REG *regs, int count )
 {
@@ -105,9 +109,52 @@ int m8_hw_wait_idle( void )
     return( 0 );
 }
 
-int m8_hw_set_mode( void )
+int m8_hw_mode_size( int mode, int *x, int *y )
 {
-    m8_write_regs( m8_mode_800x600, sizeof( m8_mode_800x600 ) / sizeof( m8_mode_800x600[0] ) );
+    if( mode < 0 || mode >= M8_MODE_COUNT ) {
+        return( 0 );
+    }
+    *x = m8_modes[mode].x;
+    *y = m8_modes[mode].y;
+    return( 1 );
+}
+
+/* ATIM8's order: display off and VGA through while the shadow set loads,
+ * timings, CLOCK_SEL, lock; then the set selected and the display on. */
+int m8_hw_set_mode( int mode )
+{
+    const M8_MODE   *m;
+    int             i;
+
+    if( mode < 0 || mode >= M8_MODE_COUNT ) {
+        return( 0 );
+    }
+    m = &m8_modes[mode];
+    outpw( M8_DISP_CNTL, 0x0060 );                      /* display off */
+    outpw( M8_ADVFUNC_CNTL, 0x0002 );                   /* VGA through */
+    outp( 0x7AEE, 0x0A );                               /* EXT_GE_CONFIG */
+    outpw( M8_DISP_CNTL, 0x0020 );
+    outpw( 0x5AEE, m->set );                            /* SHADOW_SET */
+    outpw( 0x46EE, 0x0000 );                            /* SHADOW_CTL: unlocked */
+    for( i = 0; i < 8; ++i ) {
+        if( i < 4 || i == 7 ) {
+            outp( m8_crtc_port[i], (BYTE)m->crtc[i] );
+        } else {
+            outpw( m8_crtc_port[i], m->crtc[i] );
+        }
+    }
+    outp( M8_DISP_CNTL, 0x23 );
+    outpw( 0x4AEE, m->clock );                          /* CLOCK_SEL */
+    outpw( 0x46EE, 0x003F );                            /* SHADOW_CTL: locked */
+    outpw( 0x5AEE, 0x0000 );
+    outpw( 0x46EE, 0x0000 );
+    outpw( M8_DISP_CNTL, 0x0060 );
+    outpw( M8_ADVFUNC_CNTL, m->advfunc );               /* 8514 output, this set */
+    outp( 0x7AEE, 0x0A );
+    outpw( M8_DISP_CNTL, 0x0020 );                      /* display on */
+    m8_write_regs( m8_engine_init, sizeof( m8_engine_init ) / sizeof( m8_engine_init[0] ) );
+    m8_scr_x = m->x;
+    m8_scr_y = m->y;
     m8_hw_fill( 0, 0, M8_SCREEN_X, M8_SCREEN_Y, 0 );
     return( m8_hw_wait_idle() );
 }

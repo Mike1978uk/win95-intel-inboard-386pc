@@ -224,6 +224,8 @@ static void m8_strip_place( M8_STRIP *s, const M8_RECT *r )
     DWORD first = (DWORD)r->t * s->pitch + r->l;
     DWORD last = (DWORD)(r->b - 1) * s->pitch + (r->r - 1);
 
+    s->dev.deWidth = M8_SCREEN_X;
+    s->dev.deHeight = M8_SCREEN_Y;
     s->dev.deWidthBytes = s->pitch;
     s->dev.deDeltaScan = s->pitch;
     s->dev.deFlags = m8_screen->deFlags & PALETTIZED;
@@ -1593,7 +1595,7 @@ BOOL WINAPI __loadds StretchBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, 
 #define M8_SSB_SAVE     0
 #define M8_SSB_RESTORE  1
 #define M8_SSB_DISCARD  2
-#define M8_SSB_Y        M8_SCREEN_Y         /* rows 600-1023 at x 0 */
+#define M8_SSB_Y        M8_SCREEN_Y         /* the rows below the screen, at x 0 */
 
 static int      m8_ssb_used;
 static M8_RECT  m8_ssb_rect;
@@ -1660,7 +1662,9 @@ WORD WINAPI __loadds SaveScreenBitmap( LPRECT lpRect, WORD wCmd )
     m8_rect_and( &r, &scr );
     w = r.r - r.l;
     h = r.b - r.t;
-    if( w <= 0 || h <= 0 || w > M8_PITCH || h > M8_PITCH - M8_SSB_Y ) {
+    /* Up to the cursor's save area in the bottom-right corner: 512 rows at
+     * 640x480, 392 at 800x600, 224 at 1024x768. */
+    if( w <= 0 || h <= 0 || w > M8_PITCH || h > M8_CURSOR_SAVE_Y - M8_SSB_Y ) {
         return( 0 );
     }
     M8_STEP( M8_MARK_SSB_SAVE );
@@ -1800,10 +1804,12 @@ int m8_screen_init( LPDIBENGINE screen )
     return( 1 );
 }
 
-/* DOS has the screen (INT 2Fh 4001h). The cursor and a saved menu area are
- * left in video memory nobody will repaint for us; forget both. */
+/* DOS has the screen (INT 2Fh 4001h), or the mode is changing. The cursor and a
+ * saved menu area are left in video memory nobody will repaint for us; forget
+ * both. Busy until m8_screen_resume, so a cursor move is only recorded. */
 void m8_screen_suspend( void )
 {
+    m8_busy = 1;
     m8_cur_shown = 0;
     m8_cur_pending = 0;
     m8_ssb_used = 0;
@@ -1813,12 +1819,10 @@ void m8_screen_suspend( void )
 void m8_screen_resume( void )
 {
     m8_cur_shown = 0;
+    m8_cur_pending = 0;
     m8_ssb_used = 0;
-    if( !m8_busy ) {
-        m8_cursor_show();
-    } else {
-        m8_cur_pending = 1;
-    }
+    m8_busy = 0;
+    m8_cursor_show();
 }
 
 void m8_screen_done( void )

@@ -46,6 +46,63 @@ static WORD m8_repaint_disabled;
 static WORD m8_repaint_pending;
 static FARPROC m8_repaint;
 static WORD m8_int2f_hooked;
+static int  m8_mode = M8_MODE_800;
+static WORD m8_reenabling;
+
+/* The VDD: its API entry and this VM's handle, for the display settings. */
+static DWORD m8_vdd_entry;
+static WORD  m8_vm_handle;
+#define VDD_ID                  0x000A
+#define VDD_GET_DISPLAY_CONFIG  0x0085
+
+/* The head of the VDD's DISPLAYINFO (MINIVDD.INC): what this driver reads. */
+typedef struct {
+    WORD    diHdrSize;
+    WORD    diInfoFlags;
+    DWORD   diDevNodeHandle;
+    char    diDriverName[16];
+    WORD    diXRes;
+    WORD    diYRes;
+    WORD    diDPI;
+    BYTE    diPlanes;
+    BYTE    diBpp;
+    WORD    diRefreshRateMax;
+    WORD    diRefreshRateMin;
+    BYTE    diReserved[64];
+} M8_DISPLAYINFO;
+
+static DWORD m8_vdd_get_config( WORD fn, WORD size, LPVOID info );
+#pragma aux m8_vdd_get_config =     ".386"     "movzx eax, ax"     "movzx ecx, cx"     "movzx ebx, m8_vm_handle"     "movzx edi, di"     "call dword ptr m8_vdd_entry"     "mov edx, eax"     "shr edx, 16"     parm [ax] [cx] [es di] modify [bx];
+
+static void __far *m8_int2f_get_ep( unsigned ax, unsigned bx );
+#pragma aux m8_int2f_get_ep = "int 2Fh" parm [ax] [bx] value [es di];
+static WORD m8_int2f_get_vm( unsigned ax );
+#pragma aux m8_int2f_get_vm = "int 2Fh" parm [ax] value [bx];
+
+/* The resolution Display Properties chose, from the VDD; 800x600 if it says
+ * nothing we can show. 8 bpp only. */
+static void m8_read_mode( void )
+{
+    M8_DISPLAYINFO  di;
+    int             i;
+    int             x;
+    int             y;
+
+    m8_mode = M8_MODE_800;
+    if( m8_vdd_entry == 0 ) {
+        return;
+    }
+    _fmemset( &di, 0, sizeof( di ) );
+    if( m8_vdd_get_config( VDD_GET_DISPLAY_CONFIG, sizeof( di ), &di ) != 0 ) {
+        return;
+    }
+    for( i = 0; i < M8_MODE_COUNT; ++i ) {
+        if( m8_hw_mode_size( i, &x, &y ) && x == (int)di.diXRes && y == (int)di.diYRes ) {
+            m8_mode = i;
+        }
+    }
+    m8_hw_mode_size( m8_mode, &m8_scr_x, &m8_scr_y );
+}
 
 /* The 20 static colours: first ten and last ten of the 8 bpp table. */
 static const DIBColorEntry m8_static_lo[] = {
@@ -84,6 +141,9 @@ UINT FAR DriverInit( UINT cbHeap, UINT hModule, LPSTR lpCmdLine )
     /* The cursor runs at interrupt time: its code must not be paged out. */
     GlobalSmartPageLock( (HGLOBAL)m8_code_seg() );
     m8_dpi = GetPrivateProfileInt( "display", "dpi", 96, "system.ini" );
+    m8_vdd_entry = (DWORD)m8_int2f_get_ep( 0x1684, VDD_ID );
+    m8_vm_handle = m8_int2f_get_vm( 0x1683 );
+    m8_read_mode();
     M8_STEP( 0xA002 );
     return( 1 );
 }
@@ -139,7 +199,8 @@ static void m8_fill_gdiinfo( LPGDIINFO lpInfo )
      * back. */
     lpInfo->dpRaster    |= RC_DIBTODEV | RC_PALETTE | RC_SAVEBITMAP;
     lpInfo->dpCaps1     |= C1_BYTE_PACKED | C1_GLYPH_INDEX | C1_SLOW_CARD;
-    lpInfo->dpCaps1     &= ~(C1_COLORCURSOR | C1_REINIT_ABLE);
+    lpInfo->dpCaps1     |= C1_REINIT_ABLE;
+    lpInfo->dpCaps1     &= ~C1_COLORCURSOR;
 }
 
 static void __far *m8_get_vec( BYTE n );
@@ -210,7 +271,7 @@ void __cdecl m8_switch_in( void )
         return;
     }
     m8_hw_off = 0;
-    m8_hw_set_mode();
+    m8_hw_set_mode( m8_mode );
     m8_hw_set_palette( 0, 256, m8_color_table );
     m8_pdevice->deFlags &= ~BUSY;
     m8_screen_resume();
@@ -242,7 +303,7 @@ UINT WINAPI __loadds Enable( LPVOID lpDevice, UINT style, LPSTR lpDeviceType,
     M8_STEP( 0xA020 );
     int_2Fh( STOP_IO_TRAP );
     M8_STEP( 0xA021 );
-    if( !m8_hw_set_mode() ) {
+    if( !m8_hw_set_mode( m8_mode ) ) {
         m8_hw_passthrough();
         return( 0 );
     }
@@ -259,6 +320,8 @@ UINT WINAPI __loadds Enable( LPVOID lpDevice, UINT style, LPSTR lpDeviceType,
     lpInfo->bmiHeader.biPlanes   = 1;
     lpInfo->bmiHeader.biBitCount = 8;
     m8_color_table = (RGBQUAD FAR *)lpInfo->bmiColors;
+    /* A live mode change keeps the palette applications have realized. */
+    if( !m8_reenabling ) {
     _fmemcpy( m8_color_table, m8_static_lo, sizeof( m8_static_lo ) );
     for( i = 10; i < 246; ++i ) {
         ((DIBColorEntry FAR *)m8_color_table)[i].dceRed = 0;
@@ -267,6 +330,7 @@ UINT WINAPI __loadds Enable( LPVOID lpDevice, UINT style, LPSTR lpDeviceType,
         ((DIBColorEntry FAR *)m8_color_table)[i].dceFlags = NONSTATIC;
     }
     _fmemcpy( &m8_color_table[246], m8_static_hi, sizeof( m8_static_hi ) );
+    }
 
     /* No bits pointer: the DIB Engine never addresses this surface. */
     lpEng->deType         = TYPE_DIBENG;
@@ -339,12 +403,47 @@ LONG WINAPI __loadds Control( LPVOID lpDevice, UINT function, LPVOID lpInput, LP
     return( DIB_Control( lpDevice, function, lpInput, lpOutput ) );
 }
 
-/* One mode in D8a: 800 x 600 x 8. */
+/* Display Properties changed the resolution: set the new mode and rebuild the
+ * PDevice in place (GDI's allocation does not change size); if that fails, the
+ * old mode goes back. Then GDIINFO for the new mode. */
+UINT WINAPI __loadds ReEnable( LPVOID lpDevice, LPGDIINFO lpInfo )
+{
+    int     old = m8_mode;
+    UINT    rc;
+
+    m8_read_mode();
+    m8_reenabling = 1;
+    /* Quiet while the mode changes: the cursor moves at interrupt time. */
+    m8_screen_suspend();
+    rc = Enable( lpDevice, 0, NULL, NULL, NULL );
+    if( rc ) {
+        Enable( lpInfo, 1, NULL, NULL, NULL );
+    } else {
+        m8_mode = old;
+        m8_hw_mode_size( m8_mode, &m8_scr_x, &m8_scr_y );
+        Enable( lpDevice, 0, NULL, NULL, NULL );
+        m8_request_repaint();
+    }
+    m8_reenabling = 0;
+    m8_screen_resume();
+    return( rc ? 1 : 0 );
+}
+
+/* 640x480, 800x600 and 1024x768, at 8 bpp. */
 UINT WINAPI __loadds ValidateMode( DISPVALMODE FAR *lpMode )
 {
+    int i;
+    int x;
+    int y;
+
     M8_STEP( 0xA070 );
-    if( lpMode->dvmBpp == 8 && lpMode->dvmXRes == M8_SCREEN_X && lpMode->dvmYRes == M8_SCREEN_Y ) {
-        return( VALMODE_YES );
+
+    if( lpMode->dvmBpp == 8 ) {
+        for( i = 0; i < M8_MODE_COUNT; ++i ) {
+            if( m8_hw_mode_size( i, &x, &y ) && lpMode->dvmXRes == x && lpMode->dvmYRes == y ) {
+                return( VALMODE_YES );
+            }
+        }
     }
     return( VALMODE_NO_UNKNOWN );
 }

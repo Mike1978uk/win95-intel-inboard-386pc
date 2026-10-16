@@ -53,7 +53,7 @@ $exports = @(
   'DeviceMode.13', 'ExtTextOut.14', 'GetCharWidth.15', 'DeviceBitmap.16', 'FastBorder.17',
   'SetAttribute.18', 'DibBlt.19', 'CreateDIBitmap.20', 'DibToDevice.21', 'SetPalette.22',
   'GetPalette.23', 'SetPaletteTranslate.24', 'GetPaletteTranslate.25', 'UpdateColors.26',
-  'StretchBlt.27', 'StretchDIBits.28', 'SelectBitmap.29', 'BitmapBits.30',
+  'StretchBlt.27', 'StretchDIBits.28', 'SelectBitmap.29', 'BitmapBits.30', 'ReEnable.31',
   'Inquire.101', 'SetCursor.102', 'MoveCursor.103', 'CheckCursor.104',
   'SaveScreenBitmap.92', 'GetDriverResourceID.450', 'UserRepaintDisable.500', 'ValidateMode.700')
 $lnk = @(

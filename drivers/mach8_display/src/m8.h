@@ -9,10 +9,20 @@
 #define M8_H
 
 /* Screen layout. The engine addresses 1 MB as 1024 x 1024 at 8 bpp; the visible
- * 800 x 600 sits top left, the rest is off-screen memory for caches. */
-#define M8_SCREEN_X         800
-#define M8_SCREEN_Y         600
+ * screen (640x480, 800x600 or 1024x768) sits top left, the rows below it are
+ * off-screen memory. */
 #define M8_PITCH            1024
+#define M8_SCREEN_X         m8_scr_x
+#define M8_SCREEN_Y         m8_scr_y
+
+/* Modes, by index (m8hw.c's table). */
+#define M8_MODE_640         0
+#define M8_MODE_800         1
+#define M8_MODE_1024        2
+#define M8_MODE_COUNT       3
+
+extern int m8_scr_x;
+extern int m8_scr_y;
 
 /* 8514/A registers (IBM 8514/A Technical Reference; Mach32 programmer's guide ch. 8). */
 #define M8_DISP_CNTL        0x22E8
@@ -74,9 +84,10 @@
 #define M8_MIX_LEAVE        0x0003      /* the result is the destination */
 #define M8_MIX_XOR          0x0005
 
-/* Off-screen memory: the strip right of the 800-wide screen. */
-#define M8_CURSOR_SAVE_X    800         /* 32 x 32 under the cursor */
-#define M8_CURSOR_SAVE_Y    0
+/* Off-screen memory: the bottom-right corner holds what is under the cursor
+ * (32 x 32), below every mode's screen; menu saves use the rows above it. */
+#define M8_CURSOR_SAVE_X    (M8_PITCH - 32)
+#define M8_CURSOR_SAVE_Y    (M8_PITCH - 32)
 
 /* Commands. Rectangle (010), LSB_FIRST (bit 12: first pixel in the low byte), 16-bit
  * transfers (bit 9), wait for host data (bit 8), x and y increasing, draw. */
@@ -115,7 +126,8 @@ extern DWORD m8_stats[M8_STAT_COUNT];
 
 /* m8hw.c */
 extern int  m8_hw_off;
-extern int  m8_hw_set_mode( void );
+extern int  m8_hw_set_mode( int mode );
+extern int  m8_hw_mode_size( int mode, int *x, int *y );
 extern void m8_hw_passthrough( void );
 extern void m8_hw_set_palette( UINT start, UINT count, RGBQUAD FAR *pal );
 extern int  m8_hw_wait_idle( void );
