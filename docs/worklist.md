@@ -57,6 +57,9 @@ hardware nobody else touches; never rank a feature by whether ATI's drivers use 
       ULTRA.DRV (1992) uploads cursor masks with DP_CONFIG then FRGD_MIX; #8289 moved the mono source to
       PIX_CNTL too. Fix keeps only the foreground switch. MACHW3 never affected. Tests and gates:
       `docs/mach8_ultra_drv_cursor_2026_10_15.md`. Owner told TC1995.
+- [x] **A12 Submitted 10-16: 86Box PR #8351** (TC1995: Win 3.1 8514.DRV File Manager glitch from #8289).
+      Command 4 width/height swapped; card probe M8NIB2 = fixed build byte for byte. Fork `mach8-nibble-axes`
+      `3b23c04b2`. Details: `docs/mach8_cmd4_axes_2026_10_16.md`. Owner tells TC1995. Merge -> README row.
 - [ ] **A8 (Thursday, owner) Siblings of #8289 (TC1995, 86Box Discord 10-12).** The Mach8 fixes should
       apply to the 8514/ULTRA add-on (same chip; `ATI_8514A_ULTRA`) and likely the Mach32. #8289 added 118
       lines gated on `ATI_GRAPHICS_ULTRA`. List each gated fix (fix, measured on our card, siblings it
