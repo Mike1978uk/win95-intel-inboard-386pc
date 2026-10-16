@@ -204,6 +204,12 @@ Step 2: our own VxD, to save the registers ATI.VXD does not know (DEST_CMP_FN, B
       **D8b done in the bed (10-16):** text, cursor, pattern ROPs (via the DIB Engine's own 8x8 brush rendering), source
       clip, SaveScreenBitmap (guarded; an intermittent overwrite of its rectangle is under watch), DOS switching.
       Next: bitmap uploads as runs, then the first timed run on the 5160 against ATIM8.
+- [ ] **D9 New league (owner, 10-16: "leave them all standing" - ATI's drivers and XFree86 both).** Already ours and in
+      neither: uploads as runs, double-draw coverage, per-call bus accounting. Order: (1) glyph cache + colour-compare
+      transparency (92EE/EAEE, used by no driver) - text faster than ATIM8 (121 us/glyph) and XFree86's cache (51 us);
+      (2) engine lines (Bresenham, short strokes); (3) bitmap/icon cache in off-screen memory, drawn transparently in one
+      copy; (4) timed 5160 run vs ATIM8 to prove the lead; then the experimental block - raster-timed drawing (A9h
+      line counter), >256 colours (D4), DirectDraw on the VGA half (D5/D6), vectors and 3D (D3).
 - [ ] **D8c Parity with ATIM8's modes (owner, 10-16: "equal and better than ATI", for the purists).** 256 colours at
       640x480, 800x600, 1024x768 (built 10-16, `9bd77c2`, in test). 16 colours at 800x600 and 1024x768 as ATIM8 offers
       them (640x480x16 is Windows' vga.drv on the VGA half, unchanged): Mach8 4-bit pixel mode, DIB Engine at 4 bpp,
