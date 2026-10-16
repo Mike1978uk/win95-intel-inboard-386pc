@@ -125,11 +125,12 @@ Inventory and results: `docs/mach8_levers.md` (one place; this list only orders 
       `docs/rom_and_eeprom_dumps.md`; ROM mode tables bit by bit (B0/B1/B4/B5/BA/BB/BD/BF); ROM API arguments (72DDh).
 - [ ] **L4 Card sitting (M).** Done 10-16 (`docs/mach8_levers.md`): (a) line counter A9h = raster clock, 11.5 us/poll,
       ~2-line steps; (b) split banking works (BEh bit 3) but **no time gain** - bus-bound; (c) DP_CONFIG mono expansion
-      **= bed byte for byte**. Left: (d) EXT_SHORT_STROKE (C6EE), after a guide read; (e) the unknown bits (A0 0-3, AD 4,
-      AF, BC) - read, toggle, read, **hang risk, owner's call**.
+      **= bed byte for byte**. (d) EXT_SHORT_STROKE: **card does not follow the guide** (one diagonal per write) -
+      follow-up M8SSV3; (e) unknown bits: A0 0-3, AD 4, BC hold, AF reads 0, no visible effect, no hang.
 - [ ] **L4c C1 moved here (owner, 10-16: shift left).** What the output switch between the halves costs (clean, or a
       monitor resync) and whether both CRTCs can run identical timing - it gates C2 (two renderers, frame N+1 built while
-      N shows). Probe M8FLIP v2 with the EEPROM's 640x480 clock index (v1 picked CLOCK_SEL 0 and never reached the monitor).
+      N shows). 10-16: M8SHOW shows both stripe sets (ADVFUNC alone works); M8FLIP3 black after an INT 10h
+      mode 12h - next M8FLIP4 (text / mode 12h / mode 12h + DISP_CNTL on).
 - [ ] **L5 Fold results into `docs/mach8_driver_design.md`** - which levers the driver uses, and for what.
 
 

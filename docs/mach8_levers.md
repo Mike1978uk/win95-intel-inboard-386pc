@@ -187,3 +187,20 @@ records and program the CRT itself.
 
 Card BEh read 20h, bed 30h (bit 4, a clock-select bit): likely the bed's EEPROM, not checked.
 Per-read costs match the 2026-09-20 I/O measurement (~5.7 us per byte-wide port access).
+
+## L4 second sitting, 2026-10-16 (`docs/captures/2026-10-16_l4/`)
+
+- **M8SSV2 - EXT_SHORT_STROKE (C6EEh): the card does not follow the guide.** Every case drew one 45-degree diagonal of
+  ~5-9 pixels in one of four quadrants; the second vector never appeared; a "move" drew. The first byte's top bits look
+  like a quadrant (bit 7 down, bit 5 right), not the guide's eight directions. The bed (guide semantics) differs in every
+  case (20/19/4/14/14/23 bytes). May depend on state the probe did not set (CMD). Unused by every driver; a model gap.
+  Follow-up: one vector per write (null second byte), each direction alone, with a known CMD.
+- **M8SHOW (owner watched): both sets of stripes** - the 8514 side reaches the monitor by ADVFUNC_CNTL alone.
+- **M8FLIP3: black throughout** (owner). Difference from M8SHOW: M8FLIP3 sets VGA mode 12h through INT 10h first.
+  Hypothesis: the BIOS mode set turns the 8514 display off (DISP_CNTL, 22E8h - the ROM's engine bring-up writes it). The
+  8514 vsync still runs (6,397-7,006 polls per frame vs 5,019-5,020 for VGA). 120 fast switches ran. Next: M8FLIP4 with
+  three arms - text mode as M8SHOW; after mode 12h; after mode 12h plus DISP_CNTL display-on.
+- **M8BITS: no visible effect, no hang.** A0h bits 0-3, ADh bit 4 (reads 10h on the card), BCh all bits hold; **AFh
+  always reads 00h** (read-only or absent). Memory-read timing ~7 us/word, +-15% with no pattern by bit. The line-counter
+  arm failed on every record including the baseline: it wrote the index once and re-read 1CFh - **the 28800 latches the
+  value at the index write**, so each counter poll must rewrite the index (M8RAST did; its 11.5 us includes that).
