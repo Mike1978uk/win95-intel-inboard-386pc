@@ -127,6 +127,9 @@ Inventory and results: `docs/mach8_levers.md` (one place; this list only orders 
       ~2-line steps; (b) split banking works (BEh bit 3) but **no time gain** - bus-bound; (c) DP_CONFIG mono expansion
       **= bed byte for byte**. Left: (d) EXT_SHORT_STROKE (C6EE), after a guide read; (e) the unknown bits (A0 0-3, AD 4,
       AF, BC) - read, toggle, read, **hang risk, owner's call**.
+- [ ] **L4c C1 moved here (owner, 10-16: shift left).** What the output switch between the halves costs (clean, or a
+      monitor resync) and whether both CRTCs can run identical timing - it gates C2 (two renderers, frame N+1 built while
+      N shows). Probe M8FLIP v2 with the EEPROM's 640x480 clock index (v1 picked CLOCK_SEL 0 and never reached the monitor).
 - [ ] **L5 Fold results into `docs/mach8_driver_design.md`** - which levers the driver uses, and for what.
 
 

@@ -149,3 +149,13 @@ aperture hook, `fill_engine` declaring the engine type and caps). The Trio64 bac
   `MINIVDD.INC`; `-NoDpms` does not guard their registration. Needs the Windows 98 DDK, or a guard. Ours targets
   Windows 95 and would not register DPMS anyway.
 - For a faithful build: the Windows 98 DDK and the Open Watcom snapshot velocity9x's audits were written against.
+
+## Only what changed crosses the bus (owner, 10-16)
+
+- GDI already hands the driver only invalidated areas; the read-back fallback and the cursor work on the smallest bounding
+  rectangle, never the screen.
+- DirectDraw / games / the demo do not get this for free: the Blt and flip paths take a list of dirty rectangles and move
+  only those (`mach8_graphics_vision.md`).
+- Two renderers (worklist C2): the CPU builds frame N+1 in the 28800's memory while the engine draws frame N on the Mach8's,
+  and the output switch flips. The raster clock (A9h, 11.5 us per poll, L4) times a tear-free switch; split banking gives
+  no speed (L4), so the VGA side uses plain single-bank writes. Gated on C1 (what the output switch costs).
