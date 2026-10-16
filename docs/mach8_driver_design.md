@@ -335,3 +335,7 @@ the two-colour pattern expansion, which the fallback drew correctly before. **Pa
 (`M8_PATTERN_EXPANSION 0`, screen.c); solid brushes with any mix stay on the engine. To find before turning it back on:
 the pattern phase and row mapping (stripes suggest every row got the same byte) - check the bits sent against the
 brush in a trace before changing code.
+
+**Pattern expansion off (`3dacc5c`), owner 10-16 night (`m8disp_d8b_nopattern_1016.log.gz`):** button frame and Explorer
+selection correct; grey-out better. So the pattern expansion caused those. **Castle deck still wrong:** paints correctly
+at first; after a click on the deck the bat sprites show beside the card, outside it.
