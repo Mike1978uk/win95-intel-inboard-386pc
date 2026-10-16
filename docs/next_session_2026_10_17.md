@@ -41,6 +41,6 @@ the Windows 98 DDK (archive.org) for a faithful velocity9x build.
 ## Left on disk
 
 - `86box_cursorfix/` now holds branch `mach8-nibble-axes` (#8351) - keep until it merges. `86box_bisect/` now holds
-  local branch `mach8-tap` (A10 step 1, built, not pushed) and `bisect-cursorfix-wip` - **keep it**.
+  branch `mach8-tap` (A10 step 1, built, pushed to the fork) and `bisect-cursorfix-wip` - **keep it**.
 - `vm_mach8_8514drv/` (Win 3.11 on 8514.DRV, shell = File Manager): reference bed for correct Win 3.x output.
 - `vm_6695_w2/nvr/mach8.nvr` is the post-TEST.COM EEPROM; `.bak_1015` the earlier one (A6 baselines differ by it).

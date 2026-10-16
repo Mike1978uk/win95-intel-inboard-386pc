@@ -76,7 +76,7 @@ hardware nobody else touches; never rank a feature by whether ATI's drivers use 
       Read 10-12: reuse the method and host_stubs.c (pclog, config, RAM, an io_sethandler that records the
       device handlers); our MACH8_WLOG logs are already a capture tap. Not useful: the Rage 128 vectors, JIT,
       GPU, bus-master/PCI stubs. Main cost: his VGA core is an empty shell; ours needs more of svga_t.
-      **Step 1 ready (10-16):** branch `mach8-tap` in `86box_bisect/` (local, not pushed) = upstream master + #8351 + a
+      **Step 1 ready (10-16):** branch `mach8-tap` in `86box_bisect/` (pushed to the fork, `mike/mach8-tap`) = upstream master + #8351 + a
       tap (`e8a50f66a`, M8W writes and M8R word reads, `MACH8_WLOG=1`); built and smoke-tested (M8DPM: 1,220 writes, 5,539
       reads, output still = card; `docs/captures/2026-10-10_a6/tap_smoke/`).
       **Order (10-16, for D8):** (1) the tap exists - `MACH8_WLOG=1` (fork diagnostic commits `1c58617df`, `778f9f180`,
