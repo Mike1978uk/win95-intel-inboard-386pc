@@ -1,0 +1,41 @@
+/* Resources every Windows 9x display driver carries: system metrics and
+ * colours (config), the colour table, and the stock fonts at 96 and 120 DPI. */
+
+#include "windows.h"
+#include <ver.h>
+
+1          oembin  PRELOAD         config.bin
+2          oembin                  colortab.bin
+3          oembin  PRELOAD         fonts.bin
+fonts      oembin                  fonts.bin
+
+2003       oembin  PRELOAD         fonts120.bin
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION     4,0,0,1
+PRODUCTVERSION  4,0,0,1
+FILEFLAGSMASK   VS_FFI_FILEFLAGSMASK
+FILEFLAGS       0
+FILEOS          VOS_DOS_WINDOWS16
+FILETYPE        VFT_DRV
+FILESUBTYPE     VFT2_DRV_DISPLAY
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904E4"
+        BEGIN
+            VALUE "CompanyName",      "win95-intel-inboard-386pc\0"
+            VALUE "FileDescription",  "ATI Graphics Ultra (Mach8) display driver\0"
+            VALUE "FileVersion",      "4.00.0001\0"
+            VALUE "InternalName",     "DISPLAY\0"
+            VALUE "LegalCopyright",   "GPL-3.0-or-later; parts MIT (boxv9x, vmdisp9x)\0"
+            VALUE "OriginalFilename", "M8DISP.DRV\0"
+            VALUE "ProductName",      "Mach8 driver for Windows 95\0"
+            VALUE "ProductVersion",   "4.00.0001\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1252
+    END
+END
