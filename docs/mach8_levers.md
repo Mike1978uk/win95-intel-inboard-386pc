@@ -218,7 +218,7 @@ Per-read costs match the 2026-09-20 I/O measurement (~5.7 us per byte-wide port 
   So a BIOS mode set does **not** cause M8FLIP3's black. Reading: **each switch between the halves makes the monitor
   re-sync**, taking over a second on the owner's monitor - M8FLIP3's ~1 s slow switches flipped back before anything
   showed. Consistent with the halves' different timing (VGA ~5,020 status polls per frame, 8514 ~6,400-7,000) and no
-  phase lock (10-11). Owner to confirm a blank or sync message before the white in arm A.
-- **If confirmed, C1 is answered: switching the output costs a monitor re-sync, so C2 (alternate frames between the
+  phase lock (10-11). Owner confirmed: **black, then white, no loss of signal** - a gap of over a second at each switch.
+- **C1 is answered: switching the output costs a monitor re-sync, so C2 (alternate frames between the
   halves) and C3 (raster split) are not viable as designed.** Both halves can still work together without switching the
   output - e.g. the CPU stages data in VGA memory while the engine draws.

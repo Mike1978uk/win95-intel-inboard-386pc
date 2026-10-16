@@ -98,9 +98,11 @@ The CPU writes the VGA side at 2.0 us/byte, the cheapest path on the card; the e
 
 - [ ] **C1 Settle the facts (desk -> M).** 10-11 (`docs/captures/2026-10-11_m8probes/`): memories do not cross (M8XMEM); halves not phase locked; M8FLIP v1 never reached the monitor (CLOCK_SEL 0 = pass-through) - v2 needs the 640x480 clock index from the EEPROM (A4). Is the DAC shared? What does an output switch cost - a resync on the
       monitor, or clean? Can both CRTCs run identical timing?
-- [ ] **C2 Two renderers, alternate frames.** CPU builds frame N+1 in VGA memory while the engine draws frame N on
+- [ ] ~~**C2 Two renderers, alternate frames.**~~ **Not viable as designed (10-16, L4c):** every switch between the halves
+      blanks the monitor for over a second (owner: black, then white, no signal loss); the halves run different timing and are
+      not phase locked. Matched timing untested, but the sync phase would still jump. Was: CPU builds frame N+1 in VGA memory while the engine draws frame N on
       the 8514 side; flip by the output switch. Two "GPUs" on one card.
-- [ ] **C3 Split screen by raster switch.** Switch output mid-frame on LINE_SYNC / VGA status, the CRTC method of
+- [ ] ~~**C3 Split screen by raster switch.**~~ **Not viable (10-16):** same re-sync gap at each switch. Was: Switch output mid-frame on LINE_SYNC / VGA status, the CRTC method of
       reenigne's 8088 MPH: VGA text or HUD on top, engine graphics below. Needs C1's timing answer.
 - [ ] **C4 Pick the winner for the driver and the demo**, measured with TXTBENCH-style counts.
 
@@ -127,7 +129,8 @@ Inventory and results: `docs/mach8_levers.md` (one place; this list only orders 
       ~2-line steps; (b) split banking works (BEh bit 3) but **no time gain** - bus-bound; (c) DP_CONFIG mono expansion
       **= bed byte for byte**. (d) EXT_SHORT_STROKE: **card does not follow the guide** (one diagonal per write) -
       follow-up M8SSV3; (e) unknown bits: A0 0-3, AD 4, BC hold, AF reads 0, no visible effect, no hang.
-- [ ] **L4c C1 moved here (owner, 10-16: shift left).** What the output switch between the halves costs (clean, or a
+- [x] **L4c C1 answered 10-16:** an output switch costs a >1 s blank (M8FLIP4, owner watched; ENA_DISPLAY reset = black).
+      Both halves stay usable without switching the output (CPU stages data in VGA memory while the engine draws). Was: What the output switch between the halves costs (clean, or a
       monitor resync) and whether both CRTCs can run identical timing - it gates C2 (two renderers, frame N+1 built while
       N shows). 10-16: M8SHOW shows both stripe sets (ADVFUNC alone works); M8FLIP3 black after an INT 10h
       mode 12h - next M8FLIP4 (text / mode 12h / mode 12h + DISP_CNTL on).

@@ -20,6 +20,10 @@ silicon ATI's drivers never used - kept wherever a measurement shows a gain. Lea
 - **Lever inventory** `docs/mach8_levers.md`: port census of 84 ATI binaries (`tools/ati_port_census.py`); source
   colour compare (92EE/EAEE) and short strokes used by TEST.COM only; VVESA disassembled - split read/write banks
   on the 28800 (B2 + BE bit 3), AE bank high bits; 28800 indices no ATI binary touches listed.
+- **L3/L4 card work (three sittings):** ROM has a far-call API (64h-70h); EEPROM = four 11-word timing records; line
+  counter A9h = raster clock (11.5 us/poll, rewrite the index each read); DP_CONFIG mono = bed byte for byte; split
+  banking works, no speed gain; EXT_SHORT_STROKE draws only diagonals; **switching halves blanks >1 s - C2/C3 not
+  viable**. All in `docs/mach8_levers.md`.
 - Sources added: DDK ATI mini-VDD sample (`DISPLAY/SAMPLES/VDD/ATI`, has a Mach8 path); 3Dos and Portfolio repos (§12).
 
 ## Next
