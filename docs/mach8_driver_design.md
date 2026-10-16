@@ -406,3 +406,7 @@ repaints).
 **Third SSB run (`1e14321`, m8disp_d8b_ssb3_1016.log):** owner tried repeatedly (Start menu, submenus, right-click
 menus); not reproduced. 62 saves, 62 restores, all paired; the detector (EBAD) never fired. Intermittent. Detector and
 guarded restore stay in; the next occurrence names the entry that overwrites the rectangle.
+Ruled out at the desk: m8_ssb_rect is the first variable of screen.c's BSS (DGROUP:0160h, wdis); what precedes it is
+enable.c's 8 bytes of scalars and a far pointer - no array, nothing written through a pointer. The DIB thunks push
+m8_pdevice/m8_palettized with the ES override onto DGROUP (wdis thunks.obj), so they do not hand the DIB Engine a
+garbage PDevice. Still open: what wrote {2,479,96,767} (a RECT-shaped value) there.
