@@ -4,7 +4,8 @@
 Reads an 86Box log taken with MACH8_WLOG=1 while a -Trace build of M8DISP.DRV
 ran. The driver writes B0xx to SCRATCH_PAD_1 (56EEh) as each screen entry
 starts (m8.h, M8_ENTRY); every engine command after it is charged to that
-entry until the next marker.
+entry until the next marker. BitBlt adds Cksr: k = source kind (0 none,
+1 screen, 2 DIB Engine bitmap, 3 plain BITMAP), rr = ROP3 byte.
 
   python tools/m8_fallback_tally.py <86box.log>
 
@@ -57,6 +58,11 @@ def main(path):
         port, val = l.split()[1], int(l.split()[2], 16)
         if port == '56EE' and (val & 0xFF00) == 0xB000:
             who = NAMES.get(val, hex(val))
+            row(who)['calls'] += 1
+            continue
+        if port == '56EE' and (val & 0xF000) == 0xC000:
+            kind = ('none', 'screen', 'DIB', 'BITMAP')[(val >> 8) & 3]
+            who = f'BitBlt {kind} rop {val & 0xFF:02X}'
             row(who)['calls'] += 1
             continue
         if port in ('96E8', '86E8', '82E8'):

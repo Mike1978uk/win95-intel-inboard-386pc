@@ -247,6 +247,20 @@ static void m8_strip_read( M8_STRIP *s, const M8_RECT *r )
     ++m8_stats[M8_STAT_READBACK];
 }
 
+/* Only the columns alignment added: the operation overwrites the rest. */
+static void m8_strip_read_edges( M8_STRIP *s, const M8_RECT *r, const M8_RECT *area )
+{
+    int h = r->b - r->t;
+
+    if( r->l != area->l ) {
+        m8_hw_read_rect( r->l, r->t, 2, h, s->bits, s->pitch );
+    }
+    if( r->r != area->r ) {
+        m8_hw_read_rect( r->r - 2, r->t, 2, h, s->bits + (r->r - 2 - r->l), s->pitch );
+    }
+    ++m8_stats[M8_STAT_READBACK];
+}
+
 static void m8_strip_write( M8_STRIP *s, const M8_RECT *r )
 {
     m8_hw_write_rect( r->l, r->t, r->r - r->l, r->b - r->t, s->bits, s->pitch );
@@ -359,6 +373,7 @@ static DWORD m8_fallback( const M8_RECT *bound_in, int read, int write, int bott
     WORD    pitch;
     int     rows;
     int     y;
+    int     edges = 0;
     DWORD   rc = 0;
 
     m8_rect_screen( &scr );
@@ -371,8 +386,8 @@ static DWORD m8_fallback( const M8_RECT *bound_in, int read, int write, int bott
      * are read first so they go back to the card unchanged. */
     area = bound;
     m8_rect_align( &bound );
-    if( bound.l != area.l || bound.r != area.r ) {
-        read = 1;
+    if( !read && (bound.l != area.l || bound.r != area.r) ) {
+        edges = 1;
     }
     rows = m8_strip_rows( &bound, &pitch );
     m8_dst.pitch = pitch;
@@ -396,6 +411,8 @@ static DWORD m8_fallback( const M8_RECT *bound_in, int read, int write, int bott
         m8_strip_place( &m8_dst, &s );
         if( read ) {
             m8_strip_read( &m8_dst, &s );
+        } else if( edges ) {
+            m8_strip_read_edges( &m8_dst, &s, &area );
         }
         clip.left = area.l;
         clip.top = s.t;
@@ -451,6 +468,21 @@ static DWORD m8_draw_bitblt( void *ctx, LPDIBENGINE dev, LPRECT c )
     return( DIB_BitBlt( dev, c->left, c->top, src, sx, sy, w, h, b->rop, b->brush, b->dm ) );
 }
 
+#ifdef M8_TRACE
+/* Source kind for the trace: 0 none, 1 screen, 2 DIB Engine bitmap, 3 plain
+ * BITMAP (GDI's monochrome bitmaps). */
+static WORD m8_src_kind( LPPDEVICE src, int src_screen )
+{
+    if( src == NULL ) {
+        return( 0 );
+    }
+    if( src_screen ) {
+        return( 1 );
+    }
+    return( ((LPDIBENGINE)src)->deType == TYPE_DIBENG ? 2 : 3 );
+}
+#endif
+
 /* A solid colour from a realized brush: the first byte of its 8 bpp pattern,
  * which the DIB Engine renders at the screen's depth. */
 static int m8_solid_brush( LPBRUSH brush, BYTE *color )
@@ -482,6 +514,7 @@ BOOL WINAPI __loadds BitBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPD
                             dwRop3, lpPBrush, lpDrawMode ) );
     }
     M8_ENTRY( M8_STAT_BITBLT );
+    M8_STEP( 0xC000 | (m8_src_kind( lpSrcDev, src_screen ) << 8) | rop );
 
     /* Engine paths. A background palette translation is something the engine
      * cannot apply, so it disqualifies them. */
@@ -739,15 +772,42 @@ static DWORD m8_draw_strblt( void *ctx, LPDIBENGINE dev, LPRECT c )
     return( DIB_StrBlt( dev, t->x, t->y, &clip, t->str, t->count, t->font, t->dm, t->xform ) );
 }
 
-/* The rows the text can touch: from y down by the font's height, with a margin,
- * across the clip; joined with the opaque rectangle and clipped. A measuring
- * call (negative count) is no guide - it returned a 2-row height for icon
- * labels. Rotated text, or a height that makes no sense, takes the whole clip. */
+/* An upper bound on the string's width: its character widths if GDI passed
+ * them, else the font's widest character for each; plus the draw mode's extra
+ * spacing. 0 when there is nothing to go on. */
+static long m8_text_width( M8_TEXT *t )
+{
+    long    w = 0;
+    int     i;
+    int     n = t->count;
+
+    if( t->widths != NULL ) {
+        for( i = 0; i < n; ++i ) {
+            w += t->widths[i] < 0 ? -t->widths[i] : t->widths[i];
+        }
+    } else if( t->font != NULL && t->font->dfMaxWidth > 0 ) {
+        w = (long)n * t->font->dfMaxWidth;
+    } else {
+        return( 0 );
+    }
+    if( t->dm != NULL ) {
+        w += (long)n * (t->dm->CharExtra < 0 ? -t->dm->CharExtra : t->dm->CharExtra);
+        w += t->dm->TBreakExtra < 0 ? -t->dm->TBreakExtra : t->dm->TBreakExtra;
+    }
+    return( w < 2L * M8_SCREEN_X ? w : 0 );
+}
+
+/* The box the text can touch: from y down by the font's height, from x across
+ * by the width bound, each with a margin; joined with the opaque rectangle and
+ * clipped. A measuring call (negative count) is no guide - it returned a 2-row
+ * height for icon labels. Rotated text, or a height that makes no sense, takes
+ * the whole clip; no width bound takes the clip's columns. */
 static void m8_text_bound( M8_TEXT *t, M8_RECT *bound )
 {
     M8_RECT box;
     M8_RECT op;
     int     h = 0;
+    long    w;
 
     if( t->font != NULL ) {
         h = t->font->dfPixHeight;
@@ -759,6 +819,11 @@ static void m8_text_bound( M8_TEXT *t, M8_RECT *bound )
     if( h > 0 && h < M8_SCREEN_Y && (t->xform == NULL || t->xform->ftEscapement == 0) ) {
         box.t = t->y - 4;
         box.b = t->y + h + 4;
+        w = m8_text_width( t );
+        if( w > 0 ) {
+            box.l = t->x - 8;
+            box.r = t->x + (int)w + 8;
+        }
     }
     if( t->opaque != NULL ) {
         m8_rect_from_gdi( &op, t->opaque );
@@ -837,7 +902,9 @@ DWORD WINAPI __loadds StrBlt( LPPDEVICE lpDestDev, WORD wDestXOrg, WORD wDestYOr
     t.font = lpFontInfo;
     t.dm = lpDrawMode;
     t.xform = lpTextXForm;
+    t.widths = NULL;
     t.opaque = NULL;
+    t.options = 0;
     m8_text_bound( &t, &bound );
     m8_fallback( &bound, 1, 1, 0, m8_draw_strblt, &t );
     return( 1 );
