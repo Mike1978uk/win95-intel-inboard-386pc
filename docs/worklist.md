@@ -208,6 +208,8 @@ Step 2: our own VxD, to save the registers ATI.VXD does not know (DEST_CMP_FN, B
   (builds both variants with all checks, puts the trace build in the bed image, commits, pushes; one line out);
   two or three independent changes per bed run with the D8 regression list; read the tally summary and marker
   counts first, raw log lines only on a fault; screenshots only of reported faults, zoomed crops.
+  Claude prompts the owner to switch to a cheaper model (`/model`) for mechanical steps (regression run + tally,
+  docs, a fix already worked out); never for diagnosis.
 - [ ] **D9 New league (owner, 10-16: "leave them all standing" - ATI's drivers and XFree86 both).** Already ours and in
       neither: uploads as runs, double-draw coverage, per-call bus accounting. Order: (1) glyph cache + colour-compare
       transparency (92EE/EAEE, used by no driver) - text faster than ATIM8 (121 us/glyph) and XFree86's cache (51 us);
