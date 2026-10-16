@@ -130,7 +130,8 @@ Inventory and results: `docs/mach8_levers.md` (one place; this list only orders 
       **ROM's API** (far-call entry points 64h/68h, used by TEST.COM and VVESA, no driver); the ROM's 28800 use (EEPROM
       bit-banged via B3/B7, clock select B9/BE + Misc Output, revision in AA); ATIM8/ATIM32 (no short strokes anywhere;
       314 FIFO-status poll sites in ATIM8 - pace by the measured 16-deep FIFO instead). Left: EEPROM byte map vs
-      `docs/rom_and_eeprom_dumps.md`; ROM mode tables bit by bit (B0/B1/B4/B5/BA/BB/BD/BF); ROM API arguments (72DDh).
+      `docs/rom_and_eeprom_dumps.md`; ROM mode tables bit by bit (B0/B1/B4/B5/BA/BB/BD/BF); ROM API arguments (72DDh). EEPROM records
+      decoded 10-16: one Mach8 record (2Eh), three 28800 records keyed by VGA mode (`mach8_levers.md`).
 - [ ] **L4 Card sitting (M).** Done 10-16 (`docs/mach8_levers.md`): (a) line counter A9h = raster clock, 11.5 us/poll,
       ~2-line steps; (b) split banking works (BEh bit 3) but **no time gain** - bus-bound; (c) DP_CONFIG mono expansion
       **= bed byte for byte**. (d) EXT_SHORT_STROKE: **card does not follow the guide** (one diagonal per write) -

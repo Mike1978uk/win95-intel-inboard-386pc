@@ -170,8 +170,12 @@ mode); words 3-9 = timing. The card (`eeprom_card_5160_2026_10_07.nvr`):
 | 23h | 0040 | 6567, 5500 | 4C24 420B 0208 0000 0000 FD60 0000 |
 | 2Eh | 0140 | 6800, 0000 | C79F A00A 08F8 07FF 0861 0A33 162D (the set decoded earlier: H_TOTAL C7 ... CLOCK_SEL 2D, FIFO 16) |
 
-The keys 54h, 55h, 63h, 65h, 67h, 68h, 6Ah are ATI mode-number-like; which layout is the 28800's and which the Mach8's is
-still to confirm from the two branches (7341h, 73BEh). Previously "words 10h-15h and 23h-2Fh not yet decoded".
+**Which chip each record serves (ROM branches 7341h / 73BEh, static reading 10-16):** word 0's high byte bit 0 = 1 ->
+**Mach8** record: 73BEh stores words 3-9 as H_TOTAL/H_DISP, H_SYNC_STRT/H_SYNC_WID, V_TOTAL, V_DISP, V_SYNC_STRT,
+V_SYNC_WID/DISP_CNTL, CLOCK_SEL/FIFO - only record 2Eh (0140h). Bit 0 = 0 -> **28800** record, keyed by VGA BIOS mode
+numbers; 7341h reads its timing only when word 0 bit 6 is set: 0Dh = modes 12h/11h, no custom timing; 18h = 54h/63h/6Ah,
+the 800x600 modes (matches the card's 800x600 FlexView setting); 23h = 65h/67h/55h, the 1024x768 modes.
+Previously "words 10h-15h and 23h-2Fh not yet decoded".
 
 **Lever:** monitor timings are data the ROM reads at mode set, four slots. A custom record (refresh, blanking, a
 non-standard resolution) changes a mode with no code - as long as the ROM sets the mode. Our driver can also read these
