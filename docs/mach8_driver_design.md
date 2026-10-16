@@ -425,3 +425,12 @@ set-up per engine operation (`tools/m8_fallback_tally.py` US_OP). Per call: bitm
 9.9 ms (10,210 run fills, 17,348 raw pieces). DibToDevice is now the largest entry (5.5 s): it always reads its whole
 clip back (796 K px here) although SetDIBitsToDevice covers its destination - bound it by the DIB's own rectangle
 (header + iScan/cScans) and read only the edge columns, as BitBlt does. Screen -> memory 2.3 s (menus SSB declined).
+
+### Modes, first run (`9bd77c2`, `m8disp_d8_modes_1016.log.gz`)
+
+Boot at 800x600 correct. Display Properties' slider stopped at 800x600: the registry lists 640x480, 800x600 and
+1024x768 at both 16 colours (640x480 via vga.drv) and 256, but the monitor is "(Unknown Monitor)" with no
+MaxResolution - `bed/MONITOR.REG` sets 1024,768. Choosing 640x480 picked 16 colours first: ValidateMode was asked
+once (declined: 8 bpp only) and Windows disabled our driver to switch to vga.drv - correct for a 16-colour request; the
+change was not kept (registry still 8 bpp, 800,600, m8disp.drv). Next: 640x480 with 256 colours chosen explicitly,
+then 1024x768.
