@@ -76,3 +76,32 @@ not yet compared). Extended port taken from a variable (`[150h] = 1CEh`), plus h
 
 Still untouched by every ATI binary: **A1, A2 (ATIDESK only), A4, A5, A8-AD, AF, B1, B4, B5, BA, BC, BD, BF** - B2's
 probe list for the card (one read-back each, then the ones that change something).
+
+## L3 (desk), 2026-10-16
+
+### The two VVESA builds
+
+CF (`D:\utils\ATIVGA`) = "VESA implementation **2.21**"; `ATIMACH8/V3` = **2.22**. Same size, 13 differing runs, two
+changes, both fixes in 2.22:
+- Setting a bank, 2.21 keeps B2h bits 0-4 (`and 1Fh`); 2.22 keeps bits 1-4 (`and 1Eh`). **B2h bit 0 is the read bank's
+  top bit** (read bank = bits 5-7 + bit 0), so 2.21 could leave a stale high read-bank bit - only banks 8-15 (above
+  512 KB), not reachable on our card.
+- Mode set: after clearing 42EEh, 2.22 calls ROM entry 68h (al=2) **before** clearing video memory bank by bank; 2.21
+  cleared first. The ROM call changes what the banks map, so the order matters.
+
+### The card ROM has an API: four far-call entry points
+
+ROM (`roms/video/mach8/BIOS.BIN`, dated "1992/4/8 12:16" at 50h) has a jump table at C000:**0064h, 0068h, 006Ch, 0070h**
+(-> 7022h, 7026h, 702Ah, 702Ch). Not in the Mach32 guide, XFree86 or our notes.
+- **64h**: dispatches on AL into an internal service (72DDh) with AX = 1201h/5502h (AL 0), 6Axxh (AL 1-2), 6801h (AL 11h),
+  6802h (AL 12h); other AL -> carry set. The service writes 5AEEh and 46EEh (the shadow-set registers) - accelerator mode
+  loading.
+- **68h**: AL 0 = ATI's engine bring-up: DISP_CNTL (22E8h) = 60h, ADVFUNC_CNTL (4AE8h), EXT_GE_CONFIG (7AEEh) built from
+  42E8h bits 4-6, and 26EEh/76EEh = A0h when B2EEh reads 9Fh. VVESA calls it with AL 2.
+- **6Ch, 70h**: `stc; retf` - not implemented in this ROM.
+- **Callers:** MACH.DRV (Win 3.x), ATICNTL.DLL, TEST.COM (64h); MXXPANEL.EXE (68h); VVESA (64h, 68h, 6Ch). So ATI's own
+  drivers set modes through the ROM.
+
+**For D8:** set the Mach8 mode through ROM entry 64h, as MACH.DRV does - the EEPROM's monitor timings, no CRTC tables of
+our own. Still to read: each AL function's arguments and effect (72DDh, 710Dh), and how MACH.DRV calls it from protected
+mode (selector for C000h).
