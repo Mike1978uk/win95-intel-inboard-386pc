@@ -266,3 +266,18 @@ engine copy to off-screen memory instead of read-back; DOS full-screen switching
 Order this sets: text on the engine (no read-back; bound by character widths first); BitBlt split by ROP and
 source, and edge-column reads instead of whole-rectangle reads when alignment widens a plain copy; cursor
 save-under in off-screen memory by engine copy; `RC_SAVEBITMAP` with `SaveScreenBitmap` by engine copy.
+
+### D8b step 1 result, 2026-10-16 (`m8disp_d8b_step1_1016.log.gz`)
+
+Longer session than the first (2,177 text calls vs 915), so compare per call. ExtTextOut 19.8 -> 17.0 ms
+(width bound: 2,000 -> 1,720 pixels read per call); the cursor unchanged at 14 ms per move. Also found and fixed:
+the DDK structures were not byte-packed, so FONTINFO.dfPixHeight was read 2 bytes late (`m8ddi.h`).
+
+| cost | entry | next |
+|---|---|---|
+| 37.0 s | ExtTextOut (2,177 calls) | engine text: mono expansion, no read-back |
+| 19.4 s | BitBlt DIB -> screen SRCCOPY (669; 4.4 M px uploaded, reads now 0.44 M edge columns) | upload encoding: runs as fills |
+| 18.3 s | cursor (1,314 moves) | save-under off-screen, draw by mono expansion |
+| 12.8 s | BitBlt screen -> memory (175; menus, Solitaire drags) | SaveScreenBitmap; device bitmaps later |
+| 11.9 s | pattern ROPs 5A (504), F0 patterned (275 fallback), 0A (one full screen) | engine mixes + pattern registers |
+| 4.4 s | Output (40 calls, large clip bounds) | tighter bound / engine lines |
