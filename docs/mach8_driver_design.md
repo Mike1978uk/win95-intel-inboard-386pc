@@ -410,3 +410,10 @@ Ruled out at the desk: m8_ssb_rect is the first variable of screen.c's BSS (DGRO
 enable.c's 8 bytes of scalars and a far pointer - no array, nothing written through a pointer. The DIB thunks push
 m8_pdevice/m8_palettized with the ES override onto DGROUP (wdis thunks.obj), so they do not hand the DIB Engine a
 garbage PDevice. Still open: what wrote {2,479,96,767} (a RECT-shaped value) there.
+
+### DOS switching (`56505a8`, `m8disp_d8b_dosswitch_1016.log.gz`)
+
+INT 2Fh 4001h/4002h hook (after vmdisp9x's sswhook.asm, MIT). Owner, bed: windowed DOS box (DIR, EDIT, scroll, drag),
+Alt+Enter to full screen and back repeatedly, `exit` from full screen - all correct, desktop repainted each time. A
+short black screen at each switch is the monitor re-syncing on the mode change, as with ATIM8. The D8a gap "DOS
+full-screen switching" is closed.
