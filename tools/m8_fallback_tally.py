@@ -12,6 +12,8 @@ entry until the next marker. BitBlt adds Cksr: k = source kind (0 none,
 Bus estimates use the card's measured costs: 3.84 us per pixel for a host
 write (M8TIME raw), 5.7 us per pixel for a read-back (two word reads per two
 pixels: data-ready poll and PIX_TRANS, ~5.7 us per byte-wide access).
+Engine text (Mach8 extended blit, started by a DEST_Y_END write) is charged
+one 16-bit write per two bytes of mono data, 7.6 us each.
 pclog folds identical consecutive lines into "*** N repeats ***"; those are
 expanded (inboard-hw-debug technique 148).
 """
@@ -23,10 +25,11 @@ NAMES = {
     0xB004: 'ExtTextOut', 0xB005: 'ScanLR', 0xB006: 'StretchBlt',
     0xB007: 'StretchDIBits', 0xB008: 'DibToDevice', 0xB009: 'FastBorder',
     0xB00A: 'UpdateColors', 0xB00E: 'BitBlt screen->memory',
-    0xB0C0: 'cursor move', 0xB0C1: 'cursor shape',
+    0xB0C0: 'cursor move', 0xB0C1: 'cursor shape', 0xB0E0: 'ExtTextOut fallback',
 }
 US_WRITE = 3.84
 US_READ = 5.7
+US_WORD = 7.6     # one 16-bit write, M8TIME raw
 
 
 def lines(path):
@@ -51,7 +54,7 @@ def main(path):
     rows = {}
 
     def row(name):
-        return rows.setdefault(name, {'calls': 0, 'fill': 0, 'copy': 0,
+        return rows.setdefault(name, {'calls': 0, 'fill': 0, 'copy': 0, 'mono': 0, 'mono_w': 0,
                                       'rd_ops': 0, 'rd_px': 0, 'wr_ops': 0, 'wr_px': 0})
 
     for l in lines(path):
@@ -65,10 +68,15 @@ def main(path):
             who = f'BitBlt {kind} rop {val & 0xFF:02X}'
             row(who)['calls'] += 1
             continue
-        if port in ('96E8', '86E8', '82E8'):
+        if port in ('96E8', '86E8', '82E8', 'A6EE', 'AAEE'):
             reg[port] = val
         elif port == 'BEE8' and val < 0x1000:
             reg['min'] = val
+        elif port == 'AEEE':
+            r = row(who)
+            nbytes = (reg.get('AAEE', 0) - reg.get('A6EE', 0)) // 8 * (val - reg.get('82E8', 0))
+            r['mono'] += 1
+            r['mono_w'] += (max(nbytes, 0) + 1) // 2
         elif port == '9AE8':
             px = (reg.get('96E8', 0) + 1) * (reg.get('min', 0) + 1)
             r = row(who)
@@ -86,15 +94,15 @@ def main(path):
     total = 0.0
     out = []
     for name, r in rows.items():
-        ms = (r['rd_px'] * US_READ + r['wr_px'] * US_WRITE) / 1000.0
+        ms = (r['rd_px'] * US_READ + r['wr_px'] * US_WRITE + r['mono_w'] * US_WORD) / 1000.0
         total += ms
         out.append((ms, name, r))
-    print(f"{'entry':24} {'calls':>6} {'fills':>6} {'copies':>6} {'reads':>6} {'read px':>9} "
+    print(f"{'entry':24} {'calls':>6} {'fills':>6} {'copies':>6} {'mono':>6} {'reads':>6} {'read px':>9} "
           f"{'writes':>6} {'write px':>9} {'bus ms':>8}")
     for ms, name, r in sorted(out, key=lambda x: -x[0]):
-        print(f"{name:24} {r['calls']:6} {r['fill']:6} {r['copy']:6} {r['rd_ops']:6} {r['rd_px']:9} "
+        print(f"{name:24} {r['calls']:6} {r['fill']:6} {r['copy']:6} {r['mono']:6} {r['rd_ops']:6} {r['rd_px']:9} "
               f"{r['wr_ops']:6} {r['wr_px']:9} {ms:8.0f}")
-    print(f"{'total':24} {'':6} {'':6} {'':6} {'':6} {'':9} {'':6} {'':9} {total:8.0f}")
+    print(f"{'total':24} {'':6} {'':6} {'':6} {'':6} {'':6} {'':9} {'':6} {'':9} {total:8.0f}")
 
 
 if __name__ == '__main__':

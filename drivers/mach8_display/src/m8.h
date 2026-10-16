@@ -31,8 +31,26 @@
 #define M8_MULTIFUNC_CNTL   0xBEE8
 #define M8_PIX_TRANS        0xE2E8
 
+#define M8_BKGD_COLOR       0xA2E8
+#define M8_BKGD_MIX         0xB6E8
+
 /* Mach8 extended registers. */
 #define M8_EXT_FIFO_STATUS  0x9AEE      /* read: one bit per occupied FIFO entry */
+#define M8_DP_CONFIG        0xCEEE
+#define M8_DEST_X_START     0xA6EE
+#define M8_DEST_X_END       0xAAEE
+#define M8_DEST_Y_END       0xAEEE      /* writing it starts an extended blit */
+#define M8_EXT_SCISSOR_L    0xDAEE
+#define M8_EXT_SCISSOR_T    0xDEEE
+#define M8_EXT_SCISSOR_R    0xE2EE
+#define M8_EXT_SCISSOR_B    0xE6EE
+#define M8_EXT_SCISSOR_MIN  0x0800      /* -2048 in 12 bits: the values ATIM8 leaves */
+#define M8_EXT_SCISSOR_MAX  0x07FF
+
+/* DP_CONFIG: host mono data selects foreground/background (ATIM8's text), and
+ * the value the mode set leaves for the 8514/A commands. */
+#define M8_DP_MONO_HOST     0x3251
+#define M8_DP_8514          0x2211
 #define M8_SCRATCH_PAD_1    0x56EE      /* marker writes for the tap (A10) */
 
 /* GP_STAT bits. */
@@ -48,10 +66,12 @@
 #define M8_MF_PIX_CNTL      0xA000
 
 /* Mixes: source in bits 6-5, function in bits 3-0. */
+#define M8_MIX_SRC_BKGD     0x0000
 #define M8_MIX_SRC_FRGD     0x0020
 #define M8_MIX_SRC_HOST     0x0040
 #define M8_MIX_SRC_VRAM     0x0060
 #define M8_MIX_REPLACE      0x0007
+#define M8_MIX_LEAVE        0x0003      /* the result is the destination */
 
 /* Commands. Rectangle (010), LSB_FIRST (bit 12: first pixel in the low byte), 16-bit
  * transfers (bit 9), wait for host data (bit 8), x and y increasing, draw. */
@@ -80,7 +100,9 @@
 #define M8_STAT_FILL_HW     11
 #define M8_STAT_COPY_HW     12
 #define M8_STAT_READBACK    13      /* fallback strips that needed the screen read */
-#define M8_STAT_COUNT       14
+#define M8_STAT_TEXT_HW     14
+#define M8_STAT_TEXT_FAIL   15      /* engine text declined, drawn by the fallback */
+#define M8_STAT_COUNT       16
 
 extern DWORD m8_stats[M8_STAT_COUNT];
 
@@ -91,6 +113,9 @@ extern void m8_hw_set_palette( UINT start, UINT count, RGBQUAD FAR *pal );
 extern int  m8_hw_wait_idle( void );
 extern void m8_hw_fill( int x, int y, int w, int h, BYTE color );
 extern void m8_hw_copy( int sx, int sy, int dx, int dy, int w, int h );
+extern void m8_hw_mono( int x, int y, WORD width_bytes, WORD height, const BYTE FAR *bits,
+                        BYTE fg, BYTE bg, int transparent,
+                        int clip_l, int clip_t, int clip_r, int clip_b );
 extern void m8_hw_read_rect( int x, int y, int w, int h, BYTE FAR *dst, WORD pitch );
 extern void m8_hw_write_rect( int x, int y, int w, int h, const BYTE FAR *src, WORD pitch );
 extern void m8_hw_marker( WORD value );
@@ -109,5 +134,6 @@ extern void m8_hw_marker( WORD value );
 #define M8_MARK_SCR2MEM     0xB00E      /* BitBlt from the screen to memory */
 #define M8_MARK_CURSOR_MOVE 0xB0C0
 #define M8_MARK_CURSOR_SET  0xB0C1
+#define M8_MARK_TEXT_FALLBACK 0xB0E0  /* engine text declined; the fallback follows */
 
 #endif

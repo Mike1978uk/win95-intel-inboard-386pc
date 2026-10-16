@@ -233,6 +233,58 @@ void m8_hw_write_rect( int x, int y, int w, int h, const BYTE FAR *src, WORD pit
     outpw( M8_FRGD_MIX, M8_MIX_SRC_FRGD | M8_MIX_REPLACE );
 }
 
+/* Mono expansion through the Mach8 extended path (DP_CONFIG 3251: the
+ * foreground colour where a bit is 1), as ATIM8 draws text. The bits run on
+ * across rows with no padding (M8DPM, card = bed), so the expansion is
+ * `width_bytes` x 8 wide and the buffer streams as it is; the extended
+ * scissors cut it back to the clip (inclusive edges). Transparent leaves the
+ * screen where a bit is 0 (BKGD_MIX = D); opaque paints `bg` there. */
+void m8_hw_mono( int x, int y, WORD width_bytes, WORD height, const BYTE FAR *bits,
+                 BYTE fg, BYTE bg, int transparent,
+                 int clip_l, int clip_t, int clip_r, int clip_b )
+{
+    DWORD       bytes = (DWORD)width_bytes * height;
+    WORD        words = (WORD)(bytes / 2);
+    const WORD  FAR *p = (const WORD FAR *)bits;
+    WORD        i;
+
+    m8_wait_fifo_empty();
+    outpw( M8_EXT_SCISSOR_L, clip_l );
+    outpw( M8_EXT_SCISSOR_T, clip_t );
+    outpw( M8_EXT_SCISSOR_R, clip_r );
+    outpw( M8_EXT_SCISSOR_B, clip_b );
+    outpw( M8_FRGD_MIX, M8_MIX_SRC_FRGD | M8_MIX_REPLACE );
+    outpw( M8_FRGD_COLOR, fg );
+    if( transparent ) {
+        outpw( M8_BKGD_MIX, M8_MIX_LEAVE );
+    } else {
+        outpw( M8_BKGD_COLOR, bg );
+        outpw( M8_BKGD_MIX, M8_MIX_SRC_BKGD | M8_MIX_REPLACE );
+    }
+    outpw( M8_DP_CONFIG, M8_DP_MONO_HOST );
+    outpw( M8_CUR_X, x );
+    outpw( M8_DEST_X_START, x );
+    outpw( M8_DEST_X_END, x + width_bytes * 8 );
+    outpw( M8_CUR_Y, y );
+    outpw( M8_DEST_Y_END, y + height );
+    for( i = 0; i < words; ++i ) {
+        outpw( M8_PIX_TRANS, p[i] );
+    }
+    /* An odd byte count: the last byte alone, never a word read past the end
+     * of the DIB Engine's buffer. */
+    if( bytes & 1 ) {
+        outpw( M8_PIX_TRANS, bits[bytes - 1] );
+    }
+    m8_hw_wait_idle();
+    outpw( M8_DP_CONFIG, M8_DP_8514 );
+    outpw( M8_BKGD_MIX, M8_MIX_SRC_BKGD | M8_MIX_REPLACE );
+    outpw( M8_EXT_SCISSOR_L, M8_EXT_SCISSOR_MIN );
+    outpw( M8_EXT_SCISSOR_T, M8_EXT_SCISSOR_MIN );
+    outpw( M8_EXT_SCISSOR_R, M8_EXT_SCISSOR_MAX );
+    outpw( M8_EXT_SCISSOR_B, M8_EXT_SCISSOR_MAX );
+    ++m8_stats[M8_STAT_TEXT_HW];
+}
+
 /* A value the tap logs between operations, so a capture splits per GDI call. */
 void m8_hw_marker( WORD value )
 {

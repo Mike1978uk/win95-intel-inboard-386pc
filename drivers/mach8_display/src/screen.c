@@ -77,8 +77,9 @@ static int      m8_cur_shown;       /* drawn on the screen now */
 static M8_RECT  m8_cur_rect;        /* where m8_cur_save came from */
 static int      m8_cur_pending;     /* a move arrived while busy */
 
-/* The strips are plain memory: nothing to exclude, but the pointers must not
- * be null if the DIB Engine calls them. */
+/* Surface access callbacks for the strips and the screen. The strips are plain
+ * memory and the screen has no frame buffer: nothing to do, but the pointers
+ * must not be null when the DIB Engine calls them. */
 static VOID WINAPI __loadds m8_begin_access( LPPDEVICE lpDevice, WORD wLeft, WORD wTop,
                                              WORD wRight, WORD wBottom, WORD wFlags )
 {
@@ -328,6 +329,15 @@ static void m8_cursor_show( void )
     m8_hw_write_rect( r.l, r.t, w, h, m8_cur_draw, M8_CURSOR_SAVE_W );
     m8_cur_rect = r;
     m8_cur_shown = 1;
+}
+
+/* Lift the cursor if it overlaps `r`; it comes back at m8_leave. */
+static void m8_exclude( const M8_RECT *r )
+{
+    if( m8_cur_shown && m8_rect_overlap( r, &m8_cur_rect ) ) {
+        m8_cursor_hide();
+        m8_cur_pending = 1;
+    }
 }
 
 /* Every screen operation runs between m8_enter and m8_leave. A cursor move
@@ -836,6 +846,77 @@ static void m8_text_bound( M8_TEXT *t, M8_RECT *bound )
     }
 }
 
+/* Engine text: DIB_ExtTextOutExt lays the string out and calls back with the
+ * opaque rectangle and with the string as one mono bitmap (rows of
+ * width_bytes, leftmost pixel in each byte's top bit; the callback list is the
+ * Windows 98 DDK xga sample's STRBLT.ASM, as velocity9x transcribes it).
+ * A callback cannot decline: one that cannot draw sets m8_text_failed and the
+ * caller draws the whole string again through the fallback. */
+#define M8_ETO_LEVEL_MODE   0x1000
+#define M8_COORD_MAX        2047        /* engine coordinates are 12-bit signed */
+
+static int m8_text_failed;
+
+static WORD WINAPI __loadds m8_text_bitmap( LPDIBENGINE lpDevice, BYTE FAR *lpBits, WORD wFlags,
+                                            DWORD dwBg, DWORD dwFg, WORD wX, WORD wY,
+                                            WORD wWidthBytes, WORD wHeight, LPRECT lpClip )
+{
+    M8_RECT r;
+    M8_RECT c;
+    int     x = (short)wX;
+    int     y = (short)wY;
+
+    if( lpDevice != m8_screen || lpBits == NULL ) {
+        m8_text_failed = 1;
+        return( 1 );
+    }
+    if( wWidthBytes == 0 || wHeight == 0 ) {
+        return( 1 );
+    }
+    /* The feed addresses the bitmap with a 16-bit offset in one selector. */
+    if( (DWORD)FP_OFF( lpBits ) + (DWORD)wWidthBytes * wHeight > 0x10000UL ||
+        x < 0 || y < 0 || x + (long)wWidthBytes * 8 > M8_COORD_MAX ||
+        y + (long)wHeight > M8_COORD_MAX ) {
+        m8_text_failed = 1;
+        return( 1 );
+    }
+    m8_rect_set( &r, x, y, x + wWidthBytes * 8, y + wHeight );
+    if( lpClip != NULL ) {
+        m8_rect_from_gdi( &c, lpClip );
+        m8_rect_and( &r, &c );
+    }
+    m8_rect_screen( &c );
+    m8_rect_and( &r, &c );
+    if( m8_rect_empty( &r ) ) {
+        return( 1 );
+    }
+    m8_exclude( &r );
+    m8_hw_mono( x, y, wWidthBytes, wHeight, lpBits, (BYTE)dwFg, (BYTE)dwBg, wFlags & 1,
+                r.l, r.t, r.r - 1, r.b - 1 );
+    return( 1 );
+}
+
+static WORD WINAPI __loadds m8_text_rect( LPDIBENGINE lpDevice, DWORD dwBg, WORD wX, WORD wY,
+                                          WORD wXExt, WORD wYExt )
+{
+    M8_RECT r;
+    M8_RECT c;
+
+    if( lpDevice != m8_screen ) {
+        m8_text_failed = 1;
+        return( 1 );
+    }
+    m8_rect_set( &r, (short)wX, (short)wY, (short)wX + (int)wXExt, (short)wY + (int)wYExt );
+    m8_rect_screen( &c );
+    m8_rect_and( &r, &c );
+    if( m8_rect_empty( &r ) ) {
+        return( 1 );
+    }
+    m8_exclude( &r );
+    m8_hw_fill( r.l, r.t, r.r - r.l, r.b - r.t, (BYTE)dwBg );
+    return( 1 );
+}
+
 DWORD WINAPI __loadds ExtTextOut( LPPDEVICE lpDestDev, WORD wDestXOrg, WORD wDestYOrg,
                                   LPRECT lpClipRect, LPSTR lpString, int wCount,
                                   LPFONTINFO lpFontInfo, LPDRAWMODE lpDrawMode,
@@ -861,6 +942,22 @@ DWORD WINAPI __loadds ExtTextOut( LPPDEVICE lpDestDev, WORD wDestXOrg, WORD wDes
         return( 1 );
     }
     M8_ENTRY( M8_STAT_EXTTEXTOUT );
+    if( !(wOptions & M8_ETO_LEVEL_MODE) && !(m8_screen->deFlags & PALETTE_XLAT) ) {
+        DWORD rc;
+
+        m8_busy = 1;
+        m8_text_failed = 0;
+        rc = DIB_ExtTextOutExt( lpDestDev, wDestXOrg, wDestYOrg, lpClipRect, lpString, wCount,
+                                lpFontInfo, lpDrawMode, lpTextXForm, lpCharWidths,
+                                lpOpaqueRect, wOptions, (LPVOID *)m8_text_bitmap,
+                                (LPVOID *)m8_text_rect );
+        m8_leave();
+        if( !m8_text_failed ) {
+            return( rc );
+        }
+        ++m8_stats[M8_STAT_TEXT_FAIL];
+        M8_STEP( M8_MARK_TEXT_FALLBACK );
+    }
     t.x = wDestXOrg;
     t.y = wDestYOrg;
     t.clip = lpClipRect;
@@ -1243,6 +1340,10 @@ int m8_screen_init( LPDIBENGINE screen )
     M8_RECT one;
 
     m8_screen = screen;
+    /* The DIB Engine calls these on the screen around engine text; the cursor
+     * is excluded by the callbacks themselves. */
+    screen->deBeginAccess = (void (WINAPI *)())m8_begin_access;
+    screen->deEndAccess = (void (WINAPI *)())m8_end_access;
     if( m8_dst.sel == 0 && !m8_strip_alloc( &m8_dst, &m8_dst_mem ) ) {
         return( 0 );
     }
