@@ -196,6 +196,12 @@ Step 2: our own VxD, to save the registers ATI.VXD does not know (DEST_CMP_FN, B
       harness) for per-operation port and PIX_TRANS counts. Design: `docs/mach8_driver_design.md`.
       **D8a passes in the bed (10-16):** `drivers/mach8_display/src/`, desktop/Explorer/Solitaire correct at 800x600;
       engine fill + copy, read-back fallback for the rest. Bus tally and D8b order in the design doc. Not yet on the 5160.
+      **D8 regression list (owner, 10-16), run on every driver build, screenshots of any difference vs ATIM8:**
+      desktop icons + labels; Start menu; Explorer (folder icons, selection focus rectangle); Notepad "save changes?"
+      (default-button frame); shutdown dialog (radio buttons, grey-out); window drag outline; Solitaire castle deck
+      (bats inside the card, corner flash on click); Paintbrush flood fill (86Box#6695, the Mach8 bug class);
+      Win 3.1-style File Manager selection (TC1995, #8351 class); cursor at all four edges, hourglass, I-beam;
+      a clean shutdown (no blue screen). Then `tools/m8_fallback_tally.py` on the log.
 
 ## S. Sound on the same bus (owner, 2026-10-10: 8088 MPH / Area 5150 / FastDoom spirit, Daniel_K's licence to fix what the vendor didn't)
 
