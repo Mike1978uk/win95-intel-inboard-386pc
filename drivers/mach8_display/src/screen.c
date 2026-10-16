@@ -562,9 +562,9 @@ static int m8_rop_uses_pat( DWORD rop )
 
 /* A realized brush as at most two colours: returns 0 if it is not, 1 for a
  * solid colour (c1), 2 for a pattern - pat[row] has bit 7 for column 0, a 1
- * bit is c1 and a 0 bit c2. Read from the 8 bpp pattern the DIB Engine renders
- * (dp8BrushBits). Hatched brushes, whose gaps depend on the background mode,
- * and mono-bitmap brushes are not handled. */
+ * bit is c1 and a 0 bit c2. Colour and dithered brushes are read from the 8 bpp
+ * pattern the DIB Engine renders (dp8BrushBits). Hatched brushes, whose gaps
+ * depend on the background mode, are not handled. */
 static int m8_brush_colours( LPBRUSH brush, LPDRAWMODE dm, BYTE *c1, BYTE *c2, BYTE *pat )
 {
     DIB_Brush8 FAR  *b = (DIB_Brush8 FAR *)brush;
@@ -581,16 +581,20 @@ static int m8_brush_colours( LPBRUSH brush, LPDRAWMODE dm, BYTE *c1, BYTE *c2, B
     if( b->dp8BrushStyle != 0 && b->dp8BrushStyle != 3 ) {
         return( 0 );
     }
-    /* A mono-bitmap brush's dp8BrushMono layout is not what was assumed (rows
-     * 4 bytes apart read 55h on all 8 rows of a halftone): the fallback draws
-     * it, and the trace logs its 32 bytes (E1xx) to settle the layout. */
+    /* A mono-bitmap brush takes the draw mode's colours, as Windows defines it
+     * (1 = background, 0 = text). dp8BrushMono holds one byte per row: the
+     * bed's halftone brushes logged 55 AA 55 AA ... across all 32 bytes, so
+     * rows 0-7 are bytes 0-7 (what follows is further copies). */
     if( b->dp8BrushFlags & PATTERNMONO ) {
-#ifdef M8_TRACE
-        for( i = 0; i < 32; ++i ) {
-            M8_STEP( 0xE100 | b->dp8BrushMono[i] );
+        if( dm == NULL ) {
+            return( 0 );
         }
-#endif
-        return( 0 );
+        *c1 = (BYTE)dm->bkColor;
+        *c2 = (BYTE)dm->TextColor;
+        for( i = 0; i < 8; ++i ) {
+            pat[i] = b->dp8BrushMono[i];
+        }
+        return( 2 );
     }
     *c1 = b->dp8BrushBits[0];
     *c2 = *c1;
