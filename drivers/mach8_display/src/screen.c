@@ -353,6 +353,7 @@ static DWORD m8_fallback( const M8_RECT *bound_in, int read, int write, int bott
                           M8_DRAW draw, void *ctx )
 {
     M8_RECT bound = *bound_in;
+    M8_RECT area;
     M8_RECT scr;
     M8_RECT s;
     RECT    clip;
@@ -366,16 +367,13 @@ static DWORD m8_fallback( const M8_RECT *bound_in, int read, int write, int bott
     if( m8_rect_empty( &bound ) ) {
         return( 0 );
     }
-    /* Widening to even edges brings in columns the operation does not draw;
-     * they must go back to the card unchanged, so they are read first. */
-    {
-        int l = bound.l;
-        int r = bound.r;
-
-        m8_rect_align( &bound );
-        if( bound.l != l || bound.r != r ) {
-            read = 1;
-        }
+    /* Widening to even edges brings in columns the operation must not draw:
+     * the DIB Engine's clip stays the unwidened `area`, and the extra columns
+     * are read first so they go back to the card unchanged. */
+    area = bound;
+    m8_rect_align( &bound );
+    if( bound.l != area.l || bound.r != area.r ) {
+        read = 1;
     }
     rows = m8_strip_rows( &bound, &pitch );
     m8_dst.pitch = pitch;
@@ -400,9 +398,9 @@ static DWORD m8_fallback( const M8_RECT *bound_in, int read, int write, int bott
         if( read ) {
             m8_strip_read( &m8_dst, &s );
         }
-        clip.left = s.l;
+        clip.left = area.l;
         clip.top = s.t;
-        clip.right = s.r;
+        clip.right = area.r;
         clip.bottom = s.b;
         rc = draw( ctx, &m8_dst.dev, &clip );
         if( write ) {
