@@ -298,3 +298,32 @@ Save-under by engine copy to off-screen x 800, masks by mono expansion (`f2d2d39
 (579 moves; 2 read-backs, both the software path at the top/left edge). Owner: cursor, hourglass and I-beam correct,
 no trails, all four edges. Session total ~14 s estimated bus time. Left: one full-screen ROP 0A (shutdown grey-out)
 4.6 s; bitmap uploads 3.1 s; screen -> memory 2.7 s; DibToDevice 1.0 s; patterned F0 0.8 s.
+
+### Pattern ROPs and open glitches, 2026-10-16 (evening)
+
+Done (`9f415f8` .. `d2808a4`): BitBlt with no source maps its ROP to the 8514/A mix (model MIX table, card-checked
+by M8MIX; key = the ROP's results for (P,D) = 00, 01, 10, 11). Solid brush = one fill (COLORSOLID flag + Bits[0] -
+neither dp8BrushBpp nor a scan of all 64 pattern bytes works for these brushes); two-colour pattern from
+dp8BrushBits = one mono expansion tiled from the 8-pixel boundary, cut by the scissors; mono-bitmap brushes
+(PATTERNMONO) from dp8BrushMono, **one byte per row** (logged: 55 AA 55 AA ... over all 32 bytes), colours from the
+draw mode (1 = bkColor, 0 = TextColor). Shutdown grey-out is now fast and dithered (a 50% halftone, as Windows draws
+it). ATIM8 does no grey-out at all - a capability difference to look up, not a glitch.
+Fixed on the way: a 16-bit overflow (65,520 rows read as -16) hung Windows at startup on the caret.
+
+Disable now does what vmdisp9x does (`1ed3d55`): START_IO_TRAP, passthrough, INT 10h mode 3, return 1. One clean
+shutdown since; the earlier blue screen (0D at 0137:BFF72A08, after Disable) has not recurred - one run, not proven.
+
+**Open, both drawn correctly by ATIM8 in the same bed (owner screenshots, `XT_project/photos/`):**
+1. **White square beside the Solitaire castle deck** (the animated deck). Pixel trace over
+   `m8disp_d8b_pattern3_1016.log.gz` (x 207, y 175): it first turns white at log line 2,637,207, a solid PATCOPY
+   (`F0`) through the *fallback* as a 2x109 column at x 206 - the same call drew felt green (02) earlier in the
+   session. Solitaire then saves and restores the background under its bats (screen -> memory, DIB SRCCOPY), carrying
+   the white along. That run had every solid fill on the fallback (the bug `d2808a4` fixes), so the path that made
+   the white no longer runs; **re-test first**. If it persists: compare the brush the F0 call carried (D marker) with
+   the colour written.
+2. **Default button's black frame drawn dashed** (Notepad "save changes?" dialog, "Yes"): something XORs the frame's
+   pixels. Suspect the focus rectangle (PATINVERT `5A`, mono-bitmap halftone, now the engine pattern path) landing on
+   the frame - check its rectangle against the frame's in a trace.
+
+Tools for both: `tools/m8_fallback_tally.py` (per-entry cost, brush flags), and the one-pixel history script used
+above (to add to tools/ if it is needed again).

@@ -36,6 +36,15 @@ silicon ATI's drivers never used - kept wherever a measurement shows a gain. Lea
   tally: `docs/mach8_driver_design.md` "D8a result". `vm_5160_now` is left on m8disp.drv (trace build);
   `ATIM8.REG` from DOS goes back; image before the driver: `card.img.pre_m8disp`.
 
+## Done in the evening, 10-16
+
+- **D8b on the engine:** text (17.0 -> 2.0 ms per ExtTextOut), cursor (13.3 -> 1.0 ms per move), pattern ROPs (solid,
+  two-colour and mono-bitmap brushes by mix). Disable now restores trapping and text mode (blue screen gone in one run).
+- **Open glitches, ATIM8 correct in the same bed:** white square beside the animated castle deck; dashed frame on the
+  default button. Evidence and next steps: `docs/mach8_driver_design.md` "Pattern ROPs and open glitches".
+- **Bed:** `vm_5160_now` is on **ATIM8** (registry) with M8DISP.DRV `d2808a4` (trace build) in `C:\WINDOWS\SYSTEM`;
+  `REGEDIT C:\M8DISP.REG` from DOS switches to ours.
+
 ## Next
 
 The plan is `docs/worklist.md` - the one source of truth; this file is a snapshot. Section L (card levers) is **done** 10-16 except
