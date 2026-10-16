@@ -26,11 +26,21 @@ silicon ATI's drivers never used - kept wherever a measurement shows a gain. Lea
   viable**. All in `docs/mach8_levers.md`.
 - Sources added: DDK ATI mini-VDD sample (`DISPLAY/SAMPLES/VDD/ATI`, has a Mach8 path); 3Dos and Portfolio repos (§12).
 
+## Done later 10-16
+
+- **#8351 merged** (OBattler, `c43f3e2d0`); README row; owner told TC1995.
+- **ATIM8 tap capture** (`docs/captures/2026-10-16_atim8_tap/`): ATIM8 loads its own shadow sets; the 800x600
+  sequence is what D8a replays.
+- **D8a passes in the bed:** `drivers/mach8_display/src/M8DISP.DRV` (boxv9x/vmdisp9x frame, MIT; own screen
+  core, GPL-3.0). Desktop, Explorer, Solitaire correct at 800x600. Result, four bring-up bugs and the bus
+  tally: `docs/mach8_driver_design.md` "D8a result". `vm_5160_now` is left on m8disp.drv (trace build);
+  `ATIM8.REG` from DOS goes back; image before the driver: `card.img.pre_m8disp`.
+
 ## Next
 
 The plan is `docs/worklist.md` - the one source of truth; this file is a snapshot. Section L (card levers) is **done** 10-16 except
-L3's desk details (mode-table bits, ROM API arguments, EEPROM record layouts - not blocking). **Next: A10 (replay
-harness), then D8** from the "Lever decisions for D8" table in `docs/mach8_driver_design.md`. Tools the owner OK'd:
+L3's desk details (mode-table bits, ROM API arguments, EEPROM record layouts - not blocking). **Next: D8b** (design doc "D8a result": attribute fallback pixels per GDI entry, text and cursor on the engine, DOS switching), A10 replay later. Was: A10 (replay
+harness), then D8 from the "Lever decisions for D8" table in `docs/mach8_driver_design.md`. Tools the owner OK'd:
 the Windows 98 DDK (archive.org) for a faithful velocity9x build.
 
 ## Owed / to tell people (owner sends)
