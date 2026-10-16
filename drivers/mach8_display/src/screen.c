@@ -366,7 +366,17 @@ static DWORD m8_fallback( const M8_RECT *bound_in, int read, int write, int bott
     if( m8_rect_empty( &bound ) ) {
         return( 0 );
     }
-    m8_rect_align( &bound );
+    /* Widening to even edges brings in columns the operation does not draw;
+     * they must go back to the card unchanged, so they are read first. */
+    {
+        int l = bound.l;
+        int r = bound.r;
+
+        m8_rect_align( &bound );
+        if( bound.l != l || bound.r != r ) {
+            read = 1;
+        }
+    }
     rows = m8_strip_rows( &bound, &pitch );
     m8_dst.pitch = pitch;
 
