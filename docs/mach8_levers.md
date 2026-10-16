@@ -18,7 +18,7 @@ Script: `tools/ati_port_census.py`; full output `docs/captures/2026-10-16_ati_po
 | Port | Register | Used by | Value to us |
 |---|---|---|---|
 | 92EE / EAEE | source colour compare function / colour (Mach8 only, not in the Mach32 guide) | TEST.COM only | **transparent blits**: sprites, DirectDraw colour keys, icons without masks. Measured and modelled (`8283ed2bc`) |
-| EEEE | DEST_CMP_FN | TEST.COM, Win95 ATIM8 only | destination colour key, nibble tests 40h-78h (measured 10-10) |
+| EEEE | DEST_CMP_FN | Win95 ATIM8, tools, ATIDESK - no Windows 3.x driver | destination colour key, nibble tests 40h-78h (measured 10-10) |
 | 9EE8 | SHORT_STROKE | TEST.COM, tools | two vectors per write: line art, glyph strokes. 8514/A form measured (M8ROW3) |
 | C6EE | EXT_SHORT_STROKE | TEST.COM, MACH (W31), ATIM32 - not ULTRA, not MACHW3 | packed mono short strokes, colour patterns; implemented, **not card-measured** |
 | 22EE, 46E8, 5AEE, 7AEE, F6EE | setup / EXT_GE_CONFIG / alias of CUR_Y | TEST.COM, ROM | configuration; 7AEE is EXT_GE_CONFIG (pitch, bpp, monitor alias) |
