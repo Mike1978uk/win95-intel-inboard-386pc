@@ -45,6 +45,17 @@ silicon ATI's drivers never used - kept wherever a measurement shows a gain. Lea
 - **Bed:** `vm_5160_now` is on **ATIM8** (registry) with M8DISP.DRV `d2808a4` (trace build) in `C:\WINDOWS\SYSTEM`;
   `REGEDIT C:\M8DISP.REG` from DOS switches to ours.
 
+## Done in the late session, 10-16/17
+
+- **D8 complete in the bed:** 640x480, 800x600, 1024x768 at 256 colours (ValidateMode needed its own DISPVALMODE -
+  the DDK header dropped __loadds); live mode change (ReEnable); DOS switching; DibToDevice coverage test.
+- **D9 new league started:** string cache in 8 video-memory bit-planes (83% hits), bitmap cache by content in the
+  off-screen strip (95% hits), write-back as runs. Last build `9f1ab5b` (bitmap cache up to 8,192 px for Solitaire's
+  cards) is in the bed image, **not yet run**.
+- **Next:** run `9f1ab5b`; then D9 (2) engine lines, colour-compare transparency; then the timed 5160 run vs ATIM8.
+  D8c (16-colour modes) for parity. Open: SSB rectangle overwrite (intermittent, guarded), Solitaire corner flash.
+- Bed: on m8disp.drv, monitor set to Super VGA 1024x768. `tools/fatcp.py` refuses to write while 86Box runs.
+
 ## Next
 
 The plan is `docs/worklist.md` - the one source of truth; this file is a snapshot. Section L (card levers) is **done** 10-16 except
