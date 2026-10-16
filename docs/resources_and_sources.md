@@ -959,3 +959,10 @@ what Andrew offered it for. **Unread** means exactly that: listed, not yet evalu
   client (`AI.COM`) over its serial interface; an ESP32-S3 does camera, Wi-Fi and the AI, and sends a reduced
   monochrome preview ("coarse mode trades detail for speed"). Idea worth keeping for the parked WebCam II item:
   reduce the image before the slow link. Only the README was read, not the preview encoding.
+- **Windows 95 DDK, `DISPLAY/SAMPLES/VDD/ATI/ATI.ASM`** (4,646 lines, local `XT_project/Windows95_ddk`, not vendored;
+  Microsoft sample licence). Microsoft's ATI mini-VDD: detects Mach8 vs Mach32 vs Mach64 (42E8h, 52EEh, R_SRC_X absent
+  on Mach8), VGA passthrough switching, a Mach8 bank path (`MGVBGetMach8Bank`: "the Mach8 has a full VGA on board").
+  The template for build-order step 2, our own VxD. Found 2026-10-16, not yet read in full.
+- **VFLATD in the DDK:** binary only - `DEBUG/VFLATD.VXD` + `.SYM` (debug build); no source. Interface: the
+  FRAMEBUF sample (`GetScreenSelector`, bank-switch template copied inline at ring 0) and `DOCS/DESGUIDE/DISPLAY.DOC`.
+  Retail copy: `XT_project/golden_win95_installed/Inboard/vmm32/VFLATD.VXD`.
