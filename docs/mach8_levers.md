@@ -99,9 +99,12 @@ ROM (`roms/video/mach8/BIOS.BIN`, dated "1992/4/8 12:16" at 50h) has a jump tabl
 - **68h**: AL 0 = ATI's engine bring-up: DISP_CNTL (22E8h) = 60h, ADVFUNC_CNTL (4AE8h), EXT_GE_CONFIG (7AEEh) built from
   42E8h bits 4-6, and 26EEh/76EEh = A0h when B2EEh reads 9Fh. VVESA calls it with AL 2.
 - **6Ch, 70h**: `stc; retf` - not implemented in this ROM.
-- **Callers:** MACH.DRV (Win 3.x), ATICNTL.DLL, TEST.COM (64h); MXXPANEL.EXE (68h); VVESA (64h, 68h, 6Ch). So ATI's own
-  drivers set modes through the ROM.
+- **Finding the ROM:** TEST.COM takes the segment from SCRATCH_PAD_0 (52EEh): C000h + (bits 0-6) x 80h, then calls 64h with
+  AL 0 and its parameter in BX (services 1201h, then 5502h with BX) - the accelerator mode set.
+- **Callers, confirmed by a far call through the stored offset:** TEST.COM (64h) and VVESA (64h, 68h, 6Ch) only. No
+  Windows driver calls it - they program modes themselves. (A first, looser scan also listed MACH.DRV; there 64h/78h are
+  the numbers 100 and 120, a font scaling ratio.)
 
-**For D8:** set the Mach8 mode through ROM entry 64h, as MACH.DRV does - the EEPROM's monitor timings, no CRTC tables of
-our own. Still to read: each AL function's arguments and effect (72DDh, 710Dh), and how MACH.DRV calls it from protected
-mode (selector for C000h).
+**For D8, a candidate:** set the Mach8 mode through ROM entry 64h - the EEPROM's monitor timings, no CRTC tables of our
+own. Unproven from protected mode (no Windows driver does it); the ROM code uses SS as scratch. Still to read: each AL
+function's arguments and effect (72DDh, 710Dh).
