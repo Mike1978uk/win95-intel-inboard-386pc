@@ -12,6 +12,7 @@
 #include "m8.h"
 
 #define STOP_IO_TRAP        0x4000      /* INT 2Fh: the VDD stops trapping video I/O */
+#define START_IO_TRAP       0x4007      /* ... and starts again */
 #define DCICOMMAND          3075        /* frame-buffer access for DCI clients */
 
 /* A 208 x 156 mm screen, as the DDK samples report. */
@@ -75,6 +76,9 @@ UINT FAR DriverInit( UINT cbHeap, UINT hModule, LPSTR lpCmdLine )
 
 static void int_2Fh( unsigned ax );
 #pragma aux int_2Fh = "int 2Fh" parm [ax];
+
+static void int_10h( unsigned ax );
+#pragma aux int_10h = "int 10h" parm [ax];
 
 static void m8_fill_gdiinfo( LPGDIINFO lpInfo )
 {
@@ -214,10 +218,14 @@ UINT WINAPI __loadds Disable( LPVOID lpDevice )
     if( lpEng != NULL ) {
         lpEng->deFlags |= BUSY;
     }
+    /* As every DDK-era minidriver leaves: trapping back on before the VGA mode
+     * is set, the monitor back on the VGA half, the BIOS's 80x25 text mode. */
+    int_2Fh( START_IO_TRAP );
     m8_screen_done();
     m8_pdevice = 0;
     m8_hw_passthrough();
-    return( 0xFFFF );
+    int_10h( 0x0003 );
+    return( 1 );
 }
 
 UINT WINAPI __loadds SetPalette( UINT wStartIndex, UINT wNumEntries, LPVOID lpPalette )
