@@ -281,6 +281,9 @@ static void m8_cursor_hide( void )
         m8_hw_write_rect( m8_cur_rect.l, m8_cur_rect.t, m8_cur_rect.r - m8_cur_rect.l,
                           m8_cur_rect.b - m8_cur_rect.t, m8_cur_save, M8_CURSOR_SAVE_W );
     } else {
+        M8_STEP( M8_MARK_CURSOR_HIDE );
+        M8_STEP( m8_cur_rect.l );
+        M8_STEP( m8_cur_rect.t );
         m8_hw_copy( M8_CURSOR_SAVE_X, M8_CURSOR_SAVE_Y, m8_cur_rect.l, m8_cur_rect.t,
                     m8_cur_rect.r - m8_cur_rect.l, m8_cur_rect.b - m8_cur_rect.t );
         m8_hw_wait_idle();
@@ -363,6 +366,9 @@ static void m8_cursor_show( void )
     if( m8_rect_empty( &r ) ) {
         return;
     }
+    M8_STEP( M8_MARK_CURSOR_SHOW );
+    M8_STEP( r.l );
+    M8_STEP( r.t );
     m8_hw_copy( r.l, r.t, M8_CURSOR_SAVE_X, M8_CURSOR_SAVE_Y, r.r - r.l, r.b - r.t );
     m8_hw_mono( cx, cy, M8_CURSOR_MAX / 8, M8_CURSOR_MAX, m8_cur_and,
                 M8_MIX_LEAVE, 0, M8_MIX_SRC_BKGD | M8_MIX_REPLACE, 0,
