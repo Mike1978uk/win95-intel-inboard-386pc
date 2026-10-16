@@ -57,6 +57,9 @@ silicon ATI's drivers never used - kept wherever a measurement shows a gain. Lea
   D8c (16-colour modes) for parity. Open: SSB rectangle overwrite (intermittent, guarded), Solitaire corner flash.
 - Bed: on m8disp.drv, monitor set to Super VGA 1024x768. `tools/fatcp.py` refuses to write while 86Box runs.
 
+**Method (owner, 10-17):** each driver iteration is one `tools/m8_cycle.ps1 -Message "..."` call; batch 2-3 changes per
+bed run; tally summary first. See worklist "Working method".
+
 ## Next
 
 The plan is `docs/worklist.md` - the one source of truth; this file is a snapshot. Section L (card levers) is **done** 10-16 except
