@@ -339,3 +339,12 @@ brush in a trace before changing code.
 **Pattern expansion off (`3dacc5c`), owner 10-16 night (`m8disp_d8b_nopattern_1016.log.gz`):** button frame and Explorer
 selection correct; grey-out better. So the pattern expansion caused those. **Castle deck still wrong:** paints correctly
 at first; after a click on the deck the bat sprites show beside the card, outside it.
+Grey-out with expansion off: an even checkerboard, dialog clean on top (owner screenshot) - correct.
+
+**Castle, pixel (180,153) history in that log:** deck card at (104,137), 72 wide (right edge ~x 175). Before each bat
+frame Solitaire paints the strip beside the card green (engine fill `176,137 10x101`, colour 02 - correct); then the
+sprite upload `146,149 38x12` (BitBlt DIB SRCCOPY, our fallback) writes sky/moon colours (FC/FF/F8) at x 176-183.
+The DIB Engine draws only inside the rectangle GDI passed, so either GDI's rectangle reaches past the card or the
+source bitmap holds card-back art there. **Next:** in `atim8_baseline_castle_1016.log.gz`, find ATIM8's uploads for
+the same sprite and compare their width; if ATIM8's is narrower, the difference is in how we read that call's
+arguments (log wDestX/wXext/wSrcX for C2CC calls in a -Trace build).
