@@ -447,3 +447,6 @@ work** after the ValidateMode DS fix (slider to 1024x768, 256 Color offered at 6
 clipped in every mode - zoomed, each lacked its leftmost column. Cause, the DibToDevice coverage path (`9f583e0`):
 after a covered draw it read the 2-pixel edge columns straight into m8_dst, and the inner one of the two is the DIB's
 own first (or last) column. Now read into m8_src and only the outer column copied.
+**Edge-fix run (`2c1f6ed`, `m8disp_d8_edgefix_1016.log.gz`):** folder icons correct (owner). DibToDevice no longer
+among the top costs (covered strips need no read-back); bitmap uploads 6.4 ms per call; no SSB overwrite. Session
+~20 s estimated bus time (7,409 PATCOPY calls - a longer session than the last).
