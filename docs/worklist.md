@@ -119,7 +119,9 @@ the whole engine) on top of ATI.VXD - it costs nothing while Windows owns the ca
 Step 2: our own VxD, to save the registers ATI.VXD does not know (DEST_CMP_FN, BOUNDS) across DOS boxes.
 
 
-- [ ] **D0 Skeleton loads in Windows 95 (10-13).** Our FRAMEBUF build (`OWFB.DRV`) and Microsoft's own
+- [x] **D0 Passed 10-16: our FRAMEBUF build loads and draws in Windows 95** (`vm_5160_now`, 640x480x256 on the 28800 half;
+      BOOTLOG `LoadSuccess = owfb.drv`, VFLATD init success). Switch by registry, not SYSTEM.INI: `drivers/mach8_display/bed/OWFB.REG`
+      (`ATIM8.REG` reverts; from DOS `REGEDIT C:\ATIM8.REG`). SYSTEM.INI stays `display.drv=pnpdrvr.drv`. Was: Our FRAMEBUF build (`OWFB.DRV`) and Microsoft's own
       FRAMEBUF.DRV both fail on `vm_5160_now` ("problem with your display settings", 1024x768 and 640x480),
       so the control failed too: the sample cannot drive this card, and our build is not yet shown to load.
       Next: the same swap on a bed where Windows itself installs FRAMEBUF.DRV, or start the Mach8 skeleton.
