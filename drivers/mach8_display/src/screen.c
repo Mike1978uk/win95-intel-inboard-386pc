@@ -271,9 +271,100 @@ static void m8_strip_read_edges( M8_STRIP *s, const M8_RECT *r, const M8_RECT *a
     ++m8_stats[M8_STAT_READBACK];
 }
 
+/* Write-back, encoded: a raw upload costs 3.84 us per pixel plus ~35 us of
+ * set-up, a fill ~35 us whatever its size (M8TIME, 5160). A run pays as a fill
+ * from about 20 pixels in mid-row, where it also splits the raw span around it.
+ * Rows without such a run go out together as one raw rectangle, as before. */
+#define M8_RUN_MIN          24
+
+/* The first run in a row long enough to fill, on even edges: 1 and [*a, *b). */
+static int m8_row_run( const BYTE FAR *row, int from, int w, int *a, int *b )
+{
+    int i = from;
+    int j;
+
+    while( i < w ) {
+        for( j = i + 1; j < w && row[j] == row[i]; ++j ) {
+        }
+        *a = (i + 1) & ~1;
+        *b = j & ~1;
+        if( *b - *a >= M8_RUN_MIN ) {
+            return( 1 );
+        }
+        i = j;
+    }
+    return( 0 );
+}
+
+static int m8_row_uniform( const BYTE FAR *row, int w )
+{
+    int i;
+
+    for( i = 1; i < w; ++i ) {
+        if( row[i] != row[0] ) {
+            return( 0 );
+        }
+    }
+    return( 1 );
+}
+
 static void m8_strip_write( M8_STRIP *s, const M8_RECT *r )
 {
-    m8_hw_write_rect( r->l, r->t, r->r - r->l, r->b - r->t, s->bits, s->pitch );
+    int         w = r->r - r->l;
+    int         h = r->b - r->t;
+    int         y;
+    int         k;
+    int         plain = -1;     /* first row of a pending raw block */
+    int         a;
+    int         b;
+    int         at;
+    BYTE FAR    *row;
+
+    for( y = 0; y < h; ++y ) {
+        row = s->bits + (DWORD)y * s->pitch;
+        if( !m8_row_run( row, 0, w, &a, &b ) ) {
+            if( plain < 0 ) {
+                plain = y;
+            }
+            continue;
+        }
+        if( plain >= 0 ) {
+            m8_hw_write_rect( r->l, r->t + plain, w, y - plain,
+                              s->bits + (DWORD)plain * s->pitch, s->pitch );
+            plain = -1;
+        }
+        /* One colour across: one fill, over every following row alike. */
+        if( m8_row_uniform( row, w ) ) {
+            for( k = y + 1; k < h; ++k ) {
+                const BYTE FAR *next = s->bits + (DWORD)k * s->pitch;
+
+                if( next[0] != row[0] || !m8_row_uniform( next, w ) ) {
+                    break;
+                }
+            }
+            m8_hw_fill( r->l, r->t + y, w, k - y, row[0] );
+            ++m8_stats[M8_STAT_RUN_FILL];
+            y = k - 1;
+            continue;
+        }
+        /* Raw pieces between the runs. */
+        at = 0;
+        do {
+            if( a > at ) {
+                m8_hw_write_rect( r->l + at, r->t + y, a - at, 1, row + at, s->pitch );
+            }
+            m8_hw_fill( r->l + a, r->t + y, b - a, 1, row[a] );
+            ++m8_stats[M8_STAT_RUN_FILL];
+            at = b;
+        } while( m8_row_run( row, at, w, &a, &b ) );
+        if( at < w ) {
+            m8_hw_write_rect( r->l + at, r->t + y, w - at, 1, row + at, s->pitch );
+        }
+    }
+    if( plain >= 0 ) {
+        m8_hw_write_rect( r->l, r->t + plain, w, h - plain,
+                          s->bits + (DWORD)plain * s->pitch, s->pitch );
+    }
 }
 
 /* ----------------------------------------------------------------- cursor */

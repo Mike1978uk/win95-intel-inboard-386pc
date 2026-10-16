@@ -107,7 +107,8 @@
 #define M8_STAT_READBACK    13      /* fallback strips that needed the screen read */
 #define M8_STAT_TEXT_HW     14      /* mono expansions: text and cursor */
 #define M8_STAT_TEXT_FAIL   15      /* engine text declined, drawn by the fallback */
-#define M8_STAT_COUNT       16
+#define M8_STAT_RUN_FILL    16      /* write-back runs sent as fills */
+#define M8_STAT_COUNT       17
 
 extern DWORD m8_stats[M8_STAT_COUNT];
 
