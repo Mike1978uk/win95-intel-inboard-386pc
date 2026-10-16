@@ -64,7 +64,8 @@ $lnk = @(
   'option modname=DISPLAY',
   "option description 'DISPLAY : 100, 96, 96 : ATI Graphics Ultra (Mach8) display driver.'",
   'option oneautodata',
-  'segment type data preload fixed',
+  'option alignment=16',
+  'segment class ''DATA'' preload fixed',
   "segment '_TEXT' preload fixed shared",
   'disable 2055'
 ) + ('enable', 'screen', 'm8hw', 'thunks' | ForEach-Object { "file $Out\$_.obj" }) + @(
