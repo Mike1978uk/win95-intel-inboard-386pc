@@ -13,6 +13,7 @@ BitBlt adds Dffs: ff = brush flags, s = brush style (listed, not charged).
 Bus estimates use the card's measured costs: 3.84 us per pixel for a host
 write (M8TIME raw), 5.7 us per pixel for a read-back (two word reads per two
 pixels: data-ready poll and PIX_TRANS, ~5.7 us per byte-wide access).
+Every engine operation also costs ~35 us of register set-up (US_OP).
 Engine text (Mach8 extended blit, started by a DEST_Y_END write) is charged
 one 16-bit write per two bytes of mono data, 7.6 us each.
 pclog folds identical consecutive lines into "*** N repeats ***"; those are
@@ -31,6 +32,7 @@ NAMES = {
 US_WRITE = 3.84
 US_READ = 5.7
 US_WORD = 7.6     # one 16-bit write, M8TIME raw
+US_OP = 35.0      # register set-up per engine operation (~6 writes at ~5.7 us)
 
 
 def lines(path):
@@ -100,7 +102,8 @@ def main(path):
     total = 0.0
     out = []
     for name, r in rows.items():
-        ms = (r['rd_px'] * US_READ + r['wr_px'] * US_WRITE + r['mono_w'] * US_WORD) / 1000.0
+        ops = r['fill'] + r['copy'] + r['mono'] + r['rd_ops'] + r['wr_ops']
+        ms = (r['rd_px'] * US_READ + r['wr_px'] * US_WRITE + r['mono_w'] * US_WORD + ops * US_OP) / 1000.0
         total += ms
         out.append((ms, name, r))
     print(f"{'entry':24} {'calls':>6} {'fills':>6} {'copies':>6} {'mono':>6} {'reads':>6} {'read px':>9} "

@@ -417,3 +417,11 @@ INT 2Fh 4001h/4002h hook (after vmdisp9x's sswhook.asm, MIT). Owner, bed: window
 Alt+Enter to full screen and back repeatedly, `exit` from full screen - all correct, desktop repainted each time. A
 short black screen at each switch is the monitor re-syncing on the mode change, as with ATIM8. The D8a gap "DOS
 full-screen switching" is closed.
+
+### Write-back as runs (`193795f`, `m8disp_d8b_runs_1016.log.gz`)
+
+Owner ran the full regression list: all correct; the SSB overwrite detector did not fire. Tally now includes ~35 us
+set-up per engine operation (`tools/m8_fallback_tally.py` US_OP). Per call: bitmap uploads (DIB SRCCOPY) 13.4 ->
+9.9 ms (10,210 run fills, 17,348 raw pieces). DibToDevice is now the largest entry (5.5 s): it always reads its whole
+clip back (796 K px here) although SetDIBitsToDevice covers its destination - bound it by the DIB's own rectangle
+(header + iScan/cScans) and read only the edge columns, as BitBlt does. Screen -> memory 2.3 s (menus SSB declined).
