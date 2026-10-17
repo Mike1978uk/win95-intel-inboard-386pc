@@ -34,7 +34,13 @@ US_READ = 5.7
 US_WORD = 7.6     # one 16-bit write, M8TIME raw
 US_OP = 35.0      # register set-up per engine operation (~6 writes at ~5.7 us)
 
-EVENTS = {0xA0F5: 'bitmap cache evictions', 0xA0F6: 'bitmap cache first sights'}
+EVENTS = {0xA0F5: 'bitmap cache evictions', 0xA0F6: 'bitmap cache first sights',
+          0xA0F7: 'proxy saves', 0xA0F8: 'proxy restores', 0xA0F9: 'proxy write-backs',
+          0xA0FA: 'proxies lost', 0xA0FB: 'Pixel sets on the engine'}
+# The word after these markers: a reason or a value, counted per marker.
+FOLLOW = {0xA0F9: ('write-back why', {1: 'entry', 2: 'mem->mem', 3: 'forwarded', 4: 'evicted',
+                                      5: 'suspend', 6: 'overlap'}),
+          0xA0FB: ('Pixel return', {})}
 
 
 def lines(path):
@@ -59,6 +65,7 @@ def main(path):
     rows = {}
     brushes = {}
     events = {}
+    follow = None
 
     def row(name):
         return rows.setdefault(name, {'calls': 0, 'fill': 0, 'copy': 0, 'mono': 0, 'mono_w': 0,
@@ -71,8 +78,15 @@ def main(path):
             who = NAMES.get(val, hex(val))
             row(who)['calls'] += 1
             continue
+        if port == '56EE' and follow is not None:
+            name, labels = FOLLOW[follow]
+            key = f'{name} {labels.get(val, hex(val))}'
+            events[key] = events.get(key, 0) + 1
+            follow = None
+            continue
         if port == '56EE' and val in EVENTS:
             events[EVENTS[val]] = events.get(EVENTS[val], 0) + 1
+            follow = val if val in FOLLOW else None
             continue
         if port == '56EE' and (val & 0xF000) == 0xD000:
             key = f'flags {(val >> 4) & 0xFF:02X} style {val & 0xF}'

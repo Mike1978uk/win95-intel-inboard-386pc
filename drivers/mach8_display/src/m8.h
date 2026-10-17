@@ -177,6 +177,11 @@ extern void m8_hw_marker( WORD value );
 #define M8_MARK_BC_STORE    0xB0F4  /* bitmap cache: uploaded, then copied */
 #define M8_MARK_BC_EVICT    0xA0F5  /* bitmap cache: shelves in use cleared */
 #define M8_MARK_BC_FIRST    0xA0F6  /* bitmap cache: first sight, not stored */
+#define M8_MARK_PX_SAVE     0xA0F7  /* screen to memory kept on the card */
+#define M8_MARK_PX_HIT      0xA0F8  /* memory to screen from the card */
+#define M8_MARK_PX_BACK     0xA0F9  /* then why: proxy written back to RAM */
+#define M8_MARK_PX_LOST     0xA0FA  /* proxy dropped: bitmap changed or freed */
+#define M8_MARK_PIXEL_RET   0xA0FB  /* then DIB_Pixel's return (low 11 bits, 800h if more) */
 #define M8_MARK_SC_HIT      0xB0F1  /* string cache: drawn from video memory */
 #define M8_MARK_SC_STORE    0xB0F2  /* string cache: stored, then drawn */
 #define M8_MARK_SSB_SAVE    0xB0D0

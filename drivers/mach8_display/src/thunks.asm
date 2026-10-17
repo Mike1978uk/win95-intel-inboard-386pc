@@ -27,6 +27,16 @@ name:
         jmp     DIB_&name
         endm
 
+; As DIBFWD, after M8PXFLUSH writes any screen-to-memory proxy back to its
+; bitmap (screen.c): these entries read or write bitmap bits themselves.
+PXFWD   macro   name
+extrn   DIB_&name : far
+public  name
+name:
+        call    far ptr M8PXFLUSH
+        jmp     DIB_&name
+        endm
+
 _DATA   segment public 'DATA'
 extrn   _m8_pdevice : dword
 extrn   _m8_palettized : word
@@ -36,12 +46,47 @@ DGROUP  group   _DATA
 
 _TEXT   segment public 'CODE'
 
+extrn   M8PXFLUSH : far
+extrn   M8PXREALIZE : far
+extrn   DIB_RealizeObjectExt : far
+extrn   DIB_DibBltExt : far
+
 .386
 assume  ds:nothing, es:nothing
 
 DIBTHK  EnumObj,                _m8_pdevice
-DIBTHK  RealizeObject,          _m8_pdevice
-DIBTHK  DibBlt,                 _m8_palettized
+; RealizeObject(lpDestDev, iStyle, lpInObj, lpOutObj, lpTextXForm), Pascal: a
+; pattern brush reads its bitmap, so M8PXREALIZE(iStyle, lpInObj) looks first.
+public  RealizeObject
+RealizeObject:
+        push    bp
+        mov     bp, sp
+        push    word ptr [bp+18]
+        push    word ptr [bp+16]
+        push    word ptr [bp+14]
+        call    far ptr M8PXREALIZE
+        pop     bp
+        mov     ax, DGROUP
+        mov     es, ax
+        assume  es:DGROUP
+        pop     ecx
+        push    _m8_pdevice
+        push    ecx
+        jmp     DIB_RealizeObjectExt
+        assume  es:nothing
+
+; DibBlt is GetDIBits / SetDIBits on a bitmap.
+public  DibBlt
+DibBlt:
+        call    far ptr M8PXFLUSH
+        mov     ax, DGROUP
+        mov     es, ax
+        assume  es:DGROUP
+        pop     ecx
+        push    _m8_palettized
+        push    ecx
+        jmp     DIB_DibBltExt
+        assume  es:nothing
 DIBTHK  GetPalette,             _m8_pdevice
 DIBTHK  SetPaletteTranslate,    _m8_pdevice
 DIBTHK  GetPaletteTranslate,    _m8_pdevice
@@ -61,7 +106,7 @@ DIBFWD  DeviceBitmap
 DIBFWD  SetAttribute
 DIBFWD  CreateDIBitmap
 DIBFWD  SelectBitmap
-DIBFWD  BitmapBits
+PXFWD   BitmapBits
 DIBFWD  Inquire
 
 _TEXT   ends

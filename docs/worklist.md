@@ -243,6 +243,10 @@ Step 2: our own VxD, to save the registers ATI.VXD does not know (DEST_CMP_FN, B
       copy - **cache done 10-17 (95% hits), LRU eviction + more room next; transparent draw open**; (4) timed 5160 run
       vs ATIM8 to prove the lead; then the experimental block - raster-timed drawing (A9h
       line counter), >256 colours (D4), DirectDraw on the VGA half (D5/D6), vectors and 3D (D3).
+      **Slow-path migration (owner, 10-17: "once tested, migrate them"):** done 10-17 in the first D9 build -
+      solid polylines (LINEDRAW), Pixel sets (1x1 fill), screen-to-memory saves kept on the card (proxies). Left:
+      styled pens (PATT_DATA as the style mask; GDI's style phase must match), polyline points off the 0-1023 grid
+      (card coordinate range unprobed), Pixel gets, ScanLR, StretchBlt, the DibToDevice edges. Each after its test.
 - [ ] **D8c Parity with ATIM8's modes (owner, 10-16: "equal and better than ATI", for the purists).** 256 colours at
       640x480, 800x600, 1024x768 (built 10-16, `9bd77c2`, in test). 16 colours at 800x600 and 1024x768 as ATIM8 offers
       them (640x480x16 is Windows' vga.drv on the VGA half, unchanged): Mach8 4-bit pixel mode, DIB Engine at 4 bpp,
