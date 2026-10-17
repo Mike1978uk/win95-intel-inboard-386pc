@@ -893,6 +893,22 @@ static DWORD        m8_bc_seen[M8_BC_SEEN];
 static int          m8_bc_seen_next;
 static WORD         m8_bc_sel;
 
+/* Row y of a bitmap's bits from column x, w bytes. Rows inside the bitmap's
+ * own segment are reached by plain far pointer; only bits past 64 KB need
+ * m8_bc_sel moved, which costs KERNEL calls into DPMI - per row, they made a
+ * 96-row cache lookup take ~30 ms. */
+static BYTE FAR *m8_bits_row( WORD sel, DWORD off, long delta, int x, int y, int w )
+{
+    DWORD at = off + (DWORD)((long)y * delta) + (DWORD)x;
+
+    if( delta > 0 && at + (DWORD)w <= 0x10000UL ) {
+        return( (BYTE FAR *)MK_FP( sel, (WORD)at ) );
+    }
+    SetSelectorBase( m8_bc_sel, GetSelectorBase( sel ) + at );
+    SetSelectorLimit( m8_bc_sel, (DWORD)w - 1 );
+    return( (BYTE FAR *)MK_FP( m8_bc_sel, 0 ) );
+}
+
 static int m8_bc_left( void )
 {
     return( (M8_SCREEN_X + 1) & ~1 );
@@ -1121,7 +1137,6 @@ static M8_BCENTRY *m8_bc_slot( void )
 static M8_BCENTRY *m8_bc_lookup( LPDIBENGINE src, int sx, int sy, int w, int h, int force )
 {
     WORD        we = (WORD)((w + 1) & ~1);
-    DWORD       base;
     long        delta;
     DWORD       h1 = 2166136261UL;
     DWORD       h2 = (DWORD)w * 131 + h;
@@ -1138,12 +1153,9 @@ static M8_BCENTRY *m8_bc_lookup( LPDIBENGINE src, int sx, int sy, int w, int h, 
         (long)we * h > M8_BC_MAX_PX || (long)we * h > 0xFFF0L ) {
         return( NULL );
     }
-    base = GetSelectorBase( src->deBitsSelector ) + src->deBitsOffset;
     delta = (long)src->deDeltaScan;
     for( row = 0; row < h; ++row ) {
-        SetSelectorBase( m8_bc_sel, base + (DWORD)((long)(sy + row) * delta) + (DWORD)sx );
-        SetSelectorLimit( m8_bc_sel, (DWORD)w - 1 );
-        p = (BYTE FAR *)MK_FP( m8_bc_sel, 0 );
+        p = m8_bits_row( src->deBitsSelector, src->deBitsOffset, delta, sx, sy + row, w );
         q = m8_src.bits + (DWORD)row * we;
         for( col = 0; col < w; ++col ) {
             q[col] = p[col];
@@ -1249,14 +1261,10 @@ typedef struct {
 static M8_PXENTRY   m8_px[M8_PX_MAX];
 static int          m8_px_n;
 
-/* Point m8_bc_sel at row `row` of the proxy's rectangle in the bitmap. */
+/* Row `row` of the proxy's rectangle in the bitmap. */
 static BYTE FAR *m8_px_row( const M8_PXENTRY *p, int row )
 {
-    DWORD base = GetSelectorBase( p->sel ) + p->off;
-
-    SetSelectorBase( m8_bc_sel, base + (DWORD)((long)(p->y + row) * (long)p->delta) + (DWORD)p->x );
-    SetSelectorLimit( m8_bc_sel, (DWORD)p->w - 1 );
-    return( (BYTE FAR *)MK_FP( m8_bc_sel, 0 ) );
+    return( m8_bits_row( p->sel, p->off, (long)p->delta, p->x, p->y + row, p->w ) );
 }
 
 /* Fletcher sums over the rectangle: a change detector cheap enough to run on
