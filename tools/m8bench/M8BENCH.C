@@ -87,6 +87,25 @@ static unsigned long hash_area( void )
     return h;
 }
 
+static HBITMAP picture( int w, int h, int seed );
+static HBITMAP save_a;
+static HBITMAP save_b;
+
+/* The bitmaps the tests change, made again: the fixed sequence must not see
+ * what the timed loop - a different length under each driver - left in them. */
+static void reset_pictures( void )
+{
+    HBITMAP o;
+
+    DeleteObject( bmp_card2 );
+    bmp_card2 = picture( 71, 96, 5 );
+    o = SelectObject( mem, save_a );
+    PatBlt( mem, 0, 0, 71, 96, WHITENESS );
+    SelectObject( mem, save_b );
+    PatBlt( mem, 0, 0, 71, 96, WHITENESS );
+    SelectObject( mem, o );
+}
+
 static void run( const char *name, OP op, int fixed )
 {
     double  t0;
@@ -103,6 +122,7 @@ static void run( const char *name, OP op, int fixed )
         t = now_ms() - t0;
     } while( t < RUN_MS );
     /* The fixed sequence, for the hash: the same calls under every driver. */
+    reset_pictures();
     clear();
     rnd = 777;
     for( i = 0; i < fixed; ++i ) {
@@ -299,8 +319,6 @@ static void t_mem2mem( int i )
 
 /* Solitaire's drag frame: save the new area, patch the overlap between the two saves,
  * put the card into the old save, restore the old area, draw the card. */
-static HBITMAP save_a;
-static HBITMAP save_b;
 
 static void t_drag( int i )
 {
