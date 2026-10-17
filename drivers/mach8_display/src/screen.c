@@ -1184,7 +1184,7 @@ static int m8_bc_draw( LPDIBENGINE src, int sx, int sy, int dx, int dy, int w, i
  * when the proxy is made; if the hash or the bitmap's header differs when the
  * slot is used, the bitmap was written without us or freed and reused, and the
  * proxy is dropped without writing. M8_PROXY 0 turns the whole path off. */
-#define M8_PROXY            1
+#define M8_PROXY            0           /* off: Solitaire copies the saved bitmap memory to memory (10-17) */
 #define M8_PX_MAX           8
 #define M8_PX_MAX_PX        16384       /* the write-back goes through m8_dst */
 
@@ -1459,6 +1459,84 @@ static int m8_px_restore( LPDIBENGINE b, int sx, int sy, int dx, int dy, int w, 
     return( 0 );
 }
 
+/* A monochrome bitmap to the screen: the engine expands it, 1 bit per pixel on
+ * the bus instead of 8, and applies the ROP's mix itself (icon masks need no
+ * read-back). GDI's rule for mono to colour: a 1 bit takes the background
+ * colour, a 0 bit the text colour. The source rectangle is repacked to start
+ * on a byte; rows run on unpadded, as m8_hw_mono streams them, and the
+ * scissors cut each row back to w. Single-segment bitmaps only. */
+static int m8_mono_blt( BITMAP FAR *bm, int sx, int sy, int dx, int dy, int w, int h, WORD mix,
+                        LPDRAWMODE dm )
+{
+    WORD        wb = (WORD)((w + 7) / 8);
+    int         shift = sx & 7;
+    WORD        first = (WORD)(sx >> 3);
+    BYTE FAR    *row;
+    BYTE FAR    *out = m8_dst.bits;
+    WORD        i;
+    WORD        k;
+    int         y;
+    M8_RECT     r;
+    M8_RECT     scr;
+
+    if( bm == NULL || dm == NULL || bm->bmType != 0 || bm->bmBitsPixel != 1 ||
+        bm->bmPlanes != 1 || bm->bmSegmentIndex != 0 || bm->bmBits == NULL ||
+        w <= 0 || h <= 0 || sx < 0 || sy < 0 || (long)wb * h > M8_BUF_BYTES ) {
+        return( 0 );
+    }
+    for( y = 0; y < h; ++y ) {
+        row = bm->bmBits + (WORD)(sy + y) * bm->bmWidthBytes;
+        for( i = 0; i < wb; ++i ) {
+            k = first + i;
+            if( shift == 0 ) {
+                *out++ = row[k];
+            } else {
+                *out++ = (BYTE)((row[k] << shift) |
+                                (k + 1 < bm->bmWidthBytes ? row[k + 1] >> (8 - shift) : 0));
+            }
+        }
+    }
+    m8_rect_set( &r, dx, dy, dx + w, dy + h );
+    m8_rect_screen( &scr );
+    m8_rect_and( &r, &scr );
+    if( m8_rect_empty( &r ) ) {
+        return( 1 );
+    }
+    M8_STEP( M8_MARK_MONO_BLT );
+    m8_enter( &r );
+    m8_hw_mono( dx, dy, wb, (WORD)h, m8_dst.bits,
+                M8_MIX_SRC_FRGD | mix, (BYTE)dm->bkColor,
+                M8_MIX_SRC_BKGD | mix, (BYTE)dm->TextColor,
+                r.l, r.t, r.r - 1, r.b - 1 );
+    m8_leave();
+    return( 1 );
+}
+
+#ifdef M8_TRACE
+/* A 16-bit value as two bytes, so it can never read as a marker. */
+static void m8_step_word( WORD v )
+{
+    M8_STEP( v >> 8 );
+    M8_STEP( v & 0xFF );
+}
+
+/* Memory-to-memory copies: which bitmaps, how big - the data for keeping
+ * bitmaps on the card. Pointers as segment and offset. */
+static void m8_trace_mem( WORD mark, LPVOID dst, LPVOID src, WORD rop, int w, int h )
+{
+    M8_STEP( mark );
+    m8_step_word( FP_SEG( dst ) );
+    m8_step_word( FP_OFF( dst ) );
+    m8_step_word( FP_SEG( src ) );
+    m8_step_word( FP_OFF( src ) );
+    m8_step_word( rop );
+    m8_step_word( (WORD)w );
+    m8_step_word( (WORD)h );
+}
+#else
+#define m8_trace_mem( m, d, s, r, w, h )
+#endif
+
 BOOL WINAPI __loadds BitBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPDEVICE lpSrcDev,
                              WORD wSrcX, WORD wSrcY, WORD wXext, WORD wYext, DWORD dwRop3,
                              LPBRUSH lpPBrush, LPDRAWMODE lpDrawMode )
@@ -1472,6 +1550,8 @@ BOOL WINAPI __loadds BitBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPD
     WORD        pitch;
 
     if( !dst_screen && !src_screen ) {
+        m8_trace_mem( M8_MARK_MEM2MEM, lpDestDev, m8_rop_uses_src( dwRop3 ) ? lpSrcDev : NULL,
+                      rop, (short)wXext, (short)wYext );
         m8_px_touch( lpDestDev, M8_PX_WHY_MEM );
         if( m8_rop_uses_src( dwRop3 ) ) {
             m8_px_touch( lpSrcDev, M8_PX_WHY_MEM );
@@ -1548,6 +1628,12 @@ BOOL WINAPI __loadds BitBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPD
                 return( TRUE );
             }
         }
+        if( !src_screen && m8_rop_uses_src( dwRop3 ) && !m8_rop_uses_pat( dwRop3 ) &&
+            ((LPDIBENGINE)lpSrcDev)->deType != TYPE_DIBENG &&
+            m8_mono_blt( (BITMAP FAR *)lpSrcDev, wSrcX, wSrcY, wDestX, wDestY, wXext, wYext,
+                         m8_mix_for_key[rop & 0x0F], lpDrawMode ) ) {
+            return( TRUE );
+        }
         if( M8_PROXY && !src_screen && m8_rop_uses_src( dwRop3 ) && !m8_rop_uses_pat( dwRop3 ) &&
             m8_px_restore( (LPDIBENGINE)lpSrcDev, wSrcX, wSrcY, wDestX, wDestY, wXext, wYext,
                            m8_mix_for_key[rop & 0x0F] ) ) {
@@ -1595,6 +1681,7 @@ BOOL WINAPI __loadds BitBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPD
         int     h;
 
         M8_STEP( M8_MARK_SCR2MEM );
+        m8_trace_mem( M8_MARK_SCR2MEM_ARGS, lpDestDev, NULL, rop, (short)wXext, (short)wYext );
         if( M8_PROXY && rop == 0xCC && (short)wXext > 0 && (short)wYext > 0 &&
             m8_px_save( (LPDIBENGINE)lpDestDev, wDestX, wDestY, wSrcX, wSrcY, wXext, wYext ) ) {
             return( TRUE );

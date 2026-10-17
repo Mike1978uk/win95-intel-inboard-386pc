@@ -182,6 +182,9 @@ extern void m8_hw_marker( WORD value );
 #define M8_MARK_PX_BACK     0xA0F9  /* then why: proxy written back to RAM */
 #define M8_MARK_PX_LOST     0xA0FA  /* proxy dropped: bitmap changed or freed */
 #define M8_MARK_PIXEL_RET   0xA0FB  /* then DIB_Pixel's return (low 11 bits, 800h if more) */
+#define M8_MARK_MEM2MEM     0xA0FC  /* trace: then dst, src, rop, w, h as byte pairs */
+#define M8_MARK_SCR2MEM_ARGS 0xA0FD /* trace: the same for a screen-to-memory copy */
+#define M8_MARK_MONO_BLT    0xA0FE  /* monochrome bitmap expanded by the engine */
 #define M8_MARK_SC_HIT      0xB0F1  /* string cache: drawn from video memory */
 #define M8_MARK_SC_STORE    0xB0F2  /* string cache: stored, then drawn */
 #define M8_MARK_SSB_SAVE    0xB0D0
