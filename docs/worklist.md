@@ -211,10 +211,13 @@ Step 2: our own VxD, to save the registers ATI.VXD does not know (DEST_CMP_FN, B
   Claude prompts the owner to switch to a cheaper model (`/model`) for mechanical steps (regression run + tally,
   docs, a fix already worked out); never for diagnosis.
 - [ ] **D9 New league (owner, 10-16: "leave them all standing" - ATI's drivers and XFree86 both).** Already ours and in
-      neither: uploads as runs, double-draw coverage, per-call bus accounting. Order: (1) glyph cache + colour-compare
+      neither: uploads as runs, double-draw coverage, per-call bus accounting. Parity table against XFree86: design doc
+      "Against the XFree86 Mach8 driver" - only engine lines are missing. Order: (1) glyph cache + colour-compare
       transparency (92EE/EAEE, used by no driver) - text faster than ATIM8 (121 us/glyph) and XFree86's cache (51 us);
+      **cache done 10-16 as strings in bit-planes (83% hits); the 51 us target is unproven until (4)**; transparency open;
       (2) engine lines (Bresenham, short strokes); (3) bitmap/icon cache in off-screen memory, drawn transparently in one
-      copy; (4) timed 5160 run vs ATIM8 to prove the lead; then the experimental block - raster-timed drawing (A9h
+      copy - **cache done 10-17 (95% hits), LRU eviction + more room next; transparent draw open**; (4) timed 5160 run
+      vs ATIM8 to prove the lead; then the experimental block - raster-timed drawing (A9h
       line counter), >256 colours (D4), DirectDraw on the VGA half (D5/D6), vectors and 3D (D3).
 - [ ] **D8c Parity with ATIM8's modes (owner, 10-16: "equal and better than ATI", for the purists).** 256 colours at
       640x480, 800x600, 1024x768 (built 10-16, `9bd77c2`, in test). 16 colours at 800x600 and 1024x768 as ATIM8 offers
