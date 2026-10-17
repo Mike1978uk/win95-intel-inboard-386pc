@@ -189,6 +189,7 @@ extern void m8_hw_marker( WORD value );
 #define M8_MARK_PX_FILL     0xA0F1  /* solid fill into a held bitmap, on the card */
 #define M8_MARK_TIME_IN     0xA0F2  /* trace: entry starts; then PIT count (2 bytes), BIOS tick (1) */
 #define M8_MARK_TIME_OUT    0xA0F3  /* trace: entry returns; the same */
+#define M8_MARK_TIME_POINT  0xA0F4  /* trace: a checkpoint: then its id, then A0F4 and the timer as above */
 #define M8_MARK_PX_M2M_NO   0xA0F0  /* trace: then why m8_px_m2m declined: 1 no dest proxy, 2 source not 8-bit, 3 not cached, 4 dest evicted */
 #define M8_MARK_SC_HIT      0xB0F1  /* string cache: drawn from video memory */
 #define M8_MARK_SC_STORE    0xB0F2  /* string cache: stored, then drawn */

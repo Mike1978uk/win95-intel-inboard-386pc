@@ -1,10 +1,11 @@
 """Time spent inside the Mach8 driver's entry points, from a trace build's
 A0F2/A0F3 records (PIT channel 2 count, 2 bytes, then the BIOS tick's low byte).
 
-Usage: m8_timing.py <log> [--drag]
+Usage: m8_timing.py <log> [--drag] [--points]
 --drag limits the totals to the span from the first to the last screen-to-memory
 BitBlt (B00E), which is Solitaire's drag when that is all the run did.
 Times are wall-clock ms inside the call; interrupts (cursor moves) count in.
+--points adds the checkpoints (A0F4): mean ms from the entry's start to each.
 """
 import os
 import sys
@@ -28,8 +29,11 @@ def counts(c1, t1, c2, t2):
     return max(wraps, 0) * 65536 + fine
 
 
-def main(path, drag):
+def main(path, drag, points):
     rows = {}
+    pts = {}                # (entry, id) -> [n, counts since entry start]
+    point_id = None
+    want_point = False
     pending = None          # (mark, [values])
     skip = 0
     t_in = None             # (count, tick, position)
@@ -58,7 +62,14 @@ def main(path, drag):
                 c = (pending[1][0] << 8) | pending[1][1]
                 tick = pending[1][2]
                 readings.append((pos, c, tick))
-                if pending[0] == 0xA0F2:
+                if pending[0] == 0xA0F4:
+                    if t_in is not None and point_id is not None:
+                        k = (who or 'unmarked', point_id)
+                        r = pts.setdefault(k, [0, 0])
+                        r[0] += 1
+                        r[1] += counts(t_in[0], t_in[1], c, tick)
+                    point_id = None
+                elif pending[0] == 0xA0F2:
                     t_in = (c, tick, pos)
                     who = None
                 elif t_in is not None:
@@ -68,6 +79,17 @@ def main(path, drag):
             continue
         if v in (0xA0F2, 0xA0F3):
             pending = (v, [])
+            continue
+        if v == 0xA0F4:
+            if point_id is None:
+                want_point = True
+            else:
+                pending = (v, [])
+            continue
+        if want_point:
+            want_point = False
+            if v <= 0xFF:
+                point_id = v
             continue
         if v == 0xB00E:
             scr2mem.append(pos)
@@ -102,6 +124,9 @@ def main(path, drag):
     if wall:
         print(f"{'wall clock, same span':32} {'':7} {wall / PIT_HZ * 1000:9.1f}   "
               f"driver share {100.0 * total / wall:.0f}%")
+    if points:
+        for (name, pid), (n, c) in sorted(pts.items()):
+            print(f'  point {pid:2} in {name:28} {n:6} x  {c / n / PIT_HZ * 1000:8.3f} ms after entry')
     if drag and scr2mem:
         print(f'drag frames (screen->memory saves): {len(scr2mem)}; per frame: driver '
               f'{total / PIT_HZ * 1000 / len(scr2mem):.1f} ms, wall {wall / PIT_HZ * 1000 / len(scr2mem):.1f} ms')
@@ -110,4 +135,4 @@ def main(path, drag):
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         sys.exit(__doc__)
-    main(sys.argv[1], '--drag' in sys.argv[2:])
+    main(sys.argv[1], '--drag' in sys.argv[2:], '--points' in sys.argv[2:])

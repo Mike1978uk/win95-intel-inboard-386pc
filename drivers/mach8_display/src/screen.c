@@ -25,6 +25,12 @@
 /* Trace build: each timed entry is defined under an m8t_ name and wrapped at the
  * end of this file (m8_tm). */
 #ifdef M8_TRACE
+static void m8_tm_point( WORD id );
+#define M8_TP( id )         m8_tm_point( id )
+#else
+#define M8_TP( id )
+#endif
+#ifdef M8_TRACE
 #define BitBlt              m8t_BitBlt
 #define ExtTextOut          m8t_ExtTextOut
 #define Output              m8t_Output
@@ -1153,6 +1159,7 @@ static M8_BCENTRY *m8_bc_lookup( LPDIBENGINE src, int sx, int sy, int w, int h, 
         (long)we * h > M8_BC_MAX_PX || (long)we * h > 0xFFF0L ) {
         return( NULL );
     }
+    M8_TP( 0 );
     delta = (long)src->deDeltaScan;
     for( row = 0; row < h; ++row ) {
         p = m8_bits_row( src->deBitsSelector, src->deBitsOffset, delta, sx, sy + row, w );
@@ -1166,15 +1173,18 @@ static M8_BCENTRY *m8_bc_lookup( LPDIBENGINE src, int sx, int sy, int w, int h, 
             q[w] = 0;
         }
     }
+    M8_TP( 1 );
     for( k = 0; k < M8_BC_ENTRIES; ++k ) {
         if( !m8_bc[k].px && m8_bc[k].w == (WORD)w && m8_bc[k].h == (WORD)h && m8_bc[k].h1 == h1 &&
             m8_bc[k].h2 == h2 ) {
             e = &m8_bc[k];
             M8_STEP( M8_MARK_BC_HIT );
             m8_bc_touch( e->y );
+            M8_TP( 2 );
             return( e );
         }
     }
+    M8_TP( 2 );
     if( !m8_bc_seen_before( h1 ^ h2 ) && !force ) {
         M8_STEP( M8_MARK_BC_FIRST );
         return( NULL );
@@ -1212,8 +1222,11 @@ static int m8_bc_draw( LPDIBENGINE src, int sx, int sy, int dx, int dy, int w, i
     }
     m8_rect_set( &r, dx, dy, dx + w, dy + h );
     m8_enter( &r );
+    M8_TP( 3 );
     m8_hw_copy_mix( e->x, e->y, dx, dy, w, h, M8_MIX_SRC_VRAM | mix );
+    M8_TP( 4 );
     m8_leave();
+    M8_TP( 5 );
     return( 1 );
 }
 
@@ -1300,6 +1313,7 @@ static int m8_px_valid( const M8_PXENTRY *p )
         IsBadWritePtr( MK_FP( p->sel, (WORD)p->off ), 1 ) ) {
         return( 0 );
     }
+    M8_TP( 6 );
     return( m8_px_hash( p ) == p->hash );
 }
 
@@ -1833,10 +1847,12 @@ static int m8_px_restore( LPDIBENGINE b, int sx, int sy, int dx, int dy, int w, 
                 m8_px_drop( p, 0 );
                 return( 0 );
             }
+            M8_TP( 10 );
             M8_STEP( M8_MARK_PX_HIT );
             m8_bc_touch( p->e->y );
             m8_rect_set( &r, dx, dy, dx + w, dy + h );
             m8_enter( &r );
+            M8_TP( 11 );
             m8_hw_copy_mix( p->e->x + p->lead + (sx - p->x), p->e->y + (sy - p->y), dx, dy, w, h,
                             M8_MIX_SRC_VRAM | mix );
             m8_leave();
@@ -1953,6 +1969,14 @@ static void m8_tm( WORD mark )
     M8_STEP( mark );
     m8_step_word( c );
     M8_STEP( tick & 0xFF );
+}
+
+/* A checkpoint inside an entry: M8_MARK_TIME_POINT, its id, then as m8_tm. */
+static void m8_tm_point( WORD id )
+{
+    M8_STEP( M8_MARK_TIME_POINT );
+    M8_STEP( id );
+    m8_tm( M8_MARK_TIME_POINT );
 }
 #endif
 
