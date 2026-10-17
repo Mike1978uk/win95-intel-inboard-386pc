@@ -547,3 +547,14 @@ PIT channel 2 around each GDI entry (`1633aab`, `tools/m8_timing.py`), checkpoin
 - **So:** every per-byte C loop over pixels is the bottleneck - cache hashing, proxy checks, the run encoder,
   uploads, read-back copies, the mono repack. Proxies add such loops and are off (`c71432d`) until they are
   rewritten. Sol's start fault did not recur in 4 starts after `af31497` (header pointer checked).
+
+### M8BENCH, first results and the polygon fault, 10-17
+
+`tools/m8bench/M8BENCH.C`, `tools/m8_bench_compare.py`, results `docs/captures/2026-10-16_atim8_tap/m8bench_1017_first.txt`
+(bed, 800x600, our plain build vs ATIM8). Engine-bound tests at parity (fills, blits, scroll, lines, XOR: 0.73-1.00);
+every test with a CPU loop over pixels 5-50x slower (text 0.06-0.19, bitmaps 0.02-0.08, screen->memory 0.09, drag
+0.04); hatched fills 0.01 and dashed lines 0.02 (fallback). 27 of 30 pixel hashes equal.
+**Open: polygon (and ellipse) fault** - `DIBENG.DLL` 0006:13A3, a 32-bit span fill, `DS=15E7`, `EDI=0x34725`. The same
+EDI before and after `3c39dc7` (Output's fallback now draws into a strip-sized device with shifted points), so the
+write is not through our strips: something calls the DIB Engine on its own selector. `3c39dc7` stays - it closes a
+real path for writes outside a strip. Next: find who owns 15E7 and which call reaches that span fill.
