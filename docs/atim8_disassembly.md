@@ -155,3 +155,13 @@ DIBTODEVICE (`seg12:0435`): dispatched by DIB bit count through `cs:0400` (handl
 | StretchBlt / DIB blits | seg14 / seg12 own path, else DIBENG | `seg01:1370`, `seg12:0435` |
 | Off-screen allocator | not found; cursor only uses VRAM->VRAM | `seg01:0e00-1300` |
 | `92EE/EAEE`, `9EE8`, CMD 5 | not used | whole-driver grep |
+
+## Regenerating the listings
+
+The listings are vendor code and stay out of git: `references/atim8_disasm/` (gitignored), with the source binaries
+in `references/atim8_disasm/bin/` (ATIM8.DRV 128,800 bytes from the bed's `C:\WINDOWS\SYSTEM`, plus DIBENG.DLL, GDI.EXE,
+KRNL386.EXE, USER.EXE for import names; MD5s in `bin/MD5.TXT`). To rebuild:
+
+    python tools/ne_disasm.py references/atim8_disasm/bin/ATIM8.DRV references/atim8_disasm \n        --dll references/atim8_disasm/bin/DIBENG.DLL --dll references/atim8_disasm/bin/GDI.EXE \n        --dll references/atim8_disasm/bin/KRNL386.EXE --dll references/atim8_disasm/bin/USER.EXE
+
+If `bin/` is lost, the same files come out of any bed image with `python tools/fatls.py <img> --get WINDOWS/SYSTEM/<file> <out>`.
