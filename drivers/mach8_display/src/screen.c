@@ -1202,7 +1202,7 @@ static int m8_bc_draw( LPDIBENGINE src, int sx, int sy, int dx, int dy, int w, i
  * when the proxy is made; if the hash or the bitmap's header differs when the
  * slot is used, the bitmap was written without us or freed and reused, and the
  * proxy is dropped without writing. M8_PROXY 0 turns the whole path off. */
-#define M8_PROXY            1
+#define M8_PROXY            0           /* off: Sol faulted at start with it on (10-17), cause open */
 #define M8_PX_MAX           16
 #define M8_PX_MAX_PX        0xFFF0      /* the write-back goes through m8_dst */
 
