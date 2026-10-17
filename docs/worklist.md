@@ -201,6 +201,8 @@ Step 2: our own VxD, to save the registers ATI.VXD does not know (DEST_CMP_FN, B
       Inboard): for Lock-heavy games. M8LIN (10-11): one 64 KB bank, no 128 KB window - 320x200x8 fits unbanked,
       320x240 needs a bank switch; switching halves blanks > 1 s (L4c), so only on entering exclusive mode.
       HAL frame from vmhal9x (`references/jhrobotics/`, MIT) for both.
+      **Both ship as options** (owner, 10-17): a registry/Display Properties choice, default the Mach8 HAL; expected
+      ranking (unmeasured): Mach8 for Blt/Flip games, VGA half for Lock-heavy ones.
 
 - [ ] **D6 VGA-half framebuffer driver on VFLATD (owner, 10-16).** The 28800's 512 KB through A000 is the
       cheapest CPU path on the card; VFLATD banks it into a flat surface. A fallback driver (640x480/800x600 x 256)
