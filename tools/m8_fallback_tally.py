@@ -62,7 +62,8 @@ def main(path):
 
     def row(name):
         return rows.setdefault(name, {'calls': 0, 'fill': 0, 'copy': 0, 'mono': 0, 'mono_w': 0,
-                                      'rd_ops': 0, 'rd_px': 0, 'wr_ops': 0, 'wr_px': 0})
+                                      'rd_ops': 0, 'rd_px': 0, 'wr_ops': 0, 'wr_px': 0,
+                                      'lines': 0, 'line_w': 0})
 
     for l in lines(path):
         port, val = l.split()[1], int(l.split()[2], 16)
@@ -91,6 +92,10 @@ def main(path):
             nbytes = (reg.get('AAEE', 0) - reg.get('A6EE', 0)) // 8 * (val - reg.get('82E8', 0))
             r['mono'] += 1
             r['mono_w'] += (max(nbytes, 0) + 1) // 2
+        elif port == 'A2EE' and val != 0:
+            row(who)['lines'] += 1
+        elif port == 'FEEE':
+            row(who)['line_w'] += 1
         elif port == '9AE8':
             px = (reg.get('96E8', 0) + 1) * (reg.get('min', 0) + 1)
             r = row(who)
@@ -108,20 +113,21 @@ def main(path):
     total = 0.0
     out = []
     for name, r in rows.items():
-        ops = r['fill'] + r['copy'] + r['mono'] + r['rd_ops'] + r['wr_ops']
-        ms = (r['rd_px'] * US_READ + r['wr_px'] * US_WRITE + r['mono_w'] * US_WORD + ops * US_OP) / 1000.0
+        ops = r['fill'] + r['copy'] + r['mono'] + r['rd_ops'] + r['wr_ops'] + r['lines']
+        ms = (r['rd_px'] * US_READ + r['wr_px'] * US_WRITE + (r['mono_w'] + r['line_w']) * US_WORD +
+              ops * US_OP) / 1000.0
         total += ms
         out.append((ms, name, r))
     print(f"{'entry':24} {'calls':>6} {'fills':>6} {'copies':>6} {'mono':>6} {'reads':>6} {'read px':>9} "
-          f"{'writes':>6} {'write px':>9} {'bus ms':>8}")
+          f"{'writes':>6} {'write px':>9} {'lines':>6} {'bus ms':>8}")
     for ms, name, r in sorted(out, key=lambda x: -x[0]):
         print(f"{name:24} {r['calls']:6} {r['fill']:6} {r['copy']:6} {r['mono']:6} {r['rd_ops']:6} {r['rd_px']:9} "
-              f"{r['wr_ops']:6} {r['wr_px']:9} {ms:8.0f}")
+              f"{r['wr_ops']:6} {r['wr_px']:9} {r['lines']:6} {ms:8.0f}")
     for key, n in sorted(events.items()):
         print(f'{key}: {n}')
     for key, n in sorted(brushes.items(), key=lambda x: -x[1]):
         print(f'brush {key}: {n}')
-    print(f"{'total':24} {'':6} {'':6} {'':6} {'':6} {'':6} {'':9} {'':6} {'':9} {total:8.0f}")
+    print(f"{'total':24} {'':6} {'':6} {'':6} {'':6} {'':6} {'':9} {'':6} {'':9} {'':6} {total:8.0f}")
 
 
 if __name__ == '__main__':

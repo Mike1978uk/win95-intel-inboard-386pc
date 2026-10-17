@@ -55,6 +55,10 @@ extern int m8_scr_y;
 #define M8_EXT_SCISSOR_T    0xDEEE
 #define M8_EXT_SCISSOR_R    0xE2EE
 #define M8_EXT_SCISSOR_B    0xE6EE
+#define M8_LINEDRAW         0xFEEE      /* one coordinate per write, by LINEDRAW_INDEX */
+#define M8_LINEDRAW_INDEX   0x9AEE      /* write; 0 = move to, then line ends from 2 */
+#define M8_LINEDRAW_OPT     0xA2EE
+#define M8_LINEDRAW_LAST_OFF 0x0004     /* LAST_PEL_OFF: each segment leaves its end pixel */
 #define M8_EXT_SCISSOR_MIN  0x0800      /* -2048 in 12 bits: the values ATIM8 leaves */
 #define M8_EXT_SCISSOR_MAX  0x07FF
 
@@ -122,7 +126,8 @@ extern int m8_scr_y;
 #define M8_STAT_TEXT_FAIL   15      /* engine text declined, drawn by the fallback */
 #define M8_STAT_RUN_FILL    16      /* write-back runs sent as fills */
 #define M8_STAT_COVERED     17      /* strips drawn without a read-back (m8_covered) */
-#define M8_STAT_COUNT       18
+#define M8_STAT_LINE_HW     18      /* polylines drawn by LINEDRAW */
+#define M8_STAT_COUNT       19
 
 extern DWORD m8_stats[M8_STAT_COUNT];
 
@@ -137,6 +142,8 @@ extern void m8_hw_fill( int x, int y, int w, int h, BYTE color );
 extern void m8_hw_fill_mix( int x, int y, int w, int h, BYTE color, WORD mix );
 extern void m8_hw_copy( int sx, int sy, int dx, int dy, int w, int h );
 extern void m8_hw_copy_mix( int sx, int sy, int dx, int dy, int w, int h, WORD mix );
+extern void m8_hw_polyline( const POINT FAR *pts, WORD count, BYTE color, WORD mix,
+                            int clip_l, int clip_t, int clip_r, int clip_b );
 extern void m8_hw_mono_plane( int x, int y, WORD width_bytes, WORD height, const BYTE FAR *bits,
                               int plane );
 extern void m8_hw_plane_blit( int sx, int sy, int dx, int dy, int w, int h, int plane,

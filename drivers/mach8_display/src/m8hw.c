@@ -364,6 +364,52 @@ void m8_hw_mono( int x, int y, WORD width_bytes, WORD height, const BYTE FAR *bi
     ++m8_stats[M8_STAT_TEXT_HW];
 }
 
+/* A polyline through the Mach8's direct linedraw register (guide 9-21, as
+ * XFree86's mach8line.c uses it): one write per coordinate and the card runs
+ * Bresenham. Index 0 makes the first point a move; after each end point the
+ * index returns to 2, so the next pair draws on. LAST_PEL_OFF leaves each
+ * segment's end pixel to the next segment, and the last point undrawn, as GDI
+ * wants. The extended scissors clip (inclusive edges). The caller keeps the
+ * points on the 0-1023 grid. A full FIFO drops writes, so it is drained every
+ * M8_FIFO_DEPTH writes. */
+void m8_hw_polyline( const POINT FAR *pts, WORD count, BYTE color, WORD mix,
+                     int clip_l, int clip_t, int clip_r, int clip_b )
+{
+    WORD    i;
+    int     room;
+
+    if( m8_hw_off || count < 2 ) {
+        return;
+    }
+    m8_wait_fifo_empty();
+    outpw( M8_EXT_SCISSOR_L, clip_l );
+    outpw( M8_EXT_SCISSOR_T, clip_t );
+    outpw( M8_EXT_SCISSOR_R, clip_r );
+    outpw( M8_EXT_SCISSOR_B, clip_b );
+    outpw( M8_FRGD_MIX, M8_MIX_SRC_FRGD | mix );
+    outpw( M8_FRGD_COLOR, color );
+    outpw( M8_LINEDRAW_OPT, M8_LINEDRAW_LAST_OFF );
+    outpw( M8_LINEDRAW_INDEX, 0 );
+    room = M8_FIFO_DEPTH - 8;
+    for( i = 0; i < count; ++i ) {
+        if( room < 2 ) {
+            m8_wait_fifo_empty();
+            room = M8_FIFO_DEPTH;
+        }
+        outpw( M8_LINEDRAW, pts[i].xcoord );
+        outpw( M8_LINEDRAW, pts[i].ycoord );
+        room -= 2;
+    }
+    m8_hw_wait_idle();
+    outpw( M8_LINEDRAW_OPT, 0 );
+    outpw( M8_FRGD_MIX, M8_MIX_SRC_FRGD | M8_MIX_REPLACE );
+    outpw( M8_EXT_SCISSOR_L, M8_EXT_SCISSOR_MIN );
+    outpw( M8_EXT_SCISSOR_T, M8_EXT_SCISSOR_MIN );
+    outpw( M8_EXT_SCISSOR_R, M8_EXT_SCISSOR_MAX );
+    outpw( M8_EXT_SCISSOR_B, M8_EXT_SCISSOR_MAX );
+    ++m8_stats[M8_STAT_LINE_HW];
+}
+
 /* Write 1-bit data into one bit-plane of video memory (the string cache): the
  * mono expansion with WRT_MASK limited to that plane, 1 bits as FFh and 0 bits
  * as 00h, so only the plane's bit changes. */

@@ -304,6 +304,9 @@ UINT WINAPI __loadds Enable( LPVOID lpDevice, UINT style, LPSTR lpDeviceType,
         _fmemset( lpGdi, 0, sizeof( GDIINFO ) );
         DIB_Enable( lpDevice, style, lpDeviceType, lpOutputFile, lpStuff );
         m8_fill_gdiinfo( lpGdi );
+        M8_STEP( 0xA013 );
+        M8_STEP( lpGdi->dpLines );
+        lpGdi->dpLines &= ~(LC_WIDE | LC_WIDESTYLED);
         m8_dib_pdev_size = lpGdi->dpDEVICEsize;
         lpGdi->dpDEVICEsize += sizeof( BITMAPINFOHEADER ) + 256 * 4;
         M8_STEP( 0xA012 );
