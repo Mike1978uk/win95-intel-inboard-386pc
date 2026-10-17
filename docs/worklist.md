@@ -1,8 +1,13 @@
 # Work list - in attack order
 
-**First (10-17 evening): the pixel loops.** Timing showed our 486-side per-byte C loops, not the bus, make the drag
-slow (~70 ms per card hash; ATIM8 "night and day"): rewrite the hot loops as 32-bit assembly (rep movsd / rep outsw,
-32-bit hash), re-time with `tools/m8_timing.py`, then proxies back on. Detail: design doc "Timing the drag".
+**First (10-17 night): match ATIM8 where it wins, from its own code** (`docs/atim8_disassembly.md`, M8BENCH
+`docs/captures/2026-10-16_atim8_tap/m8bench_1017_first.txt`): engine paths at parity; every pixel path 5-50x slower.
+(1) uploads: one extended blit (DP_CONFIG 5211) + `rep outsw` per row, no status polls - ours runs C loops, hashing,
+run encoding; (2) read-back: one DATA_READY poll then `rep insw` - ours polls per word; (3) hatched/mono/colour
+brushes and dashed lines on the pattern registers (PATT_DATA) - ours fall back; (4) text: ~12 port ops per glyph,
+FIFO slot budget, no cache - our string cache wins only once its hash is cheap (32-bit asm). Then re-run M8BENCH.
+Ours alone after that: caches in VRAM (ATI has none), colour compare, polygon fill (cmd 5), short strokes - ATI
+uses none. Open: polygon/ellipse fault (design doc "M8BENCH, first results").
 
 **Next (owner, 10-17): finish the base driver, prove it on the 5160, then the new league.** L and D8 are done in
 the bed. Base: (1) bitmap cache LRU + room per mode, (2) engine lines (last XFree86 gap), (3) colour-compare
