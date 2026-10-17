@@ -69,14 +69,17 @@ def main(path, drag):
         if v in (0xA0F2, 0xA0F3):
             pending = (v, [])
             continue
-        if t_in is None or who is not None or v in ASYNC:
-            if v == 0xB00E:
-                scr2mem.append(pos)
+        if v == 0xB00E:
+            scr2mem.append(pos)
+        if t_in is None or v in ASYNC:
+            continue
+        # BitBlt's own marker (B000) comes first; the kind (Cksr) and the
+        # screen-to-memory marker that follow name it better.
+        if who is not None and not (who == 'BitBlt' or (who.startswith('BitBlt screen') and v == 0xB00E)):
             continue
         if (v & 0xFF00) == 0xB000:
-            who = NAMES.get(v, hex(v))
-            if v == 0xB00E:
-                scr2mem.append(pos)
+            if who is None or v == 0xB00E:
+                who = NAMES.get(v, hex(v))
         elif (v & 0xF000) == 0xC000:
             who = f"BitBlt {('none', 'screen', 'DIB', 'BITMAP')[(v >> 8) & 3]} rop {v & 0xFF:02X}"
         elif v == 0xA0FC:
