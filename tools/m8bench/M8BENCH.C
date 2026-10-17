@@ -546,11 +546,12 @@ int WINAPI WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
     run( "rubber_band", t_rubber, 7 );
     run( "setpixel", t_setpixel, 200 );
     run( "getpixel", t_getpixel, 50 );
-    run( "ellipse", t_ellipse, 10 );
     run( "polygon", t_polygon, 10 );
     run( "rectangle", t_rect, 10 );
     run( "floodfill", t_flood, 3 );
     run( "cursor_move", t_cursor, 20 );
+    /* Last: it faulted in the DIB Engine under our driver's fallback (10-17). */
+    run( "ellipse", t_ellipse, 10 );
 
     fprintf( out, "\n" );
     fclose( out );
