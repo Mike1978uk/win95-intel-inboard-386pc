@@ -202,3 +202,6 @@ references/vgadoc/
 86box_bisect/
 86box_cursorfix/
 docs/captures/2026-10-10_a6/*/86box.log
+
+# Disassembly listings of vendor binaries (tools/ne_disasm.py): local reading only
+references/*_disasm/
