@@ -501,3 +501,13 @@ Marquee slow; card drag slower; Solitaire's deck drawn from other cached bitmaps
   for keeping whole bitmaps on the card.
 - **Marquee:** BitBlt from a plain (mono) BITMAP, 1.45 M px uploaded as 24,770 fills and 23,960 runs, 7.3 s - the
   top cost. Now expanded by the engine at 1 bit per pixel (`8d68563`), with icon masks (SRCAND, 57 K px read).
+
+**Verify run (`8d68563`, `m8disp_d9_build2_1017.log.gz`):** owner: desktop and Start menu correct on the mono path,
+Marquee "much faster", deck survives the DOS-box overlap (audit: 0 stale copies, 25 in the run before). Drag still
+slow: 72 screen-to-memory reads, 970 K px, ~5.6 s, ~78 ms per frame.
+**Solitaire's drag, per frame** (`tools/m8_mem_trace.py`): two save bitmaps A and B alternate, C is the dragged
+card. Screen -> B (71x96 at the new position); A -> B (the overlap, which the screen now shows as card); C -> A
+(the card into the old save); A -> screen and C -> screen; swap A and B. Stacks save up to 164x316.
+**Next (D9, bitmaps on the card):** keep A and B in slots for the whole drag: the save is an engine copy, A -> B a
+slot-to-slot copy, C -> A from C's bitmap-cache entry (cached by content), the restores slot-to-screen. No pixel
+crosses the bus per frame. RAM is written back only when something else reads A or B. Larger slots for stacks.

@@ -1,6 +1,9 @@
 """Replay engine writes from an M8W log; flag copies whose off-screen source was
-partly overwritten since it was stored (stale cache/proxy reads)."""
-import sys, numpy as np
+partly overwritten since it was stored (stale cache/proxy reads).
+Usage: m8_offscreen_audit.py <log> <screen width> <screen height>. "line" counts M8W lines."""
+import os, sys, importlib.util, numpy as np
+_s = importlib.util.spec_from_file_location('tally', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'm8_fallback_tally.py'))
+tally = importlib.util.module_from_spec(_s); _s.loader.exec_module(tally)
 SX, SY = int(sys.argv[2]), int(sys.argv[3])     # screen size
 own = np.zeros((1024, 1024), np.int32)          # op id of the last write per pixel
 reg = {}; who = 'start'; ops = {}; opn = 0; bad = 0; lineno = 0; mark = []
@@ -9,9 +12,8 @@ def wr(x, y, w, h, tag):
     opn += 1; ops[opn] = (tag, x, y, w, h, lineno)
     x0, y0 = max(x, 0), max(y, 0); x1, y1 = min(x + w, 1024), min(y + h, 1024)
     if x1 > x0 and y1 > y0: own[y0:y1, x0:x1] = opn
-for raw in open(sys.argv[1], errors='replace'):
+for raw in tally.lines(sys.argv[1]):
     lineno += 1
-    if not raw.startswith('M8W '): continue
     p = raw.split(); port = p[1]; val = int(p[2], 16)
     if port == '56EE':
         if (val & 0xFF00) == 0xB000 or (val & 0xFF00) == 0xA000: mark.append((lineno, val))
