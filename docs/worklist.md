@@ -1,7 +1,9 @@
 # Work list - in attack order
 
-**Next (owner, 10-16): levers first, then the driver.** Section L before D8: the more we know about the card, the
-better the driver - 10-16's census already found silicon ATI's drivers never used. The XT-CF measured-wait driver
+**Next (owner, 10-17): finish the base driver, prove it on the 5160, then the new league.** L and D8 are done in
+the bed. Base: (1) bitmap cache LRU + room per mode, (2) engine lines (last XFree86 gap), (3) colour-compare
+transparency for both caches, (4) first timed 5160 run vs ATIM8 (the "base done" gate), (5) D8c 16-colour modes.
+Then the D9 experimental block, in order of what (4) shows the bus can afford. The XT-CF measured-wait driver
 (E, 10-10) stays queued behind it.
 
 The one list. Tick an item in the same commit as its result; the detail stays in the doc each item links.
