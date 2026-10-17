@@ -204,7 +204,7 @@ Step 2: our own VxD, to save the registers ATI.VXD does not know (DEST_CMP_FN, B
       **Both ship as options** (owner, 10-17): a registry/Display Properties choice, default the Mach8 HAL; expected
       ranking (unmeasured): Mach8 for Blt/Flip games, VGA half for Lock-heavy ones.
       Memory decides flipping: Mach8 1 MB, VGA half 512 KB - the VGA half cannot double-buffer even 640x480x256
-      (2 x 307,200 B); it flips only at 320x200/320x240 (Mode X class).
+      (2 x 307,200 B); it flips at 640x400 and below (2 x 256,000 B fits).
 
 - [ ] **D6 VGA-half framebuffer driver on VFLATD (owner, 10-16).** The 28800's 512 KB through A000 is the
       cheapest CPU path on the card; VFLATD banks it into a flat surface. A fallback driver (640x480/800x600 x 256)
