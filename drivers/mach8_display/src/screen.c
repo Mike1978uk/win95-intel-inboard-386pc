@@ -250,7 +250,9 @@ static void m8_strip_place( M8_STRIP *s, const M8_RECT *r )
     s->dev.deWidthBytes = s->pitch;
     s->dev.deDeltaScan = s->pitch;
     s->dev.deFlags = m8_screen->deFlags & PALETTIZED;
-    s->dev.delpPDevice = (LPBYTE)m8_screen;
+    /* The strip is its own device: the DIB Engine draws an ellipse's fill
+     * through delpPDevice, and the screen's has no bits (NOT_FRAMEBUFFER). */
+    s->dev.delpPDevice = (LPBYTE)&s->dev;
     s->dev.deBitmapInfo = m8_screen->deBitmapInfo;
     SetSelectorBase( s->sel, s->lin - first );
     SetSelectorLimit( s->sel, last );
