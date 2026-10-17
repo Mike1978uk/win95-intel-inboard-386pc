@@ -888,9 +888,11 @@ static int m8_bc_width( void )
     return( M8_CURSOR_SAVE_X - m8_bc_left() );
 }
 
+/* Off while DOS has the card: the engine writes nothing then, and an entry
+ * recorded anyway would later copy whatever the slot held. */
 static int m8_bc_on( void )
 {
-    return( m8_bc_sel != 0 && m8_bc_width() >= 32 );
+    return( m8_bc_sel != 0 && !m8_hw_off && m8_bc_width() >= 32 );
 }
 
 static void m8_bc_flush( void )
@@ -2020,7 +2022,7 @@ static M8_SCENTRY *m8_sc_get( const BYTE FAR *bits, WORD wb, WORD h )
     int         k;
     M8_SCENTRY  *e;
 
-    if( (int)wb * 8 > M8_SC_W || h > M8_SC_MAX_H || (int)h > m8_sc_rows() ) {
+    if( m8_hw_off || (int)wb * 8 > M8_SC_W || h > M8_SC_MAX_H || (int)h > m8_sc_rows() ) {
         return( NULL );
     }
     for( i = 0; i < n; ++i ) {
@@ -2704,6 +2706,8 @@ void m8_screen_suspend( void )
 /* Windows has the screen again; USER repaints everything after this. */
 void m8_screen_resume( void )
 {
+    m8_sc_flush();
+    m8_bc_flush();
     m8_cur_shown = 0;
     m8_cur_pending = 0;
     m8_ssb_used = 0;
