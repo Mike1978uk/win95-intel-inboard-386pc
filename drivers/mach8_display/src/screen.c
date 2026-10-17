@@ -848,7 +848,7 @@ static int m8_sc_top( void );
 #define M8_BC_SHELVES       64          /* more than the area's rows / 16 */
 #define M8_BC_SEEN          64
 #define M8_BC_MAX_PX        8192        /* a Solitaire card is 71x96 */
-#define M8_BC_MAX_H         192         /* a proxy (below) may be a card stack's height */
+#define M8_BC_MAX_H         400         /* a proxy (below) may be a card stack's height */
 
 typedef struct {
     DWORD   h1;
@@ -1100,8 +1100,10 @@ static M8_BCENTRY *m8_bc_slot( void )
     return( NULL );
 }
 
-/* Copy w x h of an 8-bit memory bitmap through the cache: 1 if done. */
-static int m8_bc_draw( LPDIBENGINE src, int sx, int sy, int dx, int dy, int w, int h, WORD mix )
+/* The cache entry holding w x h of an 8-bit memory bitmap at (sx,sy), stored
+ * now if need be; NULL if it cannot be cached. `force` stores on first sight:
+ * a proxy's slot needs the pixels now, and the alternative is a write-back. */
+static M8_BCENTRY *m8_bc_lookup( LPDIBENGINE src, int sx, int sy, int w, int h, int force )
 {
     WORD        we = (WORD)((w + 1) & ~1);
     DWORD       base;
@@ -1111,7 +1113,7 @@ static int m8_bc_draw( LPDIBENGINE src, int sx, int sy, int dx, int dy, int w, i
     int         row;
     int         col;
     int         k;
-    int         store = 0;
+    int         nested = m8_busy;
     BYTE FAR    *p;
     BYTE FAR    *q;
     M8_BCENTRY  *e = NULL;
@@ -1119,7 +1121,7 @@ static int m8_bc_draw( LPDIBENGINE src, int sx, int sy, int dx, int dy, int w, i
 
     if( !m8_bc_on() || src->deBitsPixel != 8 || (src->deFlags & SELECTEDDIB) ||
         (long)we * h > M8_BC_MAX_PX || (long)we * h > 0xFFF0L ) {
-        return( 0 );
+        return( NULL );
     }
     base = GetSelectorBase( src->deBitsSelector ) + src->deBitsOffset;
     delta = (long)src->deDeltaScan;
@@ -1143,50 +1145,66 @@ static int m8_bc_draw( LPDIBENGINE src, int sx, int sy, int dx, int dy, int w, i
             e = &m8_bc[k];
             M8_STEP( M8_MARK_BC_HIT );
             m8_bc_touch( e->y );
-            break;
+            return( e );
         }
     }
+    if( !m8_bc_seen_before( h1 ^ h2 ) && !force ) {
+        M8_STEP( M8_MARK_BC_FIRST );
+        return( NULL );
+    }
+    e = m8_bc_slot();
+    if( e == NULL || !m8_bc_alloc( we, h, &e->x, &e->y ) ) {
+        return( NULL );
+    }
+    e->h1 = h1;
+    e->h2 = h2;
+    e->w = (WORD)w;
+    e->h = (WORD)h;
+    e->px = 0;
+    M8_STEP( M8_MARK_BC_STORE );
+    m8_rect_set( &r, e->x, e->y, e->x + we, e->y + h );
+    if( !nested ) {
+        m8_enter( &r );
+    }
+    m8_hw_write_rect( e->x, e->y, we, h, m8_src.bits, we );
+    if( !nested ) {
+        m8_leave();
+    }
+    return( e );
+}
+
+/* Copy w x h of an 8-bit memory bitmap to the screen through the cache: 1 if
+ * done. */
+static int m8_bc_draw( LPDIBENGINE src, int sx, int sy, int dx, int dy, int w, int h, WORD mix )
+{
+    M8_BCENTRY  *e = m8_bc_lookup( src, sx, sy, w, h, 0 );
+    M8_RECT     r;
+
     if( e == NULL ) {
-        if( !m8_bc_seen_before( h1 ^ h2 ) ) {
-            M8_STEP( M8_MARK_BC_FIRST );
-            return( 0 );
-        }
-        e = m8_bc_slot();
-        if( e == NULL || !m8_bc_alloc( we, h, &e->x, &e->y ) ) {
-            return( 0 );
-        }
-        e->h1 = h1;
-        e->h2 = h2;
-        e->w = (WORD)w;
-        e->h = (WORD)h;
-        e->px = 0;
-        store = 1;
+        return( 0 );
     }
     m8_rect_set( &r, dx, dy, dx + w, dy + h );
     m8_enter( &r );
-    if( store ) {
-        M8_STEP( M8_MARK_BC_STORE );
-        m8_hw_write_rect( e->x, e->y, we, h, m8_src.bits, we );
-    }
     m8_hw_copy_mix( e->x, e->y, dx, dy, w, h, M8_MIX_SRC_VRAM | mix );
     m8_leave();
     return( 1 );
 }
 
-/* Screen-to-memory proxies. A copy from the screen into a memory bitmap -
- * Solitaire saving what is under a dragged card - goes by engine copy to a
- * bitmap-cache slot instead of over the bus: the bitmap's RAM is left stale
- * and the slot holds its pixels. Copying the area back to the screen is
- * another engine copy. Any other use of the bitmap writes the slot back to RAM
+/* Memory bitmaps kept on the card (proxies). A copy from the screen into a
+ * memory bitmap - Solitaire saving what is under a dragged card - goes by
+ * engine copy to a bitmap-cache slot instead of over the bus: the bitmap's RAM
+ * is left stale and the slot holds its pixels. Copies between proxied bitmaps,
+ * from a cached bitmap into a proxied one, and from a proxy to the screen are
+ * engine copies too, so a whole drag frame stays on the card. Any other use of the bitmap writes the slot back to RAM
  * first: the C entry points call m8_px_touch, the entries forwarded to the DIB
  * Engine call M8PXFLUSH or M8PXREALIZE (thunks.asm). Device bitmaps only - a
  * DIB section's bits are the application's to read. The stale RAM is hashed
  * when the proxy is made; if the hash or the bitmap's header differs when the
  * slot is used, the bitmap was written without us or freed and reused, and the
  * proxy is dropped without writing. M8_PROXY 0 turns the whole path off. */
-#define M8_PROXY            0           /* off: Solitaire copies the saved bitmap memory to memory (10-17) */
+#define M8_PROXY            1
 #define M8_PX_MAX           8
-#define M8_PX_MAX_PX        16384       /* the write-back goes through m8_dst */
+#define M8_PX_MAX_PX        0xFFF0      /* the write-back goes through m8_dst */
 
 /* Why a proxy was written back (the word after M8_MARK_PX_BACK). */
 #define M8_PX_WHY_ENTRY     1           /* a C entry point used the bitmap */
@@ -1225,9 +1243,12 @@ static BYTE FAR *m8_px_row( const M8_PXENTRY *p, int row )
     return( (BYTE FAR *)MK_FP( m8_bc_sel, 0 ) );
 }
 
+/* Fletcher sums over the rectangle: a change detector cheap enough to run on
+ * every use (16-bit adds only). */
 static DWORD m8_px_hash( const M8_PXENTRY *p )
 {
-    DWORD       h = 2166136261UL;
+    WORD        s1 = 0;
+    WORD        s2 = 0;
     BYTE FAR    *q;
     int         row;
     int         col;
@@ -1235,10 +1256,11 @@ static DWORD m8_px_hash( const M8_PXENTRY *p )
     for( row = 0; row < p->h; ++row ) {
         q = m8_px_row( p, row );
         for( col = 0; col < p->w; ++col ) {
-            h = (h ^ q[col]) * 16777619UL;
+            s1 += q[col];
+            s2 += s1;
         }
     }
-    return( h );
+    return( ((DWORD)s2 << 16) | s1 );
 }
 
 /* The bitmap is the one the proxy was made for, and its RAM is untouched. */
@@ -1420,6 +1442,7 @@ static int m8_px_save( LPDIBENGINE b, int dx, int dy, int sx, int sy, int w, int
     p->bmp = b;
     ++m8_px_n;
     M8_STEP( M8_MARK_PX_SAVE );
+    m8_bc_touch( e->y );
     m8_rect_set( &r, sx0, sy, sx0 + we, sy + h );
     m8_enter( &r );
     m8_hw_copy( sx0, sy, e->x, e->y, we, h );
@@ -1448,6 +1471,7 @@ static int m8_px_restore( LPDIBENGINE b, int sx, int sy, int dx, int dy, int w, 
                 return( 0 );
             }
             M8_STEP( M8_MARK_PX_HIT );
+            m8_bc_touch( p->e->y );
             m8_rect_set( &r, dx, dy, dx + w, dy + h );
             m8_enter( &r );
             m8_hw_copy_mix( p->e->x + p->lead + (sx - p->x), p->e->y + (sy - p->y), dx, dy, w, h,
@@ -1457,6 +1481,76 @@ static int m8_px_restore( LPDIBENGINE b, int sx, int sy, int dx, int dy, int w, 
         }
     }
     return( 0 );
+}
+
+/* The live proxy of bitmap b holding the whole rectangle, or NULL. One that
+ * fails the check is dropped. */
+static M8_PXENTRY *m8_px_find( LPVOID b, int x, int y, int w, int h )
+{
+    M8_PXENTRY  *p;
+    int         k;
+
+    for( k = 0; k < M8_PX_MAX && m8_px_n > 0; ++k ) {
+        p = &m8_px[k];
+        if( p->bmp == b && x >= p->x && y >= p->y && x + w <= p->x + p->w &&
+            y + h <= p->y + p->h ) {
+            if( !m8_px_valid( p ) ) {
+                M8_STEP( M8_MARK_PX_LOST );
+                m8_px_drop( p, 0 );
+                return( NULL );
+            }
+            return( p );
+        }
+    }
+    return( NULL );
+}
+
+/* Memory to memory into a proxied bitmap, on the card: from another proxy's
+ * slot, or from the source's bitmap-cache entry. 1 if done. */
+static int m8_px_m2m( LPVOID d, LPVOID s, int dx, int dy, int sx, int sy, int w, int h, WORD mix )
+{
+    LPDIBENGINE sb = s;
+    M8_PXENTRY  *pd;
+    M8_PXENTRY  *ps;
+    M8_BCENTRY  *e;
+    int         fx;
+    int         fy;
+    M8_RECT     r;
+
+    if( m8_px_n == 0 || w <= 0 || h <= 0 || m8_hw_off ) {
+        return( 0 );
+    }
+    pd = m8_px_find( d, dx, dy, w, h );
+    if( pd == NULL ) {
+        return( 0 );
+    }
+    ps = m8_px_find( s, sx, sy, w, h );
+    if( ps != NULL ) {
+        fx = ps->e->x + ps->lead + (sx - ps->x);
+        fy = ps->e->y + (sy - ps->y);
+        m8_bc_touch( ps->e->y );
+    } else {
+        if( sb == NULL || sb->deType != TYPE_DIBENG || sx < 0 || sy < 0 ||
+            sx + w > (int)sb->deWidth || sy + h > (int)sb->deHeight ) {
+            return( 0 );
+        }
+        m8_px_touch( s, M8_PX_WHY_ENTRY );
+        e = m8_bc_lookup( sb, sx, sy, w, h, 1 );
+        /* Storing may have evicted the destination's own slot. */
+        if( e == NULL || pd->bmp != d ) {
+            return( 0 );
+        }
+        fx = e->x;
+        fy = e->y;
+    }
+    M8_STEP( M8_MARK_PX_M2M );
+    m8_bc_touch( pd->e->y );
+    m8_rect_set( &r, pd->e->x, pd->e->y, pd->e->x + pd->e->w, pd->e->y + pd->h );
+    m8_enter( &r );
+    m8_hw_copy_mix( fx, fy, pd->e->x + pd->lead + (dx - pd->x), pd->e->y + (dy - pd->y), w, h,
+                    M8_MIX_SRC_VRAM | mix );
+    m8_leave();
+    return( 1 );
 }
 
 /* A monochrome bitmap to the screen: the engine expands it, 1 bit per pixel on
@@ -1552,6 +1646,11 @@ BOOL WINAPI __loadds BitBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPD
     if( !dst_screen && !src_screen ) {
         m8_trace_mem( M8_MARK_MEM2MEM, lpDestDev, m8_rop_uses_src( dwRop3 ) ? lpSrcDev : NULL,
                       rop, (short)wXext, (short)wYext );
+        if( M8_PROXY && m8_rop_uses_src( dwRop3 ) && !m8_rop_uses_pat( dwRop3 ) &&
+            m8_px_m2m( lpDestDev, lpSrcDev, wDestX, wDestY, wSrcX, wSrcY, (short)wXext,
+                       (short)wYext, m8_mix_for_key[rop & 0x0F] ) ) {
+            return( TRUE );
+        }
         m8_px_touch( lpDestDev, M8_PX_WHY_MEM );
         if( m8_rop_uses_src( dwRop3 ) ) {
             m8_px_touch( lpSrcDev, M8_PX_WHY_MEM );
