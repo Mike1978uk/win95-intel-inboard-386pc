@@ -15,6 +15,12 @@ Method throughout (owner's demoscene brief, `docs/mach8_graphics_vision.md`, lin
 `docs/resources_and_sources.md`): the bus is the only scarce resource; measure cycles on the card; use
 hardware nobody else touches; never rank a feature by whether ATI's drivers use it.
 
+Driver ethos (owner, 10-17): the whole card is the point; velocity9x/vmdisp9x are only the frame. Take the best
+part of every driver (ATI, XFree86, velocity9x, the DDK samples) and fit it to this card; build custom where none
+covers it. A win is less CPU, bus traffic or code, not only less time - so every fallback the engine can take
+over is removed as a decision, even where the tally shows little time, because each one is bus noise for disk,
+network and sound.
+
 ## 0. Decide
 
 - [x] **PR gate (owner, 10-10: a gate for now, not forever).** The PR covers the Mach8 accelerator (`vid_ati_mach8.c`, `vid_8514a.c`);
