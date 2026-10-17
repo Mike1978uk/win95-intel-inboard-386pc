@@ -186,6 +186,7 @@ extern void m8_hw_marker( WORD value );
 #define M8_MARK_SCR2MEM_ARGS 0xA0FD /* trace: the same for a screen-to-memory copy */
 #define M8_MARK_MONO_BLT    0xA0FE  /* monochrome bitmap expanded by the engine */
 #define M8_MARK_PX_M2M      0xA0FF  /* memory to memory done between slots */
+#define M8_MARK_PX_FILL     0xA0F1  /* solid fill into a held bitmap, on the card */
 #define M8_MARK_PX_M2M_NO   0xA0F0  /* trace: then why m8_px_m2m declined: 1 no dest proxy, 2 source not 8-bit, 3 not cached, 4 dest evicted */
 #define M8_MARK_SC_HIT      0xB0F1  /* string cache: drawn from video memory */
 #define M8_MARK_SC_STORE    0xB0F2  /* string cache: stored, then drawn */

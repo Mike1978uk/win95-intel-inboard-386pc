@@ -1,11 +1,11 @@
 """Decode the trace build's memory-to-memory (A0FC) and screen-to-memory (A0FD)
 BitBlt records with the proxy events around them, from the first drag onwards.
-Usage: m8_mem_trace.py <log> [first S2M index, default 40] [count, default 30]"""
+Usage: m8_mem_trace.py <log> [first S2M index, default 40; -1 = from the start] [count, default 30]"""
 import os, sys, importlib.util
 _s = importlib.util.spec_from_file_location('tally', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'm8_fallback_tally.py'))
 tally = importlib.util.module_from_spec(_s); _s.loader.exec_module(tally)
 
-EVENT = {0xA0F7: '[save on card]', 0xA0F8: '[restore from card]', 0xA0FF: '[m2m on card]', 0xA0FA: '[proxy lost]'}
+EVENT = {0xA0F7: '[save on card]', 0xA0F8: '[restore from card]', 0xA0FF: '[m2m on card]', 0xA0FA: '[proxy lost]', 0xA0F1: '[fill on card]'}
 WHY_BACK = {1: 'entry', 2: 'mem->mem', 3: 'forwarded', 4: 'evicted', 5: 'suspend', 6: 'overlap'}
 WHY_NO = {1: 'no dest proxy', 2: 'source not 8-bit', 3: 'not cached', 4: 'dest evicted'}
 seq = []; cur = None; buf = []; skip = 0; follow = None
@@ -35,5 +35,5 @@ idx = [i for i, x in enumerate(seq) if x[0] == 'S2M']
 print('S2M total', len(idx), 'M2M total', sum(1 for x in seq if x[0] == 'M2M'))
 if idx:
     first = int(sys.argv[2]) if len(sys.argv) > 2 else 40
-    i = idx[min(first, len(idx) - 1)]
+    i = idx[min(first, len(idx) - 1)] if first >= 0 else 1
     for x in seq[i - 1:i + (int(sys.argv[3]) if len(sys.argv) > 3 else 30)]: print(*x)

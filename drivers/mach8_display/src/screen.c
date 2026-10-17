@@ -1203,7 +1203,7 @@ static int m8_bc_draw( LPDIBENGINE src, int sx, int sy, int dx, int dy, int w, i
  * slot is used, the bitmap was written without us or freed and reused, and the
  * proxy is dropped without writing. M8_PROXY 0 turns the whole path off. */
 #define M8_PROXY            1
-#define M8_PX_MAX           8
+#define M8_PX_MAX           16
 #define M8_PX_MAX_PX        0xFFF0      /* the write-back goes through m8_dst */
 
 /* Why a proxy was written back (the word after M8_MARK_PX_BACK). */
@@ -1228,6 +1228,7 @@ typedef struct {
     int         lead;                   /* slot columns before x: the slot copy starts on an even column */
     DWORD       hash;
     M8_BCENTRY  *e;
+    int         unfilled;               /* slot not yet written: the RAM is still current */
 } M8_PXENTRY;
 
 static M8_PXENTRY   m8_px[M8_PX_MAX];
@@ -1297,6 +1298,10 @@ static void m8_px_writeback( M8_PXENTRY *p, WORD why )
     BYTE FAR    *s;
     M8_RECT     sr;
 
+    if( p->unfilled ) {
+        m8_px_drop( p, 0 );
+        return;
+    }
     /* With the card handed to DOS, the slot cannot be read. */
     if( m8_hw_off || !m8_px_valid( p ) ) {
         M8_STEP( M8_MARK_PX_LOST );
@@ -1370,41 +1375,49 @@ VOID WINAPI __loadds M8PXREALIZE( short iStyle, LPVOID lpInObj )
     }
 }
 
-/* Screen (sx,sy) to bitmap (dx,dy), w x h, SRCCOPY: 1 if done by proxy. */
-static int m8_px_save( LPDIBENGINE b, int dx, int dy, int sx, int sy, int w, int h )
+/* The live proxy of bitmap b holding the whole rectangle, or NULL. One that
+ * fails the check is dropped. */
+static M8_PXENTRY *m8_px_find( LPVOID b, int x, int y, int w, int h )
 {
-    int         sx0 = sx & ~1;
-    int         lead = sx - sx0;
-    WORD        we = (WORD)((lead + w + 1) & ~1);
-    M8_BCENTRY  *e = NULL;
-    M8_PXENTRY  *p = NULL;
-    M8_RECT     r;
+    M8_PXENTRY  *p;
     int         k;
 
-    if( !m8_bc_on() || b == NULL || b->deType != TYPE_DIBENG || b->deBitsPixel != 8 ||
-        (b->deFlags & (SELECTEDDIB | OFFSCREEN | NOT_FRAMEBUFFER)) ||
-        (m8_screen->deFlags & PALETTE_XLAT) ||
-        w <= 0 || h <= 0 || dx < 0 || dy < 0 || dx + w > (int)b->deWidth ||
-        dy + h > (int)b->deHeight || sx < 0 || sy < 0 || sx + w > M8_SCREEN_X ||
-        sy + h > M8_SCREEN_Y || (long)we * h > M8_PX_MAX_PX ) {
-        return( 0 );
+    for( k = 0; k < M8_PX_MAX && m8_px_n > 0; ++k ) {
+        p = &m8_px[k];
+        if( p->bmp == b && x >= p->x && y >= p->y && x + w <= p->x + p->w &&
+            y + h <= p->y + p->h ) {
+            if( !m8_px_valid( p ) ) {
+                M8_STEP( M8_MARK_PX_LOST );
+                m8_px_drop( p, 0 );
+                return( NULL );
+            }
+            return( p );
+        }
     }
-    /* Proxies of this bitmap the new rectangle overlaps: one inside it with
-     * the same slot size lends its slot; the rest go back to RAM. */
-    for( k = 0; k < M8_PX_MAX; ++k ) {
-        M8_PXENTRY *o = &m8_px[k];
+    return( NULL );
+}
 
-        if( o->bmp != b || o->x >= dx + w || dx >= o->x + o->w || o->y >= dy + h ||
-            dy >= o->y + o->h ) {
-            continue;
-        }
-        if( e == NULL && o->x >= dx && o->y >= dy && o->x + o->w <= dx + w &&
-            o->y + o->h <= dy + h && o->e->w == we && o->h == h ) {
-            e = o->e;
-            m8_px_drop( o, 1 );
-        } else {
-            m8_px_writeback( o, M8_PX_WHY_OVERLAP );
-        }
+/* A device bitmap the proxies can hold: 8-bit, the DIB Engine's own, not a DIB
+ * section, and the rectangle inside it. */
+static int m8_px_ok( LPDIBENGINE b, int x, int y, int w, int h )
+{
+    return( m8_bc_on() && b != NULL && b->deType == TYPE_DIBENG && b->deBitsPixel == 8 &&
+            !(b->deFlags & (SELECTEDDIB | OFFSCREEN | NOT_FRAMEBUFFER)) &&
+            !(m8_screen->deFlags & PALETTE_XLAT) && w > 0 && h > 0 && x >= 0 && y >= 0 &&
+            x + w <= (int)b->deWidth && y + h <= (int)b->deHeight );
+}
+
+/* A new proxy for the rectangle, its slot not yet filled; e = a slot to reuse.
+ * The caller fills the slot at once, or drops the proxy without a write-back
+ * (the RAM is still current until the slot is filled). */
+static M8_PXENTRY *m8_px_new( LPDIBENGINE b, int x, int y, int w, int h, int lead, M8_BCENTRY *e )
+{
+    WORD        we = (WORD)((lead + w + 1) & ~1);
+    M8_PXENTRY  *p = NULL;
+    int         k;
+
+    if( (long)we * h > M8_PX_MAX_PX ) {
+        return( NULL );
     }
     for( k = 0; k < M8_PX_MAX; ++k ) {
         if( m8_px[k].bmp == NULL ) {
@@ -1419,7 +1432,7 @@ static int m8_px_save( LPDIBENGINE b, int dx, int dy, int sx, int sy, int w, int
     if( e == NULL ) {
         e = m8_bc_slot();
         if( e == NULL || !m8_bc_alloc( we, h, &e->x, &e->y ) ) {
-            return( 0 );
+            return( NULL );
         }
     }
     e->h1 = 0;
@@ -1432,21 +1445,346 @@ static int m8_px_save( LPDIBENGINE b, int dx, int dy, int sx, int sy, int w, int
     p->delta = b->deDeltaScan;
     p->bw = b->deWidth;
     p->bh = b->deHeight;
-    p->x = dx;
-    p->y = dy;
+    p->x = x;
+    p->y = y;
     p->w = w;
     p->h = h;
     p->lead = lead;
     p->e = e;
     p->hash = m8_px_hash( p );
     p->bmp = b;
+    p->unfilled = 1;
     ++m8_px_n;
-    M8_STEP( M8_MARK_PX_SAVE );
     m8_bc_touch( e->y );
-    m8_rect_set( &r, sx0, sy, sx0 + we, sy + h );
+    return( p );
+}
+
+static int m8_px_has( LPVOID b )
+{
+    int k;
+
+    for( k = 0; k < M8_PX_MAX && m8_px_n > 0; ++k ) {
+        if( m8_px[k].bmp != NULL && m8_px[k].bmp == b ) {
+            return( 1 );
+        }
+    }
+    return( 0 );
+}
+
+/* Slot coordinates of bitmap point (x,y) inside proxy p. */
+#define M8_PX_SX( P, X )    ((P)->e->x + (P)->lead + ((X) - (P)->x))
+#define M8_PX_SY( P, Y )    ((P)->e->y + ((Y) - (P)->y))
+
+/* Write back the proxies of dev that overlap the rectangle: what a RAM
+ * operation on that rectangle needs current. */
+static void m8_px_touch_rect( LPVOID dev, int x, int y, int w, int h, WORD why )
+{
+    M8_PXENTRY  *p;
+    int         k;
+
+    for( k = 0; k < M8_PX_MAX && m8_px_n > 0; ++k ) {
+        p = &m8_px[k];
+        if( p->bmp != NULL && p->bmp == dev && p->x < x + w && x < p->x + p->w &&
+            p->y < y + h && y < p->y + p->h ) {
+            m8_px_writeback( p, why );
+        }
+    }
+}
+
+/* Screen (sx,sy) to bitmap (dx,dy), w x h, SRCCOPY: 1 if done by proxy. */
+static int m8_px_save( LPDIBENGINE b, int dx, int dy, int sx, int sy, int w, int h )
+{
+    int         sx0 = sx & ~1;
+    int         lead = sx - sx0;
+    WORD        we = (WORD)((lead + w + 1) & ~1);
+    M8_BCENTRY  *e = NULL;
+    M8_PXENTRY  *p;
+    M8_RECT     r;
+    int         k;
+    int         fx;
+    int         tx;
+
+    if( !m8_px_ok( b, dx, dy, w, h ) || sx < 0 || sy < 0 || sx + w > M8_SCREEN_X ||
+        sy + h > M8_SCREEN_Y ) {
+        return( 0 );
+    }
+    /* Already held: the screen goes straight into that slot. */
+    p = m8_px_find( b, dx, dy, w, h );
+    if( p != NULL ) {
+        fx = sx;
+        tx = M8_PX_SX( p, dx );
+    } else {
+        if( (long)we * h > M8_PX_MAX_PX ) {
+            return( 0 );
+        }
+        /* Proxies the new rectangle overlaps: one inside it with the same slot
+         * size lends its slot; the rest go back to RAM. */
+        for( k = 0; k < M8_PX_MAX; ++k ) {
+            M8_PXENTRY *o = &m8_px[k];
+
+            if( o->bmp != b || o->x >= dx + w || dx >= o->x + o->w || o->y >= dy + h ||
+                dy >= o->y + o->h ) {
+                continue;
+            }
+            if( e == NULL && o->x >= dx && o->y >= dy && o->x + o->w <= dx + w &&
+                o->y + o->h <= dy + h && o->e->w == we && o->h == h ) {
+                e = o->e;
+                m8_px_drop( o, 1 );
+            } else {
+                m8_px_writeback( o, M8_PX_WHY_OVERLAP );
+            }
+        }
+        p = m8_px_new( b, dx, dy, w, h, lead, e );
+        if( p == NULL ) {
+            return( 0 );
+        }
+        fx = sx0;
+        tx = p->e->x;
+        w = we;
+    }
+    M8_STEP( M8_MARK_PX_SAVE );
+    m8_bc_touch( p->e->y );
+    m8_rect_set( &r, fx, sy, fx + w, sy + h );
     m8_enter( &r );
-    m8_hw_copy( sx0, sy, e->x, e->y, we, h );
+    m8_hw_copy( fx, sy, tx, M8_PX_SY( p, dy ), w, h );
     m8_leave();
+    p->unfilled = 0;
+    return( 1 );
+}
+
+#ifdef M8_TRACE
+#define M8_PX_NO_( why )    { M8_STEP( M8_MARK_PX_M2M_NO ); M8_STEP( why ); }
+#else
+#define M8_PX_NO_( why )
+#endif
+
+/* The pieces of rectangle (x,y,w,h) of bitmap d, each held by a proxy, for an
+ * operation that writes the whole rectangle. One proxy holding all of it: one
+ * piece. Otherwise, when the operation ignores the destination (`fresh`), the
+ * part inside one overlapping proxy plus new proxies for the rest - nothing
+ * needs reading, everything will be overwritten. 0 pieces: not possible. The
+ * caller passes fresh only where a new proxy pays: the bitmap is already in use
+ * on the card, or the source is. */
+#define M8_PX_PIECES        5
+
+typedef struct {
+    M8_PXENTRY  *p;
+    int         x;
+    int         y;
+    int         w;
+    int         h;
+    int         made;           /* a new proxy, slot not yet filled */
+} M8_PXPIECE;
+
+/* Drop the new, unfilled proxies among the pieces. */
+static void m8_px_pieces_drop( LPDIBENGINE d, M8_PXPIECE *pc, int n )
+{
+    int k;
+
+    for( k = 0; k < n; ++k ) {
+        if( pc[k].made && pc[k].p->bmp == d ) {
+            m8_px_drop( pc[k].p, 0 );
+        }
+    }
+}
+
+static int m8_px_pieces( LPDIBENGINE d, int x, int y, int w, int h, int fresh, M8_PXPIECE *pc )
+{
+    M8_PXENTRY  *o = NULL;
+    M8_RECT     band[4];
+    int         n = 0;
+    int         nb = 0;
+    int         k;
+    int         mt;
+    int         mb;
+
+    if( !m8_px_ok( d, x, y, w, h ) ) {
+        return( 0 );
+    }
+    for( k = 0; k < M8_PX_MAX; ++k ) {
+        M8_PXENTRY *p = &m8_px[k];
+
+        if( p->bmp == d && p->x < x + w && x < p->x + p->w && p->y < y + h && y < p->y + p->h ) {
+            if( o != NULL ) {
+                return( 0 );
+            }
+            o = p;
+        }
+    }
+    if( o != NULL && !m8_px_valid( o ) ) {
+        M8_STEP( M8_MARK_PX_LOST );
+        m8_px_drop( o, 0 );
+        o = NULL;
+    }
+    if( o != NULL && x >= o->x && y >= o->y && x + w <= o->x + o->w && y + h <= o->y + o->h ) {
+        pc[0].p = o;
+        pc[0].x = x;
+        pc[0].y = y;
+        pc[0].w = w;
+        pc[0].h = h;
+        pc[0].made = 0;
+        return( 1 );
+    }
+    if( !fresh ) {
+        return( 0 );
+    }
+    if( o == NULL ) {
+        m8_rect_set( &band[nb++], x, y, x + w, y + h );
+    } else {
+        mt = y > o->y ? y : o->y;
+        mb = y + h < o->y + o->h ? y + h : o->y + o->h;
+        if( y < o->y ) {
+            m8_rect_set( &band[nb++], x, y, x + w, o->y );
+        }
+        if( y + h > o->y + o->h ) {
+            m8_rect_set( &band[nb++], x, o->y + o->h, x + w, y + h );
+        }
+        if( x < o->x ) {
+            m8_rect_set( &band[nb++], x, mt, o->x, mb );
+        }
+        if( x + w > o->x + o->w ) {
+            m8_rect_set( &band[nb++], o->x + o->w, mt, x + w, mb );
+        }
+        pc[n].p = o;
+        pc[n].x = x > o->x ? x : o->x;
+        pc[n].y = mt;
+        pc[n].w = (x + w < o->x + o->w ? x + w : o->x + o->w) - pc[n].x;
+        pc[n].h = mb - mt;
+        pc[n].made = 0;
+        ++n;
+    }
+    for( k = 0; k < nb; ++k ) {
+        pc[n].p = m8_px_new( d, band[k].l, band[k].t, band[k].r - band[k].l,
+                             band[k].b - band[k].t, 0, NULL );
+        if( pc[n].p == NULL ) {
+            m8_px_pieces_drop( d, pc, n );
+            return( 0 );
+        }
+        pc[n].x = band[k].l;
+        pc[n].y = band[k].t;
+        pc[n].w = band[k].r - band[k].l;
+        pc[n].h = band[k].b - band[k].t;
+        pc[n].made = 1;
+        ++n;
+    }
+    return( n );
+}
+
+/* Every piece's proxy still alive after slots were allocated (an allocation can
+ * evict); if not, the new ones are dropped - their RAM is still current. */
+static int m8_px_pieces_live( LPDIBENGINE d, M8_PXPIECE *pc, int n )
+{
+    int k;
+    int live = 1;
+
+    for( k = 0; k < n; ++k ) {
+        if( pc[k].p->bmp != d ) {
+            live = 0;
+        }
+    }
+    if( !live ) {
+        m8_px_pieces_drop( d, pc, n );
+    }
+    return( live );
+}
+
+/* Memory to memory into a bitmap held on the card: from another proxy's slot,
+ * or from the source's bitmap-cache entry. `fresh`: the ROP ignores the
+ * destination. 1 if done. */
+static int m8_px_m2m( LPVOID d, LPVOID s, int dx, int dy, int sx, int sy, int w, int h, WORD mix,
+                      int fresh )
+{
+    LPDIBENGINE db = d;
+    LPDIBENGINE sb = s;
+    M8_PXPIECE  pc[M8_PX_PIECES];
+    M8_PXENTRY  *ps;
+    M8_BCENTRY  *e = NULL;
+    int         n;
+    int         k;
+    int         made = 0;
+    int         fx;
+    int         fy;
+    M8_RECT     r;
+
+    if( m8_hw_off || m8_px_n == 0 || w <= 0 || h <= 0 || sb == NULL ||
+        sb->deType != TYPE_DIBENG ) {
+        return( 0 );
+    }
+    ps = m8_px_find( s, sx, sy, w, h );
+    n = m8_px_pieces( db, dx, dy, w, h, fresh && (ps != NULL || m8_px_has( d )), pc );
+    if( n == 0 ) {
+        M8_PX_NO_( 1 );
+        return( 0 );
+    }
+    for( k = 0; k < n; ++k ) {
+        made |= pc[k].made;
+    }
+    if( ps == NULL ) {
+        /* From RAM through the cache: never from the destination itself, and a
+         * first sight is stored only when it saves a write-back. */
+        if( s == d || sx < 0 || sy < 0 || sx + w > (int)sb->deWidth ||
+            sy + h > (int)sb->deHeight ) {
+            m8_px_pieces_drop( db, pc, n );
+            M8_PX_NO_( 2 );
+            return( 0 );
+        }
+        m8_px_touch_rect( s, sx, sy, w, h, M8_PX_WHY_ENTRY );
+        e = m8_bc_lookup( sb, sx, sy, w, h, !made );
+    }
+    if( (ps == NULL && e == NULL) || (ps != NULL && ps->bmp != s) ||
+        !m8_px_pieces_live( db, pc, n ) ) {
+        m8_px_pieces_drop( db, pc, n );
+        M8_PX_NO_( ps == NULL && e == NULL ? 3 : 4 );
+        return( 0 );
+    }
+    M8_STEP( M8_MARK_PX_M2M );
+    for( k = 0; k < n; ++k ) {
+        if( ps != NULL ) {
+            fx = M8_PX_SX( ps, sx + (pc[k].x - dx) );
+            fy = M8_PX_SY( ps, sy + (pc[k].y - dy) );
+            m8_bc_touch( ps->e->y );
+        } else {
+            fx = e->x + (pc[k].x - dx);
+            fy = e->y + (pc[k].y - dy);
+        }
+        m8_bc_touch( pc[k].p->e->y );
+        m8_rect_set( &r, M8_PX_SX( pc[k].p, pc[k].x ), M8_PX_SY( pc[k].p, pc[k].y ),
+                     M8_PX_SX( pc[k].p, pc[k].x ) + pc[k].w, M8_PX_SY( pc[k].p, pc[k].y ) + pc[k].h );
+        m8_enter( &r );
+        m8_hw_copy_mix( fx, fy, r.l, r.t, pc[k].w, pc[k].h, M8_MIX_SRC_VRAM | mix );
+        m8_leave();
+        pc[k].p->unfilled = 0;
+    }
+    return( 1 );
+}
+
+/* A solid fill into a memory bitmap, on the card when the bitmap is held or
+ * the fill ignores the destination. 1 if done. */
+static int m8_px_fill( LPVOID d, int x, int y, int w, int h, BYTE colour, WORD mix, int fresh )
+{
+    LPDIBENGINE db = d;
+    M8_PXPIECE  pc[M8_PX_PIECES];
+    int         n;
+    int         k;
+    M8_RECT     r;
+
+    if( m8_hw_off || m8_px_n == 0 ) {
+        return( 0 );
+    }
+    n = m8_px_pieces( db, x, y, w, h, fresh && m8_px_has( d ), pc );
+    if( n == 0 || !m8_px_pieces_live( db, pc, n ) ) {
+        return( 0 );
+    }
+    M8_STEP( M8_MARK_PX_FILL );
+    for( k = 0; k < n; ++k ) {
+        m8_bc_touch( pc[k].p->e->y );
+        m8_rect_set( &r, M8_PX_SX( pc[k].p, pc[k].x ), M8_PX_SY( pc[k].p, pc[k].y ),
+                     M8_PX_SX( pc[k].p, pc[k].x ) + pc[k].w, M8_PX_SY( pc[k].p, pc[k].y ) + pc[k].h );
+        m8_enter( &r );
+        m8_hw_fill_mix( r.l, r.t, pc[k].w, pc[k].h, colour, M8_MIX_SRC_FRGD | mix );
+        m8_leave();
+        pc[k].p->unfilled = 0;
+    }
     return( 1 );
 }
 
@@ -1481,85 +1819,6 @@ static int m8_px_restore( LPDIBENGINE b, int sx, int sy, int dx, int dy, int w, 
         }
     }
     return( 0 );
-}
-
-#ifdef M8_TRACE
-#define M8_PX_NO_( why )    { M8_STEP( M8_MARK_PX_M2M_NO ); M8_STEP( why ); }
-#else
-#define M8_PX_NO_( why )
-#endif
-
-/* The live proxy of bitmap b holding the whole rectangle, or NULL. One that
- * fails the check is dropped. */
-static M8_PXENTRY *m8_px_find( LPVOID b, int x, int y, int w, int h )
-{
-    M8_PXENTRY  *p;
-    int         k;
-
-    for( k = 0; k < M8_PX_MAX && m8_px_n > 0; ++k ) {
-        p = &m8_px[k];
-        if( p->bmp == b && x >= p->x && y >= p->y && x + w <= p->x + p->w &&
-            y + h <= p->y + p->h ) {
-            if( !m8_px_valid( p ) ) {
-                M8_STEP( M8_MARK_PX_LOST );
-                m8_px_drop( p, 0 );
-                return( NULL );
-            }
-            return( p );
-        }
-    }
-    return( NULL );
-}
-
-/* Memory to memory into a proxied bitmap, on the card: from another proxy's
- * slot, or from the source's bitmap-cache entry. 1 if done. */
-static int m8_px_m2m( LPVOID d, LPVOID s, int dx, int dy, int sx, int sy, int w, int h, WORD mix )
-{
-    LPDIBENGINE sb = s;
-    M8_PXENTRY  *pd;
-    M8_PXENTRY  *ps;
-    M8_BCENTRY  *e;
-    int         fx;
-    int         fy;
-    M8_RECT     r;
-
-    if( m8_px_n == 0 || w <= 0 || h <= 0 || m8_hw_off ) {
-        return( 0 );
-    }
-    pd = m8_px_find( d, dx, dy, w, h );
-    if( pd == NULL ) {
-        M8_PX_NO_( 1 );
-        return( 0 );
-    }
-    ps = m8_px_find( s, sx, sy, w, h );
-    if( ps != NULL ) {
-        fx = ps->e->x + ps->lead + (sx - ps->x);
-        fy = ps->e->y + (sy - ps->y);
-        m8_bc_touch( ps->e->y );
-    } else {
-        if( sb == NULL || sb->deType != TYPE_DIBENG || sx < 0 || sy < 0 ||
-            sx + w > (int)sb->deWidth || sy + h > (int)sb->deHeight ) {
-            M8_PX_NO_( 2 );
-            return( 0 );
-        }
-        m8_px_touch( s, M8_PX_WHY_ENTRY );
-        e = m8_bc_lookup( sb, sx, sy, w, h, 1 );
-        /* Storing may have evicted the destination's own slot. */
-        if( e == NULL || pd->bmp != d ) {
-            M8_PX_NO_( e == NULL ? 3 : 4 );
-            return( 0 );
-        }
-        fx = e->x;
-        fy = e->y;
-    }
-    M8_STEP( M8_MARK_PX_M2M );
-    m8_bc_touch( pd->e->y );
-    m8_rect_set( &r, pd->e->x, pd->e->y, pd->e->x + pd->e->w, pd->e->y + pd->h );
-    m8_enter( &r );
-    m8_hw_copy_mix( fx, fy, pd->e->x + pd->lead + (dx - pd->x), pd->e->y + (dy - pd->y), w, h,
-                    M8_MIX_SRC_VRAM | mix );
-    m8_leave();
-    return( 1 );
 }
 
 /* A monochrome bitmap to the screen: the engine expands it, 1 bit per pixel on
@@ -1662,13 +1921,28 @@ BOOL WINAPI __loadds BitBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPD
                       rop, (short)wXext, (short)wYext, (short)wDestX, (short)wDestY,
                       (short)wSrcX, (short)wSrcY );
         if( M8_PROXY && m8_rop_uses_src( dwRop3 ) && !m8_rop_uses_pat( dwRop3 ) &&
-            m8_px_m2m( lpDestDev, lpSrcDev, wDestX, wDestY, wSrcX, wSrcY, (short)wXext,
-                       (short)wYext, m8_mix_for_key[rop & 0x0F] ) ) {
+            m8_px_m2m( lpDestDev, lpSrcDev, (short)wDestX, (short)wDestY, (short)wSrcX,
+                       (short)wSrcY, (short)wXext, (short)wYext, m8_mix_for_key[rop & 0x0F],
+                       !m8_rop_uses_dest( dwRop3 ) ) ) {
             return( TRUE );
         }
-        m8_px_touch( lpDestDev, M8_PX_WHY_MEM );
+        if( M8_PROXY && !m8_rop_uses_src( dwRop3 ) && m8_px_n > 0 ) {
+            BYTE    c1 = 0;
+            BYTE    c2 = 0;
+            BYTE    pat[8];
+
+            if( (!m8_rop_uses_pat( dwRop3 ) ||
+                 m8_brush_colours( lpPBrush, lpDrawMode, &c1, &c2, pat ) == 1) &&
+                m8_px_fill( lpDestDev, (short)wDestX, (short)wDestY, (short)wXext, (short)wYext,
+                            c1, m8_rop_mix( rop ), !m8_rop_uses_dest( dwRop3 ) ) ) {
+                return( TRUE );
+            }
+        }
+        m8_px_touch_rect( lpDestDev, (short)wDestX, (short)wDestY, (short)wXext, (short)wYext,
+                          M8_PX_WHY_MEM );
         if( m8_rop_uses_src( dwRop3 ) ) {
-            m8_px_touch( lpSrcDev, M8_PX_WHY_MEM );
+            m8_px_touch_rect( lpSrcDev, (short)wSrcX, (short)wSrcY, (short)wXext, (short)wYext,
+                              M8_PX_WHY_MEM );
         }
         return( DIB_BitBlt( lpDestDev, wDestX, wDestY, lpSrcDev, wSrcX, wSrcY, wXext, wYext,
                             dwRop3, lpPBrush, lpDrawMode ) );
