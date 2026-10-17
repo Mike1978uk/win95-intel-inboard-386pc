@@ -168,6 +168,8 @@ extern void m8_hw_marker( WORD value );
 #define M8_MARK_CURSOR_HIDE 0xA101  /* then x, y of the area restored */
 #define M8_MARK_BC_HIT      0xB0F3  /* bitmap cache: one engine copy */
 #define M8_MARK_BC_STORE    0xB0F4  /* bitmap cache: uploaded, then copied */
+#define M8_MARK_BC_EVICT    0xA0F5  /* bitmap cache: shelves in use cleared */
+#define M8_MARK_BC_FIRST    0xA0F6  /* bitmap cache: first sight, not stored */
 #define M8_MARK_SC_HIT      0xB0F1  /* string cache: drawn from video memory */
 #define M8_MARK_SC_STORE    0xB0F2  /* string cache: stored, then drawn */
 #define M8_MARK_SSB_SAVE    0xB0D0

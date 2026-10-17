@@ -828,31 +828,51 @@ static void m8_pattern_fill( int x, int y, int w, int h, const BYTE *pat,
     }
 }
 
+static int m8_sc_top( void );
+
 /* Bitmap cache. Icons, toolbar buttons and card faces are copied from the same
  * memory bitmaps again and again. The source pixels are hashed on the CPU; the
- * first time a content is seen it is uploaded to the off-screen strip right of
- * the screen, and every later copy of the same content is one engine copy
- * through the ROP's mix - no pixels on the bus. Keyed by content, so a bitmap
- * that changes simply gets a new entry. 8-bit device bitmaps only (a DIB section
- * may carry its own colour table, which the DIB Engine translates); no strip at
- * 1024x768, so the cache is off there. */
-#define M8_BC_ENTRIES       128
+ * second time a content is seen it is uploaded to off-screen memory, and every
+ * later copy of the same content is one engine copy through the ROP's mix - no
+ * pixels on the bus. A content seen once goes the run-encoded upload route,
+ * which costs less than a store. Keyed by content, so a bitmap that changes
+ * simply gets a new entry. 8-bit device bitmaps only (a DIB section may carry
+ * its own colour table, which the DIB Engine translates).
+ *
+ * The area is right of the screen, from the top down to the string cache: menu
+ * saves below the screen never reach past the screen's width. None at
+ * 1024x768. It is cut into shelves of one height class each, filled left to
+ * right; when it is full, the least recently used run of adjacent shelves is
+ * cleared and cut again, so what is in use survives one-off bitmaps. */
+#define M8_BC_ENTRIES       160
+#define M8_BC_SHELVES       64          /* more than the area's rows / 16 */
+#define M8_BC_SEEN          64
 #define M8_BC_MAX_PX        8192        /* a Solitaire card is 71x96 */
+#define M8_BC_MAX_H         128
 
 typedef struct {
     DWORD   h1;
     DWORD   h2;
-    WORD    w;
+    WORD    w;                          /* 0: free */
     WORD    h;
     int     x;
     int     y;
 } M8_BCENTRY;
 
+typedef struct {
+    int     y;
+    int     h;
+    int     x;                          /* next free column, from the area's left */
+    DWORD   used;                       /* last store or hit in it; 0: empty */
+} M8_BCSHELF;
+
 static M8_BCENTRY   m8_bc[M8_BC_ENTRIES];
-static int          m8_bc_n;
-static int          m8_bc_x;
-static int          m8_bc_y;
-static int          m8_bc_shelf;
+static M8_BCSHELF   m8_bcs[M8_BC_SHELVES];
+static int          m8_bcs_n;
+static int          m8_bc_bottom;       /* first row in no shelf */
+static DWORD        m8_bc_clock;
+static DWORD        m8_bc_seen[M8_BC_SEEN];
+static int          m8_bc_seen_next;
 static WORD         m8_bc_sel;
 
 static int m8_bc_left( void )
@@ -860,41 +880,216 @@ static int m8_bc_left( void )
     return( (M8_SCREEN_X + 1) & ~1 );
 }
 
+static int m8_bc_width( void )
+{
+    return( M8_CURSOR_SAVE_X - m8_bc_left() );
+}
+
 static int m8_bc_on( void )
 {
-    return( m8_bc_sel != 0 && M8_CURSOR_SAVE_X - m8_bc_left() >= 32 );
+    return( m8_bc_sel != 0 && m8_bc_width() >= 32 );
 }
 
 static void m8_bc_flush( void )
 {
-    m8_bc_n = 0;
-    m8_bc_x = 0;
-    m8_bc_y = 0;
-    m8_bc_shelf = 0;
+    int k;
+
+    for( k = 0; k < M8_BC_ENTRIES; ++k ) {
+        m8_bc[k].w = 0;
+    }
+    for( k = 0; k < M8_BC_SEEN; ++k ) {
+        m8_bc_seen[k] = 0;
+    }
+    m8_bcs_n = 0;
+    m8_bc_bottom = 0;
+    m8_bc_clock = 0;
+    m8_bc_seen_next = 0;
+}
+
+/* 1 if this content was seen recently; otherwise remember it. */
+static int m8_bc_seen_before( DWORD key )
+{
+    int k;
+
+    for( k = 0; k < M8_BC_SEEN; ++k ) {
+        if( m8_bc_seen[k] == key ) {
+            return( 1 );
+        }
+    }
+    m8_bc_seen[m8_bc_seen_next] = key;
+    m8_bc_seen_next = (m8_bc_seen_next + 1) % M8_BC_SEEN;
+    return( 0 );
+}
+
+static void m8_bc_free_rows( int y0, int y1 )
+{
+    int k;
+
+    for( k = 0; k < M8_BC_ENTRIES; ++k ) {
+        if( m8_bc[k].w != 0 && m8_bc[k].y >= y0 && m8_bc[k].y < y1 ) {
+            m8_bc[k].w = 0;
+        }
+    }
+}
+
+static void m8_bc_touch( int y )
+{
+    int k;
+
+    ++m8_bc_clock;
+    for( k = 0; k < m8_bcs_n; ++k ) {
+        if( y >= m8_bcs[k].y && y < m8_bcs[k].y + m8_bcs[k].h ) {
+            m8_bcs[k].used = m8_bc_clock;
+            return;
+        }
+    }
+}
+
+/* Replace `remove` shelves at `at` by `insert` shelves, contents to be set. */
+static void m8_bc_splice( int at, int remove, int insert )
+{
+    int k;
+
+    if( insert > remove ) {
+        for( k = m8_bcs_n - 1; k >= at + remove; --k ) {
+            m8_bcs[k + insert - remove] = m8_bcs[k];
+        }
+    } else if( insert < remove ) {
+        for( k = at + remove; k < m8_bcs_n; ++k ) {
+            m8_bcs[k + insert - remove] = m8_bcs[k];
+        }
+    }
+    m8_bcs_n += insert - remove;
+}
+
+static void m8_bc_shelf_set( int k, int y, int h )
+{
+    m8_bcs[k].y = y;
+    m8_bcs[k].h = h;
+    m8_bcs[k].x = 0;
+    m8_bcs[k].used = 0;
+}
+
+/* Clear the least recently used run of adjacent shelves at least hc rows tall
+ * and cut a shelf of hc rows from its top: its index, or -1. Shelves cover the
+ * area from row 0 to m8_bc_bottom without gaps, so a run is contiguous. */
+static int m8_bc_evict( int hc )
+{
+    int     i;
+    int     j;
+    int     sum;
+    int     best = -1;
+    int     best_n = 0;
+    int     best_sum = 0;
+    int     y;
+    int     parts;
+    DWORD   age;
+    DWORD   best_age = 0;
+
+    for( i = 0; i < m8_bcs_n; ++i ) {
+        sum = 0;
+        age = 0;
+        for( j = i; j < m8_bcs_n && sum < hc; ++j ) {
+            sum += m8_bcs[j].h;
+            if( m8_bcs[j].used > age ) {
+                age = m8_bcs[j].used;
+            }
+        }
+        if( sum < hc ) {
+            break;
+        }
+        if( best < 0 || age < best_age || (age == best_age && sum < best_sum) ) {
+            best = i;
+            best_n = j - i;
+            best_sum = sum;
+            best_age = age;
+        }
+    }
+    if( best < 0 ) {
+        return( -1 );
+    }
+    if( best_age != 0 ) {
+        M8_STEP( M8_MARK_BC_EVICT );
+    }
+    y = m8_bcs[best].y;
+    m8_bc_free_rows( y, y + best_sum );
+    parts = (best_sum > hc && m8_bcs_n - best_n + 2 <= M8_BC_SHELVES) ? 2 : 1;
+    m8_bc_splice( best, best_n, parts );
+    if( parts == 2 ) {
+        m8_bc_shelf_set( best, y, hc );
+        m8_bc_shelf_set( best + 1, y + hc, best_sum - hc );
+    } else {
+        m8_bc_shelf_set( best, y, best_sum );
+    }
+    return( best );
 }
 
 static int m8_bc_alloc( int w, int h, int *x, int *y )
 {
-    int width = M8_CURSOR_SAVE_X - m8_bc_left();
+    int hc = (h + 15) & ~15;
+    int bottom = m8_sc_top();
+    int k;
 
-    if( w > width || h > M8_SCREEN_Y ) {
+    if( w > m8_bc_width() || h > M8_BC_MAX_H || hc > bottom ) {
         return( 0 );
     }
-    if( m8_bc_x + w > width ) {
-        m8_bc_y += m8_bc_shelf;
-        m8_bc_x = 0;
-        m8_bc_shelf = 0;
+    for( k = 0; k < m8_bcs_n; ++k ) {
+        if( m8_bcs[k].h == hc && m8_bcs[k].x + w <= m8_bc_width() ) {
+            break;
+        }
     }
-    if( m8_bc_y + h > M8_SCREEN_Y ) {
-        return( 0 );
+    if( k == m8_bcs_n ) {
+        if( m8_bcs_n < M8_BC_SHELVES && m8_bc_bottom + hc <= bottom ) {
+            m8_bc_shelf_set( m8_bcs_n++, m8_bc_bottom, hc );
+            m8_bc_bottom += hc;
+        } else {
+            /* The rows left at the bottom join the area as one empty shelf. */
+            if( m8_bc_bottom < bottom && m8_bcs_n < M8_BC_SHELVES ) {
+                m8_bc_shelf_set( m8_bcs_n++, m8_bc_bottom, bottom - m8_bc_bottom );
+                m8_bc_bottom = bottom;
+            }
+            k = m8_bc_evict( hc );
+            if( k < 0 ) {
+                return( 0 );
+            }
+        }
     }
-    *x = m8_bc_left() + m8_bc_x;
-    *y = m8_bc_y;
-    m8_bc_x += w;
-    if( h > m8_bc_shelf ) {
-        m8_bc_shelf = h;
-    }
+    *x = m8_bc_left() + m8_bcs[k].x;
+    *y = m8_bcs[k].y;
+    m8_bcs[k].x += w;
+    m8_bcs[k].used = ++m8_bc_clock;
     return( 1 );
+}
+
+/* A free entry; when all are taken, the least recently used shelf is cleared. */
+static M8_BCENTRY *m8_bc_slot( void )
+{
+    int k;
+    int old = -1;
+
+    for( k = 0; k < M8_BC_ENTRIES; ++k ) {
+        if( m8_bc[k].w == 0 ) {
+            return( &m8_bc[k] );
+        }
+    }
+    for( k = 0; k < m8_bcs_n; ++k ) {
+        if( m8_bcs[k].used != 0 && (old < 0 || m8_bcs[k].used < m8_bcs[old].used) ) {
+            old = k;
+        }
+    }
+    if( old < 0 ) {
+        return( NULL );
+    }
+    M8_STEP( M8_MARK_BC_EVICT );
+    m8_bc_free_rows( m8_bcs[old].y, m8_bcs[old].y + m8_bcs[old].h );
+    m8_bcs[old].x = 0;
+    m8_bcs[old].used = 0;
+    for( k = 0; k < M8_BC_ENTRIES; ++k ) {
+        if( m8_bc[k].w == 0 ) {
+            return( &m8_bc[k] );
+        }
+    }
+    return( NULL );
 }
 
 /* Copy w x h of an 8-bit memory bitmap through the cache: 1 if done. */
@@ -908,6 +1103,7 @@ static int m8_bc_draw( LPDIBENGINE src, int sx, int sy, int dx, int dy, int w, i
     int         row;
     int         col;
     int         k;
+    int         store = 0;
     BYTE FAR    *p;
     BYTE FAR    *q;
     M8_BCENTRY  *e = NULL;
@@ -933,33 +1129,33 @@ static int m8_bc_draw( LPDIBENGINE src, int sx, int sy, int dx, int dy, int w, i
             q[w] = 0;
         }
     }
-    for( k = 0; k < m8_bc_n; ++k ) {
-        if( m8_bc[k].h1 == h1 && m8_bc[k].h2 == h2 && m8_bc[k].w == (WORD)w &&
-            m8_bc[k].h == (WORD)h ) {
+    for( k = 0; k < M8_BC_ENTRIES; ++k ) {
+        if( m8_bc[k].w == (WORD)w && m8_bc[k].h == (WORD)h && m8_bc[k].h1 == h1 &&
+            m8_bc[k].h2 == h2 ) {
             e = &m8_bc[k];
             M8_STEP( M8_MARK_BC_HIT );
+            m8_bc_touch( e->y );
             break;
         }
     }
-    m8_rect_set( &r, dx, dy, dx + w, dy + h );
-    m8_enter( &r );
     if( e == NULL ) {
-        if( m8_bc_n >= M8_BC_ENTRIES ) {
-            m8_bc_flush();
+        if( !m8_bc_seen_before( h1 ^ h2 ) ) {
+            M8_STEP( M8_MARK_BC_FIRST );
+            return( 0 );
         }
-        e = &m8_bc[m8_bc_n];
-        if( !m8_bc_alloc( we, h, &e->x, &e->y ) ) {
-            m8_bc_flush();
-            if( !m8_bc_alloc( we, h, &e->x, &e->y ) ) {
-                m8_leave();
-                return( 0 );
-            }
+        e = m8_bc_slot();
+        if( e == NULL || !m8_bc_alloc( we, h, &e->x, &e->y ) ) {
+            return( 0 );
         }
         e->h1 = h1;
         e->h2 = h2;
         e->w = (WORD)w;
         e->h = (WORD)h;
-        ++m8_bc_n;
+        store = 1;
+    }
+    m8_rect_set( &r, dx, dy, dx + w, dy + h );
+    m8_enter( &r );
+    if( store ) {
         M8_STEP( M8_MARK_BC_STORE );
         m8_hw_write_rect( e->x, e->y, we, h, m8_src.bits, we );
     }

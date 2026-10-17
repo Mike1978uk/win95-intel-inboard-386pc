@@ -34,6 +34,8 @@ US_READ = 5.7
 US_WORD = 7.6     # one 16-bit write, M8TIME raw
 US_OP = 35.0      # register set-up per engine operation (~6 writes at ~5.7 us)
 
+EVENTS = {0xA0F5: 'bitmap cache evictions', 0xA0F6: 'bitmap cache first sights'}
+
 
 def lines(path):
     prev = None
@@ -56,6 +58,7 @@ def main(path):
     who = 'before any marker'
     rows = {}
     brushes = {}
+    events = {}
 
     def row(name):
         return rows.setdefault(name, {'calls': 0, 'fill': 0, 'copy': 0, 'mono': 0, 'mono_w': 0,
@@ -66,6 +69,9 @@ def main(path):
         if port == '56EE' and (val & 0xFF00) == 0xB000:
             who = NAMES.get(val, hex(val))
             row(who)['calls'] += 1
+            continue
+        if port == '56EE' and val in EVENTS:
+            events[EVENTS[val]] = events.get(EVENTS[val], 0) + 1
             continue
         if port == '56EE' and (val & 0xF000) == 0xD000:
             key = f'flags {(val >> 4) & 0xFF:02X} style {val & 0xF}'
@@ -111,6 +117,8 @@ def main(path):
     for ms, name, r in sorted(out, key=lambda x: -x[0]):
         print(f"{name:24} {r['calls']:6} {r['fill']:6} {r['copy']:6} {r['mono']:6} {r['rd_ops']:6} {r['rd_px']:9} "
               f"{r['wr_ops']:6} {r['wr_px']:9} {ms:8.0f}")
+    for key, n in sorted(events.items()):
+        print(f'{key}: {n}')
     for key, n in sorted(brushes.items(), key=lambda x: -x[1]):
         print(f'brush {key}: {n}')
     print(f"{'total':24} {'':6} {'':6} {'':6} {'':6} {'':6} {'':9} {'':6} {'':9} {total:8.0f}")
