@@ -524,3 +524,26 @@ crosses the bus per frame. RAM is written back only when something else reads A 
 - **Not known: where a drag frame's time goes.** The tally estimates bus time from pixel counts and cannot see CPU
   cost: the hash and cache code call SetSelectorBase / SetSelectorLimit (KERNEL, DPMI) per row. Next: time each
   GDI entry with the PIT (the 486 has no TSC) in the trace build, then decide on proxies with numbers.
+
+### Timing the drag: the cost is our pixel loops, 10-17
+
+PIT channel 2 around each GDI entry (`1633aab`, `tools/m8_timing.py`), checkpoints inside (`5bd739e`,
+`--points`), split by path (`tools/m8_time_by_path.py`). Single-card drags, ms per call:
+
+| | proxies off (run 1) | proxies on (2) | on + far-pointer rows (3) |
+|---|---|---|---|
+| bitmap cache hit (one engine copy) | 30 | 73 | 71 |
+| memory -> memory | 0.9 | 51 | 47 |
+| screen -> memory | 54 | 41 | 46 |
+| driver per drag frame | 287 | - | 359 |
+
+- **Checkpoints (run 4):** in a cache hit, the hash-and-copy loop over the source takes ~70 ms per 71x96 card
+  (~10 us per byte); the engine copy ~0.1 ms. The proxy check's Fletcher hash ~36 ms. Screen fills 0.2 ms.
+- **Why:** 16-bit C does DWORD arithmetic in pieces - ~40 instructions and a `__U4M` call per byte (wdis).
+  The bed's CPU runs at roughly 5 MIPS on this code. Per-row selector calls were not the cost (run 3).
+- **ATIM8, same drag, same log:** "night and day" (owner) - the card stays under the mouse. Yet it read
+  ~457 K and wrote ~917 K PIX_TRANS words and made ~21.6 K extended engine operations over its session: the
+  bus is not what separates us. Its pixel paths are tight loops.
+- **So:** every per-byte C loop over pixels is the bottleneck - cache hashing, proxy checks, the run encoder,
+  uploads, read-back copies, the mono repack. Proxies add such loops and are off (`c71432d`) until they are
+  rewritten. Sol's start fault did not recur in 4 starts after `af31497` (header pointer checked).

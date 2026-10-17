@@ -1,5 +1,9 @@
 # Work list - in attack order
 
+**First (10-17 evening): the pixel loops.** Timing showed our 486-side per-byte C loops, not the bus, make the drag
+slow (~70 ms per card hash; ATIM8 "night and day"): rewrite the hot loops as 32-bit assembly (rep movsd / rep outsw,
+32-bit hash), re-time with `tools/m8_timing.py`, then proxies back on. Detail: design doc "Timing the drag".
+
 **Next (owner, 10-17): finish the base driver, prove it on the 5160, then the new league.** L and D8 are done in
 the bed. Base: (1) bitmap cache LRU + room per mode, (2) engine lines (last XFree86 gap), (3) colour-compare
 transparency for both caches, (4) first timed 5160 run vs ATIM8 (the "base done" gate), (5) D8c 16-colour modes.
