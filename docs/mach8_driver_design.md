@@ -511,3 +511,16 @@ card. Screen -> B (71x96 at the new position); A -> B (the overlap, which the sc
 **Next (D9, bitmaps on the card):** keep A and B in slots for the whole drag: the save is an engine copy, A -> B a
 slot-to-slot copy, C -> A from C's bitmap-cache entry (cached by content), the restores slot-to-screen. No pixel
 crosses the bus per frame. RAM is written back only when something else reads A or B. Larger slots for stacks.
+
+### Held bitmaps (proxies), runs 3-5, 10-17
+
+- **`b2aff1a`** (copies between held bitmaps on the card): saves on the card, screen read-back 970 K -> 117 K px, but
+  most A -> B copies declined. **`34d20aa`** (trace: coordinates, reasons): the save bitmaps are taller than one
+  card (71 x 276), so copies ran past the held 71x96 area. **`c1d099e`**: held areas grow by the copies and fills
+  that overwrite them; write-backs only where a RAM operation overlaps. Run 5: 79 copies and 73 restores on the
+  card, 35 declined (21 not cached, 14 no held destination), 73 write-backs. Owner: drag "still very slow".
+- **Sol fault at start** (Win16 "An error has occurred in your program", no module named; `sol_fault_1017.png`)
+  in runs 4 and 5, both with proxies on; run 4 changed only trace output from run 3. Proxies off in `68a4276`.
+- **Not known: where a drag frame's time goes.** The tally estimates bus time from pixel counts and cannot see CPU
+  cost: the hash and cache code call SetSelectorBase / SetSelectorLimit (KERNEL, DPMI) per row. Next: time each
+  GDI entry with the PIT (the 486 has no TSC) in the trace build, then decide on proxies with numbers.
