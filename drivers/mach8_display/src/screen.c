@@ -1264,12 +1264,14 @@ static DWORD m8_px_hash( const M8_PXENTRY *p )
     return( ((DWORD)s2 << 16) | s1 );
 }
 
-/* The bitmap is the one the proxy was made for, and its RAM is untouched. */
+/* The bitmap is the one the proxy was made for, and its RAM is untouched. A
+ * deleted bitmap's header may sit in freed memory: test the pointer before
+ * reading through it. */
 static int m8_px_valid( const M8_PXENTRY *p )
 {
     LPDIBENGINE b = p->bmp;
 
-    if( b->deType != TYPE_DIBENG || b->deBitsSelector != p->sel || b->deBitsOffset != p->off ||
+    if( IsBadReadPtr( b, sizeof( DIBENGINE ) ) || b->deType != TYPE_DIBENG || b->deBitsSelector != p->sel || b->deBitsOffset != p->off ||
         b->deDeltaScan != p->delta || b->deWidth != p->bw || b->deHeight != p->bh ||
         GetSelectorBase( p->sel ) == 0 ||
         IsBadWritePtr( MK_FP( p->sel, (WORD)p->off ), 1 ) ) {
