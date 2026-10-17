@@ -31,6 +31,10 @@ $exeDir = Split-Path $Exe
 $cfg = Join-Path $VmPath '86box.cfg'
 if (-not (Test-Path $cfg)) { Fail "no 86box.cfg in $VmPath" }
 if (-not $Log) { $Log = Join-Path $VmPath '86box.log' }
+# 86Box runs from the bed folder, so a relative -Log would land under it (or nowhere).
+$Log = [IO.Path]::GetFullPath($Log, (Get-Location).Path)
+if (-not (Test-Path (Split-Path $Log))) { Fail "log folder missing: $(Split-Path $Log)" }
+Write-Host "log   $Log"
 
 # 1. Which binary, built when, from which commit.
 $tree = (Resolve-Path (Join-Path $exeDir '..\..')).Path
