@@ -1483,6 +1483,12 @@ static int m8_px_restore( LPDIBENGINE b, int sx, int sy, int dx, int dy, int w, 
     return( 0 );
 }
 
+#ifdef M8_TRACE
+#define M8_PX_NO_( why )    { M8_STEP( M8_MARK_PX_M2M_NO ); M8_STEP( why ); }
+#else
+#define M8_PX_NO_( why )
+#endif
+
 /* The live proxy of bitmap b holding the whole rectangle, or NULL. One that
  * fails the check is dropped. */
 static M8_PXENTRY *m8_px_find( LPVOID b, int x, int y, int w, int h )
@@ -1522,6 +1528,7 @@ static int m8_px_m2m( LPVOID d, LPVOID s, int dx, int dy, int sx, int sy, int w,
     }
     pd = m8_px_find( d, dx, dy, w, h );
     if( pd == NULL ) {
+        M8_PX_NO_( 1 );
         return( 0 );
     }
     ps = m8_px_find( s, sx, sy, w, h );
@@ -1532,12 +1539,14 @@ static int m8_px_m2m( LPVOID d, LPVOID s, int dx, int dy, int sx, int sy, int w,
     } else {
         if( sb == NULL || sb->deType != TYPE_DIBENG || sx < 0 || sy < 0 ||
             sx + w > (int)sb->deWidth || sy + h > (int)sb->deHeight ) {
+            M8_PX_NO_( 2 );
             return( 0 );
         }
         m8_px_touch( s, M8_PX_WHY_ENTRY );
         e = m8_bc_lookup( sb, sx, sy, w, h, 1 );
         /* Storing may have evicted the destination's own slot. */
         if( e == NULL || pd->bmp != d ) {
+            M8_PX_NO_( e == NULL ? 3 : 4 );
             return( 0 );
         }
         fx = e->x;
@@ -1616,7 +1625,8 @@ static void m8_step_word( WORD v )
 
 /* Memory-to-memory copies: which bitmaps, how big - the data for keeping
  * bitmaps on the card. Pointers as segment and offset. */
-static void m8_trace_mem( WORD mark, LPVOID dst, LPVOID src, WORD rop, int w, int h )
+static void m8_trace_mem( WORD mark, LPVOID dst, LPVOID src, WORD rop, int w, int h, int dx,
+                          int dy, int sx, int sy )
 {
     M8_STEP( mark );
     m8_step_word( FP_SEG( dst ) );
@@ -1626,9 +1636,13 @@ static void m8_trace_mem( WORD mark, LPVOID dst, LPVOID src, WORD rop, int w, in
     m8_step_word( rop );
     m8_step_word( (WORD)w );
     m8_step_word( (WORD)h );
+    m8_step_word( (WORD)dx );
+    m8_step_word( (WORD)dy );
+    m8_step_word( (WORD)sx );
+    m8_step_word( (WORD)sy );
 }
 #else
-#define m8_trace_mem( m, d, s, r, w, h )
+#define m8_trace_mem( m, d, s, r, w, h, dx, dy, sx, sy )
 #endif
 
 BOOL WINAPI __loadds BitBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPDEVICE lpSrcDev,
@@ -1645,7 +1659,8 @@ BOOL WINAPI __loadds BitBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPD
 
     if( !dst_screen && !src_screen ) {
         m8_trace_mem( M8_MARK_MEM2MEM, lpDestDev, m8_rop_uses_src( dwRop3 ) ? lpSrcDev : NULL,
-                      rop, (short)wXext, (short)wYext );
+                      rop, (short)wXext, (short)wYext, (short)wDestX, (short)wDestY,
+                      (short)wSrcX, (short)wSrcY );
         if( M8_PROXY && m8_rop_uses_src( dwRop3 ) && !m8_rop_uses_pat( dwRop3 ) &&
             m8_px_m2m( lpDestDev, lpSrcDev, wDestX, wDestY, wSrcX, wSrcY, (short)wXext,
                        (short)wYext, m8_mix_for_key[rop & 0x0F] ) ) {
@@ -1780,7 +1795,8 @@ BOOL WINAPI __loadds BitBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPD
         int     h;
 
         M8_STEP( M8_MARK_SCR2MEM );
-        m8_trace_mem( M8_MARK_SCR2MEM_ARGS, lpDestDev, NULL, rop, (short)wXext, (short)wYext );
+        m8_trace_mem( M8_MARK_SCR2MEM_ARGS, lpDestDev, NULL, rop, (short)wXext, (short)wYext,
+                      (short)wDestX, (short)wDestY, (short)wSrcX, (short)wSrcY );
         if( M8_PROXY && rop == 0xCC && (short)wXext > 0 && (short)wYext > 0 &&
             m8_px_save( (LPDIBENGINE)lpDestDev, wDestX, wDestY, wSrcX, wSrcY, wXext, wYext ) ) {
             return( TRUE );

@@ -36,12 +36,13 @@ US_OP = 35.0      # register set-up per engine operation (~6 writes at ~5.7 us)
 
 EVENTS = {0xA0F5: 'bitmap cache evictions', 0xA0F6: 'bitmap cache first sights',
           0xA0F7: 'proxy saves', 0xA0F8: 'proxy restores', 0xA0F9: 'proxy write-backs',
-          0xA0FA: 'proxies lost', 0xA0FB: 'Pixel sets on the engine',
+          0xA0F0: 'proxy m2m declined', 0xA0FA: 'proxies lost', 0xA0FB: 'Pixel sets on the engine',
           0xA0FC: 'memory-to-memory BitBlts (trace)', 0xA0FE: 'mono bitmaps expanded on the engine', 0xA0FF: 'proxy memory-to-memory on the card'}
 # The word after these markers: a reason or a value, counted per marker.
 FOLLOW = {0xA0F9: ('write-back why', {1: 'entry', 2: 'mem->mem', 3: 'forwarded', 4: 'evicted',
                                       5: 'suspend', 6: 'overlap'}),
-          0xA0FB: ('Pixel return', {})}
+          0xA0FB: ('Pixel return', {}),
+          0xA0F0: ('m2m declined', {1: 'no dest proxy', 2: 'source not 8-bit', 3: 'not cached', 4: 'dest evicted'})}
 
 
 def lines(path):
