@@ -250,9 +250,7 @@ static void m8_strip_place( M8_STRIP *s, const M8_RECT *r )
     s->dev.deWidthBytes = s->pitch;
     s->dev.deDeltaScan = s->pitch;
     s->dev.deFlags = m8_screen->deFlags & PALETTIZED;
-    /* The strip is its own device: the DIB Engine draws an ellipse's fill
-     * through delpPDevice, and the screen's has no bits (NOT_FRAMEBUFFER). */
-    s->dev.delpPDevice = (LPBYTE)&s->dev;
+    s->dev.delpPDevice = (LPBYTE)m8_screen;
     s->dev.deBitmapInfo = m8_screen->deBitmapInfo;
     SetSelectorBase( s->sel, s->lin - first );
     SetSelectorLimit( s->sel, last );
@@ -581,8 +579,11 @@ static int m8_covered( M8_DRAW draw, void *ctx, const M8_RECT *s, const M8_RECT 
     return( 1 );
 }
 
-static DWORD m8_fallback( const M8_RECT *bound_in, int read, int write, int bottom_up,
-                          M8_DRAW draw, void *ctx )
+/* As m8_fallback, with the strips' left edge, top edge and height on multiples
+ * of `align` (2, or 8 so that a shift by the strip's origin keeps brush
+ * patterns in phase: see m8_draw_output). */
+static DWORD m8_fallback_aligned( const M8_RECT *bound_in, int read, int write, int bottom_up,
+                                  M8_DRAW draw, void *ctx, int align )
 {
     M8_RECT bound = *bound_in;
     M8_RECT area;
@@ -605,10 +606,17 @@ static DWORD m8_fallback( const M8_RECT *bound_in, int read, int write, int bott
      * are read first so they go back to the card unchanged. */
     area = bound;
     m8_rect_align( &bound );
+    if( align > 2 ) {
+        bound.l &= ~(align - 1);
+        bound.t &= ~(align - 1);
+    }
     if( !read && (bound.l != area.l || bound.r != area.r) ) {
         edges = 1;
     }
     rows = m8_strip_rows( &bound, &pitch );
+    if( align > 2 ) {
+        rows &= ~(align - 1);
+    }
     m8_dst.pitch = pitch;
 
     m8_enter( &bound );
@@ -629,7 +637,7 @@ static DWORD m8_fallback( const M8_RECT *bound_in, int read, int write, int bott
         }
         m8_strip_place( &m8_dst, &s );
         clip.left = area.l;
-        clip.top = s.t;
+        clip.top = s.t > area.t ? s.t : area.t;
         clip.right = area.r;
         clip.bottom = s.b;
         if( read == M8_READ_IF_UNCOVERED && m8_covered( draw, ctx, &s, &area, &clip ) ) {
@@ -671,6 +679,12 @@ static DWORD m8_fallback( const M8_RECT *bound_in, int read, int write, int bott
     }
     m8_leave();
     return( rc );
+}
+
+static DWORD m8_fallback( const M8_RECT *bound_in, int read, int write, int bottom_up,
+                          M8_DRAW draw, void *ctx )
+{
+    return( m8_fallback_aligned( bound_in, read, write, bottom_up, draw, ctx, 2 ) );
 }
 
 /* ------------------------------------------------------------------ BitBlt */
@@ -2208,11 +2222,54 @@ static int m8_line_on_engine( WORD count, LPPOINT pts, LPPPEN pen, LPDRAWMODE dm
     return( 1 );
 }
 
+/* The DIB Engine clips a polygon's or an ellipse's fill to the bitmap, not to
+ * the clip rectangle, so a strip that claims the whole screen gets rows
+ * outside it: below, past the selector limit; above, in memory before the
+ * buffer. The shape is drawn instead into a device exactly the strip's size,
+ * its points shifted by the strip's origin - a multiple of 8, so patterns stay
+ * in phase (Output's strips are aligned to 8). OS_SCANLINES carries (count, y)
+ * and then x pairs. */
+#define M8_OUT_MAX_PTS      1024
+
+static POINT    m8_out_pts[M8_OUT_MAX_PTS];
+
 static DWORD m8_draw_output( void *ctx, LPDIBENGINE dev, LPRECT c )
 {
-    M8_OUT *o = ctx;
+    M8_OUT      *o = ctx;
+    DIBENGINE   t;
+    RECT        tc;
+    int         x0 = c->left & ~7;
+    int         y0 = c->top & ~7;
+    int         r = (c->right + 1) & ~1;
+    WORD        i;
 
-    return( DIB_Output( dev, o->style, o->count, o->pts, o->pen, o->brush, o->dm, c ) );
+    if( o->count > M8_OUT_MAX_PTS ) {
+        return( 0 );
+    }
+    if( r > M8_SCREEN_X ) {
+        r = M8_SCREEN_X;
+    }
+    _fmemcpy( &t, dev, sizeof( DIBENGINE ) );
+    t.deBitsOffset += (DWORD)y0 * dev->deDeltaScan + x0;
+    t.deWidth = (WORD)(r - x0);
+    t.deHeight = (WORD)(c->bottom - y0);
+    tc.left = c->left - x0;
+    tc.top = c->top - y0;
+    tc.right = c->right - x0;
+    tc.bottom = c->bottom - y0;
+    for( i = 0; i < o->count; ++i ) {
+        if( o->style == OS_SCANLINES && i == 0 ) {
+            m8_out_pts[0].xcoord = o->pts[0].xcoord;
+            m8_out_pts[0].ycoord = o->pts[0].ycoord - y0;
+        } else if( o->style == OS_SCANLINES ) {
+            m8_out_pts[i].xcoord = o->pts[i].xcoord - x0;
+            m8_out_pts[i].ycoord = o->pts[i].ycoord - x0;
+        } else {
+            m8_out_pts[i].xcoord = o->pts[i].xcoord - x0;
+            m8_out_pts[i].ycoord = o->pts[i].ycoord - y0;
+        }
+    }
+    return( DIB_Output( &t, o->style, o->count, m8_out_pts, o->pen, o->brush, o->dm, &tc ) );
 }
 
 WORD WINAPI __loadds Output( LPPDEVICE lpDestDev, WORD wStyle, WORD wCount, LPPOINT lpPoints,
@@ -2276,7 +2333,7 @@ WORD WINAPI __loadds Output( LPPDEVICE lpDestDev, WORD wStyle, WORD wCount, LPPO
     o.pen = lpPPen;
     o.brush = lpPBrush;
     o.dm = lpDrawMode;
-    m8_fallback( &bound, 1, 1, 0, m8_draw_output, &o );
+    m8_fallback_aligned( &bound, 1, 1, 0, m8_draw_output, &o, 8 );
     return( 1 );
 }
 

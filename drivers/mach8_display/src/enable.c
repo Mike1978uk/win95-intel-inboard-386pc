@@ -307,6 +307,10 @@ UINT WINAPI __loadds Enable( LPVOID lpDevice, UINT style, LPSTR lpDeviceType,
         M8_STEP( 0xA013 );
         M8_STEP( lpGdi->dpLines );
         lpGdi->dpLines &= ~(LC_WIDE | LC_WIDESTYLED);
+        /* Output shifts every point into its strip (screen.c); a PolyPolygon's
+         * layout is not known here, so GDI breaks those into polygons. */
+        M8_STEP( lpGdi->dpPolygonals );
+        lpGdi->dpPolygonals &= ~PC_POLYPOLYGON;
         m8_dib_pdev_size = lpGdi->dpDEVICEsize;
         lpGdi->dpDEVICEsize += sizeof( BITMAPINFOHEADER ) + 256 * 4;
         M8_STEP( 0xA012 );
