@@ -485,3 +485,19 @@ string cache, sized per mode) and evict the least recently used entry instead of
 Ours and in neither ATI's nor XFree86's: SaveScreenBitmap by engine copy, run-encoded uploads, the double-draw
 coverage test, per-call bus accounting, string-level caching in bit-planes. Still to come (D9): colour-compare
 transparency, raster-timed drawing, >256 colours, DirectDraw on the VGA half, vectors and 3D.
+
+### First D9 build, 10-17 (`763dc81`, `m8disp_d9_build1b_1017.log.gz`)
+
+Owner: regression list correct; screen savers all run (preview failed once on the first, unlogged run); Scrolling
+Marquee slow; card drag slower; Solitaire's deck drawn from other cached bitmaps after a DOS box was closed.
+- **Lines:** 4,880 polylines on the engine (screen savers). **Pixel:** 2,276 sets as 1x1 fills; DIB_Pixel returns 0
+  for a set.
+- **Deck glitch, cause:** cache stores while DOS had the card (between ADVFUNC_CNTL 2 and 7): the engine wrote
+  nothing, the entry stayed. `tools/m8_offscreen_audit.py` replays every off-screen write and lists copies from
+  stale slots - 24 here, all one 71x96 entry at (800,0). Fixed `1c015cd`: both caches refuse stores while the card
+  is handed over, and are cleared when it returns. In the cache since `c19476f`.
+- **Proxies: a loss.** 35 saves, 33 written back at once by memory-to-memory BitBlts, 2 restores: Solitaire copies
+  the saved area between memory bitmaps. Off in `8d68563`; the trace now logs memory-to-memory copies, the data
+  for keeping whole bitmaps on the card.
+- **Marquee:** BitBlt from a plain (mono) BITMAP, 1.45 M px uploaded as 24,770 fills and 23,960 runs, 7.3 s - the
+  top cost. Now expanded by the engine at 1 bit per pixel (`8d68563`), with icon masks (SRCAND, 57 K px read).
