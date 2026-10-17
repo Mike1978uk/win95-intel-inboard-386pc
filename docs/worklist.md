@@ -3,7 +3,8 @@
 **Next (owner, 10-17): finish the base driver, prove it on the 5160, then the new league.** L and D8 are done in
 the bed. Base: (1) bitmap cache LRU + room per mode, (2) engine lines (last XFree86 gap), (3) colour-compare
 transparency for both caches, (4) first timed 5160 run vs ATIM8 (the "base done" gate), (5) D8c 16-colour modes.
-Then the D9 experimental block, in order of what (4) shows the bus can afford. The XT-CF measured-wait driver
+Then the D9 experimental block, in order of what (4) shows the bus can afford; DirectDraw (D5) on the Mach8
+first. The XT-CF measured-wait driver
 (E, 10-10) stays queued behind it.
 
 The one list. Tick an item in the same commit as its result; the detail stays in the doc each item links.
@@ -185,10 +186,21 @@ Step 2: our own VxD, to save the registers ATI.VXD does not know (DEST_CMP_FN, B
       PATT_DATA - same bus cost as a plain fill; probe with A2; (2) palette splits per band on vblank / LINE_SYNC,
       ~1 colour change per line (estimate: ~23 us per entry vs ~32 us line); (3) error diffusion for still images on
       the 486; (4) ~~8-bit DAC~~ - the RAMDAC is an INMOS IMSG176 (6-bit), no 8-bit mode (photo, 10-11).
-- [ ] **D5 DirectDraw (later).** A surface Lock needs a linear frame buffer; the Mach8 has none, so it rests on the
-      28800 A000 window. M8LIN (10-11): one 64 KB bank, no 128 KB window, AC bit 0 no effect - 320x200x8 fits
-      unbanked, 320x240 needs a bank switch. Then a HAL from
-      vmhal9x (`references/jhrobotics/`, MIT) with flip on CRT_OFFSET.
+- [ ] **D5 DirectDraw - on the Mach8 first, the VGA half second (owner, 10-17: challenge "VGA half only").** Only
+      Lock needs CPU access to pixels; Blt, colour-keyed Blt, fills and Flip are what the Mach8 engine does. Two back
+      ends, measured against each other on the 5160:
+      (a) **Mach8 HAL**, ahead of the VGA half on Blt, colour-keyed Blt (colour compare 92EE/EAEE = DDCKEY_SRCBLT/
+      DESTBLT, used by no ATI driver) and Flip (CRT_OFFSET 2AEE/2EEE at VBLANK, SUBSYS_STAT). The back page is drawn
+      through GE_OFFSET/GE_PITCH (coverage doc rows 194-207). With CRT_PITCH 100 (800 px): 800x600 double-buffers (2 x
+      480,000 B in 1 MB); 640x480 at pitch 640 triple-buffers; 1024x768 is one page + 256 KB for sprites, tear-free by
+      blits timed to VBLANK. Lock: DDHAL lock may hand back a system-RAM shadow of only the locked rectangle, read back
+      before and uploaded as runs on Unlock - fine for occasional locks, poor for games that write every pixel.
+      Desk first: Win95 DDK DDHAL lock/flip/blt callbacks; whether our GDI driver can leave pitch 1024 while DirectDraw
+      is exclusive. One card probe: CRT_PITCH 100 + a CRT_OFFSET flip, no tearing at VBLANK.
+      (b) **VGA half** (Andrew, #49 10-06: memory writes beat port I/O and may not flush L1 - unmeasured on the
+      Inboard): for Lock-heavy games. M8LIN (10-11): one 64 KB bank, no 128 KB window - 320x200x8 fits unbanked,
+      320x240 needs a bank switch; switching halves blanks > 1 s (L4c), so only on entering exclusive mode.
+      HAL frame from vmhal9x (`references/jhrobotics/`, MIT) for both.
 
 - [ ] **D6 VGA-half framebuffer driver on VFLATD (owner, 10-16).** The 28800's 512 KB through A000 is the
       cheapest CPU path on the card; VFLATD banks it into a flat surface. A fallback driver (640x480/800x600 x 256)
