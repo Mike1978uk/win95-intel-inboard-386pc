@@ -46,4 +46,7 @@ prompt, `REGEDIT`). Results: `python -I tools/fatls.py vm_5160_now/card.img --ge
 `tools/m8_bench_compare.py <file> <labelA> <labelB>`.
 
 MCP (86box-mcp) is ready but not used on this bed yet: it rewrites `86box.cfg` (use a copy) and needs the
-`86box_auto` build, so a bench on it is not comparable with the stored runs.
+`86box_auto` build, so a bench on it is not comparable with the stored runs. Owner wants it used (10-18).
+Plan: copy `vm_5160_now` to `vm_5160_mcp`, take one ours + one ATI M8BENCH baseline there on `86box_auto`
+(held time, window on so the owner can watch), then drive the fault hunt and later benches through MCP.
+Check the Inboard machine boots on `86box_auto` first (`ibmxt_inboard386` is upstream; one boot settles it).
