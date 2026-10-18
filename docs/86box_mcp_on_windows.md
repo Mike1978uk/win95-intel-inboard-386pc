@@ -25,7 +25,11 @@ held:
 | `regs()` | CPU registers |
 | `stop()` | 86Box exits, temp files removed |
 
-Then registered with Claude Code (`claude mcp list` reports it connected).
+Then registered with Claude Code (`claude mcp list` reports it connected), and driven over MCP by a stdio
+client started the way Claude Code starts it: 46 tools listed, `vm_start`/`vm_stop`, `step`, `type_text`,
+`screen_text`, `screenshot`, `read_memory` all work, `window=True` shows the 86Box window, and when the
+client died mid-run the guard stopped 86Box. One `vm_stop` in four failed with "Access is denied" deleting
+`automation.token` from the run folder (likely a scanner holding the new file); not yet patched.
 
 ## What the patch changes
 
@@ -50,10 +54,31 @@ work as written.
    - `PATH` must include `C:\msys64\mingw64\bin`, or a MinGW-built 86Box cannot find its Qt DLLs.
    - `PYTHONIOENCODING=utf-8`: the text screen contains CP437 box drawing, which a cp1252 console cannot print.
 
+## Known issue: `wait text` stops the guest on a slow emulated CPU (86Box side, not Windows-specific)
+
+Over MCP, a held VM booted with `wait_for_text` never got past POST. Reproduced without MCP, with the `VM`
+class, on 86Box master `8c7e50cc8` and on the commit 86box-mcp pins (`315441d`), with a Mach8 and with plain
+VGA, on an ASUS ISA-386C at 33 MHz:
+
+| Command | Emulated time | Guest |
+|---|---|---|
+| `step 3000` | 0 to 3 s | AMI POST |
+| `wait text 60000 SMARTDrive` (no match) | 3 to 63 s | **same POST line, frame count unchanged** |
+| `wait mem 60000 0x7000 deadbeef` (no match), fresh VM | 3 to 63 s | boots to `C:\>` |
+| `step 30000` | 33 to 63 s | boots to `C:\>` |
+
+Likely cause: `text_contains()` in `src/automation.c` reads the whole text page through `mem_readb_phys()`
+every emulated millisecond (25 x 80 = 2000 reads), and each VGA read charges the CPU its wait states
+(`cycles -= svga->monitor->mon_video_timing_read_b`, `src/video/vid_svga.c` `svga_read_common`). At 33 MHz
+that spends the whole millisecond's cycle budget, so the guest never runs while emulated time advances. A
+faster emulated CPU would leave cycles over, which may be why it has not shown up elsewhere. Suggested fix,
+not tested: save and restore `cycles` around the reads in `text_contains()` (and `text_info()`).
+
+Until then: `step` plus `screen_text`, or `wait mem`, work.
+
 ## Not tested yet
 
-- `window=True` on Windows, and the `stop()` kill fallback (only the normal `quit` path ran).
-- The MCP tools called through Claude Code; the smoke test drove the `VM` class directly.
+- The `stop()` kill fallback (only the normal `quit` path ran).
 - The debugger tools (`GDBSTUB=ON` build) and the DOS helpers (need `mtools`).
 
 ## Notes
