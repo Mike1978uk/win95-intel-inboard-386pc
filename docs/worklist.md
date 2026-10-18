@@ -80,7 +80,7 @@ network and sound.
 - [x] **A12 Merged 10-16: 86Box PR #8351** (OBattler, merge `c43f3e2d0`) (TC1995: Win 3.1 8514.DRV File Manager glitch from #8289).
       Command 4 width/height swapped; card probe M8NIB2 = fixed build byte for byte. Fork `mach8-nibble-axes`
       `3b23c04b2`. Details: `docs/mach8_cmd4_axes_2026_10_16.md`. Owner told TC1995. README row added.
-- [ ] **A13 PR pending (OBattler, Discord 10-18): Win 3.0 Solitaire hangs on the Mach8 since #8289.** One-pixel
+- [ ] **A13 86Box PR #8394 open (Mamoru/OBattler, Discord 10-18): Win 3.0 Solitaire hangs on the Mach8 since #8289.** One-pixel
       line read: GE_STAT read-data-available cleared before the host took the word. Fork `mach8-dataready`
       `6ca622ca1`. Details and PR draft: `docs/mach8_data_available_2026_10_18.md`. 8514.DRV's caption-button
       row is the driver, not the model (same doc).
