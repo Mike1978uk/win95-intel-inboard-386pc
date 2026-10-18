@@ -106,12 +106,27 @@ static void reset_pictures( void )
     SelectObject( mem, o );
 }
 
+/* Tests are numbered so two runs can be checked against each other by eye: the
+ * number and name show on the taskbar button, and a "started" line goes to the
+ * file first, so a fault leaves the test that caused it on record. */
+#define TEST_COUNT  35
+static int  test_no;
+
 static void run( const char *name, OP op, int fixed )
 {
     double  t0;
     double  t;
     long    n = 0;
     int     i;
+    char    title[48];
+
+    ++test_no;
+    sprintf( title, "M8BENCH %d/%d %s", test_no, TEST_COUNT, name );
+    SetWindowText( wnd, title );
+    fprintf( out, "started %d/%d %s\n", test_no, TEST_COUNT, name );
+    fflush( out );
+    /* Let the taskbar repaint before the timing starts. */
+    Sleep( 300 );
 
     clear();
     rnd = 12345;
@@ -128,8 +143,8 @@ static void run( const char *name, OP op, int fixed )
     for( i = 0; i < fixed; ++i ) {
         op( i );
     }
-    fprintf( out, "%-16s %10.1f ops/s %8.3f ms/op  hash %08lx\n", name, n * 1000.0 / t,
-             t / n, hash_area() );
+    fprintf( out, "%-16s %10.1f ops/s %8.3f ms/op  hash %08lx  #%d\n", name, n * 1000.0 / t,
+             t / n, hash_area(), test_no );
     fflush( out );
 }
 
