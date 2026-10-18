@@ -74,7 +74,7 @@ own button bitmaps and does not show it. Not verified on a real 8514/A.
 
 Opened 2026-10-18 as https://github.com/86Box/86Box/pull/8394 (head `6ca622ca1`), wording approved by the owner. Merged 2026-10-18 14:56 UTC as `0f7cf1381`.
 
-Draft below; the owner opens it.
+The text as submitted:
 
 Title: `mach8: fix read data available on one-pixel line reads (Solitaire hang)`
 
