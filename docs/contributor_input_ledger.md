@@ -402,3 +402,7 @@ untested here - our image does not load that driver.
   (VGA combo) and the Mach32, with his own changes, which he says work on all three. Worklist A8 (siblings). Reply is the
   owner's; suggested: yes, with the Graphics Ultra re-checked after (TEST.COM, M8DPM/M8NIB2/M8A2, non-8514 cards still
   boot - the #8290 lesson); offer to run our card probes on his branch. Open. 10-16: owner asked him to share the PR when it is up; we check it then.
+
+- @TC1995, 86Box Discord 2026-10-18: "it's a data available bug" (Win 3.0 Solitaire hang on the Mach8). Verified: GE_STAT read-data-available cleared before the host took the word. Shipped in 86Box PR #8394, merged 2026-10-18 (`0f7cf1381`). Not yet told.
+- @OBattler (Mamoru), 86Box Discord 2026-10-18: reported the Solitaire hang since #8289. Fixed in #8394, merged 2026-10-18. Not yet told.
+- dafugg (86box-mcp author): our `wait text` stall report is fixed in 86Box PR #8396, merged. Not yet retested here; not yet told.

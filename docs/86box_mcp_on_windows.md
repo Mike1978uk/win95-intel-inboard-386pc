@@ -45,7 +45,7 @@ work as written.
 
 1. Build 86Box with the automation socket (MSYS2 MinGW64, configured with `MSYSTEM=MINGW64`):
    `cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DQT=ON -DAUTOMATION=ON -DCMAKE_EXE_LINKER_FLAGS=-mwindows`.
-   Master `8c7e50cc8` (2026-10-18) has it. Add `-DGDBSTUB=ON` only for the debugger tools; that build turns
+   Master `8c7e50cc8` (2026-10-18) has it; `wait text` needs a build with #8396. Add `-DGDBSTUB=ON` only for the debugger tools; that build turns
    the dynarec off and uses a console window.
 2. Clone the fork's `windows-local` branch, then `py -3.12 -m venv server\.venv` and
    `server\.venv\Scripts\python -m pip install -e server`.
@@ -55,6 +55,9 @@ work as written.
    - `PYTHONIOENCODING=utf-8`: the text screen contains CP437 box drawing, which a cp1252 console cannot print.
 
 ## Known issue: `wait text` stops the guest on a slow emulated CPU (86Box side, not Windows-specific)
+
+Fixed upstream by dafugg in https://github.com/86Box/86Box/pull/8396 (merged). Not retested here; the
+evidence below is from a build without it.
 
 Over MCP, a held VM booted with `wait_for_text` never got past POST. Reproduced without MCP, with the `VM`
 class, on 86Box master `8c7e50cc8` and on the commit 86box-mcp pins (`315441d`), with a Mach8 and with plain
