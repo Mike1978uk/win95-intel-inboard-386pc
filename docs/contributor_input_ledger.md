@@ -405,4 +405,4 @@ untested here - our image does not load that driver.
 
 - @TC1995, 86Box Discord 2026-10-18: "it's a data available bug" (Win 3.0 Solitaire hang on the Mach8). Verified: GE_STAT read-data-available cleared before the host took the word. Shipped in 86Box PR #8394, merged 2026-10-18 (`0f7cf1381`). Owner told them on Discord 2026-10-18.
 - @OBattler (Mamoru), 86Box Discord 2026-10-18: reported the Solitaire hang since #8289. Fixed in #8394, merged 2026-10-18. Owner told them on Discord 2026-10-18.
-- dafugg (86box-mcp author): our `wait text` stall report is fixed in 86Box PR #8396, merged. Owner reported it on Discord 2026-10-18, which is what prompted #8396. Not yet retested here.
+- dafugg (86box-mcp author): our `wait text` stall report is fixed in 86Box PR #8396, merged. Owner reported it on Discord 2026-10-18, which is what prompted #8396. Retested 2026-10-18 on master `5468d5952`: fixed.

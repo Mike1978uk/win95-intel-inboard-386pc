@@ -28,7 +28,7 @@ held:
 Then registered with Claude Code (`claude mcp list` reports it connected), and driven over MCP by a stdio
 client started the way Claude Code starts it: 46 tools listed, `vm_start`/`vm_stop`, `step`, `type_text`,
 `screen_text`, `screenshot`, `read_memory` all work, `window=True` shows the 86Box window, and when the
-client died mid-run the guard stopped 86Box. One `vm_stop` in four failed with "Access is denied" deleting
+client died mid-run the guard stopped 86Box. Two `vm_stop` calls in five failed with "Access is denied" deleting
 `automation.token` from the run folder (likely a scanner holding the new file); not yet patched.
 
 ## What the patch changes
@@ -45,7 +45,7 @@ work as written.
 
 1. Build 86Box with the automation socket (MSYS2 MinGW64, configured with `MSYSTEM=MINGW64`):
    `cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DQT=ON -DAUTOMATION=ON -DCMAKE_EXE_LINKER_FLAGS=-mwindows`.
-   Master `8c7e50cc8` (2026-10-18) has it; `wait text` needs a build with #8396. Add `-DGDBSTUB=ON` only for the debugger tools; that build turns
+   Master `5468d5952` (2026-10-18) has it, including the `wait text` fix (#8396). Add `-DGDBSTUB=ON` only for the debugger tools; that build turns
    the dynarec off and uses a console window.
 2. Clone the fork's `windows-local` branch, then `py -3.12 -m venv server\.venv` and
    `server\.venv\Scripts\python -m pip install -e server`.
@@ -56,8 +56,9 @@ work as written.
 
 ## Known issue: `wait text` stops the guest on a slow emulated CPU (86Box side, not Windows-specific)
 
-Fixed upstream by dafugg in https://github.com/86Box/86Box/pull/8396 (merged). Not retested here; the
-evidence below is from a build without it.
+Fixed upstream by dafugg in https://github.com/86Box/86Box/pull/8396 (merged). Retested on master `5468d5952`:
+`step 3000` then `wait text 60000 C:\>` matched at 6.1 s emulated (0.4 s wall). The evidence below is
+from a build without it.
 
 Over MCP, a held VM booted with `wait_for_text` never got past POST. Reproduced without MCP, with the `VM`
 class, on 86Box master `8c7e50cc8` and on the commit 86box-mcp pins (`315441d`), with a Mach8 and with plain
