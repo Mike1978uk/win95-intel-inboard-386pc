@@ -1,5 +1,9 @@
 # Work list - in attack order
 
+**Now (10-18): `docs/next_session_2026_10_19.md`.** Items (1)-(2) below done (`ec1d733`: scr_to_mem 8.2x;
+uploads unchanged, so the cost is our hashing). Order: DIBENG polygon fault (blocks bench tests 31-35), then
+32-bit hashing (4), then PATT_DATA brushes/dashes (3).
+
 **First (10-17 night): match ATIM8 where it wins, from its own code** (`docs/atim8_disassembly.md`, M8BENCH
 `docs/captures/2026-10-16_atim8_tap/m8bench_1017_first.txt`): engine paths at parity; every pixel path 5-50x slower.
 (1) uploads: one extended blit (DP_CONFIG 5211) + `rep outsw` per row, no status polls - ours runs C loops, hashing,
