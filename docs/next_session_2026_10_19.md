@@ -16,6 +16,14 @@ Supersedes `docs/next_session_2026_10_18.md`. Worklist first item is this plan.
   each result (`476db12`). New exe is in the bed image (`C:\M8BENCH.EXE`); the exe is gitignored, build
   line in the source header (Open Watcom at `C:\Users\lycet\tools\openwatcom`, quote each arg in PowerShell).
 
+## Numbered compare (10-18 evening, `docs/captures/2026-10-18_strio/m8bench_numbered.txt`, runs ours2/ati2)
+
+Owner watched both: tests 1-30 run on both drivers. 10-12 (blit_small, blit_large, scroll), 22 (scr_to_mem)
+and 30 (getpixel) show nothing on either - they leave a blank area by design (hash 0d2b3285 on both). 24
+(drag_frame): ATI visibly draws the frame line, ours does not show one (5/s vs 112/s; final pixels equal).
+31 polygon faults under ours; ATI runs 31-35. Pixels differ only in 27 lines_dash. Ours slower in all 28
+timed-and-compared tests; engine paths 0.86-0.96 of ATI, pixel paths 0.02-0.24, scr_to_mem 0.76.
+
 ## Next, in order
 
 1. **The DIBENG fault** (handoff 10-18 item 5): M8BENCH faults at test 31 `polygon` under ours, in
