@@ -15,6 +15,18 @@ int m8_hw_off;
 
 #define M8_WAIT_LIMIT       60000u      /* polls; ~0.4 s of GP_STAT reads on the 5160 */
 
+/* Pixel data by string I/O, as ATIM8 moves it: the C loop costs more per word
+ * than the port does. ISA wait states pace the card's FIFO. */
+extern void m8_outsw( const WORD FAR *src, WORD words );
+#pragma aux m8_outsw = \
+    "push ds" "push es" "pop ds" "mov dx, 0E2E8h" "rep outsw" "pop ds" \
+    parm [es si] [cx] modify [si cx dx];
+
+extern void m8_insw( WORD FAR *dst, WORD words );
+#pragma aux m8_insw = \
+    "mov dx, 0E2E8h" "rep insw" \
+    parm [es di] [cx] modify [di cx dx];
+
 /* One register write: port, value, and whether the port takes a byte. */
 typedef struct {
     WORD    port;
@@ -253,9 +265,7 @@ void m8_hw_copy_mix( int sx, int sy, int dx, int dy, int w, int h, WORD mix )
 void m8_hw_read_rect( int x, int y, int w, int h, BYTE FAR *dst, WORD pitch )
 {
     int     row;
-    int     col;
     WORD    words = (WORD)w / 2;
-    WORD    FAR *p;
     WORD    n;
 
     if( m8_hw_off ) {
@@ -269,16 +279,15 @@ void m8_hw_read_rect( int x, int y, int w, int h, BYTE FAR *dst, WORD pitch )
     outpw( M8_MAJ_AXIS_PCNT, w - 1 );
     outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
     outpw( M8_CMD, M8_CMD_HOST_READ );
-    for( row = 0; row < h; ++row ) {
-        p = (WORD FAR *)(dst + (DWORD)row * pitch);
-        for( col = 0; col < (int)words; ++col ) {
-            for( n = 0; n < M8_WAIT_LIMIT; ++n ) {
-                if( inpw( M8_GP_STAT ) & M8_GP_DATA_READY ) {
-                    break;
-                }
-            }
-            p[col] = inpw( M8_PIX_TRANS );
+    /* One wait for the first word, then the whole rectangle unpolled, as
+     * ATIM8 reads it: the card keeps pace with the bus once data flows. */
+    for( n = 0; n < M8_WAIT_LIMIT; ++n ) {
+        if( inpw( M8_GP_STAT ) & M8_GP_DATA_READY ) {
+            break;
         }
+    }
+    for( row = 0; row < h; ++row ) {
+        m8_insw( (WORD FAR *)(dst + (DWORD)row * pitch), words );
     }
     outpw( M8_FRGD_MIX, M8_MIX_SRC_FRGD | M8_MIX_REPLACE );
 }
@@ -288,9 +297,7 @@ void m8_hw_read_rect( int x, int y, int w, int h, BYTE FAR *dst, WORD pitch )
 void m8_hw_write_rect( int x, int y, int w, int h, const BYTE FAR *src, WORD pitch )
 {
     int         row;
-    int         col;
     WORD        words = (WORD)w / 2;
-    const WORD  FAR *p;
 
     if( m8_hw_off ) {
         return;
@@ -303,10 +310,7 @@ void m8_hw_write_rect( int x, int y, int w, int h, const BYTE FAR *src, WORD pit
     outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
     outpw( M8_CMD, M8_CMD_HOST_WRITE );
     for( row = 0; row < h; ++row ) {
-        p = (const WORD FAR *)(src + (DWORD)row * pitch);
-        for( col = 0; col < (int)words; ++col ) {
-            outpw( M8_PIX_TRANS, p[col] );
-        }
+        m8_outsw( (const WORD FAR *)(src + (DWORD)row * pitch), words );
     }
     m8_hw_wait_idle();
     outpw( M8_FRGD_MIX, M8_MIX_SRC_FRGD | M8_MIX_REPLACE );
@@ -324,8 +328,6 @@ void m8_hw_mono( int x, int y, WORD width_bytes, WORD height, const BYTE FAR *bi
 {
     DWORD       bytes = (DWORD)width_bytes * height;
     WORD        words = (WORD)(bytes / 2);
-    const WORD  FAR *p = (const WORD FAR *)bits;
-    WORD        i;
 
     if( m8_hw_off ) {
         return;
@@ -345,9 +347,7 @@ void m8_hw_mono( int x, int y, WORD width_bytes, WORD height, const BYTE FAR *bi
     outpw( M8_DEST_X_END, x + width_bytes * 8 );
     outpw( M8_CUR_Y, y );
     outpw( M8_DEST_Y_END, y + height );
-    for( i = 0; i < words; ++i ) {
-        outpw( M8_PIX_TRANS, p[i] );
-    }
+    m8_outsw( (const WORD FAR *)bits, words );
     /* An odd byte count: the last byte alone, never a word read past the end
      * of the caller's buffer. */
     if( bytes & 1 ) {
