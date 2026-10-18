@@ -32,7 +32,7 @@ $cfg = Join-Path $VmPath '86box.cfg'
 if (-not (Test-Path $cfg)) { Fail "no 86box.cfg in $VmPath" }
 if (-not $Log) { $Log = Join-Path $VmPath '86box.log' }
 # 86Box runs from the bed folder, so a relative -Log would land under it (or nowhere).
-$Log = [IO.Path]::GetFullPath($Log, (Get-Location).Path)
+$Log = [IO.Path]::GetFullPath([IO.Path]::Combine((Get-Location).Path, $Log))  # one-argument form: a6_regress.sh runs this under Windows PowerShell 5.1
 if (-not (Test-Path (Split-Path $Log))) { Fail "log folder missing: $(Split-Path $Log)" }
 Write-Host "log   $Log"
 
