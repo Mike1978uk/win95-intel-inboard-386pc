@@ -22,14 +22,21 @@ Supersedes `docs/next_session_2026_10_19.md`.
   Removing that client would make boots unattended.
 - Issue #50 posted: BlueSCSI as a SCSI bridge (storage, DaynaPort, USB), parked.
 
+- **Shutdown BSOD fixed** (fatal exception 0D at `xxxx:30B7`, twice, on reboot under ours). GDI
+  still calls `BitBlt` on the screen after `Disable` has set `m8_screen` NULL; `BitBlt` read
+  `m8_screen->deFlags`. Every screen entry now returns when `m8_screen` is NULL, as
+  `SaveScreenBitmap` already did. Two clean reboots under ours after it.
+- **Baseline on `86box_auto`** (`docs/captures/2026-10-20_auto/m8bench_auto.txt`, runs `auto_ours1`,
+  `auto_ati2`; `auto_ati1` is mislabelled - it ran ours, a repeat run). Ours vs ours repeat: within
+  +-10% per test, so smaller gaps are noise. ATI vs ours: engine paths 0.96-1.17x; text 5-11x;
+  bitmaps 10-45x; fill_hatch 52x; lines_dash 21x (pixels differ); drag_frame 22x; polygon 9x.
+  Switching driver through the agent: `REGEDIT /S C:\ATIM8.REG`, then `v9x_reboot_with_proof`.
+
 ## Next, in order
 
-1. **New baseline on `86box_auto`**: M8BENCH under ours and under ATI's on `vm_5160_mcp` (driver switch
-   `C:\ATIM8.REG` / `C:\M8DISP.REG`), so speeds compare on one build. Results via `v9x_get_file
-   C:\M8BENCH.TXT`, then `tools/m8_bench_compare.py`.
-2. **Cheap 32-bit hashing** for the string and bitmap caches (bmp_card, text_sys).
-3. **Brushes and dashed lines on PATT_DATA** (fill_hatch, lines_dash).
-4. Polygon/ellipse/floodfill speed: they fall back through strips (polygon 0.1 of ATI's old figure).
+1. **Cheap 32-bit hashing** for the string and bitmap caches (bmp_card, text_sys).
+2. **Brushes and dashed lines on PATT_DATA** (fill_hatch, lines_dash).
+3. Polygon/ellipse/floodfill speed: they fall back through strips (polygon 0.1 of ATI's old figure).
 
 ## Driving the bed
 
