@@ -15,7 +15,7 @@ draw (trace build). Loop: build, `fatcp`, `v9x_reboot_with_proof`, `v9x_exec M8B
 3. **PATT_DATA brushes + brush cache** (fill_hatch, drag_frame, lines_dash; fixes lines_dash pixels).
 4. **Shapes on the engine:** polygon fill (cmd 5) for polygon/ellipse, short strokes, floodfill one row read per row.
 5. **Source colour compare** (92EE/EAEE): icons and sprites in one pass; DirectDraw colour keys.
-6. **Bus discipline:** FIFO slot counting, no idle polls, batched set-up, run-time generated stubs.
+6. **Bus discipline** - first: **shadow the setup registers** (colour, mix, masks, scissors, pitch): write one only when its value changes; coordinates and CMD always go. Invalidate on mode set and DOS resume. Every engine path gains (owner, 10-21: "only request what changed"). Then: FIFO slot counting, no idle polls, batched set-up, run-time generated stubs.
 7. **DirectDraw HAL on the Mach8:** CRT_OFFSET flips timed by the A8/A9 raster counter, colour-key blits,
    surfaces off-screen; the VGA half (Mode X) after.
 8. **3D:** engine spans/fills into an off-screen page, flipped (raycaster projects as the model).
