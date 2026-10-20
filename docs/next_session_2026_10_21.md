@@ -34,7 +34,7 @@ Supersedes `docs/next_session_2026_10_19.md`.
 
 ## Next, in order
 
-1. **Cheap 32-bit hashing** for the string and bitmap caches (bmp_card, text_sys).
+1. **Plan of attack in `docs/worklist.md`** (10-20). Start: DDK device bitmaps (item 1).
 2. **Brushes and dashed lines on PATT_DATA** (fill_hatch, lines_dash).
 3. Polygon/ellipse/floodfill speed: they fall back through strips (ATI 9x, 5x, 6x faster).
 

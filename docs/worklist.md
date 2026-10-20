@@ -2,7 +2,25 @@
 
 **Now (10-20): `docs/next_session_2026_10_21.md`.** Items (1)-(2) below done (`ec1d733`: scr_to_mem 8.2x;
 uploads unchanged, so the cost is our hashing). DIBENG polygon fault fixed (`097fc8a`, bench runs 1-35).
-Baseline on `86box_auto` taken; shutdown BSOD fixed. Order: 32-bit hashing (4), then PATT_DATA brushes/dashes (3).
+Baseline on `86box_auto` taken; shutdown BSOD fixed.
+
+**Plan of attack (owner, 10-20): beat ATIM8 on all 35 M8BENCH tests, with less bus traffic.** ATIM8 keeps nothing
+on the card and re-uploads every draw; we have ~424 KB off-screen and an engine that copies on-card. Thesis: put
+it on the card once, draw it with the engine. Scoreboard: M8BENCH ops/s vs `auto_ati2` plus port operations per
+draw (trace build). Loop: build, `fatcp`, `v9x_reboot_with_proof`, `v9x_exec M8BENCH`, compare. Order:
+1. **Bitmaps in video memory as device bitmaps** (DDK `DeviceBitmap`/`SelectBitmap`/`BitmapBits`, `RC_DEVBITS`):
+   GDI routes writes through us, so no content hashing. bmp_*, mem_to_mem, draw_icon. Read the DDK first.
+   Replaces the 32-bit hashing item if it holds. One off-screen allocator shared by every cache and DirectDraw.
+2. **Glyph cache keyed by font + character**, mono expansion from video memory (XFree86, 51 us/glyph). text_*.
+3. **PATT_DATA brushes + brush cache** (fill_hatch, drag_frame, lines_dash; fixes lines_dash pixels).
+4. **Shapes on the engine:** polygon fill (cmd 5) for polygon/ellipse, short strokes, floodfill one row read per row.
+5. **Source colour compare** (92EE/EAEE): icons and sprites in one pass; DirectDraw colour keys.
+6. **Bus discipline:** FIFO slot counting, no idle polls, batched set-up, run-time generated stubs.
+7. **DirectDraw HAL on the Mach8:** CRT_OFFSET flips timed by the A8/A9 raster counter, colour-key blits,
+   surfaces off-screen; the VGA half (Mode X) after.
+8. **3D:** engine spans/fills into an off-screen page, flipped (raycaster projects as the model).
+9. **More colours (experimental):** palette changes per raster band (A8/A9 counter), temporal dithering by
+   alternating two flipped pages. 6-bit DAC, 256 at a time; perceived colours beyond it.
 
 **First (10-17 night): match ATIM8 where it wins, from its own code** (`docs/atim8_disassembly.md`, M8BENCH
 `docs/captures/2026-10-16_atim8_tap/m8bench_1017_first.txt`): engine paths at parity; every pixel path 5-50x slower.
