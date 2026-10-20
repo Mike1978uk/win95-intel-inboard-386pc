@@ -922,6 +922,53 @@ static DWORD        m8_bc_seen[M8_BC_SEEN];
 static int          m8_bc_seen_next;
 static WORD         m8_bc_sel;
 
+/* Hashes run on 16-bit operations only: the compiler turns every 32-bit shift
+ * or multiply into a loop or a library call. A Fletcher pair (position
+ * sensitive) and a rotate-xor, joined into two DWORDs once at the end. */
+typedef struct {
+    WORD    a;
+    WORD    b;
+    WORD    c;
+} M8_HASH;
+
+static void m8_hash_init( M8_HASH *h, WORD seed )
+{
+    h->a = seed;
+    h->b = 0x5A5A;
+    h->c = 0x1234;
+}
+
+static void m8_hash_bytes( M8_HASH *h, const BYTE FAR *p, WORD n )
+{
+    WORD    a = h->a;
+    WORD    b = h->b;
+    WORD    c = h->c;
+
+    while( n-- != 0 ) {
+        a += *p;
+        b += a;
+        c = ((c << 3) | (c >> 13)) ^ *p++;
+    }
+    h->a = a;
+    h->b = b;
+    h->c = c;
+}
+
+static void m8_hash_word( M8_HASH *h, WORD v )
+{
+    m8_hash_bytes( h, (const BYTE FAR *)&v, 2 );
+}
+
+static DWORD m8_hash_h1( const M8_HASH *h )
+{
+    return( ((DWORD)h->a << 16) | h->b );
+}
+
+static DWORD m8_hash_h2( const M8_HASH *h, WORD extra )
+{
+    return( ((DWORD)h->c << 16) | extra );
+}
+
 /* Row y of a bitmap's bits from column x, w bytes. Rows inside the bitmap's
  * own segment are reached by plain far pointer; only bits past 64 KB need
  * m8_bc_sel moved, which costs KERNEL calls into DPMI - per row, they made a
@@ -1224,10 +1271,10 @@ static M8_BCENTRY *m8_bc_lookup( LPDIBENGINE src, int sx, int sy, int w, int h, 
 {
     WORD        we = (WORD)((w + 1) & ~1);
     long        delta;
-    DWORD       h1 = 2166136261UL;
-    DWORD       h2 = (DWORD)w * 131 + h;
+    DWORD       h1;
+    DWORD       h2;
+    M8_HASH     hs;
     int         row;
-    int         col;
     int         k;
     int         nested = m8_busy;
     BYTE FAR    *p;
@@ -1240,19 +1287,19 @@ static M8_BCENTRY *m8_bc_lookup( LPDIBENGINE src, int sx, int sy, int w, int h, 
         return( NULL );
     }
     M8_TP( 0 );
+    m8_hash_init( &hs, (WORD)w );
     delta = (long)src->deDeltaScan;
     for( row = 0; row < h; ++row ) {
         p = m8_bits_row( src->deBitsSelector, src->deBitsOffset, delta, sx, sy + row, w );
         q = m8_src.bits + (DWORD)row * we;
-        for( col = 0; col < w; ++col ) {
-            q[col] = p[col];
-            h1 = (h1 ^ p[col]) * 16777619UL;
-            h2 = (h2 << 5) + h2 + p[col];
-        }
+        _fmemcpy( q, p, w );
+        m8_hash_bytes( &hs, p, (WORD)w );
         if( we != (WORD)w ) {
             q[w] = 0;
         }
     }
+    h1 = m8_hash_h1( &hs );
+    h2 = m8_hash_h2( &hs, (WORD)h );
     M8_TP( 1 );
     for( k = 0; k < M8_BC_ENTRIES; ++k ) {
         if( !m8_bc[k].px && m8_bc[k].w == (WORD)w && m8_bc[k].h == (WORD)h && m8_bc[k].h1 == h1 &&
@@ -2787,8 +2834,13 @@ static int m8_sc_top( void )
     return( M8_CURSOR_SAVE_Y - m8_sc_rows() );
 }
 
+static WORD          m8_sc_gen = 1;     /* changes on each flush: m8_tk entries die with it */
+
 static void m8_sc_flush( void )
 {
+    if( ++m8_sc_gen == 0 ) {
+        m8_sc_gen = 1;
+    }
     m8_sc_n = 0;
     m8_sc_plane = 0;
     m8_sc_x = 0;
@@ -2829,20 +2881,19 @@ static int m8_sc_alloc( int w, int h, int *x, int *y, int *plane )
  * cached (too big, or the cache is full and has just been cleared). */
 static M8_SCENTRY *m8_sc_get( const BYTE FAR *bits, WORD wb, WORD h )
 {
-    DWORD       h1 = 2166136261UL;
-    DWORD       h2 = 0;
-    DWORD       n = (DWORD)wb * h;
-    DWORD       i;
+    DWORD       h1;
+    DWORD       h2;
+    M8_HASH     hs;
     int         k;
     M8_SCENTRY  *e;
 
     if( m8_hw_off || (int)wb * 8 > M8_SC_W || h > M8_SC_MAX_H || (int)h > m8_sc_rows() ) {
         return( NULL );
     }
-    for( i = 0; i < n; ++i ) {
-        h1 = (h1 ^ bits[i]) * 16777619UL;
-        h2 = (h2 << 5) + h2 + bits[i] + i;
-    }
+    m8_hash_init( &hs, wb );
+    m8_hash_bytes( &hs, bits, (WORD)(wb * h) );
+    h1 = m8_hash_h1( &hs );
+    h2 = m8_hash_h2( &hs, h );
     for( k = 0; k < m8_sc_n; ++k ) {
         e = &m8_sc[k];
         if( e->h1 == h1 && e->h2 == h2 && e->wb == wb && e->h == h ) {
@@ -2878,6 +2929,41 @@ static M8_SCENTRY *m8_sc_get( const BYTE FAR *bits, WORD wb, WORD h )
 #define M8_COORD_MAX        2047        /* engine coordinates are 12-bit signed */
 
 static int m8_text_failed;
+
+/* Strings already drawn, keyed by what was asked rather than by the pixels:
+ * font, characters, spacing, transform, options, colours' mode, and the clip
+ * and opaque rectangles relative to the origin. A hit replays what the DIB
+ * Engine did - its opaque fills and the string bitmap, which the string cache
+ * still holds - with no layout and no hash over rendered bits. */
+#define M8_TK_N             256
+#define M8_TK_RECTS         2
+
+typedef struct {
+    DWORD   h1;
+    DWORD   h2;
+    WORD    gen;                        /* m8_sc_gen when stored; 0: empty */
+    int     sc;                         /* index in m8_sc */
+    int     bx;                         /* bitmap origin, relative to the string's */
+    int     by;
+    WORD    wb;
+    WORD    h;
+    WORD    flags;                      /* the bitmap callback's: bit 0 transparent */
+    int     clip;                       /* 1: crect holds the callback's clip */
+    RECT    crect;
+    int     nrect;
+    RECT    rect[M8_TK_RECTS];          /* opaque fills */
+    DWORD   rc;
+} M8_TKENTRY;
+
+static M8_TKENTRY   m8_tk[M8_TK_N];
+static M8_TKENTRY   m8_tk_new;
+static int          m8_tk_cap;          /* recording a miss */
+static int          m8_tk_bad;          /* the miss cannot be replayed */
+static int          m8_tk_bitmaps;
+static int          m8_tk_x0;
+static int          m8_tk_y0;
+static BYTE         m8_tk_fg;
+static BYTE         m8_tk_bg;
 
 static WORD WINAPI __loadds m8_text_bitmap( LPDIBENGINE lpDevice, BYTE FAR *lpBits, WORD wFlags,
                                             DWORD dwBg, DWORD dwFg, WORD wX, WORD wY,
@@ -2915,12 +3001,33 @@ static WORD WINAPI __loadds m8_text_bitmap( LPDIBENGINE lpDevice, BYTE FAR *lpBi
     m8_rect_screen( &c );
     m8_rect_and( &r, &c );
     if( m8_rect_empty( &r ) ) {
+        m8_tk_bad = 1;
         return( 1 );
     }
     m8_exclude( &r );
     {
         M8_SCENTRY *e = m8_sc_get( lpBits, wWidthBytes, wHeight );
 
+        if( m8_tk_cap ) {
+            ++m8_tk_bitmaps;
+            if( e == NULL || (BYTE)dwFg != m8_tk_fg || (BYTE)dwBg != m8_tk_bg ) {
+                m8_tk_bad = 1;
+            } else {
+                m8_tk_new.sc = (int)(e - m8_sc);
+                m8_tk_new.bx = x - m8_tk_x0;
+                m8_tk_new.by = y - m8_tk_y0;
+                m8_tk_new.wb = wWidthBytes;
+                m8_tk_new.h = wHeight;
+                m8_tk_new.flags = wFlags;
+                m8_tk_new.clip = lpClip != NULL;
+                if( lpClip != NULL ) {
+                    m8_tk_new.crect.left = lpClip->left - m8_tk_x0;
+                    m8_tk_new.crect.top = lpClip->top - m8_tk_y0;
+                    m8_tk_new.crect.right = lpClip->right - m8_tk_x0;
+                    m8_tk_new.crect.bottom = lpClip->bottom - m8_tk_y0;
+                }
+            }
+        }
         if( e != NULL ) {
             /* The visible part only: the blit has no scissors of its own. */
             m8_hw_plane_blit( e->x + (r.l - x), e->y + (r.t - y), r.l, r.t,
@@ -2947,6 +3054,18 @@ static WORD WINAPI __loadds m8_text_rect( LPDIBENGINE lpDevice, DWORD dwBg, WORD
         m8_text_failed = 1;
         return( 1 );
     }
+    if( m8_tk_cap ) {
+        if( m8_tk_new.nrect >= M8_TK_RECTS || (BYTE)dwBg != m8_tk_bg ) {
+            m8_tk_bad = 1;
+        } else {
+            RECT *q = &m8_tk_new.rect[m8_tk_new.nrect++];
+
+            q->left = (short)wX - m8_tk_x0;
+            q->top = (short)wY - m8_tk_y0;
+            q->right = q->left + (int)wXExt;
+            q->bottom = q->top + (int)wYExt;
+        }
+    }
     m8_rect_set( &r, (short)wX, (short)wY, (short)wX + (int)wXExt, (short)wY + (int)wYExt );
     m8_rect_screen( &c );
     m8_rect_and( &r, &c );
@@ -2956,6 +3075,77 @@ static WORD WINAPI __loadds m8_text_rect( LPDIBENGINE lpDevice, DWORD dwBg, WORD
     m8_exclude( &r );
     m8_hw_fill( r.l, r.t, r.r - r.l, r.b - r.t, (BYTE)dwBg );
     return( 1 );
+}
+
+/* What the DIB Engine's layout depends on, translated to the string's origin.
+ * The font's header goes in too: a freed font's address can be reused. */
+static void m8_tk_rect( M8_HASH *hs, LPRECT r, int x0, int y0 )
+{
+    if( r == NULL ) {
+        m8_hash_word( hs, 0xFFFF );
+    } else {
+        m8_hash_word( hs, (WORD)(r->left - x0) );
+        m8_hash_word( hs, (WORD)(r->top - y0) );
+        m8_hash_word( hs, (WORD)(r->right - x0) );
+        m8_hash_word( hs, (WORD)(r->bottom - y0) );
+    }
+}
+
+static void m8_tk_key( DWORD *p1, DWORD *p2, int x0, int y0, LPRECT clip, LPSTR str, int n,
+                       LPFONTINFO font, LPDRAWMODE dm, LPTEXTXFORM xf, LPSHORT widths,
+                       LPRECT opaque, WORD options )
+{
+    M8_HASH hs;
+
+    m8_hash_init( &hs, (WORD)n );
+    m8_hash_word( &hs, FP_SEG( font ) );
+    m8_hash_word( &hs, FP_OFF( font ) );
+    m8_hash_word( &hs, options );
+    m8_hash_word( &hs, (WORD)dm->bkMode );
+    m8_hash_bytes( &hs, (const BYTE FAR *)font, 34 );
+    m8_hash_bytes( &hs, (const BYTE FAR *)&dm->TBreakExtra, 12 );
+    m8_hash_bytes( &hs, (const BYTE FAR *)str, (WORD)n );
+    if( widths != NULL ) {
+        m8_hash_bytes( &hs, (const BYTE FAR *)widths, (WORD)(n * 2) );
+    }
+    if( xf != NULL ) {
+        m8_hash_bytes( &hs, (const BYTE FAR *)xf, sizeof( TEXTXFORM ) );
+    }
+    m8_tk_rect( &hs, clip, x0, y0 );
+    m8_tk_rect( &hs, opaque, x0, y0 );
+    *p1 = m8_hash_h1( &hs );
+    *p2 = m8_hash_h2( &hs, FP_SEG( font ) ^ (WORD)n );
+}
+
+static void m8_tk_replay( const M8_TKENTRY *k, int x0, int y0, BYTE fg, BYTE bg )
+{
+    M8_SCENTRY  *e = &m8_sc[k->sc];
+    M8_RECT     r;
+    M8_RECT     c;
+    int         x = x0 + k->bx;
+    int         y = y0 + k->by;
+    int         i;
+
+    m8_busy = 1;
+    for( i = 0; i < k->nrect; ++i ) {
+        m8_text_rect( m8_screen, bg, (WORD)(x0 + k->rect[i].left), (WORD)(y0 + k->rect[i].top),
+                      (WORD)(k->rect[i].right - k->rect[i].left),
+                      (WORD)(k->rect[i].bottom - k->rect[i].top) );
+    }
+    m8_rect_set( &r, x, y, x + k->wb * 8, y + k->h );
+    if( k->clip ) {
+        m8_rect_set( &c, x0 + k->crect.left, y0 + k->crect.top, x0 + k->crect.right,
+                     y0 + k->crect.bottom );
+        m8_rect_and( &r, &c );
+    }
+    m8_rect_screen( &c );
+    m8_rect_and( &r, &c );
+    if( !m8_rect_empty( &r ) ) {
+        m8_exclude( &r );
+        m8_hw_plane_blit( e->x + (r.l - x), e->y + (r.t - y), r.l, r.t, r.r - r.l, r.b - r.t,
+                          e->plane, fg, bg, k->flags & 1 );
+    }
+    m8_leave();
 }
 
 DWORD WINAPI __loadds ExtTextOut( LPPDEVICE lpDestDev, WORD wDestXOrg, WORD wDestYOrg,
@@ -2988,8 +3178,31 @@ DWORD WINAPI __loadds ExtTextOut( LPPDEVICE lpDestDev, WORD wDestXOrg, WORD wDes
     }
     M8_ENTRY( M8_STAT_EXTTEXTOUT );
     if( !(wOptions & M8_ETO_LEVEL_MODE) && !(m8_screen->deFlags & PALETTE_XLAT) ) {
-        DWORD rc;
+        DWORD       rc;
+        DWORD       h1 = 0;
+        DWORD       h2 = 0;
+        M8_TKENTRY  *k = NULL;
 
+        if( wCount > 0 && lpFontInfo != NULL && lpDrawMode != NULL && !m8_hw_off ) {
+            m8_tk_key( &h1, &h2, (short)wDestXOrg, (short)wDestYOrg, lpClipRect, lpString, wCount,
+                       lpFontInfo, lpDrawMode, lpTextXForm, lpCharWidths, lpOpaqueRect,
+                       wOptions );
+            k = &m8_tk[(WORD)h1 & (M8_TK_N - 1)];
+            if( k->gen == m8_sc_gen && k->h1 == h1 && k->h2 == h2 ) {
+                M8_STEP( M8_MARK_TK_HIT );
+                m8_tk_replay( k, (short)wDestXOrg, (short)wDestYOrg, (BYTE)lpDrawMode->TextColor,
+                              (BYTE)lpDrawMode->bkColor );
+                return( k->rc );
+            }
+            m8_tk_new.nrect = 0;
+            m8_tk_x0 = (short)wDestXOrg;
+            m8_tk_y0 = (short)wDestYOrg;
+            m8_tk_fg = (BYTE)lpDrawMode->TextColor;
+            m8_tk_bg = (BYTE)lpDrawMode->bkColor;
+            m8_tk_bad = 0;
+            m8_tk_bitmaps = 0;
+            m8_tk_cap = 1;
+        }
         m8_busy = 1;
         m8_text_failed = 0;
         rc = DIB_ExtTextOutExt( lpDestDev, wDestXOrg, wDestYOrg, lpClipRect, lpString, wCount,
@@ -2997,6 +3210,14 @@ DWORD WINAPI __loadds ExtTextOut( LPPDEVICE lpDestDev, WORD wDestXOrg, WORD wDes
                                 lpOpaqueRect, wOptions, (LPVOID *)m8_text_bitmap,
                                 (LPVOID *)m8_text_rect );
         m8_leave();
+        m8_tk_cap = 0;
+        if( k != NULL && !m8_text_failed && !m8_tk_bad && m8_tk_bitmaps == 1 ) {
+            m8_tk_new.h1 = h1;
+            m8_tk_new.h2 = h2;
+            m8_tk_new.rc = rc;
+            m8_tk_new.gen = m8_sc_gen;
+            *k = m8_tk_new;
+        }
         if( !m8_text_failed ) {
             return( rc );
         }
