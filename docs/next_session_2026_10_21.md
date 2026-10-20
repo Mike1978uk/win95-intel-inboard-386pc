@@ -32,6 +32,17 @@ Supersedes `docs/next_session_2026_10_19.md`.
   bitmaps 10-45x; fill_hatch 52x; lines_dash 21x (pixels differ); drag_frame 22x; polygon 9x.
   Switching driver through the agent: `REGEDIT /S C:\ATIM8.REG`, then `v9x_reboot_with_proof`.
 
+## Plan item 1, 10-20 (`0dd281e`, `bf3baf1`)
+
+Bitmaps: GDI creates/deletes colour bitmaps via RealizeObject style 5 / -5 (no DDK header names it), so
+proxies are tracked by lifetime, no pixel hash; a device bitmap blitted to the screen is uploaded whole once.
+Cache in two areas sized per mode (right strip; full-width rows below the screen, shared with SaveScreenBitmap).
+800x600 vs ATI: bmp_large 16x, scr_to_mem 3.7x, bmp_card 2.5x ours. 1024x768 (`ours1024`/`ati1024`): pixels
+34/35 as at 800, scr_to_mem 3.8x, bmp_card 2.4x ours; bmp_large ATI 11x (200 rows > the 128 rows below the
+screen: hold big bitmaps as bands), drag_frame ATI 1.8x. Owner: Solitaire drag on par with ATI. Mode switch:
+`C:\RES1024.REG` / `C:\RES800.REG` (both beds), then reboot. A shutdown BSOD was seen once during the
+switching, address not captured; not seen again in 3 clean reboots - watch for it.
+
 ## Next, in order
 
 1. **Plan of attack in `docs/worklist.md`** (10-20). Start: DDK device bitmaps (item 1).
