@@ -1256,11 +1256,11 @@ static int m8_bc_draw( LPDIBENGINE src, int sx, int sy, int dx, int dy, int w, i
  * engine copies too, so a whole drag frame stays on the card. Any other use of the bitmap writes the slot back to RAM
  * first: the C entry points call m8_px_touch, the entries forwarded to the DIB
  * Engine call M8PXFLUSH or M8PXREALIZE (thunks.asm). Device bitmaps only - a
- * DIB section's bits are the application's to read. The stale RAM is hashed
- * when the proxy is made; if the hash or the bitmap's header differs when the
- * slot is used, the bitmap was written without us or freed and reused, and the
- * proxy is dropped without writing. M8_PROXY 0 turns the whole path off. */
-#define M8_PROXY            0           /* off until the pixel loops are fast: their hash checks cost more than they save (10-17) */
+ * DIB section's bits are the application's to read. GDI creates and deletes
+ * every colour bitmap through RealizeObject (OBJ_BITMAP), so a deleted
+ * bitmap's proxy is dropped there; one whose header no longer matches is
+ * dropped without writing. M8_PROXY 0 turns the whole path off. */
+#define M8_PROXY            1
 #define M8_PX_MAX           16
 #define M8_PX_MAX_PX        0xFFF0      /* the write-back goes through m8_dst */
 
@@ -1284,7 +1284,6 @@ typedef struct {
     int         w;
     int         h;
     int         lead;                   /* slot columns before x: the slot copy starts on an even column */
-    DWORD       hash;
     M8_BCENTRY  *e;
     int         unfilled;               /* slot not yet written: the RAM is still current */
 } M8_PXENTRY;
@@ -1298,29 +1297,8 @@ static BYTE FAR *m8_px_row( const M8_PXENTRY *p, int row )
     return( m8_bits_row( p->sel, p->off, (long)p->delta, p->x, p->y + row, p->w ) );
 }
 
-/* Fletcher sums over the rectangle: a change detector cheap enough to run on
- * every use (16-bit adds only). */
-static DWORD m8_px_hash( const M8_PXENTRY *p )
-{
-    WORD        s1 = 0;
-    WORD        s2 = 0;
-    BYTE FAR    *q;
-    int         row;
-    int         col;
-
-    for( row = 0; row < p->h; ++row ) {
-        q = m8_px_row( p, row );
-        for( col = 0; col < p->w; ++col ) {
-            s1 += q[col];
-            s2 += s1;
-        }
-    }
-    return( ((DWORD)s2 << 16) | s1 );
-}
-
-/* The bitmap is the one the proxy was made for, and its RAM is untouched. A
- * deleted bitmap's header may sit in freed memory: test the pointer before
- * reading through it. */
+/* The bitmap is the one the proxy was made for. Test the pointer before
+ * reading through it: GDI's heap may have reused it. */
 static int m8_px_valid( const M8_PXENTRY *p )
 {
     LPDIBENGINE b = p->bmp;
@@ -1331,8 +1309,7 @@ static int m8_px_valid( const M8_PXENTRY *p )
         IsBadWritePtr( MK_FP( p->sel, (WORD)p->off ), 1 ) ) {
         return( 0 );
     }
-    M8_TP( 6 );
-    return( m8_px_hash( p ) == p->hash );
+    return( 1 );
 }
 
 static void m8_px_drop( M8_PXENTRY *p, int keep_slot )
@@ -1423,9 +1400,23 @@ VOID WINAPI __loadds M8PXFLUSH( VOID )
     }
 }
 
-/* RealizeObject reads a bitmap only for a pattern brush. */
+/* RealizeObject reads a bitmap for a pattern brush, and deletes bitmaps.
+ * GDI's style for a bitmap is 5; no DDK header names it. */
+#define M8_OBJ_BITMAP       5
+
 VOID WINAPI __loadds M8PXREALIZE( short iStyle, LPVOID lpInObj )
 {
+    int k;
+
+    /* A bitmap being deleted: its proxies go without a write-back. */
+    if( m8_px_n > 0 && iStyle == -M8_OBJ_BITMAP && lpInObj != NULL ) {
+        for( k = 0; k < M8_PX_MAX; ++k ) {
+            if( m8_px[k].bmp == lpInObj ) {
+                m8_px_drop( &m8_px[k], 0 );
+            }
+        }
+        return;
+    }
     if( m8_px_n > 0 && iStyle == OBJ_BRUSH && lpInObj != NULL &&
         ((LPLOGBRUSH)lpInObj)->lbStyle == BS_PATTERN ) {
         m8_px_flush( NULL, M8_PX_WHY_FORWARD );
@@ -1508,7 +1499,6 @@ static M8_PXENTRY *m8_px_new( LPDIBENGINE b, int x, int y, int w, int h, int lea
     p->h = h;
     p->lead = lead;
     p->e = e;
-    p->hash = m8_px_hash( p );
     p->bmp = b;
     p->unfilled = 1;
     ++m8_px_n;
@@ -1847,6 +1837,41 @@ static int m8_px_fill( LPVOID d, int x, int y, int w, int h, BYTE colour, WORD m
 
 /* Bitmap (sx,sy) to screen (dx,dy) through a source mix: 1 if a proxy held
  * the whole source rectangle. */
+/* Upload a whole device bitmap into a new proxy, so it is drawn from the card
+ * from now on. Left unfilled: the RAM still matches, so a RAM use only drops
+ * it. One segment only, as m8_hw_write_rect reads it through one pointer. */
+static int m8_px_upload( LPDIBENGINE b )
+{
+    M8_PXENTRY  *p;
+    M8_RECT     r;
+    int         w;
+    int         h;
+    WORD        we;
+
+    if( b == NULL || b->deType != TYPE_DIBENG || m8_hw_off ) {
+        return( 0 );
+    }
+    w = (int)b->deWidth;
+    h = (int)b->deHeight;
+    we = (WORD)((w + 1) & ~1);
+    if( !m8_px_ok( b, 0, 0, w, h ) || (long)b->deDeltaScan < (long)we ||
+        b->deBitsOffset + (DWORD)b->deDeltaScan * h > 0x10000UL || m8_px_has( b ) ) {
+        return( 0 );
+    }
+    p = m8_px_new( b, 0, 0, w, h, 0, NULL );
+    if( p == NULL ) {
+        return( 0 );
+    }
+    M8_STEP( M8_MARK_PX_UPLOAD );
+    m8_rect_set( &r, p->e->x, p->e->y, p->e->x + we, p->e->y + h );
+    m8_enter( &r );
+    m8_hw_write_rect( p->e->x, p->e->y, we, h,
+                      (const BYTE FAR *)MK_FP( b->deBitsSelector, (WORD)b->deBitsOffset ),
+                      (WORD)b->deDeltaScan );
+    m8_leave();
+    return( 1 );
+}
+
 static int m8_px_restore( LPDIBENGINE b, int sx, int sy, int dx, int dy, int w, int h, WORD mix )
 {
     M8_PXENTRY  *p;
@@ -2120,8 +2145,11 @@ BOOL WINAPI __loadds BitBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPD
             return( TRUE );
         }
         if( M8_PROXY && !src_screen && m8_rop_uses_src( dwRop3 ) && !m8_rop_uses_pat( dwRop3 ) &&
-            m8_px_restore( (LPDIBENGINE)lpSrcDev, wSrcX, wSrcY, wDestX, wDestY, wXext, wYext,
-                           m8_mix_for_key[rop & 0x0F] ) ) {
+            (m8_px_restore( (LPDIBENGINE)lpSrcDev, wSrcX, wSrcY, wDestX, wDestY, wXext, wYext,
+                            m8_mix_for_key[rop & 0x0F] ) ||
+             (m8_px_upload( (LPDIBENGINE)lpSrcDev ) &&
+              m8_px_restore( (LPDIBENGINE)lpSrcDev, wSrcX, wSrcY, wDestX, wDestY, wXext, wYext,
+                             m8_mix_for_key[rop & 0x0F] ))) ) {
             return( TRUE );
         }
         if( !src_screen && m8_rop_uses_src( dwRop3 ) ) {
