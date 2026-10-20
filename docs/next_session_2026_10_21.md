@@ -43,6 +43,16 @@ screen: hold big bitmaps as bands), drag_frame ATI 1.8x. Owner: Solitaire drag o
 `C:\RES1024.REG` / `C:\RES800.REG` (both beds), then reboot. A shutdown BSOD was seen once during the
 switching, address not captured; not seen again in 3 clean reboots - watch for it.
 
+## Plan item 2 so far, 10-20 (`eb87aa9`)
+
+Text keyed by what was asked (font, chars, spacing, xform, clip/opaque relative to the origin); a hit replays
+the DIB Engine's opaque fills and the cached string bitmap. All hashes now 16-bit only (Watcom turns 32-bit
+shifts into loops and multiplies into calls even with -4). PIT-timed per call: key 2.0 -> 0.4 ms, miss
+4.8 -> 1.6 ms, hit 0.13 ms. 1024x768 (`h16`): text 1.6-2.8x, pixels = ATI; ATI still 1.7-7.5x on text.
+text_sys ~7 ms per string while our hit costs 0.5 ms: the rest is outside ExtTextOut (GDI or other entries
+per TextOut) - find it next. Fonts seen: two raster fonts, header fields do not match the DDK 3.0 layout
+(bits offset 0, face offset 42) - realized copies; probe before any per-glyph cache.
+
 ## Next, in order
 
 1. **Plan of attack in `docs/worklist.md`** (10-20). Start: DDK device bitmaps (item 1).
