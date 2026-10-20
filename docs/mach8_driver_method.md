@@ -66,7 +66,7 @@ and compares the second run with ATI's card runs. The first run after a boot is 
 
 | Lever | Source | Status |
 |---|---|---|
-| Wait for free slots (`WaitQueue(n)` on EXT_FIFO_STATUS), not for an empty FIFO, so the CPU sets up while the engine draws | XFree86 `regmach8.h:286` | to do |
+| Wait for free slots (`WaitQueue(n)` on EXT_FIFO_STATUS), not for an empty FIFO, so the CPU sets up while the engine draws | XFree86 `regmach8.h:286` | tried 10-21 (branch `queue-wip`): correct, 0.97x - most routines still end in an idle wait, so nothing overlaps. Every fixed burst must be subtracted from the count, or the FIFO overruns (first try lost writes in 11 tests; the bed reports its FIFO the other way round and cannot catch this). Redo with the trailing waits removed and set-up batched |
 | Batch: set up once, then many primitives (5 writes per span) | XFree86 `mach8fs.c:162` | to do |
 | Inline port writes (`-oi`): no call per `outpw` | Watcom; ATIM8 writes `out` inline | to do |
 | Engine advances PATT_INDEX itself on patterned lines: 2 writes per segment, not 3 | guide 9-33 | to test on the card |

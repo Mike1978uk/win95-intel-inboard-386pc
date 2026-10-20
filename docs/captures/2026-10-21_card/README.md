@@ -21,6 +21,8 @@ Rules behind the fixes: `docs/mach8_guide_rules.md`.
 | card_fix6 | + host transfers start from full idle; idle = FIFO empty and not busy; empty-transfer guards | all 35, no resets, pixels = card_prev1 in all 35; 0.95 of ATI |
 | card_dash1 | + dashed pens on the engine, ATIM8's method | first run after boot: noisy (text 8x slow); discard |
 | card_dash2 | same boot, second run | pixels = ATI in all 35; lines_dash 496/s (ATI 492); 1.045 of ATI overall |
+| card_queue2 | + FIFO slot counting, bursts not subtracted (bug) | 11 tests wrong: the count overstated the room, writes lost |
+| card_queu22 | + every burst subtracted (branch `queue-wip`) | pixels = ATI in all 35; 0.97x card_dash2 - routines still end in idle waits |
 
 Variant C (mixes/colours/scissors cached, data path forced) never ran the bench: the desktop drew
 solid squares behind the cursor.
