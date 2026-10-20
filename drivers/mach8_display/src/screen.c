@@ -2227,11 +2227,93 @@ static int m8_line_on_engine( WORD count, LPPOINT pts, LPPPEN pen, LPDRAWMODE dm
  * outside it: below, past the selector limit; above, in memory before the
  * buffer. The shape is drawn instead into a device exactly the strip's size,
  * its points shifted by the strip's origin - a multiple of 8, so patterns stay
- * in phase (Output's strips are aligned to 8). OS_SCANLINES carries (count, y)
- * and then x pairs. */
+ * in phase (Output's strips are aligned to 8). The engine does not clip a
+ * scan style's rows to the device either, so those are cut to the strip here.
+ * OS_SCANLINES carries (count, y) and then x pairs. OS_POLYSCANLINE carries
+ * count records, each in words: n, top, bottom (exclusive), n x values in
+ * pairs, n again. */
 #define M8_OUT_MAX_PTS      1024
 
 static POINT    m8_out_pts[M8_OUT_MAX_PTS];
+
+/* The rows and spans a scan style names; 0 if it names none. */
+static int m8_scan_bound( WORD style, WORD count, LPPOINT p, M8_RECT *r )
+{
+    const short FAR *w = (const short FAR *)p;
+    WORD            rec;
+    WORD            cnt;
+    WORD            i;
+    int             any = 0;
+
+    if( style == OS_SCANLINES ) {
+        if( count < 2 ) {
+            return( 0 );
+        }
+        m8_rect_set( r, p[1].xcoord, p[0].ycoord, p[1].ycoord + 1, p[0].ycoord + 1 );
+        for( i = 2; i < count; ++i ) {
+            if( p[i].xcoord < r->l ) r->l = p[i].xcoord;
+            if( p[i].ycoord + 1 > r->r ) r->r = p[i].ycoord + 1;
+        }
+        return( 1 );
+    }
+    for( rec = 0; rec < count; ++rec ) {
+        cnt = (WORD)w[0];
+        for( i = 0; i < cnt; ++i ) {
+            if( !any ) {
+                m8_rect_set( r, w[3], w[1], w[3] + 1, w[2] );
+                any = 1;
+            }
+            if( w[3 + i] < r->l ) r->l = w[3 + i];
+            if( w[3 + i] + 1 > r->r ) r->r = w[3 + i] + 1;
+            if( w[1] < r->t ) r->t = w[1];
+            if( w[2] > r->b ) r->b = w[2];
+        }
+        w += cnt + 4;
+    }
+    return( any );
+}
+
+/* OS_POLYSCANLINE records moved to the strip's origin and cut to its h rows;
+ * the records written, 0 if no row is left (or they would not fit). */
+static WORD m8_scan_shift( const M8_OUT *o, int x0, int y0, int h )
+{
+    const short FAR *s = (const short FAR *)o->pts;
+    short           *d = (short *)m8_out_pts;
+    WORD            rec;
+    WORD            out = 0;
+    WORD            j = 0;
+    WORD            cnt;
+    WORD            i;
+    int             top;
+    int             bot;
+
+    for( rec = 0; rec < o->count; ++rec ) {
+        cnt = (WORD)s[0];
+        top = s[1] - y0;
+        bot = s[2] - y0;
+        if( top < 0 ) {
+            top = 0;
+        }
+        if( bot > h ) {
+            bot = h;
+        }
+        if( top < bot ) {
+            if( j + cnt + 4 > M8_OUT_MAX_PTS * 2 ) {
+                return( 0 );
+            }
+            d[j++] = (short)cnt;
+            d[j++] = (short)top;
+            d[j++] = (short)bot;
+            for( i = 0; i < cnt; ++i ) {
+                d[j++] = (short)(s[3 + i] - x0);
+            }
+            d[j++] = (short)cnt;
+            ++out;
+        }
+        s += cnt + 4;
+    }
+    return( out );
+}
 
 static DWORD m8_draw_output( void *ctx, LPDIBENGINE dev, LPRECT c )
 {
@@ -2241,6 +2323,7 @@ static DWORD m8_draw_output( void *ctx, LPDIBENGINE dev, LPRECT c )
     int         x0 = c->left & ~7;
     int         y0 = c->top & ~7;
     int         r = (c->right + 1) & ~1;
+    WORD        n = o->count;
     WORD        i;
 
     if( o->count > M8_OUT_MAX_PTS ) {
@@ -2257,19 +2340,29 @@ static DWORD m8_draw_output( void *ctx, LPDIBENGINE dev, LPRECT c )
     tc.top = c->top - y0;
     tc.right = c->right - x0;
     tc.bottom = c->bottom - y0;
-    for( i = 0; i < o->count; ++i ) {
-        if( o->style == OS_SCANLINES && i == 0 ) {
-            m8_out_pts[0].xcoord = o->pts[0].xcoord;
-            m8_out_pts[0].ycoord = o->pts[0].ycoord - y0;
-        } else if( o->style == OS_SCANLINES ) {
-            m8_out_pts[i].xcoord = o->pts[i].xcoord - x0;
-            m8_out_pts[i].ycoord = o->pts[i].ycoord - x0;
-        } else {
-            m8_out_pts[i].xcoord = o->pts[i].xcoord - x0;
-            m8_out_pts[i].ycoord = o->pts[i].ycoord - y0;
+    if( o->style == OS_POLYSCANLINE ) {
+        n = m8_scan_shift( o, x0, y0, (int)t.deHeight );
+        if( n == 0 ) {
+            return( 1 );
+        }
+    } else if( o->style == OS_SCANLINES &&
+               (o->pts[0].ycoord < y0 || o->pts[0].ycoord >= c->bottom) ) {
+        return( 1 );
+    } else {
+        for( i = 0; i < n; ++i ) {
+            if( o->style == OS_SCANLINES && i == 0 ) {
+                m8_out_pts[0].xcoord = o->pts[0].xcoord;
+                m8_out_pts[0].ycoord = o->pts[0].ycoord - y0;
+            } else if( o->style == OS_SCANLINES ) {
+                m8_out_pts[i].xcoord = o->pts[i].xcoord - x0;
+                m8_out_pts[i].ycoord = o->pts[i].ycoord - x0;
+            } else {
+                m8_out_pts[i].xcoord = o->pts[i].xcoord - x0;
+                m8_out_pts[i].ycoord = o->pts[i].ycoord - y0;
+            }
         }
     }
-    return( DIB_Output( &t, o->style, o->count, m8_out_pts, o->pen, o->brush, o->dm, &tc ) );
+    return( DIB_Output( &t, o->style, n, m8_out_pts, o->pen, o->brush, o->dm, &tc ) );
 }
 
 WORD WINAPI __loadds Output( LPPDEVICE lpDestDev, WORD wStyle, WORD wCount, LPPOINT lpPoints,
@@ -2309,6 +2402,12 @@ WORD WINAPI __loadds Output( LPPDEVICE lpDestDev, WORD wStyle, WORD wCount, LPPO
         pts.t -= 4;
         pts.r += 5;
         pts.b += 5;
+        m8_rect_and( &bound, &pts );
+    }
+    /* A scan style can arrive with a NULL clip: shrink to the rows and spans
+     * it names, so the strips are no wider or taller than the drawing. */
+    if( (wStyle == OS_SCANLINES || wStyle == OS_POLYSCANLINE) &&
+        m8_scan_bound( wStyle, wCount, lpPoints, &pts ) ) {
         m8_rect_and( &bound, &pts );
     }
     if( wStyle == OS_POLYLINE &&
