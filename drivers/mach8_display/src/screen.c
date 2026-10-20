@@ -775,8 +775,10 @@ static int m8_rop_uses_pat( DWORD rop )
  * an 8x8 PATCOPY into a scratch bitmap in RAM (no bus traffic). Reading the
  * realized brush directly failed - dp8BrushMono had rows 1 byte apart in one
  * brush and 4 apart in another (shutdown grey-out came out in 4-row bands), and
- * dp8BrushBits is not filled for solid brushes. Hatched brushes, whose gaps
- * depend on the background mode, are not handled. */
+ * dp8BrushBits is not filled for solid brushes. A hatched brush leaves its gaps
+ * alone under a transparent background: the cell is painted twice, over two
+ * different fillers, and a pixel that differs between them is a gap - 3 then,
+ * with pat's 1 bits the hatch (c1) and 0 bits to be left as they are. */
 static int m8_brush_colours( LPBRUSH brush, LPDRAWMODE dm, BYTE *c1, BYTE *c2, BYTE *pat )
 {
     DIB_Brush8 FAR  *b = (DIB_Brush8 FAR *)brush;
@@ -789,7 +791,7 @@ static int m8_brush_colours( LPBRUSH brush, LPDRAWMODE dm, BYTE *c1, BYTE *c2, B
         return( 0 );
     }
     M8_STEP( 0xD000 | ((b->dp8BrushFlags & 0xFF) << 4) | (b->dp8BrushStyle & 0xF) );
-    if( b->dp8BrushStyle != 0 && b->dp8BrushStyle != 3 ) {
+    if( b->dp8BrushStyle != 0 && b->dp8BrushStyle != 2 && b->dp8BrushStyle != 3 ) {
         return( 0 );
     }
     /* COLORSOLID: the start of dp8BrushBits is the colour, as the DDK samples
@@ -802,8 +804,50 @@ static int m8_brush_colours( LPBRUSH brush, LPDRAWMODE dm, BYTE *c1, BYTE *c2, B
     m8_src.pitch = 8;
     m8_rect_set( &cell, 0, 0, 8, 8 );
     m8_strip_place( &m8_src, &cell );
-    DIB_BitBlt( &m8_src.dev, 0, 0, NULL, 0, 0, 8, 8, 0x00F00021UL, brush, dm );
     px = m8_src.bits;
+    if( b->dp8BrushStyle == 2 ) {
+        BYTE    first[64];
+        BYTE    bits;
+        int     gaps = 0;
+        int     col;
+
+        _fmemset( px, 0x00, 64 );
+        DIB_BitBlt( &m8_src.dev, 0, 0, NULL, 0, 0, 8, 8, 0x00F00021UL, brush, dm );
+        _fmemcpy( first, px, 64 );
+        _fmemset( px, 0xFF, 64 );
+        DIB_BitBlt( &m8_src.dev, 0, 0, NULL, 0, 0, 8, 8, 0x00F00021UL, brush, dm );
+        for( i = 0; i < 64; ++i ) {
+            if( first[i] != px[i] ) {
+                ++gaps;
+            }
+        }
+        if( gaps > 0 ) {
+            *c1 = 0;
+            *c2 = 0;
+            two = 0;
+            for( i = 0; i < 8; ++i ) {
+                bits = 0;
+                for( col = 0; col < 8; ++col ) {
+                    BYTE v = px[i * 8 + col];
+
+                    if( first[i * 8 + col] != v ) {
+                        continue;
+                    }
+                    if( !two ) {
+                        *c1 = v;
+                        two = 1;
+                    } else if( v != *c1 ) {
+                        return( 0 );
+                    }
+                    bits |= (BYTE)(0x80 >> col);
+                }
+                pat[i] = bits;
+            }
+            return( two ? 3 : 0 );
+        }
+    } else {
+        DIB_BitBlt( &m8_src.dev, 0, 0, NULL, 0, 0, 8, 8, 0x00F00021UL, brush, dm );
+    }
 
     *c1 = px[0];
     *c2 = *c1;
@@ -841,7 +885,7 @@ static int m8_brush_colours( LPBRUSH brush, LPDRAWMODE dm, BYTE *c1, BYTE *c2, B
  * byte repeated, and the scissors cut it to the rectangle. Rows are built in
  * the strip buffer, a band at a time. */
 static void m8_pattern_fill( int x, int y, int w, int h, const BYTE *pat,
-                             BYTE c1, BYTE c2, WORD mix )
+                             BYTE c1, BYTE c2, WORD mix, int transparent )
 {
     int         x0 = x & ~7;
     WORD        wb = (WORD)(((x + w + 7) >> 3) - (x >> 3));
@@ -863,7 +907,8 @@ static void m8_pattern_fill( int x, int y, int w, int h, const BYTE *pat,
             q += wb;
         }
         m8_hw_mono( x0, yb, wb, hb, m8_dst.bits, M8_MIX_SRC_FRGD | mix, c1,
-                    M8_MIX_SRC_BKGD | mix, c2, x, yb, x + w - 1, yb + hb - 1 );
+                    transparent ? M8_MIX_LEAVE : M8_MIX_SRC_BKGD | mix, c2, x, yb,
+                    x + w - 1, yb + hb - 1 );
     }
 }
 
@@ -2240,9 +2285,9 @@ BOOL WINAPI __loadds BitBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPD
             /* Two-colour patterns come from the DIB Engine's own 8x8 rendering
              * (m8_brush_colours); M8_PATTERN_EXPANSION 0 sends them back to the
              * fallback. */
-            if( kind == 2 && M8_PATTERN_EXPANSION ) {
+            if( (kind == 2 || kind == 3) && M8_PATTERN_EXPANSION ) {
                 m8_enter( &r );
-                m8_pattern_fill( wDestX, wDestY, wXext, wYext, pat, c1, c2, mix );
+                m8_pattern_fill( wDestX, wDestY, wXext, wYext, pat, c1, c2, mix, kind == 3 );
                 m8_leave();
                 return( TRUE );
             }
