@@ -40,6 +40,11 @@ Supersedes `docs/next_session_2026_10_19.md`.
 
 ## Driving the bed
 
+Two beds, same image, both on `86box_auto`: `vm_5160_mcp` (ours, agent on 9869, MCP `v9x`) and `vm_5160_ati`
+(ATIM8, agent on 9870, MCP `v9x_ati`). Bench one at a time: two running VMs share the host CPU and skew
+real-time results. Launch GUI programs with `v9x_exec` without `detach`: a detached launch runs hidden (a hidden
+Solitaire left a second, visible one with no cards, on either driver).
+
 `vm_start` with `vm_dir` = `vm_5160_mcp`, `window=True`; step ~120 s to the desktop. Start menu: press
 `ctrl+esc`, step 3 s, then `r` (keys sent too early open Help or the Task List). After boot `release`,
 then `v9x_*` tools work. A stuck run: the fault dialog's Details give the registers.
