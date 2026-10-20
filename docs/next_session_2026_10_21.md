@@ -98,6 +98,13 @@ full idle; engine reset on any timed-out wait. Card: all 35, no resets, pixels =
 (`bed-misprices-io-vs-memory`): judge bus changes on the card. The V9x agent is on the 5160 (192.168.68.62,
 `scripts/v9xctl.ps1 -Host`); driver switch = `.REG` + reboot, unattended boot is Logged + `FULL`.
 
+## End of 10-21 night: start here
+
+Master `1f536ae` = card 1.045x ATIM8, pixels = ATI in all 35 (dashed pens `565ec61`). The 5160 is set to boot it
+(`M8DISP.DRV`). FIFO slot counting is correct but 0.97x (branch `queue-wip`): redo it together with removing
+the trailing idle waits and batching set-up (XFree86 `mach8fs.c`). Then the gaps in `docs/worklist.md`, biggest
+first: polygon 0.17, stretch 0.24, floodfill 0.32, hatch 0.40, cursor 0.44. Method: `docs/mach8_driver_method.md`.
+
 ## Next, in order
 
 1. **Shadow the setup registers** (worklist item 6): every engine path gains.
