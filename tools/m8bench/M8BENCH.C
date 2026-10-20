@@ -14,6 +14,7 @@
 #include <windows.h>
 #include <stdio.h>
 #include <string.h>
+#include <io.h>
 
 #define WIN_W       640
 #define WIN_H       480
@@ -112,6 +113,14 @@ static void reset_pictures( void )
 #define TEST_COUNT  35
 static int  test_no;
 
+/* To the disk, not only the cache: a hang on the real card ends in a power-off,
+ * and the line naming the test must survive it. */
+static void flush_out( void )
+{
+    fflush( out );
+    _commit( fileno( out ) );
+}
+
 static void run( const char *name, OP op, int fixed )
 {
     double  t0;
@@ -124,7 +133,7 @@ static void run( const char *name, OP op, int fixed )
     sprintf( title, "M8BENCH %d/%d %s", test_no, TEST_COUNT, name );
     SetWindowText( wnd, title );
     fprintf( out, "started %d/%d %s\n", test_no, TEST_COUNT, name );
-    fflush( out );
+    flush_out();
     /* Let the taskbar repaint before the timing starts. */
     Sleep( 300 );
 
@@ -145,7 +154,7 @@ static void run( const char *name, OP op, int fixed )
     }
     fprintf( out, "%-16s %10.1f ops/s %8.3f ms/op  hash %08lx  #%d\n", name, n * 1000.0 / t,
              t / n, hash_area(), test_no );
-    fflush( out );
+    flush_out();
 }
 
 /* ---------------------------------------------------------------- the tests */
@@ -545,6 +554,7 @@ int WINAPI WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
     fprintf( out, "== %s  driver %s  %dx%dx%d  %04d-%02d-%02d %02d:%02d\n", cmd[0] ? cmd : "-",
              driver_name(), GetDeviceCaps( dc, HORZRES ), GetDeviceCaps( dc, VERTRES ),
              GetDeviceCaps( dc, BITSPIXEL ), st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute );
+    flush_out();
     setup();
     /* The cursor away from the window, except for its own test. */
     SetCursorPos( GetDeviceCaps( dc, HORZRES ) - 1, GetDeviceCaps( dc, VERTRES ) - 1 );
