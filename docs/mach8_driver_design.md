@@ -558,3 +558,19 @@ every test with a CPU loop over pixels 5-50x slower (text 0.06-0.19, bitmaps 0.0
 EDI before and after `3c39dc7` (Output's fallback now draws into a strip-sized device with shifted points), so the
 write is not through our strips: something calls the DIB Engine on its own selector. `3c39dc7` stays - it closes a
 real path for writes outside a strip. Next: find who owns 15E7 and which call reaches that span fill.
+
+## Device bitmaps in video memory (plan item 1), DDK read 2026-10-20
+
+`Windows95_ddk/DOCS/DESGUIDE/DISPLAY.DOC`: the DIB Engine sets `RC_DEVBITS`, so every minidriver is device-bitmap
+capable; GDI creates and selects colour bitmaps through the driver's `RealizeObject` (`OBJ_BITMAP`: allocate, fill the
+physical `PBITMAP`; delete frees), `SelectBitmap` and `BitmapBits`. Mono bitmaps are always created by GDI in system
+memory. None of the three may fail: out of video memory, the driver must `GlobalAlloc`.
+
+Design: `RealizeObject(OBJ_BITMAP)` for 8 bpp allocates in off-screen memory (one allocator for every cache and,
+later, DirectDraw) and returns a DIBENGINE header flagged as on the card. Every entry then sees card bitmaps by
+header, so no content hashing. First slice: card->screen, screen->card, card->card and fills on the engine; every
+other use demotes the bitmap in place (copy to a `GlobalAlloc` buffer, header becomes a plain DIB Engine bitmap).
+Entries to cover: BitBlt, Output, Pixel, ExtTextOut, StrBlt, ScanLR, StretchBlt, StretchDIBits, DibToDevice,
+DeviceBitmapBits, BitmapBits. Open: whether a full-screen DOS box overwrites off-screen memory (then save on
+`m8_screen_suspend`). M8BENCH's bitmaps are `CreateCompatibleBitmap`, so the bmp_* tests exercise this directly.
+Supersedes the held-bitmap proxies and the 32-bit hashing item for colour bitmaps.
