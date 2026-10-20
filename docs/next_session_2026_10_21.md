@@ -36,7 +36,7 @@ Supersedes `docs/next_session_2026_10_19.md`.
 
 1. **Cheap 32-bit hashing** for the string and bitmap caches (bmp_card, text_sys).
 2. **Brushes and dashed lines on PATT_DATA** (fill_hatch, lines_dash).
-3. Polygon/ellipse/floodfill speed: they fall back through strips (polygon 0.1 of ATI's old figure).
+3. Polygon/ellipse/floodfill speed: they fall back through strips (ATI 9x, 5x, 6x faster).
 
 ## Driving the bed
 
