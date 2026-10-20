@@ -87,6 +87,24 @@ per TextOut) - find it next. Fonts seen: two raster fonts, header fields do not 
 - Measure: full M8BENCH vs `auto_ati2`/`ati1024`; every engine test should rise, pixels must stay
   equal. Then FIFO slot counting in place of the per-op status read.
 
+## Shadowed setup registers, tried 10-21 (not committed)
+
+`m8hw.c` in the working tree: a cache of FRGD/BKGD mix and colour, WRT/RD_MASK, DP_CONFIG, PIX_CNTL and
+the extended scissors; restores dropped; FIFO room counted. Pixels = baseline in all 35. Two constraints
+found (card, as 86Box models them): a CMD write sets LINEDRAW_OPT's line bits, so LINEDRAW_OPT cannot be
+cached (cached, it changed `lines`/`rubber_band` pixels); whichever of DP_CONFIG, FRGD_MIX and CMD was
+written last picks an extended op's foreground source, so mono rewrites DP_CONFIG after either.
+Result (`docs/captures/2026-10-21_shadow/`, 1024x768): control = HEAD in two boots, `ctl1-4`, geomean
+1.000 between boots; shadow `shadow4-5` geomean 0.972, stretchblt 0.87, stretch_dib 0.91, rubber_band
+0.90, lines_dash 0.90, although rubber_band sends ~12 port writes per op instead of ~24.
+Cause: the bed prices port I/O and memory the wrong way round. `inboard386.c` charges an OUT
+`12 + 11 x (busspeed/4.77 MHz - 1)` cycles = ~65 (+ `io_delay`) at 83.5/3 MHz, ~0.8-1.1 us; the real 5160
+measured 7.64 us per word OUT (`docs/iowidth_measured_2026_09_20.md`). Every memory read costs 14 cycles
+(0.17 us, no cache model); on the card a cache hit is one cycle. Each skipped-write check is two memory
+reads, so in the bed 12 checks cost more than the 2-3 OUTs they save; on the card they save ~15 us per
+fill, ~90 us per rubber-band rectangle, ~100 us per text string, for well under 1 us of CPU. The bed
+cannot judge any trade of CPU work for fewer port writes; count the writes, or measure on the card.
+
 ## Next, in order
 
 1. **Shadow the setup registers** (worklist item 6): every engine path gains.
