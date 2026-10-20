@@ -878,11 +878,14 @@ static int m8_sc_top( void );
  * simply gets a new entry. 8-bit device bitmaps only (a DIB section may carry
  * its own colour table, which the DIB Engine translates).
  *
- * The area is right of the screen, from the top down to the string cache: menu
- * saves below the screen never reach past the screen's width. None at
- * 1024x768. It is cut into shelves of one height class each, filled left to
- * right; when it is full, the least recently used run of adjacent shelves is
- * cleared and cut again, so what is in use survives one-off bitmaps. */
+ * Two areas, sized by the mode so every mode has a cache: area 0 right of the
+ * screen, from the top down to the string cache (none at 1024x768); area 1
+ * below the screen, as wide as the screen (all 1024 columns when there is no
+ * area 0), down to the string cache. SaveScreenBitmap takes area 1's top rows
+ * when it saves, and the shelves there go first. Each area is cut into shelves
+ * of one height class each, filled left to right; when it is full, the least
+ * recently used run of adjacent shelves is cleared and cut again, so what is in
+ * use survives one-off bitmaps. */
 #define M8_BC_ENTRIES       160
 #define M8_BC_SHELVES       64          /* more than the area's rows / 16 */
 #define M8_BC_SEEN          64
@@ -909,9 +912,11 @@ typedef struct {
 } M8_BCSHELF;
 
 static M8_BCENTRY   m8_bc[M8_BC_ENTRIES];
-static M8_BCSHELF   m8_bcs[M8_BC_SHELVES];
-static int          m8_bcs_n;
-static int          m8_bc_bottom;       /* first row in no shelf */
+#define M8_BC_AREAS         2
+
+static M8_BCSHELF   m8_bcs[M8_BC_AREAS][M8_BC_SHELVES];
+static int          m8_bcs_n[M8_BC_AREAS];
+static int          m8_bc_bottom[M8_BC_AREAS];  /* first row in no shelf */
 static DWORD        m8_bc_clock;
 static DWORD        m8_bc_seen[M8_BC_SEEN];
 static int          m8_bc_seen_next;
@@ -933,21 +938,40 @@ static BYTE FAR *m8_bits_row( WORD sel, DWORD off, long delta, int x, int y, int
     return( (BYTE FAR *)MK_FP( m8_bc_sel, 0 ) );
 }
 
-static int m8_bc_left( void )
+static int m8_bc_area_x( int a )
 {
-    return( (M8_SCREEN_X + 1) & ~1 );
+    return( a == 0 ? (M8_SCREEN_X + 1) & ~1 : 0 );
 }
 
-static int m8_bc_width( void )
+static int m8_bc_area_w( int a )
 {
-    return( M8_CURSOR_SAVE_X - m8_bc_left() );
+    int w0 = M8_CURSOR_SAVE_X - m8_bc_area_x( 0 );
+
+    if( w0 < 32 ) {
+        w0 = 0;
+    }
+    if( a == 0 ) {
+        return( w0 );
+    }
+    return( w0 > 0 ? m8_bc_area_x( 0 ) : M8_PITCH );
+}
+
+static int m8_bc_area_top( int a )
+{
+    return( a == 0 ? 0 : M8_SCREEN_Y );
+}
+
+/* The area a slot at column x lies in. */
+static int m8_bc_area_of( int x )
+{
+    return( m8_bc_area_w( 0 ) > 0 && x >= m8_bc_area_x( 0 ) ? 0 : 1 );
 }
 
 /* Off while DOS has the card: the engine writes nothing then, and an entry
  * recorded anyway would later copy whatever the slot held. */
 static int m8_bc_on( void )
 {
-    return( m8_bc_sel != 0 && !m8_hw_off && m8_bc_width() >= 32 );
+    return( m8_bc_sel != 0 && !m8_hw_off );
 }
 
 static void m8_bc_flush( void )
@@ -960,8 +984,10 @@ static void m8_bc_flush( void )
     for( k = 0; k < M8_BC_SEEN; ++k ) {
         m8_bc_seen[k] = 0;
     }
-    m8_bcs_n = 0;
-    m8_bc_bottom = 0;
+    for( k = 0; k < M8_BC_AREAS; ++k ) {
+        m8_bcs_n[k] = 0;
+        m8_bc_bottom[k] = m8_bc_area_top( k );
+    }
     m8_bc_clock = 0;
     m8_bc_seen_next = 0;
 }
@@ -981,12 +1007,13 @@ static int m8_bc_seen_before( DWORD key )
     return( 0 );
 }
 
-static void m8_bc_free_rows( int y0, int y1 )
+static void m8_bc_free_rows( int a, int y0, int y1 )
 {
     int k;
 
     for( k = 0; k < M8_BC_ENTRIES; ++k ) {
-        if( m8_bc[k].w != 0 && m8_bc[k].y >= y0 && m8_bc[k].y < y1 ) {
+        if( m8_bc[k].w != 0 && m8_bc[k].y >= y0 && m8_bc[k].y < y1 &&
+            m8_bc_area_of( m8_bc[k].x ) == a ) {
             if( m8_bc[k].px ) {
                 m8_px_evicted( &m8_bc[k] );
             }
@@ -995,67 +1022,70 @@ static void m8_bc_free_rows( int y0, int y1 )
     }
 }
 
-static void m8_bc_touch( int y )
+static void m8_bc_touch( int x, int y )
 {
+    int a = m8_bc_area_of( x );
     int k;
 
     ++m8_bc_clock;
-    for( k = 0; k < m8_bcs_n; ++k ) {
-        if( y >= m8_bcs[k].y && y < m8_bcs[k].y + m8_bcs[k].h ) {
-            m8_bcs[k].used = m8_bc_clock;
+    for( k = 0; k < m8_bcs_n[a]; ++k ) {
+        if( y >= m8_bcs[a][k].y && y < m8_bcs[a][k].y + m8_bcs[a][k].h ) {
+            m8_bcs[a][k].used = m8_bc_clock;
             return;
         }
     }
 }
 
 /* Replace `remove` shelves at `at` by `insert` shelves, contents to be set. */
-static void m8_bc_splice( int at, int remove, int insert )
+static void m8_bc_splice( int a, int at, int remove, int insert )
 {
-    int k;
+    M8_BCSHELF  *sh = m8_bcs[a];
+    int         k;
 
     if( insert > remove ) {
-        for( k = m8_bcs_n - 1; k >= at + remove; --k ) {
-            m8_bcs[k + insert - remove] = m8_bcs[k];
+        for( k = m8_bcs_n[a] - 1; k >= at + remove; --k ) {
+            sh[k + insert - remove] = sh[k];
         }
     } else if( insert < remove ) {
-        for( k = at + remove; k < m8_bcs_n; ++k ) {
-            m8_bcs[k + insert - remove] = m8_bcs[k];
+        for( k = at + remove; k < m8_bcs_n[a]; ++k ) {
+            sh[k + insert - remove] = sh[k];
         }
     }
-    m8_bcs_n += insert - remove;
+    m8_bcs_n[a] += insert - remove;
 }
 
-static void m8_bc_shelf_set( int k, int y, int h )
+static void m8_bc_shelf_set( int a, int k, int y, int h )
 {
-    m8_bcs[k].y = y;
-    m8_bcs[k].h = h;
-    m8_bcs[k].x = 0;
-    m8_bcs[k].used = 0;
+    m8_bcs[a][k].y = y;
+    m8_bcs[a][k].h = h;
+    m8_bcs[a][k].x = 0;
+    m8_bcs[a][k].used = 0;
 }
 
 /* Clear the least recently used run of adjacent shelves at least hc rows tall
- * and cut a shelf of hc rows from its top: its index, or -1. Shelves cover the
- * area from row 0 to m8_bc_bottom without gaps, so a run is contiguous. */
-static int m8_bc_evict( int hc )
+ * and cut a shelf of hc rows from its top: its index, or -1. An area's shelves
+ * are in row order with no gaps between them, so a run is contiguous. */
+static int m8_bc_evict( int a, int hc )
 {
-    int     i;
-    int     j;
-    int     sum;
-    int     best = -1;
-    int     best_n = 0;
-    int     best_sum = 0;
-    int     y;
-    int     parts;
-    DWORD   age;
-    DWORD   best_age = 0;
+    M8_BCSHELF  *sh = m8_bcs[a];
+    int         i;
+    int         j;
+    int         sum;
+    int         best = -1;
+    int         best_n = 0;
+    int         best_sum = 0;
+    int         y;
+    int         parts;
+    DWORD       age;
+    DWORD       best_age = 0;
 
-    for( i = 0; i < m8_bcs_n; ++i ) {
+    for( i = 0; i < m8_bcs_n[a]; ++i ) {
         sum = 0;
         age = 0;
-        for( j = i; j < m8_bcs_n && sum < hc; ++j ) {
-            sum += m8_bcs[j].h;
-            if( m8_bcs[j].used > age ) {
-                age = m8_bcs[j].used;
+        for( j = i; j < m8_bcs_n[a] && sum < hc; ++j ) {
+            sum += sh[j].h;
+            if( sh[j].used > age ) {
+                age = sh[j].used;
             }
         }
         if( sum < hc ) {
@@ -1074,60 +1104,88 @@ static int m8_bc_evict( int hc )
     if( best_age != 0 ) {
         M8_STEP( M8_MARK_BC_EVICT );
     }
-    y = m8_bcs[best].y;
-    m8_bc_free_rows( y, y + best_sum );
-    parts = (best_sum > hc && m8_bcs_n - best_n + 2 <= M8_BC_SHELVES) ? 2 : 1;
-    m8_bc_splice( best, best_n, parts );
+    y = sh[best].y;
+    m8_bc_free_rows( a, y, y + best_sum );
+    parts = (best_sum > hc && m8_bcs_n[a] - best_n + 2 <= M8_BC_SHELVES) ? 2 : 1;
+    m8_bc_splice( a, best, best_n, parts );
     if( parts == 2 ) {
-        m8_bc_shelf_set( best, y, hc );
-        m8_bc_shelf_set( best + 1, y + hc, best_sum - hc );
+        m8_bc_shelf_set( a, best, y, hc );
+        m8_bc_shelf_set( a, best + 1, y + hc, best_sum - hc );
     } else {
-        m8_bc_shelf_set( best, y, best_sum );
+        m8_bc_shelf_set( a, best, y, best_sum );
     }
     return( best );
 }
 
-static int m8_bc_alloc( int w, int h, int *x, int *y )
+static int m8_bc_alloc_in( int a, int w, int h, int *x, int *y )
 {
-    int hc = (h + 15) & ~15;
-    int bottom = m8_sc_top();
-    int k;
+    M8_BCSHELF  *sh = m8_bcs[a];
+    int         hc = (h + 15) & ~15;
+    int         bottom = m8_sc_top();
+    int         width = m8_bc_area_w( a );
+    int         k;
 
-    if( w > m8_bc_width() || h > M8_BC_MAX_H || hc > bottom ) {
+    if( w > width || h > M8_BC_MAX_H || hc > bottom - m8_bc_area_top( a ) ) {
         return( 0 );
     }
-    for( k = 0; k < m8_bcs_n; ++k ) {
-        if( m8_bcs[k].h == hc && m8_bcs[k].x + w <= m8_bc_width() ) {
+    for( k = 0; k < m8_bcs_n[a]; ++k ) {
+        if( sh[k].h == hc && sh[k].x + w <= width ) {
             break;
         }
     }
-    if( k == m8_bcs_n ) {
-        if( m8_bcs_n < M8_BC_SHELVES && m8_bc_bottom + hc <= bottom ) {
-            m8_bc_shelf_set( m8_bcs_n++, m8_bc_bottom, hc );
-            m8_bc_bottom += hc;
+    if( k == m8_bcs_n[a] ) {
+        if( m8_bcs_n[a] < M8_BC_SHELVES && m8_bc_bottom[a] + hc <= bottom ) {
+            m8_bc_shelf_set( a, m8_bcs_n[a]++, m8_bc_bottom[a], hc );
+            m8_bc_bottom[a] += hc;
         } else {
             /* The rows left at the bottom join the area as one empty shelf. */
-            if( m8_bc_bottom < bottom && m8_bcs_n < M8_BC_SHELVES ) {
-                m8_bc_shelf_set( m8_bcs_n++, m8_bc_bottom, bottom - m8_bc_bottom );
-                m8_bc_bottom = bottom;
+            if( m8_bc_bottom[a] < bottom && m8_bcs_n[a] < M8_BC_SHELVES ) {
+                m8_bc_shelf_set( a, m8_bcs_n[a]++, m8_bc_bottom[a], bottom - m8_bc_bottom[a] );
+                m8_bc_bottom[a] = bottom;
             }
-            k = m8_bc_evict( hc );
+            k = m8_bc_evict( a, hc );
             if( k < 0 ) {
                 return( 0 );
             }
         }
     }
-    *x = m8_bc_left() + m8_bcs[k].x;
-    *y = m8_bcs[k].y;
-    m8_bcs[k].x += w;
-    m8_bcs[k].used = ++m8_bc_clock;
+    *x = m8_bc_area_x( a ) + sh[k].x;
+    *y = sh[k].y;
+    sh[k].x += w;
+    sh[k].used = ++m8_bc_clock;
     return( 1 );
+}
+
+/* Area 0 first: area 1's rows are SaveScreenBitmap's when a menu opens. */
+static int m8_bc_alloc( int w, int h, int *x, int *y )
+{
+    return( m8_bc_alloc_in( 0, w, h, x, y ) || m8_bc_alloc_in( 1, w, h, x, y ) );
+}
+
+/* SaveScreenBitmap takes area 1's rows above y1: the shelves reaching into
+ * them go, their proxies written back first. */
+static void m8_bc_claim( int y1 )
+{
+    int n = 0;
+
+    while( n < m8_bcs_n[1] && m8_bcs[1][n].y < y1 ) {
+        ++n;
+    }
+    if( n > 0 ) {
+        m8_bc_free_rows( 1, m8_bcs[1][0].y, m8_bcs[1][n - 1].y + m8_bcs[1][n - 1].h );
+        m8_bc_splice( 1, 0, n, 0 );
+    }
+    if( m8_bcs_n[1] == 0 && m8_bc_bottom[1] < y1 ) {
+        m8_bc_bottom[1] = y1;
+    }
 }
 
 /* A free entry; when all are taken, the least recently used shelf is cleared. */
 static M8_BCENTRY *m8_bc_slot( void )
 {
+    int a;
     int k;
+    int old_a = -1;
     int old = -1;
 
     for( k = 0; k < M8_BC_ENTRIES; ++k ) {
@@ -1135,18 +1193,22 @@ static M8_BCENTRY *m8_bc_slot( void )
             return( &m8_bc[k] );
         }
     }
-    for( k = 0; k < m8_bcs_n; ++k ) {
-        if( m8_bcs[k].used != 0 && (old < 0 || m8_bcs[k].used < m8_bcs[old].used) ) {
-            old = k;
+    for( a = 0; a < M8_BC_AREAS; ++a ) {
+        for( k = 0; k < m8_bcs_n[a]; ++k ) {
+            if( m8_bcs[a][k].used != 0 &&
+                (old < 0 || m8_bcs[a][k].used < m8_bcs[old_a][old].used) ) {
+                old_a = a;
+                old = k;
+            }
         }
     }
     if( old < 0 ) {
         return( NULL );
     }
     M8_STEP( M8_MARK_BC_EVICT );
-    m8_bc_free_rows( m8_bcs[old].y, m8_bcs[old].y + m8_bcs[old].h );
-    m8_bcs[old].x = 0;
-    m8_bcs[old].used = 0;
+    m8_bc_free_rows( old_a, m8_bcs[old_a][old].y, m8_bcs[old_a][old].y + m8_bcs[old_a][old].h );
+    m8_bcs[old_a][old].x = 0;
+    m8_bcs[old_a][old].used = 0;
     for( k = 0; k < M8_BC_ENTRIES; ++k ) {
         if( m8_bc[k].w == 0 ) {
             return( &m8_bc[k] );
@@ -1197,7 +1259,7 @@ static M8_BCENTRY *m8_bc_lookup( LPDIBENGINE src, int sx, int sy, int w, int h, 
             m8_bc[k].h2 == h2 ) {
             e = &m8_bc[k];
             M8_STEP( M8_MARK_BC_HIT );
-            m8_bc_touch( e->y );
+            m8_bc_touch( e->x, e->y );
             M8_TP( 2 );
             return( e );
         }
@@ -1502,7 +1564,7 @@ static M8_PXENTRY *m8_px_new( LPDIBENGINE b, int x, int y, int w, int h, int lea
     p->bmp = b;
     p->unfilled = 1;
     ++m8_px_n;
-    m8_bc_touch( e->y );
+    m8_bc_touch( e->x, e->y );
     return( p );
 }
 
@@ -1590,7 +1652,7 @@ static int m8_px_save( LPDIBENGINE b, int dx, int dy, int sx, int sy, int w, int
         w = we;
     }
     M8_STEP( M8_MARK_PX_SAVE );
-    m8_bc_touch( p->e->y );
+    m8_bc_touch( p->e->x, p->e->y );
     m8_rect_set( &r, fx, sy, fx + w, sy + h );
     m8_enter( &r );
     m8_hw_copy( fx, sy, tx, M8_PX_SY( p, dy ), w, h );
@@ -1789,12 +1851,12 @@ static int m8_px_m2m( LPVOID d, LPVOID s, int dx, int dy, int sx, int sy, int w,
         if( ps != NULL ) {
             fx = M8_PX_SX( ps, sx + (pc[k].x - dx) );
             fy = M8_PX_SY( ps, sy + (pc[k].y - dy) );
-            m8_bc_touch( ps->e->y );
+            m8_bc_touch( ps->e->x, ps->e->y );
         } else {
             fx = e->x + (pc[k].x - dx);
             fy = e->y + (pc[k].y - dy);
         }
-        m8_bc_touch( pc[k].p->e->y );
+        m8_bc_touch( pc[k].p->e->x, pc[k].p->e->y );
         m8_rect_set( &r, M8_PX_SX( pc[k].p, pc[k].x ), M8_PX_SY( pc[k].p, pc[k].y ),
                      M8_PX_SX( pc[k].p, pc[k].x ) + pc[k].w, M8_PX_SY( pc[k].p, pc[k].y ) + pc[k].h );
         m8_enter( &r );
@@ -1824,7 +1886,7 @@ static int m8_px_fill( LPVOID d, int x, int y, int w, int h, BYTE colour, WORD m
     }
     M8_STEP( M8_MARK_PX_FILL );
     for( k = 0; k < n; ++k ) {
-        m8_bc_touch( pc[k].p->e->y );
+        m8_bc_touch( pc[k].p->e->x, pc[k].p->e->y );
         m8_rect_set( &r, M8_PX_SX( pc[k].p, pc[k].x ), M8_PX_SY( pc[k].p, pc[k].y ),
                      M8_PX_SX( pc[k].p, pc[k].x ) + pc[k].w, M8_PX_SY( pc[k].p, pc[k].y ) + pc[k].h );
         m8_enter( &r );
@@ -1892,7 +1954,7 @@ static int m8_px_restore( LPDIBENGINE b, int sx, int sy, int dx, int dy, int w, 
             }
             M8_TP( 10 );
             M8_STEP( M8_MARK_PX_HIT );
-            m8_bc_touch( p->e->y );
+            m8_bc_touch( p->e->x, p->e->y );
             m8_rect_set( &r, dx, dy, dx + w, dy + h );
             m8_enter( &r );
             M8_TP( 11 );
@@ -3315,6 +3377,7 @@ WORD WINAPI __loadds SaveScreenBitmap( LPRECT lpRect, WORD wCmd )
         return( 0 );
     }
     M8_STEP( M8_MARK_SSB_SAVE );
+    m8_bc_claim( M8_SSB_Y + h );
     m8_enter( &r );
     m8_hw_copy( r.l, r.t, 0, M8_SSB_Y, w, h );
     m8_leave();
