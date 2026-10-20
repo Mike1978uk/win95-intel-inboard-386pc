@@ -1,21 +1,21 @@
 # Work list - in attack order
 
-**Now (10-20): `docs/next_session_2026_10_21.md`.** Items (1)-(2) below done (`ec1d733`: scr_to_mem 8.2x;
-uploads unchanged, so the cost is our hashing). DIBENG polygon fault fixed (`097fc8a`, bench runs 1-35).
-Baseline on `86box_auto` taken; shutdown BSOD fixed.
+**Now (10-21): on the real card, 1.045x ATIM8 with identical pixels in all 35 tests** (`ddf69f9`,
+`docs/captures/2026-10-21_card/`). **Every change follows `docs/mach8_driver_method.md`**: guide, ATIM8, XFree86
+first; bed for pixels only; the card (`tools\m8_card_cycle.ps1`) for speed. Rules: `docs/mach8_guide_rules.md`.
 
 **Plan of attack (owner, 10-20): beat ATIM8 on all 35 M8BENCH tests, with less bus traffic.** ATIM8 keeps nothing
 on the card and re-uploads every draw; we have ~424 KB off-screen and an engine that copies on-card. Thesis: put
-it on the card once, draw it with the engine. Scoreboard: M8BENCH ops/s vs `auto_ati2` plus port operations per
-draw (trace build). Loop: build, `fatcp`, `v9x_reboot_with_proof`, `v9x_exec M8BENCH`, compare. Order:
+it on the card once, draw it with the engine. Scoreboard: M8BENCH on the real card against `card_ati1,card_ati2`
+(the bed misprices port writes; its speeds do not rank work). Loop: the method doc. Order:
 1. **Bitmaps in video memory as device bitmaps** (DDK `DeviceBitmap`/`SelectBitmap`/`BitmapBits`, `RC_DEVBITS`):
    GDI routes writes through us, so no content hashing. bmp_*, mem_to_mem, draw_icon. Read the DDK first.
    Replaces the 32-bit hashing item if it holds. One off-screen allocator shared by every cache and DirectDraw.
 2. **Text** - done so far: string-keyed replay, 16-bit hashes, off-left strings cached (text_sys 87 -> 651/s at 1024x768, ATI 1044). Left: **glyph cache keyed by font + character**, mono expansion from video memory (XFree86, 51 us/glyph). text_*.
-3. **PATT_DATA brushes + brush cache** (fill_hatch, drag_frame, lines_dash; fixes lines_dash pixels).
+3. **PATT_DATA brushes + brush cache** (fill_hatch, drag_frame). [x] lines_dash (`565ec61`: ATIM8's pattern pens, card 496/s vs ATI 492, pixels = ATI).
 4. **Shapes on the engine:** polygon fill (cmd 5) for polygon/ellipse, short strokes, floodfill one row read per row.
 5. **Source colour compare** (92EE/EAEE): icons and sprites in one pass; DirectDraw colour keys.
-6. **Bus discipline** - first: **shadow the setup registers** (colour, mix, masks, scissors, pitch): write one only when its value changes; coordinates and CMD always go. Invalidate on mode set and DOS resume. Every engine path gains (owner, 10-21: "only request what changed"). Then: FIFO slot counting, no idle polls, batched set-up, run-time generated stubs.
+6. **Bus discipline** - [x] shadow the setup registers (`7f71893`: colours, masks, scissors only - the data path cannot be cached, guide 7-1). Next: **FIFO slot counting** (XFree86 `WaitQueue(n)`: wait for the slots needed, not an empty FIFO), batched set-up (one set-up, many spans), `-oi` inline port writes, no idle polls, run-time generated stubs.
 7. **DirectDraw HAL on the Mach8:** CRT_OFFSET flips timed by the A8/A9 raster counter, colour-key blits,
    surfaces off-screen; the VGA half (Mode X) after.
 8. **3D:** engine spans/fills into an off-screen page, flipped (raycaster projects as the model).
