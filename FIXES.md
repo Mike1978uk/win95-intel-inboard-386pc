@@ -418,9 +418,9 @@ fixes. Same `maxPhys` change as the sound driver.
 
 - **`bad extended memory: 128k`** from a stock `INBRDPC.SYS` without `NODIAGS`. The RAM is fine; the
   preliminary check is not — `bad` reads exactly 128k at every RAM size. Workaround:
-  `DEVICE=C:\INBRDPC.SYS NODIAGS`. Tracked at [#11](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/11); upstream 86Box#7638 is closed `NOT_PLANNED`.
+  `DEVICE=C:\INBRDPC.SYS NODIAGS`. Fixed upstream in 86Box#7765 (2026-08-25, [#11](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/11)); only older builds show it.
 - **`ROM BIOS shadow RAM failed`** with a stock driver. Does not stop the machine being used, and does
-  not cost you memory. **Root-caused, not yet fixed** — the emulator's shadow alias is at the wrong
+  not cost you memory. **Fixed upstream in 86Box#7760, #7761 and #7765 (2026-08-25)**; older builds only. There, the emulator's shadow alias is at the wrong
   address for every RAM size except 5120 ([#12](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/12)). Correcting the address alone is not
   enough: it exposes a NULL dereference that crashes 86Box ([#13](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/13)). **Do not switch to
   `mem_size = 5120` to dodge this** — that is the one path that crashes.

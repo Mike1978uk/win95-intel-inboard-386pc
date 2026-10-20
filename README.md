@@ -234,7 +234,7 @@ and there was nothing to configure.
 
 ## Upstream
 
-**The Intel Inboard 386/PC is part of 86Box.** Twenty-one PRs raised from this project are merged.
+**The Intel Inboard 386/PC is part of 86Box.** Twenty-two PRs raised from this project are merged.
 
 | Merged PR | What it fixed |
 |---|---|
@@ -259,6 +259,7 @@ and there was nothing to configure.
 | [#8294](https://github.com/86Box/86Box/pull/8294) | A new Graphics Ultra's default EEPROM runs its 8514/A modes at 60 Hz instead of 72 Hz, which many current displays drop frames at. Spotted by @andrew-hoffman. Merged 2026-10-12 |
 | [#8339](https://github.com/86Box/86Box/pull/8339) | A regression from #8289, reported by TC1995: under ATI's 1992 Windows 3.x driver (`ULTRA.DRV`) the cursor drew as a black square. A FRGD_MIX write after DP_CONFIG now moves only the foreground source. Merged 2026-10-15 |
 | [#8351](https://github.com/86Box/86Box/pull/8351) | Also from #8289, reported by TC1995: Windows 3.1's own `8514.DRV` drew text backgrounds transposed on the Graphics Ultra (File Manager's selection). Command 4 had its width and height swapped; measured on the real card. Merged 2026-10-16 |
+| [#8394](https://github.com/86Box/86Box/pull/8394) | Also from #8289, reported by Mamoru and TC1995: Windows 3.0 Solitaire hung on the Graphics Ultra. A one-pixel line read cleared the data-available bit before the host took the word. Merged 2026-10-18 |
 
 One further upstream bug was reported from here and fixed by 86Box directly, with no PR from us:
 [#7805](https://github.com/86Box/86Box/issues/7805) — the Machine settings dialog snapped RAM to a
@@ -269,10 +270,12 @@ here, fixed by OBattler in `9ee5197`.
 ### Which build to test on
 
 **Test on upstream 86Box master, not on [`86box_full/`](86box_full/).** Every Inboard change is now
-merged, so master carries the whole model — the device, the machine entry, its BIOS list
+merged except one, so master carries the whole model — the device, the machine entry, its BIOS list
 and the DMA page latch — plus upstream's own fixes as they land. `86box_full/` is a vendored
 snapshot that also carries the investigation's tracing hooks; those hooks cost roughly 3.45× in
 guest instructions per second, so keep it for reproducing the traces, not for measuring behaviour.
+The exception: delivering IRQ 9 as IRQ 2 on a machine with no second PIC (`pic.c`, needed by a
+3C509B at IRQ 9, #42) is not submitted; without it the emulated card never interrupts on the XT.
 
 The POST 101 story is worth knowing if you tried the merged machine early and found it broken: the
 machine shared `ibmxt_config`, whose default is a 1982-dated 5160 ROM, and the 1986 entries
@@ -395,7 +398,7 @@ Everything learned the hard way is written back into three skill files, so it is
 They are plain Markdown and readable without the tooling.
 
 - **`.claude/skills/inboard-hw-debug/`** — the hardware/timing/boot debugging methodology.
-  **127 numbered techniques**, each one written after it resolved *or ruled out* a real bug
+  **over 150 numbered techniques**, each one written after it resolved *or ruled out* a real bug
   here. Several carry retractions of their own earlier conclusions, which are the most useful
   lines in the file
 - **`.claude/skills/win9x-dma-driver-audit/`** — finding Windows 9x drivers that assume 24-bit
