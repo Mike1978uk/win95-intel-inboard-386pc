@@ -62,6 +62,12 @@ extern int m8_scr_y;
 #define M8_LINEDRAW_INDEX   0x9AEE      /* write; 0 = move to, then line ends from 2 */
 #define M8_LINEDRAW_OPT     0xA2EE
 #define M8_LINEDRAW_LAST_OFF 0x0004     /* LAST_PEL_OFF: each segment leaves its end pixel */
+#define M8_ALU_FG_FN        0xBAEE      /* the mix function alone, sources untouched */
+#define M8_ALU_BG_FN        0xB6EE
+#define M8_PATT_LENGTH      0xD2EE      /* length - 1 of a linear pattern */
+#define M8_PATT_DATA_INDEX  0x82EE      /* 10h: the monochrome pattern words */
+#define M8_PATT_DATA        0x8EEE
+#define M8_PATT_INDEX       0xD6EE      /* next pattern bit to use */
 #define M8_EXT_SCISSOR_MIN  0x0800      /* -2048 in 12 bits: the values ATIM8 leaves */
 #define M8_EXT_SCISSOR_MAX  0x07FF
 
@@ -69,6 +75,7 @@ extern int m8_scr_y;
  * the value the mode set leaves for the 8514/A commands. */
 #define M8_DP_MONO_HOST     0x3251
 #define M8_DP_8514          0x2211
+#define M8_DP_MONO_PATT     0x2231      /* the mono pattern picks foreground or background */
 #define M8_SCRATCH_PAD_1    0x56EE      /* marker writes for the tap (A10) */
 
 /* GP_STAT bits. */
@@ -146,6 +153,7 @@ extern void m8_hw_fill_mix( int x, int y, int w, int h, BYTE color, WORD mix );
 extern void m8_hw_copy( int sx, int sy, int dx, int dy, int w, int h );
 extern void m8_hw_copy_mix( int sx, int sy, int dx, int dy, int w, int h, WORD mix );
 extern void m8_hw_polyline( const POINT FAR *pts, WORD count, BYTE color, WORD mix,
+                            WORD style, int opaque, BYTE bg,
                             int clip_l, int clip_t, int clip_r, int clip_b );
 extern void m8_hw_mono_plane( int x, int y, WORD width_bytes, WORD height, const BYTE FAR *bits,
                               int plane );

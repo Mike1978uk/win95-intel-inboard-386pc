@@ -507,38 +507,88 @@ void m8_hw_mono( int x, int y, WORD width_bytes, WORD height, const BYTE FAR *bi
  * index returns to 2, so the next pair draws on. LAST_PEL_OFF leaves each
  * segment's end pixel to the next segment, and the last point undrawn, as GDI
  * wants. The extended scissors clip (inclusive edges). The caller keeps the
- * points on the 0-1023 grid. A full FIFO drops writes, so it is drained every
- * M8_FIFO_DEPTH writes. */
+ * points on the 0-1023 grid. LINEDRAW is an extended register: on a full FIFO
+ * the write waits (guide 8-14), but bursts are still counted.
+ *
+ * Styles 1-4 (dash, dot, dash-dot, dash-dot-dot) are drawn as ATIM8 draws them
+ * (seg08:03a5): a 32-bit mono pattern picks foreground or background per pixel,
+ * the background left alone unless the mode is opaque. The pattern position
+ * runs on from segment to segment, so it is written before each one and moved
+ * on by the segment's length. Clip mode 3 is not used: a line partly outside
+ * the device would make the engine ignore LINEDRAW writes (guide 9-34). */
+static const WORD m8_dash[4][2] = {
+    { 0xFCFC, 0xFCFC }, { 0xCCCC, 0xCCCC }, { 0x30FC, 0x30FC }, { 0xCCFC, 0xCCFC }
+};
+
 void m8_hw_polyline( const POINT FAR *pts, WORD count, BYTE color, WORD mix,
+                     WORD style, int opaque, BYTE bg,
                      int clip_l, int clip_t, int clip_r, int clip_b )
 {
     WORD    i;
     int     room;
+    WORD    phase = 0;
+    int     dx;
+    int     dy;
 
-    if( m8_hw_off || count < 2 ) {
+    if( m8_hw_off || count < 2 || style > 4 ) {
         return;
     }
     m8_wait_fifo_empty();
     M8_SET( M8_SH_WRT_MASK, 0x00FF );
     M8_SET( M8_SH_RD_MASK, 0x00FF );
-    m8_put( M8_SH_DP_CONFIG, M8_DP_8514 );
     m8_put( M8_SH_PIX_CNTL, M8_MF_PIX_CNTL );
     m8_scissors( clip_l, clip_t, clip_r, clip_b );
-    m8_put( M8_SH_FRGD_MIX, M8_MIX_SRC_FRGD | mix );
-    M8_SET( M8_SH_FRGD_COLOR, color );
+    if( style == 0 ) {
+        m8_put( M8_SH_DP_CONFIG, M8_DP_8514 );
+        m8_put( M8_SH_FRGD_MIX, M8_MIX_SRC_FRGD | mix );
+        M8_SET( M8_SH_FRGD_COLOR, color );
+    } else {
+        m8_put( M8_SH_DP_CONFIG, M8_DP_MONO_PATT );
+        M8_SET( M8_SH_FRGD_COLOR, color );
+        if( opaque ) {
+            M8_SET( M8_SH_BKGD_COLOR, bg );
+        }
+        /* The ALU registers are the mixes' function half: the data path. */
+        m8_sh_ok[M8_SH_FRGD_MIX] = 0;
+        m8_sh_ok[M8_SH_BKGD_MIX] = 0;
+        m8_room_for( 7 );
+        outpw( M8_ALU_FG_FN, mix );
+        outpw( M8_ALU_BG_FN, opaque ? mix : M8_MIX_LEAVE );
+        outpw( M8_PATT_LENGTH, 31 );
+        outpw( M8_PATT_DATA_INDEX, 0x10 );
+        outpw( M8_PATT_DATA, m8_dash[style - 1][0] );
+        outpw( M8_PATT_DATA, m8_dash[style - 1][1] );
+        outpw( M8_PATT_INDEX, 0 );
+        m8_room -= 7;
+    }
     /* Not cached: a CMD write sets LINEDRAW_OPT's line bits from its own. */
     m8_room_for( 2 );
     outpw( M8_LINEDRAW_OPT, M8_LINEDRAW_LAST_OFF );
     outpw( M8_LINEDRAW_INDEX, 0 );
     room = m8_room - 2;
     for( i = 0; i < count; ++i ) {
-        if( room < 2 ) {
+        if( room < 3 ) {
             m8_wait_fifo_empty();
-            room = M8_FIFO_DEPTH;
+            room = m8_room;
+        }
+        if( style != 0 && i > 0 ) {
+            outpw( M8_PATT_INDEX, phase );
+            --room;
         }
         outpw( M8_LINEDRAW, pts[i].xcoord );
         outpw( M8_LINEDRAW, pts[i].ycoord );
         room -= 2;
+        if( style != 0 && i > 0 ) {
+            dx = pts[i].xcoord - pts[i - 1].xcoord;
+            dy = pts[i].ycoord - pts[i - 1].ycoord;
+            if( dx < 0 ) {
+                dx = -dx;
+            }
+            if( dy < 0 ) {
+                dy = -dy;
+            }
+            phase = (phase + (dx > dy ? dx : dy)) & 31;
+        }
     }
     m8_hw_wait_idle();
     ++m8_stats[M8_STAT_LINE_HW];

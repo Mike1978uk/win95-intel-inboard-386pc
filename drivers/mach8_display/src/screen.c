@@ -2389,15 +2389,16 @@ typedef struct {
     LPDRAWMODE  dm;
 } M8_OUT;
 
-/* A solid pen through a ROP2, every point on the engine's 0-1023 grid: the
- * engine draws it. Pens reaching Output are one pixel wide - Enable withdraws
- * LC_WIDE, so GDI turns wide pens into polygons. */
+/* A solid or styled pen (dash, dot, dash-dot, dash-dot-dot) through a ROP2,
+ * every point on the engine's 0-1023 grid: the engine draws it. Pens reaching
+ * Output are one pixel wide - Enable withdraws LC_WIDE, so GDI turns wide pens
+ * into polygons. */
 static int m8_line_on_engine( WORD count, LPPOINT pts, LPPPEN pen, LPDRAWMODE dm )
 {
     DIB_Pen FAR *p = pen;
     WORD        i;
 
-    if( count < 2 || p == NULL || dm == NULL || p->dpPenStyle != LS_SOLID ||
+    if( count < 2 || p == NULL || dm == NULL || p->dpPenStyle > LS_DASHDOTDOT ||
         dm->Rop2 < 1 || dm->Rop2 > 16 ) {
         return( 0 );
     }
@@ -2647,6 +2648,8 @@ WORD WINAPI __loadds Output( LPPDEVICE lpDestDev, WORD wStyle, WORD wCount, LPPO
             m8_enter( &bound );
             m8_hw_polyline( lpPoints, wCount, (BYTE)((DIB_Pen FAR *)lpPPen)->dpPenColor,
                             m8_mix_for_key[lpDrawMode->Rop2 - 1],
+                            ((DIB_Pen FAR *)lpPPen)->dpPenStyle,
+                            lpDrawMode->bkMode == OPAQUE, (BYTE)lpDrawMode->bkColor,
                             bound.l, bound.t, bound.r - 1, bound.b - 1 );
             m8_leave();
         }
