@@ -62,6 +62,16 @@ per TextOut) - find it next. Fonts seen: two raster fonts, header fields do not 
 - Tried and reverted: an exact-compare string key (no hash) - zero hits, cause not found.
 - Next for text: per-glyph cache (beats ATI on varied text); needs the realized-font layout probed first.
 
+## Items 3-4 started, 10-21
+
+- Hatched brushes (`eb6dd90`): cell painted twice over two fillers, gaps = pixels that differ; transparent
+  gaps filled with bkgd mix LEAVE. fill_hatch 12 -> 302/s (ATI 386); drag_frame 183 vs ATI 91 (2x ours).
+- Scan spans (next commit): OS_SCANLINES/OS_POLYSCANLINE with a solid brush = one engine fill per span.
+  ellipse 13 -> 51 (ATI 68), floodfill 1.9 -> 5.8 (ATI 10.5), polygon 10 -> 15 (ATI 99: rest of the
+  polygon goes another way - find which Output style). Pixels = ATI in all but lines_dash.
+- Still behind (1024x768): lines_dash 29x, mono_bmp 9x, polygon 6.7x, bmp_large 11x (needs banding),
+  dib/stretch 3.5-5x, text 1.4-2.8x, mem_to_mem 2x.
+
 ## Next, in order
 
 1. **Plan of attack in `docs/worklist.md`** (10-20). Start: DDK device bitmaps (item 1).
