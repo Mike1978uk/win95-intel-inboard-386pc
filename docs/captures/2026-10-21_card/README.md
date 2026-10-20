@@ -2,7 +2,7 @@
 
 `m8bench_card.txt` is the card's `C:\M8BENCH.TXT`, fetched with the V9x Remote Agent. 800x600x8.
 Boot: `card_ati*` and `card_prev1` were taken after a CONFIG.SYS `LEAN` boot, everything from
-`card_fix4` on after the unattended `FULL` boot. Pixels compare across both; speeds only within one.
+`card_fix4` on after the unattended `FULL` boot. Pixels compare across both; speeds only within one. The first bench after a reboot is unreliable: run it twice.
 Rules behind the fixes: `docs/mach8_guide_rules.md`.
 
 | Label | Driver | Result |
@@ -19,6 +19,8 @@ Rules behind the fixes: `docs/mach8_guide_rules.md`.
 | card_fix5 | + BKGD_COLOR forgotten after every host transfer | all 35, 5 wrong, erratic slowdowns |
 | card_diag | fix5 + reset recorder (`pad` = D, routine, wait, count) | every reset: idle wait after a host transfer |
 | card_fix6 | + host transfers start from full idle; idle = FIFO empty and not busy; empty-transfer guards | all 35, no resets, pixels = card_prev1 in all 35; 0.95 of ATI |
+| card_dash1 | + dashed pens on the engine, ATIM8's method | first run after boot: noisy (text 8x slow); discard |
+| card_dash2 | same boot, second run | pixels = ATI in all 35; lines_dash 496/s (ATI 492); 1.045 of ATI overall |
 
 Variant C (mixes/colours/scissors cached, data path forced) never ran the bench: the desktop drew
 solid squares behind the cursor.
