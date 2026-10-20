@@ -98,18 +98,22 @@ static void m8_write_regs( const M8_REG *regs, int count )
 /* Free FIFO entries since the last wait, less the setup writes m8_put sent. */
 static int m8_room;
 
-/* Every engine call starts from an empty FIFO, so up to M8_FIFO_DEPTH writes
- * follow without another check: a write to a full FIFO is dropped, not held. */
+static void m8_engine_reset( void );
+
+/* Every engine call starts from an empty FIFO, so a burst of writes follows
+ * without another check: a write to a full FIFO is dropped, not held. Bursts
+ * stop one short of the depth: screen copies that used all 16 wedged the card. */
 static int m8_wait_fifo_empty( void )
 {
     WORD n;
 
-    m8_room = M8_FIFO_DEPTH;
+    m8_room = M8_FIFO_DEPTH - 1;
     for( n = 0; n < M8_WAIT_LIMIT; ++n ) {
         if( inpw( M8_EXT_FIFO_STATUS ) == 0 ) {
             return( 1 );
         }
     }
+    m8_engine_reset();
     return( 0 );
 }
 
@@ -123,8 +127,12 @@ static void m8_room_for( int n )
 
 /* The setup registers hold their value until written, so each is written only
  * when it changes; every routine states the ones it depends on and leaves them
- * set. Coordinates, MIN_AXIS and CMD go every time. The cache is emptied when
- * anything but these routines may have set the card: mode set, VGA through. */
+ * set. Coordinates, MIN_AXIS and CMD go every time, and so does the data path:
+ * DP_CONFIG, FRGD_MIX, BKGD_MIX and PIX_CNTL program one set of sources and ALU
+ * functions from two views (guide 7-1, 9-13), so a write to any of them changes
+ * what the others hold - do not cache them; a stale one hangs the engine (card).
+ * The cache is emptied when anything but these routines may have set the card:
+ * mode set, VGA through, engine reset. */
 enum {
     M8_SH_FRGD_MIX, M8_SH_BKGD_MIX, M8_SH_FRGD_COLOR, M8_SH_BKGD_COLOR,
     M8_SH_WRT_MASK, M8_SH_RD_MASK, M8_SH_DP_CONFIG, M8_SH_PIX_CNTL,
@@ -141,11 +149,6 @@ static const WORD m8_sh_port[M8_SH_COUNT] = {
 static WORD m8_sh_val[M8_SH_COUNT];
 static BYTE m8_sh_ok[M8_SH_COUNT];
 
-/* Whichever of DP_CONFIG, FRGD_MIX and CMD was written last chooses the
- * foreground source of an extended operation (card, as 86Box models it), so the
- * extended paths write DP_CONFIG again once either of the others has gone. */
-static int m8_dp_last;
-
 static void m8_sh_clear( void )
 {
     int i;
@@ -155,6 +158,18 @@ static void m8_sh_clear( void )
     }
 }
 
+/* A wait that runs out means the engine is wedged: a transfer left unfinished,
+ * or a locked FIFO (INVALID_IO), which ignores every write until the engine is
+ * reset (guide 8-14). ATIM8 resets the same way; the set-up is then rewritten. */
+static void m8_engine_reset( void )
+{
+    outpw( M8_SUBSYS_CNTL, M8_SUBSYS_RESET );
+    outpw( M8_SUBSYS_CNTL, M8_SUBSYS_RUN );
+    m8_write_regs( m8_engine_init, sizeof( m8_engine_init ) / sizeof( m8_engine_init[0] ) );
+    m8_sh_clear();
+    m8_room = 0;
+}
+
 static void m8_put( int r, WORD v )
 {
     m8_room_for( 1 );
@@ -162,22 +177,17 @@ static void m8_put( int r, WORD v )
     --m8_room;
     m8_sh_val[r] = v;
     m8_sh_ok[r] = 1;
-    if( r == M8_SH_DP_CONFIG ) {
-        m8_dp_last = 1;
-    } else if( r == M8_SH_FRGD_MIX ) {
-        m8_dp_last = 0;
-    }
 }
 
 /* The unchanged case is inline: it runs a dozen times per operation, and as a
  * call it cost more than the writes it saved. */
-#define M8_SET( r, v )     do {         WORD m8_v_ = (v);         if( !m8_sh_ok[r] || m8_sh_val[r] != m8_v_ ) {             m8_put( r, m8_v_ );         }     } while( 0 )
-
-static void m8_cmd( WORD cmd )
-{
-    outpw( M8_CMD, cmd );
-    m8_dp_last = 0;
-}
+#define M8_SET( r, v ) \
+    do { \
+        WORD m8_v_ = (v); \
+        if( !m8_sh_ok[r] || m8_sh_val[r] != m8_v_ ) { \
+            m8_put( r, m8_v_ ); \
+        } \
+    } while( 0 )
 
 /* Clip rectangle for every engine path, inclusive edges; the scissors clip the
  * 8514/A commands as well as the extended ones. */
@@ -195,8 +205,8 @@ static void m8_plain( void )
 {
     M8_SET( M8_SH_WRT_MASK, 0x00FF );
     M8_SET( M8_SH_RD_MASK, 0x00FF );
-    M8_SET( M8_SH_DP_CONFIG, M8_DP_8514 );
-    M8_SET( M8_SH_PIX_CNTL, M8_MF_PIX_CNTL );
+    m8_put( M8_SH_DP_CONFIG, M8_DP_8514 );
+    m8_put( M8_SH_PIX_CNTL, M8_MF_PIX_CNTL );
     m8_scissors( M8_EXT_SCISSOR_MIN, M8_EXT_SCISSOR_MIN, M8_EXT_SCISSOR_MAX, M8_EXT_SCISSOR_MAX );
 }
 
@@ -204,11 +214,14 @@ int m8_hw_wait_idle( void )
 {
     WORD n;
 
+    /* Idle is an empty FIFO as well as GE_BUSY clear, as ATIM8 tests it: a
+     * command still queued has not made the engine busy yet. */
     for( n = 0; n < M8_WAIT_LIMIT; ++n ) {
-        if( !(inpw( M8_GP_STAT ) & M8_GP_BUSY) ) {
+        if( inpw( M8_EXT_FIFO_STATUS ) == 0 && !(inpw( M8_GP_STAT ) & M8_GP_BUSY) ) {
             return( 1 );
         }
     }
+    m8_engine_reset();
     return( 0 );
 }
 
@@ -297,14 +310,14 @@ void m8_hw_fill_mix( int x, int y, int w, int h, BYTE color, WORD mix )
     }
     m8_wait_fifo_empty();
     m8_plain();
-    M8_SET( M8_SH_FRGD_MIX, mix );
+    m8_put( M8_SH_FRGD_MIX, mix );
     M8_SET( M8_SH_FRGD_COLOR, color );
     m8_room_for( 5 );
     outpw( M8_CUR_X, x );
     outpw( M8_CUR_Y, y );
     outpw( M8_MAJ_AXIS_PCNT, w - 1 );
     outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
-    m8_cmd( M8_CMD_FILL );
+    outpw( M8_CMD, M8_CMD_FILL );
     ++m8_stats[M8_STAT_FILL_HW];
 }
 
@@ -343,7 +356,7 @@ void m8_hw_copy_mix( int sx, int sy, int dx, int dy, int w, int h, WORD mix )
     }
     m8_wait_fifo_empty();
     m8_plain();
-    M8_SET( M8_SH_FRGD_MIX, mix );
+    m8_put( M8_SH_FRGD_MIX, mix );
     m8_room_for( 7 );
     outpw( M8_CUR_X, sx );
     outpw( M8_CUR_Y, sy );
@@ -351,7 +364,7 @@ void m8_hw_copy_mix( int sx, int sy, int dx, int dy, int w, int h, WORD mix )
     outpw( M8_DESTY_AXSTP, dy );
     outpw( M8_MAJ_AXIS_PCNT, w - 1 );
     outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
-    m8_cmd( cmd );
+    outpw( M8_CMD, cmd );
     ++m8_stats[M8_STAT_COPY_HW];
 }
 
@@ -363,25 +376,31 @@ void m8_hw_read_rect( int x, int y, int w, int h, BYTE FAR *dst, WORD pitch )
     WORD    words = (WORD)w / 2;
     WORD    n;
 
-    if( m8_hw_off ) {
+    if( m8_hw_off || w <= 0 || h <= 0 ) {
         return;
     }
     m8_wait_fifo_empty();
     m8_hw_wait_idle();
     m8_plain();
-    M8_SET( M8_SH_FRGD_MIX, M8_MIX_SRC_HOST | M8_MIX_REPLACE );
+    m8_put( M8_SH_FRGD_MIX, M8_MIX_SRC_HOST | M8_MIX_REPLACE );
     m8_room_for( 5 );
     outpw( M8_CUR_X, x );
     outpw( M8_CUR_Y, y );
     outpw( M8_MAJ_AXIS_PCNT, w - 1 );
     outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
-    m8_cmd( M8_CMD_HOST_READ );
+    outpw( M8_CMD, M8_CMD_HOST_READ );
     /* One wait for the first word, then the whole rectangle unpolled, as
-     * ATIM8 reads it: the card keeps pace with the bus once data flows. */
+     * ATIM8 reads it: the card keeps pace with the bus once data flows. A read
+     * of PIX_TRANS before DATA_READY locks the FIFO (guide 8-14), so without it
+     * the read is abandoned and the engine reset. */
     for( n = 0; n < M8_WAIT_LIMIT; ++n ) {
         if( inpw( M8_GP_STAT ) & M8_GP_DATA_READY ) {
             break;
         }
+    }
+    if( n == M8_WAIT_LIMIT ) {
+        m8_engine_reset();
+        return;
     }
     for( row = 0; row < h; ++row ) {
         m8_insw( (WORD FAR *)(dst + (DWORD)row * pitch), words );
@@ -395,22 +414,28 @@ void m8_hw_write_rect( int x, int y, int w, int h, const BYTE FAR *src, WORD pit
     int         row;
     WORD        words = (WORD)w / 2;
 
-    if( m8_hw_off ) {
+    if( m8_hw_off || w <= 0 || h <= 0 ) {
         return;
     }
+    /* Host transfers start from an idle engine, as ATIM8's do: the set-up
+     * rewrites DP_CONFIG, which halts a blit still running (guide 9-41). */
+    m8_hw_wait_idle();
     m8_wait_fifo_empty();
     m8_plain();
-    M8_SET( M8_SH_FRGD_MIX, M8_MIX_SRC_HOST | M8_MIX_REPLACE );
+    m8_put( M8_SH_FRGD_MIX, M8_MIX_SRC_HOST | M8_MIX_REPLACE );
     m8_room_for( 5 );
     outpw( M8_CUR_X, x );
     outpw( M8_CUR_Y, y );
     outpw( M8_MAJ_AXIS_PCNT, w - 1 );
     outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
-    m8_cmd( M8_CMD_HOST_WRITE );
+    outpw( M8_CMD, M8_CMD_HOST_WRITE );
     for( row = 0; row < h; ++row ) {
         m8_outsw( (const WORD FAR *)(src + (DWORD)row * pitch), words );
     }
+    /* Idle before any colour write: while a command still takes host data,
+     * FRGD_COLOR and BKGD_COLOR writes are consumed as pixels (guide 8-14). */
     m8_hw_wait_idle();
+    m8_sh_ok[M8_SH_BKGD_COLOR] = 0;
 }
 
 /* Mono expansion through the Mach8 extended path (DP_CONFIG 3251: a 1 bit takes
@@ -426,19 +451,27 @@ static void m8_mono( int x, int y, WORD width_bytes, WORD height, const BYTE FAR
     DWORD       bytes = (DWORD)width_bytes * height;
     WORD        words = (WORD)(bytes / 2);
 
+    /* An empty blit is indeterminate (guide 9-40), and one left waiting for
+     * host data wedges the engine. */
+    if( width_bytes == 0 || height == 0 ) {
+        return;
+    }
+    m8_hw_wait_idle();
     m8_wait_fifo_empty();
     m8_scissors( clip_l, clip_t, clip_r, clip_b );
     M8_SET( M8_SH_WRT_MASK, wrt_mask );
     M8_SET( M8_SH_RD_MASK, 0x00FF );
-    M8_SET( M8_SH_PIX_CNTL, M8_MF_PIX_CNTL );
-    M8_SET( M8_SH_FRGD_MIX, fg_mix );
+    m8_put( M8_SH_PIX_CNTL, M8_MF_PIX_CNTL );
+    m8_put( M8_SH_FRGD_MIX, fg_mix );
     M8_SET( M8_SH_FRGD_COLOR, fg );
-    M8_SET( M8_SH_BKGD_MIX, bg_mix );
+    m8_put( M8_SH_BKGD_MIX, bg_mix );
     M8_SET( M8_SH_BKGD_COLOR, bg );
-    if( !m8_dp_last ) {
-        m8_sh_ok[M8_SH_DP_CONFIG] = 0;
-    }
-    M8_SET( M8_SH_DP_CONFIG, M8_DP_MONO_HOST );
+    /* Written every time, and after FRGD_MIX: a DP_CONFIG write is what halts
+     * and flushes the blit source FIFO (guide p. 9-41), so without it this
+     * blit carries on from the last one's data and waits for host data that
+     * never comes. Written last, it also gives DP_CONFIG the choice of
+     * foreground source over FRGD_MIX. */
+    m8_put( M8_SH_DP_CONFIG, M8_DP_MONO_HOST );
     m8_room_for( 5 );
     outpw( M8_CUR_X, x );
     outpw( M8_DEST_X_START, x );
@@ -452,6 +485,9 @@ static void m8_mono( int x, int y, WORD width_bytes, WORD height, const BYTE FAR
         outpw( M8_PIX_TRANS, bits[bytes - 1] );
     }
     m8_hw_wait_idle();
+    /* PIX_TRANS is BKGD_COLOR under another address: data the engine does not
+     * take as pixels lands there (guide 8-14, 9-42). */
+    m8_sh_ok[M8_SH_BKGD_COLOR] = 0;
     ++m8_stats[M8_STAT_TEXT_HW];
 }
 
@@ -486,10 +522,10 @@ void m8_hw_polyline( const POINT FAR *pts, WORD count, BYTE color, WORD mix,
     m8_wait_fifo_empty();
     M8_SET( M8_SH_WRT_MASK, 0x00FF );
     M8_SET( M8_SH_RD_MASK, 0x00FF );
-    M8_SET( M8_SH_DP_CONFIG, M8_DP_8514 );
-    M8_SET( M8_SH_PIX_CNTL, M8_MF_PIX_CNTL );
+    m8_put( M8_SH_DP_CONFIG, M8_DP_8514 );
+    m8_put( M8_SH_PIX_CNTL, M8_MF_PIX_CNTL );
     m8_scissors( clip_l, clip_t, clip_r, clip_b );
-    M8_SET( M8_SH_FRGD_MIX, M8_MIX_SRC_FRGD | mix );
+    m8_put( M8_SH_FRGD_MIX, M8_MIX_SRC_FRGD | mix );
     M8_SET( M8_SH_FRGD_COLOR, color );
     /* Not cached: a CMD write sets LINEDRAW_OPT's line bits from its own. */
     m8_room_for( 2 );
@@ -536,17 +572,17 @@ void m8_hw_plane_blit( int sx, int sy, int dx, int dy, int w, int h, int plane,
     }
     m8_wait_fifo_empty();
     M8_SET( M8_SH_WRT_MASK, 0x00FF );
-    M8_SET( M8_SH_DP_CONFIG, M8_DP_8514 );
+    m8_put( M8_SH_DP_CONFIG, M8_DP_8514 );
     m8_scissors( M8_EXT_SCISSOR_MIN, M8_EXT_SCISSOR_MIN, M8_EXT_SCISSOR_MAX, M8_EXT_SCISSOR_MAX );
-    M8_SET( M8_SH_PIX_CNTL, M8_MF_PIX_CNTL | 0x00C0 );
+    m8_put( M8_SH_PIX_CNTL, M8_MF_PIX_CNTL | 0x00C0 );
     M8_SET( M8_SH_RD_MASK, (1 << ((plane + 1) & 7)) & 0xFF );
-    M8_SET( M8_SH_FRGD_MIX, M8_MIX_SRC_FRGD | M8_MIX_REPLACE );
+    m8_put( M8_SH_FRGD_MIX, M8_MIX_SRC_FRGD | M8_MIX_REPLACE );
     M8_SET( M8_SH_FRGD_COLOR, fg );
     if( transparent ) {
-        M8_SET( M8_SH_BKGD_MIX, M8_MIX_LEAVE );
+        m8_put( M8_SH_BKGD_MIX, M8_MIX_LEAVE );
     } else {
         M8_SET( M8_SH_BKGD_COLOR, bg );
-        M8_SET( M8_SH_BKGD_MIX, M8_MIX_SRC_BKGD | M8_MIX_REPLACE );
+        m8_put( M8_SH_BKGD_MIX, M8_MIX_SRC_BKGD | M8_MIX_REPLACE );
     }
     m8_room_for( 7 );
     outpw( M8_CUR_X, sx );
@@ -555,7 +591,7 @@ void m8_hw_plane_blit( int sx, int sy, int dx, int dy, int w, int h, int plane,
     outpw( M8_DESTY_AXSTP, dy );
     outpw( M8_MAJ_AXIS_PCNT, w - 1 );
     outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
-    m8_cmd( M8_CMD_PLANE_BLIT );
+    outpw( M8_CMD, M8_CMD_PLANE_BLIT );
     m8_hw_wait_idle();
     ++m8_stats[M8_STAT_TEXT_HW];
 }

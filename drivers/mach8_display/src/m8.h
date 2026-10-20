@@ -28,6 +28,9 @@ extern int m8_scr_y;
 #define M8_DISP_CNTL        0x22E8
 #define M8_ADVFUNC_CNTL     0x4AE8
 #define M8_SUBSYS_STAT      0x42E8      /* read */
+#define M8_SUBSYS_CNTL      0x42E8      /* write */
+#define M8_SUBSYS_RESET     0x900F      /* engine reset, status flags acknowledged */
+#define M8_SUBSYS_RUN       0x500F      /* ATIM8 writes these two to abort a transfer */
 #define M8_CUR_Y            0x82E8
 #define M8_CUR_X            0x86E8
 #define M8_DESTY_AXSTP      0x8AE8
