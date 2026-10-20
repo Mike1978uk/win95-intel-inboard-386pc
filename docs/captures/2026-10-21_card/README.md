@@ -1,0 +1,24 @@
+# Real 5160 M8BENCH runs, 2026-10-20/21
+
+`m8bench_card.txt` is the card's `C:\M8BENCH.TXT`, fetched with the V9x Remote Agent. 800x600x8.
+Boot: `card_ati*` and `card_prev1` were taken after a CONFIG.SYS `LEAN` boot, everything from
+`card_fix4` on after the unattended `FULL` boot. Pixels compare across both; speeds only within one.
+Rules behind the fixes: `docs/mach8_guide_rules.md`.
+
+| Label | Driver | Result |
+|---|---|---|
+| card_ati1, card_ati2 | ATIM8 | reference; identical pixels and timings within 2% |
+| card_ours2 | `8e78dde` register cache | text_same at 1.1 s/op, then nothing draws (FIFO locked) |
+| card_prev1 | pre-cache driver (`8e78dde`~1) | all 35; ATI's pixels in 34 (not lines_dash); 0.96 of ATI |
+| card_fix1 | + DP_CONFIG on every mono blit, BKGD_COLOR forgotten after it | same failure at text_same |
+| card_varA | cache bypassed, restores dropped | text passes; scroll on fails |
+| card_varB | mixes, colours, scissors forced | fails at text_sys |
+| card_fix2 | + mixes and PIX_CNTL forgotten after DP_CONFIG | fails at text_same |
+| card_varD | + FRGD_MIX, PIX_CNTL forced in mono | text passes (765/s vs ATI 452); fill_large on fails |
+| card_fix4 | data path never cached; engine reset on timeouts; no PIX_TRANS read without DATA_READY | all 35, 4 tests wrong |
+| card_fix5 | + BKGD_COLOR forgotten after every host transfer | all 35, 5 wrong, erratic slowdowns |
+| card_diag | fix5 + reset recorder (`pad` = D, routine, wait, count) | every reset: idle wait after a host transfer |
+| card_fix6 | + host transfers start from full idle; idle = FIFO empty and not busy; empty-transfer guards | all 35, no resets, pixels = card_prev1 in all 35; 0.95 of ATI |
+
+Variant C (mixes/colours/scissors cached, data path forced) never ran the bench: the desktop drew
+solid squares behind the cursor.
