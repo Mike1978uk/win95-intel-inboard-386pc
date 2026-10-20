@@ -972,7 +972,7 @@ what Andrew offered it for. **Unread** means exactly that: listed, not yet evalu
 From @andrew-hoffman's issue comments, not recorded before:
 
 - https://github.com/user-attachments/files/31559205/corrupt.img.zip (#18, 2026-08-28) - the floppy image showing the media-change corruption; analysed in the 2026-08-29 comment.
-- https://glabios.org/ (#35, 2026-09-29) - GLaBIOS home page; the source is already listed as https://github.com/640-KB/GLaBIOS. Its longer DRAM refresh is used as REFR64 (#33), IBM BIOS kept; GLaBIOS itself not yet run.
+- https://glabios.org/ (#35, 2026-09-29) - GLaBIOS home page; the source is already listed as https://github.com/640-KB/GLaBIOS. Its longer DRAM refresh is used as REFR64 (#33), IBM BIOS kept; running GLaBIOS itself is an optional VM experiment.
 - https://github.com/user-attachments/files/33041761/m8utl.zip (#49, 2026-10-05) - ATI's M8UTL utilities (see docs/ati_test_com_notes.md).
 - https://www.dosdays.co.uk/topics/Manufacturers/ati/ati_graphics_ultra.php (#49, 2026-10-05) - Graphics Ultra page: the two video-memory pools (Mach8 and VGA).
 - https://theretroweb.com/expansioncards/s/ati-graphics-ultra (#49, 2026-10-05) - board photos and chip list.
