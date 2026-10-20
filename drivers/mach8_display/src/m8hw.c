@@ -101,8 +101,8 @@ static int m8_room;
 static void m8_engine_reset( void );
 
 /* Every engine call starts from an empty FIFO, so a burst of writes follows
- * without another check: a write to a full FIFO is dropped, not held. Bursts
- * stop one short of the depth: screen copies that used all 16 wedged the card. */
+ * without another check. A write with all 16 entries full overruns the FIFO and
+ * locks it (INVALID_IO, guide 8-14); bursts stop one short of the depth. */
 static int m8_wait_fifo_empty( void )
 {
     WORD n;
@@ -179,8 +179,7 @@ static void m8_put( int r, WORD v )
     m8_sh_ok[r] = 1;
 }
 
-/* The unchanged case is inline: it runs a dozen times per operation, and as a
- * call it cost more than the writes it saved. */
+/* The unchanged case is inline: it runs a dozen times per operation. */
 #define M8_SET( r, v ) \
     do { \
         WORD m8_v_ = (v); \
