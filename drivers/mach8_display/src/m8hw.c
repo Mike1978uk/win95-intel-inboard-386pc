@@ -95,14 +95,15 @@ static void m8_write_regs( const M8_REG *regs, int count )
     }
 }
 
-/* Free FIFO entries since the last wait, less the setup writes m8_put sent. */
+/* FIFO entries known to be free: read from EXT_FIFO_STATUS, less every write
+ * sent since. The FIFO only drains meanwhile, so it is a lower bound. */
 static int m8_room;
 
 static void m8_engine_reset( void );
 
-/* Every engine call starts from an empty FIFO, so a burst of writes follows
- * without another check. A write with all 16 entries full overruns the FIFO and
- * locks it (INVALID_IO, guide 8-14); bursts stop one short of the depth. */
+/* An empty FIFO: host transfers and read-backs start from one. A write with all
+ * 16 entries full overruns the FIFO and locks it (INVALID_IO, guide 8-14), so
+ * the room counted from here stops one short of the depth. */
 static int m8_wait_fifo_empty( void )
 {
     WORD n;
@@ -117,12 +118,32 @@ static int m8_wait_fifo_empty( void )
     return( 0 );
 }
 
-/* Room for n more writes: with the cache cold the setup alone can fill the FIFO. */
+/* Room for n more writes, waiting only for the entries needed (XFree86's
+ * WaitQueue), so the CPU sets up the next operation while the engine draws.
+ * EXT_FIFO_STATUS has one bit per entry, entry 1 in bit 0 (guide 9-16), and
+ * entries fill from entry 1, so the free ones are the clear bits from bit 15
+ * down. One is held back: all 16 full plus a write locks the FIFO (8-14). */
 static void m8_room_for( int n )
 {
-    if( m8_room < n ) {
-        m8_wait_fifo_empty();
+    WORD    st;
+    WORD    mask;
+    int     k;
+    WORD    i;
+
+    if( m8_room >= n ) {
+        return;
     }
+    for( i = 0; i < M8_WAIT_LIMIT; ++i ) {
+        st = inpw( M8_EXT_FIFO_STATUS );
+        for( k = 0, mask = 0x8000; k < M8_FIFO_DEPTH && !(st & mask); ++k ) {
+            mask >>= 1;
+        }
+        m8_room = k - 1;
+        if( m8_room >= n ) {
+            return;
+        }
+    }
+    m8_engine_reset();
 }
 
 /* The setup registers hold their value until written, so each is written only
@@ -163,11 +184,16 @@ static void m8_sh_clear( void )
  * reset (guide 8-14). ATIM8 resets the same way; the set-up is then rewritten. */
 static void m8_engine_reset( void )
 {
+    WORD n;
+
     outpw( M8_SUBSYS_CNTL, M8_SUBSYS_RESET );
     outpw( M8_SUBSYS_CNTL, M8_SUBSYS_RUN );
     m8_write_regs( m8_engine_init, sizeof( m8_engine_init ) / sizeof( m8_engine_init[0] ) );
     m8_sh_clear();
     m8_room = 0;
+    for( n = 0; n < M8_WAIT_LIMIT && inpw( M8_EXT_FIFO_STATUS ) != 0; ++n ) {
+    }
+    m8_room = M8_FIFO_DEPTH - 1;
 }
 
 static void m8_put( int r, WORD v )
@@ -217,6 +243,7 @@ int m8_hw_wait_idle( void )
      * command still queued has not made the engine busy yet. */
     for( n = 0; n < M8_WAIT_LIMIT; ++n ) {
         if( inpw( M8_EXT_FIFO_STATUS ) == 0 && !(inpw( M8_GP_STAT ) & M8_GP_BUSY) ) {
+            m8_room = M8_FIFO_DEPTH - 1;
             return( 1 );
         }
     }
@@ -269,6 +296,7 @@ int m8_hw_set_mode( int mode )
     outp( 0x7AEE, 0x0A );
     outpw( M8_DISP_CNTL, 0x0020 );                      /* display on */
     m8_write_regs( m8_engine_init, sizeof( m8_engine_init ) / sizeof( m8_engine_init[0] ) );
+    m8_room = 0;
     m8_scr_x = m->x;
     m8_scr_y = m->y;
     m8_hw_fill( 0, 0, M8_SCREEN_X, M8_SCREEN_Y, 0 );
@@ -307,11 +335,11 @@ void m8_hw_fill_mix( int x, int y, int w, int h, BYTE color, WORD mix )
     if( m8_hw_off || w <= 0 || h <= 0 ) {
         return;
     }
-    m8_wait_fifo_empty();
     m8_plain();
     m8_put( M8_SH_FRGD_MIX, mix );
     M8_SET( M8_SH_FRGD_COLOR, color );
     m8_room_for( 5 );
+    m8_room -= 5;
     outpw( M8_CUR_X, x );
     outpw( M8_CUR_Y, y );
     outpw( M8_MAJ_AXIS_PCNT, w - 1 );
@@ -353,10 +381,10 @@ void m8_hw_copy_mix( int sx, int sy, int dx, int dy, int w, int h, WORD mix )
         sx += w - 1;
         dx += w - 1;
     }
-    m8_wait_fifo_empty();
     m8_plain();
     m8_put( M8_SH_FRGD_MIX, mix );
     m8_room_for( 7 );
+    m8_room -= 7;
     outpw( M8_CUR_X, sx );
     outpw( M8_CUR_Y, sy );
     outpw( M8_DESTX_DIASTP, dx );
@@ -383,6 +411,7 @@ void m8_hw_read_rect( int x, int y, int w, int h, BYTE FAR *dst, WORD pitch )
     m8_plain();
     m8_put( M8_SH_FRGD_MIX, M8_MIX_SRC_HOST | M8_MIX_REPLACE );
     m8_room_for( 5 );
+    m8_room -= 5;
     outpw( M8_CUR_X, x );
     outpw( M8_CUR_Y, y );
     outpw( M8_MAJ_AXIS_PCNT, w - 1 );
@@ -423,6 +452,7 @@ void m8_hw_write_rect( int x, int y, int w, int h, const BYTE FAR *src, WORD pit
     m8_plain();
     m8_put( M8_SH_FRGD_MIX, M8_MIX_SRC_HOST | M8_MIX_REPLACE );
     m8_room_for( 5 );
+    m8_room -= 5;
     outpw( M8_CUR_X, x );
     outpw( M8_CUR_Y, y );
     outpw( M8_MAJ_AXIS_PCNT, w - 1 );
@@ -472,6 +502,7 @@ static void m8_mono( int x, int y, WORD width_bytes, WORD height, const BYTE FAR
      * foreground source over FRGD_MIX. */
     m8_put( M8_SH_DP_CONFIG, M8_DP_MONO_HOST );
     m8_room_for( 5 );
+    m8_room -= 5;
     outpw( M8_CUR_X, x );
     outpw( M8_DEST_X_START, x );
     outpw( M8_DEST_X_END, x + width_bytes * 8 );
@@ -525,7 +556,6 @@ void m8_hw_polyline( const POINT FAR *pts, WORD count, BYTE color, WORD mix,
                      int clip_l, int clip_t, int clip_r, int clip_b )
 {
     WORD    i;
-    int     room;
     WORD    phase = 0;
     int     dx;
     int     dy;
@@ -533,7 +563,6 @@ void m8_hw_polyline( const POINT FAR *pts, WORD count, BYTE color, WORD mix,
     if( m8_hw_off || count < 2 || style > 4 ) {
         return;
     }
-    m8_wait_fifo_empty();
     M8_SET( M8_SH_WRT_MASK, 0x00FF );
     M8_SET( M8_SH_RD_MASK, 0x00FF );
     m8_put( M8_SH_PIX_CNTL, M8_MF_PIX_CNTL );
@@ -565,19 +594,16 @@ void m8_hw_polyline( const POINT FAR *pts, WORD count, BYTE color, WORD mix,
     m8_room_for( 2 );
     outpw( M8_LINEDRAW_OPT, M8_LINEDRAW_LAST_OFF );
     outpw( M8_LINEDRAW_INDEX, 0 );
-    room = m8_room - 2;
+    m8_room -= 2;
     for( i = 0; i < count; ++i ) {
-        if( room < 3 ) {
-            m8_wait_fifo_empty();
-            room = m8_room;
-        }
+        m8_room_for( 3 );
         if( style != 0 && i > 0 ) {
             outpw( M8_PATT_INDEX, phase );
-            --room;
+            --m8_room;
         }
         outpw( M8_LINEDRAW, pts[i].xcoord );
         outpw( M8_LINEDRAW, pts[i].ycoord );
-        room -= 2;
+        m8_room -= 2;
         if( style != 0 && i > 0 ) {
             dx = pts[i].xcoord - pts[i - 1].xcoord;
             dy = pts[i].ycoord - pts[i - 1].ycoord;
@@ -619,7 +645,6 @@ void m8_hw_plane_blit( int sx, int sy, int dx, int dy, int w, int h, int plane,
     if( m8_hw_off || w <= 0 || h <= 0 ) {
         return;
     }
-    m8_wait_fifo_empty();
     M8_SET( M8_SH_WRT_MASK, 0x00FF );
     m8_put( M8_SH_DP_CONFIG, M8_DP_8514 );
     m8_scissors( M8_EXT_SCISSOR_MIN, M8_EXT_SCISSOR_MIN, M8_EXT_SCISSOR_MAX, M8_EXT_SCISSOR_MAX );
@@ -634,6 +659,7 @@ void m8_hw_plane_blit( int sx, int sy, int dx, int dy, int w, int h, int plane,
         m8_put( M8_SH_BKGD_MIX, M8_MIX_SRC_BKGD | M8_MIX_REPLACE );
     }
     m8_room_for( 7 );
+    m8_room -= 7;
     outpw( M8_CUR_X, sx );
     outpw( M8_CUR_Y, sy );
     outpw( M8_DESTX_DIASTP, dx );
