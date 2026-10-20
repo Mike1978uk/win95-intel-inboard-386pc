@@ -57,7 +57,7 @@ per TextOut) - find it next. Fonts seen: two raster fonts, header fields do not 
 
 - Text refused by the engine path fell back to strips at 10-20 ms each; all 57 per bench were reason 3
   (bitmap starts left of or above the screen). Now drawn from the string cache, which blits only the
-  visible part (next commit after `821d540`). 1024x768: text_sys 139 -> 651/s, others +14-23%; ATI
+  visible part (`8aaa0fd`). 1024x768: text_sys 139 -> 651/s, others +14-23%; ATI
   still 1.4-2.8x on text, pixels equal. Per call: hit 0.53 ms, miss ~1.6 ms; GDI never asks to measure.
 - Tried and reverted: an exact-compare string key (no hash) - zero hits, cause not found.
 - Next for text: per-glyph cache (beats ATI on varied text); needs the realized-font layout probed first.
