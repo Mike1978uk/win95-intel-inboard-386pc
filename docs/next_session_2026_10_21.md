@@ -72,6 +72,21 @@ per TextOut) - find it next. Fonts seen: two raster fonts, header fields do not 
 - Still behind (1024x768): lines_dash 29x, mono_bmp 9x, polygon 6.7x, bmp_large 11x (needs banding),
   dib/stretch 3.5-5x, text 1.4-2.8x, mem_to_mem 2x.
 
+## Start here: shadowed setup registers (worklist item 6), design read 10-21
+
+- Every engine routine in `m8hw.c` sets FRGD_MIX, starts the op, then restores FRGD_MIX to
+  SRC_FRGD|REPLACE (fill_mix, copy_mix, write_rect, read_rect, polyline, mono: 2 writes each;
+  plane_blit also restores BKGD_MIX, RD_MASK, MULTIFUNC PIX_CNTL). Each also polls
+  EXT_FIFO_STATUS once first (`m8_wait_fifo_empty`). ~100 `outpw` sites, all in `m8hw.c`.
+- Shadowing alone saves little while the restores flip the value back. Plan: (1) `m8_out(port, v)`
+  caching FRGD_MIX, BKGD_MIX, FRGD_COLOR, BKGD_COLOR, WRT_MASK, RD_MASK, DP_CONFIG, MULTIFUNC by
+  index (PIX_CNTL, scissors T/L/B/R) and EXT_SCISSOR_*; coordinates, MAJ/MIN axis and CMD always
+  written. (2) Drop the end-of-op restores; each routine states the mix/mask it needs up front.
+  (3) Invalidate the cache in `m8_hw_set_mode`, `m8_hw_passthrough` and `m8_screen_resume` (DOS).
+  Audit `m8_hw_mono_plane`, cursor and palette code too (they were not in the first scan).
+- Measure: full M8BENCH vs `auto_ati2`/`ati1024`; every engine test should rise, pixels must stay
+  equal. Then FIFO slot counting in place of the per-op status read.
+
 ## Next, in order
 
 1. **Shadow the setup registers** (worklist item 6): every engine path gains.
