@@ -2984,12 +2984,10 @@ static WORD WINAPI __loadds m8_text_bitmap( LPDIBENGINE lpDevice, BYTE FAR *lpBi
     }
     /* The feed addresses the bitmap with a 16-bit offset in one selector. */
     if( (DWORD)FP_OFF( lpBits ) + (DWORD)wWidthBytes * wHeight > 0x10000UL ||
-        x < 0 || y < 0 || x + (long)wWidthBytes * 8 > M8_COORD_MAX ||
-        y + (long)wHeight > M8_COORD_MAX ) {
-        /* Trace: 2 = the bitmap crosses its selector, 3 = it starts off the
-         * top or left, 4 = beyond the engine's coordinates. */
-        M8_STEP( M8_MARK_TEXT_WHY | ((DWORD)FP_OFF( lpBits ) + (DWORD)wWidthBytes * wHeight > 0x10000UL ? 2 :
-                                     (x < 0 || y < 0) ? 3 : 4) );
+        x + (long)wWidthBytes * 8 > M8_COORD_MAX || y + (long)wHeight > M8_COORD_MAX ) {
+        /* Trace: 2 = the bitmap crosses its selector, 4 = beyond the engine's
+         * coordinates. */
+        M8_STEP( M8_MARK_TEXT_WHY | ((DWORD)FP_OFF( lpBits ) + (DWORD)wWidthBytes * wHeight > 0x10000UL ? 2 : 4) );
         m8_text_failed = 1;
         return( 1 );
     }
@@ -3035,6 +3033,13 @@ static WORD WINAPI __loadds m8_text_bitmap( LPDIBENGINE lpDevice, BYTE FAR *lpBi
                               wFlags & 1 );
             return( 1 );
         }
+    }
+    /* A bitmap starting off the top or left is drawn from the cache only:
+     * the cached blit takes just the visible part (trace 3). */
+    if( x < 0 || y < 0 ) {
+        M8_STEP( M8_MARK_TEXT_WHY | 3 );
+        m8_text_failed = 1;
+        return( 1 );
     }
     m8_hw_mono( x, y, wWidthBytes, wHeight, lpBits,
                 M8_MIX_SRC_FRGD | M8_MIX_REPLACE, (BYTE)dwFg,
