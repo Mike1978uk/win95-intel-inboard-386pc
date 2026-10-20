@@ -11,7 +11,7 @@ draw (trace build). Loop: build, `fatcp`, `v9x_reboot_with_proof`, `v9x_exec M8B
 1. **Bitmaps in video memory as device bitmaps** (DDK `DeviceBitmap`/`SelectBitmap`/`BitmapBits`, `RC_DEVBITS`):
    GDI routes writes through us, so no content hashing. bmp_*, mem_to_mem, draw_icon. Read the DDK first.
    Replaces the 32-bit hashing item if it holds. One off-screen allocator shared by every cache and DirectDraw.
-2. **Glyph cache keyed by font + character**, mono expansion from video memory (XFree86, 51 us/glyph). text_*.
+2. **Text** - done so far: string-keyed replay, 16-bit hashes, off-left strings cached (text_sys 87 -> 651/s at 1024x768, ATI 1044). Left: **glyph cache keyed by font + character**, mono expansion from video memory (XFree86, 51 us/glyph). text_*.
 3. **PATT_DATA brushes + brush cache** (fill_hatch, drag_frame, lines_dash; fixes lines_dash pixels).
 4. **Shapes on the engine:** polygon fill (cmd 5) for polygon/ellipse, short strokes, floodfill one row read per row.
 5. **Source colour compare** (92EE/EAEE): icons and sprites in one pass; DirectDraw colour keys.

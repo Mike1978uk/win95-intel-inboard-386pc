@@ -53,6 +53,15 @@ text_sys ~7 ms per string while our hit costs 0.5 ms: the rest is outside ExtTex
 per TextOut) - find it next. Fonts seen: two raster fonts, header fields do not match the DDK 3.0 layout
 (bits offset 0, face offset 42) - realized copies; probe before any per-glyph cache.
 
+## Plan item 2, continued 10-20/21
+
+- Text refused by the engine path fell back to strips at 10-20 ms each; all 57 per bench were reason 3
+  (bitmap starts left of or above the screen). Now drawn from the string cache, which blits only the
+  visible part (next commit after `821d540`). 1024x768: text_sys 139 -> 651/s, others +14-23%; ATI
+  still 1.4-2.8x on text, pixels equal. Per call: hit 0.53 ms, miss ~1.6 ms; GDI never asks to measure.
+- Tried and reverted: an exact-compare string key (no hash) - zero hits, cause not found.
+- Next for text: per-glyph cache (beats ATI on varied text); needs the realized-font layout probed first.
+
 ## Next, in order
 
 1. **Plan of attack in `docs/worklist.md`** (10-20). Start: DDK device bitmaps (item 1).
