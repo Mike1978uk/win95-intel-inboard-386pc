@@ -274,8 +274,8 @@ merged except one, so master carries the whole model — the device, the machine
 and the DMA page latch — plus upstream's own fixes as they land. `86box_full/` is a vendored
 snapshot that also carries the investigation's tracing hooks; those hooks cost roughly 3.45× in
 guest instructions per second, so keep it for reproducing the traces, not for measuring behaviour.
-The exception: delivering IRQ 9 as IRQ 2 on a machine with no second PIC (`pic.c`, needed by a
-3C509B at IRQ 9, #42) is not submitted; without it the emulated card never interrupts on the XT.
+The exception is local to this project: delivering IRQ 9 as IRQ 2 on a machine with no second
+PIC (`pic.c`, for the 3C509B at IRQ 9, #42). Without it the emulated card never interrupts on the XT.
 
 The POST 101 story is worth knowing if you tried the merged machine early and found it broken: the
 machine shared `ibmxt_config`, whose default is a 1982-dated 5160 ROM, and the 1986 entries
@@ -528,14 +528,13 @@ rather than a DMA-reach one — is on the issue.
 | [#28](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/28) | Per-component audit: walk every driver and VxD, six questions each |
 | [#29](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/29) | Measure DMA: reach, cost per byte, channel inventory, CPU overlap |
 | [#31](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/31) | The SCSI chain: does it disconnect, and are the target caches on? Every target has one, and this is the most on-point mechanism in the machine |
-| [#33](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/33) | DRAM refresh tuning: a tax every device pays |
 | [#35](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/35) | Shadow RAM inventory, and memory-mapped storage in the emulator |
-| [#41](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/41) | Pace the polling in every driver that spins: `T130.MPD`, `HSFLOP.PDR`, `ELNK3.VXD`. A poll is **5.55 us** of bus moving nothing against **0.22 us** for a cached delay - and since 2026-09-21 we know it also **flushes the L1**, so each poll removed is worth more than its bus time |
+| [#41](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/41) | Pace the polling in every driver that spins. `XTIDEMP.MPD` done (2026-10-11); `HSFLOP.PDR` is not a target; `T130.MPD` now runs on IRQ 3; `ELNK3.VXD` not yet looked at |
 | [#43](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/43) | IOCHRDY: what a held bus actually costs. Our own three-window fit already isolates it - per bus cycle **1.978 us** (XT-CF ROM) against **3.805 us** (Mach8 video), same machine, same fixed sync term. And **86Box models no bus stall at all**, so any lever whose whole benefit is holding the bus for less time measures as zero in the bed |
-| [#45](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/45) | Windows 95 settings and the timer tick, each A/B tested on the 5160. A 1 ms tick costs 15% of the CPU; the LS-120 is the one driver left that might gain from it |
+| [#45](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/45) | Windows 95 settings and the timer tick, each A/B tested on the 5160. `MinTimeSlice=54` adopted (2026-10-11); open: DOS boxes and serial at the 55 ms tick |
 | [#47](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/47) | FastDoom: settings that give Sound Blaster sound and a usable frame rate |
 | [#48](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/48) | Optimisation timeline: what each change bought, from first boot to now |
-| [#49](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/49) | Mach8 display driver: a glyph cache to cut text traffic on the 8-bit bus |
+| [#49](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/49) | Mach8 display driver: the project's own Windows 95 driver for the Graphics Ultra, working in 86Box; the first timed run against ATIM8 on the 5160 is still to come |
 
 Issues are labelled **`emulator`** or **`real-hardware`** so you can pick by what you have, and
 **`upstream`** marks the ones destined for 86Box itself.
