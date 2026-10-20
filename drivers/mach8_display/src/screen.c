@@ -2502,6 +2502,42 @@ static WORD m8_scan_shift( const M8_OUT *o, int x0, int y0, int h )
     return( out );
 }
 
+/* Scan styles with one colour: each span is one engine fill, nothing read
+ * back. Spans are [x1, x2) on their rows, cut to clip. */
+static void m8_scan_fill( WORD style, WORD count, LPPOINT p, const M8_RECT *clip, BYTE colour,
+                          WORD mix )
+{
+    const short FAR *w = (const short FAR *)p;
+    M8_RECT         r;
+    WORD            rec;
+    WORD            i;
+    WORD            cnt;
+
+    m8_enter( clip );
+    if( style == OS_SCANLINES ) {
+        for( i = 1; i < count; ++i ) {
+            m8_rect_set( &r, p[i].xcoord, p[0].ycoord, p[i].ycoord, p[0].ycoord + 1 );
+            m8_rect_and( &r, clip );
+            if( !m8_rect_empty( &r ) ) {
+                m8_hw_fill_mix( r.l, r.t, r.r - r.l, r.b - r.t, colour, mix );
+            }
+        }
+    } else {
+        for( rec = 0; rec < count; ++rec ) {
+            cnt = (WORD)w[0];
+            for( i = 0; i + 1 < cnt; i += 2 ) {
+                m8_rect_set( &r, w[3 + i], w[1], w[4 + i], w[2] );
+                m8_rect_and( &r, clip );
+                if( !m8_rect_empty( &r ) ) {
+                    m8_hw_fill_mix( r.l, r.t, r.r - r.l, r.b - r.t, colour, mix );
+                }
+            }
+            w += cnt + 4;
+        }
+    }
+    m8_leave();
+}
+
 static DWORD m8_draw_output( void *ctx, LPDIBENGINE dev, LPRECT c )
 {
     M8_OUT      *o = ctx;
@@ -2615,6 +2651,23 @@ WORD WINAPI __loadds Output( LPPDEVICE lpDestDev, WORD wStyle, WORD wCount, LPPO
             m8_leave();
         }
         return( 1 );
+    }
+    if( (wStyle == OS_POLYSCANLINE || wStyle == OS_SCANLINES) && lpPBrush != NULL &&
+        lpDrawMode != NULL && lpDrawMode->Rop2 >= 1 && lpDrawMode->Rop2 <= 16 ) {
+        BYTE    c1;
+        BYTE    c2;
+        BYTE    pat[8];
+        M8_RECT scr;
+
+        if( m8_brush_colours( (LPBRUSH)lpPBrush, lpDrawMode, &c1, &c2, pat ) == 1 ) {
+            m8_rect_screen( &scr );
+            m8_rect_and( &bound, &scr );
+            if( !m8_rect_empty( &bound ) ) {
+                m8_scan_fill( wStyle, wCount, lpPoints, &bound, c1,
+                              M8_MIX_SRC_FRGD | m8_mix_for_key[lpDrawMode->Rop2 - 1] );
+            }
+            return( 1 );
+        }
     }
     o.style = wStyle;
     o.count = wCount;
