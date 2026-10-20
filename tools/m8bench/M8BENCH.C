@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <io.h>
+#include <conio.h>
 
 #define WIN_W       640
 #define WIN_H       480
@@ -152,8 +153,10 @@ static void run( const char *name, OP op, int fixed )
     for( i = 0; i < fixed; ++i ) {
         op( i );
     }
-    fprintf( out, "%-16s %10.1f ops/s %8.3f ms/op  hash %08lx  #%d\n", name, n * 1000.0 / t,
-             t / n, hash_area(), test_no );
+    /* SCRATCH_PAD_1: a diagnostic driver build leaves its last engine reset
+     * there (Dosr: routine o, wait s, count r); anything else is noise. */
+    fprintf( out, "%-16s %10.1f ops/s %8.3f ms/op  hash %08lx  #%d  pad %04x\n", name,
+             n * 1000.0 / t, t / n, hash_area(), test_no, inpw( 0x56EE ) );
     flush_out();
 }
 
