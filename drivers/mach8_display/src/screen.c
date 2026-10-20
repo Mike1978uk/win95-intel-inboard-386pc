@@ -178,6 +178,8 @@ static int m8_rect_overlap( const M8_RECT *a, const M8_RECT *b )
 
 /* ------------------------------------------------------------- the strip */
 
+/* GDI can still draw to the screen device after Disable (m8_screen NULL),
+ * at shutdown: every screen entry returns at once then. */
 static int m8_is_screen( LPVOID dev )
 {
     LPDIBENGINE d = dev;
@@ -2039,6 +2041,9 @@ BOOL WINAPI __loadds BitBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPD
         return( DIB_BitBlt( lpDestDev, wDestX, wDestY, lpSrcDev, wSrcX, wSrcY, wXext, wYext,
                             dwRop3, lpPBrush, lpDrawMode ) );
     }
+    if( m8_screen == NULL ) {
+        return( FALSE );
+    }
     M8_ENTRY( M8_STAT_BITBLT );
 
     /* A memory source clips the copy to its own extent, as the DIB Engine
@@ -2379,6 +2384,9 @@ WORD WINAPI __loadds Output( LPPDEVICE lpDestDev, WORD wStyle, WORD wCount, LPPO
         return( DIB_Output( lpDestDev, wStyle, wCount, lpPoints, lpPPen, lpPBrush,
                             lpDrawMode, lpClipRect ) );
     }
+    if( m8_screen == NULL ) {
+        return( 0 );
+    }
     if( wStyle == OS_BEGINNSCAN || wStyle == OS_ENDNSCAN ) {
         return( 1 );
     }
@@ -2462,6 +2470,9 @@ DWORD WINAPI __loadds Pixel( LPPDEVICE lpDestDev, WORD X, WORD Y, DWORD dwPhysCo
     if( !m8_is_screen( lpDestDev ) ) {
         return( DIB_Pixel( lpDestDev, X, Y, dwPhysColor, lpDrawMode ) );
     }
+    if( m8_screen == NULL ) {
+        return( 0 );
+    }
     M8_ENTRY( M8_STAT_PIXEL );
     /* A set on the engine: a 1x1 fill through the ROP2's mix, no read-back.
      * The return value is the DIB Engine's for the same call on the RAM strip. */
@@ -2516,6 +2527,9 @@ WORD WINAPI __loadds ScanLR( LPPDEVICE lpDestDev, WORD X, WORD Y, DWORD dwPhysCo
     m8_px_touch( lpDestDev, M8_PX_WHY_ENTRY );
     if( !m8_is_screen( lpDestDev ) ) {
         return( DIB_ScanLR( lpDestDev, X, Y, dwPhysColor, wStyle ) );
+    }
+    if( m8_screen == NULL ) {
+        return( 0 );
     }
     M8_ENTRY( M8_STAT_SCANLR );
     s.x = X;
@@ -2869,6 +2883,9 @@ DWORD WINAPI __loadds ExtTextOut( LPPDEVICE lpDestDev, WORD wDestXOrg, WORD wDes
                                 lpFontInfo, lpDrawMode, lpTextXForm, lpCharWidths,
                                 lpOpaqueRect, wOptions ) );
     }
+    if( m8_screen == NULL ) {
+        return( 0 );
+    }
     /* A negative count only measures: no pixels, so any surface will do. */
     if( wCount < 0 ) {
         return( DIB_ExtTextOut( &m8_dst.dev, wDestXOrg, wDestYOrg, lpClipRect, lpString, wCount,
@@ -2924,6 +2941,9 @@ DWORD WINAPI __loadds StrBlt( LPPDEVICE lpDestDev, WORD wDestXOrg, WORD wDestYOr
     if( !m8_is_screen( lpDestDev ) ) {
         return( DIB_StrBlt( lpDestDev, wDestXOrg, wDestYOrg, lpClipRect, lpString, wCount,
                             lpFontInfo, lpDrawMode, lpTextXForm ) );
+    }
+    if( m8_screen == NULL ) {
+        return( 0 );
     }
     if( (int)wCount <= 0 ) {
         return( DIB_StrBlt( &m8_dst.dev, wDestXOrg, wDestYOrg, lpClipRect, lpString, wCount,
@@ -2986,6 +3006,9 @@ WORD WINAPI __loadds DibToDevice( LPPDEVICE lpDestDev, WORD X, WORD Y, WORD iSca
     if( !m8_is_screen( lpDestDev ) ) {
         return( DIB_DibToDevice( lpDestDev, X, Y, iScan, cScans, lpClipRect, lpDrawMode,
                                  lpDIBits, lpBitmapInfo, lpTranslate ) );
+    }
+    if( m8_screen == NULL ) {
+        return( 0 );
     }
     M8_ENTRY( M8_STAT_DIBTODEV );
     d.x = X;
@@ -3054,6 +3077,9 @@ BOOL WINAPI __loadds StretchDIBits( LPPDEVICE lpDestDev, WORD fGet, WORD wDestX,
         return( DIB_StretchDIBits( lpDestDev, fGet, wDestX, wDestY, wDestWidth, wDestHeight,
                                    wSrcX, wSrcY, wSrcWidth, wSrcHeight, lpBits, lpInfo,
                                    lpTranslate, dwRop3, lpPBrush, lpDrawMode, lpClipRect ) );
+    }
+    if( m8_screen == NULL ) {
+        return( 0 );
     }
     M8_ENTRY( M8_STAT_STRETCHDIB );
     s.get = fGet;
@@ -3146,6 +3172,9 @@ BOOL WINAPI __loadds StretchBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, 
         return( DIB_StretchBlt( lpDestDev, wDestX, wDestY, wDestWidth, wDestHeight, lpSrcDev,
                                 wSrcX, wSrcY, wSrcWidth, wSrcHeight, dwRop3, lpPBrush,
                                 lpDrawMode, lpClipRect ) );
+    }
+    if( m8_screen == NULL ) {
+        return( 0 );
     }
     M8_ENTRY( M8_STAT_STRETCHBLT );
     s.dx = wDestX;
@@ -3297,6 +3326,9 @@ VOID WINAPI __loadds UpdateColors( WORD wStartX, WORD wStartY, WORD wExtX, WORD 
     M8_UPD  u;
     M8_RECT r;
 
+    if( m8_screen == NULL ) {
+        return;
+    }
     M8_ENTRY( M8_STAT_UPDATECOL );
     u.xlat = lpTranslate;
     m8_rect_set( &r, wStartX, wStartY, wStartX + wExtX, wStartY + wExtY );
