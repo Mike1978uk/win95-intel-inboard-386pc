@@ -115,6 +115,7 @@ first: polygon 0.17, stretch 0.24, floodfill 0.32, hatch 0.40, cursor 0.44. Meth
 - Closed #45 (tick measured) and #31 (tools/scsicache: Jaz, CD-RW cache writes; the rest have no page 8).
 - **#18 bed - cheap test, do FIRST next session (owner: get issues closed):** copy `vm_5160_mcp`, add `fdc = monster_fdc` (ROM `roms/floppy/monster-fdc/floppy_bios.bin`, 8 KB, md5 3e3502c5, from github.com/86Box/roms) at the lowest option-ROM address, then T130B, then XT-CF (Andrew 09-08). Media from a trusted writer, prove a plain read, then copy - swap disk - copy, check both images on the host. Andrew's setup: #18 comments 09-08/09-09.
 - #43, not a one-run close: `tools/gen_iowidth_probe.py` writes an LPT data port from DOS. XT-CF and Mach8 each need a port that is safe to hit 512 times (no disk data port; a Mach8 scratch register, an XT-CF status read?) and a DOS boot for PIT timing. Pick the ports from the docs first.
+- Closed today: #23, #28, #29, #31, #35, #45. #41: the 10-21 status comment omits HSFLOP.PDR (in its title) - check whether its seek polling is done and correct the comment.
 - V9x agent refused all connections: `allowed_client` held the host's old DHCP address (.59, now .63); blanked.
 
 ## Next, in order
