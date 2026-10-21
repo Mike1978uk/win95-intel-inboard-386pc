@@ -19,7 +19,7 @@ The bed (86Box) models only some of these: a driver that passes the bed can stil
 | Rule | Page | Driver |
 |---|---|---|
 | PIX_TRANS is BKGD_COLOR at another address. Outside a command, E2E8 writes land in BKGD_COLOR (E6E8 in FRGD_COLOR); data past the end of a blit overwrites BKGD_COLOR. | 8-14, 9-42 | Forget the cached BKGD_COLOR after every host-data transfer. |
-| While a CPU_WAIT command still takes data, only A2E8/A6E8/E2E8/E6E8 count as data; any other FIFO write cancels the wait and the rest of the rectangle draws without data. FRGD/BKGD_COLOR writes in that window are eaten as pixels. | 8-14 | Wait for idle at the end of every host transfer, before any other write. Nothing (cursor included) may write mid-transfer (`m8_busy`). |
+| While a CPU_WAIT command still takes data, only A2E8/A6E8/E2E8/E6E8 count as data; any other FIFO write cancels the wait and the rest of the rectangle draws without data. FRGD/BKGD_COLOR writes in that window are eaten as pixels. | 8-14 | Send exactly the data the command takes. A write queued after the last data word is read as a register write, because the engine interprets each entry when it consumes it (8-14; card 10-21, `card_noidle2`): no idle wait is needed at the end. Nothing (cursor included) may write mid-transfer (`m8_busy`). |
 | A PIX_TRANS read with GE_STAT DATA_READY clear locks the FIFO; a locked FIFO (SUBSYS_STAT bit 2, INVALID_IO) ignores writes and PIX_TRANS until the engine is reset. | 8-14 | Never read without DATA_READY; on a timed-out wait reset the engine (SUBSYS_CNTL 900Fh, 500Fh, as ATIM8) and rewrite the set-up. The card's wedge was this. |
 | Extended mono host data is 8 pixels per byte; 8514/A-compatible mono is 4 per byte. | 7-1 | Mono through the extended blit only. |
 
