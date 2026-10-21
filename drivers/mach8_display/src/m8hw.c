@@ -461,9 +461,10 @@ void m8_hw_write_rect( int x, int y, int w, int h, const BYTE FAR *src, WORD pit
     for( row = 0; row < h; ++row ) {
         m8_outsw( (const WORD FAR *)(src + (DWORD)row * pitch), words );
     }
-    /* Idle before any colour write: while a command still takes host data,
-     * FRGD_COLOR and BKGD_COLOR writes are consumed as pixels (guide 8-14). */
-    m8_hw_wait_idle();
+    /* No idle wait: the engine interprets a FIFO entry when it consumes it
+     * (guide 8-14), so a write queued after the last word of host data is a
+     * register write, not a pixel. The stream was unpolled: room is unknown. */
+    m8_room = 0;
     m8_sh_ok[M8_SH_BKGD_COLOR] = 0;
 }
 
@@ -514,7 +515,7 @@ static void m8_mono( int x, int y, WORD width_bytes, WORD height, const BYTE FAR
     if( bytes & 1 ) {
         outpw( M8_PIX_TRANS, bits[bytes - 1] );
     }
-    m8_hw_wait_idle();
+    m8_room = 0;
     /* PIX_TRANS is BKGD_COLOR under another address: data the engine does not
      * take as pixels lands there (guide 8-14, 9-42). */
     m8_sh_ok[M8_SH_BKGD_COLOR] = 0;
@@ -616,7 +617,6 @@ void m8_hw_polyline( const POINT FAR *pts, WORD count, BYTE color, WORD mix,
             phase = (phase + (dx > dy ? dx : dy)) & 31;
         }
     }
-    m8_hw_wait_idle();
     ++m8_stats[M8_STAT_LINE_HW];
 }
 
@@ -667,7 +667,6 @@ void m8_hw_plane_blit( int sx, int sy, int dx, int dy, int w, int h, int plane,
     outpw( M8_MAJ_AXIS_PCNT, w - 1 );
     outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
     outpw( M8_CMD, M8_CMD_PLANE_BLIT );
-    m8_hw_wait_idle();
     ++m8_stats[M8_STAT_TEXT_HW];
 }
 
