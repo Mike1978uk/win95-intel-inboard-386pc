@@ -110,6 +110,7 @@ first: polygon 0.17, stretch 0.24, floodfill 0.32, hatch 0.40, cursor 0.44. Meth
 - `-oi` on master: card 1.062x ATI, pixels = ATI in all 35 (`card_oi2`). Next compiler step: `-ox` alone, then per-call CPU.
 - No trailing idle waits (`queue-wip`): correct, 0.98x, and shutdown hung once under it - not merged; queueing is not a lever on this bus.
 - Gaps vs ATI, biggest first: polygon 0.16, stretch 0.24-0.30, floodfill 0.34, hatch 0.39, cursor 0.44, ellipse 0.49.
+- Hatch (0.39), next: the 8x8 mono pattern is Mach32 only (guide 9-26). Copy ATIM8 `seg16:3ccf` instead (`docs/atim8_disassembly.md` sec. 4): CEEE=2231, colours, D2EE=4107/411F, 82EE=10, pattern words to 8EEE, D6EE=(x+y)&7, one rectangle blit, ~15 writes for any size. First read D2EE bits 8 and 14 in the guide (9-46).
 - To add: one scoreboard (35 tests, ours vs ATI vs target margin) in `docs/mach8_driver_method.md`.
 - V9x agent refused all connections: `allowed_client` held the host's old DHCP address (.59, now .63); blanked.
 
