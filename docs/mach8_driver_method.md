@@ -70,4 +70,4 @@ and compares the second run with ATI's card runs. The first run after a boot is 
 | Batch: set up once, then many primitives (5 writes per span) | XFree86 `mach8fs.c:162` | to do |
 | Inline port writes (`-oi`): no call per `outpw` | Watcom; ATIM8 writes `out` inline | to do |
 | Engine advances PATT_INDEX itself on patterned lines: 2 writes per segment, not 3 | guide 9-33 | to test on the card |
-| 8x8 mono pattern (PATT_LENGTH bit 7): any hatch in one blit | guide 9-60 | to do |
+| 8x8 mono pattern (PATT_LENGTH bit 7): any hatch in one blit | guide 9-26/9-60 | **not on the Mach8**: 68800 (Mach32) only, guide 9-26 |
