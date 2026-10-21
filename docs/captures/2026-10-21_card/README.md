@@ -23,7 +23,8 @@ Rules behind the fixes: `docs/mach8_guide_rules.md`.
 | card_dash2 | same boot, second run | pixels = ATI in all 35; lines_dash 496/s (ATI 492); 1.045 of ATI overall |
 | card_queue2 | + FIFO slot counting, bursts not subtracted (bug) | 11 tests wrong: the count overstated the room, writes lost |
 | card_queu22 | + every burst subtracted (branch `queue-wip`) | pixels = ATI in all 35; 0.97x card_dash2 - routines still end in idle waits |
-| card_noidle2 | + no idle wait at the end of lines, plane blits, mono, host writes (`queue-wip` `3082f32`) | pixels = ATI in all 35, no hang; 0.983x card_dash2 (noise): the engine already waits on the CPU, so overlap buys nothing |
+| card_noidle2 | + no idle wait at the end of lines, plane blits, mono, host writes (`queue-wip` `3082f32`) | pixels = ATI in all 35, no hang; 0.983x card_dash2 (noise): the engine already waits on the CPU, so overlap buys nothing. Shutdown before the next run hung at "Please wait" under M8NOIDL (owner restarted) |
+| card_oi2 | master + `-oi` (inline port writes) | pixels = ATI in all 35; 1.016x card_dash2, 1.062x ATI overall |
 
 Variant C (mixes/colours/scissors cached, data path forced) never ran the bench: the desktop drew
 solid squares behind the cursor.

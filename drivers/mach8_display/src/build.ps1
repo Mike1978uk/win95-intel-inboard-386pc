@@ -38,8 +38,9 @@ Run wlib @('-b', '-q', '-n', '-fo', '-ii', "@$src\ddk\dibeng.lbc", "$Out\dibeng.
 
 # 486 code, Windows prologues (-zW). Compact model: GDI calls us on its own stack
 # (-zu, SS is not DGROUP), so a pointer to a local is far. W303 (unused parameter) is off: DDI entry
-# points have fixed signatures.
-$cflags = @('-q', '-wx', '-we', '-s', '-zu', '-zls', '-zW', '-4', '-mc', '-wcd=303')
+# points have fixed signatures. -oi: inp/outp as inline in/out, not a call per port write (ATIM8
+# writes them inline; a port write is 7.64 us on the 5160 bus, the call around it is CPU on top).
+$cflags = @('-q', '-wx', '-we', '-s', '-zu', '-zls', '-zW', '-4', '-mc', '-oi', '-wcd=303')
 if ($Trace) { $cflags += '-dM8_TRACE' }
 foreach ($c in 'enable', 'screen', 'm8hw') {
   Run wcc ($cflags + $inc + @("-fo=$Out\$c.obj", "$src\$c.c"))

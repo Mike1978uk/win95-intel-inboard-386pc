@@ -105,6 +105,14 @@ Master `1f536ae` = card 1.045x ATIM8, pixels = ATI in all 35 (dashed pens `565ec
 the trailing idle waits and batching set-up (XFree86 `mach8fs.c`). Then the gaps in `docs/worklist.md`, biggest
 first: polygon 0.17, stretch 0.24, floodfill 0.32, hatch 0.40, cursor 0.44. Method: `docs/mach8_driver_method.md`.
 
+## 10-21 day: start here
+
+- `-oi` on master: card 1.062x ATI, pixels = ATI in all 35 (`card_oi2`). Next compiler step: `-ox` alone, then per-call CPU.
+- No trailing idle waits (`queue-wip`): correct, 0.98x, and shutdown hung once under it - not merged; queueing is not a lever on this bus.
+- Gaps vs ATI, biggest first: polygon 0.16, stretch 0.24-0.30, floodfill 0.34, hatch 0.39, cursor 0.44, ellipse 0.49.
+- To add: one scoreboard (35 tests, ours vs ATI vs target margin) in `docs/mach8_driver_method.md`.
+- V9x agent refused all connections: `allowed_client` held the host's old DHCP address (.59, now .63); blanked.
+
 ## Next, in order
 
 1. **Shadow the setup registers** (worklist item 6): every engine path gains.
