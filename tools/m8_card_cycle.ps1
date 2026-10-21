@@ -7,7 +7,7 @@
 # -Name is the 8.3 name the driver is installed as (C:\WINDOWS\SYSTEM\<Name>.DRV), so the
 # driver in use stays where it is until the reboot. Runs are labelled <Label>1 and <Label>2.
 # A wedged card stops the script at the bench: ask the owner to restart, then read the log
-# with -FetchOnly.
+# with -FetchOnly. -BenchOnly benches the driver already running (the card booted into it).
 
 param(
   [Parameter(Mandatory)][string]$Label,
@@ -16,7 +16,8 @@ param(
   [string]$Against = 'card_ati1,card_ati2',
   [string]$CardHost = '192.168.68.62',
   [string]$Log = (Join-Path $env:TEMP 'm8_card_bench.txt'),
-  [switch]$FetchOnly
+  [switch]$FetchOnly,
+  [switch]$BenchOnly
 )
 $ErrorActionPreference = 'Stop'
 $ctl = 'C:\Users\lycet\tools\v9x-remote-agent\host\v9xremote-0.12.0\scripts\v9xctl.ps1'
@@ -29,7 +30,7 @@ function Agent([string]$verb, [hashtable]$a = @{}) {
   return $out
 }
 
-if (-not $FetchOnly) {
+if (-not $FetchOnly -and -not $BenchOnly) {
   if (-not $Drv -or -not $Name) { throw '-Drv and -Name are required unless -FetchOnly' }
   $drvName = $Name.ToLower() + '.drv'
   $reg = Join-Path $env:TEMP "$Name.REG"
@@ -46,6 +47,8 @@ if (-not $FetchOnly) {
   }
   Agent reboot @{ WaitSeconds = 600 } | Out-Null
   Agent wait-desktop @{ WaitSeconds = 300 } | Out-Null
+}
+if (-not $FetchOnly) {
   foreach ($n in 1, 2) {
     Agent exec @{ Application = 'C:\M8BENCH.EXE'; Arguments = "$Label$n"; TimeoutSeconds = 300 } | Out-Null
   }
