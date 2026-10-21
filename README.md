@@ -366,6 +366,8 @@ Full write-up of the original submission, with the testing matrix and known limi
   parallel-port Imation SuperDisk LS-120: the vendor's Windows 95 driver with its probe
   suppressors applied **at install**, so the keyboard survives it. One INF line differs from
   the vendor original
+- **[`dist/scsicache/`](dist/scsicache/)** — `SCSICACH.EXE`: reads each SCSI device's cache
+  settings through Windows 95's ASPI layer, read only
 - **`tools/`** — deployment and capture scripts (`deploy_sound_fix.sh`, `deploy_premonolith.sh`,
   image DMA sweeps, VM setup). Bash — pinned to LF in `.gitattributes`
 
