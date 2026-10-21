@@ -1,0 +1,10 @@
+ASPI status 01, adapters 3
+0:0 type 00 XT-IDE   TRANSCEND        1.0  : page 00 returned, not 08
+1:0 type 00 MATSHITA LS-120 COSM   04 0270 : WCE=0 RCD=0 (write cache off, read cache on)
+2:0 type 07 NECITSU  M2512A           1408 : no page 8 (status 04, sense key 5, ASC 24)
+2:1 type 05 YAMAHA   CRW4416S         1.0f : WCE=1 RCD=0 (write cache on, read cache on)
+2:2 type 05 NAKAMICH MJ-5.16S         1.07 : no page 8 (status 04, sense key 5, ASC 24)
+2:3 type 00 IOMEGA   ZIP 100          E.08 : no page 8 (status 04, sense key 5, ASC 24)
+2:4 type 01 HP       C1537A           L907 : no page 8 (status 04, sense key 5, ASC 24)
+2:5 type 00 iomega   jaz 2GB          E.17 : WCE=1 RCD=0 (write cache on, read cache on)
+2:6 type 06 UMAX     Astra 610S       V1.3 : no page 8 (status 04, sense key 5, ASC 20)
