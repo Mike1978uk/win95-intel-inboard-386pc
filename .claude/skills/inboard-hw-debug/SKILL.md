@@ -6121,8 +6121,9 @@ the bug*. The mirror is equally true and was never written down: **a bug that re
 and does NOT reproduce on hardware with every variable pinned may be an emulation artefact.**
 
 The project owner made this point on 2026-09-08 about issue #18. `README.md` offers *"Reproducible in
-86Box, so anyone can work on it"* as evidence the bug is real and workable. But #18 was reported on a
-**contributor's** hardware, not the owner's, and does not reproduce on the owner's machine. Three
+86Box, so anyone can work on it"* as evidence the bug is real and workable. But #18 was reported from a
+**contributor's 86Box setup** (Monster Floppy, the patched HSFLOP, a disk change; Andrew, 2026-09-09), not
+from hardware, and has not reproduced on the owner's 5160; the bed matching his setup was never built (10-21). Three
 distinct loci then exist and need different evidence:
 
 1. the contributor's hardware (a genuine fault in their drive/controller/media),
