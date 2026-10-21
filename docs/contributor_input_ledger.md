@@ -107,6 +107,7 @@ been consistently the more reliable of the two on this project.
 | **Ahmad Byagowi** | Ported COMrade to Windows 95 (`COMR95.EXE`) — the live real-hardware introspection path | ✅ **Load-bearing.** Reading files off the running machine (`IOS.LOG` direct from `C:\WINDOWS`) is how the storage state in #17 was measured without shuttling the CF, and how the LS-120 patch can be deployed in place rather than by reverting an image |
 | **viti95** (FastDoom) | Real-hardware-validated XT keyboard ISR reference |
 | **Microsoft Windows 95 DDK** | The genuine period source and toolchain behind the custom `VKD.VXD` |
+| **Michael Dale** (u/mwdmeyer) | [`velocity9x`](https://github.com/michaeldale/velocity9x) display-driver framework (Mach8 driver base, GPL-3.0); [V9x Remote Agent](https://github.com/michaeldale/V9x-Remote-Agent) drives the card benches. Replied on Reddit 2026-10-06; owner's reply sent 2026-10-16 |
 | **[Miran Grča (@OBattler)](https://github.com/OBattler)** | Developer of 86Box, so the emulator this whole project is built on. Also wrote the **XT-IDE port of the ATAPI CD-ROM driver** now held at [`drivers/xtide_cdrom/`](../drivers/xtide_cdrom/) — the only known working code for the card's 8-bit data latch — and fixed [86Box#7805](https://github.com/86Box/86Box/issues/7805) from our report. **Not contacted by this project;** credited by name and link. Note his authorship of *both* the driver and `hdc_xtide.c` means they are not independent confirmations of the register map |
 
 ---
