@@ -71,3 +71,5 @@ and compares the second run with ATI's card runs. The first run after a boot is 
 | Inline port writes (`-oi`): no call per `outpw` | Watcom; ATIM8 writes `out` inline | to do |
 | Engine advances PATT_INDEX itself on patterned lines: 2 writes per segment, not 3 | guide 9-33 | to test on the card |
 | 8x8 mono pattern (PATT_LENGTH bit 7): any hatch in one blit | guide 9-26/9-60 | **not on the Mach8**: 68800 (Mach32) only, guide 9-26 |
+| PATT_LENGTH bits 8, 13, 14 (guide: reserved): ATIM8 writes 4107h/6107h for one-blit diagonals | ATIM8 `seg16:3dd6`, `3e45` | **no effect on our card** (`tools/m8probe/M8PATT.C`, 10-22): rows identical. ATIM8 takes that path only when `[58]`=0 (`seg02:2033`); on ours it uses the per-row routine `3fe9`. Linear mono pattern: index 0 = bit 7 of the low byte, PATT_INDEX reloads each row |
+| Hatch: ATIM8's per-row pattern (3 writes a row), then doubling engine copies of the first 8 rows | ATIM8 `seg16:3fe9` + ours | card 316/s vs ATI 298 (was 119), pixels = ATI in all 35 (10-22) |

@@ -325,6 +325,51 @@ void m8_hw_fill( int x, int y, int w, int h, BYTE color )
     m8_hw_fill_mix( x, y, w, h, color, M8_MIX_SRC_FRGD | M8_MIX_REPLACE );
 }
 
+/* An 8x8 two-colour pattern, a row at a time through the linear mono pattern,
+ * as ATIM8 fills hatches (seg16:3fe9): the X range and phase once, then per row
+ * its pattern byte and DEST_Y_END, which draws the row and leaves the engine on
+ * the next. Index 0 is bit 7 of the low byte, so pat[] goes in as it is with the
+ * phase x & 7. The pattern repeats along a row only: PATT_LENGTH bits 8, 13 and
+ * 14 do not step it from row to row on this card (tools/m8probe/M8PATT.C). */
+void m8_hw_pattern_rows( int x, int y, int w, int h, const BYTE *pat,
+                         BYTE fg, BYTE bg, WORD fg_fn, WORD bg_fn )
+{
+    int     row;
+
+    if( m8_hw_off || w <= 0 || h <= 0 ) {
+        return;
+    }
+    m8_wait_fifo_empty();
+    M8_SET( M8_SH_WRT_MASK, 0x00FF );
+    M8_SET( M8_SH_RD_MASK, 0x00FF );
+    m8_put( M8_SH_PIX_CNTL, M8_MF_PIX_CNTL );
+    m8_scissors( M8_EXT_SCISSOR_MIN, M8_EXT_SCISSOR_MIN, M8_EXT_SCISSOR_MAX, M8_EXT_SCISSOR_MAX );
+    m8_put( M8_SH_DP_CONFIG, M8_DP_MONO_PATT );
+    M8_SET( M8_SH_FRGD_COLOR, fg );
+    M8_SET( M8_SH_BKGD_COLOR, bg );
+    /* The ALU registers are the mixes' function half: the data path. */
+    m8_sh_ok[M8_SH_FRGD_MIX] = 0;
+    m8_sh_ok[M8_SH_BKGD_MIX] = 0;
+    m8_room_for( 8 );
+    outpw( M8_ALU_FG_FN, fg_fn );
+    outpw( M8_ALU_BG_FN, bg_fn );
+    outpw( M8_PATT_LENGTH, 7 );
+    outpw( M8_PATT_INDEX, x & 7 );
+    outpw( M8_CUR_X, x );
+    outpw( M8_DEST_X_START, x );
+    outpw( M8_DEST_X_END, x + w );
+    outpw( M8_CUR_Y, y );
+    m8_room -= 8;
+    for( row = 0; row < h; ++row ) {
+        m8_room_for( 3 );
+        outpw( M8_PATT_DATA_INDEX, 0x10 );
+        outpw( M8_PATT_DATA, pat[(y + row) & 7] );
+        outpw( M8_DEST_Y_END, y + row + 1 );
+        m8_room -= 3;
+    }
+    ++m8_stats[M8_STAT_FILL_HW];
+}
+
 /* Screen-to-screen copy. Overlapping areas copy from the far end: bottom-up
  * when moving down, right-to-left when moving right on the same rows. */
 void m8_hw_copy( int sx, int sy, int dx, int dy, int w, int h )

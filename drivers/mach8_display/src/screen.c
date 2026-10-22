@@ -880,35 +880,25 @@ static int m8_brush_colours( LPBRUSH brush, LPDRAWMODE dm, BYTE *c1, BYTE *c2, B
     return( 2 );
 }
 
-/* An 8x8 two-colour pattern over a rectangle by mono expansion: the expansion
- * starts on the 8-pixel boundary at or left of x, so every row is its pattern
- * byte repeated, and the scissors cut it to the rectangle. Rows are built in
- * the strip buffer, a band at a time. */
+/* An 8x8 two-colour pattern over a rectangle: three port writes a row through
+ * the pattern registers. When the result does not depend on the screen, only
+ * the first eight rows are drawn and the rest are engine copies of them,
+ * doubling each time, so the bus carries a few writes whatever the height. A
+ * copy distance is a multiple of 8, so every row keeps its pattern row. */
 static void m8_pattern_fill( int x, int y, int w, int h, const BYTE *pat,
                              BYTE c1, BYTE c2, WORD mix, int transparent )
 {
-    int         x0 = x & ~7;
-    WORD        wb = (WORD)(((x + w + 7) >> 3) - (x >> 3));
-    long        rows = (long)(M8_BUF_BYTES / wb);
-    int         band;
-    int         row;
-    int         yb;
-    int         hb;
-    BYTE FAR    *q;
+    int     done = h;
+    int     n;
 
-    /* In long: a one-byte-wide rectangle fits 65,520 rows in the buffer, which
-     * a 16-bit int reads as -16 - the loop then ran backwards for ever. */
-    band = rows < (long)h ? (int)rows : h;
-    for( yb = y; yb < y + h; yb += band ) {
-        hb = y + h - yb < band ? y + h - yb : band;
-        q = m8_dst.bits;
-        for( row = 0; row < hb; ++row ) {
-            _fmemset( q, pat[(yb + row) & 7], wb );
-            q += wb;
-        }
-        m8_hw_mono( x0, yb, wb, hb, m8_dst.bits, M8_MIX_SRC_FRGD | mix, c1,
-                    transparent ? M8_MIX_LEAVE : M8_MIX_SRC_BKGD | mix, c2, x, yb,
-                    x + w - 1, yb + hb - 1 );
+    if( !transparent && mix == M8_MIX_REPLACE && h > 8 ) {
+        done = 8;
+    }
+    m8_hw_pattern_rows( x, y, w, done, pat, c1, c2, mix, transparent ? M8_MIX_LEAVE : mix );
+    while( done < h ) {
+        n = h - done < done ? h - done : done;
+        m8_hw_copy( x, y, x, y + done, w, n );
+        done += n;
     }
 }
 

@@ -151,6 +151,8 @@ extern int  m8_hw_wait_idle( void );
 extern void m8_hw_fill( int x, int y, int w, int h, BYTE color );
 extern void m8_hw_fill_mix( int x, int y, int w, int h, BYTE color, WORD mix );
 extern void m8_hw_copy( int sx, int sy, int dx, int dy, int w, int h );
+extern void m8_hw_pattern_rows( int x, int y, int w, int h, const BYTE *pat,
+                                BYTE fg, BYTE bg, WORD fg_fn, WORD bg_fn );
 extern void m8_hw_copy_mix( int sx, int sy, int dx, int dy, int w, int h, WORD mix );
 extern void m8_hw_polyline( const POINT FAR *pts, WORD count, BYTE color, WORD mix,
                             WORD style, int opaque, BYTE bg,

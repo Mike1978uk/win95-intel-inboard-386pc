@@ -12,7 +12,7 @@ it on the card once, draw it with the engine. Scoreboard: M8BENCH on the real ca
    GDI routes writes through us, so no content hashing. bmp_*, mem_to_mem, draw_icon. Read the DDK first.
    Replaces the 32-bit hashing item if it holds. One off-screen allocator shared by every cache and DirectDraw.
 2. **Text** - done so far: string-keyed replay, 16-bit hashes, off-left strings cached (text_sys 87 -> 651/s at 1024x768, ATI 1044). Left: **glyph cache keyed by font + character**, mono expansion from video memory (XFree86, 51 us/glyph). text_*.
-3. **PATT_DATA brushes + brush cache** (fill_hatch, drag_frame). [x] lines_dash (`565ec61`: ATIM8's pattern pens, card 496/s vs ATI 492, pixels = ATI).
+3. **PATT_DATA brushes + brush cache** (fill_hatch, drag_frame). [x] lines_dash (`565ec61`: ATIM8's pattern pens, card 496/s vs ATI 492, pixels = ATI). [x] fill_hatch (card 316/s vs ATI 298, pixels = ATI; `docs/captures/2026-10-22_card`).
 4. **Shapes on the engine:** polygon fill (cmd 5) for polygon/ellipse, short strokes, floodfill one row read per row.
 5. **Source colour compare** (92EE/EAEE): icons and sprites in one pass; DirectDraw colour keys.
 6. **Bus discipline** - [x] shadow the setup registers (`7f71893`: colours, masks, scissors only - the data path cannot be cached, guide 7-1). Next: **FIFO slot counting** (XFree86 `WaitQueue(n)`: wait for the slots needed, not an empty FIFO), batched set-up (one set-up, many spans), `-oi` inline port writes, no idle polls, run-time generated stubs.
