@@ -331,6 +331,14 @@ void m8_hw_fill( int x, int y, int w, int h, BYTE color )
  * the next. Index 0 is bit 7 of the low byte, so pat[] goes in as it is with the
  * phase x & 7. The pattern repeats along a row only: PATT_LENGTH bits 8, 13 and
  * 14 do not step it from row to row on this card (tools/m8probe/M8PATT.C). */
+/* A span one row tall goes through SCAN_TO_X (guide 9-61), as ATIM8's scanline
+ * routine draws them (seg08:0dcd): CUR_X and one write draw it, on the row and
+ * pattern already loaded. The row, its pattern byte and the engine's place are
+ * remembered so only what changed is written; anything else that draws resets
+ * them. CUR_X is written every time (guide 9-61, caution). */
+static int  m8_scan_y = -1;
+static WORD m8_scan_byte = 0xFFFF;
+
 void m8_hw_pattern_begin( BYTE fg, BYTE bg, WORD fg_fn, WORD bg_fn )
 {
     if( m8_hw_off ) {
@@ -352,6 +360,8 @@ void m8_hw_pattern_begin( BYTE fg, BYTE bg, WORD fg_fn, WORD bg_fn )
     outpw( M8_ALU_BG_FN, bg_fn );
     outpw( M8_PATT_LENGTH, 7 );
     m8_room -= 3;
+    m8_scan_y = -1;
+    m8_scan_byte = 0xFFFF;
 }
 
 /* A rectangle of the pattern set up by m8_hw_pattern_begin; nothing else may
@@ -363,6 +373,28 @@ void m8_hw_pattern_span( int x, int y, int w, int h, const BYTE *pat )
     if( m8_hw_off || w <= 0 || h <= 0 ) {
         return;
     }
+    if( h == 1 ) {
+        m8_room_for( 6 );
+        if( y != m8_scan_y ) {
+            outpw( M8_CUR_Y, y );
+            --m8_room;
+            m8_scan_y = y;
+        }
+        if( pat[y & 7] != m8_scan_byte ) {
+            outpw( M8_PATT_DATA_INDEX, 0x10 );
+            outpw( M8_PATT_DATA, pat[y & 7] );
+            m8_room -= 2;
+            m8_scan_byte = pat[y & 7];
+        }
+        outpw( M8_CUR_X, x );
+        outpw( M8_PATT_INDEX, x & 7 );
+        outpw( M8_SCAN_TO_X, x + w );
+        m8_room -= 3;
+        ++m8_stats[M8_STAT_FILL_HW];
+        return;
+    }
+    m8_scan_y = -1;
+    m8_scan_byte = 0xFFFF;
     m8_room_for( 5 );
     outpw( M8_PATT_INDEX, x & 7 );
     outpw( M8_CUR_X, x );
@@ -398,6 +430,7 @@ void m8_hw_fill_begin( BYTE color, WORD mix )
     m8_plain();
     m8_put( M8_SH_FRGD_MIX, mix );
     M8_SET( M8_SH_FRGD_COLOR, color );
+    m8_scan_y = -1;
 }
 
 void m8_hw_fill_span( int x, int y, int w, int h )
@@ -405,6 +438,20 @@ void m8_hw_fill_span( int x, int y, int w, int h )
     if( m8_hw_off || w <= 0 || h <= 0 ) {
         return;
     }
+    if( h == 1 ) {
+        m8_room_for( 3 );
+        if( y != m8_scan_y ) {
+            outpw( M8_CUR_Y, y );
+            --m8_room;
+            m8_scan_y = y;
+        }
+        outpw( M8_CUR_X, x );
+        outpw( M8_SCAN_TO_X, x + w );
+        m8_room -= 2;
+        ++m8_stats[M8_STAT_FILL_HW];
+        return;
+    }
+    m8_scan_y = -1;
     m8_room_for( 5 );
     outpw( M8_CUR_X, x );
     outpw( M8_CUR_Y, y );

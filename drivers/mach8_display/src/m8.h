@@ -54,6 +54,7 @@ extern int m8_scr_y;
 #define M8_DEST_X_START     0xA6EE
 #define M8_DEST_X_END       0xAAEE
 #define M8_DEST_Y_END       0xAEEE      /* writing it starts an extended blit */
+#define M8_SCAN_TO_X        0xCAEE      /* draws CUR_X up to (not including) it on CUR_Y */
 #define M8_EXT_SCISSOR_L    0xDAEE
 #define M8_EXT_SCISSOR_T    0xDEEE
 #define M8_EXT_SCISSOR_R    0xE2EE
