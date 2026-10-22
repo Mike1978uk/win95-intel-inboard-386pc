@@ -31,3 +31,5 @@ are not like for like.
 | card_pair1 | + restore and save in one paired copy (reverted) | cursor_move 1013/s: no change |
 | card_keyf1 | keyed build again, after the Start-menu restart | pixels = ATI in all 35; cursor_move 889/s (boot-to-boot spread ~12%); 1.227x ATI |
 | card_seen1 | + a string goes into the string cache the second time it is seen | pixels = ATI in all 35; text_varied 412/s (was 328, ATI 505); repeated text unchanged; 1.248x ATI; Start-menu restart ok |
+| card_nopx1 | throwaway: pixel sets return before drawing | setpixel 2540/s: GDI's own cost is 0.39 ms a call |
+| card_nw1 | + no idle wait after polylines and plane blits | pixels = ATI in all 35; text 1.10-1.20x, lines 1.21x, rubber_band 1.16x; 1.274x ATI |

@@ -900,7 +900,8 @@ void m8_hw_polyline( const POINT FAR *pts, WORD count, BYTE color, WORD mix,
             phase = (phase + (dx > dy ? dx : dy)) & 31;
         }
     }
-    m8_hw_wait_idle();
+    /* No idle wait: nothing after a line reads its pixels before the next
+     * routine's own wait, and commands run in FIFO order. */
     ++m8_stats[M8_STAT_LINE_HW];
 }
 
@@ -951,7 +952,6 @@ void m8_hw_plane_blit( int sx, int sy, int dx, int dy, int w, int h, int plane,
     outpw( M8_MAJ_AXIS_PCNT, w - 1 );
     outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
     outpw( M8_CMD, M8_CMD_PLANE_BLIT );
-    m8_hw_wait_idle();
     ++m8_stats[M8_STAT_TEXT_HW];
 }
 
