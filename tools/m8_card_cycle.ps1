@@ -49,8 +49,27 @@ if (-not $FetchOnly -and -not $BenchOnly) {
   if (-not (Select-String -Path $disp -SimpleMatch "`"drv`"=`"$drvName`"" -Quiet)) {
     throw "registry does not select $drvName"
   }
-  Agent reboot @{ WaitSeconds = 600 } | Out-Null
-  Agent wait-desktop @{ WaitSeconds = 300 } | Out-Null
+  # Restart the way a person does, through Start > Shut Down > Restart: on this card the
+  # agent's own reboot can end in a fatal exception 0D. A normal restart is up well inside
+  # 4 minutes; a stuck one fails fast. The start-up programs are M8IDLE's to wait for.
+  $boot = (Agent info | ConvertFrom-Json).BootCounter
+  Agent input @{ Sequence = 'key CTRL+ESC; delay 1500; key U; delay 2500; key R; delay 500; key ENTER' } | Out-Null
+  $back = $false
+  for ($t = 0; $t -lt 24 -and -not $back; $t++) {
+    Start-Sleep -Seconds 10
+    $i = & $ctl info -Host $CardHost -ConnectTimeoutSeconds 5 -Json 2>$null 6>$null
+    if ($LASTEXITCODE -eq 0) {
+      $i = $i | ConvertFrom-Json
+      $back = $i.BootCounter -ne $boot -and $i.DesktopReady
+    }
+  }
+  # One line per restart: Windows 95 keeps no record of a fatal exception, so a restart
+  # that never came back is the only trace, and this log is how they are counted.
+  $after = if ($back) { $i.BootCounter } else { '-' }
+  Add-Content -Path (Join-Path $env:TEMP 'm8_card_restarts.log') -Value (
+    '{0}  {1}  boot {2} -> {3}  {4}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm'), $Name, $boot, $after,
+    $(if ($back) { 'ok' } else { 'did not come back' }))
+  if (-not $back) { throw 'the card did not come back from the restart within 4 minutes' }
 }
 if (-not $FetchOnly) {
   if (-not $BenchOnly) {
