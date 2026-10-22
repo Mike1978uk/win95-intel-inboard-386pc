@@ -45,7 +45,7 @@ static void m8_tm_point( WORD id );
 
 #define M8_BUF_BYTES        0xFFF0u     /* one strip; < 64 KB so one selector covers it */
 #define M8_CURSOR_MAX       32
-#define M8_PATTERN_EXPANSION 1     /* two-colour patterns by mono expansion: see BitBlt */
+#define M8_PATTERN_EXPANSION 1     /* two-colour brushes through the pattern registers; 0: fallback */
 #define M8_CURSOR_SAVE_W    (M8_CURSOR_MAX + 2)     /* even-aligned around a 32-wide cursor */
 
 /* Rectangle, right and bottom exclusive. */
@@ -2495,8 +2495,21 @@ static WORD m8_scan_shift( const M8_OUT *o, int x0, int y0, int h )
 
 /* Scan styles with one colour: each span is one engine fill, nothing read
  * back. Spans are [x1, x2) on their rows, cut to clip. */
-static void m8_scan_fill( WORD style, WORD count, LPPOINT p, const M8_RECT *clip, BYTE colour,
-                          WORD mix )
+/* One span, a solid colour (kind 1) or an 8x8 two-colour pattern (kind 2, or 3
+ * with the 0 bits left alone), as m8_brush_colours returns them. fn is the
+ * ALU function alone. */
+static void m8_span_fill( const M8_RECT *r, int kind, BYTE c1, BYTE c2, const BYTE *pat, WORD fn )
+{
+    if( kind == 1 ) {
+        m8_hw_fill_mix( r->l, r->t, r->r - r->l, r->b - r->t, c1, M8_MIX_SRC_FRGD | fn );
+    } else {
+        m8_hw_pattern_rows( r->l, r->t, r->r - r->l, r->b - r->t, pat, c1, c2, fn,
+                            kind == 3 ? M8_MIX_LEAVE : fn );
+    }
+}
+
+static void m8_scan_fill( WORD style, WORD count, LPPOINT p, const M8_RECT *clip, int kind,
+                          BYTE c1, BYTE c2, const BYTE *pat, WORD fn )
 {
     const short FAR *w = (const short FAR *)p;
     M8_RECT         r;
@@ -2510,7 +2523,7 @@ static void m8_scan_fill( WORD style, WORD count, LPPOINT p, const M8_RECT *clip
             m8_rect_set( &r, p[i].xcoord, p[0].ycoord, p[i].ycoord, p[0].ycoord + 1 );
             m8_rect_and( &r, clip );
             if( !m8_rect_empty( &r ) ) {
-                m8_hw_fill_mix( r.l, r.t, r.r - r.l, r.b - r.t, colour, mix );
+                m8_span_fill( &r, kind, c1, c2, pat, fn );
             }
         }
     } else {
@@ -2520,7 +2533,7 @@ static void m8_scan_fill( WORD style, WORD count, LPPOINT p, const M8_RECT *clip
                 m8_rect_set( &r, w[3 + i], w[1], w[4 + i], w[2] );
                 m8_rect_and( &r, clip );
                 if( !m8_rect_empty( &r ) ) {
-                    m8_hw_fill_mix( r.l, r.t, r.r - r.l, r.b - r.t, colour, mix );
+                    m8_span_fill( &r, kind, c1, c2, pat, fn );
                 }
             }
             w += cnt + 4;
@@ -2651,13 +2664,14 @@ WORD WINAPI __loadds Output( LPPDEVICE lpDestDev, WORD wStyle, WORD wCount, LPPO
         BYTE    c2;
         BYTE    pat[8];
         M8_RECT scr;
+        int     kind = m8_brush_colours( (LPBRUSH)lpPBrush, lpDrawMode, &c1, &c2, pat );
 
-        if( m8_brush_colours( (LPBRUSH)lpPBrush, lpDrawMode, &c1, &c2, pat ) == 1 ) {
+        if( kind == 1 || ((kind == 2 || kind == 3) && M8_PATTERN_EXPANSION) ) {
             m8_rect_screen( &scr );
             m8_rect_and( &bound, &scr );
             if( !m8_rect_empty( &bound ) ) {
-                m8_scan_fill( wStyle, wCount, lpPoints, &bound, c1,
-                              M8_MIX_SRC_FRGD | m8_mix_for_key[lpDrawMode->Rop2 - 1] );
+                m8_scan_fill( wStyle, wCount, lpPoints, &bound, kind, c1, c2, pat,
+                              m8_mix_for_key[lpDrawMode->Rop2 - 1] );
             }
             return( 1 );
         }
