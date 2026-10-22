@@ -5,6 +5,7 @@
  * register order, reads it back and prints it: # foreground, . background.
  * The patch is drawn over the desktop; Windows repaints it.
  *   M8PATT [x y]       patch position (default 0 0)
+ *   M8PATT s           SCAN_TO_X cases instead
  * Build: wcl386 -q -bt=nt -l=nt -ox -fe=M8PATT.EXE M8PATT.C
  */
 #include <windows.h>
@@ -102,6 +103,56 @@ static void run( int x, int y, WORD len, WORD data, WORD index )
     show( x, y );
 }
 
+/* SCAN_TO_X (CAEE, guide 9-61): one write draws from CUR_X to the given X on
+ * CUR_Y, through the blit set-up. Pattern: a row byte per row, as ATIM8's
+ * scanline routine (seg08:0dcd). Solid: two spans a row, which shows whether
+ * the fill flag of polygon scan conversion turns every second write into a
+ * move. */
+static void scan_pattern( int x, int y )
+{
+    int r;
+
+    printf( "SCAN_TO_X pattern, row byte 80h >> row\n" );
+    wait_idle();
+    outpw( 0xCEEE, 0x2231 );
+    outpw( 0xBAEE, 0x0007 );
+    outpw( 0xB6EE, 0x0007 );
+    outpw( 0xA6E8, FG );
+    outpw( 0xA2E8, BG );
+    outpw( 0xD2EE, 0x0007 );
+    for( r = 0; r < H; ++r ) {
+        wait_idle();
+        outpw( 0x82E8, y + r );
+        outpw( 0x82EE, 0x0010 );
+        outpw( 0x8EEE, 0x80 >> r );
+        outpw( 0x86E8, x );
+        outpw( 0xD6EE, x & 7 );
+        outpw( 0xCAEE, x + W );
+    }
+    show( x, y );
+}
+
+static void scan_solid( int x, int y )
+{
+    int r;
+
+    printf( "SCAN_TO_X solid, spans 0-4 and 8-12 each row, background first\n" );
+    fill( x, y, 0x0007, 0x0000, 0 );
+    wait_idle();
+    outpw( 0xCEEE, 0x2211 );
+    outpw( 0xBAEE, 0x0007 );
+    outpw( 0xA6E8, FG );
+    for( r = 0; r < H; ++r ) {
+        wait_idle();
+        outpw( 0x82E8, y + r );
+        outpw( 0x86E8, x );
+        outpw( 0xCAEE, x + 5 );
+        outpw( 0x86E8, x + 8 );
+        outpw( 0xCAEE, x + 13 );
+    }
+    show( x, y );
+}
+
 int main( int argc, char **argv )
 {
     static const WORD lens[] = { 0x0007, 0x4107, 0x6107, 0x0107, 0x4007, 0x2007, 0x2107 };
@@ -109,6 +160,12 @@ int main( int argc, char **argv )
     int     y = argc > 2 ? atoi( argv[2] ) : 0;
     int     i;
 
+    if( argc > 1 && argv[1][0] == 's' ) {
+        scan_pattern( 0, 0 );
+        scan_solid( 0, 0 );
+        outpw( 0xCEEE, 0x2211 );
+        return( 0 );
+    }
     /* Bit order and start: one bit set, each end of the word. */
     run( x, y, 0x0007, 0x0001, 0 );
     run( x, y, 0x0007, 0x0080, 0 );
