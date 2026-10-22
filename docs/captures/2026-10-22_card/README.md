@@ -17,3 +17,4 @@ are not like for like.
 | card_scanx1 | + one-row spans through SCAN_TO_X (CAEE), as ATIM8 seg08:0dcd | pixels = ATI in all 35; polygon 42.8/s (0.59x ATI); the bed differs on polygon only: 86Box SCAN_TO_X ignores PATT_INDEX |
 | card_loop1 | + one loop over GDI's span list in m8hw.c (no per-span helpers) | pixels = ATI in all 35; polygon 54.6/s (0.75x ATI), ellipse 62.7/s (0.88x); 1.143x ATI |
 | card_trim1 | + span bound only when the cursor overlaps; SaveScreenBitmap check in trace builds only | pixels = ATI in all 35; no measurable change (polygon 54.1/s) |
+| card_ox1 | trim build compiled -ox instead of -oi (not adopted) | pixels = ATI in all 35; 0.998x card_trim1: no gain; drag_frame 0.71x, dstinvert 0.90x. Bed 1.108x: the bed rewards CPU the card does not |
