@@ -347,6 +347,30 @@ static void m8_strip_write( M8_STRIP *s, const M8_RECT *r )
 
     for( y = 0; y < h; ++y ) {
         row = s->bits + (DWORD)y * s->pitch;
+        /* A row the same as the one above (a stretch, a gradient band) is an
+         * engine copy of it once that row is on the screen: no pixels on the
+         * bus. A run of them doubles, so n rows cost about log2 n copies.
+         * One colour across is cheaper as the fill below. */
+        if( y > 0 && _fmemcmp( row, row - s->pitch, w ) == 0 && !m8_row_uniform( row, w ) ) {
+            int n = 1;
+            int c;
+
+            if( plain >= 0 ) {
+                m8_hw_write_rect( r->l, r->t + plain, w, y - plain,
+                                  s->bits + (DWORD)plain * s->pitch, s->pitch );
+                plain = -1;
+            }
+            for( k = y + 1; k < h && _fmemcmp( s->bits + (DWORD)k * s->pitch, row, w ) == 0; ++k ) {
+            }
+            while( y < k ) {
+                c = k - y < n ? k - y : n;
+                m8_hw_copy( r->l, r->t + y - n, r->l, r->t + y, w, c );
+                y += c;
+                n += c;
+            }
+            --y;
+            continue;
+        }
         if( !m8_row_run( row, 0, w, &a, &b ) ) {
             if( plain < 0 ) {
                 plain = y;
@@ -3545,8 +3569,10 @@ BOOL WINAPI __loadds StretchDIBits( LPPDEVICE lpDestDev, WORD fGet, WORD wDestX,
     }
     m8_rect_from_gdi( &bound, lpClipRect );
     m8_rect_and( &bound, &d );
-    /* Always read: a clipped or mirrored stretch need not cover its box. */
-    m8_fallback( &bound, 1, !fGet, 0, m8_draw_stretchdib, &s );
+    /* The screen is read only when the result depends on it, or when a
+     * clipped or mirrored stretch leaves part of its box undrawn. */
+    m8_fallback( &bound, fGet || m8_rop_uses_dest( dwRop3 ) ? 1 : M8_READ_IF_UNCOVERED, !fGet,
+                 0, m8_draw_stretchdib, &s );
     return( TRUE );
 }
 
@@ -3636,7 +3662,8 @@ BOOL WINAPI __loadds StretchBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, 
     }
     m8_rect_from_gdi( &bound, lpClipRect );
     m8_rect_and( &bound, &d );
-    m8_fallback( &bound, 1, 1, 0, m8_draw_stretchblt, &s );
+    m8_fallback( &bound, m8_rop_uses_dest( dwRop3 ) ? 1 : M8_READ_IF_UNCOVERED, 1, 0,
+                 m8_draw_stretchblt, &s );
     return( TRUE );
 }
 

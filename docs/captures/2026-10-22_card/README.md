@@ -18,3 +18,6 @@ are not like for like.
 | card_loop1 | + one loop over GDI's span list in m8hw.c (no per-span helpers) | pixels = ATI in all 35; polygon 54.6/s (0.75x ATI), ellipse 62.7/s (0.88x); 1.143x ATI |
 | card_trim1 | + span bound only when the cursor overlaps; SaveScreenBitmap check in trace builds only | pixels = ATI in all 35; no measurable change (polygon 54.1/s) |
 | card_ox1 | trim build compiled -ox instead of -oi (not adopted) | pixels = ATI in all 35; 0.998x card_trim1: no gain; drag_frame 0.71x, dstinvert 0.90x. Bed 1.108x: the bed rewards CPU the card does not |
+| card_slots1 | + wait for 6 free FIFO slots per span, not an empty FIFO (reverted) | polygon 0.89x: a status read every span costs more than the overlap gains |
+| card_str1 | + stretches read the screen only if the ROP needs it or the box is not covered | no change (the write, not the read, is the cost) |
+| card_dupr1 | + write-back sends a row equal to the one above as an engine copy | pixels = ATI in all 35; stretch_dib 4.2/s (was 2.9), stretchblt 5.6/s (was 3.6); 1.175x ATI |
