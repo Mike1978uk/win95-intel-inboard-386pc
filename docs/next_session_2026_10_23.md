@@ -3,6 +3,22 @@
 Supersedes `docs/next_session_2026_10_22.md` (read it for the day's detail). Card log and one row per run:
 `docs/captures/2026-10-22_card/`.
 
+## Start here
+
+The plan, from the end-of-session retro (`docs/mach8_retro_2026_10_22.md`: every test against ATIM8 and
+XFree86's Mach8 server, with its next lever). Equal or better than ATIM8 everywhere, then the experiments.
+
+1. **Per-call path of small operations** (setpixel, getpixel, fill_small, blit_small, rectangle, lines,
+   shapes): ~0.1 ms a call to save, about 1.2x on a third of the table. Method below (Next, item 1).
+2. **Stretch** (0.41-0.46x): trace ATIM8 `seg14`.
+3. **DIB and mono uploads** (0.6-0.67x): measure, then a tight loop (XFree86 `mach8imwrt.s`, ATIM8's
+   generated `rep outsw`, `seg16:45ca`).
+4. **Colour brushes** (fallback today): XFree86's off-screen tile cache or ATIM8's A211h pattern rows.
+5. Then DirectDraw, more colours, 3D.
+
+After every win: where else on the card does it apply? Posted 10-23: #50 reply to Andrew (BlueSCSI plan,
+multi-LUN first; leads in #53), #49 progress note. Contributor ledger updated.
+
 ## State
 
 - Card: `M8NW.DRV` selected = master (all of the below). `CONFIG.SYS` `menudefault=LEAN,5` for driver work
