@@ -3008,7 +3008,9 @@ static void m8_text_bound( M8_TEXT *t, M8_RECT *bound )
  * (M8TIME A on the card) with no bits on the bus. Rows just above the cursor's
  * corner; 128 of them (96 at 1024x768, to leave room for menu saves). Packed in
  * shelves per plane; when full, the whole cache is cleared. Keyed by two 32-bit
- * hashes of the bits and the size. */
+ * hashes of the bits and the size. A string is stored the second time it is
+ * seen: storing costs an upload into the plane and then the blit, where a
+ * string drawn once (a counter, a status line) is one mono expansion. */
 #define M8_SC_ENTRIES       384
 #define M8_SC_W             (M8_CURSOR_SAVE_X)      /* 992: clear of the cursor's corner */
 #define M8_SC_MAX_H         32
@@ -3023,7 +3025,11 @@ typedef struct {
     int     plane;
 } M8_SCENTRY;
 
+#define M8_SC_SEEN          64
+
 static M8_SCENTRY   m8_sc[M8_SC_ENTRIES];
+static DWORD        m8_sc_seen[M8_SC_SEEN];
+static int          m8_sc_seen_next;
 static int          m8_sc_n;
 static int          m8_sc_plane;
 static int          m8_sc_x;
@@ -3106,6 +3112,13 @@ static M8_SCENTRY *m8_sc_get( const BYTE FAR *bits, WORD wb, WORD h )
             M8_STEP( M8_MARK_SC_HIT );
             return( e );
         }
+    }
+    for( k = 0; k < M8_SC_SEEN && m8_sc_seen[k] != h1; ++k ) {
+    }
+    if( k == M8_SC_SEEN ) {
+        m8_sc_seen[m8_sc_seen_next] = h1;
+        m8_sc_seen_next = (m8_sc_seen_next + 1) % M8_SC_SEEN;
+        return( NULL );
     }
     if( m8_sc_n >= M8_SC_ENTRIES ) {
         m8_sc_flush();
