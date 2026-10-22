@@ -21,3 +21,7 @@ are not like for like.
 | card_slots1 | + wait for 6 free FIFO slots per span, not an empty FIFO (reverted) | polygon 0.89x: a status read every span costs more than the overlap gains |
 | card_str1 | + stretches read the screen only if the ROP needs it or the box is not covered | no change (the write, not the read, is the cost) |
 | card_dupr1 | + write-back sends a row equal to the one above as an engine copy | pixels = ATI in all 35; stretch_dib 4.2/s (was 2.9), stretchblt 5.6/s (was 3.6); 1.175x ATI |
+| card_scan21 | + ScanLR on the card: a SCAN_TO_X read from x, compared as it arrives (ATIM8 seg07:0147) | pixels = ATI in all 35; floodfill 2.7/s (was 1.3); a first build counted left scans from x + 1 and differed |
+| card_getpx1 | + GetPixel on the card: a one-pixel SCAN_TO_X read (ATIM8 seg07:00aa) | pixels = ATI in all 35; getpixel 1864/s (was 1357); a self-test build matched the old path on all 1722 calls |
+| card_curp1 | + cursor masks kept as bit-planes off-screen, drawn by plane blits | pixels = ATI in all 35; cursor_move 690/s (was 488) |
+| card_setpx1 | + pixel sets without the DIB Engine call on a scratch strip | pixels = ATI in all 35; setpixel 1696/s (was 1443); 1.206x ATI overall |

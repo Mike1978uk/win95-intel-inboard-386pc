@@ -511,6 +511,87 @@ void m8_hw_scan_spans( int poly, WORD count, const short FAR *w,
     m8_scan_byte = byte;
 }
 
+/* ScanLR on the card, as ATIM8 does it (seg09:0109): a SCAN_TO_X read from x
+ * towards the row's end, compared as it arrives, so a scan reads only up to
+ * the pixel that stops it. DP_CONFIG 5210h reads two pixels a word, the first
+ * in scan order in the low byte (tools/m8probe/M8SCANR.C). Style bit 1 scans
+ * left: CUR_X is x + 1 and the first pixel read is x. Bit 0 clear stops at the
+ * first pixel that is not colour, set at the first that is. The answer is that
+ * pixel's x (seg07:01ad counts from x either way); FFFFh if nothing stops it.
+ * A transfer left unread is aborted as ATIM8 aborts it, and the set-up is
+ * rewritten. */
+static int m8_read_scan( int from, int y, int to )
+{
+    WORD n;
+
+    m8_wait_fifo_empty();
+    m8_hw_wait_idle();
+    M8_SET( M8_SH_WRT_MASK, 0x00FF );
+    M8_SET( M8_SH_RD_MASK, 0x00FF );
+    m8_put( M8_SH_PIX_CNTL, M8_MF_PIX_CNTL );
+    m8_scissors( M8_EXT_SCISSOR_MIN, M8_EXT_SCISSOR_MIN, M8_EXT_SCISSOR_MAX, M8_EXT_SCISSOR_MAX );
+    m8_put( M8_SH_DP_CONFIG, M8_DP_READ_SCAN );
+    m8_sh_ok[M8_SH_FRGD_MIX] = 0;
+    m8_sh_ok[M8_SH_BKGD_MIX] = 0;
+    m8_room_for( 4 );
+    outpw( M8_ALU_FG_FN, M8_MIX_REPLACE );
+    outpw( M8_CUR_Y, y );
+    outpw( M8_CUR_X, from );
+    outpw( M8_SCAN_TO_X, to );
+    m8_room -= 4;
+    for( n = 0; n < M8_WAIT_LIMIT; ++n ) {
+        if( inpw( M8_GP_STAT ) & M8_GP_DATA_READY ) {
+            return( 1 );
+        }
+    }
+    m8_engine_reset();
+    return( 0 );
+}
+
+/* One pixel read as ATIM8's Pixel reads it (seg07:00aa): a one-pixel
+ * SCAN_TO_X read, the pixel in the low byte of the word. */
+BYTE m8_hw_getpixel( int x, int y )
+{
+    if( m8_hw_off || !m8_read_scan( x, y, x + 1 ) ) {
+        return( 0 );
+    }
+    ++m8_stats[M8_STAT_READBACK];
+    return( (BYTE)inpw( M8_PIX_TRANS ) );
+}
+
+WORD m8_hw_scanlr( int x, int y, BYTE colour, WORD style, int width )
+{
+    int     left = (style & 2) != 0;
+    int     want = (style & 1) != 0;
+    int     step = left ? -1 : 1;
+    int     pos = x;
+    int     count = left ? x + 1 : width - x;
+    WORD    v;
+    BYTE    p;
+    int     half;
+
+    if( m8_hw_off || count <= 0 || !m8_read_scan( left ? x + 1 : x, y, left ? 0 : width ) ) {
+        return( 0xFFFF );
+    }
+    while( count > 0 ) {
+        v = inpw( M8_PIX_TRANS );
+        for( half = 0; half < 2 && count > 0; ++half ) {
+            p = (BYTE)(half ? v >> 8 : v);
+            if( (p == colour) == want ) {
+                if( half == 0 ? count > 2 : count > 1 ) {
+                    m8_engine_reset();
+                }
+                ++m8_stats[M8_STAT_READBACK];
+                return( (WORD)pos );
+            }
+            pos += step;
+            --count;
+        }
+    }
+    ++m8_stats[M8_STAT_READBACK];
+    return( 0xFFFF );
+}
+
 /* Solid rectangles one after another: the set-up once, then five writes each.
  * Nothing else may touch the engine in between. */
 void m8_hw_fill_begin( BYTE color, WORD mix )
@@ -872,6 +953,34 @@ void m8_hw_plane_blit( int sx, int sy, int dx, int dy, int w, int h, int plane,
     outpw( M8_CMD, M8_CMD_PLANE_BLIT );
     m8_hw_wait_idle();
     ++m8_stats[M8_STAT_TEXT_HW];
+}
+
+/* As m8_hw_plane_blit, transparent, with any foreground mix: where the plane
+ * holds 1, fg through fg_mix; where 0, the screen is left. */
+void m8_hw_plane_mix( int sx, int sy, int dx, int dy, int w, int h, int plane,
+                      BYTE fg, WORD fg_mix )
+{
+    if( m8_hw_off || w <= 0 || h <= 0 ) {
+        return;
+    }
+    m8_wait_fifo_empty();
+    M8_SET( M8_SH_WRT_MASK, 0x00FF );
+    m8_put( M8_SH_DP_CONFIG, M8_DP_8514 );
+    m8_scissors( M8_EXT_SCISSOR_MIN, M8_EXT_SCISSOR_MIN, M8_EXT_SCISSOR_MAX, M8_EXT_SCISSOR_MAX );
+    m8_put( M8_SH_PIX_CNTL, M8_MF_PIX_CNTL | 0x00C0 );
+    M8_SET( M8_SH_RD_MASK, (1 << ((plane + 1) & 7)) & 0xFF );
+    m8_put( M8_SH_FRGD_MIX, fg_mix );
+    M8_SET( M8_SH_FRGD_COLOR, fg );
+    m8_put( M8_SH_BKGD_MIX, M8_MIX_LEAVE );
+    m8_room_for( 7 );
+    outpw( M8_CUR_X, sx );
+    outpw( M8_CUR_Y, sy );
+    outpw( M8_DESTX_DIASTP, dx );
+    outpw( M8_DESTY_AXSTP, dy );
+    outpw( M8_MAJ_AXIS_PCNT, w - 1 );
+    outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
+    outpw( M8_CMD, M8_CMD_PLANE_BLIT );
+    m8_hw_wait_idle();
 }
 
 /* A value the tap logs between operations, so a capture splits per GDI call. */

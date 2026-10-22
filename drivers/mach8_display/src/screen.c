@@ -488,8 +488,29 @@ static void m8_cursor_show_soft( int cx, int cy )
     m8_cur_shown = 1;
 }
 
+/* The masks go to off-screen memory once per shape (M8_CURSOR_MASK_X/Y): the
+ * AND mask inverted in plane 0, so a 1 there means black, the XOR mask in plane
+ * 1. Lost with the caches whenever DOS has had the screen. */
+static int m8_cur_planes_ok;
+
+static void m8_cursor_planes( void )
+{
+    BYTE    inv[M8_CURSOR_MAX * M8_CURSOR_MAX / 8];
+    int     i;
+
+    for( i = 0; i < sizeof( inv ); ++i ) {
+        inv[i] = (BYTE)~m8_cur_and[i];
+    }
+    m8_hw_mono_plane( M8_CURSOR_MASK_X, M8_CURSOR_MASK_Y, M8_CURSOR_MAX / 8, M8_CURSOR_MAX,
+                      inv, 0 );
+    m8_hw_mono_plane( M8_CURSOR_MASK_X, M8_CURSOR_MASK_Y, M8_CURSOR_MAX / 8, M8_CURSOR_MAX,
+                      m8_cur_xor, 1 );
+    m8_cur_planes_ok = 1;
+}
+
 /* Engine: what is under the cursor is copied to off-screen memory, then the
- * two masks are expanded over it. Only the 256 bytes of mask cross the bus. */
+ * two mask planes are drawn over it from off-screen memory: no pixels or mask
+ * bits cross the bus. */
 static void m8_cursor_show( void )
 {
     M8_RECT r;
@@ -516,12 +537,13 @@ static void m8_cursor_show( void )
     M8_STEP( r.l );
     M8_STEP( r.t );
     m8_hw_copy( r.l, r.t, M8_CURSOR_SAVE_X, M8_CURSOR_SAVE_Y, r.r - r.l, r.b - r.t );
-    m8_hw_mono( cx, cy, M8_CURSOR_MAX / 8, M8_CURSOR_MAX, m8_cur_and,
-                M8_MIX_LEAVE, 0, M8_MIX_SRC_BKGD | M8_MIX_REPLACE, 0,
-                r.l, r.t, r.r - 1, r.b - 1 );
-    m8_hw_mono( cx, cy, M8_CURSOR_MAX / 8, M8_CURSOR_MAX, m8_cur_xor,
-                M8_MIX_SRC_FRGD | M8_MIX_XOR, 0xFF, M8_MIX_LEAVE, 0,
-                r.l, r.t, r.r - 1, r.b - 1 );
+    if( !m8_cur_planes_ok ) {
+        m8_cursor_planes();
+    }
+    m8_hw_plane_mix( M8_CURSOR_MASK_X + r.l - cx, M8_CURSOR_MASK_Y + r.t - cy, r.l, r.t,
+                     r.r - r.l, r.b - r.t, 0, 0x00, M8_MIX_SRC_FRGD | M8_MIX_REPLACE );
+    m8_hw_plane_mix( M8_CURSOR_MASK_X + r.l - cx, M8_CURSOR_MASK_Y + r.t - cy, r.l, r.t,
+                     r.r - r.l, r.b - r.t, 1, 0xFF, M8_MIX_SRC_FRGD | M8_MIX_XOR );
     m8_cur_rect = r;
     m8_cur_soft = 0;
     m8_cur_shown = 1;
@@ -2755,30 +2777,34 @@ DWORD WINAPI __loadds Pixel( LPPDEVICE lpDestDev, WORD X, WORD Y, DWORD dwPhysCo
     }
     M8_ENTRY( M8_STAT_PIXEL );
     /* A set on the engine: a 1x1 fill through the ROP2's mix, no read-back.
-     * The return value is the DIB Engine's for the same call on the RAM strip. */
+     * GDI does not use a set's return value: ATIM8 returns what its registers
+     * hold (seg07:0048). */
     if( lpDrawMode != NULL && lpDrawMode->Rop2 >= 1 && lpDrawMode->Rop2 <= 16 &&
         X < (WORD)M8_SCREEN_X && Y < (WORD)M8_SCREEN_Y ) {
-        DWORD   ret;
-        WORD    pitch;
-
         m8_rect_set( &r, X, Y, X + 1, Y + 1 );
-        m8_strip_rows( &r, &pitch );
-        m8_src.pitch = pitch;
-        m8_strip_place( &m8_src, &r );
-        ret = DIB_Pixel( &m8_src.dev, X, Y, dwPhysColor, lpDrawMode );
-        M8_STEP( M8_MARK_PIXEL_RET );
-        M8_STEP( (WORD)(ret & 0x07FF) | (ret > 0x07FF ? 0x0800 : 0) );
         m8_enter( &r );
         m8_hw_fill_mix( X, Y, 1, 1, (BYTE)dwPhysColor,
                         M8_MIX_SRC_FRGD | m8_mix_for_key[lpDrawMode->Rop2 - 1] );
         m8_leave();
-        return( ret );
+        return( dwPhysColor );
+    }
+    m8_rect_set( &r, X, Y, X + 1, Y + 1 );
+    /* A get on the engine, answered as the DIB Engine answers it for an 8-bit
+     * device (ATIM8 seg07:00fa): FF00h above the pixel. A translated palette
+     * needs the reverse table, which the fallback has. */
+    if( lpDrawMode == NULL && !m8_hw_off && !(m8_screen->deFlags & PALETTE_XLAT) &&
+        X < (WORD)M8_SCREEN_X && Y < (WORD)M8_SCREEN_Y ) {
+        BYTE v;
+
+        m8_enter( &r );
+        v = m8_hw_getpixel( X, Y );
+        m8_leave();
+        return( 0xFF000000UL | v );
     }
     p.x = X;
     p.y = Y;
     p.color = dwPhysColor;
     p.dm = lpDrawMode;
-    m8_rect_set( &r, X, Y, X + 1, Y + 1 );
     /* No draw mode: a read of the pixel, nothing to write back. */
     return( m8_fallback( &r, 1, lpDrawMode != NULL, 0, m8_draw_pixel, &p ) );
 }
@@ -2812,12 +2838,23 @@ WORD WINAPI __loadds ScanLR( LPPDEVICE lpDestDev, WORD X, WORD Y, DWORD dwPhysCo
         return( 0 );
     }
     M8_ENTRY( M8_STAT_SCANLR );
+    if( X >= M8_SCREEN_X || Y >= M8_SCREEN_Y ) {
+        return( 0x8000 );
+    }
+    /* The scan may run to either edge; the cursor must not be in the row. */
+    m8_rect_set( &r, 0, Y, M8_SCREEN_X, Y + 1 );
+    if( !m8_hw_off ) {
+        WORD ret;
+
+        m8_enter( &r );
+        ret = m8_hw_scanlr( X, Y, (BYTE)dwPhysColor, wStyle, M8_SCREEN_X );
+        m8_leave();
+        return( ret );
+    }
     s.x = X;
     s.y = Y;
     s.color = dwPhysColor;
     s.style = wStyle;
-    /* The scan may run to either edge: read the whole row. */
-    m8_rect_set( &r, 0, Y, M8_SCREEN_X, Y + 1 );
     return( (WORD)m8_fallback( &r, 1, 0, 0, m8_draw_scanlr, &s ) );
 }
 
@@ -3832,6 +3869,7 @@ VOID WINAPI __loadds M8SetCursor( M8_CURSORSHAPE FAR *lpShape )
         m8_cur_hot_x = lpShape->csHotX;
         m8_cur_hot_y = lpShape->csHotY;
         m8_cur_have_shape = 1;
+        m8_cur_planes_ok = 0;
         m8_cursor_show();
     }
     m8_busy = 0;
@@ -3876,6 +3914,7 @@ int m8_screen_init( LPDIBENGINE screen )
 
     m8_screen = screen;
     m8_ssb_used = 0;
+    m8_cur_planes_ok = 0;
     m8_sc_flush();
     m8_bc_flush();
     /* The DIB Engine calls these on the screen around engine text; the cursor
@@ -3907,6 +3946,7 @@ void m8_screen_suspend( void )
     m8_busy = 1;
     m8_sc_flush();
     m8_bc_flush();
+    m8_cur_planes_ok = 0;
     m8_cur_shown = 0;
     m8_cur_pending = 0;
     m8_ssb_used = 0;
@@ -3920,6 +3960,7 @@ void m8_screen_resume( void )
 #endif
     m8_sc_flush();
     m8_bc_flush();
+    m8_cur_planes_ok = 0;
     m8_cur_shown = 0;
     m8_cur_pending = 0;
     m8_ssb_used = 0;

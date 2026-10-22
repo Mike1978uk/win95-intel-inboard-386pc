@@ -77,6 +77,7 @@ extern int m8_scr_y;
 #define M8_DP_MONO_HOST     0x3251
 #define M8_DP_8514          0x2211
 #define M8_DP_MONO_PATT     0x2231      /* the mono pattern picks foreground or background */
+#define M8_DP_READ_SCAN     0x5210      /* SCAN_TO_X reads to PIX_TRANS, two pixels a word */
 #define M8_SCRATCH_PAD_1    0x56EE      /* marker writes for the tap (A10) */
 
 /* GP_STAT bits. */
@@ -104,6 +105,10 @@ extern int m8_scr_y;
  * (32 x 32), below every mode's screen; menu saves use the rows above it. */
 #define M8_CURSOR_SAVE_X    (M8_PITCH - 32)
 #define M8_CURSOR_SAVE_Y    (M8_PITCH - 32)
+/* The cursor's masks as bit-planes, above the save area: right of the string
+ * cache's 992 columns, inside its rows, so no cache reaches it in any mode. */
+#define M8_CURSOR_MASK_X    M8_CURSOR_SAVE_X
+#define M8_CURSOR_MASK_Y    (M8_CURSOR_SAVE_Y - 32)
 
 /* Commands. Rectangle (010), LSB_FIRST (bit 12: first pixel in the low byte), 16-bit
  * transfers (bit 9), wait for host data (bit 8), x and y increasing, draw. */
@@ -158,6 +163,10 @@ extern void m8_hw_pattern_begin( BYTE fg, BYTE bg, WORD fg_fn, WORD bg_fn );
 extern void m8_hw_pattern_span( int x, int y, int w, int h, const BYTE *pat );
 extern void m8_hw_fill_begin( BYTE color, WORD mix );
 extern void m8_hw_fill_span( int x, int y, int w, int h );
+extern WORD m8_hw_scanlr( int x, int y, BYTE colour, WORD style, int width );
+extern BYTE m8_hw_getpixel( int x, int y );
+extern void m8_hw_plane_mix( int sx, int sy, int dx, int dy, int w, int h, int plane,
+                             BYTE fg, WORD fg_mix );
 extern void m8_hw_scan_spans( int poly, WORD count, const short FAR *w,
                               int l, int t, int r, int b, const BYTE *pat );
 extern void m8_hw_copy_mix( int sx, int sy, int dx, int dy, int w, int h, WORD mix );
@@ -201,7 +210,6 @@ extern void m8_hw_marker( WORD value );
 #define M8_MARK_PX_HIT      0xA0F8  /* memory to screen from the card */
 #define M8_MARK_PX_BACK     0xA0F9  /* then why: proxy written back to RAM */
 #define M8_MARK_PX_LOST     0xA0FA  /* proxy dropped: bitmap changed or freed */
-#define M8_MARK_PIXEL_RET   0xA0FB  /* then DIB_Pixel's return (low 11 bits, 800h if more) */
 #define M8_MARK_MEM2MEM     0xA0FC  /* trace: then dst, src, rop, w, h as byte pairs */
 #define M8_MARK_SCR2MEM_ARGS 0xA0FD /* trace: the same for a screen-to-memory copy */
 #define M8_MARK_MONO_BLT    0xA0FE  /* monochrome bitmap expanded by the engine */
