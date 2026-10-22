@@ -43,8 +43,9 @@ instantly. It also does not model all of the guide's rules: a bed pass is necess
 ## 4. Card: the measurement
 
 `tools\m8_card_cycle.ps1 -Drv $env:TEMP\m8plain\M8DISP.DRV -Name M8XXXX -Label card_xxxx` installs the
-driver beside the running one, selects it, reboots (unattended: Logged + CONFIG `FULL`), benches twice,
-and compares the second run with ATI's card runs. The first run after a boot is unreliable: never use it.
+driver beside the running one, selects it, reboots (unattended: Logged + CONFIG `FULL`), waits 300 s for
+the start-up programs (a bench during them is slow in every test: `card_hatch2`, 10-22), benches once
+and compares with ATI's card runs. ATI's were after a `LEAN` boot, ours after `FULL`: not like for like.
 
 - Pass: pixels equal ATI's in every test (or the known exceptions shrink), no engine resets.
 - A wedge: the bench call times out. Say "it's hung, can you restart" to the owner; then

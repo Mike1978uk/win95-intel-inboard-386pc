@@ -1,11 +1,13 @@
 # One driver run on the real 5160 through the V9x Remote Agent: put the driver on the card under
-# its own name, select it, reboot unattended, run M8BENCH twice (the first run after a boot is
-# unreliable), fetch C:\M8BENCH.TXT and compare the second run. Prints the comparison.
+# its own name, select it, reboot unattended, wait for the start-up programs to finish, run
+# M8BENCH, fetch C:\M8BENCH.TXT and compare the last run. Prints the comparison.
 #
 #   tools\m8_card_cycle.ps1 -Drv <M8DISP.DRV> -Name M8DASH -Label card_dash [-Against card_ati1,card_ati2]
 #
 # -Name is the 8.3 name the driver is installed as (C:\WINDOWS\SYSTEM\<Name>.DRV), so the
-# driver in use stays where it is until the reboot. Runs are labelled <Label>1 and <Label>2.
+# driver in use stays where it is until the reboot. Runs are labelled <Label>1..<Label><Runs>.
+# A bench while the desktop is still loading is slow in every test, so the first run waits
+# -Settle seconds after the desktop appears.
 # A wedged card stops the script at the bench: ask the owner to restart, then read the log
 # with -FetchOnly. -BenchOnly benches the driver already running (the card booted into it).
 
@@ -16,6 +18,8 @@ param(
   [string]$Against = 'card_ati1,card_ati2',
   [string]$CardHost = '192.168.68.62',
   [string]$Log = (Join-Path $env:TEMP 'm8_card_bench.txt'),
+  [int]$Runs = 1,
+  [int]$Settle = 300,
   [switch]$FetchOnly,
   [switch]$BenchOnly
 )
@@ -49,9 +53,10 @@ if (-not $FetchOnly -and -not $BenchOnly) {
   Agent wait-desktop @{ WaitSeconds = 300 } | Out-Null
 }
 if (-not $FetchOnly) {
-  foreach ($n in 1, 2) {
+  if (-not $BenchOnly) { Start-Sleep -Seconds $Settle }
+  foreach ($n in 1..$Runs) {
     Agent exec @{ Application = 'C:\M8BENCH.EXE'; Arguments = "$Label$n"; TimeoutSeconds = 300 } | Out-Null
   }
 }
 Agent get @{ Source = 'C:\M8BENCH.TXT'; Destination = $Log } | Out-Null
-python -I (Join-Path $root 'tools\m8_bench_compare.py') $Log $Against "$($Label)2"
+python -I (Join-Path $root 'tools\m8_bench_compare.py') $Log $Against "$Label$Runs"
