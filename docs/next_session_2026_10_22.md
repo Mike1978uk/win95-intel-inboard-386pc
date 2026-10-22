@@ -35,18 +35,34 @@ Supersedes `docs/next_session_2026_10_21.md`. Card log and per-run table: `docs/
 - Issues #51 (filesystem), #52 (WINDISK), #53 (GitHub survey leads) opened.
   `docs/mach8_unused_silicon_audit.md` lists every unused lever against the gaps.
 
+## Evening 10-22 (card, LEAN, pixels = ATI in all 35 throughout)
+
+| | morning | evening | vs ATI |
+|---|---|---|---|
+| floodfill | 1.4/s | 2.7/s | 0.34x -> 0.66x |
+| getpixel | 1357/s | 1918/s | 0.62x -> 0.86x |
+| setpixel | 1443/s | 1696/s | 0.70x -> 0.82x |
+| cursor_move | 488/s | 612-690/s | 0.47x -> 0.59-0.66x |
+| stretch_dib / stretchblt | 2.9 / 3.6 | 4.2 / 5.6 | 0.32/0.27 -> 0.46/0.41 |
+| overall | | | **1.206x ATI** (`a72e18f`) |
+
+- ScanLR and GetPixel read with SCAN_TO_X as ATIM8 does (seg07:0147, 00aa; probe `M8SCANR`: DP_CONFIG
+  5210h gives two pixels a word, low byte first). ATIM8's answer is the pixel's own x either way.
+- Write-back sends a row equal to the one above as an engine copy (stretch 1.5x).
+- Cursor masks live off-screen as bit-planes at (992, 960); a move is 4 engine ops.
+- Negative: waiting for free FIFO slots per span (0.89x); stretch read-back skip alone (no change).
+- BSOD 0D at 0137:BFF712C5 (KERNEL32) once during an agent restart: count it if it repeats.
+
 ## Next, in order
 
-1. **Polygon, the last 0.25x.** 17.9 ms a polygon: ~7 ms port writes, ~0.5 ms FIFO polls; ~10 ms is
-   not in our span code (-ox did not move it). Read ATIM8's `Enable` (`seg02:0711`): what it sets in
-   GDIINFO `dpPolygonals`, and what DIBENG does with `OS_POLYGON` on ATI's screen device. If GDI's own
-   scan converter is the cost, taking polygons ourselves is the lever. Hand assembly of the span loop
-   is parked: measure first.
-2. **Stretch (0.26-0.32x):** trace ATIM8 `seg14` (StretchBlt) and `seg12` (DibToDevice).
-3. **Floodfill (0.34x):** check whether ATIM8 uses destination compare (EEEE); the docs disagree.
-4. Smaller gaps: hatch single self-overlapping copy (ATIM8 `seg16:4470`) instead of doubling copies;
-   setpixel/getpixel/cursor per-call cost.
-5. Then the fun: DirectDraw, more colours, 3D (`docs/mach8_unused_silicon_audit.md`).
+1. **Cursor (0.59-0.66x):** one keyed copy instead of two plane blits for cursors with no inverted
+   pixels: source colour compare (92EEh bits 3-5 = 20h, EAEEh key; true takes the background mix; an
+   engine reset does not clear 92EEh, so write 0 back). Extended blit as `tools/m8seq/M8SCMP.ASM`. Measure
+   the per-move driver time first: USER's share of SetCursorPos is unknown.
+2. **Stretch (0.41-0.46x):** trace ATIM8 `seg14`; the write is the cost.
+3. **dib_8bpp (0.60x), mono_bmp, text_varied (0.65x):** measure writes and CPU per call first.
+4. Polygon (0.75x): per-call fixed cost; ellipse 0.76x, rectangle 0.80x.
+5. Then DirectDraw, more colours, 3D (`docs/mach8_unused_silicon_audit.md`).
 
 ## Method notes learned today
 
