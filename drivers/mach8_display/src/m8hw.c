@@ -419,6 +419,98 @@ void m8_hw_pattern_rows( int x, int y, int w, int h, const BYTE *pat,
     m8_hw_pattern_span( x, y, w, h, pat );
 }
 
+/* Every span of one GDI scanline call, clipped to l,t,r,b (right and bottom
+ * exclusive), after m8_hw_fill_begin (pat NULL) or m8_hw_pattern_begin: one
+ * loop over GDI's own list, as ATIM8 walks it (seg08:0b96), so a span costs its
+ * port writes and little else. poly 0 is OS_SCANLINES: the first point is
+ * (count, y), the rest x pairs. poly 1 is OS_POLYSCANLINE: records of x count,
+ * top, bottom, the x pairs and the count again. A one-row span goes through
+ * SCAN_TO_X; y and byte are the row and pattern byte the engine holds. */
+void m8_hw_scan_spans( int poly, WORD count, const short FAR *w,
+                       int l, int t, int r, int b, const BYTE *pat )
+{
+    int                 y = m8_scan_y;
+    WORD                byte = m8_scan_byte;
+    int                 room = m8_room;
+    WORD                recs = poly ? count : 1;
+    const short FAR     *xs;
+    WORD                n;
+    WORD                i;
+    int                 y0;
+    int                 y1;
+    int                 x0;
+    int                 x1;
+
+    if( m8_hw_off ) {
+        return;
+    }
+    for( ; recs > 0; --recs ) {
+        if( poly ) {
+            n = (WORD)w[0];
+            y0 = w[1];
+            y1 = w[2];
+            xs = w + 3;
+        } else {
+            n = (WORD)((count - 1) * 2);
+            y0 = w[1];
+            y1 = y0 + 1;
+            xs = w + 2;
+        }
+        if( y0 < t ) {
+            y0 = t;
+        }
+        if( y1 > b ) {
+            y1 = b;
+        }
+        for( i = 0; y0 < y1 && i + 1 < n; i += 2 ) {
+            x0 = xs[i] < l ? l : xs[i];
+            x1 = xs[i + 1] > r ? r : xs[i + 1];
+            if( x0 >= x1 ) {
+                continue;
+            }
+            ++m8_stats[M8_STAT_FILL_HW];
+            if( y1 - y0 != 1 ) {
+                m8_room = room;
+                if( pat != NULL ) {
+                    m8_hw_pattern_span( x0, y0, x1 - x0, y1 - y0, pat );
+                } else {
+                    m8_hw_fill_span( x0, y0, x1 - x0, y1 - y0 );
+                }
+                room = m8_room;
+                y = -1;
+                byte = 0xFFFF;
+                continue;
+            }
+            if( room < 6 ) {
+                m8_wait_fifo_empty();
+                room = m8_room;
+            }
+            if( y0 != y ) {
+                y = y0;
+                outpw( M8_CUR_Y, y );
+                --room;
+            }
+            outpw( M8_CUR_X, x0 );
+            if( pat != NULL ) {
+                if( pat[y & 7] != byte ) {
+                    byte = pat[y & 7];
+                    outpw( M8_PATT_DATA_INDEX, 0x10 );
+                    outpw( M8_PATT_DATA, byte );
+                    room -= 2;
+                }
+                outpw( M8_PATT_INDEX, x0 & 7 );
+                --room;
+            }
+            outpw( M8_SCAN_TO_X, x1 );
+            room -= 2;
+        }
+        w += n + 4;
+    }
+    m8_room = room;
+    m8_scan_y = y;
+    m8_scan_byte = byte;
+}
+
 /* Solid rectangles one after another: the set-up once, then five writes each.
  * Nothing else may touch the engine in between. */
 void m8_hw_fill_begin( BYTE color, WORD mix )

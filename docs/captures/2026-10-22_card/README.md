@@ -15,3 +15,4 @@ are not like for like.
 | card_batch1 | + one set-up per scanline call, then position and pattern per span | LEAN default, after M8IDLE; pixels = ATI in all 35; polygon 37.0/s, ellipse 51.4/s; 1.147x ATI |
 | card_bcache1, card_bcacheb1 | + last pattern brush remembered (no CPU re-render per scanline call) | pixels = ATI in all 35; fill_hatch 378-380/s (1.27x ATI), ellipse 55/s, polygon 38-39/s; mem_to_mem 187-199 is the low end of its 206-390 spread across all runs (bitmap-cache state), watch it |
 | card_scanx1 | + one-row spans through SCAN_TO_X (CAEE), as ATIM8 seg08:0dcd | pixels = ATI in all 35; polygon 42.8/s (0.59x ATI); the bed differs on polygon only: 86Box SCAN_TO_X ignores PATT_INDEX |
+| card_loop1 | + one loop over GDI's span list in m8hw.c (no per-span helpers) | pixels = ATI in all 35; polygon 54.6/s (0.75x ATI), ellipse 62.7/s (0.88x); 1.143x ATI |
