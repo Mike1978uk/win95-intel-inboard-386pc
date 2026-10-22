@@ -331,12 +331,9 @@ void m8_hw_fill( int x, int y, int w, int h, BYTE color )
  * the next. Index 0 is bit 7 of the low byte, so pat[] goes in as it is with the
  * phase x & 7. The pattern repeats along a row only: PATT_LENGTH bits 8, 13 and
  * 14 do not step it from row to row on this card (tools/m8probe/M8PATT.C). */
-void m8_hw_pattern_rows( int x, int y, int w, int h, const BYTE *pat,
-                         BYTE fg, BYTE bg, WORD fg_fn, WORD bg_fn )
+void m8_hw_pattern_begin( BYTE fg, BYTE bg, WORD fg_fn, WORD bg_fn )
 {
-    int     row;
-
-    if( m8_hw_off || w <= 0 || h <= 0 ) {
+    if( m8_hw_off ) {
         return;
     }
     m8_wait_fifo_empty();
@@ -350,16 +347,29 @@ void m8_hw_pattern_rows( int x, int y, int w, int h, const BYTE *pat,
     /* The ALU registers are the mixes' function half: the data path. */
     m8_sh_ok[M8_SH_FRGD_MIX] = 0;
     m8_sh_ok[M8_SH_BKGD_MIX] = 0;
-    m8_room_for( 8 );
+    m8_room_for( 3 );
     outpw( M8_ALU_FG_FN, fg_fn );
     outpw( M8_ALU_BG_FN, bg_fn );
     outpw( M8_PATT_LENGTH, 7 );
+    m8_room -= 3;
+}
+
+/* A rectangle of the pattern set up by m8_hw_pattern_begin; nothing else may
+ * touch the engine in between. */
+void m8_hw_pattern_span( int x, int y, int w, int h, const BYTE *pat )
+{
+    int     row;
+
+    if( m8_hw_off || w <= 0 || h <= 0 ) {
+        return;
+    }
+    m8_room_for( 5 );
     outpw( M8_PATT_INDEX, x & 7 );
     outpw( M8_CUR_X, x );
     outpw( M8_DEST_X_START, x );
     outpw( M8_DEST_X_END, x + w );
     outpw( M8_CUR_Y, y );
-    m8_room -= 8;
+    m8_room -= 5;
     for( row = 0; row < h; ++row ) {
         m8_room_for( 3 );
         outpw( M8_PATT_DATA_INDEX, 0x10 );
@@ -367,6 +377,41 @@ void m8_hw_pattern_rows( int x, int y, int w, int h, const BYTE *pat,
         outpw( M8_DEST_Y_END, y + row + 1 );
         m8_room -= 3;
     }
+    ++m8_stats[M8_STAT_FILL_HW];
+}
+
+void m8_hw_pattern_rows( int x, int y, int w, int h, const BYTE *pat,
+                         BYTE fg, BYTE bg, WORD fg_fn, WORD bg_fn )
+{
+    m8_hw_pattern_begin( fg, bg, fg_fn, bg_fn );
+    m8_hw_pattern_span( x, y, w, h, pat );
+}
+
+/* Solid rectangles one after another: the set-up once, then five writes each.
+ * Nothing else may touch the engine in between. */
+void m8_hw_fill_begin( BYTE color, WORD mix )
+{
+    if( m8_hw_off ) {
+        return;
+    }
+    m8_wait_fifo_empty();
+    m8_plain();
+    m8_put( M8_SH_FRGD_MIX, mix );
+    M8_SET( M8_SH_FRGD_COLOR, color );
+}
+
+void m8_hw_fill_span( int x, int y, int w, int h )
+{
+    if( m8_hw_off || w <= 0 || h <= 0 ) {
+        return;
+    }
+    m8_room_for( 5 );
+    outpw( M8_CUR_X, x );
+    outpw( M8_CUR_Y, y );
+    outpw( M8_MAJ_AXIS_PCNT, w - 1 );
+    outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
+    outpw( M8_CMD, M8_CMD_FILL );
+    m8_room -= 5;
     ++m8_stats[M8_STAT_FILL_HW];
 }
 

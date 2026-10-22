@@ -2496,15 +2496,14 @@ static WORD m8_scan_shift( const M8_OUT *o, int x0, int y0, int h )
 /* Scan styles with one colour: each span is one engine fill, nothing read
  * back. Spans are [x1, x2) on their rows, cut to clip. */
 /* One span, a solid colour (kind 1) or an 8x8 two-colour pattern (kind 2, or 3
- * with the 0 bits left alone), as m8_brush_colours returns them. fn is the
- * ALU function alone. */
-static void m8_span_fill( const M8_RECT *r, int kind, BYTE c1, BYTE c2, const BYTE *pat, WORD fn )
+ * with the 0 bits left alone), as m8_brush_colours returns them, after
+ * m8_scan_fill's one set-up. */
+static void m8_span_fill( const M8_RECT *r, int kind, const BYTE *pat )
 {
     if( kind == 1 ) {
-        m8_hw_fill_mix( r->l, r->t, r->r - r->l, r->b - r->t, c1, M8_MIX_SRC_FRGD | fn );
+        m8_hw_fill_span( r->l, r->t, r->r - r->l, r->b - r->t );
     } else {
-        m8_hw_pattern_rows( r->l, r->t, r->r - r->l, r->b - r->t, pat, c1, c2, fn,
-                            kind == 3 ? M8_MIX_LEAVE : fn );
+        m8_hw_pattern_span( r->l, r->t, r->r - r->l, r->b - r->t, pat );
     }
 }
 
@@ -2518,12 +2517,18 @@ static void m8_scan_fill( WORD style, WORD count, LPPOINT p, const M8_RECT *clip
     WORD            cnt;
 
     m8_enter( clip );
+    /* fn is the ALU function alone. */
+    if( kind == 1 ) {
+        m8_hw_fill_begin( c1, M8_MIX_SRC_FRGD | fn );
+    } else {
+        m8_hw_pattern_begin( c1, c2, fn, kind == 3 ? M8_MIX_LEAVE : fn );
+    }
     if( style == OS_SCANLINES ) {
         for( i = 1; i < count; ++i ) {
             m8_rect_set( &r, p[i].xcoord, p[0].ycoord, p[i].ycoord, p[0].ycoord + 1 );
             m8_rect_and( &r, clip );
             if( !m8_rect_empty( &r ) ) {
-                m8_span_fill( &r, kind, c1, c2, pat, fn );
+                m8_span_fill( &r, kind, pat );
             }
         }
     } else {
@@ -2533,7 +2538,7 @@ static void m8_scan_fill( WORD style, WORD count, LPPOINT p, const M8_RECT *clip
                 m8_rect_set( &r, w[3 + i], w[1], w[4 + i], w[2] );
                 m8_rect_and( &r, clip );
                 if( !m8_rect_empty( &r ) ) {
-                    m8_span_fill( &r, kind, c1, c2, pat, fn );
+                    m8_span_fill( &r, kind, pat );
                 }
             }
             w += cnt + 4;
