@@ -55,6 +55,11 @@ extern int m8_scr_y;
 #define M8_DEST_X_END       0xAAEE
 #define M8_DEST_Y_END       0xAEEE      /* writing it starts an extended blit */
 #define M8_SCAN_TO_X        0xCAEE      /* draws CUR_X up to (not including) it on CUR_Y */
+#define M8_SRC_X_START      0xB2EE
+#define M8_SRC_X_END        0xBEEE
+#define M8_SRC_Y_DIR        0xC2EE
+#define M8_SRC_CMP_FN       0x92EE      /* Mach8 only: bits 3-5 compare each source pixel */
+#define M8_SRC_CMP_COLOR    0xEAEE
 #define M8_EXT_SCISSOR_L    0xDAEE
 #define M8_EXT_SCISSOR_T    0xDEEE
 #define M8_EXT_SCISSOR_R    0xE2EE
@@ -78,6 +83,7 @@ extern int m8_scr_y;
 #define M8_DP_8514          0x2211
 #define M8_DP_MONO_PATT     0x2231      /* the mono pattern picks foreground or background */
 #define M8_DP_READ_SCAN     0x5210      /* SCAN_TO_X reads to PIX_TRANS, two pixels a word */
+#define M8_DP_VRAM_BLIT     0x6011      /* extended blit, video memory as the source */
 #define M8_SCRATCH_PAD_1    0x56EE      /* marker writes for the tap (A10) */
 
 /* GP_STAT bits. */
@@ -165,6 +171,7 @@ extern void m8_hw_fill_begin( BYTE color, WORD mix );
 extern void m8_hw_fill_span( int x, int y, int w, int h );
 extern WORD m8_hw_scanlr( int x, int y, BYTE colour, WORD style, int width );
 extern BYTE m8_hw_getpixel( int x, int y );
+extern void m8_hw_copy_keyed( int sx, int sy, int dx, int dy, int w, int h, BYTE key );
 extern void m8_hw_plane_mix( int sx, int sy, int dx, int dy, int w, int h, int plane,
                              BYTE fg, WORD fg_mix );
 extern void m8_hw_scan_spans( int poly, WORD count, const short FAR *w,

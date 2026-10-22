@@ -25,3 +25,8 @@ are not like for like.
 | card_getpx1 | + GetPixel on the card: a one-pixel SCAN_TO_X read (ATIM8 seg07:00aa) | pixels = ATI in all 35; getpixel 1864/s (was 1357); a self-test build matched the old path on all 1722 calls |
 | card_curp1 | + cursor masks kept as bit-planes off-screen, drawn by plane blits | pixels = ATI in all 35; cursor_move 690/s (was 488) |
 | card_setpx1 | + pixel sets without the DIB Engine call on a scratch strip | pixels = ATI in all 35; setpixel 1696/s (was 1443); 1.206x ATI overall |
+| card_nocur1 | throwaway: MoveCursor records the position and draws nothing | cursor_move 2350/s: everything outside the driver costs 0.43 ms a move, so ATI's driver takes ~0.53 ms |
+| card_keyc1 | + cursors that invert nothing drawn by one keyed copy (source compare 92EEh 28h) | pixels = ATI in all 35; cursor_move 879/s (was 612) |
+| card_key21 | + no idle waits in the cursor's copies | pixels = ATI in all 35; cursor_move 1014/s (0.97x ATI); M8CURRD reads a clean arrow from video memory |
+| card_pair1 | + restore and save in one paired copy (reverted) | cursor_move 1013/s: no change |
+| card_keyf1 | keyed build again, after the Start-menu restart | pixels = ATI in all 35; cursor_move 889/s (boot-to-boot spread ~12%); 1.227x ATI |

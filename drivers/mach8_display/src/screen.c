@@ -432,7 +432,6 @@ static void m8_cursor_hide( void )
         M8_STEP( m8_cur_rect.t );
         m8_hw_copy( M8_CURSOR_SAVE_X, M8_CURSOR_SAVE_Y, m8_cur_rect.l, m8_cur_rect.t,
                     m8_cur_rect.r - m8_cur_rect.l, m8_cur_rect.b - m8_cur_rect.t );
-        m8_hw_wait_idle();
     }
     m8_cur_shown = 0;
 }
@@ -493,11 +492,30 @@ static void m8_cursor_show_soft( int cx, int cy )
  * 1. Lost with the caches whenever DOS has had the screen. */
 static int m8_cur_planes_ok;
 
+/* A shape that inverts nothing is black, white and transparent: kept as an
+ * 8-bit image in the same place, transparent as M8_CURSOR_KEY, which neither
+ * black (00h) nor white (FFh) can be, and drawn with one keyed copy. */
+#define M8_CURSOR_KEY       0x01
+static int  m8_cur_keyed;
+static BYTE m8_cur_img[M8_CURSOR_MAX * M8_CURSOR_MAX];
+
 static void m8_cursor_planes( void )
 {
     BYTE    inv[M8_CURSOR_MAX * M8_CURSOR_MAX / 8];
     int     i;
 
+    if( m8_cur_keyed ) {
+        for( i = 0; i < sizeof( m8_cur_img ); ++i ) {
+            BYTE bit = (BYTE)(0x80 >> (i & 7));
+
+            m8_cur_img[i] = (m8_cur_and[i >> 3] & bit) ? M8_CURSOR_KEY :
+                            (m8_cur_xor[i >> 3] & bit) ? 0xFF : 0x00;
+        }
+        m8_hw_write_rect( M8_CURSOR_MASK_X, M8_CURSOR_MASK_Y, M8_CURSOR_MAX, M8_CURSOR_MAX,
+                          m8_cur_img, M8_CURSOR_MAX );
+        m8_cur_planes_ok = 1;
+        return;
+    }
     for( i = 0; i < sizeof( inv ); ++i ) {
         inv[i] = (BYTE)~m8_cur_and[i];
     }
@@ -539,6 +557,14 @@ static void m8_cursor_show( void )
     m8_hw_copy( r.l, r.t, M8_CURSOR_SAVE_X, M8_CURSOR_SAVE_Y, r.r - r.l, r.b - r.t );
     if( !m8_cur_planes_ok ) {
         m8_cursor_planes();
+    }
+    if( m8_cur_keyed ) {
+        m8_hw_copy_keyed( M8_CURSOR_MASK_X + r.l - cx, M8_CURSOR_MASK_Y + r.t - cy, r.l, r.t,
+                          r.r - r.l, r.b - r.t, M8_CURSOR_KEY );
+        m8_cur_rect = r;
+        m8_cur_soft = 0;
+        m8_cur_shown = 1;
+        return;
     }
     m8_hw_plane_mix( M8_CURSOR_MASK_X + r.l - cx, M8_CURSOR_MASK_Y + r.t - cy, r.l, r.t,
                      r.r - r.l, r.b - r.t, 0, 0x00, M8_MIX_SRC_FRGD | M8_MIX_REPLACE );
@@ -3870,6 +3896,12 @@ VOID WINAPI __loadds M8SetCursor( M8_CURSORSHAPE FAR *lpShape )
         m8_cur_hot_y = lpShape->csHotY;
         m8_cur_have_shape = 1;
         m8_cur_planes_ok = 0;
+        m8_cur_keyed = 1;
+        for( x = 0; x < sizeof( m8_cur_and ); ++x ) {
+            if( m8_cur_and[x] & m8_cur_xor[x] ) {
+                m8_cur_keyed = 0;
+            }
+        }
         m8_cursor_show();
     }
     m8_busy = 0;

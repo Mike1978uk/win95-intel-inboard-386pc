@@ -955,6 +955,47 @@ void m8_hw_plane_blit( int sx, int sy, int dx, int dy, int w, int h, int plane,
     ++m8_stats[M8_STAT_TEXT_HW];
 }
 
+/* Off-screen to screen, leaving the screen where the source is `key`: the
+ * Graphics Ultra's source compare (92EEh bits 3-5; EAEEh the colour) sends a
+ * pixel it holds true for through the background mix, here leave. 28h is
+ * "source equal to the colour" (fork model 8283ed2bc, matched to the card).
+ * The writes and their order are TEST.COM's extended blit (tools/m8seq/
+ * M8SCMP.ASM). An engine reset does not clear 92EEh: it goes back to 0 before
+ * anything else draws. */
+void m8_hw_copy_keyed( int sx, int sy, int dx, int dy, int w, int h, BYTE key )
+{
+    if( m8_hw_off || w <= 0 || h <= 0 ) {
+        return;
+    }
+    m8_wait_fifo_empty();
+    M8_SET( M8_SH_WRT_MASK, 0x00FF );
+    M8_SET( M8_SH_RD_MASK, 0x00FF );
+    m8_put( M8_SH_PIX_CNTL, M8_MF_PIX_CNTL );
+    m8_scissors( M8_EXT_SCISSOR_MIN, M8_EXT_SCISSOR_MIN, M8_EXT_SCISSOR_MAX, M8_EXT_SCISSOR_MAX );
+    m8_put( M8_SH_DP_CONFIG, M8_DP_VRAM_BLIT );
+    /* The ALU registers are the mixes' function half: the data path. */
+    m8_sh_ok[M8_SH_FRGD_MIX] = 0;
+    m8_sh_ok[M8_SH_BKGD_MIX] = 0;
+    m8_room_for( 15 );
+    outpw( M8_ALU_FG_FN, M8_MIX_REPLACE );
+    outpw( M8_ALU_BG_FN, M8_MIX_LEAVE );
+    outpw( M8_SRC_CMP_COLOR, key );
+    outpw( M8_SRC_CMP_FN, 0x0028 );
+    outpw( M8_SRC_Y_DIR, 1 );
+    outpw( M8_CUR_X, dx );
+    outpw( M8_CUR_Y, dy );
+    outpw( M8_DEST_X_START, dx );
+    outpw( M8_DEST_X_END, dx + w );
+    outpw( M8_DESTX_DIASTP, sx );
+    outpw( M8_DESTY_AXSTP, sy );
+    outpw( M8_SRC_X_START, sx );
+    outpw( M8_SRC_X_END, sx + w );
+    /* 92EEh is an extended register: its 0 queues behind the blit. */
+    outpw( M8_DEST_Y_END, dy + h );
+    outpw( M8_SRC_CMP_FN, 0 );
+    m8_room -= 15;
+}
+
 /* As m8_hw_plane_blit, transparent, with any foreground mix: where the plane
  * holds 1, fg through fg_mix; where 0, the screen is left. */
 void m8_hw_plane_mix( int sx, int sy, int dx, int dy, int w, int h, int plane,
