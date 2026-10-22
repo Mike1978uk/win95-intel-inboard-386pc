@@ -6,8 +6,8 @@
 #
 # -Name is the 8.3 name the driver is installed as (C:\WINDOWS\SYSTEM\<Name>.DRV), so the
 # driver in use stays where it is until the reboot. Runs are labelled <Label>1..<Label><Runs>.
-# A bench while the desktop is still loading is slow in every test, so the first run waits
-# -Settle seconds after the desktop appears.
+# A bench while the start-up programs still run is slow in every test, so the first run waits
+# for C:\M8IDLE.EXE (tools/m8probe): CPU use at most 10 % for 10 s, at most -Settle seconds.
 # A wedged card stops the script at the bench: ask the owner to restart, then read the log
 # with -FetchOnly. -BenchOnly benches the driver already running (the card booted into it).
 
@@ -19,7 +19,7 @@ param(
   [string]$CardHost = '192.168.68.62',
   [string]$Log = (Join-Path $env:TEMP 'm8_card_bench.txt'),
   [int]$Runs = 1,
-  [int]$Settle = 300,
+  [int]$Settle = 600,
   [switch]$FetchOnly,
   [switch]$BenchOnly
 )
@@ -53,7 +53,10 @@ if (-not $FetchOnly -and -not $BenchOnly) {
   Agent wait-desktop @{ WaitSeconds = 300 } | Out-Null
 }
 if (-not $FetchOnly) {
-  if (-not $BenchOnly) { Start-Sleep -Seconds $Settle }
+  if (-not $BenchOnly) {
+    Agent put @{ Source = (Join-Path $root 'tools\m8probe\M8IDLE.EXE'); Destination = 'C:\M8IDLE.EXE' } | Out-Null
+    Agent exec @{ Application = 'C:\M8IDLE.EXE'; Arguments = "10 10 $Settle"; TimeoutSeconds = $Settle + 60 } | Out-Null
+  }
   foreach ($n in 1..$Runs) {
     Agent exec @{ Application = 'C:\M8BENCH.EXE'; Arguments = "$Label$n"; TimeoutSeconds = 300 } | Out-Null
   }
