@@ -100,7 +100,7 @@ Ports: `PATT_DATA 8EEE`, `PATT_DATA_INDEX 82EE`, `PATT_INDEX D6EE`, `PATT_LENGTH
 
 ## 6. Off-screen card memory
 
-- **Not found**: no glyph cache, bitmap cache or brush cache in VRAM; no allocator. Searched for DP_CONFIG values with the mono-from-VRAM bits (none) and for code that reserves VRAM above the visible area.
+- **Not found**: no glyph cache, bitmap cache or brush cache in VRAM; no allocator. Mono-from-VRAM appears once: DP_CONFIG 2071h for the cursor mask (`seg01:1101`, found by the port census, `docs/atim8_port_census.md`), never for glyphs. No code reserves VRAM above the visible area.
 - Memory bitmaps are DIBENG objects in host RAM: `SELECTBITMAP`, `BITMAPBITS`, `CREATEDIBITMAP`, `DEVICEBITMAP` forward to DIBENG (section 8). Fonts are the DIBENG realisation in host RAM (`REALIZEOBJECT` -> `DIB_REALIZEOBJECTEXT`). Brushes are read from the realised brush in host RAM each time.
 - VRAM -> VRAM (`CEEE=0x6211`) is used for screen-to-screen BitBlt (`seg16:375d-3893`), colour-brush replication (`4470`), and the cursor code (`seg01:0e00-1300`, which reads/writes a 32x32, 0x400-byte region with `rep outsw`). I did not trace whether the cursor parks images off-screen.
 - Host scratch: the 3 KB seg17 buffer (stub code, DIB row staging at `+0x100`) and a `GlobalAlloc` temp for screen->memory reads.
