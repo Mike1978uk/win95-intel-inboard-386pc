@@ -519,7 +519,9 @@ static void m8_ssb_verify( void );
 
 static int m8_enter( const M8_RECT *r )
 {
+#ifdef M8_TRACE
     m8_ssb_verify();
+#endif
     m8_busy = 1;
     if( m8_cur_shown && (r == NULL || m8_rect_overlap( r, &m8_cur_rect )) ) {
         m8_cursor_hide();
@@ -2640,12 +2642,6 @@ WORD WINAPI __loadds Output( LPPDEVICE lpDestDev, WORD wStyle, WORD wCount, LPPO
         pts.b += 5;
         m8_rect_and( &bound, &pts );
     }
-    /* A scan style can arrive with a NULL clip: shrink to the rows and spans
-     * it names, so the strips are no wider or taller than the drawing. */
-    if( (wStyle == OS_SCANLINES || wStyle == OS_POLYSCANLINE) &&
-        m8_scan_bound( wStyle, wCount, lpPoints, &pts ) ) {
-        m8_rect_and( &bound, &pts );
-    }
     if( wStyle == OS_POLYLINE &&
         m8_line_on_engine( wCount, lpPoints, lpPPen, lpDrawMode ) ) {
         M8_RECT scr;
@@ -2675,12 +2671,24 @@ WORD WINAPI __loadds Output( LPPDEVICE lpDestDev, WORD wStyle, WORD wCount, LPPO
         if( kind == 1 || ((kind == 2 || kind == 3) && M8_PATTERN_EXPANSION) ) {
             m8_rect_screen( &scr );
             m8_rect_and( &bound, &scr );
+            /* The spans are clipped as they are drawn; their own bound is
+             * worth a pass over them only to keep the cursor up. */
+            if( m8_cur_shown && m8_rect_overlap( &bound, &m8_cur_rect ) &&
+                m8_scan_bound( wStyle, wCount, lpPoints, &pts ) ) {
+                m8_rect_and( &bound, &pts );
+            }
             if( !m8_rect_empty( &bound ) ) {
                 m8_scan_fill( wStyle, wCount, lpPoints, &bound, kind, c1, c2, pat,
                               m8_mix_for_key[lpDrawMode->Rop2 - 1] );
             }
             return( 1 );
         }
+    }
+    /* A scan style can arrive with a NULL clip: shrink to the rows and spans
+     * it names, so the strips are no wider or taller than the drawing. */
+    if( (wStyle == OS_SCANLINES || wStyle == OS_POLYSCANLINE) &&
+        m8_scan_bound( wStyle, wCount, lpPoints, &pts ) ) {
+        m8_rect_and( &bound, &pts );
     }
     o.style = wStyle;
     o.count = wCount;
