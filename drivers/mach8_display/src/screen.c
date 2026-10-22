@@ -779,7 +779,7 @@ static int m8_rop_uses_pat( DWORD rop )
  * alone under a transparent background: the cell is painted twice, over two
  * different fillers, and a pixel that differs between them is a gap - 3 then,
  * with pat's 1 bits the hatch (c1) and 0 bits to be left as they are. */
-static int m8_brush_colours( LPBRUSH brush, LPDRAWMODE dm, BYTE *c1, BYTE *c2, BYTE *pat )
+static int m8_brush_render( LPBRUSH brush, LPDRAWMODE dm, BYTE *c1, BYTE *c2, BYTE *pat )
 {
     DIB_Brush8 FAR  *b = (DIB_Brush8 FAR *)brush;
     M8_RECT         cell;
@@ -878,6 +878,44 @@ static int m8_brush_colours( LPBRUSH brush, LPDRAWMODE dm, BYTE *c1, BYTE *c2, B
         M8_STEP( 0xE200 | bits );
     }
     return( 2 );
+}
+
+/* The last pattern brush and its answer. GDI hands a filled shape over as many
+ * scanline calls with the same brush, and m8_brush_render paints the brush on
+ * the CPU each time; the answer depends only on the brush and the draw mode's
+ * background and text settings, so an identical pair gets the same answer. */
+static DIB_Brush8   m8_bk_brush;
+static short        m8_bk_mode;
+static DWORD        m8_bk_bg;
+static DWORD        m8_bk_fg;
+static int          m8_bk_kind = -1;
+static BYTE         m8_bk_c1;
+static BYTE         m8_bk_c2;
+static BYTE         m8_bk_pat[8];
+
+static int m8_brush_colours( LPBRUSH brush, LPDRAWMODE dm, BYTE *c1, BYTE *c2, BYTE *pat )
+{
+    DIB_Brush8 FAR  *b = (DIB_Brush8 FAR *)brush;
+
+    if( b == NULL || dm == NULL || (b->dp8BrushFlags & COLORSOLID) ) {
+        return( m8_brush_render( brush, dm, c1, c2, pat ) );
+    }
+    if( m8_bk_kind >= 0 && m8_bk_mode == dm->bkMode && m8_bk_bg == dm->bkColor &&
+        m8_bk_fg == dm->TextColor && _fmemcmp( &m8_bk_brush, b, sizeof( DIB_Brush8 ) ) == 0 ) {
+        *c1 = m8_bk_c1;
+        *c2 = m8_bk_c2;
+        _fmemcpy( pat, m8_bk_pat, 8 );
+        return( m8_bk_kind );
+    }
+    m8_bk_kind = m8_brush_render( brush, dm, &m8_bk_c1, &m8_bk_c2, m8_bk_pat );
+    _fmemcpy( &m8_bk_brush, b, sizeof( DIB_Brush8 ) );
+    m8_bk_mode = dm->bkMode;
+    m8_bk_bg = dm->bkColor;
+    m8_bk_fg = dm->TextColor;
+    *c1 = m8_bk_c1;
+    *c2 = m8_bk_c2;
+    _fmemcpy( pat, m8_bk_pat, 8 );
+    return( m8_bk_kind );
 }
 
 /* An 8x8 two-colour pattern over a rectangle: three port writes a row through

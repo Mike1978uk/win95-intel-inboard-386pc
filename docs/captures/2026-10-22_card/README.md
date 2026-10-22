@@ -13,3 +13,4 @@ are not like for like.
 | card_scanp | + dithered scanline spans through the pattern registers | FULL boot hung at `Initing sd120ppd.mpd` (LS-120, #46), twice; not the driver |
 | card_scanl1 | same driver, `LEAN` boot (as ATI's), after M8IDLE | pixels = ATI in all 35; polygon 21.9/s (was 12.5, ATI 73.2); 1.107x ATI |
 | card_batch1 | + one set-up per scanline call, then position and pattern per span | LEAN default, after M8IDLE; pixels = ATI in all 35; polygon 37.0/s, ellipse 51.4/s; 1.147x ATI |
+| card_bcache1, card_bcacheb1 | + last pattern brush remembered (no CPU re-render per scanline call) | pixels = ATI in all 35; fill_hatch 378-380/s (1.27x ATI), ellipse 55/s, polygon 38-39/s; mem_to_mem 187-199 is the low end of its 206-390 spread across all runs (bitmap-cache state), watch it |
