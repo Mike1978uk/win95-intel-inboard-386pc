@@ -23,6 +23,7 @@ the reasoning.
 | `firmware/0001-Add-hosted-LUNs-behind-one-SCSI-ID-EnableLUNs.patch` | The change, against BlueSCSI-v2 `5e64e3b`. 8 files, +167/-10. |
 | `firmware/BlueSCSI_Pico_2_DaynaPORT_hostedluns.uf2` | Built for Pico 2 W (`Pico_2_DaynaPORT` target), reports version `2026.08.18-dev` |
 | `firmware/SHA256SUMS` | Checksums of both |
+| `tools/daynaprobe/DAYNAPRB.EXE` | Win32 probe: DaynaPORT through WNASPI32, ARP round trip, interval cost table (test 4). Not run anywhere yet. |
 
 Toolchain: Ubuntu `gcc-arm-none-eabi` 13.2.1 (BlueSCSI's own builds use 14.x), CMake 3.28,
 `bluescsi/pico-sdk-internal` `v2.2.0-UltraSupport-rel2`, `pico-extras` `sdk-2.2.0`. The stock
@@ -128,18 +129,38 @@ Add `RE52_a.img` and `RE52_b.img` (different files on each, e.g. `A.TXT` and `B.
 - No Eject on the menu: Win95 does not treat the LUN as removable. Note Device Manager's
   "Removable" box for it and stop.
 
-### Test 4 - DaynaPort answers (no driver)
+### Test 4 - DaynaPort through Windows 95's ASPI layer (`DAYNAPRB.EXE`)
 
-Add `NE53.img` (empty file) and WiFi settings in `[SCSI]` (`WiFiSSID`, `WiFiPassword`,
-per https://bluescsi.com/docs/).
-- Pass: log shows WiFi joined; Device Manager lists an unknown device at ID 5 LUN 3 (no
-  driver exists, so unknown is the expected pass).
-- Fail: WiFi does not join, or LUN 1-2 stop working with networking on.
+Add `NE53.img` (empty file) and WiFi settings in `[SCSI]` (`WiFiSSID`, `WiFiPassword`, per
+https://bluescsi.com/docs/). Copy `tools/daynaprobe/DAYNAPRB.EXE` to the 5160 and, in Windows 95
+(protected mode, `T130.MPD` loaded), run from an MS-DOS prompt or Start > Run:
+
+```
+DAYNAPRB 2 5 3 -arp 192.168.1.1
+```
+
+`2` is the T130B's ASPI adapter number (2 in `docs/captures/2026-10-21_scsicache/SCSICACH.TXT`;
+the probe prints the count), `5 3` is ID 5 LUN 3, and the IP is your router. With the network
+device on its own ID at LUN 0, plain `DAYNAPRB -arp 192.168.1.1` finds it by INQUIRY. Takes about
+a minute; writes `C:\DAYNAPRB.TXT`.
+
+- Pass, step by step: `device ... "Dayna"`, a MAC, `interface enabled`, `PASS: ARP reply from ...`,
+  then six interval lines.
+- The interval table is the result for the driver design (DESIGN.md §3 A): `cmd_us` is what one
+  READ costs through `T130.MPD`, `busy%` the share of time spent in READs at that interval, `more`
+  how often frames were waiting (interval too long for the traffic).
+- Fail at INQUIRY or the MAC: the ASPI path does not reach the LUN; retry with the network
+  device on its own ID before anything else.
+- Fail at the ARP reply only: check the log for WiFi joined; try another IP on the LAN.
+
+Also note from the same boot's `log.txt` the MESSAGE_OUT byte before each command to ID 5:
+`C0`-`C7` means `T130.MPD` allows disconnect (DESIGN.md §3 B is possible), `80`-`87` means not.
 
 ## Not done
 
-- Win95 DaynaPort NDIS driver (new driver code; out of scope). DESIGN.md §3 names the first
-  question to answer: how a ring-0 NDIS driver issues SCSI commands through IOS on Win95.
+- Win95 DaynaPort NDIS driver (protected mode). DESIGN.md §3 names the first question to answer:
+  how a ring-0 driver issues SCSI commands through IOS on Win95. `DAYNAPRB.EXE` proves the
+  protocol from ring 3 first.
 - USB host (stick as a LUN). DESIGN.md §4; recommended as the next stream once test 1 passes.
 - Upstream submission. The patch is shaped for it (opt-in, no change when off), but it should
   only be offered after test 1 and test 3 pass on real hardware, and the PR text is yours.
