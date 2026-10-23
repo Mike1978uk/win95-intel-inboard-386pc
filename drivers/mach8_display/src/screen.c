@@ -2375,9 +2375,74 @@ static void m8_tm_point( WORD id )
 }
 #endif
 
+/* Solid fills and screen-to-screen copies on the screen, clear of the cursor,
+ * with the engine set up by the last call: the short path (see Pixel). 0 = the
+ * full path draws it. */
+static int m8_blt_short( WORD dx, WORD dy, LPPDEVICE src, WORD sx, WORD sy, WORD w, WORD h,
+                         DWORD rop3, LPBRUSH brush, LPDRAWMODE dm )
+{
+    BYTE    rop = (BYTE)(rop3 >> 16);
+    M8_RECT r;
+    M8_RECT sr;
+    BYTE    c1 = 0;
+    BYTE    c2;
+    BYTE    pat[8];
+    int     ok;
+
+    if( (short)w <= 0 || (short)h <= 0 || (m8_screen->deFlags & PALETTE_XLAT) ) {
+        return( 0 );
+    }
+    m8_rect_set( &r, dx, dy, dx + w, dy + h );
+    if( rop == 0xCC ) {
+        if( (LPVOID)src != (LPVOID)m8_screen ) {
+            return( 0 );
+        }
+        m8_rect_set( &sr, sx, sy, sx + w, sy + h );
+        m8_rect_or( &r, &sr );
+    } else if( m8_rop_uses_src( rop3 ) ) {
+        return( 0 );
+    } else if( m8_rop_uses_pat( rop3 ) && m8_brush_colours( brush, dm, &c1, &c2, pat ) != 1 ) {
+        return( 0 );
+    }
+    if( m8_cur_shown && m8_rect_overlap( &r, &m8_cur_rect ) ) {
+        return( 0 );
+    }
+    m8_busy = 1;
+    if( rop == 0xCC ) {
+        ok = m8_hw_copy_fast( sx, sy, dx, dy, w, h, M8_MIX_SRC_VRAM | M8_MIX_REPLACE );
+    } else {
+        ok = m8_hw_fill_fast( dx, dy, w, h, c1, M8_MIX_SRC_FRGD | m8_rop_mix( rop ) );
+    }
+    if( !ok ) {
+        m8_busy = 0;
+        return( 0 );
+    }
+    ++m8_stats[M8_STAT_BITBLT];
+    M8_PF_HIT();
+    m8_leave();
+    return( 1 );
+}
+
+static BOOL m8_bitblt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPDEVICE lpSrcDev,
+                       WORD wSrcX, WORD wSrcY, WORD wXext, WORD wYext, DWORD dwRop3,
+                       LPBRUSH lpPBrush, LPDRAWMODE lpDrawMode );
+
 BOOL WINAPI __loadds BitBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPDEVICE lpSrcDev,
                              WORD wSrcX, WORD wSrcY, WORD wXext, WORD wYext, DWORD dwRop3,
                              LPBRUSH lpPBrush, LPDRAWMODE lpDrawMode )
+{
+    if( (LPVOID)lpDestDev == (LPVOID)m8_screen && m8_screen != NULL &&
+        m8_blt_short( wDestX, wDestY, lpSrcDev, wSrcX, wSrcY, wXext, wYext, dwRop3, lpPBrush,
+                      lpDrawMode ) ) {
+        return( TRUE );
+    }
+    return( m8_bitblt( lpDestDev, wDestX, wDestY, lpSrcDev, wSrcX, wSrcY, wXext, wYext, dwRop3,
+                       lpPBrush, lpDrawMode ) );
+}
+
+static BOOL m8_bitblt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPDEVICE lpSrcDev,
+                       WORD wSrcX, WORD wSrcY, WORD wXext, WORD wYext, DWORD dwRop3,
+                       LPBRUSH lpPBrush, LPDRAWMODE lpDrawMode )
 {
     int         dst_screen = m8_is_screen( lpDestDev );
     int         src_screen = m8_rop_uses_src( dwRop3 ) && m8_is_screen( lpSrcDev );
@@ -2768,6 +2833,46 @@ static DWORD m8_draw_output( void *ctx, LPDIBENGINE dev, LPRECT c )
     return( DIB_Output( &t, o->style, n, m8_out_pts, o->pen, o->brush, o->dm, &tc ) );
 }
 
+/* A solid polyline on the screen with every point inside the clip and clear of
+ * the cursor: the short path (see Pixel). It needs no scissors, as the line
+ * stays inside its points' box. 0 = the full path draws it. */
+static int m8_out_short( WORD count, LPPOINT p, LPPPEN pen, LPDRAWMODE dm, LPRECT clip )
+{
+    DIB_Pen FAR *dp = pen;
+    M8_RECT     c;
+    M8_RECT     b;
+    WORD        i;
+
+    if( count < 2 || dp == NULL || dm == NULL || dp->dpPenStyle != LS_SOLID ||
+        dm->Rop2 < 1 || dm->Rop2 > 16 ) {
+        return( 0 );
+    }
+    m8_rect_from_gdi( &c, clip );
+    if( c.l < 0 ) c.l = 0;
+    if( c.t < 0 ) c.t = 0;
+    if( c.r > M8_SCREEN_X ) c.r = M8_SCREEN_X;
+    if( c.b > M8_SCREEN_Y ) c.b = M8_SCREEN_Y;
+    m8_rect_set( &b, p[0].xcoord, p[0].ycoord, p[0].xcoord + 1, p[0].ycoord + 1 );
+    for( i = 0; i < count; ++i ) {
+        if( p[i].xcoord < c.l || p[i].xcoord >= c.r || p[i].ycoord < c.t || p[i].ycoord >= c.b ) {
+            return( 0 );
+        }
+        if( p[i].xcoord < b.l ) b.l = p[i].xcoord;
+        if( p[i].ycoord < b.t ) b.t = p[i].ycoord;
+        if( p[i].xcoord >= b.r ) b.r = p[i].xcoord + 1;
+        if( p[i].ycoord >= b.b ) b.b = p[i].ycoord + 1;
+    }
+    if( m8_cur_shown && m8_rect_overlap( &b, &m8_cur_rect ) ) {
+        return( 0 );
+    }
+    m8_busy = 1;
+    m8_hw_polyline_plain( p, count, (BYTE)dp->dpPenColor, m8_mix_for_key[dm->Rop2 - 1] );
+    ++m8_stats[M8_STAT_OUTPUT];
+    M8_PF_HIT();
+    m8_leave();
+    return( 1 );
+}
+
 WORD WINAPI __loadds Output( LPPDEVICE lpDestDev, WORD wStyle, WORD wCount, LPPOINT lpPoints,
                              LPPPEN lpPPen, LPPBRUSH lpPBrush, LPDRAWMODE lpDrawMode,
                              LPRECT lpClipRect )
@@ -2777,6 +2882,10 @@ WORD WINAPI __loadds Output( LPPDEVICE lpDestDev, WORD wStyle, WORD wCount, LPPO
     M8_RECT pts;
     WORD    i;
 
+    if( wStyle == OS_POLYLINE && (LPVOID)lpDestDev == (LPVOID)m8_screen && m8_screen != NULL &&
+        m8_out_short( wCount, lpPoints, lpPPen, lpDrawMode, lpClipRect ) ) {
+        return( 1 );
+    }
     m8_px_touch( lpDestDev, M8_PX_WHY_ENTRY );
     if( !m8_is_screen( lpDestDev ) ) {
         return( DIB_Output( lpDestDev, wStyle, wCount, lpPoints, lpPPen, lpPBrush,
@@ -2890,6 +2999,24 @@ DWORD WINAPI __loadds Pixel( LPPDEVICE lpDestDev, WORD X, WORD Y, DWORD dwPhysCo
     M8_PIX  p;
     M8_RECT r;
 
+    /* A set on the screen, clear of the cursor, with the engine set up by the
+     * last call: the short path. The screen is known by its pointer, without
+     * reading the device. */
+    if( (LPVOID)lpDestDev == (LPVOID)m8_screen && m8_screen != NULL && lpDrawMode != NULL &&
+        lpDrawMode->Rop2 >= 1 && lpDrawMode->Rop2 <= 16 &&
+        X < (WORD)M8_SCREEN_X && Y < (WORD)M8_SCREEN_Y &&
+        !(m8_cur_shown && (int)X >= m8_cur_rect.l && (int)X < m8_cur_rect.r &&
+          (int)Y >= m8_cur_rect.t && (int)Y < m8_cur_rect.b) ) {
+        m8_busy = 1;
+        if( m8_hw_fill_fast( X, Y, 1, 1, (BYTE)dwPhysColor,
+                         M8_MIX_SRC_FRGD | m8_mix_for_key[lpDrawMode->Rop2 - 1] ) ) {
+            ++m8_stats[M8_STAT_PIXEL];
+            M8_PF_HIT();
+            m8_leave();
+            return( dwPhysColor );
+        }
+        m8_busy = 0;
+    }
     m8_px_touch( lpDestDev, M8_PX_WHY_ENTRY );
     if( !m8_is_screen( lpDestDev ) ) {
         return( DIB_Pixel( lpDestDev, X, Y, dwPhysColor, lpDrawMode ) );

@@ -103,13 +103,14 @@ static int m8_room;
  * counting start with m8_wait_fifo_empty, which clears this. */
 static BYTE m8_room_ok;
 
-/* DP_CONFIG, PIX_CNTL and FRGD_MIX as m8_hw_fill_mix last wrote them, valid
- * while nothing else has written the data path. The group is one state seen
- * from two views (guide 7-1), so it is cached only as a whole, never one
- * register alone. Every other writer of the group starts with
+/* DP_CONFIG, PIX_CNTL and FRGD_MIX as m8_dp_q last sent them, valid while
+ * nothing else has written the data path. The group is one state seen from two
+ * views (guide 7-1), so it is cached only as a whole and only in m8_dp_q's
+ * order, never one register alone. Every other writer of the group starts with
  * m8_wait_fifo_empty or empties the shadow cache, and both drop this. */
-static BYTE m8_fill_dp_ok;
-static WORD m8_fill_dp_mix;
+static BYTE m8_dp_ok;
+static WORD m8_dp_mix;
+static BYTE m8_dp_plain;    /* and the scissors are m8_plain's */
 
 static void m8_engine_reset( void );
 
@@ -134,7 +135,7 @@ static int m8_fifo_drain( void )
 static int m8_wait_fifo_empty( void )
 {
     m8_room_ok = 0;
-    m8_fill_dp_ok = 0;
+    m8_dp_ok = 0;
     return( m8_fifo_drain() );
 }
 
@@ -152,7 +153,7 @@ static void m8_room_for( int n )
  * DP_CONFIG, FRGD_MIX, BKGD_MIX and PIX_CNTL program one set of sources and ALU
  * functions from two views (guide 7-1, 9-13), so a write to any of them changes
  * what the others hold - do not cache them one at a time; a stale one hangs the
- * engine (card). m8_hw_fill_mix caches the group as a whole (m8_fill_dp_ok).
+ * engine (card). m8_dp_q caches the group as a whole (m8_dp_ok).
  * The cache is emptied when anything but these routines may have set the card:
  * mode set, VGA through, engine reset. */
 enum {
@@ -179,7 +180,7 @@ static void m8_sh_clear( void )
         m8_sh_ok[i] = 0;
     }
     m8_room_ok = 0;
-    m8_fill_dp_ok = 0;
+    m8_dp_ok = 0;
 }
 
 /* A wait that runs out means the engine is wedged: a transfer left unfinished,
@@ -328,7 +329,7 @@ void m8_hw_set_palette( UINT start, UINT count, RGBQUAD FAR *pal )
  * code, stack and data touched between two writes are fetched again over the
  * bus. So a call decides every write first, into this queue, and m8_q_send then
  * writes them from one short loop. */
-#define M8_Q_MAX    20
+#define M8_Q_MAX    32
 
 static WORD m8_q[2 * M8_Q_MAX];
 static int  m8_qn;
@@ -359,13 +360,18 @@ static int m8_q_send( void )
     int         k;
 
     m8_qn = 0;
+    if( !m8_room_ok ) {
+        if( !m8_fifo_drain() ) {
+            return( 0 );
+        }
+        m8_room_ok = 1;
+    }
     while( n > 0 ) {
         k = n < M8_FIFO_DEPTH - 1 ? n : M8_FIFO_DEPTH - 1;
-        if( !m8_room_ok || m8_room < k ) {
+        if( m8_room < k ) {
             if( !m8_fifo_drain() ) {
                 return( 0 );
             }
-            m8_room_ok = 1;
         }
         m8_room -= k;
         n -= k;
@@ -376,11 +382,22 @@ static int m8_q_send( void )
     return( 1 );
 }
 
-/* m8_plain's state, then the fill, in the order m8_plain and the fill wrote
- * them: DP_CONFIG before FRGD_MIX. */
-static void m8_fill_q( int x, int y, int w, int h, BYTE color, WORD mix )
+/* Room for n more writes that the caller counts in m8_room: the data path
+ * cache stays. */
+static void m8_room_counted( int n )
 {
-    int dp = !m8_fill_dp_ok || m8_fill_dp_mix != mix;
+    if( !m8_room_ok || m8_room < n ) {
+        if( m8_fifo_drain() ) {
+            m8_room_ok = 1;
+        }
+    }
+}
+
+/* The masks, the 8514 data path, these scissors and FRGD_MIX, in m8_plain's
+ * order: DP_CONFIG before FRGD_MIX. The caller sets m8_dp_ok once it is sent. */
+static void m8_dp_q( WORD mix, int l, int t, int r, int b )
+{
+    int dp = !m8_dp_ok || m8_dp_mix != mix;
 
     M8_QSET( M8_SH_WRT_MASK, 0x00FF );
     M8_QSET( M8_SH_RD_MASK, 0x00FF );
@@ -388,19 +405,96 @@ static void m8_fill_q( int x, int y, int w, int h, BYTE color, WORD mix )
         M8_Q( M8_DP_CONFIG, M8_DP_8514 );
         M8_Q( M8_MULTIFUNC_CNTL, M8_MF_PIX_CNTL );
     }
-    M8_QSET( M8_SH_SC_L, M8_EXT_SCISSOR_MIN );
-    M8_QSET( M8_SH_SC_T, M8_EXT_SCISSOR_MIN );
-    M8_QSET( M8_SH_SC_R, M8_EXT_SCISSOR_MAX );
-    M8_QSET( M8_SH_SC_B, M8_EXT_SCISSOR_MAX );
+    M8_QSET( M8_SH_SC_L, l );
+    M8_QSET( M8_SH_SC_T, t );
+    M8_QSET( M8_SH_SC_R, r );
+    M8_QSET( M8_SH_SC_B, b );
     if( dp ) {
         M8_Q( M8_FRGD_MIX, mix );
     }
+}
+
+static void m8_plain_q( WORD mix )
+{
+    m8_dp_q( mix, M8_EXT_SCISSOR_MIN, M8_EXT_SCISSOR_MIN, M8_EXT_SCISSOR_MAX,
+             M8_EXT_SCISSOR_MAX );
+}
+
+static void m8_dp_sent( WORD mix, int plain )
+{
+    m8_dp_ok = 1;
+    m8_dp_mix = mix;
+    m8_dp_plain = plain;
+}
+
+static void m8_fill_q( int x, int y, int w, int h, BYTE color, WORD mix )
+{
+    m8_plain_q( mix );
     M8_QSET( M8_SH_FRGD_COLOR, color );
     M8_Q( M8_CUR_X, x );
     M8_Q( M8_CUR_Y, y );
     M8_Q( M8_MAJ_AXIS_PCNT, w - 1 );
     M8_Q( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
     M8_Q( M8_CMD, M8_CMD_FILL );
+}
+
+/* A fill when the engine already holds all of it but the rectangle and the
+ * colour. Each call starts with the L1 empty (the last call's port writes
+ * flushed it), so what a call costs is mostly the lines it touches: this path
+ * touches few. 0 = not set up; m8_hw_fill_mix does it. */
+int m8_hw_fill_fast( int x, int y, int w, int h, BYTE color, WORD mix )
+{
+    if( m8_hw_off || !m8_dp_ok || !m8_dp_plain || m8_dp_mix != mix || !m8_room_ok ||
+        !m8_sh_ok[M8_SH_FRGD_COLOR] ) {
+        return( 0 );
+    }
+    if( m8_room < 6 && !m8_fifo_drain() ) {
+        return( 0 );
+    }
+    if( m8_sh_val[M8_SH_FRGD_COLOR] != color ) {
+        m8_sh_val[M8_SH_FRGD_COLOR] = color;
+        --m8_room;
+        outpw( M8_FRGD_COLOR, color );
+    }
+    m8_room -= 5;
+    outpw( M8_CUR_X, x );
+    outpw( M8_CUR_Y, y );
+    outpw( M8_MAJ_AXIS_PCNT, w - 1 );
+    outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
+    outpw( M8_CMD, M8_CMD_FILL );
+    return( 1 );
+}
+
+/* m8_hw_copy_mix when the engine already holds its data path; as
+ * m8_hw_fill_fast. */
+int m8_hw_copy_fast( int sx, int sy, int dx, int dy, int w, int h, WORD mix )
+{
+    WORD cmd = M8_CMD_BLIT | M8_CMD_INC_X | M8_CMD_INC_Y;
+
+    if( m8_hw_off || !m8_dp_ok || !m8_dp_plain || m8_dp_mix != mix || !m8_room_ok ) {
+        return( 0 );
+    }
+    if( m8_room < 7 && !m8_fifo_drain() ) {
+        return( 0 );
+    }
+    if( dy > sy ) {
+        cmd &= ~M8_CMD_INC_Y;
+        sy += h - 1;
+        dy += h - 1;
+    } else if( dy == sy && dx > sx ) {
+        cmd &= ~M8_CMD_INC_X;
+        sx += w - 1;
+        dx += w - 1;
+    }
+    m8_room -= 7;
+    outpw( M8_CUR_X, sx );
+    outpw( M8_CUR_Y, sy );
+    outpw( M8_DESTX_DIASTP, dx );
+    outpw( M8_DESTY_AXSTP, dy );
+    outpw( M8_MAJ_AXIS_PCNT, w - 1 );
+    outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
+    outpw( M8_CMD, cmd );
+    return( 1 );
 }
 
 /* A rectangle through the foreground mix (a full mix-register value) with
@@ -418,8 +512,7 @@ void m8_hw_fill_mix( int x, int y, int w, int h, BYTE color, WORD mix )
             return;
         }
     }
-    m8_fill_dp_ok = 1;
-    m8_fill_dp_mix = mix;
+    m8_dp_sent( mix, 1 );
 }
 
 void m8_hw_fill( int x, int y, int w, int h, BYTE color )
@@ -701,10 +794,16 @@ void m8_hw_fill_begin( BYTE color, WORD mix )
     if( m8_hw_off ) {
         return;
     }
-    m8_wait_fifo_empty();
-    m8_plain();
-    m8_put( M8_SH_FRGD_MIX, mix );
-    M8_SET( M8_SH_FRGD_COLOR, color );
+    m8_plain_q( mix );
+    M8_QSET( M8_SH_FRGD_COLOR, color );
+    if( !m8_q_send() ) {
+        m8_plain_q( mix );
+        M8_QSET( M8_SH_FRGD_COLOR, color );
+        if( !m8_q_send() ) {
+            return;
+        }
+    }
+    m8_dp_sent( mix, 1 );
     m8_scan_y = -1;
 }
 
@@ -714,7 +813,7 @@ void m8_hw_fill_span( int x, int y, int w, int h )
         return;
     }
     if( h == 1 ) {
-        m8_room_for( 3 );
+        m8_room_counted( 3 );
         if( y != m8_scan_y ) {
             outpw( M8_CUR_Y, y );
             --m8_room;
@@ -727,7 +826,7 @@ void m8_hw_fill_span( int x, int y, int w, int h )
         return;
     }
     m8_scan_y = -1;
-    m8_room_for( 5 );
+    m8_room_counted( 5 );
     outpw( M8_CUR_X, x );
     outpw( M8_CUR_Y, y );
     outpw( M8_MAJ_AXIS_PCNT, w - 1 );
@@ -742,6 +841,18 @@ void m8_hw_fill_span( int x, int y, int w, int h )
 void m8_hw_copy( int sx, int sy, int dx, int dy, int w, int h )
 {
     m8_hw_copy_mix( sx, sy, dx, dy, w, h, M8_MIX_SRC_VRAM | M8_MIX_REPLACE );
+}
+
+static void m8_copy_q( int sx, int sy, int dx, int dy, int w, int h, WORD mix, WORD cmd )
+{
+    m8_plain_q( mix );
+    M8_Q( M8_CUR_X, sx );
+    M8_Q( M8_CUR_Y, sy );
+    M8_Q( M8_DESTX_DIASTP, dx );
+    M8_Q( M8_DESTY_AXSTP, dy );
+    M8_Q( M8_MAJ_AXIS_PCNT, w - 1 );
+    M8_Q( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
+    M8_Q( M8_CMD, cmd );
 }
 
 /* As m8_hw_copy, through any mix of source and destination (a full mix-register
@@ -765,18 +876,15 @@ void m8_hw_copy_mix( int sx, int sy, int dx, int dy, int w, int h, WORD mix )
         sx += w - 1;
         dx += w - 1;
     }
-    m8_wait_fifo_empty();
-    m8_plain();
-    m8_put( M8_SH_FRGD_MIX, mix );
-    m8_room_for( 7 );
-    outpw( M8_CUR_X, sx );
-    outpw( M8_CUR_Y, sy );
-    outpw( M8_DESTX_DIASTP, dx );
-    outpw( M8_DESTY_AXSTP, dy );
-    outpw( M8_MAJ_AXIS_PCNT, w - 1 );
-    outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
-    outpw( M8_CMD, cmd );
     ++m8_stats[M8_STAT_COPY_HW];
+    m8_copy_q( sx, sy, dx, dy, w, h, mix, cmd );
+    if( !m8_q_send() ) {
+        m8_copy_q( sx, sy, dx, dy, w, h, mix, cmd );
+        if( !m8_q_send() ) {
+            return;
+        }
+    }
+    m8_dp_sent( mix, 1 );
 }
 
 /* Host transfers move two pixels per word, so x and w must be even: the caller
@@ -932,6 +1040,51 @@ static const WORD m8_dash[4][2] = {
     { 0xFCFC, 0xFCFC }, { 0xCCCC, 0xCCCC }, { 0x30FC, 0x30FC }, { 0xCCFC, 0xCCFC }
 };
 
+/* Solid lines: the points are read into the queue between bursts, not
+ * between writes. A send that fails has reset the engine part way through the
+ * line; it is not redrawn, as an XOR line drawn twice would vanish. */
+static void m8_line_solid( const POINT FAR *pts, WORD count, BYTE color, WORD mix,
+                           int clip_l, int clip_t, int clip_r, int clip_b, int plain )
+{
+    WORD    i;
+    int     first = 1;
+
+    mix |= M8_MIX_SRC_FRGD;
+    m8_dp_q( mix, clip_l, clip_t, clip_r, clip_b );
+    M8_QSET( M8_SH_FRGD_COLOR, color );
+    /* Not cached: a CMD write sets LINEDRAW_OPT's line bits from its own. */
+    M8_Q( M8_LINEDRAW_OPT, M8_LINEDRAW_LAST_OFF );
+    M8_Q( M8_LINEDRAW_INDEX, 0 );
+    for( i = 0; i < count; ++i ) {
+        if( m8_qn > 2 * (M8_Q_MAX - 2) ) {
+            if( !m8_q_send() ) {
+                return;
+            }
+            if( first ) {
+                m8_dp_sent( mix, plain );
+                first = 0;
+            }
+        }
+        M8_Q( M8_LINEDRAW, pts[i].xcoord );
+        M8_Q( M8_LINEDRAW, pts[i].ycoord );
+    }
+    if( m8_q_send() && first ) {
+        m8_dp_sent( mix, plain );
+    }
+}
+
+/* A solid polyline the caller has found inside the clip and the screen: the
+ * plain scissors, so it shares the data path left by fills and other lines. */
+void m8_hw_polyline_plain( const POINT FAR *pts, WORD count, BYTE color, WORD mix )
+{
+    if( m8_hw_off || count < 2 ) {
+        return;
+    }
+    ++m8_stats[M8_STAT_LINE_HW];
+    m8_line_solid( pts, count, color, mix, M8_EXT_SCISSOR_MIN, M8_EXT_SCISSOR_MIN,
+                   M8_EXT_SCISSOR_MAX, M8_EXT_SCISSOR_MAX, 1 );
+}
+
 void m8_hw_polyline( const POINT FAR *pts, WORD count, BYTE color, WORD mix,
                      WORD style, int opaque, BYTE bg,
                      int clip_l, int clip_t, int clip_r, int clip_b )
@@ -943,6 +1096,11 @@ void m8_hw_polyline( const POINT FAR *pts, WORD count, BYTE color, WORD mix,
     int     dy;
 
     if( m8_hw_off || count < 2 || style > 4 ) {
+        return;
+    }
+    if( style == 0 ) {
+        ++m8_stats[M8_STAT_LINE_HW];
+        m8_line_solid( pts, count, color, mix, clip_l, clip_t, clip_r, clip_b, 0 );
         return;
     }
     m8_wait_fifo_empty();
