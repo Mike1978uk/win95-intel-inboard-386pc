@@ -572,6 +572,7 @@ static void m8_cursor_show( void )
 static void m8_exclude( const M8_RECT *r )
 {
     if( m8_cur_shown && m8_rect_overlap( r, &m8_cur_rect ) ) {
+        ++m8_stats[M8_STAT_CUR_HIDE];
         m8_cursor_hide();
         m8_cur_pending = 1;
     }
@@ -589,6 +590,7 @@ static int m8_enter( const M8_RECT *r )
 #endif
     m8_busy = 1;
     if( m8_cur_shown && (r == NULL || m8_rect_overlap( r, &m8_cur_rect )) ) {
+        ++m8_stats[M8_STAT_CUR_HIDE];
         m8_cursor_hide();
         m8_cur_pending = 1;
     }
@@ -2395,9 +2397,10 @@ LONG m8_pf_escape( LPVOID in, LPVOID out )
             best = (WORD)b - (WORD)a;
         }
     }
-    m8_pf.version = 3;
+    m8_pf.version = 4;
     m8_pf.n = M8_PF_N;
     m8_pf.stamp_ticks = best;
+    _fmemcpy( m8_pf.stats, m8_stats, sizeof( m8_pf.stats ) );
     if( out != NULL ) {
         _fmemcpy( out, &m8_pf, sizeof( m8_pf ) );
     }
@@ -2850,8 +2853,25 @@ static void m8_scan_fill( WORD style, WORD count, LPPOINT p, const M8_RECT *clip
     } else {
         m8_hw_pattern_begin( c1, c2, fn, kind == 3 ? M8_MIX_LEAVE : fn );
     }
+#ifdef M8_PROF
+    {
+        /* The span walk alone, as style 62: the rest of an Output call is the
+         * difference. */
+        DWORD   a = m8_pf_now();
+        DWORD   z;
+
+        m8_hw_scan_spans( style == OS_POLYSCANLINE, count, (const short FAR *)p,
+                          clip->l, clip->t, clip->r, clip->b, kind == 1 ? NULL : pat );
+        z = m8_pf_now();
+        if( (WORD)(z >> 16) == (WORD)(a >> 16) ) {
+            ++m8_pf.out_calls[62];
+            m8_pf.out_ticks[62] += (WORD)z - (WORD)a;
+        }
+    }
+#else
     m8_hw_scan_spans( style == OS_POLYSCANLINE, count, (const short FAR *)p,
                       clip->l, clip->t, clip->r, clip->b, kind == 1 ? NULL : pat );
+#endif
     m8_leave();
 }
 

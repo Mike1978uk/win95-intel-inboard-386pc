@@ -189,7 +189,8 @@ extern M8_HOT m8_hot;
 #define M8_STAT_RUN_FILL    16      /* write-back runs sent as fills */
 #define M8_STAT_COVERED     17      /* strips drawn without a read-back (m8_covered) */
 #define M8_STAT_LINE_HW     18      /* polylines drawn by LINEDRAW */
-#define M8_STAT_COUNT       19
+#define M8_STAT_CUR_HIDE    19      /* cursor lifted for a drawing call */
+#define M8_STAT_COUNT       20
 
 extern DWORD m8_stats[M8_STAT_COUNT];
 
@@ -268,7 +269,7 @@ typedef struct {
 } M8_PF_ENT;
 
 typedef struct {
-    WORD        version;            /* 3 */
+    WORD        version;            /* 4 */
     WORD        n;                  /* M8_PF_N */
     WORD        stamp_ticks;        /* the timer's own cost in one call's time */
     WORD        hits;               /* calls that took a short path */
@@ -277,6 +278,7 @@ typedef struct {
     WORD        bad;                /* ... that disagreed */
     WORD        out_calls[M8_PF_STYLES];    /* Output by style, styles above 62 in 63 */
     DWORD       out_ticks[M8_PF_STYLES];
+    DWORD       stats[M8_STAT_COUNT];       /* m8_stats when read: the caller takes differences */
 } M8_PF_TAB;
 
 #ifdef M8_PROF

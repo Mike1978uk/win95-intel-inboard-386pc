@@ -46,6 +46,7 @@ static int      run_ms = RUN_MS;
 #define M8_ESC_PROF 0x4D38
 #define M8_PF_N     10
 #define M8_PF_STYLES 64
+#define M8_STAT_COUNT 20
 #pragma pack( push, 2 )
 typedef struct {
     DWORD   calls;
@@ -64,6 +65,7 @@ typedef struct {
     WORD        bad;
     WORD        out_calls[M8_PF_STYLES];
     DWORD       out_ticks[M8_PF_STYLES];
+    DWORD       stats[M8_STAT_COUNT];   /* version 4: the driver's counters, cumulative */
 } M8_PF_TAB;
 #pragma pack( pop )
 
@@ -169,6 +171,7 @@ static void run( const char *name, OP op, int fixed )
     int     i;
     char    title[48];
     M8_PF_TAB pf;
+    DWORD   stat0[M8_STAT_COUNT];
 
     ++test_no;
     sprintf( title, "M8BENCH %d/%d %s", test_no, TEST_COUNT, name );
@@ -182,6 +185,7 @@ static void run( const char *name, OP op, int fixed )
     rnd = 12345;
     if( prof ) {
         prof_read( &pf, 1 );
+        memcpy( stat0, pf.stats, sizeof( stat0 ) );
     }
     t0 = now_ms();
     do {
@@ -211,6 +215,15 @@ static void run( const char *name, OP op, int fixed )
                 fprintf( out, "  e%d %lu/%.1f", i, pf.e[i].calls + pf.e[i].long_calls,
                          PF_US( (double)pf.e[i].ticks + pf.e[i].long_ticks ) /
                          (pf.e[i].calls + pf.e[i].long_calls) );
+            }
+        }
+        /* The driver's counters per operation (m8.h M8_STAT_*: 11 spans and
+         * fills, 12 copies, 13 read-backs, 14 mono expansions, 18 polylines, 19 cursor lifts). */
+        if( pf.version >= 4 ) {
+            for( i = 0; i < M8_STAT_COUNT; ++i ) {
+                if( pf.stats[i] != stat0[i] ) {
+                    fprintf( out, "  c%d %.1f", i, (double)(pf.stats[i] - stat0[i]) / n );
+                }
             }
         }
         /* Output by GDI style (OS_*): calls / us per call. */
