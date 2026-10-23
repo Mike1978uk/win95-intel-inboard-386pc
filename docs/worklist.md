@@ -325,6 +325,14 @@ like a timer tick (~170 us measured for #45). Ideas, cheapest first - measure be
 - [x] Tick source found (MinTimeSlice); XT-CF read waits; XTWLAT written and proven safe in the bed;
       write-path regression passes
 
+## H. Andrew's #50 follow-ups (10-23)
+
+- [ ] **Mach8: queue writes per call.** Each port access flushes L1, so decide every write first and send from one short loop. Fill done (`55d5624`, 1.288x ATI); copy, spans, lines next. #50
+- [ ] **Upstream timing and correctness fixes to 86Box** once the driver work settles. #50
+- [ ] **WINDISK ideas for xtide_mpd** (retry + soft reset, media-change generation counter, real sense): list in #52.
+- [ ] **BlueSCSI hot-swap:** fixed removable LUN reporting media change via sense (no medium, then UNIT ATTENTION). Read WINUSB for how it presents mass storage and HID to Win9x. #50
+- [ ] **CH376 file-level FAT access** as an angle on #51: the chip does the FAT, only file data crosses the bus. Sources: dfmcwhir repos, `docs/resources_and_sources.md`.
+
 ## Parked (owner, 10-15)
 
 - [ ] IE4 install broke the disk driver on the webcam image (no snapshot). Reproduce in a VM with one.
