@@ -39,6 +39,9 @@ Method: `docs/mach8_driver_method.md` §4b (profile, shorten) and §4c (divide b
    the record pointer / clip / CUR_Y, room counted once a record, no `call drain` on the common path,
    segment loads once a call. Then the fill / copy / pixel short paths in assembly. Count bytes run
    per span from `wdis`, predict at 1.3 us a line, confirm with the profile build.
+8. OWED to Andrew (#50, replied 10-23): time a 512-word `rep insw` from the XT-CF with the L1 on and
+   off, ring 0 or DOS, PIT harness (`tools/gen_iowidth_probe.py` is the model). Report the number
+   either way; if it helps, gate it to this hardware. Ledger entry 2026-10-23 16:00.
 7. Closed 10-23: VGA aperture, dword PIX_TRANS, polyline merge, DIB table cache, pattern grouping.
 
 ## State
