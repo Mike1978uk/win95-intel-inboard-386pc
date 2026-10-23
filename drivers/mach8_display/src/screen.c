@@ -3979,6 +3979,69 @@ static DWORD m8_draw_stretchdib( void *ctx, LPDIBENGINE dev, LPRECT c )
                                &clip ) );
 }
 
+/* An enlargement by whole factors to a box on the screen and inside the clip:
+ * the source goes to the card once, at its own size, into the box's top left,
+ * each row through `tbl`, and the engine enlarges it there (m8_hw_spread).
+ * Source row r is `row0` + r * `step`. An enlargement merges no pixels, so the
+ * stretch mode does not matter. 0 = not this case; nothing has been drawn. */
+static int m8_enlarge( int dx, int dy, int dw, int dh, int sw, int sh,
+                       const BYTE FAR *row0, long step, const BYTE *tbl, LPRECT clip )
+{
+    int     kx;
+    int     ky;
+    M8_RECT d;
+    M8_RECT c;
+    M8_RECT a;
+
+    if( m8_hw_off || clip == NULL || sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0 ||
+        dw % sw != 0 || dh % sh != 0 ) {
+        return( 0 );
+    }
+    kx = dw / sw;
+    ky = dh / sh;
+    if( kx > 16 || ky > 16 ) {
+        return( 0 );
+    }
+    m8_rect_set( &d, dx, dy, dx + dw, dy + dh );
+    m8_rect_from_gdi( &c, clip );
+    m8_rect_screen( &a );
+    m8_rect_and( &c, &a );
+    a = d;
+    m8_rect_and( &a, &c );
+    if( a.l != d.l || a.t != d.t || a.r != d.r || a.b != d.b ) {
+        return( 0 );
+    }
+    m8_rect_set( &c, dx, dy, dx + sw, dy + sh );
+    m8_rect_align( &c );
+    m8_enter( &d );
+    m8_hw_write_xlat( c.l, dy, c.r - c.l, sh, dx, dx + sw, row0, step, c.l - dx, sw, tbl );
+    m8_hw_spread( dx, dy, sw, sh, kx, ky );
+    m8_leave();
+    M8_PF_HIT();
+    return( 1 );
+}
+
+/* A whole uncompressed 8bpp bottom-up DIB, enlarged (m8_enlarge). */
+static int m8_sdib_fast( int dx, int dy, int dw, int dh, int sx, int sy, int sw, int sh,
+                         VOID FAR *bits, LPBITMAPINFO info, LPINT xlat, DWORD rop,
+                         LPDRAWMODE dm, LPRECT clip )
+{
+    LPBITMAPINFOHEADER  h = &info->bmiHeader;
+    long                stride = (h->biWidth + 3) & ~3L;
+
+    if( m8_hw_off || clip == NULL || (BYTE)(rop >> 16) != 0xCC || sx != 0 || sy != 0 ||
+        sw <= 0 || sh <= 0 || h->biSize != sizeof( *h ) || h->biBitCount != 8 ||
+        h->biCompression != BI_RGB || h->biWidth != sw || h->biHeight != sh ||
+        dw <= 0 || dh <= 0 || dw % sw != 0 || dh % sh != 0 ||
+        (DWORD)FP_OFF( bits ) + (DWORD)stride * sh > 0x10000UL ||
+        !m8_d2d_table( info, dm, xlat ) ) {
+        return( 0 );
+    }
+    return( m8_enlarge( dx, dy, dw, dh, sw, sh,
+                        (const BYTE FAR *)bits + (DWORD)stride * (sh - 1), -stride, m8_d2d_tbl,
+                        clip ) );
+}
+
 BOOL WINAPI __loadds StretchDIBits( LPPDEVICE lpDestDev, WORD fGet, WORD wDestX, WORD wDestY,
                                     WORD wDestWidth, WORD wDestHeight, WORD wSrcX, WORD wSrcY,
                                     WORD wSrcWidth, WORD wSrcHeight, VOID *lpBits,
@@ -4001,6 +4064,11 @@ BOOL WINAPI __loadds StretchDIBits( LPPDEVICE lpDestDev, WORD fGet, WORD wDestX,
         return( 0 );
     }
     M8_ENTRY( M8_STAT_STRETCHDIB );
+    if( !fGet && m8_sdib_fast( (int)wDestX, (int)wDestY, w, h, (int)wSrcX, (int)wSrcY,
+                               (int)wSrcWidth, (int)wSrcHeight, lpBits, lpInfo, lpTranslate,
+                               dwRop3, lpDrawMode, lpClipRect ) ) {
+        return( TRUE );
+    }
     s.get = fGet;
     s.dx = wDestX;
     s.dy = wDestY;
@@ -4069,6 +4137,38 @@ static DWORD m8_draw_stretchblt( void *ctx, LPDIBENGINE dev, LPRECT c )
                             s->sh, s->rop, s->brush, s->dm, &clip ) );
 }
 
+/* A copy from an 8-bit device bitmap, enlarged (m8_enlarge): its pixels are
+ * the screen's colours already (as m8_px_ok's bitmaps). */
+static BYTE m8_ident[256];
+
+static int m8_sblt_fast( int dx, int dy, int dw, int dh, LPDIBENGINE src, int sx, int sy,
+                         int sw, int sh, DWORD rop, LPRECT clip )
+{
+    long    delta;
+    DWORD   at;
+    int     i;
+
+    if( (BYTE)(rop >> 16) != 0xCC || src == NULL || src->deType != TYPE_DIBENG ||
+        src->deBitsPixel != 8 || (src->deFlags & (SELECTEDDIB | OFFSCREEN | NOT_FRAMEBUFFER)) ||
+        (m8_screen->deFlags & PALETTE_XLAT) || sw <= 0 || sh <= 0 || sx < 0 || sy < 0 ||
+        sx + sw > (int)src->deWidth || sy + sh > (int)src->deHeight ) {
+        return( 0 );
+    }
+    delta = (long)src->deDeltaScan;
+    at = src->deBitsOffset + (DWORD)((long)sy * delta) + (DWORD)sx;
+    if( delta < sw || at + (DWORD)delta * sh > 0x10000UL ) {
+        return( 0 );
+    }
+    if( m8_ident[255] == 0 ) {
+        for( i = 0; i < 256; ++i ) {
+            m8_ident[i] = (BYTE)i;
+        }
+    }
+    return( m8_enlarge( dx, dy, dw, dh, sw, sh,
+                        (const BYTE FAR *)MK_FP( src->deBitsSelector, (WORD)at ), delta, m8_ident,
+                        clip ) );
+}
+
 BOOL WINAPI __loadds StretchBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, WORD wDestWidth,
                                  WORD wDestHeight, LPPDEVICE lpSrcDev, WORD wSrcX, WORD wSrcY,
                                  WORD wSrcWidth, WORD wSrcHeight, DWORD dwRop3,
@@ -4098,6 +4198,10 @@ BOOL WINAPI __loadds StretchBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, 
         return( 0 );
     }
     M8_ENTRY( M8_STAT_STRETCHBLT );
+    if( m8_sblt_fast( (int)wDestX, (int)wDestY, w, h, (LPDIBENGINE)lpSrcDev, (int)wSrcX,
+                      (int)wSrcY, (int)wSrcWidth, (int)wSrcHeight, dwRop3, lpClipRect ) ) {
+        return( TRUE );
+    }
     s.dx = wDestX;
     s.dy = wDestY;
     s.dw = wDestWidth;

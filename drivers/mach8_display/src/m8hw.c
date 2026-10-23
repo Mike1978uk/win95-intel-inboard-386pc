@@ -1129,6 +1129,27 @@ void m8_hw_write_xlat( int x, int y, int w, int h, int clip_l, int clip_r,
     m8_sh_ok[M8_SH_BKGD_COLOR] = 0;
 }
 
+/* Enlarges the sw x sh pixels at x, y in place to sw * kx x sh * ky with
+ * engine copies: the columns spread right to left, then the rows bottom up,
+ * so no copy overwrites a column or row not yet spread. Every pixel of the
+ * result is in the enlarged rectangle; nothing outside it is touched. */
+void m8_hw_spread( int x, int y, int sw, int sh, int kx, int ky )
+{
+    int j;
+    int t;
+
+    for( j = sw - 1; j >= 0; --j ) {
+        for( t = kx - 1; t >= (j == 0); --t ) {
+            m8_hw_copy( x + j, y, x + j * kx + t, y, 1, sh );
+        }
+    }
+    for( j = sh - 1; j >= 0; --j ) {
+        for( t = ky - 1; t >= (j == 0); --t ) {
+            m8_hw_copy( x, y + j, x, y + j * ky + t, sw * kx, 1 );
+        }
+    }
+}
+
 /* Mono expansion through the Mach8 extended path (DP_CONFIG 3251: a 1 bit takes
  * the foreground mix, a 0 bit the background mix), as ATIM8 draws text. The
  * bits run on across rows with no padding (M8DPM, card = bed), so the expansion
