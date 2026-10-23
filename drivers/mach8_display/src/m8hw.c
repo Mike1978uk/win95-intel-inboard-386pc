@@ -790,12 +790,17 @@ void m8_hw_scan_spans( int poly, WORD count, const short FAR *w,
  * left: CUR_X is x + 1 and the first pixel read is x. Bit 0 clear stops at the
  * first pixel that is not colour, set at the first that is. The answer is that
  * pixel's x (seg07:01ad counts from x either way); FFFFh if nothing stops it.
- * A transfer left unread is aborted as ATIM8 aborts it, and the set-up is
- * rewritten. */
+ * A transfer left unread is aborted as ATIM8 aborts it (m8_scan_abort). */
 static int m8_read_scan( int from, int y, int to )
 {
     WORD n;
 
+    if( m8_rd_ok && m8_room_ok && (m8_room >= 3 || m8_fifo_drain()) ) {
+        outpw( M8_CUR_Y, y );
+        outpw( M8_CUR_X, from );
+        outpw( M8_SCAN_TO_X, to );
+        goto wait;
+    }
     m8_wait_fifo_empty();
     m8_hw_wait_idle();
     M8_SET( M8_SH_WRT_MASK, 0x00FF );
@@ -812,6 +817,7 @@ static int m8_read_scan( int from, int y, int to )
     outpw( M8_SCAN_TO_X, to );
     m8_room -= 4;
     m8_rd_ok = 1;
+wait:
     for( n = 0; n < M8_WAIT_LIMIT; ++n ) {
         if( inpw( M8_GP_STAT ) & M8_GP_DATA_READY ) {
             /* Data from the last command sent: everything before it has
@@ -823,6 +829,18 @@ static int m8_read_scan( int from, int y, int to )
     }
     m8_engine_reset();
     return( 0 );
+}
+
+/* Ends a read left unfinished, as ATIM8 does (seg09:0194). The masks, the
+ * scissors, FRGD_COLOR, GE_PITCH and the read's DP_CONFIG and ALU_FG_FN all
+ * survive it (card, tools/m8probe/M8ABORT.C), so the read set-up stays valid.
+ * The read's data was ready, so nothing was queued behind it. */
+static void m8_scan_abort( void )
+{
+    outpw( M8_SUBSYS_CNTL, M8_SUBSYS_RESET );
+    outpw( M8_SUBSYS_CNTL, M8_SUBSYS_RUN );
+    m8_room = M8_FIFO_DEPTH - 1;
+    m8_room_ok = 1;
 }
 
 /* One pixel read as ATIM8's Pixel reads it (seg07:00aa): a one-pixel
@@ -883,7 +901,7 @@ WORD m8_hw_scanlr( int x, int y, BYTE colour, WORD style, int width )
             p = (BYTE)(half ? v >> 8 : v);
             if( (p == colour) == want ) {
                 if( half == 0 ? count > 2 : count > 1 ) {
-                    m8_engine_reset();
+                    m8_scan_abort();
                 }
                 ++m8_stats[M8_STAT_READBACK];
                 return( (WORD)pos );

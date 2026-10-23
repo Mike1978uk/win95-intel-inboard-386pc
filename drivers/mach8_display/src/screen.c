@@ -3137,6 +3137,18 @@ WORD WINAPI __loadds ScanLR( LPPDEVICE lpDestDev, WORD X, WORD Y, DWORD dwPhysCo
     M8_SCAN s;
     M8_RECT r;
 
+    /* On the screen, the cursor clear of the row: the short path, as Pixel's. */
+    if( (LPVOID)lpDestDev == m8_hot.screen && lpDestDev != NULL && !m8_hw_off &&
+        X < (WORD)M8_SCREEN_X && Y < (WORD)M8_SCREEN_Y &&
+        !(m8_cur_shown && (int)Y >= m8_cur_rect.t && (int)Y < m8_cur_rect.b) ) {
+        WORD ret;
+
+        m8_busy = 1;
+        ret = m8_hw_scanlr( X, Y, (BYTE)dwPhysColor, wStyle, M8_SCREEN_X );
+        M8_PF_HIT();
+        M8_LEAVE();
+        return( ret );
+    }
     m8_px_touch( lpDestDev, M8_PX_WHY_ENTRY );
     if( !m8_is_screen( lpDestDev ) ) {
         return( DIB_ScanLR( lpDestDev, X, Y, dwPhysColor, wStyle ) );
