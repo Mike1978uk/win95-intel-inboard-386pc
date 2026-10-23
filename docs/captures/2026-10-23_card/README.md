@@ -46,3 +46,4 @@ Late evening:
 | (none) | M8F14P first run | - | M8IDLE never quiet: steady 12 % CPU for 600 s, screenshot helper timed out; one-off, next boot clean |
 | card_f20p1 | `d1a8619` ScanLR by rep insw (+ string-cache hash buckets, dropped) | - | ScanLR 634 -> 587 us, floodfill 224 -> 217 ms/op in the driver; buckets: draw_icon 1873 -> 1875 us, no gain |
 | card_d1r11 | M8D1 = master `14323e2`, left selected on the card | 1.519x | floodfill 1.00; below: mem_to_mem 0.72, draw_icon 0.79, dib_8bpp 0.83, polygon 0.83, cursor_move 0.85, text_varied 0.87, fill_small 0.88 |
+| card_d1r21 | M8D2 = master again (repeat) | 1.517x | below both runs: mem_to_mem .72/.72, polygon .83/.83, dib_8bpp .83/.84, draw_icon .79/.85, text_varied .87/.88, setpixel .94/.91, bmp_changing .94/.94, ellipse .97/.94; near 1: cursor_move .85/.95, fill_small .88/.96, dstinvert .98/.96; floodfill 1.00/1.00 |
