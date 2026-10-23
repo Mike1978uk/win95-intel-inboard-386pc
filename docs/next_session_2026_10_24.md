@@ -46,6 +46,14 @@ Method: `docs/mach8_driver_method.md` §4b (profile, shorten) and §4c (divide b
    either way; if it helps, gate it to this hardware. Ledger entry 2026-10-23 16:00.
 7. Closed 10-23: VGA aperture, dword PIX_TRANS, polyline merge, DIB table cache, pattern grouping.
 
+## Cloud stream (started 10-23, owner's credits)
+
+BlueSCSI firmware for the 5160 (multi-LUN behind one ID, removable LUN with media change by sense
+data, DaynaPort later), run by a remote cloud agent (Opus leading, Sonnet for mechanical work). It
+writes only to branch `cloud/bluescsi`, folder `cloud/bluescsi/`; report in `cloud/bluescsi/REPORT.md`
+(plus SURVEY.md, DESIGN.md). Nothing on master or GitHub issues. Review: `git fetch` then read the
+branch; everything there is "built, untested on the 5160" until tested here.
+
 ## State
 
 - Card: `M8D1.DRV` selected = master `14323e2` (card_d1r11: 1.519x, floodfill 1.00, pixels = ATI in
