@@ -11,14 +11,19 @@ Method: `docs/mach8_driver_method.md` §4b (profile, shorten) and §4c (divide b
    answered, port refused). The first was 11:41 into M8S1. Two in ~9 driver restarts. F6 only
    touches StretchBlt/StretchDIBits code, so the stall is likely not the new code - not proven. Ask the
    owner what the screen showed; it comes before more driver work.
-1. **Uncommitted, untested on the card:** F6 (`m8_hw_spread` through `m8_hw_copy_fast`, for
-   stretchblt 1.01) and F7 (DIB colour table cached by content and `m8_pal_gen`, for dib_8bpp 0.82).
-   Built as `%TEMP%\m8f6`, `%TEMP%\m8f7`; F7 contains F6. Bench F7 when the card is back.
-2. Below ATI (card_f5r11): text_varied 0.85, draw_icon 0.81, polygon 0.81, mono_bmp 0.82, dib_8bpp
-   0.84, mem_to_mem 0.78, floodfill 0.88, bmp_changing 0.95, cursor_move 0.95, stretchblt 0.95 (1.01
-   in f4, noise). Profile build first (`build.ps1 -Prof`), one card run gives all of them.
-3. mono_bmp and dib_8bpp: ATIM8 is at the card's upload floor (3.00 us a byte, M8UPRATE); what is left
-   of ours is CPU per call. Sending fewer bytes than ATI needs content-aware sends (runs as fills).
+   Owner, 10-23: both times the blue wallpaper was drawn and there was no taskbar or Start menu -
+   Explorer did not finish starting (the agent starts after it, hence the refused port). Owner's
+   restart into the same M8F6 then came up clean. Next: what Explorer's start draws through us
+   (BOOTLOG/trace build), and whether the 5160's known Explorer hang (MEMORY) happens with ATIM8.
+1. Evening state: 1.518x (card_f11r11), pixels = ATI in all 35, all committed. Below ATI:
+   mem_to_mem 0.64, polygon 0.80, dib_8bpp 0.83, draw_icon 0.85, text_varied 0.86, cursor_move 0.87,
+   dstinvert 0.90, floodfill 0.90, ellipse 0.93, fill_small 0.94, bmp_changing 0.95 (noise is +-8%
+   on untouched tests: decide on profile us per call, `build.ps1 -Prof`).
+2. mem_to_mem: the proxy path hashes the 40x96 source each call (1.8-1.9 ms a call); DIBENG's RAM copy
+   may be cheaper when no write-back is saved - measure both.
+3. draw_icon: mask now cached (hits 152 of 310), colour half (SRCINVERT, 8-bit) is not - trace which path.
+4. dib_8bpp: at the bus floor (29.7 ms a call); only a content cache of the DIB beats ATI here.
+5. Closed 10-23: VGA aperture (M8APERT), dword PIX_TRANS (M8DWORD), polyline merge, DIB table cache.
 
 ## Where we are: 1.473x ATI overall (card_f5r11, was 1.345x), pixels = ATI in all 35
 

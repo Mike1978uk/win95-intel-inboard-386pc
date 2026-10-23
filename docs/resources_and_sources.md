@@ -223,8 +223,8 @@ the directory's own `README.md`.
   against the 28800 (XFree86, the card) before use. Read 2026-10-09 (chapter map and tables 19.46-19.47 only).
 - **ATI VGAWONDER XL24 driver diskette (`ativtool.zip`, VOGONS drivers archive, ATI Technical Note #079,
   1994-02-18)** - owner's copy at `XT_project/ATI/ativtool/`. Covers all 18800/28800 VGAWONDER cards. Holds
-  VINSTALL (+ .HLP), RAMBIOS.SYS, VANSI.SYS, VVESA.COM, L43/CLR/PRTSCRN, mouse drivers, README (21 KB, not yet
-  read). **VVESA.COM (13,548 bytes) is the same size as `C:\VVESA.COM` on the bed image** - ATI's own VESA
+  VINSTALL (+ .HLP), RAMBIOS.SYS, VANSI.SYS, VVESA.COM, L43/CLR/PRTSCRN, mouse drivers, README (21 KB, read
+  2026-10-23: `docs/ati_readme_findings_2026_10_23.md`). **VVESA.COM (13,548 bytes) is the same size as `C:\VVESA.COM` on the bed image** - ATI's own VESA
   driver for the 28800 is already on the machine: a working implementation of banking, modes and clocks to
   disassemble (technique 112) before trusting any summary.
 - **[AI-SOURCED] second Google AI answer on the 28800, pasted by the owner 2026-10-09.** Right: Ferraro ch. 19
@@ -918,7 +918,11 @@ what Andrew offered it for. **Unread** means exactly that: listed, not yet evalu
 - ATI software set (owner, 2026-10-07), `XT_project/ATI/`: HDILOAD 2.21a (ATI's 8514/A Adapter Interface
   TSR) + DEMOAI.EXE, which exercises the AI calls - a second conformance test beside TEST.COM, unrun; 8514/Ultra
   INSTALL/TEST.COM (8514ut, ati8tool), M8UTL, Win 3.1 mach8 drivers v1-v3 / M8W20 / M8W23 / m8wr30,
-  GFXULTRA, ATIDESK, VGA Wonder utilities, VVESA 2.22, NT driver M93NT1. Unread beyond the READMEs.
+  GFXULTRA, ATIDESK, VGA Wonder utilities, VVESA 2.22, NT driver M93NT1. Every README, TXT, WRI and
+  INF read 2026-10-23 (`docs/ati_readme_findings_2026_10_23.md`): the Win 3.1 MACH.DRV (v2.0, v2.3) reads
+  an undocumented `VGAShared` key and its docs say the driver's aperture is the VGA A000h area
+  (`ATIDESK/MACH8.WRI:140`); Win95 ATIM8.DRV has no such key. Not found: MemMapRegs, BlockWrite, engine ports.
+  `M8W23/MACHW.LZH` is not extracted.
   Owner unpacked the LH1 packs (7-Zip cannot). Drivers that write GE_PITCH 76EEh: MACHW3.DRV (ATIMACH8, 1994,
   9 sites), MACH.DRV (M8W20 = ATIMACH8/V2; M8W23 newer, ~75 sites), MACHVDD.386, VDDULTRA.386, HDILOAD.EXE,
   ATI.SYS (NT). TEST.COM is one file in all four copies.

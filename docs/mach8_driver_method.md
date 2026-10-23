@@ -106,3 +106,7 @@ bytes than ATI: stretch_dib sends the source once and the engine enlarges it (10
 | DIB colours from DIBENG itself: convert one 256x1 DIB of indices 0-255 with the caller's table, then look each pixel up | ours | card: pixels = ATI, dib_8bpp 0.61 -> 0.82, no RAM copy of the DIB (10-23) |
 | Enlarge on the card: source once at its own size, engine copies spread columns then rows | ours | card: stretch_dib 1.15, stretchblt 1.01 against 0.45/0.40 (10-23). Whole factors, box unclipped only |
 | Mono source unshifted: start the expansion up to 7 px left (X may be -512, guide 8-22), scissors cut it | ours | card: mono_bmp 0.62 -> 0.82 (10-23) |
+| Mono bitmaps kept whole in the string cache's bit-planes, drawn by plane blit with both mixes | ours | card: mono_bmp 0.82 -> 2.96 (10-23) |
+| Merge collinear polyline points (horizontal, vertical, 45 degrees) | ours | **no gain** (10-23): GDI's ellipse outline points are not unit-step runs; the test made each call slower (3551 -> 4080 us) |
+| Memory window into the Mach8's memory through the VGA (ATI Win 3.1 docs: "aperture" in the VGA area) | `ATIDESK/MACH8.WRI:140`, MACH.DRV v2.3 `seg03:02c6` | **not on this card** (10-23): ATI's "Virtual Aperture" serves 4bpp modes on 512 KB boards (SUBSYS_STAT bit 7); `M8APERT.C` finds only the VGA's text page in A0000-BFFFFh |
+| Dword OUTs to PIX_TRANS | bus plan A20 | **no** (`M8DWORD.C`, 10-23): the upper word lands in the DAC mask (E2EAh = 02EAh) |

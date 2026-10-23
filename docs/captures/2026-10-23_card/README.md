@@ -18,3 +18,18 @@ Afternoon, one run each against `card_ati1/2` (pixels = ATI in all 35 every time
 Probes: `tools/m8probe/M8ABORT.C` (the 900Fh/500Fh abort keeps WRT_MASK, scissors, FRGD_COLOR,
 GE_PITCH, DP_CONFIG and ALU_FG_FN), `M8UPRATE.C` (100x100 host upload: 30.04 ms per-row `rep outsw`,
 31.45 ms one `rep outsw`, 21.72 ms the same words to 0278h).
+
+Evening (pixels = ATI in all 35 every run):
+
+| Run | Build | Overall | What moved |
+|---|---|---|---|
+| card_f7r11 | M8F7 `22c50d5` spread via copy_fast (+ DIB table cache, dropped) | 1.485x | stretch_dib 1.62, stretchblt 1.50; table cache no gain |
+| card_f7p1 | profile of F7 | - | mono_bmp 6832 us a call, ellipse outline 3551 us |
+| card_f8r11 | mono cache, first cut | 1.495x | mono_bmp 1.05 (cache only tried on one branch) |
+| card_f9r11 | + polyline merge | 1.480x | none; profile: outline 3551 -> 4080 us, merge dropped |
+| card_f10p1 / f11p1 | profiles | - | mono_bmp 4245 -> 1205 us a call once the cache is tried first |
+| card_f11r11 | M8F11 `9999167` + `5f6d007` | 1.518x | mono_bmp 2.96 |
+
+Probes: `M8APERT.C` - no Mach8 memory in A0000-BFFFFh (all of it shows the VGA's text page, `20 07`).
+`M8DWORD.C` - a 32-bit OUT to PIX_TRANS puts its upper word into the DAC mask (02EAh read 1Eh after,
+FFh before): E2EAh decodes as 02EAh, PIX_TRANS takes words only.
