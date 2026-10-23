@@ -1129,6 +1129,13 @@ void m8_hw_write_xlat( int x, int y, int w, int h, int clip_l, int clip_r,
     m8_sh_ok[M8_SH_BKGD_COLOR] = 0;
 }
 
+static void m8_spread_copy( int sx, int sy, int dx, int dy, int w, int h )
+{
+    if( !m8_hw_copy_fast( sx, sy, dx, dy, w, h, M8_MIX_SRC_VRAM | M8_MIX_REPLACE ) ) {
+        m8_hw_copy( sx, sy, dx, dy, w, h );
+    }
+}
+
 /* Enlarges the sw x sh pixels at x, y in place to sw * kx x sh * ky with
  * engine copies: the columns spread right to left, then the rows bottom up,
  * so no copy overwrites a column or row not yet spread. Every pixel of the
@@ -1138,14 +1145,15 @@ void m8_hw_spread( int x, int y, int sw, int sh, int kx, int ky )
     int j;
     int t;
 
+    /* After the first copy has set the data path, the rest are 7 writes each. */
     for( j = sw - 1; j >= 0; --j ) {
         for( t = kx - 1; t >= (j == 0); --t ) {
-            m8_hw_copy( x + j, y, x + j * kx + t, y, 1, sh );
+            m8_spread_copy( x + j, y, x + j * kx + t, y, 1, sh );
         }
     }
     for( j = sh - 1; j >= 0; --j ) {
         for( t = ky - 1; t >= (j == 0); --t ) {
-            m8_hw_copy( x, y + j, x, y + j * ky + t, sw * kx, 1 );
+            m8_spread_copy( x, y + j, x, y + j * ky + t, sw * kx, 1 );
         }
     }
 }
