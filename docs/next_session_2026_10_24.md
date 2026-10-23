@@ -32,6 +32,14 @@ Method: `docs/mach8_driver_method.md` §4b (profile, shorten) and §4c (divide b
 6. text_varied: ExtTextOut 1.47 ms a call, new string each time - glyph cache (XFree86 mach8fcach.c).
 7. Closed 10-23: VGA aperture, dword PIX_TRANS, polyline merge, DIB table cache, pattern grouping.
 
+## State
+
+- Card: `M8D1.DRV` selected = master `14323e2` (card_d1r11: 1.519x, floodfill 1.00, pixels = ATI in
+  all 35). `menudefault=LEAN`. `C:\M8BENCH.EXE` is the profile-v4 bench (prints counters `c<n>`).
+- ATIM8's span loop (`seg08:0dcd`): 7 I/O a span (FIFO poll, CUR_Y, PATT_DATA_INDEX, PATT_DATA,
+  CUR_X, PATT_INDEX, SCAN_TO_X), ~52 us; ours ~45 us. Polygon's gap is per call, not per span.
+- Next static read: ATIM8 ExtTextOut (`seg01:1b83`) for text_varied.
+
 ## Where we are: 1.473x ATI overall (card_f5r11, was 1.345x), pixels = ATI in all 35
 
 Afternoon 10-23: commits `61fe29a` ScanLR, `ad11835` DIBs, `d5e84c3` stretch, `3291c34` mono
