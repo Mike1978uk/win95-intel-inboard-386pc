@@ -26,6 +26,8 @@ Method: `docs/mach8_driver_method.md` §4b (profile, shorten) and §4c (divide b
    source for a cache lookup; with neither bitmap on the card the copy already goes to DIBENG
    (m8_px_pieces returns 0). Trading the proxy for a RAM copy costs one read-back and touches the
    design drag_frame (8.7x) relies on: measure both on the card before changing the policy.
+   ATIM8 (`seg01:15c4-15d9`): a destination without deFlags 8000h, or with 10h, goes to DIBENG - its
+   mem_to_mem is a RAM copy every call.
 5. draw_icon: both halves on the card (1 copy + 1 plane blit) yet 1.9 ms a call. Not the string
    cache's linear scan (hash buckets: no change, 10-23). Next: time m8_px_restore / m8_px_upload /
    m8_mono_cached / m8_bc_draw separately in a profile build (as s62 did for Output) before guessing.
