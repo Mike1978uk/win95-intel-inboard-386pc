@@ -100,10 +100,22 @@ Card holds only `HD5_512.hda` and an ini with `EnableLUNs = 1`.
 
 ### Test 1 - does Win95 see LUN 1?
 
-Add `HD51_512.hda`.
-- Log at boot: `---- Hosted as ID 5 LUN 1 in slot 0` (slot number may differ).
-- Pass: Device Manager shows a second disk under the T130B; Explorer shows an extra drive
-  letter; files on it read back correctly.
+`T130.MPD` sends no IDENTIFY message (`T130MPD.md`), so the LUN reaches BlueSCSI only if Win95
+puts it in CDB byte 1. If it does not, every command meant for LUN 1 lands on LUN 0 - including
+writes. So the first boot is read-only:
+
+1. Back up `HD5_512.hda`. Give `HD51_512.hda` a different volume label and one marker file
+   (`LUN1.TXT`) that the LUN 0 image does not have.
+2. On a modern PC, set the read-only attribute on both images (`attrib +r`, or Properties >
+   Read-only). BlueSCSI then refuses all writes to them (`ImageBackingStore.cpp:113`).
+3. Boot, open the new drive letter, and look for `LUN1.TXT` and the label.
+
+- Log at boot: `---- Hosted as ID 5 LUN 1 in slot 0` (slot number may differ). Each command line
+  shows `LUN 1` or `LUN 0`: that is the CDB byte, the only LUN this host sends.
+- Pass: Device Manager shows a second disk under the T130B; the new drive letter shows
+  `LUN1.TXT` and LUN 1's label. Only then clear the read-only attribute on `HD51_512.hda`.
+- **Fail - stop:** the new drive letter shows LUN 0's files. Win95 does not put the LUN in the
+  CDB; hosted LUNs cannot be used with `T130.MPD` for disks. Fall back to separate IDs.
 - Fail, with log showing INQUIRY to LUN 1 answered: Win95 saw it but did not use it. Note
   Device Manager's entry and stop for review.
 - Fail, with **no command to LUN 1 in the log**: Win95/T130.MPD does not scan LUNs. This is
@@ -121,11 +133,14 @@ Add `RE52_a.img` and `RE52_b.img` (different files on each, e.g. `A.TXT` and `B.
 2. Right-click the drive in Explorer and choose Eject (sends START STOP UNIT). On the
    2023.10a board the eject buttons are on the I2C front-panel header, not on the board.
 3. Open the drive again.
-- Pass: Explorer shows `B.TXT` without a reboot. Log shows UNIT ATTENTION (28h) sent on LUN 2.
-- Partial: drive reports not ready, then `B.TXT` only after a refresh. Note it.
-- Fail: Explorer still shows `A.TXT` (stale cache). Check the log for `MESSAGE_OUT` after
-  `SELECTION`: without it the host is SCSI-1, unit attention is suppressed by design, and
-  only T130.MPD selecting with ATN would change that.
+Expect no UNIT ATTENTION: `T130.MPD` selects without ATN, and BlueSCSI drops unit attention
+for such hosts (`T130MPD.md`). The only signal Win95 gets is NOT READY / MEDIUM NOT PRESENT
+while the tray is open.
+- Pass: Explorer shows `B.TXT` without a reboot.
+- Partial: drive reports not ready, then `B.TXT` only after a refresh (F5). Likely; note it.
+- Fail: Explorer still shows `A.TXT` (stale cache). Then a firmware option to keep unit
+  attention for SCSI-1 hosts is the next step - SCSIPORT handles CHECK CONDITION, unlike the
+  Mac Plus the suppression was written for.
 - No Eject on the menu: Win95 does not treat the LUN as removable. Note Device Manager's
   "Removable" box for it and stop.
 
@@ -153,8 +168,8 @@ a minute; writes `C:\DAYNAPRB.TXT`.
   device on its own ID before anything else.
 - Fail at the ARP reply only: check the log for WiFi joined; try another IP on the LAN.
 
-Also note from the same boot's `log.txt` the MESSAGE_OUT byte before each command to ID 5:
-`C0`-`C7` means `T130.MPD` allows disconnect (DESIGN.md §3 B is possible), `80`-`87` means not.
+Expect no MESSAGE_OUT lines in `log.txt` for any T130.MPD command: the driver sends no IDENTIFY
+(`T130MPD.md`). The probe puts the LUN in CDB byte 1 for that reason.
 
 ## Not done
 

@@ -103,6 +103,9 @@ static int exec( int ha, int t, int lun, BYTE *cdb, BYTE dir, BYTE *buf, DWORD l
     s->SenseLen = 14;
     s->CDBLen = 6;
     memcpy( s->CDB, cdb, 6 );
+    /* T130.MPD sends no IDENTIFY message, so CDB byte 1 is the only place the
+     * LUN reaches the target. */
+    s->CDB[1] = (BYTE)((s->CDB[1] & 0x1F) | (lun << 5));
     QueryPerformanceCounter( &t0 );
     send_srb( s );
     while( *(volatile BYTE *)&s->Status == SS_PENDING && us_since( &t0 ) < 5000000 ) {

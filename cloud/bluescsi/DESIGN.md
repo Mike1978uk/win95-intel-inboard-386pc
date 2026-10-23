@@ -46,8 +46,9 @@ hosted slot's number also keys its eject button and Toolbox entry; that is cosme
 
 ### Driver impact (T130.MPD)
 
-None expected. Whether Win95's SCSI layer sends INQUIRY to LUN 1-7 through T130.MPD is the
-first question for the 5160 (REPORT.md test 1). If it scans only LUN 0, the fallback is one
+`T130.MPD` sends no IDENTIFY message (`T130MPD.md`), so the LUN travels only in CDB byte 1 and
+the firmware takes it from there (`scsi.c:594`). Whether Win95's SCSI layer and disk/CD layers fill
+that byte for LUN 1-7 is the first question for the 5160 (REPORT.md test 1, read-only first). If it scans only LUN 0, the fallback is one
 device per ID with stock firmware, and the T130 driver's LUN handling becomes its own issue.
 DOS ASPI disk drivers may scan only LUN 0 too; that is separate from Win95.
 
@@ -58,9 +59,9 @@ button or the Toolbox; NOT READY / MEDIUM NOT PRESENT (ASC 3Ah) while ejected
 (`BlueSCSI_disk.cpp:1948`); UNIT ATTENTION 28h on reinsertion when `EnableUnitAttention = 1`.
 Several images with the same prefix (`RE52_a.img`, `RE52_b.img`) cycle on each eject.
 
-Open question for the 5160: unit attention is dropped for hosts that select without ATN
-(SCSI-1). If T130.MPD selects without ATN, Win95 never sees the change and only learns of it
-from MEDIUM NOT PRESENT. The log line `compatMode` tells which.
+Settled by `T130MPD.md`: T130.MPD always selects without ATN, so BlueSCSI drops unit attention
+for it and Win95 learns of a change only from MEDIUM NOT PRESENT. If that proves not enough
+(REPORT.md test 3), a firmware option to keep unit attention for SCSI-1 hosts is the fix.
 
 Not done here: swapping in a file copied to the SD card while running, or a USB stick as the
 medium. Both need the USB or WiFi side first.
@@ -107,14 +108,15 @@ bound T:
   T is a multiple of it unless the VxD programs its own timer.
 Works with stock firmware and any `T130.MPD`.
 
-**B. Interrupt by reselection (no empty READs).** The VxD issues one READ with disconnect
+**B. Interrupt by reselection (no empty READs). Not possible with `T130.MPD`** - it sends no
+IDENTIFY, so never grants disconnect, and never arms the 53C80 for reselection (`T130MPD.md`).
+Kept below as the design for a future T130B miniport of our own. The VxD issues one READ with disconnect
 privilege and leaves it outstanding. With nothing queued, BlueSCSI disconnects and frees the bus;
 when a frame arrives it reselects the T130B, the 53C80 raises IRQ 3, and `T130.MPD` completes the
 READ. Zero bus time while idle. Needs, in order of cost to find out:
-1. `T130.MPD` grants disconnect: the IDENTIFY byte in BlueSCSI's `Debug = 1` log (MESSAGE_OUT
-   bytes are already logged) is `C0`+LUN if it does, `80`+LUN if not. Free, from REPORT.md test 1.
-2. `T130.MPD` handles reselection. Unknown. The card has an IRQ and moves data by PIO, so the IRQ
-   has little use other than reselection - an inference, not a measurement.
+1. The miniport sends IDENTIFY with disconnect privilege. `T130.MPD`: no.
+2. The miniport arms Select Enable and handles reselection. `T130.MPD`: no; its IRQ only ends the
+   command in progress.
 3. BlueSCSI reselection. `scsiDisconnect()` and `scsiReconnect()` exist from SCSI2SD but are
    commented out (`scsi.c:1495-1600`, `/* TODO REENABLE`). Bringing them back for the network
    device alone, on its own ID, is the firmware work; the single-command main loop must then
@@ -124,8 +126,7 @@ READ. Zero bus time while idle. Needs, in order of cost to find out:
 
 **C. B with A as fallback** when 1 or 2 fails.
 
-Recommendation: build A first (it is needed as B's fallback anyway), measure it with the probe,
-and decide on B from test 1's IDENTIFY byte.
+Decision: A is the design. B needs our own T130B miniport as well as firmware reselection.
 
 ### Ring 0
 
