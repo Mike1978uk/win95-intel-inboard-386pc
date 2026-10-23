@@ -45,3 +45,4 @@ Late evening:
 | card_f19r11 | M8F19 `aba3fa9` + two-colour patterns | 1.539x | pixels = ATI in all 35 |
 | (none) | M8F14P first run | - | M8IDLE never quiet: steady 12 % CPU for 600 s, screenshot helper timed out; one-off, next boot clean |
 | card_f20p1 | `d1a8619` ScanLR by rep insw (+ string-cache hash buckets, dropped) | - | ScanLR 634 -> 587 us, floodfill 224 -> 217 ms/op in the driver; buckets: draw_icon 1873 -> 1875 us, no gain |
+| card_d1r11 | M8D1 = master `14323e2`, left selected on the card | 1.519x | floodfill 1.00; below: mem_to_mem 0.72, draw_icon 0.79, dib_8bpp 0.83, polygon 0.83, cursor_move 0.85, text_varied 0.87, fill_small 0.88 |

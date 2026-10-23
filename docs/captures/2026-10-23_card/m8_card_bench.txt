@@ -8600,3 +8600,76 @@ started 35/35 ellipse
 prof ellipse          drv_us/op   8397.5  calls/op   7.00  long 7  hits 301  checked 0  bad 0  stamp_us 83.0  e0 4/2099.4  e2 425/1265.0  e5 3/3326.1  e7 2/328.5  c8 0.0  c11 81.8  c12 0.1  c13 0.0  c17 0.0  c18 1.0  s5 236/1200.9  s18 58/3408.4  s63 124/128.3
 ellipse                61.1 ops/s   16.379 ms/op  hash 312df19d  #35  pad 0820
 
+== card_d1r11  driver m8d1.drv  800x600x8  2026-10-23 17:42  1000 ms
+caps  poly 0008  curve 0000  line 0023  raster ffffeff9  text 2004
+started 1/35 text_sys
+text_sys              557.9 ops/s    1.792 ms/op  hash 5c44e885  #1  pad 0820
+started 2/35 text_same
+text_same             514.1 ops/s    1.945 ms/op  hash 846b2085  #2  pad 0820
+started 3/35 text_gui
+text_gui              895.8 ops/s    1.116 ms/op  hash f2d5f065  #3  pad 0820
+started 4/35 text_varied
+text_varied           437.2 ops/s    2.287 ms/op  hash 19106b7d  #4  pad 0820
+started 5/35 fill_small
+fill_small            558.6 ops/s    1.790 ms/op  hash d90ee0b9  #5  pad 0820
+started 6/35 fill_large
+fill_large            218.6 ops/s    4.574 ms/op  hash 86bf3d05  #6  pad 0820
+started 7/35 fill_hatch
+fill_hatch            362.8 ops/s    2.756 ms/op  hash 820ec605  #7  pad 0820
+started 8/35 fill_xor
+fill_xor             1680.4 ops/s    0.595 ms/op  hash d22297c5  #8  pad 0820
+started 9/35 dstinvert
+dstinvert            1766.5 ops/s    0.566 ms/op  hash 3e0edd6d  #9  pad 0820
+started 10/35 blit_small
+blit_small           1744.8 ops/s    0.573 ms/op  hash 0d2b3285  #10  pad 0820
+started 11/35 blit_large
+blit_large            335.4 ops/s    2.982 ms/op  hash 0d2b3285  #11  pad 0820
+started 12/35 scroll
+scroll                 72.7 ops/s   13.751 ms/op  hash 0d2b3285  #12  pad 0820
+started 13/35 bmp_icon
+bmp_icon              722.0 ops/s    1.385 ms/op  hash 66ada2a5  #13  pad 0820
+started 14/35 bmp_card
+bmp_card              691.0 ops/s    1.447 ms/op  hash 70becf17  #14  pad 0820
+started 15/35 bmp_changing
+bmp_changing           55.8 ops/s   17.933 ms/op  hash 6989e397  #15  pad 0820
+started 16/35 bmp_large
+bmp_large             251.8 ops/s    3.972 ms/op  hash 0d2b3285  #16  pad 0820
+started 17/35 dib_8bpp
+dib_8bpp               27.0 ops/s   37.047 ms/op  hash 9c83b45e  #17  pad 0820
+started 18/35 stretch_dib
+stretch_dib            14.7 ops/s   67.883 ms/op  hash 2a3f7949  #18  pad 0820
+started 19/35 stretchblt
+stretchblt             19.6 ops/s   50.946 ms/op  hash a5ce3241  #19  pad 0820
+started 20/35 mono_bmp
+mono_bmp              418.7 ops/s    2.388 ms/op  hash 0d2b3285  #20  pad 0820
+started 21/35 draw_icon
+draw_icon             155.3 ops/s    6.437 ms/op  hash b2f700c9  #21  pad 0820
+started 22/35 scr_to_mem
+scr_to_mem            708.0 ops/s    1.413 ms/op  hash 0d2b3285  #22  pad 0820
+started 23/35 mem_to_mem
+mem_to_mem            269.9 ops/s    3.705 ms/op  hash e8973020  #23  pad 0820
+started 24/35 drag_frame
+drag_frame            141.7 ops/s    7.055 ms/op  hash 0d2b3285  #24  pad 0820
+started 25/35 lines
+lines                1529.7 ops/s    0.654 ms/op  hash 6fd0736c  #25  pad 0820
+started 26/35 lines_hv
+lines_hv              884.8 ops/s    1.130 ms/op  hash e8a266b2  #26  pad 0820
+started 27/35 lines_dash
+lines_dash            489.9 ops/s    2.041 ms/op  hash c15414e6  #27  pad 0820
+started 28/35 rubber_band
+rubber_band          1047.9 ops/s    0.954 ms/op  hash 123749fd  #28  pad 0820
+started 29/35 setpixel
+setpixel             1947.7 ops/s    0.513 ms/op  hash 871e0b3c  #29  pad 0820
+started 30/35 getpixel
+getpixel             2458.5 ops/s    0.407 ms/op  hash 0d2b3285  #30  pad 0820
+started 31/35 polygon
+polygon                60.6 ops/s   16.504 ms/op  hash a356aa00  #31  pad 0820
+started 32/35 rectangle
+rectangle             943.6 ops/s    1.060 ms/op  hash e8438024  #32  pad 0820
+started 33/35 floodfill
+floodfill               4.1 ops/s  244.031 ms/op  hash a9f1de61  #33  pad 0820
+started 34/35 cursor_move
+cursor_move           886.6 ops/s    1.128 ms/op  hash 0d2b3285  #34  pad 0820
+started 35/35 ellipse
+ellipse                69.1 ops/s   14.480 ms/op  hash 312df19d  #35  pad 0820
+
