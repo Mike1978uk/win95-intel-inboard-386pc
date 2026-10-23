@@ -1084,6 +1084,51 @@ void m8_hw_write_rect( int x, int y, int w, int h, const BYTE FAR *src, WORD pit
     m8_sh_ok[M8_SH_BKGD_COLOR] = 0;
 }
 
+/* An 8bpp DIB straight to the card, each row through `tbl` (index to device
+ * colour) as it goes: no copy of the rectangle in RAM. The blit is `x`, `w`
+ * even, so a word carries two pixels; the scissors cut it to `clip_l` ..
+ * `clip_r` - 1. Row `row` of the blit is `row0` + `row` * `step` (negative
+ * for a bottom-up DIB), its pixel `x` at column `col0` of the DIB row, which
+ * has `cols` columns; a column outside them is clipped away, and is sent as
+ * 0 rather than read. */
+#define M8_XROW_MAX         1024        /* the widest mode */
+static BYTE m8_xrow[M8_XROW_MAX];
+
+void m8_hw_write_xlat( int x, int y, int w, int h, int clip_l, int clip_r,
+                       const BYTE FAR *row0, long step, int col0, int cols, const BYTE *tbl )
+{
+    int             row;
+    int             i;
+    int             c;
+    const BYTE FAR  *p;
+
+    if( m8_hw_off || w <= 0 || h <= 0 || w > M8_XROW_MAX ) {
+        return;
+    }
+    m8_hw_wait_idle();
+    m8_wait_fifo_empty();
+    m8_plain();
+    m8_scissors( clip_l, M8_EXT_SCISSOR_MIN, clip_r - 1, M8_EXT_SCISSOR_MAX );
+    m8_put( M8_SH_FRGD_MIX, M8_MIX_SRC_HOST | M8_MIX_REPLACE );
+    m8_room_for( 5 );
+    outpw( M8_CUR_X, x );
+    outpw( M8_CUR_Y, y );
+    outpw( M8_MAJ_AXIS_PCNT, w - 1 );
+    outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
+    outpw( M8_CMD, M8_CMD_HOST_WRITE );
+    for( row = 0; row < h; ++row ) {
+        p = row0 + row * step;
+        for( i = 0, c = col0; i < w; ++i, ++c ) {
+            m8_xrow[i] = (c >= 0 && c < cols) ? tbl[p[c]] : 0;
+        }
+        m8_outsw( (const WORD FAR *)m8_xrow, (WORD)w / 2 );
+    }
+    /* Idle before any colour write: while a command still takes host data,
+     * FRGD_COLOR and BKGD_COLOR writes are consumed as pixels (guide 8-14). */
+    m8_hw_wait_idle();
+    m8_sh_ok[M8_SH_BKGD_COLOR] = 0;
+}
+
 /* Mono expansion through the Mach8 extended path (DP_CONFIG 3251: a 1 bit takes
  * the foreground mix, a 0 bit the background mix), as ATIM8 draws text. The
  * bits run on across rows with no padding (M8DPM, card = bed), so the expansion

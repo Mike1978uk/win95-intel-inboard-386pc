@@ -3823,6 +3823,93 @@ static DWORD m8_draw_dibtodev( void *ctx, LPDIBENGINE dev, LPRECT c )
                              d->info, d->xlat ) );
 }
 
+/* The DIB Engine's own index-to-colour table for a DIB's colour table and
+ * translation: it draws a 256x1 DIB of the indices 0-255 with the caller's
+ * header and table bytes, so a pixel looked up here is the one it would draw.
+ * 0 when the table cannot be copied whole. */
+static BYTE m8_d2d_tbl[256];
+static BYTE m8_d2d_idx[256];
+static struct {
+    BITMAPINFOHEADER    h;
+    RGBQUAD             c[256];
+} m8_d2d_info;
+
+static int m8_d2d_table( LPBITMAPINFO info, LPDRAWMODE dm, LPINT xlat )
+{
+    DWORD   n = info->bmiHeader.biClrUsed ? info->bmiHeader.biClrUsed : 256;
+    DWORD   bytes = sizeof( BITMAPINFOHEADER ) + n * sizeof( RGBQUAD );
+    M8_RECT r;
+    RECT    c;
+    int     i;
+
+    if( n > 256 || (DWORD)FP_OFF( info ) + bytes - 1 > GetSelectorLimit( FP_SEG( info ) ) ) {
+        return( 0 );
+    }
+    _fmemcpy( &m8_d2d_info, info, (size_t)bytes );
+    m8_d2d_info.h.biWidth = 256;
+    m8_d2d_info.h.biHeight = 1;
+    m8_d2d_info.h.biSizeImage = 0;
+    for( i = 0; i < 256; ++i ) {
+        m8_d2d_idx[i] = (BYTE)i;
+    }
+    m8_dst.pitch = 256;
+    m8_rect_set( &r, 0, 0, 256, 1 );
+    m8_strip_place( &m8_dst, &r );
+    c.left = 0;
+    c.top = 0;
+    c.right = 256;
+    c.bottom = 1;
+    DIB_DibToDevice( (LPPDEVICE)&m8_dst.dev, 0, 0, 0, 1, &c, dm, (LPSTR)m8_d2d_idx,
+                     (LPBITMAPINFO)&m8_d2d_info, xlat );
+    _fmemcpy( m8_d2d_tbl, m8_dst.bits, 256 );
+    return( 1 );
+}
+
+/* A whole uncompressed 8bpp bottom-up DIB in one segment (iScan 0): its rows
+ * are Y .. Y + height - 1, the band drawn the bottom cScans of them (ATIM8
+ * seg12:053f). Each row goes through the table to the card; nothing is read
+ * or drawn in RAM. 0 = not this case. */
+static int m8_d2d_fast( WORD X, WORD Y, WORD iScan, WORD cScans, LPRECT clip,
+                        LPDRAWMODE dm, LPSTR bits, LPBITMAPINFO info, LPINT xlat )
+{
+    LPBITMAPINFOHEADER  h = &info->bmiHeader;
+    long                cols = h->biWidth;
+    long                rows = h->biHeight;
+    long                stride = (cols + 3) & ~3L;
+    M8_RECT             d;
+    M8_RECT             a;
+    int                 top;
+
+    if( m8_hw_off || clip == NULL || iScan != 0 || cScans == 0 || h->biSize != sizeof( *h ) ||
+        h->biBitCount != 8 || h->biCompression != BI_RGB || cols <= 0 || cols > 2048 ||
+        rows <= 0 || cScans > rows ||
+        (DWORD)FP_OFF( bits ) + (DWORD)stride * cScans > 0x10000UL ) {
+        return( 0 );
+    }
+    top = (int)Y + (int)(rows - cScans);
+    m8_rect_set( &d, (int)X, top, (int)X + (int)cols, top + (int)cScans );
+    m8_rect_from_gdi( &a, clip );
+    m8_rect_and( &a, &d );
+    m8_rect_screen( &d );
+    m8_rect_and( &a, &d );
+    if( m8_rect_empty( &a ) ) {
+        return( 1 );
+    }
+    if( !m8_d2d_table( info, dm, xlat ) ) {
+        return( 0 );
+    }
+    d = a;
+    m8_rect_align( &d );
+    m8_enter( &a );
+    /* Row y of the screen is DIB scan top + cScans - 1 - y. */
+    m8_hw_write_xlat( d.l, a.t, d.r - d.l, a.b - a.t, a.l, a.r,
+                      (const BYTE FAR *)bits + (DWORD)stride * (top + cScans - 1 - a.t),
+                      -stride, d.l - (int)X, (int)cols, m8_d2d_tbl );
+    m8_leave();
+    M8_PF_HIT();
+    return( 1 );
+}
+
 WORD WINAPI __loadds DibToDevice( LPPDEVICE lpDestDev, WORD X, WORD Y, WORD iScan, WORD cScans,
                                   LPRECT lpClipRect, LPDRAWMODE lpDrawMode, LPSTR lpDIBits,
                                   LPBITMAPINFO lpBitmapInfo, LPINT lpTranslate )
@@ -3839,6 +3926,10 @@ WORD WINAPI __loadds DibToDevice( LPPDEVICE lpDestDev, WORD X, WORD Y, WORD iSca
         return( 0 );
     }
     M8_ENTRY( M8_STAT_DIBTODEV );
+    if( m8_d2d_fast( X, Y, iScan, cScans, lpClipRect, lpDrawMode, lpDIBits, lpBitmapInfo,
+                     lpTranslate ) ) {
+        return( cScans );
+    }
     d.x = X;
     d.y = Y;
     d.scan = iScan;

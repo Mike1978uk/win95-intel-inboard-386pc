@@ -233,6 +233,8 @@ extern void m8_hw_mono( int x, int y, WORD width_bytes, WORD height, const BYTE 
                         int clip_l, int clip_t, int clip_r, int clip_b );
 extern void m8_hw_read_rect( int x, int y, int w, int h, BYTE FAR *dst, WORD pitch );
 extern void m8_hw_write_rect( int x, int y, int w, int h, const BYTE FAR *src, WORD pitch );
+extern void m8_hw_write_xlat( int x, int y, int w, int h, int clip_l, int clip_r,
+                              const BYTE FAR *row0, long step, int col0, int cols, const BYTE *tbl );
 extern void m8_hw_marker( WORD value );
 
 /* Bring-up trace (build.ps1 -Trace): step numbers the tap logs as SCRATCH_PAD_1
