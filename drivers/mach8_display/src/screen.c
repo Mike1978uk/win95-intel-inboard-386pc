@@ -2185,6 +2185,33 @@ static int m8_mono_blt( BITMAP FAR *bm, int sx, int sy, int dx, int dy, int w, i
         w <= 0 || h <= 0 || sx < 0 || sy < 0 || (long)wb * h > M8_BUF_BYTES ) {
         return( 0 );
     }
+    /* The rows as they lie, no repack: the expansion starts `shift` pixels
+     * left of dx (X may be -512 .. 1535, guide 8-22) and is an even number of
+     * bytes wide, and the scissors cut it to the rectangle. A row read past
+     * its end takes the next row's first byte, which is cut away; the last
+     * row may do so only with a row below it. */
+    {
+        WORD    wb2 = (WORD)(((shift + w + 7) / 8 + 1) & ~1);
+
+        if( first + wb2 <= (WORD)bm->bmWidthBytes || sy + h < bm->bmHeight ) {
+            m8_rect_set( &r, dx, dy, dx + w, dy + h );
+            m8_rect_screen( &scr );
+            m8_rect_and( &r, &scr );
+            if( m8_rect_empty( &r ) ) {
+                return( 1 );
+            }
+            M8_STEP( M8_MARK_MONO_BLT );
+            m8_enter( &r );
+            m8_hw_mono_rows( dx - shift, dy, wb2, (WORD)h,
+                             bm->bmBits + (WORD)sy * bm->bmWidthBytes + first,
+                             (WORD)bm->bmWidthBytes,
+                             M8_MIX_SRC_FRGD | mix, (BYTE)dm->bkColor,
+                             M8_MIX_SRC_BKGD | mix, (BYTE)dm->TextColor,
+                             r.l, r.t, r.r - 1, r.b - 1 );
+            m8_leave();
+            return( 1 );
+        }
+    }
     for( y = 0; y < h; ++y ) {
         row = bm->bmBits + (WORD)(sy + y) * bm->bmWidthBytes;
         for( i = 0; i < wb; ++i ) {

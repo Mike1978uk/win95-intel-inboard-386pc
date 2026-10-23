@@ -1157,7 +1157,7 @@ void m8_hw_spread( int x, int y, int sw, int sh, int kx, int ky )
  * scissors cut it back to the clip (inclusive edges), and they clip this path
  * (bed, 10-16: no text past window edges). Mixes are full mix-register values. */
 static void m8_mono( int x, int y, WORD width_bytes, WORD height, const BYTE FAR *bits,
-                     WORD fg_mix, BYTE fg, WORD bg_mix, BYTE bg,
+                     WORD stride, WORD fg_mix, BYTE fg, WORD bg_mix, BYTE bg,
                      int clip_l, int clip_t, int clip_r, int clip_b, WORD wrt_mask )
 {
     DWORD       bytes = (DWORD)width_bytes * height;
@@ -1190,11 +1190,21 @@ static void m8_mono( int x, int y, WORD width_bytes, WORD height, const BYTE FAR
     outpw( M8_DEST_X_END, x + width_bytes * 8 );
     outpw( M8_CUR_Y, y );
     outpw( M8_DEST_Y_END, y + height );
-    m8_outsw( (const WORD FAR *)bits, words );
-    /* An odd byte count: the last byte alone, never a word read past the end
-     * of the caller's buffer. */
-    if( bytes & 1 ) {
-        outpw( M8_PIX_TRANS, bits[bytes - 1] );
+    if( stride != width_bytes ) {
+        /* Rows `stride` apart, sent one at a time: an even width_bytes keeps
+         * each row on whole words. */
+        WORD row;
+
+        for( row = 0; row < height; ++row ) {
+            m8_outsw( (const WORD FAR *)(bits + row * stride), width_bytes / 2 );
+        }
+    } else {
+        m8_outsw( (const WORD FAR *)bits, words );
+        /* An odd byte count: the last byte alone, never a word read past the
+         * end of the caller's buffer. */
+        if( bytes & 1 ) {
+            outpw( M8_PIX_TRANS, bits[bytes - 1] );
+        }
     }
     m8_hw_wait_idle();
     /* PIX_TRANS is BKGD_COLOR under another address: data the engine does not
@@ -1210,7 +1220,19 @@ void m8_hw_mono( int x, int y, WORD width_bytes, WORD height, const BYTE FAR *bi
     if( m8_hw_off ) {
         return;
     }
-    m8_mono( x, y, width_bytes, height, bits, fg_mix, fg, bg_mix, bg,
+    m8_mono( x, y, width_bytes, height, bits, width_bytes, fg_mix, fg, bg_mix, bg,
+             clip_l, clip_t, clip_r, clip_b, 0x00FF );
+}
+
+/* m8_hw_mono from rows `stride` bytes apart; width_bytes even. */
+void m8_hw_mono_rows( int x, int y, WORD width_bytes, WORD height, const BYTE FAR *bits,
+                      WORD stride, WORD fg_mix, BYTE fg, WORD bg_mix, BYTE bg,
+                      int clip_l, int clip_t, int clip_r, int clip_b )
+{
+    if( m8_hw_off || (width_bytes & 1) ) {
+        return;
+    }
+    m8_mono( x, y, width_bytes, height, bits, stride, fg_mix, fg, bg_mix, bg,
              clip_l, clip_t, clip_r, clip_b, 0x00FF );
 }
 
@@ -1367,7 +1389,7 @@ void m8_hw_mono_plane( int x, int y, WORD width_bytes, WORD height, const BYTE F
     if( m8_hw_off ) {
         return;
     }
-    m8_mono( x, y, width_bytes, height, bits,
+    m8_mono( x, y, width_bytes, height, bits, width_bytes,
              M8_MIX_SRC_FRGD | M8_MIX_REPLACE, 0xFF,
              M8_MIX_SRC_BKGD | M8_MIX_REPLACE, 0x00,
              x, y, x + width_bytes * 8 - 1, y + height - 1, 1 << plane );
