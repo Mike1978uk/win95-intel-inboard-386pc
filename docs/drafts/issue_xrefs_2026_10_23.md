@@ -1,4 +1,4 @@
-DRAFTS for the owner to approve. Not posted. Plain text, one comment per issue.
+Approved by the owner and posted 2026-10-23: #51 issuecomment-6360971791, #52 issuecomment-6360972293, #53 issuecomment-6360972738.
 
 --- #51 ---
 Following Andrew's links on #50 (https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/50#issuecomment-6360908020): the CH376 does FAT16/FAT32 itself and exposes file-level commands, so only file data would cross the 8-bit bus and the FAT and directory sectors would not. That is a different answer to this issue's question from changing the filesystem under a block driver. Worked examples: https://github.com/dfmcwhir/CH376DOS_driver (DOS driver) and https://github.com/dfmcwhir/ISA_CH37X_XTIDE_DoC_combo_card (ISA card). Andrew notes FAT32 is awkward for DOS as it stands but may pay off on Windows. It would need an IFS-level driver, not a miniport, so the measurement in "What to measure first" (metadata share of bytes) decides whether it is worth reading further. Thanks Andrew for the pointers.
