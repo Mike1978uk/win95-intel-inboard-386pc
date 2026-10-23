@@ -48,13 +48,6 @@ static void m8_tm_point( WORD id );
 #define M8_PATTERN_EXPANSION 1     /* two-colour brushes through the pattern registers; 0: fallback */
 #define M8_CURSOR_SAVE_W    (M8_CURSOR_MAX + 2)     /* even-aligned around a 32-wide cursor */
 
-/* Rectangle, right and bottom exclusive. */
-typedef struct {
-    int     l;
-    int     t;
-    int     r;
-    int     b;
-} M8_RECT;
 
 /* GDI's cursor shape: header, then the AND mask, then the XOR mask. */
 typedef struct {
@@ -84,12 +77,12 @@ DWORD m8_stats[M8_STAT_COUNT];
 static M8_RECT  m8_ssb_check;
 static int      m8_ssb_reported;
 
-static LPDIBENGINE  m8_screen;
+#define m8_screen           ((LPDIBENGINE)m8_hot.screen)
 static M8_STRIP     m8_dst;
 static M8_STRIP     m8_src;
 static HGLOBAL      m8_dst_mem;
 static HGLOBAL      m8_src_mem;
-static int          m8_busy;
+#define m8_busy             m8_hot.busy
 
 /* Cursor state. The save buffer holds what is under the cursor while it is
  * shown; the draw buffer is the composed cursor. */
@@ -102,10 +95,10 @@ static int      m8_cur_hot_y;
 static int      m8_cur_x;
 static int      m8_cur_y;
 static int      m8_cur_have_shape;
-static int      m8_cur_shown;       /* drawn on the screen now */
+#define m8_cur_shown    m8_hot.cur_shown    /* drawn on the screen now */
 static int      m8_cur_soft;        /* shown by the software path: m8_cur_save holds it */
-static M8_RECT  m8_cur_rect;        /* where m8_cur_save came from */
-static int      m8_cur_pending;     /* a move arrived while busy */
+#define m8_cur_rect     m8_hot.cur_rect     /* where m8_cur_save came from */
+#define m8_cur_pending  m8_hot.cur_pending  /* a move arrived while busy */
 
 /* Surface access callbacks for the strips and the screen. The strips are plain
  * memory and the screen has no frame buffer: nothing to do, but the pointers
@@ -601,6 +594,12 @@ static int m8_enter( const M8_RECT *r )
     }
     return( 1 );
 }
+
+static void m8_leave( void );
+
+/* m8_leave's common case inline, for the short paths: no cursor move arrived
+ * while the call drew. */
+#define M8_LEAVE()  { if( m8_cur_pending ) m8_leave(); else m8_busy = 0; }
 
 static void m8_leave( void )
 {
@@ -2379,47 +2378,58 @@ static void m8_tm_point( WORD id )
  * with the engine set up by the last call: the short path (see Pixel). 0 = the
  * full path draws it. */
 static int m8_blt_short( WORD dx, WORD dy, LPPDEVICE src, WORD sx, WORD sy, WORD w, WORD h,
-                         DWORD rop3, LPBRUSH brush, LPDRAWMODE dm )
+                         DWORD rop3, LPBRUSH brush )
 {
     BYTE    rop = (BYTE)(rop3 >> 16);
-    M8_RECT r;
-    M8_RECT sr;
+    int     l = dx;
+    int     t = dy;
+    int     r = dx + w;
+    int     b = dy + h;
     BYTE    c1 = 0;
-    BYTE    c2;
-    BYTE    pat[8];
     int     ok;
 
+    /* Everything inline: a helper's code is another line to fetch. */
     if( (short)w <= 0 || (short)h <= 0 || (m8_screen->deFlags & PALETTE_XLAT) ) {
         return( 0 );
     }
-    m8_rect_set( &r, dx, dy, dx + w, dy + h );
     if( rop == 0xCC ) {
-        if( (LPVOID)src != (LPVOID)m8_screen ) {
+        if( (LPVOID)src != m8_hot.screen ) {
             return( 0 );
         }
-        m8_rect_set( &sr, sx, sy, sx + w, sy + h );
-        m8_rect_or( &r, &sr );
-    } else if( m8_rop_uses_src( rop3 ) ) {
-        return( 0 );
-    } else if( m8_rop_uses_pat( rop3 ) && m8_brush_colours( brush, dm, &c1, &c2, pat ) != 1 ) {
-        return( 0 );
+        if( (int)sx < l ) l = sx;
+        if( (int)sy < t ) t = sy;
+        if( (int)(sx + w) > r ) r = sx + w;
+        if( (int)(sy + h) > b ) b = sy + h;
+    } else if( ((rop >> 2) & 0x33) != (rop & 0x33) ) {
+        return( 0 );                    /* a source other than the screen */
+    } else if( ((rop >> 4) & 0x0F) != (rop & 0x0F) ) {
+        /* A pattern: only a solid one, as m8_brush_render reads it. */
+        DIB_Brush8 FAR *br = (DIB_Brush8 FAR *)brush;
+
+        if( br == NULL || !(br->dp8BrushFlags & COLORSOLID) ||
+            (br->dp8BrushStyle != 0 && br->dp8BrushStyle != 2 && br->dp8BrushStyle != 3) ) {
+            return( 0 );
+        }
+        c1 = br->dp8BrushBits[0];
     }
-    if( m8_cur_shown && m8_rect_overlap( &r, &m8_cur_rect ) ) {
+    if( m8_cur_shown && l < m8_cur_rect.r && m8_cur_rect.l < r && t < m8_cur_rect.b &&
+        m8_cur_rect.t < b ) {
         return( 0 );
     }
     m8_busy = 1;
     if( rop == 0xCC ) {
         ok = m8_hw_copy_fast( sx, sy, dx, dy, w, h, M8_MIX_SRC_VRAM | M8_MIX_REPLACE );
     } else {
-        ok = m8_hw_fill_fast( dx, dy, w, h, c1, M8_MIX_SRC_FRGD | m8_rop_mix( rop ) );
+        ok = m8_hw_fill_fast( dx, dy, w, h, c1, M8_MIX_SRC_FRGD |
+                              m8_mix_for_key[(rop & 1) | ((rop >> 1) & 1) << 1 |
+                                             ((rop >> 4) & 1) << 2 | ((rop >> 5) & 1) << 3] );
     }
     if( !ok ) {
         m8_busy = 0;
         return( 0 );
     }
-    ++m8_stats[M8_STAT_BITBLT];
     M8_PF_HIT();
-    m8_leave();
+    M8_LEAVE();
     return( 1 );
 }
 
@@ -2431,9 +2441,8 @@ BOOL WINAPI __loadds BitBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPD
                              WORD wSrcX, WORD wSrcY, WORD wXext, WORD wYext, DWORD dwRop3,
                              LPBRUSH lpPBrush, LPDRAWMODE lpDrawMode )
 {
-    if( (LPVOID)lpDestDev == (LPVOID)m8_screen && m8_screen != NULL &&
-        m8_blt_short( wDestX, wDestY, lpSrcDev, wSrcX, wSrcY, wXext, wYext, dwRop3, lpPBrush,
-                      lpDrawMode ) ) {
+    if( (LPVOID)lpDestDev == m8_hot.screen && lpDestDev != NULL &&
+        m8_blt_short( wDestX, wDestY, lpSrcDev, wSrcX, wSrcY, wXext, wYext, dwRop3, lpPBrush ) ) {
         return( TRUE );
     }
     return( m8_bitblt( lpDestDev, wDestX, wDestY, lpSrcDev, wSrcX, wSrcY, wXext, wYext, dwRop3,
@@ -2842,17 +2851,25 @@ static int m8_out_short( WORD count, LPPOINT p, LPPPEN pen, LPDRAWMODE dm, LPREC
     M8_RECT     c;
     M8_RECT     b;
     WORD        i;
+    BYTE        color;
+    WORD        mix;
 
     if( count < 2 || dp == NULL || dm == NULL || dp->dpPenStyle != LS_SOLID ||
         dm->Rop2 < 1 || dm->Rop2 > 16 ) {
         return( 0 );
     }
-    m8_rect_from_gdi( &c, clip );
-    if( c.l < 0 ) c.l = 0;
-    if( c.t < 0 ) c.t = 0;
-    if( c.r > M8_SCREEN_X ) c.r = M8_SCREEN_X;
-    if( c.b > M8_SCREEN_Y ) c.b = M8_SCREEN_Y;
-    m8_rect_set( &b, p[0].xcoord, p[0].ycoord, p[0].xcoord + 1, p[0].ycoord + 1 );
+    c.l = 0;
+    c.t = 0;
+    c.r = M8_SCREEN_X;
+    c.b = M8_SCREEN_Y;
+    if( clip != NULL ) {
+        if( clip->left > c.l ) c.l = clip->left;
+        if( clip->top > c.t ) c.t = clip->top;
+        if( clip->right < c.r ) c.r = clip->right;
+        if( clip->bottom < c.b ) c.b = clip->bottom;
+    }
+    b.l = b.r = p[0].xcoord;
+    b.t = b.b = p[0].ycoord;
     for( i = 0; i < count; ++i ) {
         if( p[i].xcoord < c.l || p[i].xcoord >= c.r || p[i].ycoord < c.t || p[i].ycoord >= c.b ) {
             return( 0 );
@@ -2862,14 +2879,18 @@ static int m8_out_short( WORD count, LPPOINT p, LPPPEN pen, LPDRAWMODE dm, LPREC
         if( p[i].xcoord >= b.r ) b.r = p[i].xcoord + 1;
         if( p[i].ycoord >= b.b ) b.b = p[i].ycoord + 1;
     }
-    if( m8_cur_shown && m8_rect_overlap( &b, &m8_cur_rect ) ) {
+    if( m8_cur_shown && b.l < m8_cur_rect.r && m8_cur_rect.l < b.r && b.t < m8_cur_rect.b &&
+        m8_cur_rect.t < b.b ) {
         return( 0 );
     }
+    color = (BYTE)dp->dpPenColor;
+    mix = m8_mix_for_key[dm->Rop2 - 1];
     m8_busy = 1;
-    m8_hw_polyline_plain( p, count, (BYTE)dp->dpPenColor, m8_mix_for_key[dm->Rop2 - 1] );
-    ++m8_stats[M8_STAT_OUTPUT];
+    if( !m8_hw_line_fast( p, count, color, mix ) ) {
+        m8_hw_polyline_plain( p, count, color, mix );
+    }
     M8_PF_HIT();
-    m8_leave();
+    M8_LEAVE();
     return( 1 );
 }
 
@@ -2882,7 +2903,7 @@ WORD WINAPI __loadds Output( LPPDEVICE lpDestDev, WORD wStyle, WORD wCount, LPPO
     M8_RECT pts;
     WORD    i;
 
-    if( wStyle == OS_POLYLINE && (LPVOID)lpDestDev == (LPVOID)m8_screen && m8_screen != NULL &&
+    if( wStyle == OS_POLYLINE && (LPVOID)lpDestDev == m8_hot.screen && lpDestDev != NULL &&
         m8_out_short( wCount, lpPoints, lpPPen, lpDrawMode, lpClipRect ) ) {
         return( 1 );
     }
@@ -3002,7 +3023,7 @@ DWORD WINAPI __loadds Pixel( LPPDEVICE lpDestDev, WORD X, WORD Y, DWORD dwPhysCo
     /* A set on the screen, clear of the cursor, with the engine set up by the
      * last call: the short path. The screen is known by its pointer, without
      * reading the device. */
-    if( (LPVOID)lpDestDev == (LPVOID)m8_screen && m8_screen != NULL && lpDrawMode != NULL &&
+    if( (LPVOID)lpDestDev == m8_hot.screen && lpDestDev != NULL && lpDrawMode != NULL &&
         lpDrawMode->Rop2 >= 1 && lpDrawMode->Rop2 <= 16 &&
         X < (WORD)M8_SCREEN_X && Y < (WORD)M8_SCREEN_Y &&
         !(m8_cur_shown && (int)X >= m8_cur_rect.l && (int)X < m8_cur_rect.r &&
@@ -3010,9 +3031,8 @@ DWORD WINAPI __loadds Pixel( LPPDEVICE lpDestDev, WORD X, WORD Y, DWORD dwPhysCo
         m8_busy = 1;
         if( m8_hw_fill_fast( X, Y, 1, 1, (BYTE)dwPhysColor,
                          M8_MIX_SRC_FRGD | m8_mix_for_key[lpDrawMode->Rop2 - 1] ) ) {
-            ++m8_stats[M8_STAT_PIXEL];
             M8_PF_HIT();
-            m8_leave();
+            M8_LEAVE();
             return( dwPhysColor );
         }
         m8_busy = 0;
@@ -4180,7 +4200,7 @@ int m8_screen_init( LPDIBENGINE screen )
     m8_tm_init();
 #endif
 
-    m8_screen = screen;
+    m8_hot.screen = screen;
     m8_ssb_used = 0;
     m8_cur_planes_ok = 0;
     m8_sc_flush();
@@ -4240,7 +4260,7 @@ void m8_screen_done( void )
 {
     m8_busy = 1;
     m8_cursor_hide();
-    m8_screen = NULL;
+    m8_hot.screen = NULL;
     if( m8_bc_sel != 0 ) {
         FreeSelector( m8_bc_sel );
         m8_bc_sel = 0;

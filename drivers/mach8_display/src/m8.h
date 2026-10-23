@@ -24,6 +24,46 @@
 extern int m8_scr_x;
 extern int m8_scr_y;
 
+/* Rectangle, right and bottom exclusive. */
+typedef struct {
+    int     l;
+    int     t;
+    int     r;
+    int     b;
+} M8_RECT;
+
+/* Engine registers whose last value m8hw.c keeps (m8_sh_*, see there). */
+enum {
+    M8_SH_FRGD_MIX, M8_SH_BKGD_MIX, M8_SH_FRGD_COLOR, M8_SH_BKGD_COLOR,
+    M8_SH_WRT_MASK, M8_SH_RD_MASK, M8_SH_DP_CONFIG, M8_SH_PIX_CNTL,
+    M8_SH_SC_L, M8_SH_SC_T, M8_SH_SC_R, M8_SH_SC_B,
+    M8_SH_COUNT
+};
+
+/* What the short paths read, kept together: each GDI call starts with the L1
+ * empty (the last call's port writes flushed it), and a field elsewhere in the
+ * data segment costs a line fill of its own. Engine state is m8hw.c's, the
+ * screen and cursor screen.c's; both use their own names for the fields. */
+typedef struct {
+    LPVOID      screen;         /* the screen PDevice, as GDI passes it */
+    int         room;
+    WORD        dp_mix;
+    BYTE        room_ok;
+    BYTE        dp_ok;
+    BYTE        dp_plain;
+    BYTE        hw_off;
+    BYTE        busy;
+    BYTE        cur_shown;
+    BYTE        cur_pending;
+    BYTE        pad;
+    M8_RECT     cur_rect;
+    BYTE        sh_ok[M8_SH_COUNT];
+    WORD        sh_val[M8_SH_COUNT];
+} M8_HOT;
+
+extern M8_HOT m8_hot;
+#define m8_hw_off           m8_hot.hw_off
+
 /* 8514/A registers (IBM 8514/A Technical Reference; Mach32 programmer's guide ch. 8). */
 #define M8_DISP_CNTL        0x22E8
 #define M8_ADVFUNC_CNTL     0x4AE8
@@ -154,7 +194,6 @@ extern int m8_scr_y;
 extern DWORD m8_stats[M8_STAT_COUNT];
 
 /* m8hw.c */
-extern int  m8_hw_off;
 extern int  m8_hw_set_mode( int mode );
 extern int  m8_hw_mode_size( int mode, int *x, int *y );
 extern void m8_hw_passthrough( void );
@@ -165,6 +204,7 @@ extern void m8_hw_fill_mix( int x, int y, int w, int h, BYTE color, WORD mix );
 extern int  m8_hw_fill_fast( int x, int y, int w, int h, BYTE color, WORD mix );
 extern int  m8_hw_copy_fast( int sx, int sy, int dx, int dy, int w, int h, WORD mix );
 extern void m8_hw_polyline_plain( const POINT FAR *pts, WORD count, BYTE color, WORD mix );
+extern int  m8_hw_line_fast( const POINT FAR *pts, WORD count, BYTE color, WORD mix );
 extern void m8_hw_copy( int sx, int sy, int dx, int dy, int w, int h );
 extern void m8_hw_pattern_rows( int x, int y, int w, int h, const BYTE *pat,
                                 BYTE fg, BYTE bg, WORD fg_fn, WORD bg_fn );

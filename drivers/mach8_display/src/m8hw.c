@@ -11,7 +11,7 @@
 /* Set while a DOS session has the screen (INT 2Fh 4001h-4002h): every primitive
  * returns without touching the card. A read-back then leaves its buffer as it
  * was; nothing it leads to reaches the screen. */
-int m8_hw_off;
+M8_HOT m8_hot;
 
 #define M8_WAIT_LIMIT       60000u      /* polls; ~0.4 s of GP_STAT reads on the 5160 */
 
@@ -96,21 +96,21 @@ static void m8_write_regs( const M8_REG *regs, int count )
 }
 
 /* Free FIFO entries since the last wait, less the setup writes m8_put sent. */
-static int m8_room;
+#define m8_room             m8_hot.room
 
 /* m8_room counts every write since the last wait: only m8_q_send keeps it
  * exact, so it may carry into the next call. Routines that write without
  * counting start with m8_wait_fifo_empty, which clears this. */
-static BYTE m8_room_ok;
+#define m8_room_ok          m8_hot.room_ok
 
 /* DP_CONFIG, PIX_CNTL and FRGD_MIX as m8_dp_q last sent them, valid while
  * nothing else has written the data path. The group is one state seen from two
  * views (guide 7-1), so it is cached only as a whole and only in m8_dp_q's
  * order, never one register alone. Every other writer of the group starts with
  * m8_wait_fifo_empty or empties the shadow cache, and both drop this. */
-static BYTE m8_dp_ok;
-static WORD m8_dp_mix;
-static BYTE m8_dp_plain;    /* and the scissors are m8_plain's */
+#define m8_dp_ok            m8_hot.dp_ok
+#define m8_dp_mix           m8_hot.dp_mix
+#define m8_dp_plain         m8_hot.dp_plain     /* and the scissors are m8_plain's */
 
 static void m8_engine_reset( void );
 
@@ -156,21 +156,15 @@ static void m8_room_for( int n )
  * engine (card). m8_dp_q caches the group as a whole (m8_dp_ok).
  * The cache is emptied when anything but these routines may have set the card:
  * mode set, VGA through, engine reset. */
-enum {
-    M8_SH_FRGD_MIX, M8_SH_BKGD_MIX, M8_SH_FRGD_COLOR, M8_SH_BKGD_COLOR,
-    M8_SH_WRT_MASK, M8_SH_RD_MASK, M8_SH_DP_CONFIG, M8_SH_PIX_CNTL,
-    M8_SH_SC_L, M8_SH_SC_T, M8_SH_SC_R, M8_SH_SC_B,
-    M8_SH_COUNT
-};
-
+/* The registers are enumerated in m8.h (M8_SH_*). */
 static const WORD m8_sh_port[M8_SH_COUNT] = {
     M8_FRGD_MIX, M8_BKGD_MIX, M8_FRGD_COLOR, M8_BKGD_COLOR,
     M8_WRT_MASK, M8_RD_MASK, M8_DP_CONFIG, M8_MULTIFUNC_CNTL,
     M8_EXT_SCISSOR_L, M8_EXT_SCISSOR_T, M8_EXT_SCISSOR_R, M8_EXT_SCISSOR_B
 };
 
-static WORD m8_sh_val[M8_SH_COUNT];
-static BYTE m8_sh_ok[M8_SH_COUNT];
+#define m8_sh_val           m8_hot.sh_val
+#define m8_sh_ok            m8_hot.sh_ok
 
 static void m8_sh_clear( void )
 {
@@ -462,6 +456,36 @@ int m8_hw_fill_fast( int x, int y, int w, int h, BYTE color, WORD mix )
     outpw( M8_MAJ_AXIS_PCNT, w - 1 );
     outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
     outpw( M8_CMD, M8_CMD_FILL );
+    return( 1 );
+}
+
+/* A solid polyline of up to six points when the engine holds m8_plain's data
+ * path for this mix; as m8_hw_fill_fast. */
+int m8_hw_line_fast( const POINT FAR *pts, WORD count, BYTE color, WORD mix )
+{
+    WORD    i;
+    int     n = 3 + 2 * count;
+
+    mix |= M8_MIX_SRC_FRGD;
+    if( m8_hw_off || !m8_dp_ok || !m8_dp_plain || m8_dp_mix != mix || !m8_room_ok ||
+        !m8_sh_ok[M8_SH_FRGD_COLOR] || count > 6 ) {
+        return( 0 );
+    }
+    if( m8_room < n && !m8_fifo_drain() ) {
+        return( 0 );
+    }
+    m8_room -= n;
+    if( m8_sh_val[M8_SH_FRGD_COLOR] != color ) {
+        m8_sh_val[M8_SH_FRGD_COLOR] = color;
+        outpw( M8_FRGD_COLOR, color );
+    }
+    /* Not cached: a CMD write sets LINEDRAW_OPT's line bits from its own. */
+    outpw( M8_LINEDRAW_OPT, M8_LINEDRAW_LAST_OFF );
+    outpw( M8_LINEDRAW_INDEX, 0 );
+    for( i = 0; i < count; ++i ) {
+        outpw( M8_LINEDRAW, pts[i].xcoord );
+        outpw( M8_LINEDRAW, pts[i].ycoord );
+    }
     return( 1 );
 }
 
