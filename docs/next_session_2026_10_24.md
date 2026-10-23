@@ -29,7 +29,11 @@ Method: `docs/mach8_driver_method.md` §4b (profile, shorten) and §4c (divide b
 5. draw_icon: both halves on the card (1 copy + 1 plane blit) yet 1.9 ms a call. Not the string
    cache's linear scan (hash buckets: no change, 10-23). Next: time m8_px_restore / m8_px_upload /
    m8_mono_cached / m8_bc_draw separately in a profile build (as s62 did for Output) before guessing.
-6. text_varied: ExtTextOut 1.47 ms a call, new string each time - glyph cache (XFree86 mach8fcach.c).
+6. text_varied: ExtTextOut 1.47 ms a call against ATIM8's ~1.16 ms of driver time. ATIM8 has no text
+   cache (`docs/atim8_disassembly.md`, ExtTextOut section): it does our uncached path's engine work and
+   nothing else. Ours adds, on every new string, a text-key lookup and a hash over the rendered bits for
+   the string cache's seen-twice test. Lead: hash the bits only when the text key has been seen before,
+   so a first-sight string costs what ATIM8's does. A glyph cache (XFree86 mach8fcach.c) comes after.
 7. Closed 10-23: VGA aperture, dword PIX_TRANS, polyline merge, DIB table cache, pattern grouping.
 
 ## State
@@ -38,7 +42,7 @@ Method: `docs/mach8_driver_method.md` §4b (profile, shorten) and §4c (divide b
   all 35). `menudefault=LEAN`. `C:\M8BENCH.EXE` is the profile-v4 bench (prints counters `c<n>`).
 - ATIM8's span loop (`seg08:0dcd`): 7 I/O a span (FIFO poll, CUR_Y, PATT_DATA_INDEX, PATT_DATA,
   CUR_X, PATT_INDEX, SCAN_TO_X), ~52 us; ours ~45 us. Polygon's gap is per call, not per span.
-- Next static read: ATIM8 ExtTextOut (`seg01:1b83`) for text_varied.
+- ATIM8 ExtTextOut read 10-23 (`docs/atim8_disassembly.md`): no cache, ~12 writes and an idle wait a string.
 
 ## Where we are: 1.473x ATI overall (card_f5r11, was 1.345x), pixels = ATI in all 35
 

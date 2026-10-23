@@ -165,3 +165,14 @@ KRNL386.EXE, USER.EXE for import names; MD5s in `bin/MD5.TXT`). To rebuild:
     python tools/ne_disasm.py references/atim8_disasm/bin/ATIM8.DRV references/atim8_disasm \n        --dll references/atim8_disasm/bin/DIBENG.DLL --dll references/atim8_disasm/bin/GDI.EXE \n        --dll references/atim8_disasm/bin/KRNL386.EXE --dll references/atim8_disasm/bin/USER.EXE
 
 If `bin/` is lost, the same files come out of any bed image with `python tools/fatls.py <img> --get WINDOWS/SYSTEM/<file> <out>`.
+
+## ExtTextOut's string expansion (read 2026-10-23)
+
+`seg01:1b8d` on: no text or glyph cache - every string is DIBENG's rendered bitmap, expanded once.
+Per call: one FIFO poll (`1bf1`, 9AEE & F000), the four extended scissors from the clip (`1bfd-1c17`),
+a full idle wait (`1c2b`: EXT_FIFO 0, EXT_GE_STATUS bit 13, GE_BUSY), then FRGD_COLOR, ALU_FG_FN 7,
+BKGD_COLOR (opaque only), ALU_BG_FN, DP_CONFIG 3251h, C2EEh=1, CUR_X = DEST_X_START, DEST_X_END
+(x + width_bytes * 8), CUR_Y, DEST_Y_END (`1c46-1c9d`), and the bits through PIX_TRANS by `outsw`
+(`1cbd`; with `[5a]` set, a free-slot poll between words). About 12 writes and one idle wait a string -
+the same engine work as our uncached path.
+
