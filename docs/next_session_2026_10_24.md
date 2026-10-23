@@ -34,6 +34,11 @@ Method: `docs/mach8_driver_method.md` §4b (profile, shorten) and §4c (divide b
    nothing else. Ours adds, on every new string, a text-key lookup and a hash over the rendered bits for
    the string cache's seen-twice test. Lead: hash the bits only when the text key has been seen before,
    so a first-sight string costs what ATIM8's does. A glyph cache (XFree86 mach8fcach.c) comes after.
+6b. Assembly, by the cache-line model (each port access flushes the L1; ~1.3 us a 16-byte line):
+   spans.asm spends ~20 us of CPU a span - fit the per-span path in 1-2 aligned lines, registers for
+   the record pointer / clip / CUR_Y, room counted once a record, no `call drain` on the common path,
+   segment loads once a call. Then the fill / copy / pixel short paths in assembly. Count bytes run
+   per span from `wdis`, predict at 1.3 us a line, confirm with the profile build.
 7. Closed 10-23: VGA aperture, dword PIX_TRANS, polyline merge, DIB table cache, pattern grouping.
 
 ## State
