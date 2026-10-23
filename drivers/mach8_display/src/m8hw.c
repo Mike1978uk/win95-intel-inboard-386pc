@@ -663,6 +663,7 @@ void m8_hw_scan_spans( int poly, WORD count, const short FAR *w,
     int                 y1;
     int                 x0;
     int                 x1;
+    WORD                spans = 0;
 
     if( m8_hw_off ) {
         return;
@@ -691,7 +692,7 @@ void m8_hw_scan_spans( int poly, WORD count, const short FAR *w,
             if( x0 >= x1 ) {
                 continue;
             }
-            ++m8_stats[M8_STAT_FILL_HW];
+            ++spans;
             if( y1 - y0 != 1 ) {
                 m8_room = room;
                 if( pat != NULL ) {
@@ -704,8 +705,10 @@ void m8_hw_scan_spans( int poly, WORD count, const short FAR *w,
                 byte = 0xFFFF;
                 continue;
             }
+            /* Counted writes: a drain keeps the cached set-up, as a wait
+             * for an empty FIFO from the top of a routine would not. */
             if( room < 6 ) {
-                m8_wait_fifo_empty();
+                m8_fifo_drain();
                 room = m8_room;
             }
             if( y0 != y ) {
@@ -732,6 +735,7 @@ void m8_hw_scan_spans( int poly, WORD count, const short FAR *w,
     m8_room = room;
     m8_scan_y = y;
     m8_scan_byte = byte;
+    m8_stats[M8_STAT_FILL_HW] += spans;
 }
 
 /* ScanLR on the card, as ATIM8 does it (seg09:0109): a SCAN_TO_X read from x
