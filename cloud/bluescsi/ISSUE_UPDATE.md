@@ -1,4 +1,5 @@
-Draft for issue #50. Not posted - for the owner to edit and post.
+Posted 2026-10-23 on issue #50 (owner-approved, posted by agent, unchanged):
+https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/50#issuecomment-6371954024
 
 ---
 
