@@ -891,23 +891,34 @@ WORD m8_hw_scanlr( int x, int y, BYTE colour, WORD style, int width )
     WORD    v;
     BYTE    p;
     int     half;
+    WORD    buf[4];
+    int     words = (count + 1) / 2;
+    int     k;
+    int     j;
 
     if( m8_hw_off || count <= 0 || !m8_read_scan( left ? x + 1 : x, y, left ? 0 : width ) ) {
         return( 0xFFFF );
     }
+    /* Four words a rep insw, never past the transfer's end: one instruction
+     * where a loop of single reads refetches its code after every one. */
     while( count > 0 ) {
-        v = inpw( M8_PIX_TRANS );
-        for( half = 0; half < 2 && count > 0; ++half ) {
-            p = (BYTE)(half ? v >> 8 : v);
-            if( (p == colour) == want ) {
-                if( half == 0 ? count > 2 : count > 1 ) {
-                    m8_scan_abort();
+        k = words < 4 ? words : 4;
+        m8_insw( (WORD FAR *)buf, k );
+        words -= k;
+        for( j = 0; j < k; ++j ) {
+            v = buf[j];
+            for( half = 0; half < 2 && count > 0; ++half ) {
+                p = (BYTE)(half ? v >> 8 : v);
+                if( (p == colour) == want ) {
+                    if( words > 0 ) {
+                        m8_scan_abort();
+                    }
+                    ++m8_stats[M8_STAT_READBACK];
+                    return( (WORD)pos );
                 }
-                ++m8_stats[M8_STAT_READBACK];
-                return( (WORD)pos );
+                pos += step;
+                --count;
             }
-            pos += step;
-            --count;
         }
     }
     ++m8_stats[M8_STAT_READBACK];
