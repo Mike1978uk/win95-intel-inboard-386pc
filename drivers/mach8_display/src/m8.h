@@ -249,6 +249,7 @@ extern void m8_hw_marker( WORD value );
  * that crossed a BIOS tick (55 ms) cannot be timed exactly from the 16-bit PIT
  * count, so it goes to `long_*`, as the shorter of its two possible lengths. */
 #define M8_ESC_PROF         0x4D38
+#define M8_PF_STYLES        64
 #define M8_PF_N             10      /* BitBlt ExtTextOut Output Pixel StrBlt DibToDevice
                                      * StretchBlt StretchDIBits SaveScreenBitmap ScanLR */
 typedef struct {
@@ -259,13 +260,15 @@ typedef struct {
 } M8_PF_ENT;
 
 typedef struct {
-    WORD        version;            /* 2 */
+    WORD        version;            /* 3 */
     WORD        n;                  /* M8_PF_N */
     WORD        stamp_ticks;        /* the timer's own cost in one call's time */
     WORD        hits;               /* calls that took a short path */
     M8_PF_ENT   e[M8_PF_N];
     WORD        checked;            /* short-path reads read again the long way */
     WORD        bad;                /* ... that disagreed */
+    WORD        out_calls[M8_PF_STYLES];    /* Output by style, styles above 62 in 63 */
+    DWORD       out_ticks[M8_PF_STYLES];
 } M8_PF_TAB;
 
 #ifdef M8_PROF

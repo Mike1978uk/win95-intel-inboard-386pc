@@ -2278,6 +2278,7 @@ static void m8_tm( WORD mark )
  * would flush the L1, which is the cost being measured. */
 static M8_PF_TAB    m8_pf;
 static WORD         m8_pf_depth;
+static WORD         m8_pf_style;
 
 /* BIOS tick in the high word, channel 2 counting up in the low. */
 static DWORD m8_pf_now( void )
@@ -2323,6 +2324,10 @@ static void m8_pf_out( int i, DWORD t0 )
     if( dt == 0 ) {
         ++p->calls;
         p->ticks += e;
+        if( i == 2 ) {
+            ++m8_pf.out_calls[m8_pf_style];
+            m8_pf.out_ticks[m8_pf_style] += e;
+        }
     } else {
         ++p->long_calls;
         p->long_ticks += ((DWORD)(dt - 1) << 16) + e;
@@ -2346,7 +2351,7 @@ LONG m8_pf_escape( LPVOID in, LPVOID out )
             best = (WORD)b - (WORD)a;
         }
     }
-    m8_pf.version = 2;
+    m8_pf.version = 3;
     m8_pf.n = M8_PF_N;
     m8_pf.stamp_ticks = best;
     if( out != NULL ) {
@@ -2357,10 +2362,13 @@ LONG m8_pf_escape( LPVOID in, LPVOID out )
         m8_pf.hits = 0;
         m8_pf.checked = 0;
         m8_pf.bad = 0;
+        _fmemset( m8_pf.out_calls, 0, sizeof( m8_pf.out_calls ) );
+        _fmemset( m8_pf.out_ticks, 0, sizeof( m8_pf.out_ticks ) );
     }
     return( 1 );
 }
 #define M8_PF_HIT()         (++m8_pf.hits)
+#define M8_PF_STYLE( s )    (m8_pf_style = (s) < M8_PF_STYLES - 1 ? (s) : M8_PF_STYLES - 1)
 /* Every eighth short-path read is read again the long way: the bench does not
  * check what a read returns. */
 #define M8_PF_CHECK( x, y, v ) \
@@ -2370,6 +2378,7 @@ LONG m8_pf_escape( LPVOID in, LPVOID out )
     }
 #else
 #define M8_PF_HIT()
+#define M8_PF_STYLE( s )
 #define M8_PF_CHECK( x, y, v )
 #endif
 
@@ -2913,6 +2922,7 @@ WORD WINAPI __loadds Output( LPPDEVICE lpDestDev, WORD wStyle, WORD wCount, LPPO
     M8_RECT pts;
     WORD    i;
 
+    M8_PF_STYLE( wStyle );
     if( wStyle == OS_POLYLINE && (LPVOID)lpDestDev == m8_hot.screen && lpDestDev != NULL &&
         m8_out_short( wCount, lpPoints, lpPPen, lpDrawMode, lpClipRect ) ) {
         return( 1 );

@@ -45,6 +45,7 @@ static int      run_ms = RUN_MS;
  * M8_PF_TAB there. Other drivers do not answer the escape. */
 #define M8_ESC_PROF 0x4D38
 #define M8_PF_N     10
+#define M8_PF_STYLES 64
 #pragma pack( push, 2 )
 typedef struct {
     DWORD   calls;
@@ -61,6 +62,8 @@ typedef struct {
     M8_PF_ENT   e[M8_PF_N];
     WORD        checked;
     WORD        bad;
+    WORD        out_calls[M8_PF_STYLES];
+    DWORD       out_ticks[M8_PF_STYLES];
 } M8_PF_TAB;
 #pragma pack( pop )
 
@@ -208,6 +211,13 @@ static void run( const char *name, OP op, int fixed )
                 fprintf( out, "  e%d %lu/%.1f", i, pf.e[i].calls + pf.e[i].long_calls,
                          PF_US( (double)pf.e[i].ticks + pf.e[i].long_ticks ) /
                          (pf.e[i].calls + pf.e[i].long_calls) );
+            }
+        }
+        /* Output by GDI style (OS_*): calls / us per call. */
+        for( i = 0; i < M8_PF_STYLES; ++i ) {
+            if( pf.out_calls[i] != 0 ) {
+                fprintf( out, "  s%d %u/%.1f", i, pf.out_calls[i],
+                         PF_US( (double)pf.out_ticks[i] ) / pf.out_calls[i] );
             }
         }
         fprintf( out, "\n" );
@@ -636,6 +646,11 @@ int WINAPI WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
              cmd[0] ? cmd : "-", driver_name(), GetDeviceCaps( dc, HORZRES ),
              GetDeviceCaps( dc, VERTRES ), GetDeviceCaps( dc, BITSPIXEL ), st.wYear, st.wMonth,
              st.wDay, st.wHour, st.wMinute, run_ms, prof ? "  profiled" : "" );
+    /* What the driver lets GDI hand it whole, rather than scan-converted. */
+    fprintf( out, "caps  poly %04x  curve %04x  line %04x  raster %04x  text %04x\n",
+             GetDeviceCaps( dc, POLYGONALCAPS ), GetDeviceCaps( dc, CURVECAPS ),
+             GetDeviceCaps( dc, LINECAPS ), GetDeviceCaps( dc, RASTERCAPS ),
+             GetDeviceCaps( dc, TEXTCAPS ) );
     flush_out();
     setup();
     /* The cursor away from the window, except for its own test. */
