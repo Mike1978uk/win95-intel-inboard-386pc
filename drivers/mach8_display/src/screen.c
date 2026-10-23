@@ -2166,6 +2166,9 @@ static int m8_px_restore( LPDIBENGINE b, int sx, int sy, int dx, int dy, int w, 
  * colour, a 0 bit the text colour. The source rectangle is repacked to start
  * on a byte; rows run on unpadded, as m8_hw_mono streams them, and the
  * scissors cut each row back to w. Single-segment bitmaps only. */
+static int m8_mono_cached( BITMAP FAR *bm, int sx, int sy, const M8_RECT *r, int dx, int dy,
+                           WORD mix, LPDRAWMODE dm );
+
 static int m8_mono_blt( BITMAP FAR *bm, int sx, int sy, int dx, int dy, int w, int h, WORD mix,
                         LPDRAWMODE dm )
 {
@@ -2185,6 +2188,15 @@ static int m8_mono_blt( BITMAP FAR *bm, int sx, int sy, int dx, int dy, int w, i
         w <= 0 || h <= 0 || sx < 0 || sy < 0 || (long)wb * h > M8_BUF_BYTES ) {
         return( 0 );
     }
+    m8_rect_set( &r, dx, dy, dx + w, dy + h );
+    m8_rect_screen( &scr );
+    m8_rect_and( &r, &scr );
+    if( m8_rect_empty( &r ) ) {
+        return( 1 );
+    }
+    if( m8_mono_cached( bm, sx, sy, &r, dx, dy, mix, dm ) ) {
+        return( 1 );
+    }
     /* The rows as they lie, no repack: the expansion starts `shift` pixels
      * left of dx (X may be -512 .. 1535, guide 8-22) and is an even number of
      * bytes wide, and the scissors cut it to the rectangle. A row read past
@@ -2194,12 +2206,6 @@ static int m8_mono_blt( BITMAP FAR *bm, int sx, int sy, int dx, int dy, int w, i
         WORD    wb2 = (WORD)(((shift + w + 7) / 8 + 1) & ~1);
 
         if( first + wb2 <= (WORD)bm->bmWidthBytes || sy + h < bm->bmHeight ) {
-            m8_rect_set( &r, dx, dy, dx + w, dy + h );
-            m8_rect_screen( &scr );
-            m8_rect_and( &r, &scr );
-            if( m8_rect_empty( &r ) ) {
-                return( 1 );
-            }
             M8_STEP( M8_MARK_MONO_BLT );
             m8_enter( &r );
             m8_hw_mono_rows( dx - shift, dy, wb2, (WORD)h,
@@ -3409,9 +3415,10 @@ static int m8_sc_alloc( int w, int h, int *x, int *y, int *plane )
     return( 1 );
 }
 
-/* The cached copy of this string: found, or stored now. NULL if it cannot be
- * cached (too big, or the cache is full and has just been cleared). */
-static M8_SCENTRY *m8_sc_get( const BYTE FAR *bits, WORD wb, WORD h )
+/* The cached copy of this 1-bit bitmap (rows of wb bytes, unpadded), at most
+ * max_h rows: found, or stored now. NULL if it cannot be cached (too big, or
+ * the cache is full and has just been cleared). */
+static M8_SCENTRY *m8_sc_get_h( const BYTE FAR *bits, WORD wb, WORD h, WORD max_h )
 {
     DWORD       h1;
     DWORD       h2;
@@ -3419,7 +3426,7 @@ static M8_SCENTRY *m8_sc_get( const BYTE FAR *bits, WORD wb, WORD h )
     int         k;
     M8_SCENTRY  *e;
 
-    if( m8_hw_off || (int)wb * 8 > M8_SC_W || h > M8_SC_MAX_H || (int)h > m8_sc_rows() ) {
+    if( m8_hw_off || (int)wb * 8 > M8_SC_W || h > max_h || (int)h > m8_sc_rows() ) {
         return( NULL );
     }
     m8_hash_init( &hs, wb );
@@ -3456,6 +3463,38 @@ static M8_SCENTRY *m8_sc_get( const BYTE FAR *bits, WORD wb, WORD h )
     M8_STEP( M8_MARK_SC_STORE );
     m8_hw_mono_plane( e->x, e->y, wb, h, bits, e->plane );
     return( e );
+}
+
+/* A mono bitmap seen before is drawn from its copy in the string cache's
+ * planes: the whole bitmap is hashed and kept, so any part of it is one plane
+ * blit through the ROP's two mixes, no bits on the bus. `r` is the part of
+ * the destination at dx, dy to draw. */
+static int m8_mono_cached( BITMAP FAR *bm, int sx, int sy, const M8_RECT *r, int dx, int dy,
+                           WORD mix, LPDRAWMODE dm )
+{
+    M8_SCENTRY  *e;
+
+    if( (DWORD)bm->bmWidthBytes * bm->bmHeight > 0xFFF0UL ) {
+        return( 0 );
+    }
+    e = m8_sc_get_h( bm->bmBits, (WORD)bm->bmWidthBytes, (WORD)bm->bmHeight, (WORD)m8_sc_rows() );
+    if( e == NULL ) {
+        return( 0 );
+    }
+    m8_enter( r );
+    m8_hw_plane_mixes( e->x + sx + (r->l - dx), e->y + sy + (r->t - dy), r->l, r->t,
+                       r->r - r->l, r->b - r->t, e->plane,
+                       M8_MIX_SRC_FRGD | mix, (BYTE)dm->bkColor,
+                       M8_MIX_SRC_BKGD | mix, (BYTE)dm->TextColor );
+    m8_leave();
+    M8_PF_HIT();
+    return( 1 );
+}
+
+/* A string's copy: strings are at most M8_SC_MAX_H rows. */
+static M8_SCENTRY *m8_sc_get( const BYTE FAR *bits, WORD wb, WORD h )
+{
+    return( m8_sc_get_h( bits, wb, h, M8_SC_MAX_H ) );
 }
 
 /* Engine text: DIB_ExtTextOutExt lays the string out and calls back with the

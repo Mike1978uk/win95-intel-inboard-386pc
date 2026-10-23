@@ -236,6 +236,8 @@ extern void m8_hw_write_rect( int x, int y, int w, int h, const BYTE FAR *src, W
 extern void m8_hw_write_xlat( int x, int y, int w, int h, int clip_l, int clip_r,
                               const BYTE FAR *row0, long step, int col0, int cols, const BYTE *tbl );
 extern void m8_hw_spread( int x, int y, int sw, int sh, int kx, int ky );
+extern void m8_hw_plane_mixes( int sx, int sy, int dx, int dy, int w, int h, int plane,
+                               WORD fg_mix, BYTE fg, WORD bg_mix, BYTE bg );
 extern void m8_hw_mono_rows( int x, int y, WORD width_bytes, WORD height, const BYTE FAR *bits,
                              WORD stride, WORD fg_mix, BYTE fg, WORD bg_mix, BYTE bg,
                              int clip_l, int clip_t, int clip_r, int clip_b );

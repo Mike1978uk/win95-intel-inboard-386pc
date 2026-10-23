@@ -1507,6 +1507,36 @@ void m8_hw_plane_mix( int sx, int sy, int dx, int dy, int w, int h, int plane,
     m8_hw_wait_idle();
 }
 
+/* As m8_hw_plane_blit with any two mixes (full mix-register values): where
+ * the plane holds 1, fg through fg_mix; where 0, bg through bg_mix. */
+void m8_hw_plane_mixes( int sx, int sy, int dx, int dy, int w, int h, int plane,
+                        WORD fg_mix, BYTE fg, WORD bg_mix, BYTE bg )
+{
+    if( m8_hw_off || w <= 0 || h <= 0 ) {
+        return;
+    }
+    m8_wait_fifo_empty();
+    M8_SET( M8_SH_WRT_MASK, 0x00FF );
+    m8_put( M8_SH_DP_CONFIG, M8_DP_8514 );
+    m8_scissors( M8_EXT_SCISSOR_MIN, M8_EXT_SCISSOR_MIN, M8_EXT_SCISSOR_MAX, M8_EXT_SCISSOR_MAX );
+    m8_put( M8_SH_PIX_CNTL, M8_MF_PIX_CNTL | 0x00C0 );
+    M8_SET( M8_SH_RD_MASK, (1 << ((plane + 1) & 7)) & 0xFF );
+    m8_put( M8_SH_FRGD_MIX, fg_mix );
+    M8_SET( M8_SH_FRGD_COLOR, fg );
+    m8_put( M8_SH_BKGD_MIX, bg_mix );
+    M8_SET( M8_SH_BKGD_COLOR, bg );
+    m8_room_for( 7 );
+    outpw( M8_CUR_X, sx );
+    outpw( M8_CUR_Y, sy );
+    outpw( M8_DESTX_DIASTP, dx );
+    outpw( M8_DESTY_AXSTP, dy );
+    outpw( M8_MAJ_AXIS_PCNT, w - 1 );
+    outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
+    outpw( M8_CMD, M8_CMD_PLANE_BLIT );
+    m8_room -= 7;
+    ++m8_stats[M8_STAT_TEXT_HW];
+}
+
 /* A value the tap logs between operations, so a capture splits per GDI call. */
 void m8_hw_marker( WORD value )
 {
