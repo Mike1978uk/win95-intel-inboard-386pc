@@ -199,6 +199,33 @@ extern void m8_hw_marker( WORD value );
 #define M8_STEP( v )
 #endif
 
+/* Profile build (-Prof): time spent in each timed entry point, read with
+ * ExtEscape( M8_ESC_PROF ). Input: one WORD, 1 = clear after reading. The
+ * layout is shared with tools/m8bench/M8BENCH.C. PIT ticks are 0.838 us. A call
+ * that crossed a BIOS tick (55 ms) cannot be timed exactly from the 16-bit PIT
+ * count, so it goes to `long_*`, as the shorter of its two possible lengths. */
+#define M8_ESC_PROF         0x4D38
+#define M8_PF_N             10      /* BitBlt ExtTextOut Output Pixel StrBlt DibToDevice
+                                     * StretchBlt StretchDIBits SaveScreenBitmap ScanLR */
+typedef struct {
+    DWORD   calls;
+    DWORD   ticks;
+    DWORD   long_calls;
+    DWORD   long_ticks;
+} M8_PF_ENT;
+
+typedef struct {
+    WORD        version;            /* 1 */
+    WORD        n;                  /* M8_PF_N */
+    WORD        stamp_ticks;        /* the timer's own cost in one call's time */
+    WORD        hits;               /* calls that took a short path */
+    M8_PF_ENT   e[M8_PF_N];
+} M8_PF_TAB;
+
+#ifdef M8_PROF
+extern LONG m8_pf_escape( LPVOID in, LPVOID out );
+#endif
+
 /* Count a GDI entry that reached the screen; in a -Trace build also mark it, so
  * the tap log can charge the bus traffic that follows to this entry (B0xx). */
 #define M8_ENTRY( i )       { ++m8_stats[i]; M8_STEP( 0xB000 | (i) ); }

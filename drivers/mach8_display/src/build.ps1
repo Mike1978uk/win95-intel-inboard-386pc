@@ -6,7 +6,8 @@
 param(
   [string]$Watcom = 'C:\Users\lycet\tools\openwatcom',
   [string]$Out = (Join-Path $PSScriptRoot 'build'),
-  [switch]$Trace      # bring-up step markers to SCRATCH_PAD_1 (M8_STEP)
+  [switch]$Trace,     # bring-up step markers to SCRATCH_PAD_1 (M8_STEP)
+  [switch]$Prof       # time per entry point, read by ExtEscape (M8_ESC_PROF)
 )
 $ErrorActionPreference = 'Stop'
 $src = $PSScriptRoot
@@ -42,6 +43,8 @@ Run wlib @('-b', '-q', '-n', '-fo', '-ii', "@$src\ddk\dibeng.lbc", "$Out\dibeng.
 # writes them inline; a port write is 7.64 us on the 5160 bus, the call around it is CPU on top).
 $cflags = @('-q', '-wx', '-we', '-s', '-zu', '-zls', '-zW', '-4', '-mc', '-oi', '-wcd=303')
 if ($Trace) { $cflags += '-dM8_TRACE' }
+if ($Prof) { $cflags += '-dM8_PROF' }
+if ($Trace -and $Prof) { throw '-Trace writes markers inside the calls -Prof times' }
 foreach ($c in 'enable', 'screen', 'm8hw') {
   Run wcc ($cflags + $inc + @("-fo=$Out\$c.obj", "$src\$c.c"))
 }

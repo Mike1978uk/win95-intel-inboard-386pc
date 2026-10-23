@@ -22,15 +22,15 @@
 #include <string.h>
 #include "m8.h"
 
-/* Trace build: each timed entry is defined under an m8t_ name and wrapped at the
- * end of this file (m8_tm). */
+/* Trace and profile builds: each timed entry is defined under an m8t_ name and
+ * wrapped at the end of this file (m8_tm, m8_pf_in). */
 #ifdef M8_TRACE
 static void m8_tm_point( WORD id );
 #define M8_TP( id )         m8_tm_point( id )
 #else
 #define M8_TP( id )
 #endif
-#ifdef M8_TRACE
+#if defined( M8_TRACE ) || defined( M8_PROF )
 #define BitBlt              m8t_BitBlt
 #define ExtTextOut          m8t_ExtTextOut
 #define Output              m8t_Output
@@ -2244,10 +2244,10 @@ static void m8_trace_mem( WORD mark, LPVOID dst, LPVOID src, WORD rop, int w, in
 #define m8_trace_mem( m, d, s, r, w, h, dx, dy, sx, sy )
 #endif
 
-#ifdef M8_TRACE
+#if defined( M8_TRACE ) || defined( M8_PROF )
 /* Entry timing. PIT channel 2 runs free at 1.193 MHz and wraps every 55 ms; the
  * BIOS tick count beside it gives the wraps. Channel 2 feeds only the speaker,
- * which stays off (port 61h bit 1 clear). Then: counter (2 bytes), tick (1). */
+ * which stays off (port 61h bit 1 clear). */
 static void m8_tm_init( void )
 {
     outp( 0x61, (inp( 0x61 ) & ~0x02) | 0x01 );
@@ -2255,7 +2255,10 @@ static void m8_tm_init( void )
     outp( 0x42, 0 );
     outp( 0x42, 0 );
 }
+#endif
 
+#ifdef M8_TRACE
+/* A marker, then the counter (2 bytes) and the tick (1). */
 static void m8_tm( WORD mark )
 {
     WORD c;
@@ -2269,6 +2272,99 @@ static void m8_tm( WORD mark )
     m8_step_word( c );
     M8_STEP( tick & 0xFF );
 }
+#endif
+
+#ifdef M8_PROF
+/* Read only at entry and exit and summed in RAM: a port access inside the call
+ * would flush the L1, which is the cost being measured. */
+static M8_PF_TAB    m8_pf;
+static WORD         m8_pf_depth;
+
+/* BIOS tick in the high word, channel 2 counting up in the low. */
+static DWORD m8_pf_now( void )
+{
+    WORD    c;
+    WORD    t0;
+    WORD    t1;
+
+    do {
+        t0 = *(WORD FAR *)MK_FP( 0x40, 0x6C );
+        outp( 0x43, 0x80 );
+        c = inp( 0x42 );
+        c |= (WORD)inp( 0x42 ) << 8;
+        t1 = *(WORD FAR *)MK_FP( 0x40, 0x6C );
+    } while( t0 != t1 );
+    return( ((DWORD)t0 << 16) | (WORD)~c );
+}
+
+/* Nested entries (a DIB Engine callback into another entry) count once, in the
+ * outer one. */
+static DWORD m8_pf_in( void )
+{
+    if( m8_pf_depth++ != 0 ) {
+        return( 0 );
+    }
+    return( m8_pf_now() );
+}
+
+static void m8_pf_out( int i, DWORD t0 )
+{
+    DWORD       t1;
+    WORD        e;
+    WORD        dt;
+    M8_PF_ENT   *p;
+
+    if( --m8_pf_depth != 0 ) {
+        return;
+    }
+    t1 = m8_pf_now();
+    e = (WORD)t1 - (WORD)t0;
+    dt = (WORD)(t1 >> 16) - (WORD)(t0 >> 16);
+    p = &m8_pf.e[i];
+    if( dt == 0 ) {
+        ++p->calls;
+        p->ticks += e;
+    } else {
+        ++p->long_calls;
+        p->long_ticks += ((DWORD)(dt - 1) << 16) + e;
+    }
+}
+
+LONG m8_pf_escape( LPVOID in, LPVOID out )
+{
+    DWORD   a;
+    DWORD   b;
+    WORD    best = 0xFFFF;
+    int     i;
+
+    if( m8_pf.version == 0 ) {
+        m8_tm_init();
+    }
+    for( i = 0; i < 16; ++i ) {
+        a = m8_pf_now();
+        b = m8_pf_now();
+        if( (WORD)(b >> 16) == (WORD)(a >> 16) && (WORD)b - (WORD)a < best ) {
+            best = (WORD)b - (WORD)a;
+        }
+    }
+    m8_pf.version = 1;
+    m8_pf.n = M8_PF_N;
+    m8_pf.stamp_ticks = best;
+    if( out != NULL ) {
+        _fmemcpy( out, &m8_pf, sizeof( m8_pf ) );
+    }
+    if( in != NULL && *(LPWORD)in == 1 ) {
+        _fmemset( m8_pf.e, 0, sizeof( m8_pf.e ) );
+        m8_pf.hits = 0;
+    }
+    return( 1 );
+}
+#define M8_PF_HIT()         (++m8_pf.hits)
+#else
+#define M8_PF_HIT()
+#endif
+
+#ifdef M8_TRACE
 
 /* A checkpoint inside an entry: M8_MARK_TIME_POINT, its id, then as m8_tm. */
 static void m8_tm_point( WORD id )
@@ -3953,7 +4049,7 @@ int m8_screen_init( LPDIBENGINE screen )
 {
     M8_RECT one;
 
-#ifdef M8_TRACE
+#if defined( M8_TRACE ) || defined( M8_PROF )
     m8_tm_init();
 #endif
 
@@ -4000,7 +4096,7 @@ void m8_screen_suspend( void )
 /* Windows has the screen again; USER repaints everything after this. */
 void m8_screen_resume( void )
 {
-#ifdef M8_TRACE
+#if defined( M8_TRACE ) || defined( M8_PROF )
     m8_tm_init();
 #endif
     m8_sc_flush();
@@ -4027,8 +4123,8 @@ void m8_screen_done( void )
     m8_busy = 0;
 }
 
-#ifdef M8_TRACE
-/* The timed entry points (see m8_tm). */
+#if defined( M8_TRACE ) || defined( M8_PROF )
+/* The timed entry points (see m8_tm, m8_pf_in). */
 #undef BitBlt
 #undef ExtTextOut
 #undef Output
@@ -4040,13 +4136,18 @@ void m8_screen_done( void )
 #undef SaveScreenBitmap
 #undef ScanLR
 
-#define M8_TIMED( type, call )  { type r; m8_tm( M8_MARK_TIME_IN ); r = call; \
-                                  m8_tm( M8_MARK_TIME_OUT ); return( r ); }
+#ifdef M8_PROF
+#define M8_TIMED( i, type, call )   { type r; DWORD t = m8_pf_in(); r = call; \
+                                      m8_pf_out( i, t ); return( r ); }
+#else
+#define M8_TIMED( i, type, call )   { type r; m8_tm( M8_MARK_TIME_IN ); r = call; \
+                                      m8_tm( M8_MARK_TIME_OUT ); return( r ); }
+#endif
 
 BOOL WINAPI __loadds BitBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPDEVICE lpSrcDev,
                              WORD wSrcX, WORD wSrcY, WORD wXext, WORD wYext, DWORD dwRop3,
                              LPBRUSH lpPBrush, LPDRAWMODE lpDrawMode )
-M8_TIMED( BOOL, m8t_BitBlt( lpDestDev, wDestX, wDestY, lpSrcDev, wSrcX, wSrcY, wXext, wYext,
+M8_TIMED( 0, BOOL, m8t_BitBlt( lpDestDev, wDestX, wDestY, lpSrcDev, wSrcX, wSrcY, wXext, wYext,
                             dwRop3, lpPBrush, lpDrawMode ) )
 
 DWORD WINAPI __loadds ExtTextOut( LPPDEVICE lpDestDev, WORD wDestXOrg, WORD wDestYOrg,
@@ -4054,38 +4155,38 @@ DWORD WINAPI __loadds ExtTextOut( LPPDEVICE lpDestDev, WORD wDestXOrg, WORD wDes
                                   LPFONTINFO lpFontInfo, LPDRAWMODE lpDrawMode,
                                   LPTEXTXFORM lpTextXForm, LPSHORT lpCharWidths,
                                   LPRECT lpOpaqueRect, WORD wOptions )
-M8_TIMED( DWORD, m8t_ExtTextOut( lpDestDev, wDestXOrg, wDestYOrg, lpClipRect, lpString, wCount,
+M8_TIMED( 1, DWORD, m8t_ExtTextOut( lpDestDev, wDestXOrg, wDestYOrg, lpClipRect, lpString, wCount,
                                  lpFontInfo, lpDrawMode, lpTextXForm, lpCharWidths,
                                  lpOpaqueRect, wOptions ) )
 
 WORD WINAPI __loadds Output( LPPDEVICE lpDestDev, WORD wStyle, WORD wCount, LPPOINT lpPoints,
                              LPPPEN lpPPen, LPPBRUSH lpPBrush, LPDRAWMODE lpDrawMode,
                              LPRECT lpClipRect )
-M8_TIMED( WORD, m8t_Output( lpDestDev, wStyle, wCount, lpPoints, lpPPen, lpPBrush, lpDrawMode,
+M8_TIMED( 2, WORD, m8t_Output( lpDestDev, wStyle, wCount, lpPoints, lpPPen, lpPBrush, lpDrawMode,
                             lpClipRect ) )
 
 DWORD WINAPI __loadds Pixel( LPPDEVICE lpDestDev, WORD X, WORD Y, DWORD dwPhysColor,
                              LPDRAWMODE lpDrawMode )
-M8_TIMED( DWORD, m8t_Pixel( lpDestDev, X, Y, dwPhysColor, lpDrawMode ) )
+M8_TIMED( 3, DWORD, m8t_Pixel( lpDestDev, X, Y, dwPhysColor, lpDrawMode ) )
 
 DWORD WINAPI __loadds StrBlt( LPPDEVICE lpDestDev, WORD wDestXOrg, WORD wDestYOrg,
                               LPRECT lpClipRect, LPSTR lpString, WORD wCount,
                               LPFONTINFO lpFontInfo, LPDRAWMODE lpDrawMode,
                               LPTEXTXFORM lpTextXForm )
-M8_TIMED( DWORD, m8t_StrBlt( lpDestDev, wDestXOrg, wDestYOrg, lpClipRect, lpString, wCount,
+M8_TIMED( 4, DWORD, m8t_StrBlt( lpDestDev, wDestXOrg, wDestYOrg, lpClipRect, lpString, wCount,
                              lpFontInfo, lpDrawMode, lpTextXForm ) )
 
 WORD WINAPI __loadds DibToDevice( LPPDEVICE lpDestDev, WORD X, WORD Y, WORD iScan, WORD cScans,
                                   LPRECT lpClipRect, LPDRAWMODE lpDrawMode, LPSTR lpDIBits,
                                   LPBITMAPINFO lpBitmapInfo, LPINT lpTranslate )
-M8_TIMED( WORD, m8t_DibToDevice( lpDestDev, X, Y, iScan, cScans, lpClipRect, lpDrawMode,
+M8_TIMED( 5, WORD, m8t_DibToDevice( lpDestDev, X, Y, iScan, cScans, lpClipRect, lpDrawMode,
                                  lpDIBits, lpBitmapInfo, lpTranslate ) )
 
 BOOL WINAPI __loadds StretchBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, WORD wDestWidth,
                                  WORD wDestHeight, LPPDEVICE lpSrcDev, WORD wSrcX, WORD wSrcY,
                                  WORD wSrcWidth, WORD wSrcHeight, DWORD dwRop3,
                                  LPBRUSH lpPBrush, LPDRAWMODE lpDrawMode, LPRECT lpClipRect )
-M8_TIMED( BOOL, m8t_StretchBlt( lpDestDev, wDestX, wDestY, wDestWidth, wDestHeight, lpSrcDev,
+M8_TIMED( 6, BOOL, m8t_StretchBlt( lpDestDev, wDestX, wDestY, wDestWidth, wDestHeight, lpSrcDev,
                                 wSrcX, wSrcY, wSrcWidth, wSrcHeight, dwRop3, lpPBrush,
                                 lpDrawMode, lpClipRect ) )
 
@@ -4094,13 +4195,13 @@ BOOL WINAPI __loadds StretchDIBits( LPPDEVICE lpDestDev, WORD fGet, WORD wDestX,
                                     WORD wSrcWidth, WORD wSrcHeight, VOID *lpBits,
                                     LPBITMAPINFO lpInfo, LPINT lpTranslate, DWORD dwRop3,
                                     LPBRUSH lpPBrush, LPDRAWMODE lpDrawMode, LPRECT lpClipRect )
-M8_TIMED( BOOL, m8t_StretchDIBits( lpDestDev, fGet, wDestX, wDestY, wDestWidth, wDestHeight,
+M8_TIMED( 7, BOOL, m8t_StretchDIBits( lpDestDev, fGet, wDestX, wDestY, wDestWidth, wDestHeight,
                                    wSrcX, wSrcY, wSrcWidth, wSrcHeight, lpBits, lpInfo,
                                    lpTranslate, dwRop3, lpPBrush, lpDrawMode, lpClipRect ) )
 
 WORD WINAPI __loadds SaveScreenBitmap( LPRECT lpRect, WORD wCmd )
-M8_TIMED( WORD, m8t_SaveScreenBitmap( lpRect, wCmd ) )
+M8_TIMED( 8, WORD, m8t_SaveScreenBitmap( lpRect, wCmd ) )
 
 WORD WINAPI __loadds ScanLR( LPPDEVICE lpDestDev, WORD X, WORD Y, DWORD dwPhysColor, WORD wStyle )
-M8_TIMED( WORD, m8t_ScanLR( lpDestDev, X, Y, dwPhysColor, wStyle ) )
+M8_TIMED( 9, WORD, m8t_ScanLR( lpDestDev, X, Y, dwPhysColor, wStyle ) )
 #endif

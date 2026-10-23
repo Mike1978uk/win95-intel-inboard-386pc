@@ -38,6 +38,40 @@ static struct { BITMAPINFOHEADER h; RGBQUAD pal[256]; } dib;
 static LARGE_INTEGER freq;
 static unsigned long rnd = 12345;
 static FILE     *out;
+static int      run_ms = RUN_MS;
+
+/* Our driver's profile build (drivers/mach8_display/src/m8.h, -Prof): time spent
+ * inside the driver per entry point, read around each test. Keep in step with
+ * M8_PF_TAB there. Other drivers do not answer the escape. */
+#define M8_ESC_PROF 0x4D38
+#define M8_PF_N     10
+#pragma pack( push, 2 )
+typedef struct {
+    DWORD   calls;
+    DWORD   ticks;
+    DWORD   long_calls;
+    DWORD   long_ticks;
+} M8_PF_ENT;
+
+typedef struct {
+    WORD        version;
+    WORD        n;
+    WORD        stamp_ticks;
+    WORD        hits;
+    M8_PF_ENT   e[M8_PF_N];
+} M8_PF_TAB;
+#pragma pack( pop )
+
+static int      prof;
+
+static void prof_read( M8_PF_TAB *t, WORD clear )
+{
+    memset( t, 0, sizeof( *t ) );
+    ExtEscape( dc, M8_ESC_PROF, sizeof( clear ), (LPCSTR)&clear, sizeof( *t ), (LPSTR)t );
+}
+
+/* PIT ticks to microseconds. */
+#define PF_US( ticks )  ((ticks) * 1000000.0 / 1193182.0)
 
 static int r( int n )
 {
@@ -129,6 +163,7 @@ static void run( const char *name, OP op, int fixed )
     long    n = 0;
     int     i;
     char    title[48];
+    M8_PF_TAB pf;
 
     ++test_no;
     sprintf( title, "M8BENCH %d/%d %s", test_no, TEST_COUNT, name );
@@ -140,12 +175,41 @@ static void run( const char *name, OP op, int fixed )
 
     clear();
     rnd = 12345;
+    if( prof ) {
+        prof_read( &pf, 1 );
+    }
     t0 = now_ms();
     do {
         op( (int)n );
         ++n;
         t = now_ms() - t0;
-    } while( t < RUN_MS );
+    } while( t < run_ms );
+    if( prof ) {
+        double  us = 0.0;
+        double  calls = 0.0;
+        double  lcalls = 0.0;
+
+        GdiFlush();
+        prof_read( &pf, 0 );
+        for( i = 0; i < M8_PF_N; ++i ) {
+            us += PF_US( (double)pf.e[i].ticks + pf.e[i].long_ticks );
+            calls += pf.e[i].calls;
+            lcalls += pf.e[i].long_calls;
+        }
+        /* The timer's own cost, once per timed call, is taken off. */
+        us -= (calls + lcalls) * PF_US( (double)pf.stamp_ticks );
+        fprintf( out, "prof %-16s drv_us/op %8.1f  calls/op %6.2f  long %ld  hits %u  stamp_us %.1f",
+                 name, us / n, (calls + lcalls) / n, (long)lcalls, pf.hits,
+                 PF_US( (double)pf.stamp_ticks ) );
+        for( i = 0; i < M8_PF_N; ++i ) {
+            if( pf.e[i].calls + pf.e[i].long_calls != 0 ) {
+                fprintf( out, "  e%d %lu/%.1f", i, pf.e[i].calls + pf.e[i].long_calls,
+                         PF_US( (double)pf.e[i].ticks + pf.e[i].long_ticks ) /
+                         (pf.e[i].calls + pf.e[i].long_calls) );
+            }
+        }
+        fprintf( out, "\n" );
+    }
     /* The fixed sequence, for the hash: the same calls under every driver. */
     reset_pictures();
     clear();
@@ -538,6 +602,17 @@ int WINAPI WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
     WNDCLASS    wc;
     SYSTEMTIME  st;
 
+    char        *sp;
+    int         esc = M8_ESC_PROF;
+
+    /* "<label> [ms per test]" */
+    sp = strchr( cmd, ' ' );
+    if( sp != NULL ) {
+        *sp = '\0';
+        if( atoi( sp + 1 ) > 0 ) {
+            run_ms = atoi( sp + 1 );
+        }
+    }
     QueryPerformanceFrequency( &freq );
     memset( &wc, 0, sizeof( wc ) );
     wc.lpfnWndProc = DefWindowProc;
@@ -554,9 +629,11 @@ int WINAPI WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
         return 1;
     }
     GetLocalTime( &st );
-    fprintf( out, "== %s  driver %s  %dx%dx%d  %04d-%02d-%02d %02d:%02d\n", cmd[0] ? cmd : "-",
-             driver_name(), GetDeviceCaps( dc, HORZRES ), GetDeviceCaps( dc, VERTRES ),
-             GetDeviceCaps( dc, BITSPIXEL ), st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute );
+    prof = ExtEscape( dc, QUERYESCSUPPORT, sizeof( esc ), (LPCSTR)&esc, 0, NULL ) > 0;
+    fprintf( out, "== %s  driver %s  %dx%dx%d  %04d-%02d-%02d %02d:%02d  %d ms%s\n",
+             cmd[0] ? cmd : "-", driver_name(), GetDeviceCaps( dc, HORZRES ),
+             GetDeviceCaps( dc, VERTRES ), GetDeviceCaps( dc, BITSPIXEL ), st.wYear, st.wMonth,
+             st.wDay, st.wHour, st.wMinute, run_ms, prof ? "  profiled" : "" );
     flush_out();
     setup();
     /* The cursor away from the window, except for its own test. */

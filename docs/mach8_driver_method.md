@@ -56,6 +56,23 @@ and compares with ATI's card runs. ATI's were after a `LEAN` boot, ours after `F
   SCRATCH_PAD_1; M8BENCH prints it per test as `pad D<routine><wait><count>` (see
   `docs/captures/2026-10-21_card/README.md`).
 
+## 4b. Where a call's time goes: profile, then shorten
+
+Every port access flushes the L1 (`docs/captures/io_cache_flush_2026_09_21.md`), and each GDI call
+starts after the last call's port writes. So a call's CPU cost is mostly the cache lines it touches -
+code, data, stack - at about 1.3 us a 16-byte line. Compiler flags do not change that (`-ox`, `-os`
+neutral, 10-22/10-23); touching less does. ATIM8 is compact assembly for this reason.
+
+- Measure with the profile build: `build.ps1 -Prof`. M8BENCH then writes a `prof` line per test: our
+  driver's us per operation (`drv_us/op`), calls per operation, each entry point's calls/us (`e<n>`,
+  `M8_PF_N` order in `m8.h`), and `hits` (Pixel's short path). The timer costs ~83 us a call (VTD
+  emulates the PIT) and is subtracted; never quote a profile build's ops/s.
+- Then a short path for the common case: decide from a few cached values, touch little, send the
+  writes together, fall through to the full path otherwise. Count that the short path is taken: a
+  short path that never runs measures as "no gain" (setpixel, 10-23: `hits 0`, the test changed colour
+  each call).
+- First result (10-23): setpixel 217 -> 97 us in our driver, ATI's whole draw ~95 us.
+
 ## 5. Keep it
 
 - Card log to `docs/captures/<date>_card/`, a row per run in its README.

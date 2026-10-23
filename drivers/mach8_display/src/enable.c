@@ -417,6 +417,14 @@ LONG WINAPI __loadds Control( LPVOID lpDevice, UINT function, LPVOID lpInput, LP
     if( function == QUERYESCSUPPORT && lpInput != NULL && *(LPWORD)lpInput == DCICOMMAND ) {
         return( 0 );
     }
+#ifdef M8_PROF
+    if( function == M8_ESC_PROF ) {
+        return( m8_pf_escape( lpInput, lpOutput ) );
+    }
+    if( function == QUERYESCSUPPORT && lpInput != NULL && *(LPWORD)lpInput == M8_ESC_PROF ) {
+        return( 1 );
+    }
+#endif
     return( DIB_Control( lpDevice, function, lpInput, lpOutput ) );
 }
 
