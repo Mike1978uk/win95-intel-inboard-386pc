@@ -642,6 +642,31 @@ void m8_hw_pattern_rows( int x, int y, int w, int h, const BYTE *pat,
     m8_hw_pattern_span( x, y, w, h, pat );
 }
 
+/* Parameters and state for spans.asm, which reads them by offset (SP_*). */
+struct {
+    const short FAR *w;
+    WORD            recs;
+    WORD            poly;
+    WORD            count;
+    int             l;
+    int             t;
+    int             r;
+    int             b;
+    int             y;
+    int             room;
+    WORD            spans;
+} m8_sp = { NULL, 1 };
+
+extern void M8_SPANS_SOLID( void );
+#pragma aux M8_SPANS_SOLID "*" parm [] modify exact [];
+
+/* spans.asm's FIFO wait: the room after it. */
+int __cdecl m8_hw_drain( void )
+{
+    m8_fifo_drain();
+    return( m8_room );
+}
+
 /* Every span of one GDI scanline call, clipped to l,t,r,b (right and bottom
  * exclusive), after m8_hw_fill_begin (pat NULL) or m8_hw_pattern_begin: one
  * loop over GDI's own list, as ATIM8 walks it (seg08:0b96), so a span costs its
@@ -666,6 +691,26 @@ void m8_hw_scan_spans( int poly, WORD count, const short FAR *w,
     WORD                spans = 0;
 
     if( m8_hw_off ) {
+        return;
+    }
+    if( pat == NULL ) {
+        if( !poly && count < 2 ) {
+            return;
+        }
+        m8_sp.w = w;
+        m8_sp.recs = recs;
+        m8_sp.poly = poly;
+        m8_sp.count = count;
+        m8_sp.l = l;
+        m8_sp.t = t;
+        m8_sp.r = r;
+        m8_sp.b = b;
+        m8_sp.y = y;
+        m8_sp.room = room;
+        M8_SPANS_SOLID();
+        m8_scan_y = m8_sp.y;
+        m8_room = m8_sp.room;
+        m8_stats[M8_STAT_FILL_HW] += m8_sp.spans;
         return;
     }
     for( ; recs > 0; --recs ) {
