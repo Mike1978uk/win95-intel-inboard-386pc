@@ -15,15 +15,17 @@ Method: `docs/mach8_driver_method.md` §4b (profile, shorten) and §4c (divide b
    Explorer did not finish starting (the agent starts after it, hence the refused port). Owner's
    restart into the same M8F6 then came up clean. Next: what Explorer's start draws through us
    (BOOTLOG/trace build), and whether the 5160's known Explorer hang (MEMORY) happens with ATIM8.
-1. Evening state: 1.518x (card_f11r11), pixels = ATI in all 35, all committed. Below ATI:
-   mem_to_mem 0.64, polygon 0.80, dib_8bpp 0.83, draw_icon 0.85, text_varied 0.86, cursor_move 0.87,
-   dstinvert 0.90, floodfill 0.90, ellipse 0.93, fill_small 0.94, bmp_changing 0.95 (noise is +-8%
-   on untouched tests: decide on profile us per call, `build.ps1 -Prof`).
-2. mem_to_mem: the proxy path hashes the 40x96 source each call (1.8-1.9 ms a call); DIBENG's RAM copy
-   may be cheaper when no write-back is saved - measure both.
-3. draw_icon: mask now cached (hits 152 of 310), colour half (SRCINVERT, 8-bit) is not - trace which path.
-4. dib_8bpp: at the bus floor (29.7 ms a call); only a content cache of the DIB beats ATI here.
-5. Closed 10-23: VGA aperture (M8APERT), dword PIX_TRANS (M8DWORD), polyline merge, DIB table cache.
+1. Late state: 1.539x (card_f19r11), pixels = ATI in all 35, all committed and pushed. Below ATI:
+   mem_to_mem 0.62, text_varied 0.80, polygon 0.83, dib_8bpp 0.86, draw_icon 0.87, floodfill 0.93,
+   bmp_changing 0.94, ellipse 0.95, cursor_move 0.96, dstinvert 0.97, fill_small 0.97 (noise +-8%).
+2. Use the counters: `build.ps1 -Prof` now prints `c<n>` per op and s62 (span walk). Every call is
+   bus work + set-up; the set-up is what short paths remove (method 4b).
+3. polygon: 63 us a span, 23 of it writes - the walk itself is CPU (each OUT flushes the L1, so the
+   walk's code is refetched after every write): fewer cache lines in spans.asm per span.
+4. mem_to_mem 0.62: proxy path hashes 40x96 a call; measure DIBENG's RAM copy against it.
+5. draw_icon: both halves on the card (1 copy + 1 plane blit) yet 1.9 ms a call: set-up, as polygon's.
+6. text_varied: ExtTextOut 1.47 ms a call, new string each time - glyph cache (XFree86 mach8fcach.c).
+7. Closed 10-23: VGA aperture, dword PIX_TRANS, polyline merge, DIB table cache, pattern grouping.
 
 ## Where we are: 1.473x ATI overall (card_f5r11, was 1.345x), pixels = ATI in all 35
 

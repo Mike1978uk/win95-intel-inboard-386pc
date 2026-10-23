@@ -33,3 +33,15 @@ Evening (pixels = ATI in all 35 every run):
 Probes: `M8APERT.C` - no Mach8 memory in A0000-BFFFFh (all of it shows the VGA's text page, `20 07`).
 `M8DWORD.C` - a 32-bit OUT to PIX_TRANS puts its upper word into the DAC mask (02EAh read 1Eh after,
 FFh before): E2EAh decodes as 02EAh, PIX_TRANS takes words only.
+
+Late evening:
+
+| Run | Build | Overall | What moved |
+|---|---|---|---|
+| card_f12p1 | pattern spans grouped by byte | - | none (polygon 1934 -> 1946 us a call); dropped |
+| card_f13p1 / f14q1 | profile v4 counters `8d7b203` | - | polygon 197 spans/op at 63 us each; no cursor lifts in any test |
+| card_f15p1 | span walk timed alone (s62) | - | scanline call = walk + ~250-480 us of general-path set-up |
+| card_f18p1 | scanline short path, solid only | - | floodfill 258 -> 224 ms/op in the driver, scanline call 590 -> 358 us |
+| card_f19r11 | M8F19 `aba3fa9` + two-colour patterns | 1.539x | pixels = ATI in all 35 |
+| (none) | M8F14P first run | - | M8IDLE never quiet: steady 12 % CPU for 600 s, screenshot helper timed out; one-off, next boot clean |
+

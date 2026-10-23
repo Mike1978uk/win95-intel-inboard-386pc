@@ -72,6 +72,12 @@ neutral, 10-22/10-23); touching less does. ATIM8 is compact assembly for this re
   short path that never runs measures as "no gain" (setpixel, 10-23: `hits 0`, the test changed colour
   each call).
 - First result (10-23): setpixel 217 -> 97 us in our driver, ATI's whole draw ~95 us.
+- The counters (profile v4, `c<n>` per operation, `M8_STAT_*` in m8.h) say how much bus work a call
+  does; time it does not account for is set-up. Polygon (10-23): 197 spans an op at 63 us, of which
+  23 us is port writes; style 62 (the span walk alone) put the rest in Output's general path.
+- A short path that is never taken measures as no change: check `hits` first. Two misses on 10-23:
+  `COLORSOLID` is not set on every solid brush (use `m8_brush_colours`), and a scanline clip holds
+  the cursor unless cut to the spans' box first.
 
 ## 4c. Is ATI moving less data? Divide by the bytes first
 
