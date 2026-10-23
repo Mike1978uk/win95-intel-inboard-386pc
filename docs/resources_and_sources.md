@@ -976,3 +976,12 @@ From @andrew-hoffman's issue comments, not recorded before:
 - https://github.com/user-attachments/files/33041761/m8utl.zip (#49, 2026-10-05) - ATI's M8UTL utilities (see docs/ati_test_com_notes.md).
 - https://www.dosdays.co.uk/topics/Manufacturers/ati/ati_graphics_ultra.php (#49, 2026-10-05) - Graphics Ultra page: the two video-memory pools (Mach8 and VGA).
 - https://theretroweb.com/expansioncards/s/ati-graphics-ultra (#49, 2026-10-05) - board photos and chip list.
+
+## USB on the XT bus (@andrew-hoffman, #50, 2026-10-22 and 2026-10-23)
+
+Earlier leads, already recorded above and in #53: https://github.com/FreddyVRetro/CH375-USB-DRIVER (CH375 driver "modified for speed (XT/286)"; pacing not described, read the source) and https://github.com/ronnyroy111/inboard386 (section 3). Andrew's constraint: USB polling costs bus time on the 5160; WDM USB is not viable here.
+
+- https://github.com/dfmcwhir/CH376DOS_driver - DOS block driver (`.SYS`, NASM) for a CH376 module on an ISA card; reads and writes FAT12/FAT16 on the first partition of one removable drive, polled or IRQ 3-7, has a `%n` delay for 4.77 MHz XTs. Its own README says it was made with AI, may corrupt a drive, and had no speed testing. Not in it: FAT32, a Windows driver, any timing numbers. Andrew: file-level FAT access on the chip may pay off on Windows; FAT32 is not usable by DOS as-is.
+- https://github.com/dfmcwhir/ISA_CH37X_XTIDE_DoC_combo_card - ISA PCB: CH375/CH376, XTIDE ROM socket, Disk on Chip. README gives switches and ROM/DoC address jumpers; the USB-disable switch is "not currently implemented". Not in it: any driver, or bus-timing data.
+- https://github.com/ages2001/WINDISK - IDE/AHCI/NVMe/SD driver for DOS, Win3.x and Win9x; see #52. Needs a Pentium and PCI; reference only.
+- https://github.com/ages2001/WINUSB - from-scratch USB stack for DOS and Windows 1.0 to ME (UHCI/OHCI/EHCI/xHCI, mass storage, HID, audio, cameras). Needs a PCI host controller, so it cannot run here; very new, wide scope. Reference only (Andrew's words).
