@@ -914,6 +914,28 @@ WORD m8_hw_scanlr( int x, int y, BYTE colour, WORD style, int width )
     return( 0xFFFF );
 }
 
+/* m8_hw_fill_begin when the engine already holds the plain data path for
+ * `mix` (a full mix-register value): at most the colour is written. 0 = not
+ * set up; m8_hw_fill_begin does it. */
+int m8_hw_fill_begin_fast( BYTE color, WORD mix )
+{
+    if( m8_hw_off || !m8_dp_ok || !m8_dp_plain || m8_dp_mix != mix || !m8_room_ok ||
+        !m8_sh_ok[M8_SH_FRGD_COLOR] ) {
+        return( 0 );
+    }
+    if( m8_sh_val[M8_SH_FRGD_COLOR] != color ) {
+        if( m8_room < 1 && !m8_fifo_drain() ) {
+            return( 0 );
+        }
+        m8_sh_val[M8_SH_FRGD_COLOR] = color;
+        --m8_room;
+        outpw( M8_FRGD_COLOR, color );
+    }
+    /* CUR_Y is not known: other commands move it. */
+    m8_scan_y = -1;
+    return( 1 );
+}
+
 /* Solid rectangles one after another: the set-up once, then five writes each.
  * Nothing else may touch the engine in between. */
 void m8_hw_fill_begin( BYTE color, WORD mix )

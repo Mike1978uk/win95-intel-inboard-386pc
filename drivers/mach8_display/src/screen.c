@@ -2991,6 +2991,57 @@ WORD WINAPI __loadds Output( LPPDEVICE lpDestDev, WORD wStyle, WORD wCount, LPPO
         m8_out_short( wCount, lpPoints, lpPPen, lpDrawMode, lpClipRect ) ) {
         return( 1 );
     }
+    /* Scanlines in a solid colour or a two-colour pattern on the screen, the
+     * cursor clear of their box: the set-up and the span walk, none of the
+     * general path. */
+    if( (wStyle == OS_SCANLINES || wStyle == OS_POLYSCANLINE) &&
+        (LPVOID)lpDestDev == m8_hot.screen && lpDestDev != NULL && lpPBrush != NULL &&
+        lpDrawMode != NULL && lpDrawMode->Rop2 >= 1 && lpDrawMode->Rop2 <= 16 ) {
+        M8_RECT c;
+        BYTE    c1;
+        BYTE    c2;
+        BYTE    pat[8];
+        int     kind = 0;
+
+        m8_rect_screen( &c );
+        if( lpClipRect != NULL ) {
+            M8_RECT g;
+
+            m8_rect_from_gdi( &g, lpClipRect );
+            m8_rect_and( &c, &g );
+        }
+        /* A clip that holds the cursor is cut to the spans' own box first, as
+         * the full path does. */
+        if( m8_cur_shown && m8_rect_overlap( &c, &m8_cur_rect ) ) {
+            M8_RECT sb;
+
+            if( m8_scan_bound( wStyle, wCount, lpPoints, &sb ) ) {
+                m8_rect_and( &c, &sb );
+            }
+        }
+        if( !(m8_cur_shown && m8_rect_overlap( &c, &m8_cur_rect )) && !m8_hw_off ) {
+            kind = m8_brush_colours( (LPBRUSH)lpPBrush, lpDrawMode, &c1, &c2, pat );
+        }
+        if( kind == 1 || ((kind == 2 || kind == 3) && M8_PATTERN_EXPANSION) ) {
+            WORD    fn = m8_mix_for_key[lpDrawMode->Rop2 - 1];
+
+            m8_busy = 1;
+            /* A read between fills (floodfill's ScanLR) leaves its own data
+             * path: then the full set-up. */
+            if( kind != 1 ) {
+                m8_hw_pattern_begin( c1, c2, fn, kind == 3 ? M8_MIX_LEAVE : fn );
+            } else if( !m8_hw_fill_begin_fast( c1, M8_MIX_SRC_FRGD | fn ) ) {
+                m8_hw_fill_begin( c1, M8_MIX_SRC_FRGD | fn );
+            }
+            if( !m8_rect_empty( &c ) ) {
+                m8_hw_scan_spans( wStyle == OS_POLYSCANLINE, wCount, (const short FAR *)lpPoints,
+                                  c.l, c.t, c.r, c.b, kind == 1 ? NULL : pat );
+            }
+            M8_PF_HIT();
+            M8_LEAVE();
+            return( 1 );
+        }
+    }
     m8_px_touch( lpDestDev, M8_PX_WHY_ENTRY );
     if( !m8_is_screen( lpDestDev ) ) {
         return( DIB_Output( lpDestDev, wStyle, wCount, lpPoints, lpPPen, lpPBrush,
