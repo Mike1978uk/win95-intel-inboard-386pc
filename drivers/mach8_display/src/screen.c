@@ -1086,14 +1086,25 @@ static void m8_hash_init( M8_HASH *h, WORD seed )
 
 static void m8_hash_bytes( M8_HASH *h, const BYTE FAR *p, WORD n )
 {
-    WORD    a = h->a;
-    WORD    b = h->b;
-    WORD    c = h->c;
+    WORD            a = h->a;
+    WORD            b = h->b;
+    WORD            c = h->c;
+    WORD            v;
+    const WORD FAR  *q = (const WORD FAR *)p;
 
-    while( n-- != 0 ) {
-        a += *p;
+    /* A word a step: the bytes are cold in RAM, and the loop is what the
+     * caches' every lookup costs. */
+    for( ; n >= 2; n -= 2 ) {
+        v = *q++;
+        a += v;
         b += a;
-        c = ((c << 3) | (c >> 13)) ^ *p++;
+        c = ((c << 3) | (c >> 13)) ^ v;
+    }
+    if( n != 0 ) {
+        v = *(const BYTE FAR *)q;
+        a += v;
+        b += a;
+        c = ((c << 3) | (c >> 13)) ^ v;
     }
     h->a = a;
     h->b = b;
