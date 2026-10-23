@@ -98,12 +98,24 @@ static void m8_write_regs( const M8_REG *regs, int count )
 /* Free FIFO entries since the last wait, less the setup writes m8_put sent. */
 static int m8_room;
 
+/* m8_room counts every write since the last wait: only m8_q_send keeps it
+ * exact, so it may carry into the next call. Routines that write without
+ * counting start with m8_wait_fifo_empty, which clears this. */
+static BYTE m8_room_ok;
+
+/* DP_CONFIG, PIX_CNTL and FRGD_MIX as m8_hw_fill_mix last wrote them, valid
+ * while nothing else has written the data path. The group is one state seen
+ * from two views (guide 7-1), so it is cached only as a whole, never one
+ * register alone. Every other writer of the group starts with
+ * m8_wait_fifo_empty or empties the shadow cache, and both drop this. */
+static BYTE m8_fill_dp_ok;
+static WORD m8_fill_dp_mix;
+
 static void m8_engine_reset( void );
 
-/* Every engine call starts from an empty FIFO, so a burst of writes follows
- * without another check. A write with all 16 entries full overruns the FIFO and
- * locks it (INVALID_IO, guide 8-14); bursts stop one short of the depth. */
-static int m8_wait_fifo_empty( void )
+/* A write with all 16 entries full overruns the FIFO and locks it (INVALID_IO,
+ * guide 8-14); bursts stop one short of the depth. */
+static int m8_fifo_drain( void )
 {
     WORD n;
 
@@ -115,6 +127,15 @@ static int m8_wait_fifo_empty( void )
     }
     m8_engine_reset();
     return( 0 );
+}
+
+/* Routines that do not count their writes start here, from an empty FIFO, so
+ * a burst of writes follows without another check. */
+static int m8_wait_fifo_empty( void )
+{
+    m8_room_ok = 0;
+    m8_fill_dp_ok = 0;
+    return( m8_fifo_drain() );
 }
 
 /* Room for n more writes: with the cache cold the setup alone can fill the FIFO. */
@@ -130,7 +151,8 @@ static void m8_room_for( int n )
  * set. Coordinates, MIN_AXIS and CMD go every time, and so does the data path:
  * DP_CONFIG, FRGD_MIX, BKGD_MIX and PIX_CNTL program one set of sources and ALU
  * functions from two views (guide 7-1, 9-13), so a write to any of them changes
- * what the others hold - do not cache them; a stale one hangs the engine (card).
+ * what the others hold - do not cache them one at a time; a stale one hangs the
+ * engine (card). m8_hw_fill_mix caches the group as a whole (m8_fill_dp_ok).
  * The cache is emptied when anything but these routines may have set the card:
  * mode set, VGA through, engine reset. */
 enum {
@@ -156,6 +178,8 @@ static void m8_sh_clear( void )
     for( i = 0; i < M8_SH_COUNT; ++i ) {
         m8_sh_ok[i] = 0;
     }
+    m8_room_ok = 0;
+    m8_fill_dp_ok = 0;
 }
 
 /* A wait that runs out means the engine is wedged: a transfer left unfinished,
@@ -300,6 +324,85 @@ void m8_hw_set_palette( UINT start, UINT count, RGBQUAD FAR *pal )
     }
 }
 
+/* Every port access flushes the L1 (docs/captures/io_cache_flush_2026_09_21.md):
+ * code, stack and data touched between two writes are fetched again over the
+ * bus. So a call decides every write first, into this queue, and m8_q_send then
+ * writes them from one short loop. */
+#define M8_Q_MAX    20
+
+static WORD m8_q[2 * M8_Q_MAX];
+static int  m8_qn;
+
+#define M8_Q( port, v ) \
+    do { \
+        m8_q[m8_qn++] = (port); \
+        m8_q[m8_qn++] = (v); \
+    } while( 0 )
+
+#define M8_QSET( r, v ) \
+    do { \
+        WORD m8_v_ = (v); \
+        if( !m8_sh_ok[r] || m8_sh_val[r] != m8_v_ ) { \
+            M8_Q( m8_sh_port[r], m8_v_ ); \
+            m8_sh_val[r] = m8_v_; \
+            m8_sh_ok[r] = 1; \
+        } \
+    } while( 0 )
+
+/* Reads the FIFO status only when the counted room runs out. 0 = the engine
+ * was reset on the way, nothing or only part was sent, and the shadow cache is
+ * empty: the caller queues its writes again. */
+static int m8_q_send( void )
+{
+    const WORD  *q = m8_q;
+    int         n = m8_qn >> 1;
+    int         k;
+
+    m8_qn = 0;
+    while( n > 0 ) {
+        k = n < M8_FIFO_DEPTH - 1 ? n : M8_FIFO_DEPTH - 1;
+        if( !m8_room_ok || m8_room < k ) {
+            if( !m8_fifo_drain() ) {
+                return( 0 );
+            }
+            m8_room_ok = 1;
+        }
+        m8_room -= k;
+        n -= k;
+        for( ; k > 0; --k, q += 2 ) {
+            outpw( q[0], q[1] );
+        }
+    }
+    return( 1 );
+}
+
+/* m8_plain's state, then the fill, in the order m8_plain and the fill wrote
+ * them: DP_CONFIG before FRGD_MIX. */
+static void m8_fill_q( int x, int y, int w, int h, BYTE color, WORD mix )
+{
+    int dp = !m8_fill_dp_ok || m8_fill_dp_mix != mix;
+
+    M8_QSET( M8_SH_WRT_MASK, 0x00FF );
+    M8_QSET( M8_SH_RD_MASK, 0x00FF );
+    if( dp ) {
+        M8_Q( M8_DP_CONFIG, M8_DP_8514 );
+        M8_Q( M8_MULTIFUNC_CNTL, M8_MF_PIX_CNTL );
+    }
+    M8_QSET( M8_SH_SC_L, M8_EXT_SCISSOR_MIN );
+    M8_QSET( M8_SH_SC_T, M8_EXT_SCISSOR_MIN );
+    M8_QSET( M8_SH_SC_R, M8_EXT_SCISSOR_MAX );
+    M8_QSET( M8_SH_SC_B, M8_EXT_SCISSOR_MAX );
+    if( dp ) {
+        M8_Q( M8_FRGD_MIX, mix );
+    }
+    M8_QSET( M8_SH_FRGD_COLOR, color );
+    M8_Q( M8_CUR_X, x );
+    M8_Q( M8_CUR_Y, y );
+    M8_Q( M8_MAJ_AXIS_PCNT, w - 1 );
+    M8_Q( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
+    M8_Q( M8_CMD, M8_CMD_FILL );
+}
+
 /* A rectangle through the foreground mix (a full mix-register value) with
  * FRGD_COLOR as its source. */
 void m8_hw_fill_mix( int x, int y, int w, int h, BYTE color, WORD mix )
@@ -307,17 +410,16 @@ void m8_hw_fill_mix( int x, int y, int w, int h, BYTE color, WORD mix )
     if( m8_hw_off || w <= 0 || h <= 0 ) {
         return;
     }
-    m8_wait_fifo_empty();
-    m8_plain();
-    m8_put( M8_SH_FRGD_MIX, mix );
-    M8_SET( M8_SH_FRGD_COLOR, color );
-    m8_room_for( 5 );
-    outpw( M8_CUR_X, x );
-    outpw( M8_CUR_Y, y );
-    outpw( M8_MAJ_AXIS_PCNT, w - 1 );
-    outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
-    outpw( M8_CMD, M8_CMD_FILL );
     ++m8_stats[M8_STAT_FILL_HW];
+    m8_fill_q( x, y, w, h, color, mix );
+    if( !m8_q_send() ) {
+        m8_fill_q( x, y, w, h, color, mix );
+        if( !m8_q_send() ) {
+            return;
+        }
+    }
+    m8_fill_dp_ok = 1;
+    m8_fill_dp_mix = mix;
 }
 
 void m8_hw_fill( int x, int y, int w, int h, BYTE color )

@@ -11,7 +11,7 @@ The bed (86Box) models only some of these: a driver that passes the bed can stil
 
 | Rule | Page | Driver |
 |---|---|---|
-| DP_CONFIG (sources, mono source) and ALU_FG/BG_FN are the extended view of what FRGD_MIX, BKGD_MIX and PIX_CNTL set. A write to either side changes what the other holds. | 7-1, 9-13 | Never cache DP_CONFIG, FRGD_MIX, BKGD_MIX, PIX_CNTL: every operation writes its whole data path, as ATIM8 does (CEEE + BAEE per blit). Cached, text hung the card and screen copies drew solid squares. |
+| DP_CONFIG (sources, mono source) and ALU_FG/BG_FN are the extended view of what FRGD_MIX, BKGD_MIX and PIX_CNTL set. A write to either side changes what the other holds. | 7-1, 9-13 | Never cache DP_CONFIG, FRGD_MIX, BKGD_MIX, PIX_CNTL one at a time: cached singly, text hung the card and screen copies drew solid squares. The group may be cached whole, by the routine that wrote it, while no other routine has written any of it (`m8_fill_dp_ok`). |
 | Writing DP_CONFIG halts and flushes the blit source FIFO; nothing else does (bar a blit source register or engine reset). | 9-41 | Write DP_CONFIG before every extended blit, or it continues from the last one's data. |
 
 ## Host data
