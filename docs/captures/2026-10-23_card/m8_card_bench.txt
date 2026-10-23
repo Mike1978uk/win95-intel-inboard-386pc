@@ -8492,3 +8492,111 @@ cursor_move          1000.9 ops/s    0.999 ms/op  hash 0d2b3285  #34  pad 0820
 started 35/35 ellipse
 ellipse                68.3 ops/s   14.643 ms/op  hash 312df19d  #35  pad 0820
 
+== card_f20p11  driver m8f20p.drv  800x600x8  2026-10-23 17:35  1000 ms  profiled
+caps  poly 0008  curve 0000  line 0023  raster ffffeff9  text 2004
+started 1/35 text_sys
+prof text_sys         drv_us/op   1066.7  calls/op   1.02  long 8  hits 0  checked 0  bad 0  stamp_us 83.8  e0 4/2095.7  e1 483/1112.7  e5 3/3330.0  e7 2/329.4  c4 1.0  c8 0.0  c11 0.0  c12 0.0  c13 0.0  c14 1.0  c15 0.0  c16 0.0  c17 0.0
+text_sys              482.7 ops/s    2.072 ms/op  hash 5c44e885  #1  pad 0820
+started 2/35 text_same
+prof text_same        drv_us/op   1115.3  calls/op   1.04  long 9  hits 0  checked 0  bad 0  stamp_us 83.8  e0 8/2097.8  e1 430/1116.2  e5 4/4726.4  e7 4/328.1  c4 1.0  c8 0.0  c12 0.0  c13 0.0  c14 1.0  c17 0.0
+text_same             429.2 ops/s    2.330 ms/op  hash 846b2085  #2  pad 0820
+started 3/35 text_gui
+prof text_gui         drv_us/op    451.5  calls/op   1.01  long 5  hits 0  checked 0  bad 0  stamp_us 72.1  e0 4/2098.0  e1 745/498.9  e5 3/3331.1  e7 2/329.8  c4 1.0  c8 0.0  c12 0.0  c13 0.0  c14 1.0  c17 0.0
+text_gui              744.2 ops/s    1.344 ms/op  hash f2d5f065  #3  pad 0820
+started 4/35 text_varied
+prof text_varied      drv_us/op   1463.3  calls/op   1.04  long 11  hits 0  checked 0  bad 0  stamp_us 83.8  e0 8/2098.1  e1 358/1472.1  e5 3/3344.3  e7 4/328.3  c4 1.0  c8 0.0  c12 0.0  c13 0.0  c14 1.0  c17 0.0
+text_varied           357.2 ops/s    2.800 ms/op  hash 19106b7d  #4  pad 0820
+started 5/35 fill_small
+prof fill_small       drv_us/op    178.7  calls/op   1.02  long 4  hits 547  checked 0  bad 0  stamp_us 83.0  e0 553/241.2  e5 3/3446.8  e7 2/329.8  c0 0.0  c8 0.0  c11 0.0  c12 0.0  c13 0.0  c17 0.0
+fill_small            548.8 ops/s    1.822 ms/op  hash d90ee0b9  #5  pad 0820
+started 6/35 fill_large
+prof fill_large       drv_us/op   3647.4  calls/op   1.04  long 15  hits 218  checked 0  bad 0  stamp_us 83.0  e0 224/3620.9  e5 3/3232.8  e7 2/328.5  c0 0.0  c8 0.0  c11 0.0  c12 0.0  c13 0.0  c17 0.0
+fill_large            218.4 ops/s    4.578 ms/op  hash 86bf3d05  #6  pad 0820
+started 7/35 fill_hatch
+prof fill_hatch       drv_us/op   1222.6  calls/op   1.05  long 9  hits 0  checked 0  bad 0  stamp_us 83.8  e0 341/1231.4  e5 3/5021.6  e7 4/328.3  c0 1.0  c8 0.0  c11 1.0  c12 4.0  c13 0.0  c17 0.0
+fill_hatch            319.6 ops/s    3.129 ms/op  hash 820ec605  #7  pad 0820
+started 8/35 fill_xor
+prof fill_xor         drv_us/op    172.0  calls/op   1.02  long 3  hits 1064  checked 0  bad 0  stamp_us 72.1  e0 1075/223.9  e5 6/3280.3  e7 4/329.8  c0 0.0  c8 0.0  c11 0.0  c12 0.0  c13 0.0  c17 0.0
+fill_xor             1066.5 ops/s    0.938 ms/op  hash d22297c5  #8  pad 0820
+started 9/35 dstinvert
+prof dstinvert        drv_us/op    159.5  calls/op   1.01  long 5  hits 1240  checked 0  bad 0  stamp_us 83.8  e0 1251/226.1  e5 6/3279.0  e7 4/329.2  c0 0.0  c8 0.0  c11 0.0  c12 0.0  c13 0.0  c17 0.0
+dstinvert            1242.7 ops/s    0.805 ms/op  hash 3e0edd6d  #9  pad 0820
+started 10/35 blit_small
+prof blit_small       drv_us/op    151.9  calls/op   1.01  long 6  hits 1303  checked 0  bad 0  stamp_us 83.0  e0 1309/226.6  e5 3/3325.6  e7 2/328.1  c0 0.0  c8 0.0  c12 0.0  c13 0.0  c17 0.0
+blit_small           1304.3 ops/s    0.767 ms/op  hash 0d2b3285  #10  pad 0820
+started 11/35 blit_large
+prof blit_large       drv_us/op   2216.9  calls/op   1.03  long 14  hits 334  checked 0  bad 0  stamp_us 83.0  e0 340/2233.1  e5 3/4535.5  e7 2/329.4  c0 0.0  c8 0.0  c12 0.0  c13 0.0  c17 0.0
+blit_large            335.9 ops/s    2.977 ms/op  hash 0d2b3285  #11  pad 0820
+started 12/35 scroll
+prof scroll           drv_us/op  12030.4  calls/op   1.12  long 16  hits 72  checked 0  bad 0  stamp_us 83.0  e0 78/11117.3  e5 3/9774.4  e7 2/329.8  c0 0.0  c8 0.0  c12 0.1  c13 0.0  c17 0.0
+scroll                 72.8 ops/s   13.731 ms/op  hash 0d2b3285  #12  pad 0820
+started 13/35 bmp_icon
+prof bmp_icon         drv_us/op    412.8  calls/op   1.01  long 7  hits 0  checked 0  bad 0  stamp_us 71.2  e0 631/465.1  e5 3/3326.4  e7 2/329.0  c0 1.0  c8 0.0  c12 1.0  c13 0.0  c17 0.0
+bmp_icon              627.0 ops/s    1.595 ms/op  hash 66ada2a5  #13  pad 0820
+started 14/35 bmp_card
+prof bmp_card         drv_us/op    499.0  calls/op   1.03  long 7  hits 0  checked 0  bad 0  stamp_us 83.0  e0 538/555.1  e5 3/3234.8  e7 4/329.4  c0 1.0  c8 0.0  c12 1.0  c13 0.0  c17 0.0
+bmp_card              529.4 ops/s    1.889 ms/op  hash 70becf17  #14  pad 0820
+started 15/35 bmp_changing
+prof bmp_changing     drv_us/op  15970.1  calls/op   2.17  long 16  hits 0  checked 0  bad 0  stamp_us 83.0  e0 58/14696.9  e3 54/167.4  e5 3/3326.4  e7 2/328.1  c0 1.0  c8 0.1  c12 1.1  c13 0.0  c17 0.1
+bmp_changing           53.4 ops/s   18.712 ms/op  hash 6989e397  #15  pad 0820
+started 16/35 bmp_large
+prof bmp_large        drv_us/op   2218.8  calls/op   1.02  long 10  hits 0  checked 0  bad 0  stamp_us 83.0  e0 255/2265.0  e7 2/329.0  c0 1.0  c12 1.0
+bmp_large             250.4 ops/s    3.994 ms/op  hash 0d2b3285  #16  pad 0820
+started 17/35 dib_8bpp
+prof dib_8bpp         drv_us/op  32909.3  calls/op   1.32  long 18  hits 28  checked 0  bad 0  stamp_us 83.0  e0 4/2366.6  e5 31/29496.9  e7 2/329.0  c8 1.1  c12 0.3  c13 0.1  c17 0.1
+dib_8bpp               27.1 ops/s   36.867 ms/op  hash 9c83b45e  #17  pad 0820
+started 18/35 stretch_dib
+prof stretch_dib      drv_us/op  13334.8  calls/op   1.60  long 16  hits 15  checked 0  bad 0  stamp_us 71.2  e0 4/2300.2  e5 3/3487.0  e7 17/10710.0  c7 1.0  c8 0.2  c12 1.5  c13 0.1  c17 0.2
+stretch_dib            14.8 ops/s   67.573 ms/op  hash 2a3f7949  #18  pad 0820
+started 19/35 stretchblt
+prof stretchblt       drv_us/op  45561.3  calls/op   1.45  long 16  hits 20  checked 0  bad 0  stamp_us 83.0  e0 4/2099.2  e5 3/4661.5  e6 20/44529.7  e7 2/328.5  c6 1.0  c8 0.1  c12 1.4  c13 0.1  c17 0.1
+stretchblt             19.9 ops/s   50.190 ms/op  hash a5ce3241  #19  pad 0820
+started 20/35 mono_bmp
+prof mono_bmp         drv_us/op   1128.5  calls/op   1.02  long 4  hits 377  checked 0  bad 0  stamp_us 83.0  e0 382/1173.5  e5 3/3240.4  e7 2/329.8  c0 1.0  c8 0.0  c12 0.0  c13 0.0  c14 1.0  c17 0.0
+mono_bmp              377.9 ops/s    2.646 ms/op  hash 0d2b3285  #20  pad 0820
+started 21/35 draw_icon
+prof draw_icon        drv_us/op   3697.0  calls/op   2.06  long 9  hits 150  checked 0  bad 0  stamp_us 83.0  e0 306/1874.8  e5 3/3236.4  e7 2/329.8  c0 2.0  c8 0.0  c12 1.0  c13 0.0  c14 1.0  c17 0.0
+draw_icon             150.4 ops/s    6.647 ms/op  hash b2f700c9  #21  pad 0820
+started 22/35 scr_to_mem
+prof scr_to_mem       drv_us/op    426.3  calls/op   1.02  long 6  hits 0  checked 0  bad 0  stamp_us 72.1  e0 622/476.8  e5 3/3236.2  e7 2/329.0  c0 1.0  c8 0.0  c12 1.0  c13 0.0  c17 0.0
+scr_to_mem            613.2 ops/s    1.631 ms/op  hash 0d2b3285  #22  pad 0820
+started 23/35 mem_to_mem
+prof mem_to_mem       drv_us/op   1481.4  calls/op   1.08  long 7  hits 0  checked 0  bad 0  stamp_us 83.0  e0 276/1426.9  e5 6/3280.4  e7 4/329.4  c0 0.0  c8 0.0  c12 0.2  c13 0.0  c17 0.0
+mem_to_mem            262.7 ops/s    3.807 ms/op  hash e8973020  #23  pad 0820
+started 24/35 drag_frame
+prof drag_frame       drv_us/op   3856.6  calls/op   5.08  long 8  hits 0  checked 0  bad 0  stamp_us 83.8  e0 549/830.9  e5 3/3329.2  e7 2/329.0  c0 3.0  c8 0.0  c11 0.3  c12 5.0  c13 0.0  c16 0.3  c17 0.0
+drag_frame            108.9 ops/s    9.185 ms/op  hash 0d2b3285  #24  pad 0820
+started 25/35 lines
+prof lines            drv_us/op    180.6  calls/op   1.01  long 4  hits 1022  checked 0  bad 0  stamp_us 83.0  e0 8/2097.3  e2 1022/237.4  e5 3/3325.0  e7 4/328.1  c8 0.0  c12 0.0  c13 0.0  c17 0.0  c18 0.0  s18 1018/224.9
+lines                1021.3 ops/s    0.979 ms/op  hash 6fd0736c  #25  pad 0820
+started 26/35 lines_hv
+prof lines_hv         drv_us/op    349.7  calls/op   2.01  long 6  hits 1248  checked 0  bad 0  stamp_us 83.0  e0 4/2519.9  e2 1248/238.8  e5 3/4592.2  e7 2/328.5  c8 0.0  c12 0.0  c13 0.0  c17 0.0  c18 0.0  s18 1243/228.4
+lines_hv              623.3 ops/s    1.604 ms/op  hash e8a266b2  #26  pad 0820
+started 27/35 lines_dash
+prof lines_dash       drv_us/op    466.6  calls/op   1.02  long 4  hits 0  checked 0  bad 0  stamp_us 83.0  e0 4/2097.3  e2 410/500.0  e5 2/5984.4  e7 2/329.8  c1 1.0  c8 0.0  c12 0.0  c13 0.0  c17 0.0  c18 1.0  s18 407/486.4
+lines_dash            409.5 ops/s    2.442 ms/op  hash c15414e6  #27  pad 0820
+started 28/35 rubber_band
+prof rubber_band      drv_us/op    215.5  calls/op   1.01  long 7  hits 850  checked 0  bad 0  stamp_us 83.0  e0 4/2101.5  e2 850/288.3  e7 2/329.4  c18 0.0  s18 843/273.2
+rubber_band           849.1 ops/s    1.178 ms/op  hash 123749fd  #28  pad 0820
+started 29/35 setpixel
+prof setpixel         drv_us/op    118.9  calls/op   1.01  long 5  hits 1305  checked 0  bad 0  stamp_us 83.8  e0 4/2100.5  e3 1307/189.0  e5 3/3236.4  e7 2/329.4  c2 0.0  c8 0.0  c11 0.0  c12 0.0  c13 0.0  c17 0.0
+setpixel             1306.3 ops/s    0.766 ms/op  hash 871e0b3c  #29  pad 0820
+started 30/35 getpixel
+prof getpixel         drv_us/op    125.6  calls/op   1.01  long 6  hits 1544  checked 193  bad 0  stamp_us 71.2  e0 4/2099.6  e3 1546/185.1  e5 3/3234.5  e7 2/329.0  c2 0.0  c8 0.0  c12 0.0  c13 0.1  c17 0.0
+getpixel             1545.9 ops/s    0.647 ms/op  hash 0d2b3285  #30  pad 0820
+started 31/35 polygon
+prof polygon          drv_us/op  13125.0  calls/op   9.62  long 15  hits 395  checked 0  bad 0  stamp_us 83.0  e0 4/2099.0  e2 501/1435.5  e5 3/3236.7  e7 2/328.1  c8 0.1  c11 195.5  c12 0.1  c13 0.0  c17 0.1  c18 1.0  s5 328/1868.6  s18 52/413.1  s63 106/129.7
+polygon                52.9 ops/s   18.920 ms/op  hash a356aa00  #31  pad 0820
+started 32/35 rectangle
+prof rectangle        drv_us/op    379.3  calls/op   2.01  long 7  hits 1315  checked 0  bad 0  stamp_us 83.0  e0 662/247.7  e2 659/281.7  e5 3/3237.3  e7 2/327.7  c0 0.0  c8 0.0  c11 0.0  c12 0.0  c13 0.0  c17 0.0  s18 657/275.0
+rectangle             658.3 ops/s    1.519 ms/op  hash e8438024  #32  pad 0820
+started 33/35 floodfill
+prof floodfill        drv_us/op 216571.6  calls/op 482.33  long 14  hits 1435  checked 0  bad 0  stamp_us 83.0  e0 4/2100.5  e2 475/391.3  e3 3/294.5  e5 3/3326.7  e7 2/328.5  e9 960/587.5  c2 1.0  c8 1.0  c11 158.0  c12 2.3  c13 321.7  c17 1.0  c18 0.3  s4 469/361.9  s18 1/432.5
+floodfill               2.8 ops/s  362.975 ms/op  hash a9f1de61  #33  pad 0820
+started 34/35 cursor_move
+prof cursor_move      drv_us/op     18.5  calls/op   0.01  long 0  hits 0  checked 0  bad 0  stamp_us 83.0  e0 4/2099.2  e5 3/3323.0  e7 2/329.0  c8 0.0  c12 2.0  c13 0.0  c17 0.0
+cursor_move           989.7 ops/s    1.010 ms/op  hash 0d2b3285  #34  pad 0820
+started 35/35 ellipse
+prof ellipse          drv_us/op   8397.5  calls/op   7.00  long 7  hits 301  checked 0  bad 0  stamp_us 83.0  e0 4/2099.4  e2 425/1265.0  e5 3/3326.1  e7 2/328.5  c8 0.0  c11 81.8  c12 0.1  c13 0.0  c17 0.0  c18 1.0  s5 236/1200.9  s18 58/3408.4  s63 124/128.3
+ellipse                61.1 ops/s   16.379 ms/op  hash 312df19d  #35  pad 0820
+
