@@ -55,7 +55,7 @@ typedef struct {
     BYTE        busy;
     BYTE        cur_shown;
     BYTE        cur_pending;
-    BYTE        pad;
+    BYTE        rd_ok;          /* the engine holds m8_read_scan's set-up */
     M8_RECT     cur_rect;
     BYTE        sh_ok[M8_SH_COUNT];
     WORD        sh_val[M8_SH_COUNT];
@@ -214,6 +214,7 @@ extern void m8_hw_fill_begin( BYTE color, WORD mix );
 extern void m8_hw_fill_span( int x, int y, int w, int h );
 extern WORD m8_hw_scanlr( int x, int y, BYTE colour, WORD style, int width );
 extern BYTE m8_hw_getpixel( int x, int y );
+extern int  m8_hw_getpixel_fast( int x, int y );
 extern void m8_hw_copy_keyed( int sx, int sy, int dx, int dy, int w, int h, BYTE key );
 extern void m8_hw_plane_mix( int sx, int sy, int dx, int dy, int w, int h, int plane,
                              BYTE fg, WORD fg_mix );
@@ -258,11 +259,13 @@ typedef struct {
 } M8_PF_ENT;
 
 typedef struct {
-    WORD        version;            /* 1 */
+    WORD        version;            /* 2 */
     WORD        n;                  /* M8_PF_N */
     WORD        stamp_ticks;        /* the timer's own cost in one call's time */
     WORD        hits;               /* calls that took a short path */
     M8_PF_ENT   e[M8_PF_N];
+    WORD        checked;            /* short-path reads read again the long way */
+    WORD        bad;                /* ... that disagreed */
 } M8_PF_TAB;
 
 #ifdef M8_PROF

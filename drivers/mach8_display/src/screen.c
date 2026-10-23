@@ -2346,7 +2346,7 @@ LONG m8_pf_escape( LPVOID in, LPVOID out )
             best = (WORD)b - (WORD)a;
         }
     }
-    m8_pf.version = 1;
+    m8_pf.version = 2;
     m8_pf.n = M8_PF_N;
     m8_pf.stamp_ticks = best;
     if( out != NULL ) {
@@ -2355,12 +2355,22 @@ LONG m8_pf_escape( LPVOID in, LPVOID out )
     if( in != NULL && *(LPWORD)in == 1 ) {
         _fmemset( m8_pf.e, 0, sizeof( m8_pf.e ) );
         m8_pf.hits = 0;
+        m8_pf.checked = 0;
+        m8_pf.bad = 0;
     }
     return( 1 );
 }
 #define M8_PF_HIT()         (++m8_pf.hits)
+/* Every eighth short-path read is read again the long way: the bench does not
+ * check what a read returns. */
+#define M8_PF_CHECK( x, y, v ) \
+    if( (m8_pf.hits & 7) == 0 ) { \
+        ++m8_pf.checked; \
+        if( m8_hw_getpixel( x, y ) != (BYTE)(v) ) ++m8_pf.bad; \
+    }
 #else
 #define M8_PF_HIT()
+#define M8_PF_CHECK( x, y, v )
 #endif
 
 #ifdef M8_TRACE
@@ -3034,6 +3044,24 @@ DWORD WINAPI __loadds Pixel( LPPDEVICE lpDestDev, WORD X, WORD Y, DWORD dwPhysCo
             M8_PF_HIT();
             M8_LEAVE();
             return( dwPhysColor );
+        }
+        m8_busy = 0;
+    }
+    /* A get, likewise, while the engine holds the read set-up. */
+    if( lpDrawMode == NULL && (LPVOID)lpDestDev == m8_hot.screen && lpDestDev != NULL &&
+        X < (WORD)M8_SCREEN_X && Y < (WORD)M8_SCREEN_Y &&
+        !(m8_screen->deFlags & PALETTE_XLAT) &&
+        !(m8_cur_shown && (int)X >= m8_cur_rect.l && (int)X < m8_cur_rect.r &&
+          (int)Y >= m8_cur_rect.t && (int)Y < m8_cur_rect.b) ) {
+        int v;
+
+        m8_busy = 1;
+        v = m8_hw_getpixel_fast( X, Y );
+        if( v >= 0 ) {
+            M8_PF_HIT();
+            M8_PF_CHECK( X, Y, v );
+            M8_LEAVE();
+            return( 0xFF000000UL | (BYTE)v );
         }
         m8_busy = 0;
     }

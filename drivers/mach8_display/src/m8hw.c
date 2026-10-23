@@ -111,6 +111,7 @@ static void m8_write_regs( const M8_REG *regs, int count )
 #define m8_dp_ok            m8_hot.dp_ok
 #define m8_dp_mix           m8_hot.dp_mix
 #define m8_dp_plain         m8_hot.dp_plain     /* and the scissors are m8_plain's */
+#define m8_rd_ok            m8_hot.rd_ok
 
 static void m8_engine_reset( void );
 
@@ -136,6 +137,7 @@ static int m8_wait_fifo_empty( void )
 {
     m8_room_ok = 0;
     m8_dp_ok = 0;
+    m8_rd_ok = 0;
     return( m8_fifo_drain() );
 }
 
@@ -175,6 +177,7 @@ static void m8_sh_clear( void )
     }
     m8_room_ok = 0;
     m8_dp_ok = 0;
+    m8_rd_ok = 0;
 }
 
 /* A wait that runs out means the engine is wedged: a transfer left unfinished,
@@ -419,6 +422,7 @@ static void m8_dp_sent( WORD mix, int plain )
     m8_dp_ok = 1;
     m8_dp_mix = mix;
     m8_dp_plain = plain;
+    m8_rd_ok = 0;
 }
 
 static void m8_fill_q( int x, int y, int w, int h, BYTE color, WORD mix )
@@ -758,8 +762,13 @@ static int m8_read_scan( int from, int y, int to )
     outpw( M8_CUR_X, from );
     outpw( M8_SCAN_TO_X, to );
     m8_room -= 4;
+    m8_rd_ok = 1;
     for( n = 0; n < M8_WAIT_LIMIT; ++n ) {
         if( inpw( M8_GP_STAT ) & M8_GP_DATA_READY ) {
+            /* Data from the last command sent: everything before it has
+             * run, so the FIFO is empty. */
+            m8_room = M8_FIFO_DEPTH - 1;
+            m8_room_ok = 1;
             return( 1 );
         }
     }
@@ -776,6 +785,33 @@ BYTE m8_hw_getpixel( int x, int y )
     }
     ++m8_stats[M8_STAT_READBACK];
     return( (BYTE)inpw( M8_PIX_TRANS ) );
+}
+
+/* m8_hw_getpixel while the engine holds the read set-up: three writes and the
+ * read (ATIM8 seg07:00aa sends six). No idle wait, as ATIM8 has none: the read
+ * runs after the drawing queued before it, and its data is ready only then.
+ * -1 = not set up, or the engine was reset; m8_hw_getpixel does it. */
+int m8_hw_getpixel_fast( int x, int y )
+{
+    WORD n;
+
+    if( m8_hw_off || !m8_rd_ok || !m8_room_ok ) {
+        return( -1 );
+    }
+    if( m8_room < 3 && !m8_fifo_drain() ) {
+        return( -1 );
+    }
+    outpw( M8_CUR_Y, y );
+    outpw( M8_CUR_X, x );
+    outpw( M8_SCAN_TO_X, x + 1 );
+    for( n = 0; n < M8_WAIT_LIMIT; ++n ) {
+        if( inpw( M8_GP_STAT ) & M8_GP_DATA_READY ) {
+            m8_room = M8_FIFO_DEPTH - 1;
+            return( (BYTE)inpw( M8_PIX_TRANS ) );
+        }
+    }
+    m8_engine_reset();
+    return( -1 );
 }
 
 WORD m8_hw_scanlr( int x, int y, BYTE colour, WORD style, int width )

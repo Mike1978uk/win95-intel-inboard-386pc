@@ -59,6 +59,8 @@ typedef struct {
     WORD        stamp_ticks;
     WORD        hits;
     M8_PF_ENT   e[M8_PF_N];
+    WORD        checked;
+    WORD        bad;
 } M8_PF_TAB;
 #pragma pack( pop )
 
@@ -198,9 +200,9 @@ static void run( const char *name, OP op, int fixed )
         }
         /* The timer's own cost, once per timed call, is taken off. */
         us -= (calls + lcalls) * PF_US( (double)pf.stamp_ticks );
-        fprintf( out, "prof %-16s drv_us/op %8.1f  calls/op %6.2f  long %ld  hits %u  stamp_us %.1f",
-                 name, us / n, (calls + lcalls) / n, (long)lcalls, pf.hits,
-                 PF_US( (double)pf.stamp_ticks ) );
+        fprintf( out, "prof %-16s drv_us/op %8.1f  calls/op %6.2f  long %ld  hits %u  checked %u"
+                 "  bad %u  stamp_us %.1f", name, us / n, (calls + lcalls) / n, (long)lcalls,
+                 pf.hits, pf.checked, pf.bad, PF_US( (double)pf.stamp_ticks ) );
         for( i = 0; i < M8_PF_N; ++i ) {
             if( pf.e[i].calls + pf.e[i].long_calls != 0 ) {
                 fprintf( out, "  e%d %lu/%.1f", i, pf.e[i].calls + pf.e[i].long_calls,
