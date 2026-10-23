@@ -73,6 +73,14 @@ neutral, 10-22/10-23); touching less does. ATIM8 is compact assembly for this re
   each call).
 - First result (10-23): setpixel 217 -> 97 us in our driver, ATI's whole draw ~95 us.
 
+## 4c. Is ATI moving less data? Divide by the bytes first
+
+Before reading ATI's code for a data-heavy test, divide ATI's ms/op by the bytes the operation must
+move and compare with the card's floor: a 100x100 8bpp upload is 30.0 ms, 3.00 us a byte
+(`tools/m8probe/M8UPRATE.C`). ATI at the floor and us above it = our CPU (dib_8bpp, mono_bmp: a RAM
+copy or repack before the send). ATI below the floor = it sends less, find how. Then send fewer
+bytes than ATI: stretch_dib sends the source once and the engine enlarges it (10 KB against 40 KB).
+
 ## 5. Keep it
 
 - Card log to `docs/captures/<date>_card/`, a row per run in its README.
@@ -94,3 +102,7 @@ neutral, 10-22/10-23); touching less does. ATIM8 is compact assembly for this re
 | LINEDRAW_OPT 000Ch / 070Ch (ATIM8 polylines; bit 3 not in the guide) | port census, ATIM8 `seg08:01e8` | **no effect** (`tools/m8probe/M8OPTS.C`, 10-22): same pixels as 0004h, same ~58 us a line. Runs that took 25x longer were other drawing competing, not the bit |
 | Pixel set as ATIM8 does it: DP_CONFIG 4215h, SCAN_TO_X, colour in PIX_TRANS's high byte | ATIM8 `seg07:0066` | **no gain** (M8OPTS): 51 us a pixel either way. A set costs ~590 us a call; the engine's share is 51 us, the rest is per-call path |
 | SCAN_TO_X (CAEE): CUR_X + one write draws a one-row span; CUR_Y and pattern byte only when they change | guide 9-61, ATIM8 `seg08:0dcd` | card: pattern and two spans a row correct (`M8PATT s`); used for one-row spans, solid 2-3 writes (ATI 5). **86Box gap**: its SCAN_TO_X starts a mono pattern at bit 7 and ignores PATT_INDEX, so polygon differs in the bed only (10-22) |
+| Abort a read with SUBSYS_CNTL 900Fh/500Fh and keep the set-up: masks, scissors, FRGD_COLOR, pitch, DP_CONFIG and ALU_FG_FN survive | ATIM8 `seg09:0194`, `M8ABORT.C` | card: ScanLR 5 writes a stopped scan (ATIM8 7), floodfill 0.68 -> 0.93 (10-23) |
+| DIB colours from DIBENG itself: convert one 256x1 DIB of indices 0-255 with the caller's table, then look each pixel up | ours | card: pixels = ATI, dib_8bpp 0.61 -> 0.82, no RAM copy of the DIB (10-23) |
+| Enlarge on the card: source once at its own size, engine copies spread columns then rows | ours | card: stretch_dib 1.15, stretchblt 1.01 against 0.45/0.40 (10-23). Whole factors, box unclipped only |
+| Mono source unshifted: start the expansion up to 7 px left (X may be -512, guide 8-22), scissors cut it | ours | card: mono_bmp 0.62 -> 0.82 (10-23) |

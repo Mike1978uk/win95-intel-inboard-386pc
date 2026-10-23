@@ -38,6 +38,12 @@ sync + 2b = 7.638            fixed sync = 3.752 us
 ```
 
 Technique 109e fitted **reads** at 1.87 / 3.90. Writes come out at 1.94 / 3.75.
+
+**Not reconciled (2026-10-23):** `tools/m8probe/M8UPRATE.C`, a Win32 console program under Windows 95
+timed with QueryPerformanceCounter, sent 5000 words to `0278h` at **2.17 us/byte** and to the Mach8's
+PIX_TRANS at **3.00 us/byte**, both below the 3.819 here. Different instrument and mode (DOS probe,
+interrupts off, PIT latched vs Win95 ring 3); which figure holds for driver code is open. For Mach8
+uploads use 3.00 us/byte: it is the card's own transfer, and ATIM8's dib_8bpp matches it.
 The model holds across direction.
 
 ## The answer, against the recorded outcomes

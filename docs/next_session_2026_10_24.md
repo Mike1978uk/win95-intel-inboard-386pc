@@ -5,26 +5,25 @@ Supersedes `docs/next_session_2026_10_23.md`. Card log: `docs/captures/2026-10-2
 ## Start here
 
 Gate unchanged (owner, 10-23): equal or better than ATIM8 in every test before DirectDraw, more colours, 3D.
-Method: `docs/mach8_driver_method.md` §4b - profile build first, then shorten what the profile shows.
+Method: `docs/mach8_driver_method.md` §4b (profile, shorten) and §4c (divide by the bytes first).
 
-1. **Count spans in the profile** (polygon, ellipse, floodfill): their scanline calls are now ~1.3-1.9 ms each
-   after the assembly walker; whether that is port writes (fewer writes per span) or still CPU decides the lever.
-2. **floodfill 0.68**: 960 ScanLR calls at ~790 us each per fill - a ScanLR short path as getpixel's (read
-   set-up cached, data-ready empties the FIFO), then the 467 OS_SCANLINES calls.
-3. **text_varied 0.85, draw_icon 0.80, mem_to_mem 0.68, bmp_changing 0.92**: profile first (2+ calls per op).
-4. **fill_small 0.95, dstinvert 0.96**: short path is ~140 us; ATI's whole driver side is ~150. Next is the
-   colour/mix write order and the drain `in` every few calls (read 9AEE free slots instead of waiting for empty).
-5. **cursor_move 0.91** (varies 0.87-1.01 run to run): profile before acting.
-6. Then uploads (dib_8bpp 0.61, mono_bmp 0.66: ATIM8's generated `rep outsw`) and stretch (0.40-0.46: ATIM8 `seg14`).
+0. **Boot stall, second time.** 10-23 15:00, the restart into M8F6 never reached the agent (ping
+   answered, port refused). The first was 11:41 into M8S1. Two in ~9 driver restarts. F6 only
+   touches StretchBlt/StretchDIBits code, so the stall is likely not the new code - not proven. Ask the
+   owner what the screen showed; it comes before more driver work.
+1. **Uncommitted, untested on the card:** F6 (`m8_hw_spread` through `m8_hw_copy_fast`, for
+   stretchblt 1.01) and F7 (DIB colour table cached by content and `m8_pal_gen`, for dib_8bpp 0.82).
+   Built as `%TEMP%\m8f6`, `%TEMP%\m8f7`; F7 contains F6. Bench F7 when the card is back.
+2. Below ATI (card_f5r11): text_varied 0.85, draw_icon 0.81, polygon 0.81, mono_bmp 0.82, dib_8bpp
+   0.84, mem_to_mem 0.78, floodfill 0.88, bmp_changing 0.95, cursor_move 0.95, stretchblt 0.95 (1.01
+   in f4, noise). Profile build first (`build.ps1 -Prof`), one card run gives all of them.
+3. mono_bmp and dib_8bpp: ATIM8 is at the card's upload floor (3.00 us a byte, M8UPRATE); what is left
+   of ours is CPU per call. Sending fewer bytes than ATI needs content-aware sends (runs as fills).
 
-## State
+## Where we are: 1.473x ATI overall (card_f5r11, was 1.345x), pixels = ATI in all 35
 
-- Card: `M8A1.DRV` selected = master `f272261`. `menudefault=LEAN` (driver work). Card `C:\M8BENCH.EXE` is the
-  current build (profile v3 + caps line); `tools/m8bench/M8BENCH.EXE` (ignored) is the same file.
-- One hang: the restart into M8S1 (same code as master then) stuck loading the desktop, 11:41; owner restarted;
-  6 restarts since, all clean. Watch for a repeat.
-
-## Where we are: 1.345x ATI overall (was 1.274x), pixels = ATI in all 35
+Afternoon 10-23: commits `61fe29a` ScanLR, `ad11835` DIBs, `d5e84c3` stretch, `3291c34` mono
+(`docs/captures/2026-10-23_card/README.md`). The morning's figures follow.
 
 Below ATI: stretchblt 0.40, stretch_dib 0.46, dib_8bpp 0.61, mono_bmp 0.66, floodfill 0.68, mem_to_mem 0.68,
 draw_icon 0.80, polygon 0.82, text_varied 0.85, cursor_move 0.91, bmp_changing 0.92, fill_small 0.95,
