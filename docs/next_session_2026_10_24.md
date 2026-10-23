@@ -50,7 +50,7 @@ Method: `docs/mach8_driver_method.md` §4b (profile, shorten) and §4c (divide b
 
 BlueSCSI firmware for the 5160 (multi-LUN behind one ID, removable LUN with media change by sense
 data, DaynaPort later), run by a remote cloud agent (Opus leading, Sonnet for mechanical work). It
-writes only to branch `cloud/bluescsi`, folder `cloud/bluescsi/`; report in `cloud/bluescsi/REPORT.md`
+writes only to branch `claude/bluescsi-5160-firmware-o12wij`, folder `cloud/bluescsi/`; report in `cloud/bluescsi/REPORT.md`
 (plus SURVEY.md, DESIGN.md). Nothing on master or GitHub issues. Review: `git fetch` then read the
 branch; everything there is "built, untested on the 5160" until tested here.
 
