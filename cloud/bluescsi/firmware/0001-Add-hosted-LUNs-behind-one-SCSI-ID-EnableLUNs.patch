@@ -1,0 +1,393 @@
+From 719f66459c93f7ed3d76c88e5db25d5d2b5362a5 Mon Sep 17 00:00:00 2001
+From: Inboard Project <comrade@5160.local>
+Date: Fri, 23 Oct 2026 18:03:42 +0000
+Subject: [PATCH] Add hosted LUNs behind one SCSI ID (EnableLUNs)
+
+With [SCSI] EnableLUNs=1, an image named HD51_... answers as LUN 1 of ID 5.
+Each hosted LUN takes a spare device slot that is never selected on the
+bus, so all existing device handlers run unchanged. Off by default.
+---
+ lib/BlueSCSI_platform_RP2MCU/scsiPhy.cpp |   3 +-
+ lib/SCSI2SD/include/scsi2sd.h            |   7 +-
+ lib/SCSI2SD/src/firmware/scsi.c          |  24 +++++-
+ src/BlueSCSI.cpp                         | 104 ++++++++++++++++++++++-
+ src/BlueSCSI_disk.cpp                    |   2 +-
+ src/BlueSCSI_log_trace.cpp               |   4 +-
+ src/BlueSCSI_settings.cpp                |  26 +++++-
+ src/BlueSCSI_settings.h                  |   7 ++
+ 8 files changed, 167 insertions(+), 10 deletions(-)
+
+diff --git a/lib/BlueSCSI_platform_RP2MCU/scsiPhy.cpp b/lib/BlueSCSI_platform_RP2MCU/scsiPhy.cpp
+index 594dc2d..87c6029 100644
+--- a/lib/BlueSCSI_platform_RP2MCU/scsiPhy.cpp
++++ b/lib/BlueSCSI_platform_RP2MCU/scsiPhy.cpp
+@@ -73,7 +73,8 @@ void scsi_bsy_deassert_interrupt()
+         int sel_id = -1;
+         for (int i = 0; i < S2S_MAX_TARGETS; i++)
+         {
+-            if (scsiDev.targets[i].targetId < S2S_MAX_TARGETS && scsiDev.targets[i].cfg)
++            if (scsiDev.targets[i].targetId < S2S_MAX_TARGETS && scsiDev.targets[i].cfg &&
++                !scsiDev.targets[i].cfg->hostedLun)
+             {
+                 if (sel_bits & (1u << scsiDev.targets[i].targetId))
+                 {
+diff --git a/lib/SCSI2SD/include/scsi2sd.h b/lib/SCSI2SD/include/scsi2sd.h
+index b247401..e2a5c03 100755
+--- a/lib/SCSI2SD/include/scsi2sd.h
++++ b/lib/SCSI2SD/include/scsi2sd.h
+@@ -147,7 +147,12 @@ typedef struct __attribute__((packed))
+ 	// bit flags vendor extention for specific device types
+ 	uint32_t vendorExtensions;
+ 
+-	uint8_t reserved[60]; // Pad out to 128 bytes for main section.
++	// A hosted LUN is never selected by its own ID; it answers as LUN
++	// hostedLun behind hostId. 0 = an ordinary device.
++	uint8_t hostId;
++	uint8_t hostedLun;
++
++	uint8_t reserved[58]; // Pad out to 128 bytes for main section.
+ } S2S_TargetCfg;
+ 
+ static inline uint8_t s2s_getTargetId(const S2S_TargetCfg *cfg) {
+diff --git a/lib/SCSI2SD/src/firmware/scsi.c b/lib/SCSI2SD/src/firmware/scsi.c
+index bc01ac8..33ac008 100755
+--- a/lib/SCSI2SD/src/firmware/scsi.c
++++ b/lib/SCSI2SD/src/firmware/scsi.c
+@@ -596,6 +596,27 @@ static void process_Command()
+ 	}
+ 
+ 
++	if (scsiDev.lun > 0)
++	{
++		int tgtIndex;
++		for (tgtIndex = 0; tgtIndex < S2S_MAX_TARGETS; ++tgtIndex)
++		{
++			const S2S_TargetCfg* hosted = scsiDev.targets[tgtIndex].cfg;
++			if (hosted && hosted->hostedLun == scsiDev.lun &&
++				hosted->hostId == scsiDev.target->targetId)
++			{
++				scsiDev.target = &scsiDev.targets[tgtIndex];
++				scsiDev.lun = 0;
++				// Selection only clears unit attention on the LUN 0 slot.
++				if (scsiDev.compatMode == COMPAT_SCSI1)
++				{
++					scsiDev.target->unitAttention = 0;
++				}
++				break;
++			}
++		}
++	}
++
+ 	// For Philips P2000C with Xebec S1410 SASI/MFM adapter
+ 	// http://bitsavers.trailing-edge.com/pdf/xebec/104524C_S1410Man_Aug83.pdf
+ 	if ((scsiDev.lun > 0) && (scsiDev.boardCfg.flags & S2S_CFG_MAP_LUNS_TO_IDS))
+@@ -953,7 +974,8 @@ static void process_SelectionPhase()
+ 	TargetState* target = NULL;
+ 	for (tgtIndex = 0; tgtIndex < S2S_MAX_TARGETS; ++tgtIndex)
+ 	{
+-		if (scsiDev.targets[tgtIndex].targetId == (selStatus & S2S_CFG_TARGET_ID_BITS))
++		if (scsiDev.targets[tgtIndex].targetId == (selStatus & S2S_CFG_TARGET_ID_BITS) &&
++			!scsiDev.targets[tgtIndex].cfg->hostedLun)
+ 		{
+ 			target = &scsiDev.targets[tgtIndex];
+ 			break;
+diff --git a/src/BlueSCSI.cpp b/src/BlueSCSI.cpp
+index 221fac2..8ffd028 100644
+--- a/src/BlueSCSI.cpp
++++ b/src/BlueSCSI.cpp
+@@ -444,6 +444,39 @@ static bool typeIsRemovable(S2S_CFG_TYPE type)
+   }
+ }
+ 
++// LUN 1-7 named by the fourth character (HD51...), when EnableLUNs is set.
++static int hostedLunFromName(const char *name)
++{
++  if (!g_scsi_settings.getSystem()->enableLUNs || strlen(name) <= HDIMG_LUN_POS)
++    return 0;
++  int id = scsiDecodeID(name[HDIMG_ID_POS]);
++  if (id < 0 || id >= NUM_SCSIID)
++    return 0;
++  int lun = name[HDIMG_LUN_POS] - '0';
++  return (lun >= 1 && lun <= 7) ? lun : 0;
++}
++
++static int findFreeSlot()
++{
++  for (int i = 0; i < S2S_MAX_TARGETS; i++)
++  {
++    if (!s2s_isTargetEnabled(s2s_getConfigByIndex(i)))
++      return i;
++  }
++  return -1;
++}
++
++static bool hostedLunExists(int host_id, int lun)
++{
++  for (int i = 0; i < S2S_MAX_TARGETS; i++)
++  {
++    const S2S_TargetCfg *cfg = s2s_getConfigByIndex(i);
++    if (s2s_isTargetEnabled(cfg) && cfg->hostId == host_id && cfg->hostedLun == lun)
++      return true;
++  }
++  return false;
++}
++
+ // Iterate over the root path in the SD card looking for candidate image files.
+ bool findHDDImages()
+ {
+@@ -470,6 +503,14 @@ bool findHDDImages()
+   bool foundImage = false;
+   int usedDefaultId = 0;
+   uint8_t removable_count = 0;
++  // Hosted LUNs are placed in a second pass, so they only take slots that no
++  // LUN 0 image claimed.
++  bool hosted_pending = false;
++  bool hosted_pass = false;
++  for (int i = 0; i < S2S_MAX_TARGETS; i++)
++  {
++    g_scsi_settings.setHostedLun(i, 0, 0);
++  }
+ #ifdef BLUESCSI_BUTTONS
+   uint8_t eject_btn_set = 0;
+   uint8_t last_removable_device = 255;
+@@ -500,6 +541,15 @@ bool findHDDImages()
+         }
+         continue;
+       }
++      else if (hosted_pending && !hosted_pass)
++      {
++        hosted_pass = true;
++        dirindex = 0;
++        ini_gets("SCSI", "Dir", "/", imgdir, sizeof(imgdir), CONFIGFILE);
++        logmsg("=== Finding hosted LUN images in ", imgdir, " ===");
++        root.open(imgdir);
++        continue;
++      }
+       else
+       {
+         break;
+@@ -511,6 +561,8 @@ bool findHDDImages()
+       file.getName(name, MAX_FILE_PATH+1);
+       file.close();
+ 
++      if (hosted_pass && hostedLunFromName(name) == 0) continue;
++
+       // Special filename for clearing any previously programmed ROM drive
+       if(strcasecmp(name, "CLEAR_ROM") == 0)
+       {
+@@ -622,6 +674,34 @@ bool findHDDImages()
+           }
+         }
+ 
++        // From here on a hosted LUN uses its slot number as its id.
++        int host_id = id;
++        int hosted_lun = hostedLunFromName(name);
++        if (hosted_lun > 0 && !hosted_pass)
++        {
++          hosted_pending = true;
++          continue;
++        }
++        if (hosted_lun > 0)
++        {
++          int slot = findFreeSlot();
++          if (slot < 0)
++          {
++            logmsg("-- Ignoring ", name, ", no free device slot for ID ", host_id, " LUN ", hosted_lun);
++            continue;
++          }
++          if (hostedLunExists(host_id, hosted_lun))
++          {
++            logmsg("-- Ignoring ", name, ", ID ", host_id, " LUN ", hosted_lun, " is already in use!");
++            continue;
++          }
++          if (!s2s_getConfigById(host_id))
++          {
++            logmsg("---- Warning: ID ", host_id, " has no LUN 0 image, hosts may not scan its LUNs");
++          }
++          id = slot;
++        }
++
+         // Add the directory name to get the full file path
+         char fullname[MAX_FILE_PATH * 2 + 2] = {0};
+         strncpy(fullname, imgdir, MAX_FILE_PATH);
+@@ -664,9 +744,18 @@ bool findHDDImages()
+         if (is_zp) type = S2S_CFG_ZIP100;
+         if (is_pr) type = S2S_CFG_PRINTER;
+ 
++        if (hosted_lun > 0)
++        {
++          g_scsi_settings.setHostedLun(id, host_id, hosted_lun);
++        }
+         g_scsi_settings.initDevice(id & (NUM_SCSIID - 1), type);
+         // Open the image file
+-        if (id < NUM_SCSIID && is_romdrive)
++        if (hosted_lun > 0 && is_romdrive)
++        {
++          logmsg("-- Ignoring ", fullname, ", a ROM drive cannot be a hosted LUN");
++          g_scsi_settings.setHostedLun(id, 0, 0);
++        }
++        else if (id < NUM_SCSIID && is_romdrive)
+         {
+           logmsg("-- Loading ROM drive from ", fullname, " for id:", id);
+           imageReady = scsiDiskProgramRomDrive(fullname, id, blk, type);
+@@ -687,10 +776,18 @@ bool findHDDImages()
+           if(imageReady)
+           {
+             foundImage = true;
++            if (hosted_lun > 0)
++            {
++              image_config_t &img = scsiDiskGetImageConfig(id);
++              img.hostId = host_id;
++              img.hostedLun = hosted_lun;
++              logmsg("---- Hosted as ID ", host_id, " LUN ", hosted_lun, " in slot ", id);
++            }
+           }
+           else
+           {
+             logmsg("---- Failed to load image");
++            g_scsi_settings.setHostedLun(id, 0, 0);
+           }
+         } else {
+           logmsg("-- Invalid lun or id for image ", fullname);
+@@ -717,6 +814,11 @@ bool findHDDImages()
+     {
+       int capacity_kB = ((uint64_t)cfg->scsiSectors * cfg->bytesPerSector) / 1024;
+ 
++      if (cfg->hostedLun)
++      {
++        logmsg("Slot ", i, " is ID ", (int)cfg->hostId, " LUN ", (int)cfg->hostedLun, ":");
++      }
++
+       if (cfg->deviceType == S2S_CFG_NETWORK || cfg->deviceType == S2S_CFG_AMIGAWIFI ||
+           cfg->deviceType == S2S_CFG_PRINTER)
+       {
+diff --git a/src/BlueSCSI_disk.cpp b/src/BlueSCSI_disk.cpp
+index c22f037..ddd3f30 100644
+--- a/src/BlueSCSI_disk.cpp
++++ b/src/BlueSCSI_disk.cpp
+@@ -1794,7 +1794,7 @@ const S2S_TargetCfg* s2s_getConfigById(int scsiId)
+     {
+         const S2S_TargetCfg* tgt = s2s_getConfigByIndex(i);
+         if (s2s_getTargetId(tgt) == scsiId &&
+-            s2s_isTargetEnabled(tgt))
++            s2s_isTargetEnabled(tgt) && !tgt->hostedLun)
+         {
+             return tgt;
+         }
+diff --git a/src/BlueSCSI_log_trace.cpp b/src/BlueSCSI_log_trace.cpp
+index 96e56b3..856de6d 100644
+--- a/src/BlueSCSI_log_trace.cpp
++++ b/src/BlueSCSI_log_trace.cpp
+@@ -332,7 +332,9 @@ void scsiLogDataOut(const uint8_t *buf, uint32_t length)
+ {
+     if (buf == scsiDev.cdb || g_LogInitiatorCommand)
+     {
+-        dbgmsg("---- COMMAND: ", buf[0], " (", getCommandName(buf[0]), ")");
++        // LUN from IDENTIFY if the host sent one, else from CDB byte 1 (SCSI-1).
++        int lun = (scsiDev.lun >= 0 || length < 2) ? scsiDev.lun : (buf[1] >> 5);
++        dbgmsg("---- COMMAND: ", buf[0], " (", getCommandName(buf[0]), ") LUN ", lun);
+     }
+     
+     if (g_LogData)
+diff --git a/src/BlueSCSI_settings.cpp b/src/BlueSCSI_settings.cpp
+index 77c1042..72eae15 100644
+--- a/src/BlueSCSI_settings.cpp
++++ b/src/BlueSCSI_settings.cpp
+@@ -120,10 +120,24 @@ const char **BlueSCSISettings::deviceInitST32430N(uint8_t scsiId)
+ }
+ 
+ 
++void BlueSCSISettings::setHostedLun(uint8_t scsiId, uint8_t hostId, uint8_t lun)
++{
++    m_hostId[scsiId] = hostId;
++    m_hostedLun[scsiId] = lun;
++}
++
++void BlueSCSISettings::deviceSection(uint8_t scsiId, char *section, size_t len)
++{
++    if (m_hostedLun[scsiId])
++        snprintf(section, len, "SCSI%dL%d", (int)m_hostId[scsiId], (int)m_hostedLun[scsiId]);
++    else
++        snprintf(section, len, "SCSI%d", (int)scsiId);
++}
++
+ void BlueSCSISettings::setDefaultDriveInfo(uint8_t scsiId, const char *presetName, S2S_CFG_TYPE type)
+ {
+-    char section[8];
+-    snprintf(section, sizeof(section), "SCSI%d", (int)scsiId);
++    char section[12];
++    deviceSection(scsiId, section, sizeof(section));
+ 
+     scsi_device_settings_t &cfgDev = m_dev[scsiId];
+     scsi_device_settings_t &cfgDefault = m_dev[SCSI_SETTINGS_SYS_IDX];
+@@ -343,6 +357,8 @@ static void logNonDefaultSystemSettings(const scsi_system_settings_t &defaults,
+         logmsg("-- EnableSelLatch = ", current.enableSelLatch ? "Yes" : "No");
+     if (current.mapLunsToIDs != defaults.mapLunsToIDs)
+         logmsg("-- MapLunsToIDs = ", current.mapLunsToIDs ? "Yes" : "No");
++    if (current.enableLUNs != defaults.enableLUNs)
++        logmsg("-- EnableLUNs = ", current.enableLUNs ? "Yes" : "No");
+     if (current.enableParity != defaults.enableParity)
+         logmsg("-- EnableParity = ", current.enableParity ? "Yes" : "No");
+     if (current.useFATAllocSize != defaults.useFATAllocSize)
+@@ -444,6 +460,7 @@ scsi_system_settings_t *BlueSCSISettings::initSystem(const char *presetName)
+     cfgSys.enableSCSI2 = true;
+     cfgSys.enableSelLatch = false;
+     cfgSys.mapLunsToIDs = false;
++    cfgSys.enableLUNs = false;
+     cfgSys.enableParity = true;
+     cfgSys.useFATAllocSize = false;
+ #ifdef BLUESCSI_MCU_RP20XX
+@@ -610,6 +627,7 @@ scsi_system_settings_t *BlueSCSISettings::initSystem(const char *presetName)
+     cfgSys.enableSCSI2 = ini_getbool("SCSI", "EnableSCSI2", cfgSys.enableSCSI2, CONFIGFILE);
+     cfgSys.enableSelLatch = ini_getbool("SCSI", "EnableSelLatch", cfgSys.enableSelLatch, CONFIGFILE);
+     cfgSys.mapLunsToIDs = ini_getbool("SCSI", "MapLunsToIDs", cfgSys.mapLunsToIDs, CONFIGFILE);
++    cfgSys.enableLUNs = ini_getbool("SCSI", "EnableLUNs", cfgSys.enableLUNs, CONFIGFILE);
+     cfgSys.enableParity =  ini_getbool("SCSI", "EnableParity", cfgSys.enableParity, CONFIGFILE);
+     cfgSys.useFATAllocSize = ini_getbool("SCSI", "UseFATAllocSize", cfgSys.useFATAllocSize, CONFIGFILE);
+     cfgSys.enableCDAudio = ini_getbool("SCSI", "EnableCDAudio", cfgSys.enableCDAudio, CONFIGFILE);
+@@ -652,8 +670,8 @@ scsi_device_settings_t* BlueSCSISettings::initDevice(uint8_t scsiId, S2S_CFG_TYP
+ {
+     scsi_device_settings_t& cfg = m_dev[scsiId];
+     char presetName[32] = {};
+-    char section[8];
+-    snprintf(section, sizeof(section), "SCSI%d", (int)scsiId);
++    char section[12];
++    deviceSection(scsiId, section, sizeof(section));
+ 
+ #ifdef BLUESCSI_HARDWARE_CONFIG
+     const char *hwDevicePresetName = g_scsi_settings.getDevicePresetName(scsiId);
+diff --git a/src/BlueSCSI_settings.h b/src/BlueSCSI_settings.h
+index 2a64ffe..541a7a4 100644
+--- a/src/BlueSCSI_settings.h
++++ b/src/BlueSCSI_settings.h
+@@ -101,6 +101,7 @@ typedef struct __attribute__((__packed__)) scsi_system_settings_t
+     bool enableSCSI2;
+     bool enableSelLatch;
+     bool mapLunsToIDs;
++    bool enableLUNs;
+     bool enableParity;
+     bool useFATAllocSize;
+     bool enableCDAudio;
+@@ -170,6 +171,8 @@ public:
+     // or return the default config if unknown device type.
+     // Then overwrite any settings with those in the CONFIGFILE
+     scsi_device_settings_t *initDevice(uint8_t scsiId, S2S_CFG_TYPE type);
++    // Read slot scsiId's settings from [SCSI<hostId>L<lun>] instead of [SCSI<scsiId>].
++    void setHostedLun(uint8_t scsiId, uint8_t hostId, uint8_t lun);
+     // return the system settings struct to read values
+     scsi_system_settings_t *getSystem();
+ 
+@@ -204,6 +207,10 @@ protected:
+     // is loaded and the device type is known.
+     void setDefaultDriveInfo(uint8_t scsiId, const char *presetName, S2S_CFG_TYPE type);
+ 
++    void deviceSection(uint8_t scsiId, char *section, size_t len);
++    uint8_t m_hostId[S2S_MAX_TARGETS];
++    uint8_t m_hostedLun[S2S_MAX_TARGETS];
++
+     // Settings for the specific device
+     const char **deviceInitST32430N(uint8_t scsiId);
+ 
+-- 
+2.43.0
+
