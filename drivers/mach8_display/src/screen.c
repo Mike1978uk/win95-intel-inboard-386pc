@@ -4051,6 +4051,228 @@ static void m8_tk_replay( const M8_TKENTRY *k, int x0, int y0, BYTE fg, BYTE bg 
     m8_leave();
 }
 
+/* Packed text: a string the text key has not seen before is laid out here
+ * instead of by the DIB Engine, and sent as one mono expansion. GDI sets
+ * ETO_BYTE_PACKED for raster text; lpFontInfo is then GDI's glyph table, not
+ * an FNT image, and the transform argument is the string's box. The layout
+ * is DIBENG's (docs/dibeng_font_layout_2026_10_31.md section 7): [2] bit 80h
+ * selects 4-byte glyph pointers and word headers, else 2-byte pointers and
+ * byte headers; [6] the pointer table, [0Ah] the advance table, both offsets
+ * in the segment. A header is x origin, y origin, width, height; the bits
+ * follow row by row, (width + 7) / 8 bytes a row, leftmost pixel in the top
+ * bit. The box is the bitmap: clear bits are the background when opaque, and
+ * each glyph is OR-ed in at x + x origin, y - y origin. The value returned is
+ * the DIB Engine's own for the table, used once it has returned the same
+ * value twice. */
+#define M8_ETO_BYTE_PACKED  0x0100
+#define M8_GC_FONTS         4
+#define M8_GC_MAX_N         64
+#define M8_GC_MAX_WB        64          /* bitmap bytes a row */
+#define M8_GC_MAX_H         32
+#define M8_GC_HEAD          14          /* the table's header, hashed as its identity */
+
+typedef struct {
+    WORD        sel;
+    DWORD       h1;
+    DWORD       limit;                  /* the segment's last byte, at most FFFFh */
+    WORD        use;
+    DWORD       rc;
+    int         rc_n;
+} M8_GCFONT;
+
+static M8_GCFONT    m8_gc[M8_GC_FONTS];
+static WORD         m8_gc_use;
+static BYTE         m8_gc_bits[M8_GC_MAX_WB * M8_GC_MAX_H + 1];    /* + M8_GLYPH_OR's spare */
+
+/* text.asm: OR a glyph's rows into the bitmap, each byte shifted right. */
+extern void M8_GLYPH_OR( BYTE FAR *dst, const BYTE FAR *src, WORD stride_shift, WORD rows_gwb );
+#pragma aux M8_GLYPH_OR "*" parm [dx ax] [cx bx] [si] [di] modify [ax bx cx dx si di es fs];
+
+static int m8_gc_plain( LPDRAWMODE dm, LPVOID box, WORD options )
+{
+    return( options == M8_ETO_BYTE_PACKED && box != NULL && dm->CharExtra == 0 &&
+            dm->TBreakExtra == 0 && (dm->bkMode == 1 || dm->bkMode == 2) );
+}
+
+/* The table's entry, made if new; a segment freed and reused differs in its
+ * header. NULL if the header lies outside the segment. */
+static M8_GCFONT *m8_gc_font( WORD sel )
+{
+    M8_HASH     hs;
+    DWORD       h1;
+    DWORD       limit = 0;
+    M8_GCFONT   *e;
+    M8_GCFONT   *old = &m8_gc[0];
+    int         i;
+
+    for( i = 0; i < M8_GC_FONTS; ++i ) {
+        if( m8_gc[i].sel == sel ) {
+            limit = m8_gc[i].limit;
+            break;
+        }
+    }
+    if( i == M8_GC_FONTS ) {
+        limit = GetSelectorLimit( sel );
+        if( limit < M8_GC_HEAD ) {
+            return( NULL );
+        }
+    }
+    m8_hash_init( &hs, M8_GC_HEAD );
+    m8_hash_bytes( &hs, (const BYTE FAR *)MK_FP( sel, 0 ), M8_GC_HEAD );
+    h1 = m8_hash_h1( &hs );
+    for( i = 0; i < M8_GC_FONTS; ++i ) {
+        e = &m8_gc[i];
+        if( e->sel == sel && e->h1 == h1 ) {
+            break;
+        }
+        if( e->use < old->use ) {
+            old = e;
+        }
+    }
+    if( i == M8_GC_FONTS ) {
+        e = old;
+        e->sel = sel;
+        e->h1 = h1;
+        e->limit = limit > 0xFFFFUL ? 0xFFFFUL : limit;
+        e->rc_n = 0;
+    }
+    e->use = ++m8_gc_use;
+    return( e );
+}
+
+/* OR glyph idx into the bitmap (wb bytes a row, h rows) with its pen at gx, gy
+ * in the bitmap: 0 if the glyph is outside the segment or the bitmap. */
+static int m8_gc_glyph( const M8_GCFONT *e, BYTE idx, int gx, int gy, WORD wb, int h )
+{
+    const BYTE FAR  *fs = (const BYTE FAR *)MK_FP( e->sel, 0 );
+    DWORD           tab = *(const DWORD FAR *)(fs + 6);
+    DWORD           p;
+    int             x;
+    int             y;
+    WORD            w;
+    WORD            gh;
+    WORD            gwb;
+
+    if( fs[2] & 0x80 ) {
+        if( tab + (DWORD)idx * 4 + 3 > e->limit ) {
+            return( 0 );
+        }
+        p = *(const DWORD FAR *)(fs + (WORD)tab + idx * 4);
+        if( p + 7 > e->limit ) {
+            return( 0 );
+        }
+        x = gx + *(const short FAR *)(fs + (WORD)p);
+        y = gy - *(const short FAR *)(fs + (WORD)p + 2);
+        w = *(const WORD FAR *)(fs + (WORD)p + 4);
+        gh = *(const WORD FAR *)(fs + (WORD)p + 6);
+        p += 8;
+    } else {
+        if( tab + (DWORD)idx * 2 + 1 > e->limit ) {
+            return( 0 );
+        }
+        p = *(const WORD FAR *)(fs + (WORD)tab + idx * 2);
+        if( p + 3 > e->limit ) {
+            return( 0 );
+        }
+        x = gx + (signed char)fs[(WORD)p];
+        y = gy - (signed char)fs[(WORD)p + 1];
+        w = fs[(WORD)p + 2];
+        gh = fs[(WORD)p + 3];
+        p += 4;
+    }
+    if( w == 0 || gh == 0 ) {
+        return( 1 );
+    }
+    gwb = (WORD)((w + 7) / 8);
+    if( x < 0 || y < 0 || x + (int)w > (int)wb * 8 || y + (int)gh > h ||
+        p + (DWORD)gwb * gh - 1 > e->limit ) {
+        return( 0 );
+    }
+    M8_GLYPH_OR( (BYTE FAR *)&m8_gc_bits[y * wb + (x >> 3)], fs + (WORD)p,
+                 wb | (WORD)(x & 7) << 8, gh | gwb << 8 );
+    return( 1 );
+}
+
+static int m8_gc_text( int x0, int y0, LPRECT lpClip, LPSTR str, int n, LPVOID font,
+                       LPDRAWMODE dm, LPRECT lpBox, LPSHORT widths, DWORD *rc )
+{
+    M8_GCFONT       *e;
+    const BYTE FAR  *fs;
+    DWORD           adv;
+    M8_RECT         frame;
+    M8_RECT         box;
+    M8_RECT         c;
+    WORD            wb;
+    int             h;
+    int             x = x0;
+    int             i;
+
+    if( n > M8_GC_MAX_N ) {
+        return( 0 );
+    }
+    e = m8_gc_font( FP_SEG( font ) );
+    if( e == NULL || e->rc_n < 2 ) {
+        return( 0 );
+    }
+    fs = (const BYTE FAR *)MK_FP( e->sel, 0 );
+    adv = *(const DWORD FAR *)(fs + 0x0A);
+    if( widths == NULL && adv + 0x1FF > e->limit ) {
+        return( 0 );
+    }
+    m8_rect_from_gdi( &frame, lpBox );
+    h = frame.b - frame.t;
+    if( frame.l < 0 || frame.t < 0 || frame.r <= frame.l || h <= 0 || h > M8_GC_MAX_H ||
+        frame.r - frame.l > M8_GC_MAX_WB * 8 || frame.r > M8_COORD_MAX ||
+        frame.b > M8_COORD_MAX ) {
+        return( 0 );
+    }
+    wb = (WORD)((frame.r - frame.l + 7) / 8);
+    memset( m8_gc_bits, 0, wb * h );
+    for( i = 0; i < n; ++i ) {
+        if( !m8_gc_glyph( e, (BYTE)str[i], x - frame.l, y0 - frame.t, wb, h ) ) {
+            return( 0 );
+        }
+        x += widths != NULL ? widths[i] :
+             *(const short FAR *)(fs + (WORD)adv + (BYTE)str[i] * 2);
+    }
+    box = frame;
+    if( lpClip != NULL ) {
+        m8_rect_from_gdi( &c, lpClip );
+        m8_rect_and( &box, &c );
+    }
+    m8_rect_screen( &c );
+    m8_rect_and( &box, &c );
+    *rc = e->rc;
+    if( m8_rect_empty( &box ) ) {
+        return( 1 );
+    }
+    m8_enter( &box );
+    m8_hw_mono( frame.l, frame.t, wb, (WORD)h, m8_gc_bits,
+                M8_MIX_SRC_FRGD | M8_MIX_REPLACE, (BYTE)dm->TextColor,
+                dm->bkMode == 1 ? M8_MIX_LEAVE : M8_MIX_SRC_BKGD | M8_MIX_REPLACE,
+                (BYTE)dm->bkColor, box.l, box.t, box.r - 1, box.b - 1 );
+    m8_leave();
+    return( 1 );
+}
+
+/* The DIB Engine's return for a plain string in this table. */
+static void m8_gc_learn( LPVOID font, DWORD rc )
+{
+    M8_GCFONT   *e = m8_gc_font( FP_SEG( font ) );
+
+    if( e == NULL ) {
+        return;
+    }
+    if( e->rc_n > 0 && e->rc == rc ) {
+        if( e->rc_n < 2 ) {
+            ++e->rc_n;
+        }
+    } else {
+        e->rc = rc;
+        e->rc_n = 1;
+    }
+}
+
 DWORD WINAPI __loadds ExtTextOut( LPPDEVICE lpDestDev, WORD wDestXOrg, WORD wDestYOrg,
                                   LPRECT lpClipRect, LPSTR lpString, int wCount,
                                   LPFONTINFO lpFontInfo, LPDRAWMODE lpDrawMode,
@@ -4085,6 +4307,7 @@ DWORD WINAPI __loadds ExtTextOut( LPPDEVICE lpDestDev, WORD wDestXOrg, WORD wDes
         DWORD       h1 = 0;
         DWORD       h2 = 0;
         M8_TKENTRY  *k = NULL;
+        int         gc = 0;
 
         DWORD       pa;
 
@@ -4112,6 +4335,13 @@ DWORD WINAPI __loadds ExtTextOut( LPPDEVICE lpDestDev, WORD wDestXOrg, WORD wDes
             m8_tk_bg = (BYTE)lpDrawMode->bkColor;
             m8_tk_bad = 0;
             m8_tk_bitmaps = 0;
+            gc = m8_gc_plain( lpDrawMode, lpTextXForm, wOptions );
+            if( gc && m8_tk_first &&
+                m8_gc_text( (short)wDestXOrg, (short)wDestYOrg, lpClipRect, lpString, wCount,
+                            lpFontInfo, lpDrawMode, (LPRECT)lpTextXForm, lpCharWidths, &rc ) ) {
+                m8_tk_first = 0;
+                return( rc );
+            }
             m8_tk_cap = 1;
         }
         m8_busy = 1;
@@ -4125,6 +4355,9 @@ DWORD WINAPI __loadds ExtTextOut( LPPDEVICE lpDestDev, WORD wDestXOrg, WORD wDes
         m8_leave();
         m8_tk_cap = 0;
         m8_tk_first = 0;
+        if( gc && !m8_text_failed ) {
+            m8_gc_learn( lpFontInfo, rc );
+        }
         if( k != NULL && !m8_text_failed && !m8_tk_bad && m8_tk_bitmaps == 1 ) {
             m8_tk_new.h1 = h1;
             m8_tk_new.h2 = h2;
