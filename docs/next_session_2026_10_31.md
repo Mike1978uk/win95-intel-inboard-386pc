@@ -69,6 +69,9 @@ Card log: `docs/captures/2026-10-31_card/m8_card_bench.txt`. Gate unchanged: >= 
   come from RAM through the bitmap cache, not proxy to proxy. Reverted. A mem_to_mem fix must keep
   the cache path for sources that recur (drag_frame) and skip it for one-off ones - e.g. the cache's
   seen-twice rule before paying the ~2 ms lookup, or a cheaper key than the full hash.
+- Also no gain (card_bl1-4, reverted): copying the rows out only on a cache store: mem_to_mem +4%,
+  drag_frame -9%, both in noise. The ~2 ms m8_bc_lookup is not the row copy. Next: time its parts
+  (m8_bits_row + hash per row, the entries scan, seen-twice) in the profile build before any change.
 - **Boot stall #5** right after #4 (owner: wallpaper + cursor again); a second power cycle cleared it.
   Two consecutive stalls: investigate before the next long card session (BOOTLOG, Explorer with ATIM8).
 - (done) XFree86 + all-35 sweep agent was running at the limit: check for `docs/xfree86_and_all_tests_sweep.md`.
