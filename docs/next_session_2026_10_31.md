@@ -34,6 +34,15 @@ Card log: `docs/captures/2026-10-31_card/m8_card_bench.txt`. Gate unchanged: >= 
 - Still below: text_varied ~0.93, polygon ~0.95 (set-up ~290 us a call: rows 44, brush 51,
   fill set-up 24, other ~170), dstinvert ~0.94-0.98 (first-run effect).
 
+- **Polygon trims, no gain (card_po21-24, reverted):** BEGIN/END NSCAN returned at Output's top and
+  solid brushes read inline: polygon +1% (0.96x), while bmp_large, mono_bmp, lines, rubber_band and
+  fill_hatch (none on the changed paths) fell 5-12%. **Code layout is now a lever and a hazard:**
+  editing a function shifts every hot function after it within its 16-byte lines; every port write
+  flushes the L1, so a line more in a hot path costs ~1.3 us each time. Next: put hot short paths in
+  aligned assembly (spans.asm/hash.asm already are) so C edits stop moving them, then re-measure.
+  ATIM8's BEGINNSCAN excludes the cursor once per batch (seg08:05c7, flag [13c6] read at 0baf).
+- text_varied next: glyph cache (XFree86 mach8fcach.c); est. ~600 us vs ~1,070 us a string.
+
 ## Answered 10-31: GDI bitmap RAM is cached (card_pc31)
 
 1 KB hashed on a second pass: a bitmap's bits 245-249 us, the driver's own data 247-248 us (both
