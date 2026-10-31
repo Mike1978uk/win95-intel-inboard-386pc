@@ -683,9 +683,36 @@ int __cdecl m8_hw_drain( void )
  * (count, y), the rest x pairs. poly 1 is OS_POLYSCANLINE: records of x count,
  * top, bottom, the x pairs and the count again. A one-row span goes through
  * SCAN_TO_X; y and byte are the row and pattern byte the engine holds. */
+/* rot[r] such that pattern row r is row 0 rotated left by rot[r], for every
+ * row: 1. A pixel at x takes bit 7 - ((x + PATT_INDEX) & 7) (index 0 is bit
+ * 7, M8PATT), so with row 0 left in PATT_DATA, PATT_INDEX = (x + rot) & 7
+ * draws row r: dithers and hatches need no pattern write per row. */
+static int m8_pat_rotations( const BYTE *pat, BYTE *rot )
+{
+    int     r;
+    BYTE    d;
+    BYTE    v;
+
+    for( r = 0; r < 8; ++r ) {
+        for( d = 0; d < 8; ++d ) {
+            v = (BYTE)((pat[0] << d) | (pat[0] >> ((8 - d) & 7)));
+            if( v == pat[r] ) {
+                break;
+            }
+        }
+        if( d == 8 ) {
+            return( 0 );
+        }
+        rot[r] = d;
+    }
+    return( 1 );
+}
+
 void m8_hw_scan_spans( int poly, WORD count, const short FAR *w,
                        int l, int t, int r, int b, const BYTE *pat )
 {
+    BYTE                rot[8];
+    int                 rotok;
     int                 y = m8_scan_y;
     WORD                byte = m8_scan_byte;
     int                 room = m8_room;
@@ -722,6 +749,7 @@ void m8_hw_scan_spans( int poly, WORD count, const short FAR *w,
         m8_stats[M8_STAT_FILL_HW] += m8_sp.spans;
         return;
     }
+    rotok = m8_pat_rotations( pat, rot );
     for( ; recs > 0; --recs ) {
         if( poly ) {
             n = (WORD)w[0];
@@ -771,7 +799,16 @@ void m8_hw_scan_spans( int poly, WORD count, const short FAR *w,
                 --room;
             }
             outpw( M8_CUR_X, x0 );
-            if( pat != NULL ) {
+            if( rotok ) {
+                if( pat[0] != byte ) {
+                    byte = pat[0];
+                    outpw( M8_PATT_DATA_INDEX, 0x10 );
+                    outpw( M8_PATT_DATA, byte );
+                    room -= 2;
+                }
+                outpw( M8_PATT_INDEX, (x0 + rot[y & 7]) & 7 );
+                --room;
+            } else if( pat != NULL ) {
                 if( pat[y & 7] != byte ) {
                     byte = pat[y & 7];
                     outpw( M8_PATT_DATA_INDEX, 0x10 );
