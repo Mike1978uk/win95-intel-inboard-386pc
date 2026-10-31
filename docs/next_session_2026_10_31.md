@@ -39,6 +39,22 @@ Card log: `docs/captures/2026-10-31_card/m8_card_bench.txt`. Gate unchanged: >= 
   on the card. Next: card-bench it twice against master; merge only if polygon/ellipse gain and
   nothing drops. Then run M8PSET's set-up timers.
 
+## Evening 10-31: 1.652x ATI (29e3f3b, four runs), pixels = ATI in all 35
+
+- Boot stall #3 on screen: wallpaper and cursor, no taskbar (as 10-23); a power cycle cleared it.
+- `6b02fde` span walk by cache lines: polygon +7%. `863906f` rows before the box for the cursor
+  test (scan_bound was ~190 us a polygon call): polygon 0.95x, ellipse 1.03x.
+- `29e3f3b` DIB rows translated four pixels a step in `xlat.asm`, a band per `rep outsw`:
+  dib_8bpp 0.83 -> 1.13x, stretch_dib +20%, stretchblt +14%.
+- ATIM8 per-test comparison: `docs/atim8_vs_ours_lagging_tests.md` (polygon: ATI writes the clip into
+  the hardware scissors once a call and does no software clipping; 6 port accesses a span).
+- **First bench runs after a reboot read low** in some tests (dstinvert 1416/1610, then 1758/1787 on
+  the same boot) although M8IDLE passed: judge a change on the later runs, or bench four.
+- Still below (four runs): mem_to_mem 0.79, cursor_move 0.89, text_varied 0.90, bmp_changing 0.93,
+  polygon 0.95; dstinvert ~0.98 on later runs. mem_to_mem outcome counters (slots 39-44) on the card.
+- Owner decision owed: bmp_changing - keep the card copy current on SetPixel (doc item 2) changes
+  what the test measures ("what a cache cannot help").
+
 ## Below ATI (four-run mean, 6cd03ab)
 
 text_varied 0.89, dib_8bpp 0.82, polygon 0.83, mem_to_mem 0.75 (swings 0.66-0.94), bmp_changing
