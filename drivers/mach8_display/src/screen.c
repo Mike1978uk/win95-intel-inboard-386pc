@@ -1402,6 +1402,48 @@ static M8_BCENTRY *m8_bc_slot( void )
 /* The cache entry holding w x h of an 8-bit memory bitmap at (sx,sy), stored
  * now if need be; NULL if it cannot be cached. `force` stores on first sight:
  * a proxy's slot needs the pixels now, and the alternative is a write-back. */
+/* The last lookup: hashing the source is most of a lookup's cost, and a
+ * source that has not been written since gives the same entry. Forgotten at
+ * every write to that bitmap's RAM (m8_bc_forget): a destination touch, the
+ * Pixel write-through, a proxy write-back, deletion, and any forwarded entry. */
+static struct {
+    LPVOID      bmp;
+    WORD        sel;
+    DWORD       off;
+    WORD        bw;
+    WORD        bh;
+    int         sx;
+    int         sy;
+    int         w;
+    int         h;
+    M8_BCENTRY  *e;
+    DWORD       h1;
+    DWORD       h2;
+} m8_bc_memo;
+
+static void m8_bc_forget( LPVOID b )
+{
+    if( b == NULL || b == m8_bc_memo.bmp ) {
+        m8_bc_memo.bmp = NULL;
+    }
+}
+
+static void m8_bc_remember( LPDIBENGINE src, int sx, int sy, int w, int h, M8_BCENTRY *e )
+{
+    m8_bc_memo.bmp = src;
+    m8_bc_memo.sel = src->deBitsSelector;
+    m8_bc_memo.off = src->deBitsOffset;
+    m8_bc_memo.bw = src->deWidth;
+    m8_bc_memo.bh = src->deHeight;
+    m8_bc_memo.sx = sx;
+    m8_bc_memo.sy = sy;
+    m8_bc_memo.w = w;
+    m8_bc_memo.h = h;
+    m8_bc_memo.e = e;
+    m8_bc_memo.h1 = e->h1;
+    m8_bc_memo.h2 = e->h2;
+}
+
 static M8_BCENTRY *m8_bc_lookup( LPDIBENGINE src, int sx, int sy, int w, int h, int force )
 {
     WORD        we = (WORD)((w + 1) & ~1);
@@ -1422,6 +1464,16 @@ static M8_BCENTRY *m8_bc_lookup( LPDIBENGINE src, int sx, int sy, int w, int h, 
         return( NULL );
     }
     M8_TP( 0 );
+    e = m8_bc_memo.e;
+    if( (LPVOID)src == m8_bc_memo.bmp && src->deBitsSelector == m8_bc_memo.sel &&
+        src->deBitsOffset == m8_bc_memo.off && src->deWidth == m8_bc_memo.bw &&
+        src->deHeight == m8_bc_memo.bh && sx == m8_bc_memo.sx && sy == m8_bc_memo.sy &&
+        w == m8_bc_memo.w && h == m8_bc_memo.h && !e->px && e->w == (WORD)w &&
+        e->h == (WORD)h && e->h1 == m8_bc_memo.h1 && e->h2 == m8_bc_memo.h2 ) {
+        m8_bc_touch( e->x, e->y );
+        return( e );
+    }
+    e = NULL;
     m8_hash_init( &hs, (WORD)w );
     delta = (long)src->deDeltaScan;
     for( row = 0; row < h; ++row ) {
@@ -1443,6 +1495,7 @@ static M8_BCENTRY *m8_bc_lookup( LPDIBENGINE src, int sx, int sy, int w, int h, 
             M8_STEP( M8_MARK_BC_HIT );
             m8_bc_touch( e->x, e->y );
             M8_TP( 2 );
+            m8_bc_remember( src, sx, sy, w, h, e );
             return( e );
         }
     }
@@ -1469,6 +1522,7 @@ static M8_BCENTRY *m8_bc_lookup( LPDIBENGINE src, int sx, int sy, int w, int h, 
     if( !nested ) {
         m8_leave();
     }
+    m8_bc_remember( src, sx, sy, w, h, e );
     return( e );
 }
 
@@ -1592,6 +1646,7 @@ static void m8_px_writeback( M8_PXENTRY *p, WORD why )
     }
     M8_STEP( M8_MARK_PX_BACK );
     M8_STEP( why );
+    m8_bc_forget( p->bmp );
     m8_rect_set( &sr, p->e->x, p->e->y, p->e->x + we, p->e->y + p->h );
     if( !nested ) {
         m8_enter( &sr );
@@ -1635,6 +1690,15 @@ static void m8_px_touch( LPVOID dev, WORD why )
     }
 }
 
+/* The touch at an entry that draws into dev: its RAM is about to change. */
+static void m8_px_touch_dest( LPVOID dev, WORD why )
+{
+    if( dev != NULL ) {
+        m8_bc_forget( dev );
+    }
+    m8_px_touch( dev, why );
+}
+
 /* The bitmap cache is about to reuse a proxy's slot. */
 static void m8_px_evicted( M8_BCENTRY *e )
 {
@@ -1651,6 +1715,7 @@ static void m8_px_evicted( M8_BCENTRY *e )
 /* Forwarded entries that may read or write a bitmap (thunks.asm). */
 VOID WINAPI __loadds M8PXFLUSH( VOID )
 {
+    m8_bc_forget( NULL );
     if( m8_px_n > 0 ) {
         m8_px_flush( NULL, M8_PX_WHY_FORWARD );
     }
@@ -1672,6 +1737,9 @@ VOID WINAPI __loadds M8PXREALIZE( short iStyle, LPVOID lpInObj )
                 m8_px_drop( &m8_px[k], 0 );
             }
         }
+    }
+    if( iStyle == -M8_OBJ_BITMAP && lpInObj != NULL ) {
+        m8_bc_forget( lpInObj );
     }
     if( iStyle == -M8_OBJ_BITMAP && lpInObj != NULL && lpInObj == m8_px_gone ) {
         m8_px_gone = NULL;
@@ -2624,6 +2692,7 @@ static BOOL m8_bitblt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPDEVICE 
                 return( TRUE );
             }
         }
+        m8_bc_forget( lpDestDev );
         m8_px_touch_rect( lpDestDev, (short)wDestX, (short)wDestY, (short)wXext, (short)wYext,
                           M8_PX_WHY_MEM );
         if( m8_rop_uses_src( dwRop3 ) ) {
@@ -2780,7 +2849,7 @@ static BOOL m8_bitblt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPDEVICE 
             m8_px_save( (LPDIBENGINE)lpDestDev, wDestX, wDestY, wSrcX, wSrcY, wXext, wYext ) ) {
             return( TRUE );
         }
-        m8_px_touch( lpDestDev, M8_PX_WHY_ENTRY );
+        m8_px_touch_dest( lpDestDev, M8_PX_WHY_ENTRY );
         m8_rect_set( &sr, wSrcX, wSrcY, wSrcX + wXext, wSrcY + wYext );
         m8_rect_align( &sr );
         rows = m8_strip_rows( &sr, &pitch );
@@ -3178,7 +3247,7 @@ WORD WINAPI __loadds Output( LPPDEVICE lpDestDev, WORD wStyle, WORD wCount, LPPO
             return( 1 );
         }
     }
-    m8_px_touch( lpDestDev, M8_PX_WHY_ENTRY );
+    m8_px_touch_dest( lpDestDev, M8_PX_WHY_ENTRY );
     if( !m8_is_screen( lpDestDev ) ) {
         return( DIB_Output( lpDestDev, wStyle, wCount, lpPoints, lpPPen, lpPBrush,
                             lpDrawMode, lpClipRect ) );
@@ -3330,9 +3399,10 @@ DWORD WINAPI __loadds Pixel( LPPDEVICE lpDestDev, WORD X, WORD Y, DWORD dwPhysCo
         !m8_is_screen( lpDestDev ) &&
         m8_px_pixel( lpDestDev, (short)X, (short)Y, (BYTE)dwPhysColor,
                      m8_mix_for_key[lpDrawMode->Rop2 - 1] ) ) {
+        m8_bc_forget( lpDestDev );
         return( DIB_Pixel( lpDestDev, X, Y, dwPhysColor, lpDrawMode ) );
     }
-    m8_px_touch( lpDestDev, M8_PX_WHY_ENTRY );
+    m8_px_touch_dest( lpDestDev, M8_PX_WHY_ENTRY );
     if( !m8_is_screen( lpDestDev ) ) {
         return( DIB_Pixel( lpDestDev, X, Y, dwPhysColor, lpDrawMode ) );
     }
@@ -3406,7 +3476,7 @@ WORD WINAPI __loadds ScanLR( LPPDEVICE lpDestDev, WORD X, WORD Y, DWORD dwPhysCo
         M8_LEAVE();
         return( ret );
     }
-    m8_px_touch( lpDestDev, M8_PX_WHY_ENTRY );
+    m8_px_touch_dest( lpDestDev, M8_PX_WHY_ENTRY );
     if( !m8_is_screen( lpDestDev ) ) {
         return( DIB_ScanLR( lpDestDev, X, Y, dwPhysColor, wStyle ) );
     }
@@ -3990,7 +4060,7 @@ DWORD WINAPI __loadds ExtTextOut( LPPDEVICE lpDestDev, WORD wDestXOrg, WORD wDes
     M8_TEXT t;
     M8_RECT bound;
 
-    m8_px_touch( lpDestDev, M8_PX_WHY_ENTRY );
+    m8_px_touch_dest( lpDestDev, M8_PX_WHY_ENTRY );
     if( !m8_is_screen( lpDestDev ) ) {
         return( DIB_ExtTextOut( lpDestDev, wDestXOrg, wDestYOrg, lpClipRect, lpString, wCount,
                                 lpFontInfo, lpDrawMode, lpTextXForm, lpCharWidths,
@@ -4092,7 +4162,7 @@ DWORD WINAPI __loadds StrBlt( LPPDEVICE lpDestDev, WORD wDestXOrg, WORD wDestYOr
     M8_TEXT t;
     M8_RECT bound;
 
-    m8_px_touch( lpDestDev, M8_PX_WHY_ENTRY );
+    m8_px_touch_dest( lpDestDev, M8_PX_WHY_ENTRY );
     if( !m8_is_screen( lpDestDev ) ) {
         return( DIB_StrBlt( lpDestDev, wDestXOrg, wDestYOrg, lpClipRect, lpString, wCount,
                             lpFontInfo, lpDrawMode, lpTextXForm ) );
@@ -4244,7 +4314,7 @@ WORD WINAPI __loadds DibToDevice( LPPDEVICE lpDestDev, WORD X, WORD Y, WORD iSca
     M8_D2D  d;
     M8_RECT bound;
 
-    m8_px_touch( lpDestDev, M8_PX_WHY_ENTRY );
+    m8_px_touch_dest( lpDestDev, M8_PX_WHY_ENTRY );
     if( !m8_is_screen( lpDestDev ) ) {
         return( DIB_DibToDevice( lpDestDev, X, Y, iScan, cScans, lpClipRect, lpDrawMode,
                                  lpDIBits, lpBitmapInfo, lpTranslate ) );
@@ -4381,7 +4451,7 @@ BOOL WINAPI __loadds StretchDIBits( LPPDEVICE lpDestDev, WORD fGet, WORD wDestX,
     int     w = (int)wDestWidth;
     int     h = (int)wDestHeight;
 
-    m8_px_touch( lpDestDev, M8_PX_WHY_ENTRY );
+    m8_px_touch_dest( lpDestDev, M8_PX_WHY_ENTRY );
     if( !m8_is_screen( lpDestDev ) ) {
         return( DIB_StretchDIBits( lpDestDev, fGet, wDestX, wDestY, wDestWidth, wDestHeight,
                                    wSrcX, wSrcY, wSrcWidth, wSrcHeight, lpBits, lpInfo,
@@ -4515,7 +4585,7 @@ BOOL WINAPI __loadds StretchBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, 
     if( m8_rop_uses_src( dwRop3 ) ) {
         m8_px_touch( lpSrcDev, M8_PX_WHY_ENTRY );
     }
-    m8_px_touch( lpDestDev, M8_PX_WHY_ENTRY );
+    m8_px_touch_dest( lpDestDev, M8_PX_WHY_ENTRY );
     if( !m8_is_screen( lpDestDev ) ) {
         return( DIB_StretchBlt( lpDestDev, wDestX, wDestY, wDestWidth, wDestHeight, lpSrcDev,
                                 wSrcX, wSrcY, wSrcWidth, wSrcHeight, dwRop3, lpPBrush,
