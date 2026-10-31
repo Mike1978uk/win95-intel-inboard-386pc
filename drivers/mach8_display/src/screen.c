@@ -2077,6 +2077,33 @@ static int m8_px_m2m( LPVOID d, LPVOID s, int dx, int dy, int sx, int sy, int w,
 
 /* A solid fill into a memory bitmap, on the card when the bitmap is held or
  * the fill ignores the destination. 1 if done. */
+/* A pixel set on a bitmap the proxies hold: drawn in its slot too, so the
+ * next blit from it is a card copy rather than an upload. The RAM is written
+ * as well (by the caller), so whether the slot or the RAM is current does not
+ * change. */
+static int m8_px_pixel( LPVOID d, int x, int y, BYTE colour, WORD mix )
+{
+    LPDIBENGINE db = d;
+    M8_PXPIECE  pc[M8_PX_PIECES];
+    int         n;
+    M8_RECT     r;
+
+    if( m8_hw_off || m8_px_n == 0 || !m8_px_has( d ) ) {
+        return( 0 );
+    }
+    n = m8_px_pieces( db, x, y, 1, 1, 0, pc );
+    if( n != 1 || !m8_px_pieces_live( db, pc, n ) ) {
+        return( 0 );
+    }
+    m8_bc_touch( pc[0].p->e->x, pc[0].p->e->y );
+    m8_rect_set( &r, M8_PX_SX( pc[0].p, pc[0].x ), M8_PX_SY( pc[0].p, pc[0].y ),
+                 M8_PX_SX( pc[0].p, pc[0].x ) + 1, M8_PX_SY( pc[0].p, pc[0].y ) + 1 );
+    m8_enter( &r );
+    m8_hw_fill_mix( r.l, r.t, 1, 1, colour, M8_MIX_SRC_FRGD | mix );
+    m8_leave();
+    return( 1 );
+}
+
 static int m8_px_fill( LPVOID d, int x, int y, int w, int h, BYTE colour, WORD mix, int fresh )
 {
     LPDIBENGINE db = d;
@@ -3281,6 +3308,12 @@ DWORD WINAPI __loadds Pixel( LPPDEVICE lpDestDev, WORD X, WORD Y, DWORD dwPhysCo
             return( 0xFF000000UL | (BYTE)v );
         }
         m8_busy = 0;
+    }
+    if( lpDrawMode != NULL && lpDrawMode->Rop2 >= 1 && lpDrawMode->Rop2 <= 16 &&
+        !m8_is_screen( lpDestDev ) &&
+        m8_px_pixel( lpDestDev, (short)X, (short)Y, (BYTE)dwPhysColor,
+                     m8_mix_for_key[lpDrawMode->Rop2 - 1] ) ) {
+        return( DIB_Pixel( lpDestDev, X, Y, dwPhysColor, lpDrawMode ) );
     }
     m8_px_touch( lpDestDev, M8_PX_WHY_ENTRY );
     if( !m8_is_screen( lpDestDev ) ) {
