@@ -2419,7 +2419,7 @@ LONG m8_pf_escape( LPVOID in, LPVOID out )
 }
 #define M8_PF_HIT()         (++m8_pf.hits)
 /* Part of a call, started at `a` (M8_PF_T0), timed into style slot s: Output's
- * own styles stop at 22 and higher ones share 63, so 46-61 are free. */
+ * own styles stop at 22 and higher ones share 63, so 45-61 are free. */
 static void m8_pf_part( int s, DWORD a )
 {
     DWORD   z = m8_pf_now();
@@ -2798,6 +2798,34 @@ static int m8_line_on_engine( WORD count, LPPOINT pts, LPPPEN pen, LPDRAWMODE dm
 static POINT    m8_out_pts[M8_OUT_MAX_PTS];
 
 /* The rows and spans a scan style names; 0 if it names none. */
+/* The rows a scanline list touches, [t, b): the record headers only, so a
+ * list whose rows miss the cursor needs no walk over its x pairs. */
+static int m8_scan_rows( WORD style, WORD count, LPPOINT p, int *t, int *b )
+{
+    const short FAR *w = (const short FAR *)p;
+    int             lo = 32767;
+    int             hi = -32767;
+
+    if( style == OS_SCANLINES ) {
+        if( count < 2 ) {
+            return( 0 );
+        }
+        *t = p[0].ycoord;
+        *b = p[0].ycoord + 1;
+        return( 1 );
+    }
+    for( ; count > 0; --count ) {
+        if( w[0] != 0 ) {
+            if( w[1] < lo ) lo = w[1];
+            if( w[2] > hi ) hi = w[2];
+        }
+        w += w[0] + 4;
+    }
+    *t = lo;
+    *b = hi;
+    return( lo < hi );
+}
+
 static int m8_scan_bound( WORD style, WORD count, LPPOINT p, M8_RECT *r )
 {
     const short FAR *w = (const short FAR *)p;
@@ -3049,8 +3077,16 @@ WORD WINAPI __loadds Output( LPPDEVICE lpDestDev, WORD wStyle, WORD wCount, LPPO
          * the full path does. */
         if( m8_cur_shown && m8_rect_overlap( &c, &m8_cur_rect ) ) {
             M8_RECT sb;
+            int     rt;
+            int     rb;
 
-            if( M8_PF_WRAP( 48, m8_scan_bound( wStyle, wCount, lpPoints, &sb ) ) ) {
+            /* The rows first: most lists miss the cursor's rows. */
+            if( M8_PF_WRAP( 45, m8_scan_rows( wStyle, wCount, lpPoints, &rt, &rb ) ) ) {
+                if( rt > c.t ) c.t = rt;
+                if( rb < c.b ) c.b = rb;
+            }
+            if( m8_rect_overlap( &c, &m8_cur_rect ) &&
+                M8_PF_WRAP( 48, m8_scan_bound( wStyle, wCount, lpPoints, &sb ) ) ) {
                 m8_rect_and( &c, &sb );
             }
         }
