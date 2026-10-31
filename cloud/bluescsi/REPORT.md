@@ -114,8 +114,11 @@ writes. So the first boot is read-only:
   shows `LUN 1` or `LUN 0`: that is the CDB byte, the only LUN this host sends.
 - Pass: Device Manager shows a second disk under the T130B; the new drive letter shows
   `LUN1.TXT` and LUN 1's label. Only then clear the read-only attribute on `HD51_512.hda`.
-- **Fail - stop:** the new drive letter shows LUN 0's files. Win95 does not put the LUN in the
-  CDB; hosted LUNs cannot be used with `T130.MPD` for disks. Fall back to separate IDs.
+- **Fail - stop:** the new drive letter shows LUN 0's files (log shows its commands as `LUN 0`).
+  Win95 did not put the LUN in the CDB. Before giving up on LUNs, repeat once with
+  `EnableSCSI2 = 0` in `[SCSI]`: BlueSCSI then reports SCSI-1 (`inquiry.c:259-262`), and
+  Win95's `SCSI1HLP.VXD` (loaded on the 5160) may then insert the LUN - unverified. Images stay
+  read-only. If that also fails, hosted LUNs are out with `T130.MPD`: fall back to separate IDs.
 - Fail, with log showing INQUIRY to LUN 1 answered: Win95 saw it but did not use it. Note
   Device Manager's entry and stop for review.
 - Fail, with **no command to LUN 1 in the log**: Win95/T130.MPD does not scan LUNs. This is
