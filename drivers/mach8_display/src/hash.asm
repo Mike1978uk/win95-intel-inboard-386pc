@@ -13,6 +13,7 @@
 
 public  M8_HASH_BYTES
 public  M8_HASH_WORD
+public  M8_HASH_PARTS
 
 _TEXT   segment byte public 'CODE'
 
@@ -58,6 +59,58 @@ store:
         pop     si
         ret
 M8_HASH_BYTES   endp
+
+; M8_HASH_PARTS: DX:AX = M8_HASH far *, CX:BX = runs far * (each a far
+; pointer then a byte count), DI = number of runs, at least one. Each run is
+; hashed as M8_HASH_BYTES would; keeps SI and BP.
+M8_HASH_PARTS   proc    near
+        push    si
+        push    bp
+        mov     fs, dx
+        push    ax
+        mov     si, ax
+        mov     gs, cx
+        mov     ax, fs:[si]             ; a
+        mov     bp, fs:[si + 2]         ; b
+        mov     dx, fs:[si + 4]         ; c
+part:
+        les     si, gs:[bx]
+        mov     cx, gs:[bx + 4]
+        add     bx, 6
+        push    di
+        push    cx
+        shr     cx, 1
+        jz      p_odd
+p_step:
+        mov     di, es:[si]
+        add     si, 2
+        add     ax, di
+        add     bp, ax
+        rol     dx, 3
+        xor     dx, di
+        dec     cx
+        jnz     p_step
+p_odd:
+        pop     cx
+        test    cx, 1
+        jz      p_next
+        movzx   di, byte ptr es:[si]
+        add     ax, di
+        add     bp, ax
+        rol     dx, 3
+        xor     dx, di
+p_next:
+        pop     di
+        dec     di
+        jnz     part
+        pop     si
+        mov     fs:[si], ax
+        mov     fs:[si + 2], bp
+        mov     fs:[si + 4], dx
+        pop     bp
+        pop     si
+        ret
+M8_HASH_PARTS   endp
 
 M8_HASH_WORD    proc    near
         push    si

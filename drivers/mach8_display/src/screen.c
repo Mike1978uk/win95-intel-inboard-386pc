@@ -1092,6 +1092,14 @@ extern void M8_HASH_BYTES( M8_HASH *h, const BYTE FAR *p, WORD n );
 extern void M8_HASH_WORD( M8_HASH *h, WORD v );
 #pragma aux M8_HASH_WORD "*" parm [dx ax] [bx] modify [ax dx fs];
 #define m8_hash_bytes       M8_HASH_BYTES
+
+/* A list of byte runs hashed in one call (the text key). */
+typedef struct {
+    const BYTE FAR  *p;
+    WORD            n;
+} M8_HPART;
+extern void M8_HASH_PARTS( M8_HASH *h, const M8_HPART *parts, WORD count );
+#pragma aux M8_HASH_PARTS "*" parm [dx ax] [cx bx] [di] modify [ax bx cx dx di es fs gs];
 #define m8_hash_word        M8_HASH_WORD
 
 static DWORD m8_hash_h1( const M8_HASH *h )
@@ -3976,16 +3984,18 @@ static WORD WINAPI __loadds m8_text_rect( LPDIBENGINE lpDevice, DWORD dwBg, WORD
 }
 
 /* What the DIB Engine's layout depends on, translated to the string's origin.
- * The font's header goes in too: a freed font's address can be reused. */
-static void m8_tk_rect( M8_HASH *hs, LPRECT r, int x0, int y0 )
+ * The font's header goes in too: a freed font's address can be reused. The
+ * words go into one buffer so that the whole key is one pass of
+ * M8_HASH_PARTS: per call the cost is the code lines touched, not the bytes. */
+static void m8_tk_rect( WORD *w, LPRECT r, int x0, int y0 )
 {
     if( r == NULL ) {
-        m8_hash_word( hs, 0xFFFF );
+        w[0] = w[1] = w[2] = w[3] = 0xFFFF;
     } else {
-        m8_hash_word( hs, (WORD)(r->left - x0) );
-        m8_hash_word( hs, (WORD)(r->top - y0) );
-        m8_hash_word( hs, (WORD)(r->right - x0) );
-        m8_hash_word( hs, (WORD)(r->bottom - y0) );
+        w[0] = (WORD)(r->left - x0);
+        w[1] = (WORD)(r->top - y0);
+        w[2] = (WORD)(r->right - x0);
+        w[3] = (WORD)(r->bottom - y0);
     }
 }
 
@@ -3993,29 +4003,34 @@ static void m8_tk_key( DWORD *p1, DWORD *p2, int x0, int y0, LPRECT clip, LPSTR 
                        LPFONTINFO font, LPDRAWMODE dm, LPTEXTXFORM xf, LPSHORT widths,
                        LPRECT opaque, WORD options )
 {
-    M8_HASH hs;
+    M8_HASH     hs;
+    WORD        w[13];
+    M8_HPART    pt[5];
 
-
-    m8_hash_init( &hs, (WORD)n );
-    m8_hash_word( &hs, FP_SEG( font ) );
-    m8_hash_word( &hs, FP_OFF( font ) );
-    m8_hash_word( &hs, options );
-    m8_hash_word( &hs, (WORD)dm->bkMode );
-    m8_hash_bytes( &hs, (const BYTE FAR *)font, 34 );
-    m8_hash_bytes( &hs, (const BYTE FAR *)&dm->TBreakExtra, 12 );
-    m8_hash_bytes( &hs, (const BYTE FAR *)str, (WORD)n );
-    if( widths != NULL ) {
-        m8_hash_bytes( &hs, (const BYTE FAR *)widths, (WORD)(n * 2) );
-    }
+    w[0] = FP_SEG( font );
+    w[1] = FP_OFF( font );
+    w[2] = options;
+    w[3] = (WORD)dm->bkMode;
     /* Only what a raster driver acts on (the DDK's STRBLT.ASM reads ftWeight
      * alone): GDI passes the rest of the transform with bytes that change from
      * call to call, which would make every string a miss. */
-    if( xf != NULL ) {
-        m8_hash_word( &hs, (WORD)((xf->ftWeight >= 700 ? 1 : 0) | (xf->ftItalic ? 2 : 0) |
-                                  (xf->ftUnderline ? 4 : 0) | (xf->ftStrikeOut ? 8 : 0)) );
-    }
-    m8_tk_rect( &hs, clip, x0, y0 );
-    m8_tk_rect( &hs, opaque, x0, y0 );
+    w[4] = xf == NULL ? 0xFFFF :
+           (WORD)((xf->ftWeight >= 700 ? 1 : 0) | (xf->ftItalic ? 2 : 0) |
+                  (xf->ftUnderline ? 4 : 0) | (xf->ftStrikeOut ? 8 : 0));
+    m8_tk_rect( &w[5], clip, x0, y0 );
+    m8_tk_rect( &w[9], opaque, x0, y0 );
+    pt[0].p = (const BYTE FAR *)w;
+    pt[0].n = sizeof( w );
+    pt[1].p = (const BYTE FAR *)font;
+    pt[1].n = 34;
+    pt[2].p = (const BYTE FAR *)&dm->TBreakExtra;
+    pt[2].n = 12;
+    pt[3].p = (const BYTE FAR *)str;
+    pt[3].n = (WORD)n;
+    pt[4].p = (const BYTE FAR *)widths;
+    pt[4].n = widths != NULL ? (WORD)(n * 2) : 0;
+    m8_hash_init( &hs, (WORD)n );
+    M8_HASH_PARTS( &hs, pt, 5 );
     *p1 = m8_hash_h1( &hs );
     *p2 = m8_hash_h2( &hs, FP_SEG( font ) ^ (WORD)n );
 }
@@ -4193,8 +4208,11 @@ static int m8_gc_glyph( const M8_GCFONT *e, BYTE idx, int gx, int gy, WORD wb, i
     return( 1 );
 }
 
+/* k: the text key's slot when the string has been seen before; the bitmap
+ * then goes into the string cache and the slot, as a capture would. */
 static int m8_gc_text( int x0, int y0, LPRECT lpClip, LPSTR str, int n, LPVOID font,
-                       LPDRAWMODE dm, LPRECT lpBox, LPSHORT widths, DWORD *rc )
+                       LPDRAWMODE dm, LPRECT lpBox, LPSHORT widths, DWORD *rc,
+                       M8_TKENTRY *k, DWORD h1, DWORD h2 )
 {
     M8_GCFONT       *e;
     const BYTE FAR  *fs;
@@ -4245,6 +4263,30 @@ static int m8_gc_text( int x0, int y0, LPRECT lpClip, LPSTR str, int n, LPVOID f
     *rc = e->rc;
     if( m8_rect_empty( &box ) ) {
         return( 1 );
+    }
+    if( k != NULL ) {
+        M8_SCENTRY *se = m8_sc_get( m8_gc_bits, wb, (WORD)h, 1 );
+
+        if( se != NULL ) {
+            k->sc = (int)(se - m8_sc);
+            k->bx = frame.l - x0;
+            k->by = frame.t - y0;
+            k->wb = wb;
+            k->h = (WORD)h;
+            k->flags = dm->bkMode == 1 ? 1 : 0;
+            k->clip = 1;
+            k->crect.left = box.l - x0;
+            k->crect.top = box.t - y0;
+            k->crect.right = box.r - x0;
+            k->crect.bottom = box.b - y0;
+            k->nrect = 0;
+            k->rc = e->rc;
+            k->h1 = h1;
+            k->h2 = h2;
+            k->gen = m8_sc_gen;
+            m8_tk_replay( k, x0, y0, (BYTE)dm->TextColor, (BYTE)dm->bkColor );
+            return( 1 );
+        }
     }
     m8_enter( &box );
     m8_hw_mono( frame.l, frame.t, wb, (WORD)h, m8_gc_bits,
@@ -4336,9 +4378,10 @@ DWORD WINAPI __loadds ExtTextOut( LPPDEVICE lpDestDev, WORD wDestXOrg, WORD wDes
             m8_tk_bad = 0;
             m8_tk_bitmaps = 0;
             gc = m8_gc_plain( lpDrawMode, lpTextXForm, wOptions );
-            if( gc && m8_tk_first &&
+            if( gc &&
                 m8_gc_text( (short)wDestXOrg, (short)wDestYOrg, lpClipRect, lpString, wCount,
-                            lpFontInfo, lpDrawMode, (LPRECT)lpTextXForm, lpCharWidths, &rc ) ) {
+                            lpFontInfo, lpDrawMode, (LPRECT)lpTextXForm, lpCharWidths, &rc,
+                            m8_tk_first ? NULL : k, h1, h2 ) ) {
                 m8_tk_first = 0;
                 return( rc );
             }
