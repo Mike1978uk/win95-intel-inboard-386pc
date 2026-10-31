@@ -5,7 +5,9 @@
  */
 
 #include "m8ddi.h"
+#include <dos.h>
 #include <conio.h>
+#include <string.h>
 #include "m8.h"
 
 /* Set while a DOS session has the screen (INT 2Fh 4001h-4002h): every primitive
@@ -1132,15 +1134,26 @@ void m8_hw_write_rect( int x, int y, int w, int h, const BYTE FAR *src, WORD pit
  * has `cols` columns; a column outside them is clipped away, and is sent as
  * 0 rather than read. */
 #define M8_XROW_MAX         1024        /* the widest mode */
-static BYTE m8_xrow[M8_XROW_MAX];
+/* Rows are translated a band at a time, then sent in one rep outsw: no port
+ * access between rows keeps the table and the loop in the L1. */
+static BYTE m8_xrow[4096];
+
+/* xlat.asm: n pixels from src through the table into dst. The table goes as
+ * two words: a pair of general registers does not say which holds the
+ * segment. */
+extern void M8_XLAT( BYTE FAR *dst, const BYTE FAR *src, WORD tbl_off, WORD tbl_seg, WORD n );
+#pragma aux M8_XLAT "*" parm [es di] [dx si] [bx] [ax] [cx] modify [ax bx cx dx si di fs];
 
 void m8_hw_write_xlat( int x, int y, int w, int h, int clip_l, int clip_r,
                        const BYTE FAR *row0, long step, int col0, int cols, const BYTE *tbl )
 {
     int             row;
-    int             i;
-    int             c;
-    const BYTE FAR  *p;
+    int             k;
+    int             n;
+    int             band;
+    int             lo = col0 < 0 ? -col0 : 0;          /* the DIB's columns in the row: [lo, hi) */
+    int             hi = cols - col0 < w ? cols - col0 : w;
+    BYTE            *q;
 
     if( m8_hw_off || w <= 0 || h <= 0 || w > M8_XROW_MAX ) {
         return;
@@ -1156,12 +1169,26 @@ void m8_hw_write_xlat( int x, int y, int w, int h, int clip_l, int clip_r,
     outpw( M8_MAJ_AXIS_PCNT, w - 1 );
     outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
     outpw( M8_CMD, M8_CMD_HOST_WRITE );
-    for( row = 0; row < h; ++row ) {
-        p = row0 + row * step;
-        for( i = 0, c = col0; i < w; ++i, ++c ) {
-            m8_xrow[i] = (c >= 0 && c < cols) ? tbl[p[c]] : 0;
+    /* An odd width sends w / 2 words a row, so its rows cannot be packed. */
+    band = (w & 1) ? 1 : (int)(sizeof( m8_xrow ) / w);
+    for( row = 0; row < h; row += n ) {
+        n = h - row < band ? h - row : band;
+        for( k = 0; k < n; ++k ) {
+            q = m8_xrow + k * w;
+            if( hi <= lo ) {
+                memset( q, 0, w );
+                continue;
+            }
+            if( lo > 0 ) {
+                memset( q, 0, lo );
+            }
+            M8_XLAT( q + lo, row0 + (row + k) * step + col0 + lo, FP_OFF( tbl ), FP_SEG( tbl ),
+                     (WORD)(hi - lo) );
+            if( hi < w ) {
+                memset( q + hi, 0, w - hi );
+            }
         }
-        m8_outsw( (const WORD FAR *)m8_xrow, (WORD)w / 2 );
+        m8_outsw( (const WORD FAR *)m8_xrow, (WORD)(n * (w / 2)) );
     }
     /* Idle before any colour write: while a command still takes host data,
      * FRGD_COLOR and BKGD_COLOR writes are consumed as pixels (guide 8-14). */

@@ -52,6 +52,7 @@ Run wasm @('-q', "-fo=$Out\thunks.obj", "$src\thunks.asm")
 Run wasm @('-q', "-fo=$Out\switch.obj", "$src\switch.asm")
 Run wasm @('-q', "-fo=$Out\spans.obj", "$src\spans.asm")
 Run wasm @('-q', "-fo=$Out\hash.obj", "$src\hash.asm")
+Run wasm @('-q', "-fo=$Out\xlat.obj", "$src\xlat.asm")
 
 $exports = @(
   'BitBlt.1', 'ColorInfo.2', 'Control.3', 'Disable.4', 'Enable.5', 'EnumDFonts.6',
@@ -75,7 +76,7 @@ $lnk = @(
   'segment class ''DATA'' preload fixed',
   "segment '_TEXT' preload fixed shared",
   'disable 2055'
-) + ('enable', 'screen', 'm8hw', 'thunks', 'switch', 'spans', 'hash' | ForEach-Object { "file $Out\$_.obj" }) + @(
+) + ('enable', 'screen', 'm8hw', 'thunks', 'switch', 'spans', 'hash', 'xlat' | ForEach-Object { "file $Out\$_.obj" }) + @(
   "library $Out\dibeng.lib",
   "library $Watcom\lib286\win\clibc.lib",
   'import GlobalSmartPageLock KERNEL.230'
