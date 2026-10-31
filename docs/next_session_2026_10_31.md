@@ -24,6 +24,21 @@ Card log: `docs/captures/2026-10-31_card/m8_card_bench.txt`. Gate unchanged: >= 
    the bitmap cache first; eviction and deletion do not count as a rewrite. 0.84 -> 1.39x ATI.
 4. Disproved: skipping the bits hash on a first-sight key with the old key (text_sys/same -25%).
 
+## Late 10-31 (owner away)
+
+- `b4020c3` the caches' hash in assembly (`hash.asm`, same hash): 1.620x ATI, pixels = ATI in all 35.
+- **Boot stall #3**: restart into `M8PSET` (a profile build of master + timers) - ping answers, port
+  9869 refused, as on 10-23. ~21 driver restarts today, one stall. Card needs a manual restart.
+- Polygon split (profile, card_ps1): per Output call ~1,985 us = walk ~1,465 (32 spans, ~46 us a
+  span, one drain per 8 spans) + **~440 us of set-up** x 6.2 calls = 2.7 ms a polygon, which is the
+  whole gap to ATI. The set-up timers (s46 fill_begin_fast, s47 brush_colours, s48 scan_bound)
+  are in the profile build but were never run (the stall). Suspect s48: the bench parks the cursor
+  in the clip, so every call walks all records for a bound.
+- **Branch `spans-cacheline` (`07db4d6`)**: span walk rewritten by cache lines (common path in seven
+  aligned lines, ~10 refetched a record vs ~15-17). Bed: pixels = earlier bed run in all 35. Not yet
+  on the card. Next: card-bench it twice against master; merge only if polygon/ellipse gain and
+  nothing drops. Then run M8PSET's set-up timers.
+
 ## Below ATI (four-run mean, 6cd03ab)
 
 text_varied 0.89, dib_8bpp 0.82, polygon 0.83, mem_to_mem 0.75 (swings 0.66-0.94), bmp_changing
