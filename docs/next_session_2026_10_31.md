@@ -52,6 +52,12 @@ Card log: `docs/captures/2026-10-31_card/m8_card_bench.txt`. Gate unchanged: >= 
   the same boot) although M8IDLE passed: judge a change on the later runs, or bench four.
 - Still below (four runs): mem_to_mem 0.79, cursor_move 0.89, text_varied 0.90, bmp_changing 0.93,
   polygon 0.95; dstinvert ~0.98 on later runs. mem_to_mem outcome counters (slots 39-44) on the card.
+- **mem_to_mem, measured** (card_pm1/2, card_pn1/2; profile slots 39 = m8_px_m2m, 40 = copies, 41-44 =
+  M8_PX_NO_ reasons): no card copy fails (41-44 = 0; the comparison doc's 30-80% failure is wrong).
+  ~60% of calls return before counting (no proxies) and are RAM copies, ~1.1-1.2 ms a call in all.
+  A card copy costs **~2.3-2.5 ms** a call - more than a RAM copy, which is all ATIM8 does. Next:
+  a RAM copy when the source has no proxy, deciding what to do with the destination's proxy (a
+  write-back is ~14 ms; drag_frame's 7x depends on proxy-to-proxy copies).
 - Owner decision owed: bmp_changing - keep the card copy current on SetPixel (doc item 2) changes
   what the test measures ("what a cache cannot help").
 

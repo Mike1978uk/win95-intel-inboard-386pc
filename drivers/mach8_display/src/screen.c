@@ -1863,8 +1863,15 @@ static int m8_px_save( LPDIBENGINE b, int dx, int dy, int sx, int sy, int w, int
 
 #ifdef M8_TRACE
 #define M8_PX_NO_( why )    { M8_STEP( M8_MARK_PX_M2M_NO ); M8_STEP( why ); }
+#define M8_PX_YES()
+#elif defined( M8_PROF )
+/* The profile counts each reason in style slot 40 + why, copies in 40. */
+static M8_PF_TAB    m8_pf;
+#define M8_PX_NO_( why )    (++m8_pf.out_calls[40 + (why)])
+#define M8_PX_YES()         (++m8_pf.out_calls[40])
 #else
 #define M8_PX_NO_( why )
+#define M8_PX_YES()
 #endif
 
 /* The pieces of rectangle (x,y,w,h) of bitmap d, each held by a proxy, for an
@@ -2047,6 +2054,7 @@ static int m8_px_m2m( LPVOID d, LPVOID s, int dx, int dy, int sx, int sy, int w,
         return( 0 );
     }
     M8_STEP( M8_MARK_PX_M2M );
+    M8_PX_YES();
     for( k = 0; k < n; ++k ) {
         if( ps != NULL ) {
             fx = M8_PX_SX( ps, sx + (pc[k].x - dx) );
@@ -2554,9 +2562,10 @@ static BOOL m8_bitblt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPDEVICE 
                       rop, (short)wXext, (short)wYext, (short)wDestX, (short)wDestY,
                       (short)wSrcX, (short)wSrcY );
         if( M8_PROXY && m8_rop_uses_src( dwRop3 ) && !m8_rop_uses_pat( dwRop3 ) &&
-            m8_px_m2m( lpDestDev, lpSrcDev, (short)wDestX, (short)wDestY, (short)wSrcX,
-                       (short)wSrcY, (short)wXext, (short)wYext, m8_mix_for_key[rop & 0x0F],
-                       !m8_rop_uses_dest( dwRop3 ) ) ) {
+            M8_PF_WRAP( 39, m8_px_m2m( lpDestDev, lpSrcDev, (short)wDestX, (short)wDestY,
+                                       (short)wSrcX, (short)wSrcY, (short)wXext, (short)wYext,
+                                       m8_mix_for_key[rop & 0x0F],
+                                       !m8_rop_uses_dest( dwRop3 ) ) ) ) {
             return( TRUE );
         }
         if( M8_PROXY && !m8_rop_uses_src( dwRop3 ) && m8_px_n > 0 ) {
