@@ -2,22 +2,22 @@
 ;
 ; Copyright (c) 2026 the win95-intel-inboard-386pc project. GPL-3.0-or-later.
 ;
-; Every port write flushes the L1, so after each one the next memory access is
-; a line fill. In C this loop keeps its counters, clip and row on the stack and
-; refetches them after every write; here they live in registers and the only
-; memory read per span is GDI's x pair. The walk is the C loop's: records of
-; x count, top, bottom, the x pairs and the count again (OS_POLYSCANLINE), or
-; one record of (count, y) and x pairs (OS_SCANLINES). A one-row span is
-; CUR_Y (when the row changes), CUR_X and SCAN_TO_X; a taller one a rectangle
-; fill. The data path is m8_hw_fill_begin's.
+; Every port write flushes the L1, so after each one the code that follows and
+; any data it touches are line fills, ~1.3 us a 16-byte line. A polygon's list
+; is mostly one row a record with one x pair, three writes a record, so the
+; cost is the lines run between them: the common path below is kept short and
+; straight, and everything else (clipping, a short FIFO, rows that repeat,
+; multi-row bands) is out of line after it. The state a record reads sits in
+; one aligned line (hot_*), fetched once a record.
 ;
-; Registers through the loop:
-;   EBX     clip left (low), clip right (high), right exclusive
-;   DI      the row the engine holds; EDI high: spans drawn
-;   BP      FIFO entries free; EBP high: rows in the band - 1
-;   ES:SI   GDI's list; ESI high: the band's top row
-;   CX      x pairs left in the record; ECX high: records left
-;   EDX     high: offset of the next record
+; The walk: records of x count, top, bottom, the x pairs and the count again
+; (OS_POLYSCANLINE), or one record of (count, y) and x pairs (OS_SCANLINES).
+; A one-row span is CUR_Y (when the row changes), CUR_X and SCAN_TO_X; a
+; taller one a rectangle fill. The data path is m8_hw_fill_begin's. FIFO room
+; is taken for a whole record before its first write.
+;
+; Registers through the walk: ES:SI GDI's list, BX clip left, BP clip right
+; (exclusive), CX x pairs left in the record.
 
 CUR_Y           equ     82E8h
 CUR_X           equ     86E8h
@@ -42,13 +42,21 @@ SP_SPANS        equ     22
 
 public  M8_SPANS_SOLID
 
-_DATA   segment word public 'DATA'
+_DATA   segment para public 'DATA'
         extrn   _m8_sp : word
+hot_t           dw      0       ; clip top
+hot_b           dw      0       ; clip bottom, exclusive
+hot_y           dw      0       ; the row the engine holds
+hot_room        dw      0       ; FIFO entries free
+hot_spans       dw      0
+hot_recs        dw      0
+hot_bt          dw      0       ; a band's top row
+hot_br          dw      0       ; a band's rows - 1
 _DATA   ends
 
 DGROUP  group   _DATA
 
-_TEXT   segment byte public 'CODE'
+_TEXT   segment para public 'CODE'
         extrn   _m8_hw_drain : near
 
         .386
@@ -57,171 +65,225 @@ _TEXT   segment byte public 'CODE'
 M8_SPANS_SOLID  proc    near
         push    es
         pushad
-        les     si, dword ptr _m8_sp[SP_W]
-        mov     bx, _m8_sp[SP_R]
-        shl     ebx, 16
+        mov     ax, _m8_sp[SP_T]
+        mov     hot_t, ax
+        mov     ax, _m8_sp[SP_B]
+        mov     hot_b, ax
+        mov     ax, _m8_sp[SP_Y]
+        mov     hot_y, ax
+        mov     ax, _m8_sp[SP_ROOM]
+        mov     hot_room, ax
+        mov     hot_spans, 0
+        mov     ax, _m8_sp[SP_RECS]
+        mov     hot_recs, ax
         mov     bx, _m8_sp[SP_L]
-        xor     edi, edi
-        mov     di, _m8_sp[SP_Y]
-        xor     ebp, ebp
-        mov     bp, _m8_sp[SP_ROOM]
-        movzx   ecx, word ptr _m8_sp[SP_RECS]
-        shl     ecx, 16
+        mov     bp, _m8_sp[SP_R]
+        les     si, dword ptr _m8_sp[SP_W]
         cmp     word ptr _m8_sp[SP_POLY], 0
-        jne     rec_loop
+        jne     rec
 
         ; OS_SCANLINES: the first point is (count, y), then x pairs.
         mov     cx, _m8_sp[SP_COUNT]
         dec     cx
-        add     cx, cx
+        jle     done
         mov     ax, es:[si + 2]
         mov     dx, ax
         inc     dx
         add     si, 4
-        jmp     short have_rec
+        mov     hot_recs, 1
+        jmp     have
 
-rec_loop:
+        align   16
+rec:
         mov     cx, es:[si]             ; x count
-        mov     dx, cx
-        add     dx, dx
-        add     dx, si
-        add     dx, 8
-        shl     edx, 16                 ; next record
         mov     ax, es:[si + 2]         ; top
         mov     dx, es:[si + 4]         ; bottom, exclusive
         add     si, 6
-
-have_rec:
-        cmp     ax, _m8_sp[SP_T]
-        jge     top_ok
-        mov     ax, _m8_sp[SP_T]
-top_ok:
-        cmp     dx, _m8_sp[SP_B]
-        jle     bottom_ok
-        mov     dx, _m8_sp[SP_B]
-bottom_ok:
-        cmp     ax, dx
-        jge     rec_next
-        sub     dx, ax
+        shr     cx, 1                   ; x pairs
+have:
+        cmp     ax, hot_t
+        jl      clip_t
+t_ok:
+        cmp     dx, hot_b
+        jg      clip_b
+b_ok:
+        sub     dx, ax                  ; rows
+        jle     rec_skip
+        jcxz    rec_end
         dec     dx
-        ror     esi, 16
-        mov     si, ax
-        ror     esi, 16
-        ror     ebp, 16
-        mov     bp, dx
-        ror     ebp, 16
-        shr     cx, 1
-        jz      rec_next
-
-pair_loop:
-        mov     ax, es:[si]             ; x0, clipped to the left
-        cmp     ax, bx
-        jge     left_ok
-        mov     ax, bx
-left_ok:
-        mov     dx, es:[si + 2]         ; x1, clipped to the right
-        ror     ebx, 16
-        cmp     dx, bx
-        jle     right_ok
-        mov     dx, bx
-right_ok:
-        ror     ebx, 16
-        add     si, 4
-        cmp     ax, dx
-        jge     pair_next
-        cmp     bp, 6
-        jge     room_ok
-        call    drain
-room_ok:
-        add     edi, 10000h
-        test    ebp, 0FFFF0000h
         jnz     band
-
-        ; One row: x1 to EAX high while AX carries the row and x0.
-        ror     eax, 16
-        mov     ax, dx
-        ror     eax, 16
-        ror     esi, 16
-        cmp     di, si
+        mov     di, cx
+        add     di, di
+        inc     di                      ; CUR_Y and two writes a span
+        sub     hot_room, di
+        jl      short_room
+room_ok:
+        add     hot_spans, cx
+        cmp     ax, hot_y
         je      same_row
-        mov     di, si
-        ror     esi, 16
-        xchg    ax, di
+        mov     hot_y, ax
         mov     dx, CUR_Y
         out     dx, ax
-        xchg    ax, di
-        dec     bp
-        jmp     short row_set
-same_row:
-        ror     esi, 16
-row_set:
+span:
+        mov     ax, es:[si]             ; x0
+        mov     di, es:[si + 2]         ; x1, exclusive
+        add     si, 4
+        cmp     ax, bx
+        jl      clip_l
+l_ok:
+        cmp     di, bp
+        jg      clip_r
+r_ok:
+        cmp     ax, di
+        jge     span_next
         mov     dx, CUR_X
         out     dx, ax
-        ror     eax, 16
+        mov     ax, di
         mov     dx, SCAN_TO_X
         out     dx, ax
-        sub     bp, 2
-        jmp     short pair_next
+span_next:
+        dec     cx
+        jnz     span
+rec_end:
+        add     si, 2                   ; the record's closing count
+        dec     hot_recs
+        jnz     rec
 
-        ; Several rows: a rectangle fill, which moves the engine's row.
-band:
-        sub     dx, ax
-        dec     dx
-        ror     eax, 16
-        mov     ax, dx                  ; EAX high: width - 1
-        ror     eax, 16
-        mov     dx, CUR_X
-        out     dx, ax
-        ror     esi, 16
-        mov     ax, si
-        ror     esi, 16
+done:
+        mov     ax, hot_y
+        mov     _m8_sp[SP_Y], ax
+        mov     ax, hot_room
+        mov     _m8_sp[SP_ROOM], ax
+        mov     ax, hot_spans
+        mov     _m8_sp[SP_SPANS], ax
+        popad
+        pop     es
+        ret
+
+; Out of line from here.
+
+clip_t:
+        mov     ax, hot_t
+        jmp     t_ok
+clip_b:
+        mov     dx, hot_b
+        jmp     b_ok
+clip_l:
+        mov     ax, bx
+        jmp     l_ok
+clip_r:
+        mov     di, bp
+        jmp     r_ok
+
+; The row is already set: give back the entry CUR_Y would have used.
+same_row:
+        inc     hot_room
+        jmp     span
+
+; A record outside the clip's rows: step over its pairs.
+rec_skip:
+        shl     cx, 2
+        add     si, cx
+        jmp     rec_end
+
+; Too little room for the record: wait, and if the record is longer than the
+; FIFO, draw it a span at a time.
+short_room:
+        add     hot_room, di
+        call    drain
+        sub     hot_room, di
+        jge     room_ok
+        add     hot_room, di
+        add     hot_spans, cx
+        cmp     ax, hot_y
+        je      slow_span
+        mov     hot_y, ax
         mov     dx, CUR_Y
         out     dx, ax
-        ror     eax, 16
+        dec     hot_room
+slow_span:
+        cmp     hot_room, 2
+        jge     slow_room
+        call    drain
+slow_room:
+        mov     ax, es:[si]
+        mov     di, es:[si + 2]
+        add     si, 4
+        cmp     ax, bx
+        jge     slow_l
+        mov     ax, bx
+slow_l:
+        cmp     di, bp
+        jle     slow_r
+        mov     di, bp
+slow_r:
+        cmp     ax, di
+        jge     slow_next
+        mov     dx, CUR_X
+        out     dx, ax
+        mov     ax, di
+        mov     dx, SCAN_TO_X
+        out     dx, ax
+        sub     hot_room, 2
+slow_next:
+        dec     cx
+        jnz     slow_span
+        jmp     rec_end
+
+; Several rows: a rectangle fill a span, which moves the engine's row.
+band:
+        mov     hot_bt, ax
+        mov     hot_br, dx              ; MIN_AXIS is 0: the value is rows - 1
+        add     hot_spans, cx
+band_span:
+        cmp     hot_room, 5
+        jge     band_room
+        call    drain
+band_room:
+        mov     ax, es:[si]
+        mov     di, es:[si + 2]
+        add     si, 4
+        cmp     ax, bx
+        jge     band_l
+        mov     ax, bx
+band_l:
+        cmp     di, bp
+        jle     band_r
+        mov     di, bp
+band_r:
+        cmp     ax, di
+        jge     band_next
+        sub     di, ax
+        dec     di                      ; width - 1
+        mov     dx, CUR_X
+        out     dx, ax
+        mov     ax, hot_bt
+        mov     dx, CUR_Y
+        out     dx, ax
+        mov     ax, di
         mov     dx, MAJ_AXIS_PCNT
         out     dx, ax
-        mov     eax, ebp
-        shr     eax, 16                 ; MIN_AXIS is 0: the value is rows - 1
+        mov     ax, hot_br
         mov     dx, MULTIFUNC_CNTL
         out     dx, ax
         mov     ax, CMD_FILL
         mov     dx, CMD
         out     dx, ax
-        mov     di, 0FFFFh
-        sub     bp, 5
-
-pair_next:
+        sub     hot_room, 5
+        mov     hot_y, 0FFFFh
+band_next:
         dec     cx
-        jnz     pair_loop
-
-rec_next:
-        cmp     word ptr _m8_sp[SP_POLY], 0
-        je      done
-        mov     eax, edx
-        shr     eax, 16
-        mov     si, ax
-        sub     ecx, 10000h
-        test    ecx, 0FFFF0000h
-        jnz     rec_loop
-
-done:
-        mov     _m8_sp[SP_Y], di
-        mov     _m8_sp[SP_ROOM], bp
-        shr     edi, 16
-        mov     _m8_sp[SP_SPANS], di
-        popad
-        pop     es
-        ret
+        jnz     band_span
+        jmp     rec_end
 M8_SPANS_SOLID  endp
 
-; Room for a span: m8_hw_drain waits for the FIFO and returns the room. Every
-; register but BP's low word comes back as it was; C may use any of them.
+; m8_hw_drain waits for the FIFO and returns the room. Every register comes
+; back as it was; C may use any of them.
 drain   proc    near
         push    es
         pushad
         call    _m8_hw_drain
-        mov     bp, sp
-        mov     ss:[bp + 8], ax         ; the saved EBP's low word
+        mov     hot_room, ax
         popad
         pop     es
         ret

@@ -2419,7 +2419,7 @@ LONG m8_pf_escape( LPVOID in, LPVOID out )
 }
 #define M8_PF_HIT()         (++m8_pf.hits)
 /* Part of a call, started at `a` (M8_PF_T0), timed into style slot s: Output's
- * own styles stop at 22 and higher ones share 63, so 50-61 are free. */
+ * own styles stop at 22 and higher ones share 63, so 46-61 are free. */
 static void m8_pf_part( int s, DWORD a )
 {
     DWORD   z = m8_pf_now();
@@ -3050,12 +3050,13 @@ WORD WINAPI __loadds Output( LPPDEVICE lpDestDev, WORD wStyle, WORD wCount, LPPO
         if( m8_cur_shown && m8_rect_overlap( &c, &m8_cur_rect ) ) {
             M8_RECT sb;
 
-            if( m8_scan_bound( wStyle, wCount, lpPoints, &sb ) ) {
+            if( M8_PF_WRAP( 48, m8_scan_bound( wStyle, wCount, lpPoints, &sb ) ) ) {
                 m8_rect_and( &c, &sb );
             }
         }
         if( !(m8_cur_shown && m8_rect_overlap( &c, &m8_cur_rect )) && !m8_hw_off ) {
-            kind = m8_brush_colours( (LPBRUSH)lpPBrush, lpDrawMode, &c1, &c2, pat );
+            kind = M8_PF_WRAP( 47, m8_brush_colours( (LPBRUSH)lpPBrush, lpDrawMode, &c1, &c2,
+                                                     pat ) );
         }
         if( kind == 1 || ((kind == 2 || kind == 3) && M8_PATTERN_EXPANSION) ) {
             WORD    fn = m8_mix_for_key[lpDrawMode->Rop2 - 1];
@@ -3065,12 +3066,23 @@ WORD WINAPI __loadds Output( LPPDEVICE lpDestDev, WORD wStyle, WORD wCount, LPPO
              * path: then the full set-up. */
             if( kind != 1 ) {
                 m8_hw_pattern_begin( c1, c2, fn, kind == 3 ? M8_MIX_LEAVE : fn );
-            } else if( !m8_hw_fill_begin_fast( c1, M8_MIX_SRC_FRGD | fn ) ) {
+            } else if( !M8_PF_WRAP( 46, m8_hw_fill_begin_fast( c1, M8_MIX_SRC_FRGD | fn ) ) ) {
                 m8_hw_fill_begin( c1, M8_MIX_SRC_FRGD | fn );
             }
             if( !m8_rect_empty( &c ) ) {
+#ifdef M8_PROF
+                /* The walk alone (62) and its FIFO waits (49, a count). */
+                extern WORD m8_pf_drains;
+                DWORD       pa = M8_PF_T0();
+
+                m8_pf_drains = 0;
+#endif
                 m8_hw_scan_spans( wStyle == OS_POLYSCANLINE, wCount, (const short FAR *)lpPoints,
                                   c.l, c.t, c.r, c.b, kind == 1 ? NULL : pat );
+#ifdef M8_PROF
+                m8_pf_part( 62, pa );
+                m8_pf.out_calls[49] += m8_pf_drains;
+#endif
             }
             M8_PF_HIT();
             M8_LEAVE();
