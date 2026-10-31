@@ -33,7 +33,11 @@ all cached under CMLR F0. No Inboard finding. The lookup is slow because it hash
 icon's selector limit: GPF at 0001:b2bd in bmp_icon (photos error_1-3), fixed by bounding the read.
 
 Next for mem_to_mem: remember a lookup's result per source bitmap and rectangle until that bitmap is
-touched (m8_px_touch) or deleted (RealizeObject) - the invalidation the proxies already rely on.
+written or deleted. Care: m8_px_touch/touch_rect serve reads and writes alike (m8_px_m2m touches
+its *source* before the lookup), so the memo must be cleared only at write sites: every entry that
+touches lpDestDev, the Pixel write-through (it skips m8_px_touch), the forwarded bitmap entries in
+thunks.asm (BitmapBits etc.), proxy write-backs (RAM changes) and RealizeObject deletion. Audit all
+of them first; a missed one draws stale pixels that M8BENCH may not catch.
 
 ## Late 10-31 (owner away)
 
