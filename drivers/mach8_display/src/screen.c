@@ -1867,6 +1867,8 @@ static int m8_px_save( LPDIBENGINE b, int dx, int dy, int sx, int sy, int w, int
 #elif defined( M8_PROF )
 /* The profile counts each reason in style slot 40 + why, copies in 40. */
 static M8_PF_TAB    m8_pf;
+static DWORD m8_pf_now( void );
+static void m8_pf_part( int s, DWORD a );
 #define M8_PX_NO_( why )    (++m8_pf.out_calls[40 + (why)])
 #define M8_PX_YES()         (++m8_pf.out_calls[40])
 #else
@@ -2045,8 +2047,23 @@ static int m8_px_m2m( LPVOID d, LPVOID s, int dx, int dy, int sx, int sy, int w,
             return( 0 );
         }
         m8_px_touch_rect( s, sx, sy, w, h, M8_PX_WHY_ENTRY );
+#ifdef M8_PROF
+        {
+            /* The source from RAM through the cache (38); copies from a proxy in 37. */
+            DWORD   pa = m8_pf_now();
+
+            e = m8_bc_lookup( sb, sx, sy, w, h, !made );
+            m8_pf_part( 38, pa );
+        }
+#else
         e = m8_bc_lookup( sb, sx, sy, w, h, !made );
+#endif
     }
+#ifdef M8_PROF
+    else {
+        ++m8_pf.out_calls[37];
+    }
+#endif
     if( (ps == NULL && e == NULL) || (ps != NULL && ps->bmp != s) ||
         !m8_px_pieces_live( db, pc, n ) ) {
         m8_px_pieces_drop( db, pc, n );

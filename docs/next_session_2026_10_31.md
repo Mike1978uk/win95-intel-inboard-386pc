@@ -58,7 +58,13 @@ Card log: `docs/captures/2026-10-31_card/m8_card_bench.txt`. Gate unchanged: >= 
   A card copy costs **~2.3-2.5 ms** a call - more than a RAM copy, which is all ATIM8 does. Next:
   a RAM copy when the source has no proxy, deciding what to do with the destination's proxy (a
   write-back is ~14 ms; drag_frame's 7x depends on proxy-to-proxy copies).
-- Owner decision owed: bmp_changing - keep the card copy current on SetPixel (doc item 2) changes
+- `0d002e4` pixel write-through (owner: hardware over software): bmp_changing 8.15x ATI; 1.772x overall.
+- **mem_to_mem split** (card_po1/2): every card copy's source is RAM (s37 = 0); `m8_bc_lookup` alone
+  costs **~2.0 ms** a call (s38). Next (owner agreed): RAM source -> RAM copy as ATIM8, keeping the
+  destination's proxy only when it pays (unfilled: drop; filled: write back once after N RAM copies).
+- XFree86 + all-35 sweep agent was running at the limit: check for `docs/xfree86_and_all_tests_sweep.md`.
+- Owner decided bmp_changing: write-through, done.
+- (old) Owner decision owed: bmp_changing - keep the card copy current on SetPixel (doc item 2) changes
   what the test measures ("what a cache cannot help").
 
 ## Below ATI (four-run mean, 6cd03ab)
