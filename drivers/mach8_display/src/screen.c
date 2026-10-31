@@ -2415,6 +2415,18 @@ LONG m8_pf_escape( LPVOID in, LPVOID out )
     return( 1 );
 }
 #define M8_PF_HIT()         (++m8_pf.hits)
+/* Part of a call, started at `a` (M8_PF_T0), timed into style slot s: Output's
+ * own styles stop at 22 and higher ones share 63, so 56-61 are free. */
+static void m8_pf_part( int s, DWORD a )
+{
+    DWORD   z = m8_pf_now();
+
+    if( (WORD)(z >> 16) == (WORD)(a >> 16) ) {
+        ++m8_pf.out_calls[s];
+        m8_pf.out_ticks[s] += (WORD)z - (WORD)a;
+    }
+}
+#define M8_PF_T0()          m8_pf_now()
 #define M8_PF_STYLE( s )    (m8_pf_style = (s) < M8_PF_STYLES - 1 ? (s) : M8_PF_STYLES - 1)
 /* Every eighth short-path read is read again the long way: the bench does not
  * check what a read returns. */
@@ -2425,6 +2437,8 @@ LONG m8_pf_escape( LPVOID in, LPVOID out )
     }
 #else
 #define M8_PF_HIT()
+#define m8_pf_part( s, a )  ((void)(a))
+#define M8_PF_T0()          0
 #define M8_PF_STYLE( s )
 #define M8_PF_CHECK( x, y, v )
 #endif
@@ -3664,7 +3678,10 @@ static WORD WINAPI __loadds m8_text_bitmap( LPDIBENGINE lpDevice, BYTE FAR *lpBi
     }
     m8_exclude( &r );
     {
+        DWORD       pa = M8_PF_T0();
         M8_SCENTRY *e = m8_sc_get( lpBits, wWidthBytes, wHeight );
+
+        m8_pf_part( 58, pa );
 
         if( m8_tk_cap ) {
             ++m8_tk_bitmaps;
@@ -3687,10 +3704,12 @@ static WORD WINAPI __loadds m8_text_bitmap( LPDIBENGINE lpDevice, BYTE FAR *lpBi
             }
         }
         if( e != NULL ) {
+            pa = M8_PF_T0();
             /* The visible part only: the blit has no scissors of its own. */
             m8_hw_plane_blit( e->x + (r.l - x), e->y + (r.t - y), r.l, r.t,
                               r.r - r.l, r.b - r.t, e->plane, (BYTE)dwFg, (BYTE)dwBg,
                               wFlags & 1 );
+            m8_pf_part( 60, pa );
             return( 1 );
         }
     }
@@ -3701,10 +3720,15 @@ static WORD WINAPI __loadds m8_text_bitmap( LPDIBENGINE lpDevice, BYTE FAR *lpBi
         m8_text_failed = 1;
         return( 1 );
     }
-    m8_hw_mono( x, y, wWidthBytes, wHeight, lpBits,
-                M8_MIX_SRC_FRGD | M8_MIX_REPLACE, (BYTE)dwFg,
-                (wFlags & 1) ? M8_MIX_LEAVE : M8_MIX_SRC_BKGD | M8_MIX_REPLACE, (BYTE)dwBg,
-                r.l, r.t, r.r - 1, r.b - 1 );
+    {
+        DWORD   pa = M8_PF_T0();
+
+        m8_hw_mono( x, y, wWidthBytes, wHeight, lpBits,
+                    M8_MIX_SRC_FRGD | M8_MIX_REPLACE, (BYTE)dwFg,
+                    (wFlags & 1) ? M8_MIX_LEAVE : M8_MIX_SRC_BKGD | M8_MIX_REPLACE, (BYTE)dwBg,
+                    r.l, r.t, r.r - 1, r.b - 1 );
+        m8_pf_part( 59, pa );
+    }
     return( 1 );
 }
 
@@ -3762,6 +3786,7 @@ static void m8_tk_key( DWORD *p1, DWORD *p2, int x0, int y0, LPRECT clip, LPSTR 
 {
     M8_HASH hs;
 
+
     m8_hash_init( &hs, (WORD)n );
     m8_hash_word( &hs, FP_SEG( font ) );
     m8_hash_word( &hs, FP_OFF( font ) );
@@ -3773,8 +3798,12 @@ static void m8_tk_key( DWORD *p1, DWORD *p2, int x0, int y0, LPRECT clip, LPSTR 
     if( widths != NULL ) {
         m8_hash_bytes( &hs, (const BYTE FAR *)widths, (WORD)(n * 2) );
     }
+    /* Only what a raster driver acts on (the DDK's STRBLT.ASM reads ftWeight
+     * alone): GDI passes the rest of the transform with bytes that change from
+     * call to call, which would make every string a miss. */
     if( xf != NULL ) {
-        m8_hash_bytes( &hs, (const BYTE FAR *)xf, sizeof( TEXTXFORM ) );
+        m8_hash_word( &hs, (WORD)((xf->ftWeight >= 700 ? 1 : 0) | (xf->ftItalic ? 2 : 0) |
+                                  (xf->ftUnderline ? 4 : 0) | (xf->ftStrikeOut ? 8 : 0)) );
     }
     m8_tk_rect( &hs, clip, x0, y0 );
     m8_tk_rect( &hs, opaque, x0, y0 );
@@ -3848,15 +3877,21 @@ DWORD WINAPI __loadds ExtTextOut( LPPDEVICE lpDestDev, WORD wDestXOrg, WORD wDes
         DWORD       h2 = 0;
         M8_TKENTRY  *k = NULL;
 
+        DWORD       pa;
+
         if( wCount > 0 && lpFontInfo != NULL && lpDrawMode != NULL && !m8_hw_off ) {
+            pa = M8_PF_T0();
             m8_tk_key( &h1, &h2, (short)wDestXOrg, (short)wDestYOrg, lpClipRect, lpString, wCount,
                        lpFontInfo, lpDrawMode, lpTextXForm, lpCharWidths, lpOpaqueRect,
                        wOptions );
+            m8_pf_part( 56, pa );
             k = &m8_tk[(WORD)h1 & (M8_TK_N - 1)];
             if( k->gen == m8_sc_gen && k->h1 == h1 && k->h2 == h2 ) {
                 M8_STEP( M8_MARK_TK_HIT );
+                pa = M8_PF_T0();
                 m8_tk_replay( k, (short)wDestXOrg, (short)wDestYOrg, (BYTE)lpDrawMode->TextColor,
                               (BYTE)lpDrawMode->bkColor );
+                m8_pf_part( 61, pa );
                 return( k->rc );
             }
             m8_tk_new.nrect = 0;
@@ -3870,10 +3905,12 @@ DWORD WINAPI __loadds ExtTextOut( LPPDEVICE lpDestDev, WORD wDestXOrg, WORD wDes
         }
         m8_busy = 1;
         m8_text_failed = 0;
+        pa = M8_PF_T0();
         rc = DIB_ExtTextOutExt( lpDestDev, wDestXOrg, wDestYOrg, lpClipRect, lpString, wCount,
                                 lpFontInfo, lpDrawMode, lpTextXForm, lpCharWidths,
                                 lpOpaqueRect, wOptions, (LPVOID *)m8_text_bitmap,
                                 (LPVOID *)m8_text_rect );
+        m8_pf_part( 57, pa );
         m8_leave();
         m8_tk_cap = 0;
         if( k != NULL && !m8_text_failed && !m8_tk_bad && m8_tk_bitmaps == 1 ) {
