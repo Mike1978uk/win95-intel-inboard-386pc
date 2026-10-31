@@ -62,7 +62,12 @@ Card log: `docs/captures/2026-10-31_card/m8_card_bench.txt`. Gate unchanged: >= 
 - **mem_to_mem split** (card_po1/2): every card copy's source is RAM (s37 = 0); `m8_bc_lookup` alone
   costs **~2.0 ms** a call (s38). Next (owner agreed): RAM source -> RAM copy as ATIM8, keeping the
   destination's proxy only when it pays (unfilled: drop; filled: write back once after N RAM copies).
-- XFree86 + all-35 sweep agent was running at the limit: check for `docs/xfree86_and_all_tests_sweep.md`.
+- XFree86 sweep committed (`7d000cf`, `docs/xfree86_and_all_tests_sweep.md`): lines_dash is also below ATI
+  (0.79-0.92); XFree86/ATIM8 wait for FIFO room where ours drains to empty (m8_fifo_drain).
+- **Uncommitted, untested:** screen.c `m8_px_m2m` returns 0 for a RAM source (copy in RAM as ATIM8).
+  Built; the card run (`M8M2M`, card_mm) never started: **boot stall #4** (2nd today, ~30 restarts).
+  Next: power-cycle the card, then `tools\m8_card_cycle.ps1 -Drv <plain build> -Name M8M2M -Label card_mm -Runs 4`.
+- (done) XFree86 + all-35 sweep agent was running at the limit: check for `docs/xfree86_and_all_tests_sweep.md`.
 - Owner decided bmp_changing: write-through, done.
 - (old) Owner decision owed: bmp_changing - keep the card copy current on SetPixel (doc item 2) changes
   what the test measures ("what a cache cannot help").
