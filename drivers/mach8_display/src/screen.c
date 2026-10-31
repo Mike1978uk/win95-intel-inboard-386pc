@@ -1086,37 +1086,13 @@ static void m8_hash_init( M8_HASH *h, WORD seed )
     h->c = 0x1234;
 }
 
-static void m8_hash_bytes( M8_HASH *h, const BYTE FAR *p, WORD n )
-{
-    WORD            a = h->a;
-    WORD            b = h->b;
-    WORD            c = h->c;
-    WORD            v;
-    const WORD FAR  *q = (const WORD FAR *)p;
-
-    /* A word a step: the bytes are cold in RAM, and the loop is what the
-     * caches' every lookup costs. */
-    for( ; n >= 2; n -= 2 ) {
-        v = *q++;
-        a += v;
-        b += a;
-        c = ((c << 3) | (c >> 13)) ^ v;
-    }
-    if( n != 0 ) {
-        v = *(const BYTE FAR *)q;
-        a += v;
-        b += a;
-        c = ((c << 3) | (c >> 13)) ^ v;
-    }
-    h->a = a;
-    h->b = b;
-    h->c = c;
-}
-
-static void m8_hash_word( M8_HASH *h, WORD v )
-{
-    m8_hash_bytes( h, (const BYTE FAR *)&v, 2 );
-}
+/* hash.asm: a word a step, the state in registers. */
+extern void M8_HASH_BYTES( M8_HASH *h, const BYTE FAR *p, WORD n );
+#pragma aux M8_HASH_BYTES "*" parm [dx ax] [cx bx] [di] modify [ax bx cx dx di es fs];
+extern void M8_HASH_WORD( M8_HASH *h, WORD v );
+#pragma aux M8_HASH_WORD "*" parm [dx ax] [bx] modify [ax dx fs];
+#define m8_hash_bytes       M8_HASH_BYTES
+#define m8_hash_word        M8_HASH_WORD
 
 static DWORD m8_hash_h1( const M8_HASH *h )
 {
