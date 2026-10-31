@@ -24,14 +24,16 @@ Card log: `docs/captures/2026-10-31_card/m8_card_bench.txt`. Gate unchanged: >= 
    the bitmap cache first; eviction and deletion do not count as a rewrite. 0.84 -> 1.39x ATI.
 4. Disproved: skipping the bits hash on a first-sight key with the old key (text_sys/same -25%).
 
-## FIRST next session: is GDI bitmap RAM cached?
+## Answered 10-31: GDI bitmap RAM is cached (card_pc31)
 
-The cache lookup reads a RAM bitmap at ~0.45-0.5 us **a byte** (mem_to_mem 3.8 KB ~1,750 us,
-draw_icon 1 KB ~520 us; card_pb1/2). The asm hash costs a few cycles a word on cached memory, so the
-bitmap's RAM may be read uncached. If true it slows every path that reads a GDI bitmap in RAM. Check:
-the bitmap's linear address (GetSelectorBase of deBitsSelector) against the Inboard's cacheable range
-(memory `cpu-cache-cmlr-fixed`, CMLR); time a 4 KB read loop at that address vs a low one (probe in
-the profile build or a ring-0 test). Links to Andrew's cache-off question (#50).
+1 KB hashed on a second pass: a bitmap's bits 245-249 us, the driver's own data 247-248 us (both
+stamp-inclusive), bitmaps at 4 KB pages 394-527 (~1.6-2.1 MB), driver data page 266: all above 1 MB,
+all cached under CMLR F0. No Inboard finding. The lookup is slow because it hashes every call
+(~0.16 us a byte cached, plus first-touch fills). First probe build (M8PCACHE) read 2 KB past a 1 KB
+icon's selector limit: GPF at 0001:b2bd in bmp_icon (photos error_1-3), fixed by bounding the read.
+
+Next for mem_to_mem: remember a lookup's result per source bitmap and rectangle until that bitmap is
+touched (m8_px_touch) or deleted (RealizeObject) - the invalidation the proxies already rely on.
 
 ## Late 10-31 (owner away)
 
