@@ -1580,8 +1580,12 @@ static int m8_px_valid( const M8_PXENTRY *p )
     return( 1 );
 }
 
+/* The bitmap whose proxy went last: one GDI rewrites between draws. */
+static LPVOID       m8_px_gone;
+
 static void m8_px_drop( M8_PXENTRY *p, int keep_slot )
 {
+    m8_px_gone = p->bmp;
     if( !keep_slot ) {
         p->e->w = 0;
         p->e->px = 0;
@@ -1625,7 +1629,15 @@ static void m8_px_writeback( M8_PXENTRY *p, WORD why )
         s = m8_dst.bits + (DWORD)row * we + p->lead;
         _fmemcpy( q, s, p->w );
     }
-    m8_px_drop( p, 0 );
+    {
+        LPVOID  gone = m8_px_gone;
+
+        m8_px_drop( p, 0 );
+        /* Room made for another: the bitmap itself did not change. */
+        if( why == M8_PX_WHY_EVICT || why == M8_PX_WHY_OVERLAP ) {
+            m8_px_gone = gone;
+        }
+    }
 }
 
 /* Write back every proxy of `dev` (all of them for NULL). */
@@ -1676,13 +1688,19 @@ VOID WINAPI __loadds M8PXREALIZE( short iStyle, LPVOID lpInObj )
 {
     int k;
 
-    /* A bitmap being deleted: its proxies go without a write-back. */
+    /* A bitmap being deleted: its proxies go without a write-back, and the
+     * next bitmap at its address is a new one, not a rewrite of it. */
     if( m8_px_n > 0 && iStyle == -M8_OBJ_BITMAP && lpInObj != NULL ) {
         for( k = 0; k < M8_PX_MAX; ++k ) {
             if( m8_px[k].bmp == lpInObj ) {
                 m8_px_drop( &m8_px[k], 0 );
             }
         }
+    }
+    if( iStyle == -M8_OBJ_BITMAP && lpInObj != NULL && lpInObj == m8_px_gone ) {
+        m8_px_gone = NULL;
+    }
+    if( iStyle == -M8_OBJ_BITMAP ) {
         return;
     }
     if( m8_px_n > 0 && iStyle == OBJ_BRUSH && lpInObj != NULL &&
@@ -2108,6 +2126,15 @@ static int m8_px_fill( LPVOID d, int x, int y, int w, int h, BYTE colour, WORD m
 /* Upload a whole device bitmap into a new proxy, so it is drawn from the card
  * from now on. Left unfilled: the RAM still matches, so a RAM use only drops
  * it. One segment only, as m8_hw_write_rect reads it through one pointer. */
+/* A bitmap that just lost its proxy and is small enough that hashing it
+ * beats uploading it again: icons up to 64x64, not a changing card-sized
+ * bitmap. One that never had a proxy gets one, and is restored from it. */
+static int m8_px_by_content( LPDIBENGINE b )
+{
+    return( (LPVOID)b == m8_px_gone && b->deType == TYPE_DIBENG && b->deBitsPixel == 8 &&
+            (long)((b->deWidth + 1) & ~1) * b->deHeight <= 4096L );
+}
+
 static int m8_px_upload( LPDIBENGINE b )
 {
     M8_PXENTRY  *p;
@@ -2658,6 +2685,12 @@ static BOOL m8_bitblt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPDEVICE 
         if( M8_PROXY && !src_screen && m8_rop_uses_src( dwRop3 ) && !m8_rop_uses_pat( dwRop3 ) &&
             (M8_PF_WRAP( 51, m8_px_restore( (LPDIBENGINE)lpSrcDev, wSrcX, wSrcY, wDestX, wDestY,
                                             wXext, wYext, m8_mix_for_key[rop & 0x0F] ) ) ||
+             /* A small bitmap GDI rewrites with the same bits every call (an
+              * icon's colour half in DrawIcon) is found by content, not
+              * uploaded again. */
+             (m8_px_by_content( (LPDIBENGINE)lpSrcDev ) &&
+              M8_PF_WRAP( 55, m8_bc_draw( (LPDIBENGINE)lpSrcDev, wSrcX, wSrcY, wDestX, wDestY,
+                                          wXext, wYext, m8_mix_for_key[rop & 0x0F] ) )) ||
              M8_PF_WRAP( 52, m8_px_upload( (LPDIBENGINE)lpSrcDev ) &&
                              m8_px_restore( (LPDIBENGINE)lpSrcDev, wSrcX, wSrcY, wDestX, wDestY,
                                             wXext, wYext, m8_mix_for_key[rop & 0x0F] ) )) ) {
