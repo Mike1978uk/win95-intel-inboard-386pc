@@ -661,8 +661,15 @@ extern void M8_SPANS_SOLID( void );
 #pragma aux M8_SPANS_SOLID "*" parm [] modify exact [];
 
 /* spans.asm's FIFO wait: the room after it. */
+#ifdef M8_PROF
+WORD m8_pf_drains;                      /* spans.asm's waits, read by the profile */
+#endif
+
 int __cdecl m8_hw_drain( void )
 {
+#ifdef M8_PROF
+    ++m8_pf_drains;
+#endif
     m8_fifo_drain();
     return( m8_room );
 }
