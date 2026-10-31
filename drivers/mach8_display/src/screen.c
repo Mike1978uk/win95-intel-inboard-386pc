@@ -2416,7 +2416,7 @@ LONG m8_pf_escape( LPVOID in, LPVOID out )
 }
 #define M8_PF_HIT()         (++m8_pf.hits)
 /* Part of a call, started at `a` (M8_PF_T0), timed into style slot s: Output's
- * own styles stop at 22 and higher ones share 63, so 56-61 are free. */
+ * own styles stop at 22 and higher ones share 63, so 50-61 are free. */
 static void m8_pf_part( int s, DWORD a )
 {
     DWORD   z = m8_pf_now();
@@ -2427,6 +2427,10 @@ static void m8_pf_part( int s, DWORD a )
     }
 }
 #define M8_PF_T0()          m8_pf_now()
+/* One step of a call, as an expression: never nested. */
+static DWORD        m8_pf_t;
+static int          m8_pf_r;
+#define M8_PF_WRAP( s, e )  (m8_pf_t = m8_pf_now(), m8_pf_r = (e), m8_pf_part( s, m8_pf_t ), m8_pf_r)
 #define M8_PF_STYLE( s )    (m8_pf_style = (s) < M8_PF_STYLES - 1 ? (s) : M8_PF_STYLES - 1)
 /* Every eighth short-path read is read again the long way: the bench does not
  * check what a read returns. */
@@ -2439,6 +2443,7 @@ static void m8_pf_part( int s, DWORD a )
 #define M8_PF_HIT()
 #define m8_pf_part( s, a )  ((void)(a))
 #define M8_PF_T0()          0
+#define M8_PF_WRAP( s, e )  (e)
 #define M8_PF_STYLE( s )
 #define M8_PF_CHECK( x, y, v )
 #endif
@@ -2646,25 +2651,32 @@ static BOOL m8_bitblt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPDEVICE 
         }
         if( !src_screen && m8_rop_uses_src( dwRop3 ) && !m8_rop_uses_pat( dwRop3 ) &&
             ((LPDIBENGINE)lpSrcDev)->deType != TYPE_DIBENG &&
-            m8_mono_blt( (BITMAP FAR *)lpSrcDev, wSrcX, wSrcY, wDestX, wDestY, wXext, wYext,
-                         m8_mix_for_key[rop & 0x0F], lpDrawMode ) ) {
+            M8_PF_WRAP( 50, m8_mono_blt( (BITMAP FAR *)lpSrcDev, wSrcX, wSrcY, wDestX, wDestY,
+                                         wXext, wYext, m8_mix_for_key[rop & 0x0F], lpDrawMode ) ) ) {
             return( TRUE );
         }
         if( M8_PROXY && !src_screen && m8_rop_uses_src( dwRop3 ) && !m8_rop_uses_pat( dwRop3 ) &&
-            (m8_px_restore( (LPDIBENGINE)lpSrcDev, wSrcX, wSrcY, wDestX, wDestY, wXext, wYext,
-                            m8_mix_for_key[rop & 0x0F] ) ||
-             (m8_px_upload( (LPDIBENGINE)lpSrcDev ) &&
-              m8_px_restore( (LPDIBENGINE)lpSrcDev, wSrcX, wSrcY, wDestX, wDestY, wXext, wYext,
-                             m8_mix_for_key[rop & 0x0F] ))) ) {
+            (M8_PF_WRAP( 51, m8_px_restore( (LPDIBENGINE)lpSrcDev, wSrcX, wSrcY, wDestX, wDestY,
+                                            wXext, wYext, m8_mix_for_key[rop & 0x0F] ) ) ||
+             M8_PF_WRAP( 52, m8_px_upload( (LPDIBENGINE)lpSrcDev ) &&
+                             m8_px_restore( (LPDIBENGINE)lpSrcDev, wSrcX, wSrcY, wDestX, wDestY,
+                                            wXext, wYext, m8_mix_for_key[rop & 0x0F] ) )) ) {
             return( TRUE );
         }
         if( !src_screen && m8_rop_uses_src( dwRop3 ) ) {
+#ifdef M8_PROF
+            DWORD   pa = M8_PF_T0();
+
             m8_px_touch( lpSrcDev, M8_PX_WHY_ENTRY );
+            m8_pf_part( 53, pa );
+#else
+            m8_px_touch( lpSrcDev, M8_PX_WHY_ENTRY );
+#endif
         }
         if( !src_screen && m8_rop_uses_src( dwRop3 ) && !m8_rop_uses_pat( dwRop3 ) &&
             ((LPDIBENGINE)lpSrcDev)->deType == TYPE_DIBENG &&
-            m8_bc_draw( (LPDIBENGINE)lpSrcDev, wSrcX, wSrcY, wDestX, wDestY, wXext, wYext,
-                        m8_mix_for_key[rop & 0x0F] ) ) {
+            M8_PF_WRAP( 54, m8_bc_draw( (LPDIBENGINE)lpSrcDev, wSrcX, wSrcY, wDestX, wDestY,
+                                        wXext, wYext, m8_mix_for_key[rop & 0x0F] ) ) ) {
             return( TRUE );
         }
         if( rop == 0xCC && src_screen ) {
@@ -3514,7 +3526,7 @@ static int m8_sc_alloc( int w, int h, int *x, int *y, int *plane )
 /* The cached copy of this 1-bit bitmap (rows of wb bytes, unpadded), at most
  * max_h rows: found, or stored now. NULL if it cannot be cached (too big, or
  * the cache is full and has just been cleared). */
-static M8_SCENTRY *m8_sc_get_h( const BYTE FAR *bits, WORD wb, WORD h, WORD max_h )
+static M8_SCENTRY *m8_sc_get_h( const BYTE FAR *bits, WORD wb, WORD h, WORD max_h, int force )
 {
     DWORD       h1;
     DWORD       h2;
@@ -3536,9 +3548,9 @@ static M8_SCENTRY *m8_sc_get_h( const BYTE FAR *bits, WORD wb, WORD h, WORD max_
             return( e );
         }
     }
-    for( k = 0; k < M8_SC_SEEN && m8_sc_seen[k] != h1; ++k ) {
+    for( k = 0; !force && k < M8_SC_SEEN && m8_sc_seen[k] != h1; ++k ) {
     }
-    if( k == M8_SC_SEEN ) {
+    if( !force && k == M8_SC_SEEN ) {
         m8_sc_seen[m8_sc_seen_next] = h1;
         m8_sc_seen_next = (m8_sc_seen_next + 1) % M8_SC_SEEN;
         return( NULL );
@@ -3573,7 +3585,7 @@ static int m8_mono_cached( BITMAP FAR *bm, int sx, int sy, const M8_RECT *r, int
     if( (DWORD)bm->bmWidthBytes * bm->bmHeight > 0xFFF0UL ) {
         return( 0 );
     }
-    e = m8_sc_get_h( bm->bmBits, (WORD)bm->bmWidthBytes, (WORD)bm->bmHeight, (WORD)m8_sc_rows() );
+    e = m8_sc_get_h( bm->bmBits, (WORD)bm->bmWidthBytes, (WORD)bm->bmHeight, (WORD)m8_sc_rows(), 0 );
     if( e == NULL ) {
         return( 0 );
     }
@@ -3587,10 +3599,12 @@ static int m8_mono_cached( BITMAP FAR *bm, int sx, int sy, const M8_RECT *r, int
     return( 1 );
 }
 
-/* A string's copy: strings are at most M8_SC_MAX_H rows. */
-static M8_SCENTRY *m8_sc_get( const BYTE FAR *bits, WORD wb, WORD h )
+/* A string's copy: strings are at most M8_SC_MAX_H rows. `force` stores it
+ * without the seen-twice test, for a string whose text key is already known
+ * to repeat. */
+static M8_SCENTRY *m8_sc_get( const BYTE FAR *bits, WORD wb, WORD h, int force )
 {
-    return( m8_sc_get_h( bits, wb, h, M8_SC_MAX_H ) );
+    return( m8_sc_get_h( bits, wb, h, M8_SC_MAX_H, force ) );
 }
 
 /* Engine text: DIB_ExtTextOutExt lays the string out and calls back with the
@@ -3630,6 +3644,8 @@ typedef struct {
 } M8_TKENTRY;
 
 static M8_TKENTRY   m8_tk[M8_TK_N];
+static DWORD        m8_tk_seen[M8_TK_N];    /* h2 of the last miss in each slot */
+static int          m8_tk_first;        /* the miss is this key's first: skip the bits' hash */
 static M8_TKENTRY   m8_tk_new;
 static int          m8_tk_cap;          /* recording a miss */
 static int          m8_tk_bad;          /* the miss cannot be replayed */
@@ -3678,8 +3694,15 @@ static WORD WINAPI __loadds m8_text_bitmap( LPDIBENGINE lpDevice, BYTE FAR *lpBi
     }
     m8_exclude( &r );
     {
+        /* A string whose key is new costs only its expansion, as ATIM8's
+         * does; one starting off the top or left still needs the cache's
+         * clipped blit. */
         DWORD       pa = M8_PF_T0();
-        M8_SCENTRY *e = m8_sc_get( lpBits, wWidthBytes, wHeight );
+        M8_SCENTRY *e = NULL;
+
+        if( !m8_tk_first || x < 0 || y < 0 ) {
+            e = m8_sc_get( lpBits, wWidthBytes, wHeight, m8_tk_cap && !m8_tk_first );
+        }
 
         m8_pf_part( 58, pa );
 
@@ -3894,6 +3917,8 @@ DWORD WINAPI __loadds ExtTextOut( LPPDEVICE lpDestDev, WORD wDestXOrg, WORD wDes
                 m8_pf_part( 61, pa );
                 return( k->rc );
             }
+            m8_tk_first = m8_tk_seen[(WORD)h1 & (M8_TK_N - 1)] != h2;
+            m8_tk_seen[(WORD)h1 & (M8_TK_N - 1)] = h2;
             m8_tk_new.nrect = 0;
             m8_tk_x0 = (short)wDestXOrg;
             m8_tk_y0 = (short)wDestYOrg;
@@ -3913,6 +3938,7 @@ DWORD WINAPI __loadds ExtTextOut( LPPDEVICE lpDestDev, WORD wDestXOrg, WORD wDes
         m8_pf_part( 57, pa );
         m8_leave();
         m8_tk_cap = 0;
+        m8_tk_first = 0;
         if( k != NULL && !m8_text_failed && !m8_tk_bad && m8_tk_bitmaps == 1 ) {
             m8_tk_new.h1 = h1;
             m8_tk_new.h2 = h2;
