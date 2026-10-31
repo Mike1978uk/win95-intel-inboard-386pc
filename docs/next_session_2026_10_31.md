@@ -24,6 +24,16 @@ Card log: `docs/captures/2026-10-31_card/m8_card_bench.txt`. Gate unchanged: >= 
    the bitmap cache first; eviction and deletion do not count as a rewrite. 0.84 -> 1.39x ATI.
 4. Disproved: skipping the bits hash on a first-sight key with the old key (text_sys/same -25%).
 
+## Night 10-31: 1.786x ATI (45b3a15, four runs), pixels = ATI in all 35
+
+- `2a4e36d` bitmap-cache lookup memo (cleared at every write site): mem_to_mem 0.82 -> 1.05x.
+- `45b3a15` cursor move in one run of writes (m8_hw_cursor_move): cursor_move 0.88 -> 1.22x.
+  Lesson: the C set-up through the register cache cost more than the port writes (~615 us a move
+  for ~37 writes); writing the full state straight is cheaper. Same pattern: polygon's set-up.
+- lines_dash is level, not behind: ATI's own runs are 548 and 437/s; ours 430-551, mean ~495.
+- Still below: text_varied ~0.93, polygon ~0.95 (set-up ~290 us a call: rows 44, brush 51,
+  fill set-up 24, other ~170), dstinvert ~0.94-0.98 (first-run effect).
+
 ## Answered 10-31: GDI bitmap RAM is cached (card_pc31)
 
 1 KB hashed on a second pass: a bitmap's bits 245-249 us, the driver's own data 247-248 us (both
