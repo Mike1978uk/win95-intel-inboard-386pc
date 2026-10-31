@@ -142,3 +142,20 @@ text_varied 0.89, dib_8bpp 0.82, polygon 0.83, mem_to_mem 0.75 (swings 0.66-0.94
   multiple of 16) - on no lagging test.
 - Re-upload of a rewritten-but-identical bitmap: s52 (uploads) is frequent only in draw_icon and
   bmp_changing (content really changes, 6.8 KB, outside the 4 KB limit).
+
+## Late night 10-31 (second session): glyph cache
+
+- Master baseline (card_mast1): 1.788x ATI, pixels = ATI in all 35; below: text_varied 0.92, lines_dash 0.89,
+  polygon 0.94.
+- Glyph cache on branch `glyph-cache-wip` (local). GDI passes raster text with ETO_BYTE_PACKED (0x100): lpFontInfo
+  is then GDI's own glyph table, not an FNT image, and lpTextXForm is the string's box. Layout from DIBENG:
+  `docs/dibeng_font_layout_2026_10_31.md` section 7. Reading the FNT 3.0 table instead gave wrong widths and
+  missing dialog text on the card (photo, Shut Down dialog); the packed-table reader (card_gy21) draws pixels = ATI
+  in all 35, but text_varied fell to 0.69x: the path runs every call (6 uploads in all) and costs ~2,200 us a call.
+  Next: per-part timing (card_gy3p, slots 47/48/50/51, box size in `pad`), fix the cost, then assembly for the glyph
+  loop, bench twice, merge.
+- Static sweep (`docs/mach8_static_sweep_2026_10_31.md`). Owner's order after the glyph fix: #5 hardware polygon fill
+  (bed pixel hash first), then #1 wait-state settings for PIX_TRANS (M8UPRATE sweep of 6AEE/36EE).
+- Owner, 10-31: goal is all 35 tests at or above ATI, better where possible; hot paths into aligned assembly once
+  correct; dstinvert MAJ/MIN shadow trim (~2.5%) approved to try. Research, git and docs go to cheaper agents.
+- Boot stall #6 on rebooting into a profile build (power cycle cleared it).
