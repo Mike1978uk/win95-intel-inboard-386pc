@@ -36,8 +36,8 @@ Method: `docs/mach8_driver_method.md` §4b (profile, shorten) and §4c (divide b
    nothing else. Ours adds, on every new string, a text-key lookup and a hash over the rendered bits for
    the string cache's seen-twice test. Lead: hash the bits only when the text key has been seen before,
    so a first-sight string costs what ATIM8's does. A glyph cache (XFree86 mach8fcach.c) comes after.
-   **Tried 10-31, disproved** (`docs/captures/2026-10-31_card/`, card_tf1 vs card_d1r11): text_varied 0.95
-   (no gain), text_sys 0.74, text_same 0.73 - their repeats change key (clip, origin) and reached the
+   **Tried 10-31, disproved** (`docs/captures/2026-10-31_card/`, card_tf1, tfb1, tfb2 vs card_d1r11; idle proven): text_varied 0.95/1.04/1.06
+   (within noise), text_sys 0.74-0.78, text_same 0.73-0.76 - their repeats change key (clip, origin) and reached the
    cache only through the bits' hash. Not committed. The cost is elsewhere: split ExtTextOut in a profile
    build (layout, key, expansion) before the next guess.
 6b. Assembly, by the cache-line model (each port access flushes the L1; ~1.3 us a 16-byte line):

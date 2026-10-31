@@ -72,10 +72,10 @@ if (-not $FetchOnly -and -not $BenchOnly) {
   if (-not $back) { throw 'the card did not come back from the restart within 4 minutes' }
 }
 if (-not $FetchOnly) {
-  if (-not $BenchOnly) {
-    Agent put @{ Source = (Join-Path $root 'tools\m8probe\M8IDLE.EXE'); Destination = 'C:\M8IDLE.EXE' } | Out-Null
-    Agent exec @{ Application = 'C:\M8IDLE.EXE'; Arguments = "10 10 $Settle"; TimeoutSeconds = $Settle + 60 } | Out-Null
-  }
+  # Every bench waits for a quiet card, -BenchOnly too: a run during start-up work is slow in every test.
+  Agent put @{ Source = (Join-Path $root 'tools\m8probe\M8IDLE.EXE'); Destination = 'C:\M8IDLE.EXE' } | Out-Null
+  $idle = Agent exec @{ Application = 'C:\M8IDLE.EXE'; Arguments = "10 10 $Settle"; TimeoutSeconds = $Settle + 60 }
+  Write-Output "idle: $(($idle | Out-String).Trim())"
   foreach ($n in 1..$Runs) {
     Agent exec @{ Application = 'C:\M8BENCH.EXE'; Arguments = "$Label$n"; TimeoutSeconds = 300 } | Out-Null
   }
