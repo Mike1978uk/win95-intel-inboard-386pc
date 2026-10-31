@@ -72,6 +72,11 @@ Card log: `docs/captures/2026-10-31_card/m8_card_bench.txt`. Gate unchanged: >= 
 - Also no gain (card_bl1-4, reverted): copying the rows out only on a cache store: mem_to_mem +4%,
   drag_frame -9%, both in noise. The ~2 ms m8_bc_lookup is not the row copy. Next: time its parts
   (m8_bits_row + hash per row, the entries scan, seen-twice) in the profile build before any change.
+- **m8_bc_lookup measured** (card_pb1/2, profile slots 35/36): the row loop (m8_bits_row + copy +
+  hash) is ~1,750 us for mem_to_mem's 40x96 and ~520 us for draw_icon's 32x32 - ~18 us a row, not
+  per byte; the entries scan is ~40 us. drag_frame copies from proxies (s37 ~210, lookups 1-3).
+  Not the cause (card_br1-4, reverted): bottom-up rows taking m8_bits_row's selector path. Next:
+  one call hashing all rows (asm walking the rows itself, one selector load), measured on the card.
 - **Boot stall #5** right after #4 (owner: wallpaper + cursor again); a second power cycle cleared it.
   Two consecutive stalls: investigate before the next long card session (BOOTLOG, Explorer with ATIM8).
 - (done) XFree86 + all-35 sweep agent was running at the limit: check for `docs/xfree86_and_all_tests_sweep.md`.
