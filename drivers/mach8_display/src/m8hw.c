@@ -1546,6 +1546,73 @@ void m8_hw_copy_keyed( int sx, int sy, int dx, int dy, int w, int h, BYTE key )
     m8_room -= 15;
 }
 
+/* A cursor move in one run of writes: the old area back from its save, the
+ * new area saved, the cursor drawn through the colour key. The general path
+ * reaches the same state through three set-ups and the register cache, and
+ * on this bus that CPU work costs more than the writes. The state is written
+ * whole (the last drawing call may have left anything), and the cache is
+ * forgotten after. ox, oy: the old area; nx, ny: the new; svx, svy: the save
+ * area; mx, my: the cursor's image, w x h as both areas. */
+void m8_hw_cursor_move( int ox, int oy, int nx, int ny, int w, int h, int svx, int svy,
+                        int mx, int my, BYTE key )
+{
+    if( m8_hw_off || w <= 0 || h <= 0 ) {
+        return;
+    }
+    m8_wait_fifo_empty();
+    m8_room_for( 9 );
+    outpw( M8_WRT_MASK, 0x00FF );
+    outpw( M8_RD_MASK, 0x00FF );
+    outpw( M8_EXT_SCISSOR_L, M8_EXT_SCISSOR_MIN );
+    outpw( M8_EXT_SCISSOR_T, M8_EXT_SCISSOR_MIN );
+    outpw( M8_EXT_SCISSOR_R, M8_EXT_SCISSOR_MAX );
+    outpw( M8_EXT_SCISSOR_B, M8_EXT_SCISSOR_MAX );
+    outpw( M8_DP_CONFIG, M8_DP_8514 );
+    outpw( M8_MULTIFUNC_CNTL, M8_MF_PIX_CNTL );
+    outpw( M8_FRGD_MIX, M8_MIX_SRC_VRAM | M8_MIX_REPLACE );
+    m8_room -= 9;
+    m8_room_for( 7 );
+    outpw( M8_CUR_X, svx );
+    outpw( M8_CUR_Y, svy );
+    outpw( M8_DESTX_DIASTP, ox );
+    outpw( M8_DESTY_AXSTP, oy );
+    outpw( M8_MAJ_AXIS_PCNT, w - 1 );
+    outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
+    outpw( M8_CMD, M8_CMD_BLIT | M8_CMD_INC_X | M8_CMD_INC_Y );
+    m8_room -= 7;
+    m8_room_for( 7 );
+    outpw( M8_CUR_X, nx );
+    outpw( M8_CUR_Y, ny );
+    outpw( M8_DESTX_DIASTP, svx );
+    outpw( M8_DESTY_AXSTP, svy );
+    outpw( M8_MAJ_AXIS_PCNT, w - 1 );
+    outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
+    outpw( M8_CMD, M8_CMD_BLIT | M8_CMD_INC_X | M8_CMD_INC_Y );
+    m8_room -= 7;
+    /* As m8_hw_copy_keyed: the extended set-up waits for an empty FIFO. */
+    m8_wait_fifo_empty();
+    outpw( M8_DP_CONFIG, M8_DP_VRAM_BLIT );
+    m8_room_for( 15 );
+    outpw( M8_ALU_FG_FN, M8_MIX_REPLACE );
+    outpw( M8_ALU_BG_FN, M8_MIX_LEAVE );
+    outpw( M8_SRC_CMP_COLOR, key );
+    outpw( M8_SRC_CMP_FN, 0x0028 );
+    outpw( M8_SRC_Y_DIR, 1 );
+    outpw( M8_CUR_X, nx );
+    outpw( M8_CUR_Y, ny );
+    outpw( M8_DEST_X_START, nx );
+    outpw( M8_DEST_X_END, nx + w );
+    outpw( M8_DESTX_DIASTP, mx );
+    outpw( M8_DESTY_AXSTP, my );
+    outpw( M8_SRC_X_START, mx );
+    outpw( M8_SRC_X_END, mx + w );
+    outpw( M8_DEST_Y_END, ny + h );
+    outpw( M8_SRC_CMP_FN, 0 );
+    m8_room -= 15;
+    m8_stats[M8_STAT_COPY_HW] += 2;
+    m8_sh_clear();
+}
+
 /* As m8_hw_plane_blit, transparent, with any foreground mix: where the plane
  * holds 1, fg through fg_mix; where 0, the screen is left. */
 void m8_hw_plane_mix( int sx, int sy, int dx, int dy, int w, int h, int plane,

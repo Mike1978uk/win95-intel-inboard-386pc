@@ -4815,8 +4815,40 @@ VOID WINAPI __loadds MoveCursor( WORD wAbsX, WORD wAbsY )
     }
     m8_busy = 1;
     M8_STEP( M8_MARK_CURSOR_MOVE );
+    {
+        /* Whole on the screen at both ends, drawn by the engine: one run. */
+        int cx = m8_cur_x - m8_cur_hot_x;
+        int cy = m8_cur_y - m8_cur_hot_y;
+
+        if( m8_cur_shown && !m8_cur_soft && m8_cur_keyed && m8_cur_planes_ok &&
+            m8_cur_rect.r - m8_cur_rect.l == M8_CURSOR_MAX &&
+            m8_cur_rect.b - m8_cur_rect.t == M8_CURSOR_MAX &&
+            cx >= 0 && cy >= 0 && cx + M8_CURSOR_MAX <= M8_SCREEN_X &&
+            cy + M8_CURSOR_MAX <= M8_SCREEN_Y ) {
+            m8_hw_cursor_move( m8_cur_rect.l, m8_cur_rect.t, cx, cy, M8_CURSOR_MAX,
+                               M8_CURSOR_MAX, M8_CURSOR_SAVE_X, M8_CURSOR_SAVE_Y,
+                               M8_CURSOR_MASK_X, M8_CURSOR_MASK_Y, M8_CURSOR_KEY );
+            m8_rect_set( &m8_cur_rect, cx, cy, cx + M8_CURSOR_MAX, cy + M8_CURSOR_MAX );
+            m8_busy = 0;
+            return;
+        }
+    }
+#ifdef M8_PROF
+    {
+        /* A move (29) and its show (27); the hide is the difference. */
+        DWORD   a = m8_pf_now();
+        DWORD   b;
+
+        m8_cursor_hide();
+        b = m8_pf_now();
+        m8_cursor_show();
+        m8_pf_part( 27, b );
+        m8_pf_part( 29, a );
+    }
+#else
     m8_cursor_hide();
     m8_cursor_show();
+#endif
     m8_busy = 0;
 }
 
