@@ -927,8 +927,12 @@ static int m8_read_scan( int from, int y, int to )
         M8_OUT_MM( M8_SCAN_TO_X, to );
         goto wait;
     }
-    m8_wait_fifo_empty();
-    m8_hw_wait_idle();
+    /* No drain and no idle wait: the data-ready wait below follows every
+     * command queued before the read, so the drawing before it overlaps these
+     * writes. Room for all twelve, counted. */
+    M8_MM_FORGET();
+    m8_dp_ok = 0;
+    m8_room_counted( 12 );
     M8_SET( M8_SH_WRT_MASK, 0x00FF );
     M8_SET( M8_SH_RD_MASK, 0x00FF );
     m8_put( M8_SH_PIX_CNTL, M8_MF_PIX_CNTL );
