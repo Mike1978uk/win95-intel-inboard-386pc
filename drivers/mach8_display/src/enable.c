@@ -353,11 +353,15 @@ UINT WINAPI __loadds Enable( LPVOID lpDevice, UINT style, LPSTR lpDeviceType,
         }
         m8_fb16_device( lpEng, lpInfo );
         m8_pdevice = lpEng;
+        /* No palette: DibBlt would map DIB colours through a translation
+         * table this device does not have (icon and pointer masks). */
+        m8_palettized = 0;
         m8_color_table = m8_fb16_pal;
         m8_fb16_send_all();
         m8_hook_int2f();
         return( 1 );
     }
+    m8_palettized = 1;
     DIB_SetPaletteTranslateExt( NULL, lpDevice );
 
     _fmemset( &lpInfo->bmiHeader, 0, sizeof( lpInfo->bmiHeader ) );
