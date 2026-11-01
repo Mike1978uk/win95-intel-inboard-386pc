@@ -92,5 +92,10 @@ GDI regression with the milestone-1 driver (`card_ddm1`, median): pixels = ATI i
   holds it (`M8_DP_PATT`); pattern spans count FIFO room instead of draining. Card `card_focus1-4` +
   `card_focusb1-2`: focus_rect 0.92-0.95 (497-513 med vs ATI 538), pixels = ATI in all 36. lines_dash read
   483-535 in three runs, 631 in both re-runs: card noise. Card left on `M8FOCUS`.
-- Next for focus_rect: the BitBlt short path has no pattern case, so each strip runs the full C path and
-  the 142-byte brush compare.
+- **focus_rect above ATI**: `m8_blt_short` takes two-colour pattern strips one pixel tall or wide (brush
+  cache, cursor check, then the engine). Card `card_strip1-4`: 1.05-1.09 (566-586 vs ATI 538), pixels = ATI
+  in all 36, geometric mean 1.79-1.83. Card left on `M8STRIP` (= master).
+- **Watch lines_dash**: runs read 474-535 in 5 of 11 runs since `card_focus` (others 617-632; before, 621-626
+  in every run). Neither change is on its timed path (the dash short path needs `M8_DP_DASH` in
+  `m8_dp_mix`); lines_hv dipped once too. Re-bench a driver without `eed1c32` before blaming noise.
+- ATI's only 36-test card run is `card_fr_ati1` (one run): re-run ATI 3 more times for a fair base.
