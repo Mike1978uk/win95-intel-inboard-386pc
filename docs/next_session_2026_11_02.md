@@ -103,3 +103,22 @@ GDI regression with the milestone-1 driver (`card_ddm1`, median): pixels = ATI i
   guess: code layout (cache-set aliasing with each M8BENCH process's data), as no changed line runs in
   its timed loop. Next: a profile build's `drv_us/op` for lines_dash in a low run and a high run.
 - ATI's only 36-test card run is `card_fr_ati1` (one run): re-run ATI 3 more times for a fair base.
+
+## Evening, 2026-11-01: where to start next
+
+- **GDI vs ATI (card, 36 tests):** at or above ATI in all but lines_dash; pixels = ATI in all 36.
+  focus_rect 1.05-1.09 (`eed1c32`, `f6b63db`). lines_dash dips to 474-535 in about half the runs of
+  today's builds, never with `M8FLOOD` (control): cause open (layout guess untested; the profile build
+  did not separate it). ATI's 36-test base is one run (`card_fr_ati1`): re-run it 3 times.
+- **DirectDraw milestone 2 done in the bed** (`d7be89b`): primary Lock/Unlock through the shadow.
+  dxdiag: step 11 passes (concentric rectangles), the windowed blit test draws correctly (white square,
+  old position erased) but at a few pixels a second: every frame is the HEL locking the whole screen.
+- **Next, in order:** (1) HAL Blt: DDBLT_COLORFILL and screen-to-screen copy on the engine, clip list
+  honoured, anything else NOTHANDLED; (2) Lock: no read-back for DDLOCK_WRITEONLY; (3) off-screen
+  surfaces in card memory (heap from the bitmap cache's allocator); (4) system-memory -> primary as a
+  host write only. Then a DirectDraw fps test on the card (fill / blit / lock), not the bed.
+- **The bus limit, for expectations:** a full 800x600 frame through PIX_TRANS is ~1.8 s each way on the
+  5160 (3.8 us/B). Apps that redraw the whole screen in RAM each frame cannot be fast here; apps that
+  keep surfaces on the card and blit can.
+- Card on `M8PROF3` (profile build of master): replace before any timed run. Bed on `M8DDL2` (master +
+  HAL); restart it before the next DirectDraw build (the DLL stays loaded).
