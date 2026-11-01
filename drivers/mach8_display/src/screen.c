@@ -614,6 +614,35 @@ void m8_leave( void )
     m8_busy = 0;
 }
 
+/* 16 bpp (fb16.c): a send of l, t .. r, b to the card, between this and
+ * m8_leave, as any screen operation. */
+void m8_cur_lift( int l, int t, int r, int b )
+{
+    M8_RECT rc;
+
+    m8_rect_set( &rc, l, t, r, b );
+    m8_enter( &rc );
+}
+
+/* The mode was set again: the pointer, its masks and what it saved are gone
+ * from the card. It is drawn again at the next m8_leave. */
+void m8_cur_reset( void )
+{
+    m8_cur_planes_ok = 0;
+    m8_cur_shown = 0;
+    m8_cur_pending = 1;
+}
+
+/* A DOS session has the card: pointer moves wait, as at 8 bpp, until
+ * m8_fb16_send_all redraws everything. */
+void m8_cur_suspend( void )
+{
+    m8_busy = 1;
+    m8_cur_planes_ok = 0;
+    m8_cur_shown = 0;
+    m8_cur_pending = 0;
+}
+
 /* ------------------------------------------------------------- fallback */
 
 /* Draws one strip: called with the strip placed, its clip in `clip`. */
@@ -5175,10 +5204,6 @@ VOID WINAPI __loadds M8SetCursor( M8_CURSORSHAPE FAR *lpShape )
     int         x;
     int         wb;
 
-    if( m8_fb16 ) {
-        m8_fb16_set_cursor( lpShape );
-        return;
-    }
     M8_STEP( M8_MARK_CURSOR_SET );
     m8_busy = 1;
     m8_cursor_hide();
@@ -5217,13 +5242,9 @@ VOID WINAPI __loadds M8SetCursor( M8_CURSORSHAPE FAR *lpShape )
 
 VOID WINAPI __loadds MoveCursor( WORD wAbsX, WORD wAbsY )
 {
-    if( m8_fb16 ) {
-        m8_fb16_move_cursor( wAbsX, wAbsY );
-        return;
-    }
     m8_cur_x = wAbsX;
     m8_cur_y = wAbsY;
-    if( m8_busy || m8_screen == NULL ) {
+    if( m8_busy || (m8_screen == NULL && !m8_fb16) ) {
         m8_cur_pending = 1;
         return;
     }
@@ -5268,11 +5289,7 @@ VOID WINAPI __loadds MoveCursor( WORD wAbsX, WORD wAbsY )
 
 VOID WINAPI __loadds CheckCursor( VOID )
 {
-    if( m8_fb16 ) {
-        m8_fb16_check_cursor();
-        return;
-    }
-    if( m8_busy || !m8_cur_pending || m8_screen == NULL ) {
+    if( m8_busy || !m8_cur_pending || (m8_screen == NULL && !m8_fb16) ) {
         return;
     }
     m8_busy = 1;

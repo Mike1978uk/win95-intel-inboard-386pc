@@ -238,9 +238,11 @@ extern DWORD   m8_fb16_stat[4];
 extern int  m8_fb16_alloc( void );
 extern void m8_fb16_device( LPDIBENGINE dev, LPBITMAPINFO info );
 extern void m8_fb16_send_all( void );
-extern void m8_fb16_set_cursor( LPVOID shape );
-extern void m8_fb16_move_cursor( int x, int y );
-extern void m8_fb16_check_cursor( void );
+extern void m8_cur_lift( int l, int t, int r, int b );
+extern void m8_cur_reset( void );
+extern void m8_cur_suspend( void );
+extern void m8_fb16_check( DWORD FAR *out );
+extern void m8_leave( void );
 extern WORD m8_fb16_output( LPPDEVICE lpDestDev, WORD wStyle, WORD wCount, LPPOINT lpPoints,
                             LPPPEN lpPPen, LPPBRUSH lpPBrush, LPDRAWMODE lpDrawMode,
                             LPRECT lpClipRect );
@@ -296,6 +298,7 @@ extern void m8_hw_marker( WORD value );
 #define M8_ESC_PROF         0x4D38
 #define M8_ESC_DDLEND       0x4D39      /* WORD: 1 lend, 0 take back (m8dd32.c) */
 #define M8_ESC_FB16STAT     0x4D3A      /* out: 4 DWORDs, fb16.c's counters */
+#define M8_ESC_FB16CHECK    0x4D3B      /* out: 5 DWORDs, m8_fb16_check */
 #define M8_PF_STYLES        64
 #define M8_PF_N             10      /* BitBlt ExtTextOut Output Pixel StrBlt DibToDevice
                                      * StretchBlt StretchDIBits SaveScreenBitmap ScanLR */

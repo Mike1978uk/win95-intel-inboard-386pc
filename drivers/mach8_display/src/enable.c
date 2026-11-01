@@ -279,7 +279,9 @@ void __cdecl m8_switch_out( void )
         return;
     }
     m8_pdevice->deFlags |= BUSY;
-    if( !m8_fb16 ) {
+    if( m8_fb16 ) {
+        m8_cur_suspend();
+    } else {
         m8_screen_suspend();
     }
     m8_hw_passthrough();
@@ -455,12 +457,16 @@ LONG WINAPI __loadds Control( LPVOID lpDevice, UINT function, LPVOID lpInput, LP
     if( function == QUERYESCSUPPORT && lpInput != NULL && *(LPWORD)lpInput == DCICOMMAND ) {
         return( 0x0100 );               /* DD_HAL_VERSION */
     }
-    /* M8DD32.DLL lends DirectDraw the off-screen rows, or takes them back:
-     * GDI's caches must leave them before DirectDraw draws there. */
     if( function == M8_ESC_FB16STAT && lpOutput != NULL ) {
         _fmemcpy( lpOutput, m8_fb16_stat, sizeof( m8_fb16_stat ) );
         return( 1 );
     }
+    if( function == M8_ESC_FB16CHECK && lpOutput != NULL && m8_fb16 ) {
+        m8_fb16_check( (DWORD FAR *)lpOutput );
+        return( 1 );
+    }
+    /* M8DD32.DLL lends DirectDraw the off-screen rows, or takes them back:
+     * GDI's caches must leave them before DirectDraw draws there. */
     if( function == M8_ESC_DDLEND && lpInput != NULL ) {
         m8_dd_lend( *(LPWORD)lpInput );
         return( 1 );
