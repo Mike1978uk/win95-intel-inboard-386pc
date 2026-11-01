@@ -18,6 +18,7 @@ DESTY_AXSTP     equ     8AE8h
 MAJ_AXIS_PCNT   equ     96E8h
 MULTIFUNC_CNTL  equ     0BEE8h
 CMD             equ     9AE8h
+EXT_FIFO_STATUS equ     9AEEh           ; bit n set: entry n + 1 holds a write
 CMD_FILL        equ     40F3h
 CMD_BLIT_XY     equ     0C0F3h          ; M8_CMD_BLIT, x and y increasing
 CMD_INC_X       equ     0020h
@@ -174,7 +175,8 @@ fclear:
         cmp     _m8_hot[H_OK_COLOR], 0
         je      slowb
         cmp     word ptr _m8_hot[H_ROOM], 6
-        jl      slowb
+        jl      fill_wait
+fill_ready:
         mov     bx, ax                  ; x
         movzx   ax, cl
         cmp     ax, word ptr _m8_hot[H_VAL_COLOR]
@@ -245,6 +247,45 @@ pending:
         call    m8_leave_
         jmp     done
 
+; Room for the writes, waiting only until the entries are free (as ATIM8
+; polls), so the engine keeps drawing while GDI sets up the next call. The
+; FIFO fills from entry 1 and one entry is held back (m8_fifo_drain): room 6
+; is entry 10 free, room 7 entry 9. A wait that runs out leaves it to the C
+; path, which resets a wedged engine.
+fill_wait:
+        push    ax
+        push    dx
+        xor     bx, bx
+        mov     dx, EXT_FIFO_STATUS
+fill_poll:
+        in      ax, dx
+        test    ax, 0200h
+        jz      fill_got
+        dec     bx
+        jnz     fill_poll
+        pop     dx
+        pop     ax
+        jmp     slowb
+fill_got:
+        mov     word ptr _m8_hot[H_ROOM], 6
+        pop     dx
+        pop     ax
+        jmp     fill_ready
+
+copy_wait:
+        xor     bx, bx
+        mov     dx, EXT_FIFO_STATUS
+copy_poll:
+        in      ax, dx
+        test    ax, 0100h
+        jz      copy_got
+        dec     bx
+        jnz     copy_poll
+        jmp     slowb
+copy_got:
+        mov     word ptr _m8_hot[H_ROOM], 7
+        jmp     copy_ready
+
 ; ZF set when the engine holds m8_plain's data path with counted room.
 engine:
         cmp     _m8_hot[H_HW_OFF], 0
@@ -297,7 +338,8 @@ cclear:
         cmp     word ptr _m8_hot[H_DP_MIX], MIX_COPY
         jne     slowb
         cmp     word ptr _m8_hot[H_ROOM], 7
-        jl      slowb
+        jl      copy_wait
+copy_ready:
         mov     ax, [bp + A_DX]
         mov     dx, [bp + A_DY]
         mov     cx, [bp + A_SX]

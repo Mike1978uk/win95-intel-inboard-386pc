@@ -16,6 +16,7 @@ CUR_Y           equ     82E8h
 MAJ_AXIS_PCNT   equ     96E8h
 MULTIFUNC_CNTL  equ     0BEE8h
 CMD             equ     9AE8h
+EXT_FIFO_STATUS equ     9AEEh           ; bit n set: entry n + 1 holds a write
 CMD_FILL        equ     40F3h
 MIX_SRC_FRGD    equ     0020h
 
@@ -130,7 +131,8 @@ clear:
         cmp     ax, word ptr _m8_hot[H_DP_MIX]
         jne     slowb
         cmp     word ptr _m8_hot[H_ROOM], 6
-        jl      slowb
+        jl      room_wait
+room_ready:
         mov     bx, dx                  ; Y
         movzx   ax, byte ptr [bp + A_COLOR]
         cmp     ax, word ptr _m8_hot[H_VAL_COLOR]
@@ -199,6 +201,24 @@ slow:
 pending:
         call    m8_leave_
         jmp     done
+
+; Room 6: entry 10 free (as blt.asm's fill_wait).
+room_wait:
+        push    dx
+        xor     bx, bx
+        mov     dx, EXT_FIFO_STATUS
+room_poll:
+        in      ax, dx
+        test    ax, 0200h
+        jz      room_got
+        dec     bx
+        jnz     room_poll
+        pop     dx
+        jmp     slowb
+room_got:
+        mov     word ptr _m8_hot[H_ROOM], 6
+        pop     dx
+        jmp     room_ready
 ifdef M8_TIMED_ENTRY
 M8T_PIXEL       endp
 else
