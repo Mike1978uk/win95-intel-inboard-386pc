@@ -2,7 +2,7 @@
 
 Supersedes `docs/next_session_2026_10_31.md` (its open items 6 and the boot stall still stand).
 Gate unchanged: every one of the 35 tests at or above ATIM8, better where possible (owner, 10-31).
-Card log: `$TEMP\m8_card_bench.txt` (copy into `docs/captures/2026-11-01_card/` at the start).
+Card log: `docs/captures/2026-11-01_card/m8_card_bench.txt` (runs up to card_pp2).
 
 ## State
 
