@@ -214,6 +214,8 @@ extern int  m8_hw_fill_fast( int x, int y, int w, int h, BYTE color, WORD mix );
 extern int  m8_hw_copy_fast( int sx, int sy, int dx, int dy, int w, int h, WORD mix );
 extern void m8_hw_polyline_plain( const POINT FAR *pts, WORD count, BYTE color, WORD mix );
 extern int  m8_hw_line_fast( const POINT FAR *pts, WORD count, BYTE color, WORD mix );
+extern int  m8_hw_dash_fast( const POINT FAR *pts, WORD count, BYTE color, WORD fn, WORD style,
+                             int opaque, BYTE bg );
 extern void m8_hw_copy( int sx, int sy, int dx, int dy, int w, int h );
 extern void m8_hw_pattern_rows( int x, int y, int w, int h, const BYTE *pat,
                                 BYTE fg, BYTE bg, WORD fg_fn, WORD bg_fn );

@@ -1448,6 +1448,62 @@ static const WORD m8_dash[4][2] = {
     { 0xFCFC, 0xFCFC }, { 0xCCCC, 0xCCCC }, { 0x30FC, 0x30FC }, { 0xCCFC, 0xCCFC }
 };
 
+/* The data path a styled line leaves, as m8_dp_mix records it: the pattern,
+ * the ALU functions and the mono-pattern DP_CONFIG. No real mix has bit 15,
+ * so the plain short paths never take it for theirs, and m8_dp_q rewrites. */
+#define M8_DP_DASH( style, fn, opaque ) \
+    (0x8000 | ((style) << 8) | ((opaque) ? 0x80 : 0) | (fn))
+
+/* A styled polyline of up to four points when the engine holds that line's
+ * set-up and the plain scissors; as m8_hw_line_fast. The phase is written
+ * before each segment, as the full path writes it. */
+int m8_hw_dash_fast( const POINT FAR *pts, WORD count, BYTE color, WORD fn, WORD style,
+                     int opaque, BYTE bg )
+{
+    WORD    i;
+    WORD    phase = 0;
+    int     dx;
+    int     dy;
+    int     n = 4 + 3 * count - 1;
+
+    if( m8_hw_off || !m8_dp_ok || !m8_dp_plain || m8_dp_mix != M8_DP_DASH( style, fn, opaque ) ||
+        !m8_room_ok || !m8_sh_ok[M8_SH_FRGD_COLOR] ||
+        (opaque && !m8_sh_ok[M8_SH_BKGD_COLOR]) || count > 4 ) {
+        return( 0 );
+    }
+    if( m8_room < n && !m8_fifo_need( n ) ) {
+        return( 0 );
+    }
+    m8_room -= n;
+    if( m8_sh_val[M8_SH_FRGD_COLOR] != color ) {
+        m8_sh_val[M8_SH_FRGD_COLOR] = color;
+        outpw( M8_FRGD_COLOR, color );
+    }
+    if( opaque && m8_sh_val[M8_SH_BKGD_COLOR] != bg ) {
+        m8_sh_val[M8_SH_BKGD_COLOR] = bg;
+        outpw( M8_BKGD_COLOR, bg );
+    }
+    outpw( M8_LINEDRAW_OPT, M8_LINEDRAW_LAST_OFF );
+    outpw( M8_LINEDRAW_INDEX, 0 );
+    outpw( M8_LINEDRAW, pts[0].xcoord );
+    outpw( M8_LINEDRAW, pts[0].ycoord );
+    for( i = 1; i < count; ++i ) {
+        outpw( M8_PATT_INDEX, phase );
+        outpw( M8_LINEDRAW, pts[i].xcoord );
+        outpw( M8_LINEDRAW, pts[i].ycoord );
+        dx = pts[i].xcoord - pts[i - 1].xcoord;
+        dy = pts[i].ycoord - pts[i - 1].ycoord;
+        if( dx < 0 ) {
+            dx = -dx;
+        }
+        if( dy < 0 ) {
+            dy = -dy;
+        }
+        phase = (phase + (dx > dy ? dx : dy)) & 31;
+    }
+    return( 1 );
+}
+
 /* Solid lines: the points are read into the queue between bursts, not
  * between writes. A send that fails has reset the engine part way through the
  * line; it is not redrawn, as an XOR line drawn twice would vanish. */
@@ -1568,6 +1624,12 @@ void m8_hw_polyline( const POINT FAR *pts, WORD count, BYTE color, WORD mix,
             phase = (phase + (dx > dy ? dx : dy)) & 31;
         }
     }
+    /* The engine keeps this set-up for the next line of the same style. */
+    m8_room = room;
+    m8_room_ok = 1;
+    m8_dp_sent( M8_DP_DASH( style, mix, opaque ), clip_l == M8_EXT_SCISSOR_MIN &&
+                clip_t == M8_EXT_SCISSOR_MIN && clip_r == M8_EXT_SCISSOR_MAX &&
+                clip_b == M8_EXT_SCISSOR_MAX );
     /* No idle wait: nothing after a line reads its pixels before the next
      * routine's own wait, and commands run in FIFO order. */
     ++m8_stats[M8_STAT_LINE_HW];

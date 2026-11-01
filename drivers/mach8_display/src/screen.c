@@ -3131,9 +3131,9 @@ static DWORD m8_draw_output( void *ctx, LPDIBENGINE dev, LPRECT c )
     return( DIB_Output( &t, o->style, n, m8_out_pts, o->pen, o->brush, o->dm, &tc ) );
 }
 
-/* A solid polyline on the screen with every point inside the clip and clear of
- * the cursor: the short path (see Pixel). It needs no scissors, as the line
- * stays inside its points' box. 0 = the full path draws it. */
+/* A polyline on the screen, solid or styled, with every point inside the clip
+ * and clear of the cursor: the short path (see Pixel). It needs no scissors,
+ * as the line stays inside its points' box. 0 = the full path draws it. */
 static int m8_out_short( WORD count, LPPOINT p, LPPPEN pen, LPDRAWMODE dm, LPRECT clip )
 {
     DIB_Pen FAR *dp = pen;
@@ -3143,7 +3143,7 @@ static int m8_out_short( WORD count, LPPOINT p, LPPPEN pen, LPDRAWMODE dm, LPREC
     BYTE        color;
     WORD        mix;
 
-    if( count < 2 || dp == NULL || dm == NULL || dp->dpPenStyle != LS_SOLID ||
+    if( count < 2 || dp == NULL || dm == NULL || dp->dpPenStyle > LS_DASHDOTDOT ||
         dm->Rop2 < 1 || dm->Rop2 > 16 ) {
         return( 0 );
     }
@@ -3175,7 +3175,16 @@ static int m8_out_short( WORD count, LPPOINT p, LPPPEN pen, LPDRAWMODE dm, LPREC
     color = (BYTE)dp->dpPenColor;
     mix = m8_mix_for_key[dm->Rop2 - 1];
     m8_busy = 1;
-    if( !m8_hw_line_fast( p, count, color, mix ) ) {
+    if( dp->dpPenStyle != LS_SOLID ) {
+        int     opaque = dm->bkMode == OPAQUE;
+        BYTE    bg = (BYTE)dm->bkColor;
+
+        if( !m8_hw_dash_fast( p, count, color, mix, dp->dpPenStyle, opaque, bg ) ) {
+            m8_hw_polyline( p, count, color, mix, dp->dpPenStyle, opaque, bg,
+                            M8_EXT_SCISSOR_MIN, M8_EXT_SCISSOR_MIN, M8_EXT_SCISSOR_MAX,
+                            M8_EXT_SCISSOR_MAX );
+        }
+    } else if( !m8_hw_line_fast( p, count, color, mix ) ) {
         m8_hw_polyline_plain( p, count, color, mix );
     }
     M8_PF_HIT();
