@@ -332,6 +332,7 @@ like a timer tick (~170 us measured for #45). Ideas, cheapest first - measure be
 - [ ] **WINDISK ideas for xtide_mpd** (retry + soft reset, media-change generation counter, real sense): list in #52.
 - [ ] **BlueSCSI hot-swap:** fixed removable LUN reporting media change via sense (no medium, then UNIT ATTENTION). Read WINUSB for how it presents mass storage and HID to Win9x. #50
 - [ ] **CH376 file-level FAT access** as an angle on #51: the chip does the FAT, only file data crosses the bus. Sources: dfmcwhir repos, `docs/resources_and_sources.md`.
+- [ ] **Apply the Mach8 levers to the other drivers** - after the Mach8/DirectDraw work (owner, 11-01). Ranked audit, nothing measured yet: `docs/cross_driver_levers_2026_11_01.md`.
 
 ## Parked (owner, 10-15)
 
