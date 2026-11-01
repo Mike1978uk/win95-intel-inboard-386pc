@@ -206,6 +206,11 @@ static void m8dd_build( int mode )
     hi->vmiData.dwNumHeaps = 0;
     hi->ddCaps.dwSize = sizeof( hi->ddCaps );
     hi->ddCaps.dwCaps = DDCAPS_GDI;
+    if( m8dd->blt ) {
+        /* M8DD32's Blt: colour fills and SRCCOPY within the primary. */
+        hi->ddCaps.dwCaps |= DDCAPS_BLT | DDCAPS_BLTCOLORFILL;
+        hi->ddCaps.dwRops[0xCC / 32] |= 1UL << (0xCC % 32);
+    }
     hi->ddCaps.dwPalCaps = DDPCAPS_8BIT | DDPCAPS_PRIMARYSURFACE;
     hi->ddCaps.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE | DDSCAPS_PALETTE;
     hi->dwModeIndex = mode;

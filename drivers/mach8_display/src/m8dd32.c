@@ -19,6 +19,8 @@
 
 #include <windows.h>
 #include <conio.h>
+#include <stddef.h>
+#include <ddraw.h>
 
 #define M8DD_MARKER     0x44443855UL
 
@@ -65,6 +67,30 @@ typedef struct {
 } M8DD_UNLOCK;
 #pragma pack( pop )
 
+/* DDHAL_BLTDATA (Microsoft's DD_BLTDATA has the same order); DDBLTFX is
+ * ddraw.h's own. With IsClipped, the destination is the dwRectCnt rectangles
+ * at prDestRects, and rOrigDest and rOrigSrc are the blit before clipping. */
+typedef struct {
+    LPVOID  lpDD;
+    LPVOID  lpDDDestSurface;
+    RECTL   rDest;
+    LPVOID  lpDDSrcSurface;
+    RECTL   rSrc;
+    DWORD   dwFlags;
+    DWORD   dwROPFlags;
+    DDBLTFX bltFX;
+    HRESULT ddRVal;
+    LPVOID  Blt;
+    BOOL    IsClipped;
+    RECTL   rOrigDest;
+    RECTL   rOrigSrc;
+    DWORD   dwRectCnt;
+    LPRECT  prDestRects;
+} M8DD_BLT;
+
+typedef char m8dd_fx_size[sizeof( DDBLTFX ) == 100 ? 1 : -1];
+typedef char m8dd_fill_at[offsetof( DDBLTFX, dwFillColor ) == 80 ? 1 : -1];
+
 /* The surface's global part is the second pointer of its local part, and its
  * fpVidMem is at 20 (ddrawi.h). Only a surface whose fpVidMem is the shadow
  * is taken; any other, or a layout not as read here, goes back to DDRAW. */
@@ -74,7 +100,6 @@ typedef struct {
 #define DDHAL_DRIVER_NOTHANDLED 0
 #define DDHAL_DRIVER_HANDLED    1
 #define M8DD_DDERR_GENERIC      0x80004005L
-#define DD_OK                   0
 
 /* M8_HOT (m8.h), at the offsets blt.asm reads it by. */
 #define H_ROOM          4
@@ -115,6 +140,16 @@ typedef struct {
 #define M8_MIX_HOST_REPLACE 0x0047
 #define M8_CMD_HOST_WRITE   0x53B1
 #define M8_CMD_HOST_READ    0x53B0
+#define M8_FRGD_COLOR       0xA6E8
+#define M8_DESTX_DIASTP     0x8EE8
+#define M8_DESTY_AXSTP      0x8AE8
+#define M8_MIX_FRGD_REPLACE 0x0027
+#define M8_MIX_VRAM_REPLACE 0x0067
+#define M8_CMD_FILL         0x40F3
+#define M8_CMD_BLIT         0xC0F3      /* x and y increasing */
+#define M8_CMD_INC_X        0x0020
+#define M8_CMD_INC_Y        0x0080
+#define M8DD_SRCCOPY        0x00CC0020UL
 #define M8_WAIT_LIMIT       60000u
 
 static HINSTANCE    m8dd_inst;
@@ -265,6 +300,135 @@ DWORD __stdcall m8dd_unlock( M8DD_UNLOCK *ud )
     return( DDHAL_DRIVER_HANDLED );
 }
 
+/* The plain 8514 data path with no clip and this mix, from an idle engine. */
+static int m8dd_plain( WORD mix )
+{
+    if( !m8dd_idle() ) {
+        return( 0 );
+    }
+    outpw( M8_WRT_MASK, 0x00FF );
+    outpw( M8_RD_MASK, 0x00FF );
+    outpw( M8_DP_CONFIG, M8_DP_8514 );
+    outpw( M8_MULTIFUNC_CNTL, M8_MF_PIX_CNTL );
+    outpw( M8_EXT_SCISSOR_L, M8_EXT_SCISSOR_MIN );
+    outpw( M8_EXT_SCISSOR_T, M8_EXT_SCISSOR_MIN );
+    outpw( M8_EXT_SCISSOR_R, M8_EXT_SCISSOR_MAX );
+    outpw( M8_EXT_SCISSOR_B, M8_EXT_SCISSOR_MAX );
+    outpw( M8_FRGD_MIX, mix );
+    return( 1 );
+}
+
+/* One rectangle: a fill, or a copy from (sx, sy) in the direction that reads
+ * every source pixel before it is overwritten. It waits for room for its
+ * seven writes as m8_fifo_need( 7 ) does: EXT_FIFO_STATUS bit 15 - 7 clear
+ * (guide 9-16). */
+static int m8dd_rect( const RECT *d, int copy, int sx, int sy )
+{
+    int     w = d->right - d->left;
+    int     h = d->bottom - d->top;
+    int     dx = d->left;
+    int     dy = d->top;
+    WORD    cmd = M8_CMD_BLIT;
+    unsigned n;
+
+    if( w <= 0 || h <= 0 ) {
+        return( 1 );
+    }
+    for( n = 0; n < M8_WAIT_LIMIT && (inpw( M8_EXT_FIFO_STATUS ) & (0x8000 >> 7)); ++n ) {
+    }
+    if( n == M8_WAIT_LIMIT ) {
+        return( 0 );
+    }
+    if( copy ) {
+        if( dy > sy ) {
+            cmd &= ~M8_CMD_INC_Y;
+            sy += h - 1;
+            dy += h - 1;
+        } else if( dy == sy && dx > sx ) {
+            cmd &= ~M8_CMD_INC_X;
+            sx += w - 1;
+            dx += w - 1;
+        }
+        outpw( M8_CUR_X, sx );
+        outpw( M8_CUR_Y, sy );
+        outpw( M8_DESTX_DIASTP, dx );
+        outpw( M8_DESTY_AXSTP, dy );
+    } else {
+        outpw( M8_CUR_X, dx );
+        outpw( M8_CUR_Y, dy );
+        cmd = M8_CMD_FILL;
+    }
+    outpw( M8_MAJ_AXIS_PCNT, w - 1 );
+    outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
+    outpw( M8_CMD, cmd );
+    return( 1 );
+}
+
+/* Colour fills on the primary and same-size copies within it, on the engine:
+ * only the commands cross the bus. Anything else goes back to DDRAW, and so
+ * does a copy clipped to more than one rectangle, as their order matters
+ * when source and destination overlap. */
+DWORD __stdcall m8dd_blt( M8DD_BLT *bd )
+{
+    BYTE        *hot = (BYTE *)m8dd->hot;
+    DWORD       other = bd->dwFlags & ~(DDBLT_COLORFILL | DDBLT_ROP | DDBLT_WAIT | DDBLT_ASYNC);
+    int         copy;
+    RECT        one;
+    const RECT  *rects;
+    DWORD       count;
+    DWORD       i;
+    int         ok;
+    long        ox = 0;
+    long        oy = 0;
+
+    if( other != 0 || hot[H_HW_OFF] || !m8dd_is_primary( bd->lpDDDestSurface ) ) {
+        return( DDHAL_DRIVER_NOTHANDLED );
+    }
+    if( bd->dwFlags & DDBLT_COLORFILL ) {
+        copy = 0;
+    } else if( (bd->dwFlags & DDBLT_ROP) && bd->bltFX.dwROP == M8DD_SRCCOPY &&
+               m8dd_is_primary( bd->lpDDSrcSurface ) ) {
+        copy = 1;
+    } else {
+        return( DDHAL_DRIVER_NOTHANDLED );
+    }
+    if( bd->IsClipped ) {
+        rects = bd->prDestRects;
+        count = bd->dwRectCnt;
+        if( copy ) {
+            if( count > 1 ||
+                bd->rOrigSrc.right - bd->rOrigSrc.left != bd->rOrigDest.right - bd->rOrigDest.left ||
+                bd->rOrigSrc.bottom - bd->rOrigSrc.top != bd->rOrigDest.bottom - bd->rOrigDest.top ) {
+                return( DDHAL_DRIVER_NOTHANDLED );
+            }
+            ox = bd->rOrigSrc.left - bd->rOrigDest.left;
+            oy = bd->rOrigSrc.top - bd->rOrigDest.top;
+        }
+    } else {
+        if( copy && (bd->rSrc.right - bd->rSrc.left != bd->rDest.right - bd->rDest.left ||
+                     bd->rSrc.bottom - bd->rSrc.top != bd->rDest.bottom - bd->rDest.top) ) {
+            return( DDHAL_DRIVER_NOTHANDLED );
+        }
+        SetRect( &one, bd->rDest.left, bd->rDest.top, bd->rDest.right, bd->rDest.bottom );
+        rects = &one;
+        count = 1;
+        ox = bd->rSrc.left - bd->rDest.left;
+        oy = bd->rSrc.top - bd->rDest.top;
+    }
+    hot[H_BUSY] = 1;
+    ok = m8dd_plain( copy ? M8_MIX_VRAM_REPLACE : M8_MIX_FRGD_REPLACE );
+    if( ok && !copy ) {
+        outpw( M8_FRGD_COLOR, (WORD)(bd->bltFX.dwFillColor & 0xFF) );
+    }
+    for( i = 0; ok && i < count; ++i ) {
+        ok = m8dd_rect( &rects[i], copy, rects[i].left + ox, rects[i].top + oy );
+    }
+    m8dd_forget( hot );
+    hot[H_BUSY] = 0;
+    bd->ddRVal = ok ? DD_OK : M8DD_DDERR_GENERIC;
+    return( DDHAL_DRIVER_HANDLED );
+}
+
 BOOL WINAPI DllMain( HINSTANCE inst, DWORD reason, LPVOID reserved )
 {
     if( reason == DLL_PROCESS_ATTACH ) {
@@ -283,6 +447,7 @@ DWORD __stdcall DriverInit( LPVOID context )
     m8dd->hInstance = (DWORD)m8dd_inst;
     m8dd->lock = (DWORD)m8dd_lock;
     m8dd->unlock = (DWORD)m8dd_unlock;
+    m8dd->blt = (DWORD)m8dd_blt;
     m8dd->marker = M8DD_MARKER;
     return( 1 );
 }
