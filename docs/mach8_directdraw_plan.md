@@ -114,6 +114,27 @@ Dead ends, one line each (bed, M8DDTEST "NO HAL" = DDRAW refused the HAL at crea
   per setting.
 - GDI32 imported by M8DD32.DLL: fine (the DLL loads; an earlier guess blamed it).
 
+## 16 bpp
+
+The owner's choice (11-01): a real 640x480 16-bit mode, so 16-bit programs (dxdiag's test 3) run, shown
+on the card's 256 colours. `src/fb16.c` (`66e7525`), bed only so far:
+
+- GDI draws through the DIB Engine into a 5-6-5 frame buffer in RAM (600 KB, page-locked: the DIB
+  Engine's pointer draws in it at interrupt time). The screen device has no NOT_FRAMEBUFFER and is not
+  `m8_hot.screen`, so every existing entry passes it to the DIB Engine.
+- The access callbacks name what each call changes; when the outermost ends, those rectangles (up to
+  four) go to the card, dithered (4x4 ordered) into a fixed 6x7x6 cube - a byte per pixel, as at 8 bpp.
+  Output, BitBlt and Pixel narrow them: the DIB Engine names a line's clip rectangle and the box around
+  a copy's source and destination.
+- Chosen at boot: `bed/M8FB16.REG` (16) and `bed/M8FB8.REG` (8, 1024x768); ReEnable refuses a depth change.
+- FB16TEST (ExtEscape 0x4D3A counters), pixels sent per call: PatBlt 64x32 2048, 400x300 120000, a
+  190x140 line 28420, ten 148-pixel lines 1480 each, TextOut 1376, BitBlt 100x100 10000, SetPixel 2,
+  GetPixel and copies off the screen 0.
+- At 8 bpp the same build is unchanged: M8BENCH pixels same in all 36 (`bed_fb8d`).
+
+Not yet: the owner's eye on the dithered picture; DirectDraw at 16 bpp (refused for now: the HAL
+describes an 8 bpp primary); a live depth change for dxdiag; the card.
+
 ## Open
 
 - After dxdiag's run, M8BENCH's `bmp_*`, `draw_icon`, `scr_to_mem`, `drag_frame` ran 3-25x slower in the bed
