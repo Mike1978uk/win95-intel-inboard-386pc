@@ -411,11 +411,12 @@ UINT WINAPI __loadds SetPalette( UINT wStartIndex, UINT wNumEntries, LPVOID lpPa
 /* DCI hands applications a frame buffer; there is none to hand. */
 LONG WINAPI __loadds Control( LPVOID lpDevice, UINT function, LPVOID lpInput, LPVOID lpOutput )
 {
+    /* DirectDraw's requests only (dd16.c); DCI's own are refused. */
     if( function == DCICOMMAND ) {
-        return( 0 );
+        return( m8dd_command( lpInput, lpOutput ) );
     }
     if( function == QUERYESCSUPPORT && lpInput != NULL && *(LPWORD)lpInput == DCICOMMAND ) {
-        return( 0 );
+        return( 0x0100 );               /* DD_HAL_VERSION */
     }
 #ifdef M8_PROF
     if( function == M8_ESC_PROF ) {

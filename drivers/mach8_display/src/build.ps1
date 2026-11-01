@@ -45,7 +45,7 @@ $cflags = @('-q', '-wx', '-we', '-s', '-zu', '-zls', '-zW', '-4', '-mc', '-oi', 
 if ($Trace) { $cflags += '-dM8_TRACE' }
 if ($Prof) { $cflags += '-dM8_PROF' }
 if ($Trace -and $Prof) { throw '-Trace writes markers inside the calls -Prof times' }
-foreach ($c in 'enable', 'screen', 'm8hw') {
+foreach ($c in 'enable', 'screen', 'm8hw', 'dd16') {
   Run wcc ($cflags + $inc + @("-fo=$Out\$c.obj", "$src\$c.c"))
 }
 Run wasm @('-q', "-fo=$Out\thunks.obj", "$src\thunks.asm")
@@ -82,7 +82,7 @@ $lnk = @(
   'segment class ''DATA'' preload fixed',
   "segment '_TEXT' preload fixed shared",
   'disable 2055'
-) + ('enable', 'screen', 'm8hw', 'thunks', 'switch', 'spans', 'hash', 'xlat', 'text', 'pixel', 'blt' | ForEach-Object { "file $Out\$_.obj" }) + @(
+) + ('enable', 'screen', 'm8hw', 'dd16', 'thunks', 'switch', 'spans', 'hash', 'xlat', 'text', 'pixel', 'blt' | ForEach-Object { "file $Out\$_.obj" }) + @(
   "library $Out\dibeng.lib",
   "library $Watcom\lib286\win\clibc.lib",
   'import GlobalSmartPageLock KERNEL.230'
@@ -118,4 +118,24 @@ foreach ($e in $cEntries) {
 # Windows then refuses the driver (BOOTLOG: LoadFail, failure code 0).
 $bad = & wdump -a $drv 2>$null | Select-String 'invalid segment'
 if ($bad) { throw "fixup to a missing segment:`n$($bad -join "`n")" }
-Get-Item $drv | Format-Table Name, Length, LastWriteTime
+# M8DD32.DLL, the 32-bit DirectDraw HAL (m8dd32.c). DDRAW needs it in the shared arena:
+# based above 2 GB and every section shared (as vmhal9x's fixlink -shared).
+$inc32 = @("-i=$Watcom\h", "-i=$Watcom\h\nt")
+$env:INCLUDE = "$Watcom\h;$Watcom\h\nt"
+Run wcc386 (@('-q', '-wx', '-we', '-s', '-bd', '-bt=nt', '-4s', '-ox', '-wcd=303', "-fo=$Out\m8dd32.obj") + $inc32 + "$src\m8dd32.c")
+Set-Content -Path "$Out\m8dd32.lnk" -Encoding Ascii -Value @(
+  'system nt_dll', "name $Out\M8DD32.DLL", 'option quiet', 'option offset=0xB0C00000',
+  "file $Out\m8dd32.obj", "export DriverInit='_DriverInit@4'")
+Run wlink @("@$Out\m8dd32.lnk")
+$dll = "$Out\M8DD32.DLL"
+$b = [IO.File]::ReadAllBytes($dll)
+$pe = [BitConverter]::ToInt32($b, 0x3C)
+$nsec = [BitConverter]::ToUInt16($b, $pe + 6)
+$sec = $pe + 24 + [BitConverter]::ToUInt16($b, $pe + 20)
+for ($i = 0; $i -lt $nsec; $i++) {
+  $f = $sec + 40 * $i + 36
+  $b[$f + 3] = $b[$f + 3] -bor 0x10      # IMAGE_SCN_MEM_SHARED
+}
+[IO.File]::WriteAllBytes($dll, $b)
+
+Get-Item $drv, $dll | Format-Table Name, Length, LastWriteTime
