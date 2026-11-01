@@ -2593,10 +2593,12 @@ static void m8_tm_point( WORD id )
 #endif
 
 /* Solid fills and screen-to-screen copies on the screen, clear of the cursor,
- * with the engine set up by the last call: the short path (see Pixel). 0 = the
- * full path draws it. */
+ * with the engine set up by the last call: the short path (see Pixel). Also
+ * two-colour pattern strips one pixel tall or wide, which need none of
+ * m8_pattern_fill's row copies: the four of a focus rectangle. 0 = the full
+ * path draws it. */
 static int m8_blt_short( WORD dx, WORD dy, LPPDEVICE src, WORD sx, WORD sy, WORD w, WORD h,
-                         DWORD rop3, LPBRUSH brush )
+                         DWORD rop3, LPBRUSH brush, LPDRAWMODE dm )
 {
     BYTE    rop = (BYTE)(rop3 >> 16);
     int     l = dx;
@@ -2604,6 +2606,9 @@ static int m8_blt_short( WORD dx, WORD dy, LPPDEVICE src, WORD sx, WORD sy, WORD
     int     r = dx + w;
     int     b = dy + h;
     BYTE    c1 = 0;
+    BYTE    c2 = 0;
+    BYTE    pat[8];
+    int     kind = 1;
     int     ok;
 
     /* Everything inline: a helper's code is another line to fetch. */
@@ -2624,18 +2629,32 @@ static int m8_blt_short( WORD dx, WORD dy, LPPDEVICE src, WORD sx, WORD sy, WORD
         /* A pattern: only a solid one, as m8_brush_render reads it. */
         DIB_Brush8 FAR *br = (DIB_Brush8 FAR *)brush;
 
-        if( br == NULL || !(br->dp8BrushFlags & COLORSOLID) ||
+        if( br == NULL ||
             (br->dp8BrushStyle != 0 && br->dp8BrushStyle != 2 && br->dp8BrushStyle != 3) ) {
             return( 0 );
         }
-        c1 = br->dp8BrushBits[0];
+        if( br->dp8BrushFlags & COLORSOLID ) {
+            c1 = br->dp8BrushBits[0];
+        } else if( M8_PATTERN_EXPANSION && (w == 1 || h == 1) ) {
+            kind = m8_brush_colours( brush, dm, &c1, &c2, pat );
+            if( kind != 2 && kind != 3 ) {
+                return( 0 );
+            }
+        } else {
+            return( 0 );
+        }
     }
     if( m8_cur_shown && l < m8_cur_rect.r && m8_cur_rect.l < r && t < m8_cur_rect.b &&
         m8_cur_rect.t < b ) {
         return( 0 );
     }
     m8_busy = 1;
-    if( rop == 0xCC ) {
+    if( kind != 1 ) {
+        WORD    mix = m8_rop_mix( rop );
+
+        m8_hw_pattern_rows( dx, dy, w, h, pat, c1, c2, mix, kind == 3 ? M8_MIX_LEAVE : mix );
+        ok = 1;
+    } else if( rop == 0xCC ) {
         ok = m8_hw_copy_fast( sx, sy, dx, dy, w, h, M8_MIX_SRC_VRAM | M8_MIX_REPLACE );
     } else {
         ok = m8_hw_fill_fast( dx, dy, w, h, c1, M8_MIX_SRC_FRGD |
@@ -2671,7 +2690,8 @@ BOOL WINAPI __loadds BitBltC( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPP
                               LPBRUSH lpPBrush, LPDRAWMODE lpDrawMode )
 {
     if( (LPVOID)lpDestDev == m8_hot.screen && lpDestDev != NULL &&
-        m8_blt_short( wDestX, wDestY, lpSrcDev, wSrcX, wSrcY, wXext, wYext, dwRop3, lpPBrush ) ) {
+        m8_blt_short( wDestX, wDestY, lpSrcDev, wSrcX, wSrcY, wXext, wYext, dwRop3, lpPBrush,
+                      lpDrawMode ) ) {
         return( TRUE );
     }
     return( m8_bitblt( lpDestDev, wDestX, wDestY, lpSrcDev, wSrcX, wSrcY, wXext, wYext, dwRop3,
