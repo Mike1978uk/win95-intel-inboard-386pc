@@ -78,6 +78,16 @@ held, so the DIB Engine treats the screen as busy. Milestone 2 must:
   `GlobalAlloc` at the first DCICOMMAND, result unchecked: a failure gives `fpPrimary` 0);
 - have M8DDTEST flush each line, so a hang shows its step.
 
+**Milestone 2 passes in the bed** (2026-11-01, `vm_5160_mcp`): `M8DD32.DLL` handles Lock/Unlock of the
+primary (identified by `fpVidMem` = the shadow's linear address; anything else goes back to DDRAW). Lock
+reads the rectangle from the card into the shadow (x and width widened to even), Unlock writes it back,
+then GDI's engine shadows in `m8_hot` are forgotten. M8DDTEST round trip: GDI black read back through a
+lock (0 of 2048 wrong); white written through a full lock and through a rect lock at odd x read back by
+GetPixel, neighbours at x 200 and 233 untouched. M8BENCH straight after: pixels = before in all 36, so the
+lost-fills symptom is gone. Relies on DDRAW holding the Win16 lock from Lock to Unlock (not with
+DDLOCK_NOSYSLOCK). The software cursor inside a locked rectangle is read and written back with it.
+Not yet run: dxdiag's DirectDraw test, the card.
+
 ## Open
 
 - Does DDRAW accept a primary whose memory the HAL supplies only through Lock? (Milestone 1-2 answer it.)

@@ -51,6 +51,7 @@ typedef struct {
     DWORD   lock;
     DWORD   unlock;
     DWORD   blt;
+    DWORD   shadow;                     /* linear address of the primary's Lock shadow */
     /* This side only from here. */
     DDHALINFO_t                 info;
     DDHAL_DDCALLBACKS_t         cb;
@@ -107,6 +108,7 @@ static int m8dd_shadow_alloc( void )
     m8dd_shadow = (BYTE FAR *)GlobalLock( h );
     m8dd_shadow_lin = GetSelectorBase( FP_SEG( m8dd_shadow ) );
     m8dd_shadow_size = size;
+    m8dd->shadow = m8dd_shadow_lin;
     return( 1 );
 }
 

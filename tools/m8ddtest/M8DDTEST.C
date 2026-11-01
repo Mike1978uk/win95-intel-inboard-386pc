@@ -10,6 +10,63 @@
 
 typedef HRESULT (WINAPI *DDCREATE)( GUID FAR *, LPDIRECTDRAW FAR *, IUnknown FAR * );
 
+/* Milestone 2: what GDI drew is what a lock reads, and what is written
+ * through a lock is what GDI then reads. The rectangle lock starts at an odd
+ * x, so the pixel left of it must stay as GDI left it. */
+static void round_trip( LPDIRECTDRAWSURFACE prim )
+{
+    HDC             dc = GetDC( NULL );
+    DDSURFACEDESC   sd;
+    RECT            rc;
+    HRESULT         r;
+    BYTE            *p;
+    int             x;
+    int             y;
+    int             bad = 0;
+
+    PatBlt( dc, 100, 100, 64, 32, BLACKNESS );
+    GdiFlush();
+    memset( &sd, 0, sizeof( sd ) );
+    sd.dwSize = sizeof( sd );
+    r = prim->lpVtbl->Lock( prim, NULL, &sd, DDLOCK_WAIT, NULL );
+    printf( "lock rw %08lx\n", (unsigned long)r );
+    if( r == DD_OK ) {
+        p = (BYTE *)sd.lpSurface;
+        for( y = 100; y < 132; ++y ) {
+            for( x = 100; x < 164; ++x ) {
+                bad += p[y * sd.lPitch + x] != 0;
+            }
+        }
+        printf( "read: %d of 2048 not black\n", bad );
+        for( y = 100; y < 132; ++y ) {
+            memset( p + y * sd.lPitch + 100, 0xFF, 64 );
+        }
+        r = prim->lpVtbl->Unlock( prim, NULL );
+        printf( "unlock %08lx  gdi(100,100) %06lx  gdi(163,131) %06lx\n", (unsigned long)r,
+                (unsigned long)GetPixel( dc, 100, 100 ), (unsigned long)GetPixel( dc, 163, 131 ) );
+    }
+    PatBlt( dc, 200, 100, 40, 16, BLACKNESS );
+    GdiFlush();
+    SetRect( &rc, 201, 100, 233, 116 );
+    memset( &sd, 0, sizeof( sd ) );
+    sd.dwSize = sizeof( sd );
+    r = prim->lpVtbl->Lock( prim, &rc, &sd, DDLOCK_WAIT, NULL );
+    printf( "lock rect %08lx\n", (unsigned long)r );
+    if( r == DD_OK ) {
+        p = (BYTE *)sd.lpSurface;
+        for( y = 0; y < 16; ++y ) {
+            memset( p + y * sd.lPitch, 0xFF, 32 );
+        }
+        r = prim->lpVtbl->Unlock( prim, sd.lpSurface );
+        printf( "unlock %08lx  gdi(200,100) %06lx (black)  gdi(201,100) %06lx  gdi(232,115) %06lx"
+                "  gdi(233,115) %06lx (black)\n", (unsigned long)r,
+                (unsigned long)GetPixel( dc, 200, 100 ), (unsigned long)GetPixel( dc, 201, 100 ),
+                (unsigned long)GetPixel( dc, 232, 115 ), (unsigned long)GetPixel( dc, 233, 115 ) );
+    }
+    ReleaseDC( NULL, dc );
+    InvalidateRect( NULL, NULL, TRUE );
+}
+
 int main( void )
 {
     HMODULE         lib;
@@ -69,6 +126,7 @@ int main( void )
         if( r == DD_OK ) {
             prim->lpVtbl->Unlock( prim, NULL );
         }
+        round_trip( prim );
         prim->lpVtbl->Release( prim );
     }
     dd->lpVtbl->Release( dd );
