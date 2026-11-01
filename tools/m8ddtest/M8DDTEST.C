@@ -17,6 +17,8 @@ int main( void )
     LPDIRECTDRAW    dd = NULL;
     DDCAPS          hw;
     DDCAPS          hel;
+    DDSURFACEDESC   sd;
+    LPDIRECTDRAWSURFACE prim;
     HRESULT         r;
 
     lib = LoadLibrary( "DDRAW.DLL" );
@@ -45,6 +47,28 @@ int main( void )
             (hw.dwCaps & DDCAPS_NOHARDWARE) ? "NO HAL" : "HAL" );
     printf( "hel caps %08lx caps2 %08lx pal %08lx scaps %08lx\n",
             hel.dwCaps, hel.dwCaps2, hel.dwPalCaps, hel.ddsCaps.dwCaps );
+
+    /* The primary: where a lock points. dxdiag's colour fill to the primary
+     * faulted (DDERR_EXCEPTION), so print the address before touching it. */
+    r = dd->lpVtbl->SetCooperativeLevel( dd, NULL, DDSCL_NORMAL );
+    printf( "SetCooperativeLevel %08lx\n", (unsigned long)r );
+    memset( &sd, 0, sizeof( sd ) );
+    sd.dwSize = sizeof( sd );
+    sd.dwFlags = DDSD_CAPS;
+    sd.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE;
+    r = dd->lpVtbl->CreateSurface( dd, &sd, &prim, NULL );
+    printf( "CreateSurface %08lx\n", (unsigned long)r );
+    if( r == DD_OK ) {
+        memset( &sd, 0, sizeof( sd ) );
+        sd.dwSize = sizeof( sd );
+        r = prim->lpVtbl->Lock( prim, NULL, &sd, DDLOCK_WAIT | DDLOCK_READONLY, NULL );
+        printf( "Lock %08lx  surface %08lx  pitch %ld  %lux%lu\n", (unsigned long)r,
+                (unsigned long)sd.lpSurface, sd.lPitch, sd.dwWidth, sd.dwHeight );
+        if( r == DD_OK ) {
+            prim->lpVtbl->Unlock( prim, NULL );
+        }
+        prim->lpVtbl->Release( prim );
+    }
     dd->lpVtbl->Release( dd );
     return( 0 );
 }

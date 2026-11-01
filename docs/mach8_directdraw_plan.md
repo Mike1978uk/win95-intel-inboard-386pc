@@ -67,6 +67,17 @@ card.
 `0aa4a87`): M8DDTEST prints `DirectDrawCreate 0`, `hw caps 00000400` (DDCAPS_GDI) `caps2 00080000
 pal 00000014 scaps 00000300 vidmem 0  HAL`. Bed image before DirectX: `vm_5160_mcp/card.img.pre_dx7`.
 
+Using the primary fails, as expected without Lock: dxdiag's DirectDraw test stops at step 11 (colour
+fill to the primary) with DDERR_EXCEPTION, and M8DDTEST hangs creating or locking the primary. After
+those runs GDI fills on the screen go missing (Start menu highlight: text background only) until a
+restart. Bisected in the bed: `d26ed72`, `0e66ded`, `a517d00` draw it right; `0aa4a87` draws it right
+after a fresh boot too, so it is the failed DirectDraw use, not a GDI path. Likely a primary lock left
+held, so the DIB Engine treats the screen as busy. Milestone 2 must:
+
+- allocate the Lock shadow when first needed, sized to the mode, and check it (today one 768 KB fixed
+  `GlobalAlloc` at the first DCICOMMAND, result unchecked: a failure gives `fpPrimary` 0);
+- have M8DDTEST flush each line, so a hang shows its step.
+
 ## Open
 
 - Does DDRAW accept a primary whose memory the HAL supplies only through Lock? (Milestone 1-2 answer it.)
