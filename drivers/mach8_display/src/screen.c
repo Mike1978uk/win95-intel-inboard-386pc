@@ -2777,7 +2777,7 @@ static BOOL m8_bitblt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPDEVICE 
             int     kind = 1;
 
             if( m8_rop_uses_pat( dwRop3 ) ) {
-                kind = m8_brush_colours( lpPBrush, lpDrawMode, &c1, &c2, pat );
+                kind = M8_PF_WRAP( 40, m8_brush_colours( lpPBrush, lpDrawMode, &c1, &c2, pat ) );
             }
             if( kind == 1 ) {
                 m8_enter( &r );
@@ -2789,8 +2789,12 @@ static BOOL m8_bitblt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPDEVICE 
              * (m8_brush_colours); M8_PATTERN_EXPANSION 0 sends them back to the
              * fallback. */
             if( (kind == 2 || kind == 3) && M8_PATTERN_EXPANSION ) {
-                m8_enter( &r );
+                DWORD   pa;
+
+                M8_PF_WRAP( 42, m8_enter( &r ) );
+                pa = M8_PF_T0();
                 m8_pattern_fill( wDestX, wDestY, wXext, wYext, pat, c1, c2, mix, kind == 3 );
+                m8_pf_part( 41, pa );
                 m8_leave();
                 return( TRUE );
             }

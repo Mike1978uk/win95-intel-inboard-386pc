@@ -613,9 +613,25 @@ void m8_hw_fill( int x, int y, int w, int h, BYTE color )
 static int  m8_scan_y = -1;
 static WORD m8_scan_byte = 0xFFFF;
 
+/* The data path m8_hw_pattern_begin leaves, as m8_dp_mix records it: the mono
+ * pattern DP_CONFIG, PIX_CNTL, both ALU functions and PATT_LENGTH 7. Bit 14
+ * is in no real mix and not in M8_DP_DASH, so no other path takes it for its
+ * own. Recorded only for functions below 20h, which the shifts keep apart. */
+#define M8_DP_PATT( fg_fn, bg_fn )  (0x4000 | ((bg_fn) << 7) | (fg_fn))
+
 void m8_hw_pattern_begin( BYTE fg, BYTE bg, WORD fg_fn, WORD bg_fn )
 {
     if( m8_hw_off ) {
+        return;
+    }
+    /* Only the colours can differ: the rest is the engine's already, and the
+     * pattern byte cache stays, as nothing else writes PATT_DATA without
+     * changing m8_dp_mix. CUR_Y does not: commands move it. */
+    if( m8_dp_ok && m8_dp_plain && m8_dp_mix == M8_DP_PATT( fg_fn, bg_fn ) && m8_room_ok ) {
+        m8_room_counted( 2 );
+        M8_SET( M8_SH_FRGD_COLOR, fg );
+        M8_SET( M8_SH_BKGD_COLOR, bg );
+        m8_scan_y = -1;
         return;
     }
     m8_wait_fifo_empty();
@@ -636,6 +652,11 @@ void m8_hw_pattern_begin( BYTE fg, BYTE bg, WORD fg_fn, WORD bg_fn )
     m8_room -= 3;
     m8_scan_y = -1;
     m8_scan_byte = 0xFFFF;
+    /* Every write since the drain is counted. */
+    m8_room_ok = 1;
+    if( (fg_fn | bg_fn) < 0x20 ) {
+        m8_dp_sent( M8_DP_PATT( fg_fn, bg_fn ), 1 );
+    }
 }
 
 /* A rectangle of the pattern set up by m8_hw_pattern_begin; nothing else may
@@ -647,8 +668,38 @@ void m8_hw_pattern_span( int x, int y, int w, int h, const BYTE *pat )
     if( m8_hw_off || w <= 0 || h <= 0 ) {
         return;
     }
+    /* A column one pixel wide is a vertical line whose 8-bit pattern is that
+     * column of the brush, row j in index j: the line pattern steps once a
+     * pixel (as for dashes), so any height is nine writes, not three a row. */
+    if( w == 1 && h > 1 ) {
+        BYTE    bit = (BYTE)(0x80 >> (x & 7));
+        WORD    col = 0;
+
+        for( row = 0; row < 8; ++row ) {
+            if( pat[row] & bit ) {
+                col |= 0x80 >> row;
+            }
+        }
+        m8_room_counted( 9 );
+        outpw( M8_PATT_DATA_INDEX, 0x10 );
+        outpw( M8_PATT_DATA, col );
+        /* Not cached: a CMD write sets LINEDRAW_OPT's line bits from its own. */
+        outpw( M8_LINEDRAW_OPT, M8_LINEDRAW_LAST_OFF );
+        outpw( M8_LINEDRAW_INDEX, 0 );
+        outpw( M8_LINEDRAW, x );
+        outpw( M8_LINEDRAW, y );
+        /* The phase between the move and the end, as m8_hw_polyline writes it. */
+        outpw( M8_PATT_INDEX, y & 7 );
+        outpw( M8_LINEDRAW, x );
+        outpw( M8_LINEDRAW, y + h );
+        m8_room -= 9;
+        m8_scan_y = -1;
+        m8_scan_byte = 0xFFFF;
+        ++m8_stats[M8_STAT_FILL_HW];
+        return;
+    }
     if( h == 1 ) {
-        m8_room_for( 6 );
+        m8_room_counted( 6 );
         if( y != m8_scan_y ) {
             outpw( M8_CUR_Y, y );
             --m8_room;
@@ -669,7 +720,7 @@ void m8_hw_pattern_span( int x, int y, int w, int h, const BYTE *pat )
     }
     m8_scan_y = -1;
     m8_scan_byte = 0xFFFF;
-    m8_room_for( 5 );
+    m8_room_counted( 5 );
     outpw( M8_PATT_INDEX, x & 7 );
     outpw( M8_CUR_X, x );
     outpw( M8_DEST_X_START, x );
@@ -677,7 +728,7 @@ void m8_hw_pattern_span( int x, int y, int w, int h, const BYTE *pat )
     outpw( M8_CUR_Y, y );
     m8_room -= 5;
     for( row = 0; row < h; ++row ) {
-        m8_room_for( 3 );
+        m8_room_counted( 3 );
         outpw( M8_PATT_DATA_INDEX, 0x10 );
         outpw( M8_PATT_DATA, pat[(y + row) & 7] );
         M8_OUT_MM( M8_DEST_Y_END, y + row + 1 );
