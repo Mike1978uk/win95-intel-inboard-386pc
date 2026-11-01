@@ -16,6 +16,7 @@
 #include <string.h>
 #include <io.h>
 #include <conio.h>
+#include <stdlib.h>
 
 #define WIN_W       640
 #define WIN_H       480
@@ -163,6 +164,19 @@ static void flush_out( void )
     _commit( fileno( out ) );
 }
 
+/* The timed second in slices, each test's rate the median slice's: an
+ * interrupt that lands in one slice (a broadcast the NIC reads in over the
+ * 8-bit bus takes milliseconds) moves the total, not the median. */
+#define SLICES  10
+
+static int cmp_double( const void *a, const void *b )
+{
+    double x = *(const double *)a;
+    double y = *(const double *)b;
+
+    return( x < y ? -1 : x > y );
+}
+
 static void run( const char *name, OP op, int fixed )
 {
     double  t0;
@@ -172,6 +186,12 @@ static void run( const char *name, OP op, int fixed )
     char    title[48];
     M8_PF_TAB pf;
     DWORD   stat0[M8_STAT_COUNT];
+    double  rate[SLICES];
+    double  ts = 0.0;
+    double  med;
+    long    ns = 0;
+    long    least = 0x7FFFFFFFL;
+    int     k = 0;
 
     ++test_no;
     sprintf( title, "M8BENCH %d/%d %s", test_no, TEST_COUNT, name );
@@ -192,7 +212,23 @@ static void run( const char *name, OP op, int fixed )
         op( (int)n );
         ++n;
         t = now_ms() - t0;
+        if( k < SLICES && t >= (double)run_ms * (k + 1) / SLICES ) {
+            rate[k] = (n - ns) * 1000.0 / (t - ts);
+            if( n - ns < least ) {
+                least = n - ns;
+            }
+            ts = t;
+            ns = n;
+            ++k;
+        }
     } while( t < run_ms );
+    /* A slice of a few operations says little: the total then. */
+    if( k == SLICES && least >= 4 ) {
+        qsort( rate, SLICES, sizeof( rate[0] ), cmp_double );
+        med = (rate[SLICES / 2 - 1] + rate[SLICES / 2]) / 2.0;
+    } else {
+        med = n * 1000.0 / t;
+    }
     if( prof ) {
         double  us = 0.0;
         double  calls = 0.0;
@@ -244,8 +280,8 @@ static void run( const char *name, OP op, int fixed )
     }
     /* SCRATCH_PAD_1: a diagnostic driver build leaves its last engine reset
      * there (Dosr: routine o, wait s, count r); anything else is noise. */
-    fprintf( out, "%-16s %10.1f ops/s %8.3f ms/op  hash %08lx  #%d  pad %04x\n", name,
-             n * 1000.0 / t, t / n, hash_area(), test_no, inpw( 0x56EE ) );
+    fprintf( out, "%-16s %10.2f ops/s %8.3f ms/op  hash %08lx  #%d  pad %04x  med %.2f\n", name,
+             n * 1000.0 / t, t / n, hash_area(), test_no, inpw( 0x56EE ), med );
     flush_out();
 }
 

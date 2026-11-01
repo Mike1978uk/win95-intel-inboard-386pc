@@ -4,6 +4,7 @@ the pixels matched (equal hashes of the same fixed sequence).
 Usage: m8_bench_compare.py <M8BENCH.TXT> <label A> <label B>
 The last run with each label is used; a comma list (card_ati1,card_ati2) is averaged, and its
 pixels must agree. The ratio is B / A: above 1, B is faster. The last line is the geometric mean.
+Where every run on both sides has a median slice rate (M8BENCH's med field), the ratio uses it.
 """
 import math
 import sys
@@ -20,7 +21,8 @@ def runs(path):
             cur = {'head': line.strip(), 'tests': {}}
             out[p[1]] = cur
         elif cur is not None and len(p) >= 7 and p[2] == 'ops/s':
-            cur['tests'][p[0]] = (float(p[1]), float(p[3]), p[6])
+            med = float(p[p.index('med') + 1]) if 'med' in p else None
+            cur['tests'][p[0]] = (float(p[1]), float(p[3]), p[6], med)
     return out
 
 
@@ -34,8 +36,10 @@ def merged(r, labels):
     for t in r[names[0]]['tests']:
         rows = [r[n]['tests'][t] for n in names if t in r[n]['tests']]
         hashes = {row[2] for row in rows}
+        meds = [x[3] for x in rows]
         out['tests'][t] = (sum(x[0] for x in rows) / len(rows), sum(x[1] for x in rows) / len(rows),
-                           rows[0][2] if len(hashes) == 1 else 'mixed')
+                           rows[0][2] if len(hashes) == 1 else 'mixed',
+                           sum(meds) / len(meds) if None not in meds else None)
     return out
 
 
@@ -47,10 +51,12 @@ def main(path, a, b):
     print(f"{'test':16} {a + ' ops/s':>14} {b + ' ops/s':>14} {'B/A':>7}  pixels")
     worse = better = differ = 0
     logs = []
-    for t, (oa, ma, ha) in ra['tests'].items():
+    for t, (oa, ma, ha, da) in ra['tests'].items():
         if t not in rb['tests']:
             continue
-        ob, mb, hb = rb['tests'][t]
+        ob, mb, hb, db = rb['tests'][t]
+        if da is not None and db is not None:
+            oa, ob = da, db
         ratio = ob / oa if oa else 0
         if ratio > 0:
             logs.append(math.log(ratio))
