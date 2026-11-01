@@ -97,6 +97,23 @@ on the engine); test 2's square moves at a usable speed (system-memory source se
 + `dwSVBCaps`). Test 3 asks for 640x480x16 and fails: the IMSG176 DAC has no 16-bit mode. The pointer is hidden
 while dxdiag holds exclusive mode and returns after. M8DDTEST passes; M8BENCH pixels same in all 36.
 
+Off-screen surfaces (`d279668`), bed, 11-01 evening. The shadow covers the card rows from the screen to
+the end of the heap rows (`m8_dd_heap`: up to 256 rows above the string cache, 32 left for
+SaveScreenBitmap; 96 at 1024x768) at the screen's pitch. M8DD32's CreateSurface places 8bpp off-screen
+surfaces there itself (no DDRAW heap) and sets fpVidMem/lPitch; the first one sends escape 0x4D39 so
+GDI's bitmap cache and menu save leave the rows (memory bitmaps written back first); the last
+DestroySurface gives them back. M8DDTEST: surface caps `10004040` (video memory), at card row 800; Lock
+round trip 0 of 2048 wrong; fill + card-to-card copy to the screen correct. M8BENCH pixels same in all 36.
+
+Dead ends, one line each (bed, M8DDTEST "NO HAL" = DDRAW refused the HAL at creation):
+- `DDSCAPS_OFFSCREENPLAIN` in `ddCaps.ddsCaps`: NO HAL, with or without a heap. Leaving it out, DDRAW
+  still asks CreateSurface for `DDSCAPS_VIDEOMEMORY` surfaces.
+- A rectangular or linear heap in RAM: NO HAL, but every such build also set the bit above, so a heap
+  alone is untested.
+- DDRAW keeps a refused HAL for the session: an INI switch read at DDCREATEDRIVEROBJECT needs a reboot
+  per setting.
+- GDI32 imported by M8DD32.DLL: fine (the DLL loads; an earlier guess blamed it).
+
 ## Open
 
 - After dxdiag's run, M8BENCH's `bmp_*`, `draw_icon`, `scr_to_mem`, `drag_frame` ran 3-25x slower in the bed
