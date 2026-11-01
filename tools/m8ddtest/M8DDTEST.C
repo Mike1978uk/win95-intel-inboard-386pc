@@ -67,6 +67,99 @@ static void round_trip( LPDIRECTDRAWSURFACE prim )
     InvalidateRect( NULL, NULL, TRUE );
 }
 
+/* Milestone 4: a surface in the card's off-screen rows. Its left half is
+ * written white through a lock and read back; Blt fills its top left black
+ * and copies it to the screen, where GDI reads it. */
+static void offscreen( LPDIRECTDRAW dd )
+{
+    HDC                 dc;
+    DDSURFACEDESC       sd;
+    LPDIRECTDRAWSURFACE off;
+    LPDIRECTDRAWSURFACE prim;
+    DDBLTFX             fx;
+    RECT                rc;
+    RECT                dst;
+    HRESULT             r;
+    BYTE                *p;
+    int                 x;
+    int                 y;
+    int                 bad = 0;
+
+    memset( &sd, 0, sizeof( sd ) );
+    sd.dwSize = sizeof( sd );
+    sd.dwFlags = DDSD_CAPS | DDSD_WIDTH | DDSD_HEIGHT;
+    sd.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_VIDEOMEMORY;
+    sd.dwWidth = 64;
+    sd.dwHeight = 32;
+    r = dd->lpVtbl->CreateSurface( dd, &sd, &off, NULL );
+    printf( "off CreateSurface %08lx\n", (unsigned long)r );
+    if( r != DD_OK ) {
+        return;
+    }
+    memset( &sd, 0, sizeof( sd ) );
+    sd.dwSize = sizeof( sd );
+    sd.dwFlags = DDSD_CAPS;
+    sd.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE;
+    r = dd->lpVtbl->CreateSurface( dd, &sd, &prim, NULL );
+    if( r != DD_OK ) {
+        off->lpVtbl->Release( off );
+        return;
+    }
+    memset( &sd, 0, sizeof( sd ) );
+    sd.dwSize = sizeof( sd );
+    r = off->lpVtbl->Lock( off, NULL, &sd, DDLOCK_WAIT, NULL );
+    printf( "off lock %08lx  surface %08lx  pitch %ld  %lux%lu  caps %08lx\n", (unsigned long)r,
+            (unsigned long)sd.lpSurface, sd.lPitch, sd.dwWidth, sd.dwHeight,
+            sd.ddsCaps.dwCaps );
+    if( r == DD_OK ) {
+        p = (BYTE *)sd.lpSurface;
+        for( y = 0; y < 32; ++y ) {
+            for( x = 0; x < 64; ++x ) {
+                p[y * sd.lPitch + x] = x < 32 ? 0xFF : 0x00;
+            }
+        }
+        r = off->lpVtbl->Unlock( off, NULL );
+        printf( "off unlock %08lx\n", (unsigned long)r );
+        /* The lock's memory is the driver's shadow: scribbled on, the next
+         * lock must bring the pixels back from the card. */
+        for( y = 0; y < 32; ++y ) {
+            memset( p + y * sd.lPitch, 0x55, 64 );
+        }
+        memset( &sd, 0, sizeof( sd ) );
+        sd.dwSize = sizeof( sd );
+        r = off->lpVtbl->Lock( off, NULL, &sd, DDLOCK_WAIT | DDLOCK_READONLY, NULL );
+        if( r == DD_OK ) {
+            p = (BYTE *)sd.lpSurface;
+            for( y = 0; y < 32; ++y ) {
+                for( x = 0; x < 64; ++x ) {
+                    bad += p[y * sd.lPitch + x] != (x < 32 ? 0xFF : 0x00);
+                }
+            }
+            off->lpVtbl->Unlock( off, NULL );
+        }
+        printf( "off read back %08lx: %d of 2048 wrong\n", (unsigned long)r, bad );
+    }
+    memset( &fx, 0, sizeof( fx ) );
+    fx.dwSize = sizeof( fx );
+    fx.dwFillColor = 0;
+    SetRect( &rc, 0, 0, 16, 8 );
+    r = off->lpVtbl->Blt( off, &rc, NULL, NULL, DDBLT_COLORFILL | DDBLT_WAIT, &fx );
+    printf( "off fill %08lx\n", (unsigned long)r );
+    SetRect( &rc, 0, 0, 64, 32 );
+    SetRect( &dst, 301, 200, 365, 232 );
+    r = prim->lpVtbl->Blt( prim, &dst, off, &rc, DDBLT_WAIT, NULL );
+    dc = GetDC( NULL );
+    printf( "off to screen %08lx  (301,200) %06lx black  (317,200) %06lx white  (301,208) %06lx white"
+            "  (332,231) %06lx white  (333,200) %06lx black\n", (unsigned long)r,
+            (unsigned long)GetPixel( dc, 301, 200 ), (unsigned long)GetPixel( dc, 317, 200 ),
+            (unsigned long)GetPixel( dc, 301, 208 ), (unsigned long)GetPixel( dc, 332, 231 ),
+            (unsigned long)GetPixel( dc, 333, 200 ) );
+    ReleaseDC( NULL, dc );
+    prim->lpVtbl->Release( prim );
+    off->lpVtbl->Release( off );
+    InvalidateRect( NULL, NULL, TRUE );
+}
+
 int main( void )
 {
     HMODULE         lib;
@@ -129,6 +222,7 @@ int main( void )
         round_trip( prim );
         prim->lpVtbl->Release( prim );
     }
+    offscreen( dd );
     dd->lpVtbl->Release( dd );
     return( 0 );
 }
