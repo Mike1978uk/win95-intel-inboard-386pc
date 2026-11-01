@@ -57,14 +57,29 @@ assume  ds:nothing, es:nothing
 DIBTHK  EnumObj,                _m8_pdevice
 ; RealizeObject(lpDestDev, iStyle, lpInObj, lpOutObj, lpTextXForm), Pascal: a
 ; pattern brush reads its bitmap, so M8PXREALIZE(iStyle, lpInObj) looks first.
+; It acts only on a bitmap's deletion and a BS_PATTERN brush: every other
+; object (each solid brush is realized and deleted per use) goes straight on.
 public  RealizeObject
 RealizeObject:
         push    bp
         mov     bp, sp
+        mov     ax, [bp+18]
+        cmp     ax, -5                  ; -OBJ_BITMAP (M8_OBJ_BITMAP, screen.c)
+        je      rlz_px
+        cmp     ax, 2                   ; OBJ_BRUSH
+        jne     rlz_fwd
+        les     bx, [bp+14]
+        mov     ax, es
+        or      ax, bx
+        jz      rlz_fwd
+        cmp     word ptr es:[bx], 3     ; LOGBRUSH.lbStyle == BS_PATTERN
+        jne     rlz_fwd
+rlz_px:
         push    word ptr [bp+18]
         push    word ptr [bp+16]
         push    word ptr [bp+14]
         call    far ptr M8PXREALIZE
+rlz_fwd:
         pop     bp
         mov     ax, DGROUP
         mov     es, ax
