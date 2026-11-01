@@ -74,3 +74,23 @@ GDI regression with the milestone-1 driver (`card_ddm1`, median): pixels = ATI i
   (new exe built, not yet on the card) before card comparisons include it.
 - Bed `vm_5160_mcp` now has ATIM8 selected (boot 87); `C:\V9XREMOTE\M8DISPB.REG` selects ours.
   Bisect drivers left in its SYSTEM folder: M8PREMM, M8B0E66, M8BA517.
+
+## Session 2026-11-01 (late)
+
+- **Focus rectangle: not our bug.** M8BENCH test 36 on the card (new exe uploaded): `card_fr_ours1`
+  (m8flood = master) and `card_fr_ati1` both hash `14ad90a6`, the same as `bed_focus_ati`; only
+  `bed_focus_ours` (`5e7991a5`) differs. 86Box's SCAN_TO_X (`vid_ati_mach8.c`, cmd_type 5, `mono_src == 1`)
+  never applies PATT_INDEX, so our one-row pattern spans are out of phase at odd x in the bed. Owner to
+  decide on an 86Box fix. Bed pixels for focus_rect cannot gate our driver until then.
+- **focus_rect speed: 353 vs ATI 512 ops/s (0.69)**, the one test below ATI; the other 35 equal pixels,
+  geometric mean 1.81.
+- Profile (`card_fr_prof1`, parts in `card_fr_prof2_1`): 4 BitBlts an op at ~570 us each; the pattern fill
+  ~280 us of it, the brush lookup ~45 us (part timers cost ~85-100 us each). The one-pixel-wide sides
+  cost 5 + 3 writes a row.
+- **Fix** (`m8hw.c`): a one-pixel-wide pattern column is a vertical LINEDRAW with that column as an 8-bit
+  line pattern (9 writes, any height); `m8_hw_pattern_begin` keeps the engine's set-up when `m8_dp_mix`
+  holds it (`M8_DP_PATT`); pattern spans count FIFO room instead of draining. Card `card_focus1-4` +
+  `card_focusb1-2`: focus_rect 0.92-0.95 (497-513 med vs ATI 538), pixels = ATI in all 36. lines_dash read
+  483-535 in three runs, 631 in both re-runs: card noise. Card left on `M8FOCUS`.
+- Next for focus_rect: the BitBlt short path has no pattern case, so each strip runs the full C path and
+  the 142-byte brush compare.
