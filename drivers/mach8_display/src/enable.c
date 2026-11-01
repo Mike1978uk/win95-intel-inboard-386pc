@@ -89,8 +89,9 @@ static void __far *m8_int2f_get_ep( unsigned ax, unsigned bx );
 static WORD m8_int2f_get_vm( unsigned ax );
 #pragma aux m8_int2f_get_vm = "int 2Fh" parm [ax] value [bx];
 
-/* The resolution Display Properties chose, from the VDD; 800x600 if it says
- * nothing we can show. 8 bpp only. */
+/* The resolution and colour depth Display Properties chose, from the VDD;
+ * 800x600 at 8 bpp if it says nothing we can show. 16 bpp is 640x480 only
+ * (fb16.c). */
 static void m8_read_mode( void )
 {
     M8_DISPLAYINFO  di;
@@ -99,16 +100,17 @@ static void m8_read_mode( void )
     int             y;
 
     m8_mode = M8_MODE_800;
-    if( m8_vdd_entry == 0 ) {
-        return;
-    }
+    m8_fb16 = 0;
     _fmemset( &di, 0, sizeof( di ) );
-    if( m8_vdd_get_config( VDD_GET_DISPLAY_CONFIG, sizeof( di ), &di ) != 0 ) {
-        return;
-    }
-    for( i = 0; i < M8_MODE_COUNT; ++i ) {
-        if( m8_hw_mode_size( i, &x, &y ) && x == (int)di.diXRes && y == (int)di.diYRes ) {
-            m8_mode = i;
+    if( m8_vdd_entry != 0 && m8_vdd_get_config( VDD_GET_DISPLAY_CONFIG, sizeof( di ), &di ) == 0 ) {
+        for( i = 0; i < M8_MODE_COUNT; ++i ) {
+            if( m8_hw_mode_size( i, &x, &y ) && x == (int)di.diXRes && y == (int)di.diYRes ) {
+                m8_mode = i;
+            }
+        }
+        if( di.diBpp == 16 ) {
+            m8_mode = M8_MODE_640;
+            m8_fb16 = 1;
         }
     }
     m8_hw_mode_size( m8_mode, &m8_scr_x, &m8_scr_y );
@@ -211,6 +213,16 @@ static void m8_fill_gdiinfo( LPGDIINFO lpInfo )
     lpInfo->dpCaps1     |= C1_BYTE_PACKED | C1_GLYPH_INDEX | C1_SLOW_CARD;
     lpInfo->dpCaps1     |= C1_REINIT_ABLE;
     lpInfo->dpCaps1     &= ~C1_COLORCURSOR;
+    /* 16 bpp: no palette, and no SaveScreenBitmap (it keeps menus on the
+     * card, which at 16 bpp holds only the dithered picture). */
+    if( m8_fb16 ) {
+        lpInfo->dpBitsPixel  = 16;
+        lpInfo->dpNumColors  = -1;
+        lpInfo->dpNumPalReg  = 0;
+        lpInfo->dpPalReserved = 0;
+        lpInfo->dpColorRes   = 0;
+        lpInfo->dpRaster    &= ~(RC_PALETTE | RC_SAVEBITMAP);
+    }
 }
 
 static void __far *m8_get_vec( BYTE n );
@@ -267,7 +279,9 @@ void __cdecl m8_switch_out( void )
         return;
     }
     m8_pdevice->deFlags |= BUSY;
-    m8_screen_suspend();
+    if( !m8_fb16 ) {
+        m8_screen_suspend();
+    }
     m8_hw_passthrough();
     m8_hw_off = 1;
 }
@@ -284,6 +298,10 @@ void __cdecl m8_switch_in( void )
     m8_hw_set_mode( m8_mode );
     m8_hw_set_palette( 0, 256, m8_color_table );
     m8_pdevice->deFlags &= ~BUSY;
+    if( m8_fb16 ) {
+        m8_fb16_send_all();
+        return;
+    }
     m8_screen_resume();
     m8_request_repaint();
 }
@@ -327,9 +345,21 @@ UINT WINAPI __loadds Enable( LPVOID lpDevice, UINT style, LPSTR lpDeviceType,
     M8_STEP( 0xA022 );
     DIB_Enable( lpDevice, style, lpDeviceType, lpOutputFile, lpStuff );
     M8_STEP( 0xA023 );
+    lpInfo = (LPBITMAPINFO)((LPBYTE)lpDevice + m8_dib_pdev_size);
+    if( m8_fb16 ) {
+        if( !m8_fb16_alloc() ) {
+            m8_hw_passthrough();
+            return( 0 );
+        }
+        m8_fb16_device( lpEng, lpInfo );
+        m8_pdevice = lpEng;
+        m8_color_table = m8_fb16_pal;
+        m8_fb16_send_all();
+        m8_hook_int2f();
+        return( 1 );
+    }
     DIB_SetPaletteTranslateExt( NULL, lpDevice );
 
-    lpInfo = (LPBITMAPINFO)((LPBYTE)lpDevice + m8_dib_pdev_size);
     _fmemset( &lpInfo->bmiHeader, 0, sizeof( lpInfo->bmiHeader ) );
     lpInfo->bmiHeader.biSize     = sizeof( lpInfo->bmiHeader );
     lpInfo->bmiHeader.biWidth    = M8_SCREEN_X;
@@ -401,6 +431,9 @@ UINT WINAPI __loadds Disable( LPVOID lpDevice )
 
 UINT WINAPI __loadds SetPalette( UINT wStartIndex, UINT wNumEntries, LPVOID lpPalette )
 {
+    if( m8_fb16 ) {
+        return( 0 );
+    }
     DIB_SetPaletteExt( wStartIndex, wNumEntries, lpPalette, m8_pdevice );
     if( m8_pdevice != NULL && !(m8_pdevice->deFlags & BUSY) ) {
         m8_hw_set_palette( wStartIndex, wNumEntries, &m8_color_table[wStartIndex] );
@@ -420,6 +453,10 @@ LONG WINAPI __loadds Control( LPVOID lpDevice, UINT function, LPVOID lpInput, LP
     }
     /* M8DD32.DLL lends DirectDraw the off-screen rows, or takes them back:
      * GDI's caches must leave them before DirectDraw draws there. */
+    if( function == M8_ESC_FB16STAT && lpOutput != NULL ) {
+        _fmemcpy( lpOutput, m8_fb16_stat, sizeof( m8_fb16_stat ) );
+        return( 1 );
+    }
     if( function == M8_ESC_DDLEND && lpInput != NULL ) {
         m8_dd_lend( *(LPWORD)lpInput );
         return( 1 );
@@ -441,9 +478,17 @@ LONG WINAPI __loadds Control( LPVOID lpDevice, UINT function, LPVOID lpInput, LP
 UINT WINAPI __loadds ReEnable( LPVOID lpDevice, LPGDIINFO lpInfo )
 {
     int     old = m8_mode;
+    int     old_fb16 = m8_fb16;
     UINT    rc;
 
     m8_read_mode();
+    /* The colour depth changes only at a restart. */
+    if( m8_fb16 != old_fb16 || m8_fb16 ) {
+        m8_mode = old;
+        m8_fb16 = old_fb16;
+        m8_hw_mode_size( m8_mode, &m8_scr_x, &m8_scr_y );
+        return( 0 );
+    }
     m8_reenabling = 1;
     /* Quiet while the mode changes: the cursor moves at interrupt time. */
     m8_screen_suspend();
@@ -461,7 +506,7 @@ UINT WINAPI __loadds ReEnable( LPVOID lpDevice, LPGDIINFO lpInfo )
     return( rc ? 1 : 0 );
 }
 
-/* 640x480, 800x600 and 1024x768, at 8 bpp. */
+/* 640x480, 800x600 and 1024x768 at 8 bpp; 640x480 at 16 bpp (fb16.c). */
 UINT WINAPI __loadds ValidateMode( DISPVALMODE FAR *lpMode )
 {
     int i;
@@ -475,6 +520,10 @@ UINT WINAPI __loadds ValidateMode( DISPVALMODE FAR *lpMode )
     M8_STEP( lpMode->dvmBpp );
     M8_STEP( lpMode->dvmXRes );
     M8_STEP( lpMode->dvmYRes );
+    if( lpMode->dvmBpp == 16 && lpMode->dvmXRes == 640 && lpMode->dvmYRes == 480 ) {
+        M8_STEP( 0xA071 );
+        return( VALMODE_YES );
+    }
     if( lpMode->dvmBpp == 8 ) {
         for( i = 0; i < M8_MODE_COUNT; ++i ) {
             if( m8_hw_mode_size( i, &x, &y ) && lpMode->dvmXRes == x && lpMode->dvmYRes == y ) {

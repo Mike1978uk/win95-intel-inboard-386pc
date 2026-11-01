@@ -258,7 +258,8 @@ LONG m8dd_command( LPVOID lpInput, LPVOID lpOutput )
     DCICMD_t FAR    *c = lpInput;
     int             mode;
 
-    if( c == NULL || c->dwVersion != DD_VERSION || !m8dd_alloc() ) {
+    /* Not yet at 16 bpp: the HAL describes the 8 bpp screen. */
+    if( m8_fb16 || c == NULL || c->dwVersion != DD_VERSION || !m8dd_alloc() ) {
         return( 0 );
     }
     switch( c->dwCommand ) {

@@ -2698,6 +2698,10 @@ BOOL WINAPI __loadds BitBltC( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPP
                               WORD wSrcX, WORD wSrcY, WORD wXext, WORD wYext, DWORD dwRop3,
                               LPBRUSH lpPBrush, LPDRAWMODE lpDrawMode )
 {
+    if( m8_fb16 ) {
+        return( m8_fb16_bitblt( lpDestDev, wDestX, wDestY, lpSrcDev, wSrcX, wSrcY, wXext, wYext,
+                                dwRop3, lpPBrush, lpDrawMode ) );
+    }
     if( (LPVOID)lpDestDev == m8_hot.screen && lpDestDev != NULL &&
         m8_blt_short( wDestX, wDestY, lpSrcDev, wSrcX, wSrcY, wXext, wYext, dwRop3, lpPBrush,
                       lpDrawMode ) ) {
@@ -3234,6 +3238,10 @@ WORD WINAPI __loadds Output( LPPDEVICE lpDestDev, WORD wStyle, WORD wCount, LPPO
     M8_RECT pts;
     WORD    i;
 
+    if( m8_fb16 ) {
+        return( m8_fb16_output( lpDestDev, wStyle, wCount, lpPoints, lpPPen, lpPBrush,
+                                lpDrawMode, lpClipRect ) );
+    }
     M8_PF_STYLE( wStyle );
     if( wStyle == OS_POLYLINE && (LPVOID)lpDestDev == m8_hot.screen && lpDestDev != NULL &&
         m8_out_short( wCount, lpPoints, lpPPen, lpDrawMode, lpClipRect ) ) {
@@ -3440,6 +3448,10 @@ DWORD WINAPI __loadds PixelC( LPPDEVICE lpDestDev, WORD X, WORD Y, DWORD dwPhysC
 {
     M8_PIX  p;
     M8_RECT r;
+
+    if( m8_fb16 ) {
+        return( m8_fb16_pixel( lpDestDev, X, Y, dwPhysColor, lpDrawMode ) );
+    }
 
     /* A set on the screen, clear of the cursor, with the engine set up by the
      * last call: the short path. The screen is known by its pointer, without
@@ -5163,6 +5175,10 @@ VOID WINAPI __loadds M8SetCursor( M8_CURSORSHAPE FAR *lpShape )
     int         x;
     int         wb;
 
+    if( m8_fb16 ) {
+        m8_fb16_set_cursor( lpShape );
+        return;
+    }
     M8_STEP( M8_MARK_CURSOR_SET );
     m8_busy = 1;
     m8_cursor_hide();
@@ -5201,6 +5217,10 @@ VOID WINAPI __loadds M8SetCursor( M8_CURSORSHAPE FAR *lpShape )
 
 VOID WINAPI __loadds MoveCursor( WORD wAbsX, WORD wAbsY )
 {
+    if( m8_fb16 ) {
+        m8_fb16_move_cursor( wAbsX, wAbsY );
+        return;
+    }
     m8_cur_x = wAbsX;
     m8_cur_y = wAbsY;
     if( m8_busy || m8_screen == NULL ) {
@@ -5248,6 +5268,10 @@ VOID WINAPI __loadds MoveCursor( WORD wAbsX, WORD wAbsY )
 
 VOID WINAPI __loadds CheckCursor( VOID )
 {
+    if( m8_fb16 ) {
+        m8_fb16_check_cursor();
+        return;
+    }
     if( m8_busy || !m8_cur_pending || m8_screen == NULL ) {
         return;
     }
