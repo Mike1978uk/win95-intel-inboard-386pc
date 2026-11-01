@@ -97,5 +97,9 @@ GDI regression with the milestone-1 driver (`card_ddm1`, median): pixels = ATI i
   in all 36, geometric mean 1.79-1.83. Card left on `M8STRIP` (= master).
 - **Watch lines_dash**: runs read 474-535 in 5 of 11 runs since `card_focus` (others 617-632; before, 621-626
   in every run). Neither change is on its timed path (the dash short path needs `M8_DP_DASH` in
-  `m8_dp_mix`); lines_hv dipped once too. Re-bench a driver without `eed1c32` before blaming noise.
+  `m8_dp_mix`); lines_hv dipped once too. Control `card_ctl_flood1-4` (M8FLOOD, before `eed1c32`):
+  lines_dash 619-630 in all 4, lines_hv one dip (673). So lines_hv is noise; **lines_dash is real**: 12 of
+  12 old-driver runs steady, 5 of 11 new-driver runs low, varying run to run within one boot. Untested
+  guess: code layout (cache-set aliasing with each M8BENCH process's data), as no changed line runs in
+  its timed loop. Next: a profile build's `drv_us/op` for lines_dash in a low run and a high run.
 - ATI's only 36-test card run is `card_fr_ati1` (one run): re-run ATI 3 more times for a fair base.
