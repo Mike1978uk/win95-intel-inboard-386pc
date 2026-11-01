@@ -25,6 +25,7 @@ MAJ_AXIS_PCNT   equ     96E8h
 CMD             equ     9AE8h
 MULTIFUNC_CNTL  equ     0BEE8h
 SCAN_TO_X       equ     0CAEEh
+PATT_INDEX      equ     0D6EEh
 CMD_FILL        equ     40F3h
 
 ; m8_sp (m8hw.c), word offsets
@@ -39,8 +40,10 @@ SP_B            equ     16
 SP_Y            equ     18
 SP_ROOM         equ     20
 SP_SPANS        equ     22
+SP_ROT          equ     24      ; 8 bytes: each pattern row's rotation
 
 public  M8_SPANS_SOLID
+public  M8_SPANS_PAT
 
 _DATA   segment para public 'DATA'
         extrn   _m8_sp : word
@@ -52,6 +55,10 @@ hot_spans       dw      0
 hot_recs        dw      0
 hot_bt          dw      0       ; a band's top row
 hot_br          dw      0       ; a band's rows - 1
+hot_si          dw      0       ; a pattern record's first pair
+hot_cx          dw      0       ; and its pair count
+hot_end         dw      0       ; where its pairs end
+hot_r           dw      0       ; the row's pattern rotation
 _DATA   ends
 
 DGROUP  group   _DATA
@@ -276,6 +283,141 @@ band_next:
         jnz     band_span
         jmp     rec_end
 M8_SPANS_SOLID  endp
+
+; Pattern spans, for m8_hw_scan_spans when every pattern row is row 0
+; rotated (m8_pat_rotations): row 0 stays in PATT_DATA and each span is
+; CUR_Y (when the row changes), CUR_X, PATT_INDEX = (x + rot[y & 7]) & 7 and
+; SCAN_TO_X. A record of several rows is drawn a row at a time, each row with
+; its own rotation. Same list walk and registers as M8_SPANS_SOLID.
+
+        align   16
+M8_SPANS_PAT    proc    near
+        push    es
+        pushad
+        mov     ax, _m8_sp[SP_T]
+        mov     hot_t, ax
+        mov     ax, _m8_sp[SP_B]
+        mov     hot_b, ax
+        mov     ax, _m8_sp[SP_Y]
+        mov     hot_y, ax
+        mov     ax, _m8_sp[SP_ROOM]
+        mov     hot_room, ax
+        mov     hot_spans, 0
+        mov     ax, _m8_sp[SP_RECS]
+        mov     hot_recs, ax
+        mov     bx, _m8_sp[SP_L]
+        mov     bp, _m8_sp[SP_R]
+        les     si, dword ptr _m8_sp[SP_W]
+        cmp     word ptr _m8_sp[SP_POLY], 0
+        jne     prec
+        mov     cx, _m8_sp[SP_COUNT]
+        dec     cx
+        jle     pdone
+        mov     ax, es:[si + 2]
+        mov     dx, ax
+        inc     dx
+        add     si, 4
+        mov     hot_recs, 1
+        jmp     phave
+
+        align   16
+prec:
+        mov     cx, es:[si]             ; x count
+        mov     ax, es:[si + 2]         ; top
+        mov     dx, es:[si + 4]         ; bottom, exclusive
+        add     si, 6
+        shr     cx, 1                   ; x pairs
+phave:
+        cmp     ax, hot_t
+        jge     pt_ok
+        mov     ax, hot_t
+pt_ok:
+        cmp     dx, hot_b
+        jle     pb_ok
+        mov     dx, hot_b
+pb_ok:
+        mov     di, cx
+        shl     di, 2
+        add     di, si
+        mov     hot_end, di             ; the record's pairs end here
+        cmp     ax, dx
+        jge     prec_end
+        test    cx, cx
+        jz      prec_end
+        mov     hot_bt, ax
+        mov     hot_br, dx
+        mov     hot_si, si
+        mov     hot_cx, cx
+prow:
+        mov     si, hot_si
+        mov     cx, hot_cx
+        mov     di, hot_bt
+        and     di, 7
+        movzx   di, byte ptr _m8_sp[SP_ROT + di]
+        mov     hot_r, di
+pspan:
+        cmp     hot_room, 4
+        jge     pr_ok
+        call    drain
+pr_ok:
+        mov     ax, es:[si]             ; x0
+        mov     di, es:[si + 2]         ; x1, exclusive
+        add     si, 4
+        cmp     ax, bx
+        jge     pl_ok
+        mov     ax, bx
+pl_ok:
+        cmp     di, bp
+        jle     pr2_ok
+        mov     di, bp
+pr2_ok:
+        cmp     ax, di
+        jge     pnext
+        mov     dx, hot_bt
+        cmp     dx, hot_y
+        je      psame
+        mov     hot_y, dx
+        push    ax
+        mov     ax, dx
+        mov     dx, CUR_Y
+        out     dx, ax
+        pop     ax
+        dec     hot_room
+psame:
+        mov     dx, CUR_X
+        out     dx, ax
+        add     ax, hot_r
+        and     ax, 7
+        mov     dx, PATT_INDEX
+        out     dx, ax
+        mov     ax, di
+        mov     dx, SCAN_TO_X
+        out     dx, ax
+        sub     hot_room, 3
+        inc     hot_spans
+pnext:
+        dec     cx
+        jnz     pspan
+        inc     hot_bt
+        mov     ax, hot_bt
+        cmp     ax, hot_br
+        jl      prow
+prec_end:
+        mov     si, hot_end
+        add     si, 2                   ; the record's closing count
+        dec     hot_recs
+        jnz     prec
+pdone:
+        mov     ax, hot_y
+        mov     _m8_sp[SP_Y], ax
+        mov     ax, hot_room
+        mov     _m8_sp[SP_ROOM], ax
+        mov     ax, hot_spans
+        mov     _m8_sp[SP_SPANS], ax
+        popad
+        pop     es
+        ret
+M8_SPANS_PAT    endp
 
 ; m8_hw_drain waits for the FIFO and returns the room. Every register comes
 ; back as it was; C may use any of them.

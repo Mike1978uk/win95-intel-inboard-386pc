@@ -657,10 +657,13 @@ struct {
     int             y;
     int             room;
     WORD            spans;
+    BYTE            rot[8];
 } m8_sp = { NULL, 1 };
 
 extern void M8_SPANS_SOLID( void );
 #pragma aux M8_SPANS_SOLID "*" parm [] modify exact [];
+extern void M8_SPANS_PAT( void );
+#pragma aux M8_SPANS_PAT "*" parm [] modify exact [];
 
 /* spans.asm's FIFO wait: the room after it. */
 #ifdef M8_PROF
@@ -750,6 +753,34 @@ void m8_hw_scan_spans( int poly, WORD count, const short FAR *w,
         return;
     }
     rotok = m8_pat_rotations( pat, rot );
+    if( rotok ) {
+        if( pat[0] != byte ) {
+            if( room < 2 ) {
+                m8_fifo_drain();
+                room = m8_room;
+            }
+            outpw( M8_PATT_DATA_INDEX, 0x10 );
+            outpw( M8_PATT_DATA, pat[0] );
+            room -= 2;
+        }
+        m8_sp.w = w;
+        m8_sp.recs = recs;
+        m8_sp.poly = poly;
+        m8_sp.count = count;
+        m8_sp.l = l;
+        m8_sp.t = t;
+        m8_sp.r = r;
+        m8_sp.b = b;
+        m8_sp.y = y;
+        m8_sp.room = room;
+        _fmemcpy( m8_sp.rot, rot, 8 );
+        M8_SPANS_PAT();
+        m8_scan_y = m8_sp.y;
+        m8_room = m8_sp.room;
+        m8_scan_byte = pat[0];
+        m8_stats[M8_STAT_FILL_HW] += m8_sp.spans;
+        return;
+    }
     for( ; recs > 0; --recs ) {
         if( poly ) {
             n = (WORD)w[0];
