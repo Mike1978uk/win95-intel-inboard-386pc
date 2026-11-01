@@ -64,12 +64,13 @@ static M8DD_SHARE FAR   *m8dd;
 static DWORD            m8dd_lin;
 static BYTE FAR         *m8dd_shadow;   /* the primary as DDRAW sees it */
 static DWORD            m8dd_shadow_lin;
+static DWORD            m8dd_shadow_size;
 static LPDDHAL_SETINFO  m8dd_setinfo;
 
 static const DD32BITDRIVERDATA_t m8dd_hal = { "M8DD32.DLL", "DriverInit", 0 };
 
-/* The block and the primary's buffer, once: both stay for the session, as
- * the 32-bit HAL holds their addresses. */
+/* The block, once: it stays for the session, as the 32-bit HAL holds its
+ * address. */
 static int m8dd_alloc( void )
 {
     HGLOBAL h;
@@ -85,12 +86,27 @@ static int m8dd_alloc( void )
     m8dd_lin = GetSelectorBase( FP_SEG( m8dd ) ) + FP_OFF( m8dd );
     m8dd->dwSize = sizeof( M8DD_SHARE );
     m8dd->hot = GetSelectorBase( FP_SEG( (LPVOID)&m8_hot ) ) + FP_OFF( (LPVOID)&m8_hot );
-    /* The largest mode's screen: the HAL's Lock shadow (milestone 2). */
-    h = GlobalAlloc( GMEM_FIXED | GMEM_SHARE | GMEM_ZEROINIT, 1024UL * 768UL );
-    if( h != 0 ) {
-        m8dd_shadow = (BYTE FAR *)GlobalLock( h );
-        m8dd_shadow_lin = GetSelectorBase( FP_SEG( m8dd_shadow ) );
+    return( 1 );
+}
+
+/* The primary's Lock shadow, the size of this mode's screen. One for a
+ * smaller mode is not freed: a DirectDraw object made then may still hold
+ * its address. 0 = no memory: no HAL, rather than a primary at linear 0. */
+static int m8dd_shadow_alloc( void )
+{
+    DWORD   size = (DWORD)M8_SCREEN_X * M8_SCREEN_Y;
+    HGLOBAL h;
+
+    if( m8dd_shadow != NULL && m8dd_shadow_size >= size ) {
+        return( 1 );
     }
+    h = GlobalAlloc( GMEM_FIXED | GMEM_SHARE | GMEM_ZEROINIT, size );
+    if( h == 0 ) {
+        return( 0 );
+    }
+    m8dd_shadow = (BYTE FAR *)GlobalLock( h );
+    m8dd_shadow_lin = GetSelectorBase( FP_SEG( m8dd_shadow ) );
+    m8dd_shadow_size = size;
     return( 1 );
 }
 
@@ -221,7 +237,8 @@ LONG m8dd_command( LPVOID lpInput, LPVOID lpOutput )
         return( 1 );
     case DDCREATEDRIVEROBJECT:
         mode = m8dd_mode_index();
-        if( m8dd_setinfo == NULL || mode < 0 || m8dd->marker != M8DD_MARKER ) {
+        if( m8dd_setinfo == NULL || mode < 0 || m8dd->marker != M8DD_MARKER ||
+            !m8dd_shadow_alloc() ) {
             return( 0 );
         }
         m8dd_build( mode );

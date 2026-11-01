@@ -21,6 +21,8 @@ int main( void )
     LPDIRECTDRAWSURFACE prim;
     HRESULT         r;
 
+    /* Unbuffered: a hang then shows the last step that finished. */
+    setvbuf( stdout, NULL, _IONBF, 0 );
     lib = LoadLibrary( "DDRAW.DLL" );
     if( lib == NULL ) {
         printf( "no DDRAW.DLL\n" );
