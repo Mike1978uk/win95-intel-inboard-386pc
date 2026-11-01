@@ -54,6 +54,11 @@ Run wasm @('-q', "-fo=$Out\spans.obj", "$src\spans.asm")
 Run wasm @('-q', "-fo=$Out\hash.obj", "$src\hash.asm")
 Run wasm @('-q', "-fo=$Out\xlat.obj", "$src\xlat.asm")
 Run wasm @('-q', "-fo=$Out\text.obj", "$src\text.asm")
+$aflags = @('-q')
+if ($Trace) { $aflags += '-dM8_TRACE' }
+if ($Prof) { $aflags += '-dM8_PROF' }
+Run wasm ($aflags + @("-fo=$Out\pixel.obj", "$src\pixel.asm"))
+Run wasm ($aflags + @("-fo=$Out\blt.obj", "$src\blt.asm"))
 
 $exports = @(
   'BitBlt.1', 'ColorInfo.2', 'Control.3', 'Disable.4', 'Enable.5', 'EnumDFonts.6',
@@ -77,7 +82,7 @@ $lnk = @(
   'segment class ''DATA'' preload fixed',
   "segment '_TEXT' preload fixed shared",
   'disable 2055'
-) + ('enable', 'screen', 'm8hw', 'thunks', 'switch', 'spans', 'hash', 'xlat', 'text' | ForEach-Object { "file $Out\$_.obj" }) + @(
+) + ('enable', 'screen', 'm8hw', 'thunks', 'switch', 'spans', 'hash', 'xlat', 'text', 'pixel', 'blt' | ForEach-Object { "file $Out\$_.obj" }) + @(
   "library $Out\dibeng.lib",
   "library $Watcom\lib286\win\clibc.lib",
   'import GlobalSmartPageLock KERNEL.230'
@@ -99,7 +104,7 @@ $b[$ne + 0x3E] = 0x00; $b[$ne + 0x3F] = 0x04
 # Every exported C entry must load DS (__loadds): a header that declares one
 # without it wins silently and the entry runs on the caller's DS.
 $cEntries = @('ENABLE','DISABLE','CONTROL','SETPALETTE','REENABLE','USERREPAINTDISABLE',
-  'GETDRIVERRESOURCEID','VALIDATEMODE','SAVESCREENBITMAP','BITBLT','OUTPUT','PIXEL','SCANLR',
+  'GETDRIVERRESOURCEID','VALIDATEMODE','SAVESCREENBITMAP','BITBLTC','OUTPUT','PIXELC','SCANLR',
   'EXTTEXTOUT','STRBLT','DIBTODEVICE','STRETCHDIBITS','STRETCHBLT','FASTBORDER','UPDATECOLORS',
   'M8SETCURSOR','MOVECURSOR','CHECKCURSOR')
 $dis = foreach ($o in 'enable', 'screen') { & wdis "$Out\$o.obj" 2>$null }

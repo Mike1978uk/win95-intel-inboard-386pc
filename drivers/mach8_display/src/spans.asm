@@ -41,12 +41,14 @@ SP_Y            equ     18
 SP_ROOM         equ     20
 SP_SPANS        equ     22
 SP_ROT          equ     24      ; 8 bytes: each pattern row's rotation
+H_MM            equ     24      ; M8_HOT mm_w, mm_h (screen.c checks the offset)
 
 public  M8_SPANS_SOLID
 public  M8_SPANS_PAT
 
 _DATA   segment para public 'DATA'
         extrn   _m8_sp : word
+        extrn   _m8_hot : byte
 hot_t           dw      0       ; clip top
 hot_b           dw      0       ; clip bottom, exclusive
 hot_y           dw      0       ; the row the engine holds
@@ -72,6 +74,7 @@ _TEXT   segment para public 'CODE'
 M8_SPANS_SOLID  proc    near
         push    es
         pushad
+        mov     dword ptr _m8_hot[H_MM], 0  ; SCAN_TO_X and MAJ/MIN writes (M8_MM_FORGET)
         mov     ax, _m8_sp[SP_T]
         mov     hot_t, ax
         mov     ax, _m8_sp[SP_B]
@@ -294,6 +297,7 @@ M8_SPANS_SOLID  endp
 M8_SPANS_PAT    proc    near
         push    es
         pushad
+        mov     dword ptr _m8_hot[H_MM], 0  ; SCAN_TO_X and MAJ/MIN writes (M8_MM_FORGET)
         mov     ax, _m8_sp[SP_T]
         mov     hot_t, ax
         mov     ax, _m8_sp[SP_B]

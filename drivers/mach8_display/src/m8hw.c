@@ -137,6 +137,7 @@ static int m8_fifo_drain( void )
  * a burst of writes follows without another check. */
 static int m8_wait_fifo_empty( void )
 {
+    M8_MM_FORGET();
     m8_room_ok = 0;
     m8_dp_ok = 0;
     m8_rd_ok = 0;
@@ -180,6 +181,7 @@ static void m8_sh_clear( void )
     m8_room_ok = 0;
     m8_dp_ok = 0;
     m8_rd_ok = 0;
+    M8_MM_FORGET();
 }
 
 /* A wait that runs out means the engine is wedged: a transfer left unfinished,
@@ -339,6 +341,10 @@ static int  m8_qn;
         m8_q[m8_qn++] = (v); \
     } while( 0 )
 
+/* Writes of MAJ/MIN and operations that change them: see M8_MM_FORGET. */
+#define M8_OUT_MM( port, v )    ( M8_MM_FORGET(), outpw( (port), (v) ) )
+#define M8_QMM( port, v )       do { M8_MM_FORGET(); M8_Q( port, v ); } while( 0 )
+
 #define M8_QSET( r, v ) \
     do { \
         WORD m8_v_ = (v); \
@@ -433,8 +439,8 @@ static void m8_fill_q( int x, int y, int w, int h, BYTE color, WORD mix )
     M8_QSET( M8_SH_FRGD_COLOR, color );
     M8_Q( M8_CUR_X, x );
     M8_Q( M8_CUR_Y, y );
-    M8_Q( M8_MAJ_AXIS_PCNT, w - 1 );
-    M8_Q( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
+    M8_QMM( M8_MAJ_AXIS_PCNT, w - 1 );
+    M8_QMM( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
     M8_Q( M8_CMD, M8_CMD_FILL );
 }
 
@@ -456,11 +462,16 @@ int m8_hw_fill_fast( int x, int y, int w, int h, BYTE color, WORD mix )
         --m8_room;
         outpw( M8_FRGD_COLOR, color );
     }
-    m8_room -= 5;
+    m8_room -= 3;
     outpw( M8_CUR_X, x );
     outpw( M8_CUR_Y, y );
-    outpw( M8_MAJ_AXIS_PCNT, w - 1 );
-    outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
+    if( m8_hot.mm_w != w || m8_hot.mm_h != h ) {
+        m8_room -= 2;
+        outpw( M8_MAJ_AXIS_PCNT, w - 1 );
+        outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
+        m8_hot.mm_w = w;
+        m8_hot.mm_h = h;
+    }
     outpw( M8_CMD, M8_CMD_FILL );
     return( 1 );
 }
@@ -516,13 +527,18 @@ int m8_hw_copy_fast( int sx, int sy, int dx, int dy, int w, int h, WORD mix )
         sx += w - 1;
         dx += w - 1;
     }
-    m8_room -= 7;
+    m8_room -= 5;
     outpw( M8_CUR_X, sx );
     outpw( M8_CUR_Y, sy );
     outpw( M8_DESTX_DIASTP, dx );
     outpw( M8_DESTY_AXSTP, dy );
-    outpw( M8_MAJ_AXIS_PCNT, w - 1 );
-    outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
+    if( m8_hot.mm_w != w || m8_hot.mm_h != h ) {
+        m8_room -= 2;
+        outpw( M8_MAJ_AXIS_PCNT, w - 1 );
+        outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
+        m8_hot.mm_w = w;
+        m8_hot.mm_h = h;
+    }
     outpw( M8_CMD, cmd );
     return( 1 );
 }
@@ -613,7 +629,7 @@ void m8_hw_pattern_span( int x, int y, int w, int h, const BYTE *pat )
         }
         outpw( M8_CUR_X, x );
         outpw( M8_PATT_INDEX, x & 7 );
-        outpw( M8_SCAN_TO_X, x + w );
+        M8_OUT_MM( M8_SCAN_TO_X, x + w );
         m8_room -= 3;
         ++m8_stats[M8_STAT_FILL_HW];
         return;
@@ -631,7 +647,7 @@ void m8_hw_pattern_span( int x, int y, int w, int h, const BYTE *pat )
         m8_room_for( 3 );
         outpw( M8_PATT_DATA_INDEX, 0x10 );
         outpw( M8_PATT_DATA, pat[(y + row) & 7] );
-        outpw( M8_DEST_Y_END, y + row + 1 );
+        M8_OUT_MM( M8_DEST_Y_END, y + row + 1 );
         m8_room -= 3;
     }
     ++m8_stats[M8_STAT_FILL_HW];
@@ -849,7 +865,7 @@ void m8_hw_scan_spans( int poly, WORD count, const short FAR *w,
                 outpw( M8_PATT_INDEX, x0 & 7 );
                 --room;
             }
-            outpw( M8_SCAN_TO_X, x1 );
+            M8_OUT_MM( M8_SCAN_TO_X, x1 );
             room -= 2;
         }
         w += n + 4;
@@ -875,7 +891,7 @@ static int m8_read_scan( int from, int y, int to )
     if( m8_rd_ok && m8_room_ok && (m8_room >= 3 || m8_fifo_drain()) ) {
         outpw( M8_CUR_Y, y );
         outpw( M8_CUR_X, from );
-        outpw( M8_SCAN_TO_X, to );
+        M8_OUT_MM( M8_SCAN_TO_X, to );
         goto wait;
     }
     m8_wait_fifo_empty();
@@ -891,7 +907,7 @@ static int m8_read_scan( int from, int y, int to )
     outpw( M8_ALU_FG_FN, M8_MIX_REPLACE );
     outpw( M8_CUR_Y, y );
     outpw( M8_CUR_X, from );
-    outpw( M8_SCAN_TO_X, to );
+    M8_OUT_MM( M8_SCAN_TO_X, to );
     m8_room -= 4;
     m8_rd_ok = 1;
 wait:
@@ -947,7 +963,7 @@ int m8_hw_getpixel_fast( int x, int y )
     }
     outpw( M8_CUR_Y, y );
     outpw( M8_CUR_X, x );
-    outpw( M8_SCAN_TO_X, x + 1 );
+    M8_OUT_MM( M8_SCAN_TO_X, x + 1 );
     for( n = 0; n < M8_WAIT_LIMIT; ++n ) {
         if( inpw( M8_GP_STAT ) & M8_GP_DATA_READY ) {
             m8_room = M8_FIFO_DEPTH - 1;
@@ -1057,7 +1073,7 @@ void m8_hw_fill_span( int x, int y, int w, int h )
             m8_scan_y = y;
         }
         outpw( M8_CUR_X, x );
-        outpw( M8_SCAN_TO_X, x + w );
+        M8_OUT_MM( M8_SCAN_TO_X, x + w );
         m8_room -= 2;
         ++m8_stats[M8_STAT_FILL_HW];
         return;
@@ -1066,8 +1082,8 @@ void m8_hw_fill_span( int x, int y, int w, int h )
     m8_room_counted( 5 );
     outpw( M8_CUR_X, x );
     outpw( M8_CUR_Y, y );
-    outpw( M8_MAJ_AXIS_PCNT, w - 1 );
-    outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
+    M8_OUT_MM( M8_MAJ_AXIS_PCNT, w - 1 );
+    M8_OUT_MM( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
     outpw( M8_CMD, M8_CMD_FILL );
     m8_room -= 5;
     ++m8_stats[M8_STAT_FILL_HW];
@@ -1087,8 +1103,8 @@ static void m8_copy_q( int sx, int sy, int dx, int dy, int w, int h, WORD mix, W
     M8_Q( M8_CUR_Y, sy );
     M8_Q( M8_DESTX_DIASTP, dx );
     M8_Q( M8_DESTY_AXSTP, dy );
-    M8_Q( M8_MAJ_AXIS_PCNT, w - 1 );
-    M8_Q( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
+    M8_QMM( M8_MAJ_AXIS_PCNT, w - 1 );
+    M8_QMM( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
     M8_Q( M8_CMD, cmd );
 }
 
@@ -1142,8 +1158,8 @@ void m8_hw_read_rect( int x, int y, int w, int h, BYTE FAR *dst, WORD pitch )
     m8_room_for( 5 );
     outpw( M8_CUR_X, x );
     outpw( M8_CUR_Y, y );
-    outpw( M8_MAJ_AXIS_PCNT, w - 1 );
-    outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
+    M8_OUT_MM( M8_MAJ_AXIS_PCNT, w - 1 );
+    M8_OUT_MM( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
     outpw( M8_CMD, M8_CMD_HOST_READ );
     /* One wait for the first word, then the whole rectangle unpolled, as
      * ATIM8 reads it: the card keeps pace with the bus once data flows. A read
@@ -1182,8 +1198,8 @@ void m8_hw_write_rect( int x, int y, int w, int h, const BYTE FAR *src, WORD pit
     m8_room_for( 5 );
     outpw( M8_CUR_X, x );
     outpw( M8_CUR_Y, y );
-    outpw( M8_MAJ_AXIS_PCNT, w - 1 );
-    outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
+    M8_OUT_MM( M8_MAJ_AXIS_PCNT, w - 1 );
+    M8_OUT_MM( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
     outpw( M8_CMD, M8_CMD_HOST_WRITE );
     for( row = 0; row < h; ++row ) {
         m8_outsw( (const WORD FAR *)(src + (DWORD)row * pitch), words );
@@ -1234,8 +1250,8 @@ void m8_hw_write_xlat( int x, int y, int w, int h, int clip_l, int clip_r,
     m8_room_for( 5 );
     outpw( M8_CUR_X, x );
     outpw( M8_CUR_Y, y );
-    outpw( M8_MAJ_AXIS_PCNT, w - 1 );
-    outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
+    M8_OUT_MM( M8_MAJ_AXIS_PCNT, w - 1 );
+    M8_OUT_MM( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
     outpw( M8_CMD, M8_CMD_HOST_WRITE );
     /* An odd width sends w / 2 words a row, so its rows cannot be packed. */
     band = (w & 1) ? 1 : (int)(sizeof( m8_xrow ) / w);
@@ -1332,7 +1348,7 @@ static void m8_mono( int x, int y, WORD width_bytes, WORD height, const BYTE FAR
     outpw( M8_DEST_X_START, x );
     outpw( M8_DEST_X_END, x + width_bytes * 8 );
     outpw( M8_CUR_Y, y );
-    outpw( M8_DEST_Y_END, y + height );
+    M8_OUT_MM( M8_DEST_Y_END, y + height );
     if( stride != width_bytes ) {
         /* Rows `stride` apart, sent one at a time: an even width_bytes keeps
          * each row on whole words. */
@@ -1567,8 +1583,8 @@ void m8_hw_plane_blit( int sx, int sy, int dx, int dy, int w, int h, int plane,
     outpw( M8_CUR_Y, sy );
     outpw( M8_DESTX_DIASTP, dx );
     outpw( M8_DESTY_AXSTP, dy );
-    outpw( M8_MAJ_AXIS_PCNT, w - 1 );
-    outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
+    M8_OUT_MM( M8_MAJ_AXIS_PCNT, w - 1 );
+    M8_OUT_MM( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
     outpw( M8_CMD, M8_CMD_PLANE_BLIT );
     ++m8_stats[M8_STAT_TEXT_HW];
 }
@@ -1609,7 +1625,7 @@ void m8_hw_copy_keyed( int sx, int sy, int dx, int dy, int w, int h, BYTE key )
     outpw( M8_SRC_X_START, sx );
     outpw( M8_SRC_X_END, sx + w );
     /* 92EEh is an extended register: its 0 queues behind the blit. */
-    outpw( M8_DEST_Y_END, dy + h );
+    M8_OUT_MM( M8_DEST_Y_END, dy + h );
     outpw( M8_SRC_CMP_FN, 0 );
     m8_room -= 15;
 }
@@ -1644,8 +1660,8 @@ void m8_hw_cursor_move( int ox, int oy, int nx, int ny, int w, int h, int svx, i
     outpw( M8_CUR_Y, svy );
     outpw( M8_DESTX_DIASTP, ox );
     outpw( M8_DESTY_AXSTP, oy );
-    outpw( M8_MAJ_AXIS_PCNT, w - 1 );
-    outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
+    M8_OUT_MM( M8_MAJ_AXIS_PCNT, w - 1 );
+    M8_OUT_MM( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
     outpw( M8_CMD, M8_CMD_BLIT | M8_CMD_INC_X | M8_CMD_INC_Y );
     m8_room -= 7;
     m8_room_for( 7 );
@@ -1653,8 +1669,8 @@ void m8_hw_cursor_move( int ox, int oy, int nx, int ny, int w, int h, int svx, i
     outpw( M8_CUR_Y, ny );
     outpw( M8_DESTX_DIASTP, svx );
     outpw( M8_DESTY_AXSTP, svy );
-    outpw( M8_MAJ_AXIS_PCNT, w - 1 );
-    outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
+    M8_OUT_MM( M8_MAJ_AXIS_PCNT, w - 1 );
+    M8_OUT_MM( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
     outpw( M8_CMD, M8_CMD_BLIT | M8_CMD_INC_X | M8_CMD_INC_Y );
     m8_room -= 7;
     /* As m8_hw_copy_keyed: the extended set-up waits for an empty FIFO. */
@@ -1674,7 +1690,7 @@ void m8_hw_cursor_move( int ox, int oy, int nx, int ny, int w, int h, int svx, i
     outpw( M8_DESTY_AXSTP, my );
     outpw( M8_SRC_X_START, mx );
     outpw( M8_SRC_X_END, mx + w );
-    outpw( M8_DEST_Y_END, ny + h );
+    M8_OUT_MM( M8_DEST_Y_END, ny + h );
     outpw( M8_SRC_CMP_FN, 0 );
     m8_room -= 15;
     m8_stats[M8_STAT_COPY_HW] += 2;
@@ -1703,8 +1719,8 @@ void m8_hw_plane_mix( int sx, int sy, int dx, int dy, int w, int h, int plane,
     outpw( M8_CUR_Y, sy );
     outpw( M8_DESTX_DIASTP, dx );
     outpw( M8_DESTY_AXSTP, dy );
-    outpw( M8_MAJ_AXIS_PCNT, w - 1 );
-    outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
+    M8_OUT_MM( M8_MAJ_AXIS_PCNT, w - 1 );
+    M8_OUT_MM( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
     outpw( M8_CMD, M8_CMD_PLANE_BLIT );
     m8_hw_wait_idle();
 }
@@ -1732,8 +1748,8 @@ void m8_hw_plane_mixes( int sx, int sy, int dx, int dy, int w, int h, int plane,
     outpw( M8_CUR_Y, sy );
     outpw( M8_DESTX_DIASTP, dx );
     outpw( M8_DESTY_AXSTP, dy );
-    outpw( M8_MAJ_AXIS_PCNT, w - 1 );
-    outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
+    M8_OUT_MM( M8_MAJ_AXIS_PCNT, w - 1 );
+    M8_OUT_MM( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
     outpw( M8_CMD, M8_CMD_PLANE_BLIT );
     m8_room -= 7;
     ++m8_stats[M8_STAT_TEXT_HW];

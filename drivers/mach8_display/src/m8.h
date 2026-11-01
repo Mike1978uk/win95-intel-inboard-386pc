@@ -57,11 +57,19 @@ typedef struct {
     BYTE        cur_pending;
     BYTE        rd_ok;          /* the engine holds m8_read_scan's set-up */
     M8_RECT     cur_rect;
+    WORD        mm_w;           /* MAJ_AXIS_PCNT + 1 and MIN_AXIS_PCNT + 1 as the */
+    WORD        mm_h;           /* engine holds them, 0 = unknown (M8_MM_FORGET) */
     BYTE        sh_ok[M8_SH_COUNT];
     WORD        sh_val[M8_SH_COUNT];
 } M8_HOT;
 
 extern M8_HOT m8_hot;
+
+/* Fills, blits and LINEDRAW leave MAJ_AXIS_PCNT and MIN_AXIS_PCNT as they
+ * were (guide 8-31, 8-35; card: tools/m8probe/M8MAJMN.C); SCAN_TO_X changes
+ * both, and the extended blit is untested. Every write of either register and
+ * every operation not known to keep them forgets the shadow. */
+#define M8_MM_FORGET()      ( m8_hot.mm_w = 0, m8_hot.mm_h = 0 )
 #define m8_hw_off           m8_hot.hw_off
 
 /* 8514/A registers (IBM 8514/A Technical Reference; Mach32 programmer's guide ch. 8). */

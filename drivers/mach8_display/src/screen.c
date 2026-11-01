@@ -16,6 +16,7 @@
  * the DIB Engine inside the strip.
  */
 
+#include <stddef.h>
 #include "m8ddi.h"
 #include <dos.h>
 #include <conio.h>
@@ -597,13 +598,13 @@ static int m8_enter( const M8_RECT *r )
     return( 1 );
 }
 
-static void m8_leave( void );
+void m8_leave( void );
 
 /* m8_leave's common case inline, for the short paths: no cursor move arrived
  * while the call drew. */
 #define M8_LEAVE()  { if( m8_cur_pending ) m8_leave(); else m8_busy = 0; }
 
-static void m8_leave( void )
+void m8_leave( void )
 {
     if( m8_cur_pending ) {
         m8_cur_pending = 0;
@@ -825,7 +826,7 @@ static WORD m8_src_kind( LPPDEVICE src, int src_screen )
  * functions, with the pattern colour as the mix source. Key: the ROP's result
  * for (P,D) = (0,0), (0,1), (1,0), (1,1) in bits 0-3; value: the mix (the
  * 86Box model's MIX table, card-checked by M8MIX). */
-static const BYTE m8_mix_for_key[16] = {
+const BYTE m8_mix_for_key[16] = {
     0x1, 0xF, 0xE, 0x4, 0xD, 0x0, 0x5, 0x8, 0xC, 0x6, 0x3, 0x9, 0x7, 0xA, 0xB, 0x2
 };
 
@@ -1942,7 +1943,7 @@ static int m8_px_save( LPDIBENGINE b, int dx, int dy, int sx, int sy, int w, int
 #define M8_PX_YES()
 #elif defined( M8_PROF )
 /* The profile counts each reason in style slot 40 + why, copies in 40. */
-static M8_PF_TAB    m8_pf;
+extern M8_PF_TAB    m8_pf;
 static DWORD m8_pf_now( void );
 static void m8_pf_part( int s, DWORD a );
 #define M8_PX_NO_( why )    (++m8_pf.out_calls[40 + (why)])
@@ -2452,8 +2453,9 @@ static void m8_tm( WORD mark )
 
 #ifdef M8_PROF
 /* Read only at entry and exit and summed in RAM: a port access inside the call
- * would flush the L1, which is the cost being measured. */
-static M8_PF_TAB    m8_pf;
+ * would flush the L1, which is the cost being measured. pixel.asm counts its
+ * hits here. */
+M8_PF_TAB           m8_pf;
 static WORD         m8_pf_depth;
 static WORD         m8_pf_style;
 
@@ -2653,9 +2655,20 @@ static BOOL m8_bitblt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPDEVICE 
                        WORD wSrcX, WORD wSrcY, WORD wXext, WORD wYext, DWORD dwRop3,
                        LPBRUSH lpPBrush, LPDRAWMODE lpDrawMode );
 
-BOOL WINAPI __loadds BitBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPDEVICE lpSrcDev,
-                             WORD wSrcX, WORD wSrcY, WORD wXext, WORD wYext, DWORD dwRop3,
-                             LPBRUSH lpPBrush, LPDRAWMODE lpDrawMode )
+/* The exported BitBlt is blt.asm's: it takes m8_blt_short's common cases
+ * itself and jumps here, frame intact, for everything else. It reads these
+ * by offset. */
+typedef char m8_de_flags_at[offsetof( DIBENGINE, deFlags ) == 28 ? 1 : -1];
+typedef char m8_br_style_at[offsetof( DIB_Brush8, dp8BrushStyle ) == 2 ? 1 : -1];
+typedef char m8_br_bits_at[offsetof( DIB_Brush8, dp8BrushBits ) == 78 ? 1 : -1];
+
+BOOL WINAPI __loadds BitBltC( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPDEVICE lpSrcDev,
+                              WORD wSrcX, WORD wSrcY, WORD wXext, WORD wYext, DWORD dwRop3,
+                              LPBRUSH lpPBrush, LPDRAWMODE lpDrawMode );
+
+BOOL WINAPI __loadds BitBltC( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPDEVICE lpSrcDev,
+                              WORD wSrcX, WORD wSrcY, WORD wXext, WORD wYext, DWORD dwRop3,
+                              LPBRUSH lpPBrush, LPDRAWMODE lpDrawMode )
 {
     if( (LPVOID)lpDestDev == m8_hot.screen && lpDestDev != NULL &&
         m8_blt_short( wDestX, wDestY, lpSrcDev, wSrcX, wSrcY, wXext, wYext, dwRop3, lpPBrush ) ) {
@@ -3362,8 +3375,25 @@ static DWORD m8_draw_pixel( void *ctx, LPDIBENGINE dev, LPRECT c )
     return( DIB_Pixel( dev, p->x, p->y, p->color, p->dm ) );
 }
 
-DWORD WINAPI __loadds Pixel( LPPDEVICE lpDestDev, WORD X, WORD Y, DWORD dwPhysColor,
-                             LPDRAWMODE lpDrawMode )
+/* The exported Pixel is pixel.asm's: it takes the common set itself and
+ * jumps here, frame intact, for everything else. It reads M8_HOT by offset. */
+#define M8_HOT_AT( f, o )   typedef char m8_hot_##f[offsetof( M8_HOT, f ) == (o) ? 1 : -1]
+M8_HOT_AT( room, 4 );
+M8_HOT_AT( dp_mix, 6 );
+M8_HOT_AT( room_ok, 8 );
+M8_HOT_AT( busy, 12 );
+M8_HOT_AT( cur_pending, 14 );
+M8_HOT_AT( cur_rect, 16 );
+M8_HOT_AT( mm_w, 24 );
+M8_HOT_AT( mm_h, 26 );
+M8_HOT_AT( sh_ok, 28 );
+M8_HOT_AT( sh_val, 40 );
+
+DWORD WINAPI __loadds PixelC( LPPDEVICE lpDestDev, WORD X, WORD Y, DWORD dwPhysColor,
+                              LPDRAWMODE lpDrawMode );
+
+DWORD WINAPI __loadds PixelC( LPPDEVICE lpDestDev, WORD X, WORD Y, DWORD dwPhysColor,
+                              LPDRAWMODE lpDrawMode )
 {
     M8_PIX  p;
     M8_RECT r;
@@ -5240,6 +5270,13 @@ void m8_screen_done( void )
 #define M8_TIMED( i, type, call )   { type r; m8_tm( M8_MARK_TIME_IN ); r = call; \
                                       m8_tm( M8_MARK_TIME_OUT ); return( r ); }
 #endif
+
+/* blt.asm and pixel.asm, under these names in these builds. */
+BOOL WINAPI m8t_BitBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPDEVICE lpSrcDev,
+                        WORD wSrcX, WORD wSrcY, WORD wXext, WORD wYext, DWORD dwRop3,
+                        LPBRUSH lpPBrush, LPDRAWMODE lpDrawMode );
+DWORD WINAPI m8t_Pixel( LPPDEVICE lpDestDev, WORD X, WORD Y, DWORD dwPhysColor,
+                        LPDRAWMODE lpDrawMode );
 
 BOOL WINAPI __loadds BitBlt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPDEVICE lpSrcDev,
                              WORD wSrcX, WORD wSrcY, WORD wXext, WORD wYext, DWORD dwRop3,
