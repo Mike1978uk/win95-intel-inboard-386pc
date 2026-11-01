@@ -56,3 +56,21 @@ GDI regression with the milestone-1 driver (`card_ddm1`, median): pixels = ATI i
 2. Milestone 2: primary Lock/Unlock through a RAM shadow; then Blt, then the CRT_OFFSET flip probe (owner at the screen).
 3. lines_dash 0.914 and floodfill 0.983 against ATI (median timing).
 4. M8BENCH warm-up pass so run 1 counts (ATI re-benched with the same build).
+
+## Afternoon, 2026-11-01
+
+- **lines_dash above ATI** (`f31e070`): a styled line inside the clip takes the short path and the engine
+  keeps its pattern/ALU/data path (`M8_DP_DASH` in `m8_dp_mix`). Card `card_dash1-4`: 1.02-1.07, pixels = ATI in all 35.
+- **floodfill**: `m8_read_scan` set-up without drain or idle wait (uncommitted in `m8hw.c`); card run `card_flood1-4`
+  started 13:15 (`tools\m8_card_cycle.ps1 -FetchOnly -Label card_flood` if the session ended first). Commit only if
+  pixels = ATI and floodfill >= 1.0.
+- **DirectDraw milestone 1 passes in the bed** (DirectX 7.0a): see `docs/mach8_directdraw_plan.md`. Using the
+  primary fails (dxdiag step 11 DDERR_EXCEPTION, M8DDTEST hangs in CreateSurface/Lock) and leaves GDI fills
+  missing until a restart. Milestone 2 next.
+- **Focus rectangle bug, ours, older than today**: DrawFocusRect loses its top/bottom strips at some positions
+  (bed: Shut Down dialog, bottom radio). New M8BENCH test 36 `focus_rect` (41 DrawFocusRect over all 8x8 phases):
+  bed `bed_focus_ours` 5e7991a5 vs `bed_focus_ati` DIFFER. Suspect the one-row pattern path
+  (`m8_hw_pattern_span` h == 1, SCAN_TO_X) or its phase. ATI needs a card run with the 36-test M8BENCH
+  (new exe built, not yet on the card) before card comparisons include it.
+- Bed `vm_5160_mcp` now has ATIM8 selected (boot 87); `C:\V9XREMOTE\M8DISPB.REG` selects ours.
+  Bisect drivers left in its SYSTEM folder: M8PREMM, M8B0E66, M8BA517.

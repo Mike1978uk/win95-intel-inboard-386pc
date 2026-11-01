@@ -153,7 +153,7 @@ static void reset_pictures( void )
 /* Tests are numbered so two runs can be checked against each other by eye: the
  * number and name show on the taskbar button, and a "started" line goes to the
  * file first, so a fault leaves the test that caused it on record. */
-#define TEST_COUNT  35
+#define TEST_COUNT  36
 static int  test_no;
 
 /* To the disk, not only the cache: a hang on the real card ends in a power-off,
@@ -521,6 +521,20 @@ static void t_lines_dash( int i )
     DeleteObject( p );
 }
 
+/* The focus rectangle USER draws on buttons and labels: four one-pixel XOR
+ * strips of a checkerboard. Every x and y phase of the 8x8 pattern, wide and
+ * one pixel tall or narrow and tall, as dialogs draw them. */
+static void t_focus( int i )
+{
+    RECT rc;
+
+    rc.left = HASH_X + (i & 7) + ((i >> 3) & 3) * 40;
+    rc.top = HASH_Y + ((i >> 2) & 7) + ((i >> 5) & 3) * 40;
+    rc.right = rc.left + 9 + (i % 31);
+    rc.bottom = rc.top + 3 + (i % 13);
+    DrawFocusRect( dc, &rc );
+}
+
 static void t_rubber( int i )
 {
     int o = SetROP2( dc, R2_NOT );
@@ -741,6 +755,7 @@ int WINAPI WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
     run( "cursor_move", t_cursor, 20 );
     /* Last: it faulted in the DIB Engine under our driver's fallback (10-17). */
     run( "ellipse", t_ellipse, 10 );
+    run( "focus_rect", t_focus, 41 );
 
     fprintf( out, "\n" );
     fclose( out );
