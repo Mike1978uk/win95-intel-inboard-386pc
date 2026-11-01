@@ -145,12 +145,54 @@ static void op( int c )
         outpw( 0xBEE8, 0xA000 );
         outpw( 0xBAE8, 0x0027 );
         break;
+    case 6:                             /* host write, MAJ/MIN as set: 7x4 */
+        outpw( 0xBAE8, 0x0047 );
+        outpw( 0x86E8, XOP );
+        outpw( 0x82E8, Y0 + 30 );
+        outpw( 0x9AE8, 0x53B1 );
+        for( i = 0; i < 14; ++i ) {
+            outpw( 0xE2E8, 0x4444 );
+        }
+        wait_idle();
+        outpw( 0xBAE8, 0x0027 );
+        break;
+    case 7:                             /* host read, MAJ/MIN as set: 7x4 */
+        outpw( 0xBAE8, 0x0047 );
+        outpw( 0x86E8, XOP );
+        outpw( 0x82E8, Y0 );
+        outpw( 0x9AE8, 0x53B0 );
+        for( i = 0; i < 14; ++i ) {
+            long n;
+            for( n = 0; n < 200000L && !(inpw( 0x9AE8 ) & 0x0100); ++n ) {
+            }
+            (void)inpw( 0xE2E8 );
+        }
+        wait_idle();
+        outpw( 0xBAE8, 0x0027 );
+        break;
+    case 8:                             /* extended blit, mono host data: 16x2 */
+        outpw( 0xA6E8, 0x55 );
+        outpw( 0xB6E8, 0x0003 );        /* BKGD_MIX: leave the destination */
+        outpw( 0xCEEE, 0x3251 );
+        outpw( 0x86E8, XOP );
+        outpw( 0xA6EE, XOP );
+        outpw( 0xAAEE, XOP + 16 );
+        outpw( 0x82E8, Y0 + 40 );
+        outpw( 0xAEEE, Y0 + 42 );
+        outpw( 0xE2E8, 0xA5A5 );
+        outpw( 0xE2E8, 0x5A5A );
+        wait_idle();
+        outpw( 0xCEEE, 0x2211 );
+        outpw( 0xBEE8, 0xA000 );
+        outpw( 0xBAE8, 0x0027 );
+        break;
     }
     (void)w;
 }
 
 static const char *name[] = {
-    "nothing", "rect fill", "blit", "LINEDRAW", "SCAN_TO_X draw", "SCAN_TO_X read"
+    "nothing", "rect fill", "blit", "LINEDRAW", "SCAN_TO_X draw", "SCAN_TO_X read",
+    "host write", "host read", "ext mono blit"
 };
 
 int main( void )
@@ -166,7 +208,7 @@ int main( void )
     if( !wait_idle() ) {
         return( 1 );
     }
-    for( c = 0; c < 6; ++c ) {
+    for( c = 0; c < 9; ++c ) {
         plain();
         fill( X0, Y0, 32, 16, 0x00 );
         wait_idle();
