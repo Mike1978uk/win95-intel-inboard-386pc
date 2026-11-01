@@ -92,7 +92,17 @@ about ("Did you see alternating black and white rectangles around the screen?"),
 each frame is the HEL drawing through a full-surface Lock, i.e. the whole screen read back and written through
 PIX_TRANS. Milestone 3 (HAL Blt: colour fill on the engine, clip list honoured) is the speed fix. Card not yet run.
 
+Milestone 3 (`9d7896a`, `056ce69`), bed, owner's eye, 17:45-17:50: test 1's rectangles appear at once (fills
+on the engine); test 2's square moves at a usable speed (system-memory source sent as host data, `DDCAPS_CANBLTSYSMEM`
++ `dwSVBCaps`). Test 3 asks for 640x480x16 and fails: the IMSG176 DAC has no 16-bit mode. The pointer is hidden
+while dxdiag holds exclusive mode and returns after. M8DDTEST passes; M8BENCH pixels same in all 36.
+
 ## Open
+
+- After dxdiag's run, M8BENCH's `bmp_*`, `draw_icon`, `scr_to_mem`, `drag_frame` ran 3-25x slower in the bed
+  (`bed_svb1`, `bed_svb2`); a fresh boot (`bed_svb_fresh`) is back near `bed_after_dd`. Some state left behind
+  by DDRAW (the failed mode set?) is not undone. Not yet looked at.
+- 16-bit for DirectDraw: owner asks (11-01) for a pseudo-16-bit mode - see worklist item 9.
 
 - Does DDRAW accept a primary whose memory the HAL supplies only through Lock? (Milestone 1-2 answer it.)
 - DirectX 7.0a on the card (owner), after milestone 2 works in the bed.
