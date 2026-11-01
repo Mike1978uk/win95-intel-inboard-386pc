@@ -21249,3 +21249,295 @@ cursor_move         1241.29 ops/s    0.806 ms/op  hash 0d2b3285  #34  pad 0820  
 started 35/35 ellipse
 ellipse               75.24 ops/s   13.292 ms/op  hash 312df19d  #35  pad 0820  med 77.63
 
+== card_ddm11  driver m8ddm1.drv  800x600x8  2026-11-01 11:42  1000 ms
+caps  poly 0008  curve 0000  line 0023  raster ffffeff9  text 2004
+started 1/35 text_sys
+text_sys             886.17 ops/s    1.128 ms/op  hash 5c44e885  #1  pad 0820  med 970.92
+started 2/35 text_same
+text_same            902.43 ops/s    1.108 ms/op  hash 846b2085  #2  pad 0820  med 959.49
+started 3/35 text_gui
+text_gui             912.51 ops/s    1.096 ms/op  hash f2d5f065  #3  pad 0820  med 972.07
+started 4/35 text_varied
+text_varied          520.17 ops/s    1.922 ms/op  hash 19106b7d  #4  pad 0820  med 553.85
+started 5/35 fill_small
+fill_small           626.21 ops/s    1.597 ms/op  hash d90ee0b9  #5  pad 0820  med 684.46
+started 6/35 fill_large
+fill_large           222.60 ops/s    4.492 ms/op  hash 86bf3d05  #6  pad 0820  med 231.91
+started 7/35 fill_hatch
+fill_hatch           338.67 ops/s    2.953 ms/op  hash 820ec605  #7  pad 0820  med 380.42
+started 8/35 fill_xor
+fill_xor            1704.32 ops/s    0.587 ms/op  hash d22297c5  #8  pad 0820  med 1879.24
+started 9/35 dstinvert
+dstinvert           1828.16 ops/s    0.547 ms/op  hash 3e0edd6d  #9  pad 0820  med 1928.59
+started 10/35 blit_small
+blit_small          1810.22 ops/s    0.552 ms/op  hash 0d2b3285  #10  pad 0820  med 2105.68
+started 11/35 blit_large
+blit_large           339.07 ops/s    2.949 ms/op  hash 0d2b3285  #11  pad 0820  med 358.45
+started 12/35 scroll
+scroll                74.71 ops/s   13.385 ms/op  hash 0d2b3285  #12  pad 0820  med 74.11
+started 13/35 bmp_icon
+bmp_icon             730.55 ops/s    1.369 ms/op  hash 66ada2a5  #13  pad 0820  med 768.91
+started 14/35 bmp_card
+bmp_card             696.74 ops/s    1.435 ms/op  hash 70becf17  #14  pad 0820  med 781.50
+started 15/35 bmp_changing
+bmp_changing         485.26 ops/s    2.061 ms/op  hash 6989e397  #15  pad 0820  med 524.50
+started 16/35 bmp_large
+bmp_large            316.19 ops/s    3.163 ms/op  hash 0d2b3285  #16  pad 0820  med 316.19
+started 17/35 dib_8bpp
+dib_8bpp              36.62 ops/s   27.308 ms/op  hash 9c83b45e  #17  pad 0820  med 36.62
+started 18/35 stretch_dib
+stretch_dib           16.36 ops/s   61.115 ms/op  hash 2a3f7949  #18  pad 0820  med 16.36
+started 19/35 stretchblt
+stretchblt            23.69 ops/s   42.212 ms/op  hash a5ce3241  #19  pad 0820  med 23.69
+started 20/35 mono_bmp
+mono_bmp             478.15 ops/s    2.091 ms/op  hash 0d2b3285  #20  pad 0820  med 511.04
+started 21/35 draw_icon
+draw_icon            244.99 ops/s    4.082 ms/op  hash b2f700c9  #21  pad 0820  med 273.89
+started 22/35 scr_to_mem
+scr_to_mem           654.94 ops/s    1.527 ms/op  hash 0d2b3285  #22  pad 0820  med 765.85
+started 23/35 mem_to_mem
+mem_to_mem           385.96 ops/s    2.591 ms/op  hash e8973020  #23  pad 0820  med 420.09
+started 24/35 drag_frame
+drag_frame           152.49 ops/s    6.558 ms/op  hash 0d2b3285  #24  pad 0820  med 191.40
+started 25/35 lines
+lines               1464.74 ops/s    0.683 ms/op  hash 6fd0736c  #25  pad 0820  med 1598.94
+started 26/35 lines_hv
+lines_hv             879.52 ops/s    1.137 ms/op  hash e8a266b2  #26  pad 0820  med 971.82
+started 27/35 lines_dash
+lines_dash           430.38 ops/s    2.324 ms/op  hash c15414e6  #27  pad 0820  med 475.77
+started 28/35 rubber_band
+rubber_band         1024.78 ops/s    0.976 ms/op  hash 123749fd  #28  pad 0820  med 1152.07
+started 29/35 setpixel
+setpixel            2051.47 ops/s    0.487 ms/op  hash 871e0b3c  #29  pad 0820  med 2248.99
+started 30/35 getpixel
+getpixel            2240.33 ops/s    0.446 ms/op  hash 0d2b3285  #30  pad 0820  med 2545.62
+started 31/35 polygon
+polygon               76.46 ops/s   13.079 ms/op  hash a356aa00  #31  pad 0820  med 82.12
+started 32/35 rectangle
+rectangle            933.21 ops/s    1.072 ms/op  hash e8438024  #32  pad 0820  med 1030.91
+started 33/35 floodfill
+floodfill              4.08 ops/s  245.039 ms/op  hash a9f1de61  #33  pad 0820  med 4.08
+started 34/35 cursor_move
+cursor_move         1246.56 ops/s    0.802 ms/op  hash 0d2b3285  #34  pad 0820  med 1325.63
+started 35/35 ellipse
+ellipse               75.20 ops/s   13.298 ms/op  hash 312df19d  #35  pad 0820  med 77.04
+
+== card_ddm12  driver m8ddm1.drv  800x600x8  2026-11-01 11:43  1000 ms
+caps  poly 0008  curve 0000  line 0023  raster ffffeff9  text 2004
+started 1/35 text_sys
+text_sys             892.59 ops/s    1.120 ms/op  hash 5c44e885  #1  pad 0820  med 962.29
+started 2/35 text_same
+text_same            930.90 ops/s    1.074 ms/op  hash 846b2085  #2  pad 0820  med 998.88
+started 3/35 text_gui
+text_gui             928.79 ops/s    1.077 ms/op  hash f2d5f065  #3  pad 0820  med 976.08
+started 4/35 text_varied
+text_varied          515.16 ops/s    1.941 ms/op  hash 19106b7d  #4  pad 0820  med 546.29
+started 5/35 fill_small
+fill_small           630.64 ops/s    1.586 ms/op  hash d90ee0b9  #5  pad 0820  med 694.80
+started 6/35 fill_large
+fill_large           222.83 ops/s    4.488 ms/op  hash 86bf3d05  #6  pad 0820  med 231.90
+started 7/35 fill_hatch
+fill_hatch           360.35 ops/s    2.775 ms/op  hash 820ec605  #7  pad 0820  med 391.01
+started 8/35 fill_xor
+fill_xor            1800.63 ops/s    0.555 ms/op  hash d22297c5  #8  pad 0820  med 1910.51
+started 9/35 dstinvert
+dstinvert           1831.35 ops/s    0.546 ms/op  hash 3e0edd6d  #9  pad 0820  med 1931.82
+started 10/35 blit_small
+blit_small          1999.23 ops/s    0.500 ms/op  hash 0d2b3285  #10  pad 0820  med 2107.86
+started 11/35 blit_large
+blit_large           342.10 ops/s    2.923 ms/op  hash 0d2b3285  #11  pad 0820  med 358.49
+started 12/35 scroll
+scroll                75.03 ops/s   13.328 ms/op  hash 0d2b3285  #12  pad 0820  med 74.12
+started 13/35 bmp_icon
+bmp_icon             742.59 ops/s    1.347 ms/op  hash 66ada2a5  #13  pad 0820  med 788.35
+started 14/35 bmp_card
+bmp_card             687.77 ops/s    1.454 ms/op  hash 70becf17  #14  pad 0820  med 761.51
+started 15/35 bmp_changing
+bmp_changing         464.39 ops/s    2.153 ms/op  hash 6989e397  #15  pad 0820  med 502.77
+started 16/35 bmp_large
+bmp_large            250.50 ops/s    3.992 ms/op  hash 0d2b3285  #16  pad 0820  med 250.50
+started 17/35 dib_8bpp
+dib_8bpp              33.30 ops/s   30.028 ms/op  hash 9c83b45e  #17  pad 0820  med 33.30
+started 18/35 stretch_dib
+stretch_dib           17.91 ops/s   55.850 ms/op  hash 2a3f7949  #18  pad 0820  med 17.91
+started 19/35 stretchblt
+stretchblt            23.85 ops/s   41.923 ms/op  hash a5ce3241  #19  pad 0820  med 23.85
+started 20/35 mono_bmp
+mono_bmp             469.60 ops/s    2.129 ms/op  hash 0d2b3285  #20  pad 0820  med 523.51
+started 21/35 draw_icon
+draw_icon            276.43 ops/s    3.618 ms/op  hash b2f700c9  #21  pad 0820  med 296.37
+started 22/35 scr_to_mem
+scr_to_mem           686.68 ops/s    1.456 ms/op  hash 0d2b3285  #22  pad 0820  med 735.29
+started 23/35 mem_to_mem
+mem_to_mem           354.58 ops/s    2.820 ms/op  hash e8973020  #23  pad 0820  med 382.54
+started 24/35 drag_frame
+drag_frame           129.42 ops/s    7.727 ms/op  hash 0d2b3285  #24  pad 0820  med 129.42
+started 25/35 lines
+lines               1550.94 ops/s    0.645 ms/op  hash 6fd0736c  #25  pad 0820  med 1664.83
+started 26/35 lines_hv
+lines_hv             933.29 ops/s    1.071 ms/op  hash e8a266b2  #26  pad 0820  med 989.02
+started 27/35 lines_dash
+lines_dash           425.77 ops/s    2.349 ms/op  hash c15414e6  #27  pad 0820  med 428.96
+started 28/35 rubber_band
+rubber_band         1063.83 ops/s    0.940 ms/op  hash 123749fd  #28  pad 0820  med 1138.78
+started 29/35 setpixel
+setpixel            2058.98 ops/s    0.486 ms/op  hash 871e0b3c  #29  pad 0820  med 2273.09
+started 30/35 getpixel
+getpixel            2411.33 ops/s    0.415 ms/op  hash 0d2b3285  #30  pad 0820  med 2670.44
+started 31/35 polygon
+polygon               75.33 ops/s   13.275 ms/op  hash a356aa00  #31  pad 0820  med 77.70
+started 32/35 rectangle
+rectangle            936.92 ops/s    1.067 ms/op  hash e8438024  #32  pad 0820  med 1030.64
+started 33/35 floodfill
+floodfill              4.16 ops/s  240.634 ms/op  hash a9f1de61  #33  pad 0820  med 4.16
+started 34/35 cursor_move
+cursor_move         1215.85 ops/s    0.822 ms/op  hash 0d2b3285  #34  pad 0820  med 1328.65
+started 35/35 ellipse
+ellipse               74.83 ops/s   13.364 ms/op  hash 312df19d  #35  pad 0820  med 75.97
+
+== card_ddm13  driver m8ddm1.drv  800x600x8  2026-11-01 11:44  1000 ms
+caps  poly 0008  curve 0000  line 0023  raster ffffeff9  text 2004
+started 1/35 text_sys
+text_sys             926.81 ops/s    1.079 ms/op  hash 5c44e885  #1  pad 0820  med 993.76
+started 2/35 text_same
+text_same            899.67 ops/s    1.112 ms/op  hash 846b2085  #2  pad 0820  med 978.40
+started 3/35 text_gui
+text_gui             930.66 ops/s    1.075 ms/op  hash f2d5f065  #3  pad 0820  med 979.82
+started 4/35 text_varied
+text_varied          515.60 ops/s    1.939 ms/op  hash 19106b7d  #4  pad 0820  med 562.29
+started 5/35 fill_small
+fill_small           568.76 ops/s    1.758 ms/op  hash d90ee0b9  #5  pad 0820  med 674.34
+started 6/35 fill_large
+fill_large           221.87 ops/s    4.507 ms/op  hash 86bf3d05  #6  pad 0820  med 231.89
+started 7/35 fill_hatch
+fill_hatch           371.42 ops/s    2.692 ms/op  hash 820ec605  #7  pad 0820  med 393.53
+started 8/35 fill_xor
+fill_xor            1731.46 ops/s    0.578 ms/op  hash d22297c5  #8  pad 0820  med 1890.61
+started 9/35 dstinvert
+dstinvert           1835.81 ops/s    0.545 ms/op  hash 3e0edd6d  #9  pad 0820  med 1923.21
+started 10/35 blit_small
+blit_small          1910.36 ops/s    0.523 ms/op  hash 0d2b3285  #10  pad 0820  med 2094.14
+started 11/35 blit_large
+blit_large           335.73 ops/s    2.979 ms/op  hash 0d2b3285  #11  pad 0820  med 358.45
+started 12/35 scroll
+scroll                75.01 ops/s   13.332 ms/op  hash 0d2b3285  #12  pad 0820  med 74.12
+started 13/35 bmp_icon
+bmp_icon             688.74 ops/s    1.452 ms/op  hash 66ada2a5  #13  pad 0820  med 737.27
+started 14/35 bmp_card
+bmp_card             704.43 ops/s    1.420 ms/op  hash 70becf17  #14  pad 0820  med 789.09
+started 15/35 bmp_changing
+bmp_changing         483.22 ops/s    2.069 ms/op  hash 6989e397  #15  pad 0820  med 520.23
+started 16/35 bmp_large
+bmp_large            251.55 ops/s    3.975 ms/op  hash 0d2b3285  #16  pad 0820  med 251.55
+started 17/35 dib_8bpp
+dib_8bpp              36.80 ops/s   27.175 ms/op  hash 9c83b45e  #17  pad 0820  med 36.80
+started 18/35 stretch_dib
+stretch_dib           17.90 ops/s   55.865 ms/op  hash 2a3f7949  #18  pad 0820  med 17.90
+started 19/35 stretchblt
+stretchblt            23.74 ops/s   42.119 ms/op  hash a5ce3241  #19  pad 0820  med 23.74
+started 20/35 mono_bmp
+mono_bmp             469.51 ops/s    2.130 ms/op  hash 0d2b3285  #20  pad 0820  med 510.30
+started 21/35 draw_icon
+draw_icon            277.53 ops/s    3.603 ms/op  hash b2f700c9  #21  pad 0820  med 297.90
+started 22/35 scr_to_mem
+scr_to_mem           710.84 ops/s    1.407 ms/op  hash 0d2b3285  #22  pad 0820  med 776.26
+started 23/35 mem_to_mem
+mem_to_mem           433.16 ops/s    2.309 ms/op  hash e8973020  #23  pad 0820  med 449.29
+started 24/35 drag_frame
+drag_frame           134.96 ops/s    7.409 ms/op  hash 0d2b3285  #24  pad 0820  med 134.96
+started 25/35 lines
+lines               1563.84 ops/s    0.639 ms/op  hash 6fd0736c  #25  pad 0820  med 1654.14
+started 26/35 lines_hv
+lines_hv             920.72 ops/s    1.086 ms/op  hash e8a266b2  #26  pad 0820  med 1005.60
+started 27/35 lines_dash
+lines_dash           507.19 ops/s    1.972 ms/op  hash c15414e6  #27  pad 0820  med 541.36
+started 28/35 rubber_band
+rubber_band         1039.52 ops/s    0.962 ms/op  hash 123749fd  #28  pad 0820  med 1138.17
+started 29/35 setpixel
+setpixel            2110.96 ops/s    0.474 ms/op  hash 871e0b3c  #29  pad 0820  med 2296.25
+started 30/35 getpixel
+getpixel            2450.99 ops/s    0.408 ms/op  hash 0d2b3285  #30  pad 0820  med 2692.37
+started 31/35 polygon
+polygon               76.71 ops/s   13.036 ms/op  hash a356aa00  #31  pad 0820  med 79.92
+started 32/35 rectangle
+rectangle            975.42 ops/s    1.025 ms/op  hash e8438024  #32  pad 0820  med 1028.39
+started 33/35 floodfill
+floodfill              4.17 ops/s  239.631 ms/op  hash a9f1de61  #33  pad 0820  med 4.17
+started 34/35 cursor_move
+cursor_move         1220.85 ops/s    0.819 ms/op  hash 0d2b3285  #34  pad 0820  med 1337.15
+started 35/35 ellipse
+ellipse               74.67 ops/s   13.393 ms/op  hash 312df19d  #35  pad 0820  med 78.10
+
+== card_ddm14  driver m8ddm1.drv  800x600x8  2026-11-01 11:45  1000 ms
+caps  poly 0008  curve 0000  line 0023  raster ffffeff9  text 2004
+started 1/35 text_sys
+text_sys             796.72 ops/s    1.255 ms/op  hash 5c44e885  #1  pad 0820  med 758.25
+started 2/35 text_same
+text_same            941.87 ops/s    1.062 ms/op  hash 846b2085  #2  pad 0820  med 990.13
+started 3/35 text_gui
+text_gui             917.34 ops/s    1.090 ms/op  hash f2d5f065  #3  pad 0820  med 974.71
+started 4/35 text_varied
+text_varied          526.52 ops/s    1.899 ms/op  hash 19106b7d  #4  pad 0820  med 559.56
+started 5/35 fill_small
+fill_small           626.30 ops/s    1.597 ms/op  hash d90ee0b9  #5  pad 0820  med 689.65
+started 6/35 fill_large
+fill_large           223.37 ops/s    4.477 ms/op  hash 86bf3d05  #6  pad 0820  med 231.91
+started 7/35 fill_hatch
+fill_hatch           364.40 ops/s    2.744 ms/op  hash 820ec605  #7  pad 0820  med 394.54
+started 8/35 fill_xor
+fill_xor            1722.88 ops/s    0.580 ms/op  hash d22297c5  #8  pad 0820  med 1902.93
+started 9/35 dstinvert
+dstinvert           1837.80 ops/s    0.544 ms/op  hash 3e0edd6d  #9  pad 0820  med 1952.33
+started 10/35 blit_small
+blit_small          2006.85 ops/s    0.498 ms/op  hash 0d2b3285  #10  pad 0820  med 2121.89
+started 11/35 blit_large
+blit_large           339.47 ops/s    2.946 ms/op  hash 0d2b3285  #11  pad 0820  med 358.45
+started 12/35 scroll
+scroll                74.67 ops/s   13.393 ms/op  hash 0d2b3285  #12  pad 0820  med 74.12
+started 13/35 bmp_icon
+bmp_icon             710.38 ops/s    1.408 ms/op  hash 66ada2a5  #13  pad 0820  med 772.69
+started 14/35 bmp_card
+bmp_card             721.88 ops/s    1.385 ms/op  hash 70becf17  #14  pad 0820  med 791.41
+started 15/35 bmp_changing
+bmp_changing         478.26 ops/s    2.091 ms/op  hash 6989e397  #15  pad 0820  med 527.03
+started 16/35 bmp_large
+bmp_large            251.37 ops/s    3.978 ms/op  hash 0d2b3285  #16  pad 0820  med 251.37
+started 17/35 dib_8bpp
+dib_8bpp              36.47 ops/s   27.417 ms/op  hash 9c83b45e  #17  pad 0820  med 36.47
+started 18/35 stretch_dib
+stretch_dib           19.27 ops/s   51.895 ms/op  hash 2a3f7949  #18  pad 0820  med 19.27
+started 19/35 stretchblt
+stretchblt            24.17 ops/s   41.376 ms/op  hash a5ce3241  #19  pad 0820  med 24.17
+started 20/35 mono_bmp
+mono_bmp             471.67 ops/s    2.120 ms/op  hash 0d2b3285  #20  pad 0820  med 514.77
+started 21/35 draw_icon
+draw_icon            284.45 ops/s    3.516 ms/op  hash b2f700c9  #21  pad 0820  med 300.81
+started 22/35 scr_to_mem
+scr_to_mem           692.32 ops/s    1.444 ms/op  hash 0d2b3285  #22  pad 0820  med 764.31
+started 23/35 mem_to_mem
+mem_to_mem           450.63 ops/s    2.219 ms/op  hash e8973020  #23  pad 0820  med 509.61
+started 24/35 drag_frame
+drag_frame           160.04 ops/s    6.248 ms/op  hash 0d2b3285  #24  pad 0820  med 192.12
+started 25/35 lines
+lines               1493.79 ops/s    0.669 ms/op  hash 6fd0736c  #25  pad 0820  med 1654.89
+started 26/35 lines_hv
+lines_hv             932.82 ops/s    1.072 ms/op  hash e8a266b2  #26  pad 0820  med 992.64
+started 27/35 lines_dash
+lines_dash           488.71 ops/s    2.046 ms/op  hash c15414e6  #27  pad 0820  med 532.67
+started 28/35 rubber_band
+rubber_band         1042.91 ops/s    0.959 ms/op  hash 123749fd  #28  pad 0820  med 1146.93
+started 29/35 setpixel
+setpixel            2071.46 ops/s    0.483 ms/op  hash 871e0b3c  #29  pad 0820  med 2263.61
+started 30/35 getpixel
+getpixel            2396.38 ops/s    0.417 ms/op  hash 0d2b3285  #30  pad 0820  med 2641.65
+started 31/35 polygon
+polygon               76.69 ops/s   13.040 ms/op  hash a356aa00  #31  pad 0820  med 80.40
+started 32/35 rectangle
+rectangle            972.69 ops/s    1.028 ms/op  hash e8438024  #32  pad 0820  med 1023.42
+started 33/35 floodfill
+floodfill              4.15 ops/s  240.769 ms/op  hash a9f1de61  #33  pad 0820  med 4.15
+started 34/35 cursor_move
+cursor_move         1254.27 ops/s    0.797 ms/op  hash 0d2b3285  #34  pad 0820  med 1323.03
+started 35/35 ellipse
+ellipse               69.44 ops/s   14.401 ms/op  hash 312df19d  #35  pad 0820  med 74.77
+

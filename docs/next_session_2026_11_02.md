@@ -3,18 +3,19 @@
 Supersedes `docs/next_session_2026_11_01.md`; its open items 4-6 and the boot stall still stand.
 Card log: `docs/captures/2026-11-01_card/m8_card_bench.txt`.
 
-## State: at or above ATI in all 35
+## State: 33 of 35 at or above ATI (median timing)
 
-master `58c8237`. Card: `M8POLL.DRV` selected (= master).
+master `78d944d`. Card: `M8DDM1.DRV` selected (= master).
 
-ATIM8 was benched again today (`card_atit1/2`, installed as ATIM8T.DRV): within a few percent of the
-10-20 runs, so the baseline holds. Against it, master's runs 2-4 after a reboot (`card_poll2-4`):
-every test's mean at or above ATI, pixels = ATI in all 35. fill_large is level (0.998, 221.6-223.3
-against 222.8): both drivers run at the engine's fill rate. Geometric mean ~1.8x.
+**Correction, same day:** the morning's "all 35 at or above" was one set of runs under the old total
+timing. A control run of identical code (`card_ctl`) read fill_small 0.967 and ellipse 0.988: single
+tests dropped 8-15% at random (likely the NIC reading broadcasts over the 8-bit bus). M8BENCH now
+also reports the median of ten 100 ms slices (`med`, `967cbef`); `m8_bench_compare.py` uses it.
 
-Judge on runs 2+: the first run after a reboot reads low in tests no change touched (text_varied 0.97
-in run 1, 1.08-1.10 after). Two runs are not enough to call a 2-3% difference: the same driver moved
-`lines` 1606 -> 1197 and fill_small 657 -> 543 between consecutive runs. Use 4 and drop the first.
+With it, ATI re-benched (`card_atim2-4`) against master's levers (`card_abcm2-4`, `a517d00`):
+**33 of 35 at or above**, pixels = ATI in all 35. Below: **lines_dash 0.914** (real; the total
+timing hid it in ATI's 25% spread) and **floodfill 0.983** (4 ops/s: too slow for slices, total used).
+Each test's lowest run is within ~2% of its mean under the median; judge on runs 2-4 of 4.
 
 ## Done today (all card-benched, pixels = ATI in all 35)
 
@@ -29,16 +30,29 @@ in run 1, 1.08-1.10 after). Two runs are not enough to call a 2-3% difference: t
 ## Disproved / closed (one line each)
 
 - Pixel in assembly alone: no gain (2139/2039); GDI is ~385 of ~485 us a setpixel. The port writes were the lever.
-- FIFO room via C (`m8_fifo_room`, 16-bit scan, C fallback): fill_small worse (551/609); the inline one-bit poll is what paid.
+- ~~FIFO room via C: fill_small worse~~ - two noisy runs; the C wait (`m8_fifo_need`) helps the queue users (mem_to_mem +11-14%).
 - dstinvert / fill_large are engine-bound: CPU-side trims cannot pass the engine's rate; only overlap could, and now does.
+
+## Retrospective (`a517d00`)
+
+The three levers across the driver: `m8_fifo_need(n)` for every caller that knows its write count, MAJ/MIN
+written only on a size change at every fill/blit/host-transfer site (`M8_OUT_SIZE`; M8MAJMN: host write and
+read keep them, the extended mono blit does not), getpixel in `pixel.asm`. Against the control (old total
+timing, 3 runs each): mem_to_mem +11%, bmp_icon +8%, fill_small +6.5%, lines +5%; lines_hv -9.5% and
+stretchblt -5% not yet told apart from noise - recheck both with median timing.
+Other drivers: `docs/cross_driver_levers_2026_11_01.md` (worklist item; storage is bus-bound, gains small).
+
+## DirectDraw
+
+Plan `docs/mach8_directdraw_plan.md`; research `docs/directdraw_research_2026_11_01.md`. Milestone 1 (hand-over,
+M8DD32.DLL, M8DDTEST) built in `78d944d`, **not run: DirectX is not installed on the card**. Owner to choose
+the DirectX version; the bed could take it first.
+GDI regression with the milestone-1 driver (`card_ddm1`, median): pixels = ATI in all 35, geometric mean
+1.87x; tests move +-3-7% against `card_abcm` both ways; lines_dash 0.86-0.91 stays the one real gap.
 
 ## Next
 
-1. **Owner's call: the aspirational track** - DirectDraw (both halves), modes above 256 colours, 3D, unused silicon
-   (`docs/mach8_levers.md`, `docs/mach8_unused_silicon_audit.md`).
-2. Retrospective across all 35 (owner, 11-01): today's three levers - assembly short path, register shadow,
-   FIFO-room poll - checked against every other path. Known candidates: the C fast paths still drain empty
-   (`m8_hw_fill_fast`/`copy_fast` callers other than the asm, line_fast, spans); `rectangle` and `fill_hatch` do
-   their own writes of MAJ/MIN; text's mono expansion idle wait (11-01 handoff item).
-3. M8BENCH warm-up pass, so run 1 counts (ATI must be re-benched with the same build).
-4. The C:\M8IDLE.EXE lock seen after boot 147 (the upload rename failed) was most likely the full root; confirm next cycle.
+1. DirectX on the bed and/or card (owner), then M8DDTEST: hardware caps without DDCAPS_NOHARDWARE.
+2. Milestone 2: primary Lock/Unlock through a RAM shadow; then Blt, then the CRT_OFFSET flip probe (owner at the screen).
+3. lines_dash 0.914 and floodfill 0.983 against ATI (median timing).
+4. M8BENCH warm-up pass so run 1 counts (ATI re-benched with the same build).
