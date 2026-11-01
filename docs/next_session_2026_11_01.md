@@ -49,3 +49,13 @@ pixels = ATI in all 35, run 2 slower in **0** tests.
 - A fast path can be silently off: eligibility checks counted per reason (profile slots) found two wrong ones.
 - Code layout: a C edit moves unrelated tests 5-12%; hot paths go into aligned assembly once correct.
 - Research, git and docs go to cheaper agents (owner); the agents' docs this session were all used.
+
+## Owner, 11-01 (late)
+
+- **Assembly for every test's hot path**, one test at a time, each benched twice: the per-call cost here is
+  the code lines touched after each port write, and aligned assembly stops C edits moving them. Go through all
+  35 after the list above, starting with the tests nearest 1.0x. Cold code (set-up, caches, fallbacks) stays C.
+- **FIFO room instead of an empty FIFO**: as a general lever it was tried on the card 10-21 (`queue-wip`,
+  0.97x/0.98x, method doc lever table: the engine finishes before the CPU sets up the next operation). Still
+  untested and worth one measurement each: the full idle wait at the end of a mono expansion (now one per text
+  string; ATIM8 polls for room, `docs/atim8_vs_ours_lagging_tests.md` s4), and lines_dash's drains.
