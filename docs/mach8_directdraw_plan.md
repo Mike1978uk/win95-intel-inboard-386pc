@@ -60,12 +60,15 @@ Test bed first for the handshake (no card risk), card for everything timed.
 
 Milestone 1 is built, not run: `dd16.c` (hand-over), `m8dd32.c` (M8DD32.DLL, based 0xB0C00000, every
 section shared, exports `DriverInit`), `enable.c` routes `DCICOMMAND`, `tools/m8ddtest/M8DDTEST.C`
-prints the caps (pass: hardware caps without DDCAPS_NOHARDWARE). **Blocked: DirectX is not installed
-on the card** (no DDRAW.DLL, DDRAW16.DLL, DDHELP.EXE in C:\WINDOWS\SYSTEM). Installing it is the
-owner's call; the bed could take it first.
+prints the caps (pass: hardware caps without DDCAPS_NOHARDWARE). DirectX is not installed on the
+card.
+
+**Milestone 1 passes in the bed** (`vm_5160_mcp`, DirectX 7.0a installed by the owner, driver
+`0aa4a87`): M8DDTEST prints `DirectDrawCreate 0`, `hw caps 00000400` (DDCAPS_GDI) `caps2 00080000
+pal 00000014 scaps 00000300 vidmem 0  HAL`. Bed image before DirectX: `vm_5160_mcp/card.img.pre_dx7`.
 
 ## Open
 
 - Does DDRAW accept a primary whose memory the HAL supplies only through Lock? (Milestone 1-2 answer it.)
-- Which DirectX to install (owner).
+- DirectX 7.0a on the card (owner), after milestone 2 works in the bed.
 - The 486 HAL vmdisp9x names (`vmhal486.dll`): no source found.
