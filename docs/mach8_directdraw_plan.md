@@ -86,11 +86,11 @@ lock (0 of 2048 wrong); white written through a full lock and through a rect loc
 GetPixel, neighbours at x 200 and 233 untouched. M8BENCH straight after: pixels = before in all 36, so the
 lost-fills symptom is gone. Relies on DDRAW holding the Win16 lock from Lock to Unlock (not with
 DDLOCK_NOSYSLOCK). The software cursor inside a locked rectangle is read and written back with it.
-dxdiag's DirectDraw test (owner, bed, 15:23, `vm_5160_mcp/screenshots/Monitor_1_20261101-152319-203.png`)
-now draws but leaves every frame behind: the white boxes reach the card through Lock/Unlock, the erase does
-not. Likely the HEL's colour fill writes the shadow without calling the HAL Lock, and the next Lock re-reads
-the card over it. Fix = milestone 3: HAL Blt with DDBLT_COLORFILL on the engine, clip list honoured. Card
-not yet run.
+dxdiag's DirectDraw test (owner, bed, 15:23-15:25, `vm_5160_mcp/screenshots/Monitor_1_20261101-1523*` to
+`-152532`): step 11 now passes - concentric alternating black and white rectangles, which is what dxdiag asks
+about ("Did you see alternating black and white rectangles around the screen?"), cleared at the end. Very slow:
+each frame is the HEL drawing through a full-surface Lock, i.e. the whole screen read back and written through
+PIX_TRANS. Milestone 3 (HAL Blt: colour fill on the engine, clip list honoured) is the speed fix. Card not yet run.
 
 ## Open
 
