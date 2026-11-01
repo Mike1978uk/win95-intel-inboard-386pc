@@ -418,6 +418,12 @@ LONG WINAPI __loadds Control( LPVOID lpDevice, UINT function, LPVOID lpInput, LP
     if( function == QUERYESCSUPPORT && lpInput != NULL && *(LPWORD)lpInput == DCICOMMAND ) {
         return( 0x0100 );               /* DD_HAL_VERSION */
     }
+    /* M8DD32.DLL lends DirectDraw the off-screen rows, or takes them back:
+     * GDI's caches must leave them before DirectDraw draws there. */
+    if( function == M8_ESC_DDLEND && lpInput != NULL ) {
+        m8_dd_lend( *(LPWORD)lpInput );
+        return( 1 );
+    }
 #ifdef M8_PROF
     if( function == M8_ESC_PROF ) {
         return( m8_pf_escape( lpInput, lpOutput ) );

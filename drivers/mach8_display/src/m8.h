@@ -228,6 +228,8 @@ extern BYTE m8_hw_getpixel( int x, int y );
 extern int  m8_hw_getpixel_fast( int x, int y );
 extern void m8_hw_engine_reset( void );
 extern LONG m8dd_command( LPVOID lpInput, LPVOID lpOutput );
+extern void m8_dd_heap( int *top, int *rows );
+extern void m8_dd_lend( int on );
 extern void m8_hw_copy_keyed( int sx, int sy, int dx, int dy, int w, int h, BYTE key );
 extern void m8_hw_cursor_move( int ox, int oy, int nx, int ny, int w, int h, int svx, int svy,
                                int mx, int my, BYTE key );
@@ -273,6 +275,7 @@ extern void m8_hw_marker( WORD value );
  * that crossed a BIOS tick (55 ms) cannot be timed exactly from the 16-bit PIT
  * count, so it goes to `long_*`, as the shorter of its two possible lengths. */
 #define M8_ESC_PROF         0x4D38
+#define M8_ESC_DDLEND       0x4D39      /* WORD: 1 lend, 0 take back (m8dd32.c) */
 #define M8_PF_STYLES        64
 #define M8_PF_N             10      /* BitBlt ExtTextOut Output Pixel StrBlt DibToDevice
                                      * StretchBlt StretchDIBits SaveScreenBitmap ScanLR */

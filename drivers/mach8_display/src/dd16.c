@@ -52,6 +52,9 @@ typedef struct {
     DWORD   unlock;
     DWORD   blt;
     DWORD   shadow;                     /* linear address of the primary's Lock shadow */
+    DWORD   heap;                       /* linear address of the heap rows in the shadow */
+    DWORD   heap_top;                   /* its first card row */
+    DWORD   heap_rows;
     /* This side only from here. */
     DDHALINFO_t                 info;
     DDHAL_DDCALLBACKS_t         cb;
@@ -90,25 +93,45 @@ static int m8dd_alloc( void )
     return( 1 );
 }
 
-/* The primary's Lock shadow, the size of this mode's screen. One for a
- * smaller mode is not freed: a DirectDraw object made then may still hold
- * its address. 0 = no memory: no HAL, rather than a primary at linear 0. */
+/* The Lock shadow: the card's rows from the top of the screen to the end of
+ * the off-screen heap, at the screen's pitch, as a real card's frame buffer
+ * would be laid out - the primary at its start, the heap (m8_dd_heap's rows)
+ * further on - so an address in it gives the card position. Without memory
+ * for the heap, the screen alone. One for a smaller mode is not freed: a
+ * DirectDraw object made then may still hold its address. 0 = no memory: no
+ * HAL, rather than a primary at linear 0. */
 static int m8dd_shadow_alloc( void )
 {
-    DWORD   size = (DWORD)M8_SCREEN_X * M8_SCREEN_Y;
+    int     top;
+    int     rows;
+    int     pass;
+    DWORD   size;
     HGLOBAL h;
 
-    if( m8dd_shadow != NULL && m8dd_shadow_size >= size ) {
-        return( 1 );
+    m8_dd_heap( &top, &rows );
+    for( pass = 0; pass < 2; ++pass ) {
+        if( pass == 1 ) {
+            rows = 0;
+        }
+        size = (DWORD)M8_SCREEN_X * (rows > 0 ? top + rows : M8_SCREEN_Y);
+        if( m8dd_shadow != NULL && m8dd_shadow_size >= size ) {
+            break;
+        }
+        h = GlobalAlloc( GMEM_FIXED | GMEM_SHARE | GMEM_ZEROINIT, size );
+        if( h != 0 ) {
+            m8dd_shadow = (BYTE FAR *)GlobalLock( h );
+            m8dd_shadow_lin = GetSelectorBase( FP_SEG( m8dd_shadow ) );
+            m8dd_shadow_size = size;
+            break;
+        }
     }
-    h = GlobalAlloc( GMEM_FIXED | GMEM_SHARE | GMEM_ZEROINIT, size );
-    if( h == 0 ) {
+    if( pass == 2 ) {
         return( 0 );
     }
-    m8dd_shadow = (BYTE FAR *)GlobalLock( h );
-    m8dd_shadow_lin = GetSelectorBase( FP_SEG( m8dd_shadow ) );
-    m8dd_shadow_size = size;
     m8dd->shadow = m8dd_shadow_lin;
+    m8dd->heap_top = rows > 0 ? top : 0;
+    m8dd->heap_rows = rows;
+    m8dd->heap = rows > 0 ? m8dd_shadow_lin + (DWORD)M8_SCREEN_X * top : 0;
     return( 1 );
 }
 
@@ -203,20 +226,24 @@ static void m8dd_build( int mode )
     hi->vmiData.ddpfDisplay.dwSize = sizeof( hi->vmiData.ddpfDisplay );
     hi->vmiData.ddpfDisplay.dwFlags = DDPF_RGB | DDPF_PALETTEINDEXED8;
     hi->vmiData.ddpfDisplay.dwRGBBitCount = 8;
+    /* No heap for DDRAW to manage: M8DD32's CreateSurface places off-screen
+     * surfaces in the shadow's heap rows itself. */
     hi->vmiData.dwNumHeaps = 0;
     hi->ddCaps.dwSize = sizeof( hi->ddCaps );
     hi->ddCaps.dwCaps = DDCAPS_GDI;
     if( m8dd->blt ) {
-        /* M8DD32's Blt: colour fills and SRCCOPY within the primary. */
+        /* M8DD32's Blt: colour fills and SRCCOPY between card surfaces. */
         hi->ddCaps.dwCaps |= DDCAPS_BLT | DDCAPS_BLTCOLORFILL;
         hi->ddCaps.dwRops[0xCC / 32] |= 1UL << (0xCC % 32);
-        /* And SRCCOPY from system memory to the primary, as host data. */
+        /* And SRCCOPY from system memory to the card, as host data. */
         hi->ddCaps.dwCaps |= DDCAPS_CANBLTSYSMEM;
         hi->ddCaps.dwSVBCaps = DDCAPS_BLT;
         hi->ddCaps.dwSVBRops[0xCC / 32] |= 1UL << (0xCC % 32);
     }
     hi->ddCaps.dwPalCaps = DDPCAPS_8BIT | DDPCAPS_PRIMARYSURFACE;
     hi->ddCaps.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE | DDSCAPS_PALETTE;
+    /* Not DDSCAPS_OFFSCREENPLAIN: with it DDRAW refuses this HAL outright.
+     * Off-screen surfaces in video memory are still asked of CreateSurface. */
     hi->dwModeIndex = mode;
     hi->dwNumModes = M8_MODE_COUNT;
     hi->lpModeInfo = m8dd->modes;

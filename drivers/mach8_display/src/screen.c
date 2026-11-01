@@ -1018,6 +1018,15 @@ static void m8_pattern_fill( int x, int y, int w, int h, const BYTE *pat,
 
 static int m8_sc_top( void );
 
+/* DirectDraw's off-screen surfaces (dd16.c) take the rows from m8_dd_lent up
+ * to the string cache while it has any: the caches below stay above them. */
+static int m8_dd_lent;
+
+static int m8_off_end( void )
+{
+    return( m8_dd_lent ? m8_dd_lent : m8_sc_top() );
+}
+
 /* Bitmap cache. Icons, toolbar buttons and card faces are copied from the same
  * memory bitmaps again and again. The source pixels are hashed on the CPU; the
  * second time a content is seen it is uploaded to off-screen memory, and every
@@ -1312,7 +1321,7 @@ static int m8_bc_alloc_in( int a, int w, int h, int *x, int *y )
 {
     M8_BCSHELF  *sh = m8_bcs[a];
     int         hc = (h + 15) & ~15;
-    int         bottom = m8_sc_top();
+    int         bottom = m8_off_end();
     int         width = m8_bc_area_w( a );
     int         k;
 
@@ -5045,8 +5054,8 @@ WORD WINAPI __loadds SaveScreenBitmap( LPRECT lpRect, WORD wCmd )
     w = r.r - r.l;
     h = r.b - r.t;
     /* Up to the string cache: 384 rows at 640x480, 264 at 800x600, 128 at
-     * 1024x768. */
-    if( w <= 0 || h <= 0 || w > M8_PITCH || h > m8_sc_top() - M8_SSB_Y ) {
+     * 1024x768; 32 while DirectDraw has its rows. */
+    if( w <= 0 || h <= 0 || w > M8_PITCH || h > m8_off_end() - M8_SSB_Y ) {
         return( 0 );
     }
     M8_STEP( M8_MARK_SSB_SAVE );
@@ -5058,6 +5067,51 @@ WORD WINAPI __loadds SaveScreenBitmap( LPRECT lpRect, WORD wCmd )
     m8_ssb_check = r;
     m8_ssb_used = 1;
     return( 1 );
+}
+
+/* ------------------------------------------------ DirectDraw's off-screen rows */
+
+/* The rows DirectDraw may have: from *top up to the string cache, leaving
+ * SaveScreenBitmap 32 rows below the screen. */
+void m8_dd_heap( int *top, int *rows )
+{
+    int n = m8_sc_top() - M8_SSB_Y - 32;
+
+    if( n > 256 ) {
+        n = 256;
+    }
+    *rows = n > 0 ? n : 0;
+    *top = m8_sc_top() - *rows;
+}
+
+/* Lend DirectDraw its rows (on != 0) or take them back. Before DirectDraw
+ * draws there, the cache shelves reaching into them go, memory bitmaps kept
+ * there written back to RAM first, and a menu saved there is dropped. */
+void m8_dd_lend( int on )
+{
+    int top;
+    int rows;
+    int a;
+    int k;
+
+    m8_dd_heap( &top, &rows );
+    if( !on || rows == 0 ) {
+        m8_dd_lent = 0;
+        return;
+    }
+    for( a = 0; a < M8_BC_AREAS; ++a ) {
+        for( k = 0; k < m8_bcs_n[a] && m8_bcs[a][k].y + m8_bcs[a][k].h <= top; ++k ) {
+        }
+        if( k < m8_bcs_n[a] ) {
+            m8_bc_free_rows( a, m8_bcs[a][k].y, m8_bc_bottom[a] );
+            m8_bc_bottom[a] = m8_bcs[a][k].y;
+            m8_bcs_n[a] = k;
+        }
+    }
+    if( m8_ssb_used && M8_SSB_Y + (m8_ssb_rect.b - m8_ssb_rect.t) > top ) {
+        m8_ssb_used = 0;
+    }
+    m8_dd_lent = top;
 }
 
 /* --------------------------------------------------- FastBorder, UpdateColors */
@@ -5216,6 +5270,7 @@ int m8_screen_init( LPDIBENGINE screen )
 
     m8_hot.screen = screen;
     m8_ssb_used = 0;
+    m8_dd_lent = 0;
     m8_cur_planes_ok = 0;
     m8_sc_flush();
     m8_bc_flush();
