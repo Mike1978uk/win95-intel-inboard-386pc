@@ -11,3 +11,6 @@ install never had it. They drive the 28800 VGA half only (512 KB): 640x480 or 80
 
 - `MONITOR.REG` - gives the bed's "(Unknown Monitor)" a maximum resolution of 1024x768, without which Display
   Properties stops the slider at 800x600. Double-click it in Windows; no restart needed.
+
+- `M8FB16.REG` - our driver at 640x480 in 16-bit colour (`src/fb16.c`); `M8FB8.REG` - back to 1024x768 at 256
+  colours. Either takes effect at the next restart; neither changes which driver loads.

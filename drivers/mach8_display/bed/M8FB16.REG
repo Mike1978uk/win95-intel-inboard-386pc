@@ -1,0 +1,10 @@
+REGEDIT4
+
+[HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\Class\Display\0000\MODES\16]
+
+[HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\Class\Display\0000\MODES\16\640,480]
+@=""
+
+[HKEY_LOCAL_MACHINE\Config\0001\Display\Settings]
+"BitsPerPixel"="16"
+"Resolution"="640,480"
