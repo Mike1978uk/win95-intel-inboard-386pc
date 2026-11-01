@@ -122,3 +122,32 @@ GDI regression with the milestone-1 driver (`card_ddm1`, median): pixels = ATI i
   keep surfaces on the card and blit can.
 - Card on `M8PROF3` (profile build of master): replace before any timed run. Bed on `M8DDL2` (master +
   HAL); restart it before the next DirectDraw build (the DLL stays loaded).
+
+## Night, 2026-11-01: START HERE (supersedes the sections above where they differ)
+
+**State.** master `ea519fe`, pushed. A 640x480 16-bit desktop works in the bed: GDI draws 5-6-5 in RAM,
+the driver dithers what changes onto the card's 256 colours (`src/fb16.c`; details and dead ends in
+`docs/mach8_directdraw_plan.md`, "16 bpp"). Owner's eye: desktop, menus, icons flat; gradients smooth
+(TEST24.BMP within 1-2.5 of the original); no pointer ghosts (the card pointer, as at 8 bpp); slow only
+while the disk is read. Since then: DirectDraw off-screen surfaces (`d279668`) and system-memory Blt
+(`056ce69`) at 8 bpp; the card has none of tonight's work.
+
+**Machines.** Bed `vm_5160_mcp` on `M8FB16N` (= master, 16 bpp; registry keeps it). Back to 8 bpp:
+`drivers/mach8_display/bed/M8FB8.REG` (LF line ends; regedit takes them). Guest tools in C:\: FB16CHK,
+SCRGRAB [keys], RAW565 l t r b, ICONTEST, FB16TEST, TEST24.BMP. Card still on `M8PROF3`.
+
+**Next, in order:**
+1. **Paint's title bar** (owner's repro: Start > Run, then Start > Accessories > Paint, click Run while
+   Paint loads): inactive grey with a navy box round the caption buttons until Paint is clicked.
+   FB16CHK says card = frame buffer, so GDI's own picture has it. Same steps at 8 bpp (`M8FB8.REG`,
+   reboot): there too = Windows, not ours; only at 16 bpp = one of our GDI entries at 16 bpp.
+2. **DirectDraw at 16 bpp.** dd16.c refuses it when `m8_fb16`. HAL: primary = the frame buffer
+   (fpPrimary = its linear address, 5-6-5 pixel format, pitch 1280), Lock returns it directly, Unlock
+   sends the rectangle through `m8_fb16_send`; Blt in RAM (or NOTHANDLED to the HEL) then send. Off-screen
+   surfaces in system memory. Then dxdiag with the desktop already at 640x480x16, test 3.
+3. **Bus cost on the card.** Solid fills at 16 bpp cross the bus as pixels (400x300 = 120000 bytes, ~0.7
+   s on the 5160). Send a solid-colour rectangle as a pattern fill (PATTERN_L/H or PATT_DATA, 4 dither
+   rows then a card-side copy, as ATIM8's colour brushes); also skip rows unchanged since the last send.
+4. Older, still open: the post-dxdiag GDI slowdown in the bed (`docs/mach8_directdraw_plan.md`, Open);
+   lines_dash dips on the card; 3 more ATI 36-test runs; put master on the card (GDI gate: >= ATI in
+   all 36) before any 16 bpp work there.
