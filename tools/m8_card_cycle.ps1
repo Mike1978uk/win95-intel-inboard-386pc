@@ -29,9 +29,15 @@ $root = Split-Path $PSScriptRoot
 $key = 'HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\Class\Display\0000\DEFAULT'
 
 function Agent([string]$verb, [hashtable]$a = @{}) {
-  $out = & $ctl $verb @a -Host $CardHost -ConnectTimeoutSeconds 60 -Json
-  if ($LASTEXITCODE -ne 0) { throw "v9xctl $verb failed ($LASTEXITCODE): $out" }
-  return $out
+  # An upload's final rename can fail with access denied for a while (Win32 5), new
+  # names too; the same upload goes through seconds later.
+  $tries = if ($verb -eq 'put') { 3 } else { 1 }
+  for ($t = 1; $t -le $tries; $t++) {
+    $out = & $ctl $verb @a -Host $CardHost -ConnectTimeoutSeconds 60 -Json
+    if ($LASTEXITCODE -eq 0) { return $out }
+    if ($t -lt $tries) { Start-Sleep -Seconds 10 }
+  }
+  throw "v9xctl $verb failed ($LASTEXITCODE): $out"
 }
 
 if (-not $FetchOnly -and -not $BenchOnly) {
@@ -40,8 +46,9 @@ if (-not $FetchOnly -and -not $BenchOnly) {
   $reg = Join-Path $env:TEMP "$Name.REG"
   "REGEDIT4`r`n`r`n[$key]`r`n`"drv`"=`"$drvName`"`r`n" | Set-Content -NoNewline -Encoding ascii $reg
   Agent put @{ Source = $Drv; Destination = "C:\WINDOWS\SYSTEM\$Name.DRV" } | Out-Null
-  Agent put @{ Source = $reg; Destination = "C:\$Name.REG" } | Out-Null
-  Agent exec @{ Application = 'C:\WINDOWS\REGEDIT.EXE'; Arguments = "/S C:\$Name.REG"; TimeoutSeconds = 60 } | Out-Null
+  # Not in C:\ : FAT's root holds 512 entries, and a full root fails every upload there.
+  Agent put @{ Source = $reg; Destination = "C:\V9XREMOTE\REG\$Name.REG" } | Out-Null
+  Agent exec @{ Application = 'C:\WINDOWS\REGEDIT.EXE'; Arguments = "/S C:\V9XREMOTE\REG\$Name.REG"; TimeoutSeconds = 60 } | Out-Null
   # Read the key back: the boot must load this driver.
   Agent exec @{ Application = 'C:\WINDOWS\REGEDIT.EXE'; Arguments = "/E C:\V9XREMOTE\DISP.TXT `"$key`""; TimeoutSeconds = 60 } | Out-Null
   $disp = Join-Path $env:TEMP 'm8_disp.txt'
@@ -73,7 +80,13 @@ if (-not $FetchOnly -and -not $BenchOnly) {
 }
 if (-not $FetchOnly) {
   # Every bench waits for a quiet card, -BenchOnly too: a run during start-up work is slow in every test.
-  Agent put @{ Source = (Join-Path $root 'tools\m8probe\M8IDLE.EXE'); Destination = 'C:\M8IDLE.EXE' } | Out-Null
+  # Only when the card's copy differs: the card can hold C:\M8IDLE.EXE open, and the
+  # upload's rename over it then fails (Win32 5).
+  $idleExe = Join-Path $root 'tools\m8probe\M8IDLE.EXE'
+  $have = Agent stat @{ Path = 'C:\M8IDLE.EXE' } | ConvertFrom-Json
+  if (-not $have.Exists -or $have.Size -ne (Get-Item $idleExe).Length) {
+    Agent put @{ Source = $idleExe; Destination = 'C:\M8IDLE.EXE' } | Out-Null
+  }
   $idle = Agent exec @{ Application = 'C:\M8IDLE.EXE'; Arguments = "10 10 $Settle"; TimeoutSeconds = $Settle + 60 }
   Write-Output "idle: $(($idle | Out-String).Trim())"
   foreach ($n in 1..$Runs) {
