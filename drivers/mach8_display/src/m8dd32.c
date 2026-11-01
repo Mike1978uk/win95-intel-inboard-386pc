@@ -95,7 +95,13 @@ typedef char m8dd_fill_at[offsetof( DDBLTFX, dwFillColor ) == 80 ? 1 : -1];
  * fpVidMem is at 20 (ddrawi.h). Only a surface whose fpVidMem is the shadow
  * is taken; any other, or a layout not as read here, goes back to DDRAW. */
 #define M8DD_LCL_GBL        4
+#define M8DD_LCL_FLAGS      28
+#define M8DD_LCL_CAPS       32
 #define M8DD_GBL_VIDMEM     20
+#define M8DD_GBL_PITCH      24
+#define M8DD_GBL_PF_FLAGS   44          /* ddpfSurface.dwFlags */
+#define M8DD_GBL_PF_BITS    52          /* ddpfSurface.dwRGBBitCount */
+#define M8DD_HASPIXELFORMAT 0x00002000UL /* else the surface is in the primary's format */
 
 #define DDHAL_DRIVER_NOTHANDLED 0
 #define DDHAL_DRIVER_HANDLED    1
@@ -151,6 +157,7 @@ typedef char m8dd_fill_at[offsetof( DDBLTFX, dwFillColor ) == 80 ? 1 : -1];
 #define M8_CMD_INC_Y        0x0080
 #define M8DD_SRCCOPY        0x00CC0020UL
 #define M8_WAIT_LIMIT       60000u
+#define M8_XROW_WORDS       513         /* the widest mode, one word over for an odd start */
 
 static HINSTANCE    m8dd_inst;
 static M8DD_SHARE   *m8dd;
@@ -364,6 +371,123 @@ static int m8dd_rect( const RECT *d, int copy, int sx, int sy )
     return( 1 );
 }
 
+/* A system-memory surface in the primary's 8bpp format: its first byte and
+ * pitch, or NULL. */
+static BYTE *m8dd_sysmem( LPVOID lcl, long *pitch )
+{
+    BYTE    *gbl;
+
+    if( lcl == NULL || !(*(DWORD *)((BYTE *)lcl + M8DD_LCL_CAPS) & DDSCAPS_SYSTEMMEMORY) ) {
+        return( NULL );
+    }
+    gbl = *(BYTE **)((BYTE *)lcl + M8DD_LCL_GBL);
+    if( gbl == NULL ) {
+        return( NULL );
+    }
+    if( (*(DWORD *)((BYTE *)lcl + M8DD_LCL_FLAGS) & M8DD_HASPIXELFORMAT) &&
+        (*(DWORD *)(gbl + M8DD_GBL_PF_BITS) != 8 ||
+         !(*(DWORD *)(gbl + M8DD_GBL_PF_FLAGS) & DDPF_PALETTEINDEXED8)) ) {
+        return( NULL );
+    }
+    *pitch = *(long *)(gbl + M8DD_GBL_PITCH);
+    return( (BYTE *)*(DWORD *)(gbl + M8DD_GBL_VIDMEM) );
+}
+
+/* One rectangle of a system-memory surface to the card as host data, from
+ * the plain data path with a host mix. Host words carry two pixels, so the
+ * blit starts and ends on even columns and the scissors cut it to `d`; a
+ * column outside `d` is sent as 0, not read. */
+static int m8dd_host_rect( const RECT *d, const BYTE *src, long pitch )
+{
+    static WORD row[M8_XROW_WORDS];
+    int     x0 = d->left & ~1;
+    int     words = (((d->right + 1) & ~1) - x0) / 2;
+    int     h = d->bottom - d->top;
+    int     y;
+    int     i;
+    int     c;
+    const BYTE *s;
+
+    if( d->right <= d->left || h <= 0 ) {
+        return( 1 );
+    }
+    if( words > M8_XROW_WORDS || !m8dd_idle() ) {
+        return( 0 );
+    }
+    outpw( M8_EXT_SCISSOR_L, d->left );
+    outpw( M8_EXT_SCISSOR_R, d->right - 1 );
+    outpw( M8_CUR_X, x0 );
+    outpw( M8_CUR_Y, d->top );
+    outpw( M8_MAJ_AXIS_PCNT, words * 2 - 1 );
+    outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | (h - 1) );
+    outpw( M8_CMD, M8_CMD_HOST_WRITE );
+    for( y = 0; y < h; ++y ) {
+        /* `s` is the source pixel for column d->left. */
+        s = src + y * pitch;
+        if( !(d->left & 1) && !(d->right & 1) ) {
+            for( i = 0; i < words; ++i ) {
+                outpw( M8_PIX_TRANS, ((const WORD *)s)[i] );
+            }
+            continue;
+        }
+        for( i = 0; i < words; ++i ) {
+            c = x0 + i * 2;
+            row[i] = (WORD)((c >= d->left ? s[c - d->left] : 0) |
+                            ((c + 1 < d->right ? s[c + 1 - d->left] : 0) << 8));
+        }
+        for( i = 0; i < words; ++i ) {
+            outpw( M8_PIX_TRANS, row[i] );
+        }
+    }
+    return( m8dd_idle() );
+}
+
+/* A same-size SRCCOPY from a system-memory surface to the primary, clip
+ * rectangle by clip rectangle: the pixels cross the bus once, where DDRAW's
+ * own path would read the whole primary back and write it again. */
+static DWORD m8dd_blt_sysmem( M8DD_BLT *bd, BYTE *hot )
+{
+    long        pitch;
+    BYTE        *src = m8dd_sysmem( bd->lpDDSrcSurface, &pitch );
+    const RECTL *od = bd->IsClipped ? &bd->rOrigDest : &bd->rDest;
+    const RECTL *os = bd->IsClipped ? &bd->rOrigSrc : &bd->rSrc;
+    RECT        one;
+    const RECT  *rects;
+    DWORD       count;
+    DWORD       i;
+    int         ok;
+
+    if( src == NULL ||
+        os->right - os->left != od->right - od->left ||
+        os->bottom - os->top != od->bottom - od->top ) {
+        return( DDHAL_DRIVER_NOTHANDLED );
+    }
+    if( bd->IsClipped ) {
+        rects = bd->prDestRects;
+        count = bd->dwRectCnt;
+    } else {
+        SetRect( &one, od->left, od->top, od->right, od->bottom );
+        rects = &one;
+        count = 1;
+    }
+    hot[H_BUSY] = 1;
+    ok = m8dd_plain( M8_MIX_HOST_REPLACE );
+    for( i = 0; ok && i < count; ++i ) {
+        if( rects[i].left < od->left || rects[i].top < od->top ) {
+            ok = 0;
+            break;
+        }
+        ok = m8dd_host_rect( &rects[i],
+                             src + (rects[i].top - od->top + os->top) * pitch +
+                                   (rects[i].left - od->left + os->left),
+                             pitch );
+    }
+    m8dd_forget( hot );
+    hot[H_BUSY] = 0;
+    bd->ddRVal = ok ? DD_OK : M8DD_DDERR_GENERIC;
+    return( DDHAL_DRIVER_HANDLED );
+}
+
 /* Colour fills on the primary and same-size copies within it, on the engine:
  * only the commands cross the bus. Anything else goes back to DDRAW, and so
  * does a copy clipped to more than one rectangle, as their order matters
@@ -389,6 +513,8 @@ DWORD __stdcall m8dd_blt( M8DD_BLT *bd )
     } else if( (bd->dwFlags & DDBLT_ROP) && bd->bltFX.dwROP == M8DD_SRCCOPY &&
                m8dd_is_primary( bd->lpDDSrcSurface ) ) {
         copy = 1;
+    } else if( (bd->dwFlags & DDBLT_ROP) && bd->bltFX.dwROP == M8DD_SRCCOPY ) {
+        return( m8dd_blt_sysmem( bd, hot ) );
     } else {
         return( DDHAL_DRIVER_NOTHANDLED );
     }

@@ -210,6 +210,10 @@ static void m8dd_build( int mode )
         /* M8DD32's Blt: colour fills and SRCCOPY within the primary. */
         hi->ddCaps.dwCaps |= DDCAPS_BLT | DDCAPS_BLTCOLORFILL;
         hi->ddCaps.dwRops[0xCC / 32] |= 1UL << (0xCC % 32);
+        /* And SRCCOPY from system memory to the primary, as host data. */
+        hi->ddCaps.dwCaps |= DDCAPS_CANBLTSYSMEM;
+        hi->ddCaps.dwSVBCaps = DDCAPS_BLT;
+        hi->ddCaps.dwSVBRops[0xCC / 32] |= 1UL << (0xCC % 32);
     }
     hi->ddCaps.dwPalCaps = DDPCAPS_8BIT | DDPCAPS_PRIMARYSURFACE;
     hi->ddCaps.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE | DDSCAPS_PALETTE;
