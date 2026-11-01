@@ -1,6 +1,8 @@
-; Pixel's set on the screen (screen.c), when the engine already holds the
+; Pixel on the screen (screen.c). A set, when the engine already holds the
 ; data path for the mix: three port writes, and the colour when it changes
-; and MAJ/MIN when the engine does not hold a 1x1 rectangle.
+; and MAJ/MIN when the engine does not hold a 1x1 rectangle. A get, when it
+; holds the read set-up: a one-pixel SCAN_TO_X read, three writes and the
+; read (m8_hw_getpixel_fast).
 ;
 ; Copyright (c) 2026 the win95-intel-inboard-386pc project. GPL-3.0-or-later.
 ;
@@ -16,7 +18,13 @@ CUR_Y           equ     82E8h
 MAJ_AXIS_PCNT   equ     96E8h
 MULTIFUNC_CNTL  equ     0BEE8h
 CMD             equ     9AE8h
-EXT_FIFO_STATUS equ     9AEEh           ; bit n set: entry n + 1 holds a write
+EXT_FIFO_STATUS equ     9AEEh
+GP_STAT         equ     9AE8h           ; read
+DATA_READY      equ     0100h
+SCAN_TO_X       equ     0CAEEh
+PIX_TRANS       equ     0E2E8h
+DE_FLAGS        equ     28              ; DIBENGINE.deFlags
+PALETTE_XLAT    equ     1000h           ; bit n set: entry n + 1 holds a write
 CMD_FILL        equ     40F3h
 MIX_SRC_FRGD    equ     0020h
 
@@ -31,6 +39,7 @@ H_HW_OFF        equ     11
 H_BUSY          equ     12
 H_CUR_SHOWN     equ     13
 H_CUR_PENDING   equ     14
+H_RD_OK         equ     15
 H_CUR_L         equ     16
 H_CUR_T         equ     18
 H_CUR_R         equ     20
@@ -75,6 +84,7 @@ DGROUP  group   _DATA
 _TEXT   segment para public 'CODE'
         extrn   PIXELC : far
         extrn   m8_leave_ : near
+        extrn   m8_hw_engine_reset_ : near
 
         .386
         assume  cs:_TEXT, ds:DGROUP
@@ -101,7 +111,7 @@ endif
         les     bx, [bp + A_DM]
         mov     ax, es
         or      ax, bx
-        jz      slow                    ; a get
+        jz      get
         mov     bx, es:[bx]             ; Rop2, 1..16
         dec     bx
         cmp     bx, 15
@@ -219,6 +229,104 @@ room_got:
         mov     word ptr _m8_hot[H_ROOM], 6
         pop     dx
         jmp     room_ready
+; The get. No idle wait, as ATIM8 has none: the read runs after the drawing
+; queued before it, and its data is ready only then. A translated palette
+; needs the reverse table: C's path.
+get:
+        mov     cx, [bp + A_X]
+        cmp     cx, _m8_scr_x
+        jae     slow
+        mov     dx, [bp + A_Y]
+        cmp     dx, _m8_scr_y
+        jae     slow
+        les     bx, dword ptr _m8_hot[H_SCREEN]
+        test    word ptr es:[bx + DE_FLAGS], PALETTE_XLAT
+        jnz     slow
+        cmp     _m8_hot[H_CUR_SHOWN], 0
+        jne     get_cursor
+get_clear:
+        mov     _m8_hot[H_BUSY], 1      ; before the engine state is read
+        cmp     _m8_hot[H_HW_OFF], 0
+        jne     slowb
+        cmp     _m8_hot[H_RD_OK], 0
+        je      slowb
+        cmp     _m8_hot[H_ROOM_OK], 0
+        je      slowb
+        cmp     word ptr _m8_hot[H_ROOM], 3
+        jl      get_wait
+get_ready:
+        mov     dword ptr _m8_hot[H_MM_W], 0    ; SCAN_TO_X changes MAJ/MIN
+        mov     ax, dx
+        mov     dx, CUR_Y
+        out     dx, ax
+        mov     ax, cx
+        mov     dx, CUR_X
+        out     dx, ax
+        inc     ax
+        mov     dx, SCAN_TO_X
+        out     dx, ax
+        xor     bx, bx
+        mov     dx, GP_STAT
+get_data:
+        in      ax, dx
+        test    ax, DATA_READY
+        jnz     get_read
+        dec     bx
+        jnz     get_data
+        call    m8_hw_engine_reset_     ; wedged: C's path sets up again
+        jmp     slowb
+get_read:
+        mov     word ptr _m8_hot[H_ROOM], 15
+        mov     dx, PIX_TRANS
+        in      ax, dx
+        xor     ah, ah
+ifdef M8_PROF
+        inc     _m8_pf[6]               ; hits
+endif
+        cmp     _m8_hot[H_CUR_PENDING], 0
+        jne     get_pending
+        mov     _m8_hot[H_BUSY], 0
+get_done:
+        mov     dx, 0FF00h              ; FF00h above the pixel, as the DIB Engine
+        pop     ds
+        pop     bp
+        retf    16
+
+get_pending:
+        push    ax
+        call    m8_leave_
+        pop     ax
+        jmp     get_done
+
+get_cursor:
+        cmp     cx, word ptr _m8_hot[H_CUR_L]
+        jl      get_clear
+        cmp     cx, word ptr _m8_hot[H_CUR_R]
+        jge     get_clear
+        cmp     dx, word ptr _m8_hot[H_CUR_T]
+        jl      get_clear
+        cmp     dx, word ptr _m8_hot[H_CUR_B]
+        jge     get_clear
+        jmp     slow
+
+; Room 3: entry 13 free.
+get_wait:
+        push    dx
+        xor     bx, bx
+        mov     dx, EXT_FIFO_STATUS
+get_poll:
+        in      ax, dx
+        test    ax, 1000h
+        jz      get_got
+        dec     bx
+        jnz     get_poll
+        pop     dx
+        jmp     slowb
+get_got:
+        mov     word ptr _m8_hot[H_ROOM], 3
+        pop     dx
+        jmp     get_ready
+
 ifdef M8_TIMED_ENTRY
 M8T_PIXEL       endp
 else

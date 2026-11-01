@@ -224,6 +224,7 @@ extern void m8_hw_fill_span( int x, int y, int w, int h );
 extern WORD m8_hw_scanlr( int x, int y, BYTE colour, WORD style, int width );
 extern BYTE m8_hw_getpixel( int x, int y );
 extern int  m8_hw_getpixel_fast( int x, int y );
+extern void m8_hw_engine_reset( void );
 extern void m8_hw_copy_keyed( int sx, int sy, int dx, int dy, int w, int h, BYTE key );
 extern void m8_hw_cursor_move( int ox, int oy, int nx, int ny, int w, int h, int svx, int svy,
                                int mx, int my, BYTE key );

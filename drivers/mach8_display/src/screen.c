@@ -3383,6 +3383,7 @@ M8_HOT_AT( dp_mix, 6 );
 M8_HOT_AT( room_ok, 8 );
 M8_HOT_AT( busy, 12 );
 M8_HOT_AT( cur_pending, 14 );
+M8_HOT_AT( rd_ok, 15 );
 M8_HOT_AT( cur_rect, 16 );
 M8_HOT_AT( mm_w, 24 );
 M8_HOT_AT( mm_h, 26 );
