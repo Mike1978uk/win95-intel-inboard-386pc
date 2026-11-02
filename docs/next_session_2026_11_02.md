@@ -335,3 +335,35 @@ M8VGAW (Win16 probe, VGA memory vs port cost, X8) not yet run.
 **Levers recorded, not built:** 16 bpp HAL flip with a RAM back buffer (diff on Flip, no HEL copy, no hash);
 386 page Dirty bits via a small VxD for programs that write the primary sparsely (useless for full-frame
 copies: written != changed); 8 bpp full-screen with two pages in VRAM and CRT_OFFSET flip (15 us).
+
+## Late night, 2026-11-02 (owner back; record for the next session)
+
+**Done (pushed):** `b3a5afe` one-at-a-time fingerprints + known fills + diff-on-copy: card mx_box 213 -> 151 ms
+(1.42x), GDI 1.03, pixels = before, FB16CHK clean. `98e4fdc` poly escape 0x4D3F + M8CUBE + M8VGAW (card
+build carries it; demo not yet run on the card). Card is on `m8oaat.drv`, 800x600x16, boot 185.
+
+**Hangs seen tonight (both 16 bpp):**
+- dxdiag frozen with test 3's start dialog drawn, keyboard dead, clock stopped (owner photo). The call in
+  flight was SCRGRAB over the agent: do not screenshot during tests until this is understood.
+- Start > Shut Down > Restart hung with the hourglass and the SB Pro looping the shutdown sound (owner).
+
+**To do, in order:**
+1. Owner: dxdiag DirectDraw tests 1-3 on `m8oaat` (test 3 should be ~1.4x faster than before).
+2. Cube demo: card to 800x600x8 (import `M8FB8S.REG` from the bed's C:\ to the card, restart), run
+   `C:\M8CUBE.EXE 10 1` and `10 3`; owner photo. Then M8VGAW (`C:\M8VGAW.EXE`, writes C:\M8VGAW.TXT).
+3. Levers (owner asked for all three):
+   a. 16 bpp HAL Flip with a RAM back buffer: Flip diffs back vs front in asm (repe cmpsd), copies and
+      sends changed spans; no HEL copy, no hash. Biggest win for full-frame games at 16 bpp.
+   b. 8 bpp full screen: two pages in VRAM (640x480 x2 fits 1 MB at pitch 1024), Flip = CRT_OFFSET (15 us),
+      sprites by engine blits; Lock of a VRAM surface via a RAM shadow + fingerprints.
+   c. 386 page Dirty bits via a small VxD (DDK toolchain as custom_vkd) for sparse writers.
+4. Move remaining C hot loops to asm once each lever is proven (owner: "tight, asm").
+
+**Draft issues for other drivers (owner to approve wording; not posted):**
+- Change detection by hash: a linear hash (rotate-XOR, rotate-add) misses structured changes; `| 1`
+  to reserve 0 loses a bit; on a 486 an IMUL per dword dominates. Audit any driver that fingerprints.
+- 16 bpp restart path hangs (hourglass, SB tone looping): check SB Pro driver + display Disable order.
+- Agent-driven screenshots during DirectDraw tests may hang the card: check SCRGRAB vs Win16 lock.
+
+**SB Pro and DirectSound:** works through DirectSound's emulation on the ordinary wave driver (CPU
+mixing, higher latency, no hardware buffers); a DirectSound HAL would need our own driver (worklist S).
