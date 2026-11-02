@@ -300,7 +300,7 @@ static void m8_fb16_send( int l, int t, int r, int b )
 
 /* Smaller than this, a one-colour rectangle goes as pixels: the scan and the
  * copies would cost more than the bytes. */
-#define M8_FB16_SOLID_MIN   256
+#define M8_FB16_SOLID_MIN   64
 
 /* 1 if every pixel of the rectangle is the 5-6-5 colour *c. */
 static int m8_fb16_uniform( int l, int t, int r, int b, WORD *c )
@@ -465,6 +465,79 @@ static VOID WINAPI __loadds m8_fb16_end( LPPDEVICE lpDevice, WORD wFlags )
 
 /* Lines and shapes: inside the box around their points, widened for the
  * pen. Scanline lists and markers are not boxes of their points. */
+/* A segment's pixels lie within one of the ideal line (a pen here is one
+ * pixel wide), so it goes as strips M8_FB16_SEG long on its major axis, each
+ * as high as the line moves across it, clipped as the DIB Engine clips. */
+#define M8_FB16_SEG     32
+
+static void m8_fb16_strip( int l, int t, int r, int b, LPRECT clip )
+{
+    M8_FB16_RECT    d;
+
+    d.l = l;
+    d.t = t;
+    d.r = r;
+    d.b = b;
+    if( clip != NULL ) {
+        if( d.l < clip->left ) d.l = clip->left;
+        if( d.t < clip->top ) d.t = clip->top;
+        if( d.r > clip->right ) d.r = clip->right;
+        if( d.b > clip->bottom ) d.b = clip->bottom;
+    }
+    m8_fb16_flush( &d );
+}
+
+static void m8_fb16_segment( int x0, int y0, int x1, int y1, LPRECT clip )
+{
+    long    dx = (long)x1 - x0;
+    long    dy = (long)y1 - y0;
+    long    a;
+    long    b;
+    long    m0;
+    long    m1;
+    int     xmajor = (dx < 0 ? -dx : dx) >= (dy < 0 ? -dy : dy);
+    int     lo = xmajor ? (x0 < x1 ? x0 : x1) : (y0 < y1 ? y0 : y1);
+    int     hi = xmajor ? (x0 < x1 ? x1 : x0) : (y0 < y1 ? y1 : y0);
+    int     m;
+
+    /* A level or upright segment is one strip, which the solid path takes;
+     * a segment never draws its end point, so the strip stops short of it. */
+    if( (xmajor ? dy : dx) == 0 ) {
+        if( xmajor ) {
+            m8_fb16_strip( x1 > x0 ? x0 : x1 + 1, y0, x1 > x0 ? x1 : x0 + 1, y0 + 1, clip );
+        } else {
+            m8_fb16_strip( x0, y1 > y0 ? y0 : y1 + 1, x0 + 1, y1 > y0 ? y1 : y0 + 1, clip );
+        }
+        return;
+    }
+    for( m = lo; m <= hi; m += M8_FB16_SEG ) {
+        a = m;
+        b = m + M8_FB16_SEG - 1 < hi ? m + M8_FB16_SEG - 1 : hi;
+        /* The minor coordinate at both ends of the strip, rounded down. */
+        if( xmajor ) {
+            m0 = dx == 0 ? y0 : y0 + (a - x0) * dy / dx;
+            m1 = dx == 0 ? y0 : y0 + (b - x0) * dy / dx;
+        } else {
+            m0 = dy == 0 ? x0 : x0 + (a - y0) * dx / dy;
+            m1 = dy == 0 ? x0 : x0 + (b - y0) * dx / dy;
+        }
+        if( m0 > m1 ) {
+            long k = m0;
+            m0 = m1;
+            m1 = k;
+        }
+        if( (xmajor ? dy : dx) != 0 ) {
+            --m0;
+            m1 += 1;
+        }
+        if( xmajor ) {
+            m8_fb16_strip( (int)a, (int)m0, (int)b + 1, (int)m1 + 1, clip );
+        } else {
+            m8_fb16_strip( (int)m0, (int)a, (int)m1 + 1, (int)b + 1, clip );
+        }
+    }
+}
+
 WORD m8_fb16_output( LPPDEVICE lpDestDev, WORD wStyle, WORD wCount, LPPOINT lpPoints,
                      LPPPEN lpPPen, LPPBRUSH lpPBrush, LPDRAWMODE lpDrawMode,
                      LPRECT lpClipRect )
@@ -472,6 +545,20 @@ WORD m8_fb16_output( LPPDEVICE lpDestDev, WORD wStyle, WORD wCount, LPPOINT lpPo
     WORD    rc;
     WORD    i;
 
+    if( wStyle == OS_POLYLINE && lpPoints != NULL && wCount >= 2 && m8_fb16_depth == 0 &&
+        (LPVOID)lpDestDev == (LPVOID)m8_fb16_dev ) {
+        /* Nothing marked while the DIB Engine draws; the strips go after. */
+        m8_fb16_lim.l = m8_fb16_lim.r = 0;
+        m8_fb16_lim_on = 1;
+        rc = DIB_Output( lpDestDev, wStyle, wCount, lpPoints, lpPPen, lpPBrush, lpDrawMode,
+                         lpClipRect );
+        m8_fb16_lim_on = 0;
+        for( i = 1; i < wCount; ++i ) {
+            m8_fb16_segment( lpPoints[i - 1].xcoord, lpPoints[i - 1].ycoord, lpPoints[i].xcoord,
+                             lpPoints[i].ycoord, lpClipRect );
+        }
+        return( rc );
+    }
     if( lpPoints != NULL && wCount > 0 && wStyle != OS_SCANLINES && wStyle != OS_POLYMARKER &&
         wStyle != OS_BEGINNSCAN && wStyle != OS_ENDNSCAN ) {
         m8_fb16_lim.l = m8_fb16_lim.r = lpPoints[0].xcoord;
