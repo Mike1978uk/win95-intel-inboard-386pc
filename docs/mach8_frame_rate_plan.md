@@ -254,7 +254,10 @@ pixels checked in the bed first (the bed has no POLY_MODE via LINEDRAW: fill pix
 ## Order of work
 
 1. Phase 0 probes (one sitting).
-2. T1 (small, fixes what the owner saw) and F1 (one line).
-3. D1-D2 (Direct3D, windowed, at 8 bpp).
-4. F2-F3, then B1 and T2 (full screen at both depths).
-5. Phase 5 asm as each lever lands; Phase 6 alongside, one technique per sitting.
+2. T1 on the card (owner watches M8CUBE with and without `v`), then F1 (one line).
+3. One scoreboard script: M8CUBE, M8DDB, M8BENCH, twice each, against the baseline.
+4. P6 in the bed (does D3D take an 8-bit HAL?): it decides D1's shape.
+5. A1 asm emitters, measured by M8CUBE faces/s (owner: asm before Direct3D; D3D sits on them).
+6. D1-D2 (Direct3D, windowed, at 8 bpp).
+7. F2-F3, then B1 and T2 (full screen at both depths).
+8. The rest of Phase 5 as each lever lands; Phase 6 alongside, one technique per sitting.
