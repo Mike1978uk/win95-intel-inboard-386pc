@@ -396,3 +396,5 @@ no aperture), DDC, ignoring WAIT flags/vblank (none of them in the path), our ow
 audit (order: graphics, storage, network+sound; input in it), #58 DirectX (DirectDraw/Sound/3D/Input).
 
 **Still to run on the card:** M8CUBE at 800x600x8 (import `M8FB8S.REG`), owner photo; M8VGAW.
+
+**M8CUBE on the card (800x600x8, boot 188):** 3 cubes, 90 s: 10,937 frames, 121.5 fps, 944 faces/s, back buffer at row 632, no refusals. Owner filmed it; picture correctness is the owner's call from the film. Card left at 800x600x8 (restore 16 bpp: import FB800 settings, restart).
