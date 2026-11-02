@@ -44,6 +44,19 @@ static WORD             m8_fb16_sel;
 static LPDIBENGINE      m8_fb16_dev;
 static int              m8_fb16_depth;  /* access calls open */
 
+/* What the card shows, as fingerprints of the frame buffer: one per
+ * M8_FB16_SEG_W pixels of each row, taken when that piece was last sent, 0
+ * where the card may differ (a fill or copy it drew itself, or nothing sent
+ * yet). A send skips the pieces whose fingerprint has not changed: hashing a
+ * pixel costs the CPU a few cycles, sending it 3.8 us of bus. */
+#define M8_FB16_SEG_W   32
+static HGLOBAL          m8_fb16_hmem;
+static DWORD FAR        *m8_fb16_hash;  /* rows x m8_fb16_nseg */
+static int              m8_fb16_nseg;
+
+extern DWORD M8_FB16_HASH( WORD sel, DWORD off, WORD dwords );
+#pragma aux M8_FB16_HASH "*" parm [dx] [cx bx] [si] value [dx ax] modify [bx cx si];
+
 /* What the open calls touched: a few rectangles, so a copy's source and
  * destination are not sent as the box around both. */
 #define M8_FB16_DIRTY   4
@@ -305,6 +318,64 @@ static void m8_fb16_row_ref( BYTE FAR *dst, int y, int l, int r )
     }
 }
 
+/* The pieces under l, t .. r, b no longer known to match the card. */
+static void m8_fb16_forget( int l, int t, int r, int b )
+{
+    int y;
+    int s;
+    int s0;
+    int s1;
+
+    if( m8_fb16_hash == NULL ) {
+        return;
+    }
+    if( l < 0 ) l = 0;
+    if( t < 0 ) t = 0;
+    if( r > m8_scr_x ) r = m8_scr_x;
+    if( b > m8_scr_y ) b = m8_scr_y;
+    if( r <= l || b <= t ) {
+        return;
+    }
+    s0 = l / M8_FB16_SEG_W;
+    s1 = (r - 1) / M8_FB16_SEG_W;
+    for( y = t; y < b; ++y ) {
+        for( s = s0; s <= s1; ++s ) {
+            m8_fb16_hash[(long)y * m8_fb16_nseg + s] = 0;
+        }
+    }
+}
+
+/* Row y's changed span within columns l .. r - 1 (even edges), with the
+ * fingerprints brought up to date: 0 if nothing in it changed. */
+static int m8_fb16_changed( int y, int l, int r, int *cl, int *cr )
+{
+    DWORD FAR   *hp = m8_fb16_hash + (long)y * m8_fb16_nseg;
+    DWORD       base = (DWORD)y * M8_FB16_PITCH;
+    DWORD       h;
+    int         s0 = l / M8_FB16_SEG_W;
+    int         s1 = (r - 1) / M8_FB16_SEG_W;
+    int         first = -1;
+    int         last = -1;
+    int         s;
+
+    for( s = s0; s <= s1; ++s ) {
+        h = M8_FB16_HASH( m8_fb16_sel, base + (DWORD)s * (M8_FB16_SEG_W * 2), M8_FB16_SEG_W / 2 );
+        if( h != hp[s] ) {
+            hp[s] = h;
+            if( first < 0 ) {
+                first = s;
+            }
+            last = s;
+        }
+    }
+    if( first < 0 ) {
+        return( 0 );
+    }
+    *cl = first * M8_FB16_SEG_W > l ? first * M8_FB16_SEG_W : l;
+    *cr = (last + 1) * M8_FB16_SEG_W < r ? (last + 1) * M8_FB16_SEG_W : r;
+    return( 1 );
+}
+
 /* The rectangle to the card, in bands through m8_fb16_band, with the pointer
  * lifted if they overlap. Host transfers carry two pixels a word, so it
  * widens to even columns. */
@@ -326,17 +397,59 @@ static void m8_fb16_send( int l, int t, int r, int b )
         return;
     }
     ++m8_fb16_stat[1];
-    m8_fb16_stat[2] += (DWORD)w * (b - t);
     m8_cur_lift( l, t, r, b );
-    n = (int)(sizeof( m8_fb16_band ) / w);
-    for( y = t; y < b; y += n ) {
-        if( n > b - y ) {
-            n = b - y;
+    if( m8_fb16_hash == NULL ) {
+        m8_fb16_stat[2] += (DWORD)w * (b - t);
+        n = (int)(sizeof( m8_fb16_band ) / w);
+        for( y = t; y < b; y += n ) {
+            if( n > b - y ) {
+                n = b - y;
+            }
+            for( k = 0; k < n; ++k ) {
+                m8_fb16_row( m8_fb16_band + k * w, y + k, l, r );
+            }
+            m8_hw_write_rect( l, y, w, n, m8_fb16_band, (WORD)w );
         }
-        for( k = 0; k < n; ++k ) {
-            m8_fb16_row( m8_fb16_band + k * w, y + k, l, r );
+        m8_leave();
+        return;
+    }
+    /* Rows whose changed span is the same go out together; a row with
+     * nothing changed is skipped. */
+    {
+        int bl = 0;
+        int br = 0;
+        int by = 0;
+        int bn = 0;
+        int cl;
+        int cr;
+
+        for( y = t; y < b; ++y ) {
+            if( !m8_fb16_changed( y, l, r, &cl, &cr ) ) {
+                cl = cr = 0;
+            } else {
+                cl &= ~1;
+                cr = (cr + 1) & ~1;
+            }
+            if( bn > 0 && (cl != bl || cr != br || (bn + 1) * (br - bl) > (int)sizeof( m8_fb16_band )) ) {
+                m8_hw_write_rect( bl, by, br - bl, bn, m8_fb16_band, (WORD)(br - bl) );
+                m8_fb16_stat[2] += (DWORD)(br - bl) * bn;
+                bn = 0;
+            }
+            if( cr <= cl ) {
+                continue;
+            }
+            if( bn == 0 ) {
+                bl = cl;
+                br = cr;
+                by = y;
+            }
+            m8_fb16_row( m8_fb16_band + bn * (br - bl), y, bl, br );
+            ++bn;
         }
-        m8_hw_write_rect( l, y, w, n, m8_fb16_band, (WORD)w );
+        if( bn > 0 ) {
+            m8_hw_write_rect( bl, by, br - bl, bn, m8_fb16_band, (WORD)(br - bl) );
+            m8_fb16_stat[2] += (DWORD)(br - bl) * bn;
+        }
     }
     m8_leave();
 }
@@ -383,6 +496,7 @@ static void m8_fb16_solid( int l, int t, int r, int b )
     for( k = 1; k < bw * bh && blk[(k / bw) * 4 + k % bw] == blk[0]; ++k ) {
     }
     ++m8_fb16_stat[3];
+    m8_fb16_forget( l, t, r, b );
     if( k == bw * bh ) {
         m8_cur_lift( l, t, r, b );
         m8_hw_fill( l, t, w, h, blk[0] );
@@ -508,6 +622,7 @@ void m8_fb16_copy_rect( int sx, int sy, int l, int t, int r, int b )
         sy >= 0 && r <= m8_scr_x && b <= m8_scr_y && sx + w <= m8_scr_x &&
         sy + h <= m8_scr_y ) {
         ++m8_fb16_stat[3];
+        m8_fb16_forget( l, t, r, b );
         m8_cur_lift( l < sx ? l : sx, t < sy ? t : sy, r > sx + w ? r : sx + w,
                      b > sy + h ? b : sy + h );
         m8_hw_copy( sx, sy, l, t, w, h );
@@ -749,6 +864,13 @@ int m8_fb16_alloc( void )
     GlobalSmartPageLock( m8_fb16_mem );
     m8_fb16_sel = FP_SEG( GlobalLock( m8_fb16_mem ) );
     m8_fb16_tables();
+    /* The fingerprints, if memory allows: without them every send is whole. */
+    m8_fb16_nseg = (m8_scr_x + M8_FB16_SEG_W - 1) / M8_FB16_SEG_W;
+    m8_fb16_hmem = GlobalAlloc( GMEM_FIXED | GMEM_ZEROINIT,
+                                (DWORD)m8_scr_y * m8_fb16_nseg * sizeof( DWORD ) );
+    if( m8_fb16_hmem != 0 && (DWORD)m8_scr_y * m8_fb16_nseg * sizeof( DWORD ) < 0x10000UL ) {
+        m8_fb16_hash = (DWORD FAR *)GlobalLock( m8_fb16_hmem );
+    }
     return( 1 );
 }
 
@@ -827,5 +949,6 @@ void m8_fb16_send_all( void )
 {
     m8_hw_set_palette( 0, 256, m8_fb16_pal );
     m8_cur_reset();
+    m8_fb16_forget( 0, 0, m8_scr_x, m8_scr_y );
     m8_fb16_send( 0, 0, m8_scr_x, m8_scr_y );
 }

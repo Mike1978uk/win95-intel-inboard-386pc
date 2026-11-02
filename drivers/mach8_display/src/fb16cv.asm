@@ -15,6 +15,7 @@
 ; +34 8 bytes of scratch for the pattern.
 
 public  M8_FB16_CONV
+public  M8_FB16_HASH
 
 _TEXT   segment para public 'CODE'
 
@@ -160,6 +161,30 @@ advance:
         pop     eax
         ret
 M8_FB16_CONV endp
+
+; M8_FB16_HASH: DX:AX = a fingerprint of SI dwords (SI > 0) at DX:CX:BX
+; (selector DX, 32-bit offset CX:BX), never 0: 0 marks a piece the card may
+; not show as the frame buffer holds it.
+M8_FB16_HASH proc near
+        push    ds
+        mov     ds, dx
+        shl     ecx, 16
+        mov     cx, bx
+        mov     ebx, ecx
+        movzx   ecx, si
+        mov     eax, 811C9DC5h
+hash_dw:
+        rol     eax, 5
+        xor     eax, [ebx]
+        add     ebx, 4
+        dec     ecx
+        jnz     hash_dw
+        or      eax, 1
+        mov     edx, eax
+        shr     edx, 16
+        pop     ds
+        ret
+M8_FB16_HASH endp
 
 _TEXT   ends
 
