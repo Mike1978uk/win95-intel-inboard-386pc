@@ -53,6 +53,7 @@ Run wasm @('-q', "-fo=$Out\switch.obj", "$src\switch.asm")
 Run wasm @('-q', "-fo=$Out\spans.obj", "$src\spans.asm")
 Run wasm @('-q', "-fo=$Out\hash.obj", "$src\hash.asm")
 Run wasm @('-q', "-fo=$Out\xlat.obj", "$src\xlat.asm")
+Run wasm @('-q', "-fo=$Out\fb16cv.obj", "$src\fb16cv.asm")
 Run wasm @('-q', "-fo=$Out\text.obj", "$src\text.asm")
 $aflags = @('-q')
 if ($Trace) { $aflags += '-dM8_TRACE' }
@@ -82,7 +83,7 @@ $lnk = @(
   'segment class ''DATA'' preload fixed',
   "segment '_TEXT' preload fixed shared",
   'disable 2055'
-) + ('enable', 'screen', 'm8hw', 'dd16', 'fb16', 'thunks', 'switch', 'spans', 'hash', 'xlat', 'text', 'pixel', 'blt' | ForEach-Object { "file $Out\$_.obj" }) + @(
+) + ('enable', 'screen', 'm8hw', 'dd16', 'fb16', 'thunks', 'switch', 'spans', 'hash', 'xlat', 'fb16cv', 'text', 'pixel', 'blt' | ForEach-Object { "file $Out\$_.obj" }) + @(
   "library $Out\dibeng.lib",
   "library $Watcom\lib286\win\clibc.lib",
   'import GlobalSmartPageLock KERNEL.230'

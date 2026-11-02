@@ -235,9 +235,52 @@ static void m8_fb16_tables( void )
 
 static WORD m8_fb16_src[M8_FB16_MAXW];
 
+/* fb16cv.asm's row tables: per phase (x & 3), near pointers to that dither
+ * threshold's red, green, blue and grey parts; the cube; pattern scratch. */
+typedef struct {
+    WORD    r[4];
+    WORD    g[4];
+    WORD    b[4];
+    WORD    y[4];
+    WORD    cube;
+    BYTE    pat[8];
+} M8_FB16_CV;
+
+static M8_FB16_CV       m8_fb16_cv;
+static int              m8_fb16_cv_row = -1;    /* the y & 3 m8_fb16_cv is for */
+
+extern void M8_FB16_CONV( WORD src, BYTE FAR *dst, WORD n, WORD cv, WORD phase );
+#pragma aux M8_FB16_CONV "*" parm [si] [es di] [cx] [bx] [dx] modify [ax bx cx dx si di es];
+
 /* Row y, columns l .. r - 1, dithered into dst. A grey stores red = blue =
  * green / 2 (5-bit red and blue, 6-bit green) and takes the grey ramp. */
 static void m8_fb16_row( BYTE FAR *dst, int y, int l, int r )
+{
+    const BYTE  *th;
+    int         k;
+
+    if( r <= l ) {
+        return;
+    }
+    if( m8_fb16_cv_row != (y & 3) ) {
+        th = m8_fb16_bayer[y & 3];
+        for( k = 0; k < 4; ++k ) {
+            m8_fb16_cv.r[k] = FP_OFF( m8_fb16_r[th[k]] );
+            m8_fb16_cv.g[k] = FP_OFF( m8_fb16_g[th[k]] );
+            m8_fb16_cv.b[k] = FP_OFF( m8_fb16_b[th[k]] );
+            m8_fb16_cv.y[k] = FP_OFF( m8_fb16_y[th[k]] );
+        }
+        m8_fb16_cv.cube = FP_OFF( m8_fb16_cube );
+        m8_fb16_cv_row = y & 3;
+    }
+    m8_copy32( m8_fb16_sel, (DWORD)y * M8_FB16_PITCH + (DWORD)l * 2, (BYTE FAR *)m8_fb16_src,
+               (WORD)((r - l) * 2) );
+    M8_FB16_CONV( FP_OFF( m8_fb16_src ), dst, (WORD)(r - l), FP_OFF( &m8_fb16_cv ), l & 3 );
+}
+
+/* The same row a pixel at a time in C: FB16CHK's reference, so the check
+ * does not trust the routine it checks. */
+static void m8_fb16_row_ref( BYTE FAR *dst, int y, int l, int r )
 {
     const BYTE  *th = m8_fb16_bayer[y & 3];
     WORD        *p = m8_fb16_src;
@@ -691,7 +734,7 @@ void m8_fb16_check( DWORD FAR *out )
     out[4] = 0;
     m8_cur_lift( 0, 0, m8_scr_x, m8_scr_y );
     for( y = 0; y < m8_scr_y; ++y ) {
-        m8_fb16_row( (BYTE FAR *)want, y, 0, m8_scr_x );
+        m8_fb16_row_ref( (BYTE FAR *)want, y, 0, m8_scr_x );
         m8_hw_read_rect( 0, y, m8_scr_x, 1, (BYTE FAR *)have, m8_scr_x );
         for( x = 0; x < m8_scr_x; ++x ) {
             if( want[x] != have[x] ) {
