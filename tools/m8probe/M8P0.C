@@ -9,6 +9,9 @@
  *      VERT_SYNC edges, and LINE_SYNC toggles counted between two edges.
  *   V  the V_BLANK latch (SUBSYS_STATUS bit 0) looked at once a millisecond:
  *      frames caught without polling.
+ *   D  DISP_STATUS VERT_SYNC alone in a tight loop: time in each state, so
+ *      the short one is the pulse whatever its polarity.
+ *   W  intervals between V_BLANK latch hits, looked at in a tight loop.
  *   S  "M8P0 s": CRT_OFFSET written mid-frame (owner watches, 5 s). Rows
  *      600-1023 are filled with bars; each frame the offset is set to 0 at
  *      VERT_SYNC and to row 624 halfway down (by LINE_SYNC count). A steady
@@ -285,6 +288,73 @@ static void arm_v( void )
     printf( "V V_BLANK latch: %ld frames in 1 s from %ld looks\n", hits, looks );
 }
 
+/* ---- D ---- */
+
+/* DISP_STATUS alone in a tight loop for 1 s: the time spent in each state of
+ * VERT_SYNC (bit 1), so the short state is the pulse whatever its polarity,
+ * and the number of pulses a second is the refresh. */
+static void arm_d( void )
+{
+    double  t0 = now_us();
+    double  t = t0;
+    double  edge = t0;
+    double  len[2] = { 0.0, 0.0 };
+    long    cnt[2] = { 0, 0 };
+    double  shortest[2] = { 1e9, 1e9 };
+    long    n = 0;
+    int     v = (inpw( 0x02E8 ) & 2) != 0;
+    int     w;
+
+    do {
+        w = (inpw( 0x02E8 ) & 2) != 0;
+        ++n;
+        if( w != v ) {
+            t = now_us();
+            len[v] += t - edge;
+            ++cnt[v];
+            if( t - edge < shortest[v] ) {
+                shortest[v] = t - edge;
+            }
+            edge = t;
+            v = w;
+        } else if( (n & 63) == 0 ) {
+            t = now_us();
+        }
+    } while( t - t0 < 1e6 );
+    printf( "D VERT_SYNC=0: %ld spans, mean %.0f us, min %.0f | =1: %ld spans, mean %.0f us, min %.0f | %ld reads\n",
+            cnt[0], cnt[0] ? len[0] / cnt[0] : 0.0, shortest[0],
+            cnt[1], cnt[1] ? len[1] / cnt[1] : 0.0, shortest[1], n );
+}
+
+/* ---- W ---- */
+
+/* The V_BLANK latch looked at in a tight loop, cleared on each hit: the
+ * intervals between hits, to see what sets it. */
+static void arm_w( void )
+{
+    double  hit[33];
+    double  t0 = now_us();
+    double  t = t0;
+    int     k = 0;
+    int     i;
+
+    outpw( 0x42E8, 0x0001 );
+    while( k < 33 && t - t0 < 2e6 ) {
+        if( inpw( 0x42E8 ) & 1 ) {
+            t = now_us();
+            hit[k++] = t;
+            outpw( 0x42E8, 0x0001 );
+        } else {
+            t = now_us();
+        }
+    }
+    printf( "W V_BLANK hits, intervals us:" );
+    for( i = 1; i < k; ++i ) {
+        printf( " %.0f", hit[i] - hit[i - 1] );
+    }
+    printf( "\n" );
+}
+
 /* ---- S ---- */
 
 static void offset( long px )
@@ -380,6 +450,8 @@ int main( int argc, char **argv )
     printf( "O one IN (EXT_FIFO_STATUS)    %8.2f us\n", best3( o_in ) );
     arm_h();
     arm_v();
+    arm_d();
+    arm_w();
     if( argc > 1 && argv[1][0] == 's' ) {
         arm_s();
     }
