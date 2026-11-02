@@ -2,7 +2,7 @@
  *
  * Copyright (c) 2026 the win95-intel-inboard-386pc project. GPL-3.0-or-later.
  *
- * The Mach8 shows 256 colours. In this mode GDI sees a 640x480 5-6-5 frame
+ * The Mach8 shows 256 colours. In this mode GDI sees a 640x480 or 800x600 5-6-5 frame
  * buffer in RAM, drawn by the DIB Engine as any frame buffer; the screen
  * device lacks NOT_FRAMEBUFFER and is not m8_hot.screen, so every entry in
  * screen.c, blt.asm and pixel.asm passes it to the DIB Engine as it would a
@@ -29,9 +29,8 @@ UINT WINAPI GlobalSmartPageLock( HGLOBAL hglb );
 static void m8_copy32( WORD sel, DWORD off, BYTE FAR *dst, WORD n );
 #pragma aux m8_copy32 =     ".386"     "push ds"     "mov ds, dx"     "shl ecx, 16"     "mov cx, bx"     "mov esi, ecx"     "movzx ecx, ax"     "movzx edi, di"     "cld"     "db 67h, 0F3h, 0A4h"     "pop ds"     parm [dx] [cx bx] [es di] [ax] modify [cx si di];
 
-#define M8_FB16_W       640
-#define M8_FB16_H       480
-#define M8_FB16_PITCH   (M8_FB16_W * 2)
+#define M8_FB16_MAXW    800         /* the widest 16 bpp mode */
+#define M8_FB16_PITCH   ((DWORD)m8_scr_x * 2)
 
 int                     m8_fb16;        /* this session's screen is 16 bpp */
 RGBQUAD                 m8_fb16_pal[256];
@@ -230,7 +229,7 @@ static void m8_fb16_tables( void )
     }
 }
 
-static WORD m8_fb16_src[M8_FB16_W];
+static WORD m8_fb16_src[M8_FB16_MAXW];
 
 /* Row y, columns l .. r - 1, dithered into dst. A grey stores red = blue =
  * green / 2 (5-bit red and blue, 6-bit green) and takes the grey ramp. */
@@ -271,8 +270,8 @@ static void m8_fb16_send( int l, int t, int r, int b )
 
     if( l < 0 ) l = 0;
     if( t < 0 ) t = 0;
-    if( r > M8_FB16_W ) r = M8_FB16_W;
-    if( b > M8_FB16_H ) b = M8_FB16_H;
+    if( r > m8_scr_x ) r = m8_scr_x;
+    if( b > m8_scr_y ) b = m8_scr_y;
     l &= ~1;
     r = (r + 1) & ~1;
     w = r - l;
@@ -458,7 +457,7 @@ int m8_fb16_alloc( void )
         return( 1 );
     }
     m8_fb16_mem = GlobalAlloc( GMEM_FIXED | GMEM_SHARE | GMEM_ZEROINIT,
-                               (DWORD)M8_FB16_PITCH * M8_FB16_H );
+                               (DWORD)M8_FB16_PITCH * m8_scr_y );
     if( m8_fb16_mem == 0 ) {
         return( 0 );
     }
@@ -476,8 +475,8 @@ void m8_fb16_device( LPDIBENGINE dev, LPBITMAPINFO info )
 
     _fmemset( &info->bmiHeader, 0, sizeof( info->bmiHeader ) );
     info->bmiHeader.biSize = sizeof( info->bmiHeader );
-    info->bmiHeader.biWidth = M8_FB16_W;
-    info->bmiHeader.biHeight = M8_FB16_H;
+    info->bmiHeader.biWidth = m8_scr_x;
+    info->bmiHeader.biHeight = m8_scr_y;
     info->bmiHeader.biPlanes = 1;
     info->bmiHeader.biBitCount = 16;
     info->bmiHeader.biCompression = BI_BITFIELDS;
@@ -487,8 +486,8 @@ void m8_fb16_device( LPDIBENGINE dev, LPBITMAPINFO info )
 
     dev->deType = TYPE_DIBENG;
     dev->deFlags = MINIDRIVER | VRAM | FIVE6FIVE;
-    dev->deWidth = M8_FB16_W;
-    dev->deHeight = M8_FB16_H;
+    dev->deWidth = m8_scr_x;
+    dev->deHeight = m8_scr_y;
     dev->deWidthBytes = M8_FB16_PITCH;
     dev->deDeltaScan = M8_FB16_PITCH;
     dev->dePlanes = 1;
@@ -511,20 +510,20 @@ void m8_fb16_device( LPDIBENGINE dev, LPBITMAPINFO info )
 void m8_fb16_check( DWORD FAR *out )
 {
     BYTE    *want = m8_fb16_band;
-    BYTE    *have = m8_fb16_band + M8_FB16_W;
+    BYTE    *have = m8_fb16_band + m8_scr_x;
     int     x;
     int     y;
 
     out[0] = 0;
-    out[1] = M8_FB16_W;
-    out[2] = M8_FB16_H;
+    out[1] = m8_scr_x;
+    out[2] = m8_scr_y;
     out[3] = 0;
     out[4] = 0;
-    m8_cur_lift( 0, 0, M8_FB16_W, M8_FB16_H );
-    for( y = 0; y < M8_FB16_H; ++y ) {
-        m8_fb16_row( (BYTE FAR *)want, y, 0, M8_FB16_W );
-        m8_hw_read_rect( 0, y, M8_FB16_W, 1, (BYTE FAR *)have, M8_FB16_W );
-        for( x = 0; x < M8_FB16_W; ++x ) {
+    m8_cur_lift( 0, 0, m8_scr_x, m8_scr_y );
+    for( y = 0; y < m8_scr_y; ++y ) {
+        m8_fb16_row( (BYTE FAR *)want, y, 0, m8_scr_x );
+        m8_hw_read_rect( 0, y, m8_scr_x, 1, (BYTE FAR *)have, m8_scr_x );
+        for( x = 0; x < m8_scr_x; ++x ) {
             if( want[x] != have[x] ) {
                 ++out[0];
                 if( x < (int)out[1] ) out[1] = x;
@@ -543,5 +542,5 @@ void m8_fb16_send_all( void )
 {
     m8_hw_set_palette( 0, 256, m8_fb16_pal );
     m8_cur_reset();
-    m8_fb16_send( 0, 0, M8_FB16_W, M8_FB16_H );
+    m8_fb16_send( 0, 0, m8_scr_x, m8_scr_y );
 }

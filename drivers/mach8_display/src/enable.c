@@ -90,8 +90,8 @@ static WORD m8_int2f_get_vm( unsigned ax );
 #pragma aux m8_int2f_get_vm = "int 2Fh" parm [ax] value [bx];
 
 /* The resolution and colour depth Display Properties chose, from the VDD;
- * 800x600 at 8 bpp if it says nothing we can show. 16 bpp is 640x480 only
- * (fb16.c). */
+ * 800x600 at 8 bpp if it says nothing we can show. 16 bpp is 640x480 or
+ * 800x600 (fb16.c). */
 static void m8_read_mode( void )
 {
     M8_DISPLAYINFO  di;
@@ -109,7 +109,9 @@ static void m8_read_mode( void )
             }
         }
         if( di.diBpp == 16 ) {
-            m8_mode = M8_MODE_640;
+            if( m8_mode != M8_MODE_800 ) {
+                m8_mode = M8_MODE_640;
+            }
             m8_fb16 = 1;
         }
     }
@@ -516,7 +518,7 @@ UINT WINAPI __loadds ReEnable( LPVOID lpDevice, LPGDIINFO lpInfo )
     return( rc ? 1 : 0 );
 }
 
-/* 640x480, 800x600 and 1024x768 at 8 bpp; 640x480 at 16 bpp (fb16.c). */
+/* 640x480, 800x600 and 1024x768 at 8 bpp; 640x480 and 800x600 at 16 bpp (fb16.c). */
 UINT WINAPI __loadds ValidateMode( DISPVALMODE FAR *lpMode )
 {
     int i;
@@ -530,7 +532,8 @@ UINT WINAPI __loadds ValidateMode( DISPVALMODE FAR *lpMode )
     M8_STEP( lpMode->dvmBpp );
     M8_STEP( lpMode->dvmXRes );
     M8_STEP( lpMode->dvmYRes );
-    if( lpMode->dvmBpp == 16 && lpMode->dvmXRes == 640 && lpMode->dvmYRes == 480 ) {
+    if( lpMode->dvmBpp == 16 && ((lpMode->dvmXRes == 640 && lpMode->dvmYRes == 480) ||
+                                  (lpMode->dvmXRes == 800 && lpMode->dvmYRes == 600)) ) {
         M8_STEP( 0xA071 );
         return( VALMODE_YES );
     }

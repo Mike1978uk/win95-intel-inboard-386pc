@@ -231,7 +231,7 @@ extern LONG m8dd_command( LPVOID lpInput, LPVOID lpOutput );
 extern void m8_dd_heap( int *top, int *rows );
 extern void m8_dd_lend( int on );
 
-/* fb16.c: the 640x480 16 bpp mode, a frame buffer in RAM shown dithered. */
+/* fb16.c: the 16 bpp modes (640x480, 800x600), a frame buffer in RAM shown dithered. */
 extern int     m8_fb16;
 extern RGBQUAD m8_fb16_pal[256];
 extern DWORD   m8_fb16_stat[4];
