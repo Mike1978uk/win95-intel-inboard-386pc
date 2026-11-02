@@ -370,3 +370,29 @@ build carries it; demo not yet run on the card). Card is on `m8oaat.drv`, 800x60
 mixing, higher latency, no hardware buffers); a DirectSound HAL would need our own driver (worklist S).
 
 **Roadmap issues:** cross-driver audit (https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/57), DirectX on the 5160 (https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/58).
+
+## Final, 2026-11-02 (start the next session here)
+
+**dxdiag on `m8oaat`: tests 1-3 pass (owner); test 3 still slow.**
+
+**Where a full-screen 16 bpp frame goes (card, M8DDB `fs16`, 2 runs):** `mx_lock` (lock + unlock whole
+screen, nothing written) 64 ms; `mx_same` (whole screen written, nothing changed) 138-152 ms; `mx_box` 160-201 ms.
+So: the program's own 600 KB write ~75-85 ms (RAM writes ~7.5 MB/s on the Inboard), our unlock's whole-screen
+read (fingerprints + `m8_fb16_uniform` scan) 64 ms, sends the rest. ati.vxd is not in this path.
+
+**Consequences for lever (a), HAL Flip:** a whole-frame compare reads 1.2 MB, about what it saves; only
+removing DirectDraw's 600 KB copy is a real gain (~80 ms). Cheaper first steps, in order:
+1. `m8_fb16_flush`: skip `m8_fb16_uniform` above a size (it scans up to the first non-uniform row of a
+   full-screen unlock). Measure mx_lock.
+2. Unlock of the whole primary: read each piece once (fingerprint only; no second scan); ROWDIFF over a
+   whole rect in one asm call (fewer far calls per row).
+3. Flip HAL so DirectDraw does not copy the back buffer: then the program's write is the only full pass.
+4. 8 bpp full screen (lever b) avoids RAM entirely for engine-drawn games: the faster route for games.
+Rejected tonight (owner asked): RefreshRate key, MODES refresh subkeys, SciTech linear mapping (Mach8 has
+no aperture), DDC, ignoring WAIT flags/vblank (none of them in the path), our own mini-VDD for speed
+(RAM/interrupts only: #57).
+
+**Issues posted:** #54 hash lessons, #55 16 bpp restart hang, #56 hang while screenshotting, #57 cross-driver
+audit (order: graphics, storage, network+sound; input in it), #58 DirectX (DirectDraw/Sound/3D/Input).
+
+**Still to run on the card:** M8CUBE at 800x600x8 (import `M8FB8S.REG`), owner photo; M8VGAW.

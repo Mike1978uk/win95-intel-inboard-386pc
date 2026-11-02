@@ -451,6 +451,27 @@ static HRESULT t_mx_box( int i )
     return( prim->lpVtbl->Unlock( prim, sd.lpSurface ) );
 }
 
+/* mx_box's frame with nothing moving: what finding no change costs. */
+static HRESULT t_mx_same( int i )
+{
+    return( t_mx_box( 0 ) );
+}
+
+/* A lock of the whole screen and its unlock, nothing written: the fixed cost. */
+static HRESULT t_mx_lock( int i )
+{
+    DDSURFACEDESC   sd;
+    HRESULT         res;
+
+    memset( &sd, 0, sizeof( sd ) );
+    sd.dwSize = sizeof( sd );
+    res = prim->lpVtbl->Lock( prim, NULL, &sd, DDLOCK_WAIT, NULL );
+    if( res != DD_OK ) {
+        return( res );
+    }
+    return( prim->lpVtbl->Unlock( prim, sd.lpSurface ) );
+}
+
 /* FNV-1a over the whole Mode X screen, read through a lock. */
 static unsigned long mx_hash( void )
 {
@@ -576,6 +597,8 @@ static int modex( const char *label )
         mx_run( "mx_fill", t_mx_fill, 4 );
         mx_run( "mx_frame", t_mx_frame, 2 );
         mx_run( "mx_box", t_mx_box, 4 );
+        mx_run( "mx_same", t_mx_same, 2 );
+        mx_run( "mx_lock", t_mx_lock, 2 );
         prim->lpVtbl->Release( prim );
     }
     res = dd->lpVtbl->RestoreDisplayMode( dd );
