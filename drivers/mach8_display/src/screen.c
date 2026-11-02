@@ -4217,12 +4217,9 @@ static BYTE         m8_gc_bits[M8_GC_MAX_WB * M8_GC_MAX_H + 1];    /* + M8_GLYPH
 extern void M8_GLYPH_OR( BYTE FAR *dst, const BYTE FAR *src, WORD stride_shift, WORD rows_gwb );
 #pragma aux M8_GLYPH_OR "*" parm [dx ax] [cx bx] [si] [di] modify [ax bx cx dx si di es fs];
 
-/* An opaque rectangle can come without ETO_OPAQUE in the options (list view
- * labels: transparent text on a highlight box); this path has no fill for it. */
-static int m8_gc_plain( LPDRAWMODE dm, LPVOID box, WORD options, LPRECT opaque )
+static int m8_gc_plain( LPDRAWMODE dm, LPVOID box, WORD options )
 {
-    return( options == M8_ETO_BYTE_PACKED && box != NULL && opaque == NULL &&
-            dm->CharExtra == 0 &&
+    return( options == M8_ETO_BYTE_PACKED && box != NULL && dm->CharExtra == 0 &&
             dm->TBreakExtra == 0 && (dm->bkMode == 1 || dm->bkMode == 2) );
 }
 
@@ -4326,16 +4323,23 @@ static int m8_gc_glyph( const M8_GCFONT *e, BYTE idx, int gx, int gy, WORD wb, i
 }
 
 /* k: the text key's slot when the string has been seen before; the bitmap
- * then goes into the string cache and the slot, as a capture would. */
+ * then goes into the string cache and the slot, as a capture would.
+ * lpOpaque: filled with the background colour first, clipped as the text is.
+ * GDI passes it without ETO_OPAQUE in the options (list view labels:
+ * transparent text on the highlight box), so it is drawn whenever present. */
 static int m8_gc_text( int x0, int y0, LPRECT lpClip, LPSTR str, int n, LPVOID font,
-                       LPDRAWMODE dm, LPRECT lpBox, LPSHORT widths, DWORD *rc,
-                       M8_TKENTRY *k, DWORD h1, DWORD h2 )
+                       LPDRAWMODE dm, LPRECT lpBox, LPSHORT widths, LPRECT lpOpaque,
+                       DWORD *rc, M8_TKENTRY *k, DWORD h1, DWORD h2 )
 {
     M8_GCFONT       *e;
     const BYTE FAR  *fs;
     DWORD           adv;
     M8_RECT         frame;
     M8_RECT         box;
+    M8_RECT         fill;
+    M8_RECT         part[4];
+    int             np;
+    int             trans;
     M8_RECT         c;
     WORD            wb;
     int             h;
@@ -4371,17 +4375,46 @@ static int m8_gc_text( int x0, int y0, LPRECT lpClip, LPSTR str, int n, LPVOID f
              *(const short FAR *)(fs + (WORD)adv + (BYTE)str[i] * 2);
     }
     box = frame;
+    m8_rect_set( &fill, 0, 0, 0, 0 );
+    if( lpOpaque != NULL ) {
+        m8_rect_from_gdi( &fill, lpOpaque );
+    }
     if( lpClip != NULL ) {
         m8_rect_from_gdi( &c, lpClip );
         m8_rect_and( &box, &c );
+        m8_rect_and( &fill, &c );
+    }
+    *rc = e->rc;
+    /* Inside the box the text is drawn opaque, as the DIB Engine does: the
+     * box then costs only its strips outside the text, usually none. */
+    np = 0;
+    trans = dm->bkMode == 1;
+    if( !m8_rect_empty( &fill ) ) {
+        if( !m8_rect_empty( &box ) && box.l >= fill.l && box.t >= fill.t && box.r <= fill.r &&
+            box.b <= fill.b ) {
+            trans = 0;
+            if( box.t > fill.t ) {
+                m8_rect_set( &part[np++], fill.l, fill.t, fill.r, box.t );
+            }
+            if( box.b < fill.b ) {
+                m8_rect_set( &part[np++], fill.l, box.b, fill.r, fill.b );
+            }
+            if( box.l > fill.l ) {
+                m8_rect_set( &part[np++], fill.l, box.t, box.l, box.b );
+            }
+            if( box.r < fill.r ) {
+                m8_rect_set( &part[np++], box.r, box.t, fill.r, box.b );
+            }
+        } else {
+            part[np++] = fill;
+        }
     }
     m8_rect_screen( &c );
     m8_rect_and( &box, &c );
-    *rc = e->rc;
     if( m8_rect_empty( &box ) ) {
-        return( 1 );
+        k = NULL;
     }
-    if( k != NULL ) {
+    if( k != NULL && np <= M8_TK_RECTS ) {
         M8_SCENTRY *se = m8_sc_get( m8_gc_bits, wb, (WORD)h, 1 );
 
         if( se != NULL ) {
@@ -4390,13 +4423,19 @@ static int m8_gc_text( int x0, int y0, LPRECT lpClip, LPSTR str, int n, LPVOID f
             k->by = frame.t - y0;
             k->wb = wb;
             k->h = (WORD)h;
-            k->flags = dm->bkMode == 1 ? 1 : 0;
+            k->flags = trans ? 1 : 0;
             k->clip = 1;
             k->crect.left = box.l - x0;
             k->crect.top = box.t - y0;
             k->crect.right = box.r - x0;
             k->crect.bottom = box.b - y0;
-            k->nrect = 0;
+            k->nrect = np;
+            for( i = 0; i < np; ++i ) {
+                k->rect[i].left = part[i].l - x0;
+                k->rect[i].top = part[i].t - y0;
+                k->rect[i].right = part[i].r - x0;
+                k->rect[i].bottom = part[i].b - y0;
+            }
             k->rc = e->rc;
             k->h1 = h1;
             k->h2 = h2;
@@ -4405,11 +4444,22 @@ static int m8_gc_text( int x0, int y0, LPRECT lpClip, LPSTR str, int n, LPVOID f
             return( 1 );
         }
     }
-    m8_enter( &box );
-    m8_hw_mono( frame.l, frame.t, wb, (WORD)h, m8_gc_bits,
-                M8_MIX_SRC_FRGD | M8_MIX_REPLACE, (BYTE)dm->TextColor,
-                dm->bkMode == 1 ? M8_MIX_LEAVE : M8_MIX_SRC_BKGD | M8_MIX_REPLACE,
-                (BYTE)dm->bkColor, box.l, box.t, box.r - 1, box.b - 1 );
+    m8_busy = 1;
+    for( i = 0; i < np; ++i ) {
+        m8_rect_and( &part[i], &c );
+        if( !m8_rect_empty( &part[i] ) ) {
+            m8_exclude( &part[i] );
+            m8_hw_fill( part[i].l, part[i].t, part[i].r - part[i].l, part[i].b - part[i].t,
+                        (BYTE)dm->bkColor );
+        }
+    }
+    if( !m8_rect_empty( &box ) ) {
+        m8_exclude( &box );
+        m8_hw_mono( frame.l, frame.t, wb, (WORD)h, m8_gc_bits,
+                    M8_MIX_SRC_FRGD | M8_MIX_REPLACE, (BYTE)dm->TextColor,
+                    trans ? M8_MIX_LEAVE : M8_MIX_SRC_BKGD | M8_MIX_REPLACE,
+                    (BYTE)dm->bkColor, box.l, box.t, box.r - 1, box.b - 1 );
+    }
     m8_leave();
     return( 1 );
 }
@@ -4494,10 +4544,11 @@ DWORD WINAPI __loadds ExtTextOut( LPPDEVICE lpDestDev, WORD wDestXOrg, WORD wDes
             m8_tk_bg = (BYTE)lpDrawMode->bkColor;
             m8_tk_bad = 0;
             m8_tk_bitmaps = 0;
-            gc = m8_gc_plain( lpDrawMode, lpTextXForm, wOptions, lpOpaqueRect );
+            gc = m8_gc_plain( lpDrawMode, lpTextXForm, wOptions );
             if( gc &&
                 m8_gc_text( (short)wDestXOrg, (short)wDestYOrg, lpClipRect, lpString, wCount,
-                            lpFontInfo, lpDrawMode, (LPRECT)lpTextXForm, lpCharWidths, &rc,
+                            lpFontInfo, lpDrawMode, (LPRECT)lpTextXForm, lpCharWidths,
+                            lpOpaqueRect, &rc,
                             m8_tk_first ? NULL : k, h1, h2 ) ) {
                 m8_tk_first = 0;
                 return( rc );
