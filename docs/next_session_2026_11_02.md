@@ -359,11 +359,12 @@ build carries it; demo not yet run on the card). Card is on `m8oaat.drv`, 800x60
    c. 386 page Dirty bits via a small VxD (DDK toolchain as custom_vkd) for sparse writers.
 4. Move remaining C hot loops to asm once each lever is proven (owner: "tight, asm").
 
-**Draft issues for other drivers (owner to approve wording; not posted):**
+**Issues for other drivers (posted):**
 - Change detection by hash: a linear hash (rotate-XOR, rotate-add) misses structured changes; `| 1`
   to reserve 0 loses a bit; on a 486 an IMUL per dword dominates. Audit any driver that fingerprints.
-- 16 bpp restart path hangs (hourglass, SB tone looping): check SB Pro driver + display Disable order.
-- Agent-driven screenshots during DirectDraw tests may hang the card: check SCRGRAB vs Win16 lock.
+  (https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/54)
+- 16 bpp restart path hangs (hourglass, SB tone looping): check SB Pro driver + display Disable order. (https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/55)
+- Agent-driven screenshots during DirectDraw tests may hang the card: check SCRGRAB vs Win16 lock. (https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/56)
 
 **SB Pro and DirectSound:** works through DirectSound's emulation on the ordinary wave driver (CPU
 mixing, higher latency, no hardware buffers); a DirectSound HAL would need our own driver (worklist S).
