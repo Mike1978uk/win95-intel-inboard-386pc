@@ -33,7 +33,8 @@ static void m8_copy32( WORD sel, DWORD off, BYTE FAR *dst, WORD n );
 static int m8_fb16_same( WORD sel, DWORD off, WORD n, WORD v );
 #pragma aux m8_fb16_same = ".386" "push es" "mov es, dx" "shl ecx, 16" "mov cx, bx" "mov edi, ecx" "movzx ecx, si" "cld" "db 67h, 0F3h, 0AFh" "setz al" "mov ah, 0" "pop es" parm [dx] [cx bx] [si] [ax] value [ax] modify [cx di];
 
-#define M8_FB16_MAXW    800         /* the widest 16 bpp mode */
+#define M8_FB16_MAXW    800         /* the largest 16 bpp mode */
+#define M8_FB16_MAXH    600
 #define M8_FB16_PITCH   ((DWORD)m8_scr_x * 2)
 
 int                     m8_fb16;        /* this session's screen is 16 bpp */
@@ -856,8 +857,10 @@ int m8_fb16_alloc( void )
     if( m8_fb16_sel != 0 ) {
         return( 1 );
     }
+    /* Sized for the largest 16 bpp mode, so a resolution change reuses it:
+     * DirectDraw holds its linear address. */
     m8_fb16_mem = GlobalAlloc( GMEM_FIXED | GMEM_SHARE | GMEM_ZEROINIT,
-                               (DWORD)M8_FB16_PITCH * m8_scr_y );
+                               (DWORD)M8_FB16_MAXW * 2 * M8_FB16_MAXH );
     if( m8_fb16_mem == 0 ) {
         return( 0 );
     }
@@ -865,10 +868,10 @@ int m8_fb16_alloc( void )
     m8_fb16_sel = FP_SEG( GlobalLock( m8_fb16_mem ) );
     m8_fb16_tables();
     /* The fingerprints, if memory allows: without them every send is whole. */
-    m8_fb16_nseg = (m8_scr_x + M8_FB16_SEG_W - 1) / M8_FB16_SEG_W;
+    m8_fb16_nseg = M8_FB16_MAXW / M8_FB16_SEG_W;
     m8_fb16_hmem = GlobalAlloc( GMEM_FIXED | GMEM_ZEROINIT,
-                                (DWORD)m8_scr_y * m8_fb16_nseg * sizeof( DWORD ) );
-    if( m8_fb16_hmem != 0 && (DWORD)m8_scr_y * m8_fb16_nseg * sizeof( DWORD ) < 0x10000UL ) {
+                                (DWORD)M8_FB16_MAXH * m8_fb16_nseg * sizeof( DWORD ) );
+    if( m8_fb16_hmem != 0 && (DWORD)M8_FB16_MAXH * m8_fb16_nseg * sizeof( DWORD ) < 0x10000UL ) {
         m8_fb16_hash = (DWORD FAR *)GlobalLock( m8_fb16_hmem );
     }
     return( 1 );

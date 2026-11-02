@@ -517,8 +517,9 @@ UINT WINAPI __loadds ReEnable( LPVOID lpDevice, LPGDIINFO lpInfo )
     UINT    rc;
 
     m8_read_mode();
-    /* The colour depth changes only at a restart. */
-    if( m8_fb16 != old_fb16 || m8_fb16 ) {
+    /* The colour depth changes only at a restart; the size at 16 bpp does not
+     * (the frame buffer is sized for the largest mode). */
+    if( m8_fb16 != old_fb16 ) {
         m8_mode = old;
         m8_fb16 = old_fb16;
         m8_hw_mode_size( m8_mode, &m8_scr_x, &m8_scr_y );
@@ -530,6 +531,7 @@ UINT WINAPI __loadds ReEnable( LPVOID lpDevice, LPGDIINFO lpInfo )
     rc = Enable( lpDevice, 0, NULL, NULL, NULL );
     if( rc ) {
         Enable( lpInfo, 1, NULL, NULL, NULL );
+        m8dd_mode_changed();
     } else {
         m8_mode = old;
         m8_hw_mode_size( m8_mode, &m8_scr_x, &m8_scr_y );

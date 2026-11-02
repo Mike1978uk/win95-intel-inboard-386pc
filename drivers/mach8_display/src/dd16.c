@@ -269,15 +269,20 @@ static void m8dd_build16( void )
     DDHALINFO_t FAR     *hi = &m8dd->info;
     DDHALMODEINFO_t FAR *m = &m8dd->modes[0];
 
+    int                 i;
+
     m8dd_build( 0 );
-    _fmemset( m, 0, sizeof( *m ) );
-    m->dwWidth = M8_SCREEN_X;
-    m->dwHeight = M8_SCREEN_Y;
-    m->lPitch = M8_SCREEN_X * 2;
-    m->dwBPP = 16;
-    m->dwRBitMask = 0xF800UL;
-    m->dwGBitMask = 0x07E0UL;
-    m->dwBBitMask = 0x001FUL;
+    /* The two 16 bpp sizes: a change between them needs no restart. */
+    for( i = 0; i < 2; ++i, ++m ) {
+        _fmemset( m, 0, sizeof( *m ) );
+        m->dwWidth = i == 0 ? 640 : 800;
+        m->dwHeight = i == 0 ? 480 : 600;
+        m->lPitch = m->dwWidth * 2;
+        m->dwBPP = 16;
+        m->dwRBitMask = 0xF800UL;
+        m->dwGBitMask = 0x07E0UL;
+        m->dwBBitMask = 0x001FUL;
+    }
     m8dd->fb16 = 1;
     m8dd->fb_lin = m8_fb16_lin();
     m8dd->pitch = M8_SCREEN_X * 2;
@@ -309,8 +314,22 @@ static void m8dd_build16( void )
     }
     hi->ddCaps.dwPalCaps = 0;
     hi->ddCaps.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE;
-    hi->dwModeIndex = 0;
-    hi->dwNumModes = 1;
+    hi->dwModeIndex = M8_SCREEN_X == 640 ? 0 : 1;
+    hi->dwNumModes = 2;
+}
+
+/* ReEnable changed the size at 16 bpp: the description is built again for
+ * the new size and handed to DDRAW with bReset set, as the DDK asks after a
+ * mode change; M8DD32 clips and addresses by the block's width and pitch. */
+void m8dd_mode_changed( void )
+{
+    if( m8dd == NULL || !m8dd->fb16 || m8dd->marker != M8DD_MARKER ) {
+        return;
+    }
+    m8dd_build16();
+    if( m8dd_setinfo != NULL ) {
+        m8dd_setinfo( &m8dd->info, 1 );
+    }
 }
 
 /* Control(DCICOMMAND): 1 = answered, 0 = refused. */
