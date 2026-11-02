@@ -398,3 +398,5 @@ audit (order: graphics, storage, network+sound; input in it), #58 DirectX (Direc
 **Still to run on the card:** M8CUBE at 800x600x8 (import `M8FB8S.REG`), owner photo; M8VGAW.
 
 **M8CUBE on the card (800x600x8, boot 188):** 3 cubes, 90 s: 10,937 frames, 121.5 fps, 944 faces/s, back buffer at row 632, no refusals. Owner filmed it; picture correctness is the owner's call from the film. Card left at 800x600x8 (restore 16 bpp: import FB800 settings, restart).
+
+**Owner on the film:** worked well, a little tearing at times. Not Direct3D: our escape 0x4D3F driving the engine's polygon fill. Tearing fix: start the present copy in vertical blank (DISP_STAT bit 1; fix M8SPAN arm F's count first). Next: Direct3D HAL at 8 bpp on the same fill (#58).
