@@ -399,9 +399,8 @@ when a hardware ceiling is reached, turn round.
 
 ### The concrete one
 
-⭐ **`XTOUT` (`1000h:1` bit 4) is set; feipoa recommends `0`.** Recorded on 2026-09-12 under
-"Not done" as *"separate, minor, untested here"* and never picked up. One bit, one boot,
-instantly reversible.
+**Done 2026-09-28 (`a0f7d44`): `XTOUT` clear, `1000h:1 = 8C`** in the shipped `CPUSET.BAT`; FastDoom
+1.1% faster, Windows stable, floppy DMA intact (#40). The `9C` read above predates it.
 
 ### Method constraints — already paid for, do not re-derive
 

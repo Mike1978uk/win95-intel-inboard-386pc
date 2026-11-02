@@ -96,7 +96,7 @@ Each O-item becomes a probe or a G-item demo screen once its probe answers.
 
 | # | Lever | Evidence | Test |
 |---|---|---|---|
-| P0 | **XTOUT**: BL3 register `1000h` bit 12 ("Wait for Ready after Output") is set, so the 386 stalls after every OUT until the bus cycle ends. Cleared, it runs on during each ~7.6 us write: loop, address and next-value work hides under the bus. feipoa recommends 0; never tried here | `resources_and_sources.md:571-578`, `bus_optimisation_plan.md:400-404` | read `1000h:1` with `CPUSHOW.BAT`; clear bit 4 of that byte in `C:\CTCHIP\CPUSET.BAT` (backup first, as for the CMLR fix `1001h:4=F0`); M8P0 and the 35-test bench before and after; undone by restoring the backup. Risk: code that times a delay from an OUT |
+| - | **XTOUT is already clear** (`1000h:1 = 8C`, `a0f7d44`, 2026-09-28; FastDoom +1.1 %, #40): the CPU runs on during each OUT already, and every card number in this file was taken with it clear. Not a lever left | `5160_tuned_config.md:9` | - |
 | P0b | **L1 flush on every port access** (module SW1 ON): each 16-byte line touched afterwards costs ~1.3 us to refill, likely most of M8SPAN's ~2.4 us a write. SW1 OFF is closed (#40, DOOM fails); the lever is code shape: emitters that touch one or two cache lines between OUTs, and `rep outsw` runs (~4.1-4.3 us a word in Win95 against 7.6 looped) | `bus_optimisation_plan.md:19-23`, `mach8_static_sweep_2026_10_31.md:116-122` | P2 measures it; A1 is written to it |
 | - | RAM floor: `tools/gen_ramstride.py` (cache-hostile stride) never run; working sets over the L1 ~2.3x slower | `bus_optimisation_plan.md:469-471` | with P1 |
 
@@ -130,7 +130,7 @@ double buffering at 640x480; EXT_SHORT_STROKE C6EE (diagonals only); A14 blind b
 registers; GE_IDLE_INT as an idle test; PATT_LENGTH bits, LINEDRAW_OPT bit 3, the 8x8 tile, block write, split
 GE_OFFSET, gray-scale font assist (Mach32); CLIP_MODE pre-clip; the ROM API; an 8-bit or HiColor DAC (the IMSG176
 is 6-bit); INSTALL's 16-bit bus option; SW1 OFF (#40); CPU clock above 2x; Inboard wait states (already 0);
-hardware polygon fill for GDI `Polygon` (GDI sends spans); a per-glyph VRAM cache; linear fingerprint hashes;
+XTOUT (already clear since 09-28); hardware polygon fill for GDI `Polygon` (GDI sends spans); a per-glyph VRAM cache; linear fingerprint hashes;
 a RAM shadow over PIX_TRANS (D7); VRAM as swap; drawing the pointer into the fb16 buffer; pixel code in asm
 alone, and compiler flags; RefreshRate keys, SciTech linear mapping, DDC, ignoring WAIT flags, our own mini-VDD
 for speed. MACH.DRV's "aperture" is the VGA half's A000 window, not 8514 memory.
@@ -239,7 +239,7 @@ pixels checked in the bed first (the bed has no POLY_MODE via LINEDRAW: fill pix
 
 ## Order of work
 
-1. P0 (XTOUT, one boot) and the Phase 0 probes (one sitting).
+1. Phase 0 probes (one sitting).
 2. T1 (small, fixes what the owner saw) and F1 (one line).
 3. D1-D2 (Direct3D, windowed, at 8 bpp).
 4. F2-F3, then B1 and T2 (full screen at both depths).
