@@ -522,7 +522,10 @@ static int modex( const char *label )
             pe[i].peBlue = (BYTE)(i * 3);
             pe[i].peFlags = 0;
         }
-        res = dd->lpVtbl->CreatePalette( dd, DDPCAPS_8BIT | DDPCAPS_ALLOW256, pe, &pal, NULL );
+        /* A label starting "nopal" leaves the palette alone, to separate a
+         * palette fault from a drawing one. */
+        res = strncmp( label, "nopal", 5 ) == 0 ? DDERR_GENERIC :
+              dd->lpVtbl->CreatePalette( dd, DDPCAPS_8BIT | DDPCAPS_ALLOW256, pe, &pal, NULL );
         fprintf( out, "palette %08lx\n", (unsigned long)res );
         flush_out();
         if( res == DD_OK ) {
