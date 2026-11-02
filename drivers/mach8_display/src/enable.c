@@ -472,7 +472,7 @@ LONG WINAPI __loadds Control( LPVOID lpDevice, UINT function, LPVOID lpInput, LP
     if( function == M8_ESC_FB16SEND && lpInput != NULL && m8_fb16 ) {
         LPWORD  r = (LPWORD)lpInput;
 
-        m8_fb16_send_rect( (short)r[0], (short)r[1], (short)r[2], (short)r[3], r[4] != 0 );
+        m8_fb16_send_rect( (short)r[0], (short)r[1], (short)r[2], (short)r[3], r[4] );
         return( 1 );
     }
     if( function == M8_ESC_FB16COPY && lpInput != NULL && m8_fb16 ) {
@@ -489,6 +489,9 @@ LONG WINAPI __loadds Control( LPVOID lpDevice, UINT function, LPVOID lpInput, LP
         m8_switch_out();
         m8_switch_in();
         return( 1 );
+    }
+    if( function == M8_ESC_POLY && lpInput != NULL ) {
+        return( m8_poly_escape( lpInput, lpOutput ) );
     }
     /* M8DD32.DLL lends DirectDraw the off-screen rows, or takes them back:
      * GDI's caches must leave them before DirectDraw draws there. */

@@ -600,6 +600,62 @@ static WORD *m8dd_fb_at( int x, int y )
     return( (WORD *)(m8dd->fb_lin + (DWORD)y * m8dd->pitch + (DWORD)x * 2) );
 }
 
+/* A frame copied over the screen is mostly the screen it replaces: each row
+ * is compared with the frame buffer and only the part that differs is copied
+ * and sent. Rows that change together go as one rectangle; a row with no
+ * change ends it. M8_SEND_EXACT tells the driver this is all that changed, so
+ * it sends it without fingerprinting. */
+#define M8_SEND_EXACT       2
+
+typedef struct {
+    RECT    r;
+    int     open;
+} M8DD_DIFF;
+
+static void m8dd_diff_close( M8DD_DIFF *g )
+{
+    if( g->open ) {
+        m8dd_send( &g->r, M8_SEND_EXACT );
+        g->open = 0;
+    }
+}
+
+/* Row y of the screen from s, columns l .. l + w - 1. */
+static void m8dd_diff_row( M8DD_DIFF *g, int y, int l, int w, const WORD *s )
+{
+    WORD    *d = m8dd_fb_at( l, y );
+    int     a = 0;
+    int     b = w;
+
+    while( a < b && d[a] == s[a] ) {
+        ++a;
+    }
+    if( a == b ) {
+        m8dd_diff_close( g );
+        return;
+    }
+    while( d[b - 1] == s[b - 1] ) {
+        --b;
+    }
+    memcpy( d + a, s + a, (b - a) * 2 );
+    a += l;
+    b += l;
+    if( !g->open ) {
+        g->r.left = a;
+        g->r.right = b;
+        g->r.top = y;
+        g->open = 1;
+    } else {
+        if( a < g->r.left ) {
+            g->r.left = a;
+        }
+        if( b > g->r.right ) {
+            g->r.right = b;
+        }
+    }
+    g->r.bottom = y + 1;
+}
+
 static DWORD m8dd_lock16( M8DD_LOCK *ld )
 {
     RECTL   all;
@@ -800,6 +856,17 @@ static DWORD m8dd_blt16( M8DD_BLT *bd )
                 y0 = c.top;
                 y1 = c.bottom;
                 step = 1;
+            }
+            if( !self && !keyed ) {
+                M8DD_DIFF   g;
+
+                g.open = 0;
+                for( y = c.top; y < c.bottom; ++y ) {
+                    m8dd_diff_row( &g, y, c.left, w,
+                                   (const WORD *)(src + (sy + y - c.top) * pitch + sx * 2) );
+                }
+                m8dd_diff_close( &g );
+                continue;
             }
             for( y = y0; y != y1; y += step ) {
                 d = m8dd_fb_at( c.left, y );

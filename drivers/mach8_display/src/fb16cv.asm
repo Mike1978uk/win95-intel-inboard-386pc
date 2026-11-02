@@ -166,11 +166,13 @@ M8_FB16_CONV endp
 ; DS:BX = M8_FB16_RD (fb16.c): +0 frame buffer selector, +2 offset of the
 ; first piece (32-bit), +6/+8 selector:offset of its fingerprint, +10 pieces
 ; (> 0), +12 first changed piece (-1 if none), +14 last. A changed piece's
-; fingerprint is updated. A fingerprint is FNV-1a over the piece's 16
-; dwords, never 0: 0 marks a piece the card may not show as the frame buffer
-; holds it. The multiply keeps it non-linear; a rotate-and-XOR hash is not,
-; so an even number of fully flipped dwords (black text on white) would
-; leave it unchanged.
+; fingerprint is updated. A fingerprint is Jenkins' one-at-a-time hash taken
+; a dword at a time over the piece's 16 dwords, never 0: 0 marks a piece the
+; card may not show as the frame buffer holds it. Every step is invertible
+; and mixes carries with shifts, so small colour changes in two pixels do not
+; cancel, as they do in rotate-and-add hashes, and nothing is multiplied: a
+; 486 IMUL costs more than the rest of a step. Unrolled, as the loop's own
+; DEC and JNZ would cost a third of it.
 M8_FB16_ROWDIFF proc near
         push    es
         push    fs
@@ -189,14 +191,123 @@ M8_FB16_ROWDIFF proc near
         xor     dx, dx
 rd_piece:
         mov     eax, 811C9DC5h
-        mov     ecx, 16
-rd_dw:
-        xor     eax, fs:[esi]
-        imul    eax, eax, 01000193h
-        add     esi, 4
-        dec     ecx
-        jnz     rd_dw
-        or      eax, 1
+        add     eax, fs:[esi+0]
+        mov     ecx, eax
+        shl     ecx, 10
+        add     eax, ecx
+        mov     ecx, eax
+        shr     ecx, 6
+        xor     eax, ecx
+        add     eax, fs:[esi+4]
+        mov     ecx, eax
+        shl     ecx, 10
+        add     eax, ecx
+        mov     ecx, eax
+        shr     ecx, 6
+        xor     eax, ecx
+        add     eax, fs:[esi+8]
+        mov     ecx, eax
+        shl     ecx, 10
+        add     eax, ecx
+        mov     ecx, eax
+        shr     ecx, 6
+        xor     eax, ecx
+        add     eax, fs:[esi+12]
+        mov     ecx, eax
+        shl     ecx, 10
+        add     eax, ecx
+        mov     ecx, eax
+        shr     ecx, 6
+        xor     eax, ecx
+        add     eax, fs:[esi+16]
+        mov     ecx, eax
+        shl     ecx, 10
+        add     eax, ecx
+        mov     ecx, eax
+        shr     ecx, 6
+        xor     eax, ecx
+        add     eax, fs:[esi+20]
+        mov     ecx, eax
+        shl     ecx, 10
+        add     eax, ecx
+        mov     ecx, eax
+        shr     ecx, 6
+        xor     eax, ecx
+        add     eax, fs:[esi+24]
+        mov     ecx, eax
+        shl     ecx, 10
+        add     eax, ecx
+        mov     ecx, eax
+        shr     ecx, 6
+        xor     eax, ecx
+        add     eax, fs:[esi+28]
+        mov     ecx, eax
+        shl     ecx, 10
+        add     eax, ecx
+        mov     ecx, eax
+        shr     ecx, 6
+        xor     eax, ecx
+        add     eax, fs:[esi+32]
+        mov     ecx, eax
+        shl     ecx, 10
+        add     eax, ecx
+        mov     ecx, eax
+        shr     ecx, 6
+        xor     eax, ecx
+        add     eax, fs:[esi+36]
+        mov     ecx, eax
+        shl     ecx, 10
+        add     eax, ecx
+        mov     ecx, eax
+        shr     ecx, 6
+        xor     eax, ecx
+        add     eax, fs:[esi+40]
+        mov     ecx, eax
+        shl     ecx, 10
+        add     eax, ecx
+        mov     ecx, eax
+        shr     ecx, 6
+        xor     eax, ecx
+        add     eax, fs:[esi+44]
+        mov     ecx, eax
+        shl     ecx, 10
+        add     eax, ecx
+        mov     ecx, eax
+        shr     ecx, 6
+        xor     eax, ecx
+        add     eax, fs:[esi+48]
+        mov     ecx, eax
+        shl     ecx, 10
+        add     eax, ecx
+        mov     ecx, eax
+        shr     ecx, 6
+        xor     eax, ecx
+        add     eax, fs:[esi+52]
+        mov     ecx, eax
+        shl     ecx, 10
+        add     eax, ecx
+        mov     ecx, eax
+        shr     ecx, 6
+        xor     eax, ecx
+        add     eax, fs:[esi+56]
+        mov     ecx, eax
+        shl     ecx, 10
+        add     eax, ecx
+        mov     ecx, eax
+        shr     ecx, 6
+        xor     eax, ecx
+        add     eax, fs:[esi+60]
+        mov     ecx, eax
+        shl     ecx, 10
+        add     eax, ecx
+        mov     ecx, eax
+        shr     ecx, 6
+        xor     eax, ecx
+        add     esi, 64
+        test    eax, eax
+        jnz     rd_nz
+        inc     eax
+rd_nz:
         cmp     eax, es:[di]
         je      rd_same
         mov     es:[di], eax

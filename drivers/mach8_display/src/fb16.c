@@ -361,6 +361,52 @@ static void m8_fb16_forget( int l, int t, int r, int b )
     }
 }
 
+/* The fingerprint of a piece whose pixels are all c: M8_FB16_ROWDIFF's hash
+ * of 16 dwords of c | c << 16. */
+static DWORD m8_fb16_hash_colour( WORD c )
+{
+    DWORD   d = c | ((DWORD)c << 16);
+    DWORD   h = 0x811C9DC5UL;
+    int     i;
+
+    for( i = 0; i < M8_FB16_SEG_W / 2; ++i ) {
+        h += d;
+        h += h << 10;
+        h ^= h >> 6;
+    }
+    return( h != 0 ? h : 1 );
+}
+
+/* A one-colour fill the card now shows exactly: the pieces it covers whole
+ * take c's fingerprint, so a later send of the same pixels skips them; the
+ * pieces it covers in part are forgotten. */
+static void m8_fb16_known( int l, int t, int r, int b, WORD c )
+{
+    DWORD   h;
+    int     y;
+    int     s;
+    int     f0;
+    int     f1;
+
+    if( m8_fb16_hash == NULL ) {
+        return;
+    }
+    f0 = (l + M8_FB16_SEG_W - 1) / M8_FB16_SEG_W;
+    f1 = r / M8_FB16_SEG_W;
+    if( f1 <= f0 ) {
+        m8_fb16_forget( l, t, r, b );
+        return;
+    }
+    m8_fb16_forget( l, t, f0 * M8_FB16_SEG_W, b );
+    m8_fb16_forget( f1 * M8_FB16_SEG_W, t, r, b );
+    h = m8_fb16_hash_colour( c );
+    for( y = t; y < b; ++y ) {
+        for( s = f0; s < f1; ++s ) {
+            m8_fb16_hash[(long)y * m8_fb16_nseg + s] = h;
+        }
+    }
+}
+
 /* Row y's changed span within columns l .. r - 1 (even edges), with the
  * fingerprints brought up to date: 0 if nothing in it changed. */
 static int m8_fb16_changed( int y, int l, int r, int *cl, int *cr )
@@ -385,12 +431,17 @@ static int m8_fb16_changed( int y, int l, int r, int *cl, int *cr )
 /* The rectangle to the card, in bands through m8_fb16_band, with the pointer
  * lifted if they overlap. Host transfers carry two pixels a word, so it
  * widens to even columns. */
+/* Set while a send is known to be exactly what changed (M8DD32 compared it
+ * with the frame buffer): fingerprinting it would find every piece changed. */
+static int m8_fb16_whole;
+
 static void m8_fb16_send( int l, int t, int r, int b )
 {
     int w;
     int n;
     int y;
     int k;
+    int whole;
 
     if( l < 0 ) l = 0;
     if( t < 0 ) t = 0;
@@ -407,10 +458,11 @@ static void m8_fb16_send( int l, int t, int r, int b )
     /* A small change costs the bus less than fingerprinting its pieces costs
      * the CPU: it is sent whole, and its pieces are forgotten so a later send
      * cannot skip them. */
-    if( m8_fb16_hash != NULL && (long)w * (b - t) < M8_FB16_HASH_MIN ) {
+    whole = m8_fb16_whole || (long)w * (b - t) < M8_FB16_HASH_MIN;
+    if( m8_fb16_hash != NULL && whole ) {
         m8_fb16_forget( l, t, r, b );
     }
-    if( m8_fb16_hash == NULL || (long)w * (b - t) < M8_FB16_HASH_MIN ) {
+    if( m8_fb16_hash == NULL || whole ) {
         m8_fb16_stat[2] += (DWORD)w * (b - t);
         n = (int)(sizeof( m8_fb16_band ) / w);
         for( y = t; y < b; y += n ) {
@@ -501,18 +553,20 @@ static void m8_fb16_solid( int l, int t, int r, int b )
     int     done;
     int     n;
     int     k;
+    WORD    c;
 
+    m8_copy32( m8_fb16_sel, (DWORD)t * M8_FB16_PITCH + (DWORD)l * 2, (BYTE FAR *)&c, 2 );
     for( k = 0; k < bh; ++k ) {
         m8_fb16_row( (BYTE FAR *)&blk[k * 4], t + k, l, l + bw );
     }
     for( k = 1; k < bw * bh && blk[(k / bw) * 4 + k % bw] == blk[0]; ++k ) {
     }
     ++m8_fb16_stat[3];
-    m8_fb16_forget( l, t, r, b );
     if( k == bw * bh ) {
         m8_cur_lift( l, t, r, b );
         m8_hw_fill( l, t, w, h, blk[0] );
         m8_leave();
+        m8_fb16_known( l, t, r, b, c );
         return;
     }
     m8_fb16_send( l, t, l + bw, t + bh );
@@ -526,6 +580,7 @@ static void m8_fb16_solid( int l, int t, int r, int b )
         m8_hw_copy( l, t, l, t + done, w, n );
     }
     m8_leave();
+    m8_fb16_known( l, t, r, b, c );
 }
 
 static long m8_fb16_area( const M8_FB16_RECT *a )
@@ -595,10 +650,18 @@ static void m8_fb16_flush( const M8_FB16_RECT *d )
 }
 
 /* A rectangle DirectDraw changed (M8_ESC_FB16SEND), as GDI's are sent;
- * `solid`: DirectDraw filled it with one colour, so it is not scanned. */
+ * `solid` 1: DirectDraw filled it with one colour, so it is not scanned;
+ * 2: it is exactly what changed, so it is sent whole. */
 void m8_fb16_send_rect( int l, int t, int r, int b, int solid )
 {
     M8_FB16_RECT    d;
+
+    if( solid == 2 ) {
+        m8_fb16_whole = 1;
+        m8_fb16_send( l, t, r, b );
+        m8_fb16_whole = 0;
+        return;
+    }
 
     if( solid ) {
         if( l < 0 ) l = 0;
