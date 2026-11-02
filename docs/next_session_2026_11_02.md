@@ -368,3 +368,5 @@ build carries it; demo not yet run on the card). Card is on `m8oaat.drv`, 800x60
 
 **SB Pro and DirectSound:** works through DirectSound's emulation on the ordinary wave driver (CPU
 mixing, higher latency, no hardware buffers); a DirectSound HAL would need our own driver (worklist S).
+
+**Roadmap issues:** cross-driver audit (https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/57), DirectX on the 5160 (https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/58).
