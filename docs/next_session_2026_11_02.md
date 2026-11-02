@@ -317,7 +317,7 @@ hashing the whole 640x480 screen each frame: DirectDraw emulates the flip by wri
 through one lock (16 bpp has no video memory), and Unlock sends the whole screen. The bus carries only
 the box; the CPU fingerprints 600 KB a frame. Card test 2: ~20,000 pixels/s sent (FB16MON).
 
-**Fingerprint hash.** Offline test (`scratchpad/hashtest.py` pattern set: even flips, swaps, 1-px shifts,
+**Fingerprint hash.** Offline test (`tools/fbhash_test.py` pattern set: even flips, swaps, 1-px shifts,
 small two-pixel colour deltas, 2.27 M changes): FNV 11 collisions (swaps); rotate-add variants ~2.5 %
 on small colour deltas (near-linear mod 2^32-1: rule them out); Jenkins one-at-a-time per dword 0.
 `| 1` to keep fingerprints non-zero dropped bit 0 and caused most collisions; use `h ? h : 1`.
