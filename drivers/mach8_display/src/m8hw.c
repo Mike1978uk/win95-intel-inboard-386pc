@@ -1232,6 +1232,99 @@ void m8_hw_copy_mix( int sx, int sy, int dx, int dy, int w, int h, WORD mix )
     m8_dp_sent( mix, 1 );
 }
 
+/* The polygon fill (guide 7-10; M8PF and M8SPAN on the card). The outline goes
+ * by LINEDRAW in POLY_MODE into one bit-plane of a scratch area at sx, sy; an
+ * extended blit then fills between its pixels, row by row, onto dx, dy. Each
+ * polygon draws its outline in its own plane (WRT_MASK) and the fill reads only
+ * that plane (RD_MASK), so one clear of the scratch serves eight polygons.
+ * Only the rows strictly between the top and bottom vertex are filled: an apex
+ * row can hold a single outline pixel, and the fill would then run to the end
+ * of the row. v holds n (x, y) pairs, n 3..M8_POLY_MAX, relative to both
+ * origins. m8_hw_poly_end hands the engine back to the shadowed routines. */
+int m8_hw_poly( int dx, int dy, int sx, int sy, const short FAR *v, int n, BYTE plane,
+                BYTE color )
+{
+    int l = v[0];
+    int r = v[0];
+    int t = v[1];
+    int b = v[1];
+    int i;
+
+    if( m8_hw_off || n < 3 || n > M8_POLY_MAX ) {
+        return( 0 );
+    }
+    for( i = 1; i < n; ++i ) {
+        if( v[2 * i] < l ) {
+            l = v[2 * i];
+        }
+        if( v[2 * i] > r ) {
+            r = v[2 * i];
+        }
+        if( v[2 * i + 1] < t ) {
+            t = v[2 * i + 1];
+        }
+        if( v[2 * i + 1] > b ) {
+            b = v[2 * i + 1];
+        }
+    }
+    if( b - t < 2 ) {
+        return( 1 );
+    }
+    M8_Q( M8_WRT_MASK, plane );
+    M8_Q( M8_FRGD_COLOR, 0x00FF );
+    M8_Q( M8_DP_CONFIG, M8_DP_8514 );
+    M8_Q( M8_ALU_FG_FN, M8_MIX_REPLACE );
+    M8_Q( M8_LINEDRAW_OPT, M8_LINEDRAW_POLY | M8_LINEDRAW_LAST_OFF );
+    M8_Q( M8_LINEDRAW_INDEX, 0 );
+    for( i = 0; i < n; ++i ) {
+        M8_Q( M8_LINEDRAW, sx + v[2 * i] );
+        M8_Q( M8_LINEDRAW, sy + v[2 * i + 1] );
+    }
+    M8_Q( M8_LINEDRAW, sx + v[0] );
+    M8_Q( M8_LINEDRAW, sy + v[1] );
+    if( !m8_q_send() ) {
+        return( 0 );
+    }
+    M8_Q( M8_WRT_MASK, 0x00FF );
+    M8_Q( M8_RD_MASK, plane );
+    M8_Q( M8_DP_CONFIG, M8_DP_POLY_FILL );
+    M8_Q( M8_FRGD_COLOR, color );
+    M8_Q( M8_DESTX_DIASTP, sx + l );            /* the outline: source x, y */
+    M8_Q( M8_DESTY_AXSTP, sy + t + 1 );
+    M8_Q( M8_SRC_X_START, sx + l );
+    M8_Q( M8_SRC_X_END, sx + r + 1 );
+    M8_Q( M8_SRC_Y_DIR, 1 );
+    M8_Q( M8_CUR_X, dx + l );
+    M8_Q( M8_DEST_X_START, dx + l );
+    M8_Q( M8_DEST_X_END, dx + r + 1 );
+    M8_Q( M8_CUR_Y, dy + t + 1 );
+    M8_Q( M8_DEST_Y_END, dy + b );              /* starts the fill */
+    return( m8_q_send() );
+}
+
+/* Before the first m8_hw_poly: scissors open and the plain pixel path, which
+ * the shadows may not hold. */
+int m8_hw_poly_begin( void )
+{
+    if( m8_hw_off ) {
+        return( 0 );
+    }
+    m8_scan_y = -1;
+    M8_Q( M8_EXT_SCISSOR_L, M8_EXT_SCISSOR_MIN );
+    M8_Q( M8_EXT_SCISSOR_T, M8_EXT_SCISSOR_MIN );
+    M8_Q( M8_EXT_SCISSOR_R, M8_EXT_SCISSOR_MAX );
+    M8_Q( M8_EXT_SCISSOR_B, M8_EXT_SCISSOR_MAX );
+    M8_Q( M8_MULTIFUNC_CNTL, M8_MF_PIX_CNTL );
+    return( m8_q_send() );
+}
+
+/* After the last m8_hw_poly: every shadow is stale. */
+void m8_hw_poly_end( void )
+{
+    m8_sh_clear();
+    m8_scan_y = -1;
+}
+
 /* Host transfers move two pixels per word, so x and w must be even: the caller
  * aligns the rectangle. Rows are copied to or from pitch-spaced RAM. */
 void m8_hw_read_rect( int x, int y, int w, int h, BYTE FAR *dst, WORD pitch )

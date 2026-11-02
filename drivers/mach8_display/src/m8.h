@@ -116,6 +116,7 @@ extern M8_HOT m8_hot;
 #define M8_LINEDRAW_INDEX   0x9AEE      /* write; 0 = move to, then line ends from 2 */
 #define M8_LINEDRAW_OPT     0xA2EE
 #define M8_LINEDRAW_LAST_OFF 0x0004     /* LAST_PEL_OFF: each segment leaves its end pixel */
+#define M8_LINEDRAW_POLY    0x0002      /* POLY_MODE: the last pixel of each row it crosses */
 #define M8_ALU_FG_FN        0xBAEE      /* the mix function alone, sources untouched */
 #define M8_ALU_BG_FN        0xB6EE
 #define M8_PATT_LENGTH      0xD2EE      /* length - 1 of a linear pattern */
@@ -132,6 +133,7 @@ extern M8_HOT m8_hot;
 #define M8_DP_MONO_PATT     0x2231      /* the mono pattern picks foreground or background */
 #define M8_DP_READ_SCAN     0x5210      /* SCAN_TO_X reads to PIX_TRANS, two pixels a word */
 #define M8_DP_VRAM_BLIT     0x6011      /* extended blit, video memory as the source */
+#define M8_DP_POLY_FILL     0x2213      /* FRGD_COLOR between the blit source's outline pixels */
 #define M8_SCRATCH_PAD_1    0x56EE      /* marker writes for the tap (A10) */
 
 /* GP_STAT bits. */
@@ -286,6 +288,14 @@ extern void m8_hw_mono_rows( int x, int y, WORD width_bytes, WORD height, const 
                              int clip_l, int clip_t, int clip_r, int clip_b );
 extern void m8_hw_marker( WORD value );
 
+/* poly3d.c: flat polygons drawn by the engine for a program (ExtEscape M8_ESC_POLY). */
+#define M8_POLY_MAX         12          /* vertices per polygon */
+extern int  m8_hw_poly( int dx, int dy, int sx, int sy, const short FAR *v, int n, BYTE plane,
+                        BYTE color );
+extern int  m8_hw_poly_begin( void );
+extern void m8_hw_poly_end( void );
+extern LONG m8_poly_escape( LPVOID lpInput, LPVOID lpOutput );
+
 /* Bring-up trace (build.ps1 -Trace): step numbers the tap logs as SCRATCH_PAD_1
  * writes. Port I/O only, so it works before the driver has a PDevice. */
 #ifdef M8_TRACE
@@ -306,6 +316,7 @@ extern void m8_hw_marker( WORD value );
 #define M8_ESC_FB16SEND     0x4D3C      /* in: WORDs l t r b solid: that part to the card */
 #define M8_ESC_FB16COPY     0x4D3D      /* in: WORDs sx sy l t r b: a screen copy done in RAM */
 #define M8_ESC_RESYNC       0x4D3E      /* a program drew on the card itself: set it all again */
+#define M8_ESC_POLY         0x4D3F      /* poly3d.c: begin, frame, end */
 #define M8_PF_STYLES        64
 #define M8_PF_N             10      /* BitBlt ExtTextOut Output Pixel StrBlt DibToDevice
                                      * StretchBlt StretchDIBits SaveScreenBitmap ScanLR */

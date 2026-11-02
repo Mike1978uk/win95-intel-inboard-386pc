@@ -45,7 +45,7 @@ $cflags = @('-q', '-wx', '-we', '-s', '-zu', '-zls', '-zW', '-4', '-mc', '-oi', 
 if ($Trace) { $cflags += '-dM8_TRACE' }
 if ($Prof) { $cflags += '-dM8_PROF' }
 if ($Trace -and $Prof) { throw '-Trace writes markers inside the calls -Prof times' }
-foreach ($c in 'enable', 'screen', 'm8hw', 'dd16', 'fb16') {
+foreach ($c in 'enable', 'screen', 'm8hw', 'dd16', 'fb16', 'poly3d') {
   Run wcc ($cflags + $inc + @("-fo=$Out\$c.obj", "$src\$c.c"))
 }
 Run wasm @('-q', "-fo=$Out\thunks.obj", "$src\thunks.asm")
@@ -83,7 +83,7 @@ $lnk = @(
   'segment class ''DATA'' preload fixed',
   "segment '_TEXT' preload fixed shared",
   'disable 2055'
-) + ('enable', 'screen', 'm8hw', 'dd16', 'fb16', 'thunks', 'switch', 'spans', 'hash', 'xlat', 'fb16cv', 'text', 'pixel', 'blt' | ForEach-Object { "file $Out\$_.obj" }) + @(
+) + ('enable', 'screen', 'm8hw', 'dd16', 'fb16', 'poly3d', 'thunks', 'switch', 'spans', 'hash', 'xlat', 'fb16cv', 'text', 'pixel', 'blt' | ForEach-Object { "file $Out\$_.obj" }) + @(
   "library $Out\dibeng.lib",
   "library $Watcom\lib286\win\clibc.lib",
   'import GlobalSmartPageLock KERNEL.230'
