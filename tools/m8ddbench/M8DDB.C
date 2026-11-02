@@ -423,6 +423,34 @@ static HRESULT t_mx_frame( int i )
     return( prim->lpVtbl->Unlock( prim, sd.lpSurface ) );
 }
 
+/* dxdiag's full-screen test as DirectDraw emulates its flip: every pixel of
+ * the screen written through one lock, all black but a 32x32 white box that
+ * moves 4 pixels a frame. */
+static HRESULT t_mx_box( int i )
+{
+    DDSURFACEDESC   sd;
+    HRESULT         res;
+    BYTE            *p;
+    int             bx = 16 + (i * 4) % (mx_w - 64);
+    int             by = 16 + (i * 3) % (mx_h - 64);
+    int             y;
+
+    memset( &sd, 0, sizeof( sd ) );
+    sd.dwSize = sizeof( sd );
+    res = prim->lpVtbl->Lock( prim, NULL, &sd, DDLOCK_WAIT | DDLOCK_WRITEONLY, NULL );
+    if( res != DD_OK ) {
+        return( res );
+    }
+    for( y = 0; y < mx_h; ++y ) {
+        p = (BYTE *)sd.lpSurface + y * sd.lPitch;
+        memset( p, 0, mx_w * bpp );
+        if( y >= by && y < by + 32 ) {
+            memset( p + bx * bpp, 0xFF, 32 * bpp );
+        }
+    }
+    return( prim->lpVtbl->Unlock( prim, sd.lpSurface ) );
+}
+
 /* FNV-1a over the whole Mode X screen, read through a lock. */
 static unsigned long mx_hash( void )
 {
@@ -547,6 +575,7 @@ static int modex( const char *label )
         pixmask = bpp == 2 ? 0xFFFF : 0xFF;
         mx_run( "mx_fill", t_mx_fill, 4 );
         mx_run( "mx_frame", t_mx_frame, 2 );
+        mx_run( "mx_box", t_mx_box, 4 );
         prim->lpVtbl->Release( prim );
     }
     res = dd->lpVtbl->RestoreDisplayMode( dd );
