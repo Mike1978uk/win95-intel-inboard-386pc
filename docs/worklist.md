@@ -308,6 +308,22 @@ like a timer tick (~170 us measured for #45). Ideas, cheapest first - measure be
 - [ ] **S4 Mix on the 486** into one stream (FastDoom's approach) rather than several; the CPU has cycles, the bus has none.
 - [ ] **S5 The demoscene end:** cycle-exact PC-speaker / DAC tricks are a later, separate study.
 
+## X. 16 bpp DirectDraw levers and 3D (owner, 2026-11-02)
+
+16 bpp and DirectDraw at 16 bpp work on the card (`docs/next_session_2026_11_02.md`, Afternoon). Next levers, then 3D;
+3D research and ranking in `docs/mach8_3d_research.md` (demoscene method: measure, use unused silicon).
+
+- [ ] **X1 Mode X** on the VGA half: clear `DDHALINFO_MODEXILLEGAL`, M8DDB `modex` test (320x200 full screen, frames
+      written through a lock), output switch and desktop restore. Bed, then card.
+- [ ] **X2 Card surfaces at 16 bpp:** RAM 5-6-5 copy + dithered card copy; blits by multiples of 4 as engine copies.
+- [ ] **X3 GDI caches in the spare card rows at 16 bpp** (icons, text, saved screen bits), dithered once.
+- [ ] **X4 Exact-colour copies at any offset** as engine copies (dither-invariant pixels, checked in RAM).
+- [ ] **X5 Fewer row set-ups per send** (merge runs, keep the set-up).
+- [ ] **X6 3D stage 1:** software Direct3D at 16 bpp, measured (sends carry only what changed).
+- [ ] **X7 3D stage 2:** engine-drawn 3D at 8 bpp: vector/wireframe lines, flat-shaded spans, raycaster columns;
+      then a Direct3D HAL claiming what the engine rasterises. Ranked by `docs/mach8_3d_research.md`.
+- [ ] **X8** DOS timing: VGA-memory writes vs PIX_TRANS on the 5160 (sizes X1 and the 3D options).
+
 ## E. Timer, refresh, XT-CF (in flight)
 
 - [x] **T1 (M)** (done 10-10/11: +6% idle CPU, 36 MB copy 0.7% faster, `5160_tuned_config.md`) TIMERRES CPU loop at MinTimeSlice default vs 54 on the 5160 - the bed does not model bus cost
