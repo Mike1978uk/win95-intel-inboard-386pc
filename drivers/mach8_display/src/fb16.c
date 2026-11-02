@@ -468,6 +468,35 @@ static void m8_fb16_flush( const M8_FB16_RECT *d )
     }
 }
 
+/* A rectangle DirectDraw changed (M8_ESC_FB16SEND), as GDI's are sent;
+ * `solid`: DirectDraw filled it with one colour, so it is not scanned. */
+void m8_fb16_send_rect( int l, int t, int r, int b, int solid )
+{
+    M8_FB16_RECT    d;
+
+    if( solid ) {
+        if( l < 0 ) l = 0;
+        if( t < 0 ) t = 0;
+        if( r > m8_scr_x ) r = m8_scr_x;
+        if( b > m8_scr_y ) b = m8_scr_y;
+        if( r > l && b > t ) {
+            m8_fb16_solid( l, t, r, b );
+        }
+        return;
+    }
+    d.l = l;
+    d.t = t;
+    d.r = r;
+    d.b = b;
+    m8_fb16_flush( &d );
+}
+
+/* The frame buffer's linear address, DirectDraw's primary; 0 if none. */
+DWORD m8_fb16_lin( void )
+{
+    return( m8_fb16_sel != 0 ? GetSelectorBase( m8_fb16_sel ) : 0 );
+}
+
 /* Right and bottom are the last pixel drawn, not one past it. */
 static VOID WINAPI __loadds m8_fb16_begin( LPPDEVICE lpDevice, WORD wLeft, WORD wTop,
                                            WORD wRight, WORD wBottom, WORD wFlags )

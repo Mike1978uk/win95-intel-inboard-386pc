@@ -55,6 +55,8 @@ typedef struct {
     DWORD   heap;                       /* linear address of the heap rows in the shadow */
     DWORD   heap_top;                   /* its first card row */
     DWORD   heap_rows;
+    DWORD   fb16;                       /* 1: the primary is fb16.c's 5-6-5 frame buffer */
+    DWORD   fb_lin;                     /* its linear address */
     /* This side only from here. */
     DDHALINFO_t                 info;
     DDHAL_DDCALLBACKS_t         cb;
@@ -171,6 +173,8 @@ static void m8dd_build( int mode )
     m8dd->width = M8_SCREEN_X;
     m8dd->height = M8_SCREEN_Y;
     m8dd->pitch = M8_SCREEN_X;
+    m8dd->fb16 = 0;
+    m8dd->fb_lin = 0;
 
     m8dd->cb.dwSize = sizeof( m8dd->cb );
     m8dd->cb.dwFlags = 0;
@@ -255,14 +259,67 @@ static void m8dd_build( int mode )
     hi->hInstance = m8dd->hInstance;
 }
 
+/* At 16 bpp the primary is fb16.c's frame buffer in RAM: DirectDraw locks
+ * it in place, and M8DD32 sends what it changed through M8_ESC_FB16SEND, as
+ * GDI's drawing goes. One mode, the one running: the colour depth and, at 16
+ * bpp, the size change only at a restart (ReEnable). No off-screen surfaces
+ * on the card, whose 256 colours are not this format: system memory serves. */
+static void m8dd_build16( void )
+{
+    DDHALINFO_t FAR     *hi = &m8dd->info;
+    DDHALMODEINFO_t FAR *m = &m8dd->modes[0];
+
+    m8dd_build( 0 );
+    _fmemset( m, 0, sizeof( *m ) );
+    m->dwWidth = M8_SCREEN_X;
+    m->dwHeight = M8_SCREEN_Y;
+    m->lPitch = M8_SCREEN_X * 2;
+    m->dwBPP = 16;
+    m->dwRBitMask = 0xF800UL;
+    m->dwGBitMask = 0x07E0UL;
+    m->dwBBitMask = 0x001FUL;
+    m8dd->fb16 = 1;
+    m8dd->fb_lin = m8_fb16_lin();
+    m8dd->pitch = M8_SCREEN_X * 2;
+    m8dd->shadow = 0;
+    m8dd->heap = 0;
+    m8dd->heap_top = 0;
+    m8dd->heap_rows = 0;
+    hi->vmiData.fpPrimary = m8dd->fb_lin;
+    hi->vmiData.lDisplayPitch = M8_SCREEN_X * 2;
+    hi->vmiData.ddpfDisplay.dwFlags = DDPF_RGB;
+    hi->vmiData.ddpfDisplay.dwRGBBitCount = 16;
+    hi->vmiData.ddpfDisplay.dwRBitMask = 0xF800UL;
+    hi->vmiData.ddpfDisplay.dwGBitMask = 0x07E0UL;
+    hi->vmiData.ddpfDisplay.dwBBitMask = 0x001FUL;
+    hi->ddCaps.dwCaps = DDCAPS_GDI;
+    hi->ddCaps.dwCKeyCaps = 0;
+    _fmemset( hi->ddCaps.dwRops, 0, sizeof( hi->ddCaps.dwRops ) );
+    _fmemset( hi->ddCaps.dwSVBRops, 0, sizeof( hi->ddCaps.dwSVBRops ) );
+    hi->ddCaps.dwSVBCaps = 0;
+    if( m8dd->blt ) {
+        /* M8DD32's Blt: fills and copies in RAM, then the changed part sent. */
+        hi->ddCaps.dwCaps |= DDCAPS_BLT | DDCAPS_BLTCOLORFILL | DDCAPS_CANBLTSYSMEM |
+                             DDCAPS_COLORKEY | DDCAPS_COLORKEYHWASSIST;
+        hi->ddCaps.dwRops[0xCC / 32] |= 1UL << (0xCC % 32);
+        hi->ddCaps.dwSVBCaps = DDCAPS_BLT | DDCAPS_COLORKEY | DDCAPS_COLORKEYHWASSIST;
+        hi->ddCaps.dwSVBRops[0xCC / 32] |= 1UL << (0xCC % 32);
+        hi->ddCaps.dwSVBCKeyCaps = DDCKEYCAPS_SRCBLT;
+        hi->ddCaps.dwCKeyCaps = DDCKEYCAPS_SRCBLT;
+    }
+    hi->ddCaps.dwPalCaps = 0;
+    hi->ddCaps.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE;
+    hi->dwModeIndex = 0;
+    hi->dwNumModes = 1;
+}
+
 /* Control(DCICOMMAND): 1 = answered, 0 = refused. */
 LONG m8dd_command( LPVOID lpInput, LPVOID lpOutput )
 {
     DCICMD_t FAR    *c = lpInput;
     int             mode;
 
-    /* Not yet at 16 bpp: the HAL describes the 8 bpp screen. */
-    if( m8_fb16 || c == NULL || c->dwVersion != DD_VERSION || !m8dd_alloc() ) {
+    if( c == NULL || c->dwVersion != DD_VERSION || !m8dd_alloc() ) {
         return( 0 );
     }
     switch( c->dwCommand ) {
@@ -278,12 +335,19 @@ LONG m8dd_command( LPVOID lpInput, LPVOID lpOutput )
         ((DD32BITDRIVERDATA_t FAR *)lpOutput)->dwContext = m8dd_lin;
         return( 1 );
     case DDCREATEDRIVEROBJECT:
-        mode = m8dd_mode_index();
-        if( m8dd_setinfo == NULL || mode < 0 || m8dd->marker != M8DD_MARKER ||
-            !m8dd_shadow_alloc() ) {
-            return( 0 );
+        if( m8_fb16 ) {
+            if( m8dd_setinfo == NULL || m8dd->marker != M8DD_MARKER || m8_fb16_lin() == 0 ) {
+                return( 0 );
+            }
+            m8dd_build16();
+        } else {
+            mode = m8dd_mode_index();
+            if( m8dd_setinfo == NULL || mode < 0 || m8dd->marker != M8DD_MARKER ||
+                !m8dd_shadow_alloc() ) {
+                return( 0 );
+            }
+            m8dd_build( mode );
         }
-        m8dd_build( mode );
         if( !m8dd_setinfo( &m8dd->info, 0 ) ) {
             return( 0 );
         }

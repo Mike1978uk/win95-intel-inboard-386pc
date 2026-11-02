@@ -22,6 +22,7 @@
 #include <conio.h>
 #include <stddef.h>
 #include <ddraw.h>
+#include <string.h>
 
 #define M8DD_MARKER     0x44443855UL
 
@@ -48,6 +49,8 @@ typedef struct {
     DWORD   heap;
     DWORD   heap_top;
     DWORD   heap_rows;
+    DWORD   fb16;
+    DWORD   fb_lin;
 } M8DD_SHARE;
 
 /* DDHAL_LOCKDATA and DDHAL_UNLOCKDATA as DDRAW passes them (Microsoft's
@@ -357,6 +360,9 @@ static void m8dd_to_card( RECT *c, const RECTL *r, const M8DD_SURF *s )
     c->bottom = (r->bottom > s->h ? s->h : r->bottom) + s->y;
 }
 
+static DWORD m8dd_lock16( M8DD_LOCK *ld );
+static DWORD m8dd_unlock16( M8DD_UNLOCK *ud );
+
 /* The locked rectangle, clipped to the surface; host transfers move two
  * pixels a word, so its left edge goes down and its right edge up to even. */
 DWORD __stdcall m8dd_lock( M8DD_LOCK *ld )
@@ -366,6 +372,9 @@ DWORD __stdcall m8dd_lock( M8DD_LOCK *ld )
     RECT        r;
     int         k;
 
+    if( m8dd->fb16 ) {
+        return( m8dd_lock16( ld ) );
+    }
     if( !m8dd_surf( ld->lpDDSurface, &s ) ) {
         return( DDHAL_DRIVER_NOTHANDLED );
     }
@@ -398,6 +407,9 @@ DWORD __stdcall m8dd_unlock( M8DD_UNLOCK *ud )
     M8DD_SURF   s;
     int         k;
 
+    if( m8dd->fb16 ) {
+        return( m8dd_unlock16( ud ) );
+    }
     if( !m8dd_surf( ud->lpDDSurface, &s ) ) {
         return( DDHAL_DRIVER_NOTHANDLED );
     }
@@ -515,6 +527,274 @@ static int m8dd_key_rect( const RECT *d, int sx, int sy, BYTE key )
     return( 1 );
 }
 
+/* ---- 16 bpp (m8dd->fb16): the primary is fb16.c's frame buffer in RAM.
+ * Locks point into it; what Unlock and Blt change is sent to the card by the
+ * driver (M8_ESC_FB16SEND), dithered as GDI's drawing is, so a one-colour
+ * rectangle costs the bus a few commands and anything else a byte a pixel. */
+
+#define M8_ESC_FB16SEND     0x4D3C      /* m8.h */
+
+static int m8dd_is_fb( LPVOID lcl )
+{
+    BYTE    *gbl;
+
+    if( lcl == NULL ) {
+        return( 0 );
+    }
+    gbl = *(BYTE **)((BYTE *)lcl + M8DD_LCL_GBL);
+    return( gbl != NULL && *(DWORD *)(gbl + M8DD_GBL_VIDMEM) == m8dd->fb_lin );
+}
+
+static void m8dd_send( const RECT *r, int solid )
+{
+    HDC     dc;
+    WORD    w[5];
+
+    if( r->right <= r->left || r->bottom <= r->top ) {
+        return;
+    }
+    w[0] = (WORD)r->left;
+    w[1] = (WORD)r->top;
+    w[2] = (WORD)r->right;
+    w[3] = (WORD)r->bottom;
+    w[4] = (WORD)solid;
+    dc = GetDC( NULL );
+    if( dc != NULL ) {
+        ExtEscape( dc, M8_ESC_FB16SEND, sizeof( w ), (LPCSTR)w, 0, NULL );
+        ReleaseDC( NULL, dc );
+    }
+}
+
+/* `r` clipped to the screen. */
+static void m8dd_clip_fb( RECT *c, const RECTL *r )
+{
+    c->left = r->left < 0 ? 0 : r->left;
+    c->top = r->top < 0 ? 0 : r->top;
+    c->right = r->right > (long)m8dd->width ? (long)m8dd->width : r->right;
+    c->bottom = r->bottom > (long)m8dd->height ? (long)m8dd->height : r->bottom;
+}
+
+static WORD *m8dd_fb_at( int x, int y )
+{
+    return( (WORD *)(m8dd->fb_lin + (DWORD)y * m8dd->pitch + (DWORD)x * 2) );
+}
+
+static DWORD m8dd_lock16( M8DD_LOCK *ld )
+{
+    RECTL   all;
+    RECT    r;
+    int     k;
+
+    if( !m8dd_is_fb( ld->lpDDSurface ) ) {
+        return( DDHAL_DRIVER_NOTHANDLED );
+    }
+    all.left = 0;
+    all.top = 0;
+    all.right = m8dd->width;
+    all.bottom = m8dd->height;
+    m8dd_clip_fb( &r, ld->bHasRect ? &ld->rArea : &all );
+    ld->lpSurfData = (LPVOID)m8dd_fb_at( r.left, r.top );
+    ld->ddRVal = DD_OK;
+    if( ld->dwFlags & DDLOCK_READONLY ) {
+        return( DDHAL_DRIVER_HANDLED );
+    }
+    for( k = 0; k < M8DD_HELD_MAX && m8dd_held[k].lcl != NULL; ++k ) {
+    }
+    if( k == M8DD_HELD_MAX ) {
+        /* Nowhere to remember it: the whole screen goes at the next unlock. */
+        k = 0;
+        r.left = 0;
+        r.top = 0;
+        r.right = m8dd->width;
+        r.bottom = m8dd->height;
+    }
+    m8dd_held[k].lcl = ld->lpDDSurface;
+    m8dd_held[k].r = r;
+    return( DDHAL_DRIVER_HANDLED );
+}
+
+static DWORD m8dd_unlock16( M8DD_UNLOCK *ud )
+{
+    int k;
+
+    if( !m8dd_is_fb( ud->lpDDSurface ) ) {
+        return( DDHAL_DRIVER_NOTHANDLED );
+    }
+    for( k = 0; k < M8DD_HELD_MAX; ++k ) {
+        if( m8dd_held[k].lcl == ud->lpDDSurface ) {
+            m8dd_send( &m8dd_held[k].r, 0 );
+            m8dd_held[k].lcl = NULL;
+            break;
+        }
+    }
+    ud->ddRVal = DD_OK;
+    return( DDHAL_DRIVER_HANDLED );
+}
+
+/* A system-memory surface in 5-6-5: its first pixel, pitch and size, or NULL. */
+static BYTE *m8dd_sysmem16( LPVOID lcl, long *pitch, int *w, int *h )
+{
+    BYTE    *gbl;
+
+    if( lcl == NULL || !(*(DWORD *)((BYTE *)lcl + M8DD_LCL_CAPS) & DDSCAPS_SYSTEMMEMORY) ) {
+        return( NULL );
+    }
+    gbl = *(BYTE **)((BYTE *)lcl + M8DD_LCL_GBL);
+    if( gbl == NULL ) {
+        return( NULL );
+    }
+    if( (*(DWORD *)((BYTE *)lcl + M8DD_LCL_FLAGS) & M8DD_HASPIXELFORMAT) &&
+        *(DWORD *)(gbl + M8DD_GBL_PF_BITS) != 16 ) {
+        return( NULL );
+    }
+    *pitch = *(long *)(gbl + M8DD_GBL_PITCH);
+    *w = *(WORD *)(gbl + M8DD_GBL_WIDTH);
+    *h = *(WORD *)(gbl + M8DD_GBL_HEIGHT);
+    return( (BYTE *)*(DWORD *)(gbl + M8DD_GBL_VIDMEM) );
+}
+
+/* Fills, and same-size copies (plain or with a one-colour source key) from
+ * system memory or from the screen itself, all in RAM, then each changed
+ * rectangle sent. Anything else goes back to DDRAW. */
+static DWORD m8dd_blt16( M8DD_BLT *bd )
+{
+    DWORD       other = bd->dwFlags & ~(DDBLT_COLORFILL | DDBLT_ROP | DDBLT_WAIT | DDBLT_ASYNC |
+                                        DDBLT_KEYSRC | DDBLT_KEYSRCOVERRIDE);
+    DWORD       keyed = bd->dwFlags & (DDBLT_KEYSRC | DDBLT_KEYSRCOVERRIDE);
+    const RECTL *od = bd->IsClipped ? &bd->rOrigDest : &bd->rDest;
+    const RECTL *os = bd->IsClipped ? &bd->rOrigSrc : &bd->rSrc;
+    const RECTL *rl;
+    BYTE        *src = NULL;
+    long        pitch = 0;
+    int         sw;
+    int         sh;
+    int         self = 0;
+    WORD        key = 0;
+    WORD        fillc;
+    DWORD       count;
+    DWORD       i;
+    RECT        c;
+    int         w;
+    int         y;
+    int         x;
+    int         step;
+    int         y0;
+    int         y1;
+    WORD        *d;
+    const WORD  *s;
+
+    if( other != 0 || !m8dd_is_fb( bd->lpDDDestSurface ) ) {
+        return( DDHAL_DRIVER_NOTHANDLED );
+    }
+    if( bd->dwFlags & DDBLT_COLORFILL ) {
+        if( keyed ) {
+            return( DDHAL_DRIVER_NOTHANDLED );
+        }
+        fillc = (WORD)bd->bltFX.dwFillColor;
+    } else if( (bd->dwFlags & DDBLT_ROP) && bd->bltFX.dwROP == M8DD_SRCCOPY ) {
+        if( m8dd_is_fb( bd->lpDDSrcSurface ) ) {
+            self = 1;
+            src = (BYTE *)m8dd->fb_lin;
+            pitch = m8dd->pitch;
+            sw = m8dd->width;
+            sh = m8dd->height;
+            if( keyed ) {
+                return( DDHAL_DRIVER_NOTHANDLED );
+            }
+        } else if( (src = m8dd_sysmem16( bd->lpDDSrcSurface, &pitch, &sw, &sh )) == NULL ) {
+            return( DDHAL_DRIVER_NOTHANDLED );
+        }
+        if( os->right - os->left != od->right - od->left ||
+            os->bottom - os->top != od->bottom - od->top ||
+            os->left < 0 || os->top < 0 || os->right > sw || os->bottom > sh ) {
+            return( DDHAL_DRIVER_NOTHANDLED );
+        }
+        if( keyed ) {
+            const DDCOLORKEY *ck = (bd->dwFlags & DDBLT_KEYSRCOVERRIDE) ?
+                &bd->bltFX.ddckSrcColorkey :
+                (const DDCOLORKEY *)((BYTE *)bd->lpDDSrcSurface + M8DD_LCL_CKSRCBLT);
+
+            if( ck->dwColorSpaceLowValue != ck->dwColorSpaceHighValue ||
+                ck->dwColorSpaceLowValue > 0xFFFF ) {
+                return( DDHAL_DRIVER_NOTHANDLED );
+            }
+            key = (WORD)ck->dwColorSpaceLowValue;
+        }
+    } else {
+        return( DDHAL_DRIVER_NOTHANDLED );
+    }
+    if( bd->IsClipped ) {
+        rl = (const RECTL *)bd->prDestRects;
+        count = bd->dwRectCnt;
+        if( self && count > 1 ) {
+            return( DDHAL_DRIVER_NOTHANDLED );
+        }
+    } else {
+        rl = od;
+        count = 1;
+    }
+    for( i = 0; i < count; ++i ) {
+        m8dd_clip_fb( &c, &rl[i] );
+        w = c.right - c.left;
+        if( w <= 0 || c.bottom <= c.top ) {
+            continue;
+        }
+        if( bd->dwFlags & DDBLT_COLORFILL ) {
+            DWORD   two = fillc | ((DWORD)fillc << 16);
+            DWORD   *q;
+            int     n;
+
+            for( y = c.top; y < c.bottom; ++y ) {
+                d = m8dd_fb_at( c.left, y );
+                x = 0;
+                if( (DWORD)d & 2 ) {
+                    d[x++] = fillc;
+                }
+                q = (DWORD *)(d + x);
+                for( n = (w - x) / 2; n > 0; --n ) {
+                    *q++ = two;
+                }
+                if( (w - x) & 1 ) {
+                    d[w - 1] = fillc;
+                }
+            }
+            m8dd_send( &c, 1 );
+            continue;
+        } else {
+            /* Rows in the order that reads each source row before it is
+             * overwritten; memmove takes care of a row onto itself. */
+            long sx = c.left - od->left + os->left;
+            long sy = c.top - od->top + os->top;
+
+            if( self && c.top > sy ) {
+                y0 = c.bottom - 1;
+                y1 = c.top - 1;
+                step = -1;
+            } else {
+                y0 = c.top;
+                y1 = c.bottom;
+                step = 1;
+            }
+            for( y = y0; y != y1; y += step ) {
+                d = m8dd_fb_at( c.left, y );
+                s = (const WORD *)(src + (sy + y - c.top) * pitch + sx * 2);
+                if( keyed ) {
+                    for( x = 0; x < w; ++x ) {
+                        if( s[x] != key ) {
+                            d[x] = s[x];
+                        }
+                    }
+                } else {
+                    memmove( d, s, w * 2 );
+                }
+            }
+        }
+        m8dd_send( &c, 0 );
+    }
+    bd->ddRVal = DD_OK;
+    return( DDHAL_DRIVER_HANDLED );
+}
+
 /* A system-memory surface in the primary's 8bpp format: its first byte,
  * pitch and size, or NULL. */
 static BYTE *m8dd_sysmem( LPVOID lcl, long *pitch, int *w, int *h )
@@ -619,6 +899,9 @@ DWORD __stdcall m8dd_blt( M8DD_BLT *bd )
     long        sy;
     int         ok;
 
+    if( m8dd->fb16 ) {
+        return( m8dd_blt16( bd ) );
+    }
     if( other != 0 || hot[H_HW_OFF] || !m8dd_surf( bd->lpDDDestSurface, &d ) ) {
         return( DDHAL_DRIVER_NOTHANDLED );
     }

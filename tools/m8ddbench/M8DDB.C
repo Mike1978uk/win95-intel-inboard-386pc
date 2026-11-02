@@ -186,6 +186,23 @@ static unsigned long hash_area( void )
     return( h & ~1UL );     /* even: read through a lock */
 }
 
+/* Our 16 bpp driver only: does the card show what is in its frame buffer
+ * (ExtEscape 0x4D3B, as FB16CHK)? Empty under any other driver or depth. */
+static const char *card_check( void )
+{
+    static char buf[48];
+    DWORD       o[5];
+    HDC         dc = GetDC( NULL );
+    int         rc = ExtEscape( dc, 0x4D3B, 0, NULL, sizeof( o ), (LPSTR)o );
+
+    ReleaseDC( NULL, dc );
+    if( rc <= 0 ) {
+        return( "" );
+    }
+    sprintf( buf, "  card %lu", o[0] );
+    return( buf );
+}
+
 static int cmp_double( const void *a, const void *b )
 {
     double x = *(const double *)a;
@@ -254,8 +271,8 @@ static void run( const char *name, OP op, int fixed, int needs )
     for( i = 0; i < fixed; ++i ) {
         op( i );
     }
-    fprintf( out, "%-16s %10.2f ops/s %8.3f ms/op  hash %08lx  #%d  pad 0000  med %.2f\n", name,
-             n * 1000.0 / t, t / n, hash_area(), test_no, med );
+    fprintf( out, "%-16s %10.2f ops/s %8.3f ms/op  hash %08lx  #%d  pad 0000  med %.2f%s\n", name,
+             n * 1000.0 / t, t / n, hash_area(), test_no, med, card_check() );
     flush_out();
 }
 
