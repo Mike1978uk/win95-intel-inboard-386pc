@@ -151,3 +151,42 @@ SCRGRAB [keys], RAW565 l t r b, ICONTEST, FB16TEST, TEST24.BMP. Card still on `M
 4. Older, still open: the post-dxdiag GDI slowdown in the bed (`docs/mach8_directdraw_plan.md`, Open);
    lines_dash dips on the card; 3 more ATI 36-test runs; put master on the card (GDI gate: >= ATI in
    all 36) before any 16 bpp work there.
+
+## Day, 2026-11-02: START HERE (supersedes above)
+
+**State.** master `24593e7`. Card on `M8TXTFX` (= master, plain build, md5 `bbea6965...`).
+
+**Selection bug.** Owner, real 5160, installing DirectX 7.0a (photos
+`C:\Users\lycet\OneDrive\Desktop\XT_project\photos\dissapearingtext1-3.jpg`): in Explorer the selected
+name was blank and old focus boxes stayed. The packed-text path (`m8_gc_text`, from `29419f9`) ignored
+`lpOpaqueRect`. GDI passes list-view labels as transparent text with an opaque rectangle and
+`options == ETO_BYTE_PACKED` only (no `ETO_OPAQUE`). Fixed in `24593e7`: such calls go to DIBENG.
+Reproduced in bed `vm_5160_mcp` at 1024x768x8 on master, gone with the fix, same keys and timing.
+Not visible at 16 bpp.
+
+**Bench, card.** `card_txtfx1`, `card_txtfx_b1`, `b2`: pixels = ATI in all 36; faster in 25 (24 in run 1);
+geometric mean 1.78x ATI. text_varied 461-463 vs ATI 505 (master before the fix, `card_strip1-4` /
+`card_ctl_flood1-4`: 469-538). Likely cause: GDI gives OPAQUE TextOut an opaque rectangle, so unique
+strings now miss the packed path.
+
+**DirectX 7.0a** is installed on the card (owner). First launch of the installer hung the 5160 with a
+constant tone from the Sound Blaster (SB looping its DMA buffer after the CPU stopped); hard reset;
+second attempt installed. Cause unknown; one-off unless it recurs.
+
+**Handoff item 1 closed.** Paint's inactive title bar with the navy box round the caption buttons
+happens with ATI's driver too (owner, bed, 2026-11-02): Windows 95's own behaviour, triggered by
+focusing the Run dialog while Paint loads. Also seen at 8 bpp on ours.
+
+**Machines.** Bed `vm_5160_mcp`: registry selects `atim8.drv` (owner's ATI comparison). `M8FB16N.DRV` and
+`M8DISP.DRV` in it are both the `24593e7` build. Original M8FB16N kept on the host:
+`C:\Users\lycet\AppData\Local\Temp\claude\C--Users-lycet-RiderProjects-86Box-Inboard\3159db7d-37a7-4dba-b55f-b312a2decdec\scratchpad\M8FB16N.orig.DRV`.
+Display at 1024x768x8 (`M8FB8.REG`); `M8FB16.REG` and `M8FB8.REG` are in C:\ of the bed.
+
+**Issue #10.** Simon's Phoenix and Ruud ROM results recorded (`f6be662`); owner has replied.
+
+**Next, in order:**
+1. **Packed-text opaque fill.** Draw the opaque rectangle in the packed path (fill, then text; recorded
+   for key replay). Bench >= ATI in text_varied. In progress.
+2. **DirectDraw at 16 bpp** (item 2 of the previous section, unchanged).
+3. **Bus cost at 16 bpp** (item 3 of the previous section, unchanged).
+4. Older open items (item 4 of the previous section).

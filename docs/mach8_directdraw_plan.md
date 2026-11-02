@@ -141,8 +141,8 @@ on the card's 256 colours. `src/fb16.c` (`66e7525`), bed only so far:
 - At 8 bpp the same build is unchanged: M8BENCH pixels same in all 36 (`bed_fb8d`).
 
 Owner's eye, 11-01 late (bed, `M8FB16N`): desktop, menus and icons flat; gradients smooth; no pointer
-ghosts. Slow only while the disk is read. Open: Paint's title bar stayed half navy after starting Paint
-from Run, until clicked - FB16CHK not yet run while it showed. Next: DirectDraw at 16 bpp (dd16.c refuses
+ghosts. Slow only while the disk is read. Paint's title bar stayed half navy after starting Paint
+from Run, until clicked: resolved 11-02, Windows' own (ATI's driver shows it too). Next: DirectDraw at 16 bpp (dd16.c refuses
 it today; the primary is the frame buffer, Unlock sends the rectangle), then dxdiag test 3 with the
 desktop already at 640x480x16. Not yet: a live depth change; pattern-register fills for solid colours
 (the bus cost on the card); the card itself.
