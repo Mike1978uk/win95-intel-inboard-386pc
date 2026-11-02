@@ -73,7 +73,9 @@ if (-not $FetchOnly -and -not $BenchOnly) {
   # agent's own reboot can end in a fatal exception 0D. A normal restart is up well inside
   # 4 minutes; a stuck one fails fast. The start-up programs are M8IDLE's to wait for.
   $boot = (Agent info | ConvertFrom-Json).BootCounter
-  Agent input @{ Sequence = 'key CTRL+ESC; delay 1500; key U; delay 2500; key R; delay 500; key ENTER' } | Out-Null
+  # The Shut Down dialog appears only after the whole screen is dimmed, which takes
+  # seconds at 16 bpp: an R before it lands on the desktop and the restart never starts.
+  Agent input @{ Sequence = 'key CTRL+ESC; delay 1500; key U; delay 15000; key R; delay 500; key ENTER' } | Out-Null
   $back = $false
   for ($t = 0; $t -lt 24 -and -not $back; $t++) {
     Start-Sleep -Seconds 10
