@@ -482,6 +482,14 @@ LONG WINAPI __loadds Control( LPVOID lpDevice, UINT function, LPVOID lpInput, LP
                            (short)r[5] );
         return( 1 );
     }
+    /* A probe (tools/m8probe) drew on the engine behind the driver: the
+     * register shadows, the caches and at 16 bpp the fingerprints are stale,
+     * so the screen is taken and given back as for a full-screen DOS box. */
+    if( function == M8_ESC_RESYNC ) {
+        m8_switch_out();
+        m8_switch_in();
+        return( 1 );
+    }
     /* M8DD32.DLL lends DirectDraw the off-screen rows, or takes them back:
      * GDI's caches must leave them before DirectDraw draws there. */
     if( function == M8_ESC_DDLEND && lpInput != NULL ) {
