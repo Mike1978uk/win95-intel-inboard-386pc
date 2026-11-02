@@ -18,7 +18,7 @@ static void show( const char *what )
         printf( "%-14s no counters\n", what );
         return;
     }
-    printf( "%-14s access %5lu  sends %5lu  pixels %8lu  cursor %lu\n", what,
+    printf( "%-14s access %5lu  sends %5lu  pixels %8lu  solid %lu\n", what,
             now[0] - last[0], now[1] - last[1], now[2] - last[2], now[3] - last[3] );
     memcpy( last, now, sizeof( last ) );
 }

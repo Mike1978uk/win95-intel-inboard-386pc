@@ -29,6 +29,10 @@ UINT WINAPI GlobalSmartPageLock( HGLOBAL hglb );
 static void m8_copy32( WORD sel, DWORD off, BYTE FAR *dst, WORD n );
 #pragma aux m8_copy32 =     ".386"     "push ds"     "mov ds, dx"     "shl ecx, 16"     "mov cx, bx"     "mov esi, ecx"     "movzx ecx, ax"     "movzx edi, di"     "cld"     "db 67h, 0F3h, 0A4h"     "pop ds"     parm [dx] [cx bx] [es di] [ax] modify [cx si di];
 
+/* 1 if the n words (n > 0) at sel:off all equal v: repe scasw, 32-bit address. */
+static int m8_fb16_same( WORD sel, DWORD off, WORD n, WORD v );
+#pragma aux m8_fb16_same = ".386" "push es" "mov es, dx" "shl ecx, 16" "mov cx, bx" "mov edi, ecx" "movzx ecx, si" "cld" "db 67h, 0F3h, 0AFh" "setz al" "mov ah, 0" "pop es" parm [dx] [cx bx] [si] [ax] value [ax] modify [cx di];
+
 #define M8_FB16_MAXW    800         /* the widest 16 bpp mode */
 #define M8_FB16_PITCH   ((DWORD)m8_scr_x * 2)
 
@@ -294,6 +298,67 @@ static void m8_fb16_send( int l, int t, int r, int b )
     m8_leave();
 }
 
+/* Smaller than this, a one-colour rectangle goes as pixels: the scan and the
+ * copies would cost more than the bytes. */
+#define M8_FB16_SOLID_MIN   256
+
+/* 1 if every pixel of the rectangle is the 5-6-5 colour *c. */
+static int m8_fb16_uniform( int l, int t, int r, int b, WORD *c )
+{
+    DWORD   off = (DWORD)t * M8_FB16_PITCH + (DWORD)l * 2;
+    WORD    v;
+    int     y;
+
+    m8_copy32( m8_fb16_sel, off, (BYTE FAR *)&v, 2 );
+    for( y = t; y < b; ++y, off += M8_FB16_PITCH ) {
+        if( !m8_fb16_same( m8_fb16_sel, off, (WORD)(r - l), v ) ) {
+            return( 0 );
+        }
+    }
+    *c = v;
+    return( 1 );
+}
+
+/* A one-colour rectangle: the dither repeats every 4 pixels both ways, so a
+ * 4x4 block crosses the bus and engine copies double it across and then
+ * down, each distance a multiple of 4. A colour that dithers to one index is
+ * a plain fill. */
+static void m8_fb16_solid( int l, int t, int r, int b )
+{
+    BYTE    blk[16];
+    int     w = r - l;
+    int     h = b - t;
+    int     bw = w < 4 ? w : 4;
+    int     bh = h < 4 ? h : 4;
+    int     done;
+    int     n;
+    int     k;
+
+    for( k = 0; k < bh; ++k ) {
+        m8_fb16_row( (BYTE FAR *)&blk[k * 4], t + k, l, l + bw );
+    }
+    for( k = 1; k < bw * bh && blk[(k / bw) * 4 + k % bw] == blk[0]; ++k ) {
+    }
+    ++m8_fb16_stat[3];
+    if( k == bw * bh ) {
+        m8_cur_lift( l, t, r, b );
+        m8_hw_fill( l, t, w, h, blk[0] );
+        m8_leave();
+        return;
+    }
+    m8_fb16_send( l, t, l + bw, t + bh );
+    m8_cur_lift( l, t, r, b );
+    for( done = bw; done < w; done += n ) {
+        n = w - done < done ? w - done : done;
+        m8_hw_copy( l, t, l + done, t, n, bh );
+    }
+    for( done = bh; done < h; done += n ) {
+        n = h - done < done ? h - done : done;
+        m8_hw_copy( l, t, l, t + done, w, n );
+    }
+    m8_leave();
+}
+
 static long m8_fb16_area( const M8_FB16_RECT *a )
 {
     return( (long)(a->r - a->l) * (a->b - a->t) );
@@ -341,6 +406,25 @@ static void m8_fb16_add( const M8_FB16_RECT *n )
     m8_fb16_union( &m8_fb16_dirty[best], n );
 }
 
+/* One dirty rectangle to the card, clipped to the screen. */
+static void m8_fb16_flush( const M8_FB16_RECT *d )
+{
+    int     l = d->l < 0 ? 0 : d->l;
+    int     t = d->t < 0 ? 0 : d->t;
+    int     r = d->r > m8_scr_x ? m8_scr_x : d->r;
+    int     b = d->b > m8_scr_y ? m8_scr_y : d->b;
+    WORD    c;
+
+    if( r <= l || b <= t ) {
+        return;
+    }
+    if( (long)(r - l) * (b - t) >= M8_FB16_SOLID_MIN && m8_fb16_uniform( l, t, r, b, &c ) ) {
+        m8_fb16_solid( l, t, r, b );
+    } else {
+        m8_fb16_send( l, t, r, b );
+    }
+}
+
 /* Right and bottom are the last pixel drawn, not one past it. */
 static VOID WINAPI __loadds m8_fb16_begin( LPPDEVICE lpDevice, WORD wLeft, WORD wTop,
                                            WORD wRight, WORD wBottom, WORD wFlags )
@@ -373,8 +457,7 @@ static VOID WINAPI __loadds m8_fb16_end( LPPDEVICE lpDevice, WORD wFlags )
     DIB_EndAccess( lpDevice, wFlags );
     if( m8_fb16_depth > 0 && --m8_fb16_depth == 0 ) {
         for( k = 0; k < m8_fb16_ndirty; ++k ) {
-            m8_fb16_send( m8_fb16_dirty[k].l, m8_fb16_dirty[k].t, m8_fb16_dirty[k].r,
-                          m8_fb16_dirty[k].b );
+            m8_fb16_flush( &m8_fb16_dirty[k] );
         }
         m8_fb16_ndirty = 0;
     }
