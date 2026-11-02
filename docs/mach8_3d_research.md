@@ -72,6 +72,18 @@ viewport in the 640x480 mode (the 8514 side has no 320x200 mode); on the VGA hal
 | 4 | **VGA half, Mode X flat polygons** (map mask writes 4 pixels per byte, CRTC page flip) | full cover 16,000 bytes x 1.86-2.18 = 30-35 ms: **~25-30 fps**; software texturing 64,000 bytes: **~8 fps** | mode 12h, 16 colours planar, set/reset writes 8 px/byte: ~72 ms: **~12 fps** flat; 640x480x256 packed: <2 fps | the 1 s resync at mode change; 28800 unchained mode untested on the card |
 | 5 | **Software Direct3D at 16 bpp** (Microsoft's RGB emulation drawing into our fb16 RAM frame buffer; fingerprints send what changed) | window 320x200 = 64,000 px x 3.84 us = 246 ms: **~4 fps** | **<1 fps** | none to try: it may already work (dxdiag test 3); a dead end for speed - every pixel crosses the bus |
 | 6 | **Direct3D HAL, flat-shaded, 8 bpp** (rows 2/2a as the back end) | as 2a: **~15-20 fps** for 100 triangles in a small window | as 2a | few applications accept a device with no textures and no Z; whether DDRAW/D3D 5-7 accept an 8-bit HAL is unknown |
+| 7 | **Pseudo-3D road** (OutRun, Lotus, Hard Drivin' on 16-bit consoles): road, kerb and grass as engine spans, ~3 per row; pre-scaled roadside sprites as keyed copies | 3 x 200 = ~600 spans x arm B us/span (15.3 predicted) = ~9 ms bus: **refresh-bound (60)**, before sprites | ~1,440 spans = ~22 ms: **~35-40 fps**, before sprites | none beyond span cost (arm B) |
+| 8 | **Scaled sprites without scaling hardware** (Lynx "Suzy" scaled in hardware, Sega Super Scaler; weaker ports used pre-scaled copies): N pre-scaled sizes per sprite in spare card memory, each draw one colour-keyed engine copy | 869 keyed 64x64 copies/s measured (DirectDraw 8 bpp, 7bca399): **~29 per frame at 30 fps, ~14 at 60** | same copies; cost does not depend on resolution | card memory per sprite set (sizes x pixels) |
+| 9 | **Isometric / dirty-region worlds** (Head over Heels, Marble Madness, Knight Lore): tiles and sprites in card memory, painter's order, redraw only the regions that moved; keyed copies, bus carries commands only | cost = moved regions x copies each; static scene ~0 | same | scenes where most of the screen moves every frame fall back to a full redraw |
+| 10 | **Bus-free full-screen effects:** (a) hardware scroll and parallax by the display start address, layers as keyed copies (Turrican, Shadow of the Beast; Amiga copper); (b) page flip between two 640x480 pages in 1 MB; (c) palette cycling / ramp rotation for water, fire, lighting (Amiga/ST art, Mark Ferrari; Doom-era colormaps) | a handful of register writes per frame: pan ~2 writes (15 us); 64 palette entries x ~23 us = ~1.5 ms | same | whether the display start latches at vertical sync (tearing); palette writes without snow |
+
+Rows 7-10 are estimates from the same bus numbers, taken from 8/16-bit era techniques (Amiga, NES / Mega
+Drive, Atari Lynx; Head over Heels, Marble Madness, Turrican, S.T.U.N. Runner, Blue Lightning, Hard Drivin',
+Warbirds). They need no new silicon; they use the engine, keyed copies and display-start / palette registers
+already listed in section 1.
+
+Note on 2b: the Amiga blitter's area-fill mode (CPU draws one-pixel-per-row edges, the blitter fills between
+them) is the same idea as the 8514 polygon fill (outline + poly blit), which ATI's drivers never used.
 
 For comparison, a software renderer sending a full 8 bpp frame: 8514 side 64,000 x 3.84 = 246 ms (4 fps);
 VGA half 64,000 x 1.86 = 119 ms (8 fps). For existing games (Doom95 and the like) the VGA half is the
@@ -117,7 +129,7 @@ SCAN_TO_X starts a mono pattern at bit 7 (dithered spans differ). Every rate mus
 ## 3. First experiment (under an hour): M8SPAN
 
 A real-mode `.COM` beside `tools/m8seq/M8PF.ASM` (same set-up, PIT-latched timing, interrupts off, FIFO
-polled once per 16 writes). Four arms, 2,000 operations each, on the 640x480 8514 mode:
+polled once per 16 writes). Arms A-C and D-G, 2,000 operations each (arm G per frame), on the 640x480 8514 mode:
 
 | Arm | Operation | Predicted (bus only) |
 |---|---|---|
@@ -125,6 +137,9 @@ polled once per 16 writes). Four arms, 2,000 operations each, on the 640x480 851
 | B | ten spans in one row: FRGD_COLOR + SCAN_TO_X each | 15.3 us per span |
 | C | LINEDRAW polyline, 20-px segments | 15.3 us per vertex |
 | D | CMD 5 triangle (outline + poly blit) at 20x20 and 200x200 | ~0.35-0.55 ms; the 200x200 case shows engine time |
+| E | display-start pan (CRT_OFFSET) | writes per pan; visible tearing |
+| F | page flip between two pages, with and without waiting for vertical blank | writes per flip (~2); tearing without the wait |
+| G | palette rotation, 64 entries per frame | ~1.5 ms per frame (64 x ~23 us); snow or not |
 
 Reads the screen back for a pixel check (bed = card) as M8PF does.
 
@@ -133,7 +148,7 @@ Reads the screen back for a pixel check (bed = card) as M8PF does.
 ahead of the VGA half for flat shading only if HSR saves overdraw. > 40 us (engine latency, not the bus):
 drop the span path; flat shading goes to Mode X (approach 4) and the engine keeps vectors (approach 1).
 Arm C below ~20 us per vertex confirms ~1,400 edges per 30 fps frame for approach 1. Arm D's 200x200 time
-against its 20x20 time gives the engine's fill cost per pixel for CMD 5, which ranks 2b.
+against its 20x20 time gives the engine's fill cost per pixel for CMD 5, which ranks 2b (arm D). Arms E-G confirm approach 10's costs.
 
 Cost: one probe from the M8PF template, one bed run for pixels, one card run over COMrade (two, per the
 idle rule). No driver change.
