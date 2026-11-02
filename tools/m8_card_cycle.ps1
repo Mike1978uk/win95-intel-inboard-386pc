@@ -46,6 +46,19 @@ if (-not $FetchOnly -and -not $BenchOnly) {
   $reg = Join-Path $env:TEMP "$Name.REG"
   "REGEDIT4`r`n`r`n[$key]`r`n`"drv`"=`"$drvName`"`r`n" | Set-Content -NoNewline -Encoding ascii $reg
   Agent put @{ Source = $Drv; Destination = "C:\WINDOWS\SYSTEM\$Name.DRV" } | Out-Null
+  # DirectDraw's 32-bit half: built beside the driver, loaded by name, so it must match it.
+  # DDRAW keeps it loaded, so it cannot be replaced while Windows runs: it goes in as
+  # M8DD32.NEW and WININIT.INI renames it at the restart below, before anything loads it.
+  $dd32 = Join-Path (Split-Path $Drv) 'M8DD32.DLL'
+  if (Test-Path $dd32) {
+    $wi = Agent stat @{ Path = 'C:\WINDOWS\WININIT.INI' } | ConvertFrom-Json
+    if ($wi.Exists) { throw 'C:\WINDOWS\WININIT.INI already exists: a rename is pending, look first' }
+    Agent put @{ Source = $dd32; Destination = 'C:\WINDOWS\SYSTEM\M8DD32.NEW' } | Out-Null
+    $ini = Join-Path $env:TEMP 'WININIT.INI'
+    "[rename]`r`nC:\WINDOWS\SYSTEM\M8DD32.DLL=C:\WINDOWS\SYSTEM\M8DD32.NEW`r`n" |
+      Set-Content -NoNewline -Encoding ascii $ini
+    Agent put @{ Source = $ini; Destination = 'C:\WINDOWS\WININIT.INI' } | Out-Null
+  }
   # Not in C:\ : FAT's root holds 512 entries, and a full root fails every upload there.
   Agent put @{ Source = $reg; Destination = "C:\V9XREMOTE\REG\$Name.REG" } | Out-Null
   Agent exec @{ Application = 'C:\WINDOWS\REGEDIT.EXE'; Arguments = "/S C:\V9XREMOTE\REG\$Name.REG"; TimeoutSeconds = 60 } | Out-Null

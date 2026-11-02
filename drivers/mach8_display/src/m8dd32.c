@@ -125,6 +125,7 @@ typedef struct {
 #define M8DD_LCL_GBL        4
 #define M8DD_LCL_FLAGS      28
 #define M8DD_LCL_CAPS       32
+#define M8DD_LCL_CKSRCBLT   60          /* DDCOLORKEY ddckCKSrcBlt */
 #define M8DD_GBL_VIDMEM     20
 #define M8DD_GBL_PITCH      24
 #define M8DD_GBL_HEIGHT     28          /* WORD */
@@ -190,6 +191,20 @@ typedef struct {
 #define M8_XROW_WORDS       513         /* the widest mode, one word over for an odd start */
 #define M8_ESC_DDLEND       0x4D39      /* m8.h */
 #define M8DD_HELD_MAX       8
+/* m8.h: the extended blit, for a colour-keyed copy. */
+#define M8_DP_VRAM_BLIT     0x6011
+#define M8_ALU_FG_FN        0xBAEE
+#define M8_ALU_BG_FN        0xB6EE
+#define M8_SRC_CMP_FN       0x92EE
+#define M8_SRC_CMP_COLOR    0xEAEE
+#define M8_SRC_Y_DIR        0xC2EE
+#define M8_DEST_X_START     0xA6EE
+#define M8_DEST_X_END       0xAAEE
+#define M8_DEST_Y_END       0xAEEE
+#define M8_SRC_X_START      0xB2EE
+#define M8_SRC_X_END        0xBEEE
+#define M8_MIX_REPLACE      0x0007
+#define M8_MIX_LEAVE        0x0003
 
 static HINSTANCE    m8dd_inst;
 static M8DD_SHARE   *m8dd;
@@ -461,6 +476,45 @@ static int m8dd_rect( const RECT *d, int copy, int sx, int sy )
     return( 1 );
 }
 
+/* One rectangle copied from (sx, sy) with the source's pixels of colour
+ * `key` left out, as m8hw.c m8_hw_copy_keyed: the extended blit, left to right
+ * and top down (the source is another surface, so the two never overlap).
+ * Its set-up is extended registers, written from an empty FIFO; it restores
+ * the plain data path's DP_CONFIG and turns the compare off behind it. */
+static int m8dd_key_rect( const RECT *d, int sx, int sy, BYTE key )
+{
+    int     w = d->right - d->left;
+    int     h = d->bottom - d->top;
+
+    if( w <= 0 || h <= 0 ) {
+        return( 1 );
+    }
+    if( !m8dd_idle() ) {
+        return( 0 );
+    }
+    outpw( M8_DP_CONFIG, M8_DP_VRAM_BLIT );
+    outpw( M8_ALU_FG_FN, M8_MIX_REPLACE );
+    outpw( M8_ALU_BG_FN, M8_MIX_LEAVE );
+    outpw( M8_SRC_CMP_COLOR, key );
+    outpw( M8_SRC_CMP_FN, 0x0028 );
+    outpw( M8_SRC_Y_DIR, 1 );
+    outpw( M8_CUR_X, d->left );
+    outpw( M8_CUR_Y, d->top );
+    outpw( M8_DEST_X_START, d->left );
+    outpw( M8_DEST_X_END, d->right );
+    outpw( M8_DESTX_DIASTP, sx );
+    outpw( M8_DESTY_AXSTP, sy );
+    outpw( M8_SRC_X_START, sx );
+    outpw( M8_SRC_X_END, sx + w );
+    outpw( M8_DEST_Y_END, d->bottom );
+    outpw( M8_SRC_CMP_FN, 0 );
+    if( !m8dd_idle() ) {
+        return( 0 );
+    }
+    outpw( M8_DP_CONFIG, M8_DP_8514 );
+    return( 1 );
+}
+
 /* A system-memory surface in the primary's 8bpp format: its first byte,
  * pitch and size, or NULL. */
 static BYTE *m8dd_sysmem( LPVOID lcl, long *pitch, int *w, int *h )
@@ -544,7 +598,10 @@ static int m8dd_host_rect( const RECT *d, const BYTE *src, long pitch )
 DWORD __stdcall m8dd_blt( M8DD_BLT *bd )
 {
     BYTE        *hot = (BYTE *)m8dd->hot;
-    DWORD       other = bd->dwFlags & ~(DDBLT_COLORFILL | DDBLT_ROP | DDBLT_WAIT | DDBLT_ASYNC);
+    DWORD       other = bd->dwFlags & ~(DDBLT_COLORFILL | DDBLT_ROP | DDBLT_WAIT | DDBLT_ASYNC |
+                                        DDBLT_KEYSRC | DDBLT_KEYSRCOVERRIDE);
+    DWORD       keyed = bd->dwFlags & (DDBLT_KEYSRC | DDBLT_KEYSRCOVERRIDE);
+    BYTE        key = 0;
     const RECTL *od = bd->IsClipped ? &bd->rOrigDest : &bd->rDest;
     const RECTL *os = bd->IsClipped ? &bd->rOrigSrc : &bd->rSrc;
     const RECTL *rl;
@@ -585,6 +642,19 @@ DWORD __stdcall m8dd_blt( M8DD_BLT *bd )
     } else {
         return( DDHAL_DRIVER_NOTHANDLED );
     }
+    /* A source colour key: one colour (not a range), card to card, between
+     * two surfaces. */
+    if( keyed ) {
+        const DDCOLORKEY *ck = (bd->dwFlags & DDBLT_KEYSRCOVERRIDE) ? &bd->bltFX.ddckSrcColorkey :
+            (const DDCOLORKEY *)((BYTE *)bd->lpDDSrcSurface + M8DD_LCL_CKSRCBLT);
+
+        if( kind != 1 || bd->lpDDSrcSurface == bd->lpDDDestSurface ||
+            ck->dwColorSpaceLowValue != ck->dwColorSpaceHighValue ||
+            ck->dwColorSpaceLowValue > 0xFF ) {
+            return( DDHAL_DRIVER_NOTHANDLED );
+        }
+        key = (BYTE)ck->dwColorSpaceLowValue;
+    }
     if( bd->IsClipped ) {
         rl = (const RECTL *)bd->prDestRects;
         count = bd->dwRectCnt;
@@ -613,6 +683,8 @@ DWORD __stdcall m8dd_blt( M8DD_BLT *bd )
             ok = 0;
         } else if( kind == 0 ) {
             ok = m8dd_rect( &c, 0, 0, 0 );
+        } else if( kind == 1 && keyed ) {
+            ok = m8dd_key_rect( &c, s.x + (int)sx, s.y + (int)sy, key );
         } else if( kind == 1 ) {
             ok = m8dd_rect( &c, 1, s.x + (int)sx, s.y + (int)sy );
         } else {

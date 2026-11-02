@@ -237,6 +237,9 @@ static void m8dd_build( int mode )
         hi->ddCaps.dwRops[0xCC / 32] |= 1UL << (0xCC % 32);
         /* And SRCCOPY from system memory to the card, as host data. */
         hi->ddCaps.dwCaps |= DDCAPS_CANBLTSYSMEM;
+        /* Source colour keys between card surfaces: the engine's compare. */
+        hi->ddCaps.dwCaps |= DDCAPS_COLORKEY | DDCAPS_COLORKEYHWASSIST;
+        hi->ddCaps.dwCKeyCaps = DDCKEYCAPS_SRCBLT;
         hi->ddCaps.dwSVBCaps = DDCAPS_BLT;
         hi->ddCaps.dwSVBRops[0xCC / 32] |= 1UL << (0xCC % 32);
     }
