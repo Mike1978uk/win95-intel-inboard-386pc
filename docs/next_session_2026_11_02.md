@@ -237,3 +237,50 @@ span fills (D3D HAL) at 8 bpp.
 
 **Open.** DOS timing of VGA-memory writes vs 8514 PIX_TRANS writes on the 5160: offered, not run.
 Re-run the 9 slower single-run GDI tests before judging them.
+
+## Evening, 2026-11-02: START HERE (supersedes above)
+
+**State.** master `6f76f14` plus this file. Card on `m8resync.drv` (= master `f4fda53` build) at
+800x600x16, `MODES\16` keys present; `M8DD32.DLL` installs via `M8DD32.NEW` and `WININIT.INI`
+(`tools/m8_card_cycle.ps1`). Bed `vm_5160_mcp` at 1024x768x8 (`M8FB8.REG` imported); `M8DISP.DRV` and
+`M8FB16N.DRV` = the resync build. The agent's screenshot helper fails at 16 bpp (Win32 1460) and would
+read the RAM frame buffer, not the card.
+
+**Landed after `4b48102`.**
+- `3b45b38` worklist section X.
+- `d948817`, `86c1ede`, `6f76f14` `docs/mach8_3d_research.md`: 3D research, retro approaches 7-10, M8SPAN
+  card results.
+- `84be69f` SetPalette while disabled does nothing (DDRAW Mode X set the palette with the driver
+  disabled -> null DIB device -> fatal 0E in the bed); M8DDB `modex <label>` mode with a step log.
+- `f4fda53` M8SPAN, and driver resync escape `0x4D3E` (`m8_switch_out` + `m8_switch_in`) for probes that
+  draw behind the driver.
+- `58df2c1` M8SPAN arms D-G.
+
+**Mode X (bed; build with `DDHALINFO_MODEXILLEGAL` cleared, master still sets it).**
+- DDRAW then lists 320x200x8 and 320x240x8 (`DDSCAPS_MODEX`).
+- From the 16 bpp desktop, `SetDisplayMode(320,200,8)` returns `DDERR_INVALIDMODE` 88760078.
+- From 8 bpp it succeeds; primary created (caps 1020c200, pitch 320); `CreatePalette` OK; `SetPalette`
+  killed the program: fatal 0E at 0137:BFF9A07C before the guard, silent death after it.
+- The monitor stayed on the 8514 output (black at 1024x768): nothing hands the output to the VGA half.
+- An Internat page fault in KERNEL32 at shutdown followed a failed Mode X attempt; link unproven.
+- Next: `inboard-hw-debug` skill first. Find which driver entries DDRAW calls on Mode X entry and exit
+  (trace build); switch to the VGA half there, restore via the resync path; fix the palette death.
+
+**M8SPAN on the card (three runs).**
+- Spans 20.4-21.9 us along a row, 25-28 us per row (width-independent).
+- LINEDRAW 20.6-22.1 us/vertex.
+- Polygon fill 0.2 ms (20x20), 3.0 ms (200x200). Owner photographed a correct triangle
+  (`photos/directx.jpg`). The bed fills rectangles: 86Box lacks POLY_MODE via LINEDRAW (observed_86box_quirks).
+- Palette 64 entries 0.84 ms; pan 15 us; vsync count wrong (loop bug, arm F).
+- A probe drawing under the pointer leaves a stale square: anything drawing outside the driver must lift
+  the pointer.
+
+**Next, in order.**
+1. Mode X investigation (worklist X1).
+2. First 3D demo: flat-shaded rotating object via the polygon fill, through the driver (pointer lift);
+   then a Direct3D HAL at 8 bpp claiming flat shading (X7).
+3. Fix M8SPAN arm F (vsync).
+4. dxdiag DirectDraw tests on the card at 16 bpp (owner).
+5. 16 bpp levers X2-X5.
+
+**Aspiration (owner).** The first 8-bit Direct3D hardware layer.
