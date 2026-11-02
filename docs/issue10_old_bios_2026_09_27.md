@@ -264,6 +264,35 @@ still stops after the last real-mode VxD (`EBIOS` LoadFailed), as before. **The 
 Files held locally with his others (`NMICHK.TXT`, `BTLG0410.txt`). Left: the 5150 board versus his
 exact BIOS build - the `vm_5150` bed separates them once it boots.
 
+
+## 11. Simon's 5150 results, 2026-11-02
+
+Simon (a second 5150 owner, on #10) reports, in order:
+
+- Phoenix XT BIOS, labelled 1985 and 1986/A, in a socket converter in his 5150 "A" board: stops at the same
+  place as the Anonymous BIOS (the Windows 95 stop at the switch to protected mode). A third BIOS family
+  with the same result.
+- Ruud's Diagnostic ROM v5.7 (minuszerodegrees.net): "a short and long beep, no screen". Asks whether 4.5 is better.
+- He is looking for an EPROM to burn the Landmark test ROM.
+
+What the sources say ([Ruud's Diagnostic ROM, 16KB-64KB page](https://minuszerodegrees.net/ruuds_diagnostic_rom/5150/16KB-64KB.htm),
+[v4.5 breakdown](https://minuszerodegrees.net/ruuds_diagnostic_rom/misc/Ruuds%20Diagnostic%20ROM%20-%20Breakdown%20-%20Version%204.5.htm)):
+
+- Early in execution the ROM beeps three times, short-long-short, and on a 5150 clicks the relay. He reported two.
+- Screen output needs a real MDA or CGA card; an EGA/VGA card driving an MDA/CGA monitor does not count. Without
+  one, or 4 KB RAM at A0000/B0000/B8000, "only the initial tests are done". The beeps still happen.
+- It needs RAM for variables and stack, taken from the video card or the 4 KB option, not planar RAM.
+- v4.5 step 18 looks for MDA, CGA, then EGA video RAM; none found = checkpoint 8A, halt.
+
+Not stated by the sources: any meaning for a short-plus-long beep; any difference in hardware needs between 4.5
+and 5.7 (the 5.7 page lists the six video/RAM options; the 4.5 page lists steps only); what video card Simon has;
+whether his count was two or he missed one. His one-short-one-long is unexplained.
+
+Meaning for #10: the Phoenix result removes "Anonymous BIOS" as the cause; BIOS-independent points at the board
+(planar RAM, switches) or the Inboard/5150 interaction. The Ruud ROM is only useful to him if it runs to the
+checkpoint stage; it does not test the protected-mode switch.
+
+Next from Simon: his video card type, and the exact beep count and pattern. 4.5 vs 5.7 is unknown.
 ## Next
 
 0. `NMICHK /m` boot on the 5150 (sent 2026-10-04); `NMIWATCH` + `NMICHK` boot on the owner's 5160.
