@@ -53,6 +53,20 @@ P1, P3, P4, P8 and O12 are one Win32 probe, `tools/m8probe/M8P0.C` (arms R, O, H
 | M8CUBE 3 cubes, `v` (T1, boot 189, `m8vbl`) | 68.5 fps, 535 faces/s | - | locked to the 72 Hz refresh. The owner's stills (`photos/dxcubes/IMG_2095-2111`) show no tear line: what looked like tearing was the polygon fill leaking where both edges share a pixel (spurs, combs, notches), fixed by an XOR outline plus the outline drawn over the fill |
 | M8CUBE 3 cubes, fill fixed (`m8solid`, boot 191) | 101.8 fps, 787 faces/s | 100.1 fps, 775 faces/s | owner: solid, clean edges, no issues. The outline over each face costs ~12 %: A1 wins it back. `v` 69.2 fps. Bench: pixels = ATI in 35, geomean 1.79 |
 
+### Scoreboard baseline `solid` (`tools/m8_score.ps1`, card, `m8solid`, 800x600x8, 2026-11-02)
+
+Every lever is compared against this, run the same way (over the agent: agent-run M8CUBE is slower than
+the owner's console runs, 91-93 vs 100-102 fps, so never mix the two).
+
+| Test | Run 1 | Run 2 |
+|---|---|---|
+| M8CUBE 3 cubes | 90.8 fps, 703 faces/s | 92.9 fps, 721 faces/s |
+| dd_fill_small / dd_fill_large | 1184 / 451 ops/s | 998 / 448 |
+| dd_vid_small / dd_sprite / dd_scroll | 1229 / 802 / 441 | 1202 / 806 / 420 |
+| dd_sys_small / dd_sys_large | 56.2 / 4.08 | 56.9 / 4.02 |
+| dd_lock_small / dd_lock_large | 24.0 / 1.07 | 26.7 / 1.11 |
+| OUT / IN | 4.51 / 4.52 us | same |
+
 ## Thinking like the demoscene: the bus is the enemy
 
 Every byte that crosses the XT bus stalls the CPU (CPU and bus time add). Speed comes from the card's own
