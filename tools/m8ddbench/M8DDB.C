@@ -9,6 +9,8 @@
  * driver or DirectDraw refuses prints its error instead of a rate.
  *
  *   M8DDB <label>      appends to C:\M8DDB.TXT and exits (about 15 s)
+ *   M8DDB fs16 <label>   the same file: 640x480 at 16 bpp, full screen (as
+ *                      dxdiag's third DirectDraw test), then the desktop back
  *   M8DDB modex <label>  the same file: 320x200 at 8 bpp, full screen, with
  *                      DDSCL_ALLOWMODEX (DirectDraw's own Mode X or a driver
  *                      mode), then the desktop back
@@ -383,6 +385,7 @@ static HRESULT t_lock_large( int i )
 
 static int  mx_w = 320;
 static int  mx_h = 200;
+static int  mx_bpp = 8;
 
 static HRESULT t_mx_fill( int i )
 {
@@ -407,8 +410,14 @@ static HRESULT t_mx_frame( int i )
     }
     for( y = 0; y < mx_h; ++y ) {
         p = (BYTE *)sd.lpSurface + y * sd.lPitch;
-        for( x = 0; x < mx_w; ++x ) {
-            p[x] = (BYTE)(c + x + y);
+        if( bpp == 2 ) {
+            for( x = 0; x < mx_w; ++x ) {
+                ((WORD *)p)[x] = (WORD)((c << 8) + x * 33 + y * 2049);
+            }
+        } else {
+            for( x = 0; x < mx_w; ++x ) {
+                p[x] = (BYTE)(c + x + y);
+            }
         }
     }
     return( prim->lpVtbl->Unlock( prim, sd.lpSurface ) );
@@ -430,7 +439,7 @@ static unsigned long mx_hash( void )
     }
     for( y = 0; y < mx_h; ++y ) {
         p = (BYTE *)sd.lpSurface + y * sd.lPitch;
-        for( x = 0; x < mx_w; ++x ) {
+        for( x = 0; x < mx_w * bpp; ++x ) {
             h = (h ^ p[x]) * 16777619UL;
         }
     }
@@ -466,8 +475,8 @@ static void mx_run( const char *name, OP op, int fixed )
     for( i = 0; i < fixed; ++i ) {
         op( i );
     }
-    fprintf( out, "%-16s %10.2f ops/s %8.3f ms/op  hash %08lx  #%d  pad 0000  med %.2f\n", name,
-             n * 1000.0 / t, t / n, mx_hash(), test_no, n * 1000.0 / t );
+    fprintf( out, "%-16s %10.2f ops/s %8.3f ms/op  hash %08lx  #%d  pad 0000  med %.2f%s\n", name,
+             n * 1000.0 / t, t / n, mx_hash(), test_no, n * 1000.0 / t, card_check() );
     flush_out();
 }
 
@@ -488,13 +497,14 @@ static int modex( const char *label )
     HRESULT         res;
     int             i;
 
-    fprintf( out, "== %s  modex  %dx%dx8  %d ms  directdraw\n", label, mx_w, mx_h, RUN_MS );
+    fprintf( out, "== %s  fullscreen  %dx%dx%d  %d ms  directdraw\n", label, mx_w, mx_h, mx_bpp,
+             RUN_MS );
     res = dd->lpVtbl->SetCooperativeLevel( dd, wnd, DDSCL_EXCLUSIVE | DDSCL_FULLSCREEN |
                                            DDSCL_ALLOWMODEX );
     fprintf( out, "coop %08lx\n", (unsigned long)res );
     dd->lpVtbl->EnumDisplayModes( dd, 0, NULL, NULL, mx_mode );
     flush_out();
-    res = dd->lpVtbl->SetDisplayMode( dd, mx_w, mx_h, 8 );
+    res = dd->lpVtbl->SetDisplayMode( dd, mx_w, mx_h, mx_bpp );
     fprintf( out, "setmode %08lx\n", (unsigned long)res );
     flush_out();
     if( res != DD_OK ) {
@@ -533,8 +543,8 @@ static int modex( const char *label )
             fprintf( out, "setpalette %08lx\n", (unsigned long)res );
             flush_out();
         }
-        bpp = 1;
-        pixmask = 0xFF;
+        bpp = mx_bpp / 8;
+        pixmask = bpp == 2 ? 0xFFFF : 0xFF;
         mx_run( "mx_fill", t_mx_fill, 4 );
         mx_run( "mx_frame", t_mx_frame, 2 );
         prim->lpVtbl->Release( prim );
@@ -613,6 +623,16 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
         dd->lpVtbl->GetCaps( dd, &hw, &hel );
         fprintf( out, "caps  hw %08lx  ckey %08lx  vidmem %lu  %s\n", hw.dwCaps, hw.dwCKeyCaps,
                  hw.dwVidMemTotal, (hw.dwCaps & DDCAPS_NOHARDWARE) ? "NO HAL" : "HAL" );
+    }
+    if( strncmp( cmd, "fs16 ", 5 ) == 0 ) {
+        mx_w = 640;
+        mx_h = 480;
+        mx_bpp = 16;
+        i = modex( cmd + 5 );
+        fclose( out );
+        dd->lpVtbl->Release( dd );
+        DestroyWindow( wnd );
+        return( i );
     }
     if( strncmp( cmd, "modex ", 6 ) == 0 ) {
         i = modex( cmd + 6 );
