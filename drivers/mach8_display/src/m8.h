@@ -244,6 +244,7 @@ extern void m8_cur_suspend( void );
 extern void m8_fb16_check( DWORD FAR *out );
 extern void m8_fb16_send_rect( int l, int t, int r, int b, int solid );
 extern DWORD m8_fb16_lin( void );
+extern void m8_fb16_copy_rect( int sx, int sy, int l, int t, int r, int b );
 extern void m8_leave( void );
 extern WORD m8_fb16_output( LPPDEVICE lpDestDev, WORD wStyle, WORD wCount, LPPOINT lpPoints,
                             LPPPEN lpPPen, LPPBRUSH lpPBrush, LPDRAWMODE lpDrawMode,
@@ -302,6 +303,7 @@ extern void m8_hw_marker( WORD value );
 #define M8_ESC_FB16STAT     0x4D3A      /* out: 4 DWORDs, fb16.c's counters */
 #define M8_ESC_FB16CHECK    0x4D3B      /* out: 5 DWORDs, m8_fb16_check */
 #define M8_ESC_FB16SEND     0x4D3C      /* in: WORDs l t r b solid: that part to the card */
+#define M8_ESC_FB16COPY     0x4D3D      /* in: WORDs sx sy l t r b: a screen copy done in RAM */
 #define M8_PF_STYLES        64
 #define M8_PF_N             10      /* BitBlt ExtTextOut Output Pixel StrBlt DibToDevice
                                      * StretchBlt StretchDIBits SaveScreenBitmap ScanLR */

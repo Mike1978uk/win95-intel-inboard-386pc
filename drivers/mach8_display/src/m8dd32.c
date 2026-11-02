@@ -533,6 +533,7 @@ static int m8dd_key_rect( const RECT *d, int sx, int sy, BYTE key )
  * rectangle costs the bus a few commands and anything else a byte a pixel. */
 
 #define M8_ESC_FB16SEND     0x4D3C      /* m8.h */
+#define M8_ESC_FB16COPY     0x4D3D
 
 static int m8dd_is_fb( LPVOID lcl )
 {
@@ -561,6 +562,26 @@ static void m8dd_send( const RECT *r, int solid )
     dc = GetDC( NULL );
     if( dc != NULL ) {
         ExtEscape( dc, M8_ESC_FB16SEND, sizeof( w ), (LPCSTR)w, 0, NULL );
+        ReleaseDC( NULL, dc );
+    }
+}
+
+/* The screen copied from (sx, sy) to `r` in RAM: the driver has the card
+ * copy it too when the dither allows, else sends it. */
+static void m8dd_copied( int sx, int sy, const RECT *r )
+{
+    HDC     dc;
+    WORD    w[6];
+
+    w[0] = (WORD)sx;
+    w[1] = (WORD)sy;
+    w[2] = (WORD)r->left;
+    w[3] = (WORD)r->top;
+    w[4] = (WORD)r->right;
+    w[5] = (WORD)r->bottom;
+    dc = GetDC( NULL );
+    if( dc != NULL ) {
+        ExtEscape( dc, M8_ESC_FB16COPY, sizeof( w ), (LPCSTR)w, 0, NULL );
         ReleaseDC( NULL, dc );
     }
 }
@@ -682,6 +703,8 @@ static DWORD m8dd_blt16( M8DD_BLT *bd )
     int         y1;
     WORD        *d;
     const WORD  *s;
+    int         fsx = 0;
+    int         fsy = 0;
 
     if( other != 0 || !m8dd_is_fb( bd->lpDDDestSurface ) ) {
         return( DDHAL_DRIVER_NOTHANDLED );
@@ -766,6 +789,9 @@ static DWORD m8dd_blt16( M8DD_BLT *bd )
             long sx = c.left - od->left + os->left;
             long sy = c.top - od->top + os->top;
 
+            fsx = (int)sx;
+            fsy = (int)sy;
+
             if( self && c.top > sy ) {
                 y0 = c.bottom - 1;
                 y1 = c.top - 1;
@@ -789,7 +815,11 @@ static DWORD m8dd_blt16( M8DD_BLT *bd )
                 }
             }
         }
-        m8dd_send( &c, 0 );
+        if( self ) {
+            m8dd_copied( fsx, fsy, &c );
+        } else {
+            m8dd_send( &c, 0 );
+        }
     }
     bd->ddRVal = DD_OK;
     return( DDHAL_DRIVER_HANDLED );

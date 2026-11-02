@@ -491,6 +491,36 @@ void m8_fb16_send_rect( int l, int t, int r, int b, int solid )
     m8_fb16_flush( &d );
 }
 
+/* The screen copied from (sx, sy) to l, t .. r, b, already done in RAM. The
+ * dither depends on x & 3 and y & 3 only, so a copy that moves by a multiple
+ * of 4 both ways is the card's own copy, exact; any other is sent. The pointer
+ * is lifted from both areas, as the engine would copy it too. */
+void m8_fb16_copy_rect( int sx, int sy, int l, int t, int r, int b )
+{
+    M8_FB16_RECT    d;
+    int             w = r - l;
+    int             h = b - t;
+
+    if( w <= 0 || h <= 0 ) {
+        return;
+    }
+    if( ((sx - l) & 3) == 0 && ((sy - t) & 3) == 0 && l >= 0 && t >= 0 && sx >= 0 &&
+        sy >= 0 && r <= m8_scr_x && b <= m8_scr_y && sx + w <= m8_scr_x &&
+        sy + h <= m8_scr_y ) {
+        ++m8_fb16_stat[3];
+        m8_cur_lift( l < sx ? l : sx, t < sy ? t : sy, r > sx + w ? r : sx + w,
+                     b > sy + h ? b : sy + h );
+        m8_hw_copy( sx, sy, l, t, w, h );
+        m8_leave();
+        return;
+    }
+    d.l = l;
+    d.t = t;
+    d.r = r;
+    d.b = b;
+    m8_fb16_flush( &d );
+}
+
 /* The frame buffer's linear address, DirectDraw's primary; 0 if none. */
 DWORD m8_fb16_lin( void )
 {
@@ -662,6 +692,19 @@ BOOL m8_fb16_bitblt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPDEVICE lp
 {
     BOOL    rc;
 
+    if( (LPVOID)lpDestDev == (LPVOID)m8_fb16_dev && (LPVOID)lpSrcDev == (LPVOID)m8_fb16_dev &&
+        dwRop3 == 0x00CC0020UL && m8_fb16_depth == 0 && (short)wXext > 0 && (short)wYext > 0 &&
+        ((wSrcX - wDestX) & 3) == 0 && ((wSrcY - wDestY) & 3) == 0 ) {
+        /* Nothing marked while the DIB Engine copies; the card copies after. */
+        m8_fb16_lim.l = m8_fb16_lim.r = 0;
+        m8_fb16_lim_on = 1;
+        rc = DIB_BitBlt( lpDestDev, wDestX, wDestY, lpSrcDev, wSrcX, wSrcY, wXext, wYext,
+                         dwRop3, lpPBrush, lpDrawMode );
+        m8_fb16_lim_on = 0;
+        m8_fb16_copy_rect( (short)wSrcX, (short)wSrcY, (short)wDestX, (short)wDestY,
+                           (short)wDestX + (short)wXext, (short)wDestY + (short)wYext );
+        return( rc );
+    }
     if( (LPVOID)lpDestDev != (LPVOID)m8_fb16_dev ) {
         m8_fb16_lim.l = m8_fb16_lim.r = 0;
     } else {
