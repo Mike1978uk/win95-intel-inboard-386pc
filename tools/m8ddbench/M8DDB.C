@@ -9,6 +9,9 @@
  * driver or DirectDraw refuses prints its error instead of a rate.
  *
  *   M8DDB <label>      appends to C:\M8DDB.TXT and exits (about 15 s)
+ *   M8DDB modex <label>  the same file: 320x200 at 8 bpp, full screen, with
+ *                      DDSCL_ALLOWMODEX (DirectDraw's own Mode X or a driver
+ *                      mode), then the desktop back
  *
  * tools/m8_bench_compare.py sets two labels' results side by side.
  * Build: wcl386 -q -bt=nt -l=nt_win -ox -fe=M8DDB.EXE M8DDB.C advapi32.lib
@@ -376,6 +379,171 @@ static HRESULT t_lock_large( int i )
     return( lock_write( HASH_X - 200 + r( 8 ), HASH_Y - 100 + r( 8 ), 392, 292 ) );
 }
 
+/* ---------------------------------------------------------------- Mode X */
+
+static int  mx_w = 320;
+static int  mx_h = 200;
+
+static HRESULT t_mx_fill( int i )
+{
+    return( fill( prim, 0, 0, mx_w, mx_h, colour() ) );
+}
+
+/* A software renderer's frame: every byte of the screen written through a lock. */
+static HRESULT t_mx_frame( int i )
+{
+    DDSURFACEDESC   sd;
+    HRESULT         res;
+    BYTE            *p;
+    BYTE            c = (BYTE)r( 256 );
+    int             y;
+    int             x;
+
+    memset( &sd, 0, sizeof( sd ) );
+    sd.dwSize = sizeof( sd );
+    res = prim->lpVtbl->Lock( prim, NULL, &sd, DDLOCK_WAIT | DDLOCK_WRITEONLY, NULL );
+    if( res != DD_OK ) {
+        return( res );
+    }
+    for( y = 0; y < mx_h; ++y ) {
+        p = (BYTE *)sd.lpSurface + y * sd.lPitch;
+        for( x = 0; x < mx_w; ++x ) {
+            p[x] = (BYTE)(c + x + y);
+        }
+    }
+    return( prim->lpVtbl->Unlock( prim, sd.lpSurface ) );
+}
+
+/* FNV-1a over the whole Mode X screen, read through a lock. */
+static unsigned long mx_hash( void )
+{
+    DDSURFACEDESC   sd;
+    unsigned long   h = 2166136261UL;
+    BYTE            *p;
+    int             x;
+    int             y;
+
+    memset( &sd, 0, sizeof( sd ) );
+    sd.dwSize = sizeof( sd );
+    if( prim->lpVtbl->Lock( prim, NULL, &sd, DDLOCK_WAIT | DDLOCK_READONLY, NULL ) != DD_OK ) {
+        return( 0 );
+    }
+    for( y = 0; y < mx_h; ++y ) {
+        p = (BYTE *)sd.lpSurface + y * sd.lPitch;
+        for( x = 0; x < mx_w; ++x ) {
+            h = (h ^ p[x]) * 16777619UL;
+        }
+    }
+    prim->lpVtbl->Unlock( prim, sd.lpSurface );
+    return( h );
+}
+
+static void mx_run( const char *name, OP op, int fixed )
+{
+    double  t0;
+    double  t;
+    long    n = 0;
+    int     i;
+    HRESULT rc;
+
+    ++test_no;
+    fprintf( out, "started %d %s\n", test_no, name );
+    flush_out();
+    rnd = 12345;
+    rc = op( 0 );
+    if( rc != DD_OK ) {
+        fprintf( out, "%-16s unsupported: %08lx  #%d\n", name, (unsigned long)rc, test_no );
+        flush_out();
+        return;
+    }
+    t0 = now_ms();
+    do {
+        op( (int)n );
+        ++n;
+        t = now_ms() - t0;
+    } while( t < RUN_MS );
+    rnd = 777;
+    for( i = 0; i < fixed; ++i ) {
+        op( i );
+    }
+    fprintf( out, "%-16s %10.2f ops/s %8.3f ms/op  hash %08lx  #%d  pad 0000  med %.2f\n", name,
+             n * 1000.0 / t, t / n, mx_hash(), test_no, n * 1000.0 / t );
+    flush_out();
+}
+
+/* Every mode DirectDraw offers, with Mode X flagged. */
+static HRESULT WINAPI mx_mode( LPDDSURFACEDESC d, LPVOID ctx )
+{
+    fprintf( out, "mode %lux%lux%lu%s\n", d->dwWidth, d->dwHeight,
+             d->ddpfPixelFormat.dwRGBBitCount,
+             (d->ddsCaps.dwCaps & DDSCAPS_MODEX) ? " modex" : "" );
+    return( DDENUMRET_OK );
+}
+
+static int modex( const char *label )
+{
+    DDSURFACEDESC   sd;
+    PALETTEENTRY    pe[256];
+    LPDIRECTDRAWPALETTE pal;
+    HRESULT         res;
+    int             i;
+
+    fprintf( out, "== %s  modex  %dx%dx8  %d ms  directdraw\n", label, mx_w, mx_h, RUN_MS );
+    res = dd->lpVtbl->SetCooperativeLevel( dd, wnd, DDSCL_EXCLUSIVE | DDSCL_FULLSCREEN |
+                                           DDSCL_ALLOWMODEX );
+    fprintf( out, "coop %08lx\n", (unsigned long)res );
+    dd->lpVtbl->EnumDisplayModes( dd, 0, NULL, NULL, mx_mode );
+    flush_out();
+    res = dd->lpVtbl->SetDisplayMode( dd, mx_w, mx_h, 8 );
+    fprintf( out, "setmode %08lx\n", (unsigned long)res );
+    flush_out();
+    if( res != DD_OK ) {
+        return( 1 );
+    }
+    memset( &sd, 0, sizeof( sd ) );
+    sd.dwSize = sizeof( sd );
+    sd.dwFlags = DDSD_CAPS;
+    sd.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE;
+    res = dd->lpVtbl->CreateSurface( dd, &sd, &prim, NULL );
+    fprintf( out, "primary %08lx\n", (unsigned long)res );
+    flush_out();
+    if( res == DD_OK ) {
+        memset( &sd, 0, sizeof( sd ) );
+        sd.dwSize = sizeof( sd );
+        fprintf( out, "getdesc\n" );
+        flush_out();
+        res = prim->lpVtbl->GetSurfaceDesc( prim, &sd );
+        fprintf( out, "surface %08lx caps %08lx  pitch %ld  %lux%lu  mem %08lx\n", (unsigned long)res,
+                 sd.ddsCaps.dwCaps, sd.lPitch, sd.dwWidth, sd.dwHeight, (unsigned long)sd.lpSurface );
+        flush_out();
+        for( i = 0; i < 256; ++i ) {
+            pe[i].peRed = (BYTE)i;
+            pe[i].peGreen = (BYTE)(255 - i);
+            pe[i].peBlue = (BYTE)(i * 3);
+            pe[i].peFlags = 0;
+        }
+        res = dd->lpVtbl->CreatePalette( dd, DDPCAPS_8BIT | DDPCAPS_ALLOW256, pe, &pal, NULL );
+        fprintf( out, "palette %08lx\n", (unsigned long)res );
+        flush_out();
+        if( res == DD_OK ) {
+            res = prim->lpVtbl->SetPalette( prim, pal );
+            fprintf( out, "setpalette %08lx\n", (unsigned long)res );
+            flush_out();
+        }
+        bpp = 1;
+        pixmask = 0xFF;
+        mx_run( "mx_fill", t_mx_fill, 4 );
+        mx_run( "mx_frame", t_mx_frame, 2 );
+        prim->lpVtbl->Release( prim );
+    }
+    res = dd->lpVtbl->RestoreDisplayMode( dd );
+    fprintf( out, "restore %08lx\n", (unsigned long)res );
+    dd->lpVtbl->SetCooperativeLevel( dd, wnd, DDSCL_NORMAL );
+    fprintf( out, "\n" );
+    flush_out();
+    return( 0 );
+}
+
 int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
 {
     WNDCLASS        wc;
@@ -387,6 +555,7 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
     HRESULT         res;
     HDC             dc;
     char            drv[64] = "?";
+    int             i;
 
     QueryPerformanceFrequency( &freq );
     memset( &wc, 0, sizeof( wc ) );
@@ -441,6 +610,13 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
         dd->lpVtbl->GetCaps( dd, &hw, &hel );
         fprintf( out, "caps  hw %08lx  ckey %08lx  vidmem %lu  %s\n", hw.dwCaps, hw.dwCKeyCaps,
                  hw.dwVidMemTotal, (hw.dwCaps & DDCAPS_NOHARDWARE) ? "NO HAL" : "HAL" );
+    }
+    if( strncmp( cmd, "modex ", 6 ) == 0 ) {
+        i = modex( cmd + 6 );
+        fclose( out );
+        dd->lpVtbl->Release( dd );
+        DestroyWindow( wnd );
+        return( i );
     }
     dd->lpVtbl->SetCooperativeLevel( dd, wnd, DDSCL_NORMAL );
     memset( &sd, 0, sizeof( sd ) );

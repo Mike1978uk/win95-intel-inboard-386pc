@@ -439,7 +439,8 @@ UINT WINAPI __loadds Disable( LPVOID lpDevice )
 
 UINT WINAPI __loadds SetPalette( UINT wStartIndex, UINT wNumEntries, LPVOID lpPalette )
 {
-    if( m8_fb16 ) {
+    /* Disabled (Mode X, a full-screen DOS box): no device to set it on. */
+    if( m8_fb16 || m8_pdevice == NULL ) {
         return( 0 );
     }
     DIB_SetPaletteExt( wStartIndex, wNumEntries, lpPalette, m8_pdevice );
