@@ -306,3 +306,32 @@ read the RAM frame buffer, not the card.
 Properties 640 <-> 800 at High Color; Explorer text; WinZip icon after deleting `C:\WINDOWS\ShellIconCache`.
 
 **Uncommitted.** `86box_auto` `vid_ati_mach8.c`: `M8STEP` pclog on ScratchPad1 writes (diagnostic only).
+
+## Night, 2026-11-02
+
+**Card hung** at dxdiag test 2 -> 3 (no ping), driver `m8known.drv` (fill fix), after SCRGRAB screenshots over
+the agent. Not reproduced in the bed with the same build. Owner to power-cycle.
+
+**dxdiag test 3 cost (bed, CPU sampling).** 9 of 11 samples of CS:EIP sit in `M8_FB16_ROWDIFF`'s loop
+hashing the whole 640x480 screen each frame: DirectDraw emulates the flip by writing the whole primary
+through one lock (16 bpp has no video memory), and Unlock sends the whole screen. The bus carries only
+the box; the CPU fingerprints 600 KB a frame. Card test 2: ~20,000 pixels/s sent (FB16MON).
+
+**Fingerprint hash.** Offline test (`scratchpad/hashtest.py` pattern set: even flips, swaps, 1-px shifts,
+small two-pixel colour deltas, 2.27 M changes): FNV 11 collisions (swaps); rotate-add variants ~2.5 %
+on small colour deltas (near-linear mod 2^32-1: rule them out); Jenkins one-at-a-time per dword 0.
+`| 1` to keep fingerprints non-zero dropped bit 0 and caused most collisions; use `h ? h : 1`.
+One-at-a-time needs no IMUL (486: 13-42 cycles); the bed does not price IMUL, so bed `mx_box` shows
+373 vs 350 ms (no gain there). Card measurement pending.
+
+**Uncommitted (bed-checked, card speed unmeasured):** fill marks pieces known (`m8_fb16_known`); 16 bpp
+sysmem->primary Blt copies only differing spans and sends them exact (`m8dd_diff_row`, flag 2); fingerprints
+= one-at-a-time, unrolled; poly escape 0x4D3F + M8CUBE (card only: the bed lacks LINEDRAW POLY_MODE);
+M8VGAW (Win16 probe, VGA memory vs port cost, X8) not yet run.
+
+**Next on the card:** (1) M8DDB `fs16` mx_box FNV (`m8diff`) vs one-at-a-time (`m8oaat`), twice each;
+(2) M8VGAW; (3) switch to 800x600x8 (`M8FB8S.REG` is in the bed), M8CUBE 1 and 3 cubes, photo.
+
+**Levers recorded, not built:** 16 bpp HAL flip with a RAM back buffer (diff on Flip, no HEL copy, no hash);
+386 page Dirty bits via a small VxD for programs that write the primary sparsely (useless for full-frame
+copies: written != changed); 8 bpp full-screen with two pages in VRAM and CRT_OFFSET flip (15 us).
