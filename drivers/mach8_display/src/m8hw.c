@@ -268,6 +268,22 @@ int m8_hw_wait_idle( void )
     return( 0 );
 }
 
+/* Until the start of a vertical blank, or about a frame at most. SUBSYS_STATUS
+ * bit 0 sets again for as long as the blank lasts (~1.2 ms at 800x600), so the
+ * flag is acknowledged first and the wait ends as it next sets. DISP_STATUS
+ * is not used: under Windows a read of 02E8 costs ~100 us. */
+void m8_hw_wait_vblank( void )
+{
+    WORD n;
+
+    outpw( M8_SUBSYS_CNTL, 0x0001 );
+    for( n = 0; n < 8000u; ++n ) {          /* ~36 ms at 4.5 us a read */
+        if( inpw( M8_SUBSYS_STAT ) & 1 ) {
+            return;
+        }
+    }
+}
+
 int m8_hw_mode_size( int mode, int *x, int *y )
 {
     if( mode < 0 || mode >= M8_MODE_COUNT ) {
@@ -1239,7 +1255,8 @@ void m8_hw_copy_mix( int sx, int sy, int dx, int dy, int w, int h, WORD mix )
  * that plane (RD_MASK), so one clear of the scratch serves eight polygons.
  * Only the rows strictly between the top and bottom vertex are filled: an apex
  * row can hold a single outline pixel, and the fill would then run to the end
- * of the row. v holds n (x, y) pairs, n 3..M8_POLY_MAX, relative to both
+ * of the row; the outline is then drawn over the fill in the face's colour,
+ * which supplies those rows and the edge pixels. v holds n (x, y) pairs, n 3..M8_POLY_MAX, relative to both
  * origins. m8_hw_poly_end hands the engine back to the shadowed routines. */
 int m8_hw_poly( int dx, int dy, int sx, int sy, const short FAR *v, int n, BYTE plane,
                 BYTE color )
@@ -1270,10 +1287,14 @@ int m8_hw_poly( int dx, int dy, int sx, int sy, const short FAR *v, int n, BYTE 
     if( b - t < 2 ) {
         return( 1 );
     }
+    /* XOR: where both edges fall on one pixel of a row (a corner, a face seen
+     * edge-on) they cancel, so that row holds no outline pixel rather than one,
+     * and the fill skips it instead of running to the end of the row. The
+     * outline drawn over the fill below covers what is skipped. */
     M8_Q( M8_WRT_MASK, plane );
     M8_Q( M8_FRGD_COLOR, 0x00FF );
     M8_Q( M8_DP_CONFIG, M8_DP_8514 );
-    M8_Q( M8_ALU_FG_FN, M8_MIX_REPLACE );
+    M8_Q( M8_ALU_FG_FN, M8_MIX_XOR );
     M8_Q( M8_LINEDRAW_OPT, M8_LINEDRAW_POLY | M8_LINEDRAW_LAST_OFF );
     M8_Q( M8_LINEDRAW_INDEX, 0 );
     for( i = 0; i < n; ++i ) {
@@ -1288,6 +1309,7 @@ int m8_hw_poly( int dx, int dy, int sx, int sy, const short FAR *v, int n, BYTE 
     M8_Q( M8_WRT_MASK, 0x00FF );
     M8_Q( M8_RD_MASK, plane );
     M8_Q( M8_DP_CONFIG, M8_DP_POLY_FILL );
+    M8_Q( M8_ALU_FG_FN, M8_MIX_REPLACE );      /* not the outline's XOR */
     M8_Q( M8_FRGD_COLOR, color );
     M8_Q( M8_DESTX_DIASTP, sx + l );            /* the outline: source x, y */
     M8_Q( M8_DESTY_AXSTP, sy + t + 1 );
@@ -1299,6 +1321,22 @@ int m8_hw_poly( int dx, int dy, int sx, int sy, const short FAR *v, int n, BYTE 
     M8_Q( M8_DEST_X_END, dx + r + 1 );
     M8_Q( M8_CUR_Y, dy + t + 1 );
     M8_Q( M8_DEST_Y_END, dy + b );              /* starts the fill */
+    if( !m8_q_send() ) {
+        return( 0 );
+    }
+    /* The outline itself in the face's colour: the top and bottom rows, and
+     * the rows the XOR emptied. */
+    M8_Q( M8_RD_MASK, 0x00FF );
+    M8_Q( M8_DP_CONFIG, M8_DP_8514 );
+    M8_Q( M8_ALU_FG_FN, M8_MIX_REPLACE );
+    M8_Q( M8_LINEDRAW_OPT, M8_LINEDRAW_LAST_OFF );
+    M8_Q( M8_LINEDRAW_INDEX, 0 );
+    for( i = 0; i < n; ++i ) {
+        M8_Q( M8_LINEDRAW, dx + v[2 * i] );
+        M8_Q( M8_LINEDRAW, dy + v[2 * i + 1] );
+    }
+    M8_Q( M8_LINEDRAW, dx + v[0] );
+    M8_Q( M8_LINEDRAW, dy + v[1] );
     return( m8_q_send() );
 }
 

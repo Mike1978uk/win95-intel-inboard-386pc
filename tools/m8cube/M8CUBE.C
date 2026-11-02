@@ -9,6 +9,7 @@
  *     seconds   run that long, then write C:\M8CUBE.TXT (0 = until closed)
  *     objects   cubes, 1..8 (default 1)
  *     d         draw on the screen directly, no back buffer
+ *     v         copy the back buffer to the window at vertical blank (no tear)
  * 8 bpp desktop only.
  * Build: wcl386 -q -bt=nt -l=nt_win -ox -fe=M8CUBE.EXE M8CUBE.C
  */
@@ -34,6 +35,7 @@ static HPALETTE     pal;
 static BYTE         shade_index[HUES][SHADES];
 static int          objects = 1;
 static int          direct;
+static int          vblank;
 static int          prev_l, prev_t, prev_r = W, prev_b = H;
 static WORD         buf[16 + MAX_FACES * 12];
 
@@ -212,7 +214,7 @@ static int frame( HDC dc, float t, int *drawn )
 
     ClientToScreen( wnd, &org );
     buf[0] = 2;
-    buf[1] = direct ? 1 : 0;
+    buf[1] = (direct ? 1 : 0) | (vblank ? 2 : 0);
     buf[2] = (WORD)org.x;
     buf[3] = (WORD)org.y;
     buf[4] = 0;                                     /* background: black */
@@ -298,6 +300,7 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
         objects = MAX_OBJ;
     }
     direct = strstr( cmd, " d" ) != NULL;
+    vblank = strstr( cmd, " v" ) != NULL;
     memset( &wc, 0, sizeof( wc ) );
     wc.lpfnWndProc = wndproc;
     wc.hInstance = inst;
@@ -356,7 +359,7 @@ done:
             double s = (now - t0) / 1000.0;
 
             fprintf( f, "M8CUBE  %s  cubes %d  frames %ld  %.2f s  %.1f fps  %.0f faces/s  row %u%s\n",
-                     direct ? "direct" : "buffer", objects, frames, s, frames / s, drawn / s, top,
+                     direct ? "direct" : vblank ? "vblank" : "buffer", objects, frames, s, frames / s, drawn / s, top,
                      ok ? "" : "  REFUSED" );
             fclose( f );
         }

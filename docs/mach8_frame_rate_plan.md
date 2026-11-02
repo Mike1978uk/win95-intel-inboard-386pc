@@ -50,7 +50,8 @@ P1, P3, P4, P8 and O12 are one Win32 probe, `tools/m8probe/M8P0.C` (arms R, O, H
 | H VERT_SYNC / LINE_SYNC | 13 / 15 edges/s; toggles per frame 41-1068 | - | undersampled by the slow A9h reads: inconclusive |
 | V V_BLANK latch, looked at every 1 ms | 170 per s | 159 per s | not one per frame (refresh ~56 Hz); the bed gave 72 = its refresh. Unexplained: next arm logs the hit intervals |
 | M8CUBE 3 cubes, 10 s | 111.0 fps, 864 faces/s | 112.2 fps, 875 faces/s | **the baseline for T1, A1 and D2** |
-| M8CUBE 3 cubes, `v` (T1, boot 189, `m8vbl`) | 68.5 fps, 535 faces/s | - | locked to the 72 Hz refresh. The owner's stills (`photos/dxcubes/IMG_2095-2111`) show no tear line: what looked like tearing was the polygon fill leaking where both edges share a pixel (spurs, combs, notches), fixed by an XOR outline plus the outline drawn over the fill (`m8leak`, card result pending) |
+| M8CUBE 3 cubes, `v` (T1, boot 189, `m8vbl`) | 68.5 fps, 535 faces/s | - | locked to the 72 Hz refresh. The owner's stills (`photos/dxcubes/IMG_2095-2111`) show no tear line: what looked like tearing was the polygon fill leaking where both edges share a pixel (spurs, combs, notches), fixed by an XOR outline plus the outline drawn over the fill |
+| M8CUBE 3 cubes, fill fixed (`m8solid`, boot 191) | 101.8 fps, 787 faces/s | 100.1 fps, 775 faces/s | owner: solid, clean edges, no issues. The outline over each face costs ~12 %: A1 wins it back. `v` 69.2 fps. Bench: pixels = ATI in 35, geomean 1.79 |
 
 ## Thinking like the demoscene: the bus is the enemy
 

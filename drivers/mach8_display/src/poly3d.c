@@ -18,7 +18,8 @@
  *          then per polygon: colour, n, n (x, y) pairs
  *   end    3
  * Coordinates are in the buffer, 0..w-1 and 0..h-1; rectangles are right and
- * bottom exclusive. flags bit 0 = direct.
+ * bottom exclusive. flags bit 0 = direct; bit 1 = copy to the window at the
+ * start of a vertical blank.
  */
 
 #include "m8ddi.h"
@@ -28,6 +29,7 @@
 #define M8P_FRAME       2
 #define M8P_END         3
 #define M8P_DIRECT      0x0001
+#define M8P_VBLANK      0x0002
 #define M8P_MAX_COUNT   1024
 
 static int  m8p_on;
@@ -226,6 +228,13 @@ static LONG m8p_frame( const WORD FAR *in )
             b = M8_SCREEN_Y - wy;
         }
         if( r > l && b > t ) {
+            /* A window row copies in about a scan line's time, so a copy that
+             * starts in the blank stays ahead of the beam: no tear. The fills
+             * must be done first or the copy waits behind them. */
+            if( in[1] & M8P_VBLANK ) {
+                m8_hw_wait_idle();
+                m8_hw_wait_vblank();
+            }
             m8_hw_copy( ox + l, oy + t, wx + l, wy + t, r - l, b - t );
         }
     }
