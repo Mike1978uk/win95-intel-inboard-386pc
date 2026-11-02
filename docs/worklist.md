@@ -322,6 +322,7 @@ like a timer tick (~170 us measured for #45). Ideas, cheapest first - measure be
 - [ ] **X6 3D stage 1:** software Direct3D at 16 bpp, measured (sends carry only what changed).
 - [ ] **X7 3D stage 2:** engine-drawn 3D at 8 bpp: vector/wireframe lines, flat-shaded spans, raycaster columns;
       then a Direct3D HAL claiming what the engine rasterises. Ranked by `docs/mach8_3d_research.md`.
+      M8SPAN (2026-11-02, card): spans 20.4 us, LINEDRAW 21 us/vertex, polygon fill 0.2 ms + area x 35 ns, works on the card (triangle photographed); bed fills rectangles. Next: flat-shaded demo via polygon fill.
 - [ ] **X8** DOS timing: VGA-memory writes vs PIX_TRANS on the 5160 (sizes X1 and the 3D options).
 
 ## E. Timer, refresh, XT-CF (in flight)

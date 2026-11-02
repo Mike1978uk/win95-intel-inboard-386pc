@@ -62,10 +62,10 @@ viewport in the 640x480 mode (the 8514 side has no 320x200 mode); on the VGA hal
 
 | # | Approach | 320x200 | 640x480 | Main risk |
 |---|---|---|---|---|
-| 1 | **Vectors / wireframe** (LINEDRAW polylines, short strokes for HUD and text, page flip, engine clear) | refresh-bound (60) for objects up to ~700 edges; ~1,400 edges at 30 fps | same edge budget; clear costs 10 ms of engine time (overlaps CPU) | LINEDRAW throughput and the flip are not card-measured |
-| 2 | **Flat-shaded polygons, span buffer** (CPU removes hidden surfaces, the engine draws each visible span once: CUR_Y + CUR_X per row, colour + SCAN_TO_X per span) | ~10 spans/row: 200 x 22 writes = 34 ms bus + ~5 ms CPU: **~25 fps** | ~12 spans/row: 480 x 26 = 95 ms + CPU: **~8-10 fps** | per-span engine latency; CPU HSR time adds to bus time |
+| 1 | **Vectors / wireframe** (LINEDRAW polylines, short strokes for HUD and text, page flip, engine clear) | refresh-bound (60) for objects up to ~700 edges; ~1,400 edges at 30 fps | same edge budget; clear costs 10 ms of engine time (overlaps CPU) | LINEDRAW vertex measured on the card, 20.6-22.1 us (~1,500 segments per 30 fps frame, section 5); the flip is not card-measured |
+| 2 | **Flat-shaded polygons, span buffer** (CPU removes hidden surfaces, the engine draws each visible span once: CUR_Y + CUR_X per row, colour + SCAN_TO_X per span) | ~10 spans/row: 200 x 22 writes = 34 ms bus + ~5 ms CPU: **~25 fps** | ~12 spans/row: 480 x 26 = 95 ms + CPU: **~8-10 fps** | span cost measured on the card: 20.4-21.9 us/span (arm B, predicted 15.3), ~10 us per register write; estimates in this row halve (section 5); CPU HSR time adds to bus time |
 | 2a | same, painter's with spans (no HSR, overdraw) | 100 triangles x 20 rows x 3 writes = 47 ms: **~15-20 fps** | 100 x 48 rows: 111 ms: **~8 fps** | overdraw grows with scene |
-| 2b | same, CMD 5 polygon fill (size-independent) | 100 polygons x ~50 writes = 38 ms bus; engine ~0.5 ms each also ~40 ms: **~20 fps** | same writes; engine time grows with area: **~10-15 fps** | engine time unmeasured; edge rules (`mach8_poly_fill_design`) |
+| 2b | same, CMD 5 polygon fill (size-independent) | 100 polygons x ~50 writes = 38 ms bus; engine ~0.5 ms each also ~40 ms: **~20 fps** | same writes; engine time grows with area: **~10-15 fps** | **measured on the card:** fill works (triangle photographed), 0.2 ms + bbox area x ~35 ns (3.0 ms at 200x200); beats spans above ~10 rows; ~100 mid-sized polygons per 30 fps frame at 320x200 is an estimate; bed fills rectangles; edge rules (`mach8_poly_fill_design`) |
 | 2c | add frame-to-frame span delta (draw on the visible page, no clear; send only rows whose span list changed) | static camera, moving objects: refresh-bound | same | tearing (no flip); worthless when the camera moves |
 | 3 | **Raycaster, flat walls** (one 1-px-wide rect fill per column + ceiling and floor fills) | 320 x 5 writes = 12 ms: **~60 (refresh)** | 640 columns: 24 ms: **~35 fps** | none known; merge columns of one wall face into spans to cut writes |
 | 3a | Raycaster, textured: pre-scaled texture columns cached off-screen, one blit (~10 writes) per screen column | 24 ms + misses: **~30-35 fps** | 49 ms: **~15-18 fps** | memory: 64x64 texture at 32 height steps ~210 KB; a cache miss uploads h pixels at 3.84 us each (100 px = 384 us = 5 blits); at 640x480 only one page fits with a cache |
@@ -75,7 +75,7 @@ viewport in the 640x480 mode (the 8514 side has no 320x200 mode); on the VGA hal
 | 7 | **Pseudo-3D road** (OutRun, Lotus, Hard Drivin' on 16-bit consoles): road, kerb and grass as engine spans, ~3 per row; pre-scaled roadside sprites as keyed copies | 3 x 200 = ~600 spans x arm B us/span (15.3 predicted) = ~9 ms bus: **refresh-bound (60)**, before sprites | ~1,440 spans = ~22 ms: **~35-40 fps**, before sprites | none beyond span cost (arm B) |
 | 8 | **Scaled sprites without scaling hardware** (Lynx "Suzy" scaled in hardware, Sega Super Scaler; weaker ports used pre-scaled copies): N pre-scaled sizes per sprite in spare card memory, each draw one colour-keyed engine copy | 869 keyed 64x64 copies/s measured (DirectDraw 8 bpp, 7bca399): **~29 per frame at 30 fps, ~14 at 60** | same copies; cost does not depend on resolution | card memory per sprite set (sizes x pixels) |
 | 9 | **Isometric / dirty-region worlds** (Head over Heels, Marble Madness, Knight Lore): tiles and sprites in card memory, painter's order, redraw only the regions that moved; keyed copies, bus carries commands only | cost = moved regions x copies each; static scene ~0 | same | scenes where most of the screen moves every frame fall back to a full redraw |
-| 10 | **Bus-free full-screen effects:** (a) hardware scroll and parallax by the display start address, layers as keyed copies (Turrican, Shadow of the Beast; Amiga copper); (b) page flip between two 640x480 pages in 1 MB; (c) palette cycling / ramp rotation for water, fire, lighting (Amiga/ST art, Mark Ferrari; Doom-era colormaps) | a handful of register writes per frame: pan ~2 writes (15 us); 64 palette entries x ~23 us = ~1.5 ms | same | whether the display start latches at vertical sync (tearing); palette writes without snow |
+| 10 | **Bus-free full-screen effects:** (a) hardware scroll and parallax by the display start address, layers as keyed copies (Turrican, Shadow of the Beast; Amiga copper); (b) page flip between two 640x480 pages in 1 MB; (c) palette cycling / ramp rotation for water, fire, lighting (Amiga/ST art, Mark Ferrari; Doom-era colormaps) | a handful of register writes per frame: pan ~2 writes (15 us); 64 palette entries x ~23 us = ~1.5 ms | same | whether the display start latches at vertical sync (tearing); palette writes without snow. Measured on the card: pan 15.05 us; 64 palette entries 837-869 us/frame (~4.3 us per DAC byte); vsync latching not answered (arm F unreliable) |
 
 Rows 7-10 are estimates from the same bus numbers, taken from 8/16-bit era techniques (Amiga, NES / Mega
 Drive, Atari Lynx; Head over Heels, Marble Madness, Turrican, S.T.U.N. Runner, Blue Lightning, Hard Drivin',
@@ -168,6 +168,37 @@ idle rule). No driver change.
 
 Questions for the bed, not the card: whether DDRAW/D3D 5-7 accept an 8-bit HAL with no textures and no Z;
 whether Microsoft's RGB emulation runs on our fb16 primary (dxdiag test 3 at 16 bpp).
+
+## 5. M8SPAN on the card, 2026-11-02
+
+Real 5160, Mach8 at 800x600 (desktop 16 bpp, driver M8RESYNC), `tools/m8probe/M8SPAN.C`, three runs.
+
+| Arm | Operation | Measured | Predicted |
+|---|---|---|---|
+| A | one span per row (CUR_Y, CUR_X, SCAN_TO_X), widths 8 / 32 / 128 / 320 | 25.1-28.1 us, independent of width | 22.9 us |
+| B | spans along a row (FRGD_COLOR + SCAN_TO_X) | 20.4-21.9 us/span | 15.3 us |
+| C | LINEDRAW vertex | 20.6-22.1 us | 15.3 us |
+| D | polygon fill, 20x20 / 200x200 | 196-213 us / 3.01-3.05 ms | 0.35-0.55 ms |
+| G | 64 palette entries | 837-869 us/frame (~4.3 us per DAC byte) | ~1.5 ms |
+| E | pan (CRT_OFFSET_LO/HI) | 15.05 us | ~15 us |
+
+- **A:** width-independent, so the engine finishes before the next command; the bus is the cost.
+- **B:** just over 20 us. By section 3's rule that is the "halve the estimates" band, low end. Effective
+  cost is ~10 us per register write including loop and FIFO checks (predicted 7.64).
+- **C:** ~1,500 segments per 30 fps frame.
+- **D:** outline by LINEDRAW `POLY_MODE | LAST_PEL_OFF` into rows from y 700, then the extended blit
+  (DP_CONFIG 2213). Engine ~28 Mpixel/s for clear + fill. The owner's photo of the card's monitor
+  (`C:\Users\lycet\OneDrive\Desktop\XT_project\photos\directx.jpg`) shows a correct triangle: the polygon
+  fill works on the card. Cost model ~0.2 ms + bbox area x ~35 ns; it beats spans above ~10 rows (40-row
+  triangle ~0.26 ms vs ~0.84 ms by spans). Ranks approach 2b first for flat shading: ~100 mid-sized
+  polygons per 30 fps frame at 320x200 (estimate).
+- **Bed:** the 86Box bed draws the same polygon fill as solid rectangles; it does not model `POLY_MODE`
+  through LINEDRAW (an emulator gap). Bed timings are not card timings (~1 us per port write).
+- **F (vertical sync count):** unreliable (8, 4, 23, 48 per second across versions; bed also 23). The
+  measurement loop is wrong; not answered. DISP_STAT bit 1 is vsync per `tools/m8seq/M8FLIP.ASM`.
+- **Pointer:** probe drawing under the mouse pointer left a stale square when the pointer moved (the
+  driver restored its saved background). Anything drawing outside the driver must lift the pointer first;
+  a Direct3D layer must use the driver's pointer lift. M8SPAN ends with the driver's resync escape 0x4D3E.
 
 ## Sources
 
