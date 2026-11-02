@@ -15,7 +15,7 @@
 ; +34 8 bytes of scratch for the pattern.
 
 public  M8_FB16_CONV
-public  M8_FB16_HASH
+public  M8_FB16_ROWDIFF
 
 _TEXT   segment para public 'CODE'
 
@@ -162,31 +162,63 @@ advance:
         ret
 M8_FB16_CONV endp
 
-; M8_FB16_HASH: DX:AX = a fingerprint of SI dwords (SI > 0) at DX:CX:BX
-; (selector DX, 32-bit offset CX:BX), never 0: 0 marks a piece the card may
-; not show as the frame buffer holds it. FNV-1a a dword at a time: the
-; multiply keeps it non-linear. A rotate-and-XOR hash is linear, so an even
-; number of fully flipped dwords (black text on white) leaves it unchanged.
-M8_FB16_HASH proc near
-        push    ds
-        mov     ds, dx
-        shl     ecx, 16
-        mov     cx, bx
-        mov     ebx, ecx
-        movzx   ecx, si
+; M8_FB16_ROWDIFF: one row's pieces against their fingerprints, in one call.
+; DS:BX = M8_FB16_RD (fb16.c): +0 frame buffer selector, +2 offset of the
+; first piece (32-bit), +6/+8 selector:offset of its fingerprint, +10 pieces
+; (> 0), +12 first changed piece (-1 if none), +14 last. A changed piece's
+; fingerprint is updated. A fingerprint is FNV-1a over the piece's 16
+; dwords, never 0: 0 marks a piece the card may not show as the frame buffer
+; holds it. The multiply keeps it non-linear; a rotate-and-XOR hash is not,
+; so an even number of fully flipped dwords (black text on white) would
+; leave it unchanged.
+M8_FB16_ROWDIFF proc near
+        push    es
+        push    fs
+        push    esi
+        push    eax
+        push    ecx
+        push    edx
+        push    di
+        mov     ax, [bx]
+        mov     fs, ax
+        mov     esi, [bx+2]
+        mov     ax, [bx+6]
+        mov     es, ax
+        mov     di, [bx+8]
+        mov     word ptr [bx+12], -1
+        xor     dx, dx
+rd_piece:
         mov     eax, 811C9DC5h
-hash_dw:
-        xor     eax, [ebx]
+        mov     ecx, 16
+rd_dw:
+        xor     eax, fs:[esi]
         imul    eax, eax, 01000193h
-        add     ebx, 4
+        add     esi, 4
         dec     ecx
-        jnz     hash_dw
+        jnz     rd_dw
         or      eax, 1
-        mov     edx, eax
-        shr     edx, 16
-        pop     ds
+        cmp     eax, es:[di]
+        je      rd_same
+        mov     es:[di], eax
+        cmp     word ptr [bx+12], -1
+        jne     rd_last
+        mov     [bx+12], dx
+rd_last:
+        mov     [bx+14], dx
+rd_same:
+        add     di, 4
+        inc     dx
+        cmp     dx, [bx+10]
+        jb      rd_piece
+        pop     di
+        pop     edx
+        pop     ecx
+        pop     eax
+        pop     esi
+        pop     fs
+        pop     es
         ret
-M8_FB16_HASH endp
+M8_FB16_ROWDIFF endp
 
 _TEXT   ends
 

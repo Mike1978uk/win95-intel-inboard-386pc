@@ -51,12 +51,27 @@ static int              m8_fb16_depth;  /* access calls open */
  * yet). A send skips the pieces whose fingerprint has not changed: hashing a
  * pixel costs the CPU a few cycles, sending it 3.8 us of bus. */
 #define M8_FB16_SEG_W   32
+#define M8_FB16_HASH_MIN 1024       /* pixels: smaller sends skip the fingerprints */
 static HGLOBAL          m8_fb16_hmem;
 static DWORD FAR        *m8_fb16_hash;  /* rows x m8_fb16_nseg */
 static int              m8_fb16_nseg;
 
-extern DWORD M8_FB16_HASH( WORD sel, DWORD off, WORD dwords );
-#pragma aux M8_FB16_HASH "*" parm [dx] [cx bx] [si] value [dx ax] modify [bx cx si];
+#pragma pack( push, 1 )
+typedef struct {
+    WORD    fbsel;
+    DWORD   fboff;
+    WORD    htsel;
+    WORD    htoff;
+    WORD    count;
+    short   first;
+    short   last;
+} M8_FB16_RD;
+#pragma pack( pop )
+
+static M8_FB16_RD       m8_fb16_rd;
+
+extern void M8_FB16_ROWDIFF( WORD rd );
+#pragma aux M8_FB16_ROWDIFF "*" parm [bx] modify [];
 
 /* What the open calls touched: a few rectangles, so a copy's source and
  * destination are not sent as the box around both. */
@@ -350,30 +365,20 @@ static void m8_fb16_forget( int l, int t, int r, int b )
  * fingerprints brought up to date: 0 if nothing in it changed. */
 static int m8_fb16_changed( int y, int l, int r, int *cl, int *cr )
 {
-    DWORD FAR   *hp = m8_fb16_hash + (long)y * m8_fb16_nseg;
-    DWORD       base = (DWORD)y * M8_FB16_PITCH;
-    DWORD       h;
-    int         s0 = l / M8_FB16_SEG_W;
-    int         s1 = (r - 1) / M8_FB16_SEG_W;
-    int         first = -1;
-    int         last = -1;
-    int         s;
+    int s0 = l / M8_FB16_SEG_W;
+    int s1 = (r - 1) / M8_FB16_SEG_W;
 
-    for( s = s0; s <= s1; ++s ) {
-        h = M8_FB16_HASH( m8_fb16_sel, base + (DWORD)s * (M8_FB16_SEG_W * 2), M8_FB16_SEG_W / 2 );
-        if( h != hp[s] ) {
-            hp[s] = h;
-            if( first < 0 ) {
-                first = s;
-            }
-            last = s;
-        }
-    }
-    if( first < 0 ) {
+    m8_fb16_rd.fbsel = m8_fb16_sel;
+    m8_fb16_rd.fboff = (DWORD)y * M8_FB16_PITCH + (DWORD)s0 * (M8_FB16_SEG_W * 2);
+    m8_fb16_rd.htsel = FP_SEG( m8_fb16_hash );
+    m8_fb16_rd.htoff = FP_OFF( m8_fb16_hash ) + (WORD)(((long)y * m8_fb16_nseg + s0) * 4);
+    m8_fb16_rd.count = (WORD)(s1 - s0 + 1);
+    M8_FB16_ROWDIFF( FP_OFF( &m8_fb16_rd ) );
+    if( m8_fb16_rd.first < 0 ) {
         return( 0 );
     }
-    *cl = first * M8_FB16_SEG_W > l ? first * M8_FB16_SEG_W : l;
-    *cr = (last + 1) * M8_FB16_SEG_W < r ? (last + 1) * M8_FB16_SEG_W : r;
+    *cl = (s0 + m8_fb16_rd.first) * M8_FB16_SEG_W > l ? (s0 + m8_fb16_rd.first) * M8_FB16_SEG_W : l;
+    *cr = (s0 + m8_fb16_rd.last + 1) * M8_FB16_SEG_W < r ? (s0 + m8_fb16_rd.last + 1) * M8_FB16_SEG_W : r;
     return( 1 );
 }
 
@@ -399,7 +404,13 @@ static void m8_fb16_send( int l, int t, int r, int b )
     }
     ++m8_fb16_stat[1];
     m8_cur_lift( l, t, r, b );
-    if( m8_fb16_hash == NULL ) {
+    /* A small change costs the bus less than fingerprinting its pieces costs
+     * the CPU: it is sent whole, and its pieces are forgotten so a later send
+     * cannot skip them. */
+    if( m8_fb16_hash != NULL && (long)w * (b - t) < M8_FB16_HASH_MIN ) {
+        m8_fb16_forget( l, t, r, b );
+    }
+    if( m8_fb16_hash == NULL || (long)w * (b - t) < M8_FB16_HASH_MIN ) {
         m8_fb16_stat[2] += (DWORD)w * (b - t);
         n = (int)(sizeof( m8_fb16_band ) / w);
         for( y = t; y < b; y += n ) {
