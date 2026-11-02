@@ -164,7 +164,9 @@ M8_FB16_CONV endp
 
 ; M8_FB16_HASH: DX:AX = a fingerprint of SI dwords (SI > 0) at DX:CX:BX
 ; (selector DX, 32-bit offset CX:BX), never 0: 0 marks a piece the card may
-; not show as the frame buffer holds it.
+; not show as the frame buffer holds it. FNV-1a a dword at a time: the
+; multiply keeps it non-linear. A rotate-and-XOR hash is linear, so an even
+; number of fully flipped dwords (black text on white) leaves it unchanged.
 M8_FB16_HASH proc near
         push    ds
         mov     ds, dx
@@ -174,8 +176,8 @@ M8_FB16_HASH proc near
         movzx   ecx, si
         mov     eax, 811C9DC5h
 hash_dw:
-        rol     eax, 5
         xor     eax, [ebx]
+        imul    eax, eax, 01000193h
         add     ebx, 4
         dec     ecx
         jnz     hash_dw
