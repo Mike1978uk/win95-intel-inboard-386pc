@@ -4217,9 +4217,12 @@ static BYTE         m8_gc_bits[M8_GC_MAX_WB * M8_GC_MAX_H + 1];    /* + M8_GLYPH
 extern void M8_GLYPH_OR( BYTE FAR *dst, const BYTE FAR *src, WORD stride_shift, WORD rows_gwb );
 #pragma aux M8_GLYPH_OR "*" parm [dx ax] [cx bx] [si] [di] modify [ax bx cx dx si di es fs];
 
-static int m8_gc_plain( LPDRAWMODE dm, LPVOID box, WORD options )
+/* An opaque rectangle can come without ETO_OPAQUE in the options (list view
+ * labels: transparent text on a highlight box); this path has no fill for it. */
+static int m8_gc_plain( LPDRAWMODE dm, LPVOID box, WORD options, LPRECT opaque )
 {
-    return( options == M8_ETO_BYTE_PACKED && box != NULL && dm->CharExtra == 0 &&
+    return( options == M8_ETO_BYTE_PACKED && box != NULL && opaque == NULL &&
+            dm->CharExtra == 0 &&
             dm->TBreakExtra == 0 && (dm->bkMode == 1 || dm->bkMode == 2) );
 }
 
@@ -4491,7 +4494,7 @@ DWORD WINAPI __loadds ExtTextOut( LPPDEVICE lpDestDev, WORD wDestXOrg, WORD wDes
             m8_tk_bg = (BYTE)lpDrawMode->bkColor;
             m8_tk_bad = 0;
             m8_tk_bitmaps = 0;
-            gc = m8_gc_plain( lpDrawMode, lpTextXForm, wOptions );
+            gc = m8_gc_plain( lpDrawMode, lpTextXForm, wOptions, lpOpaqueRect );
             if( gc &&
                 m8_gc_text( (short)wDestXOrg, (short)wDestYOrg, lpClipRect, lpString, wCount,
                             lpFontInfo, lpDrawMode, (LPRECT)lpTextXForm, lpCharWidths, &rc,
