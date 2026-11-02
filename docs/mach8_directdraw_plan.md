@@ -147,6 +147,18 @@ it today; the primary is the frame buffer, Unlock sends the rectangle), then dxd
 desktop already at 640x480x16. Not yet: a live depth change; pattern-register fills for solid colours
 (the bus cost on the card); the card itself.
 
+### 2026-11-02: DirectDraw at 16 bpp
+
+- Primary = the fb16 frame buffer. Blt fills, copies and source-keyed blits run in RAM, then go to the
+  card via `M8_ESC_FB16SEND`; screen copies moving by multiples of 4 use `M8_ESC_FB16COPY` (`a8ee0b2`).
+- 8 bpp colour-keyed blits run on the engine (`7bca399`). The card needs `M8DD32.DLL` copied (via
+  `M8DD32.NEW` and `WININIT.INI`) before DDRAW offers a HAL; without it, dd_sprite 0.30/s, with it 869/s.
+- Card, 800x600x16 (`card16dd`, M8DD16): DirectDraw card check 0 in every test. With fingerprints
+  (`7295b6e`, M8HASH) DirectDraw is 1.66x M8DD16: dd_scroll 8.3 -> 81/s, locks 1.7x.
+- Next: Mode X on the VGA half (clear `DDHALINFO_MODEXILLEGAL` in `dd16.c`; M8DDB variant asks for
+  320x200 with `DDSCL_ALLOWMODEX`; ddraw.dll has its own ModeX set, see
+  `references/velocity9x/docs/issues/2026-08-15-doom95-low-resolution-modes.md`); card surfaces at 16 bpp.
+
 ## Open
 
 - After dxdiag's run, M8BENCH's `bmp_*`, `draw_icon`, `scr_to_mem`, `drag_frame` ran 3-25x slower in the bed

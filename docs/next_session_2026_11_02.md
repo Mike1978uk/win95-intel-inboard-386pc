@@ -190,3 +190,50 @@ Display at 1024x768x8 (`M8FB8.REG`); `M8FB16.REG` and `M8FB8.REG` are in C:\ of 
 2. **DirectDraw at 16 bpp** (item 2 of the previous section, unchanged).
 3. **Bus cost at 16 bpp** (item 3 of the previous section, unchanged).
 4. Older open items (item 4 of the previous section).
+
+## Afternoon, 2026-11-02: START HERE (supersedes above)
+
+**State.** master `7295b6e`, pushed. Card on `m8hash.drv` at 800x600x16 (registry
+`Config\0001\Display\Settings` BitsPerPixel 16; `MODES\16\640,480` and `800,600` present). Bed
+`vm_5160_mcp` at 800x600x16; `M8DISP.DRV` and `M8FB16N.DRV` = the M8HASH build; `FB800.REG` in its C:\.
+The script's keystroke restart did not happen (boot counter unchanged); owner restarted by hand.
+
+**Landed after `521b987`.**
+- `fa3d7c3` packed text draws its opaque rectangle (replaces `24593e7`'s hand-off to DIBENG).
+- `cba2a55` 16 bpp at 800x600 as well as 640x480 (`M8FB16.REG` offers both).
+- `2f658cb` 16 bpp one-colour rectangles: 4x4 dither block + engine copies.
+- `db47d9a` 16 bpp lines send strips.
+- `052e448` dither rows in assembly (`fb16cv.asm`); FB16CHK checks against the C row.
+- `be088b9` M8DDB DirectDraw bench (`tools/m8ddbench`, writes `C:\M8DDB.TXT`, M8BENCH format; per-test
+  "card N" check at 16 bpp).
+- `7bca399` DirectDraw colour-keyed blits on the engine (8 bpp). Card script installs `M8DD32.DLL` via
+  `M8DD32.NEW` and `WININIT.INI` (DDRAW keeps the DLL loaded).
+- `0093e5a` DirectDraw at 16 bpp: primary = fb16 frame buffer; Blt fills, copies, source-keyed in RAM,
+  then sent via `M8_ESC_FB16SEND`.
+- `a8ee0b2` screen copies moving by multiples of 4 are card copies (`M8_ESC_FB16COPY` for DirectDraw).
+- `7295b6e` fingerprints: per 32-pixel row piece, sends skip unchanged pieces.
+
+**Card results (real 5160).**
+- GDI 8 bpp, M8KEY: faster than ATI in 28, slower in 0, pixels = ATI in 36. text_varied 507.6 vs ATI 505.
+- DirectDraw 8 bpp (`card8key` vs `card8hal2`): dd_sprite 0.30 -> 869/s, pixels same. The card had no HAL
+  until `M8DD32.DLL` was copied (`card8hal` = NO HAL; `card8hal2` = HAL).
+- 16 bpp 800x600 works (`card16_1`, `card16dd`, build M8DD16): DirectDraw card check 0 in every test.
+- Fingerprint build M8HASH vs M8DD16: GDI geometric mean 1.54x (text 3.4-3.9x, bmp_card 5.1x,
+  stretch_dib 8.4x); slower in 9 single-run tests (mem_to_mem 0.67, focus_rect 0.73), not yet re-run.
+  DirectDraw 1.66x (dd_scroll 8.3 -> 81/s, locks 1.7x); card 0 throughout.
+
+**Next, in order (owner).**
+1. **DirectDraw Mode X on the VGA half (28800).** First test: clear `DDHALINFO_MODEXILLEGAL` in `dd16.c`;
+   an M8DDB variant requests 320x200 with `DDSCL_ALLOWMODEX`. velocity9x: ddraw.dll has its own ModeX set
+   (`references/velocity9x/docs/issues/2026-08-15-doom95-low-resolution-modes.md`). Risk: output switch
+   and restoring the desktop.
+2. Card surfaces at 16 bpp (RAM 5-6-5 copy + dithered card copy).
+3. GDI caches in spare card rows at 16 bpp.
+4. Unaligned copies of exact-colour areas as card copies.
+5. Fewer row set-ups per send.
+
+**Aspiration (owner).** Some 3D: software Direct3D at 16 bpp first, then flat-shaded triangles as engine
+span fills (D3D HAL) at 8 bpp.
+
+**Open.** DOS timing of VGA-memory writes vs 8514 PIX_TRANS writes on the 5160: offered, not run.
+Re-run the 9 slower single-run GDI tests before judging them.
