@@ -284,3 +284,25 @@ read the RAM frame buffer, not the card.
 5. 16 bpp levers X2-X5.
 
 **Aspiration (owner).** The first 8-bit Direct3D hardware layer.
+
+## Late evening, 2026-11-02
+
+**Landed after `981ce10`.**
+- `2aeb8f2` M8DDB `nopal` label: Mode X without the palette. Fill then returns `DDERR_EXCEPTION`, lock
+  `DDERR_SURFACEBUSY`, restore is clean. Unproven: A0000 not mapped for the app (VDD contract).
+- `3d30bed` fingerprints are FNV-1a. Rotate-XOR was linear: an even number of fully flipped dwords
+  collided. Cause of the card's malformed Explorer text, partial selection and dxdiag test 2 ghosting.
+- `b2ebd4f` 640 <-> 800 at 16 bpp without a restart (frame buffer sized for 800x600). Card: full-screen
+  640x480x16 sets and restores, card 0 (dxdiag test 3's failure).
+- `b5d46e1` M8DDB `fs16 <label>`.
+- `9afb390` sends under 1024 px skip fingerprints; a row diffed in one asm call. Card, 2 runs vs FNV:
+  geomean 1.04, setpixel 1.49, focus_rect 1.67, floodfill 0.79 (repeated identical fills no longer
+  skipped). Two runs of one build differ by 1.04 geomean, single tests by up to 30%: bench twice.
+
+**Card restart.** The script's Start > Shut Down > Restart keys once did nothing (boot counter unchanged,
+4-minute throw). Esc, Esc, then the same keys worked. Screenshots fail at 16 bpp (Win32 1460).
+
+**For the owner.** Card is on `m8rowd.drv` at 800x600x16. Check: dxdiag DirectDraw tests 1-3; Display
+Properties 640 <-> 800 at High Color; Explorer text; WinZip icon after deleting `C:\WINDOWS\ShellIconCache`.
+
+**Uncommitted.** `86box_auto` `vid_ati_mach8.c`: `M8STEP` pclog on ScratchPad1 writes (diagnostic only).
