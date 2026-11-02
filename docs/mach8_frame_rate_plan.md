@@ -37,6 +37,20 @@ frame rates are high. The fast route for games and demos is 8 bpp, engine-drawn,
 
 P1, P3, P4, P8 and O12 are one Win32 probe, `tools/m8probe/M8P0.C` (arms R, O, H, V; S with `M8P0 s`).
 
+### Phase 0 results, card, 2026-11-02 (M8P0, boot 188, 800x600x8, two runs)
+
+| Arm | Run 1 | Run 2 | Reading |
+|---|---|---|---|
+| R write 600 KB `rep stosd` | 65.8 ms (9.3 MB/s) | 66.2 ms | the program's own frame write: fixed |
+| R read 600 KB `rep lodsd` | 35.4 ms (17.4 MB/s) | 35.4 ms | **the unlock's floor** |
+| R one-at-a-time hash 600 KB | 63.5 ms | 64.0 ms | = today's 64 ms unlock: ~29 ms is hash arithmetic above the read. F2's ceiling is ~29 ms of 160 |
+| O 14 OUTs + one FIFO wait | 68.5 us | 68.5 us | **4.6 us per OUT** (XTOUT clear, Win95). M8SPAN's loop spends ~10 us per write: **over half of every engine write is our code** (FIFO polls, C, cache refills). A1 is the largest lever |
+| O one IN (EXT_FIFO_STATUS) | 4.52 us | 4.52 us | a status read costs a whole OUT: poll less (O15) |
+| H A9h | 126 wraps/s, 00-FF | 128 | the counter runs, but the loop managed only ~4,350 samples/s (~230 us each): the 28800 index ports look trapped under Windows (DOS: 11.5 us). Not usable for beam racing in Windows |
+| H VERT_SYNC / LINE_SYNC | 13 / 15 edges/s; toggles per frame 41-1068 | - | undersampled by the slow A9h reads: inconclusive |
+| V V_BLANK latch, looked at every 1 ms | 170 per s | 159 per s | not one per frame (refresh ~56 Hz); the bed gave 72 = its refresh. Unexplained: next arm logs the hit intervals |
+| M8CUBE 3 cubes, 10 s | 111.0 fps, 864 faces/s | 112.2 fps, 875 faces/s | **the baseline for T1, A1 and D2** |
+
 ## Thinking like the demoscene: the bus is the enemy
 
 Every byte that crosses the XT bus stalls the CPU (CPU and bus time add). Speed comes from the card's own
