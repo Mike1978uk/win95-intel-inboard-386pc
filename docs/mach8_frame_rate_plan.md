@@ -50,6 +50,7 @@ P1, P3, P4, P8 and O12 are one Win32 probe, `tools/m8probe/M8P0.C` (arms R, O, H
 | H VERT_SYNC / LINE_SYNC | 13 / 15 edges/s; toggles per frame 41-1068 | - | undersampled by the slow A9h reads: inconclusive |
 | V V_BLANK latch, looked at every 1 ms | 170 per s | 159 per s | not one per frame (refresh ~56 Hz); the bed gave 72 = its refresh. Unexplained: next arm logs the hit intervals |
 | M8CUBE 3 cubes, 10 s | 111.0 fps, 864 faces/s | 112.2 fps, 875 faces/s | **the baseline for T1, A1 and D2** |
+| M8CUBE 3 cubes, `v` (T1, boot 189, `m8vbl`) | 68.5 fps, 535 faces/s | - | locked to the 72 Hz refresh. The owner's stills (`photos/dxcubes/IMG_2095-2111`) show no tear line: what looked like tearing was the polygon fill leaking where both edges share a pixel (spurs, combs, notches), fixed by an XOR outline plus the outline drawn over the fill (`m8leak`, card result pending) |
 
 ## Thinking like the demoscene: the bus is the enemy
 
@@ -247,6 +248,9 @@ demo screen that proves one technique on the card. Exemplars are for method, not
 | G8 | Isometric dirty regions: tiles and sprites in VRAM, redraw what moved | blit, compare | Knight Lore, Head over Heels, Marble Madness |
 | G9 | Blitter as decoder: frames as copies from a VRAM dictionary plus residual pixels | blit, colour expand | Trixter's 8088 video streaming, LZ77 |
 | G10 | Engine blending: the arithmetic mixes ATI never used | FRGD/BKGD mixes | Amiga minterms |
+| G11 | **Present inside the blank** (owner, 11-02, after the cursor fixes): copy only each object's old and new boxes, not one box around all of them, so the whole present fits the ~1.2 ms blank (~24,000 px at engine speed) and cannot tear at any speed; fewer pixels copied also frees bus and engine time | blit, V_BLANK latch | save-under, dirty rectangles |
+| G12 | **A background for free**: a picture kept in spare VRAM; erase each object by engine-copying its patch back instead of filling black. A starfield or scene costs what black costs | blit | Amiga restore-background blits, arcade boards |
+| G13 | **Background and objects in separate bit-planes** (dual playfield): erase by clearing only the object planes, the background is never touched; the palette composes them. WRITE_PER_BIT = 0, so the masked-write cost is measured first | WRT_MASK, DAC | Amiga dual playfield |
 
 Order: G1, G2 (M8CUBE exists), G5, G4, G3, G6, then the rest. Each is one probe or demo, card-measured,
 pixels checked in the bed first (the bed has no POLY_MODE via LINEDRAW: fill pixels are card-only).
