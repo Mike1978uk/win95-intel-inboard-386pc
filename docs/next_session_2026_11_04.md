@@ -73,3 +73,11 @@ note them. Check every fix on the real card: the bed passed a build that dropped
   pitch. `M8FLIP7` clears the frame buffer to black at a 16 bpp size change (`m8_fb16_clear`).
   **Owner's dxdiag check of `M8FLIP7` pending: if static remains, instrument dxdiag's calls (a log
   file written by M8DD32) rather than guess.**
+
+**`M8FLIP7` dxdiag check (owner photo `photos/dxdiagtest3.jpg`): white background with dxdiag's
+title bar, black trail where the square was.** Diagnosis: GDI repaints dxdiag's window onto the card
+after our first Flip's full black fill; the DLL's card description (`m8dd_card`) still says black, so
+Flip erases only the old square. The earlier static was likely the same gap (open item 3). **First job
+next session:** the 16-bit side counts GDI sends to the card (`m8_fb16_end` path) in the shared block;
+Flip compares the count and, if it moved, drops `m8dd_card.known` (one full fill and send). The
+frame-buffer clear (`m8_fb16_clear`) stays: correct on its own. M8DDB fs16 unaffected (no GDI window).
