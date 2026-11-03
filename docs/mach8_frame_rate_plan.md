@@ -67,6 +67,24 @@ the owner's console runs, 91-93 vs 100-102 fps, so never mix the two).
 | dd_lock_small / dd_lock_large | 24.0 / 1.07 | 26.7 / 1.11 |
 | OUT / IN | 4.51 / 4.52 us | same |
 
+### Where a cube frame goes (card, `m8solid`, 2026-11-03)
+
+| Cubes | fps | Frame | Faces per frame |
+|---|---|---|---|
+| 1 | 232.0 | 4.3 ms | 2.0 |
+| 2 | 129.2 | 7.7 ms | 5.2 |
+| 4 | 68.4 | 14.6 ms | 10.2 |
+| 8 | 35.3 | 28.3 ms | 20.8 |
+
+~1.3 ms a face, <1 ms fixed a frame. A face's ~45 writes are ~0.2 ms and its fill ~0.3 ms, so ~0.8 ms a face
+is unexplained. Not the scratch clear (already the union of the faces' boxes); not float maths (an FPU is
+fitted, owner; M8FPU: 3 us a float multiply-add). Next: the profile slots 45-50 (poly3d.c, m8hw.c FIFO waits,
+read by `M8CUBE ... p`), which need the code-segment split below.
+
+**Code-segment ceiling (blocks A1 and D1):** the plain driver's `_TEXT` is 0xFD59 = 64,857 of 65,536 bytes
+(679 free); the `-Prof` build is 1,871 bytes over and does not link. New asm, Direct3D and profiling all need
+the cold code (dd16.c, fb16.c, poly3d.c) moved into a second segment behind far entry points first.
+
 ## Thinking like the demoscene: the bus is the enemy
 
 Every byte that crosses the XT bus stalls the CPU (CPU and bus time add). Speed comes from the card's own

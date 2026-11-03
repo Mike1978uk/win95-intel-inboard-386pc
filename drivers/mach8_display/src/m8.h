@@ -343,6 +343,15 @@ typedef struct {
 
 #ifdef M8_PROF
 extern LONG m8_pf_escape( LPVOID in, LPVOID out );
+/* Profile slots for code outside screen.c: 45-50 time the polygon escape and
+ * the FIFO waits (poly3d.c, m8hw.c). */
+extern DWORD m8_pf_start( void );
+extern void  m8_pf_slot( int s, DWORD a );
+#define M8_PF_START()       m8_pf_start()
+#define M8_PF_SLOT( s, a )  m8_pf_slot( (s), (a) )
+#else
+#define M8_PF_START()       0
+#define M8_PF_SLOT( s, a )  ((void)(a))
 #endif
 
 /* Count a GDI entry that reached the screen; in a -Trace build also mark it, so

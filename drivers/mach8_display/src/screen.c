@@ -2598,6 +2598,15 @@ static void m8_pf_part( int s, DWORD a )
     }
 }
 #define M8_PF_T0()          m8_pf_now()
+DWORD m8_pf_start( void )
+{
+    return( m8_pf_now() );
+}
+
+void m8_pf_slot( int s, DWORD a )
+{
+    m8_pf_part( s, a );
+}
 /* One step of a call, as an expression: never nested. */
 static DWORD        m8_pf_t;
 static int          m8_pf_r;

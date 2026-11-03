@@ -135,6 +135,8 @@ static LONG m8p_frame( const WORD FAR *in )
     int             t;
     int             r;
     int             b;
+    DWORD           pf_frame = M8_PF_START();
+    DWORD           pf;
 
     if( !m8p_usable() || count > M8P_MAX_COUNT ) {
         return( 0 );
@@ -169,9 +171,12 @@ static LONG m8p_frame( const WORD FAR *in )
     if( b > m8p_h ) {
         b = m8p_h;
     }
+    pf = M8_PF_START();
     if( r > l && b > t ) {
         m8_hw_fill( ox + l, oy + t, r - l, b - t, (BYTE)in[4] );
     }
+    M8_PF_SLOT( 46, pf );
+    pf = M8_PF_START();
     if( !m8_hw_poly_begin() ) {
         m8_leave();
         return( 0 );
@@ -197,6 +202,8 @@ static LONG m8p_frame( const WORD FAR *in )
     }
     m8_hw_poly_end();
     m8p_scratch_clear();
+    M8_PF_SLOT( 47, pf );
+    pf = M8_PF_START();
     if( !direct ) {
         l = (short)in[9];
         t = (short)in[10];
@@ -238,7 +245,9 @@ static LONG m8p_frame( const WORD FAR *in )
             m8_hw_copy( ox + l, oy + t, wx + l, wy + t, r - l, b - t );
         }
     }
+    M8_PF_SLOT( 48, pf );
     m8_leave();
+    M8_PF_SLOT( 45, pf_frame );
     return( 1 );
 }
 

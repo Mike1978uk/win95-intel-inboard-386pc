@@ -130,6 +130,7 @@ static int m8_fifo_need( int n )
     WORD    mask;
     WORD    i;
     int     k;
+    DWORD   pf = M8_PF_START();
 
     for( i = 0; i < M8_WAIT_LIMIT; ++i ) {
         st = inpw( M8_EXT_FIFO_STATUS );
@@ -138,6 +139,9 @@ static int m8_fifo_need( int n )
                 mask >>= 1;
             }
             m8_room = k - 1;
+            if( i > 0 ) {
+                M8_PF_SLOT( 50, pf );      /* waited for the engine */
+            }
             return( 1 );
         }
     }

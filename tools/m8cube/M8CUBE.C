@@ -10,6 +10,8 @@
  *     objects   cubes, 1..8 (default 1)
  *     d         draw on the screen directly, no back buffer
  *     v         copy the back buffer to the window at vertical blank (no tear)
+ *     p         with the driver's -Prof build: time each part of a frame
+ *               (profile slots 45-50) and add it to C:\M8CUBE.TXT
  * 8 bpp desktop only.
  * Build: wcl386 -q -bt=nt -l=nt_win -ox -fe=M8CUBE.EXE M8CUBE.C
  */
@@ -23,6 +25,23 @@
 #define sinf( x )   ((float)sin( x ))
 
 #define ESC_POLY    0x4D3F
+/* The driver's profile (drivers/mach8_display/src/m8.h M8_PF_TAB, -Prof build):
+ * keep in step with it. Slots 45-50 are the polygon escape's. */
+#define ESC_PROF    0x4D38
+#define PF_N        10
+#define PF_STYLES   64
+#define PF_STATS    20
+#pragma pack( push, 2 )
+typedef struct { DWORD calls, ticks, long_calls, long_ticks; } PF_ENT;
+typedef struct {
+    WORD    version, n, stamp_ticks, hits;
+    PF_ENT  e[PF_N];
+    WORD    checked, bad;
+    WORD    out_calls[PF_STYLES];
+    DWORD   out_ticks[PF_STYLES];
+    DWORD   stats[PF_STATS];
+} PF_TAB;
+#pragma pack( pop )
 #define W           320
 #define H           200
 #define SHADES      32
@@ -36,6 +55,8 @@ static BYTE         shade_index[HUES][SHADES];
 static int          objects = 1;
 static int          direct;
 static int          vblank;
+static int          prof;
+static PF_TAB       pf;
 static int          prev_l, prev_t, prev_r = W, prev_b = H;
 static WORD         buf[16 + MAX_FACES * 12];
 
@@ -301,6 +322,7 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
     }
     direct = strstr( cmd, " d" ) != NULL;
     vblank = strstr( cmd, " v" ) != NULL;
+    prof = strstr( cmd, " p" ) != NULL;
     memset( &wc, 0, sizeof( wc ) );
     wc.lpfnWndProc = wndproc;
     wc.hInstance = inst;
@@ -320,6 +342,11 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
         MessageBox( wnd, "The driver refused (not M8DISP at 8 bpp, or no off-screen rows).",
                     "M8CUBE", MB_OK );
         return( 1 );
+    }
+    if( prof ) {
+        WORD clear = 1;
+
+        ExtEscape( dc, ESC_PROF, sizeof( clear ), (LPCSTR)&clear, sizeof( pf ), (LPSTR)&pf );
     }
     t0 = last = GetTickCount();
     for( ;; ) {
@@ -350,6 +377,12 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
     }
 done:
     now = GetTickCount();
+    if( prof ) {
+        WORD keep = 0;
+
+        memset( &pf, 0, sizeof( pf ) );
+        ExtEscape( dc, ESC_PROF, sizeof( keep ), (LPCSTR)&keep, sizeof( pf ), (LPSTR)&pf );
+    }
     in[0] = 3;
     ExtEscape( dc, ESC_POLY, 2, (LPCSTR)in, 0, NULL );
     ReleaseDC( wnd, dc );
@@ -361,6 +394,21 @@ done:
             fprintf( f, "M8CUBE  %s  cubes %d  frames %ld  %.2f s  %.1f fps  %.0f faces/s  row %u%s\n",
                      direct ? "direct" : vblank ? "vblank" : "buffer", objects, frames, s, frames / s, drawn / s, top,
                      ok ? "" : "  REFUSED" );
+            if( prof ) {
+                static const char *part[6] = { "frame", "background fill", "polygons",
+                                               "present", "", "FIFO waits" };
+                int k;
+
+                fprintf( f, "  profile v%u, timer %u ticks a stamp\n", pf.version, pf.stamp_ticks );
+                for( k = 0; k < 6; ++k ) {
+                    if( k == 4 ) {
+                        continue;
+                    }
+                    fprintf( f, "  %-16s %7u calls  %9.0f us  %7.1f us/frame\n", part[k],
+                             pf.out_calls[45 + k], pf.out_ticks[45 + k] * 1e6 / 1193182.0,
+                             frames ? pf.out_ticks[45 + k] * 1e6 / 1193182.0 / frames : 0.0 );
+                }
+            }
             fclose( f );
         }
         DestroyWindow( wnd );
