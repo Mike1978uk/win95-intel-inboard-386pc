@@ -732,7 +732,7 @@ void m8_fb16_copy_rect( int sx, int sy, int l, int t, int r, int b )
 }
 
 /* The frame buffer's linear address, DirectDraw's primary; 0 if none. */
-DWORD m8_fb16_lin( void )
+DWORD __far m8_fb16_lin( void )
 {
     return( m8_fb16_sel != 0 ? GetSelectorBase( m8_fb16_sel ) : 0 );
 }
@@ -943,6 +943,20 @@ DWORD m8_fb16_pixel( LPPDEVICE lpDestDev, WORD X, WORD Y, DWORD dwPhysColor,
     rc = DIB_Pixel( lpDestDev, X, Y, dwPhysColor, lpDrawMode );
     m8_fb16_lim_on = 0;
     return( rc );
+}
+
+/* `dwords` zero dwords from sel:0, a 32-bit address (addr32 rep stosd). */
+static void m8_fb16_zero( WORD sel, DWORD dwords );
+#pragma aux m8_fb16_zero = ".386" "push es" "mov es, dx" "shl ecx, 16" "mov cx, bx" "xor edi, edi" "xor eax, eax" "cld" "db 67h, 0F3h, 66h, 0ABh" "pop es" parm [dx] [cx bx] modify [ax cx di];
+
+/* A new size: what the frame buffer holds is at the old pitch, and a program
+ * that only erases what it moves keeps it as its background. Black, as a mode
+ * set leaves video memory. */
+void m8_fb16_clear( void )
+{
+    if( m8_fb16_msel != 0 ) {
+        m8_fb16_zero( m8_fb16_msel, (DWORD)M8_FB16_MAXW * M8_FB16_MAXH / 2 );
+    }
 }
 
 /* The frame buffer, once. 0 = no memory. */

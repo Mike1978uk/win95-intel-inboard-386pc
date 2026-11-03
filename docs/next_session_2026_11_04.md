@@ -62,3 +62,14 @@ note them. Check every fix on the real card: the bed passed a build that dropped
 - Direct3D stub written (`drivers/mach8_display/wip/2026-11-03/`); next: re-apply on the split,
   build, bed run of a DX5 test that lists devices and creates the HAL device (P6).
 - Owner's further levers recorded in the plan (F5 adaptive palette, F6 active region).
+
+## End of 2026-11-03 (master = card `M8FLIP7`)
+
+- `M8FLIP5` (black fill sent from inside CreateSurface): dxdiag test 3 white background; M8DDB exited to a
+  white screen with an hourglass, hard reboot. Fill at creation dropped (`M8FLIP6`): M8DDB clean, exit clean.
+- dd16.c in its own segment `M8DD_TEXT`: on the card since `M8FLIP6` (boot 204), GDI pixels unchanged.
+  `_TEXT` 2,615 bytes free. The Direct3D stub can now be re-applied (`wip/2026-11-03/`).
+- dxdiag test 3 still showed static with `M8FLIP6`: the frame buffer keeps the old desktop at the old
+  pitch. `M8FLIP7` clears the frame buffer to black at a 16 bpp size change (`m8_fb16_clear`).
+  **Owner's dxdiag check of `M8FLIP7` pending: if static remains, instrument dxdiag's calls (a log
+  file written by M8DD32) rather than guess.**

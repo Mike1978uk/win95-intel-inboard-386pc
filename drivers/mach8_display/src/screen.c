@@ -5177,7 +5177,7 @@ WORD WINAPI __loadds SaveScreenBitmap( LPRECT lpRect, WORD wCmd )
 
 /* The rows DirectDraw may have: from *top up to the string cache, leaving
  * SaveScreenBitmap 32 rows below the screen. */
-void m8_dd_heap( int *top, int *rows )
+void __far m8_dd_heap( int *top, int *rows )
 {
     int n = m8_sc_top() - M8_SSB_Y - 32;
 

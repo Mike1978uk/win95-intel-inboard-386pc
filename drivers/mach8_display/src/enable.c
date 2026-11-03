@@ -535,6 +535,9 @@ UINT WINAPI __loadds ReEnable( LPVOID lpDevice, LPGDIINFO lpInfo )
     m8_reenabling = 1;
     /* Quiet while the mode changes: the cursor moves at interrupt time. */
     m8_screen_suspend();
+    if( m8_fb16 && m8_mode != old ) {
+        m8_fb16_clear();
+    }
     rc = Enable( lpDevice, 0, NULL, NULL, NULL );
     if( rc ) {
         Enable( lpInfo, 1, NULL, NULL, NULL );

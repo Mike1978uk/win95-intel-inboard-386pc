@@ -313,7 +313,7 @@ void m8_hw_wait_vblank( void )
     }
 }
 
-int m8_hw_mode_size( int mode, int *x, int *y )
+int __far m8_hw_mode_size( int mode, int *x, int *y )
 {
     if( mode < 0 || mode >= M8_MODE_COUNT ) {
         return( 0 );

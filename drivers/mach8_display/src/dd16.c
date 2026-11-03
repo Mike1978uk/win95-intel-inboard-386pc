@@ -66,6 +66,11 @@ typedef struct {
 } M8DD_SHARE;
 #pragma pack( pop )
 
+/* a * b to 32 bits by one MUL: the runtime's 32-bit multiply is in _TEXT,
+ * which this file's segment cannot call near. */
+static DWORD m8dd_mul( WORD a, WORD b );
+#pragma aux m8dd_mul = "mul dx" parm [ax] [dx] value [dx ax];
+
 static M8DD_SHARE FAR   *m8dd;
 static DWORD            m8dd_lin;
 static BYTE FAR         *m8dd_shadow;   /* the primary as DDRAW sees it */
@@ -115,7 +120,7 @@ static int m8dd_shadow_alloc( void )
         if( pass == 1 ) {
             rows = 0;
         }
-        size = (DWORD)M8_SCREEN_X * (rows > 0 ? top + rows : M8_SCREEN_Y);
+        size = m8dd_mul( M8_SCREEN_X, rows > 0 ? top + rows : M8_SCREEN_Y );
         if( m8dd_shadow != NULL && m8dd_shadow_size >= size ) {
             break;
         }
@@ -133,7 +138,7 @@ static int m8dd_shadow_alloc( void )
     m8dd->shadow = m8dd_shadow_lin;
     m8dd->heap_top = rows > 0 ? top : 0;
     m8dd->heap_rows = rows;
-    m8dd->heap = rows > 0 ? m8dd_shadow_lin + (DWORD)M8_SCREEN_X * top : 0;
+    m8dd->heap = rows > 0 ? m8dd_shadow_lin + m8dd_mul( M8_SCREEN_X, top ) : 0;
     return( 1 );
 }
 
@@ -325,7 +330,7 @@ static void m8dd_build16( void )
 /* ReEnable changed the size at 16 bpp: the description is built again for
  * the new size and handed to DDRAW with bReset set, as the DDK asks after a
  * mode change; M8DD32 clips and addresses by the block's width and pitch. */
-void m8dd_mode_changed( void )
+void __far m8dd_mode_changed( void )
 {
     if( m8dd == NULL || !m8dd->fb16 || m8dd->marker != M8DD_MARKER ) {
         return;
@@ -337,7 +342,7 @@ void m8dd_mode_changed( void )
 }
 
 /* Control(DCICOMMAND): 1 = answered, 0 = refused. */
-LONG m8dd_command( LPVOID lpInput, LPVOID lpOutput )
+LONG __far m8dd_command( LPVOID lpInput, LPVOID lpOutput )
 {
     DCICMD_t FAR    *c = lpInput;
     int             mode;

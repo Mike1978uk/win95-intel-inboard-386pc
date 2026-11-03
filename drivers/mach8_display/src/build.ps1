@@ -48,8 +48,11 @@ if ($Trace) { $cflags += '-dM8_TRACE' }
 if ($Prof) { $cflags += '-dM8_PROF' }
 $cflags += $ExtraCflags
 if ($Trace -and $Prof) { throw '-Trace writes markers inside the calls -Prof times' }
+# dd16.c (DirectDraw set-up, run at a mode set) has its own code segment: the
+# compact model's one code segment is full.
 foreach ($c in 'enable', 'screen', 'm8hw', 'dd16', 'fb16', 'poly3d') {
-  Run wcc ($cflags + $inc + @("-fo=$Out\$c.obj", "$src\$c.c"))
+  $seg = if ($c -eq 'dd16') { @('-nt=M8DD_TEXT') } else { @() }
+  Run wcc ($cflags + $seg + $inc + @("-fo=$Out\$c.obj", "$src\$c.c"))
 }
 Run wasm @('-q', "-fo=$Out\thunks.obj", "$src\thunks.asm")
 Run wasm @('-q', "-fo=$Out\switch.obj", "$src\switch.asm")
@@ -83,8 +86,10 @@ $lnk = @(
   "option description 'DISPLAY : 100, 96, 96 : ATI Graphics Ultra (Mach8) display driver.'",
   'option oneautodata',
   'option alignment=16',
+  'option packcode=0',  # M8DD_TEXT stays a segment of its own, not packed into _TEXT
   'segment class ''DATA'' preload fixed',
   "segment '_TEXT' preload fixed shared",
+  "segment 'M8DD_TEXT' preload fixed shared",
   'disable 2055'
 ) + $(if ($Eliminate) { @('option eliminate') } else { @() }) + ('enable', 'screen', 'm8hw', 'dd16', 'fb16', 'poly3d', 'thunks', 'switch', 'spans', 'hash', 'xlat', 'fb16cv', 'text', 'pixel', 'blt' | ForEach-Object { "file $Out\$_.obj" }) + @(
   "library $Out\dibeng.lib",

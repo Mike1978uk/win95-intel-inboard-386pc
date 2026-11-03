@@ -206,7 +206,7 @@ extern DWORD m8_stats[M8_STAT_COUNT];
 
 /* m8hw.c */
 extern int  m8_hw_set_mode( int mode );
-extern int  m8_hw_mode_size( int mode, int *x, int *y );
+extern int  __far m8_hw_mode_size( int mode, int *x, int *y );
 extern void m8_hw_passthrough( void );
 extern void m8_hw_set_palette( UINT start, UINT count, RGBQUAD FAR *pal );
 extern int  m8_hw_wait_idle( void );
@@ -231,10 +231,12 @@ extern BYTE m8_hw_getpixel( int x, int y );
 extern int  m8_hw_getpixel_fast( int x, int y );
 extern void m8_hw_engine_reset( void );
 extern void m8_hw_forget( void );
-extern LONG m8dd_command( LPVOID lpInput, LPVOID lpOutput );
-extern void m8_dd_heap( int *top, int *rows );
+/* dd16.c is in its own code segment, M8DD_TEXT: the calls between it and
+ * _TEXT are far. */
+extern LONG __far m8dd_command( LPVOID lpInput, LPVOID lpOutput );
+extern void __far m8_dd_heap( int *top, int *rows );
 extern void m8_dd_lend( int on );
-extern void m8dd_mode_changed( void );
+extern void __far m8dd_mode_changed( void );
 
 /* fb16.c: the 16 bpp modes (640x480, 800x600), a frame buffer in RAM shown dithered. */
 extern int     m8_fb16;
@@ -248,9 +250,10 @@ extern void m8_cur_reset( void );
 extern void m8_cur_suspend( void );
 extern void m8_fb16_check( DWORD FAR *out );
 extern void m8_fb16_send_rect( int l, int t, int r, int b, int solid );
-extern DWORD m8_fb16_lin( void );
+extern DWORD __far m8_fb16_lin( void );
 extern void m8_fb16_copy_rect( int sx, int sy, int l, int t, int r, int b );
 extern void m8_fb16_batch( const WORD FAR *in, DWORD FAR *out );
+extern void m8_fb16_clear( void );
 extern void m8_leave( void );
 extern WORD m8_fb16_output( LPPDEVICE lpDestDev, WORD wStyle, WORD wCount, LPPOINT lpPoints,
                             LPPPEN lpPPen, LPPBRUSH lpPBrush, LPDRAWMODE lpDrawMode,

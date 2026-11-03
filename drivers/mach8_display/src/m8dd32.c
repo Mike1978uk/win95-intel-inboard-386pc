@@ -1287,30 +1287,31 @@ static DWORD m8dd_create16( M8DD_CREATE *cd )
         *(long *)(gbl + M8DD_GBL_PITCH) = m8dd->pitch;
         *(DWORD *)(lcl + M8DD_LCL_CAPS) |= DDSCAPS_VIDEOMEMORY;
     }
-    /* A new back buffer is described as black, not written: shown before
-     * anything draws in it, it is one fill, not the RAM's old contents. */
+    /* Both buffers start black, as described, not written: the frame
+     * buffer still holds the desktop at the old mode's pitch, and a program
+     * that only erases what it moved would keep it as its background. The
+     * card is not touched from inside CreateSurface: the first Flip fills it. */
     m8dd_front = 0;
-    m8dd_desc[0].known = 0;
-    m8dd_desc[1].known = 1;
-    m8dd_desc[1].filled = 0;
-    m8dd_desc[1].colour = 0;
-    m8dd_desc[1].n = 0;
+    m8dd_desc[0].known = 1;
+    m8dd_desc[0].filled = 0;
+    m8dd_desc[0].colour = 0;
+    m8dd_desc[0].n = 0;
+    m8dd_desc[1] = m8dd_desc[0];
     m8dd_card.known = 0;
     cd->ddRVal = DD_OK;
     return( DDHAL_DRIVER_HANDLED );
 }
 
-/* The back buffer goes: the frame buffer shown again, and sent whole, as
- * the card may still show the back buffer. */
+/* The back buffer goes: the frame buffer, put in RAM if it is described,
+ * is shown again and sent whole, as the card may show either buffer. */
 static int m8dd_destroy16( BYTE *gbl )
 {
     if( m8dd_back == 0 || *(DWORD *)(gbl + M8DD_GBL_VIDMEM) != m8dd_back ) {
         return( 0 );
     }
-    if( m8dd_front != 0 ) {
-        m8dd_op( 2, NULL, 0 );
-        m8dd_op( 0, NULL, 0 );
-    }
+    m8dd_ready_all( 0 );
+    m8dd_op( 2, NULL, 0 );
+    m8dd_op( 0, NULL, 0 );
     m8dd_op( 4, NULL, 0 );
     m8dd_flush();
     m8dd_back = 0;
