@@ -24,6 +24,14 @@ extern void m8_outsw( const WORD FAR *src, WORD words );
     "push ds" "push es" "pop ds" "mov dx, 0E2E8h" "rep outsw" "pop ds" \
     parm [es si] [cx] modify [si cx dx];
 
+extern void m8_outsb_dac( const BYTE FAR *src, WORD n );
+#pragma aux m8_outsb_dac =     "push ds" "push es" "pop ds" "mov dx, 02EDh" "rep outsb" "pop ds"     parm [es si] [cx] modify [si cx dx];
+
+/* Rows translated a band at a time, then sent in one rep outsw: no port
+ * access between rows keeps the table and the loop in the L1. Also a
+ * packed palette for one rep outsb. */
+static BYTE m8_xrow[4096];
+
 extern void m8_insw( WORD FAR *dst, WORD words );
 #pragma aux m8_insw = \
     "mov dx, 0E2E8h" "rep insw" \
@@ -272,19 +280,27 @@ int m8_hw_wait_idle( void )
     return( 0 );
 }
 
+/* About 84 us at 83.5 MHz (LOOP is 7 clocks on a 486), in registers only:
+ * the 486's cache is write-through, so a loop that stores would use the bus. */
+extern void m8_spin( void );
+#pragma aux m8_spin = "mov cx, 1000" 0xE2 0xFE modify [cx];
+
 /* Until the start of a vertical blank, or about a frame at most. SUBSYS_STATUS
  * bit 0 sets again for as long as the blank lasts (~1.2 ms at 800x600), so the
- * flag is acknowledged first and the wait ends as it next sets. DISP_STATUS
- * is not used: under Windows a read of 02E8 costs ~100 us. */
+ * flag is acknowledged first and the wait ends as it next sets. The latch
+ * holds, so it is read every ~90 us, not back to back: a tight loop would
+ * hold the bus for up to a frame, from the Sound Blaster's DMA and the XT-CF.
+ * DISP_STATUS is not used: under Windows a read of 02E8 costs ~100 us. */
 void m8_hw_wait_vblank( void )
 {
     WORD n;
 
     outpw( M8_SUBSYS_CNTL, 0x0001 );
-    for( n = 0; n < 8000u; ++n ) {          /* ~36 ms at 4.5 us a read */
+    for( n = 0; n < 420; ++n ) {            /* ~37 ms */
         if( inpw( M8_SUBSYS_STAT ) & 1 ) {
             return;
         }
+        m8_spin();
     }
 }
 
@@ -351,17 +367,19 @@ void m8_hw_passthrough( void )
 void m8_hw_set_palette( UINT start, UINT count, RGBQUAD FAR *pal )
 {
     UINT i;
+    BYTE *q = m8_xrow;
 
-    if( m8_hw_off ) {
+    if( m8_hw_off || count > 256 ) {
         return;
+    }
+    for( i = 0; i < count; ++i ) {
+        *q++ = pal[i].rgbRed >> 2;
+        *q++ = pal[i].rgbGreen >> 2;
+        *q++ = pal[i].rgbBlue >> 2;
     }
     outp( 0x02EA, 0xFF );
     outp( 0x02EC, (BYTE)start );
-    for( i = 0; i < count; ++i ) {
-        outp( 0x02ED, pal[i].rgbRed >> 2 );
-        outp( 0x02ED, pal[i].rgbGreen >> 2 );
-        outp( 0x02ED, pal[i].rgbBlue >> 2 );
-    }
+    m8_outsb_dac( (const BYTE FAR *)m8_xrow, (WORD)(count * 3) );
 }
 
 /* Every port access flushes the L1 (docs/captures/io_cache_flush_2026_09_21.md):
@@ -1443,10 +1461,6 @@ void m8_hw_write_rect( int x, int y, int w, int h, const BYTE FAR *src, WORD pit
  * has `cols` columns; a column outside them is clipped away, and is sent as
  * 0 rather than read. */
 #define M8_XROW_MAX         1024        /* the widest mode */
-/* Rows are translated a band at a time, then sent in one rep outsw: no port
- * access between rows keeps the table and the loop in the L1. */
-static BYTE m8_xrow[4096];
-
 /* xlat.asm: n pixels from src through the table into dst. The table goes as
  * two words: a pair of general registers does not say which holds the
  * segment. */
