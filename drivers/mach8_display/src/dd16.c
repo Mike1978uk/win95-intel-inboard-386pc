@@ -57,6 +57,7 @@ typedef struct {
     DWORD   heap_rows;
     DWORD   fb16;                       /* 1: the primary is fb16.c's 5-6-5 frame buffer */
     DWORD   fb_lin;                     /* its linear address */
+    DWORD   gdi_lin;                    /* linear address of fb16.c's count of GDI calls */
     /* This side only from here. */
     DDHALINFO_t                 info;
     DDHAL_DDCALLBACKS_t         cb;
@@ -290,6 +291,7 @@ static void m8dd_build16( void )
     }
     m8dd->fb16 = 1;
     m8dd->fb_lin = m8_fb16_lin();
+    m8dd->gdi_lin = GetSelectorBase( FP_SEG( (LPVOID)m8_fb16_stat ) ) + FP_OFF( (LPVOID)m8_fb16_stat );
     m8dd->pitch = M8_SCREEN_X * 2;
     m8dd->shadow = 0;
     m8dd->heap = 0;

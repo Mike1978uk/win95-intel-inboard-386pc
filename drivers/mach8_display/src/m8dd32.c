@@ -51,6 +51,7 @@ typedef struct {
     DWORD   heap_rows;
     DWORD   fb16;
     DWORD   fb_lin;
+    DWORD   gdi_lin;
 } M8DD_SHARE;
 
 /* DDHAL_LOCKDATA and DDHAL_UNLOCKDATA as DDRAW passes them (Microsoft's
@@ -560,6 +561,7 @@ static DWORD        m8dd_back;          /* the back buffer's linear address, 0 =
 static int          m8dd_front;
 static M8DD_DESC    m8dd_desc[2];
 static M8DD_DESC    m8dd_card;          /* what the card shows, while its `known` */
+static DWORD        m8dd_gdi_seen;      /* fb16.c's GDI call count at the last Flip */
 
 /* The buffer a surface's memory is, or -1. */
 static int m8dd_buf( LPVOID lcl )
@@ -1215,6 +1217,12 @@ static DWORD m8dd_flip16( M8DD_FLIP *fd )
 
     if( k < 0 || m8dd_back == 0 ) {
         return( DDHAL_DRIVER_NOTHANDLED );
+    }
+    /* GDI drew on the card since the last Flip (a program's own window
+     * repainted): the card is no longer as described. */
+    if( m8dd->gdi_lin != 0 && *(DWORD *)m8dd->gdi_lin != m8dd_gdi_seen ) {
+        m8dd_gdi_seen = *(DWORD *)m8dd->gdi_lin;
+        m8dd_card.known = 0;
     }
     t = &m8dd_desc[k];
     m8dd_op( 2, NULL, (WORD)k );

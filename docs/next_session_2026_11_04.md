@@ -81,3 +81,8 @@ Flip erases only the old square. The earlier static was likely the same gap (ope
 next session:** the 16-bit side counts GDI sends to the card (`m8_fb16_end` path) in the shared block;
 Flip compares the count and, if it moved, drops `m8dd_card.known` (one full fill and send). The
 frame-buffer clear (`m8_fb16_clear`) stays: correct on its own. M8DDB fs16 unaffected (no GDI window).
+
+**Fixed, `M8FLIP8` (boot 206): dxdiag test 3 pure black, fast square (owner).** Flip compares fb16.c's
+GDI call count (`m8_fb16_stat[0]`, address in the shared block) and repaints in full when GDI drew.
+Left: a brief flash of static at the start (the mode change, before the first Flip). GDI pixels same in
+all tests (0.94x geomean: Flip is not in that bench; noise). Next: the Direct3D stub (`wip/2026-11-03/`).
