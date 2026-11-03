@@ -1,0 +1,5 @@
+REGEDIT4
+
+[HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\Class\Display\0000\INFO]
+"ChipType"="ATI Mach8 (38800)"
+"DACType"="IMS G176"
