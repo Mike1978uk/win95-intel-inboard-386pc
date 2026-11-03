@@ -7,7 +7,9 @@ param(
   [string]$Watcom = 'C:\Users\lycet\tools\openwatcom',
   [string]$Out = (Join-Path $PSScriptRoot 'build'),
   [switch]$Trace,     # bring-up step markers to SCRATCH_PAD_1 (M8_STEP)
-  [switch]$Prof       # time per entry point, read by ExtEscape (M8_ESC_PROF)
+  [switch]$Prof,      # time per entry point, read by ExtEscape (M8_ESC_PROF)
+  [string[]]$ExtraCflags = @(),  # extra compiler flags, for size and speed trials
+  [switch]$Eliminate  # drop functions nothing calls (needs -zm in -ExtraCflags)
 )
 $ErrorActionPreference = 'Stop'
 $src = $PSScriptRoot
@@ -44,6 +46,7 @@ Run wlib @('-b', '-q', '-n', '-fo', '-ii', "@$src\ddk\dibeng.lbc", "$Out\dibeng.
 $cflags = @('-q', '-wx', '-we', '-s', '-zu', '-zls', '-zW', '-4', '-mc', '-oi', '-wcd=303')
 if ($Trace) { $cflags += '-dM8_TRACE' }
 if ($Prof) { $cflags += '-dM8_PROF' }
+$cflags += $ExtraCflags
 if ($Trace -and $Prof) { throw '-Trace writes markers inside the calls -Prof times' }
 foreach ($c in 'enable', 'screen', 'm8hw', 'dd16', 'fb16', 'poly3d') {
   Run wcc ($cflags + $inc + @("-fo=$Out\$c.obj", "$src\$c.c"))
@@ -83,7 +86,7 @@ $lnk = @(
   'segment class ''DATA'' preload fixed',
   "segment '_TEXT' preload fixed shared",
   'disable 2055'
-) + ('enable', 'screen', 'm8hw', 'dd16', 'fb16', 'poly3d', 'thunks', 'switch', 'spans', 'hash', 'xlat', 'fb16cv', 'text', 'pixel', 'blt' | ForEach-Object { "file $Out\$_.obj" }) + @(
+) + $(if ($Eliminate) { @('option eliminate') } else { @() }) + ('enable', 'screen', 'm8hw', 'dd16', 'fb16', 'poly3d', 'thunks', 'switch', 'spans', 'hash', 'xlat', 'fb16cv', 'text', 'pixel', 'blt' | ForEach-Object { "file $Out\$_.obj" }) + @(
   "library $Out\dibeng.lib",
   "library $Watcom\lib286\win\clibc.lib",
   'import GlobalSmartPageLock KERNEL.230'
