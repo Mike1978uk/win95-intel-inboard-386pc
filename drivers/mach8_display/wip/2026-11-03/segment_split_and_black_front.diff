@@ -1,0 +1,209 @@
+diff --git a/drivers/mach8_display/src/build.ps1 b/drivers/mach8_display/src/build.ps1
+index 9ead008..3e4c367 100644
+--- a/drivers/mach8_display/src/build.ps1
++++ b/drivers/mach8_display/src/build.ps1
+@@ -48,8 +48,11 @@ if ($Trace) { $cflags += '-dM8_TRACE' }
+ if ($Prof) { $cflags += '-dM8_PROF' }
+ $cflags += $ExtraCflags
+ if ($Trace -and $Prof) { throw '-Trace writes markers inside the calls -Prof times' }
++# dd16.c (DirectDraw set-up, run at a mode set) has its own code segment: the
++# compact model's one code segment is full.
+ foreach ($c in 'enable', 'screen', 'm8hw', 'dd16', 'fb16', 'poly3d') {
+-  Run wcc ($cflags + $inc + @("-fo=$Out\$c.obj", "$src\$c.c"))
++  $seg = if ($c -eq 'dd16') { @('-nt=M8DD_TEXT') } else { @() }
++  Run wcc ($cflags + $seg + $inc + @("-fo=$Out\$c.obj", "$src\$c.c"))
+ }
+ Run wasm @('-q', "-fo=$Out\thunks.obj", "$src\thunks.asm")
+ Run wasm @('-q', "-fo=$Out\switch.obj", "$src\switch.asm")
+@@ -83,8 +86,10 @@ $lnk = @(
+   "option description 'DISPLAY : 100, 96, 96 : ATI Graphics Ultra (Mach8) display driver.'",
+   'option oneautodata',
+   'option alignment=16',
++  'option packcode=0',  # M8DD_TEXT stays a segment of its own, not packed into _TEXT
+   'segment class ''DATA'' preload fixed',
+   "segment '_TEXT' preload fixed shared",
++  "segment 'M8DD_TEXT' preload fixed shared",
+   'disable 2055'
+ ) + $(if ($Eliminate) { @('option eliminate') } else { @() }) + ('enable', 'screen', 'm8hw', 'dd16', 'fb16', 'poly3d', 'thunks', 'switch', 'spans', 'hash', 'xlat', 'fb16cv', 'text', 'pixel', 'blt' | ForEach-Object { "file $Out\$_.obj" }) + @(
+   "library $Out\dibeng.lib",
+diff --git a/drivers/mach8_display/src/dd16.c b/drivers/mach8_display/src/dd16.c
+index 5fabcac..5a77265 100644
+--- a/drivers/mach8_display/src/dd16.c
++++ b/drivers/mach8_display/src/dd16.c
+@@ -66,6 +66,11 @@ typedef struct {
+ } M8DD_SHARE;
+ #pragma pack( pop )
+ 
++/* a * b to 32 bits by one MUL: the runtime's 32-bit multiply is in _TEXT,
++ * which this file's segment cannot call near. */
++static DWORD m8dd_mul( WORD a, WORD b );
++#pragma aux m8dd_mul = "mul dx" parm [ax] [dx] value [dx ax];
++
+ static M8DD_SHARE FAR   *m8dd;
+ static DWORD            m8dd_lin;
+ static BYTE FAR         *m8dd_shadow;   /* the primary as DDRAW sees it */
+@@ -115,7 +120,7 @@ static int m8dd_shadow_alloc( void )
+         if( pass == 1 ) {
+             rows = 0;
+         }
+-        size = (DWORD)M8_SCREEN_X * (rows > 0 ? top + rows : M8_SCREEN_Y);
++        size = m8dd_mul( M8_SCREEN_X, rows > 0 ? top + rows : M8_SCREEN_Y );
+         if( m8dd_shadow != NULL && m8dd_shadow_size >= size ) {
+             break;
+         }
+@@ -133,7 +138,7 @@ static int m8dd_shadow_alloc( void )
+     m8dd->shadow = m8dd_shadow_lin;
+     m8dd->heap_top = rows > 0 ? top : 0;
+     m8dd->heap_rows = rows;
+-    m8dd->heap = rows > 0 ? m8dd_shadow_lin + (DWORD)M8_SCREEN_X * top : 0;
++    m8dd->heap = rows > 0 ? m8dd_shadow_lin + m8dd_mul( M8_SCREEN_X, top ) : 0;
+     return( 1 );
+ }
+ 
+@@ -325,7 +330,7 @@ static void m8dd_build16( void )
+ /* ReEnable changed the size at 16 bpp: the description is built again for
+  * the new size and handed to DDRAW with bReset set, as the DDK asks after a
+  * mode change; M8DD32 clips and addresses by the block's width and pitch. */
+-void m8dd_mode_changed( void )
++void __far m8dd_mode_changed( void )
+ {
+     if( m8dd == NULL || !m8dd->fb16 || m8dd->marker != M8DD_MARKER ) {
+         return;
+@@ -337,7 +342,7 @@ void m8dd_mode_changed( void )
+ }
+ 
+ /* Control(DCICOMMAND): 1 = answered, 0 = refused. */
+-LONG m8dd_command( LPVOID lpInput, LPVOID lpOutput )
++LONG __far m8dd_command( LPVOID lpInput, LPVOID lpOutput )
+ {
+     DCICMD_t FAR    *c = lpInput;
+     int             mode;
+diff --git a/drivers/mach8_display/src/fb16.c b/drivers/mach8_display/src/fb16.c
+index 2dbfb4c..5601044 100644
+--- a/drivers/mach8_display/src/fb16.c
++++ b/drivers/mach8_display/src/fb16.c
+@@ -732,7 +732,7 @@ void m8_fb16_copy_rect( int sx, int sy, int l, int t, int r, int b )
+ }
+ 
+ /* The frame buffer's linear address, DirectDraw's primary; 0 if none. */
+-DWORD m8_fb16_lin( void )
++DWORD __far m8_fb16_lin( void )
+ {
+     return( m8_fb16_sel != 0 ? GetSelectorBase( m8_fb16_sel ) : 0 );
+ }
+diff --git a/drivers/mach8_display/src/m8.h b/drivers/mach8_display/src/m8.h
+index f2fde9d..e3c545a 100644
+--- a/drivers/mach8_display/src/m8.h
++++ b/drivers/mach8_display/src/m8.h
+@@ -206,7 +206,7 @@ extern DWORD m8_stats[M8_STAT_COUNT];
+ 
+ /* m8hw.c */
+ extern int  m8_hw_set_mode( int mode );
+-extern int  m8_hw_mode_size( int mode, int *x, int *y );
++extern int  __far m8_hw_mode_size( int mode, int *x, int *y );
+ extern void m8_hw_passthrough( void );
+ extern void m8_hw_set_palette( UINT start, UINT count, RGBQUAD FAR *pal );
+ extern int  m8_hw_wait_idle( void );
+@@ -231,10 +231,12 @@ extern BYTE m8_hw_getpixel( int x, int y );
+ extern int  m8_hw_getpixel_fast( int x, int y );
+ extern void m8_hw_engine_reset( void );
+ extern void m8_hw_forget( void );
+-extern LONG m8dd_command( LPVOID lpInput, LPVOID lpOutput );
+-extern void m8_dd_heap( int *top, int *rows );
++/* dd16.c is in its own code segment, M8DD_TEXT: the calls between it and
++ * _TEXT are far. */
++extern LONG __far m8dd_command( LPVOID lpInput, LPVOID lpOutput );
++extern void __far m8_dd_heap( int *top, int *rows );
+ extern void m8_dd_lend( int on );
+-extern void m8dd_mode_changed( void );
++extern void __far m8dd_mode_changed( void );
+ 
+ /* fb16.c: the 16 bpp modes (640x480, 800x600), a frame buffer in RAM shown dithered. */
+ extern int     m8_fb16;
+@@ -248,7 +250,7 @@ extern void m8_cur_reset( void );
+ extern void m8_cur_suspend( void );
+ extern void m8_fb16_check( DWORD FAR *out );
+ extern void m8_fb16_send_rect( int l, int t, int r, int b, int solid );
+-extern DWORD m8_fb16_lin( void );
++extern DWORD __far m8_fb16_lin( void );
+ extern void m8_fb16_copy_rect( int sx, int sy, int l, int t, int r, int b );
+ extern void m8_fb16_batch( const WORD FAR *in, DWORD FAR *out );
+ extern void m8_leave( void );
+diff --git a/drivers/mach8_display/src/m8dd32.c b/drivers/mach8_display/src/m8dd32.c
+index 8fe6d87..82d95c7 100644
+--- a/drivers/mach8_display/src/m8dd32.c
++++ b/drivers/mach8_display/src/m8dd32.c
+@@ -1287,30 +1287,33 @@ static DWORD m8dd_create16( M8DD_CREATE *cd )
+         *(long *)(gbl + M8DD_GBL_PITCH) = m8dd->pitch;
+         *(DWORD *)(lcl + M8DD_LCL_CAPS) |= DDSCAPS_VIDEOMEMORY;
+     }
+-    /* A new back buffer is described as black, not written: shown before
+-     * anything draws in it, it is one fill, not the RAM's old contents. */
++    /* Both buffers start black, as described, not written: the frame
++     * buffer still holds the desktop at the old mode's pitch, and a program
++     * that only erases what it moved would keep it as its background. One
++     * fill puts the card in step. */
+     m8dd_front = 0;
+-    m8dd_desc[0].known = 0;
+-    m8dd_desc[1].known = 1;
+-    m8dd_desc[1].filled = 0;
+-    m8dd_desc[1].colour = 0;
+-    m8dd_desc[1].n = 0;
+-    m8dd_card.known = 0;
++    m8dd_desc[0].known = 1;
++    m8dd_desc[0].filled = 0;
++    m8dd_desc[0].colour = 0;
++    m8dd_desc[0].n = 0;
++    m8dd_desc[1] = m8dd_desc[0];
++    m8dd_op( 1, NULL, 0 );
++    m8dd_flush();
++    m8dd_card = m8dd_desc[0];
+     cd->ddRVal = DD_OK;
+     return( DDHAL_DRIVER_HANDLED );
+ }
+ 
+-/* The back buffer goes: the frame buffer shown again, and sent whole, as
+- * the card may still show the back buffer. */
++/* The back buffer goes: the frame buffer, put in RAM if it is described,
++ * is shown again and sent whole, as the card may show either buffer. */
+ static int m8dd_destroy16( BYTE *gbl )
+ {
+     if( m8dd_back == 0 || *(DWORD *)(gbl + M8DD_GBL_VIDMEM) != m8dd_back ) {
+         return( 0 );
+     }
+-    if( m8dd_front != 0 ) {
+-        m8dd_op( 2, NULL, 0 );
+-        m8dd_op( 0, NULL, 0 );
+-    }
++    m8dd_ready_all( 0 );
++    m8dd_op( 2, NULL, 0 );
++    m8dd_op( 0, NULL, 0 );
+     m8dd_op( 4, NULL, 0 );
+     m8dd_flush();
+     m8dd_back = 0;
+diff --git a/drivers/mach8_display/src/m8hw.c b/drivers/mach8_display/src/m8hw.c
+index b7f1a98..9d3255c 100644
+--- a/drivers/mach8_display/src/m8hw.c
++++ b/drivers/mach8_display/src/m8hw.c
+@@ -313,7 +313,7 @@ void m8_hw_wait_vblank( void )
+     }
+ }
+ 
+-int m8_hw_mode_size( int mode, int *x, int *y )
++int __far m8_hw_mode_size( int mode, int *x, int *y )
+ {
+     if( mode < 0 || mode >= M8_MODE_COUNT ) {
+         return( 0 );
+diff --git a/drivers/mach8_display/src/screen.c b/drivers/mach8_display/src/screen.c
+index 7ad49be..e0d88e7 100644
+--- a/drivers/mach8_display/src/screen.c
++++ b/drivers/mach8_display/src/screen.c
+@@ -5177,7 +5177,7 @@ WORD WINAPI __loadds SaveScreenBitmap( LPRECT lpRect, WORD wCmd )
+ 
+ /* The rows DirectDraw may have: from *top up to the string cache, leaving
+  * SaveScreenBitmap 32 rows below the screen. */
+-void m8_dd_heap( int *top, int *rows )
++void __far m8_dd_heap( int *top, int *rows )
+ {
+     int n = m8_sc_top() - M8_SSB_Y - 32;
+ 

@@ -51,3 +51,14 @@ The plan and every number are in `docs/mach8_frame_rate_plan.md` (worklist X9). 
 Describe frames, don't scan them; static content costs nothing; limits simplify (memory
 `project-describe-dont-scan`). 3D is benched by fps, higher is better. Build the owner's levers, not just
 note them. Check every fix on the real card: the bed passed a build that dropped fills on the card.
+
+## Later on 2026-11-03
+
+- Card `M8FLIP4` (two agent runs): M8DDB fs16 clean, `mx_flip` 208/220 fps. Owner: all M8DDB tests
+  passed by eye; dxdiag test 3 showed the static background again (front buffer, see wip README).
+- Fix in the working tree, on the card as `M8FLIP5` (boot 202): both new flip buffers described
+  black. Owner's dxdiag check pending.
+- Code segment full: dd16.c moved to `M8DD_TEXT` (2,615 bytes free in `_TEXT`). Not yet on the card.
+- Direct3D stub written (`drivers/mach8_display/wip/2026-11-03/`); next: re-apply on the split,
+  build, bed run of a DX5 test that lists devices and creates the HAL device (P6).
+- Owner's further levers recorded in the plan (F5 adaptive palette, F6 active region).

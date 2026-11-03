@@ -1,0 +1,87 @@
+diff --git a/drivers/mach8_display/src/build.ps1 b/drivers/mach8_display/src/build.ps1
+index 9ead008..3f76d6b 100644
+--- a/drivers/mach8_display/src/build.ps1
++++ b/drivers/mach8_display/src/build.ps1
+@@ -126,10 +126,12 @@ if ($bad) { throw "fixup to a missing segment:`n$($bad -join "`n")" }
+ # based above 2 GB and every section shared (as vmhal9x's fixlink -shared).
+ $inc32 = @("-i=$Watcom\h", "-i=$Watcom\h\nt")
+ $env:INCLUDE = "$Watcom\h;$Watcom\h\nt"
+-Run wcc386 (@('-q', '-wx', '-we', '-s', '-bd', '-bt=nt', '-4s', '-ox', '-wcd=303', "-fo=$Out\m8dd32.obj") + $inc32 + "$src\m8dd32.c")
++foreach ($c in 'm8dd32', 'm8d3d') {
++  Run wcc386 (@('-q', '-wx', '-we', '-s', '-bd', '-bt=nt', '-4s', '-ox', '-wcd=303', "-fo=$Out\$c.obj") + $inc32 + "$src\$c.c")
++}
+ Set-Content -Path "$Out\m8dd32.lnk" -Encoding Ascii -Value @(
+   'system nt_dll', "name $Out\M8DD32.DLL", 'option quiet', 'option offset=0xB0C00000',
+-  "file $Out\m8dd32.obj", "export DriverInit='_DriverInit@4'")
++  "file $Out\m8dd32.obj", "file $Out\m8d3d.obj", "export DriverInit='_DriverInit@4'")
+ Run wlink @("@$Out\m8dd32.lnk")
+ $dll = "$Out\M8DD32.DLL"
+ $b = [IO.File]::ReadAllBytes($dll)
+diff --git a/drivers/mach8_display/src/dd16.c b/drivers/mach8_display/src/dd16.c
+index 5fabcac..11483e5 100644
+--- a/drivers/mach8_display/src/dd16.c
++++ b/drivers/mach8_display/src/dd16.c
+@@ -57,6 +57,8 @@ typedef struct {
+     DWORD   heap_rows;
+     DWORD   fb16;                       /* 1: the primary is fb16.c's 5-6-5 frame buffer */
+     DWORD   fb_lin;                     /* its linear address */
++    DWORD   d3d_global;                 /* m8d3d.c's two tables, 0 = no Direct3D */
++    DWORD   d3d_callbacks;
+     /* This side only from here. */
+     DDHALINFO_t                 info;
+     DDHAL_DDCALLBACKS_t         cb;
+@@ -249,6 +251,13 @@ static void m8dd_build( int mode )
+     }
+     hi->ddCaps.dwPalCaps = DDPCAPS_8BIT | DDPCAPS_PRIMARYSURFACE;
+     hi->ddCaps.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE | DDSCAPS_PALETTE;
++    if( m8dd->d3d_global ) {
++        /* M8DD32's Direct3D HAL (m8d3d.c): flat shading at 8 bpp. */
++        hi->lpD3DGlobalDriverData = (ULONG_PTR)m8dd->d3d_global;
++        hi->lpD3DHALCallbacks = (ULONG_PTR)m8dd->d3d_callbacks;
++        hi->ddCaps.dwCaps |= DDCAPS_3D;
++        hi->ddCaps.ddsCaps.dwCaps |= DDSCAPS_3DDEVICE;
++    }
+     /* Not DDSCAPS_OFFSCREENPLAIN: with it DDRAW refuses this HAL outright.
+      * Off-screen surfaces in video memory are still asked of CreateSurface. */
+     hi->dwModeIndex = mode;
+@@ -285,6 +294,9 @@ static void m8dd_build16( void )
+     }
+     m8dd->fb16 = 1;
+     m8dd->fb_lin = m8_fb16_lin();
++    /* Not at 16 bpp: the card does not draw the screen GDI sees. */
++    hi->lpD3DGlobalDriverData = 0;
++    hi->lpD3DHALCallbacks = 0;
+     m8dd->pitch = M8_SCREEN_X * 2;
+     m8dd->shadow = 0;
+     m8dd->heap = 0;
+diff --git a/drivers/mach8_display/src/m8dd32.c b/drivers/mach8_display/src/m8dd32.c
+index 8fe6d87..a744339 100644
+--- a/drivers/mach8_display/src/m8dd32.c
++++ b/drivers/mach8_display/src/m8dd32.c
+@@ -26,6 +26,9 @@
+ 
+ #define M8DD_MARKER     0x44443855UL
+ 
++/* m8d3d.c */
++extern void m8d3d_init( DWORD *global, DWORD *callbacks );
++
+ /* The head of dd16.c's M8DD_SHARE. */
+ #pragma pack( push, 1 )
+ typedef struct {
+@@ -51,6 +54,8 @@ typedef struct {
+     DWORD   heap_rows;
+     DWORD   fb16;
+     DWORD   fb_lin;
++    DWORD   d3d_global;
++    DWORD   d3d_callbacks;
+ } M8DD_SHARE;
+ 
+ /* DDHAL_LOCKDATA and DDHAL_UNLOCKDATA as DDRAW passes them (Microsoft's
+@@ -1719,6 +1724,7 @@ DWORD __stdcall DriverInit( LPVOID context )
+     m8dd->unlock = (DWORD)m8dd_unlock;
+     m8dd->blt = (DWORD)m8dd_blt;
+     m8dd->flip = (DWORD)m8dd_flip;
++    m8d3d_init( &m8dd->d3d_global, &m8dd->d3d_callbacks );
+     m8dd->create_surface = (DWORD)m8dd_create_surface;
+     m8dd->destroy_surface = (DWORD)m8dd_destroy_surface;
+     m8dd->destroy_driver = (DWORD)m8dd_destroy_driver;
