@@ -161,6 +161,48 @@ static double o_out( void )
     return( (now_us() - t0) / O_REPS );
 }
 
+/* The same 14 writes from memory: a loop of single OUTs (as the drivers'
+ * queues and DirectDraw's transfer loops do) and one rep outsw. */
+static WORD o_words[14] = { 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29 };
+
+static double o_loop( void )
+{
+    double  t0;
+    int     i;
+    int     k;
+
+    wait_empty();
+    t0 = now_us();
+    for( i = 0; i < O_REPS; ++i ) {
+        for( k = 0; k < 14; ++k ) {
+            outpw( 0xA6E8, o_words[k] );
+        }
+        wait_empty();
+    }
+    return( (now_us() - t0) / O_REPS );
+}
+
+static double o_rep( void )
+{
+    double  t0;
+    int     i;
+    WORD    *w = o_words;
+
+    wait_empty();
+    t0 = now_us();
+    for( i = 0; i < O_REPS; ++i ) {
+        _asm {
+            mov     esi, w
+            mov     ecx, 14
+            mov     dx, 0A6E8h
+            cld
+            rep     outsw
+        }
+        wait_empty();
+    }
+    return( (now_us() - t0) / O_REPS );
+}
+
 static double o_in( void )
 {
     double  t0;
@@ -448,6 +490,8 @@ int main( int argc, char **argv )
     printf( "O 14 OUTs + 1 FIFO wait       %8.2f us  (%.2f us/OUT if the wait is one IN)\n",
             best3( o_out ), (best3( o_out ) - best3( o_in )) / 14 );
     printf( "O one IN (EXT_FIFO_STATUS)    %8.2f us\n", best3( o_in ) );
+    printf( "O 14 from memory, C loop      %8.2f us\n", best3( o_loop ) );
+    printf( "O 14 from memory, rep outsw   %8.2f us\n", best3( o_rep ) );
     arm_h();
     arm_v();
     arm_d();

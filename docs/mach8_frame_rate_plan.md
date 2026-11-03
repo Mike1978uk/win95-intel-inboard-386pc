@@ -90,6 +90,22 @@ background fill 0.3, present 0.4. The engine rarely makes the CPU wait.
 | Outlines to LINEDRAW by `rep outsw` (`m8stream`) | cube 86.1 / 86.1 fps vs 90.8 / 92.9 | **slower, reverted**: the queue's loop was already near the bus floor; the extra FIFO read and copy cost more. The ~10 us a write was M8SPAN's own C loop, not the driver's queue. Diff kept outside the tree |
 | Fixed-point maths in M8CUBE (`x`: Q14 sine table, Q8 coordinates, integer projection) | maths only 235-240 -> 605-607 fps (4.2 -> 1.65 ms); full frame 83-87 -> 104.7 / 104.7 fps (on `m8stream`) | **2.6x on the maths, +22 % a frame**: the method for every 3D routine of ours |
 
+**String I/O, measured (M8P0 arms, card, 11-03, two runs):** 14 words to FRGD_COLOR then one FIFO wait: values in
+registers 67.7 us (4.5 us a word, the floor); from memory by `rep outsw` 69.2 us (4.6); from memory by a C loop of
+single OUTs 84-86 us (5.7). The L1 refill after each OUT costs ~1.2 us a word in a tight loop (not ~5: M8SPAN's
+10 us was its own loop). String I/O pays on long runs (pixel transfers), not on short register runs.
+
+**Cross-driver audit (11-03, Sonnet, read-only; gains corrected by the line above):**
+- `m8dd32.c:297, :312, :952, :961`: DirectDraw lock/unlock and system-memory blits send pixels one OUT/IN a word:
+  `rep outsw`/`rep insw` per row, ~20 % off their bus time (dd_lock, dd_sys rows). Do first.
+- `m8hw.c` `m8_hw_set_palette`: three byte OUTs per entry from an RGBQUAD loop; packed buffer + `rep outsb` for O3/G5.
+- `m8hw.c` `m8_hw_line_fast`: up to 12 LINEDRAW words looped; small (~14 us a polyline).
+- `m8_hw_wait_vblank` polls back to back for up to a frame: pace it (~1 ms looks) so SB DMA and the XT-CF keep the bus (#47).
+- `drivers/swapcomp/src/SWAPCOMP.ASM:392` LZ4 hash is one IMUL a position (#54): a shift-xor hash, re-check the ratio.
+- `custom_vkd/src/VKD.ASM:423-432` `VKD_Wait_Empty` runs all 65,536 reads of port 64h (no 8042 on the XT):
+  ~0.3 s of boot, once (#48); confirm by BOOTLOG timestamp.
+- Already fine: XTIDETR.ASM data path and paced polls, spans/blt/pixel asm, hash.asm, the GDI pixel paths' `rep outsw`.
+
 **Code-segment ceiling (blocks A1 and D1):** the plain driver's `_TEXT` is 0xFD59 = 64,857 of 65,536 bytes
 (679 free); the `-Prof` build is 1,871 bytes over and does not link. New asm, Direct3D and profiling all need
 the cold code (dd16.c, fb16.c, poly3d.c) moved into a second segment behind far entry points first.
