@@ -214,6 +214,15 @@ static void m8_sh_clear( void )
     M8_MM_FORGET();
 }
 
+/* The register shadows say nothing true until each is written again. From
+ * an idle engine: the next call then rewrites DP_CONFIG, which halts a
+ * command still running (guide 9-41). */
+void m8_hw_forget( void )
+{
+    m8_hw_wait_idle();
+    m8_sh_clear();
+}
+
 /* A wait that runs out means the engine is wedged: a transfer left unfinished,
  * or a locked FIFO (INVALID_IO), which ignores every write until the engine is
  * reset (guide 8-14). ATIM8 resets the same way; the set-up is then rewritten. */

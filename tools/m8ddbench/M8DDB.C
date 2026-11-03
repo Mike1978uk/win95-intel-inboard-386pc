@@ -496,17 +496,69 @@ static unsigned long mx_hash( void )
     return( h );
 }
 
+/* A card before each full-screen test, as M8BENCH's n/total: which test
+ * runs and what it should look like, for the person watching. */
+#define MX_COUNT    7
+
+static const char *mx_what( const char *name )
+{
+    static const char *const w[][2] = {
+        { "mx_fill", "whole screen filled, random colours" },
+        { "mx_frame", "every pixel written (software renderer)" },
+        { "mx_box", "OLD: box frame written through a lock" },
+        { "mx_same", "OLD: the same frame, nothing moves" },
+        { "mx_lock", "lock and unlock only, nothing drawn" },
+        { "mx_flip", "NEW: clear, box as a fill, flip" },
+        { "mx_flipblt", "NEW: clear, box from a sprite, flip" },
+    };
+    int i;
+
+    for( i = 0; i < (int)(sizeof( w ) / sizeof( w[0] )); ++i ) {
+        if( strcmp( w[i][0], name ) == 0 ) {
+            return( w[i][1] );
+        }
+    }
+    return( "" );
+}
+
+static void mx_title( const char *name )
+{
+    HDC     dc;
+    HFONT   f;
+    HFONT   of;
+    char    s[64];
+    int     h = mx_h / 16;
+
+    if( fill( prim, 0, 0, mx_w, mx_h, 0 ) != DD_OK ||
+        prim->lpVtbl->GetDC( prim, &dc ) != DD_OK ) {
+        return;
+    }
+    f = CreateFont( h, 0, 0, 0, FW_BOLD, 0, 0, 0, ANSI_CHARSET, 0, 0, 0, 0, "Arial" );
+    of = SelectObject( dc, f );
+    SetBkMode( dc, TRANSPARENT );
+    SetTextColor( dc, RGB( 255, 255, 0 ) );
+    sprintf( s, "%d/%d  %s", test_no, MX_COUNT, name );
+    TextOut( dc, h, mx_h / 2 - 2 * h, s, strlen( s ) );
+    TextOut( dc, h, mx_h / 2, mx_what( name ), strlen( mx_what( name ) ) );
+    SelectObject( dc, of );
+    DeleteObject( f );
+    prim->lpVtbl->ReleaseDC( prim, dc );
+    Sleep( 1500 );
+}
+
 static void mx_run( const char *name, OP op, int fixed )
 {
-    double  t0;
-    double  t;
-    long    n = 0;
-    int     i;
-    HRESULT rc;
+    double          t0;
+    double          t;
+    long            n = 0;
+    int             i;
+    HRESULT         rc;
+    unsigned long   h;
 
     ++test_no;
     fprintf( out, "started %d %s\n", test_no, name );
     flush_out();
+    mx_title( name );
     rnd = 12345;
     rc = op( 0 );
     if( rc != DD_OK ) {
@@ -524,9 +576,114 @@ static void mx_run( const char *name, OP op, int fixed )
     for( i = 0; i < fixed; ++i ) {
         op( i );
     }
+    /* The hash's lock first: it puts the whole frame in RAM, which the card
+     * check compares with. */
+    h = mx_hash();
     fprintf( out, "%-16s %10.2f ops/s %8.3f ms/op  hash %08lx  #%d  pad 0000  med %.2f%s\n", name,
-             n * 1000.0 / t, t / n, mx_hash(), test_no, n * 1000.0 / t, card_check() );
+             n * 1000.0 / t, t / n, h, test_no, n * 1000.0 / t, card_check() );
     flush_out();
+}
+
+/* dxdiag's full-screen test as it is written: a flipping primary, the back
+ * buffer cleared, a 32x32 white box drawn in it moving 4 pixels a frame, then
+ * a flip. mx_flip draws the box as a fill, mx_flipblt copies it from a
+ * system-memory sprite. */
+static LPDIRECTDRAWSURFACE  mx_back;
+static LPDIRECTDRAWSURFACE  mx_sprite;
+
+static HRESULT mx_flip_frame( int i, int blt )
+{
+    HRESULT res;
+    RECT    rc;
+    int     bx = 16 + (i * 4) % (mx_w - 64);
+    int     by = 16 + (i * 3) % (mx_h - 64);
+
+    res = fill( mx_back, 0, 0, mx_w, mx_h, 0 );
+    if( res != DD_OK ) {
+        return( res );
+    }
+    if( blt ) {
+        SetRect( &rc, bx, by, bx + 32, by + 32 );
+        res = mx_back->lpVtbl->Blt( mx_back, &rc, mx_sprite, NULL, DDBLT_WAIT, NULL );
+    } else {
+        res = fill( mx_back, bx, by, 32, 32, pixmask );
+    }
+    if( res != DD_OK ) {
+        return( res );
+    }
+    return( prim->lpVtbl->Flip( prim, NULL, DDFLIP_WAIT ) );
+}
+
+static HRESULT t_mx_flip( int i )
+{
+    return( mx_flip_frame( i, 0 ) );
+}
+
+static HRESULT t_mx_flipblt( int i )
+{
+    return( mx_flip_frame( i, 1 ) );
+}
+
+/* The back buffer's memory, from a read-only lock. */
+static void *mx_back_mem( void )
+{
+    DDSURFACEDESC   sd;
+
+    memset( &sd, 0, sizeof( sd ) );
+    sd.dwSize = sizeof( sd );
+    if( mx_back->lpVtbl->Lock( mx_back, NULL, &sd, DDLOCK_WAIT | DDLOCK_READONLY, NULL ) != DD_OK ) {
+        return( NULL );
+    }
+    mx_back->lpVtbl->Unlock( mx_back, sd.lpSurface );
+    return( sd.lpSurface );
+}
+
+static void mx_flips( void )
+{
+    DDSURFACEDESC   sd;
+    DDSCAPS         caps;
+    HRESULT         res;
+    void            *m0;
+
+    memset( &sd, 0, sizeof( sd ) );
+    sd.dwSize = sizeof( sd );
+    sd.dwFlags = DDSD_CAPS | DDSD_BACKBUFFERCOUNT;
+    sd.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE | DDSCAPS_FLIP | DDSCAPS_COMPLEX;
+    sd.dwBackBufferCount = 1;
+    res = dd->lpVtbl->CreateSurface( dd, &sd, &prim, NULL );
+    fprintf( out, "flipchain %08lx\n", (unsigned long)res );
+    flush_out();
+    if( res != DD_OK ) {
+        return;
+    }
+    caps.dwCaps = DDSCAPS_BACKBUFFER;
+    res = prim->lpVtbl->GetAttachedSurface( prim, &caps, &mx_back );
+    memset( &sd, 0, sizeof( sd ) );
+    sd.dwSize = sizeof( sd );
+    if( res == DD_OK ) {
+        mx_back->lpVtbl->GetSurfaceDesc( mx_back, &sd );
+    }
+    mx_sprite = surface( 32, 32, DDSCAPS_SYSTEMMEMORY, 0 );
+    if( mx_sprite != NULL ) {
+        fill( mx_sprite, 0, 0, 32, 32, pixmask );
+    }
+    fprintf( out, "back %08lx caps %08lx  sprite %s\n", (unsigned long)res, sd.ddsCaps.dwCaps,
+             mx_sprite != NULL ? "ok" : "none" );
+    if( res == DD_OK ) {
+        m0 = mx_back_mem();
+        res = prim->lpVtbl->Flip( prim, NULL, DDFLIP_WAIT );
+        fprintf( out, "flip %08lx  back memory %p -> %p\n", (unsigned long)res, m0, mx_back_mem() );
+        flush_out();
+        mx_run( "mx_flip", t_mx_flip, 4 );
+        if( mx_sprite != NULL ) {
+            mx_run( "mx_flipblt", t_mx_flipblt, 4 );
+        }
+        mx_back->lpVtbl->Release( mx_back );
+    }
+    if( mx_sprite != NULL ) {
+        mx_sprite->lpVtbl->Release( mx_sprite );
+    }
+    prim->lpVtbl->Release( prim );
 }
 
 /* Every mode DirectDraw offers, with Mode X flagged. */
@@ -600,6 +757,7 @@ static int modex( const char *label )
         mx_run( "mx_same", t_mx_same, 2 );
         mx_run( "mx_lock", t_mx_lock, 2 );
         prim->lpVtbl->Release( prim );
+        mx_flips();
     }
     res = dd->lpVtbl->RestoreDisplayMode( dd );
     fprintf( out, "restore %08lx\n", (unsigned long)res );

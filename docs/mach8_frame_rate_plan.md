@@ -257,13 +257,34 @@ In order, each measured with M8DDB `fs16` twice:
       one colour, which is what a game with a black border sends. Measure `mx_lock`.
 - [ ] **F2** Whole-rect fingerprint and diff in one asm call (today one far call per row through
       `M8_FB16_ROWDIFF`); read each piece once. Expected gain bounded by P1.
-- [ ] **F3** 16 bpp HAL Flip with a RAM back buffer: DirectDraw stops copying the back buffer each frame
-      (~80 ms *estimate*); Flip fingerprints the back buffer and sends what changed, then swaps.
+- [x] **F3** 16 bpp HAL Flip with a RAM back buffer (2026-11-03), done as descriptions, not fingerprints
+      (owner: "why redraw what hasn't changed"). A buffer is held as a colour plus dirty rectangles; a full
+      clear is one value, never written; Flip fills the card's old rectangles (only where the new frame does
+      not cover them) and sends the new ones. A Lock, or a blit we decline, puts the buffer in RAM and the
+      next Flip uses the fingerprint path. DirectDraw swaps the buffers' memory after each Flip
+      (`80312100 -> 80167760`); descriptions follow the memory. A new back buffer is described black.
+      Card, `M8FLIP`, 640x480x16, M8DDB `fs16`: `mx_box` (dxdiag's frame through a lock) 7.37 fps;
+      `mx_flip` (clear + box fill + Flip) **164.6**; `mx_flipblt` (box from a sprite) **199.9**; card = RAM
+      in every test. Faults found on the way and fixed: static after test 5 (an undrawn back buffer flipped:
+      now described black); white background and black trail (a declined blit drew behind the
+      description: now handled; fills with a stale colour and mix: registers written afresh each flip,
+      from an idle engine, as the rewrite of DP_CONFIG halts a running command, guide 9-41: the card
+      lost fills without the idle wait, the bed did not). Card, `M8FLIP4`, two agent runs: `mx_box` 6.8,
+      `mx_flip` 208 / 220, `mx_flipblt` 174 / 116 fps, card = RAM in all. Open: why the shadows went
+      stale; dxdiag test 3 stutters now and then on the card (owner).
 - [ ] **F4** (only if sparse writers matter) page Dirty bits through a small VxD: on Flip, hash only pages
       written. No gain for programs that rewrite the whole frame.
 
-Ceiling: the program's own 600 KB write stays. 16 bpp full screen will not pass ~6-8 fps *estimate*; that
-is the RAM, not the card.
+Ceiling, for a program that writes every pixel itself: its own 600 KB write stays, ~6-8 fps *estimate*.
+A program that draws through Blt and Flip is not bound by it (F3: 165-200 fps).
+- [ ] **F5** Adaptive palette in full-screen exclusive mode (owner, 11-03): each colour a fill or blit
+      uses takes its own entry (one DAC write), learned from the calls, never a screen scan. Flat, exact
+      colours (the dither shows as fine dots on random fills); every one-colour block one engine fill.
+      Past 256 colours, the fixed palette and one repaint.
+- [ ] **F6** Active region (owner, 11-03: dxdiag only draws in the centre): the box where frames change,
+      observed over recent frames. A Lock fallback compares it first; outside it, only pages whose 486
+      Dirty bit is set (F4's VxD), so the rest is proven unchanged, not assumed. Feeds G11 (present in the
+      blank) and G12 (background kept in card memory).
 
 ## Phase 2: tearing
 

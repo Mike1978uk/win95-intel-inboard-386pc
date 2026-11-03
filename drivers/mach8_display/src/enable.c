@@ -475,6 +475,10 @@ LONG WINAPI __loadds Control( LPVOID lpDevice, UINT function, LPVOID lpInput, LP
         m8_fb16_send_rect( (short)r[0], (short)r[1], (short)r[2], (short)r[3], r[4] );
         return( 1 );
     }
+    if( function == M8_ESC_FB16BATCH && lpInput != NULL && m8_fb16 ) {
+        m8_fb16_batch( (const WORD FAR *)lpInput, (DWORD FAR *)lpOutput );
+        return( 1 );
+    }
     if( function == M8_ESC_FB16COPY && lpInput != NULL && m8_fb16 ) {
         LPWORD  r = (LPWORD)lpInput;
 

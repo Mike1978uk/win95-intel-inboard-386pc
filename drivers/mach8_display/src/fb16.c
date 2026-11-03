@@ -41,7 +41,10 @@ int                     m8_fb16;        /* this session's screen is 16 bpp */
 RGBQUAD                 m8_fb16_pal[256];
 
 static HGLOBAL          m8_fb16_mem;
-static WORD             m8_fb16_sel;
+static WORD             m8_fb16_sel;    /* the buffer the card shows */
+static WORD             m8_fb16_msel;   /* GDI's: the frame buffer */
+static HGLOBAL          m8_fb16_bmem;   /* DirectDraw's back buffer, while it has one */
+static WORD             m8_fb16_bsel;
 static LPDIBENGINE      m8_fb16_dev;
 static int              m8_fb16_depth;  /* access calls open */
 
@@ -283,14 +286,12 @@ extern void M8_FB16_CONV( WORD src, BYTE FAR *dst, WORD n, WORD cv, WORD phase )
 
 /* Row y, columns l .. r - 1, dithered into dst. A grey stores red = blue =
  * green / 2 (5-bit red and blue, 6-bit green) and takes the grey ramp. */
-static void m8_fb16_row( BYTE FAR *dst, int y, int l, int r )
+/* The first n words of m8_fb16_src, as row y from column l, dithered. */
+static void m8_fb16_conv( BYTE FAR *dst, int y, int l, int n )
 {
     const BYTE  *th;
     int         k;
 
-    if( r <= l ) {
-        return;
-    }
     if( m8_fb16_cv_row != (y & 3) ) {
         th = m8_fb16_bayer[y & 3];
         for( k = 0; k < 4; ++k ) {
@@ -302,9 +303,17 @@ static void m8_fb16_row( BYTE FAR *dst, int y, int l, int r )
         m8_fb16_cv.cube = FP_OFF( m8_fb16_cube );
         m8_fb16_cv_row = y & 3;
     }
+    M8_FB16_CONV( FP_OFF( m8_fb16_src ), dst, (WORD)n, FP_OFF( &m8_fb16_cv ), l & 3 );
+}
+
+static void m8_fb16_row( BYTE FAR *dst, int y, int l, int r )
+{
+    if( r <= l ) {
+        return;
+    }
     m8_copy32( m8_fb16_sel, (DWORD)y * M8_FB16_PITCH + (DWORD)l * 2, (BYTE FAR *)m8_fb16_src,
                (WORD)((r - l) * 2) );
-    M8_FB16_CONV( FP_OFF( m8_fb16_src ), dst, (WORD)(r - l), FP_OFF( &m8_fb16_cv ), l & 3 );
+    m8_fb16_conv( dst, y, l, r - l );
 }
 
 /* The same row a pixel at a time in C: FB16CHK's reference, so the check
@@ -539,11 +548,11 @@ static int m8_fb16_uniform( int l, int t, int r, int b, WORD *c )
     return( 1 );
 }
 
-/* A one-colour rectangle: the dither repeats every 4 pixels both ways, so a
- * 4x4 block crosses the bus and engine copies double it across and then
- * down, each distance a multiple of 4. A colour that dithers to one index is
- * a plain fill. */
-static void m8_fb16_solid( int l, int t, int r, int b )
+/* A rectangle of colour c, which RAM need not hold: the dither repeats every
+ * 4 pixels both ways, so a 4x4 block crosses the bus and engine copies double
+ * it across and then down, each distance a multiple of 4. A colour that
+ * dithers to one index is a plain fill. */
+static void m8_fb16_solid( int l, int t, int r, int b, WORD c )
 {
     BYTE    blk[16];
     int     w = r - l;
@@ -553,11 +562,12 @@ static void m8_fb16_solid( int l, int t, int r, int b )
     int     done;
     int     n;
     int     k;
-    WORD    c;
 
-    m8_copy32( m8_fb16_sel, (DWORD)t * M8_FB16_PITCH + (DWORD)l * 2, (BYTE FAR *)&c, 2 );
+    for( k = 0; k < 4; ++k ) {
+        m8_fb16_src[k] = c;
+    }
     for( k = 0; k < bh; ++k ) {
-        m8_fb16_row( (BYTE FAR *)&blk[k * 4], t + k, l, l + bw );
+        m8_fb16_conv( (BYTE FAR *)&blk[k * 4], t + k, l, bw );
     }
     for( k = 1; k < bw * bh && blk[(k / bw) * 4 + k % bw] == blk[0]; ++k ) {
     }
@@ -569,8 +579,15 @@ static void m8_fb16_solid( int l, int t, int r, int b )
         m8_fb16_known( l, t, r, b, c );
         return;
     }
-    m8_fb16_send( l, t, l + bw, t + bh );
     m8_cur_lift( l, t, r, b );
+    /* Host words carry two pixels: an odd-width block goes a pixel at a time. */
+    if( bw & 1 ) {
+        for( k = 0; k < bw * bh; ++k ) {
+            m8_hw_fill( l + k % bw, t + k / bw, 1, 1, blk[(k / bw) * 4 + k % bw] );
+        }
+    } else {
+        m8_hw_write_rect( l, t, bw, bh, (BYTE FAR *)blk, 4 );
+    }
     for( done = bw; done < w; done += n ) {
         n = w - done < done ? w - done : done;
         m8_hw_copy( l, t, l + done, t, n, bh );
@@ -643,7 +660,7 @@ static void m8_fb16_flush( const M8_FB16_RECT *d )
         return;
     }
     if( (long)(r - l) * (b - t) >= M8_FB16_SOLID_MIN && m8_fb16_uniform( l, t, r, b, &c ) ) {
-        m8_fb16_solid( l, t, r, b );
+        m8_fb16_solid( l, t, r, b, c );
     } else {
         m8_fb16_send( l, t, r, b );
     }
@@ -669,7 +686,10 @@ void m8_fb16_send_rect( int l, int t, int r, int b, int solid )
         if( r > m8_scr_x ) r = m8_scr_x;
         if( b > m8_scr_y ) b = m8_scr_y;
         if( r > l && b > t ) {
-            m8_fb16_solid( l, t, r, b );
+            WORD c;
+
+            m8_copy32( m8_fb16_sel, (DWORD)t * M8_FB16_PITCH + (DWORD)l * 2, (BYTE FAR *)&c, 2 );
+            m8_fb16_solid( l, t, r, b, c );
         }
         return;
     }
@@ -940,6 +960,7 @@ int m8_fb16_alloc( void )
     }
     GlobalSmartPageLock( m8_fb16_mem );
     m8_fb16_sel = FP_SEG( GlobalLock( m8_fb16_mem ) );
+    m8_fb16_msel = m8_fb16_sel;
     m8_fb16_tables();
     /* The fingerprints, if memory allows: without them every send is whole. */
     m8_fb16_nseg = M8_FB16_MAXW / M8_FB16_SEG_W;
@@ -1018,6 +1039,65 @@ void m8_fb16_check( DWORD FAR *out )
         }
     }
     m8_leave();
+}
+
+/* M8_ESC_FB16BATCH: M8DD32's flip in one call. `in` is a count, then that
+ * many entries of six WORDs: op, l, t, r, b, arg. Ops: 0 send (arg as
+ * m8_fb16_send_rect's `solid`); 1 fill with 5-6-5 colour arg, RAM not read;
+ * 2 show buffer arg (0 the frame buffer, 1 the back buffer); 3 allocate the
+ * back buffer, its linear address to *out (0: no memory); 4 free it. */
+void m8_fb16_batch( const WORD FAR *in, DWORD FAR *out )
+{
+    const WORD FAR  *e = in + 1;
+    WORD            n;
+    int             l;
+    int             t;
+    int             r;
+    int             b;
+
+    /* Registers are written afresh at each flip: the shadows have been found
+     * stale here (a black fill drawn white), cause not yet found. */
+    m8_hw_forget();
+    for( n = in[0]; n > 0; --n, e += 6 ) {
+        l = (short)e[1] < 0 ? 0 : (short)e[1];
+        t = (short)e[2] < 0 ? 0 : (short)e[2];
+        r = (short)e[3] > m8_scr_x ? m8_scr_x : (short)e[3];
+        b = (short)e[4] > m8_scr_y ? m8_scr_y : (short)e[4];
+        switch( e[0] ) {
+        case 0:
+            m8_fb16_send_rect( l, t, r, b, e[5] );
+            break;
+        case 1:
+            if( r > l && b > t ) {
+                m8_fb16_solid( l, t, r, b, e[5] );
+            }
+            break;
+        case 2:
+            m8_fb16_sel = (e[5] && m8_fb16_bsel) ? m8_fb16_bsel : m8_fb16_msel;
+            break;
+        case 3:
+            if( m8_fb16_bmem == 0 ) {
+                m8_fb16_bmem = GlobalAlloc( GMEM_FIXED | GMEM_SHARE,
+                                            (DWORD)m8_scr_x * 2 * m8_scr_y );
+                if( m8_fb16_bmem != 0 ) {
+                    m8_fb16_bsel = FP_SEG( GlobalLock( m8_fb16_bmem ) );
+                }
+            }
+            if( out != NULL ) {
+                *out = m8_fb16_bsel ? GetSelectorBase( m8_fb16_bsel ) : 0;
+            }
+            break;
+        case 4:
+            m8_fb16_sel = m8_fb16_msel;
+            if( m8_fb16_bmem != 0 ) {
+                GlobalUnlock( m8_fb16_bmem );
+                GlobalFree( m8_fb16_bmem );
+                m8_fb16_bmem = 0;
+                m8_fb16_bsel = 0;
+            }
+            break;
+        }
+    }
 }
 
 /* The whole frame buffer to the card, after the mode is set: what the card

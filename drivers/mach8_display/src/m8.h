@@ -230,6 +230,7 @@ extern WORD m8_hw_scanlr( int x, int y, BYTE colour, WORD style, int width );
 extern BYTE m8_hw_getpixel( int x, int y );
 extern int  m8_hw_getpixel_fast( int x, int y );
 extern void m8_hw_engine_reset( void );
+extern void m8_hw_forget( void );
 extern LONG m8dd_command( LPVOID lpInput, LPVOID lpOutput );
 extern void m8_dd_heap( int *top, int *rows );
 extern void m8_dd_lend( int on );
@@ -249,6 +250,7 @@ extern void m8_fb16_check( DWORD FAR *out );
 extern void m8_fb16_send_rect( int l, int t, int r, int b, int solid );
 extern DWORD m8_fb16_lin( void );
 extern void m8_fb16_copy_rect( int sx, int sy, int l, int t, int r, int b );
+extern void m8_fb16_batch( const WORD FAR *in, DWORD FAR *out );
 extern void m8_leave( void );
 extern WORD m8_fb16_output( LPPDEVICE lpDestDev, WORD wStyle, WORD wCount, LPPOINT lpPoints,
                             LPPPEN lpPPen, LPPBRUSH lpPBrush, LPDRAWMODE lpDrawMode,
@@ -318,6 +320,7 @@ extern LONG m8_poly_escape( LPVOID lpInput, LPVOID lpOutput );
 #define M8_ESC_FB16COPY     0x4D3D      /* in: WORDs sx sy l t r b: a screen copy done in RAM */
 #define M8_ESC_RESYNC       0x4D3E      /* a program drew on the card itself: set it all again */
 #define M8_ESC_POLY         0x4D3F      /* poly3d.c: begin, frame, end */
+#define M8_ESC_FB16BATCH    0x4D40      /* in: m8_fb16_batch's list; out: a DWORD */
 #define M8_PF_STYLES        64
 #define M8_PF_N             10      /* BitBlt ExtTextOut Output Pixel StrBlt DibToDevice
                                      * StretchBlt StretchDIBits SaveScreenBitmap ScanLR */

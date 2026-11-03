@@ -538,15 +538,191 @@ static int m8dd_key_rect( const RECT *d, int sx, int sy, BYTE key )
 #define M8_ESC_FB16SEND     0x4D3C      /* m8.h */
 #define M8_ESC_FB16COPY     0x4D3D
 
-static int m8dd_is_fb( LPVOID lcl )
+#define M8_ESC_FB16BATCH    0x4D40
+
+/* Two buffers at most: 0 the frame buffer, 1 the back buffer of a flipping
+ * primary. The card shows m8dd_front. A buffer's description, while `known`:
+ * every pixel is `colour` except inside the rectangles d, whose pixels RAM
+ * holds; outside them RAM holds the colour only once `filled`. So a clear is
+ * one value, not a screen of writes, and a flip sends the rectangles that
+ * changed and nothing else. Not `known`: RAM holds the buffer. */
+#define M8DD_DIRTY_MAX      8
+
+typedef struct {
+    int     known;
+    int     filled;
+    WORD    colour;
+    int     n;
+    RECT    d[M8DD_DIRTY_MAX];
+} M8DD_DESC;
+
+static DWORD        m8dd_back;          /* the back buffer's linear address, 0 = none */
+static int          m8dd_front;
+static M8DD_DESC    m8dd_desc[2];
+static M8DD_DESC    m8dd_card;          /* what the card shows, while its `known` */
+
+/* The buffer a surface's memory is, or -1. */
+static int m8dd_buf( LPVOID lcl )
 {
     BYTE    *gbl;
+    DWORD   m;
 
     if( lcl == NULL ) {
-        return( 0 );
+        return( -1 );
     }
     gbl = *(BYTE **)((BYTE *)lcl + M8DD_LCL_GBL);
-    return( gbl != NULL && *(DWORD *)(gbl + M8DD_GBL_VIDMEM) == m8dd->fb_lin );
+    if( gbl == NULL ) {
+        return( -1 );
+    }
+    m = *(DWORD *)(gbl + M8DD_GBL_VIDMEM);
+    if( m == m8dd->fb_lin ) {
+        return( 0 );
+    }
+    return( m8dd_back != 0 && m == m8dd_back ? 1 : -1 );
+}
+
+static WORD *m8dd_at( int k, int x, int y )
+{
+    return( (WORD *)((k ? m8dd_back : m8dd->fb_lin) + (DWORD)y * m8dd->pitch + (DWORD)x * 2) );
+}
+
+/* fb16.c's batch (m8_fb16_batch): entries queue, one ExtEscape sends them. */
+#define M8DD_BATCH_MAX      24
+
+static WORD     m8dd_bl[1 + 6 * M8DD_BATCH_MAX];
+
+static DWORD m8dd_flush( void )
+{
+    HDC     dc;
+    DWORD   out = 0;
+
+    if( m8dd_bl[0] == 0 ) {
+        return( 0 );
+    }
+    dc = GetDC( NULL );
+    if( dc != NULL ) {
+        ExtEscape( dc, M8_ESC_FB16BATCH, 2 + 12 * m8dd_bl[0], (LPCSTR)m8dd_bl,
+                   sizeof( out ), (LPSTR)&out );
+        ReleaseDC( NULL, dc );
+    }
+    m8dd_bl[0] = 0;
+    return( out );
+}
+
+/* r NULL: the whole screen. */
+static void m8dd_op( WORD op, const RECT *r, WORD arg )
+{
+    WORD    *e;
+
+    if( m8dd_bl[0] == M8DD_BATCH_MAX ) {
+        m8dd_flush();
+    }
+    e = m8dd_bl + 1 + 6 * m8dd_bl[0]++;
+    e[0] = op;
+    e[1] = r ? (WORD)r->left : 0;
+    e[2] = r ? (WORD)r->top : 0;
+    e[3] = r ? (WORD)r->right : (WORD)m8dd->width;
+    e[4] = r ? (WORD)r->bottom : (WORD)m8dd->height;
+    e[5] = arg;
+}
+
+static void m8dd_fill16( WORD *p, int n, WORD c )
+{
+    while( n-- > 0 ) {
+        *p++ = c;
+    }
+}
+
+/* Buffer k's pixels within c put in RAM where its description has them as
+ * the colour: before anything reads them or draws over part of them. */
+static void m8dd_ready( int k, const RECT *c )
+{
+    M8DD_DESC   *d = &m8dd_desc[k];
+    const RECT  *r;
+    int         y;
+    int         x;
+    int         e;
+    int         i;
+
+    if( !d->known || d->filled ) {
+        return;
+    }
+    for( y = c->top; y < c->bottom; ++y ) {
+        x = c->left;
+        while( x < c->right ) {
+            e = c->right;
+            for( i = 0; i < d->n; ++i ) {
+                r = &d->d[i];
+                if( y < r->top || y >= r->bottom || r->right <= x || r->left >= e ) {
+                    continue;
+                }
+                if( r->left <= x ) {
+                    x = r->right;
+                    e = -1;
+                    break;
+                }
+                e = r->left;
+            }
+            if( e >= 0 ) {
+                m8dd_fill16( m8dd_at( k, x, y ), e - x, d->colour );
+                x = e;
+            }
+        }
+    }
+}
+
+static void m8dd_ready_all( int k )
+{
+    RECT    all;
+
+    all.left = 0;
+    all.top = 0;
+    all.right = m8dd->width;
+    all.bottom = m8dd->height;
+    m8dd_ready( k, &all );
+    m8dd_desc[k].filled = 1;
+}
+
+static int m8dd_inside( const RECT *a, const RECT *b )
+{
+    return( a->left >= b->left && a->top >= b->top && a->right <= b->right && a->bottom <= b->bottom );
+}
+
+/* c of buffer k now drawn in RAM. Past M8DD_DIRTY_MAX rectangles, the one
+ * that grows least takes it, its new area put in RAM first. */
+static void m8dd_dirty( int k, const RECT *c )
+{
+    M8DD_DESC   *d = &m8dd_desc[k];
+    RECT        u;
+    long        g;
+    long        bg = 0;
+    int         best = 0;
+    int         i;
+
+    if( !d->known ) {
+        return;
+    }
+    for( i = 0; i < d->n; ++i ) {
+        if( m8dd_inside( c, &d->d[i] ) ) {
+            return;
+        }
+    }
+    if( d->n < M8DD_DIRTY_MAX ) {
+        d->d[d->n++] = *c;
+        return;
+    }
+    for( i = 0; i < d->n; ++i ) {
+        UnionRect( &u, &d->d[i], c );
+        g = (long)(u.right - u.left) * (u.bottom - u.top) -
+            (long)(d->d[i].right - d->d[i].left) * (d->d[i].bottom - d->d[i].top);
+        if( i == 0 || g < bg ) {
+            bg = g;
+            best = i;
+        }
+    }
+    UnionRect( &u, &d->d[best], c );
+    m8dd_ready( k, &u );
+    d->d[best] = u;
 }
 
 static void m8dd_send( const RECT *r, int solid )
@@ -598,9 +774,10 @@ static void m8dd_clip_fb( RECT *c, const RECTL *r )
     c->bottom = r->bottom > (long)m8dd->height ? (long)m8dd->height : r->bottom;
 }
 
+/* The buffer the card shows. */
 static WORD *m8dd_fb_at( int x, int y )
 {
-    return( (WORD *)(m8dd->fb_lin + (DWORD)y * m8dd->pitch + (DWORD)x * 2) );
+    return( m8dd_at( m8dd_front, x, y ) );
 }
 
 /* A frame copied over the screen is mostly the screen it replaces: each row
@@ -664,20 +841,28 @@ static DWORD m8dd_lock16( M8DD_LOCK *ld )
     RECTL   all;
     RECT    r;
     int     k;
+    int     b = m8dd_buf( ld->lpDDSurface );
 
-    if( !m8dd_is_fb( ld->lpDDSurface ) ) {
+    if( b < 0 ) {
         return( DDHAL_DRIVER_NOTHANDLED );
     }
+    /* The program reads or writes the pixels itself: RAM must hold them all. */
+    m8dd_ready_all( b );
     all.left = 0;
     all.top = 0;
     all.right = m8dd->width;
     all.bottom = m8dd->height;
     m8dd_clip_fb( &r, ld->bHasRect ? &ld->rArea : &all );
-    ld->lpSurfData = (LPVOID)m8dd_fb_at( r.left, r.top );
+    ld->lpSurfData = (LPVOID)m8dd_at( b, r.left, r.top );
     ld->ddRVal = DD_OK;
     if( ld->dwFlags & DDLOCK_READONLY ) {
         return( DDHAL_DRIVER_HANDLED );
     }
+    m8dd_desc[b].known = 0;
+    if( b != m8dd_front ) {
+        return( DDHAL_DRIVER_HANDLED );
+    }
+    m8dd_card.known = 0;
     for( k = 0; k < M8DD_HELD_MAX && m8dd_held[k].lcl != NULL; ++k ) {
     }
     if( k == M8DD_HELD_MAX ) {
@@ -697,7 +882,7 @@ static DWORD m8dd_unlock16( M8DD_UNLOCK *ud )
 {
     int k;
 
-    if( !m8dd_is_fb( ud->lpDDSurface ) ) {
+    if( m8dd_buf( ud->lpDDSurface ) < 0 ) {
         return( DDHAL_DRIVER_NOTHANDLED );
     }
     for( k = 0; k < M8DD_HELD_MAX; ++k ) {
@@ -736,7 +921,7 @@ static BYTE *m8dd_sysmem16( LPVOID lcl, long *pitch, int *w, int *h )
 /* Fills, and same-size copies (plain or with a one-colour source key) from
  * system memory or from the screen itself, all in RAM, then each changed
  * rectangle sent. Anything else goes back to DDRAW. */
-static DWORD m8dd_blt16( M8DD_BLT *bd )
+static DWORD m8dd_blt16_do( M8DD_BLT *bd )
 {
     DWORD       other = bd->dwFlags & ~(DDBLT_COLORFILL | DDBLT_ROP | DDBLT_WAIT | DDBLT_ASYNC |
                                         DDBLT_KEYSRC | DDBLT_KEYSRCOVERRIDE);
@@ -764,23 +949,30 @@ static DWORD m8dd_blt16( M8DD_BLT *bd )
     const WORD  *s;
     int         fsx = 0;
     int         fsy = 0;
+    int         dk = m8dd_buf( bd->lpDDDestSurface );
+    int         sk = -1;
+    int         back;
 
-    if( other != 0 || !m8dd_is_fb( bd->lpDDDestSurface ) ) {
+    if( other != 0 || dk < 0 ) {
         return( DDHAL_DRIVER_NOTHANDLED );
     }
+    back = dk != m8dd_front;
     if( bd->dwFlags & DDBLT_COLORFILL ) {
         if( keyed ) {
             return( DDHAL_DRIVER_NOTHANDLED );
         }
         fillc = (WORD)bd->bltFX.dwFillColor;
-    } else if( (bd->dwFlags & DDBLT_ROP) && bd->bltFX.dwROP == M8DD_SRCCOPY ) {
-        if( m8dd_is_fb( bd->lpDDSrcSurface ) ) {
-            self = 1;
-            src = (BYTE *)m8dd->fb_lin;
+    } else if( bd->lpDDSrcSurface != NULL &&
+               (!(bd->dwFlags & DDBLT_ROP) || bd->bltFX.dwROP == M8DD_SRCCOPY) ) {
+        /* A source and no ROP is a plain copy. */
+        sk = m8dd_buf( bd->lpDDSrcSurface );
+        if( sk >= 0 ) {
+            self = sk == dk;
+            src = (BYTE *)m8dd_at( sk, 0, 0 );
             pitch = m8dd->pitch;
             sw = m8dd->width;
             sh = m8dd->height;
-            if( keyed ) {
+            if( keyed && self ) {
                 return( DDHAL_DRIVER_NOTHANDLED );
             }
         } else if( (src = m8dd_sysmem16( bd->lpDDSrcSurface, &pitch, &sw, &sh )) == NULL ) {
@@ -815,11 +1007,44 @@ static DWORD m8dd_blt16( M8DD_BLT *bd )
         rl = od;
         count = 1;
     }
+    if( back ) {
+        /* A clear of the whole back buffer is its description, not writes. */
+        m8dd_clip_fb( &c, &rl[0] );
+        if( (bd->dwFlags & DDBLT_COLORFILL) && count == 1 && c.left == 0 && c.top == 0 &&
+            c.right == (long)m8dd->width && c.bottom == (long)m8dd->height ) {
+            m8dd_desc[dk].known = 1;
+            m8dd_desc[dk].filled = 0;
+            m8dd_desc[dk].colour = fillc;
+            m8dd_desc[dk].n = 0;
+            bd->ddRVal = DD_OK;
+            return( DDHAL_DRIVER_HANDLED );
+        }
+    } else {
+        /* Drawn on the shown buffer directly: RAM is the truth from here. */
+        m8dd_ready_all( dk );
+        m8dd_desc[dk].known = 0;
+        m8dd_card.known = 0;
+    }
+    if( sk >= 0 && sk != dk ) {
+        m8dd_ready_all( sk );
+    }
     for( i = 0; i < count; ++i ) {
         m8dd_clip_fb( &c, &rl[i] );
         w = c.right - c.left;
         if( w <= 0 || c.bottom <= c.top ) {
             continue;
+        }
+        if( back ) {
+            m8dd_ready( dk, &c );
+            if( self ) {
+                RECT sr;
+
+                sr.left = c.left - od->left + os->left;
+                sr.top = c.top - od->top + os->top;
+                sr.right = sr.left + w;
+                sr.bottom = sr.top + (c.bottom - c.top);
+                m8dd_ready( dk, &sr );
+            }
         }
         if( bd->dwFlags & DDBLT_COLORFILL ) {
             DWORD   two = fillc | ((DWORD)fillc << 16);
@@ -827,7 +1052,7 @@ static DWORD m8dd_blt16( M8DD_BLT *bd )
             int     n;
 
             for( y = c.top; y < c.bottom; ++y ) {
-                d = m8dd_fb_at( c.left, y );
+                d = m8dd_at( dk, c.left, y );
                 x = 0;
                 if( (DWORD)d & 2 ) {
                     d[x++] = fillc;
@@ -840,7 +1065,11 @@ static DWORD m8dd_blt16( M8DD_BLT *bd )
                     d[w - 1] = fillc;
                 }
             }
-            m8dd_send( &c, 1 );
+            if( back ) {
+                m8dd_dirty( dk, &c );
+            } else {
+                m8dd_send( &c, 1 );
+            }
             continue;
         } else {
             /* Rows in the order that reads each source row before it is
@@ -860,7 +1089,7 @@ static DWORD m8dd_blt16( M8DD_BLT *bd )
                 y1 = c.bottom;
                 step = 1;
             }
-            if( !self && !keyed ) {
+            if( !self && !keyed && !back ) {
                 M8DD_DIFF   g;
 
                 g.open = 0;
@@ -872,7 +1101,7 @@ static DWORD m8dd_blt16( M8DD_BLT *bd )
                 continue;
             }
             for( y = y0; y != y1; y += step ) {
-                d = m8dd_fb_at( c.left, y );
+                d = m8dd_at( dk, c.left, y );
                 s = (const WORD *)(src + (sy + y - c.top) * pitch + sx * 2);
                 if( keyed ) {
                     for( x = 0; x < w; ++x ) {
@@ -885,7 +1114,9 @@ static DWORD m8dd_blt16( M8DD_BLT *bd )
                 }
             }
         }
-        if( self ) {
+        if( back ) {
+            m8dd_dirty( dk, &c );
+        } else if( self ) {
             m8dd_copied( fsx, fsy, &c );
         } else {
             m8dd_send( &c, 0 );
@@ -893,6 +1124,202 @@ static DWORD m8dd_blt16( M8DD_BLT *bd )
     }
     bd->ddRVal = DD_OK;
     return( DDHAL_DRIVER_HANDLED );
+}
+
+/* A blit DDRAW does itself writes and reads RAM directly: the buffers it
+ * touches are put in RAM first and held as unknown, so no description is
+ * left that no longer matches their pixels. */
+static DWORD m8dd_blt16( M8DD_BLT *bd )
+{
+    DWORD   rc = m8dd_blt16_do( bd );
+    int     k;
+
+    if( rc == DDHAL_DRIVER_NOTHANDLED ) {
+        if( (k = m8dd_buf( bd->lpDDDestSurface )) >= 0 ) {
+            m8dd_ready_all( k );
+            m8dd_desc[k].known = 0;
+            if( k == m8dd_front ) {
+                m8dd_card.known = 0;
+            }
+        }
+        if( (k = m8dd_buf( bd->lpDDSrcSurface )) >= 0 ) {
+            m8dd_ready_all( k );
+        }
+    }
+    return( rc );
+}
+
+/* DDHAL_FLIPDATA. */
+typedef struct {
+    LPVOID  lpDD;
+    LPVOID  lpSurfCurr;
+    LPVOID  lpSurfTarg;
+    DWORD   dwFlags;
+    HRESULT ddRVal;
+    LPVOID  Flip;
+} M8DD_FLIP;
+
+/* The part of the card's old rectangle o that none of t's rectangles from
+ * `from` on covers, filled with `colour`: a pixel the new frame draws over is
+ * never filled first, so nothing on screen goes to the background and back. */
+static void m8dd_fill_outside( const RECT *o, const M8DD_DESC *t, int from, WORD colour )
+{
+    const RECT  *n;
+    RECT        p;
+    long        top;
+    long        bot;
+
+    for( ; from < t->n; ++from ) {
+        n = &t->d[from];
+        if( n->left >= o->right || n->right <= o->left || n->top >= o->bottom || n->bottom <= o->top ) {
+            continue;
+        }
+        top = o->top > n->top ? o->top : n->top;
+        bot = o->bottom < n->bottom ? o->bottom : n->bottom;
+        p = *o;
+        if( o->top < n->top ) {
+            p.bottom = n->top;
+            m8dd_fill_outside( &p, t, from + 1, colour );
+        }
+        p = *o;
+        if( n->bottom < o->bottom ) {
+            p.top = n->bottom;
+            m8dd_fill_outside( &p, t, from + 1, colour );
+        }
+        p.top = top;
+        p.bottom = bot;
+        if( o->left < n->left ) {
+            p.left = o->left;
+            p.right = n->left;
+            m8dd_fill_outside( &p, t, from + 1, colour );
+        }
+        if( n->right < o->right ) {
+            p.left = n->right;
+            p.right = o->right;
+            m8dd_fill_outside( &p, t, from + 1, colour );
+        }
+        return;
+    }
+    m8dd_op( 1, o, colour );
+}
+
+/* The target buffer shown. While both it and the card are described with the
+ * same colour, only the card's old rectangles are filled back with it and the
+ * target's rectangles sent: the static part of the frame never crosses the
+ * bus, and RAM is not read outside the rectangles. */
+static DWORD m8dd_flip16( M8DD_FLIP *fd )
+{
+    int         k = m8dd_buf( fd->lpSurfTarg );
+    M8DD_DESC   *t;
+    int         i;
+
+    if( k < 0 || m8dd_back == 0 ) {
+        return( DDHAL_DRIVER_NOTHANDLED );
+    }
+    t = &m8dd_desc[k];
+    m8dd_op( 2, NULL, (WORD)k );
+    if( t->known ) {
+        if( m8dd_card.known && m8dd_card.colour == t->colour ) {
+            for( i = 0; i < m8dd_card.n; ++i ) {
+                m8dd_fill_outside( &m8dd_card.d[i], t, 0, t->colour );
+            }
+        } else {
+            m8dd_op( 1, NULL, t->colour );
+        }
+        for( i = 0; i < t->n; ++i ) {
+            m8dd_op( 0, &t->d[i], 0 );
+        }
+        m8dd_card = *t;
+    } else {
+        m8dd_op( 0, NULL, 0 );
+        m8dd_card.known = 0;
+    }
+    m8dd_flush();
+    m8dd_front = k;
+    fd->ddRVal = DD_OK;
+    return( DDHAL_DRIVER_HANDLED );
+}
+
+DWORD __stdcall m8dd_flip( M8DD_FLIP *fd )
+{
+    if( !m8dd->fb16 ) {
+        return( DDHAL_DRIVER_NOTHANDLED );
+    }
+    return( m8dd_flip16( fd ) );
+}
+
+/* At 16 bpp, a primary with one back buffer: the primary is the frame
+ * buffer, the back buffer a second one fb16.c allocates. Anything else goes
+ * back to DDRAW. */
+static DWORD m8dd_create16( M8DD_CREATE *cd )
+{
+    BYTE    *lcl;
+    BYTE    *gbl;
+    DWORD   caps;
+    DWORD   i;
+    int     prim = -1;
+
+    if( cd->dwSCnt != 2 || m8dd_back != 0 ) {
+        return( DDHAL_DRIVER_NOTHANDLED );
+    }
+    for( i = 0; i < 2; ++i ) {
+        caps = *(DWORD *)((BYTE *)cd->lplpSList[i] + M8DD_LCL_CAPS);
+        if( !(caps & DDSCAPS_FLIP) || (caps & DDSCAPS_SYSTEMMEMORY) ) {
+            return( DDHAL_DRIVER_NOTHANDLED );
+        }
+        if( caps & DDSCAPS_PRIMARYSURFACE ) {
+            prim = (int)i;
+        }
+    }
+    if( prim < 0 ) {
+        return( DDHAL_DRIVER_NOTHANDLED );
+    }
+    m8dd_op( 3, NULL, 0 );
+    m8dd_back = m8dd_flush();
+    if( m8dd_back == 0 ) {
+        cd->ddRVal = DDERR_OUTOFVIDEOMEMORY;
+        return( DDHAL_DRIVER_HANDLED );
+    }
+    for( i = 0; i < 2; ++i ) {
+        lcl = cd->lplpSList[i];
+        gbl = *(BYTE **)(lcl + M8DD_LCL_GBL);
+        *(DWORD *)(gbl + M8DD_GBL_VIDMEM) = (int)i == prim ? m8dd->fb_lin : m8dd_back;
+        *(long *)(gbl + M8DD_GBL_PITCH) = m8dd->pitch;
+        *(DWORD *)(lcl + M8DD_LCL_CAPS) |= DDSCAPS_VIDEOMEMORY;
+    }
+    /* A new back buffer is described as black, not written: shown before
+     * anything draws in it, it is one fill, not the RAM's old contents. */
+    m8dd_front = 0;
+    m8dd_desc[0].known = 0;
+    m8dd_desc[1].known = 1;
+    m8dd_desc[1].filled = 0;
+    m8dd_desc[1].colour = 0;
+    m8dd_desc[1].n = 0;
+    m8dd_card.known = 0;
+    cd->ddRVal = DD_OK;
+    return( DDHAL_DRIVER_HANDLED );
+}
+
+/* The back buffer goes: the frame buffer shown again, and sent whole, as
+ * the card may still show the back buffer. */
+static int m8dd_destroy16( BYTE *gbl )
+{
+    if( m8dd_back == 0 || *(DWORD *)(gbl + M8DD_GBL_VIDMEM) != m8dd_back ) {
+        return( 0 );
+    }
+    if( m8dd_front != 0 ) {
+        m8dd_op( 2, NULL, 0 );
+        m8dd_op( 0, NULL, 0 );
+    }
+    m8dd_op( 4, NULL, 0 );
+    m8dd_flush();
+    m8dd_back = 0;
+    m8dd_front = 0;
+    m8dd_desc[0].known = 0;
+    m8dd_desc[1].known = 0;
+    m8dd_card.known = 0;
+    *(DWORD *)(gbl + M8DD_GBL_VIDMEM) = 0;
+    return( 1 );
 }
 
 /* A system-memory surface in the primary's 8bpp format: its first byte,
@@ -1181,6 +1608,9 @@ DWORD __stdcall m8dd_create_surface( M8DD_CREATE *cd )
     int     k;
     RECT    r;
 
+    if( m8dd->fb16 ) {
+        return( m8dd_create16( cd ) );
+    }
     if( m8dd->heap_rows == 0 || cd->dwSCnt == 0 ) {
         return( DDHAL_DRIVER_NOTHANDLED );
     }
@@ -1240,6 +1670,10 @@ DWORD __stdcall m8dd_destroy_surface( M8DD_DESTROY *dd )
         }
     }
     gbl = *(BYTE **)((BYTE *)dd->lpDDSurface + M8DD_LCL_GBL);
+    if( m8dd->fb16 && gbl != NULL && m8dd_destroy16( gbl ) ) {
+        dd->ddRVal = DD_OK;
+        return( DDHAL_DRIVER_HANDLED );
+    }
     for( k = 0; k < M8DD_PLACED_MAX; ++k ) {
         if( m8dd_placed[k].gbl == gbl ) {
             m8dd_unplace( gbl );
@@ -1284,6 +1718,7 @@ DWORD __stdcall DriverInit( LPVOID context )
     m8dd->lock = (DWORD)m8dd_lock;
     m8dd->unlock = (DWORD)m8dd_unlock;
     m8dd->blt = (DWORD)m8dd_blt;
+    m8dd->flip = (DWORD)m8dd_flip;
     m8dd->create_surface = (DWORD)m8dd_create_surface;
     m8dd->destroy_surface = (DWORD)m8dd_destroy_surface;
     m8dd->destroy_driver = (DWORD)m8dd_destroy_driver;

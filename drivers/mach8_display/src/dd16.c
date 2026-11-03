@@ -314,6 +314,10 @@ static void m8dd_build16( void )
     }
     hi->ddCaps.dwPalCaps = 0;
     hi->ddCaps.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE;
+    if( m8dd->flip ) {
+        /* M8DD32's Flip: a back buffer in a second frame buffer in RAM. */
+        hi->ddCaps.ddsCaps.dwCaps |= DDSCAPS_FLIP | DDSCAPS_BACKBUFFER | DDSCAPS_COMPLEX;
+    }
     hi->dwModeIndex = M8_SCREEN_X == 640 ? 0 : 1;
     hi->dwNumModes = 2;
 }
