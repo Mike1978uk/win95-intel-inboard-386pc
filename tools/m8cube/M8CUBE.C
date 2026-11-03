@@ -10,6 +10,10 @@
  *     objects   cubes, 1..8 (default 1)
  *     d         draw on the screen directly, no back buffer
  *     v         copy the back buffer to the window at vertical blank (no tear)
+ *     x         fixed-point maths (sine table, integer projection) instead of
+ *               floats: no float op per vertex, no float-to-int conversion
+ *     n         do the maths and build the frame, but never call the driver:
+ *               what the program itself costs a frame
  *     p         with the driver's -Prof build: time each part of a frame
  *               (profile slots 45-50) and add it to C:\M8CUBE.TXT
  * 8 bpp desktop only.
@@ -56,6 +60,8 @@ static int          objects = 1;
 static int          direct;
 static int          vblank;
 static int          prof;
+static int          nodraw;
+static int          fixed;
 static PF_TAB       pf;
 static int          prev_l, prev_t, prev_r = W, prev_b = H;
 static WORD         buf[16 + MAX_FACES * 12];
@@ -224,11 +230,106 @@ static int build( float t, int *bl, int *bt, int *br, int *bb )
     return( nf );
 }
 
+/* The same frame in fixed point: angles in 1024 steps, sines and normals Q14,
+ * coordinates Q8. The CPU's float unit costs ~3 us an operation on this card,
+ * and every float-to-int conversion reloads its control word. */
+#define FX_STEPS    1024
+static long         fx_sin[FX_STEPS];
+
+static void fx_init( void )
+{
+    int i;
+
+    for( i = 0; i < FX_STEPS; ++i ) {
+        fx_sin[i] = (long)(16384.0 * sin( i * 6.283185307 / FX_STEPS ) + (i < FX_STEPS / 2 ? 0.5 : -0.5));
+    }
+}
+
+#define FX_S( a )   fx_sin[(a) & (FX_STEPS - 1)]
+#define FX_C( a )   fx_sin[((a) + FX_STEPS / 4) & (FX_STEPS - 1)]
+
+static int build_fx( float t, int *bl, int *bt, int *br, int *bb )
+{
+    static const long   light[3] = { -6554, -9011, -11960 };    /* -0.40 -0.55 -0.73 in Q14 */
+    long                ft = (long)(t * (FX_STEPS / 6.283185307f));
+    int                 nf = 0;
+    int                 o;
+    int                 i;
+    int                 k;
+
+    *bl = W;
+    *bt = H;
+    *br = 0;
+    *bb = 0;
+    for( o = 0; o < objects; ++o ) {
+        long    a = (ft * (90 + 13 * o)) / 100 + (long)(o * (FX_STEPS / 6.283185307f));
+        long    b = (ft * (60 + 7 * o)) / 100 + (long)(2 * o * (FX_STEPS / 6.283185307f));
+        long    ca = FX_C( a ), sa = FX_S( a ), cb = FX_C( b ), sb = FX_S( b );
+        long    ph = (long)FX_STEPS * o / objects + (ft * 3) / 10;
+        long    cx = objects == 1 ? 0 : (614L * FX_C( ph )) >> 14;     /* 2.4 in Q8 */
+        long    cy = objects == 1 ? 0 : (358L * FX_S( ph )) >> 14;     /* 1.4 in Q8 */
+        long    cz = objects == 1 ? 1280 : 2048;                        /* 5, 8 in Q8 */
+        long    px[8], py[8], pz[8];
+
+        for( i = 0; i < 8; ++i ) {
+            long v0 = (long)cube_v[i][0] * 256, v1 = (long)cube_v[i][1] * 256, v2 = (long)cube_v[i][2] * 256;
+            long x = (v0 * ca + v2 * sa) >> 14;
+            long z = (-v0 * sa + v2 * ca) >> 14;
+            long y = (v1 * cb - z * sb) >> 14;
+
+            z = (v1 * sb + z * cb) >> 14;
+            px[i] = x + cx;
+            py[i] = y + cy;
+            pz[i] = z + cz;
+        }
+        for( k = 0; k < 6; ++k ) {
+            const int   *f = cube_f[k];
+            long        n0 = (long)cube_n[k][0] * 16384, n1 = (long)cube_n[k][1] * 16384;
+            long        n2 = (long)cube_n[k][2] * 16384;
+            long        nx = (n0 * ca + n2 * sa) >> 14;
+            long        nz = (-n0 * sa + n2 * ca) >> 14;
+            long        ny = (n1 * cb - nz * sb) >> 14;
+            long        sx[4], sy[4], area = 0, li;
+            int         s;
+
+            nz = (n1 * sb + nz * cb) >> 14;
+            for( i = 0; i < 4; ++i ) {
+                sx[i] = W / 2 + 150 * px[f[i]] / pz[f[i]];
+                sy[i] = H / 2 + 150 * py[f[i]] / pz[f[i]];
+            }
+            for( i = 0; i < 4; ++i ) {
+                area += sx[i] * sy[(i + 1) & 3] - sx[(i + 1) & 3] * sy[i];
+            }
+            if( area >= 0 ) {
+                continue;
+            }
+            li = -(nx * light[0] + ny * light[1] + nz * light[2]) >> 14;
+            s = (int)(((li < 0 ? 0 : li) * (SHADES - 8)) >> 14) + 7;
+            faces[nf].colour = shade_index[o % HUES][s > SHADES - 1 ? SHADES - 1 : s];
+            faces[nf].z = (float)(pz[f[0]] + pz[f[1]] + pz[f[2]] + pz[f[3]]);
+            for( i = 0; i < 4; ++i ) {
+                long xi = sx[i] < 0 ? 0 : sx[i] > W - 1 ? W - 1 : sx[i];
+                long yi = sy[i] < 0 ? 0 : sy[i] > H - 1 ? H - 1 : sy[i];
+
+                faces[nf].x[i] = (short)xi;
+                faces[nf].y[i] = (short)yi;
+                if( xi < *bl ) *bl = (int)xi;
+                if( xi + 1 > *br ) *br = (int)xi + 1;
+                if( yi < *bt ) *bt = (int)yi;
+                if( yi + 1 > *bb ) *bb = (int)yi + 1;
+            }
+            ++nf;
+        }
+    }
+    qsort( faces, nf, sizeof( FACE ), cmp_face );
+    return( nf );
+}
+
 static int frame( HDC dc, float t, int *drawn )
 {
     POINT   org = { 0, 0 };
     int     l, tp, r, b;
-    int     n = build( t, &l, &tp, &r, &b );
+    int     n = fixed ? build_fx( t, &l, &tp, &r, &b ) : build( t, &l, &tp, &r, &b );
     WORD    *p = buf + 14;
     int     i;
     int     k;
@@ -265,6 +366,9 @@ static int frame( HDC dc, float t, int *drawn )
     prev_r = r;
     prev_b = b;
     *drawn += n;
+    if( nodraw ) {
+        return( 1 );
+    }
     return( ExtEscape( dc, ESC_POLY, (int)((BYTE *)p - (BYTE *)buf), (LPCSTR)buf, 0, NULL ) );
 }
 
@@ -323,6 +427,8 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
     direct = strstr( cmd, " d" ) != NULL;
     vblank = strstr( cmd, " v" ) != NULL;
     prof = strstr( cmd, " p" ) != NULL;
+    nodraw = strstr( cmd, " n" ) != NULL;
+    fixed = strstr( cmd, " x" ) != NULL;
     memset( &wc, 0, sizeof( wc ) );
     wc.lpfnWndProc = wndproc;
     wc.hInstance = inst;
@@ -336,6 +442,7 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
     ShowWindow( wnd, SW_SHOW );
     UpdateWindow( wnd );
     make_palette();
+    fx_init();
     dc = GetDC( wnd );
     map_palette( dc );
     if( ExtEscape( dc, ESC_POLY, sizeof( in ), (LPCSTR)in, sizeof( top ), (LPSTR)&top ) <= 0 ) {
@@ -391,8 +498,8 @@ done:
         if( f != NULL ) {
             double s = (now - t0) / 1000.0;
 
-            fprintf( f, "M8CUBE  %s  cubes %d  frames %ld  %.2f s  %.1f fps  %.0f faces/s  row %u%s\n",
-                     direct ? "direct" : vblank ? "vblank" : "buffer", objects, frames, s, frames / s, drawn / s, top,
+            fprintf( f, "M8CUBE  %s%s  cubes %d  frames %ld  %.2f s  %.1f fps  %.0f faces/s  row %u%s\n",
+                     direct ? "direct" : nodraw ? "nodraw" : vblank ? "vblank" : "buffer", fixed ? " fixed" : "", objects, frames, s, frames / s, drawn / s, top,
                      ok ? "" : "  REFUSED" );
             if( prof ) {
                 static const char *part[6] = { "frame", "background fill", "polygons",

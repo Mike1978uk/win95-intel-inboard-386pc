@@ -81,6 +81,15 @@ is unexplained. Not the scratch clear (already the union of the faces' boxes); n
 fitted, owner; M8FPU: 3 us a float multiply-add). Next: the profile slots 45-50 (poly3d.c, m8hw.c FIFO waits,
 read by `M8CUBE ... p`), which need the code-segment split below.
 
+**Split, card, 11-03:** M8CUBE's own maths (`n`, no driver call) 4.2 ms a frame = 40 %; profile (`m8prof`,
+`M8CUBE 10 3 p`; each stamp ~84 us, so driver slots read high): escape 7.8 ms, of it polygons 6.2, FIFO waits 0.4,
+background fill 0.3, present 0.4. The engine rarely makes the CPU wait.
+
+| Lever | Result (card, two runs) | Verdict |
+|---|---|---|
+| Outlines to LINEDRAW by `rep outsw` (`m8stream`) | cube 86.1 / 86.1 fps vs 90.8 / 92.9 | **slower, reverted**: the queue's loop was already near the bus floor; the extra FIFO read and copy cost more. The ~10 us a write was M8SPAN's own C loop, not the driver's queue. Diff kept outside the tree |
+| Fixed-point maths in M8CUBE (`x`: Q14 sine table, Q8 coordinates, integer projection) | maths only 235-240 -> 605-607 fps (4.2 -> 1.65 ms); full frame 83-87 -> 104.7 / 104.7 fps (on `m8stream`) | **2.6x on the maths, +22 % a frame**: the method for every 3D routine of ours |
+
 **Code-segment ceiling (blocks A1 and D1):** the plain driver's `_TEXT` is 0xFD59 = 64,857 of 65,536 bytes
 (679 free); the `-Prof` build is 1,871 bytes over and does not link. New asm, Direct3D and profiling all need
 the cold code (dd16.c, fb16.c, poly3d.c) moved into a second segment behind far entry points first.
