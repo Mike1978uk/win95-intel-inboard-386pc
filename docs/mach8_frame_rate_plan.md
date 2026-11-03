@@ -67,6 +67,17 @@ the owner's console runs, 91-93 vs 100-102 fps, so never mix the two).
 | dd_lock_small / dd_lock_large | 24.0 / 1.07 | 26.7 / 1.11 |
 | OUT / IN | 4.51 / 4.52 us | same |
 
+### Scoreboard `ddstr` (card, `m8ddstr`, 2026-11-03): string I/O in M8DD32, M8CUBE fixed point by default
+
+| Test | Run 1 | Run 2 | vs `solid` |
+|---|---|---|---|
+| M8CUBE 3 cubes | 102.6 fps, 793 faces/s | 104.8 fps, 810 | +13 % (M8CUBE's fixed point, not the driver): new cube baseline |
+| dd_sys_small / dd_sys_large | 75.2 / 5.68 | 64.2 / 5.58 | +24 % / +39 % |
+| dd_lock_small / dd_lock_large | 39.6 / 1.72 | 36.3 / 1.64 | +50 % / +55 % |
+| dd_fill, dd_vid, dd_sprite, dd_scroll | 932-1028 / 410-424, 1192-1201, 748-795, 410-454 | | unchanged (engine only) |
+
+M8BENCH `card_ddstr1`: pixels = ATI in 35, geomean 1.79x ATI (GDI does not use M8DD32).
+
 ### Where a cube frame goes (card, `m8solid`, 2026-11-03)
 
 | Cubes | fps | Frame | Faces per frame |

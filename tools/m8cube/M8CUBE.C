@@ -10,8 +10,8 @@
  *     objects   cubes, 1..8 (default 1)
  *     d         draw on the screen directly, no back buffer
  *     v         copy the back buffer to the window at vertical blank (no tear)
- *     x         fixed-point maths (sine table, integer projection) instead of
- *               floats: no float op per vertex, no float-to-int conversion
+ *     f         float maths instead of the default fixed point (sine table,
+ *               integer projection: no float op per vertex, no float-to-int)
  *     n         do the maths and build the frame, but never call the driver:
  *               what the program itself costs a frame
  *     p         with the driver's -Prof build: time each part of a frame
@@ -428,7 +428,7 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
     vblank = strstr( cmd, " v" ) != NULL;
     prof = strstr( cmd, " p" ) != NULL;
     nodraw = strstr( cmd, " n" ) != NULL;
-    fixed = strstr( cmd, " x" ) != NULL;
+    fixed = strstr( cmd, " f" ) == NULL;
     memset( &wc, 0, sizeof( wc ) );
     wc.lpfnWndProc = wndproc;
     wc.hInstance = inst;
@@ -499,7 +499,7 @@ done:
             double s = (now - t0) / 1000.0;
 
             fprintf( f, "M8CUBE  %s%s  cubes %d  frames %ld  %.2f s  %.1f fps  %.0f faces/s  row %u%s\n",
-                     direct ? "direct" : nodraw ? "nodraw" : vblank ? "vblank" : "buffer", fixed ? " fixed" : "", objects, frames, s, frames / s, drawn / s, top,
+                     direct ? "direct" : nodraw ? "nodraw" : vblank ? "vblank" : "buffer", fixed ? "" : " float", objects, frames, s, frames / s, drawn / s, top,
                      ok ? "" : "  REFUSED" );
             if( prof ) {
                 static const char *part[6] = { "frame", "background fill", "polygons",

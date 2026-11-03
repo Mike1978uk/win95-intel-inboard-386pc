@@ -95,6 +95,14 @@ typedef struct {
     LPRECT  prDestRects;
 } M8DD_BLT;
 
+/* Pixel data by string I/O: the C loop costs more per word than the port
+ * does. ISA wait states pace the card's FIFO. Flat model, so ES = DS. */
+extern void m8dd_outsw( const WORD *src, unsigned words );
+#pragma aux m8dd_outsw =     "mov dx, 0E2E8h" "rep outsw"     parm [esi] [ecx] modify [esi ecx edx];
+
+extern void m8dd_insw( WORD *dst, unsigned words );
+#pragma aux m8dd_insw =     "mov dx, 0E2E8h" "rep insw"     parm [edi] [ecx] modify [edi ecx edx];
+
 typedef char m8dd_fx_size[sizeof( DDBLTFX ) == 100 ? 1 : -1];
 typedef char m8dd_fill_at[offsetof( DDBLTFX, dwFillColor ) == 80 ? 1 : -1];
 
@@ -266,7 +274,6 @@ static int m8dd_transfer( const RECT *r, int to_card )
     int     w = r->right - r->left;
     int     h = r->bottom - r->top;
     int     y;
-    int     x;
     int     ok = 0;
     unsigned n;
 
@@ -293,9 +300,7 @@ static int m8dd_transfer( const RECT *r, int to_card )
         if( to_card ) {
             for( y = r->top; y < r->bottom; ++y ) {
                 row = (WORD *)(m8dd->shadow + (DWORD)y * m8dd->pitch + r->left);
-                for( x = 0; x < w / 2; ++x ) {
-                    outpw( M8_PIX_TRANS, row[x] );
-                }
+                m8dd_outsw( row, w / 2 );
             }
             ok = m8dd_idle();
         } else {
@@ -308,9 +313,7 @@ static int m8dd_transfer( const RECT *r, int to_card )
             if( n < M8_WAIT_LIMIT ) {
                 for( y = r->top; y < r->bottom; ++y ) {
                     row = (WORD *)(m8dd->shadow + (DWORD)y * m8dd->pitch + r->left);
-                    for( x = 0; x < w / 2; ++x ) {
-                        row[x] = inpw( M8_PIX_TRANS );
-                    }
+                    m8dd_insw( row, w / 2 );
                 }
                 ok = 1;
             }
@@ -948,9 +951,7 @@ static int m8dd_host_rect( const RECT *d, const BYTE *src, long pitch )
         /* `s` is the source pixel for column d->left. */
         s = src + y * pitch;
         if( !(d->left & 1) && !(d->right & 1) ) {
-            for( i = 0; i < words; ++i ) {
-                outpw( M8_PIX_TRANS, ((const WORD *)s)[i] );
-            }
+            m8dd_outsw( (const WORD *)s, words );
             continue;
         }
         for( i = 0; i < words; ++i ) {
@@ -958,9 +959,7 @@ static int m8dd_host_rect( const RECT *d, const BYTE *src, long pitch )
             row[i] = (WORD)((c >= d->left ? s[c - d->left] : 0) |
                             ((c + 1 < d->right ? s[c + 1 - d->left] : 0) << 8));
         }
-        for( i = 0; i < words; ++i ) {
-            outpw( M8_PIX_TRANS, row[i] );
-        }
+        m8dd_outsw( row, words );
     }
     return( m8dd_idle() );
 }
