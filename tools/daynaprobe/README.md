@@ -15,11 +15,12 @@ probe out and reply in, then READ (08h, multi-frame) at 0/14/28/55/110/220 ms in
 Timings use `QueryPerformanceCounter` (1,193,180 Hz on the 5160).
 
 Imports only KERNEL32 and `USER32!wvsprintfA`, all present in Windows 95; no C runtime.
+`-march=i386` is required: the default i686 code uses CMOV, which the 486BL3 does not have.
 
 Build (MinGW, Ubuntu `gcc-mingw-w64-i686`):
 
 ```
-i686-w64-mingw32-gcc -Os -Wall -Wextra -ffreestanding -fno-builtin \
+i686-w64-mingw32-gcc -Os -Wall -Wextra -march=i386 -mno-sse -ffreestanding -fno-builtin \
   -fno-tree-loop-distribute-patterns -fno-stack-protector -fno-asynchronous-unwind-tables \
   -nostdlib -o DAYNAPRB.EXE daynaprb.c \
   -Wl,--entry=_entry,--subsystem,console:4.0,--major-os-version,4,--minor-os-version,0,--major-image-version,1,--file-alignment,512,--section-alignment,4096,--disable-dynamicbase,--disable-nxcompat,--disable-reloc-section \
