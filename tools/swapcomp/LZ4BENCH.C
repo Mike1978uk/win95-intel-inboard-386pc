@@ -75,9 +75,24 @@ static u32 rd32(const u8 *p)
     return *(const u32 *)p;
 }
 
+/* HASH_FOLD: XOR the four bytes down to HASH_LOG bits with two shifts. On the
+ * 486 the multiply costs 13-42 clocks a position (#54); a weaker hash only
+ * costs ratio, because every candidate is compared byte for byte. Without
+ * HASH_FOLD or HASH_IMUL, GCC builds the multiply from shifts and adds. */
 static u32 hash4(const u8 *p)
 {
+#ifdef HASH_FOLD
+    u32 x = rd32(p);
+    return (x ^ (x >> HASH_LOG) ^ (x >> (2 * HASH_LOG))) & (HASH_SIZE - 1);
+#elif defined(HASH_IMUL)
+    /* The instruction SWAPCOMP.VXD runs. Plain C lets GCC replace the multiply
+     * with shifts and adds, which is not what the driver pays. */
+    u32 x = rd32(p);
+    __asm__("imull $0x9E3779B1, %0, %0" : "+r"(x));
+    return x >> (32 - HASH_LOG);
+#else
     return (rd32(p) * 2654435761u) >> (32 - HASH_LOG);
+#endif
 }
 
 /* Forward copy. Correct for overlapping matches when the source is at least
@@ -111,6 +126,12 @@ static u32 lz4_compress(const u8 *src, u8 *dst, u32 depth)
     u8 *op = dst;
     u32 i, h;
 
+    /* NO_CLEAR: keep the last page's entries rather than clearing the table.
+     * A stale entry is harmless: only a candidate behind the current position
+     * is followed, and its bytes are compared before it is used. */
+#ifdef NO_CLEAR
+    if (depth)
+#endif
     for (i = 0; i < HASH_SIZE; i++)
         htab[i] = 0;
     htab[hash4(src)] = 1;
@@ -127,7 +148,7 @@ static u32 lz4_compress(const u8 *src, u8 *dst, u32 depth)
             chain[pos] = (u16)cand;
         htab[h] = (u16)(pos + 1);
 
-        for (i = 0; cand && i <= depth; i++) {
+        for (i = 0; cand && cand <= pos && i <= depth; i++) {
             const u8 *r = src + cand - 1;
             if (rd32(r) == rd32(ip)) {
                 u32 l = 4;
@@ -298,7 +319,19 @@ void start(void)
         say("SWAPPAGE.BIN is empty\r\n");
         ExitProcess(2);
     }
-    wsprintfA(line, "hash table %d bits, %d KB\r\n", HASH_LOG, (int)(sizeof htab / 1024));
+    wsprintfA(line, "hash table %d bits, %d KB, %s hash, %s\r\n", HASH_LOG, (int)(sizeof htab / 1024),
+#ifdef HASH_FOLD
+              "fold",
+#elif defined(HASH_IMUL)
+              "IMUL (as SWAPCOMP.VXD)",
+#else
+              "multiply",
+#endif
+#ifdef NO_CLEAR
+              "not cleared per page");
+#else
+              "cleared per page");
+#endif
     say(line);
 
     /* Self-test: every page, every compressor, round-tripped and compared. */
