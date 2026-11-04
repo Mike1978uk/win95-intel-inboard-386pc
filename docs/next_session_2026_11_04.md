@@ -86,3 +86,11 @@ frame-buffer clear (`m8_fb16_clear`) stays: correct on its own. M8DDB fs16 unaff
 GDI call count (`m8_fb16_stat[0]`, address in the shared block) and repaints in full when GDI drew.
 Left: a brief flash of static at the start (the mode change, before the first Flip). GDI pixels same in
 all tests (0.94x geomean: Flip is not in that bench; noise). Next: the Direct3D stub (`wip/2026-11-03/`).
+
+## Cloud session's tests waiting (2026-11-04)
+
+Issue #59 lists every test the cloud session left for the bed and the card, with steps and pass
+criteria: XT-CF taskfile switches (branch `claude/xtcf-tight-taskfile`), background I/O cost and
+SWAPCOMP hash size (branch `claude/driver-optimisation-review`), SWAPCOMP zero pages (design, to
+write with the DDK), F0000 cacheable, and the BlueSCSI tests (branch
+`claude/bluescsi-5160-firmware-o12wij`). All built, untested; nothing from them is on master.
