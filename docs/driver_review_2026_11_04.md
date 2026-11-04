@@ -80,6 +80,30 @@ Today each is compressed to one sector and costs a full XT-CF command each time 
 `rep stosd` on read) removes those commands. Design only: `SlotTab` holds sectors 1-6, so e.g. `0FFh`
 is free. Needs the checksum build (`SWAPCMPC`) in the bed before the card.
 
+**b2. Which compressor (owner's question, 2026-11-04).** On this bus a sector saved is worth
+1.96 ms, about 164,000 CPU cycles, so ratio counts for more than decode speed, but only in whole
+sectors, and every page-out pays the compressor (0.35 of a page-out per page-in). Families:
+
+| family | ratio on the swap sample | decode | compress | verdict |
+|---|---|---|---|---|
+| LZ4 (today) | 2.26:1 (2.64 on live traffic) | 1.17 ms, measured | 4.71 ms, measured; more with the driver's `IMUL` | keep; make the compressor cheaper (hashtest) |
+| LZ4 with a longer search, same decoder | 2.36-2.39:1 | same | 9-11 ms, measured | only where it drops a sector ("sector-aware") |
+| deflate (entropy coded) | 2.92:1 | ~5-10 ms, estimate | ~8 ms+, estimate | wins only if its decode is under ~3 ms on the BL3: unmeasured |
+| bit-oriented LZ (ZX0/LZSA class) | between LZ4 and deflate, estimate | slower than LZ4 | optimal parsers far too slow for page-outs | not before deflate is measured |
+| word-based (WKdm) | 1.51:1, measured | fast | fast | no: Windows 95 here pages 16-bit code and bitmaps |
+| RAM compression (MagnaRAM) | - | - | - | no: measured slower, it locks the RAM this machine lacks |
+
+`tools/swapcomp/sectors.py` (new) runs every family over the card's `WIN386.SWP` on the host and
+reports sectors per page and the modelled ms per page-in, with measured CPU costs where they exist
+and labelled estimates elsewhere. It also counts pages that are one repeated dword (store the word,
+no I/O; the zero-page design generalised) and how often a longer LZ4 search saves a whole sector.
+
+**b3. Stop compressing a page that will be stored raw.** `LZ4_Compress` (`SWAPCOMP.ASM:454-562`)
+has no output limit: it compresses the whole page, then `SC_One` finds more than `SC_MAX_SECTORS`
+and writes it raw. On the card ~12% of page writes went raw (258 of 2,109 a run, 2026-10-02), each
+after a full compression (~4.7 ms, more on incompressible data, which hashes every position). Abort
+once the output passes 3,070 bytes (6 sectors less the 2-byte length).
+
 **c. Fixed cost per page.** A compressed page-in is ~3 sectors (~6 ms of data) plus the miniport's
 fixed cost and the card's first-DRQ latency, ~0.3 ms: about 5% of every compressed page-in. So item 4's
 per-command savings are worth more on paging than on file reads.
