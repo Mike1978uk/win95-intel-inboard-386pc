@@ -28,8 +28,10 @@ The wait for BSY before programming the taskfile is kept, so a write commit left
 `-YieldCommit` is still waited out.
 
 Not done, with reasons:
-- **READ/WRITE MULTIPLE** (review 4c): needs IDENTIFY word 47, SET MULTIPLE at init and after any
-  reset, and per-block loops. Next, once these two pass.
+- **READ/WRITE MULTIPLE** (review 4c): not staged. This CF card reports IDENTIFY word 47 = 1, one
+  sector per block, so multiple mode saves nothing (`bus_optimisation_plan.md` A4, ruled out). It
+  would pay only on a card reporting more: about 10 us per sector after the first in a block
+  (one status read and its refill), ~0.5% of a 4 KB read, nothing on a one-sector read.
 - **Status port in a register across sectors** (review 4d): dropped. The port cannot stay in a
   register across `XTIDE_ReadData` without a stack spill, and the spill costs the same line fill
   it would save.
@@ -89,6 +91,12 @@ Only after stage 1 passes. One build at a time, `both` last.
 Pass: WRTEST clean, a normal boot and shutdown, and the one-sector mean `us/read` lower than the
 baseline by more than the baseline's own run-to-run spread. The one-sector figure shows the
 per-command cost best; the eight-sector figure should barely move.
+
+The baseline also answers an open number: one-sector time minus one-eighth of the eight-sector
+time is the fixed cost of a command through the whole stack (IOS, SCSIPORT, the miniport and the
+card's ~238 us first-DRQ latency). `bus_optimisation_plan.md` E3 quotes 4.17 ms a command from an
+earlier measurement; XTSECT gives today's figure under Windows. If it is large, the cost sits
+above the miniport and is the next lever: fewer commands, not cheaper ones.
 
 Results to `docs/captures/<date>_xtcf_switches/` and a row each in this file.
 
