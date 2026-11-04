@@ -44,7 +44,11 @@ End_Service_Table PERF
 PSTF_COUNT	EQU	0
 
 PAGE_BYTES	EQU	4096
+; The table shares the 16 KB L1 with the 4 KB page and the output; 12 bits is
+; 8 KB. tools/swapcomp/hashtest measures smaller tables on the card.
+ifndef HASH_LOG
 HASH_LOG	EQU	12
+endif
 HASH_SIZE	EQU	(1 SHL HASH_LOG)
 
 ; Slots covered by SlotTab: 8192 = a 32 MB swap file. Pages beyond it are

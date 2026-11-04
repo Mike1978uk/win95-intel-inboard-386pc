@@ -44,7 +44,12 @@ int __attribute__((cdecl)) wsprintfA(char *, const char *, ...);
 
 #define PAGE      4096
 #define MAXPAGES  64
-#define HASH_LOG  12
+#ifndef HASH_LOG
+#define HASH_LOG  12              /* SWAPCOMP.VXD's value */
+#endif
+#ifndef OUT_NAME
+#define OUT_NAME  "LZ4BENCH.TXT"
+#endif
 #define HASH_SIZE (1 << HASH_LOG)
 
 static u8  pages[MAXPAGES * PAGE];
@@ -277,7 +282,7 @@ void start(void)
             mhz10 += (u32)(cl[1] - '0');
     }
 
-    out_file = CreateFileA("LZ4BENCH.TXT", 0x40000000, 1, 0, 2 /* CREATE_ALWAYS */, 0x80, 0);
+    out_file = CreateFileA(OUT_NAME, 0x40000000, 1, 0, 2 /* CREATE_ALWAYS */, 0x80, 0);
     if (out_file == (HANDLE)-1)
         out_file = 0;
 
@@ -293,6 +298,8 @@ void start(void)
         say("SWAPPAGE.BIN is empty\r\n");
         ExitProcess(2);
     }
+    wsprintfA(line, "hash table %d bits, %d KB\r\n", HASH_LOG, (int)(sizeof htab / 1024));
+    say(line);
 
     /* Self-test: every page, every compressor, round-tripped and compared. */
     for (k = 0; k < 3; k++) {
