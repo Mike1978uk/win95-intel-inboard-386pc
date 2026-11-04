@@ -65,13 +65,25 @@ param(
     # holding the CPU and polling through it.
     [switch] $YieldCommit,
 
+    # Load every taskfile value and port before the first OUT: each OUT empties
+    # the L1, so a load after one is a line fill (docs/driver_review_2026_11_04.md 4a).
+    [switch] $TightTaskfile,
+
+    # Write DRV/HEAD, and wait for the select, only when its value changes
+    # (docs/driver_review_2026_11_04.md 4b).
+    [switch] $SkipDrvHd,
+
+    # Build folder, relative to this script. A test build goes in its own
+    # folder so it is never mistaken for the build that ships.
+    [string] $OutDir = 'build',
+
     [string] $DdkRoot = 'C:\Users\lycet\OneDrive\Desktop\XT_project\Windows95_ddk'
 )
 
 $ErrorActionPreference = 'Stop'
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $src  = Join-Path $here 'src'
-$out  = Join-Path $here 'build'
+$out  = Join-Path $here $OutDir
 if (-not (Test-Path $out)) { New-Item -ItemType Directory -Path $out | Out-Null }
 
 $ml   = Join-Path $DdkRoot 'MASM611C\ML.EXE'
@@ -97,6 +109,8 @@ if ($PhysBreaks -ne 0) { $defs += "-DXT_PHYS_BREAKS=$PhysBreaks" }
 if ($FastXfer)      { $defs += '-DXT_FAST_XFER' }
 if ($WaitFirst)     { $defs += '-DXT_WAIT_FIRST' }
 if ($YieldCommit)   { $defs += '-DXT_YIELD_COMMIT' }
+if ($TightTaskfile) { $defs += '-DXT_TIGHT_TASKFILE' }
+if ($SkipDrvHd)     { $defs += '-DXT_SKIP_DRVHD' }
 
 # -coff is what makes ML emit objects the PE linker can use at all.
 $aflags = @('-coff', '-DBLD_COFF', '-DIS_32', '-DMASM6', '-nologo', '-W2', '-Zd', '-c', '-Cx') + $defs

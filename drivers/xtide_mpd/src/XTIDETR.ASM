@@ -338,6 +338,11 @@ XTIDE_oSecNum			dd	0
 XTIDE_oCylLo			dd	0
 XTIDE_oCylHi			dd	0
 XTIDE_oDrvHd			dd	0
+ifdef XT_SKIP_DRVHD
+;  The DRV/HEAD value the drive last honoured. 0FFFFFFFFh = unknown: no byte
+;  value matches it, so the next command selects again.
+XTIDE_LastDrvHd		dd	0FFFFFFFFh
+endif
 
 ;  One sector, for the phase 2a self-test read of LBA 0.
 ;  MPD: I/O base, filled by the miniport before it calls XTIDE_Probe.
@@ -1003,6 +1008,9 @@ xvi_bad:
 ;----------------------------------------------------------------------------
 XTIDE_TryIdentify:
 
+ifdef XT_SKIP_DRVHD
+	mov	XTIDE_LastDrvHd, 0FFFFFFFFh	; the probe selects units of its own
+endif
 	call	XTIDE_WaitNotBusy	; drive idle before we touch anything?
 	jc	xti_notidle
 
@@ -1202,12 +1210,76 @@ xrs_chs:
 	mov	XTIDE_oSecNum, edx
 
 xrs_program:
+ifdef XT_SKIP_DRVHD
+;  DRV/HEAD holds only the unit and LBA bits 24-27, and nothing writes it
+;  between our commands, so an unchanged value needs neither the write nor the
+;  wait for the drive to honour it. The other taskfile registers are always
+;  written: the drive changes them as a command runs.
+	mov	eax, XTIDE_oDrvHd
+	cmp	eax, XTIDE_LastDrvHd
+	je	xrs_selected
+	mov	XTIDE_LastDrvHd, 0FFFFFFFFh	; unknown until the select is honoured
+endif
 	mov	edx, XTIDE_pDrvHd
 	mov	eax, XTIDE_oDrvHd
 	out	dx, al
 	call	XTIDE_WaitNotBusy	; let the drive honour the select
 	jc	xrs_notready
+ifdef XT_SKIP_DRVHD
+	mov	eax, XTIDE_oDrvHd
+	mov	XTIDE_LastDrvHd, eax
+xrs_selected:
+endif
 
+ifdef XT_TIGHT_TASKFILE
+;  Every OUT empties the L1, so a value or port read from memory after one
+;  costs a line fill. Load all five values and ports first; between the OUTs
+;  only register moves remain. The same taskfile writes, in the same order, as
+;  the plain path below.
+	push	ebx
+	push	esi
+	push	edi
+	push	ebp
+	movzx	ebx, BYTE PTR XTIDE_oCylHi
+	shl	ebx, 8
+	mov	bl, BYTE PTR XTIDE_oCylLo
+	shl	ebx, 8
+	mov	bl, BYTE PTR XTIDE_oSecNum
+	shl	ebx, 8
+	mov	bl, BYTE PTR XTIDE_ReqCount	; BL SecCnt, BH SecNum, then CylLo, CylHi
+	mov	esi, XTIDE_pSecNum
+	shl	esi, 16
+	or	esi, XTIDE_pSecCnt
+	mov	edi, XTIDE_pCylHi
+	shl	edi, 16
+	or	edi, XTIDE_pCylLo
+	mov	ebp, XTIDE_pStatus	; status on read, command on write
+	mov	ecx, XTIDE_Cmd
+
+	mov	edx, esi
+	mov	al, bl
+	out	dx, al			; sector count
+	shr	esi, 16
+	mov	edx, esi
+	mov	al, bh
+	out	dx, al			; sector number / LBA 0-7
+	shr	ebx, 16
+	mov	edx, edi
+	mov	al, bl
+	out	dx, al			; cylinder low / LBA 8-15
+	shr	edi, 16
+	mov	edx, edi
+	mov	al, bh
+	out	dx, al			; cylinder high / LBA 16-23
+	mov	edx, ebp
+	mov	eax, ecx
+	out	dx, al			; command
+
+	pop	ebp
+	pop	edi
+	pop	esi
+	pop	ebx
+else
 	mov	edx, XTIDE_pSecCnt
 	mov	eax, XTIDE_ReqCount
 	out	dx, al
@@ -1224,6 +1296,7 @@ xrs_program:
 	mov	edx, XTIDE_pStatus	; status on read, command on write
 	mov	eax, XTIDE_Cmd
 	out	dx, al
+endif
 
 ;  Use the transport autodetect settled on, not whatever the last probe
 ;  attempt happened to leave in XTIDE_TryTransport.
@@ -1706,6 +1779,9 @@ xfr_ok:
 	clc
 	ret
 xfr_fail:
+ifdef XT_SKIP_DRVHD
+	mov	XTIDE_LastDrvHd, 0FFFFFFFFh	; after a failure, select again
+endif
 	pop	ebx
 	stc
 	ret
