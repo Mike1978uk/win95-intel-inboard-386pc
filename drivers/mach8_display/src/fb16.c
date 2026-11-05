@@ -768,8 +768,13 @@ static VOID WINAPI __loadds m8_fb16_end( LPPDEVICE lpDevice, WORD wFlags )
 
     DIB_EndAccess( lpDevice, wFlags );
     if( m8_fb16_depth > 0 && --m8_fb16_depth == 0 ) {
-        for( k = 0; k < m8_fb16_ndirty; ++k ) {
-            m8_fb16_flush( &m8_fb16_dirty[k] );
+        /* GDI draws in the frame buffer only. With the back buffer on show, what it
+         * drew is not visible, and a send would read the back buffer's RAM, which a
+         * described frame leaves unwritten. */
+        if( m8_fb16_sel == m8_fb16_msel ) {
+            for( k = 0; k < m8_fb16_ndirty; ++k ) {
+                m8_fb16_flush( &m8_fb16_dirty[k] );
+            }
         }
         m8_fb16_ndirty = 0;
     }
@@ -903,6 +908,7 @@ BOOL m8_fb16_bitblt( LPPDEVICE lpDestDev, WORD wDestX, WORD wDestY, LPPDEVICE lp
     BOOL    rc;
 
     if( (LPVOID)lpDestDev == (LPVOID)m8_fb16_dev && (LPVOID)lpSrcDev == (LPVOID)m8_fb16_dev &&
+        m8_fb16_sel == m8_fb16_msel &&
         dwRop3 == 0x00CC0020UL && m8_fb16_depth == 0 && (short)wXext > 0 && (short)wYext > 0 &&
         ((wSrcX - wDestX) & 3) == 0 && ((wSrcY - wDestY) & 3) == 0 ) {
         /* Nothing marked while the DIB Engine copies; the card copies after. */
