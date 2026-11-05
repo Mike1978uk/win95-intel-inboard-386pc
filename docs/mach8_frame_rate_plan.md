@@ -401,6 +401,30 @@ step 4's probes. Lighting and blending stay on the engine too: palette ramps, wr
 - [8088 MPH](https://trixter.oldskool.org/2015/04/07/8088-mph/): CGA text cells retuned for 160x100; no register values read.
 - Not found: a font ROM's glyphs used as texture tiles on a blitter or 3D surface, a VGA text-mode raycaster, or a named sizecoding intro using the ROM font. A shallow search: "not found", not "never done".
 
+## Direct3D to 60 fps (owner's goal, 2026-11-05)
+
+Budget 16.6 ms a frame. Now, card, 16 small triangles: ~15 ms at 8 bpp in a 256x128 target, 55-120 ms at 16 bpp full screen, where
+a DirectDraw flip alone is ~5 ms. The gains below are *estimates* until measured; measure first (V1), one lever at a time, two runs.
+
+| # | Lever | Why | Exemplar |
+|---|---|---|---|
+| V1 | Time slots in a frame, and a null HAL (RenderPrimitive returns at once) | Splits D3DIM's own cost from ours; nothing else is known | M8CUBE's profile |
+| V2 | Flip's fills and replay directly from M8DD32 | Today GetDC + ExtEscape + a 16-bit thunk; 8 bpp has none | ATI's ring-3 path |
+| V3 | A box per triangle (or merged neighbours) replacing one around all | 16 spread triangles make one screen-wide fill a frame | dirty rectangles, G11 |
+| V4 | Row fingerprints dropped once on leaving the triangle path, not per frame | Op 5 walks every row of the box each flip | - |
+| V5 | Scratch clear by FIFO room, not an idle wait and full register set | Paid per batch and per 8 triangles | O6, O15 |
+| V6 | Spans for small triangles, the polygon fill above a size | An 8 px triangle is ~9 x 3 writes against ~44; a 100 px one is the reverse | G7, Amiga |
+| V7 | Join coplanar triangles of a colour into one polygon | A quad is two triangles today, one polygon fill if joined (12 vertices allowed) | M8CUBE's faces |
+| V8 | Unchanged triangles not drawn: compare the list with the last frame's | Static scene costs nothing; owner's describe-don't-scan, move detection | isometric games, Knight Lore |
+| V9 | Background in card memory: erase by copying its patch back, tiles repeated by the extended blit | A scenery costs what black costs | G12, S3, Neo Geo |
+| V10 | Two pages on the card (pitch 1024: rows 0 and 512), Flip = CRT_OFFSET, each page's own boxes | No flicker, no copy, 15 us; scratch right of x 640 | T2, B1, consoles |
+| V11 | 320x240 by CRTC (P9, P10) offered as a Direct3D mode | A quarter of the pixels at the same line rate; games offer it | O1, 8088 MPH |
+| V12 | Asm emitters, values in registers before the first OUT | ~1.2 us a word of L1 refill; A1 | demoscene |
+| V13 | DrawOnePrimitive and DrawPrimitives through GetDriverInfo | Skips the runtime's execute-buffer path if V1 shows it matters | velocity9x |
+| V14 | Refresh and raster: present in the blank, refresh chosen so its divisor suits the frame rate | 72 Hz halves to 36, so a slow frame costs a whole refresh; lower refresh leaves the engine more VRAM cycles (S9) | CRT racing, O14 |
+
+Order: V1; V2-V5, which should need no new ideas; then V10 if the owner sees flicker; then V6-V9, V12; V11 if the rest falls short.
+
 ## Order of work (revised 2026-11-05; cloud session's work merged from #59)
 
 Mach8 (M = needs the card, B = bed, C = no machine):

@@ -1,8 +1,9 @@
-/* M8D3DF.EXE - Direct3D at 16 bpp on stock DirectX: a full-screen flip chain, flat
- * triangles on the back buffer, by our HAL and by Microsoft's RGB software renderer.
- * Each test shows moving triangles and reports frames a second; at the end the back
- * buffer is locked, which puts the triangles in RAM, and its lit pixels are counted.
- * Results append to C:\M8D3DF.TXT.
+/* M8D3DF.EXE - Direct3D at 16 bpp on stock DirectX, the same tests every run: a
+ * full-screen 640x480 flip chain, a black clear, flat triangles on the back buffer,
+ * Flip. A card before each test says which it is (n/total) and what to expect. At the
+ * end of a test one frame is locked, which puts the triangles in RAM, and its lit
+ * pixels counted. Results append to C:\M8D3DF.TXT, with the time inside Flip from the
+ * driver's counters.
  *
  *   M8D3DF <label> [seconds per test, default 3]
  *
@@ -24,6 +25,31 @@ static const GUID m8_iid_rgb = { 0xa4665c60, 0x2673, 0x11cf, { 0xa3, 0x1a, 0x00,
 #define SCR_W       640
 #define SCR_H       480
 #define MAX_TRIS    64
+#define M8_DLL_BASE 0xB0C00000UL
+
+enum { MOVING = 1, ONE_COLOUR = 2 };
+
+typedef struct {
+    const char  *name;
+    const char  *what;
+    const GUID  *device;
+    int         n;
+    int         size;
+    int         flags;
+} TEST;
+
+static const TEST tests[] = {
+    { "hal_tiny",   "16 triangles, 8 px, moving",       &m8_iid_hal, 16,   8, MOVING },
+    { "hal_small",  "16 triangles, 32 px, moving",      &m8_iid_hal, 16,  32, MOVING },
+    { "hal_large",  "16 triangles, 100 px, moving",     &m8_iid_hal, 16, 100, MOVING },
+    { "hal_static", "16 triangles, 8 px, not moving",   &m8_iid_hal, 16,   8, 0 },
+    { "hal_colour", "16 triangles, 8 px, one colour",   &m8_iid_hal, 16,   8, MOVING | ONE_COLOUR },
+    { "hal_many",   "64 triangles, 8 px, moving",       &m8_iid_hal, 64,   8, MOVING },
+    { "rgb_tiny",   "software: 16 triangles, 8 px",     &m8_iid_rgb, 16,   8, MOVING },
+    { "rgb_small",  "software: 16 triangles, 32 px",    &m8_iid_rgb, 16,  32, MOVING },
+    { "rgb_large",  "software: 16 triangles, 100 px",   &m8_iid_rgb, 16, 100, MOVING }
+};
+#define TEST_COUNT  (sizeof( tests ) / sizeof( tests[0] ))
 
 static FILE                 *out;
 static LPDIRECTDRAW         dd;
@@ -32,6 +58,7 @@ static LPDIRECTDRAWSURFACE  prim;
 static LPDIRECTDRAWSURFACE  back;
 static D3DTLVERTEX          tri[MAX_TRIS * 3];
 static double               qpf;
+static const DWORD          *stat;
 
 static double now( void )
 {
@@ -47,32 +74,93 @@ static void say( const char *what, HRESULT hr )
     fflush( out );
 }
 
-/* Clockwise triangles of `size` pixels, drifting by `frame`, each its own colour. */
-static void scene( int n, int size, int frame )
+/* The driver's counters, by reading its export table where the DLL is based: it is
+ * not a module of this process, and loading it here hangs. */
+static const DWORD *find_stat( void )
+{
+    const BYTE  *b = (const BYTE *)M8_DLL_BASE;
+    const BYTE  *pe;
+    const BYTE  *ex;
+    const DWORD *names;
+    const WORD  *ords;
+    const DWORD *funcs;
+    DWORD       i;
+
+    if( IsBadReadPtr( b, 0x400 ) ) {
+        return( NULL );
+    }
+    pe = b + *(const DWORD *)(b + 0x3C);
+    ex = b + *(const DWORD *)(pe + 0x78);
+    names = (const DWORD *)(b + *(const DWORD *)(ex + 32));
+    ords = (const WORD *)(b + *(const DWORD *)(ex + 36));
+    funcs = (const DWORD *)(b + *(const DWORD *)(ex + 28));
+    for( i = 0; i < *(const DWORD *)(ex + 24); ++i ) {
+        if( strcmp( (const char *)(b + names[i]), "m8d3d_stat" ) == 0 ) {
+            return( (const DWORD *)(b + funcs[ords[i]]) );
+        }
+    }
+    return( NULL );
+}
+
+/* Clockwise triangles of `size` pixels, in fixed places plus the frame's drift. */
+static void scene( const TEST *t, int frame )
 {
     int i;
     int j;
     int x;
     int y;
+    int f = (t->flags & MOVING) ? frame : 0;
 
-    for( i = 0; i < n; ++i ) {
-        x = (i * 83 + frame * 3) % (SCR_W - size - 1);
-        y = (i * 47 + frame * 2) % (SCR_H - size - 1);
+    for( i = 0; i < t->n; ++i ) {
+        x = (i * 83 + f * 3) % (SCR_W - t->size - 1);
+        y = (i * 47 + f * 2) % (SCR_H - t->size - 1);
         tri[3 * i].sx = (float)x;
         tri[3 * i].sy = (float)y;
-        tri[3 * i + 1].sx = (float)(x + size);
-        tri[3 * i + 1].sy = (float)(y + size);
+        tri[3 * i + 1].sx = (float)(x + t->size);
+        tri[3 * i + 1].sy = (float)(y + t->size);
         tri[3 * i + 2].sx = (float)x;
-        tri[3 * i + 2].sy = (float)(y + size);
+        tri[3 * i + 2].sy = (float)(y + t->size);
         for( j = 0; j < 3; ++j ) {
             tri[3 * i + j].sz = 0.5f;
             tri[3 * i + j].rhw = 1.0f;
-            tri[3 * i + j].color = RGBA_MAKE( i * 16 & 255, 255 - i * 16 & 255, i * 40 & 255, 255 );
+            tri[3 * i + j].color = (t->flags & ONE_COLOUR) ? RGBA_MAKE( 255, 192, 0, 255 ) :
+                                   RGBA_MAKE( i * 16 & 255, 255 - i * 16 & 255, i * 40 & 255, 255 );
         }
     }
 }
 
-static void test( const char *name, const GUID *device, int n, int size, int seconds )
+static void title( int no, const TEST *t )
+{
+    HDC     dc;
+    HFONT   f;
+    HFONT   of;
+    char    s[64];
+    DDBLTFX fx;
+    int     h = SCR_H / 16;
+
+    memset( &fx, 0, sizeof( fx ) );
+    fx.dwSize = sizeof( fx );
+    back->lpVtbl->Blt( back, NULL, NULL, NULL, DDBLT_COLORFILL | DDBLT_WAIT, &fx );
+    prim->lpVtbl->Flip( prim, NULL, DDFLIP_WAIT );
+    if( back->lpVtbl->Blt( back, NULL, NULL, NULL, DDBLT_COLORFILL | DDBLT_WAIT, &fx ) != DD_OK ||
+        back->lpVtbl->GetDC( back, &dc ) != DD_OK ) {
+        return;
+    }
+    f = CreateFont( h, 0, 0, 0, FW_BOLD, 0, 0, 0, ANSI_CHARSET, 0, 0, 0, 0, "Arial" );
+    of = SelectObject( dc, f );
+    SetBkMode( dc, TRANSPARENT );
+    SetTextColor( dc, RGB( 255, 255, 0 ) );
+    sprintf( s, "%d/%d  %s", no, (int)TEST_COUNT, t->name );
+    TextOut( dc, h, SCR_H / 2 - 2 * h, s, strlen( s ) );
+    TextOut( dc, h, SCR_H / 2, t->what, strlen( t->what ) );
+    SelectObject( dc, of );
+    DeleteObject( f );
+    back->lpVtbl->ReleaseDC( back, dc );
+    prim->lpVtbl->Flip( prim, NULL, DDFLIP_WAIT );
+    Sleep( 1500 );
+}
+
+static void test( int no, const TEST *t, int seconds )
 {
     LPDIRECT3DDEVICE2       dev = NULL;
     LPDIRECT3DVIEWPORT2     vp = NULL;
@@ -81,16 +169,19 @@ static void test( const char *name, const GUID *device, int n, int size, int sec
     DDSURFACEDESC           sd;
     HRESULT                 hr;
     double                  t0;
-    double                  t;
+    double                  el;
     unsigned long           frames = 0;
     unsigned long           bad = 0;
     unsigned long           lit = 0;
+    DWORD                   s[4];
     int                     x;
     int                     y;
+    int                     i;
 
-    hr = d3d->lpVtbl->CreateDevice( d3d, (GUID *)device, back, &dev );
+    title( no, t );
+    hr = d3d->lpVtbl->CreateDevice( d3d, (GUID *)t->device, back, &dev );
     if( hr != DD_OK ) {
-        fprintf( out, "%-4s %3d x %3d px  no device %08lx\n", name, n, size, (unsigned long)hr );
+        fprintf( out, "%d/%d %-10s no device %08lx\n", no, (int)TEST_COUNT, t->name, (unsigned long)hr );
         fflush( out );
         return;
     }
@@ -112,14 +203,20 @@ static void test( const char *name, const GUID *device, int n, int size, int sec
     memset( tri, 0, sizeof( tri ) );
     memset( &fx, 0, sizeof( fx ) );
     fx.dwSize = sizeof( fx );
+    memset( s, 0, sizeof( s ) );
+    if( stat != NULL ) {
+        for( i = 0; i < 4; ++i ) {
+            s[i] = stat[12 + i];
+        }
+    }
     t0 = now();
     do {
-        scene( n, size, (int)frames );
+        scene( t, (int)frames );
         if( back->lpVtbl->Blt( back, NULL, NULL, NULL, DDBLT_COLORFILL | DDBLT_WAIT, &fx ) != DD_OK ) {
             ++bad;
         }
         if( dev->lpVtbl->BeginScene( dev ) != D3D_OK ||
-            dev->lpVtbl->DrawPrimitive( dev, D3DPT_TRIANGLELIST, D3DVT_TLVERTEX, tri, 3 * n, D3DDP_WAIT ) != D3D_OK ||
+            dev->lpVtbl->DrawPrimitive( dev, D3DPT_TRIANGLELIST, D3DVT_TLVERTEX, tri, 3 * t->n, D3DDP_WAIT ) != D3D_OK ||
             dev->lpVtbl->EndScene( dev ) != D3D_OK ) {
             ++bad;
         }
@@ -127,12 +224,16 @@ static void test( const char *name, const GUID *device, int n, int size, int sec
             ++bad;
         }
         ++frames;
-        t = (now() - t0) / qpf;
-    } while( t < (double)seconds );
-    /* One more frame drawn and read back through RAM. */
+        el = (now() - t0) / qpf;
+    } while( el < (double)seconds );
+    if( stat != NULL ) {
+        for( i = 0; i < 4; ++i ) {
+            s[i] = stat[12 + i] - s[i];
+        }
+    }
     back->lpVtbl->Blt( back, NULL, NULL, NULL, DDBLT_COLORFILL | DDBLT_WAIT, &fx );
     dev->lpVtbl->BeginScene( dev );
-    dev->lpVtbl->DrawPrimitive( dev, D3DPT_TRIANGLELIST, D3DVT_TLVERTEX, tri, 3 * n, D3DDP_WAIT );
+    dev->lpVtbl->DrawPrimitive( dev, D3DPT_TRIANGLELIST, D3DVT_TLVERTEX, tri, 3 * t->n, D3DDP_WAIT );
     dev->lpVtbl->EndScene( dev );
     memset( &sd, 0, sizeof( sd ) );
     sd.dwSize = sizeof( sd );
@@ -144,8 +245,12 @@ static void test( const char *name, const GUID *device, int n, int size, int sec
         }
         back->lpVtbl->Unlock( back, NULL );
     }
-    fprintf( out, "%-4s %3d x %3d px  %8.1f fps %9.0f tri/s  %8.2f ms/frame  bad %lu  lit %lu\n", name, n, size,
-             frames / t, frames * (double)n / t, 1000.0 * t / frames, bad, lit );
+    fprintf( out, "%d/%d %-10s %7.1f fps %6.2f ms/frame", no, (int)TEST_COUNT, t->name, frames / el, 1000.0 * el / frames );
+    if( s[3] != 0 ) {
+        fprintf( out, "  flip %6.2f (16-bit %6.2f, engine %6.2f)", 1000.0 * s[0] / qpf / s[3], 1000.0 * s[1] / qpf / s[3],
+                 1000.0 * s[2] / qpf / s[3] );
+    }
+    fprintf( out, "  bad %lu  lit %lu\n", bad, lit );
     fflush( out );
     vp->lpVtbl->Release( vp );
     dev->lpVtbl->Release( dev );
@@ -158,7 +263,6 @@ static LRESULT CALLBACK wndproc( HWND w, UINT m, WPARAM a, LPARAM b )
 
 int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
 {
-    static const int    sizes[] = { 8, 32, 100 };
     WNDCLASS            wc;
     HWND                wnd;
     DDSURFACEDESC       sd;
@@ -177,7 +281,7 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
     sscanf( cmd, "%31s %d", label, &seconds );
     QueryPerformanceFrequency( &f );
     qpf = (double)f.LowPart;
-    fprintf( out, "== M8D3DF %s\n", label );
+    fprintf( out, "== M8D3DF %s  640x480x16  %d s a test\n", label, seconds );
     memset( &wc, 0, sizeof( wc ) );
     wc.lpfnWndProc = wndproc;
     wc.hInstance = inst;
@@ -190,9 +294,10 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
     if( hr != DD_OK ) {
         return( 1 );
     }
+    stat = find_stat();
+    fprintf( out, "counters %s\n", stat != NULL ? "found" : "not found" );
     say( "coop", dd->lpVtbl->SetCooperativeLevel( dd, wnd, DDSCL_EXCLUSIVE | DDSCL_FULLSCREEN ) );
-    hr = dd->lpVtbl->SetDisplayMode( dd, SCR_W, SCR_H, 16 );
-    say( "setmode", hr );
+    say( "setmode", dd->lpVtbl->SetDisplayMode( dd, SCR_W, SCR_H, 16 ) );
     hr = dd->lpVtbl->QueryInterface( dd, &m8_iid_d3d2, (LPVOID *)&d3d );
     say( "d3d2", hr );
     if( hr == DD_OK ) {
@@ -206,11 +311,8 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
         if( hr == DD_OK ) {
             caps.dwCaps = DDSCAPS_BACKBUFFER;
             say( "attached", prim->lpVtbl->GetAttachedSurface( prim, &caps, &back ) );
-            for( i = 0; i < 3; ++i ) {
-                test( "HAL", &m8_iid_hal, 16, sizes[i], seconds );
-            }
-            for( i = 0; i < 3; ++i ) {
-                test( "RGB", &m8_iid_rgb, 16, sizes[i], seconds );
+            for( i = 0; i < (int)TEST_COUNT; ++i ) {
+                test( i + 1, &tests[i], seconds );
             }
             prim->lpVtbl->Release( prim );
         }

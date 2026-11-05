@@ -28,7 +28,9 @@
 
 /* m8d3d.c */
 extern void m8d3d_init( DWORD *global, DWORD *callbacks );
-extern void m8d3d_replay( const short *v, const WORD *index, int n );
+extern void m8d3d_replay( const RECT *erase, int erase_n, BYTE black, const short *v,
+                          const WORD *index, int n );
+extern DWORD m8d3d_stat[16];
 
 /* The head of dd16.c's M8DD_SHARE. */
 #pragma pack( push, 1 )
@@ -581,6 +583,9 @@ static int          m8dd_tri_n[2];
 static short        m8dd_tri_v[2][M8DD_TRIS_MAX * 6];
 static WORD         m8dd_tri_i[2][M8DD_TRIS_MAX];       /* the card's palette index */
 static WORD         m8dd_tri_c[2][M8DD_TRIS_MAX];       /* 5-6-5, for RAM */
+static RECT         m8dd_card_box[M8DD_TRIS_MAX];       /* the triangles' boxes on the card */
+static int          m8dd_card_boxes;
+static int          m8dd_fp_stale;      /* the card changed behind fb16.c's row fingerprints */
 
 /* The buffer a surface's memory is, or -1. */
 static int m8dd_buf( LPVOID lcl )
@@ -1312,15 +1317,71 @@ static void m8dd_fill_outside( const RECT *o, const M8DD_DESC *t, int from, WORD
  * same colour, only the card's old rectangles are filled back with it and the
  * target's rectangles sent: the static part of the frame never crosses the
  * bus, and RAM is not read outside the rectangles. */
+/* Each of buffer k's triangles' boxes, for the next flip to erase. */
+static void m8dd_note_boxes( int k )
+{
+    const short *v = m8dd_tri_v[k];
+    RECT        *r = m8dd_card_box;
+    int         i;
+    int         j;
+
+    m8dd_card_boxes = m8dd_tri_n[k];
+    for( i = 0; i < m8dd_card_boxes; ++i, v += 6, ++r ) {
+        r->left = r->right = v[0];
+        r->top = r->bottom = v[1];
+        for( j = 1; j < 3; ++j ) {
+            if( v[2 * j] < r->left ) {
+                r->left = v[2 * j];
+            }
+            if( v[2 * j] > r->right ) {
+                r->right = v[2 * j];
+            }
+            if( v[2 * j + 1] < r->top ) {
+                r->top = v[2 * j + 1];
+            }
+            if( v[2 * j + 1] > r->bottom ) {
+                r->bottom = v[2 * j + 1];
+            }
+        }
+        ++r->right;
+        ++r->bottom;
+    }
+}
+
+/* A frame of only triangles on black, over a card that shows the same: nothing goes
+ * through the 16-bit side, which costs a GetDC and a thunk. The last frame's boxes
+ * are erased and the triangles drawn; the buffer's selection waits in the batch for
+ * the next time RAM has to reach the card. */
+static void m8dd_flip16_fast( int k )
+{
+    WORD    *e;
+
+    if( m8dd_bl[0] != 0 && (e = m8dd_bl + 1 + 6 * (m8dd_bl[0] - 1))[0] == 2 ) {
+        e[5] = (WORD)k;
+    } else {
+        m8dd_op( 2, NULL, (WORD)k );
+    }
+    /* Index 0 is black in fb16.c's palette. */
+    m8d3d_replay( m8dd_card_box, m8dd_card_boxes, 0, m8dd_tri_v[k], m8dd_tri_i[k], m8dd_tri_n[k] );
+    m8dd_note_boxes( k );
+    m8dd_fp_stale = 1;
+    m8dd_card = m8dd_desc[k];
+    m8dd_front = k;
+}
+
 static DWORD m8dd_flip16( M8DD_FLIP *fd )
 {
-    int         k = m8dd_buf( fd->lpSurfTarg );
-    M8DD_DESC   *t;
-    int         i;
+    int             k = m8dd_buf( fd->lpSurfTarg );
+    M8DD_DESC       *t;
+    int             i;
+    LARGE_INTEGER   t0;
+    LARGE_INTEGER   t1;
+    LARGE_INTEGER   t2;
 
     if( k < 0 || m8dd_back == 0 ) {
         return( DDHAL_DRIVER_NOTHANDLED );
     }
+    QueryPerformanceCounter( &t0 );
     /* GDI drew on the card since the last Flip (a program's own window
      * repainted): the card is no longer as described. */
     if( m8dd->gdi_lin != 0 && *(DWORD *)m8dd->gdi_lin != m8dd_gdi_seen ) {
@@ -1328,14 +1389,27 @@ static DWORD m8dd_flip16( M8DD_FLIP *fd )
         m8dd_card.known = 0;
     }
     t = &m8dd_desc[k];
+    if( t->known && t->n == 0 && t->colour == 0 && m8dd_card.known && m8dd_card.n == 0 && m8dd_card.colour == 0 ) {
+        m8dd_flip16_fast( k );
+        QueryPerformanceCounter( &t2 );
+        m8d3d_stat[12] += t2.LowPart - t0.LowPart;
+        m8d3d_stat[14] += t2.LowPart - t0.LowPart;
+        ++m8d3d_stat[15];
+        fd->ddRVal = DD_OK;
+        return( DDHAL_DRIVER_HANDLED );
+    }
+    if( m8dd_fp_stale ) {
+        m8dd_op( 5, NULL, 0 );
+        m8dd_fp_stale = 0;
+    }
     m8dd_op( 2, NULL, (WORD)k );
     if( t->known ) {
         if( m8dd_card.known && m8dd_card.colour == t->colour ) {
             for( i = 0; i < m8dd_card.n; ++i ) {
                 m8dd_fill_outside( &m8dd_card.d[i], t, 0, t->colour );
             }
-            if( m8dd_card.has_box ) {
-                m8dd_fill_outside( &m8dd_card.box, t, 0, t->colour );
+            for( i = 0; i < m8dd_card_boxes; ++i ) {
+                m8dd_fill_outside( &m8dd_card_box[i], t, 0, t->colour );
             }
         } else {
             m8dd_op( 1, NULL, t->colour );
@@ -1348,13 +1422,18 @@ static DWORD m8dd_flip16( M8DD_FLIP *fd )
         m8dd_op( 0, NULL, 0 );
         m8dd_card.known = 0;
     }
-    if( m8dd_tri_n[k] && t->has_box ) {
-        m8dd_op( 5, &t->box, 0 );
-    }
     m8dd_flush();
+    QueryPerformanceCounter( &t1 );
     if( m8dd_tri_n[k] ) {
-        m8d3d_replay( m8dd_tri_v[k], m8dd_tri_i[k], m8dd_tri_n[k] );
+        m8d3d_replay( NULL, 0, 0, m8dd_tri_v[k], m8dd_tri_i[k], m8dd_tri_n[k] );
+        m8dd_fp_stale = 1;
     }
+    m8dd_note_boxes( k );
+    QueryPerformanceCounter( &t2 );
+    m8d3d_stat[12] += t2.LowPart - t0.LowPart;
+    m8d3d_stat[13] += t1.LowPart - t0.LowPart;
+    m8d3d_stat[14] += t2.LowPart - t1.LowPart;
+    ++m8d3d_stat[15];
     m8dd_front = k;
     fd->ddRVal = DD_OK;
     return( DDHAL_DRIVER_HANDLED );
@@ -1420,6 +1499,8 @@ static DWORD m8dd_create16( M8DD_CREATE *cd )
     m8dd_desc[1] = m8dd_desc[0];
     m8dd_tri_n[0] = 0;
     m8dd_tri_n[1] = 0;
+    m8dd_card_boxes = 0;
+    m8dd_fp_stale = 0;
     m8dd_card.known = 0;
     cd->ddRVal = DD_OK;
     return( DDHAL_DRIVER_HANDLED );
@@ -1751,6 +1832,12 @@ int m8d3d_surface( LPVOID lcl, int *x, int *y, int *w, int *h )
 int m8d3d_fb16( void )
 {
     return( m8dd->fb16 != 0 );
+}
+
+/* One fill on the path m8d3d_engine_begin set, in the colour the caller wrote. */
+int m8d3d_fill( const RECT *r )
+{
+    return( m8dd_rect( r, 0, 0, 0 ) );
 }
 
 /* A triangle added to the description of the buffer `lcl` is, or 0 if there is

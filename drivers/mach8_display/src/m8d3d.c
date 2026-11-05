@@ -74,6 +74,7 @@
 extern int  m8d3d_surface( LPVOID lcl, int *x, int *y, int *w, int *h );
 extern int  m8d3d_scratch( LPVOID key, int w, int *h, int *x, int *y );
 extern int  m8d3d_fb16( void );
+extern int  m8d3d_fill( const RECT *r );
 extern int  m8d3d_record( LPVOID lcl, const short *v, BYTE index, WORD colour );
 extern void m8d3d_scratch_free( LPVOID key );
 extern int  m8d3d_engine_begin( void );
@@ -255,8 +256,10 @@ static M8D3D_CONTEXT    m8d3d_ctx[M8D3D_CONTEXTS];
  * failed CreateDevice does not say. [0] ContextCreate, [1] ContextDestroy,
  * [2] SceneCapture, [3] RenderState, [4] RenderPrimitive, [5] primitives offered,
  * [6] the last target surface, [7] the last Z surface, [8] triangles drawn,
- * [9] culled, [10] refused: outside the target, [11] calls refused. */
-DWORD                   m8d3d_stat[12];
+ * [9] culled, [10] refused: outside the target, [11] calls refused. Performance
+ * counter ticks in Flip at 16 bpp: [12] all, [13] the 16-bit side, [14] erase and
+ * triangles; [15] flips. */
+DWORD                   m8d3d_stat[16];
 
 static LPVOID m8d3d_lcl( LPVOID surface_int )
 {
@@ -475,8 +478,9 @@ static int m8d3d_tri_fit( M8D3D_CONTEXT *c, int dx, int dy, const short *v, BYTE
     return( m8d3d_tri_fit( c, dx, dy, p, colour ) );
 }
 
-/* At 16 bpp, from Flip: a buffer's triangles, on the card. */
-void m8d3d_replay( const short *v, const WORD *index, int n )
+/* At 16 bpp, from Flip: the last frame's boxes back to black, then a buffer's
+ * triangles, on the card. */
+void m8d3d_replay( const RECT *erase, int erase_n, BYTE black, const short *v, const WORD *index, int n )
 {
     M8D3D_CONTEXT   *c = NULL;
     int             k;
@@ -495,6 +499,13 @@ void m8d3d_replay( const short *v, const WORD *index, int n )
     if( c->fresh ) {
         ok = m8d3d_scratch_clear( c );
         c->fresh = 0;
+    }
+    if( ok && erase_n != 0 ) {
+        ok = m8d3d_room( 1 );
+        outpw( M8_FRGD_COLOR, black );
+        for( i = 0; ok && i < erase_n; ++i ) {
+            ok = m8d3d_fill( &erase[i] );
+        }
     }
     for( i = 0; ok && i < n; ++i ) {
         ok = m8d3d_tri_fit( c, 0, 0, v + 6 * i, (BYTE)index[i] );
