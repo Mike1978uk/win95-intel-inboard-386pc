@@ -93,6 +93,7 @@ Issue #59 lists every test the cloud session left for the bed and the card, with
 criteria: XT-CF taskfile switches (branch `claude/xtcf-tight-taskfile`), background I/O cost and
 the SWAPCOMP compressor (branch `claude/driver-optimisation-review`), SWAPCOMP zero pages (design, to
 write with the DDK), F0000 cacheable, the BlueSCSI tests (branch `claude/bluescsi-5160-firmware-o12wij`),
-DirectInput (branch `claude/dinput-probe`) and video playback (branch `claude/video-playback`, section 8
-in a comment). All built, untested; nothing from them is on master. Carry this pointer into the next
+DirectInput (branch `claude/dinput-probe`), video playback (branch `claude/video-playback`, section 8
+in a comment) and Mach8 textures (section 9 in three comments: walls by columns, line-from-blit probe,
+CPU-textured VGA modes, faked texture by pattern and write mask; design on #58). All built, untested; nothing from them is on master. Carry this pointer into the next
 handoff until #59 is done.
