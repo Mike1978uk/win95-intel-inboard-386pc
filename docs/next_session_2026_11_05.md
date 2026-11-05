@@ -95,3 +95,17 @@ Owner's reading of the "flicker", from `photos/flicker1-8.PNG`: a face's two tri
 Next: the build in the working tree (`%TEMP%\m8next`, not on the card) times inside Blt: find why the black clear costs 5-35 ms.
 
 Card hung 2026-11-05 about 15:45 during the second M8D3DF run on `M8D3D6` (boot 214): first run finished, agent stopped answering, ping still answered, not back in 9 minutes. Owner to report the screen and any sound, and restart. `C:\M8D3DF.TXT` holds run 1.
+
+## START HERE next session (end of 2026-11-05)
+
+**Running when this was written:** `M8D3D7` (065a3ac + uncommitted M8D3DF `high` option) installing on the card, then `M8D3DF norm 3` and `M8D3DF hi 3 high`. Results append to `C:\M8D3DF.TXT` on the card (host 192.168.68.62, `v9xctl -Host`; `mcp__v9x` is the BED). Fetch them, keep in `docs/captures/2026-11-05_d3d_16bpp/`, commit `tools/m8d3dtest/M8D3DF.C`.
+
+**The question it answers:** `Blt` in our driver 0.22 ms, the same call from the program 4.8-33 ms, all clears the described path. Theory: Windows runs other threads after a long Flip. If the `high` run's clear collapses, it is scheduling; if not, look in DDRAW's Blt path. Unproven.
+
+**Owner to check on M8D3D7:** static gone at full-screen start of dxdiag and DirectDraw (fix in `m8_fb16_send_all`); rectangle blocks gone (`m8d3d_edges`, unproven hypothesis). Use `photos/shading3_blocks.PNG` as the before.
+
+**Open hang:** card hung once, black screen with the egg timer, no restart by itself, during the second M8D3DF run on `M8D3D6` (run 1 clean; agent gone, ping alive). Rebooted by the owner, boot 215. One report, cause unknown.
+
+**Then:** the "Direct3D levers" table in `docs/mach8_frame_rate_plan.md`, every row ruled in or out by a card number. Best figures so far (`M8D3D6`, one run): hal_tiny 41.9, hal_small 43.6, hal_static 84.6-152, hal_large 15.6, hal_many 11 fps. Goal 60+. Next after the clear: V19 status reads, V18 high-byte writes (probe), V5, V6, V15, C2 adaptive palette, C3 gradient bands (required).
+
+**Way back:** `C:\V9XREMOTE\REG\M8BACK.REG` = M8FLIP8, High Color, 800x600; old DLL `C:\V9XREMOTE\REG\M8DD32.BCK`, rename in by WININIT.INI. Card scripts were in the session scratchpad: model them on `tools/m8_card_cycle.ps1`; DLL by `M8DD32.NEW` and WININIT.INI. Git: local master ahead of origin, nothing pushed; #55/#59 updates not posted.

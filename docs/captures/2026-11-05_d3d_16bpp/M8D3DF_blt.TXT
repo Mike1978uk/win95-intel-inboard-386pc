@@ -1,0 +1,18 @@
+== M8D3DF blt1  640x480x16  3 s a test
+ddraw          00000000
+counters found
+coop           00000000
+setmode        00000000
+d3d2           00000000
+flipchain      00000000
+attached       00000000
+1/9 hal_tiny      41.9 fps  23.89 ms/frame  scene  0.95 clear  4.81 d3d   6.09 flipcall  12.04  flip  11.25 (16-bit   0.35, engine  10.90)  blt  0.22 calls 126 described 126  bad 0  lit 720
+2/9 hal_small     43.6 fps  22.96 ms/frame  scene  0.52 clear  5.67 d3d   5.69 flipcall  11.08  flip  10.06 (16-bit   0.42, engine   9.64)  blt  0.21 calls 132 described 132  bad 0  lit 8976
+3/9 hal_large     15.6 fps  64.06 ms/frame  scene  5.51 clear 23.66 d3d   4.75 flipcall  30.14  flip  29.23 (16-bit   6.84, engine  22.40)  blt  0.64 calls 47 described 47  bad 0  lit 80115
+4/9 hal_static    84.6 fps  11.81 ms/frame  scene  0.93 clear  4.94 d3d   4.76 flipcall   1.18  flip   0.38 (16-bit   0.07, engine   0.32)  blt  0.29 calls 254 described 254  bad 0  lit 720
+5/9 hal_colour    38.2 fps  26.17 ms/frame  scene  0.48 clear  8.29 d3d   7.72 flipcall   9.68  flip   8.59 (16-bit   0.27, engine   8.32)  blt  0.23 calls 115 described 115  bad 0  lit 720
+6/9 hal_many      11.0 fps  90.56 ms/frame  scene  3.86 clear 32.66 d3d  19.89 flipcall  34.16  flip  32.32 (16-bit   0.51, engine  31.81)  blt  0.41 calls 34 described 34  bad 0  lit 2880
+7/9 rgb_tiny       2.3 fps 441.44 ms/frame  scene  0.46 clear 76.98 d3d 200.51 flipcall 163.49  flip 136.82 (16-bit 136.70, engine   0.11)  blt  0.17 calls 7 described 7  bad 0  lit 448
+8/9 rgb_small      1.1 fps 883.32 ms/frame  scene  0.50 clear 108.49 d3d 302.99 flipcall 471.35  flip 260.17 (16-bit 259.03, engine   1.14)  blt  0.17 calls 4 described 4  bad 0  lit 7936
+9/9 rgb_large      0.5 fps 2103.96 ms/frame  scene  0.59 clear 390.40 d3d 946.35 flipcall 766.61  flip 659.96 (16-bit 659.77, engine   0.19)  blt  0.17 calls 2 described 2  bad 0  lit 77382
+
