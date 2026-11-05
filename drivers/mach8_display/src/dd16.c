@@ -58,6 +58,8 @@ typedef struct {
     DWORD   fb16;                       /* 1: the primary is fb16.c's 5-6-5 frame buffer */
     DWORD   fb_lin;                     /* its linear address */
     DWORD   gdi_lin;                    /* linear address of fb16.c's count of GDI calls */
+    DWORD   d3d_global;                 /* m8d3d.c's two tables, 0 = no Direct3D */
+    DWORD   d3d_callbacks;
     /* This side only from here. */
     DDHALINFO_t                 info;
     DDHAL_DDCALLBACKS_t         cb;
@@ -255,6 +257,13 @@ static void m8dd_build( int mode )
     }
     hi->ddCaps.dwPalCaps = DDPCAPS_8BIT | DDPCAPS_PRIMARYSURFACE;
     hi->ddCaps.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE | DDSCAPS_PALETTE;
+    if( m8dd->d3d_global ) {
+        /* M8DD32's Direct3D HAL (m8d3d.c): flat shading at 8 bpp. */
+        hi->lpD3DGlobalDriverData = (ULONG_PTR)m8dd->d3d_global;
+        hi->lpD3DHALCallbacks = (ULONG_PTR)m8dd->d3d_callbacks;
+        hi->ddCaps.dwCaps |= DDCAPS_3D;
+        hi->ddCaps.ddsCaps.dwCaps |= DDSCAPS_3DDEVICE;
+    }
     /* Not DDSCAPS_OFFSCREENPLAIN: with it DDRAW refuses this HAL outright.
      * Off-screen surfaces in video memory are still asked of CreateSurface. */
     hi->dwModeIndex = mode;
@@ -291,6 +300,9 @@ static void m8dd_build16( void )
     }
     m8dd->fb16 = 1;
     m8dd->fb_lin = m8_fb16_lin();
+    /* Not at 16 bpp: the card does not draw the screen GDI sees. */
+    hi->lpD3DGlobalDriverData = 0;
+    hi->lpD3DHALCallbacks = 0;
     m8dd->gdi_lin = GetSelectorBase( FP_SEG( (LPVOID)m8_fb16_stat ) ) + FP_OFF( (LPVOID)m8_fb16_stat );
     m8dd->pitch = M8_SCREEN_X * 2;
     m8dd->shadow = 0;

@@ -26,6 +26,9 @@
 
 #define M8DD_MARKER     0x44443855UL
 
+/* m8d3d.c */
+extern void m8d3d_init( DWORD *global, DWORD *callbacks );
+
 /* The head of dd16.c's M8DD_SHARE. */
 #pragma pack( push, 1 )
 typedef struct {
@@ -52,6 +55,8 @@ typedef struct {
     DWORD   fb16;
     DWORD   fb_lin;
     DWORD   gdi_lin;
+    DWORD   d3d_global;
+    DWORD   d3d_callbacks;
 } M8DD_SHARE;
 
 /* DDHAL_LOCKDATA and DDHAL_UNLOCKDATA as DDRAW passes them (Microsoft's
@@ -1605,6 +1610,98 @@ static void m8dd_unplace( BYTE *gbl )
     }
 }
 
+/* m8d3d.c's way to the engine and the card's memory. */
+int m8d3d_surface( LPVOID lcl, int *x, int *y, int *w, int *h )
+{
+    M8DD_SURF s;
+
+    if( m8dd->fb16 || !m8dd_surf( lcl, &s ) ) {
+        return( 0 );
+    }
+    *x = s.x;
+    *y = s.y;
+    *w = s.w;
+    *h = s.h;
+    return( 1 );
+}
+
+/* A rectangle no surface will take, held under `key`. */
+int m8d3d_scratch( LPVOID key, int w, int h, int *x, int *y )
+{
+    RECT    r;
+    int     k;
+
+    if( !m8dd->heap_rows || !m8dd_place( w, h, &r ) ) {
+        return( 0 );
+    }
+    for( k = 0; k < M8DD_PLACED_MAX && m8dd_placed[k].gbl != NULL; ++k ) {
+    }
+    if( k == M8DD_PLACED_MAX || (m8dd_placed_n == 0 && !m8dd_lend( 1 )) ) {
+        return( 0 );
+    }
+    m8dd_placed[k].gbl = (BYTE *)key;
+    m8dd_placed[k].r = r;
+    ++m8dd_placed_n;
+    *x = r.left;
+    *y = r.top;
+    return( 1 );
+}
+
+void m8d3d_scratch_free( LPVOID key )
+{
+    m8dd_unplace( (BYTE *)key );
+}
+
+/* Room for n writes (1..15), as m8_fifo_need: bit 15 - n clear. */
+int m8d3d_room( int n )
+{
+    unsigned i;
+
+    for( i = 0; i < M8_WAIT_LIMIT; ++i ) {
+        if( !(inpw( M8_EXT_FIFO_STATUS ) & (0x8000 >> n)) ) {
+            return( 1 );
+        }
+    }
+    return( 0 );
+}
+
+int m8d3d_engine_begin( void )
+{
+    BYTE *hot = (BYTE *)m8dd->hot;
+
+    if( hot[H_HW_OFF] ) {
+        return( 0 );
+    }
+    hot[H_BUSY] = 1;
+    if( !m8dd_plain( M8_MIX_FRGD_REPLACE ) ) {
+        hot[H_BUSY] = 0;
+        return( 0 );
+    }
+    return( 1 );
+}
+
+/* Black over a card rectangle, with the plain path back afterwards. */
+int m8d3d_clear( int l, int t, int r, int b )
+{
+    RECT c;
+
+    if( !m8dd_plain( M8_MIX_FRGD_REPLACE ) ) {
+        return( 0 );
+    }
+    outpw( M8_FRGD_COLOR, 0 );
+    SetRect( &c, l, t, r, b );
+    return( m8dd_rect( &c, 0, 0, 0 ) );
+}
+
+void m8d3d_engine_end( void )
+{
+    BYTE *hot = (BYTE *)m8dd->hot;
+
+    m8dd_plain( M8_MIX_FRGD_REPLACE );
+    m8dd_forget( hot );
+    hot[H_BUSY] = 0;
+}
+
 /* An off-screen surface in the screen's 8bpp format goes in the heap rows;
  * the first one has GDI's caches leave them. A list holding the primary, or
  * anything else, goes back to DDRAW, which then puts it in system memory. */
@@ -1728,6 +1825,7 @@ DWORD __stdcall DriverInit( LPVOID context )
     m8dd->unlock = (DWORD)m8dd_unlock;
     m8dd->blt = (DWORD)m8dd_blt;
     m8dd->flip = (DWORD)m8dd_flip;
+    m8d3d_init( &m8dd->d3d_global, &m8dd->d3d_callbacks );
     m8dd->create_surface = (DWORD)m8dd_create_surface;
     m8dd->destroy_surface = (DWORD)m8dd_destroy_surface;
     m8dd->destroy_driver = (DWORD)m8dd_destroy_driver;

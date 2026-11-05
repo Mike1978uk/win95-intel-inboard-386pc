@@ -131,10 +131,12 @@ if ($bad) { throw "fixup to a missing segment:`n$($bad -join "`n")" }
 # based above 2 GB and every section shared (as vmhal9x's fixlink -shared).
 $inc32 = @("-i=$Watcom\h", "-i=$Watcom\h\nt")
 $env:INCLUDE = "$Watcom\h;$Watcom\h\nt"
-Run wcc386 (@('-q', '-wx', '-we', '-s', '-bd', '-bt=nt', '-4s', '-ox', '-wcd=303', "-fo=$Out\m8dd32.obj") + $inc32 + "$src\m8dd32.c")
+foreach ($c in 'm8dd32', 'm8d3d') {
+  Run wcc386 (@('-q', '-wx', '-we', '-s', '-bd', '-bt=nt', '-4s', '-ox', '-wcd=303', "-fo=$Out\$c.obj") + $inc32 + "$src\$c.c")
+}
 Set-Content -Path "$Out\m8dd32.lnk" -Encoding Ascii -Value @(
   'system nt_dll', "name $Out\M8DD32.DLL", 'option quiet', 'option offset=0xB0C00000',
-  "file $Out\m8dd32.obj", "export DriverInit='_DriverInit@4'")
+  "file $Out\m8dd32.obj", "file $Out\m8d3d.obj", "export DriverInit='_DriverInit@4'", "export m8d3d_stat")
 Run wlink @("@$Out\m8dd32.lnk")
 $dll = "$Out\M8DD32.DLL"
 $b = [IO.File]::ReadAllBytes($dll)
