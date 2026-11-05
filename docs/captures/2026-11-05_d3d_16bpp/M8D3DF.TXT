@@ -1,0 +1,28 @@
+== M8D3DF card16_1
+ddraw          00000000
+coop           00000000
+setmode        00000000
+d3d2           00000000
+flipchain      00000000
+attached       00000000
+HAL   16 x   8 px      18.4 fps       294 tri/s     54.39 ms/frame  bad 0  lit 720
+HAL   16 x  32 px      12.9 fps       207 tri/s     77.40 ms/frame  bad 0  lit 8976
+HAL   16 x 100 px      13.1 fps       209 tri/s     76.59 ms/frame  bad 0  lit 80150
+RGB   16 x   8 px       1.2 fps        19 tri/s    821.09 ms/frame  bad 0  lit 448
+RGB   16 x  32 px       1.6 fps        26 tri/s    618.98 ms/frame  bad 0  lit 7936
+RGB   16 x 100 px       0.6 fps        10 tri/s   1558.46 ms/frame  bad 0  lit 77382
+
+== M8D3DF card16_2
+ddraw          00000000
+coop           00000000
+setmode        00000000
+d3d2           00000000
+flipchain      00000000
+attached       00000000
+HAL   16 x   8 px       8.2 fps       130 tri/s    122.67 ms/frame  bad 0  lit 720
+HAL   16 x  32 px      17.3 fps       277 tri/s     57.85 ms/frame  bad 0  lit 8976
+HAL   16 x 100 px      11.2 fps       179 tri/s     89.59 ms/frame  bad 0  lit 80150
+RGB   16 x   8 px       1.3 fps        21 tri/s    780.09 ms/frame  bad 0  lit 448
+RGB   16 x  32 px       1.6 fps        26 tri/s    608.00 ms/frame  bad 0  lit 7936
+RGB   16 x 100 px       0.6 fps         9 tri/s   1712.38 ms/frame  bad 0  lit 77382
+

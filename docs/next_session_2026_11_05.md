@@ -77,3 +77,12 @@ Card: `M8D3D1` (commit 8878634) at 800x600x8, boot 209. Its first Direct3D trian
 Going back to `M8FLIP8` at 800x600x16: `C:\V9XREMOTE\REG\M8BACK.REG`, with the old DLL at `C:\V9XREMOTE\REG\M8DD32.BCK`, renamed in by WININIT.INI.
 Bed `vm_5160_mcp`: same source, stock D3DIM in SYSTEM, patched copy in `C:\M8D3D\`, CONFIG.SYS identical to the card's. `vm_5160_now` and `vm_5160_ati` still default to FULL.
 Next: a triangle bench (triangles a second by size, against RGB emulation), then the 16 bpp route.
+
+## Direct3D at 16 bpp (later 2026-11-05)
+
+Works on the card on stock DirectX (fd86aa6): `docs/captures/2026-11-05_d3d_16bpp/`. Card now `M8D3D2` at 800x600x16; way back to `M8FLIP8`
+unchanged. Bed `vm_5160_mcp` at 640x480x16 with the build before the dirty-rectangle fix; AUTOEXEC's temporary imports removed (backup C:\AUTOEXEC.D3D).
+Fixed on the way: `m8dd_dirty` wrote the colour over pixels just drawn once past 8 rectangles (also DirectDraw, since F3).
+
+Next: the owner watches M8D3DF for flicker; profile a frame; a box per triangle in place of one around all; try dxdiag.
+Open: flip chain targets only, pointer not lifted during replay, nearest colour with no dither, drawn on the visible screen.
