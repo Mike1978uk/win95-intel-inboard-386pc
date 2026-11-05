@@ -95,5 +95,5 @@ the SWAPCOMP compressor (branch `claude/driver-optimisation-review`), SWAPCOMP z
 write with the DDK), F0000 cacheable, the BlueSCSI tests (branch `claude/bluescsi-5160-firmware-o12wij`),
 DirectInput (branch `claude/dinput-probe`), video playback (branch `claude/video-playback`, section 8
 in a comment) and Mach8 textures (section 9 in three comments: walls by columns, line-from-blit probe,
-CPU-textured VGA modes, faked texture by pattern and write mask; design on #58). All built, untested; nothing from them is on master. Carry this pointer into the next
+CPU-textured VGA modes, faked texture by pattern and write mask; design on #58; probes to write locally with the register guide). The rest are built, untested; nothing from them is on master. Carry this pointer into the next
 handoff until #59 is done.
