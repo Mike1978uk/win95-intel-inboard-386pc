@@ -346,13 +346,69 @@ demo screen that proves one technique on the card. Exemplars are for method, not
 Order: G1, G2 (M8CUBE exists), G5, G4, G3, G6, then the rest. Each is one probe or demo, card-measured,
 pixels checked in the bed first (the bed has no POLY_MODE via LINEDRAW: fill pixels are card-only).
 
-## Order of work
+## Characters as textures (owner, 2026-11-05)
 
-1. Phase 0 probes (one sitting).
-2. T1 on the card (owner watches M8CUBE with and without `v`), then F1 (one line).
-3. One scoreboard script: M8CUBE, M8DDB, M8BENCH, twice each, against the baseline.
-4. P6 in the bed (does D3D take an 8-bit HAL?): it decides D1's shape.
-5. A1 asm emitters, measured by M8CUBE faces/s (owner: asm before Direct3D; D3D sits on them).
-6. D1-D2 (Direct3D, windowed, at 8 bpp).
-7. F2-F3, then B1 and T2 (full screen at both depths).
-8. The rest of Phase 5 as each lever lands; Phase 6 alongside, one technique per sitting.
+A texture is a set of characters replayed: use the card's ROM font as the source. Desk reasoning plus a read of
+`roms/video/mach8/BIOS.BIN`; no probe run. Numbers marked *estimate* are arithmetic from measured rates.
+
+**What is on the ROM:** 8x8 font at 0x3B04 (2,048 B), 8x14 at 0x4304 (3,584 B); no 8x16 table follows it. Chars
+B0h-B2h are 25/50/75 % dither, DBh solid, C0h-DFh box and line pieces: ready-made shading and panel patterns.
+
+**What the ROM is not:** free on every use. Only the CPU reads it (2.71 us a byte over the bus, measured,
+`mach8_card_coverage.md:246`); no engine source selects it, and the two halves share no path. It is free in
+system RAM and on disk: the driver carries no assets. The 8x8 font costs ~5.5 ms once. The EEPROM is out: 128 B,
+read serially, and it holds the monitor timings.
+
+**So there are two real versions:**
+
+| # | Version | Silicon | Bus cost | Limit |
+|---|---|---|---|---|
+| CT1 | **VRAM as CHR**: copy the font into spare 8514 memory once, then each cell is one engine stamp. Compose bricks, panels and dither into an 8 bpp atlas once at start, for M8COLS's column blits | mono expansion, blit | ~28 us a stamp (6 writes, *estimate*); 1,000 8x8 cells ~28 ms against ~190 ms for 320x200 by upload | 8514 half; two colours a stamp; plane-masked expansion from VRAM untimed (WRITE_PER_BIT = 0) |
+| CT2 | **The VGA half's character generator**: the only hardware here that turns codes into pixels with no CPU and no engine. BIOS already loads the font into plane 2. A frame is 4,000 B at 80x25, 8,000 B at 80x50; font memory rewritten once makes 256 (512 with attribute bit 3) custom tiles. This is the PETSCII idea exactly | 28800 text mode, max scan line | 4,000 B ~7.8 ms at 1.96 us a byte (measured on A0000, *estimate* for B8000); mode 13h is 64,000 B ~130 ms | whole screen on the VGA half, one half per mode; two colours a cell |
+
+CT2 is the strongest result for video: 80x25 frames plus an XT-CF read (~10.4 ms, 2.6 us a byte) leave room for
+30 fps with sound, *estimate*, where the plan in `docs/video_on_the_5160.md` sees ~17 fps at 160x120. The PC
+picks each cell's glyph and colours; only changed cells need sending.
+
+**The CPU cache (owner):** any OUT empties the L1 (SW1), so the 8514 half, which has no aperture, can never run a
+CPU texture loop from L1 without a refill per write. The VGA half takes pixels by memory write, not OUT, so a 4 KB
+texture can stay in L1 through the loop: VGATEX (#59 item 9) tests this. Whether a write to A0000 leaves the L1
+intact is the question it must answer.
+
+Direct3D does not get these directly: a HAL must draw any triangle. They serve our own demos and players first.
+
+**Prior art (web search, 2026-11-05; shallow, most pages read as search snippets):**
+- [8088 Corruption file format](https://wiki.multimedia.cx/index.php/8088_Corruption_DAT): CGA 40x25 text with the BIOS 8x8 font as the
+  codebook, 2,000 B a frame, 30 fps on a 4.77 MHz 8088. The direct exemplar for CT2. [Trixter's page](http://www.oldskool.org/pc/8088_Corruption), not read.
+- [NES CHR](https://nesdev.org/wiki/CHR): the PPU fetches 256-tile tables from cartridge ROM itself. The hardware path this card lacks; CT1's VRAM copy stands in for it.
+- [PET streaming, Hackaday](https://hackaday.com/2016/08/08/commodore-pet-mods-at-vcf-west-2016) (bitfixer, 5.8 fps; secondary: his own posts not found),
+  [PetPix](https://hackaday.com/2014/04/06/vcf-east-petpix-streaming-images-to-a-commodore-pet) (8x8 blocks matched to PETSCII, on a Pi),
+  [BlixTerm](https://hackaday.com/2022/07/01/blixterm-brings-full-speed-youtube-video-to-the-commodore-pet) (~30 fps). All do the matching off the machine, as CT2 would.
+- [Escape from PETSCII Castle, write-up](https://setsideb.com/?p=10521): a raycaster in PETSCII on C64 and PET, ~12-15 fps.
+- [8088 MPH](https://trixter.oldskool.org/2015/04/07/8088-mph/): CGA text cells retuned for 160x100; no register values read.
+- Not found: a font ROM's glyphs used as texture tiles on a blitter or 3D surface, a VGA text-mode raycaster, or a named sizecoding intro using the ROM font. A shallow search: "not found", not "never done".
+
+## Order of work (revised 2026-11-05; cloud session's work merged from #59)
+
+Mach8 (M = needs the card, B = bed, C = no machine):
+
+1. **D1 gate (B):** M8D3DT with a palette on its target. Log so far: DX7 lists our 8 bpp HAL (P6 answered);
+   1024x768 target out of video memory; 800x600 and 640x480 `CreateDevice` = `DDERR_NOPALETTEATTACHED`, a test bug.
+2. **D2 (B, then M):** triangles to the polygon fill; hidden-surface sort (D3).
+3. **First 3D bench (M):** same scene through DX7 RGB emulation and our HAL, in fps (#58). Worth having only if ours wins.
+4. **Probes, one sitting (B for pixels, M for time):** M8TEXT (CT2: frame rate, font rewrite, 80x50), M8GLYPH
+   (CT1: stamp cost), M8COLS, M8TEXL, VGATEX, pattern and write-mask lighting (#59 item 9). These decide the
+   next two lines. No driver change.
+5. **B1** 8 bpp full-screen flip, measure `v`; **F5** adaptive palette; profile the ~0.8 ms a face (`-Prof -os`), then A1 asm.
+6. **Video (M, owner's clip):** AVIINFO and the two re-encodes (#59 item 8), no build; then a text-mode player
+   (CT2) or a Video 1 player, whichever the numbers pick.
+7. **Textured demo:** raycaster by M8COLS with CT1's atlas, if step 4 supports it.
+8. G11, G12, D4, then F6, sprite cache, move detection (owner's levers); Phase 6 alongside.
+
+Disk and swap (separate from the Mach8; none of it needs the driver):
+
+1. **Card, no build:** LZ4B variants beside `SWAPPAGE.BIN`, XTSECT baseline x3, IDLECOST `base` x3 (#59 items 1-3).
+2. **PC, no machine:** `sectors.py` over the card's `WIN386.SWP`; never commit that file.
+3. **DDK builds, bed first:** XT-CF `-TightTaskfile`, `-SkipDrvHd`; then SWAPCOMP's winning hash, the 3,070-byte
+   compress abort and zero pages. Expected 0.5-1.5 % on one-sector reads; the owner wants even a fraction.
+4. F0000 cacheable (item 5), DINPROBE (item 7). BlueSCSI (item 6) stays parked until after the Mach8.
