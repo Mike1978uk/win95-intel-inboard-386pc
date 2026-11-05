@@ -170,6 +170,9 @@ static void test( int no, const TEST *t, int seconds )
     HRESULT                 hr;
     double                  t0;
     double                  el;
+    double                  a;
+    double                  b;
+    double                  part[4];            /* our scene, clear, scene calls, Flip */
     unsigned long           frames = 0;
     unsigned long           bad = 0;
     unsigned long           lit = 0;
@@ -209,22 +212,34 @@ static void test( int no, const TEST *t, int seconds )
             s[i] = stat[12 + i];
         }
     }
+    for( i = 0; i < 4; ++i ) {
+        part[i] = 0.0;
+    }
     t0 = now();
+    a = t0;
     do {
         scene( t, (int)frames );
+        b = now();
+        part[0] += b - a;
         if( back->lpVtbl->Blt( back, NULL, NULL, NULL, DDBLT_COLORFILL | DDBLT_WAIT, &fx ) != DD_OK ) {
             ++bad;
         }
+        a = now();
+        part[1] += a - b;
         if( dev->lpVtbl->BeginScene( dev ) != D3D_OK ||
             dev->lpVtbl->DrawPrimitive( dev, D3DPT_TRIANGLELIST, D3DVT_TLVERTEX, tri, 3 * t->n, D3DDP_WAIT ) != D3D_OK ||
             dev->lpVtbl->EndScene( dev ) != D3D_OK ) {
             ++bad;
         }
+        b = now();
+        part[2] += b - a;
         if( prim->lpVtbl->Flip( prim, NULL, DDFLIP_WAIT ) != DD_OK ) {
             ++bad;
         }
+        a = now();
+        part[3] += a - b;
         ++frames;
-        el = (now() - t0) / qpf;
+        el = (a - t0) / qpf;
     } while( el < (double)seconds );
     if( stat != NULL ) {
         for( i = 0; i < 4; ++i ) {
@@ -245,7 +260,9 @@ static void test( int no, const TEST *t, int seconds )
         }
         back->lpVtbl->Unlock( back, NULL );
     }
-    fprintf( out, "%d/%d %-10s %7.1f fps %6.2f ms/frame", no, (int)TEST_COUNT, t->name, frames / el, 1000.0 * el / frames );
+    fprintf( out, "%d/%d %-10s %7.1f fps %6.2f ms/frame  scene %5.2f clear %5.2f d3d %6.2f flipcall %6.2f", no, (int)TEST_COUNT, t->name,
+             frames / el, 1000.0 * el / frames, 1000.0 * part[0] / qpf / frames, 1000.0 * part[1] / qpf / frames,
+             1000.0 * part[2] / qpf / frames, 1000.0 * part[3] / qpf / frames );
     if( s[3] != 0 ) {
         fprintf( out, "  flip %6.2f (16-bit %6.2f, engine %6.2f)", 1000.0 * s[0] / qpf / s[3], 1000.0 * s[1] / qpf / s[3],
                  1000.0 * s[2] / qpf / s[3] );

@@ -423,7 +423,21 @@ a DirectDraw flip alone is ~5 ms. The gains below are *estimates* until measured
 | V13 | DrawOnePrimitive and DrawPrimitives through GetDriverInfo | Skips the runtime's execute-buffer path if V1 shows it matters | velocity9x |
 | V14 | Refresh and raster: present in the blank, refresh chosen so its divisor suits the frame rate | 72 Hz halves to 36, so a slow frame costs a whole refresh; lower refresh leaves the engine more VRAM cycles (S9) | CRT racing, O14 |
 
+| V15 | Shape cache: a shape and colour seen before is kept in card memory and placed by keyed copy (owner: identical shapes repeat) | A few writes, no outline, against ~44 writes | sprites, O7, G6 |
+
 Order: V1; V2-V5, which should need no new ideas; then V10 if the owner sees flicker; then V6-V9, V12; V11 if the rest falls short.
+
+**Colour (owner, 2026-11-05, dxdiag stills `photos/flicker1-8.PNG`):** the "flicker" is a face's two triangles in different block colours, stepping as it
+turns: first-vertex colour through a 5x9x5 cube, red and blue only 5 levels. The owner prefers the crisp hardware look to the software renderer's dither, and
+the driver must still honour the colours a program gives it, so gradients are required, by the engine and undithered:
+
+| # | Step | Cost, *estimate* |
+|---|---|---|
+| C1 | Average the three vertex colours; a triangle whose vertices agree stays one fill | none |
+| C2 | Adaptive palette (F5): the frame's colours and ramps in the DAC, red no longer 5 levels | a few DAC writes when colours change |
+| C3 | Claim `COLORGOURAUDRGB`: a triangle whose vertices differ is drawn as bands, rows or row segments, each one colour | ~3x a flat triangle at 8-row bands; only where colours differ |
+
+Band size is the speed-for-smoothness dial; bench it with a gradient test added to M8D3DF.
 
 ## Order of work (revised 2026-11-05; cloud session's work merged from #59)
 

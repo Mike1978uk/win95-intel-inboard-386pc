@@ -1,0 +1,36 @@
+== M8D3DF nouser1  640x480x16  3 s a test
+ddraw          00000000
+counters found
+coop           00000000
+setmode        00000000
+d3d2           00000000
+flipchain      00000000
+attached       00000000
+1/9 hal_tiny      36.0 fps  27.79 ms/frame  flip  10.12 (16-bit   0.19, engine   9.94)  bad 0  lit 720
+2/9 hal_small     28.9 fps  34.63 ms/frame  flip  13.58 (16-bit   2.77, engine  10.81)  bad 0  lit 8976
+3/9 hal_large     14.2 fps  70.24 ms/frame  flip  28.16 (16-bit   2.95, engine  25.21)  bad 0  lit 80115
+4/9 hal_static   132.2 fps   7.57 ms/frame  flip   0.32 (16-bit   0.04, engine   0.27)  bad 0  lit 720
+5/9 hal_colour    33.3 fps  30.06 ms/frame  flip   9.17 (16-bit   0.21, engine   8.96)  bad 0  lit 720
+6/9 hal_many       9.2 fps 108.16 ms/frame  flip  39.96 (16-bit   4.89, engine  35.07)  bad 0  lit 2880
+7/9 rgb_tiny       2.2 fps 450.27 ms/frame  flip 137.65 (16-bit 137.51, engine   0.14)  bad 0  lit 448
+8/9 rgb_small      1.3 fps 766.04 ms/frame  flip 274.20 (16-bit 274.09, engine   0.12)  bad 0  lit 7936
+9/9 rgb_large      0.4 fps 2290.11 ms/frame  flip 641.36 (16-bit 641.24, engine   0.12)  bad 0  lit 77382
+
+== M8D3DF nouser2  640x480x16  3 s a test
+ddraw          00000000
+counters found
+coop           00000000
+setmode        00000000
+d3d2           00000000
+flipchain      00000000
+attached       00000000
+1/9 hal_tiny      40.9 fps  24.43 ms/frame  flip  11.55 (16-bit   0.14, engine  11.41)  bad 0  lit 720
+2/9 hal_small     27.2 fps  36.70 ms/frame  flip  11.73 (16-bit   2.54, engine   9.20)  bad 0  lit 8976
+3/9 hal_large     25.9 fps  38.64 ms/frame  flip  23.49 (16-bit   0.22, engine  23.27)  bad 0  lit 80105
+4/9 hal_static   152.5 fps   6.56 ms/frame  flip   0.36 (16-bit   0.13, engine   0.22)  bad 0  lit 720
+5/9 hal_colour    27.6 fps  36.26 ms/frame  flip  10.96 (16-bit   1.37, engine   9.60)  bad 0  lit 720
+6/9 hal_many      11.6 fps  86.18 ms/frame  flip  35.72 (16-bit   0.86, engine  34.86)  bad 0  lit 2880
+7/9 rgb_tiny       1.5 fps 662.43 ms/frame  flip 169.75 (16-bit 169.64, engine   0.11)  bad 0  lit 448
+8/9 rgb_small      1.3 fps 781.86 ms/frame  flip 245.58 (16-bit 245.43, engine   0.15)  bad 0  lit 7936
+9/9 rgb_large      0.5 fps 2137.22 ms/frame  flip 565.91 (16-bit 565.80, engine   0.11)  bad 0  lit 77382
+

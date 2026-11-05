@@ -312,6 +312,15 @@ static BYTE m8d3d_index16( DWORD rgb )
     return( (BYTE)(c < 112 ? c + 15 : c == 112 ? 127 : c + 16) );
 }
 
+/* A flat triangle's colour: the mean of its corners, so the two triangles of a
+ * face do not disagree because one corner of each is lit differently. */
+static DWORD m8d3d_mean( DWORD a, DWORD b, DWORD c )
+{
+    return( ((((a >> 16) & 0xFF) + ((b >> 16) & 0xFF) + ((c >> 16) & 0xFF)) / 3) << 16 |
+            ((((a >> 8) & 0xFF) + ((b >> 8) & 0xFF) + ((c >> 8) & 0xFF)) / 3) << 8 |
+            ((a & 0xFF) + (b & 0xFF) + (c & 0xFF)) / 3 );
+}
+
 static WORD m8d3d_565( DWORD rgb )
 {
     return( (WORD)(((rgb >> 8) & 0xF800) | ((rgb >> 5) & 0x07E0) | ((rgb >> 3) & 0x001F)) );
@@ -628,6 +637,7 @@ static DWORD __stdcall m8d3d_render_primitive( M8D3D_RENDERPRIMITIVE *d )
     int                     j;
     int                     ok = 1;
     int                     fb16;
+    DWORD                   rgb;
 
     ++m8d3d_stat[4];
     m8d3d_stat[5] += d->wCount;
@@ -672,13 +682,13 @@ static DWORD __stdcall m8d3d_render_primitive( M8D3D_RENDERPRIMITIVE *d )
             ++m8d3d_stat[10];
             continue;
         }
+        rgb = m8d3d_mean( a[0]->color, a[1]->color, a[2]->color );
         if( fb16 ) {
             /* Described, not drawn: Flip has the engine draw it. */
-            ok = m8d3d_record( m8d3d_lcl( c->target ), v, m8d3d_index16( a[0]->color ),
-                               m8d3d_565( a[0]->color ) );
+            ok = m8d3d_record( m8d3d_lcl( c->target ), v, m8d3d_index16( rgb ), m8d3d_565( rgb ) );
             continue;
         }
-        ok = m8d3d_tri_fit( c, x, y, v, m8d3d_index( a[0]->color ) );
+        ok = m8d3d_tri_fit( c, x, y, v, m8d3d_index( rgb ) );
         ++m8d3d_stat[8];
     }
     if( !fb16 ) {
