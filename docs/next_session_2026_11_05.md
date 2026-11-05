@@ -70,3 +70,10 @@ off; if locks continue silently, sound was only the witness.
 1. Owner picks the route above; then D2: triangles to the polygon fill.
 2. Disk: repeat XTSECT and IDLECOST after `M8IDLE 10 10 600`. LZ4 hash runs are in `docs/captures/2026-11-05_lz4hash/`;
    LZ4B12 did not repeat 10-02 (compress ~5,060 against 4,712 us), so re-baseline before porting: LZ4B12FN looks ~3 % cheaper.
+
+## Card state and the first triangle (2026-11-05)
+
+Card: `M8D3D1` (commit 8878634) at 800x600x8, boot 209. Its first Direct3D triangle is solid: `docs/captures/2026-11-05_d3d_8bpp/M8D3DT_card1.TXT`.
+Going back to `M8FLIP8` at 800x600x16: `C:\V9XREMOTE\REG\M8BACK.REG`, with the old DLL at `C:\V9XREMOTE\REG\M8DD32.BCK`, renamed in by WININIT.INI.
+Bed `vm_5160_mcp`: same source, stock D3DIM in SYSTEM, patched copy in `C:\M8D3D\`, CONFIG.SYS identical to the card's. `vm_5160_now` and `vm_5160_ati` still default to FULL.
+Next: a triangle bench (triangles a second by size, against RGB emulation), then the 16 bpp route.
