@@ -86,3 +86,10 @@ Fixed on the way: `m8dd_dirty` wrote the colour over pixels just drawn once past
 
 Next: the owner watches M8D3DF for flicker; profile a frame; a box per triangle in place of one around all; try dxdiag.
 Open: flip chain targets only, pointer not lifted during replay, nearest colour with no dither, drawn on the visible screen.
+
+## Latest (2026-11-05, evening)
+
+**Every technique is listed for ruling in or out: `docs/mach8_frame_rate_plan.md`, "Direct3D levers".** Goal 60 fps or better on M8D3DF's small tests.
+Card: `M8D3D5` (a46433e) at 800x600x16, boot 213. dxdiag's two Direct3D tests pass, stock DirectX; hardware 20.78 s against software 183.84 s on `M8D3D2`. Owner's rerun on `M8D3D5` pending.
+Owner's reading of the "flicker", from `photos/flicker1-8.PNG`: a face's two triangles in opposing block colours. Crisp undithered look preferred; gradients required (C1-C3).
+Next: the build in the working tree (`%TEMP%\m8next`, not on the card) times inside Blt: find why the black clear costs 5-35 ms.

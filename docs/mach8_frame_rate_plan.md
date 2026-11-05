@@ -439,6 +439,44 @@ the driver must still honour the colours a program gives it, so gradients are re
 
 Band size is the speed-for-smoothness dial; bench it with a gradient test added to M8D3DF.
 
+### Direct3D levers: every one is ruled in or out by a card number (owner, 2026-11-05)
+
+Bench: `M8D3DF` twice after `M8IDLE`; dxdiag's hardware test by the owner's video (20.78 s on `M8D3D2`). Status: IN measured gain, OUT measured none, OPEN not tried.
+A cheaper agent can run the prescribed benches and probes; diagnosis and engine sequences stay with the main session.
+
+| # | Technique | Status |
+|---|---|---|
+| V1 | Stage timing | IN: `M8D3DF` splits scene, clear, DirectX calls, Flip |
+| V1b | Null HAL for DirectX's own floor | OPEN; hal_static suggests ~5 ms for 16 triangles |
+| V2 | No 16-bit trip on a black-clear flip | IN: with V3 and V4, hal_tiny 8-18 to 28-46 fps |
+| V3 | A box per triangle | IN, with V2 |
+| V4 | Fingerprints dropped once | IN, with V2 |
+| V8a | A frame identical to the card's draws nothing | IN: hal_static 42 to 96-152 fps |
+| - | USER call per triangle removed | OUT as a cost: no change; kept out anyway |
+| V16 | **The black clear's 5-35 ms** (should be ~1) | OPEN, biggest target; `Blt` timing built, not yet run |
+| V5 | Scratch clear without an idle wait | OPEN |
+| V6 | Spans for small triangles | OPEN |
+| V7 | Coplanar triangles joined into one polygon | OPEN |
+| V8b | Per-triangle reuse when only some moved | OPEN |
+| V9 | Background and repeated tiles in card memory | OPEN |
+| V10 | Two pages, Flip = CRT_OFFSET | OPEN; no longer the flicker fix (C1-C3 are) |
+| V11 | 320x240 Direct3D mode | OPEN |
+| V12 | Asm emitters, values in registers before the first OUT | OPEN |
+| V13 | DrawOnePrimitive and DrawPrimitives by GetDriverInfo | OPEN; DirectX calls cost ~0.3 ms a triangle |
+| V14 | Refresh rate and presenting in the blank | OPEN |
+| V15 | Shape cache: same outline and colour, keyed copy | OPEN |
+| V17 | **Shade and hue split:** low 4 bits shade, high 4 hue; a face's colour is one fill with WRT_MASK F0h; light changes are DAC writes (owner: same gradient, different colour). Masked-write cost unknown (WRITE_PER_BIT = 0) | OPEN, probe first |
+| V18 | **High-byte-only writes:** one low-byte latch, the odd byte commits; ~5.7 against 7.64 us on the bus, so order writes to share low bytes (owner: words and bytes, as XT-CF; P13) | OPEN, probe first |
+| V19 | **Fewer status reads:** a read costs what a write does; a triangle does 3-4; wait on known engine time (XT-CF's measured waits; O15). A full FIFO locks the card, so a table first | OPEN |
+| V20 | Triangle arrays sized sensibly: tens of KB for 512 a buffer | OPEN; RAM, not speed |
+| V21 | Engine as decompressor: fills as run length, mono expansion 8:1, copies as a dictionary (owner: compression on the card; G9, O8). The card has no CPU, so LZ4 itself is OUT | OPEN, for textures and video |
+| V22 | Patched D3DIM beside a program for 8 bpp | IN: works on the bed and card, stock system DirectX |
+| V23 | 8 bpp mode as an option, by display depth | OPEN; a bench decides if it earns its place |
+| C1 | Mean of corner colours | Built on `M8D3D5`; dxdiag video pending |
+| C2 | Adaptive palette | OPEN |
+| C3 | Gradient bands, `COLORGOURAUDRGB` | OPEN; required (owner) |
+| CT3 | Cell texturing from a glyph codebook | OPEN, after dxdiag's needs are known |
+
 ## Order of work (revised 2026-11-05; cloud session's work merged from #59)
 
 Mach8 (M = needs the card, B = bed, C = no machine):

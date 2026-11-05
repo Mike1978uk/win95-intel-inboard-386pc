@@ -29,3 +29,5 @@ Baseline for this build. Next: M8D3DS before and after a run gives exact flips, 
 **`M8D3DF_fast.TXT`, `M8D3D3`, boot 211, M8IDLE settled:** per-triangle boxes and no 16-bit side on a black frame took hal_tiny from 8-18 to 28-46 fps. Frame ~22-35 ms; Flip ~10, 16-bit part ~1; the rest is outside Flip, growing ~1 ms a triangle (hal_many). Run-to-run spread still large on the small tests.
 
 **`M8D3DF_nouser.TXT`, `M8D3D4`, boot 212:** hal_static 132-152 fps (a frame identical to the card's draws nothing). Moving tests unchanged, so the USER call was not the cost. Outside Flip ~7 ms static, ~15 ms moving: unexplained.
+
+**`M8D3DF_split.TXT`, `M8D3D5`, boot 213:** frame by stage. The black clear costs 5-35 ms, growing with what was drawn, and ~1.3 ms when nothing was: unexplained, biggest target. DirectX calls ~0.3 ms a triangle plus ~2 ms.
