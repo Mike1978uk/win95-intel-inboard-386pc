@@ -472,6 +472,7 @@ A cheaper agent can run the prescribed benches and probes; diagnosis and engine 
 | V21 | Engine as decompressor: fills as run length, mono expansion 8:1, copies as a dictionary (owner: compression on the card; G9, O8). The card has no CPU, so LZ4 itself is OUT | OPEN, for textures and video |
 | V22 | Patched D3DIM beside a program for 8 bpp | IN: works on the bed and card, stock system DirectX |
 | V23 | 8 bpp mode as an option, by display depth | OPEN; a bench decides if it earns its place |
+| V24 | Background threads | IN: the V9x agent, not delivered with the driver, takes up to half the CPU; stopped, hal_tiny 70 fps at normal priority. Systray and Internat no measurable cost; `high` not needed |
 | C1 | Mean of corner colours | Built on `M8D3D5`; dxdiag video pending |
 | C2 | Adaptive palette | OPEN |
 | C3 | Gradient bands, `COLORGOURAUDRGB` | OPEN; required (owner) |

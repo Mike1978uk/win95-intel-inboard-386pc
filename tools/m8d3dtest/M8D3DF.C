@@ -5,7 +5,11 @@
  * pixels counted. Results append to C:\M8D3DF.TXT, with the time inside Flip from the
  * driver's counters.
  *
- *   M8D3DF <label> [seconds per test, default 3] [high]
+ *   M8D3DF <label> [seconds per test, default 3] [norm|high|rt] [hal]
+ *
+ * high is HIGH_PRIORITY_CLASS, which a game could use; rt holds off everything but
+ * interrupts, and starves sound and network. hal leaves out the slow software tests.
+ * Spin lines show what other threads take with no DirectX call being made.
  *
  * Build: wcl386 -q -bt=nt -l=nt_win -ox -i=<watcom>h -i=<watcom>h\nt -i=<watcom>h\nt\directx
  *        -fe=M8D3DF.EXE M8D3DF.C ddraw.lib
@@ -26,6 +30,9 @@ static const GUID m8_iid_rgb = { 0xa4665c60, 0x2673, 0x11cf, { 0xa3, 0x1a, 0x00,
 #define SCR_H       480
 #define MAX_TRIS    64
 #define M8_DLL_BASE 0xB0C00000UL
+#define SPIN_SECONDS 2.0
+#define SPIN_GAP_MS 0.5                 /* more than the clock read and the timer tick */
+#define SLOW_FRAME_MS 16.67
 
 enum { MOVING = 1, ONE_COLOUR = 2 };
 
@@ -50,6 +57,7 @@ static const TEST tests[] = {
     { "rgb_large",  "software: 16 triangles, 100 px",   &m8_iid_rgb, 16, 100, MOVING }
 };
 #define TEST_COUNT  (sizeof( tests ) / sizeof( tests[0] ))
+#define HAL_TESTS   6
 
 static FILE                 *out;
 static LPDIRECTDRAW         dd;
@@ -71,6 +79,35 @@ static double now( void )
 static void say( const char *what, HRESULT hr )
 {
     fprintf( out, "%-14s %08lx\n", what, (unsigned long)hr );
+    fflush( out );
+}
+
+/* The time this thread did not run: a tight loop on the clock, its long gaps taken. */
+static void spin( const char *where )
+{
+    double          t0 = now();
+    double          a = t0;
+    double          b;
+    double          gap;
+    double          lost = 0.0;
+    double          worst = 0.0;
+    double          gap_ticks = SPIN_GAP_MS * qpf / 1000.0;
+    unsigned long   gaps = 0;
+
+    do {
+        b = now();
+        gap = b - a;
+        if( gap > gap_ticks ) {
+            lost += gap;
+            ++gaps;
+            if( gap > worst ) {
+                worst = gap;
+            }
+        }
+        a = b;
+    } while( (b - t0) / qpf < SPIN_SECONDS );
+    fprintf( out, "spin %-11s lost %5.1f %%  %5lu gaps  worst %6.2f ms\n", where, 100.0 * lost / (b - t0), gaps,
+             1000.0 * worst / qpf );
     fflush( out );
 }
 
@@ -176,6 +213,9 @@ static void test( int no, const TEST *t, int seconds )
     unsigned long           frames = 0;
     unsigned long           bad = 0;
     unsigned long           lit = 0;
+    unsigned long           slow = 0;
+    double                  frame0;
+    double                  worst = 0.0;
     DWORD                   s[7];
     int                     x;
     int                     y;
@@ -218,6 +258,7 @@ static void test( int no, const TEST *t, int seconds )
     t0 = now();
     a = t0;
     do {
+        frame0 = a;
         scene( t, (int)frames );
         b = now();
         part[0] += b - a;
@@ -239,6 +280,12 @@ static void test( int no, const TEST *t, int seconds )
         a = now();
         part[3] += a - b;
         ++frames;
+        if( (a - frame0) * 1000.0 / qpf > SLOW_FRAME_MS ) {
+            ++slow;
+        }
+        if( a - frame0 > worst ) {
+            worst = a - frame0;
+        }
         el = (a - t0) / qpf;
     } while( el < (double)seconds );
     if( stat != NULL ) {
@@ -268,7 +315,7 @@ static void test( int no, const TEST *t, int seconds )
                  1000.0 * s[2] / qpf / s[3] );
         fprintf( out, "  blt %5.2f calls %lu described %lu", 1000.0 * s[4] / qpf / s[3], (unsigned long)s[5], (unsigned long)s[6] );
     }
-    fprintf( out, "  bad %lu  lit %lu\n", bad, lit );
+    fprintf( out, "  bad %lu  lit %lu  over16.7ms %lu/%lu  worst %.1f\n", bad, lit, slow, frames, 1000.0 * worst / qpf );
     fflush( out );
     vp->lpVtbl->Release( vp );
     dev->lpVtbl->Release( dev );
@@ -287,7 +334,9 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
     DDSCAPS             caps;
     LARGE_INTEGER       f;
     char                label[32];
-    char                high[8];
+    char                prio[8];
+    char                which[8];
+    int                 count = (int)TEST_COUNT;
     int                 seconds = 3;
     int                 i;
     HRESULT             hr;
@@ -297,16 +346,22 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
         return( 1 );
     }
     label[0] = '\0';
-    high[0] = '\0';
-    sscanf( cmd, "%31s %d %7s", label, &seconds, high );
+    strcpy( prio, "norm" );
+    which[0] = '\0';
+    sscanf( cmd, "%31s %d %7s %7s", label, &seconds, prio, which );
     QueryPerformanceFrequency( &f );
     qpf = (double)f.LowPart;
-    /* "high": other threads held off, to see what time they take from a frame. */
-    if( high[0] != '\0' ) {
+    if( strcmp( prio, "high" ) == 0 ) {
+        SetPriorityClass( GetCurrentProcess(), HIGH_PRIORITY_CLASS );
+    } else if( strcmp( prio, "rt" ) == 0 ) {
         SetPriorityClass( GetCurrentProcess(), REALTIME_PRIORITY_CLASS );
         SetThreadPriority( GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL );
     }
-    fprintf( out, "== M8D3DF %s  640x480x16  %d s a test  %s\n", label, seconds, high[0] ? "high priority" : "" );
+    if( strcmp( which, "hal" ) == 0 ) {
+        count = HAL_TESTS;
+    }
+    fprintf( out, "== M8D3DF %s  640x480x16  %d s a test  priority %s\n", label, seconds, prio );
+    spin( "desktop" );
     memset( &wc, 0, sizeof( wc ) );
     wc.lpfnWndProc = wndproc;
     wc.hInstance = inst;
@@ -336,9 +391,11 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
         if( hr == DD_OK ) {
             caps.dwCaps = DDSCAPS_BACKBUFFER;
             say( "attached", prim->lpVtbl->GetAttachedSurface( prim, &caps, &back ) );
-            for( i = 0; i < (int)TEST_COUNT; ++i ) {
+            spin( "fullscreen" );
+            for( i = 0; i < count; ++i ) {
                 test( i + 1, &tests[i], seconds );
             }
+            spin( "after" );
             prim->lpVtbl->Release( prim );
         }
         d3d->lpVtbl->Release( d3d );

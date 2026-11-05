@@ -1,0 +1,98 @@
+== stop -, run C:\M8D3DF.EXE A1 3 norm hal
+memory phys 4996 KB, free 0 KB, page file used 6316 KB
+ffcf3c77 class 13 threads  4  C:\WINDOWS\SYSTEM\KERNEL32.DLL
+   priorities 13 13 28 13
+ffffd173 class  8 threads  1  C:\WINDOWS\SYSTEM\MSGSRV32.EXE
+   priorities 8
+ffffc0cf class  8 threads  1  C:\WINDOWS\SYSTEM\MPREXE.EXE
+   priorities 8
+ffffe89f class  8 threads  1  C:\WINDOWS\SYSTEM\mmtask.tsk
+   priorities 8
+ffffa7ab class  8 threads  2  C:\WINDOWS\EXPLORER.EXE
+   priorities 8 8
+fffc4833 class  8 threads  1  C:\WINDOWS\SYSTEM\SYSTRAY.EXE
+   priorities 8
+fffc78f7 class  8 threads  1  C:\WINDOWS\SYSTEM\INTERNAT.EXE
+   priorities 8
+fffc4dbb class  8 threads  2  C:\V9XREMOTE\V9XAGNT.EXE
+   priorities 8 8
+fffc9ea3 class  8 threads  1  C:\V9XREMOTE\M8QUIET.EXE
+   priorities 8
+bench finished
+done
+
+== stop V9XAGNT.EXE, run C:\M8D3DF.EXE B1 3 norm hal
+stopped C:\V9XREMOTE\V9XAGNT.EXE
+memory phys 4996 KB, free 208 KB, page file used 6288 KB
+ffcf3c77 class 13 threads  4  C:\WINDOWS\SYSTEM\KERNEL32.DLL
+   priorities 13 13 28 13
+ffffd173 class  8 threads  1  C:\WINDOWS\SYSTEM\MSGSRV32.EXE
+   priorities 8
+ffffc0cf class  8 threads  1  C:\WINDOWS\SYSTEM\MPREXE.EXE
+   priorities 8
+ffffe89f class  8 threads  1  C:\WINDOWS\SYSTEM\mmtask.tsk
+   priorities 8
+ffffa7ab class  8 threads  2  C:\WINDOWS\EXPLORER.EXE
+   priorities 8 8
+fffc4833 class  8 threads  1  C:\WINDOWS\SYSTEM\SYSTRAY.EXE
+   priorities 8
+fffc78f7 class  8 threads  1  C:\WINDOWS\SYSTEM\INTERNAT.EXE
+   priorities 8
+fffceb2f class 24 threads  2  C:\WINDOWS\SYSTEM\DDHELP.EXE
+   priorities 24 9
+fffc9907 class  8 threads  1  C:\V9XREMOTE\M8QUIET.EXE
+   priorities 8
+bench finished
+started C:\V9XREMOTE\V9XAGNT.EXE -service
+done
+
+== stop V9XAGNT.EXE,SYSTRAY.EXE,INTERNAT.EXE, run C:\M8D3DF.EXE C1 3 norm hal
+stopped C:\WINDOWS\SYSTEM\SYSTRAY.EXE
+stopped C:\WINDOWS\SYSTEM\INTERNAT.EXE
+stopped C:\V9XREMOTE\V9XAGNT.EXE
+memory phys 4996 KB, free 124 KB, page file used 6064 KB
+ffcf3c77 class 13 threads  4  C:\WINDOWS\SYSTEM\KERNEL32.DLL
+   priorities 13 13 28 13
+ffffd173 class  8 threads  1  C:\WINDOWS\SYSTEM\MSGSRV32.EXE
+   priorities 8
+ffffc0cf class  8 threads  1  C:\WINDOWS\SYSTEM\MPREXE.EXE
+   priorities 8
+ffffe89f class  8 threads  1  C:\WINDOWS\SYSTEM\mmtask.tsk
+   priorities 8
+ffffa7ab class  8 threads  2  C:\WINDOWS\EXPLORER.EXE
+   priorities 8 8
+fffceb2f class 24 threads  2  C:\WINDOWS\SYSTEM\DDHELP.EXE
+   priorities 24 9
+fffd6c4f class  8 threads  1  C:\V9XREMOTE\M8QUIET.EXE
+   priorities 8
+bench finished
+started C:\WINDOWS\SYSTEM\SYSTRAY.EXE
+started C:\WINDOWS\SYSTEM\INTERNAT.EXE
+started C:\V9XREMOTE\V9XAGNT.EXE -service
+done
+
+== stop -, run C:\M8D3DF.EXE D1 3 high hal
+memory phys 4996 KB, free 0 KB, page file used 7160 KB
+ffcf3c77 class 13 threads  4  C:\WINDOWS\SYSTEM\KERNEL32.DLL
+   priorities 13 13 28 13
+ffffd173 class  8 threads  1  C:\WINDOWS\SYSTEM\MSGSRV32.EXE
+   priorities 8
+ffffc0cf class  8 threads  1  C:\WINDOWS\SYSTEM\MPREXE.EXE
+   priorities 8
+ffffe89f class  8 threads  1  C:\WINDOWS\SYSTEM\mmtask.tsk
+   priorities 8
+ffffa7ab class  8 threads  2  C:\WINDOWS\EXPLORER.EXE
+   priorities 8 8
+fffceb2f class 24 threads  2  C:\WINDOWS\SYSTEM\DDHELP.EXE
+   priorities 24 9
+ffffa56b class  8 threads  1  C:\WINDOWS\SYSTEM\SYSTRAY.EXE
+   priorities 8
+ffffe2cf class  8 threads  1  C:\WINDOWS\SYSTEM\INTERNAT.EXE
+   priorities 8
+fffce247 class  8 threads  2  C:\V9XREMOTE\V9XAGNT.EXE
+   priorities 8 8
+fffd69a3 class  8 threads  1  C:\V9XREMOTE\M8QUIET.EXE
+   priorities 8
+bench finished
+done
+
