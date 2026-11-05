@@ -23,9 +23,13 @@ M8D3DT draws off-screen and logs: nothing on screen is expected.
 
 DX7 lists `Direct3D HAL` model 2 (RGB), depth `0800` (DDBD_8), shade `08` (COLORFLATRGB): P6 answered yes.
 
-With a palette (`bed2`): `createdevice 88760082` = DDERR_INVALIDOBJECT. Cause not found. velocity9x's ContextCreate
-has the same shape and needs no GetDriverInfo for this step. Next measurement: `m8d3d_stat` shows whether the runtime
-reached ContextCreate.
+With a palette (`bed2`): `createdevice 88760082` = DDERR_INVALIDOBJECT. Counters (`M8D3DT bed5 b0c0ba0c`, the
+address of `m8d3d_stat`: re-derive it from the DLL's exports after each build): **ContextCreate 0, ContextDestroy 1,
+nothing else.** The runtime refuses before our context code, so the callback layouts are not the cause. velocity9x's
+probe creates its target the same way, with OFFSCREENPLAIN in its caps; its target is 16 bpp.
+`LoadLibrary("M8DD32.DLL")` from the test hangs the process: do not repeat. The DLL is not a module of the test's
+process. D3DIM.DLL holds 110 copies of this error code, mostly parameter checks, so a search alone does not locate
+it: trace `CreateDevice` in the bed's debugger instead, and check which of D3DIM and D3DIM700 runs.
 
 dxdiag: velocity9x reports its Direct3D test failing at "step 44 (EnumTextureFormats)" with HRESULT 0, on a driver
 with no texture format matching the display; its cause is an unproven lead

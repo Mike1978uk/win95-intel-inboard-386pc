@@ -375,7 +375,20 @@ CPU texture loop from L1 without a refill per write. The VGA half takes pixels b
 texture can stay in L1 through the loop: VGATEX (#59 item 9) tests this. Whether a write to A0000 leaves the L1
 intact is the question it must answer.
 
-Direct3D does not get these directly: a HAL must draw any triangle. They serve our own demos and players first.
+**Direct3D textures in silicon (owner, 2026-11-05: engine first, software only as the last resort).** The engine
+cannot step a source per pixel (M8TEXL is the one open test), so exact textures on any triangle are out of its reach
+unless that probe surprises us. Order for a textured triangle:
+
+| # | Path | Case | Silicon |
+|---|---|---|---|
+| TX1 | Blit from card memory, 1:1 or pre-scaled | upright quads, sprites, walls by column | blit, source compare |
+| TX2 | M8TEXL's line or span from a source, if it works | floors, runs at 1:1 | `DP_CONFIG` source (unknown) |
+| CT3 | **Cell texturing:** split the triangle into 8x8 screen cells; the CPU finds each cell's texels (perspective at the corners) and picks a tile from a codebook built at texture load, ROM glyphs included, plus two colours; the engine fills or stamps it | any triangle, approximate | fill, mono expansion from card memory |
+| TX3 | Pixels from the CPU | exact mode only, or small triangles where it is cheaper | none |
+
+CT3 *estimate*: ~25-30 us a cell, so a 100x100 triangle is ~5 ms against ~30 ms of pixels (3 us each); a 4x4 cell
+~17 ms; below about 10 px on a side, sending pixels may be cheaper. Rotated textures lose detail. Probe M8CELL, with
+step 4's probes. Lighting and blending stay on the engine too: palette ramps, write mask, arithmetic mixes, DEST_CMP_FN.
 
 **Prior art (web search, 2026-11-05; shallow, most pages read as search snippets):**
 - [8088 Corruption file format](https://wiki.multimedia.cx/index.php/8088_Corruption_DAT): CGA 40x25 text with the BIOS 8x8 font as the
