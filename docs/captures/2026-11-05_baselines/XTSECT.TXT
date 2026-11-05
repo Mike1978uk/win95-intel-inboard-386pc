@@ -1,0 +1,27 @@
+XTSECT base, drive C:, 500 reads, start 20000, stride 37, QPC 1193180 Hz
+  pass  sectors/read  us/read(mean)  min  max  us/sector
+     1             1          13727  9964  278209      13727
+     1             8          22129  10785  86212       2766
+     2             1          11975  9966  105248      11975
+     2             8          21931  10783  100969       2741
+     3             1          12161  9964  225112      12161
+     3             8          22273  10787  151196       2784
+
+XTSECT base, drive C:, 500 reads, start 20000, stride 37, QPC 1193180 Hz
+  pass  sectors/read  us/read(mean)  min  max  us/sector
+     1             1          13063  9981  174783      13063
+     1             8          22404  10792  167484       2800
+     2             1          11959  9975  91226      11959
+     2             8          21941  10792  88780       2742
+     3             1          11813  9979  66518      11813
+     3             8          22498  10778  331611       2812
+
+XTSECT base, drive C:, 500 reads, start 20000, stride 37, QPC 1193180 Hz
+  pass  sectors/read  us/read(mean)  min  max  us/sector
+     1             1          13617  9976  129109      13617
+     1             8          21960  10787  82935       2745
+     2             1          12194  9975  146381      12194
+     2             8          22055  10785  161683       2756
+     3             1          11663  9989  68779      11663
+     3             8          22341  10781  88524       2792
+

@@ -23,7 +23,25 @@ M8D3DT draws off-screen and logs: nothing on screen is expected.
 
 DX7 lists `Direct3D HAL` model 2 (RGB), depth `0800` (DDBD_8), shade `08` (COLORFLATRGB): P6 answered yes.
 
+With a palette (`bed2`): `createdevice 88760082` = DDERR_INVALIDOBJECT. Cause not found. velocity9x's ContextCreate
+has the same shape and needs no GetDriverInfo for this step. Next measurement: `m8d3d_stat` shows whether the runtime
+reached ContextCreate.
+
+dxdiag: velocity9x reports its Direct3D test failing at "step 44 (EnumTextureFormats)" with HRESULT 0, on a driver
+with no texture format matching the display; its cause is an unproven lead
+(`references/velocity9x/docs/issues/2026-09-02-dxdiag-fails-at-enumtextureformats.md`). Expect to publish a format.
+
+## Sound loop lock (#55): third report
+
+Card, 2026-11-05: locked with the Windows startup sound looping; shutdown and reboot cleared it, next boot normal.
+Earlier: 16 bpp restart looping the shutdown sound (#55); first DirectX installer run with a constant tone
+(`next_session_2026_11_02.md:172`). The loop is the Sound Blaster repeating its auto-init DMA buffer, so it marks
+that the CPU stopped servicing it while a sound played, not that sound is the fault. All three began after our
+driver reached the card; none is tied to it by evidence. Owner: new behaviour. Not reproduced in the bed.
+Missing: how often, and the driver and mode at each lock. Test when it recurs: same boot with the sound scheme
+off; if locks continue silently, sound was only the witness.
+
 ## Next
 
-1. Bed: `C:\M8D3DT.EXE bed2`, read the log. Gate: `createdevice 00000000`.
+1. Bed: rebuilt `M8D3DT`, read `hal ctx` in the log. Gate: `createdevice 00000000`.
 2. D2: triangles to the polygon fill.
