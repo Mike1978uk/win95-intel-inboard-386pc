@@ -258,8 +258,8 @@ static M8D3D_CONTEXT    m8d3d_ctx[M8D3D_CONTEXTS];
  * [6] the last target surface, [7] the last Z surface, [8] triangles drawn,
  * [9] culled, [10] refused: outside the target, [11] calls refused. Performance
  * counter ticks in Flip at 16 bpp: [12] all, [13] the 16-bit side, [14] erase and
- * triangles; [15] flips. */
-DWORD                   m8d3d_stat[16];
+ * triangles; [15] flips; in Blt: [16] ticks, [17] calls, [18] full clears described. */
+DWORD                   m8d3d_stat[20];
 
 static LPVOID m8d3d_lcl( LPVOID surface_int )
 {
@@ -326,8 +326,8 @@ static WORD m8d3d_565( DWORD rgb )
     return( (WORD)(((rgb >> 8) & 0xF800) | ((rgb >> 5) & 0x07E0) | ((rgb >> 3) & 0x001F)) );
 }
 
-/* The outline's pixels in one plane; an XOR, so where both edges fall on one pixel
- * of a row they cancel and the fill skips the row rather than running to its end. */
+/* The outline over the fill, which supplies its top and bottom rows and the rows an
+ * apex emptied. */
 static int m8d3d_outline( int ox, int oy, const short *v, WORD alu, WORD opt, WORD colour, WORD mask )
 {
     int i;
@@ -344,6 +344,48 @@ static int m8d3d_outline( int ox, int oy, const short *v, WORD alu, WORD opt, WO
     for( i = 0; i < 4; ++i ) {
         outpw( M8_LINEDRAW, ox + v[2 * (i % 3)] );      /* the last closes the figure */
         outpw( M8_LINEDRAW, oy + v[2 * (i % 3) + 1] );
+    }
+    return( 1 );
+}
+
+/* The fill's outline in one plane of the scratch: each edge top to bottom without its
+ * last row, so every row between top and bottom holds exactly two pixels. Drawn as a
+ * closed figure, the row of the middle vertex can hold three, and the fill then runs
+ * from the third to the end of the row. XOR, so an apex row's two pixels cancel. */
+static int m8d3d_edges( int ox, int oy, const short *v, WORD plane )
+{
+    int i;
+    int a;
+    int b;
+
+    if( !m8d3d_room( 6 ) ) {
+        return( 0 );
+    }
+    outpw( M8_WRT_MASK, plane );
+    outpw( M8_FRGD_COLOR, 0x00FF );
+    outpw( M8_DP_CONFIG, M8_DP_8514 );
+    outpw( M8_ALU_FG_FN, M8_MIX_XOR );
+    outpw( M8_LINEDRAW_OPT, M8_LINEDRAW_POLY | M8_LINEDRAW_LAST_OFF );
+    for( i = 0; i < 3; ++i ) {
+        a = 2 * i;
+        b = 2 * ((i + 1) % 3);
+        if( v[a + 1] == v[b + 1] ) {
+            continue;
+        }
+        if( v[a + 1] > v[b + 1] ) {
+            int t = a;
+
+            a = b;
+            b = t;
+        }
+        if( !m8d3d_room( 5 ) ) {
+            return( 0 );
+        }
+        outpw( M8_LINEDRAW_INDEX, 0 );
+        outpw( M8_LINEDRAW, ox + v[a] );
+        outpw( M8_LINEDRAW, oy + v[a + 1] );
+        outpw( M8_LINEDRAW, ox + v[b] );
+        outpw( M8_LINEDRAW, oy + v[b + 1] );
     }
     return( 1 );
 }
@@ -379,8 +421,7 @@ static int m8d3d_tri( M8D3D_CONTEXT *c, int dx, int dy, const short *v, BYTE col
     /* Rows strictly between top and bottom only: an apex row can hold one outline
      * pixel, and the fill would run to the end of the row. */
     if( b - t >= 2 ) {
-        if( !m8d3d_outline( sx, sy, v, M8_MIX_XOR, M8_LINEDRAW_POLY | M8_LINEDRAW_LAST_OFF,
-                            0x00FF, plane ) ) {
+        if( !m8d3d_edges( sx, sy, v, plane ) ) {
             return( 0 );
         }
         if( !m8d3d_room( 15 ) ) {

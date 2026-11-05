@@ -950,8 +950,7 @@ static void m8_fb16_zero( WORD sel, DWORD dwords );
 #pragma aux m8_fb16_zero = ".386" "push es" "mov es, dx" "shl ecx, 16" "mov cx, bx" "xor edi, edi" "xor eax, eax" "cld" "db 67h, 0F3h, 66h, 0ABh" "pop es" parm [dx] [cx bx] modify [ax cx di];
 
 /* A new size: what the frame buffer holds is at the old pitch, and a program
- * that only erases what it moves keeps it as its background. Black, as a mode
- * set leaves video memory. */
+ * that only erases what it moves keeps it as its background. */
 void m8_fb16_clear( void )
 {
     if( m8_fb16_msel != 0 ) {
@@ -1122,11 +1121,14 @@ void m8_fb16_batch( const WORD FAR *in, DWORD FAR *out )
 }
 
 /* The whole frame buffer to the card, after the mode is set: what the card
- * held, the pointer and its masks among it, is gone. */
+ * held, the pointer and its masks among it, is gone. A mode set does not clear
+ * video memory, and the send takes a visible time row by row, so one fill first
+ * or the old contents show as static at the new pitch. */
 void m8_fb16_send_all( void )
 {
     m8_hw_set_palette( 0, 256, m8_fb16_pal );
     m8_cur_reset();
+    m8_hw_fill( 0, 0, m8_scr_x, m8_scr_y, 0 );
     m8_fb16_forget( 0, 0, m8_scr_x, m8_scr_y );
     m8_fb16_send( 0, 0, m8_scr_x, m8_scr_y );
 }

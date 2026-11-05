@@ -30,7 +30,7 @@
 extern void m8d3d_init( DWORD *global, DWORD *callbacks );
 extern void m8d3d_replay( const RECT *erase, int erase_n, BYTE black, const short *v,
                           const WORD *index, int n );
-extern DWORD m8d3d_stat[16];
+extern DWORD m8d3d_stat[20];
 
 /* The head of dd16.c's M8DD_SHARE. */
 #pragma pack( push, 1 )
@@ -1123,6 +1123,7 @@ static DWORD m8dd_blt16_do( M8DD_BLT *bd )
             m8dd_desc[dk].colour = fillc;
             m8dd_desc[dk].n = 0;
             m8dd_tri_n[dk] = 0;
+            ++m8d3d_stat[18];
             bd->ddRVal = DD_OK;
             return( DDHAL_DRIVER_HANDLED );
         }
@@ -1239,8 +1240,16 @@ static DWORD m8dd_blt16_do( M8DD_BLT *bd )
  * left that no longer matches their pixels. */
 static DWORD m8dd_blt16( M8DD_BLT *bd )
 {
-    DWORD   rc = m8dd_blt16_do( bd );
-    int     k;
+    LARGE_INTEGER   t0;
+    LARGE_INTEGER   t1;
+    DWORD           rc;
+    int             k;
+
+    QueryPerformanceCounter( &t0 );
+    rc = m8dd_blt16_do( bd );
+    QueryPerformanceCounter( &t1 );
+    m8d3d_stat[16] += t1.LowPart - t0.LowPart;
+    ++m8d3d_stat[17];
 
     if( rc == DDHAL_DRIVER_NOTHANDLED ) {
         if( (k = m8dd_buf( bd->lpDDDestSurface )) >= 0 ) {

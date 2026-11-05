@@ -176,7 +176,7 @@ static void test( int no, const TEST *t, int seconds )
     unsigned long           frames = 0;
     unsigned long           bad = 0;
     unsigned long           lit = 0;
-    DWORD                   s[4];
+    DWORD                   s[7];
     int                     x;
     int                     y;
     int                     i;
@@ -208,7 +208,7 @@ static void test( int no, const TEST *t, int seconds )
     fx.dwSize = sizeof( fx );
     memset( s, 0, sizeof( s ) );
     if( stat != NULL ) {
-        for( i = 0; i < 4; ++i ) {
+        for( i = 0; i < 7; ++i ) {
             s[i] = stat[12 + i];
         }
     }
@@ -242,7 +242,7 @@ static void test( int no, const TEST *t, int seconds )
         el = (a - t0) / qpf;
     } while( el < (double)seconds );
     if( stat != NULL ) {
-        for( i = 0; i < 4; ++i ) {
+        for( i = 0; i < 7; ++i ) {
             s[i] = stat[12 + i] - s[i];
         }
     }
@@ -266,6 +266,7 @@ static void test( int no, const TEST *t, int seconds )
     if( s[3] != 0 ) {
         fprintf( out, "  flip %6.2f (16-bit %6.2f, engine %6.2f)", 1000.0 * s[0] / qpf / s[3], 1000.0 * s[1] / qpf / s[3],
                  1000.0 * s[2] / qpf / s[3] );
+        fprintf( out, "  blt %5.2f calls %lu described %lu", 1000.0 * s[4] / qpf / s[3], (unsigned long)s[5], (unsigned long)s[6] );
     }
     fprintf( out, "  bad %lu  lit %lu\n", bad, lit );
     fflush( out );

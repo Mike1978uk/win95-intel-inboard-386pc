@@ -93,3 +93,5 @@ Open: flip chain targets only, pointer not lifted during replay, nearest colour 
 Card: `M8D3D5` (a46433e) at 800x600x16, boot 213. dxdiag's two Direct3D tests pass, stock DirectX; hardware 20.78 s against software 183.84 s on `M8D3D2`. Owner's rerun on `M8D3D5` pending.
 Owner's reading of the "flicker", from `photos/flicker1-8.PNG`: a face's two triangles in opposing block colours. Crisp undithered look preferred; gradients required (C1-C3).
 Next: the build in the working tree (`%TEMP%\m8next`, not on the card) times inside Blt: find why the black clear costs 5-35 ms.
+
+Card hung 2026-11-05 about 15:45 during the second M8D3DF run on `M8D3D6` (boot 214): first run finished, agent stopped answering, ping still answered, not back in 9 minutes. Owner to report the screen and any sound, and restart. `C:\M8D3DF.TXT` holds run 1.
