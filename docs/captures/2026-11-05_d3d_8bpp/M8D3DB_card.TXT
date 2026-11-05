@@ -1,0 +1,16 @@
+== M8D3DB card1
+HAL   16 x   8 px      61.3 fps       980 tri/s     16.33 ms/frame  bad 0
+HAL   16 x  32 px      71.8 fps      1149 tri/s     13.92 ms/frame  bad 0
+HAL   16 x 100 px      46.9 fps       750 tri/s     21.34 ms/frame  bad 0
+RGB   16 x   8 px       6.7 fps       106 tri/s    150.34 ms/frame  bad 0
+RGB   16 x  32 px       5.6 fps        90 tri/s    178.05 ms/frame  bad 0
+RGB   16 x 100 px       1.3 fps        20 tri/s    786.17 ms/frame  bad 0
+
+== M8D3DB card2
+HAL   16 x   8 px      62.2 fps       995 tri/s     16.08 ms/frame  bad 0
+HAL   16 x  32 px      69.5 fps      1112 tri/s     14.39 ms/frame  bad 0
+HAL   16 x 100 px      42.6 fps       681 tri/s     23.48 ms/frame  bad 0
+RGB   16 x   8 px       8.7 fps       139 tri/s    115.46 ms/frame  bad 0
+RGB   16 x  32 px       5.6 fps        89 tri/s    179.60 ms/frame  bad 0
+RGB   16 x 100 px       1.3 fps        21 tri/s    771.14 ms/frame  bad 0
+
