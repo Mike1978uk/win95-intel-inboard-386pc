@@ -5,7 +5,7 @@
  * pixels counted. Results append to C:\M8D3DF.TXT, with the time inside Flip from the
  * driver's counters.
  *
- *   M8D3DF <label> [seconds per test, default 3]
+ *   M8D3DF <label> [seconds per test, default 3] [high]
  *
  * Build: wcl386 -q -bt=nt -l=nt_win -ox -i=<watcom>h -i=<watcom>h\nt -i=<watcom>h\nt\directx
  *        -fe=M8D3DF.EXE M8D3DF.C ddraw.lib
@@ -287,6 +287,7 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
     DDSCAPS             caps;
     LARGE_INTEGER       f;
     char                label[32];
+    char                high[8];
     int                 seconds = 3;
     int                 i;
     HRESULT             hr;
@@ -296,10 +297,16 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
         return( 1 );
     }
     label[0] = '\0';
-    sscanf( cmd, "%31s %d", label, &seconds );
+    high[0] = '\0';
+    sscanf( cmd, "%31s %d %7s", label, &seconds, high );
     QueryPerformanceFrequency( &f );
     qpf = (double)f.LowPart;
-    fprintf( out, "== M8D3DF %s  640x480x16  %d s a test\n", label, seconds );
+    /* "high": other threads held off, to see what time they take from a frame. */
+    if( high[0] != '\0' ) {
+        SetPriorityClass( GetCurrentProcess(), REALTIME_PRIORITY_CLASS );
+        SetThreadPriority( GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL );
+    }
+    fprintf( out, "== M8D3DF %s  640x480x16  %d s a test  %s\n", label, seconds, high[0] ? "high priority" : "" );
     memset( &wc, 0, sizeof( wc ) );
     wc.lpfnWndProc = wndproc;
     wc.hInstance = inst;
