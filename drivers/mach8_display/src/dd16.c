@@ -60,6 +60,8 @@ typedef struct {
     DWORD   gdi_lin;                    /* linear address of fb16.c's count of GDI calls */
     DWORD   d3d_global;                 /* m8d3d.c's two tables, 0 = no Direct3D */
     DWORD   d3d_callbacks;
+    DWORD   scratch_top;                /* at 16 bpp, the off-screen rows m8d3d.c fills from */
+    DWORD   scratch_rows;
     /* This side only from here. */
     DDHALINFO_t                 info;
     DDHAL_DDCALLBACKS_t         cb;
@@ -283,7 +285,7 @@ static void m8dd_build16( void )
 {
     DDHALINFO_t FAR     *hi = &m8dd->info;
     DDHALMODEINFO_t FAR *m = &m8dd->modes[0];
-
+    int                 rows_ok;
     int                 i;
 
     m8dd_build( 0 );
@@ -300,9 +302,15 @@ static void m8dd_build16( void )
     }
     m8dd->fb16 = 1;
     m8dd->fb_lin = m8_fb16_lin();
-    /* Not at 16 bpp: the card does not draw the screen GDI sees. */
-    hi->lpD3DGlobalDriverData = 0;
-    hi->lpD3DHALCallbacks = 0;
+    {
+        int top;
+        int rows;
+
+        m8_dd_heap( &top, &rows );
+        m8dd->scratch_top = top;
+        m8dd->scratch_rows = rows;
+        rows_ok = rows >= 16;
+    }
     m8dd->gdi_lin = GetSelectorBase( FP_SEG( (LPVOID)m8_fb16_stat ) ) + FP_OFF( (LPVOID)m8_fb16_stat );
     m8dd->pitch = M8_SCREEN_X * 2;
     m8dd->shadow = 0;
@@ -336,6 +344,15 @@ static void m8dd_build16( void )
     if( m8dd->flip ) {
         /* M8DD32's Flip: a back buffer in a second frame buffer in RAM. */
         hi->ddCaps.ddsCaps.dwCaps |= DDSCAPS_FLIP | DDSCAPS_BACKBUFFER | DDSCAPS_COMPLEX;
+        /* Direct3D draws through the flip chain: triangles in a buffer's description. */
+        if( m8dd->d3d_global && rows_ok ) {
+            hi->ddCaps.dwCaps |= DDCAPS_3D;
+            hi->ddCaps.ddsCaps.dwCaps |= DDSCAPS_3DDEVICE;
+        }
+    }
+    if( !(hi->ddCaps.dwCaps & DDCAPS_3D) ) {
+        hi->lpD3DGlobalDriverData = 0;
+        hi->lpD3DHALCallbacks = 0;
     }
     hi->dwModeIndex = M8_SCREEN_X == 640 ? 0 : 1;
     hi->dwNumModes = 2;

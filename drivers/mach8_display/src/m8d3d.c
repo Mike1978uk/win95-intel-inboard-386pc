@@ -16,8 +16,13 @@
  * those pixels, and the outline goes over the fill (m8hw.c m8_hw_poly, the
  * sequence proven on the card). One clear of the scratch serves eight triangles.
  *
+ * At 16 bpp the card still holds 256 colours and RAM holds the 5-6-5 frame: a
+ * triangle joins its buffer's description (m8dd32.c) and Flip has the engine draw
+ * it, so a frame of them crosses the bus as commands. Only a flip chain's back
+ * buffer can be a target.
+ *
  * DirectX 7 removes 8 bpp from a hardware device's render depths (D3DIM.DLL
- * 56663de9), so this target needs a patched D3DIM: docs/next_session_2026_11_05.md.
+ * 56663de9), so an 8 bpp target needs a patched D3DIM: docs/next_session_2026_11_05.md.
  */
 
 #include <windows.h>
@@ -67,7 +72,9 @@
 
 /* m8dd32.c: the engine and the card's memory, which it owns. */
 extern int  m8d3d_surface( LPVOID lcl, int *x, int *y, int *w, int *h );
-extern int  m8d3d_scratch( LPVOID key, int w, int h, int *x, int *y );
+extern int  m8d3d_scratch( LPVOID key, int w, int *h, int *x, int *y );
+extern int  m8d3d_fb16( void );
+extern int  m8d3d_record( LPVOID lcl, const short *v, BYTE index, WORD colour );
 extern void m8d3d_scratch_free( LPVOID key );
 extern int  m8d3d_engine_begin( void );
 extern int  m8d3d_clear( int l, int t, int r, int b );
@@ -231,10 +238,10 @@ typedef struct {
     int     sx;                 /* the scratch, as large as the target */
     int     sy;
     int     sw;
-    int     sh;
+    int     sh;                 /* its rows; at 16 bpp, fewer than the target can have */
     int     fresh;              /* the scratch has not been cleared yet */
     int     drawn;              /* triangles in the scratch since it was cleared */
-    int     dl;                 /* their box, in target coordinates */
+    int     dl;                 /* their box, in card coordinates */
     int     dt;
     int     dr;
     int     db;
@@ -283,11 +290,28 @@ static M8D3D_CONTEXT *m8d3d_context( DWORD h )
     return( &m8d3d_ctx[h - 1] );
 }
 
-/* One palette index for an RGB colour: scaffolding for a grey-ramp palette, until
- * the HAL takes its colours from the mapping 16 bpp uses. */
+/* One palette index for an RGB colour at 8 bpp: scaffolding for a grey-ramp palette. */
 static BYTE m8d3d_index( DWORD rgb )
 {
     return( (BYTE)((((rgb >> 16) & 0xFF) * 77 + ((rgb >> 8) & 0xFF) * 150 + (rgb & 0xFF) * 29) >> 8) );
+}
+
+/* At 16 bpp, the nearest entry of fb16.c's colour cube: 5 x 9 x 5 levels, with the
+ * middle grey at 7Fh and the entries above it one further on. Flat colours are not
+ * dithered: one fill, one index. */
+static BYTE m8d3d_index16( DWORD rgb )
+{
+    int r = (int)(((rgb >> 16) & 0xFF) + 32) / 64;
+    int g = (int)(((rgb >> 8) & 0xFF) + 16) / 32;
+    int b = (int)((rgb & 0xFF) + 32) / 64;
+    int c = r * 45 + g * 5 + b;
+
+    return( (BYTE)(c < 112 ? c + 15 : c == 112 ? 127 : c + 16) );
+}
+
+static WORD m8d3d_565( DWORD rgb )
+{
+    return( (WORD)(((rgb >> 8) & 0xF800) | ((rgb >> 5) & 0x07E0) | ((rgb >> 3) & 0x001F)) );
 }
 
 /* The outline's pixels in one plane; an XOR, so where both edges fall on one pixel
@@ -320,6 +344,8 @@ static int m8d3d_tri( M8D3D_CONTEXT *c, int dx, int dy, const short *v, BYTE col
     int     r = v[0];
     int     t = v[1];
     int     b = v[1];
+    int     sx = c->sx;
+    int     sy;
     int     i;
 
     for( i = 1; i < 3; ++i ) {
@@ -336,10 +362,12 @@ static int m8d3d_tri( M8D3D_CONTEXT *c, int dx, int dy, const short *v, BYTE col
             b = v[2 * i + 1];
         }
     }
+    /* The scratch's top row holds the triangle's top row: the rows are few at 16 bpp. */
+    sy = c->sy - t;
     /* Rows strictly between top and bottom only: an apex row can hold one outline
      * pixel, and the fill would run to the end of the row. */
     if( b - t >= 2 ) {
-        if( !m8d3d_outline( c->sx, c->sy, v, M8_MIX_XOR, M8_LINEDRAW_POLY | M8_LINEDRAW_LAST_OFF,
+        if( !m8d3d_outline( sx, sy, v, M8_MIX_XOR, M8_LINEDRAW_POLY | M8_LINEDRAW_LAST_OFF,
                             0x00FF, plane ) ) {
             return( 0 );
         }
@@ -351,27 +379,27 @@ static int m8d3d_tri( M8D3D_CONTEXT *c, int dx, int dy, const short *v, BYTE col
         outpw( M8_DP_CONFIG, M8_DP_POLY_FILL );
         outpw( M8_ALU_FG_FN, M8_MIX_REPLACE );
         outpw( M8_FRGD_COLOR, colour );
-        outpw( M8_DESTX_DIASTP, c->sx + l );
-        outpw( M8_DESTY_AXSTP, c->sy + t + 1 );
-        outpw( M8_SRC_X_START, c->sx + l );
-        outpw( M8_SRC_X_END, c->sx + r + 1 );
+        outpw( M8_DESTX_DIASTP, sx + l );
+        outpw( M8_DESTY_AXSTP, sy + t + 1 );
+        outpw( M8_SRC_X_START, sx + l );
+        outpw( M8_SRC_X_END, sx + r + 1 );
         outpw( M8_SRC_Y_DIR, 1 );
         outpw( M8_CUR_X, dx + l );
         outpw( M8_DEST_X_START, dx + l );
         outpw( M8_DEST_X_END, dx + r + 1 );
         outpw( M8_CUR_Y, dy + t + 1 );
         outpw( M8_DEST_Y_END, dy + b );         /* starts the fill */
-        if( l < c->dl ) {
-            c->dl = l;
+        if( sx + l < c->dl ) {
+            c->dl = sx + l;
         }
-        if( t < c->dt ) {
-            c->dt = t;
+        if( sy + t < c->dt ) {
+            c->dt = sy + t;
         }
-        if( r + 1 > c->dr ) {
-            c->dr = r + 1;
+        if( sx + r + 1 > c->dr ) {
+            c->dr = sx + r + 1;
         }
-        if( b + 1 > c->db ) {
-            c->db = b + 1;
+        if( sy + b + 1 > c->db ) {
+            c->db = sy + b + 1;
         }
         ++c->drawn;
     }
@@ -389,12 +417,96 @@ static int m8d3d_scratch_clear( M8D3D_CONTEXT *c )
     int ok = 1;
 
     if( c->dr > c->dl ) {
-        ok = m8d3d_clear( c->sx + c->dl, c->sy + c->dt, c->sx + c->dr, c->sy + c->db );
+        ok = m8d3d_clear( c->dl, c->dt, c->dr, c->db );
     }
     c->drawn = 0;
     c->dl = c->dt = 0x7FFF;
     c->dr = c->db = 0;
     return( ok );
+}
+
+/* A triangle too tall for the scratch, split across its tallest edge until it fits.
+ * Each part's outline covers the seam. */
+static int m8d3d_tri_fit( M8D3D_CONTEXT *c, int dx, int dy, const short *v, BYTE colour )
+{
+    int     e = 0;
+    int     h = 0;
+    int     i;
+    int     d;
+    int     a;
+    int     b;
+    short   mx;
+    short   my;
+    short   p[6];
+
+    for( i = 0; i < 3; ++i ) {
+        a = v[2 * i + 1];
+        b = v[2 * ((i + 1) % 3) + 1];
+        d = a < b ? b - a : a - b;
+        if( d > h ) {
+            h = d;
+            e = i;
+        }
+    }
+    if( h + 2 < c->sh ) {
+        if( !m8d3d_tri( c, dx, dy, v, colour ) ) {
+            return( 0 );
+        }
+        return( c->drawn == 8 ? m8d3d_scratch_clear( c ) : 1 );
+    }
+    a = e;
+    b = (e + 1) % 3;
+    d = (e + 2) % 3;
+    mx = (short)((v[2 * a] + v[2 * b]) / 2);
+    my = (short)((v[2 * a + 1] + v[2 * b + 1]) / 2);
+    p[0] = v[2 * a];
+    p[1] = v[2 * a + 1];
+    p[2] = mx;
+    p[3] = my;
+    p[4] = v[2 * d];
+    p[5] = v[2 * d + 1];
+    if( !m8d3d_tri_fit( c, dx, dy, p, colour ) ) {
+        return( 0 );
+    }
+    p[0] = mx;
+    p[1] = my;
+    p[2] = v[2 * b];
+    p[3] = v[2 * b + 1];
+    return( m8d3d_tri_fit( c, dx, dy, p, colour ) );
+}
+
+/* At 16 bpp, from Flip: a buffer's triangles, on the card. */
+void m8d3d_replay( const short *v, const WORD *index, int n )
+{
+    M8D3D_CONTEXT   *c = NULL;
+    int             k;
+    int             i;
+    int             ok = 1;
+
+    for( k = 0; k < M8D3D_CONTEXTS && c == NULL; ++k ) {
+        if( m8d3d_ctx[k].target != NULL ) {
+            c = &m8d3d_ctx[k];
+        }
+    }
+    if( c == NULL || !m8d3d_engine_begin() ) {
+        ++m8d3d_stat[11];
+        return;
+    }
+    if( c->fresh ) {
+        ok = m8d3d_scratch_clear( c );
+        c->fresh = 0;
+    }
+    for( i = 0; ok && i < n; ++i ) {
+        ok = m8d3d_tri_fit( c, 0, 0, v + 6 * i, (BYTE)index[i] );
+        ++m8d3d_stat[8];
+    }
+    if( ok ) {
+        ok = m8d3d_scratch_clear( c );
+    }
+    m8d3d_engine_end();
+    if( !ok ) {
+        ++m8d3d_stat[11];
+    }
 }
 
 static DWORD __stdcall m8d3d_context_create( M8D3D_CONTEXTCREATE *d )
@@ -415,16 +527,17 @@ static DWORD __stdcall m8d3d_context_create( M8D3D_CONTEXTCREATE *d )
     }
     c = &m8d3d_ctx[k];
     if( !m8d3d_surface( m8d3d_lcl( d->lpDDS ), &x, &y, &c->sw, &c->sh ) ||
-        !m8d3d_scratch( c, c->sw, c->sh, &c->sx, &c->sy ) ) {
+        !m8d3d_scratch( c, c->sw, &c->sh, &c->sx, &c->sy ) ) {
         return( DDHAL_DRIVER_HANDLED );
     }
     c->target = d->lpDDS;
     c->cull = M8D3D_CULL_CCW;
     c->fresh = 1;
     c->drawn = 0;
-    c->dl = c->dt = 0;
-    c->dr = c->sw;
-    c->db = c->sh;
+    c->dl = c->sx;
+    c->dt = c->sy;
+    c->dr = c->sx + c->sw;
+    c->db = c->sy + c->sh;
     d->dwhContext = k + 1;
     d->ddrval = DD_OK;
     return( DDHAL_DRIVER_HANDLED );
@@ -503,6 +616,7 @@ static DWORD __stdcall m8d3d_render_primitive( M8D3D_RENDERPRIMITIVE *d )
     unsigned                i;
     int                     j;
     int                     ok = 1;
+    int                     fb16;
 
     ++m8d3d_stat[4];
     m8d3d_stat[5] += d->wCount;
@@ -510,16 +624,17 @@ static DWORD __stdcall m8d3d_render_primitive( M8D3D_RENDERPRIMITIVE *d )
     if( d->bOpcode != M8D3D_OP_TRIANGLE ) {
         return( DDHAL_DRIVER_HANDLED );
     }
+    fb16 = m8d3d_fb16();
     /* A flip swaps the surfaces' memory, so the target is looked up each time. */
     if( c == NULL || exe == NULL || tl == NULL || d->bSize < sizeof( M8D3D_TRIANGLE ) ||
-        !m8d3d_surface( m8d3d_lcl( c->target ), &x, &y, &w, &h ) || w > c->sw || h > c->sh ||
-        !m8d3d_engine_begin() ) {
+        !m8d3d_surface( m8d3d_lcl( c->target ), &x, &y, &w, &h ) || w > c->sw ||
+        (!fb16 && (h > c->sh || !m8d3d_engine_begin())) ) {
         ++m8d3d_stat[11];
         return( DDHAL_DRIVER_HANDLED );
     }
     /* A new context's scratch holds whatever the card left there; its box was set
-     * to the whole scratch when it was created. */
-    if( c->fresh ) {
+     * to the whole scratch when it was created. At 16 bpp, the replay sees to it. */
+    if( !fb16 && c->fresh ) {
         ok = m8d3d_scratch_clear( c );
         c->fresh = 0;
     }
@@ -546,16 +661,21 @@ static DWORD __stdcall m8d3d_render_primitive( M8D3D_RENDERPRIMITIVE *d )
             ++m8d3d_stat[10];
             continue;
         }
-        ok = m8d3d_tri( c, x, y, v, m8d3d_index( a[0]->color ) );
+        if( fb16 ) {
+            /* Described, not drawn: Flip has the engine draw it. */
+            ok = m8d3d_record( m8d3d_lcl( c->target ), v, m8d3d_index16( a[0]->color ),
+                               m8d3d_565( a[0]->color ) );
+            continue;
+        }
+        ok = m8d3d_tri_fit( c, x, y, v, m8d3d_index( a[0]->color ) );
         ++m8d3d_stat[8];
-        if( ok && c->drawn == 8 ) {
+    }
+    if( !fb16 ) {
+        if( ok ) {
             ok = m8d3d_scratch_clear( c );
         }
+        m8d3d_engine_end();
     }
-    if( ok ) {
-        ok = m8d3d_scratch_clear( c );
-    }
-    m8d3d_engine_end();
     if( !ok ) {
         ++m8d3d_stat[11];
     }
@@ -582,7 +702,7 @@ void m8d3d_init( DWORD *global, DWORD *callbacks )
     c->dpcTriCaps.dwSize = sizeof( c->dpcTriCaps );
     c->dpcTriCaps.dwMiscCaps = M8D3D_PMISCCAPS_CULLNONE;
     c->dpcTriCaps.dwShadeCaps = M8D3D_PSHADECAPS_COLORFLATRGB;
-    c->dwDeviceRenderBitDepth = DDBD_8;
+    c->dwDeviceRenderBitDepth = DDBD_8 | DDBD_16;
     c->dwDeviceZBufferBitDepth = 0;
 
     memset( &m8d3d_callbacks, 0, sizeof( m8d3d_callbacks ) );

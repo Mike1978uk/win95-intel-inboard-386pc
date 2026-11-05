@@ -1059,7 +1059,9 @@ void m8_fb16_check( DWORD FAR *out )
  * many entries of six WORDs: op, l, t, r, b, arg. Ops: 0 send (arg as
  * m8_fb16_send_rect's `solid`); 1 fill with 5-6-5 colour arg, RAM not read;
  * 2 show buffer arg (0 the frame buffer, 1 the back buffer); 3 allocate the
- * back buffer, its linear address to *out (0: no memory); 4 free it. */
+ * back buffer, its linear address to *out (0: no memory); 4 free it; 5 the card
+ * changed there behind the row fingerprints (Direct3D's triangles), so they are
+ * dropped, or a later send would see RAM unchanged and leave those pixels. */
 void m8_fb16_batch( const WORD FAR *in, DWORD FAR *out )
 {
     const WORD FAR  *e = in + 1;
@@ -1108,6 +1110,11 @@ void m8_fb16_batch( const WORD FAR *in, DWORD FAR *out )
                 GlobalFree( m8_fb16_bmem );
                 m8_fb16_bmem = 0;
                 m8_fb16_bsel = 0;
+            }
+            break;
+        case 5:
+            if( r > l && b > t ) {
+                m8_fb16_forget( l, t, r, b );
             }
             break;
         }

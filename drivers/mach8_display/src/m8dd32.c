@@ -28,6 +28,7 @@
 
 /* m8d3d.c */
 extern void m8d3d_init( DWORD *global, DWORD *callbacks );
+extern void m8d3d_replay( const short *v, const WORD *index, int n );
 
 /* The head of dd16.c's M8DD_SHARE. */
 #pragma pack( push, 1 )
@@ -57,6 +58,8 @@ typedef struct {
     DWORD   gdi_lin;
     DWORD   d3d_global;
     DWORD   d3d_callbacks;
+    DWORD   scratch_top;
+    DWORD   scratch_rows;
 } M8DD_SHARE;
 
 /* DDHAL_LOCKDATA and DDHAL_UNLOCKDATA as DDRAW passes them (Microsoft's
@@ -551,15 +554,22 @@ static int m8dd_key_rect( const RECT *d, int sx, int sy, BYTE key )
  * every pixel is `colour` except inside the rectangles d, whose pixels RAM
  * holds; outside them RAM holds the colour only once `filled`. So a clear is
  * one value, not a screen of writes, and a flip sends the rectangles that
- * changed and nothing else. Not `known`: RAM holds the buffer. */
+ * changed and nothing else. Not `known`: RAM holds the buffer.
+ *
+ * Direct3D's triangles are part of the description too, over the rectangles:
+ * RAM does not hold them until something reads the buffer (m8dd_tris_to_ram),
+ * and Flip has the engine draw them. `box` holds them all. */
 #define M8DD_DIRTY_MAX      8
+#define M8DD_TRIS_MAX       512
 
 typedef struct {
     int     known;
     int     filled;
     WORD    colour;
     int     n;
-    RECT    d[M8DD_DIRTY_MAX];
+    RECT    d[M8DD_DIRTY_MAX + 1];      /* one over: m8dd_dirty */
+    int     has_box;
+    RECT    box;
 } M8DD_DESC;
 
 static DWORD        m8dd_back;          /* the back buffer's linear address, 0 = none */
@@ -567,6 +577,10 @@ static int          m8dd_front;
 static M8DD_DESC    m8dd_desc[2];
 static M8DD_DESC    m8dd_card;          /* what the card shows, while its `known` */
 static DWORD        m8dd_gdi_seen;      /* fb16.c's GDI call count at the last Flip */
+static int          m8dd_tri_n[2];
+static short        m8dd_tri_v[2][M8DD_TRIS_MAX * 6];
+static WORD         m8dd_tri_i[2][M8DD_TRIS_MAX];       /* the card's palette index */
+static WORD         m8dd_tri_c[2][M8DD_TRIS_MAX];       /* 5-6-5, for RAM */
 
 /* The buffer a surface's memory is, or -1. */
 static int m8dd_buf( LPVOID lcl )
@@ -678,10 +692,87 @@ static void m8dd_ready( int k, const RECT *c )
     }
 }
 
+static void m8dd_dirty( int k, const RECT *c );
+
+/* One triangle in buffer k's RAM, a row at a time. The engine's edge pixels are
+ * not matched exactly: a program that reads a frame back sees it within a pixel. */
+static void m8dd_tri_ram( int k, const short *v, WORD colour )
+{
+    int     o[3] = { 0, 1, 2 };
+    int     t;
+    int     y;
+    int     a;
+    int     b;
+    int     x0;
+    int     x1;
+    int     y0;
+    int     y1;
+    int     y2;
+    RECT    r;
+
+    if( v[2 * o[1] + 1] < v[2 * o[0] + 1] ) {
+        t = o[0]; o[0] = o[1]; o[1] = t;
+    }
+    if( v[2 * o[2] + 1] < v[2 * o[1] + 1] ) {
+        t = o[1]; o[1] = o[2]; o[2] = t;
+    }
+    if( v[2 * o[1] + 1] < v[2 * o[0] + 1] ) {
+        t = o[0]; o[0] = o[1]; o[1] = t;
+    }
+    y0 = v[2 * o[0] + 1];
+    y1 = v[2 * o[1] + 1];
+    y2 = v[2 * o[2] + 1];
+    if( y2 == y0 ) {
+        return;
+    }
+    r.left = v[0];
+    r.right = v[0];
+    for( t = 1; t < 3; ++t ) {
+        if( v[2 * t] < r.left ) {
+            r.left = v[2 * t];
+        }
+        if( v[2 * t] > r.right ) {
+            r.right = v[2 * t];
+        }
+    }
+    ++r.right;
+    r.top = y0;
+    r.bottom = y2 + 1;
+    m8dd_ready( k, &r );
+    for( y = y0; y <= y2; ++y ) {
+        a = v[2 * o[0]] + (int)((long)(v[2 * o[2]] - v[2 * o[0]]) * (y - y0) / (y2 - y0));
+        if( y < y1 ) {
+            b = v[2 * o[0]] + (int)((long)(v[2 * o[1]] - v[2 * o[0]]) * (y - y0) / (y1 - y0));
+        } else if( y2 != y1 ) {
+            b = v[2 * o[1]] + (int)((long)(v[2 * o[2]] - v[2 * o[1]]) * (y - y1) / (y2 - y1));
+        } else {
+            b = v[2 * o[1]];
+        }
+        x0 = a < b ? a : b;
+        x1 = a < b ? b : a;
+        m8dd_fill16( m8dd_at( k, x0, y ), x1 - x0 + 1, colour );
+    }
+    m8dd_dirty( k, &r );
+}
+
+/* Something is about to read buffer k's pixels or draw over part of them. */
+static void m8dd_tris_to_ram( int k )
+{
+    int i;
+    int n = m8dd_tri_n[k];
+
+    m8dd_tri_n[k] = 0;
+    m8dd_desc[k].has_box = 0;
+    for( i = 0; i < n; ++i ) {
+        m8dd_tri_ram( k, &m8dd_tri_v[k][6 * i], m8dd_tri_c[k][i] );
+    }
+}
+
 static void m8dd_ready_all( int k )
 {
     RECT    all;
 
+    m8dd_tris_to_ram( k );
     all.left = 0;
     all.top = 0;
     all.right = m8dd->width;
@@ -728,7 +819,11 @@ static void m8dd_dirty( int k, const RECT *c )
         }
     }
     UnionRect( &u, &d->d[best], c );
+    /* c is drawn already: listed for the moment, so its pixels are not put back
+     * to the colour. */
+    d->d[d->n++] = *c;
     m8dd_ready( k, &u );
+    --d->n;
     d->d[best] = u;
 }
 
@@ -1023,9 +1118,12 @@ static DWORD m8dd_blt16_do( M8DD_BLT *bd )
             m8dd_desc[dk].filled = 0;
             m8dd_desc[dk].colour = fillc;
             m8dd_desc[dk].n = 0;
+            m8dd_desc[dk].has_box = 0;
+            m8dd_tri_n[dk] = 0;
             bd->ddRVal = DD_OK;
             return( DDHAL_DRIVER_HANDLED );
         }
+        m8dd_tris_to_ram( dk );
     } else {
         /* Drawn on the shown buffer directly: RAM is the truth from here. */
         m8dd_ready_all( dk );
@@ -1236,6 +1334,9 @@ static DWORD m8dd_flip16( M8DD_FLIP *fd )
             for( i = 0; i < m8dd_card.n; ++i ) {
                 m8dd_fill_outside( &m8dd_card.d[i], t, 0, t->colour );
             }
+            if( m8dd_card.has_box ) {
+                m8dd_fill_outside( &m8dd_card.box, t, 0, t->colour );
+            }
         } else {
             m8dd_op( 1, NULL, t->colour );
         }
@@ -1247,7 +1348,13 @@ static DWORD m8dd_flip16( M8DD_FLIP *fd )
         m8dd_op( 0, NULL, 0 );
         m8dd_card.known = 0;
     }
+    if( m8dd_tri_n[k] && t->has_box ) {
+        m8dd_op( 5, &t->box, 0 );
+    }
     m8dd_flush();
+    if( m8dd_tri_n[k] ) {
+        m8d3d_replay( m8dd_tri_v[k], m8dd_tri_i[k], m8dd_tri_n[k] );
+    }
     m8dd_front = k;
     fd->ddRVal = DD_OK;
     return( DDHAL_DRIVER_HANDLED );
@@ -1309,7 +1416,10 @@ static DWORD m8dd_create16( M8DD_CREATE *cd )
     m8dd_desc[0].filled = 0;
     m8dd_desc[0].colour = 0;
     m8dd_desc[0].n = 0;
+    m8dd_desc[0].has_box = 0;
     m8dd_desc[1] = m8dd_desc[0];
+    m8dd_tri_n[0] = 0;
+    m8dd_tri_n[1] = 0;
     m8dd_card.known = 0;
     cd->ddRVal = DD_OK;
     return( DDHAL_DRIVER_HANDLED );
@@ -1324,9 +1434,12 @@ static int m8dd_destroy16( BYTE *gbl )
     }
     m8dd_ready_all( 0 );
     m8dd_op( 2, NULL, 0 );
+    m8dd_op( 5, NULL, 0 );
     m8dd_op( 0, NULL, 0 );
     m8dd_op( 4, NULL, 0 );
     m8dd_flush();
+    m8dd_tri_n[0] = 0;
+    m8dd_tri_n[1] = 0;
     m8dd_back = 0;
     m8dd_front = 0;
     m8dd_desc[0].known = 0;
@@ -1615,7 +1728,17 @@ int m8d3d_surface( LPVOID lcl, int *x, int *y, int *w, int *h )
 {
     M8DD_SURF s;
 
-    if( m8dd->fb16 || !m8dd_surf( lcl, &s ) ) {
+    if( m8dd->fb16 ) {
+        if( m8dd_buf( lcl ) < 0 ) {
+            return( 0 );
+        }
+        *x = 0;
+        *y = 0;
+        *w = m8dd->width;
+        *h = m8dd->height;
+        return( 1 );
+    }
+    if( !m8dd_surf( lcl, &s ) ) {
         return( 0 );
     }
     *x = s.x;
@@ -1625,13 +1748,93 @@ int m8d3d_surface( LPVOID lcl, int *x, int *y, int *w, int *h )
     return( 1 );
 }
 
-/* A rectangle no surface will take, held under `key`. */
-int m8d3d_scratch( LPVOID key, int w, int h, int *x, int *y )
+int m8d3d_fb16( void )
+{
+    return( m8dd->fb16 != 0 );
+}
+
+/* A triangle added to the description of the buffer `lcl` is, or 0 if there is
+ * none to keep it. The shown buffer has no description worth keeping: its RAM
+ * takes it, and the changed part is sent. */
+int m8d3d_record( LPVOID lcl, const short *v, BYTE index, WORD colour )
+{
+    int     k = m8dd_buf( lcl );
+    int     t;
+    int     n;
+    short   *p;
+    RECT    r;
+
+    if( k < 0 ) {
+        return( 0 );
+    }
+    if( k == m8dd_front || !m8dd_desc[k].known ) {
+        m8dd_tri_ram( k, v, colour );
+        if( k == m8dd_front ) {
+            m8dd_card.known = 0;
+            r.left = 0;
+            r.top = 0;
+            r.right = m8dd->width;
+            r.bottom = m8dd->height;
+            m8dd_send( &r, 0 );
+        }
+        return( 1 );
+    }
+    if( m8dd_tri_n[k] == M8DD_TRIS_MAX ) {
+        m8dd_tris_to_ram( k );
+    }
+    n = m8dd_tri_n[k]++;
+    p = &m8dd_tri_v[k][6 * n];
+    for( t = 0; t < 6; ++t ) {
+        p[t] = v[t];
+    }
+    m8dd_tri_i[k][n] = index;
+    m8dd_tri_c[k][n] = colour;
+    r.left = v[0];
+    r.top = v[1];
+    r.right = v[0];
+    r.bottom = v[1];
+    for( t = 1; t < 3; ++t ) {
+        if( v[2 * t] < r.left ) {
+            r.left = v[2 * t];
+        }
+        if( v[2 * t] > r.right ) {
+            r.right = v[2 * t];
+        }
+        if( v[2 * t + 1] < r.top ) {
+            r.top = v[2 * t + 1];
+        }
+        if( v[2 * t + 1] > r.bottom ) {
+            r.bottom = v[2 * t + 1];
+        }
+    }
+    ++r.right;
+    ++r.bottom;
+    if( m8dd_desc[k].has_box ) {
+        UnionRect( &m8dd_desc[k].box, &m8dd_desc[k].box, &r );
+    } else {
+        m8dd_desc[k].box = r;
+        m8dd_desc[k].has_box = 1;
+    }
+    return( 1 );
+}
+
+/* A rectangle no surface will take, held under `key`. At 16 bpp, the off-screen rows;
+ * *h then says how many there are, which can be fewer than the target has. */
+int m8d3d_scratch( LPVOID key, int w, int *h, int *x, int *y )
 {
     RECT    r;
     int     k;
 
-    if( !m8dd->heap_rows || !m8dd_place( w, h, &r ) ) {
+    if( m8dd->fb16 ) {
+        if( !m8dd_lend( 1 ) ) {
+            return( 0 );
+        }
+        *x = 0;
+        *y = m8dd->scratch_top;
+        *h = m8dd->scratch_rows;
+        return( 1 );
+    }
+    if( !m8dd->heap_rows || !m8dd_place( w, *h, &r ) ) {
         return( 0 );
     }
     for( k = 0; k < M8DD_PLACED_MAX && m8dd_placed[k].gbl != NULL; ++k ) {
@@ -1649,6 +1852,10 @@ int m8d3d_scratch( LPVOID key, int w, int h, int *x, int *y )
 
 void m8d3d_scratch_free( LPVOID key )
 {
+    if( m8dd->fb16 ) {
+        m8dd_lend( 0 );
+        return;
+    }
     m8dd_unplace( (BYTE *)key );
 }
 
