@@ -66,3 +66,7 @@ intercept, and the intercept is not a command cost either. Compare builds by **m
   one-sector INT 25h read may fetch 4 KB through the cache path. Hypothesis, unproven: a 10 ms timing floor would
   look the same. Check the sector count the miniport receives in the bed, or time 2, 4 and 16 sectors.
 - This path is INT 25h through VWIN32. The pager's own path to IOS is not measured here.
+
+## Status: these runs are not a valid baseline
+
+Started at ~158 s of uptime with no M8IDLE proof, against the card bench rule. Pass 1 is slower in every run (13.1-13.7 ms against 11.7-12.2), which settling alone does not explain since it repeats across runs. Repeat XTSECT and IDLECOST after `M8IDLE 10 10 600`, each three times, and record the `idle:` line, before comparing any build.
