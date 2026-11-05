@@ -1,0 +1,13 @@
+hash table 11 bits, 4 KB, multiply hash, cleared per page
+LZ4: 64 pages, ratio 2.25:1
+LZ4 search 4: 64 pages, ratio 2.36:1
+LZ4 search 16: 64 pages, ratio 2.39:1
+self-test passed: every page round-trips byte-exact, and corruption is caught
+timer 1193180 Hz, cycles assume 80.0 MHz
+
+                         us/page   cycles/byte
+copy (floor)               753.25       14.71
+LZ4 compress              4733.97       92.46
+LZ4 decompress            1111.13       21.70
+LZ4 search 4 compress     9116.94      178.07
+LZ4 search 16 compress   10995.50      214.76

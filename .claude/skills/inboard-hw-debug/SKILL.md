@@ -8549,3 +8549,21 @@ Poll the short ones out (paced, from L1), yield only past ~one tick.
 - **On the Mach8, writing CLOCK_SEL (4AEE) forces ATI CRT mode with bit 0 = VGA output** (guide 8-6);
   ADVFUNC (4AE8) returns 8514-compatible mode on the BIOS's shadow sets. M8FLIP v1 wrote CLOCK_SEL 0
   and the 8514 side never reached the monitor.
+
+## Technique 152: find which of many identical error returns fired - give each a unique code
+
+2026-11-05, Direct3D `CreateDevice`. `DDERR_INVALIDOBJECT` occurs 110 times in `D3DIM.DLL`, mostly parameter checks,
+so a search names nothing, and the bed's GDB stub needs another build. On a bed copy only, rewrite each
+`mov reg,imm32` / `mov [mem],imm32` / `push imm32` of the constant to a unique value, leaving any `cmp` alone. The failing
+call then returns the site. One reboot, one run: `8876A02C`, site 44.
+
+- Decode each hit with a disassembler before patching, and refuse to write if nothing matched (technique 28).
+- Then bisect the branches into that exit by NOPing one at a time. A DLL no process holds can be replaced through the
+  agent with no reboot, so each step costs seconds.
+- **Read what runs BEFORE the check.** The fault was not in the failing test: it passed fair inputs, because an
+  `and` 0x1500 bytes earlier had cleared the bit it tests. I read that line once and skimmed past it. Prove a cause by
+  removing only it, as here, not by removing the check that reports it.
+- A read of live objects from a test program is cheap too: `interface -> local (+4) -> global (+4)` showed DirectDraw had
+  kept both HAL tables, which killed the null-pointer theory.
+- Do not LoadLibrary a display driver's DLL from a test: it hung the process and the agent's screenshot helper.
+- Keep the stock files outside the session scratchpad before starting. A file a process holds cannot be restored until it stops.

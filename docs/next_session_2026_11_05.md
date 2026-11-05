@@ -23,13 +23,33 @@ M8D3DT draws off-screen and logs: nothing on screen is expected.
 
 DX7 lists `Direct3D HAL` model 2 (RGB), depth `0800` (DDBD_8), shade `08` (COLORFLATRGB): P6 answered yes.
 
-With a palette (`bed2`): `createdevice 88760082` = DDERR_INVALIDOBJECT. Counters (`M8D3DT bed5 b0c0ba0c`, the
-address of `m8d3d_stat`: re-derive it from the DLL's exports after each build): **ContextCreate 0, ContextDestroy 1,
-nothing else.** The runtime refuses before our context code, so the callback layouts are not the cause. velocity9x's
-probe creates its target the same way, with OFFSCREENPLAIN in its caps; its target is 16 bpp.
-`LoadLibrary("M8DD32.DLL")` from the test hangs the process: do not repeat. The DLL is not a module of the test's
-process. D3DIM.DLL holds 110 copies of this error code, mostly parameter checks, so a search alone does not locate
-it: trace `CreateDevice` in the bed's debugger instead, and check which of D3DIM and D3DIM700 runs.
+With a palette: `createdevice 88760082` = DDERR_INVALIDOBJECT, before ContextCreate.
+
+**Cause, proven in the bed: DirectX 7 strips 8 bpp from a hardware HAL.** D3DIM.DLL `56663de9`
+`and byte ptr [eax+0xa1],0xf7` clears `DDBD_8` from the global data's render depths, guarded by
+`cmp [esi+0x1310],0` (read as the hardware description's dwFlags, an inference). D3DIM700.DLL `566636e1` has the
+same instruction. `56669257` then fails the 8-bit target against the depths. Found by giving each of the 110 error
+sites a unique code (technique 152): `8876A02C`, the exit at `566692ff`.
+
+| D3DIM copy on the bed | createdevice | counters after the draw |
+|---|---|---|
+| stock | INVALIDOBJECT | ContextCreate never reached |
+| depth test NOPed | OK | not read |
+| only the `and` NOPed | OK | ContextCreate reached; RenderPrimitive 1 primitive; RenderState and SceneCapture called |
+
+So our tables and callbacks work. No driver change gets an 8 bpp HAL past the stock runtime. This also explains why
+no shipping 8-bit HAL was found. Measured on 7.0a only; earlier runtimes unchecked. Log: `docs/captures/2026-11-05_d3d_8bpp/`.
+
+Routes, owner to choose: (a) offer the HAL at 16 bpp, drawing with the engine as described frames (F3); (b) patch
+D3DIM for 8 bpp, own programs only; (c) `hwCaps.dwFlags = 0` to dodge the guard, untested and likely to confuse
+programs that test it. Recommended: (a) to ship, (b) in the bed as scaffolding for D2.
+
+⚠ Bed `vm_5160_mcp` still has the error-tagged `DDRAW.DLL` (in use, so the put failed): restore
+`C:\WINDOWS\SYSTEM\DDRAW.DLL`, md5 `EEDE14A8FB89A725C903E33A6A0F9F28`, at the next stop. D3DIM and D3DIM700 are stock again.
+Keep a copy of stock DX files first: the originals above live only in the session scratchpad, and the bed image.
+
+Also learned: `LoadLibrary("M8DD32.DLL")` from a test program hangs it. Read `m8d3d_stat` by address, from the DLL's exports.
+At zero texture formats a path in D3DIM returns `887602D0` (`56665e24`): expect it once textures matter.
 
 dxdiag: velocity9x reports its Direct3D test failing at "step 44 (EnumTextureFormats)" with HRESULT 0, on a driver
 with no texture format matching the display; its cause is an unproven lead
@@ -47,5 +67,6 @@ off; if locks continue silently, sound was only the witness.
 
 ## Next
 
-1. Bed: rebuilt `M8D3DT`, read `hal ctx` in the log. Gate: `createdevice 00000000`.
-2. D2: triangles to the polygon fill.
+1. Owner picks the route above; then D2: triangles to the polygon fill.
+2. Disk: repeat XTSECT and IDLECOST after `M8IDLE 10 10 600`. LZ4 hash runs are in `docs/captures/2026-11-05_lz4hash/`;
+   LZ4B12 did not repeat 10-02 (compress ~5,060 against 4,712 us), so re-baseline before porting: LZ4B12FN looks ~3 % cheaper.

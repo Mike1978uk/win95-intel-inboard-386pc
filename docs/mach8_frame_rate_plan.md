@@ -405,8 +405,9 @@ step 4's probes. Lighting and blending stay on the engine too: palette ramps, wr
 
 Mach8 (M = needs the card, B = bed, C = no machine):
 
-1. **D1 gate (B):** M8D3DT with a palette on its target. Log so far: DX7 lists our 8 bpp HAL (P6 answered);
-   1024x768 target out of video memory; 800x600 and 640x480 `CreateDevice` = `DDERR_NOPALETTEATTACHED`, a test bug.
+1. **D1 gate (B):** DirectX 7 lists our 8 bpp HAL but strips 8 bpp at `CreateDevice` (proven, `next_session_2026_11_05.md`);
+   with that one instruction patched out the device creates and a triangle reaches RenderPrimitive. Route to agree:
+   HAL offered at 16 bpp over the engine (recommended), 8 bpp by patched D3DIM for scaffolding.
 2. **D2 (B, then M):** triangles to the polygon fill; hidden-surface sort (D3).
 3. **First 3D bench (M):** same scene through DX7 RGB emulation and our HAL, in fps (#58). Worth having only if ours wins.
 4. **Probes, one sitting (B for pixels, M for time):** M8TEXT (CT2: frame rate, font rewrite, 80x50), M8GLYPH

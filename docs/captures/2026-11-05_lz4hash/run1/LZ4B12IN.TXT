@@ -1,0 +1,13 @@
+hash table 12 bits, 8 KB, IMUL (as SWAPCOMP.VXD) hash, not cleared per page
+LZ4: 64 pages, ratio 2.26:1
+LZ4 search 4: 64 pages, ratio 2.36:1
+LZ4 search 16: 64 pages, ratio 2.39:1
+self-test passed: every page round-trips byte-exact, and corruption is caught
+timer 1193180 Hz, cycles assume 80.0 MHz
+
+                         us/page   cycles/byte
+copy (floor)               768.67       15.01
+LZ4 compress              4723.19       92.25
+LZ4 decompress            1131.42       22.10
+LZ4 search 4 compress     9654.73      188.57
+LZ4 search 16 compress   11248.97      219.71

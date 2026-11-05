@@ -1,0 +1,208 @@
+== M8D3DT bed1
+ddraw            00000000
+d3d2             00000000
+device Ramp Emulation           hw model 0 depth 00000000 shade 00000000  
+device RGB Emulation            hw model 0 depth 00000000 shade 00000000  
+device Direct3D HAL             hw model 2 depth 00000800 shade 00000008  HAL
+target           8876017c
+
+== M8D3DT bed1
+ddraw            00000000
+d3d2             00000000
+device Ramp Emulation           hw model 0 depth 00000000 shade 00000000  
+device RGB Emulation            hw model 0 depth 00000000 shade 00000000  
+device Direct3D HAL             hw model 2 depth 00000800 shade 00000008  HAL
+target           00000000
+createdevice     8876023c
+
+== M8D3DT bed1
+ddraw            00000000
+d3d2             00000000
+device Ramp Emulation           hw model 0 depth 00000000 shade 00000000  
+device RGB Emulation            hw model 0 depth 00000000 shade 00000000  
+device Direct3D HAL             hw model 2 depth 00000800 shade 00000008  HAL
+target           00000000
+createdevice     8876023c
+
+== M8D3DT bed2
+ddraw            00000000
+d3d2             00000000
+device Ramp Emulation           hw model 0 depth 00000000 shade 00000000  
+device RGB Emulation            hw model 0 depth 00000000 shade 00000000  
+device Direct3D HAL             hw model 2 depth 00000800 shade 00000008  HAL
+target           00000000
+palette          00000000
+setpalette       00000000
+createdevice     88760082
+
+== M8D3DT bed3
+ddraw            00000000
+d3d2             00000000
+device Ramp Emulation           hw model 0 depth 00000000 shade 00000000  
+device RGB Emulation            hw model 0 depth 00000000 shade 00000000  
+device Direct3D HAL             hw model 2 depth 00000800 shade 00000008  HAL
+target           00000000
+palette          00000000
+setpalette       00000000
+createdevice     88760082
+hal stat not found
+
+== M8D3DT bed4
+ddraw            00000000
+d3d2             00000000
+device Ramp Emulation           hw model 0 depth 00000000 shade 00000000  
+device RGB Emulation            hw model 0 depth 00000000 shade 00000000  
+device Direct3D HAL             hw model 2 depth 00000800 shade 00000008  HAL
+target           00000000
+palette          00000000
+setpalette       00000000
+createdevice     88760082
+== M8D3DT bed5 b0c0ba0c
+ddraw            00000000
+d3d2             00000000
+device Ramp Emulation           hw model 0 depth 00000000 shade 00000000  
+device RGB Emulation            hw model 0 depth 00000000 shade 00000000  
+device Direct3D HAL             hw model 2 depth 00000800 shade 00000008  HAL
+target           00000000
+palette          00000000
+setpalette       00000000
+createdevice     88760082
+hal ctx 0/1 scene 0 state 0 prim 0 (0) dds 00000000 z 00000000
+
+== M8D3DT bed6 b0c0ba0c
+ddraw            00000000
+d3d2             00000000
+device Ramp Emulation           hw model 0 depth 00000000 shade 00000000  
+device RGB Emulation            hw model 0 depth 00000000 shade 00000000  
+device Direct3D HAL             hw model 2 depth 00000800 shade 00000008  HAL
+target           00000000
+palette          00000000
+setpalette       00000000
+createdevice     8876a02c
+hal ctx 0/0 scene 0 state 0 prim 0 (0) dds 00000000 z 00000000
+
+== M8D3DT bed7 b0c0ba0c
+ddraw            00000000
+d3d2             00000000
+device Ramp Emulation           hw model 0 depth 00000000 shade 00000000  
+device RGB Emulation            hw model 0 depth 00000000 shade 00000000  
+device Direct3D HAL             hw model 2 depth 00000800 shade 00000008  HAL
+target           00000000
+palette          00000000
+setpalette       00000000
+getdesc          00000000
+target caps 10006040 pf flags 00000060 bits 8 pitch 800 256x128
+createdevice     8876a02c
+hal ctx 0/0 scene 0 state 0 prim 0 (0) dds 00000000 z 00000000
+
+== M8D3DT bed8 b0c0ba0c
+ddraw            00000000
+d3d2             00000000
+device Ramp Emulation           hw model 0 depth 00000000 shade 00000000  
+device RGB Emulation            hw model 0 depth 00000000 shade 00000000  
+device Direct3D HAL             hw model 2 depth 00000800 shade 00000008  HAL
+target           00000000
+palette          00000000
+setpalette       00000000
+getdesc          00000000
+target caps 10006040 pf flags 00000060 bits 8 pitch 800 256x128
+dd global 822e101c
+  +46c -> b0c00000 first 00805a4d
+  +478 -> b0c0ba2c first 000000c0
+  +47c -> b0c0baec first 0000008c
+  +7d0 -> b0c0358a first b4d03d83
+  +7d4 -> b0c03377 first 55575653
+  +800 -> b0c034fc first 8b555653
+  +804 -> b0c029d1 first c0b4e0a1
+  +80c -> b0c01326 first 55575653
+  +810 -> b0c01433 first 83555653
+  +814 -> b0c02d5a first 55575653
+  +850 -> b0c0358a first b4d03d83
+  +854 -> b0c03377 first 55575653
+  +880 -> b0c034fc first 8b555653
+  +884 -> b0c029d1 first c0b4e0a1
+  +88c -> b0c01326 first 55575653
+  +890 -> b0c01433 first 83555653
+  +894 -> b0c02d5a first 55575653
+createdevice     8876a02c
+hal ctx 0/0 scene 0 state 0 prim 0 (0) dds 00000000 z 00000000
+
+== M8D3DT bed9 b0c0ba0c
+ddraw            00000000
+d3d2             00000000
+device Ramp Emulation           hw model 0 depth 00000000 shade 00000000  
+device RGB Emulation            hw model 0 depth 00000000 shade 00000000  
+device Direct3D HAL             hw model 2 depth 00000800 shade 00000008  HAL
+target           00000000
+palette          00000000
+setpalette       00000000
+getdesc          00000000
+target caps 10006040 pf flags 00000060 bits 8 pitch 800 256x128
+dd global 822e101c
+  +46c -> b0c00000 first 00805a4d
+  +478 -> b0c0ba2c first 000000c0
+  +47c -> b0c0baec first 0000008c
+  +7d0 -> b0c0358a first b4d03d83
+  +7d4 -> b0c03377 first 55575653
+  +800 -> b0c034fc first 8b555653
+  +804 -> b0c029d1 first c0b4e0a1
+  +80c -> b0c01326 first 55575653
+  +810 -> b0c01433 first 83555653
+  +814 -> b0c02d5a first 55575653
+  +850 -> b0c0358a first b4d03d83
+  +854 -> b0c03377 first 55575653
+  +880 -> b0c034fc first 8b555653
+  +884 -> b0c029d1 first c0b4e0a1
+  +88c -> b0c01326 first 55575653
+  +890 -> b0c01433 first 83555653
+  +894 -> b0c02d5a first 55575653
+createdevice     00000000
+hal ctx 1/0 scene 0 state 0 prim 0 (0) dds 822e1d48 z 00000000
+viewport         00000000
+addviewport      00000000
+setviewport      00000000
+current          00000000
+beginscene       00000000
+draw             00000000
+endscene         00000000
+
+== M8D3DT bed10 b0c0ba0c
+ddraw            00000000
+d3d2             00000000
+device Ramp Emulation           hw model 0 depth 00000000 shade 00000000  
+device RGB Emulation            hw model 0 depth 00000000 shade 00000000  
+device Direct3D HAL             hw model 2 depth 00000800 shade 00000008  HAL
+target           00000000
+palette          00000000
+setpalette       00000000
+getdesc          00000000
+target caps 10006040 pf flags 00000060 bits 8 pitch 800 256x128
+dd global 822e101c
+  +46c -> b0c00000 first 00805a4d
+  +478 -> b0c0ba2c first 000000c0
+  +47c -> b0c0baec first 0000008c
+  +7d0 -> b0c0358a first b4d03d83
+  +7d4 -> b0c03377 first 55575653
+  +800 -> b0c034fc first 8b555653
+  +804 -> b0c029d1 first c0b4e0a1
+  +80c -> b0c01326 first 55575653
+  +810 -> b0c01433 first 83555653
+  +814 -> b0c02d5a first 55575653
+  +850 -> b0c0358a first b4d03d83
+  +854 -> b0c03377 first 55575653
+  +880 -> b0c034fc first 8b555653
+  +884 -> b0c029d1 first c0b4e0a1
+  +88c -> b0c01326 first 55575653
+  +890 -> b0c01433 first 83555653
+  +894 -> b0c02d5a first 55575653
+createdevice     00000000
+hal ctx 2/1 scene 2 state 1 prim 1 (1) dds 822e1d48 z 00000000
+viewport         00000000
+addviewport      00000000
+setviewport      00000000
+current          00000000
+beginscene       00000000
+draw             00000000
+endscene         00000000
+after draw: scene 4 state 2 prim 2 (2)
+
