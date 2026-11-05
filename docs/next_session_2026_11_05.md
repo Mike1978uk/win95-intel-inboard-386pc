@@ -109,3 +109,9 @@ Card hung 2026-11-05 about 15:45 during the second M8D3DF run on `M8D3D6` (boot 
 **Then:** the "Direct3D levers" table in `docs/mach8_frame_rate_plan.md`, every row ruled in or out by a card number. Best figures so far (`M8D3D6`, one run): hal_tiny 41.9, hal_small 43.6, hal_static 84.6-152, hal_large 15.6, hal_many 11 fps. Goal 60+. Next after the clear: V19 status reads, V18 high-byte writes (probe), V5, V6, V15, C2 adaptive palette, C3 gradient bands (required).
 
 **Way back:** `C:\V9XREMOTE\REG\M8BACK.REG` = M8FLIP8, High Color, 800x600; old DLL `C:\V9XREMOTE\REG\M8DD32.BCK`, rename in by WININIT.INI. Card scripts were in the session scratchpad: model them on `tools/m8_card_cycle.ps1`; DLL by `M8DD32.NEW` and WININIT.INI. Git: local master ahead of origin, nothing pushed; #55/#59 updates not posted.
+
+## Result of that bench (supersedes "the question it answers" above)
+
+**Proven: the time around the clear is other threads.** `M8D3D7`, high priority: hal_tiny 65.2, hal_small 66.2, hal_colour 70.8, hal_static 196, hal_large 36.2, hal_many 19.2 fps; clear 1.2-1.6 ms, against 31 fps and 11.4 ms at normal priority. Benched through the agent, whose own exec may be part of it.
+Next: find what runs (run by hand with no agent; IDLECOST's list of background sources). Do not assume a game can run at real-time priority: it starves sound and network. Then the Flip's ~9 ms engine and DirectX's ~3-4 ms; hal_large and hal_many need their own targets.
+**All planned work: the "Direct3D levers" table in `docs/mach8_frame_rate_plan.md`.** Disk and swap tests: #59 and the same plan's order of work. Add this row when next editing: V24 background threads, IN by measurement, cause open.
