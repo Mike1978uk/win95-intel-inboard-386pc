@@ -122,4 +122,30 @@ Next: find what runs (run by hand with no agent; IDLECOST's list of background s
 
 ## Agent proven as the thief (evening, 2026-11-05)
 
-Bench benches without the agent from now on: `C:\V9XREMOTE\M8QUIET.EXE run V9XAGNT.EXE C:\M8D3DF.EXE <label> 3 norm hal` (detaches, stops the agent, benches, restarts it; log `C:\V9XREMOTE\M8QUIET.TXT`). At most once a boot, then reboot: a third cycle hung the card on the desktop, cause unproven. Killed programs leave ghost tray icons. Results: `docs/captures/2026-11-05_d3d_16bpp/README.md`. Next: static trace, blocks, V10, then Flip's ~0.5 ms a triangle.
+Results: `docs/captures/2026-11-05_d3d_16bpp/README.md`. Remote benches keep the agent running, at `high` (owner): compare `high` with `high`; it reads a little under the agent-free figures. Stopping the agent also stops our access. Owner's agent-free runs: last section.
+
+## START HERE: owner's direction, end of 2026-11-05
+
+**Owner's ideas for the next tests:**
+
+- Run DirectX tests with the remote agent ended, and see how things perform. The agent's tray menu offers only Restart; its other settings are greyed out, so it cannot be stopped from there.
+- Owner's hypothesis: the crashes began only after the agent came into use, and it may be pushing the system to its limit. Unproven. For: it takes up to half the CPU (measured); the card has 0 KB free and 6-7 MB paged. Against: nothing yet ties a hang to it, and the agent arrived close to our driver work, so the two are not separated. Agent-free runs at times will test it. Owner's priority is test runs clear of it, not only remote benches.
+
+**Ways to run without the agent, to set up at the next sitting, with the card on:**
+
+1. **One run (ready):** Start > Run: `C:\V9XREMOTE\M8QUIET.EXE run V9XAGNT.EXE <program and arguments>`. It waits 5 s, stops the agent, waits 5 s, runs the program, restarts the agent when it exits; log `C:\V9XREMOTE\M8QUIET.TXT`. For the bench: `C:\M8D3DF.EXE own 3 norm hal`. Limits: it terminates the program after 10 minutes (`BENCH_MS`); for dxdiag raise that, or add a stop-only verb. Check dxdiag's path first. Stopped programs leave ghost tray icons (owner's photo `photos/hung_system.jpg`, two sets of icons, from my Systray and Internat stops). Reboot after a run: see the M8QUIET hang below.
+2. **A whole boot (cleanest, no restart involved):** remove `V9xRemoteAgent` from `HKLM\...\CurrentVersion\RunServices` by a .REG file, with a second .REG on the desktop to put back `C:\V9XREMOTE\V9XAGNT.EXE -service`. Double-click, reboot. The owner then runs tests by hand and reads the logs after the agent is back. Prepare both while the agent still works. No access at all from here during that boot.
+
+**The DirectDraw hang on `M8D3D8` (boot 222):** owner selected dxdiag's DirectDraw test; the button's ding played and went into a loop; card shut down. Fourth sound-loop report (#55), so it marks the CPU no longer servicing sound, not sound as the fault. **First dxdiag run on this build, so the static fix below is not cleared of it.** Next: same test, same build, agent stopped, repeated; if it hangs without the agent, the agent is cleared and the fix is next suspect (back to `M8D3D7`, registry `drv` value). Static result on this build unknown: the test never ran. Blocks not seen either.
+
+**Static fix, built and on the card, unverified:** `M8D3D8`. `m8_fb16_end` sent GDI's rectangles from `m8_fb16_sel`, the buffer on show, while GDI draws in the frame buffer; with the back buffer shown it sent that buffer's unwritten RAM, row by row, and the next Flip's fill (GDI seen, `card.known = 0`) cleared it. That matches the owner's order of events exactly, from reading only. The zeroing lead is dead: every not-`known` send follows `m8dd_ready_all`. `M8BENCH` on this build is 16 bpp against ATI's 8 bpp, so it says nothing about regressions.
+
+**M8QUIET hang (boot 218):** after two agent restarts in a boot, the third cell hung on the desktop with the egg timer, before M8QUIET wrote a log line. Not the driver's bench. Cause unproven.
+
+**Blocks, from `blocky`, `banded`, `blocked right edge`, `edges and triangles` (phone stills, small):** a cube face shows two tones split on its diagonal: a Gouraud face as two flat triangles, each with its own mean colour. That points to C3 gradients rather than a fill bug; the stills are too small to exclude more. `triangle1-2, 4-7, 9` still unread.
+
+**Two pages (V10), probe built, not run:** `C:\M8PAGE.EXE` is on the card (`tools/m8probe/M8PAGE.C`). Owner watches ~40 s; the stage is the count of grey boxes top left, and the source header says what each result means. Log `C:\M8PAGE.TXT`. Design so far: page 2 at rows 512-991 of pitch 1024, offset 0x20000 in `CRT_OFFSET` bytes/4; clear of the pointer (x >= 992); it takes today's scratch rows, so the scratch moves right of x 640 (352 wide, so wide triangles need splitting across too, and tall ones stop needing it). 640x480 only. The Mach8 resets CRT_OFFSET on an ADVFUNC_CNTL write (guide l.7515). If a write latches at the frame: no wait in Flip, and wait for the blank only before drawing on the old page, if the next frame gets there first.
+
+**Figures to beat (`M8D3D7`, one run, agent stopped):** hal_tiny 69.9, hal_small 66.1, hal_colour 75.6, hal_static 209, hal_large 39.9, hal_many 22.5 fps. Goal met on the small tests on the delivered configuration. Largest cost left: Flip's engine, ~0.5 ms a triangle, 60 % of the frame (V19, V18, V5, V6). Memory: stopping the agent frees only ~200 KB, so virtual memory and XT-CF work still count (#59).
+
+**Order:** (1) agent-free .REG files and dxdiag DirectDraw on `M8D3D8`, repeated; (2) static and blocks by the owner's eye; (3) M8PAGE, then V10; (4) Flip's engine levers; (5) C2, C3.
