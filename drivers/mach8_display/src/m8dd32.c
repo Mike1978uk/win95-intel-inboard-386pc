@@ -560,7 +560,7 @@ static int m8dd_key_rect( const RECT *d, int sx, int sy, BYTE key )
  *
  * Direct3D's triangles are part of the description too, over the rectangles:
  * RAM does not hold them until something reads the buffer (m8dd_tris_to_ram),
- * and Flip has the engine draw them. `box` holds them all. */
+ * and Flip has the engine draw them. */
 #define M8DD_DIRTY_MAX      8
 #define M8DD_TRIS_MAX       512
 
@@ -570,8 +570,6 @@ typedef struct {
     WORD    colour;
     int     n;
     RECT    d[M8DD_DIRTY_MAX + 1];      /* one over: m8dd_dirty */
-    int     has_box;
-    RECT    box;
 } M8DD_DESC;
 
 static DWORD        m8dd_back;          /* the back buffer's linear address, 0 = none */
@@ -585,6 +583,8 @@ static WORD         m8dd_tri_i[2][M8DD_TRIS_MAX];       /* the card's palette in
 static WORD         m8dd_tri_c[2][M8DD_TRIS_MAX];       /* 5-6-5, for RAM */
 static RECT         m8dd_card_box[M8DD_TRIS_MAX];       /* the triangles' boxes on the card */
 static int          m8dd_card_boxes;
+static short        m8dd_card_v[M8DD_TRIS_MAX * 6];     /* and the triangles themselves */
+static WORD         m8dd_card_i[M8DD_TRIS_MAX];
 static int          m8dd_fp_stale;      /* the card changed behind fb16.c's row fingerprints */
 
 /* The buffer a surface's memory is, or -1. */
@@ -767,7 +767,6 @@ static void m8dd_tris_to_ram( int k )
     int n = m8dd_tri_n[k];
 
     m8dd_tri_n[k] = 0;
-    m8dd_desc[k].has_box = 0;
     for( i = 0; i < n; ++i ) {
         m8dd_tri_ram( k, &m8dd_tri_v[k][6 * i], m8dd_tri_c[k][i] );
     }
@@ -1123,7 +1122,6 @@ static DWORD m8dd_blt16_do( M8DD_BLT *bd )
             m8dd_desc[dk].filled = 0;
             m8dd_desc[dk].colour = fillc;
             m8dd_desc[dk].n = 0;
-            m8dd_desc[dk].has_box = 0;
             m8dd_tri_n[dk] = 0;
             bd->ddRVal = DD_OK;
             return( DDHAL_DRIVER_HANDLED );
@@ -1326,6 +1324,8 @@ static void m8dd_note_boxes( int k )
     int         j;
 
     m8dd_card_boxes = m8dd_tri_n[k];
+    memcpy( m8dd_card_v, v, m8dd_card_boxes * 6 * sizeof( short ) );
+    memcpy( m8dd_card_i, m8dd_tri_i[k], m8dd_card_boxes * sizeof( WORD ) );
     for( i = 0; i < m8dd_card_boxes; ++i, v += 6, ++r ) {
         r->left = r->right = v[0];
         r->top = r->bottom = v[1];
@@ -1362,9 +1362,14 @@ static void m8dd_flip16_fast( int k )
         m8dd_op( 2, NULL, (WORD)k );
     }
     /* Index 0 is black in fb16.c's palette. */
-    m8d3d_replay( m8dd_card_box, m8dd_card_boxes, 0, m8dd_tri_v[k], m8dd_tri_i[k], m8dd_tri_n[k] );
-    m8dd_note_boxes( k );
-    m8dd_fp_stale = 1;
+    /* The same triangles as the card shows: the frame is there already. */
+    if( m8dd_tri_n[k] != m8dd_card_boxes ||
+        memcmp( m8dd_tri_v[k], m8dd_card_v, m8dd_card_boxes * 6 * sizeof( short ) ) != 0 ||
+        memcmp( m8dd_tri_i[k], m8dd_card_i, m8dd_card_boxes * sizeof( WORD ) ) != 0 ) {
+        m8d3d_replay( m8dd_card_box, m8dd_card_boxes, 0, m8dd_tri_v[k], m8dd_tri_i[k], m8dd_tri_n[k] );
+        m8dd_note_boxes( k );
+        m8dd_fp_stale = 1;
+    }
     m8dd_card = m8dd_desc[k];
     m8dd_front = k;
 }
@@ -1495,7 +1500,6 @@ static DWORD m8dd_create16( M8DD_CREATE *cd )
     m8dd_desc[0].filled = 0;
     m8dd_desc[0].colour = 0;
     m8dd_desc[0].n = 0;
-    m8dd_desc[0].has_box = 0;
     m8dd_desc[1] = m8dd_desc[0];
     m8dd_tri_n[0] = 0;
     m8dd_tri_n[1] = 0;
@@ -1851,6 +1855,7 @@ int m8d3d_record( LPVOID lcl, const short *v, BYTE index, WORD colour )
     short   *p;
     RECT    r;
 
+    /* Per triangle: nothing here may call out of this DLL, least of all USER. */
     if( k < 0 ) {
         return( 0 );
     }
@@ -1876,32 +1881,6 @@ int m8d3d_record( LPVOID lcl, const short *v, BYTE index, WORD colour )
     }
     m8dd_tri_i[k][n] = index;
     m8dd_tri_c[k][n] = colour;
-    r.left = v[0];
-    r.top = v[1];
-    r.right = v[0];
-    r.bottom = v[1];
-    for( t = 1; t < 3; ++t ) {
-        if( v[2 * t] < r.left ) {
-            r.left = v[2 * t];
-        }
-        if( v[2 * t] > r.right ) {
-            r.right = v[2 * t];
-        }
-        if( v[2 * t + 1] < r.top ) {
-            r.top = v[2 * t + 1];
-        }
-        if( v[2 * t + 1] > r.bottom ) {
-            r.bottom = v[2 * t + 1];
-        }
-    }
-    ++r.right;
-    ++r.bottom;
-    if( m8dd_desc[k].has_box ) {
-        UnionRect( &m8dd_desc[k].box, &m8dd_desc[k].box, &r );
-    } else {
-        m8dd_desc[k].box = r;
-        m8dd_desc[k].has_box = 1;
-    }
     return( 1 );
 }
 

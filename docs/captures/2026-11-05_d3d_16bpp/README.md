@@ -12,3 +12,18 @@ program's folder. Full-screen 640x480x16 flip chain, 16 flat triangles spread ov
 The HAL's runs disagree by up to 2x at 8 px, so these are a rough first figure, not a baseline. `lit` is the RAM copy, not the card; our count
 includes edges RGB leaves out. Not comparable with the 8 bpp bench: that scene is a 256x128 target. Screen not seen by anyone in these runs.
 Where 55-120 ms a frame goes is not measured. Suspects: one box around all triangles (filled each frame, and fingerprints dropped over it).
+
+## dxdiag, card, `M8D3D2`, owner's phone video (2026-11-05)
+
+dxdiag's two Direct3D tests both passed, stock DirectX. Timed from the video's first and last frames:
+
+| Test | Start | End | Length |
+|---|---|---|---|
+| Software | 0:33.41 | 3:37.25 | 183.84 s |
+| Hardware (our HAL) | 4:07.86 | 4:28.64 | 20.78 s |
+
+8.8x, if both tests draw the same number of frames (assumed, not checked). Driver counters prove the hardware test reached the HAL: contexts 10 against 9 from
+M8D3DF's runs, and about 1,280 triangles in about 220 RenderPrimitive calls beyond M8D3DF's (estimated from rounded fps), 0 refused. Owner: faster, colours flicker.
+Baseline for this build. Next: M8D3DS before and after a run gives exact flips, so flips / the video's seconds = fps.
+
+**`M8D3DF_fast.TXT`, `M8D3D3`, boot 211, M8IDLE settled:** per-triangle boxes and no 16-bit side on a black frame took hal_tiny from 8-18 to 28-46 fps. Frame ~22-35 ms; Flip ~10, 16-bit part ~1; the rest is outside Flip, growing ~1 ms a triangle (hal_many). Run-to-run spread still large on the small tests.
