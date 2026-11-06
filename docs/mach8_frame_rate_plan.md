@@ -453,13 +453,13 @@ A cheaper agent can run the prescribed benches and probes; diagnosis and engine 
 | V4 | Fingerprints dropped once | IN, with V2 |
 | V8a | A frame identical to the card's draws nothing | IN: hal_static 42 to 96-152 fps |
 | - | USER call per triangle removed | OUT as a cost: no change; kept out anyway |
-| V16 | **The black clear's 5-35 ms** (should be ~1) | OPEN, biggest target; `Blt` timing built, not yet run |
+| V16 | The black clear's 5-35 ms | CLOSED: other threads, not the clear (V24). 0.8-1.4 ms with the agent stopped |
 | V5 | Scratch clear without an idle wait | OPEN |
 | V6 | Spans for small triangles | OPEN |
 | V7 | Coplanar triangles joined into one polygon | OPEN |
 | V8b | Per-triangle reuse when only some moved | OPEN |
 | V9 | Background and repeated tiles in card memory | OPEN |
-| V10 | Two pages, Flip = CRT_OFFSET | OPEN; no longer the flicker fix (C1-C3 are) |
+| V10 | Two pages, Flip = CRT_OFFSET | OPEN; M8PAGE built, unrun. Candidate for large triangles seen part-drawn |
 | V11 | 320x240 Direct3D mode | OPEN |
 | V12 | Asm emitters, values in registers before the first OUT | OPEN |
 | V13 | DrawOnePrimitive and DrawPrimitives by GetDriverInfo | OPEN; DirectX calls cost ~0.3 ms a triangle |
@@ -478,7 +478,58 @@ A cheaper agent can run the prescribed benches and probes; diagnosis and engine 
 | C3 | Gradient bands, `COLORGOURAUDRGB` | OPEN; required (owner) |
 | CT3 | Cell texturing from a glyph codebook | OPEN, after dxdiag's needs are known |
 
-## Order of work (revised 2026-11-05; cloud session's work merged from #59)
+## Order of work (2026-11-06, owner: frame rates and system-wide RAM and disk together)
+
+Reason for the order: the card has 0 KB free and 6.7-6.9 MB paged with the agent idle, so RAM and paging touch every
+program, while frame-rate levers touch one. Stages 1-3 run alongside stage 4, each measured on the card, two runs.
+
+**Stage 0, agent-free runs (owner), `docs/next_session_2026_11_06.md`.** dxdiag by eye, `NOAGWTCH`, `NOAGDISK`. Then
+`NOAGDISK` with the agent, relabelled, for the difference. Decides whether the agent explains the LZ4 mismatch
+(11-05 compress ~5,060 us against 10-02's 4,712) and what it costs paging.
+
+**Stage 1, driver RAM.** Census: `docs/mach8_ram_census_2026_11_06.md`.
+
+| # | Lever | Size, from source | Test |
+|---|---|---|---|
+| R1 | Back buffer `m8_fb16_bmem`: a described frame need not write it | 960,000 B at 800x600x16 | `paged` in NOAG.TXT and PERFLOG's locked count, after a DirectDraw program has exited |
+| R2 | Back buffer sized to the DirectDraw mode, freed on the last exit | 960,000 against 614,400 B | same |
+| R3 | Frame buffer `m8_fb16_mem`, page-locked, needed at 16 bpp only | 960,000 + 60,000 B fingerprints | PAGERUN at 16 bpp against 8 bpp: the price of the 16 bpp desktop |
+| R4 | Direct3D arrays (V20) | census | same |
+
+**Stage 2, paging.**
+
+| # | Lever | Evidence | Test |
+|---|---|---|---|
+| P-a | `sectors.py` over the card's `WIN386.SWP`: is LZ4 still right? Never commit the file | #59 item 3; deflate 2.92:1 on an old sample, decode untimed | CF in the host reader, no card time |
+| P-b | Cheaper compress: `LZ4B12FN` | 3 % on the page-in model, 11-05; re-baseline in stage 0 first | checksum build in the bed, PAGERUN A/B |
+| P-c | Stop compressing past 3,070 B | ~12 % of writes go raw after a full compress | with P-b |
+| P-d | Zero and repeated-dword pages: no I/O | 1.5 % of writes all zero; `sectors.py` counts repeats | with P-b |
+| P-e | Whole pages per request | `SwapComp_Hook` issues one command per page; each pays first DRQ 232-313 us. SWAPCNT sizes it | counters first |
+| P-f | VCACHE cap sweep: 256, 512, 1024 KB | 512-1024 measured 10-03, before the 16 bpp desktop. Swap I/O bypasses VCACHE, so the cap trades file cache for working set | SYSTEM.INI, PAGERUN each |
+| P-g | Console programs: each costs a DOS VM | M8NOAG, 11-06: `SLEEP 1` took 12 s and paged 188 KB more, agent idle | one run, agent-free, then decide what must not be a console program |
+
+**Stage 3, XT-CF (#59 item 1).** `-TightTaskfile`, `-SkipDrvHd`: bed, then card. Compare by min (11-05 baseline note).
+
+**Stage 4, frame rates.** `M8D3DF` agent-free targets as before: hal_large 39.9, hal_many 22.5 fps must reach 60.
+Flip's engine is ~0.5 ms a triangle, 60 % of a frame. Order: V19, V5, V6, V18 (probe), V15; V10 after M8PAGE; then C2,
+C3 for the blocks; V7, V8b, V9, V11-V14 by what the profile shows.
+
+**Stage 5, textures.** Probes M8TEXL, M8GLYPH, M8TEXT, M8CELL, VGATEX (#59 item 9), none built. Publish a texture format
+when dxdiag needs it. CT1 before CT3; TX1 first, since it is plain blits.
+
+**What each driver can lend the other:**
+
+| Learned on | Lesson | Applies to | Row |
+|---|---|---|---|
+| Mach8 | Values in registers before the first OUT | XT-CF taskfile | stage 3 |
+| Mach8 | Skip a repeated write where nothing else changes the register | XT-CF DRV/HEAD | stage 3 |
+| Mach8 | Describe, do not scan or send | SWAPCOMP zero and repeated pages | P-d |
+| XT-CF | Wait the measured time, then look | Mach8 status reads | V19, O15 |
+| XT-CF | One latch, the odd byte commits | Mach8 words sharing a low byte | V18, P13 |
+| SWAPCOMP | Divide by the bytes; decode cheaply on the far side | Mach8 engine as decompressor | V21 |
+| T130B audit | Pace the spin | Mach8 vblank wait (done), T130.MPD block-ready spin | #41 |
+
+## Earlier order of work (2026-11-05; superseded above, kept for its probe lists)
 
 Mach8 (M = needs the card, B = bed, C = no machine):
 

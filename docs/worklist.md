@@ -324,8 +324,8 @@ like a timer tick (~170 us measured for #45). Ideas, cheapest first - measure be
       then a Direct3D HAL claiming what the engine rasterises. Ranked by `docs/mach8_3d_research.md`.
       M8SPAN (2026-11-02, card): spans 20.4 us, LINEDRAW 21 us/vertex, polygon fill 0.2 ms + area x 35 ns, works on the card (triangle photographed); bed fills rectangles. Next: flat-shaded demo via polygon fill.
 - [ ] **X8** DOS timing: VGA-memory writes vs PIX_TRANS on the 5160 (sizes X1 and the 3D options).
-- [ ] **X9 Frame rates:** order of work in `docs/mach8_frame_rate_plan.md` (2026-11-02): probes P1-P13, fs16 F1-F4,
-      tearing T1-T2, Direct3D D1-D4, 8 bpp full screen, asm, technique library G1-G10.
+- [ ] **X9 Frame rates, RAM and paging:** "Order of work (2026-11-06)" in `docs/mach8_frame_rate_plan.md`: agent-free runs,
+      driver RAM, paging, XT-CF, frame-rate levers, textures.
 
 ## E. Timer, refresh, XT-CF (in flight)
 

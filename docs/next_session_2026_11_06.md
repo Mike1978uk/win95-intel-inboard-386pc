@@ -1,0 +1,39 @@
+# Next session, 2026-11-06
+
+Order of work: `docs/mach8_frame_rate_plan.md`, "Order of work (2026-11-06)". **The cloud session's tests are in #59**:
+carry this line into new handoffs until every box there is ticked.
+
+## Card
+
+Boot 224, `m8d3d8.drv`, M8DD32.DLL md5 62D00C05C518970D4B866192E9949C8A (50,688 B), 800x600x16.
+
+Owner, 11-06, with the agent running: both dxdiag tests ran without fault, **static gone** on `M8D3D8`. Occasional colour
+blocks remain. Hardware far ahead of software. The 11-05 DirectDraw hang on this build did not recur in that run.
+
+## Running without the agent
+
+Desktop: `AGENTOFF`, `AGENTON`, `NOAGWTCH`, `NOAGDISK` (all `tools/m8noag/M8NOAG.EXE`, md5 56F011F2, job picked by file
+name) and `NOAGENT.TXT`, the steps. Lists: `C:\V9XREMOTE\*.LST`. Log: `C:\V9XREMOTE\NOAG.TXT`, forced to disk before each
+step. Off and on proven on the card by registry read-back. Runner proven with a one-line list.
+
+REGEDIT on 4.00.950 a ignores `"value"=-` and `[-key]` and exits 0; `regedit /d` also left the key. So the agent's own
+`REMOVE.REG` does nothing here. Tell its author: owner's call.
+
+Tray: Settings was greyed because `C:\V9XREMOTE\SETUP.EXE` was not on the card (agent docs, `guest-agent.md`). Now there,
+sha256 matches the package; not yet seen in the menu. Saving restarts the agent. The menu has no Stop item.
+
+## After the owner's runs
+
+1. Fetch `NOAG.TXT`, `M8D3DF.TXT`, `M8PAGE.TXT`, `M8BENCH.TXT`, `XTSECT.TXT`, `IDLECOST.TXT`, `LZ4B*.TXT`, `PAGETIME.TXT`,
+   `PERFLOG.CSV` into `docs/captures/2026-11-06_noagent/`.
+2. With-agent comparison: restart, `NOAGDISK` under another name with the label changed from `noag`. Start it detached.
+3. Stage 1 onward.
+
+Owner to bring: the CF in the host reader once, for `sectors.py` over `WIN386.SWP` (Windows holds the file open). Never commit it.
+
+## Open
+
+- Bed `vm_5160_mcp` still has the error-tagged `DDRAW.DLL`: restore `C:\WINDOWS\SYSTEM\DDRAW.DLL`, md5 EEDE14A8FB89A725C903E33A6A0F9F28.
+- Sound-loop locks (#55): four reports, cause open. Agent-free runs bear on the owner's theory that the agent contributes.
+- Stills `triangle1-2, 4-7, 9` unread.
+- #55 and #59 updates not posted.
