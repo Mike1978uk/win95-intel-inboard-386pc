@@ -567,6 +567,14 @@ Open ideas, not yet measured:
 | Y7 | Unchanged triangles not drawn (V8b) | Static scenery | dxdiag and a game |
 | Y8 | 320x240 and 400x300 by CRTC (V11) | 2-3x on large shapes; games pick the mode | P9, P10 |
 
+| Y9 | **Paint once, stamp many (owner):** a gradient triangle drawn once in spare card memory, then a colour-keyed copy, one command | 100 px ~2.5 to ~0.7 ms *estimate*, when shape and colours both repeat; ~12 stamps of 100 px fit | Arm against bands |
+| Y10 | **What is true everywhere (owner: pi, phi, fractals).** A straight colour ramp is the same at every place, so one stored ramp serves many triangles at an offset | The 6213h fill: 1.09x flat at 100 px, against bands at ~2.5 ms. Needs ramps by direction and rate, and a palette in shades; suits lit surfaces of one hue | M8SHAPE arm with a field per direction |
+| Y11 | Mirrored masks (owner's repeats): one mask for a shape and its mirror by a reversed copy, if the engine allows | More mask hits on cube faces | One mirrored copy, pixels read back |
+| Y12 | Golden-ratio band shift (owner's phi): band edges moved by a low-discrepancy step each frame, so steps average out over time | More apparent shades for no commands. Owner likes the crisp look, so by eye | Bench option |
+| Y13 | Background over foreground (owner): BKGD_MIX on the mask copy, so one command writes the shape and the box around it. Black gives erase and draw together (Y4); a stored picture restores scenery (G12) | Small triangles; scenery for what black costs | M8SHAPE arm |
+
+Noted, not useful: Mandelbrot itself (detail costs computation, nothing to reuse). Already in use: phi in SWAPCOMP's hash (`SWAPCOMP.ASM:392`, 2^32 / phi); self-similar triangle as the core at one level (deeper loses to command cost); sine tables in M8CUBE.
+
 **Reuse to check after each win (owner):** masks and core rectangles for M8CUBE's polygon escape (`poly3d.c`), DirectDraw sprites (colour-key copies are mask-rate fills), and GDI's mono expansion from card memory.
 
 ## Earlier order of work (2026-11-05; superseded above, kept for its probe lists)

@@ -25,6 +25,8 @@
  *  15 core     expand, with the triangle's inscribed rectangle a plain fill and the mask used only
  *              for the two boxes left over: a plain fill costs a fifth of a mask copy a pixel
  *  16 page     one fill of a whole page, and how long the CPU is held: one command runs on its own
+ *  18 stamp    a drawn triangle kept beside the page and stamped by a colour-keyed copy: one
+ *              command, all 8 bits of colour, written with only room for its 9 writes
  *  17 corechk  m8d3d.c's way of choosing a core, its choice drawn on eight shapes at 32 and 100 px
  *              and each compared with flat pixel by pixel. Slopes are where it can go wrong
  *
@@ -89,6 +91,8 @@
 #define ALU_FG_FN       0xBAEE
 #define SRC_X_END       0xBEEE
 #define SRC_Y_DIR       0xC2EE
+#define SRC_CMP_FN      0x92EE
+#define SRC_CMP_COLOR   0xEAEE
 #define SCAN_TO_X       0xCAEE
 #define DP_CONFIG       0xCEEE
 #define PATT_LENGTH     0xD2EE
@@ -104,6 +108,7 @@
 #define DP_FILL_VRAM    0x6213
 #define DP_FILL_LOOKUP  0xE213
 #define DP_MONO_VRAM    0x2271
+#define DP_VRAM_BLIT    0x6211
 #define MIX_LEAVE       3
 #define MIX_XOR         5
 #define MIX_REPLACE     7
@@ -1419,6 +1424,64 @@ static void core_checks( void )
     }
 }
 
+#define STAMP_Y         0
+
+static void prep_stamp( void )
+{
+    short   keep[6];
+    int     k;
+
+    rect( RAMP_X, STAMP_Y, RAMP_W, size + 2, 0 );
+    rect( RAMP_X, SCRATCH_Y, RAMP_W, SCRATCH_H, 0 );
+    for( k = 0; k < 6; ++k ) {
+        keep[k] = tri[0][k];
+    }
+    tri[0][0] = RAMP_X;
+    tri[0][1] = STAMP_Y;
+    tri[0][2] = RAMP_X + (short)size;
+    tri[0][3] = STAMP_Y + (short)size;
+    tri[0][4] = RAMP_X;
+    tri[0][5] = STAMP_Y + (short)size;
+    flat_drawn = 0;
+    flat_dirty = 0;
+    draw_flat( 0 );
+    for( k = 0; k < 6; ++k ) {
+        tri[0][k] = keep[k];
+    }
+    wait_idle();
+    outpw( WRT_MASK, 0x00FF );
+    outpw( RD_MASK, 0x00FF );
+    outpw( DP_CONFIG, DP_VRAM_BLIT );
+    outpw( ALU_FG_FN, MIX_REPLACE );
+    outpw( ALU_BG_FN, MIX_LEAVE );
+    outpw( SRC_CMP_COLOR, 0 );
+    outpw( SRC_CMP_FN, 0x0028 );
+    outpw( SRC_Y_DIR, 1 );
+    outpw( SRC_X_START, RAMP_X );
+    outpw( SRC_X_END, RAMP_X + size + 1 );
+    wait_idle();
+}
+
+static void draw_stamp( int i )
+{
+    room( 7 );
+    outpw( SRC_X, RAMP_X );
+    outpw( SRC_Y, STAMP_Y );
+    outpw( CUR_X, tri[i][0] );
+    outpw( DEST_X_START, tri[i][0] );
+    outpw( DEST_X_END, tri[i][0] + size + 1 );
+    outpw( CUR_Y, tri[i][1] );
+    outpw( DEST_Y_END, tri[i][1] + size + 1 );
+}
+
+static void end_stamp( void )
+{
+    wait_idle();
+    outpw( SRC_CMP_FN, 0 );
+    outpw( DP_CONFIG, DP_PLAIN );
+    wait_idle();
+}
+
 static double page_cpu_us;
 
 static void page_fill( void )
@@ -1765,6 +1828,22 @@ static void one_size( int s )
         fprintf( out, "size %3d  page fill, all %.1f us, CPU held %.1f us\n", size, (now() - t0) * 1e6 / qpf, page_cpu_us );
     }
     label( 16 );
+    wait_idle();
+
+    /* 18 stamp: every triangle is flat's colour for triangle 0, so the check is against that */
+    rect( 0, 0, SCR_W, LABEL_Y, 0 );
+    label( 18 );
+    prep_stamp();
+    us = timed( draw_stamp );
+    end_stamp();
+    rect( 0, 0, SCR_W, LABEL_Y, 0 );
+    prep_stamp();
+    draw_stamp( 0 );
+    end_stamp();
+    fprintf( out, "  stamp differs from flat in %ld pixels\n", box_check( 0 ) );
+    report( "stamp", us, base );
+    rect( RAMP_X, STAMP_Y, RAMP_W, size + 2, 0 );
+    rect( RAMP_X, SCRATCH_Y, RAMP_W, SCRATCH_H, 0 );
     wait_idle();
 
     /* 17 corechk */

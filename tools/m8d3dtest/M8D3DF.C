@@ -5,11 +5,15 @@
  * pixels counted. Results append to C:\M8D3DF.TXT, with the time inside Flip from the
  * driver's counters.
  *
- *   M8D3DF <label> [seconds per test, default 3] [norm|high|rt] [hal|again]
+ *   M8D3DF <label> [seconds per test, default 3] [norm|high|rt] [hal|again|grab]
  *
  * high is HIGH_PRIORITY_CLASS, which a game could use; rt holds off everything but
  * interrupts, and starves sound and network. hal leaves out the slow software tests.
  * Spin lines show what other threads take with no DirectX call being made.
+ *
+ * grab: the HAL tests, and at the end of each both pages as the card holds them, every second
+ * pixel, with the palette, in C:\M8D3DF.GRB: the bench's lit count comes from RAM and never sees
+ * the card. About 10 s a test. tools/m8d3dtest/m8grab_png.py makes pictures of it.
  *
  * Build: wcl386 -q -bt=nt -l=nt_win -ox -i=<watcom>h -i=<watcom>h\nt -i=<watcom>h\nt\directx
  *        -fe=M8D3DF.EXE M8D3DF.C ddraw.lib
@@ -19,6 +23,7 @@
 #include <windows.h>
 #include <stdio.h>
 #include <string.h>
+#include <conio.h>
 #include <ddraw.h>
 #include <d3d.h>
 
@@ -70,6 +75,89 @@ static LPDIRECTDRAWSURFACE  back;
 static D3DTLVERTEX          tri[MAX_TRIS * 3];
 static double               qpf;
 static const DWORD          *stat;
+static int                  grab;
+static FILE                 *grab_out;
+
+#define G_STAT      0x9AE8
+#define G_EXT_FIFO  0x9AEE
+#define G_FRGD_MIX  0xBAE8
+#define G_WRT_MASK  0xAAE8
+#define G_RD_MASK   0xAEE8
+#define G_DP_CONFIG 0xCEEE
+#define G_DP_PLAIN  0x2211
+#define G_CUR_X     0x86E8
+#define G_CUR_Y     0x82E8
+#define G_MAJ       0x96E8
+#define G_MIN       0xBEE8
+#define G_PIX_TRANS 0xE2E8
+#define G_PAGE1_Y   512
+#define G_STEP      2
+
+static void g_idle( void )
+{
+    long n;
+
+    for( n = 0; n < 200000L; ++n ) {
+        if( inpw( G_EXT_FIFO ) == 0 && !(inpw( G_STAT ) & 0x0200) ) {
+            return;
+        }
+    }
+}
+
+static int g_pixel( int x, int y )
+{
+    long    n;
+    int     v;
+
+    g_idle();
+    outpw( G_CUR_X, x );
+    outpw( G_CUR_Y, y );
+    outpw( G_MAJ, 1 );
+    outpw( G_MIN, 0 );
+    g_idle();
+    outpw( 0x9AE8, 0x53B0 );
+    for( n = 0; n < 200000L && !(inpw( G_STAT ) & 0x0100); ++n ) {
+    }
+    v = inpw( G_PIX_TRANS ) & 0xFF;
+    g_idle();
+    return( v );
+}
+
+/* Behind the driver's back: it sets the engine up afresh for each frame. */
+static void g_dump( const char *name )
+{
+    char    head[16];
+    int     page;
+    int     x;
+    int     y;
+    int     i;
+
+    if( grab_out == NULL ) {
+        return;
+    }
+    g_idle();
+    outpw( G_WRT_MASK, 0x00FF );
+    outpw( G_RD_MASK, 0x00FF );
+    outpw( G_DP_CONFIG, G_DP_PLAIN );
+    outpw( G_FRGD_MIX, 0x0047 );
+    memset( head, 0, sizeof( head ) );
+    strncpy( head, name, sizeof( head ) - 1 );
+    fwrite( head, 1, sizeof( head ), grab_out );
+    outp( 0x2EB, 0 );
+    for( i = 0; i < 768; ++i ) {
+        fputc( inp( 0x2ED ), grab_out );
+    }
+    for( page = 0; page < 2; ++page ) {
+        for( y = 0; y < SCR_H; y += G_STEP ) {
+            for( x = 0; x < SCR_W; x += G_STEP ) {
+                fputc( g_pixel( x, y + page * G_PAGE1_Y ), grab_out );
+            }
+        }
+    }
+    g_idle();
+    outpw( G_FRGD_MIX, 0x0027 );
+    fflush( grab_out );
+}
 
 static double now( void )
 {
@@ -234,7 +322,7 @@ static void test( int no, const TEST *t, int seconds )
     unsigned long           slow = 0;
     double                  frame0;
     double                  worst = 0.0;
-    DWORD                   s[10];
+    DWORD                   s[12];
     int                     x;
     int                     y;
     int                     i;
@@ -266,7 +354,7 @@ static void test( int no, const TEST *t, int seconds )
     fx.dwSize = sizeof( fx );
     memset( s, 0, sizeof( s ) );
     if( stat != NULL ) {
-        for( i = 0; i < 10; ++i ) {
+        for( i = 0; i < 12; ++i ) {
             s[i] = stat[12 + i];
         }
     }
@@ -307,9 +395,12 @@ static void test( int no, const TEST *t, int seconds )
         el = (a - t0) / qpf;
     } while( el < (double)seconds );
     if( stat != NULL ) {
-        for( i = 0; i < 10; ++i ) {
+        for( i = 0; i < 12; ++i ) {
             s[i] = stat[12 + i] - s[i];
         }
+    }
+    if( grab ) {
+        g_dump( t->name );
     }
     back->lpVtbl->Blt( back, NULL, NULL, NULL, DDBLT_COLORFILL | DDBLT_WAIT, &fx );
     dev->lpVtbl->BeginScene( dev );
@@ -333,7 +424,8 @@ static void test( int no, const TEST *t, int seconds )
                  1000.0 * s[2] / qpf / s[3] );
         fprintf( out, "  page wait %5.2f  blt %5.2f calls %lu described %lu", 1000.0 * s[7] / qpf / s[3], 1000.0 * s[4] / qpf / s[3],
                  (unsigned long)s[5], (unsigned long)s[6] );
-        fprintf( out, "  masks %lu built %lu", (unsigned long)s[8], (unsigned long)s[9] );
+        fprintf( out, "  masks %lu built %lu  stamps %lu built %lu", (unsigned long)s[8], (unsigned long)s[9],
+                 (unsigned long)s[10], (unsigned long)s[11] );
     }
     fprintf( out, "  bad %lu  lit %lu  over16.7ms %lu/%lu  worst %.1f\n", bad, lit, slow, frames, 1000.0 * worst / qpf );
     fflush( out );
@@ -377,8 +469,12 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
         SetPriorityClass( GetCurrentProcess(), REALTIME_PRIORITY_CLASS );
         SetThreadPriority( GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL );
     }
-    if( strcmp( which, "hal" ) == 0 || strcmp( which, "again" ) == 0 ) {
+    if( strcmp( which, "hal" ) == 0 || strcmp( which, "again" ) == 0 || strcmp( which, "grab" ) == 0 ) {
         count = HAL_TESTS;
+    }
+    if( strcmp( which, "grab" ) == 0 ) {
+        grab = 1;
+        grab_out = fopen( "C:\\M8D3DF.GRB", "wb" );
     }
     fprintf( out, "== M8D3DF %s  640x480x16  %d s a test  priority %s\n", label, seconds, prio );
     spin( "desktop" );
@@ -428,6 +524,9 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
     dd->lpVtbl->RestoreDisplayMode( dd );
     dd->lpVtbl->SetCooperativeLevel( dd, wnd, DDSCL_NORMAL );
     dd->lpVtbl->Release( dd );
+    if( grab_out != NULL ) {
+        fclose( grab_out );
+    }
     fprintf( out, "\n" );
     fclose( out );
     DestroyWindow( wnd );
