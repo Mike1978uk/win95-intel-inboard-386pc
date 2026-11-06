@@ -1,0 +1,12 @@
+LZ4: 64 pages, ratio 2.26:1
+LZ4 search 4: 64 pages, ratio 2.36:1
+LZ4 search 16: 64 pages, ratio 2.39:1
+self-test passed: every page round-trips byte-exact, and corruption is caught
+timer 1193180 Hz, cycles assume 80.0 MHz
+
+                         us/page   cycles/byte
+copy (floor)               832.41       16.26
+LZ4 compress              4711.83       92.03
+LZ4 decompress            1169.11       22.83
+LZ4 search 4 compress     9285.13      181.35
+LZ4 search 16 compress   11017.20      215.18

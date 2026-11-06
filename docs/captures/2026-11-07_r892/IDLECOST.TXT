@@ -1,0 +1,72 @@
+IDLECOST base, 5 s per size, QPC 1193180 Hz
+  KB  passes/s(mean)  min/s  max/s  ns/line(mean)
+   1           27683  19312  32112            564
+   4            9824   9600  10144            397
+   8            4982   4400   5280            392
+  12            3446   3360   3568            377
+(checksum 0)
+
+IDLECOST base, 5 s per size, QPC 1193180 Hz
+  KB  passes/s(mean)  min/s  max/s  ns/line(mean)
+   1           25955  22848  28448            602
+   4            9683   9568  10096            403
+   8            5097   4960   5296            383
+  12            3446   3344   3568            377
+(checksum 0)
+
+IDLECOST base, 5 s per size, QPC 1193180 Hz
+  KB  passes/s(mean)  min/s  max/s  ns/line(mean)
+   1           27072  20720  31632            577
+   4            9721   9568  10160            401
+   8            5094   4944   5280            383
+  12            3372   3232   3584            386
+(checksum 0)
+
+IDLECOST noag, 5 s per size, QPC 1193180 Hz
+  KB  passes/s(mean)  min/s  max/s  ns/line(mean)
+   1           33622  31616  34384            464
+   4           10643  10400  10752            367
+   8            5561   5536   5616            351
+  12            3740   3648   3776            348
+(checksum 0)
+
+IDLECOST noag, 5 s per size, QPC 1193180 Hz
+  KB  passes/s(mean)  min/s  max/s  ns/line(mean)
+   1           33529  31296  34416            466
+   4           10627  10496  10688            367
+   8            5545   5376   5632            352
+  12            3744   3680   3792            347
+(checksum 0)
+
+IDLECOST noag, 5 s per size, QPC 1193180 Hz
+  KB  passes/s(mean)  min/s  max/s  ns/line(mean)
+   1           33801  32080  34448            462
+   4           10649  10416  10768            366
+   8            5545   5408   5600            352
+  12            3744   3664   3776            347
+(checksum 0)
+
+IDLECOST r892, 5 s per size, QPC 1193180 Hz
+  KB  passes/s(mean)  min/s  max/s  ns/line(mean)
+   1           33603  31600  34368            464
+   4           10700  10624  10768            365
+   8            5529   5392   5600            353
+  12            3724   3648   3760            349
+(checksum 0)
+
+IDLECOST r892, 5 s per size, QPC 1193180 Hz
+  KB  passes/s(mean)  min/s  max/s  ns/line(mean)
+   1           33740  32256  34416            463
+   4           10656  10432  10768            366
+   8            5520   5440   5584            353
+  12            3737   3680   3792            348
+(checksum 0)
+
+IDLECOST r892, 5 s per size, QPC 1193180 Hz
+  KB  passes/s(mean)  min/s  max/s  ns/line(mean)
+   1           32566  26480  34384            479
+   4           10659  10576  10736            366
+   8            5564   5536   5584            351
+  12            3760   3744   3792            346
+(checksum 0)
+
