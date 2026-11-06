@@ -34,7 +34,7 @@ static const GUID m8_iid_rgb = { 0xa4665c60, 0x2673, 0x11cf, { 0xa3, 0x1a, 0x00,
 #define SPIN_GAP_MS 0.5                 /* more than the clock read and the timer tick */
 #define SLOW_FRAME_MS 16.67
 
-enum { MOVING = 1, ONE_COLOUR = 2 };
+enum { MOVING = 1, ONE_COLOUR = 2, TURNING = 4, CORNERS = 8 };
 
 typedef struct {
     const char  *name;
@@ -52,12 +52,15 @@ static const TEST tests[] = {
     { "hal_static", "16 triangles, 8 px, not moving",   &m8_iid_hal, 16,   8, 0 },
     { "hal_colour", "16 triangles, 8 px, one colour",   &m8_iid_hal, 16,   8, MOVING | ONE_COLOUR },
     { "hal_many",   "64 triangles, 8 px, moving",       &m8_iid_hal, 64,   8, MOVING },
-    { "rgb_tiny",   "software: 16 triangles, 8 px",     &m8_iid_rgb, 16,   8, MOVING },
+    { "hal_turn32", "16 triangles, 32 px, turning",     &m8_iid_hal, 16,  32, MOVING | TURNING },
+    { "hal_turn100", "16 triangles, 100 px, turning",   &m8_iid_hal, 16, 100, MOVING | TURNING },
+    { "hal_grad",   "16 triangles, 100 px, 3 colours",  &m8_iid_hal, 16, 100, MOVING | CORNERS },
+    { "rgb_tiny",  "software: 16 triangles, 8 px",     &m8_iid_rgb, 16,   8, MOVING },
     { "rgb_small",  "software: 16 triangles, 32 px",    &m8_iid_rgb, 16,  32, MOVING },
     { "rgb_large",  "software: 16 triangles, 100 px",   &m8_iid_rgb, 16, 100, MOVING }
 };
 #define TEST_COUNT  (sizeof( tests ) / sizeof( tests[0] ))
-#define HAL_TESTS   6
+#define HAL_TESTS   9
 
 static FILE                 *out;
 static LPDIRECTDRAW         dd;
@@ -157,11 +160,25 @@ static void scene( const TEST *t, int frame )
         tri[3 * i + 1].sy = (float)(y + t->size);
         tri[3 * i + 2].sx = (float)x;
         tri[3 * i + 2].sy = (float)(y + t->size);
+        /* No two frames or triangles the same shape: repeats would flatter any shape cache. The
+         * corners stay inside the box the fixed triangles use, and the winding stays clockwise. */
+        if( t->flags & TURNING ) {
+            int k = (i * 5 + frame) % 32;
+            int d = (k < 16 ? k : 31 - k) * t->size / 32;
+
+            tri[3 * i].sx = (float)(x + d);
+            tri[3 * i + 1].sy = (float)(y + t->size - d);
+        }
         for( j = 0; j < 3; ++j ) {
             tri[3 * i + j].sz = 0.5f;
             tri[3 * i + j].rhw = 1.0f;
             tri[3 * i + j].color = (t->flags & ONE_COLOUR) ? RGBA_MAKE( 255, 192, 0, 255 ) :
                                    RGBA_MAKE( i * 16 & 255, 255 - i * 16 & 255, i * 40 & 255, 255 );
+        }
+        if( t->flags & CORNERS ) {
+            tri[3 * i].color = RGBA_MAKE( 255, i * 16 & 255, 0, 255 );
+            tri[3 * i + 1].color = RGBA_MAKE( 0, 255, i * 16 & 255, 255 );
+            tri[3 * i + 2].color = RGBA_MAKE( i * 16 & 255, 0, 255, 255 );
         }
     }
 }
@@ -241,7 +258,7 @@ static void test( int no, const TEST *t, int seconds )
     dev->lpVtbl->AddViewport( dev, vp );
     vp->lpVtbl->SetViewport2( vp, &v );
     dev->lpVtbl->SetCurrentViewport( dev, vp );
-    dev->lpVtbl->SetRenderState( dev, D3DRENDERSTATE_SHADEMODE, D3DSHADE_FLAT );
+    dev->lpVtbl->SetRenderState( dev, D3DRENDERSTATE_SHADEMODE, (t->flags & CORNERS) ? D3DSHADE_GOURAUD : D3DSHADE_FLAT );
     dev->lpVtbl->SetRenderState( dev, D3DRENDERSTATE_CULLMODE, D3DCULL_NONE );
     memset( tri, 0, sizeof( tri ) );
     memset( &fx, 0, sizeof( fx ) );

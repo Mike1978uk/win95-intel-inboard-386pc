@@ -1,0 +1,934 @@
+/* M8SHAPE.EXE - what a triangle costs each way the engine can draw it, so the driver is changed
+ * only for what the card proves. The triangles are M8D3DF's shape: (x,y), (x+s,y+s), (x,y+s).
+ *
+ * Arms, each 16 triangles, fastest of three timed runs in us a triangle:
+ *   1 flat     the driver's way: edges in a scratch plane, fill, outline, scratch cleared every 8
+ *   2 span     the driver's rows, for shapes up to 13 rows: compare with hal_many's engine time
+ *   3 reuse    one shape's edges kept in a plane: fill and outline only
+ *   4 rows     as reuse, with only the top and bottom rows in place of the outline
+ *   5 expand   a whole triangle kept in a plane, drawn in one colour as a mono-from-card copy,
+ *              with what never changes written once: 8 writes a triangle and no outline
+ *   6 ramp     stored colours, 7 bits, edges XORed in and out of plane 7 of the ramp
+ *   7 lookup   8 stored shades looked up in the colour pattern, loaded per triangle
+ *   8 erase    the triangle's box filled: what a frame pays to take it away
+ *
+ * Arms 2-5 are checked pixel by pixel against arm 1 over one triangle's box; a shape's difference is
+ * only usable once that count is understood. Arms 6-7 have every triangle's centre read back. The
+ * ALU_BG_FN and pattern state are the card's to lose, so the driver is asked to set up again at the end.
+ *
+ * Log, C:\M8SHAPE.TXT. On screen: the arm's number as white boxes along the bottom, repeated at each
+ * size (8, 32, 100). Palette entries 1-127 become a ramp while it runs. About a minute.
+ *
+ * A Win32 console on Windows 95 is a DOS VM, so this is a window program.
+ *
+ * Build: wcl386 -q -bt=nt -l=nt_win -ox -i=<watcom>h -i=<watcom>h\nt -i=<watcom>h\nt\directx
+ *        "-fe=M8SHAPE.EXE" M8SHAPE.C ddraw.lib
+ */
+
+#define INITGUID
+#include <windows.h>
+#include <stdio.h>
+#include <conio.h>
+#include <ddraw.h>
+
+#define SCR_W           640
+#define SCR_H           480
+#define RAMP_X          640
+#define RAMP_Y          512
+#define RAMP_W          352
+#define RAMP_H          256
+#define SCRATCH_Y       768
+#define SCRATCH_H       192
+#define NTRI            16
+#define PASSES          10
+#define REPS            3
+#define HOLD_MS         1000
+#define BOX_MAX         102
+#define SPAN_ROWS       13
+#define LABEL_Y         470
+
+#define GP_STAT         0x9AE8
+#define CMD             0x9AE8
+#define EXT_FIFO        0x9AEE
+#define CUR_Y           0x82E8
+#define CUR_X           0x86E8
+#define SRC_Y           0x8AE8
+#define SRC_X           0x8EE8
+#define MAJ_AXIS_PCNT   0x96E8
+#define FRGD_COLOR      0xA6E8
+#define WRT_MASK        0xAAE8
+#define RD_MASK         0xAEE8
+#define FRGD_MIX        0xBAE8
+#define MULTIFUNC_CNTL  0xBEE8
+#define PIX_TRANS       0xE2E8
+#define PATT_DATA_INDEX 0x82EE
+#define PATT_DATA       0x8EEE
+#define LINEDRAW_INDEX  0x9AEE
+#define LINEDRAW_OPT    0xA2EE
+#define DEST_X_START    0xA6EE
+#define DEST_X_END      0xAAEE
+#define DEST_Y_END      0xAEEE
+#define SRC_X_START     0xB2EE
+#define ALU_BG_FN       0xB6EE
+#define ALU_FG_FN       0xBAEE
+#define SRC_X_END       0xBEEE
+#define SRC_Y_DIR       0xC2EE
+#define SCAN_TO_X       0xCAEE
+#define DP_CONFIG       0xCEEE
+#define PATT_LENGTH     0xD2EE
+#define PATT_INDEX      0xD6EE
+#define SCISSOR_L       0xDAEE
+#define SCISSOR_T       0xDEEE
+#define SCISSOR_R       0xE2EE
+#define SCISSOR_B       0xE6EE
+#define LINEDRAW        0xFEEE
+
+#define DP_PLAIN        0x2211
+#define DP_FILL_FLAT    0x2213
+#define DP_FILL_VRAM    0x6213
+#define DP_FILL_LOOKUP  0xE213
+#define DP_MONO_VRAM    0x2271
+#define MIX_LEAVE       3
+#define MIX_XOR         5
+#define MIX_REPLACE     7
+#define OPT_LAST_OFF    4
+#define OPT_POLY        2
+#define ESC_RESYNC      0x4D3E
+#define OUTLINE_PLANE   0x0080
+#define EDGE_PLANE      0x0001
+#define MASK_PLANE      0x0002
+
+static FILE     *out;
+static double   qpf;
+static int      lost;           /* a wait that ran out: the timings are not trustworthy */
+static int      size;
+static short    tri[NTRI][6];
+static BYTE     ref[BOX_MAX * BOX_MAX];
+
+static double now( void )
+{
+    LARGE_INTEGER t;
+
+    QueryPerformanceCounter( &t );
+    return( (double)t.LowPart + 4294967296.0 * (double)t.HighPart );
+}
+
+static void wait_idle( void )
+{
+    long n;
+
+    for( n = 0; n < 200000L; ++n ) {
+        if( inpw( EXT_FIFO ) == 0 && !(inpw( GP_STAT ) & 0x0200) ) {
+            return;
+        }
+    }
+    ++lost;
+}
+
+/* A full FIFO can lock the card. */
+static void room( int n )
+{
+    long i;
+
+    for( i = 0; i < 200000L; ++i ) {
+        if( !(inpw( EXT_FIFO ) & (0x8000 >> n)) ) {
+            return;
+        }
+    }
+    ++lost;
+}
+
+static void engine_setup( void )
+{
+    wait_idle();
+    outpw( WRT_MASK, 0x00FF );
+    outpw( RD_MASK, 0x00FF );
+    outpw( MULTIFUNC_CNTL, 0xA000 );
+    outpw( SCISSOR_L, 0x0800 );
+    outpw( SCISSOR_T, 0x0800 );
+    outpw( SCISSOR_R, 0x07FF );
+    outpw( SCISSOR_B, 0x07FF );
+    outpw( FRGD_MIX, 0x0027 );
+    wait_idle();
+}
+
+static void rect( int x, int y, int w, int h, int colour )
+{
+    room( 12 );
+    outpw( WRT_MASK, 0x00FF );
+    outpw( RD_MASK, 0x00FF );
+    outpw( DP_CONFIG, DP_PLAIN );
+    outpw( FRGD_MIX, 0x0027 );
+    outpw( FRGD_COLOR, colour );
+    outpw( CUR_X, x );
+    outpw( CUR_Y, y );
+    outpw( MAJ_AXIS_PCNT, w - 1 );
+    outpw( MULTIFUNC_CNTL, h - 1 );
+    outpw( CMD, 0x40F3 );
+}
+
+/* Blue through green to red, in 6-bit DAC values. */
+static void palette_ramp( void )
+{
+    int i;
+
+    outp( 0x2EC, 1 );
+    for( i = 1; i < 128; ++i ) {
+        int r = i < 64 ? 0 : i - 64;
+        int g = i < 64 ? i : 127 - i;
+        int b = i < 64 ? 63 - i : 0;
+
+        outp( 0x2ED, r );
+        outp( 0x2ED, g );
+        outp( 0x2ED, b );
+    }
+}
+
+static BYTE pal_saved[128 * 3];
+
+static void palette_save( void )
+{
+    int i;
+
+    outp( 0x2EB, 0 );
+    for( i = 0; i < 128 * 3; ++i ) {
+        pal_saved[i] = (BYTE)inp( 0x2ED );
+    }
+}
+
+static void palette_restore( void )
+{
+    int i;
+
+    outp( 0x2EC, 0 );
+    for( i = 0; i < 128 * 3; ++i ) {
+        outp( 0x2ED, pal_saved[i] );
+    }
+}
+
+static void outline( int ox, int oy, const short *v, int colour, int mask )
+{
+    int i;
+
+    room( 14 );
+    outpw( WRT_MASK, mask );
+    outpw( FRGD_COLOR, colour );
+    outpw( DP_CONFIG, DP_PLAIN );
+    outpw( ALU_FG_FN, MIX_REPLACE );
+    outpw( LINEDRAW_OPT, OPT_LAST_OFF );
+    outpw( LINEDRAW_INDEX, 0 );
+    for( i = 0; i < 4; ++i ) {
+        outpw( LINEDRAW, ox + v[2 * (i % 3)] );
+        outpw( LINEDRAW, oy + v[2 * (i % 3) + 1] );
+    }
+}
+
+/* Each edge top to bottom without its last row, so every row between top and bottom holds exactly
+ * two pixels; XOR, so an apex row's two pixels cancel. */
+static void edges( int ox, int oy, const short *v, int plane )
+{
+    int i;
+
+    room( 5 );
+    outpw( WRT_MASK, plane );
+    outpw( FRGD_COLOR, 0x00FF );
+    outpw( DP_CONFIG, DP_PLAIN );
+    outpw( ALU_FG_FN, MIX_XOR );
+    outpw( LINEDRAW_OPT, OPT_POLY | OPT_LAST_OFF );
+    for( i = 0; i < 3; ++i ) {
+        int a = 2 * i;
+        int b = 2 * ((i + 1) % 3);
+
+        if( v[a + 1] == v[b + 1] ) {
+            continue;
+        }
+        if( v[a + 1] > v[b + 1] ) {
+            int t = a;
+
+            a = b;
+            b = t;
+        }
+        room( 5 );
+        outpw( LINEDRAW_INDEX, 0 );
+        outpw( LINEDRAW, ox + v[a] );
+        outpw( LINEDRAW, oy + v[a + 1] );
+        outpw( LINEDRAW, ox + v[b] );
+        outpw( LINEDRAW, oy + v[b + 1] );
+    }
+}
+
+/* The source's corner (sx, sy) stands for the box's; rows strictly between top and bottom. */
+static void fill( const short *v, int dx, int dy, int sx, int sy, int dp, int mask, int rd, int colour )
+{
+    int l = v[0];
+    int r = v[0];
+    int t = v[1];
+    int b = v[1];
+    int i;
+
+    for( i = 1; i < 3; ++i ) {
+        if( v[2 * i] < l ) l = v[2 * i];
+        if( v[2 * i] > r ) r = v[2 * i];
+        if( v[2 * i + 1] < t ) t = v[2 * i + 1];
+        if( v[2 * i + 1] > b ) b = v[2 * i + 1];
+    }
+    room( 15 );
+    outpw( WRT_MASK, mask );
+    outpw( RD_MASK, rd );
+    outpw( DP_CONFIG, dp );
+    outpw( ALU_FG_FN, MIX_REPLACE );
+    outpw( FRGD_COLOR, colour );
+    outpw( SRC_X, sx );
+    outpw( SRC_Y, sy + 1 );
+    outpw( SRC_X_START, sx );
+    outpw( SRC_X_END, sx + r - l + 1 );
+    outpw( SRC_Y_DIR, 1 );
+    outpw( CUR_X, dx + l );
+    outpw( DEST_X_START, dx + l );
+    outpw( DEST_X_END, dx + r + 1 );
+    outpw( CUR_Y, dy + t + 1 );
+    outpw( DEST_Y_END, dy + b );
+    room( 1 );
+    outpw( RD_MASK, 0x00FF );
+}
+
+static void make_tris( void )
+{
+    int i;
+
+    for( i = 0; i < NTRI; ++i ) {
+        short x = (short)(4 + (i % 4) * 158);
+        short y = (short)(4 + (i / 4) * 115);
+
+        tri[i][0] = x;
+        tri[i][1] = y;
+        tri[i][2] = (short)(x + size);
+        tri[i][3] = (short)(y + size);
+        tri[i][4] = x;
+        tri[i][5] = (short)(y + size);
+    }
+}
+
+static int colour_of( int i )
+{
+    return( 1 + i * 8 );
+}
+
+/* ---- the arms ---- */
+
+static int flat_drawn;
+static int flat_dirty;
+
+static void draw_flat( int i )
+{
+    const short *v = tri[i];
+    int         plane = 1 << (flat_drawn & 7);
+    int         l = v[0];
+    int         t = v[1];
+
+    edges( RAMP_X - l, SCRATCH_Y - t, v, plane );
+    fill( v, 0, 0, RAMP_X, SCRATCH_Y, DP_FILL_FLAT, 0x00FF, plane, colour_of( i ) );
+    outline( 0, 0, v, colour_of( i ), 0x00FF );
+    if( size + 1 > flat_dirty ) {
+        flat_dirty = size + 1;
+    }
+    if( ++flat_drawn == 8 ) {
+        rect( RAMP_X, SCRATCH_Y, RAMP_W, flat_dirty + 1, 0 );
+        flat_drawn = 0;
+        flat_dirty = 0;
+    }
+}
+
+/* As m8d3d.c m8d3d_spans. */
+static void draw_span( int i )
+{
+    const short *v = tri[i];
+    int         lo[SPAN_ROWS + 1];
+    int         hi[SPAN_ROWS + 1];
+    int         t = v[1];
+    int         b = v[1];
+    int         k;
+    int         y;
+
+    for( k = 1; k < 3; ++k ) {
+        if( v[2 * k + 1] < t ) t = v[2 * k + 1];
+        if( v[2 * k + 1] > b ) b = v[2 * k + 1];
+    }
+    for( y = 0; y <= b - t; ++y ) {
+        lo[y] = 0x7FFF;
+        hi[y] = -0x7FFF;
+    }
+    for( k = 0; k < 3; ++k ) {
+        int p = 2 * k;
+        int q = 2 * ((k + 1) % 3);
+        int x;
+        int step;
+
+        if( v[p + 1] > v[q + 1] ) {
+            int s = p;
+
+            p = q;
+            q = s;
+        }
+        step = v[q + 1] == v[p + 1] ? 0 : ((v[q] - v[p]) << 16) / (v[q + 1] - v[p + 1]);
+        x = (v[p] << 16) + 0x8000;
+        for( y = v[p + 1] - t; y <= v[q + 1] - t; ++y ) {
+            int px = x >> 16;
+
+            if( px < lo[y] ) lo[y] = px;
+            if( px > hi[y] ) hi[y] = px;
+            x += step;
+        }
+        if( v[q + 1] == v[p + 1] ) {
+            y = v[p + 1] - t;
+            if( v[q] < lo[y] ) lo[y] = v[q];
+            if( v[q] > hi[y] ) hi[y] = v[q];
+        }
+    }
+    room( 4 );
+    outpw( WRT_MASK, 0x00FF );
+    outpw( FRGD_COLOR, colour_of( i ) );
+    outpw( DP_CONFIG, DP_PLAIN );
+    outpw( ALU_FG_FN, MIX_REPLACE );
+    for( y = 0; y <= b - t; ++y ) {
+        if( y % 5 == 0 ) {
+            room( 15 );
+        }
+        outpw( CUR_Y, t + y );
+        outpw( CUR_X, lo[y] );
+        outpw( SCAN_TO_X, hi[y] + 1 );
+    }
+}
+
+static void prep_edges( void )
+{
+    rect( RAMP_X, SCRATCH_Y, RAMP_W, SCRATCH_H, 0 );
+    edges( RAMP_X - tri[0][0], SCRATCH_Y - tri[0][1], tri[0], EDGE_PLANE );
+    wait_idle();
+}
+
+static void draw_reuse( int i )
+{
+    fill( tri[i], 0, 0, RAMP_X, SCRATCH_Y, DP_FILL_FLAT, 0x00FF, EDGE_PLANE, colour_of( i ) );
+    outline( 0, 0, tri[i], colour_of( i ), 0x00FF );
+}
+
+static void draw_rows( int i )
+{
+    const short *v = tri[i];
+
+    fill( v, 0, 0, RAMP_X, SCRATCH_Y, DP_FILL_FLAT, 0x00FF, EDGE_PLANE, colour_of( i ) );
+    room( 10 );
+    outpw( FRGD_COLOR, colour_of( i ) );
+    outpw( DP_CONFIG, DP_PLAIN );
+    outpw( ALU_FG_FN, MIX_REPLACE );
+    outpw( CUR_Y, v[1] );
+    outpw( CUR_X, v[0] );
+    outpw( SCAN_TO_X, v[0] + 1 );
+    outpw( CUR_Y, v[5] );
+    outpw( CUR_X, v[4] );
+    outpw( SCAN_TO_X, v[2] + 1 );
+}
+
+/* The whole triangle in the mask plane: the edge plane filled into it where it lies, then the
+ * rows the fill leaves. Everything that stays the same is written once. */
+static void prep_expand( void )
+{
+    int ox = RAMP_X - tri[0][0];
+    int oy = SCRATCH_Y - tri[0][1];
+
+    prep_edges();
+    fill( tri[0], ox, oy, RAMP_X, SCRATCH_Y, DP_FILL_FLAT, MASK_PLANE, EDGE_PLANE, 0x00FF );
+    outline( ox, oy, tri[0], 0x00FF, MASK_PLANE );
+    wait_idle();
+    outpw( WRT_MASK, 0x00FF );
+    outpw( RD_MASK, MASK_PLANE );
+    outpw( DP_CONFIG, DP_MONO_VRAM );
+    outpw( ALU_FG_FN, MIX_REPLACE );
+    outpw( ALU_BG_FN, MIX_LEAVE );
+    outpw( SRC_X_START, RAMP_X );
+    outpw( SRC_X_END, RAMP_X + size + 1 );
+    outpw( SRC_Y_DIR, 1 );
+    wait_idle();
+}
+
+static void draw_expand( int i )
+{
+    room( 8 );
+    outpw( FRGD_COLOR, colour_of( i ) );
+    outpw( SRC_X, RAMP_X );
+    outpw( SRC_Y, SCRATCH_Y );
+    outpw( CUR_X, tri[i][0] );
+    outpw( DEST_X_START, tri[i][0] );
+    outpw( DEST_X_END, tri[i][0] + size + 1 );
+    outpw( CUR_Y, tri[i][1] );
+    outpw( DEST_Y_END, tri[i][1] + size + 1 );
+}
+
+static void end_expand( void )
+{
+    wait_idle();
+    outpw( RD_MASK, 0x00FF );
+    outpw( DP_CONFIG, DP_PLAIN );
+    wait_idle();
+}
+
+static int ramp_at( int x, int y )
+{
+    int c = (x / 2 + y / 3) % 252;
+
+    return( 1 + (c < 126 ? c : 251 - c) );
+}
+
+static void ramp_build( void )
+{
+    int x;
+    int y;
+
+    wait_idle();
+    outpw( DP_CONFIG, DP_PLAIN );
+    outpw( ALU_FG_FN, MIX_REPLACE );
+    outpw( WRT_MASK, 0x00FF );
+    for( y = 0; y < size + 2; ++y ) {
+        for( x = 0; x < (size + 2) + 3 * 60; x += 4 ) {
+            room( 4 );
+            outpw( FRGD_COLOR, ramp_at( x, y ) );
+            outpw( CUR_Y, RAMP_Y + y );
+            outpw( CUR_X, RAMP_X + x );
+            outpw( SCAN_TO_X, RAMP_X + x + 4 );
+        }
+    }
+    wait_idle();
+}
+
+static void ramp_place( int i, int *x, int *y )
+{
+    *x = RAMP_X + (i % 4) * 60;
+    *y = RAMP_Y;
+}
+
+static void draw_ramp( int i )
+{
+    const short *v = tri[i];
+    int         sx;
+    int         sy;
+    int         ox;
+    int         oy;
+
+    ramp_place( i, &sx, &sy );
+    ox = sx - v[0];
+    oy = sy - v[1];
+    edges( ox, oy, v, OUTLINE_PLANE );
+    /* Plane 7 protected at the destination, so the edge marks do not land there. */
+    fill( v, 0, 0, sx, sy, DP_FILL_VRAM, 0x007F, OUTLINE_PLANE, 0 );
+    edges( ox, oy, v, OUTLINE_PLANE );
+    outline( 0, 0, v, ramp_at( sx - RAMP_X + size / 3, size * 2 / 3 ), 0x00FF );
+}
+
+/* The source byte's low 3 bits pick a shade: pattern byte (shade << 2) | (x & 1). */
+static int field_at( int x, int y )
+{
+    int s = (x + y) * 8 / (2 * size + 1);
+
+    return( s > 7 ? 7 : s );
+}
+
+static void field_build( void )
+{
+    int x;
+    int y;
+
+    wait_idle();
+    outpw( DP_CONFIG, DP_PLAIN );
+    outpw( ALU_FG_FN, MIX_REPLACE );
+    outpw( WRT_MASK, 0x00FF );
+    for( y = 0; y < size + 2; ++y ) {
+        for( x = 0; x < size + 2; ) {
+            int s = field_at( x, y );
+            int e = x + 1;
+
+            while( e < size + 2 && field_at( e, y ) == s ) {
+                ++e;
+            }
+            room( 4 );
+            outpw( FRGD_COLOR, s );
+            outpw( CUR_Y, RAMP_Y + y );
+            outpw( CUR_X, RAMP_X + x );
+            outpw( SCAN_TO_X, RAMP_X + e );
+            x = e;
+        }
+    }
+    wait_idle();
+}
+
+/* A triangle's shade `s` in palette terms: each triangle its own stretch of the ramp. */
+static int lookup_colour( int i, int s )
+{
+    return( 1 + i * 6 + s * 4 );
+}
+
+static void pattern_load( int i )
+{
+    int w;
+
+    room( 1 );
+    outpw( PATT_DATA_INDEX, 0 );
+    for( w = 0; w < 16; ++w ) {
+        int c = (w & 1) ? 0 : lookup_colour( i, w / 2 );
+
+        if( w % 8 == 0 ) {
+            room( 8 );
+        }
+        outpw( PATT_DATA, c | c << 8 );
+    }
+}
+
+static void prep_lookup( void )
+{
+    field_build();
+    outpw( PATT_LENGTH, 0x001F );
+    outpw( PATT_INDEX, 0 );
+    wait_idle();
+}
+
+static void draw_lookup( int i )
+{
+    const short *v = tri[i];
+    int         ox = RAMP_X - v[0];
+    int         oy = RAMP_Y - v[1];
+
+    pattern_load( i );
+    edges( ox, oy, v, OUTLINE_PLANE );
+    fill( v, 0, 0, RAMP_X, RAMP_Y, DP_FILL_LOOKUP, 0x00FF, OUTLINE_PLANE, 0 );
+    edges( ox, oy, v, OUTLINE_PLANE );
+    outline( 0, 0, v, lookup_colour( i, 4 ), 0x00FF );
+}
+
+static void draw_erase( int i )
+{
+    rect( tri[i][0], tri[i][1], size + 1, size + 1, 0 );
+}
+
+/* ---- measuring ---- */
+
+static int read_pixel( int x, int y )
+{
+    int v;
+    long n;
+
+    wait_idle();
+    outpw( WRT_MASK, 0x00FF );
+    outpw( RD_MASK, 0x00FF );
+    outpw( DP_CONFIG, DP_PLAIN );
+    outpw( FRGD_MIX, 0x0047 );
+    outpw( CUR_X, x );
+    outpw( CUR_Y, y );
+    outpw( MAJ_AXIS_PCNT, 1 );
+    outpw( MULTIFUNC_CNTL, 0 );
+    wait_idle();
+    outpw( CMD, 0x53B0 );
+    for( n = 0; n < 200000L && !(inpw( GP_STAT ) & 0x0100); ++n ) {
+    }
+    v = inpw( PIX_TRANS ) & 0xFF;
+    wait_idle();
+    outpw( FRGD_MIX, 0x0027 );
+    return( v );
+}
+
+/* Triangle 0's box as drawn by an arm: taken as the reference, or counted against it. */
+static long box_check( int take )
+{
+    int     x;
+    int     y;
+    long    diff = 0;
+
+    for( y = 0; y <= size; ++y ) {
+        for( x = 0; x <= size; ++x ) {
+            int v = read_pixel( tri[0][0] + x, tri[0][1] + y );
+
+            if( take ) {
+                ref[y * BOX_MAX + x] = (BYTE)v;
+            } else if( ref[y * BOX_MAX + x] != (BYTE)v ) {
+                if( diff < 4 ) {
+                    fprintf( out, "    (%d,%d): read %02x, flat %02x\n", x, y, v, ref[y * BOX_MAX + x] );
+                }
+                ++diff;
+            }
+        }
+    }
+    return( diff );
+}
+
+static void label( int arm )
+{
+    int k;
+
+    rect( 0, LABEL_Y, SCR_W, SCR_H - LABEL_Y, 0 );
+    for( k = 0; k < arm; ++k ) {
+        rect( 4 + k * 14, LABEL_Y, 10, 8, 127 );
+    }
+}
+
+static double timed( void (*draw)( int ) )
+{
+    double  best = 1e30;
+    int     r;
+    int     p;
+    int     i;
+
+    for( r = 0; r < REPS; ++r ) {
+        double t0;
+
+        wait_idle();
+        t0 = now();
+        for( p = 0; p < PASSES; ++p ) {
+            for( i = 0; i < NTRI; ++i ) {
+                draw( i );
+            }
+        }
+        wait_idle();
+        t0 = now() - t0;
+        if( t0 < best ) {
+            best = t0;
+        }
+    }
+    return( best * 1e6 / qpf / (PASSES * NTRI) );
+}
+
+/* Show the arm, and leave triangle 0 alone on the screen for its check. */
+static void show( int arm, void (*draw)( int ) )
+{
+    int i;
+
+    rect( 0, 0, SCR_W, LABEL_Y, 0 );
+    label( arm );
+    for( i = 0; i < NTRI; ++i ) {
+        draw( i );
+    }
+    wait_idle();
+    Sleep( HOLD_MS );
+    rect( 0, 0, SCR_W, LABEL_Y, 0 );
+    draw( 0 );
+    wait_idle();
+}
+
+static int centre_x( int i )
+{
+    return( tri[i][0] + size / 3 );
+}
+
+static int centre_y( int i )
+{
+    return( tri[i][1] + size * 2 / 3 );
+}
+
+static void check_ramp( void )
+{
+    int i;
+    int bad = 0;
+
+    for( i = 0; i < NTRI; ++i ) {
+        int sx;
+        int sy;
+        int got;
+        int want;
+
+        ramp_place( i, &sx, &sy );
+        got = read_pixel( centre_x( i ), centre_y( i ) );
+        want = ramp_at( (sx - RAMP_X + size / 3) & ~3, size * 2 / 3 );
+        if( got != want ) {
+            if( bad < 3 ) {
+                fprintf( out, "    ramp %d: read %02x, want %02x\n", i, got, want );
+            }
+            ++bad;
+        }
+    }
+    fprintf( out, "  ramp centres wrong: %d of %d\n", bad, NTRI );
+}
+
+static void check_lookup( void )
+{
+    int i;
+    int bad = 0;
+
+    for( i = 0; i < NTRI; ++i ) {
+        int got = read_pixel( centre_x( i ), centre_y( i ) );
+        int want = lookup_colour( i, field_at( size / 3, size * 2 / 3 ) );
+
+        if( got != want ) {
+            if( bad < 3 ) {
+                fprintf( out, "    lookup %d: read %02x, want %02x\n", i, got, want );
+            }
+            ++bad;
+        }
+    }
+    fprintf( out, "  lookup centres wrong: %d of %d\n", bad, NTRI );
+}
+
+static void report( const char *name, double us, double base )
+{
+    fprintf( out, "size %3d  %-7s %8.1f us/tri  %.2fx flat\n", size, name, us, us / base );
+    fflush( out );
+}
+
+static void one_size( int s )
+{
+    double  base;
+    double  us;
+    int     i;
+
+    size = s;
+    make_tris();
+
+    /* 1 flat: the reference */
+    flat_drawn = 0;
+    flat_dirty = 0;
+    rect( RAMP_X, SCRATCH_Y, RAMP_W, SCRATCH_H, 0 );
+    show( 1, draw_flat );
+    box_check( 1 );
+    base = timed( draw_flat );
+    report( "flat", base, base );
+    rect( RAMP_X, SCRATCH_Y, RAMP_W, SCRATCH_H, 0 );
+    wait_idle();
+
+    /* 2 span */
+    if( s <= SPAN_ROWS ) {
+        show( 2, draw_span );
+        fprintf( out, "  span differs from flat in %ld pixels\n", box_check( 0 ) );
+        report( "span", timed( draw_span ), base );
+    }
+
+    /* 3 reuse */
+    prep_edges();
+    show( 3, draw_reuse );
+    fprintf( out, "  reuse differs from flat in %ld pixels\n", box_check( 0 ) );
+    report( "reuse", timed( draw_reuse ), base );
+
+    /* 4 rows */
+    show( 4, draw_rows );
+    fprintf( out, "  rows differs from flat in %ld pixels\n", box_check( 0 ) );
+    report( "rows", timed( draw_rows ), base );
+
+    /* 5 expand */
+    rect( 0, 0, SCR_W, LABEL_Y, 0 );
+    label( 5 );
+    /* Last: a rect() would undo the state it writes once. */
+    prep_expand();
+    for( i = 0; i < NTRI; ++i ) {
+        draw_expand( i );
+    }
+    wait_idle();
+    Sleep( HOLD_MS );
+    us = timed( draw_expand );
+    end_expand();
+    rect( 0, 0, SCR_W, LABEL_Y, 0 );
+    prep_expand();
+    draw_expand( 0 );
+    end_expand();
+    fprintf( out, "  expand differs from flat in %ld pixels\n", box_check( 0 ) );
+    report( "expand", us, base );
+    rect( RAMP_X, SCRATCH_Y, RAMP_W, SCRATCH_H, 0 );
+    wait_idle();
+
+    /* 6 ramp */
+    ramp_build();
+    rect( 0, 0, SCR_W, LABEL_Y, 0 );
+    label( 6 );
+    for( i = 0; i < NTRI; ++i ) {
+        draw_ramp( i );
+    }
+    wait_idle();
+    check_ramp();
+    Sleep( HOLD_MS );
+    report( "ramp", timed( draw_ramp ), base );
+
+    /* 7 lookup */
+    prep_lookup();
+    rect( 0, 0, SCR_W, LABEL_Y, 0 );
+    label( 7 );
+    for( i = 0; i < NTRI; ++i ) {
+        draw_lookup( i );
+    }
+    wait_idle();
+    check_lookup();
+    Sleep( HOLD_MS );
+    report( "lookup", timed( draw_lookup ), base );
+
+    /* 8 erase */
+    label( 8 );
+    report( "erase", timed( draw_erase ), base );
+    rect( RAMP_X, RAMP_Y, RAMP_W, RAMP_H + SCRATCH_H, 0 );
+    wait_idle();
+}
+
+static LRESULT CALLBACK wndproc( HWND w, UINT m, WPARAM a, LPARAM b )
+{
+    return( DefWindowProc( w, m, a, b ) );
+}
+
+int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show_cmd )
+{
+    WNDCLASS        wc;
+    HWND            wnd;
+    LPDIRECTDRAW    dd;
+    LARGE_INTEGER   f;
+    HRESULT         hr;
+    HDC             dc;
+
+    out = fopen( "C:\\M8SHAPE.TXT", "a" );
+    if( out == NULL ) {
+        return( 1 );
+    }
+    QueryPerformanceFrequency( &f );
+    qpf = (double)f.LowPart;
+    memset( &wc, 0, sizeof( wc ) );
+    wc.lpfnWndProc = wndproc;
+    wc.hInstance = inst;
+    wc.lpszClassName = "M8SHAPE";
+    RegisterClass( &wc );
+    wnd = CreateWindowEx( WS_EX_TOPMOST, "M8SHAPE", "M8SHAPE", WS_POPUP | WS_VISIBLE, 0, 0, SCR_W, SCR_H,
+                          NULL, NULL, inst, NULL );
+    hr = DirectDrawCreate( NULL, &dd, NULL );
+    fprintf( out, "== M8SHAPE %s  ddraw %08lx\n", cmd, (unsigned long)hr );
+    fflush( out );
+    if( hr != DD_OK ) {
+        return( 1 );
+    }
+    dd->lpVtbl->SetCooperativeLevel( dd, wnd, DDSCL_EXCLUSIVE | DDSCL_FULLSCREEN );
+    hr = dd->lpVtbl->SetDisplayMode( dd, SCR_W, SCR_H, 16 );
+    fprintf( out, "setmode %08lx\n", (unsigned long)hr );
+    fflush( out );
+    if( hr != DD_OK ) {
+        return( 1 );
+    }
+    ShowCursor( FALSE );
+    Sleep( 1000 );
+
+    palette_save();
+    engine_setup();
+    rect( 0, 0, SCR_W, SCR_H, 0 );
+    rect( RAMP_X, RAMP_Y, RAMP_W, RAMP_H + SCRATCH_H, 0 );
+    wait_idle();
+    palette_ramp();
+    one_size( 8 );
+    one_size( 32 );
+    one_size( 100 );
+    fprintf( out, "waits that ran out: %d\n", lost );
+
+    palette_restore();
+    rect( 0, 0, SCR_W, SCR_H, 0 );
+    wait_idle();
+    ShowCursor( TRUE );
+    dd->lpVtbl->RestoreDisplayMode( dd );
+    dd->lpVtbl->SetCooperativeLevel( dd, wnd, DDSCL_NORMAL );
+    dd->lpVtbl->Release( dd );
+    dc = GetDC( NULL );
+    if( dc != NULL ) {
+        ExtEscape( dc, ESC_RESYNC, 0, NULL, 0, NULL );
+        ReleaseDC( NULL, dc );
+    }
+    fprintf( out, "done\n\n" );
+    fclose( out );
+    DestroyWindow( wnd );
+    return( 0 );
+}
