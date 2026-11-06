@@ -1,0 +1,69 @@
+== NOAGT  agent running: YES  agent in boot: YES
+   1435920 ms  free 0 KB  paged 6712 KB  start C:\SLEEP.EXE 1
+  exit 0 after 11981 ms
+   1448220 ms  free 0 KB  paged 6900 KB  finished NOAGT
+
+== NOAGWTCH  agent running: no  agent in boot: no
+   1631259 ms  free 0 KB  paged 6532 KB  start C:\M8IDLE.EXE 10 10 600
+  exit 0 after 20057 ms
+   1651863 ms  free 0 KB  paged 6784 KB  start C:\M8D3DF.EXE own 3 norm hal
+  exit 0 after 66081 ms
+   1718769 ms  free 0 KB  paged 6644 KB  start C:\M8D3DF.EXE own 3 norm hal
+  exit 0 after 62953 ms
+   1782275 ms  free 0 KB  paged 6644 KB  start C:\M8BENCH.EXE noag1
+  exit 0 after 72881 ms
+   1855424 ms  free 220 KB  paged 6656 KB  start C:\M8PAGE.EXE
+  exit 0 after 43743 ms
+   1899886 ms  free 0 KB  paged 6660 KB  finished NOAGWTCH
+
+== NOAGDISK  agent running: no  agent in boot: no
+     78116 ms  free 0 KB  paged 5120 KB  start, not waited for: C:\PERFLOG.EXE noag 300
+     78283 ms  free 0 KB  paged 5216 KB  start C:\SLEEP.EXE 10
+  exit 0 after 25272 ms
+    104108 ms  free 0 KB  paged 6232 KB  start C:\PAGETIME.EXE noag
+  exit 0 after 121623 ms
+    227594 ms  free 0 KB  paged 8844 KB  start C:\WINCLOSE.EXE WAIT PERFLOG
+  exit 4294967295 after 131094 ms
+    359080 ms  free 0 KB  paged 6488 KB  start C:\M8IDLE.EXE 10 10 600
+  exit 0 after 21541 ms
+    381244 ms  free 0 KB  paged 6632 KB  start C:\XTSECT.EXE noag
+  exit 0 after 59550 ms
+    441173 ms  free 0 KB  paged 6068 KB  start C:\XTSECT.EXE noag
+  exit 0 after 58069 ms
+    499842 ms  free 0 KB  paged 5924 KB  start C:\XTSECT.EXE noag
+  exit 0 after 58129 ms
+    558410 ms  free 0 KB  paged 5968 KB  start C:\IDLECOST.EXE noag
+  exit 0 after 27760 ms
+    586802 ms  free 0 KB  paged 5724 KB  start C:\IDLECOST.EXE noag
+  exit 0 after 27321 ms
+    614499 ms  free 0 KB  paged 5736 KB  start C:\IDLECOST.EXE noag
+  exit 0 after 27093 ms
+    642157 ms  free 52 KB  paged 5660 KB  start C:\LZ4B12.EXE 80
+  exit 0 after 21400 ms
+    663836 ms  free 216 KB  paged 5744 KB  start C:\LZ4B12I.EXE 80
+  exit 0 after 22513 ms
+    686736 ms  free 216 KB  paged 5556 KB  start C:\LZ4B12F.EXE 80
+  exit 0 after 21465 ms
+    708482 ms  free 172 KB  paged 5556 KB  start C:\LZ4B12N.EXE 80
+  exit 0 after 21423 ms
+    730291 ms  free 164 KB  paged 5560 KB  start C:\LZ4B12IN.EXE 80
+  exit 0 after 21423 ms
+    752218 ms  free 208 KB  paged 5480 KB  start C:\LZ4B12FN.EXE 80
+  exit 0 after 20043 ms
+    772755 ms  free 172 KB  paged 5564 KB  start C:\LZ4B11.EXE 80
+  exit 0 after 21093 ms
+    794507 ms  free 164 KB  paged 5368 KB  start C:\LZ4B10.EXE 80
+  exit 0 after 21661 ms
+    816701 ms  free 160 KB  paged 5572 KB  start C:\LZ4B10FN.EXE 80
+  exit 0 after 20937 ms
+    838024 ms  free 168 KB  paged 5576 KB  finished NOAGDISK
+
+== V10TEST  agent running: YES  agent in boot: YES
+   1625107 ms  free 0 KB  paged 6300 KB  start C:\M8IDLE.EXE 10 10 600
+  exit 0 after 21267 ms
+   1647362 ms  free 0 KB  paged 6604 KB  start C:\M8D3DF.EXE v10a 3 norm hal
+  exit 0 after 81623 ms
+   1729537 ms  free 0 KB  paged 7208 KB  start C:\M8D3DF.EXE v10b 3 norm hal
+  exit 0 after 73389 ms
+   1803860 ms  free 0 KB  paged 7208 KB  finished V10TEST
+

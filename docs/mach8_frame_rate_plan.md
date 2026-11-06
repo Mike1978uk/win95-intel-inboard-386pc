@@ -459,7 +459,7 @@ A cheaper agent can run the prescribed benches and probes; diagnosis and engine 
 | V7 | Coplanar triangles joined into one polygon | OPEN |
 | V8b | Per-triangle reuse when only some moved | OPEN |
 | V9 | Background and repeated tiles in card memory | OPEN |
-| V10 | Two pages, Flip = CRT_OFFSET | OPEN; M8PAGE built, unrun. Candidate for large triangles seen part-drawn |
+| V10 | Two pages, Flip = CRT_OFFSET | IN on the card by the owner's eye, 11-06: black overlaps gone, page wait 3.9-7.6 ms. 640x480 only. A write takes effect once a frame, about the blank's start, no tear seen (M8PAGE). Agent-free fps still to measure: `docs/captures/2026-11-06_v10/README.md` |
 | V11 | 320x240 Direct3D mode | OPEN |
 | V12 | Asm emitters, values in registers before the first OUT | OPEN |
 | V13 | DrawOnePrimitive and DrawPrimitives by GetDriverInfo | OPEN; DirectX calls cost ~0.3 ms a triangle |

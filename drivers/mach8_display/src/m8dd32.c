@@ -28,7 +28,7 @@
 
 /* m8d3d.c */
 extern void m8d3d_init( DWORD *global, DWORD *callbacks );
-extern void m8d3d_replay( const RECT *erase, int erase_n, BYTE black, const short *v,
+extern int  m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const short *v,
                           const WORD *index, int n );
 extern DWORD m8d3d_stat[20];
 
@@ -1325,10 +1325,9 @@ static void m8dd_fill_outside( const RECT *o, const M8DD_DESC *t, int from, WORD
  * target's rectangles sent: the static part of the frame never crosses the
  * bus, and RAM is not read outside the rectangles. */
 /* Each of buffer k's triangles' boxes, for the next flip to erase. */
-static void m8dd_note_boxes( int k )
+static void m8dd_note_boxes( int k, RECT *r )
 {
     const short *v = m8dd_tri_v[k];
-    RECT        *r = m8dd_card_box;
     int         i;
     int         j;
 
@@ -1357,6 +1356,112 @@ static void m8dd_note_boxes( int k )
     }
 }
 
+/* Two pages on the card at 640x480, pitch 1024: a frame is drawn on the hidden page and
+ * shown whole, so the beam never meets an erased box. The card takes CRT_OFFSET once a
+ * frame, about the start of the blank, and until then the old page is on screen and must
+ * not be drawn on. Only the high word is written: the pages differ in nothing else, and
+ * other threads can run between two writes. m8dd_card_box holds page 0's boxes. */
+#define M8DD_SUBSYS         0x42E8
+#define M8DD_CRT_OFFSET_HI  0x2EEE
+#define M8DD_PAGE1_Y        512
+#define M8DD_PAGE1_HI       2           /* 512 rows x 1024 bytes / 4 = 0x20000 */
+#define M8DD_PAGE_TICKS     18000       /* 15 ms at 1193180 Hz: over a frame at 72 Hz */
+
+/* About 84 us at 83.5 MHz (LOOP is 7 clocks on a 486), in registers only: a loop that
+ * stores uses the bus, which the Sound Blaster's DMA and the XT-CF need. */
+extern void m8dd_spin( void );
+#pragma aux m8dd_spin = "mov ecx, 1000" 0xE2 0xFE modify [ecx];
+
+static int      m8dd_pages_ok;          /* this context's scratch leaves page 1 free */
+static int      m8dd_pages_on;
+static int      m8dd_page;              /* the page last written to CRT_OFFSET */
+static int      m8dd_page_pending;      /* that write may not have taken effect */
+static DWORD    m8dd_page_t;            /* when it was written */
+static RECT     m8dd_page1_box[M8DD_TRIS_MAX];
+static int      m8dd_page_boxes[2];
+
+static void m8dd_page_show( int p )
+{
+    ((DWORD *)m8dd->gdi_lin)[4] = p;
+    outpw( M8DD_CRT_OFFSET_HI, p ? M8DD_PAGE1_HI : 0 );
+    m8dd_page = p;
+}
+
+/* Back to page 0, whose frame is older: the card is no longer as described. */
+static void m8dd_pages_leave( void )
+{
+    if( m8dd_pages_on ) {
+        m8dd_page_show( 0 );
+        m8dd_pages_on = 0;
+        m8dd_page_pending = 0;
+        m8dd_card.known = 0;
+        m8dd_card_boxes = 0;
+    }
+}
+
+/* Until the page last shown has taken effect: past the blank the write may have landed
+ * in, then to the next one's start. The latch sets again after an acknowledge for as long
+ * as a blank lasts. */
+static void m8dd_page_wait( void )
+{
+    LARGE_INTEGER   t0;
+    LARGE_INTEGER   t1;
+    unsigned        n = 480;            /* ~40 ms */
+
+    if( !m8dd_page_pending ) {
+        return;
+    }
+    m8dd_page_pending = 0;
+    QueryPerformanceCounter( &t0 );
+    if( t0.LowPart - m8dd_page_t >= M8DD_PAGE_TICKS ) {
+        return;
+    }
+    do {
+        outpw( M8DD_SUBSYS, 0x0001 );
+        m8dd_spin();
+    } while( (inpw( M8DD_SUBSYS ) & 1) && --n != 0 );
+    while( n != 0 && !(inpw( M8DD_SUBSYS ) & 1) ) {
+        m8dd_spin();
+        --n;
+    }
+    QueryPerformanceCounter( &t1 );
+    m8d3d_stat[19] += t1.LowPart - t0.LowPart;
+}
+
+/* Buffer k's triangles on the hidden page, then that page shown. 0, with page 0 shown and
+ * the card not as described, if the engine could not be used. */
+static int m8dd_page_frame( int k )
+{
+    static const RECT   all = { 0, 0, 640, 480 };
+    LARGE_INTEGER       t;
+    int                 h;
+
+    if( !m8dd_pages_on ) {
+        if( !m8d3d_replay( &all, 1, 0, M8DD_PAGE1_Y, NULL, NULL, 0 ) ) {
+            m8dd_card.known = 0;
+            return( 0 );
+        }
+        m8dd_pages_on = 1;
+        m8dd_page = 0;
+        m8dd_page_boxes[0] = m8dd_card_boxes;
+        m8dd_page_boxes[1] = 0;
+    }
+    h = !m8dd_page;
+    m8dd_page_wait();
+    if( !m8d3d_replay( h ? m8dd_page1_box : m8dd_card_box, m8dd_page_boxes[h], 0, h ? M8DD_PAGE1_Y : 0,
+                       m8dd_tri_v[k], m8dd_tri_i[k], m8dd_tri_n[k] ) ) {
+        m8dd_pages_leave();
+        return( 0 );
+    }
+    m8dd_page_show( h );
+    QueryPerformanceCounter( &t );
+    m8dd_page_t = t.LowPart;
+    m8dd_page_pending = 1;
+    m8dd_note_boxes( k, h ? m8dd_page1_box : m8dd_card_box );
+    m8dd_page_boxes[h] = m8dd_tri_n[k];
+    return( 1 );
+}
+
 /* A frame of only triangles on black, over a card that shows the same: nothing goes
  * through the 16-bit side, which costs a GetDC and a thunk. The last frame's boxes
  * are erased and the triangles drawn; the buffer's selection waits in the batch for
@@ -1375,8 +1480,15 @@ static void m8dd_flip16_fast( int k )
     if( m8dd_tri_n[k] != m8dd_card_boxes ||
         memcmp( m8dd_tri_v[k], m8dd_card_v, m8dd_card_boxes * 6 * sizeof( short ) ) != 0 ||
         memcmp( m8dd_tri_i[k], m8dd_card_i, m8dd_card_boxes * sizeof( WORD ) ) != 0 ) {
-        m8d3d_replay( m8dd_card_box, m8dd_card_boxes, 0, m8dd_tri_v[k], m8dd_tri_i[k], m8dd_tri_n[k] );
-        m8dd_note_boxes( k );
+        if( m8dd_pages_ok ) {
+            if( !m8dd_page_frame( k ) ) {
+                m8dd_front = k;
+                return;
+            }
+        } else {
+            m8d3d_replay( m8dd_card_box, m8dd_card_boxes, 0, 0, m8dd_tri_v[k], m8dd_tri_i[k], m8dd_tri_n[k] );
+            m8dd_note_boxes( k, m8dd_card_box );
+        }
         m8dd_fp_stale = 1;
     }
     m8dd_card = m8dd_desc[k];
@@ -1412,6 +1524,7 @@ static DWORD m8dd_flip16( M8DD_FLIP *fd )
         fd->ddRVal = DD_OK;
         return( DDHAL_DRIVER_HANDLED );
     }
+    m8dd_pages_leave();
     if( m8dd_fp_stale ) {
         m8dd_op( 5, NULL, 0 );
         m8dd_fp_stale = 0;
@@ -1439,10 +1552,10 @@ static DWORD m8dd_flip16( M8DD_FLIP *fd )
     m8dd_flush();
     QueryPerformanceCounter( &t1 );
     if( m8dd_tri_n[k] ) {
-        m8d3d_replay( NULL, 0, 0, m8dd_tri_v[k], m8dd_tri_i[k], m8dd_tri_n[k] );
+        m8d3d_replay( NULL, 0, 0, 0, m8dd_tri_v[k], m8dd_tri_i[k], m8dd_tri_n[k] );
         m8dd_fp_stale = 1;
     }
-    m8dd_note_boxes( k );
+    m8dd_note_boxes( k, m8dd_card_box );
     QueryPerformanceCounter( &t2 );
     m8d3d_stat[12] += t2.LowPart - t0.LowPart;
     m8d3d_stat[13] += t1.LowPart - t0.LowPart;
@@ -1526,6 +1639,7 @@ static int m8dd_destroy16( BYTE *gbl )
     if( m8dd_back == 0 || *(DWORD *)(gbl + M8DD_GBL_VIDMEM) != m8dd_back ) {
         return( 0 );
     }
+    m8dd_pages_leave();
     m8dd_ready_all( 0 );
     m8dd_op( 2, NULL, 0 );
     m8dd_op( 5, NULL, 0 );
@@ -1894,13 +2008,26 @@ int m8d3d_record( LPVOID lcl, const short *v, BYTE index, WORD colour )
 }
 
 /* A rectangle no surface will take, held under `key`. At 16 bpp, the off-screen rows;
- * *h then says how many there are, which can be fewer than the target has. */
-int m8d3d_scratch( LPVOID key, int w, int *h, int *x, int *y )
+ * *h then says how many there are, which can be fewer than the target has. At 640x480
+ * those rows are the second page's, so it is the column right of both pages, clear of
+ * the cursor's corner at x 992: *w says how wide. */
+int m8d3d_scratch( LPVOID key, int *w, int *h, int *x, int *y )
 {
     RECT    r;
     int     k;
 
     if( m8dd->fb16 ) {
+        if( m8dd->width == 640 && m8dd->height == 480 ) {
+            if( !m8dd_lend( 2 ) ) {
+                return( 0 );
+            }
+            m8dd_pages_ok = 1;
+            *x = 640;
+            *y = M8DD_PAGE1_Y;
+            *w = 352;
+            *h = 480;
+            return( 1 );
+        }
         if( !m8dd_lend( 1 ) ) {
             return( 0 );
         }
@@ -1909,7 +2036,7 @@ int m8d3d_scratch( LPVOID key, int w, int *h, int *x, int *y )
         *h = m8dd->scratch_rows;
         return( 1 );
     }
-    if( !m8dd->heap_rows || !m8dd_place( w, *h, &r ) ) {
+    if( !m8dd->heap_rows || !m8dd_place( *w, *h, &r ) ) {
         return( 0 );
     }
     for( k = 0; k < M8DD_PLACED_MAX && m8dd_placed[k].gbl != NULL; ++k ) {
@@ -1928,6 +2055,8 @@ int m8d3d_scratch( LPVOID key, int w, int *h, int *x, int *y )
 void m8d3d_scratch_free( LPVOID key )
 {
     if( m8dd->fb16 ) {
+        m8dd_pages_leave();
+        m8dd_pages_ok = 0;
         m8dd_lend( 0 );
         return;
     }

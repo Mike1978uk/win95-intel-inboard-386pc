@@ -20,6 +20,7 @@
 #include "m8ddi.h"
 #include <string.h>
 #include <dos.h>
+#include <conio.h>
 #include "m8.h"
 
 UINT WINAPI GlobalSmartPageLock( HGLOBAL hglb );
@@ -133,8 +134,9 @@ static BYTE             m8_fb16_y[16][64];
 static BYTE             m8_fb16_band[4096];
 
 /* Counters for ExtEscape( M8_ESC_FB16STAT ): access calls, sends, pixels
- * sent; the fourth is unused. */
-DWORD                   m8_fb16_stat[4];
+ * sent, and a fourth. The fifth is not a counter: M8DD32 sets it while page 1
+ * is shown, and GDI draws on page 0, so the first drawing call shows page 0. */
+DWORD                   m8_fb16_stat[5];
 
 static const BYTE m8_fb16_bayer[4][4] = {
     {  0,  8,  2, 10 },
@@ -744,6 +746,10 @@ static VOID WINAPI __loadds m8_fb16_begin( LPPDEVICE lpDevice, WORD wLeft, WORD 
     M8_FB16_RECT    n;
 
     ++m8_fb16_stat[0];
+    if( m8_fb16_stat[4] ) {
+        m8_fb16_stat[4] = 0;
+        outpw( M8_CRT_OFFSET_HI, 0 );
+    }
     DIB_BeginAccess( lpDevice, wLeft, wTop, wRight, wBottom, wFlags );
     ++m8_fb16_depth;
     n.l = (short)wLeft;

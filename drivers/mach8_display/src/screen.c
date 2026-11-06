@@ -3798,6 +3798,7 @@ static int m8_sc_top( void )
 }
 
 static WORD          m8_sc_gen = 1;     /* changes on each flush: m8_tk entries die with it */
+static int           m8_sc_off;         /* Direct3D's second page has the cache's rows */
 
 static void m8_sc_flush( void )
 {
@@ -3851,7 +3852,7 @@ static M8_SCENTRY *m8_sc_get_h( const BYTE FAR *bits, WORD wb, WORD h, WORD max_
     int         k;
     M8_SCENTRY  *e;
 
-    if( m8_hw_off || (int)wb * 8 > M8_SC_W || h > max_h || (int)h > m8_sc_rows() ) {
+    if( m8_hw_off || m8_sc_off || (int)wb * 8 > M8_SC_W || h > max_h || (int)h > m8_sc_rows() ) {
         return( NULL );
     }
     m8_hash_init( &hs, wb );
@@ -5190,7 +5191,9 @@ void __far m8_dd_heap( int *top, int *rows )
 
 /* Lend DirectDraw its rows (on != 0) or take them back. Before DirectDraw
  * draws there, the cache shelves reaching into them go, memory bitmaps kept
- * there written back to RAM first, and a menu saved there is dropped. */
+ * there written back to RAM first, and a menu saved there is dropped.
+ * on == 2 lends everything from the second page's first row down, the string
+ * cache's rows too; the corner x >= 992 stays the cursor's. */
 void m8_dd_lend( int on )
 {
     int top;
@@ -5199,7 +5202,11 @@ void m8_dd_lend( int on )
     int k;
 
     m8_dd_heap( &top, &rows );
-    if( !on || rows == 0 ) {
+    m8_sc_off = on == 2;
+    if( on == 2 ) {
+        m8_sc_flush();
+        top = M8_PAGE1_Y;
+    } else if( !on || rows == 0 ) {
         m8_dd_lent = 0;
         return;
     }

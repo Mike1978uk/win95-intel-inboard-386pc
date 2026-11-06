@@ -72,7 +72,7 @@
 
 /* m8dd32.c: the engine and the card's memory, which it owns. */
 extern int  m8d3d_surface( LPVOID lcl, int *x, int *y, int *w, int *h );
-extern int  m8d3d_scratch( LPVOID key, int w, int *h, int *x, int *y );
+extern int  m8d3d_scratch( LPVOID key, int *w, int *h, int *x, int *y );
 extern int  m8d3d_fb16( void );
 extern int  m8d3d_fill( const RECT *r );
 extern int  m8d3d_record( LPVOID lcl, const short *v, BYTE index, WORD colour );
@@ -236,9 +236,10 @@ typedef char m8d3d_tl_size[sizeof( M8D3D_TLVERTEX ) == 32 ? 1 : -1];
 typedef struct {
     LPVOID  target;             /* the surface's interface; 0 = a free context */
     DWORD   cull;
-    int     sx;                 /* the scratch, as large as the target */
+    int     sx;                 /* the scratch */
     int     sy;
-    int     sw;
+    int     sw;                 /* the target's width */
+    int     tw;                 /* the scratch's; narrower than the target with two pages */
     int     sh;                 /* its rows; at 16 bpp, fewer than the target can have */
     int     fresh;              /* the scratch has not been cleared yet */
     int     drawn;              /* triangles in the scratch since it was cleared */
@@ -398,7 +399,7 @@ static int m8d3d_tri( M8D3D_CONTEXT *c, int dx, int dy, const short *v, BYTE col
     int     r = v[0];
     int     t = v[1];
     int     b = v[1];
-    int     sx = c->sx;
+    int     sx;
     int     sy;
     int     i;
 
@@ -416,7 +417,9 @@ static int m8d3d_tri( M8D3D_CONTEXT *c, int dx, int dy, const short *v, BYTE col
             b = v[2 * i + 1];
         }
     }
-    /* The scratch's top row holds the triangle's top row: the rows are few at 16 bpp. */
+    /* The scratch's corner holds the triangle's box's corner: the scratch can be smaller
+     * than the target. */
+    sx = c->sx - l;
     sy = c->sy - t;
     /* Rows strictly between top and bottom only: an apex row can hold one outline
      * pixel, and the fill would run to the end of the row. */
@@ -478,12 +481,14 @@ static int m8d3d_scratch_clear( M8D3D_CONTEXT *c )
     return( ok );
 }
 
-/* A triangle too tall for the scratch, split across its tallest edge until it fits.
- * Each part's outline covers the seam. */
+/* A triangle too large for the scratch, split across its tallest or widest edge until
+ * it fits. Each part's outline covers the seam. */
 static int m8d3d_tri_fit( M8D3D_CONTEXT *c, int dx, int dy, const short *v, BYTE colour )
 {
     int     e = 0;
+    int     ew = 0;
     int     h = 0;
+    int     w = 0;
     int     i;
     int     d;
     int     a;
@@ -500,12 +505,22 @@ static int m8d3d_tri_fit( M8D3D_CONTEXT *c, int dx, int dy, const short *v, BYTE
             h = d;
             e = i;
         }
+        a = v[2 * i];
+        b = v[2 * ((i + 1) % 3)];
+        d = a < b ? b - a : a - b;
+        if( d > w ) {
+            w = d;
+            ew = i;
+        }
     }
-    if( h + 2 < c->sh ) {
+    if( h + 2 < c->sh && w + 2 < c->tw ) {
         if( !m8d3d_tri( c, dx, dy, v, colour ) ) {
             return( 0 );
         }
         return( c->drawn == 8 ? m8d3d_scratch_clear( c ) : 1 );
+    }
+    if( h + 2 < c->sh ) {
+        e = ew;
     }
     a = e;
     b = (e + 1) % 3;
@@ -529,10 +544,12 @@ static int m8d3d_tri_fit( M8D3D_CONTEXT *c, int dx, int dy, const short *v, BYTE
 }
 
 /* At 16 bpp, from Flip: the last frame's boxes back to black, then a buffer's
- * triangles, on the card. */
-void m8d3d_replay( const RECT *erase, int erase_n, BYTE black, const short *v, const WORD *index, int n )
+ * triangles, on the card, dy rows down. The engine is idle on return: 0 if it
+ * could not be used. */
+int m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const short *v, const WORD *index, int n )
 {
     M8D3D_CONTEXT   *c = NULL;
+    RECT            r;
     int             k;
     int             i;
     int             ok = 1;
@@ -544,7 +561,7 @@ void m8d3d_replay( const RECT *erase, int erase_n, BYTE black, const short *v, c
     }
     if( c == NULL || !m8d3d_engine_begin() ) {
         ++m8d3d_stat[11];
-        return;
+        return( 0 );
     }
     if( c->fresh ) {
         ok = m8d3d_scratch_clear( c );
@@ -554,11 +571,14 @@ void m8d3d_replay( const RECT *erase, int erase_n, BYTE black, const short *v, c
         ok = m8d3d_room( 1 );
         outpw( M8_FRGD_COLOR, black );
         for( i = 0; ok && i < erase_n; ++i ) {
-            ok = m8d3d_fill( &erase[i] );
+            r = erase[i];
+            r.top += dy;
+            r.bottom += dy;
+            ok = m8d3d_fill( &r );
         }
     }
     for( i = 0; ok && i < n; ++i ) {
-        ok = m8d3d_tri_fit( c, 0, 0, v + 6 * i, (BYTE)index[i] );
+        ok = m8d3d_tri_fit( c, 0, dy, v + 6 * i, (BYTE)index[i] );
         ++m8d3d_stat[8];
     }
     if( ok ) {
@@ -568,6 +588,7 @@ void m8d3d_replay( const RECT *erase, int erase_n, BYTE black, const short *v, c
     if( !ok ) {
         ++m8d3d_stat[11];
     }
+    return( ok );
 }
 
 static DWORD __stdcall m8d3d_context_create( M8D3D_CONTEXTCREATE *d )
@@ -587,8 +608,11 @@ static DWORD __stdcall m8d3d_context_create( M8D3D_CONTEXTCREATE *d )
         return( DDHAL_DRIVER_HANDLED );
     }
     c = &m8d3d_ctx[k];
-    if( !m8d3d_surface( m8d3d_lcl( d->lpDDS ), &x, &y, &c->sw, &c->sh ) ||
-        !m8d3d_scratch( c, c->sw, &c->sh, &c->sx, &c->sy ) ) {
+    if( !m8d3d_surface( m8d3d_lcl( d->lpDDS ), &x, &y, &c->sw, &c->sh ) ) {
+        return( DDHAL_DRIVER_HANDLED );
+    }
+    c->tw = c->sw;
+    if( !m8d3d_scratch( c, &c->tw, &c->sh, &c->sx, &c->sy ) ) {
         return( DDHAL_DRIVER_HANDLED );
     }
     c->target = d->lpDDS;
@@ -597,7 +621,7 @@ static DWORD __stdcall m8d3d_context_create( M8D3D_CONTEXTCREATE *d )
     c->drawn = 0;
     c->dl = c->sx;
     c->dt = c->sy;
-    c->dr = c->sx + c->sw;
+    c->dr = c->sx + c->tw;
     c->db = c->sy + c->sh;
     d->dwhContext = k + 1;
     d->ddrval = DD_OK;

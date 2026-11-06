@@ -461,7 +461,7 @@ LONG WINAPI __loadds Control( LPVOID lpDevice, UINT function, LPVOID lpInput, LP
         return( 0x0100 );               /* DD_HAL_VERSION */
     }
     if( function == M8_ESC_FB16STAT && lpOutput != NULL ) {
-        _fmemcpy( lpOutput, m8_fb16_stat, sizeof( m8_fb16_stat ) );
+        _fmemcpy( lpOutput, m8_fb16_stat, 4 * sizeof( DWORD ) );
         return( 1 );
     }
     if( function == M8_ESC_FB16CHECK && lpOutput != NULL && m8_fb16 ) {

@@ -165,6 +165,10 @@ extern M8_HOT m8_hot;
  * cache's 992 columns, inside its rows, so no cache reaches it in any mode. */
 #define M8_CURSOR_MASK_X    M8_CURSOR_SAVE_X
 #define M8_CURSOR_MASK_Y    (M8_CURSOR_SAVE_Y - 32)
+/* Direct3D's second page at 640x480 (m8dd32.c): rows 512-991, left of x 640. */
+#define M8_PAGE1_Y          512
+#define M8_CRT_OFFSET_LO    0x2AEE
+#define M8_CRT_OFFSET_HI    0x2EEE
 
 /* Commands. Rectangle (010), LSB_FIRST (bit 12: first pixel in the low byte), 16-bit
  * transfers (bit 9), wait for host data (bit 8), x and y increasing, draw. */
@@ -241,7 +245,7 @@ extern void __far m8dd_mode_changed( void );
 /* fb16.c: the 16 bpp modes (640x480, 800x600), a frame buffer in RAM shown dithered. */
 extern int     m8_fb16;
 extern RGBQUAD m8_fb16_pal[256];
-extern DWORD   m8_fb16_stat[4];
+extern DWORD   m8_fb16_stat[5];
 extern int  m8_fb16_alloc( void );
 extern void m8_fb16_device( LPDIBENGINE dev, LPBITMAPINFO info );
 extern void m8_fb16_send_all( void );
@@ -316,7 +320,7 @@ extern LONG m8_poly_escape( LPVOID lpInput, LPVOID lpOutput );
  * that crossed a BIOS tick (55 ms) cannot be timed exactly from the 16-bit PIT
  * count, so it goes to `long_*`, as the shorter of its two possible lengths. */
 #define M8_ESC_PROF         0x4D38
-#define M8_ESC_DDLEND       0x4D39      /* WORD: 1 lend, 0 take back (m8dd32.c) */
+#define M8_ESC_DDLEND       0x4D39      /* WORD: 1 lend, 2 lend for two pages, 0 take back (m8dd32.c) */
 #define M8_ESC_FB16STAT     0x4D3A      /* out: 4 DWORDs, fb16.c's counters */
 #define M8_ESC_FB16CHECK    0x4D3B      /* out: 5 DWORDs, m8_fb16_check */
 #define M8_ESC_FB16SEND     0x4D3C      /* in: WORDs l t r b solid: that part to the card */

@@ -360,6 +360,8 @@ int m8_hw_set_mode( int mode )
     m8_write_regs( m8_engine_init, sizeof( m8_engine_init ) / sizeof( m8_engine_init[0] ) );
     m8_scr_x = m->x;
     m8_scr_y = m->y;
+    outpw( M8_CRT_OFFSET_LO, 0 );
+    outpw( M8_CRT_OFFSET_HI, 0 );
     m8_hw_fill( 0, 0, M8_SCREEN_X, M8_SCREEN_Y, 0 );
     return( m8_hw_wait_idle() );
 }
