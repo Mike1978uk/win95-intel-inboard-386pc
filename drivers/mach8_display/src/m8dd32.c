@@ -30,7 +30,7 @@
 extern void m8d3d_init( DWORD *global, DWORD *callbacks );
 extern int  m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const short *v,
                          const WORD *index, const DWORD *rgb, int n );
-extern DWORD m8d3d_stat[24];
+extern DWORD m8d3d_stat[25];
 
 /* The head of dd16.c's M8DD_SHARE. */
 #pragma pack( push, 1 )

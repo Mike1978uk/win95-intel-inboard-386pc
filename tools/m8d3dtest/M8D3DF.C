@@ -322,7 +322,7 @@ static void test( int no, const TEST *t, int seconds )
     unsigned long           slow = 0;
     double                  frame0;
     double                  worst = 0.0;
-    DWORD                   s[12];
+    DWORD                   s[13];
     int                     x;
     int                     y;
     int                     i;
@@ -354,7 +354,7 @@ static void test( int no, const TEST *t, int seconds )
     fx.dwSize = sizeof( fx );
     memset( s, 0, sizeof( s ) );
     if( stat != NULL ) {
-        for( i = 0; i < 12; ++i ) {
+        for( i = 0; i < 13; ++i ) {
             s[i] = stat[12 + i];
         }
     }
@@ -395,7 +395,7 @@ static void test( int no, const TEST *t, int seconds )
         el = (a - t0) / qpf;
     } while( el < (double)seconds );
     if( stat != NULL ) {
-        for( i = 0; i < 12; ++i ) {
+        for( i = 0; i < 13; ++i ) {
             s[i] = stat[12 + i] - s[i];
         }
     }
@@ -426,6 +426,7 @@ static void test( int no, const TEST *t, int seconds )
                  (unsigned long)s[5], (unsigned long)s[6] );
         fprintf( out, "  masks %lu built %lu  stamps %lu built %lu", (unsigned long)s[8], (unsigned long)s[9],
                  (unsigned long)s[10], (unsigned long)s[11] );
+        fprintf( out, "  ours in d3d %5.2f", 1000.0 * s[12] / qpf / frames );
     }
     fprintf( out, "  bad %lu  lit %lu  over16.7ms %lu/%lu  worst %.1f\n", bad, lit, slow, frames, 1000.0 * worst / qpf );
     fflush( out );

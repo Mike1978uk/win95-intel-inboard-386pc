@@ -8,3 +8,5 @@ l-after  0 pixels differ, in 800,600 - 0,0; sends entered during a send 0
 m-after  0 pixels differ, in 800,600 - 0,0; sends entered during a send 0
 n-after  0 pixels differ, in 800,600 - 0,0; sends entered during a send 0
 p-after  0 pixels differ, in 800,600 - 0,0; sends entered during a send 0
+q-after  0 pixels differ, in 800,600 - 0,0; sends entered during a send 0
+r-after  0 pixels differ, in 800,600 - 0,0; sends entered during a send 0

@@ -288,6 +288,8 @@ typedef struct {
 #define M8D3D_STAMPS        32
 #define M8D3D_STAMP_SEEN    32
 #define M8D3D_STAMP_ROWS    128         /* taken from the scratch */
+#define M8D3D_STAMP_PARTS   3
+#define M8D3D_STAMP_CUT     3000L       /* pixels of box: below this an extra command costs more */
 
 typedef struct {
     short   v[6];
@@ -300,6 +302,8 @@ typedef struct {
     short           y;
     short           w;
     short           h;
+    M8D3D_BOX       part[M8D3D_STAMP_PARTS];    /* parts 0 = the whole box */
+    int             parts;
     DWORD           used;       /* 0 = empty */
 } M8D3D_STAMP;
 
@@ -347,8 +351,8 @@ static M8D3D_CONTEXT    m8d3d_ctx[M8D3D_CONTEXTS];
  * counter ticks in Flip at 16 bpp: [12] all, [13] the 16-bit side, [14] erase and
  * triangles; [15] flips; in Blt: [16] ticks, [17] calls, [18] full clears described;
  * [19] page wait ticks; [20] triangles drawn from a mask; [21] masks built;
- * [22] triangles stamped; [23] stamps built. */
-DWORD                   m8d3d_stat[24];
+ * [22] triangles stamped; [23] stamps built; [24] ticks in RenderPrimitive. */
+DWORD                   m8d3d_stat[25];
 
 static LPVOID m8d3d_lcl( LPVOID surface_int )
 {
@@ -1518,6 +1522,11 @@ static int m8d3d_same_shaded( const M8D3D_SHADED *a, const short *n, const DWORD
 
 static int m8d3d_stamp_copy( const M8D3D_STAMP *s, int x, int y )
 {
+    M8D3D_BOX       whole;
+    const M8D3D_BOX *box;
+    int             n;
+    int             i;
+
     if( !m8d3d_stamp_mode ) {
         if( !m8d3d_mono_off() || !m8d3d_room( 8 ) ) {
             return( 0 );
@@ -1532,20 +1541,66 @@ static int m8d3d_stamp_copy( const M8D3D_STAMP *s, int x, int y )
         outpw( M8_SRC_Y_DIR, 1 );
         m8d3d_stamp_mode = 1;
     }
-    if( !m8d3d_room( 9 ) ) {
-        return( 0 );
+    if( s->parts == 0 ) {
+        whole.x = 0;
+        whole.y = 0;
+        whole.w = s->w;
+        whole.h = s->h;
+        box = &whole;
+        n = 1;
+    } else {
+        box = s->part;
+        n = s->parts;
     }
-    outpw( M8_SRC_X_START, s->x );
-    outpw( M8_SRC_X_END, s->x + s->w );
-    outpw( M8_DESTX_DIASTP, s->x );
-    outpw( M8_DESTY_AXSTP, s->y );
-    outpw( M8_CUR_X, x );
-    outpw( M8_DEST_X_START, x );
-    outpw( M8_DEST_X_END, x + s->w );
-    outpw( M8_CUR_Y, y );
-    outpw( M8_DEST_Y_END, y + s->h );
+    for( i = 0; i < n; ++i ) {
+        if( !m8d3d_room( 9 ) ) {
+            return( 0 );
+        }
+        outpw( M8_SRC_X_START, s->x + box[i].x );
+        outpw( M8_SRC_X_END, s->x + box[i].x + box[i].w );
+        outpw( M8_DESTX_DIASTP, s->x + box[i].x );
+        outpw( M8_DESTY_AXSTP, s->y + box[i].y );
+        outpw( M8_CUR_X, x + box[i].x );
+        outpw( M8_DEST_X_START, x + box[i].x );
+        outpw( M8_DEST_X_END, x + box[i].x + box[i].w );
+        outpw( M8_CUR_Y, y + box[i].y );
+        outpw( M8_DEST_Y_END, y + box[i].y + box[i].h );
+    }
     ++m8d3d_stat[22];
     return( 1 );
+}
+
+/* A large stamp cut by rows, each box only as wide as its rows reach: a triangle's box is half empty
+ * and an empty pixel costs what a drawn one does. */
+static void m8d3d_stamp_cut( M8D3D_STAMP *s, const short *n )
+{
+    M8D3D_EDGE  e[3];
+    int         i;
+
+    s->parts = 0;
+    if( (long)s->w * s->h < M8D3D_STAMP_CUT ) {
+        return;
+    }
+    m8d3d_edges_make( e, n );
+    for( i = 0; i < M8D3D_STAMP_PARTS; ++i ) {
+        int a = s->h * i / M8D3D_STAMP_PARTS;
+        int b = s->h * (i + 1) / M8D3D_STAMP_PARTS;
+        int lo;
+        int hi;
+
+        m8d3d_rows_reach( e, n, a, b - 1, &lo, &hi );
+        if( lo < 0 ) {
+            lo = 0;
+        }
+        if( hi > s->w - 1 ) {
+            hi = s->w - 1;
+        }
+        s->part[i].x = (short)lo;
+        s->part[i].y = (short)a;
+        s->part[i].w = (short)(hi - lo + 1);
+        s->part[i].h = (short)(b - a);
+    }
+    s->parts = M8D3D_STAMP_PARTS;
 }
 
 /* A place for a w x h stamp: shelves down the column beside page 0, then the rows taken from the
@@ -1678,6 +1733,7 @@ static int m8d3d_tri_stamped( M8D3D_CONTEXT *c, int dx, int dy, const short *v, 
         s->y = (short)y;
         s->w = (short)(r - l + 1);
         s->h = (short)(b - t + 1);
+        m8d3d_stamp_cut( s, n );
         s->used = ++c->clock;
         ++m8d3d_stat[23];
         *done = 1;
@@ -1904,10 +1960,14 @@ static DWORD __stdcall m8d3d_render_primitive( M8D3D_RENDERPRIMITIVE *d )
     int                     ok = 1;
     int                     fb16;
     DWORD                   rgb;
+    LPVOID                  lcl;
+    LARGE_INTEGER           rp0;
+    LARGE_INTEGER           rp1;
 
     ++m8d3d_stat[4];
     m8d3d_stat[5] += d->wCount;
     d->ddrval = DD_OK;
+    QueryPerformanceCounter( &rp0 );
     if( d->bOpcode != M8D3D_OP_TRIANGLE ) {
         return( DDHAL_DRIVER_HANDLED );
     }
@@ -1925,6 +1985,8 @@ static DWORD __stdcall m8d3d_render_primitive( M8D3D_RENDERPRIMITIVE *d )
         ok = m8d3d_scratch_clear( c );
         c->fresh = 0;
     }
+    /* Once a call: it asks the kernel whether the pointer is good. */
+    lcl = m8d3d_lcl( c->target );
     vtx = (const M8D3D_TLVERTEX *)(tl + d->dwTLOffset);
     for( i = 0; ok && i < d->wCount; ++i ) {
         tri = (const M8D3D_TRIANGLE *)(exe + d->dwOffset + (DWORD)i * d->bSize);
@@ -1958,7 +2020,7 @@ static DWORD __stdcall m8d3d_render_primitive( M8D3D_RENDERPRIMITIVE *d )
                 corners[j] = c->shade == M8D3D_SHADE_GOURAUD ? a[j]->color & 0x00FFFFFFUL : rgb;
             }
             /* Described, not drawn: Flip has the engine draw it. */
-            ok = m8d3d_record( m8d3d_lcl( c->target ), v, m8d3d_index16( rgb ), m8d3d_565( rgb ), corners );
+            ok = m8d3d_record( lcl, v, m8d3d_index16( rgb ), m8d3d_565( rgb ), corners );
             continue;
         }
         ok = m8d3d_tri_fit( c, x, y, v, m8d3d_index( rgb ) );
@@ -1973,6 +2035,8 @@ static DWORD __stdcall m8d3d_render_primitive( M8D3D_RENDERPRIMITIVE *d )
     if( !ok ) {
         ++m8d3d_stat[11];
     }
+    QueryPerformanceCounter( &rp1 );
+    m8d3d_stat[24] += rp1.LowPart - rp0.LowPart;
     return( DDHAL_DRIVER_HANDLED );
 }
 
