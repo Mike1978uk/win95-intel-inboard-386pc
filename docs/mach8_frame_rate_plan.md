@@ -491,10 +491,12 @@ program, while frame-rate levers touch one. Stages 1-3 run alongside stage 4, ea
 
 | # | Lever | Size, from source | Test |
 |---|---|---|---|
-| R1 | Back buffer `m8_fb16_bmem`: a described frame need not write it | 960,000 B at 800x600x16 | `paged` in NOAG.TXT and PERFLOG's locked count, after a DirectDraw program has exited |
-| R2 | Back buffer sized to the DirectDraw mode, freed on the last exit | 960,000 against 614,400 B | same |
-| R3 | Frame buffer `m8_fb16_mem`, page-locked, needed at 16 bpp only | 960,000 + 60,000 B fingerprints | PAGERUN at 16 bpp against 8 bpp: the price of the 16 bpp desktop |
-| R4 | Direct3D arrays (V20) | census | same |
+| R1 | Back buffer: a described frame need not write it, so reserve the address and commit on Lock. Saves nothing for a program that Locks | 614,400 B at 640x480, 960,000 B at 800x600, DirectDraw only | `paged` in NOAG.TXT and PERFLOG's locked count, during and after a DirectDraw program |
+| R2 | Fingerprint table: smaller hashes or wider segments, or none (whole sends cost bus time) | 60,000 B; 15,000-30,000 B if kept | bench and `paged` together |
+| R3 | The price of the 16 bpp desktop: frame buffer, page-locked, never freed | 1,142,770 B against 253,810 B at 8 bpp | PAGERUN at 16 bpp against 8 bpp |
+| R4 | 8 bpp caches in statics, idle at 16 bpp: allocate at Enable. Trace first | ~35 KB, from reading | `paged` |
+| R5 | 8 bpp DirectDraw shadow, never freed | 691,200 B | `paged`, if 8 bpp is kept as a mode |
+| R6 | Direct3D arrays (V20) | 31,744 B | `paged` |
 
 **Stage 2, paging.**
 
