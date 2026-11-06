@@ -56,6 +56,9 @@
 #define M8_DEST_Y_END       0xAEEE
 #define M8_DP_8514          0x2211
 #define M8_DP_POLY_FILL     0x2213
+#define M8_DP_MONO_VRAM     0x2271      /* FRGD_COLOR where the blit source's RD_MASK plane is set */
+#define M8_ALU_BG_FN        0xB6EE
+#define M8_MIX_LEAVE        0x0003
 #define M8_MIX_XOR          0x0005
 #define M8_MIX_REPLACE      0x0007
 
@@ -234,8 +237,30 @@ typedef char m8d3d_tl_size[sizeof( M8D3D_TLVERTEX ) == 32 ? 1 : -1];
 
 #define M8D3D_CONTEXTS  4
 
+/* A shape: its corners relative to its box. Each plane of the mask strip holds one, whole, so
+ * drawing it is one mono copy (8 writes, one engine command) against an outline, a fill and
+ * another outline. A mask costs about a flat triangle to build, so a shape earns one only when
+ * seen again, and a frame builds at most one: scenes that never repeat a shape pay a compare. */
+#define M8D3D_MASKS         8
+#define M8D3D_SEEN          16
+#define M8D3D_MASK_ROWS     128
+
+typedef struct {
+    short   v[6];
+    short   w;
+    short   h;
+    DWORD   used;               /* 0 = empty */
+} M8D3D_MASK;
+
 typedef struct {
     LPVOID  target;             /* the surface's interface; 0 = a free context */
+    int     mx;                 /* the mask strip; mh 0 = none */
+    int     my;
+    int     mh;
+    M8D3D_MASK  mask[M8D3D_MASKS];
+    short   seen[M8D3D_SEEN][6];
+    int     seen_next;
+    DWORD   clock;
     DWORD   cull;
     int     sx;                 /* the scratch */
     int     sy;
@@ -260,8 +285,9 @@ static M8D3D_CONTEXT    m8d3d_ctx[M8D3D_CONTEXTS];
  * [6] the last target surface, [7] the last Z surface, [8] triangles drawn,
  * [9] culled, [10] refused: outside the target, [11] calls refused. Performance
  * counter ticks in Flip at 16 bpp: [12] all, [13] the 16-bit side, [14] erase and
- * triangles; [15] flips; in Blt: [16] ticks, [17] calls, [18] full clears described. */
-DWORD                   m8d3d_stat[20];
+ * triangles; [15] flips; in Blt: [16] ticks, [17] calls, [18] full clears described;
+ * [19] page wait ticks; [20] triangles drawn from a mask; [21] masks built. */
+DWORD                   m8d3d_stat[22];
 
 static LPVOID m8d3d_lcl( LPVOID surface_int )
 {
@@ -615,6 +641,215 @@ static int m8d3d_tri_fit( M8D3D_CONTEXT *c, int dx, int dy, const short *v, BYTE
     return( m8d3d_tri_fit( c, dx, dy, p, colour ) );
 }
 
+static int  m8d3d_mono_on;      /* the engine holds the mask copy's registers */
+static int  m8d3d_mono_plane;
+static int  m8d3d_mono_w;
+
+/* The plain path: lines and rows drawn with RD_MASK on one plane lose pixels. */
+static int m8d3d_mono_off( void )
+{
+    if( !m8d3d_mono_on ) {
+        return( 1 );
+    }
+    m8d3d_mono_on = 0;
+    if( !m8d3d_room( 2 ) ) {
+        return( 0 );
+    }
+    outpw( M8_RD_MASK, 0x00FF );
+    outpw( M8_DP_CONFIG, M8_DP_8514 );
+    return( 1 );
+}
+
+static int m8d3d_mask_draw( M8D3D_CONTEXT *c, int k, int dx, int dy, int l, int t, BYTE colour )
+{
+    const M8D3D_MASK *m = &c->mask[k];
+
+    if( !m8d3d_mono_on ) {
+        if( !m8d3d_room( 6 ) ) {
+            return( 0 );
+        }
+        outpw( M8_WRT_MASK, 0x00FF );
+        outpw( M8_DP_CONFIG, M8_DP_MONO_VRAM );
+        outpw( M8_ALU_FG_FN, M8_MIX_REPLACE );
+        outpw( M8_ALU_BG_FN, M8_MIX_LEAVE );
+        outpw( M8_SRC_Y_DIR, 1 );
+        outpw( M8_SRC_X_START, c->mx );
+        m8d3d_mono_on = 1;
+        m8d3d_mono_plane = -1;
+        m8d3d_mono_w = -1;
+    }
+    if( !m8d3d_room( 10 ) ) {
+        return( 0 );
+    }
+    if( m8d3d_mono_plane != k ) {
+        outpw( M8_RD_MASK, 1 << k );
+        m8d3d_mono_plane = k;
+    }
+    if( m8d3d_mono_w != m->w ) {
+        outpw( M8_SRC_X_END, c->mx + m->w );
+        m8d3d_mono_w = m->w;
+    }
+    outpw( M8_FRGD_COLOR, colour );
+    outpw( M8_DESTX_DIASTP, c->mx );
+    outpw( M8_DESTY_AXSTP, c->my );
+    outpw( M8_CUR_X, dx + l );
+    outpw( M8_DEST_X_START, dx + l );
+    outpw( M8_DEST_X_END, dx + l + m->w );
+    outpw( M8_CUR_Y, dy + t );
+    outpw( M8_DEST_Y_END, dy + t + m->h );
+    ++m8d3d_stat[20];
+    return( 1 );
+}
+
+/* The shape (corners relative to its box) into plane k of the strip: the same outline and fill as
+ * a triangle on the screen, so the same pixels. What the plane held before is cleared first. */
+static int m8d3d_mask_build( M8D3D_CONTEXT *c, int k, const short *n, int w, int h )
+{
+    M8D3D_MASK  *m = &c->mask[k];
+    BYTE        plane = (BYTE)(1 << (c->drawn & 7));
+    WORD        q = (WORD)(1 << k);
+    int         i;
+
+    if( m->used != 0 ) {
+        RECT r;
+
+        if( !m8d3d_room( 5 ) ) {
+            return( 0 );
+        }
+        outpw( M8_WRT_MASK, q );
+        outpw( M8_RD_MASK, 0x00FF );
+        outpw( M8_DP_CONFIG, M8_DP_8514 );
+        outpw( M8_ALU_FG_FN, M8_MIX_REPLACE );
+        outpw( M8_FRGD_COLOR, 0 );
+        r.left = c->mx;
+        r.top = c->my;
+        r.right = c->mx + m->w;
+        r.bottom = c->my + m->h;
+        if( !m8d3d_fill( &r ) ) {
+            return( 0 );
+        }
+    }
+    if( h >= 3 ) {
+        if( !m8d3d_edges( c->sx, c->sy, n, plane ) || !m8d3d_room( 15 ) ) {
+            return( 0 );
+        }
+        outpw( M8_WRT_MASK, q );
+        outpw( M8_RD_MASK, plane );
+        outpw( M8_DP_CONFIG, M8_DP_POLY_FILL );
+        outpw( M8_ALU_FG_FN, M8_MIX_REPLACE );
+        outpw( M8_FRGD_COLOR, 0x00FF );
+        outpw( M8_DESTX_DIASTP, c->sx );
+        outpw( M8_DESTY_AXSTP, c->sy + 1 );
+        outpw( M8_SRC_X_START, c->sx );
+        outpw( M8_SRC_X_END, c->sx + w );
+        outpw( M8_SRC_Y_DIR, 1 );
+        outpw( M8_CUR_X, c->mx );
+        outpw( M8_DEST_X_START, c->mx );
+        outpw( M8_DEST_X_END, c->mx + w );
+        outpw( M8_CUR_Y, c->my + 1 );
+        outpw( M8_DEST_Y_END, c->my + h - 1 );
+        if( c->sx < c->dl ) {
+            c->dl = c->sx;
+        }
+        if( c->sy < c->dt ) {
+            c->dt = c->sy;
+        }
+        if( c->sx + w > c->dr ) {
+            c->dr = c->sx + w;
+        }
+        if( c->sy + h > c->db ) {
+            c->db = c->sy + h;
+        }
+        ++c->drawn;
+        if( !m8d3d_room( 1 ) ) {
+            return( 0 );
+        }
+        outpw( M8_RD_MASK, 0x00FF );
+    }
+    if( !m8d3d_outline( c->mx, c->my, n, M8_MIX_REPLACE, M8_LINEDRAW_LAST_OFF, 0x00FF, q ) ) {
+        return( 0 );
+    }
+    if( !m8d3d_room( 1 ) ) {
+        return( 0 );
+    }
+    outpw( M8_WRT_MASK, 0x00FF );
+    for( i = 0; i < 6; ++i ) {
+        m->v[i] = n[i];
+    }
+    m->w = (short)w;
+    m->h = (short)h;
+    ++m8d3d_stat[21];
+    return( c->drawn == 8 ? m8d3d_scratch_clear( c ) : 1 );
+}
+
+static int m8d3d_same_shape( const short *a, const short *b )
+{
+    return( a[0] == b[0] && a[1] == b[1] && a[2] == b[2] && a[3] == b[3] && a[4] == b[4] && a[5] == b[5] );
+}
+
+/* One replayed triangle, from a mask if its shape has one. `*build` is how many masks this frame
+ * may still build. */
+static int m8d3d_tri_cached( M8D3D_CONTEXT *c, int dx, int dy, const short *v, BYTE colour, int *build )
+{
+    short   n[6];
+    int     l = v[0];
+    int     r = v[0];
+    int     t = v[1];
+    int     b = v[1];
+    int     i;
+    int     k;
+
+    for( i = 1; i < 3; ++i ) {
+        if( v[2 * i] < l ) {
+            l = v[2 * i];
+        }
+        if( v[2 * i] > r ) {
+            r = v[2 * i];
+        }
+        if( v[2 * i + 1] < t ) {
+            t = v[2 * i + 1];
+        }
+        if( v[2 * i + 1] > b ) {
+            b = v[2 * i + 1];
+        }
+    }
+    if( c->mh != 0 && b - t + 1 < c->mh && r - l + 1 <= c->tw ) {
+        for( i = 0; i < 3; ++i ) {
+            n[2 * i] = (short)(v[2 * i] - l);
+            n[2 * i + 1] = (short)(v[2 * i + 1] - t);
+        }
+        for( k = 0; k < M8D3D_MASKS; ++k ) {
+            if( c->mask[k].used != 0 && m8d3d_same_shape( c->mask[k].v, n ) ) {
+                c->mask[k].used = ++c->clock;
+                return( m8d3d_mask_draw( c, k, dx, dy, l, t, colour ) );
+            }
+        }
+        for( i = 0; i < M8D3D_SEEN && !m8d3d_same_shape( c->seen[i], n ); ++i ) {
+        }
+        if( i == M8D3D_SEEN ) {
+            for( i = 0; i < 6; ++i ) {
+                c->seen[c->seen_next][i] = n[i];
+            }
+            c->seen_next = (c->seen_next + 1) % M8D3D_SEEN;
+        } else if( *build > 0 ) {
+            int oldest = 0;
+
+            for( k = 1; k < M8D3D_MASKS; ++k ) {
+                if( c->mask[k].used < c->mask[oldest].used ) {
+                    oldest = k;
+                }
+            }
+            --*build;
+            if( !m8d3d_mono_off() || !m8d3d_mask_build( c, oldest, n, r - l + 1, b - t + 1 ) ) {
+                return( 0 );
+            }
+            c->mask[oldest].used = ++c->clock;
+            return( m8d3d_mask_draw( c, oldest, dx, dy, l, t, colour ) );
+        }
+    }
+    return( m8d3d_mono_off() && m8d3d_tri_fit( c, dx, dy, v, colour ) );
+}
+
 /* At 16 bpp, from Flip: the last frame's boxes back to black, then a buffer's
  * triangles, on the card, dy rows down. The engine is idle on return: 0 if it
  * could not be used. */
@@ -625,6 +860,7 @@ int m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const shor
     int             k;
     int             i;
     int             ok = 1;
+    int             build = 1;
 
     for( k = 0; k < M8D3D_CONTEXTS && c == NULL; ++k ) {
         if( m8d3d_ctx[k].target != NULL ) {
@@ -635,8 +871,12 @@ int m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const shor
         ++m8d3d_stat[11];
         return( 0 );
     }
+    m8d3d_mono_on = 0;
     if( c->fresh ) {
         ok = m8d3d_scratch_clear( c );
+        if( ok && c->mh != 0 ) {
+            ok = m8d3d_clear( c->mx, c->my, c->mx + c->tw, c->my + c->mh );
+        }
         c->fresh = 0;
     }
     if( ok && erase_n != 0 ) {
@@ -650,8 +890,11 @@ int m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const shor
         }
     }
     for( i = 0; ok && i < n; ++i ) {
-        ok = m8d3d_tri_fit( c, 0, dy, v + 6 * i, (BYTE)index[i] );
+        ok = m8d3d_tri_cached( c, 0, dy, v + 6 * i, (BYTE)index[i], &build );
         ++m8d3d_stat[8];
+    }
+    if( ok ) {
+        ok = m8d3d_mono_off();
     }
     if( ok ) {
         ok = m8d3d_scratch_clear( c );
@@ -686,6 +929,19 @@ static DWORD __stdcall m8d3d_context_create( M8D3D_CONTEXTCREATE *d )
     c->tw = c->sw;
     if( !m8d3d_scratch( c, &c->tw, &c->sh, &c->sx, &c->sy ) ) {
         return( DDHAL_DRIVER_HANDLED );
+    }
+    /* Two pages leave a tall column beside them: the strip takes its top rows. */
+    memset( c->mask, 0, sizeof( c->mask ) );
+    memset( c->seen, 0, sizeof( c->seen ) );
+    c->seen_next = 0;
+    c->clock = 0;
+    c->mh = 0;
+    if( m8d3d_fb16() && c->sh > 2 * M8D3D_MASK_ROWS && c->tw > 128 ) {
+        c->mx = c->sx;
+        c->my = c->sy;
+        c->mh = M8D3D_MASK_ROWS;
+        c->sy += M8D3D_MASK_ROWS;
+        c->sh -= M8D3D_MASK_ROWS;
     }
     c->target = d->lpDDS;
     c->cull = M8D3D_CULL_CCW;

@@ -160,11 +160,12 @@ static void scene( const TEST *t, int frame )
         tri[3 * i + 1].sy = (float)(y + t->size);
         tri[3 * i + 2].sx = (float)x;
         tri[3 * i + 2].sy = (float)(y + t->size);
-        /* No two frames or triangles the same shape: repeats would flatter any shape cache. The
+        /* Shapes that keep changing, so a shape cache gets few repeats: one corner of each triangle
+         * walks to and fro, on a long cycle at the 100 px test and the shorter one 32 px allows. The
          * corners stay inside the box the fixed triangles use, and the winding stays clockwise. */
         if( t->flags & TURNING ) {
-            int k = (i * 5 + frame) % 32;
-            int d = (k < 16 ? k : 31 - k) * t->size / 32;
+            int k = (i * 37 + frame * 3) % 512;
+            int d = (k < 256 ? k : 511 - k) * t->size / 512;
 
             tri[3 * i].sx = (float)(x + d);
             tri[3 * i + 1].sy = (float)(y + t->size - d);
@@ -233,7 +234,7 @@ static void test( int no, const TEST *t, int seconds )
     unsigned long           slow = 0;
     double                  frame0;
     double                  worst = 0.0;
-    DWORD                   s[8];
+    DWORD                   s[10];
     int                     x;
     int                     y;
     int                     i;
@@ -265,7 +266,7 @@ static void test( int no, const TEST *t, int seconds )
     fx.dwSize = sizeof( fx );
     memset( s, 0, sizeof( s ) );
     if( stat != NULL ) {
-        for( i = 0; i < 8; ++i ) {
+        for( i = 0; i < 10; ++i ) {
             s[i] = stat[12 + i];
         }
     }
@@ -306,7 +307,7 @@ static void test( int no, const TEST *t, int seconds )
         el = (a - t0) / qpf;
     } while( el < (double)seconds );
     if( stat != NULL ) {
-        for( i = 0; i < 8; ++i ) {
+        for( i = 0; i < 10; ++i ) {
             s[i] = stat[12 + i] - s[i];
         }
     }
@@ -332,6 +333,7 @@ static void test( int no, const TEST *t, int seconds )
                  1000.0 * s[2] / qpf / s[3] );
         fprintf( out, "  page wait %5.2f  blt %5.2f calls %lu described %lu", 1000.0 * s[7] / qpf / s[3], 1000.0 * s[4] / qpf / s[3],
                  (unsigned long)s[5], (unsigned long)s[6] );
+        fprintf( out, "  masks %lu built %lu", (unsigned long)s[8], (unsigned long)s[9] );
     }
     fprintf( out, "  bad %lu  lit %lu  over16.7ms %lu/%lu  worst %.1f\n", bad, lit, slow, frames, 1000.0 * worst / qpf );
     fflush( out );

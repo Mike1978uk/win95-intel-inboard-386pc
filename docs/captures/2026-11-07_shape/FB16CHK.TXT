@@ -1,2 +1,3 @@
 h1-agent-before  0 pixels differ, in 800,600 - 0,0; sends entered during a send 0
 h1-agent-after  0 pixels differ, in 800,600 - 0,0; sends entered during a send 0
+g-after  0 pixels differ, in 800,600 - 0,0; sends entered during a send 0
