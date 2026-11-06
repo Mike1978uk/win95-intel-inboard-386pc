@@ -31,6 +31,21 @@ sha256 matches the package; not yet seen in the menu. Saving restarts the agent.
 
 Owner to bring: the CF in the host reader once, for `sectors.py` over `WIN386.SWP` (Windows holds the file open). Never commit it.
 
+## XT-CF test builds (#59 item 1), built 11-06, not run
+
+From `origin/claude/xtcf-tight-taskfile` c06907a, in `%TEMP%\xtcf_builds\<name>\XTIDEMP.MPD`, 11,264 B each. Rebuild from the
+branch if `%TEMP%` has been cleared: the ledger rows were in a discarded worktree.
+
+| Build | md5 | Flags beyond `-PollBackoff -FastXfer -WaitFirst -YieldCommit` |
+|---|---|---|
+| control | 6f0903dcd8039b1787a3ccfe12226c4b | none |
+| tight | 5df3afac4245bcf7fa9f6e063e322790 | `-TightTaskfile` |
+| skip | b417984d637eb0543300ab60674686df | `-SkipDrvHd` |
+| both | daef68302c13295f7d9447711c7d6d4b | both |
+
+Control against the card's `a67fefc4`: 183 bytes differ, all in the timestamps, the header checksum and the embedded build path.
+The code is the same, so the card's file stays the baseline. An md5 cannot be compared across build folders.
+
 ## Open
 
 - Bed `vm_5160_mcp` still has the error-tagged `DDRAW.DLL`: restore `C:\WINDOWS\SYSTEM\DDRAW.DLL`, md5 EEDE14A8FB89A725C903E33A6A0F9F28.

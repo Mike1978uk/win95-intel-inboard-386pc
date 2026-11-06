@@ -5,7 +5,7 @@ The owner rebooted the card first (it had locked with the startup tone looping).
 was heard is not known to the session that took these. Uptime at the first `info`: 158 s
 (BootCounter 208). Display 800x600; `info` reports BitsPerPixel 0.
 
-Driver: `C:\WINDOWS\SYSTEM\IOSUBSYS\XTIDEMP.MPD`, 11264 bytes, md5 a67fefc44d5368c59a9736f93eea13af
+Driver: `C:\WINDOWS\SYSTEM\IOSUBSYS\XTIDEMP.MPD`, 11264 bytes, md5 a67fefc44d5368c59a9736f93eeb13af
 (fetched and hashed locally).
 
 Idle evidence: the agent has no process list and the screenshot helper failed (Win32 1460), so
