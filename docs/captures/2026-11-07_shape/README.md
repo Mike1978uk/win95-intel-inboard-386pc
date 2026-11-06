@@ -99,3 +99,19 @@ Mask and stamp copies now queue their writes and go out in one asm loop. High pr
 Bug found reading the merged code, in the pushed `M8D3DR`: a mask copy could run with a stamp's source compare left on, if a frame mixed them. Fixed. The bench never mixes them.
 
 Pictures of `M8D3DV` from the card look whole. `card_06_hal_many_queued.png` has a small white mark on the left page, likely the pointer: not confirmed.
+
+## All replay writes queued, large commands sent at once (`M8D3DW`, `M8D3DX`)
+
+| fps, high priority, agent on | `M8D3DV` | `M8D3DW` all queued, two runs | `M8D3DX` large sent at once |
+|---|---|---|---|
+| hal_tiny, last | 67.6 | 65.6, 66.3 | 68.5 |
+| hal_small | 59.5 | 67.6, 64.7 | 70.2 |
+| hal_large | 45.6 | 41.5, 37.8 | 41.1 |
+| hal_many | 41.0 | 36.8, 40.4 | 41.2 |
+| hal_turn32 | 64.9 | 57.6, 63.0 | 68.6 |
+| hal_turn100 | 32.1 | 31.1, 30.1 | 33.3 |
+| hal_grad | 41.9 | 34.1, 41.2 | 42.2 |
+
+Holding a whole frame back leaves the engine idle while the CPU works; before, cold C ran during long fills. So a command whose box is 1,500 px or more goes out at once, and only small ones are held. `hal_large` in `M8D3DX`: one run, `d3d` 5.09 ms against ~3.5, Flip's work ~13.3 ms, lowest yet. Rate not settled.
+
+Pictures from the card look whole. A small white mark at (316, 250) on page 0 only, in every test: likely the pointer, which would show on one page in two. Owner's eye.

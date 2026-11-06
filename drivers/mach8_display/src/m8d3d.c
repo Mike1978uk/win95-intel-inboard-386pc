@@ -58,6 +58,8 @@
 #define M8_DP_POLY_FILL     0x2213
 #define M8_DP_MONO_VRAM     0x2271      /* FRGD_COLOR where the blit source's RD_MASK plane is set */
 #define M8_ALU_BG_FN        0xB6EE
+#define M8_FRGD_MIX         0xBAE8
+#define M8_MIX_FRGD_REPLACE 0x0027
 #define M8_MAJ_AXIS_PCNT    0x96E8
 #define M8_MIN_AXIS         0xBEE8
 #define M8_CMD              0x9AE8
@@ -88,11 +90,9 @@
 extern int  m8d3d_surface( LPVOID lcl, int *x, int *y, int *w, int *h );
 extern int  m8d3d_scratch( LPVOID key, int *w, int *h, int *x, int *y );
 extern int  m8d3d_fb16( void );
-extern int  m8d3d_fill( const RECT *r );
 extern int  m8d3d_record( LPVOID lcl, const short *v, BYTE index, WORD colour, const DWORD *rgb );
 extern void m8d3d_scratch_free( LPVOID key );
 extern int  m8d3d_engine_begin( void );
-extern int  m8d3d_clear( int l, int t, int r, int b );
 extern void m8d3d_engine_end( void );
 extern int  m8d3d_room( int n );
 
@@ -423,24 +423,109 @@ static WORD m8d3d_565( DWORD rgb )
     return( (WORD)(((rgb >> 8) & 0xF800) | ((rgb >> 5) & 0x07E0) | ((rgb >> 3) & 0x001F)) );
 }
 
+/* Any port access empties the CPU's cache here, so C run between OUTs runs from RAM: a triangle's
+ * lookups cost ~11 us after one another and ~150 us with an OUT between. A frame's engine writes
+ * are worked out first with the cache intact, kept here in order, then sent in one loop. */
+#define M8D3D_Q_MAX     1024
+/* Room for this many, not the FIFO's whole 16: waiting for it to empty leaves the engine idle when
+ * a long fill ends, with the next command still crossing the bus. */
+#define M8D3D_Q_CHUNK   8
+#define M8D3D_Q_ONE     32              /* the most one triangle adds */
+/* A box this large keeps the engine busy longer than the next triangle's C takes, even from RAM:
+ * sent at once, that C runs while the engine draws, where held it would leave the engine idle. */
+#define M8D3D_Q_SEND_PX 1500L
+
+static DWORD    m8d3d_q[M8D3D_Q_MAX];
+static int      m8d3d_qn;
+
+#define M8D3D_Q( port, value ) ( m8d3d_q[m8d3d_qn++] = (DWORD)(port) | (DWORD)(WORD)(value) << 16 )
+
+extern void m8d3d_q_send( const DWORD *p, int n );
+#pragma aux m8d3d_q_send = \
+    "q_next:"               \
+    "mov eax, [esi]"        \
+    "mov edx, eax"          \
+    "shr eax, 16"           \
+    "out dx, ax"            \
+    "add esi, 4"            \
+    "dec ecx"               \
+    "jnz q_next"            \
+    parm [esi] [ecx] modify [eax edx esi ecx];
+
+static int m8d3d_q_flush( void )
+{
+    int i = 0;
+    int ok = 1;
+
+    while( i < m8d3d_qn ) {
+        int n = m8d3d_qn - i < M8D3D_Q_CHUNK ? m8d3d_qn - i : M8D3D_Q_CHUNK;
+
+        if( !m8d3d_room( n ) ) {
+            ok = 0;
+            break;
+        }
+        m8d3d_q_send( m8d3d_q + i, n );
+        i += n;
+    }
+    m8d3d_qn = 0;
+    return( ok );
+}
+
+/* Room for n more writes, as the FIFO's room was asked for: sending what is held if not. */
+static int m8d3d_q_need( int n )
+{
+    return( m8d3d_qn + n + M8D3D_Q_ONE * 2 > M8D3D_Q_MAX ? m8d3d_q_flush() : 1 );
+}
+
+/* A plain fill of l, t .. r - 1, b - 1 in the colour and masks already set. */
+static int m8d3d_q_rect( int l, int t, int r, int b )
+{
+    if( r <= l || b <= t ) {
+        return( 1 );
+    }
+    if( !m8d3d_q_need( 5 ) ) {
+        return( 0 );
+    }
+    M8D3D_Q( M8_CUR_X, l );
+    M8D3D_Q( M8_CUR_Y, t );
+    M8D3D_Q( M8_MAJ_AXIS_PCNT, r - l - 1 );
+    M8D3D_Q( M8_MIN_AXIS, b - t - 1 );
+    M8D3D_Q( M8_CMD, M8_CMD_FILL );
+    return( 1 );
+}
+
+/* Black over a card rectangle, leaving the plain path set up. */
+static int m8d3d_q_clear( int l, int t, int r, int b )
+{
+    if( !m8d3d_q_need( 5 ) ) {
+        return( 0 );
+    }
+    M8D3D_Q( M8_WRT_MASK, 0x00FF );
+    M8D3D_Q( M8_RD_MASK, 0x00FF );
+    M8D3D_Q( M8_DP_CONFIG, M8_DP_8514 );
+    M8D3D_Q( M8_FRGD_MIX, M8_MIX_FRGD_REPLACE );
+    M8D3D_Q( M8_FRGD_COLOR, 0 );
+    return( m8d3d_q_rect( l, t, r, b ) );
+}
+
 /* The outline over the fill, which supplies its top and bottom rows and the rows an
  * apex emptied. */
 static int m8d3d_outline( int ox, int oy, const short *v, WORD alu, WORD opt, WORD colour, WORD mask )
 {
     int i;
 
-    if( !m8d3d_room( 14 ) ) {
+    if( !m8d3d_q_need( 14 ) ) {
         return( 0 );
     }
-    outpw( M8_WRT_MASK, mask );
-    outpw( M8_FRGD_COLOR, colour );
-    outpw( M8_DP_CONFIG, M8_DP_8514 );
-    outpw( M8_ALU_FG_FN, alu );
-    outpw( M8_LINEDRAW_OPT, opt );
-    outpw( M8_LINEDRAW_INDEX, 0 );
+    M8D3D_Q( M8_WRT_MASK, mask );
+    M8D3D_Q( M8_FRGD_COLOR, colour );
+    M8D3D_Q( M8_DP_CONFIG, M8_DP_8514 );
+    M8D3D_Q( M8_ALU_FG_FN, alu );
+    M8D3D_Q( M8_LINEDRAW_OPT, opt );
+    M8D3D_Q( M8_LINEDRAW_INDEX, 0 );
     for( i = 0; i < 4; ++i ) {
-        outpw( M8_LINEDRAW, ox + v[2 * (i % 3)] );      /* the last closes the figure */
-        outpw( M8_LINEDRAW, oy + v[2 * (i % 3) + 1] );
+        M8D3D_Q( M8_LINEDRAW, ox + v[2 * (i % 3)] );      /* the last closes the figure */
+        M8D3D_Q( M8_LINEDRAW, oy + v[2 * (i % 3) + 1] );
     }
     return( 1 );
 }
@@ -455,14 +540,14 @@ static int m8d3d_edges( int ox, int oy, const short *v, WORD plane )
     int a;
     int b;
 
-    if( !m8d3d_room( 6 ) ) {
+    if( !m8d3d_q_need( 6 ) ) {
         return( 0 );
     }
-    outpw( M8_WRT_MASK, plane );
-    outpw( M8_FRGD_COLOR, 0x00FF );
-    outpw( M8_DP_CONFIG, M8_DP_8514 );
-    outpw( M8_ALU_FG_FN, M8_MIX_XOR );
-    outpw( M8_LINEDRAW_OPT, M8_LINEDRAW_POLY | M8_LINEDRAW_LAST_OFF );
+    M8D3D_Q( M8_WRT_MASK, plane );
+    M8D3D_Q( M8_FRGD_COLOR, 0x00FF );
+    M8D3D_Q( M8_DP_CONFIG, M8_DP_8514 );
+    M8D3D_Q( M8_ALU_FG_FN, M8_MIX_XOR );
+    M8D3D_Q( M8_LINEDRAW_OPT, M8_LINEDRAW_POLY | M8_LINEDRAW_LAST_OFF );
     for( i = 0; i < 3; ++i ) {
         a = 2 * i;
         b = 2 * ((i + 1) % 3);
@@ -475,14 +560,14 @@ static int m8d3d_edges( int ox, int oy, const short *v, WORD plane )
             a = b;
             b = t;
         }
-        if( !m8d3d_room( 5 ) ) {
+        if( !m8d3d_q_need( 5 ) ) {
             return( 0 );
         }
-        outpw( M8_LINEDRAW_INDEX, 0 );
-        outpw( M8_LINEDRAW, ox + v[a] );
-        outpw( M8_LINEDRAW, oy + v[a + 1] );
-        outpw( M8_LINEDRAW, ox + v[b] );
-        outpw( M8_LINEDRAW, oy + v[b + 1] );
+        M8D3D_Q( M8_LINEDRAW_INDEX, 0 );
+        M8D3D_Q( M8_LINEDRAW, ox + v[a] );
+        M8D3D_Q( M8_LINEDRAW, oy + v[a + 1] );
+        M8D3D_Q( M8_LINEDRAW, ox + v[b] );
+        M8D3D_Q( M8_LINEDRAW, oy + v[b + 1] );
     }
     return( 1 );
 }
@@ -537,20 +622,20 @@ static int m8d3d_spans( int dx, int dy, const short *v, BYTE colour, int t, int 
             }
         }
     }
-    if( !m8d3d_room( 4 ) ) {
+    if( !m8d3d_q_need( 4 ) ) {
         return( 0 );
     }
-    outpw( M8_WRT_MASK, 0x00FF );
-    outpw( M8_FRGD_COLOR, colour );
-    outpw( M8_DP_CONFIG, M8_DP_8514 );
-    outpw( M8_ALU_FG_FN, M8_MIX_REPLACE );
+    M8D3D_Q( M8_WRT_MASK, 0x00FF );
+    M8D3D_Q( M8_FRGD_COLOR, colour );
+    M8D3D_Q( M8_DP_CONFIG, M8_DP_8514 );
+    M8D3D_Q( M8_ALU_FG_FN, M8_MIX_REPLACE );
     for( y = 0; y <= b - t; ++y ) {
-        if( y % 5 == 0 && !m8d3d_room( 15 ) ) {
+        if( y % 5 == 0 && !m8d3d_q_need( 15 ) ) {
             return( 0 );
         }
-        outpw( M8_CUR_Y, dy + t + y );
-        outpw( M8_CUR_X, dx + lo[y] );
-        outpw( M8_SCAN_TO_X, dx + hi[y] + 1 );
+        M8D3D_Q( M8_CUR_Y, dy + t + y );
+        M8D3D_Q( M8_CUR_X, dx + lo[y] );
+        M8D3D_Q( M8_SCAN_TO_X, dx + hi[y] + 1 );
     }
     return( 1 );
 }
@@ -594,24 +679,24 @@ static int m8d3d_tri( M8D3D_CONTEXT *c, int dx, int dy, const short *v, BYTE col
         if( !m8d3d_edges( sx, sy, v, plane ) ) {
             return( 0 );
         }
-        if( !m8d3d_room( 15 ) ) {
+        if( !m8d3d_q_need( 15 ) ) {
             return( 0 );
         }
-        outpw( M8_WRT_MASK, 0x00FF );
-        outpw( M8_RD_MASK, plane );
-        outpw( M8_DP_CONFIG, M8_DP_POLY_FILL );
-        outpw( M8_ALU_FG_FN, M8_MIX_REPLACE );
-        outpw( M8_FRGD_COLOR, colour );
-        outpw( M8_DESTX_DIASTP, sx + l );
-        outpw( M8_DESTY_AXSTP, sy + t + 1 );
-        outpw( M8_SRC_X_START, sx + l );
-        outpw( M8_SRC_X_END, sx + r + 1 );
-        outpw( M8_SRC_Y_DIR, 1 );
-        outpw( M8_CUR_X, dx + l );
-        outpw( M8_DEST_X_START, dx + l );
-        outpw( M8_DEST_X_END, dx + r + 1 );
-        outpw( M8_CUR_Y, dy + t + 1 );
-        outpw( M8_DEST_Y_END, dy + b );         /* starts the fill */
+        M8D3D_Q( M8_WRT_MASK, 0x00FF );
+        M8D3D_Q( M8_RD_MASK, plane );
+        M8D3D_Q( M8_DP_CONFIG, M8_DP_POLY_FILL );
+        M8D3D_Q( M8_ALU_FG_FN, M8_MIX_REPLACE );
+        M8D3D_Q( M8_FRGD_COLOR, colour );
+        M8D3D_Q( M8_DESTX_DIASTP, sx + l );
+        M8D3D_Q( M8_DESTY_AXSTP, sy + t + 1 );
+        M8D3D_Q( M8_SRC_X_START, sx + l );
+        M8D3D_Q( M8_SRC_X_END, sx + r + 1 );
+        M8D3D_Q( M8_SRC_Y_DIR, 1 );
+        M8D3D_Q( M8_CUR_X, dx + l );
+        M8D3D_Q( M8_DEST_X_START, dx + l );
+        M8D3D_Q( M8_DEST_X_END, dx + r + 1 );
+        M8D3D_Q( M8_CUR_Y, dy + t + 1 );
+        M8D3D_Q( M8_DEST_Y_END, dy + b );         /* starts the fill */
         if( sx + l < c->dl ) {
             c->dl = sx + l;
         }
@@ -626,10 +711,10 @@ static int m8d3d_tri( M8D3D_CONTEXT *c, int dx, int dy, const short *v, BYTE col
         }
         ++c->drawn;
     }
-    if( !m8d3d_room( 1 ) ) {
+    if( !m8d3d_q_need( 1 ) ) {
         return( 0 );
     }
-    outpw( M8_RD_MASK, 0x00FF );
+    M8D3D_Q( M8_RD_MASK, 0x00FF );
     return( m8d3d_outline( dx, dy, v, M8_MIX_REPLACE, M8_LINEDRAW_LAST_OFF, colour, 0x00FF ) );
 }
 
@@ -640,7 +725,7 @@ static int m8d3d_scratch_clear( M8D3D_CONTEXT *c )
     int ok = 1;
 
     if( c->dr > c->dl ) {
-        ok = m8d3d_clear( c->dl, c->dt, c->dr, c->db );
+        ok = m8d3d_q_clear( c->dl, c->dt, c->dr, c->db );
     }
     c->drawn = 0;
     c->dl = c->dt = 0x7FFF;
@@ -716,76 +801,27 @@ static int  m8d3d_mono_plane;
 static int  m8d3d_mono_x;
 static int  m8d3d_mono_w;
 
-/* Any port access empties the CPU's cache here, so C run between OUTs runs from RAM: a triangle's
- * lookups cost ~11 us after one another and ~150 us with an OUT between. Copies are worked out
- * first with the cache intact, their writes kept here, then sent in one loop. */
-#define M8D3D_Q_MAX     1024
-/* Room for this many, not the FIFO's whole 16: waiting for it to empty leaves the engine idle when
- * a long fill ends, with the next command still crossing the bus. */
-#define M8D3D_Q_CHUNK   8
-#define M8D3D_Q_ONE     32              /* the most one triangle adds */
-
-static DWORD    m8d3d_q[M8D3D_Q_MAX];
-static int      m8d3d_qn;
-
-#define M8D3D_Q( port, value ) ( m8d3d_q[m8d3d_qn++] = (DWORD)(port) | (DWORD)(WORD)(value) << 16 )
-
-extern void m8d3d_q_send( const DWORD *p, int n );
-#pragma aux m8d3d_q_send = \
-    "q_next:"               \
-    "mov eax, [esi]"        \
-    "mov edx, eax"          \
-    "shr eax, 16"           \
-    "out dx, ax"            \
-    "add esi, 4"            \
-    "dec ecx"               \
-    "jnz q_next"            \
-    parm [esi] [ecx] modify [eax edx esi ecx];
-
-static int m8d3d_q_flush( void )
-{
-    int i = 0;
-    int ok = 1;
-
-    while( i < m8d3d_qn ) {
-        int n = m8d3d_qn - i < M8D3D_Q_CHUNK ? m8d3d_qn - i : M8D3D_Q_CHUNK;
-
-        if( !m8d3d_room( n ) ) {
-            ok = 0;
-            break;
-        }
-        m8d3d_q_send( m8d3d_q + i, n );
-        i += n;
-    }
-    m8d3d_qn = 0;
-    return( ok );
-}
-
-/* The plain path: lines and rows drawn with RD_MASK on one plane lose pixels. Everything but a
- * queued copy comes through here first, so what is queued goes out in order. */
+/* The plain path: lines and rows drawn with RD_MASK on one plane lose pixels. */
 static int m8d3d_mono_off( void )
 {
-    if( !m8d3d_q_flush() ) {
-        return( 0 );
-    }
     if( m8d3d_stamp_mode ) {
         m8d3d_stamp_mode = 0;
-        if( !m8d3d_room( 2 ) ) {
+        if( !m8d3d_q_need( 2 ) ) {
             return( 0 );
         }
         /* An engine reset does not clear this: left on, it would key the next copy. */
-        outpw( M8_SRC_CMP_FN, 0 );
-        outpw( M8_DP_CONFIG, M8_DP_8514 );
+        M8D3D_Q( M8_SRC_CMP_FN, 0 );
+        M8D3D_Q( M8_DP_CONFIG, M8_DP_8514 );
     }
     if( !m8d3d_mono_on ) {
         return( 1 );
     }
     m8d3d_mono_on = 0;
-    if( !m8d3d_room( 2 ) ) {
+    if( !m8d3d_q_need( 2 ) ) {
         return( 0 );
     }
-    outpw( M8_RD_MASK, 0x00FF );
-    outpw( M8_DP_CONFIG, M8_DP_8514 );
+    M8D3D_Q( M8_RD_MASK, 0x00FF );
+    M8D3D_Q( M8_DP_CONFIG, M8_DP_8514 );
     return( 1 );
 }
 
@@ -1064,41 +1100,41 @@ static int m8d3d_mask_build( M8D3D_CONTEXT *c, int k, const short *n, int w, int
     if( m->used != 0 ) {
         RECT r;
 
-        if( !m8d3d_room( 5 ) ) {
+        if( !m8d3d_q_need( 5 ) ) {
             return( 0 );
         }
-        outpw( M8_WRT_MASK, q );
-        outpw( M8_RD_MASK, 0x00FF );
-        outpw( M8_DP_CONFIG, M8_DP_8514 );
-        outpw( M8_ALU_FG_FN, M8_MIX_REPLACE );
-        outpw( M8_FRGD_COLOR, 0 );
+        M8D3D_Q( M8_WRT_MASK, q );
+        M8D3D_Q( M8_RD_MASK, 0x00FF );
+        M8D3D_Q( M8_DP_CONFIG, M8_DP_8514 );
+        M8D3D_Q( M8_ALU_FG_FN, M8_MIX_REPLACE );
+        M8D3D_Q( M8_FRGD_COLOR, 0 );
         r.left = c->mx;
         r.top = c->my;
         r.right = c->mx + m->w;
         r.bottom = c->my + m->h;
-        if( !m8d3d_fill( &r ) ) {
+        if( !m8d3d_q_rect( r.left, r.top, r.right, r.bottom ) ) {
             return( 0 );
         }
     }
     if( h >= 3 ) {
-        if( !m8d3d_edges( c->sx, c->sy, n, plane ) || !m8d3d_room( 15 ) ) {
+        if( !m8d3d_edges( c->sx, c->sy, n, plane ) || !m8d3d_q_need( 15 ) ) {
             return( 0 );
         }
-        outpw( M8_WRT_MASK, q );
-        outpw( M8_RD_MASK, plane );
-        outpw( M8_DP_CONFIG, M8_DP_POLY_FILL );
-        outpw( M8_ALU_FG_FN, M8_MIX_REPLACE );
-        outpw( M8_FRGD_COLOR, 0x00FF );
-        outpw( M8_DESTX_DIASTP, c->sx );
-        outpw( M8_DESTY_AXSTP, c->sy + 1 );
-        outpw( M8_SRC_X_START, c->sx );
-        outpw( M8_SRC_X_END, c->sx + w );
-        outpw( M8_SRC_Y_DIR, 1 );
-        outpw( M8_CUR_X, c->mx );
-        outpw( M8_DEST_X_START, c->mx );
-        outpw( M8_DEST_X_END, c->mx + w );
-        outpw( M8_CUR_Y, c->my + 1 );
-        outpw( M8_DEST_Y_END, c->my + h - 1 );
+        M8D3D_Q( M8_WRT_MASK, q );
+        M8D3D_Q( M8_RD_MASK, plane );
+        M8D3D_Q( M8_DP_CONFIG, M8_DP_POLY_FILL );
+        M8D3D_Q( M8_ALU_FG_FN, M8_MIX_REPLACE );
+        M8D3D_Q( M8_FRGD_COLOR, 0x00FF );
+        M8D3D_Q( M8_DESTX_DIASTP, c->sx );
+        M8D3D_Q( M8_DESTY_AXSTP, c->sy + 1 );
+        M8D3D_Q( M8_SRC_X_START, c->sx );
+        M8D3D_Q( M8_SRC_X_END, c->sx + w );
+        M8D3D_Q( M8_SRC_Y_DIR, 1 );
+        M8D3D_Q( M8_CUR_X, c->mx );
+        M8D3D_Q( M8_DEST_X_START, c->mx );
+        M8D3D_Q( M8_DEST_X_END, c->mx + w );
+        M8D3D_Q( M8_CUR_Y, c->my + 1 );
+        M8D3D_Q( M8_DEST_Y_END, c->my + h - 1 );
         if( c->sx < c->dl ) {
             c->dl = c->sx;
         }
@@ -1112,18 +1148,18 @@ static int m8d3d_mask_build( M8D3D_CONTEXT *c, int k, const short *n, int w, int
             c->db = c->sy + h;
         }
         ++c->drawn;
-        if( !m8d3d_room( 1 ) ) {
+        if( !m8d3d_q_need( 1 ) ) {
             return( 0 );
         }
-        outpw( M8_RD_MASK, 0x00FF );
+        M8D3D_Q( M8_RD_MASK, 0x00FF );
     }
     if( !m8d3d_outline( c->mx, c->my, n, M8_MIX_REPLACE, M8_LINEDRAW_LAST_OFF, 0x00FF, q ) ) {
         return( 0 );
     }
-    if( !m8d3d_room( 1 ) ) {
+    if( !m8d3d_q_need( 1 ) ) {
         return( 0 );
     }
-    outpw( M8_WRT_MASK, 0x00FF );
+    M8D3D_Q( M8_WRT_MASK, 0x00FF );
     for( i = 0; i < 6; ++i ) {
         m->v[i] = n[i];
     }
@@ -1286,14 +1322,14 @@ static int m8d3d_edges_grad( int ox, int oy, const short *v, WORD plane )
     mid = 3 - top - bot;
     side = (long)(v[2 * bot] - v[2 * top]) * (v[2 * mid + 1] - v[2 * top + 1]) -
            (long)(v[2 * bot + 1] - v[2 * top + 1]) * (v[2 * mid] - v[2 * top]);
-    if( !m8d3d_room( 5 ) ) {
+    if( !m8d3d_q_need( 5 ) ) {
         return( 0 );
     }
-    outpw( M8_WRT_MASK, plane );
-    outpw( M8_FRGD_COLOR, 0x00FF );
-    outpw( M8_DP_CONFIG, M8_DP_8514 );
-    outpw( M8_ALU_FG_FN, M8_MIX_XOR );
-    outpw( M8_LINEDRAW_OPT, M8_LINEDRAW_POLY | M8_LINEDRAW_LAST_OFF );
+    M8D3D_Q( M8_WRT_MASK, plane );
+    M8D3D_Q( M8_FRGD_COLOR, 0x00FF );
+    M8D3D_Q( M8_DP_CONFIG, M8_DP_8514 );
+    M8D3D_Q( M8_ALU_FG_FN, M8_MIX_XOR );
+    M8D3D_Q( M8_LINEDRAW_OPT, M8_LINEDRAW_POLY | M8_LINEDRAW_LAST_OFF );
     for( k = 0; k < 3; ++k ) {
         int a = k;
         int b = (k + 1) % 3;
@@ -1310,14 +1346,14 @@ static int m8d3d_edges_grad( int ox, int oy, const short *v, WORD plane )
         }
         /* side < 0: the middle vertex lies right of the long edge, so the short edges bound it. */
         shift = (a == top && b == bot) ? side >= 0 : side < 0;
-        if( !m8d3d_room( 5 ) ) {
+        if( !m8d3d_q_need( 5 ) ) {
             return( 0 );
         }
-        outpw( M8_LINEDRAW_INDEX, 0 );
-        outpw( M8_LINEDRAW, ox + v[2 * a] + shift );
-        outpw( M8_LINEDRAW, oy + v[2 * a + 1] );
-        outpw( M8_LINEDRAW, ox + v[2 * b] + shift );
-        outpw( M8_LINEDRAW, oy + v[2 * b + 1] );
+        M8D3D_Q( M8_LINEDRAW_INDEX, 0 );
+        M8D3D_Q( M8_LINEDRAW, ox + v[2 * a] + shift );
+        M8D3D_Q( M8_LINEDRAW, oy + v[2 * a + 1] );
+        M8D3D_Q( M8_LINEDRAW, ox + v[2 * b] + shift );
+        M8D3D_Q( M8_LINEDRAW, oy + v[2 * b + 1] );
     }
     return( 1 );
 }
@@ -1421,13 +1457,13 @@ static int m8d3d_end_row( const short *v, const M8D3D_PLANE *p, int dx, int dy, 
             }
         }
     }
-    if( !m8d3d_room( 4 ) ) {
+    if( !m8d3d_q_need( 4 ) ) {
         return( 0 );
     }
-    outpw( M8_FRGD_COLOR, m8d3d_plane_index( p, (lo + hi) / 2, y ) );
-    outpw( M8_CUR_Y, dy + y );
-    outpw( M8_CUR_X, dx + lo );
-    outpw( M8_SCAN_TO_X, dx + hi + 1 );
+    M8D3D_Q( M8_FRGD_COLOR, m8d3d_plane_index( p, (lo + hi) / 2, y ) );
+    M8D3D_Q( M8_CUR_Y, dy + y );
+    M8D3D_Q( M8_CUR_X, dx + lo );
+    M8D3D_Q( M8_SCAN_TO_X, dx + hi + 1 );
     return( 1 );
 }
 
@@ -1485,14 +1521,14 @@ static int m8d3d_tri_bands( M8D3D_CONTEXT *c, int dx, int dy, const short *v, co
     m8d3d_edges_make( edge, v );
     sx = c->sx - l;
     sy = c->sy - t;
-    if( !m8d3d_mono_off() || !m8d3d_edges_grad( sx, sy, v, plane ) || !m8d3d_room( 5 ) ) {
+    if( !m8d3d_mono_off() || !m8d3d_edges_grad( sx, sy, v, plane ) || !m8d3d_q_need( 5 ) ) {
         return( 0 );
     }
-    outpw( M8_WRT_MASK, 0x00FF );
-    outpw( M8_RD_MASK, plane );
-    outpw( M8_DP_CONFIG, M8_DP_POLY_FILL );
-    outpw( M8_ALU_FG_FN, M8_MIX_REPLACE );
-    outpw( M8_SRC_Y_DIR, 1 );
+    M8D3D_Q( M8_WRT_MASK, 0x00FF );
+    M8D3D_Q( M8_RD_MASK, plane );
+    M8D3D_Q( M8_DP_CONFIG, M8_DP_POLY_FILL );
+    M8D3D_Q( M8_ALU_FG_FN, M8_MIX_REPLACE );
+    M8D3D_Q( M8_SRC_Y_DIR, 1 );
     midx = (l + r) / 2;
     for( i = 0; i < n; ) {
         int     a = t + 1 + rows * i / n;
@@ -1515,26 +1551,26 @@ static int m8d3d_tri_bands( M8D3D_CONTEXT *c, int dx, int dy, const short *v, co
         if( hi > r ) {
             hi = r;
         }
-        if( !m8d3d_room( 10 ) ) {
+        if( !m8d3d_q_need( 10 ) ) {
             return( 0 );
         }
-        outpw( M8_FRGD_COLOR, colour );
-        outpw( M8_DESTX_DIASTP, sx + lo );
-        outpw( M8_DESTY_AXSTP, sy + a );
-        outpw( M8_SRC_X_START, sx + lo );
-        outpw( M8_SRC_X_END, sx + hi + 1 );
-        outpw( M8_CUR_X, dx + lo );
-        outpw( M8_DEST_X_START, dx + lo );
-        outpw( M8_DEST_X_END, dx + hi + 1 );
-        outpw( M8_CUR_Y, dy + a );
-        outpw( M8_DEST_Y_END, dy + e );
+        M8D3D_Q( M8_FRGD_COLOR, colour );
+        M8D3D_Q( M8_DESTX_DIASTP, sx + lo );
+        M8D3D_Q( M8_DESTY_AXSTP, sy + a );
+        M8D3D_Q( M8_SRC_X_START, sx + lo );
+        M8D3D_Q( M8_SRC_X_END, sx + hi + 1 );
+        M8D3D_Q( M8_CUR_X, dx + lo );
+        M8D3D_Q( M8_DEST_X_START, dx + lo );
+        M8D3D_Q( M8_DEST_X_END, dx + hi + 1 );
+        M8D3D_Q( M8_CUR_Y, dy + a );
+        M8D3D_Q( M8_DEST_Y_END, dy + e );
         i = j;
     }
-    if( !m8d3d_room( 2 ) ) {
+    if( !m8d3d_q_need( 2 ) ) {
         return( 0 );
     }
-    outpw( M8_RD_MASK, 0x00FF );
-    outpw( M8_DP_CONFIG, M8_DP_8514 );
+    M8D3D_Q( M8_RD_MASK, 0x00FF );
+    M8D3D_Q( M8_DP_CONFIG, M8_DP_8514 );
     if( !m8d3d_end_row( v, &p, dx, dy, t ) || !m8d3d_end_row( v, &p, dx, dy, b ) ) {
         return( 0 );
     }
@@ -1749,7 +1785,7 @@ static int m8d3d_tri_stamped( M8D3D_CONTEXT *c, int dx, int dy, const short *v, 
         return( 1 );
     }
     c->stamp[oldest].used = 0;
-    if( !m8d3d_mono_off() || !m8d3d_clear( x, y, x + r - l + 2, y + b - t + 2 ) ) {
+    if( !m8d3d_mono_off() || !m8d3d_q_clear( x, y, x + r - l + 2, y + b - t + 2 ) ) {
         return( 0 );
     }
     if( !m8d3d_tri_bands( c, x, y, n, rgb, &band_done ) ) {
@@ -1808,18 +1844,21 @@ int m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const shor
     if( c->fresh ) {
         ok = m8d3d_scratch_clear( c );
         if( ok && c->mh != 0 ) {
-            ok = m8d3d_clear( c->mx, c->my, c->mx + c->tw, c->my + c->mh );
+            ok = m8d3d_q_clear( c->mx, c->my, c->mx + c->tw, c->my + c->mh );
         }
         c->fresh = 0;
     }
     if( ok && erase_n != 0 ) {
-        ok = m8d3d_room( 1 );
-        outpw( M8_FRGD_COLOR, black );
+        ok = m8d3d_q_need( 1 );
+        M8D3D_Q( M8_FRGD_COLOR, black );
         for( i = 0; ok && i < erase_n; ++i ) {
             r = erase[i];
             r.top += dy;
             r.bottom += dy;
-            ok = m8d3d_fill( &r );
+            ok = m8d3d_q_rect( r.left, r.top, r.right, r.bottom );
+            if( ok && (long)(r.right - r.left) * (r.bottom - r.top) >= M8D3D_Q_SEND_PX ) {
+                ok = m8d3d_q_flush();
+            }
         }
     }
     for( i = 0; ok && i < n; ++i ) {
@@ -1836,6 +1875,17 @@ int m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const shor
             if( ok && !done ) {
                 ok = m8d3d_tri_cached( c, 0, dy, v + 6 * i, (BYTE)index[i], &build );
             }
+            if( ok ) {
+                const short *p = v + 6 * i;
+                int         w = p[0] > p[2] ? p[0] - p[2] : p[2] - p[0];
+                int         w2 = p[0] > p[4] ? p[0] - p[4] : p[4] - p[0];
+                int         h = p[1] > p[3] ? p[1] - p[3] : p[3] - p[1];
+                int         h2 = p[1] > p[5] ? p[1] - p[5] : p[5] - p[1];
+
+                if( (long)(w > w2 ? w : w2) * (h > h2 ? h : h2) >= M8D3D_Q_SEND_PX ) {
+                    ok = m8d3d_q_flush();
+                }
+            }
         }
         ++m8d3d_stat[8];
     }
@@ -1845,11 +1895,13 @@ int m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const shor
     if( ok ) {
         ok = m8d3d_scratch_clear( c );
     }
-    m8d3d_q_flush();
     /* Whatever failed, the compare must not outlive this: GDI's copies would be keyed. */
     if( m8d3d_stamp_mode ) {
         m8d3d_stamp_mode = 0;
-        outpw( M8_SRC_CMP_FN, 0 );
+        M8D3D_Q( M8_SRC_CMP_FN, 0 );
+    }
+    if( !m8d3d_q_flush() ) {
+        ok = 0;
     }
     m8d3d_engine_end();
     if( !ok ) {
@@ -2022,6 +2074,9 @@ static DWORD __stdcall m8d3d_render_primitive( M8D3D_RENDERPRIMITIVE *d )
     }
     /* A new context's scratch holds whatever the card left there; its box was set
      * to the whole scratch when it was created. At 16 bpp, the replay sees to it. */
+    if( !fb16 ) {
+        m8d3d_qn = 0;
+    }
     if( !fb16 && c->fresh ) {
         ok = m8d3d_scratch_clear( c );
         c->fresh = 0;
@@ -2070,6 +2125,9 @@ static DWORD __stdcall m8d3d_render_primitive( M8D3D_RENDERPRIMITIVE *d )
     if( !fb16 ) {
         if( ok ) {
             ok = m8d3d_scratch_clear( c );
+        }
+        if( !m8d3d_q_flush() ) {
+            ok = 0;
         }
         m8d3d_engine_end();
     }

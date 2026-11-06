@@ -4,21 +4,21 @@ Earlier handoff: `docs/next_session_2026_11_07.md` (its "Open" list still stands
 
 ## Card
 
-`m8d3dv.drv`, 640x480 at 72 Hz for Direct3D, agent ON. Way back: `C:\V9XREMOTE\REG\M8D3DD.REG` and `C:\V9XREMOTE\REG\M8DD32.DD` (rename in by WININIT.INI). The 5160 is in the cellar, the owner on the ground floor: batch trips, say exactly what is needed.
+`m8d3dx.drv`, 640x480 at 72 Hz for Direct3D, agent ON. Way back: `C:\V9XREMOTE\REG\M8D3DD.REG` and `C:\V9XREMOTE\REG\M8DD32.DD` (rename in by WININIT.INI). The 5160 is in the cellar, the owner on the ground floor: batch trips, say exactly what is needed.
 
 **Scripts are in the old scratchpad, not the repo:** `install_h.ps1`, `cycle.ps1`, `shape.ps1`, `bench.ps1`, `grab_run.ps1`. Rewrite from `tools/m8_card_cycle.ps1` if gone: build into its own folder, put `<NAME>.DRV`, `M8DD32.NEW` + `WININIT.INI`, a `.REG`, restart through Start > Shut Down, wait, bench. A PowerShell line with a `.EXE` destination or a regex can trip the safety check: use a script file. Long patches: a Python file, not a heredoc.
 
 ## Figures to beat (high priority, agent on, comparable with each other)
 
-| fps | Morning `h1hi` | `M8D3DV` (one run; others in the capture README) |
+| fps | Morning `h1hi` | `M8D3DX` (one run; others in the capture README) |
 |---|---|---|
-| hal_tiny, last | 67.4 | 67.6 |
-| hal_small | 55.2 | 59.5 |
-| hal_large | 33.6 | 45.6 |
-| hal_many | 21.6 | 41.0 |
-| hal_turn32 | 48.6 | 64.9 |
-| hal_turn100 | 35.7 | 32.1 |
-| hal_grad, real corner colours since `M8D3DM` | - | 41.9 |
+| hal_tiny, last | 67.4 | 68.5 |
+| hal_small | 55.2 | 70.2 |
+| hal_large | 33.6 | 41-51 |
+| hal_many | 21.6 | 41.2 |
+| hal_turn32 | 48.6 | 68.6 |
+| hal_turn100 | 35.7 | 33.3 |
+| hal_grad, real corner colours since `M8D3DM` | - | 42.2 |
 
 High priority with the agent on runs close to agent-free (`hal_large` 33.6 against 36.0): use it for iterations. Agent-free only for milestones. **One bench at a time:** three hangs followed a second high-priority `M8D3DF`. Owner's view: the agent is implicated; every hang had it running, none agent-free. Not proven.
 
@@ -53,7 +53,9 @@ High priority with the agent on runs close to agent-free (`hal_large` 33.6 again
 
 **Done:** Y1 start frame 2 early measured, little to gain with two pages (the plan's row says why). Y14 in for mask and stamp copies: `hal_many` 41 fps. Runtime flags: DONOTCLIP and DONOTUPDATEEXTENTS save ~5.4 ms at 64 triangles, for our own programs.
 
-1. **Y14 further (owner: reuse):** flat triangles, bands, mask builds, erase boxes (`m8dd_rect`) still run between OUTs. Then the same question for `fb16.c` sends, `dd16.c` and the GDI paths: desktop speed may gain too.
+1. **Y14 further (owner: reuse):** all replay writes queue now, large commands sent at once so C overlaps the engine. Next the same question for `fb16.c` sends, `dd16.c` and the GDI paths: desktop speed may gain too, by `M8BENCH`, which needs its rerun anyway.
+1a. Pointer on page 0 only (white mark in every capture): one page in two would lack it. Owner's eye, then show it on both.
+1b. Batched edges for changing shapes: `hal_turn100` is still no better than the morning.
 2. **Y10 stored ramps (owner: what is true everywhere):** 1.09x flat at 100 px against stamps only when colours repeat. Needs fields by direction and rate, palette in shades.
 3. **DirectX's own time:** hal_many `d3d` 9.5 ms, ours ~3 of it: V13, V1b, then our per-triangle arithmetic (`M8D3DF` column `ours in d3d`).
 4. **Y13 background over foreground, Y11 mirrored masks, Y12 golden-ratio band shift** (owner). Y2 third page, Y6 joined quads for dxdiag, Y8 low-res modes.
@@ -61,3 +63,7 @@ High priority with the agent on runs close to agent-free (`hal_large` 33.6 again
 6. **60 Hz** retest once hal_large's work is under 16.67 ms: row in the capture README.
 
 Ideas the owner has thrown out have paid repeatedly: core rectangle came from "think outside the box", stamps from "paint once, copy". Record tangents in the plan's Y table rather than dropping them.
+
+## Benchmarks and games
+
+`docs/d3d_benchmarks_and_games.md`, research with sources: 3DMark99, 3DMark2000, likely Final Reality will not start (Pentium 166, 32-64 MB against a 486 at 83.5 MHz and 5 MB). DX7 games are not realistic. First: DirectX SDK samples, Quake timedemo software mode, Diablo, Warcraft II or Age of Empires, Hellbender.
