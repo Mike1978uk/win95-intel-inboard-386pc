@@ -11,6 +11,17 @@
  *   6 ramp     stored colours, 7 bits, edges XORed in and out of plane 7 of the ramp
  *   7 lookup   8 stored shades looked up in the colour pattern, loaded per triangle
  *   8 erase    the triangle's box filled: what a frame pays to take it away
+ *   9 near     as flat, with the scratch on the triangle's own rows: is a fill's cost per pixel
+ *              the distance between its source and destination in card memory?
+ *  10 bands    as near, the fill's box cut into 3 by rows, each only as wide as it needs
+ *  11 queue    flat's writes unchanged, built in a table and sent by a small asm loop, so the C
+ *              that works them out runs with the cache intact between OUTs
+ *  12 batch    the queue, with the edges of 8 triangles drawn together first and what does not
+ *              change between triangles written once
+ *  13 qerase   erase with its unchanging registers written once, through the queue
+ *  14 noline   batch with the right-hand edges one pixel out in the scratch, so the fill reaches
+ *              the edge pixels itself, and only the top and bottom rows drawn over it. Checked
+ *              against flat on the bench's shape and on three others at each size
  *
  * Arms 2-5 are checked pixel by pixel against arm 1 over one triangle's box; a shape's difference is
  * only usable once that count is understood. Arms 6-7 have every triangle's centre read back. The
@@ -323,9 +334,11 @@ static void draw_flat( int i )
 {
     const short *v = tri[i];
     int         plane = 1 << (flat_drawn & 7);
-    int         l = v[0];
-    int         t = v[1];
+    int         l = v[0] < v[2] ? v[0] : v[2];
+    int         t = v[1] < v[3] ? v[1] : v[3];
 
+    l = v[4] < l ? v[4] : l;
+    t = v[5] < t ? v[5] : t;
     edges( RAMP_X - l, SCRATCH_Y - t, v, plane );
     fill( v, 0, 0, RAMP_X, SCRATCH_Y, DP_FILL_FLAT, 0x00FF, plane, colour_of( i ) );
     outline( 0, 0, v, colour_of( i ), 0x00FF );
@@ -574,7 +587,7 @@ static void pattern_load( int i )
     room( 1 );
     outpw( PATT_DATA_INDEX, 0 );
     for( w = 0; w < 16; ++w ) {
-        int c = (w & 1) ? 0 : lookup_colour( i, w / 2 );
+        int c = lookup_colour( i, w / 2 );
 
         if( w % 8 == 0 ) {
             room( 8 );
@@ -607,6 +620,456 @@ static void draw_lookup( int i )
 static void draw_erase( int i )
 {
     rect( tri[i][0], tri[i][1], size + 1, size + 1, 0 );
+}
+
+static int near_drawn;
+static int near_top;
+static int near_bottom;
+
+/* The scratch's rows are the triangle's, so eight of them spread down the screen clear a tall box. */
+static void near_after( const short *v )
+{
+    if( v[1] < near_top ) {
+        near_top = v[1];
+    }
+    if( v[5] > near_bottom ) {
+        near_bottom = v[5];
+    }
+    if( ++near_drawn == 8 ) {
+        rect( RAMP_X, near_top, size + 2, near_bottom - near_top + 1, 0 );
+        near_drawn = 0;
+        near_top = 0x7FFF;
+        near_bottom = 0;
+    }
+}
+
+static void near_reset( void )
+{
+    rect( RAMP_X, 0, RAMP_W, LABEL_Y, 0 );
+    near_drawn = 0;
+    near_top = 0x7FFF;
+    near_bottom = 0;
+}
+
+static void draw_near( int i )
+{
+    const short *v = tri[i];
+    int         plane = 1 << (near_drawn & 7);
+
+    edges( RAMP_X - v[0], 0, v, plane );
+    fill( v, 0, 0, RAMP_X, v[1], DP_FILL_FLAT, 0x00FF, plane, colour_of( i ) );
+    outline( 0, 0, v, colour_of( i ), 0x00FF );
+    near_after( v );
+}
+
+/* Rows top .. bottom - 1 of the fill, x l .. r - 1 of the screen, the scratch on the same rows. */
+static void fill_box( int base_x, int l, int r, int top, int bottom, int plane, int colour )
+{
+    room( 15 );
+    outpw( WRT_MASK, 0x00FF );
+    outpw( RD_MASK, plane );
+    outpw( DP_CONFIG, DP_FILL_FLAT );
+    outpw( ALU_FG_FN, MIX_REPLACE );
+    outpw( FRGD_COLOR, colour );
+    outpw( SRC_X, RAMP_X + l - base_x );
+    outpw( SRC_Y, top );
+    outpw( SRC_X_START, RAMP_X + l - base_x );
+    outpw( SRC_X_END, RAMP_X + r - base_x );
+    outpw( SRC_Y_DIR, 1 );
+    outpw( CUR_X, l );
+    outpw( DEST_X_START, l );
+    outpw( DEST_X_END, r );
+    outpw( CUR_Y, top );
+    outpw( DEST_Y_END, bottom );
+    room( 1 );
+    outpw( RD_MASK, 0x00FF );
+}
+
+/* In this shape the left edge is upright and the right one runs down at 45 degrees. */
+static void draw_bands( int i )
+{
+    const short *v = tri[i];
+    int         plane = 1 << (near_drawn & 7);
+    int         x = v[0];
+    int         top = v[1];
+    int         rows = size - 1;
+    int         k;
+
+    edges( RAMP_X - x, 0, v, plane );
+    for( k = 0; k < 3 && rows > 0; ++k ) {
+        int a = top + 1 + rows * k / 3;
+        int b = top + 1 + rows * (k + 1) / 3;
+
+        if( b > a ) {
+            fill_box( x, x, x + (b - top) + 1, a, b, plane, colour_of( i ) );
+        }
+    }
+    outline( 0, 0, v, colour_of( i ), 0x00FF );
+    near_after( v );
+}
+
+/* ---- the queue ---- */
+
+#define Q_MAX       512
+#define Q_CHUNK     14
+
+static DWORD    q_buf[Q_MAX];
+static int      q_n;
+
+/* Port in the low word, value in the high. */
+extern void q_send( const DWORD *p, int n );
+#pragma aux q_send = \
+    "next_out:"             \
+    "mov eax, [esi]"        \
+    "mov edx, eax"          \
+    "shr eax, 16"           \
+    "out dx, ax"            \
+    "add esi, 4"            \
+    "dec ecx"               \
+    "jnz next_out"          \
+    parm [esi] [ecx] modify [eax edx esi ecx];
+
+#define Q( port, value ) ( q_buf[q_n++] = (DWORD)(port) | (DWORD)(value) << 16 )
+
+/* A full FIFO can lock the card, so room is seen for each chunk: one status read per 14 writes. */
+static void q_flush( void )
+{
+    int i = 0;
+
+    while( i < q_n ) {
+        int n = q_n - i < Q_CHUNK ? q_n - i : Q_CHUNK;
+
+        room( n );
+        q_send( q_buf + i, n );
+        i += n;
+    }
+    q_n = 0;
+}
+
+static void q_edge_list( int ox, int oy, const short *v )
+{
+    int k;
+
+    for( k = 0; k < 3; ++k ) {
+        int a = 2 * k;
+        int b = 2 * ((k + 1) % 3);
+
+        if( v[a + 1] == v[b + 1] ) {
+            continue;
+        }
+        if( v[a + 1] > v[b + 1] ) {
+            int t = a;
+
+            a = b;
+            b = t;
+        }
+        Q( LINEDRAW_INDEX, 0 );
+        Q( LINEDRAW, ox + v[a] );
+        Q( LINEDRAW, oy + v[a + 1] );
+        Q( LINEDRAW, ox + v[b] );
+        Q( LINEDRAW, oy + v[b + 1] );
+    }
+}
+
+static void q_outline( const short *v )
+{
+    int k;
+
+    Q( LINEDRAW_INDEX, 0 );
+    for( k = 0; k < 4; ++k ) {
+        Q( LINEDRAW, v[2 * (k % 3)] );
+        Q( LINEDRAW, v[2 * (k % 3) + 1] );
+    }
+}
+
+static void q_fill_geometry( const short *v, int plane )
+{
+    int r = v[2];
+    int b = v[5];
+
+    Q( RD_MASK, plane );
+    Q( SRC_X, RAMP_X );
+    Q( SRC_Y, SCRATCH_Y + 1 );
+    Q( SRC_X_END, RAMP_X + r - v[0] + 1 );
+    Q( CUR_X, v[0] );
+    Q( DEST_X_START, v[0] );
+    Q( DEST_X_END, r + 1 );
+    Q( CUR_Y, v[1] + 1 );
+    Q( DEST_Y_END, b );
+}
+
+static int queue_drawn;
+
+static void draw_queue( int i )
+{
+    const short *v = tri[i];
+    int         plane = 1 << (queue_drawn & 7);
+
+    Q( WRT_MASK, plane );
+    Q( FRGD_COLOR, 0x00FF );
+    Q( DP_CONFIG, DP_PLAIN );
+    Q( ALU_FG_FN, MIX_XOR );
+    Q( LINEDRAW_OPT, OPT_POLY | OPT_LAST_OFF );
+    q_edge_list( RAMP_X - v[0], SCRATCH_Y - v[1], v );
+    Q( WRT_MASK, 0x00FF );
+    Q( DP_CONFIG, DP_FILL_FLAT );
+    Q( ALU_FG_FN, MIX_REPLACE );
+    Q( FRGD_COLOR, colour_of( i ) );
+    Q( SRC_X_START, RAMP_X );
+    Q( SRC_Y_DIR, 1 );
+    q_fill_geometry( v, plane );
+    Q( RD_MASK, 0x00FF );
+    Q( WRT_MASK, 0x00FF );
+    Q( FRGD_COLOR, colour_of( i ) );
+    Q( DP_CONFIG, DP_PLAIN );
+    Q( ALU_FG_FN, MIX_REPLACE );
+    Q( LINEDRAW_OPT, OPT_LAST_OFF );
+    q_outline( v );
+    q_flush();
+    if( ++queue_drawn == 8 ) {
+        rect( RAMP_X, SCRATCH_Y, size + 2, size + 2, 0 );
+        queue_drawn = 0;
+    }
+}
+
+/* Painting order is kept: only the scratch's edges, which nothing on the screen can see, move ahead. */
+static void draw_batch( int i )
+{
+    const short *v = tri[i];
+    int         k;
+
+    if( i % 8 == 0 ) {
+        rect( RAMP_X, SCRATCH_Y, size + 2, size + 2, 0 );
+        Q( FRGD_COLOR, 0x00FF );
+        Q( DP_CONFIG, DP_PLAIN );
+        Q( ALU_FG_FN, MIX_XOR );
+        Q( LINEDRAW_OPT, OPT_POLY | OPT_LAST_OFF );
+        for( k = 0; k < 8 && i + k < NTRI; ++k ) {
+            Q( WRT_MASK, 1 << k );
+            q_edge_list( RAMP_X - tri[i + k][0], SCRATCH_Y - tri[i + k][1], tri[i + k] );
+        }
+        Q( WRT_MASK, 0x00FF );
+        Q( ALU_FG_FN, MIX_REPLACE );
+        Q( SRC_X_START, RAMP_X );
+        Q( SRC_Y_DIR, 1 );
+        Q( LINEDRAW_OPT, OPT_LAST_OFF );
+    }
+    Q( FRGD_COLOR, colour_of( i ) );
+    Q( DP_CONFIG, DP_FILL_FLAT );
+    q_fill_geometry( v, 1 << (i % 8) );
+    Q( DP_CONFIG, DP_PLAIN );
+    q_outline( v );
+    q_flush();
+}
+
+/* Which edges bound the fill on the right: the long edge, or the other two when the middle vertex
+ * lies to the right of it. Each is sent top down without its last row, as the fill needs. */
+static void q_noline_edges( int ox, int oy, const short *v )
+{
+    int     top = 0;
+    int     bot = 0;
+    int     mid;
+    int     k;
+    long    side;
+
+    for( k = 1; k < 3; ++k ) {
+        if( v[2 * k + 1] < v[2 * top + 1] ) top = k;
+        if( v[2 * k + 1] >= v[2 * bot + 1] ) bot = k;
+    }
+    if( top == bot ) {
+        return;
+    }
+    mid = 3 - top - bot;
+    side = (long)(v[2 * bot] - v[2 * top]) * (v[2 * mid + 1] - v[2 * top + 1]) -
+           (long)(v[2 * bot + 1] - v[2 * top + 1]) * (v[2 * mid] - v[2 * top]);
+    /* side < 0: the middle vertex is to the right of the long edge. */
+    for( k = 0; k < 3; ++k ) {
+        int a = k;
+        int b = (k + 1) % 3;
+        int is_long;
+        int shift;
+
+        if( v[2 * a + 1] == v[2 * b + 1] ) {
+            continue;
+        }
+        if( v[2 * a + 1] > v[2 * b + 1] ) {
+            int s = a;
+
+            a = b;
+            b = s;
+        }
+        is_long = (a == top && b == bot);
+        shift = (side < 0) ? !is_long : is_long;
+        Q( LINEDRAW_INDEX, 0 );
+        Q( LINEDRAW, ox + v[2 * a] + shift );
+        Q( LINEDRAW, oy + v[2 * a + 1] );
+        Q( LINEDRAW, ox + v[2 * b] + shift );
+        Q( LINEDRAW, oy + v[2 * b + 1] );
+    }
+}
+
+static void tri_box( const short *v, int *l, int *t, int *r, int *b )
+{
+    int k;
+
+    *l = *r = v[0];
+    *t = *b = v[1];
+    for( k = 1; k < 3; ++k ) {
+        if( v[2 * k] < *l ) *l = v[2 * k];
+        if( v[2 * k] > *r ) *r = v[2 * k];
+        if( v[2 * k + 1] < *t ) *t = v[2 * k + 1];
+        if( v[2 * k + 1] > *b ) *b = v[2 * k + 1];
+    }
+}
+
+/* Row y's pixels where only vertices can lie on it: the top or bottom row. */
+static void q_end_row( const short *v, int y )
+{
+    int lo = 0x7FFF;
+    int hi = -0x7FFF;
+    int k;
+
+    for( k = 0; k < 3; ++k ) {
+        if( v[2 * k + 1] == y ) {
+            if( v[2 * k] < lo ) lo = v[2 * k];
+            if( v[2 * k] > hi ) hi = v[2 * k];
+        }
+    }
+    Q( CUR_Y, y );
+    Q( CUR_X, lo );
+    Q( SCAN_TO_X, hi + 1 );
+}
+
+static void draw_noline( int i )
+{
+    const short *v = tri[i];
+    int         l;
+    int         t;
+    int         r;
+    int         b;
+    int         k;
+
+    if( i % 8 == 0 ) {
+        rect( RAMP_X, SCRATCH_Y, size + 3, size + 2, 0 );
+        Q( FRGD_COLOR, 0x00FF );
+        Q( DP_CONFIG, DP_PLAIN );
+        Q( ALU_FG_FN, MIX_XOR );
+        Q( LINEDRAW_OPT, OPT_POLY | OPT_LAST_OFF );
+        for( k = 0; k < 8 && i + k < NTRI; ++k ) {
+            tri_box( tri[i + k], &l, &t, &r, &b );
+            Q( WRT_MASK, 1 << k );
+            q_noline_edges( RAMP_X - l, SCRATCH_Y - t, tri[i + k] );
+        }
+        Q( WRT_MASK, 0x00FF );
+        Q( ALU_FG_FN, MIX_REPLACE );
+        Q( SRC_X_START, RAMP_X );
+        Q( SRC_Y_DIR, 1 );
+    }
+    tri_box( v, &l, &t, &r, &b );
+    Q( FRGD_COLOR, colour_of( i ) );
+    if( b - t >= 2 ) {
+        Q( DP_CONFIG, DP_FILL_FLAT );
+        Q( RD_MASK, 1 << (i % 8) );
+        Q( SRC_X, RAMP_X );
+        Q( SRC_Y, SCRATCH_Y + 1 );
+        Q( SRC_X_END, RAMP_X + r - l + 2 );
+        Q( CUR_X, l );
+        Q( DEST_X_START, l );
+        Q( DEST_X_END, r + 2 );
+        Q( CUR_Y, t + 1 );
+        Q( DEST_Y_END, b );
+    }
+    Q( DP_CONFIG, DP_PLAIN );
+    q_end_row( v, t );
+    q_end_row( v, b );
+    q_flush();
+}
+
+/* The other shapes: nothing else in this program draws them, and tri[0] goes back afterwards. */
+static long noline_shape_diff( const short *shape )
+{
+    short   keep[6];
+    int     k;
+    long    diff;
+    int     l;
+    int     t;
+    int     x;
+    int     y;
+    int     r;
+    int     b;
+    static BYTE want[BOX_MAX + 2][BOX_MAX + 2];
+
+    for( k = 0; k < 6; ++k ) {
+        keep[k] = tri[0][k];
+        tri[0][k] = shape[k];
+    }
+    tri_box( shape, &l, &t, &r, &b );
+    rect( 0, 0, SCR_W, LABEL_Y, 0 );
+    rect( RAMP_X, SCRATCH_Y, RAMP_W, SCRATCH_H, 0 );
+    flat_drawn = 0;
+    flat_dirty = 0;
+    draw_flat( 0 );
+    wait_idle();
+    for( y = t; y <= b; ++y ) {
+        for( x = l; x <= r + 1; ++x ) {
+            want[y - t][x - l] = (BYTE)read_pixel( x, y );
+        }
+    }
+    rect( 0, 0, SCR_W, LABEL_Y, 0 );
+    rect( RAMP_X, SCRATCH_Y, RAMP_W, SCRATCH_H, 0 );
+    draw_noline( 0 );
+    wait_idle();
+    outpw( RD_MASK, 0x00FF );
+    diff = 0;
+    for( y = t; y <= b; ++y ) {
+        for( x = l; x <= r + 1; ++x ) {
+            int got = read_pixel( x, y );
+
+            if( got != want[y - t][x - l] ) {
+                if( diff < 3 ) {
+                    fprintf( out, "    (%d,%d): read %02x, flat %02x\n", x - l, y - t, got, want[y - t][x - l] );
+                }
+                ++diff;
+            }
+        }
+    }
+    for( k = 0; k < 6; ++k ) {
+        tri[0][k] = keep[k];
+    }
+    rect( RAMP_X, SCRATCH_Y, RAMP_W, SCRATCH_H, 0 );
+    return( diff );
+}
+
+static void noline_shapes( void )
+{
+    short   x = 20;
+    short   y = 20;
+    short   s = (short)size;
+    short   a[6];
+    short   b[6];
+    short   c[6];
+
+    a[0] = x + s / 2; a[1] = y;        a[2] = x + s; a[3] = y + s - s / 3; a[4] = x;         a[5] = y + s;
+    b[0] = x;         b[1] = y;        b[2] = x + s; b[3] = y + s / 3;     b[4] = x + s / 2; b[5] = y + s;
+    c[0] = x + s / 2; c[1] = y;        c[2] = x + s; c[3] = y + s;         c[4] = x;         c[5] = y + s / 3;
+    fprintf( out, "  noline differs from flat: shape a %ld, b %ld, c %ld pixels\n",
+             noline_shape_diff( a ), noline_shape_diff( b ), noline_shape_diff( c ) );
+}
+
+static void prep_qerase( void )
+{
+    rect( 0, 0, 1, 1, 0 );
+    wait_idle();
+}
+
+static void draw_qerase( int i )
+{
+    Q( CUR_X, tri[i][0] );
+    Q( CUR_Y, tri[i][1] );
+    Q( MAJ_AXIS_PCNT, size );
+    Q( MULTIFUNC_CNTL, size );
+    Q( CMD, 0x40F3 );
+    q_flush();
 }
 
 /* ---- measuring ---- */
@@ -857,6 +1320,48 @@ static void one_size( int s )
     /* 8 erase */
     label( 8 );
     report( "erase", timed( draw_erase ), base );
+
+    /* 9 near */
+    near_reset();
+    show( 9, draw_near );
+    fprintf( out, "  near differs from flat in %ld pixels\n", box_check( 0 ) );
+    report( "near", timed( draw_near ), base );
+
+    /* 10 bands */
+    near_reset();
+    show( 10, draw_bands );
+    fprintf( out, "  bands differs from flat in %ld pixels\n", box_check( 0 ) );
+    report( "bands", timed( draw_bands ), base );
+    rect( RAMP_X, 0, RAMP_W, LABEL_Y, 0 );
+
+    /* 11 queue */
+    rect( RAMP_X, SCRATCH_Y, RAMP_W, SCRATCH_H, 0 );
+    queue_drawn = 0;
+    show( 11, draw_queue );
+    fprintf( out, "  queue differs from flat in %ld pixels\n", box_check( 0 ) );
+    report( "queue", timed( draw_queue ), base );
+    rect( RAMP_X, SCRATCH_Y, RAMP_W, SCRATCH_H, 0 );
+
+    /* 12 batch */
+    show( 12, draw_batch );
+    fprintf( out, "  batch differs from flat in %ld pixels\n", box_check( 0 ) );
+    report( "batch", timed( draw_batch ), base );
+    rect( RAMP_X, SCRATCH_Y, RAMP_W, SCRATCH_H, 0 );
+
+    /* 13 qerase */
+    label( 13 );
+    prep_qerase();
+    report( "qerase", timed( draw_qerase ), base );
+
+    /* 14 noline */
+    rect( RAMP_X, SCRATCH_Y, RAMP_W, SCRATCH_H, 0 );
+    show( 14, draw_noline );
+    outpw( RD_MASK, 0x00FF );
+    fprintf( out, "  noline differs from flat in %ld pixels\n", box_check( 0 ) );
+    report( "noline", timed( draw_noline ), base );
+    rect( RAMP_X, SCRATCH_Y, RAMP_W, SCRATCH_H, 0 );
+    noline_shapes();
+
     rect( RAMP_X, RAMP_Y, RAMP_W, RAMP_H + SCRATCH_H, 0 );
     wait_idle();
 }

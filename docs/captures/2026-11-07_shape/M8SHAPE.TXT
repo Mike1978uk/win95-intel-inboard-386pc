@@ -1,0 +1,401 @@
+== M8SHAPE h1  ddraw 00000000
+setmode 00000000
+size   8  flat       410.7 us/tri  1.00x flat
+  span differs from flat in 0 pixels
+size   8  span       306.5 us/tri  0.75x flat
+  reuse differs from flat in 0 pixels
+size   8  reuse      233.3 us/tri  0.57x flat
+    (1,1): read 00, flat 01
+    (2,2): read 00, flat 01
+    (3,3): read 00, flat 01
+    (4,4): read 00, flat 01
+  rows differs from flat in 7 pixels
+size   8  rows       198.4 us/tri  0.48x flat
+  expand differs from flat in 0 pixels
+size   8  expand      66.4 us/tri  0.16x flat
+  ramp centres wrong: 0 of 16
+size   8  ramp       553.9 us/tri  1.35x flat
+    lookup 0: read 00, want 0d
+    lookup 2: read 00, want 19
+    lookup 4: read 00, want 25
+  lookup centres wrong: 8 of 16
+size   8  lookup     705.6 us/tri  1.72x flat
+size   8  erase       74.4 us/tri  0.18x flat
+size  32  flat       422.4 us/tri  1.00x flat
+  reuse differs from flat in 0 pixels
+size  32  reuse      242.9 us/tri  0.58x flat
+    (1,1): read 00, flat 01
+    (2,2): read 00, flat 01
+    (3,3): read 00, flat 01
+    (4,4): read 00, flat 01
+  rows differs from flat in 31 pixels
+size  32  rows       208.1 us/tri  0.49x flat
+  expand differs from flat in 0 pixels
+size  32  expand      91.5 us/tri  0.22x flat
+  ramp centres wrong: 0 of 16
+size  32  ramp       558.0 us/tri  1.32x flat
+    lookup 0: read 00, want 0d
+    lookup 2: read 00, want 19
+    lookup 4: read 00, want 25
+  lookup centres wrong: 8 of 16
+size  32  lookup     733.0 us/tri  1.74x flat
+size  32  erase       74.5 us/tri  0.18x flat
+size 100  flat      1043.1 us/tri  1.00x flat
+  reuse differs from flat in 0 pixels
+size 100  reuse      843.8 us/tri  0.81x flat
+    (1,1): read 00, flat 01
+    (2,2): read 00, flat 01
+    (3,3): read 00, flat 01
+    (4,4): read 00, flat 01
+  rows differs from flat in 99 pixels
+size 100  rows       799.3 us/tri  0.77x flat
+  expand differs from flat in 0 pixels
+size 100  expand     722.3 us/tri  0.69x flat
+  ramp centres wrong: 0 of 16
+size 100  ramp      1133.6 us/tri  1.09x flat
+  lookup centres wrong: 0 of 16
+size 100  lookup    1771.7 us/tri  1.70x flat
+size 100  erase      190.3 us/tri  0.18x flat
+waits that ran out: 0
+done
+
+== M8SHAPE e1  ddraw 00000000
+setmode 00000000
+size   8  flat       417.7 us/tri  1.00x flat
+  span differs from flat in 0 pixels
+size   8  span       311.0 us/tri  0.74x flat
+  reuse differs from flat in 0 pixels
+size   8  reuse      240.0 us/tri  0.57x flat
+    (1,1): read 00, flat 01
+    (2,2): read 00, flat 01
+    (3,3): read 00, flat 01
+    (4,4): read 00, flat 01
+  rows differs from flat in 7 pixels
+size   8  rows       198.4 us/tri  0.47x flat
+  expand differs from flat in 0 pixels
+size   8  expand      66.4 us/tri  0.16x flat
+  ramp centres wrong: 0 of 16
+size   8  ramp       544.4 us/tri  1.30x flat
+    lookup 0: read 00, want 0d
+    lookup 2: read 00, want 19
+    lookup 4: read 00, want 25
+  lookup centres wrong: 8 of 16
+size   8  lookup     693.5 us/tri  1.66x flat
+size   8  erase       74.5 us/tri  0.18x flat
+size  32  flat       424.7 us/tri  1.00x flat
+  reuse differs from flat in 0 pixels
+size  32  reuse      242.9 us/tri  0.57x flat
+    (1,1): read 00, flat 01
+    (2,2): read 00, flat 01
+    (3,3): read 00, flat 01
+    (4,4): read 00, flat 01
+  rows differs from flat in 31 pixels
+size  32  rows       208.0 us/tri  0.49x flat
+  expand differs from flat in 0 pixels
+size  32  expand      91.4 us/tri  0.22x flat
+  ramp centres wrong: 0 of 16
+size  32  ramp       546.5 us/tri  1.29x flat
+    lookup 0: read 00, want 0d
+    lookup 2: read 00, want 19
+    lookup 4: read 00, want 25
+  lookup centres wrong: 8 of 16
+size  32  lookup     721.7 us/tri  1.70x flat
+size  32  erase       74.5 us/tri  0.18x flat
+size 100  flat      1042.0 us/tri  1.00x flat
+  reuse differs from flat in 0 pixels
+size 100  reuse      834.0 us/tri  0.80x flat
+    (1,1): read 00, flat 01
+    (2,2): read 00, flat 01
+    (3,3): read 00, flat 01
+    (4,4): read 00, flat 01
+  rows differs from flat in 99 pixels
+size 100  rows       831.0 us/tri  0.80x flat
+  expand differs from flat in 0 pixels
+size 100  expand     722.6 us/tri  0.69x flat
+  ramp centres wrong: 0 of 16
+size 100  ramp      1131.1 us/tri  1.09x flat
+  lookup centres wrong: 0 of 16
+size 100  lookup    1747.4 us/tri  1.68x flat
+size 100  erase      190.0 us/tri  0.18x flat
+waits that ran out: 0
+done
+
+== M8SHAPE n1  ddraw 00000000
+setmode 00000000
+size   8  flat       409.1 us/tri  1.00x flat
+  span differs from flat in 0 pixels
+size   8  span       307.4 us/tri  0.75x flat
+  reuse differs from flat in 0 pixels
+size   8  reuse      233.3 us/tri  0.57x flat
+    (1,1): read 00, flat 01
+    (2,2): read 00, flat 01
+    (3,3): read 00, flat 01
+    (4,4): read 00, flat 01
+  rows differs from flat in 7 pixels
+size   8  rows       197.6 us/tri  0.48x flat
+  expand differs from flat in 0 pixels
+size   8  expand      66.5 us/tri  0.16x flat
+  ramp centres wrong: 0 of 16
+size   8  ramp       557.1 us/tri  1.36x flat
+  lookup centres wrong: 0 of 16
+size   8  lookup     716.6 us/tri  1.75x flat
+size   8  erase       74.6 us/tri  0.18x flat
+  near differs from flat in 0 pixels
+size   8  near       409.2 us/tri  1.00x flat
+  bands differs from flat in 0 pixels
+size   8  bands      670.6 us/tri  1.64x flat
+size  32  flat       426.7 us/tri  1.00x flat
+  reuse differs from flat in 0 pixels
+size  32  reuse      242.9 us/tri  0.57x flat
+    (1,1): read 00, flat 01
+    (2,2): read 00, flat 01
+    (3,3): read 00, flat 01
+    (4,4): read 00, flat 01
+  rows differs from flat in 31 pixels
+size  32  rows       207.3 us/tri  0.49x flat
+  expand differs from flat in 0 pixels
+size  32  expand      91.3 us/tri  0.21x flat
+  ramp centres wrong: 0 of 16
+size  32  ramp       546.2 us/tri  1.28x flat
+  lookup centres wrong: 0 of 16
+size  32  lookup     752.3 us/tri  1.76x flat
+size  32  erase       74.7 us/tri  0.17x flat
+  near differs from flat in 0 pixels
+size  32  near       423.6 us/tri  0.99x flat
+  bands differs from flat in 0 pixels
+size  32  bands      685.1 us/tri  1.61x flat
+size 100  flat      1051.4 us/tri  1.00x flat
+  reuse differs from flat in 0 pixels
+size 100  reuse      834.2 us/tri  0.79x flat
+    (1,1): read 00, flat 01
+    (2,2): read 00, flat 01
+    (3,3): read 00, flat 01
+    (4,4): read 00, flat 01
+  rows differs from flat in 99 pixels
+size 100  rows       809.4 us/tri  0.77x flat
+  expand differs from flat in 0 pixels
+size 100  expand     719.9 us/tri  0.68x flat
+  ramp centres wrong: 0 of 16
+size 100  ramp      1137.0 us/tri  1.08x flat
+  lookup centres wrong: 0 of 16
+size 100  lookup    1783.1 us/tri  1.70x flat
+size 100  erase      190.0 us/tri  0.18x flat
+  near differs from flat in 0 pixels
+size 100  near       963.4 us/tri  0.92x flat
+  bands differs from flat in 0 pixels
+size 100  bands      950.7 us/tri  0.90x flat
+waits that ran out: 0
+done
+
+== M8SHAPE q1  ddraw 00000000
+setmode 00000000
+size   8  flat       413.3 us/tri  1.00x flat
+  span differs from flat in 0 pixels
+size   8  span       299.6 us/tri  0.72x flat
+  reuse differs from flat in 0 pixels
+size   8  reuse      251.4 us/tri  0.61x flat
+    (1,1): read 00, flat 01
+    (2,2): read 00, flat 01
+    (3,3): read 00, flat 01
+    (4,4): read 00, flat 01
+  rows differs from flat in 7 pixels
+size   8  rows       197.6 us/tri  0.48x flat
+  expand differs from flat in 0 pixels
+size   8  expand      66.6 us/tri  0.16x flat
+  ramp centres wrong: 0 of 16
+size   8  ramp       567.4 us/tri  1.37x flat
+  lookup centres wrong: 0 of 16
+size   8  lookup     714.4 us/tri  1.73x flat
+size   8  erase       74.6 us/tri  0.18x flat
+  near differs from flat in 0 pixels
+size   8  near       412.3 us/tri  1.00x flat
+  bands differs from flat in 0 pixels
+size   8  bands      679.6 us/tri  1.64x flat
+  queue differs from flat in 0 pixels
+size   8  queue      443.8 us/tri  1.07x flat
+  batch differs from flat in 0 pixels
+size   8  batch      332.8 us/tri  0.81x flat
+size   8  qerase      69.6 us/tri  0.17x flat
+size  32  flat       426.3 us/tri  1.00x flat
+  reuse differs from flat in 0 pixels
+size  32  reuse      242.9 us/tri  0.57x flat
+    (1,1): read 00, flat 01
+    (2,2): read 00, flat 01
+    (3,3): read 00, flat 01
+    (4,4): read 00, flat 01
+  rows differs from flat in 31 pixels
+size  32  rows       214.2 us/tri  0.50x flat
+  expand differs from flat in 0 pixels
+size  32  expand      91.4 us/tri  0.21x flat
+  ramp centres wrong: 0 of 16
+size  32  ramp       566.0 us/tri  1.33x flat
+  lookup centres wrong: 0 of 16
+size  32  lookup     732.9 us/tri  1.72x flat
+size  32  erase       74.6 us/tri  0.18x flat
+  near differs from flat in 0 pixels
+size  32  near       424.5 us/tri  1.00x flat
+  bands differs from flat in 0 pixels
+size  32  bands      689.2 us/tri  1.62x flat
+  queue differs from flat in 0 pixels
+size  32  queue      472.2 us/tri  1.11x flat
+  batch differs from flat in 0 pixels
+size  32  batch      341.4 us/tri  0.80x flat
+size  32  qerase      69.7 us/tri  0.16x flat
+size 100  flat      1045.9 us/tri  1.00x flat
+  reuse differs from flat in 0 pixels
+size 100  reuse      830.5 us/tri  0.79x flat
+    (1,1): read 00, flat 01
+    (2,2): read 00, flat 01
+    (3,3): read 00, flat 01
+    (4,4): read 00, flat 01
+  rows differs from flat in 99 pixels
+size 100  rows       803.1 us/tri  0.77x flat
+  expand differs from flat in 0 pixels
+size 100  expand     721.8 us/tri  0.69x flat
+  ramp centres wrong: 0 of 16
+size 100  ramp      1139.7 us/tri  1.09x flat
+  lookup centres wrong: 0 of 16
+size 100  lookup    1749.6 us/tri  1.67x flat
+size 100  erase      189.9 us/tri  0.18x flat
+  near differs from flat in 0 pixels
+size 100  near       976.0 us/tri  0.93x flat
+  bands differs from flat in 0 pixels
+size 100  bands      945.0 us/tri  0.90x flat
+  queue differs from flat in 0 pixels
+size 100  queue      968.9 us/tri  0.93x flat
+  batch differs from flat in 0 pixels
+size 100  batch      942.5 us/tri  0.90x flat
+size 100  qerase     189.7 us/tri  0.18x flat
+waits that ran out: 0
+done
+
+== M8SHAPE l1  ddraw 00000000
+setmode 00000000
+size   8  flat       415.3 us/tri  1.00x flat
+  span differs from flat in 0 pixels
+size   8  span       327.2 us/tri  0.79x flat
+  reuse differs from flat in 0 pixels
+size   8  reuse      233.3 us/tri  0.56x flat
+    (1,1): read 00, flat 01
+    (2,2): read 00, flat 01
+    (3,3): read 00, flat 01
+    (4,4): read 00, flat 01
+  rows differs from flat in 7 pixels
+size   8  rows       200.1 us/tri  0.48x flat
+  expand differs from flat in 0 pixels
+size   8  expand      64.5 us/tri  0.16x flat
+  ramp centres wrong: 0 of 16
+size   8  ramp       556.7 us/tri  1.34x flat
+  lookup centres wrong: 0 of 16
+size   8  lookup     721.1 us/tri  1.74x flat
+size   8  erase       74.5 us/tri  0.18x flat
+  near differs from flat in 0 pixels
+size   8  near       408.6 us/tri  0.98x flat
+  bands differs from flat in 0 pixels
+size   8  bands      664.2 us/tri  1.60x flat
+  queue differs from flat in 0 pixels
+size   8  queue      427.4 us/tri  1.03x flat
+  batch differs from flat in 0 pixels
+size   8  batch      319.3 us/tri  0.77x flat
+size   8  qerase      67.8 us/tri  0.16x flat
+    (0,0): read 00, flat 01
+    (0,8): read 00, flat 01
+    (1,8): read 00, flat 01
+    (2,8): read 00, flat 01
+  noline differs from flat in 10 pixels
+size   8  noline     310.4 us/tri  0.75x flat
+    (4,0): read 00, flat 01
+    (1,3): read 00, flat 01
+    (5,6): read 00, flat 01
+    (0,0): read 00, flat 01
+    (1,0): read 00, flat 01
+    (2,0): read 00, flat 01
+    (4,0): read 00, flat 01
+    (8,6): read 00, flat 01
+    (4,7): read 00, flat 01
+  noline differs from flat: shape a 8, b 4, c 4 pixels
+size  32  flat       432.3 us/tri  1.00x flat
+  reuse differs from flat in 0 pixels
+size  32  reuse      242.9 us/tri  0.56x flat
+    (1,1): read 00, flat 01
+    (2,2): read 00, flat 01
+    (3,3): read 00, flat 01
+    (4,4): read 00, flat 01
+  rows differs from flat in 31 pixels
+size  32  rows       209.7 us/tri  0.49x flat
+  expand differs from flat in 0 pixels
+size  32  expand      91.3 us/tri  0.21x flat
+  ramp centres wrong: 0 of 16
+size  32  ramp       546.8 us/tri  1.26x flat
+  lookup centres wrong: 0 of 16
+size  32  lookup     729.5 us/tri  1.69x flat
+size  32  erase       74.6 us/tri  0.17x flat
+  near differs from flat in 0 pixels
+size  32  near       432.6 us/tri  1.00x flat
+  bands differs from flat in 0 pixels
+size  32  bands      682.6 us/tri  1.58x flat
+  queue differs from flat in 0 pixels
+size  32  queue      454.0 us/tri  1.05x flat
+  batch differs from flat in 0 pixels
+size  32  batch      329.4 us/tri  0.76x flat
+size  32  qerase      67.8 us/tri  0.16x flat
+    (0,0): read 00, flat 01
+    (0,32): read 00, flat 01
+    (1,32): read 00, flat 01
+    (2,32): read 00, flat 01
+  noline differs from flat in 34 pixels
+size  32  noline     313.7 us/tri  0.73x flat
+    (16,0): read 00, flat 01
+    (1,11): read 00, flat 01
+    (4,13): read 00, flat 01
+    (0,0): read 00, flat 01
+    (1,0): read 00, flat 01
+    (16,32): read 00, flat 01
+    (16,0): read 00, flat 01
+    (32,22): read 00, flat 01
+    (29,23): read 00, flat 01
+  noline differs from flat: shape a 24, b 3, c 12 pixels
+size 100  flat      1027.7 us/tri  1.00x flat
+  reuse differs from flat in 0 pixels
+size 100  reuse      826.4 us/tri  0.80x flat
+    (1,1): read 00, flat 01
+    (2,2): read 00, flat 01
+    (3,3): read 00, flat 01
+    (4,4): read 00, flat 01
+  rows differs from flat in 99 pixels
+size 100  rows       800.2 us/tri  0.78x flat
+  expand differs from flat in 0 pixels
+size 100  expand     717.1 us/tri  0.70x flat
+  ramp centres wrong: 0 of 16
+size 100  ramp      1143.7 us/tri  1.11x flat
+  lookup centres wrong: 0 of 16
+size 100  lookup    1756.4 us/tri  1.71x flat
+size 100  erase      189.9 us/tri  0.18x flat
+  near differs from flat in 0 pixels
+size 100  near       958.5 us/tri  0.93x flat
+  bands differs from flat in 0 pixels
+size 100  bands      942.0 us/tri  0.92x flat
+  queue differs from flat in 0 pixels
+size 100  queue      986.7 us/tri  0.96x flat
+  batch differs from flat in 0 pixels
+size 100  batch      920.0 us/tri  0.90x flat
+size 100  qerase     189.6 us/tri  0.18x flat
+    (0,0): read 00, flat 01
+    (0,100): read 00, flat 01
+    (1,100): read 00, flat 01
+    (2,100): read 00, flat 01
+  noline differs from flat in 102 pixels
+size 100  noline     896.0 us/tri  0.87x flat
+    (50,0): read 00, flat 01
+    (1,34): read 00, flat 01
+    (4,36): read 00, flat 01
+    (0,0): read 00, flat 01
+    (1,0): read 00, flat 01
+    (50,100): read 00, flat 01
+    (50,0): read 00, flat 01
+    (100,67): read 00, flat 01
+    (97,68): read 00, flat 01
+  noline differs from flat: shape a 69, b 3, c 35 pixels
+waits that ran out: 0
+done
+
