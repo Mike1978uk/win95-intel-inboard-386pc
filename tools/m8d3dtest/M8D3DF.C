@@ -5,7 +5,7 @@
  * pixels counted. Results append to C:\M8D3DF.TXT, with the time inside Flip from the
  * driver's counters.
  *
- *   M8D3DF <label> [seconds per test, default 3] [norm|high|rt] [hal]
+ *   M8D3DF <label> [seconds per test, default 3] [norm|high|rt] [hal|again]
  *
  * high is HIGH_PRIORITY_CLASS, which a game could use; rt holds off everything but
  * interrupts, and starves sound and network. hal leaves out the slow software tests.
@@ -358,7 +358,7 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
         SetPriorityClass( GetCurrentProcess(), REALTIME_PRIORITY_CLASS );
         SetThreadPriority( GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL );
     }
-    if( strcmp( which, "hal" ) == 0 ) {
+    if( strcmp( which, "hal" ) == 0 || strcmp( which, "again" ) == 0 ) {
         count = HAL_TESTS;
     }
     fprintf( out, "== M8D3DF %s  640x480x16  %d s a test  priority %s\n", label, seconds, prio );
@@ -395,6 +395,11 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
             spin( "fullscreen" );
             for( i = 0; i < count; ++i ) {
                 test( i + 1, &tests[i], seconds );
+            }
+            /* The first test also carries the mode set's paging: the same test last shows
+             * how much of its time is its own. */
+            if( strcmp( which, "again" ) == 0 ) {
+                test( 1, &tests[0], seconds );
             }
             spin( "after" );
             prim->lpVtbl->Release( prim );
