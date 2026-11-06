@@ -444,6 +444,19 @@ static int m8_fb16_changed( int y, int l, int r, int *cl, int *cr )
  * with the frame buffer): fingerprinting it would find every piece changed. */
 static int m8_fb16_whole;
 
+/* A send holds one shared band and one shared fingerprint request, and its source can page: a
+ * second send while one waits would overwrite them, with the fingerprints already updated. */
+static int      m8_fb16_sending;
+static DWORD    m8_fb16_reenter;
+
+static void m8_fb16_entered( void )
+{
+    if( m8_fb16_sending != 0 ) {
+        ++m8_fb16_reenter;
+    }
+    ++m8_fb16_sending;
+}
+
 static void m8_fb16_send( int l, int t, int r, int b )
 {
     int w;
@@ -463,6 +476,7 @@ static void m8_fb16_send( int l, int t, int r, int b )
         return;
     }
     ++m8_fb16_stat[1];
+    m8_fb16_entered();
     m8_cur_lift( l, t, r, b );
     /* A small change costs the bus less than fingerprinting its pieces costs
      * the CPU: it is sent whole, and its pieces are forgotten so a later send
@@ -484,6 +498,7 @@ static void m8_fb16_send( int l, int t, int r, int b )
             m8_hw_write_rect( l, y, w, n, m8_fb16_band, (WORD)w );
         }
         m8_leave();
+        --m8_fb16_sending;
         return;
     }
     /* Rows whose changed span is the same go out together; a row with
@@ -525,6 +540,7 @@ static void m8_fb16_send( int l, int t, int r, int b )
         }
     }
     m8_leave();
+    --m8_fb16_sending;
 }
 
 /* Smaller than this, a one-colour rectangle goes as pixels: the scan and the
@@ -737,6 +753,8 @@ DWORD __far m8_fb16_lin( void )
     return( m8_fb16_sel != 0 ? GetSelectorBase( m8_fb16_sel ) : 0 );
 }
 
+static int m8_fb16_flushing;
+
 /* Right and bottom are the last pixel drawn, not one past it. */
 static VOID WINAPI __loadds m8_fb16_begin( LPPDEVICE lpDevice, WORD wLeft, WORD wTop,
                                            WORD wRight, WORD wBottom, WORD wFlags )
@@ -744,6 +762,9 @@ static VOID WINAPI __loadds m8_fb16_begin( LPPDEVICE lpDevice, WORD wLeft, WORD 
     M8_FB16_RECT    n;
 
     ++m8_fb16_stat[0];
+    if( m8_fb16_flushing ) {
+        ++m8_fb16_reenter;
+    }
     if( m8_fb16_stat[4] ) {
         m8_fb16_stat[4] = 0;
         outpw( M8_CRT_OFFSET_HI, 0 );
@@ -776,9 +797,11 @@ static VOID WINAPI __loadds m8_fb16_end( LPPDEVICE lpDevice, WORD wFlags )
          * drew is not visible, and a send would read the back buffer's RAM, which a
          * described frame leaves unwritten. */
         if( m8_fb16_sel == m8_fb16_msel ) {
+            m8_fb16_flushing = 1;
             for( k = 0; k < m8_fb16_ndirty; ++k ) {
                 m8_fb16_flush( &m8_fb16_dirty[k] );
             }
+            m8_fb16_flushing = 0;
         }
         m8_fb16_ndirty = 0;
     }
@@ -1057,6 +1080,7 @@ void m8_fb16_check( DWORD FAR *out )
     out[2] = m8_scr_y;
     out[3] = 0;
     out[4] = 0;
+    out[5] = m8_fb16_reenter;
     m8_cur_lift( 0, 0, m8_scr_x, m8_scr_y );
     for( y = 0; y < m8_scr_y; ++y ) {
         m8_fb16_row_ref( (BYTE FAR *)want, y, 0, m8_scr_x );
