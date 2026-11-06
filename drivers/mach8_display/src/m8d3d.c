@@ -37,6 +37,7 @@
 #define M8_RD_MASK          0xAEE8
 #define M8_FRGD_COLOR       0xA6E8
 #define M8_CUR_Y            0x82E8
+#define M8_SCAN_TO_X        0xCAEE      /* draws CUR_X up to (not including) it on CUR_Y */
 #define M8_CUR_X            0x86E8
 #define M8_DESTX_DIASTP     0x8EE8
 #define M8_DESTY_AXSTP      0x8AE8
@@ -391,6 +392,74 @@ static int m8d3d_edges( int ox, int oy, const short *v, WORD plane )
     return( 1 );
 }
 
+/* A short triangle row by row: 3 writes a row against about 50 for an outline, a fill and
+ * a second outline, so this is the cheaper way up to about 14 rows. */
+#define M8D3D_SPAN_ROWS     13
+
+static int m8d3d_spans( int dx, int dy, const short *v, BYTE colour, int t, int b )
+{
+    int lo[M8D3D_SPAN_ROWS + 1];
+    int hi[M8D3D_SPAN_ROWS + 1];
+    int i;
+    int y;
+
+    for( y = 0; y <= b - t; ++y ) {
+        lo[y] = 0x7FFF;
+        hi[y] = -0x7FFF;
+    }
+    for( i = 0; i < 3; ++i ) {
+        int p = 2 * i;
+        int q = 2 * ((i + 1) % 3);
+        int x;
+        int step;
+
+        if( v[p + 1] > v[q + 1] ) {
+            int s = p;
+
+            p = q;
+            q = s;
+        }
+        step = v[q + 1] == v[p + 1] ? 0 : ((v[q] - v[p]) << 16) / (v[q + 1] - v[p + 1]);
+        x = (v[p] << 16) + 0x8000;
+        for( y = v[p + 1] - t; y <= v[q + 1] - t; ++y ) {
+            int px = x >> 16;
+
+            if( px < lo[y] ) {
+                lo[y] = px;
+            }
+            if( px > hi[y] ) {
+                hi[y] = px;
+            }
+            x += step;
+        }
+        if( v[q + 1] == v[p + 1] ) {
+            y = v[p + 1] - t;
+            if( v[q] < lo[y] ) {
+                lo[y] = v[q];
+            }
+            if( v[q] > hi[y] ) {
+                hi[y] = v[q];
+            }
+        }
+    }
+    if( !m8d3d_room( 4 ) ) {
+        return( 0 );
+    }
+    outpw( M8_WRT_MASK, 0x00FF );
+    outpw( M8_FRGD_COLOR, colour );
+    outpw( M8_DP_CONFIG, M8_DP_8514 );
+    outpw( M8_ALU_FG_FN, M8_MIX_REPLACE );
+    for( y = 0; y <= b - t; ++y ) {
+        if( y % 5 == 0 && !m8d3d_room( 15 ) ) {
+            return( 0 );
+        }
+        outpw( M8_CUR_Y, dy + t + y );
+        outpw( M8_CUR_X, dx + lo[y] );
+        outpw( M8_SCAN_TO_X, dx + hi[y] + 1 );
+    }
+    return( 1 );
+}
+
 /* One triangle, v relative to the target at dx, dy and to the scratch. */
 static int m8d3d_tri( M8D3D_CONTEXT *c, int dx, int dy, const short *v, BYTE colour )
 {
@@ -416,6 +485,9 @@ static int m8d3d_tri( M8D3D_CONTEXT *c, int dx, int dy, const short *v, BYTE col
         if( v[2 * i + 1] > b ) {
             b = v[2 * i + 1];
         }
+    }
+    if( b - t <= M8D3D_SPAN_ROWS ) {
+        return( m8d3d_spans( dx, dy, v, colour, t, b ) );
     }
     /* The scratch's corner holds the triangle's box's corner: the scratch can be smaller
      * than the target. */

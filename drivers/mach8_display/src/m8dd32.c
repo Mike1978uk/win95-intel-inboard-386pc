@@ -1962,8 +1962,11 @@ int m8d3d_fb16( void )
 }
 
 /* One fill on the path m8d3d_engine_begin set, in the colour the caller wrote. */
+static int m8d3d_free;                  /* FIFO room known, m8d3d_room's */
+
 int m8d3d_fill( const RECT *r )
 {
+    m8d3d_free = 0;
     return( m8dd_rect( r, 0, 0, 0 ) );
 }
 
@@ -2064,15 +2067,31 @@ void m8d3d_scratch_free( LPVOID key )
 }
 
 /* Room for n writes (1..15), as m8_fifo_need: bit 15 - n clear. */
+/* A status read costs what a write does, and the FIFO only drains between our writes, so
+ * room seen once is spent before looking again. A full FIFO can lock the card: whatever
+ * writes the engine outside this count must zero it (m8d3d_fill, m8d3d_clear, engine_begin). */
 int m8d3d_room( int n )
 {
-    unsigned i;
+    unsigned    i;
+    WORD        s;
 
+    if( n <= m8d3d_free ) {
+        m8d3d_free -= n;
+        return( 1 );
+    }
     for( i = 0; i < M8_WAIT_LIMIT; ++i ) {
-        if( !(inpw( M8_EXT_FIFO_STATUS ) & (0x8000 >> n)) ) {
+        s = inpw( M8_EXT_FIFO_STATUS );
+        if( !(s & (0x8000 >> n)) ) {
+            int f = n;
+
+            while( f < 15 && !(s & (0x8000 >> (f + 1))) ) {
+                ++f;
+            }
+            m8d3d_free = f - n;
             return( 1 );
         }
     }
+    m8d3d_free = 0;
     return( 0 );
 }
 
@@ -2084,6 +2103,7 @@ int m8d3d_engine_begin( void )
         return( 0 );
     }
     hot[H_BUSY] = 1;
+    m8d3d_free = 0;
     if( !m8dd_plain( M8_MIX_FRGD_REPLACE ) ) {
         hot[H_BUSY] = 0;
         return( 0 );
@@ -2091,15 +2111,22 @@ int m8d3d_engine_begin( void )
     return( 1 );
 }
 
-/* Black over a card rectangle, with the plain path back afterwards. */
+/* Black over a card rectangle, with the plain path back afterwards. No idle wait: the FIFO
+ * runs in order, so a fill still reading the scratch finishes first. Triangles change only
+ * these registers, not the scissors or PIX_CNTL. */
 int m8d3d_clear( int l, int t, int r, int b )
 {
     RECT c;
 
-    if( !m8dd_plain( M8_MIX_FRGD_REPLACE ) ) {
+    if( !m8d3d_room( 5 ) ) {
         return( 0 );
     }
+    outpw( M8_WRT_MASK, 0x00FF );
+    outpw( M8_RD_MASK, 0x00FF );
+    outpw( M8_DP_CONFIG, M8_DP_8514 );
+    outpw( M8_FRGD_MIX, M8_MIX_FRGD_REPLACE );
     outpw( M8_FRGD_COLOR, 0 );
+    m8d3d_free = 0;
     SetRect( &c, l, t, r, b );
     return( m8dd_rect( &c, 0, 0, 0 ) );
 }
