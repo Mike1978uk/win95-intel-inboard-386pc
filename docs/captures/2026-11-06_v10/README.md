@@ -29,6 +29,8 @@ The two agent-running builds differ by more than V10; compare `high` with `high`
 
 **Card hang, boot 226, owner rebooted, boot 227:** black screen, egg timer, after `v10hi1` finished and closed its log; `v10hi2` left no line, though its header may only have been buffered. Same symptom as `M8D3D6` on 11-05, also the second of two runs started by the agent, before V10 existed. `v10b`, started by M8NOAG, did not hang. Two reports, cause open, V10 not cleared.
 
+**Second card hang, boot 227, owner rebooted:** with-agent disk list `AGDISK`, started by the agent 13:33, on the desktop in `PAGETIME` with Word, Paint and PSP open. Mouse dead, ping dead by 13:50. The same list with the agent off finished on `M8D3D8` that morning. V10's page code was not active, but the build was `M8D3D9`.
+
 **Not settled:** V10 agent-free.
 
 **Bed:** `vm_5160_mcp`, driver loaded and ran with 0 bad frames, lit counts as the card. Too slow to exercise the page wait, so the card is the test. The bed's image backup is `vm_5160_mcp/card.img.pre_v10`.

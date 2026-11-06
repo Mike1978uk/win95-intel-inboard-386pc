@@ -475,11 +475,11 @@ A cheaper agent can run the prescribed benches and probes; diagnosis and engine 
 | V22 | Patched D3DIM beside a program for 8 bpp | IN: works on the bed and card, stock system DirectX |
 | V23 | 8 bpp mode as an option, by display depth | OPEN; a bench decides if it earns its place |
 | V24 | Background threads | IN: the V9x agent, not delivered with the driver, takes up to half the CPU; stopped, hal_tiny 70 fps at normal priority. Systray and Internat no measurable cost; `high` not needed |
-| V25 | **Fill colour from elsewhere:** DP_CONFIG 6213h (VRAM colour, mask in plane 7), A213h (colour pattern), E213h (source 7 lookup); gradients and textures near flat-triangle cost. Findings: `docs/mach8_vga_half_findings_2026_11_06.md` | OPEN; probe M8GRAD built, unrun |
+| V25 | **Fill colour from elsewhere:** DP_CONFIG 6213h (VRAM colour, mask in plane 7), A213h (colour pattern), E213h (source 7 lookup); gradients and textures near flat-triangle cost. Findings: `docs/mach8_vga_half_findings_2026_11_06.md` | **WORKS on the card (M8GRAD, 11-06):** all three fills give per-pixel colour; 1:1 shift only, 7 bits. Next: a triangle, timed. `docs/captures/2026-11-06_probes/README.md` |
 | V26 | **Field-confined arithmetic:** masked planes drop out of the ALU, so saturating add or subtract acts on only the shade field in one pass (`references/ati_mach32/guide.txt:11284-90`) | OPEN; unprobed |
 | V27 | **BG_COLOR_SRC** (DP_CONFIG bits 8:7), absent from this plan | OPEN; unprobed |
-| V28 | **VGA half for Mode X:** latch copies (M8LATCH), page flip (M8VFLIP; "cannot flip" has no source), BDh bit 2 128 KB window (M8W128) | OPEN; built, unrun |
-| V29 | **MEM_BNDRY write test on the Mach8** (M8BNDRY). Expected no effect; closes a closure that rested on the Mach32 guide alone | OPEN; built, unrun |
+| V28 | **VGA half for Mode X:** latch copies (M8LATCH), page flip (M8VFLIP; "cannot flip" has no source), BDh bit 2 128 KB window (M8W128) | Card, 11-06: flip works, latch copy 0.65 us a pixel, BDh bit 2 separates A000 and B000 (which memory B000 reaches is not shown). A Mode X path is open, not built |
+| V29 | **MEM_BNDRY write test on the Mach8** (M8BNDRY). Expected no effect; closes a closure that rested on the Mach32 guide alone | OUT, card 11-06: reads 0000 after writes, no effect |
 | C1 | Mean of corner colours | Built on `M8D3D5`; dxdiag video pending |
 | C2 | Adaptive palette | OPEN |
 | C3 | Gradient bands, `COLORGOURAUDRGB` | OPEN; required (owner) |
