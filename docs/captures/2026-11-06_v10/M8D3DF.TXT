@@ -400,3 +400,39 @@ spin fullscreen  lost  26.2 %     32 gaps  worst  77.21 ms
 6/9 hal_many      17.6 fps  56.87 ms/frame  scene  1.53 clear  3.16 d3d  10.73 flipcall  41.45  flip  40.12 (16-bit   0.32, engine  39.81)  page wait  6.29  blt  0.30 calls 53 described 53  bad 0  lit 2880  over16.7ms 53/53  worst 379.6
 spin after       lost  10.4 %     37 gaps  worst 129.09 ms
 
+== M8D3DF v10a  640x480x16  3 s a test  priority norm
+spin desktop     lost  12.1 %     37 gaps  worst 192.07 ms
+ddraw          00000000
+counters found
+coop           00000000
+setmode        00000000
+d3d2           00000000
+flipchain      00000000
+attached       00000000
+spin fullscreen  lost  48.8 %     21 gaps  worst 306.55 ms
+1/9 hal_tiny      50.2 fps  19.93 ms/frame  scene  0.51 clear  2.43 d3d   3.44 flipcall  13.55  flip  12.81 (16-bit   0.11, engine  12.70)  page wait  3.07  blt  0.38 calls 151 described 151  bad 0  lit 720  over16.7ms 24/151  worst 602.6
+2/9 hal_small     34.5 fps  29.00 ms/frame  scene  0.49 clear  0.84 d3d   2.71 flipcall  24.95  flip  24.38 (16-bit   0.16, engine  24.22)  page wait 14.41  blt  0.18 calls 104 described 104  bad 0  lit 8976  over16.7ms 102/104  worst 193.7
+3/9 hal_large     35.8 fps  27.95 ms/frame  scene  0.52 clear  0.83 d3d   2.82 flipcall  23.77  flip  23.10 (16-bit   0.15, engine  22.95)  page wait  3.46  blt  0.22 calls 108 described 108  bad 0  lit 80105  over16.7ms 108/108  worst 40.4
+4/9 hal_static   208.0 fps   4.81 ms/frame  scene  0.49 clear  0.81 d3d   2.72 flipcall   0.79  flip   0.23 (16-bit   0.03, engine   0.21)  page wait  0.00  blt  0.18 calls 624 described 624  bad 0  lit 720  over16.7ms 1/624  worst 32.4
+5/9 hal_colour    65.1 fps  15.36 ms/frame  scene  0.50 clear  0.81 d3d   2.73 flipcall  11.32  flip  10.73 (16-bit   0.08, engine  10.65)  page wait  2.67  blt  0.17 calls 196 described 196  bad 0  lit 720  over16.7ms 22/196  worst 32.3
+6/9 hal_many      21.7 fps  46.18 ms/frame  scene  1.46 clear  0.79 d3d   8.65 flipcall  35.28  flip  34.73 (16-bit   0.28, engine  34.45)  page wait  4.72  blt  0.17 calls 65 described 65  bad 0  lit 2880  over16.7ms 65/65  worst 63.0
+spin after       lost   3.2 %     40 gaps  worst   6.77 ms
+
+== M8D3DF v10b  640x480x16  3 s a test  priority norm
+spin desktop     lost   2.7 %     40 gaps  worst   2.79 ms
+ddraw          00000000
+counters found
+coop           00000000
+setmode        00000000
+d3d2           00000000
+flipchain      00000000
+attached       00000000
+spin fullscreen  lost  41.8 %     33 gaps  worst 263.05 ms
+1/9 hal_tiny      60.3 fps  16.59 ms/frame  scene  0.50 clear  1.21 d3d   3.21 flipcall  11.67  flip  10.97 (16-bit   0.10, engine  10.87)  page wait  2.56  blt  0.22 calls 181 described 181  bad 0  lit 720  over16.7ms 22/181  worst 193.5
+2/9 hal_small     35.1 fps  28.49 ms/frame  scene  0.49 clear  0.96 d3d   3.12 flipcall  23.92  flip  23.26 (16-bit   0.18, engine  23.08)  page wait 13.04  blt  0.17 calls 106 described 106  bad 0  lit 8976  over16.7ms 105/106  worst 119.2
+3/9 hal_large     36.0 fps  27.81 ms/frame  scene  0.50 clear  0.80 d3d   2.74 flipcall  23.77  flip  23.22 (16-bit   0.15, engine  23.06)  page wait  3.41  blt  0.18 calls 108 described 108  bad 0  lit 80105  over16.7ms 108/108  worst 41.0
+4/9 hal_static   207.3 fps   4.82 ms/frame  scene  0.50 clear  0.80 d3d   2.72 flipcall   0.80  flip   0.23 (16-bit   0.03, engine   0.21)  page wait  0.00  blt  0.18 calls 622 described 622  bad 0  lit 720  over16.7ms 1/622  worst 30.4
+5/9 hal_colour    64.6 fps  15.49 ms/frame  scene  0.50 clear  0.80 d3d   2.73 flipcall  11.46  flip  10.88 (16-bit   0.09, engine  10.79)  page wait  2.83  blt  0.17 calls 194 described 194  bad 0  lit 720  over16.7ms 24/194  worst 31.0
+6/9 hal_many      21.2 fps  47.12 ms/frame  scene  1.42 clear  0.80 d3d   8.79 flipcall  36.11  flip  35.54 (16-bit   0.26, engine  35.28)  page wait  5.45  blt  0.17 calls 64 described 64  bad 0  lit 2880  over16.7ms 64/64  worst 70.4
+spin after       lost   2.9 %     40 gaps  worst   3.80 ms
+

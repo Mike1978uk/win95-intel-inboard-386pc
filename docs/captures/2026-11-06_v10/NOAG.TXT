@@ -67,3 +67,26 @@
   exit 0 after 73389 ms
    1803860 ms  free 0 KB  paged 7208 KB  finished V10TEST
 
+== AGDISK  agent running: YES  agent in boot: YES
+    219686 ms  free 0 KB  paged 6124 KB  start, not waited for: C:\PERFLOG.EXE agnt 300
+    219902 ms  free 0 KB  paged 6224 KB  start C:\SLEEP.EXE 10
+  exit 0 after 26372 ms
+    246722 ms  free 0 KB  paged 7276 KB  start C:\PAGETIME.EXE agnt
+== V10TEST  agent running: YES  agent in boot: YES
+    335041 ms  free 0 KB  paged 6340 KB  start C:\M8IDLE.EXE 10 10 600
+  exit 0 after 24559 ms
+    359938 ms  free 0 KB  paged 7132 KB  start C:\M8D3DF.EXE v10a 3 norm hal
+  exit 0 after 82663 ms
+    443538 ms  free 0 KB  paged 7116 KB  start C:\M8D3DF.EXE v10b 3 norm hal
+  exit 0 after 72899 ms
+    517586 ms  free 0 KB  paged 7116 KB  finished V10TEST
+
+== V10TEST  agent running: no  agent in boot: no
+     87785 ms  free 0 KB  paged 5092 KB  start C:\M8IDLE.EXE 10 10 600
+  exit 0 after 23592 ms
+    111572 ms  free 8 KB  paged 5372 KB  start C:\M8D3DF.EXE v10a 3 norm hal
+  exit 0 after 64600 ms
+    176450 ms  free 0 KB  paged 6220 KB  start C:\M8D3DF.EXE v10b 3 norm hal
+  exit 0 after 57568 ms
+    234402 ms  free 0 KB  paged 6312 KB  finished V10TEST
+

@@ -40,6 +40,12 @@ The two agent-running builds differ by more than V10; compare `high` with `high`
 
 Spread between runs is as large as most differences. `hal_tiny` runs first after the mode set: its clear is 11-13 ms and worst frame 350-377 ms, against 1-4 ms clears later, and the spin just before it loses 26-44 %. So its stutter may belong to its position, not its size. Test: run it again later in the same session.
 
-**Not settled:** V10 agent-free.
+**V10 agent-free, `M8D3DA`, owner:** no stutter, "runs beautifully". 50-60 / 34.5-35.1 / 35.8-36.0 / 207-208 / 64.6-65.1 / 21.2-21.7 fps (tiny, small, large, static, colour, many).
+
+**Over-wait, fixed in `M8D3DD`:** `hal_small` took ~15 ms of work and sat at 28 ms with a 13-14 ms page wait. The wait always ran to the next blank, even when the one the flip needed had passed while the program ran. The latch is now acknowledged at the write and read at the next Flip. Risk: a write just before the card's pick-up, whose blank flag then follows, would count as taken, showing a frame's erase. M8PAGE places the pick-up between 0.9 of a frame and just after the flag. Watch for black flashes.
+
+**RAM, `M8D3DD`, card, agent idle:** PERFLOG's locked count 3,020 KB (boot 231, `GMEM_FIXED`) to 2,128 KB (boot 232, moveable with `GlobalFix`): 892 KB more for paging. Bed: 3,140 to 2,036 KB. Removing `GlobalSmartPageLock` alone gave 108 KB in the bed, so the fixed allocation was what held it. Effect on paging and on desktop repaint not yet measured. Built `M8DISP.DRV` md5 4263513518f4ed7af787850622650cae, `M8DD32.DLL` md5 69ff48e5f3946a4bcda63e5408ddab1c.
+
+**Not settled:** `M8D3DD` agent-free.
 
 **Bed:** `vm_5160_mcp`, driver loaded and ran with 0 bad frames, lit counts as the card. Too slow to exercise the page wait, so the card is the test. The bed's image backup is `vm_5160_mcp/card.img.pre_v10`.

@@ -23,8 +23,6 @@
 #include <conio.h>
 #include "m8.h"
 
-UINT WINAPI GlobalSmartPageLock( HGLOBAL hglb );
-
 /* n bytes from sel:off (a 32-bit offset: the frame buffer's selector spans
  * the whole block, as the DIB Engine also requires) to dst. */
 static void m8_copy32( WORD sel, DWORD off, BYTE FAR *dst, WORD n );
@@ -970,6 +968,19 @@ void m8_fb16_clear( void )
     }
 }
 
+/* A block at a fixed linear address that may still be paged: DirectDraw holds the address, but
+ * only ring 3 touches the bytes, where a page fault is allowed. The cursor runs at interrupt time
+ * and draws through the engine, never from these. GMEM_FIXED from a DLL would hold it in RAM. */
+static HGLOBAL m8_fb16_pageable( WORD flags, DWORD size )
+{
+    HGLOBAL h = GlobalAlloc( GMEM_MOVEABLE | flags, size );
+
+    if( h != 0 ) {
+        GlobalFix( h );
+    }
+    return( h );
+}
+
 /* The frame buffer, once. 0 = no memory. */
 int m8_fb16_alloc( void )
 {
@@ -978,19 +989,16 @@ int m8_fb16_alloc( void )
     }
     /* Sized for the largest 16 bpp mode, so a resolution change reuses it:
      * DirectDraw holds its linear address. */
-    m8_fb16_mem = GlobalAlloc( GMEM_FIXED | GMEM_SHARE | GMEM_ZEROINIT,
-                               (DWORD)M8_FB16_MAXW * 2 * M8_FB16_MAXH );
+    m8_fb16_mem = m8_fb16_pageable( GMEM_SHARE | GMEM_ZEROINIT, (DWORD)M8_FB16_MAXW * 2 * M8_FB16_MAXH );
     if( m8_fb16_mem == 0 ) {
         return( 0 );
     }
-    GlobalSmartPageLock( m8_fb16_mem );
     m8_fb16_sel = FP_SEG( GlobalLock( m8_fb16_mem ) );
     m8_fb16_msel = m8_fb16_sel;
     m8_fb16_tables();
     /* The fingerprints, if memory allows: without them every send is whole. */
     m8_fb16_nseg = M8_FB16_MAXW / M8_FB16_SEG_W;
-    m8_fb16_hmem = GlobalAlloc( GMEM_FIXED | GMEM_ZEROINIT,
-                                (DWORD)M8_FB16_MAXH * m8_fb16_nseg * sizeof( DWORD ) );
+    m8_fb16_hmem = m8_fb16_pageable( GMEM_ZEROINIT, (DWORD)M8_FB16_MAXH * m8_fb16_nseg * sizeof( DWORD ) );
     if( m8_fb16_hmem != 0 && (DWORD)M8_FB16_MAXH * m8_fb16_nseg * sizeof( DWORD ) < 0x10000UL ) {
         m8_fb16_hash = (DWORD FAR *)GlobalLock( m8_fb16_hmem );
     }
@@ -1104,8 +1112,7 @@ void m8_fb16_batch( const WORD FAR *in, DWORD FAR *out )
             break;
         case 3:
             if( m8_fb16_bmem == 0 ) {
-                m8_fb16_bmem = GlobalAlloc( GMEM_FIXED | GMEM_SHARE,
-                                            (DWORD)m8_scr_x * 2 * m8_scr_y );
+                m8_fb16_bmem = m8_fb16_pageable( GMEM_SHARE, (DWORD)m8_scr_x * 2 * m8_scr_y );
                 if( m8_fb16_bmem != 0 ) {
                     m8_fb16_bsel = FP_SEG( GlobalLock( m8_fb16_bmem ) );
                 }
@@ -1118,6 +1125,7 @@ void m8_fb16_batch( const WORD FAR *in, DWORD FAR *out )
             m8_fb16_sel = m8_fb16_msel;
             if( m8_fb16_bmem != 0 ) {
                 GlobalUnlock( m8_fb16_bmem );
+                GlobalUnfix( m8_fb16_bmem );
                 GlobalFree( m8_fb16_bmem );
                 m8_fb16_bmem = 0;
                 m8_fb16_bsel = 0;

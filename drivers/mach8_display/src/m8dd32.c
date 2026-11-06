@@ -1377,6 +1377,7 @@ static int      m8dd_pages_on;
 static int      m8dd_page;              /* the page last written to CRT_OFFSET */
 static int      m8dd_page_pending;      /* that write may not have taken effect */
 static DWORD    m8dd_page_t;            /* when it was written */
+static int      m8dd_page_in_blank;     /* it landed during a blank */
 static RECT     m8dd_page1_box[M8DD_TRIS_MAX];
 static int      m8dd_page_boxes[2];
 
@@ -1399,9 +1400,10 @@ static void m8dd_pages_leave( void )
     }
 }
 
-/* Until the page last shown has taken effect: past the blank the write may have landed
- * in, then to the next one's start. The latch sets again after an acknowledge for as long
- * as a blank lasts. */
+/* Until the page last shown has taken effect. The latch was acknowledged at the write, so
+ * set now means a blank has begun since: nothing to wait for. A write that landed inside a
+ * blank misses it, and the latch sets again for as long as a blank lasts, so that one must see
+ * the latch stay clear and then a new blank. */
 static void m8dd_page_wait( void )
 {
     LARGE_INTEGER   t0;
@@ -1412,14 +1414,19 @@ static void m8dd_page_wait( void )
         return;
     }
     m8dd_page_pending = 0;
+    if( !m8dd_page_in_blank && (inpw( M8DD_SUBSYS ) & 1) ) {
+        return;
+    }
     QueryPerformanceCounter( &t0 );
     if( t0.LowPart - m8dd_page_t >= M8DD_PAGE_TICKS ) {
         return;
     }
-    do {
-        outpw( M8DD_SUBSYS, 0x0001 );
-        m8dd_spin();
-    } while( (inpw( M8DD_SUBSYS ) & 1) && --n != 0 );
+    if( m8dd_page_in_blank ) {
+        do {
+            outpw( M8DD_SUBSYS, 0x0001 );
+            m8dd_spin();
+        } while( (inpw( M8DD_SUBSYS ) & 1) && --n != 0 );
+    }
     while( n != 0 && !(inpw( M8DD_SUBSYS ) & 1) ) {
         m8dd_spin();
         --n;
@@ -1454,6 +1461,8 @@ static int m8dd_page_frame( int k )
         return( 0 );
     }
     m8dd_page_show( h );
+    outpw( M8DD_SUBSYS, 0x0001 );
+    m8dd_page_in_blank = inpw( M8DD_SUBSYS ) & 1;
     QueryPerformanceCounter( &t );
     m8dd_page_t = t.LowPart;
     m8dd_page_pending = 1;
