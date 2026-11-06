@@ -15,6 +15,20 @@ Build `M8D3D9`: `M8DISP.DRV` md5 3fe7938e347b3c7a692c23772ad106b4, `M8DD32.DLL` 
 
 The two agent-running builds differ by more than V10; compare `high` with `high`, or agent-free with agent-free, before reading a gain or loss into this.
 
-**Not settled:** V10 agent-free. Whether the stutter on `hal_tiny` is the first test after the mode set paging in (it has the largest clear time, 13.5-15.5 ms, which V16 attributed to other threads), or frames alternating between one and two refreshes at 72 Hz.
+**High priority, like with like, agent running:**
+
+| | hal_tiny | hal_small | hal_large | hal_static | hal_colour | hal_many |
+|---|---|---|---|---|---|---|
+| `M8D3D7` `hi`, fps | 65.2 | 66.2 | 36.2 | 196.3 | 70.8 | 19.2 |
+| V10 `v10hi1`, fps | 35.0 | 36.3 | 29.7 | 177.2 | 35.2 | 15.6 |
+| V10 page wait, ms | 8.59 | 8.18 | 3.42 | 0.00 | 5.73 | 9.48 |
+
+**The stutter:** the small tests lock near 36 fps, half the 72 Hz refresh. Without the wait a small frame takes ~20 ms, over the 13.85 ms a refresh gives, so each frame waits for the next one. A frame under 13.85 ms should give 72 fps.
+
+**Unexplained:** excluding the wait, a small frame is ~20 ms against ~15 ms on `M8D3D7` `hi`: `clear` and `d3d`, outside the page code, each cost about 2 ms more. One run, agent running.
+
+**Card hang, boot 226, owner rebooted, boot 227:** black screen, egg timer, after `v10hi1` finished and closed its log; `v10hi2` left no line, though its header may only have been buffered. Same symptom as `M8D3D6` on 11-05, also the second of two runs started by the agent, before V10 existed. `v10b`, started by M8NOAG, did not hang. Two reports, cause open, V10 not cleared.
+
+**Not settled:** V10 agent-free.
 
 **Bed:** `vm_5160_mcp`, driver loaded and ran with 0 bad frames, lit counts as the card. Too slow to exercise the page wait, so the card is the test. The bed's image backup is `vm_5160_mcp/card.img.pre_v10`.

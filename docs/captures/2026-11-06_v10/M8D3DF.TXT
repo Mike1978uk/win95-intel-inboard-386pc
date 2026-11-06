@@ -346,3 +346,21 @@ spin fullscreen  lost  38.7 %     30 gaps  worst 102.74 ms
 6/9 hal_many      16.6 fps  60.26 ms/frame  scene  1.42 clear  3.26 d3d  11.71 flipcall  43.88  flip  42.64 (16-bit   0.36, engine  42.28)  page wait  7.43  blt  0.30 calls 50 described 50  bad 0  lit 2880  over16.7ms 50/50  worst 275.8
 spin after       lost   7.2 %     42 gaps  worst  48.21 ms
 
+== M8D3DF v10hi1  640x480x16  3 s a test  priority high
+spin desktop     lost   8.7 %     38 gaps  worst  96.41 ms
+ddraw          00000000
+counters found
+coop           00000000
+setmode        00000000
+d3d2           00000000
+flipchain      00000000
+attached       00000000
+spin fullscreen  lost  19.5 %     34 gaps  worst 280.24 ms
+1/9 hal_tiny      35.0 fps  28.59 ms/frame  scene  0.51 clear  2.92 d3d   4.91 flipcall  20.25  flip  18.18 (16-bit   0.17, engine  18.00)  page wait  8.59  blt  0.80 calls 105 described 105  bad 0  lit 720  over16.7ms 74/105  worst 233.8
+2/9 hal_small     36.3 fps  27.55 ms/frame  scene  0.48 clear  2.77 d3d   4.44 flipcall  19.87  flip  19.01 (16-bit   0.16, engine  18.85)  page wait  8.18  blt  0.24 calls 109 described 109  bad 0  lit 8976  over16.7ms 76/109  worst 249.6
+3/9 hal_large     29.7 fps  33.67 ms/frame  scene  0.57 clear  3.79 d3d   3.98 flipcall  25.33  flip  24.52 (16-bit   0.72, engine  23.80)  page wait  3.42  blt  0.24 calls 95 described 95  bad 0  lit 80140  over16.7ms 95/95  worst 318.3
+4/9 hal_static   177.2 fps   5.64 ms/frame  scene  0.50 clear  0.98 d3d   3.29 flipcall   0.87  flip   0.26 (16-bit   0.03, engine   0.23)  page wait  0.00  blt  0.19 calls 532 described 532  bad 0  lit 720  over16.7ms 3/532  worst 250.1
+5/9 hal_colour    35.2 fps  28.44 ms/frame  scene  0.50 clear  4.97 d3d   4.35 flipcall  18.61  flip  17.76 (16-bit   1.55, engine  16.22)  page wait  5.73  blt  0.26 calls 106 described 106  bad 0  lit 720  over16.7ms 52/106  worst 486.4
+6/9 hal_many      15.6 fps  64.03 ms/frame  scene  1.44 clear  2.89 d3d  13.70 flipcall  46.00  flip  44.51 (16-bit   0.37, engine  44.14)  page wait  9.48  blt  0.51 calls 47 described 47  bad 0  lit 2880  over16.7ms 47/47  worst 372.4
+spin after       lost   5.3 %     38 gaps  worst  35.91 ms
+

@@ -10,6 +10,14 @@ Boot 224, `m8d3d8.drv`, M8DD32.DLL md5 62D00C05C518970D4B866192E9949C8A (50,688 
 Owner, 11-06, with the agent running: both dxdiag tests ran without fault, **static gone** on `M8D3D8`. Occasional colour
 blocks remain. Hardware far ahead of software. The 11-05 DirectDraw hang on this build did not recur in that run.
 
+## V10 and probes (11-06, afternoon)
+
+Card: boot 227, `m8d3d9.drv`, M8DD32.DLL md5 8975BCCE. Way back: `C:\V9XREMOTE\REG\BACKV10.REG` and `C:\V9XREMOTE\REG\M8DD32.D8` by WININIT.INI. Results and the open hang: `docs/captures/2026-11-06_v10/README.md`.
+
+Probes on the card in `C:\M8P\` (`GO.BAT`, Command Prompt Only), sources in `tools/m8seq/`, decoder `m8vga_decode.py`. None run. Sweeps, not committed, scratchpad only: VGA half and engine source selects; findings to carry into the plan once the probes report. No memory path between the halves (M8XMEM, card). BDh bit 2 untested; "VGA half cannot flip" has no source.
+
+`AGDISK` (with-agent disk baseline) is staged, not run: `C:\V9XREMOTE\TEMP\AGDISK.EXE quiet`, detached.
+
 ## Running without the agent
 
 Desktop: `AGENTOFF`, `AGENTON`, `NOAGWTCH`, `NOAGDISK` (all `tools/m8noag/M8NOAG.EXE`, md5 56F011F2, job picked by file
