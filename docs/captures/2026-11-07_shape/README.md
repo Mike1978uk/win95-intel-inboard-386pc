@@ -115,3 +115,11 @@ Pictures of `M8D3DV` from the card look whole. `card_06_hal_many_queued.png` has
 Holding a whole frame back leaves the engine idle while the CPU works; before, cold C ran during long fills. So a command whose box is 1,500 px or more goes out at once, and only small ones are held. `hal_large` in `M8D3DX`: one run, `d3d` 5.09 ms against ~3.5, Flip's work ~13.3 ms, lowest yet. Rate not settled.
 
 Pictures from the card look whole. A small white mark at (316, 250) on page 0 only, in every test: likely the pointer, which would show on one page in two. Owner's eye.
+
+## Desktop bench on `M8D3DX` (M8BENCH, 800x600x16, agent on, two runs, `card_x1`, `card_xb1`)
+
+- **Pixels equal `noag1` in all 36 tests:** two pages, masks, bands, stamps and the queue left GDI's drawing alone.
+- Speed against `card_d3d81`, agent on, `M8D3D8`: geometric mean 1.017; `card_xb1` against `card_x1` 1.005. No change. Single tests swing a third between runs: `draw_icon` 68 and 90, `stretch_dib` 26 and 36, `getpixel` 1,643 and 2,424. One run of one test says little.
+- Against `noag1`, agent-free: 0.877, the agent's cost. Against ATI at 8 bpp the comparison does not hold: different depth.
+
+**Y14 for GDI: not built.** Read, not measured: `m8hw.c` already builds its fills in a queue (`m8_fill_q`, `m8_q_send`) and sends host pixels by `rep outsw`; `m8_fb16_send` converts rows in RAM before the first OUT. What runs cold is a little set-up per send, against milliseconds of DIB Engine work and bus bytes, and a run-to-run swing of a third would hide any gain under ~10 %. `_TEXT` is also near its 64 KB limit.

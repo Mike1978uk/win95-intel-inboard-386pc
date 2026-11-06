@@ -45,7 +45,6 @@ High priority with the agent on runs close to agent-free (`hal_large` 33.6 again
 - Restart hang on `M8D3DN` boot 244, black screen and egg timer after `M8D3DK`'s second bench, boot 241. Restart stalls are older than today's work.
 - `hal_turn100` no better than the morning: masks do not help a shape that changes. Batched edges (0.9x) not in the driver; build limiter is rough.
 - Bands are by rows only. Fixed 5 x 9 x 5 palette, steps show: C2 next. **Owner's eye on bands and dxdiag still to come.** Dxdiag not run since the caps fix: it may now take the Gouraud path.
-- Desktop bench `M8BENCH` not rerun since V10: pixels by hash against `noag1`, before any of this ships.
 - SWAPCOMP and XT-CF: no change made; `XTIDEMP.MPD` a67fefc4, `SWAPCOMP.VXD` 9FDE4934 verified on the CF. Owner imaged the CF on 11-06. Order: XT-CF `both` (built, `%TEMP%\xtcf_builds`), counter build for zero pages, `LZ4B12FN`, file cache sweep. Test by restart, same order, two runs, deltas only, alternating builds (owner: memory varies).
 - Bed `vm_5160_mcp` left running on `M8D3DH`, menu timeout attempted (`C:\CONFIG.BED` holds the old file). Its Enter-at-menu stop is not explained.
 
@@ -53,7 +52,7 @@ High priority with the agent on runs close to agent-free (`hal_large` 33.6 again
 
 **Done:** Y1 start frame 2 early measured, little to gain with two pages (the plan's row says why). Y14 in for mask and stamp copies: `hal_many` 41 fps. Runtime flags: DONOTCLIP and DONOTUPDATEEXTENTS save ~5.4 ms at 64 triangles, for our own programs.
 
-1. **Y14 further (owner: reuse):** all replay writes queue now, large commands sent at once so C overlaps the engine. Next the same question for `fb16.c` sends, `dd16.c` and the GDI paths: desktop speed may gain too, by `M8BENCH`, which needs its rerun anyway.
+1. Y14 done: replay writes queue, large commands sent at once. GDI ruled out by reading: it already queues. `M8BENCH` on `M8D3DX`: pixels = `noag1` in all 36, speed 1.0x like for like. A DirectDraw sprite's `m8dd_key_rect` has not been looked at.
 1a. Pointer on page 0 only (white mark in every capture): one page in two would lack it. Owner's eye, then show it on both.
 1b. Batched edges for changing shapes: `hal_turn100` is still no better than the morning.
 2. **Y10 stored ramps (owner: what is true everywhere):** 1.09x flat at 100 px against stamps only when colours repeat. Needs fields by direction and rate, palette in shades.
