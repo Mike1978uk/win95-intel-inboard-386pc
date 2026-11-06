@@ -572,6 +572,8 @@ Open ideas, not yet measured:
 | Y11 | Mirrored masks (owner's repeats): one mask for a shape and its mirror by a reversed copy, if the engine allows | More mask hits on cube faces | One mirrored copy, pixels read back |
 | Y12 | Golden-ratio band shift (owner's phi): band edges moved by a low-discrepancy step each frame, so steps average out over time | More apparent shades for no commands. Owner likes the crisp look, so by eye | Bench option |
 | Y13 | Background over foreground (owner): BKGD_MIX on the mask copy, so one command writes the shape and the box around it. Black gives erase and draw together (Y4); a stored picture restores scenery (G12) | Small triangles; scenery for what black costs | M8SHAPE arm |
+| Y14 | **Work the frame out before the first OUT.** Any port access empties the L1 (module SW1), so C between OUTs runs cold. `hal_many`'s engine ~17.7 ms against 64 x (66 + 74) us = 9 ms in the probe: ~8 ms a frame unaccounted for, possibly refills. Classify all triangles and build the command list with no OUT, then send it | ~2-4 ms on many triangles *estimate*. The probe's queue arm did not gain, but it had almost no logic to move | Timing arm in the driver: time with lookups before the first OUT |
+| Y15 | Tell programs: D3DDP_DONOTCLIP and DONOTUPDATEEXTENTS save ~5.4 ms at 64 triangles (card). Ours, in M8CUBE and demos, can use them; a shipped game's flags are its own | Our own programs | Done in `M8D3DF` as `hal_many_c`, `hal_many_e` |
 
 Noted, not useful: Mandelbrot itself (detail costs computation, nothing to reuse). Already in use: phi in SWAPCOMP's hash (`SWAPCOMP.ASM:392`, 2^32 / phi); self-similar triangle as the core at one level (deeper loses to command cost); sine tables in M8CUBE.
 

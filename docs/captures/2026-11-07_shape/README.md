@@ -69,3 +69,13 @@ Engine unchanged by the pixel clock: expand 722.6, erase 190.0 at 100 px (S9 clo
 | hal_grad | 2.65 | 1.38 | 10 | 42 | 103 |
 
 The CPU already overlaps the wait for the flip to land, so a frame costs about the larger of the CPU's time and the wait, then the engine. `hal_many`'s `d3d` is 9.3 ms and our share ~3: about 6.5 ms is the runtime's, before it calls us.
+
+## What DirectX itself costs, 64 triangles, card, one run (`c1`)
+
+| | fps | ms a frame | `d3d` ms | Flip's engine ms, wait included |
+|---|---|---|---|---|
+| `hal_many_a`, as `hal_many` | 31.9 | 31.40 | 9.71 | 17.73 |
+| `hal_many_c`, D3DDP_DONOTCLIP | 33.8 | 29.56 | 6.41 | 19.40 |
+| `hal_many_e`, and D3DDP_DONOTUPDATEEXTENTS | 34.5 | 28.95 | 4.32 | 21.12 |
+
+Clip checks ~3.3 ms, extents ~2.1 ms, in the runtime, per program's flags: ~50 and ~33 us a triangle. ~3 ms of what remains is ours. The frame gains less than `d3d` loses because it nears two refreshes (27.7 ms) and waits instead. A driver cannot set these flags; a program can.

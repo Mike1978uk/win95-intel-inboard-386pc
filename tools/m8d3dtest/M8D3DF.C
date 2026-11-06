@@ -39,7 +39,7 @@ static const GUID m8_iid_rgb = { 0xa4665c60, 0x2673, 0x11cf, { 0xa3, 0x1a, 0x00,
 #define SPIN_GAP_MS 0.5                 /* more than the clock read and the timer tick */
 #define SLOW_FRAME_MS 16.67
 
-enum { MOVING = 1, ONE_COLOUR = 2, TURNING = 4, CORNERS = 8 };
+enum { MOVING = 1, ONE_COLOUR = 2, TURNING = 4, CORNERS = 8, NO_CLIP = 16, NO_EXTENTS = 32 };
 
 typedef struct {
     const char  *name;
@@ -60,12 +60,15 @@ static const TEST tests[] = {
     { "hal_turn32", "16 triangles, 32 px, turning",     &m8_iid_hal, 16,  32, MOVING | TURNING },
     { "hal_turn100", "16 triangles, 100 px, turning",   &m8_iid_hal, 16, 100, MOVING | TURNING },
     { "hal_grad",   "16 triangles, 100 px, 3 colours",  &m8_iid_hal, 16, 100, MOVING | CORNERS },
+    { "hal_many_a", "64 triangles, 8 px, as hal_many",  &m8_iid_hal, 64,   8, MOVING },
+    { "hal_many_c", "64 triangles, 8 px, not clipped",  &m8_iid_hal, 64,   8, MOVING | NO_CLIP },
+    { "hal_many_e", "64 triangles, no clip, no extents", &m8_iid_hal, 64,  8, MOVING | NO_CLIP | NO_EXTENTS },
     { "rgb_tiny",  "software: 16 triangles, 8 px",     &m8_iid_rgb, 16,   8, MOVING },
     { "rgb_small",  "software: 16 triangles, 32 px",    &m8_iid_rgb, 16,  32, MOVING },
     { "rgb_large",  "software: 16 triangles, 100 px",   &m8_iid_rgb, 16, 100, MOVING }
 };
 #define TEST_COUNT  (sizeof( tests ) / sizeof( tests[0] ))
-#define HAL_TESTS   9
+#define HAL_TESTS   12
 
 static FILE                 *out;
 static LPDIRECTDRAW         dd;
@@ -322,11 +325,19 @@ static void test( int no, const TEST *t, int seconds )
     unsigned long           slow = 0;
     double                  frame0;
     double                  worst = 0.0;
+    DWORD                   dp_flags;
     DWORD                   s[13];
     int                     x;
     int                     y;
     int                     i;
 
+    dp_flags = D3DDP_WAIT;
+    if( t->flags & NO_CLIP ) {
+        dp_flags |= D3DDP_DONOTCLIP;
+    }
+    if( t->flags & NO_EXTENTS ) {
+        dp_flags |= D3DDP_DONOTUPDATEEXTENTS;
+    }
     title( no, t );
     hr = d3d->lpVtbl->CreateDevice( d3d, (GUID *)t->device, back, &dev );
     if( hr != DD_OK ) {
@@ -374,7 +385,7 @@ static void test( int no, const TEST *t, int seconds )
         a = now();
         part[1] += a - b;
         if( dev->lpVtbl->BeginScene( dev ) != D3D_OK ||
-            dev->lpVtbl->DrawPrimitive( dev, D3DPT_TRIANGLELIST, D3DVT_TLVERTEX, tri, 3 * t->n, D3DDP_WAIT ) != D3D_OK ||
+            dev->lpVtbl->DrawPrimitive( dev, D3DPT_TRIANGLELIST, D3DVT_TLVERTEX, tri, 3 * t->n, dp_flags ) != D3D_OK ||
             dev->lpVtbl->EndScene( dev ) != D3D_OK ) {
             ++bad;
         }
@@ -404,7 +415,7 @@ static void test( int no, const TEST *t, int seconds )
     }
     back->lpVtbl->Blt( back, NULL, NULL, NULL, DDBLT_COLORFILL | DDBLT_WAIT, &fx );
     dev->lpVtbl->BeginScene( dev );
-    dev->lpVtbl->DrawPrimitive( dev, D3DPT_TRIANGLELIST, D3DVT_TLVERTEX, tri, 3 * t->n, D3DDP_WAIT );
+    dev->lpVtbl->DrawPrimitive( dev, D3DPT_TRIANGLELIST, D3DVT_TLVERTEX, tri, 3 * t->n, dp_flags );
     dev->lpVtbl->EndScene( dev );
     memset( &sd, 0, sizeof( sd ) );
     sd.dwSize = sizeof( sd );
