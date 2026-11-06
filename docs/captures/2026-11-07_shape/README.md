@@ -40,3 +40,20 @@ Engine unchanged by the pixel clock: expand 722.6, erase 190.0 at 100 px (S9 clo
 `h1hi` at high priority with the agent on runs close to the owner's agent-free `v10c`/`v10d`: `hal_large` 33.6 against 36.0, `hal_tiny` last 67.4 against 71.5-71.8.
 
 `FB16CHK` on `M8D3DH`, agent on, no paging run: 0 pixels differ and 0 sends entered during a send, before and after the bench. Says nothing yet about the ghosts.
+
+## Gradients and stamps (`M8D3DM` to `M8D3DP`, high priority, agent on)
+
+| | us a triangle at 8 / 32 / 100 px | Pixels |
+|---|---|---|
+| stamp, a drawn triangle copied with black keyed out | 59 / 91 / 712 | equal to flat, all 8 bits of colour |
+
+| `hal_grad`, real corner colours | fps |
+|---|---|
+| row bands, floating point (`M8D3DM`) | 19.7 |
+| row bands, integer, merged by palette entry (`M8D3DN`) | 22.2 |
+| stamps, 16 built, 1,496 used in 3 s (`M8D3DP`) | 33.9 |
+
+- `hal_large` averages 47-51 fps with no steady 36: frames alternate between one and two refreshes, about 20 ms on average. So every millisecond shows, and a flip does not simply halve the rate.
+- Pictures `card_*.png`: `M8D3DF ... grab` reads both pages from the card (the bench's lit count is from RAM). Bands, core rectangles at 100 px and turning shapes look whole; both pages agree.
+- Bands are by rows only: a purely horizontal change of colour is drawn as the row's middle colour. Colours are the fixed 5 x 9 x 5 cube, so steps show. Owner's eye still to come.
+- Restart hangs: `M8D3DN` boot 244 did not come back; black screen and egg timer after `M8D3DK`'s second high-priority bench, owner restarted (boot 241). All with the agent on.

@@ -1036,3 +1036,343 @@ size 100  page fill, all 6305.8 us, CPU held 185.2 us
 waits that ran out: 0
 done
 
+== M8SHAPE s1  ddraw 00000000
+setmode 00000000
+size   8  flat       409.5 us/tri  1.00x flat
+  span differs from flat in 0 pixels
+size   8  span       327.1 us/tri  0.80x flat
+  reuse differs from flat in 0 pixels
+size   8  reuse      238.7 us/tri  0.58x flat
+    (1,1): read 00, flat 01
+    (2,2): read 00, flat 01
+    (3,3): read 00, flat 01
+    (4,4): read 00, flat 01
+  rows differs from flat in 7 pixels
+size   8  rows       200.5 us/tri  0.49x flat
+  expand differs from flat in 0 pixels
+size   8  expand      62.9 us/tri  0.15x flat
+  ramp centres wrong: 0 of 16
+size   8  ramp       556.1 us/tri  1.36x flat
+  lookup centres wrong: 0 of 16
+size   8  lookup     711.2 us/tri  1.74x flat
+size   8  erase       73.8 us/tri  0.18x flat
+  near differs from flat in 0 pixels
+size   8  near       419.7 us/tri  1.02x flat
+  bands differs from flat in 0 pixels
+size   8  bands      653.7 us/tri  1.60x flat
+  queue differs from flat in 0 pixels
+size   8  queue      425.5 us/tri  1.04x flat
+  batch differs from flat in 0 pixels
+size   8  batch      320.4 us/tri  0.78x flat
+size   8  qerase      68.4 us/tri  0.17x flat
+    (0,0): read 00, flat 01
+    (0,8): read 00, flat 01
+    (1,8): read 00, flat 01
+    (2,8): read 00, flat 01
+  noline differs from flat in 10 pixels
+size   8  noline     313.9 us/tri  0.77x flat
+    (4,0): read 00, flat 01
+    (1,3): read 00, flat 01
+    (5,6): read 00, flat 01
+    (0,0): read 00, flat 01
+    (1,0): read 00, flat 01
+    (2,0): read 00, flat 01
+    (4,0): read 00, flat 01
+    (8,6): read 00, flat 01
+    (4,7): read 00, flat 01
+  noline differs from flat: shape a 8, b 4, c 4 pixels
+  core differs from flat in 0 pixels
+size   8  core       235.1 us/tri  0.57x flat
+size   8  page fill, all 6318.4 us, CPU held 184.4 us
+size  32  flat       427.1 us/tri  1.00x flat
+  reuse differs from flat in 0 pixels
+size  32  reuse      260.3 us/tri  0.61x flat
+    (1,1): read 00, flat 01
+    (2,2): read 00, flat 01
+    (3,3): read 00, flat 01
+    (4,4): read 00, flat 01
+  rows differs from flat in 31 pixels
+size  32  rows       210.2 us/tri  0.49x flat
+  expand differs from flat in 0 pixels
+size  32  expand      91.5 us/tri  0.21x flat
+  ramp centres wrong: 0 of 16
+size  32  ramp       567.8 us/tri  1.33x flat
+  lookup centres wrong: 0 of 16
+size  32  lookup     728.8 us/tri  1.71x flat
+size  32  erase       73.8 us/tri  0.17x flat
+  near differs from flat in 0 pixels
+size  32  near       426.1 us/tri  1.00x flat
+  bands differs from flat in 0 pixels
+size  32  bands      672.9 us/tri  1.58x flat
+  queue differs from flat in 0 pixels
+size  32  queue      466.4 us/tri  1.09x flat
+  batch differs from flat in 0 pixels
+size  32  batch      329.1 us/tri  0.77x flat
+size  32  qerase      68.5 us/tri  0.16x flat
+    (0,0): read 00, flat 01
+    (0,32): read 00, flat 01
+    (1,32): read 00, flat 01
+    (2,32): read 00, flat 01
+  noline differs from flat in 34 pixels
+size  32  noline     315.1 us/tri  0.74x flat
+    (16,0): read 00, flat 01
+    (1,11): read 00, flat 01
+    (4,13): read 00, flat 01
+    (0,0): read 00, flat 01
+    (1,0): read 00, flat 01
+    (16,32): read 00, flat 01
+    (16,0): read 00, flat 01
+    (32,22): read 00, flat 01
+    (29,23): read 00, flat 01
+  noline differs from flat: shape a 24, b 3, c 12 pixels
+  core differs from flat in 0 pixels
+size  32  core       235.2 us/tri  0.55x flat
+size  32  page fill, all 38778.7 us, CPU held 186.1 us
+  corechk size  32 shape 0: core 0x0 at 0,0, 0 parts, 0 pixels differ
+  corechk size  32 shape 1: core 0x0 at 0,0, 0 parts, 0 pixels differ
+  corechk size  32 shape 2: core 0x0 at 0,0, 0 parts, 0 pixels differ
+  corechk size  32 shape 3: core 0x0 at 0,0, 0 parts, 0 pixels differ
+  corechk size  32 shape 4: core 0x0 at 0,0, 0 parts, 0 pixels differ
+  corechk size  32 shape 5: core 0x0 at 0,0, 0 parts, 0 pixels differ
+  corechk size  32 shape 6: core 0x0 at 0,0, 0 parts, 0 pixels differ
+  corechk size  32 shape 7: core 0x0 at 0,0, 0 parts, 0 pixels differ
+  corechk size  32 shape 8: core 0x0 at 0,0, 0 parts, 0 pixels differ
+  corechk size  32 shape 9: core 0x0 at 0,0, 0 parts, 0 pixels differ
+  corechk size  32 shape 10: core 0x0 at 0,0, 0 parts, 0 pixels differ
+  corechk size  32 shape 11: core 0x0 at 0,0, 0 parts, 0 pixels differ
+  corechk size  32 shape 12: core 0x0 at 0,0, 0 parts, 0 pixels differ
+  corechk size  32 shape 13: core 0x0 at 0,0, 0 parts, 0 pixels differ
+size 100  flat      1044.3 us/tri  1.00x flat
+  reuse differs from flat in 0 pixels
+size 100  reuse      826.3 us/tri  0.79x flat
+    (1,1): read 00, flat 01
+    (2,2): read 00, flat 01
+    (3,3): read 00, flat 01
+    (4,4): read 00, flat 01
+  rows differs from flat in 99 pixels
+size 100  rows       796.9 us/tri  0.76x flat
+  expand differs from flat in 0 pixels
+size 100  expand     715.4 us/tri  0.69x flat
+  ramp centres wrong: 0 of 16
+size 100  ramp      1141.8 us/tri  1.09x flat
+  lookup centres wrong: 0 of 16
+size 100  lookup    1765.8 us/tri  1.69x flat
+size 100  erase      190.4 us/tri  0.18x flat
+  near differs from flat in 0 pixels
+size 100  near       957.3 us/tri  0.92x flat
+  bands differs from flat in 0 pixels
+size 100  bands      953.5 us/tri  0.91x flat
+  queue differs from flat in 0 pixels
+size 100  queue      964.4 us/tri  0.92x flat
+  batch differs from flat in 0 pixels
+size 100  batch      932.5 us/tri  0.89x flat
+size 100  qerase     190.1 us/tri  0.18x flat
+    (0,0): read 00, flat 01
+    (0,100): read 00, flat 01
+    (1,100): read 00, flat 01
+    (2,100): read 00, flat 01
+  noline differs from flat in 102 pixels
+size 100  noline     900.9 us/tri  0.86x flat
+    (50,0): read 00, flat 01
+    (1,34): read 00, flat 01
+    (4,36): read 00, flat 01
+    (0,0): read 00, flat 01
+    (1,0): read 00, flat 01
+    (50,100): read 00, flat 01
+    (50,0): read 00, flat 01
+    (100,67): read 00, flat 01
+    (97,68): read 00, flat 01
+  noline differs from flat: shape a 69, b 3, c 35 pixels
+  core differs from flat in 0 pixels
+size 100  core       457.7 us/tri  0.44x flat
+size 100  page fill, all 6310.0 us, CPU held 186.9 us
+  corechk size 100 shape 0: core 48x53 at 0,48, 2 parts, 0 pixels differ
+  corechk size 100 shape 1: core 25x49 at 35,32, 4 parts, 0 pixels differ
+  corechk size 100 shape 2: core 0x49 at 35,32, 0 parts, 0 pixels differ
+  corechk size 100 shape 3: core 11x49 at 47,16, 4 parts, 0 pixels differ
+  corechk size 100 shape 4: core 52x49 at 49,0, 2 parts, 0 pixels differ
+  corechk size 100 shape 5: core 52x49 at 16,0, 3 parts, 0 pixels differ
+  corechk size 100 shape 6: core 46x53 at 19,48, 3 parts, 0 pixels differ
+  corechk size 100 shape 7: core 29x49 at 23,16, 4 parts, 0 pixels differ
+  corechk size 100 shape 8: core 31x65 at 70,16, 3 parts, 0 pixels differ
+  corechk size 100 shape 9: core 31x65 at 0,16, 3 parts, 0 pixels differ
+  corechk size 100 shape 10: core 0x65 at 0,16, 0 parts, 0 pixels differ
+  corechk size 100 shape 11: core 0x65 at 0,16, 0 parts, 0 pixels differ
+  corechk size 100 shape 12: core 0x65 at 0,16, 0 parts, 0 pixels differ
+  corechk size 100 shape 13: core 45x49 at 54,16, 4 parts, 0 pixels differ
+waits that ran out: 0
+done
+
+== M8SHAPE s1  ddraw 00000000
+setmode 00000000
+size   8  flat       424.3 us/tri  1.00x flat
+  span differs from flat in 0 pixels
+size   8  span       321.9 us/tri  0.76x flat
+  reuse differs from flat in 0 pixels
+size   8  reuse      234.0 us/tri  0.55x flat
+    (1,1): read 00, flat 01
+    (2,2): read 00, flat 01
+    (3,3): read 00, flat 01
+    (4,4): read 00, flat 01
+  rows differs from flat in 7 pixels
+size   8  rows       199.9 us/tri  0.47x flat
+  expand differs from flat in 0 pixels
+size   8  expand      62.2 us/tri  0.15x flat
+  ramp centres wrong: 0 of 16
+size   8  ramp       573.2 us/tri  1.35x flat
+  lookup centres wrong: 0 of 16
+size   8  lookup     710.2 us/tri  1.67x flat
+size   8  erase       73.0 us/tri  0.17x flat
+  near differs from flat in 0 pixels
+size   8  near       414.5 us/tri  0.98x flat
+  bands differs from flat in 0 pixels
+size   8  bands      666.1 us/tri  1.57x flat
+  queue differs from flat in 0 pixels
+size   8  queue      419.0 us/tri  0.99x flat
+  batch differs from flat in 0 pixels
+size   8  batch      322.6 us/tri  0.76x flat
+size   8  qerase      67.8 us/tri  0.16x flat
+    (0,0): read 00, flat 01
+    (0,8): read 00, flat 01
+    (1,8): read 00, flat 01
+    (2,8): read 00, flat 01
+  noline differs from flat in 10 pixels
+size   8  noline     316.5 us/tri  0.75x flat
+    (4,0): read 00, flat 01
+    (1,3): read 00, flat 01
+    (5,6): read 00, flat 01
+    (0,0): read 00, flat 01
+    (1,0): read 00, flat 01
+    (2,0): read 00, flat 01
+    (4,0): read 00, flat 01
+    (8,6): read 00, flat 01
+    (4,7): read 00, flat 01
+  noline differs from flat: shape a 8, b 4, c 4 pixels
+  core differs from flat in 0 pixels
+size   8  core       240.9 us/tri  0.57x flat
+size   8  page fill, all 6322.6 us, CPU held 192.8 us
+  stamp differs from flat in 0 pixels
+size   8  stamp       59.2 us/tri  0.14x flat
+size  32  flat       427.6 us/tri  1.00x flat
+  reuse differs from flat in 0 pixels
+size  32  reuse      243.7 us/tri  0.57x flat
+    (1,1): read 00, flat 01
+    (2,2): read 00, flat 01
+    (3,3): read 00, flat 01
+    (4,4): read 00, flat 01
+  rows differs from flat in 31 pixels
+size  32  rows       209.4 us/tri  0.49x flat
+  expand differs from flat in 0 pixels
+size  32  expand      91.5 us/tri  0.21x flat
+  ramp centres wrong: 0 of 16
+size  32  ramp       551.6 us/tri  1.29x flat
+  lookup centres wrong: 0 of 16
+size  32  lookup     737.8 us/tri  1.73x flat
+size  32  erase       73.2 us/tri  0.17x flat
+  near differs from flat in 0 pixels
+size  32  near       428.4 us/tri  1.00x flat
+  bands differs from flat in 0 pixels
+size  32  bands      672.0 us/tri  1.57x flat
+  queue differs from flat in 0 pixels
+size  32  queue      448.1 us/tri  1.05x flat
+  batch differs from flat in 0 pixels
+size  32  batch      328.6 us/tri  0.77x flat
+size  32  qerase      68.0 us/tri  0.16x flat
+    (0,0): read 00, flat 01
+    (0,32): read 00, flat 01
+    (1,32): read 00, flat 01
+    (2,32): read 00, flat 01
+  noline differs from flat in 34 pixels
+size  32  noline     316.6 us/tri  0.74x flat
+    (16,0): read 00, flat 01
+    (1,11): read 00, flat 01
+    (4,13): read 00, flat 01
+    (0,0): read 00, flat 01
+    (1,0): read 00, flat 01
+    (16,32): read 00, flat 01
+    (16,0): read 00, flat 01
+    (32,22): read 00, flat 01
+    (29,23): read 00, flat 01
+  noline differs from flat: shape a 24, b 3, c 12 pixels
+  core differs from flat in 0 pixels
+size  32  core       234.5 us/tri  0.55x flat
+size  32  page fill, all 6301.6 us, CPU held 191.9 us
+  stamp differs from flat in 0 pixels
+size  32  stamp       91.4 us/tri  0.21x flat
+  corechk size  32 shape 0: core 0x0 at 0,0, 0 parts, 0 pixels differ
+  corechk size  32 shape 1: core 0x0 at 0,0, 0 parts, 0 pixels differ
+  corechk size  32 shape 2: core 0x0 at 0,0, 0 parts, 0 pixels differ
+  corechk size  32 shape 3: core 0x0 at 0,0, 0 parts, 0 pixels differ
+  corechk size  32 shape 4: core 0x0 at 0,0, 0 parts, 0 pixels differ
+  corechk size  32 shape 5: core 0x0 at 0,0, 0 parts, 0 pixels differ
+  corechk size  32 shape 6: core 0x0 at 0,0, 0 parts, 0 pixels differ
+  corechk size  32 shape 7: core 0x0 at 0,0, 0 parts, 0 pixels differ
+  corechk size  32 shape 8: core 0x0 at 0,0, 0 parts, 0 pixels differ
+  corechk size  32 shape 9: core 0x0 at 0,0, 0 parts, 0 pixels differ
+  corechk size  32 shape 10: core 0x0 at 0,0, 0 parts, 0 pixels differ
+  corechk size  32 shape 11: core 0x0 at 0,0, 0 parts, 0 pixels differ
+  corechk size  32 shape 12: core 0x0 at 0,0, 0 parts, 0 pixels differ
+  corechk size  32 shape 13: core 0x0 at 0,0, 0 parts, 0 pixels differ
+size 100  flat      1043.4 us/tri  1.00x flat
+  reuse differs from flat in 0 pixels
+size 100  reuse      816.5 us/tri  0.78x flat
+    (1,1): read 00, flat 01
+    (2,2): read 00, flat 01
+    (3,3): read 00, flat 01
+    (4,4): read 00, flat 01
+  rows differs from flat in 99 pixels
+size 100  rows       799.4 us/tri  0.77x flat
+  expand differs from flat in 0 pixels
+size 100  expand     710.8 us/tri  0.68x flat
+  ramp centres wrong: 0 of 16
+size 100  ramp      1144.2 us/tri  1.10x flat
+  lookup centres wrong: 0 of 16
+size 100  lookup    1765.9 us/tri  1.69x flat
+size 100  erase      190.4 us/tri  0.18x flat
+  near differs from flat in 0 pixels
+size 100  near       945.1 us/tri  0.91x flat
+  bands differs from flat in 0 pixels
+size 100  bands      954.6 us/tri  0.91x flat
+  queue differs from flat in 0 pixels
+size 100  queue      969.2 us/tri  0.93x flat
+  batch differs from flat in 0 pixels
+size 100  batch      918.4 us/tri  0.88x flat
+size 100  qerase     190.1 us/tri  0.18x flat
+    (0,0): read 00, flat 01
+    (0,100): read 00, flat 01
+    (1,100): read 00, flat 01
+    (2,100): read 00, flat 01
+  noline differs from flat in 102 pixels
+size 100  noline     898.8 us/tri  0.86x flat
+    (50,0): read 00, flat 01
+    (1,34): read 00, flat 01
+    (4,36): read 00, flat 01
+    (0,0): read 00, flat 01
+    (1,0): read 00, flat 01
+    (50,100): read 00, flat 01
+    (50,0): read 00, flat 01
+    (100,67): read 00, flat 01
+    (97,68): read 00, flat 01
+  noline differs from flat: shape a 69, b 3, c 35 pixels
+  core differs from flat in 0 pixels
+size 100  core       450.4 us/tri  0.43x flat
+size 100  page fill, all 6313.4 us, CPU held 193.6 us
+  stamp differs from flat in 0 pixels
+size 100  stamp      711.6 us/tri  0.68x flat
+  corechk size 100 shape 0: core 48x53 at 0,48, 2 parts, 0 pixels differ
+  corechk size 100 shape 1: core 25x49 at 35,32, 4 parts, 0 pixels differ
+  corechk size 100 shape 2: core 0x49 at 35,32, 0 parts, 0 pixels differ
+  corechk size 100 shape 3: core 11x49 at 47,16, 4 parts, 0 pixels differ
+  corechk size 100 shape 4: core 52x49 at 49,0, 2 parts, 0 pixels differ
+  corechk size 100 shape 5: core 52x49 at 16,0, 3 parts, 0 pixels differ
+  corechk size 100 shape 6: core 46x53 at 19,48, 3 parts, 0 pixels differ
+  corechk size 100 shape 7: core 29x49 at 23,16, 4 parts, 0 pixels differ
+  corechk size 100 shape 8: core 31x65 at 70,16, 3 parts, 0 pixels differ
+  corechk size 100 shape 9: core 31x65 at 0,16, 3 parts, 0 pixels differ
+  corechk size 100 shape 10: core 0x65 at 0,16, 0 parts, 0 pixels differ
+  corechk size 100 shape 11: core 0x65 at 0,16, 0 parts, 0 pixels differ
+  corechk size 100 shape 12: core 0x65 at 0,16, 0 parts, 0 pixels differ
+  corechk size 100 shape 13: core 45x49 at 54,16, 4 parts, 0 pixels differ
+waits that ran out: 0
+done
+

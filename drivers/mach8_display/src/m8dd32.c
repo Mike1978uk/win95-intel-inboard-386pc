@@ -29,8 +29,8 @@
 /* m8d3d.c */
 extern void m8d3d_init( DWORD *global, DWORD *callbacks );
 extern int  m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const short *v,
-                          const WORD *index, int n );
-extern DWORD m8d3d_stat[22];
+                         const WORD *index, const DWORD *rgb, int n );
+extern DWORD m8d3d_stat[24];
 
 /* The head of dd16.c's M8DD_SHARE. */
 #pragma pack( push, 1 )
@@ -581,10 +581,12 @@ static int          m8dd_tri_n[2];
 static short        m8dd_tri_v[2][M8DD_TRIS_MAX * 6];
 static WORD         m8dd_tri_i[2][M8DD_TRIS_MAX];       /* the card's palette index */
 static WORD         m8dd_tri_c[2][M8DD_TRIS_MAX];       /* 5-6-5, for RAM */
+static DWORD        m8dd_tri_g[2][M8DD_TRIS_MAX * 3];   /* corner colours, for the card */
 static RECT         m8dd_card_box[M8DD_TRIS_MAX];       /* the triangles' boxes on the card */
 static int          m8dd_card_boxes;
 static short        m8dd_card_v[M8DD_TRIS_MAX * 6];     /* and the triangles themselves */
 static WORD         m8dd_card_i[M8DD_TRIS_MAX];
+static DWORD        m8dd_card_g[M8DD_TRIS_MAX * 3];
 static int          m8dd_fp_stale;      /* the card changed behind fb16.c's row fingerprints */
 
 /* The buffer a surface's memory is, or -1. */
@@ -1334,6 +1336,7 @@ static void m8dd_note_boxes( int k, RECT *r )
     m8dd_card_boxes = m8dd_tri_n[k];
     memcpy( m8dd_card_v, v, m8dd_card_boxes * 6 * sizeof( short ) );
     memcpy( m8dd_card_i, m8dd_tri_i[k], m8dd_card_boxes * sizeof( WORD ) );
+    memcpy( m8dd_card_g, m8dd_tri_g[k], m8dd_card_boxes * 3 * sizeof( DWORD ) );
     for( i = 0; i < m8dd_card_boxes; ++i, v += 6, ++r ) {
         r->left = r->right = v[0];
         r->top = r->bottom = v[1];
@@ -1444,7 +1447,7 @@ static int m8dd_page_frame( int k )
     int                 h;
 
     if( !m8dd_pages_on ) {
-        if( !m8d3d_replay( &all, 1, 0, M8DD_PAGE1_Y, NULL, NULL, 0 ) ) {
+        if( !m8d3d_replay( &all, 1, 0, M8DD_PAGE1_Y, NULL, NULL, NULL, 0 ) ) {
             m8dd_card.known = 0;
             return( 0 );
         }
@@ -1456,7 +1459,7 @@ static int m8dd_page_frame( int k )
     h = !m8dd_page;
     m8dd_page_wait();
     if( !m8d3d_replay( h ? m8dd_page1_box : m8dd_card_box, m8dd_page_boxes[h], 0, h ? M8DD_PAGE1_Y : 0,
-                       m8dd_tri_v[k], m8dd_tri_i[k], m8dd_tri_n[k] ) ) {
+                       m8dd_tri_v[k], m8dd_tri_i[k], m8dd_tri_g[k], m8dd_tri_n[k] ) ) {
         m8dd_pages_leave();
         return( 0 );
     }
@@ -1488,14 +1491,15 @@ static void m8dd_flip16_fast( int k )
     /* The same triangles as the card shows: the frame is there already. */
     if( m8dd_tri_n[k] != m8dd_card_boxes ||
         memcmp( m8dd_tri_v[k], m8dd_card_v, m8dd_card_boxes * 6 * sizeof( short ) ) != 0 ||
-        memcmp( m8dd_tri_i[k], m8dd_card_i, m8dd_card_boxes * sizeof( WORD ) ) != 0 ) {
+        memcmp( m8dd_tri_i[k], m8dd_card_i, m8dd_card_boxes * sizeof( WORD ) ) != 0 ||
+        memcmp( m8dd_tri_g[k], m8dd_card_g, m8dd_card_boxes * 3 * sizeof( DWORD ) ) != 0 ) {
         if( m8dd_pages_ok ) {
             if( !m8dd_page_frame( k ) ) {
                 m8dd_front = k;
                 return;
             }
         } else {
-            m8d3d_replay( m8dd_card_box, m8dd_card_boxes, 0, 0, m8dd_tri_v[k], m8dd_tri_i[k], m8dd_tri_n[k] );
+            m8d3d_replay( m8dd_card_box, m8dd_card_boxes, 0, 0, m8dd_tri_v[k], m8dd_tri_i[k], m8dd_tri_g[k], m8dd_tri_n[k] );
             m8dd_note_boxes( k, m8dd_card_box );
         }
         m8dd_fp_stale = 1;
@@ -1561,7 +1565,7 @@ static DWORD m8dd_flip16( M8DD_FLIP *fd )
     m8dd_flush();
     QueryPerformanceCounter( &t1 );
     if( m8dd_tri_n[k] ) {
-        m8d3d_replay( NULL, 0, 0, 0, m8dd_tri_v[k], m8dd_tri_i[k], m8dd_tri_n[k] );
+        m8d3d_replay( NULL, 0, 0, 0, m8dd_tri_v[k], m8dd_tri_i[k], m8dd_tri_g[k], m8dd_tri_n[k] );
         m8dd_fp_stale = 1;
     }
     m8dd_note_boxes( k, m8dd_card_box );
@@ -1982,7 +1986,7 @@ int m8d3d_fill( const RECT *r )
 /* A triangle added to the description of the buffer `lcl` is, or 0 if there is
  * none to keep it. The shown buffer has no description worth keeping: its RAM
  * takes it, and the changed part is sent. */
-int m8d3d_record( LPVOID lcl, const short *v, BYTE index, WORD colour )
+int m8d3d_record( LPVOID lcl, const short *v, BYTE index, WORD colour, const DWORD *rgb )
 {
     int     k = m8dd_buf( lcl );
     int     t;
@@ -2016,6 +2020,9 @@ int m8d3d_record( LPVOID lcl, const short *v, BYTE index, WORD colour )
     }
     m8dd_tri_i[k][n] = index;
     m8dd_tri_c[k][n] = colour;
+    for( t = 0; t < 3; ++t ) {
+        m8dd_tri_g[k][3 * n + t] = rgb[t];
+    }
     return( 1 );
 }
 
