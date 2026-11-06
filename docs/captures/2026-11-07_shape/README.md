@@ -57,3 +57,15 @@ Engine unchanged by the pixel clock: expand 722.6, erase 190.0 at 100 px (S9 clo
 - Pictures `card_*.png`: `M8D3DF ... grab` reads both pages from the card (the bench's lit count is from RAM). Bands, core rectangles at 100 px and turning shapes look whole; both pages agree.
 - Bands are by rows only: a purely horizontal change of colour is drawn as the row's middle colour. Colours are the fixed 5 x 9 x 5 cube, so steps show. Owner's eye still to come.
 - Restart hangs: `M8D3DN` boot 244 did not come back; black screen and egg timer after `M8D3DK`'s second high-priority bench, owner restarted (boot 241). All with the agent on.
+
+## Start frame 2 early (Y1), `M8D3DS`, measuring build, not kept
+
+| | Clear to RenderPrimitive, ms | Ours in it, ms | Flip landed at clear | at RenderPrimitive | of frames |
+|---|---|---|---|---|---|
+| hal_tiny | 2.82 | 1.12 | 4 | 5 | 187 |
+| hal_large | 3.47 | 4.02 (one run, others ~1.1) | 22 | 60 | 107 |
+| hal_many | 6.52 | 3.06 | 25 | 63 | 93 |
+| hal_turn100 | 2.65 | 1.46 | 8 | 23 | 100 |
+| hal_grad | 2.65 | 1.38 | 10 | 42 | 103 |
+
+The CPU already overlaps the wait for the flip to land, so a frame costs about the larger of the CPU's time and the wait, then the engine. `hal_many`'s `d3d` is 9.3 ms and our share ~3: about 6.5 ms is the runtime's, before it calls us.

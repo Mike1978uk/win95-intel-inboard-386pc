@@ -558,7 +558,7 @@ Open ideas, not yet measured:
 
 | # | Idea | Why it might pay | Probe |
 |---|---|---|---|
-| Y1 | **Start frame 2 before frame 1 lands (owner).** Erase or draw the hidden page in the program's own CPU time. FIFO holds ~2 commands, so many boxes block but one long fill does not | Overlaps the engine with DirectX's 3-9 ms | One union-box erase from RenderPrimitive once the flip has landed |
+| Y1 | **Start frame 2 before frame 1 lands (owner).** Erase or draw the hidden page in the program's own CPU time | **Measured, card, `M8D3DS`: little to gain with two pages.** The hidden page is on screen until the flip lands: landed at the program's clear in 2-27 % of frames, at RenderPrimitive in 2-68 %. DirectX does most of its work before RenderPrimitive, so the window left is our own 1-3 ms. Best case ~2 ms of 32 on `hal_many`, ~0.5 ms on `hal_large`. Waiting at the clear loses the CPU's overlap with the wait, which it already has. A third page frees the erase, but costs the room stamps and masks use | Not built. Reopen only with a third page that keeps stamps |
 | Y2 | Third page, pitch 640 | No wait on a late frame; needs low and high CRT_OFFSET writes, 198 rows of scratch | M8PAGE variant |
 | Y3 | Refresh as a free parameter (the screen is an LCD, not a CRT): 60, 56 or 72 Hz chosen to fit the frame | A frame of 15-17 ms shows at its own rate | Register row, FB bench |
 | Y4 | Padded mask, BKGD black: one expand erases and draws (subagent, inference) | Saves ~74 us a small triangle | M8SHAPE arm |
