@@ -31,6 +31,15 @@ The two agent-running builds differ by more than V10; compare `high` with `high`
 
 **Second card hang, boot 227, owner rebooted:** with-agent disk list `AGDISK`, started by the agent 13:33, on the desktop in `PAGETIME` with Word, Paint and PSP open. Mouse dead, ping dead by 13:50. The same list with the agent off finished on `M8D3D8` that morning. V10's page code was not active, but the build was `M8D3D9`.
 
+**`M8D3DA` (V6, V19, V5 on V10), boot 230, agent running, second pair of `v10a`, `v10b` in the log:** md5 `M8DISP.DRV` 7056185233f2ef7b5ded7e05c3559001, `M8DD32.DLL` 7c51fe70119bd54e4a8f66eb7373bbd8. Owner: small triangles a little stuttery; mid, large and many smoother.
+
+| fps | hal_tiny | hal_small | hal_large | hal_static | hal_colour | hal_many |
+|---|---|---|---|---|---|---|
+| `M8D3D9` | 23.6-24.3 | 44.1-46.4 | 19.0-23.2 | 171-185 | 28.5-36.4 | 15.3-16.6 |
+| `M8D3DA` | 30.8-32.2 | 28.5-33.9 | 24.2-29.5 | 182-186 | 28.0-51.5 | 17.6-18.8 |
+
+Spread between runs is as large as most differences. `hal_tiny` runs first after the mode set: its clear is 11-13 ms and worst frame 350-377 ms, against 1-4 ms clears later, and the spin just before it loses 26-44 %. So its stutter may belong to its position, not its size. Test: run it again later in the same session.
+
 **Not settled:** V10 agent-free.
 
 **Bed:** `vm_5160_mcp`, driver loaded and ran with 0 bad frames, lit counts as the card. Too slow to exercise the page wait, so the card is the test. The bed's image backup is `vm_5160_mcp/card.img.pre_v10`.

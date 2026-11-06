@@ -456,8 +456,8 @@ A cheaper agent can run the prescribed benches and probes; diagnosis and engine 
 | V8a | A frame identical to the card's draws nothing | IN: hal_static 42 to 96-152 fps |
 | - | USER call per triangle removed | OUT as a cost: no change; kept out anyway |
 | V16 | The black clear's 5-35 ms | CLOSED: other threads, not the clear (V24). 0.8-1.4 ms with the agent stopped |
-| V5 | Scratch clear without an idle wait | OPEN |
-| V6 | Spans for small triangles | OPEN |
+| V5 | Scratch clear without an idle wait | Built, `M8D3DA`; gain not separable with the agent running |
+| V6 | Spans for small triangles | Built, `M8D3DA`, up to 14 rows; `hal_tiny` engine ~11 to ~9 ms, agent running |
 | V7 | Coplanar triangles joined into one polygon | OPEN |
 | V8b | Per-triangle reuse when only some moved | OPEN |
 | V9 | Background and repeated tiles in card memory | OPEN |
@@ -469,7 +469,7 @@ A cheaper agent can run the prescribed benches and probes; diagnosis and engine 
 | V15 | Shape cache: same outline and colour, keyed copy | OPEN |
 | V17 | **Shade and hue split:** low 4 bits shade, high 4 hue; a face's colour is one fill with WRT_MASK F0h; light changes are DAC writes (owner: same gradient, different colour). Masked-write cost unknown (WRITE_PER_BIT = 0) | OPEN, probe first |
 | V18 | **High-byte-only writes:** one low-byte latch, the odd byte commits; ~5.7 against 7.64 us on the bus, so order writes to share low bytes (owner: words and bytes, as XT-CF; P13) | OPEN, probe first |
-| V19 | **Fewer status reads:** a read costs what a write does; a triangle does 3-4; wait on known engine time (XT-CF's measured waits; O15). A full FIFO locks the card, so a table first | OPEN |
+| V19 | **Fewer status reads:** a read costs what a write does; a triangle does 3-4; wait on known engine time (XT-CF's measured waits; O15). A full FIFO locks the card, so a table first | Built, `M8D3DA`: room counted, read only when spent. No lock in two runs |
 | V20 | Triangle arrays sized sensibly: tens of KB for 512 a buffer | OPEN; RAM, not speed |
 | V21 | Engine as decompressor: fills as run length, mono expansion 8:1, copies as a dictionary (owner: compression on the card; G9, O8). The card has no CPU, so LZ4 itself is OUT | OPEN, for textures and video |
 | V22 | Patched D3DIM beside a program for 8 bpp | IN: works on the bed and card, stock system DirectX |
