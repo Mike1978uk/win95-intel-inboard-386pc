@@ -326,6 +326,7 @@ like a timer tick (~170 us measured for #45). Ideas, cheapest first - measure be
 - [ ] **X8** DOS timing: VGA-memory writes vs PIX_TRANS on the 5160 (sizes X1 and the 3D options).
 - [ ] **X9 Frame rates, RAM and paging:** "Order of work (2026-11-06)" in `docs/mach8_frame_rate_plan.md`: agent-free runs,
       driver RAM, paging, XT-CF, frame-rate levers, textures.
+      V10 (11-06): in by the owner's eye (black overlaps gone). Stutter: small frames over 13.85 ms lock at 36 fps. Card hang (boot 226) still open. `docs/captures/2026-11-06_v10/README.md`; VGA half: `docs/mach8_vga_half_findings_2026_11_06.md`.
 
 ## E. Timer, refresh, XT-CF (in flight)
 

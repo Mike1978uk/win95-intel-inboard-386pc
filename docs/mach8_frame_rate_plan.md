@@ -219,6 +219,8 @@ a RAM shadow over PIX_TRANS (D7); VRAM as swap; drawing the pointer into the fb1
 alone, and compiler flags; RefreshRate keys, SciTech linear mapping, DDC, ignoring WAIT flags, our own mini-VDD
 for speed. MACH.DRV's "aperture" is the VGA half's A000 window, not 8514 memory.
 
+Reopened 2026-11-06 for test only: the 128 KB window (BDh bit 2 never written) and "VGA half cannot flip" (no source). See docs/mach8_vga_half_findings_2026_11_06.md.
+
 ## Dropped items recovered (owner and contributors first)
 
 - Owner (11-01): asm for the hot path of every one of the 35 GDI tests, nearest-1.0x first, benched twice.
@@ -473,6 +475,11 @@ A cheaper agent can run the prescribed benches and probes; diagnosis and engine 
 | V22 | Patched D3DIM beside a program for 8 bpp | IN: works on the bed and card, stock system DirectX |
 | V23 | 8 bpp mode as an option, by display depth | OPEN; a bench decides if it earns its place |
 | V24 | Background threads | IN: the V9x agent, not delivered with the driver, takes up to half the CPU; stopped, hal_tiny 70 fps at normal priority. Systray and Internat no measurable cost; `high` not needed |
+| V25 | **Fill colour from elsewhere:** DP_CONFIG 6213h (VRAM colour, mask in plane 7), A213h (colour pattern), E213h (source 7 lookup); gradients and textures near flat-triangle cost. Findings: `docs/mach8_vga_half_findings_2026_11_06.md` | OPEN; probe M8GRAD built, unrun |
+| V26 | **Field-confined arithmetic:** masked planes drop out of the ALU, so saturating add or subtract acts on only the shade field in one pass (`references/ati_mach32/guide.txt:11284-90`) | OPEN; unprobed |
+| V27 | **BG_COLOR_SRC** (DP_CONFIG bits 8:7), absent from this plan | OPEN; unprobed |
+| V28 | **VGA half for Mode X:** latch copies (M8LATCH), page flip (M8VFLIP; "cannot flip" has no source), BDh bit 2 128 KB window (M8W128) | OPEN; built, unrun |
+| V29 | **MEM_BNDRY write test on the Mach8** (M8BNDRY). Expected no effect; closes a closure that rested on the Mach32 guide alone | OPEN; built, unrun |
 | C1 | Mean of corner colours | Built on `M8D3D5`; dxdiag video pending |
 | C2 | Adaptive palette | OPEN |
 | C3 | Gradient bands, `COLORGOURAUDRGB` | OPEN; required (owner) |

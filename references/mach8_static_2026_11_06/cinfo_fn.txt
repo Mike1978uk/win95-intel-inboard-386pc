@@ -1,0 +1,893 @@
+0 push bp
+1 mov bp, sp
+3 mov ax, 0x2c2   ; "is set to level 5"
+6 lcall 0x2a2, 0x2fc
+b push si
+c mov word ptr [bp - 0x76], 0
+11 cmp word ptr [bp + 6], 1
+15 jbe 0x32
+17 mov ax, 0x22c   ; "x"
+1a push ax
+1b mov bx, word ptr [bp + 8]
+1e push word ptr [bx + 2]
+21 lcall 0x2a2, 0x1da0
+26 add sp, 4
+29 or ax, ax
+2b jne 0x32
+2d mov ax, 1
+30 jmp 0x34
+32 sub ax, ax
+34 mov word ptr [bp - 0x15e], ax
+38 mov byte ptr [bp - 0x71], 0x30
+3c lea ax, [bp - 0x86]
+40 push ax
+41 lea ax, [bp - 0x72]
+44 push ax
+45 lcall 0x2a2, 0x1ff2
+4a add sp, 4
+4d mov ax, word ptr [bp - 0x86]
+51 mov word ptr [0x1e14], ax
+54 mov al, byte ptr [0x1e14]
+57 sub ah, ah
+59 mov word ptr [bp - 0xd8], ax
+5d mov ax, word ptr [0x1e14]
+60 mov cl, 8
+62 sar ax, cl
+64 mov word ptr [bp - 0x5c], ax
+67 cmp word ptr [bp - 0xd8], 0xa
+6c jb 0x95
+6e mov ax, 0x22e   ; "OS/2"
+71 push ax
+72 lea ax, [bp - 0x56]
+75 push ax
+76 lcall 0x2a2, 0x1d6e
+7b add sp, 4
+7e mov word ptr [bp - 0x2be], 1
+84 mov cx, 0xa
+87 mov ax, word ptr [bp - 0xd8]
+8b sub dx, dx
+8d div cx
+8f mov word ptr [bp - 0xd8], ax
+93 jmp 0xab
+95 mov ax, 0x233   ; "DOS"
+98 push ax
+99 lea ax, [bp - 0x56]
+9c push ax
+9d lcall 0x2a2, 0x1d6e
+a2 add sp, 4
+a5 mov word ptr [bp - 0x2be], 0
+ab lcall 0x219, 0xc
+b0 lcall 0x19f, 8
+b5 lcall 0x1f1, 0xa
+ba or ax, ax
+bc je 0xcc
+be mov word ptr [bp - 0x15a], 1
+c4 mov word ptr [0x195c], 1
+ca jmp 0xd8
+cc mov word ptr [bp - 0x15a], 0
+d2 mov word ptr [0x195c], 0
+d8 sub ax, ax
+da push ax
+db push word ptr [0x1d88]
+df lcall 0x2a2, 0x14
+e4 add sp, 4
+e7 cmp ax, 0xaa55
+ea je 0xf4
+ec mov byte ptr [0x1e0e], 0
+f1 jmp 0x2e4
+f4 mov ax, 0x52ee
+f7 push ax
+f8 lcall 0x2a2, 0x205a
+fd add sp, 2
+100 and ax, 0x7f
+103 mov cl, 7
+105 shl ax, cl
+107 add ah, 0xc0
+10a mov word ptr [bp - 0x158], ax
+10e push ax
+10f push cs
+110 call 0x1805
+113 add sp, 2
+116 or ax, ax
+118 jne 0x143
+11a mov ax, 0x40
+11d push ax
+11e push word ptr [bp - 0x158]
+122 lcall 0x2a2, 0x14
+127 add sp, 4
+12a cmp ax, 0x3133
+12d jne 0x143
+12f mov ax, 0x44
+132 push ax
+133 push word ptr [bp - 0x158]
+137 lcall 0x2a2, 0x28
+13c add sp, 4
+13f test al, 0x40
+141 je 0x16d
+143 mov ax, 0xef6   ; "1.20"
+146 push ax
+147 mov ax, 0x237   ; "Video Technical Information Program Version %s
+
+"
+14a push ax
+14b mov ax, 0x12a0
+14e push ax
+14f lcall 0x2a2, 0x75a
+154 add sp, 6
+157 mov ax, 0x268   ; "This is not a Compatible Display Card
+"
+15a push ax
+15b mov ax, 0x12a0
+15e push ax
+15f lcall 0x2a2, 0x75a
+164 add sp, 4
+167 mov ax, 1
+16a jmp 0x118f
+16d push cs
+16e call 0x134d
+171 mov word ptr [0x1930], ax
+174 mov al, byte ptr [0x1946]
+177 mov byte ptr [0x1e0e], al
+17a cmp al, 0x32
+17c jne 0x19d
+17e lcall 0x273, 4
+183 mov cx, 0x3c2
+186 push cx
+187 mov si, ax
+189 lcall 0x2a2, 0x205a
+18e add sp, 2
+191 mov cl, 4
+193 shl ax, cl
+195 or ax, si
+197 mov word ptr [0x1956], ax
+19a jmp 0x2e4
+19d cmp byte ptr [0x1e0e], 0x33
+1a2 je 0x1a7
+1a4 jmp 0x2e4
+1a7 mov al, byte ptr [0x1948]
+1aa mov byte ptr [0x1d8c], al
+1ad mov ax, 0x3da   ; "Graphics Vantage"
+1b0 push ax
+1b1 lcall 0x2a2, 0x205a
+1b6 add sp, 2
+1b9 mov ax, 0x3ba   ; "A"
+1bc push ax
+1bd lcall 0x2a2, 0x205a
+1c2 add sp, 2
+1c5 sub ax, ax
+1c7 push ax
+1c8 mov ax, 0x3c0   ; "hics ULTRA"
+1cb push ax
+1cc lcall 0x2a2, 0x2068
+1d1 add sp, 4
+1d4 cmp word ptr [bp - 0x15a], 0
+1d9 jne 0x1de
+1db jmp 0x2e4
+1de push cs
+1df call 0x1592
+1e2 lcall 0x1f1, 0xcf
+1e7 mov word ptr [0x1512], ax
+1ea or ax, ax
+1ec je 0x1f3
+1ee lcall 0x1f1, 0x101
+1f3 mov ax, 0x1652
+1f6 push ax
+1f7 mov ax, 0xa
+1fa push ax
+1fb lcall 0x19f, 0x1bc
+200 add sp, 4
+203 mov word ptr [0x1934], 1
+209 sub ax, ax
+20b push ax
+20c lcall 0x243, 0x4a
+211 add sp, 2
+214 mov word ptr [0x1d8e], ax
+217 mov ax, 3
+21a push ax
+21b lcall 0x243, 0x4a
+220 add sp, 2
+223 mov word ptr [0x1d94], ax
+226 mov ax, 2
+229 push ax
+22a lcall 0x243, 0x4a
+22f add sp, 2
+232 mov word ptr [0x1d92], ax
+235 mov ax, 1
+238 push ax
+239 lcall 0x243, 0x4a
+23e add sp, 2
+241 mov word ptr [0x1d90], ax
+244 mov ax, 5
+247 push ax
+248 lcall 0x243, 0x4a
+24d add sp, 2
+250 mov word ptr [bp - 0x15c], ax
+254 cmp word ptr [bp - 0x2be], 0
+259 je 0x25e
+25b jmp 0x2e4
+25e mov ax, 0xfd
+261 push ax
+262 mov ax, 0x1c4   ; "000"
+265 push ax
+266 lcall 0x186, 0x29
+26b add sp, 4
+26e or ax, ax
+270 jne 0x285
+272 mov ax, 0x28f   ; "
+IRQ is set to level 2"
+275 push ax
+276 lea ax, [bp - 0x2bc]
+27a push ax
+27b lcall 0x2a2, 0x1d6e
+280 add sp, 4
+283 jmp 0x2e4
+285 mov ax, 0xff
+288 push ax
+289 mov ax, 0x2c
+28c push ax
+28d lcall 0x186, 0x29
+292 add sp, 4
+295 or ax, ax
+297 jne 0x2ac
+299 mov ax, 0x2a6   ; "
+IRQ is set to level 3"
+29c push ax
+29d lea ax, [bp - 0x2bc]
+2a1 push ax
+2a2 lcall 0x2a2, 0x1d6e
+2a7 add sp, 4
+2aa jmp 0x2e4
+2ac mov ax, 0xff
+2af push ax
+2b0 mov ax, 0x34
+2b3 push ax
+2b4 lcall 0x186, 0x29
+2b9 add sp, 4
+2bc or ax, ax
+2be jne 0x2d3
+2c0 mov ax, 0x2bd   ; "
+IRQ is set to level 5"
+2c3 push ax
+2c4 lea ax, [bp - 0x2bc]
+2c8 push ax
+2c9 lcall 0x2a2, 0x1d6e
+2ce add sp, 4
+2d1 jmp 0x2e4
+2d3 mov ax, 0x2d4   ; "
+IRQ jumper is not set"
+2d6 push ax
+2d7 lea ax, [bp - 0x2bc]
+2db push ax
+2dc lcall 0x2a2, 0x1d6e
+2e1 add sp, 4
+2e4 push cs
+2e5 call 0x1713
+2e8 mov ax, 0x63
+2eb push ax
+2ec mov ax, 0x40
+2ef push ax
+2f0 lcall 0x2a2, 0x28
+2f5 add sp, 4
+2f8 and al, 0xf0
+2fa cmp al, 0xb0
+2fc jne 0x30c
+2fe mov ax, 7
+301 push ax
+302 lcall 0x4c8, 0xa
+307 add sp, 2
+30a jmp 0x318
+30c mov ax, 3
+30f push ax
+310 lcall 0x4c8, 0xa
+315 add sp, 2
+318 sub ax, ax
+31a push ax
+31b push cs
+31c call 0x1748
+31f add sp, 2
+322 mov ax, 0x50
+325 push ax
+326 mov ax, 0x40
+329 push ax
+32a lcall 0x2a2, 0x14
+32f add sp, 4
+332 mov word ptr [bp - 0xda], ax
+336 mov ax, 0xef6   ; "1.20"
+339 push ax
+33a mov ax, 0x2eb   ; "Video Technical Information Program Version %s"
+33d push ax
+33e lcall 0x2a2, 0x79e
+343 add sp, 4
+346 mov ax, 0x50
+349 push ax
+34a mov ax, 0x40
+34d push ax
+34e lcall 0x2a2, 0x14
+353 add sp, 4
+356 mov word ptr [bp - 0x156], ax
+35a mov ax, 0x31a   ; "
+
+"
+35d push ax
+35e lcall 0x2a2, 0x79e
+363 add sp, 2
+366 mov ax, word ptr [bp - 0x156]
+36a cmp word ptr [bp - 0xda], ax
+36e jne 0x375
+370 mov ax, 1
+373 jmp 0x377
+375 sub ax, ax
+377 mov word ptr [0x1518], ax
+37a or ax, ax
+37c je 0x392
+37e mov ax, 0xef6   ; "1.20"
+381 push ax
+382 mov ax, 0x31d   ; "Video Technical Information Program Version %s
+
+"
+385 push ax
+386 mov ax, 0x12a0
+389 push ax
+38a lcall 0x2a2, 0x75a
+38f add sp, 6
+392 cmp byte ptr [0x1e0e], 0
+397 jne 0x3a8
+399 mov ax, 0x34e   ; "CGA or MDA installed
+"
+39c push ax
+39d lcall 0x2a2, 0x79e
+3a2 add sp, 2
+3a5 jmp 0x7a9
+3a8 mov ax, 0xc
+3ab push ax
+3ac push word ptr [0x1d88]
+3b0 lcall 0x2a2, 0x14
+3b5 add sp, 4
+3b8 mov word ptr [bp - 0x64], ax
+3bb mov word ptr [bp - 0xda], 0
+3c1 jmp 0x3c7
+3c3 inc word ptr [bp - 0xda]
+3c7 cmp word ptr [bp - 0xda], 0x4b
+3cc jae 0x3ec
+3ce mov ax, word ptr [bp - 0x64]
+3d1 add ax, word ptr [bp - 0xda]
+3d5 push ax
+3d6 push word ptr [0x1d88]
+3da lcall 0x2a2, 0x28
+3df add sp, 4
+3e2 mov bx, word ptr [bp - 0xda]
+3e6 mov byte ptr [bx + 0x1988], al
+3ea jmp 0x3c3
+3ec mov byte ptr [0x19d3], 0
+3f1 mov ax, 0x364   ; "-- VGA Configuration --"
+3f4 push ax
+3f5 lcall 0x2a2, 0x79e
+3fa add sp, 2
+3fd mov ax, word ptr [0x1d88]
+400 mov word ptr [bp - 0x2c2], ax
+404 mov ax, 0x1988
+407 mov word ptr [bp - 0x60], ax
+40a mov word ptr [bp - 0x5e], ds
+40d mov ax, 0x400   ; ""
+410 push ax
+411 push word ptr [bp - 0x60]
+414 push ds
+415 sub ax, ax
+417 push ax
+418 push word ptr [bp - 0x2c2]
+41c lcall 0x2a2, 0x203c
+421 add sp, 0xa
+424 mov ax, 0xa
+427 push ax
+428 mov ax, 0x19d8
+42b push ax
+42c lea ax, [bp - 0x26c]
+430 push ax
+431 lcall 0x2a2, 0x1de8
+436 add sp, 6
+439 mov word ptr [bp - 0xda], 0
+43f jmp 0x445
+441 inc word ptr [bp - 0xda]
+445 cmp word ptr [bp - 0xda], 0xa
+44a jae 0x45e
+44c mov si, word ptr [bp - 0xda]
+450 cmp byte ptr [bp + si - 0x26c], 0x20
+455 jne 0x45c
+457 mov byte ptr [bp + si - 0x26c], 0
+45c jmp 0x441
+45e mov byte ptr [bp - 0x262], 0
+463 mov ax, 0x4d
+466 push ax
+467 push word ptr [bp - 0x158]
+46b lcall 0x2a2, 0x28
+470 add sp, 4
+473 push ax
+474 mov ax, 0x4c
+477 push ax
+478 push word ptr [bp - 0x158]
+47c lcall 0x2a2, 0x28
+481 add sp, 4
+484 push ax
+485 mov ax, 0x37c   ; "BIOS Rev %x.%x"
+488 push ax
+489 lea ax, [bp - 0x104]
+48d push ax
+48e lcall 0x2a2, 0x1f98
+493 add sp, 8
+496 mov ax, 0x12ee
+499 push ax
+49a lcall 0x2a2, 0x21b8
+49f add sp, 2
+4a2 mov word ptr [bp - 0x62], ax
+4a5 mov ax, 0x16ee
+4a8 push ax
+4a9 lcall 0x2a2, 0x21b8
+4ae add sp, 2
+4b1 mov word ptr [bp - 0x78], ax
+4b4 cmp word ptr [0x1512], 0
+4b9 jne 0x4fd
+4bb test byte ptr [bp - 0x62], 0x10
+4bf je 0x4df
+4c1 test byte ptr [bp - 0x62], 0x60
+4c5 je 0x4cc
+4c7 mov ax, 0x38b   ; "Graphics Vantage"
+4ca jmp 0x4cf
+4cc mov ax, 0x39c   ; "Graphics Vantage"
+4cf push ax
+4d0 lea ax, [bp - 0x154]
+4d4 push ax
+4d5 lcall 0x2a2, 0x1d6e
+4da add sp, 4
+4dd jmp 0x4fb
+4df test byte ptr [bp - 0x62], 0x60
+4e3 je 0x4ea
+4e5 mov ax, 0x3ad   ; "Graphics ULTRA"
+4e8 jmp 0x4ed
+4ea mov ax, 0x3bc   ; "Graphics ULTRA"
+4ed push ax
+4ee lea ax, [bp - 0x154]
+4f2 push ax
+4f3 lcall 0x2a2, 0x1d6e
+4f8 add sp, 4
+4fb jmp 0x533
+4fd mov ax, 0x12ee
+500 push ax
+501 lcall 0x2a2, 0x21b8
+506 add sp, 2
+509 and al, 0x30
+50b cmp al, 0x10
+50d jne 0x522
+50f mov ax, 0x3cb   ; "Graphics ULTRA"
+512 push ax
+513 lea ax, [bp - 0x154]
+517 push ax
+518 lcall 0x2a2, 0x1d6e
+51d add sp, 4
+520 jmp 0x533
+522 mov ax, 0x3da   ; "Graphics Vantage"
+525 push ax
+526 lea ax, [bp - 0x154]
+52a push ax
+52b lcall 0x2a2, 0x1d6e
+530 add sp, 4
+533 mov ax, word ptr [bp - 0x64]
+536 add ax, 2
+539 push ax
+53a push word ptr [0x1d88]
+53e lcall 0x2a2, 0x28
+543 add sp, 4
+546 cmp ax, 0x20
+549 jne 0x5b0
+54b mov ax, 0x3eb   ; "BIOS"
+54e push ax
+54f mov ax, 0x100
+552 push ax
+553 mov ax, 0x1988
+556 push ax
+557 push cs
+558 call 0x1643
+55b add sp, 6
+55e mov word ptr [bp - 0xdc], ax
+562 or ax, ax
+564 je 0x5ae
+566 mov ax, 0x32
+569 push ax
+56a push word ptr [bp - 0xdc]
+56e lea ax, [bp - 0x25e]
+572 push ax
+573 lcall 0x2a2, 0x211e
+578 add sp, 6
+57b mov ax, 0xd
+57e push ax
+57f lea ax, [bp - 0x25e]
+583 push ax
+584 lcall 0x2a2, 0x2076
+589 add sp, 4
+58c mov word ptr [bp - 0x5a], ax
+58f mov bx, ax
+591 mov byte ptr [bx], 0
+594 lea ax, [bp - 0x25e]
+598 push ax
+599 lea ax, [bp - 0x154]
+59d push ax
+59e mov ax, 0x3f0   ; "ATI %s, %s"
+5a1 push ax
+5a2 lea ax, [bp - 0x50]
+5a5 push ax
+5a6 lcall 0x2a2, 0x1f98
+5ab add sp, 8
+5ae jmp 0x62f
+5b0 mov ax, 0x100
+5b3 push ax
+5b4 mov ax, 0x1988
+5b7 push ax
+5b8 lea ax, [bp - 0x25e]
+5bc push ax
+5bd lcall 0x2a2, 0x211e
+5c2 add sp, 6
+5c5 lea ax, [bp - 0x25e]
+5c9 add ax, word ptr [bp - 0x64]
+5cc add ax, 2
+5cf mov word ptr [bp - 0xdc], ax
+5d3 mov ax, 0xd
+5d6 push ax
+5d7 push word ptr [bp - 0xdc]
+5db lcall 0x2a2, 0x2076
+5e0 add sp, 4
+5e3 mov word ptr [bp - 0x5a], ax
+5e6 mov bx, ax
+5e8 mov byte ptr [bx], 0
+5eb mov ax, 0x3fb   ; "TAXAN"
+5ee push ax
+5ef push word ptr [bp - 0xdc]
+5f3 lcall 0x2a2, 0x20c2
+5f8 add sp, 4
+5fb or ax, ax
+5fd jne 0x615
+5ff push word ptr [bp - 0xdc]
+603 mov ax, 0x401   ; "%s"
+606 push ax
+607 lea ax, [bp - 0x50]
+60a push ax
+60b lcall 0x2a2, 0x1f98
+610 add sp, 6
+613 jmp 0x62f
+615 lea ax, [bp - 0x104]
+619 push ax
+61a lea ax, [bp - 0x154]
+61e push ax
+61f mov ax, 0x404   ; "%s, %s"
+622 push ax
+623 lea ax, [bp - 0x50]
+626 push ax
+627 lcall 0x2a2, 0x1f98
+62c add sp, 8
+62f lea ax, [bp - 0x26c]
+633 push ax
+634 lea ax, [bp - 0x50]
+637 push ax
+638 mov ax, 0x40b   ; "
+%s ( %s )"
+63b push ax
+63c lea ax, [bp - 0x154]
+640 push ax
+641 lcall 0x2a2, 0x1f98
+646 add sp, 8
+649 lea ax, [bp - 0x154]
+64d push ax
+64e lcall 0x2a2, 0x79e
+653 add sp, 2
+656 lcall 0x1db, 0x124
+65b mov word ptr [bp - 0x74], ax
+65e cmp word ptr [0x1512], 0
+663 jne 0x6a7
+665 cmp ax, 2
+668 jne 0x678
+66a mov ax, 0x416   ; "
+With 1M"
+66d push ax
+66e lcall 0x2a2, 0x79e
+673 add sp, 2
+676 jmp 0x698
+678 cmp word ptr [bp - 0x74], 1
+67c jne 0x68c
+67e mov ax, 0x41f   ; "
+With 512K"
+681 push ax
+682 lcall 0x2a2, 0x79e
+687 add sp, 2
+68a jmp 0x698
+68c mov ax, 0x42a   ; "
+With 256K"
+68f push ax
+690 lcall 0x2a2, 0x79e
+695 add sp, 2
+698 mov ax, 0x435   ; " Video Memory installed
+"
+69b push ax
+69c lcall 0x2a2, 0x79e
+6a1 add sp, 2
+6a4 jmp 0x76d
+6a7 mov ax, 0x36ee
+6aa push ax
+6ab lcall 0x2a2, 0x21b8
+6b0 add sp, 2
+6b3 and ax, 0xc
+6b6 jmp 0x717
+6b8 mov ax, 0x44e   ; "512K"
+6bb push ax
+6bc lea ax, [bp - 0xd6]
+6c0 push ax
+6c1 lcall 0x2a2, 0x1d6e
+6c6 add sp, 4
+6c9 jmp 0x72c
+6cb mov ax, 0x453   ; "1M"
+6ce push ax
+6cf lea ax, [bp - 0xd6]
+6d3 push ax
+6d4 lcall 0x2a2, 0x1d6e
+6d9 add sp, 4
+6dc jmp 0x72c
+6de mov ax, 0x456   ; "2M"
+6e1 push ax
+6e2 lea ax, [bp - 0xd6]
+6e6 push ax
+6e7 lcall 0x2a2, 0x1d6e
+6ec add sp, 4
+6ef jmp 0x72c
+6f1 mov ax, 0x459   ; "4M"
+6f4 push ax
+6f5 lea ax, [bp - 0xd6]
+6f9 push ax
+6fa lcall 0x2a2, 0x1d6e
+6ff add sp, 4
+702 jmp 0x72c
+704 mov ax, 0x45c   ; "Unknown"
+707 push ax
+708 lea ax, [bp - 0xd6]
+70c push ax
+70d lcall 0x2a2, 0x1d6e
+712 add sp, 4
+715 jmp 0x72c
+717 or ax, ax
+719 je 0x6b8
+71b cmp ax, 4
+71e je 0x6cb
+720 cmp ax, 8
+723 je 0x6de
+725 cmp ax, 0xc
+728 je 0x6f1
+72a jmp 0x704
+72c mov ax, 0x12ee
+72f push ax
+730 lcall 0x2a2, 0x21b8
+735 add sp, 2
+738 and al, 0x30
+73a cmp al, 0x10
+73c jne 0x743
+73e mov ax, 0x464   ; "VRAM"
+741 jmp 0x746
+743 mov ax, 0x469   ; "DRAM"
+746 push ax
+747 lea ax, [bp - 0xd6]
+74b push ax
+74c mov ax, 0x46e   ; "
+With %s of %s memory on board"
+74f push ax
+750 lcall 0x2a2, 0x79e
+755 add sp, 6
+758 mov ax, 0x100
+75b mov cl, byte ptr [bp - 0x74]
+75e shl ax, cl
+760 push ax
+761 mov ax, 0x48d   ; " (%dK assigned to VGA)
+"
+764 push ax
+765 lcall 0x2a2, 0x79e
+76a add sp, 4
+76d cmp word ptr [0x1930], 0
+772 je 0x778
+774 push cs
+775 call 0x146d
+778 mov ax, word ptr [bp - 0x2c2]
+77c mov word ptr [bp - 0x76], ax
+77f mov ax, 0x10
+782 push ax
+783 lea ax, [bp - 0xd6]
+787 push ax
+788 push word ptr [bp - 0x76]
+78b lcall 0x2a2, 0x1e4a
+790 add sp, 6
+793 push ax
+794 lcall 0x2a2, 0x20a0
+799 add sp, 2
+79c push ax
+79d mov ax, 0x4a5   ; "ROM found at %s0h
+"
+7a0 push ax
+7a1 lcall 0x2a2, 0x79e
+7a6 add sp, 4
+7a9 cmp word ptr [bp - 0x15a], 0
+7ae jne 0x7c6
+7b0 mov ax, 0x4b8   ; "
+
+			8514 Section is not detected
+
+"
+7b3 push ax
+7b4 mov ax, 0x12a0
+7b7 push ax
+7b8 lcall 0x2a2, 0x75a
+7bd add sp, 4
+7c0 mov ax, 1
+7c3 jmp 0x118f
+7c6 cmp word ptr [0x1512], 0
+7cb je 0x7f6
+7cd mov ax, 0x12ee
+7d0 push ax
+7d1 lcall 0x2a2, 0x21b8
+7d6 add sp, 2
+7d9 and al, 0x30
+7db cmp al, 0x10
+7dd je 0x7e4
+7df mov ax, 0x4dd   ; "Vantage"
+7e2 jmp 0x7e7
+7e4 mov ax, 0x4e5   ; "ULTRA"
+7e7 push ax
+7e8 mov ax, 0x4eb   ; "
+-- %s Configuration --"
+7eb push ax
+7ec lcall 0x2a2, 0x79e
+7f1 add sp, 4
+7f4 jmp 0x811
+7f6 test byte ptr [bp - 0x62], 0x10
+7fa je 0x801
+7fc mov ax, 0x503   ; "Vantage"
+7ff jmp 0x804
+801 mov ax, 0x50b   ; "ULTRA"
+804 push ax
+805 mov ax, 0x511   ; "
+-- %s Configuration --"
+808 push ax
+809 lcall 0x2a2, 0x79e
+80e add sp, 4
+811 cmp word ptr [0x1512], 0
+816 jne 0x81b
+818 jmp 0x927
+81b mov ax, 0x16ee
+81e push ax
+81f lcall 0x2a2, 0x21b8
+824 add sp, 2
+827 test al, 1
+829 je 0x830
+82b mov ax, 0x10
+82e jmp 0x833
+830 mov ax, 8
+833 push ax
+834 mov ax, 0x529   ; "
+%d bit bus operation"
+837 push ax
+838 lcall 0x2a2, 0x79e
+83d add sp, 4
+840 mov ax, 0x12ee
+843 push ax
+844 lcall 0x2a2, 0x21b8
+849 add sp, 2
+84c and ax, 0xe
+84f jmp 0x8ed
+852 mov ax, 0x53f   ; "ISA"
+855 push ax
+856 lea ax, [bp - 0xd6]
+85a push ax
+85b lcall 0x2a2, 0x1d6e
+860 add sp, 4
+863 jmp 0x914
+866 mov ax, 0x543   ; "EISA"
+869 push ax
+86a lea ax, [bp - 0xd6]
+86e push ax
+86f lcall 0x2a2, 0x1d6e
+874 add sp, 4
+877 jmp 0x914
+87a mov ax, 0x548   ; "Microchannel (16 Bit)"
+87d push ax
+87e lea ax, [bp - 0xd6]
+882 push ax
+883 lcall 0x2a2, 0x1d6e
+888 add sp, 4
+88b jmp 0x914
+88e mov ax, 0x55e   ; "Microchannel (8 Bit)"
+891 push ax
+892 lea ax, [bp - 0xd6]
+896 push ax
+897 lcall 0x2a2, 0x1d6e
+89c add sp, 4
+89f jmp 0x914
+8a1 mov ax, 0x573   ; "Local Bus (386 SX)"
+8a4 push ax
+8a5 lea ax, [bp - 0xd6]
+8a9 push ax
+8aa lcall 0x2a2, 0x1d6e
+8af add sp, 4
+8b2 jmp 0x914
+8b4 mov ax, 0x586   ; "Local Bus (386 DX)"
+8b7 push ax
+8b8 lea ax, [bp - 0xd6]
+8bc push ax
+8bd lcall 0x2a2, 0x1d6e
+8c2 add sp, 4
+8c5 jmp 0x914
+8c7 mov ax, 0x599   ; "Local Bus (486)"
+8ca push ax
+8cb lea ax, [bp - 0xd6]
+8cf push ax
+8d0 lcall 0x2a2, 0x1d6e
+8d5 add sp, 4
+8d8 jmp 0x914
+8da mov ax, 0x5a9   ; "Unknown"
+8dd push ax
+8de lea ax, [bp - 0xd6]
+8e2 push ax
+8e3 lcall 0x2a2, 0x1d6e
+8e8 add sp, 4
+8eb jmp 0x914
+8ed cmp ax, 0xc
+8f0 ja 0x8da
+8f2 add ax, ax
+8f4 xchg bx, ax
+8f5 jmp word ptr cs:[bx + 0x8fa]
+8fa push dx
+8fb or dl, bl
+8fd or byte ptr [bp + 8], ah
+900 fimul dword ptr [bx + si]
+902 jp 0x90c
+904 fimul dword ptr [bx + si]
+906 mov cs, word ptr [bx + si]
+908 fimul dword ptr [bx + si]
+90a mov ax, word ptr [0xda08]
+90d or byte ptr [si - 0x25f8], dh
+911 or bh, al
+913 or byte ptr [di + 0x2a86], cl
+917 call word ptr [bx + si - 0x48]
+91a mov cl, 5
+91c push ax
+91d lcall 0x2a2, 0x79e
+922 add sp, 4
+925 jmp 0x987
+927 test byte ptr [bp - 0x62], 2
+92b je 0x932
+92d mov ax, 0x10
+930 jmp 0x935
+932 mov ax, 8
+935 push ax
+936 mov ax, 0x5c1   ; "
+%d bit bus operation"
+939 push ax
+93a lcall 0x2a2, 0x79e
+93f add sp, 4
+942 test byte ptr [bp - 0x62], 4
+946 je 0x94d
+948 mov ax, 0x5d7   ; "MicroChannel"
+94b jmp 0x950
+94d mov ax, 0x5e4   ; "(E)ISA"
+950 push ax
+951 mov ax, 0x5eb   ; "
+Bus type is %s"
+954 push ax
+955 lcall 0x2a2, 0x79e
+95a add sp, 4
+95d test byte ptr [bp - 0x62], 0x10
+961 je 0x968
+963 mov ax, 0x5fb   ; "DRAM"
+966 jmp 0x96b
+968 mov ax, 0x600   ; "VRAM"
+96b push ax
+96c test byte ptr [bp - 0x62], 0x60
+970 je 0x977
+972 mov ax, 0x605   ; "1M"
+975 jmp 0x97a
+977 mov ax, 0x608   ; "512K"
+97a push ax
+97b mov ax, 0x60d   ; "
+%s of %s memory on board"
+97e push ax
