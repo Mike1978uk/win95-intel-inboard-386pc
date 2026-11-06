@@ -110,17 +110,28 @@ static void show( int page )
     outpw( CRT_OFFSET_HI, page ? PAGE1_OFFSET_HI : 0 );
 }
 
-/* The latch holds through the blank, so it is read every ~90 us, not back to back: a tight
- * loop would keep the bus from the Sound Blaster's DMA and the XT-CF for up to a frame. */
-static void wait_blank( void )
+/* About 90 us between reads: a tight loop would keep the bus from the Sound Blaster's DMA
+ * and the XT-CF for up to a frame. */
+static void pace( void )
 {
-    double          t0 = now();
     volatile int    i;
 
-    outpw( SUBSYS_CNTL, 0x0001 );
+    for( i = 0; i < 200; ++i ) {
+    }
+}
+
+/* Until the start of a blank. The latch sets again after an acknowledge for as long as the
+ * blank lasts, so a wait begun inside one must first see the latch stay clear. */
+static void wait_blank( void )
+{
+    double  t0 = now();
+
+    do {
+        outpw( SUBSYS_CNTL, 0x0001 );
+        pace();
+    } while( (inpw( SUBSYS_STAT ) & 1) && ms_since( t0 ) < 40.0 );
     while( !(inpw( SUBSYS_STAT ) & 1) && ms_since( t0 ) < 40.0 ) {
-        for( i = 0; i < 200; ++i ) {
-        }
+        pace();
     }
 }
 
@@ -214,7 +225,8 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show_cmd )
     show( 0 );
     stage_boxes( 3 );
     frame = frame_ms();
-    fprintf( out, "frame %.3f ms, %.1f Hz\n", frame, 1000.0 / frame );
+    fprintf( out, "frame %.3f ms, %.1f Hz%s\n", frame, 1000.0 / frame,
+             (frame < 10.0 || frame > 25.0) ? "  IMPLAUSIBLE: stages 3-5 are not valid" : "" );
     fflush( out );
     t0 = now();
     n = 0;
