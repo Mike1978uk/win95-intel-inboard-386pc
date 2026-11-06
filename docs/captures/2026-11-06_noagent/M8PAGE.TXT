@@ -1,0 +1,8 @@
+== M8PAGE  ddraw 00000000
+coop 00000000
+setmode 00000000
+two offset writes 0.142 ms
+frame 1.553 ms, 643.8 Hz
+stage 5 worst time before the write back 3.34 ms
+done
+

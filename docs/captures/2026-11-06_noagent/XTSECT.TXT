@@ -1,0 +1,54 @@
+XTSECT base, drive C:, 500 reads, start 20000, stride 37, QPC 1193180 Hz
+  pass  sectors/read  us/read(mean)  min  max  us/sector
+     1             1          13727  9964  278209      13727
+     1             8          22129  10785  86212       2766
+     2             1          11975  9966  105248      11975
+     2             8          21931  10783  100969       2741
+     3             1          12161  9964  225112      12161
+     3             8          22273  10787  151196       2784
+
+XTSECT base, drive C:, 500 reads, start 20000, stride 37, QPC 1193180 Hz
+  pass  sectors/read  us/read(mean)  min  max  us/sector
+     1             1          13063  9981  174783      13063
+     1             8          22404  10792  167484       2800
+     2             1          11959  9975  91226      11959
+     2             8          21941  10792  88780       2742
+     3             1          11813  9979  66518      11813
+     3             8          22498  10778  331611       2812
+
+XTSECT base, drive C:, 500 reads, start 20000, stride 37, QPC 1193180 Hz
+  pass  sectors/read  us/read(mean)  min  max  us/sector
+     1             1          13617  9976  129109      13617
+     1             8          21960  10787  82935       2745
+     2             1          12194  9975  146381      12194
+     2             8          22055  10785  161683       2756
+     3             1          11663  9989  68779      11663
+     3             8          22341  10781  88524       2792
+
+XTSECT noag, drive C:, 500 reads, start 20000, stride 37, QPC 1193180 Hz
+  pass  sectors/read  us/read(mean)  min  max  us/sector
+     1             1          14390  9992  620974      14390
+     1             8          20729  10795  30207       2591
+     2             1          11769  9979  103763      11769
+     2             8          20762  10800  47643       2595
+     3             1          11749  9969  73314      11749
+     3             8          20851  10798  40421       2606
+
+XTSECT noag, drive C:, 500 reads, start 20000, stride 37, QPC 1193180 Hz
+  pass  sectors/read  us/read(mean)  min  max  us/sector
+     1             1          11544  9979  99616      11544
+     1             8          21037  10787  179908       2629
+     2             1          12178  9957  208339      12178
+     2             8          20863  10784  47188       2607
+     3             1          11251  9980  30223      11251
+     3             8          20714  10786  34941       2589
+
+XTSECT noag, drive C:, 500 reads, start 20000, stride 37, QPC 1193180 Hz
+  pass  sectors/read  us/read(mean)  min  max  us/sector
+     1             1          11534  9980  102409      11534
+     1             8          21069  10761  120364       2633
+     2             1          11269  9979  30409      11269
+     2             8          21496  10765  291331       2687
+     3             1          11577  9961  140809      11577
+     3             8          20700  10783  33409       2587
+
