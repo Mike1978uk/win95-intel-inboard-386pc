@@ -245,11 +245,33 @@ typedef char m8d3d_tl_size[sizeof( M8D3D_TLVERTEX ) == 32 ? 1 : -1];
 #define M8D3D_SEEN          16
 #define M8D3D_MASK_ROWS     128
 
+/* A mask copy costs ~69 ns a pixel of its box, a plain fill ~20: a large shape's inscribed
+ * rectangle goes as a plain fill and only the boxes around it from the mask. */
+#define M8D3D_NS_MASK       69L
+#define M8D3D_NS_PLAIN      21L
+#define M8D3D_NS_COMMAND    60000L
+#define M8D3D_CORE_SAMPLES  6
+/* What a mask must earn: hits pay for builds, so scenes without repeats soon stop building. */
+#define M8D3D_BUILD_COST    3
+#define M8D3D_CREDIT_MAX    16
+#define M8D3D_CORE_AFTER    4
+
 typedef struct {
-    short   v[6];
+    short   x;
+    short   y;
     short   w;
     short   h;
-    DWORD   used;               /* 0 = empty */
+} M8D3D_BOX;
+
+typedef struct {
+    short       v[6];
+    short       w;
+    short       h;
+    M8D3D_BOX   core;           /* core.w 0 = none: the whole box from the mask */
+    M8D3D_BOX   part[4];
+    int         parts;
+    int         hits;
+    DWORD       used;           /* 0 = empty */
 } M8D3D_MASK;
 
 typedef struct {
@@ -261,6 +283,7 @@ typedef struct {
     short   seen[M8D3D_SEEN][6];
     int     seen_next;
     DWORD   clock;
+    int     credit;
     DWORD   cull;
     int     sx;                 /* the scratch */
     int     sy;
@@ -643,6 +666,7 @@ static int m8d3d_tri_fit( M8D3D_CONTEXT *c, int dx, int dy, const short *v, BYTE
 
 static int  m8d3d_mono_on;      /* the engine holds the mask copy's registers */
 static int  m8d3d_mono_plane;
+static int  m8d3d_mono_x;
 static int  m8d3d_mono_w;
 
 /* The plain path: lines and rows drawn with RD_MASK on one plane lose pixels. */
@@ -660,12 +684,36 @@ static int m8d3d_mono_off( void )
     return( 1 );
 }
 
+/* Part of plane k's mask to (x, y) on the card, in the colour already set. */
+static int m8d3d_mask_box( M8D3D_CONTEXT *c, const M8D3D_BOX *b, int x, int y )
+{
+    if( !m8d3d_room( 9 ) ) {
+        return( 0 );
+    }
+    if( m8d3d_mono_x != b->x || m8d3d_mono_w != b->w ) {
+        outpw( M8_SRC_X_START, c->mx + b->x );
+        outpw( M8_SRC_X_END, c->mx + b->x + b->w );
+        m8d3d_mono_x = b->x;
+        m8d3d_mono_w = b->w;
+    }
+    outpw( M8_DESTX_DIASTP, c->mx + b->x );
+    outpw( M8_DESTY_AXSTP, c->my + b->y );
+    outpw( M8_CUR_X, x + b->x );
+    outpw( M8_DEST_X_START, x + b->x );
+    outpw( M8_DEST_X_END, x + b->x + b->w );
+    outpw( M8_CUR_Y, y + b->y );
+    outpw( M8_DEST_Y_END, y + b->y + b->h );
+    return( 1 );
+}
+
 static int m8d3d_mask_draw( M8D3D_CONTEXT *c, int k, int dx, int dy, int l, int t, BYTE colour )
 {
-    const M8D3D_MASK *m = &c->mask[k];
+    const M8D3D_MASK    *m = &c->mask[k];
+    M8D3D_BOX           whole;
+    int                 i;
 
     if( !m8d3d_mono_on ) {
-        if( !m8d3d_room( 6 ) ) {
+        if( !m8d3d_room( 5 ) ) {
             return( 0 );
         }
         outpw( M8_WRT_MASK, 0x00FF );
@@ -673,32 +721,244 @@ static int m8d3d_mask_draw( M8D3D_CONTEXT *c, int k, int dx, int dy, int l, int 
         outpw( M8_ALU_FG_FN, M8_MIX_REPLACE );
         outpw( M8_ALU_BG_FN, M8_MIX_LEAVE );
         outpw( M8_SRC_Y_DIR, 1 );
-        outpw( M8_SRC_X_START, c->mx );
         m8d3d_mono_on = 1;
         m8d3d_mono_plane = -1;
+        m8d3d_mono_x = -1;
         m8d3d_mono_w = -1;
     }
-    if( !m8d3d_room( 10 ) ) {
+    if( !m8d3d_room( 1 ) ) {
         return( 0 );
     }
+    outpw( M8_FRGD_COLOR, colour );
+    ++m8d3d_stat[20];
+    if( m->core.w != 0 ) {
+        RECT r;
+
+        if( !m8d3d_room( 2 ) ) {
+            return( 0 );
+        }
+        outpw( M8_RD_MASK, 0x00FF );
+        outpw( M8_DP_CONFIG, M8_DP_8514 );
+        r.left = dx + l + m->core.x;
+        r.top = dy + t + m->core.y;
+        r.right = r.left + m->core.w;
+        r.bottom = r.top + m->core.h;
+        if( !m8d3d_fill( &r ) || !m8d3d_room( 1 ) ) {
+            return( 0 );
+        }
+        outpw( M8_DP_CONFIG, M8_DP_MONO_VRAM );
+        m8d3d_mono_plane = -1;
+    }
     if( m8d3d_mono_plane != k ) {
+        if( !m8d3d_room( 1 ) ) {
+            return( 0 );
+        }
         outpw( M8_RD_MASK, 1 << k );
         m8d3d_mono_plane = k;
     }
-    if( m8d3d_mono_w != m->w ) {
-        outpw( M8_SRC_X_END, c->mx + m->w );
-        m8d3d_mono_w = m->w;
+    if( m->core.w == 0 ) {
+        whole.x = 0;
+        whole.y = 0;
+        whole.w = m->w;
+        whole.h = m->h;
+        return( m8d3d_mask_box( c, &whole, dx + l, dy + t ) );
     }
-    outpw( M8_FRGD_COLOR, colour );
-    outpw( M8_DESTX_DIASTP, c->mx );
-    outpw( M8_DESTY_AXSTP, c->my );
-    outpw( M8_CUR_X, dx + l );
-    outpw( M8_DEST_X_START, dx + l );
-    outpw( M8_DEST_X_END, dx + l + m->w );
-    outpw( M8_CUR_Y, dy + t );
-    outpw( M8_DEST_Y_END, dy + t + m->h );
-    ++m8d3d_stat[20];
+    for( i = 0; i < m->parts; ++i ) {
+        if( !m8d3d_mask_box( c, &m->part[i], dx + l, dy + t ) ) {
+            return( 0 );
+        }
+    }
     return( 1 );
+}
+
+/* Row y of a shape as the outline and fill cover it. A sloped edge's pixels on a row are a run
+ * about the exact crossing, and the card's line may round either way: `inner` 0 gives a span sure
+ * to hold every pixel, for what is copied through the mask; 1 a span sure to hold only pixels of
+ * the triangle, for the plain fill, where a pixel too many would show. An upright edge is exact.
+ * A triangle's spans are convex, so a run of rows is as narrow as its two end rows. */
+static void m8d3d_row_span( const short *n, int y, int *lo, int *hi, int inner )
+{
+    int i;
+
+    *lo = 0x7FFF;
+    *hi = -0x7FFF;
+    for( i = 0; i < 3; ++i ) {
+        int ax = n[2 * i];
+        int ay = n[2 * i + 1];
+        int bx = n[2 * ((i + 1) % 3)];
+        int by = n[2 * ((i + 1) % 3) + 1];
+        int x;
+        int run;
+
+        if( ay > by ) {
+            int s = ax;
+
+            ax = bx;
+            bx = s;
+            s = ay;
+            ay = by;
+            by = s;
+        }
+        if( y < ay || y > by ) {
+            continue;
+        }
+        if( ay == by ) {
+            if( ax < *lo ) *lo = ax;
+            if( bx < *lo ) *lo = bx;
+            if( ax > *hi ) *hi = ax;
+            if( bx > *hi ) *hi = bx;
+            continue;
+        }
+        x = ax + (bx - ax) * (y - ay) / (by - ay);
+        /* A shallow edge covers a run of pixels on each row. */
+        run = bx == ax ? 0 : (bx > ax ? bx - ax : ax - bx) / (by - ay) / 2 + 1;
+        if( inner ) {
+            run = -run;
+        }
+        if( x - run < *lo ) *lo = x - run;
+        if( x + run > *hi ) *hi = x + run;
+    }
+}
+
+/* The box the shape's pixels need in rows top .. bottom, and only x from `from` to `to`: empty
+ * corners cost as much as pixels. A triangle's edges bend only at its vertices, so the widest
+ * a run of rows reaches is at the run's ends or a vertex's row. */
+static void m8d3d_part( M8D3D_MASK *m, const short *n, int top, int bottom, int from, int to )
+{
+    int lo = 0x7FFF;
+    int hi = -0x7FFF;
+    int k;
+
+    for( k = 0; k < 5; ++k ) {
+        int y = k == 0 ? top : k == 1 ? bottom : n[2 * (k - 2) + 1];
+        int a;
+        int b;
+
+        if( y < top || y > bottom ) {
+            continue;
+        }
+        m8d3d_row_span( n, y, &a, &b, 0 );
+        if( a < from ) {
+            a = from;
+        }
+        if( b > to ) {
+            b = to;
+        }
+        if( a <= b ) {
+            if( a < lo ) {
+                lo = a;
+            }
+            if( b > hi ) {
+                hi = b;
+            }
+        }
+    }
+    /* A pixel's margin: the card's line may round either way from this arithmetic. */
+    --lo;
+    ++hi;
+    if( lo < from ) {
+        lo = from;
+    }
+    if( hi > to ) {
+        hi = to;
+    }
+    if( hi >= lo ) {
+        m->part[m->parts].x = (short)lo;
+        m->part[m->parts].y = (short)top;
+        m->part[m->parts].w = (short)(hi - lo + 1);
+        m->part[m->parts].h = (short)(bottom - top + 1);
+        ++m->parts;
+    }
+}
+
+static void m8d3d_parts( M8D3D_MASK *m, const short *n, int w, int h, int l, int t, int r, int b )
+{
+    m->parts = 0;
+    if( t > 0 ) {
+        m8d3d_part( m, n, 0, t - 1, 0, w - 1 );
+    }
+    if( l > 0 ) {
+        m8d3d_part( m, n, t, b, 0, l - 1 );
+    }
+    if( r < w - 1 ) {
+        m8d3d_part( m, n, t, b, r + 1, w - 1 );
+    }
+    if( b < h - 1 ) {
+        m8d3d_part( m, n, b + 1, h - 1, 0, w - 1 );
+    }
+}
+
+/* The cheapest inscribed rectangle by the card's rates, if it beats one copy of the whole box.
+ * A right angle's rectangle reaches its corner, as an upright edge has no margin. */
+static void m8d3d_core_choose( M8D3D_MASK *m, const short *n, int w, int h )
+{
+    long    best = (long)w * h * M8D3D_NS_MASK + M8D3D_NS_COMMAND;
+    int     step = h / M8D3D_CORE_SAMPLES;
+    int     best_t = -1;
+    int     best_b = 0;
+    int     best_l = 0;
+    int     best_r = 0;
+    int     a;
+    int     b;
+    int     i;
+
+    m->core.w = 0;
+    m->parts = 0;
+    /* Below this the rectangle's commands cost more than its pixels save. */
+    if( h < 48 || w < 48 ) {
+        return;
+    }
+    if( step < 1 ) {
+        step = 1;
+    }
+    for( a = 0; a < h; a = a + step < h || a == h - 1 ? a + step : h - 1 ) {
+        for( b = a + step; ; b += step ) {
+            int     alo;
+            int     ahi;
+            int     blo;
+            int     bhi;
+            int     l;
+            int     r;
+            long    cost;
+
+            if( b > h - 1 ) {
+                b = h - 1;
+            }
+            if( b <= a ) {
+                break;
+            }
+            m8d3d_row_span( n, a, &alo, &ahi, 1 );
+            m8d3d_row_span( n, b, &blo, &bhi, 1 );
+            l = alo > blo ? alo : blo;
+            r = ahi < bhi ? ahi : bhi;
+            if( r > l ) {
+                m8d3d_parts( m, n, w, h, l, a, r, b );
+                cost = (long)(r - l + 1) * (b - a + 1) * M8D3D_NS_PLAIN + (long)(m->parts + 1) * M8D3D_NS_COMMAND;
+                for( i = 0; i < m->parts; ++i ) {
+                    cost += (long)m->part[i].w * m->part[i].h * M8D3D_NS_MASK;
+                }
+                if( cost < best ) {
+                    best = cost;
+                    best_t = a;
+                    best_b = b;
+                    best_l = l;
+                    best_r = r;
+                }
+            }
+            if( b == h - 1 ) {
+                break;
+            }
+        }
+    }
+    m->parts = 0;
+    if( best_t < 0 ) {
+        return;
+    }
+    m->core.x = (short)best_l;
+    m->core.y = (short)best_t;
+    m->core.w = (short)(best_r - best_l + 1);
+    m->core.h = (short)(best_b - best_t + 1);
+    m8d3d_parts( m, n, w, h, best_l, best_t, best_r, best_b );
 }
 
 /* The shape (corners relative to its box) into plane k of the strip: the same outline and fill as
@@ -778,6 +1038,9 @@ static int m8d3d_mask_build( M8D3D_CONTEXT *c, int k, const short *n, int w, int
     }
     m->w = (short)w;
     m->h = (short)h;
+    m->core.w = 0;
+    m->parts = 0;
+    m->hits = 0;
     ++m8d3d_stat[21];
     return( c->drawn == 8 ? m8d3d_scratch_clear( c ) : 1 );
 }
@@ -821,6 +1084,13 @@ static int m8d3d_tri_cached( M8D3D_CONTEXT *c, int dx, int dy, const short *v, B
         for( k = 0; k < M8D3D_MASKS; ++k ) {
             if( c->mask[k].used != 0 && m8d3d_same_shape( c->mask[k].v, n ) ) {
                 c->mask[k].used = ++c->clock;
+                if( c->credit < M8D3D_CREDIT_MAX ) {
+                    ++c->credit;
+                }
+                /* The search is paid once, and only by a shape that keeps coming back. */
+                if( ++c->mask[k].hits == M8D3D_CORE_AFTER ) {
+                    m8d3d_core_choose( &c->mask[k], n, c->mask[k].w, c->mask[k].h );
+                }
                 return( m8d3d_mask_draw( c, k, dx, dy, l, t, colour ) );
             }
         }
@@ -831,7 +1101,7 @@ static int m8d3d_tri_cached( M8D3D_CONTEXT *c, int dx, int dy, const short *v, B
                 c->seen[c->seen_next][i] = n[i];
             }
             c->seen_next = (c->seen_next + 1) % M8D3D_SEEN;
-        } else if( *build > 0 ) {
+        } else if( *build > 0 && c->credit >= M8D3D_BUILD_COST ) {
             int oldest = 0;
 
             for( k = 1; k < M8D3D_MASKS; ++k ) {
@@ -840,6 +1110,7 @@ static int m8d3d_tri_cached( M8D3D_CONTEXT *c, int dx, int dy, const short *v, B
                 }
             }
             --*build;
+            c->credit -= M8D3D_BUILD_COST;
             if( !m8d3d_mono_off() || !m8d3d_mask_build( c, oldest, n, r - l + 1, b - t + 1 ) ) {
                 return( 0 );
             }
@@ -935,6 +1206,7 @@ static DWORD __stdcall m8d3d_context_create( M8D3D_CONTEXTCREATE *d )
     memset( c->seen, 0, sizeof( c->seen ) );
     c->seen_next = 0;
     c->clock = 0;
+    c->credit = M8D3D_CREDIT_MAX;
     c->mh = 0;
     if( m8d3d_fb16() && c->sh > 2 * M8D3D_MASK_ROWS && c->tw > 128 ) {
         c->mx = c->sx;

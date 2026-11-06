@@ -22,6 +22,11 @@
  *  14 noline   batch with the right-hand edges one pixel out in the scratch, so the fill reaches
  *              the edge pixels itself, and only the top and bottom rows drawn over it. Checked
  *              against flat on the bench's shape and on three others at each size
+ *  15 core     expand, with the triangle's inscribed rectangle a plain fill and the mask used only
+ *              for the two boxes left over: a plain fill costs a fifth of a mask copy a pixel
+ *  16 page     one fill of a whole page, and how long the CPU is held: one command runs on its own
+ *  17 corechk  m8d3d.c's way of choosing a core, its choice drawn on eight shapes at 32 and 100 px
+ *              and each compared with flat pixel by pixel. Slopes are where it can go wrong
  *
  * Arms 2-5 are checked pixel by pixel against arm 1 over one triangle's box; a shape's difference is
  * only usable once that count is understood. Arms 6-7 have every triangle's centre read back. The
@@ -1056,6 +1061,377 @@ static void noline_shapes( void )
              noline_shape_diff( a ), noline_shape_diff( b ), noline_shape_diff( c ) );
 }
 
+/* The bench's shape has its right angle at bottom left. */
+static void expand_box( int i, int x, int y, int w, int h )
+{
+    room( 9 );
+    outpw( SRC_X_END, RAMP_X + x + w );
+    outpw( SRC_X, RAMP_X + x );
+    outpw( SRC_Y, SCRATCH_Y + y );
+    outpw( CUR_X, tri[i][0] + x );
+    outpw( DEST_X_START, tri[i][0] + x );
+    outpw( DEST_X_END, tri[i][0] + x + w );
+    outpw( SRC_X_START, RAMP_X + x );
+    outpw( CUR_Y, tri[i][1] + y );
+    outpw( DEST_Y_END, tri[i][1] + y + h );
+}
+
+static void draw_core( int i )
+{
+    int half = (size + 1) / 2;
+
+    room( 9 );
+    outpw( RD_MASK, 0x00FF );
+    outpw( DP_CONFIG, DP_PLAIN );
+    outpw( FRGD_COLOR, colour_of( i ) );
+    outpw( CUR_X, tri[i][0] );
+    outpw( CUR_Y, tri[i][1] + half );
+    outpw( MAJ_AXIS_PCNT, half - 1 );
+    outpw( MULTIFUNC_CNTL, size - half );
+    outpw( CMD, 0x40F3 );
+    room( 3 );
+    outpw( RD_MASK, MASK_PLANE );
+    outpw( DP_CONFIG, DP_MONO_VRAM );
+    outpw( SRC_Y_DIR, 1 );
+    expand_box( i, 0, 0, half, half );
+    expand_box( i, half, half, size + 1 - half, size + 1 - half );
+}
+
+/* ---- as m8d3d.c: keep the two in step ---- */
+
+#define CHK_NS_MASK     69L
+#define CHK_NS_PLAIN    21L
+#define CHK_NS_COMMAND  60000L
+#define CHK_SAMPLES     6
+
+typedef struct {
+    short x, y, w, h;
+} CHK_BOX;
+
+static CHK_BOX  chk_core;
+static CHK_BOX  chk_part[4];
+static int      chk_parts;
+
+static void chk_row_span( const short *n, int y, int *lo, int *hi, int inner )
+{
+    int i;
+
+    *lo = 0x7FFF;
+    *hi = -0x7FFF;
+    for( i = 0; i < 3; ++i ) {
+        int ax = n[2 * i];
+        int ay = n[2 * i + 1];
+        int bx = n[2 * ((i + 1) % 3)];
+        int by = n[2 * ((i + 1) % 3) + 1];
+        int x;
+        int run;
+
+        if( ay > by ) {
+            int s = ax;
+
+            ax = bx;
+            bx = s;
+            s = ay;
+            ay = by;
+            by = s;
+        }
+        if( y < ay || y > by ) {
+            continue;
+        }
+        if( ay == by ) {
+            if( ax < *lo ) *lo = ax;
+            if( bx < *lo ) *lo = bx;
+            if( ax > *hi ) *hi = ax;
+            if( bx > *hi ) *hi = bx;
+            continue;
+        }
+        x = ax + (bx - ax) * (y - ay) / (by - ay);
+        run = bx == ax ? 0 : (bx > ax ? bx - ax : ax - bx) / (by - ay) / 2 + 1;
+        if( inner ) {
+            run = -run;
+        }
+        if( x - run < *lo ) *lo = x - run;
+        if( x + run > *hi ) *hi = x + run;
+    }
+}
+
+static void chk_one_part( const short *n, int top, int bottom, int from, int to )
+{
+    int lo = 0x7FFF;
+    int hi = -0x7FFF;
+    int k;
+
+    for( k = 0; k < 5; ++k ) {
+        int y = k == 0 ? top : k == 1 ? bottom : n[2 * (k - 2) + 1];
+        int a;
+        int b;
+
+        if( y < top || y > bottom ) {
+            continue;
+        }
+        chk_row_span( n, y, &a, &b, 0 );
+        if( a < from ) a = from;
+        if( b > to ) b = to;
+        if( a <= b ) {
+            if( a < lo ) lo = a;
+            if( b > hi ) hi = b;
+        }
+    }
+    --lo;
+    ++hi;
+    if( lo < from ) lo = from;
+    if( hi > to ) hi = to;
+    if( hi >= lo ) {
+        chk_part[chk_parts].x = (short)lo;
+        chk_part[chk_parts].y = (short)top;
+        chk_part[chk_parts].w = (short)(hi - lo + 1);
+        chk_part[chk_parts].h = (short)(bottom - top + 1);
+        ++chk_parts;
+    }
+}
+
+static void chk_parts_of( const short *n, int w, int h, int l, int t, int r, int b )
+{
+    chk_parts = 0;
+    if( t > 0 ) chk_one_part( n, 0, t - 1, 0, w - 1 );
+    if( l > 0 ) chk_one_part( n, t, b, 0, l - 1 );
+    if( r < w - 1 ) chk_one_part( n, t, b, r + 1, w - 1 );
+    if( b < h - 1 ) chk_one_part( n, b + 1, h - 1, 0, w - 1 );
+}
+
+static void chk_choose( const short *n, int w, int h )
+{
+    long    best = (long)w * h * CHK_NS_MASK + CHK_NS_COMMAND;
+    int     step = h / CHK_SAMPLES;
+    int     best_t = -1;
+    int     best_b = 0;
+    int     best_l = 0;
+    int     best_r = 0;
+    int     a;
+    int     b;
+    int     i;
+
+    chk_core.w = 0;
+    chk_parts = 0;
+    if( h < 48 || w < 48 ) {
+        return;
+    }
+    if( step < 1 ) {
+        step = 1;
+    }
+    for( a = 0; a < h; a = a + step < h || a == h - 1 ? a + step : h - 1 ) {
+        for( b = a + step; ; b += step ) {
+            int     alo;
+            int     ahi;
+            int     blo;
+            int     bhi;
+            int     l;
+            int     r;
+            long    cost;
+
+            if( b > h - 1 ) {
+                b = h - 1;
+            }
+            if( b <= a ) {
+                break;
+            }
+            chk_row_span( n, a, &alo, &ahi, 1 );
+            chk_row_span( n, b, &blo, &bhi, 1 );
+            l = alo > blo ? alo : blo;
+            r = ahi < bhi ? ahi : bhi;
+            if( r > l ) {
+                chk_parts_of( n, w, h, l, a, r, b );
+                cost = (long)(r - l + 1) * (b - a + 1) * CHK_NS_PLAIN + (long)(chk_parts + 1) * CHK_NS_COMMAND;
+                for( i = 0; i < chk_parts; ++i ) {
+                    cost += (long)chk_part[i].w * chk_part[i].h * CHK_NS_MASK;
+                }
+                if( cost < best ) {
+                    best = cost;
+                    best_t = a;
+                    best_b = b;
+                    best_l = l;
+                    best_r = r;
+                }
+            }
+            if( b == h - 1 ) {
+                break;
+            }
+        }
+    }
+    chk_parts = 0;
+    if( best_t >= 0 ) {
+        chk_core.x = (short)best_l;
+        chk_core.y = (short)best_t;
+        chk_core.w = (short)(best_r - best_l + 1);
+        chk_core.h = (short)(best_b - best_t + 1);
+        chk_parts_of( n, w, h, best_l, best_t, best_r, best_b );
+    }
+}
+
+static void chk_box_draw( const CHK_BOX *b, int x, int y )
+{
+    room( 9 );
+    outpw( SRC_X_START, RAMP_X + b->x );
+    outpw( SRC_X_END, RAMP_X + b->x + b->w );
+    outpw( SRC_X, RAMP_X + b->x );
+    outpw( SRC_Y, SCRATCH_Y + b->y );
+    outpw( CUR_X, x + b->x );
+    outpw( DEST_X_START, x + b->x );
+    outpw( DEST_X_END, x + b->x + b->w );
+    outpw( CUR_Y, y + b->y );
+    outpw( DEST_Y_END, y + b->y + b->h );
+}
+
+/* Flat, then the core's way, at the same place; prints what it chose and how many pixels differ. */
+static void core_check_shape( int which, const short *shape )
+{
+    static BYTE want[BOX_MAX + 2][BOX_MAX + 2];
+    short       keep[6];
+    short       n[6];
+    int         l = shape[0];
+    int         t = shape[1];
+    int         r = shape[0];
+    int         b = shape[1];
+    int         k;
+    int         x;
+    int         y;
+    int         w;
+    int         h;
+    long        diff = 0;
+
+    for( k = 1; k < 3; ++k ) {
+        if( shape[2 * k] < l ) l = shape[2 * k];
+        if( shape[2 * k] > r ) r = shape[2 * k];
+        if( shape[2 * k + 1] < t ) t = shape[2 * k + 1];
+        if( shape[2 * k + 1] > b ) b = shape[2 * k + 1];
+    }
+    w = r - l + 1;
+    h = b - t + 1;
+    for( k = 0; k < 3; ++k ) {
+        n[2 * k] = (short)(shape[2 * k] - l);
+        n[2 * k + 1] = (short)(shape[2 * k + 1] - t);
+    }
+    for( k = 0; k < 6; ++k ) {
+        keep[k] = tri[0][k];
+        tri[0][k] = shape[k];
+    }
+    rect( 0, 0, SCR_W, LABEL_Y, 0 );
+    rect( RAMP_X, SCRATCH_Y, RAMP_W, SCRATCH_H, 0 );
+    flat_drawn = 0;
+    flat_dirty = 0;
+    draw_flat( 0 );
+    wait_idle();
+    for( y = 0; y < h; ++y ) {
+        for( x = 0; x < w; ++x ) {
+            want[y][x] = (BYTE)read_pixel( l + x, t + y );
+        }
+    }
+    rect( 0, 0, SCR_W, LABEL_Y, 0 );
+    rect( RAMP_X, SCRATCH_Y, RAMP_W, SCRATCH_H, 0 );
+    edges( RAMP_X, SCRATCH_Y, n, EDGE_PLANE );
+    fill( n, RAMP_X, SCRATCH_Y, RAMP_X, SCRATCH_Y, DP_FILL_FLAT, MASK_PLANE, EDGE_PLANE, 0x00FF );
+    outline( RAMP_X, SCRATCH_Y, n, 0x00FF, MASK_PLANE );
+    wait_idle();
+    chk_choose( n, w, h );
+    outpw( WRT_MASK, 0x00FF );
+    outpw( ALU_FG_FN, MIX_REPLACE );
+    outpw( ALU_BG_FN, MIX_LEAVE );
+    outpw( FRGD_COLOR, colour_of( 0 ) );
+    outpw( SRC_Y_DIR, 1 );
+    if( chk_core.w != 0 ) {
+        outpw( RD_MASK, 0x00FF );
+        outpw( DP_CONFIG, DP_PLAIN );
+        wait_idle();
+        room( 5 );
+        outpw( CUR_X, l + chk_core.x );
+        outpw( CUR_Y, t + chk_core.y );
+        outpw( MAJ_AXIS_PCNT, chk_core.w - 1 );
+        outpw( MULTIFUNC_CNTL, chk_core.h - 1 );
+        outpw( CMD, 0x40F3 );
+        wait_idle();
+    }
+    outpw( RD_MASK, MASK_PLANE );
+    outpw( DP_CONFIG, DP_MONO_VRAM );
+    wait_idle();
+    if( chk_core.w != 0 ) {
+        for( k = 0; k < chk_parts; ++k ) {
+            chk_box_draw( &chk_part[k], l, t );
+        }
+    } else {
+        CHK_BOX whole;
+
+        whole.x = 0;
+        whole.y = 0;
+        whole.w = (short)w;
+        whole.h = (short)h;
+        chk_box_draw( &whole, l, t );
+    }
+    wait_idle();
+    outpw( RD_MASK, 0x00FF );
+    outpw( DP_CONFIG, DP_PLAIN );
+    wait_idle();
+    for( y = 0; y < h; ++y ) {
+        for( x = 0; x < w; ++x ) {
+            int got = read_pixel( l + x, t + y );
+
+            if( got != want[y][x] ) {
+                if( diff < 3 ) {
+                    fprintf( out, "    (%d,%d): read %02x, flat %02x\n", x, y, got, want[y][x] );
+                }
+                ++diff;
+            }
+        }
+    }
+    fprintf( out, "  corechk size %3d shape %d: core %dx%d at %d,%d, %d parts, %ld pixels differ\n", size, which,
+             chk_core.w, chk_core.h, chk_core.x, chk_core.y, chk_parts, diff );
+    fflush( out );
+    for( k = 0; k < 6; ++k ) {
+        tri[0][k] = keep[k];
+    }
+    rect( RAMP_X, SCRATCH_Y, RAMP_W, SCRATCH_H, 0 );
+}
+
+static void core_checks( void )
+{
+    short   x = 20;
+    short   y = 20;
+    short   s = (short)size;
+    short   shapes[14][6];
+    int     k;
+
+    shapes[0][0] = x; shapes[0][1] = y; shapes[0][2] = x + s; shapes[0][3] = y + s; shapes[0][4] = x; shapes[0][5] = y + s;
+    shapes[1][0] = x + s / 2; shapes[1][1] = y; shapes[1][2] = x + s; shapes[1][3] = y + s - s / 3; shapes[1][4] = x; shapes[1][5] = y + s;
+    shapes[2][0] = x; shapes[2][1] = y; shapes[2][2] = x + s; shapes[2][3] = y + s / 3; shapes[2][4] = x + s / 2; shapes[2][5] = y + s;
+    shapes[3][0] = x + s / 2; shapes[3][1] = y; shapes[3][2] = x + s; shapes[3][3] = y + s; shapes[3][4] = x; shapes[3][5] = y + s / 3;
+    shapes[4][0] = x; shapes[4][1] = y; shapes[4][2] = x + s; shapes[4][3] = y; shapes[4][4] = x + s; shapes[4][5] = y + s;
+    shapes[5][0] = x; shapes[5][1] = y; shapes[5][2] = x + s; shapes[5][3] = y; shapes[5][4] = x + s / 3; shapes[5][5] = y + s;
+    shapes[6][0] = x + s / 3; shapes[6][1] = y; shapes[6][2] = x + s; shapes[6][3] = y + s; shapes[6][4] = x; shapes[6][5] = y + s;
+    shapes[7][0] = x; shapes[7][1] = y + s / 5; shapes[7][2] = x + s; shapes[7][3] = y; shapes[7][4] = x + s / 4; shapes[7][5] = y + s;
+    /* Shallow and steep edges, where a row or column holds runs of pixels. */
+    shapes[8][0] = x; shapes[8][1] = y + s / 2; shapes[8][2] = x + s; shapes[8][3] = y; shapes[8][4] = x + s; shapes[8][5] = y + s;
+    shapes[9][0] = x; shapes[9][1] = y; shapes[9][2] = x + s; shapes[9][3] = y + s / 2; shapes[9][4] = x; shapes[9][5] = y + s;
+    shapes[10][0] = x; shapes[10][1] = y + s / 2 + 3; shapes[10][2] = x + s; shapes[10][3] = y; shapes[10][4] = x + s; shapes[10][5] = y + s / 2 + 8;
+    shapes[11][0] = x + s / 2; shapes[11][1] = y; shapes[11][2] = x + s / 2 + 8; shapes[11][3] = y + s; shapes[11][4] = x; shapes[11][5] = y + s - 2;
+    shapes[12][0] = x + 2; shapes[12][1] = y + 7; shapes[12][2] = x + s; shapes[12][3] = y + s / 7; shapes[12][4] = x + s / 2; shapes[12][5] = y + s;
+    shapes[13][0] = x + s; shapes[13][1] = y; shapes[13][2] = x + s - 3; shapes[13][3] = y + s; shapes[13][4] = x; shapes[13][5] = y + s / 3;
+    for( k = 0; k < 14; ++k ) {
+        core_check_shape( k, shapes[k] );
+    }
+}
+
+static double page_cpu_us;
+
+static void page_fill( void )
+{
+    double t0;
+
+    wait_idle();
+    t0 = now();
+    rect( 0, 0, SCR_W, SCR_H, 0 );
+    page_cpu_us = (now() - t0) * 1e6 / qpf;
+    wait_idle();
+}
+
 static void prep_qerase( void )
 {
     rect( 0, 0, 1, 1, 0 );
@@ -1361,6 +1737,41 @@ static void one_size( int s )
     report( "noline", timed( draw_noline ), base );
     rect( RAMP_X, SCRATCH_Y, RAMP_W, SCRATCH_H, 0 );
     noline_shapes();
+
+    /* 15 core */
+    rect( 0, 0, SCR_W, LABEL_Y, 0 );
+    label( 15 );
+    prep_expand();
+    for( i = 0; i < NTRI; ++i ) {
+        draw_core( i );
+    }
+    wait_idle();
+    Sleep( HOLD_MS );
+    us = timed( draw_core );
+    end_expand();
+    rect( 0, 0, SCR_W, LABEL_Y, 0 );
+    prep_expand();
+    draw_core( 0 );
+    end_expand();
+    fprintf( out, "  core differs from flat in %ld pixels\n", box_check( 0 ) );
+    report( "core", us, base );
+    rect( RAMP_X, SCRATCH_Y, RAMP_W, SCRATCH_H, 0 );
+
+    /* 16 page */
+    {
+        double t0 = now();
+
+        page_fill();
+        fprintf( out, "size %3d  page fill, all %.1f us, CPU held %.1f us\n", size, (now() - t0) * 1e6 / qpf, page_cpu_us );
+    }
+    label( 16 );
+    wait_idle();
+
+    /* 17 corechk */
+    if( s >= 24 ) {
+        label( 17 );
+        core_checks();
+    }
 
     rect( RAMP_X, RAMP_Y, RAMP_W, RAMP_H + SCRATCH_H, 0 );
     wait_idle();

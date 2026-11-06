@@ -538,6 +538,37 @@ when dxdiag needs it. CT1 before CT3; TX1 first, since it is plain blits.
 | SWAPCOMP | Divide by the bytes; decode cheaply on the far side | Mach8 engine as decompressor | V21 |
 | T130B audit | Pace the spin | Mach8 vblank wait (done), T130.MPD block-ready spin | #41 |
 
+## What a frame's time is made of (card, M8SHAPE, 2026-11-06 evening)
+
+Results: `docs/captures/2026-11-07_shape/README.md`. Budget 13.85 ms at 72 Hz, 16.67 ms at 60 Hz.
+
+- **Engine commands set the cost, ~40-60 us each however fast they are sent.** Asm queue no faster than C (V12, A1 out for triangles); high-byte latch (V18) ~2 us a triangle, out.
+- **A mask or polygon fill costs ~69 ns a pixel of its box; a plain fill ~13-20 ns.** Whole-page fill 6.3 ms with the CPU held 190 us: one command runs alone.
+- Pixel clock has no effect on engine speed (S9 out). 60 Hz costs fps until a frame fits in 16.67 ms.
+
+| Lever | Result | Status |
+|---|---|---|
+| V15 masks: a repeated shape as one mono copy from a plane of a strip | `hal_many` 21.6 to 33-35 fps, `hal_small` 55 to 68-69 | IN, `7a92f99` |
+| **Core:** a mask's inscribed rectangle as a plain fill, only the boxes around it from the mask (owner: bring it down in 3D by thinking outside the box) | 100 px 1,043 to 450 us in the probe; `hal_large` 33.6 to 51 fps, `hal_grad` 51 | IN for bench shape; other shapes being checked |
+| Batched edges, unchanging writes once | 0.8x at 8-32 px, 0.9x at 100 | Next |
+| Same-row scratch, row bands, outline-free fill | 8 % at 100 px / nil / wrong pixels on slopes | OUT |
+| E213h 8-shade lookup | 1.7x flat against the stored ramp's 1.09-1.35x | OUT for gradients |
+
+Open ideas, not yet measured:
+
+| # | Idea | Why it might pay | Probe |
+|---|---|---|---|
+| Y1 | **Start frame 2 before frame 1 lands (owner).** Erase or draw the hidden page in the program's own CPU time. FIFO holds ~2 commands, so many boxes block but one long fill does not | Overlaps the engine with DirectX's 3-9 ms | One union-box erase from RenderPrimitive once the flip has landed |
+| Y2 | Third page, pitch 640 | No wait on a late frame; needs low and high CRT_OFFSET writes, 198 rows of scratch | M8PAGE variant |
+| Y3 | Refresh as a free parameter (the screen is an LCD, not a CRT): 60, 56 or 72 Hz chosen to fit the frame | A frame of 15-17 ms shows at its own rate | Register row, FB bench |
+| Y4 | Padded mask, BKGD black: one expand erases and draws (subagent, inference) | Saves ~74 us a small triangle | M8SHAPE arm |
+| Y5 | Field rendering: alternate rows each frame on a doubled pitch | Half the pixel time; combing on motion, owner's eye | Probe with GE_PITCH |
+| Y6 | Joined quads (V7) and axis-aligned pairs as plain fills | Half the fill on cube faces; invisible in M8D3DF | `hal_quad` test |
+| Y7 | Unchanged triangles not drawn (V8b) | Static scenery | dxdiag and a game |
+| Y8 | 320x240 and 400x300 by CRTC (V11) | 2-3x on large shapes; games pick the mode | P9, P10 |
+
+**Reuse to check after each win (owner):** masks and core rectangles for M8CUBE's polygon escape (`poly3d.c`), DirectDraw sprites (colour-key copies are mask-rate fills), and GDI's mono expansion from card memory.
+
 ## Earlier order of work (2026-11-05; superseded above, kept for its probe lists)
 
 Mach8 (M = needs the card, B = bed, C = no machine):
