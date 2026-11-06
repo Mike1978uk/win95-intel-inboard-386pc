@@ -90,3 +90,12 @@
   exit 0 after 57568 ms
     234402 ms  free 0 KB  paged 6312 KB  finished V10TEST
 
+== V10TEST  agent running: no  agent in boot: no
+   1249030 ms  free 0 KB  paged 5080 KB  start C:\M8IDLE.EXE 10 10 600
+  exit 0 after 18176 ms
+   1267458 ms  free 36 KB  paged 5384 KB  start C:\M8D3DF.EXE v10c 3 norm again
+  exit 0 after 74084 ms
+   1341978 ms  free 0 KB  paged 6244 KB  start C:\M8D3DF.EXE v10d 3 norm again
+  exit 0 after 63942 ms
+   1406143 ms  free 0 KB  paged 6244 KB  finished V10TEST
+

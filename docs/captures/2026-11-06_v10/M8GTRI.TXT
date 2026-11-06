@@ -1,0 +1,9 @@
+== M8GTRI  ddraw 00000000
+setmode 00000000
+size  32 gradient checks: 0 of 16 centres differ, 0 of 16 ramp pixels kept plane 7
+size  32  flat    481.7 us/tri  gradient    654.0 us/tri  ratio 1.36
+size 100 gradient checks: 0 of 16 centres differ, 0 of 16 ramp pixels kept plane 7
+size 100  flat   1080.7 us/tri  gradient   1227.4 us/tri  ratio 1.14
+waits that ran out: 0
+done
+
