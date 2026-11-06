@@ -58,6 +58,10 @@
 #define M8_DP_POLY_FILL     0x2213
 #define M8_DP_MONO_VRAM     0x2271      /* FRGD_COLOR where the blit source's RD_MASK plane is set */
 #define M8_ALU_BG_FN        0xB6EE
+#define M8_MAJ_AXIS_PCNT    0x96E8
+#define M8_MIN_AXIS         0xBEE8
+#define M8_CMD              0x9AE8
+#define M8_CMD_FILL         0x40F3
 #define M8_DP_VRAM_BLIT     0x6211
 #define M8_SRC_CMP_FN       0x92EE
 #define M8_SRC_CMP_COLOR    0xEAEE
@@ -712,9 +716,58 @@ static int  m8d3d_mono_plane;
 static int  m8d3d_mono_x;
 static int  m8d3d_mono_w;
 
-/* The plain path: lines and rows drawn with RD_MASK on one plane lose pixels. */
+/* Any port access empties the CPU's cache here, so C run between OUTs runs from RAM: a triangle's
+ * lookups cost ~11 us after one another and ~150 us with an OUT between. Copies are worked out
+ * first with the cache intact, their writes kept here, then sent in one loop. */
+#define M8D3D_Q_MAX     1024
+/* Room for this many, not the FIFO's whole 16: waiting for it to empty leaves the engine idle when
+ * a long fill ends, with the next command still crossing the bus. */
+#define M8D3D_Q_CHUNK   8
+#define M8D3D_Q_ONE     32              /* the most one triangle adds */
+
+static DWORD    m8d3d_q[M8D3D_Q_MAX];
+static int      m8d3d_qn;
+
+#define M8D3D_Q( port, value ) ( m8d3d_q[m8d3d_qn++] = (DWORD)(port) | (DWORD)(WORD)(value) << 16 )
+
+extern void m8d3d_q_send( const DWORD *p, int n );
+#pragma aux m8d3d_q_send = \
+    "q_next:"               \
+    "mov eax, [esi]"        \
+    "mov edx, eax"          \
+    "shr eax, 16"           \
+    "out dx, ax"            \
+    "add esi, 4"            \
+    "dec ecx"               \
+    "jnz q_next"            \
+    parm [esi] [ecx] modify [eax edx esi ecx];
+
+static int m8d3d_q_flush( void )
+{
+    int i = 0;
+    int ok = 1;
+
+    while( i < m8d3d_qn ) {
+        int n = m8d3d_qn - i < M8D3D_Q_CHUNK ? m8d3d_qn - i : M8D3D_Q_CHUNK;
+
+        if( !m8d3d_room( n ) ) {
+            ok = 0;
+            break;
+        }
+        m8d3d_q_send( m8d3d_q + i, n );
+        i += n;
+    }
+    m8d3d_qn = 0;
+    return( ok );
+}
+
+/* The plain path: lines and rows drawn with RD_MASK on one plane lose pixels. Everything but a
+ * queued copy comes through here first, so what is queued goes out in order. */
 static int m8d3d_mono_off( void )
 {
+    if( !m8d3d_q_flush() ) {
+        return( 0 );
+    }
     if( m8d3d_stamp_mode ) {
         m8d3d_stamp_mode = 0;
         if( !m8d3d_room( 2 ) ) {
@@ -737,25 +790,21 @@ static int m8d3d_mono_off( void )
 }
 
 /* Part of plane k's mask to (x, y) on the card, in the colour already set. */
-static int m8d3d_mask_box( M8D3D_CONTEXT *c, const M8D3D_BOX *b, int x, int y )
+static void m8d3d_mask_box( M8D3D_CONTEXT *c, const M8D3D_BOX *b, int x, int y )
 {
-    if( !m8d3d_room( 9 ) ) {
-        return( 0 );
-    }
     if( m8d3d_mono_x != b->x || m8d3d_mono_w != b->w ) {
-        outpw( M8_SRC_X_START, c->mx + b->x );
-        outpw( M8_SRC_X_END, c->mx + b->x + b->w );
+        M8D3D_Q( M8_SRC_X_START, c->mx + b->x );
+        M8D3D_Q( M8_SRC_X_END, c->mx + b->x + b->w );
         m8d3d_mono_x = b->x;
         m8d3d_mono_w = b->w;
     }
-    outpw( M8_DESTX_DIASTP, c->mx + b->x );
-    outpw( M8_DESTY_AXSTP, c->my + b->y );
-    outpw( M8_CUR_X, x + b->x );
-    outpw( M8_DEST_X_START, x + b->x );
-    outpw( M8_DEST_X_END, x + b->x + b->w );
-    outpw( M8_CUR_Y, y + b->y );
-    outpw( M8_DEST_Y_END, y + b->y + b->h );
-    return( 1 );
+    M8D3D_Q( M8_DESTX_DIASTP, c->mx + b->x );
+    M8D3D_Q( M8_DESTY_AXSTP, c->my + b->y );
+    M8D3D_Q( M8_CUR_X, x + b->x );
+    M8D3D_Q( M8_DEST_X_START, x + b->x );
+    M8D3D_Q( M8_DEST_X_END, x + b->x + b->w );
+    M8D3D_Q( M8_CUR_Y, y + b->y );
+    M8D3D_Q( M8_DEST_Y_END, y + b->y + b->h );
 }
 
 static int m8d3d_mask_draw( M8D3D_CONTEXT *c, int k, int dx, int dy, int l, int t, BYTE colour )
@@ -764,48 +813,39 @@ static int m8d3d_mask_draw( M8D3D_CONTEXT *c, int k, int dx, int dy, int l, int 
     M8D3D_BOX           whole;
     int                 i;
 
+    /* A stamp's compare left on would key this copy too. */
+    if( m8d3d_stamp_mode && !m8d3d_mono_off() ) {
+        return( 0 );
+    }
+    if( m8d3d_qn + M8D3D_Q_ONE * 2 > M8D3D_Q_MAX && !m8d3d_q_flush() ) {
+        return( 0 );
+    }
     if( !m8d3d_mono_on ) {
-        if( !m8d3d_room( 5 ) ) {
-            return( 0 );
-        }
-        outpw( M8_WRT_MASK, 0x00FF );
-        outpw( M8_DP_CONFIG, M8_DP_MONO_VRAM );
-        outpw( M8_ALU_FG_FN, M8_MIX_REPLACE );
-        outpw( M8_ALU_BG_FN, M8_MIX_LEAVE );
-        outpw( M8_SRC_Y_DIR, 1 );
+        M8D3D_Q( M8_WRT_MASK, 0x00FF );
+        M8D3D_Q( M8_DP_CONFIG, M8_DP_MONO_VRAM );
+        M8D3D_Q( M8_ALU_FG_FN, M8_MIX_REPLACE );
+        M8D3D_Q( M8_ALU_BG_FN, M8_MIX_LEAVE );
+        M8D3D_Q( M8_SRC_Y_DIR, 1 );
         m8d3d_mono_on = 1;
         m8d3d_mono_plane = -1;
         m8d3d_mono_x = -1;
         m8d3d_mono_w = -1;
     }
-    if( !m8d3d_room( 1 ) ) {
-        return( 0 );
-    }
-    outpw( M8_FRGD_COLOR, colour );
+    M8D3D_Q( M8_FRGD_COLOR, colour );
     ++m8d3d_stat[20];
     if( m->core.w != 0 ) {
-        RECT r;
-
-        if( !m8d3d_room( 2 ) ) {
-            return( 0 );
-        }
-        outpw( M8_RD_MASK, 0x00FF );
-        outpw( M8_DP_CONFIG, M8_DP_8514 );
-        r.left = dx + l + m->core.x;
-        r.top = dy + t + m->core.y;
-        r.right = r.left + m->core.w;
-        r.bottom = r.top + m->core.h;
-        if( !m8d3d_fill( &r ) || !m8d3d_room( 1 ) ) {
-            return( 0 );
-        }
-        outpw( M8_DP_CONFIG, M8_DP_MONO_VRAM );
+        M8D3D_Q( M8_RD_MASK, 0x00FF );
+        M8D3D_Q( M8_DP_CONFIG, M8_DP_8514 );
+        M8D3D_Q( M8_CUR_X, dx + l + m->core.x );
+        M8D3D_Q( M8_CUR_Y, dy + t + m->core.y );
+        M8D3D_Q( M8_MAJ_AXIS_PCNT, m->core.w - 1 );
+        M8D3D_Q( M8_MIN_AXIS, m->core.h - 1 );
+        M8D3D_Q( M8_CMD, M8_CMD_FILL );
+        M8D3D_Q( M8_DP_CONFIG, M8_DP_MONO_VRAM );
         m8d3d_mono_plane = -1;
     }
     if( m8d3d_mono_plane != k ) {
-        if( !m8d3d_room( 1 ) ) {
-            return( 0 );
-        }
-        outpw( M8_RD_MASK, 1 << k );
+        M8D3D_Q( M8_RD_MASK, 1 << k );
         m8d3d_mono_plane = k;
     }
     if( m->core.w == 0 ) {
@@ -813,12 +853,11 @@ static int m8d3d_mask_draw( M8D3D_CONTEXT *c, int k, int dx, int dy, int l, int 
         whole.y = 0;
         whole.w = m->w;
         whole.h = m->h;
-        return( m8d3d_mask_box( c, &whole, dx + l, dy + t ) );
+        m8d3d_mask_box( c, &whole, dx + l, dy + t );
+        return( 1 );
     }
     for( i = 0; i < m->parts; ++i ) {
-        if( !m8d3d_mask_box( c, &m->part[i], dx + l, dy + t ) ) {
-            return( 0 );
-        }
+        m8d3d_mask_box( c, &m->part[i], dx + l, dy + t );
     }
     return( 1 );
 }
@@ -1528,18 +1567,21 @@ static int m8d3d_stamp_copy( const M8D3D_STAMP *s, int x, int y )
     int             i;
 
     if( !m8d3d_stamp_mode ) {
-        if( !m8d3d_mono_off() || !m8d3d_room( 8 ) ) {
+        if( !m8d3d_mono_off() ) {
             return( 0 );
         }
-        outpw( M8_WRT_MASK, 0x00FF );
-        outpw( M8_RD_MASK, 0x00FF );
-        outpw( M8_DP_CONFIG, M8_DP_VRAM_BLIT );
-        outpw( M8_ALU_FG_FN, M8_MIX_REPLACE );
-        outpw( M8_ALU_BG_FN, M8_MIX_LEAVE );
-        outpw( M8_SRC_CMP_COLOR, 0 );
-        outpw( M8_SRC_CMP_FN, M8_CMP_UNEQUAL );
-        outpw( M8_SRC_Y_DIR, 1 );
+        M8D3D_Q( M8_WRT_MASK, 0x00FF );
+        M8D3D_Q( M8_RD_MASK, 0x00FF );
+        M8D3D_Q( M8_DP_CONFIG, M8_DP_VRAM_BLIT );
+        M8D3D_Q( M8_ALU_FG_FN, M8_MIX_REPLACE );
+        M8D3D_Q( M8_ALU_BG_FN, M8_MIX_LEAVE );
+        M8D3D_Q( M8_SRC_CMP_COLOR, 0 );
+        M8D3D_Q( M8_SRC_CMP_FN, M8_CMP_UNEQUAL );
+        M8D3D_Q( M8_SRC_Y_DIR, 1 );
         m8d3d_stamp_mode = 1;
+    }
+    if( m8d3d_qn + M8D3D_Q_ONE * 2 > M8D3D_Q_MAX && !m8d3d_q_flush() ) {
+        return( 0 );
     }
     if( s->parts == 0 ) {
         whole.x = 0;
@@ -1553,18 +1595,15 @@ static int m8d3d_stamp_copy( const M8D3D_STAMP *s, int x, int y )
         n = s->parts;
     }
     for( i = 0; i < n; ++i ) {
-        if( !m8d3d_room( 9 ) ) {
-            return( 0 );
-        }
-        outpw( M8_SRC_X_START, s->x + box[i].x );
-        outpw( M8_SRC_X_END, s->x + box[i].x + box[i].w );
-        outpw( M8_DESTX_DIASTP, s->x + box[i].x );
-        outpw( M8_DESTY_AXSTP, s->y + box[i].y );
-        outpw( M8_CUR_X, x + box[i].x );
-        outpw( M8_DEST_X_START, x + box[i].x );
-        outpw( M8_DEST_X_END, x + box[i].x + box[i].w );
-        outpw( M8_CUR_Y, y + box[i].y );
-        outpw( M8_DEST_Y_END, y + box[i].y + box[i].h );
+        M8D3D_Q( M8_SRC_X_START, s->x + box[i].x );
+        M8D3D_Q( M8_SRC_X_END, s->x + box[i].x + box[i].w );
+        M8D3D_Q( M8_DESTX_DIASTP, s->x + box[i].x );
+        M8D3D_Q( M8_DESTY_AXSTP, s->y + box[i].y );
+        M8D3D_Q( M8_CUR_X, x + box[i].x );
+        M8D3D_Q( M8_DEST_X_START, x + box[i].x );
+        M8D3D_Q( M8_DEST_X_END, x + box[i].x + box[i].w );
+        M8D3D_Q( M8_CUR_Y, y + box[i].y );
+        M8D3D_Q( M8_DEST_Y_END, y + box[i].y + box[i].h );
     }
     ++m8d3d_stat[22];
     return( 1 );
@@ -1765,6 +1804,7 @@ int m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const shor
     }
     m8d3d_mono_on = 0;
     m8d3d_stamp_mode = 0;
+    m8d3d_qn = 0;
     if( c->fresh ) {
         ok = m8d3d_scratch_clear( c );
         if( ok && c->mh != 0 ) {
@@ -1805,6 +1845,7 @@ int m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const shor
     if( ok ) {
         ok = m8d3d_scratch_clear( c );
     }
+    m8d3d_q_flush();
     /* Whatever failed, the compare must not outlive this: GDI's copies would be keyed. */
     if( m8d3d_stamp_mode ) {
         m8d3d_stamp_mode = 0;

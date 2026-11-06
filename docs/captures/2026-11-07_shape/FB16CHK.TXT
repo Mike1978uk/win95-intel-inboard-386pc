@@ -11,3 +11,7 @@ p-after  0 pixels differ, in 800,600 - 0,0; sends entered during a send 0
 q-after  0 pixels differ, in 800,600 - 0,0; sends entered during a send 0
 r-after  0 pixels differ, in 800,600 - 0,0; sends entered during a send 0
 s-after  0 pixels differ, in 800,600 - 0,0; sends entered during a send 0
+t-after  0 pixels differ, in 800,600 - 0,0; sends entered during a send 0
+u-after  0 pixels differ, in 800,600 - 0,0; sends entered during a send 0
+u2-after  0 pixels differ, in 800,600 - 0,0; sends entered during a send 0
+v-after  0 pixels differ, in 800,600 - 0,0; sends entered during a send 0

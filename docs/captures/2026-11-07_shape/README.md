@@ -79,3 +79,23 @@ The CPU already overlaps the wait for the flip to land, so a frame costs about t
 | `hal_many_e`, and D3DDP_DONOTUPDATEEXTENTS | 34.5 | 28.95 | 4.32 | 21.12 |
 
 Clip checks ~3.3 ms, extents ~2.1 ms, in the runtime, per program's flags: ~50 and ~33 us a triangle. ~3 ms of what remains is ours. The frame gains less than `d3d` loses because it nears two refreshes (27.7 ms) and waits instead. A driver cannot set these flags; a program can.
+
+## Work the frame out before the first OUT (Y14), `M8D3DT` measuring, `M8D3DU`, `M8D3DV`
+
+Any port access empties the L1 (module SW1). A triangle's lookups take ~11 us run one after another with no OUT, and a mask triangle cost 190-230 us in the driver against 66 us in M8SHAPE: about 125-165 us a triangle was C running from RAM between writes.
+
+Mask and stamp copies now queue their writes and go out in one asm loop. High priority, agent on, one run each:
+
+| fps | `M8D3DR` | `M8D3DU` chunk 14 | `M8D3DV` chunk 8 |
+|---|---|---|---|
+| hal_many | 31-35 | 36.9, 40.6 | 41.0 |
+| hal_many_e, DONOTCLIP and DONOTUPDATEEXTENTS | 34.5 | 45.6, 51.6 | 44.7 |
+| hal_large | 45-51 | 40.1, 40.8 | 45.6 |
+| hal_grad | 40.2 | 34.9, 39.9 | 41.9 |
+| hal_turn100 | 32-34 | 35.1, 33.5 | 32.1 |
+
+`hal_many` engine ~18-22 to ~12 ms. Chunk 14 waits for the FIFO to empty, leaving the engine idle when a long fill ends with the next command still crossing the bus: `hal_large` lost ~1.7 ms. Chunk 8 gave that back. The earlier asm queue arm in M8SHAPE gained nothing because it had almost no logic to move: **asm alone is no lever; moving logic off the far side of an OUT is.**
+
+Bug found reading the merged code, in the pushed `M8D3DR`: a mask copy could run with a stamp's source compare left on, if a frame mixed them. Fixed. The bench never mixes them.
+
+Pictures of `M8D3DV` from the card look whole. `card_06_hal_many_queued.png` has a small white mark on the left page, likely the pointer: not confirmed.
