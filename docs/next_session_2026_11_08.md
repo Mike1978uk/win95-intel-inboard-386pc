@@ -2,6 +2,16 @@
 
 Earlier handoff: `docs/next_session_2026_11_07.md` (its "Open" list still stands, less what is below). **The cloud session's tests are in #59**: carry this line on until every box there is ticked. Results: `docs/captures/2026-11-07_shape/README.md` and `docs/captures/2026-11-07_r892/README.md`. Levers: `docs/mach8_frame_rate_plan.md`, "What a frame's time is made of", Y1-Y13.
 
+## START HERE: 2026-11-07, afternoon
+
+- Card on `M8D3DY` pageable, boot 258.
+- M8TEX results in `docs/captures/2026-11-07_silicon/README.md`.
+- Locked ran slower than pageable.
+- Textured triangle from the atlas 1.05x flat at 100 px.
+- Engine steps a source along spans and lines.
+- Next is the row and line texture probe, then the HAL's texture formats and handles.
+- Desktop bench of `M8D3DY` (ellipse, polygon) still to run.
+
 ## START HERE: 2026-11-07, midday
 
 **The curve test is done: two hangs in three runs, cause unknown; card on `M8D3DX` locked, boot 257.** Results: `docs/captures/2026-11-07_curves/README.md`. Levers Y16-Y19.

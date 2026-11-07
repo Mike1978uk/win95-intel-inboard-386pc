@@ -378,8 +378,7 @@ texture can stay in L1 through the loop: VGATEX (#59 item 9) tests this. Whether
 intact is the question it must answer.
 
 **Direct3D textures in silicon (owner, 2026-11-05: engine first, software only as the last resort).** The engine
-cannot step a source per pixel (M8TEXL is the one open test), so exact textures on any triangle are out of its reach
-unless that probe surprises us. Order for a textured triangle:
+does step a source per pixel along a span or line at 1:1 (`docs/captures/2026-11-07_silicon/README.md`), but does not scale, so exact textures on any triangle remain out of its reach. Order for a textured triangle:
 
 | # | Path | Case | Silicon |
 |---|---|---|---|
@@ -463,10 +462,10 @@ A cheaper agent can run the prescribed benches and probes; diagnosis and engine 
 | V9 | Background and repeated tiles in card memory | OPEN |
 | V10 | Two pages, Flip = CRT_OFFSET | IN on the card by the owner's eye, 11-06: black overlaps gone, page wait 3.9-7.6 ms. 640x480 only. A write takes effect once a frame, about the blank's start, no tear seen (M8PAGE). Agent-free fps still to measure: `docs/captures/2026-11-06_v10/README.md` |
 | V11 | 320x240 Direct3D mode | OPEN |
-| V12 | Asm emitters, values in registers before the first OUT | OPEN |
+| V12 | Asm emitters, values in registers before the first OUT | OUT: asm queue no faster than C (`docs/captures/2026-11-07_shape/README.md`) |
 | V13 | DrawOnePrimitive and DrawPrimitives by GetDriverInfo | OPEN; DirectX calls cost ~0.3 ms a triangle |
 | V14 | Refresh rate and presenting in the blank | OPEN |
-| V15 | Shape cache: same outline and colour, keyed copy | OPEN |
+| V15 | Shape cache: same outline and colour, keyed copy | IN for masks and stamps, `7a92f99` |
 | V17 | **Shade and hue split:** low 4 bits shade, high 4 hue; a face's colour is one fill with WRT_MASK F0h; light changes are DAC writes (owner: same gradient, different colour). Masked-write cost unknown (WRITE_PER_BIT = 0) | OPEN, probe first |
 | V18 | **High-byte-only writes:** one low-byte latch, the odd byte commits; ~5.7 against 7.64 us on the bus, so order writes to share low bytes (owner: words and bytes, as XT-CF; P13) | OPEN, probe first |
 | V19 | **Fewer status reads:** a read costs what a write does; a triangle does 3-4; wait on known engine time (XT-CF's measured waits; O15). A full FIFO locks the card, so a table first | Built, `M8D3DA`: room counted, read only when spent. No lock in two runs |
@@ -476,7 +475,7 @@ A cheaper agent can run the prescribed benches and probes; diagnosis and engine 
 | V23 | 8 bpp mode as an option, by display depth | OPEN; a bench decides if it earns its place |
 | V24 | Background threads | IN: the V9x agent, not delivered with the driver, takes up to half the CPU; stopped, hal_tiny 70 fps at normal priority. Systray and Internat no measurable cost; `high` not needed |
 | V25 | **Fill colour from elsewhere:** DP_CONFIG 6213h (VRAM colour, mask in plane 7), A213h (colour pattern), E213h (source 7 lookup); gradients and textures near flat-triangle cost. Findings: `docs/mach8_vga_half_findings_2026_11_06.md` | **WORKS on the card (M8GRAD, 11-06):** all three fills give per-pixel colour; 1:1 shift only, 7 bits. Next: a triangle, timed. `docs/captures/2026-11-06_probes/README.md` |
-| V26 | **Field-confined arithmetic:** masked planes drop out of the ALU, so saturating add or subtract acts on only the shade field in one pass (`references/ati_mach32/guide.txt:11284-90`) | OPEN; unprobed |
+| V26 | **Field-confined arithmetic:** masked planes drop out of the ALU, so saturating add or subtract acts on only the shade field in one pass (`references/ati_mach32/guide.txt:11284-90`) | Card: works, Z3 |
 | V27 | **BG_COLOR_SRC** (DP_CONFIG bits 8:7), absent from this plan | OPEN; unprobed |
 | V28 | **VGA half for Mode X:** latch copies (M8LATCH), page flip (M8VFLIP; "cannot flip" has no source), BDh bit 2 128 KB window (M8W128) | Card, 11-06: flip works, latch copy 0.65 us a pixel, BDh bit 2 separates A000 and B000 (which memory B000 reaches is not shown). A Mode X path is open, not built |
 | V29 | **MEM_BNDRY write test on the Mach8** (M8BNDRY). Expected no effect; closes a closure that rested on the Mach32 guide alone | OUT, card 11-06: reads 0000 after writes, no effect |
@@ -582,6 +581,24 @@ Open ideas, not yet measured:
 Noted, not useful: Mandelbrot itself (detail costs computation, nothing to reuse). Already in use: phi in SWAPCOMP's hash (`SWAPCOMP.ASM:392`, 2^32 / phi); self-similar triangle as the core at one level (deeper loses to command cost); sine tables in M8CUBE.
 
 **Reuse to check after each win (owner):** masks and core rectangles for M8CUBE's polygon escape (`poly3d.c`), DirectDraw sprites (colour-key copies are mask-rate fills), and GDI's mono expansion from card memory.
+
+## Silicon: probe what it adds, use it if it earns it (owner, 2026-11-07)
+
+Owner: more capability from the card, not the CPU or bus; textures and what DirectX games call; 60 fps in real use, or as close as can be. Each row gets a card probe (pixels read back, timed); it goes into the driver if it adds capability or fps. Inventory from code and captures, 11-07; gains unknown until measured.
+
+| # | Silicon | Could add | Probe | Status |
+|---|---|---|---|---|
+| Z1 | 6213h fill, colour from VRAM (V25) | Textures and stored gradients on a triangle, 1:1 | `M8TEX` tcopy, tatlas | Card: 100 px 1.05x flat from the atlas, 32 px 1.29x. Next: into the HAL (`docs/captures/2026-11-07_silicon/README.md`) |
+| Z2 | Arithmetic mixes on the polygon fill (G14, O9) | Translucency, light, shadow | `M8TEX` avg, add, xor | Card: works on the polygon fill, no extra time (`docs/captures/2026-11-07_silicon/README.md`) |
+| Z3 | Masked writes, add on a field (V17, V26, G13) | Shade/hue split, lighting by one add, dual playfield | `M8TEX` box arms | Card: masked fill or add 1.8x plain; add saturates in the field (`docs/captures/2026-11-07_silicon/README.md`) |
+| Z4 | SRC_X_END wrap | Texture repeat in hardware | `M8TEX` tile | Card: no wrap in the row; continues on the next source row (`docs/captures/2026-11-07_silicon/README.md`) |
+| Z5 | SCAN_TO_X and lines from a source (M8TEXL) | Spans along a texture | `M8TEX` scan, line | Card: spans and horizontal lines step the source. Other slopes next (`docs/captures/2026-11-07_silicon/README.md`) |
+| Z6 | 320x240, 400x300 by CRTC (V11, Y8) | A quarter of the pixels | One mode, owner's eye | Not written |
+| Z7 | Third page, pitch 640 (Y2) | No page wait (3.9-7.6 ms) | M8PAGE variant | Not written |
+| Z8 | Dest compare EEEE, COLOR_CMP (D3, P7) | Depth bands, for programs that need Z | Polygon fill arm | Not written |
+| Z9 | BG_COLOR_SRC (V27), 4 bpp (S6), mirrored copy (Y11) | Mono expand over pixels, more pages, more mask hits | One arm each | After the above |
+
+Texture path for the HAL, in order: claim formats and handles, mean texel per triangle so textured programs run at all; then Z1 from an atlas, pre-scaled levels picked by triangle size, where a shift is close enough; CT3 cells for the rest. Z5 showed the engine steps a source along a span and a line, so rows and lines can carry a texture; it still does not scale, so scale comes from pre-scaled levels.
 
 ## Earlier order of work (2026-11-05; superseded above, kept for its probe lists)
 
