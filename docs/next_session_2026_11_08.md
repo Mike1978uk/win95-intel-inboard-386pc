@@ -38,7 +38,7 @@ Benchmarks and games: `docs/d3d_benchmarks_and_games.md`. Fps agent-free: `docs/
 
 `m8d3dx.drv` (see above: locked build under that name), 640x480 at 72 Hz for Direct3D, agent on at next boot. Way back: `C:\V9XREMOTE\REG\M8D3DD.REG` and `C:\V9XREMOTE\REG\M8DD32.DD` (rename in by WININIT.INI). The 5160 is in the cellar, the owner on the ground floor: batch trips, say exactly what is needed.
 
-**Scripts are in the old scratchpad, not the repo:** `install_h.ps1`, `cycle.ps1`, `shape.ps1`, `bench.ps1`, `grab_run.ps1`. Rewrite from `tools/m8_card_cycle.ps1` if gone: build into its own folder, put `<NAME>.DRV`, `M8DD32.NEW` + `WININIT.INI`, a `.REG`, restart through Start > Shut Down, wait, bench. A PowerShell line with a `.EXE` destination or a regex can trip the safety check: use a script file. Long patches: a Python file, not a heredoc.
+**Scripts: `tools/m8cardscripts/`:** `cycle.ps1 -Name M8D3Dx -Label x -Runs 1` builds, installs under its own name, restarts through Start > Shut Down and benches; `bench.ps1 -Label x` benches what is running; `shape.ps1 -Label x` runs M8SHAPE; `grab_run.ps1 -Label x -Out dir` makes pictures from the card; `restart.ps1`; `bed_swap.ps1`, `bed_xt.ps1`. A PowerShell line with a `.EXE` destination or a regex can trip the safety check: use a script file. Long patches: a Python file, not a heredoc. Restart keystrokes sometimes miss: check the boot counter before calling it a hang.
 
 ## Figures to beat (high priority, agent on, comparable with each other)
 

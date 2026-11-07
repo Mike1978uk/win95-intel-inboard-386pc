@@ -1,6 +1,6 @@
 param([string]$Name, [string]$Label, [int]$Runs = 2)
 # One driver iteration on the card, no owner: build, install under its own name, remote restart, bench at high priority.
-$s = 'C:\Users\lycet\AppData\Local\Temp\claude\c5a7a5e50d1189a6\869acaf2-51e2-49ce-ab18-21f1bee413eb\scratchpad'
+$s = $PSScriptRoot
 $root = 'C:\Users\lycet\RiderProjects\86Box-Inboard'
 $o = "$env:TEMP\$($Name.ToLower())"
 Push-Location $root
