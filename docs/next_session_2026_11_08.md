@@ -2,9 +2,41 @@
 
 Earlier handoff: `docs/next_session_2026_11_07.md` (its "Open" list still stands, less what is below). **The cloud session's tests are in #59**: carry this line on until every box there is ticked. Results: `docs/captures/2026-11-07_shape/README.md` and `docs/captures/2026-11-07_r892/README.md`. Levers: `docs/mach8_frame_rate_plan.md`, "What a frame's time is made of", Y1-Y13.
 
+## START HERE: tomorrow, 2026-11-07
+
+**Staged on the CF in the reader, 00:50, every file checked by md5.** The owner asked for the card staged; agent on at the next boot (`V9xRemoteAgent` is in SYSTEM.DAT; a raw search, so confirm by `info`).
+
+| On the card | What | md5 |
+|---|---|---|
+| `C:\WINDOWS\SYSTEM\M8D3DX.DRV` **active** | **Locked 16 bpp buffers (`GMEM_FIXED`), else `M8D3DX`.** Built from HEAD with `m8_fb16_pageable` patched; not in the tree | ED527782AC11383BEFAD2C9EEBF4FAA3 |
+| `M8D3DX.PGB` | The pageable build it replaced: the way back, rename over it | A4F3BA38371F133AC2E7DB302B2161DC |
+| `M8DD32.DLL` | Unchanged, built with `M8D3DX` | 1349FFF45CF5E3914BE8FB1FD97062BD |
+| `C:\SWAPCOMP.VXD`, `XTIDEMP.MPD` | Unchanged, live | 9FDE4934, A67FEFC4 |
+| `C:\V9XREMOTE\STAGE\` | **Not active:** `SWAPZF.VXD`, `SWAPZ.VXD`, `XTBOTH.MPD`, originals `SWAPCOMP.ORG`, `XTIDEMP.ORG` | C2585E38, 1CE747ED, DAEF6830 |
+
+The locked build's file is still named `M8D3DX`: the registry needs no change. **`FB16CHK`'s overlap counter stays in `fb16.c`.** The owner took another CF backup before this, and the image is the way back for everything.
+
+### Order
+
+1. **Owner:** eject the CF, into the 5160, boot. Confirm the desktop is fine.
+2. **Remote:** `info`; md5 of `M8D3DX.DRV`. `M8D3DF` at high once, `grab` once if pixels are in question.
+3. **Ghost and paging test, locked against pageable (one change):** owner runs `AGENTOFF`, restart, `NOAGPAGE` (label `ya`, now closes PERFLOG by `WINCLOSE PERFLOG`; check it takes), watches for ghosts with several programs open. If ghosts: F5, drag a window across, say which cleared. Compare with `docs/captures/2026-11-07_xa/README.md`: page-outs 2,815 locked and old build, 4,889 and 5,817 pageable. **If it hangs or ghosts persist on locked, the pageable change is not the cause: say so and record it.**
+4. **Keep whichever wins:** locked needs `m8_fb16_pageable` changed in `fb16.c` and a commit; it gives back the 892 KB. Then delete the counter once the ghost question is answered.
+5. **SWAPCOMP and XT-CF on the card, one at a time, agent on, restart between, A B A B, deltas only:** `SWAPZF` over `C:\SWAPCOMP.VXD` by WININIT.INI (it is in use); `XTBOTH.MPD` over `XTIDEMP.MPD` likewise; `XTSECT` x3 and `PAGETIME`. Bed passed both: `SWAPZFC` 25,016 reads 0 checksum errors; `both` file hashes equal the original. `XTSECT` fails in the bed on either driver. Zero pages are under 1 % of paging; `SWAPZ` alone is not worth a run.
+
+### What the owner reported on `M8D3DX`, agent off
+
+Faster to the eye. Ghosts again with several programs open. Script needed closing by hand. Gradient triangles were gradients but large bands, few a triangle: "multi colour" rather than fine. **dxdiag's Direct3D button hung, sound looping, agent off.** After a reboot dxdiag ran well: "colours better than before and no blockiness", good frame rate; software rendering minutes. Owner videoed it all: location not given, ask. Owner's questions: is RAM not flushed (doubted: the cache is write-through; not proven), or OSR1 and heavy virtual memory (open).
+
+### Then, graphics
+
+**C2 adaptive palette**, the owner's fine-gradient complaint: bands are limited by the fixed 5 x 9 x 5 palette as well as by count. Then more bands for stamps, whose cost is once only; Y10 stored ramps; batched edges for `hal_turn100`; small tests 2-5 fps down from `M8D3DD` agent-free, unexplained. #55's hang needs a way to see where it stops: ideas: a breadcrumb written to off-screen card memory, read after reset.
+
+Benchmarks and games: `docs/d3d_benchmarks_and_games.md`. Fps agent-free: `docs/captures/2026-11-07_xa/README.md`. Owner's rule tonight: when anything stops or needs attention, wait for them; they check periodically.
+
 ## Card
 
-`m8d3dx.drv`, 640x480 at 72 Hz for Direct3D, agent ON. Way back: `C:\V9XREMOTE\REG\M8D3DD.REG` and `C:\V9XREMOTE\REG\M8DD32.DD` (rename in by WININIT.INI). The 5160 is in the cellar, the owner on the ground floor: batch trips, say exactly what is needed.
+`m8d3dx.drv` (see above: locked build under that name), 640x480 at 72 Hz for Direct3D, agent on at next boot. Way back: `C:\V9XREMOTE\REG\M8D3DD.REG` and `C:\V9XREMOTE\REG\M8DD32.DD` (rename in by WININIT.INI). The 5160 is in the cellar, the owner on the ground floor: batch trips, say exactly what is needed.
 
 **Scripts are in the old scratchpad, not the repo:** `install_h.ps1`, `cycle.ps1`, `shape.ps1`, `bench.ps1`, `grab_run.ps1`. Rewrite from `tools/m8_card_cycle.ps1` if gone: build into its own folder, put `<NAME>.DRV`, `M8DD32.NEW` + `WININIT.INI`, a `.REG`, restart through Start > Shut Down, wait, bench. A PowerShell line with a `.EXE` destination or a regex can trip the safety check: use a script file. Long patches: a Python file, not a heredoc.
 
@@ -45,8 +77,8 @@ High priority with the agent on runs close to agent-free (`hal_large` 33.6 again
 - Restart hang on `M8D3DN` boot 244, black screen and egg timer after `M8D3DK`'s second bench, boot 241. Restart stalls are older than today's work.
 - `hal_turn100` no better than the morning: masks do not help a shape that changes. Batched edges (0.9x) not in the driver; build limiter is rough.
 - Bands are by rows only. Fixed 5 x 9 x 5 palette, steps show: C2 next. **Owner's eye on bands and dxdiag still to come.** Dxdiag not run since the caps fix: it may now take the Gouraud path.
-- SWAPCOMP and XT-CF: no change made; `XTIDEMP.MPD` a67fefc4, `SWAPCOMP.VXD` 9FDE4934 verified on the CF. Owner imaged the CF on 11-06. Order: XT-CF `both` (built, `%TEMP%\xtcf_builds`), counter build for zero pages, `LZ4B12FN`, file cache sweep. Test by restart, same order, two runs, deltas only, alternating builds (owner: memory varies).
-- Bed `vm_5160_mcp` left running on `M8D3DH`, menu timeout attempted (`C:\CONFIG.BED` holds the old file). Its Enter-at-menu stop is not explained.
+- SWAPCOMP and XT-CF: build options in the tree, staged, not active: step 5 above. File cache sweep still to try. Test by restart, same order, two runs, deltas only, alternating builds (owner: memory varies).
+- Bed `vm_5160_mcp`: on `M8D3DH`, `SWAPZFC`, original XT-CF, its boot menu stops at times for Enter, cause not known. Originals `C:\SWAPCOMP.BAK`, `C:\XTIDEMP.BAK`. Left running or closed: see the last line of this file.
 
 ## Order of levers
 
