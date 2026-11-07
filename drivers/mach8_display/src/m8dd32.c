@@ -563,7 +563,7 @@ static int m8dd_key_rect( const RECT *d, int sx, int sy, BYTE key )
  * RAM does not hold them until something reads the buffer (m8dd_tris_to_ram),
  * and Flip has the engine draw them. */
 #define M8DD_DIRTY_MAX      8
-#define M8DD_TRIS_MAX       512
+#define M8DD_TRIS_MAX       1024
 
 typedef struct {
     int     known;

@@ -447,6 +447,9 @@ typedef char m8d3d_tl_size[sizeof( M8D3D_TLVERTEX ) == 32 ? 1 : -1];
 
 #define M8D3D_CONTEXTS  4
 #define M8D3D_TEXTURES  64
+/* Below this on its longer side a triangle shows little of a gradient, and a gradient costs
+ * several commands where a flat triangle costs a stamp. */
+#define M8D3D_GRAD_MIN  32
 #define M8D3D_CLIP_MAX  8               /* a triangle gains at most one corner a side */
 #define M8D3D_DEPTH_SCALE   341.0f      /* three corners' z, 0 to 1 each, to the 0-1023 of the sort */
 
@@ -2617,6 +2620,7 @@ static void m8d3d_draw_on( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D_
     long                    area;
     int                     j;
     int                     fog;
+    int                     side;
 
     if( !p->ok ) {
         return;
@@ -2639,7 +2643,8 @@ static void m8d3d_draw_on( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D_
         hx = v[4] > hx ? v[4] : hx;
         ly = v[5] < ly ? v[5] : ly;
         hy = v[5] > hy ? v[5] : hy;
-        ++m8d3d_census.tri_sizes[m8d3d_log2( hx - lx > hy - ly ? hx - lx : hy - ly, 9 )];
+        side = hx - lx > hy - ly ? hx - lx : hy - ly;
+        ++m8d3d_census.tri_sizes[m8d3d_log2( side, 9 )];
         ++m8d3d_census.tris;
         m8d3d_census.tris_textured += c->tex != 0;
         m8d3d_census.tris_z += (on >> M8D3D_RS_ZENABLE) & 1;
@@ -2683,7 +2688,7 @@ static void m8d3d_draw_on( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D_
         /* Flat shading keeps one colour, the corners' mean: a face's two triangles then
          * agree where the first vertex alone would not. */
         for( j = 0; j < 3; ++j ) {
-            corners[j] = p->tex != NULL || fog ? texc[j] :
+            corners[j] = side < M8D3D_GRAD_MIN ? rgb : p->tex != NULL || fog ? texc[j] :
                          c->shade == M8D3D_SHADE_GOURAUD ? a[j]->color & 0x00FFFFFFUL : rgb;
         }
         /* Described, not drawn: Flip has the engine draw it, furthest first if Z is on. */

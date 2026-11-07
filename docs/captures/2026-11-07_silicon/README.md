@@ -92,3 +92,14 @@ The tunnel's texture is 256 px; it uses DrawOneIndexedPrimitive and DrawPrimitiv
 A scratch rebuild of the sample with full-screen hardware forced, built against the SDK's headers, stops on "requires a 16-bit display mode"; not looked into, and set aside.
 
 Card: `M8D3E2` installed, boot 262. Its bench failed: the owner found a black screen with an egg-timer cursor, and restarted it. No card figures for `M8D3E2` or later.
+
+### Iterations, evening
+
+| Build | Change | Result |
+|---|---|---|
+| `M8D3E8` | M8DD_TRIS_MAX 512 to 1024; triangles under 32 px flat | Bed tunnel 0.13-0.22 fps, about 750 triangles a frame, sizes mostly 8-32 px. Card e8a1, boot 264, 0 differ: hal_depth pixel 07e0, the nearest on top though sent first. hal_tex 41.9, hal_tex32 61.1, hal_large 41.6, hal_many 34.1: down from 39.9, our share 3.35 to 6.03 ms |
+| `M8D3E9` | Clip check by float bits; census detail 1 in 8; specular added | Bed runs. Picture still dark: suspected averaged corner samples of a high-contrast texture. Card: did not come back within 4 minutes of the restart; ping answered, agent refused |
+
+Tunnel on the card, `M8D3E8`: stopped responding at "No 3D Device, switching to software", then restarted itself. No card baseline yet. On the bed that phase only crawled.
+
+`M8TUNF`: a copy of `tunneldp.exe` that starts full screen on hardware, 5 bytes changed, by `tools/m8d3dtest/tunnel_full_patch.py`. The sample's other gate exits if the device cannot render in a window, with a misleading message about 16-bit modes: that gate is the sample's, not DirectX's.
