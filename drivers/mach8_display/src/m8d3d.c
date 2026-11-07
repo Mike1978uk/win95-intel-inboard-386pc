@@ -11,7 +11,12 @@
  * d3dhal.h, checked by size below.
  *
  * What is claimed is what the card does: RGB colour, flat shading, an 8 bpp
- * target, no Z buffer. A texture stays in system memory, and for now reaches a
+ * target. No Z buffer: at 16 bpp a frame is sorted by depth before Flip draws it, so
+ * ZBUFFERLESSHSR is claimed; triangles that cross each other can come out wrong.
+ *
+ * A program reads caps before it decides anything, so what it may ask for is claimed where the
+ * answer is close enough or fails harmlessly: bilinear draws as nearest, perspective as affine,
+ * blending as opaque until the engine's mixes are wired in. A texture stays in system memory, and for now reaches a
  * triangle as the colours under its corners, so the gradient path draws it. A triangle is a polygon fill: its outline
  * in one bit-plane of a scratch area beside the target, the engine fills between
  * those pixels, and the outline goes over the fill (m8hw.c m8_hw_poly, the
@@ -80,6 +85,31 @@
 #define M8D3D_PT_TRIANGLEFAN    6
 #define M8D3D_VT_TLVERTEX       3
 #define M8D3D_GUID_CALLBACKS2_DATA1 0x0BA584E1UL
+#define M8D3D_GUID_ZFORMATS_DATA1   0x93869880UL
+#define M8D3D_GUID_EXTCAPS_DATA1    0x7DE41F80UL
+#define M8D3D_RS_FOGCOLOR           34
+#define M8D3D_PRASTERCAPS_FOGVERTEX 0x00000080UL
+#define M8D3D_PSHADECAPS_ALPHAFLATBLEND 0x00001000UL
+#define M8D3D_PSHADECAPS_ALPHAGOURAUDBLEND 0x00004000UL
+#define M8D3D_PSHADECAPS_FOGFLAT    0x00040000UL
+#define M8D3D_PSHADECAPS_FOGGOURAUD 0x00080000UL
+#define M8D3D_PTEXTURECAPS_PERSPECTIVE 0x00000001UL
+#define M8D3D_PTEXTURECAPS_ALPHA    0x00000004UL
+#define M8D3D_PTEXTURECAPS_TRANSPARENCY 0x00000008UL
+#define M8D3D_PTFILTERCAPS_LINEAR   0x00000002UL
+#define M8D3D_PTFILTERCAPS_MIPNEAREST 0x00000004UL
+#define M8D3D_PTFILTERCAPS_MIPLINEAR 0x00000008UL
+#define M8D3D_PTBLENDCAPS_DECALALPHA 0x00000004UL
+#define M8D3D_PTBLENDCAPS_MODULATEALPHA 0x00000008UL
+#define M8D3D_PTBLENDCAPS_COPY      0x00000040UL
+#define M8D3D_PTADDRESSCAPS_MIRROR  0x00000002UL
+#define M8D3D_PTADDRESSCAPS_CLAMP   0x00000004UL
+#define M8D3D_PBLENDCAPS_ZERO       0x00000001UL
+#define M8D3D_PBLENDCAPS_ONE        0x00000002UL
+#define M8D3D_PBLENDCAPS_SRCALPHA   0x00000010UL
+#define M8D3D_PBLENDCAPS_INVSRCALPHA 0x00000020UL
+#define M8D3D_TEXOPCAPS_FIXED       0x0000000FUL    /* disable, the two arguments, modulate */
+#define M8D3D_DDPF_ZBUFFER          0x00000400UL
 #define M8D3D_CB2_SETRENDERTARGET   0x00000001UL
 #define M8D3D_CB2_DRAWONEPRIMITIVE  0x00000004UL
 #define M8D3D_CB2_DRAWONEINDEXED    0x00000008UL
@@ -110,7 +140,7 @@
 extern int  m8d3d_surface( LPVOID lcl, int *x, int *y, int *w, int *h );
 extern int  m8d3d_scratch( LPVOID key, int *w, int *h, int *x, int *y );
 extern int  m8d3d_fb16( void );
-extern int  m8d3d_record( LPVOID lcl, const short *v, BYTE index, WORD colour, const DWORD *rgb );
+extern int  m8d3d_record( LPVOID lcl, const short *v, BYTE index, WORD colour, const DWORD *rgb, int depth );
 extern void m8d3d_scratch_free( LPVOID key );
 extern int  m8d3d_engine_begin( void );
 extern void m8d3d_engine_end( void );
@@ -136,6 +166,15 @@ extern long m8d3d_round( float f );
 #define M8D3D_PMISCCAPS_CULLNONE    0x00000010UL
 #define M8D3D_PSHADECAPS_COLORFLATRGB 0x00000002UL
 #define M8D3D_PSHADECAPS_COLORGOURAUDRGB 0x00000008UL
+#define M8D3D_PRASTERCAPS_ZTEST     0x00000010UL
+#define M8D3D_PRASTERCAPS_ZBUFFERLESSHSR 0x00008000UL
+#define M8D3D_PMISCCAPS_MASKZ       0x00000002UL
+#define M8D3D_PCMPCAPS_NEVER        0x00000001UL
+#define M8D3D_PCMPCAPS_LESS         0x00000002UL
+#define M8D3D_PCMPCAPS_LESSEQUAL    0x00000008UL
+#define M8D3D_PCMPCAPS_ALWAYS       0x00000080UL
+#define M8D3D_RS_ZFUNC              23
+#define M8D3D_CMP_ALWAYS            8
 #define M8D3D_PTEXTURECAPS_POW2     0x00000002UL
 #define M8D3D_PTFILTERCAPS_NEAREST  0x00000001UL
 #define M8D3D_PTBLENDCAPS_DECAL     0x00000001UL
@@ -276,6 +315,47 @@ typedef struct {
     LPVOID  DrawPrimitives;
 } M8D3D_CALLBACKS2;
 
+/* D3DHAL_D3DEXTENDEDCAPS7; earlier runtimes ask for a shorter front of it, and dwSize says how much. */
+typedef struct {
+    DWORD   dwSize;
+    DWORD   dwMinTextureWidth;
+    DWORD   dwMaxTextureWidth;
+    DWORD   dwMinTextureHeight;
+    DWORD   dwMaxTextureHeight;
+    DWORD   dwMinStippleWidth;
+    DWORD   dwMaxStippleWidth;
+    DWORD   dwMinStippleHeight;
+    DWORD   dwMaxStippleHeight;
+    DWORD   dwMaxTextureRepeat;
+    DWORD   dwMaxTextureAspectRatio;
+    DWORD   dwMaxAnisotropy;
+    float   dvGuardBandLeft;
+    float   dvGuardBandTop;
+    float   dvGuardBandRight;
+    float   dvGuardBandBottom;
+    float   dvExtentsAdjust;
+    DWORD   dwStencilCaps;
+    DWORD   dwFVFCaps;
+    DWORD   dwTextureOpCaps;
+    WORD    wMaxTextureBlendStages;
+    WORD    wMaxSimultaneousTextures;
+    DWORD   dwMaxActiveLights;
+    float   dvMaxVertexW;
+    WORD    wMaxUserClipPlanes;
+    WORD    wMaxVertexBlendMatrices;
+    DWORD   dwVertexProcessingCaps;
+    DWORD   dwReserved[4];
+} M8D3D_EXTCAPS;
+
+/* A count, then that many DDPIXELFORMATs: size, flags, FourCC, Z bits, stencil bits, Z mask,
+ * stencil mask, RGB-Z mask. */
+typedef struct {
+    DWORD   count;
+    DWORD   format[8];
+} M8D3D_ZFORMATS;
+
+typedef char m8d3d_zformats_size[sizeof( M8D3D_ZFORMATS ) == 36 ? 1 : -1];
+
 typedef struct {
     DWORD   dwSize;
     DWORD   dwFlags;
@@ -367,6 +447,8 @@ typedef char m8d3d_tl_size[sizeof( M8D3D_TLVERTEX ) == 32 ? 1 : -1];
 
 #define M8D3D_CONTEXTS  4
 #define M8D3D_TEXTURES  64
+#define M8D3D_CLIP_MAX  8               /* a triangle gains at most one corner a side */
+#define M8D3D_DEPTH_SCALE   341.0f      /* three corners' z, 0 to 1 each, to the 0-1023 of the sort */
 
 typedef struct {
     LPVOID  dds;                /* NULL = free */
@@ -377,6 +459,60 @@ typedef struct {
 } M8D3D_TEX;
 
 static M8D3D_TEX        m8d3d_texs[M8D3D_TEXTURES];
+
+/* What programs ask of this interface, across every context until restart, so real programs
+ * can rank what to build: docs/mach8_frame_rate_plan.md, the census. A few additions a call. */
+#define M8D3D_CENSUS_MARK   0x4E43384DUL    /* "M8CN" */
+#define M8D3D_RS_ZENABLE        7
+#define M8D3D_RS_ALPHATEST      15
+#define M8D3D_RS_ALPHABLEND     27
+#define M8D3D_RS_FOG            28
+#define M8D3D_RS_PERSPECTIVE    4
+#define M8D3D_RS_COLORKEY       41
+
+typedef struct {
+    DWORD   mark;
+    DWORD   state_hits[100];        /* by state type; 99 = any above */
+    DWORD   state_values[100];      /* one bit for each value set, 31 = any above */
+    DWORD   state_blocks[8];        /* DrawPrimitives' pairs a block, by log2 */
+    DWORD   calls_exec;
+    DWORD   calls_one;
+    DWORD   calls_indexed;
+    DWORD   calls_prims;
+    DWORD   prim_types[8];
+    DWORD   other_ops;              /* RenderPrimitive's other than triangles */
+    DWORD   tris;
+    DWORD   tris_textured;
+    DWORD   tris_z;
+    DWORD   tris_blend;
+    DWORD   tris_alphatest;
+    DWORD   tris_colorkey;
+    DWORD   tris_fog;
+    DWORD   tris_perspective;
+    DWORD   tris_clipped;
+    DWORD   tri_sizes[10];          /* bounding box's longer side, by log2 */
+    DWORD   batch_sizes[10];        /* triangles a call, by log2 */
+    DWORD   contexts;
+    DWORD   contexts_z;
+    DWORD   targets_set;
+    DWORD   tex_created;
+    DWORD   tex_sizes[12];          /* longer side, by log2 */
+    DWORD   info_data1[16];         /* GetDriverInfo, by the GUID's first DWORD */
+    DWORD   info_hits[16];
+} M8D3D_CENSUS;
+
+M8D3D_CENSUS            m8d3d_census = { M8D3D_CENSUS_MARK };
+
+static int m8d3d_log2( DWORD n, int top )
+{
+    int k = 0;
+
+    while( n > 1 && k < top ) {
+        n >>= 1;
+        ++k;
+    }
+    return( k );
+}
 static DDSURFACEDESC    m8d3d_tex_formats[2];
 
 /* A shape: its corners relative to its box. Each plane of the mask strip holds one, whole, so
@@ -463,6 +599,9 @@ typedef struct {
     DWORD   cull;
     DWORD   tex;                /* texture handle, 0 = none */
     DWORD   texblend;
+    DWORD   rs_on;              /* which of the census's states are set */
+    DWORD   zfunc;
+    DWORD   fogcolor;
     int     sx;                 /* the scratch */
     int     sy;
     int     sw;                 /* the target's width */
@@ -479,6 +618,16 @@ typedef struct {
 static M8D3D_GLOBAL     m8d3d_global;
 static M8D3D_CALLBACKS  m8d3d_callbacks;
 static M8D3D_CALLBACKS2 m8d3d_callbacks2;
+/* Programs ask for this list whether or not they use a Z buffer, and some stop if it is empty.
+ * Depth comes from the sort at Flip: ZBUFFERLESSHSR tells those who check that no surface is needed. */
+/* Corners far off the target are ours to cut: m8d3d_draw_clipped. */
+static const M8D3D_EXTCAPS m8d3d_extcaps = {
+    0, 1, 256, 1, 256, 0, 0, 0, 0, 256, 256, 1,
+    -32768.0f, -32768.0f, 32767.0f, 32767.0f, 0.0f,
+    0, 0, M8D3D_TEXOPCAPS_FIXED, 1, 1,
+    0, 1.0e10f, 0, 0, 0, { 0, 0, 0, 0 }
+};
+static const M8D3D_ZFORMATS m8d3d_zformats = { 1, { 32, M8D3D_DDPF_ZBUFFER, 0, 16, 0, 0xFFFF, 0, 0 } };
 static M8D3D_CONTEXT    m8d3d_ctx[M8D3D_CONTEXTS];
 
 /* Exported so a test program can see which callbacks the runtime reached: a
@@ -2063,6 +2212,13 @@ static DWORD __stdcall m8d3d_context_create( M8D3D_CONTEXTCREATE *d )
     c = &m8d3d_ctx[k];
     c->tex = 0;
     c->texblend = M8D3D_TEXBLEND_MODULATE;
+    /* An attached Z surface turns depth testing on until a program says otherwise. */
+    c->rs_on = d->lpDDSZ != NULL ? 1UL << M8D3D_RS_ZENABLE : 0;
+    c->zfunc = 0;
+    ++m8d3d_census.contexts;
+    if( d->lpDDSZ != NULL ) {
+        ++m8d3d_census.contexts_z;
+    }
     if( !m8d3d_surface( m8d3d_lcl( d->lpDDS ), &x, &y, &c->sw, &c->sh ) ) {
         return( DDHAL_DRIVER_HANDLED );
     }
@@ -2182,6 +2338,16 @@ static DWORD m8d3d_texel( const M8D3D_TEX *t, const BYTE *bits, float u, float v
     return( ((p & 0xF800) << 8) | ((p & 0x07E0) << 5) | ((p & 0x001F) << 3) );
 }
 
+/* Vertex fog: the specular colour's alpha is how much of the vertex's own colour is left. */
+static DWORD m8d3d_fogged( DWORD colour, DWORD fog, DWORD left )
+{
+    DWORD gone = 255 - left;
+
+    return( ((((colour >> 16) & 255) * left + ((fog >> 16) & 255) * gone) / 255 << 16) |
+            ((((colour >> 8) & 255) * left + ((fog >> 8) & 255) * gone) / 255 << 8) |
+            (((colour & 255) * left + (fog & 255) * gone) / 255) );
+}
+
 static DWORD m8d3d_modulate( DWORD a, DWORD b )
 {
     return( ((((a >> 16) & 255) * ((b >> 16) & 255) >> 8) << 16) |
@@ -2206,6 +2372,14 @@ static DWORD __stdcall m8d3d_texture_create( M8D3D_TEXTURECREATE *d )
     }
     m8d3d_texs[k].dds = d->lpDDS;
     d->dwHandle = k + 1;
+    ++m8d3d_census.tex_created;
+    {
+        BYTE *bits;
+
+        if( m8d3d_tex_read( &m8d3d_texs[k], &bits ) ) {
+            ++m8d3d_census.tex_sizes[m8d3d_log2( m8d3d_texs[k].w > m8d3d_texs[k].h ? m8d3d_texs[k].w : m8d3d_texs[k].h, 11 )];
+        }
+    }
     d->ddrval = DD_OK;
     return( DDHAL_DRIVER_HANDLED );
 }
@@ -2260,6 +2434,21 @@ static void m8d3d_states( M8D3D_CONTEXT *c, const M8D3D_STATE *s, DWORD n )
     DWORD i;
 
     for( i = 0; i < n; ++i ) {
+        DWORD t = s[i].type < 99 ? s[i].type : 99;
+
+        ++m8d3d_census.state_hits[t];
+        m8d3d_census.state_values[t] |= 1UL << (s[i].arg < 31 ? s[i].arg : 31);
+        if( t < 32 || t == M8D3D_RS_COLORKEY ) {
+            DWORD bit = 1UL << (t == M8D3D_RS_COLORKEY ? 31 : t);
+
+            c->rs_on = s[i].arg ? c->rs_on | bit : c->rs_on & ~bit;
+        }
+        if( s[i].type == M8D3D_RS_FOGCOLOR ) {
+            c->fogcolor = s[i].arg;
+        }
+        if( s[i].type == M8D3D_RS_ZFUNC ) {
+            c->zfunc = s[i].arg;
+        }
         if( s[i].type == M8D3D_RS_CULLMODE ) {
             c->cull = s[i].arg;
         }
@@ -2332,8 +2521,93 @@ static int m8d3d_draw_begin( M8D3D_DRAW *p, M8D3D_CONTEXT *c )
     return( 1 );
 }
 
-static void m8d3d_draw_tri( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D_TLVERTEX *v1,
-                            const M8D3D_TLVERTEX *v2 )
+static void m8d3d_draw_on( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D_TLVERTEX *v1,
+                           const M8D3D_TLVERTEX *v2 );
+
+static DWORD m8d3d_lerp_colour( DWORD a, DWORD b, float t )
+{
+    DWORD   r = 0;
+    int     s;
+
+    for( s = 0; s < 32; s += 8 ) {
+        int ca = (int)((a >> s) & 255);
+        int cb = (int)((b >> s) & 255);
+
+        r |= (DWORD)(ca + m8d3d_round( (float)(cb - ca) * t )) << s;
+    }
+    return( r );
+}
+
+/* Where an edge meets one side of the target. */
+static void m8d3d_lerp( M8D3D_TLVERTEX *o, const M8D3D_TLVERTEX *a, const M8D3D_TLVERTEX *b, float t )
+{
+    o->sx = a->sx + (b->sx - a->sx) * t;
+    o->sy = a->sy + (b->sy - a->sy) * t;
+    o->sz = a->sz + (b->sz - a->sz) * t;
+    o->rhw = a->rhw + (b->rhw - a->rhw) * t;
+    o->tu = a->tu + (b->tu - a->tu) * t;
+    o->tv = a->tv + (b->tv - a->tv) * t;
+    o->color = m8d3d_lerp_colour( a->color, b->color, t );
+    o->specular = a->specular;
+}
+
+/* side 0 and 1: x against lim, 2 and 3: y; odd sides keep what is at or below the limit. */
+static int m8d3d_clip_side( const M8D3D_TLVERTEX *in, int n, M8D3D_TLVERTEX *out, int side, float lim )
+{
+    int k = 0;
+    int i;
+
+    for( i = 0; i < n; ++i ) {
+        const M8D3D_TLVERTEX    *a = &in[i];
+        const M8D3D_TLVERTEX    *b = &in[(i + 1) % n];
+        float                   da = (side < 2 ? a->sx : a->sy) - lim;
+        float                   db = (side < 2 ? b->sx : b->sy) - lim;
+
+        if( side & 1 ) {
+            da = -da;
+            db = -db;
+        }
+        if( da >= 0.0f ) {
+            out[k++] = *a;
+        }
+        if( (da >= 0.0f) != (db >= 0.0f) ) {
+            m8d3d_lerp( &out[k++], a, b, da / (da - db) );
+        }
+    }
+    return( k );
+}
+
+/* The rasteriser fills its outline too, so the last row and column in are the limits: a
+ * full-target quad, 0-640 by 0-480 in Direct3D's convention, then covers every pixel. */
+static void m8d3d_draw_clipped( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D_TLVERTEX *v1,
+                                const M8D3D_TLVERTEX *v2 )
+{
+    M8D3D_TLVERTEX  a[M8D3D_CLIP_MAX];
+    M8D3D_TLVERTEX  b[M8D3D_CLIP_MAX];
+    int             n = 3;
+    int             i;
+
+    a[0] = *v0;
+    a[1] = *v1;
+    a[2] = *v2;
+    n = m8d3d_clip_side( a, n, b, 0, 0.0f );
+    n = m8d3d_clip_side( b, n, a, 1, (float)(p->w - 1) );
+    n = m8d3d_clip_side( a, n, b, 2, 0.0f );
+    n = m8d3d_clip_side( b, n, a, 3, (float)(p->h - 1) );
+    /* A cut corner can land a rounding error past the side it was cut on, so each is put on the
+     * target before drawing, and the pieces are not checked again. */
+    for( i = 0; i < n; ++i ) {
+        a[i].sx = a[i].sx < 0.0f ? 0.0f : a[i].sx > (float)(p->w - 1) ? (float)(p->w - 1) : a[i].sx;
+        a[i].sy = a[i].sy < 0.0f ? 0.0f : a[i].sy > (float)(p->h - 1) ? (float)(p->h - 1) : a[i].sy;
+    }
+    for( i = 1; p->ok && i + 1 < n; ++i ) {
+        m8d3d_draw_on( p, &a[0], &a[i], &a[i + 1] );
+    }
+}
+
+/* All three corners on the target. */
+static void m8d3d_draw_on( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D_TLVERTEX *v1,
+                           const M8D3D_TLVERTEX *v2 )
 {
     M8D3D_CONTEXT           *c = p->c;
     const M8D3D_TLVERTEX    *a[3];
@@ -2342,6 +2616,7 @@ static void m8d3d_draw_tri( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D
     DWORD                   rgb;
     long                    area;
     int                     j;
+    int                     fog;
 
     if( !p->ok ) {
         return;
@@ -2353,17 +2628,32 @@ static void m8d3d_draw_tri( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D
         v[2 * j] = (short)m8d3d_round( a[j]->sx );
         v[2 * j + 1] = (short)m8d3d_round( a[j]->sy );
     }
+    {
+        int     lx = v[0] < v[2] ? v[0] : v[2];
+        int     hx = v[0] > v[2] ? v[0] : v[2];
+        int     ly = v[1] < v[3] ? v[1] : v[3];
+        int     hy = v[1] > v[3] ? v[1] : v[3];
+        DWORD   on = c->rs_on;
+
+        lx = v[4] < lx ? v[4] : lx;
+        hx = v[4] > hx ? v[4] : hx;
+        ly = v[5] < ly ? v[5] : ly;
+        hy = v[5] > hy ? v[5] : hy;
+        ++m8d3d_census.tri_sizes[m8d3d_log2( hx - lx > hy - ly ? hx - lx : hy - ly, 9 )];
+        ++m8d3d_census.tris;
+        m8d3d_census.tris_textured += c->tex != 0;
+        m8d3d_census.tris_z += (on >> M8D3D_RS_ZENABLE) & 1;
+        m8d3d_census.tris_blend += (on >> M8D3D_RS_ALPHABLEND) & 1;
+        m8d3d_census.tris_alphatest += (on >> M8D3D_RS_ALPHATEST) & 1;
+        m8d3d_census.tris_colorkey += on >> 31;
+        m8d3d_census.tris_fog += (on >> M8D3D_RS_FOG) & 1;
+        m8d3d_census.tris_perspective += (on >> M8D3D_RS_PERSPECTIVE) & 1;
+    }
     /* Above zero runs clockwise on the screen. */
     area = (long)(v[2] - v[0]) * (v[5] - v[1]) - (long)(v[3] - v[1]) * (v[4] - v[0]);
     if( area == 0 || (c->cull == M8D3D_CULL_CCW && area < 0) ||
         (c->cull == M8D3D_CULL_CW && area > 0) ) {
         ++m8d3d_stat[9];
-        return;
-    }
-    if( v[0] < 0 || v[0] >= p->w || v[1] < 0 || v[1] >= p->h ||
-        v[2] < 0 || v[2] >= p->w || v[3] < 0 || v[3] >= p->h ||
-        v[4] < 0 || v[4] >= p->w || v[5] < 0 || v[5] >= p->h ) {
-        ++m8d3d_stat[10];
         return;
     }
     rgb = m8d3d_mean( a[0]->color, a[1]->color, a[2]->color );
@@ -2376,21 +2666,55 @@ static void m8d3d_draw_tri( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D
         }
         rgb = m8d3d_mean( texc[0], texc[1], texc[2] );
     }
+    /* Distance fades towards the fog colour across the triangle: the gradient path draws it. */
+    fog = (c->rs_on >> M8D3D_RS_FOG) & 1;
+    if( fog ) {
+        for( j = 0; j < 3; ++j ) {
+            DWORD from = p->tex != NULL ? texc[j] :
+                         c->shade == M8D3D_SHADE_GOURAUD ? a[j]->color & 0x00FFFFFFUL : rgb;
+
+            texc[j] = m8d3d_fogged( from, c->fogcolor, a[j]->specular >> 24 );
+        }
+        rgb = m8d3d_mean( texc[0], texc[1], texc[2] );
+    }
     if( p->fb16 ) {
         DWORD corners[3];
 
         /* Flat shading keeps one colour, the corners' mean: a face's two triangles then
          * agree where the first vertex alone would not. */
         for( j = 0; j < 3; ++j ) {
-            corners[j] = p->tex != NULL ? texc[j] :
+            corners[j] = p->tex != NULL || fog ? texc[j] :
                          c->shade == M8D3D_SHADE_GOURAUD ? a[j]->color & 0x00FFFFFFUL : rgb;
         }
-        /* Described, not drawn: Flip has the engine draw it. */
-        p->ok = m8d3d_record( p->lcl, v, m8d3d_index16( rgb ), m8d3d_565( rgb ), corners );
+        /* Described, not drawn: Flip has the engine draw it, furthest first if Z is on. */
+        p->ok = m8d3d_record( p->lcl, v, m8d3d_index16( rgb ), m8d3d_565( rgb ), corners,
+                              ((c->rs_on >> M8D3D_RS_ZENABLE) & 1) && c->zfunc != M8D3D_CMP_ALWAYS ?
+                              (int)m8d3d_round( (a[0]->sz + a[1]->sz + a[2]->sz) * M8D3D_DEPTH_SCALE ) : -1 );
         return;
     }
     p->ok = m8d3d_tri_fit( c, p->x, p->y, v, m8d3d_index( rgb ) );
     ++m8d3d_stat[8];
+}
+
+static void m8d3d_draw_tri( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D_TLVERTEX *v1,
+                            const M8D3D_TLVERTEX *v2 )
+{
+    float   r = (float)(p->w - 1);
+    float   b = (float)(p->h - 1);
+
+    if( !p->ok ) {
+        return;
+    }
+    /* Written so that a NaN corner, which every comparison fails, is sent to the clipper too. */
+    if( v0->sx >= 0.0f && v0->sx <= r && v0->sy >= 0.0f && v0->sy <= b &&
+        v1->sx >= 0.0f && v1->sx <= r && v1->sy >= 0.0f && v1->sy <= b &&
+        v2->sx >= 0.0f && v2->sx <= r && v2->sy >= 0.0f && v2->sy <= b ) {
+        m8d3d_draw_on( p, v0, v1, v2 );
+        return;
+    }
+    ++m8d3d_stat[10];
+    ++m8d3d_census.tris_clipped;
+    m8d3d_draw_clipped( p, v0, v1, v2 );
 }
 
 static void m8d3d_draw_end( M8D3D_DRAW *p )
@@ -2425,9 +2749,12 @@ static DWORD __stdcall m8d3d_render_primitive( M8D3D_RENDERPRIMITIVE *d )
     m8d3d_stat[5] += d->wCount;
     d->ddrval = DD_OK;
     QueryPerformanceCounter( &rp0 );
+    ++m8d3d_census.calls_exec;
     if( d->bOpcode != M8D3D_OP_TRIANGLE ) {
+        ++m8d3d_census.other_ops;
         return( DDHAL_DRIVER_HANDLED );
     }
+    ++m8d3d_census.batch_sizes[m8d3d_log2( d->wCount, 9 )];
     if( exe == NULL || tl == NULL || d->bSize < sizeof( M8D3D_TRIANGLE ) || !m8d3d_draw_begin( &p, c ) ) {
         ++m8d3d_stat[11];
         return( DDHAL_DRIVER_HANDLED );
@@ -2449,6 +2776,8 @@ static void m8d3d_draw_list( M8D3D_DRAW *p, DWORD type, const M8D3D_TLVERTEX *vt
 {
     DWORD i;
 
+    ++m8d3d_census.prim_types[type & 7];
+    ++m8d3d_census.batch_sizes[m8d3d_log2( n / (type == M8D3D_PT_TRIANGLELIST ? 3 : 1), 9 )];
 #define M8D3D_V( k ) (index != NULL ? &vtx[index[k]] : &vtx[k])
     if( type == M8D3D_PT_TRIANGLELIST ) {
         for( i = 0; p->ok && i + 2 < n; i += 3 ) {
@@ -2478,6 +2807,7 @@ static DWORD __stdcall m8d3d_draw_one( M8D3D_DRAWONE *d )
     LARGE_INTEGER   rp1;
 
     ++m8d3d_stat[1];
+    ++m8d3d_census.calls_one;
     QueryPerformanceCounter( &rp0 );
     d->ddrval = DD_OK;
     if( d->VertexType == M8D3D_VT_TLVERTEX && m8d3d_draw_begin( &p, m8d3d_context( d->dwhContext ) ) ) {
@@ -2496,6 +2826,7 @@ static DWORD __stdcall m8d3d_draw_one_indexed( M8D3D_DRAWONEINDEXED *d )
     LARGE_INTEGER   rp1;
 
     ++m8d3d_stat[1];
+    ++m8d3d_census.calls_indexed;
     QueryPerformanceCounter( &rp0 );
     d->ddrval = DD_OK;
     if( d->VertexType == M8D3D_VT_TLVERTEX && m8d3d_draw_begin( &p, m8d3d_context( d->dwhContext ) ) ) {
@@ -2519,11 +2850,13 @@ static DWORD __stdcall m8d3d_draw_primitives( M8D3D_DRAWPRIMITIVES *d )
     LARGE_INTEGER       rp1;
 
     ++m8d3d_stat[1];
+    ++m8d3d_census.calls_prims;
     QueryPerformanceCounter( &rp0 );
     d->ddrval = DD_OK;
     for( ;; ) {
         n = (const M8D3D_COUNTS *)q;
         q += sizeof( *n );
+        ++m8d3d_census.state_blocks[m8d3d_log2( n->wNumStateChanges, 7 )];
         if( c != NULL ) {
             m8d3d_states( c, (const M8D3D_STATE *)q, n->wNumStateChanges );
         }
@@ -2552,6 +2885,7 @@ static DWORD __stdcall m8d3d_set_target( M8D3D_SETTARGET *d )
     int             w;
     int             h;
 
+    ++m8d3d_census.targets_set;
     d->ddrval = DDERR_GENERIC;
     if( c != NULL && m8d3d_surface( m8d3d_lcl( d->lpDDS ), &x, &y, &w, &h ) && w <= c->sw ) {
         c->target = d->lpDDS;
@@ -2563,12 +2897,34 @@ static DWORD __stdcall m8d3d_set_target( M8D3D_SETTARGET *d )
 /* The size a caller gave bounds the copy: a later runtime's table is not ours to overrun. */
 static DWORD __stdcall m8d3d_driver_info( M8D3D_DRIVERINFO *d )
 {
+    DWORD   g = *(const DWORD *)d->guidInfo;
+    int     k;
+
+    for( k = 0; k < 16 && m8d3d_census.info_data1[k] != g && m8d3d_census.info_data1[k] != 0; ++k ) {
+    }
+    if( k < 16 ) {
+        m8d3d_census.info_data1[k] = g;
+        ++m8d3d_census.info_hits[k];
+    }
     d->dwActualSize = 0;
     d->ddRVal = DDERR_CURRENTLYNOTAVAIL;
     if( *(const DWORD *)d->guidInfo == M8D3D_GUID_CALLBACKS2_DATA1 && d->lpvData != NULL ) {
         d->dwActualSize = sizeof( m8d3d_callbacks2 );
         memcpy( d->lpvData, &m8d3d_callbacks2,
                 d->dwExpectedSize < sizeof( m8d3d_callbacks2 ) ? d->dwExpectedSize : sizeof( m8d3d_callbacks2 ) );
+        d->ddRVal = DD_OK;
+    }
+    if( g == M8D3D_GUID_EXTCAPS_DATA1 && d->lpvData != NULL && d->dwExpectedSize >= sizeof( DWORD ) ) {
+        DWORD n = d->dwExpectedSize < sizeof( m8d3d_extcaps ) ? d->dwExpectedSize : sizeof( m8d3d_extcaps );
+
+        memcpy( d->lpvData, &m8d3d_extcaps, n );
+        *(DWORD *)d->lpvData = n;
+        d->dwActualSize = sizeof( m8d3d_extcaps );
+        d->ddRVal = DD_OK;
+    }
+    if( g == M8D3D_GUID_ZFORMATS_DATA1 && d->lpvData != NULL && d->dwExpectedSize >= sizeof( m8d3d_zformats ) ) {
+        d->dwActualSize = sizeof( m8d3d_zformats );
+        memcpy( d->lpvData, &m8d3d_zformats, sizeof( m8d3d_zformats ) );
         d->ddRVal = DD_OK;
     }
     return( DDHAL_DRIVER_HANDLED );
@@ -2595,13 +2951,30 @@ void m8d3d_init( DWORD *global, DWORD *callbacks, DWORD *driver_info )
     c->dpcLineCaps.dwSize = sizeof( c->dpcLineCaps );
     c->dpcTriCaps.dwSize = sizeof( c->dpcTriCaps );
     c->dpcTriCaps.dwMiscCaps = M8D3D_PMISCCAPS_CULLNONE;
-    c->dpcTriCaps.dwShadeCaps = M8D3D_PSHADECAPS_COLORFLATRGB | M8D3D_PSHADECAPS_COLORGOURAUDRGB;
-    c->dpcTriCaps.dwTextureCaps = M8D3D_PTEXTURECAPS_POW2;
-    c->dpcTriCaps.dwTextureFilterCaps = M8D3D_PTFILTERCAPS_NEAREST;
-    c->dpcTriCaps.dwTextureBlendCaps = M8D3D_PTBLENDCAPS_DECAL | M8D3D_PTBLENDCAPS_MODULATE;
-    c->dpcTriCaps.dwTextureAddressCaps = M8D3D_PTADDRESSCAPS_WRAP;
+    c->dpcTriCaps.dwShadeCaps = M8D3D_PSHADECAPS_COLORFLATRGB | M8D3D_PSHADECAPS_COLORGOURAUDRGB |
+                                M8D3D_PSHADECAPS_ALPHAFLATBLEND | M8D3D_PSHADECAPS_ALPHAGOURAUDBLEND |
+                                M8D3D_PSHADECAPS_FOGFLAT | M8D3D_PSHADECAPS_FOGGOURAUD;
+    /* What the sort at Flip honours: nearer wins, or a program's own order. */
+    c->dpcTriCaps.dwRasterCaps = M8D3D_PRASTERCAPS_ZTEST | M8D3D_PRASTERCAPS_ZBUFFERLESSHSR |
+                                 M8D3D_PRASTERCAPS_FOGVERTEX;
+    c->dpcTriCaps.dwSrcBlendCaps = M8D3D_PBLENDCAPS_ZERO | M8D3D_PBLENDCAPS_ONE | M8D3D_PBLENDCAPS_SRCALPHA |
+                                   M8D3D_PBLENDCAPS_INVSRCALPHA;
+    c->dpcTriCaps.dwDestBlendCaps = c->dpcTriCaps.dwSrcBlendCaps;
+    c->dpcTriCaps.dwAlphaCmpCaps = M8D3D_PCMPCAPS_ALWAYS;
+    c->dpcTriCaps.dwZCmpCaps = M8D3D_PCMPCAPS_NEVER | M8D3D_PCMPCAPS_LESS | M8D3D_PCMPCAPS_LESSEQUAL |
+                               M8D3D_PCMPCAPS_ALWAYS;
+    c->dpcTriCaps.dwMiscCaps |= M8D3D_PMISCCAPS_MASKZ;
+    c->dpcTriCaps.dwTextureCaps = M8D3D_PTEXTURECAPS_POW2 | M8D3D_PTEXTURECAPS_PERSPECTIVE |
+                                  M8D3D_PTEXTURECAPS_ALPHA | M8D3D_PTEXTURECAPS_TRANSPARENCY;
+    c->dpcTriCaps.dwTextureFilterCaps = M8D3D_PTFILTERCAPS_NEAREST | M8D3D_PTFILTERCAPS_LINEAR |
+                                        M8D3D_PTFILTERCAPS_MIPNEAREST | M8D3D_PTFILTERCAPS_MIPLINEAR;
+    c->dpcTriCaps.dwTextureBlendCaps = M8D3D_PTBLENDCAPS_DECAL | M8D3D_PTBLENDCAPS_MODULATE |
+                                       M8D3D_PTBLENDCAPS_DECALALPHA | M8D3D_PTBLENDCAPS_MODULATEALPHA |
+                                       M8D3D_PTBLENDCAPS_COPY;
+    c->dpcTriCaps.dwTextureAddressCaps = M8D3D_PTADDRESSCAPS_WRAP | M8D3D_PTADDRESSCAPS_MIRROR |
+                                         M8D3D_PTADDRESSCAPS_CLAMP;
     c->dwDeviceRenderBitDepth = DDBD_8 | DDBD_16;
-    c->dwDeviceZBufferBitDepth = 0;
+    c->dwDeviceZBufferBitDepth = DDBD_16;
     m8d3d_global.dwNumTextureFormats = 2;
     m8d3d_global.lpTextureFormats = m8d3d_tex_formats;
     memset( m8d3d_tex_formats, 0, sizeof( m8d3d_tex_formats ) );

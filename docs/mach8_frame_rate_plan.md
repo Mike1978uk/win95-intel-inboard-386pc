@@ -593,8 +593,8 @@ Aim: real programs run unmodified on the card and show what their authors intend
 
 | # | Step | Size | Depends on | State |
 |---|---|---|---|---|
-| D1 | The tunnel on the HAL: Z formats, ZBUFFERLESSHSR, sort at Flip, Z surface, Z clear (Y21) | Built | | `M8D3E4`, on the bed, not proven |
-| D2 | Mock replies: extended caps, guard band, caps claimed; fog by corner tint (Y22, Y23) | Built | D1 | `M8D3E5`, not run |
+| D1 | The tunnel on the HAL: Z formats, ZBUFFERLESSHSR, sort at Flip, Z surface, Z clear (Y21) | Built | | `M8D3E7`, runs on the bed; DirectDraw Z caps taken out, as they lost the HAL |
+| D2 | Mock replies: extended caps, guard band, caps claimed; fog by corner tint (Y22, Y23) | Built | D1 | `M8D3E7`: not separately tested; fog not yet seen |
 | D3 | Census on real programs: DX 6.1 tunnels, then 3D WinBench 97, Monster Truck Madness, Turok | Small | D1 | Census built; ranks every later step |
 | D4 | Effect tag and stipple glass: a state picks an effect, carried to Flip; proves the selector | Small to medium | D1 | Not built |
 | D5 | **Real texture path:** upload on first use, 7-bit colour, atlas, 6213h fill or rows by case. The most important step | Large | D4 | Probes done (Z1, Z5); corner colours stand in |
@@ -605,8 +605,11 @@ Aim: real programs run unmodified on the card and show what their authors intend
 | D10 | Runtime clip cost: 5.6 ms a frame at 64 triangles; guard band first, else D3DIM by its symbols | Small | D2 | Measured; lever unproven |
 | D11 | Speed: joined quads (V7), third page (Y2), 320x240 and 400x300 (Z6), front to back with compare (Z8) | Medium each | D3 | Not probed; Z6 needs the owner's eye |
 | D12 | Later as programs ask: Z read-back (Y24), real depth on the card (Z8), specular, flares, temporal stipple | By case | D3 | Logged |
+| D13 | Windowed HAL: off-screen target, one engine copy to the window. Nice to have, later (owner) | Medium to large | D5 | Not built |
 
 Open against all of it: the card's intermittent hang needs a cause before any showcase; 5 MB of RAM and no MMX cannot be mocked, so some programs stay out; a game scene may not reach 60 fps, so what gets drawn is tuned by what shows.
+
+Adding DirectDraw's Z caps loses the whole HAL: find which of the three before programs that insist on a Z surface can run.
 
 ## Silicon: probe what it adds, use it if it earns it (owner, 2026-11-07)
 

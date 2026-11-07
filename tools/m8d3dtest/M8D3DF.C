@@ -41,7 +41,7 @@ static const GUID m8_iid_rgb = { 0xa4665c60, 0x2673, 0x11cf, { 0xa3, 0x1a, 0x00,
 #define SPIN_GAP_MS 0.5                 /* more than the clock read and the timer tick */
 #define SLOW_FRAME_MS 16.67
 
-enum { MOVING = 1, ONE_COLOUR = 2, TURNING = 4, CORNERS = 8, NO_CLIP = 16, NO_EXTENTS = 32, TEXTURED = 64 };
+enum { MOVING = 1, ONE_COLOUR = 2, TURNING = 4, CORNERS = 8, NO_CLIP = 16, NO_EXTENTS = 32, TEXTURED = 64, EDGES = 128, DEPTH = 256 };
 
 typedef struct {
     const char  *name;
@@ -67,12 +67,14 @@ static const TEST tests[] = {
     { "hal_many_e", "64 triangles, no clip, no extents", &m8_iid_hal, 64,  8, MOVING | NO_CLIP | NO_EXTENTS },
     { "hal_tex",    "16 triangles, 100 px, textured",   &m8_iid_hal, 16, 100, MOVING | TEXTURED },
     { "hal_tex32",  "16 triangles, 32 px, textured",    &m8_iid_hal, 16,  32, MOVING | TEXTURED },
+    { "hal_clip",   "2 triangles, whole screen and past it", &m8_iid_hal, 2, 100, EDGES },
+    { "hal_depth",  "16 triangles, 100 px, nearest sent first", &m8_iid_hal, 16, 100, DEPTH },
     { "rgb_tiny",  "software: 16 triangles, 8 px",     &m8_iid_rgb, 16,   8, MOVING },
     { "rgb_small",  "software: 16 triangles, 32 px",    &m8_iid_rgb, 16,  32, MOVING },
     { "rgb_large",  "software: 16 triangles, 100 px",   &m8_iid_rgb, 16, 100, MOVING }
 };
 #define TEST_COUNT  (sizeof( tests ) / sizeof( tests[0] ))
-#define HAL_TESTS   14
+#define HAL_TESTS   16
 
 static FILE                 *out;
 static LPDIRECTDRAW         dd;
@@ -278,6 +280,30 @@ static void scene( const TEST *t, int frame )
             tri[3 * i + j].color = (t->flags & ONE_COLOUR) ? RGBA_MAKE( 255, 192, 0, 255 ) :
                                    RGBA_MAKE( i * 16 & 255, 255 - i * 16 & 255, i * 40 & 255, 255 );
         }
+        /* Stacked, nearest first: only a depth sort leaves triangle 0 on top. */
+        if( t->flags & DEPTH ) {
+            x = 100 + i * 4;
+            y = 100 + i * 4;
+            tri[3 * i].sx = (float)x;
+            tri[3 * i].sy = (float)y;
+            tri[3 * i + 1].sx = (float)(x + t->size);
+            tri[3 * i + 1].sy = (float)(y + t->size);
+            tri[3 * i + 2].sx = (float)x;
+            tri[3 * i + 2].sy = (float)(y + t->size);
+            for( j = 0; j < 3; ++j ) {
+                tri[3 * i + j].sz = (float)(i + 1) / (float)(t->n + 1);
+            }
+        }
+        /* The whole target by Direct3D's convention, one corner past each edge as well: every
+         * pixel has to come out lit. */
+        if( t->flags & EDGES ) {
+            tri[3 * i].sx = -40.0f;
+            tri[3 * i].sy = -40.0f;
+            tri[3 * i + 1].sx = i == 0 ? 680.0f : 680.0f;
+            tri[3 * i + 1].sy = i == 0 ? -40.0f : 520.0f;
+            tri[3 * i + 2].sx = i == 0 ? 680.0f : -40.0f;
+            tri[3 * i + 2].sy = 520.0f;
+        }
         if( t->flags & TEXTURED ) {
             float   u = (float)(i * 7 % 64) / 64.0f;
             float   v = (float)(i * 11 % 64) / 64.0f;
@@ -429,6 +455,7 @@ static void test( int no, const TEST *t, int seconds )
     dev->lpVtbl->SetCurrentViewport( dev, vp );
     dev->lpVtbl->SetRenderState( dev, D3DRENDERSTATE_SHADEMODE, (t->flags & CORNERS) ? D3DSHADE_GOURAUD : D3DSHADE_FLAT );
     dev->lpVtbl->SetRenderState( dev, D3DRENDERSTATE_CULLMODE, D3DCULL_NONE );
+    dev->lpVtbl->SetRenderState( dev, D3DRENDERSTATE_ZENABLE, (t->flags & DEPTH) ? TRUE : FALSE );
     if( t->flags & TEXTURED ) {
         tex = make_texture();
         if( tex != NULL ) {
@@ -509,6 +536,11 @@ static void test( int no, const TEST *t, int seconds )
             for( x = 0; x < SCR_W; ++x ) {
                 lit += *(WORD *)((BYTE *)sd.lpSurface + y * sd.lPitch + 2 * x) != 0;
             }
+        }
+        if( t->flags & DEPTH ) {
+            /* Inside triangle 0, and inside others; triangle 0 is green. */
+            fprintf( out, "%d/%d depth: pixel on top %04x, nearest is 07e0\n", no, (int)TEST_COUNT,
+                     *(WORD *)((BYTE *)sd.lpSurface + 180 * sd.lPitch + 2 * 140) );
         }
         back->lpVtbl->Unlock( back, NULL );
     }

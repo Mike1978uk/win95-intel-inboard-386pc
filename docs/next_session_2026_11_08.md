@@ -4,7 +4,7 @@ Earlier handoff: `docs/next_session_2026_11_07.md` (its "Open" list still stands
 
 ## START HERE: 2026-11-07, evening
 
-**The plan is D1-D12 in `docs/mach8_frame_rate_plan.md`, "Direct3D: playable approximations".** Worklist X10. Bed on `M8D3E4`, tunnel under test; `M8D3E5` built, not run. Card last had `M8D3E2` installed; its bench failed and may have hung: no figures. Programs fetched to ignored folders: `references/dx61samples`, `references/dx7sdk`, `references/d3d_programs`; run them by `tools/m8cardscripts/sample.ps1`. Bed first, and one thing at a time: the owner watches, and a tunnel started over a running script spoiled a run.
+**The plan is D1-D12 in `docs/mach8_frame_rate_plan.md`, "Direct3D: playable approximations".** Worklist X10. Bed on `M8D3E7`: the unmodified SDK tunnel runs on the HAL full screen, reached by F2, at 0.11-0.16 fps; find why first. Card on `M8D3E2`, its bench hung; no card figures since `M8D3E1`. Results in `docs/captures/2026-11-07_silicon/README.md`. Programs fetched to ignored folders: `references/dx61samples`, `references/dx7sdk`, `references/d3d_programs`. Run them by `tools/m8cardscripts/sample.ps1`. Bed first, one thing at a time: a tunnel started over a running script spoiled a run.
 
 ## START HERE: 2026-11-07, afternoon
 

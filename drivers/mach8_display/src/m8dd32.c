@@ -583,6 +583,8 @@ static short        m8dd_tri_v[2][M8DD_TRIS_MAX * 6];
 static WORD         m8dd_tri_i[2][M8DD_TRIS_MAX];       /* the card's palette index */
 static WORD         m8dd_tri_c[2][M8DD_TRIS_MAX];       /* 5-6-5, for RAM */
 static DWORD        m8dd_tri_g[2][M8DD_TRIS_MAX * 3];   /* corner colours, for the card */
+static short        m8dd_tri_z[2][M8DD_TRIS_MAX];       /* 0 near to 1023 far, -1 no depth */
+static int          m8dd_tri_sorted[2];                 /* 0: a triangle with depth since the last sort */
 static RECT         m8dd_card_box[M8DD_TRIS_MAX];       /* the triangles' boxes on the card */
 static int          m8dd_card_boxes;
 static short        m8dd_card_v[M8DD_TRIS_MAX * 6];     /* and the triangles themselves */
@@ -763,12 +765,67 @@ static void m8dd_tri_ram( int k, const short *v, WORD colour )
     m8dd_dirty( k, &r );
 }
 
+/* Furthest first, stably, so triangles of one depth, and a program's own order where it asked
+ * for no depth, stay as sent. Counting, so its cost grows with the triangles and not their square:
+ * a triangle without depth takes the depth of the one before it. */
+#define M8DD_DEPTHS 1024
+static WORD     m8dd_sort_count[M8DD_DEPTHS + 1];
+static short    m8dd_sort_v[M8DD_TRIS_MAX * 6];
+static WORD     m8dd_sort_i[M8DD_TRIS_MAX];
+static WORD     m8dd_sort_c[M8DD_TRIS_MAX];
+static DWORD    m8dd_sort_g[M8DD_TRIS_MAX * 3];
+
+static void m8dd_tris_sort( int k )
+{
+    int     n = m8dd_tri_n[k];
+    int     i;
+    int     t;
+    int     z;
+    int     last = M8DD_DEPTHS - 1;
+    short   *zs = m8dd_tri_z[k];
+
+    if( m8dd_tri_sorted[k] || n < 2 ) {
+        m8dd_tri_sorted[k] = 1;
+        return;
+    }
+    m8dd_tri_sorted[k] = 1;
+    memset( m8dd_sort_count, 0, sizeof( m8dd_sort_count ) );
+    /* Largest z first: count each depth, then its first place counting down from the far end. */
+    for( i = 0; i < n; ++i ) {
+        z = zs[i] < 0 ? last : (zs[i] > M8DD_DEPTHS - 1 ? M8DD_DEPTHS - 1 : zs[i]);
+        zs[i] = (short)z;
+        last = z;
+        ++m8dd_sort_count[z];
+    }
+    t = 0;
+    for( z = M8DD_DEPTHS - 1; z >= 0; --z ) {
+        int c = m8dd_sort_count[z];
+
+        m8dd_sort_count[z] = (WORD)t;
+        t += c;
+    }
+    memcpy( m8dd_sort_v, m8dd_tri_v[k], n * 6 * sizeof( short ) );
+    memcpy( m8dd_sort_i, m8dd_tri_i[k], n * sizeof( WORD ) );
+    memcpy( m8dd_sort_c, m8dd_tri_c[k], n * sizeof( WORD ) );
+    memcpy( m8dd_sort_g, m8dd_tri_g[k], n * 3 * sizeof( DWORD ) );
+    for( i = 0; i < n; ++i ) {
+        int to = m8dd_sort_count[zs[i]]++;
+
+        memcpy( &m8dd_tri_v[k][6 * to], &m8dd_sort_v[6 * i], 6 * sizeof( short ) );
+        m8dd_tri_i[k][to] = m8dd_sort_i[i];
+        m8dd_tri_c[k][to] = m8dd_sort_c[i];
+        memcpy( &m8dd_tri_g[k][3 * to], &m8dd_sort_g[3 * i], 3 * sizeof( DWORD ) );
+    }
+}
+
 /* Something is about to read buffer k's pixels or draw over part of them. */
 static void m8dd_tris_to_ram( int k )
 {
     int i;
-    int n = m8dd_tri_n[k];
+    int n;
 
+    m8dd_tris_sort( k );
+    n = m8dd_tri_n[k];
     m8dd_tri_n[k] = 0;
     for( i = 0; i < n; ++i ) {
         m8dd_tri_ram( k, &m8dd_tri_v[k][6 * i], m8dd_tri_c[k][i] );
@@ -1248,6 +1305,11 @@ static DWORD m8dd_blt16( M8DD_BLT *bd )
     DWORD           rc;
     int             k;
 
+    /* Nothing reads the Z buffer, and each frame is sorted afresh. */
+    if( bd->dwFlags & DDBLT_DEPTHFILL ) {
+        bd->ddRVal = DD_OK;
+        return( DDHAL_DRIVER_HANDLED );
+    }
     QueryPerformanceCounter( &t0 );
     rc = m8dd_blt16_do( bd );
     QueryPerformanceCounter( &t1 );
@@ -1522,6 +1584,7 @@ static DWORD m8dd_flip16( M8DD_FLIP *fd )
         return( DDHAL_DRIVER_NOTHANDLED );
     }
     QueryPerformanceCounter( &t0 );
+    m8dd_tris_sort( k );
     /* GDI drew on the card since the last Flip (a program's own window
      * repainted): the card is no longer as described. */
     if( m8dd->gdi_lin != 0 && *(DWORD *)m8dd->gdi_lin != m8dd_gdi_seen ) {
@@ -1599,6 +1662,23 @@ static DWORD m8dd_create16( M8DD_CREATE *cd )
     DWORD   i;
     int     prim = -1;
 
+    /* A Z buffer is memory a program can hold: depth comes from the sort at Flip, and the
+     * card never reads this. Committed but untouched, it takes no physical RAM. */
+    if( cd->dwSCnt == 1 && (*(DWORD *)((BYTE *)cd->lplpSList[0] + M8DD_LCL_CAPS) & DDSCAPS_ZBUFFER) ) {
+        lcl = cd->lplpSList[0];
+        gbl = *(BYTE **)(lcl + M8DD_LCL_GBL);
+        i = (DWORD)*(WORD *)(gbl + M8DD_GBL_WIDTH) * 2;
+        *(long *)(gbl + M8DD_GBL_PITCH) = (long)i;
+        *(DWORD *)(gbl + M8DD_GBL_VIDMEM) = (DWORD)VirtualAlloc( NULL, i * *(WORD *)(gbl + M8DD_GBL_HEIGHT),
+                                                                 MEM_COMMIT, PAGE_READWRITE );
+        if( *(DWORD *)(gbl + M8DD_GBL_VIDMEM) == 0 ) {
+            cd->ddRVal = DDERR_OUTOFVIDEOMEMORY;
+            return( DDHAL_DRIVER_HANDLED );
+        }
+        *(DWORD *)(lcl + M8DD_LCL_CAPS) |= DDSCAPS_VIDEOMEMORY;
+        cd->ddRVal = DD_OK;
+        return( DDHAL_DRIVER_HANDLED );
+    }
     if( cd->dwSCnt != 2 || m8dd_back != 0 ) {
         return( DDHAL_DRIVER_NOTHANDLED );
     }
@@ -1987,7 +2067,7 @@ int m8d3d_fill( const RECT *r )
 /* A triangle added to the description of the buffer `lcl` is, or 0 if there is
  * none to keep it. The shown buffer has no description worth keeping: its RAM
  * takes it, and the changed part is sent. */
-int m8d3d_record( LPVOID lcl, const short *v, BYTE index, WORD colour, const DWORD *rgb )
+int m8d3d_record( LPVOID lcl, const short *v, BYTE index, WORD colour, const DWORD *rgb, int depth )
 {
     int     k = m8dd_buf( lcl );
     int     t;
@@ -2021,6 +2101,10 @@ int m8d3d_record( LPVOID lcl, const short *v, BYTE index, WORD colour, const DWO
     }
     m8dd_tri_i[k][n] = index;
     m8dd_tri_c[k][n] = colour;
+    m8dd_tri_z[k][n] = (short)depth;
+    if( depth >= 0 ) {
+        m8dd_tri_sorted[k] = 0;
+    }
     for( t = 0; t < 3; ++t ) {
         m8dd_tri_g[k][3 * n + t] = rgb[t];
     }
@@ -2231,6 +2315,12 @@ DWORD __stdcall m8dd_destroy_surface( M8DD_DESTROY *dd )
         }
     }
     gbl = *(BYTE **)((BYTE *)dd->lpDDSurface + M8DD_LCL_GBL);
+    if( m8dd->fb16 && gbl != NULL && (*(DWORD *)((BYTE *)dd->lpDDSurface + M8DD_LCL_CAPS) & DDSCAPS_ZBUFFER) ) {
+        VirtualFree( (LPVOID)*(DWORD *)(gbl + M8DD_GBL_VIDMEM), 0, MEM_RELEASE );
+        *(DWORD *)(gbl + M8DD_GBL_VIDMEM) = 0;
+        dd->ddRVal = DD_OK;
+        return( DDHAL_DRIVER_HANDLED );
+    }
     if( m8dd->fb16 && gbl != NULL && m8dd_destroy16( gbl ) ) {
         dd->ddRVal = DD_OK;
         return( DDHAL_DRIVER_HANDLED );

@@ -72,3 +72,23 @@ Stage one, `M8D3DZ` and `M8D3E1`: formats 565 and 1555 in system memory, handles
 | hal_many_e, no clip or extents | 49.4 | 3.85 |
 
 The runtime's clip and extents cost 5.6 ms a frame, and this route does not remove them.
+
+## Real programs on the HAL (bed `vm_5160_mcp`, 2026-11-07 evening)
+
+Original SDK DirectX 6.1 sample `tunneldp.exe`, unmodified. Bed timings are not card costs. Picture: `tunnel/tunneldp_hal_bed_m8d3e7.png`.
+
+What it stopped on, in order, and the answer:
+
+| Build | What happened | Cause | Answer |
+|---|---|---|---|
+| `M8D3E2` | "No Z buffer, switching to software" | The framework calls EnumZBufferFormats before anything else, even with `g_bAppUseZBuffer = FALSE` | Report one 16-bit Z format; claim ZBUFFERLESSHSR, sort by depth at Flip |
+| `M8D3E4` | No error, window, 0.01 fps, RGB Emulation only | `DDCAPS_NOHARDWARE`, hw caps 02000000: DirectDraw silently discarded the whole HAL. Adding DDCAPS_BLTDEPTHFILL, DDSCAPS_ZBUFFER and dwZBufferBitDepths caused it; which of the three is not yet known | Taken out of the DirectDraw caps in `M8D3E6`; Direct3D side kept. Rule recorded by velocity9x, `references/velocity9x/docs/issues/2026-08-14-directdraw-hal-nohardware.md` |
+| `M8D3E6` | HAL listed. "No 3D Device, switching to software" | DirectDraw sets CANRENDERWINDOWED itself, so the framework tries the HAL in a window, which needs a flip chain here | By hand: F2, Direct3D HAL, 640x480x16. Windowed HAL is a later nice-to-have |
+| `M8D3E6` | Full screen, then exits | Census: contexts 1, clipped 59, tris 0: the clipper recursed on rounding errors until the stack ran out. My test used exact values | `M8D3E7`: cut corners snapped to the edge; pieces not checked again |
+| `M8D3E7` | **Runs full screen on the HAL at 640x480x16, 0.11-0.16 fps** | Far too slow even for the bed, where hal_tex gives ~10 fps: being looked into | |
+
+The tunnel's texture is 256 px; it uses DrawOneIndexedPrimitive and DrawPrimitives. Tools: `tools/m8d3dtest/M8ENUM.C` lists what DirectX reports, `tools/m8d3dtest/M8CENSUS.C` reads the counters in the driver.
+
+A scratch rebuild of the sample with full-screen hardware forced, built against the SDK's headers, stops on "requires a 16-bit display mode"; not looked into, and set aside.
+
+Card: `M8D3E2` installed, boot 262. Its bench failed: the owner found a black screen with an egg-timer cursor, and restarted it. No card figures for `M8D3E2` or later.
