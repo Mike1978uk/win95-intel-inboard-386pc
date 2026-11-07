@@ -30,7 +30,7 @@
 extern void m8d3d_init( DWORD *global, DWORD *callbacks, DWORD *driver_info );
 extern int  m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const short *v,
                          const WORD *index, const DWORD *rgb, int n );
-extern DWORD m8d3d_stat[25];
+extern DWORD m8d3d_stat[27];
 extern DWORD m8d3d_flip_why[6];
 
 /* The head of dd16.c's M8DD_SHARE. */

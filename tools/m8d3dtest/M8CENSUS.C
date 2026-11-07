@@ -122,6 +122,7 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
             fprintf( o, "clock %lu ours %lu flip %lu engine %lu flips %lu pagewait %lu\n", (unsigned long)f.LowPart,
                      (unsigned long)st[24], (unsigned long)st[12], (unsigned long)st[14], (unsigned long)st[15],
                      (unsigned long)st[19] );
+            fprintf( o, "writes %lu pieces %lu\n", (unsigned long)st[25], (unsigned long)st[26] );
         }
     }
     fprintf( o, "contexts %lu with Z %lu  targets set %lu  textures %lu\n", (unsigned long)c->contexts,
