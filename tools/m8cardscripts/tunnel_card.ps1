@@ -38,6 +38,8 @@ $ck = $s | Select-String '^clock (\d+) ours (\d+) flip (\d+) engine (\d+) flips 
 if ($ck.Count -ge 2) { $f = $ck[0][0]; $n = $ck[1][4] - $ck[0][4]; if ($n -gt 0) { "per flip, ms: ours $([math]::Round(($ck[1][1]-$ck[0][1])*1000/$f/$n,1))  flip $([math]::Round(($ck[1][2]-$ck[0][2])*1000/$f/$n,1))  engine $([math]::Round(($ck[1][3]-$ck[0][3])*1000/$f/$n,1))  flips $n  whole frame $([math]::Round($el*1000/$n,0))" } }
 $wr = $s | Select-String '^writes (\d+) pieces (\d+)' | ForEach-Object { ,($_.Matches[0].Groups[1..2] | ForEach-Object { [double]$_.Value }) }
 if ($wr.Count -ge 2 -and $n -gt 0) { "per flip: writes $([int](($wr[1][0]-$wr[0][0])/$n))  pieces $([int](($wr[1][1]-$wr[0][1])/$n))" }
+$sz = $s | Select-String '^sizes (\d+) (\d+) (\d+) (\d+) joined (\d+) (\d+) colours (\d+)' | ForEach-Object { ,($_.Matches[0].Groups[1..7] | ForEach-Object { [double]$_.Value }) }
+if ($sz.Count -ge 2 -and $n -gt 0) { $q = 0..6 | ForEach-Object { [math]::Round(($sz[1][$_]-$sz[0][$_])/$n,1) }; "per flip: sizes 1-4 $($q[0])  5-16 $($q[1])  17-64 $($q[2])  65+ $($q[3])  joined same colour $($q[4])  any colour $($q[5])  colours $($q[6])" }
 $c = $s | Select-String '^calls exec \d+ one \d+ indexed (\d+)' | ForEach-Object { [int]$_.Matches[0].Groups[1].Value }
 $u = $s | Select-String '^tris (\d+)' | ForEach-Object { [int]$_.Matches[0].Groups[1].Value }
 if ($c.Count -ge 2) { $n = $c[1] - $c[0]; "elapsed $([int]$el) s  big calls $n  tris $($u[1]-$u[0])  fps about $([math]::Round($n/$el,2))  tris a second $([int](($u[1]-$u[0])/$el))" }

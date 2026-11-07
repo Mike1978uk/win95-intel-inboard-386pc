@@ -642,7 +642,7 @@ static M8D3D_CONTEXT    m8d3d_ctx[M8D3D_CONTEXTS];
  * triangles; [15] flips; in Blt: [16] ticks, [17] calls, [18] full clears described;
  * [19] page wait ticks; [20] triangles drawn from a mask; [21] masks built;
  * [22] triangles stamped; [23] stamps built; [24] ticks in RenderPrimitive. */
-DWORD                   m8d3d_stat[27];      /* 25: engine writes sent, 26: triangle pieces drawn */
+DWORD                   m8d3d_stat[34];      /* 25: engine writes sent, 26: triangle pieces drawn, 27-33: m8dd_tri_census */
 /* Flip off its fast path: GDI touched the card, slow flips, then why. */
 DWORD                   m8d3d_flip_why[6];
 

@@ -123,6 +123,8 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
                      (unsigned long)st[24], (unsigned long)st[12], (unsigned long)st[14], (unsigned long)st[15],
                      (unsigned long)st[19] );
             fprintf( o, "writes %lu pieces %lu\n", (unsigned long)st[25], (unsigned long)st[26] );
+            fprintf( o, "sizes %lu %lu %lu %lu joined %lu %lu colours %lu\n", (unsigned long)st[27], (unsigned long)st[28],
+                     (unsigned long)st[29], (unsigned long)st[30], (unsigned long)st[31], (unsigned long)st[32], (unsigned long)st[33] );
         }
     }
     fprintf( o, "contexts %lu with Z %lu  targets set %lu  textures %lu\n", (unsigned long)c->contexts,
