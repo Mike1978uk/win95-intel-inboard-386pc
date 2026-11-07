@@ -27,7 +27,7 @@
 #define M8DD_MARKER     0x44443855UL
 
 /* m8d3d.c */
-extern void m8d3d_init( DWORD *global, DWORD *callbacks );
+extern void m8d3d_init( DWORD *global, DWORD *callbacks, DWORD *driver_info );
 extern int  m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const short *v,
                          const WORD *index, const DWORD *rgb, int n );
 extern DWORD m8d3d_stat[25];
@@ -60,6 +60,7 @@ typedef struct {
     DWORD   gdi_lin;
     DWORD   d3d_global;
     DWORD   d3d_callbacks;
+    DWORD   d3d_info;
     DWORD   scratch_top;
     DWORD   scratch_rows;
 } M8DD_SHARE;
@@ -2279,7 +2280,7 @@ DWORD __stdcall DriverInit( LPVOID context )
     m8dd->unlock = (DWORD)m8dd_unlock;
     m8dd->blt = (DWORD)m8dd_blt;
     m8dd->flip = (DWORD)m8dd_flip;
-    m8d3d_init( &m8dd->d3d_global, &m8dd->d3d_callbacks );
+    m8d3d_init( &m8dd->d3d_global, &m8dd->d3d_callbacks, &m8dd->d3d_info );
     m8dd->create_surface = (DWORD)m8dd_create_surface;
     m8dd->destroy_surface = (DWORD)m8dd_destroy_surface;
     m8dd->destroy_driver = (DWORD)m8dd_destroy_driver;

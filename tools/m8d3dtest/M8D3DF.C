@@ -24,11 +24,13 @@
 #include <stdio.h>
 #include <string.h>
 #include <conio.h>
+#include <unistd.h>
 #include <ddraw.h>
 #include <d3d.h>
 
 static const GUID m8_iid_d3d2 = { 0x6aae1ec1, 0x662a, 0x11d0, { 0x88, 0x9d, 0x00, 0xaa, 0x00, 0xbb, 0xb7, 0x6a } };
 static const GUID m8_iid_hal = { 0x84e63de0, 0x46aa, 0x11cf, { 0x81, 0x6f, 0x00, 0x00, 0xc0, 0x20, 0x15, 0x6e } };
+static const GUID m8_iid_tex2 = { 0x93281502, 0x8cf8, 0x11d0, { 0x89, 0xab, 0x00, 0xa0, 0xc9, 0x05, 0x41, 0x29 } };
 static const GUID m8_iid_rgb = { 0xa4665c60, 0x2673, 0x11cf, { 0xa3, 0x1a, 0x00, 0xaa, 0x00, 0xb9, 0x33, 0x56 } };
 
 #define SCR_W       640
@@ -39,7 +41,7 @@ static const GUID m8_iid_rgb = { 0xa4665c60, 0x2673, 0x11cf, { 0xa3, 0x1a, 0x00,
 #define SPIN_GAP_MS 0.5                 /* more than the clock read and the timer tick */
 #define SLOW_FRAME_MS 16.67
 
-enum { MOVING = 1, ONE_COLOUR = 2, TURNING = 4, CORNERS = 8, NO_CLIP = 16, NO_EXTENTS = 32 };
+enum { MOVING = 1, ONE_COLOUR = 2, TURNING = 4, CORNERS = 8, NO_CLIP = 16, NO_EXTENTS = 32, TEXTURED = 64 };
 
 typedef struct {
     const char  *name;
@@ -63,12 +65,14 @@ static const TEST tests[] = {
     { "hal_many_a", "64 triangles, 8 px, as hal_many",  &m8_iid_hal, 64,   8, MOVING },
     { "hal_many_c", "64 triangles, 8 px, not clipped",  &m8_iid_hal, 64,   8, MOVING | NO_CLIP },
     { "hal_many_e", "64 triangles, no clip, no extents", &m8_iid_hal, 64,  8, MOVING | NO_CLIP | NO_EXTENTS },
+    { "hal_tex",    "16 triangles, 100 px, textured",   &m8_iid_hal, 16, 100, MOVING | TEXTURED },
+    { "hal_tex32",  "16 triangles, 32 px, textured",    &m8_iid_hal, 16,  32, MOVING | TEXTURED },
     { "rgb_tiny",  "software: 16 triangles, 8 px",     &m8_iid_rgb, 16,   8, MOVING },
     { "rgb_small",  "software: 16 triangles, 32 px",    &m8_iid_rgb, 16,  32, MOVING },
     { "rgb_large",  "software: 16 triangles, 100 px",   &m8_iid_rgb, 16, 100, MOVING }
 };
 #define TEST_COUNT  (sizeof( tests ) / sizeof( tests[0] ))
-#define HAL_TESTS   12
+#define HAL_TESTS   14
 
 static FILE                 *out;
 static LPDIRECTDRAW         dd;
@@ -77,7 +81,7 @@ static LPDIRECTDRAWSURFACE  prim;
 static LPDIRECTDRAWSURFACE  back;
 static D3DTLVERTEX          tri[MAX_TRIS * 3];
 static double               qpf;
-static const DWORD          *stat;
+static const DWORD          *drv_stat;
 static int                  grab;
 static FILE                 *grab_out;
 
@@ -162,6 +166,13 @@ static void g_dump( const char *name )
     fflush( grab_out );
 }
 
+/* To disk, not just the cache: a hang that needs the power switch must still say how far it got. */
+static void log_commit( void )
+{
+    fflush( out );
+    fsync( fileno( out ) );
+}
+
 static double now( void )
 {
     LARGE_INTEGER t;
@@ -173,7 +184,7 @@ static double now( void )
 static void say( const char *what, HRESULT hr )
 {
     fprintf( out, "%-14s %08lx\n", what, (unsigned long)hr );
-    fflush( out );
+    log_commit();
 }
 
 /* The time this thread did not run: a tight loop on the clock, its long gaps taken. */
@@ -202,7 +213,7 @@ static void spin( const char *where )
     } while( (b - t0) / qpf < SPIN_SECONDS );
     fprintf( out, "spin %-11s lost %5.1f %%  %5lu gaps  worst %6.2f ms\n", where, 100.0 * lost / (b - t0), gaps,
              1000.0 * worst / qpf );
-    fflush( out );
+    log_commit();
 }
 
 /* The driver's counters, by reading its export table where the DLL is based: it is
@@ -267,12 +278,65 @@ static void scene( const TEST *t, int frame )
             tri[3 * i + j].color = (t->flags & ONE_COLOUR) ? RGBA_MAKE( 255, 192, 0, 255 ) :
                                    RGBA_MAKE( i * 16 & 255, 255 - i * 16 & 255, i * 40 & 255, 255 );
         }
+        if( t->flags & TEXTURED ) {
+            float   u = (float)(i * 7 % 64) / 64.0f;
+            float   v = (float)(i * 11 % 64) / 64.0f;
+            float   span = (float)t->size / 64.0f;
+
+            for( j = 0; j < 3; ++j ) {
+                tri[3 * i + j].color = RGBA_MAKE( 255, 255, 255, 255 );
+            }
+            tri[3 * i].tu = u;
+            tri[3 * i].tv = v;
+            tri[3 * i + 1].tu = u + span;
+            tri[3 * i + 1].tv = v + span;
+            tri[3 * i + 2].tu = u;
+            tri[3 * i + 2].tv = v + span;
+        }
         if( t->flags & CORNERS ) {
             tri[3 * i].color = RGBA_MAKE( 255, i * 16 & 255, 0, 255 );
             tri[3 * i + 1].color = RGBA_MAKE( 0, 255, i * 16 & 255, 255 );
             tri[3 * i + 2].color = RGBA_MAKE( i * 16 & 255, 0, 255, 255 );
         }
     }
+}
+
+/* A 64 x 64 surface in system memory, so bands of colour cross it both ways. */
+static LPDIRECTDRAWSURFACE make_texture( void )
+{
+    DDSURFACEDESC       sd;
+    LPDIRECTDRAWSURFACE s = NULL;
+    int                 x;
+    int                 y;
+
+    memset( &sd, 0, sizeof( sd ) );
+    sd.dwSize = sizeof( sd );
+    sd.dwFlags = DDSD_CAPS | DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT;
+    sd.dwWidth = 64;
+    sd.dwHeight = 64;
+    sd.ddsCaps.dwCaps = DDSCAPS_TEXTURE | DDSCAPS_SYSTEMMEMORY;
+    sd.ddpfPixelFormat.dwSize = sizeof( sd.ddpfPixelFormat );
+    sd.ddpfPixelFormat.dwFlags = DDPF_RGB;
+    sd.ddpfPixelFormat.dwRGBBitCount = 16;
+    sd.ddpfPixelFormat.dwRBitMask = 0xF800;
+    sd.ddpfPixelFormat.dwGBitMask = 0x07E0;
+    sd.ddpfPixelFormat.dwBBitMask = 0x001F;
+    say( "texture", dd->lpVtbl->CreateSurface( dd, &sd, &s, NULL ) );
+    if( s == NULL ) {
+        return( NULL );
+    }
+    memset( &sd, 0, sizeof( sd ) );
+    sd.dwSize = sizeof( sd );
+    if( s->lpVtbl->Lock( s, NULL, &sd, DDLOCK_WAIT, NULL ) == DD_OK ) {
+        for( y = 0; y < 64; ++y ) {
+            for( x = 0; x < 64; ++x ) {
+                *(WORD *)((BYTE *)sd.lpSurface + y * sd.lPitch + 2 * x) =
+                    (WORD)(((x * 31 / 63) << 11) | ((y * 63 / 63) << 5) | (((x ^ y) & 16) ? 31 : 0));
+            }
+        }
+        s->lpVtbl->Unlock( s, NULL );
+    }
+    return( s );
 }
 
 static void title( int no, const TEST *t )
@@ -310,6 +374,9 @@ static void test( int no, const TEST *t, int seconds )
 {
     LPDIRECT3DDEVICE2       dev = NULL;
     LPDIRECT3DVIEWPORT2     vp = NULL;
+    LPDIRECTDRAWSURFACE     tex = NULL;
+    LPDIRECT3DTEXTURE2      tex2 = NULL;
+    D3DTEXTUREHANDLE        texh = 0;
     D3DVIEWPORT2            v;
     DDBLTFX                 fx;
     DDSURFACEDESC           sd;
@@ -327,6 +394,8 @@ static void test( int no, const TEST *t, int seconds )
     double                  worst = 0.0;
     DWORD                   dp_flags;
     DWORD                   s[13];
+    DWORD                   exec0 = 0;
+    DWORD                   dp0 = 0;
     int                     x;
     int                     y;
     int                     i;
@@ -342,7 +411,7 @@ static void test( int no, const TEST *t, int seconds )
     hr = d3d->lpVtbl->CreateDevice( d3d, (GUID *)t->device, back, &dev );
     if( hr != DD_OK ) {
         fprintf( out, "%d/%d %-10s no device %08lx\n", no, (int)TEST_COUNT, t->name, (unsigned long)hr );
-        fflush( out );
+        log_commit();
         return;
     }
     d3d->lpVtbl->CreateViewport( d3d, &vp, NULL );
@@ -360,17 +429,31 @@ static void test( int no, const TEST *t, int seconds )
     dev->lpVtbl->SetCurrentViewport( dev, vp );
     dev->lpVtbl->SetRenderState( dev, D3DRENDERSTATE_SHADEMODE, (t->flags & CORNERS) ? D3DSHADE_GOURAUD : D3DSHADE_FLAT );
     dev->lpVtbl->SetRenderState( dev, D3DRENDERSTATE_CULLMODE, D3DCULL_NONE );
+    if( t->flags & TEXTURED ) {
+        tex = make_texture();
+        if( tex != NULL ) {
+            say( "texture2", tex->lpVtbl->QueryInterface( tex, &m8_iid_tex2, (LPVOID *)&tex2 ) );
+        }
+        if( tex2 != NULL ) {
+            say( "handle", tex2->lpVtbl->GetHandle( tex2, dev, &texh ) );
+            dev->lpVtbl->SetRenderState( dev, D3DRENDERSTATE_TEXTUREHANDLE, texh );
+        }
+    }
     memset( tri, 0, sizeof( tri ) );
     memset( &fx, 0, sizeof( fx ) );
     fx.dwSize = sizeof( fx );
     memset( s, 0, sizeof( s ) );
-    if( stat != NULL ) {
+    if( drv_stat != NULL ) {
         for( i = 0; i < 13; ++i ) {
-            s[i] = stat[12 + i];
+            s[i] = drv_stat[12 + i];
         }
     }
     for( i = 0; i < 4; ++i ) {
         part[i] = 0.0;
+    }
+    if( drv_stat != NULL ) {
+        exec0 = drv_stat[4];
+        dp0 = drv_stat[1];
     }
     t0 = now();
     a = t0;
@@ -405,10 +488,12 @@ static void test( int no, const TEST *t, int seconds )
         }
         el = (a - t0) / qpf;
     } while( el < (double)seconds );
-    if( stat != NULL ) {
+    if( drv_stat != NULL ) {
         for( i = 0; i < 13; ++i ) {
-            s[i] = stat[12 + i] - s[i];
+            s[i] = drv_stat[12 + i] - s[i];
         }
+        exec0 = drv_stat[4] - exec0;
+        dp0 = drv_stat[1] - dp0;
     }
     if( grab ) {
         g_dump( t->name );
@@ -439,8 +524,15 @@ static void test( int no, const TEST *t, int seconds )
                  (unsigned long)s[10], (unsigned long)s[11] );
         fprintf( out, "  ours in d3d %5.2f", 1000.0 * s[12] / qpf / frames );
     }
+    fprintf( out, "  exec %lu dp %lu", (unsigned long)exec0, (unsigned long)dp0 );
     fprintf( out, "  bad %lu  lit %lu  over16.7ms %lu/%lu  worst %.1f\n", bad, lit, slow, frames, 1000.0 * worst / qpf );
-    fflush( out );
+    log_commit();
+    if( tex2 != NULL ) {
+        tex2->lpVtbl->Release( tex2 );
+    }
+    if( tex != NULL ) {
+        tex->lpVtbl->Release( tex );
+    }
     vp->lpVtbl->Release( vp );
     dev->lpVtbl->Release( dev );
 }
@@ -489,6 +581,7 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
         grab_out = fopen( "C:\\M8D3DF.GRB", "wb" );
     }
     fprintf( out, "== M8D3DF %s  640x480x16  %d s a test  priority %s\n", label, seconds, prio );
+    log_commit();
     spin( "desktop" );
     memset( &wc, 0, sizeof( wc ) );
     wc.lpfnWndProc = wndproc;
@@ -502,8 +595,8 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
     if( hr != DD_OK ) {
         return( 1 );
     }
-    stat = find_stat();
-    fprintf( out, "counters %s\n", stat != NULL ? "found" : "not found" );
+    drv_stat = find_stat();
+    fprintf( out, "counters %s\n", drv_stat != NULL ? "found" : "not found" );
     say( "coop", dd->lpVtbl->SetCooperativeLevel( dd, wnd, DDSCL_EXCLUSIVE | DDSCL_FULLSCREEN ) );
     say( "setmode", dd->lpVtbl->SetDisplayMode( dd, SCR_W, SCR_H, 16 ) );
     hr = dd->lpVtbl->QueryInterface( dd, &m8_iid_d3d2, (LPVOID *)&d3d );

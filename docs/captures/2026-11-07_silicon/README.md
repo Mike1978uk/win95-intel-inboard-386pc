@@ -43,3 +43,32 @@ Card, `M8D3DF` at high priority, agent on, fps. Locked = `M8D3DX` runs zl, zl2. 
 | hal_turn100 | 30.7, 30.6 | 32.5, 30.8 |
 
 Locking slowed each test except hal_turn100.
+
+## Texture probe by rows and lines (M8TEXR, run r1, boot 258, M8D3DY)
+
+| Arm | 32 px | 100 px |
+|---|---|---|
+| flat, polygon fill | 409 us | 1,011 |
+| tatlas, 6213h from card memory | 531 | 1,067 |
+| rows, source per row | 1,486 | 4,655 |
+| shear, source moved per row | 1,583 | 4,967 |
+| flatrows, one colour per row | 1,118 | 3,558 |
+| lines, source row per 45-degree line | 1,764 | 5,577 |
+
+LINEDRAW steps the source once per pixel on the line's major axis. Diagonal and vertical read clean. Shallow and steep agree at the points read: the read-back samples a straight line, not the engine's steps. A reversed line reads forward along its own path: a mirror. SRC_Y_DIR picks the next or previous source row at SRC_X_END. A horizontal line starts 3 source pixels late and misreads past pixel 32, so spans use SCAN_TO_X.
+
+## HAL textures and the DX5 route
+
+Stage one, `M8D3DZ` and `M8D3E1`: formats 565 and 1555 in system memory, handles, TEXTUREHANDLE and TEXTUREMAPBLEND. A triangle takes the texel under each corner through the gradient path: an approximation, not mapped texture. Pictures from the card: `grab_zg/`.
+
+`M8D3DZ` run za1, high priority, agent on: hal_tex 39.1 fps, hal_tex32 62.9, against hal_grad 37.8 and hal_large 40.3. Run za2 hung at its test 1: ping answered, agent did not. The texture tests had passed in za1.
+
+`M8D3E1` adds GetDriverInfo, GUID_D3DCallbacks2, DrawOnePrimitive, DrawOneIndexedPrimitive, DrawPrimitives and SetRenderTarget. Run e1a1, boot 261: exec 0 on every test, so the runtime uses the new route. FB16CHK 0 differ. **No fps gain on this bench:** hal_many 39.9 against 38.6-40.8. Kept because 3DMark99 uses only these calls, per velocity9x's records.
+
+| 64 triangles, e1a1 | fps | DirectX call ms |
+|---|---|---|
+| hal_many | 39.9 | 9.47 |
+| hal_many_c, no clip | 45.6 | 5.95 |
+| hal_many_e, no clip or extents | 49.4 | 3.85 |
+
+The runtime's clip and extents cost 5.6 ms a frame, and this route does not remove them.

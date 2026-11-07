@@ -12,7 +12,7 @@ $exe = "$root\tools\m8d3dtest\M8D3DF.EXE"
 $target = 'C:\M8D3DF.EXE'
 & $ctl put -Source $exe -Destination $target @h 2>&1 | Out-Null
 & $ctl exec -Application 'C:\M8IDLE.EXE' -Arguments '10 10 200' -TimeoutSeconds 260 @h 2>&1 | Out-Null
-& $ctl exec -Application $target -Arguments "$Label 3 high grab" -TimeoutSeconds 480 @h 2>&1 | Select-String 'ExitCode|TimedOut' | ForEach-Object { $_.Line.Trim() }
+& $ctl exec -Application $target -Arguments "$Label 3 high grab" -TimeoutSeconds 600 @h 2>&1 | Select-String 'ExitCode|TimedOut' | ForEach-Object { $_.Line.Trim() }
 New-Item -ItemType Directory -Force $Out | Out-Null
 & $ctl get -Source 'C:\M8D3DF.GRB' -Destination "$Out\M8D3DF.GRB" @h 2>&1 | Out-Null
 python -I "$root\tools\m8d3dtest\m8grab_png.py" "$Out\M8D3DF.GRB" $Out

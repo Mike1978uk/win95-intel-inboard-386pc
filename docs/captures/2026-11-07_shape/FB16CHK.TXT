@@ -23,3 +23,5 @@ xa-end  0 pixels differ, in 800,600 - 0,0; sends entered during a send 0
 xa-last  0 pixels differ, in 800,600 - 0,0; sends entered during a send 0
 zl-after  0 pixels differ, in 800,600 - 0,0; sends entered during a send 0
 zl2-after  0 pixels differ, in 800,600 - 0,0; sends entered during a send 0
+ya-after  0 pixels differ, in 800,600 - 0,0; sends entered during a send 0
+e1a-after  0 pixels differ, in 800,600 - 0,0; sends entered during a send 0

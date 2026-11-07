@@ -11,7 +11,8 @@
  * d3dhal.h, checked by size below.
  *
  * What is claimed is what the card does: RGB colour, flat shading, an 8 bpp
- * target, no Z buffer, no textures. A triangle is a polygon fill: its outline
+ * target, no Z buffer. A texture stays in system memory, and for now reaches a
+ * triangle as the colours under its corners, so the gradient path draws it. A triangle is a polygon fill: its outline
  * in one bit-plane of a scratch area beside the target, the engine fills between
  * those pixels, and the outline goes over the fill (m8hw.c m8_hw_poly, the
  * sequence proven on the card). One clear of the scratch serves eight triangles.
@@ -74,6 +75,17 @@
 
 /* d3dtypes.h */
 #define M8D3D_OP_TRIANGLE   3
+#define M8D3D_PT_TRIANGLELIST   4
+#define M8D3D_PT_TRIANGLESTRIP  5
+#define M8D3D_PT_TRIANGLEFAN    6
+#define M8D3D_VT_TLVERTEX       3
+#define M8D3D_GUID_CALLBACKS2_DATA1 0x0BA584E1UL
+#define M8D3D_CB2_SETRENDERTARGET   0x00000001UL
+#define M8D3D_CB2_DRAWONEPRIMITIVE  0x00000004UL
+#define M8D3D_CB2_DRAWONEINDEXED    0x00000008UL
+#define M8D3D_CB2_DRAWPRIMITIVES    0x00000010UL
+#define M8D3D_RS_TEXTURE    1
+#define M8D3D_RS_TEXBLEND   21
 #define M8D3D_RS_SHADEMODE  9
 #define M8D3D_SHADE_GOURAUD 2
 #define M8D3D_RS_CULLMODE   22
@@ -85,6 +97,14 @@
 #define M8D3D_INT_LCL       4
 #define M8D3D_LCL_GBL       4
 #define M8D3D_GBL_VIDMEM    20
+#define M8D3D_GBL_PITCH     24
+#define M8D3D_GBL_HEIGHT    28          /* WORD */
+#define M8D3D_GBL_WIDTH     30          /* WORD */
+#define M8D3D_GBL_GMASK     60          /* ddpfSurface.dwGBitMask */
+#define M8D3D_LCL_FLAGS     28
+#define M8D3D_HASPIXELFORMAT 0x00002000UL
+#define M8D3D_TEXBLEND_MODULATE 2
+#define M8D3D_TEXBLEND_MODULATEALPHA 4
 
 /* m8dd32.c: the engine and the card's memory, which it owns. */
 extern int  m8d3d_surface( LPVOID lcl, int *x, int *y, int *w, int *h );
@@ -111,10 +131,16 @@ extern long m8d3d_round( float f );
 #define M8D3D_DEVCAPS_FLOATTLVERTEX         0x00000001UL
 #define M8D3D_DEVCAPS_EXECUTESYSTEMMEMORY   0x00000010UL
 #define M8D3D_DEVCAPS_TLVERTEXSYSTEMMEMORY  0x00000040UL
+#define M8D3D_DEVCAPS_TEXTURESYSTEMMEMORY   0x00000100UL
 #define M8D3D_DEVCAPS_DRAWPRIMTLVERTEX      0x00000400UL
 #define M8D3D_PMISCCAPS_CULLNONE    0x00000010UL
 #define M8D3D_PSHADECAPS_COLORFLATRGB 0x00000002UL
 #define M8D3D_PSHADECAPS_COLORGOURAUDRGB 0x00000008UL
+#define M8D3D_PTEXTURECAPS_POW2     0x00000002UL
+#define M8D3D_PTFILTERCAPS_NEAREST  0x00000001UL
+#define M8D3D_PTBLENDCAPS_DECAL     0x00000001UL
+#define M8D3D_PTBLENDCAPS_MODULATE  0x00000002UL
+#define M8D3D_PTADDRESSCAPS_WRAP    0x00000001UL
 
 #pragma pack( push, 4 )
 typedef struct {
@@ -239,6 +265,99 @@ typedef struct {
     WORD    flags;
 } M8D3D_TRIANGLE;
 
+/* The DX5 route: D3DHAL_CALLBACKS2 and its calls, which GetDriverInfo hands over. */
+typedef struct {
+    DWORD   dwSize;
+    DWORD   dwFlags;
+    LPVOID  SetRenderTarget;
+    LPVOID  Clear;
+    LPVOID  DrawOnePrimitive;
+    LPVOID  DrawOneIndexedPrimitive;
+    LPVOID  DrawPrimitives;
+} M8D3D_CALLBACKS2;
+
+typedef struct {
+    DWORD   dwSize;
+    DWORD   dwFlags;
+    BYTE    guidInfo[16];
+    DWORD   dwExpectedSize;
+    LPVOID  lpvData;
+    DWORD   dwActualSize;
+    HRESULT ddRVal;
+} M8D3D_DRIVERINFO;
+
+typedef struct {
+    DWORD   dwhContext;
+    DWORD   dwFlags;
+    DWORD   PrimitiveType;
+    DWORD   VertexType;
+    LPVOID  lpvVertices;
+    DWORD   dwNumVertices;
+    DWORD   dwReserved;
+    HRESULT ddrval;
+} M8D3D_DRAWONE;
+
+typedef struct {
+    DWORD   dwhContext;
+    DWORD   dwFlags;
+    DWORD   PrimitiveType;
+    DWORD   VertexType;
+    LPVOID  lpvVertices;
+    DWORD   dwNumVertices;
+    WORD    *lpwIndices;
+    DWORD   dwNumIndices;
+    HRESULT ddrval;
+} M8D3D_DRAWONEINDEXED;
+
+typedef struct {
+    DWORD   dwhContext;
+    DWORD   dwFlags;
+    LPVOID  lpvData;
+    DWORD   dwReserved;
+    HRESULT ddrval;
+} M8D3D_DRAWPRIMITIVES;
+
+typedef struct {
+    WORD    wNumStateChanges;
+    WORD    wPrimitiveType;
+    WORD    wVertexType;
+    WORD    wNumVertices;
+} M8D3D_COUNTS;
+
+typedef struct {
+    DWORD   dwhContext;
+    LPVOID  lpDDS;
+    LPVOID  lpDDSZ;
+    HRESULT ddrval;
+} M8D3D_SETTARGET;
+
+typedef struct {
+    DWORD   dwhContext;
+    LPVOID  lpDDS;
+    DWORD   dwHandle;
+    HRESULT ddrval;
+} M8D3D_TEXTURECREATE;
+
+typedef struct {
+    DWORD   dwhContext;
+    DWORD   dwHandle;
+    HRESULT ddrval;
+} M8D3D_TEXTUREDESTROY;
+
+typedef struct {
+    DWORD   dwhContext;
+    DWORD   dwHandle1;
+    DWORD   dwHandle2;
+    HRESULT ddrval;
+} M8D3D_TEXTURESWAP;
+
+typedef struct {
+    DWORD   dwhContext;
+    LPVOID  lpDDS;
+    DWORD   dwHandle;
+    HRESULT ddrval;
+} M8D3D_TEXTUREGETSURF;
+
 typedef struct {
     DWORD   type;
     DWORD   arg;
@@ -247,6 +366,18 @@ typedef struct {
 typedef char m8d3d_tl_size[sizeof( M8D3D_TLVERTEX ) == 32 ? 1 : -1];
 
 #define M8D3D_CONTEXTS  4
+#define M8D3D_TEXTURES  64
+
+typedef struct {
+    LPVOID  dds;                /* NULL = free */
+    long    pitch;
+    int     w;
+    int     h;
+    int     is555;
+} M8D3D_TEX;
+
+static M8D3D_TEX        m8d3d_texs[M8D3D_TEXTURES];
+static DDSURFACEDESC    m8d3d_tex_formats[2];
 
 /* A shape: its corners relative to its box. Each plane of the mask strip holds one, whole, so
  * drawing it is one mono copy (8 writes, one engine command) against an outline, a fill and
@@ -330,6 +461,8 @@ typedef struct {
     DWORD   clock;
     int     credit;
     DWORD   cull;
+    DWORD   tex;                /* texture handle, 0 = none */
+    DWORD   texblend;
     int     sx;                 /* the scratch */
     int     sy;
     int     sw;                 /* the target's width */
@@ -345,6 +478,7 @@ typedef struct {
 
 static M8D3D_GLOBAL     m8d3d_global;
 static M8D3D_CALLBACKS  m8d3d_callbacks;
+static M8D3D_CALLBACKS2 m8d3d_callbacks2;
 static M8D3D_CONTEXT    m8d3d_ctx[M8D3D_CONTEXTS];
 
 /* Exported so a test program can see which callbacks the runtime reached: a
@@ -1927,6 +2061,8 @@ static DWORD __stdcall m8d3d_context_create( M8D3D_CONTEXTCREATE *d )
         return( DDHAL_DRIVER_HANDLED );
     }
     c = &m8d3d_ctx[k];
+    c->tex = 0;
+    c->texblend = M8D3D_TEXBLEND_MODULATE;
     if( !m8d3d_surface( m8d3d_lcl( d->lpDDS ), &x, &y, &c->sw, &c->sh ) ) {
         return( DDHAL_DRIVER_HANDLED );
     }
@@ -2011,27 +2147,266 @@ static DWORD __stdcall m8d3d_scene_capture( M8D3D_SCENECAPTURE *d )
     return( DDHAL_DRIVER_HANDLED );
 }
 
-static DWORD __stdcall m8d3d_render_state( M8D3D_RENDERSTATE *d )
+/* What a texture needs from its surface, which is DirectDraw's and stays in system memory. */
+static int m8d3d_tex_read( M8D3D_TEX *t, BYTE **bits )
 {
-    M8D3D_CONTEXT       *c = m8d3d_context( d->dwhContext );
-    BYTE                *exe = m8d3d_buffer( d->lpExeBuf );
-    const M8D3D_STATE   *s;
-    DWORD               i;
+    BYTE *lcl = (BYTE *)m8d3d_lcl( t->dds );
+    BYTE *gbl;
 
-    ++m8d3d_stat[3];
-    if( c != NULL && exe != NULL ) {
-        s = (const M8D3D_STATE *)(exe + d->dwOffset);
-        for( i = 0; i < d->dwCount; ++i ) {
-            if( s[i].type == M8D3D_RS_CULLMODE ) {
-                c->cull = s[i].arg;
-            }
-            if( s[i].type == M8D3D_RS_SHADEMODE ) {
-                c->shade = s[i].arg;
-            }
+    if( lcl == NULL ) {
+        return( 0 );
+    }
+    gbl = *(BYTE **)(lcl + M8D3D_LCL_GBL);
+    if( gbl == NULL || IsBadReadPtr( gbl, M8D3D_GBL_GMASK + 4 ) ) {
+        return( 0 );
+    }
+    *bits = *(BYTE **)(gbl + M8D3D_GBL_VIDMEM);
+    t->pitch = *(long *)(gbl + M8D3D_GBL_PITCH);
+    t->h = *(WORD *)(gbl + M8D3D_GBL_HEIGHT);
+    t->w = *(WORD *)(gbl + M8D3D_GBL_WIDTH);
+    t->is555 = (*(DWORD *)(lcl + M8D3D_LCL_FLAGS) & M8D3D_HASPIXELFORMAT) &&
+               *(DWORD *)(gbl + M8D3D_GBL_GMASK) == 0x03E0;
+    return( *bits != NULL && t->w != 0 && t->h != 0 );
+}
+
+/* POW2 is claimed, so a mask wraps any coordinate. */
+static DWORD m8d3d_texel( const M8D3D_TEX *t, const BYTE *bits, float u, float v )
+{
+    int     x = (int)m8d3d_round( u * t->w ) & (t->w - 1);
+    int     y = (int)m8d3d_round( v * t->h ) & (t->h - 1);
+    DWORD   p = *(const WORD *)(bits + y * t->pitch + 2 * x);
+
+    if( t->is555 ) {
+        return( ((p & 0x7C00) << 9) | ((p & 0x03E0) << 6) | ((p & 0x001F) << 3) );
+    }
+    return( ((p & 0xF800) << 8) | ((p & 0x07E0) << 5) | ((p & 0x001F) << 3) );
+}
+
+static DWORD m8d3d_modulate( DWORD a, DWORD b )
+{
+    return( ((((a >> 16) & 255) * ((b >> 16) & 255) >> 8) << 16) |
+            ((((a >> 8) & 255) * ((b >> 8) & 255) >> 8) << 8) |
+            ((a & 255) * (b & 255) >> 8) );
+}
+
+static M8D3D_TEX *m8d3d_tex_of( DWORD h )
+{
+    return( h == 0 || h > M8D3D_TEXTURES || m8d3d_texs[h - 1].dds == NULL ? NULL : &m8d3d_texs[h - 1] );
+}
+
+static DWORD __stdcall m8d3d_texture_create( M8D3D_TEXTURECREATE *d )
+{
+    int k;
+
+    for( k = 0; k < M8D3D_TEXTURES && m8d3d_texs[k].dds != NULL; ++k ) {
+    }
+    if( k == M8D3D_TEXTURES ) {
+        d->ddrval = DDERR_OUTOFVIDEOMEMORY;
+        return( DDHAL_DRIVER_HANDLED );
+    }
+    m8d3d_texs[k].dds = d->lpDDS;
+    d->dwHandle = k + 1;
+    d->ddrval = DD_OK;
+    return( DDHAL_DRIVER_HANDLED );
+}
+
+static DWORD __stdcall m8d3d_texture_destroy( M8D3D_TEXTUREDESTROY *d )
+{
+    M8D3D_TEX   *t = m8d3d_tex_of( d->dwHandle );
+    int         k;
+
+    if( t != NULL ) {
+        t->dds = NULL;
+    }
+    for( k = 0; k < M8D3D_CONTEXTS; ++k ) {
+        if( m8d3d_ctx[k].tex == d->dwHandle ) {
+            m8d3d_ctx[k].tex = 0;
         }
     }
     d->ddrval = DD_OK;
     return( DDHAL_DRIVER_HANDLED );
+}
+
+static DWORD __stdcall m8d3d_texture_swap( M8D3D_TEXTURESWAP *d )
+{
+    M8D3D_TEX   *a = m8d3d_tex_of( d->dwHandle1 );
+    M8D3D_TEX   *b = m8d3d_tex_of( d->dwHandle2 );
+    M8D3D_TEX   t;
+
+    d->ddrval = DDERR_GENERIC;
+    if( a != NULL && b != NULL ) {
+        t = *a;
+        *a = *b;
+        *b = t;
+        d->ddrval = DD_OK;
+    }
+    return( DDHAL_DRIVER_HANDLED );
+}
+
+static DWORD __stdcall m8d3d_texture_getsurf( M8D3D_TEXTUREGETSURF *d )
+{
+    M8D3D_TEX *t = m8d3d_tex_of( d->dwHandle );
+
+    d->ddrval = DDERR_GENERIC;
+    if( t != NULL ) {
+        d->lpDDS = t->dds;
+        d->ddrval = DD_OK;
+    }
+    return( DDHAL_DRIVER_HANDLED );
+}
+
+static void m8d3d_states( M8D3D_CONTEXT *c, const M8D3D_STATE *s, DWORD n )
+{
+    DWORD i;
+
+    for( i = 0; i < n; ++i ) {
+        if( s[i].type == M8D3D_RS_CULLMODE ) {
+            c->cull = s[i].arg;
+        }
+        if( s[i].type == M8D3D_RS_SHADEMODE ) {
+            c->shade = s[i].arg;
+        }
+        if( s[i].type == M8D3D_RS_TEXTURE ) {
+            c->tex = s[i].arg;
+        }
+        if( s[i].type == M8D3D_RS_TEXBLEND ) {
+            c->texblend = s[i].arg;
+        }
+    }
+}
+
+static DWORD __stdcall m8d3d_render_state( M8D3D_RENDERSTATE *d )
+{
+    M8D3D_CONTEXT       *c = m8d3d_context( d->dwhContext );
+    BYTE                *exe = m8d3d_buffer( d->lpExeBuf );
+
+    ++m8d3d_stat[3];
+    if( c != NULL && exe != NULL ) {
+        m8d3d_states( c, (const M8D3D_STATE *)(exe + d->dwOffset), d->dwCount );
+    }
+    d->ddrval = DD_OK;
+    return( DDHAL_DRIVER_HANDLED );
+}
+
+/* What one call's triangles share. */
+typedef struct {
+    M8D3D_CONTEXT   *c;
+    M8D3D_TEX       *tex;
+    BYTE            *texbits;
+    LPVOID          lcl;
+    int             x;
+    int             y;
+    int             w;
+    int             h;
+    int             fb16;
+    int             ok;
+} M8D3D_DRAW;
+
+static int m8d3d_draw_begin( M8D3D_DRAW *p, M8D3D_CONTEXT *c )
+{
+    p->c = c;
+    p->ok = 1;
+    p->fb16 = m8d3d_fb16();
+    /* A flip swaps the surfaces' memory, so the target is looked up each time. */
+    if( c == NULL || !m8d3d_surface( m8d3d_lcl( c->target ), &p->x, &p->y, &p->w, &p->h ) || p->w > c->sw ||
+        (!p->fb16 && (p->h > c->sh || !m8d3d_engine_begin())) ) {
+        ++m8d3d_stat[11];
+        return( 0 );
+    }
+    /* A new context's scratch holds whatever the card left there; its box was set
+     * to the whole scratch when it was created. At 16 bpp, the replay sees to it. */
+    if( !p->fb16 ) {
+        m8d3d_qn = 0;
+    }
+    if( !p->fb16 && c->fresh ) {
+        p->ok = m8d3d_scratch_clear( c );
+        c->fresh = 0;
+    }
+    /* Once a call: it asks the kernel whether the pointer is good. */
+    p->lcl = m8d3d_lcl( c->target );
+    p->texbits = NULL;
+    p->tex = m8d3d_tex_of( c->tex );
+    if( p->tex != NULL && !m8d3d_tex_read( p->tex, &p->texbits ) ) {
+        p->tex = NULL;
+    }
+    return( 1 );
+}
+
+static void m8d3d_draw_tri( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D_TLVERTEX *v1,
+                            const M8D3D_TLVERTEX *v2 )
+{
+    M8D3D_CONTEXT           *c = p->c;
+    const M8D3D_TLVERTEX    *a[3];
+    short                   v[6];
+    DWORD                   texc[3];
+    DWORD                   rgb;
+    long                    area;
+    int                     j;
+
+    if( !p->ok ) {
+        return;
+    }
+    a[0] = v0;
+    a[1] = v1;
+    a[2] = v2;
+    for( j = 0; j < 3; ++j ) {
+        v[2 * j] = (short)m8d3d_round( a[j]->sx );
+        v[2 * j + 1] = (short)m8d3d_round( a[j]->sy );
+    }
+    /* Above zero runs clockwise on the screen. */
+    area = (long)(v[2] - v[0]) * (v[5] - v[1]) - (long)(v[3] - v[1]) * (v[4] - v[0]);
+    if( area == 0 || (c->cull == M8D3D_CULL_CCW && area < 0) ||
+        (c->cull == M8D3D_CULL_CW && area > 0) ) {
+        ++m8d3d_stat[9];
+        return;
+    }
+    if( v[0] < 0 || v[0] >= p->w || v[1] < 0 || v[1] >= p->h ||
+        v[2] < 0 || v[2] >= p->w || v[3] < 0 || v[3] >= p->h ||
+        v[4] < 0 || v[4] >= p->w || v[5] < 0 || v[5] >= p->h ) {
+        ++m8d3d_stat[10];
+        return;
+    }
+    rgb = m8d3d_mean( a[0]->color, a[1]->color, a[2]->color );
+    if( p->tex != NULL ) {
+        for( j = 0; j < 3; ++j ) {
+            texc[j] = m8d3d_texel( p->tex, p->texbits, a[j]->tu, a[j]->tv );
+            if( c->texblend == M8D3D_TEXBLEND_MODULATE || c->texblend == M8D3D_TEXBLEND_MODULATEALPHA ) {
+                texc[j] = m8d3d_modulate( texc[j], a[j]->color );
+            }
+        }
+        rgb = m8d3d_mean( texc[0], texc[1], texc[2] );
+    }
+    if( p->fb16 ) {
+        DWORD corners[3];
+
+        /* Flat shading keeps one colour, the corners' mean: a face's two triangles then
+         * agree where the first vertex alone would not. */
+        for( j = 0; j < 3; ++j ) {
+            corners[j] = p->tex != NULL ? texc[j] :
+                         c->shade == M8D3D_SHADE_GOURAUD ? a[j]->color & 0x00FFFFFFUL : rgb;
+        }
+        /* Described, not drawn: Flip has the engine draw it. */
+        p->ok = m8d3d_record( p->lcl, v, m8d3d_index16( rgb ), m8d3d_565( rgb ), corners );
+        return;
+    }
+    p->ok = m8d3d_tri_fit( c, p->x, p->y, v, m8d3d_index( rgb ) );
+    ++m8d3d_stat[8];
+}
+
+static void m8d3d_draw_end( M8D3D_DRAW *p )
+{
+    if( !p->fb16 ) {
+        if( p->ok ) {
+            p->ok = m8d3d_scratch_clear( p->c );
+        }
+        if( !m8d3d_q_flush() ) {
+            p->ok = 0;
+        }
+        m8d3d_engine_end();
+    }
+    if( !p->ok ) {
+        ++m8d3d_stat[11];
+    }
 }
 
 static DWORD __stdcall m8d3d_render_primitive( M8D3D_RENDERPRIMITIVE *d )
@@ -2041,19 +2416,8 @@ static DWORD __stdcall m8d3d_render_primitive( M8D3D_RENDERPRIMITIVE *d )
     BYTE                    *tl = m8d3d_buffer( d->lpTLBuf );
     const M8D3D_TLVERTEX    *vtx;
     const M8D3D_TRIANGLE    *tri;
-    const M8D3D_TLVERTEX    *a[3];
-    short                   v[6];
-    int                     x;
-    int                     y;
-    int                     w;
-    int                     h;
-    long                    area;
     unsigned                i;
-    int                     j;
-    int                     ok = 1;
-    int                     fb16;
-    DWORD                   rgb;
-    LPVOID                  lcl;
+    M8D3D_DRAW              p;
     LARGE_INTEGER           rp0;
     LARGE_INTEGER           rp1;
 
@@ -2064,85 +2428,157 @@ static DWORD __stdcall m8d3d_render_primitive( M8D3D_RENDERPRIMITIVE *d )
     if( d->bOpcode != M8D3D_OP_TRIANGLE ) {
         return( DDHAL_DRIVER_HANDLED );
     }
-    fb16 = m8d3d_fb16();
-    /* A flip swaps the surfaces' memory, so the target is looked up each time. */
-    if( c == NULL || exe == NULL || tl == NULL || d->bSize < sizeof( M8D3D_TRIANGLE ) ||
-        !m8d3d_surface( m8d3d_lcl( c->target ), &x, &y, &w, &h ) || w > c->sw ||
-        (!fb16 && (h > c->sh || !m8d3d_engine_begin())) ) {
+    if( exe == NULL || tl == NULL || d->bSize < sizeof( M8D3D_TRIANGLE ) || !m8d3d_draw_begin( &p, c ) ) {
         ++m8d3d_stat[11];
         return( DDHAL_DRIVER_HANDLED );
     }
-    /* A new context's scratch holds whatever the card left there; its box was set
-     * to the whole scratch when it was created. At 16 bpp, the replay sees to it. */
-    if( !fb16 ) {
-        m8d3d_qn = 0;
-    }
-    if( !fb16 && c->fresh ) {
-        ok = m8d3d_scratch_clear( c );
-        c->fresh = 0;
-    }
-    /* Once a call: it asks the kernel whether the pointer is good. */
-    lcl = m8d3d_lcl( c->target );
     vtx = (const M8D3D_TLVERTEX *)(tl + d->dwTLOffset);
-    for( i = 0; ok && i < d->wCount; ++i ) {
+    for( i = 0; p.ok && i < d->wCount; ++i ) {
         tri = (const M8D3D_TRIANGLE *)(exe + d->dwOffset + (DWORD)i * d->bSize);
-        a[0] = &vtx[tri->v1];
-        a[1] = &vtx[tri->v2];
-        a[2] = &vtx[tri->v3];
-        for( j = 0; j < 3; ++j ) {
-            v[2 * j] = (short)m8d3d_round( a[j]->sx );
-            v[2 * j + 1] = (short)m8d3d_round( a[j]->sy );
-        }
-        /* Above zero runs clockwise on the screen. */
-        area = (long)(v[2] - v[0]) * (v[5] - v[1]) - (long)(v[3] - v[1]) * (v[4] - v[0]);
-        if( area == 0 || (c->cull == M8D3D_CULL_CCW && area < 0) ||
-            (c->cull == M8D3D_CULL_CW && area > 0) ) {
-            ++m8d3d_stat[9];
-            continue;
-        }
-        if( v[0] < 0 || v[0] >= w || v[1] < 0 || v[1] >= h ||
-            v[2] < 0 || v[2] >= w || v[3] < 0 || v[3] >= h ||
-            v[4] < 0 || v[4] >= w || v[5] < 0 || v[5] >= h ) {
-            ++m8d3d_stat[10];
-            continue;
-        }
-        rgb = m8d3d_mean( a[0]->color, a[1]->color, a[2]->color );
-        if( fb16 ) {
-            DWORD corners[3];
+        m8d3d_draw_tri( &p, &vtx[tri->v1], &vtx[tri->v2], &vtx[tri->v3] );
+    }
+    m8d3d_draw_end( &p );
+    QueryPerformanceCounter( &rp1 );
+    m8d3d_stat[24] += rp1.LowPart - rp0.LowPart;
+    return( DDHAL_DRIVER_HANDLED );
+}
 
-            /* Flat shading keeps one colour, the corners' mean: a face's two triangles then
-             * agree where the first vertex alone would not. */
-            for( j = 0; j < 3; ++j ) {
-                corners[j] = c->shade == M8D3D_SHADE_GOURAUD ? a[j]->color & 0x00FFFFFFUL : rgb;
+/* A list, strip or fan, from an array or through indices. Lines and points are not
+ * claimed, so a program that sends them anyway gets nothing drawn. */
+static void m8d3d_draw_list( M8D3D_DRAW *p, DWORD type, const M8D3D_TLVERTEX *vtx, const WORD *index, DWORD n )
+{
+    DWORD i;
+
+#define M8D3D_V( k ) (index != NULL ? &vtx[index[k]] : &vtx[k])
+    if( type == M8D3D_PT_TRIANGLELIST ) {
+        for( i = 0; p->ok && i + 2 < n; i += 3 ) {
+            m8d3d_draw_tri( p, M8D3D_V( i ), M8D3D_V( i + 1 ), M8D3D_V( i + 2 ) );
+        }
+    } else if( type == M8D3D_PT_TRIANGLESTRIP ) {
+        /* Every second triangle of a strip runs the other way round. */
+        for( i = 0; p->ok && i + 2 < n; ++i ) {
+            if( i & 1 ) {
+                m8d3d_draw_tri( p, M8D3D_V( i + 1 ), M8D3D_V( i ), M8D3D_V( i + 2 ) );
+            } else {
+                m8d3d_draw_tri( p, M8D3D_V( i ), M8D3D_V( i + 1 ), M8D3D_V( i + 2 ) );
             }
-            /* Described, not drawn: Flip has the engine draw it. */
-            ok = m8d3d_record( lcl, v, m8d3d_index16( rgb ), m8d3d_565( rgb ), corners );
-            continue;
         }
-        ok = m8d3d_tri_fit( c, x, y, v, m8d3d_index( rgb ) );
-        ++m8d3d_stat[8];
+    } else if( type == M8D3D_PT_TRIANGLEFAN ) {
+        for( i = 1; p->ok && i + 1 < n; ++i ) {
+            m8d3d_draw_tri( p, M8D3D_V( 0 ), M8D3D_V( i ), M8D3D_V( i + 1 ) );
+        }
     }
-    if( !fb16 ) {
-        if( ok ) {
-            ok = m8d3d_scratch_clear( c );
-        }
-        if( !m8d3d_q_flush() ) {
-            ok = 0;
-        }
-        m8d3d_engine_end();
-    }
-    if( !ok ) {
-        ++m8d3d_stat[11];
+#undef M8D3D_V
+}
+
+static DWORD __stdcall m8d3d_draw_one( M8D3D_DRAWONE *d )
+{
+    M8D3D_DRAW      p;
+    LARGE_INTEGER   rp0;
+    LARGE_INTEGER   rp1;
+
+    ++m8d3d_stat[1];
+    QueryPerformanceCounter( &rp0 );
+    d->ddrval = DD_OK;
+    if( d->VertexType == M8D3D_VT_TLVERTEX && m8d3d_draw_begin( &p, m8d3d_context( d->dwhContext ) ) ) {
+        m8d3d_draw_list( &p, d->PrimitiveType, (const M8D3D_TLVERTEX *)d->lpvVertices, NULL, d->dwNumVertices );
+        m8d3d_draw_end( &p );
     }
     QueryPerformanceCounter( &rp1 );
     m8d3d_stat[24] += rp1.LowPart - rp0.LowPart;
     return( DDHAL_DRIVER_HANDLED );
 }
 
+static DWORD __stdcall m8d3d_draw_one_indexed( M8D3D_DRAWONEINDEXED *d )
+{
+    M8D3D_DRAW      p;
+    LARGE_INTEGER   rp0;
+    LARGE_INTEGER   rp1;
+
+    ++m8d3d_stat[1];
+    QueryPerformanceCounter( &rp0 );
+    d->ddrval = DD_OK;
+    if( d->VertexType == M8D3D_VT_TLVERTEX && m8d3d_draw_begin( &p, m8d3d_context( d->dwhContext ) ) ) {
+        m8d3d_draw_list( &p, d->PrimitiveType, (const M8D3D_TLVERTEX *)d->lpvVertices, d->lpwIndices, d->dwNumIndices );
+        m8d3d_draw_end( &p );
+    }
+    QueryPerformanceCounter( &rp1 );
+    m8d3d_stat[24] += rp1.LowPart - rp0.LowPart;
+    return( DDHAL_DRIVER_HANDLED );
+}
+
+/* Counts, then that many state pairs unaligned, then vertices on a 32-byte boundary, and a
+ * count of no vertices ends it. */
+static DWORD __stdcall m8d3d_draw_primitives( M8D3D_DRAWPRIMITIVES *d )
+{
+    M8D3D_CONTEXT       *c = m8d3d_context( d->dwhContext );
+    BYTE                *q = (BYTE *)d->lpvData;
+    const M8D3D_COUNTS  *n;
+    M8D3D_DRAW          p;
+    LARGE_INTEGER       rp0;
+    LARGE_INTEGER       rp1;
+
+    ++m8d3d_stat[1];
+    QueryPerformanceCounter( &rp0 );
+    d->ddrval = DD_OK;
+    for( ;; ) {
+        n = (const M8D3D_COUNTS *)q;
+        q += sizeof( *n );
+        if( c != NULL ) {
+            m8d3d_states( c, (const M8D3D_STATE *)q, n->wNumStateChanges );
+        }
+        q += n->wNumStateChanges * sizeof( M8D3D_STATE );
+        if( n->wNumVertices == 0 ) {
+            break;
+        }
+        q = (BYTE *)(((DWORD)q + 31UL) & ~31UL);
+        if( n->wVertexType == M8D3D_VT_TLVERTEX && m8d3d_draw_begin( &p, c ) ) {
+            m8d3d_draw_list( &p, n->wPrimitiveType, (const M8D3D_TLVERTEX *)q, NULL, n->wNumVertices );
+            m8d3d_draw_end( &p );
+        }
+        q += (DWORD)n->wNumVertices * sizeof( M8D3D_TLVERTEX );
+    }
+    QueryPerformanceCounter( &rp1 );
+    m8d3d_stat[24] += rp1.LowPart - rp0.LowPart;
+    return( DDHAL_DRIVER_HANDLED );
+}
+
+/* A target of the same size only: scratch and masks were placed for the one it was made with. */
+static DWORD __stdcall m8d3d_set_target( M8D3D_SETTARGET *d )
+{
+    M8D3D_CONTEXT   *c = m8d3d_context( d->dwhContext );
+    int             x;
+    int             y;
+    int             w;
+    int             h;
+
+    d->ddrval = DDERR_GENERIC;
+    if( c != NULL && m8d3d_surface( m8d3d_lcl( d->lpDDS ), &x, &y, &w, &h ) && w <= c->sw ) {
+        c->target = d->lpDDS;
+        d->ddrval = DD_OK;
+    }
+    return( DDHAL_DRIVER_HANDLED );
+}
+
+/* The size a caller gave bounds the copy: a later runtime's table is not ours to overrun. */
+static DWORD __stdcall m8d3d_driver_info( M8D3D_DRIVERINFO *d )
+{
+    d->dwActualSize = 0;
+    d->ddRVal = DDERR_CURRENTLYNOTAVAIL;
+    if( *(const DWORD *)d->guidInfo == M8D3D_GUID_CALLBACKS2_DATA1 && d->lpvData != NULL ) {
+        d->dwActualSize = sizeof( m8d3d_callbacks2 );
+        memcpy( d->lpvData, &m8d3d_callbacks2,
+                d->dwExpectedSize < sizeof( m8d3d_callbacks2 ) ? d->dwExpectedSize : sizeof( m8d3d_callbacks2 ) );
+        d->ddRVal = DD_OK;
+    }
+    return( DDHAL_DRIVER_HANDLED );
+}
+
 /* The two tables, filled; their linear addresses for the HAL information. */
-void m8d3d_init( DWORD *global, DWORD *callbacks )
+void m8d3d_init( DWORD *global, DWORD *callbacks, DWORD *driver_info )
 {
     M8D3D_DEVICEDESC *c = &m8d3d_global.hwCaps;
+    int k;
 
     memset( &m8d3d_global, 0, sizeof( m8d3d_global ) );
     m8d3d_global.dwSize = sizeof( m8d3d_global );
@@ -2152,15 +2588,36 @@ void m8d3d_init( DWORD *global, DWORD *callbacks )
     c->dcmColorModel = M8D3D_COLOR_RGB;
     /* The runtime wants all four even of a device that keeps no vertices. */
     c->dwDevCaps = M8D3D_DEVCAPS_FLOATTLVERTEX | M8D3D_DEVCAPS_EXECUTESYSTEMMEMORY |
-                   M8D3D_DEVCAPS_TLVERTEXSYSTEMMEMORY | M8D3D_DEVCAPS_DRAWPRIMTLVERTEX;
+                   M8D3D_DEVCAPS_TLVERTEXSYSTEMMEMORY | M8D3D_DEVCAPS_DRAWPRIMTLVERTEX |
+                   M8D3D_DEVCAPS_TEXTURESYSTEMMEMORY;
     c->dtcTransformCaps[0] = sizeof( c->dtcTransformCaps );
     c->dlcLightingCaps[0] = sizeof( c->dlcLightingCaps );
     c->dpcLineCaps.dwSize = sizeof( c->dpcLineCaps );
     c->dpcTriCaps.dwSize = sizeof( c->dpcTriCaps );
     c->dpcTriCaps.dwMiscCaps = M8D3D_PMISCCAPS_CULLNONE;
     c->dpcTriCaps.dwShadeCaps = M8D3D_PSHADECAPS_COLORFLATRGB | M8D3D_PSHADECAPS_COLORGOURAUDRGB;
+    c->dpcTriCaps.dwTextureCaps = M8D3D_PTEXTURECAPS_POW2;
+    c->dpcTriCaps.dwTextureFilterCaps = M8D3D_PTFILTERCAPS_NEAREST;
+    c->dpcTriCaps.dwTextureBlendCaps = M8D3D_PTBLENDCAPS_DECAL | M8D3D_PTBLENDCAPS_MODULATE;
+    c->dpcTriCaps.dwTextureAddressCaps = M8D3D_PTADDRESSCAPS_WRAP;
     c->dwDeviceRenderBitDepth = DDBD_8 | DDBD_16;
     c->dwDeviceZBufferBitDepth = 0;
+    m8d3d_global.dwNumTextureFormats = 2;
+    m8d3d_global.lpTextureFormats = m8d3d_tex_formats;
+    memset( m8d3d_tex_formats, 0, sizeof( m8d3d_tex_formats ) );
+    for( k = 0; k < 2; ++k ) {
+        DDSURFACEDESC *f = &m8d3d_tex_formats[k];
+
+        f->dwSize = sizeof( *f );
+        f->dwFlags = DDSD_CAPS | DDSD_PIXELFORMAT;
+        f->ddsCaps.dwCaps = DDSCAPS_TEXTURE;
+        f->ddpfPixelFormat.dwSize = sizeof( f->ddpfPixelFormat );
+        f->ddpfPixelFormat.dwFlags = DDPF_RGB;
+        f->ddpfPixelFormat.dwRGBBitCount = 16;
+        f->ddpfPixelFormat.dwRBitMask = k == 0 ? 0xF800 : 0x7C00;
+        f->ddpfPixelFormat.dwGBitMask = k == 0 ? 0x07E0 : 0x03E0;
+        f->ddpfPixelFormat.dwBBitMask = 0x001F;
+    }
 
     memset( &m8d3d_callbacks, 0, sizeof( m8d3d_callbacks ) );
     m8d3d_callbacks.dwSize = sizeof( m8d3d_callbacks );
@@ -2170,6 +2627,21 @@ void m8d3d_init( DWORD *global, DWORD *callbacks )
     m8d3d_callbacks.SceneCapture = (LPVOID)m8d3d_scene_capture;
     m8d3d_callbacks.RenderState = (LPVOID)m8d3d_render_state;
     m8d3d_callbacks.RenderPrimitive = (LPVOID)m8d3d_render_primitive;
+    /* In the DDK's order: any of the four means all of them. */
+    m8d3d_callbacks.other[0] = (LPVOID)m8d3d_texture_create;
+    m8d3d_callbacks.other[1] = (LPVOID)m8d3d_texture_destroy;
+    m8d3d_callbacks.other[2] = (LPVOID)m8d3d_texture_swap;
+    m8d3d_callbacks.other[3] = (LPVOID)m8d3d_texture_getsurf;
+
+    memset( &m8d3d_callbacks2, 0, sizeof( m8d3d_callbacks2 ) );
+    m8d3d_callbacks2.dwSize = sizeof( m8d3d_callbacks2 );
+    m8d3d_callbacks2.dwFlags = M8D3D_CB2_SETRENDERTARGET | M8D3D_CB2_DRAWONEPRIMITIVE |
+                               M8D3D_CB2_DRAWONEINDEXED | M8D3D_CB2_DRAWPRIMITIVES;
+    m8d3d_callbacks2.SetRenderTarget = (LPVOID)m8d3d_set_target;
+    m8d3d_callbacks2.DrawOnePrimitive = (LPVOID)m8d3d_draw_one;
+    m8d3d_callbacks2.DrawOneIndexedPrimitive = (LPVOID)m8d3d_draw_one_indexed;
+    m8d3d_callbacks2.DrawPrimitives = (LPVOID)m8d3d_draw_primitives;
+    *driver_info = (DWORD)m8d3d_driver_info;
 
     *global = (DWORD)&m8d3d_global;
     *callbacks = (DWORD)&m8d3d_callbacks;

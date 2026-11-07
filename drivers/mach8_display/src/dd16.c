@@ -60,6 +60,7 @@ typedef struct {
     DWORD   gdi_lin;                    /* linear address of fb16.c's count of GDI calls */
     DWORD   d3d_global;                 /* m8d3d.c's two tables, 0 = no Direct3D */
     DWORD   d3d_callbacks;
+    DWORD   d3d_info;                   /* its GetDriverInfo */
     DWORD   scratch_top;                /* at 16 bpp, the off-screen rows m8d3d.c fills from */
     DWORD   scratch_rows;
     /* This side only from here. */
@@ -272,6 +273,10 @@ static void m8dd_build( int mode )
     hi->dwNumModes = M8_MODE_COUNT;
     hi->lpModeInfo = m8dd->modes;
     hi->dwFlags = DDHALINFO_ISPRIMARYDISPLAY | DDHALINFO_MODEXILLEGAL;
+    if( m8dd->d3d_global ) {
+        hi->GetDriverInfo = (LPDDHAL_GETDRIVERINFO)m8dd->d3d_info;
+        hi->dwFlags |= DDHALINFO_GETDRIVERINFOSET;
+    }
     hi->lpPDevice = m8_pdevice;
     hi->hInstance = m8dd->hInstance;
 }
@@ -353,6 +358,8 @@ static void m8dd_build16( void )
     if( !(hi->ddCaps.dwCaps & DDCAPS_3D) ) {
         hi->lpD3DGlobalDriverData = 0;
         hi->lpD3DHALCallbacks = 0;
+        hi->GetDriverInfo = 0;
+        hi->dwFlags &= ~DDHALINFO_GETDRIVERINFOSET;
     }
     hi->dwModeIndex = M8_SCREEN_X == 640 ? 0 : 1;
     hi->dwNumModes = 2;

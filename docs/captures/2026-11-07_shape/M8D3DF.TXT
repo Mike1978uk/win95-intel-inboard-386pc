@@ -1212,3 +1212,151 @@ spin fullscreen  lost  10.3 %     42 gaps  worst  63.55 ms
 1/15 hal_tiny      50.3 fps  19.90 ms/frame  scene  0.53 clear  4.34 d3d   3.62 flipcall  11.41  flip  10.67 (16-bit   1.76, engine   8.91)  page wait  5.13  blt  0.23 calls 151 described 151  masks 2415 built 1  stamps 0 built 0  ours in d3d  1.00  bad 0  lit 720  over16.7ms 7/151  worst 658.2
 spin after       lost  13.2 %     37 gaps  worst  67.31 ms
 
+== M8D3DF ya1  640x480x16  3 s a test  priority high
+spin desktop     lost   2.9 %     38 gaps  worst   4.15 ms
+ddraw          00000000
+counters found
+coop           00000000
+setmode        00000000
+d3d2           00000000
+flipchain      00000000
+attached       00000000
+spin fullscreen  lost  36.1 %     37 gaps  worst 558.84 ms
+1/15 hal_tiny      51.3 fps  19.51 ms/frame  scene  0.51 clear  5.33 d3d   3.69 flipcall   9.98  flip   9.34 (16-bit   0.11, engine   9.23)  page wait  5.06  blt  2.04 calls 154 described 154  masks 2463 built 1  stamps 0 built 0  ours in d3d  1.02  bad 0  lit 720  over16.7ms 6/154  worst 415.4
+2/15 hal_small     61.0 fps  16.39 ms/frame  scene  0.53 clear  1.30 d3d   3.63 flipcall  10.93  flip  10.29 (16-bit   0.66, engine   9.63)  page wait  5.17  blt  0.17 calls 185 described 185  masks 2959 built 1  stamps 0 built 0  ours in d3d  1.08  bad 0  lit 8976  over16.7ms 6/185  worst 263.3
+3/15 hal_large     43.0 fps  23.24 ms/frame  scene  0.51 clear  1.26 d3d   3.30 flipcall  18.16  flip  17.56 (16-bit   0.61, engine  16.95)  page wait  4.25  blt  0.17 calls 130 described 130  masks 2079 built 1  stamps 0 built 0  ours in d3d  1.06  bad 0  lit 80321  over16.7ms 85/130  worst 162.4
+4/15 hal_static   159.6 fps   6.26 ms/frame  scene  0.52 clear  0.91 d3d   3.82 flipcall   1.01  flip   0.44 (16-bit   0.04, engine   0.41)  page wait  0.00  blt  0.18 calls 479 described 479  masks 15 built 1  stamps 0 built 0  ours in d3d  0.96  bad 0  lit 720  over16.7ms 3/479  worst 316.3
+5/15 hal_colour    63.8 fps  15.69 ms/frame  scene  0.53 clear  1.15 d3d   3.51 flipcall  10.50  flip   9.93 (16-bit   0.09, engine   9.85)  page wait  5.38  blt  0.17 calls 192 described 192  masks 3071 built 1  stamps 0 built 0  ours in d3d  1.03  bad 0  lit 720  over16.7ms 5/192  worst 179.5
+6/15 hal_many      40.8 fps  24.54 ms/frame  scene  1.51 clear  0.94 d3d   9.74 flipcall  12.34  flip  11.78 (16-bit   0.13, engine  11.64)  page wait  0.27  blt  0.18 calls 123 described 123  masks 7871 built 1  stamps 0 built 0  ours in d3d  3.01  bad 0  lit 2880  over16.7ms 123/123  worst 174.9
+7/15 hal_turn32    56.8 fps  17.62 ms/frame  scene  0.60 clear  1.78 d3d   4.00 flipcall  11.24  flip  10.59 (16-bit   0.10, engine  10.49)  page wait  0.95  blt  0.17 calls 171 described 171  masks 1711 built 171  stamps 0 built 0  ours in d3d  1.21  bad 0  lit 8048  over16.7ms 11/171  worst 340.5
+8/15 hal_turn100    32.5 fps  30.75 ms/frame  scene  0.59 clear  0.98 d3d   3.66 flipcall  25.53  flip  24.97 (16-bit   0.17, engine  24.80)  page wait  0.97  blt  0.17 calls 98 described 98  masks 273 built 72  stamps 0 built 0  ours in d3d  1.22  bad 0  lit 70740  over16.7ms 98/98  worst 171.6
+9/15 hal_grad      40.7 fps  24.59 ms/frame  scene  0.52 clear  1.28 d3d   4.11 flipcall  18.68  flip  18.02 (16-bit   0.13, engine  17.89)  page wait  3.51  blt  0.17 calls 123 described 123  masks 0 built 0  stamps 1832 built 16  ours in d3d  1.66  bad 0  lit 79979  over16.7ms 123/123  worst 197.6
+10/15 hal_many_a    39.5 fps  25.29 ms/frame  scene  1.52 clear  1.63 d3d   9.57 flipcall  12.57  flip  11.92 (16-bit   0.14, engine  11.78)  page wait  0.52  blt  0.17 calls 119 described 119  masks 7615 built 1  stamps 0 built 0  ours in d3d  3.17  bad 0  lit 2880  over16.7ms 119/119  worst 237.6
+11/15 hal_many_c    46.9 fps  21.30 ms/frame  scene  1.54 clear  0.94 d3d   5.75 flipcall  13.07  flip  12.50 (16-bit   0.12, engine  12.39)  page wait  1.51  blt  0.20 calls 141 described 141  masks 9023 built 1  stamps 0 built 0  ours in d3d  2.97  bad 0  lit 2880  over16.7ms 141/141  worst 84.1
+12/15 hal_many_e    47.4 fps  21.11 ms/frame  scene  1.53 clear  2.61 d3d   4.09 flipcall  12.88  flip  12.22 (16-bit   0.11, engine  12.10)  page wait  0.96  blt  0.17 calls 143 described 143  masks 9151 built 1  stamps 0 built 0  ours in d3d  3.05  bad 0  lit 2880  over16.7ms 123/143  worst 296.0
+1/15 hal_tiny      70.4 fps  14.20 ms/frame  scene  0.52 clear  0.96 d3d   3.16 flipcall   9.57  flip   8.99 (16-bit   0.08, engine   8.92)  page wait  5.37  blt  0.17 calls 212 described 212  masks 3391 built 1  stamps 0 built 0  ours in d3d  0.93  bad 0  lit 720  over16.7ms 4/212  worst 88.6
+spin after       lost   6.3 %     40 gaps  worst  38.83 ms
+
+== M8D3DF ya2  640x480x16  3 s a test  priority high
+spin desktop     lost   6.2 %     36 gaps  worst  57.95 ms
+ddraw          00000000
+counters found
+coop           00000000
+setmode        00000000
+d3d2           00000000
+flipchain      00000000
+attached       00000000
+spin fullscreen  lost   9.0 %     40 gaps  worst  54.27 ms
+1/15 hal_tiny      66.7 fps  14.99 ms/frame  scene  0.52 clear  0.95 d3d   3.63 flipcall   9.89  flip   9.25 (16-bit   0.08, engine   9.17)  page wait  5.15  blt  0.18 calls 201 described 201  masks 3215 built 1  stamps 0 built 0  ours in d3d  1.01  bad 0  lit 720  over16.7ms 8/201  worst 159.5
+2/15 hal_small     65.7 fps  15.23 ms/frame  scene  0.51 clear  0.80 d3d   4.16 flipcall   9.75  flip   9.17 (16-bit   0.09, engine   9.08)  page wait  4.85  blt  0.18 calls 197 described 197  masks 3151 built 1  stamps 0 built 0  ours in d3d  1.69  bad 0  lit 8976  over16.7ms 12/197  worst 167.1
+3/15 hal_large     43.4 fps  23.02 ms/frame  scene  0.50 clear  1.22 d3d   4.33 flipcall  16.96  flip  16.40 (16-bit   0.13, engine  16.27)  page wait  4.01  blt  0.18 calls 131 described 131  masks 2095 built 1  stamps 0 built 0  ours in d3d  1.33  bad 0  lit 80321  over16.7ms 88/131  worst 185.6
+4/15 hal_static   176.2 fps   5.68 ms/frame  scene  0.54 clear  0.83 d3d   3.33 flipcall   0.98  flip   0.42 (16-bit   0.03, engine   0.39)  page wait  0.00  blt  0.18 calls 529 described 529  masks 15 built 1  stamps 0 built 0  ours in d3d  0.95  bad 0  lit 720  over16.7ms 3/529  worst 177.0
+5/15 hal_colour    65.6 fps  15.24 ms/frame  scene  0.53 clear  0.97 d3d   3.98 flipcall   9.76  flip   9.11 (16-bit   0.08, engine   9.02)  page wait  4.91  blt  0.18 calls 197 described 197  masks 3151 built 1  stamps 0 built 0  ours in d3d  1.06  bad 0  lit 720  over16.7ms 3/197  worst 220.9
+6/15 hal_many      39.6 fps  25.28 ms/frame  scene  1.90 clear  1.66 d3d   9.50 flipcall  12.22  flip  11.63 (16-bit   0.15, engine  11.49)  page wait  0.25  blt  0.17 calls 119 described 119  masks 7615 built 1  stamps 0 built 0  ours in d3d  3.13  bad 0  lit 2880  over16.7ms 119/119  worst 256.2
+7/15 hal_turn32    67.2 fps  14.87 ms/frame  scene  0.62 clear  0.81 d3d   3.31 flipcall  10.13  flip   9.56 (16-bit   0.09, engine   9.47)  page wait  1.34  blt  0.17 calls 202 described 202  masks 2026 built 202  stamps 0 built 0  ours in d3d  0.98  bad 0  lit 7974  over16.7ms 4/202  worst 132.2
+8/15 hal_turn100    30.8 fps  32.52 ms/frame  scene  0.58 clear  1.60 d3d   5.21 flipcall  25.12  flip  24.55 (16-bit   0.17, engine  24.38)  page wait  1.05  blt  0.17 calls 94 described 94  masks 264 built 69  stamps 0 built 0  ours in d3d  0.99  bad 0  lit 70309  over16.7ms 94/94  worst 153.0
+9/15 hal_grad      42.8 fps  23.35 ms/frame  scene  0.53 clear  0.94 d3d   3.42 flipcall  18.47  flip  17.90 (16-bit   0.13, engine  17.77)  page wait  3.33  blt  0.18 calls 129 described 129  masks 0 built 0  stamps 1928 built 16  ours in d3d  1.00  bad 0  lit 80321  over16.7ms 129/129  worst 168.2
+10/15 hal_many_a    39.6 fps  25.26 ms/frame  scene  1.53 clear  1.97 d3d   9.55 flipcall  12.21  flip  11.62 (16-bit   0.14, engine  11.49)  page wait  0.19  blt  0.17 calls 119 described 119  masks 7615 built 1  stamps 0 built 0  ours in d3d  3.19  bad 0  lit 2880  over16.7ms 119/119  worst 273.2
+11/15 hal_many_c    45.8 fps  21.83 ms/frame  scene  1.57 clear  1.13 d3d   5.72 flipcall  13.41  flip  12.86 (16-bit   0.12, engine  12.74)  page wait  1.74  blt  0.17 calls 138 described 138  masks 8831 built 1  stamps 0 built 0  ours in d3d  2.93  bad 0  lit 2880  over16.7ms 138/138  worst 87.8
+12/15 hal_many_e    49.7 fps  20.11 ms/frame  scene  1.52 clear  0.96 d3d   3.94 flipcall  13.69  flip  13.12 (16-bit   0.12, engine  13.00)  page wait  1.38  blt  0.17 calls 150 described 150  masks 9599 built 1  stamps 0 built 0  ours in d3d  3.01  bad 0  lit 2880  over16.7ms 98/150  worst 146.7
+1/15 hal_tiny      68.3 fps  14.64 ms/frame  scene  0.53 clear  1.09 d3d   3.31 flipcall   9.70  flip   9.15 (16-bit   0.09, engine   9.06)  page wait  5.35  blt  0.18 calls 205 described 205  masks 3279 built 1  stamps 0 built 0  ours in d3d  0.97  bad 0  lit 720  over16.7ms 9/205  worst 157.9
+spin after       lost   3.4 %     38 gaps  worst   6.22 ms
+
+== M8D3DF za1  640x480x16  3 s a test  priority high
+spin desktop     lost   7.1 %     38 gaps  worst  83.05 ms
+ddraw          00000000
+counters found
+coop           00000000
+setmode        00000000
+d3d2           00000000
+flipchain      00000000
+attached       00000000
+spin fullscreen  lost  12.9 %     38 gaps  worst 107.48 ms
+1/17 hal_tiny      58.0 fps  17.25 ms/frame  scene  0.51 clear  2.91 d3d   4.04 flipcall   9.78  flip   9.15 (16-bit   0.09, engine   9.05)  page wait  4.86  blt  0.17 calls 174 described 174  masks 2783 built 1  stamps 0 built 0  ours in d3d  1.29  bad 0  lit 720  over16.7ms 10/174  worst 470.6
+2/17 hal_small     65.7 fps  15.21 ms/frame  scene  0.53 clear  1.50 d3d   3.41 flipcall   9.78  flip   9.21 (16-bit   0.08, engine   9.12)  page wait  4.87  blt  0.18 calls 198 described 198  masks 3167 built 1  stamps 0 built 0  ours in d3d  1.07  bad 0  lit 8976  over16.7ms 7/198  worst 153.4
+3/17 hal_large     40.3 fps  24.82 ms/frame  scene  0.54 clear  1.00 d3d   4.47 flipcall  18.81  flip  18.13 (16-bit   0.14, engine  17.99)  page wait  3.80  blt  0.18 calls 121 described 121  masks 1935 built 1  stamps 0 built 0  ours in d3d  1.72  bad 0  lit 80034  over16.7ms 100/121  worst 341.8
+4/17 hal_static   171.9 fps   5.82 ms/frame  scene  0.52 clear  0.88 d3d   3.48 flipcall   0.92  flip   0.35 (16-bit   0.03, engine   0.32)  page wait  0.00  blt  0.18 calls 516 described 516  masks 15 built 1  stamps 0 built 0  ours in d3d  0.95  bad 0  lit 720  over16.7ms 4/516  worst 138.6
+5/17 hal_colour    66.0 fps  15.16 ms/frame  scene  0.55 clear  0.89 d3d   3.77 flipcall   9.95  flip   9.24 (16-bit   0.08, engine   9.15)  page wait  5.28  blt  0.18 calls 198 described 198  masks 3167 built 1  stamps 0 built 0  ours in d3d  1.02  bad 0  lit 720  over16.7ms 8/198  worst 139.9
+6/17 hal_many      38.6 fps  25.89 ms/frame  scene  1.52 clear  1.21 d3d   9.64 flipcall  13.52  flip  12.84 (16-bit   0.15, engine  12.69)  page wait  0.67  blt  0.19 calls 116 described 116  masks 7423 built 1  stamps 0 built 0  ours in d3d  2.96  bad 0  lit 2880  over16.7ms 116/116  worst 247.8
+7/17 hal_turn32    67.0 fps  14.93 ms/frame  scene  0.62 clear  1.08 d3d   3.54 flipcall   9.68  flip   8.91 (16-bit   0.08, engine   8.83)  page wait  0.85  blt  0.20 calls 201 described 201  masks 2013 built 201  stamps 0 built 0  ours in d3d  1.00  bad 0  lit 7954  over16.7ms 14/201  worst 158.4
+8/17 hal_turn100    32.1 fps  31.11 ms/frame  scene  1.34 clear  2.76 d3d   3.29 flipcall  23.72  flip  23.07 (16-bit   0.18, engine  22.89)  page wait  0.82  blt  0.17 calls 97 described 97  masks 270 built 71  stamps 0 built 0  ours in d3d  1.04  bad 0  lit 70836  over16.7ms 97/97  worst 265.2
+9/17 hal_grad      37.8 fps  26.45 ms/frame  scene  0.53 clear  1.55 d3d   3.68 flipcall  20.70  flip  20.08 (16-bit   0.14, engine  19.94)  page wait  3.23  blt  0.17 calls 114 described 114  masks 0 built 0  stamps 1688 built 16  ours in d3d  1.17  bad 0  lit 80150  over16.7ms 114/114  worst 269.4
+10/17 hal_many_a    34.5 fps  29.02 ms/frame  scene  3.24 clear  1.22 d3d  10.61 flipcall  13.94  flip  13.31 (16-bit   0.16, engine  13.15)  page wait  0.57  blt  0.17 calls 104 described 104  masks 6655 built 1  stamps 0 built 0  ours in d3d  3.06  bad 0  lit 2880  over16.7ms 104/104  worst 346.3
+11/17 hal_many_c    45.3 fps  22.08 ms/frame  scene  1.55 clear  0.86 d3d   6.07 flipcall  13.60  flip  13.03 (16-bit   0.12, engine  12.90)  page wait  1.51  blt  0.17 calls 136 described 136  masks 8703 built 1  stamps 0 built 0  ours in d3d  3.10  bad 0  lit 2880  over16.7ms 136/136  worst 132.3
+12/17 hal_many_e    51.0 fps  19.59 ms/frame  scene  1.57 clear  0.89 d3d   3.96 flipcall  13.16  flip  12.59 (16-bit   0.11, engine  12.48)  page wait  1.31  blt  0.18 calls 154 described 154  masks 9855 built 1  stamps 0 built 0  ours in d3d  3.03  bad 0  lit 2880  over16.7ms 154/154  worst 128.6
+texture        00000000
+texture2       00000000
+handle         00000000
+13/17 hal_tex       39.1 fps  25.56 ms/frame  scene  0.80 clear  2.40 d3d   4.25 flipcall  18.12  flip  17.55 (16-bit   0.14, engine  17.41)  page wait  2.49  blt  0.17 calls 118 described 118  masks 0 built 0  stamps 1752 built 16  ours in d3d  1.78  bad 0  lit 80150  over16.7ms 118/118  worst 320.2
+texture        00000000
+texture2       00000000
+handle         00000000
+14/17 hal_tex32     62.9 fps  15.89 ms/frame  scene  0.78 clear  1.25 d3d   4.21 flipcall   9.65  flip   9.01 (16-bit   0.09, engine   8.92)  page wait  3.39  blt  0.17 calls 189 described 189  masks 0 built 0  stamps 2888 built 16  ours in d3d  1.69  bad 0  lit 8976  over16.7ms 15/189  worst 257.0
+1/17 hal_tiny      69.8 fps  14.33 ms/frame  scene  0.54 clear  1.09 d3d   3.16 flipcall   9.55  flip   8.98 (16-bit   0.09, engine   8.89)  page wait  5.33  blt  0.19 calls 210 described 210  masks 3359 built 1  stamps 0 built 0  ours in d3d  0.95  bad 0  lit 720  over16.7ms 5/210  worst 75.6
+spin after       lost   3.6 %     42 gaps  worst   9.49 ms
+
+== M8D3DF zg  640x480x16  3 s a test  priority high
+spin desktop     lost   4.1 %     42 gaps  worst  11.20 ms
+ddraw          00000000
+counters found
+coop           00000000
+setmode        00000000
+d3d2           00000000
+flipchain      00000000
+attached       00000000
+spin fullscreen  lost  59.8 %     27 gaps  worst 499.80 ms
+1/17 hal_tiny      58.2 fps  17.18 ms/frame  scene  0.52 clear  1.21 d3d   4.72 flipcall  10.74  flip  10.17 (16-bit   0.09, engine  10.07)  page wait  5.50  blt  0.17 calls 175 described 175  masks 2799 built 1  stamps 0 built 0  ours in d3d  1.13  bad 0  lit 720  over16.7ms 7/175  worst 389.8
+2/17 hal_small     66.5 fps  15.04 ms/frame  scene  0.53 clear  0.92 d3d   4.11 flipcall   9.48  flip   8.87 (16-bit   0.08, engine   8.79)  page wait  4.63  blt  0.17 calls 200 described 200  masks 3199 built 1  stamps 0 built 0  ours in d3d  1.06  bad 0  lit 8976  over16.7ms 8/200  worst 219.2
+3/17 hal_large     41.4 fps  24.14 ms/frame  scene  0.53 clear  1.02 d3d   5.05 flipcall  17.54  flip  16.98 (16-bit   0.14, engine  16.84)  page wait  3.82  blt  0.17 calls 125 described 125  masks 1999 built 1  stamps 0 built 0  ours in d3d  1.16  bad 0  lit 80185  over16.7ms 88/125  worst 359.7
+4/17 hal_static   169.6 fps   5.90 ms/frame  scene  0.52 clear  1.16 d3d   3.36 flipcall   0.86  flip   0.29 (16-bit   0.03, engine   0.26)  page wait  0.00  blt  0.19 calls 509 described 509  masks 15 built 1  stamps 0 built 0  ours in d3d  0.90  bad 0  lit 720  over16.7ms 3/509  worst 273.9
+5/17 hal_colour    62.8 fps  15.92 ms/frame  scene  0.54 clear  1.28 d3d   3.77 flipcall  10.34  flip   9.77 (16-bit   0.09, engine   9.68)  page wait  5.21  blt  0.17 calls 189 described 189  masks 3023 built 1  stamps 0 built 0  ours in d3d  1.12  bad 0  lit 720  over16.7ms 9/189  worst 246.2
+6/17 hal_many      35.8 fps  27.97 ms/frame  scene  1.55 clear  1.15 d3d  11.11 flipcall  14.16  flip  13.59 (16-bit   0.15, engine  13.43)  page wait  0.08  blt  0.17 calls 108 described 108  masks 6911 built 1  stamps 0 built 0  ours in d3d  3.26  bad 0  lit 2880  over16.7ms 108/108  worst 297.0
+7/17 hal_turn32    64.7 fps  15.45 ms/frame  scene  0.61 clear  1.04 d3d   3.79 flipcall  10.01  flip   9.43 (16-bit   0.08, engine   9.35)  page wait  1.12  blt  0.18 calls 195 described 195  masks 1951 built 195  stamps 0 built 0  ours in d3d  1.18  bad 0  lit 7982  over16.7ms 15/195  worst 289.2
+8/17 hal_turn100    29.9 fps  33.44 ms/frame  scene  0.60 clear  2.25 d3d   6.33 flipcall  24.27  flip  23.67 (16-bit   0.18, engine  23.48)  page wait  0.76  blt  0.18 calls 90 described 90  masks 251 built 65  stamps 0 built 0  ours in d3d  1.41  bad 0  lit 69728  over16.7ms 90/90  worst 321.5
+9/17 hal_grad      37.1 fps  26.94 ms/frame  scene  0.54 clear  2.47 d3d   4.25 flipcall  19.68  flip  19.11 (16-bit   0.15, engine  18.96)  page wait  3.75  blt  0.17 calls 112 described 112  masks 0 built 0  stamps 1656 built 16  ours in d3d  1.38  bad 0  lit 80150  over16.7ms 112/112  worst 362.7
+10/17 hal_many_a    36.2 fps  27.59 ms/frame  scene  2.19 clear  1.82 d3d  10.89 flipcall  12.68  flip  12.09 (16-bit   0.16, engine  11.93)  page wait  0.05  blt  0.17 calls 109 described 109  masks 6975 built 1  stamps 0 built 0  ours in d3d  3.28  bad 0  lit 2880  over16.7ms 109/109  worst 345.7
+11/17 hal_many_c    39.2 fps  25.48 ms/frame  scene  1.54 clear  1.96 d3d   6.99 flipcall  14.99  flip  14.35 (16-bit   0.14, engine  14.22)  page wait  1.11  blt  0.20 calls 118 described 118  masks 7551 built 1  stamps 0 built 0  ours in d3d  3.27  bad 0  lit 2880  over16.7ms 118/118  worst 333.0
+12/17 hal_many_e    45.3 fps  22.09 ms/frame  scene  1.62 clear  1.86 d3d   4.24 flipcall  14.37  flip  13.79 (16-bit   0.12, engine  13.67)  page wait  2.15  blt  0.18 calls 136 described 136  masks 8703 built 1  stamps 0 built 0  ours in d3d  3.20  bad 0  lit 2880  over16.7ms 136/136  worst 215.1
+texture        00000000
+texture2       00000000
+handle         00000000
+13/17 hal_tex       36.2 fps  27.62 ms/frame  scene  0.78 clear  1.16 d3d   4.50 flipcall  21.18  flip  20.62 (16-bit   0.16, engine  20.46)  page wait  4.62  blt  0.18 calls 109 described 109  masks 0 built 0  stamps 1608 built 16  ours in d3d  1.82  bad 0  lit 80105  over16.7ms 109/109  worst 218.3
+texture        00000000
+texture2       00000000
+handle         00000000
+14/17 hal_tex32     59.2 fps  16.88 ms/frame  scene  0.79 clear  0.86 d3d   5.37 flipcall   9.87  flip   9.25 (16-bit   0.09, engine   9.16)  page wait  3.32  blt  0.17 calls 178 described 178  masks 0 built 0  stamps 2712 built 16  ours in d3d  2.58  bad 0  lit 8976  over16.7ms 15/178  worst 220.1
+spin after       lost  14.9 %     36 gaps  worst 145.73 ms
+
+== M8D3DF e1a1  640x480x16  3 s a test  priority high
+spin desktop     lost   5.1 %     39 gaps  worst  40.26 ms
+ddraw          00000000
+counters found
+coop           00000000
+setmode        00000000
+d3d2           00000000
+flipchain      00000000
+attached       00000000
+spin fullscreen  lost  10.8 %     38 gaps  worst  55.07 ms
+1/17 hal_tiny      59.3 fps  16.87 ms/frame  scene  0.52 clear  2.23 d3d   3.45 flipcall  10.67  flip  10.06 (16-bit   0.09, engine   9.97)  page wait  5.28  blt  0.17 calls 178 described 178  masks 2847 built 1  stamps 0 built 0  ours in d3d  1.01  exec 0 dp 179  bad 0  lit 720  over16.7ms 7/178  worst 299.5
+2/17 hal_small     62.2 fps  16.07 ms/frame  scene  0.53 clear  1.45 d3d   4.57 flipcall   9.53  flip   8.88 (16-bit   0.09, engine   8.79)  page wait  4.58  blt  0.17 calls 187 described 187  masks 2991 built 1  stamps 0 built 0  ours in d3d  1.12  exec 0 dp 188  bad 0  lit 8976  over16.7ms 7/187  worst 176.2
+3/17 hal_large     39.9 fps  25.07 ms/frame  scene  0.52 clear  1.67 d3d   3.63 flipcall  19.25  flip  18.50 (16-bit   0.15, engine  18.35)  page wait  3.47  blt  0.19 calls 120 described 120  masks 1919 built 1  stamps 0 built 0  ours in d3d  1.22  exec 0 dp 121  bad 0  lit 80034  over16.7ms 111/120  worst 239.9
+4/17 hal_static   175.9 fps   5.68 ms/frame  scene  0.53 clear  0.82 d3d   3.47 flipcall   0.87  flip   0.30 (16-bit   0.03, engine   0.27)  page wait  0.00  blt  0.18 calls 528 described 528  masks 15 built 1  stamps 0 built 0  ours in d3d  0.98  exec 0 dp 529  bad 0  lit 720  over16.7ms 3/528  worst 161.4
+5/17 hal_colour    64.0 fps  15.63 ms/frame  scene  0.90 clear  1.57 d3d   3.49 flipcall   9.66  flip   9.04 (16-bit   0.10, engine   8.95)  page wait  5.13  blt  0.17 calls 192 described 192  masks 3071 built 1  stamps 0 built 0  ours in d3d  1.04  exec 0 dp 193  bad 0  lit 720  over16.7ms 4/192  worst 214.2
+6/17 hal_many      39.9 fps  25.07 ms/frame  scene  1.56 clear  0.88 d3d   9.47 flipcall  13.15  flip  12.59 (16-bit   0.14, engine  12.45)  page wait  0.48  blt  0.17 calls 120 described 120  masks 7679 built 1  stamps 0 built 0  ours in d3d  3.35  exec 0 dp 121  bad 0  lit 2880  over16.7ms 120/120  worst 132.7
+7/17 hal_turn32    67.8 fps  14.74 ms/frame  scene  0.63 clear  0.95 d3d   3.40 flipcall   9.77  flip   9.19 (16-bit   0.09, engine   9.10)  page wait  1.18  blt  0.19 calls 204 described 204  masks 2046 built 204  stamps 0 built 0  ours in d3d  1.10  exec 0 dp 205  bad 0  lit 7951  over16.7ms 12/204  worst 109.3
+8/17 hal_turn100    34.3 fps  29.19 ms/frame  scene  0.66 clear  1.19 d3d   3.37 flipcall  23.96  flip  23.40 (16-bit   0.17, engine  23.23)  page wait  0.82  blt  0.17 calls 103 described 103  masks 286 built 75  stamps 0 built 0  ours in d3d  1.10  exec 0 dp 104  bad 0  lit 71303  over16.7ms 103/103  worst 145.8
+9/17 hal_grad      39.6 fps  25.24 ms/frame  scene  0.54 clear  1.30 d3d   3.48 flipcall  19.91  flip  19.36 (16-bit   0.14, engine  19.22)  page wait  3.66  blt  0.17 calls 119 described 119  masks 0 built 0  stamps 1768 built 16  ours in d3d  1.04  exec 0 dp 120  bad 0  lit 80150  over16.7ms 119/119  worst 187.6
+10/17 hal_many_a    35.1 fps  28.47 ms/frame  scene  1.91 clear  1.26 d3d  10.64 flipcall  14.65  flip  14.02 (16-bit   0.15, engine  13.87)  page wait  0.75  blt  0.18 calls 106 described 106  masks 6783 built 1  stamps 0 built 0  ours in d3d  4.35  exec 0 dp 107  bad 0  lit 2880  over16.7ms 106/106  worst 274.6
+11/17 hal_many_c    45.6 fps  21.92 ms/frame  scene  1.54 clear  0.83 d3d   5.95 flipcall  13.60  flip  13.03 (16-bit   0.13, engine  12.90)  page wait  1.49  blt  0.18 calls 138 described 138  masks 8831 built 1  stamps 0 built 0  ours in d3d  3.19  exec 0 dp 139  bad 0  lit 2880  over16.7ms 138/138  worst 113.1
+12/17 hal_many_e    49.4 fps  20.25 ms/frame  scene  1.54 clear  0.97 d3d   3.85 flipcall  13.90  flip  13.30 (16-bit   0.11, engine  13.19)  page wait  1.18  blt  0.17 calls 149 described 149  masks 9535 built 1  stamps 0 built 0  ours in d3d  3.08  exec 0 dp 150  bad 0  lit 2880  over16.7ms 149/149  worst 85.1
+texture        00000000
+texture2       00000000
+handle         00000000
+13/17 hal_tex       40.3 fps  24.84 ms/frame  scene  0.81 clear  1.10 d3d   3.96 flipcall  18.97  flip  18.41 (16-bit   0.14, engine  18.28)  page wait  2.55  blt  0.17 calls 121 described 121  masks 0 built 0  stamps 1800 built 16  ours in d3d  1.83  exec 0 dp 122  bad 0  lit 80034  over16.7ms 121/121  worst 282.7
+texture        00000000
+texture2       00000000
+handle         00000000
+14/17 hal_tex32     62.6 fps  15.97 ms/frame  scene  0.78 clear  1.15 d3d   3.93 flipcall  10.11  flip   9.52 (16-bit   0.09, engine   9.43)  page wait  4.31  blt  0.18 calls 188 described 188  masks 0 built 0  stamps 2872 built 16  ours in d3d  1.80  exec 0 dp 189  bad 0  lit 8976  over16.7ms 16/188  worst 147.6
+1/17 hal_tiny      65.6 fps  15.24 ms/frame  scene  0.53 clear  0.99 d3d   3.26 flipcall  10.46  flip   9.60 (16-bit   0.09, engine   9.52)  page wait  5.75  blt  0.17 calls 198 described 198  masks 3167 built 1  stamps 0 built 0  ours in d3d  1.13  exec 0 dp 199  bad 0  lit 720  over16.7ms 6/198  worst 138.9
+spin after       lost  11.5 %     41 gaps  worst  57.92 ms
+
