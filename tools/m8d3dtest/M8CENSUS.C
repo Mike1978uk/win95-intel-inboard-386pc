@@ -48,7 +48,7 @@ typedef struct {
     DWORD   info_hits[16];
 } CENSUS;
 
-static const CENSUS *find_census( void )
+static const void *find_export( const char *name )
 {
     const BYTE  *b = (const BYTE *)M8_DLL_BASE;
     const BYTE  *pe;
@@ -67,8 +67,8 @@ static const CENSUS *find_census( void )
     ords = (const WORD *)(b + *(const DWORD *)(ex + 36));
     funcs = (const DWORD *)(b + *(const DWORD *)(ex + 28));
     for( i = 0; i < *(const DWORD *)(ex + 24); ++i ) {
-        if( strcmp( (const char *)(b + names[i]), "m8d3d_census" ) == 0 ) {
-            return( (const CENSUS *)(b + funcs[ords[i]]) );
+        if( strcmp( (const char *)(b + names[i]), name ) == 0 ) {
+            return( b + funcs[ords[i]] );
         }
     }
     return( NULL );
@@ -101,11 +101,28 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
         return( 1 );
     }
     fprintf( o, "== M8CENSUS %s\n", cmd );
-    c = find_census();
+    c = (const CENSUS *)find_export( "m8d3d_census" );
     if( c == NULL || IsBadReadPtr( c, sizeof( *c ) ) || c->mark != CENSUS_MARK ) {
         fprintf( o, "no census in this driver\n\n" );
         fclose( o );
         return( 2 );
+    }
+    /* Clock ticks since Windows started: time in our calls, and in Flip with its engine part. */
+    {
+        const DWORD     *st = (const DWORD *)find_export( "m8d3d_stat" );
+        LARGE_INTEGER   f;
+        const DWORD     *wh = (const DWORD *)find_export( "m8d3d_flip_why" );
+
+        QueryPerformanceFrequency( &f );
+        if( wh != NULL ) {
+            fprintf( o, "flipwhy gdi %lu slow %lu unknown %lu cardunknown %lu boxes %lu colour %lu\n", (unsigned long)wh[0],
+                     (unsigned long)wh[1], (unsigned long)wh[2], (unsigned long)wh[3], (unsigned long)wh[4], (unsigned long)wh[5] );
+        }
+        if( st != NULL ) {
+            fprintf( o, "clock %lu ours %lu flip %lu engine %lu flips %lu pagewait %lu\n", (unsigned long)f.LowPart,
+                     (unsigned long)st[24], (unsigned long)st[12], (unsigned long)st[14], (unsigned long)st[15],
+                     (unsigned long)st[19] );
+        }
     }
     fprintf( o, "contexts %lu with Z %lu  targets set %lu  textures %lu\n", (unsigned long)c->contexts,
              (unsigned long)c->contexts_z, (unsigned long)c->targets_set, (unsigned long)c->tex_created );

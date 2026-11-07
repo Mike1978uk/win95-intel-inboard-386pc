@@ -643,6 +643,8 @@ static M8D3D_CONTEXT    m8d3d_ctx[M8D3D_CONTEXTS];
  * [19] page wait ticks; [20] triangles drawn from a mask; [21] masks built;
  * [22] triangles stamped; [23] stamps built; [24] ticks in RenderPrimitive. */
 DWORD                   m8d3d_stat[25];
+/* Flip off its fast path: GDI touched the card, slow flips, then why. */
+DWORD                   m8d3d_flip_why[6];
 
 static LPVOID m8d3d_lcl( LPVOID surface_int )
 {
@@ -2688,7 +2690,7 @@ static void m8d3d_draw_on( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D_
         /* Flat shading keeps one colour, the corners' mean: a face's two triangles then
          * agree where the first vertex alone would not. */
         for( j = 0; j < 3; ++j ) {
-            corners[j] = side < M8D3D_GRAD_MIN ? rgb : p->tex != NULL || fog ? texc[j] :
+            corners[j] = side < M8D3D_GRAD_MIN || p->tex != NULL ? rgb : fog ? texc[j] :
                          c->shade == M8D3D_SHADE_GOURAUD ? a[j]->color & 0x00FFFFFFUL : rgb;
         }
         /* Described, not drawn: Flip has the engine draw it, furthest first if Z is on. */
