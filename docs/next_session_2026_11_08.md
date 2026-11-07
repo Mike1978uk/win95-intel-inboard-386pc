@@ -4,9 +4,9 @@ Earlier handoff: `docs/next_session_2026_11_07.md` (its "Open" list still stands
 
 ## START HERE: 2026-11-07, midday
 
-**Card hung during `M8CURVE`, boot 255; it needs a restart by hand, on `M8D3DX` locked, agent on.** Results: `docs/captures/2026-11-07_curves/README.md`. Levers Y16-Y19.
+**The curve test is done: two hangs in three runs, cause unknown; card on `M8D3DX` locked, boot 257.** Results: `docs/captures/2026-11-07_curves/README.md`. Levers Y16-Y19.
 
-1. Read `C:\M8CURVE.TXT` from the card first. Then `tools/m8cardscripts/curve.ps1 -Label c2`, a fresh boot with no bench before it, to separate the probe from the benches.
+1. The curve test is done (results in `docs/captures/2026-11-07_curves/README.md`): two hangs in three runs, cause unknown, card on `M8D3DX` locked, boot 257.
 2. `tools/m8cardscripts/cycle.ps1 -Name M8D3DY -Label ya -Runs 2`: pageable, `M8D3DF` twice: the locked-against-pageable A/B. Then `tools/m8_card_cycle.ps1` bench twice: ellipse, polygon, lines, rubber_band against `card_xb1`, pixel check by FB16CHK. `install_h.ps1` rewrites `NOAGPAGE.LST` with the run's label.
 3. Owner's ghost test (below) is still to do. Locked ran about 25 % slower in `hal_many`, so even if locked cures ghosts it has a price.
 

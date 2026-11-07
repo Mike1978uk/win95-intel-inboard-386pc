@@ -1,0 +1,79 @@
+== M8CURVE c2  ddraw 00000000
+setmode 00000000
+== M8CURVE c3  ddraw 00000000
+setmode 00000000
+r  30  rows rep 0 5370.1 us
+r  30  rows rep 1 2536.6 us
+r  30  rows rep 2 2457.0 us
+r  30  rows         2457.0 us
+r  30  scan rep 0 4569.9 us
+r  30  scan rep 1 2228.8 us
+r  30  scan rep 2 2229.2 us
+r  30  scan         2228.8 us
+r  30  chords rep 0 1478.9 us
+r  30  chords rep 1 1416.0 us
+r  30  chords rep 2 1566.7 us
+r  30  chords       1416.0 us
+r  30  tangents rep 0 1415.5 us
+r  30  tangents rep 1 1416.1 us
+r  30  tangents rep 2 18233.0 us
+r  30  tangents     1415.5 us
+r  30  parabola rep 0 1458.5 us
+r  30  parabola rep 1 1628.9 us
+r  30  parabola rep 2 1531.0 us
+r  30  parabola     1458.5 us
+r  30  poly rep 0 1923.4 us
+r  30  poly rep 1 1923.0 us
+r  30  poly rep 2 1922.8 us
+r  30  poly         1922.8 us
+r  60  rows rep 0 4902.7 us
+r  60  rows rep 1 4953.9 us
+r  60  rows rep 2 4864.9 us
+r  60  rows         4864.9 us
+r  60  scan rep 0 4421.7 us
+r  60  scan rep 1 4677.9 us
+r  60  scan rep 2 4610.2 us
+r  60  scan         4421.7 us
+r  60  chords rep 0 1416.2 us
+r  60  chords rep 1 1472.7 us
+r  60  chords rep 2 1683.1 us
+r  60  chords       1416.2 us
+r  60  tangents rep 0 1416.3 us
+r  60  tangents rep 1 1682.8 us
+r  60  tangents rep 2 1514.9 us
+r  60  tangents     1416.3 us
+r  60  parabola rep 0 1458.5 us
+r  60  parabola rep 1 1703.0 us
+r  60  parabola rep 2 1530.4 us
+r  60  parabola     1458.5 us
+r  60  poly rep 0 3029.0 us
+r  60  poly rep 1 2916.6 us
+r  60  poly rep 2 2810.4 us
+r  60  poly         2810.4 us
+r 120  rows rep 0 9912.6 us
+r 120  rows rep 1 9658.9 us
+r 120  rows rep 2 11333.4 us
+r 120  rows         9658.9 us
+r 120  scan rep 0 9357.2 us
+r 120  scan rep 1 9017.5 us
+r 120  scan rep 2 9223.1 us
+r 120  scan         9017.5 us
+r 120  chords rep 0 1416.4 us
+r 120  chords rep 1 1594.0 us
+r 120  chords rep 2 1485.0 us
+r 120  chords       1416.4 us
+r 120  tangents rep 0 1417.2 us
+r 120  tangents rep 1 1488.0 us
+r 120  tangents rep 2 1639.3 us
+r 120  tangents     1417.2 us
+r 120  parabola rep 0 1459.3 us
+r 120  parabola rep 1 3479.8 us
+r 120  parabola rep 2 1459.3 us
+r 120  parabola     1459.3 us
+r 120  poly rep 0 6383.8 us
+r 120  poly rep 1 6236.9 us
+r 120  poly rep 2 6334.2 us
+r 120  poly         6236.9 us
+waits that ran out: 0
+done
+

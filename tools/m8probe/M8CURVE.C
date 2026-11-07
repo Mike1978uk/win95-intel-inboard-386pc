@@ -21,6 +21,7 @@
 #include <windows.h>
 #include <stdio.h>
 #include <conio.h>
+#include <unistd.h>
 #include <math.h>
 #include <ddraw.h>
 
@@ -72,10 +73,19 @@
 #define OPT_POLY        2
 #define ESC_RESYNC      0x4D3E
 #define PLANE           0x0001
+#define SUBSYS_CNTL     0x42E8
+#define SUBSYS_STAT     0x42E8
+#define WAIT_TRIES      20000L
 
 static FILE     *out;
 static double   qpf;
 static int      lost;
+static const char *where = "start";
+static int      at_rep;
+static int      at_pass;
+static int      seen_ext;
+static int      seen_stat;
+static int      seen_sub;
 static int      rad;
 static int      cx;
 static int      cy;
@@ -83,6 +93,13 @@ static short    half[256];                  /* half-width of each row from the c
 static short    chord[NCHORD + 1][2];
 static short    tang[NTANGENT][4];
 static short    para[NCHORD + 1][4];
+
+/* To disk, not just the cache: a hang that needs the power switch must still say how far it got. */
+static void log_commit( void )
+{
+    fflush( out );
+    fsync( fileno( out ) );
+}
 
 static double now( void )
 {
@@ -92,16 +109,30 @@ static double now( void )
     return( (double)t.LowPart + 4294967296.0 * (double)t.HighPart );
 }
 
+/* Longer than any command here takes: a wait that runs out means the engine has stopped, and one
+ * row at a time would otherwise spin for hours with the driver stuck behind it. */
+static void wait_lost( void )
+{
+    if( lost++ == 0 ) {
+        seen_ext = inpw( EXT_FIFO );
+        seen_stat = inpw( GP_STAT );
+        seen_sub = inpw( SUBSYS_STAT );
+    }
+}
+
 static void wait_idle( void )
 {
     long n;
 
-    for( n = 0; n < 200000L; ++n ) {
+    if( lost ) {
+        return;
+    }
+    for( n = 0; n < WAIT_TRIES; ++n ) {
         if( inpw( EXT_FIFO ) == 0 && !(inpw( GP_STAT ) & 0x0200) ) {
             return;
         }
     }
-    ++lost;
+    wait_lost();
 }
 
 /* A full FIFO can lock the card. */
@@ -109,12 +140,15 @@ static void room( int n )
 {
     long i;
 
-    for( i = 0; i < 200000L; ++i ) {
+    if( lost ) {
+        return;
+    }
+    for( i = 0; i < WAIT_TRIES; ++i ) {
         if( !(inpw( EXT_FIFO ) & (0x8000 >> n)) ) {
             return;
         }
     }
-    ++lost;
+    wait_lost();
 }
 
 static void rect( int x, int y, int w, int h, int colour )
@@ -326,21 +360,29 @@ static void arm( const char *name, void (*draw)( int ), int colour )
     int     rep;
     int     p;
 
-    for( rep = 0; rep < REPS; ++rep ) {
+    where = name;
+    for( rep = 0; rep < REPS && !lost; ++rep ) {
+        at_rep = rep;
         rect( 0, 0, SCR_W, SCR_H, 0 );
         wait_idle();
         t0 = now();
-        for( p = 0; p < PASSES; ++p ) {
+        for( p = 0; p < PASSES && !lost; ++p ) {
+            at_pass = p;
             draw( colour );
         }
         wait_idle();
         t = (now() - t0) * 1e6 / qpf / PASSES;
+        fprintf( out, "r %3d  %s rep %d %.1f us\n", rad, name, rep, t );
+        log_commit();
         if( t < best ) {
             best = t;
         }
     }
+    if( lost ) {
+        return;
+    }
     fprintf( out, "r %3d  %-9s %9.1f us\n", rad, name, best );
-    fflush( out );
+    log_commit();
     Sleep( HOLD_MS );
 }
 
@@ -377,14 +419,14 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
                           NULL, NULL, inst, NULL );
     hr = DirectDrawCreate( NULL, &dd, NULL );
     fprintf( out, "== M8CURVE %s  ddraw %08lx\n", cmd, (unsigned long)hr );
-    fflush( out );
+    log_commit();
     if( hr != DD_OK ) {
         return( 1 );
     }
     dd->lpVtbl->SetCooperativeLevel( dd, wnd, DDSCL_EXCLUSIVE | DDSCL_FULLSCREEN );
     hr = dd->lpVtbl->SetDisplayMode( dd, SCR_W, SCR_H, 16 );
     fprintf( out, "setmode %08lx\n", (unsigned long)hr );
-    fflush( out );
+    log_commit();
     if( hr != DD_OK ) {
         return( 1 );
     }
@@ -403,7 +445,7 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
     wait_idle();
     cx = SCR_W / 2;
     cy = SCR_H / 2;
-    for( i = 0; i < 3; ++i ) {
+    for( i = 0; i < 3 && !lost; ++i ) {
         rad = radii[i];
         make_rows( rad );
         make_lines( rad );
@@ -415,6 +457,19 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
         arm( "poly", draw_poly, 0xFF );
     }
     fprintf( out, "waits that ran out: %d\n", lost );
+    if( lost ) {
+        fprintf( out, "stopped: r %d %s rep %d pass %d  ext_fifo %04x gp_stat %04x subsys_stat %04x\n",
+                 rad, where, at_rep, at_pass, seen_ext, seen_stat, seen_sub );
+        log_commit();
+        /* The engine ignores writes until it is reset; the set-up goes with it. */
+        outpw( SUBSYS_CNTL, 0x900F );
+        outpw( SUBSYS_CNTL, 0x500F );
+        lost = 0;
+        wait_idle();
+        fprintf( out, "after reset: ext_fifo %04x gp_stat %04x subsys_stat %04x\n",
+                 inpw( EXT_FIFO ), inpw( GP_STAT ), inpw( SUBSYS_STAT ) );
+        log_commit();
+    }
 
     rect( 0, 0, SCR_W, SCR_H, 0 );
     rect( SCRATCH_X, SCRATCH_Y, 352, 256, 0 );
