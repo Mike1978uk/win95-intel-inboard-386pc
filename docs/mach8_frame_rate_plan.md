@@ -580,10 +580,33 @@ Open ideas, not yet measured:
 | Y20 | **Aperiodic tiling (owner): Penrose, de Bruijn pentagrid.** 2 rhombs in 10 orientations, so ~20 masks; corners are sums of 5 fixed vectors, additions and a table. Endless arrangement from little data: not compression, and local patches recur | Non-repeating floors from a few atlas textures, a demo; dither by Y12 first. No fps gain in existing games. Desk reasoning, not run | One masked-tile demo arm, after textures are stable |
 | Y21 | **Depth without a Z buffer (owner: not conventionally).** Frames are described before Flip, so sort them there; front to back with a colour compare would skip covered pixels. DX5 has `D3DPRASTERCAPS_ZBUFFERLESSHSR`. A Z surface accepted and not used lets programs that insist on one start | Depth for most scenes; may raise fps. Intersecting and long polygons can come out wrong. Not built | Colour compare on the polygon fill (Z8), then a sort arm |
 | Y22 | **Fog and depth cue (owner).** Darken or tint by distance: corner colours to the fog colour, through the gradient path. Then Z2's mixes and a stipple pattern for screen-door haze. Palette ramps, as raycasters shade by distance | Hellbender warns without `FOGFLAT`. Corner tint costs CPU sums only. Not built | One arm per way |
+| Y23 | **Answer every query, approximate every effect (owner: mock the reply; demoscene tricks).** Caps and GUIDs are data, so claim what is close enough or fails harmlessly. DirectX state then picks one of our effects: stipple or page-swapped stipple for glass, keyed copy for cut-outs, atlas levels for mipmaps, per-row source shift for a bilinear look and for perspective, shade-field add for light, stamps for flares. C2's palette ramps unlock the arithmetic mixes. Census ranks them | Closer to what a game's authors intended, at engine cost. First batch: stipple, keyed cut-outs, levels. Not built; `M8D3E5` claims them and draws opaque, nearest, affine | One arm per effect, a real program first |
+| Y24 | **Z read-back by arithmetic (owner).** A triangle's depth is a plane: on a Lock of the Z surface, work out what the frame's triangles left there. Free unless read | Programs that read Z. Needs each triangle's three depths kept. Not built; nothing run so far asks | Census or a program that needs it |
 
 Noted, not useful: Mandelbrot itself (detail costs computation, nothing to reuse). Already in use: phi in SWAPCOMP's hash (`SWAPCOMP.ASM:392`, 2^32 / phi); self-similar triangle as the core at one level (deeper loses to command cost); sine tables in M8CUBE.
 
 **Reuse to check after each win (owner):** masks and core rectangles for M8CUBE's polygon escape (`poly3d.c`), DirectDraw sprites (colour-key copies are mask-rate fills), and GDI's mono expansion from card memory.
+
+## Direct3D: playable approximations, order of build (owner, 2026-11-07)
+
+Aim: real programs run unmodified on the card and show what their authors intended, by our own means, as near 60 fps as can be. Answer every query; approximate every effect; the card does the work, not the CPU or bus. No game is patched. Each step is kept only if the card shows a gain or a program needs it. Steps need a bed run for pixels and a card run for speed. Sizes are estimates.
+
+| # | Step | Size | Depends on | State |
+|---|---|---|---|---|
+| D1 | The tunnel on the HAL: Z formats, ZBUFFERLESSHSR, sort at Flip, Z surface, Z clear (Y21) | Built | | `M8D3E4`, on the bed, not proven |
+| D2 | Mock replies: extended caps, guard band, caps claimed; fog by corner tint (Y22, Y23) | Built | D1 | `M8D3E5`, not run |
+| D3 | Census on real programs: DX 6.1 tunnels, then 3D WinBench 97, Monster Truck Madness, Turok | Small | D1 | Census built; ranks every later step |
+| D4 | Effect tag and stipple glass: a state picks an effect, carried to Flip; proves the selector | Small to medium | D1 | Not built |
+| D5 | **Real texture path:** upload on first use, 7-bit colour, atlas, 6213h fill or rows by case. The most important step | Large | D4 | Probes done (Z1, Z5); corner colours stand in |
+| D6 | Keyed cut-outs and mip levels (the only horizontal scale) | Small to medium each | D5 | Source compare proven |
+| D7 | Palette ramps (C2): hue and shade, also the owner's fine-gradient complaint | Medium to large | | Not built; unlocks D8 |
+| D8 | Blends, additive, shadow by the engine's mixes (Z2) | Small each | D7 | Mixes proven on the polygon fill |
+| D9 | Bilinear look and perspective by per-row source shift or split triangles | Medium | D5 | Rows proven, 46 us a row |
+| D10 | Runtime clip cost: 5.6 ms a frame at 64 triangles; guard band first, else D3DIM by its symbols | Small | D2 | Measured; lever unproven |
+| D11 | Speed: joined quads (V7), third page (Y2), 320x240 and 400x300 (Z6), front to back with compare (Z8) | Medium each | D3 | Not probed; Z6 needs the owner's eye |
+| D12 | Later as programs ask: Z read-back (Y24), real depth on the card (Z8), specular, flares, temporal stipple | By case | D3 | Logged |
+
+Open against all of it: the card's intermittent hang needs a cause before any showcase; 5 MB of RAM and no MMX cannot be mocked, so some programs stay out; a game scene may not reach 60 fps, so what gets drawn is tuned by what shows.
 
 ## Silicon: probe what it adds, use it if it earns it (owner, 2026-11-07)
 

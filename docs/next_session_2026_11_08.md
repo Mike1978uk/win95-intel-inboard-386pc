@@ -2,6 +2,10 @@
 
 Earlier handoff: `docs/next_session_2026_11_07.md` (its "Open" list still stands, less what is below). **The cloud session's tests are in #59**: carry this line on until every box there is ticked. Results: `docs/captures/2026-11-07_shape/README.md` and `docs/captures/2026-11-07_r892/README.md`. Levers: `docs/mach8_frame_rate_plan.md`, "What a frame's time is made of", Y1-Y13.
 
+## START HERE: 2026-11-07, evening
+
+**The plan is D1-D12 in `docs/mach8_frame_rate_plan.md`, "Direct3D: playable approximations".** Worklist X10. Bed on `M8D3E4`, tunnel under test; `M8D3E5` built, not run. Card last had `M8D3E2` installed; its bench failed and may have hung: no figures. Programs fetched to ignored folders: `references/dx61samples`, `references/dx7sdk`, `references/d3d_programs`; run them by `tools/m8cardscripts/sample.ps1`. Bed first, and one thing at a time: the owner watches, and a tunnel started over a running script spoiled a run.
+
 ## START HERE: 2026-11-07, afternoon
 
 - Card on `M8D3DY` pageable, boot 258.
