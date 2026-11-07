@@ -587,6 +587,7 @@ static DWORD        m8dd_tri_g[2][M8DD_TRIS_MAX * 3];   /* corner colours, for t
 static short        m8dd_tri_z[2][M8DD_TRIS_MAX];       /* 0 near to 1023 far, -1 no depth */
 static int          m8dd_tri_sorted[2];                 /* 0: a triangle with depth since the last sort */
 static int          m8dd_written[2];                    /* a Lock or a copy since this buffer went to the back */
+static int          m8dd_stale[2];                      /* flipped to the back, nothing drawn in it since */
 static RECT         m8dd_card_box[M8DD_TRIS_MAX];       /* the triangles' boxes on the card */
 static int          m8dd_card_boxes;
 static short        m8dd_card_v[M8DD_TRIS_MAX * 6];     /* and the triangles themselves */
@@ -847,6 +848,27 @@ static void m8dd_ready_all( int k )
     m8dd_desc[k].filled = 1;
 }
 
+/* What a flip leaves in the back buffer is undefined, so the first thing drawn there
+ * starts from black, not from the triangles and boxes of two frames ago: a program that
+ * never clears would otherwise pile each frame's triangles onto the last, and past
+ * M8DD_TRIS_MAX they go to RAM and over the bus. */
+static void m8dd_fresh( int k )
+{
+    if( !m8dd_stale[k] ) {
+        return;
+    }
+    m8dd_stale[k] = 0;
+    if( m8dd_written[k] ) {
+        return;
+    }
+    m8dd_desc[k].known = 1;
+    m8dd_desc[k].filled = 0;
+    m8dd_desc[k].colour = 0;
+    m8dd_desc[k].n = 0;
+    m8dd_tri_n[k] = 0;
+    m8dd_tri_sorted[k] = 1;
+}
+
 static int m8dd_inside( const RECT *a, const RECT *b )
 {
     return( a->left >= b->left && a->top >= b->top && a->right <= b->right && a->bottom <= b->bottom );
@@ -1015,6 +1037,7 @@ static DWORD m8dd_lock16( M8DD_LOCK *ld )
         return( DDHAL_DRIVER_NOTHANDLED );
     }
     /* The program reads or writes the pixels itself: RAM must hold them all. */
+    m8dd_fresh( b );
     m8dd_ready_all( b );
     all.left = 0;
     all.top = 0;
@@ -1126,6 +1149,9 @@ static DWORD m8dd_blt16_do( M8DD_BLT *bd )
         return( DDHAL_DRIVER_NOTHANDLED );
     }
     back = dk != m8dd_front;
+    if( back ) {
+        m8dd_fresh( dk );
+    }
     if( bd->dwFlags & DDBLT_COLORFILL ) {
         if( keyed ) {
             return( DDHAL_DRIVER_NOTHANDLED );
@@ -1590,6 +1616,7 @@ static DWORD m8dd_flip16( M8DD_FLIP *fd )
     QueryPerformanceCounter( &t0 );
     m8dd_tris_sort( k );
     m8dd_written[1 - k] = 0;
+    m8dd_stale[1 - k] = 1;
     /* GDI drew on the card since the last Flip (a program's own window
      * repainted): the card is no longer as described. */
     if( m8dd->gdi_lin != 0 && *(DWORD *)m8dd->gdi_lin != m8dd_gdi_seen ) {
@@ -2090,14 +2117,8 @@ int m8d3d_record( LPVOID lcl, const short *v, BYTE index, WORD colour, const DWO
     if( k < 0 ) {
         return( 0 );
     }
-    /* Nothing has been put in this buffer since it came to the back, and what a flip leaves there
-     * is undefined, so a frame that never clears, or a Lock in an earlier frame, need not cost it
-     * the engine. What the frame's triangles do not cover comes out black. */
-    if( k != m8dd_front && !m8dd_desc[k].known && !m8dd_written[k] ) {
-        m8dd_desc[k].known = 1;
-        m8dd_desc[k].filled = 0;
-        m8dd_desc[k].colour = 0;
-        m8dd_desc[k].n = 0;
+    if( k != m8dd_front ) {
+        m8dd_fresh( k );
     }
     if( k == m8dd_front || !m8dd_desc[k].known ) {
         m8dd_tri_ram( k, v, colour );

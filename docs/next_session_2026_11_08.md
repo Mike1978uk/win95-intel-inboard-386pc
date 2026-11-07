@@ -2,7 +2,11 @@
 
 Earlier handoff: `docs/next_session_2026_11_07.md` (its "Open" list still stands, less what is below). **The cloud session's tests are in #59**: carry this line on until every box there is ticked. Results: `docs/captures/2026-11-07_shape/README.md` and `docs/captures/2026-11-07_r892/README.md`. Levers: `docs/mach8_frame_rate_plan.md`, "What a frame's time is made of", Y1-Y13.
 
-## START HERE: 2026-11-07, late
+## START HERE: 2026-11-07, night
+
+Card on `M8D3ED`, boot 272. The slow Flip was not a clear: the tunnel never clears ("we redraw over every pixel"), so its triangles piled up across frames, passed `M8DD_TRIS_MAX` and went to RAM. `m8dd_fresh` now starts a flipped-away back buffer from black at its first draw. Tunnel `M8TUNG`, normal priority, agent on: flips with boxes 0, ours 89 ms a frame (was 560-810), engine 318 ms a frame for ~540 triangles, about 2 fps by Flips, 1053 triangles a second (was 240-340). **Next: the engine's 0.6 ms a triangle**, 10x the bench; the tunnel's lit corners take the stamped/banded gradient path in `m8d3d_replay`, and every frame erases ~540 old boxes before drawing.
+
+## 2026-11-07, late (superseded: the "partial colour fill" below was wrong)
 
 Card on `M8D3EC`. SDK tunnel baseline on the card, normal priority, agent on: about 0.3-0.7 fps, 240-340 triangles a second (`tools/m8cardscripts/tunnel_card.ps1`, copy `M8TUNF`/`M8TUNG` made by `tools/m8d3dtest/tunnel_full_patch.py`, G also turns its fps text off at file 0xCA48). Census stage timers show why: every Flip takes the slow path (`flipwhy`: boxes 22 of 23 flips). The sample clears with a colour fill that is not the whole buffer as one rectangle, so `m8dd_blt16_do` fills RAM and marks it dirty, and Flip sends it over the bus: ~1.2 s a frame. **Next: describe partial colour fills on the back buffer instead of filling RAM** (m8dd32.c, the `back` branch near "A clear of the whole back buffer"), then rerun. Also open: our primitive time 560-810 ms a frame at ~750 triangles, 10x the bench per triangle; GetDC text overlays force the slow path (`M8D3EB` fixed only the later frames). `M8D3EA` draws textured triangles flat (no gain on its own); `m8d3d_flip_why` counters are diagnostic, remove when done.
 
