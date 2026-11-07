@@ -82,3 +82,18 @@ The r892 files carry no run label and no time of day. `NOAG.TXT` shows all nine 
 Model per page-in, sample 400 (deflate and lzma CPU are estimates): store 21.56 ms, LZ4 11.36, LZ4-HC 12.52, sector-aware LZ4 12.62, deflate-1 15.65, deflate-9 26.66, lzma 106.42. LZ4 stays the best of these on the model.
 
 Raw slots, had they been compressed with this script's LZ4: 404 over the 6-sector limit, 148 under it (1 sector 49, 2: 25, 3: 11, 4: 10, 5: 21, 6: 32). Whether those 148 were written by SWAPCOMP this boot or are stale is not known.
+
+## Zero pages and the cheaper hash in SWAPCOMP (bed, `SWAPZFC.VXD`, checksum build)
+
+`vm_5160_mcp`, `M8D3DH`, three PAGETIME loops, VxD md5 verified after the restart. Reads back through checksums: 25,016 compressed and raw, 182 zero. **ChecksumErrors 0, Errors 0, Fallback 0.** Bed: no speed from this.
+
+| Counter | Value |
+|---|---|
+| ZeroWrites | 240 of 15,802 page writes (1.5 %) |
+| ZeroReads | 182 of 25,198 page reads (0.7 %) |
+| CompressedReads, RawReads | 20,185, 4,831 |
+| CompressedWrites, RawWrites | 14,788, 774 |
+
+**Zero pages: under 1 % of paging, not the 25 % `sectors.py` suggested:** that counts each slot once, and zero slots are written once and seldom read. Same 1.5 % as the earlier write counter. PERFLOG's rows have more fields than the CSV's old header: read from the end of the row.
+
+Default `SWAPCOMP.VXD` still builds to 9FDE4934, the card's. `SWAPZF` is 5.6 KB smaller and is the card's next test: `LZ4B10FN`'s 17 % cheaper compress, at ~0.86 ms a page written, is ~4 s of `r892`'s 4,692 writes.

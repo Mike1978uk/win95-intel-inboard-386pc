@@ -20,6 +20,9 @@
 ;   Load: SYSTEM.INI [386Enh] device=C:\SWAPCOMP.VXD
 ;   Build with -DSC_CHECKSUM for the bed: every compressed read is compared
 ;   against a checksum taken at write time.
+;   -DSC_ZERO: a page of all zeros costs no I/O either way: SlotTab alone says so.
+;   -DSC_FOLD: a cheaper hash, 2 KB of table and no clearing it per page, as the
+;   LZ4B10FN bench: 17 % less compress time, ratio 2.26 to 2.24.
 ;******************************************************************************
 
 	.386p
@@ -44,7 +47,11 @@ End_Service_Table PERF
 PSTF_COUNT	EQU	0
 
 PAGE_BYTES	EQU	4096
+ifdef SC_FOLD
+HASH_LOG	EQU	10
+else
 HASH_LOG	EQU	12
+endif
 HASH_SIZE	EQU	(1 SHL HASH_LOG)
 
 ; Slots covered by SlotTab: 8192 = a 32 MB swap file. Pages beyond it are
@@ -55,6 +62,9 @@ endif
 
 ; Store a page compressed only if it saves at least two sectors.
 SC_MAX_SECTORS	EQU	6
+
+; In SlotTab: a page of zeros, nothing in the file. A slot holds at most 8 sectors.
+SC_ZERO_SLOT	EQU	0FFh
 
 Declare_Virtual_Device SWAPCOMP, 1, 0, SwapComp_Control, Undefined_Device_ID, \
 		       Undefined_Init_Order
@@ -89,6 +99,10 @@ cSectorsSaved	dd	0
 cErrors 	dd	0
 cFallback	dd	0
 cContention	dd	0
+ifdef SC_ZERO
+cZeroWrites	dd	0
+cZeroReads	dd	0
+endif
 ifdef SC_CHECKSUM
 cSumErrors	dd	0
 endif
@@ -130,6 +144,10 @@ szSectorsSaved	db	"SectorsSaved",0
 szErrors	db	"Errors",0
 szFallback	db	"Fallback",0
 szContention	db	"Contention",0
+ifdef SC_ZERO
+szZeroWrites	db	"ZeroWrites",0
+szZeroReads	db	"ZeroReads",0
+endif
 ifdef SC_CHECKSUM
 szSumErrors	db	"ChecksumErrors",0
 endif
@@ -237,6 +255,27 @@ sco_raw_read:
 	jmp	sco_pass
 
 sco_comp_read:
+ifdef SC_ZERO
+	cmp	ecx, SC_ZERO_SLOT
+	jne	SHORT sco_has_sectors
+	mov	edi, [SC_Desc].PS_BD_Buffer_Ptr
+	xor	eax, eax
+	mov	ecx, PAGE_BYTES / 4
+	cld
+	rep	stosd
+	inc	[cZeroReads]
+ifdef SC_CHECKSUM
+	mov	esi, [SC_Desc].PS_BD_Buffer_Ptr
+	call	SC_PageSum
+	mov	edx, [SC_Desc].PS_BD_File_Page
+	cmp	ax, SumTab[edx*2]
+	je	SHORT sco_zero_ok
+	inc	[cSumErrors]
+sco_zero_ok:
+endif
+	ret
+sco_has_sectors:
+endif
 	shl	ecx, 9
 	call	SC_Transfer		; reads ECX bytes into SC_Bounce
 	jc	sco_fail
@@ -273,6 +312,24 @@ sco_write:
 	cmp	[SC_Disabled], 0
 	jne	sco_raw_write
 
+ifdef SC_ZERO
+	mov	edi, [SC_Desc].PS_BD_Buffer_Ptr
+	xor	eax, eax
+	mov	ecx, PAGE_BYTES / 4
+	cld
+	repe	scasd
+	jne	SHORT sco_not_zero
+	mov	SlotTab[edx], SC_ZERO_SLOT
+	inc	[cZeroWrites]
+	add	[cSectorsSaved], 8
+ifdef SC_CHECKSUM
+	mov	esi, [SC_Desc].PS_BD_Buffer_Ptr
+	call	SC_PageSum
+	mov	SumTab[edx*2], ax
+endif
+	ret
+sco_not_zero:
+endif
 	mov	esi, [SC_Desc].PS_BD_Buffer_Ptr
 	mov	edi, OFFSET32 SC_Bounce + 2
 	call	LZ4_Compress
@@ -387,10 +444,21 @@ endif
 ;   round-tripped real swap pages on the 5160.
 ;******************************************************************************
 
-;   EAX = 4 bytes -> EAX = hash index. Other registers preserved.
+;   EAX = 4 bytes -> EAX = hash index. EDX destroyed.
 BeginProc LZ_Hash
+ifdef SC_FOLD
+	; The multiply costs 13-42 clocks a position; a weaker hash costs only ratio,
+	; as every candidate is compared byte for byte.
+	mov	edx, eax
+	shr	edx, HASH_LOG
+	xor	eax, edx
+	shr	edx, HASH_LOG
+	xor	eax, edx
+	and	eax, HASH_SIZE - 1
+else
 	imul	eax, eax, 9E3779B1h
 	shr	eax, 32 - HASH_LOG
+endif
 	ret
 EndProc LZ_Hash
 
@@ -461,10 +529,12 @@ BeginProc LZ4_Compress
 	lea	ecx, [eax - 5]
 	mov	[lz_matchlimit], ecx
 
+ifndef SC_FOLD
 	mov	edi, OFFSET32 HTab
 	mov	ecx, HASH_SIZE * 2 / 4
 	xor	eax, eax
 	rep	stosd
+endif
 
 	mov	eax, [esi]
 	call	LZ_Hash
@@ -483,6 +553,11 @@ lzc_loop:
 	mov	HTab[eax*2], cx
 	or	edx, edx
 	jz	lzc_next
+ifdef SC_FOLD
+	; The table is not cleared: an entry from another page may point ahead of here.
+	cmp	edx, ecx
+	jae	lzc_next
+endif
 	mov	esi, [lz_src]
 	lea	esi, [esi + edx - 1]		; ESI = candidate match
 	mov	eax, [esi]
@@ -716,6 +791,14 @@ BeginProc SwapComp_Device_Init
 	mov	esi, OFFSET32 szContention
 	mov	edi, OFFSET32 cContention
 	call	SC_Add_Stat
+ifdef SC_ZERO
+	mov	esi, OFFSET32 szZeroWrites
+	mov	edi, OFFSET32 cZeroWrites
+	call	SC_Add_Stat
+	mov	esi, OFFSET32 szZeroReads
+	mov	edi, OFFSET32 cZeroReads
+	call	SC_Add_Stat
+endif
 ifdef SC_CHECKSUM
 	mov	esi, OFFSET32 szSumErrors
 	mov	edi, OFFSET32 cSumErrors
