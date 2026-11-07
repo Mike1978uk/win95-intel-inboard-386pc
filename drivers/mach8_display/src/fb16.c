@@ -882,6 +882,174 @@ static void m8_fb16_segment( int x0, int y0, int x1, int y1, LPRECT clip )
     }
 }
 
+/* GDI hands a curve's outline over as hundreds of segments a pixel or two long. A send's set-up
+ * costs what about 40 pixels cost, so short segments in a row share a box, up to this many pixels. */
+#define M8_FB16_GATHER      144
+#define M8_FB16_SHORT       4
+
+static void m8_fb16_polyline_sent( WORD count, LPPOINT p, LPRECT clip )
+{
+    M8_FB16_RECT    box;
+    M8_FB16_RECT    n;
+    M8_FB16_RECT    u;
+    int             open = 0;
+    int             dx;
+    int             dy;
+    WORD            i;
+
+    for( i = 1; i < count; ++i ) {
+        dx = p[i].xcoord - p[i - 1].xcoord;
+        dy = p[i].ycoord - p[i - 1].ycoord;
+        if( dx < -M8_FB16_SHORT || dx > M8_FB16_SHORT || dy < -M8_FB16_SHORT || dy > M8_FB16_SHORT ) {
+            if( open ) {
+                m8_fb16_strip( box.l, box.t, box.r, box.b, clip );
+                open = 0;
+            }
+            m8_fb16_segment( p[i - 1].xcoord, p[i - 1].ycoord, p[i].xcoord, p[i].ycoord, clip );
+            continue;
+        }
+        /* A line stays inside the box of its end points. */
+        n.l = dx < 0 ? p[i].xcoord : p[i - 1].xcoord;
+        n.r = (dx < 0 ? p[i - 1].xcoord : p[i].xcoord) + 1;
+        n.t = dy < 0 ? p[i].ycoord : p[i - 1].ycoord;
+        n.b = (dy < 0 ? p[i - 1].ycoord : p[i].ycoord) + 1;
+        if( !open ) {
+            box = n;
+            open = 1;
+            continue;
+        }
+        u = box;
+        m8_fb16_union( &u, &n );
+        if( m8_fb16_area( &u ) > M8_FB16_GATHER ) {
+            m8_fb16_strip( box.l, box.t, box.r, box.b, clip );
+            box = n;
+        } else {
+            box = u;
+        }
+    }
+    if( open ) {
+        m8_fb16_strip( box.l, box.t, box.r, box.b, clip );
+    }
+}
+
+/* The index colour c dithers to at every phase, or -1. The last answer is kept: a shape's
+ * scanline calls repeat one colour. */
+static int m8_fb16_flat( WORD c )
+{
+    static WORD last_c;
+    static int  last_i = -2;
+    BYTE        px[4];
+    int         y;
+    int         k;
+
+    if( last_i != -2 && c == last_c ) {
+        return( last_i );
+    }
+    for( k = 0; k < 4; ++k ) {
+        m8_fb16_src[k] = c;
+    }
+    last_c = c;
+    last_i = -1;
+    for( y = 0; y < 4; ++y ) {
+        m8_fb16_conv( (BYTE FAR *)px, y, 0, 4 );
+        for( k = 0; k < 4; ++k ) {
+            if( (y != 0 || k != 0) && px[k] != (BYTE)last_i ) {
+                last_i = -1;
+                return( -1 );
+            }
+            last_i = px[k];
+        }
+    }
+    return( last_i );
+}
+
+/* A scanline list already drawn in RAM. In one colour the palette holds exactly it goes as engine
+ * spans, which cost a few writes a row where its box as pixels costs a word per two pixels.
+ * RAM is what decides: a pattern or a mix over mixed pixels is not one colour, so it is sent. */
+static void m8_fb16_scan_sent( WORD wStyle, WORD wCount, const short FAR *w, LPRECT clip )
+{
+    M8_FB16_RECT    box;
+    const short FAR *xs;
+    WORD            recs = wStyle == OS_POLYSCANLINE ? wCount : 1;
+    WORD            n;
+    WORD            i;
+    int             y;
+    int             y0;
+    int             y1;
+    int             x0;
+    int             x1;
+    int             one = 1;
+    int             any = 0;
+    int             ix;
+    WORD            c = 0;
+    int             cl = clip != NULL ? clip->left : 0;
+    int             ct = clip != NULL ? clip->top : 0;
+    int             cr = clip != NULL ? clip->right : m8_scr_x;
+    int             cb = clip != NULL ? clip->bottom : m8_scr_y;
+    const short FAR *p = w;
+
+    if( cl < 0 ) cl = 0;
+    if( ct < 0 ) ct = 0;
+    if( cr > m8_scr_x ) cr = m8_scr_x;
+    if( cb > m8_scr_y ) cb = m8_scr_y;
+    for( ; recs > 0; --recs ) {
+        if( wStyle == OS_POLYSCANLINE ) {
+            n = (WORD)p[0];
+            y0 = p[1];
+            y1 = p[2];
+            xs = p + 3;
+            p += n + 4;
+        } else {
+            n = (WORD)((wCount - 1) * 2);
+            y0 = p[1];
+            y1 = y0 + 1;
+            xs = p + 2;
+        }
+        if( y0 < ct ) y0 = ct;
+        if( y1 > cb ) y1 = cb;
+        for( i = 0; y0 < y1 && i + 1 < n; i += 2 ) {
+            x0 = xs[i] < cl ? cl : xs[i];
+            x1 = xs[i + 1] > cr ? cr : xs[i + 1];
+            if( x0 >= x1 ) {
+                continue;
+            }
+            if( !any ) {
+                box.l = x0;
+                box.t = y0;
+                box.r = x1;
+                box.b = y1;
+                any = 1;
+                m8_copy32( m8_fb16_sel, (DWORD)y0 * M8_FB16_PITCH + (DWORD)x0 * 2,
+                           (BYTE FAR *)&c, 2 );
+            } else {
+                if( x0 < box.l ) box.l = x0;
+                if( y0 < box.t ) box.t = y0;
+                if( x1 > box.r ) box.r = x1;
+                if( y1 > box.b ) box.b = y1;
+            }
+            for( y = y0; one && y < y1; ++y ) {
+                if( !m8_fb16_same( m8_fb16_sel, (DWORD)y * M8_FB16_PITCH + (DWORD)x0 * 2,
+                                   (WORD)(x1 - x0), c ) ) {
+                    one = 0;
+                }
+            }
+        }
+    }
+    if( !any ) {
+        return;
+    }
+    ix = one ? m8_fb16_flat( c ) : -1;
+    if( ix < 0 ) {
+        m8_fb16_flush( &box );
+        return;
+    }
+    m8_cur_lift( box.l, box.t, box.r, box.b );
+    m8_hw_fill_begin( (BYTE)ix, M8_MIX_SRC_FRGD | M8_MIX_REPLACE );
+    m8_hw_scan_spans( wStyle == OS_POLYSCANLINE, wCount, w, cl, ct, cr, cb, NULL );
+    m8_leave();
+    m8_fb16_forget( box.l, box.t, box.r, box.b );
+}
+
 WORD m8_fb16_output( LPPDEVICE lpDestDev, WORD wStyle, WORD wCount, LPPOINT lpPoints,
                      LPPPEN lpPPen, LPPBRUSH lpPBrush, LPDRAWMODE lpDrawMode,
                      LPRECT lpClipRect )
@@ -889,6 +1057,18 @@ WORD m8_fb16_output( LPPDEVICE lpDestDev, WORD wStyle, WORD wCount, LPPOINT lpPo
     WORD    rc;
     WORD    i;
 
+    if( (wStyle == OS_SCANLINES || wStyle == OS_POLYSCANLINE) && lpPoints != NULL &&
+        wCount >= 1 && m8_fb16_depth == 0 && (LPVOID)lpDestDev == (LPVOID)m8_fb16_dev &&
+        m8_fb16_sel == m8_fb16_msel ) {
+        /* Nothing marked while the DIB Engine draws; the spans go after. */
+        m8_fb16_lim.l = m8_fb16_lim.r = 0;
+        m8_fb16_lim_on = 1;
+        rc = DIB_Output( lpDestDev, wStyle, wCount, lpPoints, lpPPen, lpPBrush, lpDrawMode,
+                         lpClipRect );
+        m8_fb16_lim_on = 0;
+        m8_fb16_scan_sent( wStyle, wCount, (const short FAR *)lpPoints, lpClipRect );
+        return( rc );
+    }
     if( wStyle == OS_POLYLINE && lpPoints != NULL && wCount >= 2 && m8_fb16_depth == 0 &&
         (LPVOID)lpDestDev == (LPVOID)m8_fb16_dev ) {
         /* Nothing marked while the DIB Engine draws; the strips go after. */
@@ -897,10 +1077,7 @@ WORD m8_fb16_output( LPPDEVICE lpDestDev, WORD wStyle, WORD wCount, LPPOINT lpPo
         rc = DIB_Output( lpDestDev, wStyle, wCount, lpPoints, lpPPen, lpPBrush, lpDrawMode,
                          lpClipRect );
         m8_fb16_lim_on = 0;
-        for( i = 1; i < wCount; ++i ) {
-            m8_fb16_segment( lpPoints[i - 1].xcoord, lpPoints[i - 1].ycoord, lpPoints[i].xcoord,
-                             lpPoints[i].ycoord, lpClipRect );
-        }
+        m8_fb16_polyline_sent( wCount, lpPoints, lpClipRect );
         return( rc );
     }
     if( lpPoints != NULL && wCount > 0 && wStyle != OS_SCANLINES && wStyle != OS_POLYMARKER &&

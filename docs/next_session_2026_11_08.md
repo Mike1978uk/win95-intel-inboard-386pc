@@ -2,6 +2,16 @@
 
 Earlier handoff: `docs/next_session_2026_11_07.md` (its "Open" list still stands, less what is below). **The cloud session's tests are in #59**: carry this line on until every box there is ticked. Results: `docs/captures/2026-11-07_shape/README.md` and `docs/captures/2026-11-07_r892/README.md`. Levers: `docs/mach8_frame_rate_plan.md`, "What a frame's time is made of", Y1-Y13.
 
+## START HERE: 2026-11-07, midday
+
+**Card hung during `M8CURVE`, boot 255; it needs a restart by hand, on `M8D3DX` locked, agent on.** Results: `docs/captures/2026-11-07_curves/README.md`. Levers Y16-Y19.
+
+1. Read `C:\M8CURVE.TXT` from the card first. Then `tools/m8cardscripts/curve.ps1 -Label c2`, a fresh boot with no bench before it, to separate the probe from the benches.
+2. `tools/m8cardscripts/cycle.ps1 -Name M8D3DY -Label ya -Runs 2`: pageable, `M8D3DF` twice: the locked-against-pageable A/B. Then `tools/m8_card_cycle.ps1` bench twice: ellipse, polygon, lines, rubber_band against `card_xb1`, pixel check by FB16CHK. `install_h.ps1` rewrites `NOAGPAGE.LST` with the run's label.
+3. Owner's ghost test (below) is still to do. Locked ran about 25 % slower in `hal_many`, so even if locked cures ghosts it has a price.
+
+Bed `vm_5160_mcp` left running on `M8D3DY`.
+
 ## START HERE: tomorrow, 2026-11-07
 
 **Staged on the CF in the reader, 00:50, every file checked by md5.** The owner asked for the card staged; agent on at the next boot (`V9xRemoteAgent` is in SYSTEM.DAT; a raw search, so confirm by `info`).
