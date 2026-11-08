@@ -2962,6 +2962,7 @@ static M8D3D_TEX *m8d3d_tex_of( DWORD h )
 
 static DWORD    m8d3d_pal_base[M8D3D_PAL_BASES];
 static int      m8d3d_pal_nb;           /* -1: too many colours, the cube stays */
+static long     m8d3d_pal_count[M8D3D_PAL_BASES];   /* texels of each colour, all textures */
 static BYTE     m8d3d_pal_saved[768];
 
 extern void m8d3d_outb( unsigned port, unsigned v );
@@ -2993,6 +2994,7 @@ static int m8d3d_pal_find( DWORD rgb )
 static void m8d3d_pal_scan( M8D3D_TEX *t, const BYTE *bits )
 {
     DWORD   last = 0xFFFFFFFFUL;
+    int     lastk = 0;
     int     x;
     int     y;
 
@@ -3006,18 +3008,21 @@ static void m8d3d_pal_scan( M8D3D_TEX *t, const BYTE *bits )
         for( x = 0; x < t->w; ++x ) {
             DWORD rgb;
 
-            if( row[x] == last ) {
-                continue;
-            }
-            last = row[x];
-            rgb = m8d3d_rgb16( t, last );
-            if( m8d3d_pal_find( rgb ) < 0 ) {
-                if( m8d3d_pal_nb == M8D3D_PAL_BASES ) {
-                    m8d3d_pal_nb = -1;
-                    return;
+            if( row[x] != last ) {
+                last = row[x];
+                rgb = m8d3d_rgb16( t, last );
+                lastk = m8d3d_pal_find( rgb );
+                if( lastk < 0 ) {
+                    if( m8d3d_pal_nb == M8D3D_PAL_BASES ) {
+                        m8d3d_pal_nb = -1;
+                        return;
+                    }
+                    lastk = m8d3d_pal_nb;
+                    m8d3d_pal_count[lastk] = 0;
+                    m8d3d_pal_base[m8d3d_pal_nb++] = rgb;
                 }
-                m8d3d_pal_base[m8d3d_pal_nb++] = rgb;
             }
+            ++m8d3d_pal_count[lastk];
         }
     }
 }
@@ -3069,26 +3074,55 @@ static void m8d3d_pal_restore( void )
     }
 }
 
-/* The texture's colour a triangle shows most, from its corners, edge middles and centre:
- * a mean would mix yellow and grey into a colour the texture does not have. */
-static int m8d3d_pal_tri( const M8D3D_TEX *t, const BYTE *bits, const M8D3D_TLVERTEX **a )
+/* Detail by distance: a triangle whose box is M8D3D_FAR_PX or less on both sides is far away.
+ * Far triangles take the textures' commonest colour at every fourth light level, so a far
+ * ring is a few colours and joins into a few large patches; texels cannot be told apart there. */
+#define M8D3D_FAR_PX    16
+
+static int m8d3d_pal_major( void )
 {
-    static const BYTE   w[7][3] = { { 6, 0, 0 }, { 0, 6, 0 }, { 0, 0, 6 },
-                                    { 3, 3, 0 }, { 0, 3, 3 }, { 3, 0, 3 }, { 2, 2, 2 } };
+    int best = 0;
+    int k;
+
+    for( k = 1; k < m8d3d_pal_nb; ++k ) {
+        if( m8d3d_pal_count[k] > m8d3d_pal_count[best] ) {
+            best = k;
+        }
+    }
+    return( best );
+}
+
+/* The colour shown most on a 3 x 3 grid over the texture rectangle a triangle's corners span.
+ * The two halves of a wall quad span the same rectangle, so they agree and the diagonal
+ * between them joins away; a mean would mix colours the texture does not have. */
+static int m8d3d_pal_quad( const M8D3D_TEX *t, const BYTE *bits, const M8D3D_TLVERTEX **a )
+{
+    static const float  f[3] = { 1.0f / 6.0f, 0.5f, 5.0f / 6.0f };
     int                 count[M8D3D_PAL_BASES];
+    float               u0 = a[0]->tu;
+    float               u1 = a[0]->tu;
+    float               v0 = a[0]->tv;
+    float               v1 = a[0]->tv;
     int                 best = 0;
     int                 i;
+    int                 j;
 
+    for( i = 1; i < 3; ++i ) {
+        u0 = a[i]->tu < u0 ? a[i]->tu : u0;
+        u1 = a[i]->tu > u1 ? a[i]->tu : u1;
+        v0 = a[i]->tv < v0 ? a[i]->tv : v0;
+        v1 = a[i]->tv > v1 ? a[i]->tv : v1;
+    }
     for( i = 0; i < m8d3d_pal_nb; ++i ) {
         count[i] = 0;
     }
-    for( i = 0; i < 7; ++i ) {
-        float   u = (a[0]->tu * w[i][0] + a[1]->tu * w[i][1] + a[2]->tu * w[i][2]) / 6.0f;
-        float   v = (a[0]->tv * w[i][0] + a[1]->tv * w[i][1] + a[2]->tv * w[i][2]) / 6.0f;
-        int     k = m8d3d_pal_find( m8d3d_texel( t, bits, u, v ) );
+    for( i = 0; i < 3; ++i ) {
+        for( j = 0; j < 3; ++j ) {
+            int k = m8d3d_pal_find( m8d3d_texel( t, bits, u0 + (u1 - u0) * f[j], v0 + (v1 - v0) * f[i] ) );
 
-        if( k >= 0 && ++count[k] > count[best] ) {
-            best = k;
+            if( k >= 0 && ++count[k] > count[best] ) {
+                best = k;
+            }
         }
     }
     return( best );
@@ -3398,12 +3432,26 @@ static void m8d3d_draw_on( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D_
         m8d3d_pal_scan( p->tex, p->texbits );
     }
     if( p->tex != NULL && p->fb16 && m8d3d_pal_nb > 0 && !((c->rs_on >> M8D3D_RS_FOG) & 1) ) {
-        int     k = m8d3d_pal_tri( p->tex, p->texbits, a );
+        int     lo_x = v[0] < v[2] ? v[0] : v[2];
+        int     hi_x = v[0] > v[2] ? v[0] : v[2];
+        int     lo_y = v[1] < v[3] ? v[1] : v[3];
+        int     hi_y = v[1] > v[3] ? v[1] : v[3];
+        int     distant;
+        int     k;
         int     level = 15;
         DWORD   corners[3];
 
+        lo_x = v[4] < lo_x ? v[4] : lo_x;
+        hi_x = v[4] > hi_x ? v[4] : hi_x;
+        lo_y = v[5] < lo_y ? v[5] : lo_y;
+        hi_y = v[5] > hi_y ? v[5] : hi_y;
+        distant = hi_x - lo_x <= M8D3D_FAR_PX && hi_y - lo_y <= M8D3D_FAR_PX;
+        k = distant ? m8d3d_pal_major() : m8d3d_pal_quad( p->tex, p->texbits, a );
         if( c->texblend == M8D3D_TEXBLEND_MODULATE || c->texblend == M8D3D_TEXBLEND_MODULATEALPHA ) {
             level = (int)(((rgb >> 16 & 255) + (rgb >> 8 & 255) + (rgb & 255)) * 15 + 382) / 765;
+        }
+        if( distant ) {
+            level &= ~3;
         }
         rgb = m8d3d_pal_rgb( k, level );
         corners[0] = corners[1] = corners[2] = rgb;
