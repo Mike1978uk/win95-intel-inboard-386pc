@@ -2,6 +2,14 @@
 
 Earlier handoff: `docs/next_session_2026_11_07.md` (its "Open" list still stands, less what is below). **The cloud session's tests are in #59**: carry this line on until every box there is ticked. Results: `docs/captures/2026-11-07_shape/README.md` and `docs/captures/2026-11-07_r892/README.md`. Levers: `docs/mach8_frame_rate_plan.md`, "What a frame's time is made of", Y1-Y13.
 
+## START HERE: 2026-11-08, evening
+
+- Card up, boot 288, on `M8D3EO` (same bytes as the build bar link timestamps).
+- `M8D3EO` measured: negative, blanket 2 x 2 tessellation is out. `docs/captures/2026-11-08_tunnel/README.md`, "M8D3EO (2 x 2 tessellation), evening".
+- Next build, in progress: back to one colour per quad (`M8D3EN` behaviour) + depth layers (Z10) + light in fill.
+- Then Z1 near texture, Z11 far picture, Z12 aperiodic pattern (`docs/mach8_frame_rate_plan.md`).
+- Fixed point, not float, in the per-piece path: float 2.97 us vs fixed 1.53 us a multiply-add.
+
 ## START HERE: 2026-11-08, afternoon (owner out; resume when he has time)
 
 **Card state unknown.** Last known good: `M8D3EN`, boot 285. `M8D3EO` was being installed or run when the session's tool call failed; owner: the 5160 froze and the agent stopped answering; owner restarted it by hand. Not known whether the freeze came in the install restart or in the tunnel on `M8D3EO`; the registry most likely selects `m8d3eo.drv` now: first `v9xctl info` for the boot counter and `drv` in the registry; if wedged, ask the owner to restart. Reference picture of the intended look: `docs/captures/2026-11-08_tunnel/` (README has every run today).
