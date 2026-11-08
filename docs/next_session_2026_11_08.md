@@ -2,6 +2,12 @@
 
 Earlier handoff: `docs/next_session_2026_11_07.md` (its "Open" list still stands, less what is below). **The cloud session's tests are in #59**: carry this line on until every box there is ticked. Results: `docs/captures/2026-11-07_shape/README.md` and `docs/captures/2026-11-07_r892/README.md`. Levers: `docs/mach8_frame_rate_plan.md`, "What a frame's time is made of", Y1-Y13.
 
+## START HERE: 2026-11-08, 00:30
+
+Card on `M8D3EH` (joined path), boot 277. **The bed cannot test polygon fills** (known quirk, 11-02): `tools/m8probe/M8JOIN` fills a two-triangle quad five ways; bed reads 0 in every case, card passes all five, including both joined scratch layouts. Tunnel on the card, high, agent on: writes 7,881 a frame (18,621 per triangle), engine 220 ms (319), frame 439 ms, ~2.3 fps; about 70 % of frames joined (~3,400 writes), the rest fell back, most likely corners off screen. Fill time now rules: each colour's box is near the screen (rings) at ~69 ns/px. **Next: (1) take off-screen corners into the joined path (clip like the seam: x < 0 carried to x = 0, rows cut); (2) fill boxes by bands, a colour's extent in each band (split where it saves > ~1,700 px); (3) skip the erase when the frame covers the screen.** Owner's look at the joined tunnel on the card: pending, reported next session.
+
+The "after midnight" section below is superseded: its failed fills were the bed.
+
 ## START HERE: 2026-11-08, after midnight
 
 Joined path written, uncommitted (`m8d3d.c`, `m8d3d_join*`, ~390 lines; `git diff`). Bed `vm_5160_mcp` (86Box MCP, windowed) on diagnostic builds; `install_h.ps1 -Target 127.0.0.1` installs there. Results on the bed (`M8D3EH`): 3,439 writes a Flip against 18,621, 12 fills a frame, outlines exactly the patch boundaries; **fills do not show** in either half (`M8D3EK` swapped the halves' rows: no change). `M8D3EL` (scratch planes painted on screen instead of the polygon fill) shows the boundaries, so the scratch looks right and the polygon fill over a patch is what fails, though the same register sequence fills one triangle. Emulator checked: write mask honoured, scissors open, poly parity reset per command. **Next: a probe that fills a two-triangle patch both ways (per-triangle and joined layout), bed then card, pixels read back.** Card untouched since `M8D3EG`.

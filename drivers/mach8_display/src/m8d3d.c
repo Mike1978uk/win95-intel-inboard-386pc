@@ -616,6 +616,7 @@ typedef struct {
     int     dt;
     int     dr;
     int     db;
+    int     jclean;             /* the joined path's scratch holds 0 in every plane */
 } M8D3D_CONTEXT;
 
 static M8D3D_GLOBAL     m8d3d_global;
@@ -2109,6 +2110,373 @@ static int m8d3d_tri_stamped( M8D3D_CONTEXT *c, int dx, int dy, const short *v, 
 /* At 16 bpp, from Flip: the last frame's boxes back to black, then a buffer's
  * triangles, on the card, dy rows down. `rgb` holds three corner colours a triangle. The engine
  * is idle on return: 0 if it could not be used. */
+/* A frame's triangles as patches of one colour. An edge used twice in one colour is inside its
+ * patch and is not drawn, so a patch costs its outline and one fill, not each triangle's ~48
+ * writes. Only for triangles that cannot overlap (culled, all corners on the target, their area
+ * no more than the target's): the patches are filled in colour order, not the program's.
+ *
+ * The scratch is the column right of both pages, the screen in two halves: x 0-320 at rows
+ * 0-479, x 320-639 at rows 512-991; it takes the stamp and mask rows, whose contents are then
+ * forgotten. Each colour has a plane. The fill reads a row from the left, so the right half must
+ * start in the state the left half ends in: an edge's part left of the seam is carried to the
+ * seam as a vertical run over the same rows, one toggle a row, as the edge itself gives. */
+#define M8D3D_JOIN_SEAM     320
+#define M8D3D_JOIN_X        640         /* the column's left */
+#define M8D3D_JOIN_RY       512         /* the right half's first row */
+#define M8D3D_JOIN_W        321
+#define M8D3D_JOIN_MIN      16
+#define M8D3D_JOIN_EDGES    3072
+
+typedef struct {
+    short   col;
+    short   y0;
+    short   x0;
+    short   y1;
+    short   x1;
+} M8D3D_JEDGE;
+
+static M8D3D_JEDGE   m8d3d_je[M8D3D_JOIN_EDGES];
+static short        m8d3d_jseam[M8D3D_JOIN_EDGES * 2];
+
+static int m8d3d_edge_cmp( const M8D3D_JEDGE *a, const M8D3D_JEDGE *b )
+{
+    if( a->col != b->col ) {
+        return( a->col - b->col );
+    }
+    if( a->y0 != b->y0 ) {
+        return( a->y0 - b->y0 );
+    }
+    if( a->x0 != b->x0 ) {
+        return( a->x0 - b->x0 );
+    }
+    if( a->y1 != b->y1 ) {
+        return( a->y1 - b->y1 );
+    }
+    return( a->x1 - b->x1 );
+}
+
+/* Shell sort: no library calls from here. */
+static void m8d3d_edges_sort( M8D3D_JEDGE *e, int n )
+{
+    static const int    gaps[] = { 701, 301, 132, 57, 23, 10, 4, 1 };
+    int                 g;
+    int                 i;
+    int                 j;
+    M8D3D_JEDGE          t;
+
+    for( g = 0; g < 8; ++g ) {
+        for( i = gaps[g]; i < n; ++i ) {
+            t = e[i];
+            for( j = i; j >= gaps[g] && m8d3d_edge_cmp( &e[j - gaps[g]], &t ) > 0; j -= gaps[g] ) {
+                e[j] = e[j - gaps[g]];
+            }
+            e[j] = t;
+        }
+    }
+}
+
+static void m8d3d_shorts_sort( short *s, int n )
+{
+    int     i;
+    int     j;
+    short   t;
+
+    for( i = 1; i < n; ++i ) {
+        t = s[i];
+        for( j = i; j > 0 && s[j - 1] > t; --j ) {
+            s[j] = s[j - 1];
+        }
+        s[j] = t;
+    }
+}
+
+/* Whether this frame may be drawn as patches. */
+static int m8d3d_join_ok( M8D3D_CONTEXT *c, const short *v, int n )
+{
+    long    area = 0;
+    int     i;
+
+    if( !c->stamp_on || n < M8D3D_JOIN_MIN || n * 3 > M8D3D_JOIN_EDGES || c->sw != 640 ) {
+        return( 0 );
+    }
+    for( i = 0; i < n * 6; i += 2 ) {
+        if( v[i] < 0 || v[i] > 639 || v[i + 1] < 0 || v[i + 1] > 479 ) {
+            return( 0 );
+        }
+    }
+    for( i = 0; i < n; ++i ) {
+        const short *p = v + 6 * i;
+        long        a = (long)(p[2] - p[0]) * (p[5] - p[1]) - (long)(p[4] - p[0]) * (p[3] - p[1]);
+
+        area += a < 0 ? -a : a;
+    }
+    return( area <= 2L * 640 * 480 + 2L * 640 * 480 / 32 );
+}
+
+/* One edge top to bottom without its last row, into the scratch at ox, oy. */
+static int m8d3d_join_line( int ox, int oy, int xa, int ya, int xb, int yb )
+{
+    if( ya == yb ) {
+        return( 1 );
+    }
+    if( ya > yb ) {
+        int t = xa;
+
+        xa = xb;
+        xb = t;
+        t = ya;
+        ya = yb;
+        yb = t;
+    }
+    if( !m8d3d_q_need( 5 ) ) {
+        return( 0 );
+    }
+    M8D3D_Q( M8_LINEDRAW_INDEX, 0 );
+    M8D3D_Q( M8_LINEDRAW, ox + xa );
+    M8D3D_Q( M8_LINEDRAW, oy + ya );
+    M8D3D_Q( M8_LINEDRAW, ox + xb );
+    M8D3D_Q( M8_LINEDRAW, oy + yb );
+    return( 1 );
+}
+
+/* Planes of both halves to 0 over rows t to b - 1. */
+static int m8d3d_join_clear( int planes, int t, int b )
+{
+    if( !m8d3d_q_need( 6 ) ) {
+        return( 0 );
+    }
+    M8D3D_Q( M8_WRT_MASK, planes );
+    M8D3D_Q( M8_RD_MASK, 0x00FF );
+    M8D3D_Q( M8_DP_CONFIG, M8_DP_8514 );
+    M8D3D_Q( M8_FRGD_MIX, M8_MIX_FRGD_REPLACE );
+    M8D3D_Q( M8_FRGD_COLOR, 0 );
+    if( !m8d3d_q_rect( M8D3D_JOIN_X, t, M8D3D_JOIN_X + M8D3D_JOIN_W, b ) ||
+        !m8d3d_q_rect( M8D3D_JOIN_X, M8D3D_JOIN_RY + t, M8D3D_JOIN_X + M8D3D_JOIN_W, M8D3D_JOIN_RY + b ) ||
+        !m8d3d_q_need( 1 ) ) {
+        return( 0 );
+    }
+    M8D3D_Q( M8_WRT_MASK, 0x00FF );
+    return( m8d3d_q_flush() );
+}
+
+/* One half's fill of colour col from plane, rows t + 1 to b - 1, target x l to r - 1. */
+static int m8d3d_join_fill( int plane, BYTE col, int dy, int l, int r, int t, int b, int ox, int oy )
+{
+    if( r <= l || b - t < 2 || !m8d3d_q_need( 15 ) ) {
+        return( r <= l || b - t < 2 );
+    }
+    M8D3D_Q( M8_WRT_MASK, 0x00FF );
+    M8D3D_Q( M8_RD_MASK, plane );
+    M8D3D_Q( M8_DP_CONFIG, M8_DP_POLY_FILL );
+    M8D3D_Q( M8_ALU_FG_FN, M8_MIX_REPLACE );
+    M8D3D_Q( M8_FRGD_COLOR, col );
+    M8D3D_Q( M8_DESTX_DIASTP, ox + l );
+    M8D3D_Q( M8_DESTY_AXSTP, oy + t + 1 );
+    M8D3D_Q( M8_SRC_X_START, ox + l );
+    M8D3D_Q( M8_SRC_X_END, ox + r );
+    M8D3D_Q( M8_SRC_Y_DIR, 1 );
+    M8D3D_Q( M8_CUR_X, l );
+    M8D3D_Q( M8_DEST_X_START, l );
+    M8D3D_Q( M8_DEST_X_END, r );
+    M8D3D_Q( M8_CUR_Y, dy + t + 1 );
+    M8D3D_Q( M8_DEST_Y_END, dy + b );         /* starts the fill */
+    ++m8d3d_stat[26];
+    return( m8d3d_q_flush() );
+}
+
+static int m8d3d_join( M8D3D_CONTEXT *c, int dy, const short *v, const WORD *index, int n )
+{
+    int         ne = 0;
+    int         nb = 0;
+    int         i;
+    int         j;
+    int         k;
+    int         first;
+    int         ok = 1;
+    const int   lx = M8D3D_JOIN_X;
+    const int   rx = M8D3D_JOIN_X - M8D3D_JOIN_SEAM;
+    const int   ry = M8D3D_JOIN_RY;
+
+    /* Every edge with its ends in one order, sorted, then pairs within a colour dropped. */
+    for( i = 0; i < n; ++i ) {
+        const short *p = v + 6 * i;
+
+        for( j = 0; j < 3; ++j ) {
+            const short *a = p + 2 * j;
+            const short *b = p + 2 * ((j + 1) % 3);
+            M8D3D_JEDGE  *e = &m8d3d_je[ne++];
+            int         swap = a[1] > b[1] || (a[1] == b[1] && a[0] > b[0]);
+
+            e->col = (short)(index[i] & 0xFF);
+            e->y0 = swap ? b[1] : a[1];
+            e->x0 = swap ? b[0] : a[0];
+            e->y1 = swap ? a[1] : b[1];
+            e->x1 = swap ? a[0] : b[0];
+        }
+    }
+    m8d3d_edges_sort( m8d3d_je, ne );
+    for( i = 0; i < ne; i = j ) {
+        for( j = i + 1; j < ne && m8d3d_edge_cmp( &m8d3d_je[i], &m8d3d_je[j] ) == 0; ++j ) {
+        }
+        if( (j - i) & 1 ) {
+            m8d3d_je[nb++] = m8d3d_je[i];
+        }
+    }
+    if( !c->jclean ) {
+        /* The column held stamps and masks: forget them, and start every plane at 0. */
+        memset( c->stamp, 0, sizeof( c->stamp ) );
+        memset( c->stamp_seen, 0, sizeof( c->stamp_seen ) );
+        c->stamp_seen_next = 0;
+        c->stamp_x = c->mx;
+        c->stamp_y = 0;
+        c->stamp_shelf = 0;
+        memset( c->mask, 0, sizeof( c->mask ) );
+        memset( c->seen, 0, sizeof( c->seen ) );
+        c->fresh = 1;
+        if( !m8d3d_join_clear( 0x00FF, 0, 480 ) ) {
+            return( 0 );
+        }
+        c->jclean = 1;
+    }
+    /* Up to 8 colours a pass, a plane each. */
+    for( first = 0; ok && first < nb; first = k ) {
+        int     cols[8];
+        int     from[9];
+        int     nc = 0;
+        int     t = 480;
+        int     b = 0;
+
+        for( k = first; k < nb && (nc < 8 || m8d3d_je[k].col == cols[nc - 1]); ++k ) {
+            if( nc == 0 || m8d3d_je[k].col != cols[nc - 1] ) {
+                cols[nc] = m8d3d_je[k].col;
+                from[nc++] = k;
+            }
+        }
+        from[nc] = k;
+        /* Outlines into the scratch: XOR, one pixel a row, without the last row. */
+        if( !m8d3d_q_need( 5 ) ) {
+            return( 0 );
+        }
+        M8D3D_Q( M8_FRGD_COLOR, 0x00FF );
+        M8D3D_Q( M8_DP_CONFIG, M8_DP_8514 );
+        M8D3D_Q( M8_ALU_FG_FN, M8_MIX_XOR );
+        M8D3D_Q( M8_LINEDRAW_OPT, M8_LINEDRAW_POLY | M8_LINEDRAW_LAST_OFF );
+        M8D3D_Q( M8_RD_MASK, 0x00FF );
+        for( j = 0; ok && j < nc; ++j ) {
+            int ns = 0;
+            int s;
+
+            if( !m8d3d_q_need( 1 ) ) {
+                return( 0 );
+            }
+            M8D3D_Q( M8_WRT_MASK, 1 << j );
+            for( i = from[j]; ok && i < from[j + 1]; ++i ) {
+                const M8D3D_JEDGE *e = &m8d3d_je[i];
+                int         xa = e->x0 < e->x1 ? e->x0 : e->x1;
+                int         xb = e->x0 < e->x1 ? e->x1 : e->x0;
+                int         ya = e->x0 < e->x1 ? e->y0 : e->y1;
+                int         yb = e->x0 < e->x1 ? e->y1 : e->y0;
+
+                t = e->y0 < t ? e->y0 : t;
+                b = e->y1 > b ? e->y1 : b;
+                if( ya == yb ) {
+                    continue;
+                }
+                if( xb <= M8D3D_JOIN_SEAM ) {
+                    ok = m8d3d_join_line( lx, 0, xa, ya, xb, yb );
+                    m8d3d_jseam[ns++] = (short)ya;
+                    m8d3d_jseam[ns++] = (short)yb;
+                } else if( xa >= M8D3D_JOIN_SEAM ) {
+                    ok = m8d3d_join_line( rx, ry, xa, ya, xb, yb );
+                } else {
+                    /* Cut at the seam, the row rounded: rows above and below it stay one toggle each. */
+                    long    d = (long)(xb - xa);
+                    int     py = ya + (int)(((long)(yb - ya) * (M8D3D_JOIN_SEAM - xa) * 2 + (yb > ya ? d : -d)) / (2 * d));
+
+                    ok = m8d3d_join_line( lx, 0, xa, ya, M8D3D_JOIN_SEAM, py ) &&
+                         m8d3d_join_line( rx, ry, M8D3D_JOIN_SEAM, py, xb, yb );
+                    m8d3d_jseam[ns++] = (short)ya;
+                    m8d3d_jseam[ns++] = (short)py;
+                }
+            }
+            /* The left parts' rows at the seam, XOR-merged: an end seen an even number of times
+             * cancels, and what is left pairs into runs. */
+            for( i = 0; i < ns; i += 2 ) {
+                if( m8d3d_jseam[i] > m8d3d_jseam[i + 1] ) {
+                    short x = m8d3d_jseam[i];
+
+                    m8d3d_jseam[i] = m8d3d_jseam[i + 1];
+                    m8d3d_jseam[i + 1] = x;
+                }
+            }
+            m8d3d_shorts_sort( m8d3d_jseam, ns );
+            for( i = 0, s = 0; i < ns; i = k ) {
+                for( k = i + 1; k < ns && m8d3d_jseam[k] == m8d3d_jseam[i]; ++k ) {
+                }
+                if( (k - i) & 1 ) {
+                    m8d3d_jseam[s++] = m8d3d_jseam[i];
+                }
+            }
+            for( i = 0; ok && i + 1 < s; i += 2 ) {
+                ok = m8d3d_join_line( rx, ry, M8D3D_JOIN_SEAM, m8d3d_jseam[i], M8D3D_JOIN_SEAM, m8d3d_jseam[i + 1] );
+            }
+            k = from[nc];
+        }
+        if( !ok || !m8d3d_q_flush() ) {
+            return( 0 );
+        }
+        /* A fill a half for each colour, then its outline over the rows the fill leaves. */
+        for( j = 0; ok && j < nc; ++j ) {
+            int l = 639;
+            int r = 0;
+            int ct = 480;
+            int cb = 0;
+
+            for( i = from[j]; i < from[j + 1]; ++i ) {
+                const M8D3D_JEDGE *e = &m8d3d_je[i];
+
+                l = e->x0 < l ? e->x0 : l;
+                l = e->x1 < l ? e->x1 : l;
+                r = e->x0 > r ? e->x0 : r;
+                r = e->x1 > r ? e->x1 : r;
+                ct = e->y0 < ct ? e->y0 : ct;
+                cb = e->y1 > cb ? e->y1 : cb;
+            }
+            ok = m8d3d_join_fill( 1 << j, (BYTE)cols[j], dy, l, r + 1 < M8D3D_JOIN_SEAM ? r + 1 : M8D3D_JOIN_SEAM, ct, cb, lx, 0 ) &&
+                 m8d3d_join_fill( 1 << j, (BYTE)cols[j], dy, l > M8D3D_JOIN_SEAM ? l : M8D3D_JOIN_SEAM, r + 1, ct, cb, rx, ry );
+        }
+        if( !ok || !m8d3d_q_need( 6 ) ) {
+            return( 0 );
+        }
+        M8D3D_Q( M8_RD_MASK, 0x00FF );
+        M8D3D_Q( M8_WRT_MASK, 0x00FF );
+        M8D3D_Q( M8_DP_CONFIG, M8_DP_8514 );
+        M8D3D_Q( M8_ALU_FG_FN, M8_MIX_REPLACE );
+        M8D3D_Q( M8_LINEDRAW_OPT, 0 );
+        for( j = 0; ok && j < nc; ++j ) {
+            if( !m8d3d_q_need( 1 ) ) {
+                return( 0 );
+            }
+            M8D3D_Q( M8_FRGD_COLOR, cols[j] );
+            for( i = from[j]; ok && i < from[j + 1]; ++i ) {
+                const M8D3D_JEDGE *e = &m8d3d_je[i];
+
+                if( !m8d3d_q_need( 5 ) ) {
+                    return( 0 );
+                }
+                M8D3D_Q( M8_LINEDRAW_INDEX, 0 );
+                M8D3D_Q( M8_LINEDRAW, e->x0 );
+                M8D3D_Q( M8_LINEDRAW, dy + e->y0 );
+                M8D3D_Q( M8_LINEDRAW, e->x1 );
+                M8D3D_Q( M8_LINEDRAW, dy + e->y1 );
+            }
+        }
+        ok = ok && m8d3d_join_clear( (1 << nc) - 1, t, b + 1 );
+    }
+    m8d3d_stat[8] += n;
+    return( ok );
+}
+
 int m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const short *v, const WORD *index,
                   const DWORD *rgb, int n )
 {
@@ -2139,6 +2507,20 @@ int m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const shor
         c->fresh = 0;
     }
     if( ok && erase_n != 0 ) {
+        RECT    u = erase[0];
+
+        /* One rectangle over them all where its pixels cost less than the boxes' writes:
+         * a plain fill is ~15 ns a pixel, a box 5 writes of ~7.6 us. */
+        for( i = 1; i < erase_n; ++i ) {
+            u.left = erase[i].left < u.left ? erase[i].left : u.left;
+            u.top = erase[i].top < u.top ? erase[i].top : u.top;
+            u.right = erase[i].right > u.right ? erase[i].right : u.right;
+            u.bottom = erase[i].bottom > u.bottom ? erase[i].bottom : u.bottom;
+        }
+        if( erase_n > 1 && (long)(u.right - u.left) * (u.bottom - u.top) < (long)erase_n * 2500 ) {
+            erase = &u;
+            erase_n = 1;
+        }
         ok = m8d3d_q_need( 1 );
         M8D3D_Q( M8_FRGD_COLOR, black );
         for( i = 0; ok && i < erase_n; ++i ) {
@@ -2150,6 +2532,12 @@ int m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const shor
                 ok = m8d3d_q_flush();
             }
         }
+    }
+    if( ok && n != 0 && m8d3d_join_ok( c, v, n ) ) {
+        ok = m8d3d_mono_off() && m8d3d_q_flush() && m8d3d_join( c, dy, v, index, n );
+        n = 0;
+    } else if( n != 0 ) {
+        c->jclean = 0;
     }
     for( i = 0; ok && i < n; ++i ) {
         {
@@ -2243,6 +2631,7 @@ static DWORD __stdcall m8d3d_context_create( M8D3D_CONTEXTCREATE *d )
     c->seen_next = 0;
     c->clock = 0;
     c->credit = M8D3D_CREDIT_MAX;
+    c->jclean = 0;
     c->mh = 0;
     if( m8d3d_fb16() && c->sh > 2 * M8D3D_MASK_ROWS && c->tw > 128 ) {
         c->mx = c->sx;
