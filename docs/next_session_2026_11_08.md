@@ -2,6 +2,26 @@
 
 Earlier handoff: `docs/next_session_2026_11_07.md` (its "Open" list still stands, less what is below). **The cloud session's tests are in #59**: carry this line on until every box there is ticked. Results: `docs/captures/2026-11-07_shape/README.md` and `docs/captures/2026-11-07_r892/README.md`. Levers: `docs/mach8_frame_rate_plan.md`, "What a frame's time is made of", Y1-Y13.
 
+## START HERE: 2026-11-08, afternoon (owner out; resume when he has time)
+
+**Card state unknown.** Last known good: `M8D3EN`, boot 285. `M8D3EO` was being installed or run when the session's tool call failed ("agent froze"): first `v9xctl info` for the boot counter and `drv` in the registry; if wedged, ask the owner to restart. Reference picture of the intended look: `docs/captures/2026-11-08_tunnel/` (README has every run today).
+
+**Committed today:** `3d02cab` joined path for every tunnel frame + banded fills; `ced163d` texture palette (16 texture colours x 16 light levels; owner: "colours infinitely better", depth from the light steps, still big flat triangles, yellow triangular).
+
+**Not committed:** `drivers/mach8_display/wip/2026-11-08/tess_m8d3eo.patch` (apply to HEAD), two steps:
+1. `M8D3EN` (ran, owner did not see it): colour by the texture rectangle a triangle's corners span, cached; a quad's halves agree, so the diagonal cancels. Card: ours 90 ms (144-162), joined 194 (115-135), writes 8,209, frame 420 ms.
+2. `M8D3EO` (built, never measured): each textured triangle as 2 x 2 cells in texture space (`M8D3D_TESS`), texel at the cell centre, light blended from the corners (16-step Gouraud); grid points summed in a fixed corner order so shared edges land on the same pixels and cancel. `M8DD_TRIS_MAX` 1024 -> 2048 (~300 KB more DLL data: trim later) and `M8D3D_JOIN_EDGES` 6144. The per-quad sampler of step 1 is removed in this patch.
+
+**Next actions, in order:**
+1. Card state as above; install `M8D3EO` (`tools/m8cardscripts/install_h.ps1 -Dir <build> -Name M8D3EO -Run eo`), tunnel with `tunnel_card.ps1 -Settle 90 -Gap 60` while the owner watches. If it hangs before full screen (white window, egg timer), that is the DirectX-side hang seen at boot 279, not the build: rerun once at normal priority.
+2. Owner's eye against the reference: stripes as rectangles, symbols visible, light grading across walls. Then the cost; if writes or ours rise a lot, try `M8D3D_TESS` by size only where neighbours agree (a shared edge must have the same subdivision both sides, else XOR streaks).
+3. Smoothing the 16 light steps: S7 pattern fills (8 x 8 PATT_DATA at plain-fill cost) dithering between level n and n + 1; owner: pick the pattern per cell from an aperiodic (Penrose-like) sequence so the repeat never shows, "same but different for free"; owner: a small designed patch reused everywhere ("crunch anything repeating").
+4. Speed: join by wall colour with the light added in the fill (Z2/Z3; the palette's light is the low 4 bits); Z6 low-res modes; third page (Z7). The 7 shade colours were spread over the whole screen, so bands alone did not cut fill time (~135 ms of fill pixels at `M8D3EL`).
+5. Texture copy (Z1) is 1:1 only and 7-bit: use it for sprites, far walls and characters, not scaled walls.
+6. DirectXT is D14 in `docs/mach8_frame_rate_plan.md`: (a) profile D3DIM's share of the ~100 ms outside our driver. FPU fitted (387 class): float 2.97 us, fixed 1.53 us a multiply-add.
+
+Owner's direction (memory): 60 fps stays the goal, estimates are waypoints; DX 1-7 titles playable; changing DirectX itself allowed; delegate docs, GitHub and research to cheaper-model agents.
+
 ## START HERE: 2026-11-08, midday
 
 Card on `M8D3EL` (diagnostic counters; the committed source is the same less them), boot 283. Tunnel, normal priority, agent on: every frame joined (was ~half), 4,400 writes a frame (7,900), engine 166 ms, frame 346-355 ms, ~2.8 flips a second. Owner's eye: no holes, no flicker, flat colour blocks, still slow. Causes found: corners at x = 640 / y = 480 are legal; fallback frames overlapped by 3-9 % of the screen (no Z, painted far to near), now the leading run up to one screen is joined and the rest drawn singly on top. Fills by 32-row bands barely help: ~135 ms of the engine time is still fill pixels, the 7 shades seem spread over the whole screen. One hang (boot 279) froze at the white window before full screen, so in DirectX or the mode set, not the fill. FPU fitted (387 class): `M8FPU` float 2.97 us, fixed 1.53 us. **Next (owner: looks first, "as the developer intended"): software-renderer reference picture of the tunnel; D7 palette as hue x shade with the light added in the fill (Z2, Z3), joining by wall not shade; then the texture (Z1). DirectXT is D14 in the plan.**

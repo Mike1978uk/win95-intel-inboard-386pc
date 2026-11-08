@@ -1,0 +1,186 @@
+diff --git a/drivers/mach8_display/src/m8d3d.c b/drivers/mach8_display/src/m8d3d.c
+index 8fee8d2..a627b4e 100644
+--- a/drivers/mach8_display/src/m8d3d.c
++++ b/drivers/mach8_display/src/m8d3d.c
+@@ -2130,7 +2130,7 @@ static int m8d3d_tri_stamped( M8D3D_CONTEXT *c, int dx, int dy, const short *v,
+ #define M8D3D_JOIN_RY       512         /* the right half's first row */
+ #define M8D3D_JOIN_W        321
+ #define M8D3D_JOIN_MIN      16
+-#define M8D3D_JOIN_EDGES    3072
++#define M8D3D_JOIN_EDGES    6144
+ #define M8D3D_JOIN_BAND     32          /* rows a fill band */
+ #define M8D3D_JOIN_RUNS     8           /* x runs a band */
+ #define M8D3D_JOIN_FILL_PX  1600L       /* one fill's 9 writes and start, in polygon-fill pixels */
+@@ -3069,31 +3069,6 @@ static void m8d3d_pal_restore( void )
+     }
+ }
+ 
+-/* The texture's colour a triangle shows most, from its corners, edge middles and centre:
+- * a mean would mix yellow and grey into a colour the texture does not have. */
+-static int m8d3d_pal_tri( const M8D3D_TEX *t, const BYTE *bits, const M8D3D_TLVERTEX **a )
+-{
+-    static const BYTE   w[7][3] = { { 6, 0, 0 }, { 0, 6, 0 }, { 0, 0, 6 },
+-                                    { 3, 3, 0 }, { 0, 3, 3 }, { 3, 0, 3 }, { 2, 2, 2 } };
+-    int                 count[M8D3D_PAL_BASES];
+-    int                 best = 0;
+-    int                 i;
+-
+-    for( i = 0; i < m8d3d_pal_nb; ++i ) {
+-        count[i] = 0;
+-    }
+-    for( i = 0; i < 7; ++i ) {
+-        float   u = (a[0]->tu * w[i][0] + a[1]->tu * w[i][1] + a[2]->tu * w[i][2]) / 6.0f;
+-        float   v = (a[0]->tv * w[i][0] + a[1]->tv * w[i][1] + a[2]->tv * w[i][2]) / 6.0f;
+-        int     k = m8d3d_pal_find( m8d3d_texel( t, bits, u, v ) );
+-
+-        if( k >= 0 && ++count[k] > count[best] ) {
+-            best = k;
+-        }
+-    }
+-    return( best );
+-}
+-
+ static DWORD __stdcall m8d3d_texture_create( M8D3D_TEXTURECREATE *d )
+ {
+     int k;
+@@ -3341,6 +3316,104 @@ static void m8d3d_draw_clipped( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M
+ }
+ 
+ /* All three corners on the target. */
++/* A textured triangle as M8D3D_TESS x M8D3D_TESS cells in texture space, each in the texel
++ * at its centre at the light blended from the corners: the texture's stripes and marks then
++ * follow its own lines, not the triangle's, and the light grades across a wall. Neighbours
++ * of one colour share edges, which the joined path drops, so writes follow the texture's
++ * colour boundaries. Grid points are summed with the corners in one fixed order, so two
++ * triangles sharing an edge put its points on the same pixels and the edge cancels. */
++#define M8D3D_TESS  2
++
++typedef struct {
++    float   x;
++    float   y;
++    float   u;
++    float   v;
++    float   l;                  /* light, 0 to 15 */
++} M8D3D_TESSPT;
++
++static void m8d3d_tess( M8D3D_DRAW *p, const M8D3D_TLVERTEX **a, int lit, int depth )
++{
++    const M8D3D_TLVERTEX    *s[3];
++    M8D3D_TESSPT            g[(M8D3D_TESS + 1) * (M8D3D_TESS + 2) / 2];
++    float                   lv[3];
++    int                     row[M8D3D_TESS + 2];
++    int                     i;
++    int                     j;
++    int                     n = 0;
++
++    /* The corners by screen position: the order every triangle sharing them agrees on. */
++    s[0] = a[0];
++    s[1] = a[1];
++    s[2] = a[2];
++    for( i = 0; i < 2; ++i ) {
++        for( j = 0; j < 2 - i; ++j ) {
++            if( s[j]->sx > s[j + 1]->sx || (s[j]->sx == s[j + 1]->sx && s[j]->sy > s[j + 1]->sy) ) {
++                const M8D3D_TLVERTEX *t = s[j];
++
++                s[j] = s[j + 1];
++                s[j + 1] = t;
++            }
++        }
++    }
++    for( i = 0; i < 3; ++i ) {
++        DWORD c = s[i]->color;
++
++        lv[i] = lit ? (float)((c >> 16 & 255) + (c >> 8 & 255) + (c & 255)) * (15.0f / 765.0f) : 15.0f;
++    }
++    /* Point (i, j): weight i on corner 1, j on corner 2, the rest on corner 0. */
++    for( i = 0; i <= M8D3D_TESS; ++i ) {
++        row[i] = n;
++        for( j = 0; j <= M8D3D_TESS - i; ++j ) {
++            float   w0 = (float)(M8D3D_TESS - i - j);
++            float   w1 = (float)i;
++            float   w2 = (float)j;
++
++            g[n].x = (w0 * s[0]->sx + w1 * s[1]->sx + w2 * s[2]->sx) / M8D3D_TESS;
++            g[n].y = (w0 * s[0]->sy + w1 * s[1]->sy + w2 * s[2]->sy) / M8D3D_TESS;
++            g[n].u = (w0 * s[0]->tu + w1 * s[1]->tu + w2 * s[2]->tu) / M8D3D_TESS;
++            g[n].v = (w0 * s[0]->tv + w1 * s[1]->tv + w2 * s[2]->tv) / M8D3D_TESS;
++            g[n].l = (w0 * lv[0] + w1 * lv[1] + w2 * lv[2]) / M8D3D_TESS;
++            ++n;
++        }
++    }
++    for( i = 0; i < M8D3D_TESS && p->ok; ++i ) {
++        for( j = 0; j < M8D3D_TESS - i && p->ok; ++j ) {
++            int k;
++
++            /* Up: (i, j), (i + 1, j), (i, j + 1); down: (i + 1, j), (i + 1, j + 1), (i, j + 1). */
++            for( k = 0; k < 2 && p->ok; ++k ) {
++                const M8D3D_TESSPT  *t[3];
++                short               v[6];
++                DWORD               rgb;
++                DWORD               corners[3];
++                int                 m;
++                int                 level;
++                int                 b;
++
++                if( k == 1 && i + j == M8D3D_TESS - 1 ) {
++                    break;
++                }
++                t[0] = k == 0 ? &g[row[i] + j] : &g[row[i + 1] + j];
++                t[1] = k == 0 ? &g[row[i + 1] + j] : &g[row[i + 1] + j + 1];
++                t[2] = &g[row[i] + j + 1];
++                for( m = 0; m < 3; ++m ) {
++                    v[2 * m] = (short)m8d3d_round( t[m]->x );
++                    v[2 * m + 1] = (short)m8d3d_round( t[m]->y );
++                }
++                b = m8d3d_pal_find( m8d3d_texel( p->tex, p->texbits, (t[0]->u + t[1]->u + t[2]->u) / 3.0f,
++                                                 (t[0]->v + t[1]->v + t[2]->v) / 3.0f ) );
++                b = b < 0 ? 0 : b;
++                level = (int)m8d3d_round( (t[0]->l + t[1]->l + t[2]->l) / 3.0f );
++                level = level < 0 ? 0 : level > 15 ? 15 : level;
++                rgb = m8d3d_pal_rgb( b, level );
++                corners[0] = corners[1] = corners[2] = rgb;
++                p->ok = m8d3d_record( p->lcl, v, (BYTE)(b * 16 + level), m8d3d_565( rgb ), corners, depth );
++            }
++        }
++    }
++}
++
+ static void m8d3d_draw_on( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D_TLVERTEX *v1,
+                            const M8D3D_TLVERTEX *v2 )
+ {
+@@ -3398,19 +3471,10 @@ static void m8d3d_draw_on( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D_
+         m8d3d_pal_scan( p->tex, p->texbits );
+     }
+     if( p->tex != NULL && p->fb16 && m8d3d_pal_nb > 0 && !((c->rs_on >> M8D3D_RS_FOG) & 1) ) {
+-        int     k = m8d3d_pal_tri( p->tex, p->texbits, a );
+-        int     level = 15;
+-        DWORD   corners[3];
+-
+-        if( c->texblend == M8D3D_TEXBLEND_MODULATE || c->texblend == M8D3D_TEXBLEND_MODULATEALPHA ) {
+-            level = (int)(((rgb >> 16 & 255) + (rgb >> 8 & 255) + (rgb & 255)) * 15 + 382) / 765;
+-        }
+-        rgb = m8d3d_pal_rgb( k, level );
+-        corners[0] = corners[1] = corners[2] = rgb;
+         m8d3d_pal_want = 1;
+-        p->ok = m8d3d_record( p->lcl, v, (BYTE)(k * 16 + level), m8d3d_565( rgb ), corners,
+-                              ((c->rs_on >> M8D3D_RS_ZENABLE) & 1) && c->zfunc != M8D3D_CMP_ALWAYS ?
+-                              (int)m8d3d_round( (a[0]->sz + a[1]->sz + a[2]->sz) * M8D3D_DEPTH_SCALE ) : -1 );
++        m8d3d_tess( p, a, c->texblend == M8D3D_TEXBLEND_MODULATE || c->texblend == M8D3D_TEXBLEND_MODULATEALPHA,
++                    ((c->rs_on >> M8D3D_RS_ZENABLE) & 1) && c->zfunc != M8D3D_CMP_ALWAYS ?
++                    (int)m8d3d_round( (a[0]->sz + a[1]->sz + a[2]->sz) * M8D3D_DEPTH_SCALE ) : -1 );
+         return;
+     }
+     if( p->tex != NULL ) {
+diff --git a/drivers/mach8_display/src/m8dd32.c b/drivers/mach8_display/src/m8dd32.c
+index ad1ab91..6d331f7 100644
+--- a/drivers/mach8_display/src/m8dd32.c
++++ b/drivers/mach8_display/src/m8dd32.c
+@@ -564,7 +564,7 @@ static int m8dd_key_rect( const RECT *d, int sx, int sy, BYTE key )
+  * RAM does not hold them until something reads the buffer (m8dd_tris_to_ram),
+  * and Flip has the engine draw them. */
+ #define M8DD_DIRTY_MAX      8
+-#define M8DD_TRIS_MAX       1024
++#define M8DD_TRIS_MAX       2048
+ 
+ typedef struct {
+     int     known;
