@@ -2148,6 +2148,16 @@ static short        m8d3d_jseam[M8D3D_JOIN_EDGES * 2];
 static WORD         m8d3d_jtri[M8D3D_JOIN_EDGES / 3];  /* triangle numbers in colour order */
 static WORD         m8d3d_jfrom[257];                   /* each colour's first in m8d3d_jtri */
 
+/* Inner edges, met an even number of times in one colour, cancel. A hash finds an edge's first
+ * copy, whose parity each later copy flips; a count by colour then puts the outer edges in colour
+ * order. One pass each: a sort of the frame's edges ran at uncached speed, the array the size of
+ * the L1. */
+#define M8D3D_JHASH         8192
+static WORD         m8d3d_jhash[M8D3D_JHASH];           /* edge number + 1, 0 empty */
+static WORD         m8d3d_jused[M8D3D_JOIN_EDGES];      /* the slots to empty after */
+static BYTE         m8d3d_jodd[M8D3D_JOIN_EDGES];
+static M8D3D_JEDGE  m8d3d_je2[M8D3D_JOIN_EDGES];
+
 static int m8d3d_edge_cmp( const M8D3D_JEDGE *a, const M8D3D_JEDGE *b )
 {
     if( a->col != b->col ) {
@@ -2166,25 +2176,6 @@ static int m8d3d_edge_cmp( const M8D3D_JEDGE *a, const M8D3D_JEDGE *b )
 }
 
 /* Shell sort: no library calls from here. */
-static void m8d3d_edges_sort( M8D3D_JEDGE *e, int n )
-{
-    static const int    gaps[] = { 701, 301, 132, 57, 23, 10, 4, 1 };
-    int                 g;
-    int                 i;
-    int                 j;
-    M8D3D_JEDGE          t;
-
-    for( g = 0; g < 8; ++g ) {
-        for( i = gaps[g]; i < n; ++i ) {
-            t = e[i];
-            for( j = i; j >= gaps[g] && m8d3d_edge_cmp( &e[j - gaps[g]], &t ) > 0; j -= gaps[g] ) {
-                e[j] = e[j - gaps[g]];
-            }
-            e[j] = t;
-        }
-    }
-}
-
 static void m8d3d_shorts_sort( short *s, int n )
 {
     int     i;
@@ -2496,7 +2487,50 @@ static int m8d3d_join( M8D3D_CONTEXT *c, int dy, const short *v, const WORD *ind
             e->x1 = swap ? a[0] : b[0];
         }
     }
-    m8d3d_edges_sort( m8d3d_je, ne );
+    {
+        int nu = 0;
+
+        for( i = 0; i < ne; ++i ) {
+            const M8D3D_JEDGE   *e = &m8d3d_je[i];
+            unsigned            h = ((unsigned)e->col * 31u + (unsigned)e->y0 * 977u + (unsigned)e->x0 * 131u +
+                                     (unsigned)e->y1 * 7919u + (unsigned)e->x1 * 59u) & (M8D3D_JHASH - 1);
+
+            m8d3d_jodd[i] = 1;
+            for( ;; h = (h + 1) & (M8D3D_JHASH - 1) ) {
+                int f = m8d3d_jhash[h];
+
+                if( f == 0 ) {
+                    m8d3d_jhash[h] = (WORD)(i + 1);
+                    m8d3d_jused[nu++] = (WORD)h;
+                    break;
+                }
+                if( m8d3d_edge_cmp( &m8d3d_je[f - 1], e ) == 0 ) {
+                    m8d3d_jodd[f - 1] ^= 1;
+                    m8d3d_jodd[i] = 0;
+                    break;
+                }
+            }
+        }
+        for( i = 0; i < nu; ++i ) {
+            m8d3d_jhash[m8d3d_jused[i]] = 0;
+        }
+    }
+    memset( m8d3d_jfrom, 0, sizeof( m8d3d_jfrom ) );
+    for( i = 0; i < ne; ++i ) {
+        if( m8d3d_jodd[i] ) {
+            ++m8d3d_jfrom[m8d3d_je[i].col + 1];
+        }
+    }
+    for( i = 1; i < 257; ++i ) {
+        m8d3d_jfrom[i] += m8d3d_jfrom[i - 1];
+    }
+    nb = m8d3d_jfrom[256];
+    for( i = 0; i < ne; ++i ) {
+        if( m8d3d_jodd[i] ) {
+            m8d3d_je2[m8d3d_jfrom[m8d3d_je[i].col]++] = m8d3d_je[i];
+        }
+    }
+    memcpy( m8d3d_je, m8d3d_je2, nb * sizeof( M8D3D_JEDGE ) );
     memset( m8d3d_jfrom, 0, sizeof( m8d3d_jfrom ) );
     for( i = 0; i < n; ++i ) {
         ++m8d3d_jfrom[(index[i] & 0xFF) + 1];
@@ -2512,13 +2546,6 @@ static int m8d3d_join( M8D3D_CONTEXT *c, int dy, const short *v, const WORD *ind
         m8d3d_jfrom[i] = m8d3d_jfrom[i - 1];
     }
     m8d3d_jfrom[0] = 0;
-    for( i = 0; i < ne; i = j ) {
-        for( j = i + 1; j < ne && m8d3d_edge_cmp( &m8d3d_je[i], &m8d3d_je[j] ) == 0; ++j ) {
-        }
-        if( (j - i) & 1 ) {
-            m8d3d_je[nb++] = m8d3d_je[i];
-        }
-    }
     if( !c->jclean ) {
         /* The column held stamps and masks: forget them, and start every plane at 0. */
         memset( c->stamp, 0, sizeof( c->stamp ) );

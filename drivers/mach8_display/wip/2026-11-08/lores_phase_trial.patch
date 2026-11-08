@@ -1,0 +1,327 @@
+diff --git a/drivers/mach8_display/src/m8d3d.c b/drivers/mach8_display/src/m8d3d.c
+index c0f2f06..03823ff 100644
+--- a/drivers/mach8_display/src/m8d3d.c
++++ b/drivers/mach8_display/src/m8d3d.c
+@@ -465,6 +465,8 @@ typedef struct {
+ static M8D3D_TEX        m8d3d_texs[M8D3D_TEXTURES];
+ static int              m8d3d_pal_want;     /* a frame was drawn in the texture palette's indices */
+ static int              m8d3d_pal_on;       /* the DAC holds it, the old one in m8d3d_pal_saved */
++static int              m8d3d_lores;        /* trial: 640x480 drawn at half size, shown as 320x240 */
++static void             m8d3d_lores_set( void );
+ static void             m8d3d_pal_load( void );
+ static void             m8d3d_pal_restore( void );
+ 
+@@ -648,7 +650,10 @@ static M8D3D_CONTEXT    m8d3d_ctx[M8D3D_CONTEXTS];
+  * triangles; [15] flips; in Blt: [16] ticks, [17] calls, [18] full clears described;
+  * [19] page wait ticks; [20] triangles drawn from a mask; [21] masks built;
+  * [22] triangles stamped; [23] stamps built; [24] ticks in RenderPrimitive. */
+-DWORD                   m8d3d_stat[34];      /* 25: engine writes sent, 26: triangle pieces drawn, 27-33: m8dd_tri_census */
++DWORD                   m8d3d_stat[44];      /* 25: engine writes sent, 26: triangle pieces drawn, 27-33: m8dd_tri_census, 34-35: FIFO waits, 36-43: Flip phases */
++/* Diagnostic: clock ticks since the last mark, into phase k. */
++static LARGE_INTEGER    m8d3d_ph;
++#define M8D3D_PH( k ) do { LARGE_INTEGER t_; QueryPerformanceCounter( &t_ ); m8d3d_stat[k] += t_.LowPart - m8d3d_ph.LowPart; m8d3d_ph = t_; } while( 0 )
+ /* Flip off its fast path: GDI touched the card, slow flips, then why. */
+ DWORD                   m8d3d_flip_why[6];
+ 
+@@ -720,7 +725,7 @@ static WORD m8d3d_565( DWORD rgb )
+ /* Any port access empties the CPU's cache here, so C run between OUTs runs from RAM: a triangle's
+  * lookups cost ~11 us after one another and ~150 us with an OUT between. A frame's engine writes
+  * are worked out first with the cache intact, kept here in order, then sent in one loop. */
+-#define M8D3D_Q_MAX     1024
++#define M8D3D_Q_MAX     8192
+ /* Room for this many, not the FIFO's whole 16: waiting for it to empty leaves the engine idle when
+  * a long fill ends, with the next command still crossing the bus. */
+ #define M8D3D_Q_CHUNK   8
+@@ -2148,6 +2153,16 @@ static short        m8d3d_jseam[M8D3D_JOIN_EDGES * 2];
+ static WORD         m8d3d_jtri[M8D3D_JOIN_EDGES / 3];  /* triangle numbers in colour order */
+ static WORD         m8d3d_jfrom[257];                   /* each colour's first in m8d3d_jtri */
+ 
++/* Inner edges, met an even number of times in one colour, cancel. A hash finds an edge's first
++ * copy, whose parity each later copy flips; a count by colour then puts the outer edges in colour
++ * order. One pass each: a sort of the frame's edges ran at uncached speed, the array the size of
++ * the L1. */
++#define M8D3D_JHASH         8192
++static WORD         m8d3d_jhash[M8D3D_JHASH];           /* edge number + 1, 0 empty */
++static WORD         m8d3d_jused[M8D3D_JOIN_EDGES];      /* the slots to empty after */
++static BYTE         m8d3d_jodd[M8D3D_JOIN_EDGES];
++static M8D3D_JEDGE  m8d3d_je2[M8D3D_JOIN_EDGES];
++
+ static int m8d3d_edge_cmp( const M8D3D_JEDGE *a, const M8D3D_JEDGE *b )
+ {
+     if( a->col != b->col ) {
+@@ -2166,25 +2181,6 @@ static int m8d3d_edge_cmp( const M8D3D_JEDGE *a, const M8D3D_JEDGE *b )
+ }
+ 
+ /* Shell sort: no library calls from here. */
+-static void m8d3d_edges_sort( M8D3D_JEDGE *e, int n )
+-{
+-    static const int    gaps[] = { 701, 301, 132, 57, 23, 10, 4, 1 };
+-    int                 g;
+-    int                 i;
+-    int                 j;
+-    M8D3D_JEDGE          t;
+-
+-    for( g = 0; g < 8; ++g ) {
+-        for( i = gaps[g]; i < n; ++i ) {
+-            t = e[i];
+-            for( j = i; j >= gaps[g] && m8d3d_edge_cmp( &e[j - gaps[g]], &t ) > 0; j -= gaps[g] ) {
+-                e[j] = e[j - gaps[g]];
+-            }
+-            e[j] = t;
+-        }
+-    }
+-}
+-
+ static void m8d3d_shorts_sort( short *s, int n )
+ {
+     int     i;
+@@ -2496,7 +2492,50 @@ static int m8d3d_join( M8D3D_CONTEXT *c, int dy, const short *v, const WORD *ind
+             e->x1 = swap ? a[0] : b[0];
+         }
+     }
+-    m8d3d_edges_sort( m8d3d_je, ne );
++    {
++        int nu = 0;
++
++        for( i = 0; i < ne; ++i ) {
++            const M8D3D_JEDGE   *e = &m8d3d_je[i];
++            unsigned            h = ((unsigned)e->col * 31u + (unsigned)e->y0 * 977u + (unsigned)e->x0 * 131u +
++                                     (unsigned)e->y1 * 7919u + (unsigned)e->x1 * 59u) & (M8D3D_JHASH - 1);
++
++            m8d3d_jodd[i] = 1;
++            for( ;; h = (h + 1) & (M8D3D_JHASH - 1) ) {
++                int f = m8d3d_jhash[h];
++
++                if( f == 0 ) {
++                    m8d3d_jhash[h] = (WORD)(i + 1);
++                    m8d3d_jused[nu++] = (WORD)h;
++                    break;
++                }
++                if( m8d3d_edge_cmp( &m8d3d_je[f - 1], e ) == 0 ) {
++                    m8d3d_jodd[f - 1] ^= 1;
++                    m8d3d_jodd[i] = 0;
++                    break;
++                }
++            }
++        }
++        for( i = 0; i < nu; ++i ) {
++            m8d3d_jhash[m8d3d_jused[i]] = 0;
++        }
++    }
++    memset( m8d3d_jfrom, 0, sizeof( m8d3d_jfrom ) );
++    for( i = 0; i < ne; ++i ) {
++        if( m8d3d_jodd[i] ) {
++            ++m8d3d_jfrom[m8d3d_je[i].col + 1];
++        }
++    }
++    for( i = 1; i < 257; ++i ) {
++        m8d3d_jfrom[i] += m8d3d_jfrom[i - 1];
++    }
++    nb = m8d3d_jfrom[256];
++    for( i = 0; i < ne; ++i ) {
++        if( m8d3d_jodd[i] ) {
++            m8d3d_je2[m8d3d_jfrom[m8d3d_je[i].col]++] = m8d3d_je[i];
++        }
++    }
++    memcpy( m8d3d_je, m8d3d_je2, nb * sizeof( M8D3D_JEDGE ) );
+     memset( m8d3d_jfrom, 0, sizeof( m8d3d_jfrom ) );
+     for( i = 0; i < n; ++i ) {
+         ++m8d3d_jfrom[(index[i] & 0xFF) + 1];
+@@ -2512,13 +2551,6 @@ static int m8d3d_join( M8D3D_CONTEXT *c, int dy, const short *v, const WORD *ind
+         m8d3d_jfrom[i] = m8d3d_jfrom[i - 1];
+     }
+     m8d3d_jfrom[0] = 0;
+-    for( i = 0; i < ne; i = j ) {
+-        for( j = i + 1; j < ne && m8d3d_edge_cmp( &m8d3d_je[i], &m8d3d_je[j] ) == 0; ++j ) {
+-        }
+-        if( (j - i) & 1 ) {
+-            m8d3d_je[nb++] = m8d3d_je[i];
+-        }
+-    }
+     if( !c->jclean ) {
+         /* The column held stamps and masks: forget them, and start every plane at 0. */
+         memset( c->stamp, 0, sizeof( c->stamp ) );
+@@ -2535,6 +2567,7 @@ static int m8d3d_join( M8D3D_CONTEXT *c, int dy, const short *v, const WORD *ind
+         }
+         c->jclean = 1;
+     }
++    M8D3D_PH( 37 );
+     /* Up to 8 colours a pass, a plane each. */
+     for( first = 0; ok && first < nb; first = k ) {
+         int     cols[8];
+@@ -2622,6 +2655,7 @@ static int m8d3d_join( M8D3D_CONTEXT *c, int dy, const short *v, const WORD *ind
+         if( !ok || !m8d3d_q_flush() ) {
+             return( 0 );
+         }
++        M8D3D_PH( 38 );
+         /* Each colour's fill, then its outline over the rows the fill leaves. */
+         for( j = 0; ok && j < nc; ++j ) {
+             int ct = 480;
+@@ -2635,6 +2669,7 @@ static int m8d3d_join( M8D3D_CONTEXT *c, int dy, const short *v, const WORD *ind
+                  m8d3d_join_fill_bands( dy, v, m8d3d_jtri + m8d3d_jfrom[cols[j]],
+                                         m8d3d_jfrom[cols[j] + 1] - m8d3d_jfrom[cols[j]], ct + 1, cb );
+         }
++        M8D3D_PH( 39 );
+         if( !ok || !m8d3d_q_need( 6 ) ) {
+             return( 0 );
+         }
+@@ -2663,6 +2698,7 @@ static int m8d3d_join( M8D3D_CONTEXT *c, int dy, const short *v, const WORD *ind
+             }
+         }
+         ok = ok && m8d3d_join_clear( (1 << nc) - 1, t, b + 1 );
++        M8D3D_PH( 40 );
+     }
+     m8d3d_stat[8] += n;
+     return( ok );
+@@ -2691,8 +2727,13 @@ int m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const shor
+     m8d3d_mono_on = 0;
+     m8d3d_stamp_mode = 0;
+     m8d3d_qn = 0;
++    QueryPerformanceCounter( &m8d3d_ph );
+     if( m8d3d_pal_want && !m8d3d_pal_on ) {
+         m8d3d_pal_load();
++        if( c->sw == 640 ) {
++            m8d3d_lores_set();
++            m8d3d_lores = 1;
++        }
+     }
+     if( c->fresh ) {
+         ok = m8d3d_scratch_clear( c );
+@@ -2729,6 +2770,7 @@ int m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const shor
+         }
+     }
+     first = ok && n != 0 ? m8d3d_join_ok( c, v, n ) : 0;
++    M8D3D_PH( 36 );
+     if( first != 0 ) {
+         ok = m8d3d_mono_off() && m8d3d_q_flush() && m8d3d_join( c, dy, v, index, first );
+     }
+@@ -2736,6 +2778,7 @@ int m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const shor
+         /* The one-at-a-time path keeps stamps and masks in the joined path's scratch. */
+         c->jclean = 0;
+     }
++    M8D3D_PH( 40 );
+     for( i = first; ok && i < n; ++i ) {
+         {
+             const DWORD *g = rgb + 3 * i;
+@@ -2764,6 +2807,7 @@ int m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const shor
+         }
+         ++m8d3d_stat[8];
+     }
++    M8D3D_PH( 41 );
+     if( ok ) {
+         ok = m8d3d_mono_off();
+     }
+@@ -2778,7 +2822,9 @@ int m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const shor
+     if( !m8d3d_q_flush() ) {
+         ok = 0;
+     }
++    M8D3D_PH( 42 );
+     m8d3d_engine_end();
++    M8D3D_PH( 43 );
+     if( !ok ) {
+         ++m8d3d_stat[11];
+     }
+@@ -2970,6 +3016,41 @@ extern void m8d3d_outb( unsigned port, unsigned v );
+ extern unsigned m8d3d_inb( unsigned port );
+ #pragma aux m8d3d_inb = "xor eax, eax" "in al, dx" parm [edx] value [eax] modify exact [eax];
+ 
++extern void m8d3d_outw( unsigned port, unsigned v );
++#pragma aux m8d3d_outw = "out dx, ax" parm [edx] [eax] modify exact [];
++
++/* Trial (Z6): shadow set 1 as 320x240, double scan and the pixel clock halved, at
++ * 640x480's line and frame rate (M8LORES). The next mode set rewrites set 1 whole. */
++static void m8d3d_lores_set( void )
++{
++    static const WORD   port[8] = { 0x02E8, 0x06E8, 0x0AE8, 0x0EE8, 0x12E8, 0x16E8, 0x1AE8, 0x1EE8 };
++    static const WORD   val[8] = { 0x34, 0x27, 0x29, 0x03, 0x0209, 0x01DF, 0x01EC, 0x03 };
++    int                 i;
++
++    m8d3d_outw( 0x22E8, 0x0060 );
++    m8d3d_outw( 0x4AE8, 0x0002 );
++    m8d3d_outb( 0x7AEE, 0x0A );
++    m8d3d_outw( 0x22E8, 0x0020 );
++    m8d3d_outw( 0x5AEE, 0x0001 );
++    m8d3d_outw( 0x46EE, 0x0000 );
++    for( i = 0; i < 8; ++i ) {
++        if( i < 4 || i == 7 ) {
++            m8d3d_outb( port[i], val[i] );
++        } else {
++            m8d3d_outw( port[i], val[i] );
++        }
++    }
++    m8d3d_outb( 0x22E8, 0x2B );
++    m8d3d_outw( 0x4AEE, 0x1864 );
++    m8d3d_outw( 0x46EE, 0x003F );
++    m8d3d_outw( 0x5AEE, 0x0000 );
++    m8d3d_outw( 0x46EE, 0x0000 );
++    m8d3d_outw( 0x22E8, 0x0060 );
++    m8d3d_outw( 0x4AE8, 0x0003 );
++    m8d3d_outb( 0x7AEE, 0x0A );
++    m8d3d_outw( 0x22E8, 0x0028 );
++}
++
+ static DWORD m8d3d_rgb16( const M8D3D_TEX *t, DWORD p )
+ {
+     if( t->is555 ) {
+@@ -3068,6 +3149,7 @@ static void m8d3d_pal_restore( void )
+     }
+     m8d3d_pal_on = 0;
+     m8d3d_pal_want = 0;
++    m8d3d_lores = 0;
+     m8d3d_pal_nb = 0;
+     for( i = 0; i < M8D3D_TEXTURES; ++i ) {
+         m8d3d_texs[i].scanned = 0;
+@@ -3395,8 +3477,8 @@ static void m8d3d_draw_on( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D_
+     a[1] = v1;
+     a[2] = v2;
+     for( j = 0; j < 3; ++j ) {
+-        v[2 * j] = (short)m8d3d_round( a[j]->sx );
+-        v[2 * j + 1] = (short)m8d3d_round( a[j]->sy );
++        v[2 * j] = (short)m8d3d_round( a[j]->sx * 0.5f );
++        v[2 * j + 1] = (short)m8d3d_round( a[j]->sy * 0.5f );
+     }
+     {
+         int     lx = v[0] < v[2] ? v[0] : v[2];
+diff --git a/drivers/mach8_display/src/m8dd32.c b/drivers/mach8_display/src/m8dd32.c
+index ad1ab91..d9b853c 100644
+--- a/drivers/mach8_display/src/m8dd32.c
++++ b/drivers/mach8_display/src/m8dd32.c
+@@ -30,7 +30,7 @@
+ extern void m8d3d_init( DWORD *global, DWORD *callbacks, DWORD *driver_info );
+ extern int  m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const short *v,
+                          const WORD *index, const DWORD *rgb, int n );
+-extern DWORD m8d3d_stat[34];
++extern DWORD m8d3d_stat[44];
+ extern DWORD m8d3d_flip_why[6];
+ 
+ /* The head of dd16.c's M8DD_SHARE. */
+@@ -2281,11 +2281,14 @@ int m8d3d_room( int n )
+         m8d3d_free -= n;
+         return( 1 );
+     }
++    ++m8d3d_stat[35];
+     for( i = 0; i < M8_WAIT_LIMIT; ++i ) {
+         s = inpw( M8_EXT_FIFO_STATUS );
+         if( !(s & (0x8000 >> n)) ) {
+             int f = n;
+ 
++            m8d3d_stat[34] += i;
++
+             while( f < 15 && !(s & (0x8000 >> (f + 1))) ) {
+                 ++f;
+             }
+diff --git a/tools/m8d3dtest/M8CENSUS.C b/tools/m8d3dtest/M8CENSUS.C
+index bfa07a0..7858519 100644
+--- a/tools/m8d3dtest/M8CENSUS.C
++++ b/tools/m8d3dtest/M8CENSUS.C
+@@ -123,6 +123,10 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
+                      (unsigned long)st[24], (unsigned long)st[12], (unsigned long)st[14], (unsigned long)st[15],
+                      (unsigned long)st[19] );
+             fprintf( o, "writes %lu pieces %lu\n", (unsigned long)st[25], (unsigned long)st[26] );
++            fprintf( o, "fifo full reads %lu waits %lu\n", (unsigned long)st[34], (unsigned long)st[35] );
++            fprintf( o, "phases %lu %lu %lu %lu %lu %lu %lu %lu\n", (unsigned long)st[36], (unsigned long)st[37],
++                     (unsigned long)st[38], (unsigned long)st[39], (unsigned long)st[40], (unsigned long)st[41],
++                     (unsigned long)st[42], (unsigned long)st[43] );
+             fprintf( o, "sizes %lu %lu %lu %lu joined %lu %lu colours %lu\n", (unsigned long)st[27], (unsigned long)st[28],
+                      (unsigned long)st[29], (unsigned long)st[30], (unsigned long)st[31], (unsigned long)st[32], (unsigned long)st[33] );
+         }
