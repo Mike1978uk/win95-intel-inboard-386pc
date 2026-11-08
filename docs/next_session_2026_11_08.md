@@ -4,7 +4,7 @@ Earlier handoff: `docs/next_session_2026_11_07.md` (its "Open" list still stands
 
 ## START HERE: 2026-11-08, afternoon (owner out; resume when he has time)
 
-**Card state unknown.** Last known good: `M8D3EN`, boot 285. `M8D3EO` was being installed or run when the session's tool call failed ("agent froze"): first `v9xctl info` for the boot counter and `drv` in the registry; if wedged, ask the owner to restart. Reference picture of the intended look: `docs/captures/2026-11-08_tunnel/` (README has every run today).
+**Card state unknown.** Last known good: `M8D3EN`, boot 285. `M8D3EO` was being installed or run when the session's tool call failed; owner: the 5160 froze, then restarted (start-up tone). Not known whether the freeze came in the install restart or in the tunnel on `M8D3EO`; the registry most likely selects `m8d3eo.drv` now: first `v9xctl info` for the boot counter and `drv` in the registry; if wedged, ask the owner to restart. Reference picture of the intended look: `docs/captures/2026-11-08_tunnel/` (README has every run today).
 
 **Committed today:** `3d02cab` joined path for every tunnel frame + banded fills; `ced163d` texture palette (16 texture colours x 16 light levels; owner: "colours infinitely better", depth from the light steps, still big flat triangles, yellow triangular).
 
