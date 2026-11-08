@@ -9,6 +9,9 @@ Earlier handoff: `docs/next_session_2026_11_07.md` (its "Open" list still stands
 - Next build, in progress: back to one colour per quad (`M8D3EN` behaviour) + depth layers (Z10) + light in fill.
 - Then Z1 near texture, Z11 far picture, Z12 aperiodic pattern (`docs/mach8_frame_rate_plan.md`).
 - Fixed point, not float, in the per-piece path: float 2.97 us vs fixed 1.53 us a multiply-add.
+- Card on `M8D3EP` (committed, 670d15b), boot 290.
+- `M8D3EP` result: still stepping; 450 ms a frame, writes 8,065; far merge barely cuts writes, near-triangle fill pixels dominate.
+- Next, in order: Z6 low-res mode trial (owner's eye), light in fill (Z2/Z3), Z13 shapes on near walls. Exit hang open (test the tunnel close on ATI's driver).
 
 ## START HERE: 2026-11-08, afternoon (owner out; resume when he has time)
 

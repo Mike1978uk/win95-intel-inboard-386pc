@@ -630,6 +630,7 @@ Owner: more capability from the card, not the CPU or bus; textures and what Dire
 | Z10 | Detail by depth layer (owner, 11-08) | Far: merged dark flat patches, light only; middle: one colour per wall quad + light in fill (Z2/Z3); near: Z1 texture copy + S7 pattern | Tunnel census by size band | Next build |
 | Z11 | Far layer as a reused picture (owner, 11-08: parallax) | Far disc kept off screen, one card-to-card copy a frame, shifted with the camera, redrawn every few frames | Owner's eye on lag when turning | After Z10 |
 | Z12 | Aperiodic pattern per cell (owner, 11-08: Penrose) | S7 8x8 pattern fill at plain-fill cost, chosen per cell from an aperiodic sequence: grain and smoothed light, no visible repeat; screen-aligned, not perspective | Owner's eye | With Z10 near/middle |
+| Z13 | Texture as shapes (owner, 11-08) | Near walls: tex2's ~20 flat regions (seams, hazard stripes, clock panel) as polygons through the wall's corners; stone one grey + Z12 pattern | Owner's eye vs reference | After Z6 and light in fill |
 
 Texture path for the HAL, in order: claim formats and handles, mean texel per triangle so textured programs run at all; then Z1 from an atlas, pre-scaled levels picked by triangle size, where a shift is close enough; CT3 cells for the rest. Z5 showed the engine steps a source along a span and a line, so rows and lines can carry a texture; it still does not scale, so scale comes from pre-scaled levels.
 

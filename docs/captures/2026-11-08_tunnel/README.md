@@ -30,3 +30,22 @@ Owner's eye: started on the card, then after a few frames looked like software. 
 Reading: 4x pieces overflow the triangle list (`M8DD_TRIS_MAX` 2048), so flips take the slow RAM path. Per-cell float maths on the 387 is the 7x in ours. One texel per cell turns diagonal stripe edges into small triangles.
 
 Negative result: blanket tessellation is out. Patch kept at `drivers/mach8_display/wip/2026-11-08/tess_m8d3eo.patch`, not committed.
+
+## M8D3EP (detail by depth layer), evening
+
+Card boot 289, normal priority, agent on, label `ep1`, `tunnel_card.ps1 -Settle 90 -Gap 60`.
+
+- Per flip ours 128.1 ms, engine 227 ms; flips 140 in the ~60 s window (about 450 ms a frame).
+- Writes 8,065, pieces 174; sizes 1-4 15.7 / 5-16 154.7 / 17-64 137.8 / 65+ 37.6.
+- Joined same colour 191.2, any colour 322.2, colours 37.7. Flipwhy: slow 1 (first frame), boxes 0.
+- Owner: "the run was good, still stepping".
+
+Reading: far merge barely cuts writes; the cost is fill pixels of near large triangles, so Z6 (low-res) and light in the fill (Z2/Z3) are the speed levers. 3x3 float sampling put ours up ~38 ms over M8D3EN.
+
+Hang at exit: the 5160 stopped answering after Alt+F4 closed the tunnel (census already taken); owner restarted it, boot 290. Open: close the tunnel on ATI's driver a few times to split ours (DAC restore, page state) from DirectX.
+
+### tex2.bmp shapes
+
+256 x 256, 4 bpp, 14 colours used; ~95 % grey stonework as dithered noise (2,454 single-colour regions). With the 9 greys merged as stone: 63 regions, 20 over 32 px: 7 stone panels between black seam lines, a black/yellow hazard stripe band (rows 173-195), a yellow panel (x 193-250, y 40-97) with black marks (the owner's "clock"), 43 specks under 4 px.
+
+Plan (Z13, owner 11-08): near walls drawn as these ~20 polygons mapped through the wall's corners, stone as one grey plus the Z12 aperiodic pattern.
