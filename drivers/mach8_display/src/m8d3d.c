@@ -459,9 +459,14 @@ typedef struct {
     int     w;
     int     h;
     int     is555;
+    int     scanned;            /* its colours are in m8d3d_pal_base */
 } M8D3D_TEX;
 
 static M8D3D_TEX        m8d3d_texs[M8D3D_TEXTURES];
+static int              m8d3d_pal_want;     /* a frame was drawn in the texture palette's indices */
+static int              m8d3d_pal_on;       /* the DAC holds it, the old one in m8d3d_pal_saved */
+static void             m8d3d_pal_load( void );
+static void             m8d3d_pal_restore( void );
 
 /* What programs ask of this interface, across every context until restart, so real programs
  * can rank what to build: docs/mach8_frame_rate_plan.md, the census. A few additions a call. */
@@ -2686,6 +2691,9 @@ int m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const shor
     m8d3d_mono_on = 0;
     m8d3d_stamp_mode = 0;
     m8d3d_qn = 0;
+    if( m8d3d_pal_want && !m8d3d_pal_on ) {
+        m8d3d_pal_load();
+    }
     if( c->fresh ) {
         ok = m8d3d_scratch_clear( c );
         if( ok && c->mh != 0 ) {
@@ -2868,6 +2876,7 @@ static DWORD __stdcall m8d3d_context_destroy( M8D3D_CONTEXTDESTROY *d )
     if( c != NULL ) {
         m8d3d_context_free( c );
     }
+    m8d3d_pal_restore();
     d->ddrval = DD_OK;
     return( DDHAL_DRIVER_HANDLED );
 }
@@ -2945,6 +2954,146 @@ static M8D3D_TEX *m8d3d_tex_of( DWORD h )
     return( h == 0 || h > M8D3D_TEXTURES || m8d3d_texs[h - 1].dds == NULL ? NULL : &m8d3d_texs[h - 1] );
 }
 
+/* A program whose textures hold 16 colours or fewer gets a palette of its own: each colour at
+ * 16 light levels, index = colour * 16 + level. Lit texels then keep the author's colours,
+ * where the 5 x 9 x 5 cube turns them to a few greys. More colours keep the cube. */
+#define M8D3D_PAL_BASES     16
+#define M8D3D_PAL_LEVELS    16
+
+static DWORD    m8d3d_pal_base[M8D3D_PAL_BASES];
+static int      m8d3d_pal_nb;           /* -1: too many colours, the cube stays */
+static BYTE     m8d3d_pal_saved[768];
+
+extern void m8d3d_outb( unsigned port, unsigned v );
+#pragma aux m8d3d_outb = "out dx, al" parm [edx] [eax] modify exact [];
+extern unsigned m8d3d_inb( unsigned port );
+#pragma aux m8d3d_inb = "xor eax, eax" "in al, dx" parm [edx] value [eax] modify exact [eax];
+
+static DWORD m8d3d_rgb16( const M8D3D_TEX *t, DWORD p )
+{
+    if( t->is555 ) {
+        return( ((p & 0x7C00) << 9) | ((p & 0x03E0) << 6) | ((p & 0x001F) << 3) );
+    }
+    return( ((p & 0xF800) << 8) | ((p & 0x07E0) << 5) | ((p & 0x001F) << 3) );
+}
+
+static int m8d3d_pal_find( DWORD rgb )
+{
+    int k;
+
+    for( k = 0; k < m8d3d_pal_nb; ++k ) {
+        if( m8d3d_pal_base[k] == rgb ) {
+            return( k );
+        }
+    }
+    return( -1 );
+}
+
+/* Adds a texture's colours, once. Read at first use: at create its bits may not be loaded. */
+static void m8d3d_pal_scan( M8D3D_TEX *t, const BYTE *bits )
+{
+    DWORD   last = 0xFFFFFFFFUL;
+    int     x;
+    int     y;
+
+    if( t->scanned ) {
+        return;
+    }
+    t->scanned = 1;
+    for( y = 0; y < t->h && m8d3d_pal_nb >= 0; ++y ) {
+        const WORD *row = (const WORD *)(bits + y * t->pitch);
+
+        for( x = 0; x < t->w; ++x ) {
+            DWORD rgb;
+
+            if( row[x] == last ) {
+                continue;
+            }
+            last = row[x];
+            rgb = m8d3d_rgb16( t, last );
+            if( m8d3d_pal_find( rgb ) < 0 ) {
+                if( m8d3d_pal_nb == M8D3D_PAL_BASES ) {
+                    m8d3d_pal_nb = -1;
+                    return;
+                }
+                m8d3d_pal_base[m8d3d_pal_nb++] = rgb;
+            }
+        }
+    }
+}
+
+static DWORD m8d3d_pal_rgb( int k, int level )
+{
+    DWORD b = m8d3d_pal_base[k];
+
+    return( ((b >> 16 & 255) * level / 15) << 16 | ((b >> 8 & 255) * level / 15) << 8 |
+            (b & 255) * level / 15 );
+}
+
+/* At Flip, before the first frame in the palette's indices: the 8514 DAC, 6 bits a gun. */
+static void m8d3d_pal_load( void )
+{
+    int i;
+
+    m8d3d_outb( 0x02EB, 0 );
+    for( i = 0; i < 768; ++i ) {
+        m8d3d_pal_saved[i] = (BYTE)m8d3d_inb( 0x02ED );
+    }
+    m8d3d_outb( 0x02EA, 0xFF );
+    m8d3d_outb( 0x02EC, 0 );
+    for( i = 0; i < 256; ++i ) {
+        DWORD rgb = i >> 4 < m8d3d_pal_nb ? m8d3d_pal_rgb( i >> 4, i & 15 ) : 0;
+
+        m8d3d_outb( 0x02ED, (rgb >> 16 & 255) >> 2 );
+        m8d3d_outb( 0x02ED, (rgb >> 8 & 255) >> 2 );
+        m8d3d_outb( 0x02ED, (rgb & 255) >> 2 );
+    }
+    m8d3d_pal_on = 1;
+}
+
+static void m8d3d_pal_restore( void )
+{
+    int i;
+
+    if( m8d3d_pal_on ) {
+        m8d3d_outb( 0x02EC, 0 );
+        for( i = 0; i < 768; ++i ) {
+            m8d3d_outb( 0x02ED, m8d3d_pal_saved[i] );
+        }
+    }
+    m8d3d_pal_on = 0;
+    m8d3d_pal_want = 0;
+    m8d3d_pal_nb = 0;
+    for( i = 0; i < M8D3D_TEXTURES; ++i ) {
+        m8d3d_texs[i].scanned = 0;
+    }
+}
+
+/* The texture's colour a triangle shows most, from its corners, edge middles and centre:
+ * a mean would mix yellow and grey into a colour the texture does not have. */
+static int m8d3d_pal_tri( const M8D3D_TEX *t, const BYTE *bits, const M8D3D_TLVERTEX **a )
+{
+    static const BYTE   w[7][3] = { { 6, 0, 0 }, { 0, 6, 0 }, { 0, 0, 6 },
+                                    { 3, 3, 0 }, { 0, 3, 3 }, { 3, 0, 3 }, { 2, 2, 2 } };
+    int                 count[M8D3D_PAL_BASES];
+    int                 best = 0;
+    int                 i;
+
+    for( i = 0; i < m8d3d_pal_nb; ++i ) {
+        count[i] = 0;
+    }
+    for( i = 0; i < 7; ++i ) {
+        float   u = (a[0]->tu * w[i][0] + a[1]->tu * w[i][1] + a[2]->tu * w[i][2]) / 6.0f;
+        float   v = (a[0]->tv * w[i][0] + a[1]->tv * w[i][1] + a[2]->tv * w[i][2]) / 6.0f;
+        int     k = m8d3d_pal_find( m8d3d_texel( t, bits, u, v ) );
+
+        if( k >= 0 && ++count[k] > count[best] ) {
+            best = k;
+        }
+    }
+    return( best );
+}
+
 static DWORD __stdcall m8d3d_texture_create( M8D3D_TEXTURECREATE *d )
 {
     int k;
@@ -2956,6 +3105,7 @@ static DWORD __stdcall m8d3d_texture_create( M8D3D_TEXTURECREATE *d )
         return( DDHAL_DRIVER_HANDLED );
     }
     m8d3d_texs[k].dds = d->lpDDS;
+    m8d3d_texs[k].scanned = 0;
     d->dwHandle = k + 1;
     ++m8d3d_census.tex_created;
     {
@@ -3244,6 +3394,25 @@ static void m8d3d_draw_on( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D_
         return;
     }
     rgb = m8d3d_mean( a[0]->color, a[1]->color, a[2]->color );
+    if( p->tex != NULL && p->fb16 && !((c->rs_on >> M8D3D_RS_FOG) & 1) ) {
+        m8d3d_pal_scan( p->tex, p->texbits );
+    }
+    if( p->tex != NULL && p->fb16 && m8d3d_pal_nb > 0 && !((c->rs_on >> M8D3D_RS_FOG) & 1) ) {
+        int     k = m8d3d_pal_tri( p->tex, p->texbits, a );
+        int     level = 15;
+        DWORD   corners[3];
+
+        if( c->texblend == M8D3D_TEXBLEND_MODULATE || c->texblend == M8D3D_TEXBLEND_MODULATEALPHA ) {
+            level = (int)(((rgb >> 16 & 255) + (rgb >> 8 & 255) + (rgb & 255)) * 15 + 382) / 765;
+        }
+        rgb = m8d3d_pal_rgb( k, level );
+        corners[0] = corners[1] = corners[2] = rgb;
+        m8d3d_pal_want = 1;
+        p->ok = m8d3d_record( p->lcl, v, (BYTE)(k * 16 + level), m8d3d_565( rgb ), corners,
+                              ((c->rs_on >> M8D3D_RS_ZENABLE) & 1) && c->zfunc != M8D3D_CMP_ALWAYS ?
+                              (int)m8d3d_round( (a[0]->sz + a[1]->sz + a[2]->sz) * M8D3D_DEPTH_SCALE ) : -1 );
+        return;
+    }
     if( p->tex != NULL ) {
         for( j = 0; j < 3; ++j ) {
             texc[j] = m8d3d_texel( p->tex, p->texbits, a[j]->tu, a[j]->tv );
