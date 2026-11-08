@@ -66,3 +66,34 @@ Owner's photos (AOC LCD), from a video:
 Frame time readings were noisy (640x480 read 65.5 Hz, then 51.6 Hz), so not used.
 
 Result: Z6 works on the card. Next: a 320x240 DirectDraw mode in the driver.
+
+
+## M8D3EQ/ER: 320x240 trial (Z6)
+
+Card. The driver halves the coordinates and sets M8LORES's 320x240 timing at the first frame.
+
+- EQ, normal priority: frame 387 ms vs EP ~450; engine 175 vs 227 ms; ours 116 vs 128 ms; writes 6,200 vs 8,065.
+- Owner: filled the screen, a bit quicker, "detail wise not much discernable difference".
+- Reading: fill pixels were not the main cost.
+
+## FIFO and Flip phases (ER, ES, ET)
+
+- ER, high priority: frame 360 ms, engine 174. Bus writes ~46 ms (6,067 x ~7.6 us), FIFO-full reads 1,042 a frame (~4 ms), room checks 714 (~3 ms). The card starves.
+- ES (queue 8192): no change (173.5 ms). Cache flushes from mid-frame sends are ruled out.
+- ET, phases per frame (ms): erase 2.1, edge build + sort 53.4, outlines 35.1, fills 36.2, redraw + clear 29.2, singles 0.1, final engine wait 2.8.
+
+## M8D3EU: edge cancel by hash
+
+- Edge phase 13.2 ms; card share of a frame 138.4 ms.
+- Clean A/B, boots 297/298, same drivers: frame 327 / 326 ms, ~3.1 fps at high priority, 320x240 trial.
+
+## Hangs, 11-08 night
+
+- Boot 296 hung on the desktop (wallpaper, egg timer, startup sound looping) after the install, before any 3D ran.
+- Boot 299 stopped answering during or after the tunnel; owner powered off.
+- Earlier: hang after Alt+F4 at boot 289.
+- Possibly #55's open hang. The driver's static data grew ~80 KB in ES/EU (queue 8192, hash tables): shrink it before blaming anything else.
+
+## SWAPZF.VXD and XTBOTH.MPD
+
+Kept on the card by owner's decision; byte-exact read-back, no measured XTSECT gain; tunnel run on them lost to the boot 299 hang (no figure); gain to be measured by PAGETIME soak; dist/ waits for that measurement.

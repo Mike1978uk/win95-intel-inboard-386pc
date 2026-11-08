@@ -2,6 +2,16 @@
 
 Earlier handoff: `docs/next_session_2026_11_07.md` (its "Open" list still stands, less what is below). **The cloud session's tests are in #59**: carry this line on until every box there is ticked. Results: `docs/captures/2026-11-07_shape/README.md` and `docs/captures/2026-11-07_r892/README.md`. Levers: `docs/mach8_frame_rate_plan.md`, "What a frame's time is made of", Y1-Y13.
 
+## START HERE: 2026-11-09
+
+- Card: powered off by owner after the boot 299 hang. On next boot it runs M8D3EU (hash + lores trial + diagnostics) and the NEW `SWAPZF.VXD` (`C2585E38`) + `XTBOTH.MPD` (`DAEF6830`).
+- Those two are kept by owner's decision: byte-exact read-back, no measured XTSECT gain; tunnel run on them lost to the boot 299 hang (no figure); gain to be measured by PAGETIME soak; dist/ waits for that measurement. `docs/5160_tuned_config.md` updated.
+- Way back: `C:\V9XREMOTE\STAGE\SWAPCOMP.ORG` / `XTIDEMP.ORG` by `WININIT.INI`, 8.3 paths only (WININIT silently skips long names like V9XREMOTE, which cost one boot on 11-08; copy to `C:\` root first).
+- Disk A/B (two boots, 11-08): XTSECT 55.79 s old, 55.66 s old repeat, 55.79 s new. Files read back identical (KERNEL32 2AFBC674, VMM32 F4933989, EXPLORER 40978DF8). SWAPZF's gain is paging-only: needs a PAGETIME soak, ~45 min, owner-attended.
+- Next driver work, in order: shrink static data (queue back to 1024, je2 reuse), cached colour per texture rectangle, integer sampling, -os build trial, overlap sends with compute; then light in fill (Z2/Z3); DrawPrimitives2 (`docs/ddk_levers_2026_11_08.md`); the exit/boot hang (test closing the tunnel on ATI's driver).
+- Issue #10: Simon's Supersoft/Landmark results + NETROOM disk in `docs/issue10_old_bios_2026_09_27.md` sections 12-13; draft reply awaiting owner (Simon = Cimonvg, one person); ask him for the NETROOM patch floppy's API text; NR.ZIP on the owner's disk is password-protected.
+- References: `docs/fastdoom_techniques_2026_11_08.md` (FastDoom cloned in `references/fastdoom/`, gitignored).
+
 ## START HERE: 2026-11-08, evening
 
 - Card up, boot 288, on `M8D3EO` (same bytes as the build bar link timestamps).

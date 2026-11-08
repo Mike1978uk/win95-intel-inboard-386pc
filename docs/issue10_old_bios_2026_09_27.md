@@ -293,6 +293,180 @@ Meaning for #10: the Phoenix result removes "Anonymous BIOS" as the cause; BIOS-
 checkpoint stage; it does not test the protected-mode switch.
 
 Next from Simon: his video card type, and the exact beep count and pattern. 4.5 vs 5.7 is unknown.
+## 12. Simon's diagnostics, 2026-11-08
+
+Input from 2026-11-07/08: two IBM 5150A boards (one serial 0116682, an early one), Inboard 386 + 4 MB, SCSI, CGA,
+floppy. Photos: `photos\CIMON\ibm5150a-nr1_ERROR.jpg`, `ibm5150anr2-ERROR.jpg`, `test-7nov2026.jpg` (outside the repo).
+Identity: the VCF thread below is posted by Cimonvg and the photo folder is `CIMON`; Simon and Cimon are probably one
+person (ledger lists them as two rows). Owner to confirm before any reply names him.
+
+### 12a. The ROM on the screen is Supersoft/Landmark v1.2, not Ruud's
+
+The block-letter banner reads "SUPERSOFT ... POST DIAGNOSTICS VERSION 1.2" (partly legible). The test list matches the
+Supersoft PC/XT suite in its
+[Version 1.2 user manual](https://minuszerodegrees.net/supersoft_landmark/Supersoft%20Landmark%20ROM%20-%20Version%201.2%20-%20Users%20Manual.pdf)
+(scanned PDF; I read pp 22-37 as images), not Ruud's list. Ruud's ROM has no per-test screen of this style
+([Ruud's tests, v5.7](https://minuszerodegrees.net/ruuds_diagnostic_rom/misc/Ruuds%20Diagnostic%20ROM%20-%20Tests%20-%20Version%205.7.htm);
+URL derived from the site's relative links, fetched OK). Site pages:
+[Supersoft/Landmark](https://minuszerodegrees.net/supersoft_landmark/Supersoft%20Landmark%20ROM.htm),
+[Ruud's ROM](https://minuszerodegrees.net/ruuds_diagnostic_rom/Ruuds%20Diagnostic%20ROM.htm).
+
+### 12b. Beep code: 5 high-low, then 8 short = "Cannot initialize monitor"
+
+Manual p38-39 (PC/XT beep codes by Hi/Lo-Short count): Hi/Lo 5, Short 8 = "Cannot initialize monitor"
+(5/9 and 6/1 are the same text). Manual p13: with no usable video the ROM beeps instead; an EGA/VGA card on invalid
+switches also beeps. This is a Supersoft code, so the first attempt was the Supersoft ROM. The VGA card gave no
+picture; CGA works. Not in Ruud's page: it documents only one pattern, short-long-short at the speaker test.
+Whether "8 low" means short beeps is my reading of the table; the code is unique either way.
+
+### 12c. Transcription (both boards read identically; see caveats)
+
+Board 1 = `nr1`, board 2 = `nr2`. Photos are blurred block lettering; names are matched to the manual's list.
+"?" = cannot read.
+
+| Test (screen) | Board 1 | Board 2 | Meaning (manual page) | Win95 PM switch? |
+|---|---|---|---|---|
+| CPU registers and logic | PASSED | PASSED | p17 | no |
+| Supersoft ROM checksum | PASSED | PASSED | p17 | no |
+| 8253 timer ch 0 / 1 / 2 | PASSED x3 | PASSED x3 | counters run | no |
+| 8237A DMA controller | PASSED | PASSED | register test | DMA page regs not tested by Supersoft |
+| 8255 parity detected | PASSED | PASSED | p17-18 latch check | PASSED: no parity latch |
+| 16K critical memory region | PASSED | PASSED | | no |
+| Memory refresh | PASSED | PASSED | p22 | no |
+| 8259 interrupt controller | PASSED | PASSED | p23 register read/write | PASSED: alias not a problem here |
+| Hot interrupt | PASSED | PASSED | p23 no IRQ with all masked | PASSED |
+| **Interrupt level 0** | **1 FAILED** | **1 FAILED** | p24: IRQ0 from timer ch 0 must reach the CPU at the right rate; causes listed: 8253, 8259, 8288, CPU | **Only interrupt-path failure; see 12d** |
+| Nonmaskable interrupt | PASSED | PASSED | p25: no NMI from FPU/parity | PASSED: NMI lead (10b) stays closed |
+| MDA memory | NOT PRESENT | NOT PRESENT | p25 expected, CGA fitted | no |
+| CGA memory | PASSED | PASSED | p25 | no |
+| EGA/VGA memory | NOT PRESENT | NOT PRESENT | p25 expected | no |
+| 8087 numeric coprocessor | NOT PRESENT | NOT PRESENT | p26 no 8087 on the board | no (Inboard FPU socket is separate) |
+| Keyboard controller | PASSED | PASSED | p26 | no |
+| Keyboard scan lines | PASSED | PASSED | p27 | no |
+| Floppy controller | PASSED | PASSED | p28 | no |
+| **Floppy read** | **1 FAILED** | **1 FAILED** | p28: reads track 0 head 0 sector 1 of A:; needs a formatted disk | **no** - expected with no disk |
+| System memory to ?0000 | PASSED | PASSED | p29; end address unreadable | no |
+| Slow refresh to ?0000 | PASSED | PASSED | p34 | no |
+| Top-right panel: system BIOS, BASIC ROM 1-4 | PASSED x5 | PASSED x5 | p35; labels only partly legible | no |
+| Summary | passes 00001, errors 00002, no memory errors, no false parity errors | same | 2 errors = the 2 FAILED rows | |
+| Switch settings (SW1, SW2, "AT SW") | ? | ? | p36: SW1 pos 1 ON makes POST loop | unreadable at this quality |
+
+Cannot read: switch digits in the three boxes; the end address of the two memory rows; whether the third photo's
+screen (blue panel on the rack unit) says the same (it is too small).
+
+Both errors are expected or explained except Interrupt level 0. Floppy read fails with no disk by design. MDA, EGA/VGA
+and 8087 "NOT PRESENT" are plain absences. The manual says a failed test does not name the faulty part and clean
+runs do not prove a board good. Per the site's
+[illogical results page](https://minuszerodegrees.net/supersoft_landmark/Supersoft%20Landmark%20ROM%20-%20illogical.htm)
+the ROM runs dependent tests (floppy read, RAM) even after their prerequisite test fails.
+
+### 12d. Interrupt level 0: the one to chase
+
+- Same failure on two boards, with the same Inboard + CPU module logic in both. Two independent faults in the 8253/8259
+  are unlikely (estimate). The common part is the Inboard and its CPU module, which the ROM was not written for.
+- The ROM measures the CPU being interrupted "at the correct rate". A 386-class CPU running far faster than an 8088
+  could make a rate check wrong without any fault (my inference; the manual does not say how the rate is checked).
+- It bears on Win95 only if IRQ0 delivery to the CPU is really broken on the 5150. Win95 and WfW both run a timer tick
+  on IRQ0 and WfW reaches protected mode on the same board, which argues against a dead IRQ0 (inference).
+- Not in any source: whether the early 5150A differs from later boards on this test. The site keeps separate Ruud pages for
+  the [16KB-64KB](https://minuszerodegrees.net/ruuds_diagnostic_rom/5150/16KB-64KB.htm) and
+  [64KB-256KB](https://minuszerodegrees.net/ruuds_diagnostic_rom/5150/64KB-256KB.htm) 5150 planars, so which he has matters.
+- The project's 8259 alias (A0-A4 not decoded on the XT, 8259 appears at 20h-3Fh; `docs/xt_io_aliasing_gotcha.md`)
+  is not exercised by these tests; the 8259 test passes.
+
+### 12e. VCF thread summary
+
+[Inboard 386 and compability](https://forum.vcfed.org/index.php?threads/inboard-386-and-compability.66538/), Sep 2018 to Sep 2022,
+poster Cimonvg (summary by a fetch tool, not read page by page). Contains: Win32s runs on his 5150 with the Inboard;
+Windows 3.1 DOS box gives "Wrong VxD dynamic chain-call"; HIMEM.SYS breaks Norton Utilities 8.0 (keyboard), DrHardware,
+DOSBench, an A20 test, and Netroom 3 fixes most of them; INBRDPC.SYS lacks INT 15h function 89h (the AT enter-protected-mode
+call), which he asks about in connection with Windows 95; SYSCLOAK reports "BIOS system descriptor table missing";
+VIDCLOAK failed with TIGA and Tseng VGA cards and worked on an ATI Mach32 only with /PMBIOS; Win32s wants `*vmcpd` while a
+real FPU needs `ibvmcpd.386`; TI486-SXL2 works with the 1982 BIOS, 486BL and Cyrix 5x86 beep and stall on it. Trixter
+suggested QEMM 8 and said accelerators never reach native 386 speed; Chuck(G) said baby-AT boards made them obsolete.
+Not in the thread: "WfW 3.11", "5150A", the phrase "virtual interrupt by software", NETROOM internals.
+Microsoft KB [Q88572](https://ftp.zx.net.nz/pub/archive/ftp.microsoft.com/MISC/KB/en-us/88/572.HTM): Intel says the Inboard
+386/PC does not run Windows 3.1 (reason given: designed for 8088/8086 XT machines); Intel's own Windows 3.0 runs in real and
+standard modes only.
+
+### 12f. NETROOM (Helix), from sources only
+
+- Wikipedia [Helix Netroom](https://en.wikipedia.org/wiki/Helix_Netroom): loaded network drivers into a virtual machine built on
+  an expanded-memory page frame, run as a background process; v1.10 (Jan 1991) added a 286/386 memory manager (386+, and
+  286 with the C&T NEAT chipset); v2.1 (Jan 1992) added "Quantum" (BIOS into HMA); v3.0 (1993) added Cloaking; v3.04 (late
+  1994) added Windows 95 compatibility. Page does not mention a V86 monitor, hardware interrupt handling, or the 8088.
+- Wikipedia [Helix Cloaking](https://en.wikipedia.org/wiki/Helix_Cloaking): relocates drivers to extended memory at ring 0; protected-mode
+  services via INT 2Ch (DPMS); a cloaked TSR that hooks an interrupt leaves an 11-byte stub in low memory that calls the
+  Cloaking server; it integrates with the existing memory manager rather than switching descriptor tables itself; does not run
+  on 286; Helix licensed Award BIOS code for protected-mode system/video BIOSes (real-mode footprint 8 KB, down from 96 KB).
+- [WinWorld Netroom](https://winworldpc.com/product/helix-netroom): 3.04 is the last version; no CPU requirement stated.
+- Sources do not say Netroom supports the Inboard, nor how it handles hardware interrupts on an XT. A web search found
+  none. The "SYSCLOAK ... descriptor table" message in his thread suggests Cloaking wants an AT-style BIOS descriptor table
+  (INT 15h 89h), which the 5150 lacks - an observation from his post, not from Helix.
+- Could its engine run under Win95? Sources only show 3.04 is Win95-compatible as a DOS-side manager. They do not show it
+  fixing anything at the Win95 protected-mode switch. His NETROOM patch floppy API text would be the first real source.
+
+### 12g. Three cheapest next tests, ranked
+
+1. Re-run Supersoft with a formatted 360K/720K disk in A:. Minutes. Clears the floppy row, so the count is honest; confirms
+   Interrupt level 0 is the only open item.
+2. Re-run with the CPU module at its slowest setting (or CPU module/ Inboard speed jumpers changed), reporting only the
+   Interrupt level 0 row. Tests the "rate check on a fast CPU" reading; also ask which CPU module is fitted.
+3. Owner runs the same Supersoft ROM (5160 variant) on the working 5160 with the Inboard. If Interrupt level 0 fails
+   there too, it is a test artefact and drops off the #10 list. Needs an EPROM burned; costs a trip to the 5160.
+
+Open for Simon: planar type (16-64KB or 64-256KB), BIOS ROM labels, clear photos of SW1/SW2, NETROOM API text.
+Ruud's ROM short+long beep (ledger, 11-02) is still unexplained and is not needed if Supersoft runs.
+
+## 13. NETROOM 3 disk (owner's copy), 2026-11-08
+
+Folder `Windows_311_working_build
+etrm3` on the owner's desktop. Read as data only; nothing run. Result: **the disk does
+not hold the API text, and nothing on it covers an 8088/XT or Win95.** It is the registered-user supplement, not the
+patch floppy Simon describes.
+
+### 13a. Files
+
+| File | What it is |
+|---|---|
+| `README2.TXT` (1993) | Supplemental disk note: STRETCH, CACHECLK, SAVERCLK, WINMEM, "the Cloaking API definition and sample program", the Screen Saver API, `RM386.EXE` + `RMLODHI.VXD`. The text only documents the Windows tools; no API definition is in it |
+| `2000.TXT` | Windows troubleshooting after Customize: `WIN /D:CFSVX`, `NOEMMDRIVER`, `EMMEXCLUDE=A000-FFFF`, video/system BIOS cloaking |
+| `2010.TXT` | Setup / Customize / cloaked-utility Q&A. Cloaking API paragraph below |
+| `2014.TXT` | "Cloaked BIOS as a BIOS upgrade": Award BIOS replaces the system BIOS on 386+ machines |
+| `7000.TXT` | Hurricane (Windows 3.x memory utilities) FAQ; unrelated to the monitor |
+| `NR.ZIP` (65 members) | Program files: `RM386.EXE`, `SYSCLOAK.EXE`, `VIDCLOAK.EXE`, `RMLODHI.VXD`, `DPMI.EXE`, `README.TXT`, `TECHNOTE.TXT`, `CUSTOMIZ.*`. **Every member is password-encrypted** (zip flag bit 0); not opened, not attacked |
+| `SETUP.EXE`, `202W3.EXE`, `203W3.EXE`, `CDFIX.EXE`, `PKUNZIP.EXE` | Installer, WinZip self-extractors (Hurricane patches `PATCHHUR.EXE`, `PATCHW.DLL`), MSCDEX patch, unzip. Strings only; no useful documented switches |
+
+### 13b. What the readable text says about NETROOM
+
+- It is a 386-only manager: `RM386.EXE` plus "cloaked" BIOS (`SYSCLOAK.EXE`, `VIDCLOAK.EXE`), which moves the system and
+  video BIOS above 1 MB and runs an Award BIOS over the old one (`2014.TXT`). That needs a 386 and a PC/AT-class BIOS.
+- "Another protected mode software is currently running" and the `/D:CFSVX` list (`2000.TXT`) are Windows 3.x enhanced
+  mode behaviour; `S` = `SystemROMBreakPoint=FALSE`, `V` = `VirtualHDIRQ=FALSE`. Both are SYSTEM.INI keys Windows 3.x
+  reads, not NETROOM features.
+- Switches seen: `AUTO`, `NOF`, `NOC`, `X=` (exclude range), `*(size base)` (extended memory), `/PMBIOS`, `/NOTSENG`,
+  `/PORT=2D` (SYSCLOAK, Dell only), `/NOAPM`, `/ALTEISA`. None concerns an XT, a PIC base, the timer, or an accelerator.
+- Cloaking API (`2010.TXT`): "Helix provides a toolkit" so TSRs and drivers can run in extended memory; Stac, Symantec,
+  Logitech, ATI, SMC ship cloaked versions. Described in prose only; no interrupt numbers or function lists.
+- Not found: any mention of 8088, XT, PC/XT, Inboard, 8259/PIC, IRQ0, VCPI, GEMMIS, Windows 95 or Chicago. The Windows
+  cooperation visible is `RMLODHI.VXD` (loads Windows buffers high, `WINMEM`) and the EMM keys above.
+
+### 13c. The API question
+
+- The "virtual interrupt by software" text Simon mentions is **not here**. Likely it is the Cloaking API definition
+  that `README2.TXT` says the supplement carries, or a later patch; the floppy that has it was not in this copy.
+- Speculation, unsupported by any file here: a cloaking API that lets a driver run in protected mode implies Helix
+  reflects interrupts to real mode itself. That would be NETROOM's own V86 monitor, and Windows 3.x enhanced mode
+  would then import it as a VMM-compatible host. Win95's VMM brings its own V86 monitor and VPICD, so a NETROOM API
+  could not replace them; at most it shows which interrupt path NETROOM leaves alone that VPICD does not.
+- Our own evidence stands: the Inboard aliases ports onto the 8259 (`docs/xt_io_aliasing_gotcha.md`). Nothing from this disk changes the section 12 ranking.
+
+### 13d. What the disk did not contain
+
+The API definition or sample program; any `.DOC` for `RM386`; `TECHNOTE.TXT` and `README.TXT` (inside the encrypted zip);
+any XT/5150/Inboard statement; any Win95 statement. If Simon sends the floppy's text file, or the zip password, this
+section gets a "13e".
+
 ## Next
 
 0. `NMICHK /m` boot on the 5150 (sent 2026-10-04); `NMIWATCH` + `NMICHK` boot on the owner's 5160.

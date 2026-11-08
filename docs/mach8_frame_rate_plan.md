@@ -623,7 +623,7 @@ Owner: more capability from the card, not the CPU or bus; textures and what Dire
 | Z3 | Masked writes, add on a field (V17, V26, G13) | Shade/hue split, lighting by one add, dual playfield | `M8TEX` box arms | Card: masked fill or add 1.8x plain; add saturates in the field (`docs/captures/2026-11-07_silicon/README.md`) |
 | Z4 | SRC_X_END wrap | Texture repeat in hardware | `M8TEX` tile | Card: no wrap in the row; continues on the next source row (`docs/captures/2026-11-07_silicon/README.md`) |
 | Z5 | SCAN_TO_X and lines from a source (M8TEXL) | Spans along a texture | `M8TEX` scan, line | Card: spans and horizontal lines step the source. Other slopes next (`docs/captures/2026-11-07_silicon/README.md`) |
-| Z6 | 320x240, 400x300 by CRTC (V11, Y8) | A quarter of the pixels | One mode, owner's eye | Card: M8LORES shows 320x240 at the 640x480 rate (owner's eye, 11-08); driver mode next |
+| Z6 | 320x240, 400x300 by CRTC (V11, Y8) | A quarter of the pixels | One mode, owner's eye | Card: works (M8LORES); trial M8D3EQ only 1.2x - pixels are not the main cost; keep for pages/writes/CRT mode |
 | Z7 | Third page, pitch 640 (Y2) | No page wait (3.9-7.6 ms) | M8PAGE variant | Not written |
 | Z8 | Dest compare EEEE, COLOR_CMP (D3, P7) | Depth bands, for programs that need Z | Polygon fill arm | Not written |
 | Z9 | BG_COLOR_SRC (V27), 4 bpp (S6), mirrored copy (Y11) | Mono expand over pixels, more pages, more mask hits | One arm each | After the above |
@@ -631,6 +631,11 @@ Owner: more capability from the card, not the CPU or bus; textures and what Dire
 | Z11 | Far layer as a reused picture (owner, 11-08: parallax) | Far disc kept off screen, one card-to-card copy a frame, shifted with the camera, redrawn every few frames | Owner's eye on lag when turning | After Z10 |
 | Z12 | Aperiodic pattern per cell (owner, 11-08: Penrose) | S7 8x8 pattern fill at plain-fill cost, chosen per cell from an aperiodic sequence: grain and smoothed light, no visible repeat; screen-aligned, not perspective | Owner's eye | With Z10 near/middle |
 | Z13 | Texture as shapes (owner, 11-08) | Near walls: tex2's ~20 flat regions (seams, hazard stripes, clock panel) as polygons through the wall's corners; stone one grey + Z12 pattern | Owner's eye vs reference | After Z6 and light in fill |
+| Z14 | CRT mode (owner, 11-08) | Scanlines: engine pitch twice the display's, black rows between, palette lifted; same fill cost as double scan; look only | M8LORES stage 4 | Not written |
+| Z15 | Keep the card fed (owner, 11-08) | Card starves (~120 ms/frame of our CPU while FIFO empty); hash edge cancel took 40 ms; next: cached colour per texture rectangle (FastDoom #1), integer maths, -os small code, send first colours' fills while computing the rest | Flip phase timers | In progress |
+| Z16 | Asm / Cyrix-style pass (owner, 11-08) | Hand-written hot paths in LEA-style integer code for the 486BL3; judged on speed, code size and RAM together, not speed alone | Phase timers + locked RAM | After Z15 |
+
+Ranking rule (owner, 11-08): every change is judged on bus writes, CPU time and RAM (5 MB machine) together.
 
 Texture path for the HAL, in order: claim formats and handles, mean texel per triangle so textured programs run at all; then Z1 from an atlas, pre-scaled levels picked by triangle size, where a shift is close enough; CT3 cells for the rest. Z5 showed the engine steps a source along a span and a line, so rows and lines can carry a texture; it still does not scale, so scale comes from pre-scaled levels.
 
