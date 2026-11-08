@@ -606,6 +606,7 @@ Aim: real programs run unmodified on the card and show what their authors intend
 | D11 | Speed: joined quads (V7), third page (Y2), 320x240 and 400x300 (Z6), front to back with compare (Z8) | Medium each | D3 | Not probed; Z6 needs the owner's eye |
 | D12 | Later as programs ask: Z read-back (Y24), real depth on the card (Z8), specular, flares, temporal stipple | By case | D3 | Logged |
 | D13 | Windowed HAL: off-screen target, one engine copy to the window. Nice to have, later (owner) | Medium to large | D5 | Not built |
+| D14 | **"DirectXT" (owner, 2026-11-08):** own the runtime's half. Tunnel, `M8D3EL`: ~100 of 346 ms a frame is outside our driver. In order: (a) profile D3DIM's share by symbols; (b) the FPU is fitted on the CPU interposer (387 class, owner); `M8FPU` on the card 2026-11-08: float multiply-add 2.97 us, 16.16 fixed 1.53 us, so fixed point buys ~1.9x on the maths, and the larger gain is doing less (table lighting, a colour a patch, culling); (c) take execute buffers whole through the HAL's execute callback (DX3-5 titles), integer transform and table lighting; (d) a replacement or patched D3DIM for DrawPrimitive titles, same interfaces, so no game is patched | Large | D3 | Idea; (b) done, (a) next |
 
 Open against all of it: the card's intermittent hang needs a cause before any showcase; 5 MB of RAM and no MMX cannot be mocked, so some programs stay out; a game scene may not reach 60 fps, so what gets drawn is tuned by what shows.
 
