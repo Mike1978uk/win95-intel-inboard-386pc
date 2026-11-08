@@ -1,4 +1,4 @@
-param([string]$Dir, [string]$Name, [string]$Run)
+param([string]$Dir, [string]$Name, [string]$Run, [string]$Target = '192.168.68.62')
 $ErrorActionPreference = 'Stop'
 $ctl = 'C:\Users\lycet\tools\v9x-remote-agent\host\v9xremote-0.12.0\scripts\v9xctl.ps1'
 $root = 'C:\Users\lycet\RiderProjects\86Box-Inboard'
@@ -6,7 +6,7 @@ $key = 'HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\Class\Display\0000\
 function Agent([string]$verb, [hashtable]$a = @{}) {
   $tries = if ($verb -eq 'put') { 3 } else { 1 }
   for ($t = 1; $t -le $tries; $t++) {
-    $out = & $ctl $verb @a -Host '192.168.68.62' -ConnectTimeoutSeconds 60 -Json
+    $out = & $ctl $verb @a -Host $Target -ConnectTimeoutSeconds 60 -Json
     if ($LASTEXITCODE -eq 0) { return $out }
     if ($t -lt $tries) { Start-Sleep -Seconds 10 }
   }
@@ -16,8 +16,9 @@ $tmp = Join-Path $env:TEMP 'card_peek'
 New-Item -ItemType Directory -Force $tmp | Out-Null
 
 # The way back: M8D3DD's DLL, once.
+$card = $Target -eq '192.168.68.62'
 $back = Agent stat @{ Path = 'C:\V9XREMOTE\REG\M8DD32.DD' } | ConvertFrom-Json
-if (-not $back.Exists) {
+if ($card -and -not $back.Exists) {
   Agent get @{ Source = 'C:\WINDOWS\SYSTEM\M8DD32.DLL'; Destination = "$tmp\M8DD32.DD" } | Out-Null
   $m = (Get-FileHash "$tmp\M8DD32.DD" -Algorithm MD5).Hash
   if ($m -ne '69FF48E5F3946A4BCDA63E5408DDAB1C') { throw "card DLL is $m, not M8D3DD's" }
@@ -43,7 +44,7 @@ $lst = "$tmp\NOAGPAGE.LST"
 ) -join "`r`n" | Set-Content -NoNewline -Encoding ascii $lst
 Agent put @{ Source = $lst; Destination = 'C:\V9XREMOTE\NOAGPAGE.LST' } | Out-Null
 $desk = Agent stat @{ Path = 'C:\WINDOWS\DESKTOP\NOAGPAGE.EXE' } | ConvertFrom-Json
-if (-not $desk.Exists) {
+if ($card -and -not $desk.Exists) {
   Agent get @{ Source = 'C:\WINDOWS\DESKTOP\NOAGDISK.EXE'; Destination = "$tmp\NOAGPAGE.EXE" } | Out-Null
   Agent put @{ Source = "$tmp\NOAGPAGE.EXE"; Destination = 'C:\WINDOWS\DESKTOP\NOAGPAGE.EXE' } | Out-Null
 }
@@ -72,7 +73,7 @@ Agent input @{ Sequence = 'key R; delay 500; key ENTER' } | Out-Null
 $ok = $false
 for ($t = 0; $t -lt 24 -and -not $ok; $t++) {
   Start-Sleep -Seconds 10
-  $i = & $ctl info -Host '192.168.68.62' -ConnectTimeoutSeconds 5 -Json 2>$null 6>$null
+  $i = & $ctl info -Host $Target -ConnectTimeoutSeconds 5 -Json 2>$null 6>$null
   if ($LASTEXITCODE -eq 0) { $i = $i | ConvertFrom-Json; $ok = $i.BootCounter -ne $boot -and $i.DesktopReady }
 }
 Add-Content -Path (Join-Path $env:TEMP 'm8_card_restarts.log') -Value ('{0}  {1}  boot {2} -> {3}  {4}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm'), $Name, $boot, $(if ($ok) { $i.BootCounter } else { '-' }), $(if ($ok) { 'ok' } else { 'did not come back' }))
