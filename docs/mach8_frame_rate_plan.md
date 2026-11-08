@@ -623,7 +623,7 @@ Owner: more capability from the card, not the CPU or bus; textures and what Dire
 | Z3 | Masked writes, add on a field (V17, V26, G13) | Shade/hue split, lighting by one add, dual playfield | `M8TEX` box arms | Card: masked fill or add 1.8x plain; add saturates in the field (`docs/captures/2026-11-07_silicon/README.md`) |
 | Z4 | SRC_X_END wrap | Texture repeat in hardware | `M8TEX` tile | Card: no wrap in the row; continues on the next source row (`docs/captures/2026-11-07_silicon/README.md`) |
 | Z5 | SCAN_TO_X and lines from a source (M8TEXL) | Spans along a texture | `M8TEX` scan, line | Card: spans and horizontal lines step the source. Other slopes next (`docs/captures/2026-11-07_silicon/README.md`) |
-| Z6 | 320x240, 400x300 by CRTC (V11, Y8) | A quarter of the pixels | One mode, owner's eye | Not written |
+| Z6 | 320x240, 400x300 by CRTC (V11, Y8) | A quarter of the pixels | One mode, owner's eye | Card: M8LORES shows 320x240 at the 640x480 rate (owner's eye, 11-08); driver mode next |
 | Z7 | Third page, pitch 640 (Y2) | No page wait (3.9-7.6 ms) | M8PAGE variant | Not written |
 | Z8 | Dest compare EEEE, COLOR_CMP (D3, P7) | Depth bands, for programs that need Z | Polygon fill arm | Not written |
 | Z9 | BG_COLOR_SRC (V27), 4 bpp (S6), mirrored copy (Y11) | Mono expand over pixels, more pages, more mask hits | One arm each | After the above |

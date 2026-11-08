@@ -49,3 +49,20 @@ Hang at exit: the 5160 stopped answering after Alt+F4 closed the tunnel (census 
 256 x 256, 4 bpp, 14 colours used; ~95 % grey stonework as dithered noise (2,454 single-colour regions). With the 9 greys merged as stone: 63 regions, 20 over 32 px: 7 stone panels between black seam lines, a black/yellow hazard stripe band (rows 173-195), a yellow panel (x 193-250, y 40-97) with black marks (the owner's "clock"), 43 specks under 4 px.
 
 Plan (Z13, owner 11-08): near walls drawn as these ~20 polygons mapped through the wall's corners, stone as one grey plus the Z12 aperiodic pattern.
+
+## M8LORES: 320x240 by CRTC (Z6), evening
+
+`tools/m8probe/M8LORES.C`: DISP_CNTL bit 3 DOUBLE_SCAN, CLOCK_SEL bit 6 divide-by-2, horizontal and
+vertical CRTC values halved (vertical skip-2 encoded, guide 8-10), shadow set 1.
+
+Card, two runs (21:4x, 21:53): every stage set, and the desktop came back.
+
+Owner's photos (AOC LCD), from a video:
+
+- stage 1, 640x480: the 320x240 test area in the top-left quarter.
+- stage 2, 640x240: stretched to full height, half width.
+- stage 3, 320x240: fills the screen, 8 x 6 grid, one-pixel stripes shown 2 pixels wide and tall, even.
+
+Frame time readings were noisy (640x480 read 65.5 Hz, then 51.6 Hz), so not used.
+
+Result: Z6 works on the card. Next: a 320x240 DirectDraw mode in the driver.
