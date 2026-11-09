@@ -135,3 +135,7 @@ EV plus a 1,024-slot cache of the sampled colour, keyed by texture and rectangle
 - FB: fewer pixels took the card off the critical path again (full reads 1,441 -> 116). Owner: "still looked as good but faster"; 320x240 is the target for this kind of demo; the resolution should be a choice by program type.
 - Owner's eye on FB: near the end, the left wall's black stripe seemed to draw through the right side (looked transparent). Suspect: halving rounds a thin back-facing sliver into a front-facing one, and joined fills go in colour order. To check.
 - Ours + flip: EV 325 ms -> FC 254 ms a frame, before the program's own time.
+- FD: FC + scratch outlines chained where each next edge continues downward: writes 5,665 -> 5,373, outlines 31.5 -> 35.4 ms, flip 173 -> 177 ms. Negative (runs are short, the search costs more than it saves); reverted, card left on FD until the next install.
+- FE: FC + facing from the corners at 1/8 pixel (a back face rounded round at half size showed through the wall: owner's see-through stripe). Ours 81 -> 88.8 ms, flip 178 ms. Owner's eye on the stripe: pending.
+- FF: FE + fill bands 64 rows, join threshold 3,200 px (were 32 / 1,600, set when the card was the limit). Fills 77.6 -> 64.4 ms, flip 178 -> 163.7 ms, full reads 117 -> 277.
+- FG: bands 128 / 4,800 px: flip 162.6 ms, full reads 804: the card is the limit again; no gain. Kept FF's 64 / 3,200.

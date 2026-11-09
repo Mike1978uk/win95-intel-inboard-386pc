@@ -2,6 +2,14 @@
 
 Earlier handoff: `docs/next_session_2026_11_07.md` (its "Open" list still stands, less what is below). **The cloud session's tests are in #59**: carry this line on until every box there is ticked. Results: `docs/captures/2026-11-07_shape/README.md` and `docs/captures/2026-11-07_r892/README.md`. Levers: `docs/mach8_frame_rate_plan.md`, "What a frame's time is made of", Y1-Y13.
 
+## START HERE: 2026-11-09, later afternoon
+
+- Card boot 314 on `M8D3FG` (bands 128); the committed source is FF (bands 64), install it first.
+- Tunnel, same DX6.1 scene: ours 129 -> 88 ms, flip 196 -> 164 ms, writes 8,215 -> ~5,550 today; 320x240 is the owner's target for this kind of demo.
+- Next, in order: Z25 (card draws frame N while the program builds N+1: ~140 ms a frame of CPU-only time; needs the page switch to wait for frame N's last write); integer clipping (~100 clipped triangles a frame go through float clip_side); the ~18 ms of the flip outside the timed phases (m8dd_tri_census is diagnostic); per-program resolution choice instead of the fixed switch at 640.
+- Negative today: Z19 register shadow; chaining scratch outlines (FD).
+- Owner's eye pending: is the see-through stripe gone (FE's facing at 1/8 pixel)?
+
 ## START HERE: 2026-11-09, afternoon
 
 - Card boot 307 on `M8D3EZ` (EY + phase timers). Ours 129 -> 81 ms today (patch colour cache, integer float handling); flip ~200 ms is now the larger half.
