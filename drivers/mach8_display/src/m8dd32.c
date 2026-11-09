@@ -2300,6 +2300,25 @@ int m8d3d_room( int n )
     return( 0 );
 }
 
+/* Up to `want` writes the FIFO takes now: one status read if no room is known, never a wait. */
+int m8d3d_room_take( int want )
+{
+    int f = m8d3d_free;
+
+    if( f == 0 ) {
+        WORD s = inpw( M8_EXT_FIFO_STATUS );
+
+        while( f < 15 && !(s & (0x8000 >> (f + 1))) ) {
+            ++f;
+        }
+    }
+    if( want > f ) {
+        want = f;
+    }
+    m8d3d_free = f - want;
+    return( want );
+}
+
 int m8d3d_engine_begin( void )
 {
     BYTE *hot = (BYTE *)m8dd->hot;

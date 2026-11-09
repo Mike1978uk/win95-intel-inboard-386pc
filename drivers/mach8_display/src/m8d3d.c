@@ -145,6 +145,7 @@ extern void m8d3d_scratch_free( LPVOID key );
 extern int  m8d3d_engine_begin( void );
 extern void m8d3d_engine_end( void );
 extern int  m8d3d_room( int n );
+extern int  m8d3d_room_take( int want );
 
 /* To the nearest integer as the FPU rounds, with no library call. */
 extern long m8d3d_round( float f );
@@ -507,6 +508,8 @@ typedef struct {
 static M8D3D_TEX        m8d3d_texs[M8D3D_TEXTURES];
 static int              m8d3d_pal_want;     /* a frame was drawn in the texture palette's indices */
 static int              m8d3d_pal_on;       /* the DAC holds it, the old one in m8d3d_pal_saved */
+static int              m8d3d_lores;        /* trial: 640x480 drawn at half size, shown as 320x240 */
+static void             m8d3d_lores_set( void );
 static void             m8d3d_pal_load( void );
 static void             m8d3d_pal_restore( void );
 
@@ -764,8 +767,12 @@ static WORD m8d3d_565( DWORD rgb )
 
 /* Any port access empties the CPU's cache here, so C run between OUTs runs from RAM: a triangle's
  * lookups cost ~11 us after one another and ~150 us with an OUT between. A frame's engine writes
- * are worked out first with the cache intact, kept here in order, then sent in one loop. */
-#define M8D3D_Q_MAX     1024
+ * are worked out with the cache intact and kept here in order. The engine is topped up from the
+ * front without waiting (m8d3d_q_pump), so it draws one pass while the next is worked out; a wait
+ * comes only when the queue is full. */
+#define M8D3D_Q_MAX     4096
+/* Held writes before the FIFO is looked at again: each look is a status read and empties the cache. */
+#define M8D3D_Q_PUMP    24
 /* Room for this many, not the FIFO's whole 16: waiting for it to empty leaves the engine idle when
  * a long fill ends, with the next command still crossing the bus. */
 #define M8D3D_Q_CHUNK   8
@@ -775,7 +782,9 @@ static WORD m8d3d_565( DWORD rgb )
 #define M8D3D_Q_SEND_PX 1500L
 
 static DWORD    m8d3d_q[M8D3D_Q_MAX];
-static int      m8d3d_qn;
+static int      m8d3d_qn;               /* held */
+static int      m8d3d_qh;               /* sent, from the front */
+static int      m8d3d_q_next;           /* m8d3d_qn at which to look again */
 
 #define M8D3D_Q( port, value ) ( m8d3d_q[m8d3d_qn++] = (DWORD)(port) | (DWORD)(WORD)(value) << 16 )
 
@@ -799,6 +808,7 @@ static int m8d3d_q_flush( void )
     LARGE_INTEGER   t1;
 
     QueryPerformanceCounter( &t0 );
+    i = m8d3d_qh;
     while( i < m8d3d_qn ) {
         int n = m8d3d_qn - i < M8D3D_Q_CHUNK ? m8d3d_qn - i : M8D3D_Q_CHUNK;
 
@@ -811,15 +821,38 @@ static int m8d3d_q_flush( void )
         i += n;
     }
     m8d3d_qn = 0;
+    m8d3d_qh = 0;
+    m8d3d_q_next = M8D3D_Q_PUMP;
     QueryPerformanceCounter( &t1 );
     m8d3d_stat[44] += t1.LowPart - t0.LowPart;
     return( ok );
 }
 
-/* Room for n more writes, as the FIFO's room was asked for: sending what is held if not. */
+/* As many held writes as the FIFO takes now, with one status read and no wait. */
+static void m8d3d_q_pump( void )
+{
+    int n;
+
+    if( m8d3d_qn < m8d3d_q_next ) {
+        return;
+    }
+    m8d3d_q_next = m8d3d_qn + M8D3D_Q_PUMP;
+    n = m8d3d_room_take( m8d3d_qn - m8d3d_qh );
+    if( n > 0 ) {
+        m8d3d_q_send( m8d3d_q + m8d3d_qh, n );
+        m8d3d_stat[25] += n;
+        m8d3d_qh += n;
+    }
+}
+
+/* Room for n more writes: the engine topped up, and what is held sent if the queue is full. */
 static int m8d3d_q_need( int n )
 {
-    return( m8d3d_qn + n + M8D3D_Q_ONE * 2 > M8D3D_Q_MAX ? m8d3d_q_flush() : 1 );
+    if( m8d3d_qn + n + M8D3D_Q_ONE * 2 > M8D3D_Q_MAX ) {
+        return( m8d3d_q_flush() );
+    }
+    m8d3d_q_pump();
+    return( 1 );
 }
 
 /* A plain fill of l, t .. r - 1, b - 1 in the colour and masks already set. */
@@ -2709,7 +2742,7 @@ static int m8d3d_join( M8D3D_CONTEXT *c, int dy, const short *v, const WORD *ind
             }
             k = from[nc];
         }
-        if( !ok || !m8d3d_q_flush() ) {
+        if( !ok ) {
             return( 0 );
         }
         M8D3D_PH( 38 );
@@ -2740,9 +2773,21 @@ static int m8d3d_join( M8D3D_CONTEXT *c, int dy, const short *v, const WORD *ind
                 return( 0 );
             }
             M8D3D_Q( M8_FRGD_COLOR, cols[j] );
+            /* Edges chained end to start: after a move, each further x, y pair draws on from the
+             * last end, 2 writes an edge where a lone line takes 5. Plain lines, so the order
+             * edges are drawn in does not change the pixels. */
+            for( i = from[j]; i < from[j + 1]; ++i ) {
+                m8d3d_jodd[i] = 0;
+            }
             for( i = from[j]; ok && i < from[j + 1]; ++i ) {
-                const M8D3D_JEDGE *e = &m8d3d_je[i];
+                const M8D3D_JEDGE   *e = &m8d3d_je[i];
+                int                 px;
+                int                 py;
 
+                if( m8d3d_jodd[i] ) {
+                    continue;
+                }
+                m8d3d_jodd[i] = 1;
                 if( !m8d3d_q_need( 5 ) ) {
                     return( 0 );
                 }
@@ -2752,6 +2797,42 @@ static int m8d3d_join( M8D3D_CONTEXT *c, int dy, const short *v, const WORD *ind
                 M8D3D_Q( M8_LINEDRAW, dy + (e->y0 < 480 ? e->y0 : 479) );
                 M8D3D_Q( M8_LINEDRAW, e->x1 < 640 ? e->x1 : 639 );
                 M8D3D_Q( M8_LINEDRAW, dy + (e->y1 < 480 ? e->y1 : 479) );
+                px = e->x1;
+                py = e->y1;
+                for( ;; ) {
+                    int g;
+                    int nx = 0;
+                    int ny = 0;
+
+                    for( g = i + 1; g < from[j + 1]; ++g ) {
+                        const M8D3D_JEDGE *f = &m8d3d_je[g];
+
+                        if( m8d3d_jodd[g] ) {
+                            continue;
+                        }
+                        if( f->x0 == px && f->y0 == py ) {
+                            nx = f->x1;
+                            ny = f->y1;
+                            break;
+                        }
+                        if( f->x1 == px && f->y1 == py ) {
+                            nx = f->x0;
+                            ny = f->y0;
+                            break;
+                        }
+                    }
+                    if( g == from[j + 1] ) {
+                        break;
+                    }
+                    m8d3d_jodd[g] = 1;
+                    if( !m8d3d_q_need( 2 ) ) {
+                        return( 0 );
+                    }
+                    M8D3D_Q( M8_LINEDRAW, nx < 640 ? nx : 639 );
+                    M8D3D_Q( M8_LINEDRAW, dy + (ny < 480 ? ny : 479) );
+                    px = nx;
+                    py = ny;
+                }
             }
         }
         ok = ok && m8d3d_join_clear( (1 << nc) - 1, t, b + 1 );
@@ -2784,9 +2865,15 @@ int m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const shor
     m8d3d_mono_on = 0;
     m8d3d_stamp_mode = 0;
     m8d3d_qn = 0;
+    m8d3d_qh = 0;
+    m8d3d_q_next = M8D3D_Q_PUMP;
     QueryPerformanceCounter( &m8d3d_ph );
     if( m8d3d_pal_want && !m8d3d_pal_on ) {
         m8d3d_pal_load();
+        if( c->sw == 640 ) {
+            m8d3d_lores_set();
+            m8d3d_lores = 1;
+        }
     }
     if( c->fresh ) {
         ok = m8d3d_scratch_clear( c );
@@ -3069,6 +3156,41 @@ extern void m8d3d_outb( unsigned port, unsigned v );
 extern unsigned m8d3d_inb( unsigned port );
 #pragma aux m8d3d_inb = "xor eax, eax" "in al, dx" parm [edx] value [eax] modify exact [eax];
 
+extern void m8d3d_outw( unsigned port, unsigned v );
+#pragma aux m8d3d_outw = "out dx, ax" parm [edx] [eax] modify exact [];
+
+/* Trial (Z6): shadow set 1 as 320x240, double scan and the pixel clock halved, at
+ * 640x480's line and frame rate (M8LORES). The next mode set rewrites set 1 whole. */
+static void m8d3d_lores_set( void )
+{
+    static const WORD   port[8] = { 0x02E8, 0x06E8, 0x0AE8, 0x0EE8, 0x12E8, 0x16E8, 0x1AE8, 0x1EE8 };
+    static const WORD   val[8] = { 0x34, 0x27, 0x29, 0x03, 0x0209, 0x01DF, 0x01EC, 0x03 };
+    int                 i;
+
+    m8d3d_outw( 0x22E8, 0x0060 );
+    m8d3d_outw( 0x4AE8, 0x0002 );
+    m8d3d_outb( 0x7AEE, 0x0A );
+    m8d3d_outw( 0x22E8, 0x0020 );
+    m8d3d_outw( 0x5AEE, 0x0001 );
+    m8d3d_outw( 0x46EE, 0x0000 );
+    for( i = 0; i < 8; ++i ) {
+        if( i < 4 || i == 7 ) {
+            m8d3d_outb( port[i], val[i] );
+        } else {
+            m8d3d_outw( port[i], val[i] );
+        }
+    }
+    m8d3d_outb( 0x22E8, 0x2B );
+    m8d3d_outw( 0x4AEE, 0x1864 );
+    m8d3d_outw( 0x46EE, 0x003F );
+    m8d3d_outw( 0x5AEE, 0x0000 );
+    m8d3d_outw( 0x46EE, 0x0000 );
+    m8d3d_outw( 0x22E8, 0x0060 );
+    m8d3d_outw( 0x4AE8, 0x0003 );
+    m8d3d_outb( 0x7AEE, 0x0A );
+    m8d3d_outw( 0x22E8, 0x0028 );
+}
+
 static DWORD m8d3d_rgb16( const M8D3D_TEX *t, DWORD p )
 {
     if( t->is555 ) {
@@ -3167,6 +3289,7 @@ static void m8d3d_pal_restore( void )
     }
     m8d3d_pal_on = 0;
     m8d3d_pal_want = 0;
+    m8d3d_lores = 0;
     m8d3d_pal_nb = 0;
     for( i = 0; i < M8D3D_TEXTURES; ++i ) {
         m8d3d_texs[i].scanned = 0;
@@ -3405,6 +3528,8 @@ static int m8d3d_draw_begin( M8D3D_DRAW *p, M8D3D_CONTEXT *c )
      * to the whole scratch when it was created. At 16 bpp, the replay sees to it. */
     if( !p->fb16 ) {
         m8d3d_qn = 0;
+        m8d3d_qh = 0;
+        m8d3d_q_next = M8D3D_Q_PUMP;
     }
     if( !p->fb16 && c->fresh ) {
         p->ok = m8d3d_scratch_clear( c );
@@ -3527,8 +3652,8 @@ static void m8d3d_draw_on( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D_
     a[1] = v1;
     a[2] = v2;
     for( j = 0; j < 3; ++j ) {
-        v[2 * j] = (short)m8d3d_fround( &a[j]->sx, 0 );
-        v[2 * j + 1] = (short)m8d3d_fround( &a[j]->sy, 0 );
+        v[2 * j] = (short)m8d3d_fround( &a[j]->sx, -1 );
+        v[2 * j + 1] = (short)m8d3d_fround( &a[j]->sy, -1 );
     }
     {
         int     lx = v[0] < v[2] ? v[0] : v[2];
