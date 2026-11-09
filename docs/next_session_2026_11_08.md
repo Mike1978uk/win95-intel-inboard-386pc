@@ -2,7 +2,33 @@
 
 Earlier handoff: `docs/next_session_2026_11_07.md` (its "Open" list still stands, less what is below). **The cloud session's tests are in #59**: carry this line on until every box there is ticked. Results: `docs/captures/2026-11-07_shape/README.md` and `docs/captures/2026-11-07_r892/README.md`. Levers: `docs/mach8_frame_rate_plan.md`, "What a frame's time is made of", Y1-Y13.
 
-## START HERE: 2026-11-10 (read first)
+## START HERE: 2026-11-10, after the night of 11-09 (read first)
+
+**Goal (owner): twist running on the card drawn by the engine, not software. Then Monster Truck Madness.**
+
+Card: switched off by the owner at the end of the session. Installed: `M8D3GK` (boot 345). `C:\M8D3D.INI` = `[diag] mode=0`, `[feed] on=0`, `[d3d] render8=0` (no `[z]`). GK hung once in twist (boot 345): the owner saw a large black window. Cause not known; GJ ran clean just before it, and GK adds only counters. First run after power-on: twist once on GK (`tools/m8cardscripts/twist_card.ps1 -Label gk2 -Start 30 -Settle 40 -Gap 40`), owner watching. If it hangs again, go back to GJ (`%TEMP%\m8d3gj`) and add the counters one at a time.
+
+Twist status: `M8TWIST.EXE` (patched by `tools/m8d3dtest/twist_full_patch.py`, which forces full screen from the start) runs on the card at 640x480x16, ~2.2-2.8 fps, **drawn in software**: census `writes 0 pieces 0`. All flips take the slow path (`flipwhy boxes`).
+- Corner/quarter size: corners are always rounded at half size (`m8d3d_draw_on`, `m8d3d_fround(..., -1)`). The software fallback `m8dd_tri_ram` now doubles them unless the screen is at 320x240 (GI). Whether twist now fills the screen: **not seen by the owner yet**. Same cause as the DxDiag cube in the top-left quarter.
+- Replay now switches to 320x240 on the first frame, not only with the texture palette (GH). Twist never reaches replay, so it has no effect there yet.
+- **Why twist goes to software: not found.** Ruled out: the back-buffer Lock/GetDC (GJ keeps the triangles on a write Lock; census `lockkept 0`). GK counts the other paths in the census `feed` line: `ramfront` (drawn on the shown buffer), `ramunknown` (back buffer not described), `ramflush` (recorded triangles pushed to RAM), `notours` (target not one of our buffers). Read those first; they name the path to fix. Suspects: twist's per-frame viewport clear is a partial Blt (not a full-screen fill), so the buffer becomes "not described"; or it draws to the front buffer.
+- See-through ends: no Z. We claim no Z depth (GF) because a Z-buffer does not fit (`[z] depth=16` makes twist fail with the Z memory error even full screen). Fix later: accept a Z surface that takes no video memory (depth is our sort at Flip), or sort twist's triangles anyway.
+- Tab in twist hides its stats text: 2.8 -> 4.5 fps (`-Keys 'key TAB'` in the script).
+
+Hang (11-09): GD hung 3 of 3 tunnel runs. With M8FEED on, GE hung once at exit (Alt+F4) in 2 runs, with a black 640x480 area and a white bar. With `[feed] on=0`, 2 clean runs at 323 ms a frame (308 ms with the feed). The feed's guard (busy=2, census `cut`) never fired: the 16-bit driver did not interleave, so the cause in the feed at exit is still open. The feed is off on the card. M8FEED must stop cleanly at program exit before it goes back on.
+
+Builds this session: GE feed guard; GF no Z claimed (`[z] depth=16`); GG `[d3d] render8=0`; GH 320x240 with the first frame; GI RAM drawing doubled; GJ `[d3d] lockkeep`; GK RAM-path counters. Build dirs `%TEMP%\m8d3g?`. The twist binaries and textures are in `%TEMP%\dx5sdk_x\bin` (extract from `references/d3d_programs/idx5sdk.exe` with 7-Zip if gone; the framework source is in `%TEMP%\dx5sdk_x\tri3`).
+
+Lesson: the owner suggested the bed first and was right. A start-up failure (twist windowed) is checked in the bed `vm_5160_mcp` (`install_h.ps1 -Target 127.0.0.1`), not by card installs.
+
+How to work (owner, repeated 11-09 night; keep it without being asked):
+- Main model: driver code, diagnosis, measurement reading, card runs.
+- Cheaper agents (Agent tool, `model: haiku`) for every git commit and push: exact paths to stage by name, the message in a temp file (`git commit -F`), "never `git add -A`", check `git diff --cached --stat`, push without force, report `git log --oneline -3` and `git status`. One logical change per commit; driver and docs separate.
+- Cheaper agents (`model: sonnet`) for research and write-ups: a brief with the project facts, files to read first, the output path, prose rules, "do not commit"; in the background while driver work goes on.
+- Never Sonnet or Haiku for diagnosis. The owner approves anything posted to GitHub.
+- One card job at a time. Bed first for anything that fails before the first frame.
+
+## START HERE: 2026-11-10 (written before the night session; items 1-2 done above)
 
 Agent-off runs on GD (owner, 11-09 night): both tunnel runs hung the same way. The frame froze, flicked between two colour modes, then the screen showed the whole VRAM: page 0 top left, page 1 below, the scratch column top right, in the texture palette (photo `4 corner fail.jpg` in the owner's photos folder). Whether the second run had `[feed] on=0` set is not recorded: ask. The owner felt no speed difference with the agent off. DxDiag's Direct3D test ran well and fast (small cube, lower resolution).
 Reading: the display mode was reset (program died or DirectX reset the mode) while our palette and engine state were still in force; M8FEED may have kept writing that frame after the reset. Also from that run: more yellow along the bottom (accent rule may be too generous, `[diag] accent=0`); black lines on lower triangles still there (test `[diag] shift=0`; fix = bottom rows as one-row spans).
