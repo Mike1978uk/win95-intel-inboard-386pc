@@ -2,6 +2,15 @@
 
 Earlier handoff: `docs/next_session_2026_11_07.md` (its "Open" list still stands, less what is below). **The cloud session's tests are in #59**: carry this line on until every box there is ticked. Results: `docs/captures/2026-11-07_shape/README.md` and `docs/captures/2026-11-07_r892/README.md`. Levers: `docs/mach8_frame_rate_plan.md`, "What a frame's time is made of", Y1-Y13.
 
+## START HERE: 2026-11-09, evening
+
+Card: boot 333 on `M8D3GB` (= committed source). Tunnel, same DX6.1 scene, whole frame 366 ms (FM) -> ~273-300 ms (~3.3-3.7 fps); ours 90 -> 70 ms; flip 163 -> 81-86 ms. Next program: DX5 SDK `twist.exe` (extract from `references/d3d_programs/idx5sdk.exe`, `cdrom\sdkin`). Figures per build: `docs/captures/2026-11-08_tunnel/README.md`, "2026-11-09 evening". Silicon ranking: `docs/silicon_for_d3d_2026_11_09.md`.
+
+Items from the 14:00 list: 1 split kept (owner); 4 queue 8,192 ruled out (0 forced sends); 5 byte latch ruled out (M8LATCH: latch does not survive a commit); 7 VxD feeder built as M8FEED.VXD, tail of 4,000 writes per frame (whole-frame feeding at 1 ms lost: cache flushes); 3 light dither by piece built (owner: "a little dark", far levels now rounded); 2 asm pass not started: measure first. 6 agent-free run still owed (owner at the machine).
+Also built: whole-frame build before sending (FQ), outline chaining by endpoint hash (FP), no on-screen outlines (right edges +1 px in the scratch, FX: flip -60 ms, -1,900 writes), overlap-aware join runs for the see-through on bends (FY 48 ms, FZ ~3 ms).
+Diag split of our record path (C:\M8D3D.INI [diag] mode=): program + DirectX floor 96 ms a frame; corners/clip/facing 38 ms; sampling/split/light 40 ms; record 8 ms.
+Done after that: integer texture sampling (GA, ours -16 ms), integer clip (GB, -6 ms); one hang on boot 330 (README). Open, in order: owner's eye on GB bends and edges; agent-free run (item 6); twist; per-triangle overhead in the record path (mode 5 still 21 ms over a 3.7 floor); sampling cost (pal_patch, split midpoints on the 387); stripe-shaped pieces for the hazard texture (silicon #2, Z13) and Z1 textured fills for the look; DP2 (B7/B8); XTBOTH.MPD source not in git (audit 11-09).
+
 ## START HERE: next session (written 2026-11-09, 14:00)
 
 Card: boot 320 on `M8D3FM` (= working tree, committed with this note). Tunnel today, same DX6.1 scene: ours 129 -> 87 ms, flip 196 -> 159 ms (146 without the split), writes 8,215 -> ~6,200. Figures per build: `docs/captures/2026-11-08_tunnel/README.md`. Ranked review: `docs/plan_review_2026_11_09.md`.
