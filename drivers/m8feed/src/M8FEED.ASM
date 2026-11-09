@@ -33,7 +33,8 @@ Declare_Virtual_Device M8FEED, 1, 0, M8Feed_Control, Undefined_Device_ID, \
 Q_PAGES 	EQU	8		; 32 KB
 Q_HEAD		EQU	0		; next entry to send (this driver)
 Q_TAIL		EQU	4		; entries queued (ring 3)
-Q_STATE 	EQU	8		; 0 idle, 1 feeding, 2 stopped: the driver was switched off
+Q_STATE 	EQU	8		; 0 idle, 1 feeding, 2 stopped: the driver was switched off,
+					; 3 stopped: the 16-bit driver used the engine
 Q_BLANK 	EQU	12		; SUBSYS_STAT bit 0 at the last marker
 Q_SHOWMS	EQU	16		; system time at the last marker, ms
 Q_TICKS 	EQU	20		; time-outs run
@@ -42,6 +43,7 @@ Q_SENT		EQU	28		; entries this driver sent
 Q_FIRST 	EQU	64		; the first entry
 
 H_HW_OFF	EQU	11		; byte in the display driver's hot data: set while a DOS box owns the screen
+H_BUSY		EQU	12		; 2 while the engine is the feed's; any 16-bit screen operation changes it
 EXT_FIFO_STATUS EQU	9AEEh		; bit 15 - n set: fewer than n entries free
 SUBSYS_STAT	EQU	42E8h
 BUDGET		EQU	512		; writes a time-out may make, ~4 ms of bus
@@ -264,6 +266,12 @@ BeginProc M8Feed_Run
 	mov	dword ptr [esi + Q_STATE], 2
 	jmp	rn_out
 rn_on:
+	; The 16-bit driver may be part-way through its own register sequence.
+	cmp	byte ptr [eax + H_BUSY], 2
+	je	SHORT rn_ours
+	mov	dword ptr [esi + Q_STATE], 3
+	jmp	rn_out
+rn_ours:
 	mov	ebp, BUDGET
 	mov	edi, [esi + Q_HEAD]
 rn_status:

@@ -695,7 +695,7 @@ static M8D3D_CONTEXT    m8d3d_ctx[M8D3D_CONTEXTS];
  * triangles; [15] flips; in Blt: [16] ticks, [17] calls, [18] full clears described;
  * [19] page wait ticks; [20] triangles drawn from a mask; [21] masks built;
  * [22] triangles stamped; [23] stamps built; [24] ticks in RenderPrimitive. */
-DWORD                   m8d3d_stat[60];      /* 25: engine writes sent, 26: triangle pieces drawn, 27-33: m8dd_tri_census, 34-35: FIFO waits, 36-43: Flip phases, 44: sending, 45: sends forced by a full queue, 46-53: of 36-43, the part spent sending,
+DWORD                   m8d3d_stat[64];      /* 60: feeds cut short by the 16-bit driver; 25: engine writes sent, 26: triangle pieces drawn, 27-33: m8dd_tri_census, 34-35: FIFO waits, 36-43: Flip phases, 44: sending, 45: sends forced by a full queue, 46-53: of 36-43, the part spent sending,
                                               * 54-59: feed: opened, frames handed over, entries left for m8d3d_feed_finish, driver time-outs, FIFO-full reads, entries sent */
 /* Diagnostic: clock ticks since the last mark, into phase k. */
 static LARGE_INTEGER    m8d3d_ph;
@@ -921,6 +921,7 @@ static int m8d3d_q_need( int n )
 extern void *m8d3d_hot( void );
 extern void m8d3d_room_forget( void );
 extern void m8d3d_feed_lost( void );
+extern void m8d3d_feed_hand( void );
 
 static HANDLE   m8d3d_feed_h = INVALID_HANDLE_VALUE;
 static DWORD    *m8d3d_feed;            /* the driver's queue, header first */
@@ -1019,6 +1020,7 @@ void m8d3d_feed_go( void )
     m8d3d_feeding = 1;
     ++m8d3d_stat[55];
     m8d3d_room_forget();
+    m8d3d_feed_hand();
     DeviceIoControl( m8d3d_feed_h, M8FEED_START, NULL, 0, NULL, 0, &got, NULL );
 }
 
@@ -1028,6 +1030,7 @@ void m8d3d_feed_finish( void )
     DWORD   head = 0;
     DWORD   got;
     int     lost;
+    int     cut;
 
     if( m8d3d_feed_held ) {
         m8d3d_feed_go();
@@ -1038,6 +1041,8 @@ void m8d3d_feed_finish( void )
     m8d3d_feeding = 0;
     DeviceIoControl( m8d3d_feed_h, M8FEED_STOP, NULL, 0, &head, 4, &got, NULL );
     lost = m8d3d_feed[M8FEED_STATE] == 2 || ((BYTE *)m8d3d_hot())[11] != 0;
+    cut = !lost && (m8d3d_feed[M8FEED_STATE] == 3 || ((BYTE *)m8d3d_hot())[12] != 2);
+    ((BYTE *)m8d3d_hot())[12] = 1;
     m8d3d_feed[M8FEED_STATE] = 0;
     m8d3d_room_forget();
     m8d3d_stat[56] += m8d3d_qn - head;
@@ -1049,6 +1054,16 @@ void m8d3d_feed_finish( void )
     m8d3d_feed[M8FEED_SENT] = 0;
     m8d3d_feed_blank = (int)m8d3d_feed[M8FEED_BLANK];
     m8d3d_feed_showms = m8d3d_feed[M8FEED_SHOWMS];
+    if( cut ) {
+        /* The 16-bit driver used the engine since the hand-over: the rest of the frame was
+         * queued for registers it has since rewritten. */
+        ++m8d3d_stat[60];
+        m8d3d_qn = 0;
+        m8d3d_qh = 0;
+        m8d3d_q_next = M8D3D_Q_PUMP;
+        m8d3d_engine_end();
+        return;
+    }
     if( lost ) {
         /* A DOS box took the screen: what is left must not reach the card. */
         m8d3d_qn = 0;

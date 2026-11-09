@@ -30,7 +30,7 @@
 extern void m8d3d_init( DWORD *global, DWORD *callbacks, DWORD *driver_info );
 extern int  m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const short *v,
                          const WORD *index, const DWORD *rgb, int n );
-extern DWORD m8d3d_stat[60];
+extern DWORD m8d3d_stat[64];
 extern void m8d3d_feed_finish( void );
 extern void m8d3d_feed_go( void );
 extern void m8d3d_feed_close( void );
@@ -2501,4 +2501,15 @@ void m8d3d_feed_lost( void )
     m8dd_card.known = 0;
     m8dd_pages_on = 0;
     m8dd_page_pending = 0;
+}
+
+/* The engine is the feed's until the DLL's next entry. Busy 2, not 1: GDI's m8_enter sets 1 and
+ * M8_LEAVE 0, so any 16-bit screen operation or cursor draw in between changes it, and the feed
+ * stops rather than interleave its writes with the 16-bit driver's. */
+void m8d3d_feed_hand( void )
+{
+    BYTE *hot = (BYTE *)m8dd->hot;
+
+    m8dd_forget( hot );
+    hot[H_BUSY] = 2;
 }

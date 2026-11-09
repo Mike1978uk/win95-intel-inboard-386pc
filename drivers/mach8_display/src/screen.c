@@ -1500,7 +1500,7 @@ static M8_BCENTRY *m8_bc_lookup( LPDIBENGINE src, int sx, int sy, int w, int h, 
     M8_HASH     hs;
     int         row;
     int         k;
-    int         nested = m8_busy;
+    int         nested = m8_busy == 1;  /* 2 is the DLL's feed: not a screen operation of ours */
     BYTE FAR    *p;
     BYTE FAR    *q;
     M8_BCENTRY  *e = NULL;
@@ -1675,7 +1675,7 @@ static void m8_px_drop( M8_PXENTRY *p, int keep_slot )
 static void m8_px_writeback( M8_PXENTRY *p, WORD why )
 {
     WORD        we = p->e->w;
-    int         nested = m8_busy;
+    int         nested = m8_busy == 1;  /* 2 is the DLL's feed: not a screen operation of ours */
     int         row;
     BYTE FAR    *q;
     BYTE FAR    *s;
