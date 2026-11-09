@@ -30,7 +30,13 @@
 extern void m8d3d_init( DWORD *global, DWORD *callbacks, DWORD *driver_info );
 extern int  m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const short *v,
                          const WORD *index, const DWORD *rgb, int n );
-extern DWORD m8d3d_stat[46];
+extern DWORD m8d3d_stat[60];
+extern void m8d3d_feed_finish( void );
+extern void m8d3d_feed_go( void );
+extern void m8d3d_feed_close( void );
+extern void m8d3d_q_add( unsigned port, unsigned value );
+extern int  m8d3d_feed_blank;
+extern DWORD m8d3d_feed_showms;
 extern DWORD m8d3d_flip_why[6];
 
 /* The head of dd16.c's M8DD_SHARE. */
@@ -388,6 +394,7 @@ DWORD __stdcall m8dd_lock( M8DD_LOCK *ld )
     RECT        r;
     int         k;
 
+    m8d3d_feed_finish();
     if( m8dd->fb16 ) {
         return( m8dd_lock16( ld ) );
     }
@@ -422,6 +429,8 @@ DWORD __stdcall m8dd_unlock( M8DD_UNLOCK *ud )
 {
     M8DD_SURF   s;
     int         k;
+
+    m8d3d_feed_finish();
 
     if( m8dd->fb16 ) {
         return( m8dd_unlock16( ud ) );
@@ -1474,6 +1483,7 @@ static int      m8dd_page;              /* the page last written to CRT_OFFSET *
 static int      m8dd_page_pending;      /* that write may not have taken effect */
 static DWORD    m8dd_page_t;            /* when it was written */
 static int      m8dd_page_in_blank;     /* it landed during a blank */
+static int      m8dd_page_fed;          /* it went in the frame's queue: the marker read the latch */
 static RECT     m8dd_page1_box[M8DD_TRIS_MAX];
 static int      m8dd_page_boxes[2];
 
@@ -1510,6 +1520,14 @@ static void m8dd_page_wait( void )
         return;
     }
     m8dd_page_pending = 0;
+    if( m8dd_page_fed ) {
+        m8dd_page_fed = 0;
+        m8dd_page_in_blank = m8d3d_feed_blank;
+        /* GetTickCount is the VMM's system time, which the marker read. */
+        if( GetTickCount() - m8d3d_feed_showms >= 15 ) {
+            return;
+        }
+    }
     if( !m8dd_page_in_blank && (inpw( M8DD_SUBSYS ) & 1) ) {
         return;
     }
@@ -1541,9 +1559,12 @@ static int m8dd_page_frame( int k )
 
     if( !m8dd_pages_on ) {
         if( !m8d3d_replay( &all, 1, 0, M8DD_PAGE1_Y, NULL, NULL, NULL, 0 ) ) {
+            m8d3d_feed_go();
             m8dd_card.known = 0;
             return( 0 );
         }
+        m8d3d_feed_go();
+        m8d3d_feed_finish();
         m8dd_pages_on = 1;
         m8dd_page = 0;
         m8dd_page_boxes[0] = m8dd_card_boxes;
@@ -1553,12 +1574,19 @@ static int m8dd_page_frame( int k )
     m8dd_page_wait();
     if( !m8d3d_replay( h ? m8dd_page1_box : m8dd_card_box, m8dd_page_boxes[h], 0, h ? M8DD_PAGE1_Y : 0,
                        m8dd_tri_v[k], m8dd_tri_i[k], m8dd_tri_g[k], m8dd_tri_n[k] ) ) {
+        m8d3d_feed_go();
         m8dd_pages_leave();
         return( 0 );
     }
-    m8dd_page_show( h );
-    outpw( M8DD_SUBSYS, 0x0001 );
-    m8dd_page_in_blank = inpw( M8DD_SUBSYS ) & 1;
+    /* The show after the frame's last write, in the same queue; a marker then reads the blank
+     * latch for m8dd_page_wait (m8dd_page_fed). */
+    ((DWORD *)m8dd->gdi_lin)[4] = h;
+    m8dd_page = h;
+    m8d3d_q_add( M8DD_CRT_OFFSET_HI, h ? M8DD_PAGE1_HI : 0 );
+    m8d3d_q_add( M8DD_SUBSYS, 0x0001 );
+    m8d3d_q_add( 0, 0 );
+    m8d3d_feed_go();
+    m8dd_page_fed = 1;
     QueryPerformanceCounter( &t );
     m8dd_page_t = t.LowPart;
     m8dd_page_pending = 1;
@@ -1593,6 +1621,7 @@ static void m8dd_flip16_fast( int k )
             }
         } else {
             m8d3d_replay( m8dd_card_box, m8dd_card_boxes, 0, 0, m8dd_tri_v[k], m8dd_tri_i[k], m8dd_tri_g[k], m8dd_tri_n[k] );
+            m8d3d_feed_go();
             m8dd_note_boxes( k, m8dd_card_box );
         }
         m8dd_fp_stale = 1;
@@ -1668,6 +1697,8 @@ static DWORD m8dd_flip16( M8DD_FLIP *fd )
     QueryPerformanceCounter( &t1 );
     if( m8dd_tri_n[k] ) {
         m8d3d_replay( NULL, 0, 0, 0, m8dd_tri_v[k], m8dd_tri_i[k], m8dd_tri_g[k], m8dd_tri_n[k] );
+        m8d3d_feed_go();
+        m8d3d_feed_finish();
         m8dd_fp_stale = 1;
     }
     m8dd_note_boxes( k, m8dd_card_box );
@@ -1683,6 +1714,7 @@ static DWORD m8dd_flip16( M8DD_FLIP *fd )
 
 DWORD __stdcall m8dd_flip( M8DD_FLIP *fd )
 {
+    m8d3d_feed_finish();
     if( !m8dd->fb16 ) {
         return( DDHAL_DRIVER_NOTHANDLED );
     }
@@ -1889,6 +1921,7 @@ DWORD __stdcall m8dd_blt( M8DD_BLT *bd )
     long        sy;
     int         ok;
 
+    m8d3d_feed_finish();
     if( m8dd->fb16 ) {
         return( m8dd_blt16( bd ) );
     }
@@ -2199,6 +2232,7 @@ int m8d3d_scratch( LPVOID key, int *w, int *h, int *x, int *y )
 
 void m8d3d_scratch_free( LPVOID key )
 {
+    m8d3d_feed_finish();
     if( m8dd->fb16 ) {
         m8dd_pages_leave();
         m8dd_pages_ok = 0;
@@ -2316,6 +2350,7 @@ DWORD __stdcall m8dd_create_surface( M8DD_CREATE *cd )
     int     k;
     RECT    r;
 
+    m8d3d_feed_finish();
     if( m8dd->fb16 ) {
         return( m8dd_create16( cd ) );
     }
@@ -2372,6 +2407,7 @@ DWORD __stdcall m8dd_destroy_surface( M8DD_DESTROY *dd )
     BYTE    *gbl;
     int     k;
 
+    m8d3d_feed_finish();
     for( k = 0; k < M8DD_HELD_MAX; ++k ) {
         if( m8dd_held[k].lcl == dd->lpDDSurface ) {
             m8dd_held[k].lcl = NULL;
@@ -2402,6 +2438,8 @@ DWORD __stdcall m8dd_destroy_surface( M8DD_DESTROY *dd )
 DWORD __stdcall m8dd_destroy_driver( M8DD_DESTROYDRV *dd )
 {
     int k;
+
+    m8d3d_feed_close();
 
     if( m8dd_placed_n > 0 ) {
         for( k = 0; k < M8DD_PLACED_MAX; ++k ) {
@@ -2439,4 +2477,28 @@ DWORD __stdcall DriverInit( LPVOID context )
     m8dd->destroy_driver = (DWORD)m8dd_destroy_driver;
     m8dd->marker = M8DD_MARKER;
     return( 1 );
+}
+
+/* For the feed in m8d3d.c. */
+void *m8d3d_hot( void )
+{
+    return( (void *)m8dd->hot );
+}
+
+/* The FIFO was written behind m8d3d_room's back: what it knew of the room is gone. */
+void m8d3d_room_forget( void )
+{
+    m8d3d_free = 0;
+}
+
+/* A DOS box took the screen while the feed ran: the card holds part of a frame. */
+void m8d3d_feed_lost( void )
+{
+    BYTE *hot = (BYTE *)m8dd->hot;
+
+    m8dd_forget( hot );
+    hot[H_BUSY] = 0;
+    m8dd_card.known = 0;
+    m8dd_pages_on = 0;
+    m8dd_page_pending = 0;
 }
