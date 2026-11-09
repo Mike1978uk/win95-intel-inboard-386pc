@@ -927,7 +927,7 @@ static int      m8d3d_feeding;          /* a frame handed over, not yet finished
 static int      m8d3d_feed_held;        /* Flip's frame left in the queue, engine begun */
 /* Writes left for the driver: the frame's last fills keep the 16-entry FIFO busy about a tick each,
  * where its lines and register writes would leave the engine idle between ticks. */
-static int      m8d3d_feed_tail = 1500;
+static int      m8d3d_feed_tail = 4000;
 int             m8d3d_feed_blank;       /* blank latch read after the last page show */
 DWORD           m8d3d_feed_showms;      /* and the system time then */
 
@@ -937,10 +937,10 @@ static void m8d3d_feed_open( void )
     DWORD   q = 0;
     DWORD   got = 0;
 
-    /* Only with [feed] on=1. Each time-out empties the cache, the program's too, and between ticks
+    /* [feed] on=0 turns it off. Each time-out empties the cache, the program's too, and between ticks
      * a 16-entry FIFO of lines runs dry: an engine-idle interrupt (8514 IGPIDLE) would pace it
      * better, but no 8-bit IRQ is free on the 5160. */
-    if( m8d3d_feed != NULL || !GetPrivateProfileInt( "feed", "on", 0, "C:\\M8D3D.INI" ) ) {
+    if( m8d3d_feed != NULL || !GetPrivateProfileInt( "feed", "on", 1, "C:\\M8D3D.INI" ) ) {
         return;
     }
     m8d3d_feed_h = CreateFileA( "\\\\.\\M8FEED.VXD", 0, 0, NULL, 0, FILE_FLAG_DELETE_ON_CLOSE, NULL );
@@ -955,7 +955,7 @@ static void m8d3d_feed_open( void )
     }
     m8d3d_feed = (DWORD *)q;
     m8d3d_stat[54] = 1;
-    m8d3d_feed_tail = (int)GetPrivateProfileInt( "feed", "tail", 1500, "C:\\M8D3D.INI" );
+    m8d3d_feed_tail = (int)GetPrivateProfileInt( "feed", "tail", 4000, "C:\\M8D3D.INI" );
     m8d3d_feed_tail = m8d3d_feed_tail < 3 ? 3 : m8d3d_feed_tail;
 }
 
@@ -2425,8 +2425,11 @@ static int m8d3d_tri_stamped( M8D3D_CONTEXT *c, int dx, int dy, const short *v, 
 static int m8d3d_jruns = M8D3D_JOIN_RUNS;   /* [diag] runs=, to rule the run joining in or out */
 static int m8d3d_dclean;                    /* [diag] clean=1: the scratch cleared whole every frame */
 static int m8d3d_dnoout;                    /* [diag] nooutline=1: no on-screen outlines, to time them */
-static int m8d3d_jshift;                    /* [diag] shift=1: right edges a pixel right, no outlines */
+static int m8d3d_jshift;                    /* [diag] shift=0: on-screen outlines again */
+static int m8d3d_dnolap;                    /* [diag] nooverlap=1: runs not stopped at overlaps */
 #define M8D3D_JOIN_FILL_PX  3200L       /* one fill's 9 writes and start, in polygon-fill pixels */
+static int  m8d3d_jband = M8D3D_JOIN_BAND;     /* [join] band=, fillpx=: tuned to whichever of CPU and */
+static long m8d3d_jfillpx = M8D3D_JOIN_FILL_PX; /* engine is the limit, which moves with each change */
 
 typedef struct {
     short   col;
@@ -2488,13 +2491,92 @@ static void m8d3d_shorts_sort( short *s, int n )
  * in colour order, so they must not overlap: the run stops before the triangles' area passes
  * the screen's. A program without a Z buffer paints far to near, so what is left is drawn
  * afterwards, one triangle at a time, over it. */
-static int m8d3d_join_ok( M8D3D_CONTEXT *c, const short *v, int n )
+/* Where a run of joined triangles must stop: a triangle over cells another of the run already
+ * covers would be painted in colour order, not the program's. A cell counts as covered only when
+ * a triangle holds all of it, so neighbours that share an edge do not stop the run; overlaps
+ * smaller than a cell are missed. Cells are 16 units; the stamp marks this run's cells. For each
+ * edge only the cell corner furthest outside it is tested, stepped by adds along the row. */
+#define M8D3D_CELL      4
+#define M8D3D_CELLS_X   (640 / 16 + 1)
+#define M8D3D_CELLS_Y   (480 / 16 + 1)
+static BYTE     m8d3d_cell[M8D3D_CELLS_Y][M8D3D_CELLS_X];
+static BYTE     m8d3d_cell_stamp;
+
+/* 1 if the triangle covers a cell the run already holds; marks its cells either way, since a
+ * run that stops here starts the next with a new stamp. */
+static int m8d3d_cells_mark( const short *p )
+{
+    long    s = (long)(p[2] - p[0]) * (p[5] - p[1]) - (long)(p[4] - p[0]) * (p[3] - p[1]);
+    long    ea[3];
+    long    eb[3];
+    long    ec[3];
+    int     lx = p[0] < p[2] ? p[0] : p[2];
+    int     hx = p[0] > p[2] ? p[0] : p[2];
+    int     ly = p[1] < p[3] ? p[1] : p[3];
+    int     hy = p[1] > p[3] ? p[1] : p[3];
+    int     c0;
+    int     c1;
+    int     cy;
+    int     e;
+    const int sz = 1 << M8D3D_CELL;
+
+    lx = p[4] < lx ? p[4] : lx;
+    hx = p[4] > hx ? p[4] : hx;
+    ly = p[5] < ly ? p[5] : ly;
+    hy = p[5] > hy ? p[5] : hy;
+    if( s == 0 || hx - lx < sz || hy - ly < sz ) {
+        return( 0 );
+    }
+    /* f = a x + b y + c, at least 0 inside; c taken at the worst corner of a cell from (x, y). */
+    for( e = 0; e < 3; ++e ) {
+        const short *a = p + 2 * e;
+        const short *b = p + 2 * ((e + 1) % 3);
+
+        ea[e] = (long)(a[1] - b[1]);
+        eb[e] = (long)(b[0] - a[0]);
+        if( s < 0 ) {
+            ea[e] = -ea[e];
+            eb[e] = -eb[e];
+        }
+        ec[e] = -(ea[e] * a[0] + eb[e] * a[1]) + (ea[e] < 0 ? ea[e] * sz : 0) + (eb[e] < 0 ? eb[e] * sz : 0);
+    }
+    c0 = (lx + sz - 1) >> M8D3D_CELL;
+    c1 = hx >> M8D3D_CELL;              /* cells c0 .. c1 - 1 lie inside the box */
+    for( cy = (ly + sz - 1) >> M8D3D_CELL; ((cy + 1) << M8D3D_CELL) <= hy; ++cy ) {
+        long    y = (long)cy << M8D3D_CELL;
+        long    f0 = ea[0] * ((long)c0 << M8D3D_CELL) + eb[0] * y + ec[0];
+        long    f1 = ea[1] * ((long)c0 << M8D3D_CELL) + eb[1] * y + ec[1];
+        long    f2 = ea[2] * ((long)c0 << M8D3D_CELL) + eb[2] * y + ec[2];
+        long    s0 = ea[0] << M8D3D_CELL;
+        long    s1 = ea[1] << M8D3D_CELL;
+        long    s2 = ea[2] << M8D3D_CELL;
+        BYTE    *row = m8d3d_cell[cy];
+        int     cx;
+
+        for( cx = c0; cx < c1; ++cx, f0 += s0, f1 += s1, f2 += s2 ) {
+            if( f0 < 0 || f1 < 0 || f2 < 0 ) {
+                continue;
+            }
+            if( row[cx] == m8d3d_cell_stamp ) {
+                return( 1 );
+            }
+            row[cx] = m8d3d_cell_stamp;
+        }
+    }
+    return( 0 );
+}
+
+static int m8d3d_join_ok( M8D3D_CONTEXT *c, const short *v, int n, int least )
 {
     long    area = 0;
+    long    most;
     int     i;
 
-    if( !c->stamp_on || n < M8D3D_JOIN_MIN || n * 3 > M8D3D_JOIN_EDGES || c->sw != 640 ) {
+    if( !c->stamp_on || n < least || c->sw != 640 ) {
         return( 0 );
+    }
+    if( n * 3 > M8D3D_JOIN_EDGES ) {
+        n = M8D3D_JOIN_EDGES / 3;
     }
     /* The viewport's right and bottom edges are 640 and 480: a corner there is on screen. */
     for( i = 0; i < n * 6; i += 2 ) {
@@ -2502,16 +2584,23 @@ static int m8d3d_join_ok( M8D3D_CONTEXT *c, const short *v, int n )
             return( 0 );
         }
     }
+    if( ++m8d3d_cell_stamp == 0 ) {
+        memset( m8d3d_cell, 0, sizeof( m8d3d_cell ) );
+        m8d3d_cell_stamp = 1;
+    }
+    /* Twice the target's area, the cross product's measure, and a margin: at 320x240 the corners
+     * are halved, so the target is a quarter of 640x480. */
+    most = m8d3d_lores ? 2L * 320 * 240 + 2L * 320 * 240 / 32 : 2L * 640 * 480 + 2L * 640 * 480 / 32;
     for( i = 0; i < n; ++i ) {
         const short *p = v + 6 * i;
         long        a = (long)(p[2] - p[0]) * (p[5] - p[1]) - (long)(p[4] - p[0]) * (p[3] - p[1]);
 
         area += a < 0 ? -a : a;
-        if( area > 2L * 640 * 480 + 2L * 640 * 480 / 32 ) {
+        if( area > most || (!m8d3d_dnolap && m8d3d_cells_mark( p )) ) {
             break;
         }
     }
-    return( i >= M8D3D_JOIN_MIN ? i : 0 );
+    return( i >= least ? i : 0 );
 }
 
 /* One edge top to bottom without its last row, into the scratch at ox, oy. */
@@ -2694,10 +2783,10 @@ static int m8d3d_join_fill_bands( int dy, const short *v, const WORD *tri, int n
     int     y;
     int     i;
 
-    for( y = t; y < b; y += M8D3D_JOIN_BAND ) {
-        int     y2 = y + M8D3D_JOIN_BAND < b ? y + M8D3D_JOIN_BAND : b;
+    for( y = t; y < b; y += m8d3d_jband ) {
+        int     y2 = y + m8d3d_jband < b ? y + m8d3d_jband : b;
         int     bn = 0;
-        int     gap = (int)(M8D3D_JOIN_FILL_PX / (y2 - y));
+        int     gap = (int)(m8d3d_jfillpx / (y2 - y));
         long    extra = 0;
 
         for( i = 0; i < nt; ++i ) {
@@ -2721,7 +2810,7 @@ static int m8d3d_join_fill_bands( int dy, const short *v, const WORD *tri, int n
                 /* Joined runs must stay apart: a fill starting inside a patch inverts it. */
                 if( (grun[2 * i + 1] > brun[2 * i + 1] ? grun[2 * i + 1] : brun[2 * i + 1]) >
                     (grun[2 * i + 2] < brun[2 * i + 2] ? grun[2 * i + 2] : brun[2 * i + 2]) ) {
-                    extra = M8D3D_JOIN_FILL_PX * gn;
+                    extra = m8d3d_jfillpx * gn;
                 }
             }
             for( i = 0; i < gn; ++i ) {
@@ -2731,7 +2820,7 @@ static int m8d3d_join_fill_bands( int dy, const short *v, const WORD *tri, int n
                 extra += (long)(ur - ul) * (y2 - gt) - (long)(grun[2 * i + 1] - grun[2 * i]) * (y - gt) -
                          (long)(brun[2 * i + 1] - brun[2 * i]) * (y2 - y);
             }
-            if( extra < M8D3D_JOIN_FILL_PX * gn ) {
+            if( extra < m8d3d_jfillpx * gn ) {
                 for( i = 0; i < gn; ++i ) {
                     grun[2 * i] = grun[2 * i] < brun[2 * i] ? grun[2 * i] : brun[2 * i];
                     grun[2 * i + 1] = grun[2 * i + 1] > brun[2 * i + 1] ? grun[2 * i + 1] : brun[2 * i + 1];
@@ -3168,10 +3257,20 @@ int m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const shor
             }
         }
     }
-    first = ok && n != 0 ? m8d3d_join_ok( c, v, n ) : 0;
+    first = ok && n != 0 ? m8d3d_join_ok( c, v, n, M8D3D_JOIN_MIN ) : 0;
     M8D3D_PH( 36 );
     if( first != 0 ) {
         ok = m8d3d_mono_off() && m8d3d_q_flush() && m8d3d_join( c, dy, v, index, first );
+        /* Further runs where one stopped at an overlap: painted after it, as the program would. */
+        while( ok && first < n ) {
+            int more = m8d3d_join_ok( c, v + 6 * first, n - first, 1 );
+
+            if( more == 0 ) {
+                break;
+            }
+            ok = m8d3d_join( c, dy, v + 6 * first, index + first, more );
+            first += more;
+        }
     }
     if( first < n ) {
         /* The one-at-a-time path keeps stamps and masks in the joined path's scratch. */
@@ -3231,7 +3330,9 @@ int m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const shor
 
 /* Diagnostic, from C:\M8D3D.INI [diag] mode= at each context: 0 draws; 1 takes each triangle and
  * drops it, which leaves the program's and DirectX's own time; 2 drops it after facing; 3 does all
- * but keep it for Flip; 4 draws with the light rounded, not dithered. */
+ * but keep it for Flip; 4 draws with the light rounded, not dithered; 5 drops each piece as it
+ * reaches m8d3d_draw_on, after clipping; 6 draws but drops the triangles that need clipping; 7
+ * samples texture patches with the 387, not in integers; 8 clips with the 387. */
 static int m8d3d_diag;
 
 static DWORD __stdcall m8d3d_context_create( M8D3D_CONTEXTCREATE *d )
@@ -3246,7 +3347,11 @@ static DWORD __stdcall m8d3d_context_create( M8D3D_CONTEXTCREATE *d )
     m8d3d_nohold = (int)GetPrivateProfileInt( "diag", "nohold", 0, "C:\\M8D3D.INI" );
     m8d3d_dclean = (int)GetPrivateProfileInt( "diag", "clean", 0, "C:\\M8D3D.INI" );
     m8d3d_dnoout = (int)GetPrivateProfileInt( "diag", "nooutline", 0, "C:\\M8D3D.INI" );
-    m8d3d_jshift = (int)GetPrivateProfileInt( "diag", "shift", 0, "C:\\M8D3D.INI" );
+    m8d3d_jshift = (int)GetPrivateProfileInt( "diag", "shift", 1, "C:\\M8D3D.INI" );
+    m8d3d_dnolap = (int)GetPrivateProfileInt( "diag", "nooverlap", 0, "C:\\M8D3D.INI" );
+    m8d3d_jband = (int)GetPrivateProfileInt( "join", "band", M8D3D_JOIN_BAND, "C:\\M8D3D.INI" );
+    m8d3d_jband = m8d3d_jband < 8 ? 8 : m8d3d_jband;
+    m8d3d_jfillpx = (long)GetPrivateProfileInt( "join", "fillpx", (int)M8D3D_JOIN_FILL_PX, "C:\\M8D3D.INI" );
     m8d3d_jruns = (int)GetPrivateProfileInt( "diag", "runs", M8D3D_JOIN_RUNS, "C:\\M8D3D.INI" );
     m8d3d_jruns = m8d3d_jruns < 1 || m8d3d_jruns > M8D3D_JOIN_RUNS ? M8D3D_JOIN_RUNS : m8d3d_jruns;
     m8d3d_stat[6] = (DWORD)d->lpDDS;
@@ -3607,6 +3712,61 @@ static int m8d3d_pal_quad( const M8D3D_TEX *t, const BYTE *bits, const M8D3D_TLV
     return( best );
 }
 
+/* As m8d3d_pal_quad, in integers: the texture is a power of two (POW2 is claimed), so a corner's
+ * texel position in 16.16 comes from its float's bits, and the 387 is not touched. */
+static int m8d3d_pal_quad_i( const M8D3D_TEX *t, const BYTE *bits, const M8D3D_TLVERTEX **a )
+{
+    int     count[M8D3D_PAL_BASES];
+    long    u0;
+    long    u1;
+    long    v0;
+    long    v1;
+    int     lw = 0;
+    int     lh = 0;
+    int     best = 0;
+    int     i;
+    int     j;
+
+    while( (1 << lw) < t->w ) {
+        ++lw;
+    }
+    while( (1 << lh) < t->h ) {
+        ++lh;
+    }
+    u0 = u1 = m8d3d_fround( &a[0]->tu, lw + 16 );
+    v0 = v1 = m8d3d_fround( &a[0]->tv, lh + 16 );
+    for( i = 1; i < 3; ++i ) {
+        long u = m8d3d_fround( &a[i]->tu, lw + 16 );
+        long v = m8d3d_fround( &a[i]->tv, lh + 16 );
+
+        u0 = u < u0 ? u : u0;
+        u1 = u > u1 ? u : u1;
+        v0 = v < v0 ? v : v0;
+        v1 = v > v1 ? v : v1;
+    }
+    for( i = 0; i < m8d3d_pal_nb; ++i ) {
+        count[i] = 0;
+    }
+    /* At 1/6, 1/2 and 5/6 across, as the float version. */
+    for( i = 1; i < 6; i += 2 ) {
+        int y = (int)((v0 + (v1 - v0) / 6 * i + 32768L) >> 16) & (t->h - 1);
+        const WORD *row = (const WORD *)(bits + y * t->pitch);
+
+        for( j = 1; j < 6; j += 2 ) {
+            int     x = (int)((u0 + (u1 - u0) / 6 * j + 32768L) >> 16) & (t->w - 1);
+            DWORD   q = row[x];
+            DWORD   rgb = t->is555 ? ((q & 0x7C00) << 9) | ((q & 0x03E0) << 6) | ((q & 0x001F) << 3) :
+                                     ((q & 0xF800) << 8) | ((q & 0x07E0) << 5) | ((q & 0x001F) << 3);
+            int     k = m8d3d_pal_find( rgb );
+
+            if( k >= 0 && ++count[k] > count[best] ) {
+                best = k;
+            }
+        }
+    }
+    return( best );
+}
+
 /* The colour of a texture rectangle, kept: a program draws the same patch of its texture
  * frame after frame, and a sample is nine texel reads and eighteen float conversions. The
  * key is the texture's slot and the rectangle in 64ths of the texture; emptied when a slot
@@ -3647,7 +3807,7 @@ static int m8d3d_pal_patch( const M8D3D_TEX *t, const BYTE *bits, const M8D3D_TL
     m8d3d_patch_t = (int)(((key >> 18 & 63) * 193 + (key >> 12 & 63) * 146) & 255);
     if( m8d3d_patch_key[h] != key ) {
         m8d3d_patch_key[h] = key;
-        m8d3d_patch_col[h] = (BYTE)m8d3d_pal_quad( t, bits, a );
+        m8d3d_patch_col[h] = (BYTE)(m8d3d_diag == 7 ? m8d3d_pal_quad( t, bits, a ) : m8d3d_pal_quad_i( t, bits, a ));
     }
     return( m8d3d_patch_col[h] );
 }
@@ -3884,6 +4044,86 @@ static int m8d3d_clip_side( const M8D3D_TLVERTEX *in, int n, M8D3D_TLVERTEX *out
     return( k );
 }
 
+/* A corner in integers for clipping: x and y in sixteenths of a pixel, u and v in 16.16. */
+typedef struct {
+    long    x;
+    long    y;
+    long    u;
+    long    v;
+    DWORD   c;
+    DWORD   spec;
+    float   z;
+} M8D3D_ICORNER;
+
+/* A float's bits from a fixed-point value with `frac` fraction bits, truncated. Bits, not a float:
+ * a float return goes through the 387's register. */
+static DWORD m8d3d_fixf( long v, int frac )
+{
+    DWORD   s = 0;
+    DWORD   m;
+    int     e = 31;
+    DWORD   b;
+
+    if( v == 0 ) {
+        return( 0 );
+    }
+    if( v < 0 ) {
+        s = 0x80000000UL;
+        m = (DWORD)-v;
+    } else {
+        m = (DWORD)v;
+    }
+    while( !(m & 0x80000000UL) ) {
+        m <<= 1;
+        --e;
+    }
+    b = s | (DWORD)(e - frac + 127) << 23 | (m >> 8 & 0x007FFFFFUL);
+    return( b );
+}
+
+/* As m8d3d_clip_side, on integer corners: t in 16.16, products in 64 bits, since a corner
+ * outside the target can be far outside. z only when depth is used. */
+static int m8d3d_clip_side_i( const M8D3D_ICORNER *in, int n, M8D3D_ICORNER *out, int side, long lim, int zon )
+{
+    int k = 0;
+    int i;
+
+    for( i = 0; i < n; ++i ) {
+        const M8D3D_ICORNER *a = &in[i];
+        const M8D3D_ICORNER *b = &in[(i + 1) % n];
+        long                da = (side < 2 ? a->x : a->y) - lim;
+        long                db = (side < 2 ? b->x : b->y) - lim;
+
+        if( side & 1 ) {
+            da = -da;
+            db = -db;
+        }
+        if( da >= 0 ) {
+            out[k++] = *a;
+        }
+        if( (da >= 0) != (db >= 0) ) {
+            M8D3D_ICORNER   *o = &out[k++];
+            long            t = (long)(((long long)da << 16) / (da - db));
+            int             sh;
+
+            o->x = a->x + (long)(((long long)(b->x - a->x) * t) >> 16);
+            o->y = a->y + (long)(((long long)(b->y - a->y) * t) >> 16);
+            o->u = a->u + (long)(((long long)(b->u - a->u) * t) >> 16);
+            o->v = a->v + (long)(((long long)(b->v - a->v) * t) >> 16);
+            o->c = 0;
+            for( sh = 0; sh < 32; sh += 8 ) {
+                long ca = (long)(a->c >> sh & 255);
+                long cb = (long)(b->c >> sh & 255);
+
+                o->c |= (DWORD)(ca + ((cb - ca) * t >> 16)) << sh;
+            }
+            o->spec = a->spec;
+            o->z = zon ? a->z + (b->z - a->z) * ((float)t * (1.0f / 65536.0f)) : a->z;
+        }
+    }
+    return( k );
+}
+
 /* The rasteriser fills its outline too, so the last row and column in are the limits: a
  * full-target quad, 0-640 by 0-480 in Direct3D's convention, then covers every pixel. */
 static void m8d3d_draw_clipped( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D_TLVERTEX *v1,
@@ -3909,6 +4149,57 @@ static void m8d3d_draw_clipped( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M
             long y = m8d3d_ford( &a[i].sy );
 
             out |= (x < 0 ? 1 : 0) | (x > rx ? 2 : 0) | (y < 0 ? 4 : 0) | (y > by ? 8 : 0);
+        }
+        if( m8d3d_diag != 8 ) {
+            M8D3D_ICORNER   ia[M8D3D_CLIP_MAX];
+            M8D3D_ICORNER   ib[M8D3D_CLIP_MAX];
+            long            xl = (long)(p->w - 1) << 4;
+            long            yl = (long)(p->h - 1) << 4;
+            int             zon = (int)((p->c->rs_on >> M8D3D_RS_ZENABLE) & 1);
+
+            for( i = 0; i < 3; ++i ) {
+                ia[i].x = m8d3d_fround( &a[i].sx, 4 );
+                ia[i].y = m8d3d_fround( &a[i].sy, 4 );
+                ia[i].u = m8d3d_fround( &a[i].tu, 16 );
+                ia[i].v = m8d3d_fround( &a[i].tv, 16 );
+                ia[i].c = a[i].color;
+                ia[i].spec = a[i].specular;
+                ia[i].z = a[i].sz;
+            }
+            if( out & 1 ) {
+                n = m8d3d_clip_side_i( ia, n, ib, 0, 0, zon );
+                memcpy( ia, ib, n * sizeof( ia[0] ) );
+            }
+            if( out & 2 ) {
+                n = m8d3d_clip_side_i( ia, n, ib, 1, xl, zon );
+                memcpy( ia, ib, n * sizeof( ia[0] ) );
+            }
+            if( out & 4 ) {
+                n = m8d3d_clip_side_i( ia, n, ib, 2, 0, zon );
+                memcpy( ia, ib, n * sizeof( ia[0] ) );
+            }
+            if( out & 8 ) {
+                n = m8d3d_clip_side_i( ia, n, ib, 3, yl, zon );
+                memcpy( ia, ib, n * sizeof( ia[0] ) );
+            }
+            /* On the target: the clamp the float path does below, done here in integers. */
+            for( i = 0; i < n; ++i ) {
+                long x = ia[i].x < 0 ? 0 : ia[i].x > xl ? xl : ia[i].x;
+                long y = ia[i].y < 0 ? 0 : ia[i].y > yl ? yl : ia[i].y;
+
+                a[i] = *v0;
+                *(DWORD *)&a[i].sx = m8d3d_fixf( x, 4 );
+                *(DWORD *)&a[i].sy = m8d3d_fixf( y, 4 );
+                *(DWORD *)&a[i].tu = m8d3d_fixf( ia[i].u, 16 );
+                *(DWORD *)&a[i].tv = m8d3d_fixf( ia[i].v, 16 );
+                a[i].color = ia[i].c;
+                a[i].specular = ia[i].spec;
+                a[i].sz = ia[i].z;
+            }
+            for( i = 1; p->ok && i + 1 < n; ++i ) {
+                m8d3d_draw_on( p, &a[0], &a[i], &a[i + 1] );
+            }
+            return;
         }
         if( out & 1 ) {
             n = m8d3d_clip_side( a, n, b, 0, 0.0f );
@@ -3968,7 +4259,7 @@ static void m8d3d_draw_on( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D_
     int                     fog;
     int                     side;
 
-    if( !p->ok ) {
+    if( !p->ok || m8d3d_diag == 5 ) {
         return;
     }
     a[0] = v0;
@@ -4151,6 +4442,9 @@ static void m8d3d_draw_tri( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D
     }
     ++m8d3d_stat[10];
     ++m8d3d_census.tris_clipped;
+    if( m8d3d_diag == 6 ) {
+        return;
+    }
     m8d3d_draw_clipped( p, v0, v1, v2 );
 }
 
