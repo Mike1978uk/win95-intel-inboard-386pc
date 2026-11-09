@@ -142,3 +142,8 @@ EV plus a 1,024-slot cache of the sampled colour, keyed by texture and rectangle
 - FH: FF + clip only the sides a triangle crosses (tested on the float bits): ours 88 -> 74 ms; flip 161 ms.
 - FI: FH + CANRENDERAFTERFLIP set, diagnostic triangle census off the flip path: flip 161 -> 151 ms (the untimed part of the flip is now ~4 ms); 1,418 triangles a second (EV 1,063).
 - Ours + flip: EV 325 ms -> FI 226 ms.
+- FJ: repeat of FI (an edit missed its file): flip 151.9 ms, confirms FI.
+- FK: FI + engine top-up every 256 held writes, not 24 (each status read empties the cache): flip 151 -> 146 ms.
+- FL: FK + large textured pieces (> 48 px drawn) split in four, twice: ours 75 -> 144, flip 146 -> 231 ms. Too costly.
+- FM: split once, > 80 px only: ours 87, flip 159 ms (+25 ms a frame over FK). Owner's eye pending: are the lingering squares (one colour per large near piece) better? Keep if clearly better; otherwise remove and sample a smaller texture area for big pieces instead.
+- Z25 as first planned does not work: the FIFO holds 16 entries, no DMA or interrupt, and nothing of ours runs while the program and D3DIM do (~60 ms), so nothing feeds the card then. Feeding from every recorded triangle would empty the cache per triangle. The way is a timer-driven VxD feeder (plan Z31).

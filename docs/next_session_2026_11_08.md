@@ -2,6 +2,22 @@
 
 Earlier handoff: `docs/next_session_2026_11_07.md` (its "Open" list still stands, less what is below). **The cloud session's tests are in #59**: carry this line on until every box there is ticked. Results: `docs/captures/2026-11-07_shape/README.md` and `docs/captures/2026-11-07_r892/README.md`. Levers: `docs/mach8_frame_rate_plan.md`, "What a frame's time is made of", Y1-Y13.
 
+## START HERE: next session (written 2026-11-09, 14:00)
+
+Card: boot 320 on `M8D3FM` (= working tree, committed with this note). Tunnel today, same DX6.1 scene: ours 129 -> 87 ms, flip 196 -> 159 ms (146 without the split), writes 8,215 -> ~6,200. Figures per build: `docs/captures/2026-11-08_tunnel/README.md`. Ranked review: `docs/plan_review_2026_11_09.md`.
+
+Owner (11-09): do all of these, tight, before the next program; then DX3 twist, then Monster Truck Madness (`references/d3d_programs/mtmtrial.exe`).
+
+1. Owner's eye on FM's split of large pieces (lingering squares): keep, or remove and sample a smaller texture area for big pieces.
+2. Asm pass (Z16) on the hot paths: edge hash, fill bands (m8d3d_join_fill_bands, m8d3d_tri_span), queue building; judge on speed, code size and RAM.
+3. Light in the fill (Z2/Z3) on the joined path: smooth light from the card, which has slack at 320x240.
+4. Queue 8,192 at 320x240 (review A3): fewer forced sends.
+5. Byte-latch probe (review A8, V18): can coordinate writes share a high byte.
+6. Agent-free run: tunnel timed by the census with the V9x agent off (owner-attended), against the agent-on figure.
+7. Z31: VxD feeding the card in the background while the program runs (owner: build it).
+
+Rules learned today: one copy of a program at a time (palette and scratch are shared); the first run after boot is slow; QPC and any status read empty the cache, so diagnostics cost time; tools/m8cardscripts/phases.ps1 prints the flip breakdown.
+
 ## START HERE: 2026-11-09, later afternoon
 
 - Card boot 316 on `M8D3FI` (= committed source): ours 75 ms, flip 151 ms. Plan review with ranked next 10: `docs/plan_review_2026_11_09.md`.
