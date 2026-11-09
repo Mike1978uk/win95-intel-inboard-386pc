@@ -3167,6 +3167,42 @@ static int m8d3d_pal_quad( const M8D3D_TEX *t, const BYTE *bits, const M8D3D_TLV
     return( best );
 }
 
+/* The colour of a texture rectangle, kept: a program draws the same patch of its texture
+ * frame after frame, and a sample is nine texel reads and eighteen float conversions. The
+ * key is the texture's slot and the rectangle in 64ths of the texture; emptied when a slot
+ * is reused. */
+#define M8D3D_PATCH_HASH    1024
+static DWORD    m8d3d_patch_key[M8D3D_PATCH_HASH];
+static BYTE     m8d3d_patch_col[M8D3D_PATCH_HASH];
+
+static int m8d3d_pal_patch( const M8D3D_TEX *t, const BYTE *bits, const M8D3D_TLVERTEX **a )
+{
+    float       u0 = a[0]->tu;
+    float       u1 = a[0]->tu;
+    float       v0 = a[0]->tv;
+    float       v1 = a[0]->tv;
+    DWORD       key;
+    unsigned    h;
+    int         i;
+
+    for( i = 1; i < 3; ++i ) {
+        u0 = a[i]->tu < u0 ? a[i]->tu : u0;
+        u1 = a[i]->tu > u1 ? a[i]->tu : u1;
+        v0 = a[i]->tv < v0 ? a[i]->tv : v0;
+        v1 = a[i]->tv > v1 ? a[i]->tv : v1;
+    }
+    /* Bit 31 marks a used slot, so key 0 is never a hit on an empty one. */
+    key = 0x80000000UL | (DWORD)(t - m8d3d_texs) << 24 |
+          ((DWORD)m8d3d_round( u0 * 64.0f ) & 63) << 18 | ((DWORD)m8d3d_round( v0 * 64.0f ) & 63) << 12 |
+          ((DWORD)m8d3d_round( u1 * 64.0f ) & 63) << 6 | ((DWORD)m8d3d_round( v1 * 64.0f ) & 63);
+    h = (unsigned)((key * 2654435761UL) >> 22) & (M8D3D_PATCH_HASH - 1);
+    if( m8d3d_patch_key[h] != key ) {
+        m8d3d_patch_key[h] = key;
+        m8d3d_patch_col[h] = (BYTE)m8d3d_pal_quad( t, bits, a );
+    }
+    return( m8d3d_patch_col[h] );
+}
+
 static DWORD __stdcall m8d3d_texture_create( M8D3D_TEXTURECREATE *d )
 {
     int k;
@@ -3179,6 +3215,8 @@ static DWORD __stdcall m8d3d_texture_create( M8D3D_TEXTURECREATE *d )
     }
     m8d3d_texs[k].dds = d->lpDDS;
     m8d3d_texs[k].scanned = 0;
+    /* The slot may have held another texture. */
+    memset( m8d3d_patch_key, 0, sizeof( m8d3d_patch_key ) );
     d->dwHandle = k + 1;
     ++m8d3d_census.tex_created;
     {
@@ -3220,6 +3258,7 @@ static DWORD __stdcall m8d3d_texture_swap( M8D3D_TEXTURESWAP *d )
         t = *a;
         *a = *b;
         *b = t;
+        memset( m8d3d_patch_key, 0, sizeof( m8d3d_patch_key ) );
         d->ddrval = DD_OK;
     }
     return( DDHAL_DRIVER_HANDLED );
@@ -3485,7 +3524,7 @@ static void m8d3d_draw_on( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D_
         lo_y = v[5] < lo_y ? v[5] : lo_y;
         hi_y = v[5] > hi_y ? v[5] : hi_y;
         distant = hi_x - lo_x <= M8D3D_FAR_PX && hi_y - lo_y <= M8D3D_FAR_PX;
-        k = distant ? m8d3d_pal_major() : m8d3d_pal_quad( p->tex, p->texbits, a );
+        k = distant ? m8d3d_pal_major() : m8d3d_pal_patch( p->tex, p->texbits, a );
         if( c->texblend == M8D3D_TEXBLEND_MODULATE || c->texblend == M8D3D_TEXBLEND_MODULATEALPHA ) {
             level = (int)(((rgb >> 16 & 255) + (rgb >> 8 & 255) + (rgb & 255)) * 15 + 382) / 765;
         }
