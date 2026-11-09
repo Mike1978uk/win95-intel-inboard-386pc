@@ -122,3 +122,16 @@ EV plus a 1,024-slot cache of the sampled colour, keyed by texture and rectangle
 - EZ = EY + phase timers. Boot 306, one run, 251 flips, per frame: erase+check 7.4, edge build 15.4, outlines 55.4, fills 99.4, redraw+clear 37.5, singles 3.5, final send 0.7, engine wait 3.3 ms. Sending (q_flush) 124 ms; 8,490 writes (~64 ms of bus); 2,504 FIFO-full reads and 999 room checks a frame.
 - Reading: during fills the card is busy and the CPU spins (~60 ms); during edges, outlines and redraw the CPU computes and the card idles (~100 ms). Z17 (compute the next pass while the card fills) is the lever.
 - Hang at the tunnel's exit (Alt+F4) on boot 306, after both census readings were written; owner restarted. Same as 11-08's exit hangs (#55).
+
+## M8D3FA, FB, FC, 2026-11-09 (one run each, phase timers on)
+
+| Build | Change | Ours | Flip | Fills | Writes | FIFO-full reads |
+|---|---|---|---|---|---|---|
+| FA | Z17: queue 4,096, engine topped up without waiting | 81.9 | 247.9 | 131.2 | 8,438 | 1,441 |
+| FB | FA + 320x240 (Z6) | 80.4 | 185.1 | 76.5 | 7,045 | 116 |
+| FC | FB + on-screen outlines chained (2 writes an edge, not 5) | 81.0 | 173.1 | 74.6 | 5,665 | 117 |
+
+- FA alone neutral: outline sends moved out of the way, the time reappeared in fills. Inside the flip the card was the limit at 640x480.
+- FB: fewer pixels took the card off the critical path again (full reads 1,441 -> 116). Owner: "still looked as good but faster"; 320x240 is the target for this kind of demo; the resolution should be a choice by program type.
+- Owner's eye on FB: near the end, the left wall's black stripe seemed to draw through the right side (looked transparent). Suspect: halving rounds a thin back-facing sliver into a front-facing one, and joined fills go in colour order. To check.
+- Ours + flip: EV 325 ms -> FC 254 ms a frame, before the program's own time.
