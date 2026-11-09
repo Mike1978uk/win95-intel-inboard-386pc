@@ -2,14 +2,49 @@
 
 Earlier handoff: `docs/next_session_2026_11_07.md` (its "Open" list still stands, less what is below). **The cloud session's tests are in #59**: carry this line on until every box there is ticked. Results: `docs/captures/2026-11-07_shape/README.md` and `docs/captures/2026-11-07_r892/README.md`. Levers: `docs/mach8_frame_rate_plan.md`, "What a frame's time is made of", Y1-Y13.
 
-## START HERE: 2026-11-09, evening
+## START HERE: 2026-11-09, night
 
-Card: boot 333 on `M8D3GB` (= committed source). Tunnel, same DX6.1 scene, whole frame 366 ms (FM) -> ~273-300 ms (~3.3-3.7 fps); ours 90 -> 70 ms; flip 163 -> 81-86 ms. Next program: DX5 SDK `twist.exe` (extract from `references/d3d_programs/idx5sdk.exe`, `cdrom\sdk\bin`). Figures per build: `docs/captures/2026-11-08_tunnel/README.md`, "2026-11-09 evening". Silicon ranking: `docs/silicon_for_d3d_2026_11_09.md`.
+Card: boot 335 on `M8D3GD` (= this commit). Tunnel DX6.1 scene: whole frame 366 ms (FM, morning) -> 273-308 ms (~3.3-3.7 fps) with the V9x agent on; ours 90 -> ~70 ms; flip 163 -> 81-88 ms; writes 6,448 -> ~5,600. Program + DirectX floor measured 96 ms (diag mode 1). Per-build figures: `docs/captures/2026-11-08_tunnel/README.md`, "2026-11-09 evening".
 
-Items from the 14:00 list: 1 split kept (owner); 4 queue 8,192 ruled out (0 forced sends); 5 byte latch ruled out (M8LATCH: latch does not survive a commit); 7 VxD feeder built as M8FEED.VXD, tail of 4,000 writes per frame (whole-frame feeding at 1 ms lost: cache flushes); 3 light dither by piece built (owner: "a little dark", far levels now rounded); 2 asm pass not started: measure first. 6 agent-free run still owed (owner at the machine).
-Also built: whole-frame build before sending (FQ), outline chaining by endpoint hash (FP), no on-screen outlines (right edges +1 px in the scratch, FX: flip -60 ms, -1,900 writes), overlap-aware join runs for the see-through on bends (FY 48 ms, FZ ~3 ms).
-Diag split of our record path (C:\M8D3D.INI [diag] mode=): program + DirectX floor 96 ms a frame; corners/clip/facing 38 ms; sampling/split/light 40 ms; record 8 ms.
-Done after that: integer texture sampling (GA, ours -16 ms), integer clip (GB, -6 ms); one hang on boot 330 (README). Open, in order: owner's eye on GB bends and edges; agent-free run (item 6); twist; per-triangle overhead in the record path (mode 5 still 21 ms over a 3.7 floor); sampling cost (pal_patch, split midpoints on the 387); stripe-shaped pieces for the hazard texture (silicon #2, Z13) and Z1 textured fills for the look; DP2 (B7/B8); XTBOTH.MPD source not in git (audit 11-09).
+Built today and kept (defaults; each switchable in `C:\M8D3D.INI`):
+- Whole-frame build before sending.
+- M8FEED.VXD takes the frame's last 4,000 writes (`[feed] on=0`, `tail=N`).
+- No on-screen outlines; right edges +1 px in the scratch (`[diag] shift=0`).
+- Overlap-aware join runs, 8-unit cells (`[diag] nooverlap=1`, `cell=16`).
+- Integer texture sampling and integer clipping (`[diag] mode=7` / `mode=8` give the 387 versions).
+- Aperiodic light dither (`[diag] mode=4` off).
+- Accent colour wins a far patch on 2 of 9 hits (`[diag] accent=0`).
+- Second split above 160 px; far light rounded.
+- Per-process reset of the DLL's shared state: a program that died left the feed handle, palette and 320x240 mode set, so the next run drew in corners and hung (boot 333).
+- Diag modes: 1 drop triangles, 2 stop after facing, 3 all but record, 5 stop after clipping, 6 drop clipped. `[join] band=`, `fillpx=` exist; thresholds ruled out.
+
+Ruled out today: queue 8,192 (A3); byte latch (A8, M8LATCH); whole-frame feeding at 1 ms (cache flushes); band/fill thresholds.
+
+Owner's eye on GB/GD (photos in `C:\Users\lycet\OneDrive\Desktop\XT_project\photos`, video timestamps on them):
+- See-through on curves: GD's 8-unit cells to confirm.
+- Far yellow marker missing, then popping in: GD accent rule to confirm.
+- Black lines on lower triangles: suspect no outlines leaves a patch's bottom row unfilled. Test `[diag] shift=0`; fix = bottom rows as one-row spans.
+- Yellow squares on near panels: one colour per piece. Real fix is texture detail: silicon ranking #2 stripe-shaped pieces / Z13, Z1 textured fills.
+
+Hangs: boot 330 (fznolap, feed on) and boot 333 (stale state from a killed program, fixed in GD). Rule: never leave a tunnel running from a stopped script; close it (Alt+F4 via v9xctl input) before the next run.
+
+Agent-off run (item 6): staged on the card desktop: AGENTOFF, then TUNNOAG (runs `C:\V9XREMOTE\TUNNOAG.LST`: tunnel, census noag-a/noag-b 30 s apart, closes it), then AGENTON. The owner ran it the night of 11-09; read the figures from `C:\M8CENSUS.TXT` with `tools/m8cardscripts/phases.ps1 -Label noag -File <copy>`.
+
+Next session, in order:
+1. Read the agent-off census and DxDiag notes.
+2. Twist: DX5 SDK `twist.exe`. Extract with 7-Zip from `references/d3d_programs/idx5sdk.exe` -> DX5SDK.EXE -> `cdrom\sdk\bin\twist.exe`. Run like the tunnel via `tools/m8cardscripts/tunnel_card.ps1 -Exe <twist>`, but it starts windowed: send Alt+Enter with v9xctl input after start, and check the census shows the 16 bpp page path. If not drivable, the DX3a SDK (https://archive.org/details/directx3asdk) has TWIST.C to build a self-starting copy. The owner will run it often for driver work: script it end to end.
+3. Look fixes above.
+4. Speed levers left: record-path per-triangle overhead (mode 5 still ~21 ms over a 3.7 ms floor); Flip CPU (edge hash 20 ms, scratch edges 20 ms: L1-sized tables, asm); DrawPrimitives2 (B7/B8); card wait states (needs soak). Realistic ceiling for this tunnel ~5-6 fps; lighter demos are where 10+ fps is plausible.
+5. Monster Truck Madness after twist.
+6. XTBOTH.MPD source/flags are not in git (audit 11-09): recover from the card + notes.
+
+How to work (owner, 11-09; keep it without being asked):
+- Main model: driver code, diagnosis, measurement reading, card runs.
+- Cheaper agents (Agent tool, `model: haiku`) for every git commit and push: give the exact paths to stage by name, the exact message (written to a temp file, `git commit -F`), "never `git add -A`", check `git diff --cached --stat`, push without force, report `git log --oneline -3` and `git status`. One logical change per commit; driver and docs in separate commits.
+- Cheaper agents (`model: sonnet`) for research and write-ups: a brief with the project facts, files to read first, the output doc path, prose rules (few words, cite URL/file:line, record what was not found), "do not commit"; run in the background while the driver work goes on.
+- Never Sonnet or Haiku for diagnosis (MEMORY.md). The owner approves any text posted to GitHub.
+- One card job at a time: never start a card run while another script still drives the card.
+- Token budget: weekly budget ran to 92% by Monday 11-09; prefer INI-switch A/B on one install over rebuilds, and batch runs.
 
 ## START HERE: next session (written 2026-11-09, 14:00)
 

@@ -167,3 +167,4 @@ EV plus a 1,024-slot cache of the sampled colour, keyed by texture and rectangle
 - FZ (boot 330): 16-unit cells, worst corner per edge by adds: overlap test ~3 ms (flip 84.2 vs ~81 off).
 - GA (boot 332): texture patches sampled in 16.16 integers from the float bits: ours 92.0 (387, mode 7) -> 76.1. Overlap off run: whole frame 273 ms.
 - GB (boot 333): clipping in integers (1/16 px, 16.16 texture, 64-bit products): mode 5 27.0 -> 21.1, ours 75.3 (387 clip, mode 8) -> 69.6; second run whole frame 280 ms, flip 86.4.
+- GC/GD (boot 335): per-process reset of shared DLL state; 8-unit overlap cells; accent colour rule; patch cache cleared per context. Not timed by script: first run is the owner's agent-off run.
