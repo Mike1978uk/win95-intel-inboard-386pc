@@ -2,6 +2,12 @@
 
 Earlier handoff: `docs/next_session_2026_11_07.md` (its "Open" list still stands, less what is below). **The cloud session's tests are in #59**: carry this line on until every box there is ticked. Results: `docs/captures/2026-11-07_shape/README.md` and `docs/captures/2026-11-07_r892/README.md`. Levers: `docs/mach8_frame_rate_plan.md`, "What a frame's time is made of", Y1-Y13.
 
+## START HERE: 2026-11-10 (read first)
+
+Agent-off runs on GD (owner, 11-09 night): both tunnel runs hung the same way. The frame froze, flicked between two colour modes, then the screen showed the whole VRAM: page 0 top left, page 1 below, the scratch column top right, in the texture palette (photo `4 corner fail.jpg` in the owner's photos folder). Whether the second run had `[feed] on=0` set is not recorded: ask. The owner felt no speed difference with the agent off. DxDiag's Direct3D test ran well and fast (small cube, lower resolution).
+Reading: the display mode was reset (program died or DirectX reset the mode) while our palette and engine state were still in force; M8FEED may have kept writing that frame after the reset. Also from that run: more yellow along the bottom (accent rule may be too generous, `[diag] accent=0`); black lines on lower triangles still there (test `[diag] shift=0`; fix = bottom rows as one-row spans).
+First jobs, in order: (1) reproduce with the agent on and `[feed] on=0`, then on=1; if the feeder is in it, make M8FEED stop on a mode change or when the DLL's process ends (and the DLL stop it in DestroyDriver/mode set); (2) the black-line and accent checks by INI on one install; (3) twist (see below).
+
 ## START HERE: 2026-11-09, night
 
 Card: boot 335 on `M8D3GD` (= this commit). Tunnel DX6.1 scene: whole frame 366 ms (FM, morning) -> 273-308 ms (~3.3-3.7 fps) with the V9x agent on; ours 90 -> ~70 ms; flip 163 -> 81-88 ms; writes 6,448 -> ~5,600. Program + DirectX floor measured 96 ms (diag mode 1). Per-build figures: `docs/captures/2026-11-08_tunnel/README.md`, "2026-11-09 evening".
