@@ -11,7 +11,15 @@ function Ms($x, $y) { [math]::Round(($y - $x) * 1000 / $f / $n, 1) }
 $pa = Nums $a 'phases'; $pb = Nums $b 'phases'
 if ($pa) {
   $names = 'erase+check', 'edge build', 'outlines', 'fills', 'redraw+clear', 'singles', 'final send', 'engine wait'
-  for ($k = 0; $k -lt 8; $k++) { '{0,-13} {1,6} ms' -f $names[$k], (Ms $pa[$k] $pb[$k]) }
+  $sa = Nums $a 'phasesend'; $sb = Nums $b 'phasesend'
+  for ($k = 0; $k -lt 8; $k++) {
+    if ($sa) { '{0,-13} {1,6} ms  sending {2,6}  other {3,6}' -f $names[$k], (Ms $pa[$k] $pb[$k]), (Ms $sa[$k] $sb[$k]), [math]::Round((Ms $pa[$k] $pb[$k]) - (Ms $sa[$k] $sb[$k]), 1) }
+    else { '{0,-13} {1,6} ms' -f $names[$k], (Ms $pa[$k] $pb[$k]) }
+  }
+  $fx = Nums $a 'fifo'; $fy = Nums $b 'fifo'
+  if ($fx.Count -ge 4) { "forced sends $([math]::Round(($fy[3]-$fx[3])/$n,1)) a flip" }
+  $da = Nums $a 'feed'; $db = Nums $b 'feed'
+  if ($da) { "feed open $($db[0])  frames $([math]::Round(($db[1]-$da[1])/$n,2)) a flip  left for the DLL $([int](($db[2]-$da[2])/$n))  ticks $([math]::Round(($db[3]-$da[3])/$n,1))  FIFO-full reads $([math]::Round(($db[4]-$da[4])/$n,1))  sent by the VxD $([int](($db[5]-$da[5])/$n)) a flip" }
   $fa = Nums $a 'fifo'; $fb = Nums $b 'fifo'
   "blocking sends $(Ms $fa[2] $fb[2]) ms; room checks $([int](($fb[1]-$fa[1])/$n)); full reads $([int](($fb[0]-$fa[0])/$n))"
 }

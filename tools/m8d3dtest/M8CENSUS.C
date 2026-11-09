@@ -123,11 +123,17 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
                      (unsigned long)st[24], (unsigned long)st[12], (unsigned long)st[14], (unsigned long)st[15],
                      (unsigned long)st[19] );
             fprintf( o, "writes %lu pieces %lu\n", (unsigned long)st[25], (unsigned long)st[26] );
-            fprintf( o, "fifo full reads %lu waits %lu sending %lu\n", (unsigned long)st[34], (unsigned long)st[35],
-                     (unsigned long)st[44] );
+            fprintf( o, "fifo full reads %lu waits %lu sending %lu forced %lu\n", (unsigned long)st[34], (unsigned long)st[35],
+                     (unsigned long)st[44], (unsigned long)st[45] );
             fprintf( o, "phases %lu %lu %lu %lu %lu %lu %lu %lu\n", (unsigned long)st[36], (unsigned long)st[37],
                      (unsigned long)st[38], (unsigned long)st[39], (unsigned long)st[40], (unsigned long)st[41],
                      (unsigned long)st[42], (unsigned long)st[43] );
+            fprintf( o, "phasesend %lu %lu %lu %lu %lu %lu %lu %lu\n", (unsigned long)st[46], (unsigned long)st[47],
+                     (unsigned long)st[48], (unsigned long)st[49], (unsigned long)st[50], (unsigned long)st[51],
+                     (unsigned long)st[52], (unsigned long)st[53] );
+            fprintf( o, "feed open %lu frames %lu left %lu ticks %lu fullreads %lu sent %lu\n", (unsigned long)st[54],
+                     (unsigned long)st[55], (unsigned long)st[56], (unsigned long)st[57], (unsigned long)st[58],
+                     (unsigned long)st[59] );
             fprintf( o, "sizes %lu %lu %lu %lu joined %lu %lu colours %lu\n", (unsigned long)st[27], (unsigned long)st[28],
                      (unsigned long)st[29], (unsigned long)st[30], (unsigned long)st[31], (unsigned long)st[32], (unsigned long)st[33] );
         }
