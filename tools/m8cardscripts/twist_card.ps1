@@ -1,27 +1,26 @@
 param([string]$Label, [string]$Target = '192.168.68.62', [int]$Start = 20, [int]$Settle = 60, [int]$Gap = 60,
       [string]$Sdk = (Join-Path $env:TEMP 'dx5sdk_x\bin'))
-# DX5 SDK twist on the card: starts windowed, so Alt+Enter after it is up; then two census reads
-# and Alt+F4, as tunnel_card.ps1. twist.exe and its four textures come from the DX5 SDK
-# (references/d3d_programs/idx5sdk.exe -> DX5SDK.EXE -> cdrom\sdk\bin), extracted into -Sdk.
+# DX5 SDK twist on the card, full screen from the start: M8TWIST.EXE, made from twist.exe by
+# tools/m8d3dtest/twist_full_patch.py; two census reads and Alt+F4, as tunnel_card.ps1. twist.exe
+# and its four textures come from the DX5 SDK (references/d3d_programs/idx5sdk.exe -> DX5SDK.EXE
+# -> cdrom\sdk\bin), extracted into -Sdk.
 $root = 'C:\Users\lycet\RiderProjects\86Box-Inboard'
 $ctl = 'C:\Users\lycet\tools\v9x-remote-agent\host\v9xremote-0.12.0\scripts\v9xctl.ps1'
 $h = @{ Host = $Target; ConnectTimeoutSeconds = 60 }
 $tmp = Join-Path $env:TEMP 'card_twist'
 New-Item -ItemType Directory -Force $tmp | Out-Null
 & $ctl mkdir -Path 'C:\TWIST' @h 2>&1 | Out-Null
-foreach ($f in 'twist.exe', 'checker.ppm', 'tex2.ppm', 'tex7.ppm', 'win95.ppm') {
+foreach ($f in 'M8TWIST.EXE','checker.ppm', 'tex2.ppm', 'tex7.ppm', 'win95.ppm') {
   & $ctl put -Source "$Sdk\$f" -Destination "C:\TWIST\$f" @h 2>&1 | Out-Null
   if ($LASTEXITCODE -ne 0) { "put $f failed"; exit 1 }
 }
 & $ctl put -Source "$root\tools\m8d3dtest\M8CENSUS.EXE" -Destination 'C:\M8CENSUS.EXE' @h 2>&1 | Out-Null
 $null = & $ctl exec -Application 'C:\M8IDLE.EXE' -Arguments '10 10 120' -TimeoutSeconds 180 @h 2>&1
-"cd \TWIST`r`ntwist.exe`r`n" | Set-Content -NoNewline -Encoding ascii "$tmp\RUN.BAT"
+"cd \TWIST`r`nM8TWIST.EXE`r`n" | Set-Content -NoNewline -Encoding ascii "$tmp\RUN.BAT"
 & $ctl put -Source "$tmp\RUN.BAT" -Destination 'C:\TWIST\RUN.BAT' @h 2>&1 | Out-Null
 $null = & $ctl shell -Command 'C:\TWIST\RUN.BAT' -Detach @h 2>&1
 "start $LASTEXITCODE $(Get-Date -Format HH:mm:ss)"
 Start-Sleep -Seconds $Start
-$null = & $ctl input -Sequence 'key ALT+ENTER' @h 2>&1
-"full screen $LASTEXITCODE"
 Start-Sleep -Seconds $Settle
 $null = & $ctl exec -Application 'C:\M8CENSUS.EXE' -Arguments "$Label-a" -TimeoutSeconds 60 @h 2>&1
 "census a $LASTEXITCODE"
