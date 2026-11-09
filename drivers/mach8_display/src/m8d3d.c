@@ -206,6 +206,7 @@ static long m8d3d_ford( const float *p )
 #define M8D3D_DEVCAPS_TLVERTEXSYSTEMMEMORY  0x00000040UL
 #define M8D3D_DEVCAPS_TEXTURESYSTEMMEMORY   0x00000100UL
 #define M8D3D_DEVCAPS_DRAWPRIMTLVERTEX      0x00000400UL
+#define M8D3D_DEVCAPS_CANRENDERAFTERFLIP    0x00000800UL
 #define M8D3D_PMISCCAPS_CULLNONE    0x00000010UL
 #define M8D3D_PSHADECAPS_COLORFLATRGB 0x00000002UL
 #define M8D3D_PSHADECAPS_COLORGOURAUDRGB 0x00000008UL
@@ -3616,10 +3617,36 @@ static void m8d3d_draw_clipped( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M
     a[0] = *v0;
     a[1] = *v1;
     a[2] = *v2;
-    n = m8d3d_clip_side( a, n, b, 0, 0.0f );
-    n = m8d3d_clip_side( b, n, a, 1, (float)(p->w - 1) );
-    n = m8d3d_clip_side( a, n, b, 2, 0.0f );
-    n = m8d3d_clip_side( b, n, a, 3, (float)(p->h - 1) );
+    /* Most triangles cross one side: the others are skipped, found from the float bits. Each
+     * pass copies every corner and works in float on the 387. A NaN corner is past every side. */
+    {
+        long    rx = m8d3d_ford( (const float *)&p->rb );
+        long    by = m8d3d_ford( (const float *)&p->bb );
+        int     out = 0;
+
+        for( i = 0; i < 3; ++i ) {
+            long x = m8d3d_ford( &a[i].sx );
+            long y = m8d3d_ford( &a[i].sy );
+
+            out |= (x < 0 ? 1 : 0) | (x > rx ? 2 : 0) | (y < 0 ? 4 : 0) | (y > by ? 8 : 0);
+        }
+        if( out & 1 ) {
+            n = m8d3d_clip_side( a, n, b, 0, 0.0f );
+            memcpy( a, b, n * sizeof( a[0] ) );
+        }
+        if( out & 2 ) {
+            n = m8d3d_clip_side( a, n, b, 1, (float)(p->w - 1) );
+            memcpy( a, b, n * sizeof( a[0] ) );
+        }
+        if( out & 4 ) {
+            n = m8d3d_clip_side( a, n, b, 2, 0.0f );
+            memcpy( a, b, n * sizeof( a[0] ) );
+        }
+        if( out & 8 ) {
+            n = m8d3d_clip_side( a, n, b, 3, (float)(p->h - 1) );
+            memcpy( a, b, n * sizeof( a[0] ) );
+        }
+    }
     /* A cut corner can land a rounding error past the side it was cut on, so each is put on the
      * target before drawing, and the pieces are not checked again. */
     for( i = 0; i < n; ++i ) {
@@ -4020,7 +4047,9 @@ void m8d3d_init( DWORD *global, DWORD *callbacks, DWORD *driver_info )
     /* The runtime wants all four even of a device that keeps no vertices. */
     c->dwDevCaps = M8D3D_DEVCAPS_FLOATTLVERTEX | M8D3D_DEVCAPS_EXECUTESYSTEMMEMORY |
                    M8D3D_DEVCAPS_TLVERTEXSYSTEMMEMORY | M8D3D_DEVCAPS_DRAWPRIMTLVERTEX |
-                   M8D3D_DEVCAPS_TEXTURESYSTEMMEMORY;
+                   M8D3D_DEVCAPS_TEXTURESYSTEMMEMORY |
+                   /* Flip has drawn the frame before it returns: nothing for the runtime to wait on. */
+                   M8D3D_DEVCAPS_CANRENDERAFTERFLIP;
     c->dtcTransformCaps[0] = sizeof( c->dtcTransformCaps );
     c->dlcLightingCaps[0] = sizeof( c->dlcLightingCaps );
     c->dpcLineCaps.dwSize = sizeof( c->dpcLineCaps );

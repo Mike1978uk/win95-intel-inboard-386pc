@@ -869,65 +869,6 @@ static void m8dd_fresh( int k )
     m8dd_tri_sorted[k] = 1;
 }
 
-/* Diagnostic: what joining and zigzag drawing would save on this frame. 27-30: triangles by their
- * smaller side, 1-4, 5-16, 17-64, 65 up; 31: sharing an edge with one of the 4 before, same colour;
- * 32: any colour; 33: distinct colours. */
-static int m8dd_same_pt( const short *a, const short *b )
-{
-    return( a[0] == b[0] && a[1] == b[1] );
-}
-
-static void m8dd_tri_census( int k )
-{
-    static BYTE seen[256];
-    const short *v = m8dd_tri_v[k];
-    int         n = m8dd_tri_n[k];
-    int         i;
-    int         j;
-    int         a;
-    int         b;
-    int         m;
-    int         hit;
-    int         any;
-
-    memset( seen, 0, sizeof( seen ) );
-    for( i = 0; i < n; ++i ) {
-        const short *p = v + 6 * i;
-        int l = p[0], r = p[0], t = p[1], u = p[1];
-
-        for( j = 1; j < 3; ++j ) {
-            l = p[2 * j] < l ? p[2 * j] : l;
-            r = p[2 * j] > r ? p[2 * j] : r;
-            t = p[2 * j + 1] < t ? p[2 * j + 1] : t;
-            u = p[2 * j + 1] > u ? p[2 * j + 1] : u;
-        }
-        m = (r - l < u - t ? r - l : u - t) + 1;
-        ++m8d3d_stat[m <= 4 ? 27 : m <= 16 ? 28 : m <= 64 ? 29 : 30];
-        if( !seen[m8dd_tri_i[k][i] & 0xFF] ) {
-            seen[m8dd_tri_i[k][i] & 0xFF] = 1;
-            ++m8d3d_stat[33];
-        }
-        hit = 0;
-        any = 0;
-        for( j = i - 1; j >= 0 && j >= i - 4; --j ) {
-            const short *q = v + 6 * j;
-            int         same = 0;
-
-            for( a = 0; a < 3; ++a ) {
-                for( b = 0; b < 3; ++b ) {
-                    same += m8dd_same_pt( p + 2 * a, q + 2 * b );
-                }
-            }
-            if( same >= 2 ) {
-                any = 1;
-                hit |= m8dd_tri_i[k][i] == m8dd_tri_i[k][j];
-            }
-        }
-        m8d3d_stat[31] += hit;
-        m8d3d_stat[32] += any;
-    }
-}
-
 static int m8dd_inside( const RECT *a, const RECT *b )
 {
     return( a->left >= b->left && a->top >= b->top && a->right <= b->right && a->bottom <= b->bottom );
@@ -1674,7 +1615,6 @@ static DWORD m8dd_flip16( M8DD_FLIP *fd )
     }
     QueryPerformanceCounter( &t0 );
     m8dd_tris_sort( k );
-    m8dd_tri_census( k );
     m8dd_written[1 - k] = 0;
     m8dd_stale[1 - k] = 1;
     /* GDI drew on the card since the last Flip (a program's own window
