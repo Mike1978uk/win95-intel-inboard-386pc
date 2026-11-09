@@ -16,6 +16,12 @@ Owner (11-09): do all of these, tight, before the next program; then DX3 twist, 
 6. Agent-free run: tunnel timed by the census with the V9x agent off (owner-attended), against the agent-on figure.
 7. Z31: VxD feeding the card in the background while the program runs (owner: build it).
 
+How to work (owner, 11-09; used all session, keep it without being asked):
+- Main model: driver code, diagnosis, measurement reading, card runs.
+- Cheaper agents (Agent tool, `model: haiku`) for every git commit and push: give the exact paths to stage by name, the exact message (written to a temp file, `git commit -F`), "never `git add -A`", check `git diff --cached --stat`, push without force, report `git log --oneline -3` and `git status`. One logical change per commit; driver and docs in separate commits.
+- Cheaper agents (`model: sonnet`) for research and write-ups: a brief with the project facts, files to read first, the output doc path, prose rules (few words, cite URL/file:line, record what was not found), "do not commit"; run in the background while the driver work goes on.
+- Never Sonnet or Haiku for diagnosis (MEMORY.md). The owner approves any text posted to GitHub.
+
 Rules learned today: one copy of a program at a time (palette and scratch are shared); the first run after boot is slow; QPC and any status read empty the cache, so diagnostics cost time; tools/m8cardscripts/phases.ps1 prints the flip breakdown.
 
 ## START HERE: 2026-11-09, later afternoon
