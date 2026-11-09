@@ -2156,7 +2156,6 @@ static WORD         m8d3d_jfrom[257];                   /* each colour's first i
 static WORD         m8d3d_jhash[M8D3D_JHASH];           /* edge number + 1, 0 empty */
 static WORD         m8d3d_jused[M8D3D_JOIN_EDGES];      /* the slots to empty after */
 static BYTE         m8d3d_jodd[M8D3D_JOIN_EDGES];
-static M8D3D_JEDGE  m8d3d_je2[M8D3D_JOIN_EDGES];
 
 static int m8d3d_edge_cmp( const M8D3D_JEDGE *a, const M8D3D_JEDGE *b )
 {
@@ -2525,12 +2524,25 @@ static int m8d3d_join( M8D3D_CONTEXT *c, int dy, const short *v, const WORD *ind
         m8d3d_jfrom[i] += m8d3d_jfrom[i - 1];
     }
     nb = m8d3d_jfrom[256];
-    for( i = 0; i < ne; ++i ) {
+    /* Outer edges to the front, each one's place by colour in m8d3d_jused, then moved by
+     * following cycles: no second edge array. */
+    for( i = j = 0; i < ne; ++i ) {
         if( m8d3d_jodd[i] ) {
-            m8d3d_je2[m8d3d_jfrom[m8d3d_je[i].col]++] = m8d3d_je[i];
+            m8d3d_jused[j] = m8d3d_jfrom[m8d3d_je[i].col]++;
+            m8d3d_je[j++] = m8d3d_je[i];
         }
     }
-    memcpy( m8d3d_je, m8d3d_je2, nb * sizeof( M8D3D_JEDGE ) );
+    for( i = 0; i < nb; ++i ) {
+        while( m8d3d_jused[i] != (WORD)i ) {
+            int         d = m8d3d_jused[i];
+            M8D3D_JEDGE t = m8d3d_je[d];
+
+            m8d3d_je[d] = m8d3d_je[i];
+            m8d3d_je[i] = t;
+            m8d3d_jused[i] = m8d3d_jused[d];
+            m8d3d_jused[d] = (WORD)d;
+        }
+    }
     memset( m8d3d_jfrom, 0, sizeof( m8d3d_jfrom ) );
     for( i = 0; i < n; ++i ) {
         ++m8d3d_jfrom[(index[i] & 0xFF) + 1];
