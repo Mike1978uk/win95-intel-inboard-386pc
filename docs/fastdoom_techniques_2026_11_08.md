@@ -137,3 +137,88 @@ Checked: source, README, CHANGELOG, `gh search issues` on viti95/FastDoom
 
 Rejected: computed-jump unrolling, self-modifying constants, per-CPU dispatch,
 MMX paths (one CPU, cold L1 favours small code).
+
+## CPU, video and sound options for the 5160 (issue #47)
+
+Read 2026-11-09 from the source; nothing run. Paths under `references/fastdoom/FASTDOOM/`.
+Issue #47 (https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/47): Andrew's 84 MHz
+BL video; owner: Cyrix-tuned setting "likely optimal", sound "hammers the system".
+viti95/FastDoom searches ("freeze sound blaster", "XT", "8-bit", "slow bus") find no matching
+issue; #88 "Broken 8-bit sound on 0.8.14" is closed, not read.
+
+### CPU selection
+- Switch or `selectedCPU` value in FDOOM.CFG (m_misc.c:308, default -1 = auto), d_main.c:1612-1631:
+  `-386sx -386dx -i486 -cy386 -cy486 -cy5x86 -cy6x86 -cy6x86mx -umc486 -k5 -k6 -pentium
+  -pentiumP54CS -pentiumMMX -pentiumII -mp6 -winchip` (enum doomdef.h:409-428).
+- Auto: `I_GetCPUModel()` is DPMI call 0400h, CPU field x100+86 (i_ibm.c:1366-1373): 386, 486,
+  586, 686. Maps to `INTEL_386DX`/`INTEL_486`/P5/PII; anything else INTEL_486 (r_main.c:2918-2938).
+  No CPUID needed. CPUID (EFLAGS.ID test, fpummx.asm:52-64) only sets `hasFPU`/`hasMMX`, printed
+  on the banner (d_main.c:1517-1521). Not verified: what DOS/32A reports for a BL3. The banner
+  prints the number: read it first. Expect 486 -> `INTEL_486`.
+- What it changes, Mode Y (our `fdoom.exe`), r_main.c:1300-1800:
+  - Walls and sprites, high detail: `R_DrawColumnFastLEA` only for UMC486, Cyrix 5x86/6x86/6x86MX,
+    K5, K6, MP6 (1307-1316, 1331-1341). Everything else, `-cy486` included: `R_DrawColumn`.
+  - Spans (high/low/potato): `R_DrawSpan386SX` / `Low386SX` / `Potato386SX` for 386SX, 386DX,
+    `-cy386`, `-cy486` (1409-1418, 1596-1605, 1783-1792). Else `R_DrawSpan`.
+  - The 1.2.0 slow-SHLD, small-code-for-L1 and MMX routines (CHANGELOG:48-54) are chosen only in
+    backbuffered and VBE2 branches (r_main.c:1892-2080, 2443-2606). Mode Y never uses them.
+- `INTEL_486` and `-cy486` differ only in the span routine. `-cy5x86` is the only way to get LEA
+  columns on this CPU. Whether LEA beats the default on a BL3 is unmeasured; CHANGELOG:56 says it
+  avoids slow shifts/rotates, which is a Cyrix 5x86/AMD trait.
+- Cyrix/TI note: README.md:61 live demo is a TI 486DLC at 40 MHz on a Cirrus ISA card, 0.8.
+  No source or doc note about IBM, TI or 486SLC/DLC handling. Issue #272 (PC-98 486SLC2) is a hang.
+  `-cy486`'s 386SX span is the nearest to a DLC-class path. Owner's "shares traits with Cyrix"
+  is not in FastDoom; test it.
+- `-i486` also picks `I_FinishUpdateDifferential486` (bswap) in 13h `-slowbus` (i_vga13h.c:36-50).
+  Unverified: BSWAP on a BL3; if DOS/32A says 386 the non-bswap one is used.
+
+### Video
+- Executables (README.txt:85-125, build.sh:49-176): `FDOOM` Mode Y (draws in VRAM, one SC_INDEX
+  OUT per column, planar.asm:~187-192), `FDOOMH` Mode Y 320x100, `FDOOMX` 320x240, `FDOOM13H`
+  mode 13h with RAM backbuffer and dirty-band copy (i_vga13h.c:56-150).
+- Detail: `-high` 320x200, `-low` 160x200, `-potato` 80x200 (d_main.c:1368-1370); `-size 3..12`
+  view size (d_main.c:1587). Potato: "specially on slow 8-bit VGA ISA cards" (README.md:36).
+- Flat: `-flatSpan`, `-flatterSpan`, `-flatWall`, `-flatterWall`, `-flatSprite`, `-flatsky`,
+  `-flatInv` (d_main.c:1597-1608). Less CPU, not fewer VRAM bytes; README.md table: +31.7% on a 486.
+- `-slowbus` (diff copy against shadow frame, 13h only, d_main.c:1635) is the ISA-specific path.
+  `-vsync` / `-novsync` waits on retrace (d_main.c:1636). `-nomelt` skips the melt wipe.
+- Mode Y vs 13h on 8-bit ISA: same 64,000 bytes per full frame cross the bus either way; 13h adds
+  a RAM copy, Mode Y writes during render. `FDOOMH` halves the bytes. Which wins is unmeasured.
+- Not in this clone: any Mach8/8514 path; Mach8 VGA side only.
+
+### Sound
+- No command-line device switch. Device set in FDSETUP or FDOOM.CFG: `snd_sfxdevice`,
+  `snd_musicdevice` (m_misc.c:316-318); enum i_sound.h:25-52: 1 PC speaker, 2 Adlib, 3 SB,
+  13 SB Direct, 14 PC PWM, 11 PC 1-bit. `snd_rate` 0-8 = 7000...44100 Hz, default 2 = 11025
+  (m_misc.c:321, dmx.c:715-745). `snd_channels` default 3 (m_misc.c:315).
+- Switches: `-nosound`, `-nosfx`, `-nomusic` (i_sound.c:104-115), `-mono` (panning only; DMA stays
+  stereo, FX_Init gets 2, dmx.c:~755; s_sound.c:645), `-forceSound` skips init failure checks.
+  SB address, IRQ, DMA from BLASTER (dmx.c:687-688, ns_fxm.c:229-240); no switch overrides them.
+- `-xt` only swaps the keyboard ISR for one that acks via port 61h (i_ibm.c:1012-1044,
+  CHANGELOG:72). No interaction with sound code found.
+- SB path: 8-bit auto-init DMA, 256-sample buffers x16 (ns_muldf.h:38-41), so ~43 IRQs/s at
+  11025 Hz plus the DSP writes. Music/FX tasks run from a PIT task at 140 Hz (i_sound.h:22,
+  ns_task.c:130-132).
+- OPL music write = 2 OUTs + 33 INs (ns_sbmus.c:214-228). At 5.7 us per byte I/O and an L1 flush
+  per access, one register write ~200 us; a chord of writes per 140 Hz tick is a plausible
+  "hammer". `-nomusic` removes it. Unmeasured.
+- Freeze, candidates only, none tested: (a) ISR time at IRQ 5 stacking on the OPL write bursts;
+  (b) PIT channel 0 reprogrammed to the task rate (ns_task.c:130-132, mode 36h) with the BIOS
+  tick chained; (c) SB DMA 1 vs the Inboard's flush rules.
+  Each is separable by the rows below: freeze with SB sfx only, music only, or neither.
+
+### Test matrix (`-timedemo demo1`, realtics; ~22 min each, docs/next_session_2026_09_28.md:5-8)
+Baseline is the existing no-sound run. Idle proof and two runs per row, as before.
+1. `fdoom -xt -nosound -timedemo demo1` (auto = INTEL_486, high)
+2. same, `-cy486` (386SX spans)
+3. same, `-cy5x86` (LEA columns + default spans)
+4. same, `-386dx` (is the 486 path worth anything)
+5. best of 1-4, `-low`
+6. best of 1-4, `-potato`
+7. best of 1-4, `-flatSpan -flatWall` high (CPU-bound ceiling)
+8. best, high, `-nomusic`, SFX on SB at 11025 Hz (the freeze suspect, sfx only)
+9. best, high, `-nosfx`, music on SB OPL
+10. best, high, `-nomusic`, SFX on PC speaker (`snd_sfxdevice 1`)
+11. best, high, SB sfx + OPL music, `snd_rate 0` (7000 Hz)
+12. best, high, SB sfx + OPL music, default rate
+Rows 8-12 stop at a freeze: note the row, hard reset, move on.

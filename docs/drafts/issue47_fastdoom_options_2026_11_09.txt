@@ -1,0 +1,28 @@
+Thanks Andrew for the video link and the 84 MHz numbers, they are the target.
+
+I read FastDoom's CPU, video and sound options against the 5160. Details are in docs/fastdoom_techniques_2026_11_08.md, last section. Nothing has been run yet.
+
+What the source says:
+- Auto-detect asks DOS/32A for a CPU class (DPMI 0400h), no CPUID. A BL3 should be classed 486 and get the plain Intel 486 routines. The startup banner prints the number.
+- Cyrix routines in Mode Y: LEA columns only for Cyrix 5x86 and later, AMD, UMC; -cy486 only swaps in the 386 span routine. The 1.2.0 SHLD and small-code variants are not used in Mode Y.
+- -xt swaps the keyboard handler only. No link to sound found.
+- Each OPL music register write is 2 OUTs and 33 INs, and every port access flushes the L1 here. Music is the likely cost.
+- Sound has no device switch: it is set in FDSETUP or FDOOM.CFG.
+
+Test matrix, FDOOM Mode Y, -timedemo demo1, realtics, each run twice:
+1. -xt -nosound (auto, high)
+2. same, -cy486
+3. same, -cy5x86
+4. same, -386dx
+5. best of 1-4, -low
+6. best of 1-4, -potato
+7. best of 1-4, -flatSpan -flatWall
+8. SB sfx, -nomusic
+9. SB OPL music, -nosfx
+10. PC speaker sfx, -nomusic
+11. SB sfx and music, 7000 Hz
+12. SB sfx and music, 11025 Hz (default)
+
+Rows 1-7 run no sound and cost nothing to the freeze. Rows 8-12 say which part of the sound path stops the machine.
+
+Thanks again for your continued input.

@@ -105,3 +105,11 @@ Committed hash pass, queue 1024, no second edge array (outer edges reordered in 
 - Boot 302, high priority, two runs: frame 458 / 407 ms; ours 132.6 / 128.9 ms; engine 202.8 / 196 ms; writes 8,523 / 8,215 a frame; ~180 pieces.
 - First run after boot slower (start-up still settling). No hang across two runs and two closes.
 - Reading: same as EU once its 320x240 1.2x is taken out. Writes per piece ~45 x ~7.6 us = ~62 ms of bus a frame.
+
+## M8D3EW: colour per texture patch kept, 2026-11-09
+
+EV plus a 1,024-slot cache of the sampled colour, keyed by texture and rectangle in 64ths (FastDoom's cached flat colour).
+
+- Boot 303, high priority, two runs: frame 425 / 360 ms; ours 101.6 / 99.8 ms (EV 132.6 / 128.9); engine 200 / 199 ms; writes ~8,360.
+- Our time down ~29 ms a frame (22 %); look unchanged by design (same colour for the same patch). Owner's eye not yet asked.
+- Still ~100 ms of ours a frame with the card idle: next to find where.
