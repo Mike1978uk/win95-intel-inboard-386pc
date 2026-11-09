@@ -510,6 +510,7 @@ static M8D3D_TEX        m8d3d_texs[M8D3D_TEXTURES];
 static int              m8d3d_pal_want;     /* a frame was drawn in the texture palette's indices */
 static int              m8d3d_pal_on;       /* the DAC holds it, the old one in m8d3d_pal_saved */
 static int              m8d3d_lores;        /* trial: 640x480 drawn at half size, shown as 320x240 */
+static int              m8d3d_pal_kept;     /* the desktop's DAC is in m8d3d_pal_saved from a program that ended without restoring it */
 static void             m8d3d_lores_set( void );
 static void             m8d3d_pal_load( void );
 static void             m8d3d_pal_restore( void );
@@ -930,6 +931,35 @@ static int      m8d3d_feed_held;        /* Flip's frame left in the queue, engin
 static int      m8d3d_feed_tail = 4000;
 int             m8d3d_feed_blank;       /* blank latch read after the last page show */
 DWORD           m8d3d_feed_showms;      /* and the system time then */
+
+/* This DLL's data is shared by every process, and the feed's handle, the queue it maps, the
+ * 320x240 mode and the palette belong to the process that set them up. A program that ends
+ * without destroying its context leaves them set: its handle is closed and the driver unloads
+ * with the queue, so the next program must start them again, not use them. */
+static DWORD    m8d3d_owner;
+
+static void m8d3d_owner_check( void )
+{
+    DWORD pid = GetCurrentProcessId();
+
+    if( pid == m8d3d_owner ) {
+        return;
+    }
+    m8d3d_owner = pid;
+    m8d3d_feed = NULL;
+    m8d3d_feed_h = INVALID_HANDLE_VALUE;
+    m8d3d_feeding = 0;
+    m8d3d_feed_held = 0;
+    m8d3d_q = m8d3d_q_own;
+    m8d3d_q_cap = M8D3D_Q_MAX;
+    m8d3d_qn = 0;
+    m8d3d_qh = 0;
+    if( m8d3d_pal_on ) {
+        m8d3d_pal_kept = 1;
+    }
+    m8d3d_pal_on = 0;
+    m8d3d_lores = 0;
+}
 
 static void m8d3d_feed_open( void )
 {
@@ -2494,11 +2524,12 @@ static void m8d3d_shorts_sort( short *s, int n )
 /* Where a run of joined triangles must stop: a triangle over cells another of the run already
  * covers would be painted in colour order, not the program's. A cell counts as covered only when
  * a triangle holds all of it, so neighbours that share an edge do not stop the run; overlaps
- * smaller than a cell are missed. Cells are 16 units; the stamp marks this run's cells. For each
+ * smaller than a cell are missed. Cells are 8 units; the stamp marks this run's cells. For each
  * edge only the cell corner furthest outside it is tested, stepped by adds along the row. */
-#define M8D3D_CELL      4
-#define M8D3D_CELLS_X   (640 / 16 + 1)
-#define M8D3D_CELLS_Y   (480 / 16 + 1)
+#define M8D3D_CELL      m8d3d_cellsh
+#define M8D3D_CELLS_X   (640 / 8 + 1)
+#define M8D3D_CELLS_Y   (480 / 8 + 1)
+static int      m8d3d_cellsh = 3;   /* [diag] cell=16 for 16-unit cells: cheaper, misses thin overlaps */
 static BYTE     m8d3d_cell[M8D3D_CELLS_Y][M8D3D_CELLS_X];
 static BYTE     m8d3d_cell_stamp;
 
@@ -3198,6 +3229,7 @@ int m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const shor
             c = &m8d3d_ctx[k];
         }
     }
+    m8d3d_owner_check();
     m8d3d_feed_finish();
     if( c == NULL || !m8d3d_engine_begin() ) {
         ++m8d3d_stat[11];
@@ -3334,6 +3366,8 @@ int m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const shor
  * reaches m8d3d_draw_on, after clipping; 6 draws but drops the triangles that need clipping; 7
  * samples texture patches with the 387, not in integers; 8 clips with the 387. */
 static int m8d3d_diag;
+static int m8d3d_accent = 1;            /* [diag] accent=0: plain majority vote in a patch */
+static void m8d3d_patch_forget( void );
 
 static DWORD __stdcall m8d3d_context_create( M8D3D_CONTEXTCREATE *d )
 {
@@ -3343,11 +3377,15 @@ static DWORD __stdcall m8d3d_context_create( M8D3D_CONTEXTCREATE *d )
     M8D3D_CONTEXT   *c;
 
     ++m8d3d_stat[0];
+    m8d3d_owner_check();
     m8d3d_diag = (int)GetPrivateProfileInt( "diag", "mode", 0, "C:\\M8D3D.INI" );
     m8d3d_nohold = (int)GetPrivateProfileInt( "diag", "nohold", 0, "C:\\M8D3D.INI" );
     m8d3d_dclean = (int)GetPrivateProfileInt( "diag", "clean", 0, "C:\\M8D3D.INI" );
     m8d3d_dnoout = (int)GetPrivateProfileInt( "diag", "nooutline", 0, "C:\\M8D3D.INI" );
     m8d3d_jshift = (int)GetPrivateProfileInt( "diag", "shift", 1, "C:\\M8D3D.INI" );
+    m8d3d_accent = (int)GetPrivateProfileInt( "diag", "accent", 1, "C:\\M8D3D.INI" );
+    m8d3d_patch_forget();
+    m8d3d_cellsh = GetPrivateProfileInt( "diag", "cell", 8, "C:\\M8D3D.INI" ) >= 16 ? 4 : 3;
     m8d3d_dnolap = (int)GetPrivateProfileInt( "diag", "nooverlap", 0, "C:\\M8D3D.INI" );
     m8d3d_jband = (int)GetPrivateProfileInt( "join", "band", M8D3D_JOIN_BAND, "C:\\M8D3D.INI" );
     m8d3d_jband = m8d3d_jband < 8 ? 8 : m8d3d_jband;
@@ -3637,10 +3675,13 @@ static void m8d3d_pal_load( void )
 {
     int i;
 
-    m8d3d_outb( 0x02EB, 0 );
-    for( i = 0; i < 768; ++i ) {
-        m8d3d_pal_saved[i] = (BYTE)m8d3d_inb( 0x02ED );
+    if( !m8d3d_pal_kept ) {
+        m8d3d_outb( 0x02EB, 0 );
+        for( i = 0; i < 768; ++i ) {
+            m8d3d_pal_saved[i] = (BYTE)m8d3d_inb( 0x02ED );
+        }
     }
+    m8d3d_pal_kept = 0;
     m8d3d_outb( 0x02EA, 0xFF );
     m8d3d_outb( 0x02EC, 0 );
     for( i = 0; i < 256; ++i ) {
@@ -3764,6 +3805,20 @@ static int m8d3d_pal_quad_i( const M8D3D_TEX *t, const BYTE *bits, const M8D3D_T
             }
         }
     }
+    /* A thin stripe of a colour the texture holds little of loses the vote in a far piece and
+     * appears only once the piece is near and split: two hits of nine let it win. */
+    if( m8d3d_accent ) {
+        int r = best;
+
+        for( i = 0; i < m8d3d_pal_nb; ++i ) {
+            if( count[i] >= 2 && m8d3d_pal_count[i] < m8d3d_pal_count[r] ) {
+                r = i;
+            }
+        }
+        if( m8d3d_pal_count[r] * 4 < m8d3d_pal_count[best] ) {
+            best = r;
+        }
+    }
     return( best );
 }
 
@@ -3774,6 +3829,13 @@ static int m8d3d_pal_quad_i( const M8D3D_TEX *t, const BYTE *bits, const M8D3D_T
 #define M8D3D_PATCH_HASH    1024
 static DWORD    m8d3d_patch_key[M8D3D_PATCH_HASH];
 static BYTE     m8d3d_patch_col[M8D3D_PATCH_HASH];
+
+/* Shared by every process: a new context must not take the last program's colours, or colours
+ * voted under other switches. */
+static void m8d3d_patch_forget( void )
+{
+    memset( m8d3d_patch_key, 0, sizeof( m8d3d_patch_key ) );
+}
 /* The last patch's dither threshold, 0-255: the R2 sequence (plastic number, 1/p = 0.7549 and
  * 1/p^2 = 0.5698, times 256) over its corner in 64ths of the texture. Aperiodic, and tied to the
  * texture rather than the screen, so the pattern stays on the wall as the view moves. */
@@ -3954,6 +4016,7 @@ static int m8d3d_draw_begin( M8D3D_DRAW *p, M8D3D_CONTEXT *c )
     p->c = c;
     p->ok = 1;
     p->fb16 = m8d3d_fb16();
+    m8d3d_owner_check();
     if( !p->fb16 ) {
         m8d3d_feed_finish();
         m8d3d_q = m8d3d_q_own;
