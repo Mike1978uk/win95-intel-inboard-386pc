@@ -97,3 +97,11 @@ Card. The driver halves the coordinates and sets M8LORES's 320x240 timing at the
 ## SWAPZF.VXD and XTBOTH.MPD
 
 Kept on the card by owner's decision; byte-exact read-back, no measured XTSECT gain; tunnel run on them lost to the boot 299 hang (no figure); gain to be measured by PAGETIME soak; dist/ waits for that measurement.
+
+## M8D3EV: static data shrunk, 2026-11-09
+
+Committed hash pass, queue 1024, no second edge array (outer edges reordered in place): 30 KB less static data than EU. No low-res trial, no phase timers; 640x480.
+
+- Boot 302, high priority, two runs: frame 458 / 407 ms; ours 132.6 / 128.9 ms; engine 202.8 / 196 ms; writes 8,523 / 8,215 a frame; ~180 pieces.
+- First run after boot slower (start-up still settling). No hang across two runs and two closes.
+- Reading: same as EU once its 320x240 1.2x is taken out. Writes per piece ~45 x ~7.6 us = ~62 ms of bus a frame.

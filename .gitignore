@@ -152,6 +152,7 @@ references/xga-win9x/
 references/velocity9x/
 references/dx7sdk
 references/dx61samples
+references/dxddk/
 references/d3d_programs//
 references/ati_mach32/
 # XFree86 3.3.6 Mach8/8514/cache servers (MIT-style licence) - read them, do not vendor them
@@ -211,3 +212,4 @@ docs/captures/2026-10-10_a6/*/86box.log
 # Disassembly listings of vendor binaries (tools/ne_disasm.py): local reading only
 references/*_disasm/
 references/fastdoom/
+references/jhhoward/

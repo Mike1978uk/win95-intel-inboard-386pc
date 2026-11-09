@@ -2,6 +2,14 @@
 
 Earlier handoff: `docs/next_session_2026_11_07.md` (its "Open" list still stands, less what is below). **The cloud session's tests are in #59**: carry this line on until every box there is ticked. Results: `docs/captures/2026-11-07_shape/README.md` and `docs/captures/2026-11-07_r892/README.md`. Levers: `docs/mach8_frame_rate_plan.md`, "What a frame's time is made of", Y1-Y13.
 
+## START HERE: 2026-11-09, late morning
+
+- Card: boot 302 on `M8D3EV` (committed: hash pass, queue 1024, no second edge array, -30 KB static). SWAPZF + XTBOTH kept (owner, 11-09). Tunnel 458 / 407 ms a frame at 640x480, high priority; no hang over two runs and closes. `docs/captures/2026-11-08_tunnel/README.md`, "M8D3EV".
+- Owner's direction, 11-09: close the gap between CPU and card so the card runs at constant throughput; 60 fps stays the goal; keep recording ideas to the plan each session.
+- Next build: Z17 command ring in batches ending on long fills + Z18 N-slot waits + Z19 register shadow (`docs/mach8_frame_rate_plan.md`). Constraint: any port access empties the cache.
+- Research in: `docs/jhhoward_techniques_2026_11_09.md` (Wolfenstein CGA, MicroWeb; clones in `references/jhhoward/`). DirectX SDK/DDK bench survey: `docs/dx_sdk_ddk_bench_survey_2026_11_09.md` when it lands.
+- Comrade MCP did not connect this session; V9x agent used throughout.
+
 ## START HERE: 2026-11-09
 
 - Card: powered off by owner after the boot 299 hang. On next boot it runs M8D3EU (hash + lores trial + diagnostics) and the NEW `SWAPZF.VXD` (`C2585E38`) + `XTBOTH.MPD` (`DAEF6830`).
