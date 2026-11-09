@@ -2214,9 +2214,9 @@ static int m8d3d_tri_stamped( M8D3D_CONTEXT *c, int dx, int dy, const short *v, 
 #define M8D3D_JOIN_W        321
 #define M8D3D_JOIN_MIN      16
 #define M8D3D_JOIN_EDGES    3072
-#define M8D3D_JOIN_BAND     32          /* rows a fill band */
+#define M8D3D_JOIN_BAND     64          /* rows a fill band; at 320x240 the engine has room, fewer fills win */
 #define M8D3D_JOIN_RUNS     8           /* x runs a band */
-#define M8D3D_JOIN_FILL_PX  1600L       /* one fill's 9 writes and start, in polygon-fill pixels */
+#define M8D3D_JOIN_FILL_PX  3200L       /* one fill's 9 writes and start, in polygon-fill pixels */
 
 typedef struct {
     short   col;
@@ -3677,8 +3677,20 @@ static void m8d3d_draw_on( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D_
         m8d3d_census.tris_fog += (on >> M8D3D_RS_FOG) & 1;
         m8d3d_census.tris_perspective += (on >> M8D3D_RS_PERSPECTIVE) & 1;
     }
-    /* Above zero runs clockwise on the screen. */
+    /* Above zero runs clockwise on the screen. Facing is taken from the corners at an eighth of a
+     * pixel, not the rounded ones: rounding, at half size most, can turn a thin back face round,
+     * and joined patches fill in colour order, so a kept back face shows through the wall. */
     area = (long)(v[2] - v[0]) * (v[5] - v[1]) - (long)(v[3] - v[1]) * (v[4] - v[0]);
+    if( area != 0 && c->cull != M8D3D_CULL_NONE ) {
+        long    s[6];
+
+        for( j = 0; j < 3; ++j ) {
+            s[2 * j] = m8d3d_fround( &a[j]->sx, 3 );
+            s[2 * j + 1] = m8d3d_fround( &a[j]->sy, 3 );
+        }
+        /* Corners on the target, so 8 x 640 by 8 x 480 at most: the products fit. */
+        area = ((s[2] - s[0]) * (s[5] - s[1]) - (s[3] - s[1]) * (s[4] - s[0])) < 0 ? -1 : 1;
+    }
     if( area == 0 || (c->cull == M8D3D_CULL_CCW && area < 0) ||
         (c->cull == M8D3D_CULL_CW && area > 0) ) {
         ++m8d3d_stat[9];
