@@ -139,3 +139,6 @@ EV plus a 1,024-slot cache of the sampled colour, keyed by texture and rectangle
 - FE: FC + facing from the corners at 1/8 pixel (a back face rounded round at half size showed through the wall: owner's see-through stripe). Ours 81 -> 88.8 ms, flip 178 ms. Owner's eye on the stripe: pending.
 - FF: FE + fill bands 64 rows, join threshold 3,200 px (were 32 / 1,600, set when the card was the limit). Fills 77.6 -> 64.4 ms, flip 178 -> 163.7 ms, full reads 117 -> 277.
 - FG: bands 128 / 4,800 px: flip 162.6 ms, full reads 804: the card is the limit again; no gain. Kept FF's 64 / 3,200.
+- FH: FF + clip only the sides a triangle crosses (tested on the float bits): ours 88 -> 74 ms; flip 161 ms.
+- FI: FH + CANRENDERAFTERFLIP set, diagnostic triangle census off the flip path: flip 161 -> 151 ms (the untimed part of the flip is now ~4 ms); 1,418 triangles a second (EV 1,063).
+- Ours + flip: EV 325 ms -> FI 226 ms.

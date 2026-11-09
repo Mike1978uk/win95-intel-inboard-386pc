@@ -4,7 +4,7 @@ Earlier handoff: `docs/next_session_2026_11_07.md` (its "Open" list still stands
 
 ## START HERE: 2026-11-09, later afternoon
 
-- Card boot 314 on `M8D3FG` (bands 128); the committed source is FF (bands 64), install it first.
+- Card boot 316 on `M8D3FI` (= committed source): ours 75 ms, flip 151 ms. Plan review with ranked next 10: `docs/plan_review_2026_11_09.md`.
 - Tunnel, same DX6.1 scene: ours 129 -> 88 ms, flip 196 -> 164 ms, writes 8,215 -> ~5,550 today; 320x240 is the owner's target for this kind of demo.
 - Next, in order: Z25 (card draws frame N while the program builds N+1: ~140 ms a frame of CPU-only time; needs the page switch to wait for frame N's last write); integer clipping (~100 clipped triangles a frame go through float clip_side); the ~18 ms of the flip outside the timed phases (m8dd_tri_census is diagnostic); per-program resolution choice instead of the fixed switch at 640.
 - Negative today: Z19 register shadow; chaining scratch outlines (FD).
