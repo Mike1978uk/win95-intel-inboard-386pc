@@ -4,7 +4,7 @@ Earlier handoff: `docs/next_session_2026_11_07.md` (its "Open" list still stands
 
 ## START HERE: 2026-11-09, evening
 
-Card: boot 333 on `M8D3GB` (= committed source). Tunnel, same DX6.1 scene, whole frame 366 ms (FM) -> ~273-300 ms (~3.3-3.7 fps); ours 90 -> 70 ms; flip 163 -> 81-86 ms. Next program: DX5 SDK `twist.exe` (extract from `references/d3d_programs/idx5sdk.exe`, `cdrom\sdkin`). Figures per build: `docs/captures/2026-11-08_tunnel/README.md`, "2026-11-09 evening". Silicon ranking: `docs/silicon_for_d3d_2026_11_09.md`.
+Card: boot 333 on `M8D3GB` (= committed source). Tunnel, same DX6.1 scene, whole frame 366 ms (FM) -> ~273-300 ms (~3.3-3.7 fps); ours 90 -> 70 ms; flip 163 -> 81-86 ms. Next program: DX5 SDK `twist.exe` (extract from `references/d3d_programs/idx5sdk.exe`, `cdrom\sdk\bin`). Figures per build: `docs/captures/2026-11-08_tunnel/README.md`, "2026-11-09 evening". Silicon ranking: `docs/silicon_for_d3d_2026_11_09.md`.
 
 Items from the 14:00 list: 1 split kept (owner); 4 queue 8,192 ruled out (0 forced sends); 5 byte latch ruled out (M8LATCH: latch does not survive a commit); 7 VxD feeder built as M8FEED.VXD, tail of 4,000 writes per frame (whole-frame feeding at 1 ms lost: cache flushes); 3 light dither by piece built (owner: "a little dark", far levels now rounded); 2 asm pass not started: measure first. 6 agent-free run still owed (owner at the machine).
 Also built: whole-frame build before sending (FQ), outline chaining by endpoint hash (FP), no on-screen outlines (right edges +1 px in the scratch, FX: flip -60 ms, -1,900 writes), overlap-aware join runs for the see-through on bends (FY 48 ms, FZ ~3 ms).
