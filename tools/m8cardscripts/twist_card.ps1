@@ -1,4 +1,4 @@
-param([string]$Label, [string]$Target = '192.168.68.62', [int]$Start = 20, [int]$Settle = 60, [int]$Gap = 60,
+param([string]$Label, [string]$Target = '192.168.68.62', [int]$Start = 20, [int]$Settle = 60, [int]$Gap = 60, [string]$Keys = '',
       [string]$Sdk = (Join-Path $env:TEMP 'dx5sdk_x\bin'))
 # DX5 SDK twist on the card, full screen from the start: M8TWIST.EXE, made from twist.exe by
 # tools/m8d3dtest/twist_full_patch.py; two census reads and Alt+F4, as tunnel_card.ps1. twist.exe
@@ -21,6 +21,9 @@ $null = & $ctl exec -Application 'C:\M8IDLE.EXE' -Arguments '10 10 120' -Timeout
 $null = & $ctl shell -Command 'C:\TWIST\RUN.BAT' -Detach @h 2>&1
 "start $LASTEXITCODE $(Get-Date -Format HH:mm:ss)"
 Start-Sleep -Seconds $Start
+# -Keys 'key TAB; delay 2000; key TAB': the framework's stats text, drawn by GDI into the back
+# buffer in RAM, is sent to the card at every Flip; Tab toggles it.
+if ($Keys) { $null = & $ctl input -Sequence $Keys @h 2>&1; "keys $LASTEXITCODE" }
 Start-Sleep -Seconds $Settle
 $null = & $ctl exec -Application 'C:\M8CENSUS.EXE' -Arguments "$Label-a" -TimeoutSeconds 60 @h 2>&1
 "census a $LASTEXITCODE"

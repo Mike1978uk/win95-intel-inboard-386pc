@@ -30,8 +30,9 @@
 extern void m8d3d_init( DWORD *global, DWORD *callbacks, DWORD *driver_info );
 extern int  m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const short *v,
                          const WORD *index, const DWORD *rgb, int n );
-extern DWORD m8d3d_stat[64];
+extern DWORD m8d3d_stat[72];
 extern void m8d3d_feed_finish( void );
+extern int m8d3d_lores_on( void );
 extern void m8d3d_feed_go( void );
 extern void m8d3d_feed_close( void );
 extern void m8d3d_q_add( unsigned port, unsigned value );
@@ -718,8 +719,9 @@ static void m8dd_dirty( int k, const RECT *c );
 
 /* One triangle in buffer k's RAM, a row at a time. The engine's edge pixels are
  * not matched exactly: a program that reads a frame back sees it within a pixel. */
-static void m8dd_tri_ram( int k, const short *v, WORD colour )
+static void m8dd_tri_ram( int k, const short *half, WORD colour )
 {
+    short   v[6];
     int     o[3] = { 0, 1, 2 };
     int     t;
     int     y;
@@ -732,6 +734,11 @@ static void m8dd_tri_ram( int k, const short *v, WORD colour )
     int     y2;
     RECT    r;
 
+    /* Corners are recorded at half size for the 320x240 screen; RAM is the full-size buffer,
+     * shown at full size unless the screen is at 320x240. */
+    for( t = 0; t < 6; ++t ) {
+        v[t] = m8d3d_lores_on() ? half[t] : (short)(half[t] * 2);
+    }
     if( v[2 * o[1] + 1] < v[2 * o[0] + 1] ) {
         t = o[0]; o[0] = o[1]; o[1] = t;
     }
@@ -839,6 +846,7 @@ static void m8dd_tris_to_ram( int k )
     m8dd_tris_sort( k );
     n = m8dd_tri_n[k];
     m8dd_tri_n[k] = 0;
+    m8d3d_stat[64] += n != 0;
     for( i = 0; i < n; ++i ) {
         m8dd_tri_ram( k, &m8dd_tri_v[k][6 * i], m8dd_tri_c[k][i] );
     }
@@ -1037,6 +1045,7 @@ static void m8dd_diff_row( M8DD_DIFF *g, int y, int l, int w, const WORD *s )
 
 static DWORD m8dd_lock16( M8DD_LOCK *ld )
 {
+    static int  keep = -1;
     RECTL   all;
     RECT    r;
     int     k;
@@ -1045,9 +1054,24 @@ static DWORD m8dd_lock16( M8DD_LOCK *ld )
     if( b < 0 ) {
         return( DDHAL_DRIVER_NOTHANDLED );
     }
-    /* The program reads or writes the pixels itself: RAM must hold them all. */
+    /* The program reads or writes the pixels itself: RAM must hold them all. Except a write to
+     * a back buffer (a program's text through GetDC, after its scene): its triangles stay
+     * described, and Flip sends RAM then has the engine draw them over it. Such a program
+     * reading the buffer would not see them; [d3d] lockkeep=0 puts them in RAM as before. */
+    if( keep < 0 ) {
+        keep = (int)GetPrivateProfileInt( "d3d", "lockkeep", 1, "C:\\M8D3D.INI" );
+    }
     m8dd_fresh( b );
-    m8dd_ready_all( b );
+    if( keep && b != m8dd_front && !(ld->dwFlags & DDLOCK_READONLY) && m8dd_tri_n[b] != 0 ) {
+        int n = m8dd_tri_n[b];
+
+        m8dd_tri_n[b] = 0;
+        m8dd_ready_all( b );
+        m8dd_tri_n[b] = n;
+        ++m8d3d_stat[61];
+    } else {
+        m8dd_ready_all( b );
+    }
     all.left = 0;
     all.top = 0;
     all.right = m8dd->width;
@@ -2148,12 +2172,14 @@ int m8d3d_record( LPVOID lcl, const short *v, BYTE index, WORD colour, const DWO
 
     /* Per triangle: nothing here may call out of this DLL, least of all USER. */
     if( k < 0 ) {
+        ++m8d3d_stat[65];
         return( 0 );
     }
     if( k != m8dd_front ) {
         m8dd_fresh( k );
     }
     if( k == m8dd_front || !m8dd_desc[k].known ) {
+        ++m8d3d_stat[k == m8dd_front ? 62 : 63];
         m8dd_tri_ram( k, v, colour );
         if( k == m8dd_front ) {
             m8dd_card.known = 0;

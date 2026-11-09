@@ -695,7 +695,7 @@ static M8D3D_CONTEXT    m8d3d_ctx[M8D3D_CONTEXTS];
  * triangles; [15] flips; in Blt: [16] ticks, [17] calls, [18] full clears described;
  * [19] page wait ticks; [20] triangles drawn from a mask; [21] masks built;
  * [22] triangles stamped; [23] stamps built; [24] ticks in RenderPrimitive. */
-DWORD                   m8d3d_stat[64];      /* 60: feeds cut short by the 16-bit driver; 25: engine writes sent, 26: triangle pieces drawn, 27-33: m8dd_tri_census, 34-35: FIFO waits, 36-43: Flip phases, 44: sending, 45: sends forced by a full queue, 46-53: of 36-43, the part spent sending,
+DWORD                   m8d3d_stat[72];      /* 62-64: triangles put in RAM: on the shown buffer, on a buffer not described, flushes of recorded ones; 65: triangles on a surface not ours; 60: feeds cut short by the 16-bit driver; 61: back-buffer locks that kept the triangles; 25: engine writes sent, 26: triangle pieces drawn, 27-33: m8dd_tri_census, 34-35: FIFO waits, 36-43: Flip phases, 44: sending, 45: sends forced by a full queue, 46-53: of 36-43, the part spent sending,
                                               * 54-59: feed: opened, frames handed over, entries left for m8d3d_feed_finish, driver time-outs, FIFO-full reads, entries sent */
 /* Diagnostic: clock ticks since the last mark, into phase k. */
 static LARGE_INTEGER    m8d3d_ph;
@@ -3265,10 +3265,12 @@ int m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const shor
     m8d3d_ph_send = m8d3d_stat[44];
     if( m8d3d_pal_want && !m8d3d_pal_on ) {
         m8d3d_pal_load();
-        if( c->sw == 640 ) {
-            m8d3d_lores_set();
-            m8d3d_lores = 1;
-        }
+    }
+    /* Corners are rounded at half size whether a program textures or not (m8d3d_draw_on), so
+     * the screen goes to 320x240 with the first frame, not with the texture palette. */
+    if( c->sw == 640 && !m8d3d_lores ) {
+        m8d3d_lores_set();
+        m8d3d_lores = 1;
     }
     if( c->fresh ) {
         ok = m8d3d_scratch_clear( c );
@@ -3590,6 +3592,12 @@ extern void m8d3d_outw( unsigned port, unsigned v );
 
 /* Trial (Z6): shadow set 1 as 320x240, double scan and the pixel clock halved, at
  * 640x480's line and frame rate (M8LORES). The next mode set rewrites set 1 whole. */
+/* For M8DD32's RAM drawing: the screen shows 320x240. */
+int m8d3d_lores_on( void )
+{
+    return( m8d3d_lores );
+}
+
 static void m8d3d_lores_set( void )
 {
     static const WORD   port[8] = { 0x02E8, 0x06E8, 0x0AE8, 0x0EE8, 0x12E8, 0x16E8, 0x1AE8, 0x1EE8 };
