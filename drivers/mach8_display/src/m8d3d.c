@@ -151,6 +151,48 @@ extern long m8d3d_round( float f );
 #pragma aux m8d3d_round = "sub esp, 4" "fistp dword ptr [esp]" "pop eax" \
     parm [8087] value [eax] modify exact [eax];
 
+/* The same from the float's bits, times 2^sh, without the 387: a load and a store on it cost
+ * about what a multiply-add does here (~3 us). Halves round away from zero, where the FPU
+ * rounds them to even. Saturates past 2^31; a NaN or infinity saturates too. */
+static long m8d3d_fround( const float *p, int sh )
+{
+    long    b = *(const long *)p;
+    int     e = (int)((b >> 23) & 255) + sh;
+    long    m;
+
+    if( e < 126 ) {
+        return( 0 );
+    }
+    if( e > 157 ) {
+        return( b < 0 ? -0x7FFFFFFFL : 0x7FFFFFFFL );
+    }
+    m = (b & 0x007FFFFFL) | 0x00800000L;
+    m = e >= 150 ? m << (e - 150) : (m + (1L << (149 - e))) >> (150 - e);
+    return( b < 0 ? -m : m );
+}
+
+/* The float bits of n, 0 <= n < 2^24. */
+static DWORD m8d3d_ibits( long n )
+{
+    int e = 0;
+
+    if( n <= 0 ) {
+        return( 0 );
+    }
+    while( (n >> e) > 1 ) {
+        ++e;
+    }
+    return( (DWORD)(127 + e) << 23 | ((DWORD)n << (23 - e) & 0x007FFFFFUL) );
+}
+
+/* A float's bits as a number that sorts as the float does. */
+static long m8d3d_ford( const float *p )
+{
+    long b = *(const long *)p;
+
+    return( b < 0 ? (long)(0x80000000UL - (DWORD)b) : b );
+}
+
 /* d3dcaps.h and d3dtypes.h, DX5. */
 #define M8D3D_DD_COLORMODEL         0x00000001UL
 #define M8D3D_DD_DEVCAPS            0x00000002UL
@@ -648,7 +690,10 @@ static M8D3D_CONTEXT    m8d3d_ctx[M8D3D_CONTEXTS];
  * triangles; [15] flips; in Blt: [16] ticks, [17] calls, [18] full clears described;
  * [19] page wait ticks; [20] triangles drawn from a mask; [21] masks built;
  * [22] triangles stamped; [23] stamps built; [24] ticks in RenderPrimitive. */
-DWORD                   m8d3d_stat[34];      /* 25: engine writes sent, 26: triangle pieces drawn, 27-33: m8dd_tri_census */
+DWORD                   m8d3d_stat[46];      /* 25: engine writes sent, 26: triangle pieces drawn, 27-33: m8dd_tri_census, 34-35: FIFO waits, 36-43: Flip phases, 44: sending */
+/* Diagnostic: clock ticks since the last mark, into phase k. */
+static LARGE_INTEGER    m8d3d_ph;
+#define M8D3D_PH( k ) do { LARGE_INTEGER t_; QueryPerformanceCounter( &t_ ); m8d3d_stat[k] += t_.LowPart - m8d3d_ph.LowPart; m8d3d_ph = t_; } while( 0 )
 /* Flip off its fast path: GDI touched the card, slow flips, then why. */
 DWORD                   m8d3d_flip_why[6];
 
@@ -748,9 +793,12 @@ extern void m8d3d_q_send( const DWORD *p, int n );
 
 static int m8d3d_q_flush( void )
 {
-    int i = 0;
-    int ok = 1;
+    int             i = 0;
+    int             ok = 1;
+    LARGE_INTEGER   t0;
+    LARGE_INTEGER   t1;
 
+    QueryPerformanceCounter( &t0 );
     while( i < m8d3d_qn ) {
         int n = m8d3d_qn - i < M8D3D_Q_CHUNK ? m8d3d_qn - i : M8D3D_Q_CHUNK;
 
@@ -763,6 +811,8 @@ static int m8d3d_q_flush( void )
         i += n;
     }
     m8d3d_qn = 0;
+    QueryPerformanceCounter( &t1 );
+    m8d3d_stat[44] += t1.LowPart - t0.LowPart;
     return( ok );
 }
 
@@ -2574,6 +2624,7 @@ static int m8d3d_join( M8D3D_CONTEXT *c, int dy, const short *v, const WORD *ind
         }
         c->jclean = 1;
     }
+    M8D3D_PH( 37 );
     /* Up to 8 colours a pass, a plane each. */
     for( first = 0; ok && first < nb; first = k ) {
         int     cols[8];
@@ -2661,6 +2712,7 @@ static int m8d3d_join( M8D3D_CONTEXT *c, int dy, const short *v, const WORD *ind
         if( !ok || !m8d3d_q_flush() ) {
             return( 0 );
         }
+        M8D3D_PH( 38 );
         /* Each colour's fill, then its outline over the rows the fill leaves. */
         for( j = 0; ok && j < nc; ++j ) {
             int ct = 480;
@@ -2674,6 +2726,7 @@ static int m8d3d_join( M8D3D_CONTEXT *c, int dy, const short *v, const WORD *ind
                  m8d3d_join_fill_bands( dy, v, m8d3d_jtri + m8d3d_jfrom[cols[j]],
                                         m8d3d_jfrom[cols[j] + 1] - m8d3d_jfrom[cols[j]], ct + 1, cb );
         }
+        M8D3D_PH( 39 );
         if( !ok || !m8d3d_q_need( 6 ) ) {
             return( 0 );
         }
@@ -2702,6 +2755,7 @@ static int m8d3d_join( M8D3D_CONTEXT *c, int dy, const short *v, const WORD *ind
             }
         }
         ok = ok && m8d3d_join_clear( (1 << nc) - 1, t, b + 1 );
+        M8D3D_PH( 40 );
     }
     m8d3d_stat[8] += n;
     return( ok );
@@ -2730,6 +2784,7 @@ int m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const shor
     m8d3d_mono_on = 0;
     m8d3d_stamp_mode = 0;
     m8d3d_qn = 0;
+    QueryPerformanceCounter( &m8d3d_ph );
     if( m8d3d_pal_want && !m8d3d_pal_on ) {
         m8d3d_pal_load();
     }
@@ -2768,6 +2823,7 @@ int m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const shor
         }
     }
     first = ok && n != 0 ? m8d3d_join_ok( c, v, n ) : 0;
+    M8D3D_PH( 36 );
     if( first != 0 ) {
         ok = m8d3d_mono_off() && m8d3d_q_flush() && m8d3d_join( c, dy, v, index, first );
     }
@@ -2775,6 +2831,7 @@ int m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const shor
         /* The one-at-a-time path keeps stamps and masks in the joined path's scratch. */
         c->jclean = 0;
     }
+    M8D3D_PH( 40 );
     for( i = first; ok && i < n; ++i ) {
         {
             const DWORD *g = rgb + 3 * i;
@@ -2803,6 +2860,7 @@ int m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const shor
         }
         ++m8d3d_stat[8];
     }
+    M8D3D_PH( 41 );
     if( ok ) {
         ok = m8d3d_mono_off();
     }
@@ -2817,7 +2875,9 @@ int m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const shor
     if( !m8d3d_q_flush() ) {
         ok = 0;
     }
+    M8D3D_PH( 42 );
     m8d3d_engine_end();
+    M8D3D_PH( 43 );
     if( !ok ) {
         ++m8d3d_stat[11];
     }
@@ -3113,23 +3173,9 @@ static void m8d3d_pal_restore( void )
     }
 }
 
-/* Detail by distance: a triangle whose box is M8D3D_FAR_PX or less on both sides is far away.
- * Far triangles take the textures' commonest colour at every fourth light level, so a far
- * ring is a few colours and joins into a few large patches; texels cannot be told apart there. */
+/* Detail by distance: a triangle whose box is M8D3D_FAR_PX or less on both sides is far away,
+ * and takes every fourth light level, so a far ring joins into fewer patches. */
 #define M8D3D_FAR_PX    16
-
-static int m8d3d_pal_major( void )
-{
-    int best = 0;
-    int k;
-
-    for( k = 1; k < m8d3d_pal_nb; ++k ) {
-        if( m8d3d_pal_count[k] > m8d3d_pal_count[best] ) {
-            best = k;
-        }
-    }
-    return( best );
-}
 
 /* The colour shown most on a 3 x 3 grid over the texture rectangle a triangle's corners span.
  * The two halves of a wall quad span the same rectangle, so they agree and the diagonal
@@ -3177,24 +3223,28 @@ static BYTE     m8d3d_patch_col[M8D3D_PATCH_HASH];
 
 static int m8d3d_pal_patch( const M8D3D_TEX *t, const BYTE *bits, const M8D3D_TLVERTEX **a )
 {
-    float       u0 = a[0]->tu;
-    float       u1 = a[0]->tu;
-    float       v0 = a[0]->tv;
-    float       v1 = a[0]->tv;
+    const float *u0 = &a[0]->tu;
+    const float *u1 = &a[0]->tu;
+    const float *v0 = &a[0]->tv;
+    const float *v1 = &a[0]->tv;
     DWORD       key;
     unsigned    h;
     int         i;
 
+    /* Integer compares on the bits: the 387 is slow here. */
     for( i = 1; i < 3; ++i ) {
-        u0 = a[i]->tu < u0 ? a[i]->tu : u0;
-        u1 = a[i]->tu > u1 ? a[i]->tu : u1;
-        v0 = a[i]->tv < v0 ? a[i]->tv : v0;
-        v1 = a[i]->tv > v1 ? a[i]->tv : v1;
+        long u = m8d3d_ford( &a[i]->tu );
+        long v = m8d3d_ford( &a[i]->tv );
+
+        u0 = u < m8d3d_ford( u0 ) ? &a[i]->tu : u0;
+        u1 = u > m8d3d_ford( u1 ) ? &a[i]->tu : u1;
+        v0 = v < m8d3d_ford( v0 ) ? &a[i]->tv : v0;
+        v1 = v > m8d3d_ford( v1 ) ? &a[i]->tv : v1;
     }
     /* Bit 31 marks a used slot, so key 0 is never a hit on an empty one. */
     key = 0x80000000UL | (DWORD)(t - m8d3d_texs) << 24 |
-          ((DWORD)m8d3d_round( u0 * 64.0f ) & 63) << 18 | ((DWORD)m8d3d_round( v0 * 64.0f ) & 63) << 12 |
-          ((DWORD)m8d3d_round( u1 * 64.0f ) & 63) << 6 | ((DWORD)m8d3d_round( v1 * 64.0f ) & 63);
+          ((DWORD)m8d3d_fround( u0, 6 ) & 63) << 18 | ((DWORD)m8d3d_fround( v0, 6 ) & 63) << 12 |
+          ((DWORD)m8d3d_fround( u1, 6 ) & 63) << 6 | ((DWORD)m8d3d_fround( v1, 6 ) & 63);
     h = (unsigned)((key * 2654435761UL) >> 22) & (M8D3D_PATCH_HASH - 1);
     if( m8d3d_patch_key[h] != key ) {
         m8d3d_patch_key[h] = key;
@@ -3336,6 +3386,8 @@ typedef struct {
     int             h;
     int             fb16;
     int             ok;
+    DWORD           rb;             /* the target's last column and row, as float bits */
+    DWORD           bb;
 } M8D3D_DRAW;
 
 static int m8d3d_draw_begin( M8D3D_DRAW *p, M8D3D_CONTEXT *c )
@@ -3360,6 +3412,8 @@ static int m8d3d_draw_begin( M8D3D_DRAW *p, M8D3D_CONTEXT *c )
     }
     /* Once a call: it asks the kernel whether the pointer is good. */
     p->lcl = m8d3d_lcl( c->target );
+    p->rb = m8d3d_ibits( p->w - 1 );
+    p->bb = m8d3d_ibits( p->h - 1 );
     p->texbits = NULL;
     p->tex = m8d3d_tex_of( c->tex );
     if( p->tex != NULL && !m8d3d_tex_read( p->tex, &p->texbits ) ) {
@@ -3473,8 +3527,8 @@ static void m8d3d_draw_on( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D_
     a[1] = v1;
     a[2] = v2;
     for( j = 0; j < 3; ++j ) {
-        v[2 * j] = (short)m8d3d_round( a[j]->sx );
-        v[2 * j + 1] = (short)m8d3d_round( a[j]->sy );
+        v[2 * j] = (short)m8d3d_fround( &a[j]->sx, 0 );
+        v[2 * j + 1] = (short)m8d3d_fround( &a[j]->sy, 0 );
     }
     {
         int     lx = v[0] < v[2] ? v[0] : v[2];
@@ -3524,7 +3578,8 @@ static void m8d3d_draw_on( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D_
         lo_y = v[5] < lo_y ? v[5] : lo_y;
         hi_y = v[5] > hi_y ? v[5] : hi_y;
         distant = hi_x - lo_x <= M8D3D_FAR_PX && hi_y - lo_y <= M8D3D_FAR_PX;
-        k = distant ? m8d3d_pal_major() : m8d3d_pal_patch( p->tex, p->texbits, a );
+        /* Far patches take their own colour too, kept: a stripe must not appear only as it nears. */
+        k = m8d3d_pal_patch( p->tex, p->texbits, a );
         if( c->texblend == M8D3D_TEXBLEND_MODULATE || c->texblend == M8D3D_TEXBLEND_MODULATEALPHA ) {
             level = (int)(((rgb >> 16 & 255) + (rgb >> 8 & 255) + (rgb & 255)) * 15 + 382) / 765;
         }
@@ -3581,16 +3636,17 @@ static void m8d3d_draw_on( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D_
 static void m8d3d_draw_tri( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D_TLVERTEX *v1,
                             const M8D3D_TLVERTEX *v2 )
 {
-    float   r = (float)(p->w - 1);
-    float   b = (float)(p->h - 1);
+    DWORD   r = p->rb;
+    DWORD   b = p->bb;
 
     if( !p->ok ) {
         return;
     }
-    /* Written so that a NaN corner, which every comparison fails, is sent to the clipper too. */
-    if( v0->sx >= 0.0f && v0->sx <= r && v0->sy >= 0.0f && v0->sy <= b &&
-        v1->sx >= 0.0f && v1->sx <= r && v1->sy >= 0.0f && v1->sy <= b &&
-        v2->sx >= 0.0f && v2->sx <= r && v2->sy >= 0.0f && v2->sy <= b ) {
+    /* On the bits, unsigned: a negative corner has bit 31 set and a NaN is above any finite
+     * limit, so both fail and go to the clipper, as -0.0 does. */
+#define M8D3D_ON( f, lim ) ( *(const DWORD *)&(f) <= (lim) )
+    if( M8D3D_ON( v0->sx, r ) && M8D3D_ON( v0->sy, b ) && M8D3D_ON( v1->sx, r ) && M8D3D_ON( v1->sy, b ) &&
+        M8D3D_ON( v2->sx, r ) && M8D3D_ON( v2->sy, b ) ) {
         m8d3d_draw_on( p, v0, v1, v2 );
         return;
     }

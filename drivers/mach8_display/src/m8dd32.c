@@ -30,7 +30,7 @@
 extern void m8d3d_init( DWORD *global, DWORD *callbacks, DWORD *driver_info );
 extern int  m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const short *v,
                          const WORD *index, const DWORD *rgb, int n );
-extern DWORD m8d3d_stat[34];
+extern DWORD m8d3d_stat[46];
 extern DWORD m8d3d_flip_why[6];
 
 /* The head of dd16.c's M8DD_SHARE. */
@@ -2281,10 +2281,13 @@ int m8d3d_room( int n )
         m8d3d_free -= n;
         return( 1 );
     }
+    ++m8d3d_stat[35];
     for( i = 0; i < M8_WAIT_LIMIT; ++i ) {
         s = inpw( M8_EXT_FIFO_STATUS );
         if( !(s & (0x8000 >> n)) ) {
             int f = n;
+
+            m8d3d_stat[34] += i;
 
             while( f < 15 && !(s & (0x8000 >> (f + 1))) ) {
                 ++f;
