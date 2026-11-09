@@ -2,6 +2,12 @@
 
 Earlier handoff: `docs/next_session_2026_11_07.md` (its "Open" list still stands, less what is below). **The cloud session's tests are in #59**: carry this line on until every box there is ticked. Results: `docs/captures/2026-11-07_shape/README.md` and `docs/captures/2026-11-07_r892/README.md`. Levers: `docs/mach8_frame_rate_plan.md`, "What a frame's time is made of", Y1-Y13.
 
+## START HERE: 2026-11-09, afternoon
+
+- Card boot 307 on `M8D3EZ` (EY + phase timers). Ours 129 -> 81 ms today (patch colour cache, integer float handling); flip ~200 ms is now the larger half.
+- Flip breakdown and reading in `docs/captures/2026-11-08_tunnel/README.md`, "M8D3EX, EY, EZ". Next build: Z17 in the join pass loop (build pass k+1 while the card fills pass k; non-blocking top-up of the FIFO).
+- Open: exit hang after Alt+F4 (#55), seen again on boot 306. Large near panels one colour (Z13). Never run two copies of the tunnel: palette and scratch are shared.
+
 ## START HERE: 2026-11-09, late morning
 
 - Card: boot 302 on `M8D3EV` (committed: hash pass, queue 1024, no second edge array, -30 KB static). SWAPZF + XTBOTH kept (owner, 11-09). Tunnel 458 / 407 ms a frame at 640x480, high priority; no hang over two runs and closes. `docs/captures/2026-11-08_tunnel/README.md`, "M8D3EV".

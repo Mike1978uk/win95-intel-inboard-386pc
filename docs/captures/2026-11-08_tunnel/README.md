@@ -113,3 +113,12 @@ EV plus a 1,024-slot cache of the sampled colour, keyed by texture and rectangle
 - Boot 303, high priority, two runs: frame 425 / 360 ms; ours 101.6 / 99.8 ms (EV 132.6 / 128.9); engine 200 / 199 ms; writes ~8,360.
 - Our time down ~29 ms a frame (22 %); look unchanged by design (same colour for the same patch). Owner's eye not yet asked.
 - Still ~100 ms of ours a frame with the card idle: next to find where.
+
+## M8D3EX, EY, EZ, 2026-11-09
+
+- EX: float coordinates, bounds tests and texture keys on the bits, no 387. Ours 100 -> 80 ms (two runs, boot 304). Z19 register shadow in the same build: 66 of ~8,200 writes a frame dropped; negative, removed in EY.
+- EY: Z19 out; far triangles take their own cached patch colour (owner, 11-09: stripes appeared only as they came near). Ours 81 ms, flip 199 ms (one clean run, boot 305; the second ran beside a stray copy of the tunnel and is void: two programs' textures pushed the palette past 16 colours, colours lost).
+- Owner's eye on EX/EY: near wall panels hold one colour while a stripe slides through their texture, so a yellow square lingers and crawls; same for black outlines top left. Cause: one colour per large near piece. Fix: Z13, split only large near pieces.
+- EZ = EY + phase timers. Boot 306, one run, 251 flips, per frame: erase+check 7.4, edge build 15.4, outlines 55.4, fills 99.4, redraw+clear 37.5, singles 3.5, final send 0.7, engine wait 3.3 ms. Sending (q_flush) 124 ms; 8,490 writes (~64 ms of bus); 2,504 FIFO-full reads and 999 room checks a frame.
+- Reading: during fills the card is busy and the CPU spins (~60 ms); during edges, outlines and redraw the CPU computes and the card idles (~100 ms). Z17 (compute the next pass while the card fills) is the lever.
+- Hang at the tunnel's exit (Alt+F4) on boot 306, after both census readings were written; owner restarted. Same as 11-08's exit hangs (#55).
