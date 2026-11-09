@@ -773,7 +773,7 @@ static WORD m8d3d_565( DWORD rgb )
  * comes only when the queue is full. */
 #define M8D3D_Q_MAX     4096
 /* Held writes before the FIFO is looked at again: each look is a status read and empties the cache. */
-#define M8D3D_Q_PUMP    24
+#define M8D3D_Q_PUMP    256
 /* Room for this many, not the FIFO's whole 16: waiting for it to empty leaves the engine idle when
  * a long fill ends, with the next command still crossing the bus. */
 #define M8D3D_Q_CHUNK   8
@@ -3658,6 +3658,21 @@ static void m8d3d_draw_clipped( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M
     }
 }
 
+#define M8D3D_SPLIT_PX  80              /* a piece's longer side, in the drawn pixels */
+static int  m8d3d_split_depth;
+
+/* Halfway along an edge, every field the drawing reads. */
+static void m8d3d_mid( M8D3D_TLVERTEX *o, const M8D3D_TLVERTEX *a, const M8D3D_TLVERTEX *b )
+{
+    *o = *a;
+    o->sx = (a->sx + b->sx) * 0.5f;
+    o->sy = (a->sy + b->sy) * 0.5f;
+    o->sz = (a->sz + b->sz) * 0.5f;
+    o->tu = (a->tu + b->tu) * 0.5f;
+    o->tv = (a->tv + b->tv) * 0.5f;
+    o->color = ((a->color >> 1) & 0x7F7F7F7FUL) + ((b->color >> 1) & 0x7F7F7F7FUL);
+}
+
 /* All three corners on the target. */
 static void m8d3d_draw_on( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D_TLVERTEX *v1,
                            const M8D3D_TLVERTEX *v2 )
@@ -3721,6 +3736,24 @@ static void m8d3d_draw_on( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D_
     if( area == 0 || (c->cull == M8D3D_CULL_CCW && area < 0) ||
         (c->cull == M8D3D_CULL_CW && area > 0) ) {
         ++m8d3d_stat[9];
+        return;
+    }
+    /* A large textured piece takes one colour, so a stripe sliding through its part of the
+     * texture holds the whole piece in its colour: split in four, once, each part
+     * sampled for itself. Parts that come out the same colour join again. Only the large ones:
+     * splitting every piece cost four times the time (M8D3EO). */
+    if( p->tex != NULL && side > M8D3D_SPLIT_PX && m8d3d_split_depth < 1 ) {
+        M8D3D_TLVERTEX  m[3];
+
+        for( j = 0; j < 3; ++j ) {
+            m8d3d_mid( &m[j], a[j], a[(j + 1) % 3] );
+        }
+        ++m8d3d_split_depth;
+        m8d3d_draw_on( p, a[0], &m[0], &m[2] );
+        m8d3d_draw_on( p, &m[0], a[1], &m[1] );
+        m8d3d_draw_on( p, &m[2], &m[1], a[2] );
+        m8d3d_draw_on( p, &m[0], &m[1], &m[2] );
+        --m8d3d_split_depth;
         return;
     }
     rgb = m8d3d_mean( a[0]->color, a[1]->color, a[2]->color );
