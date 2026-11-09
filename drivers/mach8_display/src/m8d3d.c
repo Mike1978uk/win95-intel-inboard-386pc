@@ -4784,8 +4784,13 @@ void m8d3d_init( DWORD *global, DWORD *callbacks, DWORD *driver_info )
                                        M8D3D_PTBLENDCAPS_COPY;
     c->dpcTriCaps.dwTextureAddressCaps = M8D3D_PTADDRESSCAPS_WRAP | M8D3D_PTADDRESSCAPS_MIRROR |
                                          M8D3D_PTADDRESSCAPS_CLAMP;
-    c->dwDeviceRenderBitDepth = DDBD_8 | DDBD_16;
-    c->dwDeviceZBufferBitDepth = DDBD_16;
+    /* [d3d] render8=0 leaves 8 bpp out: a program that would start in a window on the 8 bpp
+     * desktop, where its surface does not fit beside the desktop, starts full screen instead. */
+    c->dwDeviceRenderBitDepth = GetPrivateProfileInt( "d3d", "render8", 1, "C:\\M8D3D.INI" ) ? DDBD_8 | DDBD_16 : DDBD_16;
+    /* No Z depth: a Z-buffer beside two 640x480 pages does not fit in the card's 1 MB, and DX5's
+     * sample framework then fails rather than draw without one. Depth comes from the sort at
+     * Flip. [z] depth=16 claims 16-bit Z, for programs that will not start without it. */
+    c->dwDeviceZBufferBitDepth = GetPrivateProfileInt( "z", "depth", 0, "C:\\M8D3D.INI" ) == 16 ? DDBD_16 : 0;
     m8d3d_global.dwNumTextureFormats = 2;
     m8d3d_global.lpTextureFormats = m8d3d_tex_formats;
     memset( m8d3d_tex_formats, 0, sizeof( m8d3d_tex_formats ) );
