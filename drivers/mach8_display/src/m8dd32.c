@@ -34,6 +34,7 @@ extern DWORD m8d3d_stat[72];
 extern void m8d3d_feed_finish( void );
 extern int m8d3d_lores_on( void );
 extern BYTE m8d3d_index565( WORD p );
+extern int m8d3d_half_on( void );
 extern void m8d3d_feed_go( void );
 extern void m8d3d_feed_close( void );
 extern void m8d3d_q_add( unsigned port, unsigned value );
@@ -735,10 +736,10 @@ static void m8dd_tri_ram( int k, const short *half, WORD colour )
     int     y2;
     RECT    r;
 
-    /* Corners are recorded at half size for the 320x240 screen; RAM is the full-size buffer,
+    /* Corners recorded at half size are for the 320x240 screen; RAM is the full-size buffer,
      * shown at full size unless the screen is at 320x240. */
     for( t = 0; t < 6; ++t ) {
-        v[t] = m8d3d_lores_on() ? half[t] : (short)(half[t] * 2);
+        v[t] = m8d3d_half_on() && !m8d3d_lores_on() ? (short)(half[t] * 2) : half[t];
     }
     if( v[2 * o[1] + 1] < v[2 * o[0] + 1] ) {
         t = o[0]; o[0] = o[1]; o[1] = t;
@@ -839,16 +840,16 @@ static void m8dd_tris_sort( int k )
 }
 
 /* Something is about to read buffer k's pixels or draw over part of them. */
-/* 2D drawn over a frame's triangles (a game's text, timer, items): keyed copies from system
- * memory onto the back buffer after the scene. Flushing the triangles to RAM for them would
- * put the whole frame on the bus. Instead each source rectangle is kept twice: in RAM as it
- * was last seen, and on the card at the screen's 320x240 in the rows below page 1, sent again
- * only when its pixels change. Flip has the engine draw the triangles, then the card copies
- * each overlay over them with its source compare. Only at 320x240 with two pages: at 640 the
- * pages take those rows. */
+/* 2D drawn over a frame's triangles (a game's text, timer, items): copies from system memory
+ * onto the back buffer after the scene. Flushing the triangles to RAM for them would put the
+ * whole frame on the bus. Instead each source rectangle is kept twice: in RAM as it was last
+ * seen, and on the card at the screen's size in the rows below page 1, sent again only when
+ * its pixels change. Flip has the engine draw the triangles, then the card copies each overlay
+ * over them with its source compare. At 320x240 page 1 leaves rows 752 on; at 640x480 only
+ * the last 32 rows are free, enough for a line or two of text. */
 #define M8DD_OVL_MAX        8
 #define M8DD_OVL_POOL       32768               /* pixels of RAM copies, all overlays */
-#define M8DD_OVL_TOP        752                 /* below page 1's 240 rows at 512 */
+#define M8DD_OVL_TOP(s)     ((s) == 2 ? 752 : 992)  /* below page 1, at 320x240 or 640x480 */
 #define M8DD_OVL_BOTTOM     1024
 #define M8DD_OVL_RIGHT      640
 #define M8DD_OVL_NOKEY      0x10000UL           /* no 5-6-5 pixel matches it */
@@ -876,7 +877,7 @@ static int          m8dd_ovc_n;
 static WORD         m8dd_ovc_pool[M8DD_OVL_POOL];
 static int          m8dd_ovc_used;
 static int          m8dd_ovc_x;
-static int          m8dd_ovc_y = M8DD_OVL_TOP;
+static int          m8dd_ovc_y = M8DD_OVL_TOP( 2 );
 static int          m8dd_ovc_shelf;
 static M8DD_OVL     m8dd_ovl[2][M8DD_OVL_MAX];
 static int          m8dd_ovl_n[2];
@@ -889,7 +890,7 @@ static void m8dd_ovc_reset( void )
     m8dd_ovc_n = 0;
     m8dd_ovc_used = 0;
     m8dd_ovc_x = 0;
-    m8dd_ovc_y = M8DD_OVL_TOP;
+    m8dd_ovc_y = M8DD_OVL_TOP( m8d3d_half_on() ? 2 : 1 );
     m8dd_ovc_shelf = 0;
     m8dd_ovl_n[0] = 0;
     m8dd_ovl_n[1] = 0;
@@ -899,8 +900,9 @@ static void m8dd_ovc_reset( void )
 static int m8dd_ovc_find( const BYTE *src, long pitch, int w, int h, DWORD key )
 {
     M8DD_OVC    *e;
-    int         hw = (w + 1) / 2;
-    int         hh = (h + 1) / 2;
+    int         sc = m8d3d_half_on() ? 2 : 1;
+    int         hw = (w + sc - 1) / sc;
+    int         hh = (h + sc - 1) / sc;
     int         i;
 
     for( i = 0; i < m8dd_ovc_n; ++i ) {
@@ -985,24 +987,25 @@ static int m8dd_ovl_draw( int k, int top, RECT *box, int room )
     int x;
     int y;
     int added = 0;
+    int sc = m8d3d_half_on() ? 2 : 1;
 
     for( i = 0; i < m8dd_ovl_n[k]; ++i ) {
         M8DD_OVC    *e = &m8dd_ovc[m8dd_ovl[k][i].c];
         const RECT  *d = &m8dd_ovl[k][i].d;
-        int         hw = (e->w + 1) / 2;
-        int         hh = (e->h + 1) / 2;
+        int         hw = (e->w + sc - 1) / sc;
+        int         hh = (e->h + sc - 1) / sc;
         /* m8d3d_index565 never gives index 0: a plain copy compares against it. */
         BYTE        kx = e->key == M8DD_OVL_NOKEY ? 0 : m8d3d_index565( (WORD)e->key );
         RECT        r;
 
         if( !e->sent ) {
-            /* Half size: of each 2x2 block, its first pixel that is not the key, so one-pixel
+            /* At half size: of each 2x2 block, its first pixel that is not the key, so one-pixel
              * strokes survive. */
             for( y = 0; y < hh; ++y ) {
                 for( x = 0; x < hw; ++x ) {
-                    const WORD  *p = e->copy + 2 * y * e->w + 2 * x;
-                    int         two = 2 * x + 1 < e->w;
-                    int         down = 2 * y + 1 < e->h;
+                    const WORD  *p = e->copy + sc * y * e->w + sc * x;
+                    int         two = sc == 2 && 2 * x + 1 < e->w;
+                    int         down = sc == 2 && 2 * y + 1 < e->h;
                     WORD        q = p[0];
 
                     if( q == e->key && two ) {
@@ -1027,15 +1030,15 @@ static int m8dd_ovl_draw( int k, int top, RECT *box, int room )
             e->sent = 1;
             ++m8d3d_stat[68];
         }
-        r.left = d->left / 2;
-        r.top = d->top / 2;
+        r.left = d->left / sc;
+        r.top = d->top / sc;
         r.right = r.left + hw;
         r.bottom = r.top + hh;
-        if( r.right > 320 ) {
-            r.right = 320;
+        if( r.right > 640 / sc ) {
+            r.right = 640 / sc;
         }
-        if( r.bottom > 240 ) {
-            r.bottom = 240;
+        if( r.bottom > 480 / sc ) {
+            r.bottom = 480 / sc;
         }
         if( added < room ) {
             box[added++] = r;

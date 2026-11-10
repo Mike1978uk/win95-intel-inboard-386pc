@@ -510,6 +510,7 @@ static M8D3D_TEX        m8d3d_texs[M8D3D_TEXTURES];
 static int              m8d3d_pal_want;     /* a frame was drawn in the texture palette's indices */
 static int              m8d3d_pal_on;       /* the DAC holds it, the old one in m8d3d_pal_saved */
 static int              m8d3d_lores;        /* trial: 640x480 drawn at half size, shown as 320x240 */
+static int              m8d3d_half = 1;     /* corners rounded at half size: [d3d] lores, per program */
 static int              m8d3d_pal_kept;     /* the desktop's DAC is in m8d3d_pal_saved from a program that ended without restoring it */
 static void             m8d3d_lores_set( void );
 static void             m8d3d_pal_load( void );
@@ -3276,9 +3277,9 @@ int m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const shor
     if( m8d3d_pal_want && !m8d3d_pal_on ) {
         m8d3d_pal_load();
     }
-    /* Corners are rounded at half size whether a program textures or not (m8d3d_draw_on), so
-     * the screen goes to 320x240 with the first frame, not with the texture palette. */
-    if( c->sw == 640 && !m8d3d_lores ) {
+    /* Corners rounded at half size (m8d3d_draw_on) need the screen at 320x240 from the first
+     * frame, not only with the texture palette. */
+    if( c->sw == 640 && m8d3d_half && !m8d3d_lores ) {
         m8d3d_lores_set();
         m8d3d_lores = 1;
     }
@@ -3439,6 +3440,19 @@ static DWORD __stdcall m8d3d_context_create( M8D3D_CONTEXTCREATE *d )
     }
     if( !m8d3d_surface( m8d3d_lcl( d->lpDDS ), &x, &y, &c->sw, &c->sh ) ) {
         return( DDHAL_DRIVER_HANDLED );
+    }
+    /* [d3d] lores=1 (the default) draws at half size and shows 320x240: fewer pixels for a
+     * scene that fills the screen. A section named for the program, [M8TWIST.EXE] lores=0,
+     * keeps a light scene sharp at the target's size. */
+    {
+        char    path[MAX_PATH];
+        char    *n;
+
+        GetModuleFileName( NULL, path, sizeof( path ) );
+        n = strrchr( path, '\\' );
+        n = n != NULL ? n + 1 : path;
+        m8d3d_half = (int)GetPrivateProfileInt( "d3d", "lores", 1, "C:\\M8D3D.INI" );
+        m8d3d_half = (int)GetPrivateProfileInt( n, "lores", m8d3d_half, "C:\\M8D3D.INI" ) != 0;
     }
     c->tw = c->sw;
     if( !m8d3d_scratch( c, &c->tw, &c->sh, &c->sx, &c->sy ) ) {
@@ -3606,6 +3620,12 @@ extern void m8d3d_outw( unsigned port, unsigned v );
 int m8d3d_lores_on( void )
 {
     return( m8d3d_lores );
+}
+
+/* For M8DD32: corners are recorded at half size. */
+int m8d3d_half_on( void )
+{
+    return( m8d3d_half );
 }
 
 static void m8d3d_lores_set( void )
@@ -4362,8 +4382,8 @@ static void m8d3d_draw_on( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D_
     a[1] = v1;
     a[2] = v2;
     for( j = 0; j < 3; ++j ) {
-        v[2 * j] = (short)m8d3d_fround( &a[j]->sx, -1 );
-        v[2 * j + 1] = (short)m8d3d_fround( &a[j]->sy, -1 );
+        v[2 * j] = (short)m8d3d_fround( &a[j]->sx, -m8d3d_half );
+        v[2 * j + 1] = (short)m8d3d_fround( &a[j]->sy, -m8d3d_half );
     }
     {
         int     lx = v[0] < v[2] ? v[0] : v[2];
