@@ -979,76 +979,115 @@ static int m8dd_ovl_add( int k, const BYTE *src, long pitch, const RECT *d, DWOR
     return( 1 );
 }
 
-/* Buffer k's overlays on the card's page at row `top`, the engine idle; each one's box
- * added to `box` (up to `room`). Returns the boxes added, or -1 if the card failed. */
-static int m8dd_ovl_draw( int k, int top, RECT *box, int room )
+/* Buffer k's overlays whose pixels changed, to their place on the card, from an idle engine:
+ * before the frame's queue, which then never waits on them. 0 if the card failed. */
+static int m8dd_ovl_upload( int k )
 {
     int i;
     int x;
     int y;
+    int sc = m8d3d_half_on() ? 2 : 1;
+
+    for( i = 0; i < m8dd_ovl_n[k]; ++i ) {
+        M8DD_OVC    *e = &m8dd_ovc[m8dd_ovl[k][i].c];
+        int         hw = (e->w + sc - 1) / sc;
+        int         hh = (e->h + sc - 1) / sc;
+        BYTE        kx = e->key == M8DD_OVL_NOKEY ? 0 : m8d3d_index565( (WORD)e->key );
+        RECT        r;
+
+        if( e->sent ) {
+            continue;
+        }
+        m8d3d_feed_finish();
+        /* At half size: of each 2x2 block, its first pixel that is not the key, so one-pixel
+         * strokes survive. */
+        for( y = 0; y < hh; ++y ) {
+            for( x = 0; x < hw; ++x ) {
+                const WORD  *p = e->copy + sc * y * e->w + sc * x;
+                int         two = sc == 2 && 2 * x + 1 < e->w;
+                int         down = sc == 2 && 2 * y + 1 < e->h;
+                WORD        q = p[0];
+
+                if( q == e->key && two ) {
+                    q = p[1];
+                }
+                if( q == e->key && down ) {
+                    q = p[e->w];
+                }
+                if( q == e->key && two && down ) {
+                    q = p[e->w + 1];
+                }
+                m8dd_ovl_half[y * hw + x] = q == e->key ? kx : m8d3d_index565( q );
+            }
+        }
+        r.left = e->cx;
+        r.top = e->cy;
+        r.right = e->cx + hw;
+        r.bottom = e->cy + hh;
+        if( !m8dd_plain( M8_MIX_HOST_REPLACE ) || !m8dd_host_rect( &r, m8dd_ovl_half, hw ) ) {
+            return( 0 );
+        }
+        e->sent = 1;
+        ++m8d3d_stat[68];
+    }
+    return( 1 );
+}
+
+/* Buffer k's overlays copied onto the page at row `top`, in the frame's queue behind its
+ * triangles, as m8dd_key_rect but without waiting: the card does them in order while the
+ * program builds the next frame. m8d3d_index565 never gives index 0, so a plain copy
+ * compares against it. Each one's box goes in `box` (up to `room`); returns how many. */
+static int m8dd_ovl_queue( int k, int top, RECT *box, int room )
+{
+    int i;
     int added = 0;
     int sc = m8d3d_half_on() ? 2 : 1;
 
     for( i = 0; i < m8dd_ovl_n[k]; ++i ) {
         M8DD_OVC    *e = &m8dd_ovc[m8dd_ovl[k][i].c];
         const RECT  *d = &m8dd_ovl[k][i].d;
-        int         hw = (e->w + sc - 1) / sc;
-        int         hh = (e->h + sc - 1) / sc;
-        /* m8d3d_index565 never gives index 0: a plain copy compares against it. */
         BYTE        kx = e->key == M8DD_OVL_NOKEY ? 0 : m8d3d_index565( (WORD)e->key );
         RECT        r;
 
-        if( !e->sent ) {
-            /* At half size: of each 2x2 block, its first pixel that is not the key, so one-pixel
-             * strokes survive. */
-            for( y = 0; y < hh; ++y ) {
-                for( x = 0; x < hw; ++x ) {
-                    const WORD  *p = e->copy + sc * y * e->w + sc * x;
-                    int         two = sc == 2 && 2 * x + 1 < e->w;
-                    int         down = sc == 2 && 2 * y + 1 < e->h;
-                    WORD        q = p[0];
-
-                    if( q == e->key && two ) {
-                        q = p[1];
-                    }
-                    if( q == e->key && down ) {
-                        q = p[e->w];
-                    }
-                    if( q == e->key && two && down ) {
-                        q = p[e->w + 1];
-                    }
-                    m8dd_ovl_half[y * hw + x] = q == e->key ? kx : m8d3d_index565( q );
-                }
-            }
-            r.left = e->cx;
-            r.top = e->cy;
-            r.right = e->cx + hw;
-            r.bottom = e->cy + hh;
-            if( !m8dd_plain( M8_MIX_HOST_REPLACE ) || !m8dd_host_rect( &r, m8dd_ovl_half, hw ) ) {
-                return( -1 );
-            }
-            e->sent = 1;
-            ++m8d3d_stat[68];
-        }
         r.left = d->left / sc;
         r.top = d->top / sc;
-        r.right = r.left + hw;
-        r.bottom = r.top + hh;
+        r.right = r.left + (e->w + sc - 1) / sc;
+        r.bottom = r.top + (e->h + sc - 1) / sc;
         if( r.right > 640 / sc ) {
             r.right = 640 / sc;
         }
         if( r.bottom > 480 / sc ) {
             r.bottom = 480 / sc;
         }
+        if( r.right <= r.left || r.bottom <= r.top ) {
+            continue;
+        }
         if( added < room ) {
             box[added++] = r;
         }
-        r.top += top;
-        r.bottom += top;
-        /* The replay and the upload leave scissors and mixes of their own. */
-        if( !m8dd_plain( M8_MIX_HOST_REPLACE ) || !m8dd_key_rect( &r, e->cx, e->cy, kx ) ) {
-            return( -1 );
-        }
+        m8d3d_q_add( M8_WRT_MASK, 0x00FF );
+        m8d3d_q_add( M8_RD_MASK, 0x00FF );
+        m8d3d_q_add( M8_EXT_SCISSOR_L, M8_EXT_SCISSOR_MIN );
+        m8d3d_q_add( M8_EXT_SCISSOR_T, M8_EXT_SCISSOR_MIN );
+        m8d3d_q_add( M8_EXT_SCISSOR_R, M8_EXT_SCISSOR_MAX );
+        m8d3d_q_add( M8_EXT_SCISSOR_B, M8_EXT_SCISSOR_MAX );
+        m8d3d_q_add( M8_DP_CONFIG, M8_DP_VRAM_BLIT );
+        m8d3d_q_add( M8_ALU_FG_FN, M8_MIX_REPLACE );
+        m8d3d_q_add( M8_ALU_BG_FN, M8_MIX_LEAVE );
+        m8d3d_q_add( M8_SRC_CMP_COLOR, kx );
+        m8d3d_q_add( M8_SRC_CMP_FN, 0x0028 );
+        m8d3d_q_add( M8_SRC_Y_DIR, 1 );
+        m8d3d_q_add( M8_CUR_X, r.left );
+        m8d3d_q_add( M8_CUR_Y, r.top + top );
+        m8d3d_q_add( M8_DEST_X_START, r.left );
+        m8d3d_q_add( M8_DEST_X_END, r.right );
+        m8d3d_q_add( M8_DESTX_DIASTP, e->cx );
+        m8d3d_q_add( M8_DESTY_AXSTP, e->cy );
+        m8d3d_q_add( M8_SRC_X_START, e->cx );
+        m8d3d_q_add( M8_SRC_X_END, e->cx + (r.right - r.left) );
+        m8d3d_q_add( M8_DEST_Y_END, r.bottom + top );
+        m8d3d_q_add( M8_SRC_CMP_FN, 0 );
+        m8d3d_q_add( M8_DP_CONFIG, M8_DP_8514 );
         ++m8d3d_stat[67];
     }
     return( added );
@@ -1874,6 +1913,10 @@ static int m8dd_page_frame( int k )
         m8dd_page_boxes[1] = 0;
     }
     h = !m8dd_page;
+    if( !m8dd_ovl_upload( k ) ) {
+        m8dd_pages_leave();
+        return( 0 );
+    }
     m8dd_page_wait();
     if( !m8d3d_replay( h ? m8dd_page1_box : m8dd_card_box, m8dd_page_boxes[h], 0, h ? M8DD_PAGE1_Y : 0,
                        m8dd_tri_v[k], m8dd_tri_i[k], m8dd_tri_g[k], m8dd_tri_n[k] ) ) {
@@ -1881,14 +1924,7 @@ static int m8dd_page_frame( int k )
         m8dd_pages_leave();
         return( 0 );
     }
-    if( m8dd_ovl_n[k] != 0 ) {
-        m8d3d_feed_go();
-        m8d3d_feed_finish();
-        if( (extra = m8dd_ovl_draw( k, h ? M8DD_PAGE1_Y : 0, ovbox, M8DD_OVL_MAX )) < 0 ) {
-            m8dd_pages_leave();
-            return( 0 );
-        }
-    }
+    extra = m8dd_ovl_queue( k, h ? M8DD_PAGE1_Y : 0, ovbox, M8DD_OVL_MAX );
     /* The show after the frame's last write, in the same queue; a marker then reads the blank
      * latch for m8dd_page_wait (m8dd_page_fed). */
     ((DWORD *)m8dd->gdi_lin)[4] = h;

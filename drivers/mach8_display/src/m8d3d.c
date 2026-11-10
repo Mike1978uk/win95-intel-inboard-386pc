@@ -511,6 +511,7 @@ static int              m8d3d_pal_want;     /* a frame was drawn in the texture 
 static int              m8d3d_pal_on;       /* the DAC holds it, the old one in m8d3d_pal_saved */
 static int              m8d3d_lores;        /* trial: 640x480 drawn at half size, shown as 320x240 */
 static int              m8d3d_half = 1;     /* corners rounded at half size: [d3d] lores, per program */
+static int              m8d3d_zsort;        /* sort by depth with Z off: [d3d] zsort, per program */
 static int              m8d3d_pal_kept;     /* the desktop's DAC is in m8d3d_pal_saved from a program that ended without restoring it */
 static void             m8d3d_lores_set( void );
 static void             m8d3d_pal_load( void );
@@ -3453,6 +3454,10 @@ static DWORD __stdcall m8d3d_context_create( M8D3D_CONTEXTCREATE *d )
         n = n != NULL ? n + 1 : path;
         m8d3d_half = (int)GetPrivateProfileInt( "d3d", "lores", 1, "C:\\M8D3D.INI" );
         m8d3d_half = (int)GetPrivateProfileInt( n, "lores", m8d3d_half, "C:\\M8D3D.INI" ) != 0;
+        /* zsort=1: a program that wanted a Z-buffer, which does not fit, still gets its frame
+         * drawn furthest first. */
+        m8d3d_zsort = (int)GetPrivateProfileInt( "d3d", "zsort", 0, "C:\\M8D3D.INI" );
+        m8d3d_zsort = (int)GetPrivateProfileInt( n, "zsort", m8d3d_zsort, "C:\\M8D3D.INI" ) != 0;
     }
     c->tw = c->sw;
     if( !m8d3d_scratch( c, &c->tw, &c->sh, &c->sx, &c->sy ) ) {
@@ -4496,7 +4501,7 @@ static void m8d3d_draw_on( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D_
             return;
         }
         p->ok = m8d3d_record( p->lcl, v, (BYTE)(k * 16 + level), m8d3d_565( rgb ), corners,
-                              ((c->rs_on >> M8D3D_RS_ZENABLE) & 1) && c->zfunc != M8D3D_CMP_ALWAYS ?
+                              (((c->rs_on >> M8D3D_RS_ZENABLE) & 1) && c->zfunc != M8D3D_CMP_ALWAYS) || m8d3d_zsort ?
                               (int)m8d3d_round( (a[0]->sz + a[1]->sz + a[2]->sz) * M8D3D_DEPTH_SCALE ) : -1 );
         return;
     }
@@ -4531,7 +4536,7 @@ static void m8d3d_draw_on( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D_
         }
         /* Described, not drawn: Flip has the engine draw it, furthest first if Z is on. */
         p->ok = m8d3d_record( p->lcl, v, m8d3d_index16( rgb ), m8d3d_565( rgb ), corners,
-                              ((c->rs_on >> M8D3D_RS_ZENABLE) & 1) && c->zfunc != M8D3D_CMP_ALWAYS ?
+                              (((c->rs_on >> M8D3D_RS_ZENABLE) & 1) && c->zfunc != M8D3D_CMP_ALWAYS) || m8d3d_zsort ?
                               (int)m8d3d_round( (a[0]->sz + a[1]->sz + a[2]->sz) * M8D3D_DEPTH_SCALE ) : -1 );
         return;
     }
