@@ -2,7 +2,16 @@
 
 Earlier handoff: `docs/next_session_2026_11_07.md` (its "Open" list still stands, less what is below). **The cloud session's tests are in #59**: carry this line on until every box there is ticked. Results: `docs/captures/2026-11-07_shape/README.md` and `docs/captures/2026-11-07_r892/README.md`. Levers: `docs/mach8_frame_rate_plan.md`, "What a frame's time is made of", Y1-Y13.
 
-## START HERE: 2026-11-10, midday (read first)
+## START HERE: 2026-11-10, evening (read first)
+
+Card: boot 357 on `M8D3GV` (ea641e7). `C:\M8D3D.INI` adds `[M8TWIST.EXE] lores=0 zsort=1` (backup `C:\M8D3D.BAK`). Twist, text on, 640x480 on the engine: 4.8 fps, flip 87 ms, ours 17 ms, program ~105 ms; owner: sharper, text better, see-through end gone with zsort.
+- Per program in the INI: `lores` (0 = engine at 640x480; default 1 = 320x240, the tunnel's), `zsort` (1 = sort furthest first with Z off).
+- Overlays (GS-GU): copies from system memory after the scene are cached below page 1 (rows 752+ at 320, 992-1023 at 640), uploaded only when changed (before the frame), and queued behind the triangles. Waiting for the card before the text made it stutter (owner).
+- Owner: still runs and pauses. Suspects: (1) the V9x agent's bursts: agent-off run first, no code; (2) Flip feeds the card synchronously (87 ms) while twist computes ~105 ms: the feeder VxD would overlap them, but it must stop cleanly at program exit first (11-09 hang).
+- Next, in order: agent-off twist run; **colour matching** (palette from the program's colours: histogram of recorded 565 colours over the first frames, 256 entries by frequency/ramps, DAC load, 15-bit LUT for the index in place of `m8d3d_index16`; then smooth shading with the proven gradient triangle); feeder exit fix and feeder on; Lock/GetDC overlay marker; DxDiag rerun; Monster Truck Madness.
+- `tools/m8d3dtest/M8CENSUS.EXE` on the card still prints three removed fields (ovladded/ovlslow/ovltri, reading unused slots 69-71): rebuild and put it.
+
+## Earlier: 2026-11-10, midday
 
 **Afternoon: GM landed as `M8D3GS` (7db26eb, card boot 354).** Twist with its text fully on the engine: ~1 -> 6.5 fps, flip 44 ms, one slow flip (start-up), text drawn 706 times, uploaded 5. Fixes on the way: overlays need not wait for 320x240 (the replay sets it); a slow Flip drops its overlays (in RAM they became the card's boxes and kept every Flip slow). Plain copies from system memory are overlays too. Not done: Lock/GetDC marker (item 2 below). Owner to confirm the text shows and updates; DxDiag rerun on GS.
 
