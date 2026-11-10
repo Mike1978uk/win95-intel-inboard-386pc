@@ -1035,8 +1035,9 @@ static int m8dd_ovl_upload( int k )
 
 /* Buffer k's overlays copied onto the page at row `top`, in the frame's queue behind its
  * triangles, as m8dd_key_rect but without waiting: the card does them in order while the
- * program builds the next frame. m8d3d_index565 never gives index 0, so a plain copy
- * compares against it. Each one's box goes in `box` (up to `room`); returns how many. */
+ * program builds the next frame. A plain copy compares against index 0, which the colour
+ * cube never gives; in the ramp palette ([d3d] palette=1) 0 is black, and a plain copy's
+ * black pixels are left out. Each one's box goes in `box` (up to `room`); returns how many. */
 static int m8dd_ovl_queue( int k, int top, RECT *box, int room )
 {
     int i;

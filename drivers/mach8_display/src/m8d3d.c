@@ -512,6 +512,9 @@ static int              m8d3d_pal_on;       /* the DAC holds it, the old one in 
 static int              m8d3d_lores;        /* trial: 640x480 drawn at half size, shown as 320x240 */
 static int              m8d3d_half = 1;     /* corners rounded at half size: [d3d] lores, per program */
 static int              m8d3d_zsort;        /* sort by depth with Z off: [d3d] zsort, per program */
+static int              m8d3d_pmatch;       /* flat colours in the ramp palette: [d3d] palette, per program */
+static int              m8d3d_pal_dirty;    /* a base added since the DAC was loaded */
+static int              m8d3d_pal_match( DWORD rgb, DWORD *shown );
 static int              m8d3d_pal_kept;     /* the desktop's DAC is in m8d3d_pal_saved from a program that ended without restoring it */
 static void             m8d3d_lores_set( void );
 static void             m8d3d_pal_load( void );
@@ -764,8 +767,15 @@ BYTE m8d3d_index565( WORD p )
     DWORD r = (p >> 11) & 0x1F;
     DWORD g = (p >> 5) & 0x3F;
     DWORD b = p & 0x1F;
+    DWORD rgb = ((r << 3 | r >> 2) << 16) | ((g << 2 | g >> 4) << 8) | (b << 3 | b >> 2);
+    DWORD shown;
+    int   k;
 
-    return( m8d3d_index16( ((r << 3 | r >> 2) << 16) | ((g << 2 | g >> 4) << 8) | (b << 3 | b >> 2) ) );
+    if( m8d3d_pmatch && (k = m8d3d_pal_match( rgb, &shown )) >= 0 ) {
+        m8d3d_pal_want = 1;
+        return( (BYTE)k );
+    }
+    return( m8d3d_index16( rgb ) );
 }
 
 /* A flat triangle's colour: the mean of its corners, so the two triangles of a
@@ -3275,7 +3285,7 @@ int m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const shor
     }
     QueryPerformanceCounter( &m8d3d_ph );
     m8d3d_ph_send = m8d3d_stat[44];
-    if( m8d3d_pal_want && !m8d3d_pal_on ) {
+    if( m8d3d_pal_want && (!m8d3d_pal_on || m8d3d_pal_dirty) ) {
         m8d3d_pal_load();
     }
     /* Corners rounded at half size (m8d3d_draw_on) need the screen at 320x240 from the first
@@ -3458,6 +3468,10 @@ static DWORD __stdcall m8d3d_context_create( M8D3D_CONTEXTCREATE *d )
          * drawn furthest first. */
         m8d3d_zsort = (int)GetPrivateProfileInt( "d3d", "zsort", 0, "C:\\M8D3D.INI" );
         m8d3d_zsort = (int)GetPrivateProfileInt( n, "zsort", m8d3d_zsort, "C:\\M8D3D.INI" ) != 0;
+        /* palette=1: flat colours as the program's own hues at 16 light levels, in place of
+         * the fixed colour cube. */
+        m8d3d_pmatch = (int)GetPrivateProfileInt( "d3d", "palette", 0, "C:\\M8D3D.INI" );
+        m8d3d_pmatch = (int)GetPrivateProfileInt( n, "palette", m8d3d_pmatch, "C:\\M8D3D.INI" ) != 0;
     }
     c->tw = c->sw;
     if( !m8d3d_scratch( c, &c->tw, &c->sh, &c->sx, &c->sy ) ) {
@@ -3728,12 +3742,70 @@ static DWORD m8d3d_pal_rgb( int k, int level )
             (b & 255) * level / 15 );
 }
 
-/* At Flip, before the first frame in the palette's indices: the 8514 DAC, 6 bits a gun. */
+/* A colour as one of the palette's bases at one of its 16 light levels. The base is the colour
+ * at full brightness, 16 steps a gun, so a material under white light keeps one base whatever
+ * its lighting. A new base is added; with all 16 taken, the nearest serves. The index, and in
+ * *shown the colour it shows; -1 if textures have taken the palette past its size. */
+static int m8d3d_pal_match( DWORD rgb, DWORD *shown )
+{
+    int     r = (int)(rgb >> 16 & 255);
+    int     g = (int)(rgb >> 8 & 255);
+    int     b = (int)(rgb & 255);
+    int     m = r > g ? r : g;
+    int     k;
+    int     level;
+    DWORD   base;
+
+    if( m8d3d_pal_nb < 0 ) {
+        return( -1 );
+    }
+    m = b > m ? b : m;
+    if( m == 0 ) {
+        m = 1;
+    }
+    level = (m * 15 + 127) / 255;
+    /* Level 0 is black in every base: no base of its own. */
+    if( level == 0 && m8d3d_pal_nb > 0 ) {
+        *shown = 0;
+        return( 0 );
+    }
+    base = (DWORD)((r * 255 / m + 8) / 17 * 17) << 16 | (DWORD)((g * 255 / m + 8) / 17 * 17) << 8 |
+           (DWORD)((b * 255 / m + 8) / 17 * 17);
+    if( (k = m8d3d_pal_find( base )) < 0 ) {
+        if( m8d3d_pal_nb < M8D3D_PAL_BASES ) {
+            k = m8d3d_pal_nb++;
+            m8d3d_pal_count[k] = 0;
+            m8d3d_pal_base[k] = base;
+            m8d3d_pal_dirty = 1;
+        } else {
+            long    best = 0x7FFFFFFFL;
+            int     i;
+
+            for( i = 0; i < m8d3d_pal_nb; ++i ) {
+                long dr = (long)(m8d3d_pal_base[i] >> 16 & 255) - (long)(base >> 16 & 255);
+                long dg = (long)(m8d3d_pal_base[i] >> 8 & 255) - (long)(base >> 8 & 255);
+                long db = (long)(m8d3d_pal_base[i] & 255) - (long)(base & 255);
+                long d = dr * dr + dg * dg + db * db;
+
+                if( d < best ) {
+                    best = d;
+                    k = i;
+                }
+            }
+        }
+    }
+    *shown = m8d3d_pal_rgb( k, level );
+    return( k * 16 + level );
+}
+
+/* At Flip, before the first frame in the palette's indices, and again when a base was added:
+ * the 8514 DAC, 6 bits a gun. The desktop's is saved only the first time. */
 static void m8d3d_pal_load( void )
 {
     int i;
 
-    if( !m8d3d_pal_kept ) {
+    m8d3d_pal_dirty = 0;
+    if( !m8d3d_pal_kept && !m8d3d_pal_on ) {
         m8d3d_outb( 0x02EB, 0 );
         for( i = 0; i < 768; ++i ) {
             m8d3d_pal_saved[i] = (BYTE)m8d3d_inb( 0x02ED );
@@ -4533,6 +4605,19 @@ static void m8d3d_draw_on( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D_
         for( j = 0; j < 3; ++j ) {
             corners[j] = side < M8D3D_GRAD_MIN || p->tex != NULL ? rgb : fog ? texc[j] :
                          c->shade == M8D3D_SHADE_GOURAUD ? a[j]->color & 0x00FFFFFFUL : rgb;
+        }
+        if( m8d3d_pmatch && p->tex == NULL ) {
+            DWORD   shown;
+            int     pk = m8d3d_pal_match( rgb, &shown );
+
+            if( pk >= 0 ) {
+                corners[0] = corners[1] = corners[2] = shown;
+                m8d3d_pal_want = 1;
+                p->ok = m8d3d_record( p->lcl, v, (BYTE)pk, m8d3d_565( shown ), corners,
+                                      (((c->rs_on >> M8D3D_RS_ZENABLE) & 1) && c->zfunc != M8D3D_CMP_ALWAYS) || m8d3d_zsort ?
+                                      (int)m8d3d_round( (a[0]->sz + a[1]->sz + a[2]->sz) * M8D3D_DEPTH_SCALE ) : -1 );
+                return;
+            }
         }
         /* Described, not drawn: Flip has the engine draw it, furthest first if Z is on. */
         p->ok = m8d3d_record( p->lcl, v, m8d3d_index16( rgb ), m8d3d_565( rgb ), corners,
