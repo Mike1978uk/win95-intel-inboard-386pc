@@ -1249,6 +1249,28 @@ static DWORD m8dd_blt16_do( M8DD_BLT *bd )
             bd->ddRVal = DD_OK;
             return( DDHAL_DRIVER_HANDLED );
         }
+        /* A part cleared to the colour the description already gives it, away from its
+         * rectangles and before any triangle, changes nothing: programs that clear only
+         * last frame's extents (the DX5 SDK framework) keep the fast Flip. */
+        if( (bd->dwFlags & DDBLT_COLORFILL) && m8dd_desc[dk].known && !m8dd_desc[dk].filled &&
+            fillc == m8dd_desc[dk].colour && m8dd_tri_n[dk] == 0 ) {
+            int j;
+            int hit = 0;
+
+            for( i = 0; i < count && !hit; ++i ) {
+                m8dd_clip_fb( &c, &rl[i] );
+                for( j = 0; j < m8dd_desc[dk].n; ++j ) {
+                    const RECT *r = &m8dd_desc[dk].d[j];
+
+                    hit |= r->left < c.right && c.left < r->right && r->top < c.bottom && c.top < r->bottom;
+                }
+            }
+            if( !hit ) {
+                ++m8d3d_stat[66];
+                bd->ddRVal = DD_OK;
+                return( DDHAL_DRIVER_HANDLED );
+            }
+        }
         m8dd_tris_to_ram( dk );
     } else {
         /* Drawn on the shown buffer directly: RAM is the truth from here. */

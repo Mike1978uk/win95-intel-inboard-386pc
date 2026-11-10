@@ -695,7 +695,7 @@ static M8D3D_CONTEXT    m8d3d_ctx[M8D3D_CONTEXTS];
  * triangles; [15] flips; in Blt: [16] ticks, [17] calls, [18] full clears described;
  * [19] page wait ticks; [20] triangles drawn from a mask; [21] masks built;
  * [22] triangles stamped; [23] stamps built; [24] ticks in RenderPrimitive. */
-DWORD                   m8d3d_stat[72];      /* 62-64: triangles put in RAM: on the shown buffer, on a buffer not described, flushes of recorded ones; 65: triangles on a surface not ours; 60: feeds cut short by the 16-bit driver; 61: back-buffer locks that kept the triangles; 25: engine writes sent, 26: triangle pieces drawn, 27-33: m8dd_tri_census, 34-35: FIFO waits, 36-43: Flip phases, 44: sending, 45: sends forced by a full queue, 46-53: of 36-43, the part spent sending,
+DWORD                   m8d3d_stat[72];      /* 62-64: triangles put in RAM: on the shown buffer, on a buffer not described, flushes of recorded ones; 65: triangles on a surface not ours; 66: back-buffer part clears described as nothing; 60: feeds cut short by the 16-bit driver; 61: back-buffer locks that kept the triangles; 25: engine writes sent, 26: triangle pieces drawn, 27-33: m8dd_tri_census, 34-35: FIFO waits, 36-43: Flip phases, 44: sending, 45: sends forced by a full queue, 46-53: of 36-43, the part spent sending,
                                               * 54-59: feed: opened, frames handed over, entries left for m8d3d_feed_finish, driver time-outs, FIFO-full reads, entries sent */
 /* Diagnostic: clock ticks since the last mark, into phase k. */
 static LARGE_INTEGER    m8d3d_ph;
