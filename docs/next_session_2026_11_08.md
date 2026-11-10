@@ -2,7 +2,17 @@
 
 Earlier handoff: `docs/next_session_2026_11_07.md` (its "Open" list still stands, less what is below). **The cloud session's tests are in #59**: carry this line on until every box there is ticked. Results: `docs/captures/2026-11-07_shape/README.md` and `docs/captures/2026-11-07_r892/README.md`. Levers: `docs/mach8_frame_rate_plan.md`, "What a frame's time is made of", Y1-Y13.
 
-## START HERE: 2026-11-10, after the night of 11-09 (read first)
+## START HERE: 2026-11-10, midday (read first)
+
+Card: boot 347 on `M8D3GL` (= a6a88d0). Twist on GK ran clean (no hang), full screen. Census: `ramflush` every frame = the DX5 framework's keyed `BltFast` of its stats text onto the back buffer (`stats.cpp:280,298` in `%TEMP%\dx5sdk_x\tri3`); `m8dd32.c` Blt flushes all recorded triangles to RAM for any partial blit. With Tab (text off) the engine draws, but every Flip was slow: the framework clears only last frame's extents. GL describes those clears as nothing (census `partclear`): twist with Tab 4.2 -> **8.15 fps**, flip 107 -> 42.5 ms, all flips fast. Owner: engine colours faceted/off-hue (one palette index a triangle, twist has two hues); black flash every frame was the slow Flip (GL should remove it: owner to confirm). Thin static lines: not looked at.
+
+Next: **GM, an overlay layer** (owner: games draw timers/items over 3D; show what the developer intended; fix the class, not the demo). After the scene's triangles, 2D ops on the back buffer go in an ordered list instead of flushing:
+1. Keyed/plain BltFast from a surface: keep a RAM copy of the source rect (memcmp = changed?); on change, upload at half size (2x2 -> any non-key pixel), mapped by `m8d3d_index16`, with `m8dd_host_rect` into VRAM rows 752-1023 x 0-639 (free at 320x240: lend(2) gives rows 512+ below x 992, page 1 takes 512-751). At Flip, in `m8dd_page_frame` after the replay: feed_go, then `m8dd_key_rect`-style keyed copy (SRC_CMP) onto the page, then the page show. Add the overlay rects to the page's erase boxes. Skip `flip16_fast`'s same-triangles shortcut when an overlay exists. `m8dd_tris_to_ram` applies the overlay in RAM after the triangles (a program that reads back). Key = index of the key colour; text pixels that map to it vanish (accept first).
+2. Lock/GetDC writes: fill the region with a marker colour first, send only changed pixels as a keyed overlay.
+3. Only at 320x240; at 640 two-page, keep the flush.
+Then: palette from the colours used (twist's two hues), Z (see-through ends), Monster Truck Madness. Owner to rerun DxDiag on GL (corner cube).
+
+## START HERE: 2026-11-10, after the night of 11-09
 
 **Goal (owner): twist running on the card drawn by the engine, not software. Then Monster Truck Madness.**
 
