@@ -4,6 +4,8 @@ Earlier handoff: `docs/next_session_2026_11_07.md` (its "Open" list still stands
 
 ## START HERE: 2026-11-10, midday (read first)
 
+**Afternoon: GM landed as `M8D3GS` (7db26eb, card boot 354).** Twist with its text fully on the engine: ~1 -> 6.5 fps, flip 44 ms, one slow flip (start-up), text drawn 706 times, uploaded 5. Fixes on the way: overlays need not wait for 320x240 (the replay sets it); a slow Flip drops its overlays (in RAM they became the card's boxes and kept every Flip slow). Plain copies from system memory are overlays too. Not done: Lock/GetDC marker (item 2 below). Owner to confirm the text shows and updates; DxDiag rerun on GS.
+
 Card: boot 347 on `M8D3GL` (= a6a88d0). Twist on GK ran clean (no hang), full screen. Census: `ramflush` every frame = the DX5 framework's keyed `BltFast` of its stats text onto the back buffer (`stats.cpp:280,298` in `%TEMP%\dx5sdk_x\tri3`); `m8dd32.c` Blt flushes all recorded triangles to RAM for any partial blit. With Tab (text off) the engine draws, but every Flip was slow: the framework clears only last frame's extents. GL describes those clears as nothing (census `partclear`): twist with Tab 4.2 -> **8.15 fps**, flip 107 -> 42.5 ms, all flips fast. Owner: engine colours faceted/off-hue (one palette index a triangle, twist has two hues); black flash every frame was the slow Flip (GL should remove it: owner to confirm). Thin static lines: not looked at.
 
 Next: **GM, an overlay layer** (owner: games draw timers/items over 3D; show what the developer intended; fix the class, not the demo). After the scene's triangles, 2D ops on the back buffer go in an ordered list instead of flushing:
