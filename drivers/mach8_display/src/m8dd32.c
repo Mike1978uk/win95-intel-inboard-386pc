@@ -33,6 +33,7 @@ extern int  m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, co
 extern DWORD m8d3d_stat[72];
 extern void m8d3d_feed_finish( void );
 extern int m8d3d_lores_on( void );
+extern BYTE m8d3d_index565( WORD p );
 extern void m8d3d_feed_go( void );
 extern void m8d3d_feed_close( void );
 extern void m8d3d_q_add( unsigned port, unsigned value );
@@ -838,6 +839,245 @@ static void m8dd_tris_sort( int k )
 }
 
 /* Something is about to read buffer k's pixels or draw over part of them. */
+/* 2D drawn over a frame's triangles (a game's text, timer, items): keyed copies from system
+ * memory onto the back buffer after the scene. Flushing the triangles to RAM for them would
+ * put the whole frame on the bus. Instead each source rectangle is kept twice: in RAM as it
+ * was last seen, and on the card at the screen's 320x240 in the rows below page 1, sent again
+ * only when its pixels change. Flip has the engine draw the triangles, then the card copies
+ * each overlay over them with its source compare. Only at 320x240 with two pages: at 640 the
+ * pages take those rows. */
+#define M8DD_OVL_MAX        8
+#define M8DD_OVL_POOL       32768               /* pixels of RAM copies, all overlays */
+#define M8DD_OVL_TOP        752                 /* below page 1's 240 rows at 512 */
+#define M8DD_OVL_BOTTOM     1024
+#define M8DD_OVL_RIGHT      640
+#define M8DD_OVL_NOKEY      0x10000UL           /* no 5-6-5 pixel matches it */
+
+typedef struct {
+    const BYTE  *src;                   /* the source rectangle's first pixel */
+    long        pitch;
+    int         w;
+    int         h;
+    DWORD       key;                    /* M8DD_OVL_NOKEY: a plain copy */
+    WORD        *copy;                  /* its pixels when last sent */
+    int         cx;                     /* its half-size copy on the card */
+    int         cy;
+    int         sent;                   /* the card's copy matches `copy` */
+} M8DD_OVC;
+
+typedef struct {
+    int     c;                          /* m8dd_ovc */
+    RECT    d;                          /* on the full-size buffer */
+} M8DD_OVL;
+
+static int          m8dd_pages_ok;      /* this context's scratch leaves page 1 free */
+static M8DD_OVC     m8dd_ovc[M8DD_OVL_MAX];
+static int          m8dd_ovc_n;
+static WORD         m8dd_ovc_pool[M8DD_OVL_POOL];
+static int          m8dd_ovc_used;
+static int          m8dd_ovc_x;
+static int          m8dd_ovc_y = M8DD_OVL_TOP;
+static int          m8dd_ovc_shelf;
+static M8DD_OVL     m8dd_ovl[2][M8DD_OVL_MAX];
+static int          m8dd_ovl_n[2];
+static BYTE         m8dd_ovl_half[320 * 136];
+
+static int m8dd_host_rect( const RECT *d, const BYTE *src, long pitch );
+
+static void m8dd_ovc_reset( void )
+{
+    m8dd_ovc_n = 0;
+    m8dd_ovc_used = 0;
+    m8dd_ovc_x = 0;
+    m8dd_ovc_y = M8DD_OVL_TOP;
+    m8dd_ovc_shelf = 0;
+    m8dd_ovl_n[0] = 0;
+    m8dd_ovl_n[1] = 0;
+}
+
+/* A cache entry for the source rectangle, placed on shelves in the rows below page 1. */
+static int m8dd_ovc_find( const BYTE *src, long pitch, int w, int h, DWORD key )
+{
+    M8DD_OVC    *e;
+    int         hw = (w + 1) / 2;
+    int         hh = (h + 1) / 2;
+    int         i;
+
+    for( i = 0; i < m8dd_ovc_n; ++i ) {
+        e = &m8dd_ovc[i];
+        if( e->src == src && e->pitch == pitch && e->w == w && e->h == h && e->key == key ) {
+            return( i );
+        }
+    }
+    if( hw * hh > (int)sizeof( m8dd_ovl_half ) || hw > M8DD_OVL_RIGHT ) {
+        return( -1 );
+    }
+    if( m8dd_ovc_n == M8DD_OVL_MAX || m8dd_ovc_used + w * h > M8DD_OVL_POOL ) {
+        return( -1 );
+    }
+    if( m8dd_ovc_x + hw > M8DD_OVL_RIGHT ) {
+        m8dd_ovc_x = 0;
+        m8dd_ovc_y += m8dd_ovc_shelf;
+        m8dd_ovc_shelf = 0;
+    }
+    if( m8dd_ovc_y + hh > M8DD_OVL_BOTTOM ) {
+        return( -1 );
+    }
+    e = &m8dd_ovc[m8dd_ovc_n];
+    e->src = src;
+    e->pitch = pitch;
+    e->w = w;
+    e->h = h;
+    e->key = key;
+    e->copy = m8dd_ovc_pool + m8dd_ovc_used;
+    e->cx = m8dd_ovc_x;
+    e->cy = m8dd_ovc_y;
+    e->sent = 0;
+    m8dd_ovc_used += w * h;
+    m8dd_ovc_x += hw;
+    if( hh > m8dd_ovc_shelf ) {
+        m8dd_ovc_shelf = hh;
+    }
+    return( m8dd_ovc_n++ );
+}
+
+/* A keyed copy onto back buffer k after its triangles, held as an overlay: 0 if it cannot be. */
+static int m8dd_ovl_add( int k, const BYTE *src, long pitch, const RECT *d, DWORD key )
+{
+    M8DD_OVC    *e;
+    int         w = d->right - d->left;
+    int         h = d->bottom - d->top;
+    int         c;
+    int         y;
+
+    /* Not m8d3d_lores_on(): the screen goes to 320x240 with the replay that draws these. */
+    if( !m8dd_pages_ok || m8dd_ovl_n[k] == M8DD_OVL_MAX ) {
+        return( 0 );
+    }
+    if( (c = m8dd_ovc_find( src, pitch, w, h, key )) < 0 ) {
+        /* Full: start again, once. Lists that named the old entries go with them. */
+        m8dd_ovc_reset();
+        if( (c = m8dd_ovc_find( src, pitch, w, h, key )) < 0 ) {
+            return( 0 );
+        }
+    }
+    e = &m8dd_ovc[c];
+    for( y = 0; y < h; ++y ) {
+        const WORD  *s = (const WORD *)(src + y * pitch);
+        WORD        *t = e->copy + y * w;
+
+        if( memcmp( t, s, w * 2 ) != 0 ) {
+            memcpy( t, s, w * 2 );
+            e->sent = 0;
+        }
+    }
+    m8dd_ovl[k][m8dd_ovl_n[k]].c = c;
+    m8dd_ovl[k][m8dd_ovl_n[k]].d = *d;
+    ++m8dd_ovl_n[k];
+    return( 1 );
+}
+
+/* Buffer k's overlays on the card's page at row `top`, the engine idle; each one's box
+ * added to `box` (up to `room`). Returns the boxes added, or -1 if the card failed. */
+static int m8dd_ovl_draw( int k, int top, RECT *box, int room )
+{
+    int i;
+    int x;
+    int y;
+    int added = 0;
+
+    for( i = 0; i < m8dd_ovl_n[k]; ++i ) {
+        M8DD_OVC    *e = &m8dd_ovc[m8dd_ovl[k][i].c];
+        const RECT  *d = &m8dd_ovl[k][i].d;
+        int         hw = (e->w + 1) / 2;
+        int         hh = (e->h + 1) / 2;
+        /* m8d3d_index565 never gives index 0: a plain copy compares against it. */
+        BYTE        kx = e->key == M8DD_OVL_NOKEY ? 0 : m8d3d_index565( (WORD)e->key );
+        RECT        r;
+
+        if( !e->sent ) {
+            /* Half size: of each 2x2 block, its first pixel that is not the key, so one-pixel
+             * strokes survive. */
+            for( y = 0; y < hh; ++y ) {
+                for( x = 0; x < hw; ++x ) {
+                    const WORD  *p = e->copy + 2 * y * e->w + 2 * x;
+                    int         two = 2 * x + 1 < e->w;
+                    int         down = 2 * y + 1 < e->h;
+                    WORD        q = p[0];
+
+                    if( q == e->key && two ) {
+                        q = p[1];
+                    }
+                    if( q == e->key && down ) {
+                        q = p[e->w];
+                    }
+                    if( q == e->key && two && down ) {
+                        q = p[e->w + 1];
+                    }
+                    m8dd_ovl_half[y * hw + x] = q == e->key ? kx : m8d3d_index565( q );
+                }
+            }
+            r.left = e->cx;
+            r.top = e->cy;
+            r.right = e->cx + hw;
+            r.bottom = e->cy + hh;
+            if( !m8dd_plain( M8_MIX_HOST_REPLACE ) || !m8dd_host_rect( &r, m8dd_ovl_half, hw ) ) {
+                return( -1 );
+            }
+            e->sent = 1;
+            ++m8d3d_stat[68];
+        }
+        r.left = d->left / 2;
+        r.top = d->top / 2;
+        r.right = r.left + hw;
+        r.bottom = r.top + hh;
+        if( r.right > 320 ) {
+            r.right = 320;
+        }
+        if( r.bottom > 240 ) {
+            r.bottom = 240;
+        }
+        if( added < room ) {
+            box[added++] = r;
+        }
+        r.top += top;
+        r.bottom += top;
+        /* The replay and the upload leave scissors and mixes of their own. */
+        if( !m8dd_plain( M8_MIX_HOST_REPLACE ) || !m8dd_key_rect( &r, e->cx, e->cy, kx ) ) {
+            return( -1 );
+        }
+        ++m8d3d_stat[67];
+    }
+    return( added );
+}
+
+/* Overlays put in buffer k's RAM, over whatever is there. */
+static void m8dd_ovl_ram( int k )
+{
+    int i;
+    int x;
+    int y;
+
+    for( i = 0; i < m8dd_ovl_n[k]; ++i ) {
+        const M8DD_OVC  *e = &m8dd_ovc[m8dd_ovl[k][i].c];
+        const RECT      *d = &m8dd_ovl[k][i].d;
+
+        m8dd_ready( k, d );
+        for( y = 0; y < e->h; ++y ) {
+            WORD        *t = m8dd_at( k, d->left, d->top + y );
+            const WORD  *s = e->copy + y * e->w;
+
+            for( x = 0; x < e->w; ++x ) {
+                if( s[x] != e->key ) {
+                    t[x] = s[x];
+                }
+            }
+        }
+        m8dd_dirty( k, d );
+    }
+    m8dd_ovl_n[k] = 0;
+}
+
 static void m8dd_tris_to_ram( int k )
 {
     int i;
@@ -850,6 +1090,7 @@ static void m8dd_tris_to_ram( int k )
     for( i = 0; i < n; ++i ) {
         m8dd_tri_ram( k, &m8dd_tri_v[k][6 * i], m8dd_tri_c[k][i] );
     }
+    m8dd_ovl_ram( k );
 }
 
 static void m8dd_ready_all( int k )
@@ -883,6 +1124,7 @@ static void m8dd_fresh( int k )
     m8dd_desc[k].colour = 0;
     m8dd_desc[k].n = 0;
     m8dd_tri_n[k] = 0;
+    m8dd_ovl_n[k] = 0;
     m8dd_tri_sorted[k] = 1;
 }
 
@@ -1245,6 +1487,7 @@ static DWORD m8dd_blt16_do( M8DD_BLT *bd )
             m8dd_desc[dk].colour = fillc;
             m8dd_desc[dk].n = 0;
             m8dd_tri_n[dk] = 0;
+            m8dd_ovl_n[dk] = 0;
             ++m8d3d_stat[18];
             bd->ddRVal = DD_OK;
             return( DDHAL_DRIVER_HANDLED );
@@ -1270,6 +1513,15 @@ static DWORD m8dd_blt16_do( M8DD_BLT *bd )
                 bd->ddRVal = DD_OK;
                 return( DDHAL_DRIVER_HANDLED );
             }
+        }
+        /* A copy from system memory over the scene: an overlay, drawn by the card. */
+        if( src != NULL && sk < 0 && count == 1 && m8dd_tri_n[dk] != 0 ) {
+        }
+        if( keyed && sk < 0 && count == 1 && m8dd_tri_n[dk] != 0 &&
+            c.left == od->left && c.top == od->top && c.right == od->right && c.bottom == od->bottom &&
+            m8dd_ovl_add( dk, src + os->top * pitch + os->left * 2, pitch, &c, keyed ? key : M8DD_OVL_NOKEY ) ) {
+            bd->ddRVal = DD_OK;
+            return( DDHAL_DRIVER_HANDLED );
         }
         m8dd_tris_to_ram( dk );
     } else {
@@ -1523,7 +1775,6 @@ static void m8dd_note_boxes( int k, RECT *r )
 extern void m8dd_spin( void );
 #pragma aux m8dd_spin = "mov ecx, 1000" 0xE2 0xFE modify [ecx];
 
-static int      m8dd_pages_ok;          /* this context's scratch leaves page 1 free */
 static int      m8dd_pages_on;
 static int      m8dd_page;              /* the page last written to CRT_OFFSET */
 static int      m8dd_page_pending;      /* that write may not have taken effect */
@@ -1602,6 +1853,9 @@ static int m8dd_page_frame( int k )
     static const RECT   all = { 0, 0, 640, 480 };
     LARGE_INTEGER       t;
     int                 h;
+    int                 i;
+    int                 extra = 0;
+    RECT                ovbox[M8DD_OVL_MAX];
 
     if( !m8dd_pages_on ) {
         if( !m8d3d_replay( &all, 1, 0, M8DD_PAGE1_Y, NULL, NULL, NULL, 0 ) ) {
@@ -1624,6 +1878,14 @@ static int m8dd_page_frame( int k )
         m8dd_pages_leave();
         return( 0 );
     }
+    if( m8dd_ovl_n[k] != 0 ) {
+        m8d3d_feed_go();
+        m8d3d_feed_finish();
+        if( (extra = m8dd_ovl_draw( k, h ? M8DD_PAGE1_Y : 0, ovbox, M8DD_OVL_MAX )) < 0 ) {
+            m8dd_pages_leave();
+            return( 0 );
+        }
+    }
     /* The show after the frame's last write, in the same queue; a marker then reads the blank
      * latch for m8dd_page_wait (m8dd_page_fed). */
     ((DWORD *)m8dd->gdi_lin)[4] = h;
@@ -1638,6 +1900,10 @@ static int m8dd_page_frame( int k )
     m8dd_page_pending = 1;
     m8dd_note_boxes( k, h ? m8dd_page1_box : m8dd_card_box );
     m8dd_page_boxes[h] = m8dd_tri_n[k];
+    /* The overlays' boxes too, for the next frame on this page to erase. */
+    for( i = 0; i < extra && m8dd_page_boxes[h] < M8DD_TRIS_MAX; ++i ) {
+        (h ? m8dd_page1_box : m8dd_card_box)[m8dd_page_boxes[h]++] = ovbox[i];
+    }
     return( 1 );
 }
 
@@ -1656,7 +1922,7 @@ static void m8dd_flip16_fast( int k )
     }
     /* Index 0 is black in fb16.c's palette. */
     /* The same triangles as the card shows: the frame is there already. */
-    if( m8dd_tri_n[k] != m8dd_card_boxes ||
+    if( m8dd_ovl_n[k] != 0 || m8dd_tri_n[k] != m8dd_card_boxes ||
         memcmp( m8dd_tri_v[k], m8dd_card_v, m8dd_card_boxes * 6 * sizeof( short ) ) != 0 ||
         memcmp( m8dd_tri_i[k], m8dd_card_i, m8dd_card_boxes * sizeof( WORD ) ) != 0 ||
         memcmp( m8dd_tri_g[k], m8dd_card_g, m8dd_card_boxes * 3 * sizeof( DWORD ) ) != 0 ) {
@@ -1710,6 +1976,11 @@ static DWORD m8dd_flip16( M8DD_FLIP *fd )
         return( DDHAL_DRIVER_HANDLED );
     }
     ++m8d3d_flip_why[1];
+    /* Not into RAM: as boxes they would be what the card shows, and the next Flip would be
+     * slow for them too, every frame after. A slow Flip shows the frame without them. */
+    if( m8dd_ovl_n[k] != 0 ) {
+        m8dd_ovl_n[k] = 0;
+    }
     m8d3d_flip_why[2] += !t->known;
     m8d3d_flip_why[3] += !m8dd_card.known;
     m8d3d_flip_why[4] += t->n != 0;
@@ -2213,7 +2484,8 @@ int m8d3d_record( LPVOID lcl, const short *v, BYTE index, WORD colour, const DWO
         }
         return( 1 );
     }
-    if( m8dd_tri_n[k] == M8DD_TRIS_MAX ) {
+    /* A triangle after an overlay would be drawn under it: RAM keeps the order. */
+    if( m8dd_tri_n[k] == M8DD_TRIS_MAX || m8dd_ovl_n[k] != 0 ) {
         m8dd_tris_to_ram( k );
     }
     n = m8dd_tri_n[k]++;
@@ -2248,6 +2520,7 @@ int m8d3d_scratch( LPVOID key, int *w, int *h, int *x, int *y )
                 return( 0 );
             }
             m8dd_pages_ok = 1;
+            m8dd_ovc_reset();
             *x = 640;
             *y = M8DD_PAGE1_Y;
             *w = 352;
@@ -2284,6 +2557,7 @@ void m8d3d_scratch_free( LPVOID key )
     if( m8dd->fb16 ) {
         m8dd_pages_leave();
         m8dd_pages_ok = 0;
+        m8dd_ovc_reset();
         m8dd_lend( 0 );
         return;
     }
