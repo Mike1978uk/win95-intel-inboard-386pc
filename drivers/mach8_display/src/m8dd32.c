@@ -397,10 +397,10 @@ DWORD __stdcall m8dd_lock( M8DD_LOCK *ld )
     RECT        r;
     int         k;
 
-    m8d3d_feed_finish();
     if( m8dd->fb16 ) {
         return( m8dd_lock16( ld ) );
     }
+    m8d3d_feed_finish();
     if( !m8dd_surf( ld->lpDDSurface, &s ) ) {
         return( DDHAL_DRIVER_NOTHANDLED );
     }
@@ -433,11 +433,10 @@ DWORD __stdcall m8dd_unlock( M8DD_UNLOCK *ud )
     M8DD_SURF   s;
     int         k;
 
-    m8d3d_feed_finish();
-
     if( m8dd->fb16 ) {
         return( m8dd_unlock16( ud ) );
     }
+    m8d3d_feed_finish();
     if( !m8dd_surf( ud->lpDDSurface, &s ) ) {
         return( DDHAL_DRIVER_NOTHANDLED );
     }
@@ -645,6 +644,10 @@ static DWORD m8dd_flush( void )
     if( m8dd_bl[0] == 0 ) {
         return( 0 );
     }
+    /* At 16 bpp the card is written only through the 16-bit driver's escapes, and a feed it
+     * cuts loses the rest of its frame: the feed ends here, not on entry to Blt or Lock, so a
+     * call that only describes or records leaves the card drawing. */
+    m8d3d_feed_finish();
     dc = GetDC( NULL );
     if( dc != NULL ) {
         ExtEscape( dc, M8_ESC_FB16BATCH, 2 + 12 * m8dd_bl[0], (LPCSTR)m8dd_bl,
@@ -1225,6 +1228,7 @@ static void m8dd_send( const RECT *r, int solid )
     if( r->right <= r->left || r->bottom <= r->top ) {
         return;
     }
+    m8d3d_feed_finish();
     w[0] = (WORD)r->left;
     w[1] = (WORD)r->top;
     w[2] = (WORD)r->right;
@@ -1244,6 +1248,7 @@ static void m8dd_copied( int sx, int sy, const RECT *r )
     HDC     dc;
     WORD    w[6];
 
+    m8d3d_feed_finish();
     w[0] = (WORD)sx;
     w[1] = (WORD)sy;
     w[2] = (WORD)r->left;
@@ -2287,10 +2292,10 @@ DWORD __stdcall m8dd_blt( M8DD_BLT *bd )
     long        sy;
     int         ok;
 
-    m8d3d_feed_finish();
     if( m8dd->fb16 ) {
         return( m8dd_blt16( bd ) );
     }
+    m8d3d_feed_finish();
     if( other != 0 || hot[H_HW_OFF] || !m8dd_surf( bd->lpDDDestSurface, &d ) ) {
         return( DDHAL_DRIVER_NOTHANDLED );
     }
