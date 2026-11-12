@@ -369,10 +369,10 @@ read serially, and it holds the monitor timings.
 | CT2 | **The VGA half's character generator**: the only hardware here that turns codes into pixels with no CPU and no engine. BIOS already loads the font into plane 2. A frame is 4,000 B at 80x25, 8,000 B at 80x50; font memory rewritten once makes 256 (512 with attribute bit 3) custom tiles. This is the PETSCII idea exactly | 28800 text mode, max scan line | 4,000 B ~7.8 ms at 1.96 us a byte (measured on A0000, *estimate* for B8000); mode 13h is 64,000 B ~130 ms | whole screen on the VGA half, one half per mode; two colours a cell |
 
 CT2 is the strongest result for video: 80x25 frames plus an XT-CF read (~10.4 ms, 2.6 us a byte) leave room for
-30 fps with sound, *estimate*, where the plan in `docs/video_on_the_5160.md` sees ~17 fps at 160x120. The PC
+30 fps with sound, *estimate*, against ~17 fps at 160x120 from an earlier estimate with no surviving source (paths: `docs/video_playback_plan_2026_11_12.md`). The PC
 picks each cell's glyph and colours; only changed cells need sending.
 
-**The CPU cache (owner):** any OUT empties the L1 (SW1), so the 8514 half, which has no aperture, can never run a
+**The CPU cache (owner):** any IN or OUT empties the L1, once per burst, while memory writes do not (`docs/captures/2026-11-12_flushprobe/README.md`), so the 8514 half, which has no aperture, can never run a
 CPU texture loop from L1 without a refill per write. The VGA half takes pixels by memory write, not OUT, so a 4 KB
 texture can stay in L1 through the loop: VGATEX (#59 item 9) tests this. Whether a write to A0000 leaves the L1
 intact is the question it must answer.
