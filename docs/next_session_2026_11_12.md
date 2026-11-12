@@ -2,12 +2,52 @@
 
 Earlier handoff: `docs/next_session_2026_11_08.md` ("START HERE: 2026-11-10, evening"). Newest wins.
 
-## START HERE
+## START HERE (evening state)
 
-Card: boot to Windows, V9x agent up, `C:\M8D3D.INI` has `[M8TWIST.EXE] lores=0 zsort=1 palette=1`.
-Built, not installed: **GX** (`%TEMP%\m8d3gx`) = 219e81e + page-0 clear (`m8dd32.c`, uncommitted
-until the card run passes). GW's blue band at twist's start was page 0 still holding the last slow
-frame in the desktop colour cube.
+Card: boot 368 on **GY** (`9a82811`), 800x600x16. `C:\M8D3D.INI`: `[feed] on=1` (backup
+`C:\M8D3D.BK2`), `[M8TWIST.EXE] lores=0 zsort=1 palette=1`. SYSTEM.INI `[vcache]` Min 128 / Max 256
+(was 512/1024; backup `C:\WINDOWS\SYSTEM.B12`; owner: keep). Depth REGs on card:
+`C:\V9XREMOTE\REG\M8BPP8.REG` / `M8BPP16.REG` (800x600; reboot after).
+
+Next, in order (owner, 11-12 evening):
+1. Read the Filemon bed result (`docs/paging_trace_2026_11_12.md`, Sonnet agent, bed `vm_5160_page`).
+2. **Textures on the card** (storage half of D5): claim textures in video memory, store at 8 bpp
+   converted once at upload, Lock = temporary RAM buffer uploaded at Unlock, colour summary built at
+   upload, fall back to RAM when the card is full. twist uses no textures (census `textured 0`): this
+   is for MTM on Direct3D and the tunnel. If Filemon shows RAM surfaces paging, claim those too.
+3. ~~Feeder stop points~~ **done, GZ** (card boot 369): the feed ends in the three escapes that
+   reach the 16-bit driver (`m8dd_flush`, `m8dd_send`, `m8dd_copied`) and after the 16 bpp branch
+   in Blt/Lock/Unlock. twist 5.73 fps (GX 5.17, GY 4.75), frame ~175 ms, ~2,660 of ~2,685 writes a
+   frame fed in the background, 3 of 3 clean exits. Ours 21 -> 34 ms a frame: FIFO waits at the stop
+   points, next to trim.
+4. 8 bpp Direct3D (D1 gate): route (b) = remove one instruction in D3DIM.DLL / D3DIM700.DLL
+   (`tools/d3dim_8bpp_patch.py`, dry run on the bed's copies: Patched 1 each, offsets 0x33E9 /
+   0x2CE1). **Owner approval pending** before bed then card. Then Monster Truck Madness with
+   `useDirect3D=1`. Order agreed: feeder, 8 bpp D3D, textures (at 8 bpp), Fable.
+5. Fable review: brief `docs/fable_driver_review_brief.md`; after textures. Ask the owner first.
+6. Paging: Filemon hangs the guest (`docs/paging_trace_2026_11_12.md`); 2.02 MB locked at boot
+   before twist, ~1,250 discards in twist's first 35 s (code re-read). Cheap next check: locked
+   memory after an 8 bpp boot against 16 bpp.
+
+## Results 11-12 afternoon
+
+- GX: blue band gone (owner), twist 5.17 fps. GY (feed stop on owner change and mode change): 3 of 3
+  twist exits clean with the feed on; flip 88 -> 39 ms, frame ~210 ms (no gain: item 3 above).
+- 2D at 800x600x8, GX against ATI: **1.79x geometric mean, faster in 27 of 35, pixels = ATI in all
+  35** (`card_gx81/82`). Only mem_to_mem dips under 1 (0.94; it swings 12 % run to run).
+- Negative: a 64-row bitmap memo (skip the hash for many bitmaps) averaged 0.999 over two runs,
+  drag_frame -7 %; not committed. First version scanned 2 KB per call and lost up to 33 %: a table
+  touched on every call costs refills, not instructions.
+- Paging during twist (PERFLOG, `%TEMP%\perflog_vc.csv`): free memory 0, 2.2 MB locked (mostly
+  Windows; ours is two 64 KB strips, the feed queue, code), steady ~16 page-ins/s with the cache cap,
+  start-up 65 -> 55/s with it. SWAPCOMP serves ~60 % of swap reads compressed. The 16 bpp desktop
+  frame buffer is pageable already (`fb16.c:1172`). The owner saw the CF light at each stall.
+- MTM trial (`docs/mtm_bed_setup_2026_11_12.md`): runs on our 8 bpp DirectDraw with its own software
+  renderer (`useDirect3D=0`); the 24 MB and 256-colour messages are the game's, non-fatal at 8 bpp.
+  No installer needed on the card. Demo start unattended: not found yet (`showDemoFlag`).
+- Owner: the driver should give each program the depth it asks for (DirectDraw SetDisplayMode).
+- Device-bitmap reading: ATI v2.3 kept bitmaps on the card (`docs/mach8_device_bitmaps_design.md`);
+  ours already does most of it; GE_OFFSET/GE_PITCH (unused) goes to the glyph cache and textures.
 
 ## Settled today (2026-11-12)
 
