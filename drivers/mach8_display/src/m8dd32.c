@@ -1908,9 +1908,18 @@ static int m8dd_page_frame( int k )
         }
         m8d3d_feed_go();
         m8d3d_feed_finish();
+        /* Page 0 too: it holds the last slow frame in the desktop's colour cube, whose black
+         * is another colour in a program's own palette ([d3d] palette=1). */
+        if( !m8d3d_replay( &all, 1, 0, 0, NULL, NULL, NULL, 0 ) ) {
+            m8d3d_feed_go();
+            m8dd_card.known = 0;
+            return( 0 );
+        }
+        m8d3d_feed_go();
+        m8d3d_feed_finish();
         m8dd_pages_on = 1;
         m8dd_page = 0;
-        m8dd_page_boxes[0] = m8dd_card_boxes;
+        m8dd_page_boxes[0] = 0;
         m8dd_page_boxes[1] = 0;
     }
     h = !m8dd_page;
