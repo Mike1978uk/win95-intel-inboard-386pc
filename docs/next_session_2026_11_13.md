@@ -47,6 +47,19 @@ result (technique 74).
 5. Then, as agreed: textures on the card at 8 bpp, then Fable review (ask the owner first; brief
    `docs/fable_driver_review_brief.md`).
 
+## Models and agents (owner, standing since 11-12)
+
+| Who | Does | Rules |
+|---|---|---|
+| **Opus** (main session) | Driver code, diagnosis, reading measurements, card runs, deciding what a result means | Never hands diagnosis to another model. One card job at a time |
+| **Haiku** agent | Every commit and push | Exact paths only, never `git add -A`; check `git diff --cached` shows only the intended files; push from **PowerShell** (Bash has no GitHub login); subject <= 50 chars; report hash + push line. 11-12's handoff commit `321a2bf` was done this way |
+| **Sonnet** agent | Research, write-ups, prescribed bed chores (with a written brief) | Runs in the background; does not commit; no diagnosis (memory: 2026-08-22 lesson) |
+| **Fable** | Hard reviews only, starting with the driver review (`docs/fable_driver_review_brief.md`) | **Ask the owner before starting any Fable work.** Own worktree, never master; Opus benches each of its commits on the card |
+
+Also: the owner approves any text posted to GitHub (issues, PRs, replies); Opus drafts, never posts.
+Bed first for anything that fails before the first frame; the card decides speed. COMrade only
+with the mouse unplugged; DOS probes via a `.BAT`.
+
 ## Later (unchanged from 11-12)
 
 8 bpp Lock shadow pageable (GMEM_FIXED, ~630-720 KB); depth per program without reboot (add to
