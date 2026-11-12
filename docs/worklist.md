@@ -328,6 +328,8 @@ like a timer tick (~170 us measured for #45). Ideas, cheapest first - measure be
       driver RAM, paging, XT-CF, frame-rate levers, textures.
       V10 (11-06): in by the owner's eye (black overlaps gone). Stutter: small frames over 13.85 ms lock at 36 fps. Card hang (boot 226) still open. `docs/captures/2026-11-06_v10/README.md`; VGA half: `docs/mach8_vga_half_findings_2026_11_06.md`.
 
+- [ ] **X11 Burst-shaped sends (2026-11-12, flushprobe):** I/O invalidates the L1 once per burst; census bursts and FIFO polls per Flip, then shape the feeder and Flip as one burst a frame. `docs/next_session_2026_11_12.md` jobs 3-4.
+- [ ] **X12 VGA-half memory path for whole-frame pushes (2026-11-12):** 1.83 us/B, no flush; video, FastDoom (#47), software-3D at 320x200/240. `docs/video_playback_plan_2026_11_12.md`.
 - [ ] **X10 Direct3D, playable approximations (owner, 2026-11-07):** real programs run unmodified, and show what was intended by our own means. Build order D1-D12 in `docs/mach8_frame_rate_plan.md`, "Direct3D: playable approximations": HAL accepted (Z formats, sort, Z surface), mock replies and fog, census on real programs, effect tag and stipple, **real texture path**, cut-outs and mips, palette ramps, blends, bilinear look and perspective, runtime clip cost, then speed. The card's hang needs a cause before a showcase.
 
 ## E. Timer, refresh, XT-CF (in flight)
