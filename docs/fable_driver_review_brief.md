@@ -57,6 +57,11 @@ code, not history.
    goal in its own right.
 9. Compiler output for the hottest ten functions (`wdis`): spills, far calls, 32-bit maths in
    16-bit code.
+10a. **Named target: building a Direct3D frame.** GZ twist census (card boot 369, 286 flips):
+   our time 33.9 ms a frame, of which ~22.6 ms is CPU in `m8d3d_replay`'s phases 36-41 (join check
+   3.1, seam prep 6.5, joined path 4.1, band fills 5.0, clears 0.9, single triangles 3.0) while the
+   card is idle, and 8.0 ms our own synchronous sending. ~3,640 writes a frame. Halving the build
+   is worth more than any FIFO change.
 
 ### C. Bus
 10. **Writes per operation** against ATIM8's for the same operation; any register written when it

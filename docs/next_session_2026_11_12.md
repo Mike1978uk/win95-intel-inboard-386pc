@@ -25,9 +25,58 @@ Next, in order (owner, 11-12 evening):
    0x2CE1). **Owner approval pending** before bed then card. Then Monster Truck Madness with
    `useDirect3D=1`. Order agreed: feeder, 8 bpp D3D, textures (at 8 bpp), Fable.
 5. Fable review: brief `docs/fable_driver_review_brief.md`; after textures. Ask the owner first.
+6a. Card C:\ root: 365 entries (~380 of 512 slots if FAT16), mostly old probes and logs. Sonnet job,
+   not during card tests: inventory against the `C:\` paths our scripts use, propose a move list
+   to `C:\OLD\` (move, never delete), owner approves, then move and recount.
+6b. `tools/m8cardscripts/card_restart.ps1`: restart now checks the card went down and retries
+   (the Shut Down dialog was left waiting at 17:2x, owner restarted). Used by restart.ps1 and
+   install_h.ps1. First live use: the 8 bpp switch for MTM.
 6. Paging: Filemon hangs the guest (`docs/paging_trace_2026_11_12.md`); 2.02 MB locked at boot
    before twist, ~1,250 discards in twist's first 35 s (code re-read). Cheap next check: locked
    memory after an 8 bpp boot against 16 bpp.
+
+## Evening state (after 18:30)
+
+Card: boot 373 on **HA** (uncommitted: `dd16.c`, `m8dd32.c`), **800x600x8**, cache cap in, feed on.
+MTM in `C:\MTM` (+ `SYSTEM\`), registry InstallDir = C:\MTM, patched D3DIM/D3DIM700 in `C:\MTM`
+(app-local). Desktop launchers: `MTM_SW.BAT` (useDirect3D=0) and `MTM_HW.BAT` (useDirect3D=1),
+each copying its INI (`C:\MTM\SYSTEM\MTMSW.INI` / `MTMHW.INI`: Z off, perspective off, flat, low
+detail, colour warning off) over MONSTERX.INI. Owner runs them; census read while it races.
+
+Why MTM failed in the bed ("Unable to switch to full screen mode", census all zero):
+1. At 8 bpp `m8dd_mode_changed` did nothing, so DirectDraw kept the desktop's size and pitch after
+   the game's switch to 640x480.
+2. At 8 bpp there was no page flipping (`m8dd_flip` not handled, no FLIP caps).
+HA: 8 bpp mode change rebuilds the HAL (shadow sized to cover page 1); FLIP|BACKBUFFER|COMPLEX in
+modes of <= 512 rows; the back buffer is page 1 (row 512), Flip = one CRT_OFFSET_HI write; D3D's
+scratch moves to the column beside the pages (x 640-991) while a chain lives; destroy shows page 0.
+Not checked in the bed (the MTM bed's agent stops answering while the game runs). Also: game's
+`useZFlag=1` asks for a Z buffer we do not offer; set 0.
+New on the memory list: the 8 bpp Lock shadow is GMEM_FIXED (pinned, ~630-720 KB) while DirectDraw
+is in use; make it pageable like fb16's.
+
+## The owner's list from the morning of 11-12 (keep every item until done or dropped by the owner)
+
+| Item | State |
+|---|---|
+| twist colours / blue band | done (GX); stray lines remain, marginal |
+| twist stalls (run and pause) | feeder GZ: 5.73 fps; stalls = paging (CF light); cache cap in; more below |
+| CPU flush: real or perceived, software way round it | done: per burst, memory writes exempt (flushprobe) |
+| Use the whole card's silicon (more on the card, less bus/CPU/RAM) | standing directive; GE_OFFSET unused (glyphs, textures); textures on the card next after 8 bpp D3D |
+| 2D at or above ATI | 1.79x ATI, pixels = ATI in 35/35; mem_to_mem ~parity |
+| 8 bpp Direct3D | runtime patch, app-local (MTM folder); bed run in progress |
+| Monster Truck Madness on the card | files staged in `%TEMP%\mtm_card` (C:\MTM layout, REG, INI useDirect3D=1); after the bed |
+| Program picks its depth (8/16) without a reboot | worklist item to add; 16 bpp desktop costs ~1.2 MB more |
+| Fable review of the driver (+ asm, weight, bus) | brief written (`docs/fable_driver_review_brief.md`); after textures; ask first |
+| Bed closer to the card | plan `docs/bed_io_cost_model_2026_11_12.md`; not built |
+| Video playback | plan + issue draft `docs/video_playback_plan_2026_11_12.md`; owner posts |
+| Own DirectX ("DirectXT"), stability since DX install | D14; the 8 bpp patch is its first step; stability A/B not done |
+| FastDoom showcase via our hardware path (VGA-half memory) | after MTM; #47 sound first |
+| DOS-level 3D driver (Glide-like) | not started; FastDoom first |
+| DirectSound for the SB Pro | not started (#58) |
+| Showcase: each demo in each mode | after textures |
+| Other DX SDK/DDK demos | survey exists (`docs/dx_sdk_ddk_bench_survey_2026_11_09.md`) |
+| Card C:\ root tidy | job 6a |
 
 ## Results 11-12 afternoon
 
