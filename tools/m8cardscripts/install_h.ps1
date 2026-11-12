@@ -66,19 +66,10 @@ if (-not (Select-String -Path "$tmp\disp.txt" -SimpleMatch "`"drv`"=`"$drvName`"
 "registry selects $drvName"
 
 # Restart the way a person does: the agent's own reboot can end in a fatal exception here.
-$boot = (Agent info | ConvertFrom-Json).BootCounter
-Agent input @{ Sequence = 'key CTRL+ESC; delay 1500; key U' } | Out-Null
-Start-Sleep -Seconds 15
-Agent input @{ Sequence = 'key R; delay 500; key ENTER' } | Out-Null
-$ok = $false
-for ($t = 0; $t -lt 24 -and -not $ok; $t++) {
-  Start-Sleep -Seconds 10
-  $i = & $ctl info -Host $Target -ConnectTimeoutSeconds 5 -Json 2>$null 6>$null
-  if ($LASTEXITCODE -eq 0) { $i = $i | ConvertFrom-Json; $ok = $i.BootCounter -ne $boot -and $i.DesktopReady }
-}
-Add-Content -Path (Join-Path $env:TEMP 'm8_card_restarts.log') -Value ('{0}  {1}  boot {2} -> {3}  {4}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm'), $Name, $boot, $(if ($ok) { $i.BootCounter } else { '-' }), $(if ($ok) { 'ok' } else { 'did not come back' }))
-if (-not $ok) { throw 'the card did not come back within 4 minutes' }
-"back: boot $($i.BootCounter)"
+. "$PSScriptRoot\card_restart.ps1"
+$r = Restart-Card -Ctl $ctl -Target $Target -Name $Name
+if (-not $r.Ok) { throw $(if ($r.WentDown) { 'the card did not come back within 5 minutes' } else { 'the card never went down: the Shut Down dialog may be waiting' }) }
+"back: boot $($r.Boot)"
 Agent get @{ Source = 'C:\WINDOWS\SYSTEM\M8DD32.DLL'; Destination = "$tmp\now.dll" } | Out-Null
 "DLL on card md5 $((Get-FileHash "$tmp\now.dll" -Algorithm MD5).Hash)"
 Agent get @{ Source = "C:\WINDOWS\SYSTEM\$Name.DRV"; Destination = "$tmp\now.drv" } | Out-Null
