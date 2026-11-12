@@ -49,6 +49,35 @@ Columns: plain, with-op, plain, with-op, PIT counts (0.838 us). Per-op cost =
 - Driver: build commands in RAM, send in tight bursts, keep the code and data touched between
   bursts small. Each burst costs one refill of whatever is touched next.
 - Memory writes to the card (VGA half, A000/B800) avoid the invalidation and post: the path for
-  video, Mode 13h/Mode X and a FastDoom back end. Sustained write rate still needs M8VGAW (one
-  byte per KB here, so posting hid the bus time).
+  video, Mode 13h/Mode X and a FastDoom back end. Sustained rate: FLUSHP2 below.
 - The Mach8 engine is I/O-only, so its sends keep paying one refill a burst.
+
+## FLUSHP2: sustained rates and a long burst
+
+Probe: `tools/flushprobe/FLUSHP2.ASM`, same sitting. Raw (`C:\F2.TXT`):
+
+```
+W 520A 5208 49E8 49F0
+D 45DE 45EA 84F6 852C
+R 8E2C 8D36 8858 8928
+B 0474 090E 6F7C 66B6
+B 0474 091A 6F7C 66B6
+```
+
+8 KB to and from B800:1000 (text mode, hidden pages):
+
+| | byte | word | dword |
+|---|---|---|---|
+| write (rep stos) | 2.15 us/B | 1.94 us/B | **1.83 us/B** |
+| read (rep lods) | 3.72 us/B | 3.57 us/B | 3.48 us/B |
+
+Port output for comparison: 5.695 / 3.819 / 3.183 us/B (byte/word/dword, 09-20). A dword memory
+write is 1.7x faster than a dword OUT and 2.1x faster than a word OUT (the Mach8's PIX_TRANS), with no invalidation.
+Text mode at B800; mode 13h at A000 not measured, expected to be the same card cycle.
+
+Burst (4 x (op, re-read 4 KB)): one IN+OUT 2318 counts, 1000 OUTs + re-read 28540, 1000 OUTs alone
+26294. A cold 4 KB re-read costs 470 us after one OUT and 470 us after 1000 OUTs: **the refill
+does not grow with the burst.** 1000 `rep outsb` = 5.51 ms, 5.5 us a byte, bus time only.
+
+Frame sends at these rates: 160x120 35 ms, 240x180 79 ms, 320x200 117 ms by memory, against
+73 / 165 / 244 ms by PIX_TRANS words.
