@@ -65,6 +65,10 @@ typedef struct {
 
 extern M8_HOT m8_hot;
 
+/* busy 2 = the engine is M8FEED.VXD's; its tick stops at any other value. A mode change must take
+ * the engine back before it writes a register: the feed would otherwise keep writing through it. */
+#define M8_FEED_TAKE()      { if( m8_hot.busy == 2 ) m8_hot.busy = 0; }
+
 /* Fills, blits and LINEDRAW leave MAJ_AXIS_PCNT and MIN_AXIS_PCNT as they
  * were (guide 8-31, 8-35; card: tools/m8probe/M8MAJMN.C); SCAN_TO_X changes
  * both, and the extended blit is untested. Every write of either register and

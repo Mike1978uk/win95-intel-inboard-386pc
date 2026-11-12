@@ -969,6 +969,16 @@ static void m8d3d_owner_check( void )
         return;
     }
     m8d3d_owner = pid;
+    /* The last owner may have ended mid-feed, its frame still being sent by the driver's tick.
+     * The queue is in the system arena, seen by every process, and the tick stops on any state
+     * but 1: stopped here, before this process writes the card. Freed if the driver unloaded. */
+    if( m8d3d_feed != NULL && !IsBadWritePtr( m8d3d_feed, 4 * (M8FEED_STATE + 1) ) &&
+        m8d3d_feed[M8FEED_STATE] == 1 ) {
+        m8d3d_feed[M8FEED_STATE] = 3;
+        ((BYTE *)m8d3d_hot())[12] = 1;
+        m8d3d_room_forget();
+        m8d3d_engine_end();
+    }
     m8d3d_feed = NULL;
     m8d3d_feed_h = INVALID_HANDLE_VALUE;
     m8d3d_feeding = 0;

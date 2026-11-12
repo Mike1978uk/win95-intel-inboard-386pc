@@ -319,6 +319,7 @@ UINT WINAPI __loadds Enable( LPVOID lpDevice, UINT style, LPSTR lpDeviceType,
     LPBITMAPINFO    lpInfo;
     int             i;
 
+    M8_FEED_TAKE();
     if( style & 1 ) {
         LPGDIINFO lpGdi = lpDevice;
 
@@ -422,6 +423,7 @@ UINT WINAPI __loadds Disable( LPVOID lpDevice )
 {
     LPDIBENGINE lpEng = lpDevice;
 
+    M8_FEED_TAKE();
     M8_STEP( 0xA040 );
     if( lpEng != NULL ) {
         lpEng->deFlags |= BUSY;
@@ -523,6 +525,7 @@ UINT WINAPI __loadds ReEnable( LPVOID lpDevice, LPGDIINFO lpInfo )
     int     old_fb16 = m8_fb16;
     UINT    rc;
 
+    M8_FEED_TAKE();
     m8_read_mode();
     /* The colour depth changes only at a restart; the size at 16 bpp does not
      * (the frame buffer is sized for the largest mode). */
