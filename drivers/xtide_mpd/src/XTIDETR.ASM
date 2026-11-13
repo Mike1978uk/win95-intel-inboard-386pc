@@ -107,6 +107,9 @@ DRVHD_LBA	equ	0E0h		; LBA mode 	 master. CHS mode is 0A0h.
 ST_BSY		equ	80h
 ST_DRDY		equ	40h
 ST_DRQ		equ	08h
+;  Write fault (DF from ATA-4): a write the drive could not store, which it
+;  may report without ERR.
+ST_DF		equ	20h
 ST_ERR		equ	01h
 
 DRVHD_MASTER	equ	0A0h
@@ -793,7 +796,7 @@ XTIDE_Spin:
 ; XTIDE_CommitPoll - PUBLIC. One look at a write left committing by
 ;                    XTIDE_WriteSectors.
 ;
-;   Out:  EAX = 0 still busy, 1 committed, 2 committed with ERR
+;   Out:  EAX = 0 still busy, 1 committed, 2 ended with ERR or a write fault
 ;   Uses: EAX, EDX
 ;
 ;   One status read and no loop: the caller is a timer callback running in
@@ -807,14 +810,14 @@ XTIDE_CommitPoll:
 	test	al, ST_BSY
 	jnz	xcp_busy
 	mov	XTIDE_CommitPending, 0
-	test	al, ST_ERR
+	test	al, ST_ERR OR ST_DF
 	jnz	xcp_err
 	mov	eax, 1
 	ret
 xcp_err:
 	movzx	eax, al
 	mov	XTIDE_LastStatus, eax
-	mov	XTIDE_FailCode, 14	; drive reported ERR on completion
+	mov	XTIDE_FailCode, 14	; drive reported ERR or a write fault
 	mov	eax, 2
 	ret
 xcp_busy:
@@ -1446,7 +1449,7 @@ endif
 	call	XTIDE_WaitNotBusy	; the drive is still committing the last sector
 	jc	xwr_notready
 xwr_check:
-	test	al, ST_ERR
+	test	al, ST_ERR OR ST_DF
 	jnz	xwr_err
 	clc
 	ret
@@ -1465,7 +1468,7 @@ xwr_notready:
 xwr_err:
 	movzx	eax, al
 	mov	XTIDE_LastStatus, eax
-	mov	XTIDE_FailCode, 14	; drive reported ERR on completion
+	mov	XTIDE_FailCode, 14	; drive reported ERR or a write fault
 	stc
 	ret
 
