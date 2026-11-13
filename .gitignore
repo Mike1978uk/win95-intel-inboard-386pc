@@ -213,3 +213,7 @@ docs/captures/2026-10-10_a6/*/86box.log
 references/*_disasm/
 references/fastdoom/
 references/jhhoward/
+# Open Watcom build outputs under tools/
+tools/**/*.obj
+tools/**/*.err
+tools/**/*.LST
