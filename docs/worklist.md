@@ -347,6 +347,9 @@ like a timer tick (~170 us measured for #45). Ideas, cheapest first - measure be
       Then GDI benches (WinBench 96, CrystalMark Retro) and the D3D benchmarks in `references/dxddk/`.
       Files, hashes, sources: `docs/test_titles_2026_11_13.md` (downloads in `Downloads\test_titles\`, outside git).
       Most list 8 MB: paging on 5 MB is part of what each run measures.
+- [ ] **X15 Our own DOS 3D renderer (owner, 2026-11-13):** built around the card, not the API: engine fills,
+      mask strips and keyed copies, textures resident in VRAM as rows, 320x240, only changes over the bus. Seed
+      is X7; MTM's lessons (texture store, overlays, lores, Lock costs) feed it.
 - [ ] **X10 Direct3D, playable approximations (owner, 2026-11-07):** real programs run unmodified, and show what was intended by our own means. Build order D1-D12 in `docs/mach8_frame_rate_plan.md`, "Direct3D: playable approximations": HAL accepted (Z formats, sort, Z surface), mock replies and fog, census on real programs, effect tag and stipple, **real texture path**, cut-outs and mips, palette ramps, blends, bilinear look and perspective, runtime clip cost, then speed. The card's hang needs a cause before a showcase.
 
 ## E. Timer, refresh, XT-CF (in flight)
