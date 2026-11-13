@@ -330,6 +330,23 @@ like a timer tick (~170 us measured for #45). Ideas, cheapest first - measure be
 
 - [ ] **X11 Burst-shaped sends (2026-11-12, flushprobe):** I/O invalidates the L1 once per burst; census bursts and FIFO polls per Flip, then shape the feeder and Flip as one burst a frame. `docs/next_session_2026_11_12.md` jobs 3-4.
 - [ ] **X12 VGA-half memory path for whole-frame pushes (2026-11-12):** 1.83 us/B, no flush; video, FastDoom (#47), software-3D at 320x200/240. `docs/video_playback_plan_2026_11_12.md`.
+- [ ] **X13 Monster Truck Madness on our Direct3D HAL (2026-11-13):** its D3D mode asks 640x480x16 and >= 96
+      textures in video memory; HE puts them on the card (x 640-991, rows 0-287, 8 bpp, 8x8 summary in RAM). Bed, then card.
+      Windowed software fallback already reaches the track at 16 bpp. Chain: `docs/next_session_2026_11_13.md`.
+- [ ] **X14 Test titles after MTM and the Fable review (owner, 2026-11-13):** each run names what the driver lacks, fixed for the class
+      (feedback: each demo generalises). Bed first, M8MON + census each run, card for speed. Order, cheapest first:
+      1. DX SDK DirectDraw samples, on disk (`references/dx61samples/ddraw/bin`): Donuts (keyed and small blits),
+         Memtime (Lock vs Blt), Stretch, Wormhole (palette animation), Font / FSWindow / Switcher (GDI over exclusive
+         mode), Mosquito / DDOverlay (must fail cleanly), Flip2d (regression). DX3a SDK: Foxbear.
+      2. Shockwave Assault demo: separate 8 and 16 bpp DirectDraw exes.
+      3. Doom 95 (shareware): full-screen 8 bpp blits; `-emulate` for A/B.
+      4. Red Alert Win95 demo: scrolling, small keyed blits; INI `HardwareFills`, `VideoBackBuffer`.
+      5. Fury3: software render into 8 bpp (Lock-heavy).
+      6. Warcraft II demo: WinG DIB blits.
+      7. Hellbender trial: Direct3D, P75 minimum (long shot).
+      Then GDI benches (WinBench 96, CrystalMark Retro) and the D3D benchmarks in `references/dxddk/`.
+      Files, hashes, sources: `docs/test_titles_2026_11_13.md` (downloads in `Downloads\test_titles\`, outside git).
+      Most list 8 MB: paging on 5 MB is part of what each run measures.
 - [ ] **X10 Direct3D, playable approximations (owner, 2026-11-07):** real programs run unmodified, and show what was intended by our own means. Build order D1-D12 in `docs/mach8_frame_rate_plan.md`, "Direct3D: playable approximations": HAL accepted (Z formats, sort, Z surface), mock replies and fog, census on real programs, effect tag and stipple, **real texture path**, cut-outs and mips, palette ramps, blends, bilinear look and perspective, runtime clip cost, then speed. The card's hang needs a cause before a showcase.
 
 ## E. Timer, refresh, XT-CF (in flight)

@@ -72,3 +72,31 @@ DirectSound (#58); showcase grid; card back to 16 bpp for twist work.
 `vm_5160_mtm` (Windows at 8 bpp, D3DIM patched system-wide with `.STK` backups, MTM at
 `C:\Monster Truck Madness Trial`; agent unreliable while the game runs) and `vm_5160_page`. Both
 gitignored. Bed mouse: absolute moves fail; small moverel steps (<= 5).
+
+## Results, 2026-11-13 (bed `vm_5160_mtm`)
+
+- Trace works: `MTM_SW` at 8 bpp asks for two back buffers, is refused, then builds one (row 512). HA proven in the bed.
+- Why `MTM_HW` fails (disassembly of MONSTERX.EXE, string 50004): full-screen setup at `0x494880` sets
+  640x480 at **16 bpp whenever Direct3D is on** (8 otherwise). At an 8 bpp desktop the depth change fails.
+  At 16 bpp: mode, flip chain and D3D context succeed, then D3D setup (`0x495090`) fails at the texture step
+  (`0x495740`): it needs **>= 96 textures `TEXTURE|VIDEOMEMORY|ALLOCONLOAD`** (32x32 or 64x64, 16-bit); we never
+  advertised `DDSCAPS_TEXTURE`, so DDRAW refused them without calling us. The game then retries at 8 bpp,
+  which fails, and continues **windowed with its software renderer** (reaches the track at 16 bpp; census: no flips).
+- HD (uncommitted): 8 bpp Lock/Unlock/Flip counters (`m8d3d_stat` 72-83), escape `M8_ESC_STATS` (0x4D41) for
+  the 16-bit counters, `tools/m8d3dtest/M8MON.EXE` (half-second deltas to `C:\M8MON.TXT`). Idle bed desktop
+  shows ~6 DIBToDevice/s with read-backs: something draws continuously; not chased.
+- HE (uncommitted, built, not yet run): textures in video memory at 16 bpp on the card, 99 slots of 32x32 at
+  x 640-991 rows 0-287 (stamps start below), 8 bpp at upload, 8x8 summary in RAM for the colour per
+  triangle, shared 2 KB Lock buffer; HAL handles 64 -> 128; `D3DDEVCAPS_TEXTUREVIDEOMEMORY`. Bed INI
+  `maxD3DTextures=96`. A `-Prof` build no longer fits `_TEXT` (1,823 bytes over).
+- Loading screens: menu backdrops paint after the controls. At 8 bpp a DirectDraw Lock reads the locked area
+  back and Unlock writes it all (`m8dd32.c` lock/unlock, ~2.4 s for 640x480 on the card's I/O cost). M8MON
+  run not yet made; it names the path.
+- Test titles after MTM: worklist X14, `docs/test_titles_2026_11_13.md`.
+- **HF-HH, MTM_HW runs full screen on our Direct3D HAL (bed, boot 240).** DDRAW refused `DDSCAPS_TEXTURE` because
+  `vmiData.dwTextureAlign` was 0 (technique 153; same rule as `OFFSCREENPLAIN`); HG sets 8. HH handles a texture
+  `Load` (Blt from a 5-6-5 system-memory texture). Probe `M8MTMI.EXE` passes every start-up call; 99 textures
+  on the card. Census, 10 frames: 3,111 triangles (all colour-keyed and perspective), 195 textures, engine writes 0,
+  ~0.9 s a frame in Flip: every frame took the slow path (whole RAM frame sent). Cockpit view Locks the back buffer
+  each frame; chase view is the owner's choice anyway. Next: chase view + `palette=1` + Gouraud (INI), keyed
+  triangles on the engine path, card run for fps, then lores (320x240) with textures moved out of the column.

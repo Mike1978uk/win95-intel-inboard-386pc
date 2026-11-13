@@ -8567,3 +8567,21 @@ call then returns the site. One reboot, one run: `8876A02C`, site 44.
   kept both HAL tables, which killed the null-pointer theory.
 - Do not LoadLibrary a display driver's DLL from a test: it hung the process and the agent's screenshot helper.
 - Keep the stock files outside the session scratchpad before starting. A file a process holds cannot be restored until it stops.
+
+## Technique 153: when a program refuses the driver, replay its start-up call for call
+
+2026-11-13, Monster Truck Madness, "Unable to switch to full screen mode". The game hides every failure behind one
+message and a silent fallback. Disassemble from the message's string ID back to the calls (`push 0C354h`), then write
+a probe that makes the same calls in order with the same flags and logs each HRESULT (`tools/m8d3dtest/M8MTMI.C`). One
+run named the one failing call (`CreateSurface TEXTURE|VIDEOMEMORY` -> `DDERR_NOTEXTUREHW`); each fix after that was
+one build and one probe run, without the game.
+
+- **DDRAW rejects the whole HAL, silently, if `ddCaps.ddsCaps` claims a surface type whose `vmiData` alignment is 0
+  or odd** (DDRAW.DLL 4.07.00.0716 at `BAAB7E12`): `OFFSCREENPLAIN` needs `dwOffscreenAlign`, `OVERLAY`
+  `dwOverlayAlign`, `TEXTURE` `dwTextureAlign`, `ZBUFFER` `dwZBufferAlign`. M8ENUM shows it as hw caps `02000000`
+  (`DDCAPS_NOHARDWARE`). This is why `OFFSCREENPLAIN` failed "with or without a heap" in 11-01's notes.
+- A video-memory texture's `CreateSurface` checks only that bit in the HAL caps; without it DDRAW answers
+  `DDERR_NOTEXTUREHW` and never calls the driver.
+- With system-to-video Blts claimed, DDRAW does not fall back for a Blt the HAL leaves NOTHANDLED: a texture `Load`
+  returns `DDERR_UNSUPPORTED`. Handle the copy or claim less.
+- The trace showing **no** call is a result only once the trace has been seen writing (technique 74): MTM_SW proved it.
