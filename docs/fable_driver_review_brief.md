@@ -19,8 +19,8 @@ Fable spent a 5-hour limit in minutes, twice, mostly reading in. From now on:
 
 | # | Job | Status |
 |---|---|---|
-| F1 | **CPU flush on I/O**: what invalidates the L1 on every IN/OUT (Inboard glue, BL3 config, INBRDPC.SYS), whether it can be narrowed without breaking DMA coherency, and driver-side avoidance beyond the known (bursts built in RAM, VGA-half memory writes) | next; owner: important |
-| F2 | **Direct3D frame build**: `m8d3d_replay` phases 36-41, ~22.6 ms CPU a twist frame of 32.7 ms ours; including asm candidates in that path | after F1 |
+| F1 | **CPU flush on I/O**: what invalidates the L1 on every IN/OUT (Inboard glue, BL3 config, INBRDPC.SYS), whether it can be narrowed without breaking DMA coherency, and driver-side avoidance beyond the known (bursts built in RAM, VGA-half memory writes) | **closed 11-13** without Fable: SW1 measured, no effect; flush fixed in the module (`docs/fable_pack_f1_flush.md`) |
+| F2 | **Direct3D frame build**: `m8d3d_replay` phases 36-41, ~22.6 ms CPU a twist frame of 32.7 ms ours; including asm candidates in that path | next; pack includes the flush cost model for avoidance |
 | F3 | **Mach8 correctness**: Part 1 items A1-A4 (stale caches, unowned register state, FIFO accounting, exit paths) incl. `m8feed` | after F2, if the owner wants it |
 | - | Part 2 swapcomp, Part 3 XT-IDE | **done 11-13**: reports on their worktree branches; Opus validates, bed then card |
 | - | Parts 4-8 (SHADRAM, T130B, patched MS drivers, real mode, scripts) | **not Fable work** unless the owner asks; Opus can use the shared checklist below |

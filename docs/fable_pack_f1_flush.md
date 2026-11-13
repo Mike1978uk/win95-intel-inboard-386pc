@@ -20,6 +20,11 @@ So the flush on I/O comes from the module, not the Inboard or Intel's driver. SW
 ON = flush on DMA + I/O, OFF = DMA only) is the one known control, and the flush has never been
 measured with SW1 OFF. Cheapest test, before any review: one FLUSHP run in DOS with SW1 OFF.
 
+**Result, 2026-11-13 night (card, DOS, FLUSHP 1):** SW1 as fitted and SW1 flipped give the same table
+to within 2 PIT counts (B 84 us, D 638 us, E 81 us, J 124 us both ways). SW1 does not control the
+flush; it is fixed in the module. F1 closed: no Fable job. Avoidance goes into F2's pack. Raw:
+`docs/captures/2026-11-13_flush_sw1/`.
+
 Correctness gate: the Inboard ties HOLD low, so the module's "DMA only" flush (SW1 OFF) may never
 see XT-side DMA. The flush on I/O may be what keeps DMA writes into Inboard RAM (floppy read, SB
 record, T130B bus master) coherent. SW1 OFF is measured in DOS only, with no floppy or T130B use,
