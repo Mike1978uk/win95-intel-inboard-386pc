@@ -1,6 +1,6 @@
-param([string]$OutDir, [string]$Vxd, [int]$Loops = 3, [string]$Label = 'bz')
+param([int]$Port = 9869, [string]$OutDir, [string]$Vxd, [int]$Loops = 3, [string]$Label = 'bz')
 $ctl = 'C:\Users\lycet\tools\v9x-remote-agent\host\v9xremote-0.12.0\scripts\v9xctl.ps1'
-$h = @{ Host = '127.0.0.1'; ConnectTimeoutSeconds = 30 }
+$h = @{ Host = '127.0.0.1'; Port = $Port; ConnectTimeoutSeconds = 30 }
 New-Item -ItemType Directory -Force $OutDir | Out-Null
 function Say($m) { "{0:HH:mm:ss} {1}" -f (Get-Date), $m | Tee-Object -FilePath "$OutDir\run.log" -Append }
 function Enter-AtMenu {
@@ -29,10 +29,10 @@ $i = $null
 for ($t = 0; $t -lt 60 -and -not $i; $t++) {
   Start-Sleep -Seconds 10
   if ($t -eq 15 -or $t -eq 30) {
-    $null = & $ctl info -Host 127.0.0.1 -ConnectTimeoutSeconds 5 -Json 2>$null 6>$null
+    $null = & $ctl info -Host 127.0.0.1 -Port $Port -ConnectTimeoutSeconds 5 -Json 2>$null 6>$null
     if ($LASTEXITCODE -ne 0) { Enter-AtMenu }
   }
-  $r = & $ctl info -Host 127.0.0.1 -ConnectTimeoutSeconds 5 -Json 2>$null 6>$null
+  $r = & $ctl info -Host 127.0.0.1 -Port $Port -ConnectTimeoutSeconds 5 -Json 2>$null 6>$null
   if ($LASTEXITCODE -eq 0) { $r = $r | ConvertFrom-Json; if ($r.BootCounter -ne $boot -and $r.DesktopReady) { $i = $r } }
 }
 if (-not $i) { Say 'NOT RESTARTED: stop'; exit 1 }

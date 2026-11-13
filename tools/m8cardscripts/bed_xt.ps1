@@ -1,9 +1,14 @@
-param([string]$OutDir, [string]$Mpd, [string]$Label = 'bx')
+param([int]$Port = 9869, [string]$OutDir, [string]$Mpd, [string]$Label = 'bx')
 $ctl = 'C:\Users\lycet\tools\v9x-remote-agent\host\v9xremote-0.12.0\scripts\v9xctl.ps1'
-$h = @{ Host = '127.0.0.1'; ConnectTimeoutSeconds = 30 }
+$h = @{ Host = '127.0.0.1'; Port = $Port; ConnectTimeoutSeconds = 30 }
 $dest = 'C:\WINDOWS\SYSTEM\IOSUBSYS\XTIDEMP.MPD'
 New-Item -ItemType Directory -Force $OutDir | Out-Null
 function Say($m) { "{0:HH:mm:ss} {1}" -f (Get-Date), $m | Tee-Object -FilePath "$OutDir\run.log" -Append }
+function Enter-AtMenu {
+  $w = New-Object -ComObject WScript.Shell
+  $p = Get-Process 86Box | Select-Object -First 1
+  if ($w.AppActivate($p.Id)) { Start-Sleep -Milliseconds 400; $w.SendKeys('{ENTER}'); Say 'enter sent' }
+}
 Say "--- bed XT-CF test $Mpd"
 $wi = & $ctl stat -Path 'C:\WINDOWS\WININIT.INI' @h -Json 2>&1 | ConvertFrom-Json
 if ($wi.Exists) { Say 'WININIT pending: stop'; exit 1 }
@@ -21,7 +26,11 @@ Start-Sleep -Seconds 45
 $i = $null
 for ($t = 0; $t -lt 60 -and -not $i; $t++) {
   Start-Sleep -Seconds 10
-  $r = & $ctl info -Host 127.0.0.1 -ConnectTimeoutSeconds 5 -Json 2>$null 6>$null
+  if ($t -eq 15 -or $t -eq 30) {
+    $null = & $ctl info -Host 127.0.0.1 -Port $Port -ConnectTimeoutSeconds 5 -Json 2>$null 6>$null
+    if ($LASTEXITCODE -ne 0) { Enter-AtMenu }
+  }
+  $r = & $ctl info -Host 127.0.0.1 -Port $Port -ConnectTimeoutSeconds 5 -Json 2>$null 6>$null
   if ($LASTEXITCODE -eq 0) { $r = $r | ConvertFrom-Json; if ($r.BootCounter -ne $boot -and $r.DesktopReady) { $i = $r } }
 }
 if (-not $i) { Say 'NOT RESTARTED: stop'; exit 1 }
