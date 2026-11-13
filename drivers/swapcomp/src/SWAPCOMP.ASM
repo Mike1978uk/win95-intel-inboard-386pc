@@ -130,8 +130,11 @@ SumTab		dw	SC_SLOTS dup (0)
 endif
 	ALIGN 4
 ; [0..1] compressed length, then the LZ4 block. Worst case for an
-; incompressible page is 4096 + 4096/255 + 16; such a page is stored raw.
-SC_Bounce	db	4352 dup (0)
+; incompressible page is 2 + 4096 + 4096/255 + 16 = 4130; such a page is
+; stored raw. Never below 4096: PAGEFILE moves a whole page through here when
+; the IFS hook does not shorten the transfer. Do not grow it without checking
+; the map: the locked object must stay under 4000h to fit four pages.
+SC_Bounce	db	4160 dup (0)
 
 ; PERF may keep these pointers after init, so they cannot live in discardable data.
 szSrvName	db	"Swap compression",0
