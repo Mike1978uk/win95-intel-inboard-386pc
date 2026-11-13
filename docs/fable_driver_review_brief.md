@@ -1,10 +1,51 @@
-# Fable review of the Mach8 driver: the brief
+# Fable review of what runs on the 5160: the brief
 
-When: after the feeder lands (job 4 in `docs/next_session_2026_11_12.md`). The owner approves the start.
-Pack: a Sonnet agent assembles the file list and numbers below into one place first, so Fable reads
+When: after the feeder lands (step 4 in `docs/next_session_2026_11_14.md`). The owner approves the start.
+Scope (owner, 2026-11-13): everything of ours that runs on the 5160, drivers and VxDs first, then the
+real-mode programs and the scripts that patch a user's files. Not 86Box code, not probes or benches.
+Pack: a Sonnet agent assembles each part's file list and numbers into one place first, so Fable reads
 code, not history.
 
-## How Fable works
+## Order: one Fable pass per part, each in its own worktree and report
+
+| Part | Component | On the card (read 2026-11-13) | Source |
+|---|---|---|---|
+| 1 | Mach8 display driver (DRV, `M8DD32.DLL`, Direct3D HAL) and `m8feed` | display driver; feeder not yet loaded | `drivers/mach8_display/`, `drivers/m8feed/` |
+| 2 | swapcomp | `DEVICE=c:\swapcomp.vxd` (`SWAPZF` build) | `drivers/swapcomp/` |
+| 3 | XT-IDE miniport | `IOSUBSYS\XTIDEMP.MPD` (`XTBOTH` build) | branch `claude/xtcf-tight-taskfile` `c06907a`, not master |
+| 4 | Shadow RAM | `DEVICE=C:\SHADRAM.VXD` | `drivers/shadowram/` |
+| 5 | Trantor T130B miniport | `IOSUBSYS\T130.MPD` | `drivers/trantor_t130b/` |
+| 6 | Patched Microsoft drivers: `HSFLOP.PDR`, `SCSIPORT.PDR`, `ELNK3.VXD` (IRQ 9 to 2, no multicast), `MSSBLST.VXD`, `LPT`, `QIC117` | the pack lists which are on the card | `vxd-patches/`, `dist/post-install-fixes/`, `drivers/3c509b/` |
+| 7 | Real mode: `IVT68FIX.COM`, `WAIT86.COM`, `REFR64/18.COM`, the boot menu (`CONFIG.SYS` + `AUTOEXEC.BAT` renames), `CPUSET.BAT`/`IBM486.CFG`, `SCSICACH.EXE` | all but SCSICACH run at every boot | `ivt68fix/`, `tools/bootmenu/`, `dist/` |
+| 8 | Patch scripts that write a user's binaries | run on the host | `dist/post-install-fixes/scripts/` |
+
+Out unless the owner adds them: `NMIWATCH.VXD`, `SHADRAMD.VXD`, `SWAPCMPC.VXD` (on C:\, not loaded),
+`custom_vkd` (SYSTEM.INI loads the stock `*vkd`), retired `imation_ls120_mpd`, Intel's `INBRDPC.SYS`.
+
+The pack's first job for every part: MD5 the file on the card, the file in `dist/`, and a build of the
+committed source. Where they differ, that is finding zero for the part, and the review covers the
+card's version. Known 11-13: the card runs `SWAPZF` (master) and `XTBOTH` (the branch above), neither in
+`dist/`. A PE's code hash changes with the build folder: compare at the original path or by bytes.
+
+## Checks for every part (Parts 2-8; Part 1 has its own list below)
+
+1. **Contract**: every value Windows, IOS, VMM or DirectDraw checks on what the component reports, and
+   the error it returns; what happens on each failure path, including absent or dead hardware.
+2. **DMA reach**: any buffer a DMA controller sees sits below the XT's 1 MB page-register reach
+   (`win9x-dma-driver-audit` skill).
+3. **XT port aliasing**: no access that decodes onto the 8259 (22h/23h), DMA page registers or another
+   card's range at XT 10-bit decode.
+4. **Interrupts and reentrancy**: work at interrupt time, IRQ 2/9 routing, what is locked, what can be
+   re-entered by the next interrupt or a DOS box.
+5. **Locked RAM and time on the bus**: pages locked, work per I/O, polling loops (every IN/OUT flushes
+   the L1).
+6. **Comments as canary** (CLAUDE.md): comments describing another device, dead code, a fixed bug.
+7. **Patches** (Parts 6 and 8): each site found by signature, refused on a mismatch, `Patched: N` with
+   N > 0; the reason for each changed byte written next to it.
+
+## Part 1: the Mach8 driver
+
+### How Fable works
 
 - Work in its own git worktree (Agent `isolation: "worktree"`), never on master.
 - **Find, then fix**: one commit per finding, each self-contained, subject naming the finding.
@@ -17,7 +58,7 @@ code, not history.
 - Output: the worktree branch, plus `docs/fable_review_<date>.md`: findings ranked by expected
   gain, each with file:line, evidence, fix commit or proposed probe.
 
-## What it reads (in order)
+### What it reads (in order)
 
 1. `CLAUDE.md`, `docs/mach8_driver_method.md`, `docs/mach8_guide_rules.md`.
 2. Cost model, measured on the card:
@@ -33,9 +74,9 @@ code, not history.
 5. Scoreboards: latest `card_gx82` (800x600x8, 1.79x ATI geometric mean, pixels = ATI in all 35)
    and the twist / tunnel census figures.
 
-## What it checks for
+### What it checks for
 
-### A. Correctness (first; a fast wrong driver is worse than a slow right one)
+#### A. Correctness (first; a fast wrong driver is worse than a slow right one)
 1. **Caches that can go stale**: every path that writes a bitmap, glyph, brush or surface's RAM must
    invalidate what the card holds of it (bitmap cache `m8_bc_*`, memo, proxies `m8_px_*`, string
    cache, overlays, D3D page boxes). List each writer and whether it invalidates.
@@ -46,7 +87,7 @@ code, not history.
    after it is no longer ours.
 5. Comments that describe code that no longer exists or another device (CLAUDE.md canary rule).
 
-### B. Weight: CPU, cache lines, RAM
+#### B. Weight: CPU, cache lines, RAM
 6. **Work after each port burst**: data and code touched between bursts, in lines; tables scanned
    on every call (the 11-12 lesson: a 2 KB scan per call cost up to 33 %). Hot paths should touch
    a few lines.
@@ -63,25 +104,25 @@ code, not history.
    card is idle, and 8.0 ms our own synchronous sending. ~3,640 writes a frame. Halving the build
    is worth more than any FIFO change.
 
-### C. Bus
+#### C. Bus
 10. **Writes per operation** against ATIM8's for the same operation; any register written when it
     already holds the value; status reads that could be fewer.
 11. **Burst shape**: CPU work interleaved with port writes where it could be done first and sent
     together.
 12. Pixel data that crosses the bus when it is already on the card.
 
-### D. The card's own silicon (the owner's directive: more on the card, less on bus and CPU)
+#### D. The card's own silicon (the owner's directive: more on the card, less on bus and CPU)
 13. Engine features unused or under-used: GE_OFFSET/GE_PITCH (written once, `m8hw.c:77-79`),
     polygon fill, colour compare, pattern registers, scissors for clipping, SCAN_TO_X, the
     raster counter, plane masks. For each: where it would replace CPU or bus work, and what a probe
     must confirm first. Cross-check `docs/silicon_for_d3d_2026_11_09.md` and `docs/mach8_levers.md`.
 14. Off-screen memory use: one allocator for every cache, packing, eviction.
 
-### E. Against ATI
+#### E. Against ATI
 15. The tests below or near ATI (mem_to_mem, text_varied, fill_small, dstinvert in `card_gx82`):
     why, from both listings.
 
-## What it must not do
+## What Fable must not do (every part)
 
 - Edit master, push, or post anything.
 - Propose disabling INBRDPC.SYS, raising the CPU clock, or dword OUTs to the Mach8.
