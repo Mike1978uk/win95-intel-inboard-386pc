@@ -1687,6 +1687,11 @@ xp_nobase:
 	mov	XTIDE_FailCode, 1	; the miniport passed no I/O base
 
 xp_exit:
+ifdef XT_SKIP_DRVHD
+;  The real-mode BIOS drives this disk again until Windows sends the first
+;  request, and it writes DRV/HEAD with values of its own.
+	mov	XTIDE_LastDrvHd, 0FFFFFFFFh
+endif
 	pop	edi
 	pop	esi
 	pop	ebx
