@@ -467,6 +467,69 @@ The API definition or sample program; any `.DOC` for `RM386`; `TECHNOTE.TXT` and
 any XT/5150/Inboard statement; any Win95 statement. If Simon sends the floppy's text file, or the zip password, this
 section gets a "13e".
 
+## 14. Simon's data-bus pointer, 2026-11-13
+
+Simon points at the minuszerodegrees data-bus diagrams: [5150](https://www.minuszerodegrees.net/5150/misc/5150_data_bus.jpg),
+[5160](https://www.minuszerodegrees.net/5160/misc/5160_data_bus.jpg). Both are labelled "simplified". Read as images.
+
+### 14a. What the diagrams show
+
+- **5150:** the 8088's multiplexed AD0-AD7 feeds buffer U8, which drives the system data bus D0-D7. The **8259 PIC hangs
+  directly on AD0-AD7**, on the CPU side of U8. The data bus joins all expansion slots, flow switch U12 (to the planar RAM
+  memory bus, MD0-MD7, with parity) and flow switch U13 (to the external bus XD0-XD7: ROMs U28-U33, 8253, 8255, 8237, DMA
+  address latch U18, DMA page registers U19, NMI enable U96). U12: 1 write to planar RAM, 2 idle, 3 read from planar RAM.
+  U13: 1 internal to external (normal), 2 open circuit during DMA, 3 external to internal on a read of a planar ROM, of any
+  I/O port 0-1FF, or of F0000-F3FFF.
+- **5160:** same shape with U2, U9 (RAM) and U15 (external). Differences: (1) the **8259 sits on the external bus**, behind
+  U15; (2) slots 1-7 are on the system data bus but **slot 8 is on the external bus**; (3) U15 position 3 also results from
+  "8259A has received an interrupt request" and from "CARDSELECT signal from expansion slot 8"; (4) the I/O read range is
+  0-FF, not 0-1FF; (5) the ROM read condition is "planar ROM" with no F0000-F3FFF range, two BIOS ROM chips (U18, U19)
+  instead of six; (6) chip designators differ (U8/U12/U13 vs U2/U9/U15). Planar RAM attachment, the DMA open-circuit
+  position and the parity block are the same.
+- The 5150 diagram has no slot-8 equivalent and no interrupt condition on U13.
+
+Text confirming points (1), (2), (4): [5160 to 5150 differences](https://www.minuszerodegrees.net/5160/diff/5160_to_5150_motherboard_differences.htm)
+(8259 data pins on the CPU's AD bus on the 5150, on the external bus on the 5160; slot 8 on the external bus; pin B8
+reserved on the 5150, Card Selected on the 5160; motherboard I/O 000-1FF on the 5150, 000-0FF on the 5160; all four RAM
+banks permanently enabled on the 5150). [Slot 8 page](https://minuszerodegrees.net/5160/misc/5160_slot_8.htm): a slot 8 card
+must generate CARDSELECT "in order for the data to be gated through chip U15 to the CPU"; timing on slot 8 is stricter;
+the 5150 has no slot 8 equivalent.
+
+**Not in the sources:** buffer part types (8286, 74LS245) and their enable pins; INTA cycles and how they reach the slots;
+what an Inboard (bus master through the 8088 socket) sees on a read from planar RAM or I/O on either machine; the
+5150 B2 slot behaviour. The two index pages I tried (`5150/index.htm`, `5160/index.htm`) return 404; the 5160 technical
+reference lists on the site were not read.
+
+### 14b. Hypotheses (none tested)
+
+- **H1, the 8259 is on the CPU-socket side on a 5150.** The Inboard replaces the 8088 through its socket cable, so on a
+  5150 the PIC's data pins sit on the same AD lines the Inboard drives and reads, not behind U8. Windows 95's VPICD
+  reprograms and polls the PIC far more than WfW 3.11 or DOS. A timing or float difference on 8259 reads/writes or the INTA
+  vector read would show only there. Test: on the 5150, a real-mode `.COM` that loops OCW3 reads of IRR/ISR at ports 20h/21h
+  against a known value, and a loop of 8259 mask writes read back; run on the 5160 as control. Any mismatch rules H1 in.
+  Against it: the Supersoft 8259 and hot-interrupt tests passed (section 12c); only "Interrupt level 0" failed, on both
+  boards, which this hypothesis would also fit.
+- **H2, I/O 100h-1FFh is motherboard space on a 5150.** A read there turns U13 to position 3 on a 5150 but not on a 5160.
+  If Windows 95 or its drivers probe a port in 100-1FF, the 5150 answers from the planar, not the bus. Test: log the ports
+  Windows 95 touches in 100-1FF in the bed (`diag-issue10`, I/O trace); an empty log rules it out.
+- **H3, F0000-F3FFF read decode on a 5150.** Only the 5150 diagram states this range. If the Inboard shadow RAM serves
+  F0000 and the planar also answers, a protected-mode switch that touches that segment could read the wrong source. Test: on
+  the 5150, `DEBUG` compare `F000:0 L100` read twice, with and without `INBRDPC.SYS` shadowing; any difference rules it in.
+  Weak: DOS and WfW boot with the same shadow.
+- **H4, the slot used for the Inboard.** The diagrams say only that slot 8 on a 5160 needs CARDSELECT. Test: ask Simon and
+  Cimon which slot the Inboard is in on each machine (look only). Not expected to matter on a 5150, which has no slot 8.
+- **Not supported by the diagrams:** planar RAM is attached identically on both (U12 vs U9), so the section "What the
+  emulator does not model" is not made more likely by them.
+
+### 14c. Background: omores / ages2001
+
+Simon's video "Windows 3.1 UNLOCKED: USB 3.0, HD Audio, Blu-ray & More" was not watched. The GitHub account behind
+Windows 3.x USB, audio, optical and storage drivers is <https://github.com/ages2001/>: [WINUSB](https://github.com/ages2001/WINUSB)
+(USB, DOS to ME), [WINAUDIO](https://github.com/ages2001/WINAUDIO) (HD Audio/AC'97), [WINUDF](https://github.com/ages2001/WINUDF)
+(UDF, optical), [WINDISK](https://github.com/ages2001/WINDISK) (IDE/AHCI/NVMe/CD). Which repository the video uses is not
+confirmed. Needs PCI hardware; no bearing on the 5150 stop. Already recorded for WINUSB and WINDISK in
+`docs/resources_and_sources.md` (lines 990-991) and in `docs/contributor_input_ledger.md`; WINAUDIO and WINUDF are not.
+
 ## Next
 
 0. `NMICHK /m` boot on the 5150 (sent 2026-10-04); `NMIWATCH` + `NMICHK` boot on the owner's 5160.
