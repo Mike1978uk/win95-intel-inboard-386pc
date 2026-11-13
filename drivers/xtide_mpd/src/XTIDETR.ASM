@@ -8,10 +8,8 @@
 ;   different adapters and a driver that hardcodes one of them is a driver for
 ;   one machine.
 ;
-;   Carried across unchanged from the IOS port driver (issue #21) by
-;   tools transform - only the three edits below differ, each marked MPD.
-;   The 1,504 lines of IOS glue that surrounded it are gone; SCSIPORT
-;   supplies that layer now. See docs/scsi_miniport_costing.md.
+;   The transport only: register map, waits, data phase, probe. The SRB
+;   side is XTIDEMP.ASM. See docs/scsi_miniport_costing.md.
 ;
 ;   Register map cross-checked against 86Box's src/disk/hdc_xtide.c and against
 ;   the XT-IDE port of sava/lpproj's patacd.asm by Miran Grca (@OBattler).
@@ -182,7 +180,7 @@ XTIDE_Stride		dd	XT_STRIDE
 public XTIDE_Transport
 XTIDE_Transport		dd	XT_TR_AUTO
 
-;  What detection settled on. Read by phase 2 transfer path.
+;  What detection settled on. Read by XTIDE_ProgramTaskfile.
 public XTIDE_ActiveTransport
 XTIDE_ActiveTransport	dd	XT_TR_AUTO
 
@@ -211,17 +209,13 @@ XTIDE_pStatus		dd	0
 XTIDE_pAltStatus	dd	0
 XTIDE_pHiLatch		dd	0
 
-;  Why the probe ended, reported through the boot log as a deliberate delay.
-;  0 = success, and see XTIDE_Probe for the rest. There is no readback channel
-;  at IOS init time, but BOOTLOG.TXT timestamps every driver's init, so the
-;  time spent in here IS a channel - roughly 33 ms per tick on this machine.
+;  Why the probe ended: the codes are set in XTIDE_Probe and the routines it
+;  calls. Nothing reports it; it is there to be read with a debugger.
 public XTIDE_FailCode
 XTIDE_FailCode		dd	0
 
 ;  Printable non-blank characters found in the model field by the last
-;  successful validation. Added to the success delay so the boot log reports
-;  not merely "a model string" but HOW LONG it was - and the length is specific
-;  to the drive. TRANSCEND is 9.
+;  successful validation. Read with a debugger, like XTIDE_FailCode.
 public XTIDE_ModelChars
 XTIDE_ModelChars	dd	0
 
@@ -238,19 +232,19 @@ public XTIDE_CommitPending
 XTIDE_CommitPending	dd	0
 XTIDE_DeferOk		dd	0
 
-;  Set once a unit IDENTIFY validates. Phase 2 turns this into an array.
+;  Set once a unit IDENTIFY validates.
 public XTIDE_MasterPresent
 XTIDE_MasterPresent	dd	0
 public XTIDE_SlavePresent
 XTIDE_SlavePresent	dd	0
 
-;  IDENTIFY landing area. 512 bytes, one device - phase 2 grows this.
+;  IDENTIFY landing area, used by the probe only.
 
 public XTIDE_IdBuf
 XTIDE_IdBuf		db	512 dup (0)
 
 ;----------------------------------------------------------------------------
-;  Phase 2 - geometry taken from IDENTIFY, and the sector-read request block.
+;  Geometry taken from IDENTIFY, and the transfer request block.
 ;
 ;  These are module variables rather than registers on purpose. Phase 1 failed
 ;  on real hardware because a helper documented as "Uses: EDX" left EDX on the
@@ -269,7 +263,7 @@ XTIDE_TotalSec		dd	0		; LBA28 capacity, 0 if the drive is CHS-only
 public XTIDE_LbaOk
 XTIDE_LbaOk			dd	0		; 1 = address in LBA, 0 = fall back to CHS
 
-;  Request block for XTIDE_ReadSectors.
+;  Request block for XTIDE_XferRun.
 public XTIDE_ReqLba
 XTIDE_ReqLba			dd	0
 public XTIDE_ReqCount
@@ -279,8 +273,7 @@ XTIDE_ReqBuf			dd	0
 
 
 public XTIDE_ReqIsWrite
-XTIDE_ReqIsWrite		dd	0	; direction, so the transfer loop does
-					; not have to hold the IOP in EBX
+XTIDE_ReqIsWrite		dd	0	; direction of the request
 
 ;  The four taskfile values, filled by either addressing mode and written out
 ;  by one common block, so LBA and CHS cannot diverge in how they program the
@@ -295,15 +288,15 @@ ifdef XT_SKIP_DRVHD
 XTIDE_LastDrvHd		dd	0FFFFFFFFh
 endif
 
-;  One sector, for the phase 2a self-test read of LBA 0.
-;  MPD: I/O base, filled by the miniport before it calls XTIDE_Probe.
+;  I/O base, filled by the miniport before it calls XTIDE_Probe.
 public XTIDE_BasePort
 XTIDE_BasePort		dw	0
 
+;  One sector, for the probe's read of LBA 0.
 public XTIDE_SecBuf
 XTIDE_SecBuf			db	512 dup (0)
 public XTIDE_PartType
-XTIDE_PartType		dd	0		; MBR partition 1 type byte, read back through the log
+XTIDE_PartType		dd	0	; MBR partition 1 type byte
 
 ;  Command byte for XTIDE_ProgramTaskfile, so read and write share one
 ;  addressing path and differ only in what they do after the command lands.
@@ -317,15 +310,13 @@ XTIDE_RbBuf			db	512 dup (0)
 endif
 
 
-
-
 ;----------------------------------------------------------------------------
-;  Per-unit geometry. Phase 2b kept one global set, which was fine while the
-;  probe was the only caller - but the moment IOS asks about two units, the
-;  slave's IDENTIFY overwrites the master's numbers and every later request
-;  addresses the wrong shape of disk.
+;  Per-unit geometry. One global set would let a slave's IDENTIFY overwrite
+;  the master's numbers, and every later request would address the wrong
+;  shape of disk. XTIDE_SelectUnit copies a unit's set into the working
+;  globals.
 ;
-;  Index 0 = master, 1 = slave, matching DCB_unit_on_ctl.
+;  Index 0 = master, 1 = slave, matching the SRB's TargetId.
 ;----------------------------------------------------------------------------
 XTIDE_UnitPresent	dd	2 dup (0)
 XTIDE_UnitCyls		dd	2 dup (0)
@@ -343,7 +334,6 @@ XT_MAX_CHUNK	equ	128		; 64 KB per command
 ;  fit to hand to anything that will display it.
 public XTIDE_UnitModel
 XTIDE_UnitModel		db	80 dup (32)	; 2 units x 40 bytes, space filled
-
 
 
 ;============================================================================
@@ -772,7 +762,7 @@ xvi_next:
 	cmp	edx, ID_MIN_TEXT	; all blanks is not a model string
 	jb	xvi_bad
 
-	mov	XTIDE_ModelChars, edx	; report the length through the delay
+	mov	XTIDE_ModelChars, edx
 
 	pop	edi
 	pop	ebx
@@ -1408,7 +1398,6 @@ xwrb_out:
 endif
 
 
-
 ;----------------------------------------------------------------------------
 ; XTIDE_CopyId - de-swap this unit's 40-byte model string out of the IDENTIFY
 ;                buffer into XTIDE_UnitModel.
@@ -1502,14 +1491,9 @@ xsu_master:
 ;
 ;   In:   XTIDE_ReqLba / ReqCount / ReqBuf / ReqIsWrite
 ;   Out:  CF=0 on success. ReqCount is zero; ReqLba and ReqBuf are advanced
-;         past every chunk EXCEPT the last, so a caller stepping through a
-;         scatter/gather list must add the segment on itself.
-;   Uses: EAX, ECX, EDX, ESI, EDI  (EBX preserved - the caller still needs the
-;         IOP, and a helper eating a register its caller relies on is the bug
-;         this file already paid for once, technique 78)
-;
-;   The direction comes from a variable rather than the IOP so this routine
-;   does not have to hold EBX across the transfer loops.
+;         past every chunk except the last.
+;   Uses: EAX, ECX, EDX, ESI, EDI  (EBX preserved: XtStartIo holds the SRB
+;         in it across this call)
 ;----------------------------------------------------------------------------
 public XTIDE_XferRun
 XTIDE_XferRun:
@@ -1577,13 +1561,11 @@ endif
 ;  end XTIDE_XferRun
 
 ;----------------------------------------------------------------------------
-; XTIDE_Probe - PUBLIC. Called from Port_initialize once the device node
-;               resources have been parsed into the DDB.
+; XTIDE_Probe - PUBLIC. Called from XtFindAdapter with XTIDE_BasePort set.
 ;
-;   In:   EDI -> PortDDB (DDB_base_ioa already filled by Port_Scan_Inp_Params)
-;   Out:  CF=0 if a drive answered and its IDENTIFY data validated
-;   Uses: EAX, ECX, EDX  (EBX, ESI, EDI preserved - Port_initialize still
-;         needs EBX as the AEP pointer and EDI as the DDB)
+;   Out:  CF=0 if the master answered IDENTIFY, its data validated and LBA 0
+;         could be read; CF=1 otherwise, and the miniport reports not-found
+;   Uses: EAX, ECX, EDX  (EBX, ESI, EDI preserved)
 ;----------------------------------------------------------------------------
 public XTIDE_Probe
 XTIDE_Probe:
@@ -1593,7 +1575,6 @@ XTIDE_Probe:
 	push	edi
 
 
-;  MPD: the base address arrives from HwFindAdapter, not from an IOS DDB.
 	movzx	ebx, word ptr XTIDE_BasePort
 	or	bx, bx
 	jz	xp_nobase
@@ -1635,10 +1616,8 @@ xp_ok:
 	xor	eax, eax
 	call	XTIDE_StashGeometry	; unit 0 = master
 
-;  PHASE 2a - prove the read path on the safest target there is: LBA 0, one
-;  sector, read-only, on a drive this routine has just established is idle.
-;  Wiring reads into the IOS request path means claiming the device, and the
-;  only disk in the test bed is the boot disk - that comes after this works.
+;  Prove the read path on the safest target there is: LBA 0, one sector,
+;  read-only, on a drive this routine has just established is idle.
 	mov	XTIDE_ReqLba, 0
 	mov	XTIDE_ReqCount, 1
 	mov	XTIDE_ReqBuf, OFFSET32 XTIDE_SecBuf
@@ -1649,13 +1628,12 @@ xp_ok:
 	cmp	word ptr XTIDE_SecBuf+510, 0AA55h
 	jne	xp_nosig
 
-;  Remember which sector was read, so the delay can report WHICH one rather
-;  than merely that 512 bytes arrived.
+;  Keep the first partition's type: it goes into the fail code below.
 	movzx	eax, byte ptr XTIDE_SecBuf+01BEh+4
 	mov	XTIDE_PartType, eax
 
-;  PHASE 2b - the write path, on a SLAVE if one is fitted, never on the master.
-;  The master is the boot disk both here and on the 5160.
+;  The write path is tested on a slave if one is fitted, never on the master:
+;  the master is the boot disk.
 ;
 ;  Only a -WriteTest build looks for a slave. The test writes 512 bytes to
 ;  LBA 100 of whichever unit answers as one, and on a machine with one disk
@@ -1681,8 +1659,8 @@ ifndef XT_NO_WRITETEST
 	jmp	xp_exit
 endif
 
-;  No slave is not a failure - the real card has one drive. Report the phase 2a
-;  result: the read verified, there was nothing safe to write to.
+;  No slave is not a failure. The code records that the read verified and
+;  there was nothing safe to write to.
 xp_noslave:
 	mov	XTIDE_TryUnit, DRVHD_MASTER
 	mov	eax, XTIDE_PartType
@@ -1706,29 +1684,9 @@ xp_nostride:
 	jmp	xp_exit
 
 xp_nobase:
-	mov	XTIDE_FailCode, 1	; no I/O resource reached the DDB
+	mov	XTIDE_FailCode, 1	; the miniport passed no I/O base
 
-;  NEVER fail AEP_INITIALIZE.
-;
-;  Failing it makes IOS drop the driver permanently - and on this machine that
-;  is a one-shot: resources may not be assigned until CONFIGMG's CONFIG_START,
-;  which arrives after initialisation. Fail here and that callback never comes.
-;  Device Manager's code 10 is IOS reporting that we hung up on it.
-;
-;  zikolas/cfu1-win9x (Nick, MIT) does the same thing and says why in one line
-;  of comment: "AEP_SUCCESS (stay resident either way)". Claiming a device is
-;  AEP_DEVICE_INQUIRY's job, not this one, and "no device" there is
-;  AEP_NO_MORE_DEVICES - still not a failure.
 xp_exit:
-;  MPD: no delay channel. IOS had no readback at init time, so the driver
-;  reported its fail code by burning a measurable number of boot-log ticks
-;  (technique 86). A miniport returns a value to HwFindAdapter and can call
-;  ScsiDebugPrint, so the delay is pure cost - and up to 45 units of it.
-;
-;  MPD: and a miniport MAY report not-found. The comment above belongs to
-;  AEP_INITIALIZE, where failing meant IOS dropped the driver for the rest
-;  of the boot. SP_RETURN_NOT_FOUND carries no such penalty, so report the
-;  truth: CF set when nothing answered.
 	pop	edi
 	pop	esi
 	pop	ebx
@@ -1741,7 +1699,6 @@ xp_none:
 	ret
 
 ;  end XTIDE_Probe
-
 
 
 	end
