@@ -1211,13 +1211,19 @@ xrs_chs:
 
 xrs_program:
 ifdef XT_SKIP_DRVHD
-;  DRV/HEAD holds only the unit and LBA bits 24-27, and nothing writes it
-;  between our commands, so an unchanged value needs neither the write nor the
-;  wait for the drive to honour it. The other taskfile registers are always
-;  written: the drive changes them as a command runs.
+;  In LBA mode DRV/HEAD holds only the unit and LBA bits 24-27, and nothing
+;  writes it between our commands, so an unchanged value needs neither the
+;  write nor the wait for the drive to honour it. The other taskfile registers
+;  are always written: the drive changes them as a command runs.
+;
+;  Never skip in CHS: the head is in DRV/HEAD, and a drive that reports the
+;  last sector transferred advances it when a command crosses a track.
+	cmp	XTIDE_LbaOk, 0
+	je	xrs_select
 	mov	eax, XTIDE_oDrvHd
 	cmp	eax, XTIDE_LastDrvHd
 	je	xrs_selected
+xrs_select:
 	mov	XTIDE_LastDrvHd, 0FFFFFFFFh	; unknown until the select is honoured
 endif
 	mov	edx, XTIDE_pDrvHd
@@ -1229,6 +1235,16 @@ ifdef XT_SKIP_DRVHD
 	mov	eax, XTIDE_oDrvHd
 	mov	XTIDE_LastDrvHd, eax
 xrs_selected:
+;  A command that ends in another LBA 24-27 group can leave the drive's
+;  register holding that group, so the value is unknown once it has run.
+	mov	eax, XTIDE_ReqLba
+	add	eax, XTIDE_ReqCount
+	dec	eax
+	xor	eax, XTIDE_ReqLba
+	shr	eax, 24
+	jz	xrs_samegroup
+	mov	XTIDE_LastDrvHd, 0FFFFFFFFh
+xrs_samegroup:
 endif
 
 ifdef XT_TIGHT_TASKFILE
