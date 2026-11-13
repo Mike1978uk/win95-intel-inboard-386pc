@@ -139,10 +139,14 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
             memcpy( st1, st, sizeof( st1 ) );
             /* 16 bpp: Flips fast and slow, back-buffer Locks, copies over the scene. */
             if( st1[15] != st0[15] || (why != NULL && why[1] != w0[1]) || st1[86] != st0[86] ||
-                st1[88] != st0[88] || st1[89] != st0[89] || st1[90] != st0[90] ) {
-                p += sprintf( p, " 16: flips fast %lu slow %lu | lockback %lu rows %lu | ovl ok %lu keyed->ram %lu plain->ram %lu | blt %lu |",
+                st1[88] != st0[88] || st1[89] != st0[89] || st1[90] != st0[90] || st1[91] != st0[91] ||
+                st1[92] != st0[92] || st1[93] != st0[93] ) {
+                p += sprintf( p, " 16: flips fast %lu slow %lu | lockback %lu rows %lu | lscan hud %lu tris-after %lu big %lu |",
                               (unsigned long)(st1[15] - st0[15]), why != NULL ? (unsigned long)(why[1] - w0[1]) : 0UL,
                               (unsigned long)(st1[86] - st0[86]), (unsigned long)(st1[87] - st0[87]),
+                              (unsigned long)(st1[91] - st0[91]), (unsigned long)(st1[92] - st0[92]),
+                              (unsigned long)(st1[93] - st0[93]) );
+                p += sprintf( p, " ovl ok %lu keyed->ram %lu plain->ram %lu | blt %lu |",
                               (unsigned long)(st1[88] - st0[88]), (unsigned long)(st1[89] - st0[89]),
                               (unsigned long)(st1[90] - st0[90]), (unsigned long)(st1[17] - st0[17]) );
                 i = 1;

@@ -706,7 +706,9 @@ static M8D3D_CONTEXT    m8d3d_ctx[M8D3D_CONTEXTS];
  * [22] triangles stamped; [23] stamps built; [24] ticks in RenderPrimitive.
  * [84] textures placed on the card, [85] texels sent to it. At 16 bpp: [86] writable Locks of a
  * back buffer, [87] their rows; system-memory copies over a frame's triangles: [88] kept as
- * overlays, [89] keyed and [90] plain that sent the frame through RAM.
+ * overlays, [89] keyed and [90] plain that sent the frame through RAM; frames Locked by the program:
+ * [91] HUD found and kept as overlays, sent the slow way as [92] triangles came after the Lock,
+ * [93] the HUD too large or no room.
  * At 8 bpp, for M8MON: [72] Locks, [73] bytes read back for them, [74] Unlocks, [75] bytes
  * written back, [76] ticks moving them, [77] Blts taken, [78-80] pixels filled, copied on the
  * card, sent from RAM, [81] Blts refused, [82] Flips, [83] Locks of the whole surface. */

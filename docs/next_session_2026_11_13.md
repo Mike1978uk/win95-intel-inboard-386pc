@@ -120,3 +120,20 @@ Bed now: HI (boot 241), MTMHW.INI `flatShadeFlag=0` (Gouraud), M8D3D.INI `[MONST
    overlay shelves then x 0-319, enough for a half-size HUD). Not rows 0-479 at x 320+: a slow Flip sends
    the full 640x480 frame to page 0 (fb16 op 2 has no half-size send).
 4. Card run in chase view for fps; then the colour work (16x16 summary, D5 row copies).
+
+## HJ results (bed, late afternoon)
+
+HJ = lores texture slots (x 320-639, rows 512-1023, 160), page erase sized to the mode, overlay cache
+16 entries with hashed `direct` entries, Lock-scan HUD overlays (`[d3d] lockscan`, now **off by default**).
+- `lockscan=0 lores=0`: works, full screen on our HAL (grabs 15:22-15:23; first frame blue sky, then
+  `palette=1`'s own hues). Same as HI.
+- `lockscan=1 lores=0`: black screen. M8MON: `tris-after 1` - **MTM Locks the back buffer before its
+  triangles**, so what it writes is under the scene (sky/backdrop?), not a HUD over it. Black-screen
+  cause in the Lock-scan path not found; the slow path replays triangles, so it should not be black.
+- `lockscan=1 lores=1`: one execute buffer, no Flip, game unresponsive. Lores alone not yet tried.
+- Chase-view exe patch (`0x4978DA` view=0 -> 1, bed copy, original `MONSTERX.ORG`) has no effect: races
+  still start in Cockpit. The start view is set elsewhere.
+- REDIR32 (the agent's shell helper) faulted when a `v9xctl shell` call reached the guest during the
+  game: no agent commands while MTM runs.
+Next: one run `lores=1 lockscan=0`; then an **underlay** (content Locked before the triangles, drawn
+first on the card, ideally as fills); then the right start-view site.

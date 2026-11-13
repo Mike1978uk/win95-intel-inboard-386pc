@@ -916,11 +916,11 @@ static void m8dd_tris_sort( int k )
  * its pixels change. Flip has the engine draw the triangles, then the card copies each overlay
  * over them with its source compare. At 320x240 page 1 leaves rows 752 on; at 640x480 only
  * the last 32 rows are free, enough for a line or two of text. */
-#define M8DD_OVL_MAX        8
+#define M8DD_OVL_MAX        16
 #define M8DD_OVL_POOL       32768               /* pixels of RAM copies, all overlays */
 #define M8DD_OVL_TOP(s)     ((s) == 2 ? 752 : 992)  /* below page 1, at 320x240 or 640x480 */
 #define M8DD_OVL_BOTTOM     1024
-#define M8DD_OVL_RIGHT      640
+#define M8DD_OVL_RIGHT      (m8d3d_half_on() ? 320 : 640)   /* in lores, textures hold x 320 on */
 #define M8DD_OVL_NOKEY      0x10000UL           /* no 5-6-5 pixel matches it */
 
 typedef struct {
@@ -933,6 +933,8 @@ typedef struct {
     int         cx;                     /* its half-size copy on the card */
     int         cy;
     int         sent;                   /* the card's copy matches `copy` */
+    int         direct;                 /* no copy: read from src at upload, changes found by hash */
+    DWORD       hash;
 } M8DD_OVC;
 
 typedef struct {
@@ -966,7 +968,7 @@ static void m8dd_ovc_reset( void )
 }
 
 /* A cache entry for the source rectangle, placed on shelves in the rows below page 1. */
-static int m8dd_ovc_find( const BYTE *src, long pitch, int w, int h, DWORD key )
+static int m8dd_ovc_find( const BYTE *src, long pitch, int w, int h, DWORD key, int direct )
 {
     M8DD_OVC    *e;
     int         sc = m8d3d_half_on() ? 2 : 1;
@@ -976,14 +978,14 @@ static int m8dd_ovc_find( const BYTE *src, long pitch, int w, int h, DWORD key )
 
     for( i = 0; i < m8dd_ovc_n; ++i ) {
         e = &m8dd_ovc[i];
-        if( e->src == src && e->pitch == pitch && e->w == w && e->h == h && e->key == key ) {
+        if( e->src == src && e->pitch == pitch && e->w == w && e->h == h && e->key == key && e->direct == direct ) {
             return( i );
         }
     }
     if( hw * hh > (int)sizeof( m8dd_ovl_half ) || hw > M8DD_OVL_RIGHT ) {
         return( -1 );
     }
-    if( m8dd_ovc_n == M8DD_OVL_MAX || m8dd_ovc_used + w * h > M8DD_OVL_POOL ) {
+    if( m8dd_ovc_n == M8DD_OVL_MAX || (!direct && m8dd_ovc_used + w * h > M8DD_OVL_POOL) ) {
         return( -1 );
     }
     if( m8dd_ovc_x + hw > M8DD_OVL_RIGHT ) {
@@ -1000,11 +1002,15 @@ static int m8dd_ovc_find( const BYTE *src, long pitch, int w, int h, DWORD key )
     e->w = w;
     e->h = h;
     e->key = key;
-    e->copy = m8dd_ovc_pool + m8dd_ovc_used;
+    e->copy = direct ? NULL : m8dd_ovc_pool + m8dd_ovc_used;
     e->cx = m8dd_ovc_x;
     e->cy = m8dd_ovc_y;
     e->sent = 0;
-    m8dd_ovc_used += w * h;
+    e->direct = direct;
+    e->hash = 0;
+    if( !direct ) {
+        m8dd_ovc_used += w * h;
+    }
     m8dd_ovc_x += hw;
     if( hh > m8dd_ovc_shelf ) {
         m8dd_ovc_shelf = hh;
@@ -1012,8 +1018,25 @@ static int m8dd_ovc_find( const BYTE *src, long pitch, int w, int h, DWORD key )
     return( m8dd_ovc_n++ );
 }
 
-/* A keyed copy onto back buffer k after its triangles, held as an overlay: 0 if it cannot be. */
-static int m8dd_ovl_add( int k, const BYTE *src, long pitch, const RECT *d, DWORD key )
+static DWORD m8dd_rows_hash( const BYTE *src, long pitch, int w, int h )
+{
+    DWORD   v = 2166136261UL;
+    int     x;
+    int     y;
+
+    for( y = 0; y < h; ++y ) {
+        const WORD *s = (const WORD *)(src + y * pitch);
+
+        for( x = 0; x < w; ++x ) {
+            v = (v ^ s[x]) * 16777619UL;
+        }
+    }
+    return( v );
+}
+
+/* A keyed copy onto back buffer k after its triangles, held as an overlay: 0 if it cannot be.
+ * `direct`: src is the buffer itself, unchanged until Flip uploads it, so no copy is kept. */
+static int m8dd_ovl_add_ex( int k, const BYTE *src, long pitch, const RECT *d, DWORD key, int direct )
 {
     M8DD_OVC    *e;
     int         w = d->right - d->left;
@@ -1025,14 +1048,23 @@ static int m8dd_ovl_add( int k, const BYTE *src, long pitch, const RECT *d, DWOR
     if( !m8dd_pages_ok || m8dd_ovl_n[k] == M8DD_OVL_MAX ) {
         return( 0 );
     }
-    if( (c = m8dd_ovc_find( src, pitch, w, h, key )) < 0 ) {
+    if( (c = m8dd_ovc_find( src, pitch, w, h, key, direct )) < 0 ) {
         /* Full: start again, once. Lists that named the old entries go with them. */
         m8dd_ovc_reset();
-        if( (c = m8dd_ovc_find( src, pitch, w, h, key )) < 0 ) {
+        if( (c = m8dd_ovc_find( src, pitch, w, h, key, direct )) < 0 ) {
             return( 0 );
         }
     }
     e = &m8dd_ovc[c];
+    if( direct ) {
+        DWORD v = m8dd_rows_hash( src, pitch, w, h );
+
+        if( v != e->hash ) {
+            e->hash = v;
+            e->sent = 0;
+        }
+        h = 0;
+    }
     for( y = 0; y < h; ++y ) {
         const WORD  *s = (const WORD *)(src + y * pitch);
         WORD        *t = e->copy + y * w;
@@ -1046,6 +1078,171 @@ static int m8dd_ovl_add( int k, const BYTE *src, long pitch, const RECT *d, DWOR
     m8dd_ovl[k][m8dd_ovl_n[k]].d = *d;
     ++m8dd_ovl_n[k];
     return( 1 );
+}
+
+static int m8dd_ovl_add( int k, const BYTE *src, long pitch, const RECT *d, DWORD key )
+{
+    return( m8dd_ovl_add_ex( k, src, pitch, d, key, 0 ) );
+}
+
+/* A program that writes its HUD into the back buffer through Lock: the buffer keeps its
+ * description (a black fill and the triangles), RAM holds the fill and what the program wrote.
+ * At Flip the cells that are not black become keyed overlays over the triangles, so the frame
+ * stays on the engine and only changed HUD pixels cross the bus. Black HUD pixels are lost to
+ * the key. Triangles recorded after the Lock could lie under what it wrote: that frame goes
+ * the slow way. Off unless [d3d] lockscan=1: a program that Locks before drawing its triangles
+ * (Monster Truck Madness) shows a black screen with it. */
+#define M8DD_CELL           16
+#define M8DD_BOXES          32
+
+static int      m8dd_lscan[2];
+static int      m8dd_lscan_tris[2];
+static RECT     m8dd_lscan_r[2];
+static BYTE     m8dd_cells[480 / M8DD_CELL][640 / M8DD_CELL];
+
+static int m8dd_lscan_ok( int b )
+{
+    static int  on = -1;
+    M8DD_DESC   *t = &m8dd_desc[b];
+
+    if( on < 0 ) {
+        on = (int)GetPrivateProfileInt( "d3d", "lockscan", 0, "C:\\M8D3D.INI" );
+    }
+    return( on && m8dd_pages_ok && t->known && t->n == 0 && t->colour == 0 &&
+            m8dd->width == 640 && m8dd->height == 480 );
+}
+
+/* Buffer k's written cells as at most `room` boxes on the screen; 0 if none fit. */
+static int m8dd_lscan_make( int k )
+{
+    static RECT box[M8DD_BOXES];
+    static BYTE stack[2 * (480 / M8DD_CELL) * (640 / M8DD_CELL)];
+    const int   cw = 640 / M8DD_CELL;
+    const int   ch = 480 / M8DD_CELL;
+    RECT        u = m8dd_lscan_r[k];
+    int         room = M8DD_OVL_MAX - m8dd_ovl_n[k];
+    int         n = 0;
+    long        area = 0;
+    int         x;
+    int         y;
+    int         i;
+    int         j;
+    int         tries;
+
+    memset( m8dd_cells, 0, sizeof( m8dd_cells ) );
+    for( y = u.top; y < u.bottom; ++y ) {
+        const DWORD *row = (const DWORD *)m8dd_at( k, 0, y );
+
+        for( x = u.left / M8DD_CELL; x < (u.right + M8DD_CELL - 1) / M8DD_CELL; ++x ) {
+            const DWORD *c = row + x * (M8DD_CELL / 2);
+
+            if( !m8dd_cells[y / M8DD_CELL][x] &&
+                (c[0] | c[1] | c[2] | c[3] | c[4] | c[5] | c[6] | c[7]) != 0 ) {
+                m8dd_cells[y / M8DD_CELL][x] = 1;
+            }
+        }
+    }
+    /* Groups of touching cells, each as its bounding box. */
+    for( y = 0; y < ch; ++y ) {
+        for( x = 0; x < cw; ++x ) {
+            int sp = 0;
+
+            if( m8dd_cells[y][x] != 1 ) {
+                continue;
+            }
+            if( n == M8DD_BOXES ) {
+                return( 0 );
+            }
+            SetRect( &box[n], x, y, x + 1, y + 1 );
+            m8dd_cells[y][x] = 2;
+            stack[sp++] = (BYTE)x;
+            stack[sp++] = (BYTE)y;
+            while( sp > 0 ) {
+                int cy = stack[--sp];
+                int cx = stack[--sp];
+                int dx;
+                int dy;
+
+                for( dy = -1; dy <= 1; ++dy ) {
+                    for( dx = -1; dx <= 1; ++dx ) {
+                        int nx = cx + dx;
+                        int ny = cy + dy;
+
+                        if( nx < 0 || ny < 0 || nx >= cw || ny >= ch || m8dd_cells[ny][nx] != 1 ) {
+                            continue;
+                        }
+                        m8dd_cells[ny][nx] = 2;
+                        stack[sp++] = (BYTE)nx;
+                        stack[sp++] = (BYTE)ny;
+                        box[n].left = nx < box[n].left ? nx : box[n].left;
+                        box[n].top = ny < box[n].top ? ny : box[n].top;
+                        box[n].right = nx + 1 > box[n].right ? nx + 1 : box[n].right;
+                        box[n].bottom = ny + 1 > box[n].bottom ? ny + 1 : box[n].bottom;
+                    }
+                }
+            }
+            ++n;
+        }
+    }
+    /* Too many: join the pair whose box grows least. */
+    while( n > room && n > 1 ) {
+        long    best = 0x7FFFFFFFL;
+        int     bi = 0;
+        int     bj = 1;
+        RECT    m;
+
+        for( i = 0; i < n; ++i ) {
+            for( j = i + 1; j < n; ++j ) {
+                long g;
+
+                UnionRect( &m, &box[i], &box[j] );
+                g = (long)(m.right - m.left) * (m.bottom - m.top) -
+                    (long)(box[i].right - box[i].left) * (box[i].bottom - box[i].top) -
+                    (long)(box[j].right - box[j].left) * (box[j].bottom - box[j].top);
+                if( g < best ) {
+                    best = g;
+                    bi = i;
+                    bj = j;
+                }
+            }
+        }
+        UnionRect( &box[bi], &box[bi], &box[bj] );
+        box[bj] = box[--n];
+    }
+    if( n > room ) {
+        return( 0 );
+    }
+    for( i = 0; i < n; ++i ) {
+        box[i].left *= M8DD_CELL;
+        box[i].top *= M8DD_CELL;
+        box[i].right *= M8DD_CELL;
+        box[i].bottom *= M8DD_CELL;
+        area += (long)(box[i].right - box[i].left) * (box[i].bottom - box[i].top);
+    }
+    if( area > 640L * 480L / 4 ) {
+        return( 0 );
+    }
+    /* A full cache starts again inside m8dd_ovl_add_ex and drops this frame's earlier boxes:
+     * then add them all once more. */
+    for( tries = 0; tries < 2; ++tries ) {
+        int before;
+
+        if( tries != 0 ) {
+            m8dd_ovl_n[k] = 0;
+        }
+        before = m8dd_ovl_n[k];
+
+        for( i = 0; i < n; ++i ) {
+            if( !m8dd_ovl_add_ex( k, (const BYTE *)m8dd_at( k, box[i].left, box[i].top ), m8dd->pitch,
+                                  &box[i], 0, 1 ) ) {
+                return( 0 );
+            }
+        }
+        if( m8dd_ovl_n[k] == before + n ) {
+            return( 1 );
+        }
+    }
+    return( 0 );
 }
 
 /* Buffer k's overlays whose pixels changed, to their place on the card, from an idle engine:
@@ -1072,7 +1269,8 @@ static int m8dd_ovl_upload( int k )
          * strokes survive. */
         for( y = 0; y < hh; ++y ) {
             for( x = 0; x < hw; ++x ) {
-                const WORD  *p = e->copy + sc * y * e->w + sc * x;
+                int         stride = e->direct ? (int)(e->pitch / 2) : e->w;
+                const WORD  *p = (e->direct ? (const WORD *)e->src : e->copy) + sc * y * stride + sc * x;
                 int         two = sc == 2 && 2 * x + 1 < e->w;
                 int         down = sc == 2 && 2 * y + 1 < e->h;
                 WORD        q = p[0];
@@ -1081,10 +1279,10 @@ static int m8dd_ovl_upload( int k )
                     q = p[1];
                 }
                 if( q == e->key && down ) {
-                    q = p[e->w];
+                    q = p[stride];
                 }
                 if( q == e->key && two && down ) {
-                    q = p[e->w + 1];
+                    q = p[stride + 1];
                 }
                 m8dd_ovl_half[y * hw + x] = q == e->key ? kx : m8d3d_index565( q );
             }
@@ -1417,6 +1615,22 @@ static DWORD m8dd_lock16( M8DD_LOCK *ld )
     if( keep < 0 ) {
         keep = (int)GetPrivateProfileInt( "d3d", "lockkeep", 1, "C:\\M8D3D.INI" );
     }
+    all.left = 0;
+    all.top = 0;
+    all.right = m8dd->width;
+    all.bottom = m8dd->height;
+    m8dd_clip_fb( &r, ld->bHasRect ? &ld->rArea : &all );
+    /* Locked again in the same frame: RAM holds the fill and what the earlier Locks wrote. */
+    if( m8dd_lscan[b] && b != m8dd_front ) {
+        ld->lpSurfData = (LPVOID)m8dd_at( b, r.left, r.top );
+        ld->ddRVal = DD_OK;
+        if( !(ld->dwFlags & DDLOCK_READONLY) ) {
+            UnionRect( &m8dd_lscan_r[b], &m8dd_lscan_r[b], &r );
+            ++m8d3d_stat[86];
+            m8d3d_stat[87] += (DWORD)(r.bottom - r.top);
+        }
+        return( DDHAL_DRIVER_HANDLED );
+    }
     m8dd_fresh( b );
     if( keep && b != m8dd_front && !(ld->dwFlags & DDLOCK_READONLY) && m8dd_tri_n[b] != 0 ) {
         int n = m8dd_tri_n[b];
@@ -1428,14 +1642,19 @@ static DWORD m8dd_lock16( M8DD_LOCK *ld )
     } else {
         m8dd_ready_all( b );
     }
-    all.left = 0;
-    all.top = 0;
-    all.right = m8dd->width;
-    all.bottom = m8dd->height;
-    m8dd_clip_fb( &r, ld->bHasRect ? &ld->rArea : &all );
     ld->lpSurfData = (LPVOID)m8dd_at( b, r.left, r.top );
     ld->ddRVal = DD_OK;
     if( ld->dwFlags & DDLOCK_READONLY ) {
+        return( DDHAL_DRIVER_HANDLED );
+    }
+    if( b != m8dd_front && keep && m8dd_lscan_ok( b ) ) {
+        m8dd_lscan[b] = 1;
+        m8dd_lscan_tris[b] = m8dd_tri_n[b];
+        m8dd_lscan_r[b] = r;
+        m8dd_desc[b].filled = 0;
+        m8dd_written[b] = 1;
+        ++m8d3d_stat[86];
+        m8d3d_stat[87] += (DWORD)(r.bottom - r.top);
         return( DDHAL_DRIVER_HANDLED );
     }
     m8dd_desc[b].known = 0;
@@ -1968,13 +2187,18 @@ static void m8dd_page_wait( void )
  * the card not as described, if the engine could not be used. */
 static int m8dd_page_frame( int k )
 {
-    static const RECT   all = { 0, 0, 640, 480 };
+    /* At 320x240 the pages are that size: the rest of their rows holds textures. */
+    RECT                all = { 0, 0, 640, 480 };
     LARGE_INTEGER       t;
     int                 h;
     int                 i;
     int                 extra = 0;
     RECT                ovbox[M8DD_OVL_MAX];
 
+    if( m8d3d_half_on() ) {
+        all.right = 320;
+        all.bottom = 240;
+    }
     if( !m8dd_pages_on ) {
         if( !m8d3d_replay( &all, 1, 0, M8DD_PAGE1_Y, NULL, NULL, NULL, 0 ) ) {
             m8d3d_feed_go();
@@ -2080,6 +2304,18 @@ static DWORD m8dd_flip16( M8DD_FLIP *fd )
     }
     QueryPerformanceCounter( &t0 );
     m8dd_tris_sort( k );
+    if( m8dd_lscan[k] ) {
+        m8dd_lscan[k] = 0;
+        if( m8dd_tri_n[k] != m8dd_lscan_tris[k] ) {
+            ++m8d3d_stat[92];
+            m8dd_desc[k].known = 0;
+        } else if( !m8dd_lscan_make( k ) ) {
+            ++m8d3d_stat[93];
+            m8dd_desc[k].known = 0;
+        } else {
+            ++m8d3d_stat[91];
+        }
+    }
     m8dd_written[1 - k] = 0;
     m8dd_stale[1 - k] = 1;
     /* GDI drew on the card since the last Flip (a program's own window
@@ -2274,6 +2510,8 @@ static int m8dd_destroy16( BYTE *gbl )
     m8dd_flush();
     m8dd_tri_n[0] = 0;
     m8dd_tri_n[1] = 0;
+    m8dd_lscan[0] = 0;
+    m8dd_lscan[1] = 0;
     m8dd_back = 0;
     m8dd_front = 0;
     m8dd_desc[0].known = 0;
@@ -2352,17 +2590,22 @@ static int m8dd_host_rect( const RECT *d, const BYTE *src, long pitch )
     return( m8dd_idle() );
 }
 
-/* Textures in video memory, at 16 bpp: on the card at 8 bpp in the column beside page 0
- * (x 640-991, rows 0-287, 11 x 9 slots of 32x32), above the HAL's stamps, which start below
- * them while any is held. The texels cross the bus once, at Unlock. The HAL's colour per
+/* Textures in video memory, at 16 bpp: on the card at 8 bpp in 32x32 slots. At 640x480 in the
+ * column beside page 0 (x 640-991, rows 0-287, 99 slots), above the HAL's stamps, which start
+ * below them while any is held. At 320x240 (lores) that column is the scratch's, and pages and
+ * overlays use x 0-319 only: x 320-639, rows 512-1023 (160 slots). The texels cross the bus once, at Unlock. The HAL's colour per
  * triangle reads an 8x8 summary kept in RAM; nothing reads a texture back, so Lock hands out
  * one shared buffer, and a second texture locked while it is held is refused. Not at 8 bpp:
  * there the column is the flip chain's scratch. */
 #define M8DD_TEX_X          640
 #define M8DD_TEX_COLS       11
 #define M8DD_TEX_SIDE       32
-#define M8DD_TEX_SLOTS      (M8DD_TEX_COLS * 9)
+#define M8DD_TEX_SLOTS_FULL (M8DD_TEX_COLS * 9)
 #define M8DD_TEX_ROWS       (9 * M8DD_TEX_SIDE)
+#define M8DD_TEX_LORES_X    320
+#define M8DD_TEX_LORES_Y    512
+#define M8DD_TEX_LORES_COLS 10
+#define M8DD_TEX_SLOTS      (M8DD_TEX_LORES_COLS * 16)
 #define M8DD_SUM            8
 
 typedef struct {
@@ -2370,6 +2613,8 @@ typedef struct {
     int     w;
     int     h;
     int     is555;
+    int     cx;                 /* its slot on the card */
+    int     cy;
     WORD    sum[M8DD_SUM * M8DD_SUM];
 } M8DD_TEX;
 
@@ -2429,19 +2674,25 @@ static int m8dd_tex_create( M8DD_CREATE *cd )
     int     pf = (*(DWORD *)(lcl + M8DD_LCL_FLAGS) & M8DD_HASPIXELFORMAT) != 0;
     int     w = *(WORD *)(gbl + M8DD_GBL_WIDTH);
     int     h = *(WORD *)(gbl + M8DD_GBL_HEIGHT);
+    int     lores = m8d3d_half_on();
+    int     slots = lores ? M8DD_TEX_SLOTS : M8DD_TEX_SLOTS_FULL;
     int     k;
 
     if( cd->dwSCnt != 1 || !(caps & DDSCAPS_TEXTURE) || (caps & DDSCAPS_SYSTEMMEMORY) ) {
         return( -1 );
     }
-    for( k = 0; k < M8DD_TEX_SLOTS && m8dd_tex[k].gbl != NULL; ++k ) {
+    for( k = 0; k < slots && m8dd_tex[k].gbl != NULL; ++k ) {
     }
-    if( k == M8DD_TEX_SLOTS || m8d3d_half_on() || w < 1 || h < 1 || w > M8DD_TEX_SIDE ||
+    if( k == slots || w < 1 || h < 1 || w > M8DD_TEX_SIDE ||
         h > M8DD_TEX_SIDE || (pf && *(DWORD *)(gbl + M8DD_GBL_PF_BITS) != 16) ) {
         cd->ddRVal = DDERR_OUTOFVIDEOMEMORY;
         return( DDHAL_DRIVER_HANDLED );
     }
     m8dd_tex[k].gbl = gbl;
+    m8dd_tex[k].cx = lores ? M8DD_TEX_LORES_X + (k % M8DD_TEX_LORES_COLS) * M8DD_TEX_SIDE :
+                             M8DD_TEX_X + (k % M8DD_TEX_COLS) * M8DD_TEX_SIDE;
+    m8dd_tex[k].cy = lores ? M8DD_TEX_LORES_Y + (k / M8DD_TEX_LORES_COLS) * M8DD_TEX_SIDE :
+                             (k / M8DD_TEX_COLS) * M8DD_TEX_SIDE;
     m8dd_tex[k].w = w;
     m8dd_tex[k].h = h;
     m8dd_tex[k].is555 = pf && *(DWORD *)(gbl + M8DD_GBL_PF_GMASK) == 0x03E0;
@@ -2449,7 +2700,7 @@ static int m8dd_tex_create( M8DD_CREATE *cd )
     *(long *)(gbl + M8DD_GBL_PITCH) = (long)w * 2;
     *(DWORD *)(gbl + M8DD_GBL_VIDMEM) = (DWORD)m8dd_tex_buf;
     *(DWORD *)(lcl + M8DD_LCL_CAPS) |= DDSCAPS_VIDEOMEMORY;
-    if( m8dd_tex_n++ == 0 ) {
+    if( m8dd_tex_n++ == 0 && !lores ) {
         m8dd_tex_rows = M8DD_TEX_ROWS;
         m8d3d_stamps_forget();
     }
@@ -2469,7 +2720,7 @@ static int m8dd_tex_destroy( BYTE *gbl )
     if( m8dd_tex_held == k ) {
         m8dd_tex_held = -1;
     }
-    if( --m8dd_tex_n == 0 ) {
+    if( --m8dd_tex_n == 0 && m8dd_tex_rows != 0 ) {
         m8dd_tex_rows = 0;
         m8d3d_stamps_forget();
     }
@@ -2517,8 +2768,8 @@ static int m8dd_tex_upload( int k )
     for( y = 0; y < t->h * t->w; ++y ) {
         m8dd_tex_idx[y] = m8d3d_index565( m8dd_565( m8dd_tex_buf[y], t->is555 ) );
     }
-    r.left = M8DD_TEX_X + (k % M8DD_TEX_COLS) * M8DD_TEX_SIDE;
-    r.top = (k / M8DD_TEX_COLS) * M8DD_TEX_SIDE;
+    r.left = t->cx;
+    r.top = t->cy;
     r.right = r.left + t->w;
     r.bottom = r.top + t->h;
     m8d3d_feed_finish();
