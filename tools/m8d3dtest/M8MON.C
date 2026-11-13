@@ -4,9 +4,10 @@
  *
  *   M8MON <seconds> <label>
  *
- * Every half second, the change since the last sample in M8DD32.DLL's m8d3d_stat (8 bpp Lock,
- * Unlock, Flip; shared memory, so any process can read it) and in the 16-bit driver's m8_stats
- * (GDI calls that reached the screen, by entry point; escape M8_ESC_STATS). Quiet samples are not
+ * Every half second, the change since the last sample in M8DD32.DLL's m8d3d_stat (shared
+ * memory: at 8 bpp Lock, Unlock and Flip; at 16 bpp Flips, back-buffer Locks and copies over
+ * the scene) and in the 16-bit driver's m8_stats (GDI calls that reached the screen, by entry
+ * point; escape M8_ESC_STATS). Quiet samples are not
  * written. Appends to C:\M8MON.TXT. Move times are clock ticks; in a bed they are not the card's,
  * the counts are.
  *
@@ -19,7 +20,7 @@
 #include <string.h>
 
 #define M8_DLL_BASE     0xB0C00000UL
-#define STAT_N          88
+#define STAT_N          96
 #define SAMPLE_MS       500
 
 #define M8_ESC_STATS    0x4D41
@@ -73,6 +74,8 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
     static DWORD    st1[STAT_N];
     static DWORD    g0[M8_STAT_COUNT];
     static DWORD    g1[M8_STAT_COUNT];
+    static DWORD    w0[6];
+    const DWORD     *why = NULL;
     const DWORD     *st;
     FILE            *o;
     LARGE_INTEGER   f;
@@ -125,11 +128,28 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
             i = 1;
         } else if( st != NULL && IsBadReadPtr( st, sizeof( st1 ) ) ) {
             st = NULL;
+            why = NULL;
             p += sprintf( p, " ddraw gone |" );
             i = 1;
         }
+        if( st != NULL && why == NULL && (why = (const DWORD *)find_export( "m8d3d_flip_why" )) != NULL ) {
+            memcpy( w0, why, sizeof( w0 ) );
+        }
         if( st != NULL ) {
             memcpy( st1, st, sizeof( st1 ) );
+            /* 16 bpp: Flips fast and slow, back-buffer Locks, copies over the scene. */
+            if( st1[15] != st0[15] || (why != NULL && why[1] != w0[1]) || st1[86] != st0[86] ||
+                st1[88] != st0[88] || st1[89] != st0[89] || st1[90] != st0[90] ) {
+                p += sprintf( p, " 16: flips fast %lu slow %lu | lockback %lu rows %lu | ovl ok %lu keyed->ram %lu plain->ram %lu | blt %lu |",
+                              (unsigned long)(st1[15] - st0[15]), why != NULL ? (unsigned long)(why[1] - w0[1]) : 0UL,
+                              (unsigned long)(st1[86] - st0[86]), (unsigned long)(st1[87] - st0[87]),
+                              (unsigned long)(st1[88] - st0[88]), (unsigned long)(st1[89] - st0[89]),
+                              (unsigned long)(st1[90] - st0[90]), (unsigned long)(st1[17] - st0[17]) );
+                i = 1;
+            }
+            if( why != NULL ) {
+                memcpy( w0, why, sizeof( w0 ) );
+            }
             if( st1[72] != st0[72] || st1[74] != st0[74] || st1[82] != st0[82] ) {
                 p += sprintf( p, " dd lock %lu/%lu/%lu unlock %lu/%lu move %lu flip8 %lu |",
                               (unsigned long)(st1[72] - st0[72]), (unsigned long)(st1[83] - st0[83]),

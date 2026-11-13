@@ -704,11 +704,13 @@ static M8D3D_CONTEXT    m8d3d_ctx[M8D3D_CONTEXTS];
  * triangles; [15] flips; in Blt: [16] ticks, [17] calls, [18] full clears described;
  * [19] page wait ticks; [20] triangles drawn from a mask; [21] masks built;
  * [22] triangles stamped; [23] stamps built; [24] ticks in RenderPrimitive.
- * [84] textures placed on the card, [85] texels sent to it.
+ * [84] textures placed on the card, [85] texels sent to it. At 16 bpp: [86] writable Locks of a
+ * back buffer, [87] their rows; system-memory copies over a frame's triangles: [88] kept as
+ * overlays, [89] keyed and [90] plain that sent the frame through RAM.
  * At 8 bpp, for M8MON: [72] Locks, [73] bytes read back for them, [74] Unlocks, [75] bytes
  * written back, [76] ticks moving them, [77] Blts taken, [78-80] pixels filled, copied on the
  * card, sent from RAM, [81] Blts refused, [82] Flips, [83] Locks of the whole surface. */
-DWORD                   m8d3d_stat[88];      /* 62-64: triangles put in RAM: on the shown buffer, on a buffer not described, flushes of recorded ones; 65: triangles on a surface not ours; 66: back-buffer part clears described as nothing; 67-68: overlays drawn by the card, sent to it; 60: feeds cut short by the 16-bit driver; 61: back-buffer locks that kept the triangles; 25: engine writes sent, 26: triangle pieces drawn, 27-33: m8dd_tri_census, 34-35: FIFO waits, 36-43: Flip phases, 44: sending, 45: sends forced by a full queue, 46-53: of 36-43, the part spent sending,
+DWORD                   m8d3d_stat[96];      /* 62-64: triangles put in RAM: on the shown buffer, on a buffer not described, flushes of recorded ones; 65: triangles on a surface not ours; 66: back-buffer part clears described as nothing; 67-68: overlays drawn by the card, sent to it; 60: feeds cut short by the 16-bit driver; 61: back-buffer locks that kept the triangles; 25: engine writes sent, 26: triangle pieces drawn, 27-33: m8dd_tri_census, 34-35: FIFO waits, 36-43: Flip phases, 44: sending, 45: sends forced by a full queue, 46-53: of 36-43, the part spent sending,
                                               * 54-59: feed: opened, frames handed over, entries left for m8d3d_feed_finish, driver time-outs, FIFO-full reads, entries sent */
 /* Diagnostic: clock ticks since the last mark, into phase k. */
 static LARGE_INTEGER    m8d3d_ph;

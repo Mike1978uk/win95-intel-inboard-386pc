@@ -100,3 +100,23 @@ gitignored. Bed mouse: absolute moves fail; small moverel steps (<= 5).
   ~0.9 s a frame in Flip: every frame took the slow path (whole RAM frame sent). Cockpit view Locks the back buffer
   each frame; chase view is the owner's choice anyway. Next: chase view + `palette=1` + Gouraud (INI), keyed
   triangles on the engine path, card run for fps, then lores (320x240) with textures moved out of the column.
+
+## MTM to playable: design, measured order (afternoon)
+
+Bed now: HI (boot 241), MTMHW.INI `flatShadeFlag=0` (Gouraud), M8D3D.INI `[MONSTERX.EXE] palette=1`,
+`MTM_HW.BAT` starts M8MON (15 min). View: chase near in game (V cycles views, D the dashboard).
+
+1. **Measure (owner, bed):** MTM_HW in chase view, a few seconds racing. `C:\M8MON.TXT` 16 bpp line per half
+   second: flips fast/slow, `lockback` (writable back-buffer Locks, rows), system-memory copies over the
+   scene: `ovl ok`, `keyed->ram`, `plain->ram`. Any of the last four non-zero each frame = the slow path's cause.
+2. **Fix by what 1 shows** (each turns "send the whole 640x480 frame" into "send what changed"):
+   - `plain->ram`: unkeyed sprite copies over the scene; `m8dd_ovl_add` already takes `M8DD_OVL_NOKEY`, only
+     the Blt condition requires a key. (HI removed an empty `if` at that spot, a half-finished case.)
+   - `keyed->ram`: overlay cache full (8 entries, 32,768 pixels, card rows 992-1023 at 640x480).
+   - `lockback`: HUD written by Lock. Keep the description at Lock; at Flip compare the locked rows with the
+     described colour fills and make the cells that differ keyed overlays (key = described colour).
+3. **Room:** at 640x480 the overlay cache has 32 card rows; at 320x240 (lores) 272. Lores needs the textures
+   out of the column (join/stamps use x 640+ there): x 320-639, rows 512-1023 (page 1 is 320 wide in lores;
+   overlay shelves then x 0-319, enough for a half-size HUD). Not rows 0-479 at x 320+: a slow Flip sends
+   the full 640x480 frame to page 0 (fb16 op 2 has no half-size send).
+4. Card run in chase view for fps; then the colour work (16x16 summary, D5 row copies).

@@ -31,7 +31,7 @@
 extern void m8d3d_init( DWORD *global, DWORD *callbacks, DWORD *driver_info );
 extern int  m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const short *v,
                          const WORD *index, const DWORD *rgb, int n );
-extern DWORD m8d3d_stat[88];
+extern DWORD m8d3d_stat[96];
 extern void m8d3d_feed_finish( void );
 extern int m8d3d_lores_on( void );
 extern BYTE m8d3d_index565( WORD p );
@@ -1441,6 +1441,8 @@ static DWORD m8dd_lock16( M8DD_LOCK *ld )
     m8dd_desc[b].known = 0;
     m8dd_written[b] = 1;
     if( b != m8dd_front ) {
+        ++m8d3d_stat[86];
+        m8d3d_stat[87] += (DWORD)(r.bottom - r.top);
         return( DDHAL_DRIVER_HANDLED );
     }
     m8dd_card.known = 0;
@@ -1629,13 +1631,15 @@ static DWORD m8dd_blt16_do( M8DD_BLT *bd )
             }
         }
         /* A copy from system memory over the scene: an overlay, drawn by the card. */
-        if( src != NULL && sk < 0 && count == 1 && m8dd_tri_n[dk] != 0 ) {
-        }
         if( keyed && sk < 0 && count == 1 && m8dd_tri_n[dk] != 0 &&
             c.left == od->left && c.top == od->top && c.right == od->right && c.bottom == od->bottom &&
             m8dd_ovl_add( dk, src + os->top * pitch + os->left * 2, pitch, &c, keyed ? key : M8DD_OVL_NOKEY ) ) {
+            ++m8d3d_stat[88];
             bd->ddRVal = DD_OK;
             return( DDHAL_DRIVER_HANDLED );
+        }
+        if( m8dd_tri_n[dk] != 0 ) {
+            ++m8d3d_stat[keyed ? 89 : 90];
         }
         m8dd_tris_to_ram( dk );
     } else {
