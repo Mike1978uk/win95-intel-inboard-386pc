@@ -505,6 +505,10 @@ LONG WINAPI __loadds Control( LPVOID lpDevice, UINT function, LPVOID lpInput, LP
         m8_dd_lend( *(LPWORD)lpInput );
         return( 1 );
     }
+    if( function == M8_ESC_STATS && lpOutput != NULL ) {
+        _fmemcpy( lpOutput, m8_stats, sizeof( m8_stats ) );
+        return( 1 );
+    }
 #ifdef M8_PROF
     if( function == M8_ESC_PROF ) {
         return( m8_pf_escape( lpInput, lpOutput ) );

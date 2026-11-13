@@ -127,6 +127,10 @@ static int m8dd_shadow_alloc( void )
             rows = 0;
         }
         size = m8dd_mul( M8_SCREEN_X, rows > 0 ? top + rows : M8_SCREEN_Y );
+        /* A mode with room for a second page has M8DD32's 8 bpp back buffer there: its rows too. */
+        if( pass == 0 && M8_SCREEN_Y <= M8_PAGE1_Y && size < m8dd_mul( M8_SCREEN_X, M8_PAGE1_Y + M8_SCREEN_Y ) ) {
+            size = m8dd_mul( M8_SCREEN_X, M8_PAGE1_Y + M8_SCREEN_Y );
+        }
         if( m8dd_shadow != NULL && m8dd_shadow_size >= size ) {
             break;
         }
@@ -260,6 +264,11 @@ static void m8dd_build( int mode )
     }
     hi->ddCaps.dwPalCaps = DDPCAPS_8BIT | DDPCAPS_PRIMARYSURFACE;
     hi->ddCaps.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE | DDSCAPS_PALETTE;
+    /* M8DD32's Flip: the back buffer is the card's second page, shown by CRT_OFFSET, so only a
+     * mode of M8_PAGE1_Y rows or fewer has one. */
+    if( m8dd->flip && M8_SCREEN_Y <= M8_PAGE1_Y ) {
+        hi->ddCaps.ddsCaps.dwCaps |= DDSCAPS_FLIP | DDSCAPS_BACKBUFFER | DDSCAPS_COMPLEX;
+    }
     if( m8dd->d3d_global ) {
         /* M8DD32's Direct3D HAL (m8d3d.c): flat shading at 8 bpp. */
         hi->lpD3DGlobalDriverData = (ULONG_PTR)m8dd->d3d_global;
@@ -284,8 +293,9 @@ static void m8dd_build( int mode )
 /* At 16 bpp the primary is fb16.c's frame buffer in RAM: DirectDraw locks
  * it in place, and M8DD32 sends what it changed through M8_ESC_FB16SEND, as
  * GDI's drawing goes. One mode, the one running: the colour depth and, at 16
- * bpp, the size change only at a restart (ReEnable). No off-screen surfaces
- * on the card, whose 256 colours are not this format: system memory serves. */
+ * bpp, the size change only at a restart (ReEnable). Off-screen surfaces stay
+ * in system memory, the card's 256 colours not being this format; textures are
+ * the exception, kept on the card at 8 bpp (M8DD32 m8dd_tex_create). */
 static void m8dd_build16( void )
 {
     DDHALINFO_t FAR     *hi = &m8dd->info;
@@ -352,7 +362,10 @@ static void m8dd_build16( void )
         /* Direct3D draws through the flip chain: triangles in a buffer's description. */
         if( m8dd->d3d_global && rows_ok ) {
             hi->ddCaps.dwCaps |= DDCAPS_3D;
-            hi->ddCaps.ddsCaps.dwCaps |= DDSCAPS_3DDEVICE;
+            /* Textures in video memory: on the card, beside page 0 (m8dd_tex_create). DDRAW
+             * refuses the whole HAL if a claimed surface type has an alignment of 0 or odd. */
+            hi->ddCaps.ddsCaps.dwCaps |= DDSCAPS_3DDEVICE | DDSCAPS_TEXTURE;
+            hi->vmiData.dwTextureAlign = 8;
         }
     }
     if( !(hi->ddCaps.dwCaps & DDCAPS_3D) ) {
@@ -370,10 +383,23 @@ static void m8dd_build16( void )
  * mode change; M8DD32 clips and addresses by the block's width and pitch. */
 void __far m8dd_mode_changed( void )
 {
-    if( m8dd == NULL || !m8dd->fb16 || m8dd->marker != M8DD_MARKER ) {
+    int mode;
+
+    if( m8dd == NULL || m8dd->marker != M8DD_MARKER ) {
         return;
     }
-    m8dd_build16();
+    if( m8dd->fb16 ) {
+        m8dd_build16();
+    } else {
+        /* A full-screen program's own mode: DirectDraw must see its size, pitch and pages, not
+         * the desktop's. Only once DirectDraw has been set up (the shadow exists): a desktop
+         * change alone should not pin a shadow in RAM. */
+        mode = m8dd_mode_index();
+        if( m8dd_shadow == NULL || mode < 0 || !m8dd_shadow_alloc() ) {
+            return;
+        }
+        m8dd_build( mode );
+    }
     if( m8dd_setinfo != NULL ) {
         m8dd_setinfo( &m8dd->info, 1 );
     }

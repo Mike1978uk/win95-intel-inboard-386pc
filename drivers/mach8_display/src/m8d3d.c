@@ -142,6 +142,9 @@ extern int  m8d3d_scratch( LPVOID key, int *w, int *h, int *x, int *y );
 extern int  m8d3d_fb16( void );
 extern int  m8d3d_record( LPVOID lcl, const short *v, BYTE index, WORD colour, const DWORD *rgb, int depth );
 extern void m8d3d_scratch_free( LPVOID key );
+extern void m8dd_trace( const char *fmt, ... );
+extern const WORD *m8dd_tex_summary( LPVOID gbl, int *w, int *h, int *is555 );
+extern int  m8dd_tex_rows;
 extern int  m8d3d_engine_begin( void );
 extern void m8d3d_engine_end( void );
 extern int  m8d3d_room( int n );
@@ -205,6 +208,7 @@ static long m8d3d_ford( const float *p )
 #define M8D3D_DEVCAPS_EXECUTESYSTEMMEMORY   0x00000010UL
 #define M8D3D_DEVCAPS_TLVERTEXSYSTEMMEMORY  0x00000040UL
 #define M8D3D_DEVCAPS_TEXTURESYSTEMMEMORY   0x00000100UL
+#define M8D3D_DEVCAPS_TEXTUREVIDEOMEMORY    0x00000200UL
 #define M8D3D_DEVCAPS_DRAWPRIMTLVERTEX      0x00000400UL
 #define M8D3D_DEVCAPS_CANRENDERAFTERFLIP    0x00000800UL
 #define M8D3D_PMISCCAPS_CULLNONE    0x00000010UL
@@ -490,7 +494,7 @@ typedef struct {
 typedef char m8d3d_tl_size[sizeof( M8D3D_TLVERTEX ) == 32 ? 1 : -1];
 
 #define M8D3D_CONTEXTS  4
-#define M8D3D_TEXTURES  64
+#define M8D3D_TEXTURES  128            /* Monster Truck Madness asks for at least 96 */
 /* Below this on its longer side a triangle shows little of a gradient, and a gradient costs
  * several commands where a flat triangle costs a stamp. */
 #define M8D3D_GRAD_MIN  32
@@ -699,8 +703,12 @@ static M8D3D_CONTEXT    m8d3d_ctx[M8D3D_CONTEXTS];
  * counter ticks in Flip at 16 bpp: [12] all, [13] the 16-bit side, [14] erase and
  * triangles; [15] flips; in Blt: [16] ticks, [17] calls, [18] full clears described;
  * [19] page wait ticks; [20] triangles drawn from a mask; [21] masks built;
- * [22] triangles stamped; [23] stamps built; [24] ticks in RenderPrimitive. */
-DWORD                   m8d3d_stat[72];      /* 62-64: triangles put in RAM: on the shown buffer, on a buffer not described, flushes of recorded ones; 65: triangles on a surface not ours; 66: back-buffer part clears described as nothing; 67-68: overlays drawn by the card, sent to it; 60: feeds cut short by the 16-bit driver; 61: back-buffer locks that kept the triangles; 25: engine writes sent, 26: triangle pieces drawn, 27-33: m8dd_tri_census, 34-35: FIFO waits, 36-43: Flip phases, 44: sending, 45: sends forced by a full queue, 46-53: of 36-43, the part spent sending,
+ * [22] triangles stamped; [23] stamps built; [24] ticks in RenderPrimitive.
+ * [84] textures placed on the card, [85] texels sent to it.
+ * At 8 bpp, for M8MON: [72] Locks, [73] bytes read back for them, [74] Unlocks, [75] bytes
+ * written back, [76] ticks moving them, [77] Blts taken, [78-80] pixels filled, copied on the
+ * card, sent from RAM, [81] Blts refused, [82] Flips, [83] Locks of the whole surface. */
+DWORD                   m8d3d_stat[88];      /* 62-64: triangles put in RAM: on the shown buffer, on a buffer not described, flushes of recorded ones; 65: triangles on a surface not ours; 66: back-buffer part clears described as nothing; 67-68: overlays drawn by the card, sent to it; 60: feeds cut short by the 16-bit driver; 61: back-buffer locks that kept the triangles; 25: engine writes sent, 26: triangle pieces drawn, 27-33: m8dd_tri_census, 34-35: FIFO waits, 36-43: Flip phases, 44: sending, 45: sends forced by a full queue, 46-53: of 36-43, the part spent sending,
                                               * 54-59: feed: opened, frames handed over, entries left for m8d3d_feed_finish, driver time-outs, FIFO-full reads, entries sent */
 /* Diagnostic: clock ticks since the last mark, into phase k. */
 static LARGE_INTEGER    m8d3d_ph;
@@ -2340,6 +2348,25 @@ static void m8d3d_stamp_cut( M8D3D_STAMP *s, const short *n )
     s->parts = M8D3D_STAMP_PARTS;
 }
 
+/* Textures came to the column's top rows, or left them: the stamps start again below them. */
+void m8d3d_stamps_forget( void )
+{
+    int k;
+
+    for( k = 0; k < M8D3D_CONTEXTS; ++k ) {
+        M8D3D_CONTEXT *c = &m8d3d_ctx[k];
+
+        if( c->target != NULL && c->stamp_on ) {
+            memset( c->stamp, 0, sizeof( c->stamp ) );
+            memset( c->stamp_seen, 0, sizeof( c->stamp_seen ) );
+            c->stamp_seen_next = 0;
+            c->stamp_x = c->mx;
+            c->stamp_y = m8dd_tex_rows;
+            c->stamp_shelf = 0;
+        }
+    }
+}
+
 /* A place for a w x h stamp: shelves down the column beside page 0, then the rows taken from the
  * scratch. When full they all go: replacing one at a time would need a free list for a case
  * where the scene has more shaded triangles than the column holds, and is not repeating them. */
@@ -2366,9 +2393,9 @@ static int m8d3d_stamp_place( M8D3D_CONTEXT *c, int w, int h, int *x, int *y )
             c->stamp[k].used = 0;
         }
         c->stamp_x = c->mx;
-        c->stamp_y = 0;
+        c->stamp_y = m8dd_tex_rows;
         c->stamp_shelf = 0;
-        if( h > c->my ) {
+        if( h > c->my - m8dd_tex_rows ) {
             return( 0 );
         }
     }
@@ -3039,7 +3066,7 @@ static int m8d3d_join( M8D3D_CONTEXT *c, int dy, const short *v, const WORD *ind
         memset( c->stamp_seen, 0, sizeof( c->stamp_seen ) );
         c->stamp_seen_next = 0;
         c->stamp_x = c->mx;
-        c->stamp_y = 0;
+        c->stamp_y = m8dd_tex_rows;
         c->stamp_shelf = 0;
         memset( c->mask, 0, sizeof( c->mask ) );
         memset( c->seen, 0, sizeof( c->seen ) );
@@ -3460,6 +3487,7 @@ static DWORD __stdcall m8d3d_context_create( M8D3D_CONTEXTCREATE *d )
         ++m8d3d_census.contexts_z;
     }
     if( !m8d3d_surface( m8d3d_lcl( d->lpDDS ), &x, &y, &c->sw, &c->sh ) ) {
+        m8dd_trace( "d3d context refused: target not on the card (Z %d)", d->lpDDSZ != NULL );
         return( DDHAL_DRIVER_HANDLED );
     }
     /* [d3d] lores=1 (the default) draws at half size and shows 320x240: fewer pixels for a
@@ -3485,8 +3513,11 @@ static DWORD __stdcall m8d3d_context_create( M8D3D_CONTEXTCREATE *d )
     }
     c->tw = c->sw;
     if( !m8d3d_scratch( c, &c->tw, &c->sh, &c->sx, &c->sy ) ) {
+        m8dd_trace( "d3d context refused: no scratch (target %dx%d)", c->sw, c->sh );
         return( DDHAL_DRIVER_HANDLED );
     }
+    m8dd_trace( "d3d context: target %dx%d at %d,%d scratch %dx%d at %d,%d lores %d Z %d", c->sw, c->sh, x, y,
+                c->tw, c->sh, c->sx, c->sy, m8d3d_half, d->lpDDSZ != NULL );
     /* Two pages leave a tall column beside them: the strip takes its top rows. */
     memset( c->stamp, 0, sizeof( c->stamp ) );
     memset( c->stamp_seen, 0, sizeof( c->stamp_seen ) );
@@ -3511,7 +3542,7 @@ static DWORD __stdcall m8d3d_context_create( M8D3D_CONTEXTCREATE *d )
             c->sh -= M8D3D_STAMP_ROWS;
             c->stamp_on = 1;
             c->stamp_x = c->mx;
-            c->stamp_y = 0;
+            c->stamp_y = m8dd_tex_rows;
             c->stamp_shelf = 0;
         }
     }
@@ -3579,6 +3610,16 @@ static int m8d3d_tex_read( M8D3D_TEX *t, BYTE **bits )
     gbl = *(BYTE **)(lcl + M8D3D_LCL_GBL);
     if( gbl == NULL || IsBadReadPtr( gbl, M8D3D_GBL_GMASK + 4 ) ) {
         return( 0 );
+    }
+    /* A texture on the card: its summary in RAM. */
+    {
+        const WORD *sum = m8dd_tex_summary( gbl, &t->w, &t->h, &t->is555 );
+
+        if( sum != NULL ) {
+            *bits = (BYTE *)sum;
+            t->pitch = 16;
+            return( 1 );
+        }
     }
     *bits = *(BYTE **)(gbl + M8D3D_GBL_VIDMEM);
     t->pitch = *(long *)(gbl + M8D3D_GBL_PITCH);
@@ -4893,6 +4934,8 @@ void m8d3d_init( DWORD *global, DWORD *callbacks, DWORD *driver_info )
     c->dwDevCaps = M8D3D_DEVCAPS_FLOATTLVERTEX | M8D3D_DEVCAPS_EXECUTESYSTEMMEMORY |
                    M8D3D_DEVCAPS_TLVERTEXSYSTEMMEMORY | M8D3D_DEVCAPS_DRAWPRIMTLVERTEX |
                    M8D3D_DEVCAPS_TEXTURESYSTEMMEMORY |
+                   /* At 16 bpp also on the card (m8dd_tex_create). */
+                   M8D3D_DEVCAPS_TEXTUREVIDEOMEMORY |
                    /* Flip has drawn the frame before it returns: nothing for the runtime to wait on. */
                    M8D3D_DEVCAPS_CANRENDERAFTERFLIP;
     c->dtcTransformCaps[0] = sizeof( c->dtcTransformCaps );
@@ -4922,9 +4965,19 @@ void m8d3d_init( DWORD *global, DWORD *callbacks, DWORD *driver_info )
                                        M8D3D_PTBLENDCAPS_COPY;
     c->dpcTriCaps.dwTextureAddressCaps = M8D3D_PTADDRESSCAPS_WRAP | M8D3D_PTADDRESSCAPS_MIRROR |
                                          M8D3D_PTADDRESSCAPS_CLAMP;
-    /* [d3d] render8=0 leaves 8 bpp out: a program that would start in a window on the 8 bpp
-     * desktop, where its surface does not fit beside the desktop, starts full screen instead. */
-    c->dwDeviceRenderBitDepth = GetPrivateProfileInt( "d3d", "render8", 1, "C:\\M8D3D.INI" ) ? DDBD_8 | DDBD_16 : DDBD_16;
+    /* Only the desktop's own depth: the modes listed are the desktop's depth only (the depth
+     * changes at a restart), so a program that picked the other depth could not switch to it and
+     * gives up ("unable to switch to full screen"). [d3d] render8=0 leaves 8 bpp out: a program
+     * that would start in a window on the 8 bpp desktop starts full screen instead. */
+    {
+        HDC dc = GetDC( NULL );
+        int bpp = dc != NULL ? GetDeviceCaps( dc, BITSPIXEL ) : 16;
+
+        if( dc != NULL ) {
+            ReleaseDC( NULL, dc );
+        }
+        c->dwDeviceRenderBitDepth = bpp == 8 ? (GetPrivateProfileInt( "d3d", "render8", 1, "C:\\M8D3D.INI" ) ? DDBD_8 : 0) : DDBD_16;
+    }
     /* No Z depth: a Z-buffer beside two 640x480 pages does not fit in the card's 1 MB, and DX5's
      * sample framework then fails rather than draw without one. Depth comes from the sort at
      * Flip. [z] depth=16 claims 16-bit Z, for programs that will not start without it. */

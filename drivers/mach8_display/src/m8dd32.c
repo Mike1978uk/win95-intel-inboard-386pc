@@ -23,6 +23,7 @@
 #include <stddef.h>
 #include <ddraw.h>
 #include <string.h>
+#include <stdarg.h>
 
 #define M8DD_MARKER     0x44443855UL
 
@@ -30,7 +31,7 @@
 extern void m8d3d_init( DWORD *global, DWORD *callbacks, DWORD *driver_info );
 extern int  m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const short *v,
                          const WORD *index, const DWORD *rgb, int n );
-extern DWORD m8d3d_stat[72];
+extern DWORD m8d3d_stat[88];
 extern void m8d3d_feed_finish( void );
 extern int m8d3d_lores_on( void );
 extern BYTE m8d3d_index565( WORD p );
@@ -165,6 +166,7 @@ typedef struct {
 #define M8DD_GBL_WIDTH      30          /* WORD */
 #define M8DD_GBL_PF_FLAGS   44          /* ddpfSurface.dwFlags */
 #define M8DD_GBL_PF_BITS    52          /* ddpfSurface.dwRGBBitCount */
+#define M8DD_GBL_PF_GMASK   60          /* ddpfSurface.dwGBitMask */
 #define M8DD_HASPIXELFORMAT 0x00002000UL /* else the surface is in the primary's format */
 
 #define DDHAL_DRIVER_NOTHANDLED 0
@@ -298,10 +300,13 @@ static int m8dd_transfer( const RECT *r, int to_card )
     int     y;
     int     ok = 0;
     unsigned n;
+    LARGE_INTEGER t0;
+    LARGE_INTEGER t1;
 
     if( hot[H_HW_OFF] || w <= 0 || h <= 0 ) {
         return( hot[H_HW_OFF] == 0 );
     }
+    QueryPerformanceCounter( &t0 );
     /* The interrupt-time cursor defers its move while this is set. */
     hot[H_BUSY] = 1;
     if( m8dd_idle() ) {
@@ -343,8 +348,50 @@ static int m8dd_transfer( const RECT *r, int to_card )
     }
     m8dd_forget( hot );
     hot[H_BUSY] = 0;
+    QueryPerformanceCounter( &t1 );
+    m8d3d_stat[76] += t1.LowPart - t0.LowPart;
     return( ok );
 }
+
+/* [diag] trace=1 in C:\M8D3D.INI: one line per DirectDraw and Direct3D set-up step to
+ * C:\M8TRACE.TXT, written through, so a run that hangs leaves its last step on disk. Opening the
+ * file each time is slow: set-up steps only, and the first Flips. */
+static int m8dd_trace_on = -1;
+
+void m8dd_trace( const char *fmt, ... )
+{
+    char    b[200];
+    HANDLE  f;
+    DWORD   n;
+    va_list a;
+
+    if( m8dd_trace_on < 0 ) {
+        m8dd_trace_on = (int)GetPrivateProfileInt( "diag", "trace", 0, "C:\\M8D3D.INI" );
+    }
+    if( !m8dd_trace_on ) {
+        return;
+    }
+    va_start( a, fmt );
+    n = (DWORD)wvsprintfA( b, fmt, a );
+    va_end( a );
+    b[n++] = '\r';
+    b[n++] = '\n';
+    f = CreateFileA( "C:\\M8TRACE.TXT", GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_ALWAYS,
+                     FILE_ATTRIBUTE_NORMAL | FILE_FLAG_WRITE_THROUGH, NULL );
+    if( f == INVALID_HANDLE_VALUE ) {
+        return;
+    }
+    SetFilePointer( f, 0, NULL, FILE_END );
+    WriteFile( f, b, n, &n, NULL );
+    CloseHandle( f );
+}
+
+/* At 8 bpp a flip chain's back buffer is the card's second page (m8dd_create8_flip): its gbl,
+ * the rows its surfaces reach, and the page shown. */
+static BYTE     *m8dd_flip8_back;
+static DWORD    m8dd_flip8_rows;
+static int      m8dd_flip8_page;
+static int      m8dd_flip8_traced;
 
 static int m8dd_surf( LPVOID lcl, M8DD_SURF *s )
 {
@@ -362,6 +409,9 @@ static int m8dd_surf( LPVOID lcl, M8DD_SURF *s )
     }
     f = *(DWORD *)(gbl + M8DD_GBL_VIDMEM);
     rows = m8dd->heap_rows ? m8dd->heap_top + m8dd->heap_rows : m8dd->height;
+    if( rows < m8dd_flip8_rows ) {
+        rows = m8dd_flip8_rows;
+    }
     if( f < m8dd->shadow || f - m8dd->shadow >= m8dd->pitch * rows ) {
         return( 0 );
     }
@@ -390,6 +440,11 @@ static DWORD m8dd_unlock16( M8DD_UNLOCK *ud );
 
 /* The locked rectangle, clipped to the surface; host transfers move two
  * pixels a word, so its left edge goes down and its right edge up to even. */
+static int m8dd_tex_lock( M8DD_LOCK *ld );
+static int m8dd_tex_unlock( M8DD_UNLOCK *ud );
+static int m8dd_tex_of_lcl( LPVOID lcl );
+static DWORD m8dd_tex_blt( M8DD_BLT *bd );
+
 DWORD __stdcall m8dd_lock( M8DD_LOCK *ld )
 {
     M8DD_SURF   s;
@@ -398,6 +453,9 @@ DWORD __stdcall m8dd_lock( M8DD_LOCK *ld )
     int         k;
 
     if( m8dd->fb16 ) {
+        if( (k = m8dd_tex_lock( ld )) >= 0 ) {
+            return( (DWORD)k );
+        }
         return( m8dd_lock16( ld ) );
     }
     m8d3d_feed_finish();
@@ -415,9 +473,12 @@ DWORD __stdcall m8dd_lock( M8DD_LOCK *ld )
     all.right = s.w;
     all.bottom = s.h;
     m8dd_to_card( &r, ld->bHasRect ? &ld->rArea : &all, &s );
+    ++m8d3d_stat[72];
+    m8d3d_stat[83] += !ld->bHasRect;
     ld->lpSurfData = (LPVOID)(m8dd->shadow + (DWORD)r.top * m8dd->pitch + r.left);
     r.left &= ~1;
     r.right = (r.right + 1) & ~1;
+    m8d3d_stat[73] += (DWORD)((r.right + 1 - (r.left & ~1)) & ~1) * (r.bottom - r.top);
     if( !m8dd_transfer( &r, 0 ) ) {
         ld->ddRVal = M8DD_DDERR_GENERIC;
         return( DDHAL_DRIVER_HANDLED );
@@ -434,6 +495,9 @@ DWORD __stdcall m8dd_unlock( M8DD_UNLOCK *ud )
     int         k;
 
     if( m8dd->fb16 ) {
+        if( (k = m8dd_tex_unlock( ud )) >= 0 ) {
+            return( (DWORD)k );
+        }
         return( m8dd_unlock16( ud ) );
     }
     m8d3d_feed_finish();
@@ -446,6 +510,8 @@ DWORD __stdcall m8dd_unlock( M8DD_UNLOCK *ud )
         ud->ddRVal = M8DD_DDERR_GENERIC;
         return( DDHAL_DRIVER_HANDLED );
     }
+    ++m8d3d_stat[74];
+    m8d3d_stat[75] += (DWORD)(m8dd_held[k].r.right - m8dd_held[k].r.left) * (m8dd_held[k].r.bottom - m8dd_held[k].r.top);
     ud->ddRVal = m8dd_transfer( &m8dd_held[k].r, 1 ) ? DD_OK : M8DD_DDERR_GENERIC;
     m8dd_held[k].lcl = NULL;
     return( DDHAL_DRIVER_HANDLED );
@@ -2083,11 +2149,32 @@ static DWORD m8dd_flip16( M8DD_FLIP *fd )
     return( DDHAL_DRIVER_HANDLED );
 }
 
+/* At 8 bpp: the target page shown by one CRT_OFFSET write, which takes effect at the next frame
+ * (M8PAGE). DDRAW then swaps the surfaces' memory. */
+static DWORD m8dd_flip8( M8DD_FLIP *fd )
+{
+    M8DD_SURF   s;
+
+    if( m8dd_flip8_back == NULL || !m8dd_surf( fd->lpSurfTarg, &s ) ||
+        (s.y != 0 && s.y != M8DD_PAGE1_Y) ) {
+        return( DDHAL_DRIVER_NOTHANDLED );
+    }
+    ++m8d3d_stat[82];
+    m8dd_flip8_page = s.y != 0;
+    if( m8dd_flip8_traced < 5 ) {
+        m8dd_trace( "flip8 to page %d", m8dd_flip8_page );
+        ++m8dd_flip8_traced;
+    }
+    outpw( M8DD_CRT_OFFSET_HI, m8dd_flip8_page ? M8DD_PAGE1_HI : 0 );
+    fd->ddRVal = DD_OK;
+    return( DDHAL_DRIVER_HANDLED );
+}
+
 DWORD __stdcall m8dd_flip( M8DD_FLIP *fd )
 {
     m8d3d_feed_finish();
     if( !m8dd->fb16 ) {
-        return( DDHAL_DRIVER_NOTHANDLED );
+        return( m8dd_flip8( fd ) );
     }
     return( m8dd_flip16( fd ) );
 }
@@ -2261,6 +2348,255 @@ static int m8dd_host_rect( const RECT *d, const BYTE *src, long pitch )
     return( m8dd_idle() );
 }
 
+/* Textures in video memory, at 16 bpp: on the card at 8 bpp in the column beside page 0
+ * (x 640-991, rows 0-287, 11 x 9 slots of 32x32), above the HAL's stamps, which start below
+ * them while any is held. The texels cross the bus once, at Unlock. The HAL's colour per
+ * triangle reads an 8x8 summary kept in RAM; nothing reads a texture back, so Lock hands out
+ * one shared buffer, and a second texture locked while it is held is refused. Not at 8 bpp:
+ * there the column is the flip chain's scratch. */
+#define M8DD_TEX_X          640
+#define M8DD_TEX_COLS       11
+#define M8DD_TEX_SIDE       32
+#define M8DD_TEX_SLOTS      (M8DD_TEX_COLS * 9)
+#define M8DD_TEX_ROWS       (9 * M8DD_TEX_SIDE)
+#define M8DD_SUM            8
+
+typedef struct {
+    BYTE    *gbl;               /* NULL: free */
+    int     w;
+    int     h;
+    int     is555;
+    WORD    sum[M8DD_SUM * M8DD_SUM];
+} M8DD_TEX;
+
+static M8DD_TEX m8dd_tex[M8DD_TEX_SLOTS];
+static int      m8dd_tex_n;
+static int      m8dd_tex_held = -1;
+static int      m8dd_tex_ro;
+static WORD     m8dd_tex_buf[M8DD_TEX_SIDE * M8DD_TEX_SIDE];
+static BYTE     m8dd_tex_idx[M8DD_TEX_SIDE * M8DD_TEX_SIDE];
+int             m8dd_tex_rows;  /* the column's rows the textures hold, for the stamps */
+
+extern void m8d3d_stamps_forget( void );
+
+static int m8dd_tex_of( const BYTE *gbl )
+{
+    int k;
+
+    for( k = 0; gbl != NULL && k < M8DD_TEX_SLOTS; ++k ) {
+        if( m8dd_tex[k].gbl == gbl ) {
+            return( k );
+        }
+    }
+    return( -1 );
+}
+
+static int m8dd_tex_of_lcl( LPVOID lcl )
+{
+    return( lcl == NULL ? -1 : m8dd_tex_of( *(BYTE **)((BYTE *)lcl + M8DD_LCL_GBL) ) );
+}
+
+/* For the HAL: a card texture's summary, its size and format, or NULL. */
+const WORD *m8dd_tex_summary( LPVOID gbl, int *w, int *h, int *is555 )
+{
+    int k = m8dd_tex_of( (const BYTE *)gbl );
+
+    if( k < 0 ) {
+        return( NULL );
+    }
+    *w = m8dd_tex[k].w < M8DD_SUM ? m8dd_tex[k].w : M8DD_SUM;
+    *h = m8dd_tex[k].h < M8DD_SUM ? m8dd_tex[k].h : M8DD_SUM;
+    *is555 = 0;                 /* summaries are 5-6-5 */
+    return( m8dd_tex[k].sum );
+}
+
+static WORD m8dd_565( WORD p, int is555 )
+{
+    return( is555 ? (WORD)(((p & 0x7FE0) << 1) | ((p & 0x0200) >> 4) | (p & 0x001F)) : p );
+}
+
+/* -1: not a texture this holds. A texture in video memory that does not fit gets
+ * DDERR_OUTOFVIDEOMEMORY, and the program asks for fewer or smaller. */
+static int m8dd_tex_create( M8DD_CREATE *cd )
+{
+    BYTE    *lcl = cd->lplpSList[0];
+    BYTE    *gbl = *(BYTE **)(lcl + M8DD_LCL_GBL);
+    DWORD   caps = *(DWORD *)(lcl + M8DD_LCL_CAPS);
+    int     pf = (*(DWORD *)(lcl + M8DD_LCL_FLAGS) & M8DD_HASPIXELFORMAT) != 0;
+    int     w = *(WORD *)(gbl + M8DD_GBL_WIDTH);
+    int     h = *(WORD *)(gbl + M8DD_GBL_HEIGHT);
+    int     k;
+
+    if( cd->dwSCnt != 1 || !(caps & DDSCAPS_TEXTURE) || (caps & DDSCAPS_SYSTEMMEMORY) ) {
+        return( -1 );
+    }
+    for( k = 0; k < M8DD_TEX_SLOTS && m8dd_tex[k].gbl != NULL; ++k ) {
+    }
+    if( k == M8DD_TEX_SLOTS || m8d3d_half_on() || w < 1 || h < 1 || w > M8DD_TEX_SIDE ||
+        h > M8DD_TEX_SIDE || (pf && *(DWORD *)(gbl + M8DD_GBL_PF_BITS) != 16) ) {
+        cd->ddRVal = DDERR_OUTOFVIDEOMEMORY;
+        return( DDHAL_DRIVER_HANDLED );
+    }
+    m8dd_tex[k].gbl = gbl;
+    m8dd_tex[k].w = w;
+    m8dd_tex[k].h = h;
+    m8dd_tex[k].is555 = pf && *(DWORD *)(gbl + M8DD_GBL_PF_GMASK) == 0x03E0;
+    memset( m8dd_tex[k].sum, 0, sizeof( m8dd_tex[k].sum ) );
+    *(long *)(gbl + M8DD_GBL_PITCH) = (long)w * 2;
+    *(DWORD *)(gbl + M8DD_GBL_VIDMEM) = (DWORD)m8dd_tex_buf;
+    *(DWORD *)(lcl + M8DD_LCL_CAPS) |= DDSCAPS_VIDEOMEMORY;
+    if( m8dd_tex_n++ == 0 ) {
+        m8dd_tex_rows = M8DD_TEX_ROWS;
+        m8d3d_stamps_forget();
+    }
+    ++m8d3d_stat[84];
+    cd->ddRVal = DD_OK;
+    return( DDHAL_DRIVER_HANDLED );
+}
+
+static int m8dd_tex_destroy( BYTE *gbl )
+{
+    int k = m8dd_tex_of( gbl );
+
+    if( k < 0 ) {
+        return( 0 );
+    }
+    m8dd_tex[k].gbl = NULL;
+    if( m8dd_tex_held == k ) {
+        m8dd_tex_held = -1;
+    }
+    if( --m8dd_tex_n == 0 ) {
+        m8dd_tex_rows = 0;
+        m8d3d_stamps_forget();
+    }
+    *(DWORD *)(gbl + M8DD_GBL_VIDMEM) = 0;
+    return( 1 );
+}
+
+/* The buffer to the card at 8 bpp, as a flat triangle's colours, and its summary: the mean
+ * of each block of texels. */
+static int m8dd_tex_upload( int k )
+{
+    M8DD_TEX    *t = &m8dd_tex[k];
+    BYTE        *hot = (BYTE *)m8dd->hot;
+    int         sw = t->w < M8DD_SUM ? t->w : M8DD_SUM;
+    int         sh = t->h < M8DD_SUM ? t->h : M8DD_SUM;
+    int         bw = t->w / sw;
+    int         bh = t->h / sh;
+    int         x;
+    int         y;
+    int         ok = 0;
+    RECT        r;
+
+    for( y = 0; y < sh; ++y ) {
+        for( x = 0; x < sw; ++x ) {
+            DWORD   rs = 0;
+            DWORD   gs = 0;
+            DWORD   bs = 0;
+            DWORD   n = (DWORD)bw * bh;
+            int     i;
+            int     j;
+
+            for( j = 0; j < bh; ++j ) {
+                for( i = 0; i < bw; ++i ) {
+                    WORD p = m8dd_565( m8dd_tex_buf[(y * bh + j) * t->w + x * bw + i], t->is555 );
+
+                    rs += p >> 11;
+                    gs += (p >> 5) & 0x3F;
+                    bs += p & 0x1F;
+                }
+            }
+            /* The summary is read as 5-6-5 whatever the texture's own format. */
+            t->sum[y * M8DD_SUM + x] = (WORD)((rs / n) << 11 | (gs / n) << 5 | (bs / n));
+        }
+    }
+    for( y = 0; y < t->h * t->w; ++y ) {
+        m8dd_tex_idx[y] = m8d3d_index565( m8dd_565( m8dd_tex_buf[y], t->is555 ) );
+    }
+    r.left = M8DD_TEX_X + (k % M8DD_TEX_COLS) * M8DD_TEX_SIDE;
+    r.top = (k / M8DD_TEX_COLS) * M8DD_TEX_SIDE;
+    r.right = r.left + t->w;
+    r.bottom = r.top + t->h;
+    m8d3d_feed_finish();
+    hot[H_BUSY] = 1;
+    if( !hot[H_HW_OFF] && m8dd_plain( M8_MIX_HOST_REPLACE ) ) {
+        ok = m8dd_host_rect( &r, m8dd_tex_idx, t->w );
+    }
+    m8dd_forget( hot );
+    hot[H_BUSY] = 0;
+    m8d3d_stat[85] += (DWORD)t->w * t->h;
+    return( ok || hot[H_HW_OFF] );
+}
+
+/* -1: not a texture this holds. */
+static int m8dd_tex_lock( M8DD_LOCK *ld )
+{
+    int k = m8dd_tex_of_lcl( ld->lpDDSurface );
+
+    if( k < 0 ) {
+        return( -1 );
+    }
+    if( m8dd_tex_held >= 0 && m8dd_tex_held != k ) {
+        ld->ddRVal = DDERR_SURFACEBUSY;
+        return( DDHAL_DRIVER_HANDLED );
+    }
+    m8dd_tex_held = k;
+    m8dd_tex_ro = (ld->dwFlags & DDLOCK_READONLY) != 0;
+    ld->lpSurfData = (LPVOID)(ld->bHasRect ?
+        (BYTE *)m8dd_tex_buf + ld->rArea.top * m8dd_tex[k].w * 2 + ld->rArea.left * 2 : (BYTE *)m8dd_tex_buf);
+    ld->ddRVal = DD_OK;
+    return( DDHAL_DRIVER_HANDLED );
+}
+
+/* A texture's Load: a same-size copy of a system-memory texture of its format, whole, into
+ * the buffer and on to the card as at Unlock. Other copies into or out of a texture are
+ * DDERR_UNSUPPORTED: with system-to-video Blts claimed, DDRAW does not try its own. */
+static DWORD m8dd_tex_blt( M8DD_BLT *bd )
+{
+    int         k = m8dd_tex_of_lcl( bd->lpDDDestSurface );
+    const BYTE  *src;
+    long        pitch;
+    int         w;
+    int         h;
+    int         y;
+
+    if( k < 0 || m8dd_tex_of_lcl( bd->lpDDSrcSurface ) >= 0 ||
+        (bd->dwFlags & ~(DDBLT_ROP | DDBLT_WAIT | DDBLT_ASYNC)) || !(bd->dwFlags & DDBLT_ROP) ||
+        bd->bltFX.dwROP != M8DD_SRCCOPY || bd->IsClipped ||
+        (src = m8dd_sysmem16( bd->lpDDSrcSurface, &pitch, &w, &h )) == NULL ||
+        w != m8dd_tex[k].w || h != m8dd_tex[k].h ||
+        bd->rDest.left != 0 || bd->rDest.top != 0 || bd->rDest.right != w || bd->rDest.bottom != h ||
+        bd->rSrc.left != 0 || bd->rSrc.top != 0 || bd->rSrc.right != w || bd->rSrc.bottom != h ) {
+        return( DDHAL_DRIVER_NOTHANDLED );
+    }
+    if( m8dd_tex_held >= 0 ) {
+        bd->ddRVal = DDERR_SURFACEBUSY;
+        return( DDHAL_DRIVER_HANDLED );
+    }
+    for( y = 0; y < h; ++y ) {
+        memcpy( m8dd_tex_buf + y * w, src + y * pitch, w * 2 );
+    }
+    bd->ddRVal = m8dd_tex_upload( k ) ? DD_OK : M8DD_DDERR_GENERIC;
+    return( DDHAL_DRIVER_HANDLED );
+}
+
+static int m8dd_tex_unlock( M8DD_UNLOCK *ud )
+{
+    int k = m8dd_tex_of_lcl( ud->lpDDSurface );
+
+    if( k < 0 ) {
+        return( -1 );
+    }
+    ud->ddRVal = DD_OK;
+    if( m8dd_tex_held == k ) {
+        m8dd_tex_held = -1;
+        if( !m8dd_tex_ro && !m8dd_tex_upload( k ) ) {
+            ud->ddRVal = M8DD_DDERR_GENERIC;
+        }
+    }
+    return( DDHAL_DRIVER_HANDLED );
+}
+
 /* Colour fills on a card surface and same-size SRCCOPY between card surfaces,
  * on the engine: only the commands cross the bus. Same-size SRCCOPY from a
  * system-memory surface, as host data: the pixels cross once, where DDRAW's
@@ -2293,6 +2629,9 @@ DWORD __stdcall m8dd_blt( M8DD_BLT *bd )
     int         ok;
 
     if( m8dd->fb16 ) {
+        if( m8dd_tex_of_lcl( bd->lpDDDestSurface ) >= 0 || m8dd_tex_of_lcl( bd->lpDDSrcSurface ) >= 0 ) {
+            return( m8dd_tex_blt( bd ) );
+        }
         return( m8dd_blt16( bd ) );
     }
     m8d3d_feed_finish();
@@ -2467,6 +2806,72 @@ static void m8dd_unplace( BYTE *gbl )
     }
 }
 
+/* At 8 bpp, a primary with one back buffer: the back buffer is the card's second page, from row
+ * M8DD_PAGE1_Y, which CRT_OFFSET shows, so a mode of more rows has none. While the chain lives
+ * the rows from there down are DirectDraw's whole, the string cache's too (m8_dd_lend 2). */
+static DWORD m8dd_create8_flip( M8DD_CREATE *cd )
+{
+    BYTE    *lcl;
+    BYTE    *gbl;
+    DWORD   caps;
+    DWORD   i;
+    int     prim = -1;
+    int     k;
+    RECT    r;
+    RECT    x;
+
+    if( cd->dwSCnt != 2 || m8dd_flip8_back != NULL ) {
+        return( DDHAL_DRIVER_NOTHANDLED );
+    }
+    for( i = 0; i < 2; ++i ) {
+        caps = *(DWORD *)((BYTE *)cd->lplpSList[i] + M8DD_LCL_CAPS);
+        if( !(caps & DDSCAPS_FLIP) || (caps & DDSCAPS_SYSTEMMEMORY) ) {
+            return( DDHAL_DRIVER_NOTHANDLED );
+        }
+        if( caps & DDSCAPS_PRIMARYSURFACE ) {
+            prim = (int)i;
+        }
+    }
+    if( prim < 0 ) {
+        return( DDHAL_DRIVER_NOTHANDLED );
+    }
+    SetRect( &r, 0, M8DD_PAGE1_Y, (int)m8dd->width, M8DD_PAGE1_Y + (int)m8dd->height );
+    for( k = 0; k < M8DD_PLACED_MAX; ++k ) {
+        if( m8dd_placed[k].gbl != NULL && IntersectRect( &x, &r, &m8dd_placed[k].r ) ) {
+            break;
+        }
+    }
+    if( m8dd->height > M8DD_PAGE1_Y || k < M8DD_PLACED_MAX || m8dd_placed_n >= M8DD_PLACED_MAX ||
+        !m8dd_lend( 2 ) ) {
+        m8dd_trace( "flip8 chain refused: %dx%d pitch %d overlap %d placed %d", (int)m8dd->width,
+                    (int)m8dd->height, (int)m8dd->pitch, k < M8DD_PLACED_MAX, m8dd_placed_n );
+        cd->ddRVal = DDERR_OUTOFVIDEOMEMORY;
+        return( DDHAL_DRIVER_HANDLED );
+    }
+    for( k = 0; m8dd_placed[k].gbl != NULL; ++k ) {
+    }
+    for( i = 0; i < 2; ++i ) {
+        lcl = cd->lplpSList[i];
+        gbl = *(BYTE **)(lcl + M8DD_LCL_GBL);
+        *(DWORD *)(gbl + M8DD_GBL_VIDMEM) = m8dd->shadow + ((int)i == prim ? 0 : (DWORD)M8DD_PAGE1_Y * m8dd->pitch);
+        *(long *)(gbl + M8DD_GBL_PITCH) = m8dd->pitch;
+        *(DWORD *)(lcl + M8DD_LCL_CAPS) |= DDSCAPS_VIDEOMEMORY;
+        if( (int)i != prim ) {
+            m8dd_placed[k].gbl = gbl;
+            m8dd_placed[k].r = r;
+            ++m8dd_placed_n;
+            m8dd_flip8_back = gbl;
+        }
+    }
+    m8dd_flip8_rows = (DWORD)r.bottom;
+    m8dd_flip8_page = 0;
+    m8dd_flip8_traced = 0;
+    m8dd_trace( "flip8 chain made: %dx%d pitch %d, back at row %d", (int)m8dd->width, (int)m8dd->height,
+                (int)m8dd->pitch, M8DD_PAGE1_Y );
+    cd->ddRVal = DD_OK;
+    return( DDHAL_DRIVER_HANDLED );
+}
+
 /* m8d3d.c's way to the engine and the card's memory. */
 int m8d3d_surface( LPVOID lcl, int *x, int *y, int *w, int *h )
 {
@@ -2587,6 +2992,15 @@ int m8d3d_scratch( LPVOID key, int *w, int *h, int *x, int *y )
         *x = 0;
         *y = m8dd->scratch_top;
         *h = m8dd->scratch_rows;
+        return( 1 );
+    }
+    /* With an 8 bpp flip chain, page 1 fills the heap's columns: the column beside the pages,
+     * as at 16 bpp; x 992 on stays the cursor's. */
+    if( m8dd_flip8_back != NULL ) {
+        *x = 640;
+        *y = M8DD_PAGE1_Y;
+        *w = 352;
+        *h = 480;
         return( 1 );
     }
     if( !m8dd->heap_rows || !m8dd_place( *w, *h, &r ) ) {
@@ -2727,8 +3141,23 @@ DWORD __stdcall m8dd_create_surface( M8DD_CREATE *cd )
     RECT    r;
 
     m8d3d_feed_finish();
+    for( i = 0; i < cd->dwSCnt; ++i ) {
+        lcl = cd->lplpSList[i];
+        gbl = *(BYTE **)(lcl + M8DD_LCL_GBL);
+        m8dd_trace( "create %lu/%lu caps %08lx %dx%d (screen %dx%d fb16 %d)", i + 1, cd->dwSCnt,
+                    *(DWORD *)(lcl + M8DD_LCL_CAPS), (int)*(WORD *)(gbl + M8DD_GBL_WIDTH),
+                    (int)*(WORD *)(gbl + M8DD_GBL_HEIGHT), (int)m8dd->width, (int)m8dd->height, (int)m8dd->fb16 );
+    }
     if( m8dd->fb16 ) {
+        if( (k = m8dd_tex_create( cd )) >= 0 ) {
+            return( (DWORD)k );
+        }
         return( m8dd_create16( cd ) );
+    }
+    for( i = 0; i < cd->dwSCnt; ++i ) {
+        if( *(DWORD *)((BYTE *)cd->lplpSList[i] + M8DD_LCL_CAPS) & DDSCAPS_FLIP ) {
+            return( m8dd_create8_flip( cd ) );
+        }
     }
     if( m8dd->heap_rows == 0 || cd->dwSCnt == 0 ) {
         return( DDHAL_DRIVER_NOTHANDLED );
@@ -2790,15 +3219,32 @@ DWORD __stdcall m8dd_destroy_surface( M8DD_DESTROY *dd )
         }
     }
     gbl = *(BYTE **)((BYTE *)dd->lpDDSurface + M8DD_LCL_GBL);
+    m8dd_trace( "destroy caps %08lx", *(DWORD *)((BYTE *)dd->lpDDSurface + M8DD_LCL_CAPS) );
     if( m8dd->fb16 && gbl != NULL && (*(DWORD *)((BYTE *)dd->lpDDSurface + M8DD_LCL_CAPS) & DDSCAPS_ZBUFFER) ) {
         VirtualFree( (LPVOID)*(DWORD *)(gbl + M8DD_GBL_VIDMEM), 0, MEM_RELEASE );
         *(DWORD *)(gbl + M8DD_GBL_VIDMEM) = 0;
         dd->ddRVal = DD_OK;
         return( DDHAL_DRIVER_HANDLED );
     }
+    if( m8dd->fb16 && m8dd_tex_destroy( gbl ) ) {
+        dd->ddRVal = DD_OK;
+        return( DDHAL_DRIVER_HANDLED );
+    }
     if( m8dd->fb16 && gbl != NULL && m8dd_destroy16( gbl ) ) {
         dd->ddRVal = DD_OK;
         return( DDHAL_DRIVER_HANDLED );
+    }
+    /* The chain going: page 0 shown again, before the rows go back to GDI's caches. */
+    if( !m8dd->fb16 && m8dd_flip8_back != NULL &&
+        (gbl == m8dd_flip8_back || (*(DWORD *)((BYTE *)dd->lpDDSurface + M8DD_LCL_CAPS) & DDSCAPS_PRIMARYSURFACE)) ) {
+        if( m8dd_flip8_page ) {
+            outpw( M8DD_CRT_OFFSET_HI, 0 );
+            m8dd_flip8_page = 0;
+        }
+        if( gbl == m8dd_flip8_back ) {
+            m8dd_flip8_back = NULL;
+            m8dd_flip8_rows = 0;
+        }
     }
     for( k = 0; k < M8DD_PLACED_MAX; ++k ) {
         if( m8dd_placed[k].gbl == gbl ) {
