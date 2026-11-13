@@ -33,6 +33,7 @@ extern int  m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, co
                          const WORD *index, const DWORD *rgb, int n );
 extern DWORD m8d3d_stat[96];
 extern void m8d3d_feed_finish( void );
+extern void m8d3d_feed_stop( int site );
 extern int m8d3d_lores_on( void );
 extern BYTE m8d3d_index565( WORD p );
 extern int m8d3d_half_on( void );
@@ -506,7 +507,7 @@ DWORD __stdcall m8dd_lock( M8DD_LOCK *ld )
         }
         return( m8dd_lock16( ld ) );
     }
-    m8d3d_feed_finish();
+    m8d3d_feed_stop( 0 );
     if( !m8dd_surf( ld->lpDDSurface, &s ) ) {
         return( DDHAL_DRIVER_NOTHANDLED );
     }
@@ -567,7 +568,7 @@ DWORD __stdcall m8dd_unlock( M8DD_UNLOCK *ud )
         }
         return( m8dd_unlock16( ud ) );
     }
-    m8d3d_feed_finish();
+    m8d3d_feed_stop( 1 );
     if( !m8dd_surf( ud->lpDDSurface, &s ) ) {
         return( DDHAL_DRIVER_NOTHANDLED );
     }
@@ -811,7 +812,7 @@ static DWORD m8dd_flush( void )
     /* At 16 bpp the card is written only through the 16-bit driver's escapes, and a feed it
      * cuts loses the rest of its frame: the feed ends here, not on entry to Blt or Lock, so a
      * call that only describes or records leaves the card drawing. */
-    m8d3d_feed_finish();
+    m8d3d_feed_stop( 2 );
     dc = GetDC( NULL );
     if( dc != NULL ) {
         ExtEscape( dc, M8_ESC_FB16BATCH, 2 + 12 * m8dd_bl[0], (LPCSTR)m8dd_bl,
@@ -1362,7 +1363,7 @@ static int m8dd_ovl_upload( int k )
         if( e->sent ) {
             continue;
         }
-        m8d3d_feed_finish();
+        m8d3d_feed_stop( 3 );
         /* At half size: of each 2x2 block, its first pixel that is not the key, so one-pixel
          * strokes survive. */
         for( y = 0; y < hh; ++y ) {
@@ -1590,7 +1591,7 @@ static void m8dd_send( const RECT *r, int solid )
     if( r->right <= r->left || r->bottom <= r->top ) {
         return;
     }
-    m8d3d_feed_finish();
+    m8d3d_feed_stop( 4 );
     w[0] = (WORD)r->left;
     w[1] = (WORD)r->top;
     w[2] = (WORD)r->right;
@@ -1610,7 +1611,7 @@ static void m8dd_copied( int sx, int sy, const RECT *r )
     HDC     dc;
     WORD    w[6];
 
-    m8d3d_feed_finish();
+    m8d3d_feed_stop( 5 );
     w[0] = (WORD)sx;
     w[1] = (WORD)sy;
     w[2] = (WORD)r->left;
@@ -2510,7 +2511,7 @@ static DWORD m8dd_flip8( M8DD_FLIP *fd )
 
 DWORD __stdcall m8dd_flip( M8DD_FLIP *fd )
 {
-    m8d3d_feed_finish();
+    m8d3d_feed_stop( 6 );
     if( !m8dd->fb16 ) {
         return( m8dd_flip8( fd ) );
     }
@@ -2870,7 +2871,7 @@ static int m8dd_tex_upload( int k )
     r.top = t->cy;
     r.right = r.left + t->w;
     r.bottom = r.top + t->h;
-    m8d3d_feed_finish();
+    m8d3d_feed_stop( 7 );
     hot[H_BUSY] = 1;
     if( !hot[H_HW_OFF] && m8dd_plain( M8_MIX_HOST_REPLACE ) ) {
         ok = m8dd_host_rect( &r, m8dd_tex_idx, t->w );
@@ -2987,7 +2988,7 @@ DWORD __stdcall m8dd_blt( M8DD_BLT *bd )
         }
         return( m8dd_blt16( bd ) );
     }
-    m8d3d_feed_finish();
+    m8d3d_feed_stop( 8 );
     if( other != 0 || hot[H_HW_OFF] || !m8dd_surf( bd->lpDDDestSurface, &d ) ) {
         return( DDHAL_DRIVER_NOTHANDLED );
     }
@@ -3375,7 +3376,7 @@ int m8d3d_scratch( LPVOID key, int *w, int *h, int *x, int *y )
 
 void m8d3d_scratch_free( LPVOID key )
 {
-    m8d3d_feed_finish();
+    m8d3d_feed_stop( 9 );
     if( m8dd->fb16 ) {
         m8dd_pages_leave();
         m8dd_pages_ok = 0;
@@ -3494,7 +3495,7 @@ DWORD __stdcall m8dd_create_surface( M8DD_CREATE *cd )
     int     k;
     RECT    r;
 
-    m8d3d_feed_finish();
+    m8d3d_feed_stop( 10 );
     ++m8dd_card_gen;
     for( i = 0; i < cd->dwSCnt; ++i ) {
         lcl = cd->lplpSList[i];
@@ -3567,7 +3568,7 @@ DWORD __stdcall m8dd_destroy_surface( M8DD_DESTROY *dd )
     BYTE    *gbl;
     int     k;
 
-    m8d3d_feed_finish();
+    m8d3d_feed_stop( 11 );
     for( k = 0; k < M8DD_HELD_MAX; ++k ) {
         if( m8dd_held[k].lcl == dd->lpDDSurface ) {
             m8dd_held[k].lcl = NULL;

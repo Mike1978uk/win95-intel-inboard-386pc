@@ -7,7 +7,8 @@
  * Every half second, the change since the last sample in M8DD32.DLL's m8d3d_stat (shared
  * memory: at 8 bpp Lock, Unlock and Flip; at 16 bpp Flips, back-buffer Locks and copies over
  * the scene) and in the 16-bit driver's m8_stats (GDI calls that reached the screen, by entry
- * point; escape M8_ESC_STATS). Quiet samples are not
+ * point; escape M8_ESC_STATS), and feeds stopped while running by the call that stopped them
+ * (m8d3d_feed_why). Quiet samples are not
  * written. Appends to C:\M8MON.TXT. Move times are clock ticks; in a bed they are not the card's,
  * the counts are.
  *
@@ -30,6 +31,10 @@ static const char *st_names[M8_STAT_COUNT] = { "bitblt", "output", "pixel", "str
                                                "stretchblt", "stretchdib", "dibtodev", "fastborder", "updatecol",
                                                "fill_hw", "copy_hw", "readback", "text_hw", "text_fail",
                                                "run_fill", "covered", "line_hw", "cur_hide" };
+
+/* m8d3d_feed_why: feeds stopped while running, by the call that stopped them. */
+static const char *fw_names[16] = { "lock", "unlock", "batch", "ovl_up", "send", "copied", "flip", "tex_up",
+                                    "blt", "scratch", "create", "destroy", "ctx", "draw", "14", "15" };
 
 static const void *find_export( const char *name )
 {
@@ -75,7 +80,9 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
     static DWORD    g0[M8_STAT_COUNT];
     static DWORD    g1[M8_STAT_COUNT];
     static DWORD    w0[6];
+    static DWORD    f0[16];
     const DWORD     *why = NULL;
+    const DWORD     *fw = NULL;
     const DWORD     *st;
     FILE            *o;
     LARGE_INTEGER   f;
@@ -129,6 +136,7 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
         } else if( st != NULL && IsBadReadPtr( st, sizeof( st1 ) ) ) {
             st = NULL;
             why = NULL;
+            fw = NULL;
             p += sprintf( p, " ddraw gone |" );
             i = 1;
         }
@@ -153,6 +161,26 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
             }
             if( why != NULL ) {
                 memcpy( w0, why, sizeof( w0 ) );
+            }
+            if( fw == NULL && (fw = (const DWORD *)find_export( "m8d3d_feed_why" )) != NULL ) {
+                memcpy( f0, fw, sizeof( f0 ) );
+            }
+            if( fw != NULL ) {
+                int k;
+                int any = 0;
+
+                for( k = 0; k < 16; ++k ) {
+                    if( fw[k] != f0[k] ) {
+                        p += sprintf( p, "%s %s %lu", any ? "" : " feed stopped by:", fw_names[k],
+                                      (unsigned long)(fw[k] - f0[k]) );
+                        any = 1;
+                        f0[k] = fw[k];
+                    }
+                }
+                if( any ) {
+                    p += sprintf( p, " |" );
+                    i = 1;
+                }
             }
             if( st1[72] != st0[72] || st1[74] != st0[74] || st1[82] != st0[82] ) {
                 p += sprintf( p, " dd lock %lu/%lu/%lu noread %lu unlock %lu/%lu move %lu flip8 %lu |",

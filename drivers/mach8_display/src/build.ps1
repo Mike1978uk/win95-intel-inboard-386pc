@@ -136,7 +136,7 @@ foreach ($c in 'm8dd32', 'm8d3d') {
 }
 Set-Content -Path "$Out\m8dd32.lnk" -Encoding Ascii -Value @(
   'system nt_dll', "name $Out\M8DD32.DLL", 'option quiet', 'option offset=0xB0C00000',
-  "file $Out\m8dd32.obj", "file $Out\m8d3d.obj", "export DriverInit='_DriverInit@4'", "export m8d3d_stat", "export m8d3d_census", "export m8d3d_flip_why")
+  "file $Out\m8dd32.obj", "file $Out\m8d3d.obj", "export DriverInit='_DriverInit@4'", "export m8d3d_stat", "export m8d3d_census", "export m8d3d_flip_why", "export m8d3d_feed_why")
 Run wlink @("@$Out\m8dd32.lnk")
 $dll = "$Out\M8DD32.DLL"
 $b = [IO.File]::ReadAllBytes($dll)

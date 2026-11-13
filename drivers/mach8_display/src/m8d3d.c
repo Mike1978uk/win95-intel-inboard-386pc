@@ -721,6 +721,8 @@ static DWORD            m8d3d_ph_send;
                            m8d3d_stat[(k) + 10] += m8d3d_stat[44] - m8d3d_ph_send; m8d3d_ph_send = m8d3d_stat[44]; } while( 0 )
 /* Flip off its fast path: GDI touched the card, slow flips, then why. */
 DWORD                   m8d3d_flip_why[6];
+/* Feeds stopped while still running, by the call that stopped them: m8d3d_feed_stop's site. */
+DWORD                   m8d3d_feed_why[16];
 
 static LPVOID m8d3d_lcl( LPVOID surface_int )
 {
@@ -1135,6 +1137,15 @@ void m8d3d_feed_finish( void )
     m8d3d_qh = 0;
     m8d3d_q_next = M8D3D_Q_PUMP;
     m8d3d_engine_end();
+}
+
+/* m8d3d_feed_finish, counted against `site` when a feed was still running. */
+void m8d3d_feed_stop( int site )
+{
+    if( m8d3d_feeding || m8d3d_feed_held ) {
+        ++m8d3d_feed_why[site & 15];
+    }
+    m8d3d_feed_finish();
 }
 
 /* The feed closed: the driver unloads with its last handle and frees the queue. */
@@ -3308,7 +3319,7 @@ int m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const shor
         }
     }
     m8d3d_owner_check();
-    m8d3d_feed_finish();
+    m8d3d_feed_stop( 12 );
     if( c == NULL || !m8d3d_engine_begin() ) {
         ++m8d3d_stat[11];
         return( 0 );
@@ -4203,7 +4214,7 @@ static int m8d3d_draw_begin( M8D3D_DRAW *p, M8D3D_CONTEXT *c )
     p->fb16 = m8d3d_fb16();
     m8d3d_owner_check();
     if( !p->fb16 ) {
-        m8d3d_feed_finish();
+        m8d3d_feed_stop( 13 );
         m8d3d_q = m8d3d_q_own;
         m8d3d_q_cap = M8D3D_Q_MAX;
     }
