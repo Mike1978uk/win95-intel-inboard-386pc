@@ -1914,7 +1914,7 @@ xp_ok:
 	mov	XTIDE_ReqCount, 1
 	mov	XTIDE_ReqBuf, OFFSET32 XTIDE_SecBuf
 	call	XTIDE_ReadSectors
-	jc	xp_exit			; 7, 8 or 9 already in XTIDE_FailCode
+	jc	xp_noread		; 7, 8 or 9 already in XTIDE_FailCode
 
 ;  A sector that came back with an MBR signature is a sector that came back.
 	cmp	word ptr XTIDE_SecBuf+510, 0AA55h
@@ -1971,6 +1971,12 @@ xp_noslave:
 
 xp_nosig:
 	mov	XTIDE_FailCode, 10	; 512 bytes read, no 55AA at the end of them
+	jmp	xp_exit
+
+;  A drive that identifies but cannot return sector 0 is left to the real-mode
+;  BIOS: claiming it would move the volume onto a read path that just failed.
+xp_noread:
+	mov	XTIDE_MasterPresent, 0
 	jmp	xp_exit
 
 xp_nostride:
