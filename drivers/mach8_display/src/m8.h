@@ -332,7 +332,7 @@ extern LONG m8_poly_escape( LPVOID lpInput, LPVOID lpOutput );
 #define M8_ESC_RESYNC       0x4D3E      /* a program drew on the card itself: set it all again */
 #define M8_ESC_POLY         0x4D3F      /* poly3d.c: begin, frame, end */
 #define M8_ESC_FB16BATCH    0x4D40      /* in: m8_fb16_batch's list; out: a DWORD */
-#define M8_ESC_STATS        0x4D41      /* out: m8_stats, for M8MON */
+#define M8_ESC_STATS        0x4D41      /* out: m8_stats (M8MON; M8DD32's 8 bpp Lock) */
 #define M8_PF_STYLES        64
 #define M8_PF_N             10      /* BitBlt ExtTextOut Output Pixel StrBlt DibToDevice
                                      * StretchBlt StretchDIBits SaveScreenBitmap ScanLR */

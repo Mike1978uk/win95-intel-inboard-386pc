@@ -155,9 +155,10 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
                 memcpy( w0, why, sizeof( w0 ) );
             }
             if( st1[72] != st0[72] || st1[74] != st0[74] || st1[82] != st0[82] ) {
-                p += sprintf( p, " dd lock %lu/%lu/%lu unlock %lu/%lu move %lu flip8 %lu |",
+                p += sprintf( p, " dd lock %lu/%lu/%lu noread %lu unlock %lu/%lu move %lu flip8 %lu |",
                               (unsigned long)(st1[72] - st0[72]), (unsigned long)(st1[83] - st0[83]),
-                              (unsigned long)((st1[73] - st0[73]) >> 10), (unsigned long)(st1[74] - st0[74]),
+                              (unsigned long)((st1[73] - st0[73]) >> 10), (unsigned long)(st1[94] - st0[94]),
+                              (unsigned long)(st1[74] - st0[74]),
                               (unsigned long)((st1[75] - st0[75]) >> 10), (unsigned long)(st1[76] - st0[76]),
                               (unsigned long)(st1[82] - st0[82]) );
                 i = 1;

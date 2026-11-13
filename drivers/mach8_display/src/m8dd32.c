@@ -259,6 +259,54 @@ typedef struct {
 } M8DD_HELD;
 
 static M8DD_HELD    m8dd_held[M8DD_HELD_MAX];
+static DWORD        m8dd_held_sum[M8DD_HELD_MAX][1024];
+
+/* At 8 bpp a Lock reads the card back into the shadow, about a second for a whole 640x480
+ * screen on the 5160's bus, and Unlock writes it back. The shadow keeps matching the card
+ * until something else draws there: GDI (its counters), the HAL's engine writes, or a Blt
+ * here (m8dd_card_gen). While none has, a Lock inside the matched rectangle reads nothing;
+ * Unlock sends only the rows whose hash changed. */
+#define M8_ESC_STATS        0x4D41      /* m8.h */
+
+static RECT         m8dd_synced;
+static DWORD        m8dd_sync_epoch;
+static DWORD        m8dd_card_gen;
+
+static DWORD m8dd_epoch( void )
+{
+    DWORD   gdi[20];
+    DWORD   v = m8d3d_stat[25] + m8dd_card_gen;
+    HDC     dc = GetDC( NULL );
+    int     i;
+    int     ok = 0;
+
+    if( dc != NULL ) {
+        ok = ExtEscape( dc, M8_ESC_STATS, 0, NULL, sizeof( gdi ), (LPSTR)gdi ) > 0;
+        ReleaseDC( NULL, dc );
+    }
+    if( !ok ) {
+        return( GetTickCount() ^ 0x5A5A5A5AUL );
+    }
+    for( i = 0; i < 20; ++i ) {
+        v += gdi[i] * (DWORD)(2 * i + 1);
+    }
+    return( v );
+}
+
+static DWORD m8dd_row_hash( const BYTE *p, int w )
+{
+    const DWORD *d = (const DWORD *)p;
+    DWORD       v = 2166136261UL;
+    int         i;
+
+    for( i = 0; i < w / 4; ++i ) {
+        v = (v ^ d[i]) * 16777619UL;
+    }
+    if( w & 2 ) {
+        v = (v ^ *(const WORD *)(p + (w & ~3))) * 16777619UL;
+    }
+    return( v );
+}
 
 static int m8dd_idle( void )
 {
@@ -478,10 +526,29 @@ DWORD __stdcall m8dd_lock( M8DD_LOCK *ld )
     ld->lpSurfData = (LPVOID)(m8dd->shadow + (DWORD)r.top * m8dd->pitch + r.left);
     r.left &= ~1;
     r.right = (r.right + 1) & ~1;
-    m8d3d_stat[73] += (DWORD)((r.right + 1 - (r.left & ~1)) & ~1) * (r.bottom - r.top);
-    if( !m8dd_transfer( &r, 0 ) ) {
-        ld->ddRVal = M8DD_DDERR_GENERIC;
-        return( DDHAL_DRIVER_HANDLED );
+    {
+        DWORD   e = m8dd_epoch();
+        int     y;
+
+        if( e == m8dd_sync_epoch && r.left >= m8dd_synced.left && r.top >= m8dd_synced.top &&
+            r.right <= m8dd_synced.right && r.bottom <= m8dd_synced.bottom ) {
+            ++m8d3d_stat[94];
+        } else {
+            m8d3d_stat[73] += (DWORD)(r.right - r.left) * (r.bottom - r.top);
+            if( !m8dd_transfer( &r, 0 ) ) {
+                ld->ddRVal = M8DD_DDERR_GENERIC;
+                return( DDHAL_DRIVER_HANDLED );
+            }
+            if( e == m8dd_sync_epoch ) {
+                UnionRect( &m8dd_synced, &m8dd_synced, &r );
+            } else {
+                m8dd_synced = r;
+            }
+            m8dd_sync_epoch = e;
+        }
+        for( y = r.top; y < r.bottom && y - r.top < 1024; ++y ) {
+            m8dd_held_sum[k][y - r.top] = m8dd_row_hash( (const BYTE *)(m8dd->shadow + (DWORD)y * m8dd->pitch) + r.left, r.right - r.left );
+        }
     }
     m8dd_held[k].lcl = ld->lpDDSurface;
     m8dd_held[k].r = r;
@@ -511,8 +578,39 @@ DWORD __stdcall m8dd_unlock( M8DD_UNLOCK *ud )
         return( DDHAL_DRIVER_HANDLED );
     }
     ++m8d3d_stat[74];
-    m8d3d_stat[75] += (DWORD)(m8dd_held[k].r.right - m8dd_held[k].r.left) * (m8dd_held[k].r.bottom - m8dd_held[k].r.top);
-    ud->ddRVal = m8dd_transfer( &m8dd_held[k].r, 1 ) ? DD_OK : M8DD_DDERR_GENERIC;
+    {
+        const RECT  *h = &m8dd_held[k].r;
+        int         valid = m8dd_epoch() == m8dd_sync_epoch;
+        int         ok = 1;
+        int         y = h->top;
+
+        /* Runs of changed rows, each one transfer. */
+        while( ok && y < h->bottom ) {
+            RECT    run;
+
+            if( y - h->top < 1024 && m8dd_row_hash( (const BYTE *)(m8dd->shadow + (DWORD)y * m8dd->pitch) + h->left, h->right - h->left ) ==
+                m8dd_held_sum[k][y - h->top] ) {
+                ++y;
+                continue;
+            }
+            run = *h;
+            run.top = y;
+            while( y < h->bottom && (y - h->top >= 1024 ||
+                   m8dd_row_hash( (const BYTE *)(m8dd->shadow + (DWORD)y * m8dd->pitch) + h->left, h->right - h->left ) !=
+                   m8dd_held_sum[k][y - h->top]) ) {
+                ++y;
+            }
+            run.bottom = y;
+            m8d3d_stat[75] += (DWORD)(run.right - run.left) * (run.bottom - run.top);
+            ok = m8dd_transfer( &run, 1 );
+        }
+        ud->ddRVal = ok ? DD_OK : M8DD_DDERR_GENERIC;
+        if( valid && ok ) {
+            m8dd_sync_epoch = m8dd_epoch();
+        } else {
+            SetRectEmpty( &m8dd_synced );
+        }
+    }
     m8dd_held[k].lcl = NULL;
     return( DDHAL_DRIVER_HANDLED );
 }
@@ -2964,6 +3062,7 @@ DWORD __stdcall m8dd_blt( M8DD_BLT *bd )
     }
     m8dd_forget( hot );
     hot[H_BUSY] = 0;
+    ++m8dd_card_gen;
     bd->ddRVal = ok ? DD_OK : M8DD_DDERR_GENERIC;
     return( DDHAL_DRIVER_HANDLED );
 }
@@ -3396,6 +3495,7 @@ DWORD __stdcall m8dd_create_surface( M8DD_CREATE *cd )
     RECT    r;
 
     m8d3d_feed_finish();
+    ++m8dd_card_gen;
     for( i = 0; i < cd->dwSCnt; ++i ) {
         lcl = cd->lplpSList[i];
         gbl = *(BYTE **)(lcl + M8DD_LCL_GBL);

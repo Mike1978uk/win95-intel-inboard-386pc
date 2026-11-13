@@ -83,7 +83,8 @@ static void offscreen( LPDIRECTDRAW dd )
     BYTE                *p;
     int                 x;
     int                 y;
-    int                 bad = 0;
+    int                 card = 0;
+    int                 kept = 0;
 
     memset( &sd, 0, sizeof( sd ) );
     sd.dwSize = sizeof( sd );
@@ -120,8 +121,12 @@ static void offscreen( LPDIRECTDRAW dd )
         }
         r = off->lpVtbl->Unlock( off, NULL );
         printf( "off unlock %08lx\n", (unsigned long)r );
-        /* The lock's memory is the driver's shadow: scribbled on, the next
-         * lock must bring the pixels back from the card. */
+        /* The lock's memory is the driver's shadow, and a Lock skips the
+         * read-back only when nothing drew since. Anything else on the screen
+         * may draw in between, so the next Lock returns either the scribble
+         * or the card's pattern - all of one, never a mix. A read-only Unlock
+         * does not send the scribble: the Blt to the screen below shows the
+         * card kept the pattern. */
         for( y = 0; y < 32; ++y ) {
             memset( p + y * sd.lPitch, 0x55, 64 );
         }
@@ -132,12 +137,14 @@ static void offscreen( LPDIRECTDRAW dd )
             p = (BYTE *)sd.lpSurface;
             for( y = 0; y < 32; ++y ) {
                 for( x = 0; x < 64; ++x ) {
-                    bad += p[y * sd.lPitch + x] != (x < 32 ? 0xFF : 0x00);
+                    card += p[y * sd.lPitch + x] == (x < 32 ? 0xFF : 0x00);
+                    kept += p[y * sd.lPitch + x] == 0x55;
                 }
             }
             off->lpVtbl->Unlock( off, NULL );
         }
-        printf( "off read back %08lx: %d of 2048 wrong\n", (unsigned long)r, bad );
+        printf( "off read back %08lx: card's %d, shadow's %d of 2048 (%s)\n", (unsigned long)r, card, kept,
+                card == 2048 || kept == 2048 ? "ok" : "MIXED" );
     }
     memset( &fx, 0, sizeof( fx ) );
     fx.dwSize = sizeof( fx );
