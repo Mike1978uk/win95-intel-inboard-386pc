@@ -410,8 +410,8 @@ BeginProc SC_Transfer
 	jne	SHORT sct_fail
 	cmp	[SC_Desc].PS_BD_Cmd, PF_Write_Data
 	je	SHORT sct_ok
-	cmp	[SC_Seen], 0		; a read that was not shortened read 4 KB
-	je	SHORT sct_fail		;   into a 4.25 KB buffer: usable, but wrong
+	cmp	[SC_Seen], 0		; a read the hook did not see took a path we
+	je	SHORT sct_fail		;   do not know: do not trust the buffer
 sct_ok:
 	clc
 	ret
@@ -443,8 +443,8 @@ EndProc SC_PageSum
 endif
 
 ;******************************************************************************
-;   LZ4 block format, one 4 KB page. Same algorithm as LZ4BENCH.C, which
-;   round-tripped real swap pages on the 5160.
+;   LZ4 block format, one 4 KB page. Without SC_FOLD this is the algorithm of
+;   tools/swapcomp/LZ4BENCH.C; SC_FOLD changes the hash and never clears HTab.
 ;******************************************************************************
 
 ;   EAX = 4 bytes -> EAX = hash index. EDX destroyed.
