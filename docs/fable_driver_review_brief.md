@@ -1,6 +1,35 @@
 # Fable review of what runs on the 5160: the brief
 
-When: after the feeder lands (step 4 in `docs/next_session_2026_11_14.md`). The owner approves the start.
+## Revised checklist (owner, 2026-11-13 night): supersedes the order below
+
+Fable spent a 5-hour limit in minutes, twice, mostly reading in. From now on:
+
+1. **One Fable job at a time, one question per job.** The owner starts each one. A job cut off by
+   the limit is not resumed; it is re-scoped and started fresh.
+2. **Pack first, by a cheaper agent.** Sonnet writes `docs/fable_pack_<job>.md`: the question, the
+   measured facts (numbers only, with their source), and the exact files and line ranges to read,
+   no more than ~1,500 source lines. Opus checks the pack. Fable reads the pack and those lines,
+   nothing else unless a line it reads points somewhere.
+3. **Fable reasons; it does not build, run or commit.** Output is one report: at most 5 findings,
+   ranked by expected gain, each with file:line, the evidence, a proposed patch as a diff in the
+   report, and the card probe that would prove it. Opus applies, builds and bed/card-tests;
+   Haiku commits.
+4. **Stop rule in every prompt:** "When you have 5 findings or have read the pack's lines, write the
+   report and stop."
+
+| # | Job | Status |
+|---|---|---|
+| F1 | **CPU flush on I/O**: what invalidates the L1 on every IN/OUT (Inboard glue, BL3 config, INBRDPC.SYS), whether it can be narrowed without breaking DMA coherency, and driver-side avoidance beyond the known (bursts built in RAM, VGA-half memory writes) | next; owner: important |
+| F2 | **Direct3D frame build**: `m8d3d_replay` phases 36-41, ~22.6 ms CPU a twist frame of 32.7 ms ours; including asm candidates in that path | after F1 |
+| F3 | **Mach8 correctness**: Part 1 items A1-A4 (stale caches, unowned register state, FIFO accounting, exit paths) incl. `m8feed` | after F2, if the owner wants it |
+| - | Part 2 swapcomp, Part 3 XT-IDE | **done 11-13**: reports on their worktree branches; Opus validates, bed then card |
+| - | Parts 4-8 (SHADRAM, T130B, patched MS drivers, real mode, scripts) | **not Fable work** unless the owner asks; Opus can use the shared checklist below |
+
+Facts settled since the first draft (put in packs, not re-derived): at 16 bpp in twist every feed
+stop is at Flip and Flip has ~23 writes left to send (card, 11-13, boot 381); feed stop points are
+not a cost.
+
+## Original brief (11-13 afternoon): reference for the checklists
 Scope (owner, 2026-11-13): everything of ours that runs on the 5160, drivers and VxDs first, then the
 real-mode programs and the scripts that patch a user's files. Not 86Box code, not probes or benches.
 Pack: a Sonnet agent assembles each part's file list and numbers into one place first, so Fable reads
