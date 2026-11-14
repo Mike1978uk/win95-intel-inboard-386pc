@@ -21,6 +21,26 @@ exits, one hang. The waits before the mode set are bounded (reset on timeout).
 F2 3: 3,470 writes a flip against F3's 3,550 (twist), pixels = in 36. Phase marks cost ~0.5-3.6
 ms a frame (one run each); split with `phase=1` sums to ~22.9 ms, the old 22.6 ms baseline holds.
 
+## Later the same evening
+
+- **Feed off** (`[feed] on=0`, F2 3 build, boot 392): twist + agent Alt+F4 **7 of 7 clean**, ~5.8
+  fps. Feed on: 6 of 7. Every hang so far had the feed on; not decisive at these counts.
+- **F2 1** (edge cancel per colour), `m8f2e1.drv`: host test, old against new join over 20,000 random
+  frames (18.2 M outer edges): identical edges and order; a broken copy fails it. Card: pixels = in
+  36; phase 37 6.7 -> 6.0 ms, split 22.9 -> 22.3 ms (`phase=1`, one run each). ~2 %, not Fable's 3 ms.
+  Kept. Card now on `m8f2e1.drv`, INI back to `phase=0`, feed on.
+- **Loop timeouts** (lesson above): Mach8 waits count port reads (bus-timed, no drift); `m8_spin`
+  only paces the vblank poll; T130B is vendor-only. No change.
+- **swapcomp 5**: `WIN386.SWP` from the owner's card image (`win95_latest14112026.img`, 11-14 11:17):
+  718 raw slots, 386 (54 %) fit in 7 sectors with LZ4. Build `SC_MAX_SECTORS` 7, A/B in the soak.
+  Also 170 raw slots compress to <= 6 sectors (49 to one): explain before that build.
+- **X14 step 1** (bed, DX SDK DirectDraw samples, `docs/captures/2026-11-14_x14_ddraw_bed/`): all
+  started and the agent survived each. `v9xctl screenshot` fails at 16 bpp in the bed too (Win32 1460):
+  pictures need the 86Box camera. 7 of 10 did not move the census: likely windowed or waiting for a key.
+  **Wormhole** page-faults (null read, `8b 08` at EIP, EAX 0) after `SetDisplayMode(640,480,8)`
+  succeeds from the 16 bpp desktop: a call of ours returned no object (offscreen surface, Lock or
+  palette); trace probe in the bed. Fswindow did not close on Alt+F4.
+
 ## Start here: the Mach8 card run, driven through the agent
 
 Opus drives every step over the V9x agent (`v9xctl.ps1 -Host 192.168.68.62`), Alt+F4 included
