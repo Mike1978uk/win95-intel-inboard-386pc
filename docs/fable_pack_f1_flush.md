@@ -25,6 +25,10 @@ to within 2 PIT counts (B 84 us, D 638 us, E 81 us, J 124 us both ways). SW1 doe
 flush; it is fixed in the module. F1 closed: no Fable job. Avoidance goes into F2's pack. Raw:
 `docs/captures/2026-11-13_flush_sw1/`.
 
+**ASNP, 2026-11-14 (card, DOS, COMrade):** FLUSHP 1 with `1000h:0` read back as 82 (ASNP off) gives
+the same table. ASNP does not cause the flush. CRLD untested: `1000h:1` ignores writes after
+CPUSET.BAT. No software control of the flush is known. Raw: `docs/captures/2026-11-14_flush_asnp/`.
+
 Correctness gate: the Inboard ties HOLD low, so the module's "DMA only" flush (SW1 OFF) may never
 see XT-side DMA. The flush on I/O may be what keeps DMA writes into Inboard RAM (floppy read, SB
 record, T130B bus master) coherent. SW1 OFF is measured in DOS only, with no floppy or T130B use,
