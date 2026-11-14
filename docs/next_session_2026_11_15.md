@@ -78,3 +78,17 @@ Fable is expensive: one job at a time, only where it adds what Opus + bed cannot
 - `CTCHIP34 IBM486 > file` (no write argument) is the register read-back; `1000h:1` ignores
   writes after CPUSET.
 - Bed restarts by keystroke can miss; `card_restart.ps1`'s retrying restart works in a bed too.
+
+## Progress, 2026-11-14 day session
+
+| Item | Who | State |
+|---|---|---|
+| Card staged: `C:\V9XREMOTE\STAGE\FSWAPZFC.VXD` `349776fd`, `FSWAPZF.VXD` `07154eb7`, `FXTIDE.MPD` `a3f3eead`; active files unchanged; 26 flush-work files to `C:\OLD\` | Haiku | done |
+| `C:\PICCHK.COM` `a16b4996` (#10 H1 probe, `tools/picchk/`): 5160 control run and `/T` before Simon | Opus | on card, not run |
+| Boot 1 baseline locked memory; boot 2 checksum build + PAGETIME/XTSECT/read-back; boot 3 locked again (expect ~8 KB less: one page each) | Opus | waiting on 5160 |
+| Census `docs/le_census_2026_11_14.md`: no new 4 KB win beyond the two builds; T130.MPD 838 B over | Sonnet | done |
+| Issues `docs/issue_audit_2026_11_14.md`: #50, #47 owe replies; README issue list stale; #10 thread lacks the e-mail exchange | Sonnet | done, owner to act |
+| Benchmarks `docs/benchmark_choice_2026_11_14.md`: Doom timedemo, 3DBench, SpeedSys | Sonnet | done, none on card |
+| F2 pack `docs/fable_pack_f2.md` checked | Sonnet, Opus | ready for owner to start Fable |
+| Showcase search `docs/showcase_3d_candidates_2026_11_14.md`; worklist X16 | Sonnet | done |
+| Code tightening (swapcomp, XT-IDE, asm) | Opus + bed | after the card boots |

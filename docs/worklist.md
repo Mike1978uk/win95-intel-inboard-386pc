@@ -350,6 +350,13 @@ like a timer tick (~170 us measured for #45). Ideas, cheapest first - measure be
 - [ ] **X15 Our own DOS 3D renderer (owner, 2026-11-13):** built around the card, not the API: engine fills,
       mask strips and keyed copies, textures resident in VRAM as rows, 320x240, only changes over the bus. Seed
       is X7; MTM's lessons (texture store, overlays, lores, Lock costs) feed it.
+- [ ] **X16 Showcase on existing 3D software, not our own titles (owner, 2026-11-14):** after X14, before or
+      with X15. Order: titles with their own 8514/A mode (run as-is, a starter), then a DOS 3D API whose games
+      hand over whole triangles (Creative CGL first, 486 era; S3D, Speedy3D, ATI CIF, MSI, SGL, RenderWare,
+      BRender) implemented on the Mach8, so one port serves several period titles and the 486 stops
+      rasterising. Needs the API to reach the hardware through a replaceable driver file. Fit: flat or
+      Gouraud polygons and fills, not texture-mapped frames. FastDoom is a bus test, not a showcase: 64,000 B
+      at 1.83 us/B is ~117 ms a frame before rendering. Shortlist: `docs/showcase_3d_candidates_2026_11_14.md`.
 - [ ] **X10 Direct3D, playable approximations (owner, 2026-11-07):** real programs run unmodified, and show what was intended by our own means. Build order D1-D12 in `docs/mach8_frame_rate_plan.md`, "Direct3D: playable approximations": HAL accepted (Z formats, sort, Z surface), mock replies and fog, census on real programs, effect tag and stipple, **real texture path**, cut-outs and mips, palette ramps, blends, bilinear look and perspective, runtime clip cost, then speed. The card's hang needs a cause before a showcase.
 
 ## E. Timer, refresh, XT-CF (in flight)
