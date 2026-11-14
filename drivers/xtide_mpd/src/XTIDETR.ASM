@@ -75,6 +75,7 @@ XTR_DEVCTRL	equ	14		; write
 XT_HILATCH	equ	8
 
 ATA_IDENTIFY	equ	0ECh
+ATA_FLUSH_CACHE	equ	0E7h
 ATA_READ	equ	020h		; READ SECTOR(S), the 28-bit PIO command
 ATA_WRITE	equ	030h		; WRITE SECTOR(S)
 
@@ -146,6 +147,7 @@ XT_COMMIT_POLLS		equ	170
 
 
 ;  IDENTIFY DEVICE result layout (ATA-1 onwards)
+ID_CMDSET2_OFF	equ	166		; word 83: bits 15-14 = 01b when valid, bit 12 FLUSH CACHE
 ID_MODEL_OFF	equ	54		; 40-byte model string, word 27..46
 ID_MODEL_LEN	equ	40
 ID_MIN_TEXT	equ	4		; minimum non-blank printable chars
@@ -324,6 +326,8 @@ XTIDE_UnitHeads		dd	2 dup (0)
 XTIDE_UnitSpt		dd	2 dup (0)
 XTIDE_UnitTotal		dd	2 dup (0)
 XTIDE_UnitLbaOk		dd	2 dup (0)
+public XTIDE_UnitFlush
+XTIDE_UnitFlush		dd	2 dup (0)	; drive implements FLUSH CACHE
 
 ;  Sector-count register is 8 bits, and 0 there means 256. SCSIPORT can ask
 ;  for more than one command can carry, so requests are chunked.
@@ -1431,6 +1435,41 @@ xci_loop:
 ;  end XTIDE_CopyId
 
 ;----------------------------------------------------------------------------
+; XTIDE_FlushCache - FLUSH CACHE to the unit XTIDE_SelectUnit chose, so a
+;                    drive with a volatile write cache holds nothing at power-off.
+;
+;   Out:  CF=1 if the drive stayed busy or reported an error
+;   Uses: EAX, ECX, EDX
+;----------------------------------------------------------------------------
+public XTIDE_FlushCache
+XTIDE_FlushCache:
+
+	call	XTIDE_WaitNotBusy
+	jc	SHORT xfc_out
+ifdef XT_SKIP_DRVHD
+	mov	XTIDE_LastDrvHd, 0FFFFFFFFh
+endif
+	mov	edx, XTIDE_pDrvHd
+	mov	eax, XTIDE_TryUnit
+	out	dx, al
+	call	XTIDE_WaitNotBusy
+	jc	SHORT xfc_out
+	mov	edx, XTIDE_pStatus
+	mov	al, ATA_FLUSH_CACHE
+	out	dx, al
+	call	XTIDE_WaitNotBusy
+	jc	SHORT xfc_out
+	mov	edx, XTIDE_pStatus
+	in	al, dx
+	test	al, ST_ERR
+	jz	SHORT xfc_out		; CF clear from TEST
+	stc
+xfc_out:
+	ret
+
+;  end XTIDE_FlushCache
+
+;----------------------------------------------------------------------------
 ; XTIDE_StashGeometry / XTIDE_SelectUnit - move geometry between the working
 ; globals and the per-unit arrays.
 ;
@@ -1452,6 +1491,12 @@ XTIDE_StashGeometry:
 	mov	edx, XTIDE_LbaOk
 	mov	XTIDE_UnitLbaOk[ecx], edx
 	mov	XTIDE_UnitPresent[ecx], 1
+	mov	dx, [esi + ID_CMDSET2_OFF]
+	and	dx, 0D000h
+	cmp	dx, 5000h		; word valid and FLUSH CACHE supported
+	jne	SHORT xsg_noflush
+	mov	XTIDE_UnitFlush[ecx], 1
+xsg_noflush:
 	call	XTIDE_CopyId		 ; EAX still the unit, ESI still the ID buffer
 	ret
 

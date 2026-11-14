@@ -49,6 +49,8 @@ ScsiPortNotification	PROTO	C	:DWORD, :VARARG
 EXTERNDEF	XTIDE_Probe		: NEAR
 EXTERNDEF	XTIDE_XferRun		: NEAR
 EXTERNDEF	XTIDE_SelectUnit	: NEAR
+EXTERNDEF	XTIDE_FlushCache	: NEAR
+EXTERNDEF	XTIDE_UnitFlush		: DWORD
 EXTERNDEF	XTIDE_CommitPoll	: NEAR
 EXTERNDEF	XTIDE_CommitPending	: DWORD
 
@@ -670,7 +672,7 @@ XtStartIo PROC STDCALL DeviceExtension:DWORD, Srb:DWORD
 	cmp	eax, SRB_FUNCTION_FLUSH
 	je	xsi_ok
 	cmp	eax, SRB_FUNCTION_SHUTDOWN
-	je	xsi_ok
+	je	xsi_flush
 	cmp	eax, SRB_FUNCTION_RESET_BUS
 	je	xsi_ok
 	cmp	eax, SRB_FUNCTION_RESET_DEVICE
@@ -730,7 +732,7 @@ xsi_target_ok:
 	cmp	al, SCSIOP_TEST_UNIT_READY
 	je	xsi_ok
 	cmp	al, SCSIOP_SYNCHRONIZE_CACHE
-	je	xsi_ok
+	je	xsi_flush
 	cmp	al, SCSIOP_VERIFY
 	je	xsi_ok
 	cmp	al, SCSIOP_START_STOP_UNIT
@@ -913,6 +915,18 @@ xsi_copy_go:
 ;----------------------------------------------------------------------------
 ;  Completion. One exit, four statuses.
 ;----------------------------------------------------------------------------
+;  Shutdown flush. Only a drive that reported FLUSH CACHE in IDENTIFY gets
+;  one; a CF card with no write cache does not need it. A failure is still
+;  reported as success: refusing the shutdown flush can stop the class driver
+;  from shutting down, and the drive has nothing better to offer by then.
+xsi_flush:
+	movzx	eax, [ebx].SCSI_REQUEST_BLOCK.TargetId
+	cmp	eax, 1
+	ja	xsi_ok
+	cmp	XTIDE_UnitFlush[eax*4], 0
+	je	xsi_ok
+	call	XTIDE_SelectUnit
+	call	XTIDE_FlushCache
 xsi_ok:
 	mov	al, SRB_STATUS_SUCCESS
 	jmp	xsi_complete
