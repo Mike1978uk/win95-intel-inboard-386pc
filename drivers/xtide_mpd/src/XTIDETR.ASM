@@ -129,8 +129,8 @@ XT_SPIN		equ	400000		; status poll limit; no timer at init
 ;  fast window covers the streaming case, where DRQ is up by the time we look;
 ;  only a genuine wait reaches the paced loop.
 XT_POLL_FAST	equ	32	; 32 x 5.55us = 178 us flat out, then back off
-XT_POLL_DELAY	equ	512	; 512 x 0.10us = ~51 us, so ~10x less poll traffic
-XT_SPIN_SLOW	equ	20000	; x 56.8us = ~1.1 s, near the old real timeout
+XT_POLL_DELAY	equ	256	; 256 x 0.10us = ~26 us: a ready card is seen within ~31 us
+XT_SPIN_SLOW	equ	35000	; x 31.2us = ~1.1 s, near the old real timeout
 
 ;  Wait first, then look (XT_WAIT_FIRST). The card's latencies are known
 ;  (docs/captures/2026-10-10_xtlat/), so the driver stays off the bus for most
@@ -140,10 +140,10 @@ XT_SPIN_SLOW	equ	20000	; x 56.8us = ~1.1 s, near the old real timeout
 XT_RD_FIRST_WAIT	equ	2200	; ~220 us; a read's first DRQ, 232-313 us
 XT_WR_FIRST_WAIT	equ	7000	; ~700 us; a write's first DRQ, 0.8-3.3 ms
 XT_COMMIT_WAIT		equ	7000	; ~700 us; the fastest commit seen, 0.8 ms
-;  Paced polls before a commit is handed to the timer: 170 x ~61 us = ~10 ms.
+;  Paced polls before a commit is handed to the timer: 320 x ~31 us = ~10 ms.
 ;  A handoff can cost up to one tick (13.7 ms) of latency, so only a commit
 ;  that outlasts this - a flash erase, ~110 ms - is worth handing off.
-XT_COMMIT_POLLS		equ	170
+XT_COMMIT_POLLS		equ	320
 
 
 ;  IDENTIFY DEVICE result layout (ATA-1 onwards)
