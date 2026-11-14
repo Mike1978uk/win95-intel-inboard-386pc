@@ -714,11 +714,13 @@ static M8D3D_CONTEXT    m8d3d_ctx[M8D3D_CONTEXTS];
  * card, sent from RAM, [81] Blts refused, [82] Flips, [83] Locks of the whole surface. */
 DWORD                   m8d3d_stat[96];      /* 62-64: triangles put in RAM: on the shown buffer, on a buffer not described, flushes of recorded ones; 65: triangles on a surface not ours; 66: back-buffer part clears described as nothing; 67-68: overlays drawn by the card, sent to it; 60: feeds cut short by the 16-bit driver; 61: back-buffer locks that kept the triangles; 25: engine writes sent, 26: triangle pieces drawn, 27-33: m8dd_tri_census, 34-35: FIFO waits, 36-43: Flip phases, 44: sending, 45: sends forced by a full queue, 46-53: of 36-43, the part spent sending,
                                               * 54-59: feed: opened, frames handed over, entries left for m8d3d_feed_finish, driver time-outs, FIFO-full reads, entries sent */
-/* Diagnostic: clock ticks since the last mark, into phase k. */
+/* Diagnostic: clock ticks since the last mark, into phase k. Off unless asked for ([diag] phase=1):
+ * each mark is a clock read, and a clock read empties the cache in the middle of the build. */
 static LARGE_INTEGER    m8d3d_ph;
 static DWORD            m8d3d_ph_send;
-#define M8D3D_PH( k ) do { LARGE_INTEGER t_; QueryPerformanceCounter( &t_ ); m8d3d_stat[k] += t_.LowPart - m8d3d_ph.LowPart; m8d3d_ph = t_; \
-                           m8d3d_stat[(k) + 10] += m8d3d_stat[44] - m8d3d_ph_send; m8d3d_ph_send = m8d3d_stat[44]; } while( 0 )
+static int              m8d3d_dphase;
+#define M8D3D_PH( k ) do { if( m8d3d_dphase ) { LARGE_INTEGER t_; QueryPerformanceCounter( &t_ ); m8d3d_stat[k] += t_.LowPart - m8d3d_ph.LowPart; m8d3d_ph = t_; \
+                           m8d3d_stat[(k) + 10] += m8d3d_stat[44] - m8d3d_ph_send; m8d3d_ph_send = m8d3d_stat[44]; } } while( 0 )
 /* Flip off its fast path: GDI touched the card, slow flips, then why. */
 DWORD                   m8d3d_flip_why[6];
 /* Feeds stopped while still running, by the call that stopped them: m8d3d_feed_stop's site. */
@@ -3335,7 +3337,9 @@ int m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const shor
         m8d3d_q = m8d3d_feed + M8FEED_FIRST;
         m8d3d_q_cap = M8FEED_CAP;
     }
-    QueryPerformanceCounter( &m8d3d_ph );
+    if( m8d3d_dphase ) {
+        QueryPerformanceCounter( &m8d3d_ph );
+    }
     m8d3d_ph_send = m8d3d_stat[44];
     if( m8d3d_pal_want && (!m8d3d_pal_on || m8d3d_pal_dirty) ) {
         m8d3d_pal_load();
@@ -3474,6 +3478,7 @@ static DWORD __stdcall m8d3d_context_create( M8D3D_CONTEXTCREATE *d )
     m8d3d_dclean = (int)GetPrivateProfileInt( "diag", "clean", 0, "C:\\M8D3D.INI" );
     m8d3d_dnoout = (int)GetPrivateProfileInt( "diag", "nooutline", 0, "C:\\M8D3D.INI" );
     m8d3d_jshift = (int)GetPrivateProfileInt( "diag", "shift", 1, "C:\\M8D3D.INI" );
+    m8d3d_dphase = (int)GetPrivateProfileInt( "diag", "phase", 0, "C:\\M8D3D.INI" );
     m8d3d_accent = (int)GetPrivateProfileInt( "diag", "accent", 1, "C:\\M8D3D.INI" );
     m8d3d_patch_forget();
     m8d3d_cellsh = GetPrivateProfileInt( "diag", "cell", 8, "C:\\M8D3D.INI" ) >= 16 ? 4 : 3;
