@@ -92,6 +92,9 @@ static WORD m8_int2f_get_vm( unsigned ax );
 /* The resolution and colour depth Display Properties chose, from the VDD;
  * 800x600 at 8 bpp if it says nothing we can show. 16 bpp is 640x480 or
  * 800x600 (fb16.c). */
+/* The depth Windows started in: only a 16 bpp desktop changes depth live (ReEnable). */
+static int m8_desk16;
+
 static void m8_read_mode( void )
 {
     M8_DISPLAYINFO  di;
@@ -158,6 +161,7 @@ UINT FAR DriverInit( UINT cbHeap, UINT hModule, LPSTR lpCmdLine )
     m8_vdd_entry = (DWORD)m8_int2f_get_ep( 0x1684, VDD_ID );
     m8_vm_handle = m8_int2f_get_vm( 0x1683 );
     m8_read_mode();
+    m8_desk16 = m8_fb16;
     M8_STEP( 0xA002 );
     return( 1 );
 }
@@ -318,6 +322,7 @@ UINT WINAPI __loadds Enable( LPVOID lpDevice, UINT style, LPSTR lpDeviceType,
     LPDIBENGINE     lpEng = lpDevice;
     LPBITMAPINFO    lpInfo;
     int             i;
+    int             was16;
 
     M8_FEED_TAKE();
     if( style & 1 ) {
@@ -375,9 +380,11 @@ UINT WINAPI __loadds Enable( LPVOID lpDevice, UINT style, LPSTR lpDeviceType,
     lpInfo->bmiHeader.biHeight   = M8_SCREEN_Y;
     lpInfo->bmiHeader.biPlanes   = 1;
     lpInfo->bmiHeader.biBitCount = 8;
+    was16 = m8_color_table == m8_fb16_pal;
     m8_color_table = (RGBQUAD FAR *)lpInfo->bmiColors;
-    /* A live mode change keeps the palette applications have realized. */
-    if( !m8_reenabling ) {
+    /* A live size change keeps the palette applications have realized; after
+     * 16 bpp the table held fb16's colours, so it starts again. */
+    if( !m8_reenabling || was16 ) {
     _fmemcpy( m8_color_table, m8_static_lo, sizeof( m8_static_lo ) );
     for( i = 10; i < 246; ++i ) {
         ((DIBColorEntry FAR *)m8_color_table)[i].dceRed = 0;
@@ -531,9 +538,11 @@ UINT WINAPI __loadds ReEnable( LPVOID lpDevice, LPGDIINFO lpInfo )
 
     M8_FEED_TAKE();
     m8_read_mode();
-    /* The colour depth changes only at a restart; the size at 16 bpp does not
-     * (the frame buffer is sized for the largest mode). */
-    if( m8_fb16 != old_fb16 ) {
+    /* A desktop's colour depth changes only at a restart. A 16 bpp desktop goes
+     * to 8 bpp and back for a full-screen program's own mode (DirectDraw's
+     * SetDisplayMode arrives here): the card runs 8 bpp in both, and fb16's
+     * frame buffer stays allocated, repainted on the way back. */
+    if( m8_fb16 != old_fb16 && !m8_desk16 ) {
         m8_mode = old;
         m8_fb16 = old_fb16;
         m8_hw_mode_size( m8_mode, &m8_scr_x, &m8_scr_y );
@@ -542,15 +551,23 @@ UINT WINAPI __loadds ReEnable( LPVOID lpDevice, LPGDIINFO lpInfo )
     m8_reenabling = 1;
     /* Quiet while the mode changes: the cursor moves at interrupt time. */
     m8_screen_suspend();
-    if( m8_fb16 && m8_mode != old ) {
+    if( m8_fb16 && (m8_mode != old || !old_fb16) ) {
         m8_fb16_clear();
+    }
+    if( m8_fb16 && !old_fb16 ) {
+        /* Back from 8 bpp: the strips and the 8 bpp cursor go, as at Disable. */
+        m8_screen_done();
     }
     rc = Enable( lpDevice, 0, NULL, NULL, NULL );
     if( rc ) {
         Enable( lpInfo, 1, NULL, NULL, NULL );
         m8dd_mode_changed();
+        if( m8_fb16 != old_fb16 ) {
+            m8_request_repaint();
+        }
     } else {
         m8_mode = old;
+        m8_fb16 = old_fb16;
         m8_hw_mode_size( m8_mode, &m8_scr_x, &m8_scr_y );
         Enable( lpDevice, 0, NULL, NULL, NULL );
         m8_request_repaint();

@@ -68,7 +68,7 @@ typedef struct {
     DDHAL_DDCALLBACKS_t         cb;
     DDHAL_DDSURFACECALLBACKS_t  scb;
     DDHAL_DDPALETTECALLBACKS_t  pcb;
-    DDHALMODEINFO_t             modes[M8_MODE_COUNT];
+    DDHALMODEINFO_t             modes[M8_MODE_COUNT + 2];
 } M8DD_SHARE;
 #pragma pack( pop )
 
@@ -280,6 +280,22 @@ static void m8dd_build( int mode )
      * Off-screen surfaces in video memory are still asked of CreateSurface. */
     hi->dwModeIndex = mode;
     hi->dwNumModes = M8_MODE_COUNT;
+    if( m8_fb16_lin() != 0 ) {
+        /* A 16 bpp desktop running a full-screen 8 bpp program: its modes, so DDRAW can go back. */
+        DDHALMODEINFO_t FAR *m = &m8dd->modes[M8_MODE_COUNT];
+
+        for( i = 0; i < 2; ++i, ++m ) {
+            _fmemset( m, 0, sizeof( *m ) );
+            m->dwWidth = i == 0 ? 640 : 800;
+            m->dwHeight = i == 0 ? 480 : 600;
+            m->lPitch = m->dwWidth * 2;
+            m->dwBPP = 16;
+            m->dwRBitMask = 0xF800UL;
+            m->dwGBitMask = 0x07E0UL;
+            m->dwBBitMask = 0x001FUL;
+        }
+        hi->dwNumModes = M8_MODE_COUNT + 2;
+    }
     hi->lpModeInfo = m8dd->modes;
     hi->dwFlags = DDHALINFO_ISPRIMARYDISPLAY | DDHALINFO_MODEXILLEGAL;
     if( m8dd->d3d_global ) {
@@ -374,8 +390,21 @@ static void m8dd_build16( void )
         hi->GetDriverInfo = 0;
         hi->dwFlags &= ~DDHALINFO_GETDRIVERINFOSET;
     }
+    /* And the 8 bpp modes: a full-screen program's SetDisplayMode reaches ReEnable. */
+    for( i = 0; i < M8_MODE_COUNT; ++i, ++m ) {
+        int x;
+        int y;
+
+        _fmemset( m, 0, sizeof( *m ) );
+        m8_hw_mode_size( i, &x, &y );
+        m->dwWidth = x;
+        m->dwHeight = y;
+        m->lPitch = x;
+        m->dwBPP = 8;
+        m->wFlags = DDMODEINFO_PALETTIZED;
+    }
     hi->dwModeIndex = M8_SCREEN_X == 640 ? 0 : 1;
-    hi->dwNumModes = 2;
+    hi->dwNumModes = 2 + M8_MODE_COUNT;
 }
 
 /* ReEnable changed the size at 16 bpp: the description is built again for
@@ -388,14 +417,14 @@ void __far m8dd_mode_changed( void )
     if( m8dd == NULL || m8dd->marker != M8DD_MARKER ) {
         return;
     }
-    if( m8dd->fb16 ) {
+    if( m8_fb16 ) {
         m8dd_build16();
     } else {
         /* A full-screen program's own mode: DirectDraw must see its size, pitch and pages, not
-         * the desktop's. Only once DirectDraw has been set up (the shadow exists): a desktop
-         * change alone should not pin a shadow in RAM. */
+         * the desktop's. Only once DirectDraw has been set up (the shadow exists, or a 16 bpp
+         * desktop went to 8 bpp for it): a desktop change alone should not pin a shadow in RAM. */
         mode = m8dd_mode_index();
-        if( m8dd_shadow == NULL || mode < 0 || !m8dd_shadow_alloc() ) {
+        if( (m8dd_shadow == NULL && m8_fb16_lin() == 0) || mode < 0 || !m8dd_shadow_alloc() ) {
             return;
         }
         m8dd_build( mode );
