@@ -62,8 +62,14 @@ ifndef SC_SLOTS
 SC_SLOTS	EQU	8192
 endif
 
-; Store a page compressed only if it saves at least two sectors.
+; Store a page compressed only if it saves at least two sectors; with -DSC_SEVEN,
+; one. Raw pages are read about four times per write, so a sector saved on each
+; read outweighs the decompress (docs/fable_review_2026_11_13_swapcomp.md, 5).
+ifdef SC_SEVEN
+SC_MAX_SECTORS	EQU	7
+else
 SC_MAX_SECTORS	EQU	6
+endif
 
 ; In SlotTab: a page of zeros, nothing in the file. A slot holds at most 8 sectors.
 ifdef SC_NIB

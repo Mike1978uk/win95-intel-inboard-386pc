@@ -1,0 +1,26 @@
+18:33:07 --- bed swap test C:\Users\lycet\RiderProjects\86Box-Inboard\drivers\swapcomp\build\SWAPZF7C.VXD
+18:33:23 boot before: 240
+18:36:17 restarted: boot 241
+18:36:19 VxD md5 BE561A2120870C330897917A1AEC198C, wanted BE561A2120870C330897917A1AEC198C
+18:37:22 loop 1, PAGETIME
+18:40:32   exit 0 timedout False ms 188837
+18:40:32 loop 2, PAGETIME
+18:44:14   exit 0 timedout False ms 214417
+18:44:14 loop 3, PAGETIME
+18:47:56   exit 0 timedout False ms 211807
+18:48:20 header fields 40
+18:48:20 last row fields 44
+18:48:20   by header VMM\cPageOuts = 15524
+18:48:20   by header VMM\cPageIns = 35647
+18:48:20   by header VMM\cPageFaults = 60378
+18:48:20   by header SWAPCOMP\Contention = 28
+18:48:20   by header SWAPCOMP\Fallback = 0
+18:48:20   by header SWAPCOMP\Errors = 178
+18:48:20   by header SWAPCOMP\SectorsSaved = 217
+18:48:20   by header SWAPCOMP\RawReads = 0
+18:48:20   by header SWAPCOMP\CompressedReads = 0
+18:48:20   by header SWAPCOMP\RawWrites = 0
+18:48:20   by header SWAPCOMP\CompressedWrites = 90546
+18:48:20   tail: 28,28,0,178,217,0,0,0,90546,1660,23253,220,15087,100,3,26
+18:48:20   head tail: SHADRAM\BiosPage,SHADRAM\Status,SHADRAM\PagesFailed,SHADRAM\PagesAdded,SHADRAM\PagesTested,SWAPCOMP\Contention,SWAPCOMP\Fallback,SWAPCOMP\Errors,SWAPCOMP\SectorsSaved,SWAPCOMP\RawReads,SWAPCOMP\CompressedReads,SWAPCOMP\RawWrites,SWAPCOMP\CompressedWrites,KERNEL\CPUUsage,KERNEL\VMs,KERNEL\Threads
+18:48:20 finished
