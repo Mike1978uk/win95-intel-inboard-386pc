@@ -2566,9 +2566,8 @@ static WORD         m8d3d_jtri[M8D3D_JOIN_EDGES / 3];  /* triangle numbers in co
 static WORD         m8d3d_jfrom[257];                   /* each colour's first in m8d3d_jtri */
 
 /* Inner edges, met an even number of times in one colour, cancel. A hash finds an edge's first
- * copy, whose parity each later copy flips; a count by colour then puts the outer edges in colour
- * order. One pass each: a sort of the frame's edges ran at uncached speed, the array the size of
- * the L1. */
+ * copy, whose parity each later copy flips. One colour at a time, so only the table's low part is
+ * touched and it stays in the L1; the full size serves the seam points and the largest colour. */
 #define M8D3D_JHASH         8192
 static WORD         m8d3d_jhash[M8D3D_JHASH];           /* edge number + 1, 0 empty */
 static WORD         m8d3d_jused[M8D3D_JOIN_EDGES];      /* the slots to empty after */
@@ -2983,88 +2982,6 @@ static int m8d3d_join( M8D3D_CONTEXT *c, int dy, const short *v, const WORD *ind
     const int   rx = M8D3D_JOIN_X - M8D3D_JOIN_SEAM;
     const int   ry = M8D3D_JOIN_RY;
 
-    /* Every edge with its ends in one order, sorted, then pairs within a colour dropped. */
-    for( i = 0; i < n; ++i ) {
-        const short *p = v + 6 * i;
-
-        for( j = 0; j < 3; ++j ) {
-            const short *a = p + 2 * j;
-            const short *b = p + 2 * ((j + 1) % 3);
-            M8D3D_JEDGE  *e = &m8d3d_je[ne++];
-            int         swap = a[1] > b[1] || (a[1] == b[1] && a[0] > b[0]);
-
-            int         dy = b[1] - a[1];
-            long        cr = (long)(b[0] - a[0]) * (p[2 * ((j + 2) % 3) + 1] - a[1]) -
-                             (long)dy * (p[2 * ((j + 2) % 3)] - a[0]);
-
-            /* Bit 8: the triangle lies left of the edge, so it bounds the patch on the right. The
-             * fill leaves a right boundary out (guide 6943-6945), so such an edge goes one pixel
-             * right in the scratch and no outline is needed. Not part of the cancel key: the two
-             * copies of an inner edge differ in it. */
-            e->col = (short)((index[i] & 0xFF) | ((dy > 0 ? cr > 0 : dy < 0 && cr < 0) ? 0x100 : 0));
-            e->y0 = swap ? b[1] : a[1];
-            e->x0 = swap ? b[0] : a[0];
-            e->y1 = swap ? a[1] : b[1];
-            e->x1 = swap ? a[0] : b[0];
-        }
-    }
-    {
-        int nu = 0;
-
-        for( i = 0; i < ne; ++i ) {
-            const M8D3D_JEDGE   *e = &m8d3d_je[i];
-            unsigned            h = ((unsigned)(e->col & 0xFF) * 31u + (unsigned)e->y0 * 977u + (unsigned)e->x0 * 131u +
-                                     (unsigned)e->y1 * 7919u + (unsigned)e->x1 * 59u) & (M8D3D_JHASH - 1);
-
-            m8d3d_jodd[i] = 1;
-            for( ;; h = (h + 1) & (M8D3D_JHASH - 1) ) {
-                int f = m8d3d_jhash[h];
-
-                if( f == 0 ) {
-                    m8d3d_jhash[h] = (WORD)(i + 1);
-                    m8d3d_jused[nu++] = (WORD)h;
-                    break;
-                }
-                if( m8d3d_edge_cmp( &m8d3d_je[f - 1], e ) == 0 ) {
-                    m8d3d_jodd[f - 1] ^= 1;
-                    m8d3d_jodd[i] = 0;
-                    break;
-                }
-            }
-        }
-        for( i = 0; i < nu; ++i ) {
-            m8d3d_jhash[m8d3d_jused[i]] = 0;
-        }
-    }
-    memset( m8d3d_jfrom, 0, sizeof( m8d3d_jfrom ) );
-    for( i = 0; i < ne; ++i ) {
-        if( m8d3d_jodd[i] ) {
-            ++m8d3d_jfrom[(m8d3d_je[i].col & 0xFF) + 1];
-        }
-    }
-    for( i = 1; i < 257; ++i ) {
-        m8d3d_jfrom[i] += m8d3d_jfrom[i - 1];
-    }
-    nb = m8d3d_jfrom[256];
-    /* Outer edges to the front, each one's place by colour in m8d3d_jused, then moved by
-     * following cycles: no second edge array. */
-    for( i = j = 0; i < ne; ++i ) {
-        if( m8d3d_jodd[i] ) {
-            m8d3d_jused[j] = m8d3d_jfrom[m8d3d_je[i].col & 0xFF]++;
-            m8d3d_je[j++] = m8d3d_je[i];
-        }
-    }
-    for( i = 0; i < nb; ++i ) {
-        while( m8d3d_jused[i] != (WORD)i ) {
-            int         d = m8d3d_jused[i];
-            M8D3D_JEDGE t = m8d3d_je[d];
-
-            m8d3d_je[d] = m8d3d_je[i];
-            m8d3d_je[i] = t;
-            m8d3d_jused[i] = m8d3d_jused[d];
-            m8d3d_jused[d] = (WORD)d;
-        }
-    }
     memset( m8d3d_jfrom, 0, sizeof( m8d3d_jfrom ) );
     for( i = 0; i < n; ++i ) {
         ++m8d3d_jfrom[(index[i] & 0xFF) + 1];
@@ -3080,6 +2997,73 @@ static int m8d3d_join( M8D3D_CONTEXT *c, int dy, const short *v, const WORD *ind
         m8d3d_jfrom[i] = m8d3d_jfrom[i - 1];
     }
     m8d3d_jfrom[0] = 0;
+    /* One colour at a time: an edge cancels only within its colour, so the hash holds one
+     * colour's edges and stays in the cache, a cancelled edge is never stored, and the kept
+     * edges land in colour order. Edges met an even number of times are inner; the first copy
+     * of an outer edge is the one kept. */
+    for( k = 0; k < 256; ++k ) {
+        int         t0 = m8d3d_jfrom[k];
+        int         t1 = m8d3d_jfrom[k + 1];
+        unsigned    mask = 63;
+        int         nu = 0;
+
+        if( t0 == t1 ) {
+            continue;
+        }
+        /* At least twice the colour's edges, so every probe ends at an empty slot. */
+        while( mask + 1 < (unsigned)(t1 - t0) * 6 && mask < M8D3D_JHASH - 1 ) {
+            mask = mask * 2 + 1;
+        }
+        ne = nb;
+        for( i = t0; i < t1; ++i ) {
+            const short *p = v + 6 * m8d3d_jtri[i];
+
+            for( j = 0; j < 3; ++j ) {
+                const short *a = p + 2 * j;
+                const short *b = p + 2 * ((j + 1) % 3);
+                M8D3D_JEDGE *e = &m8d3d_je[ne];
+                int         swap = a[1] > b[1] || (a[1] == b[1] && a[0] > b[0]);
+                int         dy = b[1] - a[1];
+                long        cr = (long)(b[0] - a[0]) * (p[2 * ((j + 2) % 3) + 1] - a[1]) -
+                                 (long)dy * (p[2 * ((j + 2) % 3)] - a[0]);
+                unsigned    h;
+
+                /* Bit 8: the triangle lies left of the edge, so it bounds the patch on the right.
+                 * The fill leaves a right boundary out (guide 6943-6945), so such an edge goes one
+                 * pixel right in the scratch and no outline is needed. Not part of the cancel key:
+                 * the two copies of an inner edge differ in it. */
+                e->col = (short)(k | ((dy > 0 ? cr > 0 : dy < 0 && cr < 0) ? 0x100 : 0));
+                e->y0 = swap ? b[1] : a[1];
+                e->x0 = swap ? b[0] : a[0];
+                e->y1 = swap ? a[1] : b[1];
+                e->x1 = swap ? a[0] : b[0];
+                h = ((unsigned)e->y0 * 977u + (unsigned)e->x0 * 131u +
+                     (unsigned)e->y1 * 7919u + (unsigned)e->x1 * 59u) & mask;
+                for( ;; h = (h + 1) & mask ) {
+                    int f = m8d3d_jhash[h];
+
+                    if( f == 0 ) {
+                        m8d3d_jhash[h] = (WORD)(ne + 1);
+                        m8d3d_jused[nu++] = (WORD)h;
+                        m8d3d_jodd[ne++] = 1;
+                        break;
+                    }
+                    if( m8d3d_edge_cmp( &m8d3d_je[f - 1], e ) == 0 ) {
+                        m8d3d_jodd[f - 1] ^= 1;
+                        break;
+                    }
+                }
+            }
+        }
+        for( i = 0; i < nu; ++i ) {
+            m8d3d_jhash[m8d3d_jused[i]] = 0;
+        }
+        for( i = nb; i < ne; ++i ) {
+            if( m8d3d_jodd[i] ) {
+                m8d3d_je[nb++] = m8d3d_je[i];
+            }
+        }
+    }
     if( !c->jclean || m8d3d_dclean ) {
         /* The column held stamps and masks: forget them, and start every plane at 0. */
         memset( c->stamp, 0, sizeof( c->stamp ) );
