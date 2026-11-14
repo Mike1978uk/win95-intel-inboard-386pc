@@ -37,9 +37,29 @@ ms a frame (one run each); split with `phase=1` sums to ~22.9 ms, the old 22.6 m
 - **X14 step 1** (bed, DX SDK DirectDraw samples, `docs/captures/2026-11-14_x14_ddraw_bed/`): all
   started and the agent survived each. `v9xctl screenshot` fails at 16 bpp in the bed too (Win32 1460):
   pictures need the 86Box camera. 7 of 10 did not move the census: likely windowed or waiting for a key.
-  **Wormhole** page-faults (null read, `8b 08` at EIP, EAX 0) after `SetDisplayMode(640,480,8)`
-  succeeds from the 16 bpp desktop: a call of ours returned no object (offscreen surface, Lock or
-  palette); trace probe in the bed. Fswindow did not close on Alt+F4.
+  **Wormhole**: `SetDisplayMode(640,480,8)` fails from the 16 bpp desktop (owner read the box); the
+  sample's `InitApp` returns the HRESULT as TRUE and goes on with `g_pDD` released, hence the page fault
+  in `CreatePalette` (EIP `0x01002f0d`). Cause: `m8dd_build16` (`dd16.c`) lists only the two 16 bpp
+  modes. **Next driver item: 8 bpp full-screen modes from the 16 bpp desktop** (the card runs 8 bpp
+  anyway; the 8 bpp desktop's full-screen path exists; GDI keeps drawing into fb16, resent at exit).
+  First: how Win95 DDRAW asks a driver for a depth change (DDK). Unlocks the 8 bpp X14 titles.
+  Fswindow did not close on Alt+F4.
+
+## Evening, last: swapcomp 7 sectors, 8 bpp full screen
+
+- **swapcomp `-DSC_SEVEN`** (`SWAPZF7`): bed checksum PASS (`docs/captures/2026-11-14_swap7_bed/`), card
+  checksum 0 and raw reads 25 % -> 4.8 % (`2026-11-14_swap7_card/`). **Card now runs `SWAPZF7`.** Time
+  gain unproven: next, fresh-boot PAGETIME x2 per build (owner: no 45-minute soak). PERFLOG's header
+  misses counters (rows 44 fields, header 40): fix the tool. Scripts must wait for PERFLOG before a
+  restart; the agent's `reboot` verb does nothing on the card.
+- **8 bpp full screen from the 16 bpp desktop** (`dd16.c`, `enable.c`): probe showed DDRAW's
+  `SetDisplayMode(640,480,8)` arrives as `ReEnable` with the new depth. Now accepted when the desktop is
+  16 bpp; both depths listed to DDRAW; back at exit with fb16 cleared and a repaint. Bed: wormhole runs
+  and returns, pixels = in all 36 (`bed_d8f1`, fresh boot, 0.953 against `bed_f3B`). **Open:** after one
+  round trip the desktop benches 0.63 (`bed_d8w1` against `bed_d8f1`; mem_to_mem 0.01, getpixel 0.26,
+  stretchblt 0.24), idle CPU normal, pixels equal; a restart clears it. Likely GDI keeps part of its
+  8 bpp view (KB Q127139: Win9x GDI does not change depth live). Find it in the bed before the card.
+  Bed `vm_5160_mcp` carries this build; F3 originals in `%TEMP%\mcp_bed_orig`.
 
 ## Start here: the Mach8 card run, driven through the agent
 
