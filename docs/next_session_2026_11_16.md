@@ -2,6 +2,16 @@
 
 Earlier: `docs/next_session_2026_11_15.md` (its last two sections are this session's log). Newest wins.
 
+## Result, 2026-11-14 evening: step 1 passed
+
+Card boot 390 on `m8f3.drv` (`%TEMP%\m8f3`). Bench twice: pixels = GX (`card_gx1,2`) in all 36,
+geometric mean 1.045 (run 2's bmp_card/dstinvert dip absent in run 1: noise). The bench against
+ATI runs at 8 bpp and cannot gate a 16 bpp card: compare with `-Against 'card_gx1,card_gx2'`.
+Tunnel `M8TUNG`, feed on, agent Alt+F4: **3 of 3 clean**, same boot, desktop back at 800x600,
+`M8TRACE.TXT` shows every surface destroyed; a bench after the three exits: pixels same in 36,
+0.978. ~7.3-7.9 fps, 5,530 writes, 74 ms ours a flip. F3 finding 1 stands as the exit hang's
+cause (#55 reply: draft for the owner). `v9xctl screenshot` fails on the card (Win32 1460).
+
 ## Start here: the Mach8 card run, driven through the agent
 
 Opus drives every step over the V9x agent (`v9xctl.ps1 -Host 192.168.68.62`), Alt+F4 included
