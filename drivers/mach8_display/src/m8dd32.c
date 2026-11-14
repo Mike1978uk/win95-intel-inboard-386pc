@@ -309,14 +309,36 @@ static DWORD m8dd_row_hash( const BYTE *p, int w )
     return( v );
 }
 
+static void m8dd_forget( BYTE *hot );
+
+/* m8hw.c's m8_engine_init, compare off included: a reset does not clear the compare. */
+static const WORD m8dd_engine_init[][2] = {
+    { 0x76EE, 0x0080 }, { 0x6EEE, 0x0000 }, { 0x72EE, 0x0000 }, { 0xB2E8, 0x0000 },
+    { M8_WRT_MASK, 0x00FF }, { M8_RD_MASK, 0x00FF }, { 0xB6EE, 0x0002 },
+    { 0xDAEE, 0x0800 }, { 0xDEEE, 0x0800 }, { 0xE2EE, 0x07FF }, { 0xE6EE, 0x07FF },
+    { M8_DP_CONFIG, 0x2211 }, { M8_MULTIFUNC_CNTL, M8_MF_PIX_CNTL }, { M8_SRC_CMP_FN, 0 },
+};
+
 static int m8dd_idle( void )
 {
     unsigned n;
+    int      i;
 
     for( n = 0; n < M8_WAIT_LIMIT; ++n ) {
         if( inpw( M8_EXT_FIFO_STATUS ) == 0 && !(inpw( M8_GP_STAT ) & M8_GP_BUSY) ) {
             return( 1 );
         }
+    }
+    /* Wedged: a transfer left unfinished, or a locked FIFO, which ignores every write until the
+     * engine is reset (guide 8-14). The 16-bit driver resets here too; without it every entry
+     * would wait out the limit again. The caller drops its work; the next wait succeeds. */
+    outpw( 0x42E8, 0x900F );                /* SUBSYS_CNTL: engine reset */
+    outpw( 0x42E8, 0x500F );
+    for( i = 0; i < sizeof( m8dd_engine_init ) / sizeof( m8dd_engine_init[0] ); ++i ) {
+        outpw( m8dd_engine_init[i][0], m8dd_engine_init[i][1] );
+    }
+    if( m8dd != NULL ) {
+        m8dd_forget( (BYTE *)m8dd->hot );
     }
     return( 0 );
 }
