@@ -92,3 +92,24 @@ Fable is expensive: one job at a time, only where it adds what Opus + bed cannot
 | F2 pack `docs/fable_pack_f2.md` checked | Sonnet, Opus | ready for owner to start Fable |
 | Showcase search `docs/showcase_3d_candidates_2026_11_14.md`; worklist X16 | Sonnet | done |
 | Code tightening (swapcomp, XT-IDE, asm) | Opus + bed | after the card boots |
+
+## State at the owner's return, 2026-11-14 afternoon
+
+Card (boot 389) runs `SWAPCOMP.VXD` = SWAPZFN `99B7BD5B` (4-bit SlotTab, locked 3 pages) and
+`XTIDEMP.MPD` `9C64B4D1` (waits rescaled to the measured 100 ns loop, 26 us polls, 100 us first read
+wait, CDB length / `PORT=` / stride-2 latch checks, FLUSH CACHE at shutdown when the drive reports it).
+Card PAGETIME clean on the checksum build, XTSECT unchanged, read-back identical. Old files:
+`C:\V9XREMOTE\STAGE\*.B84`. `5160_tuned_config.md` still names 11-14 morning's files: update it.
+
+Local commits not pushed (all of it waits for the Mach8 card run): F3 1-3 (`6847977`, `6ccc10a`),
+XT-CF first wait (`2e17fc5`), bed bench (`7bca168`), F2 3 (`ffe9df0`).
+
+Mach8 card run, owner present (it includes the exit that hung):
+1. F3 build (`%TEMP%\m8f3`, bed: pixels same in 36): `tools\m8_card_cycle.ps1`, bench twice, then GD
+   tunnel with the feed on, Alt+F4, three times. A hang: restart, then `-FetchOnly`.
+2. F2 3 build (`%TEMP%\m8f2n3`): twist, `m8d3d_stat[25]` per flip before and after.
+3. `[diag] phase=1` against `phase=0` in `C:\M8D3D.INI`: twist fps, twice (F2 2, already in all builds).
+Then F2 1 (edge cancel per colour, ~3 ms) and F3 4-5 (trace probe first).
+
+Fable cost today: F2 ~118k tokens, 7 calls, 5.4 min; F3 ~147k tokens, 52 calls, 8.6 min (its
+worktree lacked the pack, so it fetched from the newer commit: commit the pack before the next run).
