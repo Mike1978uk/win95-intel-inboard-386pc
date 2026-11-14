@@ -113,7 +113,7 @@ XT_SPIN		equ	400000		; status poll limit; no timer at init
 ;  runs agree to 0.4%):
 ;
 ;      one 8-bit I/O cycle        5.55 us   <- NOT the ~1 us assumed before
-;      a register-only loop pass  0.22 us
+;      a register-only loop pass  0.10 us (tools/loopcal, cache on)
 ;
 ;  So a status poll costs 5.55 us of bus that transfers nothing, and one 512
 ;  byte sector costs 2.84 ms - a hard ceiling of about 180 KB/s for 8-bit PIO
@@ -128,17 +128,17 @@ XT_SPIN		equ	400000		; status poll limit; no timer at init
 ;  fast window covers the streaming case, where DRQ is up by the time we look;
 ;  only a genuine wait reaches the paced loop.
 XT_POLL_FAST	equ	32	; 32 x 5.55us = 178 us flat out, then back off
-XT_POLL_DELAY	equ	256	; 256 x 0.22us = ~51 us, so ~10x less poll traffic
-XT_SPIN_SLOW	equ	20000	; x 56.5us = ~1.1 s, near the old real timeout
+XT_POLL_DELAY	equ	512	; 512 x 0.10us = ~51 us, so ~10x less poll traffic
+XT_SPIN_SLOW	equ	20000	; x 56.8us = ~1.1 s, near the old real timeout
 
 ;  Wait first, then look (XT_WAIT_FIRST). The card's latencies are known
 ;  (docs/captures/2026-10-10_xtlat/), so the driver stays off the bus for most
 ;  of each one and polls only near its end. Counts are register-only loop
-;  passes at 0.22 us, the same unit as XT_POLL_DELAY; each is set just under
+;  passes at 0.10 us, the same unit as XT_POLL_DELAY; each is set just under
 ;  the shortest latency measured, so a ready card is never kept waiting.
-XT_RD_FIRST_WAIT	equ	1000	; ~220 us; a read's first DRQ, 232-313 us
-XT_WR_FIRST_WAIT	equ	3200	; ~700 us; a write's first DRQ, 0.8-3.3 ms
-XT_COMMIT_WAIT		equ	3200	; ~700 us; the fastest commit seen, 0.8 ms
+XT_RD_FIRST_WAIT	equ	2200	; ~220 us; a read's first DRQ, 232-313 us
+XT_WR_FIRST_WAIT	equ	7000	; ~700 us; a write's first DRQ, 0.8-3.3 ms
+XT_COMMIT_WAIT		equ	7000	; ~700 us; the fastest commit seen, 0.8 ms
 ;  Paced polls before a commit is handed to the timer: 170 x ~61 us = ~10 ms.
 ;  A handoff can cost up to one tick (13.7 ms) of latency, so only a commit
 ;  that outlasts this - a flash erase, ~110 ms - is worth handing off.
@@ -568,7 +568,7 @@ xwd_ok:
 ;  end XTIDE_WaitDrq
 
 ;----------------------------------------------------------------------------
-; XTIDE_Spin - spin ECX register-only loop passes (0.22 us each).
+; XTIDE_Spin - spin ECX register-only loop passes (0.10 us each).
 ;
 ;   Uses: ECX
 ;
@@ -1601,6 +1601,12 @@ xp_auto:
 	mov	XTIDE_TryTransport, XT_TR_PIO8	; measured first on this card
 	call	XTIDE_TryIdentify
 	jnc	xp_ok
+
+;  At stride 2, base+8 is Cylinder Low, not the latch: a latch attempt would
+;  read half the IDENTIFY data and leave the drive holding DRQ.
+	cmp	XTIDE_Stride, 2
+	stc
+	je	xp_exit
 
 	mov	XTIDE_TryTransport, XT_TR_LATCH
 	call	XTIDE_TryIdentify

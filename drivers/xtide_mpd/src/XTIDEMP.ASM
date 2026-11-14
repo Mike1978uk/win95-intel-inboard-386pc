@@ -570,9 +570,19 @@ xpb_acc:
 	jb	xpb_digit
 
 xpb_end:
+;  Nothing after "PORT=", or a base that cannot be an XT-IDE taskfile: below
+;  100h it reaches the planar chips (20h is the 8259), above 3E0h a stride-2
+;  bank passes 3FFh and aliases at the XT's 10-bit decode.
 	or	ecx, ecx
-	jnz	xpb_out
-	xor	eax, eax			; "PORT=" with nothing after it
+	jz	xpb_bad
+	cmp	eax, 100h
+	jb	xpb_bad
+	cmp	eax, 3E0h
+	ja	xpb_bad
+	test	al, 7
+	jz	xpb_out
+xpb_bad:
+	xor	eax, eax
 
 xpb_out:
 	pop	edi
@@ -797,6 +807,13 @@ xsi_transfer:
 ;  touching the card.
 	cmp	XTIDE_ReqCount, 0
 	je	xsi_ok
+
+;  The buffer must hold what the CDB asks for: a short one would let a read
+;  write past it in ring 0, or a write send what follows it to the disk.
+	mov	eax, XTIDE_ReqCount
+	shl	eax, 9
+	cmp	eax, [ebx].SCSI_REQUEST_BLOCK.DataTransferLength
+	ja	xsi_badreq
 
 ;  Refuse anything past the end of the medium rather than letting the taskfile
 ;  wrap. XTIDE_TotalSec is zero on a CHS-only drive, in which case the
