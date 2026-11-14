@@ -8,10 +8,8 @@
 ;   different adapters and a driver that hardcodes one of them is a driver for
 ;   one machine.
 ;
-;   Carried across unchanged from the IOS port driver (issue #21) by
-;   tools transform - only the three edits below differ, each marked MPD.
-;   The 1,504 lines of IOS glue that surrounded it are gone; SCSIPORT
-;   supplies that layer now. See docs/scsi_miniport_costing.md.
+;   The transport only: register map, waits, data phase, probe. The SRB
+;   side is XTIDEMP.ASM. See docs/scsi_miniport_costing.md.
 ;
 ;   Register map cross-checked against 86Box's src/disk/hdc_xtide.c and against
 ;   the XT-IDE port of sava/lpproj's patacd.asm by Miran Grca (@OBattler).
@@ -30,21 +28,6 @@
 ;  VMM.INC supplied OFFSET32; flat model does not need the distinction.
 OFFSET32	EQU	<OFFSET>
 
-	.xlist
-
-;  Store to a diagnostic field. Expands to NOTHING without XT_REQ_MARKER,
-;  so a release build carries neither the store nor the field behind it.
-;  Used instead of nineteen inline ifdef/endif pairs, one of which would
-;  certainly have been wrong.
-ifdef XT_REQ_MARKER
-MARK	macro	fld, val
-	mov	fld, val
-	endm
-else
-MARK	macro	fld, val
-	endm
-endif
-	.list
 
 ;============================================================================
 ;  Register INDEX, not offset. The byte offset is index * XTIDE_Stride.
@@ -107,6 +90,9 @@ DRVHD_LBA	equ	0E0h		; LBA mode 	 master. CHS mode is 0A0h.
 ST_BSY		equ	80h
 ST_DRDY		equ	40h
 ST_DRQ		equ	08h
+;  Write fault (DF from ATA-4): a write the drive could not store, which it
+;  may report without ERR.
+ST_DF		equ	20h
 ST_ERR		equ	01h
 
 DRVHD_MASTER	equ	0A0h
@@ -158,15 +144,6 @@ XT_COMMIT_WAIT		equ	3200	; ~700 us; the fastest commit seen, 0.8 ms
 ;  that outlasts this - a flash erase, ~110 ms - is worth handing off.
 XT_COMMIT_POLLS		equ	170
 
-;  Inner-loop count for one unit of the boot-log delay channel. Calibrated on
-;  86Box's Deskpro bed, where one unit is about 11.6 log ticks. The 5160 is
-;  several times faster, so the same constant compresses every fail code into
-;  a handful of ticks and the channel stops being readable - which is how a
-;  hardware run on 2026-09-01 produced a 4-tick failure that could not be
-;  decoded. Scale it with -TimeBase for a hardware diagnostic build.
-ifndef XT_TIMEBASE
-XT_TIMEBASE	equ	725000
-endif
 
 ;  IDENTIFY DEVICE result layout (ATA-1 onwards)
 ID_MODEL_OFF	equ	54		; 40-byte model string, word 27..46
@@ -203,7 +180,7 @@ XTIDE_Stride		dd	XT_STRIDE
 public XTIDE_Transport
 XTIDE_Transport		dd	XT_TR_AUTO
 
-;  What detection settled on. Read by phase 2 transfer path.
+;  What detection settled on. Read by XTIDE_ProgramTaskfile.
 public XTIDE_ActiveTransport
 XTIDE_ActiveTransport	dd	XT_TR_AUTO
 
@@ -232,17 +209,13 @@ XTIDE_pStatus		dd	0
 XTIDE_pAltStatus	dd	0
 XTIDE_pHiLatch		dd	0
 
-;  Why the probe ended, reported through the boot log as a deliberate delay.
-;  0 = success, and see XTIDE_Probe for the rest. There is no readback channel
-;  at IOS init time, but BOOTLOG.TXT timestamps every driver's init, so the
-;  time spent in here IS a channel - roughly 33 ms per tick on this machine.
+;  Why the probe ended: the codes are set in XTIDE_Probe and the routines it
+;  calls. Nothing reports it; it is there to be read with a debugger.
 public XTIDE_FailCode
 XTIDE_FailCode		dd	0
 
 ;  Printable non-blank characters found in the model field by the last
-;  successful validation. Added to the success delay so the boot log reports
-;  not merely "a model string" but HOW LONG it was - and the length is specific
-;  to the drive. TRANSCEND is 9.
+;  successful validation. Read with a debugger, like XTIDE_FailCode.
 public XTIDE_ModelChars
 XTIDE_ModelChars	dd	0
 
@@ -259,19 +232,19 @@ public XTIDE_CommitPending
 XTIDE_CommitPending	dd	0
 XTIDE_DeferOk		dd	0
 
-;  Set once a unit IDENTIFY validates. Phase 2 turns this into an array.
+;  Set once a unit IDENTIFY validates.
 public XTIDE_MasterPresent
 XTIDE_MasterPresent	dd	0
 public XTIDE_SlavePresent
 XTIDE_SlavePresent	dd	0
 
-;  IDENTIFY landing area. 512 bytes, one device - phase 2 grows this.
+;  IDENTIFY landing area, used by the probe only.
 
 public XTIDE_IdBuf
 XTIDE_IdBuf		db	512 dup (0)
 
 ;----------------------------------------------------------------------------
-;  Phase 2 - geometry taken from IDENTIFY, and the sector-read request block.
+;  Geometry taken from IDENTIFY, and the transfer request block.
 ;
 ;  These are module variables rather than registers on purpose. Phase 1 failed
 ;  on real hardware because a helper documented as "Uses: EDX" left EDX on the
@@ -290,7 +263,7 @@ XTIDE_TotalSec		dd	0		; LBA28 capacity, 0 if the drive is CHS-only
 public XTIDE_LbaOk
 XTIDE_LbaOk			dd	0		; 1 = address in LBA, 0 = fall back to CHS
 
-;  Request block for XTIDE_ReadSectors.
+;  Request block for XTIDE_XferRun.
 public XTIDE_ReqLba
 XTIDE_ReqLba			dd	0
 public XTIDE_ReqCount
@@ -298,38 +271,9 @@ XTIDE_ReqCount		dd	0
 public XTIDE_ReqBuf
 XTIDE_ReqBuf			dd	0
 
-;  Scatter/gather walk.
-;
-;  `IOR_buffer_ptr` points to a data buffer ONLY while IORF_SCATTER_GATHER is
-;  clear. With it set the DDK says outright that it "points to a list of linear
-;  (logical) scatter-gather descriptors" - `BlockDev_Scatter_Gather` in
-;  BLOCKDEV.INC, two dwords per entry, SECTOR COUNT first and the buffer
-;  pointer SECOND.
-;
-;  Reading that field blind is what put ring-0 heap on the disk on 2026-09-01:
-;  VFAT's mount-time reads are single-buffer, so the read path looked correct,
-;  and its first write was scatter/gather, so we transmitted the descriptor
-;  list itself into the root directory. A round trip cannot catch this either -
-;  both halves would move the same wrong bytes.
-;
-;  The list is terminated by a null pointer or a zero count, and separately
-;  bounded by IOR_xfer_count; honour both, and clamp the last segment to
-;  whatever the bound has left. Same shape as zikolas/cfu1-win9x's rr_sg/rw_sg,
-;  which is a shipping driver that has actually executed this path.
-XTIDE_SgCur			dd	0	; -> current descriptor
-XTIDE_SgLeft			dd	0	; sectors the IOR still accounts for
-;  Completion ladder. OWN STATE - shares nothing with the transport, which is
-;  what voided the on-disk request marker as a diagnostic (technique 88).
-;  Reported through the emulator debug port at 0E0h, so measuring the disk
-;  path costs no disk access.
-XTIDE_DbgOffered		dd	0	; IOPs XTIDE_WantIop was asked about
-XTIDE_DbgAccepted		dd	0	; ...of which we claimed
-XTIDE_DbgStarted		dd	0	; XTIDE_StartRequest entries
-XTIDE_DbgDone			dd	0	; IOPs handed back through IOP_callback_ptr
 
 public XTIDE_ReqIsWrite
-XTIDE_ReqIsWrite		dd	0	; direction, so the transfer loop does
-					; not have to hold the IOP in EBX
+XTIDE_ReqIsWrite		dd	0	; direction of the request
 
 ;  The four taskfile values, filled by either addressing mode and written out
 ;  by one common block, so LBA and CHS cannot diverge in how they program the
@@ -344,129 +288,35 @@ ifdef XT_SKIP_DRVHD
 XTIDE_LastDrvHd		dd	0FFFFFFFFh
 endif
 
-;  One sector, for the phase 2a self-test read of LBA 0.
-;  MPD: I/O base, filled by the miniport before it calls XTIDE_Probe.
+;  I/O base, filled by the miniport before it calls XTIDE_Probe.
 public XTIDE_BasePort
 XTIDE_BasePort		dw	0
 
+;  One sector, for the probe's read of LBA 0.
 public XTIDE_SecBuf
 XTIDE_SecBuf			db	512 dup (0)
 public XTIDE_PartType
-XTIDE_PartType		dd	0		; MBR partition 1 type byte, read back through the log
+XTIDE_PartType		dd	0	; MBR partition 1 type byte
 
 ;  Command byte for XTIDE_ProgramTaskfile, so read and write share one
 ;  addressing path and differ only in what they do after the command lands.
 XTIDE_Cmd			dd	0
 
+ifndef XT_NO_WRITETEST
 ;  Write/read-back self-test buffers. 2 x 512 so a mismatch can be seen as a
 ;  mismatch rather than inferred from a checksum.
-public XTIDE_WrBuf
 XTIDE_WrBuf			db	512 dup (0)
-
-;  Request-path marker. Opt-in, -DXT_REQ_MARKER, and NOT in a shipped driver.
-;  The delay channel in PORT_Device_Init can only report registration, so it
-;  cannot answer "did an IOS request ever reach XTIDE_StartRequest". This sector
-;  can: the host reads it back out of the image afterwards. Technique 79 - the
-;  proof of an address has to come from outside the guest.
-ifdef XT_REQ_MARKER
-public XTIDE_Marker
-XTIDE_Marker		db	'XTIDEREQ'
-XTIDE_MkCount		dd	0
-XTIDE_MkEntry		dd	0
-XTIDE_MkFunc		dd	0
-XTIDE_MkLba		dd	0
-XTIDE_MkXfer		dd	0
-XTIDE_MkUnit		dd	0
-XTIDE_MkCfg		dd	0	; AEP_CONFIG_DCB calls seen
-XTIDE_MkWant		dd	0	; ...of which we claimed
-XTIDE_MkIsp		dd	0	; ISP_result of the last calldown insert
-XTIDE_MkIopDcb		dd	0	; raw IOP_physical_dcb of the last request
-XTIDE_MkOurDcb		dd	0	; the DCB we actually inserted a calldown on
-XTIDE_MkRefused		dd	0	; requests refused as not ours
-XTIDE_MkStage		dd	0	; how far Port_request got - see XTIDE_MarkStage
-XTIDE_MkOrigDcb		dd	0	; IOP_original_dcb - the logical view
-XTIDE_MkCdDdb		dd	0	; DDB on the calldown entry IOS reached us through
-XTIDE_MkOurDdb	dd	0	; report copy of the working XTIDE_OurDdb
-XTIDE_MkIop		dd	0	; EBX as Port_request received it
-XTIDE_MkRaw		dd	8 dup (0)	; first 32 bytes at that address, verbatim
-
-;  The first eight requests, as (function, LBA) pairs. A raw surface with no
-;  partition table draws exactly one read and then silence; mounting a real
-;  volume draws the partition sector, the boot sector, both FATs and the root
-;  directory, at addresses the host can predict. The difference between those
-;  two shapes is the difference between a driver that answered once and a
-;  driver that is carrying a filesystem.
-XTIDE_MkRing		dd	16 dup (0)
-
-;  What XTIDE_ConfigDcb actually put in the DCB. Every theory about why the
-;  volume will not mount assumes these are sane, and not one run has checked.
-XTIDE_MkCyls		dd	0
-XTIDE_MkHeads		dd	0
-XTIDE_MkSpt		dd	0
-XTIDE_MkTotal		dd	0
-XTIDE_MkDevFlags	dd	0
-XTIDE_MkVolCreate	dd	0	; ISP_result of ISP_CREATE_DCB
-XTIDE_MkVolCd		dd	0	; ISP_result of the logical calldown insert
-XTIDE_MkVolAssoc	dd	0	; ISP_result of ISP_ASSOCIATE_DCB
-XTIDE_MkVolDrive	dd	0	; drive number it was associated with, 3 = D:
-XTIDE_MkPartStart	dd	0
-XTIDE_MkPartLen		dd	0
-XTIDE_MkVolStep		dd	0	; 0 = XTIDE_VolCreate never ran; 10 = volume up
-			dd	0	; placeholder: XTIDE_VolBusy is working storage now
-XTIDE_MkSchedRc		dd	0FFFFFFFFh	; -1 = never even tried to queue;
-					; 0 = _SHELL_CallAtAppyTime refused
-			dd	0	; placeholder: XTIDE_OurUnit is working storage now
-XTIDE_MkStride		dd	0	; what XTIDE_DetectStride settled on, 0 = never ran
-
-;  First WRITE the request path ever saw, captured verbatim. The write on
-;  2026-09-01 reached LBA 126 and put ring-0 heap there instead of the
-;  directory sector, so every field read through the assumption "this pointer
-;  is a flat data buffer" is worthless (technique 82). Dump the bytes and the
-;  flags and let them say what the pointer is.
-XTIDE_MkWrFlags		dd	0	; IOR_flags - IORF_SCATTER_GATHER lives here
-XTIDE_MkWrBuf		dd	0	; IOR_buffer_ptr as read
-XTIDE_MkWrSgd		dd	0	; IOR_sgd_lin_phys
-XTIDE_MkWrNsgd		dd	0	; IOR_num_sgds
-XTIDE_MkWrLba		dd	0
-XTIDE_MkWrCnt		dd	0
-XTIDE_MkWrEsi		dd	0	; ESI as XTIDE_WriteSectors actually used it
-XTIDE_MkWrData		db	32 dup (0)	; first 32 bytes at IOR_buffer_ptr
-
-;  How many requests arrived with IORF_SCATTER_GATHER set, by direction. A
-;  snapshot of the FIRST write cannot answer "does this ever happen", which is
-;  the question that decides whether the descriptor walk is load-bearing or
-;  dead code - a counter reports whether anything happened, a captured value
-;  only reports the last thing that did (technique 83).
-XTIDE_MkSgRd		dd	0
-XTIDE_MkSgWr		dd	0
-			db	208 dup (0)	; pads XTIDE_Marker to exactly 512 bytes
-endif		; XT_REQ_MARKER: no symbol and no payload in a shipped build
-
-
-;  State the DRIVER needs, as distinct from the report. These used to live
-;  inside the marker sector, which meant a build with no diagnostic could
-;  not assemble at all - the diagnostic was load-bearing by accident.
-XTIDE_OurDdb		dd	0	; our own DDB, from AEP_ddb at config time
-XTIDE_OurUnit		dd	0	; the unit we claimed - addressing, never reported
-XTIDE_PartStart		dd	0	; partition LBA. Read on EVERY request for the bias
-XTIDE_PartLen		dd	0
-XTIDE_VolDrive		dd	0	; drive-letter walk: 3=D, incremented until one is free
-XTIDE_VolBusy		dd	0	; one appy-time queue attempt in flight is enough
-;  Working storage - deliberately AFTER the marker sector, not inside it.
-XTIDE_OurLgn		dd	0	; load group number, for the logical calldown
-XTIDE_LogDcb		dd	0	; the logical volume DCB, once created
-XTIDE_Quiesced		dd	0	; AEP_PEND_UNCONFIG_DCB seen for a DCB of ours
-XTIDE_MbrBuf		db	512 dup (0)
-public XTIDE_RbBuf
 XTIDE_RbBuf			db	512 dup (0)
+endif
+
 
 ;----------------------------------------------------------------------------
-;  Per-unit geometry. Phase 2b kept one global set, which was fine while the
-;  probe was the only caller - but the moment IOS asks about two units, the
-;  slave's IDENTIFY overwrites the master's numbers and every later request
-;  addresses the wrong shape of disk.
+;  Per-unit geometry. One global set would let a slave's IDENTIFY overwrite
+;  the master's numbers, and every later request would address the wrong
+;  shape of disk. XTIDE_SelectUnit copies a unit's set into the working
+;  globals.
 ;
-;  Index 0 = master, 1 = slave, matching DCB_unit_on_ctl.
+;  Index 0 = master, 1 = slave, matching the SRB's TargetId.
 ;----------------------------------------------------------------------------
 XTIDE_UnitPresent	dd	2 dup (0)
 XTIDE_UnitCyls		dd	2 dup (0)
@@ -475,70 +325,15 @@ XTIDE_UnitSpt		dd	2 dup (0)
 XTIDE_UnitTotal		dd	2 dup (0)
 XTIDE_UnitLbaOk		dd	2 dup (0)
 
-;  Non-zero for each unit inquiry actually claimed - the mask and the presence
-;  test have both already been applied by then, so this is the one flag that
-;  says "we said yes to this unit".
-;
-;  It holds the inquiry-time DCB pointer, but ONLY as a flag. Do not compare it
-;  against the DCB that arrives with AEP_CONFIG_DCB: STORAGE.DOC says the IOS
-;  "creates a real DCB and fills it with information supplied by the driver",
-;  so the two are different objects. Measured 2026-09-01 - a pointer-identity
-;  guard reported cfg=1 claimed=0 and declined our own device, and no request
-;  was ever issued.
-XTIDE_ClaimedDcb	dd	2 dup (0)
-
-;  The DCB we inserted a calldown on, per unit. AEP_CONFIG_DCB is broadcast for
-;  DCBs that are not ours and the same DCB can come round again on a
-;  re-broadcast; inserting twice is a wild calldown. zikolas/cfu1-win9x guards
-;  the same way and says why - the DDK sample guards neither.
-XTIDE_InsertedDcb	dd	2 dup (0)
-
-;  Every distinct object an AEP has named at hdr+12, ours or not, in arrival
-;  order. NOT a driver structure - a pure observation table for the shutdown
-;  dump below, so it may safely hold DCBs we never claimed.
-;
-;  Why: the newer STORAGE.DOC says ISP_DCB_DESTROY "broadcasts an
-;  AEP_PEND_UNCONFIG_DCB [...] Execution BLOCKS until all pending I/O to the
-;  device is complete", and only then notifies IFSMGR, sends AEP_UNCONFIG_DCB
-;  and frees the VRPs. Our teardown runs 21-16-19-4 on one DCB and then
-;  21-16-<nothing> on a second, so IOS is not abandoning the teardown - it is
-;  blocked inside that service. Our own ladder is balanced (D85 offered,
-;  accepted, started, done) so the outstanding I/O is not ours. The volume
-;  tracking layer keeps its own accounting in the DCB, and nobody has read it.
-;  16, not 8: the first table filled during startup and missed the logical DCB
-;  in the FINAL AEP_DCB_LOCK - the one object most worth reading, because that
-;  is the AEP the teardown stops on. A capture that runs out of slots before
-;  the interesting event is not a measurement.
-;
-;  Record the AEP that named each object alongside it. hdr+12 is a DCB for some
-;  functions and a VRP for others (AEP_vrp_create_destroy, AEP_mnt_notify), and
-;  reading DCB fields out of a VRP produces numbers that look like counters and
-;  are not. Store the func and let the decoder say which is which, rather than
-;  guessing a struct layout per variant (technique 82).
-XTIDE_SeenDcbMax	equ	16
-XTIDE_SeenDcb		dd	XTIDE_SeenDcbMax dup (0)
-XTIDE_SeenFunc		dd	XTIDE_SeenDcbMax dup (0)
-XTIDE_SeenDcbN		dd	0
-
-;  Which units this driver is willing to claim, one bit each. The default
-;  claims both; the emulator loop builds with 2 so the first request-path run
-;  is aimed at a scratch slave and not at the boot disk.
-ifndef XT_CLAIM_MASK
-XT_CLAIM_MASK	equ	3
-endif
-
-;  Sector-count register is 8 bits, and 0 there means 256. IOS can ask for far
-;  more than one command can carry, so requests are chunked.
+;  Sector-count register is 8 bits, and 0 there means 256. SCSIPORT can ask
+;  for more than one command can carry, so requests are chunked.
 XT_MAX_CHUNK	equ	128		; 64 KB per command
-
-XTIDE_ReqUnit		dd	0
 
 ;  Per-unit model string, de-swapped. ATA stores its text two characters per
 ;  16-bit word with the pair reversed, so it has to be unswapped before it is
 ;  fit to hand to anything that will display it.
 public XTIDE_UnitModel
 XTIDE_UnitModel		db	80 dup (32)	; 2 units x 40 bytes, space filled
-
 
 
 ;============================================================================
@@ -581,8 +376,6 @@ XTIDE_DetectStride:
 	stc
 	ret
 xds_ok:
-	mov	eax, XTIDE_Stride
-	MARK	XTIDE_MkStride, eax
 	clc
 	ret
 
@@ -793,7 +586,7 @@ XTIDE_Spin:
 ; XTIDE_CommitPoll - PUBLIC. One look at a write left committing by
 ;                    XTIDE_WriteSectors.
 ;
-;   Out:  EAX = 0 still busy, 1 committed, 2 committed with ERR
+;   Out:  EAX = 0 still busy, 1 committed, 2 ended with ERR or a write fault
 ;   Uses: EAX, EDX
 ;
 ;   One status read and no loop: the caller is a timer callback running in
@@ -807,14 +600,14 @@ XTIDE_CommitPoll:
 	test	al, ST_BSY
 	jnz	xcp_busy
 	mov	XTIDE_CommitPending, 0
-	test	al, ST_ERR
+	test	al, ST_ERR OR ST_DF
 	jnz	xcp_err
 	mov	eax, 1
 	ret
 xcp_err:
 	movzx	eax, al
 	mov	XTIDE_LastStatus, eax
-	mov	XTIDE_FailCode, 14	; drive reported ERR on completion
+	mov	XTIDE_FailCode, 14	; drive reported ERR or a write fault
 	mov	eax, 2
 	ret
 xcp_busy:
@@ -969,7 +762,7 @@ xvi_next:
 	cmp	edx, ID_MIN_TEXT	; all blanks is not a model string
 	jb	xvi_bad
 
-	mov	XTIDE_ModelChars, edx	; report the length through the delay
+	mov	XTIDE_ModelChars, edx
 
 	pop	edi
 	pop	ebx
@@ -1211,13 +1004,19 @@ xrs_chs:
 
 xrs_program:
 ifdef XT_SKIP_DRVHD
-;  DRV/HEAD holds only the unit and LBA bits 24-27, and nothing writes it
-;  between our commands, so an unchanged value needs neither the write nor the
-;  wait for the drive to honour it. The other taskfile registers are always
-;  written: the drive changes them as a command runs.
+;  In LBA mode DRV/HEAD holds only the unit and LBA bits 24-27, and nothing
+;  writes it between our commands, so an unchanged value needs neither the
+;  write nor the wait for the drive to honour it. The other taskfile registers
+;  are always written: the drive changes them as a command runs.
+;
+;  Never skip in CHS: the head is in DRV/HEAD, and a drive that reports the
+;  last sector transferred advances it when a command crosses a track.
+	cmp	XTIDE_LbaOk, 0
+	je	xrs_select
 	mov	eax, XTIDE_oDrvHd
 	cmp	eax, XTIDE_LastDrvHd
 	je	xrs_selected
+xrs_select:
 	mov	XTIDE_LastDrvHd, 0FFFFFFFFh	; unknown until the select is honoured
 endif
 	mov	edx, XTIDE_pDrvHd
@@ -1229,6 +1028,16 @@ ifdef XT_SKIP_DRVHD
 	mov	eax, XTIDE_oDrvHd
 	mov	XTIDE_LastDrvHd, eax
 xrs_selected:
+;  A command that ends in another LBA 24-27 group can leave the drive's
+;  register holding that group, so the value is unknown once it has run.
+	mov	eax, XTIDE_ReqLba
+	add	eax, XTIDE_ReqCount
+	dec	eax
+	xor	eax, XTIDE_ReqLba
+	shr	eax, 24
+	jz	xrs_samegroup
+	mov	XTIDE_LastDrvHd, 0FFFFFFFFh
+xrs_samegroup:
 endif
 
 ifdef XT_TIGHT_TASKFILE
@@ -1380,19 +1189,6 @@ endif
 
 	mov	ecx, XTIDE_ReqCount
 	mov	esi, XTIDE_ReqBuf
-ifdef XT_REQ_MARKER
-;  What the transport ACTUALLY transmitted from, recorded here rather than at
-;  the call site, so a clobber between the two shows up as a mismatch instead
-;  of being invisible. MkWrBuf is set by XTIDE_MarkWrite on the first data
-;  write and is still zero for the marker's own writes, so this gate picks the
-;  first REAL write and nothing else.
-	cmp	XTIDE_MkWrBuf, 0
-	je	xwr_noesi
-	cmp	XTIDE_MkWrEsi, 0
-	jne	xwr_noesi
-	MARK	XTIDE_MkWrEsi, esi
-xwr_noesi:
-endif
 xwr_sector:
 	push	ecx
 	call	XTIDE_WaitDrq		; drive asking for the next sector
@@ -1430,7 +1226,7 @@ endif
 	call	XTIDE_WaitNotBusy	; the drive is still committing the last sector
 	jc	xwr_notready
 xwr_check:
-	test	al, ST_ERR
+	test	al, ST_ERR OR ST_DF
 	jnz	xwr_err
 	clc
 	ret
@@ -1449,7 +1245,7 @@ xwr_notready:
 xwr_err:
 	movzx	eax, al
 	mov	XTIDE_LastStatus, eax
-	mov	XTIDE_FailCode, 14	; drive reported ERR on completion
+	mov	XTIDE_FailCode, 14	; drive reported ERR or a write fault
 	stc
 	ret
 
@@ -1532,6 +1328,7 @@ xwd8_latch_loop:
 ;  end XTIDE_WriteData
 
 
+ifndef XT_NO_WRITETEST
 ;----------------------------------------------------------------------------
 ; XTIDE_WriteReadBack - write one sector of a known pattern and read it back.
 ;
@@ -1598,7 +1395,7 @@ xwrb_out:
 	ret
 
 ;  end XTIDE_WriteReadBack
-
+endif
 
 
 ;----------------------------------------------------------------------------
@@ -1632,26 +1429,6 @@ xci_loop:
 	ret
 
 ;  end XTIDE_CopyId
-
-;----------------------------------------------------------------------------
-; XTIDE_CopyStr - copy ECX bytes from EDX to EDI, advancing EDX.
-;
-;   Uses: EAX, ECX, EDX, EDI
-;----------------------------------------------------------------------------
-XTIDE_RevText		db	'1.0 '
-
-XTIDE_CopyStr:
-
-xcs_loop:
-	mov	al, [edx]
-	mov	[edi], al
-	inc	edx
-	inc	edi
-	dec	ecx
-	jnz	xcs_loop
-	ret
-
-;  end XTIDE_CopyStr
 
 ;----------------------------------------------------------------------------
 ; XTIDE_StashGeometry / XTIDE_SelectUnit - move geometry between the working
@@ -1714,14 +1491,9 @@ xsu_master:
 ;
 ;   In:   XTIDE_ReqLba / ReqCount / ReqBuf / ReqIsWrite
 ;   Out:  CF=0 on success. ReqCount is zero; ReqLba and ReqBuf are advanced
-;         past every chunk EXCEPT the last, so a caller stepping through a
-;         scatter/gather list must add the segment on itself.
-;   Uses: EAX, ECX, EDX, ESI, EDI  (EBX preserved - the caller still needs the
-;         IOP, and a helper eating a register its caller relies on is the bug
-;         this file already paid for once, technique 78)
-;
-;   The direction comes from a variable rather than the IOP so this routine
-;   does not have to hold EBX across the transfer loops.
+;         past every chunk except the last.
+;   Uses: EAX, ECX, EDX, ESI, EDI  (EBX preserved: XtStartIo holds the SRB
+;         in it across this call)
 ;----------------------------------------------------------------------------
 public XTIDE_XferRun
 XTIDE_XferRun:
@@ -1789,40 +1561,12 @@ endif
 ;  end XTIDE_XferRun
 
 ;----------------------------------------------------------------------------
-; XTIDE_Probe - PUBLIC. Called from Port_initialize once the device node
-;               resources have been parsed into the DDB.
+; XTIDE_Probe - PUBLIC. Called from XtFindAdapter with XTIDE_BasePort set.
 ;
-;   In:   EDI -> PortDDB (DDB_base_ioa already filled by Port_Scan_Inp_Params)
-;   Out:  CF=0 if a drive answered and its IDENTIFY data validated
-;   Uses: EAX, ECX, EDX  (EBX, ESI, EDI preserved - Port_initialize still
-;         needs EBX as the AEP pointer and EDI as the DDB)
+;   Out:  CF=0 if the master answered IDENTIFY, its data validated and LBA 0
+;         could be read; CF=1 otherwise, and the miniport reports not-found
+;   Uses: EAX, ECX, EDX  (EBX, ESI, EDI preserved)
 ;----------------------------------------------------------------------------
-;----------------------------------------------------------------------------
-; XTIDE_Delay - burn roughly EAX seconds.
-;
-;   The only channel out of IOS initialisation is how long we take, because
-;   BOOTLOG.TXT timestamps "Initing" and "Init Success" for every driver.
-;   Precision does not matter; separation does. Calibrate from the observed
-;   tick delta rather than trusting this constant.
-;
-;   Uses: EAX, ECX
-;----------------------------------------------------------------------------
-XTIDE_Delay:
-
-	or	eax, eax
-	jz	xdl_done
-xdl_outer:
-	mov	ecx, XT_TIMEBASE
-xdl_inner:
-	dec	ecx
-	jnz	xdl_inner
-	dec	eax
-	jnz	xdl_outer
-xdl_done:
-	ret
-
-;  end XTIDE_Delay
-
 public XTIDE_Probe
 XTIDE_Probe:
 
@@ -1830,30 +1574,15 @@ XTIDE_Probe:
 	push	esi
 	push	edi
 
-ifdef XT_PROBE_SKIP
-;  CALIBRATION BUILD. Do no probing at all - just report a KNOWN fail code, so
-;  the boot log's gap for a known number of delay units can be compared against
-;  a real run's gap directly. That comparison needs no algebra and no estimate
-;  of how long a log unit is on this machine, which is the thing that has now
-;  been guessed wrong twice. Everything before and after the probe is identical
-;  between the two builds, so the overhead cancels.
-	mov	XTIDE_FailCode, XT_PROBE_SKIP
-	jmp	xp_exit
-endif
 
-;  MPD: the base address arrives from HwFindAdapter, not from an IOS DDB.
 	movzx	ebx, word ptr XTIDE_BasePort
 	or	bx, bx
 	jz	xp_nobase
 
 	cmp	XTIDE_Stride, 0		; 0 = -DXT_STRIDE=0, autodetect
-	jne	xp_stridefixed
+	jne	xp_ports
 	call	XTIDE_DetectStride
 	jc	xp_nostride
-	jmp	xp_ports
-xp_stridefixed:
-	mov	eax, XTIDE_Stride	; report the pinned value too, so the
-	MARK	XTIDE_MkStride, eax	; marker always names the map in use
 xp_ports:
 	call	XTIDE_SetPorts
 
@@ -1887,41 +1616,30 @@ xp_ok:
 	xor	eax, eax
 	call	XTIDE_StashGeometry	; unit 0 = master
 
-;  PHASE 2a - prove the read path on the safest target there is: LBA 0, one
-;  sector, read-only, on a drive this routine has just established is idle.
-;  Wiring reads into the IOS request path means claiming the device, and the
-;  only disk in the test bed is the boot disk - that comes after this works.
+;  Prove the read path on the safest target there is: LBA 0, one sector,
+;  read-only, on a drive this routine has just established is idle.
 	mov	XTIDE_ReqLba, 0
 	mov	XTIDE_ReqCount, 1
 	mov	XTIDE_ReqBuf, OFFSET32 XTIDE_SecBuf
 	call	XTIDE_ReadSectors
-	jc	xp_exit			; 7, 8 or 9 already in XTIDE_FailCode
+	jc	xp_noread		; 7, 8 or 9 already in XTIDE_FailCode
 
 ;  A sector that came back with an MBR signature is a sector that came back.
 	cmp	word ptr XTIDE_SecBuf+510, 0AA55h
 	jne	xp_nosig
 
-;  Remember which sector was read, so the delay can report WHICH one rather
-;  than merely that 512 bytes arrived.
+;  Keep the first partition's type: it goes into the fail code below.
 	movzx	eax, byte ptr XTIDE_SecBuf+01BEh+4
 	mov	XTIDE_PartType, eax
 
-;  PHASE 2b - the write path, on a SLAVE if one is fitted, never on the master.
-;  The master is the boot disk both here and on the 5160.
+;  The write path is tested on a slave if one is fitted, never on the master:
+;  the master is the boot disk.
 ;
-;  NOTE: XTIDE_CaptureGeometry overwrites one global set of geometry, so the
-;  slave's values replace the master's from here on. That is fine while this is
-;  a self-test and nothing addresses the master afterwards; per-unit geometry
-;  arrives with the DCB work, which needs it anyway.
-ifdef XT_NO_WRITETEST
-;  DEFAULT (no -WriteTest): do not go looking for a slave, and therefore never run the
-;  write self-test. It writes 512 bytes to LBA 100 of whichever unit answered,
-;  and on a machine with one disk that unit is the boot volume. The DEV-bit
-;  guard below is the only thing standing between "no slave fitted" and a write
-;  to the boot disk - and on a register map that has never executed, that guard
-;  has never executed either. Do not spend a card on trusting it (technique 79).
-	jmp	xp_noslave
-endif
+;  Only a -WriteTest build looks for a slave. The test writes 512 bytes to
+;  LBA 100 of whichever unit answers as one, and on a machine with one disk
+;  the DEV-bit check in XTIDE_TryIdentify is all that keeps that write off
+;  the boot volume.
+ifndef XT_NO_WRITETEST
 	mov	XTIDE_TryUnit, DRVHD_SLAVE
 	call	XTIDE_TryIdentify
 	jc	xp_noslave
@@ -1939,9 +1657,10 @@ endif
 	add	eax, 40
 	mov	XTIDE_FailCode, eax
 	jmp	xp_exit
+endif
 
-;  No slave is not a failure - the real card has one drive. Report the phase 2a
-;  result: the read verified, there was nothing safe to write to.
+;  No slave is not a failure. The code records that the read verified and
+;  there was nothing safe to write to.
 xp_noslave:
 	mov	XTIDE_TryUnit, DRVHD_MASTER
 	mov	eax, XTIDE_PartType
@@ -1954,34 +1673,25 @@ xp_nosig:
 	mov	XTIDE_FailCode, 10	; 512 bytes read, no 55AA at the end of them
 	jmp	xp_exit
 
+;  A drive that identifies but cannot return sector 0 is left to the real-mode
+;  BIOS: claiming it would move the volume onto a read path that just failed.
+xp_noread:
+	mov	XTIDE_MasterPresent, 0
+	jmp	xp_exit
+
 xp_nostride:
 	mov	XTIDE_FailCode, 11	; neither stride made Status and AltStatus agree
 	jmp	xp_exit
 
 xp_nobase:
-	mov	XTIDE_FailCode, 1	; no I/O resource reached the DDB
+	mov	XTIDE_FailCode, 1	; the miniport passed no I/O base
 
-;  NEVER fail AEP_INITIALIZE.
-;
-;  Failing it makes IOS drop the driver permanently - and on this machine that
-;  is a one-shot: resources may not be assigned until CONFIGMG's CONFIG_START,
-;  which arrives after initialisation. Fail here and that callback never comes.
-;  Device Manager's code 10 is IOS reporting that we hung up on it.
-;
-;  zikolas/cfu1-win9x (Nick, MIT) does the same thing and says why in one line
-;  of comment: "AEP_SUCCESS (stay resident either way)". Claiming a device is
-;  AEP_DEVICE_INQUIRY's job, not this one, and "no device" there is
-;  AEP_NO_MORE_DEVICES - still not a failure.
 xp_exit:
-;  MPD: no delay channel. IOS had no readback at init time, so the driver
-;  reported its fail code by burning a measurable number of boot-log ticks
-;  (technique 86). A miniport returns a value to HwFindAdapter and can call
-;  ScsiDebugPrint, so the delay is pure cost - and up to 45 units of it.
-;
-;  MPD: and a miniport MAY report not-found. The comment above belongs to
-;  AEP_INITIALIZE, where failing meant IOS dropped the driver for the rest
-;  of the boot. SP_RETURN_NOT_FOUND carries no such penalty, so report the
-;  truth: CF set when nothing answered.
+ifdef XT_SKIP_DRVHD
+;  The real-mode BIOS drives this disk again until Windows sends the first
+;  request, and it writes DRV/HEAD with values of its own.
+	mov	XTIDE_LastDrvHd, 0FFFFFFFFh
+endif
 	pop	edi
 	pop	esi
 	pop	ebx
@@ -1994,7 +1704,6 @@ xp_none:
 	ret
 
 ;  end XTIDE_Probe
-
 
 
 	end

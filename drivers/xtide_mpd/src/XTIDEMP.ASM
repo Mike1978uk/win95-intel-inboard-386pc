@@ -73,7 +73,6 @@ EXTERNDEF	XTIDE_UnitModel		: BYTE
 ;----------------------------------------------------------------------------
 SCSIOP_TEST_UNIT_READY	equ	000h
 SCSIOP_REZERO_UNIT	equ	001h
-SCSIOP_REQUEST_SENSE	equ	003h
 SCSIOP_READ6		equ	008h
 SCSIOP_WRITE6		equ	00Ah
 SCSIOP_INQUIRY		equ	012h
@@ -87,11 +86,11 @@ SCSIOP_WRITE		equ	02Ah
 SCSIOP_SEEK		equ	02Bh
 SCSIOP_VERIFY		equ	02Fh
 SCSIOP_SYNCHRONIZE_CACHE equ	035h
-SCSIOP_MODE_SENSE10	equ	05Ah
 
 ;  Our one adapter. The card is a single-channel, single-target 8-bit ATA
 ;  bridge, so target 0 is the ATA master and target 1 would be the slave.
-;  Only the master is claimed - see XT_ALLOW_SLAVE below.
+;  Target 1 answers only when the probe found a slave, and only a -WriteTest
+;  build looks for one.
 XT_MAX_TARGETS		equ	2
 XT_SECTOR_SIZE		equ	512
 
@@ -188,7 +187,7 @@ XtPortTag	db	'port='
 	.CODE
 
 ;============================================================================
-; DriverEntry - the PE entry point named in XTIDEMP.LNK.
+; DriverEntry - the PE entry point named on build.ps1's link line.
 ;
 ;   Builds HW_INITIALIZATION_DATA and hands it to SCSIPORT. Everything after
 ;   this is SCSIPORT calling us.
@@ -826,9 +825,8 @@ ifdef XT_YIELD_COMMIT
 	jne	xsi_yield
 endif
 
-;  Report what actually moved. XferRun drains ReqCount to zero on success, so
-;  the whole request transferred.
-	mov	eax, [ebx].SCSI_REQUEST_BLOCK.DataTransferLength
+;  XferRun drains ReqCount to zero on success, so the whole request moved and
+;  DataTransferLength stands as SCSIPORT set it.
 	jmp	xsi_ok
 
 ;----------------------------------------------------------------------------
