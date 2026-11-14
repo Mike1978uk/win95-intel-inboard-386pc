@@ -137,7 +137,8 @@ XT_SPIN_SLOW	equ	35000	; x 31.2us = ~1.1 s, near the old real timeout
 ;  of each one and polls only near its end. Counts are register-only loop
 ;  passes at 0.10 us, the same unit as XT_POLL_DELAY; each is set just under
 ;  the shortest latency measured, so a ready card is never kept waiting.
-XT_RD_FIRST_WAIT	equ	2200	; ~220 us; a read's first DRQ, 232-313 us
+XT_RD_FIRST_WAIT	equ	1000	; ~100 us. Not 220: a one-sector read is ready sooner
+				; than an 8-sector one (232-313 us) and would be held
 XT_WR_FIRST_WAIT	equ	7000	; ~700 us; a write's first DRQ, 0.8-3.3 ms
 XT_COMMIT_WAIT		equ	7000	; ~700 us; the fastest commit seen, 0.8 ms
 ;  Paced polls before a commit is handed to the timer: 320 x ~31 us = ~10 ms.
