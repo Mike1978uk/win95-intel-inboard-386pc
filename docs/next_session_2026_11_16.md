@@ -2,7 +2,11 @@
 
 Earlier: `docs/next_session_2026_11_15.md` (its last two sections are this session's log). Newest wins.
 
-## Start here: the Mach8 card run, owner present
+## Start here: the Mach8 card run, driven through the agent
+
+Opus drives every step over the V9x agent (`v9xctl.ps1 -Host 192.168.68.62`), Alt+F4 included
+(`input`/key verb; the earlier exit hangs were agent-driven too). The owner is needed only to
+restart a hung card: keep them reachable, and stage the next driver before each risky run.
 
 Nothing since `7e7095e` is pushed. Five local commits wait on this run: F3 1-3 (`6847977`,
 `6ccc10a`), XT-CF first read wait (`2e17fc5`, already card-proven on boot 389), bed bench (`7bca168`),
@@ -11,8 +15,8 @@ F2 3 (`ffe9df0`). Push all of them once step 1 passes; drop or revert what fails
 1. **F3 build** (findings 1-3: idle wait before a mode set, the DLL resets a wedged engine, compare
    off when GDI cuts the feed). Rebuild from `6ccc10a`'s tree or use `%TEMP%\m8f3` if it survived.
    `tools\m8_card_cycle.ps1 -Drv <M8DISP.DRV> -Name M8F3 -Label card_f3`, bench **twice**, prove idle.
-   Pass: pixels = ATI in all 35, no engine resets. Then **GD tunnel, feed on, Alt+F4, three times**:
-   the exit that hung. Three clean exits = F3 finding 1 confirmed as the hang's cause; write it up
+   Pass: pixels = ATI in all 35, no engine resets. Then **GD tunnel, feed on, Alt+F4 sent by the
+   agent, three times**: the exit that hung. Three clean exits = F3 finding 1 confirmed as the hang's cause; write it up
    and close the loop on #55. A hang: owner restarts, then `-FetchOnly`.
 2. **F2 3 build** (`ffe9df0`): twist, `m8d3d_stat[25]` (writes sent) per flip, old against new.
    Expect up to 112 fewer writes, ~0.9 ms a 32-colour frame.
