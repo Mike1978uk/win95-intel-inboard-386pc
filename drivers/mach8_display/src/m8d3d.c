@@ -2777,18 +2777,21 @@ static int m8d3d_join_clear( int planes, int t, int b )
     return( m8d3d_join_clear_part( planes, t, b, 0, M8D3D_JOIN_W, 1 ) );
 }
 
-/* The registers every fill of one colour shares. */
-static int m8d3d_join_fill_begin( int plane, BYTE col )
+/* The registers every fill of one colour shares. Four of them every colour of a pass shares:
+ * between colours only the fills' coordinates are written. */
+static int m8d3d_join_fill_begin( int plane, BYTE col, int first )
 {
     if( !m8d3d_q_need( 6 ) ) {
         return( 0 );
     }
-    M8D3D_Q( M8_WRT_MASK, 0x00FF );
+    if( first ) {
+        M8D3D_Q( M8_WRT_MASK, 0x00FF );
+        M8D3D_Q( M8_DP_CONFIG, M8_DP_POLY_FILL );
+        M8D3D_Q( M8_ALU_FG_FN, M8_MIX_REPLACE );
+        M8D3D_Q( M8_SRC_Y_DIR, 1 );
+    }
     M8D3D_Q( M8_RD_MASK, plane );
-    M8D3D_Q( M8_DP_CONFIG, M8_DP_POLY_FILL );
-    M8D3D_Q( M8_ALU_FG_FN, M8_MIX_REPLACE );
     M8D3D_Q( M8_FRGD_COLOR, col );
-    M8D3D_Q( M8_SRC_Y_DIR, 1 );
     return( 1 );
 }
 
@@ -3198,7 +3201,7 @@ static int m8d3d_join( M8D3D_CONTEXT *c, int dy, const short *v, const WORD *ind
                 ct = m8d3d_je[i].y0 < ct ? m8d3d_je[i].y0 : ct;
                 cb = m8d3d_je[i].y1 > cb ? m8d3d_je[i].y1 : cb;
             }
-            ok = m8d3d_join_fill_begin( 1 << j, (BYTE)cols[j] ) &&
+            ok = m8d3d_join_fill_begin( 1 << j, (BYTE)cols[j], j == 0 ) &&
                  m8d3d_join_fill_bands( dy, v, m8d3d_jtri + m8d3d_jfrom[cols[j]],
                                         m8d3d_jfrom[cols[j] + 1] - m8d3d_jfrom[cols[j]],
                                         m8d3d_jshift ? ct : ct + 1, cb );
