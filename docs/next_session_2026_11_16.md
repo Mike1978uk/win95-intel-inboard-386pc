@@ -9,8 +9,17 @@ geometric mean 1.045 (run 2's bmp_card/dstinvert dip absent in run 1: noise). Th
 ATI runs at 8 bpp and cannot gate a 16 bpp card: compare with `-Against 'card_gx1,card_gx2'`.
 Tunnel `M8TUNG`, feed on, agent Alt+F4: **3 of 3 clean**, same boot, desktop back at 800x600,
 `M8TRACE.TXT` shows every surface destroyed; a bench after the three exits: pixels same in 36,
-0.978. ~7.3-7.9 fps, 5,530 writes, 74 ms ours a flip. F3 finding 1 stands as the exit hang's
-cause (#55 reply: draft for the owner). `v9xctl screenshot` fails on the card (Win32 1460).
+0.978. ~7.3-7.9 fps, 5,530 writes, 74 ms ours a flip. `v9xctl screenshot` fails on the card
+(Win32 1460). #55 is the Windows restart hang, not this exit: still open, restart untested on F3.
+
+**The exit hang is not fixed.** Boot 391, F2 3 build (`m8f2n3.drv`): twist `phase=0` exited clean,
+then twist `phase=1` hung at exit. Census `p1a-a`/`p1a-b` were both read and `M8TRACE.TXT` shows
+every surface destroyed: the hang is after the Direct3D teardown, in the return to the desktop.
+Owner found a plain black screen: `m8_hw_set_mode` turns the display off first and on last, so
+the stop is in or just after the desktop mode set. Same run repeated on boot 392: clean. Seven
+exits, one hang. The waits before the mode set are bounded (reset on timeout).
+F2 3: 3,470 writes a flip against F3's 3,550 (twist), pixels = in 36. Phase marks cost ~0.5-3.6
+ms a frame (one run each); split with `phase=1` sums to ~22.9 ms, the old 22.6 ms baseline holds.
 
 ## Start here: the Mach8 card run, driven through the agent
 
