@@ -369,6 +369,11 @@ like a timer tick (~170 us measured for #45). Ideas, cheapest first - measure be
 - [x] R4 `REFR64` in the card's AUTOEXEC.BAT (10-10, backup `AUTOEXEC.B10`)
 - [x] **X3 (desk + B + M)** Measured-wait driver: `a67fefc4` passes bed + 5160 (10-11, `xtcf_measured_wait.md`); not yet in `dist/`; next: copy time and CPU returned
 - [x] ATI.VXD port-trapping lead - recovered 10-12: `docs/ati_vxd_traps.md` (handlers on 01CE/02E8/4AE8/4AEE; 65 ports trapped as a group)
+- [ ] **X4 (B, then M) XT-CF wedged-drive recovery (Fable XT-IDE finding 7, owner 11-14):** today a drive stuck busy
+      fails each request after ~1.1 s and Windows retries; nothing resets it. SRST returns a CF card to 16-bit mode,
+      so a recovery must redo XUB's whole init (8-bit feature, LBA, DRV/HEAD) before the next command, or the boot disk
+      reads garbage. Build in the bed with the fork's `IDE_COMMIT_US` set above the timeout to wedge the drive on
+      purpose; card only after the bed recovers cleanly. `docs/fable_review_2026_11_13_xtide.md` section 7.
 
 ## Done 10-10
 
