@@ -589,6 +589,10 @@ static int m8_enter( const M8_RECT *r )
 #ifdef M8_TRACE
     m8_ssb_verify();
 #endif
+    if( m8_busy == 2 ) {
+        m8_busy = 1;
+        m8_hw_feed_cut();
+    }
     m8_busy = 1;
     if( m8_cur_shown && (r == NULL || m8_rect_overlap( r, &m8_cur_rect )) ) {
         ++m8_stats[M8_STAT_CUR_HIDE];

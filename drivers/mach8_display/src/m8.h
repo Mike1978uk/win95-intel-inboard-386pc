@@ -218,6 +218,7 @@ extern int  __far m8_hw_mode_size( int mode, int *x, int *y );
 extern void m8_hw_passthrough( void );
 extern void m8_hw_set_palette( UINT start, UINT count, RGBQUAD FAR *pal );
 extern int  m8_hw_wait_idle( void );
+extern void m8_hw_feed_cut( void );
 extern void m8_hw_wait_vblank( void );
 extern void m8_hw_fill( int x, int y, int w, int h, BYTE color );
 extern void m8_hw_fill_mix( int x, int y, int w, int h, BYTE color, WORD mix );

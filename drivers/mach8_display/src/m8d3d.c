@@ -1492,10 +1492,10 @@ static int  m8d3d_mono_w;
 static int m8d3d_mono_off( void )
 {
     if( m8d3d_stamp_mode ) {
-        m8d3d_stamp_mode = 0;
         if( !m8d3d_q_need( 2 ) ) {
             return( 0 );
         }
+        m8d3d_stamp_mode = 0;
         /* An engine reset does not clear this: left on, it would key the next copy. */
         M8D3D_Q( M8_SRC_CMP_FN, 0 );
         M8D3D_Q( M8_DP_CONFIG, M8_DP_8514 );

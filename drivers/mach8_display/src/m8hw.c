@@ -87,6 +87,7 @@ static const M8_REG m8_engine_init[] = {
     { 0xE6EE, 0x07FF, 0 },      /* EXT_SCISSOR_B */
     { 0xCEEE, 0x2211, 0 },      /* DP_CONFIG */
     { M8_MULTIFUNC_CNTL, M8_MF_PIX_CNTL, 0 },
+    { M8_SRC_CMP_FN, 0x0000, 0 },  /* a reset keeps it; no routine here expects it on */
 };
 
 int m8_scr_x = 800;
@@ -325,6 +326,14 @@ int __far m8_hw_mode_size( int mode, int *x, int *y )
 
 /* ATIM8's order: display off and VGA through while the shadow set loads,
  * timings, CLOCK_SEL, lock; then the set selected and the display on. */
+/* The feed had the engine: its last command may still run, and a DP_CONFIG write would halt it
+ * (guide 9-41); its compare may be on, and would key this driver's copies. */
+void m8_hw_feed_cut( void )
+{
+    m8_hw_wait_idle();
+    outpw( M8_SRC_CMP_FN, 0 );
+}
+
 int m8_hw_set_mode( int mode )
 {
     const M8_MODE   *m;
@@ -334,6 +343,9 @@ int m8_hw_set_mode( int mode )
         return( 0 );
     }
     m = &m8_modes[mode];
+    /* Another writer's commands may still be queued (the feed's, a DOS program's). The set-up
+     * below is not counted against the FIFO, and an overrun locks it (guide 8-14). */
+    m8_hw_wait_idle();
     m8_sh_clear();
     outpw( M8_DISP_CNTL, 0x0060 );                      /* display off */
     outpw( M8_ADVFUNC_CNTL, 0x0002 );                   /* VGA through */
