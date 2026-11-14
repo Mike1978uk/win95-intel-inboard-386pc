@@ -4,6 +4,7 @@
 #   SWAPCOMP.VXD  compression
 #   SWAPCMPC.VXD  compression plus a per-page checksum, for the bed
 #   SWAPZ.VXD     with zero pages, SWAPZF.VXD and the cheaper hash, SWAPZFC.VXD and the checksum
+#   SWAPZFN.VXD   SWAPZF with a 4-bit SlotTab, SWAPZFNC.VXD and the checksum
 $DDK = "C:\Users\lycet\OneDrive\Desktop\XT_project\Windows95_ddk"
 $SRC = Join-Path $PSScriptRoot 'src'
 $OUT = Join-Path $PSScriptRoot 'build'
@@ -30,3 +31,5 @@ Build 'SWAPCMPC' 'SWAPCOMP.ASM' 'SWAPCOMP.DEF' @('-DSC_CHECKSUM')
 Build 'SWAPZ'    'SWAPCOMP.ASM' 'SWAPCOMP.DEF' @('-DSC_ZERO')
 Build 'SWAPZF'   'SWAPCOMP.ASM' 'SWAPCOMP.DEF' @('-DSC_ZERO', '-DSC_FOLD')
 Build 'SWAPZFC'  'SWAPCOMP.ASM' 'SWAPCOMP.DEF' @('-DSC_ZERO', '-DSC_FOLD', '-DSC_CHECKSUM')
+Build 'SWAPZFN'  'SWAPCOMP.ASM' 'SWAPCOMP.DEF' @('-DSC_ZERO', '-DSC_FOLD', '-DSC_NIB')
+Build 'SWAPZFNC' 'SWAPCOMP.ASM' 'SWAPCOMP.DEF' @('-DSC_ZERO', '-DSC_FOLD', '-DSC_NIB', '-DSC_CHECKSUM')

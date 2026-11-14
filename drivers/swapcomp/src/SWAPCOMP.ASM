@@ -23,6 +23,8 @@
 ;   -DSC_ZERO: a page of all zeros costs no I/O either way: SlotTab alone says so.
 ;   -DSC_FOLD: a cheaper hash, 2 KB of table and no clearing it per page, as the
 ;   LZ4B10FN bench: 17 % less compress time, ratio 2.26 to 2.24.
+;   -DSC_NIB: SlotTab at 4 bits a slot, 4 KB instead of 8; the locked object
+;   then fits three pages.
 ;******************************************************************************
 
 	.386p
@@ -64,7 +66,26 @@ endif
 SC_MAX_SECTORS	EQU	6
 
 ; In SlotTab: a page of zeros, nothing in the file. A slot holds at most 8 sectors.
+ifdef SC_NIB
+SC_ZERO_SLOT	EQU	0Fh
+else
 SC_ZERO_SLOT	EQU	0FFh
+endif
+
+; dst = SlotTab entry for slot EDX. EDX is kept; dst must not be EDX.
+SLOT_GET MACRO dst
+ifdef SC_NIB
+	mov	dst, edx
+	shr	dst, 1
+	movzx	dst, SlotTab[dst]
+	test	dl, 1
+	jz	SHORT @F
+	shr	dst, 4
+@@:	and	dst, 0Fh
+else
+	movzx	dst, SlotTab[edx]
+endif
+ENDM
 
 Declare_Virtual_Device SWAPCOMP, 1, 0, SwapComp_Control, Undefined_Device_ID, \
 		       Undefined_Init_Order
@@ -124,7 +145,11 @@ lz_result	dd	0
 
 	ALIGN 4
 HTab		dw	HASH_SIZE dup (0)	; position + 1 of the last 4-byte group
+ifdef SC_NIB
+SlotTab 	db	SC_SLOTS / 2 dup (0)	; sectors per slot, low nibble = even slot
+else
 SlotTab 	db	SC_SLOTS dup (0)	; sectors per slot, 0 = uncompressed
+endif
 ifdef SC_CHECKSUM
 SumTab		dw	SC_SLOTS dup (0)
 endif
@@ -133,7 +158,8 @@ endif
 ; incompressible page is 2 + 4096 + 4096/255 + 16 = 4130; such a page is
 ; stored raw. Never below 4096: PAGEFILE moves a whole page through here when
 ; the IFS hook does not shorten the transfer. Do not grow it without checking
-; the map: the locked object must stay under 4000h to fit four pages.
+; the map: the locked object must stay under 3000h (SC_NIB) or 4000h to fit
+; three or four pages.
 SC_Bounce	db	4160 dup (0)
 
 ; PERF may keep these pointers after init, so they cannot live in discardable data.
@@ -237,6 +263,40 @@ sch_done:
 EndProc SwapComp_Hook
 
 ;******************************************************************************
+;   SC_SlotSet - SlotTab entry for slot EDX = AL (0-15 with SC_NIB).
+;   Keeps every register. Callers hold SC_Sem, so the nibble update is not
+;   raced.
+;******************************************************************************
+
+BeginProc SC_SlotSet
+ifdef SC_NIB
+	push	ebx
+	push	ecx
+	mov	ebx, edx
+	shr	ebx, 1
+	mov	cl, SlotTab[ebx]
+	test	dl, 1
+	jnz	SHORT ssl_high
+	and	cl, 0F0h
+	or	cl, al
+	jmp	SHORT ssl_store
+ssl_high:
+	and	cl, 0Fh
+	push	eax
+	shl	al, 4
+	or	cl, al
+	pop	eax
+ssl_store:
+	mov	SlotTab[ebx], cl
+	pop	ecx
+	pop	ebx
+else
+	mov	SlotTab[edx], al
+endif
+	ret
+EndProc SC_SlotSet
+
+;******************************************************************************
 ;   SC_One - one page, described by SC_Desc. A failure sets SC_Status to
 ;   PFS_Failure.
 ;******************************************************************************
@@ -250,7 +310,7 @@ BeginProc SC_One
 ;---- read --------------------------------------------------------------------
 	cmp	edx, SC_SLOTS
 	jae	SHORT sco_raw_read
-	movzx	ecx, SlotTab[edx]
+	SLOT_GET ecx
 	or	ecx, ecx
 	jnz	SHORT sco_comp_read
 sco_raw_read:
@@ -286,7 +346,10 @@ endif
 	mov	eax, ecx
 	add	eax, 2
 	mov	edx, [SC_Desc].PS_BD_File_Page
-	movzx	edx, SlotTab[edx]
+	push	ecx
+	SLOT_GET ecx
+	mov	edx, ecx
+	pop	ecx
 	shl	edx, 9
 	cmp	eax, edx
 	ja	sco_error		; length field larger than what was read
@@ -311,7 +374,8 @@ endif
 sco_write:
 	cmp	edx, SC_SLOTS
 	jae	sco_raw_write_nt
-	mov	SlotTab[edx], 0		; until a compressed write succeeds
+	xor	al, al			; raw until a compressed write succeeds
+	call	SC_SlotSet
 	cmp	[SC_Disabled], 0
 	jne	sco_raw_write
 
@@ -322,7 +386,8 @@ ifdef SC_ZERO
 	cld
 	repe	scasd
 	jne	SHORT sco_not_zero
-	mov	SlotTab[edx], SC_ZERO_SLOT
+	mov	al, SC_ZERO_SLOT
+	call	SC_SlotSet
 	inc	[cZeroWrites]
 	add	[cSectorsSaved], 8
 ifdef SC_CHECKSUM
@@ -349,7 +414,8 @@ endif
 	cmp	[SC_Seen], 0
 	je	SHORT sco_not_seen
 	mov	edx, [SC_Desc].PS_BD_File_Page
-	mov	SlotTab[edx], cl
+	mov	al, cl
+	call	SC_SlotSet
 	inc	[cCompWrites]
 	mov	eax, 8
 	sub	eax, ecx
