@@ -6,10 +6,15 @@ about 5.7 us, so a 4 KB page costs ~10 ms to move; compressing it first is cheap
 
 | file | md5 | what |
 |---|---|---|
-| `SWAPCOMP.VXD` | `9fde4934ed339d33492294ff80824d70` | the driver - use this one |
-| `SWAPCMPC.VXD` | `537c5d9a030d9bacd5ce604da758e161` | the same driver plus a checksum on every page, for checking a new machine |
+| `SWAPCOMP.VXD` | `188afaa0eb7cb065beb02e558de80501` | the driver - use this one |
+| `SWAPCMPC.VXD` | `be561a2120870c330897917a1aec198c` | the same driver plus a checksum on every page, for checking a new machine |
 
-Source and build: [`drivers/swapcomp/`](../../drivers/swapcomp/).
+Source and build: [`drivers/swapcomp/`](../../drivers/swapcomp/) (`build.ps1`: `SWAPZF7` and `SWAPZF7C`, commit `07e1d81`, rebuilt byte-identical 2026-11-15).
+
+This build also skips all-zero pages, keeps a 4-bit slot table, and stores a page compressed
+whenever it fits in 7 of its 8 sectors. On the 5160 (2026-11-15, four fresh boots) PAGETIME took
+the same time as the previous build (126.5 s against 126.8 s) with 72 % fewer raw page reads, no
+errors: [`docs/captures/2026-11-15_swap_ab_card/`](../../docs/captures/2026-11-15_swap_ab_card/).
 
 ## Install
 
@@ -24,6 +29,8 @@ To see it working, add the `SWAPCOMP` counters in System Monitor: `CompressedWri
 `CompressedReads` climb as Windows pages. `Errors` and `Fallback` should stay at 0.
 
 ## Measured
+
+The table below is the first release (2026-10-02); the current build is measured above.
 
 On the real 5160 (486BL3, 5 MB, XT-CF boot disk with `XTIDEMP.MPD`), four boots in the order
 off, on, off, on, with the same workload first after boot - four programs opened and switched
