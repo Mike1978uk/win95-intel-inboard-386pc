@@ -1,0 +1,6 @@
+put exit 0
+start exit 0
+shot exit 43
+census exit 0
+picture: C:\Users\lycet\AppData\Local\Temp\sample_run\wormhole.png
+boot 401 up 1121 desktop True

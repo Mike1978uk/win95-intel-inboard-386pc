@@ -1,0 +1,21 @@
+17:51:30 --- 8 bpp refused on a 16 bpp desktop: install, restart, five programs, bench
+17:53:57 boot 247: drv 5CA86A726B3372070E1213A6F4BB4624 (want 5CA86A726B3372070E1213A6F4BB4624) dll 95FD23387CD79899257AAE2F2777211F (want 95FD23387CD79899257AAE2F2777211F)
+17:54:17 == 1 wormhole
+17:54:21   put exit 0
+17:54:32   start exit 0
+17:55:02   shot exit 0
+17:55:04   census exit 0
+17:56:35   new process exit 31
+17:56:36 == 2 flip2d
+17:56:37   put exit 0
+17:56:42   start exit 0
+17:57:12   shot exit 0
+17:57:27   census exit 0
+17:59:11   new process exit 31
+17:59:12 == 3 mosquito
+17:59:16   put exit 0
+17:59:27   start exit 0
+17:59:57   shot exit 0
+18:00:57   census exit 20
+18:04:12   new process exit 20
+18:04:12   AGENT GONE: stop

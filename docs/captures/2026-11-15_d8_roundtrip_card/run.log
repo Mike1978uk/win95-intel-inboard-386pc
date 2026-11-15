@@ -1,0 +1,81 @@
+15:41:00 --- shf repeat: boot 402, up 197 s
+15:41:16 idle exit 0
+15:41:22   put exit 0
+15:41:29   start exit 0
+15:42:12   shot exit 43
+15:42:27   census exit 0
+15:42:48   boot 402 up 305 desktop True
+15:42:48   +  0 s agent ok
+15:42:58   + 10 s agent ok
+15:43:08   + 20 s agent ok
+15:43:18   + 30 s agent ok
+15:43:28   + 40 s agent ok
+15:43:39   + 51 s agent ok
+15:43:49   + 61 s agent ok
+15:43:59   + 71 s agent ok
+15:44:09   + 81 s agent ok
+15:44:19   + 91 s agent ok
+15:44:29   +101 s agent ok
+15:44:39   +111 s agent ok
+15:44:49   +121 s agent ok
+15:44:59   +131 s agent ok
+15:45:09   +141 s agent ok
+15:45:20   +152 s agent ok
+15:45:30   +162 s agent ok
+15:45:40   +172 s agent ok
+15:45:50   +182 s agent ok
+15:46:00   +192 s agent ok
+15:46:10   +202 s agent ok
+15:46:20   +212 s agent ok
+15:46:30   +222 s agent ok
+15:46:40   +232 s agent ok
+15:46:50   +242 s agent ok
+15:47:01   +253 s agent ok
+15:47:11   +263 s agent ok
+15:47:21   +273 s agent ok
+15:47:31   +283 s agent ok
+15:47:41   +293 s agent ok
+15:47:51 agent answered for 5 minutes after wormhole
+16:10:46 === A/B: 32bfaac (no shadow free) as M8NOF: bench, wormhole, probe, bench
+16:14:05   idle: {"Success":true,"RequestId":1253937155,"AgentBuild":"v0.12.0","BootCounter":404,"Mode":"Direct","ExitCode":0,"ResultCategory":0,"NativeError":0,"ElapsedMilliseconds":22569,"Stdout":"  1 s  cpu 100 %  quiet 0\r\n  2 s  cpu 100 %  quiet 0\r\n  3 s  cpu 100 %  quiet 0\r\n  4 s  cpu 100 %  quiet 0\r\n  5 s  cpu 100 %  quiet 0\r\n  6 s  cpu   0 %  quiet 1\r\n  7 s  cpu   0 %  quiet 2\r\n  8 s  cpu   0 %  quiet 3\r\n  9 s  cpu   6 %  quiet 4\r\n 10 s  cpu   6 %  quiet 5\r\n 11 s  cpu   0 %  quiet 6\r\n 12 s  cpu   6 %  quiet 7\r\n 13 s  cpu   7 %  quiet 8\r\n 14 s  cpu   6 %  quiet 9\r\n 15 s  cpu   0 %  quiet 10\r\n","Stderr":"","StdoutBytes":406,"StderrBytes":0,"StdoutTruncated":false,"StderrTruncated":false,"TimedOut":false,"Cancelled":false,"CaptureMode":"pipes","GuiWindow":false,"Detached":false,"Orphaned":false}
+16:15:39   == card_nof1  driver m8nof.drv  800x600x16  2026-11-15 17:12  1000 ms
+16:15:39   card_nof1 faster in 9, slower in 7; pixels differ in 0 tests
+16:15:39   geometric mean B/A 0.997
+16:15:39 --- nofree: boot 404, up 142 s
+16:16:04 idle exit 0
+16:16:10   put exit 0
+16:16:17   start exit 0
+16:17:01   shot exit 43
+16:17:16   census exit 0
+16:17:46   boot 404 up 268 desktop True
+16:17:46   +  1 s agent ok
+16:17:57   + 12 s agent ok
+16:18:08   + 22 s agent ok
+16:18:18   + 32 s agent ok
+16:18:28   + 42 s agent ok
+16:18:38   + 52 s agent ok
+16:18:48   + 62 s agent ok
+16:18:58   + 72 s agent ok
+16:19:08   + 82 s agent ok
+16:19:18   + 93 s agent ok
+16:19:28   +103 s agent ok
+16:19:39   +113 s agent ok
+16:19:49   +123 s agent ok
+16:19:59   +133 s agent ok
+16:20:09   +143 s agent ok
+16:20:19   +153 s agent ok
+16:20:29   +163 s agent ok
+16:20:39   +173 s agent ok
+16:20:49   +184 s agent ok
+16:20:59   +194 s agent ok
+16:21:09   +204 s agent ok
+16:21:20   +214 s agent ok
+16:21:30   +224 s agent ok
+16:21:40   +234 s agent ok
+16:21:50   +244 s agent ok
+16:22:00   +254 s agent ok
+16:22:10   +264 s agent ok
+16:22:20   +274 s agent ok
+16:22:30   +285 s agent ok
+16:22:40   +295 s agent ok
+16:22:50 agent answered for 5 minutes after wormhole
