@@ -76,7 +76,7 @@ if (-not $FetchOnly -and -not $BenchOnly) {
   # The Shut Down dialog appears only after the whole screen is dimmed, which takes
   # seconds at 16 bpp: an R before it lands on the desktop and the restart never starts.
   # The wait is the host's: an input call that runs this long times out.
-  Agent input @{ Sequence = 'key CTRL+ESC; delay 1500; key U' } | Out-Null
+  Agent input @{ Sequence = 'key ESC; delay 500; key ESC; delay 500; key CTRL+ESC; delay 2000; key U' } | Out-Null
   Start-Sleep -Seconds 15
   Agent input @{ Sequence = 'key R; delay 500; key ENTER' } | Out-Null
   $back = $false
