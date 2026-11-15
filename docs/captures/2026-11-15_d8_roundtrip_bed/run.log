@@ -1,0 +1,71 @@
+13:24:23 --- 8 bpp round trip, bed: bench, wormhole, bench
+13:24:23 boot 234
+13:26:21 rt0 bench exit 0, 95 s
+13:27:36   wormhole: put exit 0
+13:27:42   wormhole: start exit 0
+13:28:24   wormhole: shot exit 43
+13:28:30   wormhole: census exit 0
+13:28:48   wormhole: == M8CENSUS before-WORMHOLE
+no census in this driver
+
+== M8CENSUS during-WORMHOLE
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:2  ffaa7540:2  3b8a0466:2
+
+
+13:28:48   wormhole: picture: C:\Users\lycet\AppData\Local\Temp\sample_run\WORMHOLE.png
+13:28:49   wormhole: boot 234 up 384 desktop True
+13:39:26 rt1 bench exit 0, 200 s
+13:39:34 finished
+13:41:25 --- shadow-free build: install, restart, bench, wormhole, bench
+13:44:08 boot 235, driver md5 F617E2FDB63741AAB2BC11BFB485BC01 wanted F617E2FDB63741AAB2BC11BFB485BC01
+13:44:10 boot 235
+13:46:29 rt2 bench exit 0, 94 s
+13:47:44   wormhole: put exit 0
+13:47:50   wormhole: start exit 0
+13:48:33   wormhole: shot exit 43
+13:48:38   wormhole: census exit 0
+13:48:54   wormhole: == M8CENSUS before-WORMHOLE
+no census in this driver
+
+== M8CENSUS during-WORMHOLE
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:2  ffaa7540:2  3b8a0466:2
+
+
+13:48:54   wormhole: picture: C:\Users\lycet\AppData\Local\Temp\sample_run\WORMHOLE.png
+13:48:55   wormhole: boot 235 up 311 desktop True
+13:57:38 rt3 bench exit 0, 97 s
+13:58:51 finished

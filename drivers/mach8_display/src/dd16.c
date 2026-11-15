@@ -82,6 +82,7 @@ static DWORD            m8dd_lin;
 static BYTE FAR         *m8dd_shadow;   /* the primary as DDRAW sees it */
 static DWORD            m8dd_shadow_lin;
 static DWORD            m8dd_shadow_size;
+static HGLOBAL          m8dd_shadow_mem;
 static LPDDHAL_SETINFO  m8dd_setinfo;
 
 static const DD32BITDRIVERDATA_t m8dd_hal = { "M8DD32.DLL", "DriverInit", 0 };
@@ -112,7 +113,8 @@ static int m8dd_alloc( void )
  * further on - so an address in it gives the card position. Without memory
  * for the heap, the screen alone. One for a smaller mode is not freed: a
  * DirectDraw object made then may still hold its address. 0 = no memory: no
- * HAL, rather than a primary at linear 0. */
+ * HAL, rather than a primary at linear 0. It is fixed memory, page-locked, so
+ * a 16 bpp desktop frees it on the way back (m8dd_shadow_free). */
 static int m8dd_shadow_alloc( void )
 {
     int     top;
@@ -136,6 +138,7 @@ static int m8dd_shadow_alloc( void )
         }
         h = GlobalAlloc( GMEM_FIXED | GMEM_SHARE | GMEM_ZEROINIT, size );
         if( h != 0 ) {
+            m8dd_shadow_mem = h;
             m8dd_shadow = (BYTE FAR *)GlobalLock( h );
             m8dd_shadow_lin = GetSelectorBase( FP_SEG( m8dd_shadow ) );
             m8dd_shadow_size = size;
@@ -407,6 +410,20 @@ static void m8dd_build16( void )
     hi->dwNumModes = 2 + M8_MODE_COUNT;
 }
 
+/* Back on a 16 bpp desktop the primary is fb16's and DDRAW has been reset to it,
+ * so nothing holds the 8 bpp shadow; kept, it pins ~620 KB of a 5 MB machine. */
+static void m8dd_shadow_free( void )
+{
+    if( m8dd_shadow_mem != 0 ) {
+        GlobalUnlock( m8dd_shadow_mem );
+        GlobalFree( m8dd_shadow_mem );
+        m8dd_shadow_mem = 0;
+        m8dd_shadow = NULL;
+        m8dd_shadow_lin = 0;
+        m8dd_shadow_size = 0;
+    }
+}
+
 /* ReEnable changed the size at 16 bpp: the description is built again for
  * the new size and handed to DDRAW with bReset set, as the DDK asks after a
  * mode change; M8DD32 clips and addresses by the block's width and pitch. */
@@ -431,6 +448,9 @@ void __far m8dd_mode_changed( void )
     }
     if( m8dd_setinfo != NULL ) {
         m8dd_setinfo( &m8dd->info, 1 );
+    }
+    if( m8_fb16 ) {
+        m8dd_shadow_free();
     }
 }
 
