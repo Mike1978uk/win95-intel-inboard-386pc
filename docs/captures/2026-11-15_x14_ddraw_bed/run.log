@@ -1,0 +1,465 @@
+14:16:51 --- X14 rerun, bed vm_5160_mcp, driver 33b1104 (8 bpp full screen, shadow freed), 86Box camera
+14:16:51 == flip2d (0 data files)
+14:16:53   put exit 0
+14:17:00   start exit 0
+14:17:25   shot exit 0
+14:17:42   census exit 0
+14:18:04   == M8CENSUS before-flip2d
+no census in this driver
+
+== M8CENSUS during-flip2d
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:2  ffaa7540:2  3b8a0466:2
+
+
+14:18:04   picture: C:\Users\lycet\RiderProjects\86Box-Inboard\docs\captures\2026-11-15_x14_ddraw_bed\flip2d.png
+14:18:04   boot 236 up 149 desktop True
+14:18:10 == donuts (14 data files)
+14:18:19   put exit 0
+14:18:38   start exit 0
+14:19:03   shot exit 0
+14:19:18   census exit 0
+14:19:45   == M8CENSUS before-donuts
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:3  ffaa7540:3  3b8a0466:3
+
+== M8CENSUS during-donuts
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:2  efd60cc0:2  406b2f00:2  efd60cc1:2  b1122b40:2  efd60cc2:2  0ba584e1:2  ddf41230:2  80863800:2  93869880:2  7de41f80:5  ffaa7540:5  3b8a0466:5
+
+
+14:19:45   picture: C:\Users\lycet\RiderProjects\86Box-Inboard\docs\captures\2026-11-15_x14_ddraw_bed\donuts.png
+14:19:47   boot 236 up 251 desktop True
+14:19:56 == memtime (0 data files)
+14:20:06   put exit 0
+14:20:17   start exit 0
+14:20:42   shot exit 0
+14:20:43   census exit 0
+14:20:53   == M8CENSUS before-memtime
+flipwhy gdi 2 slow 2 unknown 1 cardunknown 2 boxes 0 colour 0
+clock 1193180 ours 0 flip 3480660 engine 114 flips 2 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:2  efd60cc0:2  406b2f00:2  efd60cc1:2  b1122b40:2  efd60cc2:2  0ba584e1:2  ddf41230:2  80863800:2  93869880:2  7de41f80:6  ffaa7540:6  3b8a0466:6
+
+== M8CENSUS during-memtime
+flipwhy gdi 2 slow 2 unknown 1 cardunknown 2 boxes 0 colour 0
+clock 1193180 ours 0 flip 3480660 engine 114 flips 2 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:3  efd60cc0:3  406b2f00:3  efd60cc1:3  b1122b40:3  efd60cc2:3  0ba584e1:3  ddf41230:3  80863800:3  93869880:3  7de41f80:7  ffaa7540:7  3b8a0466:7
+
+
+14:20:53   picture: C:\Users\lycet\RiderProjects\86Box-Inboard\docs\captures\2026-11-15_x14_ddraw_bed\memtime.png
+14:20:53   boot 236 up 318 desktop True
+14:20:58 == stretch (1 data files)
+14:21:01   put exit 0
+14:21:11   start exit 0
+14:21:36   shot exit 0
+14:21:41   census exit 0
+14:21:52   == M8CENSUS before-stretch
+flipwhy gdi 2 slow 2 unknown 1 cardunknown 2 boxes 0 colour 0
+clock 1193180 ours 0 flip 3480660 engine 114 flips 2 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:3  efd60cc0:3  406b2f00:3  efd60cc1:3  b1122b40:3  efd60cc2:3  0ba584e1:3  ddf41230:3  80863800:3  93869880:3  7de41f80:7  ffaa7540:7  3b8a0466:7
+
+== M8CENSUS during-stretch
+flipwhy gdi 2 slow 2 unknown 1 cardunknown 2 boxes 0 colour 0
+clock 1193180 ours 0 flip 3480660 engine 114 flips 2 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:4  efd60cc0:4  406b2f00:4  efd60cc1:4  b1122b40:4  efd60cc2:4  0ba584e1:4  ddf41230:4  80863800:4  93869880:4  7de41f80:8  ffaa7540:8  3b8a0466:8
+
+
+14:21:52   picture: C:\Users\lycet\RiderProjects\86Box-Inboard\docs\captures\2026-11-15_x14_ddraw_bed\stretch.png
+14:21:52   boot 236 up 377 desktop True
+14:21:57 == wormhole (1 data files)
+14:22:00   put exit 0
+14:22:10   start exit 0
+14:22:35   shot exit 0
+14:22:44   census exit 0
+14:23:00   == M8CENSUS before-wormhole
+flipwhy gdi 2 slow 2 unknown 1 cardunknown 2 boxes 0 colour 0
+clock 1193180 ours 0 flip 3480660 engine 114 flips 2 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:4  efd60cc0:4  406b2f00:4  efd60cc1:4  b1122b40:4  efd60cc2:4  0ba584e1:4  ddf41230:4  80863800:4  93869880:4  7de41f80:8  ffaa7540:8  3b8a0466:8
+
+== M8CENSUS during-wormhole
+flipwhy gdi 2 slow 2 unknown 1 cardunknown 2 boxes 0 colour 0
+clock 1193180 ours 0 flip 3480660 engine 114 flips 2 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:5  efd60cc0:5  406b2f00:5  efd60cc1:5  b1122b40:5  efd60cc2:5  0ba584e1:5  ddf41230:5  80863800:5  93869880:5  7de41f80:10  ffaa7540:10  3b8a0466:10
+
+
+14:23:00   picture: C:\Users\lycet\RiderProjects\86Box-Inboard\docs\captures\2026-11-15_x14_ddraw_bed\wormhole.png
+14:23:01   boot 236 up 445 desktop True
+14:23:07 == font (0 data files)
+14:23:10   put exit 0
+14:23:19   start exit 0
+14:23:44   shot exit 0
+14:23:58   census exit 0
+14:24:11   == M8CENSUS before-font
+flipwhy gdi 2 slow 2 unknown 1 cardunknown 2 boxes 0 colour 0
+clock 1193180 ours 0 flip 3480660 engine 114 flips 2 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:5  efd60cc0:5  406b2f00:5  efd60cc1:5  b1122b40:5  efd60cc2:5  0ba584e1:5  ddf41230:5  80863800:5  93869880:5  7de41f80:11  ffaa7540:11  3b8a0466:11
+
+== M8CENSUS during-font
+flipwhy gdi 2 slow 2 unknown 1 cardunknown 2 boxes 0 colour 0
+clock 1193180 ours 0 flip 3480660 engine 114 flips 2 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:6  efd60cc0:6  406b2f00:6  efd60cc1:6  b1122b40:6  efd60cc2:6  0ba584e1:6  ddf41230:6  80863800:6  93869880:6  7de41f80:12  ffaa7540:12  3b8a0466:12
+
+
+14:24:11   picture: C:\Users\lycet\RiderProjects\86Box-Inboard\docs\captures\2026-11-15_x14_ddraw_bed\font.png
+14:24:12   boot 236 up 516 desktop True
+14:24:17 == fswindow (0 data files)
+14:24:18   put exit 0
+14:24:26   start exit 0
+14:24:51   shot exit 0
+14:25:14   census exit 0
+14:25:35   == M8CENSUS before-fswindow
+flipwhy gdi 2 slow 2 unknown 1 cardunknown 2 boxes 0 colour 0
+clock 1193180 ours 0 flip 3480660 engine 114 flips 2 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:6  efd60cc0:6  406b2f00:6  efd60cc1:6  b1122b40:6  efd60cc2:6  0ba584e1:6  ddf41230:6  80863800:6  93869880:6  7de41f80:12  ffaa7540:12  3b8a0466:12
+
+== M8CENSUS during-fswindow
+flipwhy gdi 2 slow 2 unknown 1 cardunknown 2 boxes 0 colour 0
+clock 1193180 ours 0 flip 3480660 engine 114 flips 2 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:7  efd60cc0:7  406b2f00:7  efd60cc1:7  b1122b40:7  efd60cc2:7  0ba584e1:7  ddf41230:7  80863800:7  93869880:7  7de41f80:14  ffaa7540:14  3b8a0466:14
+
+
+14:25:35   picture: C:\Users\lycet\RiderProjects\86Box-Inboard\docs\captures\2026-11-15_x14_ddraw_bed\fswindow.png
+14:25:38   boot 236 up 603 desktop True
+14:25:46 == switcher (0 data files)
+14:25:52   put exit 0
+14:26:30   start exit 0
+14:26:55   shot exit 0
+14:27:25   census exit 0
+14:27:44   == M8CENSUS before-switcher
+flipwhy gdi 3 slow 43 unknown 42 cardunknown 43 boxes 0 colour 0
+clock 1193180 ours 0 flip 20572587 engine 2459 flips 43 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:7  efd60cc0:7  406b2f00:7  efd60cc1:7  b1122b40:7  efd60cc2:7  0ba584e1:7  ddf41230:7  80863800:7  93869880:7  7de41f80:14  ffaa7540:14  3b8a0466:14
+
+== M8CENSUS during-switcher
+flipwhy gdi 3 slow 83 unknown 82 cardunknown 83 boxes 0 colour 0
+clock 1193180 ours 0 flip 41418688 engine 4697 flips 82 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:7  efd60cc0:7  406b2f00:7  efd60cc1:7  b1122b40:7  efd60cc2:7  0ba584e1:7  ddf41230:7  80863800:7  93869880:7  7de41f80:14  ffaa7540:14  3b8a0466:14
+
+
+14:27:44   picture: C:\Users\lycet\RiderProjects\86Box-Inboard\docs\captures\2026-11-15_x14_ddraw_bed\switcher.png
+14:27:45   boot 236 up 729 desktop True
+14:27:51 == mosquito (3 data files)
+14:27:55   put exit 0
+14:28:09   start exit 0
+14:28:34   shot exit 0
+14:28:36   census exit 0
+14:28:46   == M8CENSUS before-mosquito
+flipwhy gdi 3 slow 84 unknown 83 cardunknown 84 boxes 0 colour 0
+clock 1193180 ours 0 flip 42795083 engine 4811 flips 84 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:7  efd60cc0:7  406b2f00:7  efd60cc1:7  b1122b40:7  efd60cc2:7  0ba584e1:7  ddf41230:7  80863800:7  93869880:7  7de41f80:15  ffaa7540:15  3b8a0466:15
+
+== M8CENSUS during-mosquito
+flipwhy gdi 3 slow 84 unknown 83 cardunknown 84 boxes 0 colour 0
+clock 1193180 ours 0 flip 42795083 engine 4811 flips 84 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:7  efd60cc0:7  406b2f00:7  efd60cc1:7  b1122b40:7  efd60cc2:7  0ba584e1:7  ddf41230:7  80863800:7  93869880:7  7de41f80:15  ffaa7540:15  3b8a0466:15
+
+
+14:28:46   picture: C:\Users\lycet\RiderProjects\86Box-Inboard\docs\captures\2026-11-15_x14_ddraw_bed\mosquito.png
+14:28:46   boot 236 up 790 desktop True
+14:28:51 == ddovrly (0 data files)
+14:28:52   put exit 0
+14:29:00   start exit 0
+14:29:25   shot exit 0
+14:29:27   census exit 0
+14:29:36   == M8CENSUS before-ddovrly
+flipwhy gdi 3 slow 84 unknown 83 cardunknown 84 boxes 0 colour 0
+clock 1193180 ours 0 flip 42795083 engine 4811 flips 84 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:7  efd60cc0:7  406b2f00:7  efd60cc1:7  b1122b40:7  efd60cc2:7  0ba584e1:7  ddf41230:7  80863800:7  93869880:7  7de41f80:15  ffaa7540:15  3b8a0466:15
+
+== M8CENSUS during-ddovrly
+flipwhy gdi 3 slow 84 unknown 83 cardunknown 84 boxes 0 colour 0
+clock 1193180 ours 0 flip 42795083 engine 4811 flips 84 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:7  efd60cc0:7  406b2f00:7  efd60cc1:7  b1122b40:7  efd60cc2:7  0ba584e1:7  ddf41230:7  80863800:7  93869880:7  7de41f80:15  ffaa7540:15  3b8a0466:15
+
+
+14:29:36   picture: C:\Users\lycet\RiderProjects\86Box-Inboard\docs\captures\2026-11-15_x14_ddraw_bed\ddovrly.png
+14:29:36   boot 236 up 840 desktop True
+14:29:41 finished
