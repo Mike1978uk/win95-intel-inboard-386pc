@@ -50,7 +50,7 @@ ms a frame (one run each); split with `phase=1` sums to ~22.9 ms, the old 22.6 m
 - **swapcomp `-DSC_SEVEN`** (`SWAPZF7`): bed checksum PASS (`docs/captures/2026-11-14_swap7_bed/`), card
   checksum 0 and raw reads 25 % -> 4.8 % (`2026-11-14_swap7_card/`). **Card now runs `SWAPZF7`.** Time
   gain unproven: next, fresh-boot PAGETIME x2 per build (owner: no 45-minute soak). PERFLOG's header
-  misses counters (rows 44 fields, header 40): fix the tool. Scripts must wait for PERFLOG before a
+  is per run in an appended file (corrected 11-15; reader fixed). Scripts must wait for PERFLOG before a
   restart; the agent's `reboot` verb does nothing on the card.
 - **8 bpp full screen from the 16 bpp desktop** (`dd16.c`, `enable.c`): probe showed DDRAW's
   `SetDisplayMode(640,480,8)` arrives as `ReEnable` with the new depth. Now accepted when the desktop is

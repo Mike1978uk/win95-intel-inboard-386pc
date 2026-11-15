@@ -1,7 +1,7 @@
 # swapcomp, pages up to 7 sectors stored compressed: card, 2026-11-14
 
 Card 192.168.68.62. One PAGETIME run each (`run.log`); counters from the last PERFLOG row, cumulative
-since boot, read from the row's end (PERFLOG's header misses counters: see the bed README).
+since boot, read from the row's end (each run has its own header in the appended file: see the bed README).
 
 | run | boot | VxD | PAGETIME | raw reads / all swap reads | Errors | ChecksumErrors |
 |---|---|---|---|---|---|---|

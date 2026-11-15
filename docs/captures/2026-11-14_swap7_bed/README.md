@@ -10,7 +10,6 @@ CompressedReads 23,253, RawReads 1,660, SectorsSaved 90,546, Errors 0, Fallback 
 
 **PASS**: every compressed page read back matched the checksum taken when it was written.
 
-Reading the row: PERFLOG's header has 40 names, each row 44 values. The header lacks the checksum
-build's three later counters (ZeroWrites, ZeroReads, ChecksumErrors) and one more earlier in the row.
-PERFLOG lists a VxD's counters in reverse of registration (`SWAPCOMP.ASM` `SwapComp_Device_Init`),
-so the three sit just before Contention. Header-index reads of this file are shifted; fix PERFLOG.
+Reading the row: PERFLOG appends, and each run writes its own header; the file's first header
+belongs to an earlier, non-checksum run (corrected 2026-11-15). Read each row against the header line
+before it: `tools/perflog/perflog_table.py` does.
