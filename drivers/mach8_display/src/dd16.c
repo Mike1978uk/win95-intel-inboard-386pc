@@ -63,6 +63,9 @@ typedef struct {
     DWORD   d3d_info;                   /* its GetDriverInfo */
     DWORD   scratch_top;                /* at 16 bpp, the off-screen rows m8d3d.c fills from */
     DWORD   scratch_rows;
+    DWORD   update_overlay;             /* 32-bit callbacks for the overlay, 0 = none */
+    DWORD   set_overlay_position;
+    M8_OV   ov;                         /* the overlay as M8DD32 last described it */
     /* This side only from here. */
     DDHALINFO_t                 info;
     DDHAL_DDCALLBACKS_t         cb;
@@ -76,6 +79,35 @@ typedef struct {
  * which this file's segment cannot call near. */
 static DWORD m8dd_mul( WORD a, WORD b );
 #pragma aux m8dd_mul = "mul dx" parm [ax] [dx] value [dx ax];
+
+/* n / d by one DIV, for the same reason; the quotient must fit in 16 bits. */
+static WORD m8dd_div( DWORD n, WORD d );
+#pragma aux m8dd_div = "div bx" parm [dx ax] [bx] value [ax] modify [dx];
+
+/* n bytes from sel:off (32-bit offset) to dst. */
+static void m8dd_copy32( WORD sel, DWORD off, BYTE FAR *dst, WORD n );
+#pragma aux m8dd_copy32 = \
+    ".386" \
+    "push ds" \
+    "mov ds, dx" \
+    "shl ecx, 16" \
+    "mov cx, bx" \
+    "mov esi, ecx" \
+    "movzx ecx, ax" \
+    "movzx edi, di" \
+    "cld" \
+    "db 67h, 0F3h, 0A4h" \
+    "pop ds" \
+    parm [dx] [cx bx] [es di] [ax] modify [cx si di];
+
+#define M8_OV_MAXW      800             /* fb16.c's widest row */
+
+/* DirectDraw's overlay at 16 bpp (m8.h M8_OV). It is never written into the
+ * frame buffer, so GDI's drawing under it is kept and hiding or moving it is
+ * a resend. */
+M8_OV           m8_ov;
+static WORD     m8_ov_sel;
+static WORD     m8_ov_buf[M8_OV_MAXW];
 
 static M8DD_SHARE FAR   *m8dd;
 static DWORD            m8dd_lin;
@@ -216,6 +248,11 @@ static void m8dd_build( int mode )
         m8dd->cb.WaitForVerticalBlank = (LPVOID)m8dd->wait_vblank;
         m8dd->cb.dwFlags |= DDHAL_CB32_WAITFORVERTICALBLANK;
     }
+    if( m8dd->update_overlay && m8dd->set_overlay_position ) {
+        m8dd->scb.UpdateOverlay = (LPVOID)m8dd->update_overlay;
+        m8dd->scb.SetOverlayPosition = (LPVOID)m8dd->set_overlay_position;
+        m8dd->scb.dwFlags |= DDHAL_SURFCB32_UPDATEOVERLAY | DDHAL_SURFCB32_SETOVERLAYPOSITION;
+    }
     if( m8dd->destroy_surface ) {
         m8dd->scb.DestroySurface = (LPVOID)m8dd->destroy_surface;
         m8dd->scb.dwFlags |= DDHAL_SURFCB32_DESTROYSURFACE;
@@ -253,6 +290,8 @@ static void m8dd_build( int mode )
     hi->vmiData.dwNumHeaps = 0;
     hi->ddCaps.dwSize = sizeof( hi->ddCaps );
     hi->ddCaps.dwCaps = DDCAPS_GDI;
+    hi->ddCaps.dwFXCaps = 0;
+    hi->ddCaps.dwMaxVisibleOverlays = 0;
     if( m8dd->blt ) {
         /* M8DD32's Blt: colour fills and SRCCOPY between card surfaces. */
         hi->ddCaps.dwCaps |= DDCAPS_BLT | DDCAPS_BLTCOLORFILL;
@@ -375,6 +414,22 @@ static void m8dd_build16( void )
     }
     hi->ddCaps.dwPalCaps = 0;
     hi->ddCaps.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE;
+    hi->ddCaps.dwFXCaps = 0;
+    hi->ddCaps.dwMaxVisibleOverlays = 0;
+    if( m8dd->update_overlay ) {
+        /* One overlay, any size, source-keyed: fb16.c merges it into what it sends. */
+        hi->ddCaps.dwCaps |= DDCAPS_OVERLAY | DDCAPS_OVERLAYSTRETCH | DDCAPS_COLORKEY;
+        hi->ddCaps.dwCKeyCaps |= DDCKEYCAPS_SRCOVERLAY;
+        hi->ddCaps.dwFXCaps = DDFXCAPS_OVERLAYSTRETCHX | DDFXCAPS_OVERLAYSTRETCHY |
+                              DDFXCAPS_OVERLAYSHRINKX | DDFXCAPS_OVERLAYSHRINKY;
+        hi->ddCaps.dwMaxVisibleOverlays = 1;
+        hi->ddCaps.dwCurrVisibleOverlays = 0;
+        hi->ddCaps.dwMinOverlayStretch = 100;
+        hi->ddCaps.dwMaxOverlayStretch = 20000;
+        hi->ddCaps.ddsCaps.dwCaps |= DDSCAPS_OVERLAY;
+        /* As textures: an alignment of 0 for a claimed surface type and DDRAW refuses the HAL. */
+        hi->vmiData.dwOverlayAlign = 8;
+    }
     if( m8dd->flip ) {
         /* M8DD32's Flip: a back buffer in a second frame buffer in RAM. */
         hi->ddCaps.ddsCaps.dwCaps |= DDSCAPS_FLIP | DDSCAPS_BACKBUFFER | DDSCAPS_COMPLEX;
@@ -427,6 +482,84 @@ static void m8dd_shadow_free( void )
 /* ReEnable changed the size at 16 bpp: the description is built again for
  * the new size and handed to DDRAW with bReset set, as the DDK asks after a
  * mode change; M8DD32 clips and addresses by the block's width and pitch. */
+/* M8DD32's new description (batch op 6), with a selector over the shown buffer. */
+void __far m8_ov_take( void )
+{
+    if( m8dd == NULL || m8dd->marker != M8DD_MARKER ) {
+        m8_ov.on = 0;
+        return;
+    }
+    m8_ov = m8dd->ov;
+    if( !m8_ov.on ) {
+        return;
+    }
+    if( m8_ov_sel == 0 ) {
+        m8_ov_sel = AllocSelector( FP_SEG( (LPVOID)&m8_ov ) );
+    }
+    if( m8_ov_sel == 0 || m8_ov.lin == 0 || m8_ov.pitch > 0xFFFFUL || m8_ov.sb <= 0 ||
+        m8_ov.sb > 0xFFFFL ) {
+        m8_ov.on = 0;
+        return;
+    }
+    SetSelectorBase( m8_ov_sel, m8_ov.lin );
+    SetSelectorLimit( m8_ov_sel, m8dd_mul( (WORD)m8_ov.pitch, (WORD)m8_ov.sb ) - 1 );
+}
+
+/* Row y of src (columns l .. r) with the overlay's pixels over it: the
+ * nearest source pixel, stretched or shrunk to the destination, stepped
+ * without a division per pixel. */
+void __far m8_ov_merge( WORD FAR *src, int y, int l, int r )
+{
+    long    dwl = m8_ov.dr - m8_ov.dl;
+    long    dhl = m8_ov.db - m8_ov.dt;
+    long    swl = m8_ov.sr - m8_ov.sl;
+    long    shl = m8_ov.sb - m8_ov.st;
+    int     x0 = l > (int)m8_ov.dl ? l : (int)m8_ov.dl;
+    int     x1 = r < (int)m8_ov.dr ? r : (int)m8_ov.dr;
+    int     keyed = m8_ov.key <= 0xFFFFUL;
+    WORD    key = (WORD)m8_ov.key;
+    WORD    dw;
+    WORD    sw;
+    WORD    sy;
+    WORD    i;
+    WORD    n;
+    WORD    rem;
+    WORD    k;
+    DWORD   num;
+    int     x;
+    WORD    p;
+
+    if( y < (int)m8_ov.dt || y >= (int)m8_ov.db || x1 <= x0 || dwl <= 0 || dhl <= 0 ||
+        swl <= 0 || shl <= 0 || dwl > M8_OV_MAXW * 4 || swl > M8_OV_MAXW * 4 || dhl > 0x7FFF ||
+        shl > 0x7FFF ) {
+        return;
+    }
+    dw = (WORD)dwl;
+    sw = (WORD)swl;
+    sy = (WORD)m8_ov.st + m8dd_div( m8dd_mul( (WORD)(y - (int)m8_ov.dt), (WORD)shl ), (WORD)dhl );
+    num = m8dd_mul( (WORD)(x0 - (int)m8_ov.dl), sw );
+    i = m8dd_div( num, dw );
+    rem = (WORD)(num - m8dd_mul( i, dw ));
+    n = m8dd_div( m8dd_mul( (WORD)(x1 - 1 - (int)m8_ov.dl), sw ), dw ) - i + 1;
+    if( n > M8_OV_MAXW ) {
+        return;
+    }
+    m8dd_copy32( m8_ov_sel, m8dd_mul( sy, (WORD)m8_ov.pitch ) + m8dd_mul( (WORD)m8_ov.sl + i, 2 ),
+                 (BYTE FAR *)m8_ov_buf, n * 2 );
+    k = 0;
+    for( x = x0; x < x1; ++x ) {
+        p = m8_ov_buf[k];
+        if( !keyed || p != key ) {
+            src[x - l] = p;
+        }
+        rem += sw;
+        while( rem >= dw ) {
+            rem -= dw;
+            ++k;
+        }
+    }
+}
+
 void __far m8dd_mode_changed( void )
 {
     int mode;

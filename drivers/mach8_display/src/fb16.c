@@ -267,6 +267,14 @@ static void m8_fb16_tables( void )
 
 static WORD m8_fb16_src[M8_FB16_MAXW];
 
+/* DirectDraw's overlay (m8.h M8_OV, dd16.c). Whatever reaches the card
+ * inside its destination goes through m8_fb16_row: a one-colour fill or a
+ * card copy there would cover it. */
+static int m8_ov_hits( int l, int t, int r, int b )
+{
+    return( m8_ov.on && l < m8_ov.dr && r > m8_ov.dl && t < m8_ov.db && b > m8_ov.dt );
+}
+
 /* fb16cv.asm's row tables: per phase (x & 3), near pointers to that dither
  * threshold's red, green, blue and grey parts; the cube; pattern scratch. */
 typedef struct {
@@ -313,6 +321,9 @@ static void m8_fb16_row( BYTE FAR *dst, int y, int l, int r )
     }
     m8_copy32( m8_fb16_sel, (DWORD)y * M8_FB16_PITCH + (DWORD)l * 2, (BYTE FAR *)m8_fb16_src,
                (WORD)((r - l) * 2) );
+    if( m8_ov.on ) {
+        m8_ov_merge( (WORD FAR *)m8_fb16_src, y, l, r );
+    }
     m8_fb16_conv( dst, y, l, r - l );
 }
 
@@ -675,7 +686,8 @@ static void m8_fb16_flush( const M8_FB16_RECT *d )
     if( r <= l || b <= t ) {
         return;
     }
-    if( (long)(r - l) * (b - t) >= M8_FB16_SOLID_MIN && m8_fb16_uniform( l, t, r, b, &c ) ) {
+    if( (long)(r - l) * (b - t) >= M8_FB16_SOLID_MIN && !m8_ov_hits( l, t, r, b ) &&
+        m8_fb16_uniform( l, t, r, b, &c ) ) {
         m8_fb16_solid( l, t, r, b, c );
     } else {
         m8_fb16_send( l, t, r, b );
@@ -701,7 +713,11 @@ void m8_fb16_send_rect( int l, int t, int r, int b, int solid )
         if( t < 0 ) t = 0;
         if( r > m8_scr_x ) r = m8_scr_x;
         if( b > m8_scr_y ) b = m8_scr_y;
-        if( r > l && b > t ) {
+        if( r > l && b > t && m8_ov_hits( l, t, r, b ) ) {
+            m8_fb16_whole = 1;
+            m8_fb16_send( l, t, r, b );
+            m8_fb16_whole = 0;
+        } else if( r > l && b > t ) {
             WORD c;
 
             m8_copy32( m8_fb16_sel, (DWORD)t * M8_FB16_PITCH + (DWORD)l * 2, (BYTE FAR *)&c, 2 );
@@ -729,7 +745,8 @@ void m8_fb16_copy_rect( int sx, int sy, int l, int t, int r, int b )
     if( w <= 0 || h <= 0 ) {
         return;
     }
-    if( ((sx - l) & 3) == 0 && ((sy - t) & 3) == 0 && l >= 0 && t >= 0 && sx >= 0 &&
+    if( !m8_ov_hits( l, t, r, b ) && !m8_ov_hits( sx, sy, sx + w, sy + h ) &&
+        ((sx - l) & 3) == 0 && ((sy - t) & 3) == 0 && l >= 0 && t >= 0 && sx >= 0 &&
         sy >= 0 && r <= m8_scr_x && b <= m8_scr_y && sx + w <= m8_scr_x &&
         sy + h <= m8_scr_y ) {
         ++m8_fb16_stat[3];
@@ -1282,6 +1299,21 @@ void m8_fb16_check( DWORD FAR *out )
  * back buffer, its linear address to *out (0: no memory); 4 free it; 5 the card
  * changed there behind the row fingerprints (Direct3D's triangles), so they are
  * dropped, or a later send would see RAM unchanged and leave those pixels. */
+/* Take M8DD32's new description of the overlay; resend where it was and where
+ * it is now. */
+static void m8_ov_update( int l, int t, int r, int b )
+{
+    m8_ov_take();
+    m8_fb16_whole = 1;
+    if( r > l && b > t ) {
+        m8_fb16_send( l, t, r, b );
+    }
+    if( m8_ov.on ) {
+        m8_fb16_send( (int)m8_ov.dl, (int)m8_ov.dt, (int)m8_ov.dr, (int)m8_ov.db );
+    }
+    m8_fb16_whole = 0;
+}
+
 void m8_fb16_batch( const WORD FAR *in, DWORD FAR *out )
 {
     const WORD FAR  *e = in + 1;
@@ -1304,7 +1336,11 @@ void m8_fb16_batch( const WORD FAR *in, DWORD FAR *out )
             m8_fb16_send_rect( l, t, r, b, e[5] );
             break;
         case 1:
-            if( r > l && b > t ) {
+            if( r > l && b > t && m8_ov_hits( l, t, r, b ) ) {
+                m8_fb16_whole = 1;
+                m8_fb16_send( l, t, r, b );
+                m8_fb16_whole = 0;
+            } else if( r > l && b > t ) {
                 m8_fb16_solid( l, t, r, b, e[5] );
             }
             break;
@@ -1336,6 +1372,10 @@ void m8_fb16_batch( const WORD FAR *in, DWORD FAR *out )
             if( r > l && b > t ) {
                 m8_fb16_forget( l, t, r, b );
             }
+            break;
+        case 6:
+            /* The overlay changed: l..b is where it was. */
+            m8_ov_update( l, t, r, b );
             break;
         }
     }

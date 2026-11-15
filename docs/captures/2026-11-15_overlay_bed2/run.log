@@ -1,0 +1,28 @@
+16:03:45 --- overlay build 2 (align 8, fill keeps shadow) on the bed: install, restart, mosquito, ddovrly, bench
+16:06:10 boot 239: drv 2F04F3BEA75B59D7BA39111C2A0A8B17 (want 2F04F3BEA75B59D7BA39111C2A0A8B17), dll 9E24DAED3D8F39A67DA07573CAB94852 (want 9E24DAED3D8F39A67DA07573CAB94852)
+16:06:10 == mosquito
+16:06:28   put exit 0
+16:06:50   start exit 0
+16:07:20   shot exit 0
+16:07:41   census exit 0
+16:07:57   boot 239 up 126 desktop True
+16:08:02 == ddovrly
+16:08:04   put exit 0
+16:08:12   start exit 0
+16:08:42   shot exit 0
+16:08:44   census exit 0
+16:08:54   boot 239 up 183 desktop True
+16:08:59 == flip2d
+16:09:00   put exit 0
+16:09:08   start exit 0
+16:09:38   shot exit 0
+16:09:49   census exit 0
+16:10:14   boot 239 up 262 desktop True
+16:10:19 == wormhole
+16:10:23   put exit 0
+16:10:34   start exit 0
+16:11:04   shot exit 0
+16:11:12   census exit 0
+16:11:29   boot 239 up 338 desktop True
+16:14:09 bench exit 0
+16:14:13 finished

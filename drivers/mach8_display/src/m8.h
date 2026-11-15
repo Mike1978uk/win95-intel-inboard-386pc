@@ -247,6 +247,21 @@ extern void __far m8_dd_heap( int *top, int *rows );
 extern void m8_dd_lend( int on );
 extern void __far m8dd_mode_changed( void );
 
+/* The one DirectDraw overlay at 16 bpp, as M8DD32 last described it: a 5-6-5
+ * surface in RAM shown over the screen. The Mach8 has no overlay; fb16.c
+ * merges it into every row it sends under the destination. */
+typedef struct {
+    DWORD   on;
+    DWORD   lin;                        /* the visible buffer's linear address */
+    DWORD   pitch;
+    long    sl, st, sr, sb;             /* source rectangle in the surface */
+    long    dl, dt, dr, db;             /* destination on the screen */
+    DWORD   key;                        /* source colour shown through; > 0xFFFF = none */
+} M8_OV;
+extern M8_OV m8_ov;
+extern void __far m8_ov_take( void );
+extern void __far m8_ov_merge( WORD FAR *src, int y, int l, int r );
+
 /* fb16.c: the 16 bpp modes (640x480, 800x600), a frame buffer in RAM shown dithered. */
 extern int     m8_fb16;
 extern RGBQUAD m8_fb16_pal[256];

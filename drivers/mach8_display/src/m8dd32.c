@@ -75,6 +75,14 @@ typedef struct {
     DWORD   d3d_info;
     DWORD   scratch_top;
     DWORD   scratch_rows;
+    DWORD   update_overlay;
+    DWORD   set_overlay_position;
+    DWORD   ov_on;              /* m8.h M8_OV, read by fb16.c at batch op 6 */
+    DWORD   ov_lin;
+    DWORD   ov_pitch;
+    long    ov_sl, ov_st, ov_sr, ov_sb;
+    long    ov_dl, ov_dt, ov_dr, ov_db;
+    DWORD   ov_key;
 } M8DD_SHARE;
 
 /* DDHAL_LOCKDATA and DDHAL_UNLOCKDATA as DDRAW passes them (Microsoft's
@@ -161,6 +169,7 @@ typedef struct {
 #define M8DD_LCL_FLAGS      28
 #define M8DD_LCL_CAPS       32
 #define M8DD_LCL_CKSRCBLT   60          /* DDCOLORKEY ddckCKSrcBlt */
+#define M8DD_LCL_CKSRCOVL   76          /* DDCOLORKEY ddckCKSrcOverlay, overlay surfaces only */
 #define M8DD_GBL_VIDMEM     20
 #define M8DD_GBL_PITCH      24
 #define M8DD_GBL_HEIGHT     28          /* WORD */
@@ -2531,11 +2540,16 @@ static DWORD m8dd_flip8( M8DD_FLIP *fd )
     return( DDHAL_DRIVER_HANDLED );
 }
 
+static int m8dd_ov_flip( M8DD_FLIP *fd );
+
 DWORD __stdcall m8dd_flip( M8DD_FLIP *fd )
 {
     m8d3d_feed_stop( 6 );
     if( !m8dd->fb16 ) {
         return( m8dd_flip8( fd ) );
+    }
+    if( m8dd_ov_flip( fd ) ) {
+        return( DDHAL_DRIVER_HANDLED );
     }
     return( m8dd_flip16( fd ) );
 }
@@ -3528,6 +3542,193 @@ void m8d3d_engine_end( void )
 /* An off-screen surface in the screen's 8bpp format goes in the heap rows;
  * the first one has GDI's caches leave them. A list holding the primary, or
  * anything else, goes back to DDRAW, which then puts it in system memory. */
+/* Overlays at 16 bpp. The Mach8 has none: an overlay surface is RAM, and
+ * fb16.c merges the visible buffer into every row it sends under the
+ * destination (batch op 6), so the screen under it is never overwritten. */
+
+/* DDHAL_UPDATEOVERLAYDATA and DDHAL_SETOVERLAYPOSITIONDATA (DDK ddrawi.h). */
+typedef struct {
+    LPVOID      lpDD;
+    LPVOID      lpDDDestSurface;
+    RECTL       rDest;
+    LPVOID      lpDDSrcSurface;
+    RECTL       rSrc;
+    DWORD       dwFlags;
+    DDOVERLAYFX overlayFX;
+    HRESULT     ddRVal;
+    LPVOID      UpdateOverlay;
+} M8DD_UPDOV;
+
+typedef struct {
+    LPVOID  lpDD;
+    LPVOID  lpDDSrcSurface;
+    LPVOID  lpDDDestSurface;
+    LONG    lXPos;
+    LONG    lYPos;
+    HRESULT ddRVal;
+    LPVOID  SetOverlayPosition;
+} M8DD_SETOVPOS;
+
+#define M8DD_OV_MAX     8
+static BYTE *m8dd_ov_gbl[M8DD_OV_MAX];
+
+static int m8dd_ov_find( BYTE *gbl )
+{
+    int k;
+
+    for( k = 0; k < M8DD_OV_MAX; ++k ) {
+        if( m8dd_ov_gbl[k] == gbl ) {
+            return( k );
+        }
+    }
+    return( -1 );
+}
+
+/* fb16.c resends where the overlay was (`old`, if it was shown) and where it is. */
+static void m8dd_ov_refresh( const RECT *old )
+{
+    RECT none = { 0, 0, 0, 0 };
+
+    m8dd_op( 6, old != NULL ? old : &none, 0 );
+    m8dd_flush();
+}
+
+static void m8dd_ov_old( RECT *r )
+{
+    r->left = m8dd->ov_dl;
+    r->top = m8dd->ov_dt;
+    r->right = m8dd->ov_dr;
+    r->bottom = m8dd->ov_db;
+}
+
+/* 5-6-5 only, the screen's own format: 5-5-5 and YUV are refused, so a
+ * program tries its next format. */
+static DWORD m8dd_create_overlay( M8DD_CREATE *cd )
+{
+    BYTE    *lcl;
+    BYTE    *gbl;
+    DWORD   i;
+    DWORD   pitch;
+    DWORD   mem;
+    int     k;
+
+    for( i = 0; i < cd->dwSCnt; ++i ) {
+        lcl = cd->lplpSList[i];
+        gbl = *(BYTE **)(lcl + M8DD_LCL_GBL);
+        if( (*(DWORD *)(lcl + M8DD_LCL_FLAGS) & M8DD_HASPIXELFORMAT) &&
+            (!(*(DWORD *)(gbl + M8DD_GBL_PF_FLAGS) & DDPF_RGB) || *(DWORD *)(gbl + M8DD_GBL_PF_BITS) != 16 ||
+             *(DWORD *)(gbl + M8DD_GBL_PF_GMASK) != 0x07E0UL) ) {
+            cd->ddRVal = DDERR_INVALIDPIXELFORMAT;
+            return( DDHAL_DRIVER_HANDLED );
+        }
+    }
+    for( i = 0; i < cd->dwSCnt; ++i ) {
+        lcl = cd->lplpSList[i];
+        gbl = *(BYTE **)(lcl + M8DD_LCL_GBL);
+        k = m8dd_ov_find( NULL );
+        pitch = ((DWORD)*(WORD *)(gbl + M8DD_GBL_WIDTH) * 2 + 3) & ~3UL;
+        mem = k < 0 ? 0 : (DWORD)VirtualAlloc( NULL, pitch * *(WORD *)(gbl + M8DD_GBL_HEIGHT),
+                                               MEM_COMMIT, PAGE_READWRITE );
+        if( mem == 0 ) {
+            while( i-- > 0 ) {
+                gbl = *(BYTE **)((BYTE *)cd->lplpSList[i] + M8DD_LCL_GBL);
+                VirtualFree( (LPVOID)*(DWORD *)(gbl + M8DD_GBL_VIDMEM), 0, MEM_RELEASE );
+                *(DWORD *)(gbl + M8DD_GBL_VIDMEM) = 0;
+                m8dd_ov_gbl[m8dd_ov_find( gbl )] = NULL;
+            }
+            cd->ddRVal = DDERR_OUTOFVIDEOMEMORY;
+            return( DDHAL_DRIVER_HANDLED );
+        }
+        m8dd_ov_gbl[k] = gbl;
+        *(DWORD *)(gbl + M8DD_GBL_VIDMEM) = mem;
+        *(long *)(gbl + M8DD_GBL_PITCH) = (long)pitch;
+        *(DWORD *)(lcl + M8DD_LCL_CAPS) |= DDSCAPS_VIDEOMEMORY;
+    }
+    cd->ddRVal = DD_OK;
+    return( DDHAL_DRIVER_HANDLED );
+}
+
+DWORD __stdcall m8dd_update_overlay( M8DD_UPDOV *u )
+{
+    BYTE    *lcl = u->lpDDSrcSurface;
+    BYTE    *gbl = *(BYTE **)(lcl + M8DD_LCL_GBL);
+    RECT    old;
+    int     was = (int)m8dd->ov_on;
+
+    if( !m8dd->fb16 || gbl == NULL || m8dd_ov_find( gbl ) < 0 ) {
+        u->ddRVal = DDERR_UNSUPPORTED;
+        return( DDHAL_DRIVER_HANDLED );
+    }
+    m8dd_ov_old( &old );
+    if( u->dwFlags & DDOVER_HIDE ) {
+        m8dd->ov_on = 0;
+    } else {
+        if( u->dwFlags & DDOVER_SHOW ) {
+            m8dd->ov_on = 1;
+        }
+        m8dd->ov_lin = *(DWORD *)(gbl + M8DD_GBL_VIDMEM);
+        m8dd->ov_pitch = (DWORD)*(long *)(gbl + M8DD_GBL_PITCH);
+        m8dd->ov_sl = u->rSrc.left;
+        m8dd->ov_st = u->rSrc.top;
+        m8dd->ov_sr = u->rSrc.right;
+        m8dd->ov_sb = u->rSrc.bottom;
+        m8dd->ov_dl = u->rDest.left;
+        m8dd->ov_dt = u->rDest.top;
+        m8dd->ov_dr = u->rDest.right;
+        m8dd->ov_db = u->rDest.bottom;
+        if( u->dwFlags & DDOVER_KEYSRCOVERRIDE ) {
+            m8dd->ov_key = u->overlayFX.dckSrcColorkey.dwColorSpaceLowValue & 0xFFFF;
+        } else if( u->dwFlags & DDOVER_KEYSRC ) {
+            m8dd->ov_key = *(DWORD *)(lcl + M8DD_LCL_CKSRCOVL) & 0xFFFF;
+        } else {
+            m8dd->ov_key = 0x10000UL;
+        }
+    }
+    m8dd_ov_refresh( was ? &old : NULL );
+    u->ddRVal = DD_OK;
+    return( DDHAL_DRIVER_HANDLED );
+}
+
+DWORD __stdcall m8dd_set_overlay_position( M8DD_SETOVPOS *p )
+{
+    RECT    old;
+    long    w = m8dd->ov_dr - m8dd->ov_dl;
+    long    h = m8dd->ov_db - m8dd->ov_dt;
+
+    if( !m8dd->fb16 ) {
+        p->ddRVal = DDERR_UNSUPPORTED;
+        return( DDHAL_DRIVER_HANDLED );
+    }
+    m8dd_ov_old( &old );
+    m8dd->ov_dl = p->lXPos;
+    m8dd->ov_dt = p->lYPos;
+    m8dd->ov_dr = p->lXPos + w;
+    m8dd->ov_db = p->lYPos + h;
+    if( m8dd->ov_on ) {
+        m8dd_ov_refresh( &old );
+    }
+    p->ddRVal = DD_OK;
+    return( DDHAL_DRIVER_HANDLED );
+}
+
+/* A flip of the overlay's chain shows the target's buffer; DDRAW swaps the
+ * buffers between the surfaces afterwards. */
+static int m8dd_ov_flip( M8DD_FLIP *fd )
+{
+    BYTE    *cur = *(BYTE **)((BYTE *)fd->lpSurfCurr + M8DD_LCL_GBL);
+    BYTE    *tgt = *(BYTE **)((BYTE *)fd->lpSurfTarg + M8DD_LCL_GBL);
+
+    if( cur == NULL || tgt == NULL || m8dd_ov_find( cur ) < 0 || m8dd_ov_find( tgt ) < 0 ) {
+        return( 0 );
+    }
+    if( m8dd->ov_on && m8dd->ov_lin == *(DWORD *)(cur + M8DD_GBL_VIDMEM) ) {
+        m8dd->ov_lin = *(DWORD *)(tgt + M8DD_GBL_VIDMEM);
+        m8dd_ov_refresh( NULL );
+    }
+    fd->ddRVal = DD_OK;
+    return( 1 );
+}
+
 DWORD __stdcall m8dd_create_surface( M8DD_CREATE *cd )
 {
     BYTE    *lcl;
@@ -3545,6 +3746,10 @@ DWORD __stdcall m8dd_create_surface( M8DD_CREATE *cd )
         m8dd_trace( "create %lu/%lu caps %08lx %dx%d (screen %dx%d fb16 %d)", i + 1, cd->dwSCnt,
                     *(DWORD *)(lcl + M8DD_LCL_CAPS), (int)*(WORD *)(gbl + M8DD_GBL_WIDTH),
                     (int)*(WORD *)(gbl + M8DD_GBL_HEIGHT), (int)m8dd->width, (int)m8dd->height, (int)m8dd->fb16 );
+    }
+    if( m8dd->fb16 && cd->dwSCnt > 0 &&
+        (*(DWORD *)((BYTE *)cd->lplpSList[0] + M8DD_LCL_CAPS) & DDSCAPS_OVERLAY) ) {
+        return( m8dd_create_overlay( cd ) );
     }
     if( m8dd->fb16 ) {
         if( (k = m8dd_tex_create( cd )) >= 0 ) {
@@ -3624,6 +3829,20 @@ DWORD __stdcall m8dd_destroy_surface( M8DD_DESTROY *dd )
         dd->ddRVal = DD_OK;
         return( DDHAL_DRIVER_HANDLED );
     }
+    if( m8dd->fb16 && gbl != NULL && (k = m8dd_ov_find( gbl )) >= 0 ) {
+        if( m8dd->ov_on && m8dd->ov_lin == *(DWORD *)(gbl + M8DD_GBL_VIDMEM) ) {
+            RECT old;
+
+            m8dd_ov_old( &old );
+            m8dd->ov_on = 0;
+            m8dd_ov_refresh( &old );
+        }
+        VirtualFree( (LPVOID)*(DWORD *)(gbl + M8DD_GBL_VIDMEM), 0, MEM_RELEASE );
+        *(DWORD *)(gbl + M8DD_GBL_VIDMEM) = 0;
+        m8dd_ov_gbl[k] = NULL;
+        dd->ddRVal = DD_OK;
+        return( DDHAL_DRIVER_HANDLED );
+    }
     if( m8dd->fb16 && m8dd_tex_destroy( gbl ) ) {
         dd->ddRVal = DD_OK;
         return( DDHAL_DRIVER_HANDLED );
@@ -3695,6 +3914,8 @@ DWORD __stdcall DriverInit( LPVOID context )
     m8dd->create_surface = (DWORD)m8dd_create_surface;
     m8dd->destroy_surface = (DWORD)m8dd_destroy_surface;
     m8dd->destroy_driver = (DWORD)m8dd_destroy_driver;
+    m8dd->update_overlay = (DWORD)m8dd_update_overlay;
+    m8dd->set_overlay_position = (DWORD)m8dd_set_overlay_position;
     m8dd->marker = M8DD_MARKER;
     return( 1 );
 }
