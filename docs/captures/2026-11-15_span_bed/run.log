@@ -1,0 +1,10 @@
+16:18:58 --- span-trim build on the bed: install, restart, flip2d 90 s
+16:21:23 boot 240: dll ADC6300A2987A0698B914C38159810C2 (want ADC6300A2987A0698B914C38159810C2)
+16:22:05   5 s shot
+16:22:15   15 s shot
+16:22:30   30 s shot
+16:22:45   45 s shot
+16:23:00   60 s shot
+16:23:30   90 s shot
+16:23:42   done
+16:23:42 finished

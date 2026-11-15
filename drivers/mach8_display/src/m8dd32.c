@@ -266,6 +266,7 @@ typedef struct {
 typedef struct {
     LPVOID  lcl;
     RECT    r;
+    int     fill;               /* the one colour every locked row held, or -1 */
 } M8DD_HELD;
 
 static M8DD_HELD    m8dd_held[M8DD_HELD_MAX];
@@ -281,6 +282,12 @@ static DWORD        m8dd_held_sum[M8DD_HELD_MAX][1024];
 static RECT         m8dd_synced;
 static DWORD        m8dd_sync_epoch;
 static DWORD        m8dd_card_gen;
+
+/* The last fill, while nothing else has drawn there: a Lock inside it starts from one colour,
+ * so its Unlock sends only each changed run's span of other colours. */
+static RECT         m8dd_fill_r;
+static int          m8dd_fill_on;
+static BYTE         m8dd_fill_c;
 
 static DWORD m8dd_epoch( void )
 {
@@ -562,10 +569,16 @@ DWORD __stdcall m8dd_lock( M8DD_LOCK *ld )
         DWORD   e = m8dd_epoch();
         int     y;
 
+        m8dd_held[k].fill = -1;
         if( e == m8dd_sync_epoch && r.left >= m8dd_synced.left && r.top >= m8dd_synced.top &&
             r.right <= m8dd_synced.right && r.bottom <= m8dd_synced.bottom ) {
             ++m8d3d_stat[94];
+            if( m8dd_fill_on && r.left >= m8dd_fill_r.left && r.top >= m8dd_fill_r.top &&
+                r.right <= m8dd_fill_r.right && r.bottom <= m8dd_fill_r.bottom ) {
+                m8dd_held[k].fill = m8dd_fill_c;
+            }
         } else {
+            m8dd_fill_on = 0;
             m8d3d_stat[73] += (DWORD)(r.right - r.left) * (r.bottom - r.top);
             if( !m8dd_transfer( &r, 0 ) ) {
                 ld->ddRVal = M8DD_DDERR_GENERIC;
@@ -586,6 +599,36 @@ DWORD __stdcall m8dd_lock( M8DD_LOCK *ld )
     m8dd_held[k].r = r;
     ld->ddRVal = DD_OK;
     return( DDHAL_DRIVER_HANDLED );
+}
+
+/* Narrow run's columns to where its rows hold anything but colour c, even x and width. */
+static void m8dd_span( RECT *run, BYTE c )
+{
+    long        y;
+    int         l = run->right;
+    int         r = run->left;
+    int         x;
+    const BYTE  *p;
+
+    for( y = run->top; y < run->bottom; ++y ) {
+        p = (const BYTE *)(m8dd->shadow + (DWORD)y * m8dd->pitch);
+        for( x = run->left; x < l && p[x] == c; ++x ) {
+        }
+        if( x < l ) {
+            l = x;
+        }
+        for( x = run->right - 1; x >= r && p[x] == c; --x ) {
+        }
+        if( x + 1 > r ) {
+            r = x + 1;
+        }
+    }
+    if( r <= l ) {
+        run->right = run->left;
+        return;
+    }
+    run->left = l & ~1;
+    run->right = (r + 1) & ~1;
 }
 
 DWORD __stdcall m8dd_unlock( M8DD_UNLOCK *ud )
@@ -633,9 +676,16 @@ DWORD __stdcall m8dd_unlock( M8DD_UNLOCK *ud )
                 ++y;
             }
             run.bottom = y;
+            if( m8dd_held[k].fill >= 0 ) {
+                m8dd_span( &run, (BYTE)m8dd_held[k].fill );
+                if( run.right <= run.left ) {
+                    continue;
+                }
+            }
             m8d3d_stat[75] += (DWORD)(run.right - run.left) * (run.bottom - run.top);
             ok = m8dd_transfer( &run, 1 );
         }
+        m8dd_fill_on = 0;
         ud->ddRVal = ok ? DD_OK : M8DD_DDERR_GENERIC;
         if( valid && ok ) {
             m8dd_sync_epoch = m8dd_epoch();
@@ -3119,6 +3169,11 @@ DWORD __stdcall m8dd_blt( M8DD_BLT *bd )
             m8dd_synced = c;
         }
         m8dd_sync_epoch = m8dd_epoch();
+        m8dd_fill_r = c;
+        m8dd_fill_c = (BYTE)bd->bltFX.dwFillColor;
+        m8dd_fill_on = 1;
+    } else {
+        m8dd_fill_on = 0;
     }
     bd->ddRVal = ok ? DD_OK : M8DD_DDERR_GENERIC;
     return( DDHAL_DRIVER_HANDLED );
