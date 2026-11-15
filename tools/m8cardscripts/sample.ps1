@@ -1,4 +1,5 @@
-param([string]$Exe, [string]$Dir, [string]$Target = '127.0.0.1', [int]$Seconds = 30, [string[]]$Files = @(), [string]$Keys = '')
+param([string]$Exe, [string]$Dir, [string]$Target = '127.0.0.1', [int]$Seconds = 30, [string[]]$Files = @(), [string]$Keys = '',
+      [int]$ShotPort = 0, [string]$VmPath = '', [string]$ShotDir = '')
 # A program under test, on the bed by default: start it detached, let it run, read the census,
 # take a picture, close it. -Dir holds the EXE; -Files its data, which land beside it.
 $root = 'C:\Users\lycet\RiderProjects\86Box-Inboard'
@@ -18,7 +19,10 @@ foreach ($f in $Files) { & $ctl put -Source $f -Destination "C:\D3DS\$([IO.Path]
 "start exit $LASTEXITCODE"
 Start-Sleep -Seconds $Seconds
 if ($Keys) { & $ctl input -Sequence $Keys @h 2>&1 | Out-Null; Start-Sleep -Seconds 10 }
-& $ctl screenshot -OutFile "$tmp\$name.png" @h 2>&1 | Out-Null
+# The agent's screenshot fails at 16 bpp; a bed started with -Automation gives the whole frame.
+$shot = Join-Path $(if ($ShotDir) { $ShotDir } else { $tmp }) "$name.png"
+if ($ShotPort -gt 0) { & "$root\tools\bed_shot.ps1" -VmPath $VmPath -Port $ShotPort -Out $shot 2>&1 | Out-Null }
+else { & $ctl screenshot -OutFile $shot @h 2>&1 | Out-Null }
 "shot exit $LASTEXITCODE"
 & $ctl exec -Application 'C:\M8CENSUS.EXE' -Arguments "during-$name" -TimeoutSeconds 30 @h 2>&1 | Out-Null
 "census exit $LASTEXITCODE"
@@ -28,6 +32,6 @@ Start-Sleep -Seconds 5
 $t = Get-Content "$tmp\M8CENSUS.TXT"
 $k = ($t | Select-String "^== M8CENSUS before-$name" | Select-Object -Last 1).LineNumber
 if ($k) { $t[($k-1)..($t.Count-1)] | Out-String }
-"picture: $tmp\$name.png"
+"picture: $shot"
 $i = & $ctl info @h -Json 2>$null 6>$null | ConvertFrom-Json
 "boot $($i.BootCounter) up $([int]($i.UptimeMilliseconds/1000)) desktop $($i.DesktopReady)"

@@ -5,6 +5,8 @@
 #   tools\bed_launch.ps1 -Exe <86Box.exe> -VmPath <bed dir> [-Seconds 15] [-Log <file>] [-AllowMouse] [-Scale 3]
 #
 # -Scale sets the window size: 1 = 100%, 2 = 150%, 3 = 200% (default, the owner's request), 4 = 300%.
+# -Automation <port> opens 86Box's automation socket on 127.0.0.1 (token in <bed>utomation.token),
+# for full-frame pictures at any guest depth: toolsed_shot.ps1.
 # -Seconds 0 leaves the VM running and prints its PID. -DryRun checks everything and launches nothing.
 # A run left open for the owner (-Seconds 0) needs a Qt build: without Qt there are no menus, so no
 # floppy or CD can be changed. -NoMenus accepts a non-Qt build anyway.
@@ -20,7 +22,8 @@ param(
   [ValidateRange(0, 9)] [int]$Scale = 3,
   [switch]$DryRun,
   [switch]$NoMenus,
-  [switch]$AllowStartup
+  [switch]$AllowStartup,
+  [int]$Automation = 0
 )
 $ErrorActionPreference = 'Stop'
 $msys = 'C:\msys64\mingw64\bin'
@@ -128,10 +131,12 @@ if ($scaleLine.IsMatch($text)) {
 [IO.File]::WriteAllText($cfg, $text, (New-Object Text.UTF8Encoding($true)))
 Write-Host "scale $Scale"
 
-# 4. Launch with the MSYS2 runtime on PATH; flags are -P and -L only (see src/86box.c).
+# 4. Launch with the MSYS2 runtime on PATH; -P and -L, plus the automation socket when asked (see src/86box.c).
 $env:PATH = "$msys;$env:PATH"
 if (Test-Path $Log) { Remove-Item $Log }
-$p = Start-Process $Exe -ArgumentList @('-P', $VmPath, '-L', $Log) -WorkingDirectory $VmPath -PassThru
+$launchArgs = @('-P', $VmPath, '-L', $Log)
+if ($Automation -gt 0) { $launchArgs += @('--automation', "tcp:127.0.0.1:$Automation", '--automation-token-file', (Join-Path $VmPath 'automation.token')) }
+$p = Start-Process $Exe -ArgumentList $launchArgs -WorkingDirectory $VmPath -PassThru
 Write-Host "pid   $($p.Id)"
 if ($Seconds -le 0) { exit 0 }
 Start-Sleep $Seconds
