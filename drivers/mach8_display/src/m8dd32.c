@@ -3003,6 +3003,8 @@ DWORD __stdcall m8dd_blt( M8DD_BLT *bd )
     long        sx;
     long        sy;
     int         ok;
+    int         synced = 0;
+    long        y;
 
     if( m8dd->fb16 ) {
         if( m8dd_tex_of_lcl( bd->lpDDDestSurface ) >= 0 || m8dd_tex_of_lcl( bd->lpDDSrcSurface ) >= 0 ) {
@@ -3057,6 +3059,9 @@ DWORD __stdcall m8dd_blt( M8DD_BLT *bd )
         rl = od;
         count = 1;
     }
+    if( kind == 0 && count == 1 ) {
+        synced = m8dd_epoch() == m8dd_sync_epoch;
+    }
     hot[H_BUSY] = 1;
     ok = m8dd_plain( kind == 0 ? M8_MIX_FRGD_REPLACE :
                      kind == 1 ? M8_MIX_VRAM_REPLACE : M8_MIX_HOST_REPLACE );
@@ -3086,6 +3091,21 @@ DWORD __stdcall m8dd_blt( M8DD_BLT *bd )
     m8dd_forget( hot );
     hot[H_BUSY] = 0;
     ++m8dd_card_gen;
+    /* A fill's pixels are known without reading the card: the shadow gets them too, and stays
+     * in step, so a Lock that follows (a program clearing its back buffer, then drawing into
+     * it) reads nothing back. */
+    if( ok && kind == 0 && count == 1 && c.right > c.left && c.bottom > c.top ) {
+        for( y = c.top; y < c.bottom; ++y ) {
+            memset( (BYTE *)(m8dd->shadow + (DWORD)y * m8dd->pitch + c.left),
+                    (BYTE)bd->bltFX.dwFillColor, c.right - c.left );
+        }
+        if( synced ) {
+            UnionRect( &m8dd_synced, &m8dd_synced, &c );
+        } else {
+            m8dd_synced = c;
+        }
+        m8dd_sync_epoch = m8dd_epoch();
+    }
     bd->ddRVal = ok ? DD_OK : M8DD_DDERR_GENERIC;
     return( DDHAL_DRIVER_HANDLED );
 }
