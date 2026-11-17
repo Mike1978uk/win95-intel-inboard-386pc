@@ -24,6 +24,17 @@ idle. Way back to the 8 bpp desktop: `C:\V9XREMOTE\REG\DISP8.REG` + restart. Bed
   (VBEAF.DRV, GLIDE2X.OVL, BRender .BDD) over one core is the aim.
 - Startup hang boot 429 (sound looping, arrow+hourglass), power cycle fixed it; noted, not chased.
 
+**Owner's direction, end of 11-17 (supersedes the order below where they differ).**
+- **MTM parked.** Static-art/HUD work for it (S9) only on the bed, only if it adds value.
+- **Showcase first:** a DirectDraw and a Direct3D demo, better a game, that may be playable here - candidates ranked in
+  `docs/open_items_review_2026_11_17.md` section 4. Then the **DOS-level driver** (P3: core out of `m8d3d.c`, DOS
+  back end, the Windows-vs-DOS number), section 5 of the same doc.
+- **Close the unanswered questions** (review section 1) and the **unused-silicon** list (section 3): use the whole card
+  where it adds value.
+- **#10:** Simon's PICCHK (11-17) matches the 5160: H1 ruled out at DOS, IRQ0 delivery works (Supersoft's IRQ0 failure =
+  its rate check). Next H2 in the bed: log Windows 95's ports in 100h-1FFh (`docs/issue10_old_bios_2026_09_27.md` 16).
+  Owner replied; asked whether the run was on the 5150 with the Inboard, and SW1 5-6 vs CGA.
+
 **Next, in order.**
 1. P1.10 fused asm row pass (hash + extents + spans, no stores) - card back to 8 bpp first.
 2. S7b free the 635 KB locked 8 bpp shadow when DirectDraw ends.
