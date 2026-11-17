@@ -627,3 +627,17 @@ Inboard state to confirm with him). Files: `docs/captures/2026-11-17_picchk_simo
   The bed I/O log for H2 must list 1CEh/1CFh reads separately, with the caller (BIOS, VxD, Setup detection).
 - Cheap check on his side, if the bed log shows Windows reading 1CFh: DEBUG `o 1ce,b0` / `i 1cf` on the 5150 and 5160,
   compared. One floppy round trip; owner decides whether to ask.
+
+## 18. H2 in the bed: who touches 100h-1FFh, 2026-11-17
+
+Diagnostic build `diag-issue10-h2` (`86box_h2`, local): `ISSUE10_IOLOG=1` logs guest I/O in 100h-1FFh, first 64 per
+port, direction and CPU mode. Copy of `vm_5160_now` (Mach8, whose VGA half is an ATI 28800), Windows 95 to the desktop,
+twice. `docs/captures/2026-11-18_h2_iolog_bed/`.
+
+- Only three ports in the range are ever touched: 102h (one write) and 1CEh/1CFh (index writes, data reads), **all from
+  the VGA BIOS at C000** - at POST in real mode, and again under Windows in V86 mode (same probe loop, C000:2541-257D).
+- No access from a 32-bit VxD or driver, no system BIOS, option ROM or DOS driver. The Display settings tab was not opened
+  (agent unreachable on that bed), so a display driver's own read is not ruled out.
+- **Reading for H2:** Windows adds no new 100h-1FFh reads of its own; it re-runs the VGA BIOS, which on Simon's 5150
+  already works at DOS. H2 is weak unless his ATI BIOS or driver differs from this bed's 28800. The DEBUG check in
+  section 17 is not worth a floppy trip on this evidence. H3 (F0000-F3FFF) is the open hardware lead.
