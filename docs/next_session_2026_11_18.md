@@ -85,3 +85,9 @@ Next, in order: **P1.13** (regression across DDraw samples and twist, then sprea
 DirectDraw tests need the desktop at 8 bpp first (X19). Next: P1-S rows S1-S5, S7, then P1.10.
 
 **Card hang, boot 429 (11-17 evening):** after an agent restart into `m8rhs.drv` (overlay hash only changed), startup stopped at a blue desktop with the arrow+hourglass cursor and the startup sound looping; owner power-cycled, boot 430 fine (twist 6.64 fps), startup tone played ~4 min late. Same symptom as 11-05 (`docs/captures/2026-11-05_baselines/README.md`). Not chased: two observations, no cause.
+
+**MTM measured (11-17 late, bed `vm_5160_mtm`, today's build at 800x600x16, `[diag] runs=1`):** race reached
+by agent clicks (title, Races, Circuit, RACE); cockpit view on our HAL. 10 frames: 124 colour runs a row, 30 % of rows
+<= 4 runs; 12 flips in ~4 min (bed). Spans do not rescue it (plan S4a); static art on the card is the lever (S9).
+`docs/captures/2026-11-17_mtm_runs_bed/`. MTM bed left at 800x600x16, `lores=0`, INI `runs=1 trace=0`; shut down.
+Bed `vm_5160_dbg` was shut down for it (restart with `tools/bed_launch.ps1 -Automation 9891`).
