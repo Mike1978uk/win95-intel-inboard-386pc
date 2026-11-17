@@ -2,6 +2,8 @@
 
 Earlier: `docs/next_session_2026_11_17.md`. Newest wins.
 
+**Plan from 11-17 evening: worklist section P, tracker `docs/playable_3d_plan.md`.** Start with P1.1 (asm mask build).
+
 ## State
 
 - **Card (5160):** boot 409, desktop **640x480 at 256 colours** (owner set it for the mode-change test; Win95 asked
