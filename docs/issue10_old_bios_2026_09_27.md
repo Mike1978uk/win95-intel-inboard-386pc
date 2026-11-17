@@ -267,7 +267,7 @@ exact BIOS build - the `vm_5150` bed separates them once it boots.
 
 ## 11. Simon's 5150 results, 2026-11-02
 
-Simon (a second 5150 owner, on #10) reports, in order:
+Simon (the same person as Cimon on VCFed - owner, 11-18; earlier sections treat them as two) reports, in order:
 
 - Phoenix XT BIOS, labelled 1985 and 1986/A, in a socket converter in his 5150 "A" board: stops at the same
   place as the Anonymous BIOS (the Windows 95 stop at the switch to protected mode). A third BIOS family
@@ -641,3 +641,13 @@ twice. `docs/captures/2026-11-18_h2_iolog_bed/`.
 - **Reading for H2:** Windows adds no new 100h-1FFh reads of its own; it re-runs the VGA BIOS, which on Simon's 5150
   already works at DOS. H2 is weak unless his ATI BIOS or driver differs from this bed's 28800. The DEBUG check in
   section 17 is not worth a floppy trip on this evidence. H3 (F0000-F3FFF) is the open hardware lead.
+
+## 19. IBVPICD lead and the owner's notes, 2026-11-18
+
+- `docs/issue10_ibvpicd_2026_11_18.md`: Intel's IBVPICD writes ICW4 09h (buffered), as the IBM BIOS does on both
+  boards; stock VPICDs and ours write 01h. Lead hypothesis H1a/H1b. Buffered mode is the BIOS's own setting on the 5160
+  too, so a VPICD writing 09h should be safe on both machines; the 5160 and the bed prove that before Simon tries it.
+- Owner: Simon and Cimon are one person. Whether WfW 3.11 ran on his **5150** or only his 5160 is not certain (section 9's
+  table says 5150, from a private VCFed conversation; the owner could not get WfW running on his own 5150 and recalls
+  Simon using Harrison's image, which carries IBVPICD). If it ran only with IBVPICD, H1c no longer weakens H1a.
+- Owner's own 5150, earlier: a Trident VGA among others, no Windows 3.11 enhanced mode either - not the video card.
