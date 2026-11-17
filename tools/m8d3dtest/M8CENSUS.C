@@ -148,6 +148,8 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
                      (unsigned long)st[112], (unsigned long)st[113], (unsigned long)st[114], (unsigned long)st[115],
                      (unsigned long)st[116], (unsigned long)st[117], (unsigned long)st[118], (unsigned long)st[119] );
             fprintf( o, "8bpp clears part %lu whole %lu\n", (unsigned long)st[120], (unsigned long)st[121] );
+            fprintf( o, "16bpp lockruns frames %lu runs %lu rows %lu rows<=4 %lu ticks %lu\n", (unsigned long)st[122],
+                     (unsigned long)st[123], (unsigned long)st[124], (unsigned long)st[125], (unsigned long)st[126] );
             fprintf( o, "sizes %lu %lu %lu %lu joined %lu %lu colours %lu\n", (unsigned long)st[27], (unsigned long)st[28],
                      (unsigned long)st[29], (unsigned long)st[30], (unsigned long)st[31], (unsigned long)st[32], (unsigned long)st[33] );
         }

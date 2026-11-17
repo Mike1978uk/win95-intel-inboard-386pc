@@ -332,6 +332,7 @@ static DWORD m8dd_row_hash( const BYTE *p, int w )
 }
 
 static void m8dd_forget( BYTE *hot );
+static DWORD m8dd_ticks( void );
 
 /* m8hw.c's m8_engine_init, compare off included: a reset does not clear the compare. */
 static const WORD m8dd_engine_init[][2] = {
@@ -2521,6 +2522,39 @@ static void m8dd_flip16_fast( int k )
     m8dd_front = k;
 }
 
+/* C:\M8D3D.INI [diag] runs=1: at Flip, a buffer the program wrote by Lock is measured for how
+ * many single-colour runs its rows hold, to price sending it as engine spans instead of pixels.
+ * [122] frames measured, [123] runs, [124] rows, [125] rows of 4 runs or fewer, [126] ticks. */
+static void m8dd_runs16( int k )
+{
+    static int  on = -1;
+    DWORD       t0;
+    int         y;
+
+    if( on < 0 ) {
+        on = (int)GetPrivateProfileInt( "diag", "runs", 0, "C:\\M8D3D.INI" );
+    }
+    if( !on || !m8dd_written[k] ) {
+        return;
+    }
+    t0 = m8dd_ticks();
+    for( y = 0; y < (int)m8dd->height; ++y ) {
+        const WORD  *s = m8dd_at( k, 0, y );
+        int         w = (int)m8dd->width;
+        int         x;
+        int         n = 1;
+
+        for( x = 1; x < w; ++x ) {
+            n += s[x] != s[x - 1];
+        }
+        m8d3d_stat[123] += n;
+        m8d3d_stat[125] += n <= 4;
+    }
+    m8d3d_stat[124] += m8dd->height;
+    ++m8d3d_stat[122];
+    m8d3d_stat[126] += m8dd_ticks() - t0;
+}
+
 static DWORD m8dd_flip16( M8DD_FLIP *fd )
 {
     int             k = m8dd_buf( fd->lpSurfTarg );
@@ -2535,6 +2569,7 @@ static DWORD m8dd_flip16( M8DD_FLIP *fd )
     }
     QueryPerformanceCounter( &t0 );
     m8dd_tris_sort( k );
+    m8dd_runs16( k );
     if( m8dd_lscan[k] ) {
         m8dd_lscan[k] = 0;
         if( m8dd_tri_n[k] != m8dd_lscan_tris[k] ) {
