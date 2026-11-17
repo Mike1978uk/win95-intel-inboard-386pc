@@ -530,10 +530,59 @@ Windows 3.x USB, audio, optical and storage drivers is <https://github.com/ages2
 confirmed. Needs PCI hardware; no bearing on the 5150 stop. Already recorded for WINUSB and WINDISK in
 `docs/resources_and_sources.md` (lines 990-991) and in `docs/contributor_input_ledger.md`; WINAUDIO and WINUDF are not.
 
+## 15. Simon's answers, 2026-11-16
+
+- Supersoft "Interrupt level 0" still fails with a formatted disk in the drive. 12g test 1 is done; the floppy row is now
+  honest and IRQ0 is the only open item.
+- CPU in the test: the Inboard's original Intel 386 at about 16 MHz (his "(?)"). Same Inboard, floppy card and SCSI card
+  on both boards. 12g test 2 stands: a 16 MHz 386 is still several times an 8088.
+- ROM: Supersoft POST diagnostics v1.2 (confirms 12a).
+- Planars: both 16-64KB type, one without a serial number, one serial 116xxx. Both boards: SW1 = 1 off, 2 on, 3 off,
+  4 off, 5 on, 6 on, 7 on, 8 on; SW2 all on.
+- Reading of SW1, to confirm with the switch table: 1 off = diskette drives fitted; 2 on = no 8087; 3-4 off = 64 KB
+  planar; 7-8 on = one drive. 5-6 both on is the EGA/none setting, not CGA, yet he has a CGA card: a question for him,
+  not a finding. SW2 all on with a 64 KB planar = 64 KB total, as on the owner's 5160 where the Inboard serves the rest.
+- Slots on the 5150, CPU end to board edge: J5 free, J4 Inboard 386, J3 CGA, J2 SCSI (no disk), J1 floppy card with its own
+  BIOS for high-capacity drives. Answers H4 in 14b: the Inboard is in the second slot from the CPU. H4 expected no effect
+  on a 5150 (no slot 8).
+- New screen photo `supertest1-2.jpg`: not readable beyond "interrupt level 0" failing; his text states it.
+- Owner's 5160 control for PICCHK (`tools/picchk`, H1 probe), 2026-11-17, boot to DOS: `PICCHK /T` gave mask_err=65535
+  (self-test can fail: passed), first=FF/00 (the forced-wrong compare saw the true value), isr_err=0, imr_err=0,
+  irq0-7 = 91,0,0,0,0,0,0,0, spur7=0, ticks=91, timeout=N. A plain `PICCHK` control run on the 5160 is still owed.
+  PICCHK was rebuilt the same day so `/T` prints a self-test verdict (CRC32 906875BA, 1,232 bytes).
+- Why PICCHK bears on the Supersoft failure: phase 3 counts IRQ0 arrivals against the BIOS tick count, which does not
+  depend on CPU speed. If the 5150 shows irq0 equal to ticks, IRQ0 delivery works and the Supersoft failure is its rate
+  check (12d); if not, IRQ0 delivery is the fault.
+
+### 15a. NETROOM Cloaking API (his supplement disk)
+
+Files: `SUPP302.TXT` (disk listing, NRSUP302, 28/07/93), `README2.TXT`, `TECHNOTE.TXT`, `CLOAKAPI-inc.txt`, `CLOAKTST-asm.txt`.
+Read as data; nothing run or assembled. This is the API text section 13 lacked.
+
+- `CLOAKAPI-inc.txt` (Helix, 1992, "RM386 CLOAKING API"): entry is XMS call 82h from V86 mode (DX = XMS handle of the
+  code, CL = 16/32-bit). RM386 switches to protected mode and calls offset 0 of that block.
+- Protected-mode services via INT 2Ch, functions 00h-30h: allocate/free/set/get GDT selectors, get/set IDT entry,
+  pass-along (V86 INT 2Ch reflected to ring 0), save/restore protected state, call/chain V86 procedure or interrupt,
+  VDS from protected mode, trap/untrap I/O ports with a port pass-along, `set_hardware_pic` (function 2Ah, master and
+  slave base). 0Ch-1Fh are reserved for cloaked BIOSes under Windows; `RMLODHI.VXD` provides only the starred subset.
+- `CLOAKTST-asm.txt` (MASM sample, 1992): checks INT 67h and `AX=5BF0h` for RM386, finds an XMS driver, copies a 32-bit
+  block to XMS and enters it; the block services INT 16h, 09h, 11h, 14h, 17h (keyboard, equipment, serial, printer) from
+  ring 0; the TSR stub is `INT 2Ch` + `STI` + `RETF 2`.
+- `README2.TXT`: Windows 3.x tools only (STRETCH, CACHECLK, SAVERCLK, WINMEM). `TECHNOTE.TXT`: Windows 3.x lock-up steps
+  after Customize and laptop notes; no API content.
+- Does not contain: INT 15h AH=89h, A20, a descriptor-table requirement, 8088/XT/PC, the Inboard, Windows 95, or how
+  RM386 itself enters protected mode.
+
+Bearing on #10: none. It is a ring-0 service API that needs RM386 and XMS already running on a 386; it does not touch
+Windows 95's own switch (VMM, VPICD, `INT 15h 89h` path). Windows 3.x text only; Win95 is not mentioned.
+
 ## Next
 
 0. `NMICHK /m` boot on the 5150 (sent 2026-10-04); `NMIWATCH` + `NMICHK` boot on the owner's 5160.
-1. Cimon, looking only: SW1-3/4 positions on the 5150; whether a parity message has ever appeared.
+1. Cimon, looking only: whether a parity message has ever appeared. (SW1/SW2 positions done, section 15.)
+   Supersoft test 1 of 12g done: Interrupt level 0 still fails with a formatted disk (section 15).
+   PICCHK and PICCHK /T on the 5150 (sending 2026-11-17).
+   Owner: plain PICCHK control run on the 5160.
 2. Cimon, one edit and one boot: remove `NODIAGS` from `INBRDPC.SYS`'s line, so its memory test
    writes all extended memory before Windows starts.
 3. If the check is implicated: a small `.COM` before `WIN` that reports port `62h` bits 6/7 and
