@@ -2,6 +2,36 @@
 
 Earlier: `docs/next_session_2026_11_17.md`. Newest wins.
 
+## START HERE (end of 2026-11-17)
+
+Plan: worklist section **P**, tracker **`docs/playable_3d_plan.md`** (P1-P7, learnings table **P1-S, S1-S9**).
+
+**State.** Card (5160): boot 430, desktop **800x600 16 bpp**, driver `m8rhs.drv` + DLL = `a2f862c`/`92add43` source,
+idle. Way back to the 8 bpp desktop: ``C:\V9XREMOTE\REG\DISP8.REG` + restart. Beds `vm_5160_dbg` (port 9891) and `vm_5160_mtm`
+(9892, now 800x600x16) shut down cleanly; restart with `tools/bed_launch.ps1 -Automation <port>`.
+
+**Outcomes 11-17.**
+- flip2d 0.9 -> **4.33 fps** on the card (store-free mask build, imul-free hash, spans at Flip, partial held clear).
+- twist **6.73 fps** at 16 bpp (was ~5.7); ~118 ms of its 149 ms frame is twist + Direct3D geometry, not ours.
+- Regression P1.13 passed: wormhole, donuts (now reaches its title), stretch draw right on the bed and run on the card.
+- Page-ins: ~80 % outside our driver (flip2d, DirectDraw, GDI on full 5 MB); absent under DOS.
+- Lessons (plan P1-S): stores cross the slow bus (write-through L1); no imul in hashes; never rewrite what is right;
+  cheapest shape per run; one read per row; count before theorising; locked RAM is the budget; FIFO batching;
+  static art stays on the card.
+- MTM measured: Locked cockpit art 124 colour runs a row, spans no rescue; too heavy for DirectX on 5 MB (owner);
+  try with dashboard off (P2.9); static art on the card goes into the DOS core (P4.5, S9).
+- DOS 3D reading (`docs/p5_api_reading_2026_11_17.md`): every API reduces to spans/trapezoids; compatibility layer
+  (VBEAF.DRV, GLIDE2X.OVL, BRender .BDD) over one core is the aim.
+- Startup hang boot 429 (sound looping, arrow+hourglass), power cycle fixed it; noted, not chased.
+
+**Next, in order.**
+1. P1.10 fused asm row pass (hash + extents + spans, no stores) - card back to 8 bpp first.
+2. S7b free the 635 KB locked 8 bpp shadow when DirectDraw ends.
+3. P2.9 MTM dashboard off, one bed run.
+4. Open P1-S rows (S1d GDI caches, S2b 16 bpp detection, S3, S5, S9 design), then P1.11 faces as polygons.
+5. `dist/mach8` still `32bfaac`: refresh after the above pass the card (G10, owner verifies).
+
+
 **Plan from 11-17 evening: worklist section P, tracker `docs/playable_3d_plan.md`.** Start with P1.1 (asm mask build).
 
 ## State
