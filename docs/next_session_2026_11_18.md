@@ -35,6 +35,23 @@ idle. Way back to the 8 bpp desktop: `C:\V9XREMOTE\REG\DISP8.REG` + restart. Bed
   its rate check). Next H2 in the bed: log Windows 95's ports in 100h-1FFh (`docs/issue10_old_bios_2026_09_27.md` 16).
   Owner replied; asked whether the run was on the 5150 with the Inboard, and SW1 5-6 vs CGA.
 
+**Review of everything open (`docs/open_items_review_2026_11_17.md`, Sonnet 11-17) - read first next session.**
+- Showcase, by chance of playing: own DOS flat-shaded flight/space demo (P4.1); own DOS raycaster on Wolf3D source
+  (P4.2); own Direct3D flat demo on the HAL (P2.7); Donuts (reaches its title; 8 bpp desktop, needs DirectSound #58);
+  **Foxbear** (DX3a SDK, never run; scrolling suits CRT_OFFSET). FastDoom is the likeliest to play but is not our engine.
+  Honest bar: twist 6.73, flip2d 4.33 fps against 12.
+- Unused silicon, high value: polygon fill cmd 5 (P1.11, DOS core); colour compare + off-screen VRAM caches (S9);
+  palette-ramp lighting (P4.1); pre-scaled column blits (P4.2; D3 probe not run). Medium: A8/A9 raster counter,
+  DEST_CMP depth bands (does DEST_CMP_FN work on spans/LINEDRAW? never measured), short strokes, third page, VGA half.
+- Unanswered: #50 rep insw L1 on/off number (promised to Andrew); #10 H2/H3; DEST_CMP on spans; MTM dashboard off
+  (P2.9); paging during a D3D demo (X20). Doc contradictions for the owner: X22 CRT_OFFSET fix "owner decides" vs
+  "owner wants it fixed"; Z27 says probes drive the card from DOS but they are Windows EXEs; does the bed model
+  POLY_MODE through LINEDRAW (P1.11 needs bed pixels).
+- DOS driver gaps before P3: no DOS/4GW found under `C:\Users\lycet\tools\openwatcom`; no doc says who sets the
+  8514 mode from DOS. Build order from the review: P3.2 (DOS card layer) -> P3.1 (core out of m8d3d.c) -> P3.3/P3.4.
+- Housekeeping: worklist drift (S1-S8 vs S1-S9, two X4 items, X17 last line), README stale, dist/mach8 at 32bfaac,
+  replies owed (#50, #47, #18, TC1995, Michael Dale).
+
 **Next, in order.**
 1. P1.10 fused asm row pass (hash + extents + spans, no stores) - card back to 8 bpp first.
 2. S7b free the 635 KB locked 8 bpp shadow when DirectDraw ends.

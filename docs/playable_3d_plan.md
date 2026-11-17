@@ -99,7 +99,7 @@ reason. New learnings get a row the day they are found. Measure before and after
 
 ### P2. Windows showcase: titles that play (DirectDraw and Direct3D)
 
-Order is cheapest and most likely to play first. Each: bed run (pixels), card run (fps), verdict, capture.
+Order is cheapest and most likely to play first. Full ranking with the DOS demos: `docs/open_items_review_2026_11_17.md` section 4. Each: bed run (pixels), card run (fps), verdict, capture.
 Files: `docs/test_titles_2026_11_13.md`, `Downloads\test_titles\`.
 
 | ID | Title | API | Why it is here | Status |
@@ -111,6 +111,7 @@ Files: `docs/test_titles_2026_11_13.md`, `Downloads\test_titles\`.
 | P2.5 | Hover! (Win95 CD) | nv | 486/33 3D first-person; the period's own showcase | todo - check API first |
 | P2.6 | Fury3 trial | Lock-heavy 8 bpp | 486DX/66 minimum; tests X17 on a real game | todo |
 | P2.7 | Direct3D flat demo of our own on the HAL (cube field, flat + Gouraud bands) | D3D | shows D3D on the card at a playable rate where SDK samples cannot | todo |
+| P2.6b | Foxbear (DX3a SDK, never run) | DDraw, scrolling + keyed sprites | scrolling suits CRT_OFFSET flips; found missing by the 11-17 review | todo |
 | P2.8 | Hellbender trial, MTM trial (X13) | D3D | long shots. MTM measured 11-17: its Locked cockpit art is 124 colour runs a row, so spans cannot carry it; too heavy for Windows on 5 MB (owner) | parked behind P2.1-P2.7 |
 | P2.9 | MTM with Dashboard off and chase view (its own Graphic Options; 11-14 the settings did not save to `MTMHW.INI`): no Locked art, so frames are triangles only on our HAL. One bed run with `[diag] runs=1` confirms; then a card number. Lesson for every title: turn off what the card cannot carry before building for it | B, C | todo (cheap) |
 
