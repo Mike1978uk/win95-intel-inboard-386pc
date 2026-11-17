@@ -111,7 +111,8 @@ Files: `docs/test_titles_2026_11_13.md`, `Downloads\test_titles\`.
 | P2.5 | Hover! (Win95 CD) | nv | 486/33 3D first-person; the period's own showcase | todo - check API first |
 | P2.6 | Fury3 trial | Lock-heavy 8 bpp | 486DX/66 minimum; tests X17 on a real game | todo |
 | P2.7 | Direct3D flat demo of our own on the HAL (cube field, flat + Gouraud bands) | D3D | shows D3D on the card at a playable rate where SDK samples cannot | todo |
-| P2.8 | Hellbender trial, MTM trial (X13) | D3D | long shots; MTM parked on whole-buffer Locks | parked behind P2.1-P2.7 |
+| P2.8 | Hellbender trial, MTM trial (X13) | D3D | long shots. MTM measured 11-17: its Locked cockpit art is 124 colour runs a row, so spans cannot carry it; too heavy for Windows on 5 MB (owner) | parked behind P2.1-P2.7 |
+| P2.9 | MTM with Dashboard off and chase view (its own Graphic Options; 11-14 the settings did not save to `MTMHW.INI`): no Locked art, so frames are triangles only on our HAL. One bed run with `[diag] runs=1` confirms; then a card number. Lesson for every title: turn off what the card cannot carry before building for it | B, C | todo (cheap) |
 
 Target: **three P2 rows playable** by the definition above, one of them Direct3D.
 
@@ -133,6 +134,7 @@ Target: **three P2 rows playable** by the definition above, one of them Direct3D
 | P4.1 | **Flat-shaded flight/space demo** (Elite-like: ships, planets as banded discs, starfield) | the style the engine fills best; 1984-era look at 640x480 | >= 12 fps, playable 10 min | todo |
 | P4.2 | **Raycaster** on Wolfenstein 3D source (GPL, id), walls as engine column fills, floor/ceiling as fills | the raycaster was the model in A.8; columns at ~20 us each | >= 12 fps at 320 columns | todo - read source first |
 | P4.3 | Stunts via restunts (builds DOS exe from patched disassembly): hook its polygon draw | runs unchanged at 512 KB; flat polygons | draws on the engine | todo - read restunts first |
+| P4.5 | Static art on the card from the start (S9): cockpit, HUD and backdrop kept in spare VRAM and restored by on-card copies; outside Windows a heavy title's scene may fit where under DirectX on 5 MB it cannot (owner, 11-17: MTM-class games "outside of windows maybe plausible") | the MTM lesson, built into the DOS core | a cockpit view at no bus cost a frame | todo |
 | P4.4 | Combined showcase: one menu disk, DOS and Windows parts, each with an fps counter on screen | the thing to show people | owner happy to film it | todo |
 
 ### P5. Period APIs - for ports and for learning
