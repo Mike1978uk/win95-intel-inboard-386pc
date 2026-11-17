@@ -581,8 +581,9 @@ Windows 95's own switch (VMM, VPICD, `INT 15h 89h` path). Windows 3.x text only;
 0. `NMICHK /m` boot on the 5150 (sent 2026-10-04); `NMIWATCH` + `NMICHK` boot on the owner's 5160.
 1. Cimon, looking only: whether a parity message has ever appeared. (SW1/SW2 positions done, section 15.)
    Supersoft test 1 of 12g done: Interrupt level 0 still fails with a formatted disk (section 15).
-   PICCHK and PICCHK /T on the 5150 (sending 2026-11-17).
-   Owner: plain PICCHK control run on the 5160.
+   PICCHK and PICCHK /T on the 5150: sent 2026-11-17 as a link to `3355e1c`; waiting on his C:\PICCHK.TXT.
+   5160 control done 2026-11-17: mask_err 0, isr_err 0, imr_err 0, irq0 91 in 91 ticks, spur7 0
+   (`docs/captures/2026-11-17_picchk_5160/PICCHK.TXT`).
 2. Cimon, one edit and one boot: remove `NODIAGS` from `INBRDPC.SYS`'s line, so its memory test
    writes all extended memory before Windows starts.
 3. If the check is implicated: a small `.COM` before `WIN` that reports port `62h` bits 6/7 and
