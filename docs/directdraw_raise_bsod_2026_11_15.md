@@ -20,7 +20,7 @@ neither. Not yet known which program or call starts it.
 KERNEL32.DLL from the bed image (`tools/fatls.py vm_5160_mcp/card.img --get`), base `BFF70000`,
 disassembled with MSYS2 objdump:
 
-- The function containing `BFF9A07C` (starts `BFF9A00E`) builds an EXCEPTION_RECORD from its four
+- The function containing `BFF9A07C` (starts `BFF9A013`; `BFF9A00E` is the last instruction of the function before it) builds an EXCEPTION_RECORD from its four
   arguments - code, flags (bit 0), parameter count capped at 15, parameter array - and calls
   `BFF76588`. `BFF9A07C` is the return address of that call: this is **RaiseException**.
 - `BFF76592` is inside `BFF76588`, the dispatcher.
@@ -41,7 +41,7 @@ cannot show the dialog (e.g. the Win16 lock held - true inside DirectDraw HAL ca
 ## Next, cheapest first
 
 1. Which program and which exception code: a debugger-enabled 86Box (MCP `vm_start(debugger=True)`)
-   on a copy of the bed, breakpoint at `BFF9A00E`, read code and caller from the stack. One run.
+   on a copy of the bed, hardware breakpoint (`hbreak`) at `BFF9A013`, read code and caller from the stack. One run.
 2. If the caller is M8DD32.DLL or the Watcom runtime in it: the HAL runs in every DirectDraw
    process from the shared arena; read its exception and runtime set-up first.
 3. Until then: **no DirectDraw programs on the card.** The bed reproduces it.

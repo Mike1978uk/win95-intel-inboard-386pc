@@ -28,14 +28,14 @@ Earlier: `docs/next_session_2026_11_16.md`. Newest wins.
 ## Tasks, in order (Opus; commits by Haiku)
 
 1. **Catch the RaiseException.** The card's and the bed's blue screen `0E at 0137:BFF9A07C` is KERNEL32's
-   RaiseException (record built at `BFF9A00E`, dispatcher `BFF76588`); not the depth change, not the
+   RaiseException (entry `BFF9A013`, not `BFF9A00E` as first written; dispatcher `BFF76588`); not the depth change, not the
    shadow free. Steps:
    - 86Box with the GDB stub: `86box_auto\build_gdb\src\86Box.exe` (built 11-15 from the same working tree
      as the bed's exe, `-DGDBSTUB=ON`; check `86box_auto\build_gdb.log` ends `exit 0`). The MCP server
      is pinned to the non-debug exe (`BOX86_BINARY` in `~/.claude.json`): drive this one directly.
    - `tools\bed_launch.ps1 -Exe 86box_auto\build_gdb\src\86Box.exe -VmPath vm_5160_dbg -Automation 9891`;
      the stub listens on 12345 (`gdbstub_port` in the cfg to change).
-   - `C:\msys64\mingw64\bin\gdb.exe`: `target remote :12345`, `break *0xbff9a00e`, on each hit print
+   - `C:\msys64\mingw64\bin\gdb.exe`: `target remote :12345`, `hbreak *0xbff9a013`, on each hit print
      `x/6wx $esp` (return address, code, flags, count, args). Legitimate handled raises also hit; log all.
    - In the same run, turn the HAL trace on (`C:\M8D3D.INI` `[diag] trace=1`, read once per boot): the last
      lines of `C:\M8TRACE.TXT` give the DirectDraw step in progress at the raise.
