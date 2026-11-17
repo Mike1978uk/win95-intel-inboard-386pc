@@ -614,3 +614,16 @@ Inboard state to confirm with him). Files: `docs/captures/2026-11-17_picchk_simo
 - Not covered: VPICD's protected-mode access pattern and rate; INTA under Windows 95. PICCHK runs in real mode.
 - **Next:** H2 (I/O 100h-1FFh is motherboard space on a 5150) in the bed: log the ports Windows 95 touches in 100-1FFh
   (no help needed from Simon). H3 (F0000-F3FFF decode) needs a DEBUG compare on his 5150.
+
+## 17. Simon's answers on the PICCHK machine, 2026-11-17
+
+- PICCHK ran on the **5150 with the Inboard 386/PC at 16 MHz**; no clock card (hence the 1980 dates).
+- Display is an **ATI VGA card ("ATI 1024")**, not CGA; SW1 5-6 therefore set for EGA/VGA (to confirm only if it matters).
+- Files reach us by floppy and two other PCs: every ask of Simon costs him a long chain. Batch requests; prefer the bed.
+- **Bearing on H2:** ATI VGA cards decode their extended registers at **1CEh/1CFh**, inside the 100h-1FFh range that is
+  planar space on a 5150. The ATI BIOS, Windows 95 Setup's display detection and ATI drivers read them. The owner's 5160
+  also has an ATI VGA half (28800 on the Mach8) and works, which fits H2 (the 5160 planar does not claim 100h-1FFh).
+  Not shown: that a read of 1CFh fails on his 5150 (his VGA works at DOS, so BIOS mode sets may only write there).
+  The bed I/O log for H2 must list 1CEh/1CFh reads separately, with the caller (BIOS, VxD, Setup detection).
+- Cheap check on his side, if the bed log shows Windows reading 1CFh: DEBUG `o 1ce,b0` / `i 1cf` on the 5150 and 5160,
+  compared. One floppy round trip; owner decides whether to ask.
