@@ -76,5 +76,6 @@ Plan: worklist section P, tracker `docs/playable_3d_plan.md` (P1.7-P1.13 added t
 | Reading | `docs/p5_api_reading_2026_11_17.md`: BRender, VBE/AF, Glide ranked; every API reduces to spans/trapezoids |
 | Owner | compatibility layer for DOS 3D titles (VBEAF.DRV, GLIDE2X.OVL, .BDD) is the aim, in the plan |
 
+Owner, end of 11-17: the learnings must be carried across the whole driver - plan table **P1-S (S1-S8)**; each session ticks rows.
 Next, in order: **P1.13** (regression across DDraw samples and twist, then spread the lessons), **P1.10** (fused asm row pass),
 **P1.11** (faces as engine polygons). `dist/mach8` still `32bfaac`: refresh only after P1.13 passes.

@@ -80,6 +80,22 @@ for card runs). Each item lists the measure that closes it. Update this table in
 | P1.5 | Per-program display mode launcher (X21) | desk, C | a title starts in its mode without a manual change | todo |
 | P1.6 | 86Box `CRT_OFFSET` at the next frame (X22), so the bed flips pages | upstream code, owner decides | bed flip2d shows even frames | todo |
 
+### P1-S. Spread every learning across the driver (owner, 11-17: "keep using the learnings in one path across the whole")
+
+A win in one path is not done until each place below has been applied and card-measured, or marked "n/a" with the
+reason. New learnings get a row the day they are found. Measure before and after on the card; bed for pixels.
+
+| ID | Learning (where found) | Apply to | Status |
+|---|---|---|---|
+| S1 | **No stores in inner loops:** the L1 writes through to the slow Inboard bus; a spill or memory RMW per pixel cost ~45 of 106 cycles (8 bpp mask build) | S1a `m8d3d.c` patch join, depth sort, triangle setup; S1b 16 bpp paths (`fb16.c`, `fb16cv.asm`, Lock/Unlock 16); S1c 16-bit driver `hash.asm`, `blt.asm`, `spans.asm`, `text.asm`; S1d GDI caches (glyph, bitmap); S1e the DOS core from the start | todo (check each with `wdis` for spills) |
+| S2 | **No imul in hashes:** add/rotate, 75 -> 47 cycles a dword | S2a `hash.asm` (16-bit driver); S2b 16 bpp change detection (#54); S2c string/glyph cache keys | todo |
+| S3 | **Never rewrite what is already right:** wipe only what the last frame drew (Blt 37 -> 11 ms) | S3a Direct3D per-frame clears and Z-less sort buffers; S3b 16 bpp held clears; S3c DOS core frame clear | todo |
+| S4 | **Describe, then send the cheapest shape:** spans priced against masks against pixels per run | S4a Lock-heavy titles: MTM (X13), Fury3, Doom 95; S4b 16 bpp Unlock; S4c Direct3D fallback paths that Lock the back buffer; S4d DOS core as its base primitive | todo |
+| S5 | **Read each row once:** hash, extent and runs in one pass (RAM 78 ns/B is the floor) | S5a 8 bpp flush (P1.10); S5b 16 bpp change scan; S5c Lock held-row hashes | todo |
+| S6 | **Count before theorising:** page-ins and ticks per entry point showed 80 % of paging outside our driver | S6a same counters on twist/tunnel (Direct3D callbacks); S6b on MTM; S6c GDI desktop idle | todo |
+| S7 | **Allocation already page-locked:** `GMEM_FIXED` from a DLL is locked, so pinning added nothing; locked RAM is the 5 MB budget | S7a audit every fixed allocation (shadows, caches, D3D buffers) for size; S7b release the 8 bpp shadow when DirectDraw ends | todo |
+| S8 | **One FIFO check per batch, height register written once** (spans) | S8a every engine burst in `m8hw.c` and `m8d3d.c` feed; S8b XFree86-style slot counting (worklist A.6) | todo |
+
 ### P2. Windows showcase: titles that play (DirectDraw and Direct3D)
 
 Order is cheapest and most likely to play first. Each: bed run (pixels), card run (fps), verdict, capture.

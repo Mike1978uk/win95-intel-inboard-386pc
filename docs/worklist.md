@@ -314,6 +314,7 @@ like a timer tick (~170 us measured for #45). Ideas, cheapest first - measure be
 Playable demos and games under Windows 95 and DOS, DirectDraw and Direct3D on the Mach8, and our own engine with
 period API front ends (VBE/AF, Glide subset, BRender). Tracker, definition of "playable", architecture and session
 protocol: **`docs/playable_3d_plan.md`** (P1-P7). X17-X25 map into P1 and P6; X15/X16/Z29/Z30 into P3-P5.
+- [ ] **P1-S spread every learning across the whole driver (S1-S8 in the plan): a win is not done until each place has it**
 - [ ] P1 finish the DirectDraw lessons (asm masks, asm hash, feeder; X19 gates any showcase)
 - [ ] P2 three Windows titles playable, one Direct3D
 - [ ] P3 engine core factored out, DOS back end, Windows-vs-DOS number
