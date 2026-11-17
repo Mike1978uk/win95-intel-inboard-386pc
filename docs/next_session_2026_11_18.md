@@ -7,7 +7,7 @@ Earlier: `docs/next_session_2026_11_17.md`. Newest wins.
 Plan: worklist section **P**, tracker **`docs/playable_3d_plan.md`** (P1-P7, learnings table **P1-S, S1-S9**).
 
 **State.** Card (5160): boot 430, desktop **800x600 16 bpp**, driver `m8rhs.drv` + DLL = `a2f862c`/`92add43` source,
-idle. Way back to the 8 bpp desktop: ``C:\V9XREMOTE\REG\DISP8.REG` + restart. Beds `vm_5160_dbg` (port 9891) and `vm_5160_mtm`
+idle. Way back to the 8 bpp desktop: `C:\V9XREMOTE\REG\DISP8.REG` + restart. Beds `vm_5160_dbg` (port 9891) and `vm_5160_mtm`
 (9892, now 800x600x16) shut down cleanly; restart with `tools/bed_launch.ps1 -Automation <port>`.
 
 **Outcomes 11-17.**
