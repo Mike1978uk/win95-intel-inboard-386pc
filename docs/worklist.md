@@ -357,6 +357,18 @@ like a timer tick (~170 us measured for #45). Ideas, cheapest first - measure be
       rasterising. Needs the API to reach the hardware through a replaceable driver file. Fit: flat or
       Gouraud polygons and fills, not texture-mapped frames. FastDoom is a bus test, not a showcase: 64,000 B
       at 1.83 us/B is ~117 ms a frame before rendering. Shortlist: `docs/showcase_3d_candidates_2026_11_14.md`.
+- [ ] **X17 8 bpp Lock programs: describe at Unlock, don't send pixels (owner, 2026-11-17).** flip2d on the card is
+      under 1 fps (every frame shown; the bed cannot flip pages, see `observed_86box_quirks`). Measure first: Lock
+      counters in M8CENSUS (`8bpp` line) and PERFLOG paging during flip2d. Then, each card-benched:
+      1. **Deferred clear:** hold a back-buffer fill; at Unlock compare against what that card page still holds and
+         send only real differences, vacated areas as engine fills. Static text and background then cost nothing.
+      2. **Colour, not pixels:** a one-colour changed run as one engine fill; a two-colour run as a 1-bit mask
+         through colour expansion, 8x fewer bus bytes (flip2d face ~3.7 KB against ~29 KB).
+      3. **Recolour in place** (colour compare) when a shape stays and its colour changes.
+      4. **Shape cache in spare VRAM** (~384 KB right of x 640): for sprites, glyphs, HUDs. Not for flip2d's cube:
+         `tools/flipshapes/flipshapes.py` replays the sample - 7.18 deg a frame about one axis, exact frame repeat
+         every 304 frames, 84 % shape reuse over 20,000 frames but 0 % inside a cycle; one cycle's masks ~3 MB.
+      Applies to X14's Lock-heavy titles (Doom 95, Fury3, Red Alert).
 - [ ] **X10 Direct3D, playable approximations (owner, 2026-11-07):** real programs run unmodified, and show what was intended by our own means. Build order D1-D12 in `docs/mach8_frame_rate_plan.md`, "Direct3D: playable approximations": HAL accepted (Z formats, sort, Z surface), mock replies and fog, census on real programs, effect tag and stipple, **real texture path**, cut-outs and mips, palette ramps, blends, bilinear look and perspective, runtime clip cost, then speed. The card's hang needs a cause before a showcase.
 
 ## E. Timer, refresh, XT-CF (in flight)
