@@ -1,0 +1,29 @@
+== M8CENSUS during-donuts
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0 lockkept 0 ramfront 0 ramunknown 0 ramflush 0 notours 0 partclear 0 overlays 0 sent 0
+8bpp locks 306 noread 302 wholesurf 306 pxread 1228800 unlocks 306 pxsent 774666 xferticks 5023219 flips 166 pageflushes 140
+8bpp flush ticks all 26464177 pixels 0 maskbuild 1222747 masksend 535894 fills 46819 runs pixels 0 masks 163 maskfail 0
+8bpp flush ticks epoch 240040 rowhash 7584578 pageins build 0 flush 237 buildpx 1275120 spans 66559 find 4125438 send 3470385
+callbacks pageins lock 83 unlock 26 blt 62 flip 256 ticks lock 5572911 unlock 3512809 blt 5751627 flip 27806984
+8bpp clears part 136 whole 4
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:3  efd60cc0:3  406b2f00:3  efd60cc1:3  b1122b40:3  efd60cc2:3  0ba584e1:3  ddf41230:3  80863800:3  93869880:3  7de41f80:3  ffaa7540:3  3b8a0466:3
+
+
+picture: C:\Users\lycet\AppData\Local\Temp\sample_run\donuts.png
+boot 427 up 1250 desktop True
+

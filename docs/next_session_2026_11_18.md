@@ -79,3 +79,7 @@ Plan: worklist section P, tracker `docs/playable_3d_plan.md` (P1.7-P1.13 added t
 Owner, end of 11-17: the learnings must be carried across the whole driver - plan table **P1-S (S1-S8)**; each session ticks rows.
 Next, in order: **P1.13** (regression across DDraw samples and twist, then spread the lessons), **P1.10** (fused asm row pass),
 **P1.11** (faces as engine polygons). `dist/mach8` still `32bfaac`: refresh only after P1.13 passes.
+
+**Later 11-17:** P1.13 regression passed (DDraw samples on bed and card, twist 6.73 fps). Card desktop now
+**800x600 16 bpp** (boot 428, registry; way back to 640x480x8: `C:\V9XREMOTE\REG\DISP8.REG` + restart). 8 bpp
+DirectDraw tests need the desktop at 8 bpp first (X19). Next: P1-S rows S1-S5, S7, then P1.10.
