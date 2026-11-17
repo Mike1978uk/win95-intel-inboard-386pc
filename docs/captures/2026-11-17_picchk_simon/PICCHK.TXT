@@ -1,0 +1,2 @@
+PICCHK imr=BC mask_err=65535 first=FF/00 isr_err=00000 isr=00 imr_err=00000 irq0-7=00091,00000,00000,00000,00000,00000,00000,00000 spur7=00000 ticks=00091 timeout=N mode=T
+PICCHK imr=BC mask_err=00000 first=00/00 isr_err=00000 isr=00 imr_err=00000 irq0-7=00092,00000,00000,00000,00000,00000,00000,00000 spur7=00000 ticks=00092 timeout=N mode=-

@@ -594,3 +594,23 @@ Windows 95's own switch (VMM, VPICD, `INT 15h 89h` path). Windows 3.x text only;
 5. The pre-monolith install on the 5150 (Cimon's suggestion) - after 1-4, since it changes the
    whole Windows build.
 6. GLaBIOS in the bed (@andrew-hoffman, <https://github.com/640-KB/GLaBIOS>) - still untried.
+
+## 16. Simon's PICCHK run, 2026-11-17
+
+Run on the 5150 (directory dates 01-03-80: no clock card; his IBM PC 300 was used only to copy the file - machine and
+Inboard state to confirm with him). Files: `docs/captures/2026-11-17_picchk_simon/` (PICCHK.TXT, screen photo).
+
+| | Simon, 5150 + Inboard 386 | owner's 5160 control |
+|---|---|---|
+| `/T` | mask_err=65535, first=FF/00: self-test passed | same |
+| plain | mask_err 0, isr_err 0, imr_err 0, first=00/00 | mask_err 0 (11-17) |
+| IRQ0 vs BIOS ticks | 92 / 92 | 91 / 91 |
+| other IRQs, spurious IRQ 7 | 0, 0 | 0, 0 |
+
+- **H1 ruled out at the DOS prompt:** 20 mask patterns x 4,096 rounds and the OCW3 ISR/IMR reads all match on the 5150;
+  the 8259 on the CPU-side bus does not corrupt PIC reads or writes with the Inboard driving it.
+- **IRQ0 delivery works** (irq0 = ticks), so Supersoft's "Interrupt level 0" failure is its rate check against an
+  8088-speed loop (section 12d), not a fault (section 15's reading).
+- Not covered: VPICD's protected-mode access pattern and rate; INTA under Windows 95. PICCHK runs in real mode.
+- **Next:** H2 (I/O 100h-1FFh is motherboard space on a 5150) in the bed: log the ports Windows 95 touches in 100-1FFh
+  (no help needed from Simon). H3 (F0000-F3FFF decode) needs a DEBUG compare on his 5150.
