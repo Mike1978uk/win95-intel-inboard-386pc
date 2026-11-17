@@ -33,6 +33,11 @@ Earlier: `docs/next_session_2026_11_17.md`. Newest wins.
 | flip2d on the card | `32bfaac`: 27 flips in 30 s, 28 of 55 Locks read back, ~98 KB per Unlock. `3aaea3a`: **50 flips**, 1 of 102 read back, ~52 KB per Unlock, transfers 13 s of 30. Next: X17 item 1 (deferred clear). |
 | Bed | `vm_5160_dbg` now at 640x480x8 (flip2d there: 52 of 53 Locks no read). X22 model fix: analysis in the worklist, not edited (upstream code). |
 
+**End of 11-17:** card driver `m8dfr.drv` (DLL `A254C4DF`) = `1167bdb`, the deferred clear (X17 item 1): flip2d
+2.2 fps, ~74 KB a frame, no read-backs (`docs/captures/2026-11-17_dfr_card/`). Way back: `m8head.drv` (`3aaea3a`)
+and `m8nof.drv` (`32bfaac`, DLL `C:\V9XREMOTE\REG\M8DD32.NOF`) still in SYSTEM. Bed `vm_5160_dbg` on the same build.
+**Start next session with X17 item 2, 1-bit masks** (most of the 74 KB is the cube's flat faces).
+
 ## Tasks, in order (Opus; commits by Haiku; raise any long run with the owner first)
 
 1. **Why half of flip2d's Locks read back on the card.** `m8dd_epoch()` hashes the driver's GDI counters
