@@ -373,7 +373,7 @@ Behind these: Fable leftovers F2 4 / F3 4-5 (X23), BRender `.BDD` ABI (X24), the
 - [ ] **X17 8 bpp Lock programs: describe at Unlock, don't send pixels (owner, 2026-11-17).** flip2d on the card is
       under 1 fps (every frame shown; the bed cannot flip pages, see `observed_86box_quirks`). Measure first: Lock
       counters in M8CENSUS (`8bpp` line) and PERFLOG paging during flip2d. Then, each card-benched:
-      1. **Deferred clear:** hold a back-buffer fill; at Unlock compare against what that card page still holds and
+      1. **Deferred clear:** DONE 11-17 (`m8dfr.drv`, card boot 414): flip2d 1.7 -> 2.2 fps, ~104 -> ~74 KB a frame, no read-backs; bed pixels clean. Was: hold a back-buffer fill; at Unlock compare against what that card page still holds and
          send only real differences, vacated areas as engine fills. Static text and background then cost nothing.
       2. **Colour, not pixels:** a one-colour changed run as one engine fill; a two-colour run as a 1-bit mask
          through colour expansion, 8x fewer bus bytes (flip2d face ~3.7 KB against ~29 KB).

@@ -1,0 +1,2853 @@
+== M8CENSUS bench
+contexts 15 with Z 0  targets set 0  textures 2
+calls exec 0 one 330 indexed 0 prims 32  other ops 0
+tris 6740 textured 576 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 112
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):  4:274  6:56
+triangle size, longer side from  8:3904  32:1056  64:1584  256:56  512:140
+triangles a call from  4:56  16:229  64:45
+state pairs a block from  1:2  8:15  64:15
+texture longer side from  64:2
+states set (type:times/values seen):  1:19/3  2:15/1  3:15/2  4:15/1  5:15/1  6:15/1  7:15/1  8:15/8  9:30/6  10:15/1  11:15/1  12:15/2000  13:15/80000000  14:15/2  15:15/1  16:15/2  17:15/2  18:15/2  19:15/4  20:15/2  21:15/4  22:30/a  23:15/10  24:15/1  25:15/100  26:15/1  27:30/1  28:15/1  29:15/2  30:15/1  31:15/1  32:15/1  33:15/1  34:15/1  35:15/1  36:15/1  37:15/80000000  38:15/80000000  39:15/1  40:15/1  41:15/1  43:15/1  44:15/2  45:15/2  46:15/1  47:15/1  48:15/1  49:15/2  64:15/1  65:15/1  66:15/1  67:15/1  68:15/1  69:15/1  70:15/1  71:15/1  72:15/1  73:15/1  74:15/1  75:15/1  76:15/1  77:15/1  78:15/1  79:15/1  80:15/1  81:15/1  82:15/1  83:15/1  84:15/1  85:15/1  86:15/1  87:15/1  88:15/1  89:15/1  90:15/1  91:15/1  92:15/1  93:15/1  94:15/1  95:15/1
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:3  ffaa7540:3  3b8a0466:3
+
+== M8CENSUS before-tunneldp
+contexts 15 with Z 0  targets set 0  textures 2
+calls exec 0 one 330 indexed 0 prims 32  other ops 0
+tris 6740 textured 576 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 112
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):  4:274  6:56
+triangle size, longer side from  8:3904  32:1056  64:1584  256:56  512:140
+triangles a call from  4:56  16:229  64:45
+state pairs a block from  1:2  8:15  64:15
+texture longer side from  64:2
+states set (type:times/values seen):  1:19/3  2:15/1  3:15/2  4:15/1  5:15/1  6:15/1  7:15/1  8:15/8  9:30/6  10:15/1  11:15/1  12:15/2000  13:15/80000000  14:15/2  15:15/1  16:15/2  17:15/2  18:15/2  19:15/4  20:15/2  21:15/4  22:30/a  23:15/10  24:15/1  25:15/100  26:15/1  27:30/1  28:15/1  29:15/2  30:15/1  31:15/1  32:15/1  33:15/1  34:15/1  35:15/1  36:15/1  37:15/80000000  38:15/80000000  39:15/1  40:15/1  41:15/1  43:15/1  44:15/2  45:15/2  46:15/1  47:15/1  48:15/1  49:15/2  64:15/1  65:15/1  66:15/1  67:15/1  68:15/1  69:15/1  70:15/1  71:15/1  72:15/1  73:15/1  74:15/1  75:15/1  76:15/1  77:15/1  78:15/1  79:15/1  80:15/1  81:15/1  82:15/1  83:15/1  84:15/1  85:15/1  86:15/1  87:15/1  88:15/1  89:15/1  90:15/1  91:15/1  92:15/1  93:15/1  94:15/1  95:15/1
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:3  ffaa7540:3  3b8a0466:3
+
+== M8CENSUS during-tunneldp
+contexts 15 with Z 0  targets set 0  textures 2
+calls exec 0 one 330 indexed 0 prims 32  other ops 0
+tris 6740 textured 576 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 112
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):  4:274  6:56
+triangle size, longer side from  8:3904  32:1056  64:1584  256:56  512:140
+triangles a call from  4:56  16:229  64:45
+state pairs a block from  1:2  8:15  64:15
+texture longer side from  64:2
+states set (type:times/values seen):  1:19/3  2:15/1  3:15/2  4:15/1  5:15/1  6:15/1  7:15/1  8:15/8  9:30/6  10:15/1  11:15/1  12:15/2000  13:15/80000000  14:15/2  15:15/1  16:15/2  17:15/2  18:15/2  19:15/4  20:15/2  21:15/4  22:30/a  23:15/10  24:15/1  25:15/100  26:15/1  27:30/1  28:15/1  29:15/2  30:15/1  31:15/1  32:15/1  33:15/1  34:15/1  35:15/1  36:15/1  37:15/80000000  38:15/80000000  39:15/1  40:15/1  41:15/1  43:15/1  44:15/2  45:15/2  46:15/1  47:15/1  48:15/1  49:15/2  64:15/1  65:15/1  66:15/1  67:15/1  68:15/1  69:15/1  70:15/1  71:15/1  72:15/1  73:15/1  74:15/1  75:15/1  76:15/1  77:15/1  78:15/1  79:15/1  80:15/1  81:15/1  82:15/1  83:15/1  84:15/1  85:15/1  86:15/1  87:15/1  88:15/1  89:15/1  90:15/1  91:15/1  92:15/1  93:15/1  94:15/1  95:15/1
+GetDriverInfo asked:  d7b70ee0:4  efd60cc0:4  406b2f00:4  efd60cc1:4  b1122b40:4  efd60cc2:4  0ba584e1:4  ddf41230:4  80863800:4  93869880:4  7de41f80:6  ffaa7540:6  3b8a0466:6
+
+== M8CENSUS before-tunnel
+no census in this driver
+
+== M8CENSUS after-enum
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:4  efd60cc0:4  406b2f00:4  efd60cc1:4  b1122b40:4  efd60cc2:4  0ba584e1:4  ddf41230:4  80863800:4  93869880:4
+
+== M8CENSUS before-tunnel-e6
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:3  ffaa7540:3  3b8a0466:3
+
+== M8CENSUS after-fullscreen
+contexts 1 with Z 0  targets set 0  textures 1
+calls exec 0 one 0 indexed 1 prims 2  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 59
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):  4:1
+triangle size, longer side from
+triangles a call from  8:1
+state pairs a block from  16:1  64:1
+texture longer side from  256:1
+states set (type:times/values seen):  1:2/3  2:2/1  3:1/2  4:3/3  5:2/3  6:2/3  7:1/1  8:1/8  9:2/4  10:1/1  11:1/1  12:1/2000  13:1/80000000  14:1/2  15:1/1  16:1/2  17:2/6  18:2/6  19:1/4  20:1/2  21:1/4  22:1/8  23:1/10  24:1/1  25:1/100  26:2/1  27:2/1  28:2/1  29:2/1  30:1/1  31:1/1  32:1/1  33:1/1  34:2/80000001  35:1/1  36:1/1  37:1/80000000  38:1/80000000  39:1/1  40:1/1  41:1/1  43:1/1  44:1/2  45:1/2  46:1/1  47:1/1  48:1/1  49:1/2  64:1/1  65:1/1  66:1/1  67:1/1  68:1/1  69:1/1  70:1/1  71:1/1  72:1/1  73:1/1  74:1/1  75:1/1  76:1/1  77:1/1  78:1/1  79:1/1  80:1/1  81:1/1  82:1/1  83:1/1  84:1/1  85:1/1  86:1/1  87:1/1  88:1/1  89:1/1  90:1/1  91:1/1  92:1/1  93:1/1  94:1/1  95:1/1
+GetDriverInfo asked:  d7b70ee0:7  efd60cc0:7  406b2f00:7  efd60cc1:7  b1122b40:7  efd60cc2:7  0ba584e1:7  ddf41230:7  80863800:7  93869880:7  7de41f80:11  ffaa7540:11  3b8a0466:11
+
+== M8CENSUS before-e7
+no census in this driver
+
+== M8CENSUS after-e7
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:2  efd60cc0:2  406b2f00:2  efd60cc1:2  b1122b40:2  efd60cc2:2  0ba584e1:2  ddf41230:2  80863800:2  93869880:2  7de41f80:2  ffaa7540:2  3b8a0466:2
+
+== M8CENSUS tun1
+contexts 1 with Z 0  targets set 0  textures 1
+calls exec 0 one 0 indexed 36 prims 45  other ops 0
+tris 7147 textured 7147 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 848
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):  4:40  6:103
+triangle size, longer side from  1:27  2:38  4:109  8:2804  16:1984  32:1015  64:868  128:302
+triangles a call from  2:44  4:64  8:4  16:12  32:10  256:1  512:8
+state pairs a block from  1:140  4:10  16:1  64:1
+texture longer side from  256:1
+states set (type:times/values seen):  1:2/3  2:12/1  3:1/2  4:13/3  5:2/3  6:2/3  7:1/1  8:1/8  9:12/4  10:1/1  11:1/1  12:1/2000  13:1/80000000  14:1/2  15:1/1  16:1/2  17:2/6  18:2/6  19:1/4  20:1/2  21:1/4  22:1/8  23:1/10  24:1/1  25:1/100  26:12/1  27:2/1  28:12/1  29:12/1  30:1/1  31:1/1  32:1/1  33:1/1  34:2/80000001  35:1/1  36:1/1  37:1/80000000  38:1/80000000  39:1/1  40:1/1  41:1/1  43:1/1  44:1/2  45:1/2  46:1/1  47:1/1  48:1/1  49:1/2  64:1/1  65:1/1  66:1/1  67:1/1  68:1/1  69:1/1  70:1/1  71:1/1  72:1/1  73:1/1  74:1/1  75:1/1  76:1/1  77:1/1  78:1/1  79:1/1  80:1/1  81:1/1  82:1/1  83:1/1  84:1/1  85:1/1  86:1/1  87:1/1  88:1/1  89:1/1  90:1/1  91:1/1  92:1/1  93:1/1  94:1/1  95:1/1
+GetDriverInfo asked:  d7b70ee0:8  efd60cc0:8  406b2f00:8  efd60cc1:8  b1122b40:8  efd60cc2:8  0ba584e1:8  ddf41230:8  80863800:8  93869880:8  7de41f80:9  ffaa7540:9  3b8a0466:9
+
+== M8CENSUS tun2
+contexts 1 with Z 0  targets set 0  textures 1
+calls exec 0 one 0 indexed 42 prims 93  other ops 0
+tris 11680 textured 11680 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 1238
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):  4:46  6:260
+triangle size, longer side from  1:33  2:84  4:242  8:4275  16:3409  32:1782  64:1355  128:500
+triangles a call from  2:117  4:148  8:4  16:12  32:10  256:1  512:14
+state pairs a block from  1:339  4:16  16:1  64:1
+texture longer side from  256:1
+states set (type:times/values seen):  1:2/3  2:18/1  3:1/2  4:19/3  5:2/3  6:2/3  7:1/1  8:1/8  9:18/4  10:1/1  11:1/1  12:1/2000  13:1/80000000  14:1/2  15:1/1  16:1/2  17:2/6  18:2/6  19:1/4  20:1/2  21:1/4  22:1/8  23:1/10  24:1/1  25:1/100  26:18/1  27:2/1  28:18/1  29:18/1  30:1/1  31:1/1  32:1/1  33:1/1  34:2/80000001  35:1/1  36:1/1  37:1/80000000  38:1/80000000  39:1/1  40:1/1  41:1/1  43:1/1  44:1/2  45:1/2  46:1/1  47:1/1  48:1/1  49:1/2  64:1/1  65:1/1  66:1/1  67:1/1  68:1/1  69:1/1  70:1/1  71:1/1  72:1/1  73:1/1  74:1/1  75:1/1  76:1/1  77:1/1  78:1/1  79:1/1  80:1/1  81:1/1  82:1/1  83:1/1  84:1/1  85:1/1  86:1/1  87:1/1  88:1/1  89:1/1  90:1/1  91:1/1  92:1/1  93:1/1  94:1/1  95:1/1
+GetDriverInfo asked:  d7b70ee0:8  efd60cc0:8  406b2f00:8  efd60cc1:8  b1122b40:8  efd60cc2:8  0ba584e1:8  ddf41230:8  80863800:8  93869880:8  7de41f80:9  ffaa7540:9  3b8a0466:9
+
+== M8CENSUS e8-a
+contexts 1 with Z 0  targets set 0  textures 1
+calls exec 0 one 0 indexed 34 prims 35  other ops 0
+tris 5660 textured 5660 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 728
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):  4:38  6:76
+triangle size, longer side from  1:27  2:26  4:84  8:2150  16:1576  32:856  64:696  128:245
+triangles a call from  2:33  4:48  8:4  16:12  32:10  256:1  512:6
+state pairs a block from  1:105  4:8  16:1  64:1
+texture longer side from  256:1
+states set (type:times/values seen):  1:2/3  2:10/1  3:1/2  4:11/3  5:2/3  6:2/3  7:1/1  8:1/8  9:10/4  10:1/1  11:1/1  12:1/2000  13:1/80000000  14:1/2  15:1/1  16:1/2  17:2/6  18:2/6  19:1/4  20:1/2  21:1/4  22:1/8  23:1/10  24:1/1  25:1/100  26:10/1  27:2/1  28:10/1  29:10/1  30:1/1  31:1/1  32:1/1  33:1/1  34:2/80000001  35:1/1  36:1/1  37:1/80000000  38:1/80000000  39:1/1  40:1/1  41:1/1  43:1/1  44:1/2  45:1/2  46:1/1  47:1/1  48:1/1  49:1/2  64:1/1  65:1/1  66:1/1  67:1/1  68:1/1  69:1/1  70:1/1  71:1/1  72:1/1  73:1/1  74:1/1  75:1/1  76:1/1  77:1/1  78:1/1  79:1/1  80:1/1  81:1/1  82:1/1  83:1/1  84:1/1  85:1/1  86:1/1  87:1/1  88:1/1  89:1/1  90:1/1  91:1/1  92:1/1  93:1/1  94:1/1  95:1/1
+GetDriverInfo asked:  d7b70ee0:6  efd60cc0:6  406b2f00:6  efd60cc1:6  b1122b40:6  efd60cc2:6  0ba584e1:6  ddf41230:6  80863800:6  93869880:6  7de41f80:7  ffaa7540:7  3b8a0466:7
+
+== M8CENSUS e8-b
+contexts 1 with Z 0  targets set 0  textures 1
+calls exec 0 one 0 indexed 42 prims 93  other ops 0
+tris 11680 textured 11680 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 1238
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):  4:46  6:260
+triangle size, longer side from  1:33  2:84  4:242  8:4275  16:3409  32:1782  64:1355  128:500
+triangles a call from  2:117  4:148  8:4  16:12  32:10  256:1  512:14
+state pairs a block from  1:339  4:16  16:1  64:1
+texture longer side from  256:1
+states set (type:times/values seen):  1:2/3  2:18/1  3:1/2  4:19/3  5:2/3  6:2/3  7:1/1  8:1/8  9:18/4  10:1/1  11:1/1  12:1/2000  13:1/80000000  14:1/2  15:1/1  16:1/2  17:2/6  18:2/6  19:1/4  20:1/2  21:1/4  22:1/8  23:1/10  24:1/1  25:1/100  26:18/1  27:2/1  28:18/1  29:18/1  30:1/1  31:1/1  32:1/1  33:1/1  34:2/80000001  35:1/1  36:1/1  37:1/80000000  38:1/80000000  39:1/1  40:1/1  41:1/1  43:1/1  44:1/2  45:1/2  46:1/1  47:1/1  48:1/1  49:1/2  64:1/1  65:1/1  66:1/1  67:1/1  68:1/1  69:1/1  70:1/1  71:1/1  72:1/1  73:1/1  74:1/1  75:1/1  76:1/1  77:1/1  78:1/1  79:1/1  80:1/1  81:1/1  82:1/1  83:1/1  84:1/1  85:1/1  86:1/1  87:1/1  88:1/1  89:1/1  90:1/1  91:1/1  92:1/1  93:1/1  94:1/1  95:1/1
+GetDriverInfo asked:  d7b70ee0:6  efd60cc0:6  406b2f00:6  efd60cc1:6  b1122b40:6  efd60cc2:6  0ba584e1:6  ddf41230:6  80863800:6  93869880:6  7de41f80:7  ffaa7540:7  3b8a0466:7
+
+== M8CENSUS before-M8TUNG
+no census in this driver
+
+== M8CENSUS during-M8TUNG
+flipwhy gdi 2 slow 2 unknown 0 cardunknown 2 boxes 0 colour 0
+clock 1193180 ours 27307905 flip 6443874 engine 6092845 flips 15 pagewait 0
+writes 51584 pieces 182
+sizes 191 3040 2395 543 joined 4726 5789 colours 107
+contexts 1 with Z 0  targets set 0  textures 1
+calls exec 0 one 0 indexed 44 prims 65  other ops 0
+tris 8141 textured 8141 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 1041
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):  4:49  6:168
+triangle size, longer side from  1:33  2:52  4:135  8:3119  16:2207  32:1165  64:1024  128:406
+triangles a call from  2:75  4:99  8:5  16:18  32:10  256:1  512:9
+state pairs a block from  1:223  4:13  16:1  64:1
+texture longer side from  256:1
+states set (type:times/values seen):  1:2/3  2:15/1  3:1/2  4:16/3  5:2/3  6:2/3  7:1/1  8:1/8  9:15/4  10:1/1  11:1/1  12:1/2000  13:1/80000000  14:1/2  15:1/1  16:1/2  17:2/6  18:2/6  19:1/4  20:1/2  21:1/4  22:1/8  23:1/10  24:1/1  25:1/100  26:15/1  27:2/1  28:15/1  29:15/1  30:1/1  31:1/1  32:1/1  33:1/1  34:2/80000001  35:1/1  36:1/1  37:1/80000000  38:1/80000000  39:1/1  40:1/1  41:1/1  43:1/1  44:1/2  45:1/2  46:1/1  47:1/1  48:1/1  49:1/2  64:1/1  65:1/1  66:1/1  67:1/1  68:1/1  69:1/1  70:1/1  71:1/1  72:1/1  73:1/1  74:1/1  75:1/1  76:1/1  77:1/1  78:1/1  79:1/1  80:1/1  81:1/1  82:1/1  83:1/1  84:1/1  85:1/1  86:1/1  87:1/1  88:1/1  89:1/1  90:1/1  91:1/1  92:1/1  93:1/1  94:1/1  95:1/1
+GetDriverInfo asked:  d7b70ee0:3  efd60cc0:3  406b2f00:3  efd60cc1:3  b1122b40:3  efd60cc2:3  0ba584e1:3  ddf41230:3  80863800:3  93869880:3  7de41f80:4  ffaa7540:4  3b8a0466:4
+
+== M8CENSUS before-M8TUNG
+flipwhy gdi 2 slow 2 unknown 0 cardunknown 2 boxes 0 colour 0
+clock 1193180 ours 29285380 flip 6851832 engine 6500803 flips 16 pagewait 0
+writes 56068 pieces 193
+sizes 207 3341 2560 579 joined 5113 6273 colours 113
+contexts 1 with Z 0  targets set 0  textures 1
+calls exec 0 one 0 indexed 45 prims 72  other ops 0
+tris 8874 textured 8874 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 1107
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):  4:50  6:189
+triangle size, longer side from  1:36  2:62  4:159  8:3408  16:2427  32:1233  64:1110  128:439
+triangles a call from  2:84  4:111  8:5  16:18  32:10  256:1  512:10
+state pairs a block from  1:250  4:14  16:1  64:1
+texture longer side from  256:1
+states set (type:times/values seen):  1:3/3  2:16/1  3:1/2  4:17/3  5:2/3  6:2/3  7:1/1  8:1/8  9:16/4  10:1/1  11:1/1  12:1/2000  13:1/80000000  14:1/2  15:1/1  16:1/2  17:2/6  18:2/6  19:1/4  20:1/2  21:1/4  22:1/8  23:1/10  24:1/1  25:1/100  26:16/1  27:2/1  28:16/1  29:16/1  30:1/1  31:1/1  32:1/1  33:1/1  34:2/80000001  35:1/1  36:1/1  37:1/80000000  38:1/80000000  39:1/1  40:1/1  41:1/1  43:1/1  44:1/2  45:1/2  46:1/1  47:1/1  48:1/1  49:1/2  64:1/1  65:1/1  66:1/1  67:1/1  68:1/1  69:1/1  70:1/1  71:1/1  72:1/1  73:1/1  74:1/1  75:1/1  76:1/1  77:1/1  78:1/1  79:1/1  80:1/1  81:1/1  82:1/1  83:1/1  84:1/1  85:1/1  86:1/1  87:1/1  88:1/1  89:1/1  90:1/1  91:1/1  92:1/1  93:1/1  94:1/1  95:1/1
+GetDriverInfo asked:  d7b70ee0:3  efd60cc0:3  406b2f00:3  efd60cc1:3  b1122b40:3  efd60cc2:3  0ba584e1:3  ddf41230:3  80863800:3  93869880:3  7de41f80:5  ffaa7540:5  3b8a0466:5
+
+== M8CENSUS during-M8TUNG
+flipwhy gdi 4 slow 4 unknown 0 cardunknown 4 boxes 0 colour 0
+clock 1193180 ours 95354326 flip 20351732 engine 19755241 flips 51 pagewait 0
+writes 476540 pieces 7570
+sizes 560 9736 9801 2004 joined 16707 20719 colours 363
+contexts 2 with Z 0  targets set 0  textures 2
+calls exec 0 one 0 indexed 113 prims 265  other ops 0
+tris 30552 textured 30552 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 4129
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):  4:124  6:753
+triangle size, longer side from  1:84  2:172  4:601  8:8893  16:9241  32:5879  64:4205  128:1477
+triangles a call from  2:337  4:429  8:12  16:37  32:20  256:9  512:33
+state pairs a block from  1:977  4:48  16:2  64:2
+texture longer side from  256:2
+states set (type:times/values seen):  1:5/3  2:52/1  3:2/2  4:54/3  5:4/3  6:4/3  7:2/1  8:2/8  9:52/4  10:2/1  11:2/1  12:2/2000  13:2/80000000  14:2/2  15:2/1  16:2/2  17:4/6  18:4/6  19:2/4  20:2/2  21:2/4  22:2/8  23:2/10  24:2/1  25:2/100  26:52/1  27:4/1  28:52/1  29:52/1  30:2/1  31:2/1  32:2/1  33:2/1  34:4/80000001  35:2/1  36:2/1  37:2/80000000  38:2/80000000  39:2/1  40:2/1  41:2/1  43:2/1  44:2/2  45:2/2  46:2/1  47:2/1  48:2/1  49:2/2  64:2/1  65:2/1  66:2/1  67:2/1  68:2/1  69:2/1  70:2/1  71:2/1  72:2/1  73:2/1  74:2/1  75:2/1  76:2/1  77:2/1  78:2/1  79:2/1  80:2/1  81:2/1  82:2/1  83:2/1  84:2/1  85:2/1  86:2/1  87:2/1  88:2/1  89:2/1  90:2/1  91:2/1  92:2/1  93:2/1  94:2/1  95:2/1
+GetDriverInfo asked:  d7b70ee0:6  efd60cc0:6  406b2f00:6  efd60cc1:6  b1122b40:6  efd60cc2:6  0ba584e1:6  ddf41230:6  80863800:6  93869880:6  7de41f80:9  ffaa7540:9  3b8a0466:9
+
+== M8CENSUS before-M8TUNG
+no census in this driver
+
+== M8CENSUS during-M8TUNG
+flipwhy gdi 3 slow 3 unknown 0 cardunknown 3 boxes 0 colour 0
+clock 1193180 ours 60591114 flip 12571507 engine 12212465 flips 30 pagewait 0
+writes 293814 pieces 5365
+sizes 342 6135 5962 1191 joined 10348 12776 colours 214
+contexts 1 with Z 0  targets set 0  textures 1
+calls exec 0 one 0 indexed 63 prims 160  other ops 0
+tris 19106 textured 19106 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 2484
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):  4:68  6:461
+triangle size, longer side from  1:44  2:105  4:429  8:5323  16:6120  32:3749  64:2439  128:897
+triangles a call from  2:207  4:260  8:7  16:19  32:10  256:3  512:23
+state pairs a block from  1:595  4:29  16:1  64:1
+texture longer side from  256:1
+states set (type:times/values seen):  1:2/3  2:31/1  3:1/2  4:32/3  5:2/3  6:2/3  7:1/1  8:1/8  9:31/4  10:1/1  11:1/1  12:1/2000  13:1/80000000  14:1/2  15:1/1  16:1/2  17:2/6  18:2/6  19:1/4  20:1/2  21:1/4  22:1/8  23:1/10  24:1/1  25:1/100  26:31/1  27:2/1  28:31/1  29:31/1  30:1/1  31:1/1  32:1/1  33:1/1  34:2/80000001  35:1/1  36:1/1  37:1/80000000  38:1/80000000  39:1/1  40:1/1  41:1/1  43:1/1  44:1/2  45:1/2  46:1/1  47:1/1  48:1/1  49:1/2  64:1/1  65:1/1  66:1/1  67:1/1  68:1/1  69:1/1  70:1/1  71:1/1  72:1/1  73:1/1  74:1/1  75:1/1  76:1/1  77:1/1  78:1/1  79:1/1  80:1/1  81:1/1  82:1/1  83:1/1  84:1/1  85:1/1  86:1/1  87:1/1  88:1/1  89:1/1  90:1/1  91:1/1  92:1/1  93:1/1  94:1/1  95:1/1
+GetDriverInfo asked:  d7b70ee0:3  efd60cc0:3  406b2f00:3  efd60cc1:3  b1122b40:3  efd60cc2:3  0ba584e1:3  ddf41230:3  80863800:3  93869880:3  7de41f80:4  ffaa7540:4  3b8a0466:4
+
+== M8CENSUS before-M8TUNG
+no census in this driver
+
+== M8CENSUS during-M8TUNG
+flipwhy gdi 2 slow 2 unknown 0 cardunknown 2 boxes 0 colour 0
+clock 1193180 ours 57744517 flip 11931898 engine 11674305 flips 30 pagewait 0
+writes 331566 pieces 5593
+sizes 342 6135 5962 1191 joined 10348 12776 colours 214
+contexts 1 with Z 0  targets set 0  textures 1
+calls exec 0 one 0 indexed 62 prims 159  other ops 0
+tris 19053 textured 19053 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 2448
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):  4:67  6:461
+triangle size, longer side from  1:44  2:105  4:429  8:5323  16:6120  32:3696  64:2439  128:897
+triangles a call from  2:207  4:260  8:7  16:19  32:10  256:2  512:23
+state pairs a block from  1:595  4:28  16:1  64:1
+texture longer side from  256:1
+states set (type:times/values seen):  1:2/3  2:30/1  3:1/2  4:31/3  5:2/3  6:2/3  7:1/1  8:1/8  9:30/4  10:1/1  11:1/1  12:1/2000  13:1/80000000  14:1/2  15:1/1  16:1/2  17:2/6  18:2/6  19:1/4  20:1/2  21:1/4  22:1/8  23:1/10  24:1/1  25:1/100  26:30/1  27:2/1  28:30/1  29:30/1  30:1/1  31:1/1  32:1/1  33:1/1  34:2/80000001  35:1/1  36:1/1  37:1/80000000  38:1/80000000  39:1/1  40:1/1  41:1/1  43:1/1  44:1/2  45:1/2  46:1/1  47:1/1  48:1/1  49:1/2  64:1/1  65:1/1  66:1/1  67:1/1  68:1/1  69:1/1  70:1/1  71:1/1  72:1/1  73:1/1  74:1/1  75:1/1  76:1/1  77:1/1  78:1/1  79:1/1  80:1/1  81:1/1  82:1/1  83:1/1  84:1/1  85:1/1  86:1/1  87:1/1  88:1/1  89:1/1  90:1/1  91:1/1  92:1/1  93:1/1  94:1/1  95:1/1
+GetDriverInfo asked:  d7b70ee0:3  efd60cc0:3  406b2f00:3  efd60cc1:3  b1122b40:3  efd60cc2:3  0ba584e1:3  ddf41230:3  80863800:3  93869880:3  7de41f80:4  ffaa7540:4  3b8a0466:4
+
+== M8CENSUS before-M8TUNG
+no census in this driver
+
+== M8CENSUS during-M8TUNG
+flipwhy gdi 3 slow 3 unknown 0 cardunknown 3 boxes 0 colour 0
+clock 1193180 ours 54858467 flip 11602770 engine 11219228 flips 28 pagewait 0
+writes 291333 pieces 4760
+sizes 317 5976 5395 1109 joined 9772 11999 colours 201
+contexts 1 with Z 0  targets set 0  textures 1
+calls exec 0 one 0 indexed 57 prims 146  other ops 0
+tris 17821 textured 17821 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 2225
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):  4:62  6:422
+triangle size, longer side from  1:40  2:96  4:399  8:5210  16:5693  32:3333  64:2213  128:837
+triangles a call from  2:191  4:237  8:5  16:18  32:10  256:1  512:22
+state pairs a block from  1:545  4:26  16:1  64:1
+texture longer side from  256:1
+states set (type:times/values seen):  1:2/3  2:28/1  3:1/2  4:29/3  5:2/3  6:2/3  7:1/1  8:1/8  9:28/4  10:1/1  11:1/1  12:1/2000  13:1/80000000  14:1/2  15:1/1  16:1/2  17:2/6  18:2/6  19:1/4  20:1/2  21:1/4  22:1/8  23:1/10  24:1/1  25:1/100  26:28/1  27:2/1  28:28/1  29:28/1  30:1/1  31:1/1  32:1/1  33:1/1  34:2/80000001  35:1/1  36:1/1  37:1/80000000  38:1/80000000  39:1/1  40:1/1  41:1/1  43:1/1  44:1/2  45:1/2  46:1/1  47:1/1  48:1/1  49:1/2  64:1/1  65:1/1  66:1/1  67:1/1  68:1/1  69:1/1  70:1/1  71:1/1  72:1/1  73:1/1  74:1/1  75:1/1  76:1/1  77:1/1  78:1/1  79:1/1  80:1/1  81:1/1  82:1/1  83:1/1  84:1/1  85:1/1  86:1/1  87:1/1  88:1/1  89:1/1  90:1/1  91:1/1  92:1/1  93:1/1  94:1/1  95:1/1
+GetDriverInfo asked:  d7b70ee0:3  efd60cc0:3  406b2f00:3  efd60cc1:3  b1122b40:3  efd60cc2:3  0ba584e1:3  ddf41230:3  80863800:3  93869880:3  7de41f80:4  ffaa7540:4  3b8a0466:4
+
+== M8CENSUS before-M8TUNG
+flipwhy gdi 4 slow 4 unknown 0 cardunknown 4 boxes 0 colour 0
+clock 1193180 ours 56894234 flip 12413496 engine 11884141 flips 30 pagewait 0
+writes 334747 pieces 5652
+sizes 341 6190 5958 1200 joined 10422 12831 colours 218
+contexts 1 with Z 0  targets set 0  textures 1
+calls exec 0 one 0 indexed 59 prims 149  other ops 0
+tris 18439 textured 18439 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 2331
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):  4:64  6:426
+triangle size, longer side from  1:42  2:98  4:415  8:5280  16:5918  32:3493  64:2323  128:870
+triangles a call from  2:191  4:241  8:5  16:19  32:10  256:1  512:23
+state pairs a block from  1:551  4:27  16:1  64:1
+texture longer side from  256:1
+states set (type:times/values seen):  1:3/3  2:29/1  3:1/2  4:30/3  5:2/3  6:2/3  7:1/1  8:1/8  9:29/4  10:1/1  11:1/1  12:1/2000  13:1/80000000  14:1/2  15:1/1  16:1/2  17:2/6  18:2/6  19:1/4  20:1/2  21:1/4  22:1/8  23:1/10  24:1/1  25:1/100  26:29/1  27:2/1  28:29/1  29:29/1  30:1/1  31:1/1  32:1/1  33:1/1  34:2/80000001  35:1/1  36:1/1  37:1/80000000  38:1/80000000  39:1/1  40:1/1  41:1/1  43:1/1  44:1/2  45:1/2  46:1/1  47:1/1  48:1/1  49:1/2  64:1/1  65:1/1  66:1/1  67:1/1  68:1/1  69:1/1  70:1/1  71:1/1  72:1/1  73:1/1  74:1/1  75:1/1  76:1/1  77:1/1  78:1/1  79:1/1  80:1/1  81:1/1  82:1/1  83:1/1  84:1/1  85:1/1  86:1/1  87:1/1  88:1/1  89:1/1  90:1/1  91:1/1  92:1/1  93:1/1  94:1/1  95:1/1
+GetDriverInfo asked:  d7b70ee0:3  efd60cc0:3  406b2f00:3  efd60cc1:3  b1122b40:3  efd60cc2:3  0ba584e1:3  ddf41230:3  80863800:3  93869880:3  7de41f80:5  ffaa7540:5  3b8a0466:5
+
+== M8CENSUS during-M8TUNG
+flipwhy gdi 6 slow 6 unknown 0 cardunknown 6 boxes 0 colour 0
+clock 1193180 ours 135248553 flip 27651443 engine 26861917 flips 74 pagewait 0
+writes 828949 pieces 14375
+sizes 722 12771 14291 3209 joined 23249 29061 colours 536
+contexts 2 with Z 0  targets set 0  textures 2
+calls exec 0 one 0 indexed 158 prims 380  other ops 0
+tris 42787 textured 42787 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 6250
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):  4:181  6:1055
+triangle size, longer side from  1:97  2:223  4:877  8:10827  16:13065  32:8996  64:6319  128:2370  256:13
+triangles a call from  1:3  2:471  4:606  8:17  16:56  32:24  128:1  256:12  512:46
+state pairs a block from  1:1384  4:70  16:2  64:2
+texture longer side from  256:2
+states set (type:times/values seen):  1:5/3  2:74/1  3:2/2  4:76/3  5:4/3  6:4/3  7:2/1  8:2/8  9:74/4  10:2/1  11:2/1  12:2/2000  13:2/80000000  14:2/2  15:2/1  16:2/2  17:4/6  18:4/6  19:2/4  20:2/2  21:2/4  22:2/8  23:2/10  24:2/1  25:2/100  26:74/1  27:4/1  28:74/1  29:74/1  30:2/1  31:2/1  32:2/1  33:2/1  34:4/80000001  35:2/1  36:2/1  37:2/80000000  38:2/80000000  39:2/1  40:2/1  41:2/1  43:2/1  44:2/2  45:2/2  46:2/1  47:2/1  48:2/1  49:2/2  64:2/1  65:2/1  66:2/1  67:2/1  68:2/1  69:2/1  70:2/1  71:2/1  72:2/1  73:2/1  74:2/1  75:2/1  76:2/1  77:2/1  78:2/1  79:2/1  80:2/1  81:2/1  82:2/1  83:2/1  84:2/1  85:2/1  86:2/1  87:2/1  88:2/1  89:2/1  90:2/1  91:2/1  92:2/1  93:2/1  94:2/1  95:2/1
+GetDriverInfo asked:  d7b70ee0:6  efd60cc0:6  406b2f00:6  efd60cc1:6  b1122b40:6  efd60cc2:6  0ba584e1:6  ddf41230:6  80863800:6  93869880:6  7de41f80:9  ffaa7540:9  3b8a0466:9
+
+== M8CENSUS bedtw1-a
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:1  ffaa7540:1  3b8a0466:1
+
+== M8CENSUS bedtw2-a
+flipwhy gdi 1 slow 33 unknown 0 cardunknown 1 boxes 33 colour 0
+clock 1193180 ours 2543068 flip 9154824 engine 1888 flips 33 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 1 with Z 0  targets set 0  textures 0
+calls exec 45 one 0 indexed 0 prims 2  other ops 0
+tris 9638 textured 0 z 0 blend 0 alphatest 0 colorkey 9638 fog 0 perspective 0 clipped 483
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from  1:11  2:29  4:292  8:3001  16:4234  32:1425  64:572  128:74
+triangles a call from  2:1  4:4  8:3  16:3  32:1  128:10  256:23
+state pairs a block from  4:1  64:1
+texture longer side from
+states set (type:times/values seen):  1:34/1  2:3/1  3:1/2  4:3/1  5:34/3  6:1/1  7:3/1  8:3/8  9:3/4  10:1/1  11:1/1  12:1/2000  13:1/80000000  14:3/2  15:1/1  16:1/2  17:3/2  18:3/2  19:1/4  20:1/2  21:3/4  22:1/8  23:3/10  24:1/1  25:1/100  26:3/1  27:2/1  28:3/1  29:3/2  30:1/1  31:1/1  32:1/1  33:1/1  34:3/1  35:1/1  36:1/1  37:1/80000000  38:1/80000000  39:1/1  40:1/1  41:1/2  43:1/1  44:1/2  45:1/2  46:1/1  47:1/1  48:1/1  49:1/2  64:1/1  65:1/1  66:1/1  67:1/1  68:1/1  69:1/1  70:1/1  71:1/1  72:1/1  73:1/1  74:1/1  75:1/1  76:1/1  77:1/1  78:1/1  79:1/1  80:1/1  81:1/1  82:1/1  83:1/1  84:1/1  85:1/1  86:1/1  87:1/1  88:1/1  89:1/1  90:1/1  91:1/1  92:1/1  93:1/1  94:1/1  95:1/1
+GetDriverInfo asked:  d7b70ee0:2  efd60cc0:2  406b2f00:2  efd60cc1:2  b1122b40:2  efd60cc2:2  0ba584e1:2  ddf41230:2  80863800:2  93869880:2  7de41f80:3  ffaa7540:3  3b8a0466:3
+
+== M8CENSUS bedtw2-b
+flipwhy gdi 1 slow 59 unknown 0 cardunknown 1 boxes 59 colour 0
+clock 1193180 ours 4599859 flip 16546905 engine 3375 flips 59 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 1 with Z 0  targets set 0  textures 0
+calls exec 80 one 0 indexed 0 prims 2  other ops 0
+tris 17167 textured 0 z 0 blend 0 alphatest 0 colorkey 17167 fog 0 perspective 0 clipped 918
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from  1:20  2:51  4:406  8:5180  16:7471  32:2705  64:1224  128:110
+triangles a call from  1:1  2:1  4:5  8:8  16:5  32:1  128:21  256:38
+state pairs a block from  4:1  64:1
+texture longer side from
+states set (type:times/values seen):  1:60/1  2:3/1  3:1/2  4:3/1  5:60/3  6:1/1  7:3/1  8:3/8  9:3/4  10:1/1  11:1/1  12:1/2000  13:1/80000000  14:3/2  15:1/1  16:1/2  17:3/2  18:3/2  19:1/4  20:1/2  21:3/4  22:1/8  23:3/10  24:1/1  25:1/100  26:3/1  27:2/1  28:3/1  29:3/2  30:1/1  31:1/1  32:1/1  33:1/1  34:3/1  35:1/1  36:1/1  37:1/80000000  38:1/80000000  39:1/1  40:1/1  41:1/2  43:1/1  44:1/2  45:1/2  46:1/1  47:1/1  48:1/1  49:1/2  64:1/1  65:1/1  66:1/1  67:1/1  68:1/1  69:1/1  70:1/1  71:1/1  72:1/1  73:1/1  74:1/1  75:1/1  76:1/1  77:1/1  78:1/1  79:1/1  80:1/1  81:1/1  82:1/1  83:1/1  84:1/1  85:1/1  86:1/1  87:1/1  88:1/1  89:1/1  90:1/1  91:1/1  92:1/1  93:1/1  94:1/1  95:1/1
+GetDriverInfo asked:  d7b70ee0:2  efd60cc0:2  406b2f00:2  efd60cc1:2  b1122b40:2  efd60cc2:2  0ba584e1:2  ddf41230:2  80863800:2  93869880:2  7de41f80:3  ffaa7540:3  3b8a0466:3
+
+== M8CENSUS before-flip2d
+no census in this driver
+
+== M8CENSUS during-flip2d
+flipwhy gdi 2 slow 11 unknown 11 cardunknown 11 boxes 0 colour 0
+clock 1193180 ours 0 flip 10635651 engine 573 flips 10 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:2  ffaa7540:2  3b8a0466:2
+
+== M8CENSUS before-donuts
+flipwhy gdi 2 slow 18 unknown 18 cardunknown 18 boxes 0 colour 0
+clock 1193180 ours 0 flip 19148177 engine 1030 flips 18 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:3  ffaa7540:3  3b8a0466:3
+
+== M8CENSUS during-donuts
+flipwhy gdi 3 slow 23 unknown 23 cardunknown 23 boxes 0 colour 0
+clock 1193180 ours 0 flip 25419573 engine 2806 flips 23 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:2  efd60cc0:2  406b2f00:2  efd60cc1:2  b1122b40:2  efd60cc2:2  0ba584e1:2  ddf41230:2  80863800:2  93869880:2  7de41f80:5  ffaa7540:5  3b8a0466:5
+
+== M8CENSUS before-memtime
+flipwhy gdi 4 slow 28 unknown 28 cardunknown 28 boxes 0 colour 0
+clock 1193180 ours 0 flip 31125619 engine 4210 flips 28 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:2  efd60cc0:2  406b2f00:2  efd60cc1:2  b1122b40:2  efd60cc2:2  0ba584e1:2  ddf41230:2  80863800:2  93869880:2  7de41f80:6  ffaa7540:6  3b8a0466:6
+
+== M8CENSUS during-memtime
+flipwhy gdi 4 slow 28 unknown 28 cardunknown 28 boxes 0 colour 0
+clock 1193180 ours 0 flip 31125619 engine 4210 flips 28 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:3  efd60cc0:3  406b2f00:3  efd60cc1:3  b1122b40:3  efd60cc2:3  0ba584e1:3  ddf41230:3  80863800:3  93869880:3  7de41f80:7  ffaa7540:7  3b8a0466:7
+
+== M8CENSUS before-stretch
+flipwhy gdi 4 slow 28 unknown 28 cardunknown 28 boxes 0 colour 0
+clock 1193180 ours 0 flip 31125619 engine 4210 flips 28 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:3  efd60cc0:3  406b2f00:3  efd60cc1:3  b1122b40:3  efd60cc2:3  0ba584e1:3  ddf41230:3  80863800:3  93869880:3  7de41f80:7  ffaa7540:7  3b8a0466:7
+
+== M8CENSUS during-stretch
+flipwhy gdi 4 slow 28 unknown 28 cardunknown 28 boxes 0 colour 0
+clock 1193180 ours 0 flip 31125619 engine 4210 flips 28 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:4  efd60cc0:4  406b2f00:4  efd60cc1:4  b1122b40:4  efd60cc2:4  0ba584e1:4  ddf41230:4  80863800:4  93869880:4  7de41f80:8  ffaa7540:8  3b8a0466:8
+
+== M8CENSUS before-wormhole
+flipwhy gdi 4 slow 28 unknown 28 cardunknown 28 boxes 0 colour 0
+clock 1193180 ours 0 flip 31125619 engine 4210 flips 28 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:4  efd60cc0:4  406b2f00:4  efd60cc1:4  b1122b40:4  efd60cc2:4  0ba584e1:4  ddf41230:4  80863800:4  93869880:4  7de41f80:8  ffaa7540:8  3b8a0466:8
+
+== M8CENSUS during-wormhole
+flipwhy gdi 4 slow 28 unknown 28 cardunknown 28 boxes 0 colour 0
+clock 1193180 ours 0 flip 31125619 engine 4210 flips 28 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:5  efd60cc0:5  406b2f00:5  efd60cc1:5  b1122b40:5  efd60cc2:5  0ba584e1:5  ddf41230:5  80863800:5  93869880:5  7de41f80:9  ffaa7540:9  3b8a0466:9
+
+== M8CENSUS before-font
+flipwhy gdi 4 slow 28 unknown 28 cardunknown 28 boxes 0 colour 0
+clock 1193180 ours 0 flip 31125619 engine 4210 flips 28 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:5  efd60cc0:5  406b2f00:5  efd60cc1:5  b1122b40:5  efd60cc2:5  0ba584e1:5  ddf41230:5  80863800:5  93869880:5  7de41f80:9  ffaa7540:9  3b8a0466:9
+
+== M8CENSUS during-font
+flipwhy gdi 4 slow 28 unknown 28 cardunknown 28 boxes 0 colour 0
+clock 1193180 ours 0 flip 31125619 engine 4210 flips 28 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:5  efd60cc0:5  406b2f00:5  efd60cc1:5  b1122b40:5  efd60cc2:5  0ba584e1:5  ddf41230:5  80863800:5  93869880:5  7de41f80:9  ffaa7540:9  3b8a0466:9
+
+== M8CENSUS before-fswindow
+flipwhy gdi 4 slow 28 unknown 28 cardunknown 28 boxes 0 colour 0
+clock 1193180 ours 0 flip 31125619 engine 4210 flips 28 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:5  efd60cc0:5  406b2f00:5  efd60cc1:5  b1122b40:5  efd60cc2:5  0ba584e1:5  ddf41230:5  80863800:5  93869880:5  7de41f80:9  ffaa7540:9  3b8a0466:9
+
+== M8CENSUS during-fswindow
+flipwhy gdi 4 slow 28 unknown 28 cardunknown 28 boxes 0 colour 0
+clock 1193180 ours 0 flip 31125619 engine 4210 flips 28 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:5  efd60cc0:5  406b2f00:5  efd60cc1:5  b1122b40:5  efd60cc2:5  0ba584e1:5  ddf41230:5  80863800:5  93869880:5  7de41f80:10  ffaa7540:10  3b8a0466:10
+
+== M8CENSUS before-switcher
+flipwhy gdi 5 slow 63 unknown 63 cardunknown 63 boxes 0 colour 0
+clock 1193180 ours 0 flip 46469789 engine 6218 flips 63 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:5  efd60cc0:5  406b2f00:5  efd60cc1:5  b1122b40:5  efd60cc2:5  0ba584e1:5  ddf41230:5  80863800:5  93869880:5  7de41f80:10  ffaa7540:10  3b8a0466:10
+
+== M8CENSUS during-switcher
+flipwhy gdi 6 slow 102 unknown 102 cardunknown 102 boxes 0 colour 0
+clock 1193180 ours 0 flip 70980986 engine 66211 flips 102 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:5  efd60cc0:5  406b2f00:5  efd60cc1:5  b1122b40:5  efd60cc2:5  0ba584e1:5  ddf41230:5  80863800:5  93869880:5  7de41f80:11  ffaa7540:11  3b8a0466:11
+
+== M8CENSUS before-mosquito
+flipwhy gdi 6 slow 102 unknown 102 cardunknown 102 boxes 0 colour 0
+clock 1193180 ours 0 flip 70980986 engine 66211 flips 102 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:5  efd60cc0:5  406b2f00:5  efd60cc1:5  b1122b40:5  efd60cc2:5  0ba584e1:5  ddf41230:5  80863800:5  93869880:5  7de41f80:11  ffaa7540:11  3b8a0466:11
+
+== M8CENSUS during-mosquito
+flipwhy gdi 6 slow 102 unknown 102 cardunknown 102 boxes 0 colour 0
+clock 1193180 ours 0 flip 70980986 engine 66211 flips 102 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:5  efd60cc0:5  406b2f00:5  efd60cc1:5  b1122b40:5  efd60cc2:5  0ba584e1:5  ddf41230:5  80863800:5  93869880:5  7de41f80:11  ffaa7540:11  3b8a0466:11
+
+== M8CENSUS before-ddovrly
+flipwhy gdi 6 slow 102 unknown 102 cardunknown 102 boxes 0 colour 0
+clock 1193180 ours 0 flip 70980986 engine 66211 flips 102 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:5  efd60cc0:5  406b2f00:5  efd60cc1:5  b1122b40:5  efd60cc2:5  0ba584e1:5  ddf41230:5  80863800:5  93869880:5  7de41f80:11  ffaa7540:11  3b8a0466:11
+
+== M8CENSUS during-ddovrly
+flipwhy gdi 6 slow 102 unknown 102 cardunknown 102 boxes 0 colour 0
+clock 1193180 ours 0 flip 70980986 engine 66211 flips 102 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:5  efd60cc0:5  406b2f00:5  efd60cc1:5  b1122b40:5  efd60cc2:5  0ba584e1:5  ddf41230:5  80863800:5  93869880:5  7de41f80:11  ffaa7540:11  3b8a0466:11
+
+== M8CENSUS before-WORMHOLE
+no census in this driver
+
+== M8CENSUS during-WORMHOLE
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:2  ffaa7540:2  3b8a0466:2
+
+== M8CENSUS before-WORMHOLE
+no census in this driver
+
+== M8CENSUS during-WORMHOLE
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:2  ffaa7540:2  3b8a0466:2
+
+== M8CENSUS before-flip2d
+no census in this driver
+
+== M8CENSUS during-flip2d
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:2  ffaa7540:2  3b8a0466:2
+
+== M8CENSUS before-donuts
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:3  ffaa7540:3  3b8a0466:3
+
+== M8CENSUS during-donuts
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:2  efd60cc0:2  406b2f00:2  efd60cc1:2  b1122b40:2  efd60cc2:2  0ba584e1:2  ddf41230:2  80863800:2  93869880:2  7de41f80:5  ffaa7540:5  3b8a0466:5
+
+== M8CENSUS before-memtime
+flipwhy gdi 2 slow 2 unknown 1 cardunknown 2 boxes 0 colour 0
+clock 1193180 ours 0 flip 3480660 engine 114 flips 2 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:2  efd60cc0:2  406b2f00:2  efd60cc1:2  b1122b40:2  efd60cc2:2  0ba584e1:2  ddf41230:2  80863800:2  93869880:2  7de41f80:6  ffaa7540:6  3b8a0466:6
+
+== M8CENSUS during-memtime
+flipwhy gdi 2 slow 2 unknown 1 cardunknown 2 boxes 0 colour 0
+clock 1193180 ours 0 flip 3480660 engine 114 flips 2 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:3  efd60cc0:3  406b2f00:3  efd60cc1:3  b1122b40:3  efd60cc2:3  0ba584e1:3  ddf41230:3  80863800:3  93869880:3  7de41f80:7  ffaa7540:7  3b8a0466:7
+
+== M8CENSUS before-stretch
+flipwhy gdi 2 slow 2 unknown 1 cardunknown 2 boxes 0 colour 0
+clock 1193180 ours 0 flip 3480660 engine 114 flips 2 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:3  efd60cc0:3  406b2f00:3  efd60cc1:3  b1122b40:3  efd60cc2:3  0ba584e1:3  ddf41230:3  80863800:3  93869880:3  7de41f80:7  ffaa7540:7  3b8a0466:7
+
+== M8CENSUS during-stretch
+flipwhy gdi 2 slow 2 unknown 1 cardunknown 2 boxes 0 colour 0
+clock 1193180 ours 0 flip 3480660 engine 114 flips 2 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:4  efd60cc0:4  406b2f00:4  efd60cc1:4  b1122b40:4  efd60cc2:4  0ba584e1:4  ddf41230:4  80863800:4  93869880:4  7de41f80:8  ffaa7540:8  3b8a0466:8
+
+== M8CENSUS before-wormhole
+flipwhy gdi 2 slow 2 unknown 1 cardunknown 2 boxes 0 colour 0
+clock 1193180 ours 0 flip 3480660 engine 114 flips 2 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:4  efd60cc0:4  406b2f00:4  efd60cc1:4  b1122b40:4  efd60cc2:4  0ba584e1:4  ddf41230:4  80863800:4  93869880:4  7de41f80:8  ffaa7540:8  3b8a0466:8
+
+== M8CENSUS during-wormhole
+flipwhy gdi 2 slow 2 unknown 1 cardunknown 2 boxes 0 colour 0
+clock 1193180 ours 0 flip 3480660 engine 114 flips 2 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:5  efd60cc0:5  406b2f00:5  efd60cc1:5  b1122b40:5  efd60cc2:5  0ba584e1:5  ddf41230:5  80863800:5  93869880:5  7de41f80:10  ffaa7540:10  3b8a0466:10
+
+== M8CENSUS before-font
+flipwhy gdi 2 slow 2 unknown 1 cardunknown 2 boxes 0 colour 0
+clock 1193180 ours 0 flip 3480660 engine 114 flips 2 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:5  efd60cc0:5  406b2f00:5  efd60cc1:5  b1122b40:5  efd60cc2:5  0ba584e1:5  ddf41230:5  80863800:5  93869880:5  7de41f80:11  ffaa7540:11  3b8a0466:11
+
+== M8CENSUS during-font
+flipwhy gdi 2 slow 2 unknown 1 cardunknown 2 boxes 0 colour 0
+clock 1193180 ours 0 flip 3480660 engine 114 flips 2 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:6  efd60cc0:6  406b2f00:6  efd60cc1:6  b1122b40:6  efd60cc2:6  0ba584e1:6  ddf41230:6  80863800:6  93869880:6  7de41f80:12  ffaa7540:12  3b8a0466:12
+
+== M8CENSUS before-fswindow
+flipwhy gdi 2 slow 2 unknown 1 cardunknown 2 boxes 0 colour 0
+clock 1193180 ours 0 flip 3480660 engine 114 flips 2 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:6  efd60cc0:6  406b2f00:6  efd60cc1:6  b1122b40:6  efd60cc2:6  0ba584e1:6  ddf41230:6  80863800:6  93869880:6  7de41f80:12  ffaa7540:12  3b8a0466:12
+
+== M8CENSUS during-fswindow
+flipwhy gdi 2 slow 2 unknown 1 cardunknown 2 boxes 0 colour 0
+clock 1193180 ours 0 flip 3480660 engine 114 flips 2 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:7  efd60cc0:7  406b2f00:7  efd60cc1:7  b1122b40:7  efd60cc2:7  0ba584e1:7  ddf41230:7  80863800:7  93869880:7  7de41f80:14  ffaa7540:14  3b8a0466:14
+
+== M8CENSUS before-switcher
+flipwhy gdi 3 slow 43 unknown 42 cardunknown 43 boxes 0 colour 0
+clock 1193180 ours 0 flip 20572587 engine 2459 flips 43 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:7  efd60cc0:7  406b2f00:7  efd60cc1:7  b1122b40:7  efd60cc2:7  0ba584e1:7  ddf41230:7  80863800:7  93869880:7  7de41f80:14  ffaa7540:14  3b8a0466:14
+
+== M8CENSUS during-switcher
+flipwhy gdi 3 slow 83 unknown 82 cardunknown 83 boxes 0 colour 0
+clock 1193180 ours 0 flip 41418688 engine 4697 flips 82 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:7  efd60cc0:7  406b2f00:7  efd60cc1:7  b1122b40:7  efd60cc2:7  0ba584e1:7  ddf41230:7  80863800:7  93869880:7  7de41f80:14  ffaa7540:14  3b8a0466:14
+
+== M8CENSUS before-mosquito
+flipwhy gdi 3 slow 84 unknown 83 cardunknown 84 boxes 0 colour 0
+clock 1193180 ours 0 flip 42795083 engine 4811 flips 84 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:7  efd60cc0:7  406b2f00:7  efd60cc1:7  b1122b40:7  efd60cc2:7  0ba584e1:7  ddf41230:7  80863800:7  93869880:7  7de41f80:15  ffaa7540:15  3b8a0466:15
+
+== M8CENSUS during-mosquito
+flipwhy gdi 3 slow 84 unknown 83 cardunknown 84 boxes 0 colour 0
+clock 1193180 ours 0 flip 42795083 engine 4811 flips 84 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:7  efd60cc0:7  406b2f00:7  efd60cc1:7  b1122b40:7  efd60cc2:7  0ba584e1:7  ddf41230:7  80863800:7  93869880:7  7de41f80:15  ffaa7540:15  3b8a0466:15
+
+== M8CENSUS before-ddovrly
+flipwhy gdi 3 slow 84 unknown 83 cardunknown 84 boxes 0 colour 0
+clock 1193180 ours 0 flip 42795083 engine 4811 flips 84 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:7  efd60cc0:7  406b2f00:7  efd60cc1:7  b1122b40:7  efd60cc2:7  0ba584e1:7  ddf41230:7  80863800:7  93869880:7  7de41f80:15  ffaa7540:15  3b8a0466:15
+
+== M8CENSUS during-ddovrly
+flipwhy gdi 3 slow 84 unknown 83 cardunknown 84 boxes 0 colour 0
+clock 1193180 ours 0 flip 42795083 engine 4811 flips 84 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:7  efd60cc0:7  406b2f00:7  efd60cc1:7  b1122b40:7  efd60cc2:7  0ba584e1:7  ddf41230:7  80863800:7  93869880:7  7de41f80:15  ffaa7540:15  3b8a0466:15
+
+== M8CENSUS before-mosquito
+no census in this driver
+
+== M8CENSUS during-mosquito
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1
+
+== M8CENSUS before-ddovrly
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1
+
+== M8CENSUS during-ddovrly
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:2  efd60cc0:2  406b2f00:2  efd60cc1:2  b1122b40:2  efd60cc2:2  0ba584e1:2  ddf41230:2  80863800:2  93869880:2
+
+== M8CENSUS before-mosquito
+no census in this driver
+
+== M8CENSUS during-mosquito
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:1  ffaa7540:1  3b8a0466:1
+
+== M8CENSUS before-ddovrly
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:1  ffaa7540:1  3b8a0466:1
+
+== M8CENSUS during-ddovrly
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:2  efd60cc0:2  406b2f00:2  efd60cc1:2  b1122b40:2  efd60cc2:2  0ba584e1:2  ddf41230:2  80863800:2  93869880:2  7de41f80:2  ffaa7540:2  3b8a0466:2
+
+== M8CENSUS before-flip2d
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:2  efd60cc0:2  406b2f00:2  efd60cc1:2  b1122b40:2  efd60cc2:2  0ba584e1:2  ddf41230:2  80863800:2  93869880:2  7de41f80:2  ffaa7540:2  3b8a0466:2
+
+== M8CENSUS during-flip2d
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:3  efd60cc0:3  406b2f00:3  efd60cc1:3  b1122b40:3  efd60cc2:3  0ba584e1:3  ddf41230:3  80863800:3  93869880:3  7de41f80:4  ffaa7540:4  3b8a0466:4
+
+== M8CENSUS before-wormhole
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:3  efd60cc0:3  406b2f00:3  efd60cc1:3  b1122b40:3  efd60cc2:3  0ba584e1:3  ddf41230:3  80863800:3  93869880:3  7de41f80:5  ffaa7540:5  3b8a0466:5
+
+== M8CENSUS during-wormhole
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:4  efd60cc0:4  406b2f00:4  efd60cc1:4  b1122b40:4  efd60cc2:4  0ba584e1:4  ddf41230:4  80863800:4  93869880:4  7de41f80:7  ffaa7540:7  3b8a0466:7
+
+== M8CENSUS before-wormhole
+no census in this driver
+
+== M8CENSUS during-wormhole
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:2  ffaa7540:2  3b8a0466:2
+
+== M8CENSUS before-wormhole
+no census in this driver
+
+== M8CENSUS during-wormhole
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:2  ffaa7540:2  3b8a0466:2
+
+== M8CENSUS before-donuts
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:3  ffaa7540:3  3b8a0466:3
+
+== M8CENSUS during-donuts
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:2  efd60cc0:2  406b2f00:2  efd60cc1:2  b1122b40:2  efd60cc2:2  0ba584e1:2  ddf41230:2  80863800:2  93869880:2  7de41f80:5  ffaa7540:5  3b8a0466:5
+
+== M8CENSUS before-flip2d
+flipwhy gdi 1 slow 2 unknown 2 cardunknown 2 boxes 0 colour 0
+clock 1193180 ours 0 flip 3610643 engine 114 flips 2 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:2  efd60cc0:2  406b2f00:2  efd60cc1:2  b1122b40:2  efd60cc2:2  0ba584e1:2  ddf41230:2  80863800:2  93869880:2  7de41f80:6  ffaa7540:6  3b8a0466:6
+
+== M8CENSUS during-flip2d
+flipwhy gdi 1 slow 2 unknown 2 cardunknown 2 boxes 0 colour 0
+clock 1193180 ours 0 flip 3610643 engine 114 flips 2 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:3  efd60cc0:3  406b2f00:3  efd60cc1:3  b1122b40:3  efd60cc2:3  0ba584e1:3  ddf41230:3  80863800:3  93869880:3  7de41f80:8  ffaa7540:8  3b8a0466:8
+
+== M8CENSUS before-mosquito
+flipwhy gdi 1 slow 2 unknown 2 cardunknown 2 boxes 0 colour 0
+clock 1193180 ours 0 flip 3610643 engine 114 flips 2 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:3  efd60cc0:3  406b2f00:3  efd60cc1:3  b1122b40:3  efd60cc2:3  0ba584e1:3  ddf41230:3  80863800:3  93869880:3  7de41f80:9  ffaa7540:9  3b8a0466:9
+
+== M8CENSUS during-mosquito
+flipwhy gdi 1 slow 2 unknown 2 cardunknown 2 boxes 0 colour 0
+clock 1193180 ours 0 flip 3610643 engine 114 flips 2 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:4  efd60cc0:4  406b2f00:4  efd60cc1:4  b1122b40:4  efd60cc2:4  0ba584e1:4  ddf41230:4  80863800:4  93869880:4  7de41f80:10  ffaa7540:10  3b8a0466:10
+
+== M8CENSUS before-wormhole
+flipwhy gdi 1 slow 2 unknown 2 cardunknown 2 boxes 0 colour 0
+clock 1193180 ours 0 flip 3610643 engine 114 flips 2 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:4  efd60cc0:4  406b2f00:4  efd60cc1:4  b1122b40:4  efd60cc2:4  0ba584e1:4  ddf41230:4  80863800:4  93869880:4  7de41f80:10  ffaa7540:10  3b8a0466:10
+
+== M8CENSUS during-wormhole
+flipwhy gdi 1 slow 2 unknown 2 cardunknown 2 boxes 0 colour 0
+clock 1193180 ours 0 flip 3610643 engine 114 flips 2 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:5  efd60cc0:5  406b2f00:5  efd60cc1:5  b1122b40:5  efd60cc2:5  0ba584e1:5  ddf41230:5  80863800:5  93869880:5  7de41f80:12  ffaa7540:12  3b8a0466:12
+
+== M8CENSUS before-wormhole
+no census in this driver
+
+== M8CENSUS during-wormhole
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:2  ffaa7540:2  3b8a0466:2
+
+== M8CENSUS before-wormhole
+no census in this driver
+
+== M8CENSUS during-wormhole
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:2  ffaa7540:2  3b8a0466:2
+
+== M8CENSUS before-donuts
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:3  ffaa7540:3  3b8a0466:3
+
+== M8CENSUS during-donuts
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:3  ffaa7540:3  3b8a0466:3
+
+== M8CENSUS before-flip2d
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:3  ffaa7540:3  3b8a0466:3
+
+== M8CENSUS during-flip2d
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:3  ffaa7540:3  3b8a0466:3
+
+== M8CENSUS before-mosquito
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:3  ffaa7540:3  3b8a0466:3
+
+== M8CENSUS during-mosquito
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:3  ffaa7540:3  3b8a0466:3
+
+== M8CENSUS before-wormhole
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:3  ffaa7540:3  3b8a0466:3
+
+== M8CENSUS during-wormhole
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:3  ffaa7540:3  3b8a0466:3
+
+== M8CENSUS before-wormhole
+no census in this driver
+
+== M8CENSUS during-wormhole
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:2  ffaa7540:2  3b8a0466:2
+
+== M8CENSUS before-wormhole
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:3  ffaa7540:3  3b8a0466:3
+
+== M8CENSUS during-wormhole
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:3  ffaa7540:3  3b8a0466:3
+
+== M8CENSUS before-wormhole
+no census in this driver
+
+== M8CENSUS during-wormhole
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:1  ffaa7540:1  3b8a0466:1
+
+== M8CENSUS before-flip2d
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:1  ffaa7540:1  3b8a0466:1
+
+== M8CENSUS during-flip2d
+flipwhy gdi 1 slow 6 unknown 6 cardunknown 6 boxes 0 colour 0
+clock 1193180 ours 0 flip 6814553 engine 344 flips 6 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:2  ffaa7540:2  3b8a0466:2
+
+== M8CENSUS before-mosquito
+flipwhy gdi 2 slow 12 unknown 12 cardunknown 12 boxes 0 colour 0
+clock 1193180 ours 0 flip 12490986 engine 686 flips 12 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:3  ffaa7540:3  3b8a0466:3
+
+== M8CENSUS before-wormhole
+no census in this driver
+
+== M8CENSUS during-wormhole
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:1  ffaa7540:1  3b8a0466:1
+
+== M8CENSUS before-flip2d
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:1  ffaa7540:1  3b8a0466:1
+
+== M8CENSUS during-flip2d
+flipwhy gdi 1 slow 2 unknown 2 cardunknown 2 boxes 0 colour 0
+clock 1193180 ours 0 flip 2216169 engine 114 flips 2 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:2  ffaa7540:2  3b8a0466:2
+
+== M8CENSUS before-mosquito
+flipwhy gdi 2 slow 6 unknown 6 cardunknown 6 boxes 0 colour 0
+clock 1193180 ours 0 flip 6111330 engine 343 flips 6 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:3  ffaa7540:3  3b8a0466:3
+
+== M8CENSUS before-wormhole
+no census in this driver
+
+== M8CENSUS during-wormhole
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:1  ffaa7540:1  3b8a0466:1
+
+== M8CENSUS before-flip2d
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:1  ffaa7540:1  3b8a0466:1
+
+== M8CENSUS during-flip2d
+flipwhy gdi 1 slow 4 unknown 4 cardunknown 4 boxes 0 colour 0
+clock 1193180 ours 0 flip 3068887 engine 172 flips 3 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:2  efd60cc0:2  406b2f00:2  efd60cc1:2  b1122b40:2  efd60cc2:2  0ba584e1:2  ddf41230:2  80863800:2  93869880:2  7de41f80:3  ffaa7540:3  3b8a0466:3
+
+== M8CENSUS before-mosquito
+flipwhy gdi 1 slow 8 unknown 8 cardunknown 8 boxes 0 colour 0
+clock 1193180 ours 0 flip 8630859 engine 458 flips 8 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:2  efd60cc0:2  406b2f00:2  efd60cc1:2  b1122b40:2  efd60cc2:2  0ba584e1:2  ddf41230:2  80863800:2  93869880:2  7de41f80:4  ffaa7540:4  3b8a0466:4
+
+== M8CENSUS during-mosquito
+flipwhy gdi 1 slow 8 unknown 8 cardunknown 8 boxes 0 colour 0
+clock 1193180 ours 0 flip 8630859 engine 458 flips 8 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:3  efd60cc0:3  406b2f00:3  efd60cc1:3  b1122b40:3  efd60cc2:3  0ba584e1:3  ddf41230:3  80863800:3  93869880:3  7de41f80:5  ffaa7540:5  3b8a0466:5
+
+== M8CENSUS before-wormhole
+flipwhy gdi 1 slow 8 unknown 8 cardunknown 8 boxes 0 colour 0
+clock 1193180 ours 0 flip 8630859 engine 458 flips 8 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:3  efd60cc0:3  406b2f00:3  efd60cc1:3  b1122b40:3  efd60cc2:3  0ba584e1:3  ddf41230:3  80863800:3  93869880:3  7de41f80:5  ffaa7540:5  3b8a0466:5
+
+== M8CENSUS during-wormhole
+flipwhy gdi 1 slow 8 unknown 8 cardunknown 8 boxes 0 colour 0
+clock 1193180 ours 0 flip 8630859 engine 458 flips 8 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:4  efd60cc0:4  406b2f00:4  efd60cc1:4  b1122b40:4  efd60cc2:4  0ba584e1:4  ddf41230:4  80863800:4  93869880:4  7de41f80:6  ffaa7540:6  3b8a0466:6
+
+== M8CENSUS before-wormhole
+flipwhy gdi 1 slow 8 unknown 8 cardunknown 8 boxes 0 colour 0
+clock 1193180 ours 0 flip 8630859 engine 458 flips 8 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:4  efd60cc0:4  406b2f00:4  efd60cc1:4  b1122b40:4  efd60cc2:4  0ba584e1:4  ddf41230:4  80863800:4  93869880:4  7de41f80:6  ffaa7540:6  3b8a0466:6
+
+== M8CENSUS during-wormhole
+flipwhy gdi 1 slow 8 unknown 8 cardunknown 8 boxes 0 colour 0
+clock 1193180 ours 0 flip 8630859 engine 458 flips 8 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:5  efd60cc0:5  406b2f00:5  efd60cc1:5  b1122b40:5  efd60cc2:5  0ba584e1:5  ddf41230:5  80863800:5  93869880:5  7de41f80:7  ffaa7540:7  3b8a0466:7
+
+== M8CENSUS before-wormhole
+flipwhy gdi 1 slow 8 unknown 8 cardunknown 8 boxes 0 colour 0
+clock 1193180 ours 0 flip 8630859 engine 458 flips 8 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:5  efd60cc0:5  406b2f00:5  efd60cc1:5  b1122b40:5  efd60cc2:5  0ba584e1:5  ddf41230:5  80863800:5  93869880:5  7de41f80:7  ffaa7540:7  3b8a0466:7
+
+== M8CENSUS during-wormhole
+flipwhy gdi 1 slow 8 unknown 8 cardunknown 8 boxes 0 colour 0
+clock 1193180 ours 0 flip 8630859 engine 458 flips 8 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:6  efd60cc0:6  406b2f00:6  efd60cc1:6  b1122b40:6  efd60cc2:6  0ba584e1:6  ddf41230:6  80863800:6  93869880:6  7de41f80:8  ffaa7540:8  3b8a0466:8
+
+== M8CENSUS before-wormhole
+flipwhy gdi 1 slow 8 unknown 8 cardunknown 8 boxes 0 colour 0
+clock 1193180 ours 0 flip 8630859 engine 458 flips 8 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:6  efd60cc0:6  406b2f00:6  efd60cc1:6  b1122b40:6  efd60cc2:6  0ba584e1:6  ddf41230:6  80863800:6  93869880:6  7de41f80:8  ffaa7540:8  3b8a0466:8
+
+== M8CENSUS during-wormhole
+flipwhy gdi 1 slow 8 unknown 8 cardunknown 8 boxes 0 colour 0
+clock 1193180 ours 0 flip 8630859 engine 458 flips 8 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:7  efd60cc0:7  406b2f00:7  efd60cc1:7  b1122b40:7  efd60cc2:7  0ba584e1:7  ddf41230:7  80863800:7  93869880:7  7de41f80:9  ffaa7540:9  3b8a0466:9
+
+== M8CENSUS before-wormhole
+flipwhy gdi 1 slow 8 unknown 8 cardunknown 8 boxes 0 colour 0
+clock 1193180 ours 0 flip 8630859 engine 458 flips 8 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:7  efd60cc0:7  406b2f00:7  efd60cc1:7  b1122b40:7  efd60cc2:7  0ba584e1:7  ddf41230:7  80863800:7  93869880:7  7de41f80:9  ffaa7540:9  3b8a0466:9
+
+== M8CENSUS during-wormhole
+flipwhy gdi 1 slow 8 unknown 8 cardunknown 8 boxes 0 colour 0
+clock 1193180 ours 0 flip 8630859 engine 458 flips 8 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:8  efd60cc0:8  406b2f00:8  efd60cc1:8  b1122b40:8  efd60cc2:8  0ba584e1:8  ddf41230:8  80863800:8  93869880:8  7de41f80:10  ffaa7540:10  3b8a0466:10
+
+== M8CENSUS before-wormhole
+flipwhy gdi 1 slow 8 unknown 8 cardunknown 8 boxes 0 colour 0
+clock 1193180 ours 0 flip 8630859 engine 458 flips 8 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:8  efd60cc0:8  406b2f00:8  efd60cc1:8  b1122b40:8  efd60cc2:8  0ba584e1:8  ddf41230:8  80863800:8  93869880:8  7de41f80:10  ffaa7540:10  3b8a0466:10
+
+== M8CENSUS during-wormhole
+flipwhy gdi 1 slow 8 unknown 8 cardunknown 8 boxes 0 colour 0
+clock 1193180 ours 0 flip 8630859 engine 458 flips 8 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:9  efd60cc0:9  406b2f00:9  efd60cc1:9  b1122b40:9  efd60cc2:9  0ba584e1:9  ddf41230:9  80863800:9  93869880:9  7de41f80:11  ffaa7540:11  3b8a0466:11
+
+== M8CENSUS before-wormhole
+flipwhy gdi 1 slow 8 unknown 8 cardunknown 8 boxes 0 colour 0
+clock 1193180 ours 0 flip 8630859 engine 458 flips 8 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:9  efd60cc0:9  406b2f00:9  efd60cc1:9  b1122b40:9  efd60cc2:9  0ba584e1:9  ddf41230:9  80863800:9  93869880:9  7de41f80:11  ffaa7540:11  3b8a0466:11
+
+== M8CENSUS during-wormhole
+flipwhy gdi 1 slow 8 unknown 8 cardunknown 8 boxes 0 colour 0
+clock 1193180 ours 0 flip 8630859 engine 458 flips 8 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:10  efd60cc0:10  406b2f00:10  efd60cc1:10  b1122b40:10  efd60cc2:10  0ba584e1:10  ddf41230:10  80863800:10  93869880:10  7de41f80:12  ffaa7540:12  3b8a0466:12
+
+== M8CENSUS before-wormhole
+no census in this driver
+
+== M8CENSUS during-wormhole
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:2  ffaa7540:2  3b8a0466:2
+
+== M8CENSUS before-flip2d
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:3  ffaa7540:3  3b8a0466:3
+
+== M8CENSUS during-flip2d
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:2  efd60cc0:2  406b2f00:2  efd60cc1:2  b1122b40:2  efd60cc2:2  0ba584e1:2  ddf41230:2  80863800:2  93869880:2  7de41f80:5  ffaa7540:5  3b8a0466:5
+
+== M8CENSUS before-wormhole
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:2  efd60cc0:2  406b2f00:2  efd60cc1:2  b1122b40:2  efd60cc2:2  0ba584e1:2  ddf41230:2  80863800:2  93869880:2  7de41f80:6  ffaa7540:6  3b8a0466:6
+
+== M8CENSUS during-wormhole
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:3  efd60cc0:3  406b2f00:3  efd60cc1:3  b1122b40:3  efd60cc2:3  0ba584e1:3  ddf41230:3  80863800:3  93869880:3  7de41f80:8  ffaa7540:8  3b8a0466:8
+
+== M8CENSUS before-flip2d
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:3  efd60cc0:3  406b2f00:3  efd60cc1:3  b1122b40:3  efd60cc2:3  0ba584e1:3  ddf41230:3  80863800:3  93869880:3  7de41f80:9  ffaa7540:9  3b8a0466:9
+
+== M8CENSUS during-flip2d
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:4  efd60cc0:4  406b2f00:4  efd60cc1:4  b1122b40:4  efd60cc2:4  0ba584e1:4  ddf41230:4  80863800:4  93869880:4  7de41f80:11  ffaa7540:11  3b8a0466:11
+
+== M8CENSUS before-wormhole
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:4  efd60cc0:4  406b2f00:4  efd60cc1:4  b1122b40:4  efd60cc2:4  0ba584e1:4  ddf41230:4  80863800:4  93869880:4  7de41f80:12  ffaa7540:12  3b8a0466:12
+
+== M8CENSUS during-wormhole
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:5  efd60cc0:5  406b2f00:5  efd60cc1:5  b1122b40:5  efd60cc2:5  0ba584e1:5  ddf41230:5  80863800:5  93869880:5  7de41f80:14  ffaa7540:14  3b8a0466:14
+
+== M8CENSUS before-flip2d
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:5  efd60cc0:5  406b2f00:5  efd60cc1:5  b1122b40:5  efd60cc2:5  0ba584e1:5  ddf41230:5  80863800:5  93869880:5  7de41f80:15  ffaa7540:15  3b8a0466:15
+
+== M8CENSUS during-flip2d
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:6  efd60cc0:6  406b2f00:6  efd60cc1:6  b1122b40:6  efd60cc2:6  0ba584e1:6  ddf41230:6  80863800:6  93869880:6  7de41f80:17  ffaa7540:17  3b8a0466:17
+
+== M8CENSUS before-wormhole
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:6  efd60cc0:6  406b2f00:6  efd60cc1:6  b1122b40:6  efd60cc2:6  0ba584e1:6  ddf41230:6  80863800:6  93869880:6  7de41f80:18  ffaa7540:18  3b8a0466:18
+
+== M8CENSUS during-wormhole
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:7  efd60cc0:7  406b2f00:7  efd60cc1:7  b1122b40:7  efd60cc2:7  0ba584e1:7  ddf41230:7  80863800:7  93869880:7  7de41f80:20  ffaa7540:20  3b8a0466:20
+
+== M8CENSUS before-flip2d
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:7  efd60cc0:7  406b2f00:7  efd60cc1:7  b1122b40:7  efd60cc2:7  0ba584e1:7  ddf41230:7  80863800:7  93869880:7  7de41f80:21  ffaa7540:21  3b8a0466:21
+
+== M8CENSUS during-flip2d
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:8  efd60cc0:8  406b2f00:8  efd60cc1:8  b1122b40:8  efd60cc2:8  0ba584e1:8  ddf41230:8  80863800:8  93869880:8  7de41f80:23  ffaa7540:23  3b8a0466:23
+
+== M8CENSUS before-wormhole
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:8  efd60cc0:8  406b2f00:8  efd60cc1:8  b1122b40:8  efd60cc2:8  0ba584e1:8  ddf41230:8  80863800:8  93869880:8  7de41f80:24  ffaa7540:24  3b8a0466:24
+
+== M8CENSUS during-wormhole
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:9  efd60cc0:9  406b2f00:9  efd60cc1:9  b1122b40:9  efd60cc2:9  0ba584e1:9  ddf41230:9  80863800:9  93869880:9  7de41f80:26  ffaa7540:26  3b8a0466:26
+
+== M8CENSUS before-flip2d
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:9  efd60cc0:9  406b2f00:9  efd60cc1:9  b1122b40:9  efd60cc2:9  0ba584e1:9  ddf41230:9  80863800:9  93869880:9  7de41f80:27  ffaa7540:27  3b8a0466:27
+
+== M8CENSUS during-flip2d
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:10  efd60cc0:10  406b2f00:10  efd60cc1:10  b1122b40:10  efd60cc2:10  0ba584e1:10  ddf41230:10  80863800:10  93869880:10  7de41f80:29  ffaa7540:29  3b8a0466:29
+
+== M8CENSUS before-flip2d
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0 lockkept 0 ramfront 0 ramunknown 0 ramflush 0 notours 0 partclear 0 overlays 0 sent 0
+8bpp locks 1262 noread 1262 wholesurf 1262 pxread 0 unlocks 1262 pxsent 65594070 xferticks 14556579 flips 632
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:3  ffaa7540:3  3b8a0466:3
+
+== M8CENSUS during-flip2d
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0 lockkept 0 ramfront 0 ramunknown 0 ramflush 0 notours 0 partclear 0 overlays 0 sent 0
+8bpp locks 1269 noread 1269 wholesurf 1269 pxread 0 unlocks 1269 pxsent 65974408 xferticks 14638774 flips 635
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:2  efd60cc0:2  406b2f00:2  efd60cc1:2  b1122b40:2  efd60cc2:2  0ba584e1:2  ddf41230:2  80863800:2  93869880:2  7de41f80:5  ffaa7540:5  3b8a0466:5
+
+== M8CENSUS before-flip2d
+no census in this driver
+
+== M8CENSUS during-flip2d
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0 lockkept 0 ramfront 0 ramunknown 0 ramflush 0 notours 0 partclear 0 overlays 0 sent 0
+8bpp locks 53 noread 52 wholesurf 53 pxread 307200 unlocks 52 pxsent 2744478 xferticks 757747 flips 26
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:1  ffaa7540:1  3b8a0466:1
+
+== M8CENSUS before-dfr
+no census in this driver
+
+== M8CENSUS during-dfr
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0 lockkept 0 ramfront 0 ramunknown 0 ramflush 0 notours 0 partclear 0 overlays 0 sent 0
+8bpp locks 46 noread 46 wholesurf 46 pxread 0 unlocks 45 pxsent 1595970 xferticks 499053 flips 22 pageflushes 22
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:1  ffaa7540:1  3b8a0466:1
+
