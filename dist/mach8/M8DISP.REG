@@ -1,0 +1,16 @@
+REGEDIT4
+
+[HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\Class\Display\0000\DEFAULT]
+"drv"="m8disp.drv"
+
+[HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\Class\Display\0000\MODES\16]
+
+[HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\Class\Display\0000\MODES\16\640,480]
+@=""
+
+[HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\Class\Display\0000\MODES\16\800,600]
+@=""
+
+[HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\Class\Display\0000\INFO]
+"ChipType"="ATI Mach8 (38800)"
+"DACType"="IMS G176"
