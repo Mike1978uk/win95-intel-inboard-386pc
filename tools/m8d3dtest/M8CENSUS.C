@@ -141,6 +141,8 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
             fprintf( o, "8bpp flush ticks all %lu pixels %lu maskbuild %lu masksend %lu fills %lu runs pixels %lu masks %lu maskfail %lu\n",
                      (unsigned long)st[96], (unsigned long)st[97], (unsigned long)st[98], (unsigned long)st[99],
                      (unsigned long)st[100], (unsigned long)st[101], (unsigned long)st[102], (unsigned long)st[103] );
+            fprintf( o, "8bpp flush ticks epoch %lu rowhash %lu pageins build %lu flush %lu buildpx %lu\n", (unsigned long)st[104], (unsigned long)st[105],
+                     (unsigned long)st[106], (unsigned long)st[107], (unsigned long)st[108] );
             fprintf( o, "sizes %lu %lu %lu %lu joined %lu %lu colours %lu\n", (unsigned long)st[27], (unsigned long)st[28],
                      (unsigned long)st[29], (unsigned long)st[30], (unsigned long)st[31], (unsigned long)st[32], (unsigned long)st[33] );
         }

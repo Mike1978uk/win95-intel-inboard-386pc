@@ -311,19 +311,24 @@ static DWORD m8dd_epoch( void )
     return( v );
 }
 
+/* No multiply: an imul per dword cost more than reading the row from RAM (card 11-17). The sum
+ * catches any changed value, the rotated running xor where it moved to. */
 static DWORD m8dd_row_hash( const BYTE *p, int w )
 {
     const DWORD *d = (const DWORD *)p;
-    DWORD       v = 2166136261UL;
+    DWORD       a = 0x9E3779B9UL;
+    DWORD       b = (DWORD)w;
     int         i;
 
     for( i = 0; i < w / 4; ++i ) {
-        v = (v ^ d[i]) * 16777619UL;
+        a += d[i];
+        b = ((b << 5) | (b >> 27)) ^ a;
     }
     if( w & 2 ) {
-        v = (v ^ *(const WORD *)(p + (w & ~3))) * 16777619UL;
+        a += *(const WORD *)(p + (w & ~3));
+        b = ((b << 5) | (b >> 27)) ^ a;
     }
-    return( v );
+    return( a ^ b );
 }
 
 static void m8dd_forget( BYTE *hot );
@@ -2711,76 +2716,149 @@ static DWORD m8dd_ticks( void )
     QueryPerformanceCounter( &t );
     return( t.LowPart );
 }
+/* VMM page-ins so far (System Monitor's counter), for [106]-[107]; 0 if unreadable. */
+static DWORD m8dd_pageins( void )
+{
+    static HKEY h;
+    DWORD       v = 0;
+    DWORD       type;
+    DWORD       size = sizeof( v );
+
+    if( h == NULL ) {
+        HKEY s;
+
+        if( RegOpenKeyEx( HKEY_DYN_DATA, "PerfStats\\StartStat", 0, KEY_READ, &s ) == ERROR_SUCCESS ) {
+            RegQueryValueEx( s, "VMM\\cPageIns", NULL, &type, (BYTE *)&v, &size );
+            RegCloseKey( s );
+        }
+        if( RegOpenKeyEx( HKEY_DYN_DATA, "PerfStats\\StatData", 0, KEY_READ, &h ) != ERROR_SUCCESS ) {
+            h = NULL;
+            return( 0 );
+        }
+        size = sizeof( v );
+    }
+    RegQueryValueEx( h, "VMM\\cPageIns", NULL, &type, (BYTE *)&v, &size );
+    return( v );
+}
+
+/* Bit (7 - i) of byte (j - 1) for colour slot j and pixel i of 8: slots 1-4 in m8dd_mlo, 5-6 in
+ * m8dd_mhi, slot 7 (not seen yet) as m8dd_mhi's top bit. The cache writes through to a slow bus,
+ * so the build keeps its bits in registers and stores one byte a colour per 8 pixels. */
+static DWORD m8dd_mlo[8 * 8];
+static DWORD m8dd_mhi[8 * 8];
+#define M8DD_UNSEEN         7
+#define M8DD_PX( i )        j = slot[s[i]]; lo |= m8dd_mlo[j * 8 + (i)]; hi |= m8dd_mhi[j * 8 + (i)]
+
+/* [106] page-ins while building masks, [107] in whole flushes, [108] pixels the build scanned. */
 static int m8dd_send_masks( const RECT *r, BYTE bg, int *ok )
 {
-    static BYTE     mask[M8DD_DFR_COLS / 8 * M8DD_DFR_ROWS];
-    static DWORD    seen[256];
-    static DWORD    gen;
+    /* Mask k at mask + k * wb * h. Only the touched bytes are paged in. */
+    static BYTE     mask[M8DD_MASK_COLOURS * (M8DD_DFR_COLS / 8) * M8DD_DFR_ROWS];
+    BYTE            slot[256];
     BYTE            col[M8DD_MASK_COLOURS];
     int             w = r->right - r->left;
     int             h = r->bottom - r->top;
     int             wb = (w + 7) / 8;
+    DWORD           wbh = (DWORD)wb * h;
+    BYTE            *out = mask;
     int             n = 0;
     int             y;
-    int             x;
+    int             xb;
+    int             i;
     int             k;
+    unsigned        j;
+    DWORD           lo;
+    DWORD           hi;
+    DWORD           t0;
+    DWORD           pi;
     BYTE            *hot = (BYTE *)m8dd->hot;
 
     if( !m8dd_masks_on ) {
         return( 0 );
     }
-    /* Colours other than bg, stopping once there are too many. */
-    if( ++gen == 0 ) {
-        memset( seen, 0, sizeof( seen ) );
-        gen = 1;
-    }
-    for( y = r->top; y < r->bottom; ++y ) {
-        const BYTE *s = (const BYTE *)(m8dd->shadow + (DWORD)y * m8dd->pitch + r->left);
-
-        for( x = 0; x < w; ++x ) {
-            if( s[x] != bg && seen[s[x]] != gen ) {
-                if( n == M8DD_MASK_COLOURS ) {
-                    return( 0 );
+    if( m8dd_mhi[M8DD_UNSEEN * 8] == 0 ) {
+        for( j = 1; j < 8; ++j ) {
+            for( i = 0; i < 8; ++i ) {
+                if( j <= 4 ) {
+                    m8dd_mlo[j * 8 + i] = (DWORD)(0x80 >> i) << (8 * (j - 1));
+                } else if( j <= 6 ) {
+                    m8dd_mhi[j * 8 + i] = (DWORD)(0x80 >> i) << (8 * (j - 5));
+                } else {
+                    m8dd_mhi[j * 8 + i] = 0x80000000UL;
                 }
-                seen[s[x]] = gen;
-                col[n++] = s[x];
             }
         }
     }
+    /* One pass: each pixel sets its bit in its colour's mask; slot 0 is bg. A group of 8 holding
+     * a colour not seen yet gives it a slot, zeroes that mask so far, and is done again. */
+    t0 = m8dd_ticks();
+    pi = m8dd_pageins();
+    m8d3d_stat[108] += (DWORD)w * h;
+    memset( slot, M8DD_UNSEEN, sizeof( slot ) );
+    slot[bg] = 0;
+    for( y = r->top; y < r->bottom; ++y ) {
+        const BYTE *s = (const BYTE *)(m8dd->shadow + (DWORD)y * m8dd->pitch + r->left);
+
+        for( xb = 0; xb < wb; ++xb, s += 8, ++out ) {
+            int e = w - xb * 8;
+
+            for( ;; ) {
+                lo = hi = 0;
+                if( e >= 8 ) {
+                    M8DD_PX( 0 ); M8DD_PX( 1 ); M8DD_PX( 2 ); M8DD_PX( 3 );
+                    M8DD_PX( 4 ); M8DD_PX( 5 ); M8DD_PX( 6 ); M8DD_PX( 7 );
+                } else {
+                    for( i = 0; i < e; ++i ) {
+                        M8DD_PX( i );
+                    }
+                }
+                if( !(hi & 0x80000000UL) ) {
+                    break;
+                }
+                for( i = 0; i < 8 && i < e; ++i ) {
+                    if( slot[s[i]] == M8DD_UNSEEN ) {
+                        if( n == M8DD_MASK_COLOURS ) {
+                            m8d3d_stat[106] += m8dd_pageins() - pi;
+                            m8d3d_stat[98] += m8dd_ticks() - t0;
+                            return( 0 );
+                        }
+                        col[n] = s[i];
+                        slot[s[i]] = (BYTE)++n;
+                        memset( mask + (n - 1) * wbh, 0, (size_t)(out - mask) );
+                    }
+                }
+            }
+            {
+                BYTE    *o = out;
+                DWORD   v = lo;
+
+                for( k = 0; k < n; ++k, o += wbh ) {
+                    if( k == 4 ) {
+                        v = hi;
+                    }
+                    *o = (BYTE)v;
+                    v >>= 8;
+                }
+            }
+        }
+    }
+    m8d3d_stat[106] += m8dd_pageins() - pi;
+    m8d3d_stat[98] += m8dd_ticks() - t0;
     /* Each mask: a command set-up (~16 port writes) plus its bytes, against w bytes a row. */
-    if( (DWORD)n * ((DWORD)wb * h + 32) + 16 >= (DWORD)w * h ) {
+    if( (DWORD)n * (wbh + 32) + 16 >= (DWORD)w * h ) {
         return( 0 );
     }
     *ok = m8dd_dfr_fills( r, 1, bg );
     ++m8d3d_stat[102];
     for( k = 0; *ok && k < n; ++k ) {
-        BYTE    *m = mask;
-        DWORD   t0 = m8dd_ticks();
-
-        for( y = r->top; y < r->bottom; ++y ) {
-            const BYTE *s = (const BYTE *)(m8dd->shadow + (DWORD)y * m8dd->pitch + r->left);
-            BYTE    b = 0;
-
-            for( x = 0; x < w; ++x ) {
-                b = (BYTE)((b << 1) | (s[x] == col[k]));
-                if( (x & 7) == 7 ) {
-                    *m++ = b;
-                    b = 0;
-                }
-            }
-            if( w & 7 ) {
-                *m++ = (BYTE)(b << (8 - (w & 7)));
-            }
-        }
-        m8d3d_stat[98] += m8dd_ticks() - t0;
         t0 = m8dd_ticks();
         hot[H_BUSY] = 1;
-        *ok = m8dd_mono( r, wb, mask, col[k] );
+        *ok = m8dd_mono( r, wb, mask + k * wbh, col[k] );
         m8d3d_stat[103] += !*ok;
         m8dd_forget( hot );
         hot[H_BUSY] = 0;
         m8d3d_stat[99] += m8dd_ticks() - t0;
-        m8d3d_stat[75] += (DWORD)wb * h;
+        m8d3d_stat[75] += wbh;
     }
     return( 1 );
 }
@@ -2789,9 +2867,14 @@ static int m8dd_send_masks( const RECT *r, BYTE bg, int *ok )
  * run of changed rows goes as one transfer of the columns the frame drew there, and the columns
  * the card still shows from before become fills of the background colour. If anything else drew on
  * the card since its rows were recorded, the page is filled first, as the clear would have done. */
+/* [104] ticks in the epoch check, [105] in the row hashes. */
 static int m8dd_dfr_flush( int p )
 {
     static RECT clr[M8DD_DFR_ROWS];
+    static DWORD rowh[M8DD_DFR_ROWS];
+    DWORD       pi;
+    DWORD       t0;
+    DWORD       e;
     BYTE        c = m8dd_dfr_c[p];
     int         base = p ? M8DD_PAGE1_Y : 0;
     int         nclr = 0;
@@ -2807,8 +2890,12 @@ static int m8dd_dfr_flush( int p )
     }
     m8dd_dfr_on[p] = 0;
     ++m8d3d_stat[95];
+    pi = m8dd_pageins();
     t_all = m8dd_ticks();
-    if( !m8dd_card_known[p] || m8dd_card_bg[p] != c || m8dd_card_epoch[p] != m8dd_epoch() ) {
+    e = m8dd_epoch();
+    t0 = m8dd_ticks();
+    m8d3d_stat[104] += t0 - t_all;
+    if( !m8dd_card_known[p] || m8dd_card_bg[p] != c || m8dd_card_epoch[p] != e ) {
         static int  traced;
         RECT    all;
         BYTE    row[M8DD_DFR_COLS];
@@ -2817,7 +2904,7 @@ static int m8dd_dfr_flush( int p )
         if( traced < 12 ) {
             ++traced;
             m8dd_trace( "dfr page %d whole: known %d bg %d/%d epoch %08lx/%08lx stat25 %lu gen %lu", p,
-                        m8dd_card_known[p], m8dd_card_bg[p], c, m8dd_card_epoch[p], m8dd_epoch(),
+                        m8dd_card_known[p], m8dd_card_bg[p], c, m8dd_card_epoch[p], e,
                         m8d3d_stat[25], m8dd_card_gen );
         }
 
@@ -2839,9 +2926,15 @@ static int m8dd_dfr_flush( int p )
         m8dd_card_bg[p] = c;
         y = 0;
     }
+    t0 = m8dd_ticks();
+    for( y = 0; y < M8DD_DFR_ROWS; ++y ) {
+        rowh[y] = m8dd_row_hash( (const BYTE *)(m8dd->shadow + (DWORD)(base + y) * m8dd->pitch), M8DD_DFR_COLS );
+    }
+    m8d3d_stat[105] += m8dd_ticks() - t0;
+    y = 0;
     while( ok && y < M8DD_DFR_ROWS ) {
         const BYTE  *s = (const BYTE *)(m8dd->shadow + (DWORD)(base + y) * m8dd->pitch);
-        DWORD       h = m8dd_row_hash( s, M8DD_DFR_COLS );
+        DWORD       h = rowh[y];
         int         top = y;
         int         ul = M8DD_DFR_COLS;
         int         ur = 0;
@@ -2878,7 +2971,7 @@ static int m8dd_dfr_flush( int p )
                 break;
             }
             s = (const BYTE *)(m8dd->shadow + (DWORD)(base + y) * m8dd->pitch);
-            h = m8dd_row_hash( s, M8DD_DFR_COLS );
+            h = rowh[y];
         } while( h != m8dd_card_sum[p][y] );
         run.top = base + top;
         run.bottom = base + y;
@@ -2918,9 +3011,13 @@ static int m8dd_dfr_flush( int p )
         ok = m8dd_dfr_fills( clr, nclr, c );
         m8d3d_stat[100] += m8dd_ticks() - t0;
     }
-    m8d3d_stat[96] += m8dd_ticks() - t_all;
     m8dd_card_known[p] = ok;
+    t0 = m8dd_ticks();
     m8dd_card_epoch[p] = m8dd_epoch();
+    e = m8dd_ticks();
+    m8d3d_stat[104] += e - t0;
+    m8d3d_stat[96] += e - t_all;
+    m8d3d_stat[107] += m8dd_pageins() - pi;
     return( ok );
 }
 
