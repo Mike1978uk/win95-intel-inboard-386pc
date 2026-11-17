@@ -36,7 +36,7 @@ Earlier: `docs/next_session_2026_11_17.md`. Newest wins.
 **End of 11-17:** card driver `m8dfr.drv` (DLL `A254C4DF`) = `1167bdb`, the deferred clear (X17 item 1): flip2d
 2.2 fps, ~74 KB a frame, no read-backs (`docs/captures/2026-11-17_dfr_card/`). Way back: `m8head.drv` (`3aaea3a`)
 and `m8nof.drv` (`32bfaac`, DLL `C:\V9XREMOTE\REG\M8DD32.NOF`) still in SYSTEM. Bed `vm_5160_dbg` on the same build.
-**Start next session with X17 item 2, 1-bit masks** (most of the 74 KB is the cube's flat faces).
+**Later still:** masks built (off by default, `[ddraw] masks=1`), flush timers in census slots 96-103 (`m8d3d_stat` now 112), Lock skips hashing a held page. Card `m8nohsh.drv` (boot 418): flip2d **2.8 fps**. Black dark face = flip2d's own shading (shade clamped at 0), not ours. **Next: one-pass mask build in asm, row hash/extent scan in asm, then the feeder** - measurements in `docs/captures/2026-11-17_mask_card/`.
 
 ## Tasks, in order (Opus; commits by Haiku; raise any long run with the owner first)
 
