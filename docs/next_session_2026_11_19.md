@@ -32,9 +32,8 @@ plus the uncommitted M8STEP diagnostic. `86box_h2` worktree (branch `diag-issue1
 
 - **VPICD buffered** (Opus): reached the bed desktop; was proving the file loaded, then writing the deploy doc. Its files
   (`vxd-patches/patch_vpicd_buffered.py`, `VPICD_INBOARD_BUF.VXD`, the doc) are uncommitted - review, then Haiku commits.
-- **MTM dashboard off** (Sonnet, bed `vm_5160_mtm`): result in `docs/captures/2026-11-18_mtm_dashoff_bed/` if it finished;
-  uncommitted. Make sure no 86Box is left running.
-- Uncommitted from tonight: `docs/issue10_old_bios_2026_09_27.md` (Simon = Cimon note, section 19).
+- **MTM dashboard off: done** (`captures/2026-11-18_mtm_dashoff_bed/`): colour runs a row 124 -> 17, but the
+  back buffer is still Locked whole (480 rows) every frame - cause unknown (HUD text a guess). Feeds the S9 design.
 
 ## Next, in order
 
