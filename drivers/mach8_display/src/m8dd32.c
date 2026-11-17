@@ -31,7 +31,7 @@
 extern void m8d3d_init( DWORD *global, DWORD *callbacks, DWORD *driver_info );
 extern int  m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const short *v,
                          const WORD *index, const DWORD *rgb, int n );
-extern DWORD m8d3d_stat[112];
+extern DWORD m8d3d_stat[128];
 extern void m8d3d_feed_finish( void );
 extern void m8d3d_feed_stop( int site );
 extern int m8d3d_lores_on( void );
@@ -494,9 +494,13 @@ static int      m8dd_flip8_traced;
  * background or its unchanged text. */
 #define M8DD_DFR_ROWS   480
 #define M8DD_DFR_COLS   640
+#define M8DD_PAGE1_Y        512
 static int      m8dd_dfr_on[2];
 static BYTE     m8dd_dfr_c[2];
 static int      m8dd_card_known[2];
+/* Page p's shadow unwritten since its flush recorded its extents, so a clear need only wipe those.
+ * Any Lock on the page or any Blt but the held clear (DDRAW may emulate it into the shadow) ends it. */
+static int      m8dd_shadow_clean[2];
 static BYTE     m8dd_card_bg[2];
 static DWORD    m8dd_card_epoch[2];
 static DWORD    m8dd_card_sum[2][M8DD_DFR_ROWS];
@@ -590,6 +594,12 @@ DWORD __stdcall m8dd_lock( M8DD_LOCK *ld )
     ++m8d3d_stat[72];
     m8d3d_stat[83] += !ld->bHasRect;
     ld->lpSurfData = (LPVOID)(m8dd->shadow + (DWORD)r.top * m8dd->pitch + r.left);
+    if( r.top < M8DD_DFR_ROWS ) {
+        m8dd_shadow_clean[0] = 0;
+    }
+    if( r.bottom > M8DD_PAGE1_Y ) {
+        m8dd_shadow_clean[1] = 0;
+    }
     r.left &= ~1;
     r.right = (r.right + 1) & ~1;
     {
@@ -2322,7 +2332,6 @@ static void m8dd_note_boxes( int k, RECT *r )
  * other threads can run between two writes. m8dd_card_box holds page 0's boxes. */
 #define M8DD_SUBSYS         0x42E8
 #define M8DD_CRT_OFFSET_HI  0x2EEE
-#define M8DD_PAGE1_Y        512
 #define M8DD_PAGE1_HI       2           /* 512 rows x 1024 bytes / 4 = 0x20000 */
 #define M8DD_PAGE_TICKS     18000       /* 15 ms at 1193180 Hz: over a frame at 72 Hz */
 
@@ -2863,6 +2872,120 @@ static int m8dd_send_masks( const RECT *r, BYTE bg, int *ok )
     return( 1 );
 }
 
+/* Card rectangle r from the shadow as a background fill of bg and one engine fill a row per run of
+ * any other colour, when that costs less bus time than masks; 0 if not (the caller tries masks,
+ * then pixels). A convex flat face is one span a row. Spans go colour by colour, three to a FIFO
+ * check; the height register stays 0 across them. [109] spans sent, [110] ticks finding them,
+ * [111] ticks sending them. */
+#define M8DD_SPANS_MAX      2048
+static int  m8dd_spans_on = 1;
+
+static int m8dd_send_spans( const RECT *r, BYTE bg, int *ok )
+{
+    static WORD     sx0[M8DD_SPANS_MAX];
+    static WORD     sx1[M8DD_SPANS_MAX];
+    static WORD     sy[M8DD_SPANS_MAX];
+    static BYTE     sk[M8DD_SPANS_MAX];
+    BYTE            slot[256];
+    BYTE            col[M8DD_MASK_COLOURS];
+    int             w = r->right - r->left;
+    int             h = r->bottom - r->top;
+    int             wb = (w + 7) / 8;
+    int             n = 0;
+    int             ns = 0;
+    int             y;
+    int             k;
+    int             i;
+    DWORD           t0;
+    BYTE            *hot = (BYTE *)m8dd->hot;
+
+    if( !m8dd_spans_on ) {
+        return( 0 );
+    }
+    t0 = m8dd_ticks();
+    memset( slot, 0xFF, sizeof( slot ) );
+    for( y = r->top; y < r->bottom; ++y ) {
+        const BYTE *s = (const BYTE *)(m8dd->shadow + (DWORD)y * m8dd->pitch);
+        int         x = r->left;
+        int         e = r->right;
+
+        while( x < e ) {
+            BYTE    v = s[x];
+            int     x0 = x;
+
+            while( ++x < e && s[x] == v ) {
+            }
+            if( v == bg ) {
+                continue;
+            }
+            if( slot[v] == 0xFF ) {
+                if( n == M8DD_MASK_COLOURS ) {
+                    m8d3d_stat[110] += m8dd_ticks() - t0;
+                    return( 0 );
+                }
+                col[n] = v;
+                slot[v] = (BYTE)n++;
+            }
+            if( ns == M8DD_SPANS_MAX ) {
+                m8d3d_stat[110] += m8dd_ticks() - t0;
+                return( 0 );
+            }
+            sx0[ns] = (WORD)x0;
+            sx1[ns] = (WORD)x;
+            sy[ns] = (WORD)y;
+            sk[ns++] = slot[v];
+        }
+    }
+    m8d3d_stat[110] += m8dd_ticks() - t0;
+    /* Bus time in tenths of a microsecond: a span ~4.3 port writes of 7.6 us; a mask its bytes at
+     * 38 a byte (rep outsw) plus ~16 set-up writes. */
+    if( (DWORD)ns * 330 + (DWORD)n * 80 >= (m8dd_masks_on ? (DWORD)n * ((DWORD)wb * h * 38 + 1200) :
+                                               (DWORD)w * h * 38) ) {
+        return( 0 );
+    }
+    *ok = m8dd_dfr_fills( r, 1, bg );
+    t0 = m8dd_ticks();
+    hot[H_BUSY] = 1;
+    if( *ok ) {
+        *ok = m8dd_plain( M8_MIX_FRGD_REPLACE );
+    }
+    if( *ok ) {
+        outpw( M8_MULTIFUNC_CNTL, M8_MF_MIN_AXIS | 0 );
+    }
+    for( k = 0; *ok && k < n; ++k ) {
+        int batch = 0;
+
+        outpw( M8_FRGD_COLOR, col[k] );
+        for( i = 0; i < ns; ++i ) {
+            if( sk[i] != k ) {
+                continue;
+            }
+            if( batch == 0 ) {
+                unsigned t;
+
+                /* Room for three spans and a colour: 13 entries free. */
+                for( t = 0; t < M8_WAIT_LIMIT && (inpw( M8_EXT_FIFO_STATUS ) & (0x8000 >> 13)); ++t ) {
+                }
+                if( t == M8_WAIT_LIMIT ) {
+                    *ok = 0;
+                    break;
+                }
+                batch = 3;
+            }
+            outpw( M8_CUR_X, sx0[i] );
+            outpw( M8_CUR_Y, sy[i] );
+            outpw( M8_MAJ_AXIS_PCNT, sx1[i] - sx0[i] - 1 );
+            outpw( M8_CMD, M8_CMD_FILL );
+            --batch;
+        }
+    }
+    m8dd_forget( hot );
+    hot[H_BUSY] = 0;
+    m8d3d_stat[109] += ns;
+    m8d3d_stat[111] += m8dd_ticks() - t0;
+    return( 1 );
+}
+
 /* Page p's held-back clear onto the card. Rows whose hash matches the card's are left alone; each
  * run of changed rows goes as one transfer of the columns the frame drew there, and the columns
  * the card still shows from before become fills of the background colour. If anything else drew on
@@ -2978,7 +3101,7 @@ static int m8dd_dfr_flush( int p )
         if( ul < ur ) {
             run.left = ul & ~1;
             run.right = (ur + 1) & ~1;
-            if( !m8dd_send_masks( &run, c, &ok ) ) {
+            if( !m8dd_send_spans( &run, c, &ok ) && !m8dd_send_masks( &run, c, &ok ) ) {
                 DWORD t0 = m8dd_ticks();
 
                 m8d3d_stat[75] += (DWORD)(run.right - run.left) * (run.bottom - run.top);
@@ -3012,6 +3135,7 @@ static int m8dd_dfr_flush( int p )
         m8d3d_stat[100] += m8dd_ticks() - t0;
     }
     m8dd_card_known[p] = ok;
+    m8dd_shadow_clean[p] = ok;
     t0 = m8dd_ticks();
     m8dd_card_epoch[p] = m8dd_epoch();
     e = m8dd_ticks();
@@ -3526,6 +3650,7 @@ DWORD __stdcall m8dd_blt( M8DD_BLT *bd )
     long        sy;
     int         ok;
     int         synced = 0;
+    int         was_clean[2];
     long        y;
 
     if( m8dd->fb16 ) {
@@ -3535,6 +3660,9 @@ DWORD __stdcall m8dd_blt( M8DD_BLT *bd )
         return( m8dd_blt16( bd ) );
     }
     m8d3d_feed_stop( 8 );
+    was_clean[0] = m8dd_shadow_clean[0];
+    was_clean[1] = m8dd_shadow_clean[1];
+    m8dd_shadow_clean[0] = m8dd_shadow_clean[1] = 0;
     if( other != 0 || hot[H_HW_OFF] || !m8dd_surf( bd->lpDDDestSurface, &d ) ) {
         return( DDHAL_DRIVER_NOTHANDLED );
     }
@@ -3600,10 +3728,26 @@ DWORD __stdcall m8dd_blt( M8DD_BLT *bd )
         if( p < 0 ) {
             m8dd_dfr_flush_all();
         } else {
-            for( y = c.top; y < c.bottom; ++y ) {
-                memset( (BYTE *)(m8dd->shadow + (DWORD)y * m8dd->pitch + c.left),
-                        (BYTE)bd->bltFX.dwFillColor, c.right - c.left );
+            BYTE    fc = (BYTE)bd->bltFX.dwFillColor;
+
+            /* Clean since its flush, at the colour the flush measured against: only what that
+             * flush found drawn needs wiping. 307 KB of stores is ~37 ms on this bus. */
+            if( was_clean[p] && m8dd_card_known[p] && m8dd_card_bg[p] == fc &&
+                m8dd_card_epoch[p] == m8dd_epoch() ) {
+                for( y = 0; y < M8DD_DFR_ROWS; ++y ) {
+                    if( m8dd_card_l[p][y] < m8dd_card_r[p][y] ) {
+                        memset( (BYTE *)(m8dd->shadow + (DWORD)(c.top + y) * m8dd->pitch + m8dd_card_l[p][y]),
+                                fc, m8dd_card_r[p][y] - m8dd_card_l[p][y] );
+                    }
+                }
+                ++m8d3d_stat[120];
+            } else {
+                for( y = c.top; y < c.bottom; ++y ) {
+                    memset( (BYTE *)(m8dd->shadow + (DWORD)y * m8dd->pitch + c.left), fc, c.right - c.left );
+                }
+                ++m8d3d_stat[121];
             }
+            m8dd_shadow_clean[!p] = was_clean[!p];
             if( synced ) {
                 UnionRect( &m8dd_synced, &m8dd_synced, &c );
             } else {
@@ -3826,6 +3970,7 @@ static DWORD m8dd_create8_flip( M8DD_CREATE *cd )
     m8dd_flip8_page = 0;
     m8dd_flip8_traced = 0;
     m8dd_masks_on = (int)GetPrivateProfileInt( "ddraw", "masks", 0, "C:\\M8D3D.INI" );
+    m8dd_spans_on = (int)GetPrivateProfileInt( "ddraw", "spans", 1, "C:\\M8D3D.INI" );
     m8dd_trace( "flip8 chain made: %dx%d pitch %d, back at row %d", (int)m8dd->width, (int)m8dd->height,
                 (int)m8dd->pitch, M8DD_PAGE1_Y );
     cd->ddRVal = DD_OK;
@@ -4450,6 +4595,24 @@ BOOL WINAPI DllMain( HINSTANCE inst, DWORD reason, LPVOID reserved )
     return( TRUE );
 }
 
+/* [112-115] page-ins inside Lock, Unlock, Blt, Flip; [116-119] ticks inside them: what is left of
+ * a frame is the program's and DirectDraw's own. */
+#define M8DD_TIMED( name, fn, type, k )               \
+    static DWORD __stdcall name( type *d )            \
+    {                                                 \
+        DWORD pi = m8dd_pageins();                    \
+        DWORD t0 = m8dd_ticks();                      \
+        DWORD rc = fn( d );                           \
+                                                      \
+        m8d3d_stat[116 + (k)] += m8dd_ticks() - t0;   \
+        m8d3d_stat[112 + (k)] += m8dd_pageins() - pi; \
+        return( rc );                                 \
+    }
+M8DD_TIMED( m8dd_lock_t, m8dd_lock, M8DD_LOCK, 0 )
+M8DD_TIMED( m8dd_unlock_t, m8dd_unlock, M8DD_UNLOCK, 1 )
+M8DD_TIMED( m8dd_blt_t, m8dd_blt, M8DD_BLT, 2 )
+M8DD_TIMED( m8dd_flip_t, m8dd_flip, M8DD_FLIP, 3 )
+
 DWORD __stdcall DriverInit( LPVOID context )
 {
     if( context == NULL ) {
@@ -4457,10 +4620,10 @@ DWORD __stdcall DriverInit( LPVOID context )
     }
     m8dd = context;
     m8dd->hInstance = (DWORD)m8dd_inst;
-    m8dd->lock = (DWORD)m8dd_lock;
-    m8dd->unlock = (DWORD)m8dd_unlock;
-    m8dd->blt = (DWORD)m8dd_blt;
-    m8dd->flip = (DWORD)m8dd_flip;
+    m8dd->lock = (DWORD)m8dd_lock_t;
+    m8dd->unlock = (DWORD)m8dd_unlock_t;
+    m8dd->blt = (DWORD)m8dd_blt_t;
+    m8dd->flip = (DWORD)m8dd_flip_t;
     m8d3d_init( &m8dd->d3d_global, &m8dd->d3d_callbacks, &m8dd->d3d_info );
     m8dd->create_surface = (DWORD)m8dd_create_surface;
     m8dd->destroy_surface = (DWORD)m8dd_destroy_surface;

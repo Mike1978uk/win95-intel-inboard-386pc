@@ -141,8 +141,13 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
             fprintf( o, "8bpp flush ticks all %lu pixels %lu maskbuild %lu masksend %lu fills %lu runs pixels %lu masks %lu maskfail %lu\n",
                      (unsigned long)st[96], (unsigned long)st[97], (unsigned long)st[98], (unsigned long)st[99],
                      (unsigned long)st[100], (unsigned long)st[101], (unsigned long)st[102], (unsigned long)st[103] );
-            fprintf( o, "8bpp flush ticks epoch %lu rowhash %lu pageins build %lu flush %lu buildpx %lu\n", (unsigned long)st[104], (unsigned long)st[105],
-                     (unsigned long)st[106], (unsigned long)st[107], (unsigned long)st[108] );
+            fprintf( o, "8bpp flush ticks epoch %lu rowhash %lu pageins build %lu flush %lu buildpx %lu spans %lu find %lu send %lu\n", (unsigned long)st[104], (unsigned long)st[105],
+                     (unsigned long)st[106], (unsigned long)st[107], (unsigned long)st[108],
+                     (unsigned long)st[109], (unsigned long)st[110], (unsigned long)st[111] );
+            fprintf( o, "callbacks pageins lock %lu unlock %lu blt %lu flip %lu ticks lock %lu unlock %lu blt %lu flip %lu\n",
+                     (unsigned long)st[112], (unsigned long)st[113], (unsigned long)st[114], (unsigned long)st[115],
+                     (unsigned long)st[116], (unsigned long)st[117], (unsigned long)st[118], (unsigned long)st[119] );
+            fprintf( o, "8bpp clears part %lu whole %lu\n", (unsigned long)st[120], (unsigned long)st[121] );
             fprintf( o, "sizes %lu %lu %lu %lu joined %lu %lu colours %lu\n", (unsigned long)st[27], (unsigned long)st[28],
                      (unsigned long)st[29], (unsigned long)st[30], (unsigned long)st[31], (unsigned long)st[32], (unsigned long)st[33] );
         }
