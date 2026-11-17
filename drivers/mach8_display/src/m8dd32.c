@@ -31,7 +31,7 @@
 extern void m8d3d_init( DWORD *global, DWORD *callbacks, DWORD *driver_info );
 extern int  m8d3d_replay( const RECT *erase, int erase_n, BYTE black, int dy, const short *v,
                          const WORD *index, const DWORD *rgb, int n );
-extern DWORD m8d3d_stat[96];
+extern DWORD m8d3d_stat[112];
 extern void m8d3d_feed_finish( void );
 extern void m8d3d_feed_stop( int site );
 extern int m8d3d_lores_on( void );
@@ -615,8 +615,13 @@ DWORD __stdcall m8dd_lock( M8DD_LOCK *ld )
             }
             m8dd_sync_epoch = e;
         }
-        for( y = r.top; y < r.bottom && y - r.top < 1024; ++y ) {
-            m8dd_held_sum[k][y - r.top] = m8dd_row_hash( (const BYTE *)(m8dd->shadow + (DWORD)y * m8dd->pitch) + r.left, r.right - r.left );
+        /* A held page's Unlock sends nothing, so it needs no row hashes; if the page is sent before
+         * the Unlock, stale hashes only make the Unlock send rows it could have skipped. */
+        y = m8dd_dfr_page( &r );
+        if( y < 0 || !m8dd_dfr_on[y] ) {
+            for( y = r.top; y < r.bottom && y - r.top < 1024; ++y ) {
+                m8dd_held_sum[k][y - r.top] = m8dd_row_hash( (const BYTE *)(m8dd->shadow + (DWORD)y * m8dd->pitch) + r.left, r.right - r.left );
+            }
         }
     }
     m8dd_held[k].lcl = ld->lpDDSurface;
@@ -2640,6 +2645,146 @@ static int m8dd_dfr_fills( const RECT *r, int n, BYTE c )
     return( ok );
 }
 
+#define M8_BKGD_MIX         0xB6E8
+#define M8_DP_MONO_HOST     0x3251      /* extended path: a 1 bit takes FRGD_MIX, a 0 bit BKGD_MIX */
+
+/* Colour fg over the 1 bits of a mask `wb` bytes a row, rows unpadded, MSB the leftmost pixel; 0
+ * bits leave the card alone. As m8hw.c m8_mono (ATIM8's text path): the expansion is wb x 8
+ * wide and the extended scissors cut it back to r; DP_CONFIG is written last, which flushes the
+ * blit source FIFO. */
+static int m8dd_mono( const RECT *r, int wb, const BYTE *bits, BYTE fg )
+{
+    DWORD   bytes = (DWORD)wb * (r->bottom - r->top);
+    int     ok;
+
+    if( !m8dd_idle() ) {
+        return( 0 );
+    }
+    outpw( M8_EXT_SCISSOR_L, r->left );
+    outpw( M8_EXT_SCISSOR_T, r->top );
+    outpw( M8_EXT_SCISSOR_R, r->right - 1 );
+    outpw( M8_EXT_SCISSOR_B, r->bottom - 1 );
+    outpw( M8_WRT_MASK, 0x00FF );
+    outpw( M8_RD_MASK, 0x00FF );
+    outpw( M8_MULTIFUNC_CNTL, M8_MF_PIX_CNTL );
+    outpw( M8_FRGD_MIX, M8_MIX_FRGD_REPLACE );
+    outpw( M8_FRGD_COLOR, fg );
+    outpw( M8_BKGD_MIX, M8_MIX_LEAVE );
+    outpw( M8_DP_CONFIG, M8_DP_MONO_HOST );
+    /* Eleven writes so far into a 16-deep FIFO that drops what overflows: let it drain before the
+     * five that start the blit, or a lost DEST_Y_END sends the mask into BKGD_COLOR. */
+    if( !m8dd_idle() ) {
+        return( 0 );
+    }
+    outpw( M8_CUR_X, r->left );
+    outpw( M8_DEST_X_START, r->left );
+    outpw( M8_DEST_X_END, r->left + wb * 8 );
+    outpw( M8_CUR_Y, r->top );
+    outpw( M8_DEST_Y_END, r->bottom );
+    m8dd_outsw( (const WORD *)bits, (unsigned)(bytes / 2) );
+    if( bytes & 1 ) {
+        outpw( M8_PIX_TRANS, bits[bytes - 1] );
+    }
+    ok = m8dd_idle();
+    outpw( M8_EXT_SCISSOR_L, M8_EXT_SCISSOR_MIN );
+    outpw( M8_EXT_SCISSOR_T, M8_EXT_SCISSOR_MIN );
+    outpw( M8_EXT_SCISSOR_R, M8_EXT_SCISSOR_MAX );
+    outpw( M8_EXT_SCISSOR_B, M8_EXT_SCISSOR_MAX );
+    outpw( M8_DP_CONFIG, M8_DP_8514 );
+    return( ok );
+}
+
+/* Card rectangle r from the shadow as the background colour bg filled by the engine and one 1-bit
+ * mask per other colour, when that is fewer bus bytes than the pixels; 0 if not worth it (the
+ * caller sends the pixels). A flat-shaded frame has few colours in a run: a cube's three faces
+ * cost 3 bits a pixel, its outline-free text 1, against 8. */
+#define M8DD_MASK_COLOURS   6
+/* C:\M8D3D.INI [ddraw] masks, read when a flip chain is made. Off by default: built in C, a mask
+ * costs more CPU than its bus saving (card 11-17: build 0.15 s, send 0.05 s, pixels 0.17 s a frame). */
+static int m8dd_masks_on;
+/* [96-103] 8 bpp page flush: ticks in all, ticks sending pixels, building masks, sending masks,
+ * engine fills; runs sent as pixels, as masks; masks that failed. */
+static DWORD m8dd_ticks( void )
+{
+    LARGE_INTEGER t;
+
+    QueryPerformanceCounter( &t );
+    return( t.LowPart );
+}
+static int m8dd_send_masks( const RECT *r, BYTE bg, int *ok )
+{
+    static BYTE     mask[M8DD_DFR_COLS / 8 * M8DD_DFR_ROWS];
+    static DWORD    seen[256];
+    static DWORD    gen;
+    BYTE            col[M8DD_MASK_COLOURS];
+    int             w = r->right - r->left;
+    int             h = r->bottom - r->top;
+    int             wb = (w + 7) / 8;
+    int             n = 0;
+    int             y;
+    int             x;
+    int             k;
+    BYTE            *hot = (BYTE *)m8dd->hot;
+
+    if( !m8dd_masks_on ) {
+        return( 0 );
+    }
+    /* Colours other than bg, stopping once there are too many. */
+    if( ++gen == 0 ) {
+        memset( seen, 0, sizeof( seen ) );
+        gen = 1;
+    }
+    for( y = r->top; y < r->bottom; ++y ) {
+        const BYTE *s = (const BYTE *)(m8dd->shadow + (DWORD)y * m8dd->pitch + r->left);
+
+        for( x = 0; x < w; ++x ) {
+            if( s[x] != bg && seen[s[x]] != gen ) {
+                if( n == M8DD_MASK_COLOURS ) {
+                    return( 0 );
+                }
+                seen[s[x]] = gen;
+                col[n++] = s[x];
+            }
+        }
+    }
+    /* Each mask: a command set-up (~16 port writes) plus its bytes, against w bytes a row. */
+    if( (DWORD)n * ((DWORD)wb * h + 32) + 16 >= (DWORD)w * h ) {
+        return( 0 );
+    }
+    *ok = m8dd_dfr_fills( r, 1, bg );
+    ++m8d3d_stat[102];
+    for( k = 0; *ok && k < n; ++k ) {
+        BYTE    *m = mask;
+        DWORD   t0 = m8dd_ticks();
+
+        for( y = r->top; y < r->bottom; ++y ) {
+            const BYTE *s = (const BYTE *)(m8dd->shadow + (DWORD)y * m8dd->pitch + r->left);
+            BYTE    b = 0;
+
+            for( x = 0; x < w; ++x ) {
+                b = (BYTE)((b << 1) | (s[x] == col[k]));
+                if( (x & 7) == 7 ) {
+                    *m++ = b;
+                    b = 0;
+                }
+            }
+            if( w & 7 ) {
+                *m++ = (BYTE)(b << (8 - (w & 7)));
+            }
+        }
+        m8d3d_stat[98] += m8dd_ticks() - t0;
+        t0 = m8dd_ticks();
+        hot[H_BUSY] = 1;
+        *ok = m8dd_mono( r, wb, mask, col[k] );
+        m8d3d_stat[103] += !*ok;
+        m8dd_forget( hot );
+        hot[H_BUSY] = 0;
+        m8d3d_stat[99] += m8dd_ticks() - t0;
+        m8d3d_stat[75] += (DWORD)wb * h;
+    }
+    return( 1 );
+}
+
 /* Page p's held-back clear onto the card. Rows whose hash matches the card's are left alone; each
  * run of changed rows goes as one transfer of the columns the frame drew there, and the columns
  * the card still shows from before become fills of the background colour. If anything else drew on
@@ -2652,6 +2797,7 @@ static int m8dd_dfr_flush( int p )
     int         nclr = 0;
     int         ok = 1;
     int         y = 0;
+    DWORD       t_all;
 
     if( !m8dd_dfr_on[p] ) {
         return( 1 );
@@ -2661,6 +2807,7 @@ static int m8dd_dfr_flush( int p )
     }
     m8dd_dfr_on[p] = 0;
     ++m8d3d_stat[95];
+    t_all = m8dd_ticks();
     if( !m8dd_card_known[p] || m8dd_card_bg[p] != c || m8dd_card_epoch[p] != m8dd_epoch() ) {
         static int  traced;
         RECT    all;
@@ -2738,8 +2885,14 @@ static int m8dd_dfr_flush( int p )
         if( ul < ur ) {
             run.left = ul & ~1;
             run.right = (ur + 1) & ~1;
-            m8d3d_stat[75] += (DWORD)(run.right - run.left) * (run.bottom - run.top);
-            ok = m8dd_transfer( &run, 1 );
+            if( !m8dd_send_masks( &run, c, &ok ) ) {
+                DWORD t0 = m8dd_ticks();
+
+                m8d3d_stat[75] += (DWORD)(run.right - run.left) * (run.bottom - run.top);
+                ok = m8dd_transfer( &run, 1 );
+                m8d3d_stat[97] += m8dd_ticks() - t0;
+                ++m8d3d_stat[101];
+            }
         } else {
             run.left = run.right = 0;
         }
@@ -2760,8 +2913,12 @@ static int m8dd_dfr_flush( int p )
         }
     }
     if( ok ) {
+        DWORD t0 = m8dd_ticks();
+
         ok = m8dd_dfr_fills( clr, nclr, c );
+        m8d3d_stat[100] += m8dd_ticks() - t0;
     }
+    m8d3d_stat[96] += m8dd_ticks() - t_all;
     m8dd_card_known[p] = ok;
     m8dd_card_epoch[p] = m8dd_epoch();
     return( ok );
@@ -3571,6 +3728,7 @@ static DWORD m8dd_create8_flip( M8DD_CREATE *cd )
     m8dd_flip8_rows = (DWORD)r.bottom;
     m8dd_flip8_page = 0;
     m8dd_flip8_traced = 0;
+    m8dd_masks_on = (int)GetPrivateProfileInt( "ddraw", "masks", 0, "C:\\M8D3D.INI" );
     m8dd_trace( "flip8 chain made: %dx%d pitch %d, back at row %d", (int)m8dd->width, (int)m8dd->height,
                 (int)m8dd->pitch, M8DD_PAGE1_Y );
     cd->ddRVal = DD_OK;
