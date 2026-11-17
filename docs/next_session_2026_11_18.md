@@ -62,3 +62,19 @@ and `m8nof.drv` (`32bfaac`, DLL `C:\V9XREMOTE\REG\M8DD32.NOF`) still in SYSTEM. 
 - Fable leftovers (F2 4, F3 4-5, XT-IDE 1 and 7) - untouched.
 - BRender `.BDD` (X16) - research doc only (`docs/x16_dos3d_api_sourcing_2026_11_17.md`).
 - Paging during a Direct3D demo (RAM-compression question) - not measured.
+
+## End of 2026-11-17 (evening)
+
+Plan: worklist section P, tracker `docs/playable_3d_plan.md` (P1.7-P1.13 added today).
+
+| item | result |
+|---|---|
+| Card | `m8pcl.drv` + DLL = `3768ba1` (boot 427), desktop 640x480x8, `C:\M8D3D.INI` `[ddraw] masks=1` (spans default on). Way back: `m8r1117.drv` still in SYSTEM |
+| flip2d | 2.8 -> **4.33 fps**: store-free mask build, imul-free hash, spans at Flip, partial held clear |
+| Lessons | the L1 writes through to a slow bus: no stores in inner loops; ~80 % of page-ins are outside our driver (flip2d, DDraw, GDI on full 5 MB); GMEM_FIXED from a DLL is already page-locked (pin test changed nothing) |
+| Tools | `tools/m8cardscripts/flip2d_cycle.ps1` (card: install, restart, run, PERFLOG), `flip2d_bed_shots.ps1` (bed pixels) |
+| Reading | `docs/p5_api_reading_2026_11_17.md`: BRender, VBE/AF, Glide ranked; every API reduces to spans/trapezoids |
+| Owner | compatibility layer for DOS 3D titles (VBEAF.DRV, GLIDE2X.OVL, .BDD) is the aim, in the plan |
+
+Next, in order: **P1.13** (regression across DDraw samples and twist, then spread the lessons), **P1.10** (fused asm row pass),
+**P1.11** (faces as engine polygons). `dist/mach8` still `32bfaac`: refresh only after P1.13 passes.

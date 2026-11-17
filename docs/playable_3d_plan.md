@@ -74,6 +74,7 @@ for card runs). Each item lists the measure that closes it. Update this table in
 | P1.10 | Fused row pass in asm: hash, extents and spans in one read of each row, no stores in the loop | desk, C | flip2d fps | todo - next (hash 0.047 + find 0.028 s; RAM floor 0.024) |
 | P1.11 | Whole faces as engine polygons (cmd 5) when a colour's spans form one convex shape: one command a face, not one a row | desk, B, C | send time | todo |
 | P1.12 | Split the rest of Flip (~0.05 s untimed) | C | timers | todo |
+| P1.13 | **Regression and spread** of the 11-17 changes: every DDraw SDK sample (wormhole, donuts, stretch, fswindow, memtime) and twist/tunnel on the card; then carry the lessons over: store-free loops in `m8d3d.c` join/sort and the 16 bpp paths, imul-free hashes in `hash.asm` and 16 bpp detection (#54), spans at Unlock for MTM (X13), Fury3, Doom 95; page-in counters on twist | B, C | no sample slower or wrong | todo - first next session |
 | P1.3 | Feeder overlaps the send with the program's next frame | C | flip2d ~5 fps target | todo |
 | P1.4 | Mode-change selector damage (X19) - **gate for any public showcase** | B (gdb), C | flip2d then PERFLOG from a 16 bpp desktop, 5/5 clean | todo |
 | P1.5 | Per-program display mode launcher (X21) | desk, C | a title starts in its mode without a manual change | todo |
