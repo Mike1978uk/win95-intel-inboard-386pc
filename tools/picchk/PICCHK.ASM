@@ -190,7 +190,20 @@ rirq:   lodsw
         mov     dx, line
         mov     ah, 09h
         int     21h
-        mov     ax, [mskerr]
+; In /T mode phase 1 must have failed every read; phases 2 and 3 are judged as usual.
+        cmp     byte [flip], 0
+        je      plain
+        mov     dx, v_tbad
+        cmp     word [mskerr], 0FFFFh
+        jne     say
+        mov     ax, [isrerr]
+        or      ax, [imrerr]
+        or      ax, [spur]
+        mov     dx, v_tok
+        jz      say
+        mov     dx, v_bad
+        jmp     short say
+plain:  mov     ax, [mskerr]
         or      ax, [isrerr]
         or      ax, [imrerr]
         or      ax, [spur]
@@ -330,3 +343,7 @@ line_len = $ - line
         db      '$'
 v_ok    db      'All PIC reads matched; no spurious IRQ 7.', 0Dh, 0Ah, '$'
 v_bad   db      'MISMATCH or spurious IRQ 7: send C:\PICCHK.TXT.', 0Dh, 0Ah, '$'
+v_tok   db      'Self-test passed: the mask check caught the forced errors.', 0Dh, 0Ah
+        db      'Now run PICCHK without /T.', 0Dh, 0Ah, '$'
+v_tbad  db      'SELF-TEST FAILED: the mask check missed forced errors.', 0Dh, 0Ah
+        db      'Results are not valid; send C:\PICCHK.TXT.', 0Dh, 0Ah, '$'
