@@ -48,6 +48,12 @@ Every "playable" claim names the fps, the build hash and the capture folder.
  BRender .BDD / CGL (if ABI)     --+                                   +-- (bed: same code, pixels only)
 ```
 
+**Compatibility layer (owner, 11-17):** "our software should give us a compatibility layer to run dos 3d titles
+written for the other drivers". Each period API reaches its card through one replaceable file (`VBEAF.DRV`,
+`GLIDE2X.OVL`, BRender `.BDD`); ours of each, over the one core, lets unchanged games run on the Mach8. Every API
+reduces to scan spans and trapezoids, which P1.7 proved on the card. Titles wanting textures and Z look as on our
+Direct3D HAL (flat, banded); they run, but not as on the card they were written for.
+
 The core is factored out of `m8d3d.c` and the X17 Unlock path, not rewritten. The engine layer
 (`m8hw.c` primitives: fills, polygon fill cmd 5, colour expansion, copies, flips) gets a DOS build.
 
@@ -62,7 +68,12 @@ for card runs). Each item lists the measure that closes it. Update this table in
 |---|---|---|---|---|
 | P1.1 | One-pass 1-bit mask build (X17.2), masks default on if it wins | desk, C | flip2d fps on card, twice | doing: C one-pass, no stores in the loop: build 0.150 -> 0.055 s, **flip2d 2.8 -> 3.37 fps** (`docs/captures/2026-11-17_regmask_card/`, bed pixels clean). Left: asm (60 cycles/px), default on |
 | P1.2 | Row hash and extent scan | desk, C | flip2d fps | doing: hash without imul 0.070 -> 0.043 s (RAM floor 0.024). Left: extent scans by dword, fuse hash + scan + build into one read of each row |
-| P1.7 | **Spans at Unlock** (new 11-17): a changed row's single-colour runs sent as engine spans (20 us each) instead of mask bytes; a convex face is one span a row. Cube ~500 spans ~10 ms against 0.061 s of mask bytes. Same primitive as VBE/AF `DrawScanList` and the DOS core | desk, B, C | flip2d fps | todo - next |
+| P1.7 | **Spans at Unlock**: a changed row's single-colour runs sent as engine spans, priced against masks per run (`[ddraw] spans=1`, default on). Same primitive as VBE/AF `DrawScanList` and the DOS core | desk, B, C | flip2d fps | done 11-17: ~480 spans a frame, send 0.061 -> 0.018 s, **flip2d 4.13 fps** (`2026-11-17_spans_card`, bed pixels clean) |
+| P1.8 | Where the ~1,000 page-ins a run are | C | counted per entry point | done 11-17: Flip 158-207, Blt 7-13, Lock/Unlock 0; ~80 % are outside our driver (flip2d, DirectDraw, GDI code on a full 5 MB). Not ours to fix in Windows; absent under DOS (`2026-11-17_callbacks_card`) |
+| P1.9 | Held clear wipes only what the page's last flush found drawn | desk, B, C | Blt time | done 11-17: Blt 37 -> 11 ms a frame, 126 of 130 clears partial, **flip2d 4.33 fps** (`2026-11-17_partclear_card`, bed clean) |
+| P1.10 | Fused row pass in asm: hash, extents and spans in one read of each row, no stores in the loop | desk, C | flip2d fps | todo - next (hash 0.047 + find 0.028 s; RAM floor 0.024) |
+| P1.11 | Whole faces as engine polygons (cmd 5) when a colour's spans form one convex shape: one command a face, not one a row | desk, B, C | send time | todo |
+| P1.12 | Split the rest of Flip (~0.05 s untimed) | C | timers | todo |
 | P1.3 | Feeder overlaps the send with the program's next frame | C | flip2d ~5 fps target | todo |
 | P1.4 | Mode-change selector damage (X19) - **gate for any public showcase** | B (gdb), C | flip2d then PERFLOG from a 16 bpp desktop, 5/5 clean | todo |
 | P1.5 | Per-program display mode launcher (X21) | desk, C | a title starts in its mode without a manual change | todo |
