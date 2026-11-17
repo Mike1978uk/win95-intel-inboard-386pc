@@ -134,9 +134,10 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
             fprintf( o, "feed open %lu frames %lu left %lu ticks %lu fullreads %lu sent %lu cut %lu lockkept %lu ramfront %lu ramunknown %lu ramflush %lu notours %lu partclear %lu overlays %lu sent %lu\n", (unsigned long)st[54],
                      (unsigned long)st[55], (unsigned long)st[56], (unsigned long)st[57], (unsigned long)st[58],
                      (unsigned long)st[59], (unsigned long)st[60], (unsigned long)st[61], (unsigned long)st[62], (unsigned long)st[63], (unsigned long)st[64], (unsigned long)st[65], (unsigned long)st[66], (unsigned long)st[67], (unsigned long)st[68] );
-            fprintf( o, "8bpp locks %lu noread %lu wholesurf %lu pxread %lu unlocks %lu pxsent %lu xferticks %lu flips %lu\n",
+            fprintf( o, "8bpp locks %lu noread %lu wholesurf %lu pxread %lu unlocks %lu pxsent %lu xferticks %lu flips %lu pageflushes %lu\n",
                      (unsigned long)st[72], (unsigned long)st[94], (unsigned long)st[83], (unsigned long)st[73],
-                     (unsigned long)st[74], (unsigned long)st[75], (unsigned long)st[76], (unsigned long)st[82] );
+                     (unsigned long)st[74], (unsigned long)st[75], (unsigned long)st[76], (unsigned long)st[82],
+                     (unsigned long)st[95] );
             fprintf( o, "sizes %lu %lu %lu %lu joined %lu %lu colours %lu\n", (unsigned long)st[27], (unsigned long)st[28],
                      (unsigned long)st[29], (unsigned long)st[30], (unsigned long)st[31], (unsigned long)st[32], (unsigned long)st[33] );
         }

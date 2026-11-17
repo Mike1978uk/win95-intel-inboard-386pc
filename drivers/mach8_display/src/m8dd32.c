@@ -38,6 +38,7 @@ extern int m8d3d_lores_on( void );
 extern BYTE m8d3d_index565( WORD p );
 extern int m8d3d_half_on( void );
 extern void m8d3d_feed_go( void );
+extern int m8d3d_live( void );
 extern void m8d3d_feed_close( void );
 extern void m8d3d_q_add( unsigned port, unsigned value );
 extern int  m8d3d_feed_blank;
@@ -480,6 +481,27 @@ static DWORD    m8dd_flip8_rows;
 static int      m8dd_flip8_page;
 static int      m8dd_flip8_traced;
 
+/* A fill of a whole flip-chain page is held back: the shadow takes it, and the page goes to the
+ * card at Flip, or before anything reads or draws there, as only the rows that differ from what
+ * the card holds. Per page and row: the card's row hash and the columns [l, r) holding other
+ * than the page's background colour, valid while m8dd_card_known[p] and the epoch is
+ * m8dd_card_epoch[p]. A program redrawing much the same frame then sends its changes, not the
+ * background or its unchanged text. */
+#define M8DD_DFR_ROWS   480
+#define M8DD_DFR_COLS   640
+static int      m8dd_dfr_on[2];
+static BYTE     m8dd_dfr_c[2];
+static int      m8dd_card_known[2];
+static BYTE     m8dd_card_bg[2];
+static DWORD    m8dd_card_epoch[2];
+static DWORD    m8dd_card_sum[2][M8DD_DFR_ROWS];
+static WORD     m8dd_card_l[2][M8DD_DFR_ROWS];
+static WORD     m8dd_card_r[2][M8DD_DFR_ROWS];
+
+static int m8dd_dfr_page( const RECT *c );
+static int m8dd_dfr_flush( int p );
+static int m8dd_dfr_flush_all( void );
+
 static int m8dd_surf( LPVOID lcl, M8DD_SURF *s )
 {
     BYTE    *gbl;
@@ -578,6 +600,8 @@ DWORD __stdcall m8dd_lock( M8DD_LOCK *ld )
                 m8dd_held[k].fill = m8dd_fill_c;
             }
         } else {
+            /* A held page has to be on the card before the card is read. */
+            m8dd_dfr_flush_all();
             m8dd_fill_on = 0;
             m8d3d_stat[73] += (DWORD)(r.right - r.left) * (r.bottom - r.top);
             if( !m8dd_transfer( &r, 0 ) ) {
@@ -658,7 +682,12 @@ DWORD __stdcall m8dd_unlock( M8DD_UNLOCK *ud )
         int         valid = m8dd_epoch() == m8dd_sync_epoch;
         int         ok = 1;
         int         y = h->top;
+        int         p = m8dd_dfr_page( h );
 
+        /* A held page goes to the card at Flip; until then the shadow is the page. */
+        if( p >= 0 && m8dd_dfr_on[p] ) {
+            y = h->bottom;
+        }
         /* Runs of changed rows, each one transfer. */
         while( ok && y < h->bottom ) {
             RECT    run;
@@ -2571,6 +2600,180 @@ static DWORD m8dd_flip16( M8DD_FLIP *fd )
 
 /* At 8 bpp: the target page shown by one CRT_OFFSET write, which takes effect at the next frame
  * (M8PAGE). DDRAW then swaps the surfaces' memory. */
+/* Page p of the flip chain when card rectangle c lies inside it, else -1. */
+static int m8dd_dfr_page( const RECT *c )
+{
+    int p;
+    int base;
+
+    if( m8dd->fb16 || m8dd_flip8_back == NULL || m8dd->pitch != M8DD_DFR_COLS ) {
+        return( -1 );
+    }
+    p = c->top >= M8DD_PAGE1_Y;
+    base = p ? M8DD_PAGE1_Y : 0;
+    if( c->left < 0 || c->right > M8DD_DFR_COLS || c->top < base || c->bottom > base + M8DD_DFR_ROWS ) {
+        return( -1 );
+    }
+    return( p );
+}
+
+/* Engine fills of colour c over n card rectangles. */
+static int m8dd_dfr_fills( const RECT *r, int n, BYTE c )
+{
+    BYTE    *hot = (BYTE *)m8dd->hot;
+    int     ok;
+    int     i;
+
+    if( n == 0 ) {
+        return( 1 );
+    }
+    hot[H_BUSY] = 1;
+    ok = m8dd_plain( M8_MIX_FRGD_REPLACE );
+    if( ok ) {
+        outpw( M8_FRGD_COLOR, c );
+    }
+    for( i = 0; ok && i < n; ++i ) {
+        ok = m8dd_rect( &r[i], 0, 0, 0 );
+    }
+    m8dd_forget( hot );
+    hot[H_BUSY] = 0;
+    return( ok );
+}
+
+/* Page p's held-back clear onto the card. Rows whose hash matches the card's are left alone; each
+ * run of changed rows goes as one transfer of the columns the frame drew there, and the columns
+ * the card still shows from before become fills of the background colour. If anything else drew on
+ * the card since its rows were recorded, the page is filled first, as the clear would have done. */
+static int m8dd_dfr_flush( int p )
+{
+    static RECT clr[M8DD_DFR_ROWS];
+    BYTE        c = m8dd_dfr_c[p];
+    int         base = p ? M8DD_PAGE1_Y : 0;
+    int         nclr = 0;
+    int         ok = 1;
+    int         y = 0;
+
+    if( !m8dd_dfr_on[p] ) {
+        return( 1 );
+    }
+    if( ((BYTE *)m8dd->hot)[H_HW_OFF] ) {
+        return( 0 );
+    }
+    m8dd_dfr_on[p] = 0;
+    ++m8d3d_stat[95];
+    if( !m8dd_card_known[p] || m8dd_card_bg[p] != c || m8dd_card_epoch[p] != m8dd_epoch() ) {
+        static int  traced;
+        RECT    all;
+        BYTE    row[M8DD_DFR_COLS];
+        DWORD   h;
+
+        if( traced < 12 ) {
+            ++traced;
+            m8dd_trace( "dfr page %d whole: known %d bg %d/%d epoch %08lx/%08lx stat25 %lu gen %lu", p,
+                        m8dd_card_known[p], m8dd_card_bg[p], c, m8dd_card_epoch[p], m8dd_epoch(),
+                        m8d3d_stat[25], m8dd_card_gen );
+        }
+
+        all.left = 0;
+        all.top = base;
+        all.right = M8DD_DFR_COLS;
+        all.bottom = base + M8DD_DFR_ROWS;
+        if( !m8dd_dfr_fills( &all, 1, c ) ) {
+            m8dd_card_known[p] = 0;
+            return( 0 );
+        }
+        memset( row, c, sizeof( row ) );
+        h = m8dd_row_hash( row, M8DD_DFR_COLS );
+        for( y = 0; y < M8DD_DFR_ROWS; ++y ) {
+            m8dd_card_sum[p][y] = h;
+            m8dd_card_l[p][y] = 0;
+            m8dd_card_r[p][y] = 0;
+        }
+        m8dd_card_bg[p] = c;
+        y = 0;
+    }
+    while( ok && y < M8DD_DFR_ROWS ) {
+        const BYTE  *s = (const BYTE *)(m8dd->shadow + (DWORD)(base + y) * m8dd->pitch);
+        DWORD       h = m8dd_row_hash( s, M8DD_DFR_COLS );
+        int         top = y;
+        int         ul = M8DD_DFR_COLS;
+        int         ur = 0;
+        int         ol = M8DD_DFR_COLS;
+        int         orr = 0;
+        RECT        run;
+
+        if( h == m8dd_card_sum[p][y] ) {
+            ++y;
+            continue;
+        }
+        do {
+            int l;
+            int r;
+
+            for( l = 0; l < M8DD_DFR_COLS && s[l] == c; ++l ) {
+            }
+            for( r = M8DD_DFR_COLS; r > l && s[r - 1] == c; --r ) {
+            }
+            if( m8dd_card_l[p][y] < m8dd_card_r[p][y] ) {
+                ol = ol < m8dd_card_l[p][y] ? ol : m8dd_card_l[p][y];
+                orr = orr > m8dd_card_r[p][y] ? orr : m8dd_card_r[p][y];
+            }
+            if( l < r ) {
+                ul = ul < l ? ul : l;
+                ur = ur > r ? ur : r;
+            } else {
+                l = r = 0;
+            }
+            m8dd_card_sum[p][y] = h;
+            m8dd_card_l[p][y] = (WORD)l;
+            m8dd_card_r[p][y] = (WORD)r;
+            if( ++y == M8DD_DFR_ROWS ) {
+                break;
+            }
+            s = (const BYTE *)(m8dd->shadow + (DWORD)(base + y) * m8dd->pitch);
+            h = m8dd_row_hash( s, M8DD_DFR_COLS );
+        } while( h != m8dd_card_sum[p][y] );
+        run.top = base + top;
+        run.bottom = base + y;
+        if( ul < ur ) {
+            run.left = ul & ~1;
+            run.right = (ur + 1) & ~1;
+            m8d3d_stat[75] += (DWORD)(run.right - run.left) * (run.bottom - run.top);
+            ok = m8dd_transfer( &run, 1 );
+        } else {
+            run.left = run.right = 0;
+        }
+        /* What the card showed outside the new columns is background now. */
+        if( ol < orr && nclr + 2 <= M8DD_DFR_ROWS ) {
+            if( run.left >= run.right ) {
+                SetRect( &clr[nclr++], ol, run.top, orr, run.bottom );
+            } else {
+                if( ol < run.left ) {
+                    SetRect( &clr[nclr++], ol, run.top, orr < run.left ? orr : run.left, run.bottom );
+                }
+                if( orr > run.right ) {
+                    SetRect( &clr[nclr++], ol > run.right ? ol : run.right, run.top, orr, run.bottom );
+                }
+            }
+        } else if( ol < orr ) {
+            ok = 0;
+        }
+    }
+    if( ok ) {
+        ok = m8dd_dfr_fills( clr, nclr, c );
+    }
+    m8dd_card_known[p] = ok;
+    m8dd_card_epoch[p] = m8dd_epoch();
+    return( ok );
+}
+
+static int m8dd_dfr_flush_all( void )
+{
+    int ok = m8dd_dfr_flush( 0 );
+
+    return( m8dd_dfr_flush( 1 ) && ok );
+}
+
 static DWORD m8dd_flip8( M8DD_FLIP *fd )
 {
     M8DD_SURF   s;
@@ -2580,6 +2783,7 @@ static DWORD m8dd_flip8( M8DD_FLIP *fd )
         return( DDHAL_DRIVER_NOTHANDLED );
     }
     ++m8d3d_stat[82];
+    m8dd_dfr_flush( s.y != 0 );
     m8dd_flip8_page = s.y != 0;
     if( m8dd_flip8_traced < 5 ) {
         m8dd_trace( "flip8 to page %d", m8dd_flip8_page );
@@ -3125,6 +3329,41 @@ DWORD __stdcall m8dd_blt( M8DD_BLT *bd )
     }
     if( kind == 0 && count == 1 ) {
         synced = m8dd_epoch() == m8dd_sync_epoch;
+    }
+    /* A fill of a whole flip-chain page waits for Flip (m8dd_dfr_flush); anything else finds the
+     * held pages on the card first. Not under Direct3D, which draws on the pages itself. */
+    {
+        int p = -1;
+
+        if( kind == 0 && count == 1 ) {
+            m8dd_to_card( &c, &rl[0], &d );
+            p = m8dd_dfr_page( &c );
+            if( p >= 0 && (c.left != 0 || c.right != M8DD_DFR_COLS || c.top != (p ? M8DD_PAGE1_Y : 0) ||
+                           c.bottom != c.top + M8DD_DFR_ROWS || p == m8dd_flip8_page || m8d3d_live()) ) {
+                p = -1;
+            }
+        }
+        if( p < 0 ) {
+            m8dd_dfr_flush_all();
+        } else {
+            for( y = c.top; y < c.bottom; ++y ) {
+                memset( (BYTE *)(m8dd->shadow + (DWORD)y * m8dd->pitch + c.left),
+                        (BYTE)bd->bltFX.dwFillColor, c.right - c.left );
+            }
+            if( synced ) {
+                UnionRect( &m8dd_synced, &m8dd_synced, &c );
+            } else {
+                m8dd_synced = c;
+            }
+            m8dd_sync_epoch = m8dd_epoch();
+            m8dd_fill_r = c;
+            m8dd_fill_c = (BYTE)bd->bltFX.dwFillColor;
+            m8dd_fill_on = 1;
+            m8dd_dfr_on[p] = 1;
+            m8dd_dfr_c[p] = (BYTE)bd->bltFX.dwFillColor;
+            bd->ddRVal = DD_OK;
+            return( DDHAL_DRIVER_HANDLED );
+        }
     }
     hot[H_BUSY] = 1;
     ok = m8dd_plain( kind == 0 ? M8_MIX_FRGD_REPLACE :
@@ -3917,6 +4156,8 @@ DWORD __stdcall m8dd_destroy_surface( M8DD_DESTROY *dd )
             m8dd_flip8_back = NULL;
             m8dd_flip8_rows = 0;
         }
+        m8dd_dfr_on[0] = m8dd_dfr_on[1] = 0;
+        m8dd_card_known[0] = m8dd_card_known[1] = 0;
     }
     for( k = 0; k < M8DD_PLACED_MAX; ++k ) {
         if( m8dd_placed[k].gbl == gbl ) {

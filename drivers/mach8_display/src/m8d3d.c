@@ -695,6 +695,19 @@ static const M8D3D_EXTCAPS m8d3d_extcaps = {
 static const M8D3D_ZFORMATS m8d3d_zformats = { 1, { 32, M8D3D_DDPF_ZBUFFER, 0, 16, 0, 0xFFFF, 0, 0 } };
 static M8D3D_CONTEXT    m8d3d_ctx[M8D3D_CONTEXTS];
 
+/* Direct3D draws on the card's pages with the engine, under any clear M8DD32 holds back. */
+int m8d3d_live( void )
+{
+    int k;
+
+    for( k = 0; k < M8D3D_CONTEXTS; ++k ) {
+        if( m8d3d_ctx[k].target != NULL ) {
+            return( 1 );
+        }
+    }
+    return( 0 );
+}
+
 /* Exported so a test program can see which callbacks the runtime reached: a
  * failed CreateDevice does not say. [0] ContextCreate, [1] ContextDestroy,
  * [2] SceneCapture, [3] RenderState, [4] RenderPrimitive, [5] primitives offered,
