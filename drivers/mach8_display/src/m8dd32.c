@@ -1247,9 +1247,11 @@ static int m8dd_ovc_find( const BYTE *src, long pitch, int w, int h, DWORD key, 
     return( m8dd_ovc_n++ );
 }
 
+/* As m8dd_row_hash: no multiply. */
 static DWORD m8dd_rows_hash( const BYTE *src, long pitch, int w, int h )
 {
-    DWORD   v = 2166136261UL;
+    DWORD   a = 0x9E3779B9UL;
+    DWORD   b = (DWORD)w;
     int     x;
     int     y;
 
@@ -1257,10 +1259,11 @@ static DWORD m8dd_rows_hash( const BYTE *src, long pitch, int w, int h )
         const WORD *s = (const WORD *)(src + y * pitch);
 
         for( x = 0; x < w; ++x ) {
-            v = (v ^ s[x]) * 16777619UL;
+            a += s[x];
+            b = ((b << 5) | (b >> 27)) ^ a;
         }
     }
-    return( v );
+    return( a ^ b );
 }
 
 /* A keyed copy onto back buffer k after its triangles, held as an overlay: 0 if it cannot be.
