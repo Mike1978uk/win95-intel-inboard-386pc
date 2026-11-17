@@ -115,8 +115,12 @@ Each gets an offline ABI read first (no card), and a stop rule: if the ABI is no
 | P5.2 | **Glide 2.x subset** `GLIDE2X.OVL` (Z29) | DOS Glide titles load it as an overlay (nv per title); 3dfx Glide source is public | high for learning the API shape; titles want a Pentium | read Glide 2 headers/source; list DOS titles that ship the OVL | todo |
 | P5.3 | **BRender `.BDD`** (X24) | shown: a renamed `mcga.bdd` ran | MIT source; flat/Gouraud renderer in `softrend` | read the device export table (1.1.2 DOS tree, 1997 tree) | todo |
 | P5.4 | **8514/A Adapter Interface** (HDILOAD) | the card's own API | programs exist (Halo, BGI driver); not 3D | find ATI's AI driver and a test program | todo |
-| P5.5 | **Creative CGL** (X16) | exe-linked on VLB; no SDK | low until an ABI turns up | Hi-Octane / Actua demo strings | parked |
-| P5.6 | S3D, ATI CIF, Speedy3D, MSI, SGL | not shown | reading only | - | dropped for now (Pentium/PCI) |
+| P5.5 | **Creative CGL** (3D Blaster VLB, X16) | linked into the exe on VLB games; separate `.CGL` files only on the PCI Verite builds | the only 486/VLB-era 3D API: what a 1995 card was handed per triangle, how a game split setup between CPU and card | disassemble the Hi-Octane demo exe's CGL entry points; list the Actua Soccer demo files for `*.CGL`; look for the RReady VLB wrapper source | todo - reading |
+| P5.6 | **S3D, ATI CIF, Speedy3D, PowerVR SGL, Matrox MSI** | per title, not shown | each solved our problem on a different budget: S3D and CIF triangle setup, Speedy3D's span-based DOS API (dosbox-rendition reimplements it), SGL's scene-at-once sorting without Z - closest to our depth sort | find the public SDK or reimplementation for each, read the triangle and span interfaces | todo - reading |
+
+Rule (owner, 11-17): no DOS 3D engine or API is off the table. Heavier hardware is a reason not to *port* it,
+never a reason not to *read* it; each reading row ends with one line in the plan on what it taught us, or what
+it did not contain.
 
 ### P6. Distribution and installation
 
