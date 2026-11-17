@@ -267,6 +267,12 @@ bitmask from zero rather than from the machine's minimum, so opening the dialog 
 turned 5120 KB into 4096 and 3072 into 2048. Found by @andrew-hoffman, diagnosed at source level
 here, fixed by OBattler in `9ee5197`.
 
+### Other projects
+
+| PR | Status | What it does |
+|---|---|---|
+| [michaeldale/V9x-Remote-Agent#1](https://github.com/michaeldale/V9x-Remote-Agent/pull/1) | Open, 2026-11-17; Michael Dale offered to take it | `AGENT.INI [agent] tray_flash=0` keeps the tray icon still while busy. On the 5160's 8-bit ISA display every icon change was a taskbar repaint read back by the Mach8 driver: 53 redraws in 20 s busy, 2 with the key set |
+
 ### Which build to test on
 
 **Test on upstream 86Box master, not on [`86box_full/`](86box_full/).** Every Inboard change is now
