@@ -1,0 +1,25 @@
+== M8CENSUS during-bed
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0 lockkept 0 ramfront 0 ramunknown 0 ramflush 0 notours 0 partclear 0 overlays 0 sent 0
+8bpp locks 150 noread 150 wholesurf 150 pxread 0 unlocks 150 pxsent 85575 xferticks 0 flips 75 pageflushes 75
+8bpp flush ticks all 34457031 pixels 0 maskbuild 2418908 masksend 29230 fills 7533 runs pixels 0 masks 90 maskfail 0
+8bpp flush ticks epoch 64567 rowhash 12446533 pageins build 5 flush 57 buildpx 677984 spans 35108 find 6349796 send 639136
+callbacks pageins lock 0 unlock 0 blt 7 flip 58 ticks lock 78883 unlock 163102 blt 987051 flip 34859843
+8bpp clears part 73 whole 2
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:1  efd60cc0:1  406b2f00:1  efd60cc1:1  b1122b40:1  efd60cc2:1  0ba584e1:1  ddf41230:1  80863800:1  93869880:1  7de41f80:1  ffaa7540:1  3b8a0466:1
+
