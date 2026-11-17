@@ -60,8 +60,9 @@ for card runs). Each item lists the measure that closes it. Update this table in
 
 | ID | Item | Where | Closes when | Status |
 |---|---|---|---|---|
-| P1.1 | One-pass 1-bit mask build in asm (X17.2), masks default on if it wins | desk, C | flip2d fps on card, twice | todo - next session |
-| P1.2 | Row hash and extent scan in asm | desk, C | flip2d fps | todo |
+| P1.1 | One-pass 1-bit mask build (X17.2), masks default on if it wins | desk, C | flip2d fps on card, twice | doing: C one-pass, no stores in the loop: build 0.150 -> 0.055 s, **flip2d 2.8 -> 3.37 fps** (`docs/captures/2026-11-17_regmask_card/`, bed pixels clean). Left: asm (60 cycles/px), default on |
+| P1.2 | Row hash and extent scan | desk, C | flip2d fps | doing: hash without imul 0.070 -> 0.043 s (RAM floor 0.024). Left: extent scans by dword, fuse hash + scan + build into one read of each row |
+| P1.7 | **Spans at Unlock** (new 11-17): a changed row's single-colour runs sent as engine spans (20 us each) instead of mask bytes; a convex face is one span a row. Cube ~500 spans ~10 ms against 0.061 s of mask bytes. Same primitive as VBE/AF `DrawScanList` and the DOS core | desk, B, C | flip2d fps | todo - next |
 | P1.3 | Feeder overlaps the send with the program's next frame | C | flip2d ~5 fps target | todo |
 | P1.4 | Mode-change selector damage (X19) - **gate for any public showcase** | B (gdb), C | flip2d then PERFLOG from a 16 bpp desktop, 5/5 clean | todo |
 | P1.5 | Per-program display mode launcher (X21) | desk, C | a title starts in its mode without a manual change | todo |
@@ -117,6 +118,12 @@ Each gets an offline ABI read first (no card), and a stop rule: if the ABI is no
 | P5.4 | **8514/A Adapter Interface** (HDILOAD) | the card's own API | programs exist (Halo, BGI driver); not 3D | find ATI's AI driver and a test program | todo |
 | P5.5 | **Creative CGL** (3D Blaster VLB, X16) | linked into the exe on VLB games; separate `.CGL` files only on the PCI Verite builds | the only 486/VLB-era 3D API: what a 1995 card was handed per triangle, how a game split setup between CPU and card | disassemble the Hi-Octane demo exe's CGL entry points; list the Actua Soccer demo files for `*.CGL`; look for the RReady VLB wrapper source | todo - reading |
 | P5.6 | **S3D, ATI CIF, Speedy3D, PowerVR SGL, Matrox MSI** | per title, not shown | each solved our problem on a different budget: S3D and CIF triangle setup, Speedy3D's span-based DOS API (dosbox-rendition reimplements it), SGL's scene-at-once sorting without Z - closest to our depth sort | find the public SDK or reimplementation for each, read the triangle and span interfaces | todo - reading |
+
+Read 11-17 (Sonnet, `docs/p5_api_reading_2026_11_17.md`): ranked BRender (MIT, `BrDrv1Begin`, trapezoid cut in
+`ZB/TRIGEN.C`), VBE/AF (`DrawScanList`/`DrawTrap`/`PutMonoImage` = our engine's set; FreeBE/AF has no Mach8
+driver), Glide 2 (OVL swap shown by Glidos/dgVoodoo/DOSBox-X; OVL format unread). Every API reduces to a trapezoid
+or scan list: that is the first primitive to build (P3.2). CGL ABI still not found; ATI CIF header is in
+BRender-1997 `ati/` (read, do not copy). Also: heavy titles are run anyway, as MTM was - each failure names a gap.
 
 Rule (owner, 11-17): no DOS 3D engine or API is off the table. Heavier hardware is a reason not to *port* it,
 never a reason not to *read* it; each reading row ends with one line in the plan on what it taught us, or what
