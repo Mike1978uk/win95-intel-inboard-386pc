@@ -83,3 +83,5 @@ Next, in order: **P1.13** (regression across DDraw samples and twist, then sprea
 **Later 11-17:** P1.13 regression passed (DDraw samples on bed and card, twist 6.73 fps). Card desktop now
 **800x600 16 bpp** (boot 428, registry; way back to 640x480x8: `C:\V9XREMOTE\REG\DISP8.REG` + restart). 8 bpp
 DirectDraw tests need the desktop at 8 bpp first (X19). Next: P1-S rows S1-S5, S7, then P1.10.
+
+**Card hang, boot 429 (11-17 evening):** after an agent restart into `m8rhs.drv` (overlay hash only changed), startup stopped at a blue desktop with the arrow+hourglass cursor and the startup sound looping; owner power-cycled, boot 430 fine (twist 6.64 fps), startup tone played ~4 min late. Same symptom as 11-05 (`docs/captures/2026-11-05_baselines/README.md`). Not chased: two observations, no cause.
