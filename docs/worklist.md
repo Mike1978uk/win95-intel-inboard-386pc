@@ -226,7 +226,7 @@ Step 2: our own VxD, to save the registers ATI.VXD does not know (DEST_CMP_FN, B
 - [ ] **D4 More than 256 colours (owner, 10-11).** Mach8 is 8 bpp only, so: (1) dithered fills from PATTERN_L/H /
       PATT_DATA - same bus cost as a plain fill; probe with A2; (2) palette splits per band on vblank / LINE_SYNC,
       ~1 colour change per line (estimate: ~23 us per entry vs ~32 us line); (3) error diffusion for still images on
-      the 486; (4) ~~8-bit DAC~~ - the RAMDAC is an INMOS IMSG176 (6-bit), no 8-bit mode (photo, 10-11).
+      the 486 (16 bpp desktop on the card since 11-02, X2-X4); (4) ~~8-bit DAC~~ - the RAMDAC is an INMOS IMSG176 (6-bit), no 8-bit mode (photo, 10-11).
 - [ ] **D5 DirectDraw - on the Mach8 first, the VGA half second (owner, 10-17: challenge "VGA half only").** Only
       Lock needs CPU access to pixels; Blt, colour-keyed Blt, fills and Flip are what the Mach8 engine does. Two back
       ends, measured against each other on the 5160:
@@ -244,6 +244,7 @@ Step 2: our own VxD, to save the registers ATI.VXD does not know (DEST_CMP_FN, B
       HAL frame from vmhal9x (`references/jhrobotics/`, MIT) for both.
       **Both ship as options** (owner, 10-17): a registry/Display Properties choice, default the Mach8 HAL; expected
       ranking (unmeasured): Mach8 for Blt/Flip games, VGA half for Lock-heavy ones.
+      **Status 11-17:** (a) is the shipping path (HAL in `m8dd32.c`/`dd16.c`, 8 and 16 bpp, page flips, overlays); (b) is X12.
       Memory decides flipping: Mach8 1 MB, VGA half 512 KB - the VGA half cannot double-buffer even 640x480x256
       (2 x 307,200 B); it flips at 640x400 and below (2 x 256,000 B fits).
 
@@ -313,26 +314,37 @@ like a timer tick (~170 us measured for #45). Ideas, cheapest first - measure be
 16 bpp and DirectDraw at 16 bpp work on the card (`docs/next_session_2026_11_02.md`, Afternoon). Next levers, then 3D;
 3D research and ranking in `docs/mach8_3d_research.md` (demoscene method: measure, use unused silicon).
 
+**Now (2026-11-17)** - next six, in the order of `docs/next_session_2026_11_18.md` "Tasks" (Opus; commits by Haiku; raise a long card run with the owner):
+1. **flip2d Lock read-back** (X18): why 28 of 55 Locks read the page back on the card; M8EPOCH (11-17): no escape failures; the idle desktop draws 2-3 times a second (dibtodev, copy_hw, readback), which resets the Lock's match. Owner: Agentoff, `C:\M8EPOCH.EXE 20`, Agenton - is it the agent? Fix: GDI dirty rect, re-read only that.
+2. **Unlock sends ~98 KB, not the cube** (X17 items 1-3): check span narrowing after 1, then deferred clear, 1-bit masks, recolour in place.
+3. **Paging** (X20): hash only the locked rows; shrink the 8 bpp shadow to the two pages.
+4. **Mode-change selector damage** (X19): the DirectDraw blue screen (`BFF9A07C` after PERFLOG's GPF in AllocSelectorArray); `docs/directdraw_raise_bsod_2026_11_15.md`.
+5. **Per-program display mode** (X21): launcher table or driver pop-up; a depth change needs a restart on Win95 retail.
+6. **86Box Mach8 model `CRT_OFFSET`** (X22): apply at the next frame; upstream-able.
+
+Behind these: Fable leftovers F2 4 / F3 4-5 (X23), BRender `.BDD` ABI (X24), the published driver package (X25).
+
 - [ ] **X1 Mode X** on the VGA half: clear `DDHALINFO_MODEXILLEGAL`, M8DDB `modex` test (320x200 full screen, frames
       written through a lock), output switch and desktop restore. Bed, then card.
 - [ ] **X2 Card surfaces at 16 bpp:** RAM 5-6-5 copy + dithered card copy; blits by multiples of 4 as engine copies.
 - [ ] **X3 GDI caches in the spare card rows at 16 bpp** (icons, text, saved screen bits), dithered once.
 - [ ] **X4 Exact-colour copies at any offset** as engine copies (dither-invariant pixels, checked in RAM).
 - [ ] **X5 Fewer row set-ups per send** (merge runs, keep the set-up).
-- [ ] **X6 3D stage 1:** software Direct3D at 16 bpp, measured (sends carry only what changed).
+- [x] **X6 3D stage 1:** software Direct3D at 16 bpp, measured (sends carry only what changed). Landed 11-07..11-14 (`e05650a` HAL + textures, `3a72c7d` joined patches, `ffe9df0`); twist ~5.7 fps on the card.
 - [ ] **X7 3D stage 2:** engine-drawn 3D at 8 bpp: vector/wireframe lines, flat-shaded spans, raycaster columns;
-      then a Direct3D HAL claiming what the engine rasterises. Ranked by `docs/mach8_3d_research.md`.
+      then a Direct3D HAL claiming what the engine rasterises (HAL done, `e05650a`; wireframe lines and raycaster columns not started). Ranked by `docs/mach8_3d_research.md`.
       M8SPAN (2026-11-02, card): spans 20.4 us, LINEDRAW 21 us/vertex, polygon fill 0.2 ms + area x 35 ns, works on the card (triangle photographed); bed fills rectangles. Next: flat-shaded demo via polygon fill.
 - [ ] **X8** DOS timing: VGA-memory writes vs PIX_TRANS on the 5160 (sizes X1 and the 3D options).
 - [ ] **X9 Frame rates, RAM and paging:** "Order of work (2026-11-06)" in `docs/mach8_frame_rate_plan.md`: agent-free runs,
       driver RAM, paging, XT-CF, frame-rate levers, textures.
       V10 (11-06): in by the owner's eye (black overlaps gone). Stutter: small frames over 13.85 ms lock at 36 fps. Card hang (boot 226) still open. `docs/captures/2026-11-06_v10/README.md`; VGA half: `docs/mach8_vga_half_findings_2026_11_06.md`.
 
-- [ ] **X11 Burst-shaped sends (2026-11-12, flushprobe):** I/O invalidates the L1 once per burst; census bursts and FIFO polls per Flip, then shape the feeder and Flip as one burst a frame. `docs/next_session_2026_11_12.md` jobs 3-4.
+- [ ] **X11 Burst-shaped sends (2026-11-12, flushprobe):** I/O invalidates the L1 once per burst; census bursts and FIFO polls per Flip, then shape the feeder and Flip as one burst a frame. `docs/next_session_2026_11_12.md` jobs 3-4. Partly done: feeder stops only where the card is written (`7d81646`), twist feed stops all at Flip, 0 cut (11-14); the CPU flush on I/O is the module's, not ours. Left: FIFO-wait trim at the stop points, burst shape of Flip.
 - [ ] **X12 VGA-half memory path for whole-frame pushes (2026-11-12):** 1.83 us/B, no flush; video, FastDoom (#47), software-3D at 320x200/240. `docs/video_playback_plan_2026_11_12.md`.
 - [ ] **X13 Monster Truck Madness on our Direct3D HAL (2026-11-13):** its D3D mode asks 640x480x16 and >= 96
       textures in video memory; HE puts them on the card (x 640-991, rows 0-287, 8 bpp, 8x8 summary in RAM). Bed, then card.
       Windowed software fallback already reaches the track at 16 bpp. Chain: `docs/next_session_2026_11_13.md`.
+      **Parked 11-13 (owner):** runs full screen in the bed (`3c2d98c`) but Locks the whole back buffer before its triangles, so every frame is the slow path. Open: lockscan black screen, stall before first Flip, start-view patch.
 - [ ] **X14 Test titles after MTM and the Fable review (owner, 2026-11-13):** each run names what the driver lacks, fixed for the class
       (feedback: each demo generalises). Bed first, M8MON + census each run, card for speed. Order, cheapest first:
       1. DX SDK DirectDraw samples, on disk (`references/dx61samples/ddraw/bin`): Donuts (keyed and small blits),
@@ -347,6 +359,7 @@ like a timer tick (~170 us measured for #45). Ideas, cheapest first - measure be
       Then GDI benches (WinBench 96, CrystalMark Retro) and the D3D benchmarks in `references/dxddk/`.
       Files, hashes, sources: `docs/test_titles_2026_11_13.md` (downloads in `Downloads\test_titles\`, outside git).
       Most list 8 MB: paging on 5 MB is part of what each run measures.
+      **Progress:** step 1 bed run done 11-15 (`a5707ee`, `docs/captures/2026-11-15_x14_ddraw_bed/`); wormhole 8 bpp from a 16 bpp desktop fixed (`32bfaac`); overlays mosquito and ddovrly run at 16 bpp (`074bfa2`). Left: fswindow (dialog body not drawn), donuts (silent at 30 s), Stretch, Memtime numbers, steps 2-7; card runs wait for X19 (desktop pre-set to the program's mode).
 - [ ] **X15 Our own DOS 3D renderer (owner, 2026-11-13):** built around the card, not the API: engine fills,
       mask strips and keyed copies, textures resident in VRAM as rows, 320x240, only changes over the bus. Seed
       is X7; MTM's lessons (texture store, overlays, lores, Lock costs) feed it.
@@ -369,7 +382,17 @@ like a timer tick (~170 us measured for #45). Ideas, cheapest first - measure be
          `tools/flipshapes/flipshapes.py` replays the sample - 7.18 deg a frame about one axis, exact frame repeat
          every 304 frames, 84 % shape reuse over 20,000 frames but 0 % inside a cycle; one cycle's masks ~3 MB.
       Applies to X14's Lock-heavy titles (Doom 95, Fury3, Red Alert).
-- [ ] **X10 Direct3D, playable approximations (owner, 2026-11-07):** real programs run unmodified, and show what was intended by our own means. Build order D1-D12 in `docs/mach8_frame_rate_plan.md`, "Direct3D: playable approximations": HAL accepted (Z formats, sort, Z surface), mock replies and fog, census on real programs, effect tag and stipple, **real texture path**, cut-outs and mips, palette ramps, blends, bilinear look and perspective, runtime clip cost, then speed. The card's hang needs a cause before a showcase.
+      Done: Lock counters in M8CENSUS (`8bpp` line, `8ef8a06`), Lock skips an unchanged read-back (`d2a5808`), fills keep the shadow (`760f004`), Unlock sends the changed span (`3aaea3a`). The card still reads back half the Locks (X18) and sends ~98 KB an Unlock; items 1-4 not built.
+- [ ] **X18 flip2d Lock read-back on the card (handoff 11-18 task 1):** 28 of 55 Locks read the whole 307 KB page back (bed: 0 of 1,269). `m8dd_epoch()` hashes the driver's GDI counters (escape 4D41h); suspect `cur_hide` (the card's real cursor) moving each frame, or a failed escape falling back to GetTickCount. Probe `tools/m8epoch/M8EPOCH.EXE 30` beside flip2d, owner present. Fix: count only what changes pixels where the shadow claims to match. Captures `docs/captures/2026-11-17_flip2d_card/`.
+- [ ] **X19 DirectDraw blue screen / mode-change selector damage (task 4):** flip2d at 8 bpp from a 16 bpp desktop, then PERFLOG: GPF in KRNL386 `0001:49DB` (AllocSelectorArray), then unhandled RaiseException `0E at 0137:BFF9A07C` (entry `BFF9A013`). Desktop pre-set to 8 bpp: 3/3 clean. Read every Disable / ReEnable / `m8_screen_done` path for a selector used after free or freed twice; a 16-bit probe that allocates and frees selectors after a mode change makes it deterministic. Bed `vm_5160_dbg`, gdb build `86box_auto\build_gdb`, `tools/raisetst`. No DirectDraw on the card until fixed. `docs/directdraw_raise_bsod_2026_11_15.md`.
+- [ ] **X20 Paging in the 8 bpp Lock path (task 3):** hash only the locked rows; shrink the 8 bpp shadow to the two pages. flip2d: ~2,900 page-ins a 30 s run. Not yet measured: paging during a Direct3D demo, and whether RAM compression helps it. `docs/mach8_frame_rate_plan.md` "Order of work", stages 1-2.
+- [ ] **X21 Per-program display mode (owner idea 11-17, task 5):** a launcher with a per-program mode table, or a driver pop-up asking for the mode. A depth change needs a restart on Win95 retail. DirectDraw takes its primary depth from GDI (`tools/m8probe/M8DDMODE.C`); an 8 bpp request from a 16 bpp desktop already switches (`32bfaac`), this item is for the rest.
+- [ ] **X22 86Box Mach8 model: apply `CRT_OFFSET` at the next frame (task 6, owner wants it fixed):** the model stores 2EEE but applies it only at a mode recalc, so the bed never flips 8 bpp pages (odd frames only; the 11-15 "flip2d 2.5x on the bed" figure is void). Also check the `ge_offset -= crt_offset` line. Upstream-able; PR text is the owner's. memory `observed_86box_quirks`.
+- [ ] **X23 Fable leftovers, Direct3D and exit paths:** (a) **F2 4:** count `m8d3d_join` calls per flip (one spare `m8d3d_stat` slot, twist); patch `m8d3d_join_ok` to skip corners already tested only if more than ~3, one call closes it. (b) **F3 4:** trace probe first (process ids on the destroy lines), then guard teardown entries with `m8d3d_owner_check` (`m8d3d.c:1083-1161`). (c) **F3 5:** read `m8dd_mode_changed`, then call it from `m8_switch_in` so a DOS-box round trip drops the DLL's card state; probe: still scene, Alt+Enter to a DOS box, `m8d3d_stat[60]`. (d) **F4 = the M8CURVE hang** (`m8hw.c` ~1790-2060, `screen.c:1503`, `:1678`): pack committed before launch, owner's OK first. `docs/fable_review_f2.md`, `docs/fable_review_f3.md`. F2 1-3 and F3 1-3 landed (`648e3bb`, `6093fe7`, `ffe9df0`, `6847977`, `6ccc10a`).
+- [ ] **X24 BRender `.BDD` as the X16 lead:** the only DOS 3D API with a shown file swap (a driver renamed `mcga.bdd` ran in Carmageddon). Read the device-driver export table in the MIT trees (`https://github.com/foone/BRender-v1.1.2`, BRender-1997 `drivers/softrend`) against `mcga.bdd` behaviour; no card needed. Then Creative CGL: Actua Soccer demo file list for `*.CGL`, Hi-Octane demo exe strings. Screamer II / Rally dropped (PCI only). `docs/x16_dos3d_api_sourcing_2026_11_17.md`.
+- [ ] **X25 Publish the Mach8 driver package:** `dist/mach8` (driver, DLL, VxD, INI, REGs), install guide, hashes; refreshed with every card-tested build, byte-identical to what was tested (`repo-hygiene`). Preview published 11-17: `dist/mach8` = card build `32bfaac` (`M8NOF.DRV` renamed `M8DISP.DRV`), manual install (copy + REG). Next: a Have Disk INF (owner checks it on a clean machine), refresh after X19. Full release gate: X19 fixed and TEST.COM clean (section 0).
+- [ ] **X26 Own DirectX stability and DirectSound (11-12 list):** D14 "own DirectX" (the 8 bpp D3DIM patch `69f3ece` is step 1; stability A/B since the DX install not done); DirectSound for the SB Pro (#58) not started; DOS-level 3D driver (Glide-like, `594650a`) after FastDoom (X12, #47).
+- [ ] **X10 Direct3D, playable approximations (owner, 2026-11-07):** real programs run unmodified, and show what was intended by our own means. Build order D1-D12 in `docs/mach8_frame_rate_plan.md`, "Direct3D: playable approximations": HAL accepted (Z formats, sort, Z surface), mock replies and fog, census on real programs, effect tag and stipple, **real texture path**, cut-outs and mips, palette ramps, blends, bilinear look and perspective, runtime clip cost, then speed. The card's hang needs a cause before a showcase. Landed by 11-10: HAL accepted with Z formats and sort (`c803813`), textures (`e05650a`, `3c2d98c`), overlays and depth sort (`ea641e7`, `7db26eb`), palette from the program's hues (`ced163d`, `57f8e8e`), joined patches (`3a72c7d`). Open: cut-outs and mips, blends, bilinear look and perspective, runtime clip cost, speed to 60 fps (twist ~5.7 fps).
 
 ## E. Timer, refresh, XT-CF (in flight)
 
@@ -395,11 +418,13 @@ like a timer tick (~170 us measured for #45). Ideas, cheapest first - measure be
 
 ## H. Andrew's #50 follow-ups (10-23)
 
-- [ ] **Mach8: queue writes per call.** Each port access flushes L1, so decide every write first and send from one short loop. Fill done (`55d5624`, 1.288x ATI); copy, spans, lines next. #50
+- [ ] **Mach8: queue writes per call.** Each port access flushes L1, so decide every write first and send from one short loop. Fill done (`55d5624`, 1.288x ATI); replay writes queued (`1a18626`), join registers once a pass (`ffe9df0`); copy, spans, lines next. #50
 - [ ] **Upstream timing and correctness fixes to 86Box** once the driver work settles. #50
 - [ ] **WINDISK ideas for xtide_mpd** (retry + soft reset, media-change generation counter, real sense): list in #52.
 - [ ] **BlueSCSI hot-swap:** fixed removable LUN reporting media change via sense (no medium, then UNIT ATTENTION). Read WINUSB for how it presents mass storage and HID to Win9x. #50
 - [ ] **CH376 file-level FAT access** as an angle on #51: the chip does the FAT, only file data crosses the bus. Sources: dfmcwhir repos, `docs/resources_and_sources.md`.
+- [ ] **XT-IDE review leftovers (Fable 11-13, `docs/fable_review_2026_11_13_xtide.md`):** finding 1 open case: after takeover an INT 13h reset (SRST) or a DOS-box write to 30Ch can change DRV/HEAD under `-SkipDrvHd`; run the DEBUG `i 30c` probe, or build the card without the switch (owner decides). Finding 8: latch transport tried on stride 2 (low). Finding 7 is X4. Done: 2, 3, 10, 11 (`150163b`, `3ce02a9`, `3e21e86`, `2e6d731`); 4, 5, 9 by `d3ce5c6` + `58ac00f` (LOOPCAL, 100 ns a pass); 6 `b174f07`.
+- [ ] **swapcomp CPU items (Fable Part 2, 6-7):** early give-up on incompressible pages, compress inner loop; each must fit the bytes left in SWAPZF7's locked pages (`tools/le_census.py`). Items 4-5 landed (`27291f2`, `07e1d81`); `dist/` updated `3d7d3a5`.
 - [ ] **Apply the Mach8 levers to the other drivers** - after the Mach8/DirectDraw work (owner, 11-01). Ranked audit, nothing measured yet: `docs/cross_driver_levers_2026_11_01.md`.
 
 ## Parked (owner, 10-15)
