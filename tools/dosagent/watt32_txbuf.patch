@@ -1,0 +1,16 @@
+diff --git a/src/pcpkt2.c b/src/pcpkt2.c
+index d38412c..4ff9c62 100644
+--- a/src/pcpkt2.c
++++ b/src/pcpkt2.c
+@@ -56,7 +56,10 @@ static DWORD setup_pkt_inf_fast (void)
+   size_t stub_size  = sizeof(real_stub_array);
+ 
+ #if (DOSX)
+-  rdata_size += PKT_TMP_SIZE + ETH_MAX + 10;
++  /* The Tx area must hold a whole link_Packet: _eth_init() clears it
++   * with sizeof(link_Packet), which is larger than ETH_MAX (AX.25).
++   */
++  rdata_size += PKT_TMP_SIZE + sizeof(link_Packet);
+ #endif
+ 
+   if (rdata_size >= 64*1024UL)

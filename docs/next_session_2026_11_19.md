@@ -2,7 +2,20 @@
 
 Earlier: `docs/next_session_2026_11_18.md`. Newest wins.
 
-## START HERE
+## START HERE: 2026-11-18 (night), DOS agent exec fixed
+
+- **Exec fixed** in the bed: Watt-32 cleared its Tx buffer with `sizeof(link_Packet)` (1,570 B) but allocated 1,524;
+  patch `tools/dosagent/watt32_txbuf.patch`. `DIR`, `MEM /C` run; program space 464 K under the agent
+  (`docs/dos_agent_milestone1_2026_11_18.md`).
+- **Next:** `docs/dos_agent_capability_plan_2026_11_18.md` C1 (off switch, full-memory handoff run), then C2 probes,
+  C3 perf mailbox in `m8dos`, C4 live UDP tail. Then X30 step 3.
+- **M8DTST16 on the card** (`captures/2026-11-18_m8d16_card/M8DTEST.TXT`, last two blocks): card 36.41 fps, 725
+  writes a frame; bench 50x40 vsync on 28.45 fps, 2,002 writes a frame - the same frames, ticks and writes as the
+  32-bit build's run above them. The file does not record which build wrote each block.
+- **Owed:** Michael's tray PR reply waits on a 640x480x8 redraw count; #55 sounds-off boot; X22 G11/G2/G10/G6 and the
+  owner's call on a separate FIFO-replay PR; issue drafts `docs/issue_audit_2026_11_18.md`; Simon reply awaited.
+
+## START HERE (11-19 morning)
 
 **First job (owner brings the CF card up):** back up the whole CF card on the host (it mounts at `D:\`), then put the
 buffered-mode VPICD on it offline and boot the 5160 with it. Spec, deploy and rollback steps:

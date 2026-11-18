@@ -15,7 +15,21 @@ Design and plan: `docs/dos_network_agent_design_2026_11_18.md` (build plan row 1
 | `MEM` before the agent starts | 564 K free conventional (577,312 bytes). Packet driver 6,048 bytes, KEYB 6,944, COMMAND 5,072, DOS 59,405 |
 | `shell dir C:\` and `exec C:\DOS\MEM.EXE` | **fail**: `system()` returns -1 at once. errno 5 (ENOMEM) under DOS/4GW. Run under DOS/32A instead (`DOS32A V9XAGNT.EXE`), errno 255 |
 
-## Why exec fails: Watt-32 init breaks the DOS memory chain
+## Exec fixed (2026-11-18, late)
+
+Cause: `_eth_init()` (`pcsed.c:689`) clears the Tx buffer with `sizeof(link_Packet)` = 1,570 bytes (the AX.25
+member: 70-byte header + 1,500), but the fast receiver (`pcpkt2.c:59`) allocates `ETH_MAX + 10` = 1,524 for it.
+46 bytes past the block, over the next MCB. Fix: size the Tx area by `sizeof(link_Packet)`
+(`tools/dosagent/watt32_txbuf.patch`, applied to our Watt-32 at `3cf6f4e`). The non-fast DOS/4GW path
+(`pcpkt.c:1735`, `TX_BUF() + RX_SIZE` = 1,548) has the same shortfall of 22 bytes; not built here.
+
+Bed `vm_dosagent`, agent `dev-dos-x28b` (md5 7d347069c073c1f12fd40c9874234a8c): `shell "DIR C:\"`, `shell "MEM /C"`
+and three more `MEM` calls all exit 0 with output. `MEM /C` under the agent: DOS4GW 96,400 bytes resident
+(includes Watt-32's 63.8 KB real-mode block), largest program **464 K** (564 K without the agent).
+Rebuild note: wmake does not track `pcpkt2.c` (it is `#include`d by `pcpkt.c`); delete
+`build/watcom/flat/*.obj` before rebuilding. `configur.bat` needs `WATT_ROOT` set.
+
+## Why exec failed: Watt-32 init breaks the DOS memory chain
 
 Narrowed with two test programs run from AUTOEXEC (scratchpad only, not kept):
 
