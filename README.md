@@ -269,9 +269,10 @@ here, fixed by OBattler in `9ee5197`.
 
 ### Other projects
 
-| PR | Status | What it does |
+| PR or issue | Status | What it does |
 |---|---|---|
 | [michaeldale/V9x-Remote-Agent#1](https://github.com/michaeldale/V9x-Remote-Agent/pull/1) | Shipped in [0.19.0](https://github.com/michaeldale/V9x-Remote-Agent/releases/tag/v0.19.0), 2026-11-18, applied in Michael Dale's main repository with co-author credit (the PR repo is a release mirror) | `AGENT.INI [agent] tray_flash=0` keeps the tray icon still while busy. On the 5160's 8-bit ISA display every icon change was a taskbar repaint read back by the Mach8 driver: 53 redraws in 20 s busy, 2 with the key set |
+| [gvanem/Watt-32#133](https://github.com/gvanem/Watt-32/issues/133) (issue) | Reported 2026-11-18; our build carries the fix (`tools/dosagent/watt32_txbuf.patch`) | The fast packet receiver sizes its Tx buffer 46 bytes short of what `_eth_init()` clears, which broke the DOS memory chain: our DOS agent could not run programs |
 
 ### Which build to test on
 

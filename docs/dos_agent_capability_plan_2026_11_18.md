@@ -10,8 +10,8 @@ Design background: `docs/dos_network_agent_design_2026_11_18.md`. Exec fixed: `d
 |---|---|
 | ping, info, files in/out (CRC) | works (bed) |
 | run a program, output back | works (bed): `exec`/`shell` with the agent resident (464 K free); `-Detach` hands over: the agent exits, `RUNJOB.BAT` runs with 563 K free, the agent restarts (C1, `dev-dos-c1b`) |
-| memory / port read-write | not built |
-| screen, keys, reboot | not built (86Box automation covers the bed only) |
+| memory / port read-write | **done (C2)**, between programs: `tools/dosagent/v9xdos.py mem/memw/in/out` |
+| screen, keys, reboot | **done (C2)**, between programs: `v9xdos.py screen/keys/reboot` |
 | live view while a program runs | not built: the agent is a foreground program |
 | fps and frame counters | `m8dos` keeps counters, printed and appended to `M8DTEST.TXT` at exit only |
 | off switch | **done (C1)**: `V9XLOOP.BAT`; flag file `C:\V9XREMOT\OFF` or N at the boot prompt |
@@ -48,3 +48,13 @@ writes `C:\V9XREMOT\RUNJOB.BAT` (no redirect: the program keeps the screen; add 
 the agent. Bed `vm_dosagent`: `shell -Detach "MEM /C > C:\V9XREMOT\RUNJOB.OUT"` -> largest program 563 K, agent back
 (boot 5 -> 6, 7 -> 8). `shell -Detach "ECHO off> C:\V9XREMOT\OFF"` -> loop ends at `C:\>`; on again: delete the flag at
 the machine and run `V9XLOOP`. Exit code of a detached job is not reported (DOS gives it only to the parent).
+
+## C2 result (2026-11-18, night)
+
+Agent `dev-dos-c2b` (V9x branch `inboard-dos-handoff`, `src/guest-dos/hw_dos.c`), DOS-only messages 0x00B0-0x00B6,
+capability bits 0x40000000 (memory/ports) and 0x80000000 (screen/keys/reboot). Host client `tools/dosagent/v9xdos.py`.
+Bed `vm_dosagent`: `mem 0040:0000 0x20` reads COM1 3F8h, COM2 2F8h, LPT1 378h, 640 KB (0280h at 40:13h); `in 0x21` B8h,
+`out 0x21 0xB8` then `in` B8h; `screen` returns the text and cursor; `keys "dir" --enter` puts 4 words in the BIOS
+buffer (tail 1Eh -> 26h); `reboot` restarts (boot 10 -> 11) through a 20-byte real-mode `.COM` the agent writes and
+spawns (COMrade's `do_reboot` steps: 1234h at 40:72h, FEh to port 64h, jump FFFF:0000). Not tested on the 5160.
+Not live while a program runs: that is C4.

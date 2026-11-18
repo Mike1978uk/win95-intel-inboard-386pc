@@ -2,6 +2,19 @@
 
 Earlier: `docs/next_session_2026_11_18.md`. Newest wins.
 
+## START HERE: 2026-11-18 (late night), DOS agent C1 + C2 done
+
+- DOS agent (Michael Dale's V9x DOS build, our local branch `inboard-dos-handoff`): exec, handoff run (563 K free),
+  off switch, probes (memory, ports, screen, keys, reboot) all pass in `vm_dosagent`. Client `tools/dosagent/v9xdos.py`.
+  Plan and results: `docs/dos_agent_capability_plan_2026_11_18.md`. Next: C3 perf mailbox in `m8dos`, then C4 live
+  UDP tail, then C5 on the 5160 (owner steps in the plan).
+- Watt-32 bug reported: gvanem/Watt-32#133 (README "Other projects").
+- X22: G11 (three valid boots) and G2 done; left G10 (owner's hands-on bed check) and the PR text. X27 (DOS polygon
+  fills missing in the bed) is a separate fix and PR.
+- Card: tray test done (49 vs 3 redraws), Michael answered by the owner; INI `tray_flash=0`; startup/shutdown sounds
+  off for #55 (backup `C:\SND55BAK.REG`). XTIDE follow-up closed by the owner. No Fable time: X23 (a)-(c) are Opus
+  work, (d) waits.
+
 ## START HERE: 2026-11-18 (night), DOS agent exec fixed
 
 - **Exec fixed** in the bed: Watt-32 cleared its Tx buffer with `sizeof(link_Packet)` (1,570 B) but allocated 1,524;
