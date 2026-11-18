@@ -2,6 +2,23 @@
 
 Earlier: `docs/next_session_2026_11_18.md`. Newest wins.
 
+## START HERE: 2026-11-18 (end of night)
+
+- **Upstream:** 86Box#8994 (8514/ULTRA add-on FIFO crash) and #8995 (X22, 8 bpp page flips) raised with the owner's
+  wording; gate runs on both submitted commits (`captures/2026-10-10_a6/{fifofix2,masterd4f,x22v2}_*`,
+  `captures/2026-11-18_x22_g11/`). The earlier asus386 ET4000 G11 run was not valid (guest needs 8514.DRV).
+- **DOS agent on the 5160:** boot entry `DOSNET` (CONFIG.SYS/AUTOEXEC.BAT backups `C:\CONFIG.BDN`,
+  `C:\AUTOEXEC.BDN`); `tools\dosagent\bootmode.ps1 dos|windows|status` switches unattended (backup
+  `C:\CONFIG.BMD`). A failed agent start falls through to Windows. Card is LEFT IN DOS (menudefault=DOSNET).
+  First request after idle times out once on both agents; retry works.
+- **X31 (new):** flip2d's stale counter in the bed is our driver (one row of the text area sent per frame), hidden on
+  the card by X18's read-backs. Log: `vm_5160_dbg/86box_flog.log`; logger is uncommitted in `86box_auto`.
+- **V9x PR for Michael:** branch `dos-agent-handoff-probes` (on 0.19.0, `571db9e`) pushed to the owner's fork; PR
+  text drafted, waiting for the owner's OK.
+- **Simon (#10):** his test was void - pre-monolith image, combine failed, stock VPICD loaded. Owner sent the
+  post-monolith image link (release `win95-sound-fixed-v2`).
+- **Next:** C3 (live fps mailbox in `m8dos`), then X30 step 3, then C4.
+
 ## START HERE: 2026-11-18 (late night), DOS agent C1 + C2 done
 
 - DOS agent (Michael Dale's V9x DOS build, our local branch `inboard-dos-handoff`): exec, handoff run (563 K free),

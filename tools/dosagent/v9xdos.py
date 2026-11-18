@@ -12,6 +12,9 @@ src/guest-dos/hw_dos.c). Files, exec and the detached handoff stay with v9xctl.p
   v9xdos.py ... keys <text> [--enter]
   v9xdos.py ... reboot [--cold]
 
+The probe set and the reboot steps follow Kevin Moonlight's COMrade
+(https://github.com/yyzkevin/COMrade, MIT), which does the same over a serial line.
+
 Addresses take 0x hex or seg:off (B800:0000). The probes run only while the agent is in the
 foreground, not while a handed-off program runs.
 """

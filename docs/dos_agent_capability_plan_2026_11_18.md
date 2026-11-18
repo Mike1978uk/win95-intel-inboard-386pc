@@ -51,6 +51,10 @@ the machine and run `V9XLOOP`. Exit code of a detached job is not reported (DOS 
 
 ## C2 result (2026-11-18, night)
 
+Credit: the probe set (memory, ports, screen, BIOS key buffer, reboot) and the reboot steps follow Kevin
+Moonlight's [COMrade](https://github.com/yyzkevin/COMrade) (MIT): its `src/resident.cpp` `do_reboot()` and its
+opcode table in `doc/PROTOCOL.md`. No code was copied; the DOS agent re-implements them over the V9x protocol.
+
 Agent `dev-dos-c2b` (V9x branch `inboard-dos-handoff`, `src/guest-dos/hw_dos.c`), DOS-only messages 0x00B0-0x00B6,
 capability bits 0x40000000 (memory/ports) and 0x80000000 (screen/keys/reboot). Host client `tools/dosagent/v9xdos.py`.
 Bed `vm_dosagent`: `mem 0040:0000 0x20` reads COM1 3F8h, COM2 2F8h, LPT1 378h, 640 KB (0280h at 40:13h); `in 0x21` B8h,
