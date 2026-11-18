@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # A6: run every Mach8 probe in the AT bed vm_6695_w2 on one build and one card, and collect the results.
 #
-#   tools/a6_regress.sh <86Box.exe> <card: mach32_isa | 8514a> <label>
+#   tools/a6_regress.sh <86Box.exe> <card: gfxcard name | 8514a | 8514ultra> <label>
 #   A6_PROBES="M8FG6" tools/a6_regress.sh ...   runs only those probes (bisects)
 #
 # Starts from vm_6695_w2/w2_pristine.img and 86box_pristine.cfg (made on first use), stages the probes
@@ -16,6 +16,13 @@ SEQ=tools/m8seq
 TMP=$(mktemp -d)
 mkdir -p "$OUT"
 
+# fatcp.py refuses while ANY 86Box runs. Other beds may be running, so check that none has this
+# bed open, then let fatcp write into this bed's own image.
+if powershell.exe -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='86Box.exe'\" | Where-Object { \$_.CommandLine -match '$BED' } | Select-Object -First 1" | grep -q .; then
+  echo "an 86Box already has $BED open"; exit 1
+fi
+FATW=--while-running
+
 [ -f $BED/w2_pristine.img ] || cp $BED/w2.img $BED/w2_pristine.img
 [ -f $BED/86box_pristine.cfg ] || cp $BED/86box.cfg $BED/86box_pristine.cfg
 cp $BED/w2_pristine.img $BED/w2.img
@@ -26,34 +33,39 @@ M8LINE M8SEQ M8ROW3 M8CMP M8EXP M8NIB M8FG6 M8FG7 M8FG8 M8FG9 M8POLY M8PL2 M8ROW
 M8ROW7 M8SRC4 M8SRC4B M8SRC4C M8SRC4D M8SRC4E M8TS2Q M8WRAP M8LOPT M8LEND M8MIX M8TILE M8PF M8CMPA M8CMPC
 M8CMP8 M8STAT M8CONF}"
 
-python tools/fatcp.py $BED/w2.img --mkdir 'M8SEQ' >/dev/null
+python tools/fatcp.py $BED/w2.img --mkdir 'M8SEQ' $FATW >/dev/null
 {
   printf '@ECHO OFF\r\nPROMPT $p$g\r\nPATH C:\\DOS\r\nCD \\M8SEQ\r\n'
   for p in $PROBES; do
-    python tools/fatcp.py $BED/w2.img "M8SEQ\\$p.COM" $SEQ/$p.COM --yes >/dev/null
+    python tools/fatcp.py $BED/w2.img "M8SEQ\\$p.COM" $SEQ/$p.COM --yes $FATW >/dev/null
     printf '%s\r\n' "$p"
   done
   printf 'ECHO done > DONE.TXT\r\n'
 } > "$TMP/AUTOEXEC.BAT"
-python tools/fatcp.py $BED/w2.img 'M8SEQ\M8PRE.DAT' $SEQ/M8PRE.DAT --yes >/dev/null
-python tools/fatcp.py $BED/w2.img 'M8SEQ\M8CONF.DAT' $SEQ/M8CONF_w311.DAT --yes >/dev/null
+python tools/fatcp.py $BED/w2.img 'M8SEQ\M8PRE.DAT' $SEQ/M8PRE.DAT --yes $FATW >/dev/null
+python tools/fatcp.py $BED/w2.img 'M8SEQ\M8CONF.DAT' $SEQ/M8CONF_w311.DAT --yes $FATW >/dev/null
 # 15 probes (M8ROW*, M8SEQ*, M8TS*, M8POLY) load ATI's TEST.COM from their own folder; without it they
 # print "cannot read" and leave no .BIN. ATI's file is not in the repo.
 TESTCOM=${A6_TESTCOM:-/c/Users/lycet/OneDrive/Desktop/XT_project/ATI/8514ut/TEST.COM}
 [ -f "$TESTCOM" ] || { echo "TEST.COM not found at $TESTCOM (set A6_TESTCOM)"; exit 1; }
-python tools/fatcp.py $BED/w2.img 'M8SEQ\TEST.COM' "$TESTCOM" --yes >/dev/null
-python tools/fatcp.py $BED/w2.img 'AUTOEXEC.BAT' "$TMP/AUTOEXEC.BAT" --yes >/dev/null
+python tools/fatcp.py $BED/w2.img 'M8SEQ\TEST.COM' "$TESTCOM" --yes $FATW >/dev/null
+python tools/fatcp.py $BED/w2.img 'AUTOEXEC.BAT' "$TMP/AUTOEXEC.BAT" --yes $FATW >/dev/null
 
-if [ "$CARD" = 8514a ]; then
+if [ "$CARD" = 8514a ] || [ "$CARD" = 8514ultra ]; then
   sed -i 's/^gfxcard = .*/gfxcard = vga\r\n8514a = 1/' $BED/86box.cfg
+  # The 8514/ULTRA add-on is the 8514/A device with ATI extensions (vid_8514a.h: IBM = 0, ATI = 1).
+  [ "$CARD" = 8514ultra ] && printf '\r\n[IBM 8514/A clone (ISA)]\r\nextensions = 1\r\n' >> $BED/86box.cfg
 else
   sed -i "s/^gfxcard = .*/gfxcard = $CARD/" $BED/86box.cfg
 fi
 grep -n "gfxcard\|8514a" $BED/86box.cfg
 
-powershell.exe -NoProfile -File tools/bed_launch.ps1 -Exe "$EXE" -VmPath ".\\$BED" -Log "$PWD/$OUT/86box.log" -Seconds 0 -AllowMouse | tail -1
+# Stop only the 86Box this run started: other beds may be running.
+PID=$(powershell.exe -NoProfile -File tools/bed_launch.ps1 -Exe "$EXE" -VmPath ".\\$BED" -Log "$PWD/$OUT/86box.log" -Seconds 0 -AllowMouse | tr -d '\r' | awk '$1=="pid"{print $2}')
+[ -n "$PID" ] || { echo "bed_launch printed no pid"; exit 1; }
+echo "pid $PID"
 for i in $(seq 1 180); do
-  tasklist | grep -qi 86box || { echo "86Box exited before DONE.TXT"; break; }
+  tasklist //FI "PID eq $PID" | grep -q "$PID" || { echo "86Box exited before DONE.TXT"; break; }
   python -c "
 import sys; sys.path.insert(0,'tools')
 from fatls import Fat
@@ -61,7 +73,7 @@ sys.exit(0 if Fat('$BED/w2.img').resolve('M8SEQ\\\\DONE.TXT') else 1)" && break
   sleep 10
 done
 sleep 5
-tasklist | grep -i 86box | awk '{print $2}' | while read pid; do taskkill //PID "$pid" //F >/dev/null; done || true
+taskkill //PID "$PID" //F >/dev/null 2>&1 || true
 sleep 2
 python - "$BED/w2.img" "$OUT" <<'EOF'
 import sys; sys.path.insert(0, 'tools')
