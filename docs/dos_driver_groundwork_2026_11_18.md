@@ -21,6 +21,23 @@ What is on disk (`C:\Users\lycet\tools\openwatcom`): `binnt\wcc386.exe`, `wlink.
 
 **Recommendation: DOS/32A.** Clear licence with a file we can cite, `dos32a` already in `wlink.lnk`, source available to read the A20 and memory code, and a Liberty Edition source release. Second choice PMODE/W. First test (bed, then card): a `wcc386 -bt=dos` hello linked with `system dos32a`, run with INBRDPC.SYS loaded, print the memory the extender reports.
 
+### Card result, 2026-11-18: the memory risk is gone
+
+`tools/dosx/memprobe.c` (built `-l=dos32a` as `M32A.EXE`, `-l=pmodew` as `MPMW.EXE`; extenders from the Open Watcom
+snapshot's `binw`), run at a plain DOS prompt after a normal boot with INBRDPC.SYS. Photos: owner's `XT_project/photos/dos_1.jpg`,
+`dos_2.jpg`, `mem_1.jpg`.
+
+| | DOS/32A 9.1.2 | PMODE/W |
+|---|---|---|
+| DPMI version, CPU | 0.90, 486 | 0.90, 486 |
+| largest free block | 4200 KB (total 4280) | 4279 KB |
+| allocated and written in 64 KB chunks | 61 = 3904 KB, first at 125E38h | 62 = 3968 KB, first at 112044h |
+
+Both extenders find about 4.2 MB above 1 MB and write all of it, while MEM shows Extended (XMS) 0K. How they find it
+(the bullet above expected none) is not determined. DOS/32A warnings, both harmless here: 9004 mouse init failed (no
+DOS mouse driver), 9003 real-mode vector INT C2h modified during the run (owner of C2h not identified). Next: the
+mode-set `.COM` below, then the core out of `m8d3d.c` with a DOS back end.
+
 ## 2. Getting 640x480x8 on the 8514 side from DOS
 
 | Item | Fact | Source |
@@ -33,6 +50,14 @@ What is on disk (`C:\Users\lycet\tools\openwatcom`): `binnt\wcc386.exe`, `wlink.
 | XFree86 | Programs the CRTC/shadow set itself; the Mach8 server source is local | `docs/resources_and_sources.md:149-150` (`references/xfree86_336_mach8/`) |
 
 Exact sequence the probes use: the init block above, then `OUT 4AE8h, 3`. **Unproven:** that this gives 8 bpp (the stripes were colours 0-15 in 640x480; 8 bpp is implied by the pitch-1024, 1 MB layout, not stated by the probes), a set-up from a cold DOS prompt without the card's POST mode, ROM 64h AL 0 from DOS (design doc: "ROM API static only", `docs/mach8_driver_design.md:169`), and the 640x480 refresh the EEPROM supplies (EEPROM file is 56 Hz 800x600, `roms/video/mach8/eeprom_flexview2x_56hz_800x600.nvr`). Next cheap test: a `.COM` that runs the init block and `4AE8h`=3 after a 640x480 fill, watched by the owner.
+
+### Card result, 2026-11-18: 640x480 at 8 bpp from DOS works
+
+`tools/m8seq/M8DOS8.COM` at a plain DOS prompt (after the boot that ran the extender probes): the init block above,
+256 palette entries through 2ECh/2EDh, a 16 x 16 grid of 40 x 30 engine fills, then `OUT 4AE8h, 3`. The owner's photo
+(`XT_project/photos/dostest.png`) shows all 256 blocks distinct, full screen, for the 10 s, then text mode back. So
+from a cold DOS prompt, with no ROM call and no CRTC or clock write, shadow set 1 is 640x480 at 8 bpp and the 8514
+DAC is live. Next: the DOS back end of the engine (P3.2) on DOS/32A.
 
 ## 3. GE-idle interrupt (Z22)
 
