@@ -40,6 +40,27 @@ plus the uncommitted M8STEP diagnostic. `86box_h2` worktree (branch `diag-issue1
 - #55 again: card locked at first boot to the desktop, startup sound looping; owner reset, next boot normal. Stack unchanged (before the buffered VPICD). Next recurrence: one boot with the sound scheme off.
 - VPICD agent left no deploy doc; written as `docs/issue10_vpicd_buffered_2026_11_18.md`. Bed reached the desktop.
 
+## 2026-11-18 midday: games, DOS, bed parity
+
+- **#10 VPICD buffered** on the 5160: holds (devices, twist 6.73 fps). Sent to Simon (link pinned `b20b0ce`); awaiting.
+- **DOS route open:** DOS/32A and PMODE/W find ~4.2 MB above 1 MB under INBRDPC.SYS; `M8DOS8.COM` shows 640x480x8
+  (256 colours) from a cold DOS prompt. `docs/dos_driver_groundwork_2026_11_18.md`. `tools/dos3d/M8CUBE32.EXE`
+  (agent-built cube, DOS/32A) not yet run anywhere and not yet audited.
+- **Foxbear** (DDraw+DSound): loads all art, then crawls. Bed register samples: a tight loop in run-time code at
+  B0C010D8 walking a pointer through shared memory ~25 KB/s - DirectDraw's software emulation on surfaces that did not
+  fit the card (it asks for multiple back buffers at 640x480x8) on a machine with no free RAM. Untested: `-S -2`.
+  Restarting the bed with Foxbear running blue-screened: 0D at `0117:00005B0A` (log: illegal instruction 0117:B929)
+  - X19 family (`captures/2026-11-18_foxbear_bed/bsod_restart.png`).
+- **Doom 95** (DDraw+DSound): on an 8 bpp desktop it runs windowed, correct colours and sound, slow (owner: not
+  playable). On a 16 bpp desktop it requests 320x200x8, our driver accepts without changing mode: quarter-size image in
+  the corner. On the card, `-timedemo demo1` went full screen and wedged (owner power cycle). Full screen needs a real
+  320x200: use the 8514-half lores mode (320x240, `m8d3d_lores_set`), not the VGA half. Keep Doom windowed on the card
+  until then.
+- **Flight titles:** `docs/flight_titles_2026_11_18.md` - no 486-class Direct3D flight demo exists. FS98 (owner's ISO)
+  being installed on `vm_5160_page` (Direct3D optional, stated minimum 8 MB, card has ~4.8 MB).
+- **Owner direction:** bed/card parity is required work - prove X22 and upstream it (memory
+  `feedback-bed-card-parity-priority`). Showcase wanted: one DirectDraw and one Direct3D title, playable.
+
 ## Next, in order
 
 1. VPICD buffered on the 5160 (above). Then Simon.
