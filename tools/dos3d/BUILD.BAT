@@ -5,3 +5,6 @@ set INCLUDE=%WATCOM%\h
 set PATH=%WATCOM%\binnt64;%WATCOM%\binw;%PATH%
 wcl386 -q -bt=dos -l=dos32a -ox -4r -fpi87 -fp3 -w4 -fe=M8CUBE32.EXE m8cube32.c
 del m8cube32.obj
+rem M8DTEST.EXE: the m8dos card layer's test card and triangle bench.
+wcl386 -q -bt=dos -l=dos32a -ox -4r -fpi87 -fp3 -w4 -fe=M8DTEST.EXE m8dtest.c m8dos.c
+del m8dtest.obj m8dos.obj

@@ -1,0 +1,16 @@
+M8DTEST card: 2 frames in 0 ticks = 0.05 s, 36.41 fps
+  port writes 1450 (725.0 a frame), status reads 191
+  polygons by fill 30, by spans 4 (619.0 a s), rects 12, lines 6
+  flip wait polls 4, timeouts 0
+M8DTEST bench 50 tris size 40 vsync on: 200 frames in 60 ticks = 3.30 s, 60.69 fps
+  port writes 400406 (2002.0 a frame), status reads 57284
+  polygons by fill 10000, by spans 0 (3034.4 a s), rects 200, lines 0
+  flip wait polls 6729, timeouts 0
+M8DTEST bench 50 tris size 40 vsync off: 200 frames in 34 ticks = 1.87 s, 107.10 fps
+  port writes 400406 (2002.0 a frame), status reads 50204
+  polygons by fill 10000, by spans 0 (5354.9 a s), rects 200, lines 0
+  flip wait polls 47, timeouts 0
+M8DTEST bench 200 tris size 20 vsync off: 100 frames in 69 ticks = 3.79 s, 26.39 fps
+  port writes 781255 (7812.6 a frame), status reads 97778
+  polygons by fill 20000, by spans 0 (5277.2 a s), rects 100, lines 0
+  flip wait polls 60, timeouts 0
