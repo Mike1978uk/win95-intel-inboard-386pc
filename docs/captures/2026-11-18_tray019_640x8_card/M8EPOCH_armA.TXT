@@ -1,0 +1,5 @@
+== M8EPOCH 20 s: samples 183, escape failed 0
+  dibtodev   moved in 3 samples, +9
+  copy_hw    moved in 4 samples, +23
+  readback   moved in 3 samples, +6
+  covered    moved in 3 samples, +9

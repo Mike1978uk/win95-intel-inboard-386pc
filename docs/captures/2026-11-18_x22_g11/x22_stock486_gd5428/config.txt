@@ -1,0 +1,2 @@
+machine = ami495
+gfxcard = cl_gd5428_isa

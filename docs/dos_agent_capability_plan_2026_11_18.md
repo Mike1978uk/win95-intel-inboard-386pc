@@ -9,12 +9,12 @@ Design background: `docs/dos_network_agent_design_2026_11_18.md`. Exec fixed: `d
 | Capability | State |
 |---|---|
 | ping, info, files in/out (CRC) | works (bed) |
-| run a program, output back | works (bed, `dev-dos-x28b`); program gets 464 K with the agent resident, 564 K without |
+| run a program, output back | works (bed): `exec`/`shell` with the agent resident (464 K free); `-Detach` hands over: the agent exits, `RUNJOB.BAT` runs with 563 K free, the agent restarts (C1, `dev-dos-c1b`) |
 | memory / port read-write | not built |
 | screen, keys, reboot | not built (86Box automation covers the bed only) |
 | live view while a program runs | not built: the agent is a foreground program |
 | fps and frame counters | `m8dos` keeps counters, printed and appended to `M8DTEST.TXT` at exit only |
-| off switch | none: AUTOEXEC starts the agent unconditionally |
+| off switch | **done (C1)**: `V9XLOOP.BAT`; flag file `C:\V9XREMOT\OFF` or N at the boot prompt |
 | 5160 | not deployed |
 
 ## Build order
@@ -39,3 +39,12 @@ COMrade stays on COM1 as the fallback; serial and network do not share a port.
 3. A DOS-only boot entry (owner edits CONFIG.SYS/AUTOEXEC.BAT): `3C5X9PD 0x60`, `PATH C:\V9XREMOT;...`,
    `SET WATTCP.CFG=C:\V9XREMOT`, then `V9XLOOP.BAT` (after C1) or `V9XAGNT.EXE`.
 4. Open: DOS/4GW's extended memory under the 1986 BIOS. If it fails, `DOS32A V9XAGNT.EXE`.
+
+## C1 result (2026-11-18, night)
+
+V9x branch `inboard-dos-handoff` (local). The protocol's existing detach option means handoff on DOS: the agent
+writes `C:\V9XREMOT\RUNJOB.BAT` (no redirect: the program keeps the screen; add `> file` for output), replies
+`Detached`, exits with errorlevel 3. `packaging/dos/V9XLOOP.BAT` (last line of AUTOEXEC) runs the job and restarts
+the agent. Bed `vm_dosagent`: `shell -Detach "MEM /C > C:\V9XREMOT\RUNJOB.OUT"` -> largest program 563 K, agent back
+(boot 5 -> 6, 7 -> 8). `shell -Detach "ECHO off> C:\V9XREMOT\OFF"` -> loop ends at `C:\>`; on again: delete the flag at
+the machine and run `V9XLOOP`. Exit code of a detached job is not reported (DOS gives it only to the parent).
