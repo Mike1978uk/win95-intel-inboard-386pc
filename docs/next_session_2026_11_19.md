@@ -17,6 +17,8 @@ Earlier: `docs/next_session_2026_11_18.md`. Newest wins.
   text drafted, waiting for the owner's OK.
 - **Simon (#10):** his test was void - pre-monolith image, combine failed, stock VPICD loaded. Owner sent the
   post-monolith image link (release `win95-sound-fixed-v2`).
+- **Card DOS agent is open to the LAN** (`allowed_client=` empty, like the Windows agent; owner approved 11-18 because the host's DHCP address changes). No authentication: LAN only. Card is DHCP, .62 so far.
+- **Console:** the DOS agent shows its address; Esc = DOS prompt, `V9XLOOP` = agent back, `EXIT` = Windows. Published build: `dist/dos-agent/` (byte-identical to the card, `17e229d`).
 - **Next:** C3 (live fps mailbox in `m8dos`), then X30 step 3, then C4.
 
 ## START HERE: 2026-11-18 (late night), DOS agent C1 + C2 done
