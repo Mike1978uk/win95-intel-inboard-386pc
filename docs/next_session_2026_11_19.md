@@ -35,6 +35,11 @@ plus the uncommitted M8STEP diagnostic. `86box_h2` worktree (branch `diag-issue1
 - **MTM dashboard off: done** (`captures/2026-11-18_mtm_dashoff_bed/`): colour runs a row 124 -> 17, but the
   back buffer is still Locked whole (480 rows) every frame - cause unknown (HUD text a guess). Feeds the S9 design.
 
+## 2026-11-19 morning
+
+- #55 again: card locked at first boot to the desktop, startup sound looping; owner reset, next boot normal. Stack unchanged (before the buffered VPICD). Next recurrence: one boot with the sound scheme off.
+- VPICD agent left no deploy doc; written as `docs/issue10_vpicd_buffered_2026_11_18.md`. Bed reached the desktop.
+
 ## Next, in order
 
 1. VPICD buffered on the 5160 (above). Then Simon.
