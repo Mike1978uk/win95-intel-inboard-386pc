@@ -108,3 +108,41 @@ plus the uncommitted M8STEP diagnostic. `86box_h2` worktree (branch `diag-issue1
   add-on 48/49 identical (M8STAT only, raster noise), Mach32 49/49; IBM 8514/A 5/5 identical, both stop at M8TSX
   (ATI-only probes, as 10-10). X22 changes nothing the probes see. `a6_regress.sh` now stops after 3 min without a
   new result (`A6_STALL`); a full run is ~80 s. Left for X22: G11 smoke boots, G2 log compare, G10 (owner), G6 text.
+
+## START HERE: end of 2026-11-18 (late), DOS control agent first
+
+Owner: the DOS control agent comes first ("this dos control agent is needed"; Watt-32 is the preferred stack, and
+it must run programs). Then the DOS 3D engine (X30 step 3).
+
+**X28 state** (`docs/dos_agent_milestone1_2026_11_18.md`, bed `vm_dosagent`, host port 9871): V9x DOS agent
+(`V9X-Remote-Agent/src/guest-dos`, Watt-32 at `C:\Users\lycet\tools\src\watt32`, DOS/4GW) pings, reports info and
+round-trips 1 MB with the same CRC. **exec fails**: after `sock_init()` the DOS memory chain is broken, so
+`system()` returns -1 and DOS halts at exit ("Cannot load COMMAND").
+
+Desk reading of Watt-32's fast receiver (`USE_FAST_PKT`, `pcpkt2.c`), 11-18 late, rules out the layout arithmetic:
+stub 224 B + `pkt_info` 40 + 40 RX elements x 1548 = 61,960, + PKT_TMP 64 + Tx 1514+10 = **63,772 B**, under
+64 KB. `dpmi_real_malloc` takes bytes and rounds to paragraphs correctly, and the queue markers stay in bounds. The
+1 KB transfer buffer (`misc.c` `setup_dos_xfer_buf`) is only used by `bsdname.c`/`country.c`. **Lead, not proven:**
+the 1,628-byte zero run = PKT_TMP 64 + RX_SIZE 1548 + 16. That is code that clears or writes the Tx area as if it
+were RX_SIZE long, which was the layout of the non-fast paths (`pcpkt.c` 101-178: "TX_BUF ... end area at TX_BUF
++ RX_SIZE"). The block only holds ETH_MAX+10 after PKT_TMP, so the write would run 40 B past the block, over the
+next MCB.
+
+**Next, measure, don't theorise (cheapest first):**
+1. One bed run of the agent's test program, walking the MCB chain and printing the owner, size and end of the
+   blocks for `rm_seg` and `_watt_dosTbSeg`: before `sock_init`, after it, and after the first packet received.
+   That shows whether the damage comes at init or at receive, and which block it starts in.
+2. If the lead holds: fix it in our Watt-32 checkout, either by sizing the Tx area by RX_SIZE in `pcpkt2.c`
+   `rdata_size` or by fixing the code that over-writes it. Rebuild the agent and prove `exec "dir C:\"` and
+   `MEM` in the bed.
+3. Learn from COMrade (owner's steer) only for what the network path lacks: COMrade's exec runs in its own way
+   (`docs/dos_network_agent_design_2026_11_18.md` "What COMrade carries"). Its lessons (private ISR stack, PSP/DTA
+   swap) matter for the TSR, step 3 of the plan, not for this bug.
+4. Then the owner's 5160 steps in the milestone doc (`C:\V9XREMOT`, `3C5X9PD 0x60`, `WATTCP.CFG`,
+   `allowed_client`).
+
+**Also from tonight:** the 16-bit `m8dos` is done (`456010b`, `a5c1781`): the bed shows the same pixels and
+writes as the 32-bit build. `M8DTST16.EXE` is on the card at `C:\DOS3D\` (CRC 30893335): the owner runs
+`M8DTST16 card 15` and `M8DTST16 bench 50 40 200`. The 5160's agent is reached with
+`v9xctl.ps1 <verb> -Host 192.168.68.62`; the `v9x` MCP points at the bed ports only. `tools/dos3d/bed_run.sh`
+stages and runs DOS programs in `vm_6695_w2` without the owner.
