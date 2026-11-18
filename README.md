@@ -271,7 +271,7 @@ here, fixed by OBattler in `9ee5197`.
 
 | PR | Status | What it does |
 |---|---|---|
-| [michaeldale/V9x-Remote-Agent#1](https://github.com/michaeldale/V9x-Remote-Agent/pull/1) | Open, 2026-11-17; Michael Dale offered to take it | `AGENT.INI [agent] tray_flash=0` keeps the tray icon still while busy. On the 5160's 8-bit ISA display every icon change was a taskbar repaint read back by the Mach8 driver: 53 redraws in 20 s busy, 2 with the key set |
+| [michaeldale/V9x-Remote-Agent#1](https://github.com/michaeldale/V9x-Remote-Agent/pull/1) | Shipped in [0.19.0](https://github.com/michaeldale/V9x-Remote-Agent/releases/tag/v0.19.0), 2026-11-18, applied in Michael Dale's main repository with co-author credit (the PR repo is a release mirror) | `AGENT.INI [agent] tray_flash=0` keeps the tray icon still while busy. On the 5160's 8-bit ISA display every icon change was a taskbar repaint read back by the Mach8 driver: 53 redraws in 20 s busy, 2 with the key set |
 
 ### Which build to test on
 
@@ -513,8 +513,8 @@ in full, and each driver directory's README carries the specific provenance and 
 
 ## Contributing
 
-Issues and PRs welcome. Most open issues carry a **Status** block at the top, so you can see
-where they actually stand without reading the thread.
+Issues and PRs welcome. Some issues carry a **Status** block at the top; where an issue's last
+comment is newer than its Status block, the comment is the current state.
 
 ### The most useful thing anyone could pick up
 
@@ -536,19 +536,23 @@ rather than a DMA-reach one — is on the issue.
 
 | | |
 |---|---|
-| [#10](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/10) | 1982-era ROMs. The 08NOV82 XT ROM runs Windows 95, on a real 5160 and in the emulator (offered in 86Box since [#8217](https://github.com/86Box/86Box/pull/8217)); a real 5150 still stops when Windows starts |
+| [#10](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/10) | 1982-era ROMs. The 08NOV82 XT ROM runs Windows 95, on a real 5160 and in the emulator (offered in 86Box since [#8217](https://github.com/86Box/86Box/pull/8217)); a real 5150 still stops when Windows starts. Lead (2026-11-18): Intel's IBVPICD sets the 8259 to buffered mode and ours did not; a buffered-mode VPICD holds on the 5160 and is with a 5150 owner to test |
 | [#18](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/18) | Floppy corruption after a media change. DMA reach is fixed (`maxPhys 0x1000 -> 0xFF`, shipped as `HSFLOP_XTDMA.PDR`) and reads/writes measured clean here, but that harness never changed media, which is this issue's trigger. The reproduction bed - 86Box + Monster Floppy + the patched driver + a media change - is still to be built, and needs no hardware |
-| [#23](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/23) | `XTIDEMP.MPD` cannot drive the XT-IDE Hi-Speed register map - an A3/A0 swap is a permutation, and the driver computes `base + index * stride`. Blocked on hardware to test against, and on 86Box having no Hi-Speed model |
-| [#28](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/28) | Per-component audit: walk every driver and VxD, six questions each |
-| [#29](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/29) | Measure DMA: reach, cost per byte, channel inventory, CPU overlap |
-| [#31](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/31) | The SCSI chain: does it disconnect, and are the target caches on? Every target has one, and this is the most on-point mechanism in the machine |
-| [#35](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/35) | Shadow RAM inventory, and memory-mapped storage in the emulator |
 | [#41](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/41) | Pace the polling in every driver that spins. `XTIDEMP.MPD` done (2026-10-11); `HSFLOP.PDR` is not a target; `T130.MPD` now runs on IRQ 3; `ELNK3.VXD` not yet looked at |
 | [#43](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/43) | IOCHRDY: what a held bus actually costs. Our own three-window fit already isolates it - per bus cycle **1.978 us** (XT-CF ROM) against **3.805 us** (Mach8 video), same machine, same fixed sync term. And **86Box models no bus stall at all**, so any lever whose whole benefit is holding the bus for less time measures as zero in the bed |
-| [#45](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/45) | Windows 95 settings and the timer tick, each A/B tested on the 5160. `MinTimeSlice=54` adopted (2026-10-11); open: DOS boxes and serial at the 55 ms tick |
 | [#47](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/47) | FastDoom: settings that give Sound Blaster sound and a usable frame rate |
 | [#48](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/48) | Optimisation timeline: what each change bought, from first boot to now |
-| [#49](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/49) | Mach8 display driver: the project's own Windows 95 driver for the Graphics Ultra, working in 86Box; the first timed run against ATIM8 on the 5160 is still to come |
+| [#49](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/49) | Mach8 display driver: the project's own Windows 95 driver for the Graphics Ultra, at 8 and 16 bpp, with DirectDraw and Direct3D, running on the 5160 |
+| [#50](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/50) | BlueSCSI v2 (Pico 2 W) as a multi-device SCSI bridge: storage, DaynaPort network, USB |
+| [#51](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/51) | Does a different filesystem cut bus bytes on Windows 95 OSR1? |
+| [#52](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/52) | What can `xtide_mpd` learn from WINDISK's PDR and IDE code? |
+| [#53](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/53) | Leads from a survey of linked GitHub repositories |
+| [#54](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/54) | Change detection by hash: rules learned on the Mach8 16 bpp driver |
+| [#55](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/55) | The card locks with the Sound Blaster looping a sound: at a 16 bpp restart, and (2026-11-18) at first boot to the desktop. Cause open |
+| [#56](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/56) | Card hung during dxdiag while a screenshot was taken over the V9x agent |
+| [#57](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/57) | Apply the Mach8 driver's learnings to our other drivers and VxDs |
+| [#58](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/58) | DirectX on the 5160: DirectDraw, DirectSound, Direct3D. Doom 95 runs windowed with sound at 8 bpp; full-screen low resolutions and mode changes are open |
+| [#59](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/59) | Tests left for a local session by the cloud session of 2026-10-23 to 2026-11-04 |
 
 Issues are labelled **`emulator`** or **`real-hardware`** so you can pick by what you have, and
 **`upstream`** marks the ones destined for 86Box itself.
@@ -567,7 +571,7 @@ against nothing, and the follow-up configuration writes reprogram the interrupt 
 The Windows 95 LS-120 driver does exactly this and silently masks IRQ 1 — **the keyboard stops
 working, with no error anywhere** ([#22](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/22)).
 The DOS build of the same driver has `/ni` "Skip chipset initialization"; the protected-mode
-miniport exposes no equivalent.
+miniport takes the same switches through its `AdapterSettings` string (found 2026-09-19).
 
 ```
 python dist/post-install-fixes/scripts/xt_port_audit.py YOURDRIVER.MPD
