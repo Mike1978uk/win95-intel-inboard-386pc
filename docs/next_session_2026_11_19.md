@@ -61,6 +61,26 @@ plus the uncommitted M8STEP diagnostic. `86box_h2` worktree (branch `diag-issue1
 - **Owner direction:** bed/card parity is required work - prove X22 and upstream it (memory
   `feedback-bed-card-parity-priority`). Showcase wanted: one DirectDraw and one Direct3D title, playable.
 
+## 2026-11-18 afternoon
+
+- **X22 regression** (`tools/a6_regress.sh`, now stops only its own VM, `8514ultra` card, `A6_WAIT`): base `e2c3c0c3b`
+  (`86box_x22base`) vs X22 `26fd9ec4c`. Graphics Ultra 48/48 deterministic probes identical (M8STAT is raster-timing
+  noise, differs every run); Mach32 49/49 identical. **8514/ULTRA add-on crashes 86Box after M8BYTE4 on BOTH builds**
+  (pre-existing, or the `extensions = 1` config) - chase before G11. IBM 8514/A stalls after M8BYTE4 (base; X22 run
+  pending); the ATI-only TEST.COM probes never complete on it (also 10-10). Captures `captures/2026-10-10_a6/x22*`.
+- **V9x 0.19.0 on the card** (hot update, AGENT.INI kept). Tray redraw count NOT obtained: run at 800x600x16, where
+  M8EPOCH's counters (8 bpp Lock path) cannot see a repaint - all three arms read `copy_hw +2`. Redo at 640x480x8 before
+  replying to Michael (reply on the PR thread). `captures/2026-11-18_tray019_card/`.
+- **#55 twice today**: first boot (old stack) and an agent-initiated reboot. Test: sounds off; open with owner.
+- **Foxbear** on a fresh bed (`vm_5160_fox`, from the CF image, DHCP set by the owner): `-S -2` still crawls - same
+  DirectDraw run-time loop (`B0C010E2`), screen moving ~every 6 min, not hung. Theory: paging. Test staged: `vm_5160_fox`
+  at **17408 KB** on a diagnostic build `86box_x22base/build17` (Inboard RAM cap lifted, source reverted). Run
+  `FOXBEAR -S -2` there; if it plays, it is memory, not the driver.
+- **FS98** installed on `vm_5160_page` (key from the web; owner's CD for anything published). Runs windowed in software,
+  never took input in ~2 h; CPU in KERNEL32 - too heavy at 5 MB, like MTM. Optional: same 17 MB test.
+- **DOS cube** `tools/dos3d/M8CUBE32.EXE` audited (`77ce61f`), not yet run on the card.
+- Issue audit + drafts `docs/issue_audit_2026_11_18.md`; README fixed (`59b8608`).
+
 ## Next, in order
 
 1. VPICD buffered on the 5160 (above). Then Simon.
