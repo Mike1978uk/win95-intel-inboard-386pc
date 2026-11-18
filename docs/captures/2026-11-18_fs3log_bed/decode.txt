@@ -1,0 +1,52 @@
+inits 1, frames kept 512, vertices kept 512, mode sets 0
+  47E present          3518   original 29b6:0d03
+  482 rows               46   original 29b6:140b
+  486 horizon            19   original 29b6:1716
+  48A rows             6147   original 29b6:140e
+  48E mode                0   original 29b6:10e8
+  492 screen              0   original 29b6:0df3
+  496 ram buffer       4039   original 29b6:0dfb
+  49A ?                   3   original 29b6:4532
+  49E text             3717   original 29b6:14fa
+  4A2 line            67421   original 29b6:1608
+  4A6 pixel             522   original 29b6:16f2
+  4AA vertex         614728   original 29b6:1c6f
+  4AE polygon        124762   original 29b6:1d19
+  4B2 ?                   0   original 29b6:1ff6
+  4B6 read pixel        479   original 29b6:2161
+  4BA shutdown            0   original 29b6:217e
+  4BE ?                   0   original 29b6:2192
+polygons by corners: {3: 27816, 4: 53180, 5: 23492, 6: 3359, 7: 7118, 8: 4172, 9: 233, 10: 249, 11: 105, 12: 183, 13: 140, 14: 576, 15: 315, 16: 2486, 17: 142, 18: 68, 19: 150, 20: 15, 21: 43, 22: 4, 25: 1, 26: 156, 27: 63, 29: 103, 30: 181, 31: 412}
+first vertices (AX, CX, DX, polygons before):
+   (6862, -284, -6862, 0)
+   (1383, -8, -318, 0)
+   (1381, -8, -605, 0)
+   (7392, -128, -7392, 0)
+   (1949, -4, -321, 1)
+   (1744, -8, -1002, 1)
+   (1517, -8, 238, 1)
+   (7800, -43, 7800, 1)
+   (7847, -20, 7847, 1)
+   (7583, -7583, 7550, 2)
+   (7801, -43, 7801, 2)
+   (1517, -8, 238, 2)
+   (5743, -393, 5743, 2)
+   (5786, -5780, 5786, 2)
+   (1202, -8, -47, 3)
+   (4647, -1127, -4647, 3)
+   (6119, -6118, -6119, 3)
+   (7420, -7420, 7420, 3)
+   (6365, -1512, 6365, 3)
+   (1203, -8, 20, 3)
+   (1202, -8, -47, 4)
+   (4647, -1127, -4647, 4)
+   (6632, -1475, -6632, 4)
+   (1202, -8, -50, 4)
+per frame lines      mean    12.3  max    16
+per frame vertices   mean   166.7  max   215
+per frame polygons   mean    35.7  max    45
+per frame pixels     mean     0.0  max     0
+per frame text       mean     1.1  max     6
+per frame row fills  mean     1.5  max     3
+per frame horizon    mean     0.0  max     0
+per frame targets    mean     1.0  max     2
