@@ -38,6 +38,11 @@ if (-not $Log) { $Log = Join-Path $VmPath '86box.log' }
 $Log = [IO.Path]::GetFullPath([IO.Path]::Combine((Get-Location).Path, $Log))  # one-argument form: a6_regress.sh runs this under Windows PowerShell 5.1
 if (-not (Test-Path (Split-Path $Log))) { Fail "log folder missing: $(Split-Path $Log)" }
 Write-Host "log   $Log"
+# An exe built without AUTOMATION=ON does not know --automation and shows its usage box on
+# the owner's desktop instead of starting the bed.
+if ($Automation -gt 0 -and -not (Select-String -Path $Exe -SimpleMatch 'automation-token-file' -Quiet)) {
+  Fail "-Automation given but $Exe was built without AUTOMATION=ON"
+}
 
 # 1. Which binary, built when, from which commit.
 $tree = (Resolve-Path (Join-Path $exeDir '..\..')).Path
