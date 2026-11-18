@@ -1,0 +1,43 @@
+﻿[General]
+host_cpu = AMD Ryzen 7 7800X3D 8-Core Processor           
+scale = 3
+uuid = fec42017-ed68-5473-b691-21ad86323edc
+vid_renderer = qt_software
+vid_resize = 1
+
+[Machine]
+cpu_family = i386dx
+cpu_multi = 1
+cpu_speed = 33333333
+cpu_use_dynarec = 0
+machine = asus386
+mem_size = 4096
+time_sync = disabled
+
+[Video]
+8514a = 1
+gfxcard = vga
+
+[Input devices]
+keyboard_type = keyboard_at
+mouse_type = msserial
+tablet_type = none
+
+[Storage controllers]
+hdc_1 = xtide
+
+[Hard disks]
+hdd_01_fn = w311.img
+hdd_01_ide_channel = 0:0
+hdd_01_parameters = 63, 16, 4060, 0, ide
+hdd_01_speed = ramdisk
+
+[Floppy and CD-ROM drives]
+fdd_01_type = 35_2hd
+fdd_02_type = none
+
+[PC/XT XTIDE #1]
+bios = xtcf_lotech
+base = 300
+bios_addr = d0000
+stride = 2
