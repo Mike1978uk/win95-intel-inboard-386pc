@@ -1,4 +1,10 @@
-/* m8dos - the Mach8's 8514 side from DOS under DOS/32A. See m8dos.h.
+/* m8dos - the Mach8's 8514 side from DOS. See m8dos.h.
+ *
+ * Two builds from this file. 32-bit (wcl386, DOS/32A): hosted, restores the screen itself
+ * on exit and Ctrl-C. 16-bit (wcc, small or tiny model, DS = SS): for real-mode drivers
+ * such as FS3's CUSTOM.GRA, which run inside the game with no C library, so it calls none
+ * (Watcom's long-arithmetic helpers aside) and leaves exit handling to its host. Define
+ * M8_HOSTED in a 16-bit program that has the library, to get the 32-bit build's hooks.
  *
  * Layout: pitch 1024, page 0 at row 0, page 1 at row 512, shown by CRT_OFFSET; the scratch
  * for polygon outlines is the off-screen column x 640-1023 of rows 0-1023.
@@ -12,10 +18,14 @@
  *
  * GPL-3.0-or-later, as drivers/mach8_display.
  */
+#if defined( __386__ ) && !defined( M8_HOSTED )
+#define M8_HOSTED
+#endif
+#ifdef M8_HOSTED
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <signal.h>
+#endif
 #include <i86.h>
 #include "m8dos.h"
 
@@ -72,12 +82,13 @@ typedef unsigned long   DWORD;
 #define SCR_X           640
 #define SCR_W           384
 #define SCR_H           1024
-#define MAXV            16
+#define MAXV            64              /* FS3 hands over polygons of 31 corners and more */
 #define PASS            8               /* polygons a batch: one scratch bit-plane each */
-#define Q_MAX           65536
-#define Q_SLACK         512             /* the most one call adds */
+#define Q_SLACK         (7 * MAXV + 64) /* the most one polygon, span row or other call adds */
 #define Q_CHUNK         8
 
+#ifdef __386__
+#define Q_MAX           65536
 #define BIOS_TICKS      (*(volatile DWORD *)0x46C)
 #define KB_HEAD         (*(volatile WORD *)0x41A)
 #define KB_TAIL         (*(volatile WORD *)0x41C)
@@ -108,6 +119,56 @@ extern void q_send_run( const DWORD *p, int n );
 extern void spin( void );
 #pragma aux spin = "mov ecx, 1000" 0xE2 0xFE modify [ecx];
 
+#else
+/* The queue shares one 64 KB segment with the code and the host's needs; a frame of FS3
+ * is about 2,000 writes, so a frame still goes out whole. */
+#define Q_MAX           6144
+#define BIOS_TICKS      (*(volatile DWORD __far *)MK_FP( 0x40, 0x6C ))
+#define KB_HEAD         (*(volatile WORD __far *)MK_FP( 0x40, 0x1A ))
+#define KB_TAIL         (*(volatile WORD __far *)MK_FP( 0x40, 0x1C ))
+
+extern void io_outw( unsigned port, unsigned v );
+#pragma aux io_outw = "out dx, ax" parm [dx] [ax] modify exact [];
+extern void io_outb( unsigned port, unsigned v );
+#pragma aux io_outb = "out dx, al" parm [dx] [ax] modify exact [];
+extern unsigned io_inw( unsigned port );
+#pragma aux io_inw = "in ax, dx" parm [dx] value [ax] modify exact [ax];
+extern unsigned io_inb( unsigned port );
+#pragma aux io_inb = "xor ax, ax" "in al, dx" parm [dx] value [ax] modify exact [ax];
+
+/* Each entry is port, then value: the same layout as the 32-bit build. */
+extern void q_send_run( const DWORD *p, int n );
+#pragma aux q_send_run = \
+    "cld"                   \
+    "q_next:"               \
+    "lodsw"                 \
+    "mov dx, ax"            \
+    "lodsw"                 \
+    "out dx, ax"            \
+    "loop q_next"           \
+    parm [si] [cx] modify [ax dx si cx];
+
+extern void spin( void );
+#pragma aux spin = "mov cx, 1000" 0xE2 0xFE modify [cx];
+
+/* Some BIOSes do not keep BP across a mode set. */
+extern void bios_text_mode( void );
+#pragma aux bios_text_mode = "push bp" "mov ax, 3" "int 10h" "pop bp" modify [ax bx cx dx si di es];
+#endif
+
+/* The tick count as one value: in 16-bit code its two halves are read apart. */
+static DWORD ticks_now( void )
+{
+    DWORD   a;
+    DWORD   b;
+
+    do {
+        a = BIOS_TICKS;
+        b = BIOS_TICKS;
+    } while( a != b );
+    return( a );
+}
+
 static M8STATS  st;
 
 static void outw( unsigned port, unsigned v ) { io_outw( port, v ); ++st.outs; }
@@ -122,11 +183,17 @@ static BYTE         pal_old[768];
 static BYTE         dac_mask_old;
 static int          engine_bad;
 static const char   *err;
+#ifdef M8_HOSTED
 static int          hooked;
+#endif
+
+static int      in_frame;
 
 static void restore( void )
 {
+#ifdef __386__
     union REGS  r;
+#endif
     int         i;
 
     if( !gfx_on ) {
@@ -147,26 +214,38 @@ static void restore( void )
         io_outb( M8_DAC_MASK, dac_mask_old );
     }
     io_outw( M8_ADVFUNC_CNTL, 2 );      /* VGA */
-    memset( &r, 0, sizeof( r ) );
+#ifdef __386__
+    for( i = 0; i < sizeof( r ); ++i ) {
+        ((BYTE *)&r)[i] = 0;
+    }
     r.w.ax = 0x0003;
     int386( 0x10, &r, &r );
+#else
+    bios_text_mode();
+#endif
 }
 
+#ifdef M8_HOSTED
 static void on_signal( int sig )
 {
     restore();
     printf( "m8dos: stopped by signal %d, text mode restored\n", sig );
     exit( 3 );
 }
+#endif
 
-/* The engine is wedged: nothing more can be drawn, so restore the screen and leave. */
+/* The engine is wedged: nothing more can be drawn, so restore the screen. A hosted program
+ * leaves; in a driver every later call does nothing until the next m8_open. */
 static void fail( const char *msg )
 {
     engine_bad = 1;
     err = msg;
+    in_frame = 0;
     restore();
+#ifdef M8_HOSTED
     printf( "m8dos: %s\n", msg );
     exit( 2 );
+#endif
 }
 
 const char *m8_error( void )
@@ -225,10 +304,13 @@ static void q_send( void )
 {
     int i = 0;
 
-    while( i < qn ) {
+    while( i < qn && !engine_bad ) {
         int n = qn - i < Q_CHUNK ? qn - i : Q_CHUNK;
 
         room( n );
+        if( engine_bad ) {
+            break;
+        }
         q_send_run( q + i, n );
         st.outs += n;
         i += n;
@@ -239,7 +321,6 @@ static void q_send( void )
 /* ---- pages ---- */
 static int      shown;                  /* the page CRT_OFFSET was last set to */
 static int      dy;                     /* row of the page being drawn */
-static int      in_frame;
 static int      vsync_last = 1;
 static int      page_pending;
 static int      page_in_blank;          /* the flip was written inside a blank */
@@ -260,7 +341,7 @@ static void page_wait( void )
     if( !page_in_blank && (inw( M8_SUBSYS ) & 1) ) {
         return;
     }
-    if( BIOS_TICKS - page_tick >= 2 ) {
+    if( ticks_now() - page_tick >= 2 ) {
         return;
     }
     if( page_in_blank ) {
@@ -372,6 +453,7 @@ static void q_spans( const POLY *p )
         Q( M8_CUR_Y, t + y );
         Q( M8_CUR_X, span_lo[y] );
         Q( M8_SCAN_TO_X, span_hi[y] + 1 );
+        q_room();                       /* a wide polygon can take every row of the screen */
     }
 }
 
@@ -434,6 +516,7 @@ static void batch_flush( void )
             }
             if( p[j].r - p[j].l + 2 > cw ) cw = p[j].r - p[j].l + 2;
             if( p[j].b - p[j].t + 1 > ch ) ch = p[j].b - p[j].t + 1;
+            q_room();                   /* Q_SLACK covers one polygon, not a batch */
         }
         Q( M8_WRT_MASK, 0x00FF );
         Q( M8_DP_CONFIG, M8_DP_POLY_FILL );
@@ -456,6 +539,7 @@ static void batch_flush( void )
             Q( M8_DEST_X_END, p[j].r + 1 );
             Q( M8_CUR_Y, p[j].t + 1 );
             Q( M8_DEST_Y_END, p[j].b );         /* starts the fill */
+            q_room();
         }
         Q( M8_RD_MASK, 0x00FF );
         Q( M8_DP_CONFIG, M8_DP_8514 );
@@ -471,6 +555,7 @@ static void batch_flush( void )
                 Q( M8_LINEDRAW, p[j].y[i % p[j].n] );
             }
             ++st.polys_fill;
+            q_room();
         } else {
             q_spans( &p[j] );
             ++st.polys_span;
@@ -743,11 +828,11 @@ void m8_frame_begin( void )
         return;
     }
     if( st.frames == 0 ) {
-        DWORD t = BIOS_TICKS;
+        DWORD t = ticks_now();
 
-        while( BIOS_TICKS == t ) {      /* time from a tick edge */
+        while( ticks_now() == t ) {      /* time from a tick edge */
         }
-        t_first = BIOS_TICKS;
+        t_first = ticks_now();
     }
     in_frame = 1;
     dy = shown ? 0 : PAGE1_Y;
@@ -769,11 +854,11 @@ void m8_frame_end( int vsync )
     Q( M8_SUBSYS, 0x0001 );
     q_send();
     page_in_blank = inw( M8_SUBSYS ) & 1;
-    page_tick = BIOS_TICKS;
+    page_tick = ticks_now();
     page_pending = 1;
     shown = dy != 0;
     ++st.frames;
-    st.ticks = BIOS_TICKS - t_first;
+    st.ticks = ticks_now() - t_first;
 }
 
 int m8_open( void )
@@ -783,12 +868,16 @@ int m8_open( void )
     if( gfx_on ) {
         return( 0 );
     }
+#ifdef M8_HOSTED
     if( !hooked ) {
         atexit( restore );
         signal( SIGINT, on_signal );
         signal( SIGBREAK, on_signal );
         hooked = 1;
     }
+#endif
+    engine_bad = 0;
+    err = 0;
     /* Engine reset and set-up block of tools/m8seq/M8DOS8.ASM, proven from a cold DOS prompt. */
     outw( M8_SUBSYS, 0x9000 );
     outw( M8_SUBSYS, 0x5000 );
@@ -853,12 +942,16 @@ void m8_stats( M8STATS *s )
 
 void m8_stats_reset( void )
 {
-    memset( &st, 0, sizeof( st ) );
+    int i;
+
+    for( i = 0; i < sizeof( st ); ++i ) {
+        ((BYTE *)&st)[i] = 0;
+    }
 }
 
 unsigned long m8_ticks( void )
 {
-    return( BIOS_TICKS );
+    return( ticks_now() );
 }
 
 /* A key waiting, discarded without DOS seeing a Ctrl-C in it. */
