@@ -1,0 +1,3 @@
+machine = asus386
+8514a = 1
+gfxcard = vga

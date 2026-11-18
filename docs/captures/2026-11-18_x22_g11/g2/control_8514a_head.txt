@@ -1,0 +1,4 @@
+IBM 8514/A: 8514 enabled, hdisp=0, vtotal=0, htotal=0, dispend=0, rowoffset=0, split=0, vsyncstart=0, split=00000000
+IBM 8514/A: [C000:000000B1]: IBM 8514/A: (0x4ae8): ON=0, shadow crt=0, hdisp=0, vdisp=0.
+IBM 8514/A: IBM mode set 1: 640x480 resolution.
+control: 994481 log lines, 992520 mentioning 8514 (full log deleted, 60 MB)

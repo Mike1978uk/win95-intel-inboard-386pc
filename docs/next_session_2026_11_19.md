@@ -90,3 +90,21 @@ plus the uncommitted M8STEP diagnostic. `86box_h2` worktree (branch `diag-issue1
 4. DOS driver: DOS/32A hello under INBRDPC.SYS on the card (memory found?), then P3.2.
 5. Plan items untouched: P1.10 fused asm row pass, S9 HUD/static-art design (MTM result feeds it), X22 regression.
 6. `dist/mach8` still `32bfaac`.
+
+## 2026-11-18 evening: X22 rebased, add-on crash found
+
+- **X22 rebased** alone onto `origin/master` `3b7727a1e`: branch `mach8-crt-offset-flip`, worktree `86box_x22pr`,
+  `e0a713098`. One conflict (TC1995's `f5cd25425` rewrote `ati8514_recalctimings`); G1 grep clean, no warnings.
+  Upstream reworked the mode registers since `e2c3c0c3b`, so the afternoon's regression no longer counts as the base.
+- **Build with `MSYSTEM=MINGW64`**, or the exe links msvcrt and UCRT and `bed_launch.ps1` refuses it.
+- **8514/ULTRA add-on crash at M8TSX = our #8289 (`942e2de86`)**: the FIFO-test replay calls `dev->accel_out_fifo(mach, ...)`;
+  the add-on's handler takes `svga`. Crashes on clean master too. Fix `c68611861` (branch `mach8-fifo-replay-ptr`,
+  worktree `86box_fifofix`, local): add-on now runs all 49 probes (`captures/2026-10-10_a6/fifofix_8514ultra`).
+  Separate upstream PR from X22; owner's call. IBM 8514/A still stalls at M8TSX (no crash; different handler, not checked).
+- **Next:** X22 on top of `c68611861`; four-card regression against `c68611861`; G11 smoke boots; G2 log compare.
+- **#55 third time today** (evening): startup sound looping at boot; owner rebooted, next boot clean. Card at desktop,
+  agent v0.19.0 up (boot counter 449). `M8CUBE32.EXE` copied to `C:\DOS3D\` (78,658 B, CRC 4FCCFBA8).
+- **X22 regression on master + fix** (`fifofix_*` vs `x22r_*`, `captures/2026-10-10_a6/`): Graphics Ultra 48/49 and
+  add-on 48/49 identical (M8STAT only, raster noise), Mach32 49/49; IBM 8514/A 5/5 identical, both stop at M8TSX
+  (ATI-only probes, as 10-10). X22 changes nothing the probes see. `a6_regress.sh` now stops after 3 min without a
+  new result (`A6_STALL`); a full run is ~80 s. Left for X22: G11 smoke boots, G2 log compare, G10 (owner), G6 text.
