@@ -1,0 +1,30 @@
+== M8EPOCH 20 s: samples 180, escape failed 0
+  dibtodev   moved in 53 samples, +159
+  copy_hw    moved in 54 samples, +373
+  readback   moved in 53 samples, +106
+  covered    moved in 53 samples, +159
+== M8EPOCH 45 s: samples 142, escape failed 0
+  bitblt     moved in 3 samples, +10
+  exttextout moved in 2 samples, +7
+  dibtodev   moved in 15 samples, +45
+  fill_hw    moved in 3 samples, +7
+  copy_hw    moved in 24 samples, +124
+  readback   moved in 15 samples, +30
+  text_hw    moved in 2 samples, +11
+  covered    moved in 15 samples, +45
+  cur_hide   moved in 1 samples, +1
+== M8EPOCH 20 s: samples 181, escape failed 0
+  copy_hw    moved in 1 samples, +2
+== M8EPOCH 20 s: samples 183, escape failed 0
+  copy_hw    moved in 1 samples, +2
+== M8EPOCH 45 s: samples 136, escape failed 0
+  bitblt     moved in 2 samples, +10
+  exttextout moved in 3 samples, +8
+  fill_hw    moved in 3 samples, +11
+  copy_hw    moved in 8 samples, +19
+  text_hw    moved in 3 samples, +12
+  cur_hide   moved in 1 samples, +1
+== M8EPOCH 20 s: samples 182, escape failed 0
+  copy_hw    moved in 1 samples, +2
+== M8EPOCH 20 s: samples 183, escape failed 0
+  copy_hw    moved in 1 samples, +2

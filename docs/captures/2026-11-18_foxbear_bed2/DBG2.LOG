@@ -1,0 +1,18 @@
+      0 == DBGRUN C:\FOXBEAR\FOXBEAR.EXE -S -2 (dir C:\FOXBEAR)
+   2472 process start, image at 00400000
+   2489 dll at 7FD80000
+   2531 dll at 7FD00000
+   2582 dll at BEAF0000
+   2596 dll at BFE60000
+   2664 dll at 7FD40000
+   2692 dll at 7FD50000
+   2707 dll at 81FE8000
+   2747 dll at BFEE0000
+   2863 dll at BAAA0000
+   2866 dll at BFEF0000
+   2912 dll at BFF30000
+   2973 dll at BFF60000
+   2976 dll at BFF70000
+   8888 dll at 7EB40000
+  14787 EXCEPTION C000001D at BAAABEC9 first thread 4294716331
+  16070 ODS Creating multiple backbuffer primary

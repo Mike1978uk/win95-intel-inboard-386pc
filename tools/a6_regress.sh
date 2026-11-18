@@ -64,7 +64,8 @@ grep -n "gfxcard\|8514a" $BED/86box.cfg
 PID=$(powershell.exe -NoProfile -File tools/bed_launch.ps1 -Exe "$EXE" -VmPath ".\\$BED" -Log "$PWD/$OUT/86box.log" -Seconds 0 -AllowMouse | tr -d '\r' | awk '$1=="pid"{print $2}')
 [ -n "$PID" ] || { echo "bed_launch printed no pid"; exit 1; }
 echo "pid $PID"
-for i in $(seq 1 180); do
+# A6_WAIT polls of ~10 s before giving up (default 180, half an hour).
+for i in $(seq 1 ${A6_WAIT:-180}); do
   tasklist //FI "PID eq $PID" | grep -q "$PID" || { echo "86Box exited before DONE.TXT"; break; }
   python -c "
 import sys; sys.path.insert(0,'tools')
