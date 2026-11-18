@@ -64,13 +64,20 @@ grep -n "gfxcard\|8514a" $BED/86box.cfg
 PID=$(powershell.exe -NoProfile -File tools/bed_launch.ps1 -Exe "$EXE" -VmPath ".\\$BED" -Log "$PWD/$OUT/86box.log" -Seconds 0 -AllowMouse | tr -d '\r' | awk '$1=="pid"{print $2}')
 [ -n "$PID" ] || { echo "bed_launch printed no pid"; exit 1; }
 echo "pid $PID"
-# A6_WAIT polls of ~10 s before giving up (default 180, half an hour).
+# A stalled probe shows within minutes: give up after A6_STALL polls of ~10 s (default 18, 3 min)
+# with no new .BIN; A6_WAIT polls (default 180) caps the whole run.
+last=-1; still=0
 for i in $(seq 1 ${A6_WAIT:-180}); do
   tasklist //FI "PID eq $PID" | grep -q "$PID" || { echo "86Box exited before DONE.TXT"; break; }
-  python -c "
+  n=$(python -c "
 import sys; sys.path.insert(0,'tools')
 from fatls import Fat
-sys.exit(0 if Fat('$BED/w2.img').resolve('M8SEQ\\\\DONE.TXT') else 1)" && break
+f = Fat('$BED/w2.img')
+if f.resolve('M8SEQ\\\\DONE.TXT'): print('done'); sys.exit()
+print(sum(e['name'].upper().endswith('.BIN') for e in f.listdir(f.resolve('M8SEQ')['clus'])))")
+  [ "$n" = done ] && break
+  if [ "$n" = "$last" ]; then still=$((still + 1)); else still=0; last=$n; fi
+  [ $still -ge ${A6_STALL:-18} ] && { echo "stalled: no new result for $((still * 10)) s after $n probes"; break; }
   sleep 10
 done
 sleep 5
