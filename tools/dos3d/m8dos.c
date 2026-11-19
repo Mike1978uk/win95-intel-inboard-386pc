@@ -609,6 +609,19 @@ static DWORD    t_first;
 /* Until the page last shown has taken effect. The latch was acknowledged at the write, so set
  * now means a blank has begun since. A write inside a blank misses that blank, and the latch
  * sets again for as long as a blank lasts, so then it must be seen to stay clear first. */
+/* The last flip has taken effect, found without waiting: page_wait's quick exits. */
+static int page_done( void )
+{
+    if( !page_pending ) {
+        return( 1 );
+    }
+    if( ( !page_in_blank && ( inw( M8_SUBSYS ) & 1 ) ) || ticks_now() - page_tick >= 2 ) {
+        page_pending = 0;
+        return( 1 );
+    }
+    return( 0 );
+}
+
 static void page_wait( void )
 {
     unsigned n = 480;                   /* ~40 ms */
@@ -1121,6 +1134,12 @@ void m8_clear( int col )
     m8_clip( 0, 0, M8_W - 1, M8_H - 1 );
     m8_rect( 0, 0, M8_W - 1, M8_H - 1, col );
     m8_clip( l, t, r, b );
+    /* A page clear is ~4.5 ms of engine time for 7 writes: sent now, the engine clears while
+     * the CPU builds the rest of the frame (L6, M8DTEST costs). Only when the page is already
+     * off screen; otherwise it waits for the flip with the rest of the frame. */
+    if( in_frame && ( !vsync_last || page_done() ) ) {
+        q_send();
+    }
 }
 
 void m8_hline( int y, int x0, int x1, int col )

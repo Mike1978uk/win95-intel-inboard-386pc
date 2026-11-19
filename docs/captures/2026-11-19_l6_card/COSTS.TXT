@@ -1,0 +1,4 @@
+M8DTEST costs: bench 50x40, vsync off, 200 frames
+ clear + 50 tris     37.93 fps  26.36 ms a frame,  1714.1 writes,  1056.0 status reads a frame
+ 50 tris, no clear   46.68 fps  21.42 ms a frame,  1709.1 writes,   246.2 status reads a frame
+ clear only         214.19 fps   4.67 ms a frame,     7.0 writes,   779.2 status reads a frame

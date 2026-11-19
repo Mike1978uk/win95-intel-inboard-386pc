@@ -481,11 +481,59 @@ static int zprobe( void )
     return( 0 );
 }
 
+/* Where a bench frame's time goes: the 50-triangle bench as it is, without its full-screen
+ * clear, and the clear alone; vsync off, 200 frames each. */
+static int costs( void )
+{
+    static const char   *name[] = { "clear + 50 tris", "50 tris, no clear", "clear only" };
+    char                line[200];
+    int                 k;
+    int                 i;
+    long                f;
+    M8STATS             s;
+
+    probe_line( "M8DTEST costs: bench 50x40, vsync off, 200 frames\n" );
+    for( k = 0; k < 3; ++k ) {
+        unsigned long   ticks;
+
+        seed = 12345;
+        if( m8_open() ) {
+            return( 1 );
+        }
+        palette();
+        m8_stats_reset();
+        for( f = 0; f < 200; ++f ) {
+            m8_frame_begin();
+            if( k != 1 ) {
+                m8_clear( 0 );
+            }
+            for( i = 0; k != 2 && i < 50; ++i ) {
+                int x = rnd( M8_W - 40 );
+                int y = rnd( M8_H - 40 );
+
+                m8_tri( x + rnd( 40 ), y, x + 39, y + rnd( 40 ), x, y + 39, 1 + rnd( 255 ) );
+            }
+            m8_frame_end( 0 );
+        }
+        m8_stats( &s );
+        ticks = s.ticks ? s.ticks : 1;
+        m8_close();
+        sprintf( line, " %-18s %6.2f fps %6.2f ms a frame, %7.1f writes, %7.1f status reads a frame\n",
+                 name[k], s.frames * 18.2065 / ticks, ticks * 1000.0 / 18.2065 / s.frames,
+                 (double)s.outs / s.frames, (double)s.ins / s.frames );
+        probe_line( line );
+    }
+    return( 0 );
+}
+
 int main( int argc, char **argv )
 {
     const char  *mode = argc > 1 ? argv[1] : "card";
     char        what[80];
 
+    if( stricmp( mode, "costs" ) == 0 ) {
+        return( costs() );
+    }
     if( stricmp( mode, "zprobe" ) == 0 ) {
         return( zprobe() );
     }

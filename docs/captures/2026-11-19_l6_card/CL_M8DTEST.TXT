@@ -1,0 +1,5 @@
+M8DTEST bench 50 tris size 40 vsync on: 200 frames in 127 ticks = 6.98 s, 28.67 fps
+  port writes 342811 (1714.1 a frame), status reads 230284
+  polygons by fill 10000, by spans 0 (1433.6 a s), rects 200, lines 0
+  flip wait polls 20600, timeouts 0
+  mailbox: frames 200, last 35019 us, avg 35239 us, 28.40 fps, writes 342811, reads 230099, flags 3

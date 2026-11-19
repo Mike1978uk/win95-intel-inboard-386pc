@@ -1,0 +1,32 @@
+M8DTEST costs: bench 50x40, vsync off, 200 frames
+ clear + 50 tris     46.68 fps  21.42 ms a frame,  1714.1 writes,   254.8 status reads a frame
+ 50 tris, no clear   47.29 fps  21.15 ms a frame,  1709.1 writes,   254.8 status reads a frame
+ clear only         214.19 fps   4.67 ms a frame,     7.0 writes,   771.4 status reads a frame
+M8DTEST probe: scratch outline closed / chains, against edges
+ frame 0 edges (reference): 1971 writes
+   frame 0 closed (default) opt 0: 1638 writes, pixels identical
+   frame 0 chains opt 2: 1736 writes, pixels identical
+ frame 1 edges (reference): 1953 writes
+   frame 1 closed (default) opt 0: 1631 writes, pixels identical
+   frame 1 chains opt 2: 1731 writes, pixels identical
+ frame 2 edges (reference): 2034 writes
+   frame 2 closed (default) opt 0: 1726 writes, pixels identical
+   frame 2 chains opt 2: 1806 writes, pixels identical
+ frame 3 edges (reference): 1910 writes
+   frame 3 closed (default) opt 0: 1571 writes, pixels identical
+   frame 3 chains opt 2: 1669 writes, pixels identical
+ frame 4 edges (reference): 4257 writes
+   frame 4 closed (default) opt 0: 3885 writes, pixels identical
+   frame 4 chains opt 2: 4071 writes, pixels identical
+ frame 5 edges (reference): 4312 writes
+   frame 5 closed (default) opt 0: 3868 writes, pixels identical
+   frame 5 chains opt 2: 4090 writes, pixels identical
+ frame 6 edges (reference): 4326 writes
+   frame 6 closed (default) opt 0: 3936 writes, pixels identical
+   frame 6 chains opt 2: 4131 writes, pixels identical
+ frame 7 edges (reference): 4247 writes
+   frame 7 closed (default) opt 0: 3827 writes, pixels identical
+   frame 7 chains opt 2: 4037 writes, pixels identical
+ bench 50x40 nv edges (reference): 41.38 fps, 2002.0 writes a frame
+ bench 50x40 nv closed (default): 46.68 fps, 1714.1 writes a frame
+ bench 50x40 nv chains: 43.35 fps, 1859.2 writes a frame
