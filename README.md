@@ -486,7 +486,7 @@ and the [contributor ledger](docs/contributor_input_ledger.md).
   ([`resources_and_sources.md`](docs/resources_and_sources.md) §9).
 - **Ahmad Byagowi** ([Open-Source-PC110](https://github.com/ahmadexp/Open-Source-PC110)) — ported
   COMrade to Windows 95 as `COMR95.EXE`, used for live real-hardware introspection.
-- **Michael Dale** (u/mwdmeyer) — author of [velocity9x](https://github.com/michaeldale/velocity9x),
+- **[Michael Dale](https://github.com/michaeldale)** (u/mwdmeyer) — author of [velocity9x](https://github.com/michaeldale/velocity9x),
   the Windows 9x display-driver framework the Mach8 driver was started from, and of the
   [V9x Remote Agent](https://github.com/michaeldale/V9x-Remote-Agent), which runs the card benches
   unattended.
