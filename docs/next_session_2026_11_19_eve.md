@@ -9,6 +9,8 @@ Windows LEAN. Test files are on the card in `C:\M8C3`.
 bed/card gaps are work (X27). Design rules from today: a background-coloured tile is not drawn; drawing an outline
 twice flips the fill, so draw the cheaper colour.
 
+Card agent: `dev-dos-con4` (Watt-32 9dab1c2); the old one is `C:\V9XREMOT\V9XAGNT.C3`. Benches: see X33 before comparing absolute numbers with earlier ones.
+
 ## Done today (afternoon, card)
 
 | Item | Result | Commit |
@@ -22,7 +24,7 @@ Captures: `docs/captures/2026-11-19_join_card/`, `docs/captures/2026-11-19_check
 ## Next, in owner's order
 
 1. **P5b** Penrose and the other tilings with 3-4 colour planes (odd-degree vertices). Probe, do not assume. - DONE 11-19 on the card (3 colours, chained, pixel-identical; see the L6 doc)
-2. **P6** card dither mask plane for a pseudo high-colour look (owner's main interest).
+2. **P6** card dither mask plane for a pseudo high-colour look (owner's main interest). - DONE 11-19 on the card (map upload 2.1 s to tighten; see the L6 doc)
 3. **`m8_parity` strips** for full width (box limit 382 px).
 4. **Overdraw audit** leftovers: `docs/overdraw_retrospective_2026_11_19.md`.
 5. **Twist in the DOS native port**, then DirectXT steps 2-3.

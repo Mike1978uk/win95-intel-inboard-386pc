@@ -1,0 +1,138 @@
+M8DTEST ditherprobe: map 384 x 512 uploaded in 2.14 s
+  level 0:   0.0 % yellow (want   0.0)
+  level 1:  11.1 % yellow (want  11.1)
+  level 2:  22.2 % yellow (want  22.2)
+  level 3:  33.3 % yellow (want  33.3)
+  level 4:  44.5 % yellow (want  44.4)
+  level 5:  55.6 % yellow (want  55.6)
+  level 6:  66.7 % yellow (want  66.7)
+  level 7:  77.8 % yellow (want  77.8)
+  level 8:  88.9 % yellow (want  88.9)
+  level 9: 100.0 % yellow (want 100.0)
+  256000 pixels drawn, 0 differ from the map, 218 writes a frame
+ dithered   : 218.0 writes a frame, 19.77 ms a frame (50 nv)
+ plain fills: 60.0 writes a frame, 8.79 ms a frame (50 nv)
+M8DTEST tileprobe: jittered mesh, 160 triangles, forwards and backwards
+ outline rule: 7247 writes a mesh, 0 background pixels inside  ; forwards vs backwards: reference has 265041 non-background pixels
+  ; forwards vs backwards opt 8: 7247 writes, 13080 pixels differ, box 20,20-620,460
+    (20,20) 89 not 7C
+    (69,20) 89 not E9
+    (125,20) CD not 89
+    (200,20) 1C not 91
+ top-left rule (default): 4025 writes a mesh, 0 background pixels inside  ; forwards vs backwards: reference has 264000 non-background pixels
+  ; forwards vs backwards opt 0: 4025 writes, pixels identical
+M8DTEST tileprobe: jittered mesh, 2560 triangles, forwards and backwards
+ outline rule: 113659 writes a mesh, 0 background pixels inside  ; forwards vs backwards: reference has 269849 non-background pixels
+  ; forwards vs backwards opt 8: 113659 writes, 49141 pixels differ, box 20,20-620,468
+    (20,20) 0E not 2B
+    (32,20) 0E not ED
+    (50,20) 27 not EF
+    (61,20) C5 not 57
+ top-left rule (default): 64048 writes a mesh, 0 background pixels inside  ; forwards vs backwards: reference has 268800 non-background pixels
+  ; forwards vs backwards opt 0: 64048 writes, pixels identical
+ bench 50x40 nv outline rule: 42.84 fps, 23.34 ms, 1672.3 writes a frame
+ bench 50x40 nv top-left rule (default): 50.57 fps, 19.77 ms, 1292.1 writes a frame
+M8DTEST zprobe: hardware depth test (DEST_CMP_FN <, COLOR_CMP = depth x 16)
+ frame 0 far to near, no test (reference): 393 writes
+   frame 0 random order, test: reference has 307200 non-background pixels
+   frame 0 random order, test opt 1: 412 writes, pixels identical
+   frame 0 near to far, test: reference has 307200 non-background pixels
+   frame 0 near to far, test opt 2: 412 writes, pixels identical
+   frame 0 random order, no test (control): reference has 307200 non-background pixels
+   frame 0 random order, no test (control) opt 3: 805 writes, 2769 pixels differ, box 108,135-523,253
+    (522,135) A7 not 63
+    (521,136) A7 not 63
+    (522,136) A7 not 63
+    (520,137) A7 not 63
+ frame 1 far to near, no test (reference): 393 writes
+   frame 1 random order, test: reference has 307200 non-background pixels
+   frame 1 random order, test opt 1: 412 writes, pixels identical
+   frame 1 near to far, test: reference has 307200 non-background pixels
+   frame 1 near to far, test opt 2: 412 writes, pixels identical
+   frame 1 random order, no test (control): reference has 307200 non-background pixels
+   frame 1 random order, no test (control) opt 3: 805 writes, 6798 pixels differ, box 118,188-416,305
+    (375,188) 44 not 11
+    (372,189) 44 not 11
+    (373,189) 44 not 11
+    (374,189) 44 not 11
+ frame 2 far to near, no test (reference): 393 writes
+   frame 2 random order, test: reference has 307200 non-background pixels
+   frame 2 random order, test opt 1: 412 writes, pixels identical
+   frame 2 near to far, test: reference has 307200 non-background pixels
+   frame 2 near to far, test opt 2: 412 writes, pixels identical
+   frame 2 random order, no test (control): reference has 307200 non-background pixels
+   frame 2 random order, no test (control) opt 3: 805 writes, 7177 pixels differ, box 211,139-445,304
+    (401,139) EF not 41
+    (399,140) EF not 41
+    (400,140) EF not 41
+    (401,140) EF not 41
+ frame 3 far to near, no test (reference): 391 writes
+   frame 3 random order, test: reference has 307200 non-background pixels
+   frame 3 random order, test opt 1: 410 writes, pixels identical
+   frame 3 near to far, test: reference has 307200 non-background pixels
+   frame 3 near to far, test opt 2: 410 writes, pixels identical
+   frame 3 random order, no test (control): reference has 307200 non-background pixels
+   frame 3 random order, no test (control) opt 3: 801 writes, 1945 pixels differ, box 244,179-452,356
+    (452,179) 4E not 08
+    (450,180) 4E not 08
+    (451,180) 4E not 08
+    (452,180) 4E not 08
+M8DTEST probe: scratch outline closed / chains, against edges
+ frame 0 edges (reference): 1944 writes
+   frame 0 closed (default): reference has 55018 non-background pixels
+   frame 0 closed (default) opt 8: 1611 writes, pixels identical
+   frame 0 chains: reference has 55018 non-background pixels
+   frame 0 chains opt 10: 1709 writes, pixels identical
+ frame 1 edges (reference): 1929 writes
+   frame 1 closed (default): reference has 76725 non-background pixels
+   frame 1 closed (default) opt 8: 1607 writes, pixels identical
+   frame 1 chains: reference has 76725 non-background pixels
+   frame 1 chains opt 10: 1707 writes, pixels identical
+ frame 2 edges (reference): 2012 writes
+   frame 2 closed (default): reference has 44478 non-background pixels
+   frame 2 closed (default) opt 8: 1704 writes, pixels identical
+   frame 2 chains: reference has 44478 non-background pixels
+   frame 2 chains opt 10: 1784 writes, pixels identical
+ frame 3 edges (reference): 1883 writes
+   frame 3 closed (default): reference has 77938 non-background pixels
+   frame 3 closed (default) opt 8: 1544 writes, pixels identical
+   frame 3 chains: reference has 77938 non-background pixels
+   frame 3 chains opt 10: 1642 writes, pixels identical
+ frame 4 edges (reference): 4115 writes
+   frame 4 closed (default): reference has 46997 non-background pixels
+   frame 4 closed (default) opt 8: 3743 writes, pixels identical
+   frame 4 chains: reference has 46997 non-background pixels
+   frame 4 chains opt 10: 3929 writes, pixels identical
+ frame 5 edges (reference): 4157 writes
+   frame 5 closed (default): reference has 54424 non-background pixels
+   frame 5 closed (default) opt 8: 3713 writes, pixels identical
+   frame 5 chains: reference has 54424 non-background pixels
+   frame 5 chains opt 10: 3935 writes, pixels identical
+ frame 6 edges (reference): 4181 writes
+   frame 6 closed (default): reference has 48744 non-background pixels
+   frame 6 closed (default) opt 8: 3791 writes, pixels identical
+   frame 6 chains: reference has 48744 non-background pixels
+   frame 6 chains opt 10: 3986 writes, pixels identical
+ frame 7 edges (reference): 4174 writes
+   frame 7 closed (default): reference has 53826 non-background pixels
+   frame 7 closed (default) opt 8: 3754 writes, pixels identical
+   frame 7 chains: reference has 53826 non-background pixels
+   frame 7 chains opt 10: 3964 writes, pixels identical
+ bench 50x40 nv edges (reference): 38.33 fps, 1960.3 writes a frame
+ bench 50x40 nv closed (default): 42.84 fps, 1672.3 writes a frame
+ bench 50x40 nv chains: 40.01 fps, 1817.5 writes a frame
+M8DTEST edgeprobe reference: 401 writes
+M8DTEST edgeprobe no outline: 289 writes
+  shape  left missing/edge   right    top    bottom
+   0        2/101     101/101     91/141    141/141 
+   1        2/101     101/101    111/111     52/111 
+   2        2/111     111/111     42/121    101/121 
+   3       62/111     111/111     82/161    101/161 
+   4        5/141     141/141     41/41      21/41  
+   5        2/51       51/51      28/201    181/201 
+   6        2/121     121/121    121/121    121/121 
+   7        2/121     121/121      2/121    121/121 
+   8        1/130       1/130      1/190      4/190 
+   9        2/131     131/131     34/181     82/181 
+  10       22/151     151/151     82/221    101/221 
+  inside pixels missing (all shapes): 0
