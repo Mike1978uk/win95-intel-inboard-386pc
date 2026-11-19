@@ -1,4 +1,6 @@
-# HX DOS Extender: Win95 DirectX games under plain DOS (desk research, 2026-11-18)
+# DirectXT: Win95 DirectX games under plain DOS via the HX extender (desk research, 2026-11-18)
+
+Name: **DirectXT** (owner, 11-19) - HX plus our VESA32.DLL and Direct3D DLL over `m8dos`.
 
 Nothing run, nothing installed. All fetches 2026-11-18. "Did not contain" is per source.
 
