@@ -210,6 +210,10 @@ Inventory and results: `docs/mach8_levers.md` (one place; this list only orders 
       sorted, control differs; ~3 writes a triangle). Carry-overs: Windows 8 bpp HAL Z (twist sends ~10k Z tris);
       next lever: status-read census (182,605 reads for 342,811 writes in the bench). X26 D14: own DirectX on Windows
       = the DirectXT Direct3D DLL on M8DD32 (one implementation for both); measure page-ins by module first.
+      Owner 11-19: DirectXT on Windows and DOS is the end goal (D14, 11-08: tunnel ~100 of 346 ms outside our
+      driver; P1.8: ~80 % of page-ins outside it). L6 clear-early: m8dos sends a page clear at once when the page is
+      off screen; bench vsync off 37.9 -> 46.7 fps, pixels identical (`captures/2026-11-19_l6_card/CL_*`).
+      Carry-over: check where the Windows driver sends a D3D clear. Next target: frame under 17.6 ms for vsync.
 
 
 
