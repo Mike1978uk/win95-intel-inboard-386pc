@@ -1503,11 +1503,111 @@ static int penprobe( void )
     return( 0 );
 }
 
+/* L6 P6: ten bands, levels 0-9 of YELLOW over BLUE through the off-screen threshold map; every
+ * pixel checked against the map the CPU computes; then 50 frames of the bands, against plain
+ * fills of the same areas. Page to DITH.RAW. */
+static void dith_bands( int plain )
+{
+    int k;
+
+    for( k = 0; k < 10; ++k ) {
+        if( plain ) {
+            m8_rect( 0, 20 + k * 44, M8_W - 1, 59 + k * 44, k < 5 ? BLUE : YELLOW );
+        } else {
+            m8_dither_rect( 0, 20 + k * 44, M8_W - 1, 59 + k * 44, BLUE, YELLOW, k );
+        }
+    }
+}
+
+static int ditherprobe( void )
+{
+    char            line[200];
+    unsigned long   t0;
+    unsigned long   bad = 0;
+    unsigned long   lit = 0;
+    unsigned long   w;
+    int             x;
+    int             y;
+    int             k;
+    M8STATS         s;
+
+    page0 = (unsigned char *)malloc( (size_t)M8_W * M8_H );
+    if( page0 == NULL ) {
+        return( 1 );
+    }
+    if( m8_open() ) {
+        return( 1 );
+    }
+    palette();
+    t0 = m8_ticks();
+    if( m8_dither_init() ) {
+        m8_close();
+        return( 1 );
+    }
+    sprintf( line, "M8DTEST ditherprobe: map 384 x 512 uploaded in %.2f s\n", ( m8_ticks() - t0 ) / 18.2065 );
+    probe_line( line );
+    m8_stats_reset();
+    m8_frame_begin();
+    m8_clear( 0 );
+    dith_bands( 0 );
+    m8_frame_end( 1 );
+    m8_stats( &s );
+    w = s.outs;
+    if( m8_read_shown( page0 ) ) {
+        m8_close();
+        return( 1 );
+    }
+    for( k = 0; k < 10; ++k ) {
+        unsigned long kb = 0;
+        unsigned long ky = 0;
+
+        for( y = 20 + k * 44; y <= 59 + k * 44; ++y ) {
+            for( x = 0; x < M8_W; ++x ) {
+                int want = k == 0 ? BLUE : k == 9 ? YELLOW :
+                           ( m8_dither_map( x, y ) >> ( k - 1 ) & 1 ) ? YELLOW : BLUE;
+                int got = page0[y * M8_W + x];
+
+                bad += got != want;
+                ky += got == YELLOW;
+                lit += got != 0;
+            }
+            kb += M8_W;
+        }
+        sprintf( line, "  level %d: %5.1f %% yellow (want %5.1f)\n", k, 100.0 * ky / kb, 100.0 * k / 9 );
+        probe_line( line );
+    }
+    sprintf( line, "  %lu pixels drawn, %lu differ from the map, %lu writes a frame\n", lit, bad, w );
+    probe_line( line );
+    chk_save( "DITH.RAW", page0 );
+    for( k = 0; k < 2; ++k ) {
+        long            f;
+        unsigned long   ticks;
+
+        m8_stats_reset();
+        for( f = 0; f < 50; ++f ) {
+            m8_frame_begin();
+            m8_clear( 0 );
+            dith_bands( k );
+            m8_frame_end( 0 );
+        }
+        m8_stats( &s );
+        ticks = s.ticks ? s.ticks : 1;
+        sprintf( line, " %s: %.1f writes a frame, %.2f ms a frame (50 nv)\n", k ? "plain fills" : "dithered   ",
+                 (double)s.outs / s.frames, ticks * 1000.0 / 18.2065 / s.frames );
+        probe_line( line );
+    }
+    m8_close();
+    return( 0 );
+}
+
 int main( int argc, char **argv )
 {
     const char  *mode = argc > 1 ? argv[1] : "card";
     char        what[80];
 
+    if( stricmp( mode, "ditherprobe" ) == 0 ) {
+        return( ditherprobe() );
+    }
     if( stricmp( mode, "penprobe" ) == 0 ) {
         return( penprobe() );
     }

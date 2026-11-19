@@ -1445,6 +1445,126 @@ void m8_parity_order( int nseg, M8SEG *s )
     }
 }
 
+/* ---- dither (L6 P6) ----
+ * A threshold map kept off screen, in scratch rows the fills never reach (a group's box is at
+ * most 480 rows). Bit k of a map byte is set where level k + 1 lights the pixel, so the levels
+ * nest and one byte area holds all eight; a level is drawn by the plane-select blit, reading the
+ * plane RD_MASK picks. Threshold: the R2 sequence, frac(0.7549 x + 0.5698 y), as m8d3d.c's
+ * patch dither: aperiodic, and integer. */
+#define DM_X            SCR_X
+#define DM_Y            512
+#define DM_W            384
+#define DM_H            512
+#define M8_BKGD_MIX     0xB6E8
+#define M8_MIX_LEAVE    0x0003
+#define M8_PIX_CNTL_PLANE 0xA0C0        /* the plane RD_MASK selects picks the mix */
+#define M8_CMD_PLANE_BLIT 0xC0B3
+
+static int      dither_ok;
+
+/* Which levels light map pixel (x, y): level L covers the pixels whose threshold is under L/9. */
+static unsigned dm_byte( unsigned x, unsigned y )
+{
+    unsigned    t = (unsigned)( ( (DWORD)x * 49473u + (DWORD)y * 37345u ) & 0xFFFFu );
+    unsigned    m = (unsigned)( ( (DWORD)t * 9u ) >> 16 );
+
+    return( ( 0xFFu << m ) & 0xFFu );
+}
+
+int m8_dither_init( void )
+{
+    unsigned    x;
+    unsigned    y;
+
+    if( !gfx_on || engine_bad || in_frame ) {
+        return( -1 );
+    }
+    q_send();
+    engine_idle();
+    outw( M8_BKGD_MIX, M8_MIX_LEAVE );
+    for( y = 0; y < DM_H; ++y ) {
+        outw( M8_FRGD_MIX, 0x0047 );    /* source: pixel transfer, replace */
+        outw( M8_CUR_X, DM_X );
+        outw( M8_CUR_Y, DM_Y + y );
+        outw( M8_MAJ_AXIS_PCNT, DM_W - 1 );
+        outw( M8_MULTIFUNC_CNTL, 0 );   /* one row */
+        room( 1 );
+        outw( M8_CMD, 0x53B1 );         /* write, 16-bit transfers, as m8_read_shown reads */
+        for( x = 0; x < DM_W; x += 2 ) {
+            room( 1 );
+            outw( 0xE2E8, dm_byte( x, y ) | dm_byte( x + 1, y ) << 8 );
+            if( engine_bad ) {
+                return( -1 );
+            }
+        }
+    }
+    engine_idle();
+    outw( M8_FRGD_MIX, M8_MIX_FRGD_REPLACE );
+    cur_col = -1;
+    dither_ok = 1;
+    return( 0 );
+}
+
+/* colour a with share level / 9 of colour b laid over it through the map, the map anchored to
+ * the screen so neighbouring rectangles continue one pattern. */
+void m8_dither_rect( int l, int t, int r, int b, int a, int bc, int level )
+{
+    int y;
+
+    if( !in_frame ) {
+        return;
+    }
+    if( level <= 0 || !dither_ok ) {
+        m8_rect( l, t, r, b, a );
+        return;
+    }
+    if( level >= 9 ) {
+        m8_rect( l, t, r, b, bc );
+        return;
+    }
+    if( l < cl_l ) l = cl_l;
+    if( t < cl_t ) t = cl_t;
+    if( r > cl_r ) r = cl_r;
+    if( b > cl_b ) b = cl_b;
+    if( r < l || b < t ) {
+        return;
+    }
+    m8_rect( l, t, r, b, a );
+    Q( M8_MULTIFUNC_CNTL, M8_PIX_CNTL_PLANE );
+    Q( M8_RD_MASK, ( 1 << ( level & 7 ) ) & 0xFF );     /* plane level - 1, rotated left by one */
+    Q( M8_FRGD_COLOR, bc & 0xFF );
+    for( y = t; y <= b; ) {
+        int ty = y % DM_H;
+        int h = b - y + 1 < DM_H - ty ? b - y + 1 : DM_H - ty;
+        int x;
+
+        for( x = l; x <= r; ) {
+            int tx = x % DM_W;
+            int w = r - x + 1 < DM_W - tx ? r - x + 1 : DM_W - tx;
+
+            Q( M8_CUR_X, DM_X + tx );
+            Q( M8_CUR_Y, DM_Y + ty );
+            Q( M8_DESTX_DIASTP, x );
+            Q( M8_DESTY_AXSTP, dy + y );
+            Q( M8_MAJ_AXIS_PCNT, w - 1 );
+            Q( M8_MIN_AXIS, h - 1 );
+            Q( M8_CMD, M8_CMD_PLANE_BLIT );
+            q_room();
+            x += w;
+        }
+        y += h;
+    }
+    Q( M8_MULTIFUNC_CNTL, 0xA000 );
+    Q( M8_RD_MASK, 0x00FF );
+    cur_col = bc & 0xFF;
+}
+
+/* For probes: the level-bit byte the map holds for screen pixel (x, y). */
+unsigned m8_dither_map( int x, int y )
+{
+    return( dm_byte( (unsigned)( x % DM_W ), (unsigned)( y % DM_H ) ) );
+}
+
 void m8_rect( int l, int t, int r, int b, int col )
 {
     if( !in_frame ) {
@@ -1651,10 +1771,12 @@ int m8_open( void )
     Q( M8_RD_MASK, 0x00FF );
     Q( M8_DP_CONFIG, M8_DP_8514 );
     Q( M8_FRGD_MIX, M8_MIX_FRGD_REPLACE );
+    Q( M8_BKGD_MIX, M8_MIX_LEAVE );
     Q( M8_ALU_FG_FN, M8_MIX_REPLACE );
     Q( M8_LINEDRAW_OPT, M8_LINEDRAW_LAST_OFF );
     Q( M8_FRGD_COLOR, 0 );
     cur_col = 0;
+    dither_ok = 0;                      /* the clear below takes the map with it */
     q_rect( 0, 0, 1024, 1024 );
     q_send();
     engine_idle();

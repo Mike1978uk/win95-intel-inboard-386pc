@@ -116,6 +116,13 @@ typedef struct {
 #define M8_OPT_NOJOIN       16  /* probe only: no joining of same colour and depth neighbours */
 extern int  m8_opt;
 
+/* Dither (L6 P6): a threshold map off screen (384 x 512, aperiodic R2 sequence), uploaded once
+ * after m8_open and outside a frame (0 on success). A rectangle then takes colour a with level / 9
+ * of colour b laid over it: one fill and one blit a map tile, whatever the area, no CPU work. */
+int     m8_dither_init( void );
+void    m8_dither_rect( int l, int t, int r, int b, int a, int b_col, int level );
+unsigned m8_dither_map( int x, int y );    /* probes: the level bits at screen (x, y) */
+
 /* Hosted builds: the shown page into buf (640 x 480 bytes), a few seconds. 0 on success. */
 int     m8_read_shown( unsigned char *buf );
 
