@@ -162,11 +162,149 @@ static void report( const char *what )
     }
 }
 
+/* L6 probes: each option's pixels against option 0's, read back from the card, and its
+ * writes and speed. Appends to M8PROBE.TXT. */
+static unsigned char    *page0;
+static unsigned char    *pagex;
+
+static void probe_line( const char *text )
+{
+    FILE    *f;
+
+    fputs( text, stdout );
+    f = fopen( "M8PROBE.TXT", "a" );
+    if( f != NULL ) {
+        fputs( text, f );
+        fclose( f );
+    }
+}
+
+static void probe_diff( const char *what, int opt, unsigned long writes, unsigned char *ref,
+                        unsigned char *got )
+{
+    char            line[200];
+    long            i;
+    long            ndiff = 0;
+    int             l = M8_W, t = M8_H, r = -1, b = -1;
+    int             shown;
+
+    for( i = 0; i < (long)M8_W * M8_H; ++i ) {
+        if( ref[i] != got[i] ) {
+            int x = (int)( i % M8_W );
+            int y = (int)( i / M8_W );
+
+            ++ndiff;
+            if( x < l ) l = x;
+            if( x > r ) r = x;
+            if( y < t ) t = y;
+            if( y > b ) b = y;
+        }
+    }
+    if( ndiff ) {
+        sprintf( line, "  %s opt %d: %lu writes, %ld pixels differ, box %d,%d-%d,%d\n", what, opt,
+                 writes, ndiff, l, t, r, b );
+    } else {
+        sprintf( line, "  %s opt %d: %lu writes, pixels identical\n", what, opt, writes );
+    }
+    probe_line( line );
+    shown = 0;
+    for( i = 0; i < (long)M8_W * M8_H && shown < 4; ++i ) {
+        if( ref[i] != got[i] ) {
+            sprintf( line, "    (%ld,%ld) %02X not %02X\n", i % M8_W, i / M8_W, got[i], ref[i] );
+            probe_line( line );
+            ++shown;
+        }
+    }
+}
+
+static int probe( void )
+{
+    static const int    opts[] = { 0 };
+    char                line[200];
+    int                 k;
+    int                 i;
+    long                f;
+    M8STATS             s;
+
+    page0 = (unsigned char *)malloc( (size_t)M8_W * M8_H );
+    pagex = (unsigned char *)malloc( (size_t)M8_W * M8_H );
+    if( page0 == NULL || pagex == NULL ) {
+        printf( "M8DTEST probe: no memory for two pages\n" );
+        return( 1 );
+    }
+    probe_line( "M8DTEST probe (L6; option 0 is the reference)\n" );
+    for( k = 0; k < sizeof( opts ) / sizeof( opts[0] ); ++k ) {
+        m8_opt = opts[k];
+        if( m8_open() ) {
+            return( 1 );
+        }
+        palette();
+        m8_stats_reset();
+        m8_frame_begin();
+        card();
+        m8_frame_end( 1 );
+        m8_stats( &s );
+        if( m8_read_shown( k == 0 ? page0 : pagex ) ) {
+            m8_close();
+            printf( "M8DTEST probe: read failed\n" );
+            return( 1 );
+        }
+        m8_close();
+        if( k == 0 ) {
+            sprintf( line, "  card opt 0: %lu writes (reference)\n", s.outs );
+            probe_line( line );
+        } else {
+            probe_diff( "card", opts[k], s.outs, page0, pagex );
+        }
+    }
+    for( k = 0; k < sizeof( opts ) / sizeof( opts[0] ); ++k ) {
+        unsigned long   ticks;
+
+        m8_opt = opts[k];
+        seed = 12345;
+        if( m8_open() ) {
+            return( 1 );
+        }
+        palette();
+        m8_stats_reset();
+        for( f = 0; f < 200; ++f ) {
+            m8_frame_begin();
+            m8_clear( 0 );
+            for( i = 0; i < 50; ++i ) {
+                int x = rnd( M8_W - 40 );
+                int y = rnd( M8_H - 40 );
+
+                m8_tri( x + rnd( 40 ), y, x + 39, y + rnd( 40 ), x, y + 39, 1 + rnd( 255 ) );
+            }
+            m8_frame_end( 0 );
+        }
+        m8_stats( &s );
+        ticks = s.ticks ? s.ticks : 1;
+        if( m8_read_shown( k == 0 ? page0 : pagex ) ) {
+            m8_close();
+            return( 1 );
+        }
+        m8_close();
+        sprintf( line, "  bench 50x40 nv opt %d: %.2f fps, %.1f writes a frame, %.0f triangles a s\n",
+                 opts[k], s.frames * 18.2065 / ticks, (double)s.outs / s.frames,
+                 (s.polys_fill + s.polys_span) * 18.2065 / ticks );
+        probe_line( line );
+        if( k > 0 ) {
+            probe_diff( "bench last frame", opts[k], s.outs, page0, pagex );
+        }
+    }
+    m8_opt = 0;
+    return( 0 );
+}
+
 int main( int argc, char **argv )
 {
     const char  *mode = argc > 1 ? argv[1] : "card";
     char        what[80];
 
+    if( stricmp( mode, "probe" ) == 0 ) {
+        return( probe() );
+    }
     if( stricmp( mode, "card" ) == 0 ) {
         unsigned long   secs = argc > 2 ? atol( argv[2] ) : 10;
         unsigned long   t;

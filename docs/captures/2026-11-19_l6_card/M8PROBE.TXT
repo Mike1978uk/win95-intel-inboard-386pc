@@ -1,0 +1,39 @@
+M8DTEST probe (L6 P1 keep regs 1, P2 polyline 2, P3 no outline 4)
+  card opt 0: 725 writes (reference)
+  card opt 1: 695 writes, 35936 pixels differ, box 21,41-638,478
+    (281,41) 00 not 2C
+    (282,41) 00 not 2C
+    (283,41) 00 not 2C
+    (284,41) 00 not 2C
+  card opt 2: 679 writes, pixels identical
+  card opt 4: 552 writes, 2446 pixels differ, box 20,40-639,479
+    (40,40) 00 not E0
+    (41,40) 00 not E0
+    (42,40) 00 not E0
+    (43,40) 00 not E0
+  card opt 7: 476 writes, 39086 pixels differ, box 20,40-639,479
+    (40,40) 00 not E0
+    (41,40) 00 not E0
+    (42,40) 00 not E0
+    (43,40) 00 not E0
+  bench 50x40 nv opt 0: 35.01 fps, 2002.0 writes a frame, 1751 triangles a s
+  bench 50x40 nv opt 1: 35.70 fps, 1876.9 writes a frame, 1785 triangles a s
+  bench last frame opt 1: 375371 writes, 20968 pixels differ, box 23,1-616,475
+    (311,1) 00 not CA
+    (312,1) 00 not CA
+    (311,2) 00 not CA
+    (312,2) 00 not CA
+  bench 50x40 nv opt 2: 38.33 fps, 1714.1 writes a frame, 1916 triangles a s
+  bench last frame opt 2: 342811 writes, pixels identical
+  bench 50x40 nv opt 4: 42.34 fps, 1502.2 writes a frame, 2117 triangles a s
+  bench last frame opt 4: 300440 writes, 2908 pixels differ, box 21,0-618,477
+    (310,0) 00 not CA
+    (311,0) 00 not CA
+    (312,0) 00 not CA
+    (318,1) 00 not CA
+  bench 50x40 nv opt 7: 48.55 fps, 1089.0 writes a frame, 2428 triangles a s
+  bench last frame opt 7: 217810 writes, 25631 pixels differ, box 21,0-618,477
+    (310,0) 00 not CA
+    (311,0) 00 not CA
+    (312,0) 00 not CA
+    (310,1) 00 not CA

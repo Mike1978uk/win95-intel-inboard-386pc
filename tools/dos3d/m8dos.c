@@ -740,6 +740,8 @@ static void q_spans( const POLY *p )
  * exactly two pixels. The fill covers those rows and leaves its right boundary out; the
  * outline drawn over it in the face's colour supplies the edge pixels, top and bottom rows.
  * Each polygon's box sits at the scratch's corner: the planes keep them apart. */
+int         m8_opt;
+
 static void batch_flush( void )
 {
     POLY    *p = batch;
@@ -770,25 +772,13 @@ static void batch_flush( void )
             if( !p[j].fill ) {
                 continue;
             }
+            /* One connected outline, 2 writes a corner: boundary mode fills it the same as edges
+             * sent one by one top to bottom (L6 P2). */
             Q( M8_WRT_MASK, 1 << j );
-            for( i = 0; i < p[j].n; ++i ) {
-                int a = i;
-                int c = (i + 1) % p[j].n;
-
-                if( p[j].y[a] == p[j].y[c] ) {
-                    continue;
-                }
-                if( p[j].y[a] > p[j].y[c] ) {
-                    int s = a;
-
-                    a = c;
-                    c = s;
-                }
-                Q( M8_LINEDRAW_INDEX, 0 );
-                Q( M8_LINEDRAW, sx + p[j].x[a] );
-                Q( M8_LINEDRAW, sy + p[j].y[a] );
-                Q( M8_LINEDRAW, sx + p[j].x[c] );
-                Q( M8_LINEDRAW, sy + p[j].y[c] );
+            Q( M8_LINEDRAW_INDEX, 0 );
+            for( i = 0; i <= p[j].n; ++i ) {
+                Q( M8_LINEDRAW, sx + p[j].x[i % p[j].n] );
+                Q( M8_LINEDRAW, sy + p[j].y[i % p[j].n] );
             }
             if( p[j].r - p[j].l + 2 > cw ) cw = p[j].r - p[j].l + 2;
             if( p[j].b - p[j].t + 1 > ch ) ch = p[j].b - p[j].t + 1;
@@ -806,6 +796,7 @@ static void batch_flush( void )
             }
             Q( M8_RD_MASK, 1 << j );
             Q( M8_FRGD_COLOR, p[j].col );
+            /* A fill command does not keep these: each fill sends them (card, L6 P1). */
             Q( M8_DESTX_DIASTP, SCR_X );
             Q( M8_DESTY_AXSTP, 1 );
             Q( M8_SRC_X_START, SCR_X );
@@ -1229,6 +1220,49 @@ void m8_stats_reset( void )
     win_outs = 0;
     win_ins = 0;
 }
+
+#ifdef M8_HOSTED
+/* The shown page into buf (640 x 480 bytes) through the engine's 16-bit pixel read, the
+ * sequence of tools/m8seq/M8CMP8.ASM readrow (same result on the card and in the bed). About
+ * 7 us a word, so a page takes a few seconds: for checking pixels, not for drawing. */
+int m8_read_shown( unsigned char *buf )
+{
+    int         y;
+    int         x;
+    int         base;
+    unsigned    w;
+    unsigned    n;
+
+    if( !gfx_on || engine_bad || in_frame ) {
+        return( -1 );
+    }
+    engine_idle();
+    base = shown ? PAGE1_Y : 0;
+    for( y = 0; y < M8_H; ++y ) {
+        outw( M8_FRGD_MIX, 0x0047 );    /* source: pixel transfer, replace */
+        outw( M8_CUR_X, 0 );
+        outw( M8_CUR_Y, base + y );
+        outw( M8_MAJ_AXIS_PCNT, M8_W - 1 );
+        outw( M8_MULTIFUNC_CNTL, 0 );   /* MIN_AXIS_PCNT 0: one row */
+        engine_idle();
+        outw( M8_CMD, 0x53B0 );         /* read, 16-bit transfers */
+        for( x = 0; x < M8_W; x += 2 ) {
+            for( n = 0; !( inw( M8_GE_STAT ) & 0x100 ); ) {
+                if( ++n > WAIT_LIMIT ) {
+                    fail( "pixel read stalled" );
+                    return( -1 );
+                }
+            }
+            w = inw( 0xE2E8 );          /* PIX_TRANS */
+            buf[y * M8_W + x] = (BYTE)w;
+            buf[y * M8_W + x + 1] = (BYTE)( w >> 8 );
+        }
+        engine_idle();
+    }
+    outw( M8_FRGD_MIX, M8_MIX_FRGD_REPLACE );
+    return( 0 );
+}
+#endif
 
 unsigned long m8_ticks( void )
 {
