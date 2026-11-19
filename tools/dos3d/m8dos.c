@@ -606,9 +606,6 @@ static int      page_in_blank;          /* the flip was written inside a blank *
 static DWORD    page_tick;
 static DWORD    t_first;
 
-/* Until the page last shown has taken effect. The latch was acknowledged at the write, so set
- * now means a blank has begun since. A write inside a blank misses that blank, and the latch
- * sets again for as long as a blank lasts, so then it must be seen to stay clear first. */
 /* The last flip has taken effect, found without waiting: page_wait's quick exits. */
 static int page_done( void )
 {
@@ -622,6 +619,9 @@ static int page_done( void )
     return( 0 );
 }
 
+/* Until the page last shown has taken effect. The latch was acknowledged at the write, so set
+ * now means a blank has begun since. A write inside a blank misses that blank, and the latch
+ * sets again for as long as a blank lasts, so then it must be seen to stay clear first. */
 static void page_wait( void )
 {
     unsigned n = 480;                   /* ~40 ms */
@@ -759,9 +759,9 @@ static void q_spans( const POLY *p )
  * Each polygon's box sits at the scratch's corner: the planes keep them apart. */
 int         m8_opt;
 
-/* Probe alternatives to the closed scratch outline, kept so a later change can be checked
- * against them on the card. Chains: the left and right sides, each one connected line from
- * the top row down (horizontal edges left out: a one-row edge adds nothing to the fill). */
+/* Scratch outlines. Chains: the left and right sides, each one connected line from the top row
+ * down, so a top vertex's row gets two pixels that cancel (horizontal edges are left out: a
+ * one-row edge adds nothing to the fill). Edges: one at a time, kept as a probe reference. */
 static void q_chain( const POLY *p, int sx, int sy, int from, int step, int ymax )
 {
     int i = from;
@@ -868,13 +868,16 @@ static void batch_flush( void )
             if( !p[j].fill ) {
                 continue;
             }
-            /* One closed figure, 2 writes a corner. With LAST_OFF every row between top and
-             * bottom gets two boundary pixels whichever way the edges run, so it fills the same
-             * as edges sent one by one top to bottom (L6 P2, read back from the card). */
+            /* The fill is left-inclusive, right-exclusive on a row; filled from the top row to
+             * the row above the bottom, the polygon follows the top-left rule and needs no outline
+             * on the page: neighbours share edges with every pixel written once (L6 P3b). That
+             * needs the top row to cancel cleanly, so the outline goes as top-down chains. The
+             * outline rule fills only the rows between and draws the outline after: there a
+             * closed figure (2 writes a corner) fills the same as edges one by one (L6 P2). */
             Q( M8_WRT_MASK, 1 << j );
             if( m8_opt & M8_OPT_EDGES ) {
                 q_edges( &p[j], sx, sy );
-            } else if( m8_opt & M8_OPT_CHAINS ) {
+            } else if( m8_opt & M8_OPT_CHAINS || !( m8_opt & M8_OPT_OUTLINE ) ) {
                 q_chains( &p[j], sx, sy );
             } else {
                 Q( M8_LINEDRAW_INDEX, 0 );
@@ -907,13 +910,13 @@ static void batch_flush( void )
             }
             /* A fill command does not keep these: each fill sends them (card, L6 P1). */
             Q( M8_DESTX_DIASTP, SCR_X );
-            Q( M8_DESTY_AXSTP, 1 );
+            Q( M8_DESTY_AXSTP, ( m8_opt & M8_OPT_OUTLINE ) ? 1 : 0 );
             Q( M8_SRC_X_START, SCR_X );
             Q( M8_SRC_X_END, SCR_X + w );
             Q( M8_CUR_X, p[j].l );
             Q( M8_DEST_X_START, p[j].l );
             Q( M8_DEST_X_END, p[j].r + 1 );
-            Q( M8_CUR_Y, p[j].t + 1 );
+            Q( M8_CUR_Y, ( m8_opt & M8_OPT_OUTLINE ) ? p[j].t + 1 : p[j].t );
             Q( M8_DEST_Y_END, p[j].b );         /* starts the fill */
             q_room();
         }
@@ -930,7 +933,9 @@ static void batch_flush( void )
             Q( M8_COLOR_CMP, p[j].z >= 0 ? p[j].z << 4 : 0 );
         }
         q_col( p[j].col );
-        if( p[j].fill ) {
+        if( p[j].fill && ( ( m8_opt & M8_OPT_NOOUTLINE ) || !( m8_opt & M8_OPT_OUTLINE ) ) ) {
+            ++st.polys_fill;
+        } else if( p[j].fill ) {
             Q( M8_LINEDRAW_INDEX, 0 );
             for( i = 0; i <= p[j].n; ++i ) {               /* the last closes the figure */
                 Q( M8_LINEDRAW, p[j].x[i % p[j].n] );
@@ -1062,10 +1067,13 @@ void m8_poly( int n, const M8PT *v, int col )
         if( p->y[i] < p->t ) p->t = p->y[i];
         if( p->y[i] > p->b ) p->b = p->y[i];
     }
-    /* A batch draws every fill before any outline, so a polygon that overlaps one already
-     * in it would have its fill painted over by the earlier one's outline: send first. */
+    /* Fills in a batch go in order, so overlapping fills layer as submitted. Spans and page
+     * outlines go after every fill, so a polygon that overlaps one already in the batch is sent
+     * in a new batch when either is drawn by spans, or under the outline rule. */
+    choose( p );
     for( j = 0; j < nbatch; ++j ) {
-        if( p->l <= batch[j].r && batch[j].l <= p->r && p->t <= batch[j].b && batch[j].t <= p->b ) {
+        if( ( ( m8_opt & M8_OPT_OUTLINE ) || !p->fill || !batch[j].fill ) &&
+            p->l <= batch[j].r && batch[j].l <= p->r && p->t <= batch[j].b && batch[j].t <= p->b ) {
             POLY t = *p;
 
             batch_flush();
@@ -1074,7 +1082,6 @@ void m8_poly( int n, const M8PT *v, int col )
             break;
         }
     }
-    choose( p );
     ++nbatch;
 }
 
@@ -1134,9 +1141,9 @@ void m8_clear( int col )
     m8_clip( 0, 0, M8_W - 1, M8_H - 1 );
     m8_rect( 0, 0, M8_W - 1, M8_H - 1, col );
     m8_clip( l, t, r, b );
-    /* A page clear is ~4.5 ms of engine time for 7 writes: sent now, the engine clears while
-     * the CPU builds the rest of the frame (L6, M8DTEST costs). Only when the page is already
-     * off screen; otherwise it waits for the flip with the rest of the frame. */
+    /* A page clear is a few writes but milliseconds of engine time: sent now, the engine clears
+     * while the CPU builds the rest of the frame. Only when the page is already off screen;
+     * otherwise it waits for the flip with the rest of the frame. */
     if( in_frame && ( !vsync_last || page_done() ) ) {
         q_send();
     }

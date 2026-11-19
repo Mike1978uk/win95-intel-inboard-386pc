@@ -286,7 +286,7 @@ static void scene( int frame )
  * against one edge at a time, read back from the card frame by frame; then speed. */
 static int probe( void )
 {
-    static const int    opts[] = { M8_OPT_EDGES, 0, M8_OPT_CHAINS };
+    static const int    opts[] = { M8_OPT_OUTLINE | M8_OPT_EDGES, M8_OPT_OUTLINE, M8_OPT_OUTLINE | M8_OPT_CHAINS };
     static const char   *name[] = { "edges (reference)", "closed (default)", "chains" };
     char                line[200];
     int                 k;
@@ -526,11 +526,243 @@ static int costs( void )
     return( 0 );
 }
 
+/* L6 P3b: which outline pixels does the fill alone leave out? Separate shapes of every
+ * orientation and two neighbours sharing an edge, with and without the page outline. For each
+ * shape colour, its pixels in the reference are counted by the sides they lie on (left, right,
+ * top, bottom: a neighbour of another colour), and those missing without the outline. */
+static int edgeprobe( void )
+{
+    static const short  sh[][8] = {             /* n, then up to 3 corners as x,y pairs ... */
+        { 3,  60, 20,  150, 120,   10, 120 },   /* apex up, flat bottom */
+        { 3, 170, 20,  280,  20,  230, 120 },   /* flat top, apex down */
+        { 3, 300, 20,  420,  60,  320, 130 },   /* general, middle right */
+        { 3, 520, 20,  440,  70,  600, 130 },   /* general, middle left */
+        { 3,  20, 160,  60, 300,   40, 300 },   /* steep */
+        { 3, 100, 180, 300, 200,  120, 230 },   /* shallow */
+        { 3, 340, 160, 460, 160,  340, 280 },   /* right angle, left and top straight */
+        { 3, 600, 160, 600, 280,  480, 280 },   /* right angle, right and bottom straight */
+    };
+    char            line[200];
+    unsigned long   tot[16][4], miss[16][4];
+    int             k;
+    int             how;
+    int             x;
+    int             y;
+    M8STATS         s;
+
+    page0 = (unsigned char *)malloc( (size_t)M8_W * M8_H );
+    pagex = (unsigned char *)malloc( (size_t)M8_W * M8_H );
+    if( page0 == NULL || pagex == NULL ) {
+        return( 1 );
+    }
+    for( how = 0; how < 2; ++how ) {
+        m8_opt = how ? M8_OPT_OUTLINE | M8_OPT_NOOUTLINE : M8_OPT_OUTLINE;
+        if( m8_open() ) {
+            return( 1 );
+        }
+        palette();
+        m8_stats_reset();
+        m8_frame_begin();
+        m8_clear( 0 );
+        for( k = 0; k < 8; ++k ) {
+            m8_tri( sh[k][1], sh[k][2], sh[k][3], sh[k][4], sh[k][5], sh[k][6], 0x20 + k );
+        }
+        /* two neighbours sharing the edge (150,330)-(250,460), and a quad */
+        m8_tri( 150, 330, 250, 460, 60, 440, 0x28 );
+        m8_tri( 150, 330, 330, 360, 250, 460, 0x29 );
+        {
+            M8PT    q[4];
+
+            q[0].x = 480; q[0].y = 320; q[1].x = 600; q[1].y = 380;
+            q[2].x = 500; q[2].y = 470; q[3].x = 380; q[3].y = 400;
+            m8_poly( 4, q, 0x2A );
+        }
+        m8_frame_end( 1 );
+        m8_stats( &s );
+        if( m8_read_shown( how ? pagex : page0 ) ) {
+            m8_close();
+            return( 1 );
+        }
+        m8_close();
+        sprintf( line, "M8DTEST edgeprobe %s: %lu writes\n", how ? "no outline" : "reference", s.outs );
+        probe_line( line );
+    }
+    m8_opt = 0;
+    memset( tot, 0, sizeof( tot ) );
+    memset( miss, 0, sizeof( miss ) );
+    for( y = 1; y < M8_H - 1; ++y ) {
+        for( x = 1; x < M8_W - 1; ++x ) {
+            int c = page0[y * M8_W + x];
+            int side[4];
+            int d;
+
+            if( c < 0x20 || c > 0x2A ) {
+                continue;
+            }
+            side[0] = page0[y * M8_W + x - 1] != c;
+            side[1] = page0[y * M8_W + x + 1] != c;
+            side[2] = page0[( y - 1 ) * M8_W + x] != c;
+            side[3] = page0[( y + 1 ) * M8_W + x] != c;
+            for( d = 0; d < 4; ++d ) {
+                if( side[d] ) {
+                    ++tot[c - 0x20][d];
+                    if( pagex[y * M8_W + x] != c ) {
+                        ++miss[c - 0x20][d];
+                    }
+                }
+            }
+            if( !side[0] && !side[1] && !side[2] && !side[3] && pagex[y * M8_W + x] != c ) {
+                ++miss[c - 0x20][0], ++tot[15][0];      /* an inside pixel missing: counted apart */
+            }
+        }
+    }
+    probe_line( "  shape  left missing/edge   right    top    bottom\n" );
+    for( k = 0; k < 11; ++k ) {
+        sprintf( line, "  %2d     %4lu/%-4lu   %4lu/%-4lu  %4lu/%-4lu  %4lu/%-4lu\n", k,
+                 miss[k][0], tot[k][0], miss[k][1], tot[k][1], miss[k][2], tot[k][2],
+                 miss[k][3], tot[k][3] );
+        probe_line( line );
+    }
+    sprintf( line, "  inside pixels missing (all shapes): %lu\n", tot[15][0] );
+    probe_line( line );
+    return( 0 );
+}
+
+/* L6 P3b: the top-left fill rule. A jittered mesh of 160 triangles drawn forwards and
+ * backwards: with each pixel in exactly one triangle the two are identical, and no background
+ * pixel is left inside the mesh. Then the bench, default against the rule. */
+static short    mx[11][9], my[11][9];
+static int      mcol[160];
+
+static void mesh( int forwards )
+{
+    int i;
+
+    m8_frame_begin();
+    m8_clear( 0 );
+    for( i = 0; i < 160; ++i ) {
+        int t = forwards ? i : 159 - i;
+        int q = t >> 1;
+        int gx = q % 10;
+        int gy = q / 10;
+
+        if( t & 1 ) {
+            m8_tri( mx[gx][gy], my[gx][gy], mx[gx + 1][gy + 1], my[gx + 1][gy + 1],
+                    mx[gx][gy + 1], my[gx][gy + 1], mcol[t] );
+        } else {
+            m8_tri( mx[gx][gy], my[gx][gy], mx[gx + 1][gy], my[gx + 1][gy],
+                    mx[gx + 1][gy + 1], my[gx + 1][gy + 1], mcol[t] );
+        }
+    }
+    m8_frame_end( 1 );
+}
+
+static int tileprobe( void )
+{
+    static const int    opts[] = { M8_OPT_OUTLINE, 0 };
+    static const char   *name[] = { "outline rule", "top-left rule (default)" };
+    char                line[200];
+    int                 k;
+    int                 i;
+    int                 x;
+    int                 y;
+    long                f;
+    unsigned long       holes;
+    M8STATS             s;
+
+    page0 = (unsigned char *)malloc( (size_t)M8_W * M8_H );
+    pagex = (unsigned char *)malloc( (size_t)M8_W * M8_H );
+    if( page0 == NULL || pagex == NULL ) {
+        return( 1 );
+    }
+    seed = 4242;
+    for( x = 0; x <= 10; ++x ) {
+        for( y = 0; y <= 8; ++y ) {
+            int jx = ( x == 0 || x == 10 ) ? 0 : rnd( 31 ) - 15;
+            int jy = ( y == 0 || y == 8 ) ? 0 : rnd( 31 ) - 15;
+
+            mx[x][y] = (short)( 20 + x * 60 + jx );
+            my[x][y] = (short)( 20 + y * 55 + jy );
+        }
+    }
+    for( i = 0; i < 160; ++i ) {
+        mcol[i] = 1 + rnd( 255 );
+    }
+    probe_line( "M8DTEST tileprobe: jittered mesh, 160 triangles, forwards and backwards\n" );
+    for( k = 0; k < 2; ++k ) {
+        m8_opt = opts[k];
+        if( m8_open() ) {
+            return( 1 );
+        }
+        palette();
+        m8_stats_reset();
+        mesh( 1 );
+        m8_stats( &s );
+        if( m8_read_shown( page0 ) ) {
+            m8_close();
+            return( 1 );
+        }
+        mesh( 0 );
+        if( m8_read_shown( pagex ) ) {
+            m8_close();
+            return( 1 );
+        }
+        m8_close();
+        holes = 0;
+        for( y = 21; y < 20 + 8 * 55 - 1; ++y ) {
+            for( x = 21; x < 20 + 10 * 60 - 1; ++x ) {
+                if( page0[y * M8_W + x] == 0 ) {
+                    ++holes;
+                }
+            }
+        }
+        sprintf( line, " %s: %lu writes a mesh, %lu background pixels inside", name[k], s.outs, holes );
+        probe_line( line );
+        probe_diff( "; forwards vs backwards", opts[k], s.outs, page0, pagex );
+    }
+    for( k = 0; k < 2; ++k ) {
+        unsigned long   ticks;
+
+        m8_opt = opts[k];
+        seed = 12345;
+        if( m8_open() ) {
+            return( 1 );
+        }
+        palette();
+        m8_stats_reset();
+        for( f = 0; f < 200; ++f ) {
+            m8_frame_begin();
+            m8_clear( 0 );
+            for( i = 0; i < 50; ++i ) {
+                int bx = rnd( M8_W - 40 );
+                int by = rnd( M8_H - 40 );
+
+                m8_tri( bx + rnd( 40 ), by, bx + 39, by + rnd( 40 ), bx, by + 39, 1 + rnd( 255 ) );
+            }
+            m8_frame_end( 0 );
+        }
+        m8_stats( &s );
+        ticks = s.ticks ? s.ticks : 1;
+        m8_close();
+        sprintf( line, " bench 50x40 nv %s: %.2f fps, %.2f ms, %.1f writes a frame\n", name[k],
+                 s.frames * 18.2065 / ticks, ticks * 1000.0 / 18.2065 / s.frames, (double)s.outs / s.frames );
+        probe_line( line );
+    }
+    m8_opt = 0;
+    return( 0 );
+}
+
 int main( int argc, char **argv )
 {
     const char  *mode = argc > 1 ? argv[1] : "card";
     char        what[80];
 
+    if( stricmp( mode, "tileprobe" ) == 0 ) {
+        return( tileprobe() );
+    }
+    if( stricmp( mode, "edgeprobe" ) == 0 ) {
+        return( edgeprobe() );
+    }
     if( stricmp( mode, "costs" ) == 0 ) {
         return( costs() );
     }

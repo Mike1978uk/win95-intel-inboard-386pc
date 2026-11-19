@@ -1,0 +1,9 @@
+M8DTEST tileprobe: jittered mesh, 160 triangles, forwards and backwards
+ default: 7285 writes a mesh, 0 background pixels inside  ; forwards vs backwards opt 0: 7285 writes, 13080 pixels differ, box 20,20-620,460
+    (20,20) 89 not 7C
+    (69,20) 89 not E9
+    (125,20) CD not 89
+    (200,20) 1C not 91
+ top-left rule: 6273 writes a mesh, 0 background pixels inside  ; forwards vs backwards opt 8: 6273 writes, pixels identical
+ bench 50x40 nv default: 46.68 fps, 21.42 ms, 1714.1 writes a frame
+ bench 50x40 nv top-left rule: 53.55 fps, 18.67 ms, 1409.2 writes a frame

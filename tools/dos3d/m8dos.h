@@ -96,6 +96,8 @@ typedef struct {
  * polygon fill may not need. Off by default until the card shows the same pixels. */
 #define M8_OPT_EDGES        1   /* scratch outline one edge at a time, 5 writes an edge */
 #define M8_OPT_CHAINS       2   /* scratch outline as left and right sides, top down */
+#define M8_OPT_NOOUTLINE    4   /* probe only: no outline on the page after a fill */
+#define M8_OPT_OUTLINE      8   /* the earlier rule: closed outline, rows between, page outline */
 extern int  m8_opt;
 
 /* Hosted builds: the shown page into buf (640 x 480 bytes), a few seconds. 0 on success. */
