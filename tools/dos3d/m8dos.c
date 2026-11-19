@@ -1304,6 +1304,8 @@ void m8_parity( int nseg, const M8SEG *s, int n, const int *col )
     int planes = 0;
     int mask = -1;
     int first = 1;
+    int ex = -0x7FFF;                   /* where the open polyline ends, -0x7FFF none */
+    int ey = 0;
     int i;
     int k;
 
@@ -1337,18 +1339,28 @@ void m8_parity( int nseg, const M8SEG *s, int n, const int *col )
         int m = s[i].planes & planes;
         int a = s[i].y0 <= s[i].y1;
 
+        int tx = a ? s[i].x0 : s[i].x1;
+        int ty = a ? s[i].y0 : s[i].y1;
+
         if( s[i].y0 == s[i].y1 || !m ) {
             continue;
         }
         if( m != mask ) {
             Q( M8_WRT_MASK, m );
             mask = m;
+            ex = -0x7FFF;
         }
-        Q( M8_LINEDRAW_INDEX, 0 );
-        Q( M8_LINEDRAW, SCR_X - l + ( a ? s[i].x0 : s[i].x1 ) );
-        Q( M8_LINEDRAW, ( a ? s[i].y0 : s[i].y1 ) - t );
-        Q( M8_LINEDRAW, SCR_X - l + ( a ? s[i].x1 : s[i].x0 ) );
-        Q( M8_LINEDRAW, ( a ? s[i].y1 : s[i].y0 ) - t );
+        /* A polyline draws each piece without its last pixel, as separate segments do, so a
+         * segment starting where the last ended costs 2 writes, not 5 (m8_parity_order). */
+        if( tx != ex || ty != ey ) {
+            Q( M8_LINEDRAW_INDEX, 0 );
+            Q( M8_LINEDRAW, SCR_X - l + tx );
+            Q( M8_LINEDRAW, ty - t );
+        }
+        ex = a ? s[i].x1 : s[i].x0;
+        ey = a ? s[i].y1 : s[i].y0;
+        Q( M8_LINEDRAW, SCR_X - l + ex );
+        Q( M8_LINEDRAW, ey - t );
         q_room();
     }
     Q( M8_WRT_MASK, 0x00FF );
@@ -1386,6 +1398,51 @@ void m8_parity( int nseg, const M8SEG *s, int n, const int *col )
     Q( M8_WRT_MASK, 0x00FF );
     cur_col = 0;
     q_room();
+}
+
+/* Orders segments for m8_parity once, when a texture is built: grouped by plane mask, and
+ * within a mask in top-down chains, each starting where the last ended. */
+void m8_parity_order( int nseg, M8SEG *s )
+{
+    int i;
+    int j;
+    int done = 0;
+
+    for( i = 0; i < nseg; ++i ) {      /* each top to bottom */
+        if( s[i].y0 > s[i].y1 ) {
+            M8SEG t = s[i];
+
+            s[i].x0 = t.x1; s[i].y0 = t.y1;
+            s[i].x1 = t.x0; s[i].y1 = t.y0;
+        }
+    }
+    while( done < nseg ) {
+        int best = done;
+
+        for( i = done + 1; i < nseg; ++i ) {
+            if( s[i].planes < s[best].planes ||
+                ( s[i].planes == s[best].planes && s[i].y0 < s[best].y0 ) ) {
+                best = i;
+            }
+        }
+        for( ;; ) {
+            M8SEG t = s[done];
+
+            s[done] = s[best];
+            s[best] = t;
+            ++done;
+            for( j = done; j < nseg; ++j ) {
+                if( s[j].planes == s[done - 1].planes && s[j].x0 == s[done - 1].x1 &&
+                    s[j].y0 == s[done - 1].y1 && s[j].y1 != s[j].y0 ) {
+                    break;
+                }
+            }
+            if( j == nseg ) {
+                break;
+            }
+            best = j;
+        }
+    }
 }
 
 void m8_rect( int l, int t, int r, int b, int col )

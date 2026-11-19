@@ -1076,11 +1076,441 @@ static int checkprobe( void )
     return( 0 );
 }
 
+/* L6 P5b: a Penrose rhomb patch from de Bruijn's pentagrid. Corners are integer 5-tuples, so
+ * neighbours share corners exactly and every edge is shared whole (no T-junctions). The tiles
+ * are coloured so no two sharing an edge match; each edge goes once into the planes of the
+ * tiles on both sides, then one fill a colour. Against the rhombs as polygons: pixels, writes,
+ * speed. Both pages to PENQ / PENP.RAW. */
+#ifdef __386__
+#define PEN_T   1200
+#else
+#define PEN_T   160
+#endif
+#define PEN_V   ( PEN_T + 64 )
+#define PEN_E   ( 2 * PEN_T + 64 )
+
+typedef struct {
+    signed char k[5];
+    short       x, y;
+} PENV;
+
+static PENV     *pv;
+static int      npv;
+static short    (*pt)[4];               /* tile corners, vertex numbers */
+static unsigned char *pcls;             /* tile colour class */
+static int      npt;
+static short    (*pe)[4];               /* edge: vertex a, b, tile 0, tile 1 (-1 none) */
+static int      npe;
+static short    (*pn)[4];               /* tile neighbours across an edge, -1 none */
+
+static int pen_vertex( const signed char *k, double sc )
+{
+    int     i;
+    int     j;
+    double  x = 0.0;
+    double  y = 0.0;
+
+    for( i = 0; i < npv; ++i ) {
+        if( memcmp( pv[i].k, k, 5 ) == 0 ) {
+            return( i );
+        }
+    }
+    if( npv == PEN_V ) {
+        return( -1 );
+    }
+    for( j = 0; j < 5; ++j ) {
+        x += k[j] * cos( 2.0 * 3.14159265358979 * j / 5.0 );
+        y += k[j] * sin( 2.0 * 3.14159265358979 * j / 5.0 );
+    }
+    memcpy( pv[npv].k, k, 5 );
+    pv[npv].x = (short)floor( 320.0 + x * sc + 0.5 );
+    pv[npv].y = (short)floor( 240.0 + y * sc + 0.5 );
+    return( npv++ );
+}
+
+static void pen_edge( int a, int b, int t )
+{
+    int i;
+
+    for( i = 0; i < npe; ++i ) {
+        if( ( pe[i][0] == a && pe[i][1] == b ) || ( pe[i][0] == b && pe[i][1] == a ) ) {
+            pe[i][3] = (short)t;
+            return;
+        }
+    }
+    if( npe < PEN_E ) {
+        pe[npe][0] = (short)a;
+        pe[npe][1] = (short)b;
+        pe[npe][2] = (short)t;
+        pe[npe][3] = -1;
+        ++npe;
+    }
+}
+
+/* Rhombs whose centre lies within r units of the origin, sc pixels a unit. */
+static void pen_build( double r, double sc )
+{
+    static const double g[5] = { 0.13, 0.27, -0.31, 0.44, -0.53 };    /* sum 0: Penrose */
+    double  ex[5];
+    double  ey[5];
+    int     a;
+    int     b;
+    int     ka;
+    int     kb;
+    int     j;
+    int     n = (int)r + 2;
+
+    npv = npt = npe = 0;
+    for( j = 0; j < 5; ++j ) {
+        ex[j] = cos( 2.0 * 3.14159265358979 * j / 5.0 );
+        ey[j] = sin( 2.0 * 3.14159265358979 * j / 5.0 );
+    }
+    for( a = 0; a < 5; ++a ) {
+        for( b = a + 1; b < 5; ++b ) {
+            double det = ex[a] * ey[b] - ey[a] * ex[b];
+
+            for( ka = -n; ka <= n; ++ka ) {
+                for( kb = -n; kb <= n; ++kb ) {
+                    /* the point where grid line a = ka meets grid line b = kb */
+                    double      ra = ka - g[a];
+                    double      rb = kb - g[b];
+                    double      zx = ( ra * ey[b] - rb * ey[a] ) / det;
+                    double      zy = ( rb * ex[a] - ra * ex[b] ) / det;
+                    signed char k[5];
+                    signed char c[5];
+                    int         v[4];
+                    double      cx = 0.0;
+                    double      cy = 0.0;
+                    int         m;
+
+                    for( j = 0; j < 5; ++j ) {
+                        k[j] = (signed char)ceil( zx * ex[j] + zy * ey[j] + g[j] );
+                    }
+                    for( m = 0; m < 4; ++m ) {
+                        memcpy( c, k, 5 );
+                        c[a] = (signed char)( ka + ( m == 1 || m == 2 ) );
+                        c[b] = (signed char)( kb + ( m >= 2 ) );
+                        for( j = 0; j < 5; ++j ) {
+                            cx += c[j] * ex[j] / 4.0;
+                            cy += c[j] * ey[j] / 4.0;
+                        }
+                    }
+                    if( cx * cx + cy * cy > r * r || npt == PEN_T ) {
+                        continue;
+                    }
+                    for( m = 0; m < 4; ++m ) {
+                        memcpy( c, k, 5 );
+                        c[a] = (signed char)( ka + ( m == 1 || m == 2 ) );
+                        c[b] = (signed char)( kb + ( m >= 2 ) );
+                        v[m] = pen_vertex( c, sc );
+                        if( v[m] < 0 ) {
+                            return;
+                        }
+                    }
+                    for( m = 0; m < 4; ++m ) {
+                        pt[npt][m] = (short)v[m];
+                        pen_edge( v[m], v[( m + 1 ) % 4], npt );
+                    }
+                    ++npt;
+                }
+            }
+        }
+    }
+}
+
+/* DSatur: the most constrained tile first, the lowest colour its neighbours leave. Returns the
+ * number of colours used. */
+static int pen_seen( int t )
+{
+    int m;
+    int seen = 0;
+
+    for( m = 0; m < 4; ++m ) {
+        if( pn[t][m] >= 0 && pcls[pn[t][m]] != 0xFF ) {
+            seen |= 1 << pcls[pn[t][m]];
+        }
+    }
+    return( seen );
+}
+
+static int pen_colour( void )
+{
+    int i;
+    int e;
+    int used = 0;
+
+    for( i = 0; i < npt; ++i ) {
+        pcls[i] = 0xFF;
+        pn[i][0] = pn[i][1] = pn[i][2] = pn[i][3] = -1;
+    }
+    for( e = 0; e < npe; ++e ) {
+        int s;
+
+        for( s = 0; s < 2 && pe[e][3] >= 0; ++s ) {
+            int t = pe[e][2 + s];
+            int m;
+
+            for( m = 0; m < 4 && pn[t][m] >= 0; ++m ) {
+            }
+            if( m < 4 ) {
+                pn[t][m] = pe[e][3 - s];
+            }
+        }
+    }
+    for( ;; ) {
+        int best = -1;
+        int bsat = -1;
+        int c;
+
+        for( i = 0; i < npt; ++i ) {
+            int seen;
+            int sat = 0;
+
+            if( pcls[i] != 0xFF ) {
+                continue;
+            }
+            seen = pen_seen( i );
+            for( c = 0; c < 8; ++c ) {
+                sat += ( seen >> c ) & 1;
+            }
+            if( sat > bsat ) {
+                bsat = sat;
+                best = i;
+            }
+        }
+        if( best < 0 ) {
+            return( used );
+        }
+        for( c = 0; ( pen_seen( best ) >> c ) & 1; ++c ) {
+        }
+        pcls[best] = (unsigned char)c;
+        if( c + 1 > used ) {
+            used = c + 1;
+        }
+    }
+}
+
+static short    *pord;
+static long     pen_steps;
+
+static int pen_try( int i )
+{
+    int t;
+    int c;
+    int seen;
+
+    if( i == npt ) {
+        return( 1 );
+    }
+    if( ++pen_steps > 200000L ) {
+        return( 0 );
+    }
+    t = pord[i];
+    seen = pen_seen( t );
+    for( c = 0; c < 3; ++c ) {
+        if( !( ( seen >> c ) & 1 ) ) {
+            pcls[t] = (unsigned char)c;
+            if( pen_try( i + 1 ) ) {
+                return( 1 );
+            }
+        }
+    }
+    pcls[t] = 0xFF;
+    return( 0 );
+}
+
+/* Penrose rhombs need only three colours (Sibley and Wagon, 2000); a greedy colouring can use
+ * a fourth, which costs a plane and a fill over the whole box. */
+static int pen_colour3( void )
+{
+    int n = 0;
+    int h = 0;
+    int i;
+    int m;
+
+    for( i = 0; i < npt; ++i ) {
+        pcls[i] = 0xFF;
+    }
+    for( i = 0; i < npt; ++i ) {
+        pcls[i] = 0xFE;                 /* marks "queued" for the walk */
+        if( i != 0 ) {
+            pcls[i] = 0xFF;
+        }
+    }
+    pord[n++] = 0;
+    while( h < n ) {
+        int t = pord[h++];
+
+        for( m = 0; m < 4; ++m ) {
+            int o = pn[t][m];
+
+            if( o >= 0 && pcls[o] == 0xFF ) {
+                pcls[o] = 0xFE;
+                pord[n++] = (short)o;
+            }
+        }
+    }
+    for( i = 0; i < npt; ++i ) {
+        if( pcls[i] == 0xFF ) {
+            pord[n++] = (short)i;       /* tiles cut off from the rest */
+        }
+        pcls[i] = 0xFF;
+    }
+    pen_steps = 0;
+    return( pen_try( 0 ) ? 3 : 0 );
+}
+
+static void pen_polys( const int *col, int skip )
+{
+    int     i;
+    int     m;
+    M8PT    q[4];
+
+    for( i = 0; i < npt; ++i ) {
+        if( pcls[i] == skip ) {
+            continue;
+        }
+        for( m = 0; m < 4; ++m ) {
+            q[m].x = pv[pt[i][m]].x;
+            q[m].y = pv[pt[i][m]].y;
+        }
+        m8_poly( 4, q, col[pcls[i]] );
+    }
+}
+
+static M8SEG    *pseg;
+
+static int      npseg;
+
+static void pen_segs( int skip, int order )
+{
+    int e;
+    int n = 0;
+
+    for( e = 0; e < npe; ++e ) {
+        int m = 1 << pcls[pe[e][2]];
+
+        if( pe[e][3] >= 0 ) {
+            m |= 1 << pcls[pe[e][3]];
+        }
+        if( skip >= 0 ) {
+            m &= ~( 1 << skip );
+        }
+        if( !m ) {
+            continue;
+        }
+        pseg[n].x0 = pv[pe[e][0]].x;
+        pseg[n].y0 = pv[pe[e][0]].y;
+        pseg[n].x1 = pv[pe[e][1]].x;
+        pseg[n].y1 = pv[pe[e][1]].y;
+        pseg[n].planes = (unsigned char)m;
+        ++n;
+    }
+    npseg = n;
+    if( order ) {
+        m8_parity_order( n, pseg );
+    }
+}
+
+static int penprobe( void )
+{
+    static const double rs[] = { 6.0, 9.0 };
+    static const double scs[] = { 26.0, 18.0 };     /* patch under 382 px wide */
+    static const int    col[4] = { RED, YELLOW, BLUE, GREEN };
+    char                line[200];
+    char                name[16];
+    int                 sz;
+    int                 skip;
+    int                 k;
+    int                 ncol;
+    long                f;
+    M8STATS             s;
+
+    pv = (PENV *)malloc( sizeof( PENV ) * PEN_V );
+    pt = (short (*)[4])malloc( sizeof( short ) * 4 * PEN_T );
+    pcls = (unsigned char *)malloc( PEN_T );
+    pn = (short (*)[4])malloc( sizeof( short ) * 4 * PEN_T );
+    pe = (short (*)[4])malloc( sizeof( short ) * 4 * PEN_E );
+    pseg = (M8SEG *)malloc( sizeof( M8SEG ) * PEN_E );
+    pord = (short *)malloc( sizeof( short ) * PEN_T );
+    page0 = (unsigned char *)malloc( (size_t)M8_W * M8_H );
+    pagex = (unsigned char *)malloc( (size_t)M8_W * M8_H );
+    if( !pv || !pt || !pcls || !pn || !pe || !pseg || !pord || !page0 || !pagex ) {
+        return( 1 );
+    }
+    for( sz = 0; sz < 2; ++sz ) {
+        pen_build( rs[sz], scs[sz] );
+        ncol = pen_colour();            /* also fills the neighbour lists */
+        if( ncol > 3 && pen_colour3() == 3 ) {
+            ncol = 3;
+        } else if( ncol > 3 ) {
+            ncol = pen_colour();
+        }
+        for( skip = -1; skip <= 0; ++skip ) {
+            sprintf( line, "M8DTEST penprobe: %d rhombs, %d corners, %d edges, %d colours, %s\n", npt, npv,
+                     npe, ncol, skip < 0 ? "all drawn" : "colour 0 = background" );
+            probe_line( line );
+            for( k = 0; k < 3; ++k ) {
+                unsigned long   ticks;
+                unsigned long   w;
+                int             c0[4];
+                int             i;
+
+                if( k ) {
+                    pen_segs( skip, k == 2 );
+                }
+
+                for( i = 0; i < 4; ++i ) {
+                    c0[i] = ( i == skip ) ? 0 : col[i];
+                }
+                if( m8_open() ) {
+                    return( 1 );
+                }
+                palette();
+                m8_stats_reset();
+                m8_frame_begin();
+                m8_clear( 0 );
+                if( k ) m8_parity( npseg, pseg, ncol, c0 ); else pen_polys( c0, skip );
+                m8_frame_end( 1 );
+                m8_stats( &s );
+                w = s.outs;
+                if( m8_read_shown( k ? pagex : page0 ) ) {
+                    m8_close();
+                    return( 1 );
+                }
+                m8_stats_reset();
+                for( f = 0; f < 50; ++f ) {
+                    m8_frame_begin();
+                    m8_clear( 0 );
+                    if( k ) m8_parity( npseg, pseg, ncol, c0 ); else pen_polys( c0, skip );
+                    m8_frame_end( 0 );
+                }
+                m8_stats( &s );
+                ticks = s.ticks ? s.ticks : 1;
+                m8_close();
+                sprintf( line, " %s: %lu writes a frame, %.2f ms a frame (50 nv)\n",
+                         k == 2 ? "parity, chained" : k ? "parity, edge order" : "rhombs",
+                         w, ticks * 1000.0 / 18.2065 / s.frames );
+                probe_line( line );
+                sprintf( name, "PEN%c%d%d.RAW", "QPC"[k], sz, skip + 1 );
+                chk_save( name, k ? pagex : page0 );
+                if( k ) {
+                    probe_diff( k == 2 ? "chained vs rhombs" : "edge order vs rhombs", 0, 0, page0, pagex );
+                }
+            }
+        }
+    }
+    return( 0 );
+}
+
 int main( int argc, char **argv )
 {
     const char  *mode = argc > 1 ? argv[1] : "card";
     char        what[80];
 
+    if( stricmp( mode, "penprobe" ) == 0 ) {
+        return( penprobe() );
+    }
     if( stricmp( mode, "checkprobe" ) == 0 ) {
         return( checkprobe() );
     }

@@ -76,6 +76,9 @@ typedef struct {
     unsigned char   planes;
 } M8SEG;
 void    m8_parity( int nseg, const M8SEG *s, int n, const int *col );
+/* Once, when a texture is built: reorders segments so m8_parity sends chains (2 writes a
+ * segment instead of 5) and changes plane mask least. */
+void    m8_parity_order( int nseg, M8SEG *s );
 
 /* Perf mailbox: 64 bytes in conventional memory, so a reader outside the program (a TSR, the
  * DOS agent's memory probe, DEBUG) can watch a run live. Found through the far pointer at
