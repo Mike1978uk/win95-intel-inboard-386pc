@@ -21,7 +21,7 @@ Captures: `docs/captures/2026-11-19_join_card/`, `docs/captures/2026-11-19_check
 
 ## Next, in owner's order
 
-1. **P5b** Penrose and the other tilings with 3-4 colour planes (odd-degree vertices). Probe, do not assume.
+1. **P5b** Penrose and the other tilings with 3-4 colour planes (odd-degree vertices). Probe, do not assume. - DONE 11-19 on the card (3 colours, chained, pixel-identical; see the L6 doc)
 2. **P6** card dither mask plane for a pseudo high-colour look (owner's main interest).
 3. **`m8_parity` strips** for full width (box limit 382 px).
 4. **Overdraw audit** leftovers: `docs/overdraw_retrospective_2026_11_19.md`.

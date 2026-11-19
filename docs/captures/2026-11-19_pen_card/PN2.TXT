@@ -1,0 +1,32 @@
+M8DTEST penprobe: 140 rhombs, 163 corners, 302 edges, 3 colours, all drawn
+ rhombs: 3524 writes a frame, 53.83 ms a frame (50 nv)
+ parity, edge order: 1401 writes a frame, 36.25 ms a frame (50 nv)
+  edge order vs rhombs: reference has 76598 non-background pixels
+  edge order vs rhombs opt 0: 0 writes, pixels identical
+ parity, chained: 1098 writes a frame, 32.96 ms a frame (50 nv)
+  chained vs rhombs: reference has 76598 non-background pixels
+  chained vs rhombs opt 0: 0 writes, pixels identical
+M8DTEST penprobe: 140 rhombs, 163 corners, 302 edges, 3 colours, colour 0 = background
+ rhombs: 2288 writes a frame, 35.15 ms a frame (50 nv)
+ parity, edge order: 1286 writes a frame, 28.56 ms a frame (50 nv)
+  edge order vs rhombs: reference has 48433 non-background pixels
+  edge order vs rhombs opt 0: 0 writes, pixels identical
+ parity, chained: 1000 writes a frame, 26.36 ms a frame (50 nv)
+  chained vs rhombs: reference has 48433 non-background pixels
+  chained vs rhombs opt 0: 0 writes, pixels identical
+M8DTEST penprobe: 313 rhombs, 354 corners, 666 edges, 3 colours, all drawn
+ rhombs: 7674 writes a frame, 117.54 ms a frame (50 nv)
+ parity, edge order: 3057 writes a frame, 51.63 ms a frame (50 nv)
+  edge order vs rhombs: reference has 82761 non-background pixels
+  edge order vs rhombs opt 0: 0 writes, pixels identical
+ parity, chained: 2436 writes a frame, 46.14 ms a frame (50 nv)
+  chained vs rhombs: reference has 82761 non-background pixels
+  chained vs rhombs opt 0: 0 writes, pixels identical
+M8DTEST penprobe: 313 rhombs, 354 corners, 666 edges, 3 colours, colour 0 = background
+ rhombs: 4904 writes a frame, 75.80 ms a frame (50 nv)
+ parity, edge order: 2880 writes a frame, 43.94 ms a frame (50 nv)
+  edge order vs rhombs: reference has 53065 non-background pixels
+  edge order vs rhombs opt 0: 0 writes, pixels identical
+ parity, chained: 2267 writes a frame, 38.45 ms a frame (50 nv)
+  chained vs rhombs: reference has 53065 non-background pixels
+  chained vs rhombs opt 0: 0 writes, pixels identical

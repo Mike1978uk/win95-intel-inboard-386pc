@@ -1,0 +1,20 @@
+M8DTEST penprobe: 140 rhombs, 163 corners, 302 edges, 3 colours, all drawn
+ rhombs: 3524 writes a frame, 52.73 ms a frame (50 nv)
+ parity: 1407 writes a frame, 35.15 ms a frame (50 nv)
+  parity vs rhombs: reference has 76598 non-background pixels
+  parity vs rhombs opt 0: 0 writes, pixels identical
+M8DTEST penprobe: 140 rhombs, 163 corners, 302 edges, 3 colours, colour 0 = background
+ rhombs: 2288 writes a frame, 35.15 ms a frame (50 nv)
+ parity: 1289 writes a frame, 28.56 ms a frame (50 nv)
+  parity vs rhombs: reference has 48433 non-background pixels
+  parity vs rhombs opt 0: 0 writes, pixels identical
+M8DTEST penprobe: 313 rhombs, 354 corners, 666 edges, 4 colours, all drawn
+ rhombs: 7667 writes a frame, 116.44 ms a frame (50 nv)
+ parity: 3086 writes a frame, 57.12 ms a frame (50 nv)
+  parity vs rhombs: reference has 82761 non-background pixels
+  parity vs rhombs opt 0: 0 writes, pixels identical
+M8DTEST penprobe: 313 rhombs, 354 corners, 666 edges, 4 colours, colour 0 = background
+ rhombs: 5098 writes a frame, 77.99 ms a frame (50 nv)
+ parity: 2910 writes a frame, 49.43 ms a frame (50 nv)
+  parity vs rhombs: reference has 54790 non-background pixels
+  parity vs rhombs opt 0: 0 writes, pixels identical
