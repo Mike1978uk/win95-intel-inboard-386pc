@@ -1229,17 +1229,16 @@ static int m8d3d_outline( int ox, int oy, const short *v, WORD alu, WORD opt, WO
     return( 1 );
 }
 
-/* The fill's outline in one plane of the scratch: each edge top to bottom without its
- * last row, so every row between top and bottom holds exactly two pixels. Drawn as a
- * closed figure, the row of the middle vertex can hold three, and the fill then runs
- * from the third to the end of the row. XOR, so an apex row's two pixels cancel. */
+/* The fill's outline in one plane of the scratch, as one closed figure (2 writes a
+ * corner). With LAST_OFF every row between top and bottom gets two boundary pixels
+ * whichever way an edge runs, so it fills the same as edges sent one by one top to bottom
+ * (tools/dos3d m8dos, L6 P2: read back from the card on random and shallow-edged
+ * triangles of both windings). XOR, so an apex row's two pixels cancel. */
 static int m8d3d_edges( int ox, int oy, const short *v, WORD plane )
 {
     int i;
-    int a;
-    int b;
 
-    if( !m8d3d_q_need( 6 ) ) {
+    if( !m8d3d_q_need( 14 ) ) {
         return( 0 );
     }
     M8D3D_Q( M8_WRT_MASK, plane );
@@ -1247,26 +1246,10 @@ static int m8d3d_edges( int ox, int oy, const short *v, WORD plane )
     M8D3D_Q( M8_DP_CONFIG, M8_DP_8514 );
     M8D3D_Q( M8_ALU_FG_FN, M8_MIX_XOR );
     M8D3D_Q( M8_LINEDRAW_OPT, M8_LINEDRAW_POLY | M8_LINEDRAW_LAST_OFF );
-    for( i = 0; i < 3; ++i ) {
-        a = 2 * i;
-        b = 2 * ((i + 1) % 3);
-        if( v[a + 1] == v[b + 1] ) {
-            continue;
-        }
-        if( v[a + 1] > v[b + 1] ) {
-            int t = a;
-
-            a = b;
-            b = t;
-        }
-        if( !m8d3d_q_need( 5 ) ) {
-            return( 0 );
-        }
-        M8D3D_Q( M8_LINEDRAW_INDEX, 0 );
-        M8D3D_Q( M8_LINEDRAW, ox + v[a] );
-        M8D3D_Q( M8_LINEDRAW, oy + v[a + 1] );
-        M8D3D_Q( M8_LINEDRAW, ox + v[b] );
-        M8D3D_Q( M8_LINEDRAW, oy + v[b + 1] );
+    M8D3D_Q( M8_LINEDRAW_INDEX, 0 );
+    for( i = 0; i < 4; ++i ) {
+        M8D3D_Q( M8_LINEDRAW, ox + v[2 * (i % 3)] );      /* the last closes the figure */
+        M8D3D_Q( M8_LINEDRAW, oy + v[2 * (i % 3) + 1] );
     }
     return( 1 );
 }
