@@ -58,6 +58,9 @@ typedef unsigned long   DWORD;
 #define M8_LINEDRAW         0xFEEE
 #define M8_LINEDRAW_INDEX   0x9AEE
 #define M8_LINEDRAW_OPT     0xA2EE
+#define M8_COLOR_CMP        0xB2E8      /* the value DEST_CMP_FN compares the screen pixel with */
+#define M8_DEST_CMP_FN      0xEEEE      /* compare code; TRUE keeps the screen pixel (guide 9-50) */
+#define M8_CMP_LESS         0x0018      /* code 3: screen pixel < COLOR_CMP */
 #define M8_LINEDRAW_LAST_OFF 0x0004
 #define M8_LINEDRAW_POLY    0x0002
 #define M8_SRC_X_START      0xB2EE
@@ -645,6 +648,7 @@ typedef struct {
     int     col;
     short   l, t, r, b;                 /* box, inclusive, page coordinates */
     int     fill;                       /* by polygon fill (else spans) */
+    int     z;                          /* depth 0-15 for the hardware test, -1 none */
 } POLY;
 
 static POLY     batch[PASS];
@@ -826,6 +830,7 @@ static void batch_flush( void )
     int     cw = 0;
     int     ch = 0;
     int     planes = 0;
+    int     any_z = 0;
 
     if( np == 0 ) {
         return;
@@ -834,6 +839,9 @@ static void batch_flush( void )
     for( j = 0; j < np; ++j ) {
         if( p[j].fill ) {
             planes |= 1 << j;
+        }
+        if( p[j].z >= 0 ) {
+            any_z = 1;
         }
     }
     if( planes ) {
@@ -870,6 +878,9 @@ static void batch_flush( void )
         Q( M8_DP_CONFIG, M8_DP_POLY_FILL );
         Q( M8_ALU_FG_FN, M8_MIX_REPLACE );
         Q( M8_SRC_Y_DIR, 1 );
+        if( any_z ) {
+            Q( M8_DEST_CMP_FN, M8_CMP_LESS );
+        }
         for( j = 0; j < np; ++j ) {
             int w = p[j].r - p[j].l + 1;
 
@@ -878,6 +889,9 @@ static void batch_flush( void )
             }
             Q( M8_RD_MASK, 1 << j );
             Q( M8_FRGD_COLOR, p[j].col );
+            if( any_z ) {
+                Q( M8_COLOR_CMP, p[j].z >= 0 ? p[j].z << 4 : 0 );
+            }
             /* A fill command does not keep these: each fill sends them (card, L6 P1). */
             Q( M8_DESTX_DIASTP, SCR_X );
             Q( M8_DESTY_AXSTP, 1 );
@@ -895,7 +909,13 @@ static void batch_flush( void )
         Q( M8_LINEDRAW_OPT, M8_LINEDRAW_LAST_OFF );
     }
     cur_col = -1;
+    if( any_z && !planes ) {
+        Q( M8_DEST_CMP_FN, M8_CMP_LESS );
+    }
     for( j = 0; j < np; ++j ) {
+        if( any_z ) {
+            Q( M8_COLOR_CMP, p[j].z >= 0 ? p[j].z << 4 : 0 );
+        }
         q_col( p[j].col );
         if( p[j].fill ) {
             Q( M8_LINEDRAW_INDEX, 0 );
@@ -909,6 +929,9 @@ static void batch_flush( void )
             q_spans( &p[j] );
             ++st.polys_span;
         }
+    }
+    if( any_z ) {
+        Q( M8_DEST_CMP_FN, 0 );         /* scratch writes and later calls are not compared */
     }
     if( planes ) {
         /* The FIFO runs in order, so the fills have read the scratch before this clears it. */
@@ -924,6 +947,7 @@ static void batch_flush( void )
 
 /* ---- clipping ---- */
 static int  cl_l, cl_t, cl_r = M8_W - 1, cl_b = M8_H - 1;
+static int  cur_z = -1;
 
 void m8_clip( int l, int t, int r, int b )
 {
@@ -1014,6 +1038,7 @@ void m8_poly( int n, const M8PT *v, int col )
     p = &batch[nbatch];
     p->n = n;
     p->col = col & 0xFF;
+    p->z = cur_z;
     p->l = p->t = 0x7FFF;
     p->r = p->b = -0x7FFF;
     for( i = 0; i < n; ++i ) {
@@ -1038,6 +1063,14 @@ void m8_poly( int n, const M8PT *v, int col )
     }
     choose( p );
     ++nbatch;
+}
+
+/* Hardware depth test (L6 P4): pixel values are depth x 16 + colour, the caller giving
+ * both in col. The engine keeps a screen pixel whose value is below COLOR_CMP = z x 16, that
+ * is any nearer depth; equal depth is overwritten, as in painter's order. 2 writes a polygon. */
+void m8_depth( int z )
+{
+    cur_z = ( z >= 0 && z <= 15 ) ? z : -1;
 }
 
 void m8_tri( int x0, int y0, int x1, int y1, int x2, int y2, int col )

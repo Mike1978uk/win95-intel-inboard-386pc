@@ -361,11 +361,134 @@ static int probe( void )
     return( 0 );
 }
 
+/* L6 P4: 15 overlapping triangles, one a depth, drawn four ways and read back from the
+ * card. Reference: far to near with no test. With the hardware test, random order and near to
+ * far must equal it; random order with no test (the control) must not. */
+static void zpalette( void )
+{
+    static unsigned char    rgb[256 * 3];
+    static const unsigned char hue[16][3] = {
+        { 0, 0, 0 }, { 63, 0, 0 }, { 0, 63, 0 }, { 0, 0, 63 }, { 63, 63, 0 }, { 63, 0, 63 },
+        { 0, 63, 63 }, { 63, 63, 63 }, { 63, 32, 0 }, { 32, 63, 0 }, { 0, 32, 63 },
+        { 63, 0, 32 }, { 32, 0, 63 }, { 0, 63, 32 }, { 40, 40, 40 }, { 63, 48, 48 } };
+    int                     i;
+    int                     k;
+
+    for( i = 0; i < 256; ++i ) {
+        int d = i >> 4;
+
+        for( k = 0; k < 3; ++k ) {
+            rgb[i * 3 + k] = (unsigned char)( hue[i & 15][k] * ( 20 - d ) / 20 );
+        }
+    }
+    m8_palette( 0, 256, rgb );
+}
+
+static int  zx[15][3], zy[15][3], zc[15];
+
+static void zdraw( int how, const int *order )
+{
+    int i;
+
+    m8_frame_begin();
+    m8_depth( -1 );
+    m8_clear( 0xF0 );
+    for( i = 0; i < 15; ++i ) {
+        int d = how == 0 ? 14 - i : how == 2 ? i : order[i];
+
+        m8_depth( how == 1 || how == 2 ? d : -1 );
+        m8_tri( zx[d][0], zy[d][0], zx[d][1], zy[d][1], zx[d][2], zy[d][2], d << 4 | zc[d] );
+    }
+    m8_depth( -1 );
+    m8_frame_end( 1 );
+}
+
+static int zprobe( void )
+{
+    static const char   *name[] = { "far to near, no test (reference)", "random order, test",
+                                    "near to far, test", "random order, no test (control)" };
+    char                line[200];
+    int                 order[15];
+    int                 fr;
+    int                 how;
+    int                 i;
+    M8STATS             s;
+
+    page0 = (unsigned char *)malloc( (size_t)M8_W * M8_H );
+    pagex = (unsigned char *)malloc( (size_t)M8_W * M8_H );
+    if( page0 == NULL || pagex == NULL ) {
+        printf( "M8DTEST zprobe: no memory for two pages\n" );
+        return( 1 );
+    }
+    probe_line( "M8DTEST zprobe: hardware depth test (DEST_CMP_FN <, COLOR_CMP = depth x 16)\n" );
+    for( fr = 0; fr < 4; ++fr ) {
+        seed = 777u + (unsigned)fr;
+        for( i = 0; i < 15; ++i ) {
+            int cx = 100 + rnd( M8_W - 200 );
+            int cy = 100 + rnd( M8_H - 200 );
+            int k;
+
+            for( k = 0; k < 3; ++k ) {
+                zx[i][k] = cx - 150 + rnd( 300 );
+                zy[i][k] = cy - 120 + rnd( 240 );
+            }
+            zc[i] = 1 + rnd( 15 );
+            order[i] = i;
+        }
+        for( i = 14; i > 0; --i ) {
+            int k = rnd( i + 1 );
+            int t = order[i];
+
+            order[i] = order[k];
+            order[k] = t;
+        }
+        for( how = 0; how < 4; ++how ) {
+            if( m8_open() ) {
+                return( 1 );
+            }
+            zpalette();
+            m8_stats_reset();
+            zdraw( how == 3 ? 1 : how, order );
+            if( how == 3 ) {
+                /* the control: the same random order with the test off */
+                m8_frame_begin();
+                m8_depth( -1 );
+                m8_clear( 0xF0 );
+                for( i = 0; i < 15; ++i ) {
+                    int d = order[i];
+
+                    m8_tri( zx[d][0], zy[d][0], zx[d][1], zy[d][1], zx[d][2], zy[d][2],
+                            d << 4 | zc[d] );
+                }
+                m8_frame_end( 1 );
+            }
+            m8_stats( &s );
+            if( m8_read_shown( how == 0 ? page0 : pagex ) ) {
+                m8_close();
+                printf( "M8DTEST zprobe: read failed\n" );
+                return( 1 );
+            }
+            m8_close();
+            if( how == 0 ) {
+                sprintf( line, " frame %d %s: %lu writes\n", fr, name[how], s.outs );
+                probe_line( line );
+            } else {
+                sprintf( line, " frame %d %s", fr, name[how] );
+                probe_diff( line, how, s.outs, page0, pagex );
+            }
+        }
+    }
+    return( 0 );
+}
+
 int main( int argc, char **argv )
 {
     const char  *mode = argc > 1 ? argv[1] : "card";
     char        what[80];
 
+    if( stricmp( mode, "zprobe" ) == 0 ) {
+        return( zprobe() );
+    }
     if( stricmp( mode, "probe" ) == 0 ) {
         return( probe() );
     }

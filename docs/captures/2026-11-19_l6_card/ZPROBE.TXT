@@ -1,0 +1,33 @@
+M8DTEST zprobe: hardware depth test (DEST_CMP_FN <, COLOR_CMP = depth x 16)
+ frame 0 far to near, no test (reference): 625 writes
+   frame 0 random order, test opt 1: 671 writes, pixels identical
+   frame 0 near to far, test opt 2: 671 writes, pixels identical
+   frame 0 random order, no test (control) opt 3: 1296 writes, 3045 pixels differ, box 107,134-524,255
+    (523,134) A7 not 63
+    (522,135) A7 not 63
+    (523,135) A7 not 63
+    (521,136) A7 not 63
+ frame 1 far to near, no test (reference): 592 writes
+   frame 1 random order, test opt 1: 654 writes, pixels identical
+   frame 1 near to far, test opt 2: 633 writes, pixels identical
+   frame 1 random order, no test (control) opt 3: 1265 writes, 7177 pixels differ, box 118,188-418,306
+    (375,188) 44 not 11
+    (376,188) 44 not 11
+    (372,189) 44 not 11
+    (373,189) 44 not 11
+ frame 2 far to near, no test (reference): 610 writes
+   frame 2 random order, test opt 1: 633 writes, pixels identical
+   frame 2 near to far, test opt 2: 654 writes, pixels identical
+   frame 2 random order, no test (control) opt 3: 1224 writes, 7574 pixels differ, box 211,139-452,305
+    (401,139) EF not 41
+    (402,139) EF not 41
+    (399,140) EF not 41
+    (400,140) EF not 41
+ frame 3 far to near, no test (reference): 644 writes
+   frame 3 random order, test opt 1: 692 writes, pixels identical
+   frame 3 near to far, test opt 2: 692 writes, pixels identical
+   frame 3 random order, no test (control) opt 3: 1336 writes, 2224 pixels differ, box 243,179-453,358
+    (452,179) 4E not 08
+    (453,179) 4E not 08
+    (450,180) 4E not 08
+    (451,180) 4E not 08
