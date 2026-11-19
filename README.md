@@ -275,7 +275,7 @@ here, fixed by OBattler in `9ee5197`.
 |---|---|---|
 | [michaeldale/V9x-Remote-Agent#1](https://github.com/michaeldale/V9x-Remote-Agent/pull/1) | Shipped in [0.19.0](https://github.com/michaeldale/V9x-Remote-Agent/releases/tag/v0.19.0), 2026-11-18, applied in Michael Dale's main repository with co-author credit (the PR repo is a release mirror) | `AGENT.INI [agent] tray_flash=0` keeps the tray icon still while busy. On the 5160's 8-bit ISA display every icon change was a taskbar repaint read back by the Mach8 driver: 53 redraws in 20 s busy, 2 with the key set |
 | [michaeldale/V9x-Remote-Agent#2](https://github.com/michaeldale/V9x-Remote-Agent/pull/2) | Open, raised 2026-11-18 | The DOS agent: a detached exec hands the machine over (the program runs with the agent unloaded, then the agent restarts), an off switch, and memory/port/screen/key/reboot probes modelled on Kevin Moonlight's [COMrade](https://github.com/yyzkevin/COMrade). Running on the real 5160; the built agent is in [dist/dos-agent](dist/dos-agent/) |
-| [gvanem/Watt-32#133](https://github.com/gvanem/Watt-32/issues/133) (issue) | Reported 2026-11-18; our build carries the fix (`tools/dosagent/watt32_txbuf.patch`) | The fast packet receiver sizes its Tx buffer 46 bytes short of what `_eth_init()` clears, which broke the DOS memory chain: our DOS agent could not run programs |
+| [gvanem/Watt-32#133](https://github.com/gvanem/Watt-32/issues/133) (issue) | Fixed upstream 2026-11-19 ([9dab1c2](https://github.com/gvanem/Watt-32/commit/9dab1c237f5e3b2c3139aaf4248236cb6dec570c)); confirmed on the 5160, [our reply](https://github.com/gvanem/Watt-32/issues/133#issuecomment-7015760902) | The fast packet receiver sizes its Tx buffer 46 bytes short of what `_eth_init()` clears, which broke the DOS memory chain: our DOS agent could not run programs |
 
 ### Which build to test on
 
@@ -492,7 +492,7 @@ and the [contributor ledger](docs/contributor_input_ledger.md).
   unattended.
 - **[Gisle Vanem](https://github.com/gvanem)** — author of [Watt-32](https://github.com/gvanem/Watt-32),
   the TCP/IP stack the DOS agent runs on. Took our Tx-buffer report
-  ([#133](https://github.com/gvanem/Watt-32/issues/133)) and is committing the fix.
+  ([#133](https://github.com/gvanem/Watt-32/issues/133)) and committed the fix ([9dab1c2](https://github.com/gvanem/Watt-32/commit/9dab1c237f5e3b2c3139aaf4248236cb6dec570c)).
 - **[86Box](https://github.com/86Box/86Box)** — the base emulator this project is built on.
 
 ## Reproducing this
