@@ -204,6 +204,8 @@ Inventory and results: `docs/mach8_levers.md` (one place; this list only orders 
       11-19 results (`docs/l6_card_for_3d_2026_11_19.md`): (a) census done; P2 connected scratch outline kept
       (1,714 writes a frame from 2,002, 38.7 fps from 35.0, pixels identical); P1 and P3 disproved as posed. Next:
       P2 into `m8d3d.c` (three loops, card cycle); P4 depth test; mono expansion and bit-plane caching for HUD/text.
+      11-19: P2 in `m8d3d.c` triangle path done on the card (twist 6.61 -> 6.73/6.75 fps, Flip -2 ms); the other
+      two outline loops left. M8D3DF grab hung the card once: not unattended.
 
 
 
