@@ -206,6 +206,10 @@ Inventory and results: `docs/mach8_levers.md` (one place; this list only orders 
       P2 into `m8d3d.c` (three loops, card cycle); P4 depth test; mono expansion and bit-plane caching for HUD/text.
       11-19: P2 in `m8d3d.c` triangle path done on the card (twist 6.61 -> 6.73/6.75 fps, Flip -2 ms); the other
       two outline loops left. M8D3DF grab hung the card once: not unattended.
+      11-19: **P4 hardware depth test works on the card** (DEST_CMP_FN <, COLOR_CMP = depth x 16; random order =
+      sorted, control differs; ~3 writes a triangle). Carry-overs: Windows 8 bpp HAL Z (twist sends ~10k Z tris);
+      next lever: status-read census (182,605 reads for 342,811 writes in the bench). X26 D14: own DirectX on Windows
+      = the DirectXT Direct3D DLL on M8DD32 (one implementation for both); measure page-ins by module first.
 
 
 
