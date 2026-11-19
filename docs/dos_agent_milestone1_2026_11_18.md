@@ -28,6 +28,7 @@ and three more `MEM` calls all exit 0 with output. `MEM /C` under the agent: DOS
 (includes Watt-32's 63.8 KB real-mode block), largest program **464 K** (564 K without the agent).
 Rebuild note: wmake does not track `pcpkt2.c` (it is `#include`d by `pcpkt.c`); delete
 `build/watcom/flat/*.obj` before rebuilding. `configur.bat` needs `WATT_ROOT` set.
+Since 2026-11-19 upstream Watt-32 carries this fix (`9dab1c2`, gvanem/Watt-32#133) and `tools/dosagent/watt32_txbuf.patch` is no longer applied; the card runs agent `dev-dos-con5`, built on `9dab1c2`.
 
 ## Why exec failed: Watt-32 init breaks the DOS memory chain
 

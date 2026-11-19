@@ -9,7 +9,7 @@ Windows LEAN. Test files are on the card in `C:\M8C3`.
 bed/card gaps are work (X27). Design rules from today: a background-coloured tile is not drawn; drawing an outline
 twice flips the fill, so draw the cheaper colour.
 
-Card agent: `dev-dos-con4` (Watt-32 9dab1c2); the old one is `C:\V9XREMOT\V9XAGNT.C3`. Benches: see X33 before comparing absolute numbers with earlier ones.
+Card agent: `dev-dos-con5` (Watt-32 9dab1c2); the old one is `C:\V9XREMOT\V9XAGNT.C3`. Benches: see X33 before comparing absolute numbers with earlier ones.
 
 ## Done today (afternoon, card)
 
