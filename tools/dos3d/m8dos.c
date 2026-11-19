@@ -86,7 +86,13 @@ typedef unsigned long   DWORD;
 #define SCR_W           384
 #define SCR_H           1024
 #define MAXV            64              /* FS3 hands over polygons of 31 corners and more */
-#define PASS            8               /* polygons a batch: one scratch bit-plane each */
+#define PASS            8               /* fill groups a batch: one scratch bit-plane each */
+#ifdef __386__
+#define BATCH           64              /* polygons a batch, joined into PASS groups */
+#else
+#define BATCH           16
+#endif
+#define JOIN_PX         1200L           /* box pixels a join may add: ~one fill's writes of engine time */
 #define Q_SLACK         (7 * MAXV + 64) /* the most one polygon, span row or other call adds */
 #define Q_CHUNK         8
 
@@ -662,10 +668,22 @@ typedef struct {
     short   l, t, r, b;                 /* box, inclusive, page coordinates */
     int     fill;                       /* by polygon fill (else spans) */
     int     z;                          /* depth 0-15 for the hardware test, -1 none */
+    int     g;                          /* fill group (scratch plane), -1 spans */
 } POLY;
 
-static POLY     batch[PASS];
+/* Polygons of one colour and depth that share a plane and one fill: their fill pixel sets
+ * must be disjoint, as the plane's parity is the XOR of theirs. */
+typedef struct {
+    short   l, t, r, b;                 /* box of the members */
+    int     col;
+    int     z;
+    long    area;                       /* the members' own boxes, summed */
+} GROUP;
+
+static POLY     batch[BATCH];
 static int      nbatch;
+static GROUP    grp[PASS];
+static int      ngrp;
 static int      cur_col = -1;           /* FRGD_COLOR as last queued, -1 unknown */
 
 static void batch_flush( void );
@@ -754,13 +772,12 @@ static void q_spans( const POLY *p )
     }
 }
 
-/* The batch, whose polygons do not overlap. Phases: every outline into its own scratch plane,
- * then every fill, then every on-screen outline, then one clear of the planes used, so the
- * shared registers are written once a phase. Outlines go into the scratch with XOR, each edge
- * top to bottom without its last row, so every row strictly between top and bottom holds
- * exactly two pixels. The fill covers those rows and leaves its right boundary out; the
- * outline drawn over it in the face's colour supplies the edge pixels, top and bottom rows.
- * Each polygon's box sits at the scratch's corner: the planes keep them apart. */
+/* The batch. Phases: every outline into its group's scratch plane, then one fill a group in
+ * submission order, then spans (and, under the outline rule, on-screen outlines), then one clear
+ * of the planes used, so the shared registers are written once a phase. Outlines go into the
+ * scratch with XOR, each edge top to bottom without its last row, so every row strictly between
+ * top and bottom holds exactly two pixels; members of a group share no pixel, so the plane's
+ * parity is the XOR of theirs. Each group's box sits at the scratch's corner. */
 int         m8_opt;
 
 /* Scratch outlines. Chains: the left and right sides, each one connected line from the top row
@@ -842,44 +859,53 @@ static void batch_flush( void )
 {
     POLY    *p = batch;
     int     np = nbatch;
+    int     ng = ngrp;
     int     j;
     int     i;
+    int     g;
     int     cw = 0;
     int     ch = 0;
-    int     planes = 0;
+    int     planes;
     int     any_z = 0;
     int     first_fill = 1;
+    int     mask = -1;
 
     if( np == 0 ) {
         return;
     }
     nbatch = 0;
+    ngrp = 0;
     for( j = 0; j < np; ++j ) {
-        if( p[j].fill ) {
-            planes |= 1 << j;
-        }
         if( p[j].z >= 0 ) {
             any_z = 1;
         }
     }
+    planes = ( 1 << ng ) - 1;
     if( planes ) {
         Q( M8_FRGD_COLOR, 0x00FF );
         Q( M8_ALU_FG_FN, M8_MIX_XOR );
         Q( M8_LINEDRAW_OPT, M8_LINEDRAW_POLY | M8_LINEDRAW_LAST_OFF );
         for( j = 0; j < np; ++j ) {
-            int sx = SCR_X - p[j].l;
-            int sy = -p[j].t;
+            int sx;
+            int sy;
 
             if( !p[j].fill ) {
                 continue;
             }
+            /* A group's box sits at the scratch's corner: the planes keep groups apart. */
+            g = p[j].g;
+            sx = SCR_X - grp[g].l;
+            sy = -grp[g].t;
             /* The fill is left-inclusive, right-exclusive on a row; filled from the top row to
              * the row above the bottom, the polygon follows the top-left rule and needs no outline
              * on the page: neighbours share edges with every pixel written once (L6 P3b). That
              * needs the top row to cancel cleanly, so the outline goes as top-down chains. The
              * outline rule fills only the rows between and draws the outline after: there a
              * closed figure (2 writes a corner) fills the same as edges one by one (L6 P2). */
-            Q( M8_WRT_MASK, 1 << j );
+            if( mask != g ) {
+                Q( M8_WRT_MASK, 1 << g );
+                mask = g;
+            }
             if( m8_opt & M8_OPT_EDGES ) {
                 q_edges( &p[j], sx, sy );
             } else if( m8_opt & M8_OPT_CHAINS || !( m8_opt & M8_OPT_OUTLINE ) ) {
@@ -891,8 +917,6 @@ static void batch_flush( void )
                     Q( M8_LINEDRAW, sy + p[j].y[i % p[j].n] );
                 }
             }
-            if( p[j].r - p[j].l + 2 > cw ) cw = p[j].r - p[j].l + 2;
-            if( p[j].b - p[j].t + 1 > ch ) ch = p[j].b - p[j].t + 1;
             q_room();                   /* Q_SLACK covers one polygon, not a batch */
         }
         Q( M8_WRT_MASK, 0x00FF );
@@ -902,17 +926,16 @@ static void batch_flush( void )
         if( any_z ) {
             Q( M8_DEST_CMP_FN, M8_CMP_LESS );
         }
-        first_fill = 1;
-        for( j = 0; j < np; ++j ) {
-            int w = p[j].r - p[j].l + 1;
+        for( g = 0; g < ng; ++g ) {
+            GROUP   *gp = &grp[g];
+            int     w = gp->r - gp->l + 1;
 
-            if( !p[j].fill ) {
-                continue;
-            }
-            Q( M8_RD_MASK, 1 << j );
-            Q( M8_FRGD_COLOR, p[j].col );
+            if( gp->r - gp->l + 2 > cw ) cw = gp->r - gp->l + 2;
+            if( gp->b - gp->t + 1 > ch ) ch = gp->b - gp->t + 1;
+            Q( M8_RD_MASK, 1 << g );
+            Q( M8_FRGD_COLOR, gp->col );
             if( any_z ) {
-                Q( M8_COLOR_CMP, p[j].z >= 0 ? p[j].z << 4 : 0 );
+                Q( M8_COLOR_CMP, gp->z >= 0 ? gp->z << 4 : 0 );
             }
             /* Of the fill's registers the engine keeps only SRC_X_START from one fill to the
              * next; the rest go with every fill (L6 P1 and the register probe). */
@@ -923,11 +946,11 @@ static void batch_flush( void )
                 first_fill = 0;
             }
             Q( M8_SRC_X_END, SCR_X + w );
-            Q( M8_CUR_X, p[j].l );
-            Q( M8_DEST_X_START, p[j].l );
-            Q( M8_DEST_X_END, p[j].r + 1 );
-            Q( M8_CUR_Y, ( m8_opt & M8_OPT_OUTLINE ) ? p[j].t + 1 : p[j].t );
-            Q( M8_DEST_Y_END, p[j].b );         /* starts the fill */
+            Q( M8_CUR_X, gp->l );
+            Q( M8_DEST_X_START, gp->l );
+            Q( M8_DEST_X_END, gp->r + 1 );
+            Q( M8_CUR_Y, ( m8_opt & M8_OPT_OUTLINE ) ? gp->t + 1 : gp->t );
+            Q( M8_DEST_Y_END, gp->b );           /* starts the fill */
             q_room();
         }
         Q( M8_RD_MASK, 0x00FF );
@@ -939,13 +962,15 @@ static void batch_flush( void )
         Q( M8_DEST_CMP_FN, M8_CMP_LESS );
     }
     for( j = 0; j < np; ++j ) {
+        if( p[j].fill && ( ( m8_opt & M8_OPT_NOOUTLINE ) || !( m8_opt & M8_OPT_OUTLINE ) ) ) {
+            ++st.polys_fill;
+            continue;
+        }
         if( any_z ) {
             Q( M8_COLOR_CMP, p[j].z >= 0 ? p[j].z << 4 : 0 );
         }
         q_col( p[j].col );
-        if( p[j].fill && ( ( m8_opt & M8_OPT_NOOUTLINE ) || !( m8_opt & M8_OPT_OUTLINE ) ) ) {
-            ++st.polys_fill;
-        } else if( p[j].fill ) {
+        if( p[j].fill ) {
             Q( M8_LINEDRAW_INDEX, 0 );
             for( i = 0; i <= p[j].n; ++i ) {               /* the last closes the figure */
                 Q( M8_LINEDRAW, p[j].x[i % p[j].n] );
@@ -971,6 +996,113 @@ static void batch_flush( void )
         cur_col = 0;
     }
     q_room();
+}
+
+/* ---- joined patches ---- */
+
+/* r lies on the outer side of one of p's edges and meets that edge's line at one corner, or
+ * only at the edge's own ends (a shared whole edge, which the top-left rule splits). Any other
+ * contact along the line is a T-junction, where two edges' line pixels can differ by one. */
+static int apart( const POLY *p, const POLY *r )
+{
+    long    area = 0;
+    int     i;
+    int     m;
+
+    for( i = 0; i < p->n; ++i ) {
+        int b = ( i + 1 ) % p->n;
+
+        area += (long)p->x[i] * p->y[b] - (long)p->x[b] * p->y[i];
+    }
+    for( i = 0; i < p->n; ++i ) {
+        int     b = ( i + 1 ) % p->n;
+        long    ex = p->x[b] - p->x[i];
+        long    ey = p->y[b] - p->y[i];
+        int     on = -1;
+        int     multi = 0;
+        int     foreign = 0;
+        int     ok = 1;
+
+        if( ex == 0 && ey == 0 ) {
+            continue;
+        }
+        for( m = 0; m < r->n && ok; ++m ) {
+            long c = ex * ( r->y[m] - p->y[i] ) - ey * ( r->x[m] - p->x[i] );
+
+            if( area < 0 ) {
+                c = -c;
+            }
+            if( c > 0 ) {
+                ok = 0;
+            } else if( c == 0 ) {
+                if( on < 0 ) {
+                    on = m;
+                } else if( r->x[m] != r->x[on] || r->y[m] != r->y[on] ) {
+                    multi = 1;
+                }
+                if( ( r->x[m] != p->x[i] || r->y[m] != p->y[i] ) &&
+                    ( r->x[m] != p->x[b] || r->y[m] != p->y[b] ) ) {
+                    foreign = 1;
+                }
+            }
+        }
+        if( ok && !( multi && foreign ) ) {
+            return( 1 );
+        }
+    }
+    return( 0 );
+}
+
+/* p and r share no pixel: their boxes share none (fills cover [l, r) x [t, b)), or a line
+ * separates them. */
+static int independent( const POLY *p, const POLY *r )
+{
+    if( p->r <= r->l || r->r <= p->l || p->b <= r->t || r->b <= p->t ) {
+        return( 1 );
+    }
+    return( apart( p, r ) || apart( r, p ) );
+}
+
+/* The group p can join: same colour and depth, no pixel shared with any member, and none
+ * with a later group's member, as the group fills before those. Worth it while the box
+ * pixels added cost less than the fill saved. -1 for a new group. Only members of groups
+ * from a candidate on are tested: a test costs more CPU than the fill writes it can save. */
+static int join_find( const POLY *p )
+{
+    int lo = ngrp;                      /* groups from lo on hold no member sharing a pixel */
+    int g;
+    int j;
+
+    if( m8_opt & ( M8_OPT_NOJOIN | M8_OPT_OUTLINE ) ) {
+        return( -1 );
+    }
+    for( g = ngrp - 1; g >= 0; --g ) {
+        const GROUP *gp = &grp[g];
+        int         l;
+        int         t;
+        int         r;
+        int         b;
+
+        if( gp->col != p->col || gp->z != p->z ) {
+            continue;
+        }
+        for( j = 0; j < nbatch; ++j ) {
+            if( batch[j].g >= g && batch[j].g < lo && !independent( p, &batch[j] ) ) {
+                return( -1 );
+            }
+        }
+        lo = g;
+        l = p->l < gp->l ? p->l : gp->l;
+        t = p->t < gp->t ? p->t : gp->t;
+        r = p->r > gp->r ? p->r : gp->r;
+        b = p->b > gp->b ? p->b : gp->b;
+        if( r - l + 2 <= SCR_W && b - t + 1 <= SCR_H &&
+            (long)( r - l + 1 ) * ( b - t + 1 ) <=
+            gp->area + (long)( p->r - p->l + 1 ) * ( p->b - p->t + 1 ) + JOIN_PX ) {
+            return( g );
+        }
+    }
+    return( -1 );
 }
 
 /* ---- clipping ---- */
@@ -1064,7 +1196,7 @@ void m8_poly( int n, const M8PT *v, int col )
     if( n < 3 ) {
         return;
     }
-    if( nbatch == PASS ) {
+    if( nbatch == BATCH ) {
         batch_flush();
     }
     p = &batch[nbatch];
@@ -1095,6 +1227,36 @@ void m8_poly( int n, const M8PT *v, int col )
             p = &batch[0];
             break;
         }
+    }
+    p->g = -1;
+    if( p->fill ) {
+        int g = join_find( p );
+
+        if( g < 0 ) {
+            if( ngrp == PASS ) {
+                POLY t = *p;
+
+                batch_flush();
+                batch[0] = t;
+                p = &batch[0];
+            }
+            g = ngrp++;
+            grp[g].l = p->l;
+            grp[g].t = p->t;
+            grp[g].r = p->r;
+            grp[g].b = p->b;
+            grp[g].col = p->col;
+            grp[g].z = p->z;
+            grp[g].area = 0;
+        } else {
+            if( p->l < grp[g].l ) grp[g].l = p->l;
+            if( p->t < grp[g].t ) grp[g].t = p->t;
+            if( p->r > grp[g].r ) grp[g].r = p->r;
+            if( p->b > grp[g].b ) grp[g].b = p->b;
+            ++st.joins;
+        }
+        grp[g].area += (long)( p->r - p->l + 1 ) * ( p->b - p->t + 1 );
+        p->g = g;
     }
     ++nbatch;
 }
@@ -1127,6 +1289,103 @@ void m8_trap( int y0, int y1, long xl, long xr, long dxl, long dxr, int col )
     v[2].x = (short)(((xr + dxr * h) >> 16) - 1); v[2].y = (short)y1;
     v[3].x = (short)((xl + dxl * h) >> 16);  v[3].y = (short)y1;
     m8_poly( 4, v, col );
+}
+
+/* Parity fill (L6 P5): the segments go into the scratch planes they name, each top to bottom
+ * without its bottom row, as the polygon fill's outlines do; then one fill a plane. The fill
+ * toggles at each pixel it meets on a row, so a tiling's edges drawn once colour alternate
+ * tiles: one line an edge and one fill a colour, whatever the tile count. */
+void m8_parity( int nseg, const M8SEG *s, int n, const int *col )
+{
+    int l = 0x7FFF;
+    int t = 0x7FFF;
+    int r = -0x7FFF;
+    int b = -0x7FFF;
+    int planes = 0;
+    int mask = -1;
+    int first = 1;
+    int i;
+    int k;
+
+    if( !in_frame || nseg <= 0 || n <= 0 ) {
+        return;
+    }
+    if( n > 8 ) {
+        n = 8;
+    }
+    for( i = 0; i < nseg; ++i ) {
+        if( s[i].x0 < l ) l = s[i].x0;
+        if( s[i].x1 < l ) l = s[i].x1;
+        if( s[i].x0 > r ) r = s[i].x0;
+        if( s[i].x1 > r ) r = s[i].x1;
+        if( s[i].y0 < t ) t = s[i].y0;
+        if( s[i].y1 < t ) t = s[i].y1;
+        if( s[i].y0 > b ) b = s[i].y0;
+        if( s[i].y1 > b ) b = s[i].y1;
+        planes |= s[i].planes;
+    }
+    planes &= ( 1 << n ) - 1;
+    /* Not clipped: a toggle cut off by the clip would run the fill to the box's edge. */
+    if( !planes || l < 0 || t < 0 || r >= M8_W || b >= M8_H || r - l + 2 > SCR_W || b - t + 1 > SCR_H ) {
+        return;
+    }
+    batch_flush();
+    Q( M8_FRGD_COLOR, 0x00FF );
+    Q( M8_ALU_FG_FN, M8_MIX_XOR );
+    Q( M8_LINEDRAW_OPT, M8_LINEDRAW_POLY | M8_LINEDRAW_LAST_OFF );
+    for( i = 0; i < nseg; ++i ) {
+        int m = s[i].planes & planes;
+        int a = s[i].y0 <= s[i].y1;
+
+        if( s[i].y0 == s[i].y1 || !m ) {
+            continue;
+        }
+        if( m != mask ) {
+            Q( M8_WRT_MASK, m );
+            mask = m;
+        }
+        Q( M8_LINEDRAW_INDEX, 0 );
+        Q( M8_LINEDRAW, SCR_X - l + ( a ? s[i].x0 : s[i].x1 ) );
+        Q( M8_LINEDRAW, ( a ? s[i].y0 : s[i].y1 ) - t );
+        Q( M8_LINEDRAW, SCR_X - l + ( a ? s[i].x1 : s[i].x0 ) );
+        Q( M8_LINEDRAW, ( a ? s[i].y1 : s[i].y0 ) - t );
+        q_room();
+    }
+    Q( M8_WRT_MASK, 0x00FF );
+    Q( M8_DP_CONFIG, M8_DP_POLY_FILL );
+    Q( M8_ALU_FG_FN, M8_MIX_REPLACE );
+    Q( M8_SRC_Y_DIR, 1 );
+    for( k = 0; k < n; ++k ) {
+        if( !( planes & 1 << k ) ) {
+            continue;
+        }
+        Q( M8_RD_MASK, 1 << k );
+        Q( M8_FRGD_COLOR, col[k] & 0xFF );
+        Q( M8_DESTX_DIASTP, SCR_X );
+        Q( M8_DESTY_AXSTP, 0 );
+        if( first ) {
+            Q( M8_SRC_X_START, SCR_X );
+            first = 0;
+        }
+        Q( M8_SRC_X_END, SCR_X + r - l + 1 );
+        Q( M8_CUR_X, l );
+        Q( M8_DEST_X_START, l );
+        Q( M8_DEST_X_END, r + 1 );
+        Q( M8_CUR_Y, dy + t );
+        Q( M8_DEST_Y_END, dy + b );     /* starts the fill */
+        ++st.polys_fill;
+        q_room();
+    }
+    Q( M8_RD_MASK, 0x00FF );
+    Q( M8_DP_CONFIG, M8_DP_8514 );
+    Q( M8_LINEDRAW_OPT, M8_LINEDRAW_LAST_OFF );
+    Q( M8_WRT_MASK, planes );
+    Q( M8_FRGD_MIX, M8_MIX_FRGD_REPLACE );
+    Q( M8_FRGD_COLOR, 0 );
+    q_rect( SCR_X, 0, SCR_X + r - l + 2, b - t + 1 );
+    Q( M8_WRT_MASK, 0x00FF );
+    cur_col = 0;
+    q_room();
 }
 
 void m8_rect( int l, int t, int r, int b, int col )
@@ -1346,6 +1605,7 @@ int m8_open( void )
     shown = 0;
     in_frame = 0;
     nbatch = 0;
+    ngrp = 0;
     m8_clip( 0, 0, M8_W - 1, M8_H - 1 );
     perf_open();
     return( 0 );

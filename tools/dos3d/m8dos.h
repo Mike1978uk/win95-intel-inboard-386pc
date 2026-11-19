@@ -28,6 +28,7 @@ typedef struct {
     unsigned long   ins;            /* status reads */
     unsigned long   polys_fill;     /* polygons by the engine's polygon fill */
     unsigned long   polys_span;     /* polygons as one span a row */
+    unsigned long   joins;          /* polygons that shared another's plane and fill */
     unsigned long   rects;
     unsigned long   lines;
     unsigned long   flip_polls;
@@ -65,6 +66,17 @@ void    m8_tri( int x0, int y0, int x1, int y1, int x2, int y2, int col );
  * (16.16 fixed point). The form VBE/AF and BRender's span generators produce. */
 void    m8_trap( int y0, int y1, long xl, long xr, long dxl, long dxr, int col );
 
+/* Parity fill: each segment goes into the scratch planes in its mask, then for each plane
+ * k < n one fill of col[k] over the segments' box, set where an odd number of that plane's
+ * segments lie to the left on the row. Edges drawn once colour alternate tiles of a tiling
+ * (L6 P5): one line an edge and one fill a colour. Segments must lie on screen, in a box at
+ * most 382 pixels wide; nothing is drawn otherwise. */
+typedef struct {
+    short           x0, y0, x1, y1;
+    unsigned char   planes;
+} M8SEG;
+void    m8_parity( int nseg, const M8SEG *s, int n, const int *col );
+
 /* Perf mailbox: 64 bytes in conventional memory, so a reader outside the program (a TSR, the
  * DOS agent's memory probe, DEBUG) can watch a run live. Found through the far pointer at
  * 40:F0 (offset, then segment) while the card is open; 40:F0 gets its old value back at close.
@@ -98,6 +110,7 @@ typedef struct {
 #define M8_OPT_CHAINS       2   /* scratch outline as left and right sides, top down */
 #define M8_OPT_NOOUTLINE    4   /* probe only: no outline on the page after a fill */
 #define M8_OPT_OUTLINE      8   /* the earlier rule: closed outline, rows between, page outline */
+#define M8_OPT_NOJOIN       16  /* probe only: no joining of same colour and depth neighbours */
 extern int  m8_opt;
 
 /* Hosted builds: the shown page into buf (640 x 480 bytes), a few seconds. 0 on success. */

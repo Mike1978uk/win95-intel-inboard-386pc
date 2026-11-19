@@ -188,7 +188,14 @@ static void probe_diff( const char *what, int opt, unsigned long writes, unsigne
     long            ndiff = 0;
     int             l = M8_W, t = M8_H, r = -1, b = -1;
     int             shown;
+    long            drawn = 0;
 
+    /* Two blank pages are identical: say how much the reference holds. */
+    for( i = 0; i < (long)M8_W * M8_H; ++i ) {
+        drawn += ref[i] != 0;
+    }
+    sprintf( line, "  %s: reference has %ld non-background pixels\n", what, drawn );
+    probe_line( line );
     for( i = 0; i < (long)M8_W * M8_H; ++i ) {
         if( ref[i] != got[i] ) {
             int x = (int)( i % M8_W );
@@ -763,11 +770,326 @@ static int tileprobe( void )
     return( 0 );
 }
 
+/* L6 joined patches: the jittered mesh in same-colour patches of p x p quads. Joined, forwards
+ * and backwards, must give the same pixels as unjoined; then writes, joins and the bench. */
+static unsigned char    *pagej;
+
+static int joinprobe( int patch )
+{
+    static const int    opts[] = { M8_OPT_NOJOIN, 0 };
+    static const char   *name[] = { "unjoined", "joined" };
+    char                line[200];
+    int                 k;
+    int                 i;
+    int                 x;
+    int                 y;
+    int                 fine;
+    long                f;
+    M8STATS             s;
+
+    page0 = (unsigned char *)malloc( (size_t)M8_W * M8_H );
+    pagex = (unsigned char *)malloc( (size_t)M8_W * M8_H );
+    pagej = (unsigned char *)malloc( (size_t)M8_W * M8_H );
+    if( page0 == NULL || pagex == NULL || pagej == NULL ) {
+        return( 1 );
+    }
+    if( patch < 1 ) {
+        patch = 2;
+    }
+  for( fine = 0; fine < 2; ++fine ) {
+    int cw = fine ? 15 : 60;
+    int chh = fine ? 14 : 55;
+    int jit = fine ? 4 : 15;
+    int pp = fine ? 2 * patch : patch;
+
+    mnx = fine ? 40 : 10;
+    mny = fine ? 32 : 8;
+    seed = 4242;
+    for( x = 0; x <= mnx; ++x ) {
+        for( y = 0; y <= mny; ++y ) {
+            int jx = ( x == 0 || x == mnx ) ? 0 : rnd( 2 * jit + 1 ) - jit;
+            int jy = ( y == 0 || y == mny ) ? 0 : rnd( 2 * jit + 1 ) - jit;
+
+            mx[x][y] = (short)( 20 + x * cw + jx );
+            my[x][y] = (short)( 20 + y * chh + jy );
+        }
+    }
+    for( i = 0; i < 2 * mnx * mny; ++i ) {
+        int q = i >> 1;
+
+        mcol[i] = 1 + ( ( q % mnx ) / pp * 37 + ( q / mnx ) / pp * 101 ) % 255;
+    }
+    sprintf( line, "M8DTEST joinprobe: jittered mesh, %d triangles, patches of %d x %d quads\n",
+             2 * mnx * mny, pp, pp );
+    probe_line( line );
+    for( k = 0; k < 2; ++k ) {
+        m8_opt = opts[k];
+        if( m8_open() ) {
+            return( 1 );
+        }
+        palette();
+        m8_stats_reset();
+        mesh( 1 );
+        m8_stats( &s );
+        if( m8_read_shown( k ? pagex : page0 ) ) {
+            m8_close();
+            return( 1 );
+        }
+        if( k ) {
+            mesh( 0 );
+            if( m8_read_shown( pagej ) ) {
+                m8_close();
+                return( 1 );
+            }
+        }
+        m8_close();
+        sprintf( line, " %s: %lu writes a mesh, %lu fills, %lu joined\n", name[k], s.outs,
+                 s.polys_fill - s.joins, s.joins );
+        probe_line( line );
+    }
+    probe_diff( "joined forwards vs unjoined", 0, 0, page0, pagex );
+    probe_diff( "joined backwards vs unjoined", 0, 0, page0, pagej );
+    for( k = 0; k < 2; ++k ) {
+        unsigned long   ticks;
+
+        m8_opt = opts[k];
+        if( m8_open() ) {
+            return( 1 );
+        }
+        palette();
+        m8_stats_reset();
+        for( f = 0; f < 100; ++f ) {
+            mesh( 1 );
+        }
+        m8_stats( &s );
+        ticks = s.ticks ? s.ticks : 1;
+        m8_close();
+        sprintf( line, " mesh x100 %s: %.2f fps, %.2f ms, %.1f writes a frame\n", name[k],
+                 s.frames * 18.2065 / ticks, ticks * 1000.0 / 18.2065 / s.frames, (double)s.outs / s.frames );
+        probe_line( line );
+    }
+  }
+    m8_opt = 0;
+    return( 0 );
+}
+
+/* L6 P5: a 16 x 16 checkered floor in perspective, as 256 quads and as one parity fill
+ * (interior lines once, the boundary pieces an odd number of half-planes hold, one fill over
+ * a background quad). Pixels against the quads, writes, speed; both pages to CHKQ/CHKP.RAW. */
+#define CHK_N   16
+static short    cgx[CHK_N + 1][CHK_N + 1], cgy[CHK_N + 1][CHK_N + 1];
+
+static void chk_grid( double ang )
+{
+    int     i;
+    int     j;
+    double  ca = cos( ang );
+    double  sa = sin( ang );
+
+    for( i = 0; i <= CHK_N; ++i ) {
+        for( j = 0; j <= CHK_N; ++j ) {
+            double  u = i - CHK_N / 2.0;
+            double  v = j - CHK_N / 2.0;
+            double  wx = u * ca - v * sa;
+            double  wz = 18.0 + u * sa + v * ca;    /* 320 px wide at most: the scratch takes 382 */
+
+            cgx[i][j] = (short)floor( 320.0 + wx * 200.0 / wz + 0.5 );
+            cgy[i][j] = (short)floor( 60.0 + 12.0 * 200.0 / wz + 0.5 );
+        }
+    }
+}
+
+static void chk_quads( int ca, int cb )
+{
+    int     i;
+    int     j;
+    M8PT    q[4];
+
+    for( i = 0; i < CHK_N; ++i ) {
+        for( j = 0; j < CHK_N; ++j ) {
+            q[0].x = cgx[i][j];         q[0].y = cgy[i][j];
+            q[1].x = cgx[i + 1][j];     q[1].y = cgy[i + 1][j];
+            q[2].x = cgx[i + 1][j + 1]; q[2].y = cgy[i + 1][j + 1];
+            q[3].x = cgx[i][j + 1];     q[3].y = cgy[i][j + 1];
+            if( ( i + j ) & 1 || cb >= 0 ) {     /* cb -1: B is the background already there */
+                m8_poly( 4, q, ( i + j ) & 1 ? ca : cb );
+            }
+        }
+    }
+}
+
+static void chk_seg( M8SEG *s, int *n, int x0, int y0, int x1, int y1 )
+{
+    s[*n].x0 = (short)x0;
+    s[*n].y0 = (short)y0;
+    s[*n].x1 = (short)x1;
+    s[*n].y1 = (short)y1;
+    s[*n].planes = 1;
+    ++*n;
+}
+
+/* Tile (i, j) lies in (15 - i) + (15 - j) half-planes (u < line, v < line): odd = colour A,
+ * as the quads' (i + j) & 1. A boundary piece is drawn where its half-plane count is odd. */
+static void chk_parity( int ca, int cb )
+{
+    static M8SEG    s[4 * CHK_N + 2 * CHK_N];
+    M8PT            q[4];
+    int             n = 0;
+    int             k;
+
+    q[0].x = cgx[0][0];         q[0].y = cgy[0][0];
+    q[1].x = cgx[CHK_N][0];     q[1].y = cgy[CHK_N][0];
+    q[2].x = cgx[CHK_N][CHK_N]; q[2].y = cgy[CHK_N][CHK_N];
+    q[3].x = cgx[0][CHK_N];     q[3].y = cgy[0][CHK_N];
+    if( cb >= 0 ) {
+        m8_poly( 4, q, cb );
+    }
+    for( k = 1; k < CHK_N; ++k ) {
+        chk_seg( s, &n, cgx[k][0], cgy[k][0], cgx[k][CHK_N], cgy[k][CHK_N] );
+        chk_seg( s, &n, cgx[0][k], cgy[0][k], cgx[CHK_N][k], cgy[CHK_N][k] );
+    }
+    for( k = 0; k < CHK_N; ++k ) {
+        if( k & 1 ) {           /* u = 0 between v = k and k + 1: 15 + (15 - k) */
+            chk_seg( s, &n, cgx[0][k], cgy[0][k], cgx[0][k + 1], cgy[0][k + 1] );
+            chk_seg( s, &n, cgx[k][0], cgy[k][0], cgx[k + 1][0], cgy[k + 1][0] );
+        } else {                /* u = 16: 15 - k; v = 16 likewise */
+            chk_seg( s, &n, cgx[CHK_N][k], cgy[CHK_N][k], cgx[CHK_N][k + 1], cgy[CHK_N][k + 1] );
+            chk_seg( s, &n, cgx[k][CHK_N], cgy[k][CHK_N], cgx[k + 1][CHK_N], cgy[k + 1][CHK_N] );
+        }
+    }
+    m8_parity( n, s, 1, &ca );
+}
+
+static void chk_save( const char *name, const unsigned char *buf )
+{
+    FILE *f = fopen( name, "wb" );
+
+    if( f != NULL ) {
+        fwrite( buf, 1, (size_t)M8_W * M8_H, f );
+        fclose( f );
+    }
+}
+
+/* Two vertical segments: a 100 x 100 white block, and one quad, counted on the shown page. */
+static int parprobe( int opt )
+{
+    M8SEG           sg[2];
+    M8PT            q[4];
+    int             col = WHITE;
+    char            line[120];
+    long            i;
+    unsigned long   w = 0;
+    unsigned long   red = 0;
+
+    page0 = (unsigned char *)malloc( (size_t)M8_W * M8_H );
+    if( page0 == NULL ) {
+        return( 1 );
+    }
+    m8_opt = opt;
+    if( m8_open() ) {
+        return( 1 );
+    }
+    palette();
+    m8_frame_begin();
+    m8_clear( 0 );
+    sg[0].x0 = 100; sg[0].y0 = 100; sg[0].x1 = 100; sg[0].y1 = 200; sg[0].planes = 1;
+    sg[1].x0 = 200; sg[1].y0 = 100; sg[1].x1 = 200; sg[1].y1 = 200; sg[1].planes = 1;
+    m8_parity( 2, sg, 1, &col );
+    q[0].x = 300; q[0].y = 100; q[1].x = 400; q[1].y = 100;
+    q[2].x = 400; q[2].y = 200; q[3].x = 300; q[3].y = 200;
+    m8_poly( 4, q, RED );
+    m8_frame_end( 1 );
+    if( m8_read_shown( page0 ) ) {
+        m8_close();
+        return( 1 );
+    }
+    m8_close();
+    for( i = 0; i < (long)M8_W * M8_H; ++i ) {
+        w += page0[i] == WHITE;
+        red += page0[i] == RED;
+    }
+    sprintf( line, "M8DTEST parprobe opt %d: %lu white (10000 wanted), %lu red (10000 wanted), err %s\n",
+             opt, w, red, m8_error() ? m8_error() : "none" );
+    probe_line( line );
+    return( 0 );
+}
+
+static int checkprobe( void )
+{
+    static const double angs[] = { 0.0, 0.35 };
+    char                line[200];
+    char                name[16];
+    int                 a;
+    int                 k;
+    long                f;
+    M8STATS             s;
+
+    page0 = (unsigned char *)malloc( (size_t)M8_W * M8_H );
+    pagex = (unsigned char *)malloc( (size_t)M8_W * M8_H );
+    if( page0 == NULL || pagex == NULL ) {
+        return( 1 );
+    }
+    for( a = 0; a < 4; ++a ) {
+        int cb = a & 2 ? -1 : RED;      /* 2, 3: B is the cleared background, not drawn */
+
+        chk_grid( angs[a & 1] );
+        sprintf( line, "M8DTEST checkprobe: %d x %d floor, turned %.2f rad, B %s\n", CHK_N, CHK_N, angs[a & 1],
+                 cb < 0 ? "= background" : "red" );
+        probe_line( line );
+        for( k = 0; k < 2; ++k ) {
+            unsigned long   ticks;
+            unsigned long   w;
+
+            if( m8_open() ) {
+                return( 1 );
+            }
+            palette();
+            m8_stats_reset();
+            m8_frame_begin();
+            m8_clear( 0 );
+            if( k ) chk_parity( WHITE, cb ); else chk_quads( WHITE, cb );
+            m8_frame_end( 1 );
+            m8_stats( &s );
+            w = s.outs;
+            if( m8_read_shown( k ? pagex : page0 ) ) {
+                m8_close();
+                return( 1 );
+            }
+            m8_stats_reset();
+            for( f = 0; f < 50; ++f ) {
+                m8_frame_begin();
+                m8_clear( 0 );
+                if( k ) chk_parity( WHITE, cb ); else chk_quads( WHITE, cb );
+                m8_frame_end( 0 );
+            }
+            m8_stats( &s );
+            ticks = s.ticks ? s.ticks : 1;
+            m8_close();
+            sprintf( line, " %s: %lu writes a frame, %.2f ms a frame (50 nv)\n", k ? "parity" : "quads ",
+                     w, ticks * 1000.0 / 18.2065 / s.frames );
+            probe_line( line );
+            sprintf( name, "CHK%c%d.RAW", k ? 'P' : 'Q', a );
+            chk_save( name, k ? pagex : page0 );
+        }
+        probe_diff( "parity vs quads", 0, 0, page0, pagex );
+    }
+    return( 0 );
+}
+
 int main( int argc, char **argv )
 {
     const char  *mode = argc > 1 ? argv[1] : "card";
     char        what[80];
 
+    if( stricmp( mode, "checkprobe" ) == 0 ) {
+        return( checkprobe() );
+    }
+    if( stricmp( mode, "parprobe" ) == 0 ) {
+        return( parprobe( argc > 2 ? atoi( argv[2] ) : 0 ) );
+    }
+    if( stricmp( mode, "joinprobe" ) == 0 ) {
+        return( joinprobe( argc > 2 ? atoi( argv[2] ) : 2 ) );
+    }
     if( stricmp( mode, "tileprobe" ) == 0 ) {
         return( tileprobe() );
     }
