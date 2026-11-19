@@ -7,7 +7,7 @@ buffer, and reboot. These files are byte-identical to the ones running on the 51
 
 Source: [michaeldale/V9x-Remote-Agent#2](https://github.com/michaeldale/V9x-Remote-Agent/pull/2), branch
 `dos-agent-handoff-probes` on [Mike1978uk/V9x-Remote-Agent](https://github.com/Mike1978uk/V9x-Remote-Agent/tree/dos-agent-handoff-probes),
-commit `9cc8441`, on top of V9x 0.19.0.
+commit `f221774`, on top of V9x 0.19.0.
 
 ## Credits
 
@@ -24,7 +24,7 @@ commit `9cc8441`, on top of V9x 0.19.0.
 
 | File | What it is |
 |---|---|
-| `V9XAGNT.EXE` | the agent (DOS/4GW, Watt-32), build `dev-dos-con2` |
+| `V9XAGNT.EXE` | the agent (DOS/4GW, Watt-32), build `dev-dos-con3` |
 | `DOS4GW.EXE` | the DOS extender it needs, on `PATH` |
 | `V9XLOOP.BAT` | the loop: agent, then any handed-over job, then the agent again |
 | `AGENT.INI` | port and the one host allowed to connect |
