@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include <i86.h>
 #include "m8dos.h"
 
@@ -217,11 +218,79 @@ static void probe_diff( const char *what, int opt, unsigned long writes, unsigne
     }
 }
 
+/* Random convex polygons and triangles of both windings, deterministic from seed: the
+ * shapes the bench's fixed-shape triangles never produce. */
+static void scene( int frame )
+{
+    int     i;
+    int     k;
+
+    seed = 1000u + (unsigned)frame;
+    m8_clear( 0 );
+    if( frame >= 4 ) {
+        /* The middle vertex's row where shallow edges meet, either side, either winding. */
+        for( i = 0; i < 120; ++i ) {
+            int x = 10 + rnd( M8_W - 220 );
+            int y = 10 + rnd( M8_H - 40 );
+            int w = 20 + rnd( 190 );
+            int h = 3 + rnd( 24 );
+            int m = 1 + rnd( h - 1 );
+            int bx = rnd( 2 ) ? x - rnd( 10 ) : x + w + rnd( 10 );
+            int c = 1 + rnd( 255 );
+
+            if( rnd( 2 ) ) {
+                m8_tri( x + rnd( w ), y, bx, y + m, x + rnd( w ), y + h, c );
+            } else {
+                m8_tri( x + rnd( w ), y, x + rnd( w ), y + h, bx, y + m, c );
+            }
+        }
+        return;
+    }
+    for( i = 0; i < 40; ++i ) {
+        int     n = 3 + rnd( i < 20 ? 1 : 6 );
+        int     cx = 70 + rnd( M8_W - 140 );
+        int     cy = 70 + rnd( M8_H - 140 );
+        int     r = 8 + rnd( 60 );
+        int     rev = rnd( 2 );
+        double  ang[8];
+        M8PT    v[8];
+
+        for( k = 0; k < n; ++k ) {
+            ang[k] = rnd( 3600 ) * 3.14159265 / 1800.0;
+        }
+        for( k = 1; k < n; ++k ) {              /* sort: a convex fan around the centre */
+            double  t = ang[k];
+            int     m = k;
+
+            while( m > 0 && ang[m - 1] > t ) {
+                ang[m] = ang[m - 1];
+                --m;
+            }
+            ang[m] = t;
+        }
+        for( k = 0; k < n; ++k ) {
+            int q = rev ? n - 1 - k : k;
+
+            v[k].x = (short)( cx + r * cos( ang[q] ) * ( 1 + rnd( 3 ) ) / 2 );
+            v[k].y = (short)( cy + r * sin( ang[q] ) );
+        }
+        if( n == 3 ) {
+            m8_tri( v[0].x, v[0].y, v[1].x, v[1].y, v[2].x, v[2].y, 1 + rnd( 255 ) );
+        } else {
+            m8_poly( n, v, 1 + rnd( 255 ) );
+        }
+    }
+}
+
+/* L6: the scratch outline as one closed figure (the default) and as two top-down chains,
+ * against one edge at a time, read back from the card frame by frame; then speed. */
 static int probe( void )
 {
-    static const int    opts[] = { 0 };
+    static const int    opts[] = { M8_OPT_EDGES, 0, M8_OPT_CHAINS };
+    static const char   *name[] = { "edges (reference)", "closed (default)", "chains" };
     char                line[200];
     int                 k;
+    int                 fr;
     int                 i;
     long                f;
     M8STATS             s;
@@ -232,32 +301,35 @@ static int probe( void )
         printf( "M8DTEST probe: no memory for two pages\n" );
         return( 1 );
     }
-    probe_line( "M8DTEST probe (L6; option 0 is the reference)\n" );
-    for( k = 0; k < sizeof( opts ) / sizeof( opts[0] ); ++k ) {
-        m8_opt = opts[k];
-        if( m8_open() ) {
-            return( 1 );
-        }
-        palette();
-        m8_stats_reset();
-        m8_frame_begin();
-        card();
-        m8_frame_end( 1 );
-        m8_stats( &s );
-        if( m8_read_shown( k == 0 ? page0 : pagex ) ) {
+    probe_line( "M8DTEST probe: scratch outline closed / chains, against edges\n" );
+    for( fr = 0; fr < 8; ++fr ) {
+        for( k = 0; k < 3; ++k ) {
+            m8_opt = opts[k];
+            if( m8_open() ) {
+                return( 1 );
+            }
+            palette();
+            m8_stats_reset();
+            m8_frame_begin();
+            scene( fr );
+            m8_frame_end( 1 );
+            m8_stats( &s );
+            if( m8_read_shown( k == 0 ? page0 : pagex ) ) {
+                m8_close();
+                printf( "M8DTEST probe: read failed\n" );
+                return( 1 );
+            }
             m8_close();
-            printf( "M8DTEST probe: read failed\n" );
-            return( 1 );
-        }
-        m8_close();
-        if( k == 0 ) {
-            sprintf( line, "  card opt 0: %lu writes (reference)\n", s.outs );
-            probe_line( line );
-        } else {
-            probe_diff( "card", opts[k], s.outs, page0, pagex );
+            if( k == 0 ) {
+                sprintf( line, " frame %d %s: %lu writes\n", fr, name[k], s.outs );
+                probe_line( line );
+            } else {
+                sprintf( line, " frame %d %s", fr, name[k] );
+                probe_diff( line, opts[k], s.outs, page0, pagex );
+            }
         }
     }
-    for( k = 0; k < sizeof( opts ) / sizeof( opts[0] ); ++k ) {
+    for( k = 0; k < 3; ++k ) {
         unsigned long   ticks;
 
         m8_opt = opts[k];
@@ -280,18 +352,10 @@ static int probe( void )
         }
         m8_stats( &s );
         ticks = s.ticks ? s.ticks : 1;
-        if( m8_read_shown( k == 0 ? page0 : pagex ) ) {
-            m8_close();
-            return( 1 );
-        }
         m8_close();
-        sprintf( line, "  bench 50x40 nv opt %d: %.2f fps, %.1f writes a frame, %.0f triangles a s\n",
-                 opts[k], s.frames * 18.2065 / ticks, (double)s.outs / s.frames,
-                 (s.polys_fill + s.polys_span) * 18.2065 / ticks );
+        sprintf( line, " bench 50x40 nv %s: %.2f fps, %.1f writes a frame\n", name[k],
+                 s.frames * 18.2065 / ticks, (double)s.outs / s.frames );
         probe_line( line );
-        if( k > 0 ) {
-            probe_diff( "bench last frame", opts[k], s.outs, page0, pagex );
-        }
     }
     m8_opt = 0;
     return( 0 );

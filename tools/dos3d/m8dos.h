@@ -90,7 +90,8 @@ typedef struct {
 
 /* Card probes (worklist L6, docs/l6_card_for_3d_2026_11_19.md): each bit drops writes the
  * polygon fill may not need. Off by default until the card shows the same pixels. */
-/* P1-P3 settled on the card 11-19 (P2 kept, built in); no probe bits are open now. */
+#define M8_OPT_EDGES        1   /* scratch outline one edge at a time, 5 writes an edge */
+#define M8_OPT_CHAINS       2   /* scratch outline as left and right sides, top down */
 extern int  m8_opt;
 
 /* Hosted builds: the shown page into buf (640 x 480 bytes), a few seconds. 0 on success. */

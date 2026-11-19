@@ -1,0 +1,28 @@
+M8DTEST probe: scratch outline as chains / closed, against edges
+ frame 0 edges (reference): 1971 writes
+   frame 0 chains opt 0: 1736 writes, pixels identical
+   frame 0 closed opt 2: 1638 writes, pixels identical
+ frame 1 edges (reference): 1953 writes
+   frame 1 chains opt 0: 1731 writes, pixels identical
+   frame 1 closed opt 2: 1631 writes, pixels identical
+ frame 2 edges (reference): 2034 writes
+   frame 2 chains opt 0: 1806 writes, pixels identical
+   frame 2 closed opt 2: 1726 writes, pixels identical
+ frame 3 edges (reference): 1910 writes
+   frame 3 chains opt 0: 1669 writes, pixels identical
+   frame 3 closed opt 2: 1571 writes, pixels identical
+ frame 4 edges (reference): 4257 writes
+   frame 4 chains opt 0: 4071 writes, pixels identical
+   frame 4 closed opt 2: 3885 writes, pixels identical
+ frame 5 edges (reference): 4312 writes
+   frame 5 chains opt 0: 4090 writes, pixels identical
+   frame 5 closed opt 2: 3868 writes, pixels identical
+ frame 6 edges (reference): 4326 writes
+   frame 6 chains opt 0: 4131 writes, pixels identical
+   frame 6 closed opt 2: 3936 writes, pixels identical
+ frame 7 edges (reference): 4247 writes
+   frame 7 chains opt 0: 4037 writes, pixels identical
+   frame 7 closed opt 2: 3827 writes, pixels identical
+ bench 50x40 nv edges (reference): 34.68 fps, 2002.0 writes a frame
+ bench 50x40 nv chains: 36.05 fps, 1859.2 writes a frame
+ bench 50x40 nv closed: 38.33 fps, 1714.1 writes a frame

@@ -742,6 +742,81 @@ static void q_spans( const POLY *p )
  * Each polygon's box sits at the scratch's corner: the planes keep them apart. */
 int         m8_opt;
 
+/* Probe alternatives to the closed scratch outline, kept so a later change can be checked
+ * against them on the card. Chains: the left and right sides, each one connected line from
+ * the top row down (horizontal edges left out: a one-row edge adds nothing to the fill). */
+static void q_chain( const POLY *p, int sx, int sy, int from, int step, int ymax )
+{
+    int i = from;
+    int px = p->x[i];
+    int py = p->y[i];
+
+    Q( M8_LINEDRAW_INDEX, 0 );
+    Q( M8_LINEDRAW, sx + px );
+    Q( M8_LINEDRAW, sy + py );
+    do {
+        i = ( i + step + p->n ) % p->n;
+        if( p->x[i] != px || p->y[i] != py ) {
+            px = p->x[i];
+            py = p->y[i];
+            Q( M8_LINEDRAW, sx + px );
+            Q( M8_LINEDRAW, sy + py );
+        }
+    } while( py != ymax );
+}
+
+static void q_chains( const POLY *p, int sx, int sy )
+{
+    int i;
+    int ymin = p->y[0];
+    int ymax = p->y[0];
+    int down = -1;
+    int up = -1;
+
+    for( i = 1; i < p->n; ++i ) {
+        if( p->y[i] < ymin ) ymin = p->y[i];
+        if( p->y[i] > ymax ) ymax = p->y[i];
+    }
+    if( ymin == ymax ) {
+        return;
+    }
+    for( i = 0; i < p->n; ++i ) {
+        if( p->y[i] != ymin ) {
+            continue;
+        }
+        if( p->y[( i + 1 ) % p->n] != ymin ) down = i;
+        if( p->y[( i + p->n - 1 ) % p->n] != ymin ) up = i;
+    }
+    q_chain( p, sx, sy, down, 1, ymax );
+    q_chain( p, sx, sy, up, -1, ymax );
+}
+
+/* The reference for the probe: each edge on its own, top to bottom (5 writes an edge). */
+static void q_edges( const POLY *p, int sx, int sy )
+{
+    int i;
+
+    for( i = 0; i < p->n; ++i ) {
+        int a = i;
+        int c = ( i + 1 ) % p->n;
+
+        if( p->y[a] == p->y[c] ) {
+            continue;
+        }
+        if( p->y[a] > p->y[c] ) {
+            int s = a;
+
+            a = c;
+            c = s;
+        }
+        Q( M8_LINEDRAW_INDEX, 0 );
+        Q( M8_LINEDRAW, sx + p->x[a] );
+        Q( M8_LINEDRAW, sy + p->y[a] );
+        Q( M8_LINEDRAW, sx + p->x[c] );
+        Q( M8_LINEDRAW, sy + p->y[c] );
+    }
+}
+
 static void batch_flush( void )
 {
     POLY    *p = batch;
@@ -772,13 +847,20 @@ static void batch_flush( void )
             if( !p[j].fill ) {
                 continue;
             }
-            /* One connected outline, 2 writes a corner: boundary mode fills it the same as edges
-             * sent one by one top to bottom (L6 P2). */
+            /* One closed figure, 2 writes a corner. With LAST_OFF every row between top and
+             * bottom gets two boundary pixels whichever way the edges run, so it fills the same
+             * as edges sent one by one top to bottom (L6 P2, read back from the card). */
             Q( M8_WRT_MASK, 1 << j );
-            Q( M8_LINEDRAW_INDEX, 0 );
-            for( i = 0; i <= p[j].n; ++i ) {
-                Q( M8_LINEDRAW, sx + p[j].x[i % p[j].n] );
-                Q( M8_LINEDRAW, sy + p[j].y[i % p[j].n] );
+            if( m8_opt & M8_OPT_EDGES ) {
+                q_edges( &p[j], sx, sy );
+            } else if( m8_opt & M8_OPT_CHAINS ) {
+                q_chains( &p[j], sx, sy );
+            } else {
+                Q( M8_LINEDRAW_INDEX, 0 );
+                for( i = 0; i <= p[j].n; ++i ) {
+                    Q( M8_LINEDRAW, sx + p[j].x[i % p[j].n] );
+                    Q( M8_LINEDRAW, sy + p[j].y[i % p[j].n] );
+                }
             }
             if( p[j].r - p[j].l + 2 > cw ) cw = p[j].r - p[j].l + 2;
             if( p[j].b - p[j].t + 1 > ch ) ch = p[j].b - p[j].t + 1;
