@@ -47,7 +47,9 @@ DEST_X_START / DESTX_DIASTP / DESTY_AXSTP once a batch; M8D3DF **grab** mode hun
 ## Waiting on others
 
 - Simon: MEM /C, SYSTEM.INI, Inboard memory, network card / remote agent answer (sent 11-19).
-- gvanem: Watt-32 #133 fix for the non-fast path.
+- gvanem (Gisle Vanem): Watt-32 #133 - he asked for a suggestion to commit; `TX_SIZE` suggestion posted 11-19
+  (comment 7009571438, untested by us). When he commits: rebuild Watt-32 + DOS agent, run the fast path on the 5160,
+  report on #133. Ledger row under Outstanding; credited in README (`22573f1`); Michael Dale's GitHub link added (`b551de5`).
 - Michael: PR #2 review (now includes the Esc/idle fix).
 
 ## Tools
