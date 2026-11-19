@@ -49,3 +49,20 @@ Card boot 2026-11-18: desktop, no sound loop. VMM32.VXD fetched back over the V9
 link itself proves the NIC (IRQ 9 -> 2). Owner: Zip on the T130B (IRQ 3) read, floppy A: listed, keyboard and
 mouse work. Twist (`tools/m8cardscripts/twist_card.ps1 -Label vpb1`): 6.73 fps, 149 ms a frame, closed with Alt+F4 -
 the same as the non-buffered build (6.73). Holds on the 5160; next is the 5150.
+
+## 2026-11-19: past the mode switch on the 5150
+
+Simon (#10): our `win95-osr1-xt-inboard386-sound-network-working-20260824` Windows directory on his SCSI
+drive, 5150 (64 KB planar board). Captures: `docs/captures/2026-11-19_simon_5150/` (`BOOT1.TXT`, `BOOT2.TXT`,
+`IMG_5997.jpeg`).
+
+- Unedited: black screen, the old stop at the switch to protected mode.
+- With the buffered `VMM32.VXD` (ICW4 09h) in `C:\WINDOWS`: past the switch, first time on a 5150. VMM then
+  stops: "Insufficient memory to initialize Windows ..." Same after a power cycle.
+- Both logs: every Device_Init succeeds (VPD fails, normal); the log ends after `DEVICEINITSUCCESS = VDEF`,
+  with no `INITCOMPLETE = VMM`. The 5160 log has it next.
+- BOOT1 loaded DISPLAY.SYS, MODE and KEYB; BOOT2 did not. Same end, so not those drivers.
+- His Inboard is thought to carry 5 MB (MSD 2026-09-30: 4,284 KB XMS free). Unconfirmed.
+
+Asked of Simon: `MEM /C`, `SYSTEM.INI`, Inboard memory size, what a key at the message does.
+Next here: one bed boot of the 08-24 image with the buffered VMM32, to see if the bed shows the message.

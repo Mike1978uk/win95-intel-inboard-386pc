@@ -133,6 +133,7 @@ Two `BOOTLOG.TXT` files and a board photo, held locally with the others in
   XT BIOS (<https://www.phatcode.net/downloads.php?id=101>, v3.1 of Oct 2017; a drop-in for the
   5150/5160). His `05/02/12` date suggests an earlier release of that line. The page says nothing
   about INT 15h or other AT services.
+- **Update 2026-11-19:** with the buffered VPICD the 5150 passes the mode switch; see `docs/issue10_vpicd_buffered_2026_11_18.md`.
 - **The 5150 log stops at the last real-mode VxD load** (`EBIOS` LoadFailed). On his 5160 the
   next line is `SYSCRITINIT = VMM`, so the 5150 dies at or just after the switch to protected
   mode - or before the log was flushed.
