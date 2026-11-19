@@ -9,6 +9,8 @@ costs a file copy, not the CPU configuration.
 | `CTCHIP34.EXE` | the register editor, 61,762 bytes |
 | `IBM486.CFG` | its register map for this CPU — `486DLC3 (oder 486SLC2) IBMs Blue Lightning`, dated 1993-12-07 |
 | `CPUSET.BAT` | this project's applied set, captured off the live card 2026-09-19 |
+| `CPUCHK.ASM` | source for the boot check |
+| `CPUCHK.COM` | the boot check, 270 bytes |
 
 ## Provenance
 
@@ -52,3 +54,21 @@ off and nothing cacheable until this executes**, i.e. half clock speed.
 
 Run it from real-mode DOS, not a Windows DOS box — ports `22h`/`23h` are
 V86-trapped there.
+
+## CPUCHK.COM - the boot check
+
+`CPUSET.BAT` ends by running `C:\CTCHIP\CPUCHK.COM` (270 bytes, source
+`CPUCHK.ASM`). It reads the six register values `CPUSET.BAT` writes (RDMSR,
+real mode) and prints one line:
+
+- `CPU OK: 2x, L1 on, 1-16 MB cached`, or
+- `CPU NOT SET: 1000h:0=xx want 92 - run C:\CTCHIP\CPUSET.BAT`, naming the
+  first value that differs, with exit code 1.
+
+It replaces the advice to run `CPUSHOW.BAT`, whose full CTCHIP34 listing was
+noisy at boot.
+
+Tested on the 5160 2026-11-19: "CPU OK" on a real boot, and a copy with one
+wanted value changed reported the mismatch with exit code 1.
+
+Copy `CPUCHK.COM` to `C:\CTCHIP` beside `CPUSET.BAT`.

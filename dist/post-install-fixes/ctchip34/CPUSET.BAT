@@ -51,6 +51,5 @@ REM    T130B does bus-master DMA.
 CTCHIP34.EXE IBM486 /1000h:0=&10010010
 
 CD \
-ECHO.
-ECHO CPU set. Verify: C:\CTCHIP\CPUSHOW.BAT
-ECHO   want 1000h:0=92  1000h:1=8C  1001h:0=FF  1001h:1=03  1001h:4=F0  1002h:3=03
+REM 5. Read the registers back: one line, "CPU OK" or the first that differs (CPUCHK.ASM).
+C:\CTCHIP\CPUCHK.COM

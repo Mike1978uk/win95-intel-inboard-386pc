@@ -6,7 +6,7 @@ this page in the commit that changes the card. The hardware itself is in
 
 | Area | Setting on the card | Evidence | Status | Undo |
 |---|---|---|---|---|
-| CPU | Blue Lightning 2x, L1 on, 1-16 MB cacheable, XTOUT clear: `C:\CTCHIP\CPUSET.BAT` (CTCHIP34) from `AUTOEXEC.BAT` | `what_worked_and_what_didnt.md`, #40 | confirmed | `C:\CTCHIP\CPUOFF.BAT`. Never set SNP (`1000h:0` bit 3): hangs the 5160 |
+| CPU | Blue Lightning 2x, L1 on, 1-16 MB cacheable, XTOUT clear: `C:\CTCHIP\CPUSET.BAT` (CTCHIP34) from `AUTOEXEC.BAT`; boot check `C:\CTCHIP\CPUCHK.COM` prints one line (11-19) | `what_worked_and_what_didnt.md`, #40 | confirmed | `C:\CTCHIP\CPUOFF.BAT`. Never set SNP (`1000h:0` bit 3): hangs the 5160 |
 | DRAM refresh | divisor 64: `C:\REFR64.COM` in `AUTOEXEC.BAT` | 3-6% faster bus; VGA dword writes 1.98 -> 1.86 us/B; RSOAK2 clean boot 0 errors; floppy format and compare OK (10-11) | confirmed | `C:\REFR18.COM` |
 | Boot disk | `XTIDEMP.MPD` `9C64B4D1` (was `A3F3EEAD`): waits scaled to the measured 100 ns loop, 26 us polls, 100 us first read wait (`2e17fc5`), CDB length / `PORT=` / stride-2 latch checks, FLUSH CACHE at shutdown when the drive reports it | boot 389: XTSECT unchanged, read-back identical | kept 11-14; in `dist/` 11-15 (code hash `5a4a529f` = `2e17fc5` rebuilt into `build\` with the flags above) | `XTIDEMP.B84` in `C:\V9XREMOTE\STAGE` via `WININIT.INI`, 8.3 paths only (copy to `C:` root first) |
 | Timer tick | `MinTimeSlice=54` in `SYSTEM.INI [386Enh]` (55 ms tick) | idle CPU +6%, during a big copy +60% (`captures/2026-10-10_timer/`) | confirmed: a 36 MB copy 0.7% faster (CPYTIME 10-11); DOS boxes and serial unchecked | `SYSTEM.BSR` over `SYSTEM.INI` |
