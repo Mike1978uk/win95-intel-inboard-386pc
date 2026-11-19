@@ -1229,16 +1229,25 @@ static int m8d3d_outline( int ox, int oy, const short *v, WORD alu, WORD opt, WO
     return( 1 );
 }
 
-/* The fill's outline in one plane of the scratch, as one closed figure (2 writes a
- * corner). With LAST_OFF every row between top and bottom gets two boundary pixels
- * whichever way an edge runs, so it fills the same as edges sent one by one top to bottom
- * (tools/dos3d m8dos, L6 P2: read back from the card on random and shallow-edged
- * triangles of both windings). XOR, so an apex row's two pixels cancel. */
+/* The fill's outline in one plane of the scratch, as the triangle's two sides, each one
+ * connected line from the top row down (tools/dos3d m8dos q_chains): every row from the top
+ * to the row above the bottom gets two boundary pixels, a top vertex's row two that cancel
+ * under XOR. That is what the fill from the top row needs (the top-left rule, L6 P3b); for
+ * a fill of the rows strictly between it is the same as edges one by one (L6 P2). */
 static int m8d3d_edges( int ox, int oy, const short *v, WORD plane )
 {
+    int top = 0;
+    int bot = 0;
     int i;
 
-    if( !m8d3d_q_need( 14 ) ) {
+    for( i = 1; i < 3; ++i ) {
+        if( v[2 * i + 1] < v[2 * top + 1] ) top = i;
+        if( v[2 * i + 1] >= v[2 * bot + 1] ) bot = i;
+    }
+    if( top == bot ) {
+        return( 1 );
+    }
+    if( !m8d3d_q_need( 17 ) ) {
         return( 0 );
     }
     M8D3D_Q( M8_WRT_MASK, plane );
@@ -1246,17 +1255,38 @@ static int m8d3d_edges( int ox, int oy, const short *v, WORD plane )
     M8D3D_Q( M8_DP_CONFIG, M8_DP_8514 );
     M8D3D_Q( M8_ALU_FG_FN, M8_MIX_XOR );
     M8D3D_Q( M8_LINEDRAW_OPT, M8_LINEDRAW_POLY | M8_LINEDRAW_LAST_OFF );
-    M8D3D_Q( M8_LINEDRAW_INDEX, 0 );
-    for( i = 0; i < 4; ++i ) {
-        M8D3D_Q( M8_LINEDRAW, ox + v[2 * (i % 3)] );      /* the last closes the figure */
-        M8D3D_Q( M8_LINEDRAW, oy + v[2 * (i % 3) + 1] );
+    {
+        int mid = 3 - top - bot;
+        int a = v[2 * mid + 1] == v[2 * top + 1] ? mid : top;   /* a flat top: start there */
+
+        M8D3D_Q( M8_LINEDRAW_INDEX, 0 );                       /* one side: via the middle */
+        M8D3D_Q( M8_LINEDRAW, ox + v[2 * a] );
+        M8D3D_Q( M8_LINEDRAW, oy + v[2 * a + 1] );
+        if( a == top && v[2 * mid + 1] != v[2 * bot + 1] ) {
+            M8D3D_Q( M8_LINEDRAW, ox + v[2 * mid] );
+            M8D3D_Q( M8_LINEDRAW, oy + v[2 * mid + 1] );
+        }
+        M8D3D_Q( M8_LINEDRAW, ox + v[2 * bot] );
+        M8D3D_Q( M8_LINEDRAW, oy + v[2 * bot + 1] );
+        M8D3D_Q( M8_LINEDRAW_INDEX, 0 );                       /* the other: top to bottom */
+        M8D3D_Q( M8_LINEDRAW, ox + v[2 * top] );
+        M8D3D_Q( M8_LINEDRAW, oy + v[2 * top + 1] );
+        if( v[2 * mid + 1] == v[2 * bot + 1] && a == top ) {
+            M8D3D_Q( M8_LINEDRAW, ox + v[2 * mid] );              /* a flat bottom: end there */
+            M8D3D_Q( M8_LINEDRAW, oy + v[2 * mid + 1] );
+        } else {
+            M8D3D_Q( M8_LINEDRAW, ox + v[2 * bot] );
+            M8D3D_Q( M8_LINEDRAW, oy + v[2 * bot + 1] );
+        }
     }
     return( 1 );
 }
 
-/* A short triangle row by row: 3 writes a row against about 50 for an outline, a fill and
- * a second outline, so this is the cheaper way up to about 14 rows. */
-#define M8D3D_SPAN_ROWS     13
+/* A triangle of one or two rows, row by row, by the top-left rule as the fill: the bottom row
+ * and each row's last pixel belong to the neighbour. Taller ones go by the fill even where
+ * spans would be cheaper: span rows are worked out here and can miss the engine's edge pixel
+ * by one, which leaves holes where a span triangle meets a filled one (L6, fine mesh). */
+#define M8D3D_SPAN_ROWS     1
 
 static int m8d3d_spans( int dx, int dy, const short *v, BYTE colour, int t, int b )
 {
@@ -1311,13 +1341,16 @@ static int m8d3d_spans( int dx, int dy, const short *v, BYTE colour, int t, int 
     M8D3D_Q( M8_FRGD_COLOR, colour );
     M8D3D_Q( M8_DP_CONFIG, M8_DP_8514 );
     M8D3D_Q( M8_ALU_FG_FN, M8_MIX_REPLACE );
-    for( y = 0; y <= b - t; ++y ) {
+    for( y = 0; y < b - t; ++y ) {
+        if( hi[y] <= lo[y] ) {
+            continue;
+        }
         if( y % 5 == 0 && !m8d3d_q_need( 15 ) ) {
             return( 0 );
         }
         M8D3D_Q( M8_CUR_Y, dy + t + y );
         M8D3D_Q( M8_CUR_X, dx + lo[y] );
-        M8D3D_Q( M8_SCAN_TO_X, dx + hi[y] + 1 );
+        M8D3D_Q( M8_SCAN_TO_X, dx + hi[y] );
     }
     return( 1 );
 }
@@ -1355,8 +1388,8 @@ static int m8d3d_tri( M8D3D_CONTEXT *c, int dx, int dy, const short *v, BYTE col
      * than the target. */
     sx = c->sx - l;
     sy = c->sy - t;
-    /* Rows strictly between top and bottom only: an apex row can hold one outline
-     * pixel, and the fill would run to the end of the row. */
+    /* The top-left rule: rows from the top to the row above the bottom, each row's last pixel
+     * left out by the engine's fill; no outline over it. */
     if( b - t >= 2 ) {
         if( !m8d3d_edges( sx, sy, v, plane ) ) {
             return( 0 );
@@ -1370,14 +1403,14 @@ static int m8d3d_tri( M8D3D_CONTEXT *c, int dx, int dy, const short *v, BYTE col
         M8D3D_Q( M8_ALU_FG_FN, M8_MIX_REPLACE );
         M8D3D_Q( M8_FRGD_COLOR, colour );
         M8D3D_Q( M8_DESTX_DIASTP, sx + l );
-        M8D3D_Q( M8_DESTY_AXSTP, sy + t + 1 );
+        M8D3D_Q( M8_DESTY_AXSTP, sy + t );
         M8D3D_Q( M8_SRC_X_START, sx + l );
         M8D3D_Q( M8_SRC_X_END, sx + r + 1 );
         M8D3D_Q( M8_SRC_Y_DIR, 1 );
         M8D3D_Q( M8_CUR_X, dx + l );
         M8D3D_Q( M8_DEST_X_START, dx + l );
         M8D3D_Q( M8_DEST_X_END, dx + r + 1 );
-        M8D3D_Q( M8_CUR_Y, dy + t + 1 );
+        M8D3D_Q( M8_CUR_Y, dy + t );
         M8D3D_Q( M8_DEST_Y_END, dy + b );         /* starts the fill */
         if( sx + l < c->dl ) {
             c->dl = sx + l;
@@ -1397,7 +1430,7 @@ static int m8d3d_tri( M8D3D_CONTEXT *c, int dx, int dy, const short *v, BYTE col
         return( 0 );
     }
     M8D3D_Q( M8_RD_MASK, 0x00FF );
-    return( m8d3d_outline( dx, dy, v, M8_MIX_REPLACE, M8_LINEDRAW_LAST_OFF, colour, 0x00FF ) );
+    return( 1 );
 }
 
 /* The scratch's planes that have been used, all at once. Leaves the engine on the
@@ -1416,7 +1449,7 @@ static int m8d3d_scratch_clear( M8D3D_CONTEXT *c )
 }
 
 /* A triangle too large for the scratch, split across its tallest or widest edge until
- * it fits. Each part's outline covers the seam. */
+ * it fits. The parts tile by the top-left rule, so the seam is drawn once. */
 static int m8d3d_tri_fit( M8D3D_CONTEXT *c, int dx, int dy, const short *v, BYTE colour )
 {
     int     e = 0;
