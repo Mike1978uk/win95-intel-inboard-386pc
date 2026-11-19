@@ -234,7 +234,7 @@ and there was nothing to configure.
 
 ## Upstream
 
-**The Intel Inboard 386/PC is part of 86Box.** Twenty-two PRs raised from this project are merged.
+**The Intel Inboard 386/PC is part of 86Box.** Twenty-four PRs raised from this project are merged.
 
 | Merged PR | What it fixed |
 |---|---|
@@ -260,13 +260,8 @@ and there was nothing to configure.
 | [#8339](https://github.com/86Box/86Box/pull/8339) | A regression from #8289, reported by TC1995: under ATI's 1992 Windows 3.x driver (`ULTRA.DRV`) the cursor drew as a black square. A FRGD_MIX write after DP_CONFIG now moves only the foreground source. Merged 2026-10-15 |
 | [#8351](https://github.com/86Box/86Box/pull/8351) | Also from #8289, reported by TC1995: Windows 3.1's own `8514.DRV` drew text backgrounds transposed on the Graphics Ultra (File Manager's selection). Command 4 had its width and height swapped; measured on the real card. Merged 2026-10-16 |
 | [#8394](https://github.com/86Box/86Box/pull/8394) | Also from #8289, reported by Mamoru and TC1995: Windows 3.0 Solitaire hung on the Graphics Ultra. A one-pixel line read cleared the data-available bit before the host took the word. Merged 2026-10-18 |
-
-### Open upstream PRs
-
-| PR | Status | What it does |
-|---|---|---|
-| [#8994](https://github.com/86Box/86Box/pull/8994) | Open, raised 2026-11-18 | 8514/ULTRA add-on (IBM 8514/A with ATI extensions): 86Box crashed when a program finished the FIFO test, because #8289's replay passed the wrong pointer to the add-on's handler |
-| [#8995](https://github.com/86Box/86Box/pull/8995) | Open, raised 2026-11-18 | Graphics Ultra: 8 bpp page flips through CRT_OFFSET now show; the model applied the offset only at a mode change, so the second page never appeared (worklist X22) |
+| [#8994](https://github.com/86Box/86Box/pull/8994) | 8514/ULTRA add-on (IBM 8514/A with ATI extensions): 86Box crashed when a program finished the FIFO test, because #8289's replay passed the wrong pointer to the add-on's handler. Merged 2026-11-19 |
+| [#8995](https://github.com/86Box/86Box/pull/8995) | Graphics Ultra: 8 bpp page flips through CRT_OFFSET now show; the model applied the offset only at a mode change, so the second page never appeared (worklist X22). Merged 2026-11-19 |
 
 One further upstream bug was reported from here and fixed by 86Box directly, with no PR from us:
 [#7805](https://github.com/86Box/86Box/issues/7805) — the Machine settings dialog snapped RAM to a
