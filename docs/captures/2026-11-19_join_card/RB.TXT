@@ -1,0 +1,59 @@
+M8DTEST probe: scratch outline closed / chains, against edges
+ frame 0 edges (reference): 1944 writes
+   frame 0 closed (default): reference has 55018 non-background pixels
+   frame 0 closed (default) opt 8: 1611 writes, pixels identical
+   frame 0 chains: reference has 55018 non-background pixels
+   frame 0 chains opt 10: 1709 writes, pixels identical
+ frame 1 edges (reference): 1929 writes
+   frame 1 closed (default): reference has 76725 non-background pixels
+   frame 1 closed (default) opt 8: 1607 writes, pixels identical
+   frame 1 chains: reference has 76725 non-background pixels
+   frame 1 chains opt 10: 1707 writes, pixels identical
+ frame 2 edges (reference): 2012 writes
+   frame 2 closed (default): reference has 44478 non-background pixels
+   frame 2 closed (default) opt 8: 1704 writes, pixels identical
+   frame 2 chains: reference has 44478 non-background pixels
+   frame 2 chains opt 10: 1784 writes, pixels identical
+ frame 3 edges (reference): 1883 writes
+   frame 3 closed (default): reference has 77938 non-background pixels
+   frame 3 closed (default) opt 8: 1544 writes, pixels identical
+   frame 3 chains: reference has 77938 non-background pixels
+   frame 3 chains opt 10: 1642 writes, pixels identical
+ frame 4 edges (reference): 4115 writes
+   frame 4 closed (default): reference has 46997 non-background pixels
+   frame 4 closed (default) opt 8: 3743 writes, pixels identical
+   frame 4 chains: reference has 46997 non-background pixels
+   frame 4 chains opt 10: 3929 writes, pixels identical
+ frame 5 edges (reference): 4157 writes
+   frame 5 closed (default): reference has 54424 non-background pixels
+   frame 5 closed (default) opt 8: 3713 writes, pixels identical
+   frame 5 chains: reference has 54424 non-background pixels
+   frame 5 chains opt 10: 3935 writes, pixels identical
+ frame 6 edges (reference): 4181 writes
+   frame 6 closed (default): reference has 48744 non-background pixels
+   frame 6 closed (default) opt 8: 3791 writes, pixels identical
+   frame 6 chains: reference has 48744 non-background pixels
+   frame 6 chains opt 10: 3986 writes, pixels identical
+ frame 7 edges (reference): 4174 writes
+   frame 7 closed (default): reference has 53826 non-background pixels
+   frame 7 closed (default) opt 8: 3754 writes, pixels identical
+   frame 7 chains: reference has 53826 non-background pixels
+   frame 7 chains opt 10: 3964 writes, pixels identical
+ bench 50x40 nv edges (reference): 41.38 fps, 1960.3 writes a frame
+ bench 50x40 nv closed (default): 46.09 fps, 1672.3 writes a frame
+ bench 50x40 nv chains: 42.84 fps, 1817.5 writes a frame
+M8DTEST edgeprobe reference: 401 writes
+M8DTEST edgeprobe no outline: 289 writes
+  shape  left missing/edge   right    top    bottom
+   0        2/101     101/101     91/141    141/141 
+   1        2/101     101/101    111/111     52/111 
+   2        2/111     111/111     42/121    101/121 
+   3       62/111     111/111     82/161    101/161 
+   4        5/141     141/141     41/41      21/41  
+   5        2/51       51/51      28/201    181/201 
+   6        2/121     121/121    121/121    121/121 
+   7        2/121     121/121      2/121    121/121 
+   8        1/130       1/130      1/190      4/190 
+   9        2/131     131/131     34/181     82/181 
+  10       22/151     151/151     82/221    101/221 
+  inside pixels missing (all shapes): 0

@@ -1,0 +1,34 @@
+DOS/32A warning (9004): mouse initialization failed
+M8DTEST joinprobe: jittered mesh, 160 triangles, patches of 2 x 2 quads
+ unjoined: 4035 writes a mesh, 160 fills, 0 joined
+ joined: 2285 writes a mesh, 29 fills, 131 joined
+  joined forwards vs unjoined: reference has 264000 non-background pixels
+  joined forwards vs unjoined opt 0: 0 writes, pixels identical
+  joined backwards vs unjoined: reference has 264000 non-background pixels
+  joined backwards vs unjoined opt 0: 0 writes, pixels identical
+ mesh x100 unjoined: 12.64 fps, 79.09 ms, 4035.0 writes a frame
+ mesh x100 joined: 14.92 fps, 67.01 ms, 2285.1 writes a frame
+M8DTEST joinprobe: jittered mesh, 2560 triangles, patches of 4 x 4 quads
+ unjoined: 64555 writes a mesh, 2560 fills, 0 joined
+ joined: 34315 writes a mesh, 320 fills, 2240 joined
+  joined forwards vs unjoined: reference has 268800 non-background pixels
+  joined forwards vs unjoined opt 0: 0 writes, pixels identical
+  joined backwards vs unjoined: reference has 268800 non-background pixels
+  joined backwards vs unjoined opt 0: 0 writes, pixels identical
+ mesh x100 unjoined: 1.18 fps, 848.05 ms, 64555.0 writes a frame
+ mesh x100 joined: 1.36 fps, 735.45 ms, 34315.0 writes a frame
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h
+DOS/32A warning (9004): mouse initialization failed
+M8DTEST bench 50 tris size 40 vsync off: 200 frames in 67 ticks = 3.68 s, 54.35 fps
+  port writes 258428 (1292.1 a frame), status reads 46681
+  polygons by fill 10000, by spans 0 (2717.4 a s), rects 200, lines 0
+  flip wait polls 185, timeouts 0
+  mailbox: frames 200, last 18885 us, avg 18448 us, 54.24 fps, writes 258428, reads 46492, flags 3
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h
+DOS/32A warning (9004): mouse initialization failed
+M8DTEST bench 50 tris size 40 vsync off: 200 frames in 67 ticks = 3.68 s, 54.35 fps
+  port writes 258428 (1292.1 a frame), status reads 46520
+  polygons by fill 10000, by spans 0 (2717.4 a s), rects 200, lines 0
+  flip wait polls 45, timeouts 0
+  mailbox: frames 200, last 18912 us, avg 18449 us, 54.24 fps, writes 258428, reads 46471, flags 3
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h

@@ -1,0 +1,69 @@
+DOS/32A warning (9004): mouse initialization failed
+M8DTEST tileprobe: jittered mesh, 160 triangles, forwards and backwards
+ outline rule: 7247 writes a mesh, 0 background pixels inside  ; forwards vs backwards: reference has 265041 non-background pixels
+  ; forwards vs backwards opt 8: 7247 writes, 13080 pixels differ, box 20,20-620,460
+    (20,20) 89 not 7C
+    (69,20) 89 not E9
+    (125,20) CD not 89
+    (200,20) 1C not 91
+ top-left rule (default): 4025 writes a mesh, 0 background pixels inside  ; forwards vs backwards: reference has 264000 non-background pixels
+  ; forwards vs backwards opt 0: 4025 writes, pixels identical
+M8DTEST tileprobe: jittered mesh, 2560 triangles, forwards and backwards
+ outline rule: 113659 writes a mesh, 0 background pixels inside  ; forwards vs backwards: reference has 269849 non-background pixels
+  ; forwards vs backwards opt 8: 113659 writes, 49141 pixels differ, box 20,20-620,468
+    (20,20) 0E not 2B
+    (32,20) 0E not ED
+    (50,20) 27 not EF
+    (61,20) C5 not 57
+ top-left rule (default): 64048 writes a mesh, 0 background pixels inside  ; forwards vs backwards: reference has 268800 non-background pixels
+  ; forwards vs backwards opt 0: 64048 writes, pixels identical
+ bench 50x40 nv outline rule: 46.09 fps, 21.70 ms, 1672.3 writes a frame
+ bench 50x40 nv top-left rule (default): 54.35 fps, 18.40 ms, 1292.1 writes a frame
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h
+DOS/32A warning (9004): mouse initialization failed
+M8DTEST zprobe: hardware depth test (DEST_CMP_FN <, COLOR_CMP = depth x 16)
+ frame 0 far to near, no test (reference): 393 writes
+   frame 0 random order, test: reference has 307200 non-background pixels
+   frame 0 random order, test opt 1: 412 writes, pixels identical
+   frame 0 near to far, test: reference has 307200 non-background pixels
+   frame 0 near to far, test opt 2: 412 writes, pixels identical
+   frame 0 random order, no test (control): reference has 307200 non-background pixels
+   frame 0 random order, no test (control) opt 3: 805 writes, 2769 pixels differ, box 108,135-523,253
+    (522,135) A7 not 63
+    (521,136) A7 not 63
+    (522,136) A7 not 63
+    (520,137) A7 not 63
+ frame 1 far to near, no test (reference): 393 writes
+   frame 1 random order, test: reference has 307200 non-background pixels
+   frame 1 random order, test opt 1: 412 writes, pixels identical
+   frame 1 near to far, test: reference has 307200 non-background pixels
+   frame 1 near to far, test opt 2: 412 writes, pixels identical
+   frame 1 random order, no test (control): reference has 307200 non-background pixels
+   frame 1 random order, no test (control) opt 3: 805 writes, 6798 pixels differ, box 118,188-416,305
+    (375,188) 44 not 11
+    (372,189) 44 not 11
+    (373,189) 44 not 11
+    (374,189) 44 not 11
+ frame 2 far to near, no test (reference): 393 writes
+   frame 2 random order, test: reference has 307200 non-background pixels
+   frame 2 random order, test opt 1: 412 writes, pixels identical
+   frame 2 near to far, test: reference has 307200 non-background pixels
+   frame 2 near to far, test opt 2: 412 writes, pixels identical
+   frame 2 random order, no test (control): reference has 307200 non-background pixels
+   frame 2 random order, no test (control) opt 3: 805 writes, 7177 pixels differ, box 211,139-445,304
+    (401,139) EF not 41
+    (399,140) EF not 41
+    (400,140) EF not 41
+    (401,140) EF not 41
+ frame 3 far to near, no test (reference): 391 writes
+   frame 3 random order, test: reference has 307200 non-background pixels
+   frame 3 random order, test opt 1: 410 writes, pixels identical
+   frame 3 near to far, test: reference has 307200 non-background pixels
+   frame 3 near to far, test opt 2: 410 writes, pixels identical
+   frame 3 random order, no test (control): reference has 307200 non-background pixels
+   frame 3 random order, no test (control) opt 3: 801 writes, 1945 pixels differ, box 244,179-452,356
+    (452,179) 4E not 08
+    (450,180) 4E not 08
+    (451,180) 4E not 08
+    (452,180) 4E not 08
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h

@@ -1,0 +1,36 @@
+M8DTEST checkprobe: 16 x 16 floor, turned 0.00 rad, B red
+ quads : 3783 writes a frame, 75.80 ms a frame (50 nv)
+ parity: 234 writes a frame, 13.18 ms a frame (50 nv)
+  parity vs quads: reference has 32652 non-background pixels
+  parity vs quads opt 0: 0 writes, 578 pixels differ, box 169,153-472,298
+    (281,153) FF not E0
+    (374,153) FF not E0
+    (382,153) E0 not 00
+    (304,154) E0 not FF
+M8DTEST checkprobe: 16 x 16 floor, turned 0.35 rad, B red
+ quads : 4537 writes a frame, 88.98 ms a frame (50 nv)
+ parity: 393 writes a frame, 16.48 ms a frame (50 nv)
+  parity vs quads: reference has 33602 non-background pixels
+  parity vs quads opt 0: 0 writes, 1543 pixels differ, box 198,147-461,360
+    (338,147) 00 not E0
+    (348,147) E0 not FF
+    (356,147) E0 not 00
+    (349,148) E0 not FF
+M8DTEST checkprobe: 16 x 16 floor, turned 0.00 rad, B = background
+ quads : 1689 writes a frame, 38.45 ms a frame (50 nv)
+ parity: 193 writes a frame, 9.89 ms a frame (50 nv)
+  parity vs quads: reference has 16333 non-background pixels
+  parity vs quads opt 0: 0 writes, 472 pixels differ, box 183,153-456,298
+    (281,153) FF not 00
+    (374,153) FF not 00
+    (304,154) 00 not FF
+    (351,154) 00 not FF
+M8DTEST checkprobe: 16 x 16 floor, turned 0.35 rad, B = background
+ quads : 2132 writes a frame, 42.84 ms a frame (50 nv)
+ parity: 348 writes a frame, 12.08 ms a frame (50 nv)
+  parity vs quads: reference has 16713 non-background pixels
+  parity vs quads opt 0: 0 writes, 1421 pixels differ, box 213,147-461,350
+    (348,147) 00 not FF
+    (349,148) 00 not FF
+    (348,149) FF not 00
+    (341,150) 00 not FF

@@ -1,0 +1,28 @@
+M8DTEST joinprobe: jittered mesh, 160 triangles, patches of 2 x 2 quads
+ unjoined: 4035 writes a mesh, 160 fills, 0 joined
+ joined: 2285 writes a mesh, 29 fills, 131 joined
+  joined forwards vs unjoined opt 16: 0 writes, pixels identical
+  joined backwards vs unjoined opt 16: 0 writes, pixels identical
+ mesh x100 unjoined: 12.22 fps, 81.84 ms, 4035.2 writes a frame
+ mesh x100 joined: 14.34 fps, 69.76 ms, 2285.5 writes a frame
+M8DTEST joinprobe: jittered mesh, 2560 triangles, patches of 4 x 4 quads
+ unjoined: 64555 writes a mesh, 2560 fills, 0 joined
+ joined: 34315 writes a mesh, 320 fills, 2240 joined
+  joined forwards vs unjoined opt 16: 0 writes, pixels identical
+  joined backwards vs unjoined opt 16: 0 writes, pixels identical
+ mesh x100 unjoined: 1.15 fps, 869.47 ms, 64555.0 writes a frame
+ mesh x100 joined: 1.35 fps, 742.59 ms, 34315.0 writes a frame
+M8DTEST joinprobe: jittered mesh, 160 triangles, patches of 2 x 2 quads
+ unjoined: 4035 writes a mesh, 160 fills, 0 joined
+ joined: 2285 writes a mesh, 29 fills, 131 joined
+  joined forwards vs unjoined opt 16: 0 writes, pixels identical
+  joined backwards vs unjoined opt 16: 0 writes, pixels identical
+ mesh x100 unjoined: 12.14 fps, 82.39 ms, 4035.2 writes a frame
+ mesh x100 joined: 14.34 fps, 69.76 ms, 2285.4 writes a frame
+M8DTEST joinprobe: jittered mesh, 2560 triangles, patches of 4 x 4 quads
+ unjoined: 64555 writes a mesh, 2560 fills, 0 joined
+ joined: 34315 writes a mesh, 320 fills, 2240 joined
+  joined forwards vs unjoined opt 16: 0 writes, pixels identical
+  joined backwards vs unjoined opt 16: 0 writes, pixels identical
+ mesh x100 unjoined: 1.15 fps, 869.47 ms, 64555.0 writes a frame
+ mesh x100 joined: 1.35 fps, 742.59 ms, 34315.0 writes a frame

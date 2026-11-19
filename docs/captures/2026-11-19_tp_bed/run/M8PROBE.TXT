@@ -1,0 +1,33 @@
+M8DTEST tileprobe: jittered mesh, 160 triangles, forwards and backwards
+ outline rule: 7247 writes a mesh, 248838 background pixels inside  ; forwards vs backwards opt 8: 7247 writes, 13080 pixels differ, box 20,20-620,460
+    (20,20) 89 not 7C
+    (69,20) 89 not E9
+    (125,20) CD not 89
+    (200,20) 1C not 91
+ top-left rule (default): 4195 writes a mesh, 261924 background pixels inside  ; forwards vs backwards opt 0: 4195 writes, pixels identical
+M8DTEST tileprobe: jittered mesh, 2560 triangles, forwards and backwards
+ outline rule: 113659 writes a mesh, 174035 background pixels inside  ; forwards vs backwards opt 8: 113659 writes, 49054 pixels differ, box 20,20-620,468
+    (20,20) 0E not 2B
+    (32,20) 0E not ED
+    (50,20) 27 not EF
+    (61,20) C5 not 57
+ top-left rule (default): 67110 writes a mesh, 266708 background pixels inside  ; forwards vs backwards opt 0: 67110 writes, pixels identical
+ bench 50x40 nv outline rule: 107.10 fps, 9.34 ms, 1672.3 writes a frame
+ bench 50x40 nv top-left rule (default): 121.38 fps, 8.24 ms, 1342.0 writes a frame
+---new--- 
+M8DTEST tileprobe: jittered mesh, 160 triangles, forwards and backwards
+ outline rule: 7247 writes a mesh, 248838 background pixels inside  ; forwards vs backwards opt 8: 7247 writes, 13080 pixels differ, box 20,20-620,460
+    (20,20) 89 not 7C
+    (69,20) 89 not E9
+    (125,20) CD not 89
+    (200,20) 1C not 91
+ top-left rule (default): 4025 writes a mesh, 261924 background pixels inside  ; forwards vs backwards opt 0: 4025 writes, pixels identical
+M8DTEST tileprobe: jittered mesh, 2560 triangles, forwards and backwards
+ outline rule: 113659 writes a mesh, 174035 background pixels inside  ; forwards vs backwards opt 8: 113659 writes, 49054 pixels differ, box 20,20-620,468
+    (20,20) 0E not 2B
+    (32,20) 0E not ED
+    (50,20) 27 not EF
+    (61,20) C5 not 57
+ top-left rule (default): 64048 writes a mesh, 266708 background pixels inside  ; forwards vs backwards opt 0: 64048 writes, pixels identical
+ bench 50x40 nv outline rule: 101.15 fps, 9.89 ms, 1672.3 writes a frame
+ bench 50x40 nv top-left rule (default): 117.46 fps, 8.51 ms, 1292.1 writes a frame
