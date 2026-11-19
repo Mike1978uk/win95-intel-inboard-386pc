@@ -11,7 +11,37 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <i86.h>
 #include "m8dos.h"
+
+/* The perf mailbox as an outside reader sees it: through the pointer at 40:F0. Read while the
+ * card is open, printed with the report so the two can be compared. */
+static M8PERF   seen;
+static int      seen_ok;
+
+static void mailbox_read( void )
+{
+#ifdef __386__
+    unsigned long           p = *(volatile unsigned long *)0x4F0;
+    const volatile M8PERF   *m = (const volatile M8PERF *)( ( p >> 16 ) * 16 + ( p & 0xFFFF ) );
+#else
+    const volatile M8PERF __far *m = *(M8PERF __far * volatile __far *)MK_FP( 0x40, 0xF0 );
+#endif
+    unsigned long           seq;
+    int                     i;
+
+    seen_ok = 0;
+    if( m == 0 || m->sig[0] != 'M' || m->sig[1] != '8' || m->sig[2] != 'P' || m->sig[3] != 'F' ) {
+        return;
+    }
+    do {
+        seq = m->seq;
+        for( i = 0; i < sizeof( seen ); ++i ) {
+            ((unsigned char *)&seen)[i] = ((const volatile unsigned char *)m)[i];
+        }
+    } while( ( seq & 1 ) || m->seq != seq );
+    seen_ok = 1;
+}
 
 static void palette( void )
 {
@@ -99,7 +129,7 @@ static void report( const char *what )
 {
     M8STATS s;
     double  secs;
-    char    line[400];
+    char    line[600];
     FILE    *f;
 
     m8_stats( &s );
@@ -116,6 +146,14 @@ static void report( const char *what )
         s.outs, s.frames ? (double)s.outs / s.frames : 0.0, s.ins,
         s.polys_fill, s.polys_span, (s.polys_fill + s.polys_span) / secs, s.rects, s.lines,
         s.flip_polls, s.flip_timeouts );
+    if( seen_ok ) {
+        sprintf( line + strlen( line ),
+            "  mailbox: frames %lu, last %lu us, avg %lu us, %lu.%02lu fps, writes %lu, reads %lu, flags %lu\n",
+            seen.frames, seen.last_us, seen.avg_us, seen.fps_x100 / 100, seen.fps_x100 % 100,
+            seen.outs, seen.ins, seen.flags );
+    } else {
+        strcat( line, "  mailbox: not found at 40:F0\n" );
+    }
     fputs( line, stdout );
     f = fopen( "M8DTEST.TXT", "a" );
     if( f != NULL ) {
@@ -147,6 +185,7 @@ int main( int argc, char **argv )
         t = m8_ticks();
         while( m8_ticks() - t < secs * 182 / 10 && !m8_key() ) {
         }
+        mailbox_read();
         m8_close();
         report( "card" );
     } else {
@@ -175,6 +214,7 @@ int main( int argc, char **argv )
             }
             m8_frame_end( vsync );
         }
+        mailbox_read();
         m8_close();
         sprintf( what, "bench %d tris size %d vsync %s", tris, size, vsync ? "on" : "off" );
         report( what );

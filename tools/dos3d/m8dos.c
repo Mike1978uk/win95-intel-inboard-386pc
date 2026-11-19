@@ -171,17 +171,292 @@ static DWORD ticks_now( void )
 
 static M8STATS  st;
 
+/* ---- perf mailbox (m8dos.h) ----
+ * The PIT's channel 0 runs in mode 3 under the BIOS, where the count goes round twice a tick
+ * and an 8253 cannot say which half it is in. Hosted builds switch it to mode 2, same
+ * divisor and same 18.2 Hz IRQ 0, so the count is linear, and put mode 3 back on exit. A
+ * driver inside a game leaves the timer alone (the game may own it) and times in ticks. */
+#define PIT_CH0         0x40
+#define PIT_CMD         0x43
+#define US_PER_TICK     54925ul
+#ifdef __386__
+#define PERF_ROWS_MAX   3600            /* an hour */
+#else
+#define PERF_ROWS_MAX   300             /* the small model's heap shares DGROUP with the queue */
+#endif
+
+#ifdef __386__
+#define IAC_PTR         (*(volatile DWORD *)0x4F0)
+static volatile M8PERF  *mb;
+#else
+#define IAC_PTR         (*(volatile DWORD __far *)MK_FP( 0x40, 0xF0 ))
+static M8PERF           mb_block;
+static volatile M8PERF  *mb = &mb_block;
+#endif
+static int      gfx_on;                 /* the exit state below also reads these */
+static int      engine_bad;
+static DWORD    iac_old;
+static int      iac_set;
+static int      pit_linear;
+static DWORD    clk_us;                 /* since m8_open */
+static DWORD    clk_tick;
+static WORD     clk_count;
+static DWORD    clk_frac;               /* PIT counts not yet turned into whole us */
+static DWORD    last_end_us;
+static DWORD    win_start_us;
+static DWORD    win_frames;
+static DWORD    win_max_us;
+static DWORD    win_outs;
+static DWORD    win_ins;
+
+#ifdef M8_HOSTED
+typedef struct {
+    DWORD   run, frames, fps_x100, avg_us, max_us, outs, ins;
+} PERFROW;
+static PERFROW  *rows;
+static int      nrows;
+static int      runs;
+static int      rows_dropped;
+#endif
+
+/* Elapsed time since the last call is added to clk_us. Called once a frame and at open. */
+static void clock_read( DWORD *tick, WORD *count )
+{
+    DWORD   t;
+    WORD    c;
+
+    do {
+        t = ticks_now();
+        c = 0;
+        if( pit_linear ) {
+            io_outb( PIT_CMD, 0x00 );   /* latch channel 0 */
+            c = (WORD)io_inb( PIT_CH0 );
+            c |= (WORD)( io_inb( PIT_CH0 ) << 8 );
+        }
+    } while( ticks_now() != t );
+    *tick = t;
+    *count = c;
+}
+
+static void clock_advance( void )
+{
+    DWORD   t;
+    WORD    c;
+    DWORD   counts;
+
+    clock_read( &t, &c );
+    if( !pit_linear ) {
+        clk_us += ( t - clk_tick ) * US_PER_TICK;
+        clk_tick = t;
+        return;
+    }
+    /* The count runs down from 65536; a reload can land before IRQ 0 has moved the tick,
+     * which reads as time going back by one tick, so that tick is added. */
+    counts = ( t - clk_tick ) * 65536ul + (DWORD)clk_count - (DWORD)c;
+    if( (long)counts < 0 ) {
+        counts += 65536ul;
+    }
+    clk_tick = t;
+    clk_count = c;
+    /* 1 count = 838.096 ns: 1,000,000 / 1,193,182. */
+    clk_frac += counts * 838ul + counts / 10ul;
+    clk_us += clk_frac / 1000ul;
+    clk_frac %= 1000ul;
+}
+
+static void mb_publish( void )
+{
+    if( mb == 0 ) {
+        return;
+    }
+    ++mb->seq;
+    mb->frames = st.frames;
+    mb->outs = st.outs;
+    mb->ins = st.ins;
+    mb->flip_polls = st.flip_polls;
+    mb->flip_timeouts = st.flip_timeouts;
+    mb->polys = st.polys_fill + st.polys_span;
+    mb->rects = st.rects;
+    mb->lines = st.lines;
+    mb->clock_us = clk_us;
+    mb->flags = ( gfx_on ? M8PF_OPEN : 0 ) | ( pit_linear ? M8PF_PIT_US : 0 )
+              | ( engine_bad ? M8PF_WEDGED : 0 );
+    ++mb->seq;
+}
+
+static void perf_open( void )
+{
+    int     i;
+
+#ifdef __386__
+    if( mb == 0 ) {
+        union REGS  r;
+
+        for( i = 0; i < sizeof( r ); ++i ) {
+            ((BYTE *)&r)[i] = 0;
+        }
+        r.w.ax = 0x0100;                /* DPMI: allocate DOS memory, 4 paragraphs */
+        r.w.bx = ( sizeof( M8PERF ) + 15 ) / 16;
+        int386( 0x31, &r, &r );
+        if( r.w.cflag == 0 ) {
+            mb = (volatile M8PERF *)( (DWORD)r.w.ax << 4 );
+        }
+    }
+#endif
+    if( mb == 0 ) {
+        return;
+    }
+    for( i = 0; i < sizeof( M8PERF ); ++i ) {
+        ((volatile BYTE *)mb)[i] = 0;
+    }
+    mb->sig[0] = 'M'; mb->sig[1] = '8'; mb->sig[2] = 'P'; mb->sig[3] = 'F';
+    mb->version = 1;
+    mb->size = sizeof( M8PERF );
+#ifdef M8_HOSTED
+    io_outb( PIT_CMD, 0x34 );           /* channel 0, mode 2, divisor 65536 as the BIOS's */
+    io_outb( PIT_CH0, 0 );
+    io_outb( PIT_CH0, 0 );
+    pit_linear = 1;
+    if( rows == 0 ) {
+        rows = (PERFROW *)malloc( PERF_ROWS_MAX * sizeof( PERFROW ) );
+    }
+    ++runs;
+#endif
+    clk_us = 0;
+    clk_frac = 0;
+    clock_read( &clk_tick, &clk_count );
+    last_end_us = 0;
+    win_start_us = 0;
+    win_frames = 0;
+    win_max_us = 0;
+    win_outs = st.outs;
+    win_ins = st.ins;
+    if( !iac_set ) {
+        iac_old = IAC_PTR;
+#ifdef __386__
+        IAC_PTR = (DWORD)mb << 12;      /* offset 0, segment = linear / 16 */
+#else
+        IAC_PTR = (DWORD)(void __far *)mb;
+#endif
+        iac_set = 1;
+    }
+    mb_publish();
+}
+
+static void perf_frame( void )
+{
+    DWORD   frame_us;
+    DWORD   span;
+
+    clock_advance();
+    frame_us = clk_us - last_end_us;
+    last_end_us = clk_us;
+    if( st.frames <= 1 ) {              /* the first frame end starts the first second */
+        win_start_us = clk_us;
+        win_frames = 0;
+        win_outs = st.outs;
+        win_ins = st.ins;
+        mb_publish();
+        return;
+    }
+    if( st.frames > 1 && frame_us > win_max_us ) {
+        win_max_us = frame_us;
+    }
+    ++win_frames;
+    if( mb != 0 && st.frames > 1 ) {
+        mb->last_us = frame_us;
+    }
+    span = clk_us - win_start_us;
+    if( span >= 1000000ul ) {
+        DWORD   fps_x100 = win_frames * 100000ul / ( span / 1000ul );
+        DWORD   avg_us = span / win_frames;
+
+        if( mb != 0 ) {
+            mb->fps_x100 = fps_x100;
+            mb->avg_us = avg_us;
+        }
+#ifdef M8_HOSTED
+        if( rows != 0 && nrows < PERF_ROWS_MAX ) {
+            rows[nrows].run = runs;
+            rows[nrows].frames = win_frames;
+            rows[nrows].fps_x100 = fps_x100;
+            rows[nrows].avg_us = avg_us;
+            rows[nrows].max_us = win_max_us;
+            rows[nrows].outs = st.outs - win_outs;
+            rows[nrows].ins = st.ins - win_ins;
+            ++nrows;
+        } else {
+            ++rows_dropped;
+        }
+#endif
+        win_start_us = clk_us;
+        win_frames = 0;
+        win_max_us = 0;
+        win_outs = st.outs;
+        win_ins = st.ins;
+    }
+    mb_publish();
+}
+
+#ifdef M8_HOSTED
+/* One row a whole second of open card, every open of the run, written at exit. */
+static void perf_csv( void )
+{
+    FILE    *f;
+    int     i;
+
+    if( nrows == 0 ) {
+        return;
+    }
+    f = fopen( "PERF.CSV", "w" );
+    if( f == 0 ) {
+        return;
+    }
+    fprintf( f, "run,second,frames,fps,avg_ms,max_ms,port_writes,status_reads\n" );
+    for( i = 0; i < nrows; ++i ) {
+        const PERFROW *p = &rows[i];
+
+        fprintf( f, "%lu,%d,%lu,%lu.%02lu,%lu.%03lu,%lu.%03lu,%lu,%lu\n", p->run, i + 1, p->frames,
+                 p->fps_x100 / 100ul, p->fps_x100 % 100ul, p->avg_us / 1000ul, p->avg_us % 1000ul,
+                 p->max_us / 1000ul, p->max_us % 1000ul, p->outs, p->ins );
+    }
+    if( rows_dropped ) {
+        fprintf( f, "# %d later seconds not kept\n", rows_dropped );
+    }
+    fclose( f );
+    nrows = 0;
+}
+#endif
+
+/* The mailbox stays readable with OPEN clear; 40:F0 and the PIT get their old state back. */
+static void perf_close( void )
+{
+    if( mb != 0 ) {
+        mb_publish();
+    }
+    if( iac_set ) {
+        IAC_PTR = iac_old;
+        iac_set = 0;
+    }
+#ifdef M8_HOSTED
+    if( pit_linear ) {
+        io_outb( PIT_CMD, 0x36 );       /* channel 0, mode 3, divisor 65536: the BIOS's setting */
+        io_outb( PIT_CH0, 0 );
+        io_outb( PIT_CH0, 0 );
+        pit_linear = 0;
+    }
+#endif
+}
+
 static void outw( unsigned port, unsigned v ) { io_outw( port, v ); ++st.outs; }
 static void outb( unsigned port, unsigned v ) { io_outb( port, v ); ++st.outs; }
 static unsigned inw( unsigned port ) { ++st.ins; return( io_inw( port ) ); }
 static unsigned inb( unsigned port ) { ++st.ins; return( io_inb( port ) ); }
 
 /* ---- state the exit path must undo ---- */
-static int          gfx_on;
 static int          pal_saved;
 static BYTE         pal_old[768];
 static BYTE         dac_mask_old;
-static int          engine_bad;
 static const char   *err;
 #ifdef M8_HOSTED
 static int          hooked;
@@ -200,6 +475,7 @@ static void restore( void )
         return;
     }
     gfx_on = 0;
+    perf_close();
     if( engine_bad ) {
         io_outw( M8_SUBSYS, 0x900F );   /* reset, flags acknowledged; a locked FIFO ignores all else */
         io_outw( M8_SUBSYS, 0x500F );
@@ -859,6 +1135,7 @@ void m8_frame_end( int vsync )
     shown = dy != 0;
     ++st.frames;
     st.ticks = ticks_now() - t_first;
+    perf_frame();
 }
 
 int m8_open( void )
@@ -871,6 +1148,7 @@ int m8_open( void )
 #ifdef M8_HOSTED
     if( !hooked ) {
         atexit( restore );
+        atexit( perf_csv );
         signal( SIGINT, on_signal );
         signal( SIGBREAK, on_signal );
         hooked = 1;
@@ -923,6 +1201,7 @@ int m8_open( void )
     in_frame = 0;
     nbatch = 0;
     m8_clip( 0, 0, M8_W - 1, M8_H - 1 );
+    perf_open();
     return( 0 );
 }
 
@@ -947,6 +1226,8 @@ void m8_stats_reset( void )
     for( i = 0; i < sizeof( st ); ++i ) {
         ((BYTE *)&st)[i] = 0;
     }
+    win_outs = 0;
+    win_ins = 0;
 }
 
 unsigned long m8_ticks( void )

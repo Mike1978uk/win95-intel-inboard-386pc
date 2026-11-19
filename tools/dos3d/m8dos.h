@@ -61,6 +61,33 @@ void    m8_tri( int x0, int y0, int x1, int y1, int x2, int y2, int col );
  * (16.16 fixed point). The form VBE/AF and BRender's span generators produce. */
 void    m8_trap( int y0, int y1, long xl, long xr, long dxl, long dxr, int col );
 
+/* Perf mailbox: 64 bytes in conventional memory, so a reader outside the program (a TSR, the
+ * DOS agent's memory probe, DEBUG) can watch a run live. Found through the far pointer at
+ * 40:F0 (offset, then segment) while the card is open; 40:F0 gets its old value back at close.
+ * seq is odd while the block is being written: read until it is even and unchanged. */
+#define M8PF_OPEN       1ul             /* flags: the card is open */
+#define M8PF_PIT_US     2ul             /* times from the PIT (~1 us); else BIOS ticks (55 ms) */
+#define M8PF_WEDGED     4ul             /* the engine was given up on */
+typedef struct {
+    char            sig[4];             /* "M8PF" */
+    unsigned short  version;            /* 1 */
+    unsigned short  size;               /* 64 */
+    unsigned long   seq;
+    unsigned long   frames;
+    unsigned long   last_us;            /* the last frame, frame_end to frame_end */
+    unsigned long   avg_us;             /* mean frame over the last whole second */
+    unsigned long   fps_x100;           /* frames a second x 100, last whole second */
+    unsigned long   outs;
+    unsigned long   ins;
+    unsigned long   flip_polls;
+    unsigned long   flip_timeouts;
+    unsigned long   polys;
+    unsigned long   rects;
+    unsigned long   lines;
+    unsigned long   clock_us;           /* since m8_open */
+    unsigned long   flags;
+} M8PERF;
+
 void    m8_stats( M8STATS *s );
 void    m8_stats_reset( void );
 
