@@ -192,6 +192,15 @@ Inventory and results: `docs/mach8_levers.md` (one place; this list only orders 
       mode 12h - next M8FLIP4 (text / mode 12h / mode 12h + DISP_CNTL on).
 - [x] **L5 Folded 10-16:** "Lever decisions for D8" in `docs/mach8_driver_design.md` - per-job choice, evidence, what is
       ruled out. Was: Fold results into `docs/mach8_driver_design.md` - which levers the driver uses, and for what.
+- [ ] **L6 The whole card for 3D (owner, 11-19: primary focus).** Every write the engine saves is bus time and CPU
+      time back. In order: (a) desk: census of `m8dos` writes per polygon by job (setup, edges, fill, colour) - the
+      ~21 fixed of ~42 a small triangle is the target, not the edges; (b) hardware depth test with DEST_CMP_FN
+      (measured 10-10: 8 codes on CMD fills, WRT_MASK-masked): pixel = depth x 16 + colour, COLOR_CMP = polygon depth,
+      one write a polygon, palette gives depth fog - bed first (bed = card for DEST_CMP since fork `c454a6324`), then
+      card; (c) source colour compare for sprites/HUD/colour keys (one blit); (d) off-screen caching of static parts;
+      (e) PATT_DATA dithered shading; (f) short strokes only for edges under ~10 px and text (one 15-px stroke a byte:
+      long edges cost more than LINEDRAW's 5); (g) the VGA half as a second surface (section C). Each kept only where
+      the card shows fewer writes or more fps.
 
 
 

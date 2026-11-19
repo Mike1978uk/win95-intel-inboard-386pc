@@ -127,3 +127,17 @@ exits with errorlevel 1 when it stays); HX's `DPMI.EXE`: INT 15h AH=88h 0 KB as 
 `tools/dos3d/hx/hxmem.c`): GlobalMemoryStatus 4,284 KB total, 2,836 KB free; 2 MB VirtualAlloc at 0040B000h, 512 pages
 written and read back, 0 bad. `HDPMI32 -u` unloads; the agent restarted normally. Budget for a DirectX title plus our
 DLLs: ~2.8 MB, no swap. Next: step 2, our DDRAW over `m8dos` in place of HX's LFB-only DDDRAW.
+
+## 8. Step 2 design (2026-11-19, parked for the card-levers work)
+
+HX's `DDDRAW.DLL` imports `VESA32.DLL` (21 exports) and uses `SVGAINFO.PhysBasePtr` directly as a linear address
+(`SrcEmu/DDDRAW/DDOBJECT.ASM` SetVideoVars; `SURFACE.ASM` Create). Its Flip calls `SetVesaDisplayStart(offset, pitch,
+flags)` (`SURFACE.ASM` ~1109) and polls `GetVesaFlipStatus`. Palette changes arrive through DGDI32 as
+`SetVesaPaletteEntries(start, n, entries)`, 4 bytes an entry, 8-bit, red first (VESA32 itself swaps R/B for VBE).
+So step 2 is **our own VESA32.DLL** and nothing else: one mode 101h (640x480x8, attributes SUPPORTED|GFX|COLOR|LFB),
+`PhysBasePtr` = a 640 KB buffer in RAM, `GetVesaVideoMemorySize` = 640 KB (two pages, so DDDRAW's flip chain gets its
+back buffer inside it), `SetVesaDisplayStart` = compare the page with a shadow of the card's back page, send changed
+runs with `m8_hline`, `m8_frame_end(vsync unless DDFLIP_NOVSYNC 8)`, `GetVesaFlipStatus` = 1; state save/restore and
+mouse stubs. m8dos needs a `-bt=nt` build: its two `int386` calls (mode 3 at restore, DPMI 0100h for the mailbox)
+become inline `int 10h` / `int 31h` (HDPMI gives IOPL 3, so port I/O is direct). flip2d also needs HX's `DINPUT.DLL`
+and `WINMM.DLL` (`HXGUI223.zip`). HX source read: https://github.com/Baron-von-Riedesel/HX `e4cb9e2`.
