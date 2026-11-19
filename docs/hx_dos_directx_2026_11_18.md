@@ -117,3 +117,13 @@ What the bed needs: VBE 2.0 LFB, HX archive, an SDK DDraw sample. 86Box does not
 - Authoritative HX licence text (404 on guessed Doc paths).
 - Any compatibility list; any D3D in HX; Lock/Unlock support statement.
 - HDPMI behaviour on a BIOS without INT 15h AH=88h.
+
+## 7. Step 1 on the 5160 (2026-11-19)
+
+HX 2.23 runtime (`HXRT223.zip`, SHA-256 `20510cf6...5c9`, https://github.com/Baron-von-Riedesel/HX/releases/tag/v2.23)
+on the card's DOS boot, run through the DOS agent (`captures/2026-11-19_hx_card/HX1.TXT`). `HDPMI32 -r` resident (it
+exits with errorlevel 1 when it stays); HX's `DPMI.EXE`: INT 15h AH=88h 0 KB as feared, but HDPMI uses the XMS host
+(4,152 KB largest block), 4,188 KB lockable, 4,284 KB physical. `DPMILD32 HXMEM.EXE` (Win32 console,
+`tools/dos3d/hx/hxmem.c`): GlobalMemoryStatus 4,284 KB total, 2,836 KB free; 2 MB VirtualAlloc at 0040B000h, 512 pages
+written and read back, 0 bad. `HDPMI32 -u` unloads; the agent restarted normally. Budget for a DirectX title plus our
+DLLs: ~2.8 MB, no swap. Next: step 2, our DDRAW over `m8dos` in place of HX's LFB-only DDDRAW.

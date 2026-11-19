@@ -1,0 +1,38 @@
+--- HDPMI32 -r 
+HDPMI32 now resident
+errorlevel 1+ 
+--- DPMI 
+Cpu is in real-mode
+Int 15h, ah=88h, extended memory: 0 kB
+XMS v3.0 host found, largest free block: 4152 kB
+No VCPI host found
+DPMI host found, version=0.90, cpu: 04, support of 32-bit clients: 1
+entry initial switch to protected-mode: CA8:3B0
+size task-specific memory: 32 paragraphs
+now in protected mode, client CS/SS/DS/FS/GS: 97/8F/8F/0/0
+Eflags=3206 (IOPL=3), ES (=PSP): 9F (environment: A7, parent PSP segm: 9D3B)
+GDTR: 7FF.FF80E000, IDTR: 7FF.FF80E800, LDTR: 38, TR: 30
+DPMI version flags: 3
+master/slave PICs base: 8/70
+state save protected-mode: 5B:292, real-mode: CA8:5CC
+size state save buffer: 28 bytes
+raw jump to real-mode: 5B:2A0, to protected-mode: CA8:608
+largest free/lockable memory block (kB): 4188/4188
+free unlocked (=virtual) memory (kB): 4188
+total/free address space (kB): 4185020/4185020
+total/free physical memory (kB): 4284/4208
+Coprocessor status: 34
+vendor: 'HDPMI', version: 3.23
+capabilities: 2F [paged_acc/dirty exc_restartability dev_mapping conv_mem_mapping write-prot_client ]
+vendor 'MS-DOS' API entry: 5B:294
+'MS-DOS' API, ax=100h (get LDT selector): 63
+--- HXMEM 
+
+DPMI loader v3.12
+Copyright 1993-2024 Japheth
+
+HXMEM: phys total 4284 KB, avail 2836 KB; virtual total 4284 KB, avail 2836 KB
+HXMEM: 2 MB at 0040B000, 512 pages, 0 bad
+--- HDPMI32 -u 
+HDPMI32 uninstalled
+--- done 
