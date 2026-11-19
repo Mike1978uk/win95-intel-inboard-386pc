@@ -111,6 +111,7 @@ been consistently the more reliable of the two on this project.
 | **viti95** (FastDoom) | Real-hardware-validated XT keyboard ISR reference |
 | **Microsoft Windows 95 DDK** | The genuine period source and toolchain behind the custom `VKD.VXD` |
 | **Michael Dale** (u/mwdmeyer) | [`velocity9x`](https://github.com/michaeldale/velocity9x) display-driver framework (Mach8 driver base, GPL-3.0); [V9x Remote Agent](https://github.com/michaeldale/V9x-Remote-Agent) drives the card benches. Replied on Reddit 2026-10-06; owner's reply sent 2026-10-16 |
+| **[Gisle Vanem](https://github.com/gvanem)** | Author of [Watt-32](https://github.com/gvanem/Watt-32), the TCP/IP stack the DOS agent runs on. Took our Tx-buffer report ([Watt-32#133](https://github.com/gvanem/Watt-32/issues/133)); committing the fix |
 | **[Miran Grča (@OBattler)](https://github.com/OBattler)** | Developer of 86Box, so the emulator this whole project is built on. Also wrote the **XT-IDE port of the ATAPI CD-ROM driver** now held at [`drivers/xtide_cdrom/`](../drivers/xtide_cdrom/) — the only known working code for the card's 8-bit data latch — and fixed [86Box#7805](https://github.com/86Box/86Box/issues/7805) from our report. **Not contacted by this project;** credited by name and link. Note his authorship of *both* the driver and `hdc_xtide.c` means they are not independent confirmations of the register map |
 
 ---

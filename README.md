@@ -490,6 +490,9 @@ and the [contributor ledger](docs/contributor_input_ledger.md).
   the Windows 9x display-driver framework the Mach8 driver was started from, and of the
   [V9x Remote Agent](https://github.com/michaeldale/V9x-Remote-Agent), which runs the card benches
   unattended.
+- **[Gisle Vanem](https://github.com/gvanem)** — author of [Watt-32](https://github.com/gvanem/Watt-32),
+  the TCP/IP stack the DOS agent runs on. Took our Tx-buffer report
+  ([#133](https://github.com/gvanem/Watt-32/issues/133)) and is committing the fix.
 - **[86Box](https://github.com/86Box/86Box)** — the base emulator this project is built on.
 
 ## Reproducing this
