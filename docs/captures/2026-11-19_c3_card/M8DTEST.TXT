@@ -1,0 +1,15 @@
+M8DTEST bench 50 tris size 40 vsync on: 600 frames in 384 ticks = 21.09 s, 28.45 fps
+  port writes 1201205 (2002.0 a frame), status reads 586504
+  polygons by fill 30000, by spans 0 (1422.4 a s), rects 600, lines 0
+  flip wait polls 44970, timeouts 0
+  mailbox: frames 600, last 35119 us, avg 35256 us, 28.37 fps, writes 1201205, reads 586348, flags 3
+M8DTEST bench 50 tris size 40 vsync on: 600 frames in 384 ticks = 21.09 s, 28.45 fps
+  port writes 1201206 (2002.0 a frame), status reads 644274
+  polygons by fill 30000, by spans 0 (1422.4 a s), rects 600, lines 0
+  flip wait polls 46312, timeouts 0
+  mailbox: frames 600, last 35119 us, avg 35249 us, 28.37 fps, writes 1201206, reads 644109, flags 3
+M8DTEST card: 2 frames in 1 ticks = 0.05 s, 36.41 fps
+  port writes 1450 (725.0 a frame), status reads 3421
+  polygons by fill 30, by spans 4 (619.0 a s), rects 12, lines 6
+  flip wait polls 154, timeouts 0
+  mailbox: frames 2, last 34337 us, avg 0 us, 0.00 fps, writes 1450, reads 3419, flags 3

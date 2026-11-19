@@ -62,3 +62,17 @@ Bed `vm_dosagent`: `mem 0040:0000 0x20` reads COM1 3F8h, COM2 2F8h, LPT1 378h, 6
 buffer (tail 1Eh -> 26h); `reboot` restarts (boot 10 -> 11) through a 20-byte real-mode `.COM` the agent writes and
 spawns (COMrade's `do_reboot` steps: 1234h at 40:72h, FEh to port 64h, jump FFFF:0000). Not tested on the 5160.
 Not live while a program runs: that is C4.
+
+## C3 result (2026-11-19)
+
+`tools/dos3d/m8dos.c`: a 64-byte `M8PERF` block (`m8dos.h`) in conventional memory, signature `M8PF`, far pointer at
+`40:F0` while the card is open (old value put back at close). Fields: frames, last and mean frame time, fps x100 over
+the last whole second, port writes, status reads, flip polls/timeouts, polygons, rects, lines, clock, flags. `seq` is
+odd during a write. Hosted builds switch PIT channel 0 to mode 2 (same divisor, same IRQ 0 rate; mode 3 on an 8253
+cannot be read linearly) for ~1 us times, and write `PERF.CSV` at exit, one row a second. A driver build (no
+`M8_HOSTED`, e.g. FS3's `CUSTOM.GRA`) leaves the PIT alone and times in 55 ms ticks.
+
+Card, 2026-11-19 (`captures/2026-11-19_c3_card/`), run through the DOS agent's detached job: `M8DTEST bench 50 40 600`
+28.45 fps by ticks, mailbox read back through `40:F0` 28.37 fps, writes equal (1,201,205); `PERF.CSV` 20 rows for 21 s,
+frames 35.2 ms mean, 36.2 ms worst. `M8DTST16` (16-bit) the same: 28.37 fps, 6 rows for 7 s. Not yet read from outside
+the program: that is C4.
