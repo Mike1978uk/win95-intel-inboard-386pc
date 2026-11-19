@@ -705,6 +705,7 @@ static short    span_hi[1024];
 /* A convex polygon one row at a time: 3 writes a row. Colour and plain state set. */
 static void q_spans( const POLY *p )
 {
+    int tl;
     int i;
     int y;
     int t = p->t;
@@ -739,13 +740,16 @@ static void q_spans( const POLY *p )
         if( p->x[c] < span_lo[y] ) span_lo[y] = p->x[c];
         if( p->x[c] > span_hi[y] ) span_hi[y] = p->x[c];
     }
-    for( y = 0; y <= rows; ++y ) {
-        if( span_hi[y] < span_lo[y] ) {
+    /* Under the top-left rule the bottom row and each row's last pixel belong to the
+     * neighbour, as with the fill. */
+    tl = !( m8_opt & M8_OPT_OUTLINE );
+    for( y = 0; y <= rows - tl; ++y ) {
+        if( span_hi[y] + 1 - tl <= span_lo[y] ) {
             continue;
         }
         Q( M8_CUR_Y, t + y );
         Q( M8_CUR_X, span_lo[y] );
-        Q( M8_SCAN_TO_X, span_hi[y] + 1 );
+        Q( M8_SCAN_TO_X, span_hi[y] + 1 - tl );
         q_room();                       /* a wide polygon can take every row of the screen */
     }
 }
@@ -844,6 +848,7 @@ static void batch_flush( void )
     int     ch = 0;
     int     planes = 0;
     int     any_z = 0;
+    int     first_fill = 1;
 
     if( np == 0 ) {
         return;
@@ -897,6 +902,7 @@ static void batch_flush( void )
         if( any_z ) {
             Q( M8_DEST_CMP_FN, M8_CMP_LESS );
         }
+        first_fill = 1;
         for( j = 0; j < np; ++j ) {
             int w = p[j].r - p[j].l + 1;
 
@@ -908,10 +914,14 @@ static void batch_flush( void )
             if( any_z ) {
                 Q( M8_COLOR_CMP, p[j].z >= 0 ? p[j].z << 4 : 0 );
             }
-            /* A fill command does not keep these: each fill sends them (card, L6 P1). */
+            /* Of the fill's registers the engine keeps only SRC_X_START from one fill to the
+             * next; the rest go with every fill (L6 P1 and the register probe). */
             Q( M8_DESTX_DIASTP, SCR_X );
             Q( M8_DESTY_AXSTP, ( m8_opt & M8_OPT_OUTLINE ) ? 1 : 0 );
-            Q( M8_SRC_X_START, SCR_X );
+            if( first_fill ) {
+                Q( M8_SRC_X_START, SCR_X );
+                first_fill = 0;
+            }
             Q( M8_SRC_X_END, SCR_X + w );
             Q( M8_CUR_X, p[j].l );
             Q( M8_DEST_X_START, p[j].l );
@@ -1023,7 +1033,11 @@ static void choose( POLY *p )
         edges += p->y[i] != p->y[(i + 1) % p->n];
     }
     fill_cost = 1 + 5 * edges + 11 + 4 + 2 * p->n + 6;
-    p->fill = rows >= 3 && p->r - p->l + 2 <= SCR_W && rows <= SCR_H && fill_cost < 1 + 3 * rows;
+    /* Under the top-left rule every polygon the scratch can take goes by fill, the engine's
+     * own rule: span rows are worked out on the CPU and can differ from it by a pixel on an
+     * edge, which shows as holes and overlaps where a span polygon meets a filled one. */
+    p->fill = rows >= 3 && p->r - p->l + 2 <= SCR_W && rows <= SCR_H &&
+              ( !( m8_opt & M8_OPT_OUTLINE ) || fill_cost < 1 + 3 * rows );
 }
 
 void m8_poly( int n, const M8PT *v, int col )

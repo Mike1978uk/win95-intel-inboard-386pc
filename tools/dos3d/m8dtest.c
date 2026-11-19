@@ -631,8 +631,9 @@ static int edgeprobe( void )
 /* L6 P3b: the top-left fill rule. A jittered mesh of 160 triangles drawn forwards and
  * backwards: with each pixel in exactly one triangle the two are identical, and no background
  * pixel is left inside the mesh. Then the bench, default against the rule. */
-static short    mx[11][9], my[11][9];
-static int      mcol[160];
+static short    mx[41][33], my[41][33];
+static int      mcol[2560];
+static int      mnx = 10, mny = 8;
 
 static void mesh( int forwards )
 {
@@ -640,11 +641,11 @@ static void mesh( int forwards )
 
     m8_frame_begin();
     m8_clear( 0 );
-    for( i = 0; i < 160; ++i ) {
-        int t = forwards ? i : 159 - i;
+    for( i = 0; i < 2 * mnx * mny; ++i ) {
+        int t = forwards ? i : 2 * mnx * mny - 1 - i;
         int q = t >> 1;
-        int gx = q % 10;
-        int gy = q / 10;
+        int gx = q % mnx;
+        int gy = q / mnx;
 
         if( t & 1 ) {
             m8_tri( mx[gx][gy], my[gx][gy], mx[gx + 1][gy + 1], my[gx + 1][gy + 1],
@@ -669,26 +670,35 @@ static int tileprobe( void )
     long                f;
     unsigned long       holes;
     M8STATS             s;
+    int                 fine;
 
     page0 = (unsigned char *)malloc( (size_t)M8_W * M8_H );
     pagex = (unsigned char *)malloc( (size_t)M8_W * M8_H );
     if( page0 == NULL || pagex == NULL ) {
         return( 1 );
     }
-    seed = 4242;
-    for( x = 0; x <= 10; ++x ) {
-        for( y = 0; y <= 8; ++y ) {
-            int jx = ( x == 0 || x == 10 ) ? 0 : rnd( 31 ) - 15;
-            int jy = ( y == 0 || y == 8 ) ? 0 : rnd( 31 ) - 15;
+  for( fine = 0; fine < 2; ++fine ) {
+    int cw = fine ? 15 : 60;
+    int chh = fine ? 14 : 55;
+    int jit = fine ? 4 : 15;
 
-            mx[x][y] = (short)( 20 + x * 60 + jx );
-            my[x][y] = (short)( 20 + y * 55 + jy );
+    mnx = fine ? 40 : 10;
+    mny = fine ? 32 : 8;
+    seed = 4242;
+    for( x = 0; x <= mnx; ++x ) {
+        for( y = 0; y <= mny; ++y ) {
+            int jx = ( x == 0 || x == mnx ) ? 0 : rnd( 2 * jit + 1 ) - jit;
+            int jy = ( y == 0 || y == mny ) ? 0 : rnd( 2 * jit + 1 ) - jit;
+
+            mx[x][y] = (short)( 20 + x * cw + jx );
+            my[x][y] = (short)( 20 + y * chh + jy );
         }
     }
-    for( i = 0; i < 160; ++i ) {
+    for( i = 0; i < 2 * mnx * mny; ++i ) {
         mcol[i] = 1 + rnd( 255 );
     }
-    probe_line( "M8DTEST tileprobe: jittered mesh, 160 triangles, forwards and backwards\n" );
+    sprintf( line, "M8DTEST tileprobe: jittered mesh, %d triangles, forwards and backwards\n", 2 * mnx * mny );
+    probe_line( line );
     for( k = 0; k < 2; ++k ) {
         m8_opt = opts[k];
         if( m8_open() ) {
@@ -709,8 +719,8 @@ static int tileprobe( void )
         }
         m8_close();
         holes = 0;
-        for( y = 21; y < 20 + 8 * 55 - 1; ++y ) {
-            for( x = 21; x < 20 + 10 * 60 - 1; ++x ) {
+        for( y = 21; y < 20 + mny * chh - 1; ++y ) {
+            for( x = 21; x < 20 + mnx * cw - 1; ++x ) {
                 if( page0[y * M8_W + x] == 0 ) {
                     ++holes;
                 }
@@ -720,6 +730,7 @@ static int tileprobe( void )
         probe_line( line );
         probe_diff( "; forwards vs backwards", opts[k], s.outs, page0, pagex );
     }
+  }
     for( k = 0; k < 2; ++k ) {
         unsigned long   ticks;
 

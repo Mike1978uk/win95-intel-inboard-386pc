@@ -1,0 +1,90 @@
+M8DTEST tileprobe: jittered mesh, 160 triangles, forwards and backwards
+ outline rule: 7285 writes a mesh, 0 background pixels inside  ; forwards vs backwards opt 8: 7285 writes, 13080 pixels differ, box 20,20-620,460
+    (20,20) 89 not 7C
+    (69,20) 89 not E9
+    (125,20) CD not 89
+    (200,20) 1C not 91
+ top-left rule (default): 4335 writes a mesh, 0 background pixels inside  ; forwards vs backwards opt 0: 4335 writes, pixels identical
+M8DTEST tileprobe: jittered mesh, 2560 triangles, forwards and backwards
+ outline rule: 113959 writes a mesh, 0 background pixels inside  ; forwards vs backwards opt 8: 113959 writes, 49141 pixels differ, box 20,20-620,468
+    (20,20) 0E not 2B
+    (32,20) 0E not ED
+    (50,20) 27 not EF
+    (61,20) C5 not 57
+ top-left rule (default): 82708 writes a mesh, 1300 background pixels inside  ; forwards vs backwards opt 0: 82708 writes, 9280 pixels differ, box 20,20-620,468
+    (173,20) DC not CE
+    (185,20) DC not F7
+    (229,20) D3 not EA
+    (247,20) D3 not ED
+ bench 50x40 nv outline rule: 46.68 fps, 21.42 ms, 1714.1 writes a frame
+ bench 50x40 nv top-left rule (default): 54.35 fps, 18.40 ms, 1385.0 writes a frame
+M8DTEST regprobe: fill registers one at a time, against the default
+ bench nv default: 54.35 fps, 18.40 ms, 1385.0 writes a frame
+   frame 0 no CUR_X opt 16: 1142 writes, 44341 pixels differ, box 38,52-638,407
+    (502,52) 00 not E9
+    (503,52) 00 not E9
+    (485,53) E9 not 00
+    (486,53) E9 not 00
+   frame 1 no CUR_X opt 16: 1154 writes, 55741 pixels differ, box 0,24-620,400
+    (346,24) 00 not 0F
+    (375,24) 0F not 00
+    (376,24) 0F not 00
+    (377,24) 0F not 00
+   frame 2 no CUR_X opt 16: 1286 writes, 32968 pixels differ, box 45,72-637,379
+    (185,72) B5 not 00
+    (186,72) B5 not 00
+    (187,72) B5 not 00
+    (188,72) B5 not 00
+ bench nv no CUR_X: 53.55 fps, 18.67 ms, 1335.0 writes a frame
+   frame 0 no DEST_X_START opt 32: 1142 writes, 65519 pixels differ, box 24,53-609,407
+    (333,53) E9 not 00
+    (334,53) E9 not 00
+    (335,53) E9 not 00
+    (400,53) E9 not 00
+   frame 1 no DEST_X_START opt 32: 1154 writes, 92412 pixels differ, box 0,24-591,400
+    (126,24) 0F not 00
+    (254,24) 0F not 00
+    (255,24) 0F not 00
+    (256,24) 0F not 00
+   frame 2 no DEST_X_START opt 32: 1286 writes, 53271 pixels differ, box 5,73-598,379
+    (326,73) B5 not 00
+    (327,73) B5 not 00
+    (328,73) B5 not 00
+    (329,73) B5 not 00
+ bench nv no DEST_X_START: 33.10 fps, 30.21 ms, 1335.0 writes a frame
+   frame 0 DESTX_DIASTP once opt 64: 1147 writes, 39472 pixels differ, box 64,52-602,407
+    (502,52) 00 not E9
+    (503,52) 00 not E9
+    (538,53) E9 not 00
+    (539,53) E9 not 00
+   frame 1 DESTX_DIASTP once opt 64: 1159 writes, 44443 pixels differ, box 0,76-591,400
+    (459,76) 00 not C4
+    (468,76) C4 not 00
+    (469,76) C4 not 00
+    (470,76) C4 not 00
+   frame 2 DESTX_DIASTP once opt 64: 1291 writes, 25493 pixels differ, box 44,72-598,379
+    (528,72) B5 not 00
+    (529,72) B5 not 00
+    (530,72) B5 not 00
+    (531,72) B5 not 00
+ bench nv DESTX_DIASTP once: 54.35 fps, 18.40 ms, 1342.0 writes a frame
+   frame 0 DESTY_AXSTP once opt 128: 1147 writes, 45974 pixels differ, box 39,52-600,407
+    (502,52) 00 not E9
+    (503,52) 00 not E9
+    (505,52) E9 not 00
+    (506,52) E9 not 00
+   frame 1 DESTY_AXSTP once opt 128: 1159 writes, 62279 pixels differ, box 0,51-590,400
+    (118,51) 00 not 40
+    (119,51) 00 not 40
+    (120,51) 00 not 40
+    (117,52) 00 not 40
+   frame 2 DESTY_AXSTP once opt 128: 1291 writes, 38774 pixels differ, box 45,72-596,379
+    (548,72) 00 not B5
+    (549,72) 00 not B5
+    (550,72) 00 not B5
+    (551,72) 00 not B5
+ bench nv DESTY_AXSTP once: 54.35 fps, 18.40 ms, 1342.0 writes a frame
+   frame 0 SRC_X_START once opt 256: 1147 writes, pixels identical
+   frame 1 SRC_X_START once opt 256: 1159 writes, pixels identical
+   frame 2 SRC_X_START once opt 256: 1291 writes, pixels identical
+ bench nv SRC_X_START once: 54.35 fps, 18.40 ms, 1342.0 writes a frame
