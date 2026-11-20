@@ -1,0 +1,10 @@
+M8SHOW on the 5160, 2026-11-20 evening (DOS agent boot, BKGD_MIX fix in m8dos)
+v0                    200 frames nv: 18.21 fps, 1083 writes a frame
+  no floor            24.11 fps;  no solids 20.81;  no ground repaint 18.58
+  none drawn          30.09 fps (CPU 33 ms a frame)
+  sort (no depth)     18.03 fps;  quads (no parity) 7.59 fps, 5315 writes a frame
+v2 (edge-only grid, FISTP)
+  full scene          29.60 fps, 1095 writes a frame
+  none drawn          79.16 fps (CPU 12.6 ms a frame)
+FIFO poll gap 0..1000 LOOP passes: 18.39-18.52 fps at v1, no effect (probe removed)
+m8show_29fps.png: grab of frame 100, converted by show2png.py

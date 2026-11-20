@@ -8,6 +8,9 @@ del m8cube32.obj
 rem M8DTEST.EXE: the m8dos card layer's test card and triangle bench.
 wcl386 -q -bt=dos -l=dos32a -ox -4r -fpi87 -fp3 -w4 -fe=M8DTEST.EXE m8dtest.c m8dos.c
 del m8dtest.obj m8dos.obj
+rem M8SHOW.EXE: the DirectXT demo (worklist X36).
+wcl386 -q -bt=dos -l=dos32a -ox -4r -fpi87 -fp3 -w4 -fe=M8SHOW.EXE m8show.c m8dos.c
+del m8show.obj m8dos.obj
 rem M8DTST16.EXE: the same test, 16-bit small model, as the layer goes into real-mode drivers (FS3 CUSTOM.GRA).
 wcl -q -bt=dos -ms -ox -3 -fpi87 -fp3 -w4 -k8192 -DM8_HOSTED -fe=M8DTST16.EXE m8dtest.c m8dos.c
 del m8dtest.obj m8dos.obj
