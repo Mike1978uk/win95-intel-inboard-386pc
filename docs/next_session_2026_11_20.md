@@ -1,4 +1,15 @@
-# Next session - from 2026-11-20 (late afternoon)
+# Next session - from 2026-11-20 (evening)
+
+## START HERE: evening results
+- Card now runs `m8fine.drv` (`be62dab`) + `DXTWALL.BMP` wallpaper, `M8FINE.EXE` in StartUp; owner keeps it.
+  FB16CHK 0 pixels differ after a full refine and after window moves (boot 468). Undo: `M8BACK.REG`.
+- The agent's screenshot fails under this driver (helper error 1460); not looked into.
+- X33: warm DOS-agent boot, CPUCHK `CPU OK`, bench 50.57 fps twice. The CPU lead below does not explain it.
+  Next: bisect the 11-19 m8dos commits (`91f7a12` .. `cd7a1a6`), each benched fast state (warm restart
+  out of Windows) vs slow (after one m8dos exit). Suspect first: `91f7a12` perf mailbox (INT C2h).
+- Card boot menu default is LEAN again (`bootmode.ps1 windows`).
+
+## Earlier (late afternoon)
 
 ## START HERE: X33 lead - the Blue Lightning setting does not always hold
 
