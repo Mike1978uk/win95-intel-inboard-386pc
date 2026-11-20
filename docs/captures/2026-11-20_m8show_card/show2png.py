@@ -1,4 +1,5 @@
-"""M8SHOW.RAW (640x480 palette indices) -> PNG, palette rebuilt as m8show.c build_palette."""
+"""M8SHOW.RAW (640x480 palette indices) -> PNG: the palette after the pixels if there, else
+rebuilt as the first M8SHOW's build_palette."""
 import sys, struct, zlib
 
 def palette():
@@ -22,6 +23,9 @@ def main(src, dst):
     data = open(src, 'rb').read()
     w, h = 640, 480
     pal = palette()
+    if len(data) >= w * h + 768:                    # newer grabs carry their palette
+        p = data[w * h:w * h + 768]
+        pal = [tuple(v * 255 // 63 for v in p[i * 3:i * 3 + 3]) for i in range(256)]
     rows = b''.join(b'\0' + bytes(c for i in data[y * w:(y + 1) * w] for c in pal[i]) for y in range(h))
     def chunk(t, d):
         return struct.pack('>I', len(d)) + t + d + struct.pack('>I', zlib.crc32(t + d) & 0xffffffff)
