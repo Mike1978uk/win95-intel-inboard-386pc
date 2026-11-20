@@ -154,7 +154,7 @@ Result gives the VGA-half fps ceiling without X1/D6.
 
 Still not known: decode cost of Cinepak on this CPU, M8VGAW, which player the card has.
 
-## Issue draft (owner posts) - not yet posted as of 2026-11-20
+## Issue: [#60](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/60), posted 2026-11-20 with this text
 
 ```
 Title: Video playback (AVI) on the 5160: which path and frame size
