@@ -1,0 +1,65 @@
+X33 mode probe 
+mode [] bench 50 40 200 nv 
+DOS/32A warning (9004): mouse initialization failed
+M8DTEST bench 50 tris size 40 vsync off: 200 frames in 72 ticks = 3.95 s, 50.57 fps
+  port writes 258428 (1292.1 a frame), status reads 91510
+  polygons by fill 10000, by spans 0 (2528.7 a s), rects 200, lines 0
+  flip wait polls 184, timeouts 0
+  mailbox: frames 200, last 20000 us, avg 19971 us, 50.09 fps, writes 258428, reads 91322, flags 3
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h
+mode [2] bench 50 40 200 nv 
+DOS/32A warning (9004): mouse initialization failed
+M8DTEST bench 50 tris size 40 vsync off: 200 frames in 72 ticks = 3.95 s, 50.57 fps
+  port writes 258428 (1292.1 a frame), status reads 91394
+  polygons by fill 10000, by spans 0 (2528.7 a s), rects 200, lines 0
+  flip wait polls 70, timeouts 0
+  mailbox: frames 200, last 19997 us, avg 19973 us, 50.09 fps, writes 258428, reads 91320, flags 3
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h
+mode [2] bench 50 40 200 nv 
+DOS/32A warning (9004): mouse initialization failed
+M8DTEST bench 50 tris size 40 vsync off: 200 frames in 72 ticks = 3.95 s, 50.57 fps
+  port writes 258428 (1292.1 a frame), status reads 91451
+  polygons by fill 10000, by spans 0 (2528.7 a s), rects 200, lines 0
+  flip wait polls 118, timeouts 0
+  mailbox: frames 200, last 20001 us, avg 19972 us, 50.09 fps, writes 258428, reads 91329, flags 3
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h
+mode [] bench 50 40 200 nv 
+DOS/32A warning (9004): mouse initialization failed
+M8DTEST bench 50 tris size 40 vsync off: 200 frames in 72 ticks = 3.95 s, 50.57 fps
+  port writes 258428 (1292.1 a frame), status reads 91341
+  polygons by fill 10000, by spans 0 (2528.7 a s), rects 200, lines 0
+  flip wait polls 8, timeouts 0
+  mailbox: frames 200, last 20002 us, avg 19973 us, 50.09 fps, writes 258428, reads 91329, flags 3
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h
+mode [1] bench 50 40 200 nv 
+DOS/32A warning (9004): mouse initialization failed
+M8DTEST bench 50 tris size 40 vsync off: 200 frames in 72 ticks = 3.95 s, 50.57 fps
+  port writes 258432 (1292.2 a frame), status reads 91920
+  polygons by fill 10000, by spans 0 (2528.7 a s), rects 200, lines 0
+  flip wait polls 158, timeouts 0
+  mailbox: frames 200, last 20007 us, avg 19977 us, 50.09 fps, writes 258428, reads 91759, flags 3
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h
+mode [1] bench 1 4 300 
+DOS/32A warning (9004): mouse initialization failed
+M8DTEST bench 1 tris size 4 vsync on: 300 frames in 75 ticks = 4.12 s, 72.83 fps
+  port writes 14714 (49.0 a frame), status reads 275583
+  polygons by fill 300, by spans 0 (72.8 a s), rects 300, lines 0
+  flip wait polls 29050, timeouts 0
+  mailbox: frames 300, last 13866 us, avg 13851 us, 72.20 fps, writes 14714, reads 275477, flags 3
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h
+mode [1] bench 50 40 200 nv 
+DOS/32A warning (9004): mouse initialization failed
+M8DTEST bench 50 tris size 40 vsync off: 200 frames in 72 ticks = 3.95 s, 50.57 fps
+  port writes 258432 (1292.2 a frame), status reads 91920
+  polygons by fill 10000, by spans 0 (2528.7 a s), rects 200, lines 0
+  flip wait polls 159, timeouts 0
+  mailbox: frames 200, last 20008 us, avg 19973 us, 50.09 fps, writes 258428, reads 91758, flags 3
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h
+mode [] bench 50 40 200 nv 
+DOS/32A warning (9004): mouse initialization failed
+M8DTEST bench 50 tris size 40 vsync off: 200 frames in 72 ticks = 3.95 s, 50.57 fps
+  port writes 258428 (1292.1 a frame), status reads 91859
+  polygons by fill 10000, by spans 0 (2528.7 a s), rects 200, lines 0
+  flip wait polls 126, timeouts 0
+  mailbox: frames 200, last 20007 us, avg 19974 us, 50.09 fps, writes 258428, reads 91729, flags 3
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h

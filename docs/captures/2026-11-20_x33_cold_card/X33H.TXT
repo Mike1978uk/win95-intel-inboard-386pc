@@ -1,0 +1,24 @@
+HEAD 
+DOS/32A warning (9004): mouse initialization failed
+M8DTEST bench 50 tris size 40 vsync off: 200 frames in 72 ticks = 3.95 s, 50.57 fps
+  port writes 268399 (1342.0 a frame), status reads 90093
+  polygons by fill 10000, by spans 0 (2528.7 a s), rects 200, lines 0
+  flip wait polls 137, timeouts 0
+  mailbox: frames 200, last 20032 us, avg 20013 us, 50.00 fps, writes 268399, reads 89952, flags 3
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h
+AM 
+DOS/32A warning (9004): mouse initialization failed
+M8DTEST bench 50 tris size 40 vsync off: 200 frames in 72 ticks = 3.95 s, 50.57 fps
+  port writes 268399 (1342.0 a frame), status reads 90160
+  polygons by fill 10000, by spans 0 (2528.7 a s), rects 200, lines 0
+  flip wait polls 168, timeouts 0
+  mailbox: frames 200, last 20038 us, avg 20013 us, 50.00 fps, writes 268399, reads 89988, flags 3
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h
+HEAD 
+DOS/32A warning (9004): mouse initialization failed
+M8DTEST bench 50 tris size 40 vsync off: 200 frames in 72 ticks = 3.95 s, 50.57 fps
+  port writes 268399 (1342.0 a frame), status reads 90164
+  polygons by fill 10000, by spans 0 (2528.7 a s), rects 200, lines 0
+  flip wait polls 180, timeouts 0
+  mailbox: frames 200, last 20035 us, avg 20012 us, 50.00 fps, writes 268399, reads 89980, flags 3
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h

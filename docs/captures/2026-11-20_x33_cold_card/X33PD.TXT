@@ -1,0 +1,44 @@
+A packet driver loaded 
+DOS/32A warning (9004): mouse initialization failed
+M8DTEST bench 50 tris size 40 vsync off: 200 frames in 72 ticks = 3.95 s, 50.57 fps
+  port writes 258428 (1292.1 a frame), status reads 89469
+  polygons by fill 10000, by spans 0 (2528.7 a s), rects 200, lines 0
+  flip wait polls 152, timeouts 0
+  mailbox: frames 200, last 20040 us, avg 20015 us, 50.00 fps, writes 258428, reads 89313, flags 3
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h
+DOS/32A warning (9004): mouse initialization failed
+M8DTEST bench 50 tris size 40 vsync off: 200 frames in 72 ticks = 3.95 s, 50.57 fps
+  port writes 258428 (1292.1 a frame), status reads 89520
+  polygons by fill 10000, by spans 0 (2528.7 a s), rects 200, lines 0
+  flip wait polls 156, timeouts 0
+  mailbox: frames 200, last 20043 us, avg 20016 us, 50.00 fps, writes 258428, reads 89360, flags 3
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h
+B unload 
+
+3Com EtherLink III Packet Driver v1.1
+(C) Copyright 1993 3Com Corp.  All rights reserved.
+Uninstall completed.
+
+DOS/32A warning (9004): mouse initialization failed
+M8DTEST bench 50 tris size 40 vsync off: 200 frames in 72 ticks = 3.95 s, 50.57 fps
+  port writes 258428 (1292.1 a frame), status reads 89333
+  polygons by fill 10000, by spans 0 (2528.7 a s), rects 200, lines 0
+  flip wait polls 39, timeouts 0
+  mailbox: frames 200, last 20051 us, avg 19984 us, 50.04 fps, writes 258428, reads 89290, flags 3
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h
+DOS/32A warning (9004): mouse initialization failed
+M8DTEST bench 50 tris size 40 vsync off: 200 frames in 72 ticks = 3.95 s, 50.57 fps
+  port writes 258428 (1292.1 a frame), status reads 89516
+  polygons by fill 10000, by spans 0 (2528.7 a s), rects 200, lines 0
+  flip wait polls 185, timeouts 0
+  mailbox: frames 200, last 20036 us, avg 19986 us, 50.04 fps, writes 258428, reads 89327, flags 3
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h
+C reload 
+
+3Com EtherLink III Packet Driver v1.1
+(C) Copyright 1993 3Com Corp.  All rights reserved.
+I/O base:                800 (0x320)
+Interrupt:               2 (0x2)
+Transceiver:             Twisted Pair (10BaseT)
+Ethernet Address:        00:20:AF:6F:10:5E
+Packet Driver Interrupt: 96 (0x60)

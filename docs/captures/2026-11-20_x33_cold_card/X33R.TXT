@@ -1,0 +1,7 @@
+DOS/32A warning (9004): mouse initialization failed
+M8DTEST bench 50 tris size 40 vsync off: 200 frames in 67 ticks = 3.68 s, 54.35 fps
+  port writes 258428 (1292.1 a frame), status reads 46490
+  polygons by fill 10000, by spans 0 (2717.4 a s), rects 200, lines 0
+  flip wait polls 0, timeouts 0
+  mailbox: frames 200, last 18851 us, avg 18449 us, 54.24 fps, writes 258428, reads 46487, flags 3
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h
