@@ -36,6 +36,13 @@ static int m8_fb16_same( WORD sel, DWORD off, WORD n, WORD v );
 #define M8_FB16_MAXH    600
 #define M8_FB16_PITCH   ((DWORD)m8_scr_x * 2)
 
+/* Row y's byte offset in the frame buffer by one MUL, as dd16.c's m8dd_mul: the
+ * compiler's 32-bit multiply is a call into _TEXT, which the cold segment cannot
+ * make near, and a call on every row of a send. y < 600 and the pitch <= 1600. */
+static DWORD m8_fb16_mul( WORD a, WORD b );
+#pragma aux m8_fb16_mul = "mul dx" parm [ax] [dx] value [dx ax];
+#define M8_FB16_ROWOFF( y ) m8_fb16_mul( (WORD)(y), (WORD)(m8_scr_x * 2) )
+
 int                     m8_fb16;        /* this session's screen is 16 bpp */
 RGBQUAD                 m8_fb16_pal[256];
 
@@ -58,6 +65,21 @@ static HGLOBAL          m8_fb16_hmem;
 static DWORD FAR        *m8_fb16_hash;  /* rows x m8_fb16_nseg */
 static int              m8_fb16_nseg;
 
+/* Fine dither: when the screen has been still for a while, m8_fb16_refine sends
+ * the pieces whose fingerprint matches RAM again, dithered by the R2 sequence
+ * (aperiodic, as m8d3d.c's patches) instead of the 4x4 Bayer matrix: a high
+ * colour picture without the cross-hatch. 1 = the card shows the piece that way.
+ * A send or fill over a piece clears it. A copy moves fine pieces' dither with
+ * them: still noise to the eye, but not what FB16CHK expects there until the next
+ * send. Forgotten pieces are never refined: they also mark where Direct3D drew on
+ * the card, which a send from RAM would overwrite. */
+static HGLOBAL          m8_fb16_fmem;
+static BYTE FAR         *m8_fb16_fine;  /* rows x m8_fb16_nseg */
+static DWORD            m8_fb16_drawn;  /* BIOS tick of the last drawing call */
+#define M8_FB16_TICKS   (*(volatile DWORD FAR *)MK_FP( 0x40, 0x6C ))
+#define M8_FB16_STILL   8               /* ticks (55 ms) without drawing before refining */
+#define M8_FB16_FINE_PX 6144L           /* pixels sent a refine call: ~25 ms of bus */
+
 #pragma pack( push, 1 )
 typedef struct {
     WORD    fbsel;
@@ -74,6 +96,8 @@ static M8_FB16_RD       m8_fb16_rd;
 
 extern void M8_FB16_ROWDIFF( WORD rd );
 #pragma aux M8_FB16_ROWDIFF "*" parm [bx] modify [];
+
+static HGLOBAL __far m8_fb16_pageable( WORD flags, DWORD size );
 
 /* What the open calls touched: a few rectangles, so a copy's source and
  * destination are not sent as the box around both. */
@@ -143,6 +167,12 @@ static const BYTE m8_fb16_bayer[4][4] = {
     { 15,  7, 13,  5 }
 };
 
+/* Cold code (the tables, the allocation, FB16CHK) lives in dd16.c's segment: the
+ * compact model's one code segment is full. What is called across the two is far:
+ * m8_fb16_alloc, m8_fb16_pageable, m8_fb16_check, m8_fb16_row_fine and FB16CHK's
+ * three helpers. Code in it must not use 32-bit multiply or divide: the
+ * compiler's helpers for them sit in _TEXT. */
+#pragma code_seg ( "M8DD_TEXT", "CODE" )
 /* The level that channel value v of `bits` bits stores exactly, or -1. The
  * DIB Engine stores an 8-bit value c as c * max / 255 rounded down (colours
  * GDI realizes) or as c's top bits (DIBs it converts). Only those codes
@@ -187,7 +217,7 @@ static BYTE m8_fb16_level( int v, int bits, const BYTE *lv, int n, int t )
     }
     for( i = 0; i < n - 1 && e > lv[i + 1]; ++i ) {
     }
-    if( (long)(e - lv[i]) * 32 > (long)(2 * t + 1) * (lv[i + 1] - lv[i]) ) {
+    if( (e - lv[i]) * 32 > (2 * t + 1) * (lv[i + 1] - lv[i]) ) {
         ++i;
     }
     return( (BYTE)i );
@@ -264,6 +294,7 @@ static void m8_fb16_tables( void )
         }
     }
 }
+#pragma code_seg ( "_TEXT", "CODE" )
 
 static WORD m8_fb16_src[M8_FB16_MAXW];
 
@@ -319,7 +350,7 @@ static void m8_fb16_row( BYTE FAR *dst, int y, int l, int r )
     if( r <= l ) {
         return;
     }
-    m8_copy32( m8_fb16_sel, (DWORD)y * M8_FB16_PITCH + (DWORD)l * 2, (BYTE FAR *)m8_fb16_src,
+    m8_copy32( m8_fb16_sel, M8_FB16_ROWOFF( y ) + (DWORD)l * 2, (BYTE FAR *)m8_fb16_src,
                (WORD)((r - l) * 2) );
     if( m8_ov.on ) {
         m8_ov_merge( (WORD FAR *)m8_fb16_src, y, l, r );
@@ -327,32 +358,6 @@ static void m8_fb16_row( BYTE FAR *dst, int y, int l, int r )
     m8_fb16_conv( dst, y, l, r - l );
 }
 
-/* The same row a pixel at a time in C: FB16CHK's reference, so the check
- * does not trust the routine it checks. */
-static void m8_fb16_row_ref( BYTE FAR *dst, int y, int l, int r )
-{
-    const BYTE  *th = m8_fb16_bayer[y & 3];
-    WORD        *p = m8_fb16_src;
-    WORD        c;
-    WORD        rb;
-    WORD        g;
-    int         t;
-    int         x;
-
-    m8_copy32( m8_fb16_sel, (DWORD)y * M8_FB16_PITCH + (DWORD)l * 2, (BYTE FAR *)m8_fb16_src,
-               (WORD)((r - l) * 2) );
-    for( x = l; x < r; ++x ) {
-        c = *p++;
-        t = th[x & 3];
-        rb = c & 31;
-        g = (c >> 5) & 63;
-        if( (c >> 11) == rb && (g >> 1) == rb ) {
-            *dst++ = m8_fb16_y[t][g];
-        } else {
-            *dst++ = m8_fb16_cube[m8_fb16_r[t][c >> 11] + m8_fb16_g[t][g] + m8_fb16_b[t][rb]];
-        }
-    }
-}
 
 /* The pieces under l, t .. r, b no longer known to match the card. */
 static void m8_fb16_forget( int l, int t, int r, int b )
@@ -377,6 +382,9 @@ static void m8_fb16_forget( int l, int t, int r, int b )
     for( y = t; y < b; ++y ) {
         for( s = s0; s <= s1; ++s ) {
             m8_fb16_hash[(long)y * m8_fb16_nseg + s] = 0;
+            if( m8_fb16_fine != NULL ) {
+                m8_fb16_fine[(long)y * m8_fb16_nseg + s] = 0;
+            }
         }
     }
 }
@@ -423,6 +431,9 @@ static void m8_fb16_known( int l, int t, int r, int b, WORD c )
     for( y = t; y < b; ++y ) {
         for( s = f0; s < f1; ++s ) {
             m8_fb16_hash[(long)y * m8_fb16_nseg + s] = h;
+            if( m8_fb16_fine != NULL ) {
+                m8_fb16_fine[(long)y * m8_fb16_nseg + s] = 0;
+            }
         }
     }
 }
@@ -435,13 +446,17 @@ static int m8_fb16_changed( int y, int l, int r, int *cl, int *cr )
     int s1 = (r - 1) / M8_FB16_SEG_W;
 
     m8_fb16_rd.fbsel = m8_fb16_sel;
-    m8_fb16_rd.fboff = (DWORD)y * M8_FB16_PITCH + (DWORD)s0 * (M8_FB16_SEG_W * 2);
+    m8_fb16_rd.fboff = M8_FB16_ROWOFF( y ) + (DWORD)s0 * (M8_FB16_SEG_W * 2);
     m8_fb16_rd.htsel = FP_SEG( m8_fb16_hash );
     m8_fb16_rd.htoff = FP_OFF( m8_fb16_hash ) + (WORD)(((long)y * m8_fb16_nseg + s0) * 4);
     m8_fb16_rd.count = (WORD)(s1 - s0 + 1);
     M8_FB16_ROWDIFF( FP_OFF( &m8_fb16_rd ) );
     if( m8_fb16_rd.first < 0 ) {
         return( 0 );
+    }
+    if( m8_fb16_fine != NULL ) {
+        _fmemset( m8_fb16_fine + (long)y * m8_fb16_nseg + s0 + m8_fb16_rd.first, 0,
+                  m8_fb16_rd.last - m8_fb16_rd.first + 1 );
     }
     *cl = (s0 + m8_fb16_rd.first) * M8_FB16_SEG_W > l ? (s0 + m8_fb16_rd.first) * M8_FB16_SEG_W : l;
     *cr = (s0 + m8_fb16_rd.last + 1) * M8_FB16_SEG_W < r ? (s0 + m8_fb16_rd.last + 1) * M8_FB16_SEG_W : r;
@@ -554,6 +569,112 @@ static void m8_fb16_send( int l, int t, int r, int b )
     --m8_fb16_sending;
 }
 
+/* Row y, columns l .. r - 1, dithered by the R2 sequence: the threshold of pixel
+ * (x, y) is frac(0.7549 x + 0.5698 y) in 16ths, the same tables as the 4x4
+ * matrix, so a colour on a palette entry comes out the same either way. */
+static void __far m8_fb16_row_fine( BYTE FAR *dst, int y, int l, int r )
+{
+    WORD    *p = m8_fb16_src;
+    WORD    a = (WORD)((WORD)l * 49473u + (WORD)y * 37345u);
+    WORD    c;
+    WORD    rb;
+    WORD    g;
+    int     t;
+    int     x;
+
+    m8_copy32( m8_fb16_sel, M8_FB16_ROWOFF( y ) + (DWORD)l * 2, (BYTE FAR *)m8_fb16_src,
+               (WORD)((r - l) * 2) );
+    for( x = l; x < r; ++x, a += 49473u ) {
+        c = *p++;
+        t = a >> 12;
+        rb = c & 31;
+        g = (c >> 5) & 63;
+        if( (c >> 11) == rb && (g >> 1) == rb ) {
+            *dst++ = m8_fb16_y[t][g];
+        } else {
+            *dst++ = m8_fb16_cube[m8_fb16_r[t][c >> 11] + m8_fb16_g[t][g] + m8_fb16_b[t][rb]];
+        }
+    }
+}
+
+/* M8_ESC_FB16FINE, from M8FINE.EXE's timer: once nothing has been drawn for
+ * M8_FB16_STILL ticks, the next rows of pieces the card shows as RAM holds them
+ * (fingerprint set) but with the 4x4 dither go again with the fine one. A piece
+ * both ways alike (a colour on a palette entry: most of a desktop) costs the CPU
+ * only. out: pixels sent, pieces made fine, rows looked at, 1 once a whole pass
+ * found nothing to do. */
+static int      m8_fb16_fine_y;
+static int      m8_fb16_fine_left;      /* pieces made fine since the pass began */
+
+void m8_fb16_refine( DWORD FAR *out )
+{
+    BYTE    *coarse = m8_fb16_band;
+    BYTE    *fine = m8_fb16_band + M8_FB16_MAXW;
+    long    sent = 0;
+    int     rows = 0;
+    int     y;
+
+    out[0] = out[1] = out[2] = out[3] = 0;
+    if( m8_fb16_hash == NULL || m8_fb16_fine == NULL || m8_fb16_sending || m8_fb16_depth ||
+        m8_fb16_sel != m8_fb16_msel || m8_ov.on ||
+        M8_FB16_TICKS - m8_fb16_drawn < M8_FB16_STILL ) {
+        return;
+    }
+    m8_fb16_entered();
+    while( sent < M8_FB16_FINE_PX && rows < m8_scr_y ) {
+        DWORD FAR   *h;
+        BYTE FAR    *fb;
+        int         s;
+        int         any = 0;
+        int         run = -1;
+
+        if( m8_fb16_fine_y >= m8_scr_y ) {
+            m8_fb16_fine_y = 0;
+            if( m8_fb16_fine_left == 0 ) {
+                out[3] = 1;
+                break;
+            }
+            m8_fb16_fine_left = 0;
+        }
+        y = m8_fb16_fine_y++;
+        ++rows;
+        h = m8_fb16_hash + (long)y * m8_fb16_nseg;
+        fb = m8_fb16_fine + (long)y * m8_fb16_nseg;
+        for( s = 0; s < m8_scr_x / M8_FB16_SEG_W; ++s ) {
+            any |= h[s] != 0 && fb[s] == 0;
+        }
+        if( !any ) {
+            continue;
+        }
+        m8_fb16_row( (BYTE FAR *)coarse, y, 0, m8_scr_x );
+        m8_fb16_row_fine( (BYTE FAR *)fine, y, 0, m8_scr_x );
+        m8_cur_lift( 0, y, m8_scr_x, y + 1 );
+        for( s = 0; s <= m8_scr_x / M8_FB16_SEG_W; ++s ) {
+            int x = s * M8_FB16_SEG_W;
+            int differ = 0;
+
+            if( s < m8_scr_x / M8_FB16_SEG_W && h[s] != 0 && fb[s] == 0 ) {
+                differ = _fmemcmp( coarse + x, fine + x, M8_FB16_SEG_W ) != 0;
+                fb[s] = 1;
+                ++out[1];
+                ++m8_fb16_fine_left;
+            }
+            if( differ && run < 0 ) {
+                run = x;
+            } else if( !differ && run >= 0 ) {
+                m8_hw_write_rect( run, y, x - run, 1, (BYTE FAR *)(fine + run), (WORD)(x - run) );
+                sent += x - run;
+                run = -1;
+            }
+        }
+        m8_leave();
+    }
+    out[0] = sent;
+    out[2] = rows;
+    m8_fb16_stat[2] += sent;
+    --m8_fb16_sending;
+}
+
 /* Smaller than this, a one-colour rectangle goes as pixels: the scan and the
  * copies would cost more than the bytes. */
 #define M8_FB16_SOLID_MIN   64
@@ -561,7 +682,7 @@ static void m8_fb16_send( int l, int t, int r, int b )
 /* 1 if every pixel of the rectangle is the 5-6-5 colour *c. */
 static int m8_fb16_uniform( int l, int t, int r, int b, WORD *c )
 {
-    DWORD   off = (DWORD)t * M8_FB16_PITCH + (DWORD)l * 2;
+    DWORD   off = M8_FB16_ROWOFF( t ) + (DWORD)l * 2;
     WORD    v;
     int     y;
 
@@ -720,7 +841,7 @@ void m8_fb16_send_rect( int l, int t, int r, int b, int solid )
         } else if( r > l && b > t ) {
             WORD c;
 
-            m8_copy32( m8_fb16_sel, (DWORD)t * M8_FB16_PITCH + (DWORD)l * 2, (BYTE FAR *)&c, 2 );
+            m8_copy32( m8_fb16_sel, M8_FB16_ROWOFF( t ) + (DWORD)l * 2, (BYTE FAR *)&c, 2 );
             m8_fb16_solid( l, t, r, b, c );
         }
         return;
@@ -809,6 +930,7 @@ static VOID WINAPI __loadds m8_fb16_end( LPPDEVICE lpDevice, WORD wFlags )
     int k;
 
     DIB_EndAccess( lpDevice, wFlags );
+    m8_fb16_drawn = M8_FB16_TICKS;
     if( m8_fb16_depth > 0 && --m8_fb16_depth == 0 ) {
         /* GDI draws in the frame buffer only. With the back buffer on show, what it
          * drew is not visible, and a send would read the back buffer's RAM, which a
@@ -1036,7 +1158,7 @@ static void m8_fb16_scan_sent( WORD wStyle, WORD wCount, const short FAR *w, LPR
                 box.r = x1;
                 box.b = y1;
                 any = 1;
-                m8_copy32( m8_fb16_sel, (DWORD)y0 * M8_FB16_PITCH + (DWORD)x0 * 2,
+                m8_copy32( m8_fb16_sel, M8_FB16_ROWOFF( y0 ) + (DWORD)x0 * 2,
                            (BYTE FAR *)&c, 2 );
             } else {
                 if( x0 < box.l ) box.l = x0;
@@ -1045,7 +1167,7 @@ static void m8_fb16_scan_sent( WORD wStyle, WORD wCount, const short FAR *w, LPR
                 if( y1 > box.b ) box.b = y1;
             }
             for( y = y0; one && y < y1; ++y ) {
-                if( !m8_fb16_same( m8_fb16_sel, (DWORD)y * M8_FB16_PITCH + (DWORD)x0 * 2,
+                if( !m8_fb16_same( m8_fb16_sel, M8_FB16_ROWOFF( y ) + (DWORD)x0 * 2,
                                    (WORD)(x1 - x0), c ) ) {
                     one = 0;
                 }
@@ -1188,7 +1310,8 @@ void m8_fb16_clear( void )
 /* A block at a fixed linear address that may still be paged: DirectDraw holds the address, but
  * only ring 3 touches the bytes, where a page fault is allowed. The cursor runs at interrupt time
  * and draws through the engine, never from these. GMEM_FIXED from a DLL would hold it in RAM. */
-static HGLOBAL m8_fb16_pageable( WORD flags, DWORD size )
+#pragma code_seg ( "M8DD_TEXT", "CODE" )
+static HGLOBAL __far m8_fb16_pageable( WORD flags, DWORD size )
 {
     HGLOBAL h = GlobalAlloc( GMEM_MOVEABLE | flags, size );
 
@@ -1199,7 +1322,7 @@ static HGLOBAL m8_fb16_pageable( WORD flags, DWORD size )
 }
 
 /* The frame buffer, once. 0 = no memory. */
-int m8_fb16_alloc( void )
+int __far m8_fb16_alloc( void )
 {
     if( m8_fb16_sel != 0 ) {
         return( 1 );
@@ -1215,12 +1338,17 @@ int m8_fb16_alloc( void )
     m8_fb16_tables();
     /* The fingerprints, if memory allows: without them every send is whole. */
     m8_fb16_nseg = M8_FB16_MAXW / M8_FB16_SEG_W;
-    m8_fb16_hmem = m8_fb16_pageable( GMEM_ZEROINIT, (DWORD)M8_FB16_MAXH * m8_fb16_nseg * sizeof( DWORD ) );
-    if( m8_fb16_hmem != 0 && (DWORD)M8_FB16_MAXH * m8_fb16_nseg * sizeof( DWORD ) < 0x10000UL ) {
+    m8_fb16_hmem = m8_fb16_pageable( GMEM_ZEROINIT, (DWORD)M8_FB16_MAXH * (M8_FB16_MAXW / M8_FB16_SEG_W) * sizeof( DWORD ) );
+    if( m8_fb16_hmem != 0 && (DWORD)M8_FB16_MAXH * (M8_FB16_MAXW / M8_FB16_SEG_W) * sizeof( DWORD ) < 0x10000UL ) {
         m8_fb16_hash = (DWORD FAR *)GlobalLock( m8_fb16_hmem );
+        m8_fb16_fmem = m8_fb16_pageable( GMEM_ZEROINIT, (DWORD)M8_FB16_MAXH * (M8_FB16_MAXW / M8_FB16_SEG_W) );
+        if( m8_fb16_fmem != 0 ) {
+            m8_fb16_fine = (BYTE FAR *)GlobalLock( m8_fb16_fmem );
+        }
     }
     return( 1 );
 }
+#pragma code_seg ( "_TEXT", "CODE" )
 
 /* The screen device over the frame buffer. `info` has room for the header
  * and three colour masks. */
@@ -1259,10 +1387,46 @@ void m8_fb16_device( LPDIBENGINE dev, LPBITMAPINFO info )
     m8_fb16_depth = 0;
 }
 
+/* FB16CHK runs from the cold segment: the helpers it needs, reached far. */
+static void __far m8_fb16_lift_far( int l, int t, int r, int b ) { m8_cur_lift( l, t, r, b ); }
+static void __far m8_fb16_leave_far( void ) { m8_leave(); }
+static void __far m8_fb16_read_far( int x, int y, int w, int h, BYTE FAR *dst, WORD pitch )
+{
+    m8_hw_read_rect( x, y, w, h, dst, pitch );
+}
+
+#pragma code_seg ( "M8DD_TEXT", "CODE" )
+/* The same row a pixel at a time in C: FB16CHK's reference, so the check
+ * does not trust the routine it checks. */
+static void m8_fb16_row_ref( BYTE FAR *dst, int y, int l, int r )
+{
+    const BYTE  *th = m8_fb16_bayer[y & 3];
+    WORD        *p = m8_fb16_src;
+    WORD        c;
+    WORD        rb;
+    WORD        g;
+    int         t;
+    int         x;
+
+    m8_copy32( m8_fb16_sel, M8_FB16_ROWOFF( y ) + (DWORD)l * 2, (BYTE FAR *)m8_fb16_src,
+               (WORD)((r - l) * 2) );
+    for( x = l; x < r; ++x ) {
+        c = *p++;
+        t = th[x & 3];
+        rb = c & 31;
+        g = (c >> 5) & 63;
+        if( (c >> 11) == rb && (g >> 1) == rb ) {
+            *dst++ = m8_fb16_y[t][g];
+        } else {
+            *dst++ = m8_fb16_cube[m8_fb16_r[t][c >> 11] + m8_fb16_g[t][g] + m8_fb16_b[t][rb]];
+        }
+    }
+}
+
 /* The card against the frame buffer, row by row, with the pointer lifted:
  * out[0] = pixels that differ from what the frame buffer dithers to, out[1..4]
  * = the box around them (left, top, right, bottom; exclusive). */
-void m8_fb16_check( DWORD FAR *out )
+void __far m8_fb16_check( DWORD FAR *out )
 {
     BYTE    *want = m8_fb16_band;
     BYTE    *have = m8_fb16_band + m8_scr_x;
@@ -1275,10 +1439,21 @@ void m8_fb16_check( DWORD FAR *out )
     out[3] = 0;
     out[4] = 0;
     out[5] = m8_fb16_reenter;
-    m8_cur_lift( 0, 0, m8_scr_x, m8_scr_y );
+    m8_fb16_lift_far( 0, 0, m8_scr_x, m8_scr_y );
     for( y = 0; y < m8_scr_y; ++y ) {
         m8_fb16_row_ref( (BYTE FAR *)want, y, 0, m8_scr_x );
-        m8_hw_read_rect( 0, y, m8_scr_x, 1, (BYTE FAR *)have, m8_scr_x );
+        if( m8_fb16_fine != NULL ) {
+            BYTE    *fw = m8_fb16_band + 2 * m8_scr_x;
+            int     s;
+
+            m8_fb16_row_fine( (BYTE FAR *)fw, y, 0, m8_scr_x );
+            for( s = 0; s < m8_scr_x / M8_FB16_SEG_W; ++s ) {
+                if( m8_fb16_fine[(long)y * m8_fb16_nseg + s] ) {
+                    memcpy( want + s * M8_FB16_SEG_W, fw + s * M8_FB16_SEG_W, M8_FB16_SEG_W );
+                }
+            }
+        }
+        m8_fb16_read_far( 0, y, m8_scr_x, 1, (BYTE FAR *)have, m8_scr_x );
         for( x = 0; x < m8_scr_x; ++x ) {
             if( want[x] != have[x] ) {
                 ++out[0];
@@ -1289,8 +1464,9 @@ void m8_fb16_check( DWORD FAR *out )
             }
         }
     }
-    m8_leave();
+    m8_fb16_leave_far();
 }
+#pragma code_seg ( "_TEXT", "CODE" )
 
 /* M8_ESC_FB16BATCH: M8DD32's flip in one call. `in` is a count, then that
  * many entries of six WORDs: op, l, t, r, b, arg. Ops: 0 send (arg as
@@ -1326,6 +1502,7 @@ void m8_fb16_batch( const WORD FAR *in, DWORD FAR *out )
     /* Registers are written afresh at each flip: the shadows have been found
      * stale here (a black fill drawn white), cause not yet found. */
     m8_hw_forget();
+    m8_fb16_drawn = M8_FB16_TICKS;
     for( n = in[0]; n > 0; --n, e += 6 ) {
         l = (short)e[1] < 0 ? 0 : (short)e[1];
         t = (short)e[2] < 0 ? 0 : (short)e[2];

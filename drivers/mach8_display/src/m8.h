@@ -266,13 +266,14 @@ extern void __far m8_ov_merge( WORD FAR *src, int y, int l, int r );
 extern int     m8_fb16;
 extern RGBQUAD m8_fb16_pal[256];
 extern DWORD   m8_fb16_stat[5];
-extern int  m8_fb16_alloc( void );
+extern int  __far m8_fb16_alloc( void );
 extern void m8_fb16_device( LPDIBENGINE dev, LPBITMAPINFO info );
 extern void m8_fb16_send_all( void );
 extern void m8_cur_lift( int l, int t, int r, int b );
 extern void m8_cur_reset( void );
 extern void m8_cur_suspend( void );
-extern void m8_fb16_check( DWORD FAR *out );
+extern void __far m8_fb16_check( DWORD FAR *out );
+extern void m8_fb16_refine( DWORD FAR *out );
 extern void m8_fb16_send_rect( int l, int t, int r, int b, int solid );
 extern DWORD __far m8_fb16_lin( void );
 extern void m8_fb16_copy_rect( int sx, int sy, int l, int t, int r, int b );
@@ -349,6 +350,7 @@ extern LONG m8_poly_escape( LPVOID lpInput, LPVOID lpOutput );
 #define M8_ESC_POLY         0x4D3F      /* poly3d.c: begin, frame, end */
 #define M8_ESC_FB16BATCH    0x4D40      /* in: m8_fb16_batch's list; out: a DWORD */
 #define M8_ESC_STATS        0x4D41      /* out: m8_stats (M8MON; M8DD32's 8 bpp Lock) */
+#define M8_ESC_FB16FINE     0x4D42      /* out: 4 DWORDs, m8_fb16_refine (M8FINE.EXE's timer) */
 #define M8_PF_STYLES        64
 #define M8_PF_N             10      /* BitBlt ExtTextOut Output Pixel StrBlt DibToDevice
                                      * StretchBlt StretchDIBits SaveScreenBitmap ScanLR */

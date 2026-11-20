@@ -473,6 +473,10 @@ LONG WINAPI __loadds Control( LPVOID lpDevice, UINT function, LPVOID lpInput, LP
         _fmemcpy( lpOutput, m8_fb16_stat, 4 * sizeof( DWORD ) );
         return( 1 );
     }
+    if( function == M8_ESC_FB16FINE && lpOutput != NULL && m8_fb16 ) {
+        m8_fb16_refine( (DWORD FAR *)lpOutput );
+        return( 1 );
+    }
     if( function == M8_ESC_FB16CHECK && lpOutput != NULL && m8_fb16 ) {
         m8_fb16_check( (DWORD FAR *)lpOutput );
         return( 1 );
