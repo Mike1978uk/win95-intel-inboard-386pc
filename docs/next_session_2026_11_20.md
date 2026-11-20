@@ -9,6 +9,14 @@
   out of Windows) vs slow (after one m8dos exit). Suspect first: `91f7a12` perf mailbox (INT C2h).
 - Card boot menu default is LEAN again (`bootmode.ps1 windows`).
 
+## Later the same evening
+- **X33 closed:** `BKGD_MIX` LEAVE, set at m8dos open since `f22304a`, persists after exit and costs ~8 %.
+  m8dos now uses 0x0007 and LEAVE only around dither blits. Benches since 11-19 16:50 that ran after
+  any newer m8dos were in the slow state; re-measure anything compared against them.
+- **X36 demo `M8SHOW`** (`tools/dos3d/m8show.c`): 29.6 fps on the card, CPU-bound. Grabs:
+  `M8SHOW 200 nv grab 100` then convert `M8SHOW.RAW` (palette rebuilt as `build_palette`).
+- Windows side next: D14 (a) profile D3DIM by symbols on tunnel; then the same scene as a Direct3D program.
+
 ## Earlier (late afternoon)
 
 ## START HERE: X33 lead - the Blue Lightning setting does not always hold
