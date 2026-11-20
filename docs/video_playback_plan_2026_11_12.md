@@ -130,7 +130,31 @@ Result gives the VGA-half fps ceiling without X1/D6.
 - [ ] Encode the clips; play `cp160.avi` in MPLAYER, note fps and idle.
 - [ ] Decide X1/D6 on the M8VGAW and flush results; record in worklist.
 
-## Issue draft (owner posts)
+## What later work gives video (added 2026-11-20)
+
+- **The 16 bpp desktop already sends only changed pieces** (`fb16.c`: a fingerprint per 32 pixels of a
+  row; a send skips pieces whose fingerprint has not changed). Cinepak and Video 1 decode to the display
+  depth, so at 16 bpp a frame whose blocks were skipped costs the bus only the pieces that changed - the
+  delta saving in path 4 comes free, with no codec-specific code. Each frame is dithered into the fixed
+  palette on the way (Bayer 4x4; the fine R2 pass only runs on still screens).
+- **Palette-exact 8-bit frames show without a second dither** (X37, `tools/wallpaper/m8pal_wall.py`): a
+  clip quantised offline into the fb16 palette (8-bit AVI, e.g. MS-RLE or Video 1 8-bit) has every
+  colour on an entry, so the desktop shows its pixels as they are and fingerprints hold between frames.
+- **Profiling a player is now possible** (`tools/eipsamp`, worklist D14 a): samples a Win95 program's
+  main thread by module, so a MPLAYER run splits into decode (ICCVID/MSVIDC), our driver (16-bit code),
+  DirectDraw and waits. First use on tunnel: D3DIM 4.3 %, ~30 % blocked on a lock, ~38 % 16-bit code.
+- **XT-CF read rate, derived** (not timed end to end): word transfers 3.82 us/B (technique 109e) and
+  ~240 us per 8-sector command (XTLAT, 2026-10-10) give roughly 230-250 KB/s, against ~90 KB/s for a
+  12 fps 160x120 Cinepak clip. The disk is not the limit; the send and decode are.
+- **ISA memory vs I/O** (technique 128d, reads): an ISA memory read costs 2.86 us/B against 5.70 for an
+  I/O byte. The VGA half is reached as memory, so path 2 may beat even the 1.96 us/B estimate; writes are
+  still unmeasured (M8VGAW remains unrun).
+- **Sound**: the racer (X40) will mix into one SB Pro stream on auto-init DMA; the same code serves a
+  DOS player. FastDoom's freeze with sound on (#47) is still open.
+
+Still not known: decode cost of Cinepak on this CPU, M8VGAW, which player the card has.
+
+## Issue draft (owner posts) - not yet posted as of 2026-11-20
 
 ```
 Title: Video playback (AVI) on the 5160: which path and frame size
@@ -141,7 +165,9 @@ Send cost alone: a 160x120 8-bit frame is 19,200 B, ~73 ms over the Mach8 PIX_TR
 
 Two measurements decide the path: M8VGAW (built, not run) for the VGA-half write cost, and a BUSFLUSH variant using ISA memory writes to see whether they flush the L1 like port I/O does.
 
-Not known: XT-CF sustained read rate, decode cost of Cinepak or Video 1 on this CPU, which Win95 player the card has.
+Since then: the 16 bpp desktop sends only the 32-pixel pieces that changed, so a Cinepak or Video 1 frame with skipped blocks costs the bus only what changed, with no codec code. A clip quantised into the driver's palette shows without a second dither. A sampler (tools/eipsamp) can now split a player's time into decode, driver and waits. The XT-CF should read ~230-250 KB/s (derived), well above a small clip's ~90 KB/s.
+
+Not known: decode cost of Cinepak or Video 1 on this CPU, the VGA-half write cost (M8VGAW, built, not run), which Win95 player the card has.
 
 Plan: docs/video_playback_plan_2026_11_12.md
 ```
