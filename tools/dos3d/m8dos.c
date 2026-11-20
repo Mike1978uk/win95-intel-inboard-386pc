@@ -1457,6 +1457,10 @@ void m8_parity_order( int nseg, M8SEG *s )
 #define DM_H            512
 #define M8_BKGD_MIX     0xB6E8
 #define M8_MIX_LEAVE    0x0003
+/* The plain background mix: background colour, replace. Do not leave LEAVE set outside the
+ * dither blits: fills run ~8 % slower under it (twice the FIFO waits in the bench), and the
+ * register outlives the program, slowing whatever runs next until Windows resets it. */
+#define M8_MIX_BKGD_PLAIN 0x0007
 #define M8_PIX_CNTL_PLANE 0xA0C0        /* the plane RD_MASK selects picks the mix */
 #define M8_CMD_PLANE_BLIT 0xC0B3
 
@@ -1500,6 +1504,7 @@ int m8_dither_init( void )
     }
     engine_idle();
     outw( M8_FRGD_MIX, M8_MIX_FRGD_REPLACE );
+    outw( M8_BKGD_MIX, M8_MIX_BKGD_PLAIN );
     cur_col = -1;
     dither_ok = 1;
     return( 0 );
@@ -1533,6 +1538,7 @@ void m8_dither_rect( int l, int t, int r, int b, int a, int bc, int level )
     Q( M8_MULTIFUNC_CNTL, M8_PIX_CNTL_PLANE );
     Q( M8_RD_MASK, ( 1 << ( level & 7 ) ) & 0xFF );     /* plane level - 1, rotated left by one */
     Q( M8_FRGD_COLOR, bc & 0xFF );
+    Q( M8_BKGD_MIX, M8_MIX_LEAVE );     /* pixels the plane does not select keep colour a */
     for( y = t; y <= b; ) {
         int ty = y % DM_H;
         int h = b - y + 1 < DM_H - ty ? b - y + 1 : DM_H - ty;
@@ -1554,6 +1560,7 @@ void m8_dither_rect( int l, int t, int r, int b, int a, int bc, int level )
         }
         y += h;
     }
+    Q( M8_BKGD_MIX, M8_MIX_BKGD_PLAIN );
     Q( M8_MULTIFUNC_CNTL, 0xA000 );
     Q( M8_RD_MASK, 0x00FF );
     cur_col = bc & 0xFF;
@@ -1771,7 +1778,7 @@ int m8_open( void )
     Q( M8_RD_MASK, 0x00FF );
     Q( M8_DP_CONFIG, M8_DP_8514 );
     Q( M8_FRGD_MIX, M8_MIX_FRGD_REPLACE );
-    Q( M8_BKGD_MIX, M8_MIX_LEAVE );
+    Q( M8_BKGD_MIX, M8_MIX_BKGD_PLAIN );
     Q( M8_ALU_FG_FN, M8_MIX_REPLACE );
     Q( M8_LINEDRAW_OPT, M8_LINEDRAW_LAST_OFF );
     Q( M8_FRGD_COLOR, 0 );
