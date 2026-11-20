@@ -267,7 +267,8 @@ extern int     m8_fb16;
 extern RGBQUAD m8_fb16_pal[256];
 extern DWORD   m8_fb16_stat[5];
 extern int  __far m8_fb16_alloc( void );
-extern void m8_fb16_device( LPDIBENGINE dev, LPBITMAPINFO info );
+extern void __far m8_fb16_device( LPDIBENGINE dev, LPBITMAPINFO info );
+extern void __far m8_fb16_bg_lend( int on );
 extern void m8_fb16_send_all( void );
 extern void m8_cur_lift( int l, int t, int r, int b );
 extern void m8_cur_reset( void );
@@ -278,7 +279,7 @@ extern void m8_fb16_send_rect( int l, int t, int r, int b, int solid );
 extern DWORD __far m8_fb16_lin( void );
 extern void m8_fb16_copy_rect( int sx, int sy, int l, int t, int r, int b );
 extern void m8_fb16_batch( const WORD FAR *in, DWORD FAR *out );
-extern void m8_fb16_clear( void );
+extern void __far m8_fb16_clear( void );
 extern void m8_leave( void );
 extern WORD m8_fb16_output( LPPDEVICE lpDestDev, WORD wStyle, WORD wCount, LPPOINT lpPoints,
                             LPPPEN lpPPen, LPPBRUSH lpPBrush, LPDRAWMODE lpDrawMode,

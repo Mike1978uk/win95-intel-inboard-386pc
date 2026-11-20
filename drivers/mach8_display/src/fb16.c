@@ -80,6 +80,28 @@ static DWORD            m8_fb16_drawn;  /* BIOS tick of the last drawing call */
 #define M8_FB16_STILL   8               /* ticks (55 ms) without drawing before refining */
 #define M8_FB16_FINE_PX 6144L           /* pixels sent a refine call: ~25 ms of bus */
 
+/* The background store. In 16 bpp mode GDI draws in RAM, so video memory off
+ * the screen holds only the pointer's corner (x >= 992, m8.h). At 800x600 the
+ * rest keeps a copy of what the card shows, piece by piece, with each piece's
+ * fingerprint: a send of a piece whose new fingerprint is the stored one is an
+ * engine copy from there, not 32 bytes a row over the bus, so a desktop
+ * background shown again costs no bus. It holds what the card showed, so a
+ * fine piece comes back fine. A piece keeps its first content, then any
+ * content it shows twice in a row (m8_fb16_bgc), so the background replaces a
+ * window that covered it when the store was filled. Emptied when something
+ * else may draw there: DirectDraw's lent rows, a DOS session, a mode set.
+ * Rows below M8_FB16_BG_SPLIT go under the screen at the same x; the rest
+ * right of it, M8_FB16_BG_CW pieces wide (up to x 992), column after column. */
+#define M8_FB16_BG_N      ((WORD)M8_FB16_MAXH * (M8_FB16_MAXW / M8_FB16_SEG_W))
+#define M8_FB16_BG_FINE   0x80000000UL
+#define M8_FB16_BG_SPLIT  (M8_PITCH - M8_FB16_MAXH)
+#define M8_FB16_BG_CW     6
+static HGLOBAL          m8_fb16_bgmem;
+static HGLOBAL          m8_fb16_bgcmem;
+static DWORD FAR        *m8_fb16_bgh;   /* fingerprint | M8_FB16_BG_FINE if fine; 0 empty */
+static WORD FAR         *m8_fb16_bgc;   /* low half of the last content not kept */
+static int              m8_fb16_bg_lent;
+
 #pragma pack( push, 1 )
 typedef struct {
     WORD    fbsel;
@@ -493,30 +515,10 @@ static void m8_fb16_known( int l, int t, int r, int b, WORD c )
     }
 }
 
-/* Row y's changed span within columns l .. r - 1 (even edges), with the
- * fingerprints brought up to date: 0 if nothing in it changed. */
-static int m8_fb16_changed( int y, int l, int r, int *cl, int *cr )
-{
-    int s0 = l / M8_FB16_SEG_W;
-    int s1 = (r - 1) / M8_FB16_SEG_W;
-
-    m8_fb16_rd.fbsel = m8_fb16_sel;
-    m8_fb16_rd.fboff = M8_FB16_ROWOFF( y ) + (DWORD)s0 * (M8_FB16_SEG_W * 2);
-    m8_fb16_rd.htsel = FP_SEG( m8_fb16_hash );
-    m8_fb16_rd.htoff = FP_OFF( m8_fb16_hash ) + (WORD)(((long)y * m8_fb16_nseg + s0) * 4);
-    m8_fb16_rd.count = (WORD)(s1 - s0 + 1);
-    M8_FB16_ROWDIFF( FP_OFF( &m8_fb16_rd ) );
-    if( m8_fb16_rd.first < 0 ) {
-        return( 0 );
-    }
-    if( m8_fb16_fine != NULL ) {
-        _fmemset( m8_fb16_fine + (long)y * m8_fb16_nseg + s0 + m8_fb16_rd.first, 0,
-                  m8_fb16_rd.last - m8_fb16_rd.first + 1 );
-    }
-    *cl = (s0 + m8_fb16_rd.first) * M8_FB16_SEG_W > l ? (s0 + m8_fb16_rd.first) * M8_FB16_SEG_W : l;
-    *cr = (s0 + m8_fb16_rd.last + 1) * M8_FB16_SEG_W < r ? (s0 + m8_fb16_rd.last + 1) * M8_FB16_SEG_W : r;
-    return( 1 );
-}
+/* The background store, in the cold segment (below). */
+static int __far m8_fb16_changed( int y, int l, int r, int *cl, int *cr );
+static void __far m8_fb16_bg_keep( int l, int t, int r, int b );
+static void __far m8_fb16_bg_flush( void );
 
 /* The rectangle to the card, in bands through m8_fb16_band, with the pointer
  * lifted if they overlap. Host transfers carry two pixels a word, so it
@@ -625,6 +627,7 @@ static void m8_fb16_send( int l, int t, int r, int b )
             m8_fb16_stat[2] += (DWORD)(br - bl) * bn;
         }
     }
+    m8_fb16_bg_keep( l, t, r, b );
     m8_leave();
     --m8_fb16_sending;
 }
@@ -727,6 +730,7 @@ void m8_fb16_refine( DWORD FAR *out )
                 run = -1;
             }
         }
+        m8_fb16_bg_keep( 0, y, m8_scr_x, y + 1 );
         m8_leave();
     }
     out[0] = sent;
@@ -951,11 +955,6 @@ void m8_fb16_copy_rect( int sx, int sy, int l, int t, int r, int b )
     m8_fb16_flush( &d );
 }
 
-/* The frame buffer's linear address, DirectDraw's primary; 0 if none. */
-DWORD __far m8_fb16_lin( void )
-{
-    return( m8_fb16_sel != 0 ? GetSelectorBase( m8_fb16_sel ) : 0 );
-}
 
 static int m8_fb16_flushing;
 
@@ -1364,19 +1363,25 @@ DWORD m8_fb16_pixel( LPPDEVICE lpDestDev, WORD X, WORD Y, DWORD dwPhysColor,
 static void m8_fb16_zero( WORD sel, DWORD dwords );
 #pragma aux m8_fb16_zero = ".386" "push es" "mov es, dx" "shl ecx, 16" "mov cx, bx" "xor edi, edi" "xor eax, eax" "cld" "db 67h, 0F3h, 66h, 0ABh" "pop es" parm [dx] [cx bx] modify [ax cx di];
 
+/* A block at a fixed linear address that may still be paged: DirectDraw holds the address, but
+ * only ring 3 touches the bytes, where a page fault is allowed. The cursor runs at interrupt time
+ * and draws through the engine, never from these. GMEM_FIXED from a DLL would hold it in RAM. */
+#pragma code_seg ( "M8DD_TEXT", "CODE" )
 /* A new size: what the frame buffer holds is at the old pitch, and a program
  * that only erases what it moves keeps it as its background. */
-void m8_fb16_clear( void )
+void __far m8_fb16_clear( void )
 {
     if( m8_fb16_msel != 0 ) {
         m8_fb16_zero( m8_fb16_msel, (DWORD)M8_FB16_MAXW * M8_FB16_MAXH / 2 );
     }
 }
 
-/* A block at a fixed linear address that may still be paged: DirectDraw holds the address, but
- * only ring 3 touches the bytes, where a page fault is allowed. The cursor runs at interrupt time
- * and draws through the engine, never from these. GMEM_FIXED from a DLL would hold it in RAM. */
-#pragma code_seg ( "M8DD_TEXT", "CODE" )
+/* The frame buffer's linear address, DirectDraw's primary; 0 if none. */
+DWORD __far m8_fb16_lin( void )
+{
+    return( m8_fb16_sel != 0 ? GetSelectorBase( m8_fb16_sel ) : 0 );
+}
+
 static HGLOBAL __far m8_fb16_pageable( WORD flags, DWORD size )
 {
     HGLOBAL h = GlobalAlloc( GMEM_MOVEABLE | flags, size );
@@ -1411,14 +1416,19 @@ int __far m8_fb16_alloc( void )
         if( m8_fb16_fmem != 0 ) {
             m8_fb16_fine = (BYTE FAR *)GlobalLock( m8_fb16_fmem );
         }
+        m8_fb16_bgmem = m8_fb16_pageable( GMEM_ZEROINIT, M8_FB16_BG_N * sizeof( DWORD ) );
+        m8_fb16_bgcmem = m8_fb16_pageable( GMEM_ZEROINIT, M8_FB16_BG_N * sizeof( WORD ) );
+        if( m8_fb16_bgmem != 0 && m8_fb16_bgcmem != 0 ) {
+            m8_fb16_bgh = (DWORD FAR *)GlobalLock( m8_fb16_bgmem );
+            m8_fb16_bgc = (WORD FAR *)GlobalLock( m8_fb16_bgcmem );
+        }
     }
     return( 1 );
 }
-#pragma code_seg ( "_TEXT", "CODE" )
 
 /* The screen device over the frame buffer. `info` has room for the header
  * and three colour masks. */
-void m8_fb16_device( LPDIBENGINE dev, LPBITMAPINFO info )
+void __far m8_fb16_device( LPDIBENGINE dev, LPBITMAPINFO info )
 {
     DWORD FAR *masks = (DWORD FAR *)info->bmiColors;
 
@@ -1452,14 +1462,28 @@ void m8_fb16_device( LPDIBENGINE dev, LPBITMAPINFO info )
     m8_fb16_dev = dev;
     m8_fb16_depth = 0;
 }
+#pragma code_seg ( "_TEXT", "CODE" )
 
-/* FB16CHK runs from the cold segment: the helpers it needs, reached far. */
+/* FB16CHK and the background store run from the cold segment: the helpers
+ * they need, reached far. */
 static void __far m8_fb16_lift_far( int l, int t, int r, int b ) { m8_cur_lift( l, t, r, b ); }
 static void __far m8_fb16_leave_far( void ) { m8_leave(); }
 static void __far m8_fb16_read_far( int x, int y, int w, int h, BYTE FAR *dst, WORD pitch )
 {
     m8_hw_read_rect( x, y, w, h, dst, pitch );
 }
+static void __far m8_fb16_copy_far( int sx, int sy, int dx, int dy, int w )
+{
+    m8_hw_copy( sx, sy, dx, dy, w, 1 );
+}
+/* Its own row: a send may hold rows in m8_fb16_band while one is drawn here. */
+static BYTE m8_fb16_bgrow[M8_FB16_MAXW];
+static void __far m8_fb16_out_far( int y, int l, int r )
+{
+    m8_fb16_row( m8_fb16_bgrow, y, l, r );
+    m8_hw_write_rect( l, y, r - l, 1, m8_fb16_bgrow, (WORD)(r - l) );
+}
+static void __far m8_fb16_rowdiff_far( void ) { M8_FB16_ROWDIFF( FP_OFF( &m8_fb16_rd ) ); }
 
 #pragma code_seg ( "M8DD_TEXT", "CODE" )
 /* The same row a pixel at a time in C: FB16CHK's reference, so the check
@@ -1531,6 +1555,193 @@ void __far m8_fb16_check( DWORD FAR *out )
         }
     }
     m8_fb16_leave_far();
+}
+
+/* The store may be used: the card is ours, GDI's frame buffer is shown, and
+ * nothing else draws off the screen or over it. */
+static int m8_fb16_bg_ok( void )
+{
+    return( m8_fb16_bgh != NULL && m8_scr_x == M8_FB16_MAXW && m8_scr_y == M8_FB16_MAXH &&
+            !m8_fb16_bg_lent && !m8_hw_off && m8_fb16_sel == m8_fb16_msel &&
+            m8_fb16_stat[4] == 0 && !m8_ov.on );
+}
+
+/* Pieces a .. b - 1 of row y to the store (keep) or back from it, one engine
+ * copy per run that the store's layout keeps together. */
+static void m8_fb16_bg_copy( int y, int a, int b, int keep )
+{
+    int e;
+    int x;
+    int sy;
+
+    while( a < b ) {
+        e = b;
+        if( y < M8_FB16_BG_SPLIT ) {
+            x = a * M8_FB16_SEG_W;
+            sy = y + M8_FB16_MAXH;
+        } else {
+            if( e > (a / M8_FB16_BG_CW + 1) * M8_FB16_BG_CW ) {
+                e = (a / M8_FB16_BG_CW + 1) * M8_FB16_BG_CW;
+            }
+            x = M8_FB16_MAXW + a % M8_FB16_BG_CW * M8_FB16_SEG_W;
+            sy = a / M8_FB16_BG_CW * (M8_FB16_MAXH - M8_FB16_BG_SPLIT) + y - M8_FB16_BG_SPLIT;
+        }
+        if( keep ) {
+            m8_fb16_copy_far( a * M8_FB16_SEG_W, y, x, sy, (e - a) * M8_FB16_SEG_W );
+        } else {
+            m8_fb16_copy_far( x, sy, a * M8_FB16_SEG_W, y, (e - a) * M8_FB16_SEG_W );
+        }
+        a = e;
+    }
+}
+
+/* Row y's changed span within columns l .. r - 1 (even edges), with the
+ * fingerprints brought up to date: 0 if nothing is left to send. Where a
+ * changed piece inside l .. r is the one the store holds, the row is drawn
+ * here, the stored pieces copied back and the others sent, and 0 returned. */
+static int __far m8_fb16_changed( int y, int l, int r, int *cl, int *cr )
+{
+    DWORD       old[M8_FB16_MAXW / M8_FB16_SEG_W];
+    DWORD FAR   *h = m8_fb16_hash + (WORD)y * m8_fb16_nseg;
+    DWORD FAR   *g = NULL;
+    BYTE FAR    *f = m8_fb16_fine != NULL ? m8_fb16_fine + (WORD)y * m8_fb16_nseg : NULL;
+    int         s0 = l / M8_FB16_SEG_W;
+    int         s1 = (r - 1) / M8_FB16_SEG_W;
+    int         first;
+    int         last;
+    int         rp = -1;
+    int         sp = -1;
+    int         s;
+    int         k;
+
+    if( m8_fb16_bg_ok() ) {
+        g = m8_fb16_bgh + (WORD)y * m8_fb16_nseg;
+        _fmemcpy( old, h + s0, (s1 - s0 + 1) * sizeof( DWORD ) );
+    }
+    m8_fb16_rd.fbsel = m8_fb16_sel;
+    m8_fb16_rd.fboff = M8_FB16_ROWOFF( y ) + (DWORD)s0 * (M8_FB16_SEG_W * 2);
+    m8_fb16_rd.htsel = FP_SEG( h );
+    m8_fb16_rd.htoff = FP_OFF( h + s0 );
+    m8_fb16_rd.count = (WORD)(s1 - s0 + 1);
+    m8_fb16_rowdiff_far();
+    if( m8_fb16_rd.first < 0 ) {
+        return( 0 );
+    }
+    first = s0 + m8_fb16_rd.first;
+    last = s0 + m8_fb16_rd.last;
+    for( s = first; g != NULL && s <= last; ++s ) {
+        if( h[s] != old[s - s0] && s * M8_FB16_SEG_W >= l && (s + 1) * M8_FB16_SEG_W <= r &&
+            g[s] != 0 && ((g[s] ^ h[s]) & ~M8_FB16_BG_FINE) == 0 ) {
+            break;
+        }
+    }
+    if( g == NULL || s > last ) {
+        if( f != NULL ) {
+            _fmemset( f + first, 0, last - first + 1 );
+        }
+        *cl = first * M8_FB16_SEG_W > l ? first * M8_FB16_SEG_W : l;
+        *cr = (last + 1) * M8_FB16_SEG_W < r ? (last + 1) * M8_FB16_SEG_W : r;
+        return( 1 );
+    }
+    /* k: 0 unchanged, 1 from the store, 2 from RAM. */
+    for( s = first; s <= last + 1; ++s ) {
+        k = 0;
+        if( s <= last && h[s] != old[s - s0] ) {
+            k = s * M8_FB16_SEG_W >= l && (s + 1) * M8_FB16_SEG_W <= r && g[s] != 0 &&
+                ((g[s] ^ h[s]) & ~M8_FB16_BG_FINE) == 0 ? 1 : 2;
+        }
+        if( k != 1 && rp >= 0 ) {
+            m8_fb16_bg_copy( y, rp, s, 0 );
+            rp = -1;
+        }
+        if( k != 2 && sp >= 0 ) {
+            int a = (sp * M8_FB16_SEG_W > l ? sp * M8_FB16_SEG_W : l) & ~1;
+            int b = ((s * M8_FB16_SEG_W < r ? s * M8_FB16_SEG_W : r) + 1) & ~1;
+
+            m8_fb16_out_far( y, a, b );
+            m8_fb16_stat[2] += b - a;
+            sp = -1;
+        }
+        if( k == 1 && rp < 0 ) {
+            rp = s;
+        }
+        if( k == 2 && sp < 0 ) {
+            sp = s;
+        }
+        if( k != 0 && f != NULL ) {
+            f[s] = k == 1 && (g[s] & M8_FB16_BG_FINE) != 0;
+        }
+    }
+    return( 0 );
+}
+
+/* After a send or a refine of l, t .. r, b, with the pointer still lifted:
+ * the pieces wholly inside, which the card shows as RAM holds them, go to the
+ * store where it keeps them (above). */
+static void __far m8_fb16_bg_keep( int l, int t, int r, int b )
+{
+    DWORD FAR   *h;
+    DWORD FAR   *g;
+    WORD FAR    *c;
+    BYTE FAR    *f;
+    DWORD       v;
+    DWORD       fine;
+    int         s0 = (l + M8_FB16_SEG_W - 1) / M8_FB16_SEG_W;
+    int         s1 = r / M8_FB16_SEG_W;
+    int         a;
+    int         s;
+    int         y;
+    int         k;
+
+    if( !m8_fb16_bg_ok() || m8_fb16_hash == NULL ) {
+        return;
+    }
+    for( y = t; y < b; ++y ) {
+        h = m8_fb16_hash + (WORD)y * m8_fb16_nseg;
+        g = m8_fb16_bgh + (WORD)y * m8_fb16_nseg;
+        c = m8_fb16_bgc + (WORD)y * m8_fb16_nseg;
+        f = m8_fb16_fine != NULL ? m8_fb16_fine + (WORD)y * m8_fb16_nseg : NULL;
+        a = -1;
+        for( s = s0; s <= s1; ++s ) {
+            k = 0;
+            v = s < s1 ? h[s] & ~M8_FB16_BG_FINE : 0;
+            if( v != 0 ) {
+                fine = f != NULL && f[s] ? M8_FB16_BG_FINE : 0;
+                if( (g[s] & ~M8_FB16_BG_FINE) == v ) {
+                    k = fine != 0 && (g[s] & M8_FB16_BG_FINE) == 0;
+                } else if( g[s] == 0 || c[s] == (WORD)v ) {
+                    k = 1;
+                } else {
+                    c[s] = (WORD)v;
+                }
+                if( k ) {
+                    g[s] = v | fine;
+                }
+            }
+            if( k && a < 0 ) {
+                a = s;
+            } else if( !k && a >= 0 ) {
+                m8_fb16_bg_copy( y, a, s, 1 );
+                a = -1;
+            }
+        }
+    }
+}
+
+static void __far m8_fb16_bg_flush( void )
+{
+    if( m8_fb16_bgh != NULL ) {
+        _fmemset( m8_fb16_bgh, 0, M8_FB16_BG_N * sizeof( DWORD ) );
+        _fmemset( m8_fb16_bgc, 0, M8_FB16_BG_N * sizeof( WORD ) );
+    }
+}
+
+/* DirectDraw takes off-screen rows (on != 0) or gives them back: either way
+ * what the store held may have been drawn over. */
+void __far m8_fb16_bg_lend( int on )
+{
+    m8_fb16_bg_lent = on != 0;
+    m8_fb16_bg_flush();
 }
 #pragma code_seg ( "_TEXT", "CODE" )
 
@@ -1630,6 +1841,7 @@ void m8_fb16_batch( const WORD FAR *in, DWORD FAR *out )
  * or the old contents show as static at the new pitch. */
 void m8_fb16_send_all( void )
 {
+    m8_fb16_bg_flush();
     m8_hw_set_palette( 0, 256, m8_fb16_pal );
     m8_cur_reset();
     m8_hw_fill( 0, 0, m8_scr_x, m8_scr_y, 0 );

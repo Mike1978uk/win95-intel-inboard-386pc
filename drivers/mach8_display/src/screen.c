@@ -5206,6 +5206,7 @@ void m8_dd_lend( int on )
     int k;
 
     m8_dd_heap( &top, &rows );
+    m8_fb16_bg_lend( on );
     m8_sc_off = on == 2;
     if( on == 2 ) {
         m8_sc_flush();
