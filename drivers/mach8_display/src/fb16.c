@@ -389,6 +389,61 @@ static void m8_fb16_forget( int l, int t, int r, int b )
     }
 }
 
+/* Nonzero if any piece of l, t .. r, b holds the fine dither: those pixels are
+ * right only where they stand, so the card must not copy them elsewhere. */
+static int m8_fb16_any_fine( int l, int t, int r, int b )
+{
+    BYTE FAR    *f;
+    int         y;
+    int         s0;
+    int         n;
+
+    if( m8_fb16_fine == NULL || r <= l || b <= t ) {
+        return( 0 );
+    }
+    s0 = l / M8_FB16_SEG_W;
+    n = (r - 1) / M8_FB16_SEG_W - s0 + 1;
+    for( y = t; y < b; ++y ) {
+        f = m8_fb16_fine + (long)y * m8_fb16_nseg + s0;
+        if( _fmemchr( f, 1, n ) != NULL ) {
+            return( 1 );
+        }
+    }
+    return( 0 );
+}
+
+/* Nonzero if l, t .. r, b cuts through a fine piece at its left or right
+ * edge: drawing it would clear the piece's mark while the rest of the piece
+ * still shows the fine dither, so the drawing must go out as whole pieces. */
+static int m8_fb16_edge_fine( int l, int t, int r, int b )
+{
+    BYTE FAR    *f;
+    int         y;
+    int         sl;
+    int         sr;
+    int         cutl;
+    int         cutr;
+
+    if( l < 0 ) l = 0;
+    if( t < 0 ) t = 0;
+    if( r > m8_scr_x ) r = m8_scr_x;
+    if( b > m8_scr_y ) b = m8_scr_y;
+    sl = l / M8_FB16_SEG_W;
+    sr = (r - 1) / M8_FB16_SEG_W;
+    cutl = l % M8_FB16_SEG_W != 0;
+    cutr = r % M8_FB16_SEG_W != 0 && r < m8_scr_x;
+    if( m8_fb16_fine == NULL || r <= l || b <= t || (!cutl && !cutr) ) {
+        return( 0 );
+    }
+    for( y = t; y < b; ++y ) {
+        f = m8_fb16_fine + (long)y * m8_fb16_nseg;
+        if( (cutl && f[sl]) || (cutr && f[sr]) ) {
+            return( 1 );
+        }
+    }
+    return( 0 );
+}
+
 /* The fingerprint of a piece whose pixels are all c: M8_FB16_ROWDIFF's hash
  * of 16 dwords of c | c << 16. */
 static DWORD m8_fb16_hash_colour( WORD c )
@@ -495,6 +550,11 @@ static void m8_fb16_send( int l, int t, int r, int b )
     if( t < 0 ) t = 0;
     if( r > m8_scr_x ) r = m8_scr_x;
     if( b > m8_scr_y ) b = m8_scr_y;
+    if( m8_fb16_edge_fine( l, t, r, b ) ) {
+        l -= l % M8_FB16_SEG_W;
+        r += (M8_FB16_SEG_W - r % M8_FB16_SEG_W) % M8_FB16_SEG_W;
+        if( r > m8_scr_x ) r = m8_scr_x;
+    }
     l &= ~1;
     r = (r + 1) & ~1;
     w = r - l;
@@ -711,6 +771,10 @@ static void m8_fb16_solid( int l, int t, int r, int b, WORD c )
     int     n;
     int     k;
 
+    if( m8_fb16_edge_fine( l, t, r, b ) ) {
+        m8_fb16_send( l, t, r, b );
+        return;
+    }
     for( k = 0; k < 4; ++k ) {
         m8_fb16_src[k] = c;
     }
@@ -854,8 +918,9 @@ void m8_fb16_send_rect( int l, int t, int r, int b, int solid )
 }
 
 /* The screen copied from (sx, sy) to l, t .. r, b, already done in RAM. The
- * dither depends on x & 3 and y & 3 only, so a copy that moves by a multiple
- * of 4 both ways is the card's own copy, exact; any other is sent. The pointer
+ * 4x4 dither depends on x & 3 and y & 3 only, so a copy that moves by a multiple
+ * of 4 both ways, from no fine piece, is the card's own copy, exact; any other
+ * is sent. The pointer
  * is lifted from both areas, as the engine would copy it too. */
 void m8_fb16_copy_rect( int sx, int sy, int l, int t, int r, int b )
 {
@@ -869,7 +934,8 @@ void m8_fb16_copy_rect( int sx, int sy, int l, int t, int r, int b )
     if( !m8_ov_hits( l, t, r, b ) && !m8_ov_hits( sx, sy, sx + w, sy + h ) &&
         ((sx - l) & 3) == 0 && ((sy - t) & 3) == 0 && l >= 0 && t >= 0 && sx >= 0 &&
         sy >= 0 && r <= m8_scr_x && b <= m8_scr_y && sx + w <= m8_scr_x &&
-        sy + h <= m8_scr_y ) {
+        sy + h <= m8_scr_y && !m8_fb16_any_fine( sx, sy, sx + w, sy + h ) &&
+        !m8_fb16_edge_fine( l, t, r, b ) ) {
         ++m8_fb16_stat[3];
         m8_fb16_forget( l, t, r, b );
         m8_cur_lift( l < sx ? l : sx, t < sy ? t : sy, r > sx + w ? r : sx + w,
@@ -1178,7 +1244,7 @@ static void m8_fb16_scan_sent( WORD wStyle, WORD wCount, const short FAR *w, LPR
         return;
     }
     ix = one ? m8_fb16_flat( c ) : -1;
-    if( ix < 0 ) {
+    if( ix < 0 || m8_fb16_edge_fine( box.l, box.t, box.r, box.b ) ) {
         m8_fb16_flush( &box );
         return;
     }
