@@ -7,16 +7,18 @@
  * the palette), a dithered sky (L6 P6) drawn into each page once and never cleared, and a
  * readout of fps and port writes a frame.
  *
- *   M8SHOW [frames] [nv] [grab N] [quads] [sort] [nohud] [nofloor] [nosolids] [noground]
+ *   M8SHOW [frames] [nv] [grab N] [quads] [sort] [noshadow] [nohud] [nofloor] [nosolids] [noground]
  *     frames   frames to draw, then report (default 0: until Esc)
  *     nv       do not wait for the flip (throughput; tears)
- *     grab N   save the page shown after frame N to M8SHOW.RAW (640 x 480 palette indices;
+ *     grab N   save the page shown after frame N to M8SHOW.RAW (640 x 480 palette indices, then
+ *              the 768-byte palette, 6 bits a component;
  *              the grab takes seconds, so a run with it reports a lower fps)
  *     quads    start with the floor as 256 quads instead of one parity fill
  *     sort     start with painter's order instead of the depth test
+ *     noshadow start without shadows (one polygon a solid, drawn by the mix)
  *     nohud    start without the readout
  *     nofloor, nosolids, noground   probes: leave that part out to price it
- *   Keys: D depth test / sort, P parity / quads, H readout, V vsync, Esc quit.
+ *   Keys: D depth test / sort, P parity / quads, S shadows, H readout, V vsync, Esc quit.
  * Appends a line a run to M8SHOW.TXT.
  *
  * Build: see BUILD.BAT. GPL-3.0-or-later, as drivers/mach8_display.
@@ -29,18 +31,24 @@
 
 #define PI          3.14159265358979
 
-/* Palette. Depth band z (0 nearest .. 14) holds the solids, fogged by z: entries z x 16 + c,
- * c 0-7 hue A shades, 8-15 hue B shades. Band 15 holds what is always behind: the sky ramp,
- * floor, ground and readout, so the depth test passes every solid over them. */
-#define BAND_BACK   15
-#define SKY0        ( BAND_BACK * 16 + 0 )     /* 240..247: sky, top to horizon */
+/* Palette. Depth band z (0 nearest .. 13) holds the solids, fogged by z: entries z x 16 + c,
+ * c 0-7 hue A shades, 8-15 hue B shades. Bands 14 and 15 hold what is always behind, so the
+ * depth test passes every solid over them: band 15 the floor, ground, readout (F0-F5) and sky
+ * (F8-FF); band 14 the same floor and ground in shadow. A shadow is then one polygon whose mix
+ * clears bit 4 (~S & D, S = 10h) in whatever floor or ground is under it, at fill speed, and
+ * shadows that overlap clear it once. */
+#define SOLID_BANDS 14
+#define BACK        0xF0
+#define SHADOW_BIT  0x10
+#define MIX_CLEAR   0x0E            /* ~S & D */
+#define FLOOR_A     ( BACK + 0 )
+#define FLOOR_B     ( BACK + 1 )
+#define GROUND      ( BACK + 2 )
+#define HILL        ( BACK + 3 )
+#define HUD_FG      ( BACK + 4 )
+#define HUD_BG      ( BACK + 5 )
+#define SKY0        ( BACK + 8 )    /* F8..FF: sky, top to horizon */
 #define SKY_N       8
-#define FLOOR_A     ( BAND_BACK * 16 + 8 )
-#define FLOOR_B     ( BAND_BACK * 16 + 9 )
-#define GROUND      ( BAND_BACK * 16 + 10 )
-#define HILL        ( BAND_BACK * 16 + 11 )
-#define HUD_FG      ( BAND_BACK * 16 + 12 )
-#define HUD_BG      ( BAND_BACK * 16 + 13 )
 
 #define SKY_B       112             /* sky rows 0..SKY_B-1: drawn into each page once */
 #define CHK_N       16
@@ -135,6 +143,10 @@ static SOLIDFX  sfx[NSOLID];
 static FX       light_fx[3];
 static unsigned long bob_step;
 static unsigned long one_rad;
+static FX       shadow_ku;          /* floor offset a unit of height, away from the light */
+static FX       shadow_kw;
+static M8PT     shad[NSOLID][2 * 8 + 1];    /* hull() builds in up to 2n + 1 */
+static int      nshad[NSOLID];
 
 /* Faces of a frame, for painter's order when the depth test is off. */
 typedef struct {
@@ -154,6 +166,7 @@ static FX       view_s;
 
 static int      use_depth = 1;
 static int      use_parity = 1;
+static int      use_shadows = 1;
 static int      show_hud = 1;
 static int      vsync = 1;
 static int      skip;               /* probe: 1 floor, 2 solids, 4 ground repaint */
@@ -192,7 +205,7 @@ static void project( FX u, FX w, FX h, short *sx, short *sy, FX *wz )
 /* Tables and the fixed-point solids, once at start. */
 static void fx_init( void )
 {
-    static const double light[3] = { -0.45, 0.80, -0.40 };
+    static const double light[3] = { -0.77, 0.60, 0.22 };     /* low and to the side: long shadows */
     unsigned            k;
     int                 i;
 
@@ -202,6 +215,8 @@ static void fx_init( void )
     for( i = 0; i < 3; ++i ) {
         light_fx[i] = to_fx( light[i] );
     }
+    shadow_ku = to_fx( -light[0] / light[1] );
+    shadow_kw = to_fx( -light[2] / light[1] );
     bob_step = to_ang( 0.06 );
     one_rad = to_ang( 1.0 );
     for( k = 0; k < NSOLID; ++k ) {
@@ -236,17 +251,18 @@ static void fx_init( void )
     }
 }
 
+static unsigned char    rgb[256 * 3];  /* also saved after a grab's pixels */
+
 static void build_palette( void )
 {
-    static unsigned char    rgb[256 * 3];
     static const double     hue[2][3] = { { 1.00, 0.55, 0.15 }, { 0.25, 0.65, 1.00 } };
     static const double     fog[3] = { 0.55, 0.62, 0.80 };
     int                     z;
     int                     c;
     int                     k;
 
-    for( z = 0; z < BAND_BACK; ++z ) {
-        double f = 0.75 * z / ( BAND_BACK - 1 );        /* fog share */
+    for( z = 0; z < SOLID_BANDS; ++z ) {
+        double f = 0.75 * z / ( SOLID_BANDS - 1 );      /* fog share */
 
         for( c = 0; c < 16; ++c ) {
             double lum = 0.25 + 0.75 * ( c & 7 ) / 7.0;
@@ -272,6 +288,11 @@ static void build_palette( void )
     SETC( HILL, 18, 24, 34 );
     SETC( HUD_FG, 63, 63, 20 );
     SETC( HUD_BG, 0, 0, 0 );
+    for( c = FLOOR_A; c <= HILL; ++c ) {               /* in shadow: the same, darker */
+        for( k = 0; k < 3; ++k ) {
+            rgb[( c & ~SHADOW_BIT ) * 3 + k] = (unsigned char)( rgb[c * 3 + k] * 9 / 20 );
+        }
+    }
     m8_palette( 0, 256, rgb );
 }
 
@@ -386,8 +407,39 @@ static void floor_parity( void )
     m8_parity( n, s, 1, &ca );
 }
 
-/* Each solid: turned, placed, back faces dropped, shaded by a light from the upper left,
- * depth band from the face's mean distance. */
+/* The convex hull of n screen points (monotone chain), into h; returns its corner count. A
+ * solid's shadow is the hull of its corners cast to the floor, as the floor's image of a
+ * convex solid is convex. */
+static int hull( int n, M8PT *p, M8PT *h )
+{
+    int     i;
+    int     j;
+    int     m = 0;
+    int     lo;
+
+    for( i = 1; i < n; ++i ) {                          /* by x, then y */
+        M8PT t = p[i];
+
+        for( j = i; j > 0 && ( p[j - 1].x > t.x || ( p[j - 1].x == t.x && p[j - 1].y > t.y ) ); --j ) {
+            p[j] = p[j - 1];
+        }
+        p[j] = t;
+    }
+#define TURN( a, b, c ) ( (long)( (b).x - (a).x ) * ( (c).y - (a).y ) - (long)( (b).y - (a).y ) * ( (c).x - (a).x ) )
+    for( i = 0; i < n; ++i ) {
+        while( m >= 2 && TURN( h[m - 2], h[m - 1], p[i] ) <= 0 ) --m;
+        h[m++] = p[i];
+    }
+    for( i = n - 2, lo = m + 1; i >= 0; --i ) {
+        while( m >= lo && TURN( h[m - 2], h[m - 1], p[i] ) <= 0 ) --m;
+        h[m++] = p[i];
+    }
+#undef TURN
+    return( m - 1 );
+}
+
+/* Each solid: turned, placed, back faces dropped, shaded by a low light from the left,
+ * depth band from the face's mean distance; and its shadow. */
 static void build_solids( unsigned long f )
 {
     unsigned        k;
@@ -418,6 +470,18 @@ static void build_solids( unsigned long f )
             wy[i] = x->v[i][1] + lift;
             project( wx[i], wz[i], wy[i], &px[i], &py[i], &pz[i] );
         }
+        if( use_shadows ) {
+            M8PT    g[8];
+            FX      gz;
+
+            for( i = 0; i < o->nv; ++i ) {      /* each corner along the light to the floor */
+                FX gu = wx[i] + fmul( wy[i], shadow_ku );
+                FX gw = wz[i] + fmul( wy[i], shadow_kw );
+
+                project( gu, gw, 0, &g[i].x, &g[i].y, &gz );
+            }
+            nshad[k] = hull( o->nv, g, shad[k] );
+        }
         for( i = 0; i < o->nf; ++i ) {
             const int   *fc = o->f[i];
             int         n = fc[0];
@@ -446,9 +510,9 @@ static void build_solids( unsigned long f )
                 depth += pz[fc[1 + j]];
             }
             depth /= n;
-            z = (int)( ( ( depth - I2FX( Z_NEAR ) ) * ( BAND_BACK - 1 ) / ( Z_FAR - Z_NEAR ) ) >> FX_SH );
+            z = (int)( ( ( depth - I2FX( Z_NEAR ) ) * ( SOLID_BANDS - 1 ) / ( Z_FAR - Z_NEAR ) ) >> FX_SH );
             if( z < 0 ) z = 0;
-            if( z > BAND_BACK - 1 ) z = BAND_BACK - 1;
+            if( z > SOLID_BANDS - 1 ) z = SOLID_BANDS - 1;
             shade = (int)( ( lit * 7 + 0x8000 ) >> FX_SH );
             if( shade > 7 ) shade = 7;
             fa->z = z;
@@ -485,6 +549,19 @@ static int cmp_far_first( const void *a, const void *b )
     FX db = ( (const FACE *)b )->depth;
 
     return( db > da ? 1 : db < da ? -1 : 0 );
+}
+
+static void draw_shadows( void )
+{
+    unsigned k;
+
+    m8_mix( MIX_CLEAR );
+    for( k = 0; k < NSOLID; ++k ) {
+        if( nshad[k] >= 3 ) {
+            m8_poly( nshad[k], shad[k], SHADOW_BIT );
+        }
+    }
+    m8_mix( M8_MIX_POLY_REPLACE );
 }
 
 static void draw_solids( void )
@@ -526,12 +603,13 @@ static void number( int x, int y, unsigned long v, int digits )
     }
 }
 
-/* Readout: fps x 10, writes a frame, and a lamp a lever (lit = on): depth, parity, vsync. */
+/* Readout: fps x 10, writes a frame, and a lamp a lever (lit = on): depth, parity, vsync,
+ * shadows. */
 static void draw_hud( unsigned long fps10, unsigned long writes )
 {
     int y = M8_H - 20;
 
-    m8_rect( 4, y - 2, 4 + 8 * 10 + 70, y + 15, HUD_BG );
+    m8_rect( 4, y - 2, 4 + 8 * 10 + 84, y + 15, HUD_BG );
     number( 8, y, fps10 / 10, 3 );
     m8_rect( 38, y + 12, 39, y + 13, HUD_FG );
     digit( 42, y, (int)( fps10 % 10 ) );
@@ -539,6 +617,7 @@ static void draw_hud( unsigned long fps10, unsigned long writes )
     if( use_depth ) m8_rect( 104, y, 113, y + 4, HUD_FG );
     if( use_parity ) m8_rect( 118, y, 127, y + 4, HUD_FG );
     if( vsync ) m8_rect( 132, y, 141, y + 4, HUD_FG );
+    if( use_shadows ) m8_rect( 146, y, 155, y + 4, HUD_FG );
 }
 
 static void grab( const char *raw )
@@ -552,6 +631,7 @@ static void grab( const char *raw )
     }
     if( ( f = fopen( raw, "wb" ) ) != NULL ) {
         fwrite( buf, 1, (size_t)M8_W * M8_H, f );
+        fwrite( rgb, 1, sizeof( rgb ), f );
         fclose( f );
     }
     free( buf );
@@ -578,6 +658,7 @@ int main( int argc, char **argv )
         if( stricmp( argv[i], "nv" ) == 0 ) vsync = 0;
         else if( stricmp( argv[i], "quads" ) == 0 ) use_parity = 0;
         else if( stricmp( argv[i], "sort" ) == 0 ) use_depth = 0;
+        else if( stricmp( argv[i], "noshadow" ) == 0 ) use_shadows = 0;
         else if( stricmp( argv[i], "nohud" ) == 0 ) show_hud = 0;
         else if( stricmp( argv[i], "grab" ) == 0 && i + 1 < argc ) grab_at = atol( argv[++i] );
         else if( stricmp( argv[i], "nofloor" ) == 0 ) skip |= 1;
@@ -620,6 +701,11 @@ int main( int argc, char **argv )
                     box_add( &now, faces[i].p[j].x, faces[i].p[j].y );
                 }
             }
+            for( i = 0; use_shadows && i < (int)NSOLID; ++i ) {
+                for( j = 0; j < nshad[i]; ++j ) {
+                    box_add( &now, shad[i][j].x, shad[i][j].y );
+                }
+            }
             if( full > 0 ) {
                 m8_rect( 0, SKY_B, M8_W - 1, M8_H - 1, GROUND );
                 --full;
@@ -633,6 +719,7 @@ int main( int argc, char **argv )
             *old = now;
         }
         if( !( skip & 1 ) ) { if( use_parity ) floor_parity(); else floor_quads(); }
+        if( use_shadows && !( skip & 2 ) ) draw_shadows();
         if( !( skip & 2 ) ) draw_solids();
         if( show_hud ) draw_hud( fps10, w_frame );
         m8_frame_end( vsync );
@@ -654,6 +741,7 @@ int main( int argc, char **argv )
             switch( key < 0x100 ? ( key | 0x20 ) : 0 ) {
             case 'd': use_depth = !use_depth; break;
             case 'p': use_parity = !use_parity; break;
+            case 's': use_shadows = !use_shadows; break;
             case 'h': show_hud = !show_hud; full = 2; break;
             case 'v': vsync = !vsync; break;
             default:
@@ -673,8 +761,8 @@ int main( int argc, char **argv )
         char            line[200];
 
         sprintf( line, "M8SHOW %ld frames in %.2f s = %.2f fps; writes %lu (%.1f a frame), status reads %lu;"
-                 " depth %d parity %d hud %d vsync %d skip %d%s%s\n", f, secs, secs > 0 ? f / secs : 0.0, s.outs,
-                 f ? (double)s.outs / f : 0.0, s.ins, use_depth, use_parity, show_hud, vsync, skip,
+                 " depth %d parity %d shadows %d hud %d vsync %d skip %d%s%s\n", f, secs, secs > 0 ? f / secs : 0.0,
+                 s.outs, f ? (double)s.outs / f : 0.0, s.ins, use_depth, use_parity, use_shadows, show_hud, vsync, skip,
                  m8_error() ? "; engine: " : "", m8_error() ? m8_error() : "" );
         fputs( line, stdout );
         if( ( o = fopen( "M8SHOW.TXT", "a" ) ) != NULL ) {
