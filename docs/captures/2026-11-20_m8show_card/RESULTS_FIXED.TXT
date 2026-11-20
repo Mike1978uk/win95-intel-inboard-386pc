@@ -1,0 +1,36 @@
+FLOAT 
+DOS/32A warning (9004): mouse initialization failed
+M8SHOW 200 frames in 6.81 s = 29.37 fps; writes 220031 (1100.2 a frame), status reads 321852; depth 1 parity 1 hud 1 vsync 0 skip 0
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h
+FIXED 
+DOS/32A warning (9004): mouse initialization failed
+M8SHOW 200 frames in 5.44 s = 36.78 fps; writes 218678 (1093.4 a frame), status reads 305576; depth 1 parity 1 hud 1 vsync 0 skip 0
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h
+DOS/32A warning (9004): mouse initialization failed
+M8SHOW 200 frames in 5.44 s = 36.78 fps; writes 218678 (1093.4 a frame), status reads 305547; depth 1 parity 1 hud 1 vsync 0 skip 0
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h
+FLOAT EMPTY 
+DOS/32A warning (9004): mouse initialization failed
+M8SHOW 200 frames in 2.53 s = 79.16 fps; writes 50371 (251.9 a frame), status reads 7874; depth 1 parity 1 hud 1 vsync 0 skip 7
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h
+FIXED EMPTY 
+DOS/32A warning (9004): mouse initialization failed
+M8SHOW 200 frames in 1.21 s = 165.51 fps; writes 53946 (269.7 a frame), status reads 8323; depth 1 parity 1 hud 1 vsync 0 skip 7
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h
+FIXED NOFLOOR 
+DOS/32A warning (9004): mouse initialization failed
+M8SHOW 200 frames in 2.75 s = 72.83 fps; writes 147306 (736.5 a frame), status reads 49167; depth 1 parity 1 hud 1 vsync 0 skip 1
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h
+FIXED NOSOLIDS 
+DOS/32A warning (9004): mouse initialization failed
+M8SHOW 200 frames in 4.12 s = 48.55 fps; writes 128006 (640.0 a frame), status reads 292426; depth 1 parity 1 hud 1 vsync 0 skip 2
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h
+FIXED LEVERS OFF 
+DOS/32A warning (9004): mouse initialization failed
+M8SHOW 200 frames in 20.93 s = 9.56 fps; writes 1056607 (5283.0 a frame), status reads 194990; depth 0 parity 0 hud 1 vsync 0 skip 0
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h
+FIXED GRAB 
+DOS/32A warning (9004): mouse initialization failed
+M8SHOW 200 frames in 8.79 s = 22.76 fps; writes 222584 (1112.9 a frame), status reads 614773; depth 1 parity 1 hud 1 vsync 0 skip 0
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h
+DONE 
