@@ -44,11 +44,40 @@
 
 #define SKY_B       112             /* sky rows 0..SKY_B-1: drawn into each page once */
 #define CHK_N       16
-#define EYE_H       12.0            /* eye above the floor, grid units */
-#define FOCAL       200.0
-#define HORIZON     60.0
-#define Z_NEAR      6.0
-#define Z_FAR       30.0
+#define EYE_H       12              /* eye above the floor, grid units */
+#define VIEW_D      18              /* eye to the platform centre, grid units */
+#define FOCAL       200
+#define HORIZON     60
+#define Z_NEAR      6
+#define Z_FAR       30
+
+/* The frame loop is 16.16 fixed point and makes no FPU call: the FPU here sits on the slow
+ * bus and its work, not the card, set the frame rate. Floats run only at start (tables,
+ * solids, palette) and in the report. Angles are 65536 a turn. */
+typedef long FX;
+#define FX_SH       16
+#define I2FX( n )   ( (FX)(n) << FX_SH )
+
+extern FX fmul( FX a, FX b );
+#pragma aux fmul = "imul edx" "shrd eax, edx, 16" parm [eax] [edx] value [eax] modify [edx];
+/* a x b / c with a 64-bit product */
+extern long muldiv( long a, long b, long c );
+#pragma aux muldiv = "imul edx" "idiv ebx" parm [eax] [edx] [ebx] value [eax] modify [edx];
+
+#define SIN_N       4096            /* 0.09 degree a step: the platform edge moves under 1 px */
+static FX       sin_t[SIN_N + SIN_N / 4];
+#define SIN( a )    sin_t[( (unsigned long)(a) >> 4 ) & ( SIN_N - 1 )]
+#define COS( a )    sin_t[( ( (unsigned long)(a) >> 4 ) & ( SIN_N - 1 ) ) + SIN_N / 4]
+
+static FX to_fx( double v )
+{
+    return( (FX)floor( v * 65536.0 + 0.5 ) );
+}
+
+static unsigned long to_ang( double rad )
+{
+    return( (unsigned long)(long)floor( rad * 65536.0 / ( 2.0 * PI ) + 0.5 ) );
+}
 
 typedef struct { double x, y, z; } V3;
 
@@ -93,21 +122,35 @@ static SOLID    solids[] = {
 };
 #define NSOLID  ( sizeof( solids ) / sizeof( solids[0] ) )
 
+/* The solids in fixed point: corners scaled by size, and each face's unit outward normal in
+ * object space. The solids turn only about the vertical, so a face's normal is its object
+ * normal turned by the spin: no cross product or square root a frame. */
+typedef struct {
+    FX              v[8][3];
+    FX              n[8][3];
+    FX              u, w, bob;
+    unsigned long   orbit, spin;    /* angle a frame */
+} SOLIDFX;
+static SOLIDFX  sfx[NSOLID];
+static FX       light_fx[3];
+static unsigned long bob_step;
+static unsigned long one_rad;
+
 /* Faces of a frame, for painter's order when the depth test is off. */
 typedef struct {
     M8PT    p[4];
     int     n;
     int     col;
     int     z;
-    double  depth;
+    FX      depth;
 } FACE;
 static FACE     faces[NSOLID * 8];
 static int      nfaces;
 
 static short    gx[CHK_N + 1][CHK_N + 1];
 static short    gy[CHK_N + 1][CHK_N + 1];
-static double   view_c;
-static double   view_s;
+static FX       view_c;
+static FX       view_s;
 
 static int      use_depth = 1;
 static int      use_parity = 1;
@@ -131,15 +174,66 @@ static void box_add( BOX *b, int x, int y )
     if( y > b->b ) b->b = y;
 }
 
-/* Grid units on the platform (u across, w along, h up), turned by the view, to the screen. */
-static void project( double u, double w, double h, double *sx, double *sy, double *wz )
+/* Grid units on the platform (u across, w along, h up), turned by the view, to the screen,
+ * rounded to the pixel (8 fraction bits from the divide). */
+static void project( FX u, FX w, FX h, short *sx, short *sy, FX *wz )
 {
-    double x = u * view_c - w * view_s;
-    double z = 18.0 + u * view_s + w * view_c;
+    FX x = fmul( u, view_c ) - fmul( w, view_s );
+    FX z = I2FX( VIEW_D ) + fmul( u, view_s ) + fmul( w, view_c );
 
+    if( z < I2FX( 1 ) ) {
+        z = I2FX( 1 );              /* nothing comes this close; keeps the divide in range */
+    }
     *wz = z;
-    *sx = 320.0 + x * FOCAL / z;
-    *sy = HORIZON + ( EYE_H - h ) * FOCAL / z;
+    *sx = (short)( ( muldiv( x, FOCAL << 8, z ) + ( 320 << 8 ) + 128 ) >> 8 );
+    *sy = (short)( ( muldiv( I2FX( EYE_H ) - h, FOCAL << 8, z ) + ( HORIZON << 8 ) + 128 ) >> 8 );
+}
+
+/* Tables and the fixed-point solids, once at start. */
+static void fx_init( void )
+{
+    static const double light[3] = { -0.45, 0.80, -0.40 };
+    unsigned            k;
+    int                 i;
+
+    for( i = 0; i < SIN_N + SIN_N / 4; ++i ) {
+        sin_t[i] = to_fx( sin( i * 2.0 * PI / SIN_N ) );
+    }
+    for( i = 0; i < 3; ++i ) {
+        light_fx[i] = to_fx( light[i] );
+    }
+    bob_step = to_ang( 0.06 );
+    one_rad = to_ang( 1.0 );
+    for( k = 0; k < NSOLID; ++k ) {
+        SOLID   *o = &solids[k];
+        SOLIDFX *x = &sfx[k];
+
+        for( i = 0; i < o->nv; ++i ) {
+            x->v[i][0] = to_fx( o->v[i].x * o->size );
+            x->v[i][1] = to_fx( o->v[i].y * o->size );
+            x->v[i][2] = to_fx( o->v[i].z * o->size );
+        }
+        for( i = 0; i < o->nf; ++i ) {      /* (v2 - v1) x (v3 - v1): outward, as wound */
+            const V3    *a = &o->v[o->f[i][1]];
+            const V3    *b = &o->v[o->f[i][2]];
+            const V3    *c = &o->v[o->f[i][3]];
+            double      ex1 = b->x - a->x, ey1 = b->y - a->y, ez1 = b->z - a->z;
+            double      ex2 = c->x - a->x, ey2 = c->y - a->y, ez2 = c->z - a->z;
+            double      nx = ey1 * ez2 - ez1 * ey2;
+            double      ny = ez1 * ex2 - ex1 * ez2;
+            double      nz = ex1 * ey2 - ey1 * ex2;
+            double      len = sqrt( nx * nx + ny * ny + nz * nz );
+
+            x->n[i][0] = to_fx( nx / len );
+            x->n[i][1] = to_fx( ny / len );
+            x->n[i][2] = to_fx( nz / len );
+        }
+        x->u = to_fx( o->u );
+        x->w = to_fx( o->w );
+        x->bob = to_fx( o->bob );
+        x->orbit = to_ang( o->orbit );
+        x->spin = to_ang( o->spin );
+    }
 }
 
 static void build_palette( void )
@@ -205,20 +299,11 @@ static void draw_sky( void )
     }
 }
 
-/* Nearest integer in one FISTP: floor() and a C cast each reload the FPU control word, and
- * the CPU's float work, not the card, sets this demo's frame rate. */
-extern long fround( double v );
-#pragma aux fround = "sub esp, 4" "fistp dword ptr [esp]" "pop eax" parm [8087] value [eax];
-
 static void grid_pt( int i, int j )
 {
-    double  sx;
-    double  sy;
-    double  wz;
+    FX      wz;
 
-    project( i - CHK_N / 2.0, j - CHK_N / 2.0, 0.0, &sx, &sy, &wz );
-    gx[i][j] = (short)fround( sx );
-    gy[i][j] = (short)fround( sy );
+    project( I2FX( i - CHK_N / 2 ), I2FX( j - CHK_N / 2 ), 0, &gx[i][j], &gy[i][j], &wz );
 }
 
 /* The parity floor uses only the platform's edge points; the quads need every corner. */
@@ -303,70 +388,72 @@ static void floor_parity( void )
 
 /* Each solid: turned, placed, back faces dropped, shaded by a light from the upper left,
  * depth band from the face's mean distance. */
-static void build_solids( long f )
+static void build_solids( unsigned long f )
 {
-    static const V3 light = { -0.45, 0.80, -0.40 };
     unsigned        k;
-    double          eye_u = -18.0 * view_s;     /* the eye on the platform: project()'s x = 0, z = 0 */
-    double          eye_w = -18.0 * view_c;
+    FX              eye_u = -VIEW_D * view_s;   /* the eye on the platform: project()'s x = 0, z = 0 */
+    FX              eye_w = -VIEW_D * view_c;
 
     nfaces = 0;
     for( k = 0; k < NSOLID; ++k ) {
         SOLID   *o = &solids[k];
-        double  a = o->orbit * f;
-        double  u = o->u * cos( a ) - o->w * sin( a );
-        double  w = o->u * sin( a ) + o->w * cos( a );
-        double  r = o->spin * f;
-        double  cr = cos( r );
-        double  sr = sin( r );
-        double  lift = o->bob > 0.0 ? o->bob * fabs( sin( f * 0.06 + k ) ) : 0.0;
-        double  px[8], py[8], pz[8], wx[8], wy[8], wz[8];
+        SOLIDFX *x = &sfx[k];
+        FX      ca = COS( x->orbit * f );
+        FX      sa = SIN( x->orbit * f );
+        FX      u = fmul( x->u, ca ) - fmul( x->w, sa );
+        FX      w = fmul( x->u, sa ) + fmul( x->w, ca );
+        FX      cr = COS( x->spin * f );
+        FX      sr = SIN( x->spin * f );
+        FX      lift = x->bob > 0 ? fmul( x->bob, labs( SIN( f * bob_step + k * one_rad ) ) ) : 0;
+        FX      wx[8], wy[8], wz[8], pz[8];
+        short   px[8], py[8];
         int     i;
 
         for( i = 0; i < o->nv; ++i ) {
-            double x = o->v[i].x * o->size;
-            double z = o->v[i].z * o->size;
+            FX vx = x->v[i][0];
+            FX vz = x->v[i][2];
 
-            wx[i] = u + x * cr - z * sr;
-            wz[i] = w + x * sr + z * cr;
-            wy[i] = o->v[i].y * o->size + lift;
+            wx[i] = u + fmul( vx, cr ) - fmul( vz, sr );
+            wz[i] = w + fmul( vx, sr ) + fmul( vz, cr );
+            wy[i] = x->v[i][1] + lift;
             project( wx[i], wz[i], wy[i], &px[i], &py[i], &pz[i] );
         }
         for( i = 0; i < o->nf; ++i ) {
             const int   *fc = o->f[i];
             int         n = fc[0];
-            double      ex1 = wx[fc[2]] - wx[fc[1]], ey1 = wy[fc[2]] - wy[fc[1]], ez1 = wz[fc[2]] - wz[fc[1]];
-            double      ex2 = wx[fc[3]] - wx[fc[1]], ey2 = wy[fc[3]] - wy[fc[1]], ez2 = wz[fc[3]] - wz[fc[1]];
-            double      nx, ny, nz, len, lit, depth = 0.0;
+            int         v1 = fc[1];
+            FX          nx = fmul( x->n[i][0], cr ) - fmul( x->n[i][2], sr );
+            FX          ny = x->n[i][1];
+            FX          nz = fmul( x->n[i][0], sr ) + fmul( x->n[i][2], cr );
+            FX          lit;
+            FX          depth = 0;
             FACE        *fa;
             int         j;
             int         z;
+            int         shade;
 
-            /* Outward normal on the platform (faces wind counter-clockwise seen from outside);
-             * a face shows when the eye is on its outer side. The light is fixed to the platform. */
-            nx = ey1 * ez2 - ez1 * ey2;
-            ny = ez1 * ex2 - ex1 * ez2;
-            nz = ex1 * ey2 - ey1 * ex2;
-            if( ( eye_u - wx[fc[1]] ) * nx + ( EYE_H - wy[fc[1]] ) * ny + ( eye_w - wz[fc[1]] ) * nz <= 0.0 ) {
+            /* A face shows when the eye is on its outer side. The light is fixed to the platform. */
+            if( fmul( eye_u - wx[v1], nx ) + fmul( I2FX( EYE_H ) - wy[v1], ny ) + fmul( eye_w - wz[v1], nz ) <= 0 ) {
                 continue;
             }
-            len = sqrt( nx * nx + ny * ny + nz * nz );
-            lit = len > 0.0 ? ( nx * light.x + ny * light.y + nz * light.z ) / len : 0.0;
-            if( lit < 0.0 ) lit = 0.0;
+            lit = fmul( nx, light_fx[0] ) + fmul( ny, light_fx[1] ) + fmul( nz, light_fx[2] );
+            if( lit < 0 ) lit = 0;
             fa = &faces[nfaces++];
             fa->n = n;
             for( j = 0; j < n; ++j ) {
-                fa->p[j].x = (short)fround( px[fc[1 + j]] );
-                fa->p[j].y = (short)fround( py[fc[1 + j]] );
+                fa->p[j].x = px[fc[1 + j]];
+                fa->p[j].y = py[fc[1 + j]];
                 depth += pz[fc[1 + j]];
             }
             depth /= n;
-            z = (int)fround( ( depth - Z_NEAR ) * ( BAND_BACK - 1 ) / ( Z_FAR - Z_NEAR ) - 0.5 );
+            z = (int)( ( ( depth - I2FX( Z_NEAR ) ) * ( BAND_BACK - 1 ) / ( Z_FAR - Z_NEAR ) ) >> FX_SH );
             if( z < 0 ) z = 0;
             if( z > BAND_BACK - 1 ) z = BAND_BACK - 1;
+            shade = (int)( ( lit * 7 + 0x8000 ) >> FX_SH );
+            if( shade > 7 ) shade = 7;
             fa->z = z;
             fa->depth = depth;
-            fa->col = z * 16 + o->hue * 8 + (int)fround( lit * 7.0 );
+            fa->col = z * 16 + o->hue * 8 + shade;
         }
     }
 }
@@ -394,9 +481,10 @@ static int key_next( void )
 
 static int cmp_far_first( const void *a, const void *b )
 {
-    double d = ( (const FACE *)b )->depth - ( (const FACE *)a )->depth;
+    FX da = ( (const FACE *)a )->depth;
+    FX db = ( (const FACE *)b )->depth;
 
-    return( d > 0 ? 1 : d < 0 ? -1 : 0 );
+    return( db > da ? 1 : db < da ? -1 : 0 );
 }
 
 static void draw_solids( void )
@@ -480,6 +568,7 @@ int main( int argc, char **argv )
     unsigned long   fps10 = 0;
     unsigned long   w_frame = 0;
     unsigned long   w_prev = 0;
+    unsigned long   view_step;
     M8STATS         s;
     FILE            *o;
     int             i;
@@ -502,11 +591,13 @@ int main( int argc, char **argv )
     }
     build_palette();
     m8_dither_init();                   /* without it the sky is bands, not ramps */
+    fx_init();
+    view_step = to_ang( 0.012 );
     m8_stats_reset();
     t_start = t_sec = m8_ticks();
     for( f = 0; frames == 0 || f < frames; ++f ) {
-        view_c = cos( f * 0.012 );
-        view_s = sin( f * 0.012 );
+        view_c = COS( view_step * f );
+        view_s = SIN( view_step * f );
         floor_grid();
         build_solids( f );
         m8_frame_begin();
