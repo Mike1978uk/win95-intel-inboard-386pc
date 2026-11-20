@@ -1,0 +1,26 @@
+ALL 
+DOS/32A warning (9004): mouse initialization failed
+M8SHOW 200 frames in 6.59 s = 30.34 fps; writes 285932 (1429.7 a frame), status reads 337310; depth 1 parity 1 shadows 1 spot 1 glass 1 hud 1 vsync 0 skip 0
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h
+DOS/32A warning (9004): mouse initialization failed
+M8SHOW 200 frames in 6.59 s = 30.34 fps; writes 285932 (1429.7 a frame), status reads 337332; depth 1 parity 1 shadows 1 spot 1 glass 1 hud 1 vsync 0 skip 0
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h
+NOSPOT 
+DOS/32A warning (9004): mouse initialization failed
+M8SHOW 200 frames in 6.37 s = 31.39 fps; writes 273242 (1366.2 a frame), status reads 332916; depth 1 parity 1 shadows 1 spot 0 glass 1 hud 1 vsync 0 skip 0
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h
+NOGLASS 
+DOS/32A warning (9004): mouse initialization failed
+M8SHOW 200 frames in 6.32 s = 31.66 fps; writes 268611 (1343.1 a frame), status reads 332059; depth 1 parity 1 shadows 1 spot 1 glass 0 hud 1 vsync 0 skip 0
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h
+NONE 
+DOS/32A warning (9004): mouse initialization failed
+M8SHOW 200 frames in 5.44 s = 36.78 fps; writes 220931 (1104.7 a frame), status reads 313301; depth 1 parity 1 shadows 0 spot 0 glass 0 hud 1 vsync 0 skip 0
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h
+DOS/32A warning (9004): mouse initialization failed
+M8SHOW 400 frames in 16.31 s = 24.52 fps; writes 567436 (1418.6 a frame), status reads 982252; depth 1 parity 1 shadows 1 spot 1 glass 1 hud 1 vsync 0 skip 0
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h
+DOS/32A warning (9004): mouse initialization failed
+M8SHOW 200 frames in 10.00 s = 20.01 fps; writes 289673 (1448.4 a frame), status reads 646651; depth 1 parity 1 shadows 1 spot 1 glass 1 hud 1 vsync 0 skip 0
+DOS/32A warning (9003): real mode interrupt vector has been modified: INT C2h
+DONE 
