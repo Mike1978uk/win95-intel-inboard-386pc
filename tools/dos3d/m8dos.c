@@ -685,6 +685,7 @@ static int      nbatch;
 static GROUP    grp[PASS];
 static int      ngrp;
 static int      cur_col = -1;           /* FRGD_COLOR as last queued, -1 unknown */
+static int      poly_mix = M8_MIX_REPLACE;  /* m8_mix: the mix of the polygons in the batch */
 
 static void batch_flush( void );
 
@@ -921,7 +922,7 @@ static void batch_flush( void )
         }
         Q( M8_WRT_MASK, 0x00FF );
         Q( M8_DP_CONFIG, M8_DP_POLY_FILL );
-        Q( M8_ALU_FG_FN, M8_MIX_REPLACE );
+        Q( M8_ALU_FG_FN, poly_mix );
         Q( M8_SRC_Y_DIR, 1 );
         if( any_z ) {
             Q( M8_DEST_CMP_FN, M8_CMP_LESS );
@@ -961,6 +962,9 @@ static void batch_flush( void )
     if( any_z && !planes ) {
         Q( M8_DEST_CMP_FN, M8_CMP_LESS );
     }
+    if( poly_mix != M8_MIX_REPLACE ) {
+        Q( M8_FRGD_MIX, 0x20 | poly_mix );      /* spans and outlines go by FRGD_MIX */
+    }
     for( j = 0; j < np; ++j ) {
         if( p[j].fill && ( ( m8_opt & M8_OPT_NOOUTLINE ) || !( m8_opt & M8_OPT_OUTLINE ) ) ) {
             ++st.polys_fill;
@@ -985,6 +989,9 @@ static void batch_flush( void )
     }
     if( any_z ) {
         Q( M8_DEST_CMP_FN, 0 );         /* scratch writes and later calls are not compared */
+    }
+    if( poly_mix != M8_MIX_REPLACE ) {
+        Q( M8_FRGD_MIX, M8_MIX_FRGD_REPLACE );  /* the scratch clear and other calls replace */
     }
     if( planes ) {
         /* The FIFO runs in order, so the fills have read the scratch before this clears it. */
@@ -1267,6 +1274,16 @@ void m8_poly( int n, const M8PT *v, int col )
 void m8_depth( int z )
 {
     cur_z = ( z >= 0 && z <= 15 ) ? z : -1;
+}
+
+/* A batch goes out under one mix, so a change sends what is queued first. */
+void m8_mix( int mix )
+{
+    mix &= 0x1F;
+    if( mix != poly_mix ) {
+        batch_flush();
+        poly_mix = mix;
+    }
 }
 
 void m8_tri( int x0, int y0, int x1, int y1, int x2, int y2, int col )
@@ -1781,6 +1798,7 @@ int m8_open( void )
     Q( M8_BKGD_MIX, M8_MIX_BKGD_PLAIN );
     Q( M8_ALU_FG_FN, M8_MIX_REPLACE );
     Q( M8_LINEDRAW_OPT, M8_LINEDRAW_LAST_OFF );
+    poly_mix = M8_MIX_REPLACE;
     Q( M8_FRGD_COLOR, 0 );
     cur_col = 0;
     dither_ok = 0;                      /* the clear below takes the map with it */
@@ -1800,6 +1818,7 @@ int m8_open( void )
 void m8_close( void )
 {
     if( gfx_on && !engine_bad ) {
+        Q( M8_ALU_FG_FN, M8_MIX_REPLACE );  /* the register outlives the program */
         engine_idle();
         page_wait();
     }

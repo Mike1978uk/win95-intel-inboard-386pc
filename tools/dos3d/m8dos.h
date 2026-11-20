@@ -61,6 +61,10 @@ void    m8_poly( int n, const M8PT *v, int col );               /* convex, 3..16
  * col must carry the depth too: col = z x 16 + colour (16 colours; the palette can shade
  * each depth band). Clear to depth 15. */
 void    m8_depth( int z );
+/* The mix for the polygons that follow (the card's 32 mixes, guide 8-24): M8_MIX_POLY_REPLACE,
+ * or e.g. 0x0E (~S & D) to clear the bits of col in what is already there. */
+#define M8_MIX_POLY_REPLACE 0x07
+void    m8_mix( int mix );
 void    m8_tri( int x0, int y0, int x1, int y1, int x2, int y2, int col );
 /* A trapezoid: rows y0..y1 inclusive, edges at xl/xr on row y0, stepping dxl/dxr a row
  * (16.16 fixed point). The form VBE/AF and BRender's span generators produce. */
