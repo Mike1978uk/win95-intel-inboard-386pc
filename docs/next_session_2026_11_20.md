@@ -8,6 +8,9 @@
 - Warm restart out of Windows (boot 78, 17:05): `CPU OK: 2x, L1 on, 1-16 MB cached`.
 - CPUCHK only reads (RDMSR). Reverting `ab1db53` would hide the message, not change the CPU.
   Card `CPUSET.BAT` and `CPUCHK.COM` are byte-identical to the repo.
+- 17:15, owner's request: card `C:\CTCHIP\CPUSET.BAT` put back to the pre-`ab1db53` version
+  (2,535 bytes, ends with the CPUSHOW reminder, no CPUCHK); the 11-19 one is `CPUSET.BAK`.
+  The register writes are identical in both. CPUCHK.COM is still on the card to run by hand.
 - Owner: the boot-option changes came AFTER the slowdown was seen, so they are not the cause.
   A backup of the earlier card image exists if needed.
 - Fits X33 (`docs/worklist.md`): fast after a warm restart out of Windows, slow from cold.
