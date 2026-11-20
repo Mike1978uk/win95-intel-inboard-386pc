@@ -7,7 +7,7 @@
  * the palette), a dithered sky (L6 P6) drawn into each page once and never cleared, and a
  * readout of fps and port writes a frame.
  *
- *   M8SHOW [frames] [nv] [grab N] [quads] [sort] [noshadow] [nohud] [nofloor] [nosolids] [noground]
+ *   M8SHOW [frames] [nv] [grab N] [quads] [sort] [noshadow] [nospot] [noglass] [nohud] [nofloor] [nosolids] [noground]
  *     frames   frames to draw, then report (default 0: until Esc)
  *     nv       do not wait for the flip (throughput; tears)
  *     grab N   save the page shown after frame N to M8SHOW.RAW (640 x 480 palette indices, then
@@ -16,9 +16,11 @@
  *     quads    start with the floor as 256 quads instead of one parity fill
  *     sort     start with painter's order instead of the depth test
  *     noshadow start without shadows (one polygon a solid, drawn by the mix)
+ *     nospot   start without the spotlight;  noglass  start without the glass cube
  *     nohud    start without the readout
  *     nofloor, nosolids, noground   probes: leave that part out to price it
- *   Keys: D depth test / sort, P parity / quads, S shadows, H readout, V vsync, Esc quit.
+ *   Keys: D depth test / sort, P parity / quads, S shadows, L spot, G glass, H readout, V vsync,
+ *   Esc quit.
  * Appends a line a run to M8SHOW.TXT.
  *
  * Build: see BUILD.BAT. GPL-3.0-or-later, as drivers/mach8_display.
@@ -32,23 +34,29 @@
 #define PI          3.14159265358979
 
 /* Palette. Depth band z (0 nearest .. 13) holds the solids, fogged by z: entries z x 16 + c,
- * c 0-7 hue A shades, 8-15 hue B shades. Bands 14 and 15 hold what is always behind, so the
- * depth test passes every solid over them: band 15 the floor, ground, readout (F0-F5) and sky
- * (F8-FF); band 14 the same floor and ground in shadow. A shadow is then one polygon whose mix
- * clears bit 4 (~S & D, S = 10h) in whatever floor or ground is under it, at fill speed, and
- * shadows that overlap clear it once. */
+ * c 0-7 hue A shades, 8-15 hue B shades (bit 3 = hue). Bands 14 and 15 hold what is always
+ * behind, so the depth test passes every solid over them. There the floor and ground kinds
+ * (low 3 bits 0-2) come four ways: bit 4 set = in the open, clear = in shadow; bit 3 set = in
+ * the spotlight. So each effect is one polygon a mix draws over whatever is already there, at
+ * fill speed: a shadow clears bit 4 (~S & D), the spot sets bit 3 (S | D), and glass flips bit
+ * 3 (S ^ D), which in a solid swaps the hue at the same shade and fog. Overlapping shadows or
+ * spots set or clear their bit once. Kinds 3-7 hold the hill, readout and sky, never lit. */
 #define SOLID_BANDS 14
 #define BACK        0xF0
 #define SHADOW_BIT  0x10
+#define LIT_BIT     0x08
 #define MIX_CLEAR   0x0E            /* ~S & D */
+#define MIX_SET     0x0B            /* S | D */
+#define MIX_FLIP    0x05            /* S ^ D */
 #define FLOOR_A     ( BACK + 0 )
 #define FLOOR_B     ( BACK + 1 )
 #define GROUND      ( BACK + 2 )
 #define HILL        ( BACK + 3 )
 #define HUD_FG      ( BACK + 4 )
 #define HUD_BG      ( BACK + 5 )
-#define SKY0        ( BACK + 8 )    /* F8..FF: sky, top to horizon */
 #define SKY_N       8
+static const int sky_col[SKY_N + 1] =   /* top to horizon; the last strip's second colour repeats */
+    { 0xE3, 0xE4, 0xE5, 0xE6, 0xE7, 0xEB, 0xEC, 0xED, 0xED };
 
 #define SKY_B       112             /* sky rows 0..SKY_B-1: drawn into each page once */
 #define CHK_N       16
@@ -118,6 +126,7 @@ typedef struct {
     double      spin;           /* radians a frame about its own axis */
     double      size;
     double      bob;            /* height of a bounce, 0 none */
+    int         glass;          /* 1: drawn last, flipping the hue bit of what is behind it */
 } SOLID;
 
 static SOLID    solids[] = {
@@ -127,6 +136,7 @@ static SOLID    solids[] = {
     { cube_v, 8, cube_f, 6, 1,  0.0,  5.0, 0.012, 0.045, 0.8, 0.0 },
     { pyr_v,  5, pyr_f,  5, 0,  0.0, -5.0, 0.012, -0.035, 0.9, 0.0 },
     { oct_v,  6, oct_f,  8, 1,  6.0,  6.0, -0.008, 0.060, 0.8, 2.0 },
+    { cube_v, 8, cube_f, 6, 0,  2.5, -2.5, -0.010, 0.020, 1.3, 0.0, 1 },
 };
 #define NSOLID  ( sizeof( solids ) / sizeof( solids[0] ) )
 
@@ -158,6 +168,16 @@ typedef struct {
 } FACE;
 static FACE     faces[NSOLID * 8];
 static int      nfaces;
+static FACE     gfaces[8];          /* the glass solid's front faces */
+static int      ngfaces;
+
+/* The spotlight: a circle on the floor that wanders over the platform. */
+#define SPOT_N      12
+#define SPOT_R      2.4
+static FX       spot_c[SPOT_N];     /* the circle's offsets, grid units */
+static FX       spot_s[SPOT_N];
+static M8PT     spot[SPOT_N];
+static unsigned long spot_step;
 
 static short    gx[CHK_N + 1][CHK_N + 1];
 static short    gy[CHK_N + 1][CHK_N + 1];
@@ -167,6 +187,8 @@ static FX       view_s;
 static int      use_depth = 1;
 static int      use_parity = 1;
 static int      use_shadows = 1;
+static int      use_spot = 1;
+static int      use_glass = 1;
 static int      show_hud = 1;
 static int      vsync = 1;
 static int      skip;               /* probe: 1 floor, 2 solids, 4 ground repaint */
@@ -218,6 +240,11 @@ static void fx_init( void )
     shadow_ku = to_fx( -light[0] / light[1] );
     shadow_kw = to_fx( -light[2] / light[1] );
     bob_step = to_ang( 0.06 );
+    spot_step = to_ang( 0.021 );
+    for( i = 0; i < SPOT_N; ++i ) {
+        spot_c[i] = to_fx( SPOT_R * cos( i * 2.0 * PI / SPOT_N ) );
+        spot_s[i] = to_fx( SPOT_R * sin( i * 2.0 * PI / SPOT_N ) );
+    }
     one_rad = to_ang( 1.0 );
     for( k = 0; k < NSOLID; ++k ) {
         SOLID   *o = &solids[k];
@@ -277,9 +304,9 @@ static void build_palette( void )
     for( c = 0; c < SKY_N; ++c ) {                      /* deep blue down to the fog colour */
         double t = c / (double)( SKY_N - 1 );
 
-        rgb[( SKY0 + c ) * 3 + 0] = (unsigned char)( ( 0.08 + t * ( fog[0] - 0.08 ) ) * 63.0 + 0.5 );
-        rgb[( SKY0 + c ) * 3 + 1] = (unsigned char)( ( 0.12 + t * ( fog[1] - 0.12 ) ) * 63.0 + 0.5 );
-        rgb[( SKY0 + c ) * 3 + 2] = (unsigned char)( ( 0.35 + t * ( fog[2] - 0.35 ) ) * 63.0 + 0.5 );
+        rgb[sky_col[c] * 3 + 0] = (unsigned char)( ( 0.08 + t * ( fog[0] - 0.08 ) ) * 63.0 + 0.5 );
+        rgb[sky_col[c] * 3 + 1] = (unsigned char)( ( 0.12 + t * ( fog[1] - 0.12 ) ) * 63.0 + 0.5 );
+        rgb[sky_col[c] * 3 + 2] = (unsigned char)( ( 0.35 + t * ( fog[2] - 0.35 ) ) * 63.0 + 0.5 );
     }
 #define SETC( i, r, g, b ) ( rgb[(i) * 3] = (r), rgb[(i) * 3 + 1] = (g), rgb[(i) * 3 + 2] = (b) )
     SETC( FLOOR_A, 58, 58, 54 );
@@ -288,9 +315,13 @@ static void build_palette( void )
     SETC( HILL, 18, 24, 34 );
     SETC( HUD_FG, 63, 63, 20 );
     SETC( HUD_BG, 0, 0, 0 );
-    for( c = FLOOR_A; c <= HILL; ++c ) {               /* in shadow: the same, darker */
+    SETC( FLOOR_A | LIT_BIT, 63, 61, 46 );             /* in the spot: warm and bright */
+    SETC( FLOOR_B | LIT_BIT, 34, 32, 40 );
+    SETC( GROUND | LIT_BIT, 26, 36, 18 );
+    for( c = FLOOR_A; c <= GROUND; ++c ) {             /* in shadow: the same, darker */
         for( k = 0; k < 3; ++k ) {
             rgb[( c & ~SHADOW_BIT ) * 3 + k] = (unsigned char)( rgb[c * 3 + k] * 9 / 20 );
+            rgb[( ( c | LIT_BIT ) & ~SHADOW_BIT ) * 3 + k] = (unsigned char)( rgb[( c | LIT_BIT ) * 3 + k] * 13 / 20 );
         }
     }
     m8_palette( 0, 256, rgb );
@@ -308,7 +339,7 @@ static void draw_sky( void )
         int t = i * SKY_B / strips;
         int b = ( i + 1 ) * SKY_B / strips - 1;
 
-        m8_dither_rect( 0, t, M8_W - 1, b, SKY0 + i / 3, SKY0 + i / 3 + 1, ( i % 3 ) * 3 );
+        m8_dither_rect( 0, t, M8_W - 1, b, sky_col[i / 3], sky_col[i / 3 + 1], ( i % 3 ) * 3 );
     }
     for( i = 0; i < 8; ++i ) {                          /* low hills on the horizon */
         int x0 = i * 80;
@@ -447,6 +478,7 @@ static void build_solids( unsigned long f )
     FX              eye_w = -VIEW_D * view_c;
 
     nfaces = 0;
+    ngfaces = 0;
     for( k = 0; k < NSOLID; ++k ) {
         SOLID   *o = &solids[k];
         SOLIDFX *x = &sfx[k];
@@ -470,7 +502,8 @@ static void build_solids( unsigned long f )
             wy[i] = x->v[i][1] + lift;
             project( wx[i], wz[i], wy[i], &px[i], &py[i], &pz[i] );
         }
-        if( use_shadows ) {
+        nshad[k] = 0;
+        if( use_shadows && !o->glass ) {
             M8PT    g[8];
             FX      gz;
 
@@ -502,7 +535,7 @@ static void build_solids( unsigned long f )
             }
             lit = fmul( nx, light_fx[0] ) + fmul( ny, light_fx[1] ) + fmul( nz, light_fx[2] );
             if( lit < 0 ) lit = 0;
-            fa = &faces[nfaces++];
+            fa = o->glass ? &gfaces[ngfaces++] : &faces[nfaces++];
             fa->n = n;
             for( j = 0; j < n; ++j ) {
                 fa->p[j].x = px[fc[1 + j]];
@@ -517,7 +550,7 @@ static void build_solids( unsigned long f )
             if( shade > 7 ) shade = 7;
             fa->z = z;
             fa->depth = depth;
-            fa->col = z * 16 + o->hue * 8 + shade;
+            fa->col = o->glass ? LIT_BIT : z * 16 + o->hue * 8 + shade;
         }
     }
 }
@@ -549,6 +582,42 @@ static int cmp_far_first( const void *a, const void *b )
     FX db = ( (const FACE *)b )->depth;
 
     return( db > da ? 1 : db < da ? -1 : 0 );
+}
+
+static void build_spot( unsigned long f )
+{
+    unsigned long   a = spot_step * f;
+    FX              r = I2FX( 4 ) + fmul( I2FX( 2 ), SIN( a * 3 ) );     /* in and out as it circles */
+    FX              cu = fmul( r, COS( a ) );
+    FX              cw = fmul( r, SIN( a ) );
+    FX              wz;
+    int             i;
+
+    for( i = 0; i < SPOT_N; ++i ) {
+        project( cu + spot_c[i], cw + spot_s[i], 0, &spot[i].x, &spot[i].y, &wz );
+    }
+}
+
+static void draw_spot( void )
+{
+    m8_mix( MIX_SET );
+    m8_poly( SPOT_N, spot, LIT_BIT );
+    m8_mix( M8_MIX_POLY_REPLACE );
+}
+
+/* The glass solid's front faces only: each pixel behind it flips once. With the depth test,
+ * solids in front of it keep their colour. */
+static void draw_glass( void )
+{
+    int i;
+
+    m8_mix( MIX_FLIP );
+    for( i = 0; i < ngfaces; ++i ) {
+        m8_depth( use_depth ? gfaces[i].z : -1 );
+        m8_poly( gfaces[i].n, gfaces[i].p, gfaces[i].col );
+    }
+    m8_depth( -1 );
+    m8_mix( M8_MIX_POLY_REPLACE );
 }
 
 static void draw_shadows( void )
@@ -604,12 +673,12 @@ static void number( int x, int y, unsigned long v, int digits )
 }
 
 /* Readout: fps x 10, writes a frame, and a lamp a lever (lit = on): depth, parity, vsync,
- * shadows. */
+ * shadows, spot, glass. */
 static void draw_hud( unsigned long fps10, unsigned long writes )
 {
     int y = M8_H - 20;
 
-    m8_rect( 4, y - 2, 4 + 8 * 10 + 84, y + 15, HUD_BG );
+    m8_rect( 4, y - 2, 4 + 8 * 10 + 112, y + 15, HUD_BG );
     number( 8, y, fps10 / 10, 3 );
     m8_rect( 38, y + 12, 39, y + 13, HUD_FG );
     digit( 42, y, (int)( fps10 % 10 ) );
@@ -618,6 +687,8 @@ static void draw_hud( unsigned long fps10, unsigned long writes )
     if( use_parity ) m8_rect( 118, y, 127, y + 4, HUD_FG );
     if( vsync ) m8_rect( 132, y, 141, y + 4, HUD_FG );
     if( use_shadows ) m8_rect( 146, y, 155, y + 4, HUD_FG );
+    if( use_spot ) m8_rect( 160, y, 169, y + 4, HUD_FG );
+    if( use_glass ) m8_rect( 174, y, 183, y + 4, HUD_FG );
 }
 
 static void grab( const char *raw )
@@ -659,6 +730,8 @@ int main( int argc, char **argv )
         else if( stricmp( argv[i], "quads" ) == 0 ) use_parity = 0;
         else if( stricmp( argv[i], "sort" ) == 0 ) use_depth = 0;
         else if( stricmp( argv[i], "noshadow" ) == 0 ) use_shadows = 0;
+        else if( stricmp( argv[i], "nospot" ) == 0 ) use_spot = 0;
+        else if( stricmp( argv[i], "noglass" ) == 0 ) use_glass = 0;
         else if( stricmp( argv[i], "nohud" ) == 0 ) show_hud = 0;
         else if( stricmp( argv[i], "grab" ) == 0 && i + 1 < argc ) grab_at = atol( argv[++i] );
         else if( stricmp( argv[i], "nofloor" ) == 0 ) skip |= 1;
@@ -681,6 +754,7 @@ int main( int argc, char **argv )
         view_s = SIN( view_step * f );
         floor_grid();
         build_solids( f );
+        build_spot( f );
         m8_frame_begin();
         if( sky_pages < 2 ) {
             draw_sky();
@@ -701,6 +775,14 @@ int main( int argc, char **argv )
                     box_add( &now, faces[i].p[j].x, faces[i].p[j].y );
                 }
             }
+            for( i = 0; i < ngfaces; ++i ) {
+                for( j = 0; j < gfaces[i].n; ++j ) {
+                    box_add( &now, gfaces[i].p[j].x, gfaces[i].p[j].y );
+                }
+            }
+            for( i = 0; use_spot && i < SPOT_N; ++i ) {
+                box_add( &now, spot[i].x, spot[i].y );
+            }
             for( i = 0; use_shadows && i < (int)NSOLID; ++i ) {
                 for( j = 0; j < nshad[i]; ++j ) {
                     box_add( &now, shad[i][j].x, shad[i][j].y );
@@ -719,8 +801,10 @@ int main( int argc, char **argv )
             *old = now;
         }
         if( !( skip & 1 ) ) { if( use_parity ) floor_parity(); else floor_quads(); }
+        if( use_spot && !( skip & 1 ) ) draw_spot();
         if( use_shadows && !( skip & 2 ) ) draw_shadows();
         if( !( skip & 2 ) ) draw_solids();
+        if( use_glass && !( skip & 2 ) ) draw_glass();
         if( show_hud ) draw_hud( fps10, w_frame );
         m8_frame_end( vsync );
         if( f == grab_at ) {
@@ -742,6 +826,8 @@ int main( int argc, char **argv )
             case 'd': use_depth = !use_depth; break;
             case 'p': use_parity = !use_parity; break;
             case 's': use_shadows = !use_shadows; break;
+            case 'l': use_spot = !use_spot; break;
+            case 'g': use_glass = !use_glass; break;
             case 'h': show_hud = !show_hud; full = 2; break;
             case 'v': vsync = !vsync; break;
             default:
@@ -761,8 +847,9 @@ int main( int argc, char **argv )
         char            line[200];
 
         sprintf( line, "M8SHOW %ld frames in %.2f s = %.2f fps; writes %lu (%.1f a frame), status reads %lu;"
-                 " depth %d parity %d shadows %d hud %d vsync %d skip %d%s%s\n", f, secs, secs > 0 ? f / secs : 0.0,
-                 s.outs, f ? (double)s.outs / f : 0.0, s.ins, use_depth, use_parity, use_shadows, show_hud, vsync, skip,
+                 " depth %d parity %d shadows %d spot %d glass %d hud %d vsync %d skip %d%s%s\n", f, secs, secs > 0 ? f / secs : 0.0,
+                 s.outs, f ? (double)s.outs / f : 0.0, s.ins, use_depth, use_parity, use_shadows, use_spot, use_glass,
+                 show_hud, vsync, skip,
                  m8_error() ? "; engine: " : "", m8_error() ? m8_error() : "" );
         fputs( line, stdout );
         if( ( o = fopen( "M8SHOW.TXT", "a" ) ) != NULL ) {
