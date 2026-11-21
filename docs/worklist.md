@@ -498,4 +498,7 @@ Behind these: Fable leftovers F2 4 / F3 4-5 (X23), BRender `.BDD` ABI (X24), the
 
 - [ ] IE4 install broke the disk driver on the webcam image (no snapshot). Reproduce in a VM with one.
 - [ ] Creative WebCam II on LPT: image `OneDrive\Desktop\win95_webcam.img` (LS-120 removed, port visible).
+      Display side (owner, 11-21): the 16 bpp piece skip and the VGA-half route (X1, #60) cut preview cost, but the
+      frame rate is set by the LPT transfer: derived ~2 fps at 160x120 in nibble mode, ~8-9 fps if EPP (not measured).
+      Measure the camera driver's transfer mode first.
 - [ ] Iomega Jaz 2 GB on the T130B worked first time as a disk: add to `docs/5160_tuned_config.md`.
