@@ -84,6 +84,7 @@ typedef struct {
     long    ov_sl, ov_st, ov_sr, ov_sb;
     long    ov_dl, ov_dt, ov_dr, ov_db;
     DWORD   ov_key;
+    DWORD   vga;                /* 1: the VGA half is shown; m8dd_vga_* serve it */
 } M8DD_SHARE;
 
 /* DDHAL_LOCKDATA and DDHAL_UNLOCKDATA as DDRAW passes them (Microsoft's
@@ -4461,6 +4462,87 @@ static int m8dd_ov_flip( M8DD_FLIP *fd )
     return( 1 );
 }
 
+/* VGA mode's flip chain: the primary is A0000 (dd16.c's fpPrimary) and each
+ * back buffer its own RAM, all called video memory so that DDRAW hands Flip to
+ * m8dd_vga_flip; with a system-memory back buffer it emulates the flip and
+ * A0000 never changes. Anything else is DDRAW's. */
+#define M8DD_VGA_PRIMARY    0xA0000UL
+#define M8DD_VGA_BACKS      3
+static DWORD    m8dd_vga_back[M8DD_VGA_BACKS];
+static int      m8dd_vga_destroy( BYTE *gbl );
+
+static DWORD m8dd_vga_create( M8DD_CREATE *cd )
+{
+    BYTE    *lcl;
+    BYTE    *gbl;
+    DWORD   caps;
+    DWORD   i;
+    int     prim = -1;
+    int     j;
+
+    if( cd->dwSCnt < 2 || cd->dwSCnt > M8DD_VGA_BACKS + 1 ) {
+        return( DDHAL_DRIVER_NOTHANDLED );
+    }
+    for( i = 0; i < cd->dwSCnt; ++i ) {
+        caps = *(DWORD *)((BYTE *)cd->lplpSList[i] + M8DD_LCL_CAPS);
+        if( !(caps & DDSCAPS_FLIP) || (caps & DDSCAPS_SYSTEMMEMORY) ) {
+            return( DDHAL_DRIVER_NOTHANDLED );
+        }
+        if( caps & DDSCAPS_PRIMARYSURFACE ) {
+            prim = (int)i;
+        }
+    }
+    if( prim < 0 ) {
+        return( DDHAL_DRIVER_NOTHANDLED );
+    }
+    for( i = 0; i < cd->dwSCnt; ++i ) {
+        lcl = cd->lplpSList[i];
+        gbl = *(BYTE **)(lcl + M8DD_LCL_GBL);
+        if( (int)i == prim ) {
+            *(DWORD *)(gbl + M8DD_GBL_VIDMEM) = M8DD_VGA_PRIMARY;
+        } else {
+            for( j = 0; j < M8DD_VGA_BACKS && m8dd_vga_back[j] != 0; ++j ) {
+            }
+            if( j == M8DD_VGA_BACKS ||
+                (m8dd_vga_back[j] = (DWORD)VirtualAlloc( NULL, 320 * 200, MEM_COMMIT, PAGE_READWRITE )) == 0 ) {
+                /* The chain fails whole: the back buffers it already has go. */
+                while( i-- > 0 ) {
+                    m8dd_vga_destroy( *(BYTE **)((BYTE *)cd->lplpSList[i] + M8DD_LCL_GBL) );
+                }
+                cd->ddRVal = DDERR_OUTOFVIDEOMEMORY;
+                return( DDHAL_DRIVER_HANDLED );
+            }
+            *(DWORD *)(gbl + M8DD_GBL_VIDMEM) = m8dd_vga_back[j];
+        }
+        *(long *)(gbl + M8DD_GBL_PITCH) = 320;
+        *(DWORD *)(lcl + M8DD_LCL_CAPS) |= DDSCAPS_VIDEOMEMORY;
+    }
+    cd->ddRVal = DD_OK;
+    return( DDHAL_DRIVER_HANDLED );
+}
+
+/* A VGA-mode back buffer goes; 1 if it was one. Flip may have left it holding
+ * any of the chain's buffers, so it is found by address. */
+static int m8dd_vga_destroy( BYTE *gbl )
+{
+    DWORD   f;
+    int     j;
+
+    if( gbl == NULL ) {
+        return( 0 );
+    }
+    f = *(DWORD *)(gbl + M8DD_GBL_VIDMEM);
+    for( j = 0; j < M8DD_VGA_BACKS; ++j ) {
+        if( m8dd_vga_back[j] != 0 && m8dd_vga_back[j] == f ) {
+            VirtualFree( (LPVOID)f, 0, MEM_RELEASE );
+            m8dd_vga_back[j] = 0;
+            *(DWORD *)(gbl + M8DD_GBL_VIDMEM) = 0;
+            return( 1 );
+        }
+    }
+    return( 0 );
+}
+
 DWORD __stdcall m8dd_create_surface( M8DD_CREATE *cd )
 {
     BYTE    *lcl;
@@ -4470,6 +4552,10 @@ DWORD __stdcall m8dd_create_surface( M8DD_CREATE *cd )
     int     k;
     RECT    r;
 
+    /* No card surfaces while the VGA half is shown: they would sit on the 8514 half. */
+    if( m8dd->vga ) {
+        return( m8dd_vga_create( cd ) );
+    }
     m8d3d_feed_stop( 10 );
     ++m8dd_card_gen;
     for( i = 0; i < cd->dwSCnt; ++i ) {
@@ -4554,6 +4640,10 @@ DWORD __stdcall m8dd_destroy_surface( M8DD_DESTROY *dd )
         }
     }
     gbl = *(BYTE **)((BYTE *)dd->lpDDSurface + M8DD_LCL_GBL);
+    if( m8dd_vga_destroy( gbl ) ) {
+        dd->ddRVal = DD_OK;
+        return( DDHAL_DRIVER_HANDLED );
+    }
     m8dd_trace( "destroy caps %08lx", *(DWORD *)((BYTE *)dd->lpDDSurface + M8DD_LCL_CAPS) );
     if( m8dd->fb16 && gbl != NULL && (*(DWORD *)((BYTE *)dd->lpDDSurface + M8DD_LCL_CAPS) & DDSCAPS_ZBUFFER) ) {
         VirtualFree( (LPVOID)*(DWORD *)(gbl + M8DD_GBL_VIDMEM), 0, MEM_RELEASE );
@@ -4633,14 +4723,180 @@ BOOL WINAPI DllMain( HINSTANCE inst, DWORD reason, LPVOID reserved )
     return( TRUE );
 }
 
+/* A surface as plain memory: in VGA mode the primary is A0000 and every other
+ * surface is in RAM, DirectDraw's system memory or m8dd_vga_create's back buffers. */
+static BYTE *m8dd_mem( LPVOID lcl, long *pitch, int *w, int *h )
+{
+    BYTE    *gbl;
+
+    if( lcl == NULL ) {
+        return( NULL );
+    }
+    gbl = *(BYTE **)((BYTE *)lcl + M8DD_LCL_GBL);
+    if( gbl == NULL || *(DWORD *)(gbl + M8DD_GBL_VIDMEM) == 0 ) {
+        return( NULL );
+    }
+    *pitch = *(long *)(gbl + M8DD_GBL_PITCH);
+    *w = *(WORD *)(gbl + M8DD_GBL_WIDTH);
+    *h = *(WORD *)(gbl + M8DD_GBL_HEIGHT);
+    return( (BYTE *)*(DWORD *)(gbl + M8DD_GBL_VIDMEM) );
+}
+
+/* VGA mode's Blt: DirectDraw answers DDERR_UNSUPPORTED rather than emulate a
+ * Blt this HAL declines, so fills and unstretched SRCCOPY (one-colour source
+ * key allowed) are done here in memory, at 8 bpp. */
+static DWORD m8dd_vga_blt( M8DD_BLT *bd )
+{
+    DWORD       other = bd->dwFlags & ~(DDBLT_COLORFILL | DDBLT_ROP | DDBLT_WAIT | DDBLT_ASYNC |
+                                        DDBLT_KEYSRC | DDBLT_KEYSRCOVERRIDE);
+    const RECTL *od = bd->IsClipped ? &bd->rOrigDest : &bd->rDest;
+    const RECTL *os = bd->IsClipped ? &bd->rOrigSrc : &bd->rSrc;
+    const RECTL *rl;
+    DWORD       count;
+    DWORD       i;
+    BYTE        *dst;
+    BYTE        *src = NULL;
+    long        dp;
+    long        sp = 0;
+    int         dw;
+    int         dh;
+    int         sw;
+    int         sh;
+    int         keyed = 0;
+    BYTE        key = 0;
+    long        l;
+    long        t;
+    long        r;
+    long        b;
+    long        y;
+    long        x;
+
+    if( other != 0 || (dst = m8dd_mem( bd->lpDDDestSurface, &dp, &dw, &dh )) == NULL ) {
+        return( DDHAL_DRIVER_NOTHANDLED );
+    }
+    if( !(bd->dwFlags & DDBLT_COLORFILL) ) {
+        if( !(bd->dwFlags & DDBLT_ROP) || (bd->bltFX.dwROP >> 16) != 0xCC ||
+            (src = m8dd_mem( bd->lpDDSrcSurface, &sp, &sw, &sh )) == NULL ||
+            os->right - os->left != od->right - od->left || os->bottom - os->top != od->bottom - od->top ||
+            os->left < 0 || os->top < 0 || os->right > sw || os->bottom > sh ) {
+            return( DDHAL_DRIVER_NOTHANDLED );
+        }
+        if( bd->dwFlags & (DDBLT_KEYSRC | DDBLT_KEYSRCOVERRIDE) ) {
+            const DDCOLORKEY *ck = (bd->dwFlags & DDBLT_KEYSRCOVERRIDE) ? &bd->bltFX.ddckSrcColorkey :
+                (const DDCOLORKEY *)((BYTE *)bd->lpDDSrcSurface + M8DD_LCL_CKSRCBLT);
+
+            if( ck->dwColorSpaceLowValue != ck->dwColorSpaceHighValue || ck->dwColorSpaceLowValue > 0xFF ) {
+                return( DDHAL_DRIVER_NOTHANDLED );
+            }
+            keyed = 1;
+            key = (BYTE)ck->dwColorSpaceLowValue;
+        }
+    }
+    if( bd->IsClipped ) {
+        rl = (const RECTL *)bd->prDestRects;
+        count = bd->dwRectCnt;
+    } else {
+        rl = od;
+        count = 1;
+    }
+    for( i = 0; i < count; ++i ) {
+        l = rl[i].left < 0 ? 0 : rl[i].left;
+        t = rl[i].top < 0 ? 0 : rl[i].top;
+        r = rl[i].right > dw ? dw : rl[i].right;
+        b = rl[i].bottom > dh ? dh : rl[i].bottom;
+        if( l >= r || t >= b ) {
+            continue;
+        }
+        if( src == NULL ) {
+            for( y = t; y < b; ++y ) {
+                memset( dst + y * dp + l, (BYTE)bd->bltFX.dwFillColor, r - l );
+            }
+            continue;
+        }
+        {
+            long    sx = os->left + (l - od->left);
+            long    sy = os->top + (t - od->top);
+            long    n = r - l;
+            long    rows = b - t;
+            long    k;
+
+            /* Rows bottom up when the copy moves down within one surface. */
+            for( k = 0; k < rows; ++k ) {
+                long    row = (src == dst && sy < t) ? rows - 1 - k : k;
+                BYTE    *dr = dst + (t + row) * dp + l;
+                BYTE    *sr = src + (sy + row) * sp + sx;
+
+                if( keyed ) {
+                    for( x = 0; x < n; ++x ) {
+                        if( sr[x] != key ) {
+                            dr[x] = sr[x];
+                        }
+                    }
+                } else {
+                    memmove( dr, sr, n );
+                }
+            }
+        }
+    }
+    bd->ddRVal = DD_OK;
+    return( DDHAL_DRIVER_HANDLED );
+}
+
+/* VGA mode's Flip: mode 13h has one page, so the target's frame is copied to
+ * A0000. DDRAW swaps the two surfaces' memory after a handled Flip; they are
+ * swapped here first, so the primary stays A0000 and the program goes on
+ * drawing in its own back buffer. */
+static DWORD m8dd_vga_flip( M8DD_FLIP *fd )
+{
+    BYTE    *cg;
+    BYTE    *tg;
+    BYTE    *dst;
+    BYTE    *src;
+    long    dp;
+    long    sp;
+    int     dw;
+    int     dh;
+    int     sw;
+    int     sh;
+    int     y;
+    DWORD   v;
+
+    if( (dst = m8dd_mem( fd->lpSurfCurr, &dp, &dw, &dh )) == NULL ||
+        (src = m8dd_mem( fd->lpSurfTarg, &sp, &sw, &sh )) == NULL || sw < dw || sh < dh ) {
+        return( DDHAL_DRIVER_NOTHANDLED );
+    }
+    for( y = 0; y < dh; ++y ) {
+        memcpy( dst + y * dp, src + y * sp, dw );
+    }
+    cg = *(BYTE **)((BYTE *)fd->lpSurfCurr + M8DD_LCL_GBL);
+    tg = *(BYTE **)((BYTE *)fd->lpSurfTarg + M8DD_LCL_GBL);
+    v = *(DWORD *)(cg + M8DD_GBL_VIDMEM);
+    *(DWORD *)(cg + M8DD_GBL_VIDMEM) = *(DWORD *)(tg + M8DD_GBL_VIDMEM);
+    *(DWORD *)(tg + M8DD_GBL_VIDMEM) = v;
+    v = *(DWORD *)(cg + M8DD_GBL_PITCH);
+    *(DWORD *)(cg + M8DD_GBL_PITCH) = *(DWORD *)(tg + M8DD_GBL_PITCH);
+    *(DWORD *)(tg + M8DD_GBL_PITCH) = v;
+    fd->ddRVal = DD_OK;
+    return( DDHAL_DRIVER_HANDLED );
+}
+
 /* [112-115] page-ins inside Lock, Unlock, Blt, Flip; [116-119] ticks inside them: what is left of
- * a frame is the program's and DirectDraw's own. */
+ * a frame is the program's and DirectDraw's own. In VGA mode Lock and Unlock are
+ * DirectDraw's own, Blt and Flip m8dd_vga_blt and m8dd_vga_flip. */
 #define M8DD_TIMED( name, fn, type, k )               \
     static DWORD __stdcall name( type *d )            \
     {                                                 \
-        DWORD pi = m8dd_pageins();                    \
-        DWORD t0 = m8dd_ticks();                      \
-        DWORD rc = fn( d );                           \
+        DWORD pi;                                     \
+        DWORD t0;                                     \
+        DWORD rc;                                     \
+                                                      \
+        if( m8dd->vga ) {                             \
+            return( (k) == 2 ? m8dd_vga_blt( (M8DD_BLT *)d ) :                          \
+                    (k) == 3 ? m8dd_vga_flip( (M8DD_FLIP *)d ) : DDHAL_DRIVER_NOTHANDLED );\
+        }                                             \
+        pi = m8dd_pageins();                          \
+        t0 = m8dd_ticks();                            \
+        rc = fn( d );                                 \
                                                       \
         m8d3d_stat[116 + (k)] += m8dd_ticks() - t0;   \
         m8d3d_stat[112 + (k)] += m8dd_pageins() - pi; \

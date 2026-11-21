@@ -66,12 +66,13 @@ typedef struct {
     DWORD   update_overlay;             /* 32-bit callbacks for the overlay, 0 = none */
     DWORD   set_overlay_position;
     M8_OV   ov;                         /* the overlay as M8DD32 last described it */
+    DWORD   vga;                        /* 1: m8_vga; M8DD32's m8dd_vga_* serve the VGA half */
     /* This side only from here. */
     DDHALINFO_t                 info;
     DDHAL_DDCALLBACKS_t         cb;
     DDHAL_DDSURFACECALLBACKS_t  scb;
     DDHAL_DDPALETTECALLBACKS_t  pcb;
-    DDHALMODEINFO_t             modes[M8_MODE_COUNT + 2];
+    DDHALMODEINFO_t             modes[M8_MODE_COUNT + 3];
 } M8DD_SHARE;
 #pragma pack( pop )
 
@@ -187,12 +188,32 @@ static int m8dd_shadow_alloc( void )
     return( 1 );
 }
 
+/* 320x200x8 on the VGA half: mode 13h, linear at A0000, one 64 KB page. */
+static void m8dd_vga_row( DDHALMODEINFO_t FAR *m )
+{
+    _fmemset( m, 0, sizeof( *m ) );
+    m->dwWidth = 320;
+    m->dwHeight = 200;
+    m->lPitch = 320;
+    m->dwBPP = 8;
+    m->wFlags = DDMODEINFO_PALETTIZED;
+}
+
+/* The VGA half's primary is the system VM's own A0000, as KERNEL's __A000H
+ * selector addresses it: the VDD maps it to the card while Windows owns the
+ * screen, and DirectDraw's Win32 callers run in that VM. Not a DPMI 0800h
+ * mapping: that call does not map memory below 1 MB. */
+#define M8DD_VGA_PRIMARY    0xA0000UL
+
 static int m8dd_mode_index( void )
 {
     int i;
     int x;
     int y;
 
+    if( m8_vga ) {
+        return( M8_MODE_COUNT );
+    }
     for( i = 0; i < M8_MODE_COUNT; ++i ) {
         if( m8_hw_mode_size( i, &x, &y ) && x == M8_SCREEN_X && y == M8_SCREEN_Y ) {
             return( i );
@@ -220,11 +241,13 @@ static void m8dd_build( int mode )
         m->dwBPP = 8;
         m->wFlags = DDMODEINFO_PALETTIZED;
     }
+    m8dd_vga_row( &m8dd->modes[M8_MODE_COUNT] );
     m8dd->width = M8_SCREEN_X;
     m8dd->height = M8_SCREEN_Y;
     m8dd->pitch = M8_SCREEN_X;
     m8dd->fb16 = 0;
     m8dd->fb_lin = 0;
+    m8dd->vga = m8_vga;
 
     m8dd->cb.dwSize = sizeof( m8dd->cb );
     m8dd->cb.dwFlags = 0;
@@ -321,10 +344,10 @@ static void m8dd_build( int mode )
     /* Not DDSCAPS_OFFSCREENPLAIN: with it DDRAW refuses this HAL outright.
      * Off-screen surfaces in video memory are still asked of CreateSurface. */
     hi->dwModeIndex = mode;
-    hi->dwNumModes = M8_MODE_COUNT;
+    hi->dwNumModes = M8_MODE_COUNT + 1;
     if( m8_fb16_lin() != 0 ) {
         /* A 16 bpp desktop running a full-screen 8 bpp program: its modes, so DDRAW can go back. */
-        DDHALMODEINFO_t FAR *m = &m8dd->modes[M8_MODE_COUNT];
+        DDHALMODEINFO_t FAR *m = &m8dd->modes[M8_MODE_COUNT + 1];
 
         for( i = 0; i < 2; ++i, ++m ) {
             _fmemset( m, 0, sizeof( *m ) );
@@ -336,7 +359,7 @@ static void m8dd_build( int mode )
             m->dwGBitMask = 0x07E0UL;
             m->dwBBitMask = 0x001FUL;
         }
-        hi->dwNumModes = M8_MODE_COUNT + 2;
+        hi->dwNumModes = M8_MODE_COUNT + 3;
     }
     hi->lpModeInfo = m8dd->modes;
     hi->dwFlags = DDHALINFO_ISPRIMARYDISPLAY | DDHALINFO_MODEXILLEGAL;
@@ -346,6 +369,14 @@ static void m8dd_build( int mode )
     }
     hi->lpPDevice = m8_pdevice;
     hi->hInstance = m8dd->hInstance;
+    if( m8_vga ) {
+        /* The primary is the VGA half's A0000: Lock is DDRAW's, and M8DD32 does
+         * Blt, Flip and flip chains there in RAM (m8dd->vga).
+         * The callbacks and caps stay as published: a reset that drops them is
+         * refused by SetInfo, and DDRAW keeps the old mode's primary. */
+        hi->vmiData.fpPrimary = M8DD_VGA_PRIMARY;
+        hi->vmiData.lDisplayPitch = 320;
+    }
 }
 
 /* At 16 bpp the primary is fb16.c's frame buffer in RAM: DirectDraw locks
@@ -461,8 +492,9 @@ static void m8dd_build16( void )
         m->dwBPP = 8;
         m->wFlags = DDMODEINFO_PALETTIZED;
     }
+    m8dd_vga_row( m );
     hi->dwModeIndex = M8_SCREEN_X == 640 ? 0 : 1;
-    hi->dwNumModes = 2 + M8_MODE_COUNT;
+    hi->dwNumModes = 3 + M8_MODE_COUNT;
 }
 
 /* Back on a 16 bpp desktop the primary is fb16's and DDRAW has been reset to it,
@@ -574,7 +606,8 @@ void __far m8dd_mode_changed( void )
          * the desktop's. Only once DirectDraw has been set up (the shadow exists, or a 16 bpp
          * desktop went to 8 bpp for it): a desktop change alone should not pin a shadow in RAM. */
         mode = m8dd_mode_index();
-        if( (m8dd_shadow == NULL && m8_fb16_lin() == 0) || mode < 0 || !m8dd_shadow_alloc() ) {
+        if( (m8dd_shadow == NULL && m8_fb16_lin() == 0) || mode < 0 ||
+            (!m8_vga && !m8dd_shadow_alloc()) ) {
             return;
         }
         m8dd_build( mode );
@@ -617,7 +650,7 @@ LONG __far m8dd_command( LPVOID lpInput, LPVOID lpOutput )
         } else {
             mode = m8dd_mode_index();
             if( m8dd_setinfo == NULL || mode < 0 || m8dd->marker != M8DD_MARKER ||
-                !m8dd_shadow_alloc() ) {
+                (!m8_vga && !m8dd_shadow_alloc()) ) {
                 return( 0 );
             }
             m8dd_build( mode );

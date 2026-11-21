@@ -483,9 +483,21 @@ static unsigned long mx_hash( void )
 
     memset( &sd, 0, sizeof( sd ) );
     sd.dwSize = sizeof( sd );
-    if( prim->lpVtbl->Lock( prim, NULL, &sd, DDLOCK_WAIT | DDLOCK_READONLY, NULL ) != DD_OK ) {
-        return( 0 );
+    /* A failed lock reports its error in place of the hash. */
+    h = (unsigned long)prim->lpVtbl->Lock( prim, NULL, &sd, DDLOCK_WAIT | DDLOCK_READONLY, NULL );
+    if( h == DDERR_CANTLOCKSURFACE && mx_w == 320 && mx_h == 200 && bpp == 1 ) {
+        /* M8DISP's VGA mode: the front of a flip chain is refused, but it is
+         * A0000, which this process can read; the hash is the same either way. */
+        h = 2166136261UL;
+        for( p = (BYTE *)0xA0000; p < (BYTE *)0xA0000 + 64000; ++p ) {
+            h = (h ^ *p) * 16777619UL;
+        }
+        return( h );
     }
+    if( h != DD_OK ) {
+        return( h );
+    }
+    h = 2166136261UL;
     for( y = 0; y < mx_h; ++y ) {
         p = (BYTE *)sd.lpSurface + y * sd.lPitch;
         for( x = 0; x < mx_w * bpp; ++x ) {
@@ -732,6 +744,15 @@ static int modex( const char *label )
         fprintf( out, "surface %08lx caps %08lx  pitch %ld  %lux%lu  mem %08lx\n", (unsigned long)res,
                  sd.ddsCaps.dwCaps, sd.lPitch, sd.dwWidth, sd.dwHeight, (unsigned long)sd.lpSurface );
         flush_out();
+        memset( &sd, 0, sizeof( sd ) );
+        sd.dwSize = sizeof( sd );
+        res = prim->lpVtbl->Lock( prim, NULL, &sd, DDLOCK_WAIT, NULL );
+        fprintf( out, "lock %08lx  mem %08lx  pitch %ld  %lux%lu\n", (unsigned long)res,
+                 (unsigned long)sd.lpSurface, sd.lPitch, sd.dwWidth, sd.dwHeight );
+        flush_out();
+        if( res == DD_OK ) {
+            prim->lpVtbl->Unlock( prim, sd.lpSurface );
+        }
         for( i = 0; i < 256; ++i ) {
             pe[i].peRed = (BYTE)i;
             pe[i].peGreen = (BYTE)(255 - i);

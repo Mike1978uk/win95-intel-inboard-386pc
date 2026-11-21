@@ -20,6 +20,9 @@
 #define M8_MODE_800         1
 #define M8_MODE_1024        2
 #define M8_MODE_COUNT       3
+/* 320x200x8 on the VGA half (BIOS mode 13h), for a full-screen program's
+ * SetDisplayMode only: never a desktop, not in m8hw.c's table. */
+#define M8_MODE_VGA         3
 
 extern int m8_scr_x;
 extern int m8_scr_y;
@@ -215,6 +218,7 @@ extern DWORD m8_stats[M8_STAT_COUNT];
 /* m8hw.c */
 extern int  m8_hw_set_mode( int mode );
 extern int  __far m8_hw_mode_size( int mode, int *x, int *y );
+extern WORD m8_vga;                     /* the VGA half is shown (M8_MODE_VGA) */
 extern void m8_hw_passthrough( void );
 extern void m8_hw_set_palette( UINT start, UINT count, RGBQUAD FAR *pal );
 extern int  m8_hw_wait_idle( void );

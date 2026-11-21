@@ -49,6 +49,7 @@ UINT WINAPI GlobalSmartPageLock( HGLOBAL hglb );
 
 LPDIBENGINE m8_pdevice = 0;             /* the screen PDevice GDI gave us */
 WORD        m8_palettized = 1;          /* pushed by the DIB thunks */
+WORD        m8_vga;
 static WORD m8_dib_pdev_size;
 static RGBQUAD FAR *m8_color_table;
 static WORD m8_dpi = 96;
@@ -95,7 +96,9 @@ static WORD m8_int2f_get_vm( unsigned ax );
 /* The depth Windows started in: only a 16 bpp desktop changes depth live (ReEnable). */
 static int m8_desk16;
 
-static void m8_read_mode( void )
+/* vga_ok: DirectDraw's SetDisplayMode (ReEnable) may ask for M8_MODE_VGA; a
+ * desktop may not, its PDevice being one nobody sees. */
+static void m8_read_mode( int vga_ok )
 {
     M8_DISPLAYINFO  di;
     int             i;
@@ -110,6 +113,9 @@ static void m8_read_mode( void )
             if( m8_hw_mode_size( i, &x, &y ) && x == (int)di.diXRes && y == (int)di.diYRes ) {
                 m8_mode = i;
             }
+        }
+        if( vga_ok && di.diBpp == 8 && di.diXRes == 320 && di.diYRes == 200 ) {
+            m8_mode = M8_MODE_VGA;
         }
         if( di.diBpp == 16 ) {
             if( m8_mode != M8_MODE_800 ) {
@@ -160,7 +166,7 @@ UINT FAR DriverInit( UINT cbHeap, UINT hModule, LPSTR lpCmdLine )
     m8_dpi = GetPrivateProfileInt( "display", "dpi", 96, "system.ini" );
     m8_vdd_entry = (DWORD)m8_int2f_get_ep( 0x1684, VDD_ID );
     m8_vm_handle = m8_int2f_get_vm( 0x1683 );
-    m8_read_mode();
+    m8_read_mode( 0 );
     m8_desk16 = m8_fb16;
     M8_STEP( 0xA002 );
     return( 1 );
@@ -294,6 +300,20 @@ void __cdecl m8_switch_out( void )
     m8_hw_off = 1;
 }
 
+/* M8_MODE_VGA: the monitor to the VGA half in mode 13h. GDI keeps drawing on
+ * the 8514 half at 320x200, unseen: both CRTCs run, only the output is
+ * switched (docs/mach8_vga_half_findings_2026_11_06.md). The mode set loads
+ * the BIOS palette into the DAC, which both halves share, so ours goes back
+ * after it. The VDD's INT 10h hook also clears PASS_THROUGH on a Mach8
+ * (ATI.VXD MiniVDD_PreInt10ModeSet). */
+static void m8_vga_show( void )
+{
+    m8_hw_passthrough();
+    int_10h( 0x0013 );
+    m8_hw_set_palette( 0, 256, m8_color_table );
+    m8_vga = 1;
+}
+
 /* INT 2Fh 4002h: Windows has the screen again. A DOS program may have used the
  * 8514 side (ATI's TEST.COM does), so the mode is set again and USER repaints
  * everything rather than trusting what is in video memory. */
@@ -303,6 +323,14 @@ void __cdecl m8_switch_in( void )
         return;
     }
     m8_hw_off = 0;
+    if( m8_vga ) {
+        /* A DOS session left the VGA half in its own mode; the program
+         * restores its surfaces itself (DDERR_SURFACELOST). */
+        m8_vga_show();
+        m8_pdevice->deFlags &= ~BUSY;
+        m8_screen_resume();
+        return;
+    }
     m8_hw_set_mode( m8_mode );
     m8_hw_set_palette( 0, 256, m8_color_table );
     m8_pdevice->deFlags &= ~BUSY;
@@ -348,7 +376,9 @@ UINT WINAPI __loadds Enable( LPVOID lpDevice, UINT style, LPSTR lpDeviceType,
     M8_STEP( 0xA020 );
     int_2Fh( STOP_IO_TRAP );
     M8_STEP( 0xA021 );
-    if( !m8_hw_set_mode( m8_mode ) ) {
+    /* M8_MODE_VGA leaves the 8514 half in the desktop's timings. */
+    m8_vga = 0;
+    if( m8_mode != M8_MODE_VGA && !m8_hw_set_mode( m8_mode ) ) {
         m8_hw_passthrough();
         return( 0 );
     }
@@ -422,6 +452,9 @@ UINT WINAPI __loadds Enable( LPVOID lpDevice, UINT style, LPSTR lpDeviceType,
     }
     m8_hw_set_palette( 0, 256, m8_color_table );
     m8_hook_int2f();
+    if( m8_mode == M8_MODE_VGA ) {
+        m8_vga_show();
+    }
     M8_STEP( 0xA025 );
     return( 1 );
 }
@@ -538,10 +571,11 @@ UINT WINAPI __loadds ReEnable( LPVOID lpDevice, LPGDIINFO lpInfo )
 {
     int     old = m8_mode;
     int     old_fb16 = m8_fb16;
+    int     old_vga = m8_vga;
     UINT    rc;
 
     M8_FEED_TAKE();
-    m8_read_mode();
+    m8_read_mode( 1 );
     /* A desktop's colour depth changes only at a restart. A 16 bpp desktop goes
      * to 8 bpp and back for a full-screen program's own mode (DirectDraw's
      * SetDisplayMode arrives here): the card runs 8 bpp in both, and fb16's
@@ -566,7 +600,8 @@ UINT WINAPI __loadds ReEnable( LPVOID lpDevice, LPGDIINFO lpInfo )
     if( rc ) {
         Enable( lpInfo, 1, NULL, NULL, NULL );
         m8dd_mode_changed();
-        if( m8_fb16 != old_fb16 ) {
+        /* Back from the VGA half: the 8514 half held GDI's unseen 320x200 picture. */
+        if( m8_fb16 != old_fb16 || old_vga ) {
             m8_request_repaint();
         }
     } else {
@@ -581,7 +616,8 @@ UINT WINAPI __loadds ReEnable( LPVOID lpDevice, LPGDIINFO lpInfo )
     return( rc ? 1 : 0 );
 }
 
-/* 640x480, 800x600 and 1024x768 at 8 bpp; 640x480 and 800x600 at 16 bpp (fb16.c). */
+/* 640x480, 800x600 and 1024x768 at 8 bpp; 640x480 and 800x600 at 16 bpp (fb16.c);
+ * 320x200x8 on the VGA half, reached only through ReEnable (m8_read_mode). */
 UINT WINAPI __loadds ValidateMode( DISPVALMODE FAR *lpMode )
 {
     int i;
@@ -597,6 +633,10 @@ UINT WINAPI __loadds ValidateMode( DISPVALMODE FAR *lpMode )
     M8_STEP( lpMode->dvmYRes );
     if( lpMode->dvmBpp == 16 && ((lpMode->dvmXRes == 640 && lpMode->dvmYRes == 480) ||
                                   (lpMode->dvmXRes == 800 && lpMode->dvmYRes == 600)) ) {
+        M8_STEP( 0xA071 );
+        return( VALMODE_YES );
+    }
+    if( lpMode->dvmBpp == 8 && lpMode->dvmXRes == 320 && lpMode->dvmYRes == 200 ) {
         M8_STEP( 0xA071 );
         return( VALMODE_YES );
     }
