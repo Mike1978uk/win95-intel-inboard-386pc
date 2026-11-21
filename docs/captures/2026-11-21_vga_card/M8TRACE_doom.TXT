@@ -1,0 +1,2990 @@
+create 1/2 caps 0000e238 1024x768 (screen 1024x768 fb16 0)
+create 2/2 caps 0000601c 1024x768 (screen 1024x768 fb16 0)
+flip8 chain refused: 1024x768 pitch 1024 overlap 0 placed 0
+destroy caps 0000601c
+create 1/1 caps 0000c200 800x600 (screen 800x600 fb16 0)
+create 1/1 caps 0000c200 800x600 (screen 800x600 fb16 0)
+create 1/1 caps 00004040 200x200 (screen 800x600 fb16 0)
+destroy caps 10004040
+create 1/1 caps 0000c200 800x600 (screen 800x600 fb16 1)
+create 1/1 caps 0000c200 800x600 (screen 800x600 fb16 1)
+create 1/1 caps 00004040 200x200 (screen 800x600 fb16 1)
+destroy caps 00004040
+create 1/2 caps 0000c238 640x480 (screen 640x480 fb16 1)
+create 2/2 caps 0000401c 640x480 (screen 640x480 fb16 1)
+destroy caps 1000400c
+create 1/2 caps 0000e238 640x480 (screen 640x480 fb16 1)
+create 2/2 caps 0000601c 640x480 (screen 640x480 fb16 1)
+destroy caps 1000600c
+create 1/2 caps 0000e238 640x480 (screen 640x480 fb16 1)
+create 2/2 caps 0000601c 640x480 (screen 640x480 fb16 1)
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 0 Z 0
+create 1/1 caps 04005000 8x8 (screen 640x480 fb16 1)
+create 1/1 caps 04005000 256x256 (screen 640x480 fb16 1)
+destroy caps 04005000
+create 1/1 caps 00004040 416x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+create 1/1 caps 00004040 253x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+destroy caps 14005000
+destroy caps 1000601c
+create 1/2 caps 0000e238 640x480 (screen 640x480 fb16 1)
+create 2/2 caps 0000601c 640x480 (screen 640x480 fb16 1)
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+create 1/1 caps 00005000 256x256 (screen 640x480 fb16 1)
+destroy caps 00005000
+destroy caps 1000601c
+create 1/2 caps 0000e238 640x480 (screen 640x480 fb16 1)
+create 2/2 caps 0000601c 640x480 (screen 640x480 fb16 1)
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+create 1/1 caps 00005000 256x256 (screen 640x480 fb16 1)
+destroy caps 00005000
+destroy caps 1000601c
+create 1/2 caps 0000e238 640x480 (screen 640x480 fb16 1)
+create 2/2 caps 0000601c 640x480 (screen 640x480 fb16 1)
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+create 1/1 caps 00005000 256x256 (screen 640x480 fb16 1)
+destroy caps 00005000
+destroy caps 1000601c
+create 1/2 caps 0000e238 640x480 (screen 640x480 fb16 1)
+create 2/2 caps 0000601c 640x480 (screen 640x480 fb16 1)
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 0 Z 0
+create 1/1 caps 04005000 8x8 (screen 640x480 fb16 1)
+create 1/1 caps 04005000 256x256 (screen 640x480 fb16 1)
+destroy caps 04005000
+create 1/1 caps 00004040 416x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+create 1/1 caps 00004040 253x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+destroy caps 14005000
+destroy caps 1000601c
+create 1/2 caps 0000e238 640x480 (screen 640x480 fb16 1)
+create 2/2 caps 0000601c 640x480 (screen 640x480 fb16 1)
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 0 Z 0
+create 1/1 caps 04005000 8x8 (screen 640x480 fb16 1)
+create 1/1 caps 04005000 256x256 (screen 640x480 fb16 1)
+destroy caps 04005000
+create 1/1 caps 00004040 416x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+create 1/1 caps 00004040 253x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+destroy caps 14005000
+destroy caps 1000601c
+create 1/2 caps 0000e238 640x480 (screen 640x480 fb16 1)
+create 2/2 caps 0000601c 640x480 (screen 640x480 fb16 1)
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 0 Z 0
+create 1/1 caps 04005000 8x8 (screen 640x480 fb16 1)
+create 1/1 caps 04005000 256x256 (screen 640x480 fb16 1)
+destroy caps 04005000
+create 1/1 caps 00004040 416x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+create 1/1 caps 00004040 253x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+destroy caps 14005000
+destroy caps 1000601c
+create 1/2 caps 0000e238 640x480 (screen 640x480 fb16 1)
+create 2/2 caps 0000601c 640x480 (screen 640x480 fb16 1)
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 0 Z 0
+create 1/1 caps 04005000 8x8 (screen 640x480 fb16 1)
+create 1/1 caps 04005000 256x256 (screen 640x480 fb16 1)
+destroy caps 04005000
+create 1/1 caps 00004040 416x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+create 1/1 caps 00004040 253x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+destroy caps 14005000
+destroy caps 1000601c
+create 1/2 caps 0000e238 640x480 (screen 640x480 fb16 1)
+create 2/2 caps 0000601c 640x480 (screen 640x480 fb16 1)
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 0 Z 0
+create 1/1 caps 04005000 8x8 (screen 640x480 fb16 1)
+create 1/1 caps 04005000 256x256 (screen 640x480 fb16 1)
+destroy caps 04005000
+create 1/1 caps 00004040 416x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+create 1/1 caps 00004040 253x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+destroy caps 14005000
+destroy caps 1000601c
+create 1/2 caps 0000e238 640x480 (screen 640x480 fb16 1)
+create 2/2 caps 0000601c 640x480 (screen 640x480 fb16 1)
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 0 Z 0
+create 1/1 caps 04005000 8x8 (screen 640x480 fb16 1)
+create 1/1 caps 04005000 256x256 (screen 640x480 fb16 1)
+destroy caps 04005000
+create 1/1 caps 00004040 416x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+create 1/1 caps 00004040 253x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+destroy caps 14005000
+destroy caps 1000601c
+create 1/2 caps 0000e238 640x480 (screen 640x480 fb16 1)
+create 2/2 caps 0000601c 640x480 (screen 640x480 fb16 1)
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 0 Z 0
+create 1/1 caps 04005000 8x8 (screen 640x480 fb16 1)
+create 1/1 caps 04005000 256x256 (screen 640x480 fb16 1)
+destroy caps 04005000
+create 1/1 caps 00004040 416x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+create 1/1 caps 00004040 253x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+destroy caps 14005000
+destroy caps 1000601c
+create 1/2 caps 0000e238 640x480 (screen 640x480 fb16 1)
+create 2/2 caps 0000601c 640x480 (screen 640x480 fb16 1)
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 0 Z 0
+create 1/1 caps 04005000 8x8 (screen 640x480 fb16 1)
+create 1/1 caps 04005000 256x256 (screen 640x480 fb16 1)
+destroy caps 04005000
+create 1/1 caps 00004040 416x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+create 1/1 caps 00004040 253x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+destroy caps 14005000
+destroy caps 1000601c
+create 1/2 caps 0000e238 640x480 (screen 640x480 fb16 1)
+create 2/2 caps 0000601c 640x480 (screen 640x480 fb16 1)
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 0 Z 0
+create 1/1 caps 04005000 8x8 (screen 640x480 fb16 1)
+create 1/1 caps 04005000 256x256 (screen 640x480 fb16 1)
+destroy caps 04005000
+create 1/1 caps 00004040 416x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+create 1/1 caps 00004040 253x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+destroy caps 14005000
+destroy caps 1000601c
+create 1/2 caps 0000e238 640x480 (screen 640x480 fb16 1)
+create 2/2 caps 0000601c 640x480 (screen 640x480 fb16 1)
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 0 Z 0
+create 1/1 caps 04005000 8x8 (screen 640x480 fb16 1)
+create 1/1 caps 04005000 256x256 (screen 640x480 fb16 1)
+destroy caps 04005000
+create 1/1 caps 00004040 416x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+create 1/1 caps 00004040 253x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+destroy caps 14005000
+destroy caps 1000601c
+create 1/2 caps 0000e238 640x480 (screen 640x480 fb16 1)
+create 2/2 caps 0000601c 640x480 (screen 640x480 fb16 1)
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 0 Z 0
+create 1/1 caps 04005000 8x8 (screen 640x480 fb16 1)
+create 1/1 caps 04005000 256x256 (screen 640x480 fb16 1)
+destroy caps 04005000
+create 1/1 caps 00004040 416x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+create 1/1 caps 00004040 253x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+destroy caps 14005000
+destroy caps 1000601c
+create 1/2 caps 0000e238 640x480 (screen 640x480 fb16 1)
+create 2/2 caps 0000601c 640x480 (screen 640x480 fb16 1)
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 0 Z 0
+create 1/1 caps 04005000 8x8 (screen 640x480 fb16 1)
+create 1/1 caps 04005000 256x256 (screen 640x480 fb16 1)
+destroy caps 04005000
+create 1/1 caps 00004040 416x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+create 1/1 caps 00004040 253x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+destroy caps 14005000
+destroy caps 1000601c
+create 1/2 caps 0000e238 640x480 (screen 640x480 fb16 1)
+create 2/2 caps 0000601c 640x480 (screen 640x480 fb16 1)
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 0 Z 0
+create 1/1 caps 04005000 8x8 (screen 640x480 fb16 1)
+create 1/1 caps 04005000 256x256 (screen 640x480 fb16 1)
+destroy caps 04005000
+create 1/1 caps 00004040 416x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+create 1/1 caps 00004040 253x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+destroy caps 14005000
+destroy caps 1000601c
+create 1/2 caps 0000e238 640x480 (screen 640x480 fb16 1)
+create 2/2 caps 0000601c 640x480 (screen 640x480 fb16 1)
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 0 Z 0
+create 1/1 caps 04005000 8x8 (screen 640x480 fb16 1)
+create 1/1 caps 04005000 256x256 (screen 640x480 fb16 1)
+destroy caps 04005000
+create 1/1 caps 00004040 416x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+create 1/1 caps 00004040 253x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+destroy caps 14005000
+destroy caps 1000601c
+create 1/1 caps 0000c200 640x480 (screen 640x480 fb16 0)
+create 1/1 caps 00004040 640x480 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 0000c200 640x480 (screen 640x480 fb16 0)
+create 1/1 caps 00004040 640x480 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 0000c200 640x480 (screen 640x480 fb16 0)
+create 1/1 caps 00004040 640x480 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/3 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/3 caps 0000401c 640x480 (screen 640x480 fb16 0)
+create 3/3 caps 00004018 640x480 (screen 640x480 fb16 0)
+destroy caps 1000401c
+destroy caps 00004018
+create 1/2 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/2 caps 0000401c 640x480 (screen 640x480 fb16 0)
+flip8 chain made: 640x480 pitch 640, back at row 512
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+destroy caps 1000401c
+create 1/3 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/3 caps 0000401c 640x480 (screen 640x480 fb16 0)
+create 3/3 caps 00004018 640x480 (screen 640x480 fb16 0)
+destroy caps 1000401c
+destroy caps 00004018
+create 1/2 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/2 caps 0000401c 640x480 (screen 640x480 fb16 0)
+flip8 chain made: 640x480 pitch 640, back at row 512
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+destroy caps 1000401c
+create 1/3 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/3 caps 0000401c 640x480 (screen 640x480 fb16 0)
+create 3/3 caps 00004018 640x480 (screen 640x480 fb16 0)
+destroy caps 1000401c
+destroy caps 00004018
+create 1/2 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/2 caps 0000401c 640x480 (screen 640x480 fb16 0)
+flip8 chain made: 640x480 pitch 640, back at row 512
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+destroy caps 1000401c
+create 1/3 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/3 caps 0000401c 640x480 (screen 640x480 fb16 0)
+create 3/3 caps 00004018 640x480 (screen 640x480 fb16 0)
+destroy caps 1000401c
+destroy caps 00004018
+create 1/2 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/2 caps 0000401c 640x480 (screen 640x480 fb16 0)
+flip8 chain made: 640x480 pitch 640, back at row 512
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+destroy caps 1000401c
+create 1/3 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/3 caps 0000401c 640x480 (screen 640x480 fb16 0)
+create 3/3 caps 00004018 640x480 (screen 640x480 fb16 0)
+destroy caps 1000401c
+destroy caps 00004018
+create 1/2 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/2 caps 0000401c 640x480 (screen 640x480 fb16 0)
+flip8 chain made: 640x480 pitch 640, back at row 512
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+destroy caps 1000401c
+create 1/3 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/3 caps 0000401c 640x480 (screen 640x480 fb16 0)
+create 3/3 caps 00004018 640x480 (screen 640x480 fb16 0)
+destroy caps 1000401c
+destroy caps 00004018
+create 1/2 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/2 caps 0000401c 640x480 (screen 640x480 fb16 0)
+flip8 chain made: 640x480 pitch 640, back at row 512
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+destroy caps 1000401c
+create 1/3 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/3 caps 0000401c 640x480 (screen 640x480 fb16 0)
+create 3/3 caps 00004018 640x480 (screen 640x480 fb16 0)
+destroy caps 1000401c
+destroy caps 00004018
+create 1/2 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/2 caps 0000401c 640x480 (screen 640x480 fb16 0)
+flip8 chain made: 640x480 pitch 640, back at row 512
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+destroy caps 1000401c
+create 1/3 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/3 caps 0000401c 640x480 (screen 640x480 fb16 0)
+create 3/3 caps 00004018 640x480 (screen 640x480 fb16 0)
+destroy caps 1000401c
+destroy caps 00004018
+create 1/2 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/2 caps 0000401c 640x480 (screen 640x480 fb16 0)
+flip8 chain made: 640x480 pitch 640, back at row 512
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+destroy caps 1000401c
+create 1/3 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/3 caps 0000401c 640x480 (screen 640x480 fb16 0)
+create 3/3 caps 00004018 640x480 (screen 640x480 fb16 0)
+destroy caps 1000401c
+destroy caps 00004018
+create 1/2 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/2 caps 0000401c 640x480 (screen 640x480 fb16 0)
+flip8 chain made: 640x480 pitch 640, back at row 512
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+destroy caps 1000401c
+create 1/3 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/3 caps 0000401c 640x480 (screen 640x480 fb16 0)
+create 3/3 caps 00004018 640x480 (screen 640x480 fb16 0)
+destroy caps 1000401c
+destroy caps 00004018
+create 1/2 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/2 caps 0000401c 640x480 (screen 640x480 fb16 0)
+flip8 chain made: 640x480 pitch 640, back at row 512
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+destroy caps 1000401c
+create 1/3 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/3 caps 0000401c 640x480 (screen 640x480 fb16 0)
+create 3/3 caps 00004018 640x480 (screen 640x480 fb16 0)
+destroy caps 1000401c
+destroy caps 00004018
+create 1/2 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/2 caps 0000401c 640x480 (screen 640x480 fb16 0)
+flip8 chain made: 640x480 pitch 640, back at row 512
+dfr page 1 whole: known 0 bg 0/0 epoch 00000000/000041a9 stat25 0 gen 2
+flip8 to page 1
+dfr page 0 whole: known 0 bg 0/0 epoch 00000000/000041a9 stat25 0 gen 2
+flip8 to page 0
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+dfr page 1 whole: known 1 bg 0/0 epoch 000041a9/00004231 stat25 0 gen 2
+dfr page 0 whole: known 1 bg 0/0 epoch 000041a9/00004231 stat25 0 gen 2
+destroy caps 1000401c
+create 1/3 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/3 caps 0000401c 640x480 (screen 640x480 fb16 0)
+create 3/3 caps 00004018 640x480 (screen 640x480 fb16 0)
+destroy caps 1000401c
+destroy caps 00004018
+create 1/2 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/2 caps 0000401c 640x480 (screen 640x480 fb16 0)
+flip8 chain made: 640x480 pitch 640, back at row 512
+dfr page 1 whole: known 0 bg 0/0 epoch 00000000/0000407f stat25 0 gen 2
+flip8 to page 1
+dfr page 0 whole: known 0 bg 0/0 epoch 00000000/0000407f stat25 0 gen 2
+flip8 to page 0
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+dfr page 1 whole: known 1 bg 0/0 epoch 0000407f/00004107 stat25 0 gen 2
+dfr page 0 whole: known 1 bg 0/0 epoch 0000407f/00004107 stat25 0 gen 2
+destroy caps 1000401c
+create 1/3 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/3 caps 0000401c 640x480 (screen 640x480 fb16 0)
+create 3/3 caps 00004018 640x480 (screen 640x480 fb16 0)
+destroy caps 1000401c
+destroy caps 00004018
+create 1/2 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/2 caps 0000401c 640x480 (screen 640x480 fb16 0)
+flip8 chain made: 640x480 pitch 640, back at row 512
+dfr page 1 whole: known 0 bg 0/0 epoch 00000000/00004145 stat25 0 gen 2
+flip8 to page 1
+dfr page 0 whole: known 0 bg 0/0 epoch 00000000/00004145 stat25 0 gen 2
+flip8 to page 0
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+dfr page 1 whole: known 1 bg 0/0 epoch 00004145/000041cd stat25 0 gen 2
+dfr page 0 whole: known 1 bg 0/0 epoch 00004145/000041cd stat25 0 gen 2
+destroy caps 1000401c
+create 1/3 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/3 caps 0000401c 640x480 (screen 640x480 fb16 0)
+create 3/3 caps 00004018 640x480 (screen 640x480 fb16 0)
+destroy caps 1000401c
+destroy caps 00004018
+create 1/2 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/2 caps 0000401c 640x480 (screen 640x480 fb16 0)
+flip8 chain made: 640x480 pitch 640, back at row 512
+dfr page 1 whole: known 0 bg 0/0 epoch 000041cd/00007990 stat25 0 gen 4
+flip8 to page 1
+dfr page 0 whole: known 0 bg 0/0 epoch 000041cd/00007990 stat25 0 gen 4
+flip8 to page 0
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+dfr page 1 whole: known 1 bg 0/0 epoch 00007990/00007a18 stat25 0 gen 4
+dfr page 0 whole: known 1 bg 0/0 epoch 00007990/00007a18 stat25 0 gen 4
+destroy caps 1000401c
+create 1/3 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/3 caps 0000401c 640x480 (screen 640x480 fb16 0)
+create 3/3 caps 00004018 640x480 (screen 640x480 fb16 0)
+destroy caps 1000401c
+destroy caps 00004018
+create 1/2 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/2 caps 0000401c 640x480 (screen 640x480 fb16 0)
+flip8 chain made: 640x480 pitch 640, back at row 512
+dfr page 1 whole: known 0 bg 0/0 epoch 00000000/000040fd stat25 0 gen 2
+flip8 to page 1
+dfr page 0 whole: known 0 bg 0/0 epoch 00000000/000040fd stat25 0 gen 2
+flip8 to page 0
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+dfr page 0 whole: known 1 bg 0/0 epoch 000040fd/00004185 stat25 0 gen 2
+dfr page 1 whole: known 1 bg 0/0 epoch 000040fd/00004185 stat25 0 gen 2
+destroy caps 1000401c
+create 1/3 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/3 caps 0000401c 640x480 (screen 640x480 fb16 0)
+create 3/3 caps 00004018 640x480 (screen 640x480 fb16 0)
+destroy caps 1000401c
+destroy caps 00004018
+create 1/2 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/2 caps 0000401c 640x480 (screen 640x480 fb16 0)
+flip8 chain made: 640x480 pitch 640, back at row 512
+dfr page 1 whole: known 0 bg 0/0 epoch 00000000/00004130 stat25 0 gen 2
+flip8 to page 1
+dfr page 0 whole: known 0 bg 0/0 epoch 00000000/00004130 stat25 0 gen 2
+flip8 to page 0
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+dfr page 0 whole: known 1 bg 0/0 epoch 00004130/000041b8 stat25 0 gen 2
+dfr page 1 whole: known 1 bg 0/0 epoch 00004130/000041b8 stat25 0 gen 2
+destroy caps 1000401c
+create 1/3 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/3 caps 0000401c 640x480 (screen 640x480 fb16 0)
+create 3/3 caps 00004018 640x480 (screen 640x480 fb16 0)
+destroy caps 1000401c
+destroy caps 00004018
+create 1/2 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/2 caps 0000401c 640x480 (screen 640x480 fb16 0)
+flip8 chain made: 640x480 pitch 640, back at row 512
+dfr page 1 whole: known 0 bg 0/0 epoch 000041b8/00007bab stat25 0 gen 4
+flip8 to page 1
+dfr page 0 whole: known 0 bg 0/0 epoch 000041b8/00007bab stat25 0 gen 4
+flip8 to page 0
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+dfr page 1 whole: known 1 bg 0/0 epoch 00007bab/00007c33 stat25 0 gen 4
+dfr page 0 whole: known 1 bg 0/0 epoch 00007bab/00007c33 stat25 0 gen 4
+destroy caps 1000401c
+create 1/3 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/3 caps 0000401c 640x480 (screen 640x480 fb16 0)
+create 3/3 caps 00004018 640x480 (screen 640x480 fb16 0)
+destroy caps 1000401c
+destroy caps 00004018
+create 1/2 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/2 caps 0000401c 640x480 (screen 640x480 fb16 0)
+flip8 chain made: 640x480 pitch 640, back at row 512
+dfr page 1 whole: known 0 bg 0/0 epoch 00000000/000045f8 stat25 0 gen 2
+flip8 to page 1
+dfr page 0 whole: known 0 bg 0/0 epoch 00000000/000045f8 stat25 0 gen 2
+flip8 to page 0
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+dfr page 1 whole: known 1 bg 0/0 epoch 000045f8/00004680 stat25 0 gen 2
+dfr page 0 whole: known 1 bg 0/0 epoch 000045f8/00004680 stat25 0 gen 2
+destroy caps 1000401c
+create 1/3 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/3 caps 0000401c 640x480 (screen 640x480 fb16 0)
+create 3/3 caps 00004018 640x480 (screen 640x480 fb16 0)
+destroy caps 1000401c
+destroy caps 00004018
+create 1/2 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/2 caps 0000401c 640x480 (screen 640x480 fb16 0)
+flip8 chain made: 640x480 pitch 640, back at row 512
+dfr page 1 whole: known 0 bg 0/0 epoch 00000000/0000415b stat25 0 gen 2
+flip8 to page 1
+dfr page 0 whole: known 0 bg 0/0 epoch 00000000/0000415b stat25 0 gen 2
+flip8 to page 0
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+dfr page 0 whole: known 1 bg 0/0 epoch 0000415b/000041e3 stat25 0 gen 2
+dfr page 1 whole: known 1 bg 0/0 epoch 0000415b/000041e3 stat25 0 gen 2
+destroy caps 1000401c
+create 1/3 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/3 caps 0000401c 640x480 (screen 640x480 fb16 0)
+create 3/3 caps 00004018 640x480 (screen 640x480 fb16 0)
+destroy caps 1000401c
+destroy caps 00004018
+create 1/2 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/2 caps 0000401c 640x480 (screen 640x480 fb16 0)
+flip8 chain made: 640x480 pitch 640, back at row 512
+dfr page 1 whole: known 0 bg 0/0 epoch 00000000/0000420d stat25 0 gen 2
+flip8 to page 1
+dfr page 0 whole: known 0 bg 0/0 epoch 00000000/0000420d stat25 0 gen 2
+flip8 to page 0
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+dfr page 0 whole: known 1 bg 0/0 epoch 0000420d/00004295 stat25 0 gen 2
+dfr page 1 whole: known 1 bg 0/0 epoch 0000420d/00004295 stat25 0 gen 2
+destroy caps 1000401c
+create 1/3 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/3 caps 0000401c 640x480 (screen 640x480 fb16 0)
+create 3/3 caps 00004018 640x480 (screen 640x480 fb16 0)
+destroy caps 1000401c
+destroy caps 00004018
+create 1/2 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/2 caps 0000401c 640x480 (screen 640x480 fb16 0)
+flip8 chain made: 640x480 pitch 640, back at row 512
+dfr page 1 whole: known 0 bg 0/0 epoch 00000000/00004210 stat25 0 gen 2
+flip8 to page 1
+dfr page 0 whole: known 0 bg 0/0 epoch 00000000/00004210 stat25 0 gen 2
+flip8 to page 0
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+dfr page 1 whole: known 1 bg 0/0 epoch 00004210/00004298 stat25 0 gen 2
+dfr page 0 whole: known 1 bg 0/0 epoch 00004210/00004298 stat25 0 gen 2
+destroy caps 1000401c
+create 1/3 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/3 caps 0000401c 640x480 (screen 640x480 fb16 0)
+create 3/3 caps 00004018 640x480 (screen 640x480 fb16 0)
+destroy caps 1000401c
+destroy caps 00004018
+create 1/2 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/2 caps 0000401c 640x480 (screen 640x480 fb16 0)
+flip8 chain made: 640x480 pitch 640, back at row 512
+dfr page 1 whole: known 0 bg 0/0 epoch 00000000/0000412c stat25 0 gen 2
+flip8 to page 1
+dfr page 0 whole: known 0 bg 0/0 epoch 00000000/0000412c stat25 0 gen 2
+flip8 to page 0
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+dfr page 0 whole: known 1 bg 0/0 epoch 0000412c/000041b4 stat25 0 gen 2
+dfr page 1 whole: known 1 bg 0/0 epoch 0000412c/000041b4 stat25 0 gen 2
+destroy caps 1000401c
+create 1/3 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/3 caps 0000401c 640x480 (screen 640x480 fb16 0)
+create 3/3 caps 00004018 640x480 (screen 640x480 fb16 0)
+destroy caps 1000401c
+destroy caps 00004018
+create 1/2 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/2 caps 0000401c 640x480 (screen 640x480 fb16 0)
+flip8 chain made: 640x480 pitch 640, back at row 512
+dfr page 1 whole: known 0 bg 0/0 epoch 00000000/000041f5 stat25 0 gen 2
+flip8 to page 1
+dfr page 0 whole: known 0 bg 0/0 epoch 00000000/000041f5 stat25 0 gen 2
+flip8 to page 0
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+dfr page 1 whole: known 1 bg 0/0 epoch 000041f5/0000427d stat25 0 gen 2
+dfr page 0 whole: known 1 bg 0/0 epoch 000041f5/0000427d stat25 0 gen 2
+destroy caps 1000401c
+create 1/3 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/3 caps 0000401c 640x480 (screen 640x480 fb16 0)
+create 3/3 caps 00004018 640x480 (screen 640x480 fb16 0)
+destroy caps 1000401c
+destroy caps 00004018
+create 1/2 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/2 caps 0000401c 640x480 (screen 640x480 fb16 0)
+flip8 chain made: 640x480 pitch 640, back at row 512
+dfr page 1 whole: known 0 bg 0/0 epoch 00000000/000041f5 stat25 0 gen 2
+flip8 to page 1
+dfr page 0 whole: known 0 bg 0/0 epoch 00000000/000041f5 stat25 0 gen 2
+flip8 to page 0
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+dfr page 1 whole: known 1 bg 0/0 epoch 000041f5/0000427d stat25 0 gen 2
+dfr page 0 whole: known 1 bg 0/0 epoch 000041f5/0000427d stat25 0 gen 2
+destroy caps 1000401c
+create 1/1 caps 0000c200 640x480 (screen 640x480 fb16 0)
+create 1/1 caps 00004040 640x480 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/2 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/2 caps 0000401c 640x480 (screen 640x480 fb16 0)
+flip8 chain made: 640x480 pitch 640, back at row 512
+create 1/1 caps 00004040 320x384 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 320x128 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 320x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 320x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 320x256 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 320x16 (screen 640x480 fb16 0)
+destroy caps 00004040
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+destroy caps 1000401c
+create 1/2 caps 0000e238 640x480 (screen 640x480 fb16 1)
+create 2/2 caps 0000601c 640x480 (screen 640x480 fb16 1)
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 0 Z 0
+create 1/1 caps 04005000 8x8 (screen 640x480 fb16 1)
+create 1/1 caps 04005000 256x256 (screen 640x480 fb16 1)
+destroy caps 04005000
+create 1/1 caps 00004040 416x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+create 1/1 caps 00004040 253x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+destroy caps 14005000
+destroy caps 1000601c
+create 1/2 caps 0000e238 640x480 (screen 640x480 fb16 1)
+create 2/2 caps 0000601c 640x480 (screen 640x480 fb16 1)
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 0 Z 0
+create 1/1 caps 04005000 8x8 (screen 640x480 fb16 1)
+create 1/1 caps 04005000 256x256 (screen 640x480 fb16 1)
+destroy caps 04005000
+create 1/1 caps 00004040 416x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+create 1/1 caps 00004040 253x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+destroy caps 14005000
+destroy caps 1000601c
+create 1/2 caps 0000e238 640x480 (screen 640x480 fb16 1)
+create 2/2 caps 0000601c 640x480 (screen 640x480 fb16 1)
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 0 Z 0
+create 1/1 caps 04005000 8x8 (screen 640x480 fb16 1)
+create 1/1 caps 04005000 256x256 (screen 640x480 fb16 1)
+destroy caps 04005000
+create 1/1 caps 00004040 416x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+create 1/1 caps 00004040 253x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+destroy caps 14005000
+destroy caps 1000601c
+create 1/2 caps 0000e238 640x480 (screen 640x480 fb16 1)
+create 2/2 caps 0000601c 640x480 (screen 640x480 fb16 1)
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 0 Z 0
+create 1/1 caps 04005000 8x8 (screen 640x480 fb16 1)
+create 1/1 caps 04005000 256x256 (screen 640x480 fb16 1)
+destroy caps 04005000
+create 1/1 caps 00004040 416x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+create 1/1 caps 00004040 253x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+destroy caps 14005000
+destroy caps 1000601c
+create 1/2 caps 0000e238 640x480 (screen 640x480 fb16 1)
+create 2/2 caps 0000601c 640x480 (screen 640x480 fb16 1)
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 0 Z 0
+create 1/1 caps 04005000 8x8 (screen 640x480 fb16 1)
+create 1/1 caps 04005000 256x256 (screen 640x480 fb16 1)
+destroy caps 04005000
+create 1/1 caps 00004040 416x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+create 1/1 caps 00004040 253x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+destroy caps 14005000
+destroy caps 1000601c
+create 1/2 caps 0000e238 640x480 (screen 640x480 fb16 1)
+create 2/2 caps 0000601c 640x480 (screen 640x480 fb16 1)
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 0 Z 0
+create 1/1 caps 04005000 8x8 (screen 640x480 fb16 1)
+create 1/1 caps 04005000 256x256 (screen 640x480 fb16 1)
+destroy caps 04005000
+create 1/1 caps 00004040 416x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+create 1/1 caps 00004040 253x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+destroy caps 14005000
+destroy caps 1000601c
+create 1/2 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/2 caps 0000401c 640x480 (screen 640x480 fb16 0)
+flip8 chain made: 640x480 pitch 640, back at row 512
+dfr page 1 whole: known 0 bg 0/252 epoch 00000000/00001034 stat25 0 gen 1
+flip8 to page 1
+dfr page 0 whole: known 0 bg 0/252 epoch 00000000/00001034 stat25 0 gen 1
+flip8 to page 0
+flip8 to page 1
+flip8 to page 0
+dfr page 1 whole: known 1 bg 252/2 epoch 00001034/00001034 stat25 0 gen 1
+flip8 to page 1
+dfr page 0 whole: known 1 bg 252/2 epoch 00001034/00001034 stat25 0 gen 1
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 75x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 73x74 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 73x72 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 82x73 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 92x71 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 84x79 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 74x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 74x73 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 73x72 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 81x73 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 91x69 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 84x77 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 75x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 73x74 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 73x72 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 82x73 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 92x71 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 84x79 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 74x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 74x73 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 73x72 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 81x73 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 91x69 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 84x77 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x56 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 92x56 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x67 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 78x79 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 80x85 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 78x87 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 70x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 84x65 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x58 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 92x55 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x67 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 78x79 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 79x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 79x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 68x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 85x65 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x56 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 92x56 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x67 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 78x79 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 80x85 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 78x87 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 70x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 84x65 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x58 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 92x55 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x67 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 78x79 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 79x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 79x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 68x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 85x65 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 65x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 65x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 61x85 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 61x85 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x40 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x40 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 72x72 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 72x72 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 57x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 86x74 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 57x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 86x74 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 54x88 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 92x82 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 54x88 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 92x82 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 59x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 57x87 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 57x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 52x85 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 59x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 57x87 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 57x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 52x85 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 98x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 99x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 99x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 99x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 100x38 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 100x38 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 98x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 101x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 100x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 99x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 100x38 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 98x38 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 98x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 99x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 99x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 99x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 100x38 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 100x38 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 98x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 101x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 100x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 99x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 100x38 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 98x38 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 94x54 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 94x53 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 97x51 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 96x54 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 94x54 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 94x53 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 97x51 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 96x54 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 127x80 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 129x80 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 127x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 153x79 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 183x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 153x80 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 129x80 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 138x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 146x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 150x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 152x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 151x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 143x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 139x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 131x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 136x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 140x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 141x85 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 136x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 125x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 131x87 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 135x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 140x87 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 140x85 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 136x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 126x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+dfr page 1 whole: known 1 bg 2/2 epoch 00001034/00001236 stat25 0 gen 515
+dfr page 0 whole: known 1 bg 2/2 epoch 00001034/00001236 stat25 0 gen 515
+create 1/1 caps 00004040 71x24 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 498x24 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/2 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/2 caps 0000401c 640x480 (screen 640x480 fb16 0)
+flip8 chain made: 640x480 pitch 640, back at row 512
+dfr page 1 whole: known 0 bg 0/252 epoch 00000000/00002970 stat25 0 gen 1
+flip8 to page 1
+dfr page 0 whole: known 0 bg 0/252 epoch 00000000/00002970 stat25 0 gen 1
+flip8 to page 0
+flip8 to page 1
+flip8 to page 0
+dfr page 1 whole: known 1 bg 252/2 epoch 00002970/00002970 stat25 0 gen 1
+flip8 to page 1
+dfr page 0 whole: known 1 bg 252/2 epoch 00002970/00002970 stat25 0 gen 1
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 75x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 73x74 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 73x72 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 82x73 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 92x71 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 84x79 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 74x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 74x73 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 73x72 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 81x73 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 91x69 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 84x77 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 75x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 73x74 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 73x72 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 82x73 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 92x71 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 84x79 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 74x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 74x73 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 73x72 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 81x73 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 91x69 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 84x77 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x56 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 92x56 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x67 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 78x79 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 80x85 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 78x87 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 70x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 84x65 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x58 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 92x55 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x67 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 78x79 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 79x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 79x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 68x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 85x65 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x56 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 92x56 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x67 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 78x79 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 80x85 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 78x87 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 70x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 84x65 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x58 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 92x55 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x67 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 78x79 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 79x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 79x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 68x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 85x65 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 65x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 65x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 61x85 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 61x85 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x40 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x40 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 72x72 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 72x72 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 57x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 86x74 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 57x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 86x74 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 54x88 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 92x82 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 54x88 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 92x82 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 59x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 57x87 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 57x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 52x85 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 59x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 57x87 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 57x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 52x85 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 98x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 99x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 99x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 99x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 100x38 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 100x38 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 98x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 101x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 100x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 99x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 100x38 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 98x38 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 98x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 99x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 99x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 99x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 100x38 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 100x38 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 98x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 101x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 100x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 99x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 100x38 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 98x38 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 94x54 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 94x53 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 97x51 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 96x54 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 94x54 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 94x53 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 97x51 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 96x54 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 127x80 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 129x80 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 127x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 153x79 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 183x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 153x80 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 129x80 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 138x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 146x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 150x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 152x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 151x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 143x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 139x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 131x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 136x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 140x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 141x85 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 136x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 125x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 131x87 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 135x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 140x87 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 140x85 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 136x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 126x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+dfr page 1 whole: known 1 bg 2/2 epoch 00002970/00002b72 stat25 0 gen 515
+dfr page 0 whole: known 1 bg 2/2 epoch 00002970/00002b72 stat25 0 gen 515
+create 1/1 caps 00004040 71x24 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 498x24 (screen 640x480 fb16 0)
+destroy caps 00004040
+destroy caps 1000401c
+create 1/2 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/2 caps 0000401c 640x480 (screen 640x480 fb16 0)
+flip8 chain made: 640x480 pitch 640, back at row 512
+dfr page 1 whole: known 0 bg 0/252 epoch 00000000/00020d19 stat25 0 gen 1
+flip8 to page 1
+dfr page 0 whole: known 0 bg 0/252 epoch 00000000/00020d19 stat25 0 gen 1
+flip8 to page 0
+flip8 to page 1
+flip8 to page 0
+dfr page 1 whole: known 1 bg 252/2 epoch 00020d19/00020d19 stat25 0 gen 1
+flip8 to page 1
+dfr page 0 whole: known 1 bg 252/2 epoch 00020d19/00020d19 stat25 0 gen 1
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 75x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 73x74 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 73x72 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 82x73 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 92x71 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 84x79 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 74x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 74x73 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 73x72 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 81x73 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 91x69 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 84x77 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 75x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 73x74 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 73x72 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 82x73 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 92x71 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 84x79 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 74x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 74x73 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 73x72 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 81x73 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 91x69 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 84x77 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x56 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 92x56 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x67 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 78x79 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 80x85 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 78x87 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 70x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 84x65 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x58 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 92x55 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x67 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 78x79 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 79x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 79x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 68x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 85x65 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x56 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 92x56 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x67 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 78x79 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 80x85 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 78x87 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 70x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 84x65 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x58 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 92x55 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x67 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 78x79 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 79x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 79x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 68x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 85x65 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 65x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 65x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 61x85 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 61x85 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x40 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x40 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 72x72 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 72x72 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 57x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 86x74 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 57x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 86x74 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 54x88 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 92x82 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 54x88 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 92x82 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 59x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 57x87 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 57x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 52x85 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 59x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 57x87 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 57x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 52x85 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 98x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 99x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 99x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 99x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 100x38 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 100x38 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 98x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 101x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 100x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 99x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 100x38 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 98x38 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 98x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 99x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 99x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 99x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 100x38 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 100x38 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 98x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 101x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 100x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 99x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 100x38 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 98x38 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 94x54 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 94x53 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 97x51 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 96x54 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 94x54 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 94x53 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 97x51 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 96x54 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 127x80 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 129x80 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 127x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 153x79 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 183x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 153x80 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 129x80 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 138x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 146x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 150x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 152x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 151x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 143x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 139x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 131x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 136x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 140x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 141x85 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 136x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 125x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 131x87 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 135x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 140x87 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 140x85 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 136x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 126x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+dfr page 1 whole: known 1 bg 2/2 epoch 00020d19/00020f1b stat25 0 gen 515
+dfr page 0 whole: known 1 bg 2/2 epoch 00020d19/00020f1b stat25 0 gen 515
+create 1/1 caps 00004040 71x24 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 498x24 (screen 640x480 fb16 0)
+destroy caps 00004040
+destroy caps 1000401c
+create 1/2 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/2 caps 0000401c 640x480 (screen 640x480 fb16 0)
+flip8 chain made: 640x480 pitch 640, back at row 512
+dfr page 1 whole: known 0 bg 2/252 epoch 00020f1b/0002a37f stat25 0 gen 1727
+flip8 to page 1
+dfr page 0 whole: known 0 bg 2/252 epoch 00020f1b/0002a37f stat25 0 gen 1727
+flip8 to page 0
+flip8 to page 1
+flip8 to page 0
+dfr page 1 whole: known 1 bg 252/2 epoch 0002a37f/0002a37f stat25 0 gen 1727
+flip8 to page 1
+dfr page 0 whole: known 1 bg 252/2 epoch 0002a37f/0002a37f stat25 0 gen 1727
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 32x32 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 75x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 73x74 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 73x72 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 82x73 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 92x71 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 84x79 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 74x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 74x73 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 73x72 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 81x73 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 91x69 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 84x77 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 75x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 73x74 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 73x72 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 82x73 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 92x71 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 84x79 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 74x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 74x73 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 73x72 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 81x73 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 91x69 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 84x77 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x56 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 92x56 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x67 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 78x79 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 80x85 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 78x87 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 70x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 84x65 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x58 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 92x55 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x67 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 78x79 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 79x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 79x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 68x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 85x65 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x56 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 92x56 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x67 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 78x79 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 80x85 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 78x87 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 70x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 84x65 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x58 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 92x55 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x67 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 78x79 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 79x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 79x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 68x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 85x65 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 65x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 65x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 61x85 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 61x85 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x40 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 88x40 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 72x72 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 72x72 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 57x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 86x74 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 57x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 86x74 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 54x88 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 92x82 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 54x88 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 92x82 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 59x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 57x87 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 57x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 52x85 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 59x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 57x87 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 57x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 52x85 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 98x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 99x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 99x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 99x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 100x38 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 100x38 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 98x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 101x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 100x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 99x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 100x38 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 98x38 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 98x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 99x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 99x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 99x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 100x38 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 100x38 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 98x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 101x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 100x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 99x37 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 100x38 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 98x38 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 94x54 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 94x53 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 97x51 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 96x54 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 94x54 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 94x53 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 97x51 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 96x54 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 127x80 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 129x80 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 127x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 153x79 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 183x78 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 153x80 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 129x80 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 138x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 146x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 150x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 152x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 151x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 143x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 139x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 131x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 136x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 140x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 141x85 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 136x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 125x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 131x87 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 135x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 140x87 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 140x85 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 136x84 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 126x86 (screen 640x480 fb16 0)
+destroy caps 00004040
+dfr page 1 whole: known 1 bg 2/2 epoch 0002a37f/0002a581 stat25 0 gen 2241
+dfr page 0 whole: known 1 bg 2/2 epoch 0002a37f/0002a581 stat25 0 gen 2241
+create 1/1 caps 00004040 71x24 (screen 640x480 fb16 0)
+destroy caps 00004040
+create 1/1 caps 00004040 498x24 (screen 640x480 fb16 0)
+destroy caps 00004040
+destroy caps 1000401c
+create 1/3 caps 0000c238 800x600 (screen 800x600 fb16 1)
+create 2/3 caps 0000401c 800x600 (screen 800x600 fb16 1)
+create 3/3 caps 00004018 800x600 (screen 800x600 fb16 1)
+destroy caps 1000401c
+destroy caps 00004018
+create 1/2 caps 0000c238 800x600 (screen 800x600 fb16 1)
+create 2/2 caps 0000401c 800x600 (screen 800x600 fb16 1)
+create 1/1 caps 00004040 320x200 (screen 800x600 fb16 1)
+destroy caps 00004040
+create 1/2 caps 0000e238 640x480 (screen 640x480 fb16 1)
+create 2/2 caps 0000601c 640x480 (screen 640x480 fb16 1)
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+create 1/2 caps 0000e238 640x480 (screen 640x480 fb16 1)
+create 2/2 caps 0000601c 640x480 (screen 640x480 fb16 1)
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+destroy caps 1000600c
+create 1/2 caps 0000e238 640x480 (screen 640x480 fb16 1)
+create 2/2 caps 0000601c 640x480 (screen 640x480 fb16 1)
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+destroy caps 1000600c
+create 1/2 caps 0000e238 640x480 (screen 640x480 fb16 1)
+create 2/2 caps 0000601c 640x480 (screen 640x480 fb16 1)
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 0 Z 0
+create 1/1 caps 04005000 8x8 (screen 640x480 fb16 1)
+create 1/1 caps 04005000 256x256 (screen 640x480 fb16 1)
+destroy caps 04005000
+create 1/1 caps 00004040 416x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+create 1/1 caps 00004040 253x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+destroy caps 14005000
+destroy caps 1000601c
+create 1/2 caps 0000e238 640x480 (screen 640x480 fb16 1)
+create 2/2 caps 0000601c 640x480 (screen 640x480 fb16 1)
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 0 Z 0
+create 1/1 caps 04005000 8x8 (screen 640x480 fb16 1)
+create 1/1 caps 04005000 256x256 (screen 640x480 fb16 1)
+destroy caps 04005000
+create 1/1 caps 00004040 416x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+create 1/1 caps 00004040 253x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+destroy caps 14005000
+destroy caps 1000601c
+create 1/2 caps 0000e238 640x480 (screen 640x480 fb16 1)
+create 2/2 caps 0000601c 640x480 (screen 640x480 fb16 1)
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 0 Z 0
+create 1/1 caps 04005000 8x8 (screen 640x480 fb16 1)
+create 1/1 caps 04005000 256x256 (screen 640x480 fb16 1)
+destroy caps 04005000
+create 1/1 caps 00004040 416x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+create 1/1 caps 00004040 253x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+destroy caps 14005000
+destroy caps 1000601c
+create 1/2 caps 0000e238 640x480 (screen 640x480 fb16 1)
+create 2/2 caps 0000601c 640x480 (screen 640x480 fb16 1)
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 0 Z 0
+create 1/1 caps 04005000 8x8 (screen 640x480 fb16 1)
+create 1/1 caps 04005000 256x256 (screen 640x480 fb16 1)
+destroy caps 04005000
+create 1/1 caps 00004040 416x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+create 1/1 caps 00004040 253x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+destroy caps 14005000
+destroy caps 1000601c
+create 1/2 caps 0000e238 640x480 (screen 640x480 fb16 1)
+create 2/2 caps 0000601c 640x480 (screen 640x480 fb16 1)
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 0 Z 0
+create 1/1 caps 04005000 8x8 (screen 640x480 fb16 1)
+create 1/1 caps 04005000 256x256 (screen 640x480 fb16 1)
+destroy caps 04005000
+create 1/1 caps 00004040 416x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+create 1/1 caps 00004040 253x24 (screen 640x480 fb16 1)
+destroy caps 00004040
+destroy caps 14005000
+destroy caps 1000601c
+create 1/2 caps 0000e238 640x480 (screen 640x480 fb16 1)
+create 2/2 caps 0000601c 640x480 (screen 640x480 fb16 1)
+d3d context: target 640x480 at 0,0 scratch 352x480 at 640,512 lores 1 Z 0
+create 1/1 caps 00005000 256x256 (screen 640x480 fb16 1)
+destroy caps 00005000
+destroy caps 1000601c
+create 1/3 caps 0000c238 800x600 (screen 800x600 fb16 1)
+create 2/3 caps 0000401c 800x600 (screen 800x600 fb16 1)
+create 3/3 caps 00004018 800x600 (screen 800x600 fb16 1)
+destroy caps 1000401c
+destroy caps 00004018
+create 1/2 caps 0000c238 800x600 (screen 800x600 fb16 1)
+create 2/2 caps 0000401c 800x600 (screen 800x600 fb16 1)
+create 1/1 caps 00004040 320x200 (screen 800x600 fb16 1)
+destroy caps 00004040
+destroy caps 1000401c
+vga create n 3 caps0 0000c238
+vga create n 1 caps0 00004040
+destroy caps 00004040
+vga blt flags 01000400 rop 00000000 clip 0
+vga flip
+vga blt flags 01000400 rop 00000000 clip 0
+vga flip
+vga blt flags 01000400 rop 00000000 clip 0
+vga flip
+vga blt flags 01000400 rop 00000000 clip 0
+vga flip
+vga call 0
+vga call 1

@@ -76,3 +76,115 @@
 15:08:22   started 7 mx_flipblt
 15:08:23   mx_flipblt            13.15 ops/s   76.074 ms/op  hash 518889c5  #7  pad 0000  med 13.15
 15:08:23   restore 00000000
+16:09:00 === Doom trace run: M8VGT (palette via 3C8/3C9, VGA trace lines)
+16:12:45   idle: {"Success":true,"RequestId":508026256,"AgentBuild":"v0.19.0","BootCounter":479,"Mode":"Direct","ExitCode":0,"ResultCategory":0,"NativeError":0,"ElapsedMilliseconds":41982,"Stdout":"  1 s  cpu 100 %  quiet 0\r\n  2 s  cpu 100 %  quiet 0\r\n  3 s  cpu 100 %  quiet 0\r\n  4 s  cpu 100 %  quiet 0\r\n  5 s  cpu 100 %  quiet 0\r\n  6 s  cpu 100 %  quiet 0\r\n  7 s  cpu 100 %  quiet 0\r\n  8 s  cpu 100 %  quiet 0\r\n  9 s  cpu 100 %  quiet 0\r\n 10 s  cpu 100 %  quiet 0\r\n 11 s  cpu 100 %  quiet 0\r\n 12 s  cpu 100 %  quiet 0\r\n 13 s  cpu 100 %  quiet 0\r\n 14 s  cpu   0 %  quiet 1\r\n 15 s  cpu   0 %  quiet 2\r\n 16 s  cpu   8 %  quiet 3\r\n 17 s  cpu   0 %  quiet 4\r\n 18 s  cpu   8 %  quiet 5\r\n 19 s  cpu   9 %  quiet 6\r\n 20 s  cpu   4 %  quiet 7\r\n 21 s  cpu   1 %  quiet 8\r\n 22 s  cpu   2 %  quiet 9\r\n 23 s  cpu   3 %  quiet 10\r\n","Stderr":"","StdoutBytes":622,"StderrBytes":0,"StdoutTruncated":false,"StderrTruncated":false,"TimedOut":false,"Cancelled":false,"CaptureMode":"pipes","GuiWindow":false,"Detached":false,"Orphaned":false}
+16:14:25   == card_vgt1  driver m8vgt.drv  800x600x16  2026-11-21 15:47  1000 ms
+16:14:25   card_vgt1 faster in 3, slower in 3; pixels differ in 0 tests
+16:14:25   geometric mean B/A 1.049
+16:14:26   DLL md5 850968C15DC9071306EF5505A400F11D (want 850968C15DC9071306EF5505A400F11D)
+16:14:28   DOOM95 launched: owner clicks New Game
+16:19:08   ping miss 1
+16:19:16   ping back after 1 misses
+16:19:29   ping miss 1
+16:19:42   ping miss 2
+16:19:55   ping miss 3
+16:20:08   ping miss 4
+16:20:21   ping miss 5
+16:20:34   ping miss 6
+16:20:39   ping loop done (misses 6)
+16:40:36 === M8VGS: VGA primary in RAM, delta push
+16:44:53   idle: {"Success":true,"RequestId":1526488297,"AgentBuild":"v0.19.0","BootCounter":481,"Mode":"Direct","ExitCode":0,"ResultCategory":0,"NativeError":0,"ElapsedMilliseconds":61611,"Stdout":"  1 s  cpu 100 %  quiet 0\r\n  2 s  cpu 100 %  quiet 0\r\n  3 s  cpu 100 %  quiet 0\r\n  4 s  cpu 100 %  quiet 0\r\n  5 s  cpu 100 %  quiet 0\r\n  6 s  cpu 100 %  quiet 0\r\n  7 s  cpu 100 %  quiet 0\r\n  8 s  cpu 100 %  quiet 0\r\n  9 s  cpu 100 %  quiet 0\r\n 10 s  cpu 100 %  quiet 0\r\n 11 s  cpu 100 %  quiet 0\r\n 12 s  cpu 100 %  quiet 0\r\n 13 s  cpu 100 %  quiet 0\r\n 14 s  cpu 100 %  quiet 0\r\n 15 s  cpu 100 %  quiet 0\r\n 16 s  cpu 100 %  quiet 0\r\n 17 s  cpu 100 %  quiet 0\r\n 18 s  cpu 100 %  quiet 0\r\n 19 s  cpu 100 %  quiet 0\r\n 20 s  cpu 100 %  quiet 0\r\n 21 s  cpu 100 %  quiet 0\r\n 22 s  cpu 100 %  quiet 0\r\n 23 s  cpu 100 %  quiet 0\r\n 24 s  cpu 100 %  quiet 0\r\n 25 s  cpu   0 %  quiet 1\r\n 26 s  cpu   0 %  quiet 2\r\n 27 s  cpu   0 %  quiet 3\r\n 28 s  cpu   0 %  quiet 4\r\n 29 s  cpu   0 %  quiet 5\r\n 30 s  cpu   0 %  quiet 6\r\n 31 s  cpu  14 %  quiet 0\r\n 32 s  cpu   5 %  quiet 1\r\n 33 s  cpu   8 %  quiet 2\r\n 34 s  cpu   5 %  quiet 3\r\n 35 s  cpu   7 %  quiet 4\r\n 36 s  cpu   4 %  quiet 5\r\n 37 s  cpu  13 %  quiet 0\r\n 38 s  cpu   4 %  quiet 1\r\n 39 s  cpu  14 %  quiet 0\r\n 40 s  cpu   2 %  quiet 1\r\n 41 s  cpu   5 %  quiet 2\r\n 42 s  cpu  20 %  quiet 0\r\n 43 s  cpu   0 %  quiet 1\r\n 44 s  cpu   2 %  quiet 2\r\n 45 s  cpu   2 %  quiet 3\r\n 46 s  cpu   1 %  quiet 4\r\n 47 s  cpu   0 %  quiet 5\r\n 48 s  cpu   6 %  quiet 6\r\n 49 s  cpu   2 %  quiet 7\r\n 50 s  cpu   0 %  quiet 8\r\n 51 s  cpu   2 %  quiet 9\r\n 52 s  cpu   3 %  quiet 10\r\n","Stderr":"","StdoutBytes":1405,"StderrBytes":0,"StdoutTruncated":false,"StderrTruncated":false,"TimedOut":false,"Cancelled":false,"CaptureMode":"pipes","GuiWindow":false,"Detached":false,"Orphaned":false}
+16:46:32   == card_vgs1  driver m8vgs.drv  800x600x16  2026-11-21 16:19  1000 ms
+16:46:32   card_vgs1 faster in 2, slower in 1; pixels differ in 0 tests
+16:46:32   geometric mean B/A 0.998
+16:46:33   DLL md5 6A64B03749D4615C891DA4637880623A (want 6A64B03749D4615C891DA4637880623A)
+16:47:36   modex exec: "ExitCode":0 "TimedOut":false
+16:47:47   setmode 00000000
+16:47:47   lock 00000000  mem 802ba140  pitch 320  320x200
+16:47:47   started 1 mx_fill
+16:47:47   mx_fill                7.66 ops/s  130.536 ms/op  hash 4e58e5c5  #1  pad 0000  med 7.66
+16:47:47   started 2 mx_frame
+16:47:47   mx_frame               6.61 ops/s  151.329 ms/op  hash b1ac89c5  #2  pad 0000  med 6.61
+16:47:47   started 3 mx_box
+16:47:47   mx_box                16.30 ops/s   61.364 ms/op  hash 518889c5  #3  pad 0000  med 16.30
+16:47:47   started 4 mx_same
+16:47:47   mx_same               13.75 ops/s   72.723 ms/op  hash b30149c5  #4  pad 0000  med 13.75
+16:47:47   started 5 mx_lock
+16:47:47   mx_lock               64.70 ops/s   15.455 ms/op  hash 7bf35a9a  #5  pad 0000  med 64.70
+16:47:47   started 6 mx_flip
+16:47:47   mx_flip               29.31 ops/s   34.116 ms/op  hash 518889c5  #6  pad 0000  med 29.31
+16:47:47   started 7 mx_flipblt
+16:47:47   mx_flipblt            28.71 ops/s   34.828 ms/op  hash 518889c5  #7  pad 0000  med 28.71
+16:47:47   restore 00000000
+16:48:41   DOOM95 launched, screenshot taken
+16:51:21 === M8VGD: A0000 primary, adaptive delta flip
+16:55:49   idle: {"Success":true,"RequestId":728300665,"AgentBuild":"v0.19.0","BootCounter":482,"Mode":"Direct","ExitCode":0,"ResultCategory":0,"NativeError":0,"ElapsedMilliseconds":60698,"Stdout":"  1 s  cpu 100 %  quiet 0\r\n  2 s  cpu 100 %  quiet 0\r\n  3 s  cpu 100 %  quiet 0\r\n  4 s  cpu 100 %  quiet 0\r\n  5 s  cpu 100 %  quiet 0\r\n  6 s  cpu 100 %  quiet 0\r\n  7 s  cpu 100 %  quiet 0\r\n  8 s  cpu 100 %  quiet 0\r\n  9 s  cpu 100 %  quiet 0\r\n 10 s  cpu   0 %  quiet 1\r\n 11 s  cpu   0 %  quiet 2\r\n 12 s  cpu   1 %  quiet 3\r\n 13 s  cpu   7 %  quiet 4\r\n 14 s  cpu  10 %  quiet 5\r\n 15 s  cpu   6 %  quiet 6\r\n 16 s  cpu  13 %  quiet 0\r\n 17 s  cpu  14 %  quiet 0\r\n 18 s  cpu   8 %  quiet 1\r\n 19 s  cpu   5 %  quiet 2\r\n 20 s  cpu   0 %  quiet 3\r\n 21 s  cpu   1 %  quiet 4\r\n 22 s  cpu   6 %  quiet 5\r\n 23 s  cpu   4 %  quiet 6\r\n 24 s  cpu  15 %  quiet 0\r\n 25 s  cpu   7 %  quiet 1\r\n 26 s  cpu   0 %  quiet 2\r\n 27 s  cpu  13 %  quiet 0\r\n 28 s  cpu  11 %  quiet 0\r\n 29 s  cpu   2 %  quiet 1\r\n 30 s  cpu   0 %  quiet 2\r\n 31 s  cpu   0 %  quiet 3\r\n 32 s  cpu   2 %  quiet 4\r\n 33 s  cpu   1 %  quiet 5\r\n 34 s  cpu   1 %  quiet 6\r\n 35 s  cpu   3 %  quiet 7\r\n 36 s  cpu   0 %  quiet 8\r\n 37 s  cpu   5 %  quiet 9\r\n 38 s  cpu   7 %  quiet 10\r\n","Stderr":"","StdoutBytes":1027,"StderrBytes":0,"StdoutTruncated":false,"StderrTruncated":false,"TimedOut":false,"Cancelled":false,"CaptureMode":"pipes","GuiWindow":false,"Detached":false,"Orphaned":false}
+16:57:29   == card_vgd1  driver m8vgd.drv  800x600x16  2026-11-21 16:30  1000 ms
+16:57:29   card_vgd1 faster in 3, slower in 3; pixels differ in 0 tests
+16:57:29   geometric mean B/A 0.999
+16:57:31   DLL md5 8E35625798B22F3580156B11EFEEED1A (want 8E35625798B22F3580156B11EFEEED1A)
+16:58:37   modex exec: "ExitCode":0 "TimedOut":false
+16:58:39   setmode 00000000
+16:58:39   lock 00000000  mem 000a0000  pitch 320  320x200
+16:58:39   started 1 mx_fill
+16:58:39   mx_fill               13.48 ops/s   74.179 ms/op  hash 4e58e5c5  #1  pad 0000  med 13.48
+16:58:39   started 2 mx_frame
+16:58:39   mx_frame               8.93 ops/s  111.939 ms/op  hash b1ac89c5  #2  pad 0000  med 8.93
+16:58:39   started 3 mx_box
+16:58:39   mx_box                 8.82 ops/s  113.316 ms/op  hash 518889c5  #3  pad 0000  med 8.82
+16:58:39   started 4 mx_same
+16:58:39   mx_same                9.40 ops/s  106.345 ms/op  hash b30149c5  #4  pad 0000  med 9.40
+16:58:39   started 5 mx_lock
+16:58:39   mx_lock             1146.82 ops/s    0.872 ms/op  hash 7bf35a9a  #5  pad 0000  med 1146.82
+16:58:39   started 6 mx_flip
+16:58:39   mx_flip               44.97 ops/s   22.239 ms/op  hash 518889c5  #6  pad 0000  med 44.97
+16:58:39   started 7 mx_flipblt
+16:58:39   mx_flipblt            42.53 ops/s   23.513 ms/op  hash 518889c5  #7  pad 0000  med 42.53
+16:58:39   restore 00000000
+16:59:45   DOOM95 launched, ENTER sent for New Game
+16:59:49   agent up
+17:01:17   agent down
+17:14:56   15 min done, agent down
+18:01:39 === M8VGH: heartbeat trace for Doom
+18:01:40   D vga create n 3 caps0 0000c238
+18:01:40   D vga create n 1 caps0 00004040
+18:05:39   idle: {"Success":true,"RequestId":1284545306,"AgentBuild":"v0.19.0","BootCounter":484,"Mode":"Direct","ExitCode":0,"ResultCategory":0,"NativeError":0,"ElapsedMilliseconds":43065,"Stdout":"  1 s  cpu 100 %  quiet 0\r\n  2 s  cpu 100 %  quiet 0\r\n  3 s  cpu 100 %  quiet 0\r\n  4 s  cpu 100 %  quiet 0\r\n  5 s  cpu 100 %  quiet 0\r\n  6 s  cpu 100 %  quiet 0\r\n  7 s  cpu 100 %  quiet 0\r\n  8 s  cpu 100 %  quiet 0\r\n  9 s  cpu 100 %  quiet 0\r\n 10 s  cpu 100 %  quiet 0\r\n 11 s  cpu   0 %  quiet 1\r\n 12 s  cpu   0 %  quiet 2\r\n 13 s  cpu   2 %  quiet 3\r\n 14 s  cpu   2 %  quiet 4\r\n 15 s  cpu   4 %  quiet 5\r\n 16 s  cpu   0 %  quiet 6\r\n 17 s  cpu  10 %  quiet 7\r\n 18 s  cpu   7 %  quiet 8\r\n 19 s  cpu   4 %  quiet 9\r\n 20 s  cpu   1 %  quiet 10\r\n","Stderr":"","StdoutBytes":541,"StderrBytes":0,"StdoutTruncated":false,"StderrTruncated":false,"TimedOut":false,"Cancelled":false,"CaptureMode":"pipes","GuiWindow":false,"Detached":false,"Orphaned":false}
+18:07:17   == card_vgh1  driver m8vgh.drv  800x600x16  2026-11-21 17:40  1000 ms
+18:07:17   card_vgh1 faster in 4, slower in 2; pixels differ in 0 tests
+18:07:17   geometric mean B/A 1.068
+18:07:18   DLL md5 94A741CD20B3A9CB7A9F1472D80381E0 (want 94A741CD20B3A9CB7A9F1472D80381E0)
+18:08:12   DOOM95 launched, ENTER sent for New Game
+18:08:14   agent up
+18:09:30   agent down
+18:09:45   agent up
+18:10:21   agent down
+18:18:22   10 min done, agent down
+18:50:20 === Doom -nomouse (M8VGH heartbeat)
+18:51:14   launched, ENTER sent
+18:51:16   agent up
+18:52:32   agent down
+18:58:15   7 min done, agent down
+19:06:25 === Doom -nosound (M8VGH heartbeat)
+19:07:13   launched, ENTER sent
+19:07:15   agent up
+19:08:11   agent down
+19:08:26   agent up
+19:14:17   7 min done, agent up
+19:14:19   T hb t 668795 n 14196 14196 32 3553 last 668764 pal 12 busy 0 f 4 de 8023 vga 1
+19:14:19   T hb t 670796 n 14281 14280 32 3574 last 670789 pal 12 busy 0 f 4 de 8033 vga 1
+19:14:19   T hb t 672819 n 14369 14369 32 3596 last 672790 pal 12 busy 0 f 4 de 8023 vga 1
+19:14:19   T hb t 674829 n 14458 14458 32 3619 last 674816 pal 12 busy 0 f 4 de 8023 vga 1
+19:14:19   T hb t 676920 n 14550 14550 32 3642 last 676907 pal 12 busy 0 f 4 de 8023 vga 1
+19:14:19   T hb t 678921 n 14639 14639 32 3664 last 678916 pal 12 busy 0 f 4 de 8023 vga 1
+20:02:30 === Doom -nomusic (M8VGH heartbeat)
+20:03:16   launched, ENTER sent
+20:03:19   agent up
+20:04:34   agent down
+20:10:16   7 min done, agent down
+20:20:53 === Doom -nosfxformat (M8VGH heartbeat)
+20:21:39   launched, ENTER sent
+20:21:41   agent up
+20:22:35   agent down
+20:22:48   agent up
+20:23:06   agent down
+20:28:42   7 min done, agent down

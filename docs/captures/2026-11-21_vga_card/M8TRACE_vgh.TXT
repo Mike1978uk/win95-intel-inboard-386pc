@@ -1,0 +1,43 @@
+vga create n 3 caps0 0000c238
+vga create n 1 caps0 00004040
+destroy caps 00004040
+vga blt flags 01000400 rop 00000000 clip 0
+vga flip t 369595 pal 8 busy 0 f 4
+vga blt flags 01000400 rop 00000000 clip 0
+vga flip t 369759 pal 8 busy 0 f 4
+vga blt flags 01000400 rop 00000000 clip 0
+vga flip t 369814 pal 8 busy 0 f 4
+vga blt flags 01000400 rop 00000000 clip 0
+vga flip t 370022 pal 8 busy 0 f 4
+vga call 0 t 370425 caps 1000401c pal 8 busy 0 f 4
+vga call 1 t 370493 caps 1000401c pal 8 busy 0 f 4
+hb t 370584 n 1 1 4 4 last 370493 pal 8 busy 0 f 4 de 8023 vga 1
+hb t 372651 n 1 1 4 4 last 370493 pal 8 busy 0 f 4 de 8023 vga 1
+hb t 375082 n 1 1 4 4 last 370493 pal 8 busy 0 f 4 de 8023 vga 1
+hb t 377209 n 1 1 4 4 last 370493 pal 8 busy 0 f 4 de 8023 vga 1
+hb t 379301 n 1 1 4 4 last 370493 pal 8 busy 0 f 4 de 8023 vga 1
+hb t 381335 n 1 1 4 4 last 370493 pal 8 busy 0 f 4 de 8023 vga 1
+hb t 383367 n 1 1 4 4 last 370493 pal 8 busy 0 f 4 de 8023 vga 1
+hb t 385417 n 1 1 4 4 last 370493 pal 8 busy 0 f 4 de 8023 vga 1
+hb t 387444 n 1 1 4 4 last 370493 pal 8 busy 0 f 4 de 8023 vga 1
+hb t 389532 n 1 1 4 4 last 370493 pal 8 busy 0 f 4 de 8023 vga 1
+hb t 391616 n 1 1 4 4 last 370493 pal 8 busy 0 f 4 de 8023 vga 1
+hb t 393727 n 1 1 4 4 last 370493 pal 8 busy 0 f 4 de 8023 vga 1
+hb t 395833 n 1 1 4 4 last 370493 pal 8 busy 0 f 4 de 8023 vga 1
+hb t 397876 n 1 1 4 4 last 370493 pal 8 busy 0 f 4 de 8023 vga 1
+hb t 399981 n 1 1 4 4 last 370493 pal 8 busy 0 f 4 de 8023 vga 1
+hb t 402094 n 1 1 4 4 last 370493 pal 8 busy 0 f 4 de 8023 vga 1
+hb t 404144 n 1 1 4 4 last 370493 pal 10 busy 0 f 4 de 8023 vga 1
+vga call 0 t 405473 caps 1000401c pal 10 busy 0 f 4
+vga call 1 t 405722 caps 1000401c pal 10 busy 0 f 4
+hb t 406715 n 2 2 4 4 last 405722 pal 10 busy 0 f 4 de 8033 vga 1
+vga call 0 t 407401 caps 1000401c pal 11 busy 0 f 4
+vga call 1 t 407428 caps 1000401c pal 11 busy 0 f 4
+vga call 0 t 407536 caps 1000401c pal 11 busy 0 f 4
+hb t 408757 n 4 3 7 4 last 407536 pal 11 busy 0 f 4 de 8033 vga 1
+vga call 1 t 409046 caps 1000401c pal 11 busy 0 f 4
+vga call 0 t 409159 caps 1000401c pal 11 busy 0 f 4
+vga call 1 t 409321 caps 1000401c pal 11 busy 0 f 4
+vga call 0 t 409350 caps 1000401c pal 11 busy 0 f 4
+vga call 1 t 409436 caps 1000401c pal 11 busy 0 f 4
+hb t 411086 n 6 6 7 4 last 409436 pal 11 busy 0 f 4 de 8023 vga 1

@@ -1,0 +1,3 @@
+vga create n 3 caps0 0000c238
+vga create n 1 caps0 00004040
+destroy caps 00004040

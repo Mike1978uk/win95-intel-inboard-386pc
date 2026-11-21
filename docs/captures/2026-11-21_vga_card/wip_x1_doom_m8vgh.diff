@@ -1,0 +1,598 @@
+diff --git a/drivers/mach8_display/src/dd16.c b/drivers/mach8_display/src/dd16.c
+index 0ca3507..20c96a4 100644
+--- a/drivers/mach8_display/src/dd16.c
++++ b/drivers/mach8_display/src/dd16.c
+@@ -67,6 +67,12 @@ typedef struct {
+     DWORD   set_overlay_position;
+     M8_OV   ov;                         /* the overlay as M8DD32 last described it */
+     DWORD   vga;                        /* 1: m8_vga; M8DD32's m8dd_vga_* serve the VGA half */
++    DWORD   vga_sent;                   /* linear: what A0000 holds, as M8DD32's Flip sent it */
++    DWORD   vga_sent_ok;                /* 0: vga_sent is not what A0000 holds */
++    DWORD   dg_deflags;                 /* diagnostic: linear address of the PDevice's deFlags */
++    DWORD   dg_pal;                     /* diagnostic: SetPalette calls */
++    DWORD   dg_pal_busy;                /* diagnostic: of them, skipped for BUSY */
++    DWORD   dg_flags;                   /* diagnostic: 1 hw_off, 2 BUSY, 4 m8_vga, at the last */
+     /* This side only from here. */
+     DDHALINFO_t                 info;
+     DDHAL_DDCALLBACKS_t         cb;
+@@ -202,9 +208,51 @@ static void m8dd_vga_row( DDHALMODEINFO_t FAR *m )
+ /* The VGA half's primary is the system VM's own A0000, as KERNEL's __A000H
+  * selector addresses it: the VDD maps it to the card while Windows owns the
+  * screen, and DirectDraw's Win32 callers run in that VM. Not a DPMI 0800h
+- * mapping: that call does not map memory below 1 MB. */
++ * mapping: that call does not map memory below 1 MB. A program that draws
++ * there itself pays the bus once a byte; a copy in RAM would add its stores. */
+ #define M8DD_VGA_PRIMARY    0xA0000UL
+ 
++/* What A0000 holds, for M8DD32's Flip to send only what differs. Fixed shared
++ * memory, as for m8dd_shadow, so the address holds in every process; kept for
++ * the session once made. */
++static BYTE FAR         *m8dd_vga_was;
++
++static int m8dd_vga_alloc( void )
++{
++    HGLOBAL h;
++
++    if( m8dd_vga_was == NULL ) {
++        h = GlobalAlloc( GMEM_FIXED | GMEM_SHARE | GMEM_ZEROINIT, 320U * 200U );
++        if( h == 0 ) {
++            return( 0 );
++        }
++        m8dd_vga_was = (BYTE FAR *)GlobalLock( h );
++    }
++    m8dd->vga_sent = GetSelectorBase( FP_SEG( m8dd_vga_was ) );
++    return( 1 );
++}
++
++/* Mode 13h was just set, which clears A0000: the record no longer holds. */
++void __far m8dd_vga_clear( void )
++{
++    if( m8dd != NULL ) {
++        m8dd->vga_sent_ok = 0;
++    }
++}
++
++/* Diagnostic: one SetPalette, as M8DD32's trace reports it. */
++void __far m8dd_diag_pal( int skipped, int busy )
++{
++    if( m8dd == NULL ) {
++        return;
++    }
++    ++m8dd->dg_pal;
++    if( skipped ) {
++        ++m8dd->dg_pal_busy;
++    }
++    m8dd->dg_flags = (m8_hw_off ? 1UL : 0) | (busy ? 2UL : 0) | (m8_vga ? 4UL : 0);
++}
++
+ static int m8dd_mode_index( void )
+ {
+     int i;
+@@ -368,10 +416,12 @@ static void m8dd_build( int mode )
+         hi->dwFlags |= DDHALINFO_GETDRIVERINFOSET;
+     }
+     hi->lpPDevice = m8_pdevice;
++    m8dd->dg_deflags = m8_pdevice == NULL ? 0 :
++        GetSelectorBase( FP_SEG( m8_pdevice ) ) + FP_OFF( &m8_pdevice->deFlags );
+     hi->hInstance = m8dd->hInstance;
+     if( m8_vga ) {
+-        /* The primary is the VGA half's A0000: Lock is DDRAW's, and M8DD32 does
+-         * Blt, Flip and flip chains there in RAM (m8dd->vga).
++        /* The primary is A0000: Lock is DDRAW's, M8DD32 does Blt, Flip and flip
++         * chains (m8dd->vga).
+          * The callbacks and caps stay as published: a reset that drops them is
+          * refused by SetInfo, and DDRAW keeps the old mode's primary. */
+         hi->vmiData.fpPrimary = M8DD_VGA_PRIMARY;
+@@ -607,7 +657,7 @@ void __far m8dd_mode_changed( void )
+          * desktop went to 8 bpp for it): a desktop change alone should not pin a shadow in RAM. */
+         mode = m8dd_mode_index();
+         if( (m8dd_shadow == NULL && m8_fb16_lin() == 0) || mode < 0 ||
+-            (!m8_vga && !m8dd_shadow_alloc()) ) {
++            (m8_vga ? !m8dd_vga_alloc() : !m8dd_shadow_alloc()) ) {
+             return;
+         }
+         m8dd_build( mode );
+@@ -650,7 +700,7 @@ LONG __far m8dd_command( LPVOID lpInput, LPVOID lpOutput )
+         } else {
+             mode = m8dd_mode_index();
+             if( m8dd_setinfo == NULL || mode < 0 || m8dd->marker != M8DD_MARKER ||
+-                (!m8_vga && !m8dd_shadow_alloc()) ) {
++                (m8_vga ? !m8dd_vga_alloc() : !m8dd_shadow_alloc()) ) {
+                 return( 0 );
+             }
+             m8dd_build( mode );
+diff --git a/drivers/mach8_display/src/enable.c b/drivers/mach8_display/src/enable.c
+index 2990960..51b86dc 100644
+--- a/drivers/mach8_display/src/enable.c
++++ b/drivers/mach8_display/src/enable.c
+@@ -310,8 +310,9 @@ static void m8_vga_show( void )
+ {
+     m8_hw_passthrough();
+     int_10h( 0x0013 );
+-    m8_hw_set_palette( 0, 256, m8_color_table );
++    m8dd_vga_clear();
+     m8_vga = 1;
++    m8_hw_set_palette( 0, 256, m8_color_table );
+ }
+ 
+ /* INT 2Fh 4002h: Windows has the screen again. A DOS program may have used the
+@@ -486,6 +487,7 @@ UINT WINAPI __loadds SetPalette( UINT wStartIndex, UINT wNumEntries, LPVOID lpPa
+         return( 0 );
+     }
+     DIB_SetPaletteExt( wStartIndex, wNumEntries, lpPalette, m8_pdevice );
++    m8dd_diag_pal( m8_pdevice == NULL || (m8_pdevice->deFlags & BUSY), m8_pdevice != NULL && (m8_pdevice->deFlags & BUSY) );
+     if( m8_pdevice != NULL && !(m8_pdevice->deFlags & BUSY) ) {
+         m8_hw_set_palette( wStartIndex, wNumEntries, &m8_color_table[wStartIndex] );
+     }
+diff --git a/drivers/mach8_display/src/m8.h b/drivers/mach8_display/src/m8.h
+index 9022909..6fb6fac 100644
+--- a/drivers/mach8_display/src/m8.h
++++ b/drivers/mach8_display/src/m8.h
+@@ -219,6 +219,8 @@ extern DWORD m8_stats[M8_STAT_COUNT];
+ extern int  m8_hw_set_mode( int mode );
+ extern int  __far m8_hw_mode_size( int mode, int *x, int *y );
+ extern WORD m8_vga;                     /* the VGA half is shown (M8_MODE_VGA) */
++extern void __far m8dd_diag_pal( int skipped, int busy );
++extern void __far m8dd_vga_clear( void );
+ extern void m8_hw_passthrough( void );
+ extern void m8_hw_set_palette( UINT start, UINT count, RGBQUAD FAR *pal );
+ extern int  m8_hw_wait_idle( void );
+diff --git a/drivers/mach8_display/src/m8dd32.c b/drivers/mach8_display/src/m8dd32.c
+index ca482d2..7458115 100644
+--- a/drivers/mach8_display/src/m8dd32.c
++++ b/drivers/mach8_display/src/m8dd32.c
+@@ -85,6 +85,12 @@ typedef struct {
+     long    ov_dl, ov_dt, ov_dr, ov_db;
+     DWORD   ov_key;
+     DWORD   vga;                /* 1: the VGA half is shown; m8dd_vga_* serve it */
++    DWORD   vga_sent;           /* what A0000 holds, as m8dd_vga_send sent it */
++    DWORD   vga_sent_ok;        /* 0: vga_sent is not what A0000 holds */
++    DWORD   dg_deflags;
++    DWORD   dg_pal;
++    DWORD   dg_pal_busy;
++    DWORD   dg_flags;
+ } M8DD_SHARE;
+ 
+ /* DDHAL_LOCKDATA and DDHAL_UNLOCKDATA as DDRAW passes them (Microsoft's
+@@ -4469,6 +4475,25 @@ static int m8dd_ov_flip( M8DD_FLIP *fd )
+ #define M8DD_VGA_PRIMARY    0xA0000UL
+ #define M8DD_VGA_BACKS      3
+ static DWORD    m8dd_vga_back[M8DD_VGA_BACKS];
++static int      m8dd_vga_traced;
++static DWORD    m8dd_vga_n[4];          /* diagnostic: Lock, Unlock, Blt, Flip calls */
++static DWORD    m8dd_vga_last;          /* diagnostic: tick of the last */
++static HANDLE   m8dd_vga_hb;
++
++static DWORD WINAPI m8dd_vga_beat( LPVOID unused )
++{
++    int     i;
++
++    (void)unused;
++    for( i = 0; i < 400; ++i ) {
++        Sleep( 2000 );
++        m8dd_trace( "hb t %lu n %lu %lu %lu %lu last %lu pal %lu busy %lu f %lu de %04x vga %lu",
++                    GetTickCount(), m8dd_vga_n[0], m8dd_vga_n[1], m8dd_vga_n[2], m8dd_vga_n[3],
++                    m8dd_vga_last, m8dd->dg_pal, m8dd->dg_pal_busy, m8dd->dg_flags,
++                    m8dd->dg_deflags ? *(WORD *)m8dd->dg_deflags : 0xFFFF, m8dd->vga );
++    }
++    return( 0 );
++}
+ static int      m8dd_vga_destroy( BYTE *gbl );
+ 
+ static DWORD m8dd_vga_create( M8DD_CREATE *cd )
+@@ -4480,6 +4505,16 @@ static DWORD m8dd_vga_create( M8DD_CREATE *cd )
+     int     prim = -1;
+     int     j;
+ 
++    m8dd_trace( "vga create n %lu caps0 %08lx", cd->dwSCnt,
++                *(DWORD *)((BYTE *)cd->lplpSList[0] + M8DD_LCL_CAPS) );
++    if( m8dd_vga_hb == NULL ) {
++        DWORD id;
++
++        m8dd_vga_hb = CreateThread( NULL, 0, m8dd_vga_beat, NULL, 0, &id );
++        if( m8dd_vga_hb != NULL ) {
++            SetThreadPriority( m8dd_vga_hb, THREAD_PRIORITY_TIME_CRITICAL );
++        }
++    }
+     if( cd->dwSCnt < 2 || cd->dwSCnt > M8DD_VGA_BACKS + 1 ) {
+         return( DDHAL_DRIVER_NOTHANDLED );
+     }
+@@ -4742,6 +4777,73 @@ static BYTE *m8dd_mem( LPVOID lcl, long *pitch, int *w, int *h )
+     return( (BYTE *)*(DWORD *)(gbl + M8DD_GBL_VIDMEM) );
+ }
+ 
++/* A whole 320x200 frame to A0000. On the card a byte over the bus costs about
++ * 1 us and a store to RAM about a quarter of that, so the record of what A0000
++ * holds pays only where little changes: a frame that changed more than
++ * M8DD_VGA_FULL of the screen sends the next frames whole, with no compare and
++ * no record, and every M8DD_VGA_RETRY frames the record is made again to see
++ * whether the picture has settled. */
++#define M8DD_VGA_FULL       70          /* percent */
++#define M8DD_VGA_RETRY      16
++static int  m8dd_vga_whole;             /* frames left to send whole, without the record */
++
++static void m8dd_vga_send( const BYTE *src )
++{
++    const DWORD *s = (const DWORD *)src;
++    DWORD       *k = (DWORD *)m8dd->vga_sent;
++    DWORD       *v = (DWORD *)M8DD_VGA_PRIMARY;
++    const int   n = 320 * 200 / 4;
++    int         i = 0;
++    int         j;
++    int         sent = 0;
++
++    if( k == NULL || m8dd_vga_whole > 0 ) {
++        if( m8dd_vga_whole > 0 ) {
++            --m8dd_vga_whole;
++        }
++        memcpy( v, s, n * 4 );
++        m8dd->vga_sent_ok = 0;
++        return;
++    }
++    if( !m8dd->vga_sent_ok ) {
++        memcpy( v, s, n * 4 );
++        memcpy( k, s, n * 4 );
++        m8dd->vga_sent_ok = 1;
++        return;
++    }
++    while( i < n ) {
++        if( s[i] == k[i] ) {
++            ++i;
++            continue;
++        }
++        /* A run, through gaps of up to two equal dwords: one copy, not three. */
++        for( j = i + 1; j < n; ++j ) {
++            if( s[j] == k[j] && (j + 1 >= n || s[j + 1] == k[j + 1]) &&
++                (j + 2 >= n || s[j + 2] == k[j + 2]) ) {
++                break;
++            }
++        }
++        memcpy( v + i, s + i, (j - i) * 4 );
++        memcpy( k + i, s + i, (j - i) * 4 );
++        sent += j - i;
++        i = j;
++    }
++    if( sent * 100 > n * M8DD_VGA_FULL ) {
++        m8dd_vga_whole = M8DD_VGA_RETRY;
++    }
++}
++
++/* VGA mode's Unlock: a program that drew on A0000 itself leaves the record behind. */
++static DWORD m8dd_vga_unlock( M8DD_UNLOCK *ud )
++{
++    BYTE    *gbl = *(BYTE **)((BYTE *)ud->lpDDSurface + M8DD_LCL_GBL);
++
++    if( gbl != NULL && *(DWORD *)(gbl + M8DD_GBL_VIDMEM) == M8DD_VGA_PRIMARY ) {
++        m8dd->vga_sent_ok = 0;
++    }
++    return( DDHAL_DRIVER_NOTHANDLED );
++}
++
+ /* VGA mode's Blt: DirectDraw answers DDERR_UNSUPPORTED rather than emulate a
+  * Blt this HAL declines, so fills and unstretched SRCCOPY (one-colour source
+  * key allowed) are done here in memory, at 8 bpp. */
+@@ -4771,6 +4873,10 @@ static DWORD m8dd_vga_blt( M8DD_BLT *bd )
+     long        y;
+     long        x;
+ 
++    if( m8dd_vga_traced < 12 ) {
++        ++m8dd_vga_traced;
++        m8dd_trace( "vga blt flags %08lx rop %08lx clip %d", bd->dwFlags, bd->bltFX.dwROP, (int)bd->IsClipped );
++    }
+     if( other != 0 || (dst = m8dd_mem( bd->lpDDDestSurface, &dp, &dw, &dh )) == NULL ) {
+         return( DDHAL_DRIVER_NOTHANDLED );
+     }
+@@ -4838,14 +4944,17 @@ static DWORD m8dd_vga_blt( M8DD_BLT *bd )
+             }
+         }
+     }
++    if( (DWORD)dst == M8DD_VGA_PRIMARY ) {
++        m8dd->vga_sent_ok = 0;
++    }
+     bd->ddRVal = DD_OK;
+     return( DDHAL_DRIVER_HANDLED );
+ }
+ 
+ /* VGA mode's Flip: mode 13h has one page, so the target's frame is copied to
+- * A0000. DDRAW swaps the two surfaces' memory after a handled Flip; they are
+- * swapped here first, so the primary stays A0000 and the program goes on
+- * drawing in its own back buffer. */
++ * A0000 (m8dd_vga_send). DDRAW swaps the two surfaces' memory after a handled
++ * Flip; they are swapped here first, so the primary stays A0000 and the
++ * program goes on drawing in its own back buffer. */
+ static DWORD m8dd_vga_flip( M8DD_FLIP *fd )
+ {
+     BYTE    *cg;
+@@ -4861,12 +4970,21 @@ static DWORD m8dd_vga_flip( M8DD_FLIP *fd )
+     int     y;
+     DWORD   v;
+ 
++    if( m8dd_vga_traced < 40 ) {
++        ++m8dd_vga_traced;
++        m8dd_trace( "vga flip t %lu pal %lu busy %lu f %lu", GetTickCount(), m8dd->dg_pal, m8dd->dg_pal_busy, m8dd->dg_flags );
++    }
+     if( (dst = m8dd_mem( fd->lpSurfCurr, &dp, &dw, &dh )) == NULL ||
+         (src = m8dd_mem( fd->lpSurfTarg, &sp, &sw, &sh )) == NULL || sw < dw || sh < dh ) {
+         return( DDHAL_DRIVER_NOTHANDLED );
+     }
+-    for( y = 0; y < dh; ++y ) {
+-        memcpy( dst + y * dp, src + y * sp, dw );
++    if( (DWORD)dst == M8DD_VGA_PRIMARY && dp == 320 && sp == 320 && dw == 320 && dh == 200 ) {
++        m8dd_vga_send( src );
++    } else {
++        for( y = 0; y < dh; ++y ) {
++            memcpy( dst + y * dp, src + y * sp, dw );
++        }
++        m8dd->vga_sent_ok = 0;
+     }
+     cg = *(BYTE **)((BYTE *)fd->lpSurfCurr + M8DD_LCL_GBL);
+     tg = *(BYTE **)((BYTE *)fd->lpSurfTarg + M8DD_LCL_GBL);
+@@ -4881,8 +4999,8 @@ static DWORD m8dd_vga_flip( M8DD_FLIP *fd )
+ }
+ 
+ /* [112-115] page-ins inside Lock, Unlock, Blt, Flip; [116-119] ticks inside them: what is left of
+- * a frame is the program's and DirectDraw's own. In VGA mode Lock and Unlock are
+- * DirectDraw's own, Blt and Flip m8dd_vga_blt and m8dd_vga_flip. */
++ * a frame is the program's and DirectDraw's own. In VGA mode Lock is DirectDraw's own,
++ * Unlock, Blt and Flip m8dd_vga_unlock, m8dd_vga_blt and m8dd_vga_flip. */
+ #define M8DD_TIMED( name, fn, type, k )               \
+     static DWORD __stdcall name( type *d )            \
+     {                                                 \
+@@ -4891,8 +5009,17 @@ static DWORD m8dd_vga_flip( M8DD_FLIP *fd )
+         DWORD rc;                                     \
+                                                       \
+         if( m8dd->vga ) {                             \
++            ++m8dd_vga_n[k];                          \
++            m8dd_vga_last = GetTickCount();           \
++            if( (k) < 2 && m8dd_vga_traced < 40 ) {   \
++                ++m8dd_vga_traced;                    \
++                m8dd_trace( "vga call %d t %lu caps %08lx pal %lu busy %lu f %lu", (int)(k), GetTickCount(), \
++                            *(DWORD *)((BYTE *)((M8DD_LOCK *)d)->lpDDSurface + M8DD_LCL_CAPS), \
++                            m8dd->dg_pal, m8dd->dg_pal_busy, m8dd->dg_flags ); \
++            }                                         \
+             return( (k) == 2 ? m8dd_vga_blt( (M8DD_BLT *)d ) :                          \
+-                    (k) == 3 ? m8dd_vga_flip( (M8DD_FLIP *)d ) : DDHAL_DRIVER_NOTHANDLED );\
++                    (k) == 3 ? m8dd_vga_flip( (M8DD_FLIP *)d ) :                         \
++                    (k) == 1 ? m8dd_vga_unlock( (M8DD_UNLOCK *)d ) : DDHAL_DRIVER_NOTHANDLED );\
+         }                                             \
+         pi = m8dd_pageins();                          \
+         t0 = m8dd_ticks();                            \
+diff --git a/drivers/mach8_display/src/m8hw.c b/drivers/mach8_display/src/m8hw.c
+index 2ff43c6..affbadf 100644
+--- a/drivers/mach8_display/src/m8hw.c
++++ b/drivers/mach8_display/src/m8hw.c
+@@ -26,6 +26,8 @@ extern void m8_outsw( const WORD FAR *src, WORD words );
+ 
+ extern void m8_outsb_dac( const BYTE FAR *src, WORD n );
+ #pragma aux m8_outsb_dac =     "push ds" "push es" "pop ds" "mov dx, 02EDh" "rep outsb" "pop ds"     parm [es si] [cx] modify [si cx dx];
++extern void m8_outsb_vdac( const BYTE FAR *src, WORD n );
++#pragma aux m8_outsb_vdac =    "push ds" "push es" "pop ds" "mov dx, 03C9h" "rep outsb" "pop ds"     parm [es si] [cx] modify [si cx dx];
+ 
+ /* Rows translated a band at a time, then sent in one rep outsw: no port
+  * access between rows keeps the table and the loop in the L1. Also a
+@@ -405,6 +407,15 @@ void m8_hw_set_palette( UINT start, UINT count, RGBQUAD FAR *pal )
+         *q++ = pal[i].rgbGreen >> 2;
+         *q++ = pal[i].rgbBlue >> 2;
+     }
++    /* The VGA half's own DAC ports while it is shown: on the card both port
++     * sets reach the one DAC, but a VGA-compatible model of the card (86Box)
++     * may keep two palettes, and 3C8h/3C9h are right on either. */
++    if( m8_vga ) {
++        outp( 0x03C6, 0xFF );
++        outp( 0x03C8, (BYTE)start );
++        m8_outsb_vdac( (const BYTE FAR *)m8_xrow, (WORD)(count * 3) );
++        return;
++    }
+     outp( 0x02EA, 0xFF );
+     outp( 0x02EC, (BYTE)start );
+     m8_outsb_dac( (const BYTE FAR *)m8_xrow, (WORD)(count * 3) );
+diff --git a/tools/m8ddbench/M8DDB.C b/tools/m8ddbench/M8DDB.C
+index f022565..2a1912c 100644
+--- a/tools/m8ddbench/M8DDB.C
++++ b/tools/m8ddbench/M8DDB.C
+@@ -25,6 +25,7 @@
+ #include <stdlib.h>
+ #include <io.h>
+ #include <ddraw.h>
++#include <mmsystem.h>
+ 
+ #define WIN_W       640
+ #define WIN_H       480
+@@ -707,6 +708,172 @@ static HRESULT WINAPI mx_mode( LPDDSURFACEDESC d, LPVOID ctx )
+     return( DDENUMRET_OK );
+ }
+ 
++/* A second of a 440 Hz square wave, 8-bit mono at 22050 Hz, as a WAV in memory:
++ * modexs plays it looped through the sound card's driver while modex runs, as a
++ * game's sound would (DMA on the card while the screen is written). */
++#define SND_RATE    22050
++static BYTE snd_wav[44 + SND_RATE];
++
++static void snd_start( void )
++{
++    DWORD   *d = (DWORD *)snd_wav;
++    int     i;
++
++    memcpy( snd_wav, "RIFF", 4 );
++    d[1] = 36 + SND_RATE;
++    memcpy( snd_wav + 8, "WAVEfmt ", 8 );
++    d[4] = 16;
++    *(WORD *)(snd_wav + 20) = 1;                /* PCM */
++    *(WORD *)(snd_wav + 22) = 1;                /* mono */
++    d[6] = SND_RATE;
++    d[7] = SND_RATE;
++    *(WORD *)(snd_wav + 32) = 1;
++    *(WORD *)(snd_wav + 34) = 8;
++    memcpy( snd_wav + 36, "data", 4 );
++    d[10] = SND_RATE;
++    for( i = 0; i < SND_RATE; ++i ) {
++        snd_wav[44 + i] = (BYTE)(((i * 440 / SND_RATE) & 1) ? 0xA0 : 0x60);
++    }
++    fprintf( out, "sound %d\n", (int)PlaySound( (LPCSTR)snd_wav, NULL, SND_MEMORY | SND_ASYNC | SND_LOOP ) );
++    flush_out();
++}
++
++/* DirectSound, declared here (no dsound.h in this compiler): only the calls used. */
++typedef struct DSB DSB;
++typedef struct {
++    HRESULT (WINAPI *QueryInterface)( DSB *, REFIID, LPVOID * );
++    ULONG   (WINAPI *AddRef)( DSB * );
++    ULONG   (WINAPI *Release)( DSB * );
++    HRESULT (WINAPI *GetCaps)( DSB *, LPVOID );
++    HRESULT (WINAPI *GetCurrentPosition)( DSB *, LPDWORD, LPDWORD );
++    HRESULT (WINAPI *GetFormat)( DSB *, LPVOID, DWORD, LPDWORD );
++    HRESULT (WINAPI *GetVolume)( DSB *, LPLONG );
++    HRESULT (WINAPI *GetPan)( DSB *, LPLONG );
++    HRESULT (WINAPI *GetFrequency)( DSB *, LPDWORD );
++    HRESULT (WINAPI *GetStatus)( DSB *, LPDWORD );
++    HRESULT (WINAPI *Initialize)( DSB *, LPVOID, LPVOID );
++    HRESULT (WINAPI *Lock)( DSB *, DWORD, DWORD, LPVOID *, LPDWORD, LPVOID *, LPDWORD, DWORD );
++    HRESULT (WINAPI *Play)( DSB *, DWORD, DWORD, DWORD );
++    HRESULT (WINAPI *SetCurrentPosition)( DSB *, DWORD );
++    HRESULT (WINAPI *SetFormat)( DSB *, LPVOID );
++    HRESULT (WINAPI *SetVolume)( DSB *, LONG );
++    HRESULT (WINAPI *SetPan)( DSB *, LONG );
++    HRESULT (WINAPI *SetFrequency)( DSB *, DWORD );
++    HRESULT (WINAPI *Stop)( DSB * );
++    HRESULT (WINAPI *Unlock)( DSB *, LPVOID, DWORD, LPVOID, DWORD );
++    HRESULT (WINAPI *Restore)( DSB * );
++} DSBVT;
++struct DSB { DSBVT *v; };
++typedef struct DS DS;
++typedef struct {
++    HRESULT (WINAPI *QueryInterface)( DS *, REFIID, LPVOID * );
++    ULONG   (WINAPI *AddRef)( DS * );
++    ULONG   (WINAPI *Release)( DS * );
++    HRESULT (WINAPI *CreateSoundBuffer)( DS *, LPVOID, DSB **, LPVOID );
++    HRESULT (WINAPI *GetCaps)( DS *, LPVOID );
++    HRESULT (WINAPI *DuplicateSoundBuffer)( DS *, DSB *, DSB ** );
++    HRESULT (WINAPI *SetCooperativeLevel)( DS *, HWND, DWORD );
++} DSVT;
++struct DS { DSVT *v; };
++typedef struct {
++    DWORD           dwSize;
++    DWORD           dwFlags;
++    DWORD           dwBufferBytes;
++    DWORD           dwReserved;
++    WAVEFORMATEX    *lpwfxFormat;
++} DSBDESC;
++#define DS_RATE     11025
++static DS       *ds;
++static DSB      *ds_loop;
++static DSB      *ds_shot;
++static volatile int ds_run;
++
++static DSB *ds_buffer( DWORD bytes, int tone )
++{
++    WAVEFORMATEX    wf;
++    DSBDESC         d;
++    DSB             *b = NULL;
++    LPVOID          p1;
++    LPVOID          p2;
++    DWORD           n1;
++    DWORD           n2;
++    DWORD           i;
++
++    memset( &wf, 0, sizeof( wf ) );
++    wf.wFormatTag = WAVE_FORMAT_PCM;
++    wf.nChannels = 1;
++    wf.nSamplesPerSec = DS_RATE;
++    wf.nAvgBytesPerSec = DS_RATE;
++    wf.nBlockAlign = 1;
++    wf.wBitsPerSample = 8;
++    memset( &d, 0, sizeof( d ) );
++    d.dwSize = sizeof( d );
++    d.dwBufferBytes = bytes;
++    d.lpwfxFormat = &wf;
++    if( ds->v->CreateSoundBuffer( ds, &d, &b, NULL ) != 0 || b == NULL ) {
++        return( NULL );
++    }
++    if( b->v->Lock( b, 0, bytes, &p1, &n1, &p2, &n2, 0 ) == 0 ) {
++        for( i = 0; i < n1; ++i ) {
++            ((BYTE *)p1)[i] = (BYTE)(((i * tone / DS_RATE) & 1) ? 0x98 : 0x68);
++        }
++        b->v->Unlock( b, p1, n1, p2, n2 );
++    }
++    return( b );
++}
++
++/* Game-style effects: a short buffer started again every 100 ms. */
++static DWORD WINAPI ds_shots( LPVOID unused )
++{
++    (void)unused;
++    while( ds_run ) {
++        if( ds_shot != NULL ) {
++            ds_shot->v->SetCurrentPosition( ds_shot, 0 );
++            ds_shot->v->Play( ds_shot, 0, 0, 0 );
++        }
++        Sleep( 100 );
++    }
++    return( 0 );
++}
++
++static void ds_start( void )
++{
++    HMODULE m = LoadLibrary( "DSOUND.DLL" );
++    HRESULT (WINAPI *create)( LPVOID, DS **, LPVOID );
++    HRESULT r = -1;
++    DWORD   id;
++
++    create = m ? (HRESULT (WINAPI *)( LPVOID, DS **, LPVOID ))GetProcAddress( m, "DirectSoundCreate" ) : NULL;
++    if( create != NULL && (r = create( NULL, &ds, NULL )) == 0 ) {
++        r = ds->v->SetCooperativeLevel( ds, wnd, 2 );           /* DSSCL_PRIORITY */
++        ds_loop = ds_buffer( DS_RATE, 440 );
++        ds_shot = ds_buffer( DS_RATE / 8, 1200 );
++        if( ds_loop != NULL ) {
++            ds_loop->v->Play( ds_loop, 0, 0, 1 );                /* DSBPLAY_LOOPING */
++        }
++        ds_run = 1;
++        CreateThread( NULL, 0, ds_shots, NULL, 0, &id );
++    }
++    fprintf( out, "dsound %08lx  loop %d  shot %d\n", (unsigned long)r, ds_loop != NULL, ds_shot != NULL );
++    flush_out();
++}
++
++static void ds_stop( void )
++{
++    ds_run = 0;
++    Sleep( 300 );
++    if( ds_loop != NULL ) {
++        ds_loop->v->Stop( ds_loop );
++        ds_loop->v->Release( ds_loop );
++    }
++    if( ds_shot != NULL ) {
++        ds_shot->v->Release( ds_shot );
++    }
++    if( ds != NULL ) {
++        ds->v->Release( ds );
++    }
++}
++
+ static int modex( const char *label )
+ {
+     DDSURFACEDESC   sd;
+@@ -865,6 +1032,24 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
+         DestroyWindow( wnd );
+         return( i );
+     }
++    if( strncmp( cmd, "modexd ", 7 ) == 0 ) {
++        ds_start();
++        i = modex( cmd + 7 );
++        ds_stop();
++        fclose( out );
++        dd->lpVtbl->Release( dd );
++        DestroyWindow( wnd );
++        return( i );
++    }
++    if( strncmp( cmd, "modexs ", 7 ) == 0 ) {
++        snd_start();
++        i = modex( cmd + 7 );
++        PlaySound( NULL, NULL, 0 );
++        fclose( out );
++        dd->lpVtbl->Release( dd );
++        DestroyWindow( wnd );
++        return( i );
++    }
+     if( strncmp( cmd, "modex ", 6 ) == 0 ) {
+         i = modex( cmd + 6 );
+         fclose( out );
