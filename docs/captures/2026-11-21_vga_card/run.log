@@ -1,0 +1,78 @@
+13:13:18 === X1 card run: M8VGA.DRV + M8DD32.DLL
+13:13:19   backup 121856 bytes
+13:14:16 === X1 card run: M8VGA.DRV + M8DD32.DLL
+13:14:16   backup 121856 bytes
+13:18:16   idle: {"Success":true,"RequestId":1554130597,"AgentBuild":"v0.19.0","BootCounter":475,"Mode":"Direct","ExitCode":0,"ResultCategory":0,"NativeError":0,"ElapsedMilliseconds":58060,"Stdout":"  1 s  cpu 100 %  quiet 0\r\n  2 s  cpu 100 %  quiet 0\r\n  3 s  cpu 100 %  quiet 0\r\n  4 s  cpu 100 %  quiet 0\r\n  5 s  cpu 100 %  quiet 0\r\n  6 s  cpu 100 %  quiet 0\r\n  7 s  cpu 100 %  quiet 0\r\n  8 s  cpu 100 %  quiet 0\r\n  9 s  cpu 100 %  quiet 0\r\n 10 s  cpu 100 %  quiet 0\r\n 11 s  cpu 100 %  quiet 0\r\n 12 s  cpu 100 %  quiet 0\r\n 13 s  cpu 100 %  quiet 0\r\n 14 s  cpu 100 %  quiet 0\r\n 15 s  cpu 100 %  quiet 0\r\n 16 s  cpu   0 %  quiet 1\r\n 17 s  cpu   0 %  quiet 2\r\n 18 s  cpu   6 %  quiet 3\r\n 19 s  cpu   9 %  quiet 4\r\n 20 s  cpu   8 %  quiet 5\r\n 21 s  cpu   0 %  quiet 6\r\n 22 s  cpu   0 %  quiet 7\r\n 23 s  cpu  10 %  quiet 8\r\n 24 s  cpu  11 %  quiet 0\r\n 25 s  cpu   9 %  quiet 1\r\n 26 s  cpu   7 %  quiet 2\r\n 27 s  cpu   3 %  quiet 3\r\n 28 s  cpu   6 %  quiet 4\r\n 29 s  cpu   5 %  quiet 5\r\n 30 s  cpu  16 %  quiet 0\r\n 31 s  cpu   7 %  quiet 1\r\n 32 s  cpu   5 %  quiet 2\r\n 33 s  cpu   4 %  quiet 3\r\n 34 s  cpu   0 %  quiet 4\r\n 35 s  cpu   1 %  quiet 5\r\n 36 s  cpu   0 %  quiet 6\r\n 37 s  cpu   1 %  quiet 7\r\n 38 s  cpu   3 %  quiet 8\r\n 39 s  cpu   2 %  quiet 9\r\n 40 s  cpu   1 %  quiet 10\r\n","Stderr":"","StdoutBytes":1081,"StderrBytes":0,"StdoutTruncated":false,"StderrTruncated":false,"TimedOut":false,"Cancelled":false,"CaptureMode":"pipes","GuiWindow":false,"Detached":false,"Orphaned":false}
+13:19:55   == card_vga1  driver m8vga.drv  800x600x16  2026-11-21 12:52  1000 ms
+13:19:55   card_vga1 faster in 4, slower in 18; pixels differ in 0 tests
+13:19:55   geometric mean B/A 0.891
+13:19:57   DLL md5 597EB0C43BB3F6EFE50F7F0599E9CACA (want 597EB0C43BB3F6EFE50F7F0599E9CACA)
+13:19:57   M8DDB modex card_vga1 starting
+13:21:03   exec: {"Success":true "ExitCode":0 "TimedOut":false
+13:21:05   == card_vga1  fullscreen  320x200x8  1000 ms  directdraw
+13:21:05   coop 00000000
+13:21:05   mode 640x480x16
+13:21:05   mode 800x600x16
+13:21:05   mode 640x480x8
+13:21:05   mode 800x600x8
+13:21:05   mode 1024x768x8
+13:21:05   mode 320x200x8
+13:21:05   setmode 00000000
+13:21:05   vgadiag 1  validate 4 reenable 1 mode 3 enable 1 vdd 320x200x8 hal 513
+13:21:05   primary 00000000
+13:21:05   getdesc
+13:21:05   surface 00000000 caps 1000c200  pitch 320  320x200  mem 00000000
+13:21:05   lock 00000000  mem 000a0000  pitch 320  320x200
+13:21:05   palette 00000000
+13:21:05   setpalette 00000000
+13:21:05   started 1 mx_fill
+13:21:05   mx_fill               15.09 ops/s   66.255 ms/op  hash 4e58e5c5  #1  pad 0000  med 15.09
+13:21:05   started 2 mx_frame
+13:21:05   mx_frame              13.41 ops/s   74.544 ms/op  hash b1ac89c5  #2  pad 0000  med 13.41
+13:21:05   started 3 mx_box
+13:21:05   mx_box                14.93 ops/s   66.977 ms/op  hash 518889c5  #3  pad 0000  med 14.93
+13:21:05   started 4 mx_same
+13:21:05   mx_same               14.94 ops/s   66.929 ms/op  hash b30149c5  #4  pad 0000  med 14.94
+13:21:05   started 5 mx_lock
+13:21:05   mx_lock             2076.86 ops/s    0.481 ms/op  hash 7bf35a9a  #5  pad 0000  med 2076.86
+13:21:05   flipchain 00000000
+13:21:05   back 00000000 caps 1000401c  sprite ok
+13:21:05   flip 00000000  back memory 00680000 -> 00680000
+13:21:05   started 6 mx_flip
+13:21:05   mx_flip               13.42 ops/s   74.501 ms/op  hash 518889c5  #6  pad 0000  med 13.42
+13:21:05   started 7 mx_flipblt
+13:21:05   mx_flipblt            13.06 ops/s   76.584 ms/op  hash 518889c5  #7  pad 0000  med 13.06
+13:21:05   restore 00000000
+13:21:05   
+14:53:03 === baseline M8BG, then tidied X1 (M8VGB)
+14:53:04   M8BG.DRV 77936 bytes, its DLL 121856
+14:57:07   idle: {"Success":true,"RequestId":958910598,"AgentBuild":"v0.19.0","BootCounter":476,"Mode":"Direct","ExitCode":0,"ResultCategory":0,"NativeError":0,"ElapsedMilliseconds":53503,"Stdout":"  1 s  cpu 100 %  quiet 0\r\n  2 s  cpu 100 %  quiet 0\r\n  3 s  cpu 100 %  quiet 0\r\n  4 s  cpu 100 %  quiet 0\r\n  5 s  cpu 100 %  quiet 0\r\n  6 s  cpu 100 %  quiet 0\r\n  7 s  cpu 100 %  quiet 0\r\n  8 s  cpu 100 %  quiet 0\r\n  9 s  cpu 100 %  quiet 0\r\n 10 s  cpu 100 %  quiet 0\r\n 11 s  cpu   0 %  quiet 1\r\n 12 s  cpu   0 %  quiet 2\r\n 13 s  cpu   0 %  quiet 3\r\n 14 s  cpu   0 %  quiet 4\r\n 15 s  cpu   5 %  quiet 5\r\n 16 s  cpu   0 %  quiet 6\r\n 17 s  cpu  11 %  quiet 0\r\n 18 s  cpu   1 %  quiet 1\r\n 19 s  cpu   0 %  quiet 2\r\n 20 s  cpu   8 %  quiet 3\r\n 21 s  cpu   8 %  quiet 4\r\n 22 s  cpu   0 %  quiet 5\r\n 23 s  cpu   0 %  quiet 6\r\n 24 s  cpu  11 %  quiet 0\r\n 25 s  cpu   4 %  quiet 1\r\n 26 s  cpu   9 %  quiet 2\r\n 27 s  cpu  19 %  quiet 0\r\n 28 s  cpu   0 %  quiet 1\r\n 29 s  cpu   0 %  quiet 2\r\n 30 s  cpu   0 %  quiet 3\r\n 31 s  cpu   3 %  quiet 4\r\n 32 s  cpu   3 %  quiet 5\r\n 33 s  cpu   3 %  quiet 6\r\n 34 s  cpu   7 %  quiet 7\r\n 35 s  cpu   1 %  quiet 8\r\n 36 s  cpu   4 %  quiet 9\r\n 37 s  cpu   2 %  quiet 10\r\n","Stderr":"","StdoutBytes":1000,"StderrBytes":0,"StdoutTruncated":false,"StderrTruncated":false,"TimedOut":false,"Cancelled":false,"CaptureMode":"pipes","GuiWindow":false,"Detached":false,"Orphaned":false}
+15:00:09   == card_bg2  driver m8bg.drv  800x600x16  2026-11-21 14:33  1000 ms
+15:00:09   card_bg2 faster in 2, slower in 3; pixels differ in 0 tests
+15:00:09   geometric mean B/A 0.953
+15:04:09   idle: {"Success":true,"RequestId":753856843,"AgentBuild":"v0.19.0","BootCounter":477,"Mode":"Direct","ExitCode":0,"ResultCategory":0,"NativeError":0,"ElapsedMilliseconds":51498,"Stdout":"  1 s  cpu 100 %  quiet 0\r\n  2 s  cpu 100 %  quiet 0\r\n  3 s  cpu 100 %  quiet 0\r\n  4 s  cpu 100 %  quiet 0\r\n  5 s  cpu 100 %  quiet 0\r\n  6 s  cpu   0 %  quiet 1\r\n  7 s  cpu   0 %  quiet 2\r\n  8 s  cpu   0 %  quiet 3\r\n  9 s  cpu   4 %  quiet 4\r\n 10 s  cpu   5 %  quiet 5\r\n 11 s  cpu   1 %  quiet 6\r\n 12 s  cpu   0 %  quiet 7\r\n 13 s  cpu   0 %  quiet 8\r\n 14 s  cpu   7 %  quiet 9\r\n 15 s  cpu  13 %  quiet 0\r\n 16 s  cpu  13 %  quiet 0\r\n 17 s  cpu   9 %  quiet 1\r\n 18 s  cpu   7 %  quiet 2\r\n 19 s  cpu  10 %  quiet 3\r\n 20 s  cpu   1 %  quiet 4\r\n 21 s  cpu  12 %  quiet 0\r\n 22 s  cpu   0 %  quiet 1\r\n 23 s  cpu   0 %  quiet 2\r\n 24 s  cpu   6 %  quiet 3\r\n 25 s  cpu   0 %  quiet 4\r\n 26 s  cpu   2 %  quiet 5\r\n 27 s  cpu   1 %  quiet 6\r\n 28 s  cpu   1 %  quiet 7\r\n 29 s  cpu   3 %  quiet 8\r\n 30 s  cpu   2 %  quiet 9\r\n 31 s  cpu   2 %  quiet 10\r\n","Stderr":"","StdoutBytes":838,"StderrBytes":0,"StdoutTruncated":false,"StderrTruncated":false,"TimedOut":false,"Cancelled":false,"CaptureMode":"pipes","GuiWindow":false,"Detached":false,"Orphaned":false}
+15:07:15   == card_vgb2  driver m8vgb.drv  800x600x16  2026-11-21 14:40  1000 ms
+15:07:15   card_vgb2 faster in 2, slower in 1; pixels differ in 0 tests
+15:07:15   geometric mean B/A 1.016
+15:07:16   DLL md5 C9D91628A269EE239838B6475502AB9D (want C9D91628A269EE239838B6475502AB9D)
+15:07:16   M8DDB modex card_vgb starting
+15:08:16   exec: {"Success":true "ExitCode":0 "TimedOut":false
+15:08:22   setmode 00000000
+15:08:22   lock 00000000  mem 000a0000  pitch 320  320x200
+15:08:22   started 1 mx_fill
+15:08:22   mx_fill               12.24 ops/s   81.689 ms/op  hash 4e58e5c5  #1  pad 0000  med 12.24
+15:08:22   started 2 mx_frame
+15:08:22   mx_frame              13.57 ops/s   73.716 ms/op  hash b1ac89c5  #2  pad 0000  med 13.57
+15:08:22   started 3 mx_box
+15:08:22   mx_box                14.92 ops/s   67.034 ms/op  hash 518889c5  #3  pad 0000  med 14.92
+15:08:22   started 4 mx_same
+15:08:22   mx_same               14.17 ops/s   70.569 ms/op  hash b30149c5  #4  pad 0000  med 14.17
+15:08:22   started 5 mx_lock
+15:08:22   mx_lock             2003.39 ops/s    0.499 ms/op  hash 7bf35a9a  #5  pad 0000  med 2003.39
+15:08:22   flipchain 00000000
+15:08:22   flip 00000000  back memory 00680000 -> 00680000
+15:08:22   started 6 mx_flip
+15:08:22   mx_flip               13.46 ops/s   74.319 ms/op  hash 518889c5  #6  pad 0000  med 13.46
+15:08:22   started 7 mx_flipblt
+15:08:23   mx_flipblt            13.15 ops/s   76.074 ms/op  hash 518889c5  #7  pad 0000  med 13.15
+15:08:23   restore 00000000

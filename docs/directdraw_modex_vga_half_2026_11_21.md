@@ -1,5 +1,7 @@
 # DirectDraw Mode X and the VGA half (research, 2026-11-21)
 
+Route A (driver's own 320x200x8 mode) is built and proven on the bed and the card: see "Built: X1 on the card" at the end. The research below is the pre-build record.
+
 Status marks: **read** (source in hand), **inferred** (reasoned from read facts), **unknown** (no source found).
 Paths are under the repo root unless a URL is given.
 
@@ -80,3 +82,56 @@ Route B, ddraw's Mode X (clear `DDHALINFO_MODEXILLEGAL`):
 1. Route A on the bed: add the 320x200 row, `ValidateMode` yes, passthrough on ReEnable, `fpPrimary` = A0000, then M8DDB `modex`. Note the bed's VGA half may not reflect the mux (11-02: monitor stayed on 8514); the card is the check.
 2. Alongside, a trace build of Route B (`M8_STEP` in Disable, Enable, ReEnable, SetPalette, Control) answers the "which entries" unknown.
 3. Read `SRC_DISPLAY_VDD_ATI_ATI.ASM` for the VGA-state save/restore around a Windows-VM mode set.
+
+## Built: X1 on the card (2026-11-21)
+
+### What it does
+DirectDraw `SetDisplayMode(320,200,8)` from the desktop (8 or 16 bpp):
+1. `ValidateMode` accepts 8 bpp 320x200.
+2. `ReEnable` reads 320x200x8 from `VDD_GET_DISPLAY_CONFIG` (`m8_read_mode(1)`; `DriverInit` passes 0, so a desktop can never be 320x200).
+3. `Enable` skips the 8514 mode set. The 8514 half keeps the desktop timings; GDI's 320x200 PDevice draws there, unseen.
+4. `m8_vga_show()`: `m8_hw_passthrough()`, INT 10h mode 13h, reload our palette (the mode set loads the BIOS palette into the shared DAC). ATI.VXD's `MiniVDD_PreInt10ModeSet` also clears PASS_THROUGH on a Mach8.
+5. `m8_switch_in` re-shows the VGA half after a DOS session.
+
+Return: `ReEnable` to the desktop mode, repaint.
+
+### DirectDraw HAL (`dd16.c`, `m8dd_build`)
+A 320x200x8 mode row at index `M8_MODE_COUNT`, before the 16 bpp rows. In VGA mode `fpPrimary` = 0xA0000, pitch 320. Callbacks and caps stay as published.
+
+### M8DD32.DLL (`m8dd32.c`), when `m8dd->vga`
+- Lock/Unlock are DDRAW's own.
+- `m8dd_vga_blt`: colour fills and unstretched SRCCOPY (single-colour source key allowed), in memory.
+- `m8dd_vga_flip`: copies the back buffer to A0000 and pre-swaps `fpVidMem`/pitch so the primary stays A0000.
+- `m8dd_vga_create`: flip chains of 2-4 surfaces; back buffers in `VirtualAlloc` RAM marked `DDSCAPS_VIDEOMEMORY`.
+
+### Findings
+- a. DDRAW refuses a HAL reset (`DDHAL_SetInfo` returns FALSE) that drops callbacks or caps, and keeps the old mode's primary. VGA mode keeps the same callbacks; M8DD32 branches on `m8dd->vga`.
+- b. DPMI 0800h (physical mapping) does not map memory below 1 MB: the bed returned a pointer that faulted on the first write. Linear 0xA0000 is the system VM's A0000 (as KERNEL's `__A000H`) and works from Win32.
+- c. DDRAW answers `DDERR_UNSUPPORTED` rather than emulate a Blt the HAL declines, so fills and copies are done in M8DD32.
+- d. With a system-memory back buffer DDRAW emulates Flip itself and A0000 never changes. Back buffers must be called video memory so Flip reaches the HAL.
+- e. DDRAW swaps the surfaces' `fpVidMem` after a handled Flip; the HAL pre-swaps so the primary stays A0000.
+- f. Lock on the front of a flip chain returns `DDERR_CANTLOCKSURFACE` (887601B3), DDRAW's own rule; back-buffer locks work.
+
+### Results
+Card: real 5160, 486BL3 ~83.5 MHz, Graphics Ultra on the 8-bit XT bus. `M8DDB.EXE modex`, 16 bpp 800x600 desktop.
+
+| Test | Rate | Time | Hash |
+|---|---|---|---|
+| mx_fill | 15.1 ops/s | 66 ms | 4e58e5c5 |
+| mx_frame (full CPU frame via Lock) | 13.4-13.7 fps | 73-75 ms | b1ac89c5 |
+| mx_box | 14.9 | | 518889c5 |
+| mx_same | 14.9 | | b30149c5 |
+| mx_lock | 2040-2077 ops/s | 0.48 ms | 7bf35a9a |
+| mx_flip | 13.4 fps | 74.5 ms | 518889c5 |
+| mx_flipblt | 13.1 fps | | 518889c5 |
+
+Hashes are identical on the bed (`vm_5160_dbg`) and in two card runs. Restore to the desktop returns DD_OK. Planned ceiling ~14 fps; Doom on the 8514 route was ~4 fps. The flip is bound by the bus (64,000 bytes to A0000 in ~75 ms); asm would not help.
+
+### Known gaps
+- GDI drawing on the primary (GetDC) goes to the unseen 8514 half. Fix: describe the 320x200 PDevice as a DIB Engine frame buffer at A0000.
+- Lock on the front of a flip chain is refused (DDRAW rule).
+- D3D HAL claims stay in VGA mode.
+- One page, so each flip is a full 64 KB copy. Next lever: delta flip (write only bytes changed since the last frame, from a RAM shadow). Real page flips need Mode X.
+- Alt-Tab / DOS box from VGA mode (`m8_switch_in` path) not tested on the card.
+
+Captures: `docs/captures/2026-11-21_vga_card/` (`run.log`, `M8DDB.TXT`).

@@ -362,6 +362,20 @@ protocol: **`docs/playable_3d_plan.md`** (P1-P7). X17-X25 map into P1 and P6; X1
 
 Behind these: Fable leftovers F2 4 / F3 4-5 (X23), BRender `.BDD` ABI (X24), the published driver package (X25).
 
+**Display routes (owner, 11-21): use the whole card.** Goal: games playable in Windows and DOS, each routed to
+the half of the Graphics Ultra its mode suits. Serves the DirectX layer and compatibility; may help video
+playback (#60).
+- A: 8514 engine (Mach8). B: VGA half, low res, 320x200 / Mode X, ~1.07 us/B, real page flips.
+- C: VGA half, 640x480x8, one page; needs the flat-memory helper (D6). D: DOS games driving the VGA half themselves.
+- E: DOS through our code: DirectXT/m8dos, FS3 `CUSTOM.GRA`, the racer.
+- Rule: describes its frame -> A or E; draws every pixel on the CPU -> B, C or D. The half switch happens only at
+  game start and exit (>1 s blank).
+- B: Doom 95, full-screen video. A: MTM, Hellbender, SDK samples, racer. C (later): Fury3, Hover!.
+  D: FastDoom, Descent II, Magic Carpet, Tomb Raider. E: FS3, Indy 500, DOS racer.
+  Mode not recorded ("check"): Red Alert, Fury3, Shockwave Assault, Hover!.
+- Order: X1 (route B in the driver) first; per-title mode checks are item 6 of `docs/next_session_2026_11_21.md`.
+- Full table: `docs/titles_by_route_2026_11_21.md`.
+
 - [ ] **X1 Mode X** on the VGA half: clear `DDHALINFO_MODEXILLEGAL`, M8DDB `modex` test (320x200 full screen, frames
       written through a lock), output switch and desktop restore. Bed, then card.
       **Owner, 11-21: make the VGA half a route the driver offers, chosen when a program suits it.** Policy: a
@@ -379,6 +393,13 @@ Behind these: Fable leftovers F2 4 / F3 4-5 (X23), BRender `.BDD` ABI (X24), the
       does (Lock writes, flips, palette, latch copies), checked against standard VGA behaviour; (3) the DirectDraw
       route. Sources held: `references/xfree86_336_ati` (28800), `references/vgadoc/ATI.TXT`, VVESA, FastDoom
       (`references/fastdoom`, Mode X/13h on 386s), `references/velocity9x` (Doom 95 low-res modes).
+      **Built and proven 11-21, bed and card** (owner saw it on the card's monitor): the driver's own 320x200x8 mode,
+      VGA half at A0000. Card, M8DDB modex: fill 15.1/s, full frame via Lock 13.4-13.7 fps, flip 13.4 fps, same hashes
+      as the bed; desktop restored. `docs/directdraw_modex_vga_half_2026_11_21.md`. Open:
+      - [ ] Doom 95 on the card: `-timedemo demo1`, then smaller views.
+      - [ ] Delta flip (RAM shadow, write changed bytes only).
+      - [ ] GDI on the VGA primary (DIB Engine frame buffer at A0000).
+      - [ ] Alt-Tab / DOS box from VGA mode on the card.
 - [ ] **X2 Card surfaces at 16 bpp:** RAM 5-6-5 copy + dithered card copy; blits by multiples of 4 as engine copies.
 - [ ] **X3 GDI caches in the spare card rows at 16 bpp** (icons, text, saved screen bits), dithered once.
 - [ ] **X4 Exact-colour copies at any offset** as engine copies (dither-invariant pixels, checked in RAM).

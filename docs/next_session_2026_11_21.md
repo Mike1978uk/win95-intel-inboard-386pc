@@ -13,7 +13,8 @@
   unplayably slow; the machine crawled after exit (8 MB title on 5 MB).
 
 ## Next, in order
-1. **X1: 320x200x8 as the driver's own mode on the VGA half.** Mode table row, ValidateMode, ReEnable:
+1. **X1: 320x200x8 as the driver's own mode on the VGA half.** Built and proven on the card the same day;
+   see "afternoon" below. The plan as written: Mode table row, ValidateMode, ReEnable:
    output to the VGA half, INT 10h 13h, primary at A0000 pitch 320; back to the 8514 and repaint on exit.
    Bed with M8DDB modex, then Doom 95 on the card: `-timedemo demo1`, then smaller views. Ceiling ~14 fps.
    The output switch is proven (`m8_hw_passthrough`, used on every switch to DOS; M8FLIP4 on the card, >1 s
@@ -27,3 +28,9 @@
    taskbar is up.
 5. **X32** DOS agent exit key and missing-file refusal.
 6. Title mode checks for the "check" rows in `docs/titles_by_route_2026_11_21.md`.
+
+## 2026-11-21 afternoon: X1 on the card
+- Proven: DirectDraw `SetDisplayMode(320,200,8)` switches the card to the VGA half (mode 13h at A0000); test patterns and the moving box are in the right colours on the card's monitor; the desktop returns. Owner saw it.
+- Card, M8DDB modex: full frame via Lock 13.4-13.7 fps, flip 13.4 fps, fill 15.1/s; hashes equal the bed's. Findings: `docs/directdraw_modex_vga_half_2026_11_21.md`.
+- The card runs the X1 build: `M8VGB.DRV` once the bench batch finishes (before it `M8VGA.DRV`; baseline `M8BG.DRV`). The diagnostic escape 0x4D43 was removed after bring-up.
+- Next: Doom 95 on the card (`C:\DOOM95\DOOM95.EXE`, shareware `DOOM1.WAD`) with `-timedemo demo1`, then the delta flip.
