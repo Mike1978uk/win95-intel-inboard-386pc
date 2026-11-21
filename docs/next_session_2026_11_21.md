@@ -16,6 +16,11 @@
 1. **X1: 320x200x8 as the driver's own mode on the VGA half.** Mode table row, ValidateMode, ReEnable:
    output to the VGA half, INT 10h 13h, primary at A0000 pitch 320; back to the 8514 and repaint on exit.
    Bed with M8DDB modex, then Doom 95 on the card: `-timedemo demo1`, then smaller views. Ceiling ~14 fps.
+   The output switch is proven (`m8_hw_passthrough`, used on every switch to DOS; M8FLIP4 on the card, >1 s
+   blank). New and unproven: setting mode 13h from inside the driver (INT 10h from Windows) while Windows keeps
+   the screen, and whether the VDD/minivdd saves or restores VGA state under us - read ATI's minivdd source
+   (`references/dxddk/ddk9x/win98ddk/src/SRC_DISPLAY_VDD_ATI_ATI.ASM`) first. The bed does not model the mux
+   (11-02), so the card decides.
 2. **X40 racer, step 1:** core + DOS front end on m8dos, no sound. Card fps and writes a frame.
 3. **D14 a, two runs:** tunnel under EIPSAMP with the agent off; teach the sampler to name 16-bit code.
 4. **X39** if Windows hangs before the taskbar again: boot DOSNET, read BOOTLOG first; no agent traffic until the
