@@ -364,6 +364,21 @@ Behind these: Fable leftovers F2 4 / F3 4-5 (X23), BRender `.BDD` ABI (X24), the
 
 - [ ] **X1 Mode X** on the VGA half: clear `DDHALINFO_MODEXILLEGAL`, M8DDB `modex` test (320x200 full screen, frames
       written through a lock), output switch and desktop restore. Bed, then card.
+      **Owner, 11-21: make the VGA half a route the driver offers, chosen when a program suits it.** Policy: a
+      DirectDraw mode of 320x240 or smaller goes to the VGA half by default (VGA writes ~1.07 us/B against
+      3.8 us/B PIX_TRANS from RAM). **Corrected 11-21** (`docs/directdraw_modex_vga_half_2026_11_21.md`): DirectDraw's
+      own Mode X primary cannot be Locked (Q139096), so first try publishing 320x200x8 as the driver's own linear
+      mode (13h at A0000, pitch 320, refresh 0, as velocity9x found); ddraw's Mode X (clear MODEXILLEGAL, dd16.c:342)
+      failed in the 11-02 bed run and is second; 640x480
+      and up stay on the 8514 side; a per-program override (X21) picks either. First user: Doom 95, which asks
+      320x200x8 and today gets a quarter-size image in the corner (no real mode) and ~4 fps at best over PIX_TRANS.
+      Bring-up, as the 8514 side had its 35 tests: (1) the VGA probes **already ran on the card 11-06**
+      (`docs/captures/2026-11-06_probes/README.md`): flips work at 69.7 Hz; a VGA write ~1.07 us (RAM to VGA
+      1.12 us a pixel) against 3.82 us a byte over the 8514 port, so Doom's 320x200 frame is ~70 ms of bus (~14 fps
+      ceiling) instead of ~250 ms; latch copies 4 pixels per 2 bus cycles; one DAC; (2) a small VGA bench of what the path
+      does (Lock writes, flips, palette, latch copies), checked against standard VGA behaviour; (3) the DirectDraw
+      route. Sources held: `references/xfree86_336_ati` (28800), `references/vgadoc/ATI.TXT`, VVESA, FastDoom
+      (`references/fastdoom`, Mode X/13h on 386s), `references/velocity9x` (Doom 95 low-res modes).
 - [ ] **X2 Card surfaces at 16 bpp:** RAM 5-6-5 copy + dithered card copy; blits by multiples of 4 as engine copies.
 - [ ] **X3 GDI caches in the spare card rows at 16 bpp** (icons, text, saved screen bits), dithered once.
 - [ ] **X4 Exact-colour copies at any offset** as engine copies (dither-invariant pixels, checked in RAM).

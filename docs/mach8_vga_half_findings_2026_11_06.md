@@ -261,7 +261,8 @@ Not kept (scratch only): `cinfo_unpacked.bin`, `info8_unpacked.bin`, `info8_fn.t
 
 ## Status
 
-- Built, in `tools/m8seq`, on the card in `C:\M8P` with `GO.BAT`; not run: M8GRAD (V25), M8DACX (D5), M8BNDRY (D2, V29), M8LATCH (D4, V28), M8VFLIP (V28), M8W128 (D7, V28).
+- **Run on the card 2026-11-06** (`C:\M8P\GO.BAT`, DOS); results and decode in `docs/captures/2026-11-06_probes/README.md`. The "unrun" statements above predate that run. In short: the VGA half flips (69.7 Hz, 0 retrace timeouts); a VGA write costs ~1.07 us (plane fill 4,000 writes in 4.30 ms), RAM to VGA 1.12 us a pixel, against 3.82 us a byte over the 8514 port; a latch copy moves 4 pixels for 2 bus cycles (16,000 pixels in 10.41 ms); one shared DAC; no memory split (42EE dead); BDh bit 2 makes A000 and B000 separate stretches. M8GRAD (V25, the engine's fill colour sources) ran in the same sitting.
+- M8VGAW (Win16, VGA memory cost while the 8514 side is shown) is still unrun; M8LATCH already gives the DOS figure.
 - Decoder: `tools/m8seq/m8vga_decode.py`.
 - Not built: D6 (M8PTH), D8 (M8AB3).
 - Static work done: D1 (section 2). No card or VM run for any item in this note.
