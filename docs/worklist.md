@@ -512,11 +512,11 @@ playback (#60).
 - [ ] **BlueSCSI hot-swap:** fixed removable LUN reporting media change via sense (no medium, then UNIT ATTENTION). Read WINUSB for how it presents mass storage and HID to Win9x. #50
 - [ ] **CH376 file-level FAT access** as an angle on #51: the chip does the FAT, only file data crosses the bus. Sources: dfmcwhir repos, `docs/resources_and_sources.md`.
 - [ ] **XT-IDE review leftovers (Fable 11-13, `docs/fable_review_2026_11_13_xtide.md`):** finding 1 open case: after takeover an INT 13h reset (SRST) or a DOS-box write to 30Ch can change DRV/HEAD under `-SkipDrvHd`; run the DEBUG `i 30c` probe, or build the card without the switch (owner decides). Finding 8: latch transport tried on stride 2 (low). Finding 7 is X4. Done: 2, 3, 10, 11 (`150163b`, `3ce02a9`, `3e21e86`, `2e6d731`); 4, 5, 9 by `d3ce5c6` + `58ac00f` (LOOPCAL, 100 ns a pass); 6 `b174f07`.
-- [ ] **swapcomp hang (2026-11-22):** Doom 95 + sound hangs 6/6 with SWAPCOMP loaded, plays with it out
+- [x] ~~**swapcomp hang (2026-11-22):**~~ RETIRED by the owner 2026-11-22 - the hangs outweigh ~4.5 %; not fixed. Doom 95 + sound hangs 6/6 with SWAPCOMP loaded, plays with it out
       (`docs/next_session_2026_11_22.md`). Likely #55 too. Out of the card's SYSTEM.INI (`SYSTEM.BSR` restores).
       Find the mechanism from source first (its `Contention`/`Fallback` paths; locks or IF held across a page),
       then a bed repro: heavy paging + looping sound, in vs out. Worth fixing only for ~4.5 %; owner decides.
-- [ ] **swapcomp CPU items (Fable Part 2, 6-7):** blocked on the hang above. early give-up on incompressible pages, compress inner loop; each must fit the bytes left in SWAPZF7's locked pages (`tools/le_census.py`). Items 4-5 landed (`27291f2`, `07e1d81`); `dist/` updated `3d7d3a5`.
+- [x] ~~**swapcomp CPU items (Fable Part 2, 6-7):**~~ dropped with SWAPCOMP. early give-up on incompressible pages, compress inner loop; each must fit the bytes left in SWAPZF7's locked pages (`tools/le_census.py`). Items 4-5 landed (`27291f2`, `07e1d81`); `dist/` updated `3d7d3a5`.
 - [ ] **Apply the Mach8 levers to the other drivers** - after the Mach8/DirectDraw work (owner, 11-01). Ranked audit, nothing measured yet: `docs/cross_driver_levers_2026_11_01.md`.
 
 ## Parked (owner, 10-15)

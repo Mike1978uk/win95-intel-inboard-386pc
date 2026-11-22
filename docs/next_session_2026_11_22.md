@@ -81,7 +81,8 @@ Probably #55 as well (boot and restart: paging with sound playing; #55 opened a 
   `docs/captures/2026-11-22_doom_sound/SYSTEM_card_before.INI`). SHADRAM still loaded. `C:\PERFLOG.EXE` is the
   flushrows build; the old one is in the captures folder. `C:\DOOMLOG.BAT` = PERFLOG DS + Doom.
 - Watch: if #55 sound-loop hangs stop with SWAPCOMP out, it is the same bug.
-- `dist/swapcomp/README.md` carries a warning; worklist item added. Fix only if worth it (~4.5 % measured).
+- **SWAPCOMP RETIRED (owner, 2026-11-22):** the hangs outweigh ~4.5 %; `dist/swapcomp` marked retired, worklist
+  items closed, not to be fixed. Owner suspects it of other intermittent hangs too.
 - Doom speed next: F5 detail, view size (`-`), `-nomusic`, background programs closed; no PERFLOG for timing.
 - Not caused by: the VGA half, `-nomouse`, `-nomusic`, `-nosfxformat`. DirectSound on the SB Pro is emulated
   (no DS driver) and the 1 MB DMA limit cannot hang playback (DMA only reads); neither needs patching.
