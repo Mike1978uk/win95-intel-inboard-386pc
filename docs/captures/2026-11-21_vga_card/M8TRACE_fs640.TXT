@@ -1,0 +1,523 @@
+vga create n 3 caps0 0000c238
+vga create n 1 caps0 00004040
+destroy caps 00004040
+vga blt flags 01000400 rop 00000000 clip 0
+vga flip t 318364 pal 8 busy 0 f 4
+vga blt flags 01000400 rop 00000000 clip 0
+hb t 319024 n 0 0 2 1 last 318794 pal 8 busy 0 f 4 de 8023 vga 1
+vga flip t 319057 pal 8 busy 0 f 4
+vga blt flags 01000400 rop 00000000 clip 0
+vga flip t 319173 pal 8 busy 0 f 4
+vga blt flags 01000400 rop 00000000 clip 0
+vga flip t 319220 pal 8 busy 0 f 4
+vga call 0 t 319407 caps 1000401c pal 8 busy 0 f 4
+vga call 1 t 319440 caps 1000401c pal 8 busy 0 f 4
+hb t 321045 n 1 1 4 4 last 319440 pal 8 busy 0 f 4 de 8023 vga 1
+hb t 323130 n 1 1 4 4 last 319440 pal 8 busy 0 f 4 de 8023 vga 1
+hb t 325354 n 1 1 4 4 last 319440 pal 8 busy 0 f 4 de 8023 vga 1
+hb t 327736 n 1 1 4 4 last 319440 pal 8 busy 0 f 4 de 8023 vga 1
+hb t 329785 n 1 1 4 4 last 319440 pal 8 busy 0 f 4 de 8023 vga 1
+hb t 331826 n 1 1 4 4 last 319440 pal 8 busy 0 f 4 de 8023 vga 1
+hb t 333946 n 1 1 4 4 last 319440 pal 8 busy 0 f 4 de 8023 vga 1
+hb t 335975 n 1 1 4 4 last 319440 pal 10 busy 0 f 4 de 8023 vga 1
+vga call 0 t 336488 caps 1000401c pal 10 busy 0 f 4
+vga call 1 t 336524 caps 1000401c pal 10 busy 0 f 4
+vga call 0 t 336908 caps 1000401c pal 11 busy 0 f 4
+vga call 1 t 336908 caps 1000401c pal 11 busy 0 f 4
+vga call 0 t 337014 caps 1000401c pal 11 busy 0 f 4
+hb t 338172 n 4 3 7 4 last 337014 pal 11 busy 0 f 4 de 8033 vga 1
+vga call 1 t 338297 caps 1000401c pal 11 busy 0 f 4
+vga call 0 t 338326 caps 1000401c pal 11 busy 0 f 4
+vga call 1 t 338502 caps 1000401c pal 11 busy 0 f 4
+vga call 0 t 338530 caps 1000401c pal 11 busy 0 f 4
+vga call 1 t 338557 caps 1000401c pal 11 busy 0 f 4
+vga call 0 t 338774 caps 1000401c pal 11 busy 0 f 4
+vga call 1 t 338887 caps 1000401c pal 11 busy 0 f 4
+vga call 0 t 339271 caps 1000401c pal 11 busy 0 f 4
+vga call 1 t 339326 caps 1000401c pal 11 busy 0 f 4
+vga flip t 339397 pal 11 busy 0 f 4
+hb t 340322 n 8 8 11 5 last 339397 pal 11 busy 0 f 4 de 8023 vga 1
+vga call 0 t 340886 caps 1000401c pal 12 busy 0 f 4
+vga call 1 t 340919 caps 1000401c pal 12 busy 0 f 4
+vga flip t 340919 pal 12 busy 0 f 4
+vga call 0 t 341083 caps 1000401c pal 12 busy 0 f 4
+vga call 1 t 341083 caps 1000401c pal 12 busy 0 f 4
+vga flip t 341083 pal 12 busy 0 f 4
+vga call 0 t 342297 caps 1000401c pal 12 busy 0 f 4
+vga call 1 t 342297 caps 1000401c pal 12 busy 0 f 4
+vga call 0 t 342373 caps 1000401c pal 12 busy 0 f 4
+vga call 1 t 342402 caps 1000401c pal 12 busy 0 f 4
+vga call 0 t 342464 caps 1000401c pal 12 busy 0 f 4
+vga call 1 t 342512 caps 1000401c pal 12 busy 0 f 4
+vga call 0 t 342671 caps 1000401c pal 12 busy 0 f 4
+vga call 1 t 342676 caps 1000401c pal 12 busy 0 f 4
+vga flip t 342793 pal 12 busy 0 f 4
+hb t 344372 n 46 46 32 16 last 344307 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 346404 n 112 112 32 32 last 346373 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 348417 n 201 201 32 54 last 348390 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 350417 n 290 290 32 77 last 350402 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 352424 n 379 379 32 99 last 352420 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 354424 n 463 463 32 120 last 354402 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 356456 n 552 552 32 142 last 356426 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 358479 n 641 641 32 164 last 358449 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 360522 n 732 732 32 187 last 360491 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 362537 n 821 821 32 209 last 362508 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 364541 n 908 908 32 231 last 364504 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 366542 n 994 994 32 252 last 366539 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 368544 n 1082 1082 32 274 last 368540 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 370578 n 1172 1172 32 297 last 370548 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 372584 n 1260 1260 32 319 last 372560 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 374594 n 1348 1347 32 341 last 374571 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 376613 n 1432 1432 32 362 last 376582 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 378634 n 1521 1521 32 384 last 378603 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 380634 n 1610 1610 32 407 last 380618 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 382686 n 1685 1685 32 425 last 382576 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 384807 n 1768 1768 32 446 last 384777 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 386812 n 1850 1850 32 467 last 386796 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 388815 n 1938 1938 32 488 last 388811 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 390824 n 2025 2025 32 510 last 390798 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 392831 n 2114 2114 32 533 last 392821 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 394915 n 2205 2205 32 555 last 394886 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 396927 n 2293 2293 32 577 last 396898 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 398929 n 2378 2378 32 599 last 398926 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 400929 n 2466 2466 32 620 last 400925 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 402929 n 2554 2554 32 643 last 402909 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 404958 n 2644 2644 32 665 last 404928 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 406984 n 2733 2733 32 687 last 406955 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 409008 n 2818 2818 32 709 last 408995 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 411013 n 2906 2906 32 731 last 411000 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 413038 n 2996 2996 32 753 last 413007 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 415051 n 3085 3085 32 775 last 415024 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 417057 n 3174 3174 32 798 last 417045 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 419057 n 3260 3260 32 819 last 419034 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 421067 n 3348 3347 32 841 last 421055 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 423073 n 3436 3436 32 863 last 423045 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 425078 n 3525 3524 32 885 last 425059 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 427085 n 3614 3614 32 908 last 427071 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 429088 n 3704 3703 32 930 last 429078 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 431090 n 3786 3786 32 950 last 431087 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 433098 n 3874 3874 32 973 last 433086 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 435098 n 3963 3963 32 995 last 435093 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 437108 n 4052 4051 32 1017 last 437096 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 439123 n 4140 4140 32 1039 last 439093 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 441142 n 4225 4225 32 1060 last 441133 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 443151 n 4312 4311 32 1082 last 443122 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 445175 n 4401 4401 32 1104 last 445145 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 447186 n 4491 4491 32 1127 last 447180 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 449187 n 4579 4579 32 1149 last 449182 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 451208 n 4668 4668 32 1171 last 451177 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 453246 n 4753 4753 32 1192 last 453217 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 455264 n 4842 4842 32 1215 last 455251 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 457269 n 4932 4931 32 1237 last 457261 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 459275 n 5020 5020 32 1259 last 459246 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 461279 n 5109 5108 32 1281 last 461255 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 463280 n 5194 5194 32 1303 last 463263 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 465284 n 5283 5283 32 1325 last 465279 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 467293 n 5371 5371 32 1347 last 467278 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 469300 n 5460 5459 32 1369 last 469273 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 471319 n 5549 5549 32 1391 last 471290 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 473335 n 5638 5638 32 1414 last 473322 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 475342 n 5724 5723 32 1435 last 475333 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 477352 n 5812 5812 32 1457 last 477321 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 479352 n 5901 5900 32 1479 last 479338 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 481362 n 5989 5989 32 1501 last 481332 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 483362 n 6078 6078 32 1523 last 483358 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 485372 n 6161 6161 32 1544 last 485343 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 487373 n 6250 6250 32 1567 last 487370 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 489460 n 6341 6340 32 1589 last 489434 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 491468 n 6430 6430 32 1612 last 491454 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 493469 n 6519 6519 32 1634 last 493464 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 495485 n 6604 6604 32 1655 last 495454 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 497527 n 6693 6693 32 1677 last 497498 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 499546 n 6782 6782 32 1700 last 499532 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 501547 n 6871 6870 32 1722 last 501541 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 503574 n 6960 6960 32 1744 last 503543 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 505598 n 7049 7049 32 1766 last 505568 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 507618 n 7133 7133 32 1787 last 507589 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 509621 n 7222 7222 32 1810 last 509615 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 511623 n 7311 7311 32 1832 last 511617 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 513631 n 7400 7399 32 1854 last 513609 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 515654 n 7489 7489 32 1876 last 515625 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 517664 n 7574 7574 32 1898 last 517646 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 519666 n 7663 7663 32 1920 last 519661 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 521762 n 7756 7755 32 1943 last 521735 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 523782 n 7845 7845 32 1965 last 523753 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 525797 n 7934 7934 32 1988 last 525783 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 527801 n 8020 8020 32 2009 last 527769 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 529810 n 8106 8106 32 2031 last 529797 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 531811 n 8194 8194 32 2053 last 531795 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 533833 n 8284 8284 32 2075 last 533802 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 535847 n 8374 8374 32 2097 last 535844 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 537857 n 8462 8462 32 2120 last 537845 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 539857 n 8546 8546 32 2140 last 539854 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 541858 n 8634 8634 32 2163 last 541845 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 543887 n 8724 8724 32 2185 last 543857 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 545909 n 8813 8813 32 2207 last 545880 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 547910 n 8902 8902 32 2230 last 547902 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 549919 n 8988 8988 32 2251 last 549889 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 551920 n 9074 9074 32 2273 last 551916 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 553949 n 9164 9164 32 2295 last 553918 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 555966 n 9253 9253 32 2317 last 555937 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 558012 n 9344 9344 32 2340 last 557981 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 560023 n 9432 9432 32 2362 last 560010 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 562028 n 9517 9516 32 2383 last 562005 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 564031 n 9606 9606 32 2405 last 564027 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 566035 n 9695 9695 32 2428 last 566030 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 568043 n 9784 9784 32 2450 last 568015 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 570045 n 9872 9872 32 2472 last 570015 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 572065 n 9957 9957 32 2493 last 572035 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 574091 n 10046 10046 32 2516 last 574078 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 576092 n 10134 10134 32 2538 last 576076 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 578122 n 10224 10224 32 2560 last 578091 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 580144 n 10313 10313 32 2582 last 580116 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 582167 n 10401 10401 32 2604 last 582138 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 584167 n 10486 10486 32 2626 last 584152 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 586169 n 10575 10575 32 2648 last 586164 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 588176 n 10664 10663 32 2670 last 588153 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 590180 n 10752 10752 32 2692 last 590153 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 592181 n 10840 10840 32 2714 last 592147 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 594199 n 10925 10925 32 2735 last 594170 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 596224 n 11014 11014 32 2758 last 596210 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 598229 n 11104 11103 32 2780 last 598218 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 600231 n 11192 11192 32 2802 last 600206 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 602239 n 11281 11280 32 2824 last 602215 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 604268 n 11368 11368 32 2846 last 604237 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 606289 n 11456 11456 32 2868 last 606259 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 608306 n 11546 11546 32 2890 last 608303 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 610310 n 11634 11634 32 2913 last 610296 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 612327 n 11724 11724 32 2935 last 612297 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 614328 n 11813 11812 32 2957 last 614302 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 616345 n 11897 11897 32 2978 last 616315 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 618366 n 11986 11986 32 3001 last 618353 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 620367 n 12076 12075 32 3023 last 620364 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 622369 n 12163 12163 32 3045 last 622364 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 624378 n 12252 12251 32 3067 last 624350 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 626390 n 12336 12336 32 3088 last 626358 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 628396 n 12424 12424 32 3110 last 628389 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 630402 n 12513 12513 32 3132 last 630374 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 632448 n 12604 12604 32 3155 last 632418 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 634473 n 12693 12693 32 3177 last 634443 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 636493 n 12781 12781 32 3199 last 636462 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 638494 n 12866 12866 32 3221 last 638475 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 640496 n 12954 12954 32 3243 last 640482 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 642506 n 13044 13043 32 3265 last 642485 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 644533 n 13133 13133 32 3287 last 644504 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 646547 n 13222 13222 32 3310 last 646534 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 648639 n 13310 13310 32 3332 last 648625 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 650667 n 13400 13400 32 3354 last 650637 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 652669 n 13489 13488 32 3376 last 652648 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 654676 n 13577 13577 32 3398 last 654645 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 656679 n 13667 13666 32 3421 last 656674 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 658700 n 13752 13752 32 3442 last 658668 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 660729 n 13841 13841 32 3464 last 660699 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 662743 n 13930 13930 32 3487 last 662720 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 664744 n 14019 14019 32 3509 last 664737 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 666774 n 14108 14108 32 3531 last 666744 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 668795 n 14196 14196 32 3553 last 668764 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 670796 n 14281 14280 32 3574 last 670789 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 672819 n 14369 14369 32 3596 last 672790 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 674829 n 14458 14458 32 3619 last 674816 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 676920 n 14550 14550 32 3642 last 676907 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 678921 n 14639 14639 32 3664 last 678916 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 680939 n 14710 14710 32 3682 last 680925 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 682962 n 14797 14797 32 3703 last 682936 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 684970 n 14886 14886 32 3726 last 684956 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 686971 n 14947 14947 32 3741 last 686966 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 688971 n 15014 15014 32 3757 last 688967 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 691007 n 15104 15104 32 3780 last 690976 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 693019 n 15193 15193 32 3802 last 692989 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 695020 n 15262 15262 32 3820 last 694999 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 697031 n 15338 15338 32 3839 last 697018 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 699032 n 15428 15427 32 3861 last 699025 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 701059 n 15517 15517 32 3883 last 701029 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 703065 n 15605 15605 32 3905 last 703042 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 705075 n 15696 15695 32 3928 last 705062 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 707087 n 15784 15784 32 3950 last 707055 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 709104 n 15872 15872 32 3972 last 709085 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 711118 n 15961 15960 32 3994 last 711091 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 713122 n 16050 16050 32 4017 last 713107 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 715128 n 16138 16138 32 4039 last 715120 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 717130 n 16227 16227 32 4061 last 717125 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 719138 n 16316 16315 32 4083 last 719112 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 721142 n 16404 16404 32 4105 last 721125 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 723144 n 16492 16492 32 4127 last 723114 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 725154 n 16581 16581 32 4149 last 725125 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 727155 n 16670 16670 32 4171 last 727151 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 729166 n 16757 16757 32 4193 last 729136 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 731169 n 16848 16847 32 4216 last 731165 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 733187 n 16936 16936 32 4238 last 733157 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 735203 n 17024 17024 32 4260 last 735178 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 737207 n 17113 17113 32 4282 last 737177 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 739216 n 17202 17202 32 4305 last 739202 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 741220 n 17290 17290 32 4327 last 741206 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 743238 n 17380 17380 32 4349 last 743207 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 745263 n 17470 17470 32 4372 last 745249 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 747264 n 17560 17559 32 4394 last 747261 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 749270 n 17648 17648 32 4416 last 749241 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 751274 n 17737 17736 32 4438 last 751250 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 753275 n 17825 17825 32 4460 last 753251 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 755285 n 17914 17914 32 4483 last 755271 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 757312 n 18004 18004 32 4505 last 757281 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 759333 n 18093 18093 32 4527 last 759304 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 761350 n 18182 18182 32 4550 last 761329 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 763360 n 18272 18271 32 4572 last 763343 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 765363 n 18360 18360 32 4594 last 765337 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 767370 n 18449 18448 32 4616 last 767361 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 769384 n 18537 18537 32 4638 last 769355 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 771406 n 18627 18627 32 4661 last 771401 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 773408 n 18715 18715 32 4683 last 773402 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 775500 n 18808 18807 32 4706 last 775496 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 777521 n 18896 18896 32 4728 last 777490 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 779543 n 18985 18985 32 4750 last 779514 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 781544 n 19074 19074 32 4773 last 781526 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 783554 n 19164 19164 32 4795 last 783523 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 785576 n 19253 19253 32 4817 last 785553 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 787586 n 19344 19343 32 4840 last 787575 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 789587 n 19432 19432 32 4862 last 789563 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 791596 n 19521 19520 32 4884 last 791576 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 793606 n 19610 19610 32 4907 last 793592 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 795606 n 19700 19699 32 4929 last 795596 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 797620 n 19788 19788 32 4951 last 797590 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 799646 n 19877 19877 32 4973 last 799616 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 801649 n 19964 19963 32 4995 last 801640 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 803663 n 20052 20052 32 5017 last 803632 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 805690 n 20141 20141 32 5039 last 805660 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 807691 n 20230 20230 32 5062 last 807687 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 809692 n 20318 20318 32 5084 last 809677 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 811693 n 20406 20406 32 5106 last 811676 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 813723 n 20496 20496 32 5128 last 813692 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 815737 n 20585 20585 32 5150 last 815711 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 817737 n 20673 20673 32 5172 last 817708 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 819745 n 20762 20762 32 5195 last 819728 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 821755 n 20852 20851 32 5217 last 821735 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 823756 n 20940 20940 32 5239 last 823732 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 825765 n 21029 21028 32 5261 last 825743 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 827772 n 21118 21118 32 5284 last 827758 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 829775 n 21208 21207 32 5306 last 829769 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 831793 n 21296 21296 32 5328 last 831763 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 833807 n 21385 21385 32 5350 last 833784 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 835808 n 21474 21474 32 5373 last 835793 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 837844 n 21564 21564 32 5395 last 837814 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 839856 n 21653 21653 32 5417 last 839827 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 841857 n 21742 21742 32 5440 last 841841 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 843862 n 21831 21831 32 5462 last 843857 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 845870 n 21920 21919 32 5484 last 845846 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 847873 n 22008 22008 32 5506 last 847847 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 849881 n 22097 22096 32 5528 last 849867 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 851889 n 22185 22185 32 5550 last 851859 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 853891 n 22274 22274 32 5573 last 853880 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 855895 n 22362 22362 32 5595 last 855882 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 857901 n 22452 22451 32 5617 last 857888 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 859927 n 22541 22541 32 5639 last 859898 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 861933 n 22630 22630 32 5662 last 861918 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 863944 n 22720 22719 32 5684 last 863925 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 865974 n 22809 22809 32 5706 last 865944 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 867976 n 22898 22898 32 5728 last 867973 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 869987 n 22986 22986 32 5751 last 869974 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 872012 n 23076 23076 32 5773 last 871981 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 874036 n 23165 23165 32 5795 last 874008 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 876054 n 23255 23255 32 5818 last 876048 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 878062 n 23344 23343 32 5840 last 878043 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 880085 n 23433 23433 32 5862 last 880055 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 882098 n 23522 23522 32 5885 last 882085 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 884104 n 23612 23611 32 5907 last 884092 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 886129 n 23701 23701 32 5929 last 886100 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 888138 n 23790 23790 32 5952 last 888125 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 890147 n 23880 23879 32 5974 last 890126 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 892157 n 23968 23968 32 5996 last 892127 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 894157 n 24057 24056 32 6018 last 894153 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 896243 n 24148 24148 32 6041 last 896212 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 898266 n 24237 24237 32 6063 last 898236 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 900285 n 24326 24326 32 6086 last 900272 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 902375 n 24418 24418 32 6109 last 902362 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 904376 n 24507 24507 32 6131 last 904370 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 906399 n 24596 24596 32 6153 last 906369 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 908426 n 24685 24685 32 6175 last 908397 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 910466 n 24776 24776 32 6198 last 910436 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 912499 n 24865 24865 32 6220 last 912470 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 914506 n 24954 24954 32 6243 last 914487 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 916515 n 25044 25043 32 6265 last 916486 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 918538 n 25133 25133 32 6287 last 918509 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 920548 n 25222 25222 32 6310 last 920530 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 922558 n 25312 25311 32 6332 last 922540 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 924582 n 25401 25401 32 6354 last 924552 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 926592 n 25490 25490 32 6376 last 926588 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 928593 n 25578 25578 32 6399 last 928575 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 930605 n 25668 25668 32 6421 last 930578 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 932611 n 25757 25756 32 6443 last 932599 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 934620 n 25845 25845 32 6465 last 934590 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 936621 n 25934 25934 32 6488 last 936613 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 938629 n 26022 26022 32 6510 last 938614 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 940630 n 26110 26110 32 6532 last 940614 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 942657 n 26200 26200 32 6554 last 942626 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 944685 n 26289 26289 32 6576 last 944656 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 946696 n 26378 26378 32 6599 last 946679 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 948706 n 26468 26467 32 6621 last 948695 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 950722 n 26556 26556 32 6643 last 950690 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 952741 n 26645 26645 32 6665 last 952716 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 954745 n 26734 26734 32 6688 last 954732 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 956774 n 26824 26824 32 6710 last 956744 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 958808 n 26913 26913 32 6732 last 958779 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 960815 n 27002 27002 32 6755 last 960801 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 962825 n 27092 27091 32 6777 last 962808 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 964829 n 27180 27180 32 6799 last 964801 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 966835 n 27269 27268 32 6821 last 966814 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 968836 n 27358 27358 32 6843 last 968833 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 970842 n 27446 27446 32 6866 last 970828 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 972860 n 27536 27536 32 6888 last 972830 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 974888 n 27626 27626 32 6911 last 974873 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 976889 n 27715 27715 32 6933 last 976882 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 978892 n 27804 27804 32 6955 last 978865 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 980898 n 27893 27892 32 6977 last 980878 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 982918 n 27981 27981 32 6999 last 982888 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 984931 n 28070 28070 32 7022 last 984917 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 986934 n 28159 28159 32 7044 last 986929 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 988965 n 28248 28248 32 7066 last 988934 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 990986 n 28337 28337 32 7088 last 990957 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 993006 n 28427 28427 32 7111 last 993002 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 995007 n 28515 28515 32 7133 last 995002 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 997032 n 28604 28604 32 7155 last 997002 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 999048 n 28694 28694 32 7177 last 999045 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1001049 n 28781 28781 32 7199 last 1001020 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1003059 n 28870 28870 32 7222 last 1003040 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1005069 n 28960 28959 32 7244 last 1005042 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 1007095 n 29049 29049 32 7266 last 1007066 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1009103 n 29139 29139 32 7289 last 1009099 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1011111 n 29228 29227 32 7311 last 1011084 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 1013136 n 29317 29317 32 7333 last 1013108 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1015143 n 29406 29406 32 7356 last 1015130 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1017154 n 29496 29495 32 7378 last 1017134 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 1019178 n 29585 29585 32 7400 last 1019149 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1021187 n 29674 29674 32 7423 last 1021174 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1023197 n 29764 29763 32 7445 last 1023171 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 1025215 n 29853 29853 32 7467 last 1025186 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1027230 n 29943 29943 32 7490 last 1027225 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1029320 n 30035 30035 32 7513 last 1029315 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1031324 n 30123 30123 32 7535 last 1031319 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1033326 n 30210 30210 32 7557 last 1033311 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1035337 n 30300 30299 32 7579 last 1035323 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 1037347 n 30388 30388 32 7601 last 1037316 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1039347 n 30477 30476 32 7623 last 1039339 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 1041361 n 30565 30565 32 7645 last 1041332 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1043380 n 30655 30655 32 7668 last 1043375 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1045390 n 30744 30743 32 7690 last 1045377 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 1047395 n 30832 30832 32 7712 last 1047367 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1049400 n 30921 30920 32 7734 last 1049380 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 1051400 n 31010 31010 32 7756 last 1051396 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1053400 n 31098 31098 32 7779 last 1053386 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1055429 n 31188 31188 32 7801 last 1055398 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1057444 n 31278 31278 32 7823 last 1057441 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1059444 n 31366 31366 32 7846 last 1059431 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1061462 n 31456 31456 32 7868 last 1061430 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1063463 n 31545 31544 32 7890 last 1063458 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 1065479 n 31633 31633 32 7912 last 1065450 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1067520 n 31724 31724 32 7935 last 1067489 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1069528 n 31814 31814 32 7957 last 1069525 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1071532 n 31902 31902 32 7980 last 1071519 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1073566 n 31992 31992 32 8002 last 1073536 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1075591 n 32081 32081 32 8024 last 1075562 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1077608 n 32170 32170 32 8047 last 1077595 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1079609 n 32259 32259 32 8069 last 1079605 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1081627 n 32348 32348 32 8091 last 1081596 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1083647 n 32437 32437 32 8113 last 1083623 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1085651 n 32526 32526 32 8136 last 1085636 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1087681 n 32616 32616 32 8158 last 1087650 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1089707 n 32705 32705 32 8180 last 1089678 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1091750 n 32796 32796 32 8203 last 1091719 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1093764 n 32885 32885 32 8225 last 1093735 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1095764 n 32973 32973 32 8247 last 1095733 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1097765 n 33062 33062 32 8270 last 1097752 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1099774 n 33152 33151 32 8292 last 1099757 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 1101781 n 33240 33240 32 8314 last 1101751 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1103785 n 33329 33328 32 8336 last 1103772 pal 12 busy 0 f 4 de 8033 vga 1
+hb t 1105789 n 33417 33417 32 8358 last 1105762 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1107793 n 33506 33506 32 8381 last 1107779 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1109794 n 33595 33595 32 8403 last 1109789 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1111801 n 33684 33684 32 8425 last 1111770 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1113813 n 33773 33773 32 8447 last 1113784 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1115921 n 33865 33865 32 8470 last 1115892 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1117927 n 33954 33954 32 8493 last 1117914 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1119928 n 34042 34042 32 8515 last 1119910 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1121934 n 34131 34131 32 8537 last 1121929 pal 12 busy 0 f 4 de 8023 vga 1
+hb t 1123945 n 34220 34219 32 8559 last 1123920 pal 12 busy 0 f 4 de 8033 vga 1
+vga create n 1 caps0 0000c200
+vga create n 2 caps0 0000c238
+vga create n 1 caps0 0000c200
+vga call 0 t 185566 caps 1000c200 pal 8 busy 0 f 4
+vga call 1 t 185566 caps 1000c200 pal 8 busy 0 f 4
+vga blt flags 01000400 rop 00000000 clip 0
+vga call 0 t 186651 caps 1000c200 pal 9 busy 0 f 4
+vga call 1 t 187599 caps 1000c200 pal 9 busy 0 f 4
+hb t 187877 n 2 2 1 0 last 187599 pal 9 busy 0 f 4 de 8023 vga 1
+vga blt flags 01000400 rop 00000000 clip 0
+vga blt flags 01000400 rop 00000000 clip 0
+vga blt flags 01000400 rop 00000000 clip 0
+vga blt flags 01000400 rop 00000000 clip 0
+vga blt flags 01000400 rop 00000000 clip 0
+vga blt flags 01000400 rop 00000000 clip 0
+vga blt flags 01000400 rop 00000000 clip 0
+vga call 0 t 190898 caps 1000c200 pal 9 busy 0 f 4
+vga call 1 t 191059 caps 1000c200 pal 9 busy 0 f 4
+vga call 0 t 191439 caps 1000c200 pal 9 busy 0 f 4
+vga call 1 t 191444 caps 1000c200 pal 9 busy 0 f 4
+hb t 192200 n 4 4 14 0 last 191444 pal 9 busy 0 f 4 de 8023 vga 1
+vga call 0 t 193021 caps 1000c200 pal 9 busy 0 f 4
+vga call 1 t 193096 caps 1000c200 pal 9 busy 0 f 4
+vga call 0 t 193148 caps 1000c200 pal 9 busy 0 f 4
+vga call 1 t 193261 caps 1000c200 pal 9 busy 0 f 4
+vga call 0 t 193292 caps 1000c200 pal 9 busy 0 f 4
+vga call 1 t 193393 caps 1000c200 pal 9 busy 0 f 4
+vga call 0 t 193440 caps 1000c200 pal 9 busy 0 f 4
+vga call 1 t 193536 caps 1000c200 pal 9 busy 0 f 4
+vga call 0 t 193588 caps 1000c200 pal 9 busy 0 f 4
+vga call 1 t 193644 caps 1000c200 pal 9 busy 0 f 4
+vga call 0 t 193713 caps 1000c200 pal 9 busy 0 f 4
+vga call 1 t 193806 caps 1000c200 pal 9 busy 0 f 4
+vga call 0 t 193858 caps 1000c200 pal 9 busy 0 f 4
+vga call 1 t 193971 caps 1000c200 pal 9 busy 0 f 4
+vga call 0 t 194004 caps 1000c200 pal 9 busy 0 f 4
+vga call 1 t 194087 caps 1000c200 pal 9 busy 0 f 4
+vga call 0 t 194156 caps 1000c200 pal 9 busy 0 f 4
+vga call 1 t 194245 caps 1000c200 pal 9 busy 0 f 4
+vga call 0 t 194245 caps 1000c200 pal 9 busy 0 f 4
+vga call 1 t 194355 caps 1000c200 pal 9 busy 0 f 4
+vga call 0 t 194431 caps 1000c200 pal 9 busy 0 f 4
+vga call 1 t 194575 caps 1000c200 pal 9 busy 0 f 4
+vga call 0 t 194797 caps 1000c200 pal 9 busy 0 f 4
+vga call 1 t 194850 caps 1000c200 pal 9 busy 0 f 4
+hb t 196435 n 16 16 15 0 last 194850 pal 9 busy 0 f 4 de 8023 vga 1
+hb t 198463 n 32 32 16 0 last 198338 pal 9 busy 0 f 4 de 8023 vga 1
+hb t 200555 n 41 40 16 0 last 200509 pal 9 busy 0 f 4 de 8033 vga 1
+hb t 202596 n 49 49 17 0 last 201448 pal 9 busy 0 f 4 de 8023 vga 1
+vga create n 2 caps0 0000c238
+hb t 204633 n 1548 1548 17 0 last 204137 pal 10 busy 0 f 4 de 8023 vga 1
+hb t 206640 n 1551 1551 20 2 last 206556 pal 10 busy 0 f 4 de 8023 vga 1
+hb t 208669 n 1553 1553 99 41 last 208120 pal 10 busy 0 f 4 de 8023 vga 1
+hb t 210673 n 1553 1553 163 73 last 210618 pal 10 busy 0 f 4 de 8023 vga 1
+hb t 212686 n 1554 1554 175 80 last 211078 pal 10 busy 0 f 4 de 8023 vga 1
+hb t 214901 n 1554 1554 175 80 last 211078 pal 10 busy 0 f 4 de 8041 vga 1
+hb t 217022 n 1554 1554 175 80 last 211078 pal 10 busy 0 f 4 de 8041 vga 0
+hb t 219064 n 1554 1554 175 80 last 211078 pal 10 busy 0 f 4 de 8041 vga 0
+hb t 221212 n 1554 1554 175 80 last 211078 pal 10 busy 0 f 4 de 8041 vga 0
+hb t 223362 n 1554 1554 175 80 last 211078 pal 10 busy 0 f 4 de 8041 vga 0
+hb t 225457 n 1554 1554 175 80 last 211078 pal 10 busy 0 f 4 de 8041 vga 0
+hb t 227592 n 1554 1554 175 80 last 211078 pal 10 busy 0 f 4 de 8041 vga 0
+vga create n 3 caps0 0000c238
+vga create n 1 caps0 00004040
+destroy caps 00004040
+create 1/3 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/3 caps 0000401c 640x480 (screen 640x480 fb16 0)
+create 3/3 caps 00004018 640x480 (screen 640x480 fb16 0)
+destroy caps 1000401c
+destroy caps 00004018
+create 1/2 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/2 caps 0000401c 640x480 (screen 640x480 fb16 0)
+flip8 chain made: 640x480 pitch 640, back at row 512
+create 1/1 caps 00004040 640x480 (screen 640x480 fb16 0)
+destroy caps 00004040
+dfr page 1 whole: known 0 bg 0/0 epoch 00000000/00047f8d stat25 0 gen 3
+flip8 to page 1
+dfr page 0 whole: known 0 bg 0/0 epoch 00000000/00047f8d stat25 0 gen 3
+flip8 to page 0
+flip8 to page 1
+flip8 to page 0

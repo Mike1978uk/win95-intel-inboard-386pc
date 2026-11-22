@@ -1,5 +1,11 @@
 # SWAPCOMP - compressed swap file for Windows 95
 
+> **Warning (2026-11-22): can hang Windows under heavy paging with sound playing.** On the 5160,
+> Doom 95 with sound hard-hung six times out of six with SWAPCOMP loaded (Sound Blaster looping
+> its last buffer, Ctrl+Alt+Del dead, power cycle needed) and played for 9 minutes with it
+> removed, paging ~15,000 pages. Cause not yet found. Until it is, leave SWAPCOMP out of
+> `SYSTEM.INI`. Details: [`docs/next_session_2026_11_22.md`](../../docs/next_session_2026_11_22.md).
+
 A VxD that LZ4-compresses pages on their way to `WIN386.SWP` and decompresses them on the way
 back. On the Intel Inboard 386/PC in an IBM 5160 every byte of disk I/O crosses an 8-bit bus at
 about 5.7 us, so a 4 KB page costs ~10 ms to move; compressing it first is cheaper than moving it.

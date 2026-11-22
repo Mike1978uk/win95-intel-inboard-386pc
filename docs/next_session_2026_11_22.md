@@ -64,6 +64,28 @@ Doom 95 on the card is `C:\DOOM95\DOOM95.EXE`; the launcher's Advanced -> Screen
 (320x200, 320x240, 640x400, 640x480; window/full screen). Quitting by agent works:
 `input -Sequence "key ESCAPE; delay 1500; key UP; delay 800; key ENTER; delay 1500; key Y"`.
 
+## Results 2026-11-22: the Doom + sound hang is SWAPCOMP
+
+| Run | Result |
+|---|---|
+| card `-640x480` + sound (8514 half, no VGA half) | black throughout (title never shown: separate palette bug), stutters, then sound loop + hang. **VGA half not needed** |
+| card 320x200 + sound + PERFLOG (buffered rows) | hang; rows lost in VCACHE at the power cycle. PERFLOG now takes `flushrows` and commits each write |
+| card 320x200 + sound, **SWAPCOMP out** (`;DEVICE=c:\swapcomp.vxd`, PERFLOG `NS`) | **plays ~9 min**, full screen, jittery; free RAM 0, swap 5.5 -> 11 MB, ~15,000 page-ins, CPU 100 % |
+
+Owner: disk active just before and after the loop, so the machine kept running and paging; the yesterday
+`-nosfxformat` trace shows the heartbeat alive 16 s after Doom stopped drawing. Reading: heavy paging + sound
+with SWAPCOMP in the page path hangs; without it, the same thrash survives. 6 hangs with, 1 pass without - repeat once.
+Probably #55 as well (boot and restart: paging with sound playing; #55 opened a month after SWAPCOMP went on).
+
+- Card now: SWAPCOMP commented out in `C:\WINDOWS\SYSTEM.INI` (backup `SYSTEM.BSR`, md5 `cd805526`; copy in
+  `docs/captures/2026-11-22_doom_sound/SYSTEM_card_before.INI`). SHADRAM still loaded. `C:\PERFLOG.EXE` is the
+  flushrows build; the old one is in the captures folder. `C:\DOOMLOG.BAT` = PERFLOG DS + Doom.
+- Watch: if #55 sound-loop hangs stop with SWAPCOMP out, it is the same bug.
+- `dist/swapcomp/README.md` carries a warning; worklist item added. Fix only if worth it (~4.5 % measured).
+- Doom speed next: F5 detail, view size (`-`), `-nomusic`, background programs closed; no PERFLOG for timing.
+- Not caused by: the VGA half, `-nomouse`, `-nomusic`, `-nosfxformat`. DirectSound on the SB Pro is emulated
+  (no DS driver) and the 1 MB DMA limit cannot hang playback (DMA only reads); neither needs patching.
+
 ## Issue #10 - the 5150 runs Windows 95 (Simon, 2026-11-21)
 
 Simon's recipe on his 5150: the 08-24 release image's Windows directory, our buffered `VMM32.VXD`

@@ -188,3 +188,17 @@
 20:22:48   agent up
 20:23:06   agent down
 20:28:42   7 min done, agent down
+12:31:07 === Doom -640x480 (M8VGH heartbeat)
+12:31:56   launched, ENTER sent
+12:31:58   agent up
+12:33:15   agent down
+12:33:30   agent up
+12:34:22   agent down
+12:37:33   agent up
+12:38:57   7 min done, agent up
+12:38:58   T hb t 217022 n 1554 1554 175 80 last 211078 pal 10 busy 0 f 4 de 8041 vga 0
+12:38:58   T hb t 219064 n 1554 1554 175 80 last 211078 pal 10 busy 0 f 4 de 8041 vga 0
+12:38:58   T hb t 221212 n 1554 1554 175 80 last 211078 pal 10 busy 0 f 4 de 8041 vga 0
+12:38:58   T hb t 223362 n 1554 1554 175 80 last 211078 pal 10 busy 0 f 4 de 8041 vga 0
+12:38:58   T hb t 225457 n 1554 1554 175 80 last 211078 pal 10 busy 0 f 4 de 8041 vga 0
+12:38:58   T hb t 227592 n 1554 1554 175 80 last 211078 pal 10 busy 0 f 4 de 8041 vga 0
