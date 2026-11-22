@@ -23,6 +23,7 @@ CloseHandle@4
 CreateProcessA@40
 WaitForSingleObject@8
 DeleteFileA@4
+FlushFileBuffers@4
 DEF
 cat > $B/advapi32.def <<'DEF'
 LIBRARY ADVAPI32.dll

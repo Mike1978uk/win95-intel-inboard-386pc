@@ -3,7 +3,7 @@
  * Monitor shows: page-ins, swapfile in use, free memory, disk cache size)
  * to a file, with no clicking, so a paging workload can run unattended.
  *
- *   PERFLOG label seconds [interval]     default interval 2 s
+ *   PERFLOG label seconds [interval [flushrows]]   default 2 s, one write a minute
  *
  * Run it with START so it samples while the workload runs:
  *   START PERFLOG A 300
@@ -12,7 +12,8 @@
  * guessing a counter name. Rows go to C:\PERFLOG.CSV: the header names the
  * counters, the first two columns are the label and milliseconds since start.
  * Rows are buffered and written once a minute and at the end, so the log
- * itself adds little disk traffic to the paging it is measuring.
+ * itself adds little disk traffic to the paging it is measuring. flushrows
+ * writes every N rows instead, for a run that may hang before the minute.
  *
  * Built without a C runtime (build.sh), like TIMERRES.
  */
@@ -27,6 +28,7 @@ typedef void *HKEY;
 WINAPI void   ExitProcess(unsigned);
 WINAPI HANDLE GetStdHandle(DWORD);
 WINAPI int    WriteFile(HANDLE, const void *, DWORD, DWORD *, void *);
+WINAPI int    FlushFileBuffers(HANDLE);
 WINAPI void   Sleep(DWORD);
 WINAPI DWORD  GetTickCount(void);
 WINAPI char  *GetCommandLineA(void);
@@ -70,11 +72,17 @@ static void say(const char *s)
     WriteFile(out, s, len(s), &w, 0);
 }
 
+static int commit;
+
 static void flush(void)
 {
     DWORD w;
-    if (used && logf != INVALID_HANDLE)
+    if (used && logf != INVALID_HANDLE) {
         WriteFile(logf, buf, used, &w, 0);
+        /* VCACHE holds a write back; a power cycle after a hang loses it. */
+        if (commit)
+            FlushFileBuffers(logf);
+    }
     used = 0;
 }
 
@@ -178,7 +186,7 @@ void start(void)
 {
     char label[32], b[96], *cl = GetCommandLineA();
     SYSTEMTIME st;
-    DWORD secs, every, t0, next, now, row = 0;
+    DWORD secs, every, rows, t0, next, now, row = 0;
     HKEY data;
     int i;
 
@@ -203,8 +211,13 @@ void start(void)
     every = number(&cl);
     if (!every)
         every = 2;
+    /* A run that may end in a hang needs each row on disk as it is taken. */
+    rows = number(&cl);
+    commit = rows != 0;
+    if (!rows)
+        rows = 60 / every + 1;
     if (!label[0] || !secs) {
-        say("Usage: PERFLOG label seconds [interval]   e.g. START PERFLOG A 300\r\n");
+        say("Usage: PERFLOG label seconds [interval [flushrows]]   e.g. START PERFLOG A 300\r\n");
         ExitProcess(1);
     }
     /* The start time makes every run's label unique in the appended log. */
@@ -244,7 +257,7 @@ void start(void)
     for (;;) {
         now = GetTickCount();
         sample(data, label, now - t0);
-        if (++row % (60 / every + 1) == 0)
+        if (++row % rows == 0)
             flush();
         if (now - t0 >= secs * 1000)
             break;
