@@ -26,6 +26,8 @@ extern void m8_outsw( const WORD FAR *src, WORD words );
 
 extern void m8_outsb_dac( const BYTE FAR *src, WORD n );
 #pragma aux m8_outsb_dac =     "push ds" "push es" "pop ds" "mov dx, 02EDh" "rep outsb" "pop ds"     parm [es si] [cx] modify [si cx dx];
+extern void m8_outsb_vdac( const BYTE FAR *src, WORD n );
+#pragma aux m8_outsb_vdac =    "push ds" "push es" "pop ds" "mov dx, 03C9h" "rep outsb" "pop ds"     parm [es si] [cx] modify [si cx dx];
 
 /* Rows translated a band at a time, then sent in one rep outsw: no port
  * access between rows keeps the table and the loop in the L1. Also a
@@ -404,6 +406,15 @@ void m8_hw_set_palette( UINT start, UINT count, RGBQUAD FAR *pal )
         *q++ = pal[i].rgbRed >> 2;
         *q++ = pal[i].rgbGreen >> 2;
         *q++ = pal[i].rgbBlue >> 2;
+    }
+    /* The VGA half's own DAC ports while it is shown: on the card both port
+     * sets reach the one DAC, but a VGA-compatible model of the card (86Box)
+     * may keep two palettes, and 3C8h/3C9h are right on either. */
+    if( m8_vga ) {
+        outp( 0x03C6, 0xFF );
+        outp( 0x03C8, (BYTE)start );
+        m8_outsb_vdac( (const BYTE FAR *)m8_xrow, (WORD)(count * 3) );
+        return;
     }
     outp( 0x02EA, 0xFF );
     outp( 0x02EC, (BYTE)start );

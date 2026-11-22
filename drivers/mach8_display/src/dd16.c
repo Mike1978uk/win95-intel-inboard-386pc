@@ -67,6 +67,8 @@ typedef struct {
     DWORD   set_overlay_position;
     M8_OV   ov;                         /* the overlay as M8DD32 last described it */
     DWORD   vga;                        /* 1: m8_vga; M8DD32's m8dd_vga_* serve the VGA half */
+    DWORD   vga_sent;                   /* linear: what A0000 holds, as M8DD32's Flip sent it */
+    DWORD   vga_sent_ok;                /* 0: vga_sent is not what A0000 holds */
     /* This side only from here. */
     DDHALINFO_t                 info;
     DDHAL_DDCALLBACKS_t         cb;
@@ -202,8 +204,37 @@ static void m8dd_vga_row( DDHALMODEINFO_t FAR *m )
 /* The VGA half's primary is the system VM's own A0000, as KERNEL's __A000H
  * selector addresses it: the VDD maps it to the card while Windows owns the
  * screen, and DirectDraw's Win32 callers run in that VM. Not a DPMI 0800h
- * mapping: that call does not map memory below 1 MB. */
+ * mapping: that call does not map memory below 1 MB. A program that draws
+ * there itself pays the bus once a byte; a copy in RAM would add its stores. */
 #define M8DD_VGA_PRIMARY    0xA0000UL
+
+/* What A0000 holds, for M8DD32's Flip to send only what differs. Fixed shared
+ * memory, as for m8dd_shadow, so the address holds in every process; kept for
+ * the session once made. */
+static BYTE FAR         *m8dd_vga_was;
+
+static int m8dd_vga_alloc( void )
+{
+    HGLOBAL h;
+
+    if( m8dd_vga_was == NULL ) {
+        h = GlobalAlloc( GMEM_FIXED | GMEM_SHARE | GMEM_ZEROINIT, 320U * 200U );
+        if( h == 0 ) {
+            return( 0 );
+        }
+        m8dd_vga_was = (BYTE FAR *)GlobalLock( h );
+    }
+    m8dd->vga_sent = GetSelectorBase( FP_SEG( m8dd_vga_was ) );
+    return( 1 );
+}
+
+/* Mode 13h was just set, which clears A0000: the record no longer holds. */
+void __far m8dd_vga_clear( void )
+{
+    if( m8dd != NULL ) {
+        m8dd->vga_sent_ok = 0;
+    }
+}
 
 static int m8dd_mode_index( void )
 {
@@ -370,8 +401,8 @@ static void m8dd_build( int mode )
     hi->lpPDevice = m8_pdevice;
     hi->hInstance = m8dd->hInstance;
     if( m8_vga ) {
-        /* The primary is the VGA half's A0000: Lock is DDRAW's, and M8DD32 does
-         * Blt, Flip and flip chains there in RAM (m8dd->vga).
+        /* The primary is A0000: Lock is DDRAW's, M8DD32 does Blt, Flip and flip
+         * chains (m8dd->vga).
          * The callbacks and caps stay as published: a reset that drops them is
          * refused by SetInfo, and DDRAW keeps the old mode's primary. */
         hi->vmiData.fpPrimary = M8DD_VGA_PRIMARY;
@@ -607,7 +638,7 @@ void __far m8dd_mode_changed( void )
          * desktop went to 8 bpp for it): a desktop change alone should not pin a shadow in RAM. */
         mode = m8dd_mode_index();
         if( (m8dd_shadow == NULL && m8_fb16_lin() == 0) || mode < 0 ||
-            (!m8_vga && !m8dd_shadow_alloc()) ) {
+            (m8_vga ? !m8dd_vga_alloc() : !m8dd_shadow_alloc()) ) {
             return;
         }
         m8dd_build( mode );
@@ -650,7 +681,7 @@ LONG __far m8dd_command( LPVOID lpInput, LPVOID lpOutput )
         } else {
             mode = m8dd_mode_index();
             if( m8dd_setinfo == NULL || mode < 0 || m8dd->marker != M8DD_MARKER ||
-                (!m8_vga && !m8dd_shadow_alloc()) ) {
+                (m8_vga ? !m8dd_vga_alloc() : !m8dd_shadow_alloc()) ) {
                 return( 0 );
             }
             m8dd_build( mode );

@@ -85,6 +85,8 @@ typedef struct {
     long    ov_dl, ov_dt, ov_dr, ov_db;
     DWORD   ov_key;
     DWORD   vga;                /* 1: the VGA half is shown; m8dd_vga_* serve it */
+    DWORD   vga_sent;           /* what A0000 holds, as m8dd_vga_send sent it */
+    DWORD   vga_sent_ok;        /* 0: vga_sent is not what A0000 holds */
 } M8DD_SHARE;
 
 /* DDHAL_LOCKDATA and DDHAL_UNLOCKDATA as DDRAW passes them (Microsoft's
@@ -4742,6 +4744,73 @@ static BYTE *m8dd_mem( LPVOID lcl, long *pitch, int *w, int *h )
     return( (BYTE *)*(DWORD *)(gbl + M8DD_GBL_VIDMEM) );
 }
 
+/* A whole 320x200 frame to A0000. On the card a byte over the bus costs about
+ * 1 us and a store to RAM about a quarter of that, so the record of what A0000
+ * holds pays only where little changes: a frame that changed more than
+ * M8DD_VGA_FULL of the screen sends the next frames whole, with no compare and
+ * no record, and every M8DD_VGA_RETRY frames the record is made again to see
+ * whether the picture has settled. */
+#define M8DD_VGA_FULL       70          /* percent */
+#define M8DD_VGA_RETRY      16
+static int  m8dd_vga_whole;             /* frames left to send whole, without the record */
+
+static void m8dd_vga_send( const BYTE *src )
+{
+    const DWORD *s = (const DWORD *)src;
+    DWORD       *k = (DWORD *)m8dd->vga_sent;
+    DWORD       *v = (DWORD *)M8DD_VGA_PRIMARY;
+    const int   n = 320 * 200 / 4;
+    int         i = 0;
+    int         j;
+    int         sent = 0;
+
+    if( k == NULL || m8dd_vga_whole > 0 ) {
+        if( m8dd_vga_whole > 0 ) {
+            --m8dd_vga_whole;
+        }
+        memcpy( v, s, n * 4 );
+        m8dd->vga_sent_ok = 0;
+        return;
+    }
+    if( !m8dd->vga_sent_ok ) {
+        memcpy( v, s, n * 4 );
+        memcpy( k, s, n * 4 );
+        m8dd->vga_sent_ok = 1;
+        return;
+    }
+    while( i < n ) {
+        if( s[i] == k[i] ) {
+            ++i;
+            continue;
+        }
+        /* A run, through gaps of up to two equal dwords: one copy, not three. */
+        for( j = i + 1; j < n; ++j ) {
+            if( s[j] == k[j] && (j + 1 >= n || s[j + 1] == k[j + 1]) &&
+                (j + 2 >= n || s[j + 2] == k[j + 2]) ) {
+                break;
+            }
+        }
+        memcpy( v + i, s + i, (j - i) * 4 );
+        memcpy( k + i, s + i, (j - i) * 4 );
+        sent += j - i;
+        i = j;
+    }
+    if( sent * 100 > n * M8DD_VGA_FULL ) {
+        m8dd_vga_whole = M8DD_VGA_RETRY;
+    }
+}
+
+/* VGA mode's Unlock: a program that drew on A0000 itself leaves the record behind. */
+static DWORD m8dd_vga_unlock( M8DD_UNLOCK *ud )
+{
+    BYTE    *gbl = *(BYTE **)((BYTE *)ud->lpDDSurface + M8DD_LCL_GBL);
+
+    if( gbl != NULL && *(DWORD *)(gbl + M8DD_GBL_VIDMEM) == M8DD_VGA_PRIMARY ) {
+        m8dd->vga_sent_ok = 0;
+    }
+    return( DDHAL_DRIVER_NOTHANDLED );
+}
+
 /* VGA mode's Blt: DirectDraw answers DDERR_UNSUPPORTED rather than emulate a
  * Blt this HAL declines, so fills and unstretched SRCCOPY (one-colour source
  * key allowed) are done here in memory, at 8 bpp. */
@@ -4838,14 +4907,17 @@ static DWORD m8dd_vga_blt( M8DD_BLT *bd )
             }
         }
     }
+    if( (DWORD)dst == M8DD_VGA_PRIMARY ) {
+        m8dd->vga_sent_ok = 0;
+    }
     bd->ddRVal = DD_OK;
     return( DDHAL_DRIVER_HANDLED );
 }
 
 /* VGA mode's Flip: mode 13h has one page, so the target's frame is copied to
- * A0000. DDRAW swaps the two surfaces' memory after a handled Flip; they are
- * swapped here first, so the primary stays A0000 and the program goes on
- * drawing in its own back buffer. */
+ * A0000 (m8dd_vga_send). DDRAW swaps the two surfaces' memory after a handled
+ * Flip; they are swapped here first, so the primary stays A0000 and the
+ * program goes on drawing in its own back buffer. */
 static DWORD m8dd_vga_flip( M8DD_FLIP *fd )
 {
     BYTE    *cg;
@@ -4865,8 +4937,13 @@ static DWORD m8dd_vga_flip( M8DD_FLIP *fd )
         (src = m8dd_mem( fd->lpSurfTarg, &sp, &sw, &sh )) == NULL || sw < dw || sh < dh ) {
         return( DDHAL_DRIVER_NOTHANDLED );
     }
-    for( y = 0; y < dh; ++y ) {
-        memcpy( dst + y * dp, src + y * sp, dw );
+    if( (DWORD)dst == M8DD_VGA_PRIMARY && dp == 320 && sp == 320 && dw == 320 && dh == 200 ) {
+        m8dd_vga_send( src );
+    } else {
+        for( y = 0; y < dh; ++y ) {
+            memcpy( dst + y * dp, src + y * sp, dw );
+        }
+        m8dd->vga_sent_ok = 0;
     }
     cg = *(BYTE **)((BYTE *)fd->lpSurfCurr + M8DD_LCL_GBL);
     tg = *(BYTE **)((BYTE *)fd->lpSurfTarg + M8DD_LCL_GBL);
@@ -4881,8 +4958,8 @@ static DWORD m8dd_vga_flip( M8DD_FLIP *fd )
 }
 
 /* [112-115] page-ins inside Lock, Unlock, Blt, Flip; [116-119] ticks inside them: what is left of
- * a frame is the program's and DirectDraw's own. In VGA mode Lock and Unlock are
- * DirectDraw's own, Blt and Flip m8dd_vga_blt and m8dd_vga_flip. */
+ * a frame is the program's and DirectDraw's own. In VGA mode Lock is DirectDraw's own,
+ * Unlock, Blt and Flip m8dd_vga_unlock, m8dd_vga_blt and m8dd_vga_flip. */
 #define M8DD_TIMED( name, fn, type, k )               \
     static DWORD __stdcall name( type *d )            \
     {                                                 \
@@ -4892,7 +4969,8 @@ static DWORD m8dd_vga_flip( M8DD_FLIP *fd )
                                                       \
         if( m8dd->vga ) {                             \
             return( (k) == 2 ? m8dd_vga_blt( (M8DD_BLT *)d ) :                          \
-                    (k) == 3 ? m8dd_vga_flip( (M8DD_FLIP *)d ) : DDHAL_DRIVER_NOTHANDLED );\
+                    (k) == 3 ? m8dd_vga_flip( (M8DD_FLIP *)d ) :                         \
+                    (k) == 1 ? m8dd_vga_unlock( (M8DD_UNLOCK *)d ) : DDHAL_DRIVER_NOTHANDLED );\
         }                                             \
         pi = m8dd_pageins();                          \
         t0 = m8dd_ticks();                            \

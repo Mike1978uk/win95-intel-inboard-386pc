@@ -310,8 +310,9 @@ static void m8_vga_show( void )
 {
     m8_hw_passthrough();
     int_10h( 0x0013 );
-    m8_hw_set_palette( 0, 256, m8_color_table );
+    m8dd_vga_clear();
     m8_vga = 1;
+    m8_hw_set_palette( 0, 256, m8_color_table );
 }
 
 /* INT 2Fh 4002h: Windows has the screen again. A DOS program may have used the
