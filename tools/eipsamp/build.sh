@@ -23,6 +23,8 @@ WaitForSingleObject@8
 SuspendThread@4
 ResumeThread@4
 GetThreadContext@8
+GetThreadSelectorEntry@12
+ReadProcessMemory@20
 GetCurrentThread@0
 SetThreadPriority@8
 CreateToolhelp32Snapshot@8
@@ -51,3 +53,11 @@ ld -m i386pe --subsystem console:4.0 --major-os-version 4 -e _start \
     $B/eipsamp.o $B/libkernel32.a $B/libuser32.a $B/libwinmm.a -o $B/EIPSAMP.EXE
 strip $B/EIPSAMP.EXE
 ls -l $B/EIPSAMP.EXE
+
+# GHEAP16.EXE, the Win16 helper EIPSAMP runs to name 16-bit code selectors: Open Watcom.
+W=${WATCOM:-/c/Users/lycet/tools/openwatcom}
+WW=$(cygpath -w "$W")
+PATH="$W/binnt64:$W/binnt:$PATH" WATCOM="$WW" INCLUDE="$WW\h;$WW\h\win" \
+    wcl -q -bt=windows -ml -l=windows -fe=$B/GHEAP16.EXE -fo=$B/gheap16.obj GHEAP16.C \
+    "$WW\lib286\win\toolhelp.lib"
+ls -l $B/GHEAP16.EXE

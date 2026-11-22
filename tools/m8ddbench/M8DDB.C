@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <io.h>
 #include <ddraw.h>
+#include <mmsystem.h>
 
 #define WIN_W       640
 #define WIN_H       480
@@ -707,6 +708,172 @@ static HRESULT WINAPI mx_mode( LPDDSURFACEDESC d, LPVOID ctx )
     return( DDENUMRET_OK );
 }
 
+/* A second of a 440 Hz square wave, 8-bit mono at 22050 Hz, as a WAV in memory:
+ * modexs plays it looped through the sound card's driver while modex runs, as a
+ * game's sound would (DMA on the card while the screen is written). */
+#define SND_RATE    22050
+static BYTE snd_wav[44 + SND_RATE];
+
+static void snd_start( void )
+{
+    DWORD   *d = (DWORD *)snd_wav;
+    int     i;
+
+    memcpy( snd_wav, "RIFF", 4 );
+    d[1] = 36 + SND_RATE;
+    memcpy( snd_wav + 8, "WAVEfmt ", 8 );
+    d[4] = 16;
+    *(WORD *)(snd_wav + 20) = 1;                /* PCM */
+    *(WORD *)(snd_wav + 22) = 1;                /* mono */
+    d[6] = SND_RATE;
+    d[7] = SND_RATE;
+    *(WORD *)(snd_wav + 32) = 1;
+    *(WORD *)(snd_wav + 34) = 8;
+    memcpy( snd_wav + 36, "data", 4 );
+    d[10] = SND_RATE;
+    for( i = 0; i < SND_RATE; ++i ) {
+        snd_wav[44 + i] = (BYTE)(((i * 440 / SND_RATE) & 1) ? 0xA0 : 0x60);
+    }
+    fprintf( out, "sound %d\n", (int)PlaySound( (LPCSTR)snd_wav, NULL, SND_MEMORY | SND_ASYNC | SND_LOOP ) );
+    flush_out();
+}
+
+/* DirectSound, declared here (no dsound.h in this compiler): only the calls used. */
+typedef struct DSB DSB;
+typedef struct {
+    HRESULT (WINAPI *QueryInterface)( DSB *, REFIID, LPVOID * );
+    ULONG   (WINAPI *AddRef)( DSB * );
+    ULONG   (WINAPI *Release)( DSB * );
+    HRESULT (WINAPI *GetCaps)( DSB *, LPVOID );
+    HRESULT (WINAPI *GetCurrentPosition)( DSB *, LPDWORD, LPDWORD );
+    HRESULT (WINAPI *GetFormat)( DSB *, LPVOID, DWORD, LPDWORD );
+    HRESULT (WINAPI *GetVolume)( DSB *, LPLONG );
+    HRESULT (WINAPI *GetPan)( DSB *, LPLONG );
+    HRESULT (WINAPI *GetFrequency)( DSB *, LPDWORD );
+    HRESULT (WINAPI *GetStatus)( DSB *, LPDWORD );
+    HRESULT (WINAPI *Initialize)( DSB *, LPVOID, LPVOID );
+    HRESULT (WINAPI *Lock)( DSB *, DWORD, DWORD, LPVOID *, LPDWORD, LPVOID *, LPDWORD, DWORD );
+    HRESULT (WINAPI *Play)( DSB *, DWORD, DWORD, DWORD );
+    HRESULT (WINAPI *SetCurrentPosition)( DSB *, DWORD );
+    HRESULT (WINAPI *SetFormat)( DSB *, LPVOID );
+    HRESULT (WINAPI *SetVolume)( DSB *, LONG );
+    HRESULT (WINAPI *SetPan)( DSB *, LONG );
+    HRESULT (WINAPI *SetFrequency)( DSB *, DWORD );
+    HRESULT (WINAPI *Stop)( DSB * );
+    HRESULT (WINAPI *Unlock)( DSB *, LPVOID, DWORD, LPVOID, DWORD );
+    HRESULT (WINAPI *Restore)( DSB * );
+} DSBVT;
+struct DSB { DSBVT *v; };
+typedef struct DS DS;
+typedef struct {
+    HRESULT (WINAPI *QueryInterface)( DS *, REFIID, LPVOID * );
+    ULONG   (WINAPI *AddRef)( DS * );
+    ULONG   (WINAPI *Release)( DS * );
+    HRESULT (WINAPI *CreateSoundBuffer)( DS *, LPVOID, DSB **, LPVOID );
+    HRESULT (WINAPI *GetCaps)( DS *, LPVOID );
+    HRESULT (WINAPI *DuplicateSoundBuffer)( DS *, DSB *, DSB ** );
+    HRESULT (WINAPI *SetCooperativeLevel)( DS *, HWND, DWORD );
+} DSVT;
+struct DS { DSVT *v; };
+typedef struct {
+    DWORD           dwSize;
+    DWORD           dwFlags;
+    DWORD           dwBufferBytes;
+    DWORD           dwReserved;
+    WAVEFORMATEX    *lpwfxFormat;
+} DSBDESC;
+#define DS_RATE     11025
+static DS       *ds;
+static DSB      *ds_loop;
+static DSB      *ds_shot;
+static volatile int ds_run;
+
+static DSB *ds_buffer( DWORD bytes, int tone )
+{
+    WAVEFORMATEX    wf;
+    DSBDESC         d;
+    DSB             *b = NULL;
+    LPVOID          p1;
+    LPVOID          p2;
+    DWORD           n1;
+    DWORD           n2;
+    DWORD           i;
+
+    memset( &wf, 0, sizeof( wf ) );
+    wf.wFormatTag = WAVE_FORMAT_PCM;
+    wf.nChannels = 1;
+    wf.nSamplesPerSec = DS_RATE;
+    wf.nAvgBytesPerSec = DS_RATE;
+    wf.nBlockAlign = 1;
+    wf.wBitsPerSample = 8;
+    memset( &d, 0, sizeof( d ) );
+    d.dwSize = sizeof( d );
+    d.dwBufferBytes = bytes;
+    d.lpwfxFormat = &wf;
+    if( ds->v->CreateSoundBuffer( ds, &d, &b, NULL ) != 0 || b == NULL ) {
+        return( NULL );
+    }
+    if( b->v->Lock( b, 0, bytes, &p1, &n1, &p2, &n2, 0 ) == 0 ) {
+        for( i = 0; i < n1; ++i ) {
+            ((BYTE *)p1)[i] = (BYTE)(((i * tone / DS_RATE) & 1) ? 0x98 : 0x68);
+        }
+        b->v->Unlock( b, p1, n1, p2, n2 );
+    }
+    return( b );
+}
+
+/* Game-style effects: a short buffer started again every 100 ms. */
+static DWORD WINAPI ds_shots( LPVOID unused )
+{
+    (void)unused;
+    while( ds_run ) {
+        if( ds_shot != NULL ) {
+            ds_shot->v->SetCurrentPosition( ds_shot, 0 );
+            ds_shot->v->Play( ds_shot, 0, 0, 0 );
+        }
+        Sleep( 100 );
+    }
+    return( 0 );
+}
+
+static void ds_start( void )
+{
+    HMODULE m = LoadLibrary( "DSOUND.DLL" );
+    HRESULT (WINAPI *create)( LPVOID, DS **, LPVOID );
+    HRESULT r = -1;
+    DWORD   id;
+
+    create = m ? (HRESULT (WINAPI *)( LPVOID, DS **, LPVOID ))GetProcAddress( m, "DirectSoundCreate" ) : NULL;
+    if( create != NULL && (r = create( NULL, &ds, NULL )) == 0 ) {
+        r = ds->v->SetCooperativeLevel( ds, wnd, 2 );           /* DSSCL_PRIORITY */
+        ds_loop = ds_buffer( DS_RATE, 440 );
+        ds_shot = ds_buffer( DS_RATE / 8, 1200 );
+        if( ds_loop != NULL ) {
+            ds_loop->v->Play( ds_loop, 0, 0, 1 );                /* DSBPLAY_LOOPING */
+        }
+        ds_run = 1;
+        CreateThread( NULL, 0, ds_shots, NULL, 0, &id );
+    }
+    fprintf( out, "dsound %08lx  loop %d  shot %d\n", (unsigned long)r, ds_loop != NULL, ds_shot != NULL );
+    flush_out();
+}
+
+static void ds_stop( void )
+{
+    ds_run = 0;
+    Sleep( 300 );
+    if( ds_loop != NULL ) {
+        ds_loop->v->Stop( ds_loop );
+        ds_loop->v->Release( ds_loop );
+    }
+    if( ds_shot != NULL ) {
+        ds_shot->v->Release( ds_shot );
+    }
+    if( ds != NULL ) {
+        ds->v->Release( ds );
+    }
+}
+
 static int modex( const char *label )
 {
     DDSURFACEDESC   sd;
@@ -860,6 +1027,24 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
         mx_h = 480;
         mx_bpp = 16;
         i = modex( cmd + 5 );
+        fclose( out );
+        dd->lpVtbl->Release( dd );
+        DestroyWindow( wnd );
+        return( i );
+    }
+    if( strncmp( cmd, "modexd ", 7 ) == 0 ) {
+        ds_start();
+        i = modex( cmd + 7 );
+        ds_stop();
+        fclose( out );
+        dd->lpVtbl->Release( dd );
+        DestroyWindow( wnd );
+        return( i );
+    }
+    if( strncmp( cmd, "modexs ", 7 ) == 0 ) {
+        snd_start();
+        i = modex( cmd + 7 );
+        PlaySound( NULL, NULL, 0 );
         fclose( out );
         dd->lpVtbl->Release( dd );
         DestroyWindow( wnd );

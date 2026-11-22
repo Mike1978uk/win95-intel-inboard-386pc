@@ -8,8 +8,11 @@
  * OpenThread), then every interval suspends that thread, reads CS:EIP and resumes it, for the
  * given seconds or until the program ends. Writes C:\EIPSAMP.TXT: the program's modules
  * (Toolhelp, taken every few seconds while it runs, the last one kept), then one line a sample.
- * A 16-bit CS (the display driver, USER, GDI) is written as is; tools/eipsamp/eipsum.py sums
- * samples by module, and by export within a module.
+ * A 16-bit CS (the display driver, USER, GDI) is written with its selector base; GHEAP16.EXE,
+ * run while the program is still up, names the module and segment behind each 16-bit code
+ * selector (C:\GHEAP16.TXT). Each sample keeps the top STK dwords of its stack, so the caller of
+ * a wait or a thunk can be found. tools/eipsamp/eipsum.py sums samples by module, by export
+ * within a module, and by 16-bit segment.
  *
  * Time a thread spends in a VxD shows at the ring-3 instruction it entered from. The program
  * is not closed at the end: closing a full-screen DirectX program is the caller's (WINCLOSE).
@@ -44,6 +47,11 @@ typedef struct {
 #define CONTEXT_CONTROL 0x00010001
 
 typedef struct {
+    WORD limit, base0;
+    unsigned char base1, flags1, flags2, base2;
+} LDT_ENTRY;
+
+typedef struct {
     DWORD size, id, pid, glbl, proc;
     unsigned char *base;
     DWORD bsize;
@@ -67,6 +75,8 @@ WINAPI DWORD  WaitForSingleObject(HANDLE, DWORD);
 WINAPI DWORD  SuspendThread(HANDLE);
 WINAPI DWORD  ResumeThread(HANDLE);
 WINAPI int    GetThreadContext(HANDLE, CONTEXT *);
+WINAPI int    GetThreadSelectorEntry(HANDLE, DWORD, LDT_ENTRY *);
+WINAPI int    ReadProcessMemory(HANDLE, const void *, void *, DWORD, DWORD *);
 WINAPI HANDLE GetCurrentThread(void);
 WINAPI int    SetThreadPriority(HANDLE, int);
 WINAPI HANDLE CreateToolhelp32Snapshot(DWORD, DWORD);
@@ -81,7 +91,9 @@ __attribute__((dllimport)) int __cdecl wsprintfA(char *, const char *, ...);
 #define WAIT_TIMEOUT      0x102
 #define THREAD_PRIORITY_TIME_CRITICAL 15
 
-#define MAXSAMP 65536
+#define MAXSAMP 16384
+#define STK     12
+#define MAXSEL  256
 #define MAXMOD  64
 #define SNAP_MS 3000
 
@@ -89,6 +101,13 @@ __attribute__((dllimport)) int __cdecl wsprintfA(char *, const char *, ...);
  * traffic to what it measures. */
 static DWORD  s_eip[MAXSAMP];
 static WORD   s_cs[MAXSAMP];
+static WORD   s_ss[MAXSAMP];
+static DWORD  s_stk[MAXSAMP][STK];
+
+/* Selector bases, read once each: a 16-bit stack is read at SS base + SP. */
+static WORD   sel_v[MAXSEL];
+static DWORD  sel_base[MAXSEL], sel_lim[MAXSEL];
+static int    nsel;
 static DWORD  nsamp;
 static MODULEENTRY32 mods[MAXMOD];
 static int    nmods;
@@ -139,6 +158,41 @@ static DWORD num(char **p)
     return v;
 }
 
+static int sel_find(HANDLE th, WORD sel)
+{
+    LDT_ENTRY e;
+    int i;
+
+    for (i = 0; i < nsel; i++)
+        if (sel_v[i] == sel)
+            return i;
+    if (nsel == MAXSEL || !GetThreadSelectorEntry(th, sel, &e))
+        return -1;
+    sel_v[nsel] = sel;
+    sel_base[nsel] = e.base0 | ((DWORD)e.base1 << 16) | ((DWORD)e.base2 << 24);
+    sel_lim[nsel] = e.limit | ((DWORD)(e.flags2 & 15) << 16);
+    if (e.flags2 & 0x80)
+        sel_lim[nsel] = (sel_lim[nsel] << 12) | 0xFFF;
+    return nsel++;
+}
+
+/* The top of the sampled thread's stack; zeros where it cannot be read. */
+static void read_stack(HANDLE proc, HANDLE th, WORD ss, DWORD esp, DWORD *dst, WORD flat_ss)
+{
+    DWORD lin = esp, got = 0;
+    int i;
+
+    for (i = 0; i < STK; i++)
+        dst[i] = 0;
+    if (ss != flat_ss) {
+        int k = sel_find(th, ss);
+        if (k < 0)
+            return;
+        lin = sel_base[k] + (esp & 0xFFFF);
+    }
+    ReadProcessMemory(proc, (const void *)lin, dst, STK * 4, &got);
+}
+
 static void snap_modules(DWORD pid)
 {
     HANDLE h = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, pid);
@@ -171,6 +225,8 @@ void start(void)
     HANDLE f;
     DWORD i;
     unsigned char *z;
+    WORD flat_ss = 0, flat_cs = 0;
+    int k;
 
     out = GetStdHandle(STD_OUTPUT_HANDLE);
     /* Skip our own name (quoted or not), then seconds and interval; the rest is the program. */
@@ -201,6 +257,11 @@ void start(void)
     }
     timeBeginPeriod(1);
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
+    c.flags = CONTEXT_CONTROL;
+    if (GetThreadContext(GetCurrentThread(), &c)) {
+        flat_ss = (WORD)c.ss;
+        flat_cs = (WORD)c.cs;
+    }
     t0 = GetTickCount();
     t_end = t0 + secs * 1000;
     t_snap = t0 + SNAP_MS;
@@ -213,6 +274,10 @@ void start(void)
         if (GetThreadContext(pi.thread, &c) && nsamp < MAXSAMP) {
             s_eip[nsamp] = c.eip;
             s_cs[nsamp] = (WORD)c.cs;
+            s_ss[nsamp] = (WORD)c.ss;
+            read_stack(pi.proc, pi.thread, (WORD)c.ss, c.esp, s_stk[nsamp], flat_ss);
+            if ((WORD)c.cs != flat_cs)
+                sel_find(pi.thread, (WORD)c.cs);
             nsamp++;
         } else {
             failed++;
@@ -224,22 +289,50 @@ void start(void)
         }
     }
     timeEndPeriod(1);
+    /* The program is still up, so the 16-bit heap still holds the segments sampled. */
+    z = (unsigned char *)&si;
+    for (i = 0; i < sizeof si; i++)
+        z[i] = 0;
+    si.cb = sizeof si;
+    {
+        PROCESS_INFORMATION gi;
+        char gcl[] = "C:\\GHEAP16.EXE";
+
+        if (CreateProcessA(0, gcl, 0, 0, 0, 0, 0, 0, &si, &gi)) {
+            WaitForSingleObject(gi.proc, 30000);
+            CloseHandle(gi.thread);
+            CloseHandle(gi.proc);
+        } else {
+            say("EIPSAMP: no C:\\GHEAP16.EXE\r\n");
+        }
+    }
     f = CreateFileA("C:\\EIPSAMP.TXT", 0x40000000, 0, 0, 2, 0x80, 0);
     if (f == INVALID_HANDLE) {
         say("EIPSAMP: cannot write C:\\EIPSAMP.TXT\r\n");
         ExitProcess(1);
     }
-    wsprintfA(b, "EIPSAMP samples %lu failed %lu ms %lu interval %lu\r\n", nsamp, failed,
-              GetTickCount() - t0, iv);
+    wsprintfA(b, "EIPSAMP samples %lu failed %lu ms %lu interval %lu stack %u flat %04x %04x\r\n",
+              nsamp, failed, GetTickCount() - t0, iv, STK, (unsigned)flat_cs, (unsigned)flat_ss);
     wr(f, b);
     say(b);
     for (i = 0; i < (DWORD)nmods; i++) {
         wsprintfA(b, "M %08lx %08lx %s\r\n", (DWORD)mods[i].base, mods[i].bsize, mods[i].name);
         wr(f, b);
     }
-    for (i = 0; i < nsamp; i++) {
-        wsprintfA(b, "S %04x %08lx\r\n", (unsigned)s_cs[i], s_eip[i]);
+    for (k = 0; k < nsel; k++) {
+        wsprintfA(b, "C %04x %08lx %08lx\r\n", (unsigned)sel_v[k], sel_base[k], sel_lim[k]);
         wr(f, b);
+    }
+    for (i = 0; i < nsamp; i++) {
+        DWORD j;
+
+        wsprintfA(b, "S %04x %08lx %04x", (unsigned)s_cs[i], s_eip[i], (unsigned)s_ss[i]);
+        wr(f, b);
+        for (j = 0; j < STK; j++) {
+            wsprintfA(b, " %08lx", s_stk[i][j]);
+            wr(f, b);
+        }
+        wr(f, "\r\n");
     }
     wflush(f);
     CloseHandle(f);
