@@ -53,24 +53,54 @@ controller an XT does not have. ⚠️ **The repo also contains three copies of 
 **Bundled into `VMM32.VXD` by Setup — a file copy after that is silently ignored.** Use a
 pre-monolith image; see *Applying to a bundled VxD* below.
 
-### `VPICD.VXD` — phantom slave PIC
+### `VPICD` — phantom slave PIC, IRQ 2 as IRQ 9, buffered 8259 (standard build)
 
-**[⬇ VPICD_INBOARD.VXD](https://github.com/Mike1978uk/win95-intel-inboard-386pc/raw/master/vxd-patches/osr1/VPICD_INBOARD.VXD)** · 46,543 bytes
+One build for every machine: it gives an XT the most usable IRQs. Three changes to VPICD:
 
-Neuters the phantom slave 8259 at `0xA0`/`0xA1` (36 sites). An XT has one PIC; VPICD assumes two.
-Bundled — pre-monolith route.
+- Neuters the phantom slave 8259 at `0xA0`/`0xA1` (36 sites). An XT has one PIC; VPICD assumes two.
+- Delivers master IRQ 2 as IRQ 9. A card set to IRQ 9 drives slot pin B4, which is IRQ 2 on an XT;
+  stock VPICD treats 2 as the cascade and drops it. This frees IRQ 3 for the T130B
+  ([#42](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/42)).
+- Programs the 8259 with ICW4 `09h`, buffered mode, as IBM's XT BIOS and Intel's IBVPICD do
+  ([#10](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/10)). Background:
+  [`docs/issue10_vpicd_buffered_2026_11_18.md`](docs/issue10_vpicd_buffered_2026_11_18.md),
+  [`docs/issue10_ibvpicd_2026_11_18.md`](docs/issue10_ibvpicd_2026_11_18.md).
 
-### `VPICD` — IRQ 2 as IRQ 9 (optional, frees an IRQ)
+On the real 5160 since 2026-11-18: desktop, 3C509B (IRQ 9 = IRQ 2), T130B on IRQ 3, Zip, floppy,
+keyboard and mouse all work.
 
-**[patch_vmm32_vpicd_irq2.py](vxd-patches/patch_vmm32_vpicd_irq2.py)** (post-monolith, inside `VMM32.VXD`) ·
-[patch_vpicd_irq2.py](vxd-patches/patch_vpicd_irq2.py) → `VPICD_INBOARD_IRQ2.VXD` (pre-monolith)
+**Pre-monolith** (before Setup combines `VMM32.VXD`): drop in `WINDOWS\SYSTEM\VMM32\`.
 
-On top of the fix above. A card set to IRQ 9 drives slot pin B4, which is IRQ 2 on an XT; stock
-VPICD treats 2 as the cascade and drops it. Patched, VPICD delivers master IRQ 2 as IRQ 9. Used to
-move the 3C509B to "IRQ 9" and free IRQ 3 for the T130B
-([#42](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/42)). Needs
-[patcher9x](https://github.com/JHRobotics/patcher9x) to convert `VMM32.VXD` W4 → W3 and back; the
-steps are in the script's header.
+**[⬇ VPICD_INBOARD_BUF.VXD](https://github.com/Mike1978uk/win95-intel-inboard-386pc/raw/master/vxd-patches/VPICD_INBOARD_BUF.VXD)** · md5 `993f23fa96d9b28a75d753aff31ea80f` · 46,543 bytes
+
+**Post-monolith** (installed system): replace `C:\WINDOWS\SYSTEM\VMM32.VXD`. Keep the original as
+`VMM32.IRQ` / `VMM32ORG` for rollback.
+
+**[⬇ VMM32_buffered.VXD](https://github.com/Mike1978uk/win95-intel-inboard-386pc/raw/master/vxd-patches/VMM32_buffered.VXD)** · md5 `ff38c7adc93cd0437f4d9afd6aec6d1a` · 736,302 bytes
+
+This is the VMM32.VXD of the 2026-08-24 network release image (md5 `b89fd581ef3c1011d8a23d9d02a9cd02`,
+release `win95-sound-fixed-v2`, `Win95-OSR1-XT-Inboard386-sound-network-working-20260824.7z`) with the
+two patches below applied; nothing else differs. For any other VMM32, run the scripts in order
+(`patcher9x -force-w3`, then both, then `patcher9x -force-w4`; steps in the script headers):
+[patch_vmm32_vpicd_irq2.py](vxd-patches/patch_vmm32_vpicd_irq2.py) (`Patched: 13`),
+[patch_vmm32_vpicd_buffered.py](vxd-patches/patch_vmm32_vpicd_buffered.py) (`Patched: 6`).
+Pre-monolith: `VPICD_INBOARD.VXD` -> [patch_vpicd_irq2.py](vxd-patches/patch_vpicd_irq2.py) ->
+[patch_vpicd_buffered.py](vxd-patches/patch_vpicd_buffered.py). Needs
+[patcher9x](https://github.com/JHRobotics/patcher9x).
+
+The release image itself still ships the unpatched VMM32.VXD.
+
+**Superseded:** [VPICD_INBOARD.VXD](vxd-patches/osr1/VPICD_INBOARD.VXD) (slave neutered only, not
+buffered) and `VPICD_INBOARD_IRQ2.VXD` (IRQ 2 without buffered mode). Both are the inputs to the
+standard build and are kept as history.
+
+#### IBM 5150 / 1982 ROMs
+
+Solved by Simon on a real IBM 5150 (2026-11-21,
+[#10](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/10)): the 08-24 release image's
+Windows directory, the buffered `VMM32.VXD` in `C:\WINDOWS\SYSTEM`, and **delete `C:\WIN386.SWP`**
+(the image's swap file; Windows makes a new one). That cleared the "Insufficient memory" stop. Why
+deleting the swap file helps is not verified.
 
 ### `VKD.VXD` — keyboard input
 
@@ -456,7 +486,7 @@ fixes. Same `maxPhys` change as the sound driver.
   @andrew-hoffman.
   **With a free IRQ, use [`T130-XT-IRQ3.INF`](drivers/trantor_t130b/T130-XT-IRQ3.INF)** and jumper
   the card to 3: a 1 MB copy to the Zip drops from 18.9 s to 14.3 s on the 5160. IRQ 3 is free only
-  once the network card has moved (see the VPICD IRQ 2 patch above).
+  once the network card has moved (see the VPICD standard build above).
 - **ATI Mach 8 — working as of 2026-08-24** ([#4](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/4)). Nothing to patch: use Windows 95's
   **own** driver, *ATI Graphics Ultra (mach8)* (`ATIM8.DRV` + `ATI.VXD`, `MSDISP.INF` section `[ATI8]`),
   then **set the adapter's configuration manually** in Device Manager (Resources → untick *Use
