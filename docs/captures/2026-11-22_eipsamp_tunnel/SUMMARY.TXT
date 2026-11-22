@@ -1,0 +1,34 @@
+EIPSAMP samples 8084 failed 0 ms 76042 interval 5 stack 12 flat 0137 013f
+flat code selector 0137, 8084 samples, 0 16-bit selectors named of 0 seen
+
+by module:
+    3561   44.0 %  KERNEL32.DLL
+    2763   34.2 %  M8TUNF.EXE
+    1222   15.1 %  DDRAW.DLL
+     538    6.7 %  16-bit CS 003B
+
+by function (top 40), with the top callers:
+    2746   34.0 %  KERNEL32.DLL!ThunkConnect32   <- - 1451, VERSION.DLL+2014 441, VERSION.DLL+12C5 268
+    1728   21.4 %  M8TUNF.EXE+6AC1   <- KERNEL32.DLL!NotifyNLSUserCache 1728
+    1085   13.4 %  DDRAW.DLL!HeapVidMemAllocAligned   <- KERNEL32.DLL!IsBadCodePtr 1082, - 2, KERNEL32.DLL!EnterCriticalSection 1
+     807   10.0 %  KERNEL32.DLL!GetDateFormatA   <- - 807
+     538    6.7 %  16-bit CS 003B   <- - 538
+     524    6.5 %  M8TUNF.EXE+5580   <- KERNEL32.DLL!NotifyNLSUserCache 524
+     499    6.2 %  M8TUNF.EXE+5576   <- KERNEL32.DLL!NotifyNLSUserCache 499
+     137    1.7 %  DDRAW.DLL!RegisterSpecialCase   <- KERNEL32.DLL!IsBadCodePtr 137
+      10    0.1 %  M8TUNF.EXE+6AB0   <- KERNEL32.DLL!NotifyNLSUserCache 10
+       5    0.1 %  KERNEL32.DLL!HeapAlloc   <- DDRAW.DLL!HeapVidMemAllocAligned 5
+       3    0.0 %  KERNEL32.DLL!VirtualQueryEx   <- - 3
+       2    0.0 %  M8TUNF.EXE+5550   <- KERNEL32.DLL!IsDBCSLeadByte 2
+
+KERNEL32 hot spots (rva, 32-byte buckets):
+    1646   20.4 %  +04260
+     871   10.8 %  +042E0
+     806   10.0 %  +082A0
+     213    2.6 %  +02E20
+      15    0.2 %  +04400
+       5    0.1 %  +06D40
+       2    0.0 %  +15780
+       1    0.0 %  +033A0
+       1    0.0 %  +08040
+       1    0.0 %  +15860

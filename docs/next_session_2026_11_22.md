@@ -126,3 +126,21 @@ paths), Sonnet docs/research (no commits); git and driver review once work is pr
   busy throughout, large black areas while redrawing. Most likely paging (not measured; no PERFLOG): not playable on
   this RAM. `lores` restored to 0. Parked on the card; bed parity item: CRT_OFFSET flips at 8 bpp.
 - Next: D14a (name the 16-bit code in the EIP sampler, agent-off run), then move hot paths to 32-bit.
+
+## START HERE (next session): D14a, tunnel under the extended sampler
+
+Goal (owner, 11-22): fewer 32/16-bit switches and Win16-lock waits once a game runs; our 32-bit layer takes
+over what DirectX's runtime does where the interface allows. Desktop drawing stays 16-bit (Win95).
+- `tools/eipsamp` (`f65a267`): EIPSAMP keeps 12 stack dwords a sample and each selector's base, then runs
+  `C:\GHEAP16.EXE` (Win16, Toolhelp) while the program is up: `C:\GHEAP16.TXT` maps 16-bit code selectors
+  to module + segment. Both are on the card. `eipsum.py` names 16-bit samples by NE entry table or Watcom map
+  and gives each function's top callers.
+- Run: card desktop up, nothing else running (MTM left on the taskbar spoiled the 11-22 run: D3DIM never
+  loaded; that capture is in `docs/captures/2026-11-22_eipsamp_tunnel/`, invalid). `v9xctl shell -Command
+  C:\D3DS\EIPRUN.BAT -Detach` (= `cd \D3DS`, `C:\EIPSAMP.EXE 70 5 C:\D3DS\M8TUNF.EXE`), then NO agent
+  traffic for 120 s; Alt+F4; get `C:\EIPSAMP.TXT` and `C:\GHEAP16.TXT`.
+- Summarise: `python tools/eipsamp/eipsum.py EIPSAMP.TXT --gheap GHEAP16.TXT --map DISPLAY=<m8disp.map>
+  <files>`; files from the card's `C:\WINDOWS\SYSTEM`: GDI.EXE, USER.EXE, KRNL386.EXE saved as KERNEL.EXE,
+  DIBENG.DLL, DDRAW16.DLL, KERNEL32.DLL, DDRAW.DLL, D3DIM.DLL (+ M8DD32.DLL). Map: build of `e3544f3`.
+- Then: take over the largest 16-bit/lock share that is ours or the runtime's, card-tested each step.
+- Card: boot sounds on and played 11-22 (#55 watch: no hang since SWAPCOMP out; draft close if it holds).
