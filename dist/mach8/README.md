@@ -10,13 +10,13 @@ and adds a DirectDraw and Direct3D HAL, which ATI's own Windows 95 driver does n
 
 | File | What it is | MD5 |
 |---|---|---|
-| `M8DISP.DRV` | the display driver (16-bit) | `3BE3D08810007C18D8144B4EC66CEF3C` |
-| `M8DD32.DLL` | DirectDraw / Direct3D HAL (32-bit), loaded by the driver | `A3B101749F4BAAFCC15DA9354EF12608` |
+| `M8DISP.DRV` | the display driver (16-bit) | `022233E2095BA2624DFC46674D05C558` |
+| `M8DD32.DLL` | DirectDraw / Direct3D HAL (32-bit), loaded by the driver | `C0777C12F5F0C6427934B52599BF8BF2` |
 | `M8DISP.REG` | selects `m8disp.drv` and adds the 16-bit colour modes | |
 | `ATIM8.REG` | puts ATI's driver back | |
 | `M8D3D.INI` | optional settings for DirectX programs | |
 
-Built from commit `32bfaac` of `drivers/mach8_display/src` (`build.ps1`, Open Watcom). Source licence
+Built from commit `e3544f3` of `drivers/mach8_display/src` (`build.ps1`, Open Watcom). Source licence
 GPL-3.0-or-later; the driver frame is from boxv9x / vmdisp9x (MIT, `drivers/mach8_display/src/LICENSE-MIT.txt`).
 
 ## Requirements
