@@ -115,3 +115,14 @@ To do (owner asked for all of it; not started beyond the survey below):
 
 Standing rule (owner, 11-21): cheaper agents for prescribed work - Haiku commits/pushes (PowerShell, exact
 paths), Sonnet docs/research (no commits); git and driver review once work is proven.
+
+## Results 2026-11-22 afternoon: baselines, MTM
+
+- Clean VGA-half driver (diagnostics stripped, uncommitted; card `m8vgc.drv`, boot 494): desktop 1.012x
+  vs vgb, pixels same in 36/36. No SWAPCOMP: twist 6.84 fps (146 ms), tunnel 327 ms/frame (was ~346).
+- Doom -640x480 black screen did not recur; palette counters showed 12 SetPalette, 0 dropped
+  (`docs/captures/2026-11-22_doom_sound/M8TRACE_pald640.TXT`). BUSY theory disproved.
+- MTM Direct3D on the card, `lores=1`, no sound: reaches a race, one frame every 2-5 minutes, disk
+  busy throughout, large black areas while redrawing. Most likely paging (not measured; no PERFLOG): not playable on
+  this RAM. `lores` restored to 0. Parked on the card; bed parity item: CRT_OFFSET flips at 8 bpp.
+- Next: D14a (name the 16-bit code in the EIP sampler, agent-off run), then move hot paths to 32-bit.

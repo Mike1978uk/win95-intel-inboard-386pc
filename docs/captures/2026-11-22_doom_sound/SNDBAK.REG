@@ -1,0 +1,325 @@
+REGEDIT4
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default]
+@="Windows"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemStart]
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemStart\.Default]
+@="C:\\WINDOWS\\media\\The Microsoft Sound.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemStart\.Current]
+@=""
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemStart\Musica0]
+@="C:\\WINDOWS\\media\\Musica Windows Start.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemStart\Jungle0]
+@="C:\\WINDOWS\\media\\Jungle Windows Start.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemStart\Robotz0]
+@="C:\\WINDOWS\\media\\Robotz Windows Start.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemStart\Utopia0]
+@="C:\\WINDOWS\\media\\Utopia Windows Start.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\.Default]
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\.Default\.Default]
+@="C:\\WINDOWS\\media\\ding.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\.Default\.Current]
+@="C:\\WINDOWS\\media\\ding.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\.Default\Musica0]
+@="C:\\WINDOWS\\media\\Musica Default.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\.Default\Jungle0]
+@="C:\\WINDOWS\\media\\Jungle Default.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\.Default\Robotz0]
+@="C:\\WINDOWS\\media\\Robotz Default.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\.Default\Utopia0]
+@="C:\\WINDOWS\\media\\Utopia Default.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemExit]
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemExit\.Default]
+@="C:\\WINDOWS\\media\\tada.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemExit\.Current]
+@=""
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemExit\Musica0]
+@="C:\\WINDOWS\\media\\Musica Windows Exit.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemExit\Jungle0]
+@="C:\\WINDOWS\\media\\Jungle Windows Exit.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemExit\Robotz0]
+@="C:\\WINDOWS\\media\\Robotz Windows Exit.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemExit\Utopia0]
+@="C:\\WINDOWS\\media\\Utopia Windows Exit.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemHand]
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemHand\.Default]
+@="C:\\WINDOWS\\media\\chord.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemHand\.Current]
+@="C:\\WINDOWS\\media\\chord.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemHand\Musica0]
+@="C:\\WINDOWS\\media\\Musica Critical Stop.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemHand\Jungle0]
+@="C:\\WINDOWS\\media\\Jungle Critical Stop.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemHand\Robotz0]
+@="C:\\WINDOWS\\media\\Robotz Critical Stop.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemHand\Utopia0]
+@="C:\\WINDOWS\\media\\Utopia Critical Stop.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemQuestion]
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemQuestion\.Default]
+@="C:\\WINDOWS\\media\\chord.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemQuestion\.Current]
+@="C:\\WINDOWS\\media\\chord.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemQuestion\Musica0]
+@="C:\\WINDOWS\\media\\Musica Question.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemQuestion\Jungle0]
+@="C:\\WINDOWS\\media\\Jungle Question.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemQuestion\Robotz0]
+@="C:\\WINDOWS\\media\\Robotz Question.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemQuestion\Utopia0]
+@="C:\\WINDOWS\\media\\Utopia Question.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemExclamation]
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemExclamation\.Default]
+@="C:\\WINDOWS\\media\\chord.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemExclamation\.Current]
+@="C:\\WINDOWS\\media\\chord.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemExclamation\Musica0]
+@="C:\\WINDOWS\\media\\Musica Exclamation.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemExclamation\Jungle0]
+@="C:\\WINDOWS\\media\\Jungle Exclamation.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemExclamation\Robotz0]
+@="C:\\WINDOWS\\media\\Robotz Exclamation.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemExclamation\Utopia0]
+@="C:\\WINDOWS\\media\\Utopia Exclamation.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemAsterisk]
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemAsterisk\.Default]
+@="C:\\WINDOWS\\media\\chord.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemAsterisk\.Current]
+@="C:\\WINDOWS\\media\\chord.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemAsterisk\Musica0]
+@="C:\\WINDOWS\\media\\Musica Asterisk.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemAsterisk\Jungle0]
+@="C:\\WINDOWS\\media\\Jungle Asterisk.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemAsterisk\Robotz0]
+@="C:\\WINDOWS\\media\\Robotz Asterisk.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\SystemAsterisk\Utopia0]
+@="C:\\WINDOWS\\media\\Utopia Asterisk.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\Open]
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\Open\.Default]
+@=""
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\Open\.Current]
+@=""
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\Open\Musica0]
+@=""
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\Open\Jungle0]
+@=""
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\Open\Robotz0]
+@=""
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\Open\Utopia0]
+@=""
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\Close]
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\Close\.Default]
+@=""
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\Close\.Current]
+@=""
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\Close\Musica0]
+@=""
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\Close\Jungle0]
+@=""
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\Close\Robotz0]
+@=""
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\Close\Utopia0]
+@=""
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\Maximize]
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\Maximize\.Default]
+@=""
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\Maximize\.Current]
+@=""
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\Maximize\Musica0]
+@="C:\\WINDOWS\\media\\Musica Maximize.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\Maximize\Jungle0]
+@="C:\\WINDOWS\\media\\Jungle Maximize.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\Maximize\Robotz0]
+@="C:\\WINDOWS\\media\\Robotz Maximize.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\Maximize\Utopia0]
+@="C:\\WINDOWS\\media\\Utopia Maximize.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\Minimize]
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\Minimize\.Default]
+@=""
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\Minimize\.Current]
+@=""
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\Minimize\Musica0]
+@="C:\\WINDOWS\\media\\Musica Minimize.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\Minimize\Jungle0]
+@="C:\\WINDOWS\\media\\Jungle Minimize.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\Minimize\Robotz0]
+@="C:\\WINDOWS\\media\\Robotz Minimize.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\Minimize\Utopia0]
+@="C:\\WINDOWS\\media\\Utopia Minimize.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\RestoreDown]
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\RestoreDown\.Default]
+@=""
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\RestoreDown\.Current]
+@=""
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\RestoreDown\Musica0]
+@="C:\\WINDOWS\\media\\Musica Restore Down.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\RestoreDown\Jungle0]
+@="C:\\WINDOWS\\media\\Jungle Restore Down.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\RestoreDown\Robotz0]
+@="C:\\WINDOWS\\media\\Robotz Restore Down.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\RestoreDown\Utopia0]
+@="C:\\WINDOWS\\media\\Utopia Restore Down.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\RestoreUp]
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\RestoreUp\.Default]
+@=""
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\RestoreUp\.Current]
+@=""
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\RestoreUp\Musica0]
+@="C:\\WINDOWS\\media\\Musica Restore Up.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\RestoreUp\Jungle0]
+@="C:\\WINDOWS\\media\\Jungle Restore Up.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\RestoreUp\Robotz0]
+@="C:\\WINDOWS\\media\\Robotz Restore Up.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\RestoreUp\Utopia0]
+@="C:\\WINDOWS\\media\\Utopia Restore Up.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\AppGPFault]
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\AppGPFault\.Default]
+@=""
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\AppGPFault\.Current]
+@=""
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\AppGPFault\Musica0]
+@="C:\\WINDOWS\\media\\Musica Error.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\AppGPFault\Jungle0]
+@="C:\\WINDOWS\\media\\Jungle Error.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\AppGPFault\Robotz0]
+@="C:\\WINDOWS\\media\\Robotz Error.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\AppGPFault\Utopia0]
+@="C:\\WINDOWS\\media\\Utopia Error.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\MenuCommand]
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\MenuCommand\.Default]
+@=""
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\MenuCommand\.Current]
+@=""
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\MenuCommand\Musica0]
+@="C:\\WINDOWS\\media\\Musica Menu Command.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\MenuCommand\Jungle0]
+@="C:\\WINDOWS\\media\\Jungle Menu Command.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\MenuCommand\Robotz0]
+@="C:\\WINDOWS\\media\\Robotz Menu Command.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\MenuCommand\Utopia0]
+@="C:\\WINDOWS\\media\\Utopia Menu Command.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\MenuPopup]
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\MenuPopup\.Default]
+@=""
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\MenuPopup\.Current]
+@=""
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\MenuPopup\Musica0]
+@="C:\\WINDOWS\\media\\Musica Menu Popup.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\MenuPopup\Jungle0]
+@="C:\\WINDOWS\\media\\Jungle Menu Popup.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\MenuPopup\Robotz0]
+@="C:\\WINDOWS\\media\\Robotz Menu Popup.wav"
+
+[HKEY_CURRENT_USER\AppEvents\Schemes\Apps\.Default\MenuPopup\Utopia0]
+@="C:\\WINDOWS\\media\\Utopia Menu Popup.wav"
+
