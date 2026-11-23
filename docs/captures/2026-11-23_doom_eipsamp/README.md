@@ -19,12 +19,20 @@ Files: `EIPSAMP.TXT`, `GHEAP16.TXT`, `PERFLOG.CSV` (label `T2doom`).
 - From ~138 s the main thread does not leave DSOUND: 2,367 samples on three stores of DSOUND's memset
   (`DSOUND.DLL+2FE04/07/0A`, a fill of 32 bytes a pass), called from `+30518` (fill a buffer of `[ecx+8]`
   bytes at `[ecx+0xC]` with silence, 80h or 00h), reached from `+395D7` (a play/stop state method).
-- Not paging: page-ins ~2/s over those 45 s. Even a 180 MB fill would be done in that time, and no sample
-  falls back into Doom, so it is one call whose stores are each that slow: every store trapping is the
-  reading that fits, not proven. PERFLOG got no row for 29 s in that window (other threads starved).
-- After the run: CPU 100 % (M8IDLE); screenshot fails (full screen). Doom's quit keys were sent at ~15:05;
-  the agent's port then refused connections for 5+ minutes: card hung, owner asked to restart.
+- Not paging: page-ins ~2/s over those 45 s. PERFLOG got no row for 29 s in that window.
+- **Cause of the stall (owner's photo of the screen):** a fault dialog, title `Msgsrv32`, "An error has
+  occurred in your program" with Close/Ignore (the Win16 fault dialog), over Doom, sound looping. MSGSRV32
+  hosts the 16-bit multimedia callbacks (MMSYSTEM, the SB Pro wave driver), so the fault is in the 16-bit
+  sound path; DMA replays the last buffer once its callback is dead. Close left an hourglass: power cycle.
+  The "every store trapping" reading is withdrawn: Doom's main thread sat in the fill behind the fault.
 - Likely the 11-22 "sound loop, then hang" (with SWAPCOMP out this time), and possibly #55.
 
-Next: where the DSOUND buffer lives (its address against the VxD-trapped ranges) and what traps a store
-to it; a run with `-nosound` as the control.
+## Repeats (boot 508, 509), Dr. Watson installed (`C:\WINDOWS\DRWATSON.EXE`, from `WIN95_20.CAB`)
+
+| Run | Sampler | Result |
+|---|---|---|
+| `T2E` | off | 7 min of play, no fault, quit from the menu cleanly |
+| `T2F` | EIPSAMP 200 s | no fault; DSOUND 55 % at 140-158 s then 1 %: the fill is a normal phase |
+
+The fault is intermittent (1 run in 3 today) and not tied to the sampler. Dr. Watson stays in the
+start-up BATs so the next fault leaves a log naming the module.

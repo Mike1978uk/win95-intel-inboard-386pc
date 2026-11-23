@@ -17,14 +17,16 @@ steady frames they are ~3-4 % of the main thread. Steady frame: our M8DD32 ~61 %
 Afternoon (T3a, T3b): steady tunnel is ~320 ms a frame (draw calls ~77, Flip ~87, rest ~155); paging is a
 start-up cost too (~4 page-ins/s steady). The "0.9 s a frame" was the start-up phase, withdrawn. T3b (corner
 conversion once) took draw calls to ~72 ms; card boots `M8CW.DRV` with it (boot 506+).
-**Card hung at ~15:05 after the Doom run (T2); the owner restarts it.**
+Doom hang (T2) was a Win16 fault dialog in `Msgsrv32` (16-bit sound callbacks), sound looping, power
+cycle: SWAPCOMP is not the cause (it was out). Two repeats (with and without the sampler) did not fault:
+intermittent. Dr. Watson is on the card to name the module next time.
 
 ## Owner's task list (agreed 11-23), revised by today's numbers
 
 | # | Task | State |
 |---|---|---|
 | T1 | D14a sampler on tunnel | done |
-| T2 | Sampler on Doom 95 + sound, and twist | Doom done (`captures/2026-11-23_doom_eipsamp/README.md`): game time is 16-bit GDI/DIB in our driver; then the main thread stuck 45 s in DSOUND's silence fill, card hung after. Next: the trapped buffer, `-nosound` control. Twist open |
+| T2 | Sampler on Doom 95 + sound, and twist | Doom done (`captures/2026-11-23_doom_eipsamp/README.md`): game time is 16-bit GDI/DIB in our driver; the 45 s in DSOUND was Doom behind a `Msgsrv32` fault dialog (16-bit sound path), 1 run in 3. Next: Dr. Watson log of the fault, then `-nosound` runs. Twist open |
 | T3 | Take over the largest 16-bit share | F1 built; F2/F3 shorten start-up only, so measure a GDI-heavy title first |
 | T3a | Paging during tunnel | done: start-up only (~4/s steady). Agent-off run not done (needs the owner at the card) |
 | T3b | Corner conversion once in `m8d3d_draw_on` | done: draw calls 77 -> 72 ms/frame, exact. Left: clipped corners' `fixf` round trip (2 %) |
