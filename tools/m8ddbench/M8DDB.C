@@ -886,6 +886,13 @@ static void ds_start( int mode )
 
     create = m ? (HRESULT (WINAPI *)( LPVOID, DS **, LPVOID ))GetProcAddress( m, "DirectSoundCreate" ) : NULL;
     if( create != NULL && (r = create( NULL, &ds, NULL )) == 0 ) {
+        DWORD caps[24];                                         /* DSCAPS, DirectX 5+ */
+
+        memset( caps, 0, sizeof( caps ) );
+        caps[0] = sizeof( caps );
+        /* EMULDRIVER (20h) set: DSOUND's own emulation, no driver of ours */
+        fprintf( out, "dsound caps %08lx  flags %08lx\n",
+                 (unsigned long)ds->v->GetCaps( ds, caps ), (unsigned long)caps[1] );
         r = ds->v->SetCooperativeLevel( ds, wnd, 2 );           /* DSSCL_PRIORITY */
         ds_primary( mode == 1 || mode == 2, 2 );
         if( mode == 2 ) {
