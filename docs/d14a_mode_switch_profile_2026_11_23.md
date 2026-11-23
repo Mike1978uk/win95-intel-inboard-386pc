@@ -61,16 +61,61 @@ the baseline after 2.4 h uptime with heavy paging. Frame rate not yet measured (
 
 ## Frame rate and paging (F1, `TUNB.LST`, agent idle in the boot)
 
-107 flips between census readings 97 s apart: ~0.9 s a frame of wall time, while the driver's own time
+(Withdrawn by T3a below: this window was the start-up paging phase.) 107 flips between census readings 97 s apart: ~0.9 s a frame of wall time, while the driver's own time
 (`ours`) is 75 ms a flip, as on 11-09. NOAG.TXT shows 0 KB free and ~10 MB paged throughout, and
 `SLEEP 30` takes 71 s. So the wall frame is mostly not our CPU work: paging (or other threads).
 A sample is where the suspended thread stands, so a thread waiting on a page fault counts at the
 faulting instruction: part of "our code" above may be page-fault waits in it. Next: PERFLOG page-ins
 alongside the sampler, and the same run with the agent out of the boot (11-09 conditions).
 
+## T3a: wall time and paging, measured (afternoon)
+
+M8CENSUS now writes `now` (the performance counter), so wall time between readings is known;
+`captures/2026-11-23_eipsamp_tunnel/frames.py` prints wall, draw calls (`ours`), Flip and the rest a frame.
+Runs: fresh restart, M8IDLE quiet, tunnel started from a BAT with PERFLOG (2 s), census every ~60 s, no sampler.
+
+| Run (F1 build, `t3d`) | wall ms/frame | draw calls | Flip | rest | page-ins/s |
+|---|---|---|---|---|---|
+| first ~100 s (start-up) | 476 | 79 | 84 | 312 | ~50 |
+| steady (two intervals) | 319, 325 | 79, 77 | 86, 89 | 154, 158 | ~4 |
+
+- **Steady tunnel is ~320 ms a frame (3.1 fps)**, as on 11-22 (327). The "0.9 s a frame" above was the
+  start-up phase plus `SLEEP` stretched by paging; it is withdrawn. Paging is heavy for the first ~100 s
+  (5,600 -> 8,300 page-ins), then ~4/s: not the steady limit.
+- Of a steady frame, ~165 ms is our draw calls plus Flip; ~155 ms is outside them (D3DIM, the program, other
+  threads). D3DIM's samples sit in one block (`D3DIM.DLL+55000..57000`), not yet named.
+- Under EIPSAMP the driver's own times triple (draw 280 ms, Flip 215 ms a frame): the sampler's
+  suspend/resume every 5 ms costs that much. Sample shares stay usable; absolute times from a sampled run do not.
+- `start /m` (minimised) tunnel stalls after one primitive: never start a DirectX program minimised.
+  Likely the TUNA "counters froze" case too (not checked).
+
+## T3b: corner conversion once (built, card boot 506)
+
+`m8d3d_draw_on` read each corner's x and y twice through `m8d3d_fround` (at the drawing precision and at
+1/8 px for facing). Now once, cut toward zero at 1/16 px (`m8d3d_ftrunc16`), and both roundings come from that
+(`m8d3d_r16`, a macro). Rounding a value cut at a finer precision is exact: checked against `m8d3d_fround`
+for every float below 2048 at all three precisions used (2,650,800,128 cases, 0 differ).
+
+| | F1 (`t3d`) | T3b (`t3i`) |
+|---|---|---|
+| draw calls, ms/frame (3 steady intervals) | 79, 77, 88 | 73, 73, 70 |
+| conversion share of the main thread (EIPSAMP) | 6.6 % `fround` | 3.8 % (`fround` 2.1 for textures, `ftrunc16` 1.7) |
+| desktop bench vs `card_dc1` | | pixels same in all tests, both runs |
+
+- First build kept `m8d3d_r16` as a function (Watcom did not inline it): 9.8 % against 10.8 % of our code,
+  inside noise. As a macro: about 6-8 ms off the draw calls a frame (~8 %). Wall frame 307-326 ms, inside
+  its own run-to-run spread.
+- Desktop bench `cursor_move` is bimodal across builds (~400 or ~1,200 ops/s; vgh 1,187, cw 1,122): not this change.
+- Left: clipped corners still go integer -> float bits (`fixf`, 2.0 %) -> integer; `draw_on` would need the
+  integer corners passed in, and the split path still reads floats.
+
+Retrospective across the stack: `m8dos` and `m8cube32` (DOS) take integer corners already; DirectXT's
+Direct3D is to run on this same `m8d3d.c`, so it inherits it. The rule for any new float path: convert a
+value once at the finest precision needed, cut toward zero, and round from that.
+
 ## Open
 
 - Baseline census (`TUNA.LST`, card `e3544f3` after 2.4 h up): 180 flips at +77 s, no change by +125 s;
   the tunnel stopped flipping or the counters stopped. Unexplained.
-- The 11-22 figure "tunnel 327 ms/frame" is not reproduced by this method; how it was taken is not recorded.
+- The 11-22 figure "tunnel 327 ms/frame": reproduced by `t3d` (319-325 ms steady).
 - Which thread holds the lock during the first-frames phase (sampler records the main thread only).

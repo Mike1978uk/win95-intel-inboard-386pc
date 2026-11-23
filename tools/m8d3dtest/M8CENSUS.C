@@ -114,6 +114,13 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
         const DWORD     *wh = (const DWORD *)find_export( "m8d3d_flip_why" );
 
         QueryPerformanceFrequency( &f );
+        {
+            /* The wall time between two readings, for frames a second against the time in our calls. */
+            LARGE_INTEGER   now;
+
+            QueryPerformanceCounter( &now );
+            fprintf( o, "now %lu %lu\n", (unsigned long)now.HighPart, (unsigned long)now.LowPart );
+        }
         if( wh != NULL ) {
             fprintf( o, "flipwhy gdi %lu slow %lu unknown %lu cardunknown %lu boxes %lu colour %lu\n", (unsigned long)wh[0],
                      (unsigned long)wh[1], (unsigned long)wh[2], (unsigned long)wh[3], (unsigned long)wh[4], (unsigned long)wh[5] );

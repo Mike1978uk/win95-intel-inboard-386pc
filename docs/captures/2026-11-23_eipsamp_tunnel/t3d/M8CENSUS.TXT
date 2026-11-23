@@ -1,0 +1,135 @@
+== M8CENSUS t3d-0
+now 0 246472744
+flipwhy gdi 0 slow 0 unknown 0 cardunknown 0 boxes 0 colour 0
+clock 1193180 ours 0 flip 0 engine 0 flips 0 pagewait 0
+writes 0 pieces 0
+fifo full reads 0 waits 0 sending 0 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 0 frames 0 left 0 ticks 0 fullreads 0 sent 0 cut 0 lockkept 0 ramfront 0 ramunknown 0 ramflush 0 notours 0 partclear 0 overlays 0 sent 0
+8bpp locks 0 noread 0 wholesurf 0 pxread 0 unlocks 0 pxsent 0 xferticks 0 flips 0 pageflushes 0
+8bpp flush ticks all 0 pixels 0 maskbuild 0 masksend 0 fills 0 runs pixels 0 masks 0 maskfail 0
+8bpp flush ticks epoch 0 rowhash 0 pageins build 0 flush 0 buildpx 0 spans 0 find 0 send 0
+callbacks pageins lock 0 unlock 0 blt 0 flip 0 ticks lock 0 unlock 0 blt 0 flip 0
+8bpp clears part 0 whole 0
+16bpp lockruns frames 0 runs 0 rows 0 rows<=4 0 ticks 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 0 with Z 0  targets set 0  textures 0
+calls exec 0 one 0 indexed 0 prims 0  other ops 0
+tris 0 textured 0 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 0
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):
+triangle size, longer side from
+triangles a call from
+state pairs a block from
+texture longer side from
+states set (type:times/values seen):
+GetDriverInfo asked:  d7b70ee0:2  efd60cc0:2  406b2f00:2  efd60cc1:2  b1122b40:2  efd60cc2:2  0ba584e1:2  ddf41230:2  80863800:2  93869880:2  7de41f80:2  ffaa7540:2  3b8a0466:2
+
+== M8CENSUS t3d-1
+now 0 364005551
+flipwhy gdi 1 slow 1 unknown 0 cardunknown 1 boxes 0 colour 0
+clock 1193180 ours 19549486 flip 20838634 engine 20626714 flips 207 pagewait 0
+writes 1136826 pieces 17102
+fifo full reads 119556 waits 25267 sending 3639295 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 1 frames 208 left 1 ticks 8676 fullreads 8087 sent 732495 cut 0 lockkept 0 ramfront 0 ramunknown 0 ramflush 0 notours 0 partclear 0 overlays 0 sent 0
+8bpp locks 0 noread 0 wholesurf 0 pxread 0 unlocks 0 pxsent 0 xferticks 0 flips 0 pageflushes 0
+8bpp flush ticks all 0 pixels 0 maskbuild 0 masksend 0 fills 0 runs pixels 0 masks 0 maskfail 0
+8bpp flush ticks epoch 0 rowhash 0 pageins build 0 flush 0 buildpx 0 spans 0 find 0 send 0
+callbacks pageins lock 0 unlock 0 blt 0 flip 113 ticks lock 0 unlock 0 blt 0 flip 20989289
+8bpp clears part 0 whole 0
+16bpp lockruns frames 0 runs 0 rows 0 rows<=4 0 ticks 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 1 with Z 0  targets set 0  textures 1
+calls exec 0 one 0 indexed 571 prims 1037  other ops 0
+tris 111505 textured 111505 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 16898
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):  4:654  6:2837
+triangle size, longer side from  1:412  2:954  4:13807  8:31718  16:25605  32:29218  64:9235  128:556
+triangles a call from  1:14  2:1273  4:1639  8:129  16:227  32:73  64:1  128:7  256:39  512:89
+state pairs a block from  1:3750  4:205  16:1  64:1
+texture longer side from  256:1
+states set (type:times/values seen):  1:2/3  2:207/1  3:1/2  4:208/3  5:2/3  6:2/3  7:1/1  8:1/8  9:207/4  10:1/1  11:1/1  12:1/2000  13:1/80000000  14:1/2  15:1/1  16:1/2  17:2/6  18:2/6  19:1/4  20:1/2  21:1/4  22:1/8  23:1/10  24:1/1  25:1/100  26:207/1  27:2/1  28:207/1  29:207/1  30:1/1  31:1/1  32:1/1  33:1/1  34:2/80000001  35:1/1  36:1/1  37:1/80000000  38:1/80000000  39:1/1  40:1/1  41:1/1  43:1/1  44:1/2  45:1/2  46:1/1  47:1/1  48:1/1  49:1/2  64:1/1  65:1/1  66:1/1  67:1/1  68:1/1  69:1/1  70:1/1  71:1/1  72:1/1  73:1/1  74:1/1  75:1/1  76:1/1  77:1/1  78:1/1  79:1/1  80:1/1  81:1/1  82:1/1  83:1/1  84:1/1  85:1/1  86:1/1  87:1/1  88:1/1  89:1/1  90:1/1  91:1/1  92:1/1  93:1/1  94:1/1  95:1/1
+GetDriverInfo asked:  d7b70ee0:3  efd60cc0:3  406b2f00:3  efd60cc1:3  b1122b40:3  efd60cc2:3  0ba584e1:3  ddf41230:3  80863800:3  93869880:3  7de41f80:4  ffaa7540:4  3b8a0466:4
+
+== M8CENSUS t3d-2
+now 0 454149314
+flipwhy gdi 1 slow 1 unknown 0 cardunknown 1 boxes 0 colour 0
+clock 1193180 ours 41824615 flip 45117454 engine 44905534 flips 444 pagewait 0
+writes 2546021 pieces 37664
+fifo full reads 278547 waits 58668 sending 8116949 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 1 frames 445 left 1 ticks 18753 fullreads 17445 sent 1604972 cut 0 lockkept 0 ramfront 0 ramunknown 0 ramflush 0 notours 0 partclear 0 overlays 0 sent 0
+8bpp locks 0 noread 0 wholesurf 0 pxread 0 unlocks 0 pxsent 0 xferticks 0 flips 0 pageflushes 0
+8bpp flush ticks all 0 pixels 0 maskbuild 0 masksend 0 fills 0 runs pixels 0 masks 0 maskfail 0
+8bpp flush ticks epoch 0 rowhash 0 pageins build 0 flush 0 buildpx 0 spans 0 find 0 send 0
+callbacks pageins lock 0 unlock 0 blt 0 flip 142 ticks lock 0 unlock 0 blt 0 flip 45441049
+8bpp clears part 0 whole 0
+16bpp lockruns frames 0 runs 0 rows 0 rows<=4 0 ticks 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 1 with Z 0  targets set 0  textures 1
+calls exec 0 one 0 indexed 1183 prims 2257  other ops 0
+tris 244361 textured 244361 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 36795
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):  4:1358  6:6183
+triangle size, longer side from  1:759  2:1691  4:31084  8:70467  16:56836  32:62854  64:19478  128:1186  256:6
+triangles a call from  1:33  2:2767  4:3572  8:241  16:459  32:165  64:2  128:19  256:87  512:196
+state pairs a block from  1:8171  4:442  16:1  64:1
+texture longer side from  256:1
+states set (type:times/values seen):  1:2/3  2:444/1  3:1/2  4:445/3  5:2/3  6:2/3  7:1/1  8:1/8  9:444/4  10:1/1  11:1/1  12:1/2000  13:1/80000000  14:1/2  15:1/1  16:1/2  17:2/6  18:2/6  19:1/4  20:1/2  21:1/4  22:1/8  23:1/10  24:1/1  25:1/100  26:444/1  27:2/1  28:444/1  29:444/1  30:1/1  31:1/1  32:1/1  33:1/1  34:2/80000001  35:1/1  36:1/1  37:1/80000000  38:1/80000000  39:1/1  40:1/1  41:1/1  43:1/1  44:1/2  45:1/2  46:1/1  47:1/1  48:1/1  49:1/2  64:1/1  65:1/1  66:1/1  67:1/1  68:1/1  69:1/1  70:1/1  71:1/1  72:1/1  73:1/1  74:1/1  75:1/1  76:1/1  77:1/1  78:1/1  79:1/1  80:1/1  81:1/1  82:1/1  83:1/1  84:1/1  85:1/1  86:1/1  87:1/1  88:1/1  89:1/1  90:1/1  91:1/1  92:1/1  93:1/1  94:1/1  95:1/1
+GetDriverInfo asked:  d7b70ee0:3  efd60cc0:3  406b2f00:3  efd60cc1:3  b1122b40:3  efd60cc2:3  0ba584e1:3  ddf41230:3  80863800:3  93869880:3  7de41f80:4  ffaa7540:4  3b8a0466:4
+
+== M8CENSUS t3d-3
+now 0 545148500
+flipwhy gdi 1 slow 1 unknown 0 cardunknown 1 boxes 0 colour 0
+clock 1193180 ours 63539009 flip 70013631 engine 69801711 flips 679 pagewait 0
+writes 3982434 pieces 59665
+fifo full reads 462584 waits 95811 sending 13242166 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 1 frames 680 left 1 ticks 29109 fullreads 27105 sent 2447847 cut 0 lockkept 0 ramfront 0 ramunknown 0 ramflush 0 notours 0 partclear 0 overlays 0 sent 0
+8bpp locks 0 noread 0 wholesurf 0 pxread 0 unlocks 0 pxsent 0 xferticks 0 flips 0 pageflushes 0
+8bpp flush ticks all 0 pixels 0 maskbuild 0 masksend 0 fills 0 runs pixels 0 masks 0 maskfail 0
+8bpp flush ticks epoch 0 rowhash 0 pageins build 0 flush 0 buildpx 0 spans 0 find 0 send 0
+callbacks pageins lock 0 unlock 0 blt 0 flip 196 ticks lock 0 unlock 0 blt 0 flip 70842607
+8bpp clears part 0 whole 0
+16bpp lockruns frames 0 runs 0 rows 0 rows<=4 0 ticks 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 1 with Z 0  targets set 0  textures 1
+calls exec 0 one 0 indexed 1794 prims 3437  other ops 0
+tris 375889 textured 375889 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 55353
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):  4:2058  6:9458
+triangle size, longer side from  1:1083  2:2376  4:48833  8:109478  16:87347  32:96575  64:28660  128:1531  256:6
+triangles a call from  1:56  2:4244  4:5457  8:350  16:670  32:276  64:3  128:25  256:125  512:310
+state pairs a block from  1:12478  4:678  16:1  64:1
+texture longer side from  256:1
+states set (type:times/values seen):  1:2/3  2:680/1  3:1/2  4:681/3  5:2/3  6:2/3  7:1/1  8:1/8  9:680/4  10:1/1  11:1/1  12:1/2000  13:1/80000000  14:1/2  15:1/1  16:1/2  17:2/6  18:2/6  19:1/4  20:1/2  21:1/4  22:1/8  23:1/10  24:1/1  25:1/100  26:680/1  27:2/1  28:680/1  29:680/1  30:1/1  31:1/1  32:1/1  33:1/1  34:2/80000001  35:1/1  36:1/1  37:1/80000000  38:1/80000000  39:1/1  40:1/1  41:1/1  43:1/1  44:1/2  45:1/2  46:1/1  47:1/1  48:1/1  49:1/2  64:1/1  65:1/1  66:1/1  67:1/1  68:1/1  69:1/1  70:1/1  71:1/1  72:1/1  73:1/1  74:1/1  75:1/1  76:1/1  77:1/1  78:1/1  79:1/1  80:1/1  81:1/1  82:1/1  83:1/1  84:1/1  85:1/1  86:1/1  87:1/1  88:1/1  89:1/1  90:1/1  91:1/1  92:1/1  93:1/1  94:1/1  95:1/1
+GetDriverInfo asked:  d7b70ee0:3  efd60cc0:3  406b2f00:3  efd60cc1:3  b1122b40:3  efd60cc2:3  0ba584e1:3  ddf41230:3  80863800:3  93869880:3  7de41f80:4  ffaa7540:4  3b8a0466:4
+
+== M8CENSUS t3d-4
+now 0 643652326
+flipwhy gdi 1 slow 1 unknown 0 cardunknown 1 boxes 0 colour 0
+clock 1193180 ours 84216165 flip 93245273 engine 93033353 flips 877 pagewait 0
+writes 5145153 pieces 77650
+fifo full reads 600705 waits 123949 sending 17446955 forced 0
+phases 0 0 0 0 0 0 0 0
+phasesend 0 0 0 0 0 0 0 0
+feed open 1 frames 878 left 1 ticks 37778 fullreads 35195 sent 3159318 cut 0 lockkept 0 ramfront 0 ramunknown 0 ramflush 0 notours 0 partclear 0 overlays 0 sent 0
+8bpp locks 0 noread 0 wholesurf 0 pxread 0 unlocks 0 pxsent 0 xferticks 0 flips 0 pageflushes 0
+8bpp flush ticks all 0 pixels 0 maskbuild 0 masksend 0 fills 0 runs pixels 0 masks 0 maskfail 0
+8bpp flush ticks epoch 0 rowhash 0 pageins build 0 flush 0 buildpx 0 spans 0 find 0 send 0
+callbacks pageins lock 0 unlock 0 blt 0 flip 274 ticks lock 0 unlock 0 blt 0 flip 94212533
+8bpp clears part 0 whole 0
+16bpp lockruns frames 0 runs 0 rows 0 rows<=4 0 ticks 0
+sizes 0 0 0 0 joined 0 0 colours 0
+contexts 1 with Z 0  targets set 0  textures 1
+calls exec 0 one 0 indexed 2277 prims 4410  other ops 0
+tris 483080 textured 483080 z 0 blend 0 alphatest 0 colorkey 0 fog 0 perspective 0 clipped 71311
+primitive types (1 point, 2 line, 3 strip, 4 list, 5 tri strip, 6 fan):  4:2612  6:12128
+triangle size, longer side from  1:1329  2:2895  4:64635  8:141718  16:112538  32:122381  64:35830  128:1748  256:6
+triangles a call from  1:73  2:5438  4:7001  8:434  16:853  32:341  64:3  128:35  256:162  512:400
+state pairs a block from  1:15996  4:875  16:1  64:1
+texture longer side from  256:1
+states set (type:times/values seen):  1:2/3  2:877/1  3:1/2  4:878/3  5:2/3  6:2/3  7:1/1  8:1/8  9:877/4  10:1/1  11:1/1  12:1/2000  13:1/80000000  14:1/2  15:1/1  16:1/2  17:2/6  18:2/6  19:1/4  20:1/2  21:1/4  22:1/8  23:1/10  24:1/1  25:1/100  26:877/1  27:2/1  28:877/1  29:877/1  30:1/1  31:1/1  32:1/1  33:1/1  34:2/80000001  35:1/1  36:1/1  37:1/80000000  38:1/80000000  39:1/1  40:1/1  41:1/1  43:1/1  44:1/2  45:1/2  46:1/1  47:1/1  48:1/1  49:1/2  64:1/1  65:1/1  66:1/1  67:1/1  68:1/1  69:1/1  70:1/1  71:1/1  72:1/1  73:1/1  74:1/1  75:1/1  76:1/1  77:1/1  78:1/1  79:1/1  80:1/1  81:1/1  82:1/1  83:1/1  84:1/1  85:1/1  86:1/1  87:1/1  88:1/1  89:1/1  90:1/1  91:1/1  92:1/1  93:1/1  94:1/1  95:1/1
+GetDriverInfo asked:  d7b70ee0:3  efd60cc0:3  406b2f00:3  efd60cc1:3  b1122b40:3  efd60cc2:3  0ba584e1:3  ddf41230:3  80863800:3  93869880:3  7de41f80:4  ffaa7540:4  3b8a0466:4
+

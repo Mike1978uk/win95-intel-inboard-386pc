@@ -12,8 +12,11 @@ Earlier: `docs/next_session_2026_11_22.md`. Today's findings: `docs/d14a_mode_sw
 ## D14a result
 
 Mode switches and Win16-lock waits are a start-up cost (load, mode set, first frames), not a steady one: in
-steady frames they are ~3-4 % of the main thread. Steady frame: our M8DD32 ~61 %, D3DIM ~27 %. But wall time
-is ~0.9 s a frame against our 75 ms, with 0 KB free and ~10 MB paged: paging is the next thing to measure.
+steady frames they are ~3-4 % of the main thread. Steady frame: our M8DD32 ~61 %, D3DIM ~27 %.
+
+Afternoon (T3a, T3b): steady tunnel is ~320 ms a frame (draw calls ~77, Flip ~87, rest ~155); paging is a
+start-up cost too (~4 page-ins/s steady). The "0.9 s a frame" was the start-up phase, withdrawn. T3b (corner
+conversion once) took draw calls to ~72 ms; card boots `M8CW.DRV` with it (boot 506+).
 
 ## Owner's task list (agreed 11-23), revised by today's numbers
 
@@ -22,8 +25,9 @@ is ~0.9 s a frame against our 75 ms, with 0 KB free and ~10 MB paged: paging is 
 | T1 | D14a sampler on tunnel | done |
 | T2 | Sampler on Doom 95 + sound, and twist | next |
 | T3 | Take over the largest 16-bit share | F1 built; F2/F3 shorten start-up only, so measure a GDI-heavy title first |
-| T3a | **Paging during tunnel:** PERFLOG page-ins beside EIPSAMP; agent out of the boot (AGENTOFF) | next, cheapest |
-| T3b | Corner conversion once in `m8d3d_draw_on` (2x `fround` a coordinate), clipped corners kept as integers (`fixf` round trip) | ~8.7 % of the steady main thread; must keep pixels exact |
+| T3a | Paging during tunnel | done: start-up only (~4/s steady). Agent-off run not done (needs the owner at the card) |
+| T3b | Corner conversion once in `m8d3d_draw_on` | done: draw calls 77 -> 72 ms/frame, exact. Left: clipped corners' `fixf` round trip (2 %) |
+| T3c | The ~155 ms a frame outside our calls: name D3DIM's block (+55000..57000) | next |
 | T4 | S1 sound cost (DMA, IRQs, CPU, silent vs playing) | open |
 | T5 | DirectSound VxD driver for the SB Pro (#58) | after T4 |
 | T6 | Disk: Performance tab compatibility-mode check; paging per title | open (T3a covers part) |
