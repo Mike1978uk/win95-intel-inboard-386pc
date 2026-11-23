@@ -1,0 +1,100 @@
+EIPSAMP samples 4409 failed 0 ms 76229 interval 5 stack 12 flat 0137 013f
+flat code selector 0137, 4409 samples, 35 16-bit selectors named of 47 seen
+
+by module:
+    1766   40.1 %  KERNEL32.DLL
+     700   15.9 %  DISPLAY seg 1
+     506   11.5 %  flat, no module
+     433    9.8 %  D3DIM.DLL
+     256    5.8 %  DDRAW.DLL
+     241    5.5 %  DIBENG seg 5
+     138    3.1 %  M8TUNF.EXE
+      86    2.0 %  DISPLAY seg 2
+      49    1.1 %  KERNEL seg 2
+      44    1.0 %  KERNEL seg 1
+      30    0.7 %  ADVAPI32.DLL
+      26    0.6 %  USER seg 7
+      21    0.5 %  DDRAW16 seg 10
+      17    0.4 %  GDI seg 1
+      14    0.3 %  DIBENG seg 3
+      10    0.2 %  USER seg 21
+       8    0.2 %  DDRAW16 seg 6
+       7    0.2 %  16-bit CS 003B
+       5    0.1 %  USER seg 6
+       5    0.1 %  DIBENG seg 10
+       4    0.1 %  USER seg 18
+       4    0.1 %  DIBENG seg 4
+       4    0.1 %  USER seg 3
+       4    0.1 %  GDI seg 42
+       4    0.1 %  INDICDLL.DLL
+       3    0.1 %  GDI seg 37
+       3    0.1 %  WINMM.DLL
+       2    0.0 %  USER seg 4
+       2    0.0 %  GDI seg 7
+       2    0.0 %  KERNEL seg 3
+       1    0.0 %  VER seg 2
+       1    0.0 %  USER seg 28
+       1    0.0 %  DIBENG seg 17
+       1    0.0 %  DDRAW16 seg 4
+       1    0.0 %  GDI seg 3
+       1    0.0 %  USER seg 30
+       1    0.0 %  USER seg 27
+       1    0.0 %  USER seg 13
+       1    0.0 %  SHELL seg 1
+       1    0.0 %  USER seg 9
+
+by function (top 40), with the top callers:
+    1305   29.6 %  KERNEL32.DLL!ThunkConnect32   <- USER32.DLL+1195 419, DDRAW.DLL!GetDDSurfaceLocal 303, D3DIM.DLL!Direct3D_HALCleanUp 290
+     506   11.5 %  flat, no module   <- - 449, D3DIM.DLL!Direct3DGetSWRastZPixFmts 16, DDRAW.DLL!GetAliasedVidMem 7
+     337    7.6 %  DISPLAY!m8_hw_write_xlat_   <- DIBENG!DIB_MOVECURSOREXT 230, - 43, KEYBOARD!(seg 5 +02F7) 7
+     333    7.6 %  D3DIM.DLL!Direct3DGetSWRastZPixFmts   <- - 301, KERNEL32.DLL!IsBadCodePtr 9, KERNEL32.DLL!LoadResource 7
+     321    7.3 %  KERNEL32.DLL!InterlockedExchange   <- - 317, DDRAW.DLL+144C 4
+     128    2.9 %  DDRAW.DLL!HeapVidMemAllocAligned   <- KERNEL32.DLL!LeaveCriticalSection 54, - 52, D3DIM.DLL!Direct3DCreateTexture 5
+     119    2.7 %  DIBENG!(seg 5 +3D7F)   <- - 118, DISPLAY!Enable 1
+      97    2.2 %  DIBENG!(seg 5 +3CE3)   <- - 97
+      86    2.0 %  DISPLAY!m8_fb16_check_   <- - 59, DIBENG!DIB_MOVECURSOREXT 6, GDI!(seg 14 +0029) 2
+      76    1.7 %  DISPLAY!m8_fb16_refine_   <- - 62, KERNEL!#456 3, MOUSE!(seg 1 +3BC9) 3
+      75    1.7 %  DISPLAY!m8_hw_plane_mixes_   <- - 48, DIBENG!DIB_ENDACCESS 18, DIBENG!DIB_MOVECURSOREXT 3
+      62    1.4 %  D3DIM.DLL!Direct3D_HALCleanUp   <- - 23, KERNEL32.DLL!GetDateFormatA 15, DDRAW.DLL!HeapVidMemAllocAligned 6
+      50    1.1 %  DDRAW.DLL!RegisterSpecialCase   <- - 41, KERNEL32.DLL!IsBadCodePtr 8, M8TUNF.EXE+4A 1
+      48    1.1 %  DISPLAY!M8_XLAT   <- DIBENG!DIB_ENDACCESS 34, DIBENG!DIB_MOVECURSOREXT 10, - 3
+      46    1.0 %  DISPLAY!M8_FB16_ROWDIFF   <- DIBENG!DIB_MOVECURSOREXT 37, - 6, DDRAW16!(seg 1 +FFFF) 1
+      30    0.7 %  M8TUNF.EXE+C3E3   <- - 30
+      26    0.6 %  DISPLAY!M8_HASH_PARTS   <- - 22, DIBENG!DIB_ENDACCESS 3, KEYBOARD!(seg 7 +0000) 1
+      26    0.6 %  KERNEL32.DLL!FindCloseChangeNotification   <- - 16, DDRAW.DLL+14C4 6, DDRAW.DLL+239C 2
+      26    0.6 %  DISPLAY!m8_hw_set_palette_   <- - 13, DIBENG!DIB_ENDACCESS 5, KERNEL!(seg 4 +0067) 1
+      24    0.5 %  DDRAW.DLL!GetDDSurfaceLocal   <- - 15, D3DIM.DLL!Direct3DCreateDevice 2, M8TUNF.EXE+45F6 2
+      23    0.5 %  KERNEL32.DLL!GetDateFormatA   <- - 20, D3DIM.DLL!Direct3DGetSWRastZPixFmts 2, DDRAW.DLL!HeapVidMemAllocAligned 1
+      23    0.5 %  KERNEL!REGCLOSEKEY   <- USER!HACKTASKMONITOR 23
+      20    0.5 %  M8TUNF.EXE+C12A   <- - 20
+      18    0.4 %  DISPLAY!M8_FB16_CONV   <- DIBENG!DIB_MOVECURSOREXT 16, - 1, GDI!(seg 38 +000F) 1
+      17    0.4 %  ADVAPI32.DLL+1828   <- DDRAW.DLL!HeapVidMemAllocAligned 10, D3DIM.DLL!Direct3D_HALCleanUp 2, D3DIM.DLL!Direct3DCreateDevice 2
+      17    0.4 %  KERNEL!EXITKERNEL   <- KEYBOARD!(seg 5 +0117) 7, - 4, DIBENG!(seg 7 +00A7) 4
+      16    0.4 %  USER!GETMENUSTRING   <- - 14, DIBENG!DIB_ENDACCESS 1, DIBENG!DIB_SETCURSOREXT 1
+      15    0.3 %  DDRAW16!(seg 10 +0172)   <- - 15
+      15    0.3 %  D3DIM.DLL!Direct3DCreate   <- DDRAW.DLL!HeapVidMemAllocAligned 4, M8TUNF.EXE+0 4, DDRAW.DLL!thk3216_ThunkData32 3
+      13    0.3 %  KERNEL!#601   <- - 13
+      12    0.3 %  DDRAW.DLL!InternalUnlock   <- - 10, D3DIM.DLL!Direct3D_HALCleanUp 2
+      12    0.3 %  DDRAW.DLL!DDHAL32_VidMemFree   <- - 6, KERNEL32.DLL!ThunkConnect32 4, M8TUNF.EXE+1B28 2
+      11    0.2 %  M8TUNF.EXE+864B   <- KERNEL32.DLL!NotifyNLSUserCache 11
+      11    0.2 %  DIBENG!DIB_BITBLT   <- - 8, COMM!(seg 2 +0002) 1, MIDIMAP!(seg 2 +0056) 1
+      11    0.2 %  KERNEL!#501   <- - 11
+      10    0.2 %  D3DIM.DLL!Direct3DCreateDevice   <- - 7, KERNEL32.DLL!NotifyNLSUserCache 2, KERNEL32.DLL!EnterCriticalSection 1
+      10    0.2 %  DISPLAY!M8_HASH_BYTES   <- - 9, DIBENG!DIB_ENDACCESS 1
+      10    0.2 %  DIBENG!(seg 5 +2972)   <- - 8, COMM!(seg 2 +0002) 2
+       9    0.2 %  USER!WEP   <- - 9
+       8    0.2 %  KERNEL32.DLL+12C5   <- - 5, DDRAW.DLL!HeapVidMemAllocAligned 2, DDRAW.DLL+144C 1
+
+KERNEL32 hot spots (rva, 32-byte buckets):
+    1140   25.9 %  +04260
+     310    7.0 %  +26860
+     115    2.6 %  +042E0
+      47    1.1 %  +04400
+      21    0.5 %  +0D320
+      11    0.2 %  +267E0
+       8    0.2 %  +012C0
+       8    0.2 %  +2B460
+       7    0.2 %  +083C0
+       7    0.2 %  +34C40
+       7    0.2 %  +0E900
+       6    0.1 %  +09900

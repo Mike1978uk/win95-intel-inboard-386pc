@@ -1,0 +1,7 @@
+# F1 A/B: tunnel, census at +30 s and +60 s, agent idle.
+&C:\M8HIGH.EXE C:\D3DS C:\D3DS\M8TUNF.EXE
+C:\SLEEP.EXE 30
+C:\M8CENSUS.EXE f1dc-a
+C:\SLEEP.EXE 30
+C:\M8CENSUS.EXE f1dc-b
+C:\WINCLOSE.EXE Tunnel
