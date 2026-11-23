@@ -23,3 +23,4 @@ better tool to be installed when a job needs one; add it here when it is.
 
 Missing, worth having if a job needs it: an `-lh1-` command-line extractor (`lha` or `lhasa`),
 so LZH packs need no hand step.
+| helpdeco 2.1.4 (`C:/Users/lycet/tools/src/helpdeco/src/helpdeco.exe`) | `git clone --depth 1 https://github.com/pmachapman/helpdeco.git`, head `7852737`; built 2026-11-23 with Open Watcom: `wcl386 -bt=nt -l=nt -fe=helpdeco.exe helpdeco.c helpdec1.c` (leave out `compat.c`, it is POSIX-only) | decode WinHelp `.hlp` to RTF: the DX5 DDK's DirectSound guide, `references/dxddk/ds_ddk_decoded/` | Warns "Browse start not found" on `ds-ddk.hlp`; all 77 topics decoded. RTF to text: strip control words |
