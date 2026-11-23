@@ -30,7 +30,7 @@ intermittent. Dr. Watson is on the card to name the module next time.
 | T3 | Take over the largest 16-bit share | F1 built; F2/F3 shorten start-up only, so measure a GDI-heavy title first |
 | T3a | Paging during tunnel | done: start-up only (~4/s steady). Agent-off run not done (needs the owner at the card) |
 | T3b | Corner conversion once in `m8d3d_draw_on` | done: draw calls 77 -> 72 ms/frame, exact. Left: clipped corners' `fixf` round trip (2 %) |
-| T3c | The ~155 ms a frame outside our calls: name D3DIM's block (+55000..57000) | next |
+| T3c | The ~155 ms a frame outside our calls: name D3DIM's block | done: transform+clip 42 %, point light 24 %, colour 9 % of D3DIM, all x87 on the 387. Lever: fixed-point geometry in DirectXT/DOS |
 | T4 | S1 sound cost (DMA, IRQs, CPU, silent vs playing) | open |
 | T5 | DirectSound VxD driver for the SB Pro (#58) | after T4 |
 | T6 | Disk: Performance tab compatibility-mode check; paging per title | open (T3a covers part) |

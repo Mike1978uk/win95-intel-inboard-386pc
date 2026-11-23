@@ -113,6 +113,27 @@ Retrospective across the stack: `m8dos` and `m8cube32` (DOS) take integer corner
 Direct3D is to run on this same `m8d3d.c`, so it inherits it. The rule for any new float path: convert a
 value once at the finest precision needed, cut toward zero, and round from that.
 
+## T3c: what D3DIM does in a steady frame
+
+`t3h` (T3b build, EIPSAMP), last two thirds of the run: D3DIM is 27.3 % of the main thread. Its blocks,
+disassembled from the card's `D3DIM.DLL` (`pedis.py`: capstone over the PE sections):
+
+| Share of D3DIM | Of the thread | Block (RVA) | What it is |
+|---|---|---|---|
+| 41.7 % | 11.4 % | `56800..56E00` | vertex transform: 4x4 matrix times x,y,z in x87 (12 fmul, 12 fadd), then clip codes from the sign bits |
+| 23.8 % | 6.5 % | `51300..51500` | point light: light-to-vertex vector, dot with the normal, `fsqrt`, attenuation `a0 + a1 d + a2 d^2` |
+| 9.3 % | 2.5 % | `55D00..56000` | colour: float to integer (`fistp`), clamp to 0..255 |
+| 25.3 % | 6.9 % | other | not named |
+
+- This is Direct3D's own software geometry (the DX3-5 HAL has no transform/lighting hook for a driver). Every
+  float operation runs on the 387 interposer next to a 486 without an FPU: that is why it costs this much.
+- Nothing for M8DD32 to take over here for real titles. The levers are elsewhere: titles that send
+  pre-lit, pre-transformed vertices (`D3DTLVERTEX`, as our `M8D3D*` tests do) skip this block entirely.
+
+Retrospective across the stack: DirectXT and the DOS engine (`m8dos`, `m8cube32`) own their geometry, so
+they should transform and light in fixed point on the 486's integer unit and keep the 387 out of the frame.
+The same rule as T3b applies, with more force: a float operation is a bus trip to another chip.
+
 ## Open
 
 - Baseline census (`TUNA.LST`, card `e3544f3` after 2.4 h up): 180 flips at +77 s, no change by +125 s;
