@@ -176,6 +176,31 @@ static long m8d3d_fround( const float *p, int sh )
     return( b < 0 ? -m : m );
 }
 
+/* The float times 16, cut toward zero, saturating as m8d3d_fround does. A corner's x and y are
+ * read once this way and rounded to each precision with m8d3d_r16: rounding the cut value is
+ * exact, as the part cut off is below one and the half added is a whole number. */
+static long m8d3d_ftrunc16( const float *p )
+{
+    long    b = *(const long *)p;
+    int     e = (int)((b >> 23) & 255) + 4;
+    long    m;
+
+    if( e < 127 ) {
+        return( 0 );
+    }
+    if( e > 157 ) {
+        return( b < 0 ? -0x7FFFFFFFL : 0x7FFFFFFFL );
+    }
+    m = (b & 0x007FFFFFL) | 0x00800000L;
+    m = e >= 150 ? m << (e - 150) : m >> (150 - e);
+    return( b < 0 ? -m : m );
+}
+
+/* t (sixteenths) to the nearest 2^-sh, halves away from zero, as m8d3d_fround; sh <= 3. A macro:
+ * it runs twelve times a triangle, and as a function the compiler kept the call. */
+#define m8d3d_r16( t, sh ) ((t) < 0 ? -(long)(((DWORD)-(t) + (1UL << (3 - (sh)))) >> (4 - (sh))) \
+                                    : (long)(((DWORD)(t) + (1UL << (3 - (sh)))) >> (4 - (sh))))
+
 /* The float bits of n, 0 <= n < 2^24. */
 static DWORD m8d3d_ibits( long n )
 {
@@ -4533,6 +4558,7 @@ static void m8d3d_draw_on( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D_
     M8D3D_CONTEXT           *c = p->c;
     const M8D3D_TLVERTEX    *a[3];
     short                   v[6];
+    long                    t[6];
     DWORD                   texc[3];
     DWORD                   rgb;
     long                    area;
@@ -4547,8 +4573,10 @@ static void m8d3d_draw_on( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D_
     a[1] = v1;
     a[2] = v2;
     for( j = 0; j < 3; ++j ) {
-        v[2 * j] = (short)m8d3d_fround( &a[j]->sx, -m8d3d_half );
-        v[2 * j + 1] = (short)m8d3d_fround( &a[j]->sy, -m8d3d_half );
+        t[2 * j] = m8d3d_ftrunc16( &a[j]->sx );
+        t[2 * j + 1] = m8d3d_ftrunc16( &a[j]->sy );
+        v[2 * j] = (short)m8d3d_r16( t[2 * j], -m8d3d_half );
+        v[2 * j + 1] = (short)m8d3d_r16( t[2 * j + 1], -m8d3d_half );
     }
     {
         int     lx = v[0] < v[2] ? v[0] : v[2];
@@ -4579,9 +4607,8 @@ static void m8d3d_draw_on( M8D3D_DRAW *p, const M8D3D_TLVERTEX *v0, const M8D3D_
     if( area != 0 && c->cull != M8D3D_CULL_NONE ) {
         long    s[6];
 
-        for( j = 0; j < 3; ++j ) {
-            s[2 * j] = m8d3d_fround( &a[j]->sx, 3 );
-            s[2 * j + 1] = m8d3d_fround( &a[j]->sy, 3 );
+        for( j = 0; j < 6; ++j ) {
+            s[j] = m8d3d_r16( t[j], 3 );
         }
         /* Corners on the target, so 8 x 640 by 8 x 480 at most: the products fit. */
         area = ((s[2] - s[0]) * (s[5] - s[1]) - (s[3] - s[1]) * (s[4] - s[0])) < 0 ? -1 : 1;
