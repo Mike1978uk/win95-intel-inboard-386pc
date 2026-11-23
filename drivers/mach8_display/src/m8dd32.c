@@ -293,17 +293,61 @@ static RECT         m8dd_fill_r;
 static int          m8dd_fill_on;
 static BYTE         m8dd_fill_c;
 
+/* A display DC for the driver's escapes, one per process, kept for its life: GetDC and ReleaseDC
+ * are each a thunk into 16-bit USER that waits for the Win16 lock, on every send. The DLL's data
+ * is shared by every process and a DC is freed with the process that made it, so each process has
+ * its own entry, cleared when it detaches. */
+#define M8DD_DCS    8
+
+static struct { DWORD pid; HDC dc; } m8dd_dcs[M8DD_DCS];
+
+HDC m8dd_dc( void )
+{
+    DWORD   pid = GetCurrentProcessId();
+    int     i;
+    int     free_i = -1;
+
+    for( i = 0; i < M8DD_DCS; ++i ) {
+        if( m8dd_dcs[i].dc != NULL && m8dd_dcs[i].pid == pid ) {
+            return( m8dd_dcs[i].dc );
+        }
+        if( m8dd_dcs[i].dc == NULL && free_i < 0 ) {
+            free_i = i;
+        }
+    }
+    if( free_i < 0 ) {
+        /* Full: a process that ended without detaching holds an entry. */
+        static int next;
+        free_i = next;
+        next = (next + 1) % M8DD_DCS;
+    }
+    m8dd_dcs[free_i].pid = pid;
+    m8dd_dcs[free_i].dc = CreateDC( "DISPLAY", NULL, NULL, NULL );
+    return( m8dd_dcs[free_i].dc );
+}
+
+static void m8dd_dc_forget( void )
+{
+    DWORD   pid = GetCurrentProcessId();
+    int     i;
+
+    for( i = 0; i < M8DD_DCS; ++i ) {
+        if( m8dd_dcs[i].pid == pid ) {
+            m8dd_dcs[i].dc = NULL;
+        }
+    }
+}
+
 static DWORD m8dd_epoch( void )
 {
     DWORD   gdi[20];
     DWORD   v = m8d3d_stat[25] + m8dd_card_gen;
-    HDC     dc = GetDC( NULL );
+    HDC     dc = m8dd_dc();
     int     i;
     int     ok = 0;
 
     if( dc != NULL ) {
         ok = ExtEscape( dc, M8_ESC_STATS, 0, NULL, sizeof( gdi ), (LPSTR)gdi ) > 0;
-        ReleaseDC( NULL, dc );
     }
     if( !ok ) {
         return( GetTickCount() ^ 0x5A5A5A5AUL );
@@ -947,11 +991,10 @@ static DWORD m8dd_flush( void )
      * cuts loses the rest of its frame: the feed ends here, not on entry to Blt or Lock, so a
      * call that only describes or records leaves the card drawing. */
     m8d3d_feed_stop( 2 );
-    dc = GetDC( NULL );
+    dc = m8dd_dc();
     if( dc != NULL ) {
         ExtEscape( dc, M8_ESC_FB16BATCH, 2 + 12 * m8dd_bl[0], (LPCSTR)m8dd_bl,
                    sizeof( out ), (LPSTR)&out );
-        ReleaseDC( NULL, dc );
     }
     m8dd_bl[0] = 0;
     return( out );
@@ -1734,10 +1777,9 @@ static void m8dd_send( const RECT *r, int solid )
     w[2] = (WORD)r->right;
     w[3] = (WORD)r->bottom;
     w[4] = (WORD)solid;
-    dc = GetDC( NULL );
+    dc = m8dd_dc();
     if( dc != NULL ) {
         ExtEscape( dc, M8_ESC_FB16SEND, sizeof( w ), (LPCSTR)w, 0, NULL );
-        ReleaseDC( NULL, dc );
     }
 }
 
@@ -1755,10 +1797,9 @@ static void m8dd_copied( int sx, int sy, const RECT *r )
     w[3] = (WORD)r->top;
     w[4] = (WORD)r->right;
     w[5] = (WORD)r->bottom;
-    dc = GetDC( NULL );
+    dc = m8dd_dc();
     if( dc != NULL ) {
         ExtEscape( dc, M8_ESC_FB16COPY, sizeof( w ), (LPCSTR)w, 0, NULL );
-        ReleaseDC( NULL, dc );
     }
 }
 
@@ -3861,12 +3902,11 @@ DWORD __stdcall m8dd_blt( M8DD_BLT *bd )
  * the driver's escape (screen.c m8_dd_lend) clears them first. */
 static int m8dd_lend( WORD on )
 {
-    HDC dc = GetDC( NULL );
+    HDC dc = m8dd_dc();
     int ok = 0;
 
     if( dc != NULL ) {
         ok = ExtEscape( dc, M8_ESC_DDLEND, sizeof( on ), (LPCSTR)&on, 0, NULL ) > 0;
-        ReleaseDC( NULL, dc );
     }
     return( ok );
 }
@@ -4721,6 +4761,9 @@ BOOL WINAPI DllMain( HINSTANCE inst, DWORD reason, LPVOID reserved )
     if( reason == DLL_PROCESS_ATTACH ) {
         m8dd_inst = inst;
         DisableThreadLibraryCalls( inst );
+    }
+    if( reason == DLL_PROCESS_DETACH ) {
+        m8dd_dc_forget();
     }
     return( TRUE );
 }

@@ -143,6 +143,7 @@ extern int  m8d3d_fb16( void );
 extern int  m8d3d_record( LPVOID lcl, const short *v, BYTE index, WORD colour, const DWORD *rgb, int depth );
 extern void m8d3d_scratch_free( LPVOID key );
 extern void m8dd_trace( const char *fmt, ... );
+extern HDC  m8dd_dc( void );
 extern const WORD *m8dd_tex_summary( LPVOID gbl, int *w, int *h, int *is555 );
 extern int  m8dd_tex_rows;
 extern int  m8d3d_engine_begin( void );
@@ -5006,12 +5007,9 @@ void m8d3d_init( DWORD *global, DWORD *callbacks, DWORD *driver_info )
      * gives up ("unable to switch to full screen"). [d3d] render8=0 leaves 8 bpp out: a program
      * that would start in a window on the 8 bpp desktop starts full screen instead. */
     {
-        HDC dc = GetDC( NULL );
+        HDC dc = m8dd_dc();
         int bpp = dc != NULL ? GetDeviceCaps( dc, BITSPIXEL ) : 16;
 
-        if( dc != NULL ) {
-            ReleaseDC( NULL, dc );
-        }
         c->dwDeviceRenderBitDepth = bpp == 8 ? (GetPrivateProfileInt( "d3d", "render8", 1, "C:\\M8D3D.INI" ) ? DDBD_8 : 0) : DDBD_16;
     }
     /* No Z depth: a Z-buffer beside two 640x480 pages does not fit in the card's 1 MB, and DX5's
