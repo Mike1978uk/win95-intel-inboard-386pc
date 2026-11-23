@@ -16,7 +16,7 @@
  *                      mode), then the desktop back
  *
  * tools/m8_bench_compare.py sets two labels' results side by side.
- * Build: wcl386 -q -bt=nt -l=nt_win -ox -fe=M8DDB.EXE M8DDB.C advapi32.lib
+ * Build: wcl386 -q -bt=nt -l=nt_win -ox -fe=M8DDB.EXE M8DDB.C advapi32.lib winmm.lib
  */
 
 #include <windows.h>
@@ -783,7 +783,10 @@ typedef struct {
     WAVEFORMATEX    *lpwfxFormat;
 } DSBDESC;
 #define DS_RATE     11025
+#define DSBCAPS_PRIMARYBUFFER   0x1
 static DS       *ds;
+static DSB      *ds_prim;
+static DWORD    ds_rate = DS_RATE;
 static DSB      *ds_loop;
 static DSB      *ds_shot;
 static volatile int ds_run;
@@ -802,8 +805,8 @@ static DSB *ds_buffer( DWORD bytes, int tone )
     memset( &wf, 0, sizeof( wf ) );
     wf.wFormatTag = WAVE_FORMAT_PCM;
     wf.nChannels = 1;
-    wf.nSamplesPerSec = DS_RATE;
-    wf.nAvgBytesPerSec = DS_RATE;
+    wf.nSamplesPerSec = ds_rate;
+    wf.nAvgBytesPerSec = ds_rate;
     wf.nBlockAlign = 1;
     wf.wBitsPerSample = 8;
     memset( &d, 0, sizeof( d ) );
@@ -815,7 +818,7 @@ static DSB *ds_buffer( DWORD bytes, int tone )
     }
     if( b->v->Lock( b, 0, bytes, &p1, &n1, &p2, &n2, 0 ) == 0 ) {
         for( i = 0; i < n1; ++i ) {
-            ((BYTE *)p1)[i] = (BYTE)(((i * tone / DS_RATE) & 1) ? 0x98 : 0x68);
+            ((BYTE *)p1)[i] = (BYTE)(((i * tone / ds_rate) & 1) ? 0x98 : 0x68);
         }
         b->v->Unlock( b, p1, n1, p2, n2 );
     }
@@ -836,7 +839,45 @@ static DWORD WINAPI ds_shots( LPVOID unused )
     return( 0 );
 }
 
-static void ds_start( void )
+/* The primary buffer: its format is what the emulation sends to waveOut and the SB Pro's DMA
+ * moves. Left alone, DSOUND picks 22 kHz 8-bit stereo, twice PlaySound's bytes. */
+static void ds_primary( int setfmt, int coop )
+{
+    WAVEFORMATEX    wf;
+    DSBDESC         d;
+    DWORD           n = 0;
+
+    memset( &d, 0, sizeof( d ) );
+    d.dwSize = sizeof( d );
+    d.dwFlags = DSBCAPS_PRIMARYBUFFER;
+    if( ds->v->CreateSoundBuffer( ds, &d, &ds_prim, NULL ) != 0 ) {
+        ds_prim = NULL;
+        fprintf( out, "dsound no primary\n" );
+        return;
+    }
+    if( setfmt ) {
+        memset( &wf, 0, sizeof( wf ) );
+        wf.wFormatTag = WAVE_FORMAT_PCM;
+        wf.nChannels = 1;
+        wf.nSamplesPerSec = 22050;
+        wf.nAvgBytesPerSec = 22050;
+        wf.nBlockAlign = 1;
+        wf.wBitsPerSample = 8;
+        fprintf( out, "dsound setformat %08lx\n",(unsigned long)ds_prim->v->SetFormat( ds_prim, &wf ) );
+    }
+    memset( &wf, 0, sizeof( wf ) );
+    ds_prim->v->GetFormat( ds_prim, &wf, sizeof( wf ), &n );
+    fprintf( out, "dsound coop %d  primary %lu Hz  %u bit  %u ch\n", coop,
+             (unsigned long)wf.nSamplesPerSec, wf.wBitsPerSample, wf.nChannels );
+}
+
+/* mode 0: secondaries at 11 kHz, primary left at DSOUND's default (modexd).
+ * mode 1: secondaries and primary all 22 kHz 8-bit mono, PlaySound's bytes (modexdf).
+ * mode 2: primary at 22 kHz 8-bit mono playing, no secondaries: the emulation's cost with
+ *         nothing to mix. Emulated DSOUND refuses DSSCL_WRITEPRIMARY, so this is the nearest
+ *         (modexdp).
+ * mode 3: secondaries created, nothing played: DSOUND open and idle (modexdi). */
+static void ds_start( int mode )
 {
     HMODULE m = LoadLibrary( "DSOUND.DLL" );
     HRESULT (WINAPI *create)( LPVOID, DS **, LPVOID );
@@ -846,15 +887,28 @@ static void ds_start( void )
     create = m ? (HRESULT (WINAPI *)( LPVOID, DS **, LPVOID ))GetProcAddress( m, "DirectSoundCreate" ) : NULL;
     if( create != NULL && (r = create( NULL, &ds, NULL )) == 0 ) {
         r = ds->v->SetCooperativeLevel( ds, wnd, 2 );           /* DSSCL_PRIORITY */
-        ds_loop = ds_buffer( DS_RATE, 440 );
-        ds_shot = ds_buffer( DS_RATE / 8, 1200 );
-        if( ds_loop != NULL ) {
-            ds_loop->v->Play( ds_loop, 0, 0, 1 );                /* DSBPLAY_LOOPING */
+        ds_primary( mode == 1 || mode == 2, 2 );
+        if( mode == 2 ) {
+            if( ds_prim != NULL ) {
+                fprintf( out, "dsound primary play %08lx\n",
+                         (unsigned long)ds_prim->v->Play( ds_prim, 0, 0, 1 ) );
+            }
+        } else {
+            ds_rate = mode == 1 ? 22050 : DS_RATE;
+            ds_loop = ds_buffer( ds_rate, 440 );
+            ds_shot = ds_buffer( ds_rate / 8, 1200 );
+            if( mode == 3 ) {
+                /* nothing played */
+            } else if( ds_loop != NULL ) {
+                ds_loop->v->Play( ds_loop, 0, 0, 1 );            /* DSBPLAY_LOOPING */
+            }
+            if( mode != 3 ) {
+                ds_run = 1;
+                CreateThread( NULL, 0, ds_shots, NULL, 0, &id );
+            }
         }
-        ds_run = 1;
-        CreateThread( NULL, 0, ds_shots, NULL, 0, &id );
     }
-    fprintf( out, "dsound %08lx  loop %d  shot %d\n", (unsigned long)r, ds_loop != NULL, ds_shot != NULL );
+    fprintf( out, "dsound %08lx  loop %d  shot %d\n",(unsigned long)r, ds_loop != NULL, ds_shot != NULL );
     flush_out();
 }
 
@@ -868,6 +922,10 @@ static void ds_stop( void )
     }
     if( ds_shot != NULL ) {
         ds_shot->v->Release( ds_shot );
+    }
+    if( ds_prim != NULL ) {
+        ds_prim->v->Stop( ds_prim );
+        ds_prim->v->Release( ds_prim );
     }
     if( ds != NULL ) {
         ds->v->Release( ds );
@@ -1032,9 +1090,10 @@ int PASCAL WinMain( HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show )
         DestroyWindow( wnd );
         return( i );
     }
-    if( strncmp( cmd, "modexd ", 7 ) == 0 ) {
-        ds_start();
-        i = modex( cmd + 7 );
+    if( strncmp( cmd, "modexd ", 7 ) == 0 || strncmp( cmd, "modexdf ", 8 ) == 0
+            || strncmp( cmd, "modexdp ", 8 ) == 0 || strncmp( cmd, "modexdi ", 8 ) == 0 ) {
+        ds_start( cmd[6] == 'f' ? 1 : cmd[6] == 'p' ? 2 : cmd[6] == 'i' ? 3 : 0 );
+        i = modex( strchr( cmd, ' ' ) + 1 );
         ds_stop();
         fclose( out );
         dd->lpVtbl->Release( dd );
