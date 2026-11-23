@@ -27,11 +27,10 @@ intermittent. Dr. Watson is on the card to name the module next time.
 |---|---|---|
 | T1 | D14a sampler on tunnel | done |
 | T2 | Sampler on Doom 95 + sound, and twist | Doom done (`captures/2026-11-23_doom_eipsamp/README.md`): game time is 16-bit GDI/DIB in our driver; the 45 s in DSOUND was Doom behind a `Msgsrv32` fault dialog (16-bit sound path), 1 run in 3. Next: Dr. Watson log of the fault, then `-nosound` runs. Twist open |
-| T3 | Take over the largest 16-bit share | F1 built; F2/F3 shorten start-up only, so measure a GDI-heavy title first |
-| T3a | Paging during tunnel | done: start-up only (~4/s steady). Agent-off run not done (needs the owner at the card) |
+| T3 | Take over the largest 16-bit share | F1 built; F2/F3 shorten start-up only. Windowed Doom (GDI) named: fb16 fingerprints ~12 %, conversion 3.6 %, bus 4.6 %; adaptive whole sends tried 3 ways and reverted (bench losses via the background store), see `captures/2026-11-23_doom_eipsamp/README.md` || T3a | Paging during tunnel | done: start-up only (~4/s steady). Agent-off run not done (needs the owner at the card) |
 | T3b | Corner conversion once in `m8d3d_draw_on` | done: draw calls 77 -> 72 ms/frame, exact. Left: clipped corners' `fixf` round trip (2 %) |
 | T3c | The ~155 ms a frame outside our calls: name D3DIM's block | done: transform+clip 42 %, point light 24 %, colour 9 % of D3DIM, all x87 on the 387. Lever: fixed-point geometry in DirectXT/DOS |
-| T4 | S1 sound cost (DMA, IRQs, CPU, silent vs playing) | open |
+| T4 | S1 sound cost (DMA, IRQs, CPU, silent vs playing) | `M8DDB modex/modexs/modexd` on M8CW: the BAT stalled after run 1 (`t4_x1` only). Rerun each through the agent's `exec` with a timeout. Never Doom (needs the owner to exit it) |
 | T5 | DirectSound VxD driver for the SB Pro (#58) | after T4 |
 | T6 | Disk: Performance tab compatibility-mode check; paging per title | open (T3a covers part) |
 | T7 | Titles as probes (X14) | open |

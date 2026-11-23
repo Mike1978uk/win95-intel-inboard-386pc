@@ -4,6 +4,10 @@ Card boot 507, driver `M8CW.DRV` (T3b build), SWAPCOMP out, 800x600x16 desktop. 
 PERFLOG `T2doom` 200 s, then `EIPSAMP 180 5 C:\DOOM95\DOOM95.EXE`; ENTER sent by the agent at +40 s (launcher).
 Files: `EIPSAMP.TXT`, `GHEAP16.TXT`, `PERFLOG.CSV` (label `T2doom`).
 
+**These runs were windowed Doom (640x480, GDI/DIB), not the 320x200 full-screen Mode X path** used on
+11-21/22: no switch was given and the launcher's saved setting was a window. `DOOM95.EXE` takes
+`-320x200` (full screen) or `-640x480w` (window) etc. The profile below is the GDI path's.
+
 ## Main thread by phase
 
 | s | 16-bit | lock wait | DSOUND | DOOM95 | KERNEL32 |
@@ -36,3 +40,30 @@ Files: `EIPSAMP.TXT`, `GHEAP16.TXT`, `PERFLOG.CSV` (label `T2doom`).
 
 The fault is intermittent (1 run in 3 today) and not tied to the sampler. Dr. Watson stays in the
 start-up BATs so the next fault leaves a log naming the module.
+
+## Our 16-bit driver during game time (77-123 s, 2,569 samples, `m8disp.map` of the M8CW build)
+
+| Share of the main thread | Code | What it does |
+|---|---|---|
+| ~12 % | `M8_FB16_ROWDIFF` + `M8DD_TEXT` statics (`m8_fb16_changed`; the map names them `m8_fb16_check`, the nearest public symbol) | fingerprints each 32-pixel piece of each row sent |
+| ~4.6 % | `m8_hw_write_rect` +B6AF | the pixel loop to the card (bus) |
+| ~3.6 % | `M8_XLAT`, `M8_FB16_CONV` | 5-6-5 to the 8-bit palette, dithered |
+
+Windowed Doom redraws its whole view each frame, so the fingerprints find every piece changed: they cost
+about three times the conversion and save no bus.
+
+**Tried and reverted (not committed):** the VGA half's adaptive delta rule (`m8dd_vga_send`) in
+`m8_fb16_send`: a rectangle found mostly sent from RAM goes whole for 16 sends, then is re-tested. Desktop
+bench, card, against M8CW re-benched the same evening (`card_cwb1,2`), pixels same in every run:
+
+| Build | Rule | Result |
+|---|---|---|
+| `card_ad` | one dense send | `stretch_dib` 0.17, `stretchblt` 0.22, `fill_hatch` 0.28, `bmp_card` 0.36, both runs |
+| `card_ae` | two in a row | those recovered; `draw_icon` 0.90 (an icon's mask and image are two dense sends) |
+| `card_af` | two in a row, >= 16,384 px | run 1 as `card_ad` again, run 2 clean: depends on what earlier tests left |
+
+Reading: going whole forgets the fingerprints, and at 800x600 the background store serves alternating
+pictures from them; once whole, every send looks dense and it stays whole. Not confirmed whether the forget
+also empties the store itself. The rule is safe only where the store is off (not 800x600), and the
+only title there is windowed Doom, which is played in Mode X. Dropped. `_TEXT` has 263 bytes left (0xFEF9 used): new
+fb16 code goes in `M8DD_TEXT`, which cannot use 32-bit multiply.
