@@ -22,28 +22,36 @@ used its app-driven mixer, which leaves a sound that is played and left alone un
 
 ## State
 
-- **Card:** boot 522, `SBDS.VXD` = trace build of 11-24 midday (10,796 B, with the diagnostic probes).
-  First build kept as `C:\WINDOWS\SYSTEM\SBDS.V1`. `C:\DSTEST.EXE` present. Revert: `SYSTEM.SBD` as before.
-- **Bed** `vm_5160_dbg`: release build (6,612 B), stock DSOUND.DLL (copy `DSOUND.STK`), 387 fitted.
+- **Card:** `SBDS.VXD` = trace build with a 512-entry ring (15,832 B), for the census; loads from the restart after
+  boot 523. Kept beside it: `SBDS.REL` (release, 6,612 B), `SBDS.DG` (diagnostic probes), `SBDS.V1` (first build).
+  `C:\DSTEST.EXE` present. Revert to no SBDS: `copy C:\WINDOWS\SYSTEM.SBD C:\WINDOWS\SYSTEM.INI`.
+- **Card dxdiag Test DirectSound: passes** (owner, 11-24 afternoon).
+- **Bed** `vm_5160_dbg`: release build, stock DSOUND.DLL (copy `DSOUND.STK`), 387 fitted, 800x600x16 on
+  `m8pcl.drv` (same code as the card's `m8cw.drv`; only the version stamp differs), `DXTWALL.BMP` wallpaper.
   `C:\DSTEST.EXE` there too (`tools/dstest/`: `once`, `onceq`, `loop`, `mono`, `mmtimer`).
 - `drivers/sbds/build.ps1 -Trace` builds the call-trace variant; plain build is the release.
 
-- **Card dxdiag Test DirectSound: passes** (owner, 11-24 afternoon).
+## Parked, not T5: dxdiag Music tab crash (card only)
 
-## Open, not T5: dxdiag Music tab crash (card only)
+Worklist, Parked. Dragging the Music Ports list slider: "DXDIAG caused an invalid page fault in module USER.EXE
+at 0004:00004e8e", `test byte ptr [ebx+33h],10h` (bytes `67 f6 43 33 10`), EBX=EDX=ESI=EDI=000630ac DS=07c7: USER
+was asked whether a window that is not there is visible. Rows drew doubled at the bottom first. Intermittent
+(worked once, broke on repeat), also with the SBDS release build. The bed, with the same driver code, mode and
+wallpaper, does not reproduce it. Photos: `XT_project\photos\dxdiag_music1-4.jpg`. Owner: may come out in the
+wash with other titles.
 
-Dragging the Music Ports list slider: "DXDIAG caused an invalid page fault in module USER.EXE at
-0004:00004e8e", `test byte ptr [ebx+33h],10h` (bytes `67 f6 43 33 10`), EBX=000630ac DS=07c7. Rows were
-drawn doubled and clipped before the fault. Photos: `XT_project\photos\dxdiag_music1-4.jpg` (registers,
-code bytes, stack dump). Card runs `m8cw.drv` 800x600x16; the bed (m8pcl.drv, 640x480x8) scrolls the same
-list cleanly every way tried. Suspect: our display driver's screen-to-screen blit at 16 bpp. Unproven.
-No Dr. Watson log (it was not hooked when it faulted). Next: bed on `m8cw.drv` 800x600x16, per
-`docs/mach8_driver_method.md`.
+## Next - the aim: SBDS mixes (`docs/sbds_mixer_plan.md`, worklist S6)
 
-## Next
+Owner, 11-24: "exactly the design we aim for". Stereo is never given up; mono only when nothing playing needs it.
+Benches: prove the card idle, then run once; build levers before benching.
 
-1. Card: dxdiag passes; DirectSound side done.
-2. Card: install the release build, then `M8DDB modexd/modexdf/modexdi` twice each against
-   `captures/2026-11-23_t5_split/` (target: `modexd` near PlaySound's 0.94, `modexdi` near silent).
-3. Doom 95 sound on the card (the app this was for), and stereo channel order by ear (design risk 3).
-4. Caps oddity: M8DDB reads DSCAPS flags 0 where DSTEST reads 7. Compare the two programs' DSCAPS sizes.
+1. **Census + baseline** (card is set up for it): owner starts Dr. Watson, plays Doom 95 with sound (shooting,
+   doors), quits; pull `HKLM\Software\SBDS` with `regedit /e` and decode - does it set the primary format, which
+   buffer formats, any pan. Doom 95 also tests the Msgsrv32 sound-loop hang with sound on SBDS. Then one M8DDB
+   `modexd/modexdf/modexdi` run after the idle settle against `captures/2026-11-23_t5_split/`.
+2. Measure the store path (bus crossings per mixed byte).
+3. Channels + mono/stereo per moment, `ForceStereo` override.
+4. Feeder + own timing. 5. Display handshake. 6. One bench.
+
+Smaller: stereo channel order by ear (design risk 3); caps oddity (M8DDB reads DSCAPS flags 0, DSTEST 7 -
+compare the DSCAPS sizes the two pass).

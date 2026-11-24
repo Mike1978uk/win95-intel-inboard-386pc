@@ -333,6 +333,14 @@ like a timer tick (~170 us measured for #45). Ideas, cheapest first - measure be
       Check the SB Pro's DSP version supports auto-init ADPCM, and the quality.
 - [ ] **S4 Mix on the 486** into one stream (FastDoom's approach) rather than several; the CPU has cycles, the bus has none.
 - [ ] **S5 The demoscene end:** cycle-exact PC-speaker / DAC tricks are a later, separate study.
+- [ ] **S6 SBDS mixes - THE AIM for DirectSound (owner, 11-24: "exactly the design we aim for"):**
+      `docs/sbds_mixer_plan.md`. SBDS becomes the hardware mixer for secondary buffers (integer, no FPU needed):
+      mono or stereo per moment (stereo whenever anything playing needs it, `ForceStereo=1` override; stereo is
+      never given up), a feeder writing the DMA ring in dwords, our own timing, and a busy/idle handshake with the
+      display driver so sound fills its ring in the display's gaps. Stages: (1) census + one baseline (Doom 95 on
+      the trace build, M8DDB once), (2) measure the store path, (3) channels + mono, (4) feeder + timing,
+      (5) display handshake, (6) one bench. S2 (no IRQs) and silence are already done by SBDS's design; S3 ADPCM
+      does not fit (DirectSound hands us mixed PCM).
 
 ## P. Playable 3D on the 5160 (owner, 2026-11-17) - the lead track
 
@@ -479,7 +487,7 @@ playback (#60).
 - [ ] **X40 Our own playable 3D game, early-1990s flat-shaded style (owner, 11-20: "maybe we borrow a title style").** No Direct3D game is light enough (`docs/d3d_benchmarks_and_games.md`: Direct3D titles start at Pentium 75 / 8 MB), so build one: our own design in the style of the console and Amiga flat-shaded era (on-rails space shooter, stunt-track racer, flight), not a copy of any title. Few hundred flat or Gouraud polygons, the 8514 engine's polygon fill, M8SHOW's lessons. Two front ends from one source: m8dos (DirectXT) and a Direct3D program on our HAL - it is then the light Direct3D title, and X36 step 3. Baselines to play alongside on the VGA half: the DOS releases of that era's 3D games (owner supplies copies).
 - [ ] **X38 Port the desktop store to DirectXT under DOS (owner, 11-20):** X37 lives in the Windows driver only. When HX DirectDraw programs run over m8dos (X29), give m8dos the same: fingerprint-skipped sends and a background store in off-screen memory. Port job, not automatic.
 - [ ] **X30 Flight Simulator 3.0 on the 8514 side via `CUSTOM.GRA` (owner, 11-18):** `docs/indy500_fs_renderer_2026_11_18.md`. Step 1 done 11-18 (`docs/fs3_gra_log_2026_11_18.md`): option N runs our GRA; 36 polygons, 167 vertices, 12 lines a frame; vertices AX=z CX=y DX=x camera space. Step 2 16-bit `m8dos` done 11-18 in the bed (same source, `M8DTST16.EXE`; pixels and write counts = 32-bit build, `captures/2026-11-18_m8d16_bed/`); card run owed. Step 3 a drawing `CUSTOM.GRA`. Indianapolis 500 (`INDY.1` entry 5, `/M`) after.
-- [ ] **X26 Own DirectX stability and DirectSound (11-12 list):** D14 "own DirectX" (the 8 bpp D3DIM patch `69f3ece` is step 1; stability A/B since the DX install not done); DirectSound for the SB Pro (#58) not started; DOS-level 3D driver (Glide-like, `594650a`) after FastDoom (X12, #47).
+- [ ] **X26 Own DirectX stability and DirectSound (11-12 list):** D14 "own DirectX" (the 8 bpp D3DIM patch `69f3ece` is step 1; stability A/B since the DX install not done); DirectSound for the SB Pro (#58): SBDS.VXD works on bed and card, dxdiag all four tests pass (11-24, `sbds_design_2026_11_23.md`; DX7 needs an FPU for its own mixer, so every BL3 bed now carries a 387); benches and Doom 95 sound still to run; DOS-level 3D driver (Glide-like, `594650a`) after FastDoom (X12, #47).
 - [ ] **X10 Direct3D, playable approximations (owner, 2026-11-07):** real programs run unmodified, and show what was intended by our own means. Build order D1-D12 in `docs/mach8_frame_rate_plan.md`, "Direct3D: playable approximations": HAL accepted (Z formats, sort, Z surface), mock replies and fog, census on real programs, effect tag and stipple, **real texture path**, cut-outs and mips, palette ramps, blends, bilinear look and perspective, runtime clip cost, then speed. The card's hang needs a cause before a showcase. Landed by 11-10: HAL accepted with Z formats and sort (`c803813`), textures (`e05650a`, `3c2d98c`), overlays and depth sort (`ea641e7`, `7db26eb`), palette from the program's hues (`ced163d`, `57f8e8e`), joined patches (`3a72c7d`). Open: cut-outs and mips, blends, bilinear look and perspective, runtime clip cost, speed to 60 fps (twist ~5.7 fps).
 
 ## E. Timer, refresh, XT-CF (in flight)
@@ -527,3 +535,8 @@ playback (#60).
       frame rate is set by the LPT transfer: derived ~2 fps at 160x120 in nibble mode, ~8-9 fps if EPP (not measured).
       Measure the camera driver's transfer mode first.
 - [ ] Iomega Jaz 2 GB on the T130B worked first time as a disk: add to `docs/5160_tuned_config.md`.
+- [ ] **dxdiag Music tab, card only (owner, 11-24: "may well come out in the wash with other titles").** Dragging the
+      Music Ports list slider faults in USER.EXE 0004:4E8E, intermittently (worked once, broke on repeat). Bottom rows
+      drew doubled first. Same driver code (`m8cw.drv` = bed `m8pcl.drv`), mode and wallpaper in the bed do not
+      reproduce it; it still happens on the card with the SBDS release build. No fair display-driver swap (ATI's has no 16 bpp 800x600).
+      Detail and photos: `next_session_2026_11_25.md`.
