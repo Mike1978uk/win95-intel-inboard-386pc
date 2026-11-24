@@ -1,0 +1,436 @@
+== DSTEST onceq b1
+caps flags 00000007  (20h = emulation)
+coop 00000000
+secondary 00000000
+play 00000000
+    0 ms  play     1  write 18635  status 1
+== DSTEST onceq b2probe
+caps flags 00000007  (20h = emulation)
+coop 00000000
+secondary 00000000
+play 00000000
+    0 ms  play     1  write 18602  status 1
+== DSTEST onceq b3hook
+caps flags 00000007  (20h = emulation)
+coop 00000000
+secondary 00000000
+play 00000000
+    0 ms  play     1  write 18584  status 1
+== DSTEST once b4poll
+caps flags 00000007  (20h = emulation)
+coop 00000000
+secondary 00000000
+play 00000000
+    0 ms  play     0  write   215  status 1
+   68 ms  play     1  write 15140  status 1
+   91 ms  play     1  write 15669  status 1
+  119 ms  play     1  write 16294  status 1
+  146 ms  play     1  write 16918  status 1
+  174 ms  play     1  write 17542  status 1
+  201 ms  play     1  write 18173  status 1
+  229 ms  play     1  write 18797  status 1
+  256 ms  play     1  write 19415  status 1
+  284 ms  play     1  write 20040  status 1
+  312 ms  play     1  write 21372  status 1
+  365 ms  play     1  write 21901  status 1
+  393 ms  play     1  write   487  status 1
+  421 ms  play     1  write 14975  status 1
+  448 ms  play     1  write 15593  status 1
+  476 ms  play     1  write 16214  status 1
+  503 ms  play     1  write 16842  status 1
+  531 ms  play     1  write 17471  status 1
+  558 ms  play     1  write 18090  status 1
+  586 ms  play     1  write 18711  status 1
+  613 ms  play     1  write 19336  status 1
+  641 ms  play     1  write 19970  status 1
+  668 ms  play     1  write 20579  status 1
+  695 ms  play     1  write 21207  status 1
+  723 ms  play     1  write 21834  status 1
+  751 ms  play     1  write   413  status 1
+  778 ms  play     1  write  1031  status 1
+  805 ms  play     1  write 15512  status 1
+  848 ms  play     1  write 16482  status 1
+  874 ms  play     1  write 17084  status 1
+  901 ms  play     1  write 17699  status 1
+  930 ms  play     1  write 18336  status 1
+  957 ms  play     1  write 18956  status 1
+  985 ms  play     1  write 19592  status 1
+ 1011 ms  play     1  write 20195  status 1
+ 1039 ms  play     1  write 20834  status 1
+ 1067 ms  play     1  write 21453  status 1
+ 1094 ms  play     1  write    35  status 1
+ 1121 ms  play     1  write   646  status 1
+ 1149 ms  play     1  write 15137  status 1
+ 1177 ms  play     1  write 15757  status 1
+ 1204 ms  play     1  write 16391  status 1
+ 1231 ms  play     1  write 16995  status 1
+ 1259 ms  play     1  write 17634  status 1
+ 1286 ms  play     1  write 18254  status 1
+ 1314 ms  play     1  write 18888  status 1
+ 1341 ms  play     1  write 19494  status 1
+ 1369 ms  play     1  write 20128  status 1
+ 1396 ms  play     1  write 20750  status 1
+ 1425 ms  play     1  write 21393  status 1
+ 1451 ms  play     1  write 21990  status 1
+ 1479 ms  play     1  write   575  status 1
+ 1506 ms  play     1  write 15055  status 1
+ 1534 ms  play     1  write 15689  status 1
+ 1561 ms  play     1  write 16296  status 1
+ 1589 ms  play     1  write 16931  status 1
+ 1616 ms  play     1  write 17553  status 1
+ 1644 ms  play     1  write 18188  status 1
+ 1670 ms  play     1  write 18780  status 1
+ 1698 ms  play     1  write 19420  status 1
+ 1725 ms  play     1  write 20039  status 1
+ 1754 ms  play     1  write 20684  status 1
+ 1780 ms  play     1  write 21287  status 1
+ 1808 ms  play     1  write 21923  status 1
+ 1836 ms  play     1  write   496  status 1
+ 1864 ms  play     1  write 15006  status 1
+ 1890 ms  play     1  write 15592  status 1
+ 1918 ms  play     1  write 16231  status 1
+ 1946 ms  play     1  write 16849  status 1
+ 1973 ms  play     1  write 17483  status 1
+== DSTEST onceq b5lead
+caps flags 00000007  (20h = emulation)
+coop 00000000
+secondary 00000000
+play 00000000
+    0 ms  play     1  write 17527  status 1
+== DSTEST once b5leadpoll
+caps flags 00000007  (20h = emulation)
+coop 00000000
+secondary 00000000
+play 00000000
+    0 ms  play     0  write   215  status 1
+   92 ms  play     1  write 15746  status 1
+  126 ms  play     1  write 16507  status 1
+  151 ms  play     1  write 17073  status 1
+  172 ms  play     1  write 17551  status 1
+  206 ms  play     1  write 18326  status 1
+  244 ms  play     1  write 19185  status 1
+  267 ms  play     1  write 19715  status 1
+  288 ms  play     1  write 20192  status 1
+  323 ms  play     1  write 20980  status 1
+  358 ms  play     1  write 21772  status 1
+  384 ms  play     1  write   326  status 1
+  417 ms  play     1  write  1061  status 1
+  447 ms  play     1  write 15618  status 1
+  481 ms  play     1  write 16386  status 1
+  510 ms  play     1  write 17044  status 1
+  540 ms  play     1  write 17729  status 1
+  563 ms  play     1  write 18245  status 1
+  591 ms  play     1  write 18883  status 1
+  651 ms  play     1  write 20252  status 1
+  686 ms  play     1  write 21039  status 1
+  716 ms  play     1  write 21731  status 1
+  741 ms  play     1  write   239  status 1
+  775 ms  play     1  write  1022  status 1
+  811 ms  play     1  write 15684  status 1
+  838 ms  play     1  write 16292  status 1
+  868 ms  play     1  write 16981  status 1
+  892 ms  play     1  write 17540  status 1
+  921 ms  play     1  write 18180  status 1
+  948 ms  play     1  write 18797  status 1
+  976 ms  play     1  write 19446  status 1
+ 1013 ms  play     1  write 20277  status 1
+ 1044 ms  play     1  write 20981  status 1
+ 1090 ms  play     1  write 22036  status 1
+ 1124 ms  play     1  write   742  status 1
+ 1161 ms  play     1  write 15446  status 1
+ 1190 ms  play     1  write 16121  status 1
+ 1238 ms  play     1  write 17206  status 1
+ 1273 ms  play     1  write 17996  status 1
+ 1295 ms  play     1  write 18490  status 1
+ 1331 ms  play     1  write 19324  status 1
+ 1364 ms  play     1  write 20061  status 1
+ 1391 ms  play     1  write 20684  status 1
+ 1420 ms  play     1  write 21338  status 1
+ 1486 ms  play     1  write   787  status 1
+ 1529 ms  play     1  write 15630  status 1
+ 1551 ms  play     1  write 16130  status 1
+ 1582 ms  play     1  write 16828  status 1
+ 1608 ms  play     1  write 17414  status 1
+ 1649 ms  play     1  write 18341  status 1
+ 1693 ms  play     1  write 19345  status 1
+ 1717 ms  play     1  write 19893  status 1
+ 1744 ms  play     1  write 20513  status 1
+ 1795 ms  play     1  write 21667  status 1
+ 1829 ms  play     1  write   391  status 1
+ 1903 ms  play     1  write 15927  status 1
+ 1956 ms  play     1  write 17140  status 1
+ 1989 ms  play     1  write 17873  status 1
+== DSTEST onceq b6vxdid
+caps flags 00000007  (20h = emulation)
+coop 00000000
+secondary 00000000
+play 00000000
+    0 ms  play     1  write 18419  status 1
+== DSTEST once b6vxdidpoll
+caps flags 00000007  (20h = emulation)
+coop 00000000
+secondary 00000000
+play 00000000
+    0 ms  play     0  write   215  status 1
+   67 ms  play     1  write 15157  status 1
+  103 ms  play     1  write 15974  status 1
+  134 ms  play     1  write 16659  status 1
+  161 ms  play     1  write 17292  status 1
+  191 ms  play     1  write 17954  status 1
+  232 ms  play     1  write 19028  status 1
+  254 ms  play     1  write 19406  status 1
+  282 ms  play     1  write 20042  status 1
+  306 ms  play     1  write 20576  status 1
+  338 ms  play     1  write 21300  status 1
+  399 ms  play     1  write   643  status 1
+  433 ms  play     1  write 15265  status 1
+  460 ms  play     1  write 15887  status 1
+  514 ms  play     1  write 17118  status 1
+  546 ms  play     1  write 17839  status 1
+  570 ms  play     1  write 18389  status 1
+  598 ms  play     1  write 19030  status 1
+  625 ms  play     1  write 19631  status 1
+  655 ms  play     1  write 20312  status 1
+  680 ms  play     1  write 20884  status 1
+  709 ms  play     1  write 21534  status 1
+  735 ms  play     1  write    80  status 1
+  762 ms  play     1  write   707  status 1
+  827 ms  play     1  write 16027  status 1
+  853 ms  play     1  write 16619  status 1
+  891 ms  play     1  write 17487  status 1
+  914 ms  play     1  write 18132  status 1
+  944 ms  play     1  write 18695  status 1
+  980 ms  play     1  write 19501  status 1
+ 1012 ms  play     1  write 20248  status 1
+ 1039 ms  play     1  write 20861  status 1
+ 1068 ms  play     1  write 21502  status 1
+ 1097 ms  play     1  write   128  status 1
+ 1125 ms  play     1  write   759  status 1
+ 1149 ms  play     1  write 15168  status 1
+ 1181 ms  play     1  write 15893  status 1
+ 1238 ms  play     1  write 17175  status 1
+ 1289 ms  play     1  write 18347  status 1
+ 1334 ms  play     1  write 19361  status 1
+ 1360 ms  play     1  write 19949  status 1
+ 1386 ms  play     1  write 20534  status 1
+ 1417 ms  play     1  write 21245  status 1
+ 1439 ms  play     1  write 21753  status 1
+ 1462 ms  play     1  write   231  status 1
+ 1496 ms  play     1  write  1000  status 1
+ 1525 ms  play     1  write 15503  status 1
+ 1555 ms  play     1  write 16191  status 1
+ 1578 ms  play     1  write 16717  status 1
+ 1622 ms  play     1  write 17726  status 1
+ 1664 ms  play     1  write 18664  status 1
+ 1691 ms  play     1  write 19285  status 1
+ 1724 ms  play     1  write 20027  status 1
+ 1760 ms  play     1  write 20857  status 1
+ 1791 ms  play     1  write 21551  status 1
+ 1855 ms  play     1  write   951  status 1
+ 1882 ms  play     1  write 15424  status 1
+ 1914 ms  play     1  write 16150  status 1
+ 1941 ms  play     1  write 16776  status 1
+ 1971 ms  play     1  write 17460  status 1
+ 1993 ms  play     1  write 17962  status 1
+== DSTEST mmtimer b7
+caps flags 00000007  (20h = emulation)
+coop 00000000
+secondary 00000000
+play 00000000
+    0 ms  play     0  write   215  status 1
+   68 ms  play     1  write 15137  status 1
+   96 ms  play     1  write 15790  status 1
+  123 ms  play     1  write 16403  status 1
+  151 ms  play     1  write 17044  status 1
+  178 ms  play     1  write 17655  status 1
+  206 ms  play     1  write 18286  status 1
+  233 ms  play     1  write 18901  status 1
+  261 ms  play     1  write 19535  status 1
+  288 ms  play     1  write 20151  status 1
+  326 ms  play     1  write 21005  status 1
+  357 ms  play     1  write 21707  status 1
+  384 ms  play     1  write   276  status 1
+  412 ms  play     1  write   905  status 1
+  439 ms  play     1  write 15384  status 1
+  466 ms  play     1  write 16008  status 1
+  494 ms  play     1  write 16632  status 1
+  521 ms  play     1  write 17254  status 1
+  549 ms  play     1  write 17880  status 1
+  576 ms  play     1  write 18504  status 1
+  604 ms  play     1  write 19128  status 1
+  631 ms  play     1  write 19751  status 1
+  659 ms  play     1  write 20377  status 1
+  686 ms  play     1  write 21000  status 1
+  714 ms  play     1  write 21625  status 1
+  744 ms  play     1  write   259  status 1
+  779 ms  play     1  write  1071  status 1
+  810 ms  play     1  write 15632  status 1
+  837 ms  play     1  write 16236  status 1
+  865 ms  play     1  write 16873  status 1
+  892 ms  play     1  write 17492  status 1
+  920 ms  play     1  write 18125  status 1
+  947 ms  play     1  write 18729  status 1
+  975 ms  play     1  write 19379  status 1
+ 1002 ms  play     1  write 19996  status 1
+ 1030 ms  play     1  write 20624  status 1
+ 1057 ms  play     1  write 21236  status 1
+ 1085 ms  play     1  write 21881  status 1
+ 1112 ms  play     1  write   443  status 1
+ 1140 ms  play     1  write  1071  status 1
+ 1167 ms  play     1  write 15542  status 1
+ 1195 ms  play     1  write 16184  status 1
+ 1222 ms  play     1  write 16797  status 1
+ 1250 ms  play     1  write 17429  status 1
+ 1280 ms  play     1  write 18106  status 1
+ 1305 ms  play     1  write 18682  status 1
+ 1333 ms  play     1  write 19315  status 1
+ 1378 ms  play     1  write 20346  status 1
+ 1400 ms  play     1  write 20845  status 1
+ 1428 ms  play     1  write 21471  status 1
+ 1455 ms  play     1  write    42  status 1
+ 1482 ms  play     1  write   658  status 1
+ 1510 ms  play     1  write 15140  status 1
+ 1538 ms  play     1  write 15774  status 1
+ 1565 ms  play     1  write 16397  status 1
+ 1593 ms  play     1  write 17024  status 1
+ 1620 ms  play     1  write 17646  status 1
+ 1647 ms  play     1  write 18271  status 1
+ 1675 ms  play     1  write 18893  status 1
+ 1702 ms  play     1  write 19521  status 1
+ 1730 ms  play     1  write 20142  status 1
+ 1757 ms  play     1  write 20769  status 1
+ 1785 ms  play     1  write 21389  status 1
+ 1812 ms  play     1  write 22016  status 1
+ 1841 ms  play     1  write   608  status 1
+ 1867 ms  play     1  write 15074  status 1
+ 1895 ms  play     1  write 15695  status 1
+ 1922 ms  play     1  write 16320  status 1
+ 1975 ms  play     1  write 17519  status 1
+== DSTEST mmtimer b8
+timeSetEvent id 5308428
+  200 ms  ticks 10
+  400 ms  ticks 20
+  600 ms  ticks 31
+  800 ms  ticks 41
+ 1000 ms  ticks 51
+ 1200 ms  ticks 62
+ 1400 ms  ticks 72
+ 1600 ms  ticks 82
+ 1800 ms  ticks 93
+ 2000 ms  ticks 103
+elapsed 2093 ms, expected about 104 ticks
+== DSTEST onceq b9ctl
+caps flags 00000007  (20h = emulation)
+coop 00000000
+secondary 00000000
+play 00000000
+    0 ms  play     1  write 15852  status 1
+== DSTEST onceq b10ioc
+caps flags 00000007  (20h = emulation)
+coop 00000000
+secondary 00000000
+play 00000000
+    0 ms  play     1  write 18802  status 1
+== DSTEST onceq b11forcekm
+caps flags 00000007  (20h = emulation)
+coop 00000000
+secondary 00000000
+play 00000000
+    0 ms  play     0  write     0  status 0
+== DSTEST onceq b12f78
+caps flags 00000007  (20h = emulation)
+coop 00000000
+secondary 00000000
+play 00000000
+    0 ms  play     0  write     0  status 0
+== DSTEST onceq b13ver
+caps flags 00000007  (20h = emulation)
+coop 00000000
+secondary 00000000
+play 00000000
+    0 ms  play     0  write     0  status 0
+== DSTEST onceq b14stock387
+caps flags 00000007  (20h = emulation)
+coop 00000000
+secondary 00000000
+play 00000000
+    0 ms  play     0  write     0  status 0
+== DSTEST once rel1
+caps flags 00000007  (20h = emulation)
+coop 00000000
+secondary 00000000
+play 00000000
+    0 ms  play     0  write   215  status 1
+   27 ms  play     1  write   744  status 1
+   54 ms  play   807  write  1236  status 1
+  111 ms  play  2111  write  2540  status 1
+  144 ms  play  2847  write  3276  status 1
+  169 ms  play  3430  write  3859  status 1
+  192 ms  play  3940  write  4369  status 1
+  214 ms  play  4442  write  4871  status 1
+  237 ms  play  4973  write  5402  status 1
+  291 ms  play  6195  write  6624  status 1
+  325 ms  play  6975  write  7404  status 1
+  366 ms  play  7902  write  8331  status 1
+  412 ms  play  8933  write  9362  status 1
+  438 ms  play  9541  write  9970  status 1
+  475 ms  play 10378  write 10807  status 1
+  507 ms  play 11107  write 11536  status 1
+  538 ms  play 11807  write 12236  status 1
+  571 ms  play 12546  write 12975  status 1
+  595 ms  play 13092  write 13521  status 1
+  642 ms  play 14165  write 14594  status 1
+  674 ms  play 14901  write 15330  status 1
+  742 ms  play 16448  write 16877  status 1
+  771 ms  play 17088  write 17517  status 1
+  800 ms  play 17754  write 18183  status 1
+  837 ms  play 18609  write 18176  status 1
+  876 ms  play 19476  write 19043  status 1
+  901 ms  play 20042  write 19609  status 1
+  922 ms  play 20541  write 20108  status 1
+  954 ms  play 21257  write 18520  status 1
+  978 ms  play 21797  write 19060  status 1
+ 1000 ms  play     0  write 19565  status 1
+ 1026 ms  play     0  write 20161  status 1
+ 1064 ms  play     0  write     0  status 0
+ 1093 ms  play     0  write     0  status 0
+ 1122 ms  play     0  write     0  status 0
+ 1144 ms  play     0  write     0  status 0
+ 1168 ms  play     0  write     0  status 0
+ 1189 ms  play     0  write     0  status 0
+ 1213 ms  play     0  write     0  status 0
+ 1239 ms  play     0  write     0  status 0
+ 1261 ms  play     0  write     0  status 0
+ 1282 ms  play     0  write     0  status 0
+ 1305 ms  play     0  write     0  status 0
+ 1342 ms  play     0  write     0  status 0
+ 1370 ms  play     0  write     0  status 0
+ 1399 ms  play     0  write     0  status 0
+ 1427 ms  play     0  write     0  status 0
+ 1456 ms  play     0  write     0  status 0
+ 1477 ms  play     0  write     0  status 0
+ 1501 ms  play     0  write     0  status 0
+ 1523 ms  play     0  write     0  status 0
+ 1546 ms  play     0  write     0  status 0
+ 1586 ms  play     0  write     0  status 0
+ 1614 ms  play     0  write     0  status 0
+ 1645 ms  play     0  write     0  status 0
+ 1666 ms  play     0  write     0  status 0
+ 1688 ms  play     0  write     0  status 0
+ 1711 ms  play     0  write     0  status 0
+ 1750 ms  play     0  write     0  status 0
+ 1778 ms  play     0  write     0  status 0
+ 1807 ms  play     0  write     0  status 0
+ 1835 ms  play     0  write     0  status 0
+ 1864 ms  play     0  write     0  status 0
+ 1886 ms  play     0  write     0  status 0
+ 1907 ms  play     0  write     0  status 0
+ 1928 ms  play     0  write     0  status 0
+ 1951 ms  play     0  write     0  status 0
+ 1975 ms  play     0  write     0  status 0
+== DSTEST onceq rel2
+caps flags 00000007  (20h = emulation)
+coop 00000000
+secondary 00000000
+play 00000000
+    0 ms  play     0  write     0  status 0

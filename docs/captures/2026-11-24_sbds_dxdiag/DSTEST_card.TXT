@@ -1,0 +1,6 @@
+== DSTEST onceq card1
+caps flags 00000007  (20h = emulation)
+coop 00000000
+secondary 00000000
+play 00000000
+    0 ms  play     0  write     0  status 0

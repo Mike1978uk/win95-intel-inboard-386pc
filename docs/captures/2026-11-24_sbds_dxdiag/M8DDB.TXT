@@ -1,0 +1,1488 @@
+== bed16hel  driver m8disp.drv  800x600x16  1980-01-02 00:03  1000 ms  directdraw
+caps  hw 02000000  ckey 00000000  vidmem 0  NO HAL
+surfaces  vid no/no  sys yes/yes  2 bytes a pixel
+started 1/10 dd_fill_small
+dd_fill_small        117.76 ops/s    8.492 ms/op  hash 00000000  #1  pad 0000  med 117.76
+started 2/10 dd_fill_large
+dd_fill_large         10.83 ops/s   92.322 ms/op  hash 00000000  #2  pad 0000  med 10.83
+started 3/10 dd_vid_small
+dd_vid_small     unsupported: no surface  #3
+started 4/10 dd_vid_large
+dd_vid_large     unsupported: no surface  #4
+started 5/10 dd_sys_small
+dd_sys_small          21.91 ops/s   45.652 ms/op  hash 00000000  #5  pad 0000  med 21.91
+started 6/10 dd_sys_large
+dd_sys_large           1.53 ops/s  654.627 ms/op  hash 00000000  #6  pad 0000  med 1.53
+started 7/10 dd_sprite
+dd_sprite        unsupported: no surface  #7
+started 8/10 dd_scroll
+dd_scroll             28.79 ops/s   34.729 ms/op  hash 00000000  #8  pad 0000  med 28.79
+started 9/10 dd_lock_small
+dd_lock_small    unsupported: 887601b3  #9
+started 10/10 dd_lock_large
+dd_lock_large    unsupported: 887601b3  #10
+
+== bed16hel2  driver m8disp.drv  800x600x16  1980-01-02 00:03  1000 ms  directdraw
+caps  hw 02000000  ckey 00000000  vidmem 0  NO HAL
+surfaces  vid no/no  sys yes/yes  2 bytes a pixel
+started 1/10 dd_fill_small
+dd_fill_small        147.54 ops/s    6.778 ms/op  hash 7ab00855  #1  pad 0000  med 147.54
+started 2/10 dd_fill_large
+dd_fill_large         13.21 ops/s   75.685 ms/op  hash c354238d  #2  pad 0000  med 13.21
+started 3/10 dd_vid_small
+dd_vid_small     unsupported: no surface  #3
+started 4/10 dd_vid_large
+dd_vid_large     unsupported: no surface  #4
+started 5/10 dd_sys_small
+dd_sys_small          21.37 ops/s   46.785 ms/op  hash dbb1f06d  #5  pad 0000  med 21.37
+started 6/10 dd_sys_large
+dd_sys_large           1.48 ops/s  677.591 ms/op  hash 8dec9cb7  #6  pad 0000  med 1.48
+started 7/10 dd_sprite
+dd_sprite        unsupported: no surface  #7
+started 8/10 dd_scroll
+dd_scroll             29.46 ops/s   33.945 ms/op  hash 975a68c5  #8  pad 0000  med 29.46
+started 9/10 dd_lock_small
+dd_lock_small    unsupported: 887601b3  #9
+started 10/10 dd_lock_large
+dd_lock_large    unsupported: 887601b3  #10
+
+== bed8hal  driver m8disp.drv  1024x768x8  1980-01-02 00:03  1000 ms  directdraw
+caps  hw 84000440  ckey 00000000  vidmem 0  HAL
+surfaces  vid yes/no  sys yes/yes  1 bytes a pixel
+started 1/10 dd_fill_small
+dd_fill_small       1561.29 ops/s    0.640 ms/op  hash db545188  #1  pad 0000  med 1643.89
+started 2/10 dd_fill_large
+dd_fill_large       1604.12 ops/s    0.623 ms/op  hash bbf85c28  #2  pad 0000  med 1643.36
+started 3/10 dd_vid_small
+dd_vid_small        1007.51 ops/s    0.993 ms/op  hash e6fe1aa4  #3  pad 0000  med 1007.51
+started 4/10 dd_vid_large
+dd_vid_large     unsupported: no surface  #4
+started 5/10 dd_sys_small
+dd_sys_small          50.50 ops/s   19.804 ms/op  hash e6fe1aa4  #5  pad 0000  med 50.50
+started 6/10 dd_sys_large
+dd_sys_large           4.92 ops/s  203.298 ms/op  hash 22d08de2  #6  pad 0000  med 4.92
+started 7/10 dd_sprite
+dd_sprite              0.63 ops/s 1580.994 ms/op  hash 7b7f4a70  #7  pad 0000  med 0.63
+started 8/10 dd_scroll
+dd_scroll           1543.46 ops/s    0.648 ms/op  hash 8a2e95c4  #8  pad 0000  med 1618.31
+started 9/10 dd_lock_small
+dd_lock_small         40.45 ops/s   24.720 ms/op  hash 0a64288a  #9  pad 0000  med 40.45
+started 10/10 dd_lock_large
+dd_lock_large          1.55 ops/s  645.951 ms/op  hash 7338bca0  #10  pad 0000  med 1.55
+
+== bed8key  driver m8disp.drv  1024x768x8  1980-01-02 00:03  1000 ms  directdraw
+caps  hw 85400440  ckey 00000200  vidmem 0  HAL
+surfaces  vid yes/no  sys yes/yes  1 bytes a pixel
+started 1/10 dd_fill_small
+dd_fill_small       1012.68 ops/s    0.987 ms/op  hash db545188  #1  pad 0000  med 1145.86
+started 2/10 dd_fill_large
+dd_fill_large        993.93 ops/s    1.006 ms/op  hash bbf85c28  #2  pad 0000  med 993.93
+started 3/10 dd_vid_small
+dd_vid_small         185.96 ops/s    5.378 ms/op  hash e6fe1aa4  #3  pad 0000  med 185.96
+started 4/10 dd_vid_large
+dd_vid_large     unsupported: no surface  #4
+started 5/10 dd_sys_small
+dd_sys_small          88.84 ops/s   11.256 ms/op  hash e6fe1aa4  #5  pad 0000  med 87.09
+started 6/10 dd_sys_large
+dd_sys_large           4.92 ops/s  203.171 ms/op  hash 22d08de2  #6  pad 0000  med 4.92
+started 7/10 dd_sprite
+dd_sprite           1534.79 ops/s    0.652 ms/op  hash 7b7f4a70  #7  pad 0000  med 1533.86
+started 8/10 dd_scroll
+dd_scroll           1231.92 ops/s    0.812 ms/op  hash 8a2e95c4  #8  pad 0000  med 1599.44
+started 9/10 dd_lock_small
+dd_lock_small         40.45 ops/s   24.720 ms/op  hash 0a64288a  #9  pad 0000  med 40.45
+started 10/10 dd_lock_large
+dd_lock_large          1.58 ops/s  632.149 ms/op  hash 7338bca0  #10  pad 0000  med 1.58
+
+== bed8key2  driver m8disp.drv  1024x768x8  1980-01-02 00:05  1000 ms  directdraw
+caps  hw 85400440  ckey 00000200  vidmem 0  HAL
+surfaces  vid yes/no  sys yes/yes  1 bytes a pixel
+started 1/10 dd_fill_small
+dd_fill_small       1431.70 ops/s    0.698 ms/op  hash db545188  #1  pad 0000  med 1639.37
+started 2/10 dd_fill_large
+dd_fill_large       1015.62 ops/s    0.985 ms/op  hash bbf85c28  #2  pad 0000  med 886.27
+started 3/10 dd_vid_small
+dd_vid_small         890.89 ops/s    1.122 ms/op  hash e6fe1aa4  #3  pad 0000  med 890.89
+started 4/10 dd_vid_large
+dd_vid_large     unsupported: no surface  #4
+started 5/10 dd_sys_small
+dd_sys_small          86.63 ops/s   11.543 ms/op  hash e6fe1aa4  #5  pad 0000  med 86.01
+started 6/10 dd_sys_large
+dd_sys_large           4.79 ops/s  208.834 ms/op  hash 22d08de2  #6  pad 0000  med 4.79
+started 7/10 dd_sprite
+dd_sprite           1496.27 ops/s    0.668 ms/op  hash 7b7f4a70  #7  pad 0000  med 1533.44
+started 8/10 dd_scroll
+dd_scroll           1540.69 ops/s    0.649 ms/op  hash 8a2e95c4  #8  pad 0000  med 1604.83
+started 9/10 dd_lock_small
+dd_lock_small         41.53 ops/s   24.078 ms/op  hash 0a64288a  #9  pad 0000  med 41.52
+started 10/10 dd_lock_large
+dd_lock_large          1.55 ops/s  645.837 ms/op  hash 7338bca0  #10  pad 0000  med 1.55
+
+== bed16dd  driver m8disp.drv  800x600x16  1980-01-02 00:03  1000 ms  directdraw
+caps  hw 85400440  ckey 00000200  vidmem 0  HAL
+surfaces  vid no/no  sys yes/yes  2 bytes a pixel
+started 1/10 dd_fill_small
+dd_fill_small        282.60 ops/s    3.539 ms/op  hash 2a55b674  #1  pad 0000  med 301.14
+started 2/10 dd_fill_large
+dd_fill_large          7.76 ops/s  128.901 ms/op  hash ad8015d4  #2  pad 0000  med 7.76
+started 3/10 dd_vid_small
+dd_vid_small     unsupported: no surface  #3
+started 4/10 dd_vid_large
+dd_vid_large     unsupported: no surface  #4
+started 5/10 dd_sys_small
+dd_sys_small          21.70 ops/s   46.083 ms/op  hash 24cd615a  #5  pad 0000  med 21.70
+started 6/10 dd_sys_large
+dd_sys_large           1.50 ops/s  668.602 ms/op  hash 515bde88  #6  pad 0000  med 1.50
+started 7/10 dd_sprite
+dd_sprite        unsupported: no surface  #7
+started 8/10 dd_scroll
+dd_scroll             28.67 ops/s   34.875 ms/op  hash 64cd19c4  #8  pad 0000  med 28.67
+started 9/10 dd_lock_small
+dd_lock_small          9.35 ops/s  106.938 ms/op  hash 5ed62004  #9  pad 0000  med 9.35
+started 10/10 dd_lock_large
+dd_lock_large          0.37 ops/s 2722.331 ms/op  hash eab36590  #10  pad 0000  med 0.37
+
+== bed16dd2  driver m8disp.drv  800x600x16  1980-01-02 00:05  1000 ms  directdraw
+caps  hw 85400440  ckey 00000200  vidmem 0  HAL
+surfaces  vid no/no  sys yes/yes  2 bytes a pixel
+started 1/10 dd_fill_small
+dd_fill_small        277.67 ops/s    3.601 ms/op  hash 2a55b674  #1  pad 0000  med 300.56
+started 2/10 dd_fill_large
+dd_fill_large          7.97 ops/s  125.432 ms/op  hash ad8015d4  #2  pad 0000  med 7.97
+started 3/10 dd_vid_small
+dd_vid_small     unsupported: no surface  #3
+started 4/10 dd_vid_large
+dd_vid_large     unsupported: no surface  #4
+started 5/10 dd_sys_small
+dd_sys_small          21.50 ops/s   46.517 ms/op  hash 24cd615a  #5  pad 0000  med 21.50
+started 6/10 dd_sys_large
+dd_sys_large           1.45 ops/s  687.473 ms/op  hash 515bde88  #6  pad 0000  med 1.45
+started 7/10 dd_sprite
+dd_sprite        unsupported: no surface  #7
+started 8/10 dd_scroll
+dd_scroll             28.64 ops/s   34.921 ms/op  hash 64cd19c4  #8  pad 0000  med 28.64
+started 9/10 dd_lock_small
+dd_lock_small          9.33 ops/s  107.176 ms/op  hash 5ed62004  #9  pad 0000  med 9.33
+started 10/10 dd_lock_large
+dd_lock_large          0.35 ops/s 2821.611 ms/op  hash eab36590  #10  pad 0000  med 0.35
+
+== bed16dd3  driver m8disp.drv  800x600x16  1980-01-02 00:03  1000 ms  directdraw
+caps  hw 85400440  ckey 00000200  vidmem 0  HAL
+surfaces  vid no/no  sys yes/yes  2 bytes a pixel
+started 1/10 dd_fill_small
+dd_fill_small        271.05 ops/s    3.689 ms/op  hash 2a55b674  #1  pad 0000  med 280.42  card 0
+started 2/10 dd_fill_large
+dd_fill_large          0.30 ops/s 3301.726 ms/op  hash ad8015d4  #2  pad 0000  med 0.30  card 0
+started 3/10 dd_vid_small
+dd_vid_small     unsupported: no surface  #3
+started 4/10 dd_vid_large
+dd_vid_large     unsupported: no surface  #4
+started 5/10 dd_sys_small
+dd_sys_small          21.53 ops/s   46.444 ms/op  hash 24cd615a  #5  pad 0000  med 21.53  card 0
+started 6/10 dd_sys_large
+dd_sys_large           1.53 ops/s  655.176 ms/op  hash 515bde88  #6  pad 0000  med 1.53  card 0
+started 7/10 dd_sprite
+dd_sprite        unsupported: no surface  #7
+started 8/10 dd_scroll
+dd_scroll             21.95 ops/s   45.558 ms/op  hash 64cd19c4  #8  pad 0000  med 21.95  card 0
+started 9/10 dd_lock_small
+dd_lock_small          9.59 ops/s  104.285 ms/op  hash 5ed62004  #9  pad 0000  med 9.59  card 0
+started 10/10 dd_lock_large
+dd_lock_large          0.37 ops/s 2722.384 ms/op  hash eab36590  #10  pad 0000  med 0.37  card 0
+
+== bed16dd4  driver m8disp.drv  800x600x16  1980-01-02 00:05  1000 ms  directdraw
+caps  hw 85400440  ckey 00000200  vidmem 0  HAL
+surfaces  vid no/no  sys yes/yes  2 bytes a pixel
+started 1/10 dd_fill_small
+dd_fill_small        165.26 ops/s    6.051 ms/op  hash 2a55b674  #1  pad 0000  med 165.26  card 0
+started 2/10 dd_fill_large
+dd_fill_large         16.43 ops/s   60.875 ms/op  hash ad8015d4  #2  pad 0000  med 16.43  card 0
+started 3/10 dd_vid_small
+dd_vid_small     unsupported: no surface  #3
+started 4/10 dd_vid_large
+dd_vid_large     unsupported: no surface  #4
+started 5/10 dd_sys_small
+dd_sys_small          21.44 ops/s   46.634 ms/op  hash 24cd615a  #5  pad 0000  med 21.44  card 0
+started 6/10 dd_sys_large
+dd_sys_large           1.53 ops/s  655.189 ms/op  hash 515bde88  #6  pad 0000  med 1.53  card 0
+started 7/10 dd_sprite
+dd_sprite        unsupported: no surface  #7
+started 8/10 dd_scroll
+dd_scroll             22.83 ops/s   43.802 ms/op  hash 64cd19c4  #8  pad 0000  med 22.83  card 0
+started 9/10 dd_lock_small
+dd_lock_small          9.35 ops/s  106.966 ms/op  hash 5ed62004  #9  pad 0000  med 9.35  card 0
+started 10/10 dd_lock_large
+dd_lock_large          0.37 ops/s 2722.469 ms/op  hash eab36590  #10  pad 0000  med 0.37  card 0
+
+== bed16copy  driver m8disp.drv  800x600x16  1980-01-02 00:03  1000 ms  directdraw
+caps  hw 85400440  ckey 00000200  vidmem 0  HAL
+surfaces  vid no/no  sys yes/yes  2 bytes a pixel
+started 1/10 dd_fill_small
+dd_fill_small        228.26 ops/s    4.381 ms/op  hash 2a55b674  #1  pad 0000  med 228.26  card 0
+started 2/10 dd_fill_large
+dd_fill_large         15.69 ops/s   63.738 ms/op  hash ad8015d4  #2  pad 0000  med 15.69  card 0
+started 3/10 dd_vid_small
+dd_vid_small     unsupported: no surface  #3
+started 4/10 dd_vid_large
+dd_vid_large     unsupported: no surface  #4
+started 5/10 dd_sys_small
+dd_sys_small          22.00 ops/s   45.460 ms/op  hash 24cd615a  #5  pad 0000  med 22.00  card 0
+started 6/10 dd_sys_large
+dd_sys_large           1.53 ops/s  654.673 ms/op  hash 515bde88  #6  pad 0000  med 1.53  card 0
+started 7/10 dd_sprite
+dd_sprite        unsupported: no surface  #7
+started 8/10 dd_scroll
+dd_scroll            218.49 ops/s    4.577 ms/op  hash 64cd19c4  #8  pad 0000  med 224.42  card 0
+started 9/10 dd_lock_small
+dd_lock_small          9.36 ops/s  106.837 ms/op  hash 5ed62004  #9  pad 0000  med 9.36  card 0
+started 10/10 dd_lock_large
+dd_lock_large          0.37 ops/s 2731.745 ms/op  hash eab36590  #10  pad 0000  med 0.37  card 0
+
+== bed16hash  driver m8disp.drv  800x600x16  1980-01-02 00:03  1000 ms  directdraw
+caps  hw 85400440  ckey 00000200  vidmem 0  HAL
+surfaces  vid no/no  sys yes/yes  2 bytes a pixel
+started 1/10 dd_fill_small
+dd_fill_small        309.58 ops/s    3.230 ms/op  hash 2a55b674  #1  pad 0000  med 343.02  card 0
+started 2/10 dd_fill_large
+dd_fill_large         17.85 ops/s   56.021 ms/op  hash ad8015d4  #2  pad 0000  med 17.85  card 0
+started 3/10 dd_vid_small
+dd_vid_small     unsupported: no surface  #3
+started 4/10 dd_vid_large
+dd_vid_large     unsupported: no surface  #4
+started 5/10 dd_sys_small
+dd_sys_small          18.51 ops/s   54.012 ms/op  hash 24cd615a  #5  pad 0000  med 18.51  card 0
+started 6/10 dd_sys_large
+dd_sys_large           1.28 ops/s  783.226 ms/op  hash 515bde88  #6  pad 0000  med 1.28  card 0
+started 7/10 dd_sprite
+dd_sprite        unsupported: no surface  #7
+started 8/10 dd_scroll
+dd_scroll            126.63 ops/s    7.897 ms/op  hash 64cd19c4  #8  pad 0000  med 129.51  card 0
+started 9/10 dd_lock_small
+dd_lock_small         13.17 ops/s   75.953 ms/op  hash 5ed62004  #9  pad 0000  med 13.17  card 0
+started 10/10 dd_lock_large
+dd_lock_large          0.51 ops/s 1942.634 ms/op  hash eab36590  #10  pad 0000  med 0.51  card 0
+
+== modex bedmx16  driver m8disp.drv  800x600x16  1980-01-02 00:03  1000 ms  directdraw
+caps  hw 85400440  ckey 00000200  vidmem 0  HAL
+== bedmx16  modex  320x200x8  1000 ms  directdraw
+coop 00000000
+setmode 88760078
+== modex bedmx16b  driver m8disp.drv  800x600x16  1980-01-02 00:03  1000 ms  directdraw
+caps  hw 85400440  ckey 00000200  vidmem 0  HAL
+== bedmx16b  modex  320x200x8  1000 ms  directdraw
+coop 00000000
+mode 800x600x16
+mode 320x200x8 modex
+mode 320x240x8 modex
+setmode 88760078
+== modex bedmx8  driver m8disp.drv  1024x768x8  1980-01-02 00:04  1000 ms  directdraw
+caps  hw 85400440  ckey 00000200  vidmem 0  HAL
+== bedmx8  modex  320x200x8  1000 ms  directdraw
+coop 00000000
+mode 640x480x8
+mode 800x600x8
+mode 1024x768x8
+mode 320x200x8 modex
+mode 320x240x8 modex
+setmode 00000000
+primary 00000000
+== modex bedmx8b  driver m8disp.drv  1024x768x8  1980-01-02 00:04  1000 ms  directdraw
+caps  hw 85400440  ckey 00000200  vidmem 0  HAL
+== bedmx8b  modex  320x200x8  1000 ms  directdraw
+coop 00000000
+mode 640x480x8
+mode 800x600x8
+mode 1024x768x8
+mode 320x200x8 modex
+mode 320x240x8 modex
+setmode 00000000
+primary 00000000
+getdesc
+surface 00000000 caps 1020c200  pitch 320  320x200  mem 00000000
+palette 00000000
+== modex bedmx8c  driver m8disp.drv  1024x768x8  1980-01-02 00:04  1000 ms  directdraw
+caps  hw 85400440  ckey 00000200  vidmem 0  HAL
+== bedmx8c  modex  320x200x8  1000 ms  directdraw
+coop 00000000
+mode 640x480x8
+mode 800x600x8
+mode 1024x768x8
+mode 320x200x8 modex
+mode 320x240x8 modex
+setmode 00000000
+primary 00000000
+getdesc
+surface 00000000 caps 1020c200  pitch 320  320x200  mem 00000000
+palette 00000000
+== modex bedmxtr  driver m8disp.drv  1024x768x8  1980-01-02 00:04  1000 ms  directdraw
+caps  hw 85400440  ckey 00000200  vidmem 0  HAL
+== bedmxtr  modex  320x200x8  1000 ms  directdraw
+coop 00000000
+mode 640x480x8
+mode 800x600x8
+mode 1024x768x8
+mode 320x200x8 modex
+mode 320x240x8 modex
+setmode 00000000
+primary 00000000
+getdesc
+surface 00000000 caps 1020c200  pitch 320  320x200  mem 00000000
+palette 00000000
+== modex nopal1  driver m8disp.drv  1024x768x8  1980-01-02 00:04  1000 ms  directdraw
+caps  hw 85400440  ckey 00000200  vidmem 0  HAL
+== nopal1  modex  320x200x8  1000 ms  directdraw
+coop 00000000
+mode 640x480x8
+mode 800x600x8
+mode 1024x768x8
+mode 320x200x8 modex
+mode 320x240x8 modex
+setmode 00000000
+primary 00000000
+getdesc
+surface 00000000 caps 1020c200  pitch 320  320x200  mem 00000000
+palette 80004005
+started 1 mx_fill
+mx_fill          unsupported: 88760037  #1
+started 2 mx_frame
+mx_frame         unsupported: 887601ae  #2
+restore 00000000
+
+== fs16 bedfs16  driver m8disp.drv  800x600x16  1980-01-02 00:04  1000 ms  directdraw
+caps  hw 85400440  ckey 00000200  vidmem 0  HAL
+== bedfs16  fullscreen  640x480x16  1000 ms  directdraw
+coop 00000000
+mode 640x480x16
+mode 800x600x16
+setmode 00000000
+primary 00000000
+getdesc
+surface 00000000 caps 1000c200  pitch 1600  800x600  mem 00000000
+palette 00000000
+setpalette 88760091
+started 1 mx_fill
+mx_fill                5.28 ops/s  189.426 ms/op  hash 25f27dc5  #1  pad 0000  med 5.28  card 0
+started 2 mx_frame
+mx_frame               0.28 ops/s 3530.453 ms/op  hash fd1df3fd  #2  pad 0000  med 0.28  card 0
+restore 00000000
+
+== fs16 bedfs16b  driver m8disp.drv  800x600x16  1980-01-02 00:04  1000 ms  directdraw
+caps  hw 85400440  ckey 00000200  vidmem 0  HAL
+== bedfs16b  fullscreen  640x480x16  1000 ms  directdraw
+coop 00000000
+mode 640x480x16
+mode 800x600x16
+setmode 00000000
+primary 00000000
+getdesc
+surface 00000000 caps 1000c200  pitch 1280  640x480  mem 00000000
+palette 00000000
+setpalette 88760091
+started 1 mx_fill
+mx_fill                5.86 ops/s  170.619 ms/op  hash 25f27dc5  #1  pad 0000  med 5.86  card 0
+started 2 mx_frame
+mx_frame               0.24 ops/s 4151.228 ms/op  hash fd1df3fd  #2  pad 0000  med 0.24  card 0
+restore 00000000
+
+== bedrowd  driver m8disp.drv  800x600x16  1980-01-02 00:05  1000 ms  directdraw
+caps  hw 85400440  ckey 00000200  vidmem 0  HAL
+surfaces  vid no/no  sys yes/yes  2 bytes a pixel
+started 1/10 dd_fill_small
+dd_fill_small        247.94 ops/s    4.033 ms/op  hash 2a55b674  #1  pad 0000  med 353.64  card 0
+started 2/10 dd_fill_large
+dd_fill_large         17.43 ops/s   57.374 ms/op  hash ad8015d4  #2  pad 0000  med 17.43  card 0
+started 3/10 dd_vid_small
+dd_vid_small     unsupported: no surface  #3
+started 4/10 dd_vid_large
+dd_vid_large     unsupported: no surface  #4
+started 5/10 dd_sys_small
+dd_sys_small          18.98 ops/s   52.696 ms/op  hash 24cd615a  #5  pad 0000  med 18.98  card 0
+started 6/10 dd_sys_large
+dd_sys_large           1.33 ops/s  749.940 ms/op  hash 515bde88  #6  pad 0000  med 1.33  card 0
+started 7/10 dd_sprite
+dd_sprite        unsupported: no surface  #7
+started 8/10 dd_scroll
+dd_scroll            126.37 ops/s    7.913 ms/op  hash 64cd19c4  #8  pad 0000  med 129.48  card 0
+started 9/10 dd_lock_small
+dd_lock_small         13.13 ops/s   76.162 ms/op  hash 5ed62004  #9  pad 0000  med 13.13  card 0
+started 10/10 dd_lock_large
+dd_lock_large          0.56 ops/s 1793.305 ms/op  hash eab36590  #10  pad 0000  med 0.56  card 0
+
+== fs16 bc:\fb16chk   driver m8disp.drv  800x600x16  1980-01-02 00:05  1000 ms  directdraw
+caps  hw 85400440  ckey 00000200  vidmem 0  HAL
+== bc:\fb16chk   fullscreen  640x480x16  1000 ms  directdraw
+coop 00000000
+mode 640x480x16
+mode 800x600x16
+setmode 00000000
+primary 00000000
+getdesc
+surface 00000000 caps 1000c200  pitch 1280  640x480  mem 00000000
+palette 00000000
+setpalette 88760091
+started 1 mx_fill
+mx_fill                5.25 ops/s  190.301 ms/op  hash 177dddc5  #1  pad 0000  med 5.25  card 0
+started 2 mx_frame
+mx_frame               0.25 ops/s 4041.550 ms/op  hash fd1df3fd  #2  pad 0000  med 0.25  card 0
+restore 00000000
+
+== fs16 bedoaat  driver m8disp.drv  800x600x16  1980-01-02 00:02  1000 ms  directdraw
+caps  hw 85400440  ckey 00000200  vidmem 0  HAL
+== bedoaat  fullscreen  640x480x16  1000 ms  directdraw
+coop 00000000
+mode 640x480x16
+mode 800x600x16
+setmode 00000000
+primary 00000000
+getdesc
+surface 00000000 caps 1000c200  pitch 1280  640x480  mem 00000000
+palette 00000000
+setpalette 88760091
+started 1 mx_fill
+mx_fill                5.28 ops/s  189.516 ms/op  hash 25f27dc5  #1  pad 0000  med 5.28  card 0
+started 2 mx_frame
+mx_frame               0.25 ops/s 3971.045 ms/op  hash fd1df3fd  #2  pad 0000  med 0.25  card 0
+started 3 mx_box
+mx_box                 2.68 ops/s  372.733 ms/op  hash d1e4e5c5  #3  pad 0000  med 2.68  card 0
+restore 00000000
+
+== fs16 bedfnv  driver m8disp.drv  800x600x16  1980-01-02 00:02  1000 ms  directdraw
+caps  hw 85400440  ckey 00000200  vidmem 0  HAL
+== bedfnv  fullscreen  640x480x16  1000 ms  directdraw
+coop 00000000
+mode 640x480x16
+mode 800x600x16
+setmode 00000000
+primary 00000000
+getdesc
+surface 00000000 caps 1000c200  pitch 1280  640x480  mem 00000000
+palette 00000000
+setpalette 88760091
+started 1 mx_fill
+mx_fill                5.46 ops/s  183.023 ms/op  hash 25f27dc5  #1  pad 0000  med 5.46  card 0
+started 2 mx_frame
+mx_frame               0.25 ops/s 4066.899 ms/op  hash fd1df3fd  #2  pad 0000  med 0.25  card 0
+started 3 mx_box
+mx_box                 2.86 ops/s  349.581 ms/op  hash d1e4e5c5  #3  pad 0000  med 2.86  card 0
+restore 00000000
+
+== fs16 bedflip1  driver m8disp.drv  640x480x16  1980-01-02 00:04  1000 ms  directdraw
+caps  hw 85400440  ckey 00000200  vidmem 0  HAL
+== bedflip1  fullscreen  640x480x16  1000 ms  directdraw
+coop 00000000
+mode 640x480x16
+mode 800x600x16
+setmode 00000000
+primary 00000000
+getdesc
+surface 00000000 caps 1000c200  pitch 1280  640x480  mem 00000000
+palette 00000000
+setpalette 88760091
+started 1 mx_fill
+mx_fill                6.22 ops/s  160.743 ms/op  hash 177dddc5  #1  pad 0000  med 6.22  card 0
+started 2 mx_frame
+mx_frame               0.25 ops/s 3999.330 ms/op  hash fd1df3fd  #2  pad 0000  med 0.25  card 0
+started 3 mx_box
+mx_box                 2.95 ops/s  338.843 ms/op  hash d1e4e5c5  #3  pad 0000  med 2.95  card 0
+started 4 mx_same
+mx_same                2.99 ops/s  334.856 ms/op  hash 90cfe5c5  #4  pad 0000  med 2.99  card 0
+started 5 mx_lock
+mx_lock                3.53 ops/s  283.154 ms/op  hash 90cfe5c5  #5  pad 0000  med 3.53  card 0
+flipchain 00000000
+back 00000000 caps 1000401c  sprite ok
+flip 00000000  back memory 80351e80 -> 80167760
+started 6 mx_flip
+mx_flip              182.58 ops/s    5.477 ms/op  hash d1e4e5c5  #6  pad 0000  med 182.58  card 248403
+started 7 mx_flipblt
+mx_flipblt            75.77 ops/s   13.198 ms/op  hash d1e4e5c5  #7  pad 0000  med 75.77  card 23648
+restore 00000000
+
+== fs16 bedflip1  driver m8disp.drv  640x480x16  1980-01-02 00:11  1000 ms  directdraw
+caps  hw 85400440  ckey 00000200  vidmem 0  HAL
+== bedflip1  fullscreen  640x480x16  1000 ms  directdraw
+coop 00000000
+mode 640x480x16
+mode 800x600x16
+setmode 00000000
+primary 00000000
+getdesc
+surface 00000000 caps 1000c200  pitch 1280  640x480  mem 00000000
+palette 00000000
+setpalette 88760091
+started 1 mx_fill
+mx_fill                6.46 ops/s  154.818 ms/op  hash 177dddc5  #1  pad 0000  med 6.46  card 0
+started 2 mx_frame
+mx_frame               0.25 ops/s 4004.826 ms/op  hash fd1df3fd  #2  pad 0000  med 0.25  card 0
+started 3 mx_box
+mx_box                 2.96 ops/s  337.327 ms/op  hash d1e4e5c5  #3  pad 0000  med 2.96  card 0
+started 4 mx_same
+mx_same                2.71 ops/s  369.249 ms/op  hash 90cfe5c5  #4  pad 0000  med 2.71  card 0
+started 5 mx_lock
+mx_lock                3.38 ops/s  295.817 ms/op  hash deda0b55  #5  pad 0000  med 3.38  card 0
+flipchain 00000000
+back 00000000 caps 1000401c  sprite ok
+flip 00000000  back memory 803018c0 -> 80167760
+started 6 mx_flip
+mx_flip              107.66 ops/s    9.289 ms/op  hash d1e4e5c5  #6  pad 0000  med 107.66  card 0
+started 7 mx_flipblt
+mx_flipblt           193.41 ops/s    5.170 ms/op  hash d1e4e5c5  #7  pad 0000  med 193.41  card 0
+restore 00000000
+
+== fs16 bedold  driver m8disp.drv  640x480x16  1980-01-02 00:06  1000 ms  directdraw
+caps  hw 85400440  ckey 00000200  vidmem 0  HAL
+== bedold  fullscreen  640x480x16  1000 ms  directdraw
+coop 00000000
+mode 640x480x16
+mode 800x600x16
+setmode 00000000
+primary 00000000
+getdesc
+surface 00000000 caps 1000c200  pitch 1280  640x480  mem 00000000
+palette 00000000
+setpalette 88760091
+started 1 mx_fill
+mx_fill                5.85 ops/s  170.963 ms/op  hash 177dddc5  #1  pad 0000  med 5.85  card 0
+started 2 mx_frame
+mx_frame               0.25 ops/s 3998.064 ms/op  hash fd1df3fd  #2  pad 0000  med 0.25  card 0
+started 3 mx_box
+mx_box                 2.78 ops/s  360.326 ms/op  hash d1e4e5c5  #3  pad 0000  med 2.78  card 0
+started 4 mx_same
+mx_same                3.06 ops/s  326.327 ms/op  hash 90cfe5c5  #4  pad 0000  med 3.06  card 0
+started 5 mx_lock
+mx_lock                3.38 ops/s  295.613 ms/op  hash deda0b55  #5  pad 0000  med 3.38  card 0
+flipchain 00000000
+back 00000000 caps 0000081c  sprite ok
+flip 00000000  back memory 00430078 -> 00430078
+started 6 mx_flip
+mx_flip                2.97 ops/s  337.222 ms/op  hash 00000000  #6  pad 0000  med 2.97  card 0
+started 7 mx_flipblt
+mx_flipblt             3.14 ops/s  318.351 ms/op  hash 00000000  #7  pad 0000  med 3.14  card 0
+restore 00000000
+
+== fs16 bedsplit  driver m8disp.drv  640x480x16  1980-01-02 00:03  1000 ms  directdraw
+caps  hw 85400440  ckey 00000200  vidmem 0  HAL
+== bedsplit  fullscreen  640x480x16  1000 ms  directdraw
+coop 00000000
+mode 640x480x16
+mode 800x600x16
+setmode 00000000
+primary 00000000
+getdesc
+surface 00000000 caps 1000c200  pitch 1280  640x480  mem 00000000
+palette 00000000
+setpalette 88760091
+started 1 mx_fill
+mx_fill                4.96 ops/s  201.470 ms/op  hash 177dddc5  #1  pad 0000  med 4.96  card 0
+started 2 mx_frame
+mx_frame               0.25 ops/s 4016.283 ms/op  hash fd1df3fd  #2  pad 0000  med 0.25  card 0
+started 3 mx_box
+mx_box                 2.96 ops/s  337.857 ms/op  hash d1e4e5c5  #3  pad 0000  med 2.96  card 0
+started 4 mx_same
+mx_same                2.40 ops/s  416.331 ms/op  hash 90cfe5c5  #4  pad 0000  med 2.40  card 0
+started 5 mx_lock
+mx_lock                3.31 ops/s  302.007 ms/op  hash deda0b55  #5  pad 0000  med 3.31  card 0
+flipchain 00000000
+back 00000000 caps 0000081c  sprite ok
+flip 00000000  back memory 00430078 -> 00430078
+started 6 mx_flip
+mx_flip                3.18 ops/s  314.249 ms/op  hash 00000000  #6  pad 0000  med 3.18  card 0
+started 7 mx_flipblt
+mx_flipblt             2.82 ops/s  354.608 ms/op  hash 00000000  #7  pad 0000  med 2.82  card 0
+restore 00000000
+
+== fs16 bednoflip  driver m8disp.drv  640x480x16  1980-01-02 00:02  1000 ms  directdraw
+caps  hw 85400440  ckey 00000200  vidmem 0  HAL
+== bednoflip  fullscreen  640x480x16  1000 ms  directdraw
+coop 00000000
+mode 640x480x16
+mode 800x600x16
+setmode 00000000
+primary 00000000
+getdesc
+surface 00000000 caps 1000c200  pitch 1280  640x480  mem 00000000
+palette 00000000
+setpalette 88760091
+started 1 mx_fill
+mx_fill                4.90 ops/s  204.280 ms/op  hash 177dddc5  #1  pad 0000  med 4.90  card 0
+started 2 mx_frame
+mx_frame               0.25 ops/s 4000.161 ms/op  hash fd1df3fd  #2  pad 0000  med 0.25  card 0
+started 3 mx_box
+mx_box                 2.57 ops/s  388.467 ms/op  hash d1e4e5c5  #3  pad 0000  med 2.57  card 0
+started 4 mx_same
+mx_same                2.98 ops/s  335.057 ms/op  hash 90cfe5c5  #4  pad 0000  med 2.98  card 0
+started 5 mx_lock
+mx_lock                3.31 ops/s  302.055 ms/op  hash deda0b55  #5  pad 0000  med 3.31  card 0
+flipchain 00000000
+back 00000000 caps 1000401c  sprite ok
+flip 887600e6  back memory 802fe880 -> 802fe880
+started 6 mx_flip
+mx_flip          unsupported: 887600e6  #6
+started 7 mx_flipblt
+mx_flipblt       unsupported: 887600e6  #7
+restore 00000000
+
+== fs16 beddiag  driver m8disp.drv  640x480x16  1980-01-02 00:02  1000 ms  directdraw
+caps  hw 85400440  ckey 00000200  vidmem 0  HAL
+== beddiag  fullscreen  640x480x16  1000 ms  directdraw
+coop 00000000
+mode 640x480x16
+mode 800x600x16
+setmode 00000000
+primary 00000000
+getdesc
+surface 00000000 caps 1000c200  pitch 1280  640x480  mem 00000000
+palette 00000000
+setpalette 88760091
+started 1 mx_fill
+mx_fill                6.34 ops/s  157.626 ms/op  hash 177dddc5  #1  pad 0000  med 6.34  card 0
+  dll stats: no export
+started 2 mx_frame
+mx_frame               0.25 ops/s 4000.981 ms/op  hash fd1df3fd  #2  pad 0000  med 0.25  card 0
+  dll stats: no export
+started 3 mx_box
+mx_box                 2.40 ops/s  416.807 ms/op  hash d1e4e5c5  #3  pad 0000  med 2.40  card 0
+  dll stats: no export
+started 4 mx_same
+mx_same                3.07 ops/s  326.093 ms/op  hash 90cfe5c5  #4  pad 0000  med 3.07  card 0
+  dll stats: no export
+started 5 mx_lock
+mx_lock                3.31 ops/s  302.078 ms/op  hash deda0b55  #5  pad 0000  med 3.31  card 0
+  dll stats: no export
+flipchain 00000000
+back 00000000 caps 1000401c  sprite ok
+flip 00000000  back memory 80301660 -> 80167760
+started 6 mx_flip
+mx_flip              209.67 ops/s    4.769 ms/op  hash d1e4e5c5  #6  pad 0000  med 209.67  card 0
+  dll stats: no export
+started 7 mx_flipblt
+mx_flipblt           194.30 ops/s    5.147 ms/op  hash d1e4e5c5  #7  pad 0000  med 194.30  card 0
+  dll stats: no export
+restore 00000000
+
+== fs16 bedcaps  driver m8disp.drv  640x480x16  1980-01-02 00:03  1000 ms  directdraw
+caps  hw 85400440  ckey 00000200  vidmem 0  HAL
+== bedcaps  fullscreen  640x480x16  1000 ms  directdraw
+coop 00000000
+mode 640x480x16
+mode 800x600x16
+setmode 00000000
+primary 00000000
+getdesc
+surface 00000000 caps 1000c200  pitch 1280  640x480  mem 00000000
+palette 00000000
+setpalette 88760091
+started 1 mx_fill
+mx_fill                6.39 ops/s  156.568 ms/op  hash 177dddc5  #1  pad 0000  med 6.39  card 0
+started 2 mx_frame
+mx_frame               0.24 ops/s 4086.565 ms/op  hash fd1df3fd  #2  pad 0000  med 0.24  card 0
+started 3 mx_box
+mx_box                 3.02 ops/s  330.715 ms/op  hash d1e4e5c5  #3  pad 0000  med 3.02  card 0
+started 4 mx_same
+mx_same                3.07 ops/s  326.197 ms/op  hash 90cfe5c5  #4  pad 0000  med 3.07  card 0
+started 5 mx_lock
+mx_lock                3.31 ops/s  302.296 ms/op  hash deda0b55  #5  pad 0000  med 3.31  card 0
+flipchain 00000000
+back 00000000 caps 1000401c  sprite ok
+flip 00000000  back memory 803018c0 -> 80167760
+started 6 mx_flip
+mx_flip              204.72 ops/s    4.885 ms/op  hash d1e4e5c5  #6  pad 0000  med 204.72  card 0
+started 7 mx_flipblt
+mx_flipblt           155.90 ops/s    6.414 ms/op  hash d1e4e5c5  #7  pad 0000  med 155.90  card 0
+restore 00000000
+
+== fs16 bedblack  driver m8disp.drv  640x480x16  1980-01-02 00:02  1000 ms  directdraw
+caps  hw 85400440  ckey 00000200  vidmem 0  HAL
+== bedblack  fullscreen  640x480x16  1000 ms  directdraw
+coop 00000000
+mode 640x480x16
+mode 800x600x16
+setmode 00000000
+primary 00000000
+getdesc
+surface 00000000 caps 1000c200  pitch 1280  640x480  mem 00000000
+palette 00000000
+setpalette 88760091
+started 1 mx_fill
+mx_fill                6.46 ops/s  154.743 ms/op  hash 177dddc5  #1  pad 0000  med 6.46  card 0
+started 2 mx_frame
+mx_frame               0.24 ops/s 4121.029 ms/op  hash fd1df3fd  #2  pad 0000  med 0.24  card 0
+started 3 mx_box
+mx_box                 3.02 ops/s  330.815 ms/op  hash d1e4e5c5  #3  pad 0000  med 3.02  card 0
+started 4 mx_same
+mx_same                3.07 ops/s  325.925 ms/op  hash 90cfe5c5  #4  pad 0000  med 3.07  card 0
+started 5 mx_lock
+mx_lock                3.38 ops/s  295.495 ms/op  hash deda0b55  #5  pad 0000  med 3.38  card 0
+flipchain 00000000
+back 00000000 caps 1000401c  sprite ok
+flip 00000000  back memory 803032e0 -> 80167760
+started 6 mx_flip
+mx_flip              213.53 ops/s    4.683 ms/op  hash d1e4e5c5  #6  pad 0000  med 213.53  card 0
+started 7 mx_flipblt
+mx_flipblt           118.46 ops/s    8.442 ms/op  hash d1e4e5c5  #7  pad 0000  med 118.46  card 0
+restore 00000000
+
+== fs16 bedpass  driver m8disp.drv  640x480x16  1980-01-02 00:03  1000 ms  directdraw
+caps  hw 85400440  ckey 00000200  vidmem 0  HAL
+== bedpass  fullscreen  640x480x16  1000 ms  directdraw
+coop 00000000
+mode 640x480x16
+mode 800x600x16
+setmode 00000000
+primary 00000000
+getdesc
+surface 00000000 caps 1000c200  pitch 1280  640x480  mem 00000000
+palette 00000000
+setpalette 88760091
+started 1 mx_fill
+mx_fill                5.98 ops/s  167.332 ms/op  hash 177dddc5  #1  pad 0000  med 5.98  card 0
+started 2 mx_frame
+mx_frame               0.25 ops/s 4000.259 ms/op  hash fd1df3fd  #2  pad 0000  med 0.25  card 0
+started 3 mx_box
+mx_box                 2.62 ops/s  381.351 ms/op  hash d1e4e5c5  #3  pad 0000  med 2.62  card 0
+started 4 mx_same
+mx_same                3.01 ops/s  332.508 ms/op  hash 90cfe5c5  #4  pad 0000  med 3.01  card 0
+started 5 mx_lock
+mx_lock                3.38 ops/s  296.000 ms/op  hash deda0b55  #5  pad 0000  med 3.38  card 0
+flipchain 00000000
+back 00000000 caps 1000401c  sprite ok
+flip 00000000  back memory 80301ce0 -> 80167760
+started 6 mx_flip
+mx_flip              112.91 ops/s    8.856 ms/op  hash d1e4e5c5  #6  pad 0000  med 112.91  card 294552
+started 7 mx_flipblt
+mx_flipblt           202.67 ops/s    4.934 ms/op  hash d1e4e5c5  #7  pad 0000  med 202.67  card 0
+restore 00000000
+
+== fs16 bedforget  driver m8disp.drv  640x480x16  1980-01-02 00:05  1000 ms  directdraw
+caps  hw 85400440  ckey 00000200  vidmem 0  HAL
+== bedforget  fullscreen  640x480x16  1000 ms  directdraw
+coop 00000000
+mode 640x480x16
+mode 800x600x16
+setmode 00000000
+primary 00000000
+getdesc
+surface 00000000 caps 1000c200  pitch 1280  640x480  mem 00000000
+palette 00000000
+setpalette 88760091
+started 1 mx_fill
+mx_fill                6.62 ops/s  151.034 ms/op  hash 177dddc5  #1  pad 0000  med 6.62  card 0
+started 2 mx_frame
+mx_frame               0.25 ops/s 4062.762 ms/op  hash fd1df3fd  #2  pad 0000  med 0.25  card 0
+started 3 mx_box
+mx_box                 2.96 ops/s  338.176 ms/op  hash d1e4e5c5  #3  pad 0000  med 2.96  card 0
+started 4 mx_same
+mx_same                2.99 ops/s  334.546 ms/op  hash 90cfe5c5  #4  pad 0000  med 2.99  card 0
+started 5 mx_lock
+mx_lock                3.31 ops/s  302.373 ms/op  hash deda0b55  #5  pad 0000  med 3.31  card 0
+flipchain 00000000
+back 00000000 caps 1000401c  sprite ok
+flip 00000000  back memory 80301d80 -> 80167760
+started 6 mx_flip
+mx_flip              203.91 ops/s    4.904 ms/op  hash d1e4e5c5  #6  pad 0000  med 203.91  card 0
+started 7 mx_flipblt
+mx_flipblt           146.62 ops/s    6.821 ms/op  hash d1e4e5c5  #7  pad 0000  med 146.62  card 0
+restore 00000000
+
+== fs16 bedflip3  driver m8disp.drv  640x480x16  1980-01-02 00:04  1000 ms  directdraw
+caps  hw 85400440  ckey 00000200  vidmem 0  HAL
+== bedflip3  fullscreen  640x480x16  1000 ms  directdraw
+coop 00000000
+mode 640x480x16
+mode 800x600x16
+setmode 00000000
+primary 00000000
+getdesc
+surface 00000000 caps 1000c200  pitch 1280  640x480  mem 00000000
+palette 00000000
+setpalette 88760091
+started 1 mx_fill
+mx_fill                6.16 ops/s  162.296 ms/op  hash 177dddc5  #1  pad 0000  med 6.16  card 0
+started 2 mx_frame
+mx_frame               0.25 ops/s 3999.318 ms/op  hash fd1df3fd  #2  pad 0000  med 0.25  card 0
+started 3 mx_box
+mx_box                 1.83 ops/s  546.112 ms/op  hash d1e4e5c5  #3  pad 0000  med 1.83  card 0
+started 4 mx_same
+mx_same                3.07 ops/s  326.124 ms/op  hash 90cfe5c5  #4  pad 0000  med 3.07  card 0
+started 5 mx_lock
+mx_lock                3.31 ops/s  301.828 ms/op  hash deda0b55  #5  pad 0000  med 3.31  card 0
+flipchain 00000000
+back 00000000 caps 1000401c  sprite ok
+flip 00000000  back memory 803087a0 -> 80167760
+started 6 mx_flip
+mx_flip              170.44 ops/s    5.867 ms/op  hash d1e4e5c5  #6  pad 0000  med 170.44  card 0
+started 7 mx_flipblt
+mx_flipblt           184.73 ops/s    5.413 ms/op  hash d1e4e5c5  #7  pad 0000  med 184.73  card 0
+restore 00000000
+
+== modex vga1  driver m8pcl.drv  640x480x8  1980-01-02 00:04  1000 ms  directdraw
+caps  hw 85400441  ckey 00000200  vidmem 0  HAL
+== vga1  fullscreen  320x200x8  1000 ms  directdraw
+coop 00000000
+mode 640x480x8
+mode 800x600x8
+mode 1024x768x8
+mode 320x200x8
+setmode 00000000
+primary 00000000
+getdesc
+surface 00000000 caps 1000c200  pitch 640  640x480  mem 00000000
+palette 00000000
+setpalette 00000000
+started 1 mx_fill
+mx_fill          unsupported: 80004001  #1
+started 2 mx_frame
+mx_frame              11.87 ops/s   84.249 ms/op  hash b1ac89c5  #2  pad 0000  med 11.87
+started 3 mx_box
+mx_box                47.59 ops/s   21.012 ms/op  hash 518889c5  #3  pad 0000  med 47.59
+started 4 mx_same
+mx_same               86.89 ops/s   11.509 ms/op  hash b30149c5  #4  pad 0000  med 86.89
+started 5 mx_lock
+mx_lock              296.63 ops/s    3.371 ms/op  hash b30149c5  #5  pad 0000  med 296.63
+flipchain 00000000
+back 00000000 caps 1000401c  sprite ok
+flip 00000000  back memory 00028000 -> 80206a40
+started 6 mx_flip
+mx_flip          unsupported: 80004001  #6
+started 7 mx_flipblt
+mx_flipblt       unsupported: 80004001  #7
+restore 00000000
+
+== modex vga2  driver m8pcl.drv  640x480x8  1980-01-02 00:02  1000 ms  directdraw
+caps  hw 85400441  ckey 00000200  vidmem 0  HAL
+== vga2  fullscreen  320x200x8  1000 ms  directdraw
+coop 00000000
+mode 640x480x8
+mode 800x600x8
+mode 1024x768x8
+mode 320x200x8
+setmode 00000000
+primary 00000000
+getdesc
+surface 00000000 caps 1000c200  pitch 640  640x480  mem 00000000
+lock 00000000  mem 80207ac0  pitch 640  640x480
+palette 00000000
+setpalette 00000000
+started 1 mx_fill
+mx_fill          unsupported: 80004001  #1
+started 2 mx_frame
+mx_frame              11.83 ops/s   84.548 ms/op  hash b1ac89c5  #2  pad 0000  med 11.83
+started 3 mx_box
+mx_box                85.94 ops/s   11.636 ms/op  hash 518889c5  #3  pad 0000  med 85.94
+started 4 mx_same
+mx_same               86.37 ops/s   11.578 ms/op  hash b30149c5  #4  pad 0000  med 86.37
+started 5 mx_lock
+mx_lock              333.37 ops/s    3.000 ms/op  hash b30149c5  #5  pad 0000  med 333.37
+flipchain 00000000
+back 00000000 caps 1000401c  sprite ok
+flip 00000000  back memory 00028000 -> 80207ac0
+started 6 mx_flip
+mx_flip          unsupported: 80004001  #6
+started 7 mx_flipblt
+mx_flipblt       unsupported: 80004001  #7
+restore 00000000
+
+== modex vga3  driver m8pcl.drv  640x480x8  1980-01-02 00:02  1000 ms  directdraw
+caps  hw 85400441  ckey 00000200  vidmem 0  HAL
+== vga3  fullscreen  320x200x8  1000 ms  directdraw
+coop 00000000
+mode 640x480x8
+mode 800x600x8
+mode 1024x768x8
+mode 320x200x8
+setmode 00000000
+vgadiag 1  validate 2 reenable 1 mode 3 enable 1 vdd 320x200x8 hal 1
+primary 00000000
+getdesc
+surface 00000000 caps 1000c200  pitch 640  640x480  mem 00000000
+lock 00000000  mem 80207520  pitch 640  640x480
+palette 00000000
+setpalette 00000000
+started 1 mx_fill
+mx_fill          unsupported: 80004001  #1
+started 2 mx_frame
+mx_frame               7.79 ops/s  128.294 ms/op  hash b1ac89c5  #2  pad 0000  med 7.79
+started 3 mx_box
+mx_box                72.17 ops/s   13.856 ms/op  hash 518889c5  #3  pad 0000  med 72.17
+started 4 mx_same
+mx_same               76.77 ops/s   13.025 ms/op  hash b30149c5  #4  pad 0000  med 76.77
+started 5 mx_lock
+mx_lock              364.59 ops/s    2.743 ms/op  hash b30149c5  #5  pad 0000  med 364.59
+flipchain 00000000
+back 00000000 caps 1000401c  sprite ok
+flip 00000000  back memory 00028000 -> 80207520
+started 6 mx_flip
+mx_flip          unsupported: 80004001  #6
+started 7 mx_flipblt
+mx_flipblt       unsupported: 80004001  #7
+restore 00000000
+
+== modex vga4  driver m8pcl.drv  640x480x8  1980-01-02 00:02  1000 ms  directdraw
+caps  hw 85400441  ckey 00000200  vidmem 0  HAL
+== vga4  fullscreen  320x200x8  1000 ms  directdraw
+coop 00000000
+mode 640x480x8
+mode 800x600x8
+mode 1024x768x8
+mode 320x200x8
+setmode 00000000
+vgadiag 1  validate 2 reenable 1 mode 3 enable 1 vdd 320x200x8 hal 257
+primary 00000000
+getdesc
+surface 00000000 caps 1000c200  pitch 640  640x480  mem 00000000
+lock 00000000  mem 80208820  pitch 640  640x480
+palette 00000000
+setpalette 00000000
+started 1 mx_fill
+mx_fill          unsupported: 80004001  #1
+started 2 mx_frame
+mx_frame               9.60 ops/s  104.201 ms/op  hash b1ac89c5  #2  pad 0000  med 9.60
+started 3 mx_box
+mx_box                79.39 ops/s   12.597 ms/op  hash 518889c5  #3  pad 0000  med 79.39
+started 4 mx_same
+mx_same               81.94 ops/s   12.204 ms/op  hash b30149c5  #4  pad 0000  med 81.94
+started 5 mx_lock
+mx_lock              315.30 ops/s    3.172 ms/op  hash b30149c5  #5  pad 0000  med 315.30
+flipchain 00000000
+back 00000000 caps 1000401c  sprite ok
+flip 00000000  back memory 00028000 -> 80208820
+started 6 mx_flip
+mx_flip          unsupported: 80004001  #6
+started 7 mx_flipblt
+mx_flipblt       unsupported: 80004001  #7
+restore 00000000
+
+== modex vga5  driver m8pcl.drv  640x480x8  1980-01-02 00:02  1000 ms  directdraw
+caps  hw 85400441  ckey 00000200  vidmem 0  HAL
+== vga5  fullscreen  320x200x8  1000 ms  directdraw
+coop 00000000
+mode 640x480x8
+mode 800x600x8
+mode 1024x768x8
+mode 320x200x8
+setmode 00000000
+vgadiag 1  validate 2 reenable 1 mode 3 enable 1 vdd 320x200x8 hal 513
+primary 00000000
+getdesc
+surface 00000000 caps 1000c200  pitch 320  320x200  mem 00000000
+lock 00000000  mem f00ac11c  pitch 320  320x200
+palette 00000000
+setpalette 00000000
+started 1 mx_fill
+mx_fill          unsupported: 80004001  #1
+started 2 mx_frame
+== modex vga6  driver m8pcl.drv  640x480x8  1980-01-02 00:02  1000 ms  directdraw
+caps  hw 85400441  ckey 00000200  vidmem 0  HAL
+== vga6  fullscreen  320x200x8  1000 ms  directdraw
+coop 00000000
+mode 640x480x8
+mode 800x600x8
+mode 1024x768x8
+mode 320x200x8
+setmode 00000000
+vgadiag 1  validate 2 reenable 1 mode 3 enable 1 vdd 320x200x8 hal 513
+primary 00000000
+getdesc
+surface 00000000 caps 1000c200  pitch 320  320x200  mem 00000000
+lock 00000000  mem f00ac11c  pitch 320  320x200
+palette 00000000
+setpalette 00000000
+started 1 mx_fill
+mx_fill          unsupported: 80004001  #1
+started 2 mx_frame
+== modex vga7  driver m8pcl.drv  640x480x8  1980-01-02 00:02  1000 ms  directdraw
+caps  hw 85400441  ckey 00000200  vidmem 0  HAL
+== vga7  fullscreen  320x200x8  1000 ms  directdraw
+coop 00000000
+mode 640x480x8
+mode 800x600x8
+mode 1024x768x8
+mode 320x200x8
+setmode 00000000
+vgadiag 1  validate 2 reenable 1 mode 3 enable 1 vdd 320x200x8 hal 513
+primary 00000000
+getdesc
+surface 00000000 caps 1000c200  pitch 320  320x200  mem 00000000
+lock 00000000  mem 000a0000  pitch 320  320x200
+palette 00000000
+setpalette 00000000
+started 1 mx_fill
+mx_fill          unsupported: 80004001  #1
+started 2 mx_frame
+mx_frame              11.86 ops/s   84.285 ms/op  hash b1ac89c5  #2  pad 0000  med 11.86
+started 3 mx_box
+mx_box                43.05 ops/s   23.228 ms/op  hash 518889c5  #3  pad 0000  med 43.05
+started 4 mx_same
+mx_same               72.63 ops/s   13.768 ms/op  hash b30149c5  #4  pad 0000  med 72.63
+started 5 mx_lock
+mx_lock             1663.37 ops/s    0.601 ms/op  hash b30149c5  #5  pad 0000  med 1663.37
+flipchain 00000000
+back 00000000 caps 0000081c  sprite ok
+flip 00000000  back memory 00430078 -> 00430078
+started 6 mx_flip
+mx_flip                3.12 ops/s  320.573 ms/op  hash 00000000  #6  pad 0000  med 3.12
+started 7 mx_flipblt
+mx_flipblt             3.38 ops/s  295.676 ms/op  hash 00000000  #7  pad 0000  med 3.38
+restore 00000000
+
+== modex vga8  driver m8pcl.drv  640x480x8  1980-01-02 00:02  1000 ms  directdraw
+caps  hw 85400441  ckey 00000200  vidmem 0  HAL
+== vga8  fullscreen  320x200x8  1000 ms  directdraw
+coop 00000000
+mode 640x480x8
+mode 800x600x8
+mode 1024x768x8
+mode 320x200x8
+setmode 00000000
+vgadiag 1  validate 2 reenable 1 mode 3 enable 1 vdd 320x200x8 hal 513
+primary 00000000
+getdesc
+surface 00000000 caps 1000c200  pitch 320  320x200  mem 00000000
+lock 00000000  mem 000a0000  pitch 320  320x200
+palette 00000000
+setpalette 00000000
+started 1 mx_fill
+mx_fill               56.60 ops/s   17.668 ms/op  hash 4e58e5c5  #1  pad 0000  med 56.60
+started 2 mx_frame
+mx_frame              14.27 ops/s   70.092 ms/op  hash b1ac89c5  #2  pad 0000  med 14.27
+started 3 mx_box
+mx_box                95.91 ops/s   10.427 ms/op  hash 518889c5  #3  pad 0000  med 95.91
+started 4 mx_same
+mx_same              104.87 ops/s    9.535 ms/op  hash b30149c5  #4  pad 0000  med 104.87
+started 5 mx_lock
+mx_lock             2362.43 ops/s    0.423 ms/op  hash 7bf35a9a  #5  pad 0000  med 2362.43
+flipchain 00000000
+back 00000000 caps 0000081c  sprite ok
+flip 00000000  back memory 00430078 -> 00430078
+started 6 mx_flip
+mx_flip                3.32 ops/s  300.903 ms/op  hash 887601b3  #6  pad 0000  med 3.32
+started 7 mx_flipblt
+mx_flipblt             3.33 ops/s  300.360 ms/op  hash 887601b3  #7  pad 0000  med 3.33
+restore 00000000
+
+== modex vga9  driver m8pcl.drv  640x480x8  1980-01-02 00:02  1000 ms  directdraw
+caps  hw 85400441  ckey 00000200  vidmem 0  HAL
+== vga9  fullscreen  320x200x8  1000 ms  directdraw
+coop 00000000
+mode 640x480x8
+mode 800x600x8
+mode 1024x768x8
+mode 320x200x8
+setmode 00000000
+vgadiag 1  validate 2 reenable 1 mode 3 enable 1 vdd 320x200x8 hal 513
+primary 00000000
+getdesc
+surface 00000000 caps 1000c200  pitch 320  320x200  mem 00000000
+lock 00000000  mem 000a0000  pitch 320  320x200
+palette 00000000
+setpalette 00000000
+started 1 mx_fill
+mx_fill               50.93 ops/s   19.635 ms/op  hash 4e58e5c5  #1  pad 0000  med 50.93
+started 2 mx_frame
+mx_frame              13.93 ops/s   71.782 ms/op  hash b1ac89c5  #2  pad 0000  med 13.93
+started 3 mx_box
+mx_box               105.42 ops/s    9.486 ms/op  hash 518889c5  #3  pad 0000  med 105.42
+started 4 mx_same
+mx_same              102.23 ops/s    9.782 ms/op  hash b30149c5  #4  pad 0000  med 102.23
+started 5 mx_lock
+mx_lock             2300.30 ops/s    0.435 ms/op  hash 7bf35a9a  #5  pad 0000  med 2300.30
+flipchain 00000000
+back 00000000 caps 0000081c  sprite ok
+flip 00000000  back memory 00430078 -> 00430078
+started 6 mx_flip
+mx_flip                3.39 ops/s  294.578 ms/op  hash 7bf35a9a  #6  pad 0000  med 3.39
+started 7 mx_flipblt
+mx_flipblt             3.40 ops/s  293.710 ms/op  hash 7bf35a9a  #7  pad 0000  med 3.40
+restore 00000000
+
+== modex vga10  driver m8pcl.drv  640x480x8  1980-01-02 00:02  1000 ms  directdraw
+caps  hw 85400441  ckey 00000200  vidmem 0  HAL
+== vga10  fullscreen  320x200x8  1000 ms  directdraw
+coop 00000000
+mode 640x480x8
+mode 800x600x8
+mode 1024x768x8
+mode 320x200x8
+setmode 00000000
+vgadiag 1  validate 2 reenable 1 mode 3 enable 1 vdd 320x200x8 hal 513
+primary 00000000
+getdesc
+surface 00000000 caps 1000c200  pitch 320  320x200  mem 00000000
+lock 00000000  mem 000a0000  pitch 320  320x200
+palette 00000000
+setpalette 00000000
+started 1 mx_fill
+mx_fill               63.13 ops/s   15.842 ms/op  hash 4e58e5c5  #1  pad 0000  med 63.13
+started 2 mx_frame
+mx_frame              14.26 ops/s   70.128 ms/op  hash b1ac89c5  #2  pad 0000  med 14.26
+started 3 mx_box
+mx_box               105.16 ops/s    9.509 ms/op  hash 518889c5  #3  pad 0000  med 105.16
+started 4 mx_same
+mx_same              102.05 ops/s    9.799 ms/op  hash b30149c5  #4  pad 0000  med 102.05
+started 5 mx_lock
+mx_lock             2353.55 ops/s    0.425 ms/op  hash 7bf35a9a  #5  pad 0000  med 2353.55
+flipchain 00000000
+back 00000000 caps 0000081c  sprite ok
+flip 00000000  back memory 00430078 -> 00430078
+started 6 mx_flip
+mx_flip                3.33 ops/s  300.338 ms/op  hash 7bf35a9a  #6  pad 0000  med 3.33
+started 7 mx_flipblt
+mx_flipblt             3.33 ops/s  300.520 ms/op  hash 7bf35a9a  #7  pad 0000  med 3.33
+restore 00000000
+
+== modex vga11  driver m8pcl.drv  640x480x8  1980-01-02 00:02  1000 ms  directdraw
+caps  hw 85400441  ckey 00000200  vidmem 0  HAL
+== vga11  fullscreen  320x200x8  1000 ms  directdraw
+coop 00000000
+mode 640x480x8
+mode 800x600x8
+mode 1024x768x8
+mode 320x200x8
+setmode 00000000
+vgadiag 1  validate 2 reenable 1 mode 3 enable 1 vdd 320x200x8 hal 513
+primary 00000000
+getdesc
+surface 00000000 caps 1000c200  pitch 320  320x200  mem 00000000
+lock 00000000  mem 000a0000  pitch 320  320x200
+palette 00000000
+setpalette 00000000
+started 1 mx_fill
+mx_fill              104.18 ops/s    9.599 ms/op  hash 4e58e5c5  #1  pad 0000  med 104.18
+started 2 mx_frame
+mx_frame              11.42 ops/s   87.570 ms/op  hash b1ac89c5  #2  pad 0000  med 11.42
+started 3 mx_box
+mx_box               102.54 ops/s    9.753 ms/op  hash 518889c5  #3  pad 0000  med 102.54
+started 4 mx_same
+mx_same              102.24 ops/s    9.781 ms/op  hash b30149c5  #4  pad 0000  med 102.24
+started 5 mx_lock
+mx_lock             2362.90 ops/s    0.423 ms/op  hash 7bf35a9a  #5  pad 0000  med 2362.90
+flipchain 00000000
+back 00000000 caps 1000401c  sprite ok
+flip 00000000  back memory 00680000 -> 00680000
+started 6 mx_flip
+mx_flip               88.11 ops/s   11.349 ms/op  hash 518889c5  #6  pad 0000  med 88.11
+started 7 mx_flipblt
+mx_flipblt            82.82 ops/s   12.074 ms/op  hash 518889c5  #7  pad 0000  med 82.82
+restore 00000000
+
+== modex vgb_bed1  driver m8pcl.drv  640x480x8  1980-01-02 00:02  1000 ms  directdraw
+caps  hw 85400441  ckey 00000200  vidmem 0  HAL
+== vgb_bed1  fullscreen  320x200x8  1000 ms  directdraw
+coop 00000000
+mode 640x480x8
+mode 800x600x8
+mode 1024x768x8
+mode 320x200x8
+setmode 00000000
+primary 00000000
+getdesc
+surface 00000000 caps 1000c200  pitch 320  320x200  mem 00000000
+lock 00000000  mem 000a0000  pitch 320  320x200
+palette 00000000
+setpalette 00000000
+started 1 mx_fill
+mx_fill               93.25 ops/s   10.724 ms/op  hash 4e58e5c5  #1  pad 0000  med 93.25
+started 2 mx_frame
+mx_frame              13.74 ops/s   72.775 ms/op  hash b1ac89c5  #2  pad 0000  med 13.74
+started 3 mx_box
+mx_box                86.28 ops/s   11.590 ms/op  hash 518889c5  #3  pad 0000  med 86.28
+started 4 mx_same
+mx_same              102.24 ops/s    9.781 ms/op  hash b30149c5  #4  pad 0000  med 102.24
+started 5 mx_lock
+mx_lock             2375.28 ops/s    0.421 ms/op  hash 7bf35a9a  #5  pad 0000  med 2375.28
+flipchain 00000000
+back 00000000 caps 1000401c  sprite ok
+flip 00000000  back memory 00680000 -> 00680000
+started 6 mx_flip
+mx_flip               88.13 ops/s   11.347 ms/op  hash 518889c5  #6  pad 0000  med 88.13
+started 7 mx_flipblt
+mx_flipblt            86.10 ops/s   11.615 ms/op  hash 518889c5  #7  pad 0000  med 86.10
+restore 00000000
+
+== modex vgp_bed1  driver m8pcl.drv  640x480x8  1980-01-02 00:02  1000 ms  directdraw
+caps  hw 85400441  ckey 00000200  vidmem 0  HAL
+== vgp_bed1  fullscreen  320x200x8  1000 ms  directdraw
+coop 00000000
+mode 640x480x8
+mode 800x600x8
+mode 1024x768x8
+mode 320x200x8
+setmode 00000000
+primary 00000000
+getdesc
+surface 00000000 caps 1000c200  pitch 320  320x200  mem 00000000
+lock 00000000  mem 000a0000  pitch 320  320x200
+palette 00000000
+setpalette 00000000
+started 1 mx_fill
+mx_fill               90.79 ops/s   11.014 ms/op  hash 4e58e5c5  #1  pad 0000  med 90.79
+started 2 mx_frame
+mx_frame              14.26 ops/s   70.126 ms/op  hash b1ac89c5  #2  pad 0000  med 14.26
+started 3 mx_box
+mx_box                84.18 ops/s   11.879 ms/op  hash 518889c5  #3  pad 0000  med 84.18
+started 4 mx_same
+mx_same              104.80 ops/s    9.542 ms/op  hash b30149c5  #4  pad 0000  med 104.80
+started 5 mx_lock
+mx_lock             2344.96 ops/s    0.426 ms/op  hash 7bf35a9a  #5  pad 0000  med 2344.96
+flipchain 00000000
+back 00000000 caps 1000401c  sprite ok
+flip 00000000  back memory 00680000 -> 00680000
+started 6 mx_flip
+mx_flip               88.17 ops/s   11.342 ms/op  hash 518889c5  #6  pad 0000  med 88.17
+started 7 mx_flipblt
+mx_flipblt            75.93 ops/s   13.169 ms/op  hash 518889c5  #7  pad 0000  med 75.93
+restore 00000000
+
+== modex vgs_bed1  driver m8pcl.drv  640x480x8  1980-01-02 00:02  1000 ms  directdraw
+caps  hw 85400441  ckey 00000200  vidmem 0  HAL
+== vgs_bed1  fullscreen  320x200x8  1000 ms  directdraw
+coop 00000000
+mode 640x480x8
+mode 800x600x8
+mode 1024x768x8
+mode 320x200x8
+setmode 00000000
+primary 00000000
+getdesc
+surface 00000000 caps 1000c200  pitch 320  320x200  mem 00000000
+lock 00000000  mem 801bde20  pitch 320  320x200
+palette 00000000
+setpalette 00000000
+started 1 mx_fill
+mx_fill                9.79 ops/s  102.189 ms/op  hash 4e58e5c5  #1  pad 0000  med 9.79
+started 2 mx_frame
+mx_frame               5.17 ops/s  193.427 ms/op  hash b1ac89c5  #2  pad 0000  med 5.17
+started 3 mx_box
+mx_box                 6.71 ops/s  149.121 ms/op  hash 518889c5  #3  pad 0000  med 6.71
+started 4 mx_same
+mx_same                6.70 ops/s  149.300 ms/op  hash b30149c5  #4  pad 0000  med 6.70
+started 5 mx_lock
+mx_lock                7.25 ops/s  137.937 ms/op  hash 7bf35a9a  #5  pad 0000  med 7.25
+flipchain 00000000
+back 00000000 caps 1000401c  sprite ok
+flip 00000000  back memory 00680000 -> 00680000
+started 6 mx_flip
+mx_flip               21.62 ops/s   46.249 ms/op  hash 518889c5  #6  pad 0000  med 21.62
+started 7 mx_flipblt
+mx_flipblt            20.87 ops/s   47.913 ms/op  hash 518889c5  #7  pad 0000  med 20.87
+restore 00000000
+
+== modex vgd_bed1  driver m8pcl.drv  640x480x8  1980-01-02 00:02  1000 ms  directdraw
+caps  hw 85400441  ckey 00000200  vidmem 0  HAL
+== vgd_bed1  fullscreen  320x200x8  1000 ms  directdraw
+coop 00000000
+mode 640x480x8
+mode 800x600x8
+mode 1024x768x8
+mode 320x200x8
+setmode 00000000
+primary 00000000
+getdesc
+surface 00000000 caps 1000c200  pitch 320  320x200  mem 00000000
+lock 00000000  mem 000a0000  pitch 320  320x200
+palette 00000000
+setpalette 00000000
+started 1 mx_fill
+mx_fill               45.68 ops/s   21.892 ms/op  hash 4e58e5c5  #1  pad 0000  med 45.68
+started 2 mx_frame
+mx_frame               5.72 ops/s  174.743 ms/op  hash b1ac89c5  #2  pad 0000  med 5.72
+started 3 mx_box
+mx_box                 9.06 ops/s  110.329 ms/op  hash 518889c5  #3  pad 0000  med 9.06
+started 4 mx_same
+mx_same                8.81 ops/s  113.521 ms/op  hash b30149c5  #4  pad 0000  med 8.81
+started 5 mx_lock
+mx_lock              228.99 ops/s    4.367 ms/op  hash 7bf35a9a  #5  pad 0000  med 228.99
+flipchain 00000000
+back 00000000 caps 1000401c  sprite ok
+flip 00000000  back memory 00680000 -> 00680000
+started 6 mx_flip
+mx_flip               22.34 ops/s   44.762 ms/op  hash 518889c5  #6  pad 0000  med 22.34
+started 7 mx_flipblt
+mx_flipblt            22.09 ops/s   45.273 ms/op  hash 518889c5  #7  pad 0000  med 22.09
+restore 00000000
+
+== modexd b1  driver m8pcl.drv  640x480x8  1980-01-02 00:01  1000 ms  directdraw
+caps  hw 85400441  ckey 00000200  vidmem 0  HAL
+dsound caps 00000000  flags 00000000
+dsound coop 2  primary 22050 Hz  8 bit  2 ch
+dsound 00000000  loop 1  shot 1
+== b1  fullscreen  320x200x8  1000 ms  directdraw
+coop 00000000
+mode 640x480x8
+mode 800x600x8
+mode 1024x768x8
+mode 320x200x8
+setmode 00000000
+primary 00000000
+getdesc
+surface 00000000 caps 1000c200  pitch 320  320x200  mem 00000000
+lock 00000000  mem 000a0000  pitch 320  320x200
+palette 00000000
+setpalette 00000000
+started 1 mx_fill
+mx_fill               50.45 ops/s   19.821 ms/op  hash 4e58e5c5  #1  pad 0000  med 50.45
+started 2 mx_frame
+mx_frame              10.61 ops/s   94.291 ms/op  hash b1ac89c5  #2  pad 0000  med 10.61
+started 3 mx_box
+mx_box                46.87 ops/s   21.335 ms/op  hash 518889c5  #3  pad 0000  med 46.87
+started 4 mx_same
+mx_same               59.80 ops/s   16.723 ms/op  hash b30149c5  #4  pad 0000  med 59.80
+started 5 mx_lock
+mx_lock             1593.74 ops/s    0.627 ms/op  hash 7bf35a9a  #5  pad 0000  med 1593.74
+flipchain 00000000
+back 00000000 caps 1000401c  sprite ok
+flip 00000000  back memory 008c0000 -> 008c0000
+started 6 mx_flip
+mx_flip               15.22 ops/s   65.722 ms/op  hash 518889c5  #6  pad 0000  med 15.22
+started 7 mx_flipblt
+mx_flipblt            15.29 ops/s   65.392 ms/op  hash 518889c5  #7  pad 0000  med 15.29
+restore 00000000
+
+== modexdf bf1  driver m8pcl.drv  640x480x8  1980-01-02 00:09  1000 ms  directdraw
+caps  hw 85400441  ckey 00000200  vidmem 0  HAL
+dsound caps 00000000  flags 00000000
+dsound setformat 00000000
+dsound coop 2  primary 22050 Hz  8 bit  1 ch
+dsound 00000000  loop 1  shot 1
+== bf1  fullscreen  320x200x8  1000 ms  directdraw
+coop 00000000
+mode 640x480x8
+mode 800x600x8
+mode 1024x768x8
+mode 320x200x8
+setmode 00000000
+primary 00000000
+getdesc
+surface 00000000 caps 1000c200  pitch 320  320x200  mem 00000000
+lock 00000000  mem 000a0000  pitch 320  320x200
+palette 00000000
+setpalette 00000000
+started 1 mx_fill
+mx_fill               65.01 ops/s   15.381 ms/op  hash 4e58e5c5  #1  pad 0000  med 65.01
+started 2 mx_frame
+mx_frame              13.34 ops/s   74.976 ms/op  hash b1ac89c5  #2  pad 0000  med 13.34
+started 3 mx_box
+mx_box                95.97 ops/s   10.420 ms/op  hash 518889c5  #3  pad 0000  med 95.97
+started 4 mx_same
+mx_same               94.93 ops/s   10.535 ms/op  hash b30149c5  #4  pad 0000  med 94.93
+started 5 mx_lock
+mx_lock             2213.89 ops/s    0.452 ms/op  hash 7bf35a9a  #5  pad 0000  med 2213.89
+flipchain 00000000
+back 00000000 caps 1000401c  sprite ok
+flip 00000000  back memory 008d0000 -> 008d0000
+started 6 mx_flip
+mx_flip               20.42 ops/s   48.978 ms/op  hash 518889c5  #6  pad 0000  med 20.42
+started 7 mx_flipblt
+mx_flipblt            20.73 ops/s   48.241 ms/op  hash 518889c5  #7  pad 0000  med 20.73
+restore 00000000
+
+== modexd b2  driver m8pcl.drv  640x480x8  1980-01-02 00:14  1000 ms  directdraw
+caps  hw 85400441  ckey 00000200  vidmem 0  HAL
+dsound caps 00000000  flags 00000000
+dsound coop 2  primary 22050 Hz  8 bit  2 ch
+dsound 00000000  loop 1  shot 1
+== b2  fullscreen  320x200x8  1000 ms  directdraw
+coop 00000000
+mode 640x480x8
+mode 800x600x8
+mode 1024x768x8
+mode 320x200x8
+setmode 00000000
+primary 00000000
+getdesc
+surface 00000000 caps 1000c200  pitch 320  320x200  mem 00000000
+lock 00000000  mem 000a0000  pitch 320  320x200
+palette 00000000
+setpalette 00000000
+started 1 mx_fill
+mx_fill               30.46 ops/s   32.830 ms/op  hash 4e58e5c5  #1  pad 0000  med 30.46
+started 2 mx_frame
+mx_frame               8.68 ops/s  115.155 ms/op  hash b1ac89c5  #2  pad 0000  med 8.68
+started 3 mx_box
+mx_box                70.44 ops/s   14.197 ms/op  hash 518889c5  #3  pad 0000  med 70.44
+started 4 mx_same
+mx_same               67.40 ops/s   14.837 ms/op  hash b30149c5  #4  pad 0000  med 67.40
+started 5 mx_lock
+mx_lock             1518.97 ops/s    0.658 ms/op  hash 7bf35a9a  #5  pad 0000  med 1518.97
+flipchain 00000000
+back 00000000 caps 1000401c  sprite ok
+flip 00000000  back memory 008d0000 -> 008d0000
+started 6 mx_flip
+mx_flip               14.79 ops/s   67.592 ms/op  hash 518889c5  #6  pad 0000  med 14.79
+started 7 mx_flipblt
+mx_flipblt            14.91 ops/s   67.069 ms/op  hash 518889c5  #7  pad 0000  med 14.91
+restore 00000000
+
+== modexd b3  driver m8pcl.drv  640x480x8  1980-01-02 00:01  1000 ms  directdraw
+caps  hw 85400441  ckey 00000200  vidmem 0  HAL
+dsound caps 00000000  flags 00000000
+dsound coop 2  primary 22050 Hz  8 bit  2 ch
+dsound 00000000  loop 1  shot 1
+== b3  fullscreen  320x200x8  1000 ms  directdraw
+coop 00000000
+mode 640x480x8
+mode 800x600x8
+mode 1024x768x8
+mode 320x200x8
+setmode 00000000
+primary 00000000
+getdesc
+surface 00000000 caps 1000c200  pitch 320  320x200  mem 00000000
+lock 00000000  mem 000a0000  pitch 320  320x200
+palette 00000000
+setpalette 00000000
+started 1 mx_fill
+mx_fill               33.84 ops/s   29.553 ms/op  hash 4e58e5c5  #1  pad 0000  med 33.84
+started 2 mx_frame
+mx_frame              11.20 ops/s   89.263 ms/op  hash b1ac89c5  #2  pad 0000  med 11.20
+started 3 mx_box
+mx_box                26.85 ops/s   37.246 ms/op  hash 518889c5  #3  pad 0000  med 26.85
+started 4 mx_same
+mx_same               43.59 ops/s   22.943 ms/op  hash b30149c5  #4  pad 0000  med 43.59
+started 5 mx_lock
+mx_lock             1725.63 ops/s    0.579 ms/op  hash 7bf35a9a  #5  pad 0000  med 1725.63
+flipchain 00000000
+back 00000000 caps 1000401c  sprite ok
+flip 00000000  back memory 008c0000 -> 008c0000
+started 6 mx_flip
+mx_flip               14.74 ops/s   67.860 ms/op  hash 518889c5  #6  pad 0000  med 14.74
+started 7 mx_flipblt
+mx_flipblt            21.20 ops/s   47.171 ms/op  hash 518889c5  #7  pad 0000  med 21.20
+restore 00000000
+
+== modexd kmix1  driver m8pcl.drv  640x480x8  1980-01-02 00:02  1000 ms  directdraw
+caps  hw 85400441  ckey 00000200  vidmem 0  HAL
+dsound caps 00000000  flags 00000000
+dsound coop 2  primary 22050 Hz  8 bit  2 ch
+dsound 00000000  loop 1  shot 1
+== kmix1  fullscreen  320x200x8  1000 ms  directdraw
+coop 00000000
+mode 640x480x8
+mode 800x600x8
+mode 1024x768x8
+mode 320x200x8
+setmode 00000000
+primary 00000000
+getdesc
+surface 00000000 caps 1000c200  pitch 320  320x200  mem 00000000
+lock 00000000  mem 000a0000  pitch 320  320x200
+palette 00000000
+setpalette 00000000
+started 1 mx_fill
+mx_fill               35.74 ops/s   27.982 ms/op  hash 4e58e5c5  #1  pad 0000  med 35.74
+started 2 mx_frame
+mx_frame               0.39 ops/s 2567.261 ms/op  hash b1ac89c5  #2  pad 0000  med 0.39
+started 3 mx_box
+mx_box                63.05 ops/s   15.861 ms/op  hash 518889c5  #3  pad 0000  med 63.05
+started 4 mx_same
+mx_same               49.59 ops/s   20.165 ms/op  hash b30149c5  #4  pad 0000  med 49.59
+started 5 mx_lock
+mx_lock             1308.14 ops/s    0.764 ms/op  hash 7bf35a9a  #5  pad 0000  med 1308.14
+flipchain 00000000
+back 00000000 caps 1000401c  sprite ok
+flip 00000000  back memory 008c0000 -> 008c0000
+started 6 mx_flip
+mx_flip               12.54 ops/s   79.718 ms/op  hash 518889c5  #6  pad 0000  med 12.54
+started 7 mx_flipblt
+mx_flipblt            12.36 ops/s   80.938 ms/op  hash 518889c5  #7  pad 0000  med 12.36
+restore 00000000
+

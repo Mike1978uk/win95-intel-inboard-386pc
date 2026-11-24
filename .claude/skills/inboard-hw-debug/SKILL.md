@@ -8585,3 +8585,20 @@ one build and one probe run, without the game.
 - With system-to-video Blts claimed, DDRAW does not fall back for a Blt the HAL leaves NOTHANDLED: a texture `Load`
   returns `DDERR_UNSUPPORTED`. Handle the copy or claim less.
 - The trace showing **no** call is a result only once the trace has been seen writing (technique 74): MTM_SW proved it.
+
+## Technique 154: when the bed fails and the card works, diff the bed's HARDWARE against the card first
+
+2026-11-24, SBDS. dxdiag's DirectSound test was silent in the bed for a day and was debugged as a driver fault.
+The cause was the bed: no bed had an FPU, the card has a 387. DirectX 7 picks its timer-driven mixer only when
+VMCPD reports coprocessor type >= 3 (DSOUND.DLL `beb36ee8`); without one it mixes only when a program calls in.
+
+- **List what the card carries and check each against the bed config** before reading any binary: CPU, FPU,
+  memory, every card and its resources. `fpu_type` was simply absent, and 86Box's default is none.
+- **Software can gate on hardware you never thought it looked at.** A sound API checking the FPU is not obvious;
+  no amount of driver tracing would have found it from the driver side.
+- How it was found, reusable: route a VxD's DeviceIoControl table through one counting thunk to see which
+  services a ring-3 DLL actually calls (`captures/2026-11-24_sbds_dxdiag/SBDS_diag.ASM`, `Ioc_Thunk`); find the
+  DLL's branch that skips the missing one; NOP it on a bed copy (technique 152) and bisect the conditions.
+- A `Hook_Device_Service` hook that reports zero needs a positive control: count every call it sees, or a
+  broken hook reads as "the service is never called".
+- Kept in place by `tools/bed_launch.ps1`, which refuses a BL3 Inboard bed without `fpu_type = 387`.

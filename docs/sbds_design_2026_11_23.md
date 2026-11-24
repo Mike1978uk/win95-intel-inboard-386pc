@@ -27,6 +27,25 @@ emulation's waveOut path, its silence stream, and the 16-bit callbacks in `Msgsr
 | Silence | Stop masks DMA and resets the DSP: nothing moves on the bus | the idle ~15 % |
 | Counters | PERF statistics (NMIWATCH's way): state bits, physical address, register result, opens, plays, stops, GetPosition calls, last format, DSP timeouts | readable without a debugger |
 
+## DirectX 7 mixes on its own only with a 486-class FPU (found 2026-11-24)
+
+DSOUND.DLL chooses between two mixers. The timer-driven one lives in DSOUND.VXD (ioctl 44 creates it,
+42/43 run it, `Set_Global_Time_Out` 22-200 ms). The fallback runs only when an application calls in. DSOUND.DLL
+`beb36ee8` (via `beb36da4`) takes the timer mixer only if PAGEFILE's version is non-zero with BL >= 2 and
+**VMCPD is 4.02 or later with coprocessor type >= 3**. Measured with the diagnostic build:
+
+| | VMCPD type | mixer | dxdiag / DSTEST |
+|---|---|---|---|
+| 5160 card (387 on the interposer) | 3 | timer | one-shot plays and stops at 1,144 ms |
+| bed, no FPU (every bed until 11-24) | 0 | app-driven | silent unless the program keeps calling |
+| bed, `fpu_type = 387` | 3 | timer | dxdiag: all four tests successful |
+
+So the 11-23 dxdiag failure was the bed, not the driver. Write cursor = play cursor is correct (DDK sample
+`IDsDriverBuffer_GetPosition`); a lead of 4 bytes changed nothing. DSOUND.VXD's ring-0 mixer carries x87
+code and saves FPU state through VMCPD, which is why the check exists. Evidence and the diagnostic source:
+`captures/2026-11-24_sbds_dxdiag/`. Bed rule: `tools/bed_launch.ps1` refuses a BL3 Inboard bed without
+`fpu_type = 387`.
+
 ## Known risks, to test in this order
 
 1. DSOUND (DX 7.0a) accepts a DX5-style driver with no certification (`wReserved` = 0).
