@@ -1,5 +1,7 @@
 # Assemble and link SBDS.VXD with the Win95 DDK toolchain (MASM 6.11c and the
 # VC++ 2.0-era LINK.EXE), as drivers/swapcomp/build.ps1 does.
+#   -Trace  keep the call trace (HKLM\Software\SBDS "Trace", read with sbds_trace.py)
+param([switch]$Trace)
 $DDK = "C:\Users\lycet\OneDrive\Desktop\XT_project\Windows95_ddk"
 $SRC = Join-Path $PSScriptRoot 'src'
 $OUT = Join-Path $PSScriptRoot 'build'
@@ -20,4 +22,6 @@ function Build($name, $asm, $def, $extra) {
     Get-Item "$OUT\$name.VXD" | Select-Object Name, Length, LastWriteTime
 }
 
-Build 'SBDS' 'SBDS.ASM' 'SBDS.DEF' @()
+$defines = @()
+if ($Trace) { $defines += '-DSBDS_TRACE' }
+Build 'SBDS' 'SBDS.ASM' 'SBDS.DEF' $defines

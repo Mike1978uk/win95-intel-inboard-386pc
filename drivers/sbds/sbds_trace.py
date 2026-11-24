@@ -16,7 +16,12 @@ NAMES = {1: 'Drv.QueryInterface', 2: 'Drv.AddRef', 3: 'Drv.Release', 4: 'Drv.Get
          9: 'Drv.DuplicateSoundBuffer', 10: 'Buf.QueryInterface', 11: 'Buf.AddRef',
          12: 'Buf.Release', 13: 'Buf.Lock', 14: 'Buf.Unlock', 15: 'Buf.SetFormat',
          16: 'Buf.SetFrequency', 17: 'Buf.SetVolumePan', 18: 'Buf.SetPosition',
-         19: 'Buf.GetPosition', 20: 'Buf.Play', 21: 'Buf.Stop'}
+         19: 'Buf.GetPosition', 20: 'Buf.Play', 21: 'Buf.Stop',
+         # 22-28: the diagnostic build kept beside its captures,
+         # docs/captures/2026-11-24_sbds_dxdiag/SBDS_diag.ASM
+         22: 'Probe', 23: 'DS.Set_Async_Time_Out', 24: 'DS.Set_Global_Time_Out',
+         25: 'DS.ioctl', 26: 'DS.ioctl total',
+         27: 'PAGEFILE version', 28: 'VMCPD version'}
 RESULTS = {0: 'ok', 0x80004001: 'UNSUPPORTED', 0x80004002: 'NOINTERFACE',
            0x8878000A: 'ALLOCATED', 0x8878001E: 'CONTROLUNAVAIL', 0x88780064: 'BADFORMAT',
            0x88780078: 'NODRIVER'}
@@ -56,6 +61,18 @@ def describe(i, a1, a2, r):
         return 'flags %08X -> %s%s' % (a1, res, at(a2))
     if i == 21:
         return res + at(a2)
+    if i == 22:
+        return 'time-outs set system-wide %d, our ticks %d%s' % (a1, r, at(a2))
+    if i == 27:
+        return 'EAX %08X ECX %08X BL %d' % (a1, a2, r)
+    if i == 28:
+        return 'EAX %08X (AH %d AL %d) ECX %08X (coprocessor type)' % (a1, (a1>>8)&0xFF, a1&0xFF, a2)
+    if i == 25:
+        return 'code %d (call %d)%s' % (a1, r, at(a2))
+    if i == 26:
+        return 'code %d x %d' % (a1, r)
+    if i in (23, 24):
+        return '%d ms  from +%X  callback +%X%s' % (a1, r & 0xFFFF, r >> 16, at(a2))
     if i in (2, 3, 11, 12):
         return 'count %d' % r
     return res

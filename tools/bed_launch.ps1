@@ -2,7 +2,7 @@
 # Refuses to launch rather than let Windows raise a dialog on the owner's desktop.
 # Stops only the process it started.
 #
-#   tools\bed_launch.ps1 -Exe <86Box.exe> -VmPath <bed dir> [-Seconds 15] [-Log <file>] [-AllowMouse] [-Scale 3]
+#   tools\bed_launch.ps1 -Exe <86Box.exe> -VmPath <bed dir> [-Seconds 15] [-Log <file>] [-AllowMouse] [-Scale 3] [-NoFpu]
 #
 # -Scale sets the window size: 1 = 100%, 2 = 150%, 3 = 200% (default, the owner's request), 4 = 300%.
 # -Automation <port> opens 86Box's automation socket on 127.0.0.1 (token in <bed>utomation.token),
@@ -23,6 +23,7 @@ param(
   [switch]$DryRun,
   [switch]$NoMenus,
   [switch]$AllowStartup,
+  [switch]$NoFpu,
   [int]$Automation = 0
 )
 $ErrorActionPreference = 'Stop'
@@ -84,6 +85,14 @@ $ini = Get-Content $cfg
 function Get-CfgValue($key) {
   $m = $ini | Select-String "^\s*$key\s*=\s*(\S+)" | Select-Object -First 1
   if ($m) { $m.Matches[0].Groups[1].Value } else { $null }
+}
+# The 5160's Inboard carries a 387-class FPU on an interposer. Without one, Windows'
+# VMCPD reports coprocessor type 0 and DirectX 7 refuses its timer-driven mixer, so
+# DirectSound goes silent in the bed while working on the card. -NoFpu is for a
+# deliberate no-FPU experiment only.
+if ((Get-CfgValue 'machine') -eq 'ibmxt_inboard386' -and (Get-CfgValue 'cpu_family') -eq 'ibm486bl3' -and
+    -not $NoFpu -and (Get-CfgValue 'fpu_type') -ne '387') {
+  Fail "fpu_type is '$(Get-CfgValue 'fpu_type')', the card has a 387: add 'fpu_type = 387' under [Machine] (or pass -NoFpu)"
 }
 $mouse = Get-CfgValue 'mouse_type'
 if (-not $AllowMouse -and $mouse -ne 'none') { Fail "mouse_type = '$mouse'; set it to none (or pass -AllowMouse)" }

@@ -5,6 +5,12 @@
 ;   VxD drives the DSP and the 8237 directly from ring 0 while DirectSound holds the
 ;   wave device open (DSDDESC_DOMMSYSTEMOPEN), and takes the play position from the
 ;   DMA count, so it needs no interrupt of its own.
+;
+;   DirectX 7 mixes into the buffer on its own timer only when Windows reports a
+;   486-class FPU (VMCPD coprocessor type 3 or more; the card's 387 reports 3).
+;   Without one it mixes only when an application calls in.
+;
+;   Build with -Trace for the call trace in HKLM\Software\SBDS (sbds_trace.py).
 
 	.386p
 
@@ -57,6 +63,10 @@ BUF_PAGES	EQU	4			; 16 KB; halved until it is granted
 ;   Normal-mode 8-bit DMA on DSP 3.xx tops out near 23 kHz of bytes a second.
 HS_ABOVE	EQU	23000
 
+;   MSSBLST.VXD's device ID. With the devnode, DSOUND uses it to find the wave
+;   driver it opens for DSDDESC_DOMMSYSTEMOPEN.
+MSSBLST_ID	EQU	044Eh
+
 DSDDESC_DOMMSYSTEMOPEN		EQU	1
 DSDDESC_DONTNEEDPRIMARYLOCK	EQU	8
 DSCAPS_PRIMARY_FLAGS		EQU	7	; MONO + STEREO + 8BIT
@@ -90,7 +100,8 @@ VxD_LOCKED_DATA_SEG
 DrvObj		dd	OFFSET32 DrvVtbl
 BufObj		dd	OFFSET32 BufVtbl
 
-;   Every entry goes through a trace wrapper (T_*, ids in Trace_Add).
+;   With SBDS_TRACE every entry goes through a trace wrapper (T_*, ids in Trace_Add).
+IFDEF SBDS_TRACE
 DrvVtbl dd	OFFSET32 T_Drv_QueryInterface, OFFSET32 T_Drv_AddRef, OFFSET32 T_Drv_Release
 	dd	OFFSET32 T_Drv_GetDriverDesc, OFFSET32 T_Drv_Open, OFFSET32 T_Drv_Close
 	dd	OFFSET32 T_Drv_GetCaps, OFFSET32 T_Drv_CreateSoundBuffer
@@ -101,7 +112,20 @@ BufVtbl dd	OFFSET32 T_Buf_QueryInterface, OFFSET32 T_Buf_AddRef, OFFSET32 T_Buf_
 	dd	OFFSET32 T_Buf_SetFrequency, OFFSET32 T_Buf_SetVolumePan
 	dd	OFFSET32 T_Buf_SetPosition, OFFSET32 T_Buf_GetPosition
 	dd	OFFSET32 T_Buf_Play, OFFSET32 T_Buf_Stop
+ELSE
+DrvVtbl dd	OFFSET32 Drv_QueryInterface, OFFSET32 Drv_AddRef, OFFSET32 Drv_Release
+	dd	OFFSET32 Drv_GetDriverDesc, OFFSET32 Drv_Open, OFFSET32 Drv_Close
+	dd	OFFSET32 Drv_GetCaps, OFFSET32 Drv_CreateSoundBuffer
+	dd	OFFSET32 Drv_DuplicateSoundBuffer
 
+BufVtbl dd	OFFSET32 Buf_QueryInterface, OFFSET32 Buf_AddRef, OFFSET32 Buf_Release
+	dd	OFFSET32 Buf_Lock, OFFSET32 Buf_Unlock, OFFSET32 Buf_SetFormat
+	dd	OFFSET32 Buf_SetFrequency, OFFSET32 Buf_SetVolumePan
+	dd	OFFSET32 Buf_SetPosition, OFFSET32 Buf_GetPosition
+	dd	OFFSET32 Buf_Play, OFFSET32 Buf_Stop
+ENDIF
+
+IFDEF SBDS_TRACE
 ;   Call trace: dwTraceN calls so far, then a ring of TRACE_N entries of
 ;   (id, a1, a2, result). Written to HKLM\Software\SBDS "Trace" at Close.
 TRACE_N 	EQU	128
@@ -109,8 +133,10 @@ dwTraceN	dd	0
 TraceRing	dd	TRACE_N * 4 dup (0)
 dwPosLogged	dd	0		; GetPosition entries since the last Play
 hkTrace 	dd	0
+
 szTraceKey	db	"Software\SBDS",0
 szTraceVal	db	"Trace",0
+ENDIF
 
 ;   {8C4233C0-B4CC-11CE-9294-444553540000}, ...C1, and IUnknown.
 IID_IDsDriver		dd	8C4233C0h
@@ -453,6 +479,7 @@ BeginProc Drv_GetDriverDesc
 	pop	edi
 	mov	eax, [dnDevNode]
 	mov	[edi+516], eax
+	mov	word ptr [edi+520], MSSBLST_ID	; wVxdId
 	xor	eax, eax
 	pop	edi
 	pop	esi
@@ -698,6 +725,7 @@ BeginProc Buf_Stop
 	ret	4
 EndProc Buf_Stop
 
+IFDEF SBDS_TRACE
 ;   ---- call trace ---------------------------------------------------------------
 
 ;   T_name: copy the caller's nbytes of stdcall arguments, call name, log, return.
@@ -875,6 +903,7 @@ BeginProc Trace_Write
 tw_done:
 	ret
 EndProc Trace_Write
+ENDIF
 
 VxD_LOCKED_CODE_ENDS
 
@@ -959,7 +988,9 @@ EndProc SBDS_Device_Init
 ;   Init_Complete: find the SB Pro's devnode, load DSOUND.VXD, register. Any
 ;   failure leaves DirectSound on its own emulation.
 BeginProc SBDS_Init_Complete
+IFDEF SBDS_TRACE
 	call	Trace_Write			; replace the last boot's trace
+ENDIF
 	test	[dwState], ST_BUFFER
 	jz	sic_done
 	push	0				; CM_LOCATE_DEVNODE_NORMAL
@@ -968,12 +999,12 @@ BeginProc SBDS_Init_Complete
 	VxDCall _CONFIGMG_Locate_DevNode
 	add	esp, 3*4
 	or	eax, eax
-	jnz	SHORT sic_fail
+	jnz	sic_fail
 	or	[dwState], ST_DEVNODE
 	mov	eax, VXDLDR_INIT_DEVICE
 	mov	edx, OFFSET32 szDsVxd
 	VxDCall VXDLDR_LoadDevice
-	jc	SHORT sic_fail
+	jc	sic_fail
 	or	[dwState], ST_DSOUND
 	push	0
 	push	OFFSET32 DrvObj
