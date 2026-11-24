@@ -28,9 +28,21 @@ used its app-driven mixer, which leaves a sound that is played and left alone un
   `C:\DSTEST.EXE` there too (`tools/dstest/`: `once`, `onceq`, `loop`, `mono`, `mmtimer`).
 - `drivers/sbds/build.ps1 -Trace` builds the call-trace variant; plain build is the release.
 
+- **Card dxdiag Test DirectSound: passes** (owner, 11-24 afternoon).
+
+## Open, not T5: dxdiag Music tab crash (card only)
+
+Dragging the Music Ports list slider: "DXDIAG caused an invalid page fault in module USER.EXE at
+0004:00004e8e", `test byte ptr [ebx+33h],10h` (bytes `67 f6 43 33 10`), EBX=000630ac DS=07c7. Rows were
+drawn doubled and clipped before the fault. Photos: `XT_project\photos\dxdiag_music1-4.jpg` (registers,
+code bytes, stack dump). Card runs `m8cw.drv` 800x600x16; the bed (m8pcl.drv, 640x480x8) scrolls the same
+list cleanly every way tried. Suspect: our display driver's screen-to-screen blit at 16 bpp. Unproven.
+No Dr. Watson log (it was not hooked when it faulted). Next: bed on `m8cw.drv` 800x600x16, per
+`docs/mach8_driver_method.md`.
+
 ## Next
 
-1. Owner: dxdiag Test DirectSound on the card.
+1. Card: dxdiag passes; DirectSound side done.
 2. Card: install the release build, then `M8DDB modexd/modexdf/modexdi` twice each against
    `captures/2026-11-23_t5_split/` (target: `modexd` near PlaySound's 0.94, `modexdi` near silent).
 3. Doom 95 sound on the card (the app this was for), and stereo channel order by ear (design risk 3).
