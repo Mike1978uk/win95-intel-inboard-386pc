@@ -4,8 +4,9 @@
   regedit /e C:\\SBDS.REG HKEY_LOCAL_MACHINE\\Software\\SBDS     (in the guest)
   python drivers/sbds/sbds_trace.py SBDS.REG
 
-The value is dwTraceN then a ring of 128 entries (id, a1, a2, result); the
-driver writes it when DirectSound closes the device.
+The value is dwTraceN then a ring of entries (id, a1, a2, result), its size
+taken from the data. A -Trace build rewrites it on every call except
+GetPosition and the reference counts.
 """
 import re
 import struct
@@ -25,7 +26,6 @@ NAMES = {1: 'Drv.QueryInterface', 2: 'Drv.AddRef', 3: 'Drv.Release', 4: 'Drv.Get
 RESULTS = {0: 'ok', 0x80004001: 'UNSUPPORTED', 0x80004002: 'NOINTERFACE',
            0x8878000A: 'ALLOCATED', 0x8878001E: 'CONTROLUNAVAIL', 0x88780064: 'BADFORMAT',
            0x88780078: 'NODRIVER'}
-N = 128
 
 
 def fmt(v):
@@ -85,6 +85,7 @@ def main():
         raise SystemExit('no "Trace" value in the export')
     data = bytes(int(x, 16) for x in m.group(1).replace(' ', '').split(',') if x)
     total = struct.unpack_from('<I', data, 0)[0]
+    N = (len(data) - 4) // 16
     first = max(0, total - N)
     print('%d calls traced; showing %d' % (total, total - first))
     for k in range(first, total):

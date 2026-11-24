@@ -127,8 +127,9 @@ ENDIF
 
 IFDEF SBDS_TRACE
 ;   Call trace: dwTraceN calls so far, then a ring of TRACE_N entries of
-;   (id, a1, a2, result). Written to HKLM\Software\SBDS "Trace" at Close.
-TRACE_N 	EQU	128
+;   (id, a1, a2, result). Rewritten to HKLM\Software\SBDS "Trace" on every call
+;   except GetPosition and the reference counts.
+TRACE_N 	EQU	512
 dwTraceN	dd	0
 TraceRing	dd	TRACE_N * 4 dup (0)
 dwPosLogged	dd	0		; GetPosition entries since the last Play
@@ -879,8 +880,8 @@ BeginProc Trace_Ms
 	ret
 EndProc Trace_Ms
 
-;   HKLM\Software\SBDS "Trace" = dwTraceN, then the ring. Called at Close, in the
-;   caller's thread, never at interrupt time.
+;   HKLM\Software\SBDS "Trace" = dwTraceN, then the ring. Called from the
+;   caller's thread through the vtable wrappers, never at interrupt time.
 BeginProc Trace_Write
 	push	OFFSET32 hkTrace
 	push	OFFSET32 szTraceKey
