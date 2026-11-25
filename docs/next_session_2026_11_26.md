@@ -32,7 +32,22 @@ Bed how-to: `tools\bed_launch.ps1 -Exe 86box_auto\build_gdb\src\86Box.exe -VmPat
 `release` in the same turn, or it sits black at t=0. Put files with `tools/fatcp.py`. Pull exports with
 `tools/fatls.py --get` and check the md5 is new. Kill the bed's 86Box only after the owner says it is closed.
 
-## Next: stage 5 - the display handshake
+## Stage 5 built, not yet working (`captures/2026-11-25_sbds_stage5_bed/`)
+
+Built: SBDS `SBDS_IoCtl` (IOCTL 1 = hot data address, page locked) and a tick that defers 5 ms while
+`H_BUSY` is set and 40 ms+ is queued; M8DD32 `m8dd_sbds_hand()` in `DriverInit` opens `\.\SBDS` and
+passes `m8dd->hot`. Bed run: no crash (after moving the handler out of the init segment - it BSODed there),
+underruns 5, lead 140 ms, **but 0 ticks deferred and 0 busy**: SBDS most likely never got the address.
+First job next session: count IoCtl calls and hot-set in the stats, trace CreateFile's result in M8DD32,
+fix the hand-over, re-run. Then the "start a sound on Play" change to bring the lead down.
+
+Graphics retro candidates from the sound work (owner asked, 11-25): (1) M8FEED's fixed 1 ms / 512-write
+budget could adapt like the lead, fewer bigger bites when the queue is long - each tick empties the cache;
+(2) end-of-run stats in the registry for the display path; (3) skip unchanged DirectDraw frames (check #54's
+hashing covers full screen); (4) handshake the other way, M8FEED avoiding SBDS's tick; (5) draw small changes
+into the frame already sent, as "start on Play" adds into the queued ring.
+
+## Stage 5 design notes
 
 Found 11-25: the busy flag already exists. Both display halves set `H_BUSY` (byte 12 of the display
 driver's hot data, `M8_HOT` in `m8.h`) around engine work: `blt.asm` (16-bit, lines ~170-238, ~335) and

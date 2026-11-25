@@ -5028,12 +5028,31 @@ M8DD_TIMED( m8dd_unlock_t, m8dd_unlock, M8DD_UNLOCK, 1 )
 M8DD_TIMED( m8dd_blt_t, m8dd_blt, M8DD_BLT, 2 )
 M8DD_TIMED( m8dd_flip_t, m8dd_flip, M8DD_FLIP, 3 )
 
+/* SBDS.VXD, the DirectSound driver, puts its mixing off while hot[H_BUSY] is set, so the mixer (which
+ * empties the cache) runs in the display's gaps. It needs the address; without SBDS this does nothing. */
+static void m8dd_sbds_hand( void )
+{
+    HANDLE  h;
+    DWORD   hot = m8dd->hot;
+    DWORD   got = 0;
+
+    if( hot == 0 ) {
+        return;
+    }
+    h = CreateFileA( "\\\\.\\SBDS", 0, 0, NULL, 0, 0, NULL );
+    if( h != INVALID_HANDLE_VALUE ) {
+        DeviceIoControl( h, 1, &hot, 4, NULL, 0, &got, NULL );
+        CloseHandle( h );
+    }
+}
+
 DWORD __stdcall DriverInit( LPVOID context )
 {
     if( context == NULL ) {
         return( 1 );
     }
     m8dd = context;
+    m8dd_sbds_hand();
     m8dd->hInstance = (DWORD)m8dd_inst;
     m8dd->lock = (DWORD)m8dd_lock_t;
     m8dd->unlock = (DWORD)m8dd_unlock_t;

@@ -23,6 +23,7 @@
 	INCLUDE VXDLDR.Inc
 	INCLUDE CONFIGMG.Inc
 	INCLUDE VMMREG.Inc
+	INCLUDE VWIN32.Inc
 	.LIST
 
 Begin_Service_Table PERF
@@ -135,6 +136,16 @@ MIX_MAX 	EQU	4096			; bytes per tick at most; the scratch holds words
 WORK_PAGES	EQU	(VOICE_N * VOICE_BYTES + MIX_MAX * 2) / 4096
 TICK_MS 	EQU	20
 SLEEP_TICK_MS	EQU	100			; DMA asleep: only DSOUND's primary is watched
+
+;   The display handshake. The Mach8 driver's hot data (M8_HOT, m8.h) holds a busy
+;   byte both halves set around engine work: 1 for a GDI or DirectDraw operation, 2
+;   while M8FEED feeds the FIFO. A tick that lands then defers DEFER_MS if the ring
+;   holds DEFER_MIN_MS or more, so mixing - which empties the cache - falls in the
+;   display's gaps instead of mid-blit.
+H_BUSY		EQU	12
+DEFER_MS	EQU	5
+DEFER_MIN_MS	EQU	40
+IOCTL_SET_HOT	EQU	1			; in: the hot data's linear address (M8DD32)
 LEAD_MS 	EQU	60			; how far ahead of the 8237 the ring is written
 LEAD_MAX_MS	EQU	200			; grown 20 ms per underrun up to this ...
 LEAD_CALM_TICKS EQU	250			; ... and shrunk 20 ms after this many clean ticks
@@ -269,7 +280,11 @@ dwVoiceMax	dd	0
 dwEngineRuns	dd	0
 dwLeadMs	dd	LEAD_MS 	; the lead now; 'lead ms' in the stats
 dwLeadMaxMs	dd	0
-STATS_DWORDS	EQU	9
+dwDeferred	dd	0		; ticks put off while the display was busy
+dwBusyMixed	dd	0		; ticks that mixed while busy: too little in the ring
+STATS_DWORDS	EQU	11
+dwHot		dd	0
+dwDeferMin	dd	0		; DEFER_MIN_MS in bytes
 dwCalm		dd	0
 hkStats 	dd	0
 szSbdsKey	db	"Software\SBDS",0
@@ -313,6 +328,7 @@ VxD_LOCKED_CODE_SEG
 BeginProc SBDS_Control
 	Control_Dispatch Device_Init, SBDS_Device_Init
 	Control_Dispatch Init_Complete, SBDS_Init_Complete
+	Control_Dispatch W32_DEVICEIOCONTROL, SBDS_IoCtl
 	clc
 	ret
 EndProc SBDS_Control
@@ -1339,6 +1355,15 @@ BeginProc Lead_Bytes
 	and	eax, NOT 1
 lb_set:
 	mov	[dwLead], eax
+	push	eax
+	mov	eax, [dwRate]
+	mul	[dwChannels]
+	mov	ecx, DEFER_MIN_MS
+	mul	ecx
+	mov	ecx, 1000
+	div	ecx
+	mov	[dwDeferMin], eax
+	pop	eax
 	mov	ecx, [dwLeadMs]
 	cmp	ecx, [dwLeadMaxMs]
 	jbe	SHORT lb_done
@@ -1416,19 +1441,23 @@ eic_done:
 EndProc Engine_Idle_Check
 
 BeginProc Tick_Arm
-	push	esi
 	mov	eax, TICK_MS
 	cmp	[dwPlaying], 0
-	jne	SHORT ta_ms
+	jne	SHORT Tick_Arm_Ms
 	mov	eax, SLEEP_TICK_MS
-ta_ms:
+	jmp	Tick_Arm_Ms
+EndProc Tick_Arm
+
+;   EAX = ms to the next tick.
+BeginProc Tick_Arm_Ms
+	push	esi
 	xor	edx, edx
 	mov	esi, OFFSET32 Engine_Tick
 	VMMCall Set_Global_Time_Out
 	mov	[hTick], esi
 	pop	esi
 	ret
-EndProc Tick_Arm
+EndProc Tick_Arm_Ms
 
 ;   EAX = the byte of the ring the 8237 reads next. Reading 22Eh acknowledges a
 ;   pending DSP interrupt, so auto-init never waits on an ISR that is not ours.
@@ -1518,6 +1547,21 @@ et_jump:
 	mov	[dwWp], edx
 	xor	ecx, ecx
 et_ahead:
+	mov	eax, [dwHot]
+	or	eax, eax
+	jz	SHORT et_calm
+	cmp	byte ptr [eax+H_BUSY], 0
+	je	SHORT et_calm
+	cmp	ecx, [dwDeferMin]
+	jb	SHORT et_busymix
+	inc	[dwDeferred]
+	mov	eax, DEFER_MS
+	call	Tick_Arm_Ms
+	popad
+	ret
+et_busymix:
+	inc	[dwBusyMixed]
+et_calm:
 	inc	[dwCalm]			; calm long enough: come back toward LEAD_MS
 	cmp	[dwCalm], LEAD_CALM_TICKS
 	jb	SHORT et_need
@@ -2313,9 +2357,46 @@ tw_done:
 EndProc Trace_Write
 ENDIF
 
+;   ESI = DIOCParams. EAX = 0 on success. CreateFile("\\.\SBDS") finds this
+;   static device by name.
+BeginProc SBDS_IoCtl
+	mov	ecx, [esi.dwIoControlCode]
+	cmp	ecx, DIOC_OPEN
+	je	SHORT io_ok
+	cmp	ecx, DIOC_CLOSEHANDLE
+	je	SHORT io_ok
+	cmp	ecx, IOCTL_SET_HOT
+	jne	SHORT io_bad
+	cmp	[esi.cbInBuffer], 4
+	jb	SHORT io_bad
+	mov	eax, [esi.lpvInBuffer]
+	mov	eax, [eax]
+	or	eax, eax
+	jz	SHORT io_bad
+	cmp	eax, [dwHot]
+	je	SHORT io_ok
+	cmp	[dwHot], 0			; one display driver per boot: lock its page once
+	jne	SHORT io_set
+	push	eax
+	shr	eax, 12 			; the tick reads it at interrupt time
+	VMMCall _LinPageLock, <eax, 1, 0>
+	or	eax, eax
+	pop	eax
+	jz	SHORT io_bad
+io_set:
+	mov	[dwHot], eax
+io_ok:
+	xor	eax, eax
+	ret
+io_bad:
+	mov	eax, 1
+	ret
+EndProc SBDS_IoCtl
+
 VxD_LOCKED_CODE_ENDS
 
 VxD_ICODE_SEG
+
 
 ;   Device_Init: the DMA buffer, while low contiguous pages are still free.
 BeginProc SBDS_Device_Init
