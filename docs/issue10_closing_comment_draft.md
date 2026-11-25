@@ -1,4 +1,4 @@
-Draft, not posted. Owner to review and send.
+Posted 2026-11-25 and #10 closed: https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/10#issuecomment-7161275025
 
 ```
 Simon got a real IBM 5150 running Windows 95. Thank you.
