@@ -6,7 +6,8 @@
 
 The value is dwTraceN then a ring of entries (id, a1, a2, result), its size
 taken from the data. A -Trace build rewrites it on every call except
-GetPosition and the reference counts.
+GetPosition and the reference counts. Channel entries carry the channel number
+in bits 8-15 of the id.
 """
 import re
 import struct
@@ -22,10 +23,14 @@ NAMES = {1: 'Drv.QueryInterface', 2: 'Drv.AddRef', 3: 'Drv.Release', 4: 'Drv.Get
          # docs/captures/2026-11-24_sbds_dxdiag/SBDS_diag.ASM
          22: 'Probe', 23: 'DS.Set_Async_Time_Out', 24: 'DS.Set_Global_Time_Out',
          25: 'DS.ioctl', 26: 'DS.ioctl total',
-         27: 'PAGEFILE version', 28: 'VMCPD version'}
+         27: 'PAGEFILE version', 28: 'VMCPD version',
+         # 30-41: channel (hardware secondary) methods, decoded as 10-21
+         42: 'Ch.Created', 43: 'Ch.Duplicated'}
+for _i in range(30, 42):
+    NAMES[_i] = 'Ch.' + NAMES[_i - 20].split('.', 1)[1]
 RESULTS = {0: 'ok', 0x80004001: 'UNSUPPORTED', 0x80004002: 'NOINTERFACE',
            0x8878000A: 'ALLOCATED', 0x8878001E: 'CONTROLUNAVAIL', 0x88780064: 'BADFORMAT',
-           0x88780078: 'NODRIVER'}
+           0x88780078: 'NODRIVER', 0x88780032: 'INVALIDCALL', 0x80070057: 'INVALIDPARAM'}
 
 
 def fmt(v):
@@ -43,6 +48,12 @@ def at(ms):
 
 def describe(i, a1, a2, r):
     res = RESULTS.get(r, '%08X' % r)
+    if i == 42:
+        return 'memory %08X (%s), %d bytes' % (a1, 'shared arena' if a1 >= 0x80000000 else 'PRIVATE', a2)
+    if i == 43:
+        return 'from ch %d, memory %08X' % (a2, a1)
+    if 30 <= i <= 41:
+        i -= 20
     if i == 20:
         T0[0] = a2
     if i in (1, 10):
@@ -89,8 +100,10 @@ def main():
     first = max(0, total - N)
     print('%d calls traced; showing %d' % (total, total - first))
     for k in range(first, total):
-        i, a1, a2, r = struct.unpack_from('<4I', data, 4 + (k % N) * 16)
-        print('%5d  %-26s %s' % (k, NAMES.get(i, 'id %d' % i), describe(i, a1, a2, r)))
+        raw, a1, a2, r = struct.unpack_from('<4I', data, 4 + (k % N) * 16)
+        i, ch = raw & 0xFF, raw >> 8
+        name = NAMES.get(i, 'id %d' % i) + (' %d' % ch if i >= 30 else '')
+        print('%5d  %-26s %s' % (k, name, describe(i, a1, a2, r)))
 
 
 if __name__ == '__main__':

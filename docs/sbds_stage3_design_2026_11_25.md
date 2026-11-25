@@ -54,11 +54,16 @@ into the DMA ring.
   the primary's own format always wins when it is stereo and not silent.
 - Tick: `Set_Global_Time_Out` sized to fill half the ring (~370 ms at 22 KB/s). Stage 4 tunes it.
 
+## Probe result (`captures/2026-11-25_sbds_probe_bed/`)
+
+Memory is in the shared arena (risk 1 cleared). Doom 95 holds one buffer per sound and DSOUND places a buffer
+with us only while we report a free channel, so 8 channels took Doom's first 8 sounds and the rest went to
+DSOUND's mixer. Channels become descriptors: offer 64, mix only the playing ones. Doom changes pitch per play,
+so frequency control is needed from the start.
+
 ## Risks, in test order
 
-1. **Where DSOUND puts a secondary's memory.** The tick runs in whatever context is current: a private (below
-   2 GB) address would read the wrong process. Log the pointer in the trace first; shared arena (>= 8000 0000h)
-   is safe.
+1. ~~Where DSOUND puts a secondary's memory~~ - shared arena, safe from any context.
 2. **Paging at tick time.** The tick may not take a page fault. Lock a channel's pages on Play
    (`_LinPageLock`, in the caller's thread), unlock on Stop and at the end of a one-shot (deferred to the next
    call in a thread). Free RAM is 0 under Doom, so lock only what plays.
