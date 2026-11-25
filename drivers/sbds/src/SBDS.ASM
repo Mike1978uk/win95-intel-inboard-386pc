@@ -134,7 +134,10 @@ VOICE_BYTES	EQU	1024
 MIX_MAX 	EQU	4096			; bytes per tick at most; the scratch holds words
 WORK_PAGES	EQU	(VOICE_N * VOICE_BYTES + MIX_MAX * 2) / 4096
 TICK_MS 	EQU	20
+SLEEP_TICK_MS	EQU	100			; DMA asleep: only DSOUND's primary is watched
 LEAD_MS 	EQU	60			; how far ahead of the 8237 the ring is written
+LEAD_MAX_MS	EQU	200			; grown 20 ms per underrun up to this ...
+LEAD_CALM_TICKS EQU	250			; ... and shrunk 20 ms after this many clean ticks
 QUIET_MS	EQU	300			; silence this long stops the DMA until a sound starts
 
 Declare_Virtual_Device SBDS, 1, 0, SBDS_Control, Undefined_Device_ID, \
@@ -264,7 +267,10 @@ dwSleeps	dd	0
 dwWakes 	dd	0
 dwVoiceMax	dd	0
 dwEngineRuns	dd	0
-STATS_DWORDS	EQU	7
+dwLeadMs	dd	LEAD_MS 	; the lead now; 'lead ms' in the stats
+dwLeadMaxMs	dd	0
+STATS_DWORDS	EQU	9
+dwCalm		dd	0
 hkStats 	dd	0
 szSbdsKey	db	"Software\SBDS",0
 szStatsVal	db	"Stats",0
@@ -275,6 +281,9 @@ mvStep		dd	0
 mvTotal 	dd	0
 mvLeft		dd	0
 mvMem		dd	0
+mvEnd		dd	0
+mcPrimLoud	dd	0
+mcRingEnd	dd	0
 mvSrcSt 	db	0
 		db	3 dup (0)
 
@@ -1290,6 +1299,13 @@ es_wake:
 	jne	SHORT es_up
 	call	Engine_Wake
 	inc	[dwWakes]
+	mov	esi, [hTick]			; the slow sleeping tick would come too late
+	mov	[hTick], 0
+	or	esi, esi
+	jz	SHORT es_arm
+	VMMCall Cancel_Time_Out
+es_arm:
+	call	Tick_Arm
 es_up:
 	popfd
 	popad
@@ -1305,21 +1321,31 @@ BeginProc Engine_Wake
 	mov	al, 80h 			; 8-bit silence
 	cld
 	rep	stosb
-	mov	eax, [dwRate]			; lead in bytes, whole frames
-	mul	[dwChannels]
-	mov	ecx, LEAD_MS
-	mul	ecx
-	mov	ecx, 1000
-	div	ecx
-	cmp	[dwChannels], 2
-	jne	SHORT ew_lead
-	and	eax, NOT 1
-ew_lead:
-	mov	[dwLead], eax
-	mov	[dwWp], eax			; the ring starts with LEAD_MS of silence
+	call	Lead_Bytes
+	mov	[dwWp], eax			; the ring starts with the lead in silence
 	mov	[dwQuietMs], 0
 	jmp	Start_Playback
 EndProc Engine_Wake
+
+;   [dwLead] = [dwLeadMs] in bytes, whole frames; also in EAX. ECX, EDX lost.
+BeginProc Lead_Bytes
+	mov	eax, [dwRate]
+	mul	[dwChannels]
+	mul	[dwLeadMs]
+	mov	ecx, 1000
+	div	ecx
+	cmp	[dwChannels], 2
+	jne	SHORT lb_set
+	and	eax, NOT 1
+lb_set:
+	mov	[dwLead], eax
+	mov	ecx, [dwLeadMs]
+	cmp	ecx, [dwLeadMaxMs]
+	jbe	SHORT lb_done
+	mov	[dwLeadMaxMs], ecx
+lb_done:
+	ret
+EndProc Lead_Bytes
 
 BeginProc Engine_Stop
 	cmp	[dwEngine], 0
@@ -1392,6 +1418,10 @@ EndProc Engine_Idle_Check
 BeginProc Tick_Arm
 	push	esi
 	mov	eax, TICK_MS
+	cmp	[dwPlaying], 0
+	jne	SHORT ta_ms
+	mov	eax, SLEEP_TICK_MS
+ta_ms:
 	xor	edx, edx
 	mov	esi, OFFSET32 Engine_Tick
 	VMMCall Set_Global_Time_Out
@@ -1464,6 +1494,14 @@ BeginProc Engine_Tick
 	cmp	ecx, edx
 	jbe	SHORT et_ahead
 	inc	[dwUnderruns]			; the 8237 passed us: jump in front of it
+	mov	[dwCalm], 0			; and keep further ahead from now on
+	cmp	[dwLeadMs], LEAD_MAX_MS
+	jae	SHORT et_bigger
+	add	[dwLeadMs], 20
+	push	eax
+	call	Lead_Bytes
+	pop	eax
+et_bigger:
 	mov	edx, eax
 	add	edx, [dwChannels]
 	add	edx, [dwChannels]
@@ -1480,6 +1518,17 @@ et_jump:
 	mov	[dwWp], edx
 	xor	ecx, ecx
 et_ahead:
+	inc	[dwCalm]			; calm long enough: come back toward LEAD_MS
+	cmp	[dwCalm], LEAD_CALM_TICKS
+	jb	SHORT et_need
+	mov	[dwCalm], 0
+	cmp	[dwLeadMs], LEAD_MS
+	jbe	SHORT et_need
+	sub	[dwLeadMs], 20
+	push	ecx
+	call	Lead_Bytes
+	pop	ecx
+et_need:
 	mov	eax, [dwLead]
 	sub	eax, ecx
 	jbe	et_rearm
@@ -1561,28 +1610,172 @@ et_out:
 	ret
 EndProc Engine_Tick
 
+;   The feeder: every store crosses the Inboard's bus (write-through), loads that
+;   hit the cache are nearly free. So output bytes are packed four to a register
+;   and stored as one dword, and a sound playing alone is mixed straight into the
+;   ring with no scratch.
+
+;   EAX = signed sample: clip to an unsigned byte, shift it into EDX; at each
+;   dword boundary store EDX to the ring. EDI = ring pointer, advanced.
+PUT_BYTE MACRO
+	LOCAL	pb_ok, pb_zero, pb_next
+	add	eax, 80h
+	cmp	eax, 0FFh
+	jbe	SHORT pb_ok
+	test	eax, eax
+	js	SHORT pb_zero
+	mov	eax, 0FFh
+	jmp	SHORT pb_ok
+pb_zero:
+	xor	eax, eax
+pb_ok:
+	shrd	edx, eax, 8
+	inc	edi
+	test	edi, 3
+	jnz	SHORT pb_next
+	mov	[edi-4], edx
+	cmp	edi, [mcRingEnd]
+	jb	SHORT pb_next
+	sub	edi, [dwBufBytes]
+pb_next:
+	ENDM
+
+;   EDI = ring pointer at [dwWp]. EDX = the ring's own bytes below EDI in a
+;   part-filled dword, positioned so the packing completes it unchanged.
+BeginProc Put_Begin
+	mov	edi, [dwBufLin]
+	mov	ecx, edi
+	add	ecx, [dwBufBytes]
+	mov	[mcRingEnd], ecx
+	add	edi, [dwWp]
+	mov	ecx, edi
+	and	ecx, 3
+	jz	SHORT pbg_done
+	mov	edx, edi
+	and	edx, NOT 3
+	mov	edx, [edx]
+	neg	ecx
+	add	ecx, 4
+	shl	ecx, 3				; 8 x (4 - bytes already there)
+	shl	edx, cl
+pbg_done:
+	ret
+EndProc Put_Begin
+
+;   Store what the packing left in a part-filled dword, byte by byte, and set
+;   [dwWp] from EDI.
+BeginProc Put_End
+	mov	ecx, edi
+	and	ecx, 3
+	jz	SHORT pe_wp
+	push	ecx
+	neg	ecx
+	add	ecx, 4
+	shl	ecx, 3
+	shr	edx, cl
+	pop	ecx
+	sub	edi, ecx
+pe_byte:
+	mov	[edi], dl
+	inc	edi
+	shr	edx, 8
+	dec	ecx
+	jnz	pe_byte
+pe_wp:
+	sub	edi, [dwBufLin]
+	mov	[dwWp], edi
+	ret
+EndProc Put_End
+
 ;   EAX = bytes to produce (whole frames, <= MIX_MAX), EBX = ring mask.
 BeginProc Mix_Chunk
 	mov	[mcBytes], eax
+
+	mov	[mcPrimLoud], 0 		; does the primary hold anything but silence?
+	cmp	[dwPrimPlaying], 0
+	je	mc_count
 	mov	ecx, eax
-	mov	edi, [dwScratch]
 	mov	esi, [dwStageR]
 	mov	ebp, [dwStageLin]
-	cmp	[dwPrimPlaying], 0
+mc_scan:
+	cmp	byte ptr [ebp+esi], 80h
+	jne	SHORT mc_loud
+	inc	esi
+	and	esi, ebx
+	dec	ecx
+	jnz	mc_scan
+	jmp	mc_count
+mc_loud:
+	mov	[mcPrimLoud], 1
+	mov	[mcAudible], 1
+
+mc_count:					; the channels to mix; the last one found
+	xor	ecx, ecx
+	mov	esi, OFFSET32 SecSlots
+mc_cnext:
+	mov	eax, [esi+S_STATE]
+	and	eax, SS_PLAYING + SS_ENDED + SS_LOCKED
+	cmp	eax, SS_PLAYING + SS_LOCKED
+	jne	SHORT mc_cskip
+	cmp	dword ptr [esi+S_VOICE], 0
+	je	SHORT mc_cskip
+	inc	ecx
+	mov	edx, esi
+mc_cskip:
+	add	esi, SEC_SIZE
+	cmp	esi, OFFSET32 SecSlots + SEC_N * SEC_SIZE
+	jb	mc_cnext
+	or	ecx, ecx
+	jz	SHORT mc_nosound
+	mov	[mcAudible], 1
+	cmp	ecx, 1				; one mono sound and a silent primary: direct
+	jne	mc_scratch
+	cmp	[mcPrimLoud], 0
+	jne	mc_scratch
+	cmp	dword ptr [edx+S_ALIGN], 1
+	jne	mc_scratch
+	cmp	[dwChannels], 2
+	je	SHORT mc_direct
+	mov	eax, [edx+S_AMPL]		; mono out takes the left table
+	cmp	eax, [edx+S_AMPR]
+	jne	mc_scratch
+mc_direct:
+	mov	esi, edx
+	push	ebx
+	call	Mix_Direct
+	pop	ebx
+	jmp	mc_done
+
+mc_nosound:
+	cmp	[mcPrimLoud], 0
+	jne	mc_scratch
+	call	Put_Begin			; silence, a dword at a time
+	mov	ecx, [mcBytes]
+mc_sil:
+	xor	eax, eax
+	PUT_BYTE
+	dec	ecx
+	jnz	mc_sil
+	call	Put_End
+	jmp	mc_done
+
+mc_scratch:
+	mov	ecx, [mcBytes]
+	mov	edi, [dwScratch]
+	cmp	[mcPrimLoud], 0
 	je	SHORT mc_zero
+	mov	esi, [dwStageR]
+	mov	ebp, [dwStageLin]
 mc_prim:
 	movzx	eax, byte ptr [ebp+esi]
 	sub	eax, 80h
-	jz	SHORT mc_psil
-	mov	[mcAudible], 1
-mc_psil:
 	mov	[edi], ax
 	add	edi, 2
 	inc	esi
 	and	esi, ebx
 	dec	ecx
 	jnz	mc_prim
-	jmp	SHORT mc_voices
+	jmp	mc_voices
 mc_zero:
 	xor	eax, eax
 	cld
@@ -1596,7 +1789,6 @@ mc_next:
 	jne	SHORT mc_skip
 	cmp	dword ptr [esi+S_VOICE], 0
 	je	SHORT mc_skip
-	mov	[mcAudible], 1
 	push	esi
 	push	ebx
 	call	Mix_Voice
@@ -1607,33 +1799,142 @@ mc_skip:
 	cmp	esi, OFFSET32 SecSlots + SEC_N * SEC_SIZE
 	jb	mc_next
 
-	mov	ecx, [mcBytes]			; scratch to the ring, clipped to a byte
+	call	Put_Begin			; scratch to the ring, clipped, packed
+	mov	ecx, [mcBytes]
 	mov	esi, [dwScratch]
-	mov	edi, [dwWp]
-	mov	ebp, [dwBufLin]
 mc_out:
-	mov	ax, [esi]
-	add	ax, 80h
-	jns	SHORT mc_pos
-	xor	eax, eax
-mc_pos:
-	cmp	ax, 0FFh
-	jbe	SHORT mc_store
-	mov	al, 0FFh
-mc_store:
-	mov	[ebp+edi], al
+	movsx	eax, word ptr [esi]
+	PUT_BYTE
 	add	esi, 2
-	inc	edi
-	and	edi, ebx
 	dec	ecx
 	jnz	mc_out
-	mov	[dwWp], edi
+	call	Put_End
+
+mc_done:
 	mov	eax, [mcBytes]
 	add	eax, [dwStageR]
 	and	eax, ebx
 	mov	[dwStageR], eax
 	ret
 EndProc Mix_Chunk
+
+;   ESI = the only channel playing, 8-bit mono source: straight to the ring.
+;   Loop state lives in registers; the only stores are the packed dwords.
+BeginProc Mix_Direct
+	mov	[mvSlot], esi
+	mov	eax, [esi+S_FREQ]		; step = rate / output rate, 16.16
+	xor	edx, edx
+	shld	edx, eax, 16
+	shl	eax, 16
+	div	[dwRate]
+	mov	[mvStep], eax
+	mov	eax, [esi+S_MEM]
+	mov	[mvMem], eax
+	add	eax, [esi+S_BYTES]
+	mov	[mvEnd], eax
+	mov	ebx, [esi+S_VOICE]
+	dec	ebx
+	shl	ebx, 10
+	add	ebx, [dwVoiceTabs]
+	mov	ebp, [esi+S_FRAC]
+	mov	eax, [esi+S_POS]
+	mov	esi, [esi+S_MEM]
+	add	esi, eax
+	call	Put_Begin
+	mov	ecx, [mcBytes]
+	cmp	[dwChannels], 2
+	jne	md_mono
+	shr	ecx, 1
+
+md_stereo:
+	movzx	eax, byte ptr [esi]
+	movsx	eax, word ptr [ebx+eax*2]
+	PUT_BYTE
+	movzx	eax, byte ptr [esi]
+	movsx	eax, word ptr [ebx+512+eax*2]
+	PUT_BYTE
+	add	ebp, [mvStep]
+	mov	eax, ebp
+	shr	eax, 16
+	and	ebp, 0FFFFh
+	add	esi, eax
+	cmp	esi, [mvEnd]
+	jae	SHORT mds_end
+mds_cont:
+	dec	ecx
+	jnz	md_stereo
+	jmp	md_save
+mds_end:
+	call	Md_End
+	jnc	mds_cont
+	dec	ecx				; one-shot over: the rest is silence
+	shl	ecx, 1
+	jmp	md_rest
+
+md_mono:
+	movzx	eax, byte ptr [esi]
+	movsx	eax, word ptr [ebx+eax*2]
+	PUT_BYTE
+	add	ebp, [mvStep]
+	mov	eax, ebp
+	shr	eax, 16
+	and	ebp, 0FFFFh
+	add	esi, eax
+	cmp	esi, [mvEnd]
+	jae	SHORT mdm_end
+mdm_cont:
+	dec	ecx
+	jnz	md_mono
+	jmp	md_save
+mdm_end:
+	call	Md_End
+	jnc	mdm_cont
+	dec	ecx
+
+md_rest:
+	or	ecx, ecx			; bytes left after the frame just done
+	jz	md_fin
+md_sil:
+	xor	eax, eax
+	PUT_BYTE
+	dec	ecx
+	jnz	md_sil
+	jmp	md_fin
+
+md_save:
+	mov	eax, [mvSlot]
+	sub	esi, [mvMem]
+	mov	[eax+S_POS], esi
+	mov	[eax+S_FRAC], ebp
+md_fin:
+	jmp	Put_End
+EndProc Mix_Direct
+
+;   The source ran past its end. Looping: wrap ESI, CF clear. One-shot: mark the
+;   channel ended, CF set.
+BeginProc Md_End
+	mov	eax, [mvSlot]
+	test	dword ptr [eax+S_STATE], SS_LOOP
+	jz	SHORT mde_once
+	push	ecx
+	mov	ecx, [eax+S_BYTES]
+mde_wrap:
+	sub	esi, ecx
+	cmp	esi, [mvEnd]
+	jae	mde_wrap
+	pop	ecx
+	clc
+	ret
+mde_once:
+	push	ecx
+	mov	ecx, [eax+S_BYTES]
+	mov	[eax+S_POS], ecx
+	mov	dword ptr [eax+S_FRAC], 0
+	or	dword ptr [eax+S_STATE], SS_ENDED
+	pop	ecx
+	stc
+	ret
+EndProc Md_End
 
 ;   ESI = playing channel with a voice: add [mcBytes] bytes' worth of output
 ;   frames into the scratch, stepping the source by its own rate.
