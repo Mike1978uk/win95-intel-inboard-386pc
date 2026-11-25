@@ -335,10 +335,10 @@ like a timer tick (~170 us measured for #45). Ideas, cheapest first - measure be
 - [ ] **S5 The demoscene end:** cycle-exact PC-speaker / DAC tricks are a later, separate study.
 - [ ] **S6 SBDS mixes - THE AIM for DirectSound (owner, 11-24: "exactly the design we aim for"):**
       `docs/sbds_mixer_plan.md`. SBDS becomes the hardware mixer for secondary buffers (integer, no FPU needed):
-      mono or stereo per moment (stereo whenever anything playing needs it, `ForceStereo=1` override; stereo is
-      never given up), a feeder writing the DMA ring in dwords, our own timing, and a busy/idle handshake with the
+      output in the primary's format (mono per moment dropped by the owner 11-25: ~1 % of the bus, clicks), DMA
+      stopped in silence, a feeder writing the DMA ring in dwords, our own timing, and a busy/idle handshake with the
       display driver so sound fills its ring in the display's gaps. Stages: (1) census + one baseline (Doom 95 on
-      the trace build, M8DDB once), (2) measure the store path, (3) channels + mono, (4) feeder + timing,
+      the trace build, M8DDB once), (2) measure the store path, (3) channels + silence stop (done on the bed 11-25, `docs/sbds_stage3_design_2026_11_25.md`), (4) feeder + timing,
       (5) display handshake, (6) one bench. S2 (no IRQs) and silence are already done by SBDS's design; S3 ADPCM
       does not fit (DirectSound hands us mixed PCM).
 

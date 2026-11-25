@@ -135,6 +135,7 @@ MIX_MAX 	EQU	4096			; bytes per tick at most; the scratch holds words
 WORK_PAGES	EQU	(VOICE_N * VOICE_BYTES + MIX_MAX * 2) / 4096
 TICK_MS 	EQU	20
 LEAD_MS 	EQU	60			; how far ahead of the 8237 the ring is written
+QUIET_MS	EQU	300			; silence this long stops the DMA until a sound starts
 
 Declare_Virtual_Device SBDS, 1, 0, SBDS_Control, Undefined_Device_ID, \
 		       Undefined_Init_Order
@@ -249,8 +250,24 @@ dwVoiceTabs	dd	0
 dwScratch	dd	0
 dwVoiceUsed	dd	0
 dwVoiceFull	dd	0
+dwEngine	dd	0		; tick running (dwPlaying: DMA running)
+dwQuietMs	dd	0
+dwLastMs	dd	0
+mcAudible	dd	0
+dwVoicesNow	dd	0
+;   "Stats" in HKLM\Software\SBDS, written when the engine stops; keep the order
+;   (sbds_trace.py --stats).
 dwTicks 	dd	0
 dwUnderruns	dd	0
+dwVoiceFull2	dd	0		; mirrors dwVoiceFull at write time
+dwSleeps	dd	0
+dwWakes 	dd	0
+dwVoiceMax	dd	0
+dwEngineRuns	dd	0
+STATS_DWORDS	EQU	7
+hkStats 	dd	0
+szSbdsKey	db	"Software\SBDS",0
+szStatsVal	db	"Stats",0
 mcBytes 	dd	0
 mvCount 	dd	0
 mvSlot		dd	0
@@ -757,7 +774,7 @@ EndProc Buf_Unlock
 BeginProc Buf_SetFormat
 	push	esi
 	push	ebx
-	mov	ebx, [dwPlaying]
+	mov	ebx, [dwEngine]
 	call	Engine_Stop
 	mov	esi, [esp+16]
 	call	Set_Format
@@ -792,7 +809,7 @@ EndProc Buf_SetPosition
 ;   (this, pdwPlay, pdwWrite): how far the tick has read the primary.
 BeginProc Buf_GetPosition
 	xor	eax, eax
-	cmp	[dwPlaying], 0
+	cmp	[dwEngine], 0
 	je	SHORT bg_store
 	mov	eax, [dwStageR]
 	inc	[dwGetPos]
@@ -995,6 +1012,12 @@ sgv_got:
 	bts	[dwVoiceUsed], ecx
 	inc	ecx
 	mov	[esi+S_VOICE], ecx
+	inc	[dwVoicesNow]
+	mov	ecx, [dwVoicesNow]
+	cmp	ecx, [dwVoiceMax]
+	jbe	SHORT sgv_max
+	mov	[dwVoiceMax], ecx
+sgv_max:
 	pop	ecx
 sgv_build:
 	jmp	Sec_Build_Tables
@@ -1007,6 +1030,7 @@ BeginProc Sec_Free_Voice
 	mov	dword ptr [esi+S_VOICE], 0
 	dec	eax
 	btr	[dwVoiceUsed], eax
+	dec	[dwVoicesNow]
 sfv_done:
 	ret
 EndProc Sec_Free_Voice
@@ -1244,11 +1268,38 @@ EndProc Sec_Stop
 ;   into the DMA ring, LEAD_MS ahead of where the 8237 reads. The primary's play
 ;   cursor is how far the tick has read it.
 
-;   Runs the DMA and the tick if they are not running. Caller's thread.
+;   Runs the tick, and wakes the DMA if it sleeps. Caller's thread.
 BeginProc Engine_Start
+	cmp	[dwEngine], 0
+	jne	SHORT es_wake
+	pushad
+	mov	[dwStageR], 0
+	call	Engine_Wake
+	mov	[dwEngine], 1
+	inc	[dwEngineRuns]
+	call	Tick_Arm
+	popad
+	ret
+es_wake:
 	cmp	[dwPlaying], 0
 	jne	SHORT es_done
 	pushad
+	pushfd
+	cli					; the tick may be waking it too
+	cmp	[dwPlaying], 0
+	jne	SHORT es_up
+	call	Engine_Wake
+	inc	[dwWakes]
+es_up:
+	popfd
+	popad
+es_done:
+	ret
+EndProc Engine_Start
+
+;   Silence the ring, put the write point LEAD_MS ahead and start the DMA.
+;   The primary's read point carries on from where it was.
+BeginProc Engine_Wake
 	mov	edi, [dwBufLin]
 	mov	ecx, [dwBufBytes]
 	mov	al, 80h 			; 8-bit silence
@@ -1261,25 +1312,22 @@ BeginProc Engine_Start
 	mov	ecx, 1000
 	div	ecx
 	cmp	[dwChannels], 2
-	jne	SHORT es_lead
+	jne	SHORT ew_lead
 	and	eax, NOT 1
-es_lead:
+ew_lead:
 	mov	[dwLead], eax
 	mov	[dwWp], eax			; the ring starts with LEAD_MS of silence
-	mov	[dwStageR], 0
-	call	Start_Playback
-	call	Tick_Arm
-	popad
-es_done:
-	ret
-EndProc Engine_Start
+	mov	[dwQuietMs], 0
+	jmp	Start_Playback
+EndProc Engine_Wake
 
 BeginProc Engine_Stop
-	cmp	[dwPlaying], 0
+	cmp	[dwEngine], 0
 	je	SHORT et_done
 	push	esi
 	pushfd
 	cli
+	mov	[dwEngine], 0
 	mov	esi, [hTick]
 	mov	[hTick], 0
 	or	esi, esi
@@ -1289,11 +1337,39 @@ et_none:
 	popfd
 	pop	esi
 	call	Stop_Playback
+	call	Stats_Write
 et_done:
 	ret
 EndProc Engine_Stop
 
-;   Stop when nothing can be heard: primary stopped and no channel playing.
+;   HKLM\Software\SBDS "Stats": the engine's counters, for a run on the card.
+BeginProc Stats_Write
+	pushad
+	mov	eax, [dwVoiceFull]
+	mov	[dwVoiceFull2], eax
+	push	OFFSET32 hkStats
+	push	OFFSET32 szSbdsKey
+	push	HKEY_LOCAL_MACHINE
+	VMMCall _RegCreateKey
+	add	esp, 3*4
+	or	eax, eax
+	jnz	SHORT sw_done
+	push	STATS_DWORDS * 4
+	push	OFFSET32 dwTicks
+	push	REG_BINARY
+	push	0
+	push	OFFSET32 szStatsVal
+	push	[hkStats]
+	VMMCall _RegSetValueEx
+	add	esp, 6*4
+	push	[hkStats]
+	VMMCall _RegCloseKey
+	add	esp, 4
+sw_done:
+	popad
+	ret
+EndProc Stats_Write
+
 BeginProc Engine_Idle_Check
 	cmp	[dwPrimPlaying], 0
 	jne	SHORT eic_done
@@ -1372,11 +1448,13 @@ EndProc Dma_Pos
 BeginProc Engine_Tick
 	pushad
 	mov	[hTick], 0
-	cmp	[dwPlaying], 0
+	cmp	[dwEngine], 0
 	je	et_out
 	inc	[dwTicks]
 	mov	ebx, [dwBufBytes]
 	dec	ebx				; ring mask (size is a power of two)
+	cmp	[dwPlaying], 0
+	je	et_asleep
 	call	Dma_Pos
 	mov	ecx, [dwWp]
 	sub	ecx, eax
@@ -1404,7 +1482,7 @@ et_jump:
 et_ahead:
 	mov	eax, [dwLead]
 	sub	eax, ecx
-	jbe	SHORT et_rearm
+	jbe	et_rearm
 	cmp	eax, MIX_MAX
 	jbe	SHORT et_n
 	mov	eax, MIX_MAX
@@ -1412,9 +1490,70 @@ et_n:
 	cmp	[dwChannels], 2
 	jne	SHORT et_mix
 	and	eax, NOT 1
-	jz	SHORT et_rearm
+	jz	et_rearm
 et_mix:
+	mov	[mcAudible], 0
 	call	Mix_Chunk
+	cmp	[mcAudible], 0
+	je	SHORT et_quiet
+	mov	[dwQuietMs], 0
+	jmp	et_rearm
+et_quiet:
+	add	[dwQuietMs], TICK_MS
+	cmp	[dwQuietMs], QUIET_MS
+	jb	et_rearm
+	call	Stop_Playback			; the ring holds only silence by now
+	inc	[dwSleeps]
+	VMMCall Get_System_Time
+	mov	[dwLastMs], eax
+	jmp	et_rearm
+
+;   Asleep: move the primary's read point on by the clock, so DSOUND sees time
+;   pass, and wake as soon as it writes something that is not silence.
+et_asleep:
+	VMMCall Get_System_Time
+	mov	ecx, eax
+	sub	eax, [dwLastMs]
+	mov	[dwLastMs], ecx
+	mul	[dwRate]
+	mul	[dwChannels]
+	mov	ecx, 1000
+	div	ecx				; bytes the primary would have played
+	mov	ecx, [dwBufBytes]
+	shr	ecx, 1
+	cmp	eax, ecx
+	jbe	SHORT et_scan
+	mov	eax, ecx
+et_scan:
+	cmp	[dwChannels], 2
+	jne	SHORT et_scan2
+	and	eax, NOT 1
+et_scan2:
+	or	eax, eax
+	jz	et_rearm
+	mov	ecx, eax
+	mov	esi, [dwStageR]
+	mov	edi, [dwStageLin]
+	cmp	[dwPrimPlaying], 0
+	je	SHORT et_skip
+et_look:
+	cmp	byte ptr [edi+esi], 80h
+	jne	SHORT et_wake
+	inc	esi
+	and	esi, ebx
+	dec	ecx
+	jnz	et_look
+	mov	[dwStageR], esi
+	jmp	et_rearm
+et_skip:
+	add	esi, eax
+	and	esi, ebx
+	mov	[dwStageR], esi
+	jmp	et_rearm
+et_wake:
+	mov	[dwStageR], esi 		; from the first sound DSOUND wrote
+	call	Engine_Wake
+	inc	[dwWakes]
 et_rearm:
 	call	Tick_Arm
 et_out:
@@ -1434,6 +1573,9 @@ BeginProc Mix_Chunk
 mc_prim:
 	movzx	eax, byte ptr [ebp+esi]
 	sub	eax, 80h
+	jz	SHORT mc_psil
+	mov	[mcAudible], 1
+mc_psil:
 	mov	[edi], ax
 	add	edi, 2
 	inc	esi
@@ -1454,6 +1596,7 @@ mc_next:
 	jne	SHORT mc_skip
 	cmp	dword ptr [esi+S_VOICE], 0
 	je	SHORT mc_skip
+	mov	[mcAudible], 1
 	push	esi
 	push	ebx
 	call	Mix_Voice

@@ -49,9 +49,9 @@ into the DMA ring.
   table load + add, no multiply. Primary contributes (byte - 80h) per channel.
 - Sum in a cached word scratch block, clip through a table to unsigned bytes, then copy to the DMA ring in
   dwords (the feeder's copy, stage 4, is this copy plus timing).
-- Mono output only when the primary block and every playing channel are mono or centred; otherwise stereo.
-  `ForceStereo=1` in `HKLM\Software\SBDS` keeps stereo. Switching happens at a half-buffer with a DSP restart;
-  the primary's own format always wins when it is stereo and not silent.
+- Output is always the primary's format. Mono per moment was **dropped (owner, 11-25)**: about 1 % of the bus,
+  only while no panned sound plays (Doom pans), and each switch restarts the DSP (a click). Stopping the DMA in
+  silence saves more.
 - Tick: `Set_Global_Time_Out` sized to fill half the ring (~370 ms at 22 KB/s). Stage 4 tunes it.
 
 ## Probe result (`captures/2026-11-25_sbds_probe_bed/`)
@@ -65,7 +65,9 @@ so frequency control is needed from the start.
 
 DSTEST and Doom 95 audible on the bed through our channels; Doom's 43 sounds all ours. Built so far: 64
 channels, 16 voices, 20 ms tick, 60 ms lead, primary in ordinary memory, pages locked per play, output in
-the primary's format. Not yet: mono/stereo per moment, DMA stop on silence, counters exported, feeder.
+the primary's format. Since added: DMA stops after 300 ms of silence and wakes on the next sound or primary
+write (bed 11-25: DSTEST and Doom 95 clean by ear, no pops or delay; music stalls briefly on scene changes -
+MIDI on the OPL, not ours); counters in `HKLM\Software\SBDS "Stats"`. Not yet: the feeder.
 
 Owner's idea (11-25): a repeated sound held as one reference, not passed again. Doom 95 already works that
 way here - one buffer per sound, replayed, no duplicates - and a duplicate costs 64 bytes, never a copy.

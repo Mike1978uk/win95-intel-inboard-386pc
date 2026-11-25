@@ -7,7 +7,7 @@
 The value is dwTraceN then a ring of entries (id, a1, a2, result), its size
 taken from the data. A -Trace build rewrites it on every call except
 GetPosition and the reference counts. Channel entries carry the channel number
-in bits 8-15 of the id.
+in bits 8-15 of the id. "Stats", written whenever the engine stops, prints first.
 """
 import re
 import struct
@@ -91,6 +91,13 @@ def describe(i, a1, a2, r):
 
 def main():
     text = open(sys.argv[1], 'rb').read().decode('latin-1').replace('\\\r\n', '').replace('\\\n', '')
+    st = re.search(r'"Stats"=hex:([0-9a-fA-F,\s]+)', text)
+    if st:
+        sd = bytes(int(x, 16) for x in st.group(1).replace(' ', '').split(',') if x)
+        names = ('ticks', 'underruns', 'voices refused', 'DMA sleeps', 'DMA wakes',
+                 'most voices at once', 'engine runs')
+        vals = struct.unpack_from('<%dI' % (len(sd) // 4), sd)
+        print('Stats at the last engine stop: ' + ', '.join('%s %d' % kv for kv in zip(names, vals)))
     m = re.search(r'"Trace"=hex:([0-9a-fA-F,\s]+)', text)
     if not m:
         raise SystemExit('no "Trace" value in the export')
