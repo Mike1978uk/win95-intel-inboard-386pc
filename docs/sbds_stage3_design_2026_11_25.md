@@ -61,6 +61,17 @@ with us only while we report a free channel, so 8 channels took Doom's first 8 s
 DSOUND's mixer. Channels become descriptors: offer 64, mix only the playing ones. Doom changes pitch per play,
 so frequency control is needed from the start.
 
+## First mixer run (`captures/2026-11-25_sbds_mixer_bed/`)
+
+DSTEST and Doom 95 audible on the bed through our channels; Doom's 43 sounds all ours. Built so far: 64
+channels, 16 voices, 20 ms tick, 60 ms lead, primary in ordinary memory, pages locked per play, output in
+the primary's format. Not yet: mono/stereo per moment, DMA stop on silence, counters exported, feeder.
+
+Owner's idea (11-25): a repeated sound held as one reference, not passed again. Doom 95 already works that
+way here - one buffer per sound, replayed, no duplicates - and a duplicate costs 64 bytes, never a copy.
+What overlap still costs is mixing. Lever for stage 4: a registry cap on simultaneous plays of one sound
+(restart the oldest rather than drop), measured on the card.
+
 ## Risks, in test order
 
 1. ~~Where DSOUND puts a secondary's memory~~ - shared arena, safe from any context.

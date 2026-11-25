@@ -3,8 +3,11 @@
 ;
 ;   MSSBLST.VXD stays the wave driver and keeps IRQ 5 and VDMAD's channel 1. This
 ;   VxD drives the DSP and the 8237 directly from ring 0 while DirectSound holds the
-;   wave device open (DSDDESC_DOMMSYSTEMOPEN), and takes the play position from the
-;   DMA count, so it needs no interrupt of its own.
+;   wave device open (DSDDESC_DOMMSYSTEMOPEN), and paces itself from the DMA count
+;   on a time-out, so it needs no interrupt of its own.
+;
+;   SBDS is the mixer: 8-bit secondaries become our channels, mixed with the
+;   primary (where DirectSound mixes whatever it kept) into the DMA ring.
 ;
 ;   DirectX 7 mixes into the buffer on its own timer only when Windows reports a
 ;   486-class FPU (VMCPD coprocessor type 3 or more; the card's 387 reports 3).
@@ -102,7 +105,7 @@ DSDRIVERCAPS_SIZE	EQU	76
 
 ;   Secondary channels: DSOUND owns each buffer's memory (USESYSTEMMEMORY); a
 ;   channel is a cursor, a rate and amp factors over it. Duplicates share memory.
-SEC_N		EQU	8
+SEC_N		EQU	64			; DSOUND holds one per sound, playing or not
 SEC_SIZE	EQU	64			; Slot_Of shifts by 6
 S_VTBL		EQU	0
 S_REF		EQU	4
@@ -116,9 +119,22 @@ S_T0		EQU	32			; system time in ms
 S_AMPL		EQU	36			; 16.16
 S_AMPR		EQU	40
 S_CFLAGS	EQU	44
+S_VOICE 	EQU	48			; voice number + 1, 0 = none
+S_FRAC		EQU	52			; position fraction, 16 bits
 SS_INUSE	EQU	1
 SS_PLAYING	EQU	2
 SS_LOOP 	EQU	4
+SS_ENDED	EQU	8			; one-shot reached its end; DSOUND will Stop it
+SS_LOCKED	EQU	10h
+
+;   Voices: the channels being mixed, each with a left and a right table of 256
+;   signed words. Doom plays at most 8 sounds at once.
+VOICE_N 	EQU	16
+VOICE_BYTES	EQU	1024
+MIX_MAX 	EQU	4096			; bytes per tick at most; the scratch holds words
+WORK_PAGES	EQU	(VOICE_N * VOICE_BYTES + MIX_MAX * 2) / 4096
+TICK_MS 	EQU	20
+LEAD_MS 	EQU	60			; how far ahead of the 8237 the ring is written
 
 Declare_Virtual_Device SBDS, 1, 0, SBDS_Control, Undefined_Device_ID, \
 		       Undefined_Init_Order
@@ -206,8 +222,8 @@ dwOpen		dd	0
 dwPlaying	dd	0
 dwRate		dd	22050
 dwChannels	dd	2
-bTimeConst	db	0
-bHighSpeed	db	0
+bTimeConst	db	0EAh			; 22,050 Hz stereo until DSOUND sets a format
+bHighSpeed	db	1
 bMixer0E	db	0
 		db	0
 
@@ -221,6 +237,29 @@ dwGetPos	dd	0
 dwFormat	dd	0		; rate | channels << 24, last accepted
 dwBadFormat	dd	0
 dwDspFail	dd	0
+
+;   The engine.
+dwStageLin	dd	0		; the primary: DSOUND mixes its own buffers here
+dwStageR	dd	0		; tick's read point in it = the primary's play cursor
+dwWp		dd	0		; tick's write point in the DMA ring
+dwLead		dd	0
+dwPrimPlaying	dd	0
+hTick		dd	0
+dwVoiceTabs	dd	0
+dwScratch	dd	0
+dwVoiceUsed	dd	0
+dwVoiceFull	dd	0
+dwTicks 	dd	0
+dwUnderruns	dd	0
+mcBytes 	dd	0
+mvCount 	dd	0
+mvSlot		dd	0
+mvStep		dd	0
+mvTotal 	dd	0
+mvLeft		dd	0
+mvMem		dd	0
+mvSrcSt 	db	0
+		db	3 dup (0)
 
 szDevId 	db	"ROOT\MEDIA\0000",0
 szDsVxd 	db	"dsound.vxd",0
@@ -535,6 +574,11 @@ BeginProc Drv_GetDriverDesc
 EndProc Drv_GetDriverDesc
 
 BeginProc Drv_Open
+	cmp	[dwStageLin], 0 		; no primary or voice memory: DSOUND emulates
+	jne	SHORT do_mem
+	mov	eax, DSERR_NODRIVER
+	ret	4
+do_mem:
 	cmp	[dwOpen], 0
 	je	SHORT do_try
 	mov	eax, DSERR_ALLOCATED
@@ -552,7 +596,8 @@ do_ok:
 EndProc Drv_Open
 
 BeginProc Drv_Close
-	call	Stop_Playback
+	mov	[dwPrimPlaying], 0
+	call	Engine_Stop
 	mov	[dwOpen], 0
 	xor	eax, eax
 	ret	4
@@ -611,7 +656,7 @@ dc_fmt_ok:
 	mov	ecx, [dwBufBytes]
 	mov	[eax], ecx
 	mov	eax, [esp+28]
-	mov	ecx, [dwBufLin]
+	mov	ecx, [dwStageLin]
 	mov	[eax], ecx
 	mov	eax, [esp+32]
 	mov	dword ptr [eax], OFFSET32 BufObj
@@ -690,7 +735,8 @@ BeginProc Buf_Release
 	je	SHORT br_done
 	dec	[dwBufRef]
 	jnz	SHORT br_done
-	call	Stop_Playback
+	mov	[dwPrimPlaying], 0
+	call	Engine_Idle_Check
 br_done:
 	mov	eax, [dwBufRef]
 	ret	4
@@ -706,15 +752,24 @@ BeginProc Buf_Unlock
 	ret	20
 EndProc Buf_Unlock
 
-;   DSOUND never calls this while the buffer plays (DDK guide, SetFormat).
+;   DSOUND sets it only with the primary stopped (DDK guide), but channels may
+;   still be playing: the ring restarts in the new format.
 BeginProc Buf_SetFormat
 	push	esi
-	mov	esi, [esp+12]
+	push	ebx
+	mov	ebx, [dwPlaying]
+	call	Engine_Stop
+	mov	esi, [esp+16]
 	call	Set_Format
 	mov	eax, DSERR_BADFORMAT
-	jc	SHORT bf_done
+	jc	SHORT bf_restart
 	xor	eax, eax
+bf_restart:
+	or	ebx, ebx
+	jz	SHORT bf_done
+	call	Engine_Start
 bf_done:
+	pop	ebx
 	pop	esi
 	ret	8
 EndProc Buf_SetFormat
@@ -734,81 +789,44 @@ BeginProc Buf_SetPosition
 	ret	8
 EndProc Buf_SetPosition
 
-;   (this, pdwPlay, pdwWrite). Bytes played = size - (count + 1); the 8237 counts
-;   down and reloads itself. Reading 22Eh acknowledges a pending DSP interrupt, so
-;   auto-init never waits on an ISR that is not ours.
+;   (this, pdwPlay, pdwWrite): how far the tick has read the primary.
 BeginProc Buf_GetPosition
-	push	ebx
 	xor	eax, eax
 	cmp	[dwPlaying], 0
 	je	SHORT bg_store
-	pushfd
-	cli
-	out	DMA_FLIPFLOP, al
-	in	al, DMA1_COUNT
-	mov	bl, al
-	in	al, DMA1_COUNT
-	mov	bh, al
-	out	DMA_FLIPFLOP, al
-	in	al, DMA1_COUNT
-	mov	cl, al
-	in	al, DMA1_COUNT
-	mov	ch, al
-	popfd
-	cmp	bh, ch				; low byte rolled between reads: take the later
-	je	SHORT bg_have
-	mov	bx, cx
-bg_have:
-	movzx	ebx, bx
-	inc	ebx
-	mov	eax, [dwBufBytes]
-	sub	eax, ebx
-	jae	SHORT bg_inrange
-	xor	eax, eax
-bg_inrange:
-	cmp	eax, [dwBufBytes]
-	jb	SHORT bg_ack
-	xor	eax, eax
-bg_ack:
-	push	eax
-	mov	dx, SB_RSTATUS
-	in	al, dx
-	pop	eax
+	mov	eax, [dwStageR]
 	inc	[dwGetPos]
 bg_store:
+	mov	ecx, [esp+8]
+	jecxz	bg_w
+	mov	[ecx], eax
+bg_w:
 	mov	ecx, [esp+12]
-	or	ecx, ecx
-	jz	SHORT bg_nowrite1
+	jecxz	bg_done
 	mov	[ecx], eax
-bg_nowrite1:
-	mov	ecx, [esp+16]
-	or	ecx, ecx
-	jz	SHORT bg_nowrite2
-	mov	[ecx], eax
-bg_nowrite2:
+bg_done:
 	xor	eax, eax
-	pop	ebx
 	ret	12
 EndProc Buf_GetPosition
 
 BeginProc Buf_Play
-	cmp	[dwPlaying], 0
-	jne	SHORT bp_done
-	call	Start_Playback
-bp_done:
+	mov	[dwPrimPlaying], 1
+	call	Engine_Start
 	xor	eax, eax
 	ret	16
 EndProc Buf_Play
 
 BeginProc Buf_Stop
-	call	Stop_Playback
+	mov	[dwPrimPlaying], 0
+	call	Engine_Idle_Check
 	xor	eax, eax
 	ret	4
 EndProc Buf_Stop
 
 ;   ---- secondary channels ------------------------------------------------------
-;   Not mixed yet: each channel keeps its cursor by the clock, so DSOUND sees
-;   one-shots end and loops run on time while the channels are silent.
+;   A channel is a cursor, a rate and amp factors over DSOUND's memory. DSOUND
+;   holds one per sound, playing or not; only playing channels take a voice
+;   (a pair of volume tables) and are mixed.
 
 ;   EAX = free channels.
 BeginProc Sec_Free_Count
@@ -909,48 +927,142 @@ sc_done:
 	ret	28
 EndProc Sec_Create
 
-;   ESI = channel. EAX = play position now; at the end of a one-shot, the buffer
-;   size (DSOUND then calls Stop - DDK, GetPosition). EDX lost.
+;   ESI = channel. EAX = play position; at the end of a one-shot, the buffer
+;   size (DSOUND then calls Stop - DDK, GetPosition).
 BeginProc Sec_Pos
 	mov	eax, [esi+S_POS]
-	test	dword ptr [esi+S_STATE], SS_PLAYING
+	test	dword ptr [esi+S_STATE], SS_ENDED
 	jz	SHORT sp_done
-	push	ecx
-	VMMCall Get_System_Time
-	sub	eax, [esi+S_T0]
-	mul	dword ptr [esi+S_FREQ]		; ms x frames a second
-	mov	ecx, 1000
-	div	ecx				; frames
-	mul	dword ptr [esi+S_ALIGN]
-	add	eax, [esi+S_POS]
-	test	dword ptr [esi+S_STATE], SS_LOOP
-	jz	SHORT sp_once
-	xor	edx, edx
-	div	dword ptr [esi+S_BYTES]
-	mov	eax, edx
-	jmp	SHORT sp_pop
-sp_once:
-	cmp	eax, [esi+S_BYTES]
-	jb	SHORT sp_pop
 	mov	eax, [esi+S_BYTES]
-sp_pop:
-	pop	ecx
 sp_done:
 	ret
 EndProc Sec_Pos
 
-;   ESI = channel: fold the clock into S_POS. A finished one-shot restarts at 0 (DDK, Play).
-BeginProc Sec_Rebase
-	call	Sec_Pos
-	cmp	eax, [esi+S_BYTES]
-	jb	SHORT sr_keep
-	xor	eax, eax
-sr_keep:
-	mov	[esi+S_POS], eax
-	VMMCall Get_System_Time
-	mov	[esi+S_T0], eax
+;   ESI = channel. Lock its memory: the mixer reads it at interrupt time.
+;   Runs in the caller's thread, where a page-in may wait.
+BeginProc Sec_Lock_Mem
+	test	dword ptr [esi+S_STATE], SS_LOCKED
+	jnz	SHORT slm_done
+	call	Sec_Page_Range
+	VMMCall _LinPageLock, <eax, ecx, 0>
+	or	eax, eax
+	jz	SHORT slm_done
+	or	dword ptr [esi+S_STATE], SS_LOCKED
+slm_done:
 	ret
-EndProc Sec_Rebase
+EndProc Sec_Lock_Mem
+
+BeginProc Sec_Unlock_Mem
+	test	dword ptr [esi+S_STATE], SS_LOCKED
+	jz	SHORT sum_done
+	and	dword ptr [esi+S_STATE], NOT SS_LOCKED
+	call	Sec_Page_Range
+	VMMCall _LinPageUnlock, <eax, ecx, 0>
+sum_done:
+	ret
+EndProc Sec_Unlock_Mem
+
+;   ESI = channel -> EAX first page, ECX page count.
+BeginProc Sec_Page_Range
+	mov	eax, [esi+S_MEM]
+	mov	ecx, eax
+	add	ecx, [esi+S_BYTES]
+	dec	ecx
+	shr	eax, 12
+	shr	ecx, 12
+	sub	ecx, eax
+	inc	ecx
+	ret
+EndProc Sec_Page_Range
+
+;   ESI = channel. Give it a voice and build its tables; no voice free leaves it
+;   silent (counted).
+BeginProc Sec_Get_Voice
+	cmp	dword ptr [esi+S_VOICE], 0
+	jne	SHORT sgv_build
+	push	ecx
+	xor	ecx, ecx
+sgv_next:
+	bt	[dwVoiceUsed], ecx
+	jnc	SHORT sgv_got
+	inc	ecx
+	cmp	ecx, VOICE_N
+	jb	sgv_next
+	pop	ecx
+	inc	[dwVoiceFull]
+	ret
+sgv_got:
+	bts	[dwVoiceUsed], ecx
+	inc	ecx
+	mov	[esi+S_VOICE], ecx
+	pop	ecx
+sgv_build:
+	jmp	Sec_Build_Tables
+EndProc Sec_Get_Voice
+
+BeginProc Sec_Free_Voice
+	mov	eax, [esi+S_VOICE]
+	or	eax, eax
+	jz	SHORT sfv_done
+	mov	dword ptr [esi+S_VOICE], 0
+	dec	eax
+	btr	[dwVoiceUsed], eax
+sfv_done:
+	ret
+EndProc Sec_Free_Voice
+
+;   ESI = channel with a voice: table[s] = (s - 80h) x amp >> 16, signed words,
+;   left then right. No multiply is left for the mixer.
+BeginProc Sec_Build_Tables
+	pushad
+	mov	edi, [esi+S_VOICE]
+	or	edi, edi
+	jz	SHORT sbt_done
+	dec	edi
+	shl	edi, 10
+	add	edi, [dwVoiceTabs]
+	mov	ebx, [esi+S_AMPL]
+	call	Build_One_Table
+	mov	ebx, [esi+S_AMPR]
+	call	Build_One_Table
+sbt_done:
+	popad
+	ret
+EndProc Sec_Build_Tables
+
+;   EBX = 16.16 amp, EDI = 256 words to fill (advanced past them).
+BeginProc Build_One_Table
+	mov	ecx, -80h
+bot_next:
+	mov	eax, ecx
+	imul	eax, ebx
+	sar	eax, 16
+	mov	[edi], ax
+	add	edi, 2
+	inc	ecx
+	cmp	ecx, 80h
+	jl	bot_next
+	ret
+EndProc Build_One_Table
+
+;   ESI = channel: stop it. Clears PLAYING before unlocking so the mixer, which
+;   only interrupts us, never reads memory that is no longer locked.
+BeginProc Sec_Halt
+	test	dword ptr [esi+S_STATE], SS_PLAYING
+	jz	SHORT sh_done
+	and	dword ptr [esi+S_STATE], NOT (SS_PLAYING + SS_LOOP)
+	test	dword ptr [esi+S_STATE], SS_ENDED
+	jz	SHORT sh_keep
+	and	dword ptr [esi+S_STATE], NOT SS_ENDED
+	mov	dword ptr [esi+S_POS], 0	; a finished one-shot restarts at 0 (DDK, Play)
+	mov	dword ptr [esi+S_FRAC], 0
+sh_keep:
+	call	Sec_Free_Voice
+	call	Sec_Unlock_Mem
+	call	Engine_Idle_Check
+sh_done:
+	ret
+EndProc Sec_Halt
 
 BeginProc Sec_QueryInterface
 	push	esi
@@ -985,16 +1097,19 @@ BeginProc Sec_AddRef
 EndProc Sec_AddRef
 
 BeginProc Sec_Release
-	mov	ecx, [esp+4]
+	push	esi
+	mov	esi, [esp+8]
 	xor	eax, eax
-	cmp	[ecx+S_REF], eax
+	cmp	[esi+S_REF], eax
 	je	SHORT sl_done
-	dec	dword ptr [ecx+S_REF]
+	dec	dword ptr [esi+S_REF]
 	jnz	SHORT sl_count
-	mov	[ecx+S_STATE], eax		; channel free
+	call	Sec_Halt
+	mov	dword ptr [esi+S_STATE], 0	; channel free
 sl_count:
-	mov	eax, [ecx+S_REF]
+	mov	eax, [esi+S_REF]
 sl_done:
+	pop	esi
 	ret	4
 EndProc Sec_Release
 
@@ -1014,31 +1129,31 @@ BeginProc Sec_SetFormat
 EndProc Sec_SetFormat
 
 BeginProc Sec_SetFrequency
-	push	esi
-	mov	esi, [esp+8]
+	mov	ecx, [esp+4]
+	mov	edx, [esp+8]
 	mov	eax, DSERR_INVALIDPARAM
-	cmp	dword ptr [esp+12], SEC_RATE_MIN
+	cmp	edx, SEC_RATE_MIN
 	jb	SHORT sfq_done
-	cmp	dword ptr [esp+12], SEC_RATE_MAX
+	cmp	edx, SEC_RATE_MAX
 	ja	SHORT sfq_done
-	call	Sec_Rebase
-	mov	eax, [esp+12]
-	mov	[esi+S_FREQ], eax
+	mov	[ecx+S_FREQ], edx
 	xor	eax, eax
 sfq_done:
-	pop	esi
 	ret	8
 EndProc Sec_SetFrequency
 
 ;   DSVOLUMEPAN starts with dwTotalLeftAmpFactor, dwTotalRightAmpFactor (16.16).
 BeginProc Sec_SetVolumePan
-	mov	ecx, [esp+4]
-	mov	edx, [esp+8]
+	push	esi
+	mov	esi, [esp+8]
+	mov	edx, [esp+12]
 	mov	eax, [edx]
-	mov	[ecx+S_AMPL], eax
+	mov	[esi+S_AMPL], eax
 	mov	eax, [edx+4]
-	mov	[ecx+S_AMPR], eax
+	mov	[esi+S_AMPR], eax
+	call	Sec_Build_Tables
 	xor	eax, eax
+	pop	esi
 	ret	8
 EndProc Sec_SetVolumePan
 
@@ -1048,9 +1163,16 @@ BeginProc Sec_SetPosition
 	mov	eax, DSERR_INVALIDPARAM
 	cmp	edx, [ecx+S_BYTES]
 	jae	SHORT ss_done
+	cmp	dword ptr [ecx+S_ALIGN], 2
+	jne	SHORT ss_set
+	and	edx, NOT 1
+ss_set:
+	pushfd
+	cli
 	mov	[ecx+S_POS], edx
-	VMMCall Get_System_Time
-	mov	[ecx+S_T0], eax
+	mov	dword ptr [ecx+S_FRAC], 0
+	and	dword ptr [ecx+S_STATE], NOT SS_ENDED
+	popfd
 	xor	eax, eax
 ss_done:
 	ret	8
@@ -1078,19 +1200,29 @@ EndProc Sec_GetPosition
 BeginProc Sec_Play
 	push	esi
 	mov	esi, [esp+8]
+	test	dword ptr [esi+S_STATE], SS_ENDED
+	jz	SHORT sy_new
+	and	dword ptr [esi+S_STATE], NOT SS_ENDED
+	mov	dword ptr [esi+S_POS], 0
+	mov	dword ptr [esi+S_FRAC], 0
+sy_new:
 	test	dword ptr [esi+S_STATE], SS_PLAYING
-	jz	SHORT sy_start
-	call	Sec_Rebase			; already playing: only the loop flag changes
-	jmp	SHORT sy_flags
-sy_start:
-	VMMCall Get_System_Time
-	mov	[esi+S_T0], eax
-	or	dword ptr [esi+S_STATE], SS_PLAYING
+	jnz	SHORT sy_flags
+	call	Sec_Lock_Mem
+	test	dword ptr [esi+S_STATE], SS_LOCKED
+	jz	SHORT sy_done			; cannot lock: stays silent rather than fault
+	call	Sec_Get_Voice
 sy_flags:
+	pushfd
+	cli
 	and	dword ptr [esi+S_STATE], NOT SS_LOOP
-	test	dword ptr [esp+20], DSBPLAY_LOOPING
-	jz	SHORT sy_done
+	test	dword ptr [esp+24], DSBPLAY_LOOPING
+	jz	SHORT sy_once
 	or	dword ptr [esi+S_STATE], SS_LOOP
+sy_once:
+	or	dword ptr [esi+S_STATE], SS_PLAYING
+	popfd
+	call	Engine_Start
 sy_done:
 	xor	eax, eax
 	pop	esi
@@ -1100,15 +1232,381 @@ EndProc Sec_Play
 BeginProc Sec_Stop
 	push	esi
 	mov	esi, [esp+8]
-	test	dword ptr [esi+S_STATE], SS_PLAYING
-	jz	SHORT so_done
-	call	Sec_Rebase
-	and	dword ptr [esi+S_STATE], NOT (SS_PLAYING + SS_LOOP)
-so_done:
+	call	Sec_Halt
 	xor	eax, eax
 	pop	esi
 	ret	4
 EndProc Sec_Stop
+
+;   ---- the engine ----------------------------------------------------------------
+;   DSOUND mixes its own buffers into the primary, which is ordinary memory here.
+;   Every TICK_MS the tick adds the playing channels to it and writes the result
+;   into the DMA ring, LEAD_MS ahead of where the 8237 reads. The primary's play
+;   cursor is how far the tick has read it.
+
+;   Runs the DMA and the tick if they are not running. Caller's thread.
+BeginProc Engine_Start
+	cmp	[dwPlaying], 0
+	jne	SHORT es_done
+	pushad
+	mov	edi, [dwBufLin]
+	mov	ecx, [dwBufBytes]
+	mov	al, 80h 			; 8-bit silence
+	cld
+	rep	stosb
+	mov	eax, [dwRate]			; lead in bytes, whole frames
+	mul	[dwChannels]
+	mov	ecx, LEAD_MS
+	mul	ecx
+	mov	ecx, 1000
+	div	ecx
+	cmp	[dwChannels], 2
+	jne	SHORT es_lead
+	and	eax, NOT 1
+es_lead:
+	mov	[dwLead], eax
+	mov	[dwWp], eax			; the ring starts with LEAD_MS of silence
+	mov	[dwStageR], 0
+	call	Start_Playback
+	call	Tick_Arm
+	popad
+es_done:
+	ret
+EndProc Engine_Start
+
+BeginProc Engine_Stop
+	cmp	[dwPlaying], 0
+	je	SHORT et_done
+	push	esi
+	pushfd
+	cli
+	mov	esi, [hTick]
+	mov	[hTick], 0
+	or	esi, esi
+	jz	SHORT et_none
+	VMMCall Cancel_Time_Out
+et_none:
+	popfd
+	pop	esi
+	call	Stop_Playback
+et_done:
+	ret
+EndProc Engine_Stop
+
+;   Stop when nothing can be heard: primary stopped and no channel playing.
+BeginProc Engine_Idle_Check
+	cmp	[dwPrimPlaying], 0
+	jne	SHORT eic_done
+	push	esi
+	mov	esi, OFFSET32 SecSlots
+eic_next:
+	test	dword ptr [esi+S_STATE], SS_PLAYING
+	jnz	SHORT eic_busy
+	add	esi, SEC_SIZE
+	cmp	esi, OFFSET32 SecSlots + SEC_N * SEC_SIZE
+	jb	eic_next
+	pop	esi
+	jmp	Engine_Stop
+eic_busy:
+	pop	esi
+eic_done:
+	ret
+EndProc Engine_Idle_Check
+
+BeginProc Tick_Arm
+	push	esi
+	mov	eax, TICK_MS
+	xor	edx, edx
+	mov	esi, OFFSET32 Engine_Tick
+	VMMCall Set_Global_Time_Out
+	mov	[hTick], esi
+	pop	esi
+	ret
+EndProc Tick_Arm
+
+;   EAX = the byte of the ring the 8237 reads next. Reading 22Eh acknowledges a
+;   pending DSP interrupt, so auto-init never waits on an ISR that is not ours.
+BeginProc Dma_Pos
+	push	ebx
+	push	ecx
+	push	edx
+	pushfd
+	cli
+	out	DMA_FLIPFLOP, al
+	in	al, DMA1_COUNT
+	mov	bl, al
+	in	al, DMA1_COUNT
+	mov	bh, al
+	out	DMA_FLIPFLOP, al
+	in	al, DMA1_COUNT
+	mov	cl, al
+	in	al, DMA1_COUNT
+	mov	ch, al
+	popfd
+	cmp	bh, ch				; low byte rolled between reads: take the later
+	je	SHORT dp_have
+	mov	bx, cx
+dp_have:
+	movzx	ebx, bx
+	inc	ebx
+	mov	eax, [dwBufBytes]
+	sub	eax, ebx
+	jae	SHORT dp_in
+	xor	eax, eax
+dp_in:
+	cmp	eax, [dwBufBytes]
+	jb	SHORT dp_ack
+	xor	eax, eax
+dp_ack:
+	push	eax
+	mov	dx, SB_RSTATUS
+	in	al, dx
+	pop	eax
+	pop	edx
+	pop	ecx
+	pop	ebx
+	ret
+EndProc Dma_Pos
+
+;   Time-out callback, interrupt time: touches only locked memory.
+BeginProc Engine_Tick
+	pushad
+	mov	[hTick], 0
+	cmp	[dwPlaying], 0
+	je	et_out
+	inc	[dwTicks]
+	mov	ebx, [dwBufBytes]
+	dec	ebx				; ring mask (size is a power of two)
+	call	Dma_Pos
+	mov	ecx, [dwWp]
+	sub	ecx, eax
+	and	ecx, ebx			; how far ahead of the 8237 we are
+	mov	edx, [dwBufBytes]
+	shr	edx, 1
+	cmp	ecx, edx
+	jbe	SHORT et_ahead
+	inc	[dwUnderruns]			; the 8237 passed us: jump in front of it
+	mov	edx, eax
+	add	edx, [dwChannels]
+	add	edx, [dwChannels]
+	and	edx, ebx
+	cmp	[dwChannels], 2
+	jne	SHORT et_jump
+	and	edx, NOT 1
+et_jump:
+	mov	ecx, edx
+	sub	ecx, [dwWp]
+	and	ecx, ebx
+	add	[dwStageR], ecx
+	and	[dwStageR], ebx
+	mov	[dwWp], edx
+	xor	ecx, ecx
+et_ahead:
+	mov	eax, [dwLead]
+	sub	eax, ecx
+	jbe	SHORT et_rearm
+	cmp	eax, MIX_MAX
+	jbe	SHORT et_n
+	mov	eax, MIX_MAX
+et_n:
+	cmp	[dwChannels], 2
+	jne	SHORT et_mix
+	and	eax, NOT 1
+	jz	SHORT et_rearm
+et_mix:
+	call	Mix_Chunk
+et_rearm:
+	call	Tick_Arm
+et_out:
+	popad
+	ret
+EndProc Engine_Tick
+
+;   EAX = bytes to produce (whole frames, <= MIX_MAX), EBX = ring mask.
+BeginProc Mix_Chunk
+	mov	[mcBytes], eax
+	mov	ecx, eax
+	mov	edi, [dwScratch]
+	mov	esi, [dwStageR]
+	mov	ebp, [dwStageLin]
+	cmp	[dwPrimPlaying], 0
+	je	SHORT mc_zero
+mc_prim:
+	movzx	eax, byte ptr [ebp+esi]
+	sub	eax, 80h
+	mov	[edi], ax
+	add	edi, 2
+	inc	esi
+	and	esi, ebx
+	dec	ecx
+	jnz	mc_prim
+	jmp	SHORT mc_voices
+mc_zero:
+	xor	eax, eax
+	cld
+	rep	stosw
+mc_voices:
+	mov	esi, OFFSET32 SecSlots
+mc_next:
+	mov	eax, [esi+S_STATE]
+	and	eax, SS_PLAYING + SS_ENDED + SS_LOCKED
+	cmp	eax, SS_PLAYING + SS_LOCKED
+	jne	SHORT mc_skip
+	cmp	dword ptr [esi+S_VOICE], 0
+	je	SHORT mc_skip
+	push	esi
+	push	ebx
+	call	Mix_Voice
+	pop	ebx
+	pop	esi
+mc_skip:
+	add	esi, SEC_SIZE
+	cmp	esi, OFFSET32 SecSlots + SEC_N * SEC_SIZE
+	jb	mc_next
+
+	mov	ecx, [mcBytes]			; scratch to the ring, clipped to a byte
+	mov	esi, [dwScratch]
+	mov	edi, [dwWp]
+	mov	ebp, [dwBufLin]
+mc_out:
+	mov	ax, [esi]
+	add	ax, 80h
+	jns	SHORT mc_pos
+	xor	eax, eax
+mc_pos:
+	cmp	ax, 0FFh
+	jbe	SHORT mc_store
+	mov	al, 0FFh
+mc_store:
+	mov	[ebp+edi], al
+	add	esi, 2
+	inc	edi
+	and	edi, ebx
+	dec	ecx
+	jnz	mc_out
+	mov	[dwWp], edi
+	mov	eax, [mcBytes]
+	add	eax, [dwStageR]
+	and	eax, ebx
+	mov	[dwStageR], eax
+	ret
+EndProc Mix_Chunk
+
+;   ESI = playing channel with a voice: add [mcBytes] bytes' worth of output
+;   frames into the scratch, stepping the source by its own rate.
+BeginProc Mix_Voice
+	mov	eax, [mcBytes]
+	cmp	[dwChannels], 2
+	jne	SHORT mv_frames
+	shr	eax, 1
+mv_frames:
+	mov	[mvCount], eax
+	mov	[mvSlot], esi
+	mov	eax, [esi+S_FREQ]		; step = rate / output rate, 16.16
+	xor	edx, edx
+	shld	edx, eax, 16
+	shl	eax, 16
+	div	[dwRate]
+	mov	[mvStep], eax
+	mov	eax, [esi+S_BYTES]
+	cmp	dword ptr [esi+S_ALIGN], 2
+	sete	byte ptr [mvSrcSt]
+	jne	SHORT mv_tot
+	shr	eax, 1
+mv_tot:
+	mov	[mvTotal], eax			; source frames
+	mov	ebx, [esi+S_VOICE]
+	dec	ebx
+	shl	ebx, 10
+	add	ebx, [dwVoiceTabs]
+	mov	ebp, [esi+S_FRAC]
+	mov	eax, [esi+S_POS]
+	mov	ecx, eax
+	cmp	byte ptr [mvSrcSt], 0
+	je	SHORT mv_left
+	shr	ecx, 1
+mv_left:
+	mov	edx, [mvTotal]
+	sub	edx, ecx
+	mov	[mvLeft], edx			; frames to the end
+	mov	esi, [esi+S_MEM]
+	mov	[mvMem], esi
+	add	esi, eax
+	mov	edi, [dwScratch]
+
+mv_frame:
+	movzx	eax, byte ptr [esi]
+	mov	ecx, eax
+	cmp	byte ptr [mvSrcSt], 0
+	je	SHORT mv_mono
+	movzx	ecx, byte ptr [esi+1]
+mv_mono:
+	mov	ax, [ebx+eax*2]
+	mov	cx, [ebx+512+ecx*2]
+	cmp	[dwChannels], 2
+	jne	SHORT mv_outm
+	add	[edi], ax
+	add	[edi+2], cx
+	add	edi, 4
+	jmp	SHORT mv_adv
+mv_outm:
+	add	ax, cx
+	sar	ax, 1
+	add	[edi], ax
+	add	edi, 2
+mv_adv:
+	add	ebp, [mvStep]
+	mov	eax, ebp
+	shr	eax, 16
+	and	ebp, 0FFFFh
+	sub	[mvLeft], eax
+	jle	SHORT mv_end
+	cmp	byte ptr [mvSrcSt], 0
+	je	SHORT mv_step
+	add	eax, eax
+mv_step:
+	add	esi, eax
+mv_cont:
+	dec	[mvCount]
+	jnz	mv_frame
+	jmp	SHORT mv_save
+
+mv_end:
+	mov	ecx, [mvSlot]
+	test	dword ptr [ecx+S_STATE], SS_LOOP
+	jz	SHORT mv_once
+	mov	eax, [mvTotal]
+mv_wrap:
+	add	[mvLeft], eax
+	cmp	[mvLeft], 0
+	jle	mv_wrap
+	sub	eax, [mvLeft]			; frame now
+	cmp	byte ptr [mvSrcSt], 0
+	je	SHORT mv_wpos
+	add	eax, eax
+mv_wpos:
+	add	eax, [mvMem]
+	mov	esi, eax
+	jmp	SHORT mv_cont
+mv_once:
+	mov	eax, [ecx+S_BYTES]
+	mov	[ecx+S_POS], eax
+	mov	dword ptr [ecx+S_FRAC], 0
+	or	dword ptr [ecx+S_STATE], SS_ENDED
+	ret
+
+mv_save:
+	mov	ecx, [mvSlot]
+	mov	eax, [mvTotal]
+	sub	eax, [mvLeft]
+	cmp	byte ptr [mvSrcSt], 0
+	je	SHORT mv_spos
+	add	eax, eax
+mv_spos:
+	mov	[ecx+S_POS], eax
+	mov	[ecx+S_FRAC], ebp
+	ret
+EndProc Mix_Voice
 
 IFDEF SBDS_TRACE
 ;   ---- call trace ---------------------------------------------------------------
@@ -1388,7 +1886,7 @@ sdi_try:
 	jnz	SHORT sdi_got
 	shr	ebx, 1
 	jnz	sdi_try
-	jmp	SHORT sdi_perf
+	jmp	sdi_perf
 sdi_got:
 	mov	[dwBufLin], edx
 	mov	ecx, ebx
@@ -1399,6 +1897,24 @@ sdi_got:
 	cld
 	rep	stosb
 	or	[dwState], ST_BUFFER
+	mov	eax, ebx
+	VMMCall _PageAllocate <eax, PG_SYS, 0, 0, 0, 0, 0, PageFixed>
+	or	eax, eax
+	jz	sdi_perf
+	mov	[dwStageLin], edx
+	mov	edi, edx
+	mov	ecx, [dwBufBytes]
+	mov	al, 80h
+	rep	stosb
+	VMMCall _PageAllocate <WORK_PAGES, PG_SYS, 0, 0, 0, 0, 0, PageFixed+PageZeroInit>
+	or	eax, eax
+	jnz	SHORT sdi_work
+	mov	[dwStageLin], 0
+	jmp	sdi_perf
+sdi_work:
+	mov	[dwVoiceTabs], edx
+	add	edx, VOICE_N * VOICE_BYTES
+	mov	[dwScratch], edx
 
 sdi_perf:
 	push	0
