@@ -1,0 +1,107 @@
+106 calls traced; showing 106
+    0  Drv.GetDriverDesc          ok
+    1  Drv.GetDriverDesc          ok
+    2  Drv.Open                   ok
+    3  Drv.CreateSoundBuffer      22050 Hz 8-bit stereo, flags 00000001 -> ok
+    4  Buf.SetFormat              22050 Hz 8-bit stereo -> ok
+    5  Buf.Stop                   ok
+    6  Buf.QueryInterface         IID F6F2E8E0 -> NOINTERFACE
+    7  Drv.GetCaps                ok
+    8  Buf.QueryInterface         IID F6F2E8E0 -> NOINTERFACE
+    9  Buf.QueryInterface         IID F6F2E8E0 -> NOINTERFACE
+   10  Buf.Stop                   ok
+   11  Buf.SetFormat              11025 Hz 8-bit stereo -> ok
+   12  Buf.Stop                   ok
+   13  Buf.Play                   flags 00000001 -> ok  t+0 ms
+   14  Drv.GetCaps                ok
+   15  Drv.GetCaps                ok
+   16  Drv.GetCaps                ok
+   17  Drv.GetCaps                ok
+   18  Drv.GetCaps                ok
+   19  Drv.GetCaps                ok
+   20  Drv.GetCaps                ok
+   21  Drv.GetCaps                ok
+   22  Drv.GetCaps                ok
+   23  Drv.GetCaps                ok
+   24  Drv.GetCaps                ok
+   25  Drv.GetCaps                ok
+   26  Drv.GetCaps                ok
+   27  Drv.GetCaps                ok
+   28  Drv.GetCaps                ok
+   29  Drv.GetCaps                ok
+   30  Drv.GetCaps                ok
+   31  Drv.GetCaps                ok
+   32  Drv.GetCaps                ok
+   33  Drv.GetCaps                ok
+   34  Drv.GetCaps                ok
+   35  Drv.GetCaps                ok
+   36  Drv.GetCaps                ok
+   37  Drv.GetCaps                ok
+   38  Drv.GetCaps                ok
+   39  Drv.GetCaps                ok
+   40  Drv.GetCaps                ok
+   41  Drv.GetCaps                ok
+   42  Drv.GetCaps                ok
+   43  Drv.GetCaps                ok
+   44  Drv.GetCaps                ok
+   45  Drv.GetCaps                ok
+   46  Drv.GetCaps                ok
+   47  Drv.GetCaps                ok
+   48  Drv.GetCaps                ok
+   49  Drv.GetCaps                ok
+   50  Drv.GetCaps                ok
+   51  Drv.GetCaps                ok
+   52  Drv.GetCaps                ok
+   53  Drv.GetCaps                ok
+   54  Drv.GetCaps                ok
+   55  Drv.GetCaps                ok
+   56  Drv.GetCaps                ok
+   57  Drv.GetCaps                ok
+   58  Drv.GetCaps                ok
+   59  Drv.GetCaps                ok
+   60  Drv.GetCaps                ok
+   61  Drv.GetCaps                ok
+   62  Drv.GetCaps                ok
+   63  Drv.GetCaps                ok
+   64  Drv.GetCaps                ok
+   65  Drv.GetCaps                ok
+   66  Drv.GetCaps                ok
+   67  Drv.GetCaps                ok
+   68  Drv.GetCaps                ok
+   69  Drv.GetCaps                ok
+   70  Buf.GetPosition            play 12232  t+2866795 ms
+   71  Buf.GetPosition            play 12748  t+2866818 ms
+   72  Buf.GetPosition            play 15689  t+2866951 ms
+   73  Buf.GetPosition            play 112  t+2866987 ms
+   74  Buf.GetPosition            play 665  t+2867012 ms
+   75  Buf.GetPosition            play 1272  t+2867039 ms
+   76  Buf.GetPosition            play 1924  t+2867069 ms
+   77  Buf.GetPosition            play 2668  t+2867102 ms
+   78  Buf.GetPosition            play 3527  t+2867141 ms
+   79  Buf.GetPosition            play 4628  t+2867190 ms
+   80  Buf.GetPosition            play 5795  t+2867243 ms
+   81  Buf.GetPosition            play 7149  t+2867304 ms
+   82  Buf.GetPosition            play 8732  t+2867375 ms
+   83  Buf.GetPosition            play 10677  t+2867463 ms
+   84  Buf.GetPosition            play 12813  t+2867559 ms
+   85  Buf.GetPosition            play 14911  t+2867653 ms
+   86  Buf.GetPosition            play 701  t+2867751 ms
+   87  Buf.GetPosition            play 2837  t+2867847 ms
+   88  Buf.GetPosition            play 5031  t+2867946 ms
+   89  Buf.GetPosition            play 7167  t+2868042 ms
+   90  Buf.GetPosition            play 9262  t+2868136 ms
+   91  Buf.GetPosition            play 11460  t+2868235 ms
+   92  Buf.GetPosition            play 13575  t+2868330 ms
+   93  Buf.GetPosition            play 15653  t+2868424 ms
+   94  Buf.GetPosition            play 1463  t+2868523 ms
+   95  Buf.GetPosition            play 3599  t+2868619 ms
+   96  Buf.GetPosition            play 5825  t+2868719 ms
+   97  Buf.GetPosition            play 7248  t+2868783 ms
+   98  Buf.GetPosition            play 7292  t+2868785 ms
+   99  Buf.GetPosition            play 7851  t+2868810 ms
+  100  Buf.GetPosition            play 8385  t+2868834 ms
+  101  Buf.GetPosition            play 8938  t+2868859 ms
+  102  Buf.Stop                   ok  t+2944751 ms
+  103  Buf.Stop                   ok  t+2944866 ms
+  104  Buf.Release                count 0
+  105  Drv.Close                  ok
