@@ -21,17 +21,16 @@ then the card - no card trip before stage 5.
   - Mono per moment DROPPED (owner): ~1 % of the bus, clicks; silence stop saves more.
 - By ear (owner): DSTEST and Doom 95 effects right, no pops or delay. Feeder run: 25 underruns, 21 sleeps.
 
-## In flight when the session ended
+## Adaptive-lead run (done, `captures/2026-11-25_sbds_lead_bed/`)
 
-- Bed running the adaptive-lead trace build (md5 `2afbd764`, 24,648 B; release 14,404 B). Owner to run
-  DSTEST + Doom, `regedit /e C:\SBDS.REG HKEY_LOCAL_MACHINE\Software\SBDS`, shut down. Then: pull with
-  `python tools/fatls.py vm_5160_dbg/card.img --get 'C:\SBDS.REG' <out>`, **check its md5 differs from
-  `3413e0a7` (the feeder run)**, decode, save to `captures/2026-11-25_sbds_lead_bed/`. Expect fewer underruns;
-  "lead ms max" shows how far it grew.
-- Kill the bed's 86Box only after the owner says it is closed (an attached automation client keeps it alive).
-- Bed launch: `tools\bed_launch.ps1 -Exe 86box_auto\build_gdb\src\86Box.exe -VmPath vm_5160_dbg -AllowMouse
-  -Automation 9891`, then `vm_attach tcp:127.0.0.1:9891` (token in `vm_5160_dbg\automation.token`) and
-  `release` in the same turn, or it sits black at t=0. Put files with `tools/fatcp.py` (creates/resizes).
+Underruns 7 (was 25), lead grew to 180 ms and stayed there - a new sound can start ~180 ms late. Stage 5
+should keep ticks on time so the lead stays low. Also: on Play, add the new sound into the ring bytes
+already written ahead of the 8237 (clipped add), so its start does not wait for the lead.
+
+Bed how-to: `toolsed_launch.ps1 -Exe 86box_autouild_gdb\src\86Box.exe -VmPath vm_5160_dbg -AllowMouse
+-Automation 9891`, then `vm_attach tcp:127.0.0.1:9891` (token in `vm_5160_dbgutomation.token`) and
+`release` in the same turn, or it sits black at t=0. Put files with `tools/fatcp.py`. Pull exports with
+`tools/fatls.py --get` and check the md5 is new. Kill the bed's 86Box only after the owner says it is closed.
 
 ## Next: stage 5 - the display handshake
 

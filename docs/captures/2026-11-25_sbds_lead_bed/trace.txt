@@ -1,0 +1,514 @@
+Stats at the last engine stop: ticks 2124, underruns 7, voices refused 0, DMA sleeps 14, DMA wakes 13, most voices at once 2, engine runs 3, lead ms now 180, lead ms max 180
+707 calls traced; showing 512
+  195  Drv.GetCaps                ok
+  196  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  197  Ch.Created 17              memory 8258A410 (shared arena), 5403 bytes
+  198  Ch.SetVolumePan 17         amp L 0000FFFF R 0000FFFF -> ok
+  199  Drv.GetCaps                ok
+  200  Ch.SetFrequency 17         11025 Hz -> ok
+  201  Ch.SetPosition 17          ok
+  202  Ch.QueryInterface 17       IID F6F2E8E0 -> NOINTERFACE
+  203  Drv.GetCaps                ok
+  204  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  205  Ch.Created 18              memory 8258BCA0 (shared arena), 15152 bytes
+  206  Ch.SetVolumePan 18         amp L 0000FFFF R 0000FFFF -> ok
+  207  Drv.GetCaps                ok
+  208  Ch.SetFrequency 18         11025 Hz -> ok
+  209  Ch.SetPosition 18          ok
+  210  Ch.QueryInterface 18       IID F6F2E8E0 -> NOINTERFACE
+  211  Drv.GetCaps                ok
+  212  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  213  Ch.Created 19              memory 8258FB44 (shared arena), 9511 bytes
+  214  Ch.SetVolumePan 19         amp L 0000FFFF R 0000FFFF -> ok
+  215  Drv.GetCaps                ok
+  216  Ch.SetFrequency 19         11025 Hz -> ok
+  217  Ch.SetPosition 19          ok
+  218  Ch.QueryInterface 19       IID F6F2E8E0 -> NOINTERFACE
+  219  Drv.GetCaps                ok
+  220  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  221  Ch.Created 20              memory 825923E0 (shared arena), 8635 bytes
+  222  Ch.SetVolumePan 20         amp L 0000FFFF R 0000FFFF -> ok
+  223  Drv.GetCaps                ok
+  224  Ch.SetFrequency 20         11025 Hz -> ok
+  225  Ch.SetPosition 20          ok
+  226  Ch.QueryInterface 20       IID F6F2E8E0 -> NOINTERFACE
+  227  Drv.GetCaps                ok
+  228  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  229  Ch.Created 21              memory 82594910 (shared arena), 11118 bytes
+  230  Ch.SetVolumePan 21         amp L 0000FFFF R 0000FFFF -> ok
+  231  Drv.GetCaps                ok
+  232  Ch.SetFrequency 21         11025 Hz -> ok
+  233  Ch.SetPosition 21          ok
+  234  Ch.QueryInterface 21       IID F6F2E8E0 -> NOINTERFACE
+  235  Drv.GetCaps                ok
+  236  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  237  Ch.Created 22              memory 825977F4 (shared arena), 2263 bytes
+  238  Ch.SetVolumePan 22         amp L 0000FFFF R 0000FFFF -> ok
+  239  Drv.GetCaps                ok
+  240  Ch.SetFrequency 22         11025 Hz -> ok
+  241  Ch.SetPosition 22          ok
+  242  Ch.QueryInterface 22       IID F6F2E8E0 -> NOINTERFACE
+  243  Drv.GetCaps                ok
+  244  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  245  Ch.Created 23              memory 82598440 (shared arena), 5875 bytes
+  246  Ch.SetVolumePan 23         amp L 0000FFFF R 0000FFFF -> ok
+  247  Drv.GetCaps                ok
+  248  Ch.SetFrequency 23         11025 Hz -> ok
+  249  Ch.SetPosition 23          ok
+  250  Ch.QueryInterface 23       IID F6F2E8E0 -> NOINTERFACE
+  251  Drv.GetCaps                ok
+  252  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  253  Ch.Created 24              memory 82599EA8 (shared arena), 3910 bytes
+  254  Ch.SetVolumePan 24         amp L 0000FFFF R 0000FFFF -> ok
+  255  Drv.GetCaps                ok
+  256  Ch.SetFrequency 24         11025 Hz -> ok
+  257  Ch.SetPosition 24          ok
+  258  Ch.QueryInterface 24       IID F6F2E8E0 -> NOINTERFACE
+  259  Drv.GetCaps                ok
+  260  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  261  Ch.Created 25              memory 8259B164 (shared arena), 15484 bytes
+  262  Ch.SetVolumePan 25         amp L 0000FFFF R 0000FFFF -> ok
+  263  Drv.GetCaps                ok
+  264  Ch.SetFrequency 25         11025 Hz -> ok
+  265  Ch.SetPosition 25          ok
+  266  Ch.QueryInterface 25       IID F6F2E8E0 -> NOINTERFACE
+  267  Drv.GetCaps                ok
+  268  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  269  Ch.Created 26              memory 8259F154 (shared arena), 5334 bytes
+  270  Ch.SetVolumePan 26         amp L 0000FFFF R 0000FFFF -> ok
+  271  Drv.GetCaps                ok
+  272  Ch.SetFrequency 26         11025 Hz -> ok
+  273  Ch.SetPosition 26          ok
+  274  Ch.QueryInterface 26       IID F6F2E8E0 -> NOINTERFACE
+  275  Drv.GetCaps                ok
+  276  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  277  Ch.Created 27              memory 825A09A0 (shared arena), 11278 bytes
+  278  Ch.SetVolumePan 27         amp L 0000FFFF R 0000FFFF -> ok
+  279  Drv.GetCaps                ok
+  280  Ch.SetFrequency 27         11025 Hz -> ok
+  281  Ch.SetPosition 27          ok
+  282  Ch.QueryInterface 27       IID F6F2E8E0 -> NOINTERFACE
+  283  Drv.GetCaps                ok
+  284  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  285  Ch.Created 28              memory 825A3924 (shared arena), 11095 bytes
+  286  Ch.SetVolumePan 28         amp L 0000FFFF R 0000FFFF -> ok
+  287  Drv.GetCaps                ok
+  288  Ch.SetFrequency 28         11025 Hz -> ok
+  289  Ch.SetPosition 28          ok
+  290  Ch.QueryInterface 28       IID F6F2E8E0 -> NOINTERFACE
+  291  Drv.GetCaps                ok
+  292  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  293  Ch.Created 29              memory 825A67F0 (shared arena), 13626 bytes
+  294  Ch.SetVolumePan 29         amp L 0000FFFF R 0000FFFF -> ok
+  295  Drv.GetCaps                ok
+  296  Ch.SetFrequency 29         11025 Hz -> ok
+  297  Ch.SetPosition 29          ok
+  298  Ch.QueryInterface 29       IID F6F2E8E0 -> NOINTERFACE
+  299  Drv.GetCaps                ok
+  300  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  301  Ch.Created 30              memory 825AA0A0 (shared arena), 16075 bytes
+  302  Ch.SetVolumePan 30         amp L 0000FFFF R 0000FFFF -> ok
+  303  Drv.GetCaps                ok
+  304  Ch.SetFrequency 30         11025 Hz -> ok
+  305  Ch.SetPosition 30          ok
+  306  Ch.QueryInterface 30       IID F6F2E8E0 -> NOINTERFACE
+  307  Drv.GetCaps                ok
+  308  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  309  Ch.Created 31              memory 825AE2E0 (shared arena), 11164 bytes
+  310  Ch.SetVolumePan 31         amp L 0000FFFF R 0000FFFF -> ok
+  311  Drv.GetCaps                ok
+  312  Ch.SetFrequency 31         11025 Hz -> ok
+  313  Ch.SetPosition 31          ok
+  314  Ch.QueryInterface 31       IID F6F2E8E0 -> NOINTERFACE
+  315  Drv.GetCaps                ok
+  316  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  317  Ch.Created 32              memory 825B11F0 (shared arena), 13762 bytes
+  318  Ch.SetVolumePan 32         amp L 0000FFFF R 0000FFFF -> ok
+  319  Drv.GetCaps                ok
+  320  Ch.SetFrequency 32         11025 Hz -> ok
+  321  Ch.SetPosition 32          ok
+  322  Ch.QueryInterface 32       IID F6F2E8E0 -> NOINTERFACE
+  323  Drv.GetCaps                ok
+  324  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  325  Ch.Created 33              memory 825B4B28 (shared arena), 9350 bytes
+  326  Ch.SetVolumePan 33         amp L 0000FFFF R 0000FFFF -> ok
+  327  Drv.GetCaps                ok
+  328  Ch.SetFrequency 33         11025 Hz -> ok
+  329  Ch.SetPosition 33          ok
+  330  Ch.QueryInterface 33       IID F6F2E8E0 -> NOINTERFACE
+  331  Drv.GetCaps                ok
+  332  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  333  Ch.Created 34              memory 825B7324 (shared arena), 6404 bytes
+  334  Ch.SetVolumePan 34         amp L 0000FFFF R 0000FFFF -> ok
+  335  Drv.GetCaps                ok
+  336  Ch.SetFrequency 34         11025 Hz -> ok
+  337  Ch.SetPosition 34          ok
+  338  Ch.QueryInterface 34       IID F6F2E8E0 -> NOINTERFACE
+  339  Drv.GetCaps                ok
+  340  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  341  Ch.Created 35              memory 825B8F9C (shared arena), 11012 bytes
+  342  Ch.SetVolumePan 35         amp L 0000FFFF R 0000FFFF -> ok
+  343  Drv.GetCaps                ok
+  344  Ch.SetFrequency 35         11025 Hz -> ok
+  345  Ch.SetPosition 35          ok
+  346  Ch.QueryInterface 35       IID F6F2E8E0 -> NOINTERFACE
+  347  Drv.GetCaps                ok
+  348  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  349  Ch.Created 36              memory 825BBE14 (shared arena), 10835 bytes
+  350  Ch.SetVolumePan 36         amp L 0000FFFF R 0000FFFF -> ok
+  351  Drv.GetCaps                ok
+  352  Ch.SetFrequency 36         11025 Hz -> ok
+  353  Ch.SetPosition 36          ok
+  354  Ch.QueryInterface 36       IID F6F2E8E0 -> NOINTERFACE
+  355  Drv.GetCaps                ok
+  356  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  357  Ch.Created 37              memory 825BEBDC (shared arena), 12963 bytes
+  358  Ch.SetVolumePan 37         amp L 0000FFFF R 0000FFFF -> ok
+  359  Drv.GetCaps                ok
+  360  Ch.SetFrequency 37         11025 Hz -> ok
+  361  Ch.SetPosition 37          ok
+  362  Ch.QueryInterface 37       IID F6F2E8E0 -> NOINTERFACE
+  363  Drv.GetCaps                ok
+  364  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  365  Ch.Created 38              memory 825C21F4 (shared arena), 9334 bytes
+  366  Ch.SetVolumePan 38         amp L 0000FFFF R 0000FFFF -> ok
+  367  Drv.GetCaps                ok
+  368  Ch.SetFrequency 38         11025 Hz -> ok
+  369  Ch.SetPosition 38          ok
+  370  Ch.QueryInterface 38       IID F6F2E8E0 -> NOINTERFACE
+  371  Drv.GetCaps                ok
+  372  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  373  Ch.Created 39              memory 825C49E0 (shared arena), 10946 bytes
+  374  Ch.SetVolumePan 39         amp L 0000FFFF R 0000FFFF -> ok
+  375  Drv.GetCaps                ok
+  376  Ch.SetFrequency 39         11025 Hz -> ok
+  377  Ch.SetPosition 39          ok
+  378  Ch.QueryInterface 39       IID F6F2E8E0 -> NOINTERFACE
+  379  Drv.GetCaps                ok
+  380  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  381  Ch.Created 40              memory 825C7818 (shared arena), 7121 bytes
+  382  Ch.SetVolumePan 40         amp L 0000FFFF R 0000FFFF -> ok
+  383  Drv.GetCaps                ok
+  384  Ch.SetFrequency 40         11025 Hz -> ok
+  385  Ch.SetPosition 40          ok
+  386  Ch.QueryInterface 40       IID F6F2E8E0 -> NOINTERFACE
+  387  Drv.GetCaps                ok
+  388  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  389  Ch.Created 41              memory 825C9760 (shared arena), 9311 bytes
+  390  Ch.SetVolumePan 41         amp L 0000FFFF R 0000FFFF -> ok
+  391  Drv.GetCaps                ok
+  392  Ch.SetFrequency 41         11025 Hz -> ok
+  393  Ch.SetPosition 41          ok
+  394  Ch.QueryInterface 41       IID F6F2E8E0 -> NOINTERFACE
+  395  Drv.GetCaps                ok
+  396  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  397  Ch.Created 42              memory 825CBF34 (shared arena), 12251 bytes
+  398  Ch.SetVolumePan 42         amp L 0000FFFF R 0000FFFF -> ok
+  399  Drv.GetCaps                ok
+  400  Ch.SetFrequency 42         11025 Hz -> ok
+  401  Ch.SetPosition 42          ok
+  402  Ch.QueryInterface 42       IID F6F2E8E0 -> NOINTERFACE
+  403  Drv.GetCaps                ok
+  404  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  405  Ch.Created 43              memory 825CF284 (shared arena), 11035 bytes
+  406  Ch.SetVolumePan 43         amp L 0000FFFF R 0000FFFF -> ok
+  407  Drv.GetCaps                ok
+  408  Ch.SetFrequency 43         11025 Hz -> ok
+  409  Ch.SetPosition 43          ok
+  410  Ch.QueryInterface 43       IID F6F2E8E0 -> NOINTERFACE
+  411  Drv.GetCaps                ok
+  412  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  413  Ch.Created 44              memory 825D2114 (shared arena), 10774 bytes
+  414  Ch.SetVolumePan 44         amp L 0000FFFF R 0000FFFF -> ok
+  415  Drv.GetCaps                ok
+  416  Ch.SetFrequency 44         11025 Hz -> ok
+  417  Ch.SetPosition 44          ok
+  418  Ch.QueryInterface 44       IID F6F2E8E0 -> NOINTERFACE
+  419  Drv.GetCaps                ok
+  420  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  421  Ch.Created 45              memory 825D4EA0 (shared arena), 10024 bytes
+  422  Ch.SetVolumePan 45         amp L 0000FFFF R 0000FFFF -> ok
+  423  Drv.GetCaps                ok
+  424  Ch.SetFrequency 45         11025 Hz -> ok
+  425  Ch.SetPosition 45          ok
+  426  Ch.QueryInterface 45       IID F6F2E8E0 -> NOINTERFACE
+  427  Drv.GetCaps                ok
+  428  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  429  Ch.Created 46              memory 825D793C (shared arena), 11849 bytes
+  430  Ch.SetVolumePan 46         amp L 0000FFFF R 0000FFFF -> ok
+  431  Drv.GetCaps                ok
+  432  Ch.SetFrequency 46         11025 Hz -> ok
+  433  Ch.SetPosition 46          ok
+  434  Ch.QueryInterface 46       IID F6F2E8E0 -> NOINTERFACE
+  435  Drv.GetCaps                ok
+  436  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  437  Ch.Created 47              memory 825DAAFC (shared arena), 3910 bytes
+  438  Ch.SetVolumePan 47         amp L 0000FFFF R 0000FFFF -> ok
+  439  Drv.GetCaps                ok
+  440  Ch.SetFrequency 47         11025 Hz -> ok
+  441  Ch.SetPosition 47          ok
+  442  Ch.QueryInterface 47       IID F6F2E8E0 -> NOINTERFACE
+  443  Drv.GetCaps                ok
+  444  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  445  Ch.Created 48              memory 825DBDB8 (shared arena), 18592 bytes
+  446  Ch.SetVolumePan 48         amp L 0000FFFF R 0000FFFF -> ok
+  447  Drv.GetCaps                ok
+  448  Ch.SetFrequency 48         11025 Hz -> ok
+  449  Ch.SetPosition 48          ok
+  450  Ch.QueryInterface 48       IID F6F2E8E0 -> NOINTERFACE
+  451  Drv.GetCaps                ok
+  452  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  453  Ch.Created 49              memory 825E09CC (shared arena), 2496 bytes
+  454  Ch.SetVolumePan 49         amp L 0000FFFF R 0000FFFF -> ok
+  455  Drv.GetCaps                ok
+  456  Ch.SetFrequency 49         11025 Hz -> ok
+  457  Ch.SetPosition 49          ok
+  458  Ch.QueryInterface 49       IID F6F2E8E0 -> NOINTERFACE
+  459  Drv.GetCaps                ok
+  460  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  461  Ch.Created 50              memory 825E1700 (shared arena), 5661 bytes
+  462  Ch.SetVolumePan 50         amp L 0000FFFF R 0000FFFF -> ok
+  463  Drv.GetCaps                ok
+  464  Ch.SetFrequency 50         11025 Hz -> ok
+  465  Ch.SetPosition 50          ok
+  466  Ch.QueryInterface 50       IID F6F2E8E0 -> NOINTERFACE
+  467  Drv.GetCaps                ok
+  468  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  469  Ch.Created 51              memory 825E3094 (shared arena), 197 bytes
+  470  Ch.SetVolumePan 51         amp L 0000FFFF R 0000FFFF -> ok
+  471  Drv.GetCaps                ok
+  472  Ch.SetFrequency 51         11025 Hz -> ok
+  473  Ch.SetPosition 51          ok
+  474  Ch.QueryInterface 51       IID F6F2E8E0 -> NOINTERFACE
+  475  Drv.GetCaps                ok
+  476  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  477  Ch.Created 52              memory 825E34D0 (shared arena), 4181 bytes
+  478  Ch.SetVolumePan 52         amp L 0000FFFF R 0000FFFF -> ok
+  479  Drv.GetCaps                ok
+  480  Ch.SetFrequency 52         11025 Hz -> ok
+  481  Ch.SetPosition 52          ok
+  482  Ch.QueryInterface 52       IID F6F2E8E0 -> NOINTERFACE
+  483  Drv.GetCaps                ok
+  484  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  485  Ch.Created 53              memory 825E489C (shared arena), 4195 bytes
+  486  Ch.SetVolumePan 53         amp L 0000FFFF R 0000FFFF -> ok
+  487  Drv.GetCaps                ok
+  488  Ch.SetFrequency 53         11025 Hz -> ok
+  489  Ch.SetPosition 53          ok
+  490  Ch.QueryInterface 53       IID F6F2E8E0 -> NOINTERFACE
+  491  Drv.GetCaps                ok
+  492  Drv.CreateSoundBuffer      22050 Hz 8-bit mono, flags 000000E0 -> ok
+  493  Ch.Created 54              memory 825E5C74 (shared arena), 11175 bytes
+  494  Ch.SetVolumePan 54         amp L 0000FFFF R 0000FFFF -> ok
+  495  Drv.GetCaps                ok
+  496  Ch.SetFrequency 54         22050 Hz -> ok
+  497  Ch.SetPosition 54          ok
+  498  Ch.QueryInterface 54       IID F6F2E8E0 -> NOINTERFACE
+  499  Drv.GetCaps                ok
+  500  Drv.CreateSoundBuffer      11025 Hz 8-bit mono, flags 000000E0 -> ok
+  501  Ch.Created 55              memory 825E8B90 (shared arena), 7928 bytes
+  502  Ch.SetVolumePan 55         amp L 0000FFFF R 0000FFFF -> ok
+  503  Drv.GetCaps                ok
+  504  Ch.SetFrequency 55         11025 Hz -> ok
+  505  Ch.SetPosition 55          ok
+  506  Ch.QueryInterface 55       IID F6F2E8E0 -> NOINTERFACE
+  507  Ch.SetVolumePan 0          amp L 000087E8 R 000087E8 -> ok
+  508  Drv.GetCaps                ok
+  509  Ch.SetFrequency 0          10225 Hz -> ok
+  510  Ch.Play 0                  flags 00000000 -> ok  t+0 ms
+  511  Ch.Stop 0                  ok  t+726 ms
+  512  Ch.SetPosition 0           ok
+  513  Drv.GetCaps                ok
+  514  Ch.SetFrequency 0          10405 Hz -> ok
+  515  Ch.Play 0                  flags 00000000 -> ok  t+0 ms
+  516  Ch.Stop 0                  ok  t+553 ms
+  517  Ch.SetPosition 0           ok
+  518  Ch.SetVolumePan 13         amp L 00006398 R 0000FFFF -> ok
+  519  Ch.SetVolumePan 13         amp L 00003444 R 000087E8 -> ok
+  520  Drv.GetCaps                ok
+  521  Ch.SetFrequency 13         10505 Hz -> ok
+  522  Ch.Play 13                 flags 00000000 -> ok  t+0 ms
+  523  Ch.SetVolumePan 27         amp L 0000C232 R 0000FFFF -> ok
+  524  Ch.SetVolumePan 27         amp L 00004290 R 000058C3 -> ok
+  525  Drv.GetCaps                ok
+  526  Ch.SetFrequency 27         10335 Hz -> ok
+  527  Ch.Play 27                 flags 00000000 -> ok  t+0 ms
+  528  Drv.GetCaps                ok
+  529  Ch.SetFrequency 13         10385 Hz -> ok
+  530  Ch.SetVolumePan 27         amp L 000041CD R 000058C3 -> ok
+  531  Drv.GetCaps                ok
+  532  Ch.SetFrequency 27         10385 Hz -> ok
+  533  Ch.SetVolumePan 27         amp L 0000410C R 000058C3 -> ok
+  534  Ch.SetVolumePan 27         amp L 000041CD R 000059CA -> ok
+  535  Ch.Stop 13                 ok  t+1279 ms
+  536  Ch.SetPosition 13          ok
+  537  Ch.Stop 27                 ok  t+1280 ms
+  538  Ch.SetPosition 27          ok
+  539  Drv.GetCaps                ok
+  540  Ch.SetFrequency 0          10305 Hz -> ok
+  541  Ch.Play 0                  flags 00000000 -> ok  t+0 ms
+  542  Ch.SetVolumePan 20         amp L 0000FA2C R 0000FFFF -> ok
+  543  Ch.SetVolumePan 20         amp L 0000697F R 00006D34 -> ok
+  544  Drv.GetCaps                ok
+  545  Ch.SetFrequency 20         10335 Hz -> ok
+  546  Ch.Play 20                 flags 00000000 -> ok  t+0 ms
+  547  Ch.Stop 0                  ok  t+13 ms
+  548  Ch.SetPosition 0           ok
+  549  Ch.SetVolumePan 20         amp L 00006AB7 R 00006E78 -> ok
+  550  Drv.GetCaps                ok
+  551  Ch.SetFrequency 20         10385 Hz -> ok
+  552  Ch.SetVolumePan 20         amp L 00006E78 R 00007259 -> ok
+  553  Ch.Stop 20                 ok  t+742 ms
+  554  Ch.SetPosition 20          ok
+  555  Ch.SetVolumePan 0          amp L 0000834A R 000087E8 -> ok
+  556  Ch.SetVolumePan 0          amp L 0000710A R 00007503 -> ok
+  557  Drv.GetCaps                ok
+  558  Ch.SetFrequency 0          10395 Hz -> ok
+  559  Ch.Play 0                  flags 00000000 -> ok  t+0 ms
+  560  Drv.GetCaps                ok
+  561  Ch.SetFrequency 0          10385 Hz -> ok
+  562  Drv.GetCaps                ok
+  563  Drv.DuplicateSoundBuffer   ok
+  564  Ch.Duplicated 56           from ch 0, memory 8255B08C
+  565  Ch.SetVolumePan 56         amp L 0000710A R 00007503 -> ok
+  566  Drv.GetCaps                ok
+  567  Ch.SetFrequency 56         10385 Hz -> ok
+  568  Ch.SetPosition 56          ok
+  569  Ch.SetVolumePan 56         amp L 00007503 R 00007503 -> ok
+  570  Ch.SetVolumePan 56         amp L 0000710A R 00007503 -> ok
+  571  Drv.GetCaps                ok
+  572  Ch.SetFrequency 56         10385 Hz -> ok
+  573  Ch.QueryInterface 56       IID F6F2E8E0 -> NOINTERFACE
+  574  Ch.SetVolumePan 56         amp L 00007503 R 00007503 -> ok
+  575  Ch.SetVolumePan 56         amp L 000087E8 R 000087E8 -> ok
+  576  Drv.GetCaps                ok
+  577  Ch.SetFrequency 56         10375 Hz -> ok
+  578  Ch.Play 56                 flags 00000000 -> ok  t+0 ms
+  579  Ch.Stop 0                  ok  t+8 ms
+  580  Ch.SetPosition 0           ok
+  581  Ch.Stop 56                 ok  t+747 ms
+  582  Ch.SetPosition 56          ok
+  583  Ch.SetVolumePan 0          amp L 00007503 R 00007503 -> ok
+  584  Ch.SetVolumePan 0          amp L 000087E8 R 000087E8 -> ok
+  585  Drv.GetCaps                ok
+  586  Ch.SetFrequency 0          10405 Hz -> ok
+  587  Ch.Play 0                  flags 00000000 -> ok  t+0 ms
+  588  Ch.Stop 0                  ok  t+594 ms
+  589  Ch.SetPosition 0           ok
+  590  Drv.GetCaps                ok
+  591  Ch.SetFrequency 0          10225 Hz -> ok
+  592  Ch.Play 0                  flags 00000000 -> ok  t+0 ms
+  593  Ch.SetVolumePan 39         amp L 0000F74F R 0000FFFF -> ok
+  594  Ch.SetVolumePan 39         amp L 00007BF2 R 000081CA -> ok
+  595  Drv.GetCaps                ok
+  596  Ch.SetFrequency 39         10455 Hz -> ok
+  597  Ch.Play 39                 flags 00000000 -> ok  t+0 ms
+  598  Ch.SetVolumePan 39         amp L 00007A87 R 0000804D -> ok
+  599  Drv.GetCaps                ok
+  600  Ch.SetFrequency 39         10385 Hz -> ok
+  601  Ch.Stop 0                  ok  t+339 ms
+  602  Ch.SetPosition 0           ok
+  603  Ch.SetVolumePan 39         amp L 00007920 R 0000804D -> ok
+  604  Drv.GetCaps                ok
+  605  Ch.SetFrequency 0          10395 Hz -> ok
+  606  Ch.Play 0                  flags 00000000 -> ok  t+0 ms
+  607  Ch.Stop 39                 ok  t+21 ms
+  608  Ch.SetPosition 39          ok
+  609  Ch.Stop 0                  ok  t+606 ms
+  610  Ch.SetPosition 0           ok
+  611  Ch.SetVolumePan 14         amp L 0000EEE9 R 0000FFFF -> ok
+  612  Ch.SetVolumePan 14         amp L 00007259 R 00007BF2 -> ok
+  613  Drv.GetCaps                ok
+  614  Ch.SetFrequency 14         10335 Hz -> ok
+  615  Ch.Play 14                 flags 00000000 -> ok  t+0 ms
+  616  Drv.GetCaps                ok
+  617  Ch.SetFrequency 14         10385 Hz -> ok
+  618  Ch.SetVolumePan 14         amp L 00007BF2 R 0000710A -> ok
+  619  Ch.SetVolumePan 14         amp L 00007BF2 R 000051E4 -> ok
+  620  Ch.SetVolumePan 14         amp L 00007BF2 R 00003D68 -> ok
+  621  Ch.Stop 14                 ok  t+1497 ms
+  622  Ch.SetPosition 14          ok
+  623  Ch.SetVolumePan 16         amp L 000087E8 R 000087E8 -> ok
+  624  Drv.GetCaps                ok
+  625  Ch.SetFrequency 16         10305 Hz -> ok
+  626  Ch.Play 16                 flags 00000000 -> ok  t+0 ms
+  627  Ch.Stop 16                 ok  t+1664 ms
+  628  Ch.SetPosition 16          ok
+  629  Ch.SetVolumePan 12         amp L 000087E8 R 000087E8 -> ok
+  630  Drv.GetCaps                ok
+  631  Ch.SetFrequency 12         10405 Hz -> ok
+  632  Ch.Play 12                 flags 00000000 -> ok  t+0 ms
+  633  Ch.Stop 12                 ok  t+747 ms
+  634  Ch.SetPosition 12          ok
+  635  Drv.GetCaps                ok
+  636  Ch.SetFrequency 0          10285 Hz -> ok
+  637  Ch.Play 0                  flags 00000000 -> ok  t+0 ms
+  638  Ch.Stop 0                  ok  t+693 ms
+  639  Ch.SetPosition 0           ok
+  640  Ch.SetVolumePan 28         amp L 000087E8 R 000087E8 -> ok
+  641  Drv.GetCaps                ok
+  642  Ch.SetFrequency 28         10365 Hz -> ok
+  643  Ch.Play 28                 flags 00000000 -> ok  t+0 ms
+  644  Ch.Release 0               count 0
+  645  Ch.Release 56              count 0
+  646  Ch.Release 1               count 0
+  647  Ch.Release 2               count 0
+  648  Ch.Release 3               count 0
+  649  Ch.Release 4               count 0
+  650  Ch.Release 5               count 0
+  651  Ch.Release 6               count 0
+  652  Ch.Release 7               count 0
+  653  Ch.Release 8               count 0
+  654  Ch.Release 9               count 0
+  655  Ch.Release 10              count 0
+  656  Ch.Release 11              count 0
+  657  Ch.Release 12              count 0
+  658  Ch.Release 13              count 0
+  659  Ch.Release 14              count 0
+  660  Ch.Release 15              count 0
+  661  Ch.Release 16              count 0
+  662  Ch.Release 17              count 0
+  663  Ch.Release 18              count 0
+  664  Ch.Release 19              count 0
+  665  Ch.Release 20              count 0
+  666  Ch.Release 21              count 0
+  667  Ch.Release 22              count 0
+  668  Ch.Release 23              count 0
+  669  Ch.Release 24              count 0
+  670  Ch.Release 25              count 0
+  671  Ch.Release 26              count 0
+  672  Ch.Release 27              count 0
+  673  Ch.Stop 28                 ok  t+8085 ms
+  674  Ch.SetPosition 28          ok
+  675  Ch.Release 28              count 0
+  676  Ch.Release 29              count 0
+  677  Ch.Release 30              count 0
+  678  Ch.Release 31              count 0
+  679  Ch.Release 32              count 0
+  680  Ch.Release 33              count 0
+  681  Ch.Release 34              count 0
+  682  Ch.Release 35              count 0
+  683  Ch.Release 36              count 0
+  684  Ch.Release 37              count 0
+  685  Ch.Release 38              count 0
+  686  Ch.Release 39              count 0
+  687  Ch.Release 40              count 0
+  688  Ch.Release 41              count 0
+  689  Ch.Release 42              count 0
+  690  Ch.Release 43              count 0
+  691  Ch.Release 44              count 0
+  692  Ch.Release 45              count 0
+  693  Ch.Release 46              count 0
+  694  Ch.Release 47              count 0
+  695  Ch.Release 48              count 0
+  696  Ch.Release 49              count 0
+  697  Ch.Release 50              count 0
+  698  Ch.Release 51              count 0
+  699  Ch.Release 52              count 0
+  700  Ch.Release 53              count 0
+  701  Ch.Release 54              count 0
+  702  Ch.Release 55              count 0
+  703  Buf.Stop                   ok  t+8281 ms
+  704  Buf.Stop                   ok  t+8329 ms
+  705  Buf.Release                count 0
+  706  Drv.Close                  ok
