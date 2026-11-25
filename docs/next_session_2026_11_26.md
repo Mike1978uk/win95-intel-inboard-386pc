@@ -27,8 +27,8 @@ Underruns 7 (was 25), lead grew to 180 ms and stayed there - a new sound can sta
 should keep ticks on time so the lead stays low. Also: on Play, add the new sound into the ring bytes
 already written ahead of the 8237 (clipped add), so its start does not wait for the lead.
 
-Bed how-to: `toolsed_launch.ps1 -Exe 86box_autouild_gdb\src\86Box.exe -VmPath vm_5160_dbg -AllowMouse
--Automation 9891`, then `vm_attach tcp:127.0.0.1:9891` (token in `vm_5160_dbgutomation.token`) and
+Bed how-to: `tools\bed_launch.ps1 -Exe 86box_auto\build_gdb\src\86Box.exe -VmPath vm_5160_dbg -AllowMouse
+-Automation 9891`, then `vm_attach tcp:127.0.0.1:9891` (token in `vm_5160_dbg\automation.token`) and
 `release` in the same turn, or it sits black at t=0. Put files with `tools/fatcp.py`. Pull exports with
 `tools/fatls.py --get` and check the md5 is new. Kill the bed's 86Box only after the owner says it is closed.
 
