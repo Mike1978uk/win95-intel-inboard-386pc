@@ -554,10 +554,9 @@ rather than a DMA-reach one — is on the issue.
 | [#52](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/52) | What can `xtide_mpd` learn from WINDISK's PDR and IDE code? |
 | [#53](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/53) | Leads from a survey of linked GitHub repositories |
 | [#54](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/54) | Change detection by hash: rules learned on the Mach8 16 bpp driver |
-| [#55](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/55) | The card locks with the Sound Blaster looping a sound: at a 16 bpp restart, and (2026-11-18) at first boot to the desktop. Cause open |
-| [#56](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/56) | Card hung during dxdiag while a screenshot was taken over the V9x agent |
 | [#57](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/57) | Apply the Mach8 driver's learnings to our other drivers and VxDs |
 | [#58](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/58) | DirectX on the 5160: DirectDraw, DirectSound, Direct3D. Doom 95 runs windowed with sound at 8 bpp; full-screen low resolutions and mode changes are open |
+| [#60](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/60) | Video playback (AVI) on the 5160: which path and frame size. Plan only: Cinepak/Video 1 decode cost and a player are not chosen; ISA memory writes measured 1.83 us/B, no flush; M8VGAW (VGA-half write cost) built, not run |
 | [#59](https://github.com/Mike1978uk/win95-intel-inboard-386pc/issues/59) | Tests left for a local session by the cloud session of 2026-10-23 to 2026-11-04 |
 
 Issues are labelled **`emulator`** or **`real-hardware`** so you can pick by what you have, and

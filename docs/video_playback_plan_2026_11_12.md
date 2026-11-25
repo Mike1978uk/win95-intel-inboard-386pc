@@ -171,3 +171,9 @@ Not known: decode cost of Cinepak or Video 1 on this CPU, the VGA-half write cos
 
 Plan: docs/video_playback_plan_2026_11_12.md
 ```
+
+## What carries over from the SBDS mixer (2026-11-25)
+
+- **Picture: a feeder carries over.** Cinepak decodes into system memory. Copying each finished frame to the Mach8 in whole dwords, in one burst, in the gaps the display driver knows about, is the display feeder idea in `sbds_mixer_plan.md`.
+- **Sound: to be checked.** Video for Windows' MCIAVI is expected to play an AVI's audio through waveOut (16-bit MMSYSTEM, the SB Pro wave driver), not DirectSound. Not verified on this install. If so, the SBDS mixer helps video only if waveOut is routed into SBDS's mixer, or the wave path gets the same treatment: format per moment, our timing, a display handshake. Check with the SBDS trace build while an AVI plays: no SBDS calls means the waveOut path.
+- Plan: `docs/sbds_mixer_plan.md`.
