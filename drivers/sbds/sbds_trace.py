@@ -97,7 +97,7 @@ def main():
         names = ('ticks', 'underruns', 'voices refused', 'DMA sleeps', 'DMA wakes',
                  'most voices at once', 'engine runs',
                  'lead ms now', 'lead ms max', 'ticks deferred (display busy)',
-                 'ticks mixed while busy')
+                 'ticks mixed while busy', 'hot sets', 'hot refused', 'hot addr', 'ticks busy seen')
         vals = struct.unpack_from('<%dI' % (len(sd) // 4), sd)
         print('Stats at the last engine stop: ' + ', '.join('%s %d' % kv for kv in zip(names, vals)))
     m = re.search(r'"Trace"=hex:([0-9a-fA-F,\s]+)', text)

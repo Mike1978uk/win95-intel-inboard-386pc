@@ -1,0 +1,3 @@
+sbds hand: hot 80114e18 taken
+destroy caps 00004040
+vga flip: the VGA-mode path, the engine sets no H_BUSY

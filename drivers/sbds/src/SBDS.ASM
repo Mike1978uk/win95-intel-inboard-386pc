@@ -282,8 +282,11 @@ dwLeadMs	dd	LEAD_MS 	; the lead now; 'lead ms' in the stats
 dwLeadMaxMs	dd	0
 dwDeferred	dd	0		; ticks put off while the display was busy
 dwBusyMixed	dd	0		; ticks that mixed while busy: too little in the ring
-STATS_DWORDS	EQU	11
-dwHot		dd	0
+dwHotSets	dd	0		; IOCTL_SET_HOT calls received
+dwHotBad	dd	0		; ... refused (no address, short buffer, lock failed)
+dwHot		dd	0		; the display's hot data; 0 = never handed over
+dwHotBusy	dd	0		; ticks that saw the busy byte set, deferred or not
+STATS_DWORDS	EQU	15
 dwDeferMin	dd	0		; DEFER_MIN_MS in bytes
 dwCalm		dd	0
 hkStats 	dd	0
@@ -1552,6 +1555,7 @@ et_ahead:
 	jz	SHORT et_calm
 	cmp	byte ptr [eax+H_BUSY], 0
 	je	SHORT et_calm
+	inc	[dwHotBusy]
 	cmp	ecx, [dwDeferMin]
 	jb	SHORT et_busymix
 	inc	[dwDeferred]
@@ -2367,6 +2371,7 @@ BeginProc SBDS_IoCtl
 	je	SHORT io_ok
 	cmp	ecx, IOCTL_SET_HOT
 	jne	SHORT io_bad
+	inc	[dwHotSets]
 	cmp	[esi.cbInBuffer], 4
 	jb	SHORT io_bad
 	mov	eax, [esi.lpvInBuffer]
@@ -2389,6 +2394,10 @@ io_ok:
 	xor	eax, eax
 	ret
 io_bad:
+	cmp	[esi.dwIoControlCode], IOCTL_SET_HOT	; ECX is gone after _LinPageLock
+	jne	SHORT io_bad1
+	inc	[dwHotBad]
+io_bad1:
 	mov	eax, 1
 	ret
 EndProc SBDS_IoCtl
