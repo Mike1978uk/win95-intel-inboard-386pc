@@ -5002,7 +5002,9 @@ static DWORD m8dd_vga_flip( M8DD_FLIP *fd )
 
 /* [112-115] page-ins inside Lock, Unlock, Blt, Flip; [116-119] ticks inside them: what is left of
  * a frame is the program's and DirectDraw's own. In VGA mode Lock is DirectDraw's own,
- * Unlock, Blt and Flip m8dd_vga_unlock, m8dd_vga_blt and m8dd_vga_flip. */
+ * Unlock, Blt and Flip m8dd_vga_unlock, m8dd_vga_blt and m8dd_vga_flip. These leave H_BUSY alone on
+ * purpose: SBDS deferring its mix around the CPU copy to A0000 costs it underruns, and the copy
+ * gains little from the cache the deferral protects. */
 #define M8DD_TIMED( name, fn, type, k )               \
     static DWORD __stdcall name( type *d )            \
     {                                                 \
