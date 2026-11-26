@@ -31,6 +31,11 @@ matters is unknown. Cheap test: `-nosound` + WINCLOSE; if clean, quit with keys 
 Game from the agent (key Enter), and get the number from our side - M8DD32 flip count over elapsed time
 (item 2 below). The agent screenshot failed on the bed (error 1460) while Doom was up; use the owner's.
 
+**First (ours): after that fault, Doom's sound never stopped** (owner, 11-26, bed). SBDS kept playing
+with its process dead: find whether DSOUND called Close/Stop at process cleanup, and make SBDS stop its
+channels and DMA when the owning process goes (or when DSOUND's driver Close never comes). Reproduce:
+timedemo + WINCLOSE on the bed.
+
 ## Next, in order (owner agreed 11-26)
 
 1. **Display end-of-run stats** (retro item 2): M8DD32 writes frames, elapsed ms, flips, page-ins and
