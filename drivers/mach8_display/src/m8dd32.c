@@ -4670,11 +4670,14 @@ DWORD __stdcall m8dd_create_surface( M8DD_CREATE *cd )
     return( DDHAL_DRIVER_HANDLED );
 }
 
+static void m8dd_run_write( void );
+
 DWORD __stdcall m8dd_destroy_surface( M8DD_DESTROY *dd )
 {
     BYTE    *gbl;
     int     k;
 
+    m8dd_run_write();
     m8d3d_feed_stop( 11 );
     for( k = 0; k < M8DD_HELD_MAX; ++k ) {
         if( m8dd_held[k].lcl == dd->lpDDSurface ) {
@@ -5000,6 +5003,89 @@ static DWORD m8dd_vga_flip( M8DD_FLIP *fd )
     return( DDHAL_DRIVER_HANDLED );
 }
 
+/* One run of a program, written to HKLM\Software\M8DD at every surface destroy, as SBDS writes its
+ * "Stats": a frame rate for titles with no timer of their own. DirectDraw keeps the primary's create
+ * and destroy to itself, so the program's surfaces going is the only end of a run the driver sees;
+ * the next call after a write starts a new run. */
+static int      m8dd_run_ended;
+static DWORD    m8dd_run_n[4];          /* Lock, Unlock, Blt, Flip calls */
+static DWORD    m8dd_run_first;         /* GetTickCount at the first Flip */
+static DWORD    m8dd_run_last;          /* ... at the last */
+static DWORD    m8dd_run_gap;           /* longest time between two Flips, ms */
+static DWORD    m8dd_run_slow;          /* Flips 100 ms or more after the one before */
+static DWORD    m8dd_run_pi;            /* page-ins at the first Flip */
+static DWORD    m8dd_run_sent;          /* engine writes sent at the first Flip */
+
+static void m8dd_run_note( int k )
+{
+    DWORD now;
+
+    if( m8dd_run_ended ) {
+        m8dd_run_ended = 0;
+        memset( m8dd_run_n, 0, sizeof( m8dd_run_n ) );
+        m8dd_run_gap = m8dd_run_slow = 0;
+    }
+    ++m8dd_run_n[k];
+    if( k != 3 ) {
+        return;
+    }
+    now = GetTickCount();
+    if( m8dd_run_n[3] == 1 ) {
+        m8dd_run_first = now;
+        m8dd_run_pi = m8dd_pageins();
+        m8dd_run_sent = m8d3d_stat[25];
+    } else {
+        if( now - m8dd_run_last > m8dd_run_gap ) {
+            m8dd_run_gap = now - m8dd_run_last;
+        }
+        if( now - m8dd_run_last >= 100 ) {
+            ++m8dd_run_slow;
+        }
+    }
+    m8dd_run_last = now;
+}
+
+static void m8dd_run_write( void )
+{
+    static const char * const name[] = {
+        "Frames", "Ms", "Fps100", "Locks", "Unlocks", "Blts", "GapMaxMs", "Slow100Ms",
+        "PageIns", "EngineWrites", "VgaMode" };
+    DWORD   v[11];
+    HKEY    h;
+    LONG    rc;
+    int     i;
+
+    if( !m8dd_run_ended ) {
+        m8dd_trace( "run: locks %lu unlocks %lu blts %lu flips %lu", m8dd_run_n[0], m8dd_run_n[1],
+                    m8dd_run_n[2], m8dd_run_n[3] );
+    }
+    if( m8dd_run_n[3] == 0 && m8dd_run_n[2] == 0 ) {
+        return;
+    }
+    v[0] = m8dd_run_n[3];
+    v[1] = m8dd_run_n[3] ? m8dd_run_last - m8dd_run_first : 0;
+    v[2] = v[1] ? (DWORD)((m8dd_run_n[3] - 1) * 100000.0 / v[1]) : 0;
+    v[3] = m8dd_run_n[0];
+    v[4] = m8dd_run_n[1];
+    v[5] = m8dd_run_n[2];
+    v[6] = m8dd_run_gap;
+    v[7] = m8dd_run_slow;
+    v[8] = m8dd_run_n[3] ? m8dd_pageins() - m8dd_run_pi : 0;
+    v[9] = m8dd_run_n[3] ? m8d3d_stat[25] - m8dd_run_sent : 0;
+    v[10] = m8dd->vga;
+    rc = RegCreateKeyEx( HKEY_LOCAL_MACHINE, "Software\\M8DD", 0, NULL, 0, KEY_WRITE, NULL, &h, NULL );
+    if( !m8dd_run_ended ) {
+        m8dd_trace( "run: %lu ms, fps x100 %lu, registry %ld", v[1], v[2], rc );
+    }
+    if( rc == ERROR_SUCCESS ) {
+        for( i = 0; i < 11; ++i ) {
+            RegSetValueEx( h, name[i], 0, REG_DWORD, (const BYTE *)&v[i], sizeof( DWORD ) );
+        }
+        RegCloseKey( h );
+    }
+    m8dd_run_ended = 1;
+}
+
 /* [112-115] page-ins inside Lock, Unlock, Blt, Flip; [116-119] ticks inside them: what is left of
  * a frame is the program's and DirectDraw's own. In VGA mode Lock is DirectDraw's own,
  * Unlock, Blt and Flip m8dd_vga_unlock, m8dd_vga_blt and m8dd_vga_flip. These leave H_BUSY alone on
@@ -5012,6 +5098,7 @@ static DWORD m8dd_vga_flip( M8DD_FLIP *fd )
         DWORD t0;                                     \
         DWORD rc;                                     \
                                                       \
+        m8dd_run_note( k );                           \
         if( m8dd->vga ) {                             \
             return( (k) == 2 ? m8dd_vga_blt( (M8DD_BLT *)d ) :                          \
                     (k) == 3 ? m8dd_vga_flip( (M8DD_FLIP *)d ) :                         \
