@@ -1,0 +1,28 @@
+sbds hand: hot 80114e18 taken
+destroy caps 00004040
+vga flip: the VGA-mode path, the engine sets no H_BUSY
+destroy caps 00004040
+destroy caps 00004040
+destroy caps 00004040
+destroy caps 00004040
+destroy caps 00004040
+destroy caps 00004040
+create 1/3 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/3 caps 0000401c 640x480 (screen 640x480 fb16 0)
+create 3/3 caps 00004018 640x480 (screen 640x480 fb16 0)
+destroy caps 1000401c
+destroy caps 00004018
+create 1/2 caps 0000c238 640x480 (screen 640x480 fb16 0)
+create 2/2 caps 0000401c 640x480 (screen 640x480 fb16 0)
+flip8 chain made: 640x480 pitch 640, back at row 512
+create 1/1 caps 00004040 640x480 (screen 640x480 fb16 0)
+destroy caps 00004040
+dfr page 1 whole: known 0 bg 0/0 epoch 00000000/0008b611 stat25 0 gen 3
+flip8 to page 1
+dfr page 0 whole: known 0 bg 0/0 epoch 00000000/0008b763 stat25 0 gen 3
+flip8 to page 0
+dfr page 1 whole: known 1 bg 0/0 epoch 0008b611/0008b763 stat25 0 gen 3
+flip8 to page 1
+flip8 to page 0
+flip8 to page 1
+destroy caps 1000400c
