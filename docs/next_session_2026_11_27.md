@@ -24,7 +24,10 @@ machine allows; demoscene method (measure, use idle silicon); bed first, then th
 
 `DOOM95.EXE -timedemo demo1` (agent exec, detach, working dir `C:\DOOM95`) opens the launcher; New Game (the
 default button: Enter) plays the demo with the argument kept. At the end Doom 95 returns to its menu and
-shows **no timing result**. `C:\WINCLOSE.EXE doom` closes it cleanly (bed, 11-26). Still to do: press New
+shows **no timing result**. `C:\WINCLOSE.EXE doom` closed it, but Doom then faulted: page fault at
+0137:0043c3c7, `ff 52 44` = `call [edx+44h]` with EDX=0 on object 82325fdc (DSOUND shared arena): slot 0x44 of a
+sound buffer, likely `SetFrequency`, on a buffer already released. Not SBDS's code; whether SBDS's teardown
+matters is unknown. Cheap test: `-nosound` + WINCLOSE; if clean, quit with keys (Esc, Quit, Y) instead. Still to do: press New
 Game from the agent (key Enter), and get the number from our side - M8DD32 flip count over elapsed time
 (item 2 below). The agent screenshot failed on the bed (error 1460) while Doom was up; use the owner's.
 
