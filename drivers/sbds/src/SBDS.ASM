@@ -145,6 +145,9 @@ SLEEP_TICK_MS	EQU	100			; DMA asleep: only DSOUND's primary is watched
 H_BUSY		EQU	12
 DEFER_MS	EQU	5
 DEFER_MIN_MS	EQU	40
+;   A sound started by Play is added into the ring already written, from this far
+;   ahead of the 8237, so it does not wait out the lead. The add must finish first.
+LATE_GUARD_MS	EQU	10
 IOCTL_SET_HOT	EQU	1			; in: the hot data's linear address (M8DD32)
 LEAD_MS 	EQU	60			; how far ahead of the 8237 the ring is written
 LEAD_MAX_MS	EQU	200			; grown 20 ms per underrun up to this ...
@@ -286,8 +289,11 @@ dwHotSets	dd	0		; IOCTL_SET_HOT calls received
 dwHotBad	dd	0		; ... refused (no address, short buffer, lock failed)
 dwHot		dd	0		; the display's hot data; 0 = never handed over
 dwHotBusy	dd	0		; ticks that saw the busy byte set, deferred or not
-STATS_DWORDS	EQU	15
+dwLateStarts	dd	0		; Plays added into the ring already written
+dwLateBytes	dd	0		; ... and the ring bytes they covered
+STATS_DWORDS	EQU	17
 dwDeferMin	dd	0		; DEFER_MIN_MS in bytes
+dwLateGuard	dd	0		; LATE_GUARD_MS in bytes, whole frames
 dwCalm		dd	0
 hkStats 	dd	0
 szSbdsKey	db	"Software\SBDS",0
@@ -1272,6 +1278,10 @@ sy_flags:
 	jz	SHORT sy_once
 	or	dword ptr [esi+S_STATE], SS_LOOP
 sy_once:
+	test	dword ptr [esi+S_STATE], SS_PLAYING
+	jnz	SHORT sy_on
+	call	Late_Start
+sy_on:
 	or	dword ptr [esi+S_STATE], SS_PLAYING
 	popfd
 	call	Engine_Start
@@ -1280,6 +1290,83 @@ sy_done:
 	pop	esi
 	ret	16
 EndProc Sec_Play
+
+;   ESI = channel about to play, interrupts off, so no tick runs meanwhile. Adds
+;   it into the ring between the 8237 (plus the guard) and the write point and
+;   moves its cursor on; the next tick carries on from the write point. Asleep,
+;   the ring is silence about to be rewritten: nothing to add to.
+BeginProc Late_Start
+	pushad
+	cmp	[dwEngine], 0
+	je	ls_done
+	cmp	[dwPlaying], 0
+	je	ls_done
+	cmp	dword ptr [esi+S_VOICE], 0
+	je	ls_done
+	test	dword ptr [esi+S_STATE], SS_LOCKED
+	jz	ls_done
+	mov	ebx, [dwBufBytes]
+	dec	ebx
+	call	Dma_Pos
+	add	eax, [dwLateGuard]
+	and	eax, ebx
+	cmp	[dwChannels], 2
+	jne	SHORT ls_from
+	and	eax, NOT 1
+ls_from:
+	mov	ecx, [dwWp]
+	sub	ecx, eax
+	and	ecx, ebx			; bytes from there to the write point
+	jz	ls_done
+	cmp	ecx, [dwLead]			; the 8237 is inside the guard: too late
+	ja	ls_done
+	cmp	ecx, MIX_MAX
+	jbe	SHORT ls_n
+	mov	ecx, MIX_MAX			; keep the end at the write point
+	mov	eax, [dwWp]
+	sub	eax, ecx
+	and	eax, ebx
+ls_n:
+	mov	[mcBytes], ecx
+	push	eax
+	mov	edi, [dwScratch]
+	xor	eax, eax
+	cld
+	rep	stosw
+	call	Mix_Voice			; advances the cursor; may end a one-shot
+	pop	edi
+	mov	ecx, [mcBytes]
+	mov	esi, [dwScratch]
+	mov	ebp, [dwBufLin]
+	mov	ebx, [dwBufBytes]
+	dec	ebx
+ls_add:
+	movzx	eax, byte ptr [ebp+edi]
+	sub	eax, 80h
+	movsx	edx, word ptr [esi]
+	add	eax, edx
+	cmp	eax, 127
+	jle	SHORT ls_hi
+	mov	eax, 127
+ls_hi:
+	cmp	eax, -128
+	jge	SHORT ls_lo
+	mov	eax, -128
+ls_lo:
+	add	eax, 80h
+	mov	[ebp+edi], al
+	add	esi, 2
+	inc	edi
+	and	edi, ebx
+	dec	ecx
+	jnz	ls_add
+	inc	[dwLateStarts]
+	mov	eax, [mcBytes]
+	add	[dwLateBytes], eax
+ls_done:
+	popad
+	ret
+EndProc Late_Start
 
 BeginProc Sec_Stop
 	push	esi
@@ -1305,7 +1392,10 @@ BeginProc Engine_Start
 	call	Engine_Wake
 	mov	[dwEngine], 1
 	inc	[dwEngineRuns]
-	call	Tick_Arm
+	pushfd
+	cli
+	call	Engine_Tick			; the ring is written only the guard ahead
+	popfd
 	popad
 	ret
 es_wake:
@@ -1324,7 +1414,7 @@ es_wake:
 	jz	SHORT es_arm
 	VMMCall Cancel_Time_Out
 es_arm:
-	call	Tick_Arm
+	call	Engine_Tick			; mixes now and arms the next tick
 es_up:
 	popfd
 	popad
@@ -1332,7 +1422,8 @@ es_done:
 	ret
 EndProc Engine_Start
 
-;   Silence the ring, put the write point LEAD_MS ahead and start the DMA.
+;   Silence the ring, put the write point the guard ahead and start the DMA; the
+;   caller ticks at once, so the sound that woke it does not wait out the lead.
 ;   The primary's read point carries on from where it was.
 BeginProc Engine_Wake
 	mov	edi, [dwBufLin]
@@ -1341,7 +1432,8 @@ BeginProc Engine_Wake
 	cld
 	rep	stosb
 	call	Lead_Bytes
-	mov	[dwWp], eax			; the ring starts with the lead in silence
+	mov	eax, [dwLateGuard]
+	mov	[dwWp], eax
 	mov	[dwQuietMs], 0
 	jmp	Start_Playback
 EndProc Engine_Wake
@@ -1366,6 +1458,17 @@ lb_set:
 	mov	ecx, 1000
 	div	ecx
 	mov	[dwDeferMin], eax
+	mov	eax, [dwRate]
+	mul	[dwChannels]
+	mov	ecx, LATE_GUARD_MS
+	mul	ecx
+	mov	ecx, 1000
+	div	ecx
+	cmp	[dwChannels], 2
+	jne	SHORT lb_guard
+	and	eax, NOT 1
+lb_guard:
+	mov	[dwLateGuard], eax
 	pop	eax
 	mov	ecx, [dwLeadMs]
 	cmp	ecx, [dwLeadMaxMs]
