@@ -152,6 +152,20 @@ $launchArgs = @('-P', $VmPath, '-L', $Log)
 if ($Automation -gt 0) { $launchArgs += @('--automation', "tcp:127.0.0.1:$Automation", '--automation-token-file', (Join-Path $VmPath 'automation.token')) }
 $p = Start-Process $Exe -ArgumentList $launchArgs -WorkingDirectory $VmPath -PassThru
 Write-Host "pid   $($p.Id)"
+# A GDB-stub build starts with the CPU paused (gdbstub_init) and runs once its last client leaves:
+# connect and close so the bed boots. An automation client still gets the machine held, as asked.
+if ($Automation -le 0 -and (Select-String -Path $Exe -SimpleMatch 'GDB Stub: Listening' -Quiet)) {
+  for ($i = 0; $i -lt 40 -and -not ((Test-Path $Log) -and (Select-String -Path $Log -SimpleMatch 'GDB Stub: Listening' -Quiet)); $i++) {
+    if ($p.HasExited) { break }
+    Start-Sleep -Milliseconds 250
+  }
+  $m = if (Test-Path $Log) { Select-String -Path $Log -Pattern 'GDB Stub: Listening on port (\d+)' } else { $null }
+  if ($m) {
+    $gdb = [int]$m.Matches[0].Groups[1].Value
+    try { $c = New-Object Net.Sockets.TcpClient('127.0.0.1', $gdb); Start-Sleep -Milliseconds 500; $c.Close(); Write-Host "gdb   stub on $gdb unpaused" }
+    catch { Write-Host "WARNING: GDB stub on $gdb not reached - the bed stays paused at a black screen" }
+  }
+}
 if ($Seconds -le 0) { exit 0 }
 Start-Sleep $Seconds
 if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force; $p.WaitForExit(5000) | Out-Null }
