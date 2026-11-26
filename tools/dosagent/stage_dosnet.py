@@ -14,7 +14,7 @@ for f in ('V9XAGNT.EXE', 'DOS4GW.EXE', 'V9XLOOP.BAT'):
     shutil.copyfile(os.path.join(P, f), os.path.join(S, f))
 shutil.copyfile(r'C:\Users\lycet\Downloads\3com-etherdisk-4-3\PKTDVR\3C5X9PD.COM', os.path.join(S, '3C5X9PD.COM'))
 open(os.path.join(S, 'WATTCP.CFG'), 'wb').write(crlf('my_ip = dhcp\n'))
-open(os.path.join(S, 'AGENT.INI'), 'wb').write(crlf('[agent]\nport=9869\nallowed_client=192.168.68.63\n'))
+open(os.path.join(S, 'AGENT.INI'), 'wb').write(crlf('[agent]\nport=9869\nallowed_client=\n'))
 lp = open(os.path.join(S, 'V9XLOOP.BAT'), 'rb').read()
 assert lp.count(b'\r\n') >= 10 and lp.count(b'\n') == lp.count(b'\r\n'), 'V9XLOOP.BAT not CRLF'
 
